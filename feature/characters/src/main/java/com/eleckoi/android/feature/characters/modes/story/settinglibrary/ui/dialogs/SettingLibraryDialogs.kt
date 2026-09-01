@@ -1,0 +1,444 @@
+package com.eleckoi.android.feature.characters.modes.story.settinglibrary.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Text
+import com.eleckoi.android.foundation.design.components.DialogConfirmButton
+import com.eleckoi.android.foundation.design.components.AppInsetTextField
+import com.eleckoi.android.foundation.design.components.DialogDismissButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.eleckoi.android.foundation.design.components.noRippleClickable
+import com.eleckoi.android.foundation.design.AppearanceTheme
+import com.eleckoi.android.foundation.design.ElecKoiDanger
+import com.eleckoi.android.foundation.design.ElecKoiSuccess
+import com.eleckoi.android.feature.characters.modes.story.settinglibrary.model.SettingLibraryGroup
+import com.eleckoi.android.feature.characters.modes.story.settinglibrary.model.SettingLibraryVersion
+
+private const val BlankVersionSourceId = ""
+
+@Composable
+internal fun SettingLibraryRequiredFieldsDialog(
+    triggerSelected: Boolean,
+    positionSelected: Boolean,
+    appearance: AppearanceTheme,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("设定检查", color = appearance.mobileText) },
+        text = {
+            Column {
+                RequiredFieldStatusRow(
+                    selected = triggerSelected,
+                    selectedText = "触发方式已选择",
+                    missingText = "触发方式未选择",
+                )
+                RequiredFieldStatusRow(
+                    selected = positionSelected,
+                    selectedText = "插入位置已选择",
+                    missingText = "插入位置未选择",
+                )
+            }
+        },
+        confirmButton = { DialogConfirmButton("知道了", appearance, onClick = onDismiss) },
+        containerColor = appearance.mobileSurface,
+    )
+}
+
+@Composable
+internal fun SettingLibraryOrderConflictDialog(
+    order: Int,
+    appearance: AppearanceTheme,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("排序数字重复", color = appearance.mobileText) },
+        text = {
+            Text(
+                "当前位置已存在排序数字 $order。条目已关闭，请换一个数字。",
+                color = ElecKoiDanger,
+            )
+        },
+        confirmButton = { DialogConfirmButton("知道了", appearance, onClick = onDismiss) },
+        containerColor = appearance.mobileSurface,
+    )
+}
+
+@Composable
+internal fun SettingLibraryCreateVersionDialog(
+    versions: List<SettingLibraryVersion>,
+    activeVersionId: String,
+    appearance: AppearanceTheme,
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, sourceVersionId: String?) -> Unit,
+) {
+    val orderedVersions = remember(versions, activeVersionId) {
+        versions.sortedBy { if (it.id == activeVersionId) 0 else 1 }
+    }
+    val initialSourceId = activeVersionId.takeIf { id -> versions.any { it.id == id } }
+        ?: versions.firstOrNull()?.id
+        ?: BlankVersionSourceId
+    var selectedSourceId by remember(activeVersionId) { mutableStateOf(initialSourceId) }
+    var name by remember(activeVersionId) {
+        mutableStateOf(
+            suggestedVersionName(
+                source = versions.firstOrNull { it.id == initialSourceId },
+                versions = versions,
+            ),
+        )
+    }
+    var nameEdited by remember(activeVersionId) { mutableStateOf(false) }
+    var validationMessage by remember(activeVersionId) { mutableStateOf("") }
+
+    fun selectSource(sourceId: String) {
+        selectedSourceId = sourceId
+        if (!nameEdited) {
+            name = suggestedVersionName(
+                source = versions.firstOrNull { it.id == sourceId },
+                versions = versions,
+            )
+        }
+        validationMessage = ""
+    }
+
+    fun submit() {
+        val normalizedName = name.trim()
+        validationMessage = when {
+            normalizedName.isBlank() -> "请输入版本名称"
+            versions.any { it.name.trim() == normalizedName } -> "版本名称已存在，请换一个名称"
+            else -> ""
+        }
+        if (validationMessage.isEmpty()) {
+            onConfirm(normalizedName, selectedSourceId.takeIf(String::isNotBlank))
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("新建版本", color = appearance.mobileText) },
+        text = {
+            Column {
+                Text(
+                    "版本名称",
+                    modifier = Modifier.padding(bottom = 8.dp),
+                    color = appearance.mobileText,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                BasicTextField(
+                    value = name,
+                    onValueChange = { value ->
+                        name = value.take(60)
+                        nameEdited = true
+                        validationMessage = ""
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .background(Color.Transparent, RoundedCornerShape(10.dp))
+                        .border(
+                            width = 1.dp,
+                            color = if (validationMessage.isEmpty()) appearance.mobileLine else ElecKoiDanger,
+                            shape = RoundedCornerShape(10.dp),
+                        )
+                        .padding(horizontal = 12.dp, vertical = 11.dp),
+                    textStyle = TextStyle(color = appearance.mobileText, fontSize = 16.sp),
+                    cursorBrush = SolidColor(appearance.mobileBlue),
+                    singleLine = true,
+                )
+                if (validationMessage.isNotEmpty()) {
+                    Text(
+                        validationMessage,
+                        modifier = Modifier.padding(top = 6.dp),
+                        color = ElecKoiDanger,
+                        fontSize = 12.sp,
+                    )
+                }
+                Text(
+                    "创建方式",
+                    modifier = Modifier.padding(top = 18.dp, bottom = 4.dp),
+                    color = appearance.mobileText,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 300.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    orderedVersions.forEach { version ->
+                        val current = version.id == activeVersionId
+                        VersionSourceRow(
+                            title = if (current) "复制当前版本" else version.name.trim().ifBlank { "未命名版本" },
+                            description = if (current) {
+                                version.name.trim().ifBlank { "未命名版本" }
+                            } else {
+                                "从这个历史版本复制"
+                            },
+                            selected = selectedSourceId == version.id,
+                            appearance = appearance,
+                            onClick = { selectSource(version.id) },
+                        )
+                    }
+                    VersionSourceRow(
+                        title = "创建空白版本",
+                        description = "仅保留空白开场白，不复制其他设定",
+                        selected = selectedSourceId == BlankVersionSourceId,
+                        appearance = appearance,
+                        onClick = { selectSource(BlankVersionSourceId) },
+                    )
+                }
+            }
+        },
+        confirmButton = { DialogConfirmButton("创建版本", appearance, onClick = ::submit) },
+        dismissButton = { DialogDismissButton("取消", appearance, onDismiss) },
+        containerColor = appearance.mobileSurface,
+    )
+}
+
+@Composable
+private fun VersionSourceRow(
+    title: String,
+    description: String,
+    selected: Boolean,
+    appearance: AppearanceTheme,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 60.dp)
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
+            .padding(vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = null,
+            colors = RadioButtonDefaults.colors(
+                selectedColor = appearance.mobileBlue,
+                unselectedColor = appearance.mobileMuted,
+            ),
+        )
+        Column(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
+            Text(
+                title,
+                color = appearance.mobileText,
+                fontSize = 15.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                description,
+                modifier = Modifier.padding(top = 2.dp),
+                color = appearance.mobileMuted,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+private fun suggestedVersionName(
+    source: SettingLibraryVersion?,
+    versions: List<SettingLibraryVersion>,
+): String {
+    val base = if (source == null) {
+        "新版本"
+    } else {
+        "${source.name.trim().ifBlank { "未命名版本" }} · 副本"
+    }
+    val existing = versions.map { it.name.trim() }.toSet()
+    if (base !in existing) return base
+    var index = 2
+    while ("$base $index" in existing) index += 1
+    return "$base $index"
+}
+
+@Composable
+private fun RequiredFieldStatusRow(
+    selected: Boolean,
+    selectedText: String,
+    missingText: String,
+) {
+    val statusColor = if (selected) ElecKoiSuccess else ElecKoiDanger
+    Row(
+        modifier = Modifier.fillMaxWidth().height(42.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = if (selected) "✓" else "×",
+            modifier = Modifier.size(30.dp),
+            color = statusColor,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = if (selected) selectedText else missingText,
+            color = statusColor,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+@Composable
+internal fun SettingLibraryRenameNodeDialog(
+    value: String,
+    appearance: AppearanceTheme,
+    onValueChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    val name = value.trim()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("重命名", color = appearance.mobileText) },
+        text = {
+            AppInsetTextField(
+                value = value,
+                onValueChange = { onValueChange(it.take(60)) },
+                appearance = appearance,
+                textStyle = TextStyle(color = appearance.mobileText, fontSize = 16.sp),
+            )
+        },
+        confirmButton = {
+            DialogConfirmButton("保存", appearance, enabled = name.isNotBlank(), onClick = onConfirm)
+        },
+        dismissButton = { DialogDismissButton("取消", appearance, onDismiss) },
+        containerColor = appearance.mobileSurface,
+    )
+}
+
+@Composable
+internal fun SettingLibraryGroupNameDialog(
+    value: String,
+    groups: List<SettingLibraryGroup>,
+    appearance: AppearanceTheme,
+    onValueChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    val name = value.trim()
+    val duplicate = name.isNotBlank() && groups.any { it.name.trim() == name }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("新建文件夹", color = appearance.mobileText) },
+        text = {
+            Column {
+                AppInsetTextField(
+                    value = value,
+                    onValueChange = { onValueChange(it.take(40)) },
+                    appearance = appearance,
+                    textStyle = TextStyle(color = appearance.mobileText, fontSize = 16.sp),
+                )
+                if (duplicate) {
+                    Text("文件夹名已存在", color = appearance.mobileBlue, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+                }
+            }
+        },
+        confirmButton = {
+            DialogConfirmButton("创建", appearance, enabled = name.isNotBlank() && !duplicate, onClick = onConfirm)
+        },
+        dismissButton = { DialogDismissButton("取消", appearance, onDismiss) },
+        containerColor = appearance.mobileSurface,
+    )
+}
+
+@Composable
+internal fun SettingLibraryEntryGroupPickerDialog(
+    groups: List<SettingLibraryGroup>,
+    selectedGroupId: String,
+    appearance: AppearanceTheme,
+    onSelectGroup: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("新建设定到", color = appearance.mobileText) },
+        text = {
+            Column {
+                CreateDialogRow(
+                    title = "全部设定条目",
+                    selected = selectedGroupId.isBlank(),
+                    appearance = appearance,
+                    onClick = { onSelectGroup("") },
+                )
+                groups.forEach { group ->
+                    CreateDialogRow(
+                        title = group.name.ifBlank { "未命名分组" },
+                        selected = selectedGroupId == group.id,
+                        appearance = appearance,
+                        onClick = { onSelectGroup(group.id) },
+                    )
+                }
+            }
+        },
+        confirmButton = { DialogConfirmButton("创建", appearance, onClick = onConfirm) },
+        dismissButton = { DialogDismissButton("取消", appearance, onDismiss) },
+        containerColor = appearance.mobileSurface,
+    )
+}
+
+@Composable
+private fun CreateDialogRow(
+    title: String,
+    selected: Boolean,
+    appearance: AppearanceTheme,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .noRippleClickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            if (selected) "✓" else "",
+            modifier = Modifier.size(28.dp),
+            color = appearance.mobileBlue,
+            fontSize = 18.sp,
+        )
+        Text(
+            title,
+            modifier = Modifier.weight(1f),
+            color = appearance.mobileText,
+            fontSize = 16.sp,
+        )
+    }
+}

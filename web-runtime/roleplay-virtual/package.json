@@ -1,0 +1,15 @@
+{
+  "name": "@eleckoi/roleplay-virtual-runtime",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/index.js --bundle --minify --format=iife --target=chrome100 --legal-comments=eof --outfile=../../app/src/main/assets/web-runtime/tanstack-virtual-core-3.17.8.min.js"
+  },
+  "dependencies": {
+    "@tanstack/virtual-core": "3.17.8"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

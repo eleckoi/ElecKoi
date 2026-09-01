@@ -1,0 +1,10 @@
+# 源码补丁的 SHA-256 写入构建清单，所有平台必须读取相同的 LF 字节。
+runtime/deepseek/patches/*.patch text eol=lf
+runtime/host/patches/*.patch text eol=lf
+
+# WebView 运行时资产按 SHA-256 固定；Windows 检出时也必须保持生成器输出的 LF 字节。
+app/src/main/assets/web-runtime/*.js text eol=lf
+
+# 许可证门禁按确切字节校验；Cargo 锁文件固定为跨平台 LF，生成清单保留原始字节。
+app/src/main/rust/grok_markdown_android/Cargo.lock text eol=lf
+app/src/main/assets/licenses/rust-markdown-third-party-notices.html -text

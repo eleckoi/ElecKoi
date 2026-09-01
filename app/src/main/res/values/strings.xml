@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">ElecKoi</string>
+    <string name="agent_background_channel_name">后台 Agent</string>
+    <string name="agent_background_channel_description">角色回复和 AI 创作任务在后台继续运行时显示状态</string>
+    <string name="agent_background_service_description">在用户离开应用后继续完成正在运行的 AI 任务</string>
+    <string name="agent_background_stop">停止</string>
+    <string name="agent_completion_channel_name">AI 生成完成</string>
+    <string name="agent_completion_channel_description">角色回复和 AI 创作任务完成后显示一行摘要</string>
+    <string name="agent_completion_default_text">任务已完成</string>
+</resources>

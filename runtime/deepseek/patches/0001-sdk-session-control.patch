@@ -1,0 +1,700 @@
+diff --git a/packages/fs/tool-fs-search/src/search-core.ts b/packages/fs/tool-fs-search/src/search-core.ts
+index 5ac5521033..a7c5ac01ee 100644
+--- a/packages/fs/tool-fs-search/src/search-core.ts
++++ b/packages/fs/tool-fs-search/src/search-core.ts
+@@ -172,0 +173,2 @@ export function resolveRgPath(): Promise<string> {
++    const externalRgPath = process.env.DSH_RIPGREP_PATH
++    if (externalRgPath !== undefined) return externalRgPath
+diff --git a/packages/fs/tool-fs-search/tests/rg-sidecar.spec.ts b/packages/fs/tool-fs-search/tests/rg-sidecar.spec.ts
+index 53c7a01aea..3ea05690af 100644
+--- a/packages/fs/tool-fs-search/tests/rg-sidecar.spec.ts
++++ b/packages/fs/tool-fs-search/tests/rg-sidecar.spec.ts
+@@ -22,0 +23 @@ afterEach(() => {
++  vi.unstubAllEnvs()
+@@ -25,0 +27,10 @@ describe('ripgrep resolution', () => {
++  it('uses the deployment-provided executable before packaged fallbacks', async () => {
++    vi.stubEnv('DSH_RIPGREP_PATH', '/opt/eleckoi/bin/rg')
++    Reflect.defineProperty(process, 'pkg', { configurable: true, value: {} })
++    existsSync.mockReturnValue(true)
++    const { resolveRgPath } = await import('@deepseek-ai/dsh-tool-fs-search')
++
++    await expect(resolveRgPath()).resolves.toBe('/opt/eleckoi/bin/rg')
++    expect(existsSync).not.toHaveBeenCalled()
++  })
++
+diff --git a/packages/sandbox/sandbox-local/src/index.ts b/packages/sandbox/sandbox-local/src/index.ts
+index 5965d86d32..3e71c75964 100644
+--- a/packages/sandbox/sandbox-local/src/index.ts
++++ b/packages/sandbox/sandbox-local/src/index.ts
+@@ -26 +26 @@ import { tmpdir } from 'node:os'
+-import { join } from 'node:path'
++import { isAbsolute, join } from 'node:path'
+@@ -62,0 +63,7 @@ export interface Config {
++  /**
++   * Trusted deployment path to a physical `landlock-run` sidecar. Packaged
++   * single-file executables cannot spawn a binary from their virtual
++   * filesystem, so embedded runtimes may place the launcher beside the app
++   * payload and select it explicitly here.
++   */
++  landlockPath?: string
+@@ -254,0 +262 @@ export class LocalSandboxProvider extends SandboxProvider {
++    landlockPath: z.string(),
+@@ -262,0 +271 @@ export class LocalSandboxProvider extends SandboxProvider {
++  private readonly configuredLandlockPath: string | undefined
+@@ -291,0 +301,4 @@ export class LocalSandboxProvider extends SandboxProvider {
++    const landlockPath = config.landlockPath?.trim()
++    if (landlockPath !== undefined && (!isAbsolute(landlockPath) || landlockPath.includes('\0'))) {
++      throw new Error('sandbox-local: landlockPath must be an absolute path without NUL bytes')
++    }
+@@ -293,0 +307 @@ export class LocalSandboxProvider extends SandboxProvider {
++    this.configuredLandlockPath = landlockPath
+@@ -543 +557 @@ export class LocalSandboxProvider extends SandboxProvider {
+-    return this.internals.landlockLauncher ?? landlockLauncherPath()
++    return this.internals.landlockLauncher ?? this.configuredLandlockPath ?? landlockLauncherPath()
+diff --git a/packages/sandbox/sandbox-local/tests/local.spec.ts b/packages/sandbox/sandbox-local/tests/local.spec.ts
+index 285afb865b..0fdc8144f8 100644
+--- a/packages/sandbox/sandbox-local/tests/local.spec.ts
++++ b/packages/sandbox/sandbox-local/tests/local.spec.ts
+@@ -160,0 +161,20 @@ describe('runnerCommand config', () => {
++describe('landlockPath config', () => {
++  it('uses a trusted physical sidecar path for the Linux fallback and its probe', async () => {
++    const launcher = fakeLauncher()
++    const probeLandlock = vi.fn(() => 'full' as const)
++    const { sandbox } = await setup(
++      { landlockPath: launcher },
++      { platform: 'linux', probeBwrap: () => false, probeLandlock },
++    )
++
++    expect(sandbox.confine(['bash', '-c', 'true'], WW).argv[0]).toBe(launcher)
++    expect(probeLandlock).toHaveBeenCalledWith(launcher)
++  })
++
++  it('rejects a relative deployment sidecar path', async () => {
++    await expect(setup({ landlockPath: 'bin/landlock-run' })).rejects.toThrow(
++      'landlockPath must be an absolute path',
++    )
++  })
++})
++
+diff --git a/packages/sdk/protocol/package.json b/packages/sdk/protocol/package.json
+index c5bac4b7e7..257d7d4a63 100644
+--- a/packages/sdk/protocol/package.json
++++ b/packages/sdk/protocol/package.json
+@@ -33,0 +34 @@
++    "@deepseek-ai/dsh-attachment": "workspace:^",
+@@ -40,0 +42 @@
++    "@deepseek-ai/dsh-attachment": "workspace:^",
+diff --git a/packages/sdk/protocol/src/index.ts b/packages/sdk/protocol/src/index.ts
+index 5f0aaca21d..4367ea4bf7 100644
+--- a/packages/sdk/protocol/src/index.ts
++++ b/packages/sdk/protocol/src/index.ts
+@@ -18,0 +19,5 @@ export type {
++  SessionApprovalOutcome,
++  SessionApprovalRequestedNotification,
++  SessionApprovalResolvedNotification,
++  SessionCancelParams,
++  SessionCancelResult,
+@@ -21,0 +27 @@ export type {
++  SessionPromptContentPart,
+@@ -22,0 +29,4 @@ export type {
++  SessionResolveApprovalParams,
++  SessionResolveApprovalResult,
++  SessionSetPermissionParams,
++  SessionSetPermissionResult,
+diff --git a/packages/sdk/protocol/src/types.ts b/packages/sdk/protocol/src/types.ts
+index 533b5f23c5..603e51648b 100644
+--- a/packages/sdk/protocol/src/types.ts
++++ b/packages/sdk/protocol/src/types.ts
+@@ -11,0 +12 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm'
++import type { EncodedImageAttachment } from '@deepseek-ai/dsh-attachment/types'
+@@ -37,2 +38,8 @@ export interface SessionPromptParams {
+-  /** The prompt content blocks, sent verbatim as the user message. */
+-  contentBlocks: ContentBlock[]
++  /** Legacy durable prompt content, already admitted into the deployment attachment store. */
++  contentBlocks?: ContentBlock[]
++  /** Upload-capable prompt content. Images are admitted before the user message is published. */
++  content?: SessionPromptContentPart[]
++  /** Workspace recorded when the session is first created; later prompts must keep the same path. */
++  cwd?: string
++  /** Ordinary turns queue behind current work; steering is consumed at the nearest step boundary. */
++  mode?: 'followup' | 'steer'
+@@ -40,0 +48,5 @@ export interface SessionPromptParams {
++/** Upload-capable content accepted by the SDK prompt wire. */
++export type SessionPromptContentPart =
++  | { type: 'text'; text: string }
++  | ({ type: 'image' } & EncodedImageAttachment)
++
+@@ -46,0 +59,42 @@ export interface SessionPromptResult {
++/** Cancel the active activity for one existing SDK session. */
++export interface SessionCancelParams {
++  /** The SDK-side session id. Unknown ids are left untouched. */
++  sessionId: string
++}
++
++/** Whether the server found a live SDK session to cancel. */
++export interface SessionCancelResult {
++  accepted: boolean
++}
++
++/** Set one SDK-owned session's durable permission preset. */
++export interface SessionSetPermissionParams {
++  /** SDK-side session identity; an unknown id is created with `cwd`. */
++  sessionId: string
++  /** Immutable session workspace used when the session must be created. */
++  cwd?: string
++  /** Deployment-configured permission preset name. */
++  preset: string
++}
++
++/** Effective preset after a successful switch. */
++export interface SessionSetPermissionResult {
++  preset: string
++}
++
++/** One-shot answer vocabulary for an SDK approval request. */
++export type SessionApprovalOutcome = 'allowed-once' | 'rejected' | 'cancelled'
++
++/** Resolve one pending SDK approval request. */
++export interface SessionResolveApprovalParams {
++  /** Server-issued process-local request identity. */
++  requestId: number
++  /** One-shot decision; no value creates a durable grant. */
++  outcome: SessionApprovalOutcome
++}
++
++/** Whether the pending request was still live and accepted the answer. */
++export interface SessionResolveApprovalResult {
++  accepted: boolean
++}
++
+@@ -65,0 +120,24 @@ export interface SessionStatusNotification {
++/** A sandbox escalation is waiting for the SDK host's one-shot decision. */
++export interface SessionApprovalRequestedNotification {
++  /** Server-issued process-local request identity. */
++  requestId: number
++  /** Root SDK session that owns the UI route for this request. */
++  ownerSessionId: string
++  /** Exact root or descendant session whose tool requested escalation. */
++  sessionId: string
++  /** Tool requesting the wider one-shot sandbox mode. */
++  toolName: string
++  /** Tool-call identity when the caller supplied one. */
++  callId?: string
++  /** Human-readable escalation reason, including the requested mode. */
++  reason?: string
++}
++
++/** A pending approval settled, including cancellation caused by turn abort. */
++export interface SessionApprovalResolvedNotification {
++  requestId: number
++  ownerSessionId: string
++  sessionId: string
++  outcome: SessionApprovalOutcome | 'unavailable'
++}
++
+@@ -95,0 +174,2 @@ export interface HarnessSdkNotificationMap {
++  'session.approval_requested': SessionApprovalRequestedNotification
++  'session.approval_resolved': SessionApprovalResolvedNotification
+@@ -103,0 +184,3 @@ export interface HarnessSdkRequestMap {
++  'session/cancel': { params: SessionCancelParams; result: SessionCancelResult }
++  'session/set_permission': { params: SessionSetPermissionParams; result: SessionSetPermissionResult }
++  'session/resolve_approval': { params: SessionResolveApprovalParams; result: SessionResolveApprovalResult }
+diff --git a/packages/sdk/server/package.json b/packages/sdk/server/package.json
+index f32b4a0147..bc2df840b1 100644
+--- a/packages/sdk/server/package.json
++++ b/packages/sdk/server/package.json
+@@ -37,0 +38 @@
++    "@deepseek-ai/dsh-attachment": "workspace:^",
+@@ -41,0 +43 @@
++    "@deepseek-ai/dsh-permission-presets": "workspace:^",
+@@ -44,0 +47 @@
++    "@deepseek-ai/dsh-session-persistence": "workspace:^",
+@@ -45,0 +49 @@
++    "@deepseek-ai/dsh-user-approval": "workspace:^",
+@@ -48,0 +53 @@
++    "@deepseek-ai/dsh-attachment": "workspace:^",
+@@ -54,0 +60 @@
++    "@deepseek-ai/dsh-permission-presets": "workspace:^",
+@@ -57,0 +64 @@
++    "@deepseek-ai/dsh-session-persistence": "workspace:^",
+@@ -59,0 +67 @@
++    "@deepseek-ai/dsh-user-approval": "workspace:^",
+diff --git a/packages/sdk/server/src/server.ts b/packages/sdk/server/src/server.ts
+index 195caa908d..4213bb4308 100644
+--- a/packages/sdk/server/src/server.ts
++++ b/packages/sdk/server/src/server.ts
+@@ -11 +11,4 @@ import type { Agent, AgentHandle } from '@deepseek-ai/dsh-agent'
+-import { createUserMessage } from '@deepseek-ai/dsh-llm'
++import { admitEncodedImages } from '@deepseek-ai/dsh-attachment'
++import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment/types'
++import { createUserMessage, type ContentBlock } from '@deepseek-ai/dsh-llm'
++import type {} from '@deepseek-ai/dsh-permission-presets'
+@@ -13,0 +17 @@ import { SessionId } from '@deepseek-ai/dsh-session'
++import type {} from '@deepseek-ai/dsh-session-persistence'
+@@ -15,0 +20 @@ import type { SubagentRunEndInfo } from '@deepseek-ai/dsh-subagent'
++import type { ApprovalOutcome, ApprovalRequest } from '@deepseek-ai/dsh-user-approval'
+@@ -20,0 +26,3 @@ import type {
++  SessionApprovalOutcome,
++  SessionCancelParams,
++  SessionCancelResult,
+@@ -22,0 +31 @@ import type {
++  SessionPromptContentPart,
+@@ -23,0 +33,4 @@ import type {
++  SessionResolveApprovalParams,
++  SessionResolveApprovalResult,
++  SessionSetPermissionParams,
++  SessionSetPermissionResult,
+@@ -31,0 +45,6 @@ interface SessionRecord {
++interface PendingApproval {
++  ownerSessionId: string
++  sessionId: string
++  settle(outcome: ApprovalOutcome): void
++}
++
+@@ -47,0 +67,15 @@ function successStatus(reason: string, options: HarnessSdkJsonRpcServerOptions):
++/** Admit one upload-capable prompt as a batch before publishing any user-visible session event. */
++async function durablePromptContent(
++  ctx: Context,
++  content: readonly SessionPromptContentPart[],
++): Promise<ContentBlock[]> {
++  if (content.every(part => part.type === 'text')) {
++    return content.map(part => ({ type: 'text', text: part.text }))
++  }
++  const refs = await admitEncodedImages(ctx.attachments, content.filter(part => part.type === 'image'))
++  let next = 0
++  return content.map(part => part.type === 'text'
++    ? { type: 'text', text: part.text }
++    : { type: 'image', attachment: refs[next++] as ImageAttachmentRef })
++}
++
+@@ -60,0 +95,3 @@ export class HarnessSdkJsonRpcServer {
++  /** Root SDK owner for every root/descendant session that may request approval. */
++  private readonly sessionOwners = new Map<string, string>()
++  private readonly pendingApprovals = new Map<number, PendingApproval>()
+@@ -61,0 +99 @@ export class HarnessSdkJsonRpcServer {
++  private nextApprovalRequestId = 0
+@@ -80,0 +119,2 @@ export class HarnessSdkJsonRpcServer {
++      const parentOwner = this.sessionOwners.get(String(parentSession))
++      if (parentOwner !== undefined) this.sessionOwners.set(String(session.id), parentOwner)
+@@ -103,0 +144 @@ export class HarnessSdkJsonRpcServer {
++    this.disposers.push(ctx.on('approval/request', (request, next) => this.requestApproval(request, next)))
+@@ -133 +174 @@ export class HarnessSdkJsonRpcServer {
+-    const rec = await this.getOrCreateSession(params.sessionId)
++    const rec = await this.getOrCreateSession(params.sessionId, params.cwd)
+@@ -140,2 +181,19 @@ export class HarnessSdkJsonRpcServer {
+-    const message = createUserMessage({ content: params.contentBlocks, source: { kind: 'user' } })
+-    rec.handle.agent.followup(message)
++    if (params.content !== undefined && params.contentBlocks !== undefined) {
++      throw new TypeError('session/prompt accepts content or contentBlocks, not both')
++    }
++    const uploadContent = params.content
++    if (uploadContent !== undefined && uploadContent.some(part => part.type === 'image')) {
++      const info = await this.ctx.llm.resolveModelInfo(this.provider, this.model)
++      if (info.inputModalities !== undefined && !info.inputModalities.includes('image')) {
++        throw new TypeError(`model "${this.model}" does not support image input`)
++      }
++    }
++    const content = uploadContent === undefined
++      ? params.contentBlocks
++      : await durablePromptContent(this.ctx, uploadContent)
++    if (content === undefined || content.length === 0) {
++      throw new TypeError('session/prompt content cannot be empty')
++    }
++    const message = createUserMessage({ content, source: { kind: 'user' } })
++    if (params.mode === 'steer') rec.handle.agent.steer(message)
++    else rec.handle.agent.followup(message)
+@@ -144,0 +203,32 @@ export class HarnessSdkJsonRpcServer {
++  /** Cancel only the active activity while preserving queued SDK work and the session itself. */
++  cancel(params: SessionCancelParams): SessionCancelResult {
++    const rec = this.sessions.get(params.sessionId)
++    if (rec === undefined || this.ctx.agents.get(rec.handle.agent.id) !== rec.handle.agent) {
++      return { accepted: false }
++    }
++    rec.handle.agent.cancel({ kind: 'user' }, { keepInbox: true })
++    return { accepted: true }
++  }
++
++  /** Create/resume a session when needed and switch its durable permission preset. */
++  async setPermission(params: SessionSetPermissionParams): Promise<SessionSetPermissionResult> {
++    const permissions = this.ctx.get('permissionPresets')
++    if (permissions === undefined) throw new Error('permission presets are unavailable in this SDK runtime')
++    const rec = await this.getOrCreateSession(params.sessionId, params.cwd)
++    permissions.set(rec.handle.agent.session, params.preset)
++    return { preset: permissions.current(rec.handle.agent.session.events) }
++  }
++
++  /** Resolve one process-local approval request without creating a durable grant. */
++  resolveApproval(params: SessionResolveApprovalParams): SessionResolveApprovalResult {
++    if (!Number.isSafeInteger(params.requestId) || params.requestId <= 0) {
++      throw new TypeError('approval requestId must be a positive safe integer')
++    }
++    const outcomes: readonly SessionApprovalOutcome[] = ['allowed-once', 'rejected', 'cancelled']
++    if (!outcomes.includes(params.outcome)) throw new TypeError(`invalid approval outcome: ${String(params.outcome)}`)
++    const pending = this.pendingApprovals.get(params.requestId)
++    if (pending === undefined) return { accepted: false }
++    pending.settle(params.outcome)
++    return { accepted: true }
++  }
++
+@@ -156,0 +247 @@ export class HarnessSdkJsonRpcServer {
++    for (const pending of [...this.pendingApprovals.values()]) pending.settle('cancelled')
+@@ -195,0 +287,6 @@ export class HarnessSdkJsonRpcServer {
++      case 'session/cancel':
++        return this.cancel(params as unknown as SessionCancelParams)
++      case 'session/set_permission':
++        return this.setPermission(params as unknown as SessionSetPermissionParams)
++      case 'session/resolve_approval':
++        return this.resolveApproval(params as unknown as SessionResolveApprovalParams)
+@@ -203 +300 @@ export class HarnessSdkJsonRpcServer {
+-  private async getOrCreateSession(sessionId: string): Promise<SessionRecord> {
++  private async getOrCreateSession(sessionId: string, cwd?: string): Promise<SessionRecord> {
+@@ -206 +303 @@ export class HarnessSdkJsonRpcServer {
+-    if (existing) return existing
++    if (existing) return this.requireSessionCwd(existing, cwd)
+@@ -208,2 +305,2 @@ export class HarnessSdkJsonRpcServer {
+-    if (pending) return pending
+-    const creation = this.createSession(sessionId)
++    if (pending) return this.requireSessionCwd(await pending, cwd)
++    const creation = this.createSession(sessionId, cwd)
+@@ -218 +315 @@ export class HarnessSdkJsonRpcServer {
+-  private async createSession(sessionId: string): Promise<SessionRecord> {
++  private async createSession(sessionId: string, cwd?: string): Promise<SessionRecord> {
+@@ -223,9 +320,24 @@ export class HarnessSdkJsonRpcServer {
+-    const handle = await this.ctx.agents.create({
+-      sessionId: SessionId(sessionId),
+-      meta: { cwd: this.cwd },
+-      agentOptions: {
+-        provider: this.provider,
+-        model: this.model,
+-        ...this.maxTokens === undefined ? {} : { maxTokens: this.maxTokens },
+-      },
+-    })
++    const id = SessionId(sessionId)
++    const resolvedCwd = resolve(cwd ?? this.cwd)
++    const agentOptions = {
++      provider: this.provider,
++      model: this.model,
++      ...this.maxTokens === undefined ? {} : { maxTokens: this.maxTokens },
++    }
++    const persistence = this.ctx.get('sessionPersistence')
++    const stored = persistence === undefined
++      ? undefined
++      : (await persistence.list()).find(header => header.id === id)
++    if (stored !== undefined && stored.cwd !== resolvedCwd) {
++      throw new Error(`session cwd changed for ${sessionId}`)
++    }
++    const handle = stored === undefined
++      ? await this.ctx.agents.create({
++          sessionId: id,
++          meta: { cwd: resolvedCwd },
++          agentOptions,
++        })
++      : await this.ctx.agents.resume({
++          resumeSessionId: id,
++          agentOptions,
++        })
+@@ -233,0 +346,8 @@ export class HarnessSdkJsonRpcServer {
++    this.sessionOwners.set(sessionId, sessionId)
++    return rec
++  }
++
++  private requireSessionCwd(rec: SessionRecord, cwd?: string): SessionRecord {
++    if (cwd !== undefined && resolve(cwd) !== rec.handle.agent.session.header.cwd) {
++      throw new Error(`session cwd changed for ${rec.handle.agent.session.id}`)
++    }
+@@ -236,0 +357,42 @@ export class HarnessSdkJsonRpcServer {
++  /** Bridge one owned root/descendant approval question to the SDK host and fail closed on transport loss. */
++  private requestApproval(request: ApprovalRequest, next: () => Promise<ApprovalOutcome>): Promise<ApprovalOutcome> {
++    const sessionId = String(request.agent.session.id)
++    const ownerSessionId = this.sessionOwners.get(sessionId)
++    if (ownerSessionId === undefined) return next()
++    const requestId = ++this.nextApprovalRequestId
++    return new Promise<ApprovalOutcome>((resolve) => {
++      let settled = false
++      const onAbort = (): void => settle('cancelled')
++      const settle = (outcome: ApprovalOutcome): void => {
++        if (settled) return
++        settled = true
++        request.signal?.removeEventListener('abort', onAbort)
++        this.pendingApprovals.delete(requestId)
++        try {
++          this.transport.notify('session.approval_resolved', { requestId, ownerSessionId, sessionId, outcome })
++        } catch {
++          // The answer still settles locally; transport loss cannot leave the tool call hanging.
++        }
++        resolve(outcome)
++      }
++      this.pendingApprovals.set(requestId, { ownerSessionId, sessionId, settle })
++      request.signal?.addEventListener('abort', onAbort, { once: true })
++      if (request.signal?.aborted) {
++        settle('cancelled')
++        return
++      }
++      try {
++        this.transport.notify('session.approval_requested', {
++          requestId,
++          ownerSessionId,
++          sessionId,
++          toolName: request.toolName,
++          ...request.callId === undefined ? {} : { callId: String(request.callId) },
++          ...request.reason === undefined ? {} : { reason: request.reason },
++        })
++      } catch {
++        settle('unavailable')
++      }
++    })
++  }
++
+diff --git a/packages/sdk/server/tests/server.spec.ts b/packages/sdk/server/tests/server.spec.ts
+index 495f1d90f4..c2eb0d5a8a 100644
+--- a/packages/sdk/server/tests/server.spec.ts
++++ b/packages/sdk/server/tests/server.spec.ts
+@@ -5 +5 @@ import { mkdtemp, rm } from 'node:fs/promises'
+-import { join } from 'node:path'
++import { join, resolve } from 'node:path'
+@@ -211,0 +212,183 @@ describe('HarnessSdkJsonRpcServer', () => {
++  it('routes steering and cancellation to the existing DSH agent', async () => {
++    const followup = vi.fn<Agent['followup']>()
++    const steer = vi.fn<Agent['steer']>()
++    const cancel = vi.fn<Agent['cancel']>()
++    const agent = ({
++      id: SessionId('main'),
++      followup,
++      steer,
++      cancel,
++    } satisfies Pick<Agent, 'id' | 'followup' | 'steer' | 'cancel'>) as unknown as Agent
++    const handle = { agent, dispose: vi.fn(() => Promise.resolve()) }
++    const ctx = {
++      on: vi.fn(() => () => undefined),
++      agents: { create: vi.fn(async () => handle), get: () => agent },
++      get: () => undefined,
++    } as unknown as Context
++    const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
++
++    await server.prompt({
++      sessionId: 'main',
++      contentBlocks: [{ type: 'text', text: 'adjust course' }],
++      mode: 'steer',
++    })
++    expect(steer).toHaveBeenCalledOnce()
++    expect(followup).not.toHaveBeenCalled()
++    expect(server.cancel({ sessionId: 'main' })).toEqual({ accepted: true })
++    expect(cancel).toHaveBeenCalledWith({ kind: 'user' }, { keepInbox: true })
++    expect(server.cancel({ sessionId: 'missing' })).toEqual({ accepted: false })
++    await server.shutdown()
++  })
++
++  it('sets a session permission preset and bridges one-shot approval decisions', async () => {
++    let approvalListener: ((request: Record<string, unknown>, next: () => Promise<'unavailable'>) => Promise<string>) | undefined
++    const session = {
++      id: SessionId('secure'),
++      header: { version: 0, id: SessionId('secure'), createdAt: 0, cwd: resolve('secure-project') },
++      events: [],
++    }
++    const agent = { id: SessionId('secure'), session, followup: vi.fn() } as unknown as Agent
++    const handle = { agent, dispose: vi.fn(() => Promise.resolve()) }
++    const set = vi.fn()
++    const permissionPresets = {
++      set,
++      current: vi.fn(() => 'approve-for-me'),
++    }
++    const ctx = {
++      on: vi.fn((event: string, listener: unknown) => {
++        if (event === 'approval/request') approvalListener = listener as typeof approvalListener
++        return () => undefined
++      }),
++      agents: { create: vi.fn(async () => handle), get: () => agent },
++      get: (name: string) => name === 'permissionPresets' ? permissionPresets : undefined,
++    } as unknown as Context
++    const transport = new FakeTransport()
++    const server = new HarnessSdkJsonRpcServer(ctx, transport)
++
++    await expect(server.setPermission({
++      sessionId: 'secure',
++      cwd: resolve('secure-project'),
++      preset: 'approve-for-me',
++    })).resolves.toEqual({ preset: 'approve-for-me' })
++    expect(set).toHaveBeenCalledWith(session, 'approve-for-me')
++
++    const decision = approvalListener?.({
++      agent,
++      toolName: 'bash',
++      callId: 'call-1',
++      reason: 'escalate sandbox to danger-full-access: inspect another folder',
++    }, () => Promise.resolve('unavailable'))
++    expect(decision).toBeDefined()
++    expect(transport.notifications.at(-1)).toEqual({
++      method: 'session.approval_requested',
++      params: {
++        requestId: 1,
++        ownerSessionId: 'secure',
++        sessionId: 'secure',
++        toolName: 'bash',
++        callId: 'call-1',
++        reason: 'escalate sandbox to danger-full-access: inspect another folder',
++      },
++    })
++    expect(server.resolveApproval({ requestId: 1, outcome: 'allowed-once' })).toEqual({ accepted: true })
++    await expect(decision).resolves.toBe('allowed-once')
++    expect(server.resolveApproval({ requestId: 1, outcome: 'rejected' })).toEqual({ accepted: false })
++    expect(transport.notifications.at(-1)).toEqual({
++      method: 'session.approval_resolved',
++      params: {
++        requestId: 1,
++        ownerSessionId: 'secure',
++        sessionId: 'secure',
++        outcome: 'allowed-once',
++      },
++    })
++    await server.shutdown()
++  })
++
++  it('admits SDK image uploads before publishing the durable user message', async () => {
++    const followup = vi.fn<Agent['followup']>()
++    const agent = ({
++      id: SessionId('vision'),
++      followup,
++    } satisfies Pick<Agent, 'id' | 'followup'>) as unknown as Agent
++    const handle = { agent, dispose: vi.fn(() => Promise.resolve()) }
++    const attachment = {
++      attachmentId: 'sha256:test',
++      mediaType: 'image/png',
++      bytes: 4,
++      width: 1,
++      height: 1,
++    }
++    const saveImages = vi.fn(async () => [attachment])
++    const resolveModelInfo = vi.fn(async () => ({ inputModalities: ['text', 'image'] }))
++    const llm = {
++      resolveModelInfo,
++      listProviders: () => [{ id: 'mock', name: 'Mock' }],
++    }
++    const ctx = {
++      on: vi.fn(() => () => undefined),
++      agents: { create: vi.fn(async () => handle), get: () => agent },
++      attachments: { saveImages },
++      llm,
++      get: (name: string) => name === 'llm' ? llm : undefined,
++    } as unknown as Context
++    const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
++
++    await server.initialize({ cwd: '.', provider: 'mock', model: 'vision-model' })
++    await server.prompt({
++      sessionId: 'vision',
++      content: [
++        { type: 'text', text: 'inspect' },
++        { type: 'image', mediaType: 'image/png', data: 'AQIDBA==', name: 'screen.png' },
++      ],
++    })
++
++    expect(resolveModelInfo).toHaveBeenCalledWith('mock', 'vision-model')
++    expect(saveImages).toHaveBeenCalledWith([{
++      data: new Uint8Array([1, 2, 3, 4]),
++      mediaType: 'image/png',
++      name: 'screen.png',
++    }])
++    const message = followup.mock.calls[0]?.[0]
++    expect(message?.content).toEqual([
++      { type: 'text', text: 'inspect' },
++      { type: 'image', attachment },
++    ])
++    await server.shutdown()
++  })
++
++  it('resumes a durable session instead of recreating its identity', async () => {
++    const cwd = resolve('project')
++    const followup = vi.fn<Agent['followup']>()
++    const agent = {
++      id: SessionId('main'),
++      session: { header: { version: 0, id: SessionId('main'), createdAt: 0, cwd } },
++      followup,
++    } as unknown as Agent
++    const handle = { agent, dispose: vi.fn(() => Promise.resolve()) }
++    const create = vi.fn()
++    const resume = vi.fn(async () => handle)
++    const ctx = {
++      on: vi.fn(() => () => undefined),
++      agents: { create, resume, get: () => agent },
++      get: (name: string) => name === 'sessionPersistence'
++        ? { list: async () => [{ id: SessionId('main'), cwd }] }
++        : undefined,
++    } as unknown as Context
++    const server = new HarnessSdkJsonRpcServer(ctx, new FakeTransport())
++
++    await server.prompt({
++      sessionId: 'main',
++      cwd,
++      contentBlocks: [{ type: 'text', text: 'continue' }],
++    })
++
++    expect(resume).toHaveBeenCalledWith({
++      resumeSessionId: SessionId('main'),
++      agentOptions: { provider: 'deepseek-official', model: 'deepseek-official' },
++    })
++    expect(create).not.toHaveBeenCalled()
++    expect(followup).toHaveBeenCalledOnce()
++    await server.shutdown()
++  })
++
+@@ -913 +1096,3 @@ describe('HarnessSdkJsonRpcServer', () => {
+-      get: () => ({ listProviders: () => [{ id: 'mock', name: 'Mock' }] }),
++      get: (name: string) => name === 'llm'
++        ? { listProviders: () => [{ id: 'mock', name: 'Mock' }] }
++        : undefined,
+@@ -966 +1151 @@ describe('HarnessSdkJsonRpcServer', () => {
+-    expect(on).toHaveBeenCalledTimes(4)
++    expect(on).toHaveBeenCalledTimes(5)
+diff --git a/packages/sdk/server/tsconfig.json b/packages/sdk/server/tsconfig.json
+index 4dc47252dc..63971cb6ca 100644
+--- a/packages/sdk/server/tsconfig.json
++++ b/packages/sdk/server/tsconfig.json
+@@ -28,0 +29,9 @@
++    {
++      "path": "../../interaction/permission-presets"
++    },
++    {
++      "path": "../../interaction/user-approval"
++    },
++    {
++      "path": "../../session/session-persistence"
++    },
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index 737a21eea6..805a11080d 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -6086,0 +6087,3 @@ importers:
++      '@deepseek-ai/dsh-attachment':
++        specifier: workspace:^
++        version: link:../../attachment/attachment
+@@ -6117,0 +6121,3 @@ importers:
++      '@deepseek-ai/dsh-attachment':
++        specifier: workspace:^
++        version: link:../../attachment/attachment
+@@ -6126,0 +6133,3 @@ importers:
++      '@deepseek-ai/dsh-permission-presets':
++        specifier: workspace:^
++        version: link:../../interaction/permission-presets
+@@ -6135,0 +6145,3 @@ importers:
++      '@deepseek-ai/dsh-session-persistence':
++        specifier: workspace:^
++        version: link:../../session/session-persistence
+@@ -6141,0 +6154,3 @@ importers:
++      '@deepseek-ai/dsh-user-approval':
++        specifier: workspace:^
++        version: link:../../interaction/user-approval
+@@ -8734,0 +8750,3 @@ importers:
++      '@deepseek-ai/dsh-attachment-local':
++        specifier: workspace:^
++        version: link:../../packages/attachment/attachment-local
+@@ -8740,0 +8759,3 @@ importers:
++      '@deepseek-ai/dsh-bash-sandbox':
++        specifier: workspace:^
++        version: link:../../packages/shell/bash-sandbox
+diff --git a/python/sdk-runtime/package.json b/python/sdk-runtime/package.json
+index abf3e11a78..6caa9c00dc 100644
+--- a/python/sdk-runtime/package.json
++++ b/python/sdk-runtime/package.json
+@@ -19,0 +20 @@
++    "@deepseek-ai/dsh-attachment-local": "workspace:^",
+@@ -23,0 +25 @@
++    "@deepseek-ai/dsh-bash-sandbox": "workspace:^",

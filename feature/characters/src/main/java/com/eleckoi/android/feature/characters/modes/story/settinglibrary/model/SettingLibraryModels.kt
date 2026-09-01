@@ -1,0 +1,382 @@
+package com.eleckoi.android.feature.characters.modes.story.settinglibrary.model
+
+enum class SettingLibraryPosition(val storageValue: String, val label: String) {
+    Instructions("instructions", "系统指令"),
+    AfterInstructions("after_instructions", "系统指令之后"),
+    BeforeHistory("before_history", "聊天记录之前"),
+    AfterHistory("after_history", "聊天记录之后"),
+    BeforeToolFlow("before_tool_flow", "工具调用流程之前"),
+    AfterToolFlow("after_tool_flow", "工具调用流程之后");
+}
+
+enum class SettingLibraryInsertRole(val storageValue: String, val label: String, val apiRole: String) {
+    System("system", "系统", "system"),
+    User("user", "用户", "user"),
+    Assistant("assistant", "AI", "assistant");
+}
+
+enum class SettingLibraryTriggerMode(val storageValue: String, val label: String) {
+    Always("always", "提示词常驻"),
+    AgentTool("agent_tool", "Agent 读取");
+}
+
+enum class SettingLibraryAgentReadStrategy(val storageValue: String, val label: String) {
+    Required("required", "必读"),
+    Keyword("keyword", "关键词"),
+    Normal("normal", "按需"),
+    VariableCondition("variable_condition", "变量条件");
+}
+
+enum class SettingLibraryDynamicMode(val storageValue: String, val label: String) {
+    SingleCondition("single_condition", "单条条件"),
+    EjsController("ejs_controller", "EJS 控制器"),
+    EjsReference("ejs_reference", "引用条目");
+}
+
+enum class SettingLibraryKeywordCondition(val storageValue: String, val label: String) {
+    None("none", "无需"),
+    Any("any", "任意命中"),
+    All("all", "全部命中"),
+    NotAny("not_any", "排除命中");
+}
+
+enum class SettingLibraryEntryKind(val storageValue: String) {
+    Normal("normal"),
+    Opening("opening"),
+    RoleplayPlan("roleplay_plan"),
+    HistoryCompaction("history_compaction"),
+    HiddenToolTimeline("hidden_tool_timeline");
+}
+
+const val SettingLibraryOpeningEntryId: String = "fixed-opening-assistant"
+const val SettingLibraryOpeningEntryTitle: String = "AI角色开场白"
+const val DefaultOpeningMessageId: String = "opening-default"
+const val DefaultOpeningMessageTitle: String = "默认开场"
+const val SettingLibraryRoleplayPlanEntryId: String = "fixed-roleplay-plan"
+const val SettingLibraryRoleplayPlanEntryTitle: String = "角色扮演任务计划"
+const val DefaultRoleplayPlanReadTask: String =
+    "必须先并行调用工具调研阅读设定，这里不扮演回复，禁止未阅读设定直接回复"
+const val DefaultRoleplayPlanFinalTask: String =
+    "等前置任务都完成，直接输出 <FINAL> 正文，不要再次调用 update_roleplay_plan；" +
+        "应用检测到正文后会自动完成最终项的标记。"
+const val DefaultRoleplayPlanContent: String =
+    "$DefaultRoleplayPlanReadTask\n$DefaultRoleplayPlanFinalTask"
+const val HiddenToolTimelineEntryTitle: String = "隐藏工具时间线"
+const val HiddenToolTimelineEntryId: String = "built-in-hidden-tool-timeline"
+const val DefaultHiddenToolTimelineContent: String = """<roleplay_output_protocol>
+tool_phase:
+  setting_library:
+    preflight: "若设定库工具可用，最终回复前先用 eleckoi_glob_setting_files 浏览设定文件，并用 eleckoi_read_setting_files 读取结果中的 required_entries"
+    search: "按本轮扮演需要使用 eleckoi_grep_setting_files 检索角色与世界设定；允许按需继续搜索"
+    empty_result: "没有可用设定时停止查询，直接进入最终回复"
+    no_repeat: "不得用相同条件重复无结果的查询"
+  plot_variables:
+    empty_result: "未发现变量时忽略并继续；不得反复查询"
+  visible_output: "仅允许原生 Tool Call"
+  forbidden:
+    - "角色对白"
+    - "叙事"
+    - "动作描写"
+    - "过程说明"
+    - "其他可见文字"
+final_phase:
+  format: "<FINAL>本轮完整的最终扮演回复</FINAL>"
+  before_final: "禁止输出任何可见文字"
+  after_final: "禁止再调用原生工具"
+</roleplay_output_protocol>"""
+
+data class SettingLibraryEntry(
+    val id: String = "",
+    val title: String = "",
+    val iconId: String = "",
+    val kind: SettingLibraryEntryKind = SettingLibraryEntryKind.Normal,
+    val groupId: String = "",
+    val content: String = "",
+    /** Ordered alternatives for the fixed assistant opening entry. */
+    val openingMessages: List<SettingLibraryOpeningMessage> = emptyList(),
+    val defaultOpeningMessageId: String = "",
+    val agentSelectionHint: String = "",
+    val agentReadStrategy: SettingLibraryAgentReadStrategy = SettingLibraryAgentReadStrategy.Normal,
+    /** JavaScript expression evaluated against the current variable state for VariableCondition. */
+    val agentReadCondition: String = "",
+    val dynamicMode: SettingLibraryDynamicMode = SettingLibraryDynamicMode.SingleCondition,
+    val keywords: List<String> = emptyList(),
+    val keywordScanDepth: Int = 1,
+    val conditionKeywords: List<String> = emptyList(),
+    val keywordCondition: SettingLibraryKeywordCondition = SettingLibraryKeywordCondition.None,
+    /** Treat primary and secondary keyword strings as SillyTavern-compatible regular expressions. */
+    val keywordUseRegex: Boolean = false,
+    val keywordIgnoreCase: Boolean = true,
+    val keywordWholeWord: Boolean = false,
+    /** Number of association rounds after this entry matches a conversation keyword. Zero disables it. */
+    val keywordRecursionDepth: Int = 0,
+    val triggerMode: SettingLibraryTriggerMode? = null,
+    val enabled: Boolean = true,
+    val position: SettingLibraryPosition? = null,
+    /** Optional user-defined position. [position] remains its runtime anchor for compatibility. */
+    val promptPositionId: String = "",
+    val insertRole: SettingLibraryInsertRole = SettingLibraryInsertRole.User,
+    val order: Int = 1,
+    val viewOrder: Int = 0,
+    val groupViewOrder: Int = 0,
+    val treeViewOrder: Int = 0,
+    val createdAt: String = "",
+    val updatedAt: String = "",
+)
+
+/** A named insertion position. It is placement metadata, never a setting entry by itself. */
+data class SettingLibraryPromptPosition(
+    val id: String = "",
+    val name: String = "",
+    val anchor: SettingLibraryPosition = SettingLibraryPosition.AfterInstructions,
+    val order: Int = 1,
+    val createdAt: String = "",
+    val updatedAt: String = "",
+)
+
+data class SettingLibraryOpeningMessage(
+    val id: String = "",
+    val title: String = "",
+    val content: String = "",
+    val initialVariableStateJson: String = "",
+)
+
+fun SettingLibraryEntry.isOpeningEntry(): Boolean {
+    return kind == SettingLibraryEntryKind.Opening || id == SettingLibraryOpeningEntryId
+}
+
+fun SettingLibraryEntry.isRoleplayPlanEntry(): Boolean {
+    return kind == SettingLibraryEntryKind.RoleplayPlan || id == SettingLibraryRoleplayPlanEntryId
+}
+
+fun SettingLibraryEntry.isFixedEntry(): Boolean {
+    return isOpeningEntry() ||
+        isRoleplayPlanEntry() ||
+        isHistoryCompactionEntry()
+}
+
+fun SettingLibraryEntry.isHiddenToolTimelineEntry(): Boolean {
+    return kind == SettingLibraryEntryKind.HiddenToolTimeline || id == HiddenToolTimelineEntryId
+}
+
+fun SettingLibraryEntry.isPinnedEntry(): Boolean {
+    return isFixedEntry() || isHiddenToolTimelineEntry()
+}
+
+fun settingLibraryOpeningEntry(existing: SettingLibraryEntry? = null): SettingLibraryEntry {
+    val source = existing ?: SettingLibraryEntry()
+    val messages = normalizeOpeningMessages(source.openingMessages, source.content)
+    val defaultId = source.defaultOpeningMessageId
+        .takeIf { candidate -> messages.any { it.id == candidate } }
+        ?: messages.first().id
+    val defaultMessage = messages.first { it.id == defaultId }
+    return source.copy(
+        id = SettingLibraryOpeningEntryId,
+        title = SettingLibraryOpeningEntryTitle,
+        iconId = "chat",
+        kind = SettingLibraryEntryKind.Opening,
+        groupId = "",
+        // Keep the legacy field mirrored so old snapshots and the existing chat-start pipeline
+        // continue to see the selected opening without needing a Room schema migration.
+        content = defaultMessage.content,
+        openingMessages = messages,
+        defaultOpeningMessageId = defaultId,
+        agentReadStrategy = SettingLibraryAgentReadStrategy.Normal,
+        agentReadCondition = "",
+        dynamicMode = SettingLibraryDynamicMode.SingleCondition,
+        keywords = emptyList(),
+        conditionKeywords = emptyList(),
+        keywordCondition = SettingLibraryKeywordCondition.None,
+        keywordUseRegex = false,
+        keywordIgnoreCase = true,
+        keywordWholeWord = false,
+        keywordRecursionDepth = 0,
+        triggerMode = SettingLibraryTriggerMode.Always,
+        position = null,
+        promptPositionId = "",
+        insertRole = SettingLibraryInsertRole.Assistant,
+        order = 1,
+        viewOrder = 0,
+        groupViewOrder = 0,
+        treeViewOrder = 0,
+    )
+}
+
+fun SettingLibraryEntry.defaultOpeningMessage(): SettingLibraryOpeningMessage {
+    val normalized = settingLibraryOpeningEntry(this)
+    return normalized.openingMessages.first { it.id == normalized.defaultOpeningMessageId }
+}
+
+fun SettingLibraryEntry.withOpeningMessages(
+    messages: List<SettingLibraryOpeningMessage>,
+    defaultMessageId: String = defaultOpeningMessageId,
+): SettingLibraryEntry {
+    return settingLibraryOpeningEntry(
+        copy(
+            openingMessages = messages,
+            defaultOpeningMessageId = defaultMessageId,
+        ),
+    )
+}
+
+private fun normalizeOpeningMessages(
+    source: List<SettingLibraryOpeningMessage>,
+    legacyContent: String,
+): List<SettingLibraryOpeningMessage> {
+    val candidates = source.ifEmpty {
+        listOf(
+            SettingLibraryOpeningMessage(
+                id = DefaultOpeningMessageId,
+                title = DefaultOpeningMessageTitle,
+                content = legacyContent,
+            ),
+        )
+    }
+    val usedIds = mutableSetOf<String>()
+    return candidates.mapIndexed { index, message ->
+        val requestedId = message.id.trim()
+        val id = requestedId
+            .takeIf { it.isNotBlank() && usedIds.add(it) }
+            ?: generateSequence(index + 1) { it + 1 }
+                .map { "opening-$it" }
+                .first { usedIds.add(it) }
+        message.copy(
+            id = id,
+            title = message.title.takeUnless { title ->
+                val trimmed = title.trim()
+                trimmed == "开场白 ${index + 1}" ||
+                    trimmed == "开场白${index + 1}" ||
+                    (index > 0 && trimmed == "备用开场 $index") ||
+                    (index > 0 && trimmed == "备用开场白 $index")
+            }.orEmpty(),
+        )
+    }
+}
+
+fun settingLibraryRoleplayPlanEntry(existing: SettingLibraryEntry? = null): SettingLibraryEntry {
+    val source = existing ?: SettingLibraryEntry(
+        content = DefaultRoleplayPlanContent,
+        enabled = false,
+    )
+    return source.copy(
+        id = SettingLibraryRoleplayPlanEntryId,
+        title = SettingLibraryRoleplayPlanEntryTitle,
+        iconId = "list",
+        kind = SettingLibraryEntryKind.RoleplayPlan,
+        groupId = "",
+        content = normalizeRoleplayPlanItems(source.content.lineSequence().toList()).joinToString("\n"),
+        agentReadStrategy = SettingLibraryAgentReadStrategy.Normal,
+        agentReadCondition = "",
+        dynamicMode = SettingLibraryDynamicMode.SingleCondition,
+        keywords = emptyList(),
+        conditionKeywords = emptyList(),
+        keywordCondition = SettingLibraryKeywordCondition.None,
+        keywordUseRegex = false,
+        keywordIgnoreCase = true,
+        keywordWholeWord = false,
+        keywordRecursionDepth = 0,
+        triggerMode = null,
+        position = null,
+        promptPositionId = "",
+        insertRole = SettingLibraryInsertRole.System,
+        order = 1,
+        viewOrder = 0,
+        groupViewOrder = 0,
+        treeViewOrder = 0,
+    )
+}
+
+fun settingLibraryHiddenToolTimelineEntry(existing: SettingLibraryEntry? = null): SettingLibraryEntry {
+    val source = existing ?: SettingLibraryEntry(
+        id = HiddenToolTimelineEntryId,
+        title = HiddenToolTimelineEntryTitle,
+        content = DefaultHiddenToolTimelineContent,
+        kind = SettingLibraryEntryKind.HiddenToolTimeline,
+        triggerMode = SettingLibraryTriggerMode.Always,
+        position = SettingLibraryPosition.AfterToolFlow,
+        insertRole = SettingLibraryInsertRole.User,
+        order = 1,
+    )
+    return source.copy(
+        id = HiddenToolTimelineEntryId,
+        kind = SettingLibraryEntryKind.HiddenToolTimeline,
+        groupId = "",
+        treeViewOrder = Int.MIN_VALUE + 1,
+    )
+}
+
+fun normalizeSettingLibraryFixedEntry(entry: SettingLibraryEntry): SettingLibraryEntry {
+    return when {
+        entry.isOpeningEntry() -> settingLibraryOpeningEntry(entry)
+        entry.isRoleplayPlanEntry() -> settingLibraryRoleplayPlanEntry(entry)
+        entry.isHistoryCompactionEntry() -> settingLibraryHistoryCompactionEntry(entry)
+        else -> entry
+    }
+}
+
+fun defaultSettingLibraryFixedEntries(): List<SettingLibraryEntry> {
+    return listOf(settingLibraryOpeningEntry(), settingLibraryRoleplayPlanEntry())
+}
+
+fun SettingLibraryEntry.roleplayPlanItems(): List<String> {
+    if (!isRoleplayPlanEntry() || !enabled) return emptyList()
+    return normalizeRoleplayPlanItems(content.lineSequence().toList())
+}
+
+fun normalizeRoleplayPlanItems(items: List<String>): List<String> {
+    val normalized = items
+        .map(String::trim)
+        .filter(String::isNotBlank)
+    return normalized.ifEmpty { listOf(DefaultRoleplayPlanFinalTask) }
+}
+
+data class SettingLibraryGroup(
+    val id: String = "",
+    val name: String = "",
+    val parentId: String = "",
+    val order: Int = 1,
+    val treeViewOrder: Int = 0,
+    val createdAt: String = "",
+    val updatedAt: String = "",
+)
+
+data class SettingLibraryVersion(
+    val id: String = "",
+    val name: String = "",
+    val entries: List<SettingLibraryEntry> = emptyList(),
+    val groups: List<SettingLibraryGroup> = emptyList(),
+    val promptPositions: List<SettingLibraryPromptPosition> = emptyList(),
+    val listAllExpanded: Boolean = true,
+    val expandedGroupIds: List<String> = emptyList(),
+    val createdAt: String = "",
+    val updatedAt: String = "",
+)
+
+data class SettingLibrary(
+    val characterId: String,
+    val name: String = "",
+    val entries: List<SettingLibraryEntry> = emptyList(),
+    val groups: List<SettingLibraryGroup> = emptyList(),
+    val promptPositions: List<SettingLibraryPromptPosition> = emptyList(),
+    val activeVersionId: String = "",
+    val versions: List<SettingLibraryVersion> = emptyList(),
+    val listAllExpanded: Boolean = true,
+    val expandedGroupIds: List<String> = emptyList(),
+)
+
+fun SettingLibrary.withRoleplayPlanEnabled(enabled: Boolean): SettingLibrary {
+    val updatedEntries = entries.map { entry ->
+        if (entry.isRoleplayPlanEntry()) entry.copy(enabled = enabled) else entry
+    }
+    return if (updatedEntries == entries) this else copy(entries = updatedEntries)
+}
+
+data class SettingLibraryConversation(
+    val sessionId: String,
+    val title: String,
+    val characterName: String,
+    val characterAvatar: String,
+    val summary: String,
+    val updatedAt: String,
+    val library: SettingLibrary,
+)

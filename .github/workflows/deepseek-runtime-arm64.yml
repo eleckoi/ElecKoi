@@ -1,0 +1,180 @@
+name: DeepSeek Runtime ARM64
+
+on:
+  push:
+    branches:
+      - main
+      - 'codex/**'
+    paths:
+      - '.github/workflows/deepseek-runtime-arm64.yml'
+      - 'runtime/deepseek/**'
+      - 'runtime/catalog/runtime-catalog.json'
+      - 'runtime/compile-deepseek-harness-arm64.ps1'
+      - 'runtime/package-deepseek-runtime.ps1'
+      - 'runtime/test-deepseek-runtime.ps1'
+  workflow_dispatch:
+    inputs:
+      force_compile:
+        description: Ignore an existing Release asset and compile the pinned source again
+        required: false
+        default: false
+        type: boolean
+      publish_release:
+        description: Publish only when the result matches runtime-catalog.json
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deepseek-runtime-arm64
+  cancel-in-progress: false
+
+jobs:
+  runtime:
+    name: Build or reuse verified ARM64 runtime
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Verify native runner
+        shell: bash
+        run: test "$(uname -m)" = aarch64
+
+      - name: Resolve build identity
+        id: identity
+        shell: pwsh
+        run: |
+          Import-Module ./runtime/deepseek/DeepSeekRuntimeBuild.psm1 -Force
+          $definition = Get-DeepSeekRuntimeBuildDefinition -RuntimeRoot ./runtime
+          $catalog = Get-DeepSeekCatalogEntry -Definition $definition
+          "bundle=$($definition.BundleName)" >> $env:GITHUB_OUTPUT
+          "artifact=$($definition.ArtifactName)" >> $env:GITHUB_OUTPUT
+          "base_bundle=$($definition.BaseBundleName)" >> $env:GITHUB_OUTPUT
+          "base_tag=$($definition.BaseReleaseTag)" >> $env:GITHUB_OUTPUT
+          "tag=$($definition.ReleaseTag)" >> $env:GITHUB_OUTPUT
+          "repository=$($definition.ReleaseRepository)" >> $env:GITHUB_OUTPUT
+          "catalog_pinned=$((($catalog.Sha256 -notmatch '^0{64}$').ToString()).ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
+      - name: Reuse published runtime
+        id: reuse
+        if: ${{ !inputs.force_compile }}
+        continue-on-error: true
+        shell: pwsh
+        run: ./runtime/fetch-verified-deepseek-runtime.ps1
+
+      - name: Download reusable base bundle
+        id: base_bundle
+        if: ${{ !inputs.force_compile && steps.reuse.outcome == 'failure' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          gh release download '${{ steps.identity.outputs.base_tag }}' \
+            --repo '${{ steps.identity.outputs.repository }}' \
+            --pattern '${{ steps.identity.outputs.base_bundle }}' \
+            --dir runtime/bundles
+
+      - name: Restore compiler caches
+        if: ${{ inputs.force_compile || (steps.reuse.outcome == 'failure' && steps.base_bundle.outcome == 'failure') }}
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: runtime/.cache/deepseek-build
+          key: deepseek-native-arm64-${{ hashFiles('runtime/deepseek/build-manifest.json') }}
+          restore-keys: |
+            deepseek-native-arm64-
+
+      - name: Restore compiled artifact
+        id: artifact_cache
+        if: ${{ inputs.force_compile || (steps.reuse.outcome == 'failure' && steps.base_bundle.outcome == 'failure') }}
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: runtime/artifacts
+          key: deepseek-artifact-arm64-${{ hashFiles('runtime/deepseek/build-manifest.json', 'runtime/compile-deepseek-harness-arm64.ps1') }}
+
+      - name: Compile pinned DeepSeek Harness
+        if: ${{ inputs.force_compile || (steps.reuse.outcome == 'failure' && steps.base_bundle.outcome == 'failure') }}
+        shell: pwsh
+        run: ./runtime/compile-deepseek-harness-arm64.ps1
+
+      - name: Save compiled artifact immediately
+        if: ${{ (inputs.force_compile || (steps.reuse.outcome == 'failure' && steps.base_bundle.outcome == 'failure')) && steps.artifact_cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: runtime/artifacts
+          key: deepseek-artifact-arm64-${{ hashFiles('runtime/deepseek/build-manifest.json', 'runtime/compile-deepseek-harness-arm64.ps1') }}
+
+      - name: Package runtime
+        if: ${{ inputs.force_compile || steps.reuse.outcome == 'failure' }}
+        shell: pwsh
+        run: |
+          $parameters = @{}
+          if ('${{ steps.base_bundle.outcome }}' -eq 'success') {
+            $parameters.BaseBundle = "runtime/bundles/${{ steps.identity.outputs.base_bundle }}"
+          }
+          ./runtime/package-deepseek-runtime.ps1 @parameters
+
+      - name: Smoke test ARM64 runtime
+        shell: pwsh
+        run: |
+          $testParameters = @{
+            BundlePath = "runtime/bundles/${{ steps.identity.outputs.bundle }}"
+          }
+          if ('${{ steps.identity.outputs.catalog_pinned }}' -ne 'true' -or
+              ('${{ github.event_name }}' -eq 'workflow_dispatch' -and
+               '${{ inputs.publish_release }}' -ne 'true')) {
+            $testParameters.SkipCatalogHashCheck = $true
+          }
+          ./runtime/test-deepseek-runtime.ps1 @testParameters
+
+      - name: Write checksum
+        shell: bash
+        working-directory: runtime/bundles
+        run: sha256sum '${{ steps.identity.outputs.bundle }}' > '${{ steps.identity.outputs.bundle }}.sha256'
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ steps.identity.outputs.artifact }}
+          path: |
+            runtime/bundles/${{ steps.identity.outputs.bundle }}
+            runtime/bundles/${{ steps.identity.outputs.bundle }}.sha256
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Publish immutable prerelease Runtime asset
+        if: ${{ steps.identity.outputs.catalog_pinned == 'true' && (github.event_name == 'push' || inputs.publish_release) }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag='${{ steps.identity.outputs.tag }}'
+          repository='${{ steps.identity.outputs.repository }}'
+          bundle='${{ steps.identity.outputs.bundle }}'
+          if ! gh release view "$tag" --repo "$repository" >/dev/null 2>&1; then
+            gh release create "$tag" \
+              --repo "$repository" \
+              --target '${{ github.sha }}' \
+              --title "DeepSeek Harness $tag" \
+              --prerelease \
+              --notes "Pinned ElecKoi ARM64 runtime. Source and toolchain identity are declared in runtime/deepseek/build-manifest.json. This prerelease is a build dependency, not an app update."
+          fi
+          for asset in "$bundle" "$bundle.sha256"; do
+            local_digest="sha256:$(sha256sum "runtime/bundles/$asset" | cut -d' ' -f1)"
+            release_digest="$(gh api "repos/$repository/releases/tags/$tag" \
+              --jq ".assets[] | select(.name == \"$asset\") | .digest")"
+            if [ -n "$release_digest" ]; then
+              test "$release_digest" = "$local_digest" || {
+                echo "Release asset is immutable but its digest is unexpected: $asset" >&2
+                exit 1
+              }
+              echo "Release asset already exists and remains immutable: $asset"
+            else
+              gh release upload "$tag" "runtime/bundles/$asset" --repo "$repository"
+            fi
+          done

@@ -1,0 +1,126 @@
+package com.eleckoi.android.feature.chat.data
+
+import com.eleckoi.android.engine.agent.api.AgentDynamicTool
+import com.eleckoi.android.engine.agent.api.AgentDynamicToolResult
+import com.eleckoi.android.engine.agent.api.AgentReadSettingFilesTool
+import com.eleckoi.android.engine.agent.api.AgentToolDefinition
+import com.eleckoi.android.feature.characters.modes.story.settinglibrary.data.SettingLibraryAgentEntry
+import com.eleckoi.android.feature.characters.modes.story.settinglibrary.data.SettingLibraryAgentTurnContext
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+
+internal fun buildCharacterSettingLibraryReadTool(
+    entries: List<SettingLibraryAgentEntry>,
+): AgentDynamicTool? {
+    val available = availableSettingLibraryEntries(entries)
+    if (available.isEmpty()) return null
+    return createCharacterSettingLibraryReadTool { available }
+}
+
+internal fun buildCharacterSettingLibraryReadTool(
+    contextProvider: suspend () -> SettingLibraryAgentTurnContext,
+): AgentDynamicTool = createCharacterSettingLibraryReadTool {
+    contextProvider().readableEntries
+}
+
+private fun createCharacterSettingLibraryReadTool(
+    entriesProvider: suspend () -> List<SettingLibraryAgentEntry>,
+): AgentDynamicTool = AgentDynamicTool(
+    definition = AgentToolDefinition(
+        name = AgentReadSettingFilesTool,
+        description = "读取 Glob 或 Grep 已返回的虚拟设定文件完整正文。" +
+            "路径没有 .md 后缀；不得猜测路径；不会修改设定。" +
+            "只返回显式请求的文件；必读和已触发动态设定由目录结果标注。",
+        parameters = buildJsonObject {
+            put("type", "object")
+            put("properties", buildJsonObject {
+                put(SettingLibraryPathsArgument, buildJsonObject {
+                    put("type", "array")
+                    put("description", "Glob 或 Grep 返回的完整虚拟设定文件路径。")
+                    put("minItems", 1)
+                    put("uniqueItems", true)
+                    put("items", buildJsonObject {
+                        put("type", "string")
+                        put("minLength", 1)
+                    })
+                })
+            })
+            put("required", buildJsonArray { add(JsonPrimitive(SettingLibraryPathsArgument)) })
+            put("additionalProperties", false)
+        },
+    ),
+    handler = { arguments ->
+        val available = availableSettingLibraryEntries(entriesProvider())
+        val byPath = available.associateBy { entry -> entry.path.normalizedSettingPath() }
+        val rawPaths = arguments.settingStringArray(SettingLibraryPathsArgument)
+        if (rawPaths.isEmpty()) return@AgentDynamicTool invalidArguments("至少选择一个虚拟设定文件路径。")
+        val normalizedPaths = rawPaths.map { path ->
+            normalizeSettingLibraryPath(path, allowRoot = false)
+        }
+        if (normalizedPaths.any { it == null }) {
+            return@AgentDynamicTool invalidPath("paths 必须是 Glob 或 Grep 返回的完整虚拟设定文件路径。")
+        }
+        val requestedPaths = normalizedPaths.filterNotNull().distinct()
+        val missing = requestedPaths.filterNot(byPath::containsKey)
+        if (missing.isNotEmpty()) {
+            return@AgentDynamicTool AgentDynamicToolResult(
+                content = buildJsonObject {
+                    put("status", "not_found")
+                    put("message", "存在当前虚拟设定库没有提供的文件路径，请重新使用 Glob 或 Grep。")
+                    put("paths", buildJsonArray {
+                        missing.forEach { path -> add(JsonPrimitive(path)) }
+                    })
+                }.toString(),
+                success = false,
+            )
+        }
+        val budget = SettingLibraryReadBudget(MaxReadPayloadCharacters)
+        AgentDynamicToolResult(
+            content = buildJsonObject {
+                put("status", "ok")
+                put("files", buildJsonArray {
+                    requestedPaths.forEach { path ->
+                        val entry = requireNotNull(byPath[path])
+                        val content = budget.take(entry.content, MaxEntryCharacters)
+                        add(buildJsonObject {
+                            put("path", path)
+                            put("title", entry.title)
+                            put("group_path", entry.groupPath.normalizedGroupPath())
+                            put("selection_hint", entry.selectionHint.normalizedSelectionHint())
+                            put("read_strategy", entry.readStrategy.storageValue)
+                            put("resolved_references", buildJsonArray {
+                                entry.resolvedReferences.forEach { reference ->
+                                    add(buildJsonObject {
+                                        put("id", reference.id)
+                                        put("title", reference.title)
+                                        put("path", reference.path.normalizedSettingPath())
+                                    })
+                                }
+                            })
+                            put("content", content.text)
+                            put("truncated", content.truncated)
+                        })
+                    }
+                })
+            }.toString(),
+        )
+    },
+)
+
+private class SettingLibraryReadBudget(private var remaining: Int) {
+    fun take(value: String, perItemLimit: Int): BudgetedSettingLibraryText {
+        val text = value.take(minOf(perItemLimit, remaining.coerceAtLeast(0)))
+        remaining -= text.length
+        return BudgetedSettingLibraryText(text, text.length < value.length)
+    }
+}
+
+private data class BudgetedSettingLibraryText(
+    val text: String,
+    val truncated: Boolean,
+)
+
+private const val MaxEntryCharacters = 40_000
+private const val MaxReadPayloadCharacters = 120_000

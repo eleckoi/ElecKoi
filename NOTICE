@@ -1,0 +1,42 @@
+ElecKoi
+Copyright (c) ElecKoi contributors
+
+Except where a file or notice states otherwise, ElecKoi source code is
+licensed under the GNU Affero General Public License, version 3 or any later
+version. Third-party components remain under their respective licenses.
+
+本产品包含以下第三方素材。
+
+------------------------------------------------------------------------------
+Font Awesome Free
+------------------------------------------------------------------------------
+
+图标（icons）部分以 CC BY 4.0 License 授权。
+
+  项目主页: https://fontawesome.com
+  许可证:   https://creativecommons.org/licenses/by/4.0/
+
+使用范围：
+  foundation/design/src/main/java/com/eleckoi/android/foundation/design/components/ElecKoiIcons.kt
+    - AppIconPaths.PromptMarkerThumbTack （源自 Font Awesome Solid `thumb-tack`）
+    - AppIconPaths.PromptPosition        （源自 Font Awesome Solid `square-poll-horizontal`）
+    - AppIconPaths.MessageEditPencil      （源自 Font Awesome Solid `pencil`）
+    - AppIconPaths.MessageSendPaperPlane  （源自 Font Awesome Solid `paper-plane`）
+
+上述常量保存的是图标的矢量路径数据，未作形状修改。若增删此类图标，
+请同步更新本文件的清单。
+
+------------------------------------------------------------------------------
+GitHub Primer Octicons
+------------------------------------------------------------------------------
+
+以 MIT License 授权。
+
+  项目主页: https://github.com/primer/octicons
+  许可证:   https://github.com/primer/octicons/blob/main/LICENSE
+
+使用范围：
+  feature/settings/src/main/java/com/eleckoi/android/feature/settings/ui/personalization/about/AboutElecKoiPage.kt
+    - GitHubMarkPath（GitHub 官方 Primer Octicons `mark-github-24`）
+
+上述常量保存的是官方图标的原始矢量路径数据，未作形状修改。

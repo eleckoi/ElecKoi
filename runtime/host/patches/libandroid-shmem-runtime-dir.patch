@@ -1,0 +1,50 @@
+diff --git a/shmem.c b/shmem.c
+index 0ee984d..b8b8d49 100644
+--- a/shmem.c
++++ b/shmem.c
+@@ -23,10 +23,30 @@
+ #include "shm.h"
+ 
+ #define DBG(...) __android_log_print(ANDROID_LOG_INFO, "shmem", __VA_ARGS__)
+-#define ASHV_KEY_SYMLINK_PATH _PATH_TMP "ashv_key_%d"
+ #define ANDROID_SHMEM_SOCKNAME "/dev/shm/%08x"
+ #define ROUND_UP(N, S) ((((N) + (S) - 1) / (S)) * (S))
+ 
++/*
++ * Termux bakes its private prefix into _PATH_TMP. ElecKoi runs this library
++ * from its own application sandbox, whose absolute path can also vary by
++ * Android user. Resolve the writable directory at runtime instead of binding
++ * the ELF to another application's package name.
++ */
++static int format_ashv_key_symlink_path(char *buffer, size_t buffer_size, key_t key)
++{
++	const char *directory = getenv("ELECKOI_SHMEM_DIR");
++	if (directory == NULL || directory[0] == '\0') directory = getenv("PROOT_TMP_DIR");
++	if (directory == NULL || directory[0] == '\0') directory = getenv("TMPDIR");
++	if (directory == NULL || directory[0] == '\0') {
++		errno = ENOENT;
++		return -1;
++	}
++
++	size_t directory_length = strlen(directory);
++	const char *separator = directory_length > 0 && directory[directory_length - 1] == '/' ? "" : "/";
++	return snprintf(buffer, buffer_size, "%s%sashv_key_%d", directory, separator, key);
++}
++
+ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+ 
+ typedef struct {
+@@ -349,7 +369,12 @@ int shmget(key_t key, size_t size, int shmflg)
+ 		// (3) If connected and opened, done. If connection refused
+ 		//     take ownership of the key and create the symlink.
+ 		// (4) If no symlink, create it.
+-		sprintf(symlink_path, ASHV_KEY_SYMLINK_PATH, key);
++		int symlink_path_length = format_ashv_key_symlink_path(symlink_path, sizeof(symlink_path), key);
++		if (symlink_path_length < 0 || (size_t)symlink_path_length >= sizeof(symlink_path)) {
++			pthread_mutex_unlock(&mutex);
++			errno = ENAMETOOLONG;
++			return -1;
++		}
+ 		char path_buffer[256];
+ 		char num_buffer[64];
+ 		while (true) {

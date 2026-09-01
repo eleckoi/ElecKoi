@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "generatedAtUtc": "2026-08-04T08:59:13.4375259Z",
+  "sourceLock": "runtime/host/source-lock.json",
+  "nativeBuild": {
+    "androidNdkVersion": "27.2.12479018",
+    "androidApi": 27,
+    "patches": [
+      {
+        "path": "runtime/host/patches/libandroid-shmem-runtime-dir.patch",
+        "sha256": "c6e77d7c184a6020a02cc141629ebfd3542593aa494bb6694747da0f5df7836d"
+      }
+    ]
+  },
+  "modifications": [
+    "ELF libtalloc.so.2 dependency and SONAME shortened to libtalloc.so",
+    "libandroid-shmem rebuilt from pinned source so its key files resolve through ELECKOI_SHMEM_DIR, PROOT_TMP_DIR, or TMPDIR at runtime",
+    "libandroid-shmem explicitly linked to libandroid.so for ASharedMemory symbols",
+    "all packaged ARM64 ELF LOAD segments verified with alignment of at least 16 KiB"
+  ],
+  "outputs": [
+    {
+      "path": "app/src/main/jniLibs/arm64-v8a/libandroid-shmem.so",
+      "size": 15696,
+      "sha256": "c9094e0745866bf8ca45abc0c8f9f2df10504eb4856cf35f2824c3d9886dbe71"
+    },
+    {
+      "path": "app/src/main/jniLibs/arm64-v8a/libeleckoi_proot_loader.so",
+      "size": 18136,
+      "sha256": "44ef39c1e1a18c09f6e4c4b5d6f8bba82d30596598bd155ec162d05c5122ff04"
+    },
+    {
+      "path": "app/src/main/jniLibs/arm64-v8a/libeleckoi_proot.so",
+      "size": 236008,
+      "sha256": "c8b0a643c4c86796c2ba8cde5497a5a7d911b87d019381a03d3578b8db343464"
+    },
+    {
+      "path": "app/src/main/jniLibs/arm64-v8a/libtalloc.so",
+      "size": 31440,
+      "sha256": "34c92182bdbda07e009eaa09afa852c575c566691786ca456b28778222ba0afc"
+    }
+  ]
+}

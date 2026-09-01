@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 5,
+  "runtimeVersion": "ubuntu-24.04.4_dsh-0.1.1-rc.2-e6_arm64",
+  "architecture": "arm64-v8a",
+  "rootfs": {
+    "kind": "ubuntu-base",
+    "version": "24.04.4",
+    "url": "https://cdimage.ubuntu.com/ubuntu-base/releases/noble/release/ubuntu-base-24.04.4-base-arm64.tar.gz",
+    "sha256": "04207713ece899c3740823d33690441ad3a7f0ded1101aca744e2b0f37ac7ff2",
+    "archiveBytesLimit": 40000000,
+    "assetPath": "ubuntu-base-24.04.4-arm64.egruntime"
+  },
+  "harnesses": {
+    "deepseek": {
+      "kind": "deepseek-harness-single-executable",
+      "version": "0.1.1-rc.2",
+      "sourceCommit": "b150a551b8d465e31e418e1b2eaf5e79bbb7d28e",
+      "url": "",
+      "sha256": "b3aeb4ed6084c2c470759c261604ef7b84f82ab47d0f513cd65197f764ce78ee",
+      "archiveBytesLimit": 70000000,
+      "assetPath": "deepseek-harness-0.1.1-rc.2-eleckoi.6-arm64.egruntime",
+      "entrypoint": "bin/dsh-jsonrpc-agent",
+      "configPath": "etc/deepseek/cordis.yml",
+      "healthCheckArgs": [],
+      "embeddedOnly": true
+    }
+  }
+}

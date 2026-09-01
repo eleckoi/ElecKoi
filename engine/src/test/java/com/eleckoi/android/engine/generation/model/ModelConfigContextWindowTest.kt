@@ -1,0 +1,92 @@
+package com.eleckoi.android.engine.generation.model
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class ModelConfigContextWindowTest {
+    @Test
+    fun `uses the selected model context window for the Harness`() {
+        val config = ModelConfig(
+            model = "deepseek-v4-pro",
+            modelOptions = listOf(
+                ModelOption(
+                    id = "deepseek-v4-pro",
+                    contextWindowTokens = 1_000_000,
+                ),
+            ),
+        )
+
+        assertEquals(1_000_000, config.configuredContextWindowTokens())
+    }
+
+    @Test
+    fun `uses the selected models absolute automatic compaction threshold`() {
+        val config = ModelConfig(
+            model = "deepseek-v4-pro",
+            modelOptions = listOf(
+                ModelOption(
+                    id = "deepseek-v4-pro",
+                    contextWindowTokens = 1_000_000,
+                    autoCompactTokenLimit = 2_000,
+                ),
+            ),
+        )
+
+        assertEquals(2_000, config.configuredAutoCompactTokenLimit())
+    }
+
+    @Test
+    fun `falls back to the declared agent window when metadata is absent`() {
+        assertEquals(
+            ModelOption.AgentFallbackContextWindowTokens,
+            ModelConfig(model = "unlisted").configuredContextWindowTokens(),
+        )
+    }
+
+    @Test
+    fun `new model provider configurations prefer Responses`() {
+        assertEquals(ModelApiFormat.Responses, defaultApiFormatForProvider("custom"))
+        assertEquals(ModelApiFormat.Responses, defaultApiFormatForProvider("deepseek"))
+    }
+
+    @Test
+    fun `official DeepSeek vision model declares image input without a manual switch`() {
+        assertTrue(
+            ModelConfig(
+                provider = "deepseek",
+                model = DeepSeekOfficialVisionModel,
+            ).supportsImageInput(),
+        )
+        assertFalse(
+            ModelConfig(
+                provider = "deepseek",
+                model = "deepseek-v4-flash",
+            ).supportsImageInput(),
+        )
+        assertFalse(
+            ModelConfig(
+                provider = "deepseek",
+                baseUrl = "https://relay.example/v1",
+                model = DeepSeekOfficialVisionModel,
+            ).supportsImageInput(),
+        )
+    }
+
+    @Test
+    fun `image input follows the conversation selected model instead of the connection default`() {
+        val config = ModelConfig(
+            provider = "deepseek",
+            model = "deepseek-v4-flash",
+            modelOptions = listOf(
+                ModelOption(id = "deepseek-v4-flash"),
+                ModelOption(id = "custom-vision", supportsImageInput = true),
+            ),
+        )
+
+        assertFalse(config.supportsImageInput())
+        assertTrue(config.supportsImageInput("custom-vision"))
+        assertTrue(config.supportsImageInput(DeepSeekOfficialVisionModel))
+    }
+}

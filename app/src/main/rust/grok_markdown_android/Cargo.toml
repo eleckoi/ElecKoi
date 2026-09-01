@@ -1,0 +1,26 @@
+[package]
+name = "eleckoi-grok-markdown"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "eleckoi_markdown_rust"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = { version = "0.21.1", default-features = false }
+linkify = "0.10"
+mermaid-to-svg = { path = "../vendor/mermaid-to-svg" }
+xai-grok-markdown = { git = "https://github.com/xai-org/grok-build.git", rev = "98c3b24", package = "xai-grok-markdown" }
+xai-grok-markdown-core = { git = "https://github.com/xai-org/grok-build.git", rev = "98c3b24", package = "xai-grok-markdown-core" }
+plist = "=1.8.0"
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+syntect = { version = "5.3", default-features = false, features = ["default-fancy"] }
+two-face = { version = "0.4", default-features = false, features = ["syntect-fancy"] }
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = 3
+strip = "symbols"

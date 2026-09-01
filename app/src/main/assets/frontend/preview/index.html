@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'" />
+  <title>ElecKoi Frontend Preview</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main>
+    <section class="stage">
+      <span class="tag">ElecKoi Author API Preview</span>
+      <h1 class="name" id="name">未命名角色</h1>
+      <div class="message">这是 ElecKoi 的作者前端沙盒，角色、变量和 API 总清单都通过统一异步接口读取。</div>
+      <button id="read">读取原生上下文</button>
+      <pre id="output"></pre>
+    </section>
+  </main>
+  <script src="./eleckoi.js"></script>
+  <script src="./script.js"></script>
+</body>
+</html>

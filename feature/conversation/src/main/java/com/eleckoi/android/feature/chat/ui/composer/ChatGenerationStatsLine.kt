@@ -1,0 +1,88 @@
+package com.eleckoi.android.feature.chat.ui.composer
+
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.eleckoi.android.feature.chat.model.ChatGenerationMetrics
+import com.eleckoi.android.foundation.design.AppearanceTheme
+import kotlin.math.roundToLong
+
+/** A quiet, read-only DSH-style summary below the composer. */
+@Composable
+internal fun ChatGenerationStatsLine(
+    metrics: ChatGenerationMetrics,
+    appearance: AppearanceTheme,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    if (!enabled) return
+    val groups = buildList {
+        if (metrics.steps > 0) {
+            add("${metrics.turns} 轮 · ${metrics.steps} 步")
+            buildList {
+                if (metrics.llmDurationMillis > 0L) add("LLM ${formatStatsDuration(metrics.llmDurationMillis)}")
+                if (metrics.toolDurationMillis > 0L) add("工具 ${formatStatsDuration(metrics.toolDurationMillis)}")
+            }.takeIf(List<String>::isNotEmpty)?.let(::add)
+            buildList {
+                if (metrics.firstTokenSamples > 0) {
+                    add(
+                        "首 token 平均 " + formatStatsDuration(
+                            metrics.firstTokenDelayMillis / metrics.firstTokenSamples,
+                        ),
+                    )
+                }
+                if (metrics.decodeDurationMillis > 0L && metrics.decodeOutputTokens > 0L) {
+                    val tokensPerSecond = metrics.decodeOutputTokens * 1_000.0 / metrics.decodeDurationMillis
+                    add("${formatStatsNumber(tokensPerSecond)} tok/s")
+                }
+            }.takeIf(List<String>::isNotEmpty)?.let(::add)
+        }
+        metrics.cacheHitPercent?.let { add("缓存命中 ${it}%") }
+        if (metrics.billedInputTokens > 0L || metrics.outputTokens > 0L) {
+            add(
+                "输入 ${formatStatsTokens(metrics.billedInputTokens)} tok · " +
+                    "输出 ${formatStatsTokens(metrics.outputTokens)} tok",
+            )
+        }
+    }
+    if (groups.isEmpty()) return
+    Text(
+        text = groups.joinToString("  |  "),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 20.dp, top = 1.dp, bottom = 7.dp)
+            .horizontalScroll(rememberScrollState()),
+        color = appearance.mobileMuted.copy(alpha = 0.88f),
+        fontSize = 10.5.sp,
+        lineHeight = 14.sp,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Clip,
+    )
+}
+
+private fun formatStatsDuration(millis: Long): String {
+    val seconds = millis / 1_000.0
+    return if (seconds < 60.0) "${formatStatsNumber(seconds)}s" else {
+        val rounded = seconds.roundToLong()
+        "${rounded / 60}m${rounded % 60}s"
+    }
+}
+
+private fun formatStatsTokens(tokens: Long): String = when {
+    tokens < 1_000L -> tokens.toString()
+    tokens < 1_000_000L -> "${formatStatsNumber(tokens / 1_000.0)}K"
+    else -> "${formatStatsNumber(tokens / 1_000_000.0)}M"
+}
+
+private fun formatStatsNumber(value: Double): String {
+    val rounded = if (value >= 100.0) value.roundToLong().toDouble() else (value * 10.0).roundToLong() / 10.0
+    return rounded.toString().removeSuffix(".0")
+}

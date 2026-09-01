@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "eleckoi-context-pressure",
+  "version": "1.0.0",
+  "cordisConfig": "cordis.yml",
+  "files": [
+    "cordis.yml",
+    "context-pressure.mjs"
+  ]
+}
