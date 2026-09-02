@@ -107,9 +107,19 @@ I welcome developers, AI roleplay designers, visual and interaction designers, d
 
 If you also want AI character-card design to become a fuller, more compliant, and more sustainable form of creative work, you are welcome to participate through Issues, Discussions, or Pull Requests.
 
+## Contributors
+
+- **[CoreForgeLab](https://github.com/CoreForgeLab) — Architecture & Database Design**: contributed to the audit, long-term evolution, and refactoring plans for ElecKoi's database and persistence architecture, with particular focus on data boundaries, permission isolation, lifecycles, resource indexing, and backup and recovery models for Character Cards, Character Instances, Agents, and Group Chats, while also helping organize related architecture documentation and public discussions. See the [contributor record](CONTRIBUTORS.en.md#coreforgelab--architecture--database-design).
+
 ## Project Direction and Contribution Terms
 
 ElecKoi's official Android client and future PC client will remain free and open source. The project may eventually be connected to an independent resource and services platform for AI character creation. That platform would support long-term development and fair compensation for collaborators through services, sponsorships, or donations; fulfilling those commitments is an obligation and responsibility.
+
+### Shared Understanding of the Project Direction
+
+Long-term collaboration on ElecKoi means recognizing the basic development direction already stated publicly in this README: the core client will remain free and open source; the rights of open-source projects, original authors, and creators will be respected; the AI character-creation ecosystem will be developed lawfully and responsibly; and the project will work toward a sustainable, mutually reinforcing balance among open collaboration, creator income, and long-term maintenance.
+
+Contributing does not mean that contributors give up copyright in their code or works, nor does it require unconditional acceptance of every future change in direction. If the project makes a substantive change to its open-source model, business model, boundaries around user data, creator rights, or other major principles, it should disclose that change publicly as early as reasonably possible and communicate with contributors, so that current and future participants can make an informed decision about whether to continue collaborating.
 
 Contributors retain copyright in their contributions, while the code continues to be provided under `AGPL-3.0-or-later`. An ordinary Issue or Pull Request does not transfer copyright and does not grant the project the right to relicense a contribution as closed-source code. A future resource website or platform service would likewise gain no additional rights to contributor code, works, or other content.
 
