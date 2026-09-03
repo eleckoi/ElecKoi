@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.eleckoi.android.engine.agent.websearch.TavilyApiClient
 import com.eleckoi.android.feature.settings.data.websearch.WebSearchSettingsRepository
+import com.eleckoi.android.feature.settings.data.websearch.WebSearchMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 internal data class WebSearchSettingsUiState(
+    val mode: WebSearchMode = WebSearchMode.ProviderNative,
     val apiKeyConfigured: Boolean = false,
     val apiKeyDraft: String = "",
     val maxResults: Int = 5,
@@ -24,6 +26,7 @@ internal data class WebSearchSettingsUiState(
 )
 
 internal sealed interface WebSearchSettingsIntent {
+    data class SetMode(val value: WebSearchMode) : WebSearchSettingsIntent
     data class SetApiKeyDraft(val value: String) : WebSearchSettingsIntent
     data class SetMaxResults(val value: Int) : WebSearchSettingsIntent
     data object SaveAndTest : WebSearchSettingsIntent
@@ -44,6 +47,7 @@ class WebSearchSettingsViewModel(
             repository.settings.collect { settings ->
                 _uiState.update {
                     it.copy(
+                        mode = settings.mode,
                         apiKeyConfigured = settings.apiKeyConfigured,
                         maxResults = settings.maxResults,
                     )
@@ -54,6 +58,7 @@ class WebSearchSettingsViewModel(
 
     internal fun onIntent(intent: WebSearchSettingsIntent) {
         when (intent) {
+            is WebSearchSettingsIntent.SetMode -> repository.setMode(intent.value)
             is WebSearchSettingsIntent.SetApiKeyDraft -> _uiState.update {
                 it.copy(apiKeyDraft = intent.value.take(MaxApiKeyChars), notice = "", errorMessage = "")
             }

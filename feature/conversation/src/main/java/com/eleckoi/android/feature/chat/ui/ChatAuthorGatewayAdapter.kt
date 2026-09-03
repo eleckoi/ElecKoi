@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -148,6 +149,29 @@ internal class ChatAuthorGatewayAdapter(
         return accepted("正在切换聊天模型")
     }
 
+    override suspend fun selectOpening(openingOptionId: String): AuthorCommandResult {
+        val current = state()
+        val draft = current.draft ?: return rejected("当前没有聊天上下文")
+        if (current.isSending) return rejected("AI 正在生成，暂时不能更换开场白")
+        if (!draft.openingSelectionEnabled) return rejected("当前不能更换开场白")
+        if (draft.openingOptions.none { it.id == openingOptionId }) {
+            return rejected("没有找到开场白：$openingOptionId")
+        }
+        if (draft.selectedOpeningOptionId == openingOptionId) {
+            return accepted("当前已经是这条开场白")
+        }
+        val sessionId = draft.session.id
+        return actions.selectOpening(sessionId, openingOptionId).fold(
+            onSuccess = { next ->
+                updateState { latest ->
+                    if (latest.draft?.session?.id == sessionId) latest.copy(draft = next) else latest
+                }
+                accepted("开场白已更换")
+            },
+            onFailure = { error -> rejected(error.message ?: "更换开场白失败") },
+        )
+    }
+
     override suspend fun replaceVariableState(stateJson: String): AuthorCommandResult {
         val current = state()
         val sessionId = current.draft?.session?.id.orEmpty()
@@ -190,6 +214,7 @@ internal class ChatAuthorActions(
     val openChat: (String) -> Unit,
     val deleteChat: (String) -> Unit,
     val selectModel: (String, String, ModelParameters) -> Unit,
+    val selectOpening: suspend (String, String) -> Result<ChatDraft>,
     val replaceVariableState: suspend (String, String) -> Result<ChatDraft>,
     val resetVariableState: suspend (String) -> Result<ChatDraft>,
 )
@@ -312,6 +337,33 @@ internal class ChatAuthorEventPublisher(
                         "state",
                         runCatching { Json.parseToJsonElement(currentVariableState) }.getOrNull() ?: JsonNull,
                     )
+                },
+            )
+        }
+
+        val previousOpenings = previous.draft?.let { draft ->
+            Triple(draft.openingOptions, draft.selectedOpeningOptionId, draft.openingSelectionEnabled)
+        }
+        val currentOpenings = current.draft?.let { draft ->
+            Triple(draft.openingOptions, draft.selectedOpeningOptionId, draft.openingSelectionEnabled)
+        }
+        if (currentOpenings != previousOpenings) {
+            val draft = current.draft
+            emit(
+                "opening.changed",
+                buildJsonObject {
+                    put("sessionId", draft?.session?.id.orEmpty())
+                    put("selectedId", draft?.selectedOpeningOptionId.orEmpty())
+                    put("selectionEnabled", draft?.openingSelectionEnabled == true)
+                    put("items", buildJsonArray {
+                        draft?.openingOptions.orEmpty().forEach { option ->
+                            add(buildJsonObject {
+                                put("id", option.id)
+                                put("title", option.title)
+                                put("selected", option.id == draft?.selectedOpeningOptionId)
+                            })
+                        }
+                    })
                 },
             )
         }

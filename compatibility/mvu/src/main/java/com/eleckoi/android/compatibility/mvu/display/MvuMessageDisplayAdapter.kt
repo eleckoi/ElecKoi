@@ -19,6 +19,7 @@ object MvuMessageDisplayAdapter : MessageDisplayCompatibility {
     override fun resolveVariableMacros(text: String, variableStateJson: String): String =
         text.resolveVariableMacros(variableStateJson)
             .injectMvuFrontendSnapshotBridge(variableStateJson)
+            .injectMvuFrontendActionBridge()
 
     const val StatusPlaceholder = "<StatusPlaceHolderImpl/>"
 

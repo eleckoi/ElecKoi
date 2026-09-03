@@ -200,7 +200,7 @@ class RoleplayTranscriptDocumentTest {
         assertTrue(document.contains("frame.className = 'eleckoi-rich-frame'"))
         assertTrue(document.contains("frame.setAttribute('allowtransparency', 'true')"))
         assertTrue(document.contains("const mountRichDocumentFrame = (slot, scope) =>"))
-        assertTrue(document.contains("frame.srcdoc = source"))
+        assertTrue(document.contains("frame.srcdoc = injectEmbeddedAuthorBootstrap(source)"))
         assertTrue(document.contains("const probeEmbeddedDocument = () =>"))
         assertTrue(document.contains("embeddedLocation !== 'about:srcdoc'"))
         assertTrue(document.contains("embeddedDocument.readyState === 'loading'"))
@@ -267,6 +267,7 @@ class RoleplayTranscriptDocumentTest {
         val document = buildRoleplayTranscriptDocument("")
         val markers = listOf(
             "const RichSlotPhase = Object.freeze",
+            "const embeddedAuthorFrames = new WeakMap()",
             "const mountRichDocumentFrame = (slot, scope) =>",
             "const closeRichScope = (slot, reason, nextPhase) =>",
             "window.ElecKoiRichRuntime = Object.freeze",
@@ -278,6 +279,21 @@ class RoleplayTranscriptDocumentTest {
         val positions = markers.map(document::indexOf)
         assertTrue(positions.all { position -> position >= 0 })
         assertTrue(positions.zipWithNext().all { (left, right) -> left < right })
+    }
+
+    @Test
+    fun completeRichDocumentsReceiveMessageScopedSdkWithoutOwningCardCompatibility() {
+        val document = buildRoleplayTranscriptDocument("window.__sdkLoaded = true;")
+
+        assertTrue(document.contains("window.parent?.__ElecKoiEmbeddedAuthorBridge"))
+        assertTrue(document.contains("registerEmbeddedAuthorFrame(frame, slot, scope)"))
+        assertTrue(document.contains("messageId: target.slot.messageId"))
+        assertTrue(document.contains("nativeRequestId = 'embedded-author-'"))
+        assertTrue(document.contains("deliverEmbeddedAuthorResponse = response =>"))
+        assertTrue(document.contains("pending.target === target"))
+        assertTrue(document.contains("(0, eval)(sdkSource)"))
+        assertFalse(document.contains("triggerSlash"))
+        assertFalse(document.contains("window.parent.setChatMessages"))
     }
 
     @Test

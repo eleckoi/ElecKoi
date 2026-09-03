@@ -15,12 +15,14 @@ import com.eleckoi.android.feature.characters.modes.story.settinglibrary.model.S
 import com.eleckoi.android.feature.characters.modes.story.settinglibrary.model.SettingLibraryInsertRole
 import com.eleckoi.android.feature.characters.modes.story.settinglibrary.model.SettingLibraryTriggerMode
 import com.eleckoi.android.feature.characters.modes.story.regex.data.RegexRuleJsonCodec
+import com.eleckoi.android.feature.characters.modes.story.regex.data.hasUnsupportedRegexDepth
 import org.json.JSONArray
 import org.json.JSONObject
 
 internal data class StoryPresetImportConversion(
     val preset: StoryPreset,
     val skippedUnsupportedEntries: Int = 0,
+    val skippedDepthRegexCount: Int = 0,
     val authorAvatarPng: ByteArray? = null,
 )
 
@@ -179,10 +181,23 @@ internal object StoryPresetImportCodec {
             order = 1,
             treeViewOrder = 1,
         )
-        val regexRules = RegexRuleJsonCodec.decodeRules(
-            root.optJSONObject("extensions")?.optJSONArray("regex_scripts")
-                ?: root.optJSONArray("regex_scripts"),
-        )
+        val tavernRegexScripts = root.optJSONObject("extensions")?.optJSONArray("regex_scripts")
+            ?: root.optJSONArray("regex_scripts")
+        var skippedDepthRegexCount = 0
+        val supportedRegexScripts = tavernRegexScripts?.let { scripts ->
+            JSONArray().also { supported ->
+                for (index in 0 until scripts.length()) {
+                    scripts.optJSONObject(index)?.let { rule ->
+                        if (rule.hasUnsupportedRegexDepth()) {
+                            skippedDepthRegexCount += 1
+                        } else {
+                            supported.put(rule)
+                        }
+                    }
+                }
+            }
+        }
+        val regexRules = RegexRuleJsonCodec.decodeRules(supportedRegexScripts)
         return StoryPresetImportConversion(
             preset = StoryPreset(
                 id = "",
@@ -194,6 +209,7 @@ internal object StoryPresetImportCodec {
                 expandedGroupIds = listOf(group.id),
             ),
             skippedUnsupportedEntries = skipped,
+            skippedDepthRegexCount = skippedDepthRegexCount,
         )
     }
 

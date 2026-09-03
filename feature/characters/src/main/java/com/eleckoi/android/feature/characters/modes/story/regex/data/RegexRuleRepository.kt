@@ -90,6 +90,9 @@ class RegexRuleRepository(
         val current = load(characterId)
         val decoded = decodeRegexImportDocuments(documents, scope)
         if (decoded.importedByFile.isEmpty()) {
+            if (decoded.skippedDepthRuleCount > 0) {
+                throw ElecKoiDataException("深度正则不受支持，未导入任何规则")
+            }
             throw ElecKoiDataException("所选文件中没有可导入的正则规则")
         }
         val importedRules = decoded.importedByFile.flatten()
@@ -105,6 +108,7 @@ class RegexRuleRepository(
             collection = save(characterId, merged),
             importedFileCount = decoded.importedByFile.size,
             importedRuleCount = importedRules.size,
+            skippedDepthRuleCount = decoded.skippedDepthRuleCount,
             failedFileNames = decoded.failedFileNames,
         )
     }
@@ -267,6 +271,7 @@ class RegexRuleRepository(
 internal data class DecodedRegexImportDocuments(
     val importedByFile: List<List<ScopedRegexRule>>,
     val failedFileNames: List<String>,
+    val skippedDepthRuleCount: Int,
 )
 
 internal fun decodeRegexImportDocuments(
@@ -274,12 +279,17 @@ internal fun decodeRegexImportDocuments(
     fallbackScope: RegexRuleScope,
 ): DecodedRegexImportDocuments {
     val failedFileNames = mutableListOf<String>()
-    val importedByFile = documents.mapNotNull { document ->
-        runCatching { RegexRuleImportCodec.decodeScoped(document.json, fallbackScope) }
+    val importedByFile = mutableListOf<List<ScopedRegexRule>>()
+    var skippedDepthRuleCount = 0
+    documents.forEach { document ->
+        runCatching { RegexRuleImportCodec.decodeScopedWithReport(document.json, fallbackScope) }
+            .onSuccess { decoded ->
+                skippedDepthRuleCount += decoded.skippedDepthRuleCount
+                if (decoded.rules.isNotEmpty()) importedByFile += decoded.rules
+            }
             .onFailure { failedFileNames += document.displayName }
-            .getOrNull()
     }
-    return DecodedRegexImportDocuments(importedByFile, failedFileNames)
+    return DecodedRegexImportDocuments(importedByFile, failedFileNames, skippedDepthRuleCount)
 }
 
 internal fun List<RegexRule>.normalizedRegexRules(): List<RegexRule> = mapIndexed { index, rule ->
@@ -309,6 +319,17 @@ object RegexRuleImportCodec {
     }
 
     fun decodeScoped(json: String, fallbackScope: RegexRuleScope): List<ScopedRegexRule> {
+        val decoded = decodeScopedWithReport(json, fallbackScope)
+        if (decoded.rules.isEmpty() && decoded.skippedDepthRuleCount > 0) {
+            throw ElecKoiDataException("深度正则不受支持")
+        }
+        return decoded.rules.ifEmpty { throw ElecKoiDataException("文件里没有有效规则") }
+    }
+
+    internal fun decodeScopedWithReport(
+        json: String,
+        fallbackScope: RegexRuleScope,
+    ): DecodedScopedRegexRules {
         val trimmed = json.trim()
         val root = runCatching { JSONObject(trimmed) }.getOrNull()
         val values = when {
@@ -319,24 +340,41 @@ object RegexRuleImportCodec {
             trimmed.startsWith("[") -> runCatching { JSONArray(trimmed) }.getOrNull()
             else -> null
         } ?: throw ElecKoiDataException("文件里没有正则规则")
-        return (0 until values.length()).mapNotNull { index -> values.optJSONObject(index)?.let { item ->
-            ScopedRegexRule(
-                scope = runCatching { RegexRuleScope.valueOf(item.stringOrEmpty("scope")) }.getOrDefault(fallbackScope),
-                rule = RegexRule(
-                name = item.stringOrEmpty("name").ifBlank { item.stringOrEmpty("scriptName") },
-                pattern = item.stringOrEmpty("pattern").ifBlank { item.stringOrEmpty("findRegex") },
-                replacement = item.stringOrEmpty("replacement").ifBlank { item.stringOrEmpty("replaceString") },
-                targets = importedTargets(item),
-                enabled = !item.optBoolean("disabled", false) && item.optBoolean("enabled", true),
-                displayOnly = item.optBoolean("display_only", item.optBoolean("markdownOnly", false)),
-                promptOnly = item.optBoolean("prompt_only", item.optBoolean("promptOnly", false)),
-                runOnEdit = item.optBoolean("run_on_edit", item.optBoolean("runOnEdit", false)),
-                order = index,
-            ),
-            )
-        } }.filter { it.rule.pattern.isNotBlank() }.ifEmpty { throw ElecKoiDataException("文件里没有有效规则") }
+        var skippedDepthRuleCount = 0
+        val rules = (0 until values.length()).mapNotNull { index ->
+            values.optJSONObject(index)?.let { item ->
+                if (item.hasUnsupportedRegexDepth()) {
+                    skippedDepthRuleCount += 1
+                    null
+                } else {
+                    ScopedRegexRule(
+                        scope = runCatching {
+                            RegexRuleScope.valueOf(item.stringOrEmpty("scope"))
+                        }.getOrDefault(fallbackScope),
+                        rule = RegexRule(
+                            name = item.stringOrEmpty("name").ifBlank { item.stringOrEmpty("scriptName") },
+                            pattern = item.stringOrEmpty("pattern").ifBlank { item.stringOrEmpty("findRegex") },
+                            replacement = item.stringOrEmpty("replacement")
+                                .ifBlank { item.stringOrEmpty("replaceString") },
+                            targets = importedTargets(item),
+                            enabled = !item.optBoolean("disabled", false) && item.optBoolean("enabled", true),
+                            displayOnly = item.optBoolean("display_only", item.optBoolean("markdownOnly", false)),
+                            promptOnly = item.optBoolean("prompt_only", item.optBoolean("promptOnly", false)),
+                            runOnEdit = item.optBoolean("run_on_edit", item.optBoolean("runOnEdit", false)),
+                            order = index,
+                        ),
+                    )
+                }
+            }
+        }.filter { it.rule.pattern.isNotBlank() }
+        return DecodedScopedRegexRules(rules, skippedDepthRuleCount)
     }
 }
+
+internal data class DecodedScopedRegexRules(
+    val rules: List<ScopedRegexRule>,
+    val skippedDepthRuleCount: Int,
+)
 
 data class ScopedRegexRule(val scope: RegexRuleScope, val rule: RegexRule)
 

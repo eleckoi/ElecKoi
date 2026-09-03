@@ -154,6 +154,7 @@ class StoryPresetViewModel(
             var importedEntryCount = 0
             var importedRegexCount = 0
             var skippedCount = 0
+            var skippedDepthRegexCount = 0
             val failures = mutableListOf<String>()
             documents.forEach { document ->
                 runCatching {
@@ -163,6 +164,7 @@ class StoryPresetViewModel(
                     importedEntryCount += conversion.preset.entries.size
                     importedRegexCount += conversion.preset.regexRules.size
                     skippedCount += conversion.skippedUnsupportedEntries
+                    skippedDepthRegexCount += conversion.skippedDepthRegexCount
                 }.onFailure { error ->
                     failures += "${document.fileName}: ${error.message ?: "导入失败"}"
                 }
@@ -173,6 +175,9 @@ class StoryPresetViewModel(
                     append("已导入 $importedCount 个预设，共 $importedEntryCount 个条目")
                     if (importedRegexCount > 0) append("、$importedRegexCount 条正则")
                     if (skippedCount > 0) append("，忽略 $skippedCount 个酒馆动态占位")
+                    if (skippedDepthRegexCount > 0) {
+                        append("，跳过 $skippedDepthRegexCount 条不支持的深度正则")
+                    }
                     if (failures.isNotEmpty()) append("；${failures.size} 个文件失败")
                 }
             }

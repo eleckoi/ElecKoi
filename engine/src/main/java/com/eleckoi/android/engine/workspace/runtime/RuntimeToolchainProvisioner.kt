@@ -254,7 +254,7 @@ internal object RuntimeHealthCommand {
         return """
             set -eu
             $harnessChecks
-            landlock_launcher=/opt/eleckoi/bin/landlock-run
+            landlock_launcher=${RuntimeGuestLayout.LandlockLauncherGuestPath}
             test -x "${'$'}landlock_launcher"
             landlock_report="${'$'}("${'$'}landlock_launcher" --probe 2>&1 || true)"
             case "${'$'}landlock_report" in

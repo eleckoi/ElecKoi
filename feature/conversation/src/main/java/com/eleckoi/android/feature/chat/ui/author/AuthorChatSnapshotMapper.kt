@@ -10,6 +10,8 @@ import com.eleckoi.android.sdk.author.AuthorChatListItemSnapshot
 import com.eleckoi.android.sdk.author.AuthorChatSessionSnapshot
 import com.eleckoi.android.sdk.author.AuthorMessageSnapshot
 import com.eleckoi.android.sdk.author.AuthorModelParameters
+import com.eleckoi.android.sdk.author.AuthorOpeningOptionSnapshot
+import com.eleckoi.android.sdk.author.AuthorOpeningStateSnapshot
 import com.eleckoi.android.sdk.author.AuthorToolCallSnapshot
 
 internal fun ChatDraft.toAuthorSnapshot() = AuthorChatDraftSnapshot(
@@ -17,6 +19,13 @@ internal fun ChatDraft.toAuthorSnapshot() = AuthorChatDraftSnapshot(
     selectedConfigId = selectedModelConfig.id,
     selectedModel = selectedModel,
     modelParameters = modelParameters.toAuthorSnapshot(),
+    openings = AuthorOpeningStateSnapshot(
+        items = openingOptions.map { option ->
+            AuthorOpeningOptionSnapshot(id = option.id, title = option.title)
+        },
+        selectedId = selectedOpeningOptionId,
+        selectionEnabled = openingSelectionEnabled,
+    ),
 )
 
 internal fun ChatSession.toAuthorSnapshot() = AuthorChatSessionSnapshot(

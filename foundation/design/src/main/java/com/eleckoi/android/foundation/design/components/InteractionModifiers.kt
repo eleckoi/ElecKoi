@@ -5,7 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.DisposableEffect
@@ -47,15 +50,20 @@ class FocusDismissRegistry {
 
 val LocalFocusDismissRegistry = compositionLocalOf<FocusDismissRegistry?> { null }
 
-/** Lets the full visual input surface focus its actual text editor without consuming its tap. */
+/**
+ * Lets the full visual input surface focus its actual text editor without consuming its tap.
+ *
+ * Focus is requested only after a complete tap. A pointer-down is deliberately not enough: when
+ * the field is inside a vertically scrolling form, a drag also starts with a pointer-down and
+ * must remain a scroll rather than opening the keyboard.
+ */
 fun Modifier.focusInputOnPointerDown(focusRequester: FocusRequester): Modifier =
     pointerInput(focusRequester) {
-        awaitPointerEventScope {
-            while (true) {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
-                if (event.changes.any { change -> change.changedToDownIgnoreConsumed() }) {
-                    focusRequester.requestFocus()
-                }
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            val up = waitForUpOrCancellation()
+            if (up != null && !down.isConsumed && !up.isConsumed) {
+                focusRequester.requestFocus()
             }
         }
     }

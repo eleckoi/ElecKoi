@@ -37,6 +37,22 @@ class AuthorApiEventAccessTest {
     }
 
     @Test
+    fun `opening event requires opening read permission`() {
+        assertTrue(
+            AuthorApiEventAccess.canReceive(
+                "opening.changed",
+                setOf(AuthorApiPermission.EventsRead, AuthorApiPermission.OpeningsRead),
+            ),
+        )
+        assertFalse(
+            AuthorApiEventAccess.canReceive(
+                "opening.changed",
+                setOf(AuthorApiPermission.EventsRead, AuthorApiPermission.MessagesRead),
+            ),
+        )
+    }
+
+    @Test
     fun `unknown events fail closed`() {
         assertFalse(
             AuthorApiEventAccess.canReceive(

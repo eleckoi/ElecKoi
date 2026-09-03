@@ -5,9 +5,12 @@ enum class AuthorApiPermission(val wireName: String) {
     ContextRead("context.read"),
     VariablesRead("variables.read"),
     VariablesWrite("variables.write"),
+    OpeningsRead("openings.read"),
+    OpeningsWrite("openings.write"),
     MessagesRead("messages.read"),
     MessagesWrite("messages.write"),
     ChatRead("chat.read"),
+    ChatSend("chat.send"),
     ChatWrite("chat.write"),
     CharacterRead("character.read"),
     SettingLibraryRead("setting_library.read"),
@@ -18,7 +21,7 @@ enum class AuthorApiPermission(val wireName: String) {
 
     companion object {
         val previewReadOnly: Set<AuthorApiPermission> = entries.toSet()
-            .filterNot { it.wireName.endsWith(".write") }
+            .filterNot { it.wireName.endsWith(".write") || it == ChatSend }
             .toSet()
         val previewLocalFull: Set<AuthorApiPermission> = entries.toSet()
         val inlineMessageReadOnly: Set<AuthorApiPermission> = setOf(
@@ -26,6 +29,11 @@ enum class AuthorApiPermission(val wireName: String) {
             ContextRead,
             VariablesRead,
             MessagesRead,
+        )
+        val inlineMessageInteractive: Set<AuthorApiPermission> = inlineMessageReadOnly + setOf(
+            OpeningsRead,
+            OpeningsWrite,
+            ChatSend,
         )
 
         fun fromWireName(value: String): AuthorApiPermission? {

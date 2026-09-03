@@ -4,8 +4,9 @@ internal val RoleplayTranscriptRuntimeCore = """
   (() => {
     'use strict';
     const native = window.ElecKoiTranscript;
+    const authorSdkBase64 = '__ELECKOI_AUTHOR_SDK_BASE64__';
     const authorSdkSource = new TextDecoder().decode(
-      Uint8Array.from(atob('__ELECKOI_AUTHOR_SDK_BASE64__'), character => character.charCodeAt(0)),
+      Uint8Array.from(atob(authorSdkBase64), character => character.charCodeAt(0)),
     );
     const topSpacer = document.getElementById('top-spacer');
     const turns = document.getElementById('turns');
@@ -144,12 +145,14 @@ internal val RoleplayTranscriptRuntimeCore = """
         post({ type: 'author', messageId, request: String(request || '') });
       },
     };
+    let deliverEmbeddedAuthorResponse = () => false;
     window.ElecKoiNative = authorTransport;
     if (native) {
       native.onmessage = event => {
         let message;
         try { message = JSON.parse(event.data); } catch (_) { return; }
         if (message.type === 'authorResult') {
+          if (deliverEmbeddedAuthorResponse(message.response)) return;
           if (typeof authorTransport.onmessage === 'function') {
             authorTransport.onmessage({ data: message.response });
           }

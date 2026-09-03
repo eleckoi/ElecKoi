@@ -384,6 +384,7 @@ fun ChatScreen(
                                 onOpenUserAvatars = onOpenUserAvatars,
                                 onOpenCharacterSettings = onOpenCharacterSettings,
                                 onRendererUnavailable = timeline.onRoleplayRendererUnavailable,
+                                messageGateway = viewModel,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }

@@ -85,6 +85,7 @@ internal object AuthorApiEventAccess {
     private val requiredDataPermission = mapOf(
         "context.changed" to AuthorApiPermission.ContextRead,
         "variables.changed" to AuthorApiPermission.VariablesRead,
+        "opening.changed" to AuthorApiPermission.OpeningsRead,
         "messages.changed" to AuthorApiPermission.MessagesRead,
         "message.delta" to AuthorApiPermission.MessagesRead,
         "chat.changed" to AuthorApiPermission.ChatRead,

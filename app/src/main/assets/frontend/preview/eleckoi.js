@@ -1,7 +1,7 @@
 (function installElecKoiAuthorApi(global) {
   "use strict";
 
-  const API_VERSION = "0.2.0-preview.3";
+  const API_VERSION = "0.2.0-preview.5";
   if (global.ElecKoi && global.ElecKoi.api && global.ElecKoi.api.version === API_VERSION) {
     return;
   }
@@ -119,6 +119,11 @@
       merge: (state) => call("variables.merge", { state }),
       applyPatch: (patch) => call("variables.applyPatch", { patch }),
       reset: () => call("variables.reset"),
+    }),
+    openings: Object.freeze({
+      list: () => call("openings.list"),
+      current: () => call("openings.current"),
+      select: (id) => call("openings.select", { id }),
     }),
     messages: Object.freeze({
       list: () => call("messages.list"),

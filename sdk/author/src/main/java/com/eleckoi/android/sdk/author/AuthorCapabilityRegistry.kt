@@ -9,6 +9,7 @@ import com.eleckoi.android.sdk.author.context.ContextAuthorApi
 import com.eleckoi.android.sdk.author.events.AuthorEventApi
 import com.eleckoi.android.sdk.author.input.InputAuthorApi
 import com.eleckoi.android.sdk.author.messages.MessageAuthorApi
+import com.eleckoi.android.sdk.author.openings.OpeningAuthorApi
 import com.eleckoi.android.sdk.author.setting_library.SettingLibraryAuthorApi
 import com.eleckoi.android.sdk.author.variables.VariableAuthorApi
 import kotlinx.serialization.json.JsonElement
@@ -29,6 +30,7 @@ internal object AuthorCapabilityRegistry {
                 AppAuthorApi.routes,
                 ContextAuthorApi.routes,
                 VariableAuthorApi.routes,
+                OpeningAuthorApi.routes,
                 MessageAuthorApi.routes,
                 ChatAuthorApi.routes,
                 CharacterAuthorApi.routes,

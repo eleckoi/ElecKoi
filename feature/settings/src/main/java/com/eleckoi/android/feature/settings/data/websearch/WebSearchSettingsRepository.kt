@@ -8,11 +8,24 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 data class WebSearchSettings(
+    val mode: WebSearchMode = WebSearchMode.ProviderNative,
     val apiKeyConfigured: Boolean = false,
     val maxResults: Int = DefaultMaxResults,
 ) {
     companion object {
         const val DefaultMaxResults = 5
+    }
+}
+
+enum class WebSearchMode(val storageValue: String) {
+    ProviderNative("provider_native"),
+    Tavily("tavily"),
+    ;
+
+    companion object {
+        fun fromStorageValue(value: String?): WebSearchMode = entries
+            .firstOrNull { it.storageValue == value }
+            ?: ProviderNative
     }
 }
 
@@ -26,6 +39,11 @@ class WebSearchSettingsRepository(
     )
     private val _settings = MutableStateFlow(loadSettings())
     val settings: StateFlow<WebSearchSettings> = _settings.asStateFlow()
+
+    fun setMode(mode: WebSearchMode) {
+        _settings.value = _settings.value.copy(mode = mode)
+        preferences.edit().putString(ModeKey, mode.storageValue).apply()
+    }
 
     fun setMaxResults(maxResults: Int) {
         val normalized = maxResults.coerceIn(MinResults, MaxResults)
@@ -57,6 +75,7 @@ class WebSearchSettingsRepository(
     fun isConfigured(): Boolean = settings.value.apiKeyConfigured
 
     private fun loadSettings(): WebSearchSettings = WebSearchSettings(
+        mode = WebSearchMode.fromStorageValue(preferences.getString(ModeKey, null)),
         apiKeyConfigured = preferences.getString(ApiKeyKey, "").orEmpty().isNotBlank(),
         maxResults = preferences.getInt(MaxResultsKey, WebSearchSettings.DefaultMaxResults)
             .coerceIn(MinResults, MaxResults),
@@ -64,6 +83,7 @@ class WebSearchSettingsRepository(
 
     private companion object {
         const val PreferencesName = "eleckoi_web_search"
+        const val ModeKey = "search_mode"
         const val ApiKeyKey = "tavily_api_key"
         const val MaxResultsKey = "max_results"
         const val SecretId = "tavily-web-search"

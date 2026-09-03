@@ -19,6 +19,7 @@ internal object RuntimeGuestLayout {
         "var/tmp",
         "workspace",
         "opt/eleckoi",
+        "run/eleckoi",
     )
     private val devicePlaceholders = listOf(
         "dev/null",
@@ -27,6 +28,17 @@ internal object RuntimeGuestLayout {
         "dev/urandom",
     )
     private const val ResolverPlaceholder = "etc/resolv.conf"
+    private const val ProotLoaderPlaceholder = "run/eleckoi/proot-loader"
+    private const val LandlockLauncher = "run/eleckoi/landlock-run"
+    internal const val ProotLoaderGuestPath = "/run/eleckoi/proot-loader"
+    internal const val LandlockLauncherGuestPath = "/run/eleckoi/landlock-run"
+    private val LandlockLauncherScript = """
+        #!/bin/sh
+        if [ "${'$'}#" -eq 1 ] && [ "${'$'}1" = "--probe" ]; then
+          exec /opt/eleckoi/bin/landlock-run --probe
+        fi
+        exec /opt/eleckoi/bin/landlock-run --ro $ProotLoaderGuestPath "${'$'}@"
+    """.trimIndent() + "\n"
 
     fun prepare(
         rootfs: File,
@@ -65,6 +77,12 @@ internal object RuntimeGuestLayout {
             "DNS 挂载目标不是安全的普通文件"
         }
 
+        val prootLoader = prepareRegularFile(rootfs, ProotLoaderPlaceholder, "PRoot loader 挂载目标")
+        require(prootLoader.length() == 0L) { "PRoot loader 挂载目标必须为空" }
+        val landlockLauncher = prepareRegularFile(rootfs, LandlockLauncher, "Landlock 兼容启动器")
+        landlockLauncher.writeText(LandlockLauncherScript, Charsets.UTF_8)
+        chmod(landlockLauncher.absolutePath, 0x1ed) // 0755
+
         directories.forEach { relative ->
             val target = safeTarget(rootfs, relative).toPath().toAbsolutePath().normalize()
             require(target.startsWith(root)) { "运行时挂载目录越界" }
@@ -82,8 +100,24 @@ internal object RuntimeGuestLayout {
                 target.isFile && !Files.isSymbolicLink(target.toPath())
             } && safeTarget(rootfs, ResolverPlaceholder).let { target ->
                 target.isFile && !Files.isSymbolicLink(target.toPath())
+            } && safeTarget(rootfs, ProotLoaderPlaceholder).let { target ->
+                target.isFile && !Files.isSymbolicLink(target.toPath()) && target.length() == 0L
+            } && safeTarget(rootfs, LandlockLauncher).let { target ->
+                target.isFile && !Files.isSymbolicLink(target.toPath()) &&
+                    target.readText(Charsets.UTF_8) == LandlockLauncherScript
             }
     }.getOrDefault(false)
+
+    private fun prepareRegularFile(rootfs: File, relative: String, label: String): File {
+        val target = safeTarget(rootfs, relative)
+        require(!Files.isSymbolicLink(target.toPath())) { "${label}不能是符号链接" }
+        target.parentFile?.let { parent ->
+            require(parent.isDirectory || parent.mkdirs()) { "无法创建${label}目录" }
+        }
+        if (!target.exists()) require(target.createNewFile()) { "无法创建$label" }
+        require(target.isFile) { "${label}不是普通文件" }
+        return target
+    }
 
     private fun safeTarget(
         rootfs: File,

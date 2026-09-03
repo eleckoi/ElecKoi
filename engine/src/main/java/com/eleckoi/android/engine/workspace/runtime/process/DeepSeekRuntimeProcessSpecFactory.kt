@@ -99,6 +99,7 @@ internal class DeepSeekRuntimeProcessSpecFactory(
             add(home to GuestHome)
             add(guestTemp to GuestTemp)
             add(guestTemp to GuestVarTemp)
+            add(loader to RuntimeGuestLayout.ProotLoaderGuestPath)
         }
         val arguments = buildList {
             add(proot.absolutePath)
@@ -129,7 +130,7 @@ internal class DeepSeekRuntimeProcessSpecFactory(
             add("DSH_SESSION_ROOT=$GuestDeepSeekHome/sessions")
             add("DSH_CORDIS_CONFIG=$guestConfig")
             add("DSH_RIPGREP_PATH=$GuestTools/$RipgrepRelativePath")
-            add("DSH_LANDLOCK_PATH=$GuestTools/$LandlockRelativePath")
+            add("DSH_LANDLOCK_PATH=${RuntimeGuestLayout.LandlockLauncherGuestPath}")
             add("DSH_SYSTEM_PROMPT=${launchSpec.systemPrompt.ifBlank { DefaultSystemPrompt }}")
             add("ELECKOI_PROVIDER_BASE_URL=${launchSpec.providerBaseUrl}")
             add("ELECKOI_HOST_TOOLS_URL=$hostToolsUrl")

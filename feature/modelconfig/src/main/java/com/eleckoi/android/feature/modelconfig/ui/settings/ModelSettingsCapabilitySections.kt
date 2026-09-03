@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eleckoi.android.engine.generation.model.ModelConfig
 import com.eleckoi.android.engine.generation.model.ModelOption
+import com.eleckoi.android.engine.generation.model.configuredContextWindowTokens
 import com.eleckoi.android.engine.generation.model.isOfficialDeepSeekVisionModel
 import com.eleckoi.android.engine.generation.reasoning.DshReasoningEfforts
 import com.eleckoi.android.feature.modelconfig.ui.components.ModelFieldDivider
@@ -125,6 +126,7 @@ private fun ModelLimitSection(
     imeBottomPx: Int,
     onUpdate: (ModelConfig) -> Unit,
 ) {
+    val automaticContextWindow = form.configuredContextWindowTokens()
     ModelSectionHeader("上限", appearance, actions = {})
     ModelFieldGroup(appearance) {
         ModelInlineField(
@@ -133,7 +135,7 @@ private fun ModelLimitSection(
             placeholder = if (form.model.isBlank()) {
                 "先选模型"
             } else {
-                "自动 ${ModelOption.AgentFallbackContextWindowTokens}"
+                "自动 $automaticContextWindow"
             },
             appearance = appearance,
             scrollState = scrollState,
@@ -153,8 +155,7 @@ private fun ModelLimitSection(
             placeholder = if (form.model.isBlank()) {
                 "先选模型"
             } else {
-                val contextWindow = activeModelOption?.contextWindowTokens
-                    ?: ModelOption.AgentFallbackContextWindowTokens
+                val contextWindow = automaticContextWindow
                 val automaticLimit = contextWindow.toLong() *
                     ModelOption.AgentDefaultAutoCompactPercent / 100L
                 "自动 $automaticLimit"

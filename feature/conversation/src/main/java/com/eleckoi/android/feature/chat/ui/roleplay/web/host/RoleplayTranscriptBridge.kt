@@ -14,6 +14,7 @@ import com.eleckoi.android.feature.chat.ui.roleplay.web.model.RoleplayTranscript
 import com.eleckoi.android.feature.chat.ui.roleplay.web.surface.RoleplayWebChatCallbacks
 import com.eleckoi.android.sdk.author.AuthorApiEnvironment
 import com.eleckoi.android.sdk.author.AuthorApiRouter
+import com.eleckoi.android.sdk.author.AuthorInlineMessageGateway
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +25,7 @@ import org.json.JSONObject
 internal class RoleplayTranscriptBridge(
     private val appContext: Context,
     private val messageProvider: (String) -> ChatMessage?,
+    private val messageGatewayProvider: () -> AuthorInlineMessageGateway?,
     private val callbacksProvider: () -> RoleplayWebChatCallbacks,
     private val onReady: (Long, String) -> Unit,
     private val onTransactionCommitted: (Long, String) -> Unit,
@@ -99,6 +101,7 @@ internal class RoleplayTranscriptBridge(
                         val environment = AuthorApiEnvironment.forInlineMessage(
                             appContext = appContext,
                             message = source.toAuthorSnapshot(),
+                            messageGateway = messageGatewayProvider(),
                         )
                         val response = AuthorApiRouter(environment).route(request)
                         replyProxy.postMessage(

@@ -176,7 +176,12 @@ fun ModelConfig.configuredContextWindowTokens(): Int = modelOptions
     .firstOrNull { it.id == model.trim() }
     ?.contextWindowTokens
     ?.takeIf { it in ModelOption.MinContextWindowTokens..ModelOption.MaxContextWindowTokens }
-    ?: ModelOption.AgentFallbackContextWindowTokens
+    ?: defaultContextWindowTokens()
+
+/** Provider-aware capacity used only when the selected model has no explicit metadata. */
+fun ModelConfig.defaultContextWindowTokens(): Int =
+    if (isOfficialDeepSeekEndpoint()) DeepSeekOfficialContextWindowTokens
+    else ModelOption.AgentFallbackContextWindowTokens
 
 /** Optional absolute pressure point for DSH automatic history compaction. */
 fun ModelConfig.configuredAutoCompactTokenLimit(): Int? {
@@ -242,4 +247,5 @@ data class ModelOption(
 }
 
 const val DeepSeekOfficialVisionModel: String = "deepseek-v4-flash-vision-exp"
+const val DeepSeekOfficialContextWindowTokens: Int = 1_000_000
 private const val DeepSeekOfficialApiHost: String = "api.deepseek.com"

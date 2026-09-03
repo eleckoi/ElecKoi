@@ -97,9 +97,15 @@ class RegexRulesViewModel(
                     val remaining = (failures.size - 2).coerceAtLeast(0)
                     "；${failures.size} 个文件无法识别：$names${if (remaining > 0) " 等" else ""}"
                 }.orEmpty()
+                val unsupportedSuffix = if (result.skippedDepthRuleCount > 0) {
+                    "；已跳过 ${result.skippedDepthRuleCount} 条不支持的深度正则"
+                } else {
+                    ""
+                }
                 _effects.emit(
                     RegexRulesEffect.RulesImported(
-                        "已从 ${result.importedFileCount} 个文件导入 ${result.importedRuleCount} 条正则$failureSuffix",
+                        "已从 ${result.importedFileCount} 个文件导入 ${result.importedRuleCount} 条正则" +
+                            "$unsupportedSuffix$failureSuffix",
                     ),
                 )
             }.onFailure { error ->

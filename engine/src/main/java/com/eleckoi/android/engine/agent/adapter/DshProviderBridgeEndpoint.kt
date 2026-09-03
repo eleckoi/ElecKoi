@@ -3,6 +3,7 @@ package com.eleckoi.android.engine.agent.adapter
 import com.eleckoi.android.engine.agent.adapter.AdapterHttpCodec.writeJson
 import com.eleckoi.android.engine.agent.adapter.AdapterHttpCodec.writeJsonError
 import com.eleckoi.android.engine.agent.diagnostics.AgentRequestDiagnostics
+import com.eleckoi.android.engine.agent.adapter.request.ProviderNativeWebSearchProjector
 import com.eleckoi.android.engine.generation.model.ModelApiFormat
 import com.eleckoi.android.engine.generation.model.configuredMaxOutputTokens
 import com.eleckoi.android.engine.generation.model.effectiveApiFormat
@@ -200,8 +201,13 @@ internal class DshProviderBridgeEndpoint(
         prepared: PreparedProviderRequest,
     ): JsonObject {
         val config = prepared.modelConfig
+        val projected = ProviderNativeWebSearchProjector.project(
+            request = request,
+            format = prepared.format,
+            modelConfig = config,
+        )
         return buildJsonObject {
-            request.forEach { (key, value) -> put(key, value) }
+            projected.forEach { (key, value) -> put(key, value) }
             if (prepared.format != ProviderWireFormat.GoogleGemini) {
                 put("model", config.model.trim())
             }

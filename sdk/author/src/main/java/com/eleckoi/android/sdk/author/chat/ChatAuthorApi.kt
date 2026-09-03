@@ -7,6 +7,7 @@ import com.eleckoi.android.sdk.author.AuthorApiErrorCode
 import com.eleckoi.android.sdk.author.AuthorApiEnvironment
 import com.eleckoi.android.sdk.author.AuthorModelParameters
 import com.eleckoi.android.sdk.author.requireChatGateway
+import com.eleckoi.android.sdk.author.requireMessageSendGateway
 import com.eleckoi.android.sdk.author.toAuthorJson
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
@@ -96,7 +97,7 @@ internal object ChatAuthorApi {
         },
         AuthorApiRoute(AuthorApiCatalog.require("chat.send")) { environment, params ->
             val text = (params["text"] as? JsonPrimitive)?.content.orEmpty()
-            environment.requireChatGateway().send(text).toAuthorJson()
+            environment.requireMessageSendGateway().send(text).toAuthorJson()
         },
         AuthorApiRoute(AuthorApiCatalog.require("chat.stopGeneration")) { environment, _ ->
             environment.requireChatGateway().stopGeneration().toAuthorJson()

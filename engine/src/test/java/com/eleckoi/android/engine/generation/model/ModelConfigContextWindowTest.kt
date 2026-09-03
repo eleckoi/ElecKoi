@@ -46,6 +46,51 @@ class ModelConfigContextWindowTest {
     }
 
     @Test
+    fun `official DeepSeek endpoint defaults missing model metadata to one million tokens`() {
+        assertEquals(
+            DeepSeekOfficialContextWindowTokens,
+            ModelConfig(
+                provider = "deepseek",
+                model = "deepseek-v4-pro",
+            ).configuredContextWindowTokens(),
+        )
+        assertEquals(
+            DeepSeekOfficialContextWindowTokens,
+            ModelConfig(
+                provider = "custom",
+                baseUrl = "https://api.deepseek.com/v1",
+                model = "deepseek-v4-flash",
+            ).configuredContextWindowTokens(),
+        )
+    }
+
+    @Test
+    fun `DeepSeek relay keeps the conservative fallback when model metadata is absent`() {
+        assertEquals(
+            ModelOption.AgentFallbackContextWindowTokens,
+            ModelConfig(
+                provider = "deepseek",
+                baseUrl = "https://relay.example/v1",
+                model = "deepseek-v4-pro",
+            ).configuredContextWindowTokens(),
+        )
+    }
+
+    @Test
+    fun `explicit official DeepSeek model capacity overrides the provider default`() {
+        assertEquals(
+            128_000,
+            ModelConfig(
+                provider = "deepseek",
+                model = "deepseek-v4-pro",
+                modelOptions = listOf(
+                    ModelOption(id = "deepseek-v4-pro", contextWindowTokens = 128_000),
+                ),
+            ).configuredContextWindowTokens(),
+        )
+    }
+
+    @Test
     fun `new model provider configurations prefer Responses`() {
         assertEquals(ModelApiFormat.Responses, defaultApiFormatForProvider("custom"))
         assertEquals(ModelApiFormat.Responses, defaultApiFormatForProvider("deepseek"))

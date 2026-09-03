@@ -21,6 +21,7 @@ import com.eleckoi.android.feature.chat.ui.roleplay.web.model.RoleplayTranscript
 import com.eleckoi.android.feature.chat.ui.roleplay.web.model.toBootstrapJson
 import com.eleckoi.android.feature.chat.ui.roleplay.web.surface.RoleplayWebChatCallbacks
 import com.eleckoi.android.sdk.author.AuthorFrontendSdk
+import com.eleckoi.android.sdk.author.AuthorInlineMessageGateway
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -34,6 +35,7 @@ import java.io.FileInputStream
 internal class RoleplayWebChatHost(
     context: Context,
     initialCallbacks: RoleplayWebChatCallbacks,
+    messageGateway: AuthorInlineMessageGateway,
 ) {
     private val appContext = context.applicationContext
     private var callbacks = initialCallbacks
@@ -55,6 +57,7 @@ internal class RoleplayWebChatHost(
     private val bridge = RoleplayTranscriptBridge(
         appContext = appContext,
         messageProvider = { id -> latestModel?.messages?.firstOrNull { it.source.id == id }?.source },
+        messageGatewayProvider = { messageGateway },
         callbacksProvider = { callbacks },
         onReady = ::onPresentationReady,
         onTransactionCommitted = ::onTransactionCommitted,
@@ -126,7 +129,12 @@ internal class RoleplayWebChatHost(
                 request: WebResourceRequest,
             ): Boolean {
                 val uri = request.url
-                if (request.isForMainFrame && uri.toString().startsWith(RoleplayTranscriptOrigin)) {
+                if (
+                    shouldKeepRoleplayNavigationInWebView(
+                        isForMainFrame = request.isForMainFrame,
+                        url = uri.toString(),
+                    )
+                ) {
                     return false
                 }
                 return openExternalUri(uri)
@@ -369,3 +377,8 @@ internal class RoleplayWebChatHost(
         }.isSuccess
     }
 }
+
+internal fun shouldKeepRoleplayNavigationInWebView(
+    isForMainFrame: Boolean,
+    url: String,
+): Boolean = !isForMainFrame || url.startsWith(RoleplayTranscriptOrigin)

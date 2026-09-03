@@ -28,6 +28,7 @@ import com.eleckoi.android.foundation.design.components.StrokeSvgIcon
 import com.eleckoi.android.foundation.design.components.noRippleClickable
 import com.eleckoi.android.engine.generation.model.ModelConfig
 import com.eleckoi.android.engine.generation.model.ModelOption
+import com.eleckoi.android.engine.generation.model.configuredContextWindowTokens
 import com.eleckoi.android.engine.generation.model.isOfficialDeepSeekVisionModel
 import com.eleckoi.android.engine.generation.reasoning.DshReasoningEfforts
 import com.eleckoi.android.feature.modelconfig.ui.components.ModelInlineField
@@ -83,7 +84,10 @@ internal fun ModelParamsPage(
     val contextValue = contextWindow.toOptionalInt()
     val compactValue = autoCompact.toOptionalInt()
     val outputValue = maxOutput.toOptionalInt()
-    val effectiveContext = contextValue ?: option?.contextWindowTokens
+    val automaticContextWindow = selectedConfig
+        ?.copy(model = selectedModel)
+        ?.configuredContextWindowTokens()
+    val effectiveContext = contextValue ?: option?.contextWindowTokens ?: automaticContextWindow
 
     val contextError = contextWindow.isNotBlank() && contextValue?.let {
         it in ModelOption.MinContextWindowTokens..ModelOption.MaxContextWindowTokens
@@ -273,7 +277,7 @@ internal fun ModelParamsPage(
             ModelInlineField(
                 label = "上下文窗口",
                 value = contextWindow,
-                placeholder = if (editable) "272000" else "先选择模型",
+                placeholder = if (editable) automaticContextWindow?.toString().orEmpty() else "先选择模型",
                 appearance = appearance,
                 isError = contextError,
                 onChange = { contextWindow = it.onlyDigits() },

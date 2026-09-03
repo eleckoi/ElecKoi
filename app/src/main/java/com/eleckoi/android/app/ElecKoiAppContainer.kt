@@ -11,10 +11,12 @@ import com.eleckoi.android.engine.agent.api.AgentSessionFactory
 import com.eleckoi.android.engine.agent.api.AgentHarnessId
 import com.eleckoi.android.engine.agent.api.AgentUpdateRoleplayPlanTool
 import com.eleckoi.android.engine.agent.api.AgentWebSearchTool
+import com.eleckoi.android.engine.agent.api.AgentNativeWebSearchBridgeTool
 import com.eleckoi.android.engine.agent.api.AgentRemoteDshTaskTool
 import com.eleckoi.android.engine.agent.search.RipgrepAgentVirtualFileSearch
 import com.eleckoi.android.engine.agent.websearch.TavilyApiClient
 import com.eleckoi.android.engine.agent.websearch.tavilyWebSearchTool
+import com.eleckoi.android.engine.agent.websearch.nativeWebSearchBridgeTool
 import com.eleckoi.android.engine.agent.tools.AgentToolCatalogStore
 import com.eleckoi.android.engine.agent.tools.AgentToolContextSnapshot
 import com.eleckoi.android.engine.agent.tools.AgentToolRequestPolicy
@@ -28,6 +30,7 @@ import com.eleckoi.android.app.background.AgentBackgroundProtection
 import com.eleckoi.android.feature.agenttools.data.AgentToolsRepository
 import com.eleckoi.android.feature.characters.modes.story.settinglibrary.model.withRoleplayPlanEnabled
 import com.eleckoi.android.feature.settings.data.websearch.WebSearchSettingsRepository
+import com.eleckoi.android.feature.settings.data.websearch.WebSearchMode
 import com.eleckoi.android.engine.agent.remotedsh.RemoteDshPlugin
 import com.eleckoi.android.engine.agent.remotedsh.RemoteDshConnectionState
 import com.eleckoi.android.engine.agent.remotedsh.remoteDshTaskTool
@@ -114,8 +117,18 @@ class ElecKoiAppContainer(context: Context) : AutoCloseable {
     val agentSessions: AgentSessionFactory = AgentSessionFactory { options ->
         val activeToolContext = agentToolCatalogStore.toolContextSnapshot(options.toolScopeId)
         val existingTools = options.dynamicTools
+        val webSearchSettings = webSearchSettingsRepository.settings.value
+        // Native mode advertises a function-shaped marker to DSH/pi-ai. The final provider
+        // boundary turns it into a provider-native declaration only when supported.
+        val nativeWebSearchBridge = nativeWebSearchBridgeTool().takeIf {
+            webSearchSettings.mode == WebSearchMode.ProviderNative &&
+                existingTools.none { tool ->
+                tool.definition.name == AgentNativeWebSearchBridgeTool
+                }
+        }
         val webSearchTool = if (
-            webSearchSettingsRepository.isConfigured() &&
+            webSearchSettings.apiKeyConfigured &&
+            webSearchSettings.mode == WebSearchMode.Tavily &&
             activeToolContext.isEnabled(AgentToolRequestPolicy.BuiltInWeb) &&
             existingTools.none { it.definition.name == AgentWebSearchTool }
         ) {
@@ -156,7 +169,11 @@ class ElecKoiAppContainer(context: Context) : AutoCloseable {
                 subagentModel = agentToolCatalogStore
                     .subagentModel(options.toolScopeId)
                     .takeIf(String::isNotBlank),
-                dynamicTools = existingTools + listOfNotNull(webSearchTool, remoteDshTool),
+                dynamicTools = existingTools + listOfNotNull(
+                    webSearchTool,
+                    nativeWebSearchBridge,
+                    remoteDshTool,
+                ),
             ),
         )
     }

@@ -169,7 +169,8 @@ internal val RoleplayTranscriptRichDocumentFrameRuntime = """    const mountRich
         try { initializeEmbeddedDocument(); } catch (error) { failRichSlot(slot, error, 'iframe-load', scope); }
       };
       frame.addEventListener('load', onLoad);
-      frame.srcdoc = source;
+      registerEmbeddedAuthorFrame(frame, slot, scope);
+      frame.srcdoc = injectEmbeddedAuthorBootstrap(source);
       loadWatchdog = setTimeout(probeEmbeddedDocument, 50);
       scope.cleanups.add(() => {
         const preservedHeight = Math.max(

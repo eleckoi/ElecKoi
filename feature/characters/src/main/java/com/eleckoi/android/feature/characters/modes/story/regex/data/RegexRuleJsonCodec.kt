@@ -75,3 +75,11 @@ internal object RegexRuleJsonCodec {
         }
     }
 }
+
+/** Depth-limited Tavern regexes cannot be made unconditional without changing their meaning. */
+internal fun JSONObject.hasUnsupportedRegexDepth(): Boolean =
+    listOf("minDepth", "maxDepth", "min_depth", "max_depth").any { key ->
+        if (!has(key) || isNull(key)) return@any false
+        val value = opt(key)
+        value != null && value !== JSONObject.NULL && (value !is String || value.isNotBlank())
+    }

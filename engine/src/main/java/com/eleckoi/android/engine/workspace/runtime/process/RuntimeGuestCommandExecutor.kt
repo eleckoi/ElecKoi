@@ -122,6 +122,7 @@ internal class RuntimeGuestProcessSpecFactory(
                 add(requireNode(File(hostDeviceDirectory, name), "系统设备节点 /dev/$name 不存在") to "/dev/$name")
             }
             add(tools to GuestTools)
+            add(loader to RuntimeGuestLayout.ProotLoaderGuestPath)
         }
         val arguments = buildList {
             add(proot.absolutePath)

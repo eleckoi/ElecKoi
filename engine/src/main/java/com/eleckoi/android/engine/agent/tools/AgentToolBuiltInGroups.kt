@@ -74,7 +74,9 @@ internal fun builtInAgentToolGroups(): List<AgentToolGroupSnapshot> = listOf(
     builtInToolGroupWithNames(
         id = AgentToolRequestPolicy.BuiltInWeb,
         name = "联网搜索",
-        description = "搜索公开互联网，获取最新事实和可引用来源",
+        description = "使用模型原生搜索或 Tavily 外接搜索获取最新信息",
+        // The internal DSH/pi-ai bridge marker is classified into this group at request time but
+        // intentionally omitted from the user-facing member list.
         members = listOf(AgentWebSearchTool, "web_search"),
     ),
     builtInToolGroupWithNames(

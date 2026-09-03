@@ -13,6 +13,7 @@ import com.eleckoi.android.engine.agent.api.AgentRemoteDshTaskTool
 import com.eleckoi.android.engine.agent.api.AgentToolContextBlock
 import com.eleckoi.android.engine.agent.api.AgentUpdateRoleplayPlanTool
 import com.eleckoi.android.engine.agent.api.AgentWebSearchTool
+import com.eleckoi.android.engine.agent.api.AgentNativeWebSearchBridgeTool
 import com.eleckoi.android.engine.agent.api.AgentCreatorMetaTools
 import com.eleckoi.android.engine.agent.api.AgentListCreatorToolsetsTool
 import com.eleckoi.android.engine.agent.api.AgentDescribeCreatorToolsetTool
@@ -55,7 +56,9 @@ internal fun classifyAgentToolDeclaration(element: JsonElement): AgentToolGroupS
         }
     val member = AgentToolRequestPolicy.member(name, declaration.string("description").orEmpty())
     return when (name) {
-        AgentWebSearchTool -> builtInToolGroup(
+        AgentWebSearchTool,
+        AgentNativeWebSearchBridgeTool,
+        -> builtInToolGroup(
             AgentToolRequestPolicy.BuiltInWeb,
             "联网搜索",
             "搜索公开互联网，获取最新事实和可引用来源",

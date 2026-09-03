@@ -1,11 +1,9 @@
 package com.eleckoi.android.engine.story.variables.runtime
 
 import android.content.Context
-import androidx.javascriptengine.JavaScriptIsolate
 import androidx.javascriptengine.JavaScriptSandbox
 import com.eleckoi.android.engine.story.variables.runtime.script.VariableRuntimeScripts
 import com.eleckoi.android.foundation.storage.ElecKoiDataException
-import kotlinx.coroutines.guava.await
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -50,6 +48,8 @@ data class EjsTemplateRenderResult(
 class VariableRuntimeService(
     private val context: Context,
 ) {
+    private val sandboxManager = ProcessJavaScriptSandboxManager.get(context.applicationContext)
+
     suspend fun evaluateVariableConditions(
         stateJson: String,
         expressions: List<VariableConditionExpression>,
@@ -222,17 +222,10 @@ class VariableRuntimeService(
         if (!JavaScriptSandbox.isSupported()) {
             throw ElecKoiDataException("当前设备不支持 AndroidX JavaScriptEngine")
         }
-        val sandbox = JavaScriptSandbox.createConnectedInstanceAsync(context.applicationContext).await()
-        if (requirePromiseReturn && !sandbox.isFeatureSupported(JavaScriptSandbox.JS_FEATURE_PROMISE_RETURN)) {
-            sandbox.close()
-            throw ElecKoiDataException("当前设备的 JavaScriptEngine 不支持异步 EJS 模板")
-        }
-        val isolate = sandbox.createIsolate()
         return try {
-            isolate.evaluateJavaScriptAsync(script).await()
-        } finally {
-            isolate.closeQuietly()
-            sandbox.close()
+            sandboxManager.evaluate(script, requirePromiseReturn)
+        } catch (_: JavaScriptPromiseReturnUnsupportedException) {
+            throw ElecKoiDataException("当前设备的 JavaScriptEngine 不支持异步 EJS 模板")
         }
     }
 
@@ -268,8 +261,4 @@ class VariableRuntimeService(
             .use { it.readText() }
         return zodBundle + "\n" + VariableRuntimeScripts.schemaFactory
     }
-}
-
-private fun JavaScriptIsolate.closeQuietly() {
-    runCatching { close() }
 }

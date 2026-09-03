@@ -151,6 +151,13 @@ class ChatViewModel(
             openChat = ::loadDraft,
             deleteChat = ::deleteHistoryChat,
             selectModel = settingsController::selectModel,
+            selectOpening = { sessionId, openingOptionId ->
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        chatService.selectChatOpening(sessionId, openingOptionId)
+                    }
+                }
+            },
             replaceVariableState = { sessionId, stateJson ->
                 runCatching {
                     withContext(Dispatchers.IO) {
@@ -296,6 +303,9 @@ class ChatViewModel(
         model: String,
         parameters: AuthorModelParameters,
     ) = authorGateway.selectModel(configId, model, parameters)
+
+    override suspend fun selectOpening(openingOptionId: String) =
+        authorGateway.selectOpening(openingOptionId)
 
     override suspend fun replaceVariableState(stateJson: String) =
         authorGateway.replaceVariableState(stateJson)

@@ -33,6 +33,11 @@ const val AgentReadVariablesTool = "eleckoi_read_variables"
 const val AgentGrepVariablesTool = "eleckoi_grep_variables"
 const val AgentApplyVariablePatchTool = "eleckoi_apply_variable_patch"
 const val AgentWebSearchTool = "eleckoi_web_search"
+/**
+ * Request-only bridge marker. DSH/pi-ai can describe function tools but not provider-native
+ * server tools, so Android replaces this declaration at the final provider wire boundary.
+ */
+const val AgentNativeWebSearchBridgeTool = "eleckoi_native_web_search_bridge"
 const val AgentRemoteDshTaskTool = "eleckoi_remote_dsh_task"
 const val AgentUpdatePlanTool = "update_plan"
 const val AgentUpdateRoleplayPlanTool = "update_roleplay_plan"
