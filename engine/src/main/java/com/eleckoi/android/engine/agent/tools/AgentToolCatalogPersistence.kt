@@ -88,6 +88,25 @@ internal fun readAgentToolCatalogState(file: File): AgentToolCatalogState {
                 AgentToolScopes.normalize(scopeId) to model
             }
             .toMap()
+        val scopedToolModelConfigIds = (root["scopedToolModelConfigIds"] as? JsonObject)
+            .orEmpty()
+            .mapNotNull { (scopeId, value) ->
+                val selections = (value as? JsonObject)
+                    .orEmpty()
+                    .mapNotNull { (groupId, configValue) ->
+                        val configId = (configValue as? JsonPrimitive)
+                            ?.contentOrNull
+                            ?.trim()
+                            ?.takeIf(String::isNotBlank)
+                            ?: return@mapNotNull null
+                        groupId.trim().takeIf(String::isNotBlank)?.let { it to configId }
+                    }
+                    .toMap()
+                selections.takeIf { it.isNotEmpty() }?.let {
+                    AgentToolScopes.normalize(scopeId) to it
+                }
+            }
+            .toMap()
         AgentToolCatalogState(
             defaultDisabledGroups = defaultDisabledToolGroups(
                 disabled = disabled,
@@ -97,6 +116,7 @@ internal fun readAgentToolCatalogState(file: File): AgentToolCatalogState {
             scopedEnabledOptInGroups = scopedEnabledOptInGroups,
             scopedSubagentModelConfigIds = scopedSubagentModels,
             scopedSubagentModels = scopedSubagentModelNames,
+            scopedToolModelConfigIds = scopedToolModelConfigIds,
             observedGroups = observed,
             contextOrder = contextOrder,
         )
@@ -139,6 +159,15 @@ internal fun writeAgentToolCatalogState(file: File, value: AgentToolCatalogState
         put("scopedSubagentModels", buildJsonObject {
             value.scopedSubagentModels.toSortedMap().forEach { (scopeId, model) ->
                 put(scopeId, model)
+            }
+        })
+        put("scopedToolModelConfigIds", buildJsonObject {
+            value.scopedToolModelConfigIds.toSortedMap().forEach { (scopeId, selections) ->
+                put(scopeId, buildJsonObject {
+                    selections.toSortedMap().forEach { (groupId, configId) ->
+                        put(groupId, configId)
+                    }
+                })
             }
         })
         put("observedGroups", buildJsonArray {

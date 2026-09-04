@@ -29,8 +29,8 @@ val ModelApiFormat.displayName: String
     get() = when (this) {
         ModelApiFormat.ChatCompletions -> "Chat Completions"
         ModelApiFormat.Responses -> "Responses API"
-        ModelApiFormat.AnthropicMessages -> "Anthropic Messages"
-        ModelApiFormat.GoogleGemini -> "Google Gemini"
+        ModelApiFormat.AnthropicMessages -> "Messages API"
+        ModelApiFormat.GoogleGemini -> "Generate Content API"
     }
 
 @Composable

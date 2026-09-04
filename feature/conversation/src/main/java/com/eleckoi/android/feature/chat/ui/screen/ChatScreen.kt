@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -26,6 +28,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
@@ -34,6 +38,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.unit.dp
 import com.eleckoi.android.feature.characters.model.AppDefaultChatBackground
 import com.eleckoi.android.feature.characters.model.CustomChatBackground
 import com.eleckoi.android.feature.characters.model.GlobalChatBackground
@@ -149,6 +154,21 @@ fun ChatScreen(
         )
     }
     val contentImePaddingSuppressed = editingMessageOpen || suppressContentImePadding
+    val modalSurfaceOpen = editingMessageOpen ||
+        selectedUserMessageText != null ||
+        state.historyOpen ||
+        state.modelPickerOpen ||
+        state.errorMessage.isNotBlank() ||
+        showRequestCaptures ||
+        state.modeConflict != null ||
+        roleplayProcessMessageId != null ||
+        roleplayOpeningJumpOpen ||
+        topMenuOpen
+    val modalBackdropBlur by animateDpAsState(
+        targetValue = if (modalSurfaceOpen) 12.dp else 0.dp,
+        animationSpec = tween(durationMillis = 180),
+        label = "chatModalBackdropBlur",
+    )
 
     if (characterBackgroundSettingsOpen && draft != null) {
         CharacterChatBackgroundDestination(
@@ -322,6 +342,17 @@ fun ChatScreen(
                 .dismissRoleplayToolbarOnOutsidePress(timeline.roleplayToolbarController)
                 .background(state.appearance.mobileChatBg)
         ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (modalBackdropBlur > 0.dp) {
+                        Modifier.blur(modalBackdropBlur, BlurredEdgeTreatment.Unbounded)
+                    } else {
+                        Modifier
+                    },
+                ),
+        ) {
         val backdropView = LocalView.current
         ChatBackground(
             spec = backdropSpec,
@@ -444,6 +475,7 @@ fun ChatScreen(
             appearance = state.appearance,
             onClick = timeline.resumeToEnd,
         )
+        }
 
         ChatScreenOverlays(
             state = state,

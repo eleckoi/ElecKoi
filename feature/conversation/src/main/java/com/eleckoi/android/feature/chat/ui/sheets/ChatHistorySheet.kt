@@ -33,6 +33,7 @@ import com.eleckoi.android.foundation.design.components.AvatarCircle
 import com.eleckoi.android.foundation.design.components.AppIconPaths
 import com.eleckoi.android.foundation.design.components.StrokeSvgIcon
 import com.eleckoi.android.foundation.design.components.noRippleClickable
+import com.eleckoi.android.foundation.design.components.MobileBottomSheetOverlay
 import com.eleckoi.android.foundation.design.fieldPalette
 import com.eleckoi.android.foundation.design.selectionPalette
 
@@ -62,6 +63,7 @@ private fun rememberChatHistorySheetState(): ChatHistorySheetState {
 
 @Composable
 fun ChatHistorySheet(
+    visible: Boolean = true,
     sessions: List<ChatListItem>,
     currentSessionId: String,
     currentCharacterId: String,
@@ -89,14 +91,17 @@ fun ChatHistorySheet(
         .sortedWith(compareByDescending<ChatListItem> { it.id == currentSessionId }.thenByDescending { it.updatedAt })
         .let { if (saveMode == "recent10") it.take(10) else it }
 
-    BottomLayer(appearance = appearance, onDismiss = onDismiss) {
+    MobileBottomSheetOverlay(
+        visible = visible,
+        appearance = appearance,
+        onDismiss = onDismiss,
+        sheetModifier = Modifier.height(650.dp),
+        showHandle = true,
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(650.dp)
-                .navigationBarsPadding()
-                .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
-                .background(appearance.mobileSurface)
+                .weight(1f)
                 .noRippleClickable {},
         ) {
             SheetHeader(characterName.ifBlank { "聊天记录" }, "聊天记录", appearance, onDismiss)

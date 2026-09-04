@@ -139,7 +139,7 @@ internal class CharacterAgentTurnRunner(
                     )
                 }
             } else {
-                { _, _ -> }
+                null
             },
         )
         lease.invokeOnCancel {

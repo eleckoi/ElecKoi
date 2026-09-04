@@ -2,9 +2,12 @@ package com.eleckoi.android.app.service
 
 import android.graphics.BitmapFactory
 import com.eleckoi.android.engine.generation.config.ModelConfigRepository
+import com.eleckoi.android.engine.agent.tools.AgentToolRequestPolicy
+import com.eleckoi.android.engine.agent.tools.AgentToolScopes
 import com.eleckoi.android.engine.generation.image.ReplyImageGenerator
 import com.eleckoi.android.engine.generation.image.SceneImagePrompt
 import com.eleckoi.android.engine.generation.image.parseSceneImagePrompts
+import com.eleckoi.android.engine.generation.model.isImageGenerationConfig
 import com.eleckoi.android.feature.characters.data.CharacterRepository
 import com.eleckoi.android.feature.characters.model.CharacterSlot
 import com.eleckoi.android.feature.chat.data.ChatSessionStore
@@ -27,6 +30,7 @@ internal class ChatMediaCoordinator(
     private val appearance: AppearanceRepository,
     private val replyImageGenerator: ReplyImageGenerator,
     private val generationAttempts: GenerationAttemptRepository,
+    private val toolModelConfigId: (scopeId: String, groupId: String) -> String,
     private val projectDraft: (ChatSession) -> ChatDraft,
 ) {
     suspend fun regenerateImage(
@@ -47,7 +51,13 @@ internal class ChatMediaCoordinator(
         if (previous.status == ChatImageStatus.Generating) {
             throw ElecKoiDataException("这张图片已经在生成")
         }
-        val imageConfig = settings.loadModelConfigCollection().activeImageConfig
+        val selectedImageConfigId = toolModelConfigId(
+            AgentToolScopes.character(session.characterId),
+            AgentToolRequestPolicy.BuiltInAutoIllustration,
+        )
+        val imageConfig = settings.loadModelConfigCollection().configs.firstOrNull {
+            it.id == selectedImageConfigId && it.isImageGenerationConfig()
+        }
             ?: throw ElecKoiDataException("当前没有启用配图配置")
         val scenePrompt = storedScenePrompt(message, attachmentIndex, previous)
         val imageAttempt = generationAttempts.beginImage(

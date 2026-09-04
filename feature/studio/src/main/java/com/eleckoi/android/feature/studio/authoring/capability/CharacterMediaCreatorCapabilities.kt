@@ -5,6 +5,7 @@ import com.eleckoi.android.engine.creator.capability.CreatorCapabilityEffect
 import com.eleckoi.android.engine.creator.capability.CreatorOperationDefinition
 import com.eleckoi.android.engine.creator.capability.CreatorToolsetDefinition
 import com.eleckoi.android.engine.workspace.model.CreatorWorkspaceRootAccess
+import com.eleckoi.android.engine.generation.model.ImageGenerationProvider
 import com.eleckoi.android.feature.characters.model.AvatarSlot
 import com.eleckoi.android.feature.studio.api.CreatorCharacterMediaState
 import com.eleckoi.android.feature.studio.api.CreatorMediaAsset
@@ -57,7 +58,7 @@ internal object CharacterMediaCreatorCapabilities {
     val toolset = CreatorToolsetDefinition(
         id = "creator.character_media",
         title = "角色图片",
-        description = "使用 NovelAI 生成候选图，并查看、预览、修改角色的圆形头像、方形头像和 3:4 立绘；图片只能通过工作区 asset_id 引用。",
+        description = "使用创作助手的图片生成工具制作候选图，并查看、预览、修改角色的圆形头像、方形头像和 3:4 立绘；图片只能通过工作区 asset_id 引用。",
     )
 
     fun capabilities(): List<CreatorCapability<CreatorAuthoringContext, CreatorOperationDefinition>> = listOf(
@@ -71,13 +72,36 @@ internal object CharacterMediaCreatorCapabilities {
             context.service.creatorCharacterMedia(context.workspaceId, rootId).toJson()
         },
         capability(
+            id = "character_media.generation_settings",
+            title = "查看绘画模型",
+            description = "生成图片前读取当前绘画提供商与提示词格式，不返回密钥或接口地址。",
+            schema = creatorObjectSchema {},
+        ) { context, _ ->
+            val provider = context.service.creatorImageGenerationProvider()
+                ?: throw CreatorAuthoringException(
+                    "IMAGE_MODEL_UNAVAILABLE",
+                    "请先在「创作能力」中选择绘图模型",
+                )
+            buildJsonObject {
+                put("provider", provider.id)
+                put(
+                    "promptFormat",
+                    if (provider == ImageGenerationProvider.OpenAi) {
+                        "使用自然语言描述画面、人物、构图和光线；negative_prompt 表示避免的内容，可留空。"
+                    } else {
+                        "使用逗号分隔的英文 NovelAI 视觉标签；negative_prompt 使用英文负面标签。"
+                    },
+                )
+            }
+        },
+        capability(
             id = "character_media.generate_asset",
-            title = "使用 NovelAI 生成创作图片",
-            description = "调用当前启用的 NovelAI 绘画模型生成一张图片并登记为工作区 asset_id；只生成候选图，不会自动设为头像或立绘。",
+            title = "生成创作图片",
+            description = "调用当前选择的绘画模型生成一张图片并登记为工作区 asset_id；只生成候选图，不会自动设为头像或立绘。",
             effect = CreatorCapabilityEffect.Preview,
             schema = creatorObjectSchema(required = listOf("prompt")) {
-                put("prompt", creatorStringSchema("根据当前聊天要求整理的英文 NovelAI 正向标签，最多 4000 字符。"))
-                put("negative_prompt", creatorStringSchema("英文负面标签，最多 2000 字符；可留空。"))
+                put("prompt", creatorStringSchema("先读取 generation_settings：OpenAI 使用自然语言画面描述，NovelAI 使用英文视觉标签；最多 4000 字符。"))
+                put("negative_prompt", creatorStringSchema("需要避免的内容；OpenAI 使用自然语言，NovelAI 使用英文负面标签。最多 2000 字符；可留空。"))
                 put("display_name", creatorStringSchema("候选图名称，方便作者选择；可留空。"))
             },
         ) { context, arguments ->
@@ -103,7 +127,7 @@ internal object CharacterMediaCreatorCapabilities {
                     .ifBlank { error.javaClass.simpleName.ifBlank { "未知错误" } }
                 throw CreatorAuthoringException(
                     code = "IMAGE_GENERATION_FAILED",
-                    message = "NovelAI 生图失败：$detail",
+                    message = "生图失败：$detail",
                 )
             }
             buildJsonObject {

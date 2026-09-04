@@ -13,7 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eleckoi.android.foundation.design.AppearanceTheme
 import com.eleckoi.android.foundation.design.components.AppIconPaths
+import com.eleckoi.android.foundation.design.components.AppSwitch
 import com.eleckoi.android.foundation.design.components.StrokeSvgIcon
 import com.eleckoi.android.foundation.design.components.noRippleClickable
 
@@ -64,9 +64,10 @@ internal fun MessageFrontendRendererControl(
                     lineHeight = 17.sp,
                 )
             }
-            Switch(
+            AppSwitch(
                 checked = enabled,
                 onCheckedChange = onEnabledChange,
+                appearance = appearance,
             )
         }
     }

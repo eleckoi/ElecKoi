@@ -37,7 +37,7 @@ internal data class ChatModelSelectionJson(
 @Serializable
 internal data class ModelParametersJson(
     val stream: Boolean = true,
-    val temperature: Double = 0.7,
+    val temperature: Double = 1.0,
     @SerialName("top_p")
     val topP: Double = 1.0,
 ) {

@@ -396,24 +396,14 @@ private fun FontRow(
                 strokeWidth = 2.dp,
                 color = appearance.mobileText,
             )
-            selected -> FilledSvgIcon(
-                paths = listOf(PhosphorRegular.CheckCircle),
-                color = appearance.mobileText,
-                iconSize = 19.dp,
-                viewportSize = 256f,
-            )
+            selected -> SettingsSelectionCheck(selected = true, appearance = appearance)
             trailingIcon != null -> FilledSvgIcon(
                 paths = listOf(trailingIcon),
                 color = appearance.mobileMuted,
                 iconSize = 18.dp,
                 viewportSize = 256f,
             )
-            else -> Box(
-                modifier = Modifier
-                    .size(17.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(appearance.mobileLine),
-            )
+            else -> SettingsSelectionCheck(selected = false, appearance = appearance)
         }
     }
 }

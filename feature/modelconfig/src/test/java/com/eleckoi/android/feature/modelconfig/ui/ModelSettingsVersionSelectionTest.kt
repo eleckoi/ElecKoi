@@ -5,6 +5,7 @@ import com.eleckoi.android.engine.generation.model.ModelApiFormat
 import com.eleckoi.android.engine.generation.model.ModelOption
 import com.eleckoi.android.feature.modelconfig.ui.settings.resolveInitialConfig
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -46,6 +47,25 @@ class ModelSettingsVersionSelectionTest {
     }
 
     @Test
+    fun `DeepSeek library row keeps the concise official API summary`() {
+        val configured = ModelConfig(
+            id = "config-deepseek",
+            name = "未命名",
+            provider = "deepseek",
+            model = "deepseek-v4-flash",
+        )
+
+        assertEquals(
+            "官方 API",
+            latestConfigSummary(listOf(configured), providerMeta("deepseek"), configured.id),
+        )
+        assertEquals(
+            "官方 API",
+            latestConfigSummary(emptyList(), providerMeta("deepseek")),
+        )
+    }
+
+    @Test
     fun `opening an unconfigured provider uses its creation format`() {
         assertEquals(
             ModelApiFormat.Responses,
@@ -65,6 +85,42 @@ class ModelSettingsVersionSelectionTest {
         assertEquals("", draft.name)
         assertEquals("", target.configId)
         assertEquals("config-draft", target.draftId)
+    }
+
+    @Test
+    fun `opening a new provider does not mark the untouched draft dirty`() {
+        val target = ModelConfig(id = "config-draft", provider = "zhipu").toDraftModelTarget()
+        val state = ModelSettingsEditorState(resolveInitialConfig(emptyList(), target), initialDirty = false)
+
+        state.syncFrom(emptyList(), target)
+
+        assertFalse(state.dirty)
+    }
+
+    @Test
+    fun `reading models opens the picker without leaving inline status text`() {
+        val state = ModelSettingsEditorState(config(id = "config", name = "DeepSeek"), initialDirty = false)
+        val fetched = state.form.copy(
+            modelOptions = listOf(ModelOption(id = "deepseek-v4-flash")),
+        )
+
+        state.finishFetchModels(Result.success(fetched))
+
+        assertTrue(state.modelPickerOpen)
+        assertEquals("", state.testMessage)
+        assertEquals(fetched.modelOptions, state.form.modelOptions)
+    }
+
+    @Test
+    fun `reading model failure stays out of layout and is dismissible`() {
+        val state = ModelSettingsEditorState(config(id = "config", name = "DeepSeek"), initialDirty = false)
+
+        state.finishFetchModels(Result.failure(IllegalStateException("读取失败")))
+
+        assertFalse(state.modelPickerOpen)
+        assertEquals("读取失败", state.testMessage)
+        state.clearMessage()
+        assertEquals("", state.testMessage)
     }
 
     @Test

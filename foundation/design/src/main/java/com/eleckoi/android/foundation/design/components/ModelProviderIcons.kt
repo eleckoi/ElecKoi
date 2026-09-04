@@ -36,9 +36,18 @@ private object ModelIconRegistry {
     private val specs = listOf(
         ModelIconSpec("custom", "whale-maid-thinking.png"),
         ModelIconSpec("deepseek", "deepseek.svg"),
+        ModelIconSpec("zhipu", "zhipu.svg"),
+        ModelIconSpec("zai", "zai.svg", Color(0xFF14171F)),
+        ModelIconSpec("moonshot", "moonshot.svg", Color(0xFF14171F)),
+        ModelIconSpec("kimi", "kimi.svg", Color(0xFF14171F)),
+        ModelIconSpec("openai", "openai.svg", Color(0xFF14171F)),
+        ModelIconSpec("novelai_image", "novelai.svg", Color(0xFF14171F)),
     ).associateBy { it.id }
 
-    fun spec(providerId: String): ModelIconSpec? = specs[providerId.trim().lowercase()]
+    fun spec(providerId: String): ModelIconSpec? {
+        val id = providerId.trim().lowercase()
+        return specs[if (id == "openai_image") "openai" else id]
+    }
 }
 
 private object ModelIconBitmapCache {
@@ -59,6 +68,9 @@ private data class KnownModelIcon(
 
 private val knownModelIcons = listOf(
     KnownModelIcon("deepseek", "DeepSeek", listOf("deepseek")),
+    KnownModelIcon("zhipu", "GLM", listOf("glm", "zhipu")),
+    KnownModelIcon("kimi", "Kimi", listOf("kimi")),
+    KnownModelIcon("moonshot", "Moonshot", listOf("moonshot")),
 )
 
 enum class ThinkingMascotSpriteFrame {
@@ -217,8 +229,10 @@ fun ModelIdentityIcon(
 }
 
 internal fun detectModelProviderId(modelName: String, providerId: String): String {
+    val normalizedProvider = normalizeProviderIdForIcon(providerId)
+    if (normalizedProvider in setOf("zhipu", "zai")) return normalizedProvider
     detectKnownModelProviderId(modelName)?.let { return it }
-    return normalizeProviderIdForIcon(providerId).takeIf { ModelIconRegistry.spec(it) != null }.orEmpty()
+    return normalizedProvider.takeIf { ModelIconRegistry.spec(it) != null }.orEmpty()
 }
 
 /**
@@ -234,13 +248,26 @@ fun detectKnownModelProviderId(modelName: String): String? {
 }
 
 private fun normalizeProviderIdForIcon(providerId: String): String {
-    return providerId.trim().lowercase().replace("-", "_")
+    return when (val id = providerId.trim().lowercase().replace("-", "_")) {
+        "zhipuai", "bigmodel", "glm", "chatglm" -> "zhipu"
+        "z_ai" -> "zai"
+        "moonshotai", "kimi" -> "moonshot"
+        "novelai", "nai" -> "novelai_image"
+        "openai_images", "gpt_image" -> "openai_image"
+        else -> id
+    }
 }
 
 private fun providerInitials(providerId: String): String {
     return when (providerId) {
         "custom" -> "AI"
         "deepseek" -> "D"
+        "zhipu" -> "GLM"
+        "zai" -> "Z"
+        "moonshot" -> "K"
+        "kimi" -> "K"
+        "novelai_image" -> "NAI"
+        "openai", "openai_image" -> "OA"
         else -> modelInitials(providerId)
     }
 }

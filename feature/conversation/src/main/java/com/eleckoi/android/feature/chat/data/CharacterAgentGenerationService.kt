@@ -53,6 +53,7 @@ class CharacterAgentGenerationService(
     private val agentSessions: AgentSessionFactory,
     private val virtualFileSearch: AgentVirtualFileSearch,
     private val toolContextSnapshot: (String) -> AgentToolContextSnapshot,
+    private val toolModelConfigId: (scopeId: String, groupId: String) -> String,
     private val prepareDraftProjection: (ChatSession, ModelConfig) -> (ChatSession) -> ChatDraft,
     private val replyImageGenerator: ReplyImageGenerator,
     private val generationAttempts: GenerationAttemptRepository,
@@ -72,6 +73,7 @@ class CharacterAgentGenerationService(
         variableRuntime = variableRuntime,
         virtualFileSearch = virtualFileSearch,
         toolContextSnapshot = toolContextSnapshot,
+        toolModelConfigId = toolModelConfigId,
         activeStoryPreset = activeStoryPreset,
         captureProviderRequests = captureProviderRequests,
     )

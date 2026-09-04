@@ -7,6 +7,9 @@ import com.eleckoi.android.foundation.storage.ElecKoiDataException
 import com.eleckoi.android.foundation.storage.room.ElecKoiDatabase
 import com.eleckoi.android.foundation.storage.room.ModelConfigMetaEntity
 import com.eleckoi.android.engine.generation.model.ModelConfig
+import com.eleckoi.android.engine.generation.model.ImageGenerationProvider
+import com.eleckoi.android.engine.generation.model.defaultImageSettings
+import com.eleckoi.android.engine.generation.model.ModelOption
 import com.eleckoi.android.engine.generation.model.isChatModelConfig
 import com.eleckoi.android.engine.generation.model.isImageGenerationConfig
 import com.eleckoi.android.engine.generation.model.DeepSeekOfficialVisionModel
@@ -122,7 +125,10 @@ class ModelConfigRepository internal constructor(
                 }.orEmpty(),
                 supportsTools = if (item.isNull("supports_tools")) null else item.optBoolean("supports_tools"),
                 enabled = item.optBoolean("enabled"),
-                imageSettings = imageSettingsFromJson(item.optJSONObject("image_settings")?.toString().orEmpty()),
+                imageSettings = imageSettingsFromJson(
+                    item.optJSONObject("image_settings")?.toString().orEmpty(),
+                    provider,
+                ),
                 // A clean-install backup is imported into the current baseline. Do not carry the
                 // previous app's generic Chat default forward; provider defaults are authoritative
                 // until the user explicitly changes the format in this installation.
@@ -138,6 +144,7 @@ class ModelConfigRepository internal constructor(
             id = id.ifBlank { "config-${newId(12)}" },
             provider = provider,
             apiFormat = defaultApiFormatForProvider(provider),
+            imageSettings = defaultImageSettings(provider),
         ).withProviderDefaults()
     }
 
@@ -147,7 +154,9 @@ class ModelConfigRepository internal constructor(
             dao.upsertConfig(normalized.toEntity(secretCodec))
             if (normalized.isImageGenerationConfig()) {
                 if (normalized.enabled) {
-                    dao.disableOtherProviderConfigs(normalized.provider, normalized.id)
+                    ImageGenerationProvider.entries.forEach { imageProvider ->
+                        dao.disableOtherProviderConfigs(imageProvider.id, normalized.id)
+                    }
                 }
             } else {
                 dao.upsertMeta(ModelConfigMetaEntity(activeConfigId = normalized.id))
@@ -160,21 +169,7 @@ class ModelConfigRepository internal constructor(
         val collection = loadModelConfigCollection()
         val target = collection.configs.firstOrNull { it.id == configId }
             ?: return collection
-        val sameProvider = collection.configs.filter { it.provider == target.provider }
-        if (sameProvider.size <= 1) {
-            val cleared = blankConfig(target.provider, target.id)
-            saveModelConfig(cleared)
-            return loadModelConfigCollection()
-        }
-        if (target.isImageGenerationConfig()) {
-            dao.deleteConfig(configId)
-            return loadModelConfigCollection()
-        }
-        val remaining = collection.configs.filterNot { it.id == target.id }
-        val activeId = collection.activeConfigId.takeIf { id -> remaining.any { it.id == id } }
-            ?: remaining.firstOrNull { it.provider == target.provider }?.id
-            ?: remaining.firstOrNull()?.id
-            ?: ""
+        val activeId = activeConfigIdAfterDelete(collection, target)
         database.runInTransaction {
             dao.deleteConfig(configId)
             dao.upsertMeta(ModelConfigMetaEntity(activeConfigId = activeId))
@@ -190,6 +185,8 @@ class ModelConfigRepository internal constructor(
                 contextWindowTokens = previous?.contextWindowTokens ?: fetched.contextWindowTokens,
                 autoCompactTokenLimit = previous?.autoCompactTokenLimit ?: fetched.autoCompactTokenLimit,
                 maxOutputTokens = previous?.maxOutputTokens ?: fetched.maxOutputTokens,
+                temperature = if (previous != null) previous.temperature else fetched.temperature,
+                topP = if (previous != null) previous.topP else fetched.topP,
                 reasoningEffort = previous?.reasoningEffort,
                 apiFormatOverride = previous?.apiFormatOverride,
                 supportsImageInput = previous?.supportsImageInput == true ||
@@ -202,14 +199,10 @@ class ModelConfigRepository internal constructor(
     }
 
     suspend fun testConnection(config: ModelConfig) {
-        val target = config.copy(
-            model = config.model.trim().ifBlank { config.modelOptions.firstOrNull()?.id.orEmpty() },
+        testModelConnection(
+            config,
+            verifyAgentCapabilities = { target -> agentCapabilityValidator.verify(target) },
         )
-        if (target.apiKey.isBlank()) throw ElecKoiDataException("缺少 API Key")
-        if (target.model.isBlank()) {
-            throw ElecKoiDataException("请先选择模型，再测试 Agent 工具连接")
-        }
-        agentCapabilityValidator.verify(target)
     }
 
     private fun collectionFromRoom(configs: List<ModelConfig>, meta: ModelConfigMetaEntity?): ModelConfigCollection {
@@ -232,8 +225,16 @@ class ModelConfigRepository internal constructor(
             provider = normalizeProvider(config.provider),
             apiKeyNeedsReentry = config.apiKeyNeedsReentry && config.apiKey.isBlank(),
         ).withProviderDefaults()
+        val selectedModel = normalized.model.trim()
+        val options = if (
+            selectedModel.isNotBlank() && normalized.modelOptions.none { it.id == selectedModel }
+        ) {
+            normalized.modelOptions + ModelOption(id = selectedModel, name = selectedModel)
+        } else {
+            normalized.modelOptions
+        }
         return normalized.copy(
-            modelOptions = normalized.modelOptions.map { option ->
+            modelOptions = options.map { option ->
                 option.copy(
                     supportsImageInput = option.supportsImageInput ||
                         (normalized.isOfficialDeepSeekEndpoint() &&
@@ -247,6 +248,19 @@ class ModelConfigRepository internal constructor(
         return providerId.trim().lowercase().ifBlank { "custom" }
     }
 
+}
+
+internal fun activeConfigIdAfterDelete(
+    collection: ModelConfigCollection,
+    target: ModelConfig,
+): String {
+    val remainingChatConfigs = collection.configs
+        .filterNot { it.id == target.id }
+        .filter(ModelConfig::isChatModelConfig)
+    return collection.activeConfigId.takeIf { id -> remainingChatConfigs.any { it.id == id } }
+        ?: remainingChatConfigs.firstOrNull { it.provider == target.provider }?.id
+        ?: remainingChatConfigs.firstOrNull()?.id
+        ?: ""
 }
 
 private fun isSafeBackupHeader(name: String): Boolean =

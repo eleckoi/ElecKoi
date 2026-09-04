@@ -30,6 +30,7 @@ internal data class AgentToolsUiState(
     val subagentModelConfigId: String = "",
     val subagentModel: String = "",
     val modelConfigs: List<ModelConfig> = emptyList(),
+    val imageModelConfigIds: Map<String, String> = emptyMap(),
     val characterImagePrompt: String = "",
     val loading: Boolean = false,
     val error: String = "",

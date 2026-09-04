@@ -11,12 +11,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +39,7 @@ import com.eleckoi.android.feature.characters.model.CharacterSlot
 import com.eleckoi.android.foundation.design.AppearanceTheme
 import com.eleckoi.android.foundation.design.components.AppIconPaths
 import com.eleckoi.android.foundation.design.components.AvatarCircle
+import com.eleckoi.android.foundation.design.components.SquareSelectionCheck
 import com.eleckoi.android.foundation.design.components.StrokeSvgIcon
 
 @Composable
@@ -86,18 +87,23 @@ internal fun CreatorRootRow(
             .padding(start = 8.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(
-            selected = isPrimary,
-            onClick = if (enabled && !isPrimary) onSetPrimary else null,
-            enabled = enabled || isPrimary,
-            colors = RadioButtonDefaults.colors(
-                selectedColor = appearance.mobileBlue,
-                unselectedColor = appearance.mobileMuted,
-                disabledSelectedColor = appearance.mobileBlue.copy(alpha = 0.45f),
-                disabledUnselectedColor = appearance.mobileMuted.copy(alpha = 0.3f),
-            ),
-            modifier = Modifier.size(48.dp),
-        )
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .selectable(
+                    selected = isPrimary,
+                    enabled = enabled && !isPrimary,
+                    role = Role.RadioButton,
+                    onClick = onSetPrimary,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            SquareSelectionCheck(
+                selected = isPrimary,
+                appearance = appearance,
+                enabled = enabled || isPrimary,
+            )
+        }
         AvatarCircle(
             name = character?.name ?: root.alias.ifBlank { "?" },
             size = 38,

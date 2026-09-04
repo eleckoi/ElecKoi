@@ -1,6 +1,7 @@
 package com.eleckoi.android.engine.agent.adapter
 
 import com.eleckoi.android.engine.generation.model.ModelConfig
+import com.eleckoi.android.engine.generation.model.defaultBaseUrlForProvider
 import com.eleckoi.android.foundation.network.SecureModelHttpClientFactory
 import com.eleckoi.android.foundation.network.StrictProxyParser
 import java.net.URI
@@ -182,10 +183,8 @@ internal object AdapterUpstreamClient {
 
     private fun resolvedBaseUrl(configuredBaseUrl: String, provider: String): String =
         configuredBaseUrl.trim().ifBlank {
-            require(provider.equals("deepseek", ignoreCase = true)) {
-                "自定义模型提供商必须填写 Base URL"
-            }
-            "https://api.deepseek.com"
+            defaultBaseUrlForProvider(provider)
+                ?: error("自定义模型提供商必须填写 Base URL")
         }.trimEnd('/')
 
     private fun removeEndpointSuffix(value: String, suffix: String): String =

@@ -3,6 +3,9 @@ package com.eleckoi.android.feature.chat.roleplay.actions
 import com.eleckoi.android.engine.agent.api.AgentContextActivation
 import com.eleckoi.android.engine.agent.api.AgentContextAnchor
 import com.eleckoi.android.engine.agent.api.AgentContextRole
+import com.eleckoi.android.engine.generation.model.ImageGenerationSettings
+import com.eleckoi.android.engine.generation.model.ModelConfig
+import com.eleckoi.android.engine.generation.model.OpenAiImageProviderId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -11,9 +14,11 @@ class GenerateImageActionTest {
     @Test
     fun `image action is permanent developer tool context with action before final reply`() {
         val injection = generateImageActionContextInjection(
-            imageSettings = com.eleckoi.android.engine.generation.model.ImageGenerationSettings(
-                promptCompilerInstruction = "Return JSON only.",
-                fixedImageCount = 3,
+            imageConfig = ModelConfig(
+                imageSettings = ImageGenerationSettings(
+                    promptCompilerInstruction = "Return JSON only.",
+                    fixedImageCount = 3,
+                ),
             ),
             order = 4_001,
         )
@@ -56,14 +61,29 @@ class GenerateImageActionTest {
         val instruction = "BEGIN\n" + "preserve this compiler rule\n".repeat(600) + "END"
 
         val content = generateImageActionContextInjection(
-            imageSettings = com.eleckoi.android.engine.generation.model.ImageGenerationSettings(
-                promptCompilerInstruction = instruction,
+            imageConfig = ModelConfig(
+                imageSettings = ImageGenerationSettings(
+                    promptCompilerInstruction = instruction,
+                ),
             ),
             order = 1,
         ).content
 
         assertTrue(instruction.length > 12_000)
         assertTrue(content.contains(instruction))
+    }
+
+    @Test
+    fun `OpenAI image action requests natural language descriptions`() {
+        val content = generateImageActionContextInjection(
+            imageConfig = ModelConfig(provider = OpenAiImageProviderId),
+            order = 1,
+        ).content
+
+        assertTrue(content.contains("自然语言画面描述"))
+        assertTrue(content.contains("需要避免的内容，无则留空"))
+        assertTrue(content.contains("Write coherent natural-language descriptions"))
+        assertTrue(!content.contains("NovelAI 英文标签"))
     }
 
     @Test

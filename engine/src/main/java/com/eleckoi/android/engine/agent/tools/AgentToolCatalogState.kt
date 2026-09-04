@@ -9,6 +9,7 @@ internal data class AgentToolCatalogState(
     val scopedEnabledOptInGroups: Map<String, Set<String>> = emptyMap(),
     val scopedSubagentModelConfigIds: Map<String, String> = emptyMap(),
     val scopedSubagentModels: Map<String, String> = emptyMap(),
+    val scopedToolModelConfigIds: Map<String, Map<String, String>> = emptyMap(),
     val observedGroups: List<AgentToolGroupSnapshot> = emptyList(),
     val contextOrder: List<String> = emptyList(),
 ) {
@@ -107,6 +108,28 @@ internal fun toggleScopedOptInGroup(
     val enabledGroups = enabledOptInGroupsIn(scope, scoped).toMutableSet()
     if (enabled) enabledGroups.add(groupId) else enabledGroups.remove(groupId)
     return if (enabledGroups.isEmpty()) scoped - scope else scoped + (scope to enabledGroups)
+}
+
+internal fun scopedToolModelConfigId(
+    scopeId: String,
+    groupId: String,
+    scoped: Map<String, Map<String, String>>,
+): String = scoped[AgentToolScopes.normalize(scopeId)]?.get(groupId.trim()).orEmpty()
+
+internal fun selectScopedToolModelConfig(
+    scopeId: String,
+    groupId: String,
+    configId: String,
+    scoped: Map<String, Map<String, String>>,
+): Map<String, Map<String, String>> {
+    val scope = AgentToolScopes.normalize(scopeId)
+    val group = groupId.trim()
+    require(group.isNotBlank()) { "工具组 ID 不能为空" }
+    val selected = configId.trim()
+    val scopeSelections = scoped[scope].orEmpty().toMutableMap().apply {
+        if (selected.isBlank()) remove(group) else put(group, selected)
+    }
+    return if (scopeSelections.isEmpty()) scoped - scope else scoped + (scope to scopeSelections)
 }
 
 /**

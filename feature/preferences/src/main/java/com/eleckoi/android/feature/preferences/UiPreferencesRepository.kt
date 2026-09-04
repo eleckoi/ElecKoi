@@ -183,6 +183,13 @@ class UiPreferencesRepository(context: Context) {
         return read()
     }
 
+    suspend fun setSearchHistory(terms: List<String>): UiPreferences {
+        dataStore.edit { preferences ->
+            preferences[SearchHistoryJson] = encodeStringList(terms)
+        }
+        return read()
+    }
+
     /**
      * A hidden message-home entry is a presentation preference, not conversation deletion.
      * New activity in that exact conversation makes it relevant again, so restore only its ID

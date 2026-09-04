@@ -7,13 +7,12 @@ import android.app.NotificationManager
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings as AndroidSettings
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -23,25 +22,18 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.eleckoi.android.foundation.diagnostics.CrashDiagnostics
 import com.eleckoi.android.foundation.design.AppearanceTheme
 import com.eleckoi.android.foundation.design.PhosphorRegular
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsPage(
@@ -54,6 +46,7 @@ fun SettingsPage(
     onOpenFont: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenLocalRuntime: () -> Unit,
+    onOpenCrashDiagnostics: () -> Unit,
     onOpenAppUpdate: () -> Unit,
     appUpdateAvailable: Boolean,
     appUpdateLatestVersion: String,
@@ -77,31 +70,6 @@ fun SettingsPage(
         )
     }
     var showPermissionExplanation by rememberSaveable { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    var pendingCrashReport by remember { mutableStateOf<String?>(null) }
-    var preparingCrashReport by remember { mutableStateOf(false) }
-    val crashReportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("text/plain"),
-    ) { uri ->
-        val report = pendingCrashReport
-        pendingCrashReport = null
-        if (uri != null && report != null) {
-            scope.launch {
-                val result = withContext(Dispatchers.IO) {
-                    runCatching {
-                        context.contentResolver.openOutputStream(uri, "wt")?.bufferedWriter()?.use {
-                            it.write(report)
-                        } ?: error("无法打开保存位置")
-                    }
-                }
-                Toast.makeText(
-                    context,
-                    if (result.isSuccess) "崩溃日志已保存" else "保存失败：${result.exceptionOrNull()?.message.orEmpty()}",
-                    Toast.LENGTH_LONG,
-                ).show()
-            }
-        }
-    }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) {
@@ -204,28 +172,7 @@ fun SettingsPage(
                 },
             )
         }
-        SettingsSection(label = "故障诊断", appearance = appearance) {
-            SettingsDestinationRow(
-                iconPath = PhosphorRegular.DownloadSimple,
-                title = if (preparingCrashReport) "正在整理崩溃日志" else "导出崩溃日志",
-                subtitle = "包含闪退、ANR、低内存、本地环境安装和最近生成阶段；不含聊天正文与密钥",
-                appearance = appearance,
-                onClick = {
-                    if (!preparingCrashReport) {
-                        preparingCrashReport = true
-                        scope.launch {
-                            val report = withContext(Dispatchers.IO) {
-                                CrashDiagnostics.buildReport(context)
-                            }
-                            pendingCrashReport = report
-                            preparingCrashReport = false
-                            crashReportLauncher.launch(CrashDiagnostics.suggestedFileName())
-                        }
-                    }
-                },
-            )
-        }
-        SettingsSection(label = "数据", appearance = appearance) {
+        SettingsSection(label = "数据备份", appearance = appearance) {
             SettingsDestinationRow(
                 iconPath = PhosphorRegular.UploadSimple,
                 title = "导出数据备份",
@@ -254,6 +201,14 @@ fun SettingsPage(
             )
             SettingsDivider(appearance, startIndent = SettingsRowTextStart)
             SettingsDestinationRow(
+                iconPath = PhosphorRegular.DownloadSimple,
+                title = "故障诊断",
+                subtitle = "崩溃日志与运行记录",
+                appearance = appearance,
+                onClick = onOpenCrashDiagnostics,
+            )
+            SettingsDivider(appearance, startIndent = SettingsRowTextStart)
+            SettingsDestinationRow(
                 icon = if (appUpdateAvailable) {
                     Icons.Rounded.ErrorOutline
                 } else {
@@ -279,7 +234,7 @@ fun SettingsPage(
             SettingsDestinationRow(
                 icon = Icons.Rounded.Info,
                 title = "关于电子爱",
-                subtitle = "版本与 GitHub",
+                subtitle = "版本、GitHub 与开源许可证",
                 appearance = appearance,
                 onClick = onOpenAbout,
             )

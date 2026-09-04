@@ -15,6 +15,7 @@ import com.eleckoi.android.engine.agent.tools.AgentToolRequestPolicy
 import com.eleckoi.android.engine.agent.tools.AgentToolScopes
 import com.eleckoi.android.engine.generation.config.ModelConfigRepository
 import com.eleckoi.android.engine.generation.model.ModelConfig
+import com.eleckoi.android.engine.generation.model.isImageGenerationConfig
 import com.eleckoi.android.engine.story.variables.config.VariableConfigRepository
 import com.eleckoi.android.engine.story.variables.model.VariableConfig
 import com.eleckoi.android.engine.story.variables.runtime.EjsTemplateMessage
@@ -62,6 +63,7 @@ internal class CharacterAgentTurnPreparer(
     private val variableRuntime: VariableRuntimeService,
     private val virtualFileSearch: AgentVirtualFileSearch,
     private val toolContextSnapshot: (String) -> AgentToolContextSnapshot,
+    private val toolModelConfigId: (scopeId: String, groupId: String) -> String,
     private val activeStoryPreset: suspend () -> StoryPreset,
     private val captureProviderRequests: Boolean,
 ) {
@@ -158,7 +160,13 @@ internal class CharacterAgentTurnPreparer(
             messages = promptHistory.map { it.toLedgerMessage() },
             currentUserMessageId = currentUserMessageId,
         )
-        val imageConfig = settings.loadModelConfigCollection().activeImageConfig
+        val selectedImageConfigId = toolModelConfigId(
+            toolScopeId,
+            AgentToolRequestPolicy.BuiltInAutoIllustration,
+        )
+        val imageConfig = settings.loadModelConfigCollection().configs.firstOrNull {
+            it.id == selectedImageConfigId && it.isImageGenerationConfig()
+        }
             ?.takeIf {
                 activeToolContext.isEnabled(AgentToolRequestPolicy.BuiltInAutoIllustration)
             }
@@ -214,7 +222,7 @@ internal class CharacterAgentTurnPreparer(
             imageConfig?.let { active ->
                 add(
                     generateImageActionContextInjection(
-                        imageSettings = active.imageSettings,
+                        imageConfig = active,
                         order = (activeToolContext.blocks.maxOfOrNull { it.order } ?: 0) + 1,
                     ),
                 )

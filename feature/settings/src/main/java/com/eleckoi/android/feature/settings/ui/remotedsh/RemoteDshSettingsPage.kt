@@ -15,8 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,6 +38,7 @@ import com.eleckoi.android.engine.agent.remotedsh.RemoteDshWorkspaceSummary
 import com.eleckoi.android.foundation.design.AppearanceTheme
 import com.eleckoi.android.foundation.design.ElecKoiDanger
 import com.eleckoi.android.foundation.design.components.AppIconPaths
+import com.eleckoi.android.foundation.design.components.AppSwitch
 import com.eleckoi.android.foundation.design.components.ModelProviderIcon
 import com.eleckoi.android.foundation.design.components.PinnedStatusScaffold
 import com.eleckoi.android.foundation.design.components.noRippleClickable
@@ -107,13 +106,10 @@ fun RemoteDshSettingsPage(
                         lineHeight = 17.sp,
                     )
                 }
-                Switch(
+                AppSwitch(
                     checked = state.enabled,
                     onCheckedChange = { viewModel.onIntent(RemoteDshSettingsIntent.SetEnabled(it)) },
-                    colors = SwitchDefaults.colors(
-                        checkedTrackColor = appearance.mobileBlue,
-                        uncheckedTrackColor = appearance.mobileLine,
-                    ),
+                    appearance = appearance,
                 )
             }
             ModelSectionNote(

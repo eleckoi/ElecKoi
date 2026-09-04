@@ -14,11 +14,15 @@ import com.eleckoi.android.engine.workspace.runtime.runtimeInstallationStageFrom
 import com.eleckoi.android.engine.workspace.runtime.localRuntimeHealthFromWire
 import com.eleckoi.android.engine.workspace.runtime.maintenanceOperationFromWire
 import com.eleckoi.android.engine.workspace.runtime.wireName
+import com.eleckoi.android.engine.workspace.runtime.RuntimeInstallationInspector
+import com.eleckoi.android.engine.workspace.runtime.RuntimePaths
+import com.eleckoi.android.engine.workspace.runtime.RuntimeStorageUsageReader
 import com.eleckoi.android.engine.workspace.runtime.model.LocalRuntimeCapabilities
 import com.eleckoi.android.engine.workspace.runtime.model.DeepSeekRuntimeLaunchSpec
 import com.eleckoi.android.engine.workspace.runtime.model.LocalRuntimeEvent
 import com.eleckoi.android.engine.workspace.runtime.model.LocalRuntimeGateway
 import com.eleckoi.android.engine.workspace.runtime.model.LocalRuntimeState
+import com.eleckoi.android.engine.workspace.runtime.model.LocalRuntimeStorageUsage
 import com.eleckoi.android.engine.workspace.runtime.model.LocalRuntimeStream
 import com.eleckoi.android.engine.workspace.runtime.model.LocalRuntimeTarget
 import com.eleckoi.android.engine.workspace.runtime.model.RuntimeInstallationEvent
@@ -158,6 +162,18 @@ class LocalRuntimeServiceClient(context: Context) : LocalRuntimeGateway {
     override suspend fun refreshRuntimeStatus() {
         connect()
         send(RuntimeIpc.RefreshRuntimeStatus, Bundle())
+    }
+
+    override suspend fun readStorageUsage(): LocalRuntimeStorageUsage = withContext(Dispatchers.IO) {
+        val paths = RuntimePaths(applicationContext)
+        val manifest = RuntimeInstallationInspector.readActive(paths)
+            ?: return@withContext LocalRuntimeStorageUsage.Unknown
+        val installation = runCatching { paths.installation(manifest.installationDirectory) }
+            .getOrNull() ?: return@withContext LocalRuntimeStorageUsage.Unknown
+        RuntimeStorageUsageReader.measure(
+            installation = installation,
+            harnessRelativePaths = manifest.harnessEntrypoints.values + manifest.harnessConfigPaths.values,
+        )
     }
 
     private suspend fun maintainRuntime(operation: RuntimeMaintenanceOperation) {

@@ -11,6 +11,7 @@ interface ShellService {
 
     suspend fun setPinnedChatIds(ids: List<String>): UiPreferences
     suspend fun setHiddenChatIds(ids: List<String>): UiPreferences
+    suspend fun setSearchHistory(terms: List<String>): UiPreferences
     suspend fun setOptionalCommonPage(tabKey: String?, order: List<String>): UiPreferences
     suspend fun setCommonPageOrder(order: List<String>): UiPreferences
 }

@@ -15,6 +15,7 @@ import com.eleckoi.android.engine.agent.api.AgentHistoryItem
 import com.eleckoi.android.engine.agent.eleckoi.conversation.RoomConversationLedger
 import com.eleckoi.android.engine.generation.model.ModelConfig
 import com.eleckoi.android.engine.generation.config.ModelConfigRepository
+import com.eleckoi.android.engine.generation.model.imageGenerationProvider
 import com.eleckoi.android.engine.generation.image.ReplyImageGenerator
 import com.eleckoi.android.engine.workspace.model.CreatorConversationTimelineItem
 import com.eleckoi.android.engine.workspace.model.CreatorWorkspace
@@ -57,6 +58,8 @@ internal class CreatorAssistantServiceImpl(
     private val variableRuntime: VariableRuntimeService,
     private val regexRules: RegexRuleRepository,
     private val mediaCacheDirectory: File,
+    private val isCreatorCapabilityEnabled: () -> Boolean,
+    private val imageModelConfigId: () -> String,
     private val initializeCharacterTools: (characterId: String) -> Unit,
 ) : CreatorAssistantService {
     private val ledger = RoomConversationLedger(database)
@@ -69,6 +72,7 @@ internal class CreatorAssistantServiceImpl(
         characters = characters,
         rootResolver = rootResolver,
         mediaCacheDirectory = mediaCacheDirectory,
+        imageModelConfigId = imageModelConfigId,
     )
     private val characterContent = CreatorCharacterContentCoordinator(
         settingLibrary = settingLibrary,
@@ -218,12 +222,17 @@ internal class CreatorAssistantServiceImpl(
         prompt: String,
         negativePrompt: String,
         displayName: String,
-    ): CreatorMediaAsset = creatorMedia.generateCreatorMediaAsset(
-        workspaceId,
-        prompt,
-        negativePrompt,
-        displayName,
-    )
+    ): CreatorMediaAsset {
+        check(isCreatorCapabilityEnabled()) {
+            "创作能力尚未启用，请在 AI 创作助手的工具页开启「创作能力」"
+        }
+        return creatorMedia.generateCreatorMediaAsset(
+            workspaceId,
+            prompt,
+            negativePrompt,
+            displayName,
+        )
+    }
 
     override suspend fun searchCreatorMediaAssets(
         workspaceId: String,
@@ -456,6 +465,13 @@ internal class CreatorAssistantServiceImpl(
 
     override fun creatorWorkspaceProjectDirectory(workspaceId: String): File? {
         return creatorWorkspaces.projectDirectoryOrNull(workspaceId)
+    }
+
+    override suspend fun creatorImageGenerationProvider() = withContext(Dispatchers.IO) {
+        modelConfigs.loadModelConfigCollection().configs
+            .firstOrNull { it.id == imageModelConfigId() }
+            ?.takeIf { isCreatorCapabilityEnabled() }
+            ?.imageGenerationProvider()
     }
 
     override suspend fun defaultCreatorModelConfig(): ModelConfig {

@@ -26,12 +26,6 @@ internal fun builtInAgentToolGroups(): List<AgentToolGroupSnapshot> = listOf(
         members = emptyList(),
     ),
     builtInToolGroupWithNames(
-        id = AgentToolRequestPolicy.BuiltInVisual,
-        name = "图片读取",
-        description = "查看工作区或设备提供的本地图片",
-        members = listOf("view_image"),
-    ),
-    builtInToolGroupWithNames(
         id = AgentToolRequestPolicy.BuiltInWorkflow,
         name = "任务与交互",
         description = "维护任务计划，并在确有必要时向用户提问",
@@ -88,7 +82,7 @@ internal fun builtInAgentToolGroups(): List<AgentToolGroupSnapshot> = listOf(
     builtInToolGroupWithNames(
         id = AgentToolRequestPolicy.BuiltInCreator,
         name = "创作能力",
-        description = "按需发现并调用角色创作与设定库能力",
+        description = "按需发现并调用角色创作、设定库与图片生成能力",
         members = AgentCreatorMetaTools.toList(),
     ),
     builtInToolGroupWithNames(

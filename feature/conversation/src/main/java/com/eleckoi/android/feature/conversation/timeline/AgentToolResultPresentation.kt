@@ -19,7 +19,7 @@ fun CreationTimelineItem.creatorGeneratedMediaResult(): CreatorGeneratedMediaRes
     val assetId = asset.string("assetId")?.takeIf(String::isNotBlank) ?: return null
     return CreatorGeneratedMediaResult(
         assetId = assetId,
-        displayName = asset.string("displayName").orEmpty().ifBlank { "NovelAI 候选图" },
+        displayName = asset.string("displayName").orEmpty().ifBlank { "创作候选图" },
         width = asset.primitive("width")?.contentOrNull?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
         height = asset.primitive("height")?.contentOrNull?.toIntOrNull()?.coerceAtLeast(1) ?: 1,
     )

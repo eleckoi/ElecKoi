@@ -2,6 +2,8 @@ package com.eleckoi.android.feature.characters.modes.story.presets.ui.library
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,6 +27,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -109,6 +113,20 @@ internal fun StoryPresetLibrary(
         val storedIds = catalog.presets.mapTo(mutableSetOf()) { it.id }
         selectedPresetIds = selectedPresetIds.intersect(storedIds)
     }
+    val modalOpen = actionPreset != null ||
+        manageGroup != null ||
+        createDialogOpen ||
+        createGroupDialogOpen ||
+        renamePreset != null ||
+        renameGroup != null ||
+        deletePreset != null ||
+        deleteGroup != null ||
+        deleteSelectionConfirmationOpen
+    val modalBackdropBlur by animateDpAsState(
+        targetValue = if (modalOpen) 12.dp else 0.dp,
+        animationSpec = tween(durationMillis = 180),
+        label = "presetModalBackdropBlur",
+    )
     val query = search.trim()
     val groupPresets = remember(catalog.presets, selectedGroupId) {
         if (selectedGroupId == AllPresetGroupId) {
@@ -138,7 +156,15 @@ internal fun StoryPresetLibrary(
         }
     }
 
-    PinnedStatusScaffold(appearance = appearance, backgroundColor = appearance.mobileBg) {
+    PinnedStatusScaffold(
+        appearance = appearance,
+        modifier = if (modalBackdropBlur > 0.dp) {
+            Modifier.blur(modalBackdropBlur, BlurredEdgeTreatment.Unbounded)
+        } else {
+            Modifier
+        },
+        backgroundColor = appearance.mobileBg,
+    ) {
         if (searchOpen) {
             StorySearchHeader(
                 query = search,

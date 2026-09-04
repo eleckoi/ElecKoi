@@ -24,6 +24,7 @@ internal data class ShellUiState(
     val chats: List<ChatListItem> = emptyList(),
     val pinnedChatIds: List<String> = emptyList(),
     val hiddenChatIds: List<String> = emptyList(),
+    val searchHistory: List<String> = emptyList(),
     val presetPagePinned: Boolean = false,
     val pluginPagePinned: Boolean = false,
     val commonPageOrder: List<BottomTab> = BottomTab.DefaultOrder,
@@ -39,6 +40,9 @@ internal sealed interface ShellIntent {
     data object OpenTheme : ShellIntent
     data class TogglePinnedChat(val sessionId: String) : ShellIntent
     data class HideChat(val sessionId: String) : ShellIntent
+    data class RememberSearch(val term: String) : ShellIntent
+    data class ForgetSearch(val term: String) : ShellIntent
+    data object ClearSearchHistory : ShellIntent
     data class SetOptionalCommonPage(val tab: BottomTab?) : ShellIntent
     data class SetCommonPageOrder(val visibleTabs: List<BottomTab>) : ShellIntent
 }
@@ -61,6 +65,11 @@ internal class ShellViewModel(
             ShellIntent.OpenTheme -> _uiState.update { it.copy(moreOpen = false) }
             is ShellIntent.TogglePinnedChat -> togglePinnedChat(intent.sessionId)
             is ShellIntent.HideChat -> hideChat(intent.sessionId)
+            is ShellIntent.RememberSearch -> rememberSearch(intent.term)
+            is ShellIntent.ForgetSearch -> writeSearchHistory(
+                forgetSearchTerm(_uiState.value.searchHistory, intent.term),
+            )
+            ShellIntent.ClearSearchHistory -> writeSearchHistory(emptyList())
             is ShellIntent.SetOptionalCommonPage -> setOptionalCommonPage(intent.tab)
             is ShellIntent.SetCommonPageOrder -> setCommonPageOrder(intent.visibleTabs)
         }
@@ -86,6 +95,7 @@ internal class ShellViewModel(
                             chats = chats,
                             pinnedChatIds = preferences.pinnedChatIds,
                             hiddenChatIds = preferences.hiddenChatIds,
+                            searchHistory = preferences.searchHistory,
                             presetPagePinned = preferences.presetPagePinned,
                             pluginPagePinned = preferences.pluginPagePinned,
                             commonPageOrder = BottomTab.orderedTabs(preferences.commonPageOrder),
@@ -141,6 +151,20 @@ internal class ShellViewModel(
                         rootErrorMessage = error.message ?: "隐藏消息入口失败",
                     )
                 }
+            }
+        }
+    }
+
+    private fun rememberSearch(term: String) {
+        val next = rememberSearchTerm(_uiState.value.searchHistory, term)
+        if (next != _uiState.value.searchHistory) writeSearchHistory(next)
+    }
+
+    private fun writeSearchHistory(terms: List<String>) {
+        _uiState.update { it.copy(searchHistory = terms) }
+        viewModelScope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) { shellService.setSearchHistory(terms) }
             }
         }
     }
@@ -227,4 +251,21 @@ internal class ShellViewModel(
             }
         }
     }
+}
+
+internal fun rememberSearchTerm(
+    history: List<String>,
+    term: String,
+    limit: Int = 8,
+): List<String> {
+    val normalized = term.trim()
+    if (normalized.isBlank() || limit <= 0) return history
+    return (listOf(normalized) + history.filterNot { it.equals(normalized, ignoreCase = true) })
+        .take(limit)
+}
+
+internal fun forgetSearchTerm(history: List<String>, term: String): List<String> {
+    val normalized = term.trim()
+    if (normalized.isBlank()) return history
+    return history.filterNot { it.equals(normalized, ignoreCase = true) }
 }

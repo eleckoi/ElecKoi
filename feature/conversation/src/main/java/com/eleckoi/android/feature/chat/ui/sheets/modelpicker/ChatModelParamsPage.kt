@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +20,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +39,8 @@ import com.eleckoi.android.feature.modelconfig.ui.displayName
 import com.eleckoi.android.feature.modelconfig.ui.reasoning.ModelReasoningSelector
 import com.eleckoi.android.foundation.design.AppearanceTheme
 import com.eleckoi.android.foundation.design.ElecKoiDanger
+import com.eleckoi.android.foundation.design.components.AppInsetTextField
+import com.eleckoi.android.foundation.design.components.AppSwitch
 
 @Composable
 internal fun ModelParamsPage(
@@ -62,6 +67,18 @@ internal fun ModelParamsPage(
     }
     var maxOutput by rememberSaveable(selectedConfig?.id, selectedModel, option?.maxOutputTokens) {
         mutableStateOf(option?.maxOutputTokens?.toString().orEmpty())
+    }
+    var temperatureEnabled by rememberSaveable(selectedConfig?.id, selectedModel, option?.temperature) {
+        mutableStateOf(option?.temperature != null)
+    }
+    var temperature by rememberSaveable(selectedConfig?.id, selectedModel, option?.temperature) {
+        mutableStateOf((option?.temperature ?: 1.0).samplingParameterText())
+    }
+    var topPEnabled by rememberSaveable(selectedConfig?.id, selectedModel, option?.topP) {
+        mutableStateOf(option?.topP != null)
+    }
+    var topP by rememberSaveable(selectedConfig?.id, selectedModel, option?.topP) {
+        mutableStateOf((option?.topP ?: 1.0).samplingParameterText())
     }
     var reasoningEffort by rememberSaveable(selectedConfig?.id, selectedModel, option?.reasoningEffort) {
         mutableStateOf(option?.reasoningEffort)
@@ -99,12 +116,22 @@ internal fun ModelParamsPage(
     val outputError = maxOutput.isNotBlank() && outputValue?.let {
         it >= ModelOption.MinMaxOutputTokens && (effectiveContext == null || it <= effectiveContext)
     } != true
-    val hasError = contextError || compactError || outputError
+    val temperatureValue = temperature.toSamplingValue(temperatureEnabled)
+    val topPValue = topP.toSamplingValue(topPEnabled)
+    val temperatureError = temperatureEnabled && temperatureValue?.let {
+        it in ModelOption.MinTemperature..ModelOption.MaxTemperature
+    } != true
+    val topPError = topPEnabled && topPValue?.let {
+        it in ModelOption.MinTopP..ModelOption.MaxTopP
+    } != true
+    val hasError = contextError || compactError || outputError || temperatureError || topPError
 
     val pending = editable && !hasError && (
         contextValue != option.contextWindowTokens ||
             compactValue != option.autoCompactTokenLimit ||
             outputValue != option.maxOutputTokens ||
+            temperatureValue != option.temperature ||
+            topPValue != option.topP ||
             reasoningEffort != option.reasoningEffort ||
             (!officialDeepSeekVision && supportsImageInput != option.supportsImageInput)
         )
@@ -116,6 +143,8 @@ internal fun ModelParamsPage(
         contextValue,
         compactValue,
         outputValue,
+        temperatureValue,
+        topPValue,
         reasoningEffort,
         supportsImageInput,
         officialDeepSeekVision,
@@ -129,6 +158,8 @@ internal fun ModelParamsPage(
             contextWindowTokens = contextValue,
             autoCompactTokenLimit = compactValue,
             maxOutputTokens = outputValue,
+            temperature = temperatureValue,
+            topP = topPValue,
             reasoningEffort = reasoningEffort,
             supportsImageInput = if (officialDeepSeekVision) {
                 current.supportsImageInput
@@ -155,7 +186,7 @@ internal fun ModelParamsPage(
             .fillMaxWidth()
             .imePadding()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 14.dp),
+            .padding(start = 14.dp, top = 0.dp, end = 14.dp, bottom = 28.dp),
     ) {
         if (editable) {
             ParamsGroupLabel("连接", appearance)
@@ -206,21 +237,11 @@ internal fun ModelParamsPage(
                             modifier = Modifier.padding(top = 2.dp),
                         )
                     }
-                    Switch(
+                    AppSwitch(
                         checked = officialDeepSeekVision || supportsImageInput,
                         enabled = !officialDeepSeekVision,
+                        appearance = appearance,
                         onCheckedChange = { supportsImageInput = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = appearance.mobileSurface,
-                            checkedTrackColor = appearance.mobileText,
-                            checkedBorderColor = appearance.mobileText,
-                            uncheckedThumbColor = appearance.mobileSurface,
-                            uncheckedTrackColor = appearance.mobileSoft,
-                            uncheckedBorderColor = appearance.mobileSoft,
-                            disabledCheckedThumbColor = appearance.mobileSurface,
-                            disabledCheckedTrackColor = appearance.mobileText,
-                            disabledCheckedBorderColor = appearance.mobileText,
-                        ),
                     )
                 }
             }
@@ -237,17 +258,10 @@ internal fun ModelParamsPage(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text("流式输出", modifier = Modifier.weight(1f), color = appearance.mobileText, fontSize = 15.sp)
-                    Switch(
+                    AppSwitch(
                         checked = streamEnabled,
                         onCheckedChange = onStreamChange,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = appearance.mobileSurface,
-                            checkedTrackColor = appearance.mobileText,
-                            checkedBorderColor = appearance.mobileText,
-                            uncheckedThumbColor = appearance.mobileSurface,
-                            uncheckedTrackColor = appearance.mobileSoft,
-                            uncheckedBorderColor = appearance.mobileSoft,
-                        ),
+                        appearance = appearance,
                     )
                 }
             }
@@ -302,21 +316,54 @@ internal fun ModelParamsPage(
             )
         }
 
+        ParamsGroupLabel("采样", appearance)
+        SheetGroupCard(appearance) {
+            SamplingParameterField(
+                label = "温度",
+                detail = if (temperatureEnabled) "0–2" else "不发送",
+                value = temperature,
+                enabled = editable && temperatureEnabled,
+                switchChecked = temperatureEnabled,
+                switchEnabled = editable,
+                isError = temperatureError,
+                appearance = appearance,
+                onSwitchChange = { temperatureEnabled = it },
+                onChange = { temperature = it.samplingInput() },
+            )
+            SheetGroupDivider(appearance)
+            SamplingParameterField(
+                label = "Top P",
+                detail = if (topPEnabled) "0–1" else "不发送",
+                value = topP,
+                enabled = editable && topPEnabled,
+                switchChecked = topPEnabled,
+                switchEnabled = editable,
+                isError = topPError,
+                appearance = appearance,
+                onSwitchChange = { topPEnabled = it },
+                onChange = { topP = it.samplingInput() },
+            )
+        }
+
         val (note, noteColor) = paramsNote(
             editable = editable,
             contextError = contextError,
             compactError = compactError,
             outputError = outputError,
+            temperatureError = temperatureError,
+            topPError = topPError,
             saveState = saveState,
             appearance = appearance,
         )
-        Text(
-            note,
-            color = noteColor,
-            fontSize = 11.sp,
-            lineHeight = 16.sp,
-            modifier = Modifier.padding(start = 6.dp, end = 6.dp, top = 9.dp),
-        )
+        if (note.isNotEmpty()) {
+            Text(
+                note,
+                color = noteColor,
+                fontSize = 11.sp,
+                lineHeight = 16.sp,
+                modifier = Modifier.padding(start = 6.dp, end = 6.dp, top = 9.dp),
+            )
+        }
     }
 }
 
@@ -326,6 +373,8 @@ private fun paramsNote(
     contextError: Boolean,
     compactError: Boolean,
     outputError: Boolean,
+    temperatureError: Boolean,
+    topPError: Boolean,
     saveState: ParamsSaveState,
     appearance: AppearanceTheme,
 ): Pair<String, Color> = when {
@@ -333,10 +382,64 @@ private fun paramsNote(
     contextError -> "上下文窗口需要在 ${ModelOption.MinContextWindowTokens} 到 ${ModelOption.MaxContextWindowTokens} 之间。" to ElecKoiDanger
     compactError -> "自动压缩阈值不能超过上下文窗口。" to ElecKoiDanger
     outputError -> "单次最大输出不能超过上下文窗口。" to ElecKoiDanger
+    temperatureError -> "温度需要在 ${ModelOption.MinTemperature} 到 ${ModelOption.MaxTemperature} 之间。" to ElecKoiDanger
+    topPError -> "Top P 需要在 ${ModelOption.MinTopP} 到 ${ModelOption.MaxTopP} 之间。" to ElecKoiDanger
     saveState == ParamsSaveState.Failed -> "保存失败，改一下再试。" to ElecKoiDanger
     saveState == ParamsSaveState.Saving -> "保存中…" to appearance.mobileMuted
     saveState == ParamsSaveState.Saved -> "已保存" to appearance.mobileMuted
-    else -> "灰字是当前会被使用的值，填写后覆盖，清空即恢复。" to appearance.mobileSoft
+    else -> "" to appearance.mobileSoft
+}
+
+@Composable
+private fun SamplingParameterField(
+    label: String,
+    detail: String,
+    value: String,
+    enabled: Boolean,
+    switchChecked: Boolean,
+    switchEnabled: Boolean,
+    isError: Boolean,
+    appearance: AppearanceTheme,
+    onSwitchChange: (Boolean) -> Unit,
+    onChange: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+            Text(label, color = appearance.mobileText, fontSize = 14.sp)
+            Text(
+                detail,
+                color = if (isError) ElecKoiDanger else appearance.mobileMuted,
+                fontSize = 11.sp,
+            )
+        }
+        AppSwitch(
+            checked = switchChecked,
+            enabled = switchEnabled,
+            onCheckedChange = onSwitchChange,
+            appearance = appearance,
+        )
+        AppInsetTextField(
+            value = value,
+            onValueChange = onChange,
+            appearance = appearance,
+            placeholder = "1",
+            modifier = Modifier.width(112.dp).padding(start = 8.dp),
+            enabled = enabled,
+            textStyle = TextStyle(
+                color = when {
+                    isError -> ElecKoiDanger
+                    enabled -> appearance.mobileText
+                    else -> appearance.mobileSoft
+                },
+                fontSize = 15.sp,
+                textAlign = TextAlign.Start,
+            ),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+        )
+    }
 }
 
 private fun autoCompactHint(contextTokens: Int?): String {
@@ -345,3 +448,17 @@ private fun autoCompactHint(contextTokens: Int?): String {
 }
 
 private fun String.toOptionalInt(): Int? = trim().takeIf(String::isNotEmpty)?.toIntOrNull()
+
+internal fun Double.samplingParameterText(): String =
+    if (this % 1.0 == 0.0) toInt().toString() else toString()
+
+internal fun String.samplingInput(): String {
+    val normalized = replace(',', '.').filter { it.isDigit() || it == '.' }
+    val dot = normalized.indexOf('.')
+    return if (dot < 0) normalized.take(4) else {
+        normalized.take(dot + 1) + normalized.drop(dot + 1).replace(".", "").take(3)
+    }
+}
+
+internal fun String.toSamplingValue(enabled: Boolean): Double? =
+    if (enabled) trim().toDoubleOrNull() else null

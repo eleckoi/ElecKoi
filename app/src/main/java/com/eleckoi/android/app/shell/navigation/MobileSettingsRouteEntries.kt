@@ -10,6 +10,7 @@ import androidx.navigation3.runtime.NavKey
 import com.eleckoi.android.feature.characters.modes.story.presets.ui.StoryPresetPage
 import com.eleckoi.android.feature.modelconfig.ui.ModelSettingsPage
 import com.eleckoi.android.feature.settings.ui.personalization.SettingsPage
+import com.eleckoi.android.feature.settings.ui.personalization.CrashDiagnosticsPage
 import com.eleckoi.android.feature.settings.ui.personalization.about.AboutElecKoiPage
 import com.eleckoi.android.feature.settings.ui.personalization.chat.ChatDisplaySettingsPage
 import com.eleckoi.android.feature.settings.ui.personalization.common.CommonPagesSettingsPage
@@ -65,6 +66,7 @@ internal fun mobileSettingsRouteEntry(
                     onOpenFont = { navigateTo(MobileRoute.FontSettings) },
                     onOpenAbout = { navigateTo(MobileRoute.About) },
                     onOpenLocalRuntime = { navigateTo(MobileRoute.RuntimeSettings) },
+                    onOpenCrashDiagnostics = { navigateTo(MobileRoute.CrashDiagnostics) },
                     onOpenAppUpdate = { navigateTo(MobileRoute.AppUpdate) },
                     appUpdateAvailable = currentAppUpdateState.value.updateAvailable,
                     appUpdateLatestVersion = currentAppUpdateState.value.latestVersion,
@@ -137,6 +139,12 @@ internal fun mobileSettingsRouteEntry(
                 LocalRuntimeSettingsPage(
                     appearance = pageAppearance,
                     viewModel = localRuntimeSettingsViewModel,
+                    onBack = goBackInsideApp,
+                )
+        }
+        MobileRoute.CrashDiagnostics -> NavEntry(currentRoute) {
+                CrashDiagnosticsPage(
+                    appearance = currentThemeState.value.appearance,
                     onBack = goBackInsideApp,
                 )
         }

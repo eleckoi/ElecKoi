@@ -2,11 +2,10 @@ package com.eleckoi.android.engine.generation.image
 
 import com.eleckoi.android.engine.generation.model.ModelConfig
 import com.eleckoi.android.engine.generation.model.ImageGenerationSettings
+import com.eleckoi.android.engine.generation.model.isOpenAiImageConfig
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 data class GeneratedImageFile(
     val path: String,
@@ -16,27 +15,30 @@ data class GeneratedImageFile(
 
 class ReplyImageGenerator(
     private val rootDirectory: File,
-    private val imageClient: NovelAiImageClient = NovelAiImageClient(),
+    private val imageClient: ImageGenerationClient = ProviderImageGenerationClient(),
 ) {
-    /** NovelAI rejects concurrent generations for one account, including manual regenerations. */
-    private val generationLock = Mutex()
-
     suspend fun generate(
         imageConfig: ModelConfig,
         sessionId: String,
         imageId: String,
         characterImagePrompt: String,
         scenePrompt: SceneImagePrompt,
-        onRequestCapture: (ImageGenerationRequestCapture) -> Unit = {},
+        includeConfiguredPromptDefaults: Boolean = true,
+        onRequestCapture: ((ImageGenerationRequestCapture) -> Unit)? = null,
     ): String {
         val prompt = finalSceneImagePrompt(
-            settings = imageConfig.imageSettings,
-            characterImagePrompt = characterImagePrompt,
+            settings = if (includeConfiguredPromptDefaults) {
+                imageConfig.imageSettings
+            } else {
+                imageConfig.imageSettings.copy(promptPrefix = "", negativePrompt = "")
+            },
+            characterImagePrompt = characterImagePrompt.takeIf {
+                includeConfiguredPromptDefaults
+            }.orEmpty(),
             generatedPrompt = scenePrompt,
+            naturalLanguage = imageConfig.isOpenAiImageConfig(),
         )
-        val bytes = generationLock.withLock {
-            imageClient.generate(imageConfig, prompt, onRequestCapture)
-        }
+        val bytes = imageClient.generate(imageConfig, prompt, onRequestCapture)
         val directory = File(rootDirectory, safeSegment(sessionId)).also { folder ->
             check(folder.exists() || folder.mkdirs()) { "无法创建图片目录" }
         }
@@ -138,14 +140,19 @@ internal fun finalSceneImagePrompt(
     settings: ImageGenerationSettings,
     characterImagePrompt: String,
     generatedPrompt: SceneImagePrompt,
+    naturalLanguage: Boolean = false,
 ): SceneImagePrompt = SceneImagePrompt(
-    prompt = joinPromptParts(
-        settings.promptPrefix,
-        characterImagePrompt,
-        generatedPrompt.prompt,
-    ).take(8_000),
+    prompt = if (naturalLanguage) {
+        listOf(settings.promptPrefix, characterImagePrompt, generatedPrompt.prompt)
+            .map(String::trim)
+            .filter(String::isNotBlank)
+            .joinToString("\n\n")
+            .take(8_000)
+    } else {
+        joinPromptParts(settings.promptPrefix, characterImagePrompt, generatedPrompt.prompt).take(8_000)
+    },
     negativePrompt = joinPromptParts(
-        generatedPrompt.negativePrompt,
+        generatedPrompt.negativePrompt.ifBlank { if (naturalLanguage) "" else DefaultNegativePrompt },
         settings.negativePrompt,
     ).take(4_000),
     frameIndex = generatedPrompt.frameIndex,

@@ -121,27 +121,17 @@ internal fun ModelConnectionSection(
 internal fun ModelSelectionSection(
     form: ModelConfig,
     provider: ModelProviderMeta,
-    isImageProvider: Boolean,
     appearance: AppearanceTheme,
-    scrollState: ScrollState,
-    imeBottomPx: Int,
-    onOpenModelPicker: () -> Unit,
-    onUpdate: (ModelConfig) -> Unit,
+    onOpenPicker: () -> Unit,
 ) {
     ModelSectionHeader("模型", appearance, actions = {})
     ModelFieldGroup(appearance) {
-        ModelField(
-            label = "模型",
-            value = form.model,
-            placeholder = provider.modelPlaceholder,
+        ModelStackedNavigationField(
+            label = "",
+            value = form.model.ifBlank { provider.modelPlaceholder },
             appearance = appearance,
-            scrollState = scrollState,
-            imeBottomPx = imeBottomPx,
-            trailingIcon = AppIconPaths.ChevronRight.takeUnless { isImageProvider },
-            onTrailingClick = { if (!isImageProvider) onOpenModelPicker() },
-        ) { value ->
-            onUpdate(form.copy(model = value))
-        }
+            onClick = onOpenPicker,
+        )
     }
 }
 
@@ -149,22 +139,24 @@ internal fun ModelSelectionSection(
 internal fun ModelConnectionActions(
     loadingModels: Boolean,
     testing: Boolean,
-    testMessage: String,
     appearance: AppearanceTheme,
     onFetchModels: () -> Unit,
     onTestConnection: () -> Unit,
+    showFetchModels: Boolean = true,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        ModelActionButton(
-            text = if (loadingModels) "读取中" else "读取模型",
-            icon = AppIconPaths.History,
-            appearance = appearance,
-            modifier = Modifier.weight(1f),
-            onClick = onFetchModels,
-        )
+        if (showFetchModels) {
+            ModelActionButton(
+                text = if (loadingModels) "读取中" else "读取模型",
+                icon = AppIconPaths.History,
+                appearance = appearance,
+                modifier = Modifier.weight(1f),
+                onClick = onFetchModels,
+            )
+        }
         ModelActionButton(
             text = if (testing) "测试中" else "测试连接",
             icon = AppIconPaths.Plug,
@@ -172,14 +164,6 @@ internal fun ModelConnectionActions(
             modifier = Modifier.weight(1f),
             primary = true,
             onClick = onTestConnection,
-        )
-    }
-    if (testMessage.isNotBlank()) {
-        androidx.compose.material3.Text(
-            testMessage,
-            modifier = Modifier.padding(top = 8.dp),
-            color = appearance.mobileMuted,
-            fontSize = 12.sp,
         )
     }
 }

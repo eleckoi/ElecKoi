@@ -5,14 +5,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eleckoi.android.engine.generation.model.ModelConfig
@@ -28,6 +33,8 @@ import com.eleckoi.android.feature.modelconfig.ui.components.ModelSectionHeader
 import com.eleckoi.android.feature.modelconfig.ui.reasoning.ModelReasoningSelector
 import com.eleckoi.android.foundation.design.AppearanceTheme
 import com.eleckoi.android.foundation.design.ElecKoiDanger
+import com.eleckoi.android.foundation.design.components.AppInsetTextField
+import com.eleckoi.android.foundation.design.components.AppSwitch
 
 @Composable
 internal fun ModelCapabilitySections(
@@ -88,9 +95,10 @@ private fun ModelInputCapabilitySection(
             Column(modifier = Modifier.weight(1f)) {
                 Text("支持图片输入", color = appearance.mobileText, fontSize = 14.sp)
             }
-            Switch(
+            AppSwitch(
                 checked = officialDeepSeekVision || activeModelOption?.supportsImageInput == true,
                 enabled = form.model.isNotBlank() && !officialDeepSeekVision,
+                appearance = appearance,
                 onCheckedChange = { enabled ->
                     onUpdate(
                         form.updateActiveModelOption { option ->
@@ -98,20 +106,6 @@ private fun ModelInputCapabilitySection(
                         },
                     )
                 },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = appearance.mobileSurface,
-                    checkedTrackColor = appearance.mobileText,
-                    checkedBorderColor = appearance.mobileText,
-                    uncheckedThumbColor = appearance.mobileSurface,
-                    uncheckedTrackColor = appearance.mobileSoft,
-                    uncheckedBorderColor = appearance.mobileSoft,
-                    disabledCheckedThumbColor = appearance.mobileSurface,
-                    disabledCheckedTrackColor = appearance.mobileText,
-                    disabledCheckedBorderColor = appearance.mobileText,
-                    disabledUncheckedThumbColor = appearance.mobileSurface.copy(alpha = 0.72f),
-                    disabledUncheckedTrackColor = appearance.mobileMuted.copy(alpha = 0.18f),
-                    disabledUncheckedBorderColor = Color.Transparent,
-                ),
             )
         }
     }
@@ -127,10 +121,24 @@ private fun ModelLimitSection(
     onUpdate: (ModelConfig) -> Unit,
 ) {
     val automaticContextWindow = form.configuredContextWindowTokens()
-    ModelSectionHeader("上限", appearance, actions = {})
+    val temperature = activeModelOption?.temperature ?: 1.0
+    val topP = activeModelOption?.topP ?: 1.0
+    val temperatureEnabled = form.model.isNotBlank() &&
+        (activeModelOption == null || activeModelOption.temperature != null)
+    val topPEnabled = form.model.isNotBlank() &&
+        (activeModelOption == null || activeModelOption.topP != null)
+    var temperatureText by remember(form.id, form.model) {
+        mutableStateOf(temperature.parameterText())
+    }
+    var topPText by remember(form.id, form.model) {
+        mutableStateOf(topP.parameterText())
+    }
+
+    ModelSectionHeader("参数", appearance, actions = {})
     ModelFieldGroup(appearance) {
-        ModelInlineField(
+        ModelParameterField(
             label = "上下文窗口",
+            detail = "= ${automaticContextWindow.compactParameterNumber()}",
             value = activeModelOption?.contextWindowTokens?.toString().orEmpty(),
             placeholder = if (form.model.isBlank()) {
                 "先选模型"
@@ -138,8 +146,6 @@ private fun ModelLimitSection(
                 "自动 $automaticContextWindow"
             },
             appearance = appearance,
-            scrollState = scrollState,
-            imeBottomPx = imeBottomPx,
             keyboardType = KeyboardType.Number,
         ) { value ->
             onUpdate(
@@ -149,8 +155,15 @@ private fun ModelLimitSection(
             )
         }
         ModelFieldDivider(appearance)
-        ModelInlineField(
+        ModelParameterField(
             label = "自动压缩阈值",
+            detail = "= ${(
+                activeModelOption?.autoCompactTokenLimit
+                    ?: automaticContextWindow.toLong()
+                        .times(ModelOption.AgentDefaultAutoCompactPercent)
+                        .div(100L)
+                        .toInt()
+                ).compactParameterNumber()} · 占上下文 80%",
             value = activeModelOption?.autoCompactTokenLimit?.toString().orEmpty(),
             placeholder = if (form.model.isBlank()) {
                 "先选模型"
@@ -161,8 +174,6 @@ private fun ModelLimitSection(
                 "自动 $automaticLimit"
             },
             appearance = appearance,
-            scrollState = scrollState,
-            imeBottomPx = imeBottomPx,
             keyboardType = KeyboardType.Number,
         ) { value ->
             onUpdate(
@@ -172,13 +183,14 @@ private fun ModelLimitSection(
             )
         }
         ModelFieldDivider(appearance)
-        ModelInlineField(
+        ModelParameterField(
             label = "单次最大输出",
+            detail = activeModelOption?.maxOutputTokens
+                ?.let { "= ${it.compactParameterNumber()}" }
+                ?: "由上游决定",
             value = activeModelOption?.maxOutputTokens?.toString().orEmpty(),
             placeholder = if (form.model.isBlank()) "先选模型" else "自动",
             appearance = appearance,
-            scrollState = scrollState,
-            imeBottomPx = imeBottomPx,
             keyboardType = KeyboardType.Number,
         ) { value ->
             onUpdate(
@@ -186,6 +198,74 @@ private fun ModelLimitSection(
                     option.copy(maxOutputTokens = value.optionalTokenCount())
                 },
             )
+        }
+        ModelFieldDivider(appearance)
+        ModelParameterField(
+            label = "温度",
+            detail = if (temperatureEnabled) "= $temperatureText" else "不发送",
+            value = temperatureText,
+            placeholder = "1",
+            appearance = appearance,
+            keyboardType = KeyboardType.Decimal,
+            fieldEnabled = temperatureEnabled,
+            switchChecked = temperatureEnabled,
+            switchEnabled = form.model.isNotBlank(),
+            onSwitchChange = { enabled ->
+                onUpdate(
+                    form.updateActiveModelOption { option ->
+                        option.copy(
+                            temperature = if (enabled) {
+                                temperatureText.toDoubleOrNull() ?: 1.0
+                            } else {
+                                null
+                            },
+                        )
+                    },
+                )
+            },
+        ) { value ->
+            temperatureText = value.decimalInput()
+            temperatureText.toDoubleOrNull()?.let { parsed ->
+                onUpdate(
+                    form.updateActiveModelOption { option ->
+                        option.copy(temperature = parsed)
+                    },
+                )
+            }
+        }
+        ModelFieldDivider(appearance)
+        ModelParameterField(
+            label = "Top P",
+            detail = if (topPEnabled) "= $topPText" else "不发送",
+            value = topPText,
+            placeholder = "1",
+            appearance = appearance,
+            keyboardType = KeyboardType.Decimal,
+            fieldEnabled = topPEnabled,
+            switchChecked = topPEnabled,
+            switchEnabled = form.model.isNotBlank(),
+            onSwitchChange = { enabled ->
+                onUpdate(
+                    form.updateActiveModelOption { option ->
+                        option.copy(
+                            topP = if (enabled) {
+                                topPText.toDoubleOrNull() ?: 1.0
+                            } else {
+                                null
+                            },
+                        )
+                    },
+                )
+            },
+        ) { value ->
+            topPText = value.decimalInput()
+            topPText.toDoubleOrNull()?.let { parsed ->
+                onUpdate(
+                    form.updateActiveModelOption { option ->
+                        option.copy(topP = parsed)
+                    },
+                )
+            }
         }
     }
     val limitHint = modelLimitHint(activeModelOption)
@@ -197,6 +277,74 @@ private fun ModelLimitSection(
             lineHeight = 16.sp,
             modifier = Modifier.padding(start = 6.dp, end = 6.dp, top = 8.dp),
         )
+    }
+}
+
+@Composable
+private fun ModelParameterField(
+    label: String,
+    detail: String,
+    value: String,
+    placeholder: String,
+    appearance: AppearanceTheme,
+    keyboardType: KeyboardType,
+    fieldEnabled: Boolean = true,
+    switchChecked: Boolean? = null,
+    switchEnabled: Boolean = true,
+    onSwitchChange: ((Boolean) -> Unit)? = null,
+    onChange: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
+            Text(label, color = appearance.mobileText, fontSize = 14.sp)
+            Text(detail, color = appearance.mobileMuted, fontSize = 11.sp)
+        }
+        if (switchChecked != null && onSwitchChange != null) {
+            AppSwitch(
+                checked = switchChecked,
+                enabled = switchEnabled,
+                appearance = appearance,
+                onCheckedChange = onSwitchChange,
+            )
+        }
+        AppInsetTextField(
+            value = value,
+            onValueChange = onChange,
+            appearance = appearance,
+            placeholder = placeholder,
+            modifier = Modifier.width(132.dp).padding(start = 8.dp),
+            enabled = fieldEnabled,
+            textStyle = TextStyle(
+                color = if (fieldEnabled) appearance.mobileText else appearance.mobileSoft,
+                fontSize = 15.sp,
+                textAlign = TextAlign.Start,
+            ),
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        )
+    }
+}
+
+private fun Number.compactParameterNumber(): String {
+    val value = toLong()
+    return when {
+        value >= 1_000_000 && value % 1_000_000 == 0L -> "${value / 1_000_000}M"
+        value >= 1_000 && value % 1_000 == 0L -> "${value / 1_000}K"
+        value >= 1_000 -> "${value / 1_000.0}K"
+        else -> value.toString()
+    }
+}
+
+private fun Double.parameterText(): String =
+    if (this % 1.0 == 0.0) toInt().toString() else toString()
+
+private fun String.decimalInput(): String {
+    val normalized = replace(',', '.').filter { it.isDigit() || it == '.' }
+    val dot = normalized.indexOf('.')
+    return if (dot < 0) normalized.take(4) else {
+        normalized.take(dot + 1) + normalized.drop(dot + 1).replace(".", "").take(3)
     }
 }
 

@@ -94,6 +94,24 @@ class ModelConfigContextWindowTest {
     fun `new model provider configurations prefer Responses`() {
         assertEquals(ModelApiFormat.Responses, defaultApiFormatForProvider("custom"))
         assertEquals(ModelApiFormat.Responses, defaultApiFormatForProvider("deepseek"))
+        assertEquals(ModelApiFormat.ChatCompletions, defaultApiFormatForProvider("zhipu"))
+        assertEquals(ZhipuDefaultBaseUrl, defaultBaseUrlForProvider("zhipu"))
+        assertEquals(ZaiDefaultBaseUrl, defaultBaseUrlForProvider("zai"))
+        assertEquals(MoonshotDefaultBaseUrl, defaultBaseUrlForProvider("moonshot"))
+    }
+
+    @Test
+    fun `new model sampling defaults to one and may be disabled independently`() {
+        val defaults = ModelOption("model")
+        val enabled = ModelConfig(model = "model", modelOptions = listOf(defaults))
+        val disabled = enabled.copy(
+            modelOptions = listOf(defaults.copy(temperature = null, topP = null)),
+        )
+
+        assertEquals(1.0, enabled.configuredTemperature())
+        assertEquals(1.0, enabled.configuredTopP())
+        assertEquals(null, disabled.configuredTemperature())
+        assertEquals(null, disabled.configuredTopP())
     }
 
     @Test

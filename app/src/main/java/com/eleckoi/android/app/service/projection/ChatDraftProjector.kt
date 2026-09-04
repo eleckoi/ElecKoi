@@ -68,8 +68,11 @@ internal class ChatDraftProjector(
         hasUserMessages: Boolean,
     ): ChatDraftProjectionContext {
         val collection = settings.loadModelConfigCollection()
-        val selection = modelSelections.validated(session.modelSettings["chat"], collection)
-            ?: modelSelections.defaultCached(collection)
+        val globalSelection = modelSelections.defaultCached(collection)
+        val selection = ChatModelSelectionPolicy.withSessionParameters(
+            global = globalSelection,
+            session = session.modelSettings["chat"],
+        )
         val selectedConfig = config
             ?.takeIf { it.id == selection.configId }
             ?: collection.chatConfigs.firstOrNull { it.id == selection.configId }

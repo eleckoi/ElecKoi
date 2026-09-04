@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -143,9 +144,17 @@ fun ChatLayoutPreview(
     assistantName: String,
     userName: String,
     modifier: Modifier = Modifier,
+    backgroundOverride: Color? = null,
 ) {
-    val previewAppearance = remember(appearance, metrics.layoutMode) {
-        if (metrics.layoutMode == ChatLayoutMode.Roleplay) {
+    val previewAppearance = remember(appearance, metrics.layoutMode, backgroundOverride) {
+        if (backgroundOverride != null) {
+            // The settings figure compares layout geometry, not the roleplay reading veil. Keep
+            // its plate neutral while real roleplay chat continues to use the dark reading theme.
+            appearance.copy(
+                mobileChatBg = backgroundOverride,
+                mobileChatHeaderBg = backgroundOverride,
+            )
+        } else if (metrics.layoutMode == ChatLayoutMode.Roleplay) {
             appearance.asRoleplayReadingTheme()
         } else {
             appearance

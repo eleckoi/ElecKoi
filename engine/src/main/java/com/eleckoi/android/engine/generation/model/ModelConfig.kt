@@ -5,6 +5,11 @@ import java.net.URI
 const val NovelAiImageProviderId: String = "novelai_image"
 const val NovelAiDefaultBaseUrl: String = "https://image.novelai.net"
 const val NovelAiDefaultModel: String = "nai-diffusion-4-5-full"
+const val OpenAiDefaultBaseUrl: String = "https://api.openai.com/v1"
+const val DeepSeekDefaultBaseUrl: String = "https://api.deepseek.com"
+const val ZhipuDefaultBaseUrl: String = "https://open.bigmodel.cn/api/paas/v4"
+const val ZaiDefaultBaseUrl: String = "https://api.z.ai/api/paas/v4"
+const val MoonshotDefaultBaseUrl: String = "https://api.moonshot.cn/v1"
 
 val DefaultNovelAiPromptCompilerInstruction: String = """
     You are a professional prompt compiler for NovelAI Diffusion V4.5.
@@ -71,7 +76,7 @@ data class ModelConfig(
      * on the config rather than after a request fails mid-conversation.
      */
     val supportsTools: Boolean? = null,
-    /** Whether this image provider is available to on-demand callers such as the creation assistant. */
+    /** The selected image-provider configuration; feature access is controlled by tool switches. */
     val enabled: Boolean = false,
     val imageSettings: ImageGenerationSettings = ImageGenerationSettings(),
     /** Wire format selected for this connection. Generic configurations prefer Responses. */
@@ -96,8 +101,30 @@ enum class ModelApiFormat(val storageValue: String) {
  * Wire format used when a provider configuration is created without an existing user choice.
  * Stored configurations keep their persisted format; this is only the creation default.
  */
-@Suppress("UNUSED_PARAMETER")
-fun defaultApiFormatForProvider(providerId: String): ModelApiFormat = ModelApiFormat.Responses
+fun defaultApiFormatForProvider(providerId: String): ModelApiFormat = when (
+    providerId.trim().lowercase()
+) {
+    "custom", "deepseek" -> ModelApiFormat.Responses
+    else -> ModelApiFormat.ChatCompletions
+}
+
+/** Official provider address used when its optional address field is blank. */
+fun defaultBaseUrlForProvider(providerId: String): String? = when (
+    providerId.trim().lowercase()
+) {
+    "deepseek" -> DeepSeekDefaultBaseUrl
+    "zhipu" -> ZhipuDefaultBaseUrl
+    "zai" -> ZaiDefaultBaseUrl
+    "moonshot" -> MoonshotDefaultBaseUrl
+    NovelAiImageProviderId -> NovelAiDefaultBaseUrl
+    OpenAiImageProviderId -> OpenAiDefaultBaseUrl
+    else -> null
+}
+
+fun ModelConfig.resolvedProviderBaseUrl(): String = baseUrl
+    .trim()
+    .ifBlank { defaultBaseUrlForProvider(provider).orEmpty() }
+    .trimEnd('/')
 
 data class ImageGenerationSettings(
     val width: Int = 832,
@@ -105,6 +132,8 @@ data class ImageGenerationSettings(
     val steps: Int = 28,
     val scale: Double = 5.0,
     val sampler: String = NovelAiSamplerCatalog.DefaultApiValue,
+    val quality: ImageQuality = ImageQuality.Auto,
+    val background: ImageBackground = ImageBackground.Auto,
     /** When true, the Agent selects a visible number between [automaticImageMin] and [automaticImageMax]. */
     val automaticImageCount: Boolean = false,
     /** Exact number of distinct story frames when [automaticImageCount] is false. */
@@ -115,7 +144,7 @@ data class ImageGenerationSettings(
      * Instruction used by the roleplay Agent to fill generate_image action arguments while writing
      * the final reply. Stored with the image model so users can tune the compiler independently.
      */
-    val promptCompilerInstruction: String = DefaultNovelAiPromptCompilerInstruction,
+    val promptCompilerInstruction: String = "",
     /** Inserted verbatim before the generated scene prompt for a shared house style. */
     val promptPrefix: String = "",
     /** Appended verbatim to the built-in and scene-specific negative prompts. */
@@ -130,8 +159,7 @@ fun ImageGenerationSettings.storyImageCountRange(): IntRange {
     return minimum..maximum
 }
 
-fun ModelConfig.isImageGenerationConfig(): Boolean =
-    provider.trim().equals(NovelAiImageProviderId, ignoreCase = true)
+fun ModelConfig.isImageGenerationConfig(): Boolean = imageGenerationProvider() != null
 
 fun ModelConfig.isChatModelConfig(): Boolean = !isImageGenerationConfig()
 
@@ -139,6 +167,17 @@ fun ModelConfig.configuredMaxOutputTokens(): Int? = modelOptions
     .firstOrNull { it.id == model.trim() }
     ?.maxOutputTokens
     ?.takeIf { it in ModelOption.MinMaxOutputTokens..ModelOption.MaxContextWindowTokens }
+
+/** Sampling controls are stored per model and applied at the provider boundary. */
+fun ModelConfig.configuredTemperature(): Double? = modelOptions
+    .firstOrNull { it.id == model.trim() }
+    ?.temperature
+    ?.takeIf { it in ModelOption.MinTemperature..ModelOption.MaxTemperature }
+
+fun ModelConfig.configuredTopP(): Double? = modelOptions
+    .firstOrNull { it.id == model.trim() }
+    ?.topP
+    ?.takeIf { it in ModelOption.MinTopP..ModelOption.MaxTopP }
 
 /** DeepSeek's official preview vision route is provider-declared rather than user-asserted. */
 fun ModelConfig.isOfficialDeepSeekVisionModel(): Boolean =
@@ -211,10 +250,10 @@ fun ModelConfig.usesChatThinkingToggleContract(): Boolean =
         baseUrl.contains("api.minimax", ignoreCase = true)
 
 fun ModelConfig.withProviderDefaults(): ModelConfig {
-    if (!isImageGenerationConfig()) return this
+    val imageProvider = imageGenerationProvider() ?: return this
     return copy(
-        baseUrl = baseUrl.ifBlank { NovelAiDefaultBaseUrl },
-        model = model.ifBlank { NovelAiDefaultModel },
+        baseUrl = baseUrl.ifBlank { defaultBaseUrlForProvider(provider).orEmpty() },
+        model = model.ifBlank { imageProvider.defaultModel },
     )
 }
 
@@ -227,6 +266,10 @@ data class ModelOption(
     val autoCompactTokenLimit: Int? = null,
     /** Optional per-request output cap. Null leaves the limit to the upstream model/provider. */
     val maxOutputTokens: Int? = null,
+    /** Optional sampling temperature. New models follow ElecKoi's neutral default of 1. */
+    val temperature: Double? = 1.0,
+    /** Optional nucleus-sampling threshold. */
+    val topP: Double? = 1.0,
     /** Selected DSH reasoning effort id. Null preserves the provider/model default. */
     val reasoningEffort: String? = null,
     /** Null follows the connection format; non-null overrides it for this model only. */
@@ -243,6 +286,10 @@ data class ModelOption(
         const val MaxContextWindowTokens = 4_000_000
         const val MinAutoCompactTokenLimit = 1_024
         const val MinMaxOutputTokens = 1
+        const val MinTemperature = 0.0
+        const val MaxTemperature = 2.0
+        const val MinTopP = 0.0
+        const val MaxTopP = 1.0
     }
 }
 

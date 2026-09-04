@@ -5,6 +5,7 @@ import com.eleckoi.android.engine.agent.api.AgentHistoryItem
 import com.eleckoi.android.engine.agent.api.AgentPermissionMode
 import com.eleckoi.android.engine.agent.eleckoi.conversation.PagedConversationTurn
 import com.eleckoi.android.engine.generation.model.ModelConfig
+import com.eleckoi.android.engine.generation.model.ImageGenerationProvider
 import com.eleckoi.android.engine.workspace.model.CreatorConversationTimelineItem
 import com.eleckoi.android.engine.workspace.model.CreatorWorkspace
 import com.eleckoi.android.engine.workspace.model.CreatorWorkspaceCheckpoint
@@ -63,6 +64,7 @@ interface CreatorAssistantService {
         displayName: String = "",
         source: CreatorMediaAssetSource = CreatorMediaAssetSource.Upload,
     ): CreatorMediaAsset
+    suspend fun creatorImageGenerationProvider(): ImageGenerationProvider?
     suspend fun generateCreatorMediaAsset(
         workspaceId: String,
         prompt: String,

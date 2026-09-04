@@ -45,12 +45,18 @@ private fun ModelOption?.hasInvalidAgentLimits(): Boolean {
         it !in ModelOption.MinMaxOutputTokens..ModelOption.MaxContextWindowTokens ||
             (contextWindowTokens != null && it > contextWindowTokens)
     } ?: false
-    return contextInvalid || compactInvalid || outputInvalid
+    val temperatureInvalid = option.temperature?.let {
+        it !in ModelOption.MinTemperature..ModelOption.MaxTemperature
+    } ?: false
+    val topPInvalid = option.topP?.let {
+        it !in ModelOption.MinTopP..ModelOption.MaxTopP
+    } ?: false
+    return contextInvalid || compactInvalid || outputInvalid || temperatureInvalid || topPInvalid
 }
 
 internal fun modelLimitHint(option: ModelOption?): String {
     return if (option.hasInvalidAgentLimits()) {
-        "上下文需为 4096–4000000；压缩阈值和单次输出不能超过上下文。"
+        "上下文需为 4096–4000000；压缩和输出不能超过上下文；温度为 0–2，Top P 为 0–1。"
     } else {
         ""
     }

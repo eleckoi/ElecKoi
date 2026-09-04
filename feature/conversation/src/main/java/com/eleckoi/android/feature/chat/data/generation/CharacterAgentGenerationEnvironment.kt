@@ -38,11 +38,9 @@ internal class CharacterAgentGenerationEnvironment(
 
     fun selectedConfig(draft: ChatDraft): ModelConfig {
         val collection = settings.loadModelConfigCollection()
-        val selection = draft.session.modelSettings["chat"]
-        val configId = selection?.configId.orEmpty().ifBlank { draft.selectedModelConfig.id }
-        val configured = collection.chatConfigs.firstOrNull { it.id == configId }
+        val configured = collection.chatConfigs.firstOrNull { it.id == draft.selectedModelConfig.id }
             ?: draft.selectedModelConfig
-        val selectedModel = selection?.model.orEmpty().ifBlank { draft.selectedModel }
+        val selectedModel = draft.selectedModel
         val result = if (selectedModel.isNotBlank()) configured.copy(model = selectedModel) else configured
         if (result.id.isBlank() || result.model.isBlank()) {
             throw ElecKoiDataException("请先选择可用的 Agent 模型配置")

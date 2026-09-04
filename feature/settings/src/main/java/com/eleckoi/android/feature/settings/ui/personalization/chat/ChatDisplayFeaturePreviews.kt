@@ -52,56 +52,50 @@ internal fun ChatGenerationStatsPreview(
             .fillMaxSize()
             .background(appearance.mobileChatBg)
             .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp),
+        verticalArrangement = Arrangement.Center,
     ) {
-        PreviewSpeakerLabel(
-            label = "AI",
-            appearance = appearance,
-        )
         Surface(
-            color = appearance.mobileChatMessageBg,
-            shape = RoundedCornerShape(11.dp),
-        ) {
-            Text(
-                text = "回复已经生成好了。",
-                color = appearance.mobileChatMessageFg,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-            )
-        }
-        Spacer(modifier = Modifier.weight(1f))
-        Surface(
-            color = appearance.mobileComposerBg,
-            shape = RoundedCornerShape(11.dp),
+            modifier = Modifier.fillMaxWidth(),
+            color = appearance.mobileSurface,
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, appearance.mobileLine),
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                verticalArrangement = Arrangement.spacedBy(5.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
             ) {
-                Text(
-                    text = "输入消息…",
-                    color = appearance.mobileSoft,
-                    fontSize = 12.sp,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    PreviewStatPill("1 轮 · 1 步", appearance)
-                    PreviewStatPill("1.8s", appearance)
-                    PreviewStatPill("42 tok/s", appearance)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp)
+                        .background(appearance.mobileComposerBg, RoundedCornerShape(11.dp))
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "说点什么…",
+                        color = appearance.mobileSoft,
+                        fontSize = 11.5.sp,
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 9.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val statColor = if (enabled) appearance.mobileMuted else appearance.mobileSoft
+                    listOf("第 3 轮", "4.2s", "38 tok/s", "缓存 82%", "1,240 tok").forEach { stat ->
+                        Text(
+                            text = stat,
+                            color = statColor,
+                            fontSize = 9.sp,
+                            maxLines = 1,
+                        )
+                    }
                 }
             }
         }
-        Text(
-            text = if (enabled) {
-                "缓存命中 86%  |  输入 1.2K tok  ·  输出 128 tok"
-            } else {
-                "生成统计已关闭"
-            },
-            color = if (enabled) appearance.mobileMuted else appearance.mobileSoft,
-            fontSize = 10.sp,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Clip,
-        )
     }
 }
 
@@ -300,21 +294,6 @@ private fun PreviewSpeakerLabel(label: String, appearance: AppearanceTheme) {
         fontSize = 14.sp,
         fontWeight = FontWeight.Medium,
     )
-}
-
-@Composable
-private fun PreviewStatPill(label: String, appearance: AppearanceTheme) {
-    Surface(
-        color = appearance.mobileSurface.copy(alpha = 0.72f),
-        shape = RoundedCornerShape(5.dp),
-    ) {
-        Text(
-            text = label,
-            color = appearance.mobileMuted,
-            fontSize = 9.sp,
-            modifier = Modifier.padding(horizontal = 5.dp, vertical = 3.dp),
-        )
-    }
 }
 
 @Composable

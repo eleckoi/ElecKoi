@@ -1,29 +1,19 @@
 package com.eleckoi.android.app.shell
 
 import com.eleckoi.android.foundation.design.components.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,15 +31,6 @@ import com.eleckoi.android.feature.characters.model.CharacterMode
 import com.eleckoi.android.feature.characters.model.UserProfile
 import com.eleckoi.android.feature.chat.model.ChatListItem
 
-private class MessagesRootEditorState {
-    var keyword by mutableStateOf("")
-}
-
-@Composable
-private fun rememberMessagesRootEditorState(): MessagesRootEditorState {
-    return remember { MessagesRootEditorState() }
-}
-
 @Composable
 internal fun MessagesRootPage(
     user: UserProfile,
@@ -59,21 +40,14 @@ internal fun MessagesRootPage(
     activeChatSessionIds: Map<String, String>,
     characterModesById: Map<String, String>,
     appearance: AppearanceTheme,
-    searchOpen: Boolean,
-    onSearchOpenChange: (Boolean) -> Unit,
+    onSearch: () -> Unit,
     onAdd: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenChat: (String) -> Unit,
     onTogglePinnedChat: (String) -> Unit,
     onHideChat: (String) -> Unit,
 ) {
-    val editorState = rememberMessagesRootEditorState()
-
-    with(editorState) {
-    LaunchedEffect(searchOpen) {
-        if (!searchOpen) keyword = ""
-    }
-    val key = keyword.trim().lowercase()
+    val swipeState = rememberMobileSwipeState()
     val pinned = pinnedChatIds.toSet()
     val conversationChats = orderMessageChats(
         chats = chats,
@@ -82,47 +56,8 @@ internal fun MessagesRootPage(
         activeChatSessionIds = activeChatSessionIds,
         characterModesById = characterModesById,
     )
-    val filtered = filterMessageRootSearch(conversationChats, key)
     val pinnedItems = conversationChats.filter { it.id in pinned }
     val regularItems = conversationChats.filterNot { it.id in pinned }
-    if (searchOpen) {
-        RootSearchPage(
-            query = keyword,
-            placeholder = "搜索会话",
-            accentColor = appearance.mobileBlue,
-            onQueryChange = { keyword = it },
-            onBack = {
-                keyword = ""
-                onSearchOpenChange(false)
-            },
-        ) { searchAppearance ->
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 8.dp),
-            ) {
-                if (key.isNotBlank() && filtered.isEmpty()) {
-                    item { MobileEmptyState("没有搜索结果", searchAppearance) }
-                }
-                if (key.isNotBlank()) {
-                    items(filtered, key = { "search-${it.id}" }) { chat ->
-                        MessageChatRow(
-                            chat = chat,
-                            isPinned = chat.id in pinned,
-                            appearance = searchAppearance,
-                            onOpenChat = { sessionId ->
-                                keyword = ""
-                                onSearchOpenChange(false)
-                                onOpenChat(sessionId)
-                            },
-                            onTogglePinnedChat = onTogglePinnedChat,
-                            onHideChat = onHideChat,
-                        )
-                    }
-                }
-            }
-        }
-        return@with
-    }
     MobileRootSurface(
         appearance = appearance,
         header = {
@@ -132,7 +67,10 @@ internal fun MessagesRootPage(
                 title = user.userName.ifBlank { "用户" },
                 subtitle = "在线 - WiFi",
                 appearance = appearance,
-                onSearch = { onSearchOpenChange(true) },
+                onSearch = {
+                    swipeState.close()
+                    onSearch()
+                },
                 onAdd = onAdd,
                 onOpenProfile = onOpenProfile,
             )
@@ -158,6 +96,8 @@ internal fun MessagesRootPage(
                         chat = chat,
                         isPinned = true,
                         appearance = appearance,
+                        rowContainerColor = appearance.mobileBg,
+                        swipeState = swipeState,
                         onOpenChat = onOpenChat,
                         onTogglePinnedChat = onTogglePinnedChat,
                         onHideChat = onHideChat,
@@ -177,13 +117,14 @@ internal fun MessagesRootPage(
                     chat = chat,
                     isPinned = false,
                     appearance = appearance,
+                    rowContainerColor = appearance.mobileBg,
+                    swipeState = swipeState,
                     onOpenChat = onOpenChat,
                     onTogglePinnedChat = onTogglePinnedChat,
                     onHideChat = onHideChat,
                 )
             }
         }
-    }
     }
 }
 
@@ -265,13 +206,50 @@ private fun MessageChatRow(
     chat: ChatListItem,
     isPinned: Boolean,
     appearance: AppearanceTheme,
+    rowContainerColor: androidx.compose.ui.graphics.Color,
+    swipeState: MobileSwipeState,
     onOpenChat: (String) -> Unit,
     onTogglePinnedChat: (String) -> Unit,
     onHideChat: (String) -> Unit,
 ) {
-    var menuOpen by remember(chat.id) { mutableStateOf(false) }
     var hideConfirmationOpen by remember(chat.id) { mutableStateOf(false) }
-    Box(modifier = Modifier.fillMaxWidth()) {
+    MobileSwipeRow(
+        key = chat.id,
+        state = swipeState,
+        actions = listOf(
+            MobileSwipeAction(
+                label = if (isPinned) "取消置顶" else "置顶",
+                containerColor = appearance.mobileSearchBg,
+                contentColor = appearance.mobileMuted,
+                onClick = { onTogglePinnedChat(chat.id) },
+                icon = { tint ->
+                    Icon(
+                        imageVector = Icons.Outlined.PushPin,
+                        contentDescription = null,
+                        tint = tint,
+                        modifier = Modifier.size(19.dp),
+                    )
+                },
+            ),
+            MobileSwipeAction(
+                label = "删除",
+                containerColor = ElecKoiDanger,
+                contentColor = appearance.mobileAccentFg,
+                onClick = { hideConfirmationOpen = true },
+                icon = { tint ->
+                    StrokeSvgIcon(
+                        paths = AppIconPaths.Trash,
+                        color = tint,
+                        iconSize = 19.dp,
+                        strokeWidth = 1.8f,
+                    )
+                },
+            ),
+        ),
+        rowHeight = 62.dp,
+        rowContainerColor = rowContainerColor,
+        onClick = { onOpenChat(chat.id) },
+    ) { rowClick ->
         MobileConversationRow(
             title = messageRootEntryTitle(chat),
             subtitle = chat.summary.ifBlank { "新对话" },
@@ -280,24 +258,8 @@ private fun MessageChatRow(
             sideText = formatShortDate(chat.updatedAt),
             appearance = appearance,
             pinned = isPinned,
-            onLongClick = { menuOpen = true },
-            onClick = { onOpenChat(chat.id) },
+            onClick = rowClick,
         )
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 14.dp)
-                .size(1.dp),
-        ) {
-            MessageContextMenu(
-                expanded = menuOpen,
-                isPinned = isPinned,
-                appearance = appearance,
-                onTogglePinned = { onTogglePinnedChat(chat.id) },
-                onHide = { hideConfirmationOpen = true },
-                onDismiss = { menuOpen = false },
-            )
-        }
     }
     if (hideConfirmationOpen) {
         ConfirmDialog(
@@ -343,80 +305,6 @@ private fun MessageListSectionHeader(
             color = appearance.mobileMuted,
             fontSize = 12.5.sp,
             fontWeight = FontWeight.Medium,
-        )
-    }
-}
-
-@Composable
-private fun MessageContextMenu(
-    expanded: Boolean,
-    isPinned: Boolean,
-    appearance: AppearanceTheme,
-    onTogglePinned: () -> Unit,
-    onHide: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismiss,
-        modifier = Modifier.width(176.dp),
-        shape = RoundedCornerShape(16.dp),
-        containerColor = appearance.mobileSurface,
-        tonalElevation = 0.dp,
-        shadowElevation = 8.dp,
-    ) {
-        DropdownMenuItem(
-            text = {
-                Text(
-                    text = if (isPinned) "取消置顶" else "置顶",
-                    color = appearance.mobileText,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Outlined.PushPin,
-                    contentDescription = null,
-                    tint = appearance.mobileMuted,
-                    modifier = Modifier.size(19.dp),
-                )
-            },
-            onClick = {
-                onDismiss()
-                onTogglePinned()
-            },
-            modifier = Modifier.heightIn(min = 52.dp),
-        )
-        Box(
-            modifier = Modifier
-                .padding(horizontal = 14.dp)
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(appearance.mobileLine),
-        )
-        DropdownMenuItem(
-            text = {
-                Text(
-                    text = "删除入口",
-                    color = ElecKoiDanger,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-            },
-            leadingIcon = {
-                StrokeSvgIcon(
-                    paths = AppIconPaths.Trash,
-                    color = ElecKoiDanger,
-                    iconSize = 19.dp,
-                    strokeWidth = 1.7f,
-                )
-            },
-            onClick = {
-                onDismiss()
-                onHide()
-            },
-            modifier = Modifier.heightIn(min = 52.dp),
         )
     }
 }

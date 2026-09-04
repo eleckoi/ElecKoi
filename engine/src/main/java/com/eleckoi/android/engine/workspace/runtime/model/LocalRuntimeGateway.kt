@@ -24,6 +24,9 @@ interface LocalRuntimeGateway : AutoCloseable {
 
     suspend fun refreshRuntimeStatus() = connect()
 
+    /** Measures the active installation on demand; unsupported gateways return an unknown value. */
+    suspend fun readStorageUsage(): LocalRuntimeStorageUsage = LocalRuntimeStorageUsage.Unknown
+
     suspend fun cancelRuntimeInstallation()
 
     suspend fun startSystemProbe(commandId: String)

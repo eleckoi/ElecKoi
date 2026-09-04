@@ -169,6 +169,7 @@ internal fun resolveAssistantBubbleEnabled(
 data class UiPreferences(
     val pinnedChatIds: List<String> = emptyList(),
     val hiddenChatIds: List<String> = emptyList(),
+    val searchHistory: List<String> = emptyList(),
     val presetPagePinned: Boolean = false,
     val pluginPagePinned: Boolean = false,
     val commonPageOrder: List<String> = emptyList(),

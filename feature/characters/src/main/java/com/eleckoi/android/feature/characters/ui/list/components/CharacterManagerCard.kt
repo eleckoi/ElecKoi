@@ -93,6 +93,7 @@ internal fun CharacterManagerCard(
             color = appearance.mobileText,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
+            minLines = 2,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(start = 8.dp, top = 7.dp, end = 8.dp),

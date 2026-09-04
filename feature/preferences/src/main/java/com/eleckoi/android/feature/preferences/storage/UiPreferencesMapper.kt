@@ -13,6 +13,9 @@ internal fun Preferences.toUiPreferences(): UiPreferences {
         hiddenChatIds = preferences[HiddenChatIdsJson]
             ?.let(::decodeStringList)
             ?: emptyList(),
+        searchHistory = preferences[SearchHistoryJson]
+            ?.let(::decodeStringList)
+            ?: emptyList(),
         presetPagePinned = preferences[PresetPagePinned] ?: false,
         pluginPagePinned = preferences[PluginPagePinned] ?: false,
         commonPageOrder = preferences[CommonPageOrderJson]

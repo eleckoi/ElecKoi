@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import com.eleckoi.android.engine.generation.config.ModelConfigRepository
 import com.eleckoi.android.engine.generation.image.ReplyImageGenerator
 import com.eleckoi.android.engine.generation.image.SceneImagePrompt
+import com.eleckoi.android.engine.generation.model.isImageGenerationConfig
 import com.eleckoi.android.engine.workspace.model.CreatorWorkspaceRootAccess
 import com.eleckoi.android.engine.workspace.storage.CreatorWorkspaceRepository
 import com.eleckoi.android.feature.characters.data.CharacterRepository
@@ -36,6 +37,7 @@ internal class CreatorMediaCoordinator(
     private val characters: CharacterRepository,
     private val rootResolver: CreatorCharacterRootResolver,
     private val mediaCacheDirectory: File,
+    private val imageModelConfigId: () -> String,
 ) {
     private val mediaMutex = Mutex()
 
@@ -94,11 +96,14 @@ internal class CreatorMediaCoordinator(
     ): CreatorMediaAsset = withContext(Dispatchers.IO) {
         requireNotNull(creatorWorkspaces.get(workspaceId)) { "创作工作区不存在" }
         val normalizedPrompt = prompt.trim().take(MaxCreatorImagePromptChars)
-        require(normalizedPrompt.isNotBlank()) { "NovelAI 正向提示词不能为空" }
-        val imageConfig = modelConfigs.loadModelConfigCollection().activeImageConfig
-            ?: error("没有启用的 NovelAI 绘画模型，请先在模型设置中启用")
+        require(normalizedPrompt.isNotBlank()) { "图片提示词不能为空" }
+        val selectedImageConfigId = imageModelConfigId()
+        val imageConfig = modelConfigs.loadModelConfigCollection().configs.firstOrNull {
+            it.id == selectedImageConfigId && it.isImageGenerationConfig()
+        }
+            ?: error("尚未选择图片生成模型，请到 AI 创作助手的「创作能力」中配置")
         require(imageConfig.apiKey.isNotBlank() && !imageConfig.apiKeyNeedsReentry) {
-            "NovelAI Persistent API Token 不可用，请先在模型设置中重新填写"
+            "图片生成模型 API Key 不可用，请先在模型配置中重新填写"
         }
         val generatedPath = replyImageGenerator.generate(
             imageConfig = imageConfig,
@@ -109,12 +114,13 @@ internal class CreatorMediaCoordinator(
                 prompt = normalizedPrompt,
                 negativePrompt = negativePrompt.trim().take(MaxCreatorImageNegativePromptChars),
             ),
+            includeConfiguredPromptDefaults = false,
         )
         try {
             registerCreatorMediaAsset(
                 workspaceId = workspaceId,
                 sourceFile = File(generatedPath),
-                displayName = displayName.trim().take(80).ifBlank { "NovelAI 创作图片" },
+                displayName = displayName.trim().take(80).ifBlank { "创作图片" },
                 source = CreatorMediaAssetSource.Generated,
             )
         } finally {

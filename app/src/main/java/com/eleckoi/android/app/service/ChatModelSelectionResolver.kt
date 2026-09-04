@@ -3,7 +3,6 @@ package com.eleckoi.android.app.service
 import com.eleckoi.android.engine.generation.config.ModelConfigCollection
 import com.eleckoi.android.engine.generation.config.ModelConfigRepository
 import com.eleckoi.android.engine.generation.model.ModelConfig
-import com.eleckoi.android.feature.chat.data.ChatSessionStore
 import com.eleckoi.android.feature.modelconfig.model.ChatModelSelection
 import com.eleckoi.android.feature.preferences.UiPreferencesRepository
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +17,6 @@ import kotlinx.coroutines.withContext
 internal class ChatModelSelectionResolver(
     private val settings: ModelConfigRepository,
     private val uiPreferences: UiPreferencesRepository,
-    private val sessions: ChatSessionStore,
 ) {
     suspend fun default(
         collection: ModelConfigCollection = settings.loadModelConfigCollection(),
@@ -38,7 +36,6 @@ internal class ChatModelSelectionResolver(
             model = preferences.defaultChatModel,
         )
         ChatModelSelectionPolicy.validated(storedDefault, collection)?.let { return it }
-        ChatModelSelectionPolicy.validated(sessions.latestModelSelection(), collection)?.let { return it }
         return ChatModelSelectionPolicy.bootstrap(collection)
     }
 
@@ -69,6 +66,11 @@ internal class ChatModelSelectionResolver(
 }
 
 internal object ChatModelSelectionPolicy {
+    fun withSessionParameters(
+        global: ChatModelSelection,
+        session: ChatModelSelection?,
+    ): ChatModelSelection = global.copy(parameters = session?.parameters ?: global.parameters)
+
     fun validated(
         selection: ChatModelSelection?,
         collection: ModelConfigCollection,

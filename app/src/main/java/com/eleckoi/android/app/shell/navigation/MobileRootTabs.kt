@@ -2,6 +2,8 @@ package com.eleckoi.android.app.shell
 
 import com.eleckoi.android.foundation.design.components.*
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -17,6 +19,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.unit.dp
 import com.eleckoi.android.app.navigation.MobileRoute
 import com.eleckoi.android.app.navigation.MobileBackHandler
 import com.eleckoi.android.engine.generation.config.ModelConfigCollection
@@ -28,6 +33,7 @@ import com.eleckoi.android.feature.characters.ui.CharactersViewModel
 import com.eleckoi.android.feature.characters.ui.list.CharactersRootPage
 import com.eleckoi.android.feature.chat.ui.ChatViewModel
 import com.eleckoi.android.feature.modelconfig.ui.ModelTarget
+import com.eleckoi.android.feature.modelconfig.ui.ModelProviderPickerSheet
 import com.eleckoi.android.feature.modelconfig.ui.ModelsRootPage
 import com.eleckoi.android.feature.modelconfig.ui.ModelsViewModel
 import com.eleckoi.android.foundation.design.AppearanceTheme
@@ -55,19 +61,48 @@ internal fun MobileRootTabs(
     // The character manager is a full-screen sheet living inside the Characters tab's content, so
     // the tab bar has to step out of the layout for it — a sheet cannot paint over its own sibling.
     var charactersManagerOpen by rememberSaveable { mutableStateOf(false) }
+    var characterAddMenuOpen by rememberSaveable { mutableStateOf(false) }
+    var modelProviderPickerOpen by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(shell.activeTab) {
         onRootSearchOpenChange(false)
+        modelProviderPickerOpen = false
+        characterAddMenuOpen = false
     }
     MobileBackHandler(
         enabled = rootSearchOpen,
         onBack = { onRootSearchOpenChange(false) },
     )
-
+    MobileBackHandler(
+        enabled = characterAddMenuOpen,
+        onBack = { characterAddMenuOpen = false },
+    )
+    MobileBackHandler(
+        enabled = modelProviderPickerOpen,
+        onBack = { modelProviderPickerOpen = false },
+    )
+    val modalBackdropBlur by animateDpAsState(
+        // The small character "+" menu is a popup, not a modal sheet. Keep its background
+        // readable under a dim scrim; blurring the whole tree also blurred and greyed the popup.
+        targetValue = if (modelProviderPickerOpen) 12.dp else 0.dp,
+        animationSpec = tween(durationMillis = 180),
+        label = "modelProviderBackdropBlur",
+    )
     MobileRootGlassProvider(modifier = Modifier.fillMaxSize()) {
-        MobileRootBackdrop(appearance = appearance)
-        Column(modifier = Modifier.fillMaxSize()) {
-            Box(modifier = Modifier.weight(1f)) {
-            when (shell.activeTab) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (modalBackdropBlur > 0.dp) {
+                        Modifier.blur(modalBackdropBlur, BlurredEdgeTreatment.Unbounded)
+                    } else {
+                        Modifier
+                    },
+                ),
+        ) {
+            MobileRootBackdrop(appearance = appearance)
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    when (shell.activeTab) {
                 RootTab.Messages -> MessagesRootPage(
                     user = user,
                     chats = shell.chats,
@@ -78,8 +113,7 @@ internal fun MobileRootTabs(
                         character.id to character.characterMode
                     },
                     appearance = appearance,
-                    searchOpen = rootSearchOpen,
-                    onSearchOpenChange = onRootSearchOpenChange,
+                    onSearch = { onRootSearchOpenChange(true) },
                     onAdd = {
                         chatViewModel.loadInitialDraft()
                         onNavigate(MobileRoute.Chat)
@@ -105,8 +139,7 @@ internal fun MobileRootTabs(
                     user = user,
                     characters = characters,
                     appearance = appearance,
-                    searchOpen = rootSearchOpen,
-                    onSearchOpenChange = onRootSearchOpenChange,
+                    onSearch = { onRootSearchOpenChange(true) },
                     managerOpen = charactersManagerOpen,
                     onManagerOpenChange = { charactersManagerOpen = it },
                     isAssistantRunning = isCreatorAssistantRunning,
@@ -143,6 +176,8 @@ internal fun MobileRootTabs(
                     onDeleteCharacters = { ids ->
                         charactersViewModel.onIntent(CharactersIntent.DeleteCharacters(ids))
                     },
+                    addMenuExpanded = characterAddMenuOpen,
+                    onAddMenuExpandedChange = { characterAddMenuOpen = it },
                 )
 
                 RootTab.Models -> ModelsRootPage(
@@ -150,13 +185,8 @@ internal fun MobileRootTabs(
                     userAvatarPath = user.userAvatar,
                     models = models,
                     appearance = appearance,
-                    searchOpen = rootSearchOpen,
-                    onSearchOpenChange = onRootSearchOpenChange,
-                    onAdd = { providerId ->
-                        onNavigate(
-                            MobileRoute.ModelSettings(modelsViewModel.createDraftTarget(providerId)),
-                        )
-                    },
+                    onSearch = { onRootSearchOpenChange(true) },
+                    onAdd = { modelProviderPickerOpen = true },
                     onOpenProfile = {
                         shellViewModel.onIntent(ShellIntent.SetMoreOpen(true))
                     },
@@ -168,17 +198,64 @@ internal fun MobileRootTabs(
                         )
                     },
                 )
+                    }
+                }
+                if (!charactersManagerOpen && !rootSearchOpen && !modelProviderPickerOpen) {
+                    MobileTabBar(
+                        activeTab = BottomTab.from(shell.activeTab),
+                        tabs = bottomTabs,
+                        appearance = appearance,
+                        onChange = onChangeBottomTab,
+                    )
+                }
             }
         }
-            if (!charactersManagerOpen && !rootSearchOpen) {
-                MobileTabBar(
-                    activeTab = BottomTab.from(shell.activeTab),
-                    tabs = bottomTabs,
-                    appearance = appearance,
-                    onChange = onChangeBottomTab,
+        ModelProviderPickerSheet(
+            visible = modelProviderPickerOpen,
+            appearance = appearance,
+            onDismiss = { modelProviderPickerOpen = false },
+            onSelect = { providerId ->
+                modelProviderPickerOpen = false
+                onNavigate(
+                    MobileRoute.ModelSettings(modelsViewModel.createDraftTarget(providerId)),
                 )
-            }
-        }
+            },
+        )
+        HomeSearchOverlay(
+            visible = rootSearchOpen,
+            chats = shell.chats.filterNot { it.id in shell.hiddenChatIds },
+            characters = characters,
+            modelConfigs = models?.configs.orEmpty(),
+            history = shell.searchHistory,
+            appearance = appearance,
+            onDismiss = { onRootSearchOpenChange(false) },
+            onCommitTerm = { term ->
+                shellViewModel.onIntent(ShellIntent.RememberSearch(term))
+            },
+            onForgetTerm = { term ->
+                shellViewModel.onIntent(ShellIntent.ForgetSearch(term))
+            },
+            onClearHistory = {
+                shellViewModel.onIntent(ShellIntent.ClearSearchHistory)
+            },
+            onOpenChat = { sessionId ->
+                onRootSearchOpenChange(false)
+                chatViewModel.loadDraft(sessionId)
+                onNavigate(MobileRoute.Chat)
+            },
+            onOpenCharacter = { characterId ->
+                onRootSearchOpenChange(false)
+                charactersViewModel.onIntent(CharactersIntent.SelectCharacter(characterId))
+            },
+            onOpenModel = { providerId, configId ->
+                onRootSearchOpenChange(false)
+                onNavigate(
+                    MobileRoute.ModelSettings(
+                        ModelTarget(providerId = providerId, configId = configId),
+                    ),
+                )
+            },
+        )
     }
 }
 

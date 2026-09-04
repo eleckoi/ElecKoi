@@ -124,6 +124,23 @@ class AgentToolCatalogStore(private val file: File) {
         )
     }
 
+    fun toolModelConfigId(scopeId: String, groupId: String): String = synchronized(lock) {
+        scopedToolModelConfigId(scopeId, groupId, state.scopedToolModelConfigIds)
+    }
+
+    fun setToolModelConfigId(scopeId: String, groupId: String, configId: String) = synchronized(lock) {
+        updateState(
+            state.copy(
+                scopedToolModelConfigIds = selectScopedToolModelConfig(
+                    scopeId = scopeId,
+                    groupId = groupId,
+                    configId = configId,
+                    scoped = state.scopedToolModelConfigIds,
+                ),
+            ),
+        )
+    }
+
     /**
      * One shared order drives both the insertion preview and the model-visible context bucket.
      * Keeping it independently persisted allows a later reorder UI without a protocol redesign.

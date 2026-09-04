@@ -5,6 +5,9 @@ import com.eleckoi.android.engine.generation.model.ModelOption
 import com.eleckoi.android.engine.generation.model.NovelAiDefaultBaseUrl
 import com.eleckoi.android.engine.generation.model.NovelAiDefaultModel
 import com.eleckoi.android.engine.generation.model.NovelAiImageProviderId
+import com.eleckoi.android.engine.generation.model.OpenAiDefaultBaseUrl
+import com.eleckoi.android.engine.generation.model.OpenAiDefaultImageModel
+import com.eleckoi.android.engine.generation.model.OpenAiImageProviderId
 import kotlinx.serialization.Serializable
 
 enum class ModelLibrarySectionId { General, Image, Voice }
@@ -43,12 +46,53 @@ val modelProviders = listOf(
         apiKeyPlaceholder = "填写 API Key",
         modelPlaceholder = "填写模型名称",
     ),
-    ModelProviderMeta("deepseek", "DeepSeek", "原厂 API", "默认使用 Responses API；deepseek-v4-flash-vision-exp 支持图片输入与 Files API。", "DS", "默认：https://api.deepseek.com", "填写 DeepSeek API Key", "例如：deepseek-v4-flash、deepseek-v4-pro、deepseek-v4-flash-vision-exp"),
+    ModelProviderMeta("deepseek", "DeepSeek", "官方 API", "官方 API", "DS", "默认：https://api.deepseek.com", "填写 DeepSeek API Key", "例如：deepseek-v4-flash、deepseek-v4-pro、deepseek-v4-flash-vision-exp"),
+    ModelProviderMeta(
+        id = "zhipu",
+        label = "智谱开放平台",
+        badge = "官方 API",
+        summary = "智谱 AI 国内开放平台。",
+        initials = "GLM",
+        baseUrlPlaceholder = "默认：https://open.bigmodel.cn/api/paas/v4",
+        apiKeyPlaceholder = "填写智谱 API Key",
+        modelPlaceholder = "填写模型名称，例如 glm-4.5",
+    ),
+    ModelProviderMeta(
+        id = "zai",
+        label = "Z.ai",
+        badge = "官方 API",
+        summary = "智谱 AI 国际平台。",
+        initials = "Z",
+        baseUrlPlaceholder = "默认：https://api.z.ai/api/paas/v4",
+        apiKeyPlaceholder = "填写 Z.ai API Key",
+        modelPlaceholder = "填写模型名称，例如 glm-4.5",
+    ),
+    ModelProviderMeta(
+        id = "moonshot",
+        label = "月之暗面",
+        badge = "官方 API",
+        summary = "月之暗面 Kimi 开放平台。",
+        initials = "K",
+        baseUrlPlaceholder = "默认：https://api.moonshot.cn/v1",
+        apiKeyPlaceholder = "填写月之暗面 API Key",
+        modelPlaceholder = "填写模型名称，例如 kimi-k2.5",
+    ),
+    ModelProviderMeta(
+        id = OpenAiImageProviderId,
+        label = "OpenAI Images",
+        badge = "绘画 API",
+        summary = "GPT Image 2",
+        initials = "OA",
+        baseUrlPlaceholder = "默认：$OpenAiDefaultBaseUrl",
+        apiKeyPlaceholder = "填写 OpenAI API Key",
+        modelPlaceholder = "默认：$OpenAiDefaultImageModel",
+        section = ModelLibrarySectionId.Image,
+    ),
     ModelProviderMeta(
         id = NovelAiImageProviderId,
         label = "NovelAI",
         badge = "绘画 API",
-        summary = "开启后，每轮角色回复完成时自动生成一张剧情插图。",
+        summary = "NovelAI 图片生成 API",
         initials = "NAI",
         baseUrlPlaceholder = "默认：$NovelAiDefaultBaseUrl",
         apiKeyPlaceholder = "填写 NovelAI Persistent API Token",
@@ -56,6 +100,32 @@ val modelProviders = listOf(
         section = ModelLibrarySectionId.Image,
     ),
 )
+
+private val alwaysVisibleGeneralProviderIds = setOf("custom", "deepseek")
+
+internal fun isFixedModelProvider(providerId: String): Boolean =
+    normalizeProviderId(providerId) in alwaysVisibleGeneralProviderIds
+
+/** The library stays compact: fixed entries are always present; optional channels appear once saved. */
+fun visibleModelProviders(configs: List<ModelConfig>): List<ModelProviderMeta> = modelProviders.filter { provider ->
+    isFixedModelProvider(provider.id) ||
+        configs.any { config ->
+            normalizeProviderId(config.provider) == provider.id
+        }
+}
+
+/** Deliberately excludes foreign-provider promotional entries. */
+val addableModelProviders: List<ModelProviderMeta> = modelProviders.filter {
+    it.id in setOf(
+        "custom",
+        "deepseek",
+        "zhipu",
+        "zai",
+        "moonshot",
+        OpenAiImageProviderId,
+        NovelAiImageProviderId,
+    )
+}
 
 fun normalizeProviderId(providerId: String): String {
     return providerId.trim().lowercase().ifBlank { "custom" }
@@ -102,7 +172,7 @@ fun hasModelConfigContent(config: ModelConfig): Boolean {
 
 internal fun countConfigs(configs: List<ModelConfig>, providerId: String): Int {
     val provider = normalizeProviderId(providerId)
-    return configs.count { normalizeProviderId(it.provider) == provider && hasModelConfigContent(it) }
+    return configs.count { normalizeProviderId(it.provider) == provider }
 }
 
 internal fun firstConfigForProvider(
@@ -121,12 +191,8 @@ internal fun latestConfigSummary(
     provider: ModelProviderMeta,
     preferredConfigId: String = "",
 ): String {
-    val first = firstConfigForProvider(configs, provider.id, preferredConfigId)
-        ?.takeIf(::hasModelConfigContent)
-        ?: configs.firstOrNull {
-            normalizeProviderId(it.provider) == provider.id && hasModelConfigContent(it)
-        }
-        ?: return provider.summary
+    if (normalizeProviderId(provider.id) == "deepseek") return "官方 API"
+    val first = firstConfigForProvider(configs, provider.id, preferredConfigId) ?: return provider.summary
     return listOf(configVersionName(first), first.model).filter { it.isNotBlank() }.joinToString(" · ")
         .ifBlank { provider.summary }
 }

@@ -1,7 +1,9 @@
 package com.eleckoi.android.feature.modelconfig.ui
 
 import com.eleckoi.android.engine.generation.model.ModelOption
+import com.eleckoi.android.engine.generation.model.ModelConfig
 import com.eleckoi.android.engine.generation.model.NovelAiImageProviderId
+import com.eleckoi.android.engine.generation.model.OpenAiImageProviderId
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -10,7 +12,61 @@ class ModelSearchTest {
     fun `general providers expose only custom and DeepSeek`() {
         assertEquals(
             listOf("custom", "deepseek"),
-            modelProviders.filter { it.section == ModelLibrarySectionId.General }.map { it.id },
+            visibleModelProviders(emptyList())
+                .filter { it.section == ModelLibrarySectionId.General }
+                .map { it.id },
+        )
+    }
+
+    @Test
+    fun `add sheet lists domestic channels and drawing without foreign promotional providers`() {
+        assertEquals(
+            listOf(
+                "custom",
+                "deepseek",
+                "zhipu",
+                "zai",
+                "moonshot",
+                OpenAiImageProviderId,
+                NovelAiImageProviderId,
+            ),
+            addableModelProviders.map { it.id },
+        )
+        assertEquals(
+            listOf("custom", "deepseek", "zhipu"),
+            visibleModelProviders(
+                listOf(ModelConfig(provider = "zhipu", model = "glm-test")),
+            ).filter { it.section == ModelLibrarySectionId.General }.map { it.id },
+        )
+    }
+
+    @Test
+    fun `optional groups appear only after their provider is saved`() {
+        assertEquals(
+            emptyList<String>(),
+            visibleModelProviders(emptyList())
+                .filter { it.section != ModelLibrarySectionId.General }
+                .map { it.id },
+        )
+        assertEquals(
+            listOf(NovelAiImageProviderId),
+            visibleModelProviders(listOf(ModelConfig(provider = NovelAiImageProviderId)))
+                .filter { it.section == ModelLibrarySectionId.Image }
+                .map { it.id },
+        )
+    }
+
+    @Test
+    fun `fixed entries remain while a removed optional provider disappears`() {
+        val saved = listOf(ModelConfig(id = "kimi", provider = "moonshot"))
+
+        assertEquals(
+            listOf("custom", "deepseek", "moonshot"),
+            visibleModelProviders(saved).map { it.id },
+        )
+        assertEquals(
+            listOf("custom", "deepseek"),
+            visibleModelProviders(emptyList()).map { it.id },
         )
     }
 
@@ -21,7 +77,7 @@ class ModelSearchTest {
             filterModelProvidersForSearch(modelProviders, "自定义").map { it.id },
         )
         assertEquals(
-            listOf(NovelAiImageProviderId),
+            listOf(OpenAiImageProviderId, NovelAiImageProviderId),
             filterModelProvidersForSearch(modelProviders, "绘画").map { it.id },
         )
     }

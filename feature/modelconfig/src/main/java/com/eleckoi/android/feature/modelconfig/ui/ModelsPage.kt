@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,7 +27,6 @@ import androidx.compose.ui.unit.sp
 import com.eleckoi.android.engine.generation.config.ModelConfigCollection
 import com.eleckoi.android.foundation.design.AppearanceTheme
 import com.eleckoi.android.foundation.design.components.MobileRootSurface
-import com.eleckoi.android.foundation.design.components.RootSearchPage
 import com.eleckoi.android.foundation.design.components.GroupRow
 import com.eleckoi.android.foundation.design.components.MobileEmptyState
 import com.eleckoi.android.foundation.design.components.MobileProfileHeader
@@ -39,7 +37,6 @@ import com.eleckoi.android.foundation.design.components.themedListRowClickable
 import com.eleckoi.android.foundation.design.selectionPalette
 
 private class ModelsRootEditorState {
-    var keyword by mutableStateOf("")
     var collapsedGeneral by mutableStateOf(false)
 
     fun toggleGeneralCollapsed() {
@@ -58,67 +55,23 @@ fun ModelsRootPage(
     userAvatarPath: String,
     models: ModelConfigCollection?,
     appearance: AppearanceTheme,
-    searchOpen: Boolean,
-    onSearchOpenChange: (Boolean) -> Unit,
-    onAdd: (String) -> Unit,
+    onSearch: () -> Unit,
+    onAdd: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenModel: (String, String) -> Unit,
 ) {
     val configs = models?.configs.orEmpty()
     val activeConfigId = models?.activeConfigId.orEmpty()
-    val activeProviderId = normalizeProviderId(models?.activeConfig?.provider.orEmpty())
-    val configuredCount = configs.count(::hasModelConfigContent)
+    val configuredCount = configs.size
     val editorState = rememberModelsRootEditorState()
     val generalSection = modelLibrarySections.first { it.id == ModelLibrarySectionId.General }
     val imageSection = modelLibrarySections.first { it.id == ModelLibrarySectionId.Image }
-    val voiceSection = modelLibrarySections.first { it.id == ModelLibrarySectionId.Voice }
 
     with(editorState) {
-    LaunchedEffect(searchOpen) {
-        if (!searchOpen) keyword = ""
-    }
-    val filteredProviders = filterModelProvidersForSearch(modelProviders, keyword)
-    val generalProviders = modelProviders.filter { it.section == ModelLibrarySectionId.General }
-    val imageProviders = modelProviders.filter { it.section == ModelLibrarySectionId.Image }
-
-    if (searchOpen) {
-        RootSearchPage(
-            query = keyword,
-            placeholder = "搜索模型",
-            accentColor = appearance.mobileBlue,
-            onQueryChange = { keyword = it },
-            onBack = {
-                keyword = ""
-                onSearchOpenChange(false)
-            },
-        ) { searchAppearance ->
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 8.dp),
-            ) {
-                if (keyword.isNotBlank() && filteredProviders.isEmpty()) {
-                    item { MobileEmptyState("没有搜索结果", searchAppearance) }
-                }
-                if (keyword.isNotBlank()) {
-                    items(filteredProviders, key = { "search-${it.id}" }) { provider ->
-                        val first = firstConfigForProvider(configs, provider.id, activeConfigId)
-                        ModelProviderRow(
-                            provider = provider,
-                            count = countConfigs(configs, provider.id),
-                            summary = latestConfigSummary(configs, provider, activeConfigId),
-                            appearance = searchAppearance,
-                            onClick = {
-                                keyword = ""
-                                onSearchOpenChange(false)
-                                onOpenModel(provider.id, first?.id.orEmpty())
-                            },
-                        )
-                    }
-                }
-            }
-        }
-        return@with
-    }
+    val visibleProviders = visibleModelProviders(configs)
+    val generalProviders = visibleProviders.filter { it.section == ModelLibrarySectionId.General }
+    val imageProviders = visibleProviders.filter { it.section == ModelLibrarySectionId.Image }
+    val voiceProviders = visibleProviders.filter { it.section == ModelLibrarySectionId.Voice }
 
     MobileRootSurface(
         appearance = appearance,
@@ -129,8 +82,8 @@ fun ModelsRootPage(
                 title = "模型",
                 subtitle = "$configuredCount 个配置",
                 appearance = appearance,
-                onSearch = { onSearchOpenChange(true) },
-                onAdd = { onAdd(activeProviderId) },
+                onSearch = onSearch,
+                onAdd = onAdd,
                 onOpenProfile = onOpenProfile,
             )
         },
@@ -142,7 +95,8 @@ fun ModelsRootPage(
             item {
                 GroupRow(
                     title = generalSection.title,
-                    count = modelProviders.count { it.section == ModelLibrarySectionId.General },
+                    count = generalProviders.size,
+                    placeholder = "",
                     appearance = appearance,
                     collapsed = collapsedGeneral,
                     onClick = ::toggleGeneralCollapsed,
@@ -156,31 +110,50 @@ fun ModelsRootPage(
                     val first = firstConfigForProvider(configs, provider.id, activeConfigId)
                     ModelProviderRow(
                         provider = provider,
-                        count = countConfigs(configs, provider.id),
                         summary = latestConfigSummary(configs, provider, activeConfigId),
                         appearance = appearance,
                         onClick = { onOpenModel(provider.id, first?.id.orEmpty()) },
                     )
                 }
             }
-            item {
-                GroupRow(
-                    title = imageSection.title,
-                    count = modelProviders.count { it.section == ModelLibrarySectionId.Image },
-                    appearance = appearance,
-                )
+            if (imageProviders.isNotEmpty()) {
+                item {
+                    GroupRow(
+                        title = imageSection.title,
+                        count = imageProviders.size,
+                        placeholder = "",
+                        appearance = appearance,
+                    )
+                }
+                items(imageProviders, key = { it.id }) { provider ->
+                    val first = firstConfigForProvider(configs, provider.id, activeConfigId)
+                    ModelProviderRow(
+                        provider = provider,
+                        summary = latestConfigSummary(configs, provider, activeConfigId),
+                        appearance = appearance,
+                        onClick = { onOpenModel(provider.id, first?.id.orEmpty()) },
+                    )
+                }
             }
-            items(imageProviders, key = { it.id }) { provider ->
-                val first = firstConfigForProvider(configs, provider.id, activeConfigId)
-                ModelProviderRow(
-                    provider = provider,
-                    count = countConfigs(configs, provider.id),
-                    summary = latestConfigSummary(configs, provider, activeConfigId),
-                    appearance = appearance,
-                    onClick = { onOpenModel(provider.id, first?.id.orEmpty()) },
-                )
+            if (voiceProviders.isNotEmpty()) {
+                item {
+                    GroupRow(
+                        title = modelLibrarySections.first { it.id == ModelLibrarySectionId.Voice }.title,
+                        count = voiceProviders.size,
+                        placeholder = "",
+                        appearance = appearance,
+                    )
+                }
+                items(voiceProviders, key = { it.id }) { provider ->
+                    val first = firstConfigForProvider(configs, provider.id, activeConfigId)
+                    ModelProviderRow(
+                        provider = provider,
+                        summary = latestConfigSummary(configs, provider, activeConfigId),
+                        appearance = appearance,
+                        onClick = { onOpenModel(provider.id, first?.id.orEmpty()) },
+                    )
+                }
             }
-            item { GroupRow(title = voiceSection.title, count = 0, placeholder = "占位", appearance = appearance) }
         }
     }
     }
@@ -189,7 +162,6 @@ fun ModelsRootPage(
 @Composable
 private fun ModelProviderRow(
     provider: ModelProviderMeta,
-    count: Int,
     summary: String,
     appearance: AppearanceTheme,
     onClick: () -> Unit,
@@ -206,11 +178,10 @@ private fun ModelProviderRow(
         Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
             ModelProviderIcon(provider.id, provider.initials, appearance, Modifier.size(38.dp))
         }
-        Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
             Text(provider.label, color = selection.text, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(summary, color = selection.mutedText, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Text(count.toString(), color = selection.mutedText, fontSize = 12.5.sp)
         StrokeSvgIcon(AppIconPaths.ChevronRight, appearance.mobileMuted, iconSize = 19.dp, strokeWidth = 1.9f)
     }
 }

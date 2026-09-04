@@ -46,6 +46,13 @@ class ElecKoiAppContainer(context: Context) : AutoCloseable {
     private val agentToolCatalogStore = AgentToolCatalogStore(runtimePaths.agentToolCatalog)
     val repository = ElecKoiRepository(
         context = applicationContext,
+        isCreatorCapabilityEnabled = {
+            agentToolCatalogStore.isEnabled(
+                AgentToolScopes.Shared,
+                AgentToolRequestPolicy.BuiltInCreator,
+            )
+        },
+        toolModelConfigId = agentToolCatalogStore::toolModelConfigId,
         initializeCharacterTools = { characterId ->
             initializeCharacterToolDefaults(
                 characterId = characterId,

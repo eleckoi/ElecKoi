@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eleckoi.android.foundation.design.components.AppIconPaths
 import com.eleckoi.android.foundation.design.components.ModelProviderIcon
+import com.eleckoi.android.foundation.design.components.MobileBottomSheetOverlay
 import com.eleckoi.android.foundation.design.components.StrokeSvgIcon
 import com.eleckoi.android.foundation.design.components.noRippleClickable
 import com.eleckoi.android.engine.generation.model.ModelConfig
@@ -54,6 +55,8 @@ private enum class ModelPickerPage { Models, Params }
 
 enum class ModelPickerConfigKind { Chat, Image }
 
+enum class ImageModelParamsMode { OnDemand, AutomaticIllustration }
+
 data class ModelPickerLeadingChoice(
     val title: String,
     val subtitle: String,
@@ -63,6 +66,7 @@ data class ModelPickerLeadingChoice(
 
 @Composable
 fun ModelPickerSheet(
+    visible: Boolean = true,
     configs: List<ModelConfig>,
     selectedConfigId: String,
     selectedModel: String,
@@ -81,6 +85,7 @@ fun ModelPickerSheet(
     leadingChoice: ModelPickerLeadingChoice? = null,
     showParameters: Boolean = true,
     configKind: ModelPickerConfigKind = ModelPickerConfigKind.Chat,
+    imageParamsMode: ImageModelParamsMode = ImageModelParamsMode.AutomaticIllustration,
     showCharacterImagePrompt: Boolean = true,
 ) {
     val visibleConfigs = remember(configs, configKind) {
@@ -116,9 +121,9 @@ fun ModelPickerSheet(
     var apiFormatSheetOpen by rememberSaveable { mutableStateOf(false) }
 
     val openConfig = versions.firstOrNull { it.id == openConfigId }
-    val selectedImageConfigId = visibleConfigs.firstOrNull { config ->
-        config.isImageGenerationConfig() && config.enabled
-    }?.id.orEmpty()
+    val selectedImageConfigId = selectedConfigId.takeIf {
+        configKind == ModelPickerConfigKind.Image
+    }.orEmpty()
     val canNavigateBack = openConfig != null || page != ModelPickerPage.Models
     val navigateBack: () -> Unit = {
         when {
@@ -130,9 +135,12 @@ fun ModelPickerSheet(
     LaunchedEffect(openConfigId, openConfig) {
         if (openConfigId.isNotBlank() && openConfig == null) openConfigId = ""
     }
-    FixedModalSheet(
-        onDismissRequest = onDismiss,
+    MobileBottomSheetOverlay(
+        visible = visible,
         appearance = appearance,
+        onDismiss = onDismiss,
+        sheetModifier = Modifier.fillMaxHeight(0.88f),
+        showHandle = true,
     ) {
         // Register inside the sheet content so this nested-page handler takes precedence over the
         // modal's own dismiss handler. At the root, it is disabled and system back closes the sheet.
@@ -140,12 +148,11 @@ fun ModelPickerSheet(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(),
+                .weight(1f),
         ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding(),
+                .fillMaxSize(),
         ) {
             ModelPickerHeader(
                 title = openConfig?.let(::configVersionName) ?: title,
@@ -194,7 +201,7 @@ fun ModelPickerSheet(
                     onSelectConfig = { config ->
                         focusedConfigId = config.id
                         if (config.isImageGenerationConfig()) {
-                            if (!config.enabled) onSaveConfig(config.copy(enabled = true)) {}
+                            onSelect(config.id, config.model)
                         } else {
                             val defaultModel = config.model.ifBlank {
                                 config.modelOptions.firstOrNull()?.id.orEmpty()
@@ -222,8 +229,21 @@ fun ModelPickerSheet(
                     modifier = Modifier.weight(1f),
                     onSaveConfig = onSaveConfig,
                     onCharacterImagePromptChange = onCharacterImagePromptChange,
+                    mode = imageParamsMode,
                     showCharacterImagePrompt = showCharacterImagePrompt,
                 )
+
+                configKind == ModelPickerConfigKind.Image -> Box(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 28.dp),
+                    contentAlignment = Alignment.TopStart,
+                ) {
+                    Text(
+                        text = "还没有配置图片生成模型，请先到“模型”页新建一个。",
+                        color = appearance.mobileMuted,
+                        fontSize = 13.sp,
+                        lineHeight = 20.sp,
+                    )
+                }
 
                 else -> ModelParamsPage(
                     selectedConfig = focusedConfig,

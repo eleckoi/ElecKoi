@@ -43,8 +43,7 @@ fun parseSceneImagePrompts(raw: String): List<SceneImagePrompt> {
         return listOf(
             SceneImagePrompt(
                 prompt = prompt,
-                negativePrompt = json.optString("negative_prompt").trim().take(2_000)
-                    .ifBlank { DefaultNegativePrompt },
+                negativePrompt = json.optString("negative_prompt").trim().take(2_000),
             ),
         )
     }
@@ -62,7 +61,7 @@ fun parseSceneImagePrompts(raw: String): List<SceneImagePrompt> {
             add(
                 SceneImagePrompt(
                     prompt = prompt,
-                    negativePrompt = negative.ifBlank { DefaultNegativePrompt },
+                    negativePrompt = negative,
                     frameIndex = frameIndex,
                     afterParagraph = afterParagraph,
                 ),
@@ -93,7 +92,7 @@ private fun recoverCompleteSceneImageFrames(raw: String): List<SceneImagePrompt>
         if (id != null && id > 0 && positive != null && positive.isNotBlank() && negative != null) {
             recovered += SceneImagePrompt(
                 prompt = positive.trim().take(4_000),
-                negativePrompt = negative.trim().take(2_000).ifBlank { DefaultNegativePrompt },
+                negativePrompt = negative.trim().take(2_000),
                 frameIndex = id,
             )
         }

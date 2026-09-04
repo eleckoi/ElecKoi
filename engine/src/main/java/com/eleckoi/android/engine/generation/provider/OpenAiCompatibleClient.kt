@@ -3,6 +3,7 @@ package com.eleckoi.android.engine.generation.provider
 import com.eleckoi.android.engine.generation.model.ModelConfig
 import com.eleckoi.android.engine.generation.model.ModelOption
 import com.eleckoi.android.engine.generation.model.configuredMaxOutputTokens
+import com.eleckoi.android.engine.generation.model.resolvedProviderBaseUrl
 import com.eleckoi.android.foundation.network.SecureModelHttpClientFactory
 import com.eleckoi.android.foundation.network.SensitiveTextSanitizer
 import com.eleckoi.android.foundation.network.StrictProxyParser
@@ -91,11 +92,8 @@ class OpenAiCompatibleClient {
     }
 
     private fun openAiBaseUrl(config: ModelConfig): String {
-        val custom = config.baseUrl.trim().trimEnd('/')
+        val custom = config.resolvedProviderBaseUrl()
         if (custom.isNotEmpty()) return custom
-        if (config.provider.trim().equals("deepseek", ignoreCase = true)) {
-            return "https://api.deepseek.com"
-        }
         throw ElecKoiDataException("请填写自定义模型提供商 API 地址")
     }
 

@@ -7,6 +7,8 @@ import com.eleckoi.android.engine.agent.api.AgentSessionFactory
 import com.eleckoi.android.engine.agent.api.AgentInputImage
 import com.eleckoi.android.engine.agent.api.AgentVirtualFileSearch
 import com.eleckoi.android.engine.agent.tools.AgentToolContextSnapshot
+import com.eleckoi.android.engine.agent.tools.AgentToolRequestPolicy
+import com.eleckoi.android.engine.agent.tools.AgentToolScopes
 import com.eleckoi.android.engine.agent.background.AgentRunManager
 import com.eleckoi.android.engine.agent.diagnostics.AgentRequestDiagnostics
 import com.eleckoi.android.engine.generation.config.AndroidKeystoreModelSecretCodec
@@ -50,6 +52,8 @@ import java.io.File
  */
 internal class ElecKoiServiceGraph(
     context: Context,
+    isCreatorCapabilityEnabled: () -> Boolean,
+    toolModelConfigId: (scopeId: String, groupId: String) -> String,
     initializeCharacterTools: (characterId: String) -> Unit,
 ) {
     private val captureProviderRequestsByDefault = (
@@ -127,7 +131,6 @@ internal class ElecKoiServiceGraph(
     private val modelSelections = ChatModelSelectionResolver(
         settings = settings,
         uiPreferences = uiPreferences,
-        sessions = sessions,
     )
     val modelService = ModelServiceImpl(settings, uiPreferences, modelSelections)
     val profileService = ProfileServiceImpl(profile)
@@ -164,6 +167,13 @@ internal class ElecKoiServiceGraph(
         variableRuntime = variableRuntime,
         regexRules = regexRules,
         mediaCacheDirectory = File(context.cacheDir, "creator-media-bindings"),
+        isCreatorCapabilityEnabled = isCreatorCapabilityEnabled,
+        imageModelConfigId = {
+            toolModelConfigId(
+                AgentToolScopes.Shared,
+                AgentToolRequestPolicy.BuiltInCreator,
+            )
+        },
         initializeCharacterTools = initializeCharacterTools,
     )
     val chatService = ChatServiceImpl(
@@ -183,6 +193,7 @@ internal class ElecKoiServiceGraph(
         generationAttempts = generationAttempts,
         inputImages = chatInputImages,
         displayCompatibility = MvuMessageDisplayAdapter,
+        toolModelConfigId = toolModelConfigId,
         captureProviderRequests = captureProviderRequestsByDefault,
     )
 

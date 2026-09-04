@@ -74,6 +74,7 @@ internal class ChatServiceImpl(
     private val generationAttempts: GenerationAttemptRepository,
     private val inputImages: ChatInputImageStore,
     private val displayCompatibility: MessageDisplayCompatibility,
+    private val toolModelConfigId: (scopeId: String, groupId: String) -> String,
     private val captureProviderRequests: Boolean,
 ) : ChatService {
     @Volatile
@@ -110,6 +111,7 @@ internal class ChatServiceImpl(
         appearance = appearance,
         replyImageGenerator = replyImageGenerator,
         generationAttempts = generationAttempts,
+        toolModelConfigId = toolModelConfigId,
         projectDraft = { session -> draftProjector.project(session) },
     )
     private val storyStateCoordinator = ChatStoryStateCoordinator(
@@ -161,6 +163,7 @@ internal class ChatServiceImpl(
             agentSessions = agentSessions,
             virtualFileSearch = virtualFileSearch,
             toolContextSnapshot = toolContextSnapshot,
+            toolModelConfigId = toolModelConfigId,
             prepareDraftProjection = draftProjector::prepareStreaming,
             replyImageGenerator = replyImageGenerator,
             generationAttempts = generationAttempts,
@@ -281,11 +284,7 @@ internal class ChatServiceImpl(
         inheritedPermissionMode?.let { permissionMode ->
             creatorWorkspaces.saveWorkspacePermissionMode(created.workspaceId, permissionMode)
         }
-        val inherited = previous?.modelSettings?.get("chat")
-        val session = inherited?.let { selection ->
-            sessions.saveModelSelection(created.id, selection)
-        } ?: created
-        return draftFromSession(sessionCoordinator.rememberChatSession(session))
+        return draftFromSession(sessionCoordinator.rememberChatSession(created))
     }
 
     override suspend fun saveChatModelSelection(

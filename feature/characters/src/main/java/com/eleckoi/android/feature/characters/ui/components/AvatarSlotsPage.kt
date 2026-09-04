@@ -7,15 +7,22 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,17 +37,31 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eleckoi.android.feature.characters.model.AvatarSet
 import com.eleckoi.android.feature.characters.model.AvatarSlot
 import com.eleckoi.android.foundation.design.AppearanceTheme
-import com.eleckoi.android.foundation.design.ElecKoiDanger
 import com.eleckoi.android.foundation.design.components.*
 import java.io.File
-import kotlin.math.roundToInt
 
-private const val ThumbnailWidth = 48
+private const val SlotWidth = 88
+private const val PortraitSlotHeight = 117
+
+private val AvatarSlot.shortLabel: String
+    get() = when (this) {
+        AvatarSlot.Circle -> "圆形"
+        AvatarSlot.Square -> "方形"
+        AvatarSlot.Portrait -> "立绘"
+    }
+
+private val AvatarSlot.usageLabel: String
+    get() = when (this) {
+        AvatarSlot.Circle -> "列表和头部"
+        AvatarSlot.Square -> "聊天气泡"
+        AvatarSlot.Portrait -> "半身 / 大头"
+    }
 
 /**
  * 三张头像的配置页，角色和用户共用。三个槽位完全平级：每一行都能点进去换图、调取景，谁也不是
@@ -174,33 +195,53 @@ fun AvatarSlotsPage(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 4.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(appearance.mobileSurface),
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp),
         ) {
-            AvatarSlot.entries.forEachIndexed { index, entry ->
-                if (index > 0) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 14.dp + ThumbnailWidth.dp + 14.dp)
-                            .height(0.5.dp)
-                            .background(appearance.mobileLine),
-                    )
-                }
-                AvatarSlotRow(
-                    slot = entry,
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                AvatarSlotCell(
+                    slot = AvatarSlot.Circle,
                     avatars = avatars,
                     displayName = displayName,
                     appearance = appearance,
-                    fallbackImage = defaultResources[entry],
-                    showInitialWhenEmpty = entry !in blankWhenMissing,
-                    onClick = { open(entry) },
-                    onClear = onClear
-                        ?.takeIf { entry.pathIn(avatars).isNotBlank() }
-                        ?.let { { deleting = entry } },
+                    fallbackImage = defaultResources[AvatarSlot.Circle],
+                    showInitialWhenEmpty = AvatarSlot.Circle !in blankWhenMissing,
+                    onClick = { open(AvatarSlot.Circle) },
+                )
+                AvatarSlotCell(
+                    slot = AvatarSlot.Square,
+                    avatars = avatars,
+                    displayName = displayName,
+                    appearance = appearance,
+                    fallbackImage = defaultResources[AvatarSlot.Square],
+                    showInitialWhenEmpty = AvatarSlot.Square !in blankWhenMissing,
+                    onClick = { open(AvatarSlot.Square) },
                 )
             }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 26.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                AvatarSlotCell(
+                    slot = AvatarSlot.Portrait,
+                    avatars = avatars,
+                    displayName = displayName,
+                    appearance = appearance,
+                    fallbackImage = defaultResources[AvatarSlot.Portrait],
+                    showInitialWhenEmpty = AvatarSlot.Portrait !in blankWhenMissing,
+                    onClick = { open(AvatarSlot.Portrait) },
+                )
+                Spacer(modifier = Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.navigationBarsPadding().height(32.dp))
         }
     }
 
@@ -218,7 +259,7 @@ fun AvatarSlotsPage(
 }
 
 @Composable
-private fun AvatarSlotRow(
+private fun RowScope.AvatarSlotCell(
     slot: AvatarSlot,
     avatars: AvatarSet,
     displayName: String,
@@ -226,63 +267,80 @@ private fun AvatarSlotRow(
     fallbackImage: Any?,
     showInitialWhenEmpty: Boolean,
     onClick: () -> Unit,
-    onClear: (() -> Unit)?,
 ) {
-    val avatarWidth = ThumbnailWidth.dp
+    val slotWidth = SlotWidth.dp
     val shape = when (slot) {
         AvatarSlot.Circle -> CircleShape
-        AvatarSlot.Square -> RoundedCornerShape(avatarWidth * 0.28f)
-        AvatarSlot.Portrait -> RoundedCornerShape(avatarWidth * 0.14f)
+        AvatarSlot.Square -> RoundedCornerShape(18.dp)
+        AvatarSlot.Portrait -> RoundedCornerShape(14.dp)
     }
-    val height = when (slot) {
-        AvatarSlot.Portrait -> avatarWidth / 0.75f
-        AvatarSlot.Circle, AvatarSlot.Square -> avatarWidth
-    }
-    Row(
+    val slotHeight = if (slot == AvatarSlot.Portrait) PortraitSlotHeight else SlotWidth
+    val path = slot.pathIn(avatars)
+    val visiblyEmpty = path.isBlank() && fallbackImage == null && !showInitialWhenEmpty
+    Column(
         modifier = Modifier
-            .fillMaxWidth()
+            .weight(1f)
+            .semantics { contentDescription = "编辑${slot.shortLabel}头像" }
             .noRippleClickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        AvatarCircle(
-            name = displayName,
-            size = ThumbnailWidth,
-            fontSize = 18,
-            appearance = appearance,
-            avatarPath = slot.pathIn(avatars),
-            shape = shape,
-            height = height.value.roundToInt(),
-            fallbackImage = fallbackImage,
-            showInitialWhenEmpty = showInitialWhenEmpty,
-        )
-        Column(modifier = Modifier.weight(1f).padding(start = 14.dp)) {
-            Text(slot.label, color = appearance.mobileText, fontSize = 15.sp)
-            Text(
-                slot.scene,
-                color = appearance.mobileMuted,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-        }
-        if (onClear != null) {
+        if (visiblyEmpty) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .semantics { contentDescription = "删除${slot.label}" }
-                    .noRippleClickable(onClick = onClear),
+                    .size(width = slotWidth, height = slotHeight.dp)
+                    .clip(shape)
+                    .background(appearance.mobilePinnedBg)
+                    .border(1.dp, appearance.mobileLine, shape),
                 contentAlignment = Alignment.Center,
             ) {
-                StrokeSvgIcon(AppIconPaths.Trash, ElecKoiDanger, iconSize = 18.dp)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    StrokeSvgIcon(AppIconPaths.Plus, appearance.mobileSoft, iconSize = 23.dp)
+                    Text(
+                        "还没设",
+                        color = appearance.mobileMuted,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 7.dp),
+                    )
+                }
             }
+        } else {
+            AvatarCircle(
+                name = displayName,
+                size = SlotWidth,
+                fontSize = 28,
+                appearance = appearance,
+                avatarPath = path,
+                modifier = if (slot == AvatarSlot.Portrait) {
+                    Modifier
+                } else {
+                    Modifier.border(1.dp, appearance.mobileLine, shape)
+                },
+                shape = shape,
+                height = slotHeight,
+                fallbackImage = fallbackImage,
+                showInitialWhenEmpty = showInitialWhenEmpty,
+            )
         }
-        Text("更换", color = appearance.mobileBlue, fontSize = 13.sp)
-        StrokeSvgIcon(
-            AppIconPaths.ChevronRight,
-            appearance.mobileSoft,
-            iconSize = 17.dp,
-            modifier = Modifier.padding(start = 6.dp),
-        )
+        Column(
+            modifier = Modifier.padding(top = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                slot.shortLabel,
+                color = appearance.mobileText,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                slot.usageLabel,
+                color = appearance.mobileMuted,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(top = 2.dp),
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -47,6 +48,7 @@ import com.eleckoi.android.feature.conversation.timeline.ui.DshProcessedTurnTime
 import com.eleckoi.android.feature.conversation.timeline.ui.turn.ProcessedTurnSection
 import com.eleckoi.android.feature.conversation.timeline.CreationTurnUi
 import com.eleckoi.android.feature.preferences.ChatTimelineThinkingAnimation
+import com.eleckoi.android.feature.preferences.ChatCodeBlockStyle
 import com.eleckoi.android.feature.preferences.ChatToolTimelineStyle
 import com.eleckoi.android.feature.preferences.ChatWaitingAnimation
 
@@ -302,7 +304,7 @@ internal fun <T> ChatTextChoicePicker(
                     .background(appearance.mobileSurface)
                     .border(
                         width = if (isSelected) 1.5.dp else 0.5.dp,
-                        color = if (isSelected) appearance.mobileText else appearance.mobileLine,
+                        color = if (isSelected) appearance.mobileBlue else appearance.mobileLine,
                         shape = shape,
                     )
                     .noRippleClickable { onSelect(choice.value) }
@@ -328,7 +330,7 @@ internal fun <T> ChatTextChoicePicker(
                     Icon(
                         imageVector = Icons.Rounded.Check,
                         contentDescription = null,
-                        tint = appearance.mobileText,
+                        tint = appearance.mobileBlue,
                         modifier = Modifier
                             .padding(start = 12.dp)
                             .size(18.dp),
@@ -337,6 +339,139 @@ internal fun <T> ChatTextChoicePicker(
             }
         }
     }
+}
+
+@Composable
+internal fun ChatCodeBlockStylePicker(
+    selected: ChatCodeBlockStyle,
+    appearance: AppearanceTheme,
+    onSelect: (ChatCodeBlockStyle) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        listOf(
+            ChatCodeBlockStyle.Simple to "简洁",
+            ChatCodeBlockStyle.Workbench to "工作台",
+        ).forEach { (style, label) ->
+            val isSelected = selected == style
+            val shape = RoundedCornerShape(12.dp)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(108.dp)
+                    .clip(shape)
+                    .background(appearance.mobileSurface)
+                    .border(
+                        width = if (isSelected) 1.5.dp else 0.5.dp,
+                        color = if (isSelected) appearance.mobileBlue else appearance.mobileLine,
+                        shape = shape,
+                    )
+                    .noRippleClickable { onSelect(style) }
+                    .padding(horizontal = 10.dp, vertical = 9.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                CodeBlockStyleFigure(style)
+                Text(
+                    text = label,
+                    color = if (isSelected) appearance.mobileBlue else appearance.mobileText,
+                    fontSize = 12.sp,
+                    fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CodeBlockStyleFigure(style: ChatCodeBlockStyle) {
+    Box(
+        modifier = Modifier
+            .width(104.dp)
+            .height(58.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF1B1F27)),
+    ) {
+        when (style) {
+            ChatCodeBlockStyle.Simple -> {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .size(13.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.White.copy(alpha = 0.10f)),
+                )
+                CodeBlockStyleLines(
+                    modifier = Modifier.padding(start = 8.dp, top = 9.dp, end = 8.dp),
+                )
+            }
+            ChatCodeBlockStyle.Workbench -> Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(14.dp)
+                        .background(Color.White.copy(alpha = 0.07f))
+                        .padding(horizontal = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CodeBlockStyleBar(width = 18.dp, alpha = 0.30f)
+                    Spacer(modifier = Modifier.weight(1f))
+                    CodeBlockStyleBar(width = 11.dp, alpha = 0.30f)
+                }
+                Row(modifier = Modifier.padding(start = 8.dp, top = 8.dp, end = 8.dp)) {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        repeat(3) { CodeBlockStyleBar(width = 4.dp, alpha = 0.18f) }
+                    }
+                    Column(
+                        modifier = Modifier
+                            .padding(start = 6.dp)
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        CodeBlockStyleBar(fraction = 0.78f, alpha = 0.30f)
+                        CodeBlockStyleBar(fraction = 0.52f, alpha = 0.20f)
+                        CodeBlockStyleBar(fraction = 0.66f, alpha = 0.24f)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CodeBlockStyleLines(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        CodeBlockStyleBar(fraction = 0.62f, alpha = 0.30f)
+        CodeBlockStyleBar(fraction = 0.44f, alpha = 0.20f)
+        CodeBlockStyleBar(fraction = 0.74f, alpha = 0.24f)
+        CodeBlockStyleBar(fraction = 0.36f, alpha = 0.16f)
+    }
+}
+
+@Composable
+private fun CodeBlockStyleBar(
+    alpha: Float,
+    modifier: Modifier = Modifier,
+    width: Dp = Dp.Unspecified,
+    fraction: Float = 1f,
+) {
+    Box(
+        modifier = modifier
+            .then(if (width == Dp.Unspecified) Modifier.fillMaxWidth(fraction) else Modifier.width(width))
+            .height(3.dp)
+            .clip(RoundedCornerShape(2.dp))
+            .background(Color.White.copy(alpha = alpha)),
+    )
 }
 
 @Composable
@@ -356,7 +491,7 @@ internal fun BubbleShapeOption(
             .background(appearance.mobileSurface)
             .border(
                 width = if (selected) 1.5.dp else 0.5.dp,
-                color = if (selected) appearance.mobileText else appearance.mobileLine,
+                color = if (selected) appearance.mobileBlue else appearance.mobileLine,
                 shape = shape,
             )
             .noRippleClickable(onClick = onClick)

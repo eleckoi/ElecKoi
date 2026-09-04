@@ -109,7 +109,9 @@ fun ImageCropPage(
             context.contentResolver.openInputStream(sourceUri)?.use { BitmapFactory.decodeStream(it) }
         }.getOrNull()
     }
-    var transform by remember(sourceUri) { mutableStateOf(CropTransform()) }
+    // 手势协程的生命周期长于一次重组，显式读写同一个 State holder，确保一段连续手势累积在最新值上。
+    val transformState = remember(sourceUri) { mutableStateOf(CropTransform()) }
+    var transform by transformState
     var stageSize by remember { mutableStateOf(IntSize.Zero) }
     // detectTransformGestures 不会告诉我们手指什么时候松开，所以拖动期间不停敲这个计数器，
     // 安静半秒就当结束了——三分线跟着淡出，正好也不会一松手就闪掉。
@@ -197,14 +199,21 @@ fun ImageCropPage(
                             stageGestureTick++
                             val frame = cropFramePx(stageSize, circularFrame, cropAspect, density)
                             val stageCenter = Offset(size.width / 2f, size.height / 2f)
-                            val current = transform
+                            val current = transformState.value
                             val nextZoom = (current.zoom * zoomChange).coerceIn(1f, MaxZoom)
                             val zoomRatio = nextZoom / current.zoom
                             val fromCenter = centroid - stageCenter
                             val raw = current.offset * zoomRatio + fromCenter * (1f - zoomRatio) + pan
-                            transform = current.copy(
+                            transformState.value = current.copy(
                                 zoom = nextZoom,
-                                offset = clampOffset(raw, source, frame, nextZoom, current.angle),
+                                offset = clampOffset(
+                                    raw,
+                                    source,
+                                    frame,
+                                    nextZoom,
+                                    current.angle,
+                                    circularFrame,
+                                ),
                             )
                         },
                     )
@@ -219,7 +228,7 @@ fun ImageCropPage(
                 drawIntoCanvas { canvas ->
                     canvas.nativeCanvas.drawBitmap(
                         source,
-                        displayMatrix(source, stageCenter, frame, transform),
+                        displayMatrix(source, stageCenter, frame, transform, circularFrame),
                         Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG),
                     )
                 }
@@ -239,7 +248,14 @@ fun ImageCropPage(
                 val frame = cropFramePx(stageSize, circularFrame, cropAspect, density)
                 val candidate = transform.copy(fineAngle = next)
                 transform = candidate.copy(
-                    offset = clampOffset(transform.offset, source, frame, transform.zoom, candidate.angle),
+                    offset = clampOffset(
+                        transform.offset,
+                        source,
+                        frame,
+                        transform.zoom,
+                        candidate.angle,
+                        circularFrame,
+                    ),
                 )
             },
             onScrubStart = { rulerActive = true },
@@ -259,7 +275,16 @@ fun ImageCropPage(
                 view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                 val frame = cropFramePx(stageSize, circularFrame, cropAspect, density)
                 val next = transform.copy(quarterTurns = (transform.quarterTurns + 1) % 4)
-                transform = next.copy(offset = clampOffset(next.offset, source, frame, next.zoom, next.angle))
+                transform = next.copy(
+                    offset = clampOffset(
+                        next.offset,
+                        source,
+                        frame,
+                        next.zoom,
+                        next.angle,
+                        circularFrame,
+                    ),
+                )
             }
             CropTool(AppIconPaths.FlipHorizontal, "翻转", BarText) {
                 view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)

@@ -2,7 +2,7 @@ package com.eleckoi.android.feature.modelconfig.model
 
 data class ModelParameters(
     val stream: Boolean = true,
-    val temperature: Double = 0.7,
+    val temperature: Double = 1.0,
     val topP: Double = 1.0,
 )
 

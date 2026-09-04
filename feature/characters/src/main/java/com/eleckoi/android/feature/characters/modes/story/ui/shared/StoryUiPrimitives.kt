@@ -1,14 +1,12 @@
 package com.eleckoi.android.feature.characters.modes.story.ui.shared
 
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.eleckoi.android.foundation.design.AppearanceTheme
+import com.eleckoi.android.foundation.design.components.AppSwitch
 
 internal data class DropdownOption(
     val title: String,
@@ -42,17 +40,10 @@ internal fun StoryToolSwitch(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Switch(
+    AppSwitch(
         checked = checked,
         onCheckedChange = onCheckedChange,
+        appearance = appearance,
         modifier = modifier,
-        colors = SwitchDefaults.colors(
-            checkedThumbColor = appearance.mobileSurface,
-            checkedTrackColor = appearance.mobileBlue,
-            checkedBorderColor = Color.Transparent,
-            uncheckedThumbColor = appearance.mobileSurface,
-            uncheckedTrackColor = appearance.mobileMuted.copy(alpha = 0.26f),
-            uncheckedBorderColor = Color.Transparent,
-        ),
     )
 }

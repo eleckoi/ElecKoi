@@ -6,6 +6,8 @@ import com.eleckoi.android.engine.agent.diagnostics.AgentRequestDiagnostics
 import com.eleckoi.android.engine.agent.adapter.request.ProviderNativeWebSearchProjector
 import com.eleckoi.android.engine.generation.model.ModelApiFormat
 import com.eleckoi.android.engine.generation.model.configuredMaxOutputTokens
+import com.eleckoi.android.engine.generation.model.configuredTemperature
+import com.eleckoi.android.engine.generation.model.configuredTopP
 import com.eleckoi.android.engine.generation.model.effectiveApiFormat
 import com.eleckoi.android.engine.generation.model.usesChatThinkingToggleContract
 import com.eleckoi.android.engine.generation.reasoning.DshReasoningEfforts
@@ -94,15 +96,12 @@ internal class DshProviderBridgeEndpoint(
             ModelApiFormat.AnthropicMessages -> ProviderWireFormat.AnthropicMessages
             ModelApiFormat.GoogleGemini -> ProviderWireFormat.GoogleGemini
         }
-        val requestWithLimits = if (!isCompaction) {
-            routeConfig.configuredMaxOutputTokens()?.let { limit ->
-                buildJsonObject {
-                    filtered.forEach { (key, value) -> put(key, value) }
-                    put("maxTokens", limit)
-                }
-            } ?: filtered
-        } else {
-            filtered
+        val requestWithLimits = buildJsonObject {
+            filtered.forEach { (key, value) -> put(key, value) }
+            routeConfig.configuredTemperature()?.let { put("temperature", it) }
+            if (!isCompaction) {
+                routeConfig.configuredMaxOutputTokens()?.let { put("maxTokens", it) }
+            }
         }
         val requestToken = runCatching {
             preparedRequests.issue(
@@ -206,8 +205,22 @@ internal class DshProviderBridgeEndpoint(
             format = prepared.format,
             modelConfig = config,
         )
+        val withTopP = when (prepared.format) {
+            ProviderWireFormat.GoogleGemini -> buildJsonObject {
+                projected.forEach { (key, value) -> put(key, value) }
+                val generationConfig = projected["generationConfig"] as? JsonObject
+                put("generationConfig", buildJsonObject {
+                    generationConfig?.forEach { (key, value) -> put(key, value) }
+                    config.configuredTopP()?.let { put("topP", it) }
+                })
+            }
+            else -> buildJsonObject {
+                projected.forEach { (key, value) -> put(key, value) }
+                config.configuredTopP()?.let { put("top_p", it) }
+            }
+        }
         return buildJsonObject {
-            projected.forEach { (key, value) -> put(key, value) }
+            withTopP.forEach { (key, value) -> put(key, value) }
             if (prepared.format != ProviderWireFormat.GoogleGemini) {
                 put("model", config.model.trim())
             }

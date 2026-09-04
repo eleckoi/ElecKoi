@@ -104,7 +104,7 @@ internal fun classifyAgentToolDeclaration(element: JsonElement): AgentToolGroupS
         in AgentCreatorMetaTools -> builtInToolGroup(
             AgentToolRequestPolicy.BuiltInCreator,
             "创作能力",
-            "按需发现并调用角色创作与设定库能力",
+            "按需发现并调用角色创作、设定库与图片生成能力",
             listOf(member),
         )
         in WorkspaceTools -> builtInToolGroup(
@@ -115,8 +115,8 @@ internal fun classifyAgentToolDeclaration(element: JsonElement): AgentToolGroupS
         )
         in VisualTools -> builtInToolGroup(
             AgentToolRequestPolicy.BuiltInVisual,
-            "图片读取",
-            "查看工作区或设备提供的本地图片",
+            "DSH 本地图片检查",
+            "由 DSH 声明时才显示，用于让 Agent 检查工作区图片文件；与聊天模型看图、自动配图和图片生成无关。",
             listOf(member),
         )
         in WorkflowTools -> builtInToolGroup(

@@ -39,7 +39,7 @@ internal class RoleplayImageActionController(
     private val parentAttemptId: String,
     private val generationAttempts: ImageGenerationAttemptStore,
     private val characterImagePrompt: String,
-    private val onRequestCapture: (turnId: String, capture: ImageGenerationRequestCapture) -> Unit,
+    private val onRequestCapture: ((turnId: String, capture: ImageGenerationRequestCapture) -> Unit)?,
 ) {
     @Volatile
     private var cancelled = false
@@ -142,7 +142,9 @@ internal class RoleplayImageActionController(
                         imageId = attachment.id,
                         characterImagePrompt = characterImagePrompt,
                         scenePrompt = prompt,
-                        onRequestCapture = { capture -> onRequestCapture(turnId, capture) },
+                        onRequestCapture = onRequestCapture?.let { capture ->
+                            { value -> capture(turnId, value) }
+                        },
                     )
                 }
             }

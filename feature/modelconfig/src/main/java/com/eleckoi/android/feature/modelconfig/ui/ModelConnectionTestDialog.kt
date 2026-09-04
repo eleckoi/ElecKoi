@@ -46,6 +46,7 @@ internal data class ModelTestState(
     val finished: Boolean = false,
     val toolsSupported: Boolean? = null,
     val formatFallbackSuggested: Boolean = false,
+    val completionMessage: String = "",
 ) {
     val failed: Boolean get() = steps.any { it.status == ModelTestStatus.Failed }
 }
@@ -158,6 +159,7 @@ internal fun ModelConnectionTestDialog(
                     text = when {
                         !state.finished -> "检测完成后会把结果写进这个配置。"
                         state.formatFallbackSuggested -> "当前接口格式未通过测试，请尝试其他接口格式。"
+                        state.completionMessage.isNotBlank() -> state.completionMessage
                         state.toolsSupported == true -> "这个配置支持工具调用，可以用于 Agent。"
                         state.toolsSupported == false -> "这个配置不支持工具调用，Agent 功能会失败，建议换一个反代。"
                         else -> "检测未完成，工具调用能力未知。"
@@ -173,14 +175,14 @@ internal fun ModelConnectionTestDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (state.finished) appearance.mobileText else appearance.mobileSearchBg)
+                    .background(if (state.finished) appearance.mobileBlue else appearance.mobileSearchBg)
                     .noRippleClickable { if (state.finished) onDismiss() }
                     .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     if (state.finished) "完成" else "检测中…",
-                    color = if (state.finished) appearance.mobileSurface else appearance.mobileSoft,
+                    color = if (state.finished) androidx.compose.ui.graphics.Color.White else appearance.mobileSoft,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
                 )
@@ -195,7 +197,7 @@ private fun ModelTestStatusMark(status: ModelTestStatus, appearance: AppearanceT
         ModelTestStatus.Running -> CircularProgressIndicator(
             modifier = Modifier.size(17.dp),
             strokeWidth = 2.dp,
-            color = appearance.mobileText,
+            color = appearance.mobileBlue,
         )
         ModelTestStatus.Passed -> FilledSvgIcon(
             paths = listOf(PhosphorRegular.CheckCircle),

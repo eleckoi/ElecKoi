@@ -14,6 +14,17 @@ import java.io.StringWriter
 import java.time.Instant
 import java.util.ArrayDeque
 
+data class CrashReportContents(
+    val processExitRecords: Int,
+    val uncaughtExceptionFiles: Int,
+    val recentStageRecords: Int,
+    val subsystemSections: Int,
+    val deviceSnapshotFields: Int = 6,
+) {
+    val recordedIssueCount: Int
+        get() = processExitRecords + uncaughtExceptionFiles
+}
+
 /**
  * Release-safe local crash archive.
  *
@@ -98,6 +109,26 @@ object CrashDiagnostics {
 
     fun suggestedFileName(): String =
         "ElecKoi-crash-report-${System.currentTimeMillis()}.txt"
+
+    /** A lightweight inventory used by the settings preview; it never reads chat content. */
+    fun reportContents(context: Context): CrashReportContents {
+        captureHistoricalProcessExits(context)
+        val processExitRecords = runCatching {
+            File(directory(context), ProcessExitFileName)
+                .readLines()
+                .count { it.trim() == "---" }
+        }.getOrDefault(0)
+        val recentStageRecords = runCatching {
+            File(directory(context), BreadcrumbFileName)
+                .useLines { lines -> lines.count { it.isNotBlank() } }
+        }.getOrDefault(0)
+        return CrashReportContents(
+            processExitRecords = processExitRecords,
+            uncaughtExceptionFiles = crashFiles(context).size,
+            recentStageRecords = recentStageRecords,
+            subsystemSections = synchronized(lock) { reportSectionProviders.size },
+        )
+    }
 
     /**
      * Adds a bounded, release-safe subsystem section to exported diagnostic reports.

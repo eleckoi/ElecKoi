@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,8 +31,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -47,8 +46,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.eleckoi.android.foundation.design.components.AppSwitch
 import com.eleckoi.android.foundation.design.components.FilledSvgIcon
 import com.eleckoi.android.foundation.design.components.QuietBackButton
+import com.eleckoi.android.foundation.design.components.SquareSelectionCheck
 import com.eleckoi.android.foundation.design.AppearanceTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,12 +58,13 @@ internal fun CompactSettingsScaffold(
     title: String,
     appearance: AppearanceTheme,
     onBack: () -> Unit,
+    modifier: Modifier = Modifier,
     scrollable: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     BackHandler(onBack = onBack)
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         containerColor = appearance.mobileBg,
         topBar = {
             SettingsLargeTitleBar(
@@ -217,6 +219,15 @@ internal val SettingsRowIconGap = 12.dp
 // Divider starts where the row text starts, so every label lines up on one optical baseline.
 internal val SettingsRowTextStart =
     SettingsRowPadding + SettingsRowIconSize + SettingsRowIconGap
+
+@Composable
+internal fun SettingsSelectionCheck(
+    selected: Boolean,
+    appearance: AppearanceTheme,
+    modifier: Modifier = Modifier,
+) {
+    SquareSelectionCheck(selected = selected, appearance = appearance, modifier = modifier)
+}
 
 @Composable
 internal fun SettingsSection(
@@ -391,17 +402,10 @@ internal fun SettingsToggleRow(
                 modifier = Modifier.padding(top = 2.dp),
             )
         }
-        Switch(
+        AppSwitch(
             checked = checked,
             onCheckedChange = null,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = appearance.mobileSurface,
-                checkedTrackColor = appearance.mobileText,
-                checkedBorderColor = appearance.mobileText,
-                uncheckedThumbColor = appearance.mobileSurface,
-                uncheckedTrackColor = appearance.mobileLine,
-                uncheckedBorderColor = appearance.mobileLine,
-            ),
+            appearance = appearance,
         )
     }
 }

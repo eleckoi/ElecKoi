@@ -352,6 +352,102 @@ class AgentToolCatalogPersistenceTest {
     }
 
     @Test
+    fun imageGenerationIsPartOfCreatorInsteadOfASeparateTopLevelGroup() {
+        val groups = AgentToolRequestPolicy.builtInGroups()
+
+        assertTrue(
+            groups.any { group ->
+                group.id == AgentToolRequestPolicy.BuiltInCreator &&
+                    group.name == "创作能力"
+            },
+        )
+        assertFalse(groups.any { group -> group.name == "图片生成" })
+    }
+
+    @Test
+    fun creatorImageGenerationAndCharacterIllustrationKeepIndependentModelSelections() {
+        val creatorScope = AgentToolScopes.Shared
+        val characterScope = AgentToolScopes.character("character-a")
+        var selections = emptyMap<String, Map<String, String>>()
+
+        selections = selectScopedToolModelConfig(
+            scopeId = creatorScope,
+            groupId = AgentToolRequestPolicy.BuiltInCreator,
+            configId = "creator-image-model",
+            scoped = selections,
+        )
+        selections = selectScopedToolModelConfig(
+            scopeId = characterScope,
+            groupId = AgentToolRequestPolicy.BuiltInAutoIllustration,
+            configId = "roleplay-image-model",
+            scoped = selections,
+        )
+
+        assertEquals(
+            "creator-image-model",
+            scopedToolModelConfigId(
+                creatorScope,
+                AgentToolRequestPolicy.BuiltInCreator,
+                selections,
+            ),
+        )
+        assertEquals(
+            "roleplay-image-model",
+            scopedToolModelConfigId(
+                characterScope,
+                AgentToolRequestPolicy.BuiltInAutoIllustration,
+                selections,
+            ),
+        )
+        assertEquals(
+            "",
+            scopedToolModelConfigId(
+                creatorScope,
+                AgentToolRequestPolicy.BuiltInAutoIllustration,
+                selections,
+            ),
+        )
+    }
+
+    @Test
+    fun toolModelSelectionsAreReadFromTheCatalogFile() {
+        val file = temporaryFolder.newFile("agent-tools.json").apply {
+            writeText(
+                """{
+                  "version":7,
+                  "disabledGroups":[],
+                  "scopedToolModelConfigIds":{
+                    "shared":{"builtin:creator":"creator-image-model"},
+                    "character:one":{"builtin:auto-illustration":"roleplay-image-model"}
+                  }
+                }""".trimIndent(),
+            )
+        }
+
+        val state = readAgentToolCatalogState(file)
+
+        assertEquals(
+            "creator-image-model",
+            state.scopedToolModelConfigIds[AgentToolScopes.Shared]
+                ?.get(AgentToolRequestPolicy.BuiltInCreator),
+        )
+        assertEquals(
+            "roleplay-image-model",
+            state.scopedToolModelConfigIds[AgentToolScopes.character("one")]
+                ?.get(AgentToolRequestPolicy.BuiltInAutoIllustration),
+        )
+    }
+
+    @Test
+    fun localImageInspectionIsNotAdvertisedBeforeDshDeclaresIt() {
+        assertFalse(
+            AgentToolRequestPolicy.builtInGroups().any {
+                it.id == AgentToolRequestPolicy.BuiltInVisual
+            },
+        )
+    }
+
+    @Test
     fun theAssistantScopeIsSeparateFromEveryCharacter() {
         val defaults = setOf(AgentToolRequestPolicy.BuiltInCollaboration)
         val scoped = toggleScopedToolGroup(

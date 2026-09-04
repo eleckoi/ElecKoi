@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 
 internal val PinnedChatIdsJson = stringPreferencesKey("pinned_chat_ids_json")
 internal val HiddenChatIdsJson = stringPreferencesKey("hidden_chat_ids_json")
+internal val SearchHistoryJson = stringPreferencesKey("search_history_json")
 internal val PresetPagePinned = booleanPreferencesKey("preset_page_pinned")
 internal val PluginPagePinned = booleanPreferencesKey("plugin_page_pinned")
 internal val CommonPageOrderJson = stringPreferencesKey("common_page_order_json")

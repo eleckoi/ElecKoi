@@ -35,7 +35,6 @@ fun MobileConversationRow(
     appearance: AppearanceTheme,
     selected: Boolean = false,
     pinned: Boolean = false,
-    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     Box(
@@ -46,7 +45,6 @@ fun MobileConversationRow(
                 appearance = appearance,
                 selected = selected,
                 selectedBackground = appearance.mobileMuted.copy(alpha = 0.10f),
-                onLongClick = onLongClick,
                 onClick = onClick,
             ),
     ) {

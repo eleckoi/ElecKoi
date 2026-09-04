@@ -11,6 +11,7 @@ import com.eleckoi.android.feature.modelconfig.ui.settings.rememberModelSettings
 import com.eleckoi.android.feature.modelconfig.ui.components.ModelSettingsHeader
 import com.eleckoi.android.foundation.design.AppearanceTheme
 import com.eleckoi.android.foundation.design.components.ConfirmDialog
+import com.eleckoi.android.foundation.design.components.ErrorDialog
 import com.eleckoi.android.foundation.design.components.PinnedStatusScaffold
 import kotlinx.coroutines.delay
 
@@ -60,6 +61,9 @@ fun ModelSettingsPage(
                 if (editorState.dirty) onSave(editorState.form)
                 onBack()
             },
+            actionText = "删除",
+            actionDanger = true,
+            onAction = { editorState.confirmDelete = true },
         )
         ModelSettingsContent(
             state = editorState,
@@ -109,33 +113,44 @@ fun ModelSettingsPage(
         )
     }
 
-    if (editorState.modelPickerOpen && !isImageProvider) {
+    if (editorState.modelPickerOpen) {
         ModelPickerSheet(
             items = modelPickerItems(editorState.form),
             activeModel = editorState.form.model,
             appearance = appearance,
             onClose = { editorState.modelPickerOpen = false },
             onSelect = { model ->
-                editorState.update(editorState.form.copy(model = model))
                 editorState.modelPickerOpen = false
+                editorState.update(editorState.form.copy(model = model))
             },
         )
     }
 
+    if (editorState.testState == null && editorState.testMessage.isNotBlank()) {
+        ErrorDialog(
+            message = editorState.testMessage,
+            appearance = appearance,
+            onDismiss = editorState::clearMessage,
+        )
+    }
+
     if (editorState.confirmDelete) {
+        val deletesProviderEntry = providerConfigs.size <= 1 && !isFixedModelProvider(form.provider)
         ConfirmDialog(
-            title = if (providerConfigs.size <= 1) "清空配置？" else "删除配置？",
-            message = if (providerConfigs.size <= 1) {
-                "这是当前模型库的最后一个配置，会清空参数并保留入口。"
-            } else {
-                "只删除这个配置版本，其他配置不受影响。"
+            title = if (deletesProviderEntry) "删除渠道？" else "删除配置？",
+            message = when {
+                providerConfigs.size > 1 -> "只删除当前配置，其他配置不受影响。"
+                deletesProviderEntry -> "将删除当前配置，并从模型页移除这个渠道入口。"
+                else -> "将删除当前配置；模型页的固定入口会保留。"
             },
             appearance = appearance,
-            confirmText = if (providerConfigs.size <= 1) "确认清空" else "确认删除",
+            confirmText = "确认删除",
+            destructive = true,
             onDismiss = { editorState.confirmDelete = false },
             onConfirm = {
                 editorState.confirmDelete = false
-                onDeleteConfig(editorState.deleteCurrent(providerConfigs))
+                onDeleteConfig(editorState.stopAutosaveForDelete())
+                onBack()
             },
         )
     }

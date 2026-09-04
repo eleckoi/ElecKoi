@@ -55,8 +55,17 @@ class ElecKoiRepository private constructor(
 
     internal constructor(
         context: Context,
+        isCreatorCapabilityEnabled: () -> Boolean,
+        toolModelConfigId: (scopeId: String, groupId: String) -> String,
         initializeCharacterTools: (characterId: String) -> Unit,
-    ) : this(ElecKoiServiceGraph(context, initializeCharacterTools))
+    ) : this(
+        ElecKoiServiceGraph(
+            context = context,
+            isCreatorCapabilityEnabled = isCreatorCapabilityEnabled,
+            toolModelConfigId = toolModelConfigId,
+            initializeCharacterTools = initializeCharacterTools,
+        ),
+    )
 
     internal fun attachCharacterAgentRuntime(
         agentSessions: AgentSessionFactory,

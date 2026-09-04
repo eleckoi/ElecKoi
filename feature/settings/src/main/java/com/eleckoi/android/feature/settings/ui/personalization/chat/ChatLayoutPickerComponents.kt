@@ -23,8 +23,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,6 +40,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eleckoi.android.foundation.design.AppearanceTheme
+import com.eleckoi.android.foundation.design.components.AppSwitch
 import com.eleckoi.android.feature.preferences.ChatAvatarShape
 import com.eleckoi.android.feature.preferences.ChatLayoutMode
 
@@ -80,7 +79,7 @@ private fun LayoutModeOption(
             .clip(shape)
             .border(
                 width = if (selected) 1.5.dp else 0.5.dp,
-                color = if (selected) appearance.mobileText else appearance.mobileLine,
+                color = if (selected) appearance.mobileBlue else appearance.mobileLine,
                 shape = shape,
             )
             .noRippleClickable(onClick = onClick)
@@ -116,7 +115,7 @@ private fun LayoutModeOption(
             Icon(
                 imageVector = Icons.Rounded.Check,
                 contentDescription = null,
-                tint = appearance.mobileText,
+                tint = appearance.mobileBlue,
                 modifier = Modifier.size(18.dp),
             )
         }
@@ -332,17 +331,10 @@ internal fun ChatToggleRow(
                 )
             }
         }
-        Switch(
+        AppSwitch(
             checked = checked,
             onCheckedChange = null,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = appearance.mobileSurface,
-                checkedTrackColor = appearance.mobileText,
-                checkedBorderColor = appearance.mobileText,
-                uncheckedThumbColor = appearance.mobileSurface,
-                uncheckedTrackColor = appearance.mobileLine,
-                uncheckedBorderColor = appearance.mobileLine,
-            ),
+            appearance = appearance,
         )
     }
 }

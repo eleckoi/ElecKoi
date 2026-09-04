@@ -1,11 +1,15 @@
 package com.eleckoi.android.feature.settings.ui.runtime
 
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.eleckoi.android.engine.workspace.runtime.model.LocalRuntimeCapabilities
 import com.eleckoi.android.engine.workspace.runtime.model.LocalRuntimeGateway
+import com.eleckoi.android.engine.workspace.runtime.model.LocalRuntimeHealth
 import com.eleckoi.android.engine.workspace.runtime.model.LocalRuntimeState
+import com.eleckoi.android.engine.workspace.runtime.model.LocalRuntimeStorageUsage
+import com.eleckoi.android.engine.workspace.runtime.model.RuntimeInstallationProgress
 import com.eleckoi.android.engine.workspace.runtime.model.RuntimeInstallationState
 import com.eleckoi.android.engine.workspace.runtime.model.RuntimeMaintenanceOperation
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +21,9 @@ import kotlinx.coroutines.launch
 internal data class LocalRuntimeSettingsUiState(
     val runtimeState: LocalRuntimeState = LocalRuntimeState.Disconnected,
     val maintenanceState: RuntimeInstallationState = RuntimeInstallationState.Idle,
+    val storageUsage: LocalRuntimeStorageUsage = LocalRuntimeStorageUsage.Unknown,
+    val lastProgress: RuntimeInstallationProgress? = null,
+    val maintenanceStartedAtMillis: Long? = null,
     val notice: String = "",
     val errorMessage: String = "",
 ) {
@@ -26,6 +33,23 @@ internal data class LocalRuntimeSettingsUiState(
             is LocalRuntimeState.Running -> runtimeState.capabilities
             else -> null
         }
+
+    fun withMaintenance(next: RuntimeInstallationState): LocalRuntimeSettingsUiState = when (next) {
+        is RuntimeInstallationState.Installing -> copy(
+            maintenanceState = next,
+            lastProgress = next.progress,
+            maintenanceStartedAtMillis = maintenanceStartedAtMillis ?: SystemClock.elapsedRealtime(),
+        )
+        is RuntimeInstallationState.Failed -> copy(
+            maintenanceState = next,
+            maintenanceStartedAtMillis = null,
+        )
+        RuntimeInstallationState.Idle -> copy(
+            maintenanceState = next,
+            lastProgress = null,
+            maintenanceStartedAtMillis = null,
+        )
+    }
 }
 
 internal sealed interface LocalRuntimeSettingsIntent {
@@ -44,13 +68,46 @@ class LocalRuntimeSettingsViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LocalRuntimeSettingsUiState())
     internal val uiState: StateFlow<LocalRuntimeSettingsUiState> = _uiState.asStateFlow()
+    private var measuredFor: String? = null
 
     init {
         viewModelScope.launch {
-            runtime.state.collect { value -> _uiState.update { it.copy(runtimeState = value) } }
+            runtime.state.collect { value ->
+                _uiState.update { it.copy(runtimeState = value) }
+                measureStorageWhenInstalled(value)
+            }
         }
         viewModelScope.launch {
-            runtime.installationState.collect { value -> _uiState.update { it.copy(maintenanceState = value) } }
+            runtime.installationState.collect { value ->
+                _uiState.update { state -> state.withMaintenance(value) }
+                if (value !is RuntimeInstallationState.Installing) measuredFor = null
+            }
+        }
+    }
+
+    private fun measureStorageWhenInstalled(state: LocalRuntimeState) {
+        val capabilities = when (state) {
+            is LocalRuntimeState.Ready -> state.capabilities
+            is LocalRuntimeState.Running -> state.capabilities
+            else -> null
+        } ?: return
+        if (capabilities.health == LocalRuntimeHealth.Unsupported ||
+            capabilities.health == LocalRuntimeHealth.NotInstalled
+        ) {
+            measuredFor = null
+            _uiState.update { it.copy(storageUsage = LocalRuntimeStorageUsage.Unknown) }
+            return
+        }
+        val version = capabilities.installedRuntimeVersion ?: return
+        if (version == measuredFor) return
+        measuredFor = version
+        viewModelScope.launch {
+            val usage = runCatching { runtime.readStorageUsage() }.getOrNull()
+            if (usage == null) {
+                measuredFor = null
+            } else {
+                _uiState.update { it.copy(storageUsage = usage) }
+            }
         }
     }
 

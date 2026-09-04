@@ -86,11 +86,6 @@ class ChatSessionStore(
         ?.let(room::sessionFromEntity)
         ?.let(::refreshCharacterPersona)
 
-    fun latestModelSelection(capability: String = "chat"): ChatModelSelection? =
-        dao.sessions().firstNotNullOfOrNull { entity ->
-            modelSettingsFromJsonString(entity.modelSettingsJson)[capability]
-        }
-
     /**
      * Loads one session. A missing row is reported as [ChatSessionNotFoundException] so callers
      * can distinguish a stale remembered id from a database or decoding failure.

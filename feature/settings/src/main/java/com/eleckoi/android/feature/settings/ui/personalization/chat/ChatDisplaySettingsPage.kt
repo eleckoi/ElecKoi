@@ -7,6 +7,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -37,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -236,6 +239,8 @@ fun ChatDisplaySettingsPage(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
+                    .consumeWindowInsets(paddingValues)
+                    .imePadding()
                     .verticalScroll(rememberScrollState()),
             ) {
                 // Fixed height on purpose: letting the preview grow with the font size would shove
@@ -282,6 +287,7 @@ fun ChatDisplaySettingsPage(
                             assistantName = "AI",
                             userName = "我",
                             modifier = Modifier.fillMaxSize(),
+                            backgroundOverride = Color.White,
                         )
                     }
                 }

@@ -1,26 +1,42 @@
 package com.eleckoi.android.foundation.design.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -28,10 +44,49 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.compose.ui.window.DialogProperties
 import com.eleckoi.android.foundation.design.AppearanceTheme
 import com.eleckoi.android.foundation.design.R
+import com.eleckoi.android.foundation.design.overlayScrim
+
+private val ModalBubbleWidth = 172.dp
+private val ModalBubblePointerHeight = 9.dp
+
+private object TopEndBubbleShape : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
+        val pointerHeight = with(density) { ModalBubblePointerHeight.toPx() }
+        val pointerHalfWidth = with(density) { 9.dp.toPx() }
+        val pointerCenterX = size.width - with(density) { 21.dp.toPx() }
+        val radius = with(density) { 16.dp.toPx() }
+        return Outline.Generic(
+            Path().apply {
+                moveTo(radius, pointerHeight)
+                lineTo(pointerCenterX - pointerHalfWidth, pointerHeight)
+                lineTo(pointerCenterX, 0f)
+                lineTo(pointerCenterX + pointerHalfWidth, pointerHeight)
+                lineTo(size.width - radius, pointerHeight)
+                quadraticTo(size.width, pointerHeight, size.width, pointerHeight + radius)
+                lineTo(size.width, size.height - radius)
+                quadraticTo(size.width, size.height, size.width - radius, size.height)
+                lineTo(radius, size.height)
+                quadraticTo(0f, size.height, 0f, size.height - radius)
+                lineTo(0f, pointerHeight + radius)
+                quadraticTo(0f, pointerHeight, radius, pointerHeight)
+                close()
+            },
+        )
+    }
+}
 
 data class MobileHeaderMenuAction(
     val label: String,
@@ -74,15 +129,88 @@ fun BubbleActionMenu(
     actions: List<MobileHeaderMenuAction>,
     appearance: AppearanceTheme,
     onDismiss: () -> Unit,
+    modalTopEnd: Boolean = false,
 ) {
-    DropdownMenu(
-        expanded = expanded,
+    val menuShape = RoundedCornerShape(16.dp)
+    if (!modalTopEnd) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = onDismiss,
+            modifier = Modifier.widthIn(min = 180.dp, max = 260.dp),
+            containerColor = appearance.mobileSurface,
+            shape = menuShape,
+            tonalElevation = 0.dp,
+            shadowElevation = 12.dp,
+        ) {
+            BubbleActionMenuItems(actions, appearance, onDismiss)
+        }
+        return
+    }
+    if (!expanded) return
+    Dialog(
         onDismissRequest = onDismiss,
-        modifier = Modifier.widthIn(min = 180.dp, max = 260.dp),
-        containerColor = appearance.mobileSurface,
-        shape = RoundedCornerShape(16.dp),
-        shadowElevation = 12.dp,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
     ) {
+        val dialogWindow = (LocalView.current.parent as? DialogWindowProvider)?.window
+        SideEffect {
+            dialogWindow?.setDimAmount(appearance.overlayScrim().alpha)
+            dialogWindow?.setWindowAnimations(0)
+        }
+        val menuVisibility = remember {
+            MutableTransitionState(false).apply { targetState = true }
+        }
+        Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .noRippleClickable(onClick = onDismiss),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(top = 52.dp, end = 12.dp),
+            ) {
+                AnimatedVisibility(
+                    visibleState = menuVisibility,
+                    enter = scaleIn(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium,
+                        ),
+                        initialScale = 0.78f,
+                        transformOrigin = TransformOrigin(0.9f, 0f),
+                    ),
+                ) {
+                    Surface(
+                        modifier = Modifier.width(ModalBubbleWidth),
+                        color = Color.White,
+                        shape = TopEndBubbleShape,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp,
+                    ) {
+                        Box(modifier = Modifier.padding(top = ModalBubblePointerHeight)) {
+                            BubbleActionMenuItems(actions, appearance, onDismiss)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BubbleActionMenuItems(
+    actions: List<MobileHeaderMenuAction>,
+    appearance: AppearanceTheme,
+    onDismiss: () -> Unit,
+) {
+    Column {
         Spacer(modifier = Modifier.height(6.dp))
         actions.forEachIndexed { index, action ->
             if (action.dividerBefore && index > 0) {
@@ -133,8 +261,15 @@ fun MobileProfileHeader(
     onAdd: () -> Unit,
     onOpenProfile: () -> Unit,
     addMenuActions: List<MobileHeaderMenuAction> = emptyList(),
+    addMenuExpanded: Boolean? = null,
+    onAddMenuExpandedChange: (Boolean) -> Unit = {},
 ) {
-    var addMenuOpen by remember { mutableStateOf(false) }
+    var internalAddMenuOpen by remember { mutableStateOf(false) }
+    val addMenuOpen = addMenuExpanded ?: internalAddMenuOpen
+    fun setAddMenuOpen(open: Boolean) {
+        if (addMenuExpanded == null) internalAddMenuOpen = open
+        onAddMenuExpandedChange(open)
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -198,7 +333,7 @@ fun MobileProfileHeader(
             modifier = Modifier
                 .size(48.dp)
                 .noRippleClickable {
-                    if (addMenuActions.isEmpty()) onAdd() else addMenuOpen = true
+                    if (addMenuActions.isEmpty()) onAdd() else setAddMenuOpen(true)
                 },
             contentAlignment = Alignment.Center,
         ) {
@@ -207,7 +342,8 @@ fun MobileProfileHeader(
                 expanded = addMenuOpen,
                 actions = addMenuActions,
                 appearance = appearance,
-                onDismiss = { addMenuOpen = false },
+                onDismiss = { setAddMenuOpen(false) },
+                modalTopEnd = addMenuExpanded != null,
             )
         }
     }

@@ -6,8 +6,9 @@ import com.eleckoi.android.engine.agent.api.AgentContextInjection
 import com.eleckoi.android.engine.agent.api.AgentContextRole
 import com.eleckoi.android.engine.generation.image.SceneImagePrompt
 import com.eleckoi.android.engine.generation.image.parseSceneImagePrompts
-import com.eleckoi.android.engine.generation.model.DefaultNovelAiPromptCompilerInstruction
-import com.eleckoi.android.engine.generation.model.ImageGenerationSettings
+import com.eleckoi.android.engine.generation.model.ModelConfig
+import com.eleckoi.android.engine.generation.model.imagePromptCompilerInstruction
+import com.eleckoi.android.engine.generation.model.isOpenAiImageConfig
 import com.eleckoi.android.engine.generation.model.storyImageCountRange
 import com.eleckoi.android.engine.agent.protocol.AssistantActionCallCloseTag
 import com.eleckoi.android.engine.agent.protocol.assistantActionCallOpenTag
@@ -23,21 +24,20 @@ internal const val GenerateImageActionContextId: String = "roleplay-generate-ima
  * never creates a Tool Call, a tool result, or an extra model request by itself.
  */
 internal fun generateImageActionContextInjection(
-    imageSettings: ImageGenerationSettings,
+    imageConfig: ModelConfig,
     order: Int,
 ): AgentContextInjection = AgentContextInjection(
     id = GenerateImageActionContextId,
     anchor = AgentContextAnchor.ToolContext,
     role = AgentContextRole.System,
     activation = AgentContextActivation.Immediate,
-    content = generateImageActionContextContent(imageSettings),
+    content = generateImageActionContextContent(imageConfig),
     order = order.coerceAtLeast(1),
 )
 
-private fun generateImageActionContextContent(imageSettings: ImageGenerationSettings): String {
-    val compiler = imageSettings.promptCompilerInstruction
-        .trim()
-        .ifBlank { DefaultNovelAiPromptCompilerInstruction }
+private fun generateImageActionContextContent(imageConfig: ModelConfig): String {
+    val compiler = imageConfig.imagePromptCompilerInstruction()
+    val imageSettings = imageConfig.imageSettings
     val countRange = imageSettings.storyImageCountRange()
     val countInstruction = if (countRange.first == countRange.last) {
         "本轮必须输出恰好 ${countRange.first} 个互不重复、按剧情先后排列的连续分镜。frames 数组长度必须等于 ${countRange.first}；少一张或多一张都会被程序拒绝。"
@@ -45,8 +45,18 @@ private fun generateImageActionContextContent(imageSettings: ImageGenerationSett
         "本轮根据可画出的不同剧情节点，自主选择 ${countRange.first} 到 ${countRange.last} 个画面；禁止用同一瞬间的近似构图凑数。"
     }
     val frameExampleCount = if (countRange.first == countRange.last) countRange.first else countRange.first
+    val promptExample = if (imageConfig.isOpenAiImageConfig()) {
+        "自然语言画面描述"
+    } else {
+        "NovelAI 英文标签"
+    }
+    val negativeExample = if (imageConfig.isOpenAiImageConfig()) {
+        "需要避免的内容，无则留空"
+    } else {
+        "NovelAI 英文负面标签"
+    }
     val frameExamples = (1..frameExampleCount).joinToString(",") { index ->
-        "{\"id\":$index,\"prompt\":\"第${index}个连续剧情画面的 NovelAI 英文标签\",\"negative_prompt\":\"该画面的 NovelAI 英文负面标签\"}"
+        "{\"id\":$index,\"prompt\":\"第${index}个连续剧情画面的 $promptExample\",\"negative_prompt\":\"该画面的 $negativeExample\"}"
     }
     val markerExamples = (1..frameExampleCount).joinToString("\n", transform = ::roleplayImageMarker)
     val actionOpenTag = assistantActionCallOpenTag(GenerateImageActionName)

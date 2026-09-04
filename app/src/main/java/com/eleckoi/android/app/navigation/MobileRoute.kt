@@ -33,6 +33,8 @@ internal sealed interface MobileRoute : NavKey {
     @Serializable
     data object RuntimeSettings : MobileRoute
     @Serializable
+    data object CrashDiagnostics : MobileRoute
+    @Serializable
     data object WebSearchSettings : MobileRoute
     @Serializable
     data class RemoteDshSettings(val toolScopeId: String = "") : MobileRoute

@@ -1,6 +1,7 @@
 package com.eleckoi.android.feature.studio.ui.assistant
 
 import com.eleckoi.android.feature.modelconfig.api.ModelService
+import com.eleckoi.android.engine.generation.config.ModelConfigCollection
 import com.eleckoi.android.engine.generation.model.ModelConfig
 import com.eleckoi.android.feature.studio.ui.assistant.session.creationAssistantMessage
 import com.eleckoi.android.feature.studio.ui.assistant.timeline.toCreationModelChoices
@@ -24,12 +25,11 @@ internal class CreationModelController(
                     modelService.defaultConversationModelSelection()
                 }
                 updateState { current ->
-                    val selectedConfig = collection.configs.firstOrNull {
-                        it.id == current.selectedModelConfigId
-                    } ?: collection.configs.firstOrNull {
-                        it.id == defaultSelection.configId
-                    } ?: collection.configs.firstOrNull { it.model.isNotBlank() }
-                    ?: collection.configs.firstOrNull()
+                    val chatConfigs = collection.chatConfigs
+                    val selectedConfig = collection.resolveCreationChatConfig(
+                        currentConfigId = current.selectedModelConfigId,
+                        defaultConfigId = defaultSelection.configId,
+                    )
                     ?: ModelConfig()
                     val choices = selectedConfig.toCreationModelChoices()
                     val preferredModel = if (selectedConfig.id == current.selectedModelConfigId) {
@@ -43,7 +43,9 @@ internal class CreationModelController(
                         candidate.isNotBlank() && choices.any { it.id == candidate }
                     } ?: selectedConfig.model.trim()
                     current.copy(
-                        modelConfigs = collection.configs,
+                        // Image providers are configured by the assistant's image-generation
+                        // tool. They must never become a language model in the chat composer.
+                        modelConfigs = chatConfigs,
                         selectedModelConfigId = selectedConfig.id,
                         selectedModelId = selectedModel,
                         modelChoices = choices,
@@ -128,3 +130,11 @@ internal class CreationModelController(
         }
     }
 }
+
+internal fun ModelConfigCollection.resolveCreationChatConfig(
+    currentConfigId: String,
+    defaultConfigId: String,
+): ModelConfig? = chatConfigs.firstOrNull { it.id == currentConfigId }
+    ?: chatConfigs.firstOrNull { it.id == defaultConfigId }
+    ?: chatConfigs.firstOrNull { it.model.isNotBlank() }
+    ?: chatConfigs.firstOrNull()

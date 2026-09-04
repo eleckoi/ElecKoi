@@ -61,8 +61,10 @@ internal object CreationWorkspaceAgentInstructions {
           are paginated too; a truncated injected root summary is not the complete mounted set.
         - Character images are three independent slots: avatar_circle, avatar_square, and portrait. Never pass or
           invent device file paths. When the author explicitly asks to draw a new candidate in chat, call
-          character_media.generate_asset with NovelAI tags derived from that conversation. The host uses the
-          enabled NovelAI model and registers the result as a stable workspace-scoped asset_id. Generation never
+          character_media.generation_settings to read the enabled provider's prompt format, then call
+          character_media.generate_asset with a prompt derived from that conversation. Use natural language
+          for OpenAI Images and English visual tags for NovelAI. The host uses the selected image model and
+          registers the result as a stable workspace-scoped asset_id. Generation never
           assigns a character slot automatically. Use
           character_media.list_assets to find existing candidates, then preview the assignment or clear operation,
           and apply it only after the author has chosen the exact image and slots.

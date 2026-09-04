@@ -68,6 +68,8 @@ class ModelConfigRoomMapperTest {
                     contextWindowTokens = 1_000_000,
                     autoCompactTokenLimit = 258_000,
                     maxOutputTokens = 128_000,
+                    temperature = 0.6,
+                    topP = 0.85,
                     apiFormatOverride = ModelApiFormat.Responses,
                 ),
             ),
@@ -78,6 +80,8 @@ class ModelConfigRoomMapperTest {
         assertEquals(1_000_000, restored.modelOptions.single().contextWindowTokens)
         assertEquals(258_000, restored.modelOptions.single().autoCompactTokenLimit)
         assertEquals(128_000, restored.modelOptions.single().maxOutputTokens)
+        assertEquals(0.6, restored.modelOptions.single().temperature)
+        assertEquals(0.85, restored.modelOptions.single().topP)
         assertEquals(ModelApiFormat.Responses, restored.modelOptions.single().apiFormatOverride)
     }
 

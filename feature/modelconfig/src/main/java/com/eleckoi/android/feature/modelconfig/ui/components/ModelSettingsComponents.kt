@@ -5,10 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,7 +57,14 @@ import com.eleckoi.android.foundation.design.ElecKoiDanger
 import com.eleckoi.android.feature.modelconfig.ui.configVersionName
 
 @Composable
-fun ModelSettingsHeader(title: String, appearance: AppearanceTheme, onBack: (() -> Unit)?) {
+fun ModelSettingsHeader(
+    title: String,
+    appearance: AppearanceTheme,
+    onBack: (() -> Unit)?,
+    actionText: String? = null,
+    actionDanger: Boolean = false,
+    onAction: (() -> Unit)? = null,
+) {
     Box(
         modifier = Modifier.fillMaxWidth().height(60.dp).background(appearance.mobileBg).padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
@@ -74,6 +83,23 @@ fun ModelSettingsHeader(title: String, appearance: AppearanceTheme, onBack: (() 
             }
         }
         Text(title, color = appearance.mobileText, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        if (actionText != null && onAction != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .height(48.dp)
+                    .widthIn(min = 48.dp)
+                    .noRippleClickable(onClick = onAction)
+                    .padding(horizontal = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    actionText,
+                    color = if (actionDanger) ElecKoiDanger else appearance.mobileBlue,
+                    fontSize = 14.sp,
+                )
+            }
+        }
     }
 }
 
@@ -232,9 +258,13 @@ internal fun ModelStackedNavigationField(
             .noRippleClickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
-        Text(label, color = appearance.mobileMuted, fontSize = 11.sp)
+        if (label.isNotBlank()) {
+            Text(label, color = appearance.mobileMuted, fontSize = 11.sp)
+        }
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (label.isNotBlank()) Modifier.padding(top = 2.dp) else Modifier),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -402,59 +432,58 @@ fun ModelField(
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         Text(label, color = appearance.mobileMuted, fontSize = 11.sp)
-        Row(
+        AppInsetTextField(
+            value = value,
+            onValueChange = onChange,
+            appearance = appearance,
+            placeholder = placeholder,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            AppInsetTextField(
-                value = value,
-                onValueChange = onChange,
-                appearance = appearance,
-                placeholder = placeholder,
-                modifier = Modifier.weight(1f),
-                textFieldModifier = Modifier
-                    .onGloballyPositioned { bounds = it.boundsInWindow() }
-                    .onFocusChanged { focused = it.isFocused },
-                textStyle = TextStyle(color = appearance.mobileText, fontSize = 15.sp),
-                keyboardOptions = if (secureEntry) {
-                    // Keep the value visually masked without requesting an OEM "secure
-                    // keyboard". Password input types disable clipboard paste and cause some
-                    // Vivo screen-mirroring implementations to blank the projected window.
-                    KeyboardOptions(keyboardType = KeyboardType.Ascii)
-                } else {
-                    KeyboardOptions(keyboardType = keyboardType)
-                },
-                visualTransformation = if (secureEntry && !secureEntryVisible) {
-                    PasswordVisualTransformation()
-                } else {
-                    VisualTransformation.None
-                },
-                singleLine = singleLine,
-            )
-            if (trailingIcon != null) {
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .then(
-                            if (trailingContentDescription != null) {
-                                Modifier.semantics { contentDescription = trailingContentDescription }
-                            } else {
-                                Modifier
-                            },
+            textFieldModifier = Modifier
+                .onGloballyPositioned { bounds = it.boundsInWindow() }
+                .onFocusChanged { focused = it.isFocused },
+            textStyle = TextStyle(color = appearance.mobileText, fontSize = 15.sp),
+            keyboardOptions = if (secureEntry) {
+                // Keep the value visually masked without requesting an OEM "secure
+                // keyboard". Password input types disable clipboard paste and cause some
+                // Vivo screen-mirroring implementations to blank the projected window.
+                KeyboardOptions(keyboardType = KeyboardType.Ascii)
+            } else {
+                KeyboardOptions(keyboardType = keyboardType)
+            },
+            visualTransformation = if (secureEntry && !secureEntryVisible) {
+                PasswordVisualTransformation()
+            } else {
+                VisualTransformation.None
+            },
+            singleLine = singleLine,
+            trailingContent = if (trailingIcon == null) {
+                null
+            } else {
+                {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(
+                                if (trailingContentDescription != null) {
+                                    Modifier.semantics { contentDescription = trailingContentDescription }
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .noRippleClickable(onClick = onTrailingClick),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        StrokeSvgIcon(
+                            trailingIcon,
+                            if (secureEntryVisible) appearance.mobileBlue else appearance.mobileSoft,
+                            iconSize = 18.dp,
                         )
-                        .noRippleClickable(onClick = onTrailingClick),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    StrokeSvgIcon(
-                        trailingIcon,
-                        if (secureEntryVisible) appearance.mobileBlue else appearance.mobileSoft,
-                        iconSize = 18.dp,
-                    )
+                    }
                 }
-            }
-        }
+            },
+        )
     }
 }
 
@@ -470,7 +499,7 @@ fun ModelActionButton(
     onClick: () -> Unit,
 ) {
     val contentColor = when {
-        primary -> appearance.mobileSurface
+        primary -> appearance.mobileAccentFg
         icon == AppIconPaths.Trash -> ElecKoiDanger
         else -> appearance.mobileText
     }
@@ -478,7 +507,7 @@ fun ModelActionButton(
         modifier = modifier
             .height(48.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(if (primary) appearance.mobileText else appearance.mobileSurface)
+            .background(if (primary) appearance.mobileBlue else appearance.mobileSurface)
             .noRippleClickable(onClick = onClick)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -488,7 +517,7 @@ fun ModelActionButton(
         Text(
             text,
             modifier = Modifier.padding(start = 7.dp),
-            color = if (primary) appearance.mobileSurface else appearance.mobileText,
+            color = contentColor,
             fontSize = 14.sp,
         )
     }

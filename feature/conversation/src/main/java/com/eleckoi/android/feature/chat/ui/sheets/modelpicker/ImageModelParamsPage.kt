@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,12 +26,20 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eleckoi.android.foundation.design.components.AppInsetTextField
+import com.eleckoi.android.foundation.design.components.SquareSelectionCheck
 import com.eleckoi.android.foundation.design.components.noRippleClickable
+import com.eleckoi.android.engine.generation.model.ImageBackground
+import com.eleckoi.android.engine.generation.model.ImageQuality
 import com.eleckoi.android.engine.generation.model.ModelConfig
 import com.eleckoi.android.engine.generation.model.MaxStoryImagesPerTurn
 import com.eleckoi.android.engine.generation.model.NovelAiSamplerCatalog
+import com.eleckoi.android.engine.generation.model.imagePromptCompilerInstruction
+import com.eleckoi.android.engine.generation.model.imageSizeError
+import com.eleckoi.android.engine.generation.model.isOpenAiImageConfig
+import com.eleckoi.android.feature.modelconfig.ui.ImageOutputSelector
 import com.eleckoi.android.feature.modelconfig.ui.components.ModelInlineField
 import com.eleckoi.android.feature.modelconfig.ui.NovelAiSamplerSelector
+import com.eleckoi.android.feature.chat.ui.sheets.ImageModelParamsMode
 import com.eleckoi.android.foundation.design.AppearanceTheme
 import com.eleckoi.android.foundation.design.ElecKoiDanger
 
@@ -45,9 +51,18 @@ internal fun ImageModelParamsPage(
     modifier: Modifier = Modifier,
     onSaveConfig: (ModelConfig, (Result<ModelConfig>) -> Unit) -> Unit,
     onCharacterImagePromptChange: (String, (Result<String>) -> Unit) -> Unit,
+    mode: ImageModelParamsMode,
     showCharacterImagePrompt: Boolean,
 ) {
     val current = selectedConfig.imageSettings
+    val openAi = selectedConfig.isOpenAiImageConfig()
+    val automaticIllustration = mode == ImageModelParamsMode.AutomaticIllustration
+    var quality by rememberSaveable(selectedConfig.id, current.quality) {
+        mutableStateOf(current.quality)
+    }
+    var background by rememberSaveable(selectedConfig.id, current.background) {
+        mutableStateOf(current.background)
+    }
     var width by rememberSaveable(selectedConfig.id, current.width) { mutableStateOf(current.width.toString()) }
     var height by rememberSaveable(selectedConfig.id, current.height) { mutableStateOf(current.height.toString()) }
     var steps by rememberSaveable(selectedConfig.id, current.steps) { mutableStateOf(current.steps.toString()) }
@@ -71,7 +86,7 @@ internal fun ImageModelParamsPage(
         selectedConfig.id,
         current.promptCompilerInstruction,
     ) {
-        mutableStateOf(current.promptCompilerInstruction)
+        mutableStateOf(selectedConfig.imagePromptCompilerInstruction())
     }
     var promptPrefix by rememberSaveable(selectedConfig.id, current.promptPrefix) {
         mutableStateOf(current.promptPrefix)
@@ -91,26 +106,33 @@ internal fun ImageModelParamsPage(
     val fixedImageCountValue = fixedImageCount.toIntOrNull()
     val automaticImageMinValue = automaticImageMin.toIntOrNull()
     val automaticImageMaxValue = automaticImageMax.toIntOrNull()
-    val widthError = widthValue?.let { it in 512..2048 } != true
-    val heightError = heightValue?.let { it in 512..2048 } != true
-    val stepsError = stepsValue?.let { it in 1..50 } != true
-    val scaleError = scaleValue == null || scaleValue !in 0.1..10.0
+    val sizeError = imageSizeError(selectedConfig.provider, widthValue, heightValue)
+    val widthError = if (openAi) sizeError != null else widthValue?.let { it in 512..2048 } != true
+    val heightError = if (openAi) sizeError != null else heightValue?.let { it in 512..2048 } != true
+    val stepsError = !openAi && stepsValue?.let { it in 1..50 } != true
+    val scaleError = !openAi && (scaleValue == null || scaleValue !in 0.1..10.0)
     val fixedImageCountError = fixedImageCountValue !in 1..MaxStoryImagesPerTurn
     val automaticImageRangeError = automaticImageMinValue !in 1..MaxStoryImagesPerTurn ||
         automaticImageMaxValue !in 1..MaxStoryImagesPerTurn ||
         (automaticImageMinValue != null && automaticImageMaxValue != null &&
             automaticImageMinValue > automaticImageMaxValue)
-    val imageCountError = if (automaticImageCount) automaticImageRangeError else fixedImageCountError
-    val settingsChanged = !widthError && !heightError && !stepsError && !scaleError && !imageCountError && (
-        widthValue != current.width || heightValue != current.height || stepsValue != current.steps ||
-            scaleValue != current.scale ||
-            sampler != NovelAiSamplerCatalog.normalizeApiValue(current.sampler) ||
-            automaticImageCount != current.automaticImageCount ||
+    val imageCountError = automaticIllustration &&
+        if (automaticImageCount) automaticImageRangeError else fixedImageCountError
+    val automaticIllustrationSettingsChanged = automaticIllustration && (
+        automaticImageCount != current.automaticImageCount ||
             fixedImageCountValue != current.fixedImageCount ||
             automaticImageMinValue != current.automaticImageMin ||
             automaticImageMaxValue != current.automaticImageMax ||
-            promptCompilerInstruction.trim() != current.promptCompilerInstruction ||
-            promptPrefix.trim() != current.promptPrefix || negativePrompt.trim() != current.negativePrompt
+            promptCompilerInstruction.trim() != selectedConfig.imagePromptCompilerInstruction() ||
+            promptPrefix.trim() != current.promptPrefix ||
+            negativePrompt.trim() != current.negativePrompt
+        )
+    val settingsChanged = widthValue != null && heightValue != null &&
+        !widthError && !heightError && !stepsError && !scaleError && !imageCountError && (
+        widthValue != current.width || heightValue != current.height || stepsValue != current.steps ||
+            scaleValue != current.scale || quality != current.quality || background != current.background ||
+            sampler != NovelAiSamplerCatalog.normalizeApiValue(current.sampler) ||
+            automaticIllustrationSettingsChanged
         )
 
     LaunchedEffect(
@@ -120,6 +142,8 @@ internal fun ImageModelParamsPage(
         stepsValue,
         scaleValue,
         sampler,
+        quality,
+        background,
         automaticImageCount,
         fixedImageCountValue,
         automaticImageMinValue,
@@ -136,16 +160,46 @@ internal fun ImageModelParamsPage(
                 imageSettings = current.copy(
                     width = widthValue,
                     height = heightValue,
-                    steps = stepsValue,
-                    scale = scaleValue,
+                    steps = if (openAi) current.steps else requireNotNull(stepsValue),
+                    scale = if (openAi) current.scale else requireNotNull(scaleValue),
+                    quality = quality,
+                    background = background,
                     sampler = NovelAiSamplerCatalog.normalizeApiValue(sampler),
-                    automaticImageCount = automaticImageCount,
-                    fixedImageCount = fixedImageCountValue ?: current.fixedImageCount,
-                    automaticImageMin = automaticImageMinValue ?: current.automaticImageMin,
-                    automaticImageMax = automaticImageMaxValue ?: current.automaticImageMax,
-                    promptCompilerInstruction = promptCompilerInstruction.trim(),
-                    promptPrefix = promptPrefix.trim().take(4_000),
-                    negativePrompt = negativePrompt.trim().take(2_000),
+                    automaticImageCount = if (automaticIllustration) {
+                        automaticImageCount
+                    } else {
+                        current.automaticImageCount
+                    },
+                    fixedImageCount = if (automaticIllustration) {
+                        fixedImageCountValue ?: current.fixedImageCount
+                    } else {
+                        current.fixedImageCount
+                    },
+                    automaticImageMin = if (automaticIllustration) {
+                        automaticImageMinValue ?: current.automaticImageMin
+                    } else {
+                        current.automaticImageMin
+                    },
+                    automaticImageMax = if (automaticIllustration) {
+                        automaticImageMaxValue ?: current.automaticImageMax
+                    } else {
+                        current.automaticImageMax
+                    },
+                    promptCompilerInstruction = if (automaticIllustration) {
+                        promptCompilerInstruction.trim()
+                    } else {
+                        current.promptCompilerInstruction
+                    },
+                    promptPrefix = if (automaticIllustration) {
+                        promptPrefix.trim().take(4_000)
+                    } else {
+                        current.promptPrefix
+                    },
+                    negativePrompt = if (automaticIllustration) {
+                        negativePrompt.trim().take(2_000)
+                    } else {
+                        current.negativePrompt
+                    },
                 ),
             ),
         ) { result -> saveState = if (result.isSuccess) ParamsSaveState.Saved else ParamsSaveState.Failed }
@@ -170,7 +224,7 @@ internal fun ImageModelParamsPage(
         modifier = modifier.fillMaxWidth().imePadding(),
         contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 28.dp),
     ) {
-        item("image-count") {
+        if (automaticIllustration) item("image-count") {
             ParamsGroupLabel("剧情分镜数量", appearance)
             SheetGroupCard(appearance) {
                 ImageCountModeRow(
@@ -223,41 +277,52 @@ internal fun ImageModelParamsPage(
                     )
                 }
             }
-            Text(
-                "数量范围公开为 1–$MaxStoryImagesPerTurn 张；多张图会按正文位置分别排队生成。",
-                color = if (imageCountError) ElecKoiDanger else appearance.mobileMuted,
-                fontSize = 11.sp,
-                lineHeight = 16.sp,
-                modifier = Modifier.padding(start = 6.dp, end = 6.dp, top = 8.dp),
-            )
         }
         item("image-size") {
             ParamsGroupLabel("绘画参数", appearance)
             SheetGroupCard(appearance) {
-                ModelInlineField("宽度", width, "832", appearance, isError = widthError) {
+                ModelInlineField("宽度", width, if (openAi) "1024" else "832", appearance, isError = widthError) {
                     width = it.onlyDigits().take(4)
                 }
                 SheetGroupDivider(appearance)
-                ModelInlineField("高度", height, "1216", appearance, isError = heightError) {
+                ModelInlineField("高度", height, if (openAi) "1536" else "1216", appearance, isError = heightError) {
                     height = it.onlyDigits().take(4)
                 }
                 SheetGroupDivider(appearance)
-                ModelInlineField("步数", steps, "28", appearance, isError = stepsError) {
-                    steps = it.onlyDigits().take(2)
+                if (openAi) {
+                    ImageOutputSelector(
+                        label = "质量",
+                        selected = quality,
+                        options = ImageQuality.entries,
+                        optionLabel = ImageQuality::label,
+                        appearance = appearance,
+                    ) { quality = it }
+                    SheetGroupDivider(appearance)
+                    ImageOutputSelector(
+                        label = "背景",
+                        selected = background,
+                        options = ImageBackground.entries,
+                        optionLabel = ImageBackground::label,
+                        appearance = appearance,
+                    ) { background = it }
+                } else {
+                    ModelInlineField("步数", steps, "28", appearance, isError = stepsError) {
+                        steps = it.onlyDigits().take(2)
+                    }
+                    SheetGroupDivider(appearance)
+                    ModelInlineField("提示词相关性", scale, "5.0", appearance, isError = scaleError) {
+                        scale = it.onlyDecimal().take(5)
+                    }
+                    SheetGroupDivider(appearance)
+                    NovelAiSamplerSelector(
+                        selectedApiValue = sampler,
+                        appearance = appearance,
+                        onSelect = { sampler = it },
+                    )
                 }
-                SheetGroupDivider(appearance)
-                ModelInlineField("提示词相关性", scale, "5.0", appearance, isError = scaleError) {
-                    scale = it.onlyDecimal().take(5)
-                }
-                SheetGroupDivider(appearance)
-                NovelAiSamplerSelector(
-                    selectedApiValue = sampler,
-                    appearance = appearance,
-                    onSelect = { sampler = it },
-                )
             }
         }
-        item("image-prompts") {
+        if (automaticIllustration) item("image-prompts") {
             ParamsGroupLabel("提示词", appearance)
             SheetGroupCard(appearance) {
                 ImagePromptField(
@@ -271,7 +336,11 @@ internal fun ImageModelParamsPage(
                 SheetGroupDivider(appearance)
                 ImagePromptField(
                     label = "全局固定词",
-                    hint = "每个角色都会原样插在最前面，例如画风、质量、镜头标签",
+                    hint = if (openAi) {
+                        "描述所有图片共用的画风、构图与光线"
+                    } else {
+                        "每个角色都会原样插在最前面，例如画风、质量、镜头标签"
+                    },
                     value = promptPrefix,
                     appearance = appearance,
                     onChange = { promptPrefix = it.take(4_000) },
@@ -280,7 +349,7 @@ internal fun ImageModelParamsPage(
                 if (showCharacterImagePrompt) {
                     ImagePromptField(
                         label = "当前角色专属词",
-                        hint = "原样插入；适合角色名、作品名、服装和专属画风标签",
+                        hint = if (openAi) "描述角色外观、服装和专属画风" else "原样插入；适合角色名、作品名、服装和专属画风标签",
                         value = rolePrompt,
                         appearance = appearance,
                         onChange = { rolePrompt = it.take(4_000) },
@@ -288,26 +357,31 @@ internal fun ImageModelParamsPage(
                     SheetGroupDivider(appearance)
                 }
                 ImagePromptField(
-                    label = "负面追加词",
-                    hint = "追加到默认负面词和本轮场景负面词之后",
+                    label = if (openAi) "避免的内容" else "负面追加词",
+                    hint = if (openAi) {
+                        "以自然语言说明不希望出现在图片中的内容"
+                    } else {
+                        "追加到默认负面词和本轮场景负面词之后"
+                    },
                     value = negativePrompt,
                     appearance = appearance,
                     onChange = { negativePrompt = it.take(2_000) },
                 )
             }
         }
-        item("image-note") {
+        val statusMessage = when {
+            imageCountError -> "分镜数量需要在 1 到 $MaxStoryImagesPerTurn 之间，且最少不能大于最多。"
+            sizeError != null -> sizeError
+            stepsError -> "步数需要在 1 到 50 之间。"
+            scaleError -> "提示词相关性需要在 0.1 到 10 之间。"
+            saveState == ParamsSaveState.Failed -> "保存失败，改一下再试。"
+            saveState == ParamsSaveState.Saving -> "保存中…"
+            saveState == ParamsSaveState.Saved -> "已保存"
+            else -> null
+        }
+        if (statusMessage != null) item("image-note") {
             Text(
-                text = when {
-                    imageCountError -> "分镜数量需要在 1 到 $MaxStoryImagesPerTurn 之间，且最少不能大于最多。"
-                    widthError || heightError -> "宽高需要在 512 到 2048 之间。"
-                    stepsError -> "步数需要在 1 到 50 之间。"
-                    scaleError -> "提示词相关性需要在 0.1 到 10 之间。"
-                    saveState == ParamsSaveState.Failed -> "保存失败，改一下再试。"
-                    saveState == ParamsSaveState.Saving -> "保存中…"
-                    saveState == ParamsSaveState.Saved -> "已保存"
-                    else -> "顺序：Agent 同步构思 → <ACTION_CALL> 后台串行生图 → <FINAL> 正文流式显示 → [[IMAGE:n]] 到达时显示图片。"
-                },
+                text = statusMessage,
                 color = if (
                     imageCountError || widthError || heightError || stepsError || scaleError ||
                         saveState == ParamsSaveState.Failed
@@ -335,15 +409,8 @@ private fun ImageCountModeRow(
             .padding(horizontal = 10.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(
-            selected = selected,
-            onClick = onClick,
-            colors = RadioButtonDefaults.colors(
-                selectedColor = appearance.mobileText,
-                unselectedColor = appearance.mobileSoft,
-            ),
-        )
-        Column(modifier = Modifier.weight(1f).padding(start = 2.dp)) {
+        SquareSelectionCheck(selected = selected, appearance = appearance)
+        Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
             Text(label, color = appearance.mobileText, fontSize = 14.5.sp)
             Text(detail, color = appearance.mobileMuted, fontSize = 11.sp, lineHeight = 15.sp)
         }

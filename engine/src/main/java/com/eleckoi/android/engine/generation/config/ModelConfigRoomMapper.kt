@@ -6,7 +6,12 @@ import com.eleckoi.android.engine.generation.model.ModelConfig
 import com.eleckoi.android.engine.generation.model.ModelOption
 import com.eleckoi.android.engine.generation.model.ModelApiFormat
 import com.eleckoi.android.engine.generation.model.ImageGenerationSettings
-import com.eleckoi.android.engine.generation.model.DefaultNovelAiPromptCompilerInstruction
+import com.eleckoi.android.engine.generation.model.NovelAiImageProviderId
+import com.eleckoi.android.engine.generation.model.OpenAiImageProviderId
+import com.eleckoi.android.engine.generation.model.ImageQuality
+import com.eleckoi.android.engine.generation.model.ImageBackground
+import com.eleckoi.android.engine.generation.model.defaultImageSettings
+import com.eleckoi.android.engine.generation.model.imagePromptCompilerInstruction
 import com.eleckoi.android.engine.generation.model.MaxStoryImagesPerTurn
 import com.eleckoi.android.engine.generation.model.NovelAiSamplerCatalog
 import kotlinx.serialization.Serializable
@@ -63,7 +68,7 @@ internal fun ModelConfigEntity.toModelConfig(secretCodec: ModelSecretCodec): Mod
         customHeaders = headersFromJson(customHeadersJson),
         supportsTools = supportsTools,
         enabled = enabled,
-        imageSettings = imageSettingsFromJson(imageSettingsJson),
+        imageSettings = imageSettingsFromJson(imageSettingsJson, provider),
         apiFormat = ModelApiFormat.fromStorageValue(apiFormat),
     )
 }
@@ -80,6 +85,8 @@ private data class ModelOptionJson(
     val contextWindowTokens: Int? = null,
     val autoCompactTokenLimit: Int? = null,
     val maxOutputTokens: Int? = null,
+    val temperature: Double? = 1.0,
+    val topP: Double? = 1.0,
     val reasoningEffort: String? = null,
     val apiFormat: String? = null,
     val supportsImageInput: Boolean = false,
@@ -87,11 +94,13 @@ private data class ModelOptionJson(
 
 @Serializable
 private data class ImageGenerationSettingsJson(
-    val width: Int = 832,
-    val height: Int = 1216,
+    val width: Int? = null,
+    val height: Int? = null,
     val steps: Int = 28,
     val scale: Double = 5.0,
     val sampler: String = NovelAiSamplerCatalog.DefaultApiValue,
+    val quality: ImageQuality = ImageQuality.Auto,
+    val background: ImageBackground = ImageBackground.Auto,
     val automaticImageCount: Boolean = false,
     val fixedImageCount: Int = 1,
     val automaticImageMin: Int = 1,
@@ -100,19 +109,25 @@ private data class ImageGenerationSettingsJson(
     val promptPrefix: String = "",
     val negativePrompt: String = "",
 ) {
-    fun toDomain(): ImageGenerationSettings = ImageGenerationSettings(
-        width = width.coerceIn(512, 2048),
-        height = height.coerceIn(512, 2048),
+    fun toDomain(providerId: String): ImageGenerationSettings = ImageGenerationSettings(
+        width = (width ?: defaultImageSettings(providerId).width).let {
+            if (providerId == OpenAiImageProviderId) it else it.coerceIn(512, 2048)
+        },
+        height = (height ?: defaultImageSettings(providerId).height).let {
+            if (providerId == OpenAiImageProviderId) it else it.coerceIn(512, 2048)
+        },
         steps = steps.coerceIn(1, 50),
         scale = scale.coerceIn(0.1, 10.0),
         sampler = NovelAiSamplerCatalog.normalizeApiValue(sampler),
+        quality = quality,
+        background = background,
         automaticImageCount = automaticImageCount,
         fixedImageCount = fixedImageCount.coerceIn(1, MaxStoryImagesPerTurn),
         automaticImageMin = automaticImageMin.coerceIn(1, MaxStoryImagesPerTurn),
         automaticImageMax = automaticImageMax.coerceIn(1, MaxStoryImagesPerTurn),
-        promptCompilerInstruction = promptCompilerInstruction
-            .trim()
-            .ifBlank { DefaultNovelAiPromptCompilerInstruction },
+        promptCompilerInstruction = promptCompilerInstruction.trim().ifBlank {
+            ModelConfig(provider = providerId).imagePromptCompilerInstruction()
+        },
         promptPrefix = promptPrefix.trim().take(4_000),
         negativePrompt = negativePrompt.trim().take(2_000),
     )
@@ -125,6 +140,8 @@ private data class ImageGenerationSettingsJson(
                 steps = settings.steps,
                 scale = settings.scale,
                 sampler = NovelAiSamplerCatalog.normalizeApiValue(settings.sampler),
+                quality = settings.quality,
+                background = settings.background,
                 automaticImageCount = settings.automaticImageCount,
                 fixedImageCount = settings.fixedImageCount,
                 automaticImageMin = settings.automaticImageMin,
@@ -136,10 +153,13 @@ private data class ImageGenerationSettingsJson(
     }
 }
 
-internal fun imageSettingsFromJson(value: String): ImageGenerationSettings = runCatching {
+internal fun imageSettingsFromJson(
+    value: String,
+    providerId: String = NovelAiImageProviderId,
+): ImageGenerationSettings = runCatching {
     ElecKoiJson.decodeFromString(ImageGenerationSettingsJson.serializer(), value.ifBlank { "{}" })
-        .toDomain()
-}.getOrDefault(ImageGenerationSettings())
+        .toDomain(providerId.trim().lowercase())
+}.getOrElse { throw IllegalArgumentException("图片模型配置已损坏", it) }
 
 internal fun ImageGenerationSettings.toJson(): String = ElecKoiJson.encodeToString(
     ImageGenerationSettingsJson.serializer(),
@@ -162,6 +182,8 @@ internal fun optionsFromJson(value: String): List<ModelOption> {
                     contextWindowTokens = item.contextWindowTokens,
                     autoCompactTokenLimit = item.autoCompactTokenLimit,
                     maxOutputTokens = item.maxOutputTokens,
+                    temperature = item.temperature,
+                    topP = item.topP,
                     reasoningEffort = item.reasoningEffort?.trim()?.lowercase()?.takeIf(String::isNotBlank),
                     apiFormatOverride = item.apiFormat
                         ?.trim()
@@ -213,6 +235,8 @@ internal fun List<ModelOption>.toModelOptionsJson(): String {
                 contextWindowTokens = option.contextWindowTokens,
                 autoCompactTokenLimit = option.autoCompactTokenLimit,
                 maxOutputTokens = option.maxOutputTokens,
+                temperature = option.temperature,
+                topP = option.topP,
                 reasoningEffort = option.reasoningEffort,
                 apiFormat = option.apiFormatOverride?.storageValue,
                 supportsImageInput = option.supportsImageInput,

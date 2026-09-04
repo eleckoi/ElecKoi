@@ -382,6 +382,9 @@ class LoopbackResponsesAdapterServerTest {
                 apiKey = "chat-secret",
                 baseUrl = "http://127.0.0.1:${upstream.localPort}/v1",
                 model = "chat-test",
+                modelOptions = listOf(
+                    ModelOption(id = "chat-test", temperature = 0.35, topP = 0.8),
+                ),
                 apiFormat = ModelApiFormat.ChatCompletions,
             ),
             routeToolScopeId = "character:test",
@@ -394,10 +397,16 @@ class LoopbackResponsesAdapterServerTest {
         )
         val prepared = ElecKoiJson.parseToJsonElement(prepareBody).jsonObject
         assertEquals("openai-completions", prepared.string("api"))
+        assertEquals(
+            0.35,
+            (prepared["request"]!!.jsonObject["temperature"] as JsonPrimitive).content.toDouble(),
+            0.0,
+        )
         val wirePayload = """
             {
               "model":"eleckoi-wire",
               "stream":true,
+              "temperature":0.35,
               "messages":[
                 {"role":"user","content":"weather?"},
                 {"role":"assistant","content":null,"tool_calls":[{"id":"call-weather","type":"function","function":{"name":"weather","arguments":"{\"city\":\"Taipei\"}"}}]},
@@ -421,6 +430,8 @@ class LoopbackResponsesAdapterServerTest {
         assertEquals("POST /v1/chat/completions HTTP/1.1", upstreamRequest.requestLine)
         assertEquals("Bearer chat-secret", upstreamRequest.headers["authorization"])
         assertTrue(upstreamRequest.body.contains("\"model\":\"chat-test\""))
+        assertTrue(upstreamRequest.body.contains("\"temperature\":0.35"))
+        assertTrue(upstreamRequest.body.contains("\"top_p\":0.8"))
         assertFalse(upstreamRequest.body.contains("eleckoi_internal_route_"))
         assertTrue(upstreamRequest.body.contains("\"name\":\"weather\""))
         assertTrue(upstreamRequest.body.contains("\"tool_calls\""))

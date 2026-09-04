@@ -1,9 +1,13 @@
 package com.eleckoi.android.foundation.design.components.common
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -16,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -38,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
@@ -48,14 +54,17 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eleckoi.android.foundation.design.AppearanceTheme
+import com.eleckoi.android.foundation.design.components.dropShadow
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.round
 import kotlin.math.roundToInt
 
-// Hand-rolled instead of Material3's Slider. The stock one reads MaterialTheme.colorScheme.primary,
-// which in this project is a leftover value nobody owns, and its bar-shaped thumb does not match
-// the rest of the UI. Every colour here comes from AppearanceTheme, so custom themes stay legible.
+private val TunerTrackColor = Color(0xFFE4E8EF)
+private val TunerKnobShadow = Color(0xFF14171F)
+
+// The track and lozenge thumb follow the signed-off PR slider. Precision editing stays outside this
+// composable in TunerSliderRow, where minus, direct entry, plus and reset remain available.
 @Composable
 fun TunerSlider(
     value: Float,
@@ -66,25 +75,56 @@ fun TunerSlider(
     onInteractionStart: () -> Unit = {},
     onInteractionFinished: () -> Unit = {},
 ) {
-    val thumbSize = 18.dp
     val interactionHeight = 44.dp
+    var trackWidthPx by remember { mutableStateOf(0f) }
+    var pressed by remember { mutableStateOf(false) }
+    val knobMotion = tween<androidx.compose.ui.unit.Dp>(
+        durationMillis = 220,
+        easing = FastOutSlowInEasing,
+    )
+    val knobWidth by animateDpAsState(
+        targetValue = if (pressed) 29.dp else 26.dp,
+        animationSpec = knobMotion,
+        label = "tunerKnobWidth",
+    )
+    val knobHeight by animateDpAsState(
+        targetValue = if (pressed) 21.dp else 19.dp,
+        animationSpec = knobMotion,
+        label = "tunerKnobHeight",
+    )
+    val nearBlur by animateDpAsState(
+        targetValue = if (pressed) 10.dp else 3.dp,
+        animationSpec = knobMotion,
+        label = "tunerKnobNearBlur",
+    )
+    val nearDrop by animateDpAsState(
+        targetValue = if (pressed) 3.dp else 1.dp,
+        animationSpec = knobMotion,
+        label = "tunerKnobNearDrop",
+    )
+    val farBlur by animateDpAsState(
+        targetValue = if (pressed) 24.dp else 10.dp,
+        animationSpec = knobMotion,
+        label = "tunerKnobFarBlur",
+    )
+    val farDrop by animateDpAsState(
+        targetValue = if (pressed) 10.dp else 4.dp,
+        animationSpec = knobMotion,
+        label = "tunerKnobFarDrop",
+    )
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .height(interactionHeight),
     ) {
         val density = LocalDensity.current
-        val widthPx = with(density) { maxWidth.toPx() }
-        val thumbPx = with(density) { thumbSize.toPx() }
-        val travelPx = (widthPx - thumbPx).coerceAtLeast(1f)
         val span = (range.endInclusive - range.start).takeIf { it > 0f } ?: 1f
         val fraction = ((value - range.start) / span).coerceIn(0f, 1f)
 
         fun emitAt(x: Float) = onValueChange(
             tunerValueAtPosition(
                 positionX = x,
-                width = widthPx,
-                thumbWidth = thumbPx,
+                width = trackWidthPx,
                 range = range,
             ),
         )
@@ -92,27 +132,45 @@ fun TunerSlider(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(4.dp)
+                .height(9.dp)
                 .align(Alignment.CenterStart)
                 .clip(CircleShape)
-                .background(appearance.mobileSoft.copy(alpha = 0.4f)),
+                .background(TunerTrackColor)
+                .onSizeChanged { trackWidthPx = it.width.toFloat() },
         )
         Box(
             modifier = Modifier
-                .width(with(density) { (thumbPx / 2f + fraction * travelPx).toDp() })
-                .height(4.dp)
+                .width(with(density) { (trackWidthPx * fraction).toDp() })
+                .height(9.dp)
                 .align(Alignment.CenterStart)
                 .clip(CircleShape)
-                .background(appearance.mobileText),
+                .background(appearance.mobileBlue),
         )
+        val knobShape = RoundedCornerShape(knobHeight / 2)
         Box(
             modifier = Modifier
-                .offset { IntOffset((fraction * travelPx).roundToInt(), 0) }
-                .size(thumbSize)
+                .offset {
+                    IntOffset(
+                        x = (trackWidthPx * fraction - knobWidth.toPx() / 2f).roundToInt(),
+                        y = 0,
+                    )
+                }
+                .size(width = knobWidth, height = knobHeight)
                 .align(Alignment.CenterStart)
-                .clip(CircleShape)
-                .background(appearance.mobileSurface)
-                .border(0.5.dp, appearance.mobileSoft, CircleShape),
+                .dropShadow(
+                    shape = knobShape,
+                    color = TunerKnobShadow.copy(alpha = 0.26f),
+                    blur = nearBlur,
+                    offsetY = nearDrop,
+                )
+                .dropShadow(
+                    shape = knobShape,
+                    color = TunerKnobShadow.copy(alpha = if (pressed) 0.14f else 0.10f),
+                    blur = farBlur,
+                    offsetY = farDrop,
+                )
+                .clip(knobShape)
+                .background(Color.White),
         )
         Box(
             modifier = Modifier
@@ -124,21 +182,18 @@ fun TunerSlider(
                     // both tapping and continuous dragging deterministic.
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
+                        pressed = true
                         onInteractionStart()
                         try {
                             emitAt(down.position.x)
                             down.consume()
 
-                            var pressed = true
-                            while (pressed) {
-                                val change = awaitPointerEvent().changes
-                                    .firstOrNull { it.id == down.id }
-                                    ?: break
+                            drag(down.id) { change ->
                                 emitAt(change.position.x)
-                                pressed = change.pressed
                                 change.consume()
                             }
                         } finally {
+                            pressed = false
                             onInteractionFinished()
                         }
                     }
@@ -317,11 +372,10 @@ internal fun snapTunerValue(
 internal fun tunerValueAtPosition(
     positionX: Float,
     width: Float,
-    thumbWidth: Float,
     range: ClosedFloatingPointRange<Float>,
 ): Float {
-    val travel = (width - thumbWidth).coerceAtLeast(1f)
-    val fraction = ((positionX - thumbWidth / 2f) / travel).coerceIn(0f, 1f)
+    if (width <= 0f) return range.start
+    val fraction = (positionX / width).coerceIn(0f, 1f)
     val span = (range.endInclusive - range.start).takeIf { it > 0f } ?: return range.start
     return range.start + fraction * span
 }

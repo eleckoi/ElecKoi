@@ -37,6 +37,19 @@ class AgentToolsRepository(
         if (storedSubagentModelId.isNotBlank() && effectiveSubagentModelId.isBlank()) {
             toolCatalogStore.setSubagentModel(scopeId, "", "")
         }
+        val imageModelConfigIds = listOf(
+            AgentToolRequestPolicy.BuiltInAutoIllustration,
+            AgentToolRequestPolicy.BuiltInCreator,
+        ).associateWith { groupId ->
+            val storedId = toolCatalogStore.toolModelConfigId(scopeId, groupId)
+            val effectiveId = storedId.takeIf { candidate ->
+                availableModels.any { it.id == candidate && it.isImageGenerationConfig() }
+            }.orEmpty()
+            if (storedId.isNotBlank() && effectiveId.isBlank()) {
+                toolCatalogStore.setToolModelConfigId(scopeId, groupId, "")
+            }
+            effectiveId
+        }
         AgentToolsSnapshot(
             groups = toolCatalogStore.groups(scopeId)
                 .filterNot { group ->
@@ -67,6 +80,7 @@ class AgentToolsRepository(
             subagentModelConfigId = effectiveSubagentModelId,
             subagentModel = effectiveSubagentModel,
             modelConfigs = availableModels,
+            imageModelConfigIds = imageModelConfigIds,
             characterImagePrompt = loadCharacterImagePrompt(scopeId),
         )
     }
@@ -99,17 +113,24 @@ class AgentToolsRepository(
             toolCatalogStore.setSubagentModel(scopeId, configId, model)
         }
 
+    suspend fun setImageModel(scopeId: String, groupId: String, configId: String) =
+        withContext(Dispatchers.IO) {
+            require(
+                groupId == AgentToolRequestPolicy.BuiltInAutoIllustration ||
+                    groupId == AgentToolRequestPolicy.BuiltInCreator,
+            ) { "当前工具组不使用图片生成模型" }
+            val selected = modelConfigs().firstOrNull {
+                it.id == configId && it.isImageGenerationConfig()
+            } ?: error("图片生成模型不存在")
+            toolCatalogStore.setToolModelConfigId(scopeId, groupId, selected.id)
+        }
+
     suspend fun saveModel(config: ModelConfig): ModelConfig = withContext(Dispatchers.IO) {
         saveModelConfig(config)
     }
 
     suspend fun saveImageModel(config: ModelConfig): ModelConfig = withContext(Dispatchers.IO) {
-        if (config.enabled) {
-            modelConfigs()
-                .asSequence()
-                .filter { it.isImageGenerationConfig() && it.enabled && it.id != config.id }
-                .forEach { saveModelConfig(it.copy(enabled = false)) }
-        }
+        require(config.isImageGenerationConfig()) { "只能在这里保存图片生成模型" }
         saveModelConfig(config)
     }
 
@@ -128,5 +149,6 @@ internal data class AgentToolsSnapshot(
     val subagentModelConfigId: String,
     val subagentModel: String,
     val modelConfigs: List<ModelConfig>,
+    val imageModelConfigIds: Map<String, String>,
     val characterImagePrompt: String,
 )

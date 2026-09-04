@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -42,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.eleckoi.android.foundation.design.components.noRippleClickable
+import com.eleckoi.android.foundation.design.components.AppSwitch
 import com.eleckoi.android.engine.agent.diagnostics.AgentProviderRequestCapture
 import com.eleckoi.android.engine.agent.diagnostics.AgentTurnRequestCapture
 import com.eleckoi.android.foundation.design.AppearanceTheme
@@ -197,9 +197,10 @@ private fun RequestCaptureSetting(
                     modifier = Modifier.padding(top = 4.dp, end = 12.dp),
                 )
             }
-            Switch(
+            AppSwitch(
                 checked = enabled,
                 onCheckedChange = onEnabledChange,
+                appearance = appearance,
             )
         }
     }

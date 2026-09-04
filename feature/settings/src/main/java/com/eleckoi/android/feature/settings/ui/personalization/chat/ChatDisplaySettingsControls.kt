@@ -354,19 +354,7 @@ internal fun ChatDisplaySettingsControls(
                 ))
             },
         ) {
-            ChatTextChoicePicker(
-                choices = listOf(
-                    ChatTextChoice(
-                        value = ChatCodeBlockStyle.Simple,
-                        label = "简洁",
-                        blurb = "纯代码底板，仅保留右上角复制按钮",
-                    ),
-                    ChatTextChoice(
-                        value = ChatCodeBlockStyle.Workbench,
-                        label = "工作台",
-                        blurb = "显示语言栏、复制文字和行号",
-                    ),
-                ),
+            ChatCodeBlockStylePicker(
                 selected = draft.codeBlockStyle,
                 appearance = appearance,
                 onSelect = { onDraftChange(draft.copy(codeBlockStyle = it)) },

@@ -46,6 +46,7 @@ import com.eleckoi.android.feature.modelconfig.ui.components.ModelSettingsHeader
 import com.eleckoi.android.feature.modelconfig.ui.configVersionName
 import com.eleckoi.android.feature.chat.ui.sheets.ModelPickerLeadingChoice
 import com.eleckoi.android.feature.chat.ui.sheets.ModelPickerConfigKind
+import com.eleckoi.android.feature.chat.ui.sheets.ImageModelParamsMode
 import com.eleckoi.android.feature.chat.ui.sheets.ModelPickerSheet
 import com.eleckoi.android.foundation.design.AppearanceTheme
 import com.eleckoi.android.engine.agent.tools.AgentToolRequestPolicy
@@ -75,9 +76,13 @@ fun AgentToolGroupDetailPage(
     }
 
     val group = state.groups.firstOrNull { it.id == groupId }
+    val isCreatorGroup = groupId == AgentToolRequestPolicy.BuiltInCreator
+    val isImageConfigurationGroup =
+        isCreatorGroup || groupId == AgentToolRequestPolicy.BuiltInAutoIllustration
+    val selectedImageConfigId = state.imageModelConfigIds[groupId].orEmpty()
     val activeImageConfig = state.modelConfigs.firstOrNull {
-        it.isImageGenerationConfig() && it.enabled
-    } ?: state.modelConfigs.firstOrNull(ModelConfig::isImageGenerationConfig)
+        it.id == selectedImageConfigId && it.isImageGenerationConfig()
+    }
 
     PinnedStatusScaffold(
         appearance = appearance,
@@ -100,33 +105,35 @@ fun AgentToolGroupDetailPage(
                 .verticalScroll(scrollState)
                 .padding(horizontal = 18.dp),
         ) {
-            DetailCard(appearance) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp)
-                        .height(56.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = if (group.id == AgentToolRequestPolicy.BuiltInAutoIllustration) {
-                            "启用自动配图"
-                        } else {
-                            "启用此工具组"
-                        },
-                        color = appearance.mobileText,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.weight(1f),
-                    )
-                    AgentToolSwitch(
-                        checked = group.enabled,
-                        appearance = appearance,
-                        modifier = Modifier.semantics {
-                            contentDescription = "${group.name}工具开关"
-                        },
-                        onCheckedChange = { viewModel.setPersonalToolGroupEnabled(group.id, it) },
-                    )
+            if (!isCreatorGroup) {
+                DetailCard(appearance) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp)
+                            .height(56.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = if (isImageConfigurationGroup) {
+                                "启用自动配图"
+                            } else {
+                                "启用此工具组"
+                            },
+                            color = appearance.mobileText,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        AgentToolSwitch(
+                            checked = group.enabled,
+                            appearance = appearance,
+                            modifier = Modifier.semantics {
+                                contentDescription = "${group.name}工具开关"
+                            },
+                            onCheckedChange = { viewModel.setPersonalToolGroupEnabled(group.id, it) },
+                        )
+                    }
                 }
             }
 
@@ -160,18 +167,22 @@ fun AgentToolGroupDetailPage(
                 )
             }
 
-            if (group.id == AgentToolRequestPolicy.BuiltInAutoIllustration) {
-                DetailLabel(text = "绘图模型与参数", appearance = appearance)
+            if (isImageConfigurationGroup) {
+                DetailLabel(
+                    text = if (isCreatorGroup) "图片生成" else "绘图模型与参数",
+                    appearance = appearance,
+                )
                 DetailCard(appearance) {
                     ImageModelSelector(
                         config = activeImageConfig,
+                        onDemand = isCreatorGroup,
                         appearance = appearance,
                         onOpen = { imageModelPickerOpen = true },
                     )
                 }
             }
 
-            if (group.id != AgentToolRequestPolicy.BuiltInAutoIllustration) {
+            if (!isImageConfigurationGroup || isCreatorGroup) {
                 DetailLabel(
                     text = if (group.tools.isEmpty()) "工具" else "包含 ${group.tools.size} 个工具",
                     appearance = appearance,
@@ -296,14 +307,23 @@ fun AgentToolGroupDetailPage(
             characterImagePrompt = state.characterImagePrompt,
             appearance = appearance,
             onDismiss = { imageModelPickerOpen = false },
-            onSelect = { _, _ -> },
+            onSelect = { configId, _ ->
+                viewModel.setImageModel(groupId, configId)
+            },
             onStreamChange = {},
             onSaveConfig = viewModel::saveImageModelConfig,
             onCharacterImagePromptChange = viewModel::saveCharacterImagePrompt,
             onRefreshModels = viewModel::refreshModels,
-            title = "自动配图设置",
+            title = if (isCreatorGroup) "图片生成设置" else "自动配图设置",
             configKind = ModelPickerConfigKind.Image,
-            showCharacterImagePrompt = AgentToolScopes.characterId(toolScopeId) != null,
+            imageParamsMode = if (isCreatorGroup) {
+                ImageModelParamsMode.OnDemand
+            } else {
+                ImageModelParamsMode.AutomaticIllustration
+            },
+            showCharacterImagePrompt =
+                groupId == AgentToolRequestPolicy.BuiltInAutoIllustration &&
+                    AgentToolScopes.characterId(toolScopeId) != null,
         )
     }
 }
@@ -311,6 +331,7 @@ fun AgentToolGroupDetailPage(
 @Composable
 private fun ImageModelSelector(
     config: ModelConfig?,
+    onDemand: Boolean,
     appearance: AppearanceTheme,
     onOpen: () -> Unit,
 ) {
@@ -335,7 +356,13 @@ private fun ImageModelSelector(
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             )
             Text(
-                text = config?.model.orEmpty().ifBlank { "选择模型并设置分镜、画幅与提示词" },
+                text = config?.model.orEmpty().ifBlank {
+                    if (onDemand) {
+                        "选择模型并设置输出尺寸与生成参数"
+                    } else {
+                        "选择模型并设置分镜、画幅与提示词"
+                    }
+                },
                 color = appearance.mobileMuted,
                 fontSize = 12.5.sp,
                 maxLines = 1,

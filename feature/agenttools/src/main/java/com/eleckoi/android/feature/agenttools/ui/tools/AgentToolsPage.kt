@@ -265,6 +265,7 @@ internal fun PersonalToolGroupEntry.accentColor(appearance: AppearanceTheme): Co
 
 internal fun PersonalToolGroupEntry.icon(): ImageVector = when (id) {
     AgentToolRequestPolicy.BuiltInAutoIllustration -> Icons.Rounded.Image
+    AgentToolRequestPolicy.BuiltInCreator -> Icons.Rounded.Extension
     AgentToolRequestPolicy.BuiltInVariables -> Icons.Rounded.Schema
     AgentToolRequestPolicy.BuiltInSettingLibrary -> Icons.Rounded.Book
     AgentToolRequestPolicy.BuiltInRoleplayWorkflow -> Icons.Rounded.Timeline

@@ -403,7 +403,7 @@ internal class ChatAuthorEventPublisher(
                     put("provider", current.draft?.selectedModelConfig?.provider.orEmpty())
                     put("model", current.draft?.selectedModel.orEmpty())
                     put("stream", current.draft?.modelParameters?.stream ?: true)
-                    put("temperature", current.draft?.modelParameters?.temperature ?: 0.7)
+                    put("temperature", current.draft?.modelParameters?.temperature ?: 1.0)
                     put("topP", current.draft?.modelParameters?.topP ?: 1.0)
                 },
             )

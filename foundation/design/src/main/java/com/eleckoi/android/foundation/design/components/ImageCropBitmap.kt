@@ -74,16 +74,28 @@ internal fun cropFramePx(
 }
 
 /**
- * 图片要盖满取景框：旋转之后一个 w×h 的矩形要罩住 frameW×frameH，最小倍率就是这个。角度算进去，
- * 所以拧尺子的时候图会自己撑大，四角永远不会露空。
+ * 图片要盖满取景框。矩形框需要把旋转后的四角算进去；圆形框自身旋转后没有变化，若仍按外接正方形
+ * 计算，会在调角度时把图片无端放大，并让 zoom 已在 1 倍下限时看起来完全无法缩小。
  */
-internal fun coverScale(source: Bitmap, frame: CropFrame, angleDegrees: Float): Float {
+internal fun coverScale(
+    sourceWidth: Int,
+    sourceHeight: Int,
+    frame: CropFrame,
+    angleDegrees: Float,
+    circle: Boolean,
+): Float {
+    if (circle) {
+        return max(
+            frame.width / sourceWidth.toFloat(),
+            frame.height / sourceHeight.toFloat(),
+        )
+    }
     val radians = Math.toRadians(angleDegrees.toDouble())
     val c = abs(cos(radians)).toFloat()
     val s = abs(sin(radians)).toFloat()
     return max(
-        (frame.width * c + frame.height * s) / source.width.toFloat(),
-        (frame.width * s + frame.height * c) / source.height.toFloat(),
+        (frame.width * c + frame.height * s) / sourceWidth.toFloat(),
+        (frame.width * s + frame.height * c) / sourceHeight.toFloat(),
     )
 }
 
@@ -97,13 +109,14 @@ internal fun clampOffset(
     frame: CropFrame,
     zoom: Float,
     angleDegrees: Float,
+    circle: Boolean,
 ): Offset {
-    val scale = coverScale(source, frame, angleDegrees) * zoom
+    val scale = coverScale(source.width, source.height, frame, angleDegrees, circle) * zoom
     val radians = Math.toRadians(angleDegrees.toDouble())
     val c = abs(cos(radians)).toFloat()
     val s = abs(sin(radians)).toFloat()
-    val localFrameWidth = frame.width * c + frame.height * s
-    val localFrameHeight = frame.width * s + frame.height * c
+    val localFrameWidth = if (circle) frame.width else frame.width * c + frame.height * s
+    val localFrameHeight = if (circle) frame.height else frame.width * s + frame.height * c
     val maxX = max(0f, (source.width * scale - localFrameWidth) / 2f)
     val maxY = max(0f, (source.height * scale - localFrameHeight) / 2f)
 
@@ -126,8 +139,9 @@ internal fun displayMatrix(
     stageCenter: Offset,
     frame: CropFrame,
     transform: CropTransform,
+    circle: Boolean,
 ): Matrix {
-    val scale = coverScale(source, frame, transform.angle) * transform.zoom
+    val scale = coverScale(source.width, source.height, frame, transform.angle, circle) * transform.zoom
     return Matrix().apply {
         postTranslate(-source.width / 2f, -source.height / 2f)
         if (transform.flipped) postScale(-1f, 1f)
@@ -165,7 +179,7 @@ internal fun cropBitmap(
     }
     // 屏幕上那个矩阵原样拿过来，只把取景框的左上角挪到原点、再缩到输出尺寸。所以存下来的就是
     // 刚才看到的，旋转和翻转不用在这里重算一遍。
-    val matrix = Matrix(displayMatrix(source, stageCenter, frame, transform)).apply {
+    val matrix = Matrix(displayMatrix(source, stageCenter, frame, transform, circle)).apply {
         postTranslate(-(stageCenter.x - frame.width / 2f), -(stageCenter.y - frame.height / 2f))
         postScale(outputWidth / frame.width, outputHeight / frame.height)
     }

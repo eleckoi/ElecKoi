@@ -40,11 +40,9 @@ import com.eleckoi.android.foundation.design.components.MobileProfileHeader
 import com.eleckoi.android.foundation.design.components.MobileRootSurface
 import com.eleckoi.android.foundation.design.components.mobileRootBackdropSample
 import com.eleckoi.android.foundation.design.components.AppIconPaths
-import com.eleckoi.android.foundation.design.components.RootSearchPage
 import com.eleckoi.android.foundation.design.components.SegmentTabs
 
 private class CharactersRootEditorState {
-    var searchQuery by mutableStateOf("")
     var managerQuery by mutableStateOf("")
     var selectedTab by mutableStateOf("characters")
     var selectedGroup by mutableStateOf(ALL_CHARACTERS)
@@ -112,8 +110,7 @@ fun CharactersRootPage(
     user: UserProfile,
     characters: CharactersPayload?,
     appearance: AppearanceTheme,
-    searchOpen: Boolean,
-    onSearchOpenChange: (Boolean) -> Unit,
+    onSearch: () -> Unit,
     // Hoisted because the manager is a full-screen sheet and this page is only the tab's content
     // area — the tab bar is a sibling above it in the layout, so a sheet rendered from here can
     // never cover it. The owner drops the tab bar while the manager is open.
@@ -131,15 +128,14 @@ fun CharactersRootPage(
     onImportCharacterCard: () -> Unit,
     onExportCharacters: (List<String>) -> Unit,
     onDeleteCharacters: (List<String>) -> Unit,
+    addMenuExpanded: Boolean? = null,
+    onAddMenuExpandedChange: (Boolean) -> Unit = {},
 ) {
     val items = characters?.items.orEmpty()
     val groups = buildCharacterGroups(characters)
     val editorState = rememberCharactersRootEditorState()
 
     with(editorState) {
-    LaunchedEffect(searchOpen) {
-        if (!searchOpen) searchQuery = ""
-    }
     LaunchedEffect(groups.joinToString("\u0000")) {
         syncGroups(groups)
     }
@@ -163,46 +159,6 @@ fun CharactersRootPage(
         prepareCreateGroup(groups)
     }
 
-    if (searchOpen) {
-        val query = searchQuery.trim()
-        val searchResults = if (query.isBlank()) {
-            emptyList()
-        } else {
-            sortedAllCharacters(filterCharacters(items, query))
-        }
-        RootSearchPage(
-            query = searchQuery,
-            placeholder = "搜索角色或分组",
-            accentColor = appearance.mobileBlue,
-            onQueryChange = { searchQuery = it },
-            onBack = {
-                searchQuery = ""
-                onSearchOpenChange(false)
-            },
-        ) { searchAppearance ->
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 8.dp),
-            ) {
-                if (query.isNotBlank() && searchResults.isEmpty()) {
-                    item { MobileEmptyState("没有搜索结果", searchAppearance) }
-                }
-                items(searchResults, key = { "search-${it.id}" }) { character ->
-                    CharacterListRow(
-                        character = character,
-                        appearance = searchAppearance,
-                        onClick = {
-                            searchQuery = ""
-                            onSearchOpenChange(false)
-                            onOpenCharacter(character.id)
-                        },
-                    )
-                }
-            }
-        }
-        return@with
-    }
-
     MobileRootSurface(
         appearance = appearance,
         header = {
@@ -212,7 +168,7 @@ fun CharactersRootPage(
                 title = "角色",
                 subtitle = "${items.size} 个角色 · ${groups.size} 个分组",
                 appearance = appearance,
-                onSearch = { onSearchOpenChange(true) },
+                onSearch = onSearch,
                 onAdd = ::requestCreateCharacter,
                 onOpenProfile = onOpenProfile,
                 addMenuActions = listOf(
@@ -225,6 +181,8 @@ fun CharactersRootPage(
                         onClick = ::requestCreateGroup,
                     ),
                 ),
+                addMenuExpanded = addMenuExpanded,
+                onAddMenuExpandedChange = onAddMenuExpandedChange,
             )
         },
     ) {

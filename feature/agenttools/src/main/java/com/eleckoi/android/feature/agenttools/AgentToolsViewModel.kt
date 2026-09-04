@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.eleckoi.android.engine.generation.model.ModelConfig
-import com.eleckoi.android.engine.generation.model.isImageGenerationConfig
 
 class AgentToolsViewModel(
     private val repository: AgentToolsRepository,
@@ -27,10 +26,13 @@ class AgentToolsViewModel(
     fun selectToolScope(scopeId: String) {
         val normalized = AgentToolScopes.normalize(scopeId)
         val current = _uiState.value
-        if (current.toolScopeId == normalized && current.groups.isNotEmpty()) return
 
         loadJob?.cancel()
-        _uiState.value = AgentToolsUiState(toolScopeId = normalized, loading = true)
+        _uiState.value = if (current.matches(normalized)) {
+            current.copy(loading = true, error = "")
+        } else {
+            AgentToolsUiState(toolScopeId = normalized, loading = true)
+        }
         loadJob = viewModelScope.launch {
             val result = runCatching { repository.load(normalized) }
             _uiState.update { state ->
@@ -43,6 +45,8 @@ class AgentToolsViewModel(
                             ?: state.subagentModelConfigId,
                         subagentModel = result.getOrNull()?.subagentModel ?: state.subagentModel,
                         modelConfigs = result.getOrNull()?.modelConfigs ?: state.modelConfigs,
+                        imageModelConfigIds = result.getOrNull()?.imageModelConfigIds
+                            ?: state.imageModelConfigIds,
                         characterImagePrompt = result.getOrNull()?.characterImagePrompt
                             ?: state.characterImagePrompt,
                         loading = false,
@@ -151,6 +155,33 @@ class AgentToolsViewModel(
         }
     }
 
+    fun setImageModel(groupId: String, configId: String) {
+        val scopeId = AgentToolScopes.normalize(_uiState.value.toolScopeId)
+        val previousId = _uiState.value.imageModelConfigIds[groupId].orEmpty()
+        _uiState.update { state ->
+            state.copy(imageModelConfigIds = state.imageModelConfigIds + (groupId to configId))
+        }
+        viewModelScope.launch {
+            runCatching { repository.setImageModel(scopeId, groupId, configId) }
+                .onFailure { error ->
+                    _uiState.update { state ->
+                        if (
+                            state.matches(scopeId) &&
+                            state.imageModelConfigIds[groupId] == configId
+                        ) {
+                            state.copy(
+                                imageModelConfigIds = state.imageModelConfigIds +
+                                    (groupId to previousId),
+                                error = error.message ?: "更新图片生成模型失败",
+                            )
+                        } else {
+                            state
+                        }
+                    }
+                }
+        }
+    }
+
     fun saveModelConfig(
         config: ModelConfig,
         onFinished: (Result<ModelConfig>) -> Unit = {},
@@ -160,9 +191,7 @@ class AgentToolsViewModel(
             result.onSuccess { saved ->
                 _uiState.update { state ->
                     state.copy(
-                        modelConfigs = state.modelConfigs.map { current ->
-                            if (current.id == saved.id) saved else current
-                        },
+                        modelConfigs = state.modelConfigs.replaceOrAdd(saved),
                     )
                 }
             }
@@ -179,13 +208,7 @@ class AgentToolsViewModel(
             result.onSuccess { saved ->
                 _uiState.update { state ->
                     state.copy(
-                        modelConfigs = state.modelConfigs.map { current ->
-                            when {
-                                current.id == saved.id -> saved
-                                saved.enabled && current.isImageGenerationConfig() -> current.copy(enabled = false)
-                                else -> current
-                            }
-                        },
+                        modelConfigs = state.modelConfigs.replaceOrAdd(saved),
                     )
                 }
             }
@@ -218,9 +241,7 @@ class AgentToolsViewModel(
             result.onSuccess { refreshed ->
                 _uiState.update { state ->
                     state.copy(
-                        modelConfigs = state.modelConfigs.map { current ->
-                            if (current.id == refreshed.id) refreshed else current
-                        },
+                        modelConfigs = state.modelConfigs.replaceOrAdd(refreshed),
                     )
                 }
             }
@@ -239,4 +260,11 @@ class AgentToolsViewModel(
 
     private fun AgentToolsUiState.matches(scopeId: String): Boolean =
         AgentToolScopes.normalize(scopeId) == AgentToolScopes.normalize(toolScopeId)
+
+    private fun List<ModelConfig>.replaceOrAdd(config: ModelConfig): List<ModelConfig> =
+        if (any { it.id == config.id }) {
+            map { current -> if (current.id == config.id) config else current }
+        } else {
+            this + config
+        }
 }

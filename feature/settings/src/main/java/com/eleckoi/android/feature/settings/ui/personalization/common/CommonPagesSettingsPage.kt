@@ -20,8 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material3.Icon
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +30,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -260,13 +257,9 @@ private fun CommonPageChoiceRow(
                 .weight(1f)
                 .padding(start = SettingsRowIconGap, end = 12.dp),
         )
-        RadioButton(
+        SettingsSelectionCheck(
             selected = selected,
-            onClick = null,
-            colors = RadioButtonDefaults.colors(
-                selectedColor = appearance.mobileText,
-                unselectedColor = appearance.mobileLine,
-            ),
+            appearance = appearance,
         )
     }
 }

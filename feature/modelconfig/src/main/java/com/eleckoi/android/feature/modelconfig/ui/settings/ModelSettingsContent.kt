@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,6 +28,7 @@ import com.eleckoi.android.feature.modelconfig.ui.components.ModelFieldGroup
 import com.eleckoi.android.feature.modelconfig.ui.ModelProviderMeta
 import com.eleckoi.android.feature.modelconfig.ui.components.ModelSectionAction
 import com.eleckoi.android.feature.modelconfig.ui.components.ModelSectionHeader
+import com.eleckoi.android.feature.modelconfig.ui.components.ModelSectionNote
 import com.eleckoi.android.feature.modelconfig.ui.components.ModelVersionSelector
 import com.eleckoi.android.foundation.design.AppearanceTheme
 import com.eleckoi.android.foundation.design.components.AppIconPaths
@@ -70,7 +70,6 @@ internal fun ColumnScope.ModelSettingsContent(
             scrollState = scrollState,
             imeBottomPx = imeBottomPx,
             onCreateConfig = onCreateConfig,
-            onRequestDelete = { state.confirmDelete = true },
             onSelectConfig = { selected ->
                 if (state.dirty) onSave(state.form)
                 state.selectConfig(selected)
@@ -91,12 +90,8 @@ internal fun ColumnScope.ModelSettingsContent(
         ModelSelectionSection(
             form = form,
             provider = provider,
-            isImageProvider = isImageProvider,
             appearance = appearance,
-            scrollState = scrollState,
-            imeBottomPx = imeBottomPx,
-            onOpenModelPicker = { state.modelPickerOpen = true },
-            onUpdate = state::update,
+            onOpenPicker = { state.modelPickerOpen = true },
         )
         if (isImageProvider) {
             ModelImageSettingsSection(
@@ -106,11 +101,23 @@ internal fun ColumnScope.ModelSettingsContent(
                 imeBottomPx = imeBottomPx,
                 onUpdate = state::update,
             )
+            ModelConnectionActions(
+                loadingModels = false,
+                testing = state.testing,
+                appearance = appearance,
+                onFetchModels = {},
+                onTestConnection = {
+                    if (state.startImageTestConnection()) {
+                        if (state.dirty) onSave(form)
+                        onTestConnection(form, state::finishImageTestConnection)
+                    }
+                },
+                showFetchModels = false,
+            )
         } else {
             ModelConnectionActions(
                 loadingModels = state.loadingModels,
                 testing = state.testing,
-                testMessage = state.testMessage,
                 appearance = appearance,
                 onFetchModels = {
                     if (state.startFetchModels()) {
@@ -188,7 +195,6 @@ private fun ModelConfigurationSection(
     scrollState: androidx.compose.foundation.ScrollState,
     imeBottomPx: Int,
     onCreateConfig: (String) -> Unit,
-    onRequestDelete: () -> Unit,
     onSelectConfig: (ModelConfig) -> Unit,
     onUpdate: (ModelConfig) -> Unit,
 ) {
@@ -196,13 +202,6 @@ private fun ModelConfigurationSection(
         if (!isImageProvider) {
             ModelSectionAction("新建", AppIconPaths.Plus, appearance) { onCreateConfig(provider.id) }
         }
-        ModelSectionAction(
-            text = if (providerConfigs.size <= 1) "清空" else "删除",
-            icon = AppIconPaths.Trash,
-            appearance = appearance,
-            danger = true,
-            onClick = onRequestDelete,
-        )
     }
     ModelFieldGroup(appearance) {
         if (!isImageProvider) {
@@ -222,30 +221,5 @@ private fun ModelConfigurationSection(
             scrollState = scrollState,
             imeBottomPx = imeBottomPx,
         ) { onUpdate(form.copy(name = it)) }
-    }
-    if (isImageProvider) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 12.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(appearance.mobileSurface)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("启用绘画模型", color = appearance.mobileText, fontSize = 15.sp)
-                Text(
-                    "供创作助手按需生图；不会开启任何角色的自动配图",
-                    color = appearance.mobileMuted,
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-            }
-            Switch(
-                checked = form.enabled,
-                onCheckedChange = { onUpdate(form.copy(enabled = it)) },
-            )
-        }
     }
 }

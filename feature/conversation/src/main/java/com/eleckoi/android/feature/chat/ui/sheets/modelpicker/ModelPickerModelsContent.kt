@@ -19,8 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -29,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.TextStyle
@@ -159,13 +158,10 @@ private fun LeadingModelChoiceRow(
             .padding(start = 2.dp, end = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(
+        ModelSelectionIndicator(
             selected = choice.selected,
+            appearance = appearance,
             onClick = choice.onSelect,
-            colors = RadioButtonDefaults.colors(
-                selectedColor = appearance.mobileText,
-                unselectedColor = appearance.mobileSoft,
-            ),
         )
         Column(
             modifier = Modifier
@@ -207,19 +203,16 @@ private fun ProviderGroupLabel(group: ModelVersionGroup, appearance: AppearanceT
         )
         Text(
             group.label,
-            modifier = Modifier.weight(1f).padding(start = 6.dp),
+            modifier = Modifier.padding(start = 6.dp),
             color = appearance.mobileMuted,
             fontSize = 11.5.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        if (group.configs.size > 1) {
-            Text(group.configs.size.toString(), color = appearance.mobileSoft, fontSize = 11.5.sp)
-        }
     }
 }
 
-// Selection and navigation are deliberately separate: the radio activates the saved config and
+// Selection and navigation are deliberately separate: the check activates the saved config and
 // keeps its default model, while the labelled row opens that config for an optional model change.
 @Composable
 private fun ModelVersionRow(
@@ -235,13 +228,10 @@ private fun ModelVersionRow(
             .padding(start = 2.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(
+        ModelSelectionIndicator(
             selected = selected,
+            appearance = appearance,
             onClick = onSelect,
-            colors = RadioButtonDefaults.colors(
-                selectedColor = appearance.mobileText,
-                unselectedColor = appearance.mobileSoft,
-            ),
         )
         Row(
             modifier = Modifier
@@ -263,6 +253,41 @@ private fun ModelVersionRow(
                 appearance.mobileSoft,
                 iconSize = 15.dp,
             )
+        }
+    }
+}
+
+@Composable
+private fun ModelSelectionIndicator(
+    selected: Boolean,
+    appearance: AppearanceTheme,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier.size(48.dp).noRippleClickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        val shape = RoundedCornerShape(7.dp)
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .clip(shape)
+                .background(if (selected) appearance.mobileBlue else Color.Transparent)
+                .border(
+                    width = 1.5.dp,
+                    color = if (selected) appearance.mobileBlue else appearance.mobileSoft,
+                    shape = shape,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) {
+                StrokeSvgIcon(
+                    paths = AppIconPaths.Check,
+                    color = appearance.mobileSurface,
+                    iconSize = 14.dp,
+                    strokeWidth = 2.2f,
+                )
+            }
         }
     }
 }
@@ -347,21 +372,24 @@ private fun ConcreteModelRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .noRippleClickable(onClick = onClick)
-                .padding(vertical = 11.dp),
+                .padding(start = 2.dp, end = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f).padding(end = 10.dp)) {
-                Text(
-                    model.id,
-                    color = appearance.mobileText,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (selected) {
-                StrokeSvgIcon(AppIconPaths.Check, appearance.mobileText, iconSize = 16.dp, strokeWidth = 2.1f)
-            }
+            ModelSelectionIndicator(
+                selected = selected,
+                appearance = appearance,
+                onClick = onClick,
+            )
+            Text(
+                model.id,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 2.dp, end = 10.dp, top = 13.dp, bottom = 13.dp),
+                color = appearance.mobileText,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         Box(
             modifier = Modifier

@@ -67,8 +67,8 @@ internal fun ChatScreenOverlays(
         )
     }
 
-    if (state.historyOpen) {
-        ChatHistorySheet(
+    ChatHistorySheet(
+            visible = state.historyOpen,
             sessions = state.sessions,
             currentSessionId = draft?.session?.id.orEmpty(),
             currentCharacterId = draft?.session?.characterId ?: state.chatCharacterId,
@@ -91,10 +91,9 @@ internal fun ChatScreenOverlays(
             onExport = { onIntent(ChatIntent.ExportHistoryChats(it)) },
             onImport = onImportHistory,
         )
-    }
 
-    if (state.modelPickerOpen) {
-        ModelPickerSheet(
+    ModelPickerSheet(
+            visible = state.modelPickerOpen,
             configs = state.modelConfigs + state.imageModelConfigs,
             selectedConfigId = draft?.selectedModelConfig?.id.orEmpty(),
             selectedModel = draft?.selectedModel.orEmpty(),
@@ -125,7 +124,6 @@ internal fun ChatScreenOverlays(
             onCharacterImagePromptChange = onSaveCharacterImagePrompt,
             onRefreshModels = onRefreshModels,
         )
-    }
 
     if (state.errorMessage.isNotBlank()) {
         ErrorDialog(

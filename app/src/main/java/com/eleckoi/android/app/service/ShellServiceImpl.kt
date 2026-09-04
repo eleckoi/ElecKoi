@@ -26,6 +26,10 @@ internal class ShellServiceImpl(
         return uiPreferences.setHiddenChatIds(ids)
     }
 
+    override suspend fun setSearchHistory(terms: List<String>): UiPreferences {
+        return uiPreferences.setSearchHistory(terms)
+    }
+
     override suspend fun setOptionalCommonPage(
         tabKey: String?,
         order: List<String>,
