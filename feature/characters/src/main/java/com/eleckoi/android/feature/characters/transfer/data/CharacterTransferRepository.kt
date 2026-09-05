@@ -41,6 +41,7 @@ class CharacterTransferRepository(
     private val regexRules: RegexRuleRepository,
     private val frontendProjects: FrontendProjectRepository,
     private val initializeImportedCharacterTools: (characterId: String) -> Unit,
+    private val deleteImportedCharacterTools: (Collection<String>) -> Unit,
 ) {
     private val cacheRoot = File(context.cacheDir, "character_transfer")
     private val formats = CharacterCardFormatRegistry(
@@ -380,11 +381,12 @@ class CharacterTransferRepository(
 
     private fun cleanupImportedCharacter(characterId: String) {
         val ids = listOf(characterId)
-        characters.deleteCharacters(ids)
         settingLibrary.deleteForCharacters(ids)
         variableConfig.deleteForCharacters(ids)
         regexRules.deleteForCharacters(ids)
         frontendProjects.deleteForCharacters(ids)
+        deleteImportedCharacterTools(ids)
+        characters.deleteCharacters(ids)
     }
 
     private fun mediaType(file: File): String = when (file.extension.lowercase()) {

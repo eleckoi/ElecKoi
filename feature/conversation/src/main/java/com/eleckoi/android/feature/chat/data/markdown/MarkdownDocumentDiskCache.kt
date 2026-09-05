@@ -10,6 +10,7 @@ import com.eleckoi.android.feature.chat.model.markdown.MarkdownTableCell
 import com.eleckoi.android.feature.chat.model.markdown.MarkdownTableContent
 import com.eleckoi.android.feature.chat.model.markdown.MarkdownTableRow
 import com.eleckoi.android.foundation.serialization.ElecKoiJson
+import com.eleckoi.android.foundation.storage.deleteOwnedDirectory
 import java.io.File
 import java.security.MessageDigest
 import java.util.zip.GZIPInputStream
@@ -101,7 +102,7 @@ object MarkdownDocumentDiskCache {
     /** Deletes every rebuildable parser snapshot after authoritative chat data is removed. */
     @Synchronized
     fun clear() {
-        directory?.deleteRecursively()
+        directory?.let { root -> deleteOwnedDirectory(requireNotNull(root.parentFile), root) }
     }
 
     private fun trim(root: File) {

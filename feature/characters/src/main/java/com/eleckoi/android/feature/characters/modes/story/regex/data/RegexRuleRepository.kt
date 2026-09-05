@@ -73,12 +73,13 @@ class RegexRuleRepository(
     }
 
     fun deleteForCharacters(characterIds: List<String>) {
-        characterIds.asSequence()
-            .map(String::trim)
-            .filter(String::isNotBlank)
-            .distinct()
-            .forEach { characterId -> characterFile(characterId).delete() }
+        CharacterRegexFiles(store.dir("regex", "characters")).delete(characterIds)
         mutableRevision.update { current -> current + 1L }
+    }
+
+    fun deleteExceptCharacters(characterIds: Collection<String>) {
+        CharacterRegexFiles(store.dir("regex", "characters")).retain(characterIds)
+        mutableRevision.update { it + 1L }
     }
 
     fun importRules(

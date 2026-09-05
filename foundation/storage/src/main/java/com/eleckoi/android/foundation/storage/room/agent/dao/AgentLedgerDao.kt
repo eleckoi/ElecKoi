@@ -14,6 +14,20 @@ import com.eleckoi.android.foundation.storage.room.agent.entity.AgentTurnEntity
 
 @Dao
 interface AgentLedgerDao {
+    /** Only attachment metadata, with bounded rows and a stable keyset across storage chunks. */
+    @Query("""
+        SELECT * FROM agent_content_parts
+        WHERE kind IN ('input_images', 'images')
+          AND (ownerType, ownerId, partIndex, chunkIndex) >
+              (:ownerType, :ownerId, :partIndex, :chunkIndex)
+        ORDER BY ownerType, ownerId, partIndex, chunkIndex
+        LIMIT :limit
+    """)
+    fun attachmentPartsPage(
+        ownerType: String, ownerId: String,
+        partIndex: Int, chunkIndex: Int, limit: Int,
+    ): List<AgentContentPartEntity>
+
     @Query("SELECT * FROM agent_conversations WHERE id = :conversationId LIMIT 1")
     fun conversation(conversationId: String): AgentConversationEntity?
 

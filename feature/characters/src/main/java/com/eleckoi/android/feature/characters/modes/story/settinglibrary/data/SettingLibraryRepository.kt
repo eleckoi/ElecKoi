@@ -43,6 +43,7 @@ class SettingLibraryRepository internal constructor(
     private val dao: SettingLibraryDao,
     private val conversationChanges: ConversationSettingChangeDao,
     private val characterById: (String) -> CharacterSlot?,
+    private val runInTransaction: (() -> Unit) -> Unit = { it() },
 ) {
     constructor(
         database: ElecKoiDatabase,
@@ -51,6 +52,7 @@ class SettingLibraryRepository internal constructor(
         dao = database.settingLibraryDao(),
         conversationChanges = database.conversationSettingChangeDao(),
         characterById = characters::characterById,
+        runInTransaction = { block -> database.runInTransaction(block) },
     )
 
     fun libraryFlow(characterId: String): Flow<SettingLibrary> = flow {
@@ -250,9 +252,22 @@ class SettingLibraryRepository internal constructor(
 
     fun save(characterId: String, library: SettingLibrary): SettingLibrary {
         requireCharacter(characterId)
-        val normalized = SettingLibraryNormalizer.normalize(characterId, library)
-        dao.upsert(SettingLibraryJsonCodec.toEntity(normalized, nowIso()))
-        return normalized
+        lateinit var saved: SettingLibrary
+        runInTransaction {
+            val currentRecord = dao.library(characterId)
+            val previous = currentRecord?.let(SettingLibraryJsonCodec::fromEntity)
+            val now = nowIso()
+            saved = settleSettingLibraryChangeTimestamps(
+                previous = previous,
+                normalized = SettingLibraryNormalizer.normalize(characterId, library),
+                now = now,
+            )
+            val metadataUpdatedAt = currentRecord?.library?.updatedAt
+                ?.takeIf { saved == previous }
+                ?: now
+            dao.upsert(SettingLibraryJsonCodec.toEntity(saved, metadataUpdatedAt))
+        }
+        return saved
     }
 
     fun deleteForCharacters(characterIds: List<String>) {

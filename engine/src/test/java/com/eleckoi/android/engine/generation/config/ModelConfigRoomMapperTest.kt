@@ -20,6 +20,21 @@ class ModelConfigRoomMapperTest {
     private val codec = AesGcmModelSecretCodec(keyProvider = { key })
 
     @Test
+    fun `manual origin survives persistence while provider entries stay protected`() {
+        val manual = ModelOption("manual", isUserAdded = true)
+        val provider = ModelOption("provider")
+        val config = ModelConfig(id = "origin-test", model = "manual", modelOptions = listOf(manual, provider))
+
+        val restored = config.toEntity(codec).toModelConfig(codec)
+
+        assertTrue(restored.modelOptions.first().isUserAdded)
+        assertFalse(restored.modelOptions.last().isUserAdded)
+        val deleted = restored.copy(model = "provider", modelOptions = listOf(provider))
+            .toEntity(codec).toModelConfig(codec)
+        assertEquals(listOf(provider), deleted.modelOptions)
+    }
+
+    @Test
     fun `damaged ciphertext preserves metadata and requests key reentry`() {
         val entity = entity(apiKey = "egsec:v2:aes-gcm:not-valid-base64!")
 

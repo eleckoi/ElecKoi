@@ -129,7 +129,21 @@ internal fun writeAgentToolCatalogState(file: File, value: AgentToolCatalogState
     require(file.parentFile?.isDirectory == true || file.parentFile?.mkdirs() == true) {
         "无法创建工具配置目录"
     }
-    val content = buildJsonObject {
+    val content = encodeAgentToolCatalogState(value)
+    val atomic = AtomicFile(file)
+    val stream = atomic.startWrite()
+    try {
+        stream.write(content.toByteArray(Charsets.UTF_8))
+        stream.fd.sync()
+        atomic.finishWrite(stream)
+    } catch (error: Throwable) {
+        atomic.failWrite(stream)
+        throw error
+    }
+}
+
+internal fun encodeAgentToolCatalogState(value: AgentToolCatalogState): String {
+    return buildJsonObject {
         put("version", CurrentStateVersion)
         put("disabledGroups", buildJsonArray {
             value.defaultDisabledGroups.sorted().forEach { add(JsonPrimitive(it)) }
@@ -191,16 +205,6 @@ internal fun writeAgentToolCatalogState(file: File, value: AgentToolCatalogState
             }
         })
     }.toString()
-    val atomic = AtomicFile(file)
-    val stream = atomic.startWrite()
-    try {
-        stream.write(content.toByteArray(Charsets.UTF_8))
-        stream.fd.sync()
-        atomic.finishWrite(stream)
-    } catch (error: Throwable) {
-        atomic.failWrite(stream)
-        throw error
-    }
 }
 
 private fun parseGroup(element: kotlinx.serialization.json.JsonElement): AgentToolGroupSnapshot? {

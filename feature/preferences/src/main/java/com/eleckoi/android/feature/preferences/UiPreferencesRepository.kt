@@ -245,16 +245,26 @@ class UiPreferencesRepository(context: Context) {
     }
 
     suspend fun removeActiveChatSessionId(sessionId: String): UiPreferences {
-        if (sessionId.isBlank()) return read()
+        return removeChatSessionIds(listOf(sessionId))
+    }
+
+    suspend fun removeChatSessionIds(sessionIds: Collection<String>): UiPreferences {
+        val deleted = sessionIds.filter(String::isNotBlank).toSet()
+        if (deleted.isEmpty()) return read()
         dataStore.edit { preferences ->
             val next = ActiveChatSessionSelection(
                 lastSessionId = preferences[LastActiveChatSessionId].orEmpty(),
                 sessionIdsByContext = preferences[ActiveChatSessionIdsJson]
                     ?.let(::decodeStringMap)
                     .orEmpty(),
-            ).forget(sessionId)
+            ).forgetAll(deleted)
             preferences[LastActiveChatSessionId] = next.lastSessionId
             preferences[ActiveChatSessionIdsJson] = encodeStringMap(next.sessionIdsByContext)
+            listOf(PinnedChatIdsJson, HiddenChatIdsJson).forEach { key ->
+                preferences[key] = encodeStringList(
+                    preferences[key]?.let(::decodeStringList).orEmpty().filterNot { it in deleted },
+                )
+            }
         }
         return read()
     }
@@ -274,6 +284,21 @@ class UiPreferencesRepository(context: Context) {
             preferences[PinnedCreatorWorkspaceIdsJson] = encodeStringList(ids)
         }
         return read()
+    }
+
+    suspend fun removeCreatorWorkspaceIds(workspaceIds: Collection<String>) {
+        val deleted = workspaceIds.toSet()
+        dataStore.edit { preferences ->
+            preferences[PinnedCreatorWorkspaceIdsJson] = encodeStringList(
+                preferences[PinnedCreatorWorkspaceIdsJson]?.let(::decodeStringList).orEmpty()
+                    .filterNot { it in deleted },
+            )
+            preferences[CreatorWorkspaceExpansionOverridesJson] = encodeBooleanMap(
+                preferences[CreatorWorkspaceExpansionOverridesJson]?.let(::decodeBooleanMap).orEmpty()
+                    .filterKeys { it !in deleted },
+            )
+            if (preferences[LastCreatorWorkspaceId] in deleted) preferences.remove(LastCreatorWorkspaceId)
+        }
     }
 
     suspend fun setCreatorWorkspaceExpansionOverrides(

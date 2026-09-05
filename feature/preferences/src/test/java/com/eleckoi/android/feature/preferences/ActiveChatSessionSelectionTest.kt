@@ -5,6 +5,19 @@ import org.junit.Test
 
 class ActiveChatSessionSelectionTest {
     @Test
+    fun `bulk deletion clears all mode pointers and is idempotent`() {
+        val deleted = (0 until 5_000).map { "session-$it" }
+        val selection = ActiveChatSessionSelection(
+            lastSessionId = deleted.last(),
+            sessionIdsByContext = deleted.associateBy { "character-$it:story" } + ("retained:agent" to "keep"),
+        )
+        val result = selection.forgetAll(deleted)
+        assertEquals("", result.lastSessionId)
+        assertEquals(mapOf("retained:agent" to "keep"), result.sessionIdsByContext)
+        assertEquals(result, result.forgetAll(deleted))
+    }
+
+    @Test
     fun `each character mode remembers its own selected chat`() {
         val selection = ActiveChatSessionSelection()
             .remember("character-a", "agent", "session-a-agent")

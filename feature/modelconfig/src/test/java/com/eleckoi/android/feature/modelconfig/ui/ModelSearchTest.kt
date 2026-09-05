@@ -100,4 +100,16 @@ class ModelSearchTest {
         )
         assertEquals(items, filterModelPickerItems(items, "   "))
     }
+
+    @Test
+    fun `add form validates blank duplicate and malformed ids without changing case`() {
+        val items = listOf(ModelOption(id = "glm-5.3-flash"))
+
+        assertEquals(null, modelNameError(items, "  custom-model  "))
+        assertEquals(null, modelNameError(items, "GLM-5.3-FLASH"))
+        assertEquals("该模型已在列表中，请返回列表选择", modelNameError(items, "glm-5.3-flash"))
+        assertEquals("请填写模型名", modelNameError(items, "   "))
+        assertEquals("模型名中不能包含空格或换行", modelNameError(items, "my model"))
+        assertEquals("模型名中不能包含空格或换行", modelNameError(items, "my\nmodel"))
+    }
 }

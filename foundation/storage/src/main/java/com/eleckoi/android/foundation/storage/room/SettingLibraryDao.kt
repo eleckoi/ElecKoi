@@ -1,7 +1,6 @@
 package com.eleckoi.android.foundation.storage.room
 
 import androidx.room.Dao
-import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
@@ -70,51 +69,57 @@ interface SettingLibraryDao {
 
     @Transaction
     fun upsert(library: SettingLibraryRecord) {
-        upsertMetadata(library.library)
-        deleteEntryRows(library.library.characterId)
-        deleteGroupRows(library.library.characterId)
-        deleteVersionEntryRows(library.library.characterId)
-        deleteVersionGroupRows(library.library.characterId)
-        deleteVersionRows(library.library.characterId)
-        insertEntryRows(library.entries)
-        insertGroupRows(library.groups)
-        insertVersionRows(library.versions)
-        insertVersionEntryRows(library.versionEntries)
-        insertVersionGroupRows(library.versionGroups)
+        val characterId = library.library.characterId
+        val plan = settingLibraryWritePlan(library(characterId), library)
+        plan.metadata?.let(::upsertMetadata)
+        plan.deleteVersionIds.forEachDeleteBatch { deleteVersionRows(characterId, it) }
+        plan.deleteEntryIds.forEachDeleteBatch { deleteEntryRows(characterId, it) }
+        plan.deleteGroupIds.forEachDeleteBatch { deleteGroupRows(characterId, it) }
+        plan.deleteVersionEntries.forEach { (versionId, entryIds) ->
+            entryIds.forEachDeleteBatch { deleteVersionEntryRows(characterId, versionId, it) }
+        }
+        plan.deleteVersionGroups.forEach { (versionId, groupIds) ->
+            groupIds.forEachDeleteBatch { deleteVersionGroupRows(characterId, versionId, it) }
+        }
+        if (plan.upsertVersions.isNotEmpty()) upsertVersionRows(plan.upsertVersions)
+        if (plan.upsertEntries.isNotEmpty()) upsertEntryRows(plan.upsertEntries)
+        if (plan.upsertGroups.isNotEmpty()) upsertGroupRows(plan.upsertGroups)
+        if (plan.upsertVersionEntries.isNotEmpty()) upsertVersionEntryRows(plan.upsertVersionEntries)
+        if (plan.upsertVersionGroups.isNotEmpty()) upsertVersionGroupRows(plan.upsertVersionGroups)
     }
 
     @Upsert
     fun upsertMetadata(library: SettingLibraryEntity)
 
-    @Insert
-    fun insertEntryRows(entries: List<SettingLibraryEntryEntity>)
+    @Upsert
+    fun upsertEntryRows(entries: List<SettingLibraryEntryEntity>)
 
-    @Insert
-    fun insertGroupRows(groups: List<SettingLibraryGroupEntity>)
+    @Upsert
+    fun upsertGroupRows(groups: List<SettingLibraryGroupEntity>)
 
-    @Insert
-    fun insertVersionRows(versions: List<SettingLibraryVersionEntity>)
+    @Upsert
+    fun upsertVersionRows(versions: List<SettingLibraryVersionEntity>)
 
-    @Insert
-    fun insertVersionEntryRows(entries: List<SettingLibraryVersionEntryEntity>)
+    @Upsert
+    fun upsertVersionEntryRows(entries: List<SettingLibraryVersionEntryEntity>)
 
-    @Insert
-    fun insertVersionGroupRows(groups: List<SettingLibraryVersionGroupEntity>)
+    @Upsert
+    fun upsertVersionGroupRows(groups: List<SettingLibraryVersionGroupEntity>)
 
-    @Query("DELETE FROM setting_library_entries WHERE characterId = :characterId")
-    fun deleteEntryRows(characterId: String)
+    @Query("DELETE FROM setting_library_entries WHERE characterId = :characterId AND entryId IN (:entryIds)")
+    fun deleteEntryRows(characterId: String, entryIds: List<String>)
 
-    @Query("DELETE FROM setting_library_groups WHERE characterId = :characterId")
-    fun deleteGroupRows(characterId: String)
+    @Query("DELETE FROM setting_library_groups WHERE characterId = :characterId AND groupId IN (:groupIds)")
+    fun deleteGroupRows(characterId: String, groupIds: List<String>)
 
-    @Query("DELETE FROM setting_library_versions WHERE characterId = :characterId")
-    fun deleteVersionRows(characterId: String)
+    @Query("DELETE FROM setting_library_versions WHERE characterId = :characterId AND versionId IN (:versionIds)")
+    fun deleteVersionRows(characterId: String, versionIds: List<String>)
 
-    @Query("DELETE FROM setting_library_version_entries WHERE characterId = :characterId")
-    fun deleteVersionEntryRows(characterId: String)
+    @Query("DELETE FROM setting_library_version_entries WHERE characterId = :characterId AND versionId = :versionId AND entryId IN (:entryIds)")
+    fun deleteVersionEntryRows(characterId: String, versionId: String, entryIds: List<String>)
 
-    @Query("DELETE FROM setting_library_version_groups WHERE characterId = :characterId")
-    fun deleteVersionGroupRows(characterId: String)
+    @Query("DELETE FROM setting_library_version_groups WHERE characterId = :characterId AND versionId = :versionId AND groupId IN (:groupIds)")
+    fun deleteVersionGroupRows(characterId: String, versionId: String, groupIds: List<String>)
 
     @Query("DELETE FROM setting_libraries WHERE characterId IN (:characterIds)")
     fun deleteForCharacters(characterIds: List<String>)
@@ -124,4 +129,10 @@ interface SettingLibraryDao {
 
     @Query("DELETE FROM setting_libraries")
     fun deleteAll()
+}
+
+private const val SETTING_LIBRARY_DELETE_BATCH_SIZE = 900
+
+private inline fun List<String>.forEachDeleteBatch(delete: (List<String>) -> Unit) {
+    chunked(SETTING_LIBRARY_DELETE_BATCH_SIZE).forEach(delete)
 }

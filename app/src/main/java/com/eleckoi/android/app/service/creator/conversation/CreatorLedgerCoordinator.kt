@@ -2,6 +2,8 @@ package com.eleckoi.android.app.service
 
 import com.eleckoi.android.engine.agent.api.AgentHistoryItem
 import com.eleckoi.android.engine.agent.eleckoi.conversation.RoomConversationLedger
+import com.eleckoi.android.engine.agent.eleckoi.conversation.ConversationAttachmentCleanup
+import com.eleckoi.android.feature.chat.ui.blocks.markdown.MarkdownRebuildableCaches
 import com.eleckoi.android.engine.agent.eleckoi.conversation.SurfaceAssistant
 import com.eleckoi.android.engine.agent.eleckoi.conversation.assistantFullHistory
 import com.eleckoi.android.engine.agent.eleckoi.conversation.creatorTimelineFromLedger
@@ -19,6 +21,9 @@ internal class CreatorLedgerCoordinator(
     private val ledger: RoomConversationLedger,
     private val database: ElecKoiDatabase,
     private val creatorWorkspaces: CreatorWorkspaceRepository,
+    private val attachmentCleanup: ConversationAttachmentCleanup,
+    private val onWorkspacesDeleted: suspend (List<String>) -> Unit,
+    private val beforeDeletion: (Collection<String>) -> Unit,
 ) {
     /**
      * RoomConversationLedger exposes synchronous transaction primitives. This is their suspend
@@ -59,7 +64,11 @@ internal class CreatorLedgerCoordinator(
 
     suspend fun deleteWorkspace(workspaceId: String) = withContext(Dispatchers.IO) {
         val conversations = creatorWorkspaces.get(workspaceId)?.conversations.orEmpty()
-        database.runInTransaction {
+        val ids = conversations.map { it.id }
+        beforeDeletion(ids)
+        onWorkspacesDeleted(listOf(workspaceId))
+        MarkdownRebuildableCaches.clearAfterConversationDeletion(ids)
+        attachmentCleanup.deleteConversations(ids) {
             conversations.forEach { conversation ->
                 ledger.deleteConversationInTransaction(conversation.id)
             }
@@ -169,7 +178,7 @@ internal class CreatorLedgerCoordinator(
         val retainedTurn = creatorTimelineLedgerMessages(listOf(retainedUser))
             .firstOrNull { it.role == "user" }
             ?: error("无法创建重新生成回合")
-        database.runInTransaction {
+        attachmentCleanup.discardMessages(conversationId) {
             ledger.truncateAfterTurnInTransaction(
                 conversationId = conversationId,
                 updatedAt = conversation.updatedAt,
@@ -196,7 +205,13 @@ internal class CreatorLedgerCoordinator(
         workspaceId: String,
         conversationId: String,
     ): CreatorWorkspace = withContext(Dispatchers.IO) {
-        database.runInTransaction { ledger.deleteConversationInTransaction(conversationId) }
+        val workspace = creatorWorkspaces.get(workspaceId) ?: error("创作工作区不存在")
+        require(workspace.conversations.any { it.id == conversationId }) { "创作助手对话不存在" }
+        beforeDeletion(listOf(conversationId))
+        MarkdownRebuildableCaches.clearAfterConversationDeletion(listOf(conversationId))
+        attachmentCleanup.deleteConversations(listOf(conversationId)) {
+            ledger.deleteConversationInTransaction(conversationId)
+        }
         withTimelines(creatorWorkspaces.deleteConversation(workspaceId, conversationId))
     }
 

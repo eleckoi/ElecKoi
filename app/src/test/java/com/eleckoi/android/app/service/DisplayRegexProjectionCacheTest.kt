@@ -10,6 +10,33 @@ import org.junit.Test
 
 class DisplayRegexProjectionCacheTest {
     @Test
+    fun deletionReleasesBothProjectionCachesWithoutBreakingTheirReuse() {
+        val cache = DisplayRegexProjectionCache()
+        val lists = DisplayRegexMessageListProjector()
+        val messages = (0 until 1_000).map { index ->
+            ChatMessage(id = "message-$index", role = MessageRole.Assistant, content = "source-$index")
+        }
+        var transformations = 0
+        fun project() = lists.project(messages, "character", 1L) { message ->
+            val projected = cache.project(
+                characterId = "character", regexRevision = 1L, messageId = message.id,
+                target = RegexRuleTarget.AiOutput, content = message.content, reasoningContent = "",
+            ) {
+                transformations += 1
+                DisplayRegexProjection(message.content, "")
+            }
+            message.copy(content = projected.content)
+        }
+        project()
+        project()
+        assertEquals(1_000, transformations)
+        repeat(2) { cache.clear(); lists.clear() }
+        project()
+        project()
+        assertEquals(2_000, transformations)
+    }
+
+    @Test
     fun sharesAnIdenticalProjectionAcrossConversationSources() {
         val cache = DisplayRegexProjectionCache()
         var transformations = 0

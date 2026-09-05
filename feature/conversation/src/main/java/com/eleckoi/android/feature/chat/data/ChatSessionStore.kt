@@ -1,6 +1,7 @@
 package com.eleckoi.android.feature.chat.data
 
 import com.eleckoi.android.engine.agent.eleckoi.conversation.PagedConversationTurn
+import com.eleckoi.android.engine.agent.eleckoi.conversation.ConversationAttachmentCleanup
 import androidx.paging.PagingData
 import com.eleckoi.android.engine.generation.image.ReplyImageGenerator
 import com.eleckoi.android.feature.characters.data.CharacterRepository
@@ -41,12 +42,16 @@ class ChatSessionStore(
     private val historySaveModeProvider: suspend () -> String = { "all" },
     private val replyImageGenerator: ReplyImageGenerator? = null,
     private val inputImageStore: ChatInputImageStore? = null,
+    onSessionsDeleted: suspend (List<String>) -> Unit = {},
 ) {
     private val room = ChatSessionRoomStorage(database)
     private val dao = room.dao
     private val ledger = room.ledger
     private val images = ChatSessionImageCoordinator(database, room, generationAttempts)
     private val opening = ChatOpeningCoordinator(room)
+    private val attachmentCleanup = ConversationAttachmentCleanup(
+        database, { inputImageStore?.deletePath(it) }, replyImageGenerator,
+    )
     private val history = ChatSessionHistoryCoordinator(
         database = database,
         room = room,
@@ -54,6 +59,7 @@ class ChatSessionStore(
         historySaveModeProvider = historySaveModeProvider,
         replyImageGenerator = replyImageGenerator,
         inputImageStore = inputImageStore,
+        onSessionsDeleted = onSessionsDeleted,
     )
 
     fun chatList(): List<ChatListItem> = chatListFromRows(dao.chatListRows())
@@ -184,7 +190,7 @@ class ChatSessionStore(
 
     /** Destructive regeneration path: retain the selected user turn and remove everything below. */
     fun truncateForRegeneration(session: ChatSession, retainedMessage: ChatMessage) {
-        database.runInTransaction {
+        attachmentCleanup.discardMessages(session.id) {
             room.upsertMetadataInTransaction(session)
             ledger.truncateAfterTurnInTransaction(
                 conversationId = session.id,

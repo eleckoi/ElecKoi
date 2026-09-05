@@ -82,6 +82,7 @@ private data class RevealedModelSecret(
 private data class ModelOptionJson(
     val id: String = "",
     val name: String = "",
+    val isUserAdded: Boolean = false,
     val contextWindowTokens: Int? = null,
     val autoCompactTokenLimit: Int? = null,
     val maxOutputTokens: Int? = null,
@@ -179,6 +180,7 @@ internal fun optionsFromJson(value: String): List<ModelOption> {
                 ModelOption(
                     id = id,
                     name = item.name.ifBlank { id },
+                    isUserAdded = item.isUserAdded,
                     contextWindowTokens = item.contextWindowTokens,
                     autoCompactTokenLimit = item.autoCompactTokenLimit,
                     maxOutputTokens = item.maxOutputTokens,
@@ -232,6 +234,7 @@ internal fun List<ModelOption>.toModelOptionsJson(): String {
             ModelOptionJson(
                 id = option.id,
                 name = option.name,
+                isUserAdded = option.isUserAdded,
                 contextWindowTokens = option.contextWindowTokens,
                 autoCompactTokenLimit = option.autoCompactTokenLimit,
                 maxOutputTokens = option.maxOutputTokens,

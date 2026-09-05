@@ -69,38 +69,37 @@ class ReplyImageGenerator(
     }
 
     fun deleteGeneratedFiles(localPaths: Iterable<String>) {
-        val root = runCatching { rootDirectory.canonicalFile }.getOrNull() ?: return
+        val root = rootDirectory.canonicalFile
         localPaths.asSequence()
             .filter(String::isNotBlank)
-            .mapNotNull { path -> runCatching { File(path).canonicalFile }.getOrNull() }
+            .map { path -> File(path).canonicalFile }
             .filter { file -> file.isFile && file.extension.equals("png", ignoreCase = true) }
             .filter { file -> file.toPath().startsWith(root.toPath()) }
             .forEach { file ->
                 val parent = file.parentFile
-                if (file.delete() && parent?.list()?.isEmpty() == true) {
-                    parent.delete()
+                Files.deleteIfExists(file.toPath())
+                if (parent != root && parent?.list()?.isEmpty() == true) {
+                    Files.deleteIfExists(parent.toPath())
                 }
             }
     }
 
-    fun deleteSessionImages(sessionId: String) {
-        val root = runCatching { rootDirectory.canonicalFile }.getOrNull() ?: return
-        val directory = runCatching {
-            File(root, safeSegment(sessionId)).canonicalFile
-        }.getOrNull() ?: return
+    fun deleteSessionImages(sessionId: String, retainedPaths: Set<String> = emptySet()) {
+        val root = rootDirectory.canonicalFile
+        val directory = File(root, safeSegment(sessionId)).canonicalFile
         if (directory.parentFile != root || !directory.isDirectory) return
-        directory.listFiles()
-            .orEmpty()
+        requireNotNull(directory.listFiles()) { "无法读取对话图片目录" }
             .filter { file ->
                 file.isFile &&
-                    file.parentFile == directory &&
+                    file.canonicalFile.parentFile == directory &&
+                    file.canonicalPath !in retainedPaths &&
                     (
                         file.extension.equals("png", ignoreCase = true) ||
                             file.name.endsWith(".png.tmp")
                         )
             }
-            .forEach(File::delete)
-        if (directory.list()?.isEmpty() == true) directory.delete()
+            .forEach { Files.deleteIfExists(it.toPath()) }
+        if (directory.list()?.isEmpty() == true) Files.deleteIfExists(directory.toPath())
     }
 
     fun generatedFiles(sessionId: String): List<GeneratedImageFile> {

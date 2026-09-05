@@ -161,6 +161,19 @@ internal fun filterModelPickerItems(
     }
 }
 
+internal fun modelNameError(
+    items: List<ModelOption>,
+    input: String,
+): String? {
+    val candidate = input.trim()
+    return when {
+        candidate.isBlank() -> "请填写模型名"
+        candidate.any { it.isWhitespace() || it.isISOControl() } -> "模型名中不能包含空格或换行"
+        items.any { it.id == candidate } -> "该模型已在列表中，请返回列表选择"
+        else -> null
+    }
+}
+
 fun configVersionName(config: ModelConfig): String {
     return config.name.trim().ifBlank { "未命名" }
 }

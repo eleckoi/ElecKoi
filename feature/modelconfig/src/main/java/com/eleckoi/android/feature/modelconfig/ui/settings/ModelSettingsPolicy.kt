@@ -5,12 +5,40 @@ import com.eleckoi.android.engine.generation.model.ModelOption
 
 internal fun modelPickerItems(config: ModelConfig): List<ModelOption> {
     val current = config.model.trim()
-    val options = config.modelOptions
+    val options = config.modelOptions.distinctBy { it.id }
     return if (current.isNotBlank() && options.none { it.id == current }) {
         listOf(ModelOption(current, current)) + options
     } else {
         options
     }
+}
+
+internal fun ModelConfig.addAndSelectModel(modelId: String): ModelConfig {
+    val selected = modelId.trim()
+    if (selected.isBlank()) return this
+    val existing = modelPickerItems(this)
+    val options = if (existing.any { it.id == selected }) {
+        existing
+    } else {
+        listOf(ModelOption(selected, selected, isUserAdded = true)) + existing
+    }
+    return copy(
+        model = selected,
+        modelOptions = options,
+        supportsTools = if (selected != model.trim()) null else supportsTools,
+    )
+}
+
+internal fun ModelConfig.removeManualModel(modelId: String): ModelConfig {
+    val options = modelPickerItems(this)
+    if (options.none { it.id == modelId && it.isUserAdded }) return this
+    val remaining = options.filterNot { it.id == modelId }
+    val selected = if (model.trim() == modelId) remaining.firstOrNull()?.id.orEmpty() else model
+    return copy(
+        model = selected,
+        modelOptions = remaining,
+        supportsTools = if (selected != model) null else supportsTools,
+    )
 }
 
 internal fun ModelConfig.updateActiveModelOption(

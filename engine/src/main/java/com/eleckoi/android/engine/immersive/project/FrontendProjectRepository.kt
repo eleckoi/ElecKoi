@@ -171,7 +171,7 @@ class FrontendProjectRepository(
             val project = catalog.value.projects.firstOrNull {
                 it.id == projectId && it.characterId == characterId
             } ?: return@synchronized
-            File(projectsRoot, project.id).deleteRecursively()
+            com.eleckoi.android.foundation.storage.deleteOwnedDirectory(projectsRoot, File(projectsRoot, project.id))
             val selections = if (catalog.value.selectedProjectIds[characterId] == projectId) {
                 catalog.value.selectedProjectIds - characterId
             } else {
@@ -194,7 +194,9 @@ class FrontendProjectRepository(
     fun deleteForCharacters(characterIds: List<String>) {
         synchronized(lock) {
             val removing = catalog.value.projects.filter { it.characterId in characterIds }
-            removing.forEach { File(projectsRoot, it.id).deleteRecursively() }
+            removing.forEach {
+                com.eleckoi.android.foundation.storage.deleteOwnedDirectory(projectsRoot, File(projectsRoot, it.id))
+            }
             commit(
                 catalog.value.copy(
                     projects = catalog.value.projects - removing.toSet(),

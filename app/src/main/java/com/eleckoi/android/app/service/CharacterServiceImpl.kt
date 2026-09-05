@@ -10,8 +10,10 @@ import com.eleckoi.android.feature.characters.model.CharacterCard
 import com.eleckoi.android.feature.characters.model.CharacterSlot
 import com.eleckoi.android.feature.characters.model.CharactersPayload
 import com.eleckoi.android.feature.characters.modes.story.settinglibrary.data.SettingLibraryRepository
+import com.eleckoi.android.feature.characters.modes.story.regex.data.RegexRuleRepository
 import com.eleckoi.android.feature.chat.data.ChatSessionStore
-import com.eleckoi.android.feature.chat.ui.blocks.markdown.MarkdownRebuildableCaches
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -26,23 +28,31 @@ internal class CharacterServiceImpl(
     private val frontendProjects: FrontendProjectRepository,
     private val creatorWorkspaces: CreatorWorkspaceRepository,
     private val initializeCharacterTools: (characterId: String) -> Unit,
+    private val regexRules: RegexRuleRepository,
+    private val deleteWorkspace: suspend (String) -> Unit,
+    private val deleteCharacterTools: (Collection<String>) -> Unit,
+    private val beforeDeleteCharacters: suspend (Collection<String>) -> Unit,
 ) : CharacterService {
+    private val collectionChanges = Mutex()
     override val characterCollectionFlow: Flow<CharactersPayload> = characters.charactersFlow()
         .distinctUntilChanged()
         .flowOn(Dispatchers.IO)
 
-    override suspend fun saveCharacterCollection(payload: CharactersPayload): CharactersPayload {
-        val saved = characters.saveCharacters(payload)
-        return saved.also {
-            val retainedCharacterIds = it.items.map { item -> item.id }
-            ensureCharacterContainers(retainedCharacterIds)
-            sessions.deleteExceptCharacters(retainedCharacterIds)
-            settingLibrary.deleteExceptCharacters(retainedCharacterIds)
-            variableConfig.deleteExceptCharacters(retainedCharacterIds)
-            frontendProjects.deleteExceptCharacters(retainedCharacterIds)
-            deleteCharacterWorkspaces(retainedCharacterIds.toSet(), deleteMatching = false)
-            creatorWorkspaces.deleteCharacterContainersExcept(retainedCharacterIds.toSet())
-        }
+    override suspend fun saveCharacterCollection(payload: CharactersPayload): CharactersPayload = collectionChanges.withLock {
+        val prepared = characters.prepareCharacters(payload)
+        val retainedIds = prepared.items.map { it.id }
+        val retained = retainedIds.toSet()
+        removeCharacterData(characters.loadCharacters().items.map { it.id }.filterNot { it in retained })
+        // Reconcile current stores too, including residual character files from earlier deletions.
+        sessions.deleteExceptCharacters(retainedIds)
+        settingLibrary.deleteExceptCharacters(retainedIds)
+        variableConfig.deleteExceptCharacters(retainedIds)
+        frontendProjects.deleteExceptCharacters(retainedIds)
+        regexRules.deleteExceptCharacters(retainedIds)
+        deleteCharacterWorkspaces(retained, deleteMatching = false)
+        creatorWorkspaces.deleteCharacterContainersExcept(retained)
+        ensureCharacterContainers(retainedIds)
+        characters.saveCharacters(prepared)
     }
 
     override suspend fun createCharacter(group: String): CharacterSlot {
@@ -68,23 +78,28 @@ internal class CharacterServiceImpl(
         return characters.toggleCharacterGroupExpanded(group)
     }
 
-    override suspend fun deleteCharacters(characterIds: List<String>): CharactersPayload {
-        val deleted = characters.deleteCharacters(characterIds)
+    override suspend fun deleteCharacters(characterIds: List<String>): CharactersPayload = collectionChanges.withLock {
+        val ids = characterIds.filter(String::isNotBlank).distinct()
+        removeCharacterData(ids)
+        characters.deleteCharacters(ids)
+    }
+
+    private suspend fun removeCharacterData(characterIds: List<String>) {
+        if (characterIds.isEmpty()) return
+        beforeDeleteCharacters(characterIds)
         creatorWorkspaces.detachCharacterRootsFor(characterIds.toSet())
-        val deletedSessionIds = sessions.deleteForCharacters(characterIds)
+        sessions.deleteForCharacters(characterIds)
         settingLibrary.deleteForCharacters(characterIds)
         variableConfig.deleteForCharacters(characterIds)
         frontendProjects.deleteForCharacters(characterIds)
+        regexRules.deleteForCharacters(characterIds)
+        deleteCharacterTools(characterIds)
         deleteCharacterWorkspaces(characterIds.toSet(), deleteMatching = true)
         characterIds.forEach { creatorWorkspaces.deleteCharacterContainer(it) }
-        MarkdownRebuildableCaches.clearAfterConversationDeletion(deletedSessionIds)
-        return deleted
     }
 
     override suspend fun importCharacters(json: String): CharactersPayload {
-        val payload = characters.importCharacters(json)
-        ensureCharacterContainers(payload.items.map { it.id })
-        return payload
+        return saveCharacterCollection(characters.decodeCharacters(json))
     }
 
     override fun exportCharacters(): String = characters.exportCharacters()
@@ -129,6 +144,6 @@ internal class CharacterServiceImpl(
                 workspace.linkedCharacterMode != null &&
                     ((characterId in characterIds) == deleteMatching)
             }
-            .forEach { workspace -> creatorWorkspaces.delete(workspace.id) }
+            .forEach { workspace -> deleteWorkspace(workspace.id) }
     }
 }

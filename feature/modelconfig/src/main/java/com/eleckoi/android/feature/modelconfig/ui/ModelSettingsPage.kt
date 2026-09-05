@@ -6,6 +6,8 @@ import com.eleckoi.android.engine.generation.config.ModelConfigCollection
 import com.eleckoi.android.engine.generation.model.ModelConfig
 import com.eleckoi.android.engine.generation.model.isImageGenerationConfig
 import com.eleckoi.android.feature.modelconfig.ui.settings.ModelSettingsContent
+import com.eleckoi.android.feature.modelconfig.ui.settings.addAndSelectModel
+import com.eleckoi.android.feature.modelconfig.ui.settings.removeManualModel
 import com.eleckoi.android.feature.modelconfig.ui.settings.modelPickerItems
 import com.eleckoi.android.feature.modelconfig.ui.settings.rememberModelSettingsEditorState
 import com.eleckoi.android.feature.modelconfig.ui.components.ModelSettingsHeader
@@ -121,8 +123,10 @@ fun ModelSettingsPage(
             onClose = { editorState.modelPickerOpen = false },
             onSelect = { model ->
                 editorState.modelPickerOpen = false
-                editorState.update(editorState.form.copy(model = model))
+                editorState.update(editorState.form.addAndSelectModel(model))
             },
+            onAdd = { model -> editorState.update(editorState.form.addAndSelectModel(model)) },
+            onDelete = { model -> editorState.update(editorState.form.removeManualModel(model)) },
         )
     }
 

@@ -178,22 +178,7 @@ class ModelConfigRepository internal constructor(
     }
 
     fun fetchModelOptions(config: ModelConfig): ModelConfig {
-        val previousById = config.modelOptions.associateBy { it.id }
-        val models = provider.fetchModels(config).map { fetched ->
-            val previous = previousById[fetched.id]
-            fetched.copy(
-                contextWindowTokens = previous?.contextWindowTokens ?: fetched.contextWindowTokens,
-                autoCompactTokenLimit = previous?.autoCompactTokenLimit ?: fetched.autoCompactTokenLimit,
-                maxOutputTokens = previous?.maxOutputTokens ?: fetched.maxOutputTokens,
-                temperature = if (previous != null) previous.temperature else fetched.temperature,
-                topP = if (previous != null) previous.topP else fetched.topP,
-                reasoningEffort = previous?.reasoningEffort,
-                apiFormatOverride = previous?.apiFormatOverride,
-                supportsImageInput = previous?.supportsImageInput == true ||
-                    (config.isOfficialDeepSeekEndpoint() &&
-                        fetched.id.equals(DeepSeekOfficialVisionModel, ignoreCase = true)),
-            )
-        }
+        val models = mergeFetchedModelOptions(config, provider.fetchModels(config))
         val saved = saveModelConfig(config.copy(modelOptions = models, model = config.model.ifBlank { models.firstOrNull()?.id.orEmpty() }))
         return saved
     }

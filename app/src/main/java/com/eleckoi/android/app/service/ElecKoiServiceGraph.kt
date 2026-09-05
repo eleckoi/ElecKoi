@@ -33,6 +33,9 @@ import com.eleckoi.android.feature.characters.modes.story.regex.data.RegexRuleRe
 import com.eleckoi.android.feature.characters.modes.story.settinglibrary.model.SettingLibrary
 import com.eleckoi.android.feature.chat.data.ChatSessionStore
 import com.eleckoi.android.feature.chat.data.ChatInputImageStore
+import com.eleckoi.android.engine.agent.eleckoi.conversation.ConversationAttachmentCleanup
+import com.eleckoi.android.engine.agent.eleckoi.conversation.RoomConversationLedger
+import com.eleckoi.android.feature.chat.ui.blocks.markdown.MarkdownRebuildableCaches
 import com.eleckoi.android.feature.chat.data.GenerationAttemptRepository
 import com.eleckoi.android.feature.chat.model.ChatDraft
 import com.eleckoi.android.feature.chat.model.ChatListItem
@@ -55,7 +58,9 @@ internal class ElecKoiServiceGraph(
     isCreatorCapabilityEnabled: () -> Boolean,
     toolModelConfigId: (scopeId: String, groupId: String) -> String,
     initializeCharacterTools: (characterId: String) -> Unit,
+    deleteCharacterTools: (Collection<String>) -> Unit,
 ) {
+    private var agentRuns: AgentRunManager? = null
     private val captureProviderRequestsByDefault = (
         context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE
     ) != 0
@@ -103,6 +108,20 @@ internal class ElecKoiServiceGraph(
         historySaveModeProvider = { uiPreferences.read().historySaveMode },
         replyImageGenerator = replyImageGenerator,
         inputImageStore = chatInputImages,
+        onSessionsDeleted = { ids ->
+            requireConversationsIdle(ids)
+            uiPreferences.removeChatSessionIds(ids)
+            MarkdownRebuildableCaches.clearAfterConversationDeletion(ids)
+            clearChatProjectionCaches()
+        },
+    )
+    private val creatorLedger = CreatorLedgerCoordinator(
+        ledger = RoomConversationLedger(database),
+        database = database,
+        creatorWorkspaces = creatorWorkspaces,
+        attachmentCleanup = ConversationAttachmentCleanup(database, chatInputImages::deletePath, replyImageGenerator),
+        onWorkspacesDeleted = { uiPreferences.removeCreatorWorkspaceIds(it) },
+        beforeDeletion = ::requireConversationsIdle,
     )
     val dataBackupService = DataBackupService(
         context = context.applicationContext,
@@ -127,6 +146,7 @@ internal class ElecKoiServiceGraph(
         regexRules = regexRules,
         frontendProjects = frontendProjects,
         initializeImportedCharacterTools = initializeCharacterTools,
+        deleteImportedCharacterTools = deleteCharacterTools,
     )
     private val modelSelections = ChatModelSelectionResolver(
         settings = settings,
@@ -141,6 +161,19 @@ internal class ElecKoiServiceGraph(
     val regexRuleService = RegexRuleServiceImpl(regexRules)
     val frontendProjectService = FrontendProjectServiceImpl(frontendProjects)
     val characterService = CharacterServiceImpl(
+        deleteCharacterTools = deleteCharacterTools,
+        beforeDeleteCharacters = { ids ->
+            val active = agentRuns?.activeRun?.value?.descriptor
+            if (active != null) {
+                val activeCharacter = database.chatDao().sessionById(active.conversationId)?.characterId
+                val workspace = creatorWorkspaces.get(active.workspaceId)
+                check(activeCharacter !in ids &&
+                    !(workspace?.linkedCharacterMode != null && workspace.linkedCharacterId in ids)
+                ) { "请先停止正在运行的任务，再删除它的角色" }
+            }
+        },
+        regexRules = regexRules,
+        deleteWorkspace = creatorLedger::deleteWorkspace,
         characters = characters,
         sessions = sessions,
         settingLibrary = settingLibrary,
@@ -154,6 +187,8 @@ internal class ElecKoiServiceGraph(
         creatorWorkspaces = creatorWorkspaces,
     )
     val creatorAssistantService = CreatorAssistantServiceImpl(
+        rollbackCharacter = { characterService.deleteCharacters(listOf(it)) },
+        creatorLedger = creatorLedger,
         creatorWorkspaces = creatorWorkspaces,
         database = database,
         uiPreferences = uiPreferences,
@@ -176,7 +211,7 @@ internal class ElecKoiServiceGraph(
         },
         initializeCharacterTools = initializeCharacterTools,
     )
-    val chatService = ChatServiceImpl(
+    val chatService: ChatServiceImpl = ChatServiceImpl(
         characters = characters,
         sessions = sessions,
         settings = settings,
@@ -205,6 +240,7 @@ internal class ElecKoiServiceGraph(
         agentRuns: AgentRunManager,
         publishRemoteDshTurnImages: (String, List<AgentInputImage>) -> Unit,
     ) {
+        this.agentRuns = agentRuns
         chatService.attachCharacterAgentRuntime(
             agentSessions,
             runtime,
@@ -215,6 +251,14 @@ internal class ElecKoiServiceGraph(
             storyPresets::activePreset,
         )
     }
+
+    private fun requireConversationsIdle(ids: Collection<String>) {
+        check(agentRuns?.activeRun?.value?.descriptor?.conversationId !in ids) {
+            "请先停止正在运行的任务，再删除它的对话或角色"
+        }
+    }
+
+    private fun clearChatProjectionCaches() = chatService.clearDeletionProjectionCaches()
 
     fun recoverAbandonedRoleGenerations() {
         sessions.settleAllOrphanedGenerations()

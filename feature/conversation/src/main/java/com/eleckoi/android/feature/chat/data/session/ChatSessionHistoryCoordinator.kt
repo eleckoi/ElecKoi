@@ -13,6 +13,7 @@ internal class ChatSessionHistoryCoordinator(
     historySaveModeProvider: suspend () -> String,
     replyImageGenerator: ReplyImageGenerator?,
     inputImageStore: ChatInputImageStore?,
+    onSessionsDeleted: suspend (List<String>) -> Unit,
 ) {
     private val cleanup = ChatSessionCleanupCoordinator(
         database = database,
@@ -20,6 +21,7 @@ internal class ChatSessionHistoryCoordinator(
         historySaveModeProvider = historySaveModeProvider,
         replyImageGenerator = replyImageGenerator,
         inputImageStore = inputImageStore,
+        onSessionsDeleted = onSessionsDeleted,
     )
     private val transfer = ChatHistoryTransferCoordinator(room, characters, cleanup)
 

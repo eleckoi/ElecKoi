@@ -45,6 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 internal class CreatorAssistantServiceImpl(
+    private val creatorLedger: CreatorLedgerCoordinator,
     private val creatorWorkspaces: CreatorWorkspaceRepository,
     database: ElecKoiDatabase,
     private val uiPreferences: UiPreferencesRepository,
@@ -61,9 +62,9 @@ internal class CreatorAssistantServiceImpl(
     private val isCreatorCapabilityEnabled: () -> Boolean,
     private val imageModelConfigId: () -> String,
     private val initializeCharacterTools: (characterId: String) -> Unit,
+    private val rollbackCharacter: suspend (String) -> Unit,
 ) : CreatorAssistantService {
     private val ledger = RoomConversationLedger(database)
-    private val creatorLedger = CreatorLedgerCoordinator(ledger, database, creatorWorkspaces)
     private val rootResolver = CreatorCharacterRootResolver(creatorWorkspaces, characters)
     private val creatorMedia = CreatorMediaCoordinator(
         creatorWorkspaces = creatorWorkspaces,
@@ -197,9 +198,7 @@ internal class CreatorAssistantServiceImpl(
             workspace to requireNotNull(characters.characterById(named.id))
         } catch (error: Throwable) {
             created?.id?.let { characterId ->
-                runCatching { settingLibrary.deleteForCharacters(listOf(characterId)) }
-                runCatching { characters.deleteCharacters(listOf(characterId)) }
-                runCatching { creatorWorkspaces.deleteCharacterContainer(characterId) }
+                runCatching { rollbackCharacter(characterId) }.exceptionOrNull()?.let(error::addSuppressed)
             }
             throw error
         }

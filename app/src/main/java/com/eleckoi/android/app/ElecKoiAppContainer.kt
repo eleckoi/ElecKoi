@@ -53,6 +53,7 @@ class ElecKoiAppContainer(context: Context) : AutoCloseable {
             )
         },
         toolModelConfigId = agentToolCatalogStore::toolModelConfigId,
+        deleteCharacterTools = agentToolCatalogStore::deleteForCharacters,
         initializeCharacterTools = { characterId ->
             initializeCharacterToolDefaults(
                 characterId = characterId,

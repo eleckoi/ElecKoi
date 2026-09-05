@@ -7,9 +7,25 @@ import kotlinx.serialization.json.JsonObject
  * Persistent tool visibility, keyed by [AgentToolScopes]. Which Harness tools exist is a property of
  * the installed runtime and stays shared; which of them a turn may call belongs to one character.
  */
-class AgentToolCatalogStore(private val file: File) {
+class AgentToolCatalogStore internal constructor(
+    private val file: File,
+    private val persist: (File, AgentToolCatalogState) -> Unit,
+) {
+    constructor(file: File) : this(file, ::writeAgentToolCatalogState)
     private val lock = Any()
     private var state = readAgentToolCatalogState(file)
+
+    fun deleteForCharacters(characterIds: Collection<String>) = synchronized(lock) {
+        val scopes = characterIds.filter(String::isNotBlank).map(AgentToolScopes::character).toSet()
+        if (scopes.isEmpty()) return@synchronized
+        updateState(state.copy(
+            scopedDisabledGroups = state.scopedDisabledGroups - scopes,
+            scopedEnabledOptInGroups = state.scopedEnabledOptInGroups - scopes,
+            scopedSubagentModelConfigIds = state.scopedSubagentModelConfigIds - scopes,
+            scopedSubagentModels = state.scopedSubagentModels - scopes,
+            scopedToolModelConfigIds = state.scopedToolModelConfigIds - scopes,
+        ))
+    }
 
     fun filterRequest(scopeId: String, request: JsonObject): JsonObject {
         val result = synchronized(lock) {
@@ -210,7 +226,7 @@ class AgentToolCatalogStore(private val file: File) {
     }
 
     private fun updateState(next: AgentToolCatalogState) {
-        writeAgentToolCatalogState(file, next)
+        persist(file, next)
         state = next
     }
 

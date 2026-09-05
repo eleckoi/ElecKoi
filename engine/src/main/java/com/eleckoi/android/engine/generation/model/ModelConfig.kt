@@ -276,6 +276,8 @@ data class ModelOption(
     val apiFormatOverride: ModelApiFormat? = null,
     /** User assertion that this exact endpoint/model accepts image input. */
     val supportsImageInput: Boolean = false,
+    /** Only models explicitly added by the user can be removed from the local list. */
+    val isUserAdded: Boolean = false,
 ) {
     companion object {
         /** Conservative context fallback for Harnesses whose model catalog lacks this model. */

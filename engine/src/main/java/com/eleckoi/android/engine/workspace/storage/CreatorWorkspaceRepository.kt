@@ -356,6 +356,7 @@ class CreatorWorkspaceRepository constructor(
             val discarded = File(paths.stagingRoot, "delete-${workspace.id}")
             paths.deleteTreeNoFollow(discarded)
             require(source.renameTo(discarded)) { "无法暂存待删除的工作区" }
+            val originalCatalog = catalog.catalog()
             try {
                 catalog.commitCatalog(
                     catalog.catalog().copy(
@@ -364,7 +365,11 @@ class CreatorWorkspaceRepository constructor(
                 )
                 paths.deleteTreeNoFollow(discarded)
             } catch (error: Throwable) {
-                if (!source.exists()) discarded.renameTo(source)
+                // Keep the owner discoverable when physical cleanup fails, so deletion is retryable.
+                runCatching {
+                    if (!source.exists()) require(discarded.renameTo(source)) { "无法恢复待删除的工作区目录" }
+                    catalog.commitCatalog(originalCatalog)
+                }.exceptionOrNull()?.let(error::addSuppressed)
                 throw error
             }
         }

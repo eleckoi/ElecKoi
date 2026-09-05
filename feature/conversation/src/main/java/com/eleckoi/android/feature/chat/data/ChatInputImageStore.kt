@@ -7,6 +7,7 @@ import android.provider.OpenableColumns
 import com.eleckoi.android.feature.chat.model.ChatUserImageAttachment
 import com.eleckoi.android.foundation.storage.ElecKoiDataException
 import com.eleckoi.android.foundation.storage.newId
+import com.eleckoi.android.foundation.storage.deleteOwnedFile
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Files
@@ -43,10 +44,15 @@ class ChatInputImageStore(
     }
 
     fun delete(image: ChatUserImageAttachment) {
-        val candidate = File(image.localPath)
+        deletePath(image.localPath)
+    }
+
+    fun deletePath(localPath: String) {
+        if (localPath.isBlank()) return
+        val candidate = File(localPath)
         val root = rootDirectory.canonicalFile
-        val resolved = runCatching { candidate.canonicalFile }.getOrNull() ?: return
-        if (resolved.parentFile == root) resolved.delete()
+        val resolved = candidate.canonicalFile
+        if (resolved.parentFile == root) deleteOwnedFile(root, resolved)
     }
 
     private fun copyOne(uri: Uri): ChatUserImageAttachment {

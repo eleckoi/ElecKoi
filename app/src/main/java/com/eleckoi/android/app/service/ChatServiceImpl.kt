@@ -38,7 +38,6 @@ import com.eleckoi.android.feature.chat.model.ChatMessage
 import com.eleckoi.android.feature.chat.model.ChatUserImageAttachment
 import com.eleckoi.android.feature.modelconfig.model.ChatModelSelection
 import com.eleckoi.android.feature.chat.model.ChatSession
-import com.eleckoi.android.feature.chat.ui.blocks.markdown.MarkdownRebuildableCaches
 import com.eleckoi.android.feature.settings.data.appearance.AppearanceRepository
 import com.eleckoi.android.feature.preferences.UiPreferences
 import com.eleckoi.android.feature.preferences.UiPreferencesRepository
@@ -336,9 +335,9 @@ internal class ChatServiceImpl(
 
     override suspend fun deleteChat(sessionId: String) {
         sessions.delete(sessionId)
-        uiPreferences.removeActiveChatSessionId(sessionId)
-        MarkdownRebuildableCaches.clearAfterConversationDeletion(listOf(sessionId))
     }
+
+    internal fun clearDeletionProjectionCaches() = draftProjector.clearCaches()
 
     override fun exportChatHistory(
         characterId: String,

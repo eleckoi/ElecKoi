@@ -58,12 +58,14 @@ class ElecKoiRepository private constructor(
         isCreatorCapabilityEnabled: () -> Boolean,
         toolModelConfigId: (scopeId: String, groupId: String) -> String,
         initializeCharacterTools: (characterId: String) -> Unit,
+        deleteCharacterTools: (Collection<String>) -> Unit,
     ) : this(
         ElecKoiServiceGraph(
             context = context,
             isCreatorCapabilityEnabled = isCreatorCapabilityEnabled,
             toolModelConfigId = toolModelConfigId,
             initializeCharacterTools = initializeCharacterTools,
+            deleteCharacterTools = deleteCharacterTools,
         ),
     )
 

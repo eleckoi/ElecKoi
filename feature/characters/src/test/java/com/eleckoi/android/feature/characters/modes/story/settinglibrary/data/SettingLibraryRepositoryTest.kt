@@ -836,25 +836,25 @@ private class FakeSettingLibraryDao : SettingLibraryDao {
 
     override fun upsertMetadata(library: SettingLibraryEntity) = Unit
 
-    override fun insertEntryRows(entries: List<SettingLibraryEntryEntity>) = Unit
+    override fun upsertEntryRows(entries: List<SettingLibraryEntryEntity>) = Unit
 
-    override fun insertGroupRows(groups: List<SettingLibraryGroupEntity>) = Unit
+    override fun upsertGroupRows(groups: List<SettingLibraryGroupEntity>) = Unit
 
-    override fun insertVersionRows(versions: List<SettingLibraryVersionEntity>) = Unit
+    override fun upsertVersionRows(versions: List<SettingLibraryVersionEntity>) = Unit
 
-    override fun insertVersionEntryRows(entries: List<SettingLibraryVersionEntryEntity>) = Unit
+    override fun upsertVersionEntryRows(entries: List<SettingLibraryVersionEntryEntity>) = Unit
 
-    override fun insertVersionGroupRows(groups: List<SettingLibraryVersionGroupEntity>) = Unit
+    override fun upsertVersionGroupRows(groups: List<SettingLibraryVersionGroupEntity>) = Unit
 
-    override fun deleteEntryRows(characterId: String) = Unit
+    override fun deleteEntryRows(characterId: String, entryIds: List<String>) = Unit
 
-    override fun deleteGroupRows(characterId: String) = Unit
+    override fun deleteGroupRows(characterId: String, groupIds: List<String>) = Unit
 
-    override fun deleteVersionRows(characterId: String) = Unit
+    override fun deleteVersionRows(characterId: String, versionIds: List<String>) = Unit
 
-    override fun deleteVersionEntryRows(characterId: String) = Unit
+    override fun deleteVersionEntryRows(characterId: String, versionId: String, entryIds: List<String>) = Unit
 
-    override fun deleteVersionGroupRows(characterId: String) = Unit
+    override fun deleteVersionGroupRows(characterId: String, versionId: String, groupIds: List<String>) = Unit
 
     override fun deleteForCharacters(characterIds: List<String>) {
         characterIds.forEach { id ->

@@ -32,11 +32,14 @@ internal data class ActiveChatSessionSelection(
     }
 
     fun forget(sessionId: String): ActiveChatSessionSelection {
-        val normalizedSessionId = sessionId.trim()
-        if (normalizedSessionId.isBlank()) return this
+        return forgetAll(setOf(sessionId))
+    }
+
+    fun forgetAll(sessionIds: Collection<String>): ActiveChatSessionSelection {
+        val deleted = sessionIds.map(String::trim).filter(String::isNotBlank).toSet()
         return copy(
-            lastSessionId = lastSessionId.takeUnless { it == normalizedSessionId }.orEmpty(),
-            sessionIdsByContext = sessionIdsByContext.filterValues { it != normalizedSessionId },
+            lastSessionId = lastSessionId.takeUnless { it in deleted }.orEmpty(),
+            sessionIdsByContext = sessionIdsByContext.filterValues { it !in deleted },
         )
     }
 

@@ -3,6 +3,7 @@ package com.eleckoi.android.feature.modelconfig.ui
 import com.eleckoi.android.engine.generation.model.ModelConfig
 import com.eleckoi.android.engine.generation.model.ModelApiFormat
 import com.eleckoi.android.engine.generation.model.ModelOption
+import com.eleckoi.android.feature.modelconfig.ui.settings.addAndSelectModel
 import com.eleckoi.android.feature.modelconfig.ui.settings.resolveInitialConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -121,6 +122,22 @@ class ModelSettingsVersionSelectionTest {
         assertEquals("读取失败", state.testMessage)
         state.clearMessage()
         assertEquals("", state.testMessage)
+    }
+
+    @Test
+    fun `manual model is selected and added to the reusable model list`() {
+        val fetched = ModelOption(id = "glm-5.3-flash")
+        val config = ModelConfig(modelOptions = listOf(fetched))
+
+        val added = config.addAndSelectModel("  private-glm  ")
+        val selectedExisting = added.addAndSelectModel("glm-5.3-flash")
+
+        assertEquals("private-glm", added.model)
+        assertTrue(added.modelOptions.first().isUserAdded)
+        assertFalse(added.modelOptions.last().isUserAdded)
+        assertEquals(listOf("private-glm", "glm-5.3-flash"), added.modelOptions.map { it.id })
+        assertEquals("glm-5.3-flash", selectedExisting.model)
+        assertEquals(2, selectedExisting.modelOptions.size)
     }
 
     @Test

@@ -29,7 +29,7 @@ object MarkdownRebuildableCaches {
         val scopeKeys = sessionIds
             .asSequence()
             .filter(String::isNotBlank)
-            .map { sessionId -> "chat:$sessionId" }
+            .flatMap { sessionId -> sequenceOf("chat:$sessionId", "creation:$sessionId") }
             .toSet()
         if (scopeKeys.isEmpty()) return
         MarkdownDocumentCache.removeScopes(scopeKeys)

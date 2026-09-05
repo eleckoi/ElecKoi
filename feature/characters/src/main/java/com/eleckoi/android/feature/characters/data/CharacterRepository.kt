@@ -75,7 +75,7 @@ class CharacterRepository(
         ).map { entity -> entity.toSlot(profile) }
     }
 
-    fun saveCharacters(payload: CharactersPayload): CharactersPayload {
+    fun prepareCharacters(payload: CharactersPayload): CharactersPayload {
         val normalizedItems = payload.items.mapIndexed { index, slot ->
             normalizeCharacter(slot).let { character ->
                 character.copy(order = character.order.takeIf { it > 0 } ?: (index + 1))
@@ -90,13 +90,22 @@ class CharacterRepository(
             .takeIf { id -> normalizedItems.any { it.id == id } }
             ?: normalizedItems.firstOrNull()?.id
             ?: ""
-        val saved = CharactersPayload(
+        return CharactersPayload(
             activeCharacterId = activeId,
             groups = groups,
             items = normalizedItems,
             listAllExpanded = payload.listAllExpanded,
             expandedGroupNames = expandedGroupNames,
         )
+    }
+
+    fun saveCharacters(payload: CharactersPayload): CharactersPayload {
+        val saved = prepareCharacters(payload)
+        val normalizedItems = saved.items
+        val retainedFolders = normalizedItems.map { it.folder }.toSet()
+        loadCharacters().items.map { it.folder }.distinct()
+            .filterNot { it in retainedFolders }
+            .forEach(characterMedia::deleteCharacterFolder)
         database.runInTransaction {
             if (normalizedItems.isEmpty()) {
                 dao.deleteAllCharacters()
@@ -188,9 +197,6 @@ class CharacterRepository(
         val ids = characterIds.filter { it.isNotBlank() }.toSet()
         if (ids.isEmpty()) return loadCharacters()
         val current = loadCharacters()
-        current.items
-            .filter { it.id in ids }
-            .forEach { characterMedia.deleteCharacterFolder(it.folder) }
         val remaining = current.items.filterNot { it.id in ids }
         val activeId = current.activeCharacterId.takeIf { id -> remaining.any { it.id == id } }
             ?: remaining.firstOrNull()?.id
@@ -199,8 +205,10 @@ class CharacterRepository(
     }
 
     fun importCharacters(json: String): CharactersPayload {
-        return saveCharacters(payloadJsonCodec.decode(json))
+        return saveCharacters(decodeCharacters(json))
     }
+
+    fun decodeCharacters(json: String): CharactersPayload = prepareCharacters(payloadJsonCodec.decode(json))
 
     fun exportCharacters(): String = payloadJsonCodec.encode(loadCharacters())
 

@@ -36,6 +36,11 @@ internal class ChatDraftProjector(
     private val displayRegexCache = DisplayRegexProjectionCache()
     private val displayMessageListProjector = DisplayRegexMessageListProjector()
 
+    fun clearCaches() {
+        displayRegexCache.clear()
+        displayMessageListProjector.clear()
+    }
+
     fun project(
         session: ChatSession,
         config: ModelConfig? = null,
@@ -312,6 +317,11 @@ internal class DisplayRegexProjectionCache(
     private val entries = LinkedHashMap<Key, Entry>(maxEntries.coerceAtLeast(1), 0.75f, true)
     private var retainedCharacters = 0L
 
+    fun clear() = synchronized(entries) {
+        entries.clear()
+        retainedCharacters = 0L
+    }
+
     fun project(
         characterId: String,
         regexRevision: Long,
@@ -399,6 +409,8 @@ internal class DisplayRegexMessageListProjector(
     )
 
     private val stableLists = ArrayDeque<Entry>()
+
+    fun clear() = synchronized(stableLists) { stableLists.clear() }
 
     init {
         require(maxStableLists > 0) { "显示消息列表缓存容量必须大于 0" }

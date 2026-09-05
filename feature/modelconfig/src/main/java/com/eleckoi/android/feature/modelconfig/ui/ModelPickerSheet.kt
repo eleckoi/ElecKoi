@@ -1,38 +1,57 @@
 package com.eleckoi.android.feature.modelconfig.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.eleckoi.android.foundation.design.AppearanceTheme
-import com.eleckoi.android.foundation.design.components.AppSearchField
-import com.eleckoi.android.foundation.design.components.noRippleClickable
-import com.eleckoi.android.foundation.design.overlayScrim
-import com.eleckoi.android.foundation.design.selectionPalette
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import com.eleckoi.android.engine.generation.model.ModelOption
+import com.eleckoi.android.foundation.design.AppearanceTheme
+import com.eleckoi.android.foundation.design.components.AppIconPaths
+import com.eleckoi.android.foundation.design.components.AppSearchField
+import com.eleckoi.android.foundation.design.components.ConfirmDialog
+import com.eleckoi.android.foundation.design.components.MobileBottomSheetOverlay
+import com.eleckoi.android.foundation.design.components.StrokeSvgIcon
+import com.eleckoi.android.foundation.design.selectionPalette
 
-/** Bottom-sheet model picker kept separate from the reusable settings form controls. */
 @Composable
 internal fun ModelPickerSheet(
     items: List<ModelOption>,
@@ -40,64 +59,204 @@ internal fun ModelPickerSheet(
     appearance: AppearanceTheme,
     onClose: () -> Unit,
     onSelect: (String) -> Unit,
+    onAdd: (String) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    var keyword by rememberSaveable { mutableStateOf("") }
+    var adding by rememberSaveable { mutableStateOf(false) }
+    var deletingModel by rememberSaveable { mutableStateOf<String?>(null) }
+    val filteredItems = remember(items, keyword) { filterModelPickerItems(items, keyword) }
+
+    ModelPickerOverlay(
+        appearance = appearance,
+        onClose = onClose,
+    ) {
+        Column(Modifier.fillMaxWidth().heightIn(max = 520.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 8.dp, top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "模型列表",
+                    modifier = Modifier.weight(1f),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier.size(48.dp)
+                        .semantics { contentDescription = "关闭模型列表" },
+                ) {
+                    StrokeSvgIcon(AppIconPaths.X, appearance.mobileMuted, iconSize = 22.dp)
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AppSearchField(
+                    keyword = keyword,
+                    placeholder = "搜索模型",
+                    appearance = appearance,
+                    modifier = Modifier.weight(1f),
+                    height = 48.dp,
+                    inputModifier = Modifier.semantics { contentDescription = "搜索模型" },
+                    onKeywordChange = { keyword = it },
+                )
+                TextButton(
+                    onClick = { adding = true },
+                    modifier = Modifier.heightIn(min = 48.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = appearance.mobileBlue),
+                ) {
+                    StrokeSvgIcon(AppIconPaths.Plus, appearance.mobileBlue, iconSize = 16.dp)
+                    Text("添加模型", modifier = Modifier.padding(start = 6.dp))
+                }
+            }
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                if (filteredItems.isEmpty()) {
+                    item("empty") {
+                        Text(
+                            if (items.isEmpty()) "还没有模型，点击「添加模型」填写。" else "没有匹配的模型",
+                            color = appearance.mobileMuted,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(vertical = 24.dp, horizontal = 12.dp),
+                        )
+                    }
+                }
+                items(filteredItems, key = { "model:${it.id}" }) { item ->
+                    ModelPickerRow(
+                        item = item,
+                        selected = item.id == activeModel,
+                        appearance = appearance,
+                        onSelect = { onSelect(item.id) },
+                        onDelete = { deletingModel = item.id },
+                    )
+                }
+            }
+        }
+        if (adding) {
+            AddModelDialog(
+                items = items,
+                appearance = appearance,
+                onDismiss = { adding = false },
+                onAdd = { model ->
+                    onAdd(model)
+                    keyword = ""
+                    adding = false
+                },
+            )
+        }
+        deletingModel?.let { model ->
+            val target = items.firstOrNull { it.id == model && it.isUserAdded }
+            if (target != null) {
+                val next = items.firstOrNull { it.id != model }?.id
+                val selectionMessage = when {
+                    model != activeModel -> ""
+                    next != null -> "删除后将选中「$next」。"
+                    else -> "删除后需重新添加或读取模型。"
+                }
+                ConfirmDialog(
+                    title = "删除手动模型？",
+                    message = "将从当前配置的列表中删除「$model」。$selectionMessage",
+                    appearance = appearance,
+                    confirmText = "删除",
+                    destructive = true,
+                    onDismiss = { deletingModel = null },
+                    onConfirm = {
+                        onDelete(model)
+                        deletingModel = null
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModelPickerOverlay(
+    appearance: AppearanceTheme,
+    onClose: () -> Unit,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false,
+        ),
+    ) {
+        val window = (LocalView.current.parent as? DialogWindowProvider)?.window
+        SideEffect {
+            window?.setDimAmount(0f)
+            window?.setWindowAnimations(0)
+        }
+        var visible by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) { visible = true }
+        CompositionLocalProvider(LocalContentColor provides appearance.mobileText) {
+            // This overlay has no sheet drag or nested-scroll dismissal behavior.
+            MobileBottomSheetOverlay(
+                visible = visible,
+                appearance = appearance,
+                onDismiss = onClose,
+                sheetModifier = Modifier.statusBarsPadding().imePadding(),
+                content = content,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModelPickerRow(
+    item: ModelOption,
+    selected: Boolean,
+    appearance: AppearanceTheme,
+    onSelect: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val selection = appearance.selectionPalette()
-    var keyword by remember { mutableStateOf("") }
-    val filteredItems = remember(items, keyword) {
-        filterModelPickerItems(items, keyword)
-    }
-    Box(
-        modifier = Modifier.fillMaxSize().background(appearance.overlayScrim()).noRippleClickable(onClick = onClose),
-        contentAlignment = Alignment.BottomCenter,
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (selected) selection.activeContainer else selection.inactiveContainer),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(420.dp)
-                .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
-                .background(appearance.mobileSurface)
-                .navigationBarsPadding()
-                .noRippleClickable {},
+        Row(
+            modifier = Modifier.weight(1f)
+                .selectable(selected, role = Role.RadioButton, onClick = onSelect)
+                .heightIn(min = 56.dp)
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Row(modifier = Modifier.fillMaxWidth().height(58.dp).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("模型列表", modifier = Modifier.weight(1f), color = appearance.mobileText, fontSize = 18.sp, fontWeight = FontWeight.Medium)
-                Text("完成", color = appearance.mobileBlue, fontSize = 15.sp, modifier = Modifier.noRippleClickable(onClick = onClose))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    item.id,
+                    color = if (selected) selection.activeText else selection.text,
+                    fontSize = 15.sp,
+                )
+                if (item.isUserAdded) {
+                    Text(
+                        "手动添加",
+                        color = appearance.mobileMuted,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 3.dp),
+                    )
+                }
             }
-            AppSearchField(
-                keyword = keyword,
-                placeholder = "搜索模型",
-                appearance = appearance,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-                height = 44.dp,
-                onKeywordChange = { keyword = it },
-            )
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+            if (selected) StrokeSvgIcon(AppIconPaths.Check, appearance.mobileBlue, iconSize = 18.dp)
+        }
+        if (item.isUserAdded) {
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.size(48.dp)
+                    .semantics { contentDescription = "删除手动模型 ${item.id}" },
             ) {
-                if (items.isEmpty()) {
-                    item("empty") {
-                        Text("读取模型后会显示在这里，也可以直接手动输入模型名。", color = appearance.mobileMuted, fontSize = 14.sp, modifier = Modifier.padding(18.dp))
-                    }
-                } else if (filteredItems.isEmpty()) {
-                    item("no-match") {
-                        Text("没有匹配的模型", color = appearance.mobileMuted, fontSize = 14.sp, modifier = Modifier.padding(18.dp))
-                    }
-                }
-                itemsIndexed(filteredItems) { _, item ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (item.id == activeModel) selection.activeContainer else selection.inactiveContainer)
-                            .noRippleClickable { onSelect(item.id) }
-                            .padding(14.dp),
-                    ) {
-                        Text(item.id, color = if (item.id == activeModel) selection.activeText else selection.text, fontSize = 15.sp)
-                    }
-                }
+                StrokeSvgIcon(AppIconPaths.Trash, appearance.mobileMuted, iconSize = 18.dp)
             }
         }
     }

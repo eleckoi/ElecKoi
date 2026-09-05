@@ -3,6 +3,7 @@ package com.eleckoi.android.feature.characters.data
 import com.eleckoi.android.feature.characters.model.AvatarSlot
 import com.eleckoi.android.foundation.storage.JsonFileStore
 import com.eleckoi.android.foundation.storage.newId
+import com.eleckoi.android.foundation.storage.deleteOwnedDirectory
 import java.io.File
 
 internal class CharacterMediaStore(
@@ -51,9 +52,7 @@ internal class CharacterMediaStore(
     fun deleteCharacterFolder(folder: String) {
         val root = store.dir("characters")
         val dir = File(root, folder)
-        if (dir.exists() && dir.canonicalPath.startsWith(root.canonicalPath)) {
-            dir.deleteRecursively()
-        }
+        deleteOwnedDirectory(root, dir)
     }
 
     private fun copyToCharacterFolder(folder: String, fileName: String, source: File): File {
