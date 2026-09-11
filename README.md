@@ -24,7 +24,7 @@
 ## 应用截图
 
 <p align="center">
-  <img src="docs/screenshots/eleckoi-windows-chat.png" alt="电子爱 Windows 版角色对话界面" width="960">
+  <img src="docs/screenshots/eleckoi-windows-chat-dark.png" alt="电子爱 Windows 版角色对话界面" width="960">
   <br><sub>电子爱 Windows 版角色对话界面</sub>
 </p>
 

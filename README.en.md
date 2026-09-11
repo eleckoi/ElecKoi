@@ -24,7 +24,7 @@ ElecKoi aims to build a continuously improving creative flywheel: turn the commu
 ## App Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/eleckoi-windows-chat.png" alt="ElecKoi for Windows character conversation screen" width="960">
+  <img src="docs/screenshots/eleckoi-windows-chat-dark.png" alt="ElecKoi for Windows character conversation screen" width="960">
   <br><sub>ElecKoi for Windows character conversation screen</sub>
 </p>
 
