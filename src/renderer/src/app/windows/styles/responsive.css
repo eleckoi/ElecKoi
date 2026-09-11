@@ -1,0 +1,10 @@
+
+@media (max-width: 1280px) {
+  .qq-shell {
+    --rail-column-width: 52px;
+  }
+
+  .conversation-main b {
+    font-size: 16px;
+  }
+}

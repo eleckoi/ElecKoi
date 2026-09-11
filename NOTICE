@@ -1,0 +1,57 @@
+ElecKoi Desktop
+Copyright (c) 2026 ElecKoi contributors
+
+Except where a file or notice states otherwise, ElecKoi original source code and
+first-party assets are licensed under the GNU Affero General Public License,
+version 3 or any later version. Third-party components remain under their
+respective licenses; the root AGPL license does not replace or remove those terms.
+
+The corresponding source for released builds is published at:
+
+https://github.com/eleckoi/ElecKoi
+
+Distribution-specific notices are retained in:
+
+- LICENSE
+- resources/licenses/THIRD_PARTY_NOTICES.txt
+- LICENSE.electron.txt and LICENSES.chromium.html in packaged Electron builds
+
+------------------------------------------------------------------------------
+Electron and Chromium
+------------------------------------------------------------------------------
+
+ElecKoi Desktop is built with Electron, which is licensed under the MIT License
+and embeds Chromium and Node.js. Packaged builds retain Electron's MIT license as
+LICENSE.electron.txt and Chromium's component notices as LICENSES.chromium.html.
+
+------------------------------------------------------------------------------
+JavaScript and native modules
+------------------------------------------------------------------------------
+
+The locked production dependency graph includes MIT, Apache-2.0, BSD, ISC,
+OFL-1.1 and other permissively licensed components. Exact package versions,
+declared license identifiers, attribution and supplied license texts are listed
+in resources/licenses/THIRD_PARTY_NOTICES.txt.
+
+The Windows image-processing binary distributed with Sharp includes libvips and
+related libraries under the terms recorded in its bundled Apache/LGPL notice.
+Those terms and the package-supplied license text are retained in the generated
+third-party notices.
+
+------------------------------------------------------------------------------
+Fonts and icons
+------------------------------------------------------------------------------
+
+ElecKoi Desktop bundles Noto Sans and Noto Sans Mono webfont files distributed
+by the @fontsource packages. The fonts are licensed under the SIL Open Font
+License, Version 1.1 (OFL-1.1).
+
+ElecKoi Desktop uses Font Awesome Free SVG icon data. The free icon data is
+licensed under Creative Commons Attribution 4.0 International (CC BY 4.0), and
+the Font Awesome code is licensed under the MIT License.
+
+The exact package versions, attributions and supplied license texts for these
+fonts and icons are retained in resources/licenses/THIRD_PARTY_NOTICES.txt.
+Font-family names such as Segoe UI, Microsoft YaHei, Consolas, Cascadia Code and
+SFMono-Regular are operating-system font fallbacks only; their font files are
+not distributed by this repository or its Windows package.

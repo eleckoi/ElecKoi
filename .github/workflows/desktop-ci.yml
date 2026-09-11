@@ -1,0 +1,59 @@
+name: ElecKoi Desktop CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  foundation:
+    name: Architecture, contracts, tests and build
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Node-side contracts and migrations
+        run: pnpm test
+
+      - name: Check architecture and build all Electron processes
+        run: pnpm build
+
+      - name: Verify Electron native SQLite ABI
+        run: |
+          pnpm rebuild:electron
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:ELECTRON_RUN_AS_NODE = '1'
+          pnpm exec electron -e "const Database=require('better-sqlite3'); const db=new Database(':memory:'); db.exec('create table health(ok integer not null)'); db.prepare('insert into health values (?)').run(1); const row=db.prepare('select ok from health').get(); db.close(); if(row.ok!==1) process.exit(1); console.log('Electron SQLite ABI OK')"
+
+      - name: Verify Electron DSH runtime handshake
+        run: pnpm check:electron-dsh

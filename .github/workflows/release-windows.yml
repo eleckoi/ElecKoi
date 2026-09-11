@@ -1,0 +1,81 @@
+name: ElecKoi Windows Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish Windows update
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Verify tag matches package version
+        run: |
+          $tagVersion = $env:GITHUB_REF_NAME.TrimStart('v')
+          $packageVersion = node -p "require('./package.json').version"
+          if ($tagVersion -ne $packageVersion) {
+            throw "Tag $env:GITHUB_REF_NAME does not match package.json version $packageVersion"
+          }
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and verify all Electron processes
+        run: |
+          pnpm build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm rebuild:electron
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm check:electron-sqlite
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm check:electron-dsh
+
+      - name: Package Windows installer and update metadata
+        env:
+          CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: pnpm exec electron-builder --win --x64 --publish never
+
+      - name: Verify packaged DSH runtime
+        run: pnpm verify:packaged-dsh
+
+      - name: Publish verified GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $assets = @(
+            (Get-ChildItem release -File -Filter '*-setup.exe').FullName
+            (Get-ChildItem release -File -Filter '*-setup.exe.blockmap').FullName
+            (Resolve-Path release/latest.yml).Path
+          )
+          $notes = "ElecKoi Windows 桌面版 $env:GITHUB_REF_NAME。请下载下方 x64 setup 安装包。"
+          gh release create $env:GITHUB_REF_NAME @assets --verify-tag --notes $notes --title "ElecKoi $env:GITHUB_REF_NAME"

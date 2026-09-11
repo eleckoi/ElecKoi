@@ -1,0 +1,159 @@
+.navigation-rail-shell,
+.side-panel-shell,
+.main-panel-shell {
+  position: relative;
+  display: grid;
+  grid-template-rows: 40px minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.navigation-rail-shell {
+  grid-column: 1;
+  background: var(--rail);
+  z-index: 3;
+}
+
+.navigation-rail-title {
+  min-width: 0;
+  border-right: 1px solid var(--rail-divider);
+  background: var(--rail);
+  -webkit-app-region: drag;
+}
+
+.navigation-rail-shell .qq-rail {
+  min-height: 0;
+}
+
+.side-panel-shell {
+  grid-column: 2;
+  background: var(--list);
+  z-index: 3;
+}
+
+.side-panel-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: var(--side-panel-content-width);
+  min-width: var(--side-panel-content-width);
+  height: 40px;
+  padding: 0 8px 0 10px;
+  background: var(--list);
+  -webkit-app-region: drag;
+}
+
+.side-panel-brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  color: var(--title-fg);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.side-panel-brand strong {
+  overflow: hidden;
+  font-size: 17px;
+  font-weight: 800;
+  text-overflow: clip;
+}
+
+.side-panel-collapse-button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--title-fg);
+  cursor: pointer;
+  transition: background 120ms ease, box-shadow 120ms ease;
+  -webkit-app-region: no-drag;
+}
+
+.side-panel-collapse-button:hover {
+  background: color-mix(in srgb, var(--title-fg) 9%, transparent);
+}
+
+.side-panel-collapse-button:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 58%, transparent);
+}
+
+.side-panel-content {
+  width: var(--side-panel-content-width);
+  min-width: var(--side-panel-content-width);
+  min-height: 0;
+  overflow: hidden;
+  background: var(--list);
+}
+
+.side-panel-content > * {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.side-panel-shell.collapsed {
+  pointer-events: none;
+}
+
+.main-panel-shell {
+  grid-column: 3;
+  background: var(--chat);
+  z-index: 1;
+}
+
+.main-panel-content {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--chat);
+}
+
+.main-panel-content > * {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.side-panel-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--rail-column-width) + var(--side-panel-width));
+  z-index: 16;
+  width: 8px;
+  margin-left: -4px;
+  cursor: col-resize;
+  touch-action: none;
+  /* The shell owns the only width animation; this edge must not ease again. */
+  -webkit-app-region: no-drag;
+}
+
+.chat-window-body {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--chat);
+  contain: layout paint;
+}
+
+.chat-window-body .chat-panel {
+  min-width: 0;
+  min-height: 0;
+}

@@ -1,0 +1,255 @@
+.avatar-crop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(17, 24, 39, 0.32);
+  backdrop-filter: blur(5px);
+  -webkit-app-region: no-drag;
+}
+
+.avatar-crop-window {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  width: min(520px, calc(100vw - 48px));
+  max-height: calc(100dvh - 48px);
+  padding: 28px;
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--surface-raised);
+  box-shadow:
+    0 24px 64px rgba(17, 24, 39, 0.2),
+    0 6px 18px rgba(17, 24, 39, 0.1);
+  transform: translateY(-3vh);
+}
+
+.avatar-crop-window h2 {
+  justify-self: start;
+  margin: 0;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 680;
+  letter-spacing: -0.015em;
+}
+
+.avatar-crop-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  color: var(--muted);
+}
+
+.avatar-crop-close:hover {
+  background: var(--control-bg-hover);
+  color: var(--text);
+}
+
+.avatar-crop-close:disabled,
+.avatar-crop-cancel:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.avatar-crop-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.avatar-crop-stage {
+  position: relative;
+  width: min(440px, calc(100vw - 104px));
+  height: 320px;
+  overflow: hidden;
+  border-radius: 12px;
+  outline: none;
+  background:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.045) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.045) 75%),
+    linear-gradient(45deg, rgba(255, 255, 255, 0.045) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.045) 75%),
+    #59636f;
+  background-position: 0 0, 12px 12px;
+  background-size: 24px 24px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.avatar-crop-stage:active {
+  cursor: grabbing;
+}
+
+.avatar-crop-image-transform {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  width: 0;
+  height: 0;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.avatar-crop-stage img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+  outline: 0;
+  transform: translate(-50%, -50%);
+  user-select: none;
+  pointer-events: none;
+}
+
+.avatar-crop-frame {
+  position: absolute;
+  z-index: 3;
+  border: 2px solid color-mix(in srgb, var(--blue) 82%, #fff);
+  box-shadow: 0 0 0 999px rgba(18, 24, 32, 0.48);
+  pointer-events: none;
+}
+
+.avatar-crop-frame.has-circle-guide {
+  border-radius: 8px;
+}
+
+.avatar-crop-circle-guide {
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(255, 255, 255, 0.94);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px rgba(18, 24, 32, 0.32),
+    inset 0 0 0 1px rgba(18, 24, 32, 0.18);
+}
+
+.avatar-crop-controls {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: 12px;
+  width: min(440px, 100%);
+}
+
+.avatar-crop-controls button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.avatar-crop-controls button:hover {
+  background: var(--control-bg-hover);
+}
+
+.avatar-crop-controls button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.avatar-crop-zoom {
+  width: 100%;
+  height: 20px;
+  accent-color: var(--blue);
+}
+
+.avatar-crop-hint,
+.avatar-crop-error {
+  min-height: 18px;
+  margin: -4px 0 0;
+  font-size: 12px;
+}
+
+.avatar-crop-hint {
+  color: var(--muted);
+}
+
+.avatar-crop-error {
+  color: #d93025;
+}
+
+.avatar-crop-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  width: min(440px, 100%);
+}
+
+.avatar-crop-actions button {
+  min-width: 96px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.avatar-crop-cancel {
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.avatar-crop-cancel:hover {
+  background: var(--control-bg-hover);
+}
+
+.avatar-crop-save {
+  border: 1px solid var(--blue);
+  background: var(--blue);
+  color: var(--on-accent);
+}
+
+.avatar-crop-save:hover:not(:disabled) {
+  background: var(--blue-hover);
+}
+
+.avatar-crop-save:disabled {
+  border-color: var(--line);
+  background: var(--field-disabled);
+  color: var(--soft-text);
+  cursor: default;
+}
+
+.avatar-crop-close:focus-visible,
+.avatar-crop-controls button:focus-visible,
+.avatar-crop-zoom:focus-visible,
+.avatar-crop-actions button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--blue) 72%, transparent);
+  outline-offset: 3px;
+}
+
+:root[data-theme="dark"] .avatar-crop-window {
+  box-shadow: 0 0 0 1px var(--line-strong);
+}
+
+@media (max-height: 650px) {
+  .avatar-crop-window {
+    gap: 12px;
+    padding: 22px;
+    transform: none;
+  }
+
+  .avatar-crop-stage {
+    height: 300px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-crop-window {
+    transform: none;
+  }
+}

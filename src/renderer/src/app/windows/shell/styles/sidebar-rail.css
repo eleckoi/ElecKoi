@@ -1,0 +1,230 @@
+.qq-rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  min-height: 0;
+  padding: 14px 0 16px;
+  border-right: 1px solid var(--rail-divider);
+  background: var(--rail);
+}
+
+.rail-brand-logo {
+  position: absolute;
+  top: -35px;
+  left: 50%;
+  display: block;
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  pointer-events: none;
+  user-select: none;
+  transform: translateX(-50%);
+}
+
+.rail-nav-group {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+}
+
+.rail-profile-zone {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  width: 100%;
+}
+
+.rail-bottom-zone {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: auto;
+}
+
+.rail-user-trigger {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  max-width: calc(var(--rail-column-width) - 15px);
+  max-height: calc(var(--rail-column-width) - 15px);
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background:
+    linear-gradient(var(--rail), var(--rail)) padding-box,
+    linear-gradient(145deg, #ffffff 0%, #f7fdff 34%, #dff6ff 64%, #ffffff 100%) border-box;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.045),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.86);
+  color: #252525;
+  cursor: pointer;
+  overflow: hidden;
+  transition: box-shadow 0.18s ease, transform 0.16s ease;
+}
+
+.rail-user-trigger:hover,
+.rail-user-trigger.active {
+  box-shadow:
+    0 2px 7px rgba(0, 0, 0, 0.07),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.95);
+}
+
+.rail-user-trigger:active {
+  transform: scale(0.94);
+}
+
+.rail-user-trigger .rail-user-avatar {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  font-size: 12px;
+  background: #fff;
+}
+
+.rail-user-trigger .rail-user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rail-settings-trigger {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  color: var(--rail-fg);
+  transition: background-color 0.14s ease, color 0.14s ease, transform 0.14s ease;
+}
+
+.rail-settings-trigger:hover {
+  background: var(--control-bg);
+}
+
+.rail-settings-trigger.active {
+  color: var(--blue);
+}
+
+.rail-settings-trigger:active {
+  transform: scale(0.94);
+}
+
+.rail-settings-trigger svg {
+  width: 24px;
+  height: 24px;
+}
+
+.rail-nav-button {
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  color: var(--rail-fg);
+  overflow: hidden;
+  transition: background 0.18s ease, transform 0.16s ease;
+}
+
+.rail-nav-button:hover {
+  background: transparent;
+}
+
+.rail-nav-button.active {
+  background: transparent;
+  color: var(--blue);
+}
+
+.rail-nav-button:active {
+  transform: scale(0.92);
+}
+
+.rail-icon-layer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.rail-icon-layer.base {
+  color: var(--rail-fg);
+  opacity: 0.96;
+  transition: opacity 280ms ease;
+}
+
+.rail-nav-button.active .rail-icon-layer.base {
+  opacity: 0;
+}
+
+.rail-icon-layer.active-fill {
+  color: var(--blue);
+  opacity: 0;
+  transform: scale(0.94);
+  transition: opacity 280ms ease, transform 280ms ease;
+}
+
+.rail-nav-button.active .rail-icon-layer.active-fill {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.rail-nav-button:not(.active) .rail-icon-layer.active-fill {
+  opacity: 0;
+  transform: scale(0.94);
+}
+
+.rail-nav-button svg {
+  width: 25px;
+  height: 25px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.rail-nav-button .nav-fill {
+  fill: currentColor;
+  stroke: none;
+  opacity: 0;
+}
+
+.rail-nav-button .nav-cutout {
+  fill: currentColor;
+  stroke: none;
+  opacity: 0;
+}
+
+.rail-icon-layer.active-fill .nav-fill {
+  opacity: 1;
+}
+
+.rail-icon-layer.active-fill .nav-cutout {
+  fill: #fff;
+  opacity: 1;
+}
+
+.rail-icon-layer.active-fill .model-nav-cube .model-cube-inner {
+  stroke: #fff;
+}
+
+.rail-nav-button .model-nav-cube .model-cube-inner {
+  stroke-width: 1.65;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-nav-button,
+  .rail-icon-layer,
+  .rail-user-trigger,
+  .rail-settings-trigger {
+    animation: none;
+    transition-duration: 0.01ms;
+  }
+}

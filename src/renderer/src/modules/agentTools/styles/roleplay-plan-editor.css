@@ -1,0 +1,138 @@
+.roleplay-plan-editor {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.roleplay-plan-heading {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.roleplay-plan-heading h3 {
+  margin: 0 !important;
+  color: var(--muted) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
+.roleplay-plan-heading button,
+.roleplay-plan-actions button,
+.roleplay-plan-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.roleplay-plan-heading button {
+  gap: 5px;
+  min-height: 28px;
+  padding: 0 7px;
+  border-radius: 7px;
+  color: var(--blue);
+  font-size: 12px;
+}
+
+.roleplay-plan-heading button:hover,
+.roleplay-plan-actions button:hover:not(:disabled) {
+  background: var(--control-bg-hover);
+}
+
+.roleplay-plan-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roleplay-plan-list li {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 82px;
+  align-items: center;
+  gap: 9px;
+}
+
+.roleplay-plan-number {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.roleplay-plan-list textarea {
+  width: 100%;
+  min-height: 52px;
+  max-height: 132px;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 9px 11px;
+  color: var(--text);
+  background: var(--control-bg);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  outline: 0;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.roleplay-plan-list textarea:focus {
+  border-color: color-mix(in srgb, var(--blue) 52%, var(--line));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 10%, transparent);
+}
+
+.roleplay-plan-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.roleplay-plan-actions button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 7px;
+  color: var(--muted);
+}
+
+.roleplay-plan-actions button svg { width: 14px; height: 14px; }
+.roleplay-plan-actions button:disabled,
+.roleplay-plan-heading button:disabled { cursor: default; opacity: .3; }
+
+.roleplay-plan-save-row {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.roleplay-plan-save {
+  min-width: 86px;
+  min-height: 34px;
+  padding: 0 15px;
+  color: white;
+  background: var(--blue);
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.roleplay-plan-save:hover:not(:disabled) { filter: brightness(.96); }
+.roleplay-plan-save:disabled { cursor: default; opacity: .42; }
+
+@media (max-width: 720px) {
+  .roleplay-plan-list li { grid-template-columns: 26px minmax(0, 1fr); }
+  .roleplay-plan-actions { grid-column: 2; justify-content: flex-start; }
+}

@@ -1,0 +1,521 @@
+.regex-layout {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--text);
+  background: var(--chat);
+}
+
+.regex-browser {
+  display: grid;
+  grid-template-rows: 58px minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.regex-toolbar {
+  display: grid;
+  grid-template-columns: minmax(240px, 480px) auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 22px 9px;
+  background: color-mix(in srgb, var(--chat) 94%, var(--list));
+  box-shadow: inset 0 -1px color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.regex-search {
+  display: flex;
+  height: 34px;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  color: var(--soft-text);
+  background: color-mix(in srgb, var(--field-bg) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 13%, transparent);
+  border-radius: 8px;
+}
+
+.regex-search:focus-within {
+  border-color: color-mix(in srgb, var(--text) 26%, transparent);
+}
+
+.regex-search input {
+  width: 100%;
+  min-width: 0;
+  color: var(--text);
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font-size: 13px;
+}
+
+.regex-add-wrap {
+  position: relative;
+}
+
+.regex-create-button,
+.regex-manage-button {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.regex-create-button {
+  color: #fff;
+  background: var(--blue);
+}
+
+.regex-create-button:hover {
+  filter: brightness(.96);
+}
+
+.regex-manage-button {
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid color-mix(in srgb, var(--text) 13%, transparent);
+}
+
+.regex-manage-button:hover,
+.regex-manage-button[aria-expanded="true"] {
+  background: var(--active);
+}
+
+.regex-popover {
+  position: absolute;
+  z-index: 130;
+  top: 39px;
+  left: 0;
+  display: grid;
+  width: 150px;
+  padding: 5px;
+  background: var(--chat);
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent);
+  border-radius: 9px;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--shadow-color) 24%, transparent);
+}
+
+.regex-popover button {
+  height: 31px;
+  padding: 0 9px;
+  color: var(--text);
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: left;
+}
+
+.regex-popover button:hover {
+  background: var(--active);
+}
+
+.regex-list-scroll {
+  min-width: 0;
+  min-height: 0;
+  padding: 18px 28px 48px;
+  overflow: auto;
+}
+
+.regex-rule-groups {
+  width: min(620px, 100%);
+}
+
+.regex-rule-group + .regex-rule-group {
+  margin-top: 18px;
+}
+
+.regex-group-heading {
+  display: flex;
+  width: 100%;
+  height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 7px;
+  color: var(--text);
+  border-radius: 7px;
+  text-align: left;
+}
+
+.regex-group-heading:hover {
+  background: color-mix(in srgb, var(--active) 55%, transparent);
+}
+
+.regex-group-heading svg {
+  transition: transform 140ms ease;
+}
+
+.regex-group-heading svg.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.regex-group-heading strong {
+  font-size: 14px;
+}
+
+.regex-group-heading span {
+  color: var(--soft-text);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.regex-group-rows {
+  display: grid;
+  gap: 3px;
+  width: min(340px, 100%);
+  padding: 3px 0 0 30px;
+}
+
+.regex-rule-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  height: 42px;
+  align-items: center;
+  padding: 0 12px 0 10px;
+  border-radius: 8px;
+  transition: background-color 120ms ease, opacity 120ms ease, transform 120ms ease;
+}
+
+.regex-rule-row:hover {
+  background: color-mix(in srgb, var(--active) 56%, transparent);
+}
+
+.regex-rule-row.is-selected {
+  background: var(--active);
+}
+
+.regex-rule-row.is-dragging {
+  z-index: 2;
+  opacity: .52;
+  transform: scale(.995);
+}
+
+.regex-rule-main {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  align-items: center;
+  gap: 11px;
+  outline: 0;
+  cursor: grab;
+}
+
+.regex-rule-main:active {
+  cursor: grabbing;
+}
+
+.regex-rule-main:focus-visible {
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 24%, transparent);
+}
+
+.regex-rule-main svg {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--text) 78%, transparent);
+}
+
+.regex-rule-main span {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.regex-rule-switch,
+.regex-inline-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.regex-rule-switch input,
+.regex-inline-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.regex-rule-switch i,
+.regex-inline-switch i {
+  position: relative;
+  width: 30px;
+  height: 17px;
+  background: color-mix(in srgb, var(--text) 15%, transparent);
+  border-radius: 999px;
+  transition: background-color 120ms ease;
+}
+
+.regex-rule-switch i::after,
+.regex-inline-switch i::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px color-mix(in srgb, #000 28%, transparent);
+  content: "";
+  transition: transform 120ms ease;
+}
+
+.regex-rule-switch input:checked + i,
+.regex-inline-switch input:checked + i {
+  background: var(--blue);
+}
+
+.regex-rule-switch input:checked + i::after,
+.regex-inline-switch input:checked + i::after {
+  transform: translateX(13px);
+}
+
+.regex-rule-switch input:focus-visible + i,
+.regex-inline-switch input:focus-visible + i {
+  outline: 2px solid color-mix(in srgb, var(--blue) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.regex-group-empty,
+.regex-loading {
+  margin: 10px;
+  color: var(--soft-text);
+  font-size: 13px;
+}
+
+.regex-loading {
+  padding: 26px;
+}
+
+.regex-inspector {
+  position: absolute;
+  z-index: 50;
+  inset: 58px 0 0 auto;
+  display: grid;
+  grid-template-rows: 50px minmax(0, 1fr) 52px;
+  width: min(480px, calc(100% - 56px));
+  min-width: 0;
+  min-height: 0;
+  background: color-mix(in srgb, var(--chat) 96%, var(--list));
+  border-left: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+.regex-inspector-header,
+.regex-inspector-footer,
+.regex-test-heading {
+  display: flex;
+  align-items: center;
+}
+
+.regex-inspector-header {
+  justify-content: space-between;
+  padding: 0 16px 0 18px;
+  box-shadow: inset 0 -1px color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.regex-inspector-header strong {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.regex-inspector-header button,
+.regex-manager > header button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  color: var(--text);
+  border-radius: 6px;
+}
+
+.regex-inspector-header button:hover,
+.regex-manager > header button:hover {
+  background: var(--active);
+}
+
+.regex-inspector-scroll {
+  min-height: 0;
+  padding: 18px;
+  overflow: auto;
+}
+
+.regex-field {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 15px;
+}
+
+.regex-field > span,
+.regex-targets legend {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.regex-field input,
+.regex-field select,
+.regex-field textarea,
+.regex-version-create input,
+.regex-manager-transfer select {
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid color-mix(in srgb, var(--text) 13%, transparent);
+  border-radius: 8px;
+  outline: 0;
+  font: inherit;
+}
+
+.regex-field input,
+.regex-field select,
+.regex-version-create input,
+.regex-manager-transfer select {
+  height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.regex-field textarea {
+  min-height: 86px;
+  padding: 9px 10px;
+  resize: vertical;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.regex-field textarea.is-code {
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 12.5px;
+}
+
+.regex-field input:focus,
+.regex-field select:focus,
+.regex-field textarea:focus,
+.regex-version-create input:focus,
+.regex-manager-transfer select:focus {
+  border-color: color-mix(in srgb, var(--blue) 56%, transparent);
+}
+
+.regex-targets {
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+}
+
+.regex-targets > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 12px;
+  margin-top: 9px;
+}
+
+.regex-targets label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.regex-behavior {
+  display: grid;
+  gap: 11px;
+  padding: 14px 0;
+  box-shadow: inset 0 1px color-mix(in srgb, var(--text) 7%, transparent), inset 0 -1px color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.regex-inline-switch {
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.regex-test {
+  padding-top: 17px;
+}
+
+.regex-test-heading {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.regex-test-heading strong {
+  font-size: 13px;
+}
+
+.regex-test-heading button,
+.regex-inspector-footer button,
+.regex-manager button,
+.regex-manager-transfer button,
+.regex-version-create button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text);
+  border-radius: 7px;
+  font-size: 12.5px;
+}
+
+.regex-test-heading button,
+.regex-manager-transfer button,
+.regex-version-create button {
+  height: 31px;
+  padding: 0 10px;
+  background: var(--field-bg);
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+.regex-test-heading button:hover,
+.regex-manager-transfer button:hover,
+.regex-version-create button:hover {
+  background: var(--active);
+}
+
+.regex-test-error {
+  margin: -5px 0 10px;
+  color: #cf3737;
+  font-size: 12px;
+}
+
+.regex-inspector-footer {
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 0 15px;
+  box-shadow: inset 0 1px color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.regex-inspector-footer button {
+  height: 30px;
+  padding: 0 9px;
+}
+
+.regex-inspector-footer button:hover {
+  background: var(--active);
+}
+
+.regex-inspector-footer button.is-destructive,
+.regex-manager button.is-destructive {
+  color: #cf3737;
+}
+
+@media (max-width: 1050px) {
+  .regex-toolbar {
+    grid-template-columns: minmax(190px, 1fr) auto auto auto;
+  }
+
+  .regex-inspector {
+    width: calc(100% - 28px);
+  }
+}

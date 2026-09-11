@@ -1,0 +1,38 @@
+.sidebar-create-button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, transform 0.14s ease;
+}
+
+.sidebar-create-button:hover {
+  border-color: color-mix(in srgb, var(--text) 14%, transparent);
+  background: var(--active);
+  color: var(--text);
+}
+
+.sidebar-create-button[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--blue) 38%, transparent);
+  background: color-mix(in srgb, var(--blue) 8%, transparent);
+  color: var(--blue);
+}
+
+.sidebar-create-button:active {
+  transform: scale(0.96);
+}
+
+.sidebar-create-button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+}
+
+.sidebar-create-button svg {
+  width: 15px;
+  height: 15px;
+}

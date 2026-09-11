@@ -1,0 +1,59 @@
+.dsh-search-field {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 0;
+  height: 30px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  background: transparent;
+  color: rgb(129, 133, 140);
+}
+
+.dsh-search-field:focus-within {
+  border-color: color-mix(in srgb, var(--blue) 48%, var(--line-strong));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 14%, transparent);
+}
+
+.dsh-search-field-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 30px;
+  pointer-events: none;
+}
+
+.dsh-search-field input {
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.dsh-search-field input::placeholder {
+  color: rgb(129, 133, 140);
+}
+
+.dsh-search-field-clear {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgb(99, 104, 112);
+}
+
+.dsh-search-field-clear:hover {
+  background: rgba(38, 49, 72, 0.06);
+}

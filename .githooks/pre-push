@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+
+zero_oid="0000000000000000000000000000000000000000"
+
+while read local_ref local_oid remote_ref remote_oid
+do
+  case "$remote_ref" in
+    refs/heads/main|refs/heads/master)
+      if [ "$local_oid" = "$zero_oid" ]; then
+        echo "ERROR: Deleting the remote desktop main branch is blocked." >&2
+        exit 1
+      fi
+      ;;
+  esac
+
+  if [ "$local_oid" != "$zero_oid" ]; then
+    tree_files="$(git -c core.quotepath=false ls-tree -r --name-only "$local_oid")"
+    if printf '%s\n' "$tree_files" | grep -E '(^|/)(pc开发知识库|knowledge-base-private|\.obsidian)(/|$)' >/dev/null 2>&1; then
+      echo "ERROR: The pushed commit contains a private knowledge-base path." >&2
+      exit 1
+    fi
+  fi
+done
+
+exit 0

@@ -1,0 +1,207 @@
+.regex-manager-overlay {
+  position: fixed;
+  z-index: 300;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 42px;
+  background: color-mix(in srgb, #000 38%, transparent);
+}
+
+.regex-manager {
+  display: grid;
+  grid-template-rows: 54px 42px minmax(0, 1fr);
+  width: min(720px, calc(100vw - 84px));
+  height: min(680px, calc(100vh - 84px));
+  min-height: 420px;
+  overflow: hidden;
+  color: var(--text);
+  background: var(--chat);
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: 12px;
+  box-shadow: 0 24px 70px color-mix(in srgb, #000 32%, transparent);
+}
+
+.regex-manager > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 0 20px;
+  box-shadow: inset 0 -1px color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.regex-manager h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.regex-manager > nav {
+  display: flex;
+  gap: 4px;
+  align-items: end;
+  padding: 0 18px;
+  box-shadow: inset 0 -1px color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.regex-manager > nav button {
+  height: 34px;
+  padding: 0 10px;
+  color: var(--soft-text);
+  border-radius: 0;
+}
+
+.regex-manager > nav button[aria-current="page"] {
+  color: var(--text);
+  box-shadow: inset 0 -2px var(--text);
+}
+
+.regex-manager-transfer,
+.regex-version-create {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px 8px;
+}
+
+.regex-manager-transfer select {
+  width: 160px;
+}
+
+.regex-manager-transfer button:disabled,
+.regex-manager-pane footer button:disabled {
+  opacity: .38;
+}
+
+.regex-manager-body,
+.regex-version-list {
+  min-height: 0;
+  padding: 8px 18px 22px;
+  overflow: auto;
+}
+
+.regex-manager-scope + .regex-manager-scope {
+  margin-top: 18px;
+}
+
+.regex-manager-scope h3 {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.regex-manager-scope label {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.regex-manager-scope label:hover {
+  background: var(--active);
+}
+
+.regex-manager-scope p {
+  margin: 8px;
+  color: var(--soft-text);
+  font-size: 12px;
+}
+
+.regex-manager-pane > footer {
+  display: flex;
+  height: 52px;
+  align-items: center;
+  gap: 7px;
+  justify-content: flex-end;
+  padding: 0 18px;
+  box-shadow: inset 0 1px color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.regex-manager-pane > footer span {
+  margin-right: auto;
+  color: var(--soft-text);
+  font-size: 12px;
+}
+
+.regex-manager-pane > footer button {
+  height: 30px;
+  padding: 0 9px;
+}
+
+.regex-manager-pane > footer button:hover {
+  background: var(--active);
+}
+
+.regex-version-create {
+  align-self: start;
+}
+
+.regex-manager-pane {
+  min-height: 0;
+}
+
+.regex-manager-pane.is-rules {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) 52px;
+}
+
+.regex-manager-pane.is-versions {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.regex-version-create input {
+  width: 220px;
+}
+
+.regex-version-list {
+  padding-top: 0;
+}
+
+.regex-version-list > button,
+.regex-version-list > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  padding: 0 8px 0 12px;
+  border-radius: 8px;
+}
+
+.regex-version-list > button {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+}
+
+.regex-version-list > div > button:first-child {
+  display: grid;
+  justify-items: start;
+  padding: 8px 0;
+}
+
+.regex-version-list > div > button:last-child {
+  width: 30px;
+  height: 30px;
+}
+
+.regex-version-list > button:hover,
+.regex-version-list > div:hover,
+.regex-version-list > .is-active {
+  background: var(--active);
+}
+
+.regex-version-list span {
+  font-size: 13px;
+}
+
+.regex-version-list small {
+  color: var(--soft-text);
+  font-size: 11.5px;
+}
+
+.regex-file-input {
+  display: none;
+}

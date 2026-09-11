@@ -1,0 +1,293 @@
+.profile-avatar-manager-page {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+}
+
+.avatar-manager-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.avatar-manager-heading {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+}
+
+.avatar-manager-heading h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: 28px;
+  font-weight: 760;
+  letter-spacing: -0.025em;
+}
+
+.avatar-manager-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 3px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.avatar-manager-back:hover {
+  color: var(--text);
+}
+
+.avatar-manager-back svg {
+  width: 16px;
+  height: 16px;
+}
+
+.avatar-manager-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 2px;
+}
+
+.avatar-manager-header-actions > span {
+  max-width: 320px;
+  color: #d93025;
+  font-size: 12px;
+  text-align: right;
+}
+
+.avatar-manager-header-actions .settings-primary-button {
+  min-width: 116px;
+}
+
+.avatar-manager-results {
+  display: grid;
+  grid-template-columns: minmax(300px, 1.05fr) minmax(300px, 0.95fr);
+  min-height: 540px;
+  padding: clamp(28px, 3.4vw, 40px);
+  border-radius: 18px;
+  background: var(--surface-subtle);
+}
+
+.avatar-manager-result-group {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+}
+
+.avatar-manager-result-group.is-portrait {
+  padding-right: clamp(28px, 4vw, 52px);
+}
+
+.avatar-manager-result-group.is-shared {
+  padding-left: clamp(28px, 4vw, 52px);
+  border-left: 1px solid var(--line-strong);
+}
+
+.avatar-manager-result-group > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+}
+
+.avatar-manager-result-group h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 680;
+}
+
+.avatar-manager-result-group > header > button {
+  min-height: 36px;
+  padding: 0 3px;
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 560;
+}
+
+.avatar-manager-result-group > header > button:hover:not(:disabled) {
+  color: var(--blue-hover);
+}
+
+.avatar-manager-result-group > header > button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.avatar-manager-preview-button {
+  display: grid;
+  justify-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.avatar-manager-preview-button:disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.avatar-manager-preview-button.is-portrait {
+  justify-self: center;
+  width: min(310px, 100%);
+  margin-top: 24px;
+}
+
+.avatar-manager-result-avatar {
+  background: var(--surface-raised);
+  color: var(--muted);
+  outline: 1px solid rgba(0, 0, 0, 0.1);
+  outline-offset: -1px;
+  box-shadow:
+    0 12px 28px color-mix(in srgb, var(--shadow-color) 18%, transparent),
+    0 2px 6px color-mix(in srgb, var(--shadow-color) 14%, transparent);
+  transition: box-shadow 150ms ease-out, transform 150ms ease-out;
+}
+
+.avatar-manager-preview-button.is-portrait .avatar-manager-result-avatar {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+  border-radius: 14px;
+  font-size: 38px;
+}
+
+.avatar-manager-preview-button.is-portrait > span {
+  display: none;
+}
+
+.avatar-manager-shared-previews {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(22px, 3vw, 34px);
+  min-height: 440px;
+}
+
+.avatar-manager-preview-button.is-circle .avatar-manager-result-avatar,
+.avatar-manager-preview-button.is-square .avatar-manager-result-avatar {
+  width: clamp(116px, 10vw, 148px);
+  height: clamp(116px, 10vw, 148px);
+  font-size: 28px;
+}
+
+.avatar-manager-preview-button.is-circle .avatar-manager-result-avatar {
+  border-radius: 50%;
+}
+
+.avatar-manager-preview-button.is-square .avatar-manager-result-avatar {
+  border-radius: 18px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .avatar-manager-preview-button:hover:not(:disabled) .avatar-manager-result-avatar {
+    transform: translateY(-2px);
+    box-shadow:
+      0 16px 34px color-mix(in srgb, var(--shadow-color) 22%, transparent),
+      0 3px 8px color-mix(in srgb, var(--shadow-color) 16%, transparent);
+  }
+}
+
+.avatar-manager-back:focus-visible,
+.avatar-manager-result-group > header > button:focus-visible,
+.avatar-manager-preview-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--blue) 72%, transparent);
+  outline-offset: 4px;
+}
+
+.avatar-manager-preview-button:focus-visible .avatar-manager-result-avatar {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--blue) 18%, transparent);
+}
+
+.avatar-manager-file-input {
+  display: none;
+}
+
+:root[data-theme="dark"] .avatar-manager-result-avatar {
+  outline-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 1px var(--line-strong);
+}
+
+@media (max-width: 880px) {
+  .avatar-manager-results {
+    grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
+    padding: 28px;
+  }
+
+  .avatar-manager-result-group.is-portrait {
+    padding-right: 28px;
+  }
+
+  .avatar-manager-result-group.is-shared {
+    padding-left: 28px;
+  }
+
+  .avatar-manager-shared-previews {
+    gap: 18px;
+  }
+
+  .avatar-manager-preview-button.is-circle .avatar-manager-result-avatar,
+  .avatar-manager-preview-button.is-square .avatar-manager-result-avatar {
+    width: 112px;
+    height: 112px;
+  }
+}
+
+@media (max-width: 690px) {
+  .avatar-manager-results {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+  }
+
+  .avatar-manager-result-group.is-portrait,
+  .avatar-manager-result-group.is-shared {
+    padding: 0;
+  }
+
+  .avatar-manager-result-group.is-shared {
+    padding-top: 32px;
+    border-top: 1px solid var(--line-strong);
+    border-left: 0;
+  }
+
+  .avatar-manager-shared-previews {
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 480px) {
+  .avatar-manager-header {
+    align-items: end;
+  }
+
+  .avatar-manager-header-actions {
+    display: grid;
+    justify-items: end;
+    gap: 6px;
+  }
+
+  .avatar-manager-header-actions > span {
+    max-width: 180px;
+  }
+
+  .avatar-manager-results {
+    padding: 22px;
+  }
+
+  .avatar-manager-shared-previews {
+    gap: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-manager-result-avatar {
+    transition: none;
+  }
+}

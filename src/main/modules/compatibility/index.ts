@@ -1,0 +1,1 @@
+export { compatibilityPlugin } from './compatibilityPlugin'

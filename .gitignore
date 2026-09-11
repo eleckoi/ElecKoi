@@ -1,0 +1,53 @@
+# Private knowledge bases must never enter Git history.
+pc开发知识库/
+knowledge-base-private/
+.obsidian/
+
+# Local secrets
+.env
+.env.*
+!.env.example
+credentials*.json
+service-account*.json
+
+# Signing keys, private keys and certificate containers
+*.p12
+*.pfx
+*.p8
+*.pem
+*.key
+*.jks
+*.keystore
+*.snk
+
+# Node / Electron outputs
+node_modules/
+.pnpm-store/
+.vite/
+.turbo/
+dist/
+out/
+release/
+resources/native/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Local maintenance and review material
+/AGENTS.md
+/.playwright-cli/
+/.ui-craft/
+/output/
+/启动 ElecKoi.vbs
+/scripts/start-eleckoi.ps1
+
+# Replaced README screenshots retained only in the local migration folder
+/docs/screenshots/roleplay-chat.png
+/docs/screenshots/agent-details.png
+
+# Local logs and OS/editor noise
+*.log
+*.local
+.DS_Store
+Thumbs.db

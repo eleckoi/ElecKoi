@@ -1,0 +1,382 @@
+:root[data-theme="dark"] :is(
+  .conversation-main b,
+  .conversation-character-picker-group-row,
+  .conversation-character-picker-characters button,
+  .conversation-character-picker-empty strong,
+  .conversation-context-menu button,
+  .character-group-row,
+  .character-contact-row strong,
+  .character-card strong,
+  .character-group-context-menu button,
+  .model-sidebar-header h2,
+  .model-group-row,
+  .model-provider-copy b,
+  .model-detail-header h2,
+  .model-detail-hero h3,
+  .model-form-section h3,
+  .model-section-heading h3,
+  .model-section-heading h4,
+  .model-delete-popover strong,
+  .model-version-menu button,
+  .model-picker-menu button,
+  .model-manual-add button,
+  .app-settings-sidebar h2,
+  .app-settings-heading h1,
+  .app-settings-sidebar nav button,
+  .setting-row-copy strong,
+  .layout-choice-grid > button,
+  .profile-settings-name input,
+  .avatar-slots-heading strong,
+  .avatar-slot-copy strong,
+  .avatar-manager-dialog > header strong,
+  .chat-empty-guide strong,
+  .chat-model-panel > header strong,
+  .history-titlebar strong,
+  .history-day h3,
+  .history-item,
+  .history-item-main,
+  .history-item span,
+  .history-empty strong,
+  .history-confirm strong
+) {
+  color: var(--text);
+}
+
+:root[data-theme="dark"] :is(
+  .conversation-character-picker-group-row em,
+  .conversation-character-picker-empty,
+  .conversation-main span,
+  .conversation-meta,
+  .character-list-tabs button,
+  .character-group-row em,
+  .character-contact-row span,
+  .character-empty-groups,
+  .model-group-row em,
+  .model-provider-copy em,
+  .model-detail-form label > span,
+  .model-detail-hero p,
+  .model-detail-hero small,
+  .model-section-heading > span,
+  .model-parameter-grid label > span small,
+  .model-delete-popover span,
+  .model-picker-empty,
+  .app-settings-sidebar header span,
+  .app-settings-heading p,
+  .setting-row-copy span,
+  .layout-choice-grid > button > small,
+  .profile-settings-name > span,
+  .avatar-slots-heading span,
+  .avatar-slot-copy span,
+  .avatar-manager-dialog > header span,
+  .chat-empty-guide,
+  .chat-empty-guide span,
+  .chat-model-panel > header span,
+  .chat-model-empty,
+  .history-empty,
+  .history-retention b,
+  .history-retention button,
+  .history-actions button,
+  .history-item b,
+  .history-item time,
+  .history-confirm span
+) {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .model-monochrome-icon {
+  filter: invert(1);
+}
+
+:root[data-theme="dark"] :is(
+  .conversation-character-picker,
+  .conversation-context-menu,
+  .character-group-context-menu,
+  .character-group-dialog,
+  .model-provider-delete-dialog,
+  .model-delete-popover,
+  .model-version-menu,
+  .model-picker-menu,
+  .model-manual-add,
+  .model-connection-test-dialog,
+  .model-parameter-grid,
+  .model-headers-editor,
+  .app-settings-card,
+  .avatar-manager-dialog,
+  .avatar-crop-window,
+  .chat-model-panel,
+  .composer-card,
+  .history-confirm
+) {
+  border-color: var(--line-strong);
+  background: var(--surface-raised);
+  box-shadow: 0 16px 42px var(--shadow-color);
+}
+
+:root[data-theme="dark"] :is(
+  .model-detail-form input,
+  .model-detail-form select,
+  .model-split-select-value,
+  .model-split-select-arrow,
+  .model-picker-value,
+  .model-picker-shell > button:not(.model-picker-value),
+  .model-manual-add button,
+  .profile-settings-name input,
+  .character-group-dialog input,
+  .history-confirm button,
+  .chat-empty-guide button
+) {
+  border-color: var(--line-strong);
+  background: var(--field-bg);
+  color: var(--text);
+}
+
+:root[data-theme="dark"] :is(
+  .conversation-character-picker-group-row:hover,
+  .conversation-character-picker-characters button:hover,
+  .conversation-context-menu button:hover,
+  .character-group-context-menu button:hover,
+  .model-version-menu button:hover,
+  .model-version-menu button.active,
+  .model-picker-menu button:hover,
+  .model-picker-menu button.active,
+  .model-header-row button:hover,
+  .history-titlebar button:hover,
+  .history-item:hover,
+  .history-item.active,
+  .history-item-delete:hover,
+  .history-confirm button:hover
+) {
+  background: var(--control-bg-hover);
+}
+
+:root[data-theme="dark"] .dsh-search-field {
+  border-color: var(--line-strong);
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .dsh-search-field input::placeholder,
+:root[data-theme="dark"] .composer textarea::placeholder {
+  color: var(--soft-text);
+}
+
+:root[data-theme="dark"] .dsh-search-field-clear {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .dsh-search-field-clear:hover {
+  background: var(--control-bg-hover);
+}
+
+:root[data-theme="dark"] .composer-card {
+  color: var(--text);
+  box-shadow: 0 8px 24px var(--shadow-color);
+}
+
+:root[data-theme="dark"] .composer.composer-style-glass .composer-card {
+  border-color: var(--glass-border);
+  background: var(--glass-bg-strong);
+  box-shadow:
+    0 14px 38px color-mix(in srgb, var(--shadow-color) 72%, transparent),
+    0 2px 8px color-mix(in srgb, var(--shadow-color) 38%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 1px 0 0 rgba(255, 255, 255, 0.06);
+  color: var(--composer-icon-fg);
+}
+
+:root[data-theme="dark"] .composer textarea {
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .composer.composer-style-glass textarea {
+  color: var(--composer-icon-fg);
+}
+
+:root[data-theme="dark"] .composer.composer-style-glass textarea::placeholder {
+  color: color-mix(in srgb, var(--composer-icon-fg) 54%, transparent);
+}
+
+:root[data-theme="dark"] .composer-add {
+  color: var(--text);
+  background: var(--control-bg);
+}
+
+:root[data-theme="dark"] .composer.composer-style-glass .composer-add {
+  color: var(--composer-icon-fg);
+  background: color-mix(in srgb, var(--composer-icon-fg) 9%, transparent);
+}
+
+:root[data-theme="dark"] .composer-add:hover:not(:disabled),
+:root[data-theme="dark"] :is(.chat-model-trigger:hover, .chat-model-trigger.active) {
+  background: var(--control-bg-hover);
+}
+
+:root[data-theme="dark"] .composer.composer-style-glass .composer-add:hover:not(:disabled),
+:root[data-theme="dark"] .composer.composer-style-glass :is(.chat-model-trigger:hover, .chat-model-trigger.active) {
+  background: color-mix(in srgb, var(--composer-icon-fg) 12%, transparent);
+}
+
+:root[data-theme="dark"] .chat-model-trigger {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .composer.composer-style-glass .chat-model-trigger {
+  color: color-mix(in srgb, var(--composer-icon-fg) 78%, transparent);
+}
+
+:root[data-theme="dark"] .message-area:hover::-webkit-scrollbar-thumb,
+:root[data-theme="dark"] .message-area.scrollbar-visible::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  background-clip: content-box;
+}
+
+:root[data-theme="dark"] .markdown-message blockquote {
+  border-color: var(--line-strong);
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .markdown-message pre,
+:root[data-theme="dark"] .markdown-message th {
+  background: var(--markdown-code-block-bg);
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .model-manual-add button:last-child {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
+
+:root[data-theme="dark"] .markdown-message th,
+:root[data-theme="dark"] .markdown-message td {
+  border-color: var(--line-strong);
+}
+
+:root[data-theme="dark"] .markdown-message :not(pre) > code {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .history-window {
+  border-color: var(--line-strong);
+  background: var(--surface-subtle);
+  box-shadow: 0 18px 48px var(--shadow-color);
+}
+
+:root[data-theme="dark"] .history-titlebar {
+  background: var(--surface-raised);
+}
+
+:root[data-theme="dark"] :is(.history-toolbar, .history-day h3, .history-item) {
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] .history-retention button span {
+  border-color: var(--line-strong);
+  background: var(--surface-raised);
+}
+
+:root[data-theme="dark"] .history-retention button.active span {
+  box-shadow: inset 0 0 0 4px var(--surface-raised);
+  background: var(--blue);
+}
+
+:root[data-theme="dark"] .model-detail-hero {
+  border-color: var(--line-strong);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--blue) 10%, var(--surface-raised)), var(--surface-raised) 44%);
+}
+
+:root[data-theme="dark"] .model-hero-copy span {
+  border-color: var(--line-strong);
+  background: var(--control-bg);
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] :is(.model-icon-button, .model-fetch-button, .model-add-button, .model-test-button, .model-save-actions > button.model-cancel-button) {
+  border-color: var(--line-strong);
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+:root[data-theme="dark"] :is(.model-icon-button:disabled, .model-fetch-button:disabled, .model-add-button:disabled, .model-test-button:disabled) {
+  background: var(--field-disabled);
+  color: var(--soft-text);
+}
+
+:root[data-theme="dark"] .model-save-actions > button:disabled {
+  border-color: var(--line);
+  background: var(--field-disabled);
+  color: var(--soft-text);
+}
+
+:root[data-theme="dark"] .model-parameter-grid > label,
+:root[data-theme="dark"] .model-parameter-grid > label:nth-child(odd) {
+  border-color: var(--line);
+}
+
+:root[data-theme="dark"] :is(.model-parameter-grid input, .model-parameter-grid select, .model-header-row input) {
+  background: var(--surface-subtle);
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .app-settings-sidebar nav button:hover {
+  background: var(--control-bg-hover);
+}
+
+:root[data-theme="dark"] .app-settings-sidebar nav button.active {
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .layout-choice-grid > button {
+  border-color: var(--line-strong);
+  background: var(--surface-subtle);
+}
+
+:root[data-theme="dark"] .layout-choice-grid > button.active {
+  border-color: color-mix(in srgb, var(--blue) 52%, var(--line-strong));
+  background: color-mix(in srgb, var(--blue) 10%, var(--surface-subtle));
+}
+
+:root[data-theme="dark"] .layout-choice-preview {
+  background: var(--surface-muted);
+}
+
+:root[data-theme="dark"] :is(.layout-choice-preview i, .layout-choice-preview b, .layout-choice-preview em) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+:root[data-theme="dark"] .layout-choice-preview.roleplay em {
+  box-shadow: 0 11px 0 rgba(255, 255, 255, 0.16), 0 22px 0 rgba(255, 255, 255, 0.16);
+}
+
+:root[data-theme="dark"] .layout-choice-preview.agent em {
+  border-color: var(--line-strong);
+  background: var(--surface-raised);
+}
+
+:root[data-theme="dark"] .theme-setting-icon {
+  background: color-mix(in srgb, var(--blue) 14%, var(--surface-subtle));
+}
+
+:root[data-theme="dark"] .profile-settings-avatar-button > span {
+  border-color: var(--chat);
+}
+
+:root[data-theme="dark"] .rail-user-trigger {
+  background:
+    linear-gradient(var(--rail), var(--rail)) padding-box,
+    linear-gradient(145deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.08)) border-box;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .rail-nav-button .nav-cutout {
+  fill: var(--rail);
+}
+
+:root[data-theme="dark"] .rail-icon-layer.active-fill .model-nav-cube .model-cube-inner {
+  stroke: var(--rail);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="dark"] * {
+    transition-duration: 0.01ms !important;
+  }
+}

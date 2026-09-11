@@ -1,0 +1,1 @@
+export const ELECKOI_QQ_GROUP_NUMBER = '1041463229'

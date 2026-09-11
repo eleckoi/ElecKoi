@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+
+branch="$(git symbolic-ref --quiet --short HEAD || true)"
+
+if [ -z "$branch" ]; then
+  echo "ERROR: Detached HEAD commits are blocked in the ElecKoi Desktop repository." >&2
+  exit 1
+fi
+
+staged_files="$(git -c core.quotepath=false diff --cached --name-only --diff-filter=ACMR)"
+
+if [ -z "$staged_files" ]; then
+  exit 0
+fi
+
+if printf '%s\n' "$staged_files" | grep -E '(^|/)(pc开发知识库|knowledge-base-private|\.obsidian)(/|$)' >/dev/null 2>&1; then
+  echo "ERROR: A private knowledge-base path is staged. Unstage it before committing." >&2
+  exit 1
+fi
+
+exit 0

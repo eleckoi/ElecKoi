@@ -1,0 +1,54 @@
+appId: com.eleckoi.desktop
+productName: ElecKoi
+copyright: Copyright © ElecKoi
+
+directories:
+  output: release
+
+files:
+  - out/**/*
+  - resources/**/*
+  - '!resources/native/**/*'
+  - package.json
+
+extraResources:
+  - from: resources/native
+    to: native
+
+extraFiles:
+  - from: LICENSE
+    to: LICENSE.eleckoi.txt
+  - from: NOTICE
+    to: NOTICE.eleckoi.txt
+  - from: resources/licenses/THIRD_PARTY_NOTICES.txt
+    to: THIRD_PARTY_NOTICES.txt
+
+asar: true
+asarUnpack:
+  - node_modules/better-sqlite3/**/*
+  - node_modules/koffi/**/*
+
+npmRebuild: false
+
+publish:
+  provider: github
+  owner: eleckoi
+  repo: ElecKoi
+  releaseType: release
+
+win:
+  icon: resources/icons/eleckoi-app-icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-${arch}-setup.${ext}
+
+nsis:
+  oneClick: false
+  license: LICENSE
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: ElecKoi
+  deleteAppDataOnUninstall: false

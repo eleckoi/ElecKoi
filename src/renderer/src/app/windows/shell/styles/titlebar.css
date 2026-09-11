@@ -1,0 +1,228 @@
+@property --side-panel-width {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 280px;
+}
+
+.qq-shell {
+  --side-panel-motion-duration: 300ms;
+  position: relative;
+  display: grid;
+  grid-template-rows: 40px minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  background: var(--shell-backdrop);
+  isolation: isolate;
+  contain: layout paint size;
+  transition: --side-panel-width var(--side-panel-motion-duration) cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.qq-shell.main-window-shell {
+  grid-template-columns: var(--rail-column-width) var(--side-panel-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.qq-shell[data-side-panel-dragging] {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qq-shell {
+    transition: none;
+  }
+}
+
+.client-titlebar {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(150px, 172px) minmax(0, 1fr) auto;
+  align-items: center;
+  height: 40px;
+  background: var(--chat);
+  -webkit-app-region: drag;
+}
+
+.client-titlebar.split-surface {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  width: 100%;
+  background: var(--chat);
+}
+
+.client-titlebar.split-surface .title-spacer {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.client-titlebar.split-surface .window-controls {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.title-brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 100%;
+  padding-left: calc(var(--rail-column-width) + 10px);
+  color: var(--title-fg);
+}
+
+.title-brand-logo {
+  display: block;
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  filter: var(--title-logo-filter);
+}
+
+.title-brand strong {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.side-panel-expand-button {
+  position: absolute;
+  top: 8px;
+  left: 14px;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--title-fg);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+  -webkit-app-region: no-drag;
+}
+
+.side-panel-expand-button {
+  background: color-mix(in srgb, var(--surface-raised) 84%, transparent);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--shadow-color) 52%, transparent);
+}
+
+.side-panel-expand-button:hover {
+  background: var(--surface-raised);
+}
+
+.side-panel-expand-button:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue) 58%, transparent);
+}
+
+.title-spacer {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.title-project-tab {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  max-width: min(320px, 44vw);
+  height: 100%;
+  padding: 0 20px;
+  border-left: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  color: var(--title-fg);
+  font-size: 14px;
+  -webkit-app-region: drag;
+}
+
+.title-project-tab span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title-project-tab i {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--blue);
+  opacity: 0.72;
+}
+
+.window-controls {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.window-controls button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 100%;
+  color: var(--title-fg);
+  -webkit-app-region: no-drag;
+}
+
+.window-controls button:hover {
+  background: color-mix(in srgb, var(--title-fg) 12%, transparent);
+}
+
+.window-controls button:last-child:hover {
+  background: #e81123;
+  color: #fff;
+}
+
+.window-control-button span {
+  position: relative;
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+.window-control-button.minimize span::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 7px;
+  width: 12px;
+  height: 1.35px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.window-control-button.maximize span::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 9px;
+  height: 9px;
+  border: 1.45px solid currentColor;
+  border-radius: 1px;
+}
+
+.window-control-button.close span::before,
+.window-control-button.close span::after {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 7px;
+  width: 12px;
+  height: 1.45px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.window-control-button.close span::before {
+  transform: rotate(45deg);
+}
+
+.window-control-button.close span::after {
+  transform: rotate(-45deg);
+}

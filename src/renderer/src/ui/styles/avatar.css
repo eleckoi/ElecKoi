@@ -1,0 +1,41 @@
+
+.avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #fff;
+  color: #6a6a6a;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sidebar-character-artwork.is-cover {
+  width: 42px;
+  height: 56px;
+  border-radius: 7px;
+  background: var(--surface-muted);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.message .avatar {
+  width: 34px;
+  height: 34px;
+  font-size: 14px;
+}
+
+.profile-avatar {
+  width: 108px;
+  height: 108px;
+  font-size: 34px;
+}

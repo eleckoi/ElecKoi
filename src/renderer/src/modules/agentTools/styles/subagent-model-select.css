@@ -1,0 +1,79 @@
+.subagent-model-setting {
+  margin-top: 18px;
+}
+
+.subagent-model-setting > h3 {
+  margin: 0 0 9px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.subagent-model-setting .chat-model-picker {
+  display: block;
+}
+
+.subagent-model-entry {
+  width: 100%;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--control-bg);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.subagent-model-entry:hover,
+.subagent-model-entry.active {
+  border-color: var(--line-strong);
+  background: var(--control-bg-hover);
+}
+
+.subagent-model-entry:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--blue) 48%, transparent);
+  outline-offset: 2px;
+}
+
+.subagent-model-entry:disabled {
+  cursor: default;
+  opacity: .58;
+}
+
+.subagent-model-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.subagent-model-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.subagent-model-copy strong,
+.subagent-model-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subagent-model-copy strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.subagent-model-copy small {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.subagent-model-entry > svg {
+  color: var(--text-muted);
+}

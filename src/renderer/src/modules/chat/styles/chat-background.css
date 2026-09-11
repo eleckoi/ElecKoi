@@ -1,0 +1,598 @@
+.chat-shell-backdrop {
+  position: absolute;
+  inset: 0 0 0 calc(var(--rail-column-width) + var(--side-panel-width));
+  z-index: 0;
+  overflow: hidden;
+  background: var(--chat-wallpaper-canvas, #ffffff);
+  pointer-events: none;
+}
+
+.chat-shell-backdrop img {
+  position: absolute;
+  inset: -28px;
+  width: calc(100% + 56px);
+  height: calc(100% + 56px);
+  object-fit: cover;
+  opacity: var(--wallpaper-opacity, 0.72);
+  filter: blur(var(--wallpaper-blur, 2px));
+  user-select: none;
+}
+
+.chat-shell-backdrop > i {
+  position: absolute;
+  inset: 0;
+  background: rgb(var(--chat-wallpaper-scrim-rgb, 255 255 255) / var(--wallpaper-scrim, 0.5));
+}
+
+.qq-chat-window-shell .chat-shell-backdrop {
+  left: 0;
+}
+
+.qq-shell.has-chat-wallpaper > .main-panel-shell,
+.qq-shell.has-chat-wallpaper > .client-titlebar,
+.qq-shell.has-chat-wallpaper > .chat-window-body {
+  z-index: 1;
+}
+
+.qq-shell.has-chat-wallpaper .main-panel-shell,
+.qq-shell.has-chat-wallpaper .main-panel-content,
+.qq-shell.has-chat-wallpaper .chat-window-body,
+.qq-shell.has-chat-wallpaper .chat-panel {
+  background: transparent;
+}
+
+.qq-shell.has-chat-wallpaper .main-panel-shell > .client-titlebar {
+  background: transparent;
+}
+
+.qq-chat-window-shell.has-chat-wallpaper .client-titlebar {
+  background: transparent;
+}
+
+.qq-shell.has-chat-wallpaper {
+  --chat-wallpaper-canvas: #ffffff;
+  --chat-wallpaper-scrim-rgb: 255 255 255;
+  --chat-wallpaper-content-fg: #15171a;
+  --chat-wallpaper-content-shadow: transparent;
+  --chat-header-fg: var(--chat-wallpaper-content-fg);
+  --chat-header-fg-shadow: var(--chat-wallpaper-content-shadow);
+  --composer-icon-fg: var(--chat-wallpaper-content-fg);
+  --composer-icon-shadow: var(--chat-wallpaper-content-shadow);
+  --bubble-fg: var(--chat-wallpaper-content-fg);
+  --bubble-fg-shadow: var(--chat-wallpaper-content-shadow);
+}
+
+:root[data-theme="dark"] .qq-shell.has-chat-wallpaper {
+  --chat-wallpaper-canvas: #171717;
+  --chat-wallpaper-scrim-rgb: 23 23 23;
+  --chat-wallpaper-content-fg: #f5f5f2;
+  --chat-wallpaper-content-shadow: rgba(0, 0, 0, 0.3);
+}
+
+.qq-shell.has-chat-wallpaper .chat-header h1,
+.qq-shell.has-chat-wallpaper .chat-header-action,
+.qq-shell.has-chat-wallpaper .message-area.layout-roleplay .message-author,
+.qq-shell.has-chat-wallpaper .message-area.layout-roleplay .bubble,
+.qq-shell.has-chat-wallpaper .message-area.layout-roleplay .bubble :is(strong, p, li, h1, h2, h3, h4, h5, h6) {
+  color: var(--chat-wallpaper-content-fg);
+  text-shadow: 0 0 1px var(--chat-wallpaper-content-shadow);
+}
+
+.qq-shell.has-chat-wallpaper .window-controls button {
+  color: var(--chat-wallpaper-content-fg);
+}
+
+/* Match Android's wallpaper-aware material: the image remains visible through the pane. */
+.qq-shell.has-chat-wallpaper .composer.composer-style-glass .composer-card {
+  border-color: rgba(17, 17, 17, 0.14);
+  background: rgba(255, 255, 255, 0.30);
+  box-shadow:
+    0 14px 38px rgba(0, 0, 0, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    inset 1px 0 0 rgba(255, 255, 255, 0.24);
+  -webkit-backdrop-filter: blur(3px) saturate(1.32);
+  backdrop-filter: blur(3px) saturate(1.32);
+}
+
+:root[data-theme="dark"] .qq-shell.has-chat-wallpaper .composer.composer-style-glass .composer-card {
+  border-color: rgba(255, 255, 255, 0.20);
+  background: rgba(29, 29, 37, 0.40);
+  box-shadow:
+    0 14px 38px rgba(0, 0, 0, 0.30),
+    0 2px 8px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48),
+    inset 1px 0 0 rgba(255, 255, 255, 0.14);
+}
+
+.chat-background-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(18, 18, 18, 0.36);
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+
+.chat-background-dialog {
+  display: grid;
+  gap: 22px;
+  width: min(820px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 26px 28px 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.22);
+}
+
+.chat-background-dialog > header,
+.chat-background-dialog > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chat-background-dialog > header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.chat-background-dialog > header strong {
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.chat-background-dialog > header span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chat-background-dialog > header button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  color: var(--muted);
+}
+
+.chat-background-dialog > header button:hover {
+  background: var(--control-bg);
+  color: var(--text);
+}
+
+.chat-background-body {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  align-items: start;
+  gap: 26px;
+}
+
+.chat-background-source,
+.chat-background-preview-panel {
+  min-width: 0;
+}
+
+.chat-background-source h3,
+.chat-background-section-heading h3,
+.chat-background-import-default h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.chat-background-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.chat-background-section-heading > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.chat-background-modes {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.chat-background-modes > button {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.chat-background-modes > button:hover {
+  background: color-mix(in srgb, var(--text) 4.5%, transparent);
+}
+
+.chat-background-modes > button.active {
+  border-color: color-mix(in srgb, var(--blue) 30%, var(--line-strong));
+  background: color-mix(in srgb, var(--blue) 7%, var(--surface-raised));
+}
+
+.chat-background-modes > button > span:last-child {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.chat-background-selection {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid color-mix(in srgb, var(--muted) 52%, transparent);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--on-accent);
+}
+
+.chat-background-selection.selected {
+  border-color: var(--blue);
+  background: var(--blue);
+}
+
+.chat-background-selection svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+.chat-background-preview {
+  --preview-fg: #191a1d;
+  position: relative;
+  height: 228px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--chat);
+  color: var(--preview-fg);
+}
+
+.chat-background-preview-image {
+  position: absolute;
+  inset: -16px;
+  width: calc(100% + 32px);
+  height: calc(100% + 32px);
+  object-fit: cover;
+  user-select: none;
+}
+
+.chat-background-preview-scrim {
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+}
+
+.chat-background-preview-messages {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-content: center;
+  gap: 18px;
+  box-sizing: border-box;
+  height: 100%;
+  padding: 24px 26px;
+}
+
+.chat-background-preview-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.chat-background-preview-message > div:last-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.chat-background-preview-message strong {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chat-background-preview-message p {
+  max-width: 280px;
+  margin: 0;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.chat-background-preview-avatar.avatar {
+  display: grid;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.72);
+  color: #4b4d51;
+}
+
+.chat-background-preview-avatar.avatar :is(img, span) {
+  width: 100%;
+  height: 100%;
+}
+
+.chat-background-preview-avatar.avatar img {
+  object-fit: cover;
+}
+
+.chat-background-preview[data-avatar-shape="rounded_square"] .chat-background-preview-avatar.avatar {
+  border-radius: 9px;
+}
+
+.chat-background-preview[data-avatar-shape="portrait"] .chat-background-preview-avatar.avatar {
+  flex-basis: 34px;
+  width: 34px;
+  height: 46px;
+  border-radius: 7px;
+}
+
+.chat-background-preview.layout-social .chat-background-preview-message.user,
+.chat-background-preview.layout-agent .chat-background-preview-message.user {
+  flex-direction: row-reverse;
+}
+
+.chat-background-preview.layout-social .chat-background-preview-message.user > div:last-child,
+.chat-background-preview.layout-agent .chat-background-preview-message.user > div:last-child {
+  justify-items: end;
+}
+
+.chat-background-preview.layout-social .chat-background-preview-message strong {
+  display: none;
+}
+
+.chat-background-preview.layout-social .chat-background-preview-message p,
+.chat-background-preview.layout-agent .chat-background-preview-message.user p,
+.chat-background-preview.layout-agent.assistant-bubble-enabled .chat-background-preview-message.assistant p {
+  padding: 7px 10px;
+  border: 1px solid rgba(76, 80, 88, 0.12);
+  border-radius: var(--preview-bubble-radius);
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.045);
+}
+
+.chat-background-preview.layout-roleplay .chat-background-preview-messages {
+  align-content: start;
+  gap: 12px;
+  padding: 20px 34px;
+}
+
+.chat-background-preview.layout-roleplay .chat-background-preview-message {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.chat-background-preview.layout-roleplay .chat-background-preview-avatar.avatar {
+  grid-column: 1;
+  justify-self: start;
+  width: 42px;
+  height: 42px;
+  flex-basis: 42px;
+}
+
+.chat-background-preview.layout-roleplay[data-avatar-shape="portrait"] .chat-background-preview-avatar.avatar {
+  width: 50px;
+  height: 67px;
+  flex-basis: 50px;
+  border-radius: 8px;
+}
+
+.chat-background-preview.layout-roleplay .chat-background-preview-message > div:last-child {
+  grid-column: 2;
+  gap: 5px;
+  padding-top: 1px;
+}
+
+.chat-background-preview.layout-roleplay .chat-background-preview-message strong {
+  font-size: 12px;
+}
+
+.chat-background-preview.layout-roleplay .chat-background-preview-message p {
+  max-width: none;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.65;
+}
+
+:root[data-theme="dark"] .chat-background-preview {
+  --preview-fg: #f4f4f1;
+}
+
+:root[data-theme="dark"] .chat-background-preview-scrim {
+  background: #171717;
+}
+
+:root[data-theme="dark"] .chat-background-preview-avatar.avatar {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(34, 34, 34, 0.72);
+  color: #f0f0ed;
+}
+
+:root[data-theme="dark"] .chat-background-preview.layout-social .chat-background-preview-message p,
+:root[data-theme="dark"] .chat-background-preview.layout-agent .chat-background-preview-message.user p,
+:root[data-theme="dark"] .chat-background-preview.layout-agent.assistant-bubble-enabled .chat-background-preview-message.assistant p {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(30, 30, 30, 0.62);
+}
+
+.chat-background-controls {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.chat-background-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.chat-background-upload:hover:not(:disabled) {
+  background: var(--control-bg-hover);
+}
+
+.chat-background-sliders {
+  display: grid;
+  gap: 12px;
+}
+
+.chat-background-import-default {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.chat-background-import-default > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.chat-background-import-default > div:first-child > span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.chat-background-segmented {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  flex: 0 0 252px;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+}
+
+.chat-background-segmented button {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chat-background-segmented button.active {
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.chat-background-dialog > footer {
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.chat-background-dialog > footer button {
+  min-width: 76px;
+  height: 36px;
+  padding: 0 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+}
+
+.chat-background-dialog > footer button.primary {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: var(--on-accent);
+}
+
+@media (max-width: 760px) {
+  .chat-background-dialog {
+    gap: 18px;
+    padding: 22px;
+  }
+
+  .chat-background-body {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .chat-background-modes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .chat-background-modes > button {
+    min-height: 44px;
+  }
+
+  .chat-background-import-default {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .chat-background-segmented {
+    flex-basis: auto;
+  }
+}
+
+@media (max-width: 460px) {
+  .chat-background-backdrop {
+    padding: 12px;
+  }
+
+  .chat-background-dialog {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    padding: 19px;
+  }
+
+  .chat-background-modes {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-background-preview {
+    height: 210px;
+  }
+
+  .chat-background-preview-messages {
+    padding: 20px;
+  }
+}

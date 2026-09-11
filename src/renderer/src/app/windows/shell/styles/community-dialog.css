@@ -1,0 +1,168 @@
+.community-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 175;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(24 28 34 / 24%);
+  backdrop-filter: blur(3px);
+  -webkit-app-region: no-drag;
+}
+
+.community-dialog {
+  position: relative;
+  width: min(380px, calc(100vw - 48px));
+  padding: 28px 24px 22px;
+  color: var(--text);
+  text-align: center;
+  background: var(--chat);
+  border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  border-radius: 16px;
+  box-shadow: 0 18px 48px rgb(0 0 0 / 18%);
+}
+
+.community-dialog-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: var(--muted);
+}
+
+.community-dialog-close:hover {
+  color: var(--text);
+  background: var(--control-bg);
+}
+
+.community-dialog-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.community-dialog-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 14px;
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) 11%, var(--chat));
+  border-radius: 14px;
+}
+
+.community-dialog-icon svg {
+  width: 25px;
+  height: 25px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.community-dialog h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.community-dialog > p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.community-dialog-group-number {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  margin-top: 20px;
+  padding: 0 16px;
+  background: var(--control-bg);
+  border: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.community-dialog-group-number span {
+  color: var(--muted);
+}
+
+.community-dialog-group-number strong {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.community-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.community-dialog-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 112px;
+  height: 36px;
+  padding: 0 15px;
+  color: var(--text);
+  background: var(--chat);
+  border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.community-dialog-actions button:hover {
+  background: var(--control-bg);
+}
+
+.community-dialog-actions button.is-primary {
+  color: var(--on-accent, #fff);
+  background: var(--blue);
+  border-color: var(--blue);
+}
+
+.community-dialog-actions button.is-primary:hover {
+  background: var(--blue-hover);
+  border-color: var(--blue-hover);
+}
+
+.community-dialog-actions svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.community-dialog-close:focus-visible,
+.community-dialog-actions button:focus-visible,
+.rail-nav-button:focus-visible,
+.rail-settings-trigger:focus-visible,
+.rail-user-trigger:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--blue) 55%, transparent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .community-dialog-close,
+  .community-dialog-actions button {
+    transition-duration: 0.01ms;
+  }
+}

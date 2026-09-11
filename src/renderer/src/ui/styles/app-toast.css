@@ -1,0 +1,115 @@
+.app-toast {
+  position: fixed;
+  top: 52px;
+  left: 50%;
+  z-index: 140;
+  display: inline-grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  max-width: min(620px, calc(100vw - 48px));
+  min-height: 38px;
+  padding: 8px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #202020;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.14);
+  transform: translateX(-50%);
+  animation: app-toast-in 0.18s ease both;
+  pointer-events: none;
+}
+
+.app-toast span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-toast-icon {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+}
+
+.app-toast.success {
+  border-color: rgba(32, 177, 90, 0.25);
+  background: rgba(245, 255, 248, 0.97);
+  color: #167a3f;
+}
+
+.app-toast.success .app-toast-icon {
+  background: #20b15a;
+}
+
+.app-toast.success .app-toast-icon::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 3px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(42deg);
+}
+
+.app-toast.error {
+  border-color: rgba(210, 58, 58, 0.24);
+  background: rgba(255, 247, 247, 0.97);
+  color: #c12f2f;
+}
+
+.app-toast.error .app-toast-icon {
+  background: #e04444;
+}
+
+.app-toast.error .app-toast-icon::before,
+.app-toast.error .app-toast-icon::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 8px;
+  width: 8px;
+  height: 2px;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.app-toast.error .app-toast-icon::before {
+  transform: rotate(45deg);
+}
+
+.app-toast.error .app-toast-icon::after {
+  transform: rotate(-45deg);
+}
+
+.app-toast.info .app-toast-icon {
+  background: #13a8ff;
+}
+
+.app-toast.info .app-toast-icon::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 4px;
+  width: 2px;
+  height: 10px;
+  border-radius: 999px;
+  background: #fff;
+}
+
+@keyframes app-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
