@@ -20,7 +20,28 @@ afterEach(() => {
 })
 
 describe('chat image attachment cleanup', () => {
-  it('removes an image after its last referencing conversation is deleted', () => {
+  it('removes a prepared image that never became a message attachment', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'eleckoi-image-cleanup-'))
+    temporaryDirectories.push(directory)
+    const database = new SqliteDatabase(join(directory, 'eleckoi.sqlite3'))
+    database.open()
+    databases.push(database)
+    const removeImage = vi.fn()
+    const cleanup = new AgentAttachmentCleanupRepository(
+      database,
+      { removeImage },
+      new MessageRepository(database)
+    )
+    const attachmentId = 'sha256:' + 'a'.repeat(64)
+
+    cleanup.discardPrepared([attachmentId, attachmentId])
+
+    expect(removeImage).toHaveBeenCalledOnce()
+    expect(removeImage).toHaveBeenCalledWith(attachmentId)
+    expect(database.native.prepare("SELECT * FROM cleanup_operations WHERE kind='dsh_image_attachment'").all()).toEqual([])
+  })
+
+  it('removes an image after its last referencing conversation is deleted', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'eleckoi-image-cleanup-'))
     temporaryDirectories.push(directory)
     const database = new SqliteDatabase(join(directory, 'eleckoi.sqlite3'))
@@ -43,16 +64,16 @@ describe('chat image attachment cleanup', () => {
     messages.create(first, 'user', '', 'complete', undefined, '', [image])
     messages.create(second, 'user', '', 'complete', undefined, '', [image])
 
-    conversations.delete(first)
+    await conversations.delete(first)
     expect(removeImage).not.toHaveBeenCalled()
 
-    conversations.delete(second)
+    await conversations.delete(second)
     expect(removeImage).toHaveBeenCalledOnce()
     expect(removeImage).toHaveBeenCalledWith(image.attachmentId)
     expect(database.native.prepare("SELECT * FROM cleanup_operations WHERE kind='dsh_image_attachment'").all()).toEqual([])
   })
 
-  it('keeps a failed deletion queued for the next cleanup pass', () => {
+  it('keeps a failed deletion queued for the next cleanup pass', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'eleckoi-image-cleanup-'))
     temporaryDirectories.push(directory)
     const database = new SqliteDatabase(join(directory, 'eleckoi.sqlite3'))
@@ -73,7 +94,7 @@ describe('chat image attachment cleanup', () => {
     }
     messages.create(conversationId, 'user', '', 'complete', undefined, '', [image])
 
-    conversations.delete(conversationId)
+    await conversations.delete(conversationId)
 
     expect(database.native.prepare("SELECT state,attemptCount,lastError FROM cleanup_operations WHERE kind='dsh_image_attachment'").get())
       .toMatchObject({ state: 'failed', attemptCount: 1, lastError: expect.stringContaining('locked') })

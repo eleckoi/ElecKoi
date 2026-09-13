@@ -19,12 +19,22 @@ export class AgentAttachmentCleanupRepository implements ConversationDeleteClean
     const retained = new Set(references
       .filter((row) => row.conversationId !== conversationId)
       .map((row) => row.attachmentId))
+    this.enqueueTargets([...targets].filter((id) => !retained.has(id)))
+  }
+
+  discardPrepared(attachmentIds: readonly string[]): void {
+    const retained = new Set(this.messages.listInputImageReferences().map((row) => row.attachmentId))
+    this.store.withWriteTx(() => {
+      this.enqueueTargets([...new Set(attachmentIds)].filter((id) => !retained.has(id)))
+    })
+    this.drain()
+  }
+
+  private enqueueTargets(targetIds: readonly string[]): void {
     const insert = this.store.native.prepare(`INSERT OR IGNORE INTO cleanup_operations(
       id,kind,targetId,state,attemptCount,createdAtEpochMs,updatedAtEpochMs,lastError
     ) VALUES (?,?,?,'queued',0,?,?,'')`)
-    for (const id of targets) {
-      if (!retained.has(id)) insert.run(randomUUID(), kind, id, Date.now(), Date.now())
-    }
+    for (const id of targetIds) insert.run(randomUUID(), kind, id, Date.now(), Date.now())
   }
 
   drain(): void {

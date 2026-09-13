@@ -1,4 +1,5 @@
 export { DshRuntime } from './DshRuntime'
+export { projectDshTrajectory, readDshTrajectory } from './trajectory'
 export { DshProcessProjector, DshReplyProjector, finalReplyText } from './notifications'
 export {
   DshGenerationStatsProjector,
@@ -26,3 +27,13 @@ export type {
   DshGenerationStats,
   DshTokenUsageStats
 } from './generationStats'
+export type {
+  DshSessionEventRecord,
+  DshSessionHeader,
+  DshTrajectoryPage,
+  DshTrajectoryReadOptions,
+  DshTrajectoryRequest,
+  DshTrajectoryRecord,
+  DshTrajectoryRecordKind,
+  DshTrajectoryRecordStatus
+} from './trajectory'

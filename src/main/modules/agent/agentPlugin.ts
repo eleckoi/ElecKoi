@@ -41,11 +41,13 @@ export const agentPlugin = {
       settingLibraries: ctx.settingLibraries,
       agentPresets: ctx.agentPresets,
       webSearchSettings: ctx.webSearchSettings,
-      regexRules: ctx.regexRules
+      regexRules: ctx.regexRules,
+      discardPreparedImages: (attachmentIds) => attachmentCleanup.discardPrepared(attachmentIds)
     })
     ctx.provide('agentSessions', sessions)
     const unregisterDeleteCleanup = ctx.conversations.registerDeleteCleanup(attachmentCleanup)
     const unregisterDeleteGuard = ctx.conversations.registerDeleteGuard(generations)
+    const unregisterDeleteParticipant = ctx.conversations.registerDeleteParticipant(sessions)
 
     const unregister = [
       ctx.desktopGateway.register('command.agent.start', ({ conversationId, text, images }) => (
@@ -63,6 +65,9 @@ export const agentPlugin = {
       ctx.desktopGateway.register('query.agent.generation_stats', ({ conversationId }) => (
         sessions.generationStats(conversationId)
       )),
+      ctx.desktopGateway.register('query.agent.trajectory', ({ conversationId, beforeIndex, limit }) => (
+        sessions.trajectory(conversationId, { beforeIndex, limit })
+      )),
       ctx.desktopGateway.register('query.agent.image', async ({ conversationId, attachmentId }) => {
         return runtime.readImage(ctx.messages.findInputImage(conversationId, attachmentId))
       })
@@ -70,6 +75,7 @@ export const agentPlugin = {
 
     return async () => {
       for (const dispose of unregister.reverse()) dispose()
+      unregisterDeleteParticipant()
       unregisterDeleteGuard()
       unregisterDeleteCleanup()
       await sessions.close()

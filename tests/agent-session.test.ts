@@ -23,6 +23,7 @@ import type {
 
 interface Harness {
   coordinator: AgentSessionCoordinator
+  conversations: ConversationRepository
   database: SqliteDatabase
   models: ModelRepository
   userSettings: UserSettingsStore
@@ -531,13 +532,73 @@ describe('Agent session coordinator（Agent 会话协调器）', () => {
     expect(harness.database.native.prepare("SELECT stateJson FROM chat_session_variable_states WHERE sessionId=? AND kind='current'").get(harness.conversationId)).toEqual({ stateJson: '{"好感度":2}' })
     expect(harness.database.native.prepare('SELECT variableStateJson FROM agent_responses WHERE conversationId=?').get(harness.conversationId)).toEqual({ variableStateJson: '{"好感度":2}' })
   })
+
+  it('stops and disposes the runtime before deleting a conversation', async () => {
+    let finishRuntime!: (result: AgentRunResult) => void
+    const order: string[] = []
+    const harness = createHarness({
+      run: () => new Promise<AgentRunResult>((resolve) => { finishRuntime = resolve }),
+      cancel: async () => {
+        order.push('cancel')
+        finishRuntime('cancelled')
+        return true
+      },
+      disposeConversation: async () => {
+        order.push('dispose')
+        expect(harness.conversations.exists(harness.conversationId)).toBe(true)
+      }
+    })
+    harness.conversations.registerDeleteParticipant(harness.coordinator)
+    harness.coordinator.start(harness.conversationId, '删除中的回复')
+
+    await harness.conversations.delete(harness.conversationId)
+
+    expect(order).toEqual(['cancel', 'dispose'])
+    expect(harness.conversations.exists(harness.conversationId)).toBe(false)
+    expect(harness.database.native.prepare('SELECT * FROM generation_attempts').all()).toEqual([])
+  })
+
+  it('waits for image preparation and discards the detached image before deletion', async () => {
+    const image = {
+      attachmentId: 'sha256:' + 'd'.repeat(64),
+      mediaType: 'image/png' as const,
+      bytes: 68,
+      width: 1,
+      height: 1
+    }
+    let releasePreparation!: (images: Array<typeof image>) => void
+    const discarded: string[][] = []
+    const harness = createHarness({
+      prepareImages: () => new Promise<Array<typeof image>>((resolve) => { releasePreparation = resolve })
+    }, undefined, undefined, undefined, (attachmentIds) => discarded.push([...attachmentIds]))
+    harness.models.save({
+      id: 'test-model', name: 'Test model', provider: 'deepseek', api_key: 'test-key',
+      base_url: 'https://api.deepseek.com', model: 'deepseek-chat',
+      model_options: [{ id: 'deepseek-chat', name: 'deepseek-chat', supportsImageInput: true }],
+      custom_headers: {}, supports_tools: null, enabled: true, image_settings: {}, api_format: 'responses'
+    })
+    harness.conversations.registerDeleteParticipant(harness.coordinator)
+    const start = Promise.resolve(harness.coordinator.start(harness.conversationId, '', [{
+      mediaType: 'image/png', data: 'iVBORw0KGgo=', name: 'pixel.png'
+    }]))
+    const deletion = harness.conversations.delete(harness.conversationId)
+
+    expect(() => harness.coordinator.start(harness.conversationId, '不应再开始')).toThrow('正在删除')
+    releasePreparation([image])
+    await expect(start).rejects.toMatchObject({ name: 'AbortError' })
+    await deletion
+
+    expect(discarded).toEqual([[image.attachmentId]])
+    expect(harness.conversations.exists(harness.conversationId)).toBe(false)
+  })
 })
 
 function createHarness(
   overrides: Partial<AgentRuntimePort>,
   variableStates?: VariableStateRepository,
   agentPresets?: AgentPresetRepository,
-  personas?: Pick<PersonaRepository, 'get'>
+  personas?: Pick<PersonaRepository, 'get'>,
+  discardPreparedImages?: (attachmentIds: readonly string[]) => void
 ): Harness {
   const directory = mkdtempSync(join(tmpdir(), 'eleckoi-agent-'))
   temporaryDirectories.push(directory)
@@ -585,6 +646,7 @@ function createHarness(
     ...(overrides.readImage ? { readImage: overrides.readImage } : {}),
     run: overrides.run ?? defaultRun,
     cancel: overrides.cancel ?? (async () => true),
+    disposeConversation: overrides.disposeConversation ?? (async () => undefined),
     close: overrides.close ?? (async () => undefined)
   }
   const currentPersonas = personas ?? {
@@ -602,9 +664,10 @@ function createHarness(
     generations: new GenerationRepository(database, messages),
     variableStates,
     agentPresets,
-    personas: currentPersonas
+    personas: currentPersonas,
+    discardPreparedImages
   })
-  return { coordinator, database, models, userSettings, conversationId, events, terminal, terminalRecords }
+  return { coordinator, conversations, database, models, userSettings, conversationId, events, terminal, terminalRecords }
 }
 
 async function defaultRun(

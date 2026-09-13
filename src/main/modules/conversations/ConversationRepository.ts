@@ -30,9 +30,16 @@ export interface ConversationDeleteGuard {
   assertCanDelete(conversationId: string): void
 }
 
+export interface ConversationDeleteParticipant {
+  prepareForDelete(conversationId: string): Promise<void>
+  finishDelete(conversationId: string): void
+}
+
 export class ConversationRepository {
   private readonly deleteCleanups = new Set<ConversationDeleteCleanup>()
   private readonly deleteGuards = new Set<ConversationDeleteGuard>()
+  private readonly deleteParticipants = new Set<ConversationDeleteParticipant>()
+  private readonly pendingDeletes = new Map<string, Promise<void>>()
 
   constructor(
     private readonly store: SqliteDatabase,
@@ -54,6 +61,11 @@ export class ConversationRepository {
   registerDeleteGuard(guard: ConversationDeleteGuard): () => void {
     this.deleteGuards.add(guard)
     return () => this.deleteGuards.delete(guard)
+  }
+
+  registerDeleteParticipant(participant: ConversationDeleteParticipant): () => void {
+    this.deleteParticipants.add(participant)
+    return () => this.deleteParticipants.delete(participant)
   }
 
   create(input: { title?: string | undefined; metadata?: { [K in keyof ConversationMetadata]?: ConversationMetadata[K] | undefined } | undefined }, db?: ElecKoiDatabase) {
@@ -146,17 +158,39 @@ export class ConversationRepository {
       characterPersona: parseJsonObject(snapshot?.personaJson ?? '{}'), modelSettings: parseJsonObject(settings?.settingsJson ?? '{}') }
   }
 
-  delete(id: string): void {
-    this.store.withWriteTx(() => {
-      for (const guard of this.deleteGuards) guard.assertCanDelete(id)
-      if (this.exists(id)) {
-        this.cleanup?.enqueue(id)
-        for (const cleanup of this.deleteCleanups) cleanup.enqueue(id)
-      }
-      this.store.native.prepare('DELETE FROM agent_conversations WHERE id = ?').run(id)
-      this.store.native.prepare('DELETE FROM chat_sessions WHERE id = ?').run(id)
+  delete(id: string): Promise<void> {
+    const pending = this.pendingDeletes.get(id)
+    if (pending !== undefined) return pending
+    const deletion = this.deleteOnce(id).finally(() => {
+      if (this.pendingDeletes.get(id) === deletion) this.pendingDeletes.delete(id)
     })
-    this.flushCleanup()
+    this.pendingDeletes.set(id, deletion)
+    return deletion
+  }
+
+  private async deleteOnce(id: string): Promise<void> {
+    if (!this.exists(id)) {
+      this.flushCleanup()
+      return
+    }
+    const participants = [...this.deleteParticipants]
+    try {
+      for (const participant of participants) await participant.prepareForDelete(id)
+      this.store.withWriteTx(() => this.deleteInTransaction(id))
+      this.flushCleanup()
+    } finally {
+      for (const participant of participants.reverse()) participant.finishDelete(id)
+    }
+  }
+
+  private deleteInTransaction(id: string): void {
+    for (const guard of this.deleteGuards) guard.assertCanDelete(id)
+    if (this.exists(id)) {
+      this.cleanup?.enqueue(id)
+      for (const cleanup of this.deleteCleanups) cleanup.enqueue(id)
+    }
+    this.store.native.prepare('DELETE FROM agent_conversations WHERE id = ?').run(id)
+    this.store.native.prepare('DELETE FROM chat_sessions WHERE id = ?').run(id)
   }
 
   flushCleanup(): void {
@@ -167,7 +201,7 @@ export class ConversationRepository {
   deleteForCharacter(characterId: string): void {
     this.store.withWriteTx(() => {
       const sessions = this.store.db.select({ id: chatSessions.id }).from(chatSessions).where(eq(chatSessions.characterId, characterId)).all()
-      for (const { id } of sessions) this.delete(id)
+      for (const { id } of sessions) this.deleteInTransaction(id)
     })
     this.flushCleanup()
   }

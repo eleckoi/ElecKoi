@@ -109,17 +109,17 @@ function readTool() {
 function patchTool() {
   return defineTool({
     name: 'eleckoi_apply_setting_patch',
-    description: '对当前对话的虚拟设定执行一个结构化文件操作。支持 write_file、edit_file、make_directory、move_file、move_directory、delete_file、delete_directory；路径使用 / 分隔且不带 .md 后缀。一次调用只执行一个操作，失败时不提交。',
+    description: '对当前对话的虚拟设定执行一个结构化文件操作，修改只保存为当前对话差异，不会改动作者原设定。支持 write_file、edit_file、make_directory、move_file、move_directory、delete_file、delete_directory；路径使用 / 分隔且不带 .md 后缀。先用 Glob 或 Read 确认真实路径；一次调用只执行一个操作，失败时不提交。',
     parameters: {
-      operation: { type: 'string', required: true, enum: ['write_file', 'edit_file', 'make_directory', 'move_file', 'move_directory', 'delete_file', 'delete_directory'] },
-      path: { type: 'string', required: true },
-      destination: { type: 'string' },
-      content: { type: 'string' },
-      selection_hint: { type: 'string' },
-      old_string: { type: 'string' },
-      new_string: { type: 'string' },
-      replace_all: { type: 'boolean' },
-      overwrite: { type: 'boolean' }
+      operation: { type: 'string', required: true, enum: ['write_file', 'edit_file', 'make_directory', 'move_file', 'move_directory', 'delete_file', 'delete_directory'], description: '要执行的单个文件操作。' },
+      path: { type: 'string', required: true, description: '源文件或目录的完整逻辑路径。' },
+      destination: { type: 'string', description: 'move_file 或 move_directory 的目标完整逻辑路径。' },
+      content: { type: 'string', description: 'write_file 要写入的完整正文。' },
+      selection_hint: { type: 'string', description: 'write_file 可选的 Agent 读取提示。' },
+      old_string: { type: 'string', description: 'edit_file 要精确匹配的原文片段。' },
+      new_string: { type: 'string', description: 'edit_file 的替换文本，可以为空字符串。' },
+      replace_all: { type: 'boolean', description: 'edit_file 是否替换全部匹配；默认 false。' },
+      overwrite: { type: 'boolean', description: 'move_file 遇到同名目标文件时是否覆盖；默认 true。' }
     },
     output: output(),
     async execute(args) {
@@ -143,7 +143,11 @@ function applyOperation(library, args) {
   const path = requiredPath(args.path)
   if (operation === 'write_file') return writeFile(library, path, args)
   if (operation === 'edit_file') return editFile(library, path, args)
-  if (operation === 'make_directory') { ensureDirectory(library, path); return { operation, path, changed: true } }
+  if (operation === 'make_directory') {
+    const existed = Boolean(groupIdAt(library, path))
+    ensureDirectory(library, path)
+    return { operation, path, changed: !existed }
+  }
   if (operation === 'move_file') return moveFile(library, path, requiredPath(args.destination), args.overwrite !== false)
   if (operation === 'move_directory') return moveDirectory(library, path, requiredPath(args.destination))
   if (operation === 'delete_file') return deleteFile(library, path)
@@ -155,16 +159,25 @@ function writeFile(library, path, args) {
   if (typeof args.content !== 'string') throw new Error('write_file 缺少 content。')
   const catalog = catalogOf(library)
   const current = catalog.byPath.get(path)
+  if (groupIdAt(library, path)) throw new Error(`无法写入文件：${path} 已是目录。`)
   const { parent, leaf } = splitPath(path)
   const groupId = ensureDirectory(library, parent)
   const timestamp = new Date().toISOString()
   if (current) {
-    Object.assign(current.raw, { title: leaf, groupId, content: args.content, agentSelectionHint: String(args.selection_hint ?? current.raw.agentSelectionHint ?? '').trim(), updatedAt: timestamp })
+    Object.assign(current.raw, {
+      title: leaf,
+      groupId,
+      content: args.content,
+      agentSelectionHint: args.selection_hint === undefined
+        ? current.raw.agentSelectionHint
+        : normalizeSelectionHint(args.selection_hint),
+      updatedAt: timestamp
+    })
     return { operation: 'write_file', path, created: false, changed: true }
   }
   library.entries.push({
     id: randomUUID(), title: leaf, iconId: 'setting', kind: 'normal', groupId, content: args.content,
-    openingMessages: [], defaultOpeningMessageId: '', agentSelectionHint: String(args.selection_hint || '').trim(),
+    openingMessages: [], defaultOpeningMessageId: '', agentSelectionHint: normalizeSelectionHint(args.selection_hint),
     agentReadStrategy: 'normal', agentReadCondition: '', dynamicMode: 'single_condition', keywords: [], keywordScanDepth: 1,
     conditionKeywords: [], keywordCondition: 'none', keywordUseRegex: false, keywordIgnoreCase: true, keywordWholeWord: false,
     keywordRecursionDepth: 0, triggerMode: 'agent_tool', enabled: true, position: null, promptPositionId: '', insertRole: 'user',
@@ -177,18 +190,24 @@ function writeFile(library, path, args) {
 
 function editFile(library, path, args) {
   const entry = requireEntry(library, path)
-  const oldText = String(args.old_string ?? '')
+  if (typeof args.old_string !== 'string') throw new Error('edit_file 缺少 old_string。')
+  if (typeof args.new_string !== 'string') throw new Error('edit_file 缺少 new_string。')
+  const oldText = args.old_string
+  const newText = args.new_string
   if (!oldText) throw new Error('edit_file 的 old_string 不能为空。')
+  if (oldText === newText) throw new Error('edit_file 的 old_string 和 new_string 不能相同。')
   const count = entry.content.split(oldText).length - 1
   if (!count) throw new Error('正文中找不到 old_string。')
   if (count > 1 && args.replace_all !== true) throw new Error('old_string 出现多次，请提供更精确的文本或启用 replace_all。')
-  entry.content = args.replace_all === true ? entry.content.split(oldText).join(String(args.new_string ?? '')) : entry.content.replace(oldText, String(args.new_string ?? ''))
+  entry.content = args.replace_all === true ? entry.content.split(oldText).join(newText) : entry.content.replace(oldText, newText)
   entry.updatedAt = new Date().toISOString()
   return { operation: 'edit_file', path, replacements: args.replace_all === true ? count : 1, changed: true }
 }
 
 function moveFile(library, source, destination, overwrite) {
   const entry = requireEntry(library, source)
+  if (source === destination) return { operation: 'move_file', path: source, destination, changed: false }
+  if (groupIdAt(library, destination)) throw new Error(`无法移动文件：目标 ${destination} 是目录。`)
   const target = catalogOf(library).byPath.get(destination)
   if (target && target.raw.id !== entry.id && !overwrite) throw new Error('目标文件已存在。')
   if (target && target.raw.id !== entry.id) library.entries = library.entries.filter((item) => item.id !== target.raw.id)
@@ -199,12 +218,13 @@ function moveFile(library, source, destination, overwrite) {
 
 function moveDirectory(library, source, destination) {
   if (!source) throw new Error('不能移动根目录。')
-  if (destination === source || destination.startsWith(`${source}/`)) throw new Error('目录不能移动到自己或自己的子目录。')
   const sourceId = groupIdAt(library, source)
   if (!sourceId) throw new Error('找不到源目录。')
+  if (destination === source) return { operation: 'move_directory', path: source, destination, changed: false }
+  if (destination.startsWith(`${source}/`)) throw new Error('目录不能移动到自己的子目录。')
+  if (catalogOf(library).byPath.has(destination) || groupIdAt(library, destination)) throw new Error('目标路径已存在。')
   const { parent, leaf } = splitPath(destination)
   const targetParentId = ensureDirectory(library, parent)
-  if (library.groups.some((group) => group.parentId === targetParentId && safeSegment(group.name) === leaf && group.id !== sourceId)) throw new Error('目标目录已存在。')
   const group = library.groups.find((item) => item.id === sourceId)
   group.parentId = targetParentId; group.name = leaf; group.updatedAt = new Date().toISOString()
   return { operation: 'move_directory', path: source, destination, changed: true }
@@ -585,8 +605,10 @@ function toText(value) { return value == null ? '' : String(value) }
 
 function ensureDirectory(library, path) {
   if (!path) return ''
-  const parts = path.split('/'); let parentId = ''
+  const parts = path.split('/'); let parentId = ''; let currentPath = ''
   for (const name of parts) {
+    currentPath = [currentPath, name].filter(Boolean).join('/')
+    if (catalogOf(library).byPath.has(currentPath)) throw new Error(`无法创建目录：${currentPath} 已是文件。`)
     let group = library.groups.find((item) => item.parentId === parentId && safeSegment(item.name) === name)
     if (!group) {
       const timestamp = new Date().toISOString()
@@ -629,12 +651,26 @@ function relative(path, scope) { return scope ? path.slice(scope.length + 1) : p
 function splitPath(path) { const parts = path.split('/'); return { parent: parts.slice(0, -1).join('/'), leaf: parts.at(-1) } }
 function requiredPath(value) { const path = normalizePath(value, false); if (!path) throw new Error('path 必须是非空的安全虚拟路径。'); return path }
 function normalizePath(value, allowRoot) {
-  const raw = String(value || '').trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '').replace(/\/{2,}/g, '/')
-  if (!raw) return allowRoot ? '' : null
-  if (raw.split('/').some((part) => !part || part === '.' || part === '..')) return null
-  return raw.split('/').map(safeSegment).join('/')
+  const segments = String(value || '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^\/+|\/+$/g, '')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean)
+  if (!segments.length) return allowRoot ? '' : null
+  if (segments.some((part) => part === '.' || part === '..' || safeSegment(part) !== part)) return null
+  return segments.join('/')
 }
-function safeSegment(value) { return String(value || '').trim().replace(/[\\/\u0000-\u001f]/g, '_').slice(0, 120) }
+function safeSegment(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .replace(/[\u0000-\u001f]/g, '')
+    .replace(/^[. ]+|[. ]+$/g, '')
+    .slice(0, 72) || '未命名'
+}
+function normalizeSelectionHint(value) { return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 200) }
 function globRegex(pattern) {
   let source = '^'
   for (let index = 0; index < pattern.length; index += 1) {

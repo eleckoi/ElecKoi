@@ -226,6 +226,26 @@ describe("DSH character setting-library tools", () => {
       .resolves.toMatchObject({ status: "change_rejected", state_unchanged: true });
     await expect(patch.execute({ operation: "write_file", path: "../越界", content: "禁止" }))
       .resolves.toMatchObject({ status: "change_rejected", state_unchanged: true });
+    await expect(patch.execute({ operation: "write_file", path: "世界/非法:名称", content: "禁止" }))
+      .resolves.toMatchObject({ status: "change_rejected", state_unchanged: true });
+    await expect(patch.execute({ operation: "edit_file", path: "世界/总览", old_string: "晴天", new_string: "晴天" }))
+      .resolves.toMatchObject({ status: "change_rejected", state_unchanged: true });
     expect(readFileSync(runtime.file, "utf8")).toBe(before);
+  });
+
+  it("matches Android no-op and path-conflict semantics", async () => {
+    const runtime = await tools();
+    const patch = runtime.byName.get("eleckoi_apply_setting_patch");
+
+    await expect(patch.execute({ operation: "make_directory", path: "世界/城市" }))
+      .resolves.toMatchObject({ status: "ok", changed: false });
+    await expect(patch.execute({ operation: "move_file", path: "世界/总览", destination: "世界/总览" }))
+      .resolves.toMatchObject({ status: "ok", changed: false });
+    await expect(patch.execute({ operation: "move_directory", path: "世界/城市", destination: "世界/城市" }))
+      .resolves.toMatchObject({ status: "ok", changed: false });
+    await expect(patch.execute({ operation: "write_file", path: "世界/城市", content: "禁止覆盖目录" }))
+      .resolves.toMatchObject({ status: "change_rejected", state_unchanged: true });
+    await expect(patch.execute({ operation: "move_file", path: "世界/总览", destination: "世界/城市" }))
+      .resolves.toMatchObject({ status: "change_rejected", state_unchanged: true });
   });
 });

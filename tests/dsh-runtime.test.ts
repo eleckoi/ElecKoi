@@ -4,9 +4,46 @@ import { once } from 'node:events'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { DshRuntime } from '@eleckoi/dsh-runtime'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 describe('packaged DSH runtime composition', () => {
+  it('disposes one conversation session and clears its in-memory trajectory state', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'eleckoi-dsh-dispose-'))
+    const runtime = new DshRuntime({
+      configPath: resolve('resources/dsh/cordis.yml'),
+      presetTemplatePath: resolve('resources/dsh/agent-preset-template/agent.cordis.yml'),
+      workspaceRoot: join(root, 'workspace'),
+      runtimeDataRoot: join(root, 'runtime'),
+      executablePath: process.execPath
+    })
+    const closeSession = vi.fn(async () => undefined)
+    const internals = runtime as unknown as {
+      sessions: Map<string, { harness: { close(): Promise<void> }; settingsKey: string }>
+      activeRuns: Map<string, { cancelled: boolean }>
+      trajectoryEvents: Map<string, unknown[]>
+      generationStatsProjectors: Map<string, unknown>
+    }
+    internals.sessions.set('target', { harness: { close: closeSession }, settingsKey: '{}' })
+    internals.activeRuns.set('target', { cancelled: false })
+    internals.trajectoryEvents.set('target\u0000thread-a', [{}])
+    internals.trajectoryEvents.set('other\u0000thread-b', [{}])
+    internals.generationStatsProjectors.set('target\u0000thread-a', {})
+    internals.generationStatsProjectors.set('other\u0000thread-b', {})
+
+    try {
+      await runtime.disposeConversation('target')
+
+      expect(closeSession).toHaveBeenCalledOnce()
+      expect(internals.sessions.has('target')).toBe(false)
+      expect(internals.activeRuns.has('target')).toBe(false)
+      expect([...internals.trajectoryEvents.keys()]).toEqual(['other\u0000thread-b'])
+      expect([...internals.generationStatsProjectors.keys()]).toEqual(['other\u0000thread-b'])
+    } finally {
+      await runtime.close()
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it('boots the real Cordis plugin tree and completes the JSON-RPC handshake', async () => {
     const root = await mkdtemp(join(tmpdir(), 'eleckoi-dsh-runtime-'))
     const runtime = new DshRuntime({

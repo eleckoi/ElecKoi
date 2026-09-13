@@ -183,7 +183,7 @@ describe('shared SQLite baseline', () => {
     expect(() => messages.page(id, undefined, 201)).toThrow('轮次数')
   })
 
-  it('persists rich-message layout by content revision and removes it with the conversation', () => {
+  it('persists rich-message layout by content revision and removes it with the conversation', async () => {
     const { conversations, database } = harness()
     const conversationId = conversations.create({}).conversation.id
     const repository = new RichMessageHeightRepository(database)
@@ -198,7 +198,7 @@ describe('shared SQLite baseline', () => {
     expect(repository.list(conversationId)).toHaveLength(1)
     expect(repository.list(conversationId)[0]).toMatchObject({ contentRevision: 'revision-b', heightPx: 700 })
 
-    conversations.delete(conversationId)
+    await conversations.delete(conversationId)
     expect(repository.list(conversationId)).toEqual([])
   })
 
@@ -414,6 +414,55 @@ describe('shared SQLite baseline', () => {
     expect(JSON.parse(persisted.payloadJson)).toMatchObject({ id: entry.id, content: '会话专属改写' })
   })
 
+  it('manages conversation setting overlays without changing the author library', () => {
+    const { characters, conversations, database } = harness()
+    characters.replaceAll({ active_character_id: 'card-a', groups: [], items: [card()] })
+    const settingLibraries = new SettingLibraryRepository(database)
+    const base = settingLibraries.get('card-a')
+    const timestamp = new Date().toISOString()
+    const entry = {
+      id: 'agent-memory', title: '对话记忆', iconId: '', kind: 'normal' as const, groupId: '',
+      content: '母设定', openingMessages: [], defaultOpeningMessageId: '', agentSelectionHint: '需要时读取',
+      agentReadStrategy: 'normal' as const, agentReadCondition: '', dynamicMode: 'single_condition' as const,
+      keywords: [], keywordScanDepth: 1, conditionKeywords: [], keywordCondition: 'none' as const,
+      keywordUseRegex: false, keywordIgnoreCase: true, keywordWholeWord: false, keywordRecursionDepth: 0,
+      triggerMode: 'agent_tool' as const, enabled: true, position: null, promptPositionId: '',
+      insertRole: 'user' as const, order: 1, viewOrder: 1, groupViewOrder: 0, treeViewOrder: 1,
+      createdAt: timestamp, updatedAt: timestamp
+    }
+    settingLibraries.save('card-a', { ...base, entries: [...base.entries, entry] })
+    const conversationId = conversations.create({ metadata: { characterId: 'card-a' } }).conversation.id
+    expect(settingLibraries.conversationLibrary('card-a', conversationId)).toBeUndefined()
+
+    const authorLibrary = settingLibraries.get('card-a')
+    const effective = settingLibraries.replaceConversationLibrary('card-a', conversationId, {
+      ...authorLibrary,
+      entries: authorLibrary.entries.map((candidate) => candidate.id === entry.id
+        ? { ...candidate, content: '只属于当前对话', updatedAt: new Date().toISOString() }
+        : candidate)
+    })
+
+    expect(effective.versions).toEqual([])
+    expect(effective.entries.find((candidate) => candidate.id === entry.id)?.content).toBe('只属于当前对话')
+    expect(settingLibraries.get('card-a').entries.find((candidate) => candidate.id === entry.id)?.content).toBe('母设定')
+    expect(settingLibraries.conversationLibrary('card-a', conversationId)?.entries.find((candidate) => candidate.id === entry.id)?.content)
+      .toBe('只属于当前对话')
+
+    const withVersion = settingLibraries.saveConversationAsVersion('card-a', conversationId, '第一段对话')
+    expect(withVersion.versions.find((version) => version.name === '第一段对话')?.entries
+      .find((candidate) => candidate.id === entry.id)?.content).toBe('只属于当前对话')
+    expect(() => settingLibraries.replaceConversationLibrary('card-a', conversationId, {
+      ...effective,
+      entries: effective.entries.map((candidate) => candidate.id === 'fixed-opening-assistant'
+        ? { ...candidate, content: '越权修改' }
+        : candidate)
+    })).toThrow('只允许查看')
+
+    settingLibraries.deleteConversationChanges('card-a', conversationId)
+    expect(settingLibraries.conversationLibrary('card-a', conversationId)).toBeUndefined()
+    expect(settingLibraries.get('card-a').entries.find((candidate) => candidate.id === entry.id)?.content).toBe('母设定')
+  })
+
   it('creates a story conversation with the saved primary opening as its first assistant message', () => {
     const { characters, database } = harness()
     characters.replaceAll({ active_character_id: 'card-a', groups: [], items: [card()] })
@@ -583,7 +632,7 @@ describe('shared SQLite baseline', () => {
     expect(database.native.pragma('foreign_key_check')).toEqual([])
   })
 
-  it('checkpoints only changed chunks and recovers interrupted executions without losing the prefix', () => {
+  it('checkpoints only changed chunks and recovers interrupted executions without losing the prefix', async () => {
     const { conversations, messages, database } = harness()
     const id = conversations.create({}).conversation.id
     messages.create(id, 'user', 'input', 'complete')
@@ -596,11 +645,11 @@ describe('shared SQLite baseline', () => {
     database.native.exec(`CREATE TEMP TABLE chunk_writes(chunk INTEGER); CREATE TEMP TRIGGER watch_parts AFTER UPDATE ON agent_content_parts BEGIN INSERT INTO chunk_writes VALUES(new.chunkIndex); END;`)
     messages.appendCheckpoint(reply.id, 'tail')
     expect(database.native.prepare('SELECT chunk FROM chunk_writes').all()).toEqual([{ chunk: 1 }])
-    expect(() => conversations.delete(id)).toThrow('先停止')
+    await expect(conversations.delete(id)).rejects.toThrow('先停止')
     database.close(); database.open()
     expect(messages.list(id).at(-1)).toMatchObject({ content: prefix + 'tail', status: 'error' })
     expect(database.native.prepare("SELECT state FROM generation_attempts WHERE id='run-a'").get()).toEqual({ state: 'failed' })
-    conversations.delete(id)
+    await conversations.delete(id)
     expect(database.native.prepare('SELECT * FROM agent_content_parts').all()).toEqual([])
   })
 
@@ -656,7 +705,7 @@ describe('shared SQLite baseline', () => {
       .toEqual([{ id: 'current' }])
   })
 
-  it('retains failed file cleanup after database deletion and retries it after reopening', () => {
+  it('retains failed file cleanup after database deletion and retries it after reopening', async () => {
     const { database } = harness()
     let fail = true
     const removed: string[] = []
@@ -666,7 +715,7 @@ describe('shared SQLite baseline', () => {
     } })
     const conversations = new ConversationRepository(database, queue)
     const id = conversations.create({}).conversation.id
-    conversations.delete(id)
+    await conversations.delete(id)
     expect(conversations.exists(id)).toBe(false)
     expect(database.native.prepare('SELECT targetId,state,attemptCount FROM cleanup_operations').all()).toEqual([{ targetId: id, state: 'failed', attemptCount: 1 }])
     database.close(); database.open()

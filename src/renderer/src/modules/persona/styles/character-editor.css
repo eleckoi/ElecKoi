@@ -92,7 +92,8 @@
 .character-editor-workspace.is-basic-info,
 .character-editor-workspace.is-setting-library,
 .character-editor-workspace.is-variable-config,
-.character-editor-workspace.is-regex-rules {
+.character-editor-workspace.is-regex-rules,
+.character-editor-workspace.is-dynamic-settings {
   padding: 0;
   overflow: hidden;
 }

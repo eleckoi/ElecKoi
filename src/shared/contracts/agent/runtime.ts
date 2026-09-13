@@ -4,6 +4,7 @@ import type { VariableItemConfig, VariableObjectConfig } from '../variables/sche
 import type { SettingLibraryEntry, SettingLibraryGroup, SettingLibraryPromptPosition } from '../settingLibrary/schemas'
 import type { AgentGenerationStats } from './generationStats'
 import type { WebSearchMode } from './webSearch'
+import type { AgentTrajectorySnapshot } from './trajectory'
 
 export interface AgentVariableRuntimeContext {
   initialStateJson: string
@@ -79,6 +80,12 @@ export interface AgentRuntimePort {
   readImage?(image: ChatUserImageAttachment): Promise<{ mediaType: ChatImageMediaType; data: string }>
   run(input: AgentRunInput, callbacks: AgentRunCallbacks): Promise<AgentRunResult>
   generationStats?(conversationId: string, runtimeThreadId: string): AgentGenerationStats | undefined
+  trajectory?(
+    conversationId: string,
+    runtimeThreadId: string,
+    options?: { beforeIndex?: number | undefined; limit?: number | undefined }
+  ): AgentTrajectorySnapshot
   cancel(conversationId: string): Promise<boolean>
+  disposeConversation(conversationId: string): Promise<void>
   close(): Promise<void>
 }

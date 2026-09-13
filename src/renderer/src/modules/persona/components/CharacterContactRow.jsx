@@ -1,10 +1,9 @@
-import { characterAvatar, characterCover, characterDescription, characterName } from "./characterUtils.js";
+import { characterAvatar, characterCover, characterName } from "./characterUtils.js";
 import { SidebarCharacterArtwork } from "../../../ui/ui/SidebarCharacterArtwork.jsx";
 
 export function CharacterContactRow({ character, active, artworkMode, onClick, onDoubleClick, onContextMenu }) {
   const name = characterName(character);
   const avatar = characterAvatar(character);
-  const description = characterDescription(character);
   const resolvedArtworkMode = artworkMode === "avatar" ? "avatar" : "cover";
 
   return (
@@ -18,7 +17,6 @@ export function CharacterContactRow({ character, active, artworkMode, onClick, o
       <SidebarCharacterArtwork mode={resolvedArtworkMode} name={name} avatar={avatar} cover={characterCover(character)} />
       <div className="character-contact-copy">
         <strong>{name}</strong>
-        {description ? <span>{description}</span> : null}
       </div>
     </button>
   );

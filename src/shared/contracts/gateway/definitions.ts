@@ -18,7 +18,7 @@ import {
   resolvedAppearanceModeSchema,
   settingKeySchema
 } from '../settings/schemas'
-import { settingLibrarySchema } from '../settingLibrary/schemas'
+import { settingLibraryConversationSchema, settingLibrarySchema } from '../settingLibrary/schemas'
 import { variableConfigSchema } from '../variables/schemas'
 import { variableViewerTimelineSchema } from '../variables/viewer'
 import {
@@ -38,6 +38,7 @@ import {
 } from '../regex/schemas'
 import { defineRoute } from './define'
 import { agentGenerationStatsSchema } from '../agent/generationStats'
+import { agentTrajectorySnapshotSchema } from '../agent/trajectory'
 import {
   tavilyConnectionSchema,
   webSearchSettingsSchema,
@@ -149,6 +150,30 @@ export const requestContracts = {
   'command.setting_library.view_state.save': defineRoute(
     z.object({ characterId: z.string().min(1), expandedGroupIds: z.array(z.string()) }),
     z.array(z.string())
+  ),
+  'query.setting_library.conversations': defineRoute(
+    z.object({ characterId: z.string().min(1) }),
+    z.array(settingLibraryConversationSchema)
+  ),
+  'command.setting_library.conversation.save': defineRoute(
+    z.object({
+      characterId: z.string().min(1),
+      sessionId: z.string().min(1),
+      library: settingLibrarySchema
+    }),
+    settingLibrarySchema
+  ),
+  'command.setting_library.conversation.reset': defineRoute(
+    z.object({ characterId: z.string().min(1), sessionId: z.string().min(1) }),
+    z.object({ ok: z.literal(true) })
+  ),
+  'command.setting_library.conversation.save_version': defineRoute(
+    z.object({
+      characterId: z.string().min(1),
+      sessionId: z.string().min(1),
+      name: z.string().trim().min(1).max(60)
+    }),
+    settingLibrarySchema
   ),
   'query.variable_config.read': defineRoute(
     z.object({ characterId: z.string().min(1) }),
@@ -318,6 +343,14 @@ export const requestContracts = {
   'query.agent.generation_stats': defineRoute(
     z.object({ conversationId: z.string().min(1) }),
     z.object({ conversationId: z.string(), stats: agentGenerationStatsSchema.nullable() })
+  ),
+  'query.agent.trajectory': defineRoute(
+    z.object({
+      conversationId: z.string().min(1),
+        beforeIndex: z.number().int().positive().optional(),
+      limit: z.number().int().min(1).max(1_000).optional()
+    }),
+    agentTrajectorySnapshotSchema
   ),
   'query.agent.image': defineRoute(
     z.object({ conversationId: z.string().min(1), attachmentId: z.string().min(1) }),

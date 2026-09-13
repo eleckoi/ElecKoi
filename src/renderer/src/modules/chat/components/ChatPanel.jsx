@@ -1,12 +1,13 @@
 import { ChatComposer } from "./ChatComposer.jsx";
 import { ChatWaitingReply } from "./ChatWaitingReply.jsx";
 import { AgentProcessDialog } from "./AgentProcessDialog.jsx";
+import { TrajectoryDialog } from "./TrajectoryDialog.jsx";
 import { VariableViewerDialog } from "./VariableViewerDialog.jsx";
 import { AgentToolsDialog } from "./AgentToolsDialog.jsx";
 import { MessageBubble } from "../../../ui/messages/MessageBubble.jsx";
 import logoIcon from "../../../assets/eleckoi-app-icon.png";
 import { DshNewChatIcon } from "../../../ui/icons/dshComposerIcons.jsx";
-import { ImageSquare, SlidersHorizontal } from "@phosphor-icons/react";
+import { ImageSquare, Path, SlidersHorizontal } from "@phosphor-icons/react";
 import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { getGenerationStats, listenGenerationStatsEvent } from "../api/chatApi.js";
@@ -62,6 +63,7 @@ export function ChatPanel({
   const [messageAreaHovered, setMessageAreaHovered] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [processMessage, setProcessMessage] = useState(null);
+  const [trajectoryOpen, setTrajectoryOpen] = useState(false);
   const [variablesOpen, setVariablesOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [imageDragActive, setImageDragActive] = useState(false);
@@ -221,6 +223,12 @@ export function ChatPanel({
       <header className="chat-header">
         <h1>{currentTitle}</h1>
         <div className="chat-header-actions" ref={headerMenuRef}>
+          <button className="chat-header-action" type="button" aria-label="查看轨迹" title="查看轨迹" onClick={() => {
+            setHeaderMenuOpen(false);
+            setTrajectoryOpen(true);
+          }}>
+            <Path size={20} weight="bold" />
+          </button>
           <button className="chat-header-action" type="button" aria-label="对话操作" title="对话操作" aria-haspopup="menu" aria-expanded={headerMenuOpen} onClick={() => setHeaderMenuOpen((value) => !value)}>
             <SlidersHorizontal size={20} weight="bold" />
           </button>
@@ -325,6 +333,11 @@ export function ChatPanel({
           onClose={() => setProcessMessage(null)}
         />
       ) : null}
+      {trajectoryOpen ? <TrajectoryDialog
+        conversationId={conversationId}
+        isSending={isSending}
+        onClose={() => setTrajectoryOpen(false)}
+      /> : null}
       {variablesOpen ? <VariableViewerDialog conversationId={conversationId} onClose={() => setVariablesOpen(false)} onNotify={onNotify} /> : null}
       {toolsOpen ? <AgentToolsDialog
         modelConfigs={modelConfigs}

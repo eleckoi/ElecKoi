@@ -32,6 +32,31 @@ function details(ctx: Context, projector: MessageDisplayProjector, conversationI
   }
 }
 
+function requireStoryConversation(ctx: Context, characterId: string, conversationId: string): void {
+  const binding = ctx.conversations.getCharacterBinding(conversationId)
+  if (binding.characterId !== characterId || binding.characterMode !== 'story') {
+    throw new Error('这段对话不属于当前故事角色。')
+  }
+}
+
+function conversationSettingLibraries(ctx: Context, characterId: string) {
+  return ctx.conversations.list()
+    .filter(({ metadata }) => metadata.characterId === characterId)
+    .map(({ conversation, metadata }) => {
+      const library = ctx.settingLibraries.conversationLibrary(characterId, conversation.id)
+      return library ? {
+        sessionId: conversation.id,
+        title: conversation.title,
+        characterName: metadata.characterName,
+        characterAvatar: metadata.characterAvatar,
+        summary: conversation.preview,
+        updatedAt: conversation.updatedAt,
+        library
+      } : null
+    })
+    .filter((item) => item !== null)
+}
+
 export const conversationsPlugin = {
   name: 'eleckoi-conversations',
   inject: ['database', 'desktopGateway', 'conversationFiles', 'settingLibraries', 'variables', 'variableStates', 'regexRules', 'messageDisplayCompatibility'],
@@ -66,6 +91,27 @@ export const conversationsPlugin = {
       ctx.desktopGateway.register('query.conversations.list', () => (
         conversations.list().map(({ conversation, metadata }) => ({ ...conversation, metadata }))
       )),
+      ctx.desktopGateway.register('query.setting_library.conversations', ({ characterId }) => (
+        conversationSettingLibraries(ctx, characterId)
+      )),
+      ctx.desktopGateway.register('command.setting_library.conversation.save', ({ characterId, sessionId, library }) => {
+        requireStoryConversation(ctx, characterId, sessionId)
+        const saved = ctx.settingLibraries.replaceConversationLibrary(characterId, sessionId, library)
+        ctx.desktopGateway.broadcast('records.changed', { module: 'settingLibraries' })
+        return saved
+      }),
+      ctx.desktopGateway.register('command.setting_library.conversation.reset', ({ characterId, sessionId }) => {
+        requireStoryConversation(ctx, characterId, sessionId)
+        ctx.settingLibraries.deleteConversationChanges(characterId, sessionId)
+        ctx.desktopGateway.broadcast('records.changed', { module: 'settingLibraries' })
+        return { ok: true as const }
+      }),
+      ctx.desktopGateway.register('command.setting_library.conversation.save_version', ({ characterId, sessionId, name }) => {
+        requireStoryConversation(ctx, characterId, sessionId)
+        const saved = ctx.settingLibraries.saveConversationAsVersion(characterId, sessionId, name)
+        ctx.desktopGateway.broadcast('records.changed', { module: 'settingLibraries' })
+        return saved
+      }),
       ctx.desktopGateway.register('query.conversations.details', ({ conversationId }) => (
         details(ctx, projector, conversationId)
       )),
@@ -87,8 +133,8 @@ export const conversationsPlugin = {
         ctx.desktopGateway.broadcast('records.changed', { module: 'conversations' })
         return details(ctx, projector, created.conversation.id)
       }),
-      ctx.desktopGateway.register('command.conversations.delete', ({ conversationId }) => {
-        conversations.delete(conversationId)
+      ctx.desktopGateway.register('command.conversations.delete', async ({ conversationId }) => {
+        await conversations.delete(conversationId)
         ctx.desktopGateway.broadcast('records.changed', { module: 'conversations' })
         return { ok: true as const }
       }),

@@ -108,8 +108,19 @@ export const settingLibrarySchema = z.object({
   expandedGroupIds: z.array(z.string())
 }).strict()
 
+export const settingLibraryConversationSchema = z.object({
+  sessionId: z.string().min(1),
+  title: z.string(),
+  characterName: z.string(),
+  characterAvatar: z.string(),
+  summary: z.string(),
+  updatedAt: z.string(),
+  library: settingLibrarySchema
+}).strict()
+
 export type SettingLibrary = z.output<typeof settingLibrarySchema>
 export type SettingLibraryEntry = z.output<typeof settingLibraryEntrySchema>
 export type SettingLibraryGroup = z.output<typeof settingLibraryGroupSchema>
 export type SettingLibraryPromptPosition = z.output<typeof settingLibraryPromptPositionSchema>
 export type SettingLibraryVersion = z.output<typeof settingLibraryVersionSchema>
+export type SettingLibraryConversation = z.output<typeof settingLibraryConversationSchema>

@@ -1,0 +1,708 @@
+.trajectory-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 230;
+  display: grid;
+  place-items: center;
+  padding: 36px;
+  background: rgba(20, 23, 28, 0.36);
+  -webkit-app-region: no-drag;
+}
+
+.trajectory-dialog {
+  --trajectory-system: #83898f;
+  --trajectory-user: #668df0;
+  --trajectory-context: #58b984;
+  --trajectory-assistant: #9a82bd;
+  --trajectory-tool: #df882b;
+  --trajectory-compaction: #bd6f9a;
+  display: grid;
+  grid-template-rows: 58px 48px 88px minmax(0, 1fr);
+  width: min(1440px, calc(100vw - 72px));
+  height: min(900px, calc(100vh - 72px));
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.24);
+}
+
+.trajectory-dialog:focus {
+  outline: none;
+}
+
+.trajectory-titlebar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 40px;
+  align-items: center;
+  gap: 14px;
+  padding: 0 12px 0 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.trajectory-titlebar h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.trajectory-titlebar .trajectory-count {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trajectory-titlebar button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+}
+
+.trajectory-titlebar button:hover {
+  background: var(--control-bg-hover);
+}
+
+.trajectory-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.trajectory-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.trajectory-toolbar-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+}
+
+.trajectory-toolbar-actions button:hover,
+.trajectory-toolbar-actions button[aria-pressed="true"] {
+  background: var(--control-bg);
+  color: var(--text);
+}
+
+.trajectory-toolbar-actions button > span {
+  width: 14px;
+  color: var(--soft-text);
+  text-align: center;
+}
+
+.trajectory-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: min(220px, 32vw);
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--field-bg);
+  color: var(--muted);
+}
+
+.trajectory-search:focus-within {
+  border-color: color-mix(in srgb, var(--text) 28%, var(--line-strong));
+}
+
+.trajectory-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.trajectory-search input::placeholder {
+  color: var(--soft-text);
+}
+
+.trajectory-overview {
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  padding: 10px 16px 11px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-subtle) 54%, var(--surface-raised));
+}
+
+.trajectory-lane {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.trajectory-lane > span {
+  color: var(--muted);
+  font-size: 11px;
+  text-align: right;
+}
+
+.trajectory-lane > div {
+  position: relative;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--line-strong) 72%, transparent);
+}
+
+.trajectory-lane button {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--trajectory-left);
+  width: var(--trajectory-width);
+  min-width: 3px;
+  padding: 0;
+  border: 0;
+  border-right: 2px solid var(--surface-raised);
+  background: var(--trajectory-system);
+}
+
+.trajectory-lane button:hover {
+  filter: brightness(1.08);
+}
+
+.trajectory-lane button.is-selected {
+  z-index: 2;
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+
+.trajectory-dialog .kind-system { --trajectory-kind-color: var(--trajectory-system); }
+.trajectory-dialog .kind-user { --trajectory-kind-color: var(--trajectory-user); }
+.trajectory-dialog .kind-context { --trajectory-kind-color: var(--trajectory-context); }
+.trajectory-dialog .kind-assistant { --trajectory-kind-color: var(--trajectory-assistant); }
+.trajectory-dialog .kind-tool { --trajectory-kind-color: var(--trajectory-tool); }
+.trajectory-dialog .kind-compaction { --trajectory-kind-color: var(--trajectory-compaction); }
+.trajectory-lane button.kind-system,
+.trajectory-lane button.kind-user,
+.trajectory-lane button.kind-context,
+.trajectory-lane button.kind-assistant,
+.trajectory-lane button.kind-tool,
+.trajectory-lane button.kind-compaction { background: var(--trajectory-kind-color); }
+
+.trajectory-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
+
+.trajectory-content.has-inspector {
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 34%);
+}
+
+.trajectory-ledger,
+.trajectory-inspector-body {
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.trajectory-ledger {
+  background: var(--chat);
+}
+
+.trajectory-content.has-inspector .trajectory-ledger {
+  border-right: 1px solid var(--line);
+}
+
+.trajectory-load-older {
+  display: block;
+  min-width: 128px;
+  height: 34px;
+  margin: 10px auto;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+}
+
+.trajectory-load-older:hover:not(:disabled) {
+  background: var(--control-bg);
+  color: var(--text);
+}
+
+.trajectory-load-older:disabled {
+  opacity: 0.55;
+}
+
+.trajectory-turn {
+  border-bottom: 1px solid var(--line);
+}
+
+.trajectory-turn-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 16px 0 11px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-subtle) 86%, var(--surface-raised));
+  color: var(--text);
+  text-align: left;
+}
+
+.trajectory-turn-header > span {
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.trajectory-turn-header strong {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.trajectory-turn-header small {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trajectory-record {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px 62px minmax(0, 1fr) 10px 66px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 58px;
+  padding: 8px 14px 8px 6px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  cursor: default;
+  font: inherit;
+  outline: none;
+  text-align: left;
+}
+
+.trajectory-record:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--blue);
+}
+
+.trajectory-record:hover {
+  background: color-mix(in srgb, var(--active) 78%, transparent);
+}
+
+.trajectory-record.is-selected {
+  background: color-mix(in srgb, var(--blue) 8%, var(--surface-raised));
+  box-shadow: inset 3px 0 0 var(--blue);
+}
+
+.trajectory-record-seq {
+  color: var(--soft-text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.trajectory-request-point {
+  position: absolute;
+  z-index: 4;
+  top: -8px;
+  left: calc(22px + var(--trajectory-request-offset, 0px));
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.trajectory-request-point::before {
+  position: absolute;
+  top: 5.5px;
+  left: 5.5px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--soft-text);
+  box-shadow: 0 0 0 2px var(--chat), 0 0 0 3px transparent;
+  content: "";
+}
+
+.trajectory-request-point::after {
+  position: absolute;
+  top: 1px;
+  left: 17px;
+  width: max-content;
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+  content: attr(data-label);
+  font: 10px/14px ui-monospace, "Cascadia Code", Consolas, monospace;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-2px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  white-space: nowrap;
+}
+
+.trajectory-request-point:hover::before,
+.trajectory-request-point:focus-visible::before {
+  background: var(--blue);
+}
+
+.trajectory-request-point.is-selected::before {
+  background: color-mix(in srgb, var(--blue) 18%, var(--chat));
+  box-shadow: 0 0 0 1.5px var(--blue);
+}
+
+.trajectory-request-point[data-status="error"]::before {
+  background: #d84a4a;
+}
+
+.trajectory-request-point:hover::after,
+.trajectory-request-point:focus-visible::after {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.trajectory-request-point:focus-visible {
+  outline: none !important;
+}
+
+.trajectory-kind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--trajectory-kind-color) 14%, transparent);
+  color: color-mix(in srgb, var(--trajectory-kind-color) 88%, var(--text));
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.trajectory-record-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.trajectory-record-copy strong,
+.trajectory-record-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trajectory-record-copy strong {
+  font-size: 13px;
+  font-weight: 620;
+}
+
+.trajectory-record-copy small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.trajectory-status {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--soft-text);
+}
+
+.trajectory-status.status-running { background: var(--blue); }
+.trajectory-status.status-complete { background: var(--trajectory-context); }
+.trajectory-status.status-error { background: #d84a4a; }
+.trajectory-status.status-cancelled { background: var(--trajectory-tool); }
+
+.trajectory-record-duration {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.trajectory-inspector {
+  display: grid;
+  grid-template-rows: 52px 43px minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface-raised);
+}
+
+.trajectory-inspector-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto 32px;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.trajectory-request-heading-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--blue);
+}
+
+.trajectory-inspector-close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.trajectory-inspector-close:hover {
+  background: var(--control-bg-hover);
+  color: var(--text);
+}
+
+.trajectory-inspector-heading strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trajectory-inspector-heading small {
+  color: var(--soft-text);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trajectory-tabs {
+  display: flex;
+  align-items: end;
+  gap: 18px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.trajectory-tabs button {
+  position: relative;
+  align-self: stretch;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+}
+
+.trajectory-tabs button[aria-selected="true"] {
+  color: var(--blue);
+}
+
+.trajectory-tabs button[aria-selected="true"]::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--blue);
+  content: "";
+}
+
+.trajectory-inspector-body {
+  padding: 16px;
+}
+
+.trajectory-summary {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.trajectory-summary > div {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.trajectory-summary dt,
+.trajectory-summary dd {
+  margin: 0;
+  font-size: 12px;
+}
+
+.trajectory-summary dt {
+  color: var(--muted);
+}
+
+.trajectory-summary dd {
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+}
+
+.trajectory-inspector pre {
+  margin: 0;
+  color: var(--text);
+  font: 12px/1.65 ui-monospace, "Cascadia Code", Consolas, monospace;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.trajectory-source + .trajectory-source {
+  margin-top: 22px;
+}
+
+.trajectory-source h3 {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.trajectory-source p,
+.trajectory-no-value {
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.trajectory-no-value {
+  color: var(--muted);
+}
+
+.trajectory-state {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  min-height: 160px;
+  padding: 24px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.trajectory-inspector > .trajectory-state {
+  grid-row: 1 / -1;
+  height: 100%;
+}
+
+.trajectory-state p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.trajectory-state button {
+  height: 34px;
+  padding: 0 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--control-bg);
+  color: var(--text);
+}
+
+.trajectory-inline-error {
+  margin: 0;
+  padding: 10px 14px;
+  color: #d84a4a;
+  font-size: 12px;
+}
+
+.trajectory-dialog button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.trajectory-search input:focus-visible {
+  outline: none;
+}
+
+@media (max-width: 900px) {
+  .trajectory-backdrop {
+    align-items: end;
+    padding: 16px 12px 0;
+  }
+
+  .trajectory-dialog {
+    grid-template-rows: 56px 48px 80px minmax(0, 1fr);
+    width: 100%;
+    height: min(94vh, 900px);
+    border-radius: 18px 18px 0 0;
+  }
+
+  .trajectory-content.has-inspector {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(220px, 1.1fr) minmax(220px, 0.9fr);
+  }
+
+  .trajectory-content.has-inspector .trajectory-ledger {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .trajectory-record {
+    grid-template-columns: 34px 58px minmax(0, 1fr) 8px 58px;
+  }
+}
+
+@media (max-width: 560px) {
+  .trajectory-backdrop { padding-inline: 0; }
+  .trajectory-dialog { border-right: 0; border-left: 0; }
+  .trajectory-titlebar .trajectory-count { display: none; }
+  .trajectory-toolbar { gap: 8px; padding-inline: 10px; }
+  .trajectory-toolbar-actions button { padding-inline: 7px; }
+  .trajectory-search { width: 110px; }
+  .trajectory-overview { padding-inline: 10px; }
+  .trajectory-record { grid-template-columns: 52px minmax(0, 1fr) 8px; padding-left: 10px; }
+  .trajectory-record-seq,
+  .trajectory-record-duration { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trajectory-dialog *,
+  .trajectory-dialog *::before,
+  .trajectory-dialog *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}

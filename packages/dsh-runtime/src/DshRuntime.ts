@@ -1,7 +1,7 @@
 import { closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, isAbsolute, join, relative } from 'node:path'
-import { DeepSeekHarness, type ContentBlock } from '@deepseek-ai/dsh-sdk-client'
+import { DeepSeekHarness, type ContentBlock, type HarnessNotification } from '@deepseek-ai/dsh-sdk-client'
 import type { ImageAttachmentLimits, ImageAttachmentRef, SaveImageAttachment } from '@deepseek-ai/dsh-attachment'
 import { commitPreparedImageFile, prepareImageFile, readImageFile } from '@deepseek-ai/dsh-attachment-local'
 import { DshProcessProjector, DshReplyProjector, finalReplyText } from './notifications'
@@ -23,6 +23,11 @@ import type {
   DshAgentPreset,
   DshWebSearchSettings
 } from './types'
+import {
+  readDshTrajectory,
+  type DshSessionEventRecord,
+  type DshTrajectoryReadOptions
+} from './trajectory'
 
 const imageLimits: ImageAttachmentLimits = {
   maxImageBytes: 20 * 1024 * 1024,
@@ -47,6 +52,7 @@ export class DshRuntime {
   private readonly sessions = new Map<string, Session>()
   private readonly activeRuns = new Map<string, ActiveRun>()
   private readonly generationStatsProjectors = new Map<string, DshGenerationStatsProjector>()
+  private readonly trajectoryEvents = new Map<string, DshSessionEventRecord[]>()
   private readonly runtimeBin: string
 
   constructor(private readonly options: DshRuntimeOptions) {
@@ -158,6 +164,7 @@ export class DshRuntime {
       const result = await session.harness.run(content, {
         sessionId: runtimeThreadId,
         onNotification: (notification) => {
+          this.captureTrajectoryEvent(conversationId, runtimeThreadId, notification)
           if (run.cancelled) return
           const generationStats = generationStatsProjector.project(notification, runtimeThreadId)
           if (generationStats !== undefined) {
@@ -195,16 +202,37 @@ export class DshRuntime {
     return true
   }
 
+  async disposeConversation(conversationId: string): Promise<void> {
+    const run = this.activeRuns.get(conversationId)
+    if (run !== undefined) run.cancelled = true
+    await this.disposeSession(conversationId)
+    this.activeRuns.delete(conversationId)
+    clearConversationEntries(this.trajectoryEvents, conversationId)
+    clearConversationEntries(this.generationStatsProjectors, conversationId)
+  }
+
   generationStats(conversationId: string, runtimeThreadId: string): DshGenerationStats | undefined {
     if (!runtimeThreadId) return undefined
     const sessionRoot = join(this.options.runtimeDataRoot, 'sessions', safeConversationDirectory(conversationId))
     return this.generationStatsProjector(conversationId, runtimeThreadId, sessionRoot).snapshot()
   }
 
+  trajectory(conversationId: string, runtimeThreadId: string, options?: DshTrajectoryReadOptions) {
+    const sessionRoot = join(this.options.runtimeDataRoot, 'sessions', safeConversationDirectory(conversationId))
+    return readDshTrajectory(
+      sessionRoot,
+      runtimeThreadId,
+      options,
+      this.trajectoryEvents.get(trajectoryKey(conversationId, runtimeThreadId))
+    )
+  }
+
   async close(): Promise<void> {
     for (const run of this.activeRuns.values()) run.cancelled = true
     await Promise.all([...this.sessions.keys()].map((conversationId) => this.disposeSession(conversationId)))
     this.activeRuns.clear()
+    this.trajectoryEvents.clear()
+    this.generationStatsProjectors.clear()
   }
 
   async verify(): Promise<void> {
@@ -332,6 +360,26 @@ export class DshRuntime {
       ...(settings.maxTokens ? { maxTokens: settings.maxTokens } : {})
     })
     return harness
+  }
+
+  private captureTrajectoryEvent(
+    conversationId: string,
+    runtimeThreadId: string,
+    notification: HarnessNotification
+  ): void {
+    if (notification.method !== 'session.event' || notification.params.sessionId !== runtimeThreadId) return
+    const event = notification.params.event
+    if (!isRecord(event) || typeof event.type !== 'string') return
+    const key = trajectoryKey(conversationId, runtimeThreadId)
+    const events = this.trajectoryEvents.get(key) ?? []
+    const seq = typeof event.seq === 'number' && Number.isSafeInteger(event.seq) && event.seq >= 0
+      ? event.seq
+      : undefined
+    const existingIndex = seq === undefined ? -1 : events.findIndex((item) => item.seq === seq)
+    if (existingIndex >= 0) events[existingIndex] = event
+    else events.push(event)
+    if (events.length > 20_000) events.splice(0, events.length - 20_000)
+    this.trajectoryEvents.set(key, events)
   }
 
   private materializeAgentPreset(
@@ -542,6 +590,21 @@ function storedSessionId(logPath: string): string | undefined {
 function isDescendant(root: string, candidate: string): boolean {
   const path = relative(root, candidate)
   return path.length > 0 && !path.startsWith('..') && !isAbsolute(path)
+}
+
+function trajectoryKey(conversationId: string, runtimeThreadId: string): string {
+  return `${conversationId}\u0000${runtimeThreadId}`
+}
+
+function clearConversationEntries<T>(entries: Map<string, T>, conversationId: string): void {
+  const prefix = `${conversationId}\u0000`
+  for (const key of entries.keys()) {
+    if (key.startsWith(prefix)) entries.delete(key)
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function parsedObject(raw: string, label: string): Record<string, unknown> {

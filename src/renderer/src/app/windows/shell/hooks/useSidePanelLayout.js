@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ensureInitialWindowSizeOnce } from "../../../services/windowControls.js";
 
-const SIDE_PANEL_DEFAULT = 280;
+const SIDE_PANEL_DEFAULT = 328;
 const SIDE_PANEL_MIN = 264;
 const SIDE_PANEL_MAX = 420;
 const MAIN_PANEL_MIN = 640;

@@ -1,7 +1,7 @@
 @property --side-panel-width {
   syntax: "<length>";
   inherits: true;
-  initial-value: 280px;
+  initial-value: 328px;
 }
 
 .qq-shell {

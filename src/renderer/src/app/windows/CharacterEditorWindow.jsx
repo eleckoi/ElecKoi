@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpenText,
   BracketsCurly,
+  FolderSimple,
   IdentificationCard,
   TreeStructure,
 } from "@phosphor-icons/react";
@@ -12,7 +13,7 @@ import {
   updateCharacter,
 } from "../../modules/persona/index.js";
 import { applyAppearanceTheme } from "../../modules/appearance/index.js";
-import { SettingLibraryPanel } from "../../modules/settingLibraries/index.js";
+import { DynamicSettingsPanel, SettingLibraryPanel } from "../../modules/settingLibraries/index.js";
 import { VariableConfigPanel } from "../../modules/variables/index.js";
 import { RegexRulesPanel } from "../../modules/regex/index.js";
 import { UnsavedChangesDialog } from "../../ui/ui/UnsavedChangesDialog.jsx";
@@ -25,6 +26,7 @@ const EDITOR_SECTIONS = [
   { id: "lore", label: "设定库", Icon: BookOpenText },
   { id: "variables", label: "变量", Icon: TreeStructure },
   { id: "regex", label: "正则", Icon: BracketsCurly },
+  { id: "dynamic", label: "动态设定", Icon: FolderSimple },
 ];
 
 function editableCharacterSnapshot(character) {
@@ -52,11 +54,13 @@ export function CharacterEditorWindow() {
   const [loreDirty, setLoreDirty] = useState(false);
   const [variablesDirty, setVariablesDirty] = useState(false);
   const [regexDirty, setRegexDirty] = useState(false);
+  const [dynamicDirty, setDynamicDirty] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const collectionRef = useRef(null);
   const settingLibraryRef = useRef(null);
   const variableConfigRef = useRef(null);
   const regexRulesRef = useRef(null);
+  const dynamicSettingsRef = useRef(null);
   const allowCloseRef = useRef(false);
 
   const basicDirty = useMemo(
@@ -69,6 +73,8 @@ export function CharacterEditorWindow() {
       ? variablesDirty
       : activeSection === "regex"
         ? regexDirty
+        : activeSection === "dynamic"
+          ? dynamicDirty
         : basicDirty;
 
   useEffect(() => {
@@ -150,7 +156,7 @@ export function CharacterEditorWindow() {
   }
 
   async function saveCurrentDraft() {
-    if (activeSection !== "lore" && activeSection !== "variables" && activeSection !== "regex") return saveBasicInfo();
+    if (activeSection !== "lore" && activeSection !== "variables" && activeSection !== "regex" && activeSection !== "dynamic") return saveBasicInfo();
     if (saving) return false;
     setSaving(true);
     try {
@@ -158,11 +164,14 @@ export function CharacterEditorWindow() {
         ? settingLibraryRef.current
         : activeSection === "variables"
           ? variableConfigRef.current
-          : regexRulesRef.current;
+          : activeSection === "regex"
+            ? regexRulesRef.current
+            : dynamicSettingsRef.current;
       const saved = await editor?.save?.() || false;
       if (saved && activeSection === "lore") setLoreDirty(false);
       if (saved && activeSection === "variables") setVariablesDirty(false);
       if (saved && activeSection === "regex") setRegexDirty(false);
+      if (saved && activeSection === "dynamic") setDynamicDirty(false);
       return saved;
     } finally {
       setSaving(false);
@@ -214,6 +223,9 @@ export function CharacterEditorWindow() {
     } else if (activeSection === "regex") {
       regexRulesRef.current?.discard?.();
       setRegexDirty(false);
+    } else if (activeSection === "dynamic") {
+      dynamicSettingsRef.current?.discard?.();
+      setDynamicDirty(false);
     } else setCharacter(persistedCharacter);
     setSaveError("");
     completePendingAction(action);
@@ -269,7 +281,7 @@ export function CharacterEditorWindow() {
       <section className="character-editor-main-panel">
         <TitleBar splitSurface onClose={requestClose} />
         <section
-          className={`character-editor-workspace${activeSection === "card" ? " is-basic-info" : ""}${activeSection === "lore" ? " is-setting-library" : ""}${activeSection === "variables" ? " is-variable-config" : ""}${activeSection === "regex" ? " is-regex-rules" : ""}`}
+          className={`character-editor-workspace${activeSection === "card" ? " is-basic-info" : ""}${activeSection === "lore" ? " is-setting-library" : ""}${activeSection === "variables" ? " is-variable-config" : ""}${activeSection === "regex" ? " is-regex-rules" : ""}${activeSection === "dynamic" ? " is-dynamic-settings" : ""}`}
           aria-label={activeLabel}
         >
           {loaded && !character ? (
@@ -309,6 +321,14 @@ export function CharacterEditorWindow() {
                 ref={regexRulesRef}
                 characterId={character.id}
                 onDirtyChange={setRegexDirty}
+              />
+            ) : null
+          ) : activeSection === "dynamic" ? (
+            character ? (
+              <DynamicSettingsPanel
+                ref={dynamicSettingsRef}
+                characterId={character.id}
+                onDirtyChange={setDynamicDirty}
               />
             ) : null
           ) : (

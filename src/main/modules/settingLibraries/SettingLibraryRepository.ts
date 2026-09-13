@@ -123,7 +123,7 @@ export class SettingLibraryRepository {
           groups.set(row.targetId, { ...group, id: row.targetId })
         }
       } catch {
-        throw new Error(`当前对话的动态设定变更已损坏：${row.targetType}/${row.targetId}`)
+        throw new Error(`当前对话的设定库差异已损坏：${row.targetType}/${row.targetId}`)
       }
     }
     const groupIds = new Set(groups.keys())
@@ -152,6 +152,125 @@ export class SettingLibraryRepository {
       groups: effectiveGroups,
       promptPositions: base.promptPositions
     }
+  }
+
+  /** Returns the effective library only when this conversation owns persisted overrides. */
+  conversationLibrary(
+    characterId: string,
+    conversationId: string,
+    db: ElecKoiDatabase = this.store.db
+  ): SettingLibrary | undefined {
+    requireCharacter(db, characterId)
+    const changes = db.select({ targetId: conversationSettingChanges.targetId })
+      .from(conversationSettingChanges)
+      .where(eq(conversationSettingChanges.sessionId, conversationId)).all()
+    if (!changes.length) return undefined
+    return this.effectiveConversationLibrary(characterId, conversationId, db)
+  }
+
+  /** Replaces one conversation overlay while preserving the author's active library. */
+  replaceConversationLibrary(
+    characterId: string,
+    conversationId: string,
+    input: SettingLibrary
+  ): SettingLibrary {
+    return this.store.withWriteTx((db) => {
+      const desired = settingLibrarySchema.parse(input)
+      if (desired.characterId !== characterId) throw new Error('动态设定与当前角色不匹配。')
+      const base = this.get(characterId, db)
+      validateConversationLibrary(base, desired)
+
+      db.delete(conversationSettingChanges)
+        .where(eq(conversationSettingChanges.sessionId, conversationId)).run()
+      const timestamp = new Date().toISOString()
+      const desiredEntries = new Map(desired.entries.map((entry) => [entry.id, entry]))
+      const baseEntries = new Map(base.entries.map((entry) => [entry.id, entry]))
+      for (const id of unionKeys(baseEntries, desiredEntries)) {
+        const baseline = baseEntries.get(id)
+        const next = desiredEntries.get(id)
+        if (sameValue(baseline, next)) continue
+        if (!next) this.writeConversationChange(conversationId, 'entry', id, 'delete', null, timestamp, db)
+        else this.writeConversationChange(conversationId, 'entry', id, 'upsert', next, timestamp, db)
+      }
+
+      const desiredGroups = new Map(desired.groups.map((group) => [group.id, group]))
+      const baseGroups = new Map(base.groups.map((group) => [group.id, group]))
+      for (const id of unionKeys(baseGroups, desiredGroups)) {
+        const baseline = baseGroups.get(id)
+        const next = desiredGroups.get(id)
+        if (sameValue(baseline, next)) continue
+        if (!next) this.writeConversationChange(conversationId, 'group', id, 'delete', null, timestamp, db)
+        else this.writeConversationChange(conversationId, 'group', id, 'upsert', next, timestamp, db)
+      }
+      return this.effectiveConversationLibrary(characterId, conversationId, db)
+    })
+  }
+
+  deleteConversationChanges(characterId: string, conversationId: string): void {
+    this.store.withWriteTx((db) => {
+      requireCharacter(db, characterId)
+      const existing = db.select({ targetId: conversationSettingChanges.targetId })
+        .from(conversationSettingChanges)
+        .where(eq(conversationSettingChanges.sessionId, conversationId)).get()
+      if (!existing) throw new Error('找不到这段对话的动态设定。')
+      db.delete(conversationSettingChanges)
+        .where(eq(conversationSettingChanges.sessionId, conversationId)).run()
+    })
+  }
+
+  saveConversationAsVersion(characterId: string, conversationId: string, name: string): SettingLibrary {
+    return this.store.withWriteTx((db) => {
+      const normalizedName = name.trim().slice(0, 60)
+      if (!normalizedName) throw new Error('请输入版本名称。')
+      const effective = this.conversationLibrary(characterId, conversationId, db)
+      if (!effective) throw new Error('找不到这段对话的动态设定。')
+      const base = this.get(characterId, db)
+      if (base.versions.some((version) => version.name.trim() === normalizedName)) {
+        throw new Error('版本名称已存在，请换一个名称。')
+      }
+      const timestamp = new Date().toISOString()
+      const version = {
+        id: `library-${randomUUID()}`,
+        name: normalizedName,
+        entries: effective.entries,
+        groups: effective.groups,
+        promptPositions: effective.promptPositions,
+        listAllExpanded: effective.listAllExpanded,
+        expandedGroupIds: effective.expandedGroupIds,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      }
+      db.insert(settingLibraryVersions).values({
+        characterId,
+        versionId: version.id,
+        sortIndex: base.versions.length,
+        name: version.name,
+        listAllExpanded: version.listAllExpanded ? 1 : 0,
+        expandedGroupIdsJson: JSON.stringify(version.expandedGroupIds),
+        promptPositionsJson: writePromptPositions(version.promptPositions),
+        createdAt: version.createdAt,
+        updatedAt: version.updatedAt
+      }).run()
+      this.persistVersionEntries(db, characterId, version.id, version.entries)
+      this.persistVersionGroups(db, characterId, version.id, version.groups)
+      return this.get(characterId, db)
+    })
+  }
+
+  private effectiveConversationLibrary(
+    characterId: string,
+    conversationId: string,
+    db: ElecKoiDatabase
+  ): SettingLibrary {
+    const base = this.get(characterId, db)
+    const effective = this.runtimeContext(conversationId, { characterId, characterMode: 'story' }, db)
+    if (!effective) throw new Error('无法读取这段对话的动态设定。')
+    return settingLibrarySchema.parse({
+      ...base,
+      entries: effective.entries,
+      groups: effective.groups,
+      versions: []
+    })
   }
 
   /** Commits a successful Agent turn as a conversation overlay, never into the author library. */
@@ -421,4 +540,87 @@ function rebaseProjectedRecord(
       : finalRecord[key]
   }
   return result
+}
+
+function validateConversationLibrary(base: SettingLibrary, desired: SettingLibrary): void {
+  const groups = new Map(desired.groups.map((group) => [group.id, group]))
+  if (groups.size !== desired.groups.length) throw new Error('动态设定的文件夹编号不能重复。')
+  if (new Set(desired.entries.map((entry) => entry.id)).size !== desired.entries.length) {
+    throw new Error('动态设定的条目编号不能重复。')
+  }
+  for (const group of desired.groups) {
+    if (!group.name.trim()) throw new Error('动态设定的文件夹名称不能为空。')
+    if (group.parentId && !groups.has(group.parentId)) throw new Error(`文件夹“${group.name}”的上级不存在。`)
+    const visited = new Set([group.id])
+    let parentId = group.parentId
+    while (parentId) {
+      if (visited.has(parentId)) throw new Error('动态设定的文件夹不能形成循环。')
+      visited.add(parentId)
+      parentId = groups.get(parentId)?.parentId ?? ''
+    }
+  }
+  const groupNames = new Set<string>()
+  for (const group of desired.groups) {
+    const key = `${group.parentId}\u0000${group.name.trim().toLocaleLowerCase()}`
+    if (groupNames.has(key)) throw new Error(`同一位置已存在文件夹“${group.name}”。`)
+    groupNames.add(key)
+  }
+  const removedBaseGroupIds = new Set(base.groups.filter((group) => !groups.has(group.id)).map((group) => group.id))
+  let expandedRemovedGroups = true
+  while (expandedRemovedGroups) {
+    expandedRemovedGroups = false
+    for (const group of base.groups) {
+      if (removedBaseGroupIds.has(group.parentId) && !removedBaseGroupIds.has(group.id)) {
+        removedBaseGroupIds.add(group.id)
+        expandedRemovedGroups = true
+      }
+    }
+  }
+  const entryNames = new Set<string>()
+  for (const entry of desired.entries) {
+    if (entry.groupId && !groups.has(entry.groupId)) throw new Error(`设定“${entry.title}”所在的文件夹不存在。`)
+    if (entry.kind === 'normal') {
+      const key = `${entry.groupId}\u0000${entry.title.trim().toLocaleLowerCase()}`
+      if (entryNames.has(key)) throw new Error(`同一位置已存在设定“${entry.title}”。`)
+      entryNames.add(key)
+    }
+    const baseline = base.entries.find((item) => item.id === entry.id)
+    if (!baseline) {
+      if (!isConversationMutableEntry(entry)) throw new Error('动态设定只能新增供 Agent 读取的普通设定。')
+      if (!entry.title.trim() || !entry.content.trim()) throw new Error('动态设定的标题和正文不能为空。')
+      continue
+    }
+    if (!isConversationMutableEntry(baseline)) {
+      if (!sameValue(baseline, entry)) throw new Error(`设定“${baseline.title}”只允许查看，不能在动态设定中修改。`)
+      continue
+    }
+    if (!isConversationMutableEntry(entry)) throw new Error(`设定“${baseline.title}”不能更改类型。`)
+    if (!entry.title.trim() || !entry.content.trim()) throw new Error('动态设定的标题和正文不能为空。')
+    if (!sameValue(conversationImmutableEntryFields(baseline), conversationImmutableEntryFields(entry))) {
+      throw new Error(`设定“${baseline.title}”只能修改目录、标题、正文和读取提示。`)
+    }
+  }
+  for (const entry of base.entries) {
+    if (
+      !desired.entries.some((item) => item.id === entry.id) &&
+      !isConversationMutableEntry(entry) &&
+      !removedBaseGroupIds.has(entry.groupId)
+    ) {
+      throw new Error(`设定“${entry.title}”只允许查看，不能从动态设定中删除。`)
+    }
+  }
+}
+
+function isConversationMutableEntry(entry: SettingLibraryEntry): boolean {
+  return entry.kind === 'normal' && entry.triggerMode === 'agent_tool'
+}
+
+function conversationImmutableEntryFields(entry: SettingLibraryEntry): Record<string, unknown> {
+  const record = { ...entry } as Record<string, unknown>
+  delete record.groupId
+  delete record.title
+  delete record.content
+  delete record.agentSelectionHint
+  delete record.updatedAt
+  return record
 }

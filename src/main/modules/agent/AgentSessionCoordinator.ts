@@ -45,6 +45,7 @@ interface ActiveRun {
 
 interface PreparingRun {
   cancelled: boolean
+  done: Promise<void>
 }
 
 export interface AgentSessionDependencies {
@@ -62,20 +63,20 @@ export interface AgentSessionDependencies {
   agentPresets?: AgentPresetRepository | undefined
   webSearchSettings?: WebSearchSettingsRepository | undefined
   regexRules?: RegexRuleRepository | undefined
+  discardPreparedImages?: ((attachmentIds: readonly string[]) => void) | undefined
 }
 
 export class AgentSessionCoordinator {
   private readonly activeRuns = new Map<string, ActiveRun>()
   private readonly preparingRuns = new Map<string, PreparingRun>()
+  private readonly deletingConversations = new Set<string>()
 
   constructor(private readonly dependencies: AgentSessionDependencies) {}
 
   start(conversationId: string, text: string, images: EncodedChatImageAttachment[] = []) {
     const trimmed = text.trim()
     if (trimmed.length === 0 && images.length === 0) throw new Error('消息或图片不能同时为空。')
-    if (this.activeRuns.has(conversationId) || this.preparingRuns.has(conversationId)) {
-      throw new Error('这个对话仍有回复正在生成。')
-    }
+    this.assertCanStart(conversationId)
 
     const settings = this.dependencies.models.resolve(this.dependencies.userSettings.read('models.active'), '')
     if (images.length > 0 && !settings.supportsImageInput) throw new Error('当前模型未声明图片输入能力。')
@@ -85,15 +86,21 @@ export class AgentSessionCoordinator {
       : trimmed
     if (images.length === 0) return this.startPrepared(conversationId, storedText, settings, [])
     if (!this.dependencies.runtime.prepareImages) throw new Error('图片运行时尚未就绪。')
-    const preparing: PreparingRun = { cancelled: false }
+    const preparing: PreparingRun = { cancelled: false, done: Promise.resolve() }
     this.preparingRuns.set(conversationId, preparing)
-    return this.dependencies.runtime.prepareImages(images)
+    const operation = this.dependencies.runtime.prepareImages(images)
       .then((prepared) => {
         if (preparing.cancelled || this.preparingRuns.get(conversationId) !== preparing) {
+          this.discardPreparedImages(prepared)
           throw generationCancelledError()
         }
         this.preparingRuns.delete(conversationId)
-        return this.startPrepared(conversationId, storedText, settings, prepared)
+        try {
+          return this.startPrepared(conversationId, storedText, settings, prepared)
+        } catch (error) {
+          this.discardPreparedImages(prepared)
+          throw error
+        }
       })
       .catch((error) => {
         if (preparing.cancelled) {
@@ -105,6 +112,8 @@ export class AgentSessionCoordinator {
       .finally(() => {
         if (this.preparingRuns.get(conversationId) === preparing) this.preparingRuns.delete(conversationId)
       })
+    preparing.done = operation.then(() => undefined, () => undefined)
+    return operation
   }
 
   private startPrepared(
@@ -113,7 +122,7 @@ export class AgentSessionCoordinator {
     settings: ReturnType<ModelRepository['resolve']>,
     inputImages: ChatUserImageAttachment[]
   ) {
-    if (this.activeRuns.has(conversationId)) throw new Error('这个对话仍有回复正在生成。')
+    this.assertCanStart(conversationId)
     const runId = randomUUID()
     const agentPreset = this.dependencies.agentPresets?.runtimeSelection()
     const subagentSelection = this.dependencies.agentPresets?.subagentModelSelection()
@@ -156,7 +165,7 @@ export class AgentSessionCoordinator {
   }
 
   regenerate(conversationId: string, targetMessageId: string, replacementMessage?: string) {
-    if (this.activeRuns.has(conversationId) || this.preparingRuns.has(conversationId)) throw new Error('这个对话仍有回复正在生成。')
+    this.assertCanStart(conversationId)
     const settings = this.dependencies.models.resolve(this.dependencies.userSettings.read('models.active'), '')
     const metadata = this.dependencies.conversations.getMetadata(conversationId)
     const storedReplacement = replacementMessage && metadata.characterId && this.dependencies.regexRules
@@ -202,6 +211,21 @@ export class AgentSessionCoordinator {
     return { cancelled: true }
   }
 
+  async prepareForDelete(conversationId: string): Promise<void> {
+    this.deletingConversations.add(conversationId)
+    const preparing = this.preparingRuns.get(conversationId)
+    if (preparing !== undefined) {
+      await this.cancel(conversationId)
+      await preparing.done
+    }
+    if (this.activeRuns.has(conversationId)) await this.cancel(conversationId)
+    await this.dependencies.runtime.disposeConversation(conversationId)
+  }
+
+  finishDelete(conversationId: string): void {
+    this.deletingConversations.delete(conversationId)
+  }
+
   inspect(conversationId: string) {
     const active = this.activeRuns.get(conversationId)
     if (active === undefined) return { active: false as const, conversationId }
@@ -229,12 +253,43 @@ export class AgentSessionCoordinator {
     }
   }
 
+  trajectory(conversationId: string, options?: { beforeIndex?: number | undefined; limit?: number | undefined }) {
+    this.dependencies.conversations.get(conversationId)
+    const runtimeThreadId = this.activeRuns.get(conversationId)?.runtimeThreadId
+      ?? this.dependencies.messages.latestRuntimeThreadId(conversationId)
+    if (!runtimeThreadId || !this.dependencies.runtime.trajectory) {
+      return {
+        conversationId,
+        runtimeThreadId: null,
+        records: [],
+        totalRecords: 0,
+        hasMore: false,
+        beforeIndex: null,
+        startedAtMillis: null,
+        completedAtMillis: null
+      }
+    }
+    return this.dependencies.runtime.trajectory(conversationId, runtimeThreadId, options)
+  }
+
   async close(): Promise<void> {
     for (const preparing of this.preparingRuns.values()) preparing.cancelled = true
     for (const active of this.activeRuns.values()) active.cancelled = true
     const conversationIds = [...this.activeRuns.keys()]
     await Promise.all(conversationIds.map((id) => this.dependencies.runtime.cancel(id)))
     await Promise.all([...this.activeRuns.values()].map((active) => active.done))
+    this.deletingConversations.clear()
+  }
+
+  private assertCanStart(conversationId: string): void {
+    if (this.deletingConversations.has(conversationId)) throw new Error('这个对话正在删除。')
+    if (this.activeRuns.has(conversationId) || this.preparingRuns.has(conversationId)) {
+      throw new Error('这个对话仍有回复正在生成。')
+    }
+  }
+
+  private discardPreparedImages(images: readonly ChatUserImageAttachment[]): void {
+    this.dependencies.discardPreparedImages?.(images.map((image) => image.attachmentId))
   }
 
   private async execute(

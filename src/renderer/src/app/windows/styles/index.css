@@ -19,6 +19,7 @@
 @import "../../../modules/persona/styles/character-profile.css";
 @import "../../../modules/persona/styles/character-editor.css";
 @import "../../../modules/settingLibraries/styles/setting-library.css";
+@import "../../../modules/settingLibraries/styles/dynamic-settings.css";
 @import "../../../modules/variables/styles/variable-config.css";
 @import "../../../modules/regex/styles/regex-rules.css";
 @import "../../../modules/regex/styles/regex-manager.css";
@@ -28,6 +29,7 @@
 @import "../../../modules/agentTools/styles/roleplay-plan-editor.css";
 @import "../../../modules/updates/styles/app-update.css";
 @import "../../../modules/chat/styles/chat-panel.css";
+@import "../../../modules/chat/styles/trajectory.css";
 @import "../../../modules/chat/styles/variable-viewer.css";
 @import "../../../modules/chat/styles/chat-background.css";
 @import "../../../ui/styles/avatar.css";

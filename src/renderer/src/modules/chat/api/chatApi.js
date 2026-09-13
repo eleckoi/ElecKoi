@@ -254,6 +254,14 @@ export async function getGenerationStats(conversationId) {
   return result.stats;
 }
 
+export function getTrajectory(conversationId, options = {}) {
+  return desktopClient.request("query.agent.trajectory", {
+    conversationId,
+    ...(Number.isInteger(options.beforeIndex) ? { beforeIndex: options.beforeIndex } : {}),
+    ...(Number.isInteger(options.limit) ? { limit: options.limit } : {}),
+  });
+}
+
 export function listenGenerationStatsEvent(handler) {
   return desktopClient.on("agent.generation.stats", handler);
 }

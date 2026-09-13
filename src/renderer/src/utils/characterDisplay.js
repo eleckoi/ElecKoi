@@ -12,17 +12,6 @@ export function characterCover(character) {
   return character?.persona?.assistant_cover || characterAvatar(character);
 }
 
-export function characterDescription(character) {
-  const candidates = [
-    character?.description,
-    character?.profileDescription,
-    character?.profileLike,
-    character?.primaryOpening,
-    character?.persona?.opening,
-  ];
-  return candidates.map((value) => String(value || "").trim()).find(Boolean) || "";
-}
-
 export function characterGroup(character) {
   return typeof character?.group === "string" ? character.group.trim() : "";
 }

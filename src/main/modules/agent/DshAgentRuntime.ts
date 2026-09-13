@@ -55,8 +55,20 @@ export class DshAgentRuntime implements AgentRuntimePort {
     return this.runtime.generationStats(conversationId, runtimeThreadId)
   }
 
+  trajectory(
+    conversationId: string,
+    runtimeThreadId: string,
+    options?: { beforeIndex?: number | undefined; limit?: number | undefined }
+  ) {
+    return { conversationId, ...this.runtime.trajectory(conversationId, runtimeThreadId, options) }
+  }
+
   cancel(conversationId: string): Promise<boolean> {
     return this.runtime.stop(conversationId)
+  }
+
+  disposeConversation(conversationId: string): Promise<void> {
+    return this.runtime.disposeConversation(conversationId)
   }
 
   close(): Promise<void> {

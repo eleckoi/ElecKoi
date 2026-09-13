@@ -12,6 +12,7 @@ import { ChatImageGallery } from "../../modules/chat/components/ChatImageGallery
 import { liveProcessPresentation, shouldShowInlineAgentProcess } from "../../modules/chat/model/agentProcessPresentation.js";
 import { RichMessageFrame } from "../../modules/authorFrontend/index.js";
 import { detectRichMessagePresentation } from "@shared/foundation/richMessage";
+import { normalizeMarkdownForRendering } from "./normalizeMarkdownForRendering.js";
 
 const markdownComponents = {
   a({ children, href, node: _node, ...props }) {
@@ -127,6 +128,10 @@ async function animateOpeningSlide(article, fromX, toX, freezeAtEnd = false) {
 }
 
 function MarkdownMessage({ content, streaming }) {
+  const renderContent = useMemo(
+    () => normalizeMarkdownForRendering(content || ""),
+    [content],
+  );
   return (
     <Streamdown
       className="eleckoi-streamdown"
@@ -141,7 +146,7 @@ function MarkdownMessage({ content, streaming }) {
       remarkPlugins={[remarkGfm, remarkBreaks, remarkDialogueQuotes]}
       components={markdownComponents}
     >
-      {content || ""}
+      {renderContent}
     </Streamdown>
   );
 }

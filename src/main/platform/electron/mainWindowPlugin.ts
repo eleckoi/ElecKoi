@@ -178,7 +178,7 @@ async function loadRenderer(window: BrowserWindow): Promise<void> {
 }
 
 function initialWindowSize(): { width: number; height: number } {
-  return fitWindowSize(1440, 960)
+  return fitWindowSize(1536, 1070)
 }
 
 function initialChildWindowSize(payload?: unknown): { width: number; height: number } {

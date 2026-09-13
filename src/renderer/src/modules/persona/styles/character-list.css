@@ -185,26 +185,37 @@ button.character-group-row:hover {
 
 .character-contact-list {
   display: grid;
-  gap: 1px;
-  padding: 1px 0 2px;
+  gap: 4px;
+  padding: 2px 0 8px;
 }
 
 .character-contact-row {
   --character-list-item-inset: 2px;
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 54px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: calc(100% - var(--character-list-item-inset) - var(--character-list-item-inset));
-  min-height: 60px;
+  min-height: 74px;
   margin: 0 var(--character-list-item-inset);
-  padding: 7px 8px;
-  border-radius: 4px;
+  padding: 7px 10px;
+  border-radius: 8px;
   text-align: left;
 }
 
 .character-contact-row.is-cover-artwork {
-  min-height: 70px;
+  min-height: 86px;
+}
+
+.character-contact-row .sidebar-character-artwork.is-avatar {
+  width: 54px;
+  height: 54px;
+}
+
+.character-contact-row .sidebar-character-artwork.is-cover {
+  width: 54px;
+  height: 72px;
+  border-radius: 9px;
 }
 
 .character-group-context-menu {
@@ -380,8 +391,7 @@ button.character-group-row:hover {
   min-width: 0;
 }
 
-.character-contact-copy strong,
-.character-contact-copy span {
+.character-contact-copy strong {
   display: block;
   min-width: 0;
   overflow: hidden;
@@ -390,24 +400,10 @@ button.character-group-row:hover {
 
 .character-contact-copy strong {
   color: #151515;
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.character-contact-copy span {
-  margin-top: 3px;
-  color: #9a9a9a;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.character-contact-row.is-cover-artwork .character-contact-copy span {
-  display: -webkit-box;
+  font-size: 15px;
+  font-weight: 600;
   line-height: 1.35;
-  white-space: normal;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  white-space: nowrap;
 }
 
 .character-empty-groups {

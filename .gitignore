@@ -24,6 +24,8 @@ service-account*.json
 node_modules/
 .pnpm-store/
 .vite/
+.electron-vite/
+dev-dist/
 .turbo/
 dist/
 out/
