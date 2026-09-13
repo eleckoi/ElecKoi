@@ -1,7 +1,21 @@
 import { app } from 'electron'
-import electronUpdater from 'electron-updater'
+import electronUpdater, { type AppUpdater } from 'electron-updater'
 import type { Context, Plugin } from '@deepseek-ai/cordis'
+import type { Logger } from 'pino'
 import { UpdateService } from './UpdateService'
+
+export function attachUpdaterLogger(
+  updater: Pick<AppUpdater, 'logger'>,
+  appLog: Pick<Logger, 'info' | 'warn' | 'error' | 'debug'>
+): () => void {
+  updater.logger = {
+    info: (message?: unknown) => appLog.info({ message }, 'electron-updater'),
+    warn: (message?: unknown) => appLog.warn({ message }, 'electron-updater'),
+    error: (message?: unknown) => appLog.error({ message }, 'electron-updater'),
+    debug: (message: string) => appLog.debug({ message }, 'electron-updater')
+  }
+  return () => { updater.logger = null }
+}
 
 export const updatesPlugin = {
   name: 'eleckoi-updates',
@@ -9,12 +23,10 @@ export const updatesPlugin = {
   provide: 'updates',
   apply(ctx: Context) {
     const updater = electronUpdater.autoUpdater
-    updater.logger = {
-      info: (message?: unknown) => ctx.appLog.info({ message }, 'electron-updater'),
-      warn: (message?: unknown) => ctx.appLog.warn({ message }, 'electron-updater'),
-      error: (message?: unknown) => ctx.appLog.error({ message }, 'electron-updater'),
-      debug: (message: string) => ctx.appLog.debug({ message }, 'electron-updater')
-    }
+    const appLog = ctx.appLog
+    const desktopGateway = ctx.desktopGateway
+    const agentSessions = ctx.agentSessions
+    const detachUpdaterLogger = attachUpdaterLogger(updater, appLog)
 
     const enabled = app.isPackaged && process.platform === 'win32'
     const updates = new UpdateService({
@@ -22,9 +34,9 @@ export const updatesPlugin = {
       currentVersion: app.getVersion(),
       enabled,
       disabledMessage: app.isPackaged ? '当前平台暂不支持自动更新。' : '开发模式不检查更新。',
-      canInstall: () => !ctx.agentSessions.hasActiveRun(),
-      publish: (status) => ctx.desktopGateway.broadcast('updates.state.changed', status),
-      logger: ctx.appLog
+      canInstall: () => !agentSessions.hasActiveRun(),
+      publish: (status) => desktopGateway.broadcast('updates.state.changed', status),
+      logger: appLog
     })
     ctx.provide('updates', updates)
 
@@ -39,6 +51,7 @@ export const updatesPlugin = {
     return () => {
       for (const remove of unregister) remove()
       updates.dispose()
+      detachUpdaterLogger()
     }
   }
 } satisfies Plugin.Object

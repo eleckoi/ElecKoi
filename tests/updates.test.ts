@@ -2,9 +2,11 @@ import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
 import type { AppUpdater, UpdateInfo } from 'electron-updater'
 import { UpdateService, normalizeReleaseNotes } from '@main/modules/updates'
+import { attachUpdaterLogger } from '@main/modules/updates/updatesPlugin'
 import type { UpdateStatus } from '@shared/contracts/updates/schemas'
 
 class FakeUpdater extends EventEmitter {
+  logger: AppUpdater['logger'] = null
   autoDownload = true
   autoInstallOnAppQuit = false
   autoRunAppAfterInstall = false
@@ -17,6 +19,18 @@ class FakeUpdater extends EventEmitter {
 }
 
 describe('desktop updater', () => {
+  it('detaches updater logging before host services become inactive', () => {
+    const updater = new FakeUpdater()
+    const appLog = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }
+    const detach = attachUpdaterLogger(updater, appLog)
+
+    updater.logger?.info('before dispose')
+    expect(appLog.info).toHaveBeenCalledOnce()
+
+    detach()
+    expect(updater.logger).toBeNull()
+  })
+
   it('turns release HTML into bounded plain text', () => {
     const notes = normalizeReleaseNotes(`<h2>更新</h2><p>修复 &amp; 优化</p>${'很长'.repeat(3_000)}`)
 
@@ -92,6 +106,35 @@ describe('desktop updater', () => {
     })
     expect(updater.checkForUpdates).not.toHaveBeenCalled()
     service.dispose()
+  })
+
+  it('ignores a delayed download failure after disposal', async () => {
+    const updater = new FakeUpdater()
+    let rejectDownload: ((error: Error) => void) | undefined
+    updater.downloadUpdate.mockImplementationOnce(() => new Promise<string[]>((_, reject) => {
+      rejectDownload = reject
+    }))
+    const published: UpdateStatus[] = []
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
+    const service = new UpdateService({
+      updater: updater as unknown as AppUpdater,
+      currentVersion: '0.1.0',
+      enabled: true,
+      disabledMessage: '',
+      canInstall: () => true,
+      publish: (status) => published.push(status),
+      logger
+    })
+    service.start()
+    updater.emit('update-available', updateInfo())
+    service.download()
+    service.dispose()
+
+    rejectDownload?.(new Error('late failure'))
+    await Promise.resolve()
+
+    expect(logger.warn).not.toHaveBeenCalled()
+    expect(published.at(-1)?.phase).toBe('downloading')
   })
 })
 

@@ -72,7 +72,7 @@ export class UpdateService {
   }
 
   async check(manual = true): Promise<UpdateStatus> {
-    if (!this.options.enabled || this.checking || this.downloading) return this.state
+    if (!this.started || !this.options.enabled || this.checking || this.downloading) return this.state
     if (this.state.phase === 'ready' || this.state.phase === 'installing') return this.state
 
     this.checking = true
@@ -96,7 +96,7 @@ export class UpdateService {
   download(): UpdateStatus {
     const canDownload = this.state.phase === 'available'
       || (this.state.phase === 'error' && this.state.availableVersion !== null)
-    if (!this.options.enabled || !canDownload || this.downloading) return this.state
+    if (!this.started || !this.options.enabled || !canDownload || this.downloading) return this.state
 
     this.downloading = true
     this.setState({
@@ -115,7 +115,7 @@ export class UpdateService {
   }
 
   install(): UpdateInstallResult {
-    if (this.state.phase !== 'ready') return { accepted: false, reason: 'not_ready' }
+    if (!this.started || this.state.phase !== 'ready') return { accepted: false, reason: 'not_ready' }
     if (!this.options.canInstall()) return { accepted: false, reason: 'agent_running' }
 
     this.setState({ ...this.state, phase: 'installing', message: '正在重启并安装更新…' })
@@ -132,6 +132,7 @@ export class UpdateService {
 
   dispose(): void {
     if (!this.started) return
+    this.started = false
     if (this.initialCheckTimer !== undefined) clearTimeout(this.initialCheckTimer)
     if (this.recheckTimer !== undefined) clearInterval(this.recheckTimer)
     if (this.installTimer !== undefined) clearTimeout(this.installTimer)
@@ -145,14 +146,15 @@ export class UpdateService {
       updater.removeListener('update-cancelled', this.handleCancelled)
       updater.removeListener('error', this.handleError)
     }
-    this.started = false
   }
 
   private readonly handleChecking = (): void => {
+    if (!this.started) return
     this.checking = true
   }
 
   private readonly handleAvailable = (info: UpdateInfo): void => {
+    if (!this.started) return
     this.checking = false
     this.manualCheck = false
     this.options.logger.info({ version: info.version }, '发现 ElecKoi 桌面更新')
@@ -160,6 +162,7 @@ export class UpdateService {
   }
 
   private readonly handleNotAvailable = (_info?: UpdateInfo): void => {
+    if (!this.started) return
     const message = this.manualCheck ? '当前已是最新版本。' : null
     this.checking = false
     this.manualCheck = false
@@ -167,7 +170,7 @@ export class UpdateService {
   }
 
   private readonly handleProgress = (info: ProgressInfo): void => {
-    if (!this.downloading) return
+    if (!this.started || !this.downloading) return
     const now = Date.now()
     const percent = clamp(info.percent, 0, 100)
     if (percent < 100 && now - this.lastProgressBroadcastAt < PROGRESS_BROADCAST_INTERVAL_MS) return
@@ -186,6 +189,7 @@ export class UpdateService {
   }
 
   private readonly handleDownloaded = (info: UpdateDownloadedEvent): void => {
+    if (!this.started) return
     this.downloading = false
     this.options.logger.info({ version: info.version }, 'ElecKoi 桌面更新下载完成')
     this.setState({
@@ -200,11 +204,13 @@ export class UpdateService {
   }
 
   private readonly handleCancelled = (): void => {
+    if (!this.started) return
     this.downloading = false
     this.setState({ ...this.state, phase: 'available', progress: null, message: null })
   }
 
   private readonly handleError = (error: Error): void => {
+    if (!this.started) return
     this.checking = false
     this.downloading = false
     this.manualCheck = false

@@ -82,5 +82,6 @@ jobs:
           2. 新增对话动态设定管理。
           3. 修复聊天消息中的状态标签、代码块及换行显示问题。
           4. 优化角色列表与部分交互体验。
+          5. 修复自动更新安装时可能出现的主进程错误。
           "@
           gh release create $env:GITHUB_REF_NAME @assets --verify-tag --notes $notes --title "ElecKoi $env:GITHUB_REF_NAME"
