@@ -1,9 +1,7 @@
 import { spawnSync } from 'node:child_process'
-import { join } from 'node:path'
+import electron from 'electron'
 
-const executable = process.platform === 'win32'
-  ? join(process.cwd(), 'node_modules', 'electron', 'dist', 'electron.exe')
-  : join(process.cwd(), 'node_modules', 'electron', 'dist', 'electron')
+const executable = electron
 
 const probe = [
   "const Database = require('better-sqlite3')",
