@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag, for example v0.1.4
+        description: Release tag, for example v0.1.5
         required: true
         type: string
 
@@ -85,10 +85,10 @@ jobs:
             (Resolve-Path release/latest.yml).Path
           )
           $notes = @"
-          1. 增加 Google Generative AI 原生协议支持，修复 Gemini 配置阻断其他模型聊天的问题。
-          2. 修复正常发送与重新生成的会话判断、模型绑定和旧运行轨迹清理问题。
-          3. 将开发版与安装版的数据目录分离，避免两个版本共用数据库。
-          4. 完善 Gemini 工具调用测试，保留模型返回的调用标识与思考签名，并兼容不支持强制工具调用的模型。
-          5. 对齐 Agent 预设与角色设定库的创建菜单、插入位置节点和缓存设定交互。
+          1. 升级 DSH 运行时与模型适配器，完善 DeepSeek 官方协议、模型能力识别和推理档位配置。
+          2. 完善最终正文、思考过程、工具调用与生成统计的流式展示，修复轨迹重复、乱序、空白和详情异常。
+          3. 修复自动上下文压缩的触发、序列化与取消流程，并隔离重新生成时已经失效的旧回调。
+          4. 支持带图片消息的识图、重新生成与可靠删除，修复生成结束时聊天界面闪白的问题。
+          5. 调整预设插入位置与隐藏工具时间线的默认顺序，并补齐聊天、模型、压缩与多模态回归测试。
           "@
           gh release create $env:RELEASE_TAG @assets --verify-tag --notes $notes --title "ElecKoi $env:RELEASE_TAG"
