@@ -8,7 +8,7 @@ import {
   rmSync,
   writeFileSync
 } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import { LOCAL_MEDIA_SCHEME } from '@shared/foundation/mediaReference'
 
 const REFERENCE_PREFIX = `${LOCAL_MEDIA_SCHEME}://asset/v1/`
@@ -94,13 +94,13 @@ export class LocalMediaStore {
     const [, ownerHash, slot, fileName] = parts
     if (!ownerHash || !HASH_PATTERN.test(ownerHash) || !slot || !SLOT_PATTERN.test(slot) || !fileName || !FILE_PATTERN.test(fileName)) return undefined
     const candidate = resolve(this.versionRoot(), ownerHash, slot, fileName)
-    const root = `${resolve(this.versionRoot())}\\`
+    const root = `${resolve(this.versionRoot())}${sep}`
     return candidate.startsWith(root) ? candidate : undefined
   }
 
   removeOwner(owner: string): void {
     const target = resolve(this.versionRoot(), this.ownerHash(owner))
-    const root = `${resolve(this.versionRoot())}\\`
+    const root = `${resolve(this.versionRoot())}${sep}`
     if (!target.startsWith(root)) throw new Error('本地媒体目录越界。')
     rmSync(target, { recursive: true, force: true })
   }
