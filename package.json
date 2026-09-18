@@ -342,7 +342,8 @@
   "packageManager": "pnpm@10.32.1",
   "pnpm": {
     "overrides": {
-      "@earendil-works/pi-ai": "0.85.1"
+      "@earendil-works/pi-ai": "0.85.1",
+      "js-yaml": "4.3.2"
     },
     "onlyBuiltDependencies": [
       "@deepseek-ai/dsh-subprocess-local",
