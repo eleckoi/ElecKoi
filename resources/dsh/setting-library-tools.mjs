@@ -335,7 +335,7 @@ function applyRuntimeResolution(catalog, resolution) {
 
 function matchingKeywordEntryIds(entries, rawHistory) {
   const history = runtimeMessages(rawHistory)
-  const directMatches = entries.filter((entry) => matchesKeywordText(entry.raw, recentKeywordText(history, entry.raw.keywordScanDepth)))
+  const directMatches = entries.filter((entry) => matchesKeywordText(entry.raw, keywordHaystack(history, entry.raw.keywordScanDepth)))
   const matchedIds = new Set(directMatches.map((entry) => entry.raw.id))
   let frontier = new Map(directMatches.map((entry) => [entry, nonNegativeInteger(entry.raw.keywordRecursionDepth)]))
 
@@ -354,13 +354,14 @@ function matchingKeywordEntryIds(entries, rawHistory) {
   return matchedIds
 }
 
-function recentKeywordText(history, scanDepth) {
-  return history
+function keywordHaystack(history, scanDepth) {
+  const messages = history
     .filter((message) => message.role === 'user' || message.role === 'assistant')
     .map((message) => message.content)
     .filter((content) => content.trim())
     .slice(-Math.max(1, positiveInteger(scanDepth, 1)))
-    .join('\n')
+  if (!messages.length) return ''
+  return `\x01${messages.join('\n\x01')}`
 }
 
 function matchesKeywordText(entry, text) {

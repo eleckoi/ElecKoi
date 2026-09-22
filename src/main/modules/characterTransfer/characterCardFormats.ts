@@ -4,6 +4,7 @@ import type { RegexRule } from '@shared/contracts/regex/schemas'
 import type { SettingLibrary, SettingLibraryEntry, SettingLibraryGroup } from '@shared/contracts/settingLibrary/schemas'
 import { validateRegexRule } from '@shared/foundation/regex/RegexRuleProcessor'
 import { decodeRegexDocuments } from '@shared/foundation/regexRuleTransfer'
+import { tavernEntryScanDepth } from '@shared/foundation/tavernWorldBook'
 import { emptyEntry, normalizeSettingLibrary } from '@main/modules/settingLibraries'
 import { convertMvuVariables, isMvuInfrastructureEntry } from './mvuImport'
 import { isPng, readPngText } from '@main/platform/filesystem/PngTextChunkCodec'
@@ -196,6 +197,7 @@ function convertWorldBookEntries(worldBook: JsonObject | undefined, timestamp: s
       keywordUseRegex: !constant && boolean(item.use_regex),
       keywordIgnoreCase: !boolean(item.case_sensitive, boolean(record(item.extensions)?.case_sensitive)),
       keywordWholeWord: boolean(item.match_whole_words, boolean(record(item.extensions)?.match_whole_words)),
+      keywordScanDepth: tavernEntryScanDepth(item, worldBook),
       triggerMode: 'agent_tool', enabled: enabledFrom(item), order: index + 1, treeViewOrder: index + 1
     }
   })
