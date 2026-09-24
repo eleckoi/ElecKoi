@@ -13,11 +13,13 @@ import {
 } from "../src/renderer/src/modules/variables/model/variableConfigEditing.js";
 import {
   createVariableVersion,
+  deleteActiveVariableVersion,
   importVariableConfig,
   serializeVariableConfig,
   switchVariableVersion,
 } from "../src/renderer/src/modules/variables/model/variableConfigTransfer.js";
 import { variableTreeNodes } from "../src/renderer/src/modules/variables/model/variableConfigTree.js";
+import { requestContracts } from "../src/shared/contracts/gateway/definitions.ts";
 
 const stamp = "2026-09-06T00:00:00.000Z";
 function config() {
@@ -29,7 +31,16 @@ function config() {
     { id: "mood", title: "心情~值", objectId: "detail", enabled: true, type: "string", defaultValue: "平静", description: "保留变量", updateRule: "变化时更新", readMode: "required", order: 1, treeViewOrder: 1, createdAt: stamp, updatedAt: stamp },
   ];
   const version = { id: "v1", name: "正式版", initialStateJson: "{}", schemaCode: "z.object({})", objects, variables, expandedObjectIds: ["status"], createdAt: stamp, updatedAt: stamp };
-  return withGeneratedInitialState({ characterId: "card-a", ...version, activeVersionId: "v1", versions: [version] });
+  return withGeneratedInitialState({
+    characterId: "card-a", name: version.name, initialStateJson: version.initialStateJson,
+    schemaCode: version.schemaCode, objects, variables, expandedObjectIds: version.expandedObjectIds,
+    activeVersionId: "v1", versions: [version],
+  });
+}
+
+function expectSaveRequestValid(value) {
+  const result = requestContracts["command.variable_config.save"].input.safeParse({ characterId: value.characterId, config: value });
+  expect(result.success, result.success ? "" : JSON.stringify(result.error.issues)).toBe(true);
 }
 
 describe("variable configuration editing", () => {
@@ -103,6 +114,19 @@ describe("variable configuration editing", () => {
 });
 
 describe("variable configuration versions and transfer", () => {
+  it("submits new variables and version operations using the Gateway configuration contract", () => {
+    const source = ensureInitializationObject(config());
+    const createdVariable = createVariableDraft(source);
+    const edited = { ...source, variables: [...source.variables, createdVariable] };
+    expectSaveRequestValid(syncActiveVersion(edited));
+
+    const createdVersion = createVariableVersion(edited);
+    expectSaveRequestValid(createdVersion);
+    expectSaveRequestValid(switchVariableVersion(createdVersion, "v1"));
+    expectSaveRequestValid(deleteActiveVariableVersion(createdVersion));
+    expectSaveRequestValid(importVariableConfig(edited, serializeVariableConfig(edited)));
+  });
+
   it("creates and switches explicit versions without overwriting the active snapshot", () => {
     const source = config();
     const created = createVariableVersion(source);

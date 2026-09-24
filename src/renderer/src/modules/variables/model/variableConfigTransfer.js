@@ -1,5 +1,5 @@
 import { DEFAULT_VARIABLE_CONFIG_VERSION_ID, VARIABLE_INITIALIZATION_OBJECT_ID } from "../../../../../shared/contracts/variables/schemas.ts";
-import { createVariableId, syncActiveVersion, uniqueVariableName, withGeneratedInitialState } from "./variableConfigEditing.js";
+import { activateVariableVersion, createVariableId, syncActiveVersion, uniqueVariableName, withGeneratedInitialState } from "./variableConfigEditing.js";
 
 function stamp() {
   return new Date().toISOString();
@@ -126,20 +126,14 @@ export function importVariableConfig(config, sourceText) {
   const synced = syncActiveVersion(config);
   const names = new Set(synced.versions.map((item) => item.name));
   const imported = parseVersion(data, names);
-  return {
-    ...synced,
-    ...imported,
-    characterId: synced.characterId,
-    activeVersionId: imported.id,
-    versions: [...synced.versions, imported],
-  };
+  return activateVariableVersion(synced, imported, [...synced.versions, imported]);
 }
 
 export function switchVariableVersion(config, versionId) {
   const synced = syncActiveVersion(config);
   const target = synced.versions.find((item) => item.id === versionId);
   if (!target) return config;
-  return { ...synced, ...target, characterId: synced.characterId, activeVersionId: target.id, versions: synced.versions };
+  return activateVariableVersion(synced, target, synced.versions);
 }
 
 export function createVariableVersion(config, { name = "", copyCurrent = false } = {}) {
@@ -158,7 +152,7 @@ export function createVariableVersion(config, { name = "", copyCurrent = false }
     id: createVariableId("variable-version"), name: versionName, initialStateJson: "{}", schemaCode: "",
     objects: [], variables: [], expandedObjectIds: [], createdAt, updatedAt: createdAt,
   };
-  return { ...synced, ...version, characterId: synced.characterId, activeVersionId: version.id, versions: [...synced.versions, version] };
+  return activateVariableVersion(synced, version, [...synced.versions, version]);
 }
 
 export function deleteActiveVariableVersion(config) {
@@ -166,9 +160,9 @@ export function deleteActiveVariableVersion(config) {
   const remaining = synced.versions.filter((item) => item.id !== synced.activeVersionId);
   if (remaining.length) {
     const target = remaining[0];
-    return { ...synced, ...target, characterId: synced.characterId, activeVersionId: target.id, versions: remaining };
+    return activateVariableVersion(synced, target, remaining);
   }
   const createdAt = stamp();
   const empty = { id: DEFAULT_VARIABLE_CONFIG_VERSION_ID, name: "", initialStateJson: "{}", schemaCode: "", objects: [], variables: [], expandedObjectIds: [], createdAt, updatedAt: createdAt };
-  return { ...synced, ...empty, characterId: synced.characterId, activeVersionId: empty.id, versions: [empty] };
+  return activateVariableVersion(synced, empty, [empty]);
 }

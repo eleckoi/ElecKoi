@@ -289,6 +289,20 @@ export function withGeneratedInitialState(config) {
   return { ...config, initialStateJson: generatedInitialStateJson(config.objects, config.variables) };
 }
 
+export function activateVariableVersion(config, version, versions) {
+  return {
+    characterId: config.characterId,
+    name: version.name,
+    initialStateJson: version.initialStateJson,
+    schemaCode: version.schemaCode,
+    objects: version.objects,
+    variables: version.variables,
+    expandedObjectIds: version.expandedObjectIds,
+    activeVersionId: version.id,
+    versions,
+  };
+}
+
 export function syncActiveVersion(config) {
   const initialStateJson = config.objects.some((item) => item.id !== VARIABLE_INITIALIZATION_OBJECT_ID && item.dynamicKey)
     ? config.initialStateJson
@@ -305,5 +319,5 @@ export function syncActiveVersion(config) {
   const versions = config.versions.some((item) => item.id === active.id)
     ? config.versions.map((item) => item.id === active.id ? active : item)
     : [...config.versions, active];
-  return { ...config, ...active, characterId: config.characterId, activeVersionId: active.id, versions };
+  return activateVariableVersion(config, active, versions);
 }
