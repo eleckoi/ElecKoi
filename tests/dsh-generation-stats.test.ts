@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   DshGenerationStatsProjector,
   emptyStoredGenerationStats,
-  parseStoredGenerationStats
+  parseStoredGenerationStats,
+  regenerationGenerationStats
 } from '@eleckoi/dsh-runtime'
 
 function sessionEvent(seq: number, type: string, data: Record<string, unknown>, time: number, surfaceOp?: unknown) {
@@ -150,6 +151,34 @@ describe('DSH generation statistics projection', () => {
 
     const parsed = parseStoredGenerationStats(stored)
     expect(parsed).toMatchObject({ turns: 3, steps: 8, lastSeq: 42, openStep: null, pendingCalls: {} })
+  })
+
+  it('keeps conversation totals while a fresh native thread replaces one retained turn', () => {
+    const previous = new DshGenerationStatsProjector()
+    previous.project(sessionEvent(1, 'assistant/chunk', {
+      turn: 1, step: 1,
+      chunk: { type: 'usage', usage: { inputTokens: 1_000, outputTokens: 100, cacheReadTokens: 2_000, cacheWriteTokens: 0 } }
+    }, 100), 'session-a')
+    previous.project(sessionEvent(2, 'step/end', { turn: 1, step: 1 }, 200), 'session-a')
+    const seed = regenerationGenerationStats(previous.snapshot(), 58)
+    expect(seed.contextPressure).toEqual({})
+    expect(seed.contextBreakdown).toEqual({ systemTokens: 0, toolsTokens: 0, messageTokens: 0 })
+
+    const restored = parseStoredGenerationStats(JSON.parse(JSON.stringify(seed)))
+    expect(restored?.replaceFirstTurn).toBe(true)
+    const regenerated = new DshGenerationStatsProjector(restored)
+    regenerated.project(sessionEvent(1, 'assistant/chunk', {
+      turn: 1, step: 1,
+      chunk: { type: 'usage', usage: { inputTokens: 200, outputTokens: 20, cacheReadTokens: 300, cacheWriteTokens: 0 } }
+    }, 300), 'session-a')
+    const first = regenerated.project(sessionEvent(2, 'step/end', { turn: 1, step: 1 }, 400), 'session-a')
+    expect(first).toMatchObject({
+      turns: 58, steps: 2,
+      tokenUsage: { uncachedInputTokens: 1_200, outputTokens: 120, cacheReadTokens: 2_300 }
+    })
+    const afterRestart = new DshGenerationStatsProjector(parseStoredGenerationStats(regenerated.stored()))
+    expect(afterRestart.project(sessionEvent(3, 'step/end', { turn: 2, step: 1 }, 500), 'session-a'))
+      .toMatchObject({ turns: 59, steps: 3 })
   })
 
   it('does not treat prototype names as pending tool calls', () => {

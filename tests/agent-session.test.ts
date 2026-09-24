@@ -736,6 +736,45 @@ describe('Agent session coordinator（Agent 会话协调器）', () => {
     expect(messages.list(harness.conversationId).map((message) => message.content)).toEqual([expectedText, '新的回复'])
   })
 
+  it('seeds a fresh runtime from cumulative stats and the retained chat turn count', async () => {
+    const runtimeInputs: AgentRunInput[] = []
+    const previousStats = {
+      turns: 58, steps: 367, llmMs: 10_000, toolMs: 500, ttftMs: 200,
+      ttftSteps: 1, decodeMs: 300, decodeTokens: 40,
+      tokenUsage: { uncachedInputTokens: 300_000, outputTokens: 20_000, cacheReadTokens: 2_700_000, cacheWriteTokens: 0 },
+      contextPressure: { projectedTokens: 70_000, contextWindow: 1_000_000 },
+      contextBreakdown: { systemTokens: 100, toolsTokens: 200, messageTokens: 300 }
+    }
+    const harness = createHarness({
+      generationStats: (_conversationId, threadId) => threadId === 'old-thread' ? previousStats : undefined,
+      run: async (input, callbacks) => {
+        runtimeInputs.push(input)
+        callbacks.onFinal('新的回复')
+        return 'complete'
+      }
+    })
+    const messages = new MessageRepository(harness.database)
+    messages.create(harness.conversationId, 'user', '保留的问题', 'complete')
+    messages.create(harness.conversationId, 'assistant', '保留的回复', 'complete', undefined, 'old-thread')
+    const replacedUser = messages.create(harness.conversationId, 'user', '需要重生成的问题', 'complete')
+    const replaced = messages.create(harness.conversationId, 'assistant', '旧回复', 'complete', undefined, 'old-thread')
+    messages.create(harness.conversationId, 'user', '会被删除的问题', 'complete')
+    messages.create(harness.conversationId, 'assistant', '会被删除的回复', 'complete', undefined, 'old-thread')
+
+    harness.coordinator.regenerate(harness.conversationId, replaced.id)
+    await harness.terminal
+
+    expect(runtimeInputs[0]?.generationStatsSeed).toEqual({ previous: previousStats, retainedTurns: 2 })
+    expect(runtimeInputs[0]?.runtimeThreadId).not.toBe('old-thread')
+    expect(messages.list(harness.conversationId).map((message) => message.id)).toContain(replacedUser.id)
+
+    harness.coordinator.start(harness.conversationId, '继续对话')
+    await vi.waitFor(() => expect(runtimeInputs).toHaveLength(2))
+    await vi.waitFor(() => expect(harness.coordinator.inspect(harness.conversationId).active).toBe(false))
+    expect(runtimeInputs[1]?.runtimeThreadId).toBe(runtimeInputs[0]?.runtimeThreadId)
+    expect(runtimeInputs[1]?.generationStatsSeed).toBeUndefined()
+  })
+
   it.each([
     { label: 'image-only', text: '' },
     { label: 'image and text', text: '这张图里是什么' }

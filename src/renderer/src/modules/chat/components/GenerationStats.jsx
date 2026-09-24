@@ -58,8 +58,7 @@ export function ContextMeter({ stats }) {
 
   if (!context) return null;
   const breakdown = stats?.contextBreakdown;
-  const rows = contextBreakdownRows(breakdown, context.usedTokens);
-  const total = rows.reduce((sum, row) => sum + row.value, 0);
+  const rows = contextBreakdownRows(breakdown);
 
   return (
     <span className="context-meter" ref={rootRef}>
@@ -91,11 +90,7 @@ export function ContextMeter({ stats }) {
             <b>{`~${formatTokens(context.usedTokens)} / ${formatTokens(context.contextWindow)}`}</b>
           </div>
           <div className="context-meter-bar" aria-hidden="true">
-            {rows.map((row) => {
-              const width = total > 0 ? context.percent * row.value / total : 0;
-              return width > 0 ? <i key={row.key} className={row.className} style={{ width: `${width}%` }} /> : null;
-            })}
-            {!total ? <i className="total" style={{ width: `${context.percent}%` }} /> : null}
+            <i className="total" style={{ width: `${context.percent}%` }} />
           </div>
           {breakdown ? (
             <dl className="context-meter-rows">
@@ -113,25 +108,13 @@ export function ContextMeter({ stats }) {
   );
 }
 
-export function contextBreakdownRows(breakdown, usedTokens) {
+export function contextBreakdownRows(breakdown) {
   if (!breakdown) return [];
   const rows = [
     { key: "systemTokens", label: "系统提示词", className: "system", value: breakdown.systemTokens || 0 },
     { key: "toolsTokens", label: "工具定义", className: "tools", value: breakdown.toolsTokens || 0 },
     { key: "messageTokens", label: "对话消息", className: "messages", value: breakdown.messageTokens || 0 },
   ];
-  const classifiedTokens = rows.reduce((sum, row) => sum + row.value, 0);
-  const unclassifiedTokens = Number.isFinite(usedTokens)
-    ? Math.max(0, Math.round(usedTokens - classifiedTokens))
-    : 0;
-  if (unclassifiedTokens > 0) {
-    rows.push({
-      key: "unclassifiedTokens",
-      label: "其余上下文",
-      className: "unclassified",
-      value: unclassifiedTokens,
-    });
-  }
   return rows;
 }
 

@@ -27,7 +27,9 @@ import {
   DshGenerationStatsProjector,
   emptyStoredGenerationStats,
   parseStoredGenerationStats,
-  type DshGenerationStats
+  regenerationGenerationStats,
+  type DshGenerationStats,
+  type DshGenerationStatsAccumulated
 } from './generationStats'
 import type {
   DshConversationContext,
@@ -136,7 +138,8 @@ export class DshRuntime {
     inputImages: DshImageAttachmentRef[] = [],
     agentPreset?: DshAgentPreset,
     webSearch?: DshWebSearchSettings,
-    subagentSettings?: DshModelSettings
+    subagentSettings?: DshModelSettings,
+    generationStatsSeed?: { previous?: DshGenerationStatsAccumulated | undefined; retainedTurns: number }
   ): Promise<'complete' | 'cancelled'> {
     if (this.activeRuns.has(conversationId) || this.startingRuns.has(conversationId)) {
       throw new Error('这个对话仍有回复正在生成。')
@@ -162,6 +165,15 @@ export class DshRuntime {
       this.activeRuns.set(conversationId, run)
       const sessionRoot = join(this.options.runtimeDataRoot, 'sessions', safeConversationDirectory(conversationId))
       mkdirSync(sessionRoot, { recursive: true })
+      if (generationStatsSeed) {
+        const seeded = new DshGenerationStatsProjector(regenerationGenerationStats(
+          generationStatsSeed.previous,
+          generationStatsSeed.retainedTurns
+        ))
+        this.generationStatsProjectors.set(generationStatsKey(conversationId, runtimeThreadId), seeded)
+        persistGenerationStats(sessionRoot, runtimeThreadId, seeded)
+        callbacks.onGenerationStats?.(seeded.snapshot())
+      }
       if (discardRuntimeThreadIds.length > 0) {
         await this.disposeRuntimeThreads(discardRuntimeThreadIds, runtimeThreadId)
         discardPersistedRuntimeThreads(

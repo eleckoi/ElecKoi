@@ -42,6 +42,7 @@ interface ActiveRun {
   checkpointAt: number
   checkpointLength: number
   discardRuntimeThreadIds: string[]
+  generationStatsSeed?: AgentRunInput['generationStatsSeed']
   agentPreset?: AgentRunInput['agentPreset']
   subagentSettings?: AgentRunInput['subagentSettings']
 }
@@ -200,6 +201,10 @@ export class AgentSessionCoordinator {
     requestId: string = randomUUID()
   ) {
     this.assertCanStart(conversationId)
+    const previousRuntimeThreadId = this.dependencies.messages.latestCompletedRuntimeThreadId(conversationId)
+    const previousGenerationStats = previousRuntimeThreadId
+      ? this.dependencies.runtime.generationStats?.(conversationId, previousRuntimeThreadId)
+      : undefined
     const settings = this.dependencies.models.resolve(this.dependencies.userSettings.read('models.active'), '')
     const metadata = this.dependencies.conversations.getMetadata(conversationId)
     const storedReplacement = replacementMessage && metadata.characterId && this.dependencies.regexRules
@@ -224,6 +229,7 @@ export class AgentSessionCoordinator {
       conversationId, runId, requestId, messageId: assistantMessage.id, cancelled: false, terminalCommitted: false, accumulated: '', sequence: 0,
       done: Promise.resolve(), checkpointAt: 0, checkpointLength: 0, runtimeThreadId,
       discardRuntimeThreadIds: prepared.obsoleteRuntimeThreadIds,
+      generationStatsSeed: { previous: previousGenerationStats, retainedTurns: prepared.retainedTurns },
       agentPreset,
       subagentSettings
     }
@@ -463,6 +469,7 @@ export class AgentSessionCoordinator {
         conversationContext,
         runtimeThreadId: active.runtimeThreadId,
         discardRuntimeThreadIds: active.discardRuntimeThreadIds,
+        generationStatsSeed: active.generationStatsSeed,
         toolPolicy: { disabledGroupIds },
         webSearch: this.dependencies.webSearchSettings?.runtimeSettings(),
         agentPreset: active.agentPreset

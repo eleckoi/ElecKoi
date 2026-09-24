@@ -402,6 +402,7 @@ export class MessageRepository {
     inputImages: ChatUserImageAttachment[]
     runtimeThreadId: string
     obsoleteRuntimeThreadIds: string[]
+    retainedTurns: number
   } {
     return this.store.withWriteTx(() => {
       const target = this.store.native.prepare(`SELECT r.turnId AS responseTurnId, t.id AS turnId, p.sequence, t.kind
@@ -453,7 +454,7 @@ export class MessageRepository {
       if (state?.variableStateJson) {
         writeCurrentConversationVariableState(conversationId, state.variableStateJson, this.store.db)
       }
-      return { turnId, text: nextText, inputImages, runtimeThreadId: randomUUID(), obsoleteRuntimeThreadIds }
+      return { turnId, text: nextText, inputImages, runtimeThreadId: randomUUID(), obsoleteRuntimeThreadIds, retainedTurns: users.count }
     })
   }
 

@@ -57,8 +57,8 @@ export function ModelConnectionTestDialog({ state, onDismiss }) {
 
   const message = state.completionMessage || (
     state.finished
-      ? state.formatFallbackSuggested
-        ? "当前接口格式未通过测试，请尝试其他接口格式。"
+      ? state.failed
+        ? "本次测试未通过，请检查错误后重试。"
         : "这个配置支持完整工具调用，可以用于 Agent。"
       : "正在按当前接口格式验证连接和工具调用。"
   );

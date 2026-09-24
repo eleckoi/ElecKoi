@@ -585,6 +585,8 @@ describe('packaged DSH runtime composition', () => {
       ]))
       expect(trajectory.records.some((record) => record.title === '隐藏工具时间线')).toBe(false)
 
+      const previousStats = runtime.generationStats('conversation-local-test', 'runtime-thread-a')
+      expect(previousStats?.turns).toBe(3)
       await expect(runtime.stream('conversation-local-test', '你好', {
         configId: 'local-main',
         provider: 'deepseek',
@@ -606,8 +608,15 @@ describe('packaged DSH runtime composition', () => {
         characterName: '角色 A',
         persona: {},
         history: [{ role: 'assistant', content: '你好啊', speakerName: '角色 A' }]
-      }, 'runtime-thread-b', undefined, ['runtime-thread-a'])).resolves.toBe('complete')
+      }, 'runtime-thread-b', undefined, ['runtime-thread-a'], [], undefined, undefined, undefined, {
+        previous: previousStats,
+        retainedTurns: 1
+      })).resolves.toBe('complete')
       expect(requests).toHaveLength(4)
+      expect(runtime.generationStats('conversation-local-test', 'runtime-thread-b')).toMatchObject({
+        turns: 1,
+        steps: (previousStats?.steps ?? 0) + 1
+      })
       const regenerationDialogue = (requests[3]?.body.messages as Array<{ role?: string; content?: unknown }>)
         .filter((message) => message.role === 'user' || message.role === 'assistant')
       expect(regenerationDialogue.slice(0, 2).map((message) => message.role)).toEqual(['assistant', 'user'])
@@ -618,6 +627,38 @@ describe('packaged DSH runtime composition', () => {
       const persistedAfterRegeneration = await readdir(persistedSessionRoot, { recursive: true })
       expect(persistedAfterRegeneration.some((entry) => entry.split(/[\\/]/).at(-1) === 'runtime-thread-a')).toBe(false)
       expect(persistedAfterRegeneration.some((entry) => entry.split(/[\\/]/).at(-1) === 'runtime-thread-b')).toBe(true)
+      await expect(runtime.stream('conversation-local-test', '继续对话', {
+        configId: 'local-main',
+        provider: 'deepseek',
+        apiKey: 'local-test-key',
+        baseUrl: `http://127.0.0.1:${address.port}`,
+        model: 'deepseek-chat',
+        systemPrompt: '只返回本地测试文本。',
+        apiFormat: 'openai-completions',
+        customHeaders: {},
+        contextWindow: 128000,
+        autoCompactTokenLimit: 96000,
+        temperature: 0.65,
+        supportsImageInput: false
+      }, {
+        onDelta: (delta) => deltas.push(delta),
+        onFinal: (content) => finals.push(content)
+      }, undefined, {
+        characterId: 'card-a',
+        characterName: '角色 A',
+        persona: {},
+        history: [
+          { role: 'assistant', content: '你好啊', speakerName: '角色 A' },
+          { role: 'user', content: '你好' },
+          { role: 'assistant', content: '本地 Agent 回复', speakerName: '角色 A' }
+        ]
+      }, 'runtime-thread-b')).resolves.toBe('complete')
+      expect(runtime.generationStats('conversation-local-test', 'runtime-thread-b')).toMatchObject({
+        turns: 2,
+        steps: (previousStats?.steps ?? 0) + 2
+      })
+      const storedStats = JSON.parse(await readFile(join(persistedRoot, 'eleckoi-generation-stats', 'runtime-thread-b.json'), 'utf8'))
+      expect(storedStats.turns).toBe(2)
     } finally {
       await runtime.close()
       server.close()

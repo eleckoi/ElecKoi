@@ -211,8 +211,7 @@ async function testGoogleTools(config: ModelConfig, baseUrl: string, model: stri
   }
   const first = await postJson(endpoint, config, 'google', {
     contents: [{ role: 'user', parts: [{ text: PROBE_PROMPT }] }],
-    tools: [{ functionDeclarations: [functionDeclaration] }],
-    generationConfig: { maxOutputTokens: 64 }
+    tools: [{ functionDeclarations: [functionDeclaration] }]
   })
   const candidate = objectArray(first.candidates)[0]
   const content = objectValue(candidate?.content)
@@ -231,8 +230,7 @@ async function testGoogleTools(config: ModelConfig, baseUrl: string, model: stri
         response: { accepted: true }
       } }] }
     ],
-    tools: [{ functionDeclarations: [functionDeclaration] }],
-    generationConfig: { maxOutputTokens: 64 }
+    tools: [{ functionDeclarations: [functionDeclaration] }]
   })
   const finalCandidate = objectArray(second.candidates)[0]
   const finalContent = objectValue(finalCandidate?.content)
@@ -348,7 +346,7 @@ function stringValue(value: unknown): string {
 }
 
 function unsupportedTools(message: string): never {
-  throw new Error(`当前接口不能完整支持 Agent 工具调用：${message}`)
+  throw new Error(`本次工具调用测试未通过：${message}`)
 }
 
 function resolvedBaseUrl(config: ModelConfig): string {

@@ -1430,15 +1430,10 @@
   height: 100%;
 }
 
-.context-meter-bar .system,
 .context-meter-rows i.system { background: #adb5bd; }
-.context-meter-bar .tools,
 .context-meter-rows i.tools { background: #9b7bff; }
-.context-meter-bar .messages,
 .context-meter-rows i.messages,
 .context-meter-bar .total { background: #4f8cff; }
-.context-meter-bar .unclassified,
-.context-meter-rows i.unclassified { background: #d99a3e; }
 
 .context-meter-rows {
   display: grid;

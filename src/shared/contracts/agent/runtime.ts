@@ -49,6 +49,7 @@ export interface AgentRunInput {
   conversationContext?: AgentConversationContext | undefined
   runtimeThreadId?: string | undefined
   discardRuntimeThreadIds?: string[] | undefined
+  generationStatsSeed?: { previous?: AgentGenerationStats | undefined; retainedTurns: number } | undefined
   toolPolicy?: { disabledGroupIds: string[] } | undefined
   webSearch?: {
     mode: WebSearchMode

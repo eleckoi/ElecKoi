@@ -58,24 +58,22 @@ describe('generation statistics display', () => {
     expect(formatDuration(162_000)).toBe('2m42s');
   });
 
-  it('reconciles the DSH provider pressure with the heuristic composition', () => {
+  it('keeps heuristic categories separate from the provider context total', () => {
     const rows = contextBreakdownRows({
       systemTokens: 0,
       toolsTokens: 551,
       messageTokens: 5_600,
-    }, 14_700);
+    });
 
     expect(rows.map((row) => row.label)).toEqual([
       '系统提示词',
       '工具定义',
       '对话消息',
-      '其余上下文',
     ]);
-    expect(rows.at(-1)?.value).toBe(8_549);
-    expect(rows.reduce((total, row) => total + row.value, 0)).toBe(14_700);
+    expect(rows.map((row) => row.value)).toEqual([0, 551, 5_600]);
   });
 
-  it('does not invent an unclassified row without provider pressure', () => {
+  it('keeps the same three heuristic categories without provider pressure', () => {
     const rows = contextBreakdownRows({
       systemTokens: 0,
       toolsTokens: 551,

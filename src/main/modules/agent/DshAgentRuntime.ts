@@ -37,7 +37,8 @@ export class DshAgentRuntime implements AgentRuntimePort {
       input.inputImages,
       input.agentPreset,
       input.webSearch,
-      input.subagentSettings
+      input.subagentSettings,
+      input.generationStatsSeed
     )
   }
 

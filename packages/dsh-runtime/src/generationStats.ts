@@ -38,6 +38,11 @@ export interface DshGenerationStats {
   contextBreakdown: DshContextBreakdownStats
 }
 
+export type DshGenerationStatsAccumulated = Pick<
+  DshGenerationStats,
+  'steps' | 'llmMs' | 'toolMs' | 'ttftMs' | 'ttftSteps' | 'decodeMs' | 'decodeTokens' | 'tokenUsage'
+>
+
 interface UsageSample {
   turn: number
   step: number
@@ -69,6 +74,7 @@ export interface StoredDshGenerationStats extends DshGenerationStats {
   breakdownNodes: BreakdownNode[]
   legacyBreakdownSurfaceTokens: number
   legacyBreakdownSystemTokens: number
+  replaceFirstTurn?: boolean
 }
 
 const zeroUsage = (): DshTokenUsageStats => ({
@@ -101,6 +107,23 @@ export function emptyStoredGenerationStats(): StoredDshGenerationStats {
     breakdownNodes: [],
     legacyBreakdownSurfaceTokens: 0,
     legacyBreakdownSystemTokens: 0
+  }
+}
+
+export function regenerationGenerationStats(previous: DshGenerationStatsAccumulated | undefined, retainedTurns: number): StoredDshGenerationStats {
+  const empty = emptyStoredGenerationStats()
+  return {
+    ...empty,
+    turns: retainedTurns,
+    steps: previous?.steps ?? 0,
+    llmMs: previous?.llmMs ?? 0,
+    toolMs: previous?.toolMs ?? 0,
+    ttftMs: previous?.ttftMs ?? 0,
+    ttftSteps: previous?.ttftSteps ?? 0,
+    decodeMs: previous?.decodeMs ?? 0,
+    decodeTokens: previous?.decodeTokens ?? 0,
+    tokenUsage: { ...(previous?.tokenUsage ?? empty.tokenUsage) },
+    replaceFirstTurn: true
   }
 }
 
@@ -173,7 +196,10 @@ export class DshGenerationStatsProjector {
         changed = true
       }
     } else if (type === 'step/end' && turn !== undefined) {
-      this.state.turns += this.state.lastTurn === turn ? 0 : 1
+      if (this.state.lastTurn !== turn) {
+        if (this.state.replaceFirstTurn) this.state.replaceFirstTurn = false
+        else this.state.turns += 1
+      }
       this.state.steps += 1
       this.state.lastTurn = turn
       this.state.openStep = null
@@ -407,6 +433,7 @@ export function parseStoredGenerationStats(value: unknown): StoredDshGenerationS
     breakdownNodes: breakdownNodes ?? [],
     legacyBreakdownSurfaceTokens,
     legacyBreakdownSystemTokens,
+    replaceFirstTurn: item.replaceFirstTurn === true,
     openStep: null,
     pendingCalls: {}
   }

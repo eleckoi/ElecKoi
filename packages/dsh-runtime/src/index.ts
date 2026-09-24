@@ -9,7 +9,8 @@ export { DshProcessProjector, DshReplyProjector, finalReplyText } from './notifi
 export {
   DshGenerationStatsProjector,
   emptyStoredGenerationStats,
-  parseStoredGenerationStats
+  parseStoredGenerationStats,
+  regenerationGenerationStats
 } from './generationStats'
 export type {
   DshRuntimeOptions,

@@ -26,7 +26,6 @@ export function useModelConnectionTest({ formRef, onProbeModels, onTestConnectio
       modelLabel: String(snapshot.model || "").trim(),
       finished: false,
       failed: false,
-      formatFallbackSuggested: false,
       completionMessage: "",
       steps: INITIAL_STEPS.map((step) => ({ ...step })),
     });
@@ -57,7 +56,7 @@ export function useModelConnectionTest({ formRef, onProbeModels, onTestConnectio
     } catch (error) {
       const message = errorMessage(error, "连接测试失败");
       patchStep("connection", { status: "failed", detail: message });
-      patchDialog((current) => ({ ...current, finished: true, failed: true, formatFallbackSuggested: true }));
+      patchDialog((current) => ({ ...current, finished: true, failed: true, completionMessage: "本次连接测试未通过，请检查错误后重试。" }));
       setConnectionTest({ status: "error", message });
       onNotify?.("error", message);
       finish();
@@ -82,8 +81,7 @@ export function useModelConnectionTest({ formRef, onProbeModels, onTestConnectio
         ...current,
         finished: true,
         failed: true,
-        formatFallbackSuggested: true,
-        completionMessage: "当前接口格式未通过工具测试，请尝试其他接口格式。",
+        completionMessage: "本次工具调用测试未通过，请检查错误后重试。",
       }));
       setConnectionTest({ status: "error", message });
       onNotify?.("error", message);

@@ -222,7 +222,9 @@ describe('model discovery', () => {
     })
     expect(JSON.stringify(requests[0]?.body)).not.toContain('additionalProperties')
     expect(requests[0]?.body).not.toHaveProperty('toolConfig')
+    expect(requests[0]?.body).not.toHaveProperty('generationConfig.maxOutputTokens')
     expect(requests[1]?.body).toHaveProperty('tools')
+    expect(requests[1]?.body).not.toHaveProperty('generationConfig.maxOutputTokens')
     expect(requests[1]?.body).toMatchObject({
       contents: [
         { role: 'user', parts: [{ text: 'Call eleckoi_capability_probe exactly once with value ok.' }] },
@@ -256,7 +258,7 @@ describe('model discovery', () => {
     await expect(testModelConnection(modelConfig(
       `http://127.0.0.1:${address.port}/v1`,
       'chat_completions'
-    ))).rejects.toThrow('当前接口不能完整支持 Agent 工具调用')
+    ))).rejects.toThrow('本次工具调用测试未通过')
     expect(bodies[0]).not.toHaveProperty('tool_choice')
   })
 })
