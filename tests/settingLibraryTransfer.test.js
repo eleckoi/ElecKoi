@@ -105,6 +105,24 @@ describe("setting-library versions and transfer", () => {
     expect(parsed.entries[0]).toMatchObject({ title: "地点", keywords: ["城堡"], agentReadStrategy: "keyword" });
   });
 
+  it("maps SillyTavern world book scan depth onto the keyword scan window", () => {
+    const depthOf = (book, title) => parseSettingLibraryFile(JSON.stringify(book), "sillytavern")
+      .entries.find((item) => item.title === title)?.keywordScanDepth;
+
+    // 卡内嵌形态（V2/V3 规范）：extensions.scan_depth
+    expect(depthOf({ entries: { 0: { comment: "条目级优先", content: "A", keys: ["甲"], extensions: { scan_depth: 4 } } } }, "条目级优先")).toBe(4);
+    expect(depthOf({ scan_depth: 3, entries: { 0: { comment: "跟随书级", content: "B", keys: ["乙"], extensions: { scan_depth: null } } } }, "跟随书级")).toBe(3);
+    expect(depthOf({ entries: { 0: { comment: "缺省兜底", content: "C", keys: ["丙"] } } }, "缺省兜底")).toBe(2);
+    expect(depthOf({ entries: { 0: { comment: "上限截断", content: "D", keys: ["丁"], extensions: { scan_depth: 2000 } } } }, "上限截断")).toBe(1000);
+    expect(depthOf({ entries: { 0: { comment: "零值抬到最小", content: "E", keys: ["戊"], extensions: { scan_depth: 0 } } } }, "零值抬到最小")).toBe(1);
+    expect(depthOf({ scan_depth: 3, entries: { 0: { comment: "条目级覆盖书级", content: "F", keys: ["己"], extensions: { scan_depth: 5 } } } }, "条目级覆盖书级")).toBe(5);
+
+    // 酒馆原生形态（worlds/*.json 运行时字段名）：条目顶层 scanDepth
+    expect(depthOf({ entries: { 0: { uid: 0, key: ["庚"], comment: "原生条目", content: "G", scanDepth: 6 } } }, "原生条目")).toBe(6);
+    expect(depthOf({ entries: { 0: { uid: 0, key: ["辛"], comment: "原生零值", content: "H", scanDepth: 0 } } }, "原生零值")).toBe(1);
+    expect(depthOf({ entries: { 0: { uid: 0, key: ["壬"], comment: "原生缺省", content: "I" } } }, "原生缺省")).toBe(2);
+  });
+
   it("classifies EJS controllers and their getwi references like Android", () => {
     const parsed = parseSettingLibraryFile(JSON.stringify({ name: "剧情", entries: {
       0: { comment: "章节控制器", content: '<%- await getwi(null, "第一章") %>', constant: true },

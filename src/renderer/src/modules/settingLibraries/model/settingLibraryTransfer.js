@@ -1,4 +1,5 @@
 import { FIXED_ENTRY_IDS, PINNED_ENTRY_IDS, createId, uniqueName } from "./settingLibraryEditing.js";
+import { tavernEntryScanDepth } from "@shared/foundation/tavernWorldBook";
 
 export const SETTING_LIBRARY_EXPORT_FORMAT = "eleckoi.workspace-setting-library";
 export const SETTING_LIBRARY_EXPORT_VERSION = 3;
@@ -326,7 +327,7 @@ function parseSillyTavernExport(source) {
       agentReadCondition: "",
       dynamicMode: "single_condition",
       keywords: constant ? [] : keys,
-      keywordScanDepth: 1,
+      keywordScanDepth: tavernEntryScanDepth(item, book),
       conditionKeywords: constant ? [] : secondary,
       keywordCondition: constant || !secondary.length ? "none" : logic === 2 ? "not_any" : logic === 3 ? "all" : "any",
       keywordUseRegex: !constant && bool(item.use_regex),

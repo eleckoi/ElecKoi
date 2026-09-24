@@ -209,6 +209,67 @@ describe("DSH character setting-library tools", () => {
     expect(found.required_files.map((file) => file.path)).toEqual(["世界/总览", "天气警报", "密道"]);
   });
 
+  it("uses keywordScanDepth as the message window for keyword matching", async () => {
+    const runtime = await tools({
+      history: [
+        { role: "user", content: "我们去见琳达梅尔。" },
+        { role: "assistant", content: "夜色沉了下去。" },
+      ],
+      extraEntries: [
+        entry({ id: "narrow", title: "窄窗口", content: "琳达梅尔。", agentReadStrategy: "keyword", keywords: ["琳达梅尔"], keywordScanDepth: 1 }),
+        entry({ id: "wide", title: "宽窗口", content: "琳达梅尔。", agentReadStrategy: "keyword", keywords: ["琳达梅尔"], keywordScanDepth: 2 }),
+      ],
+    });
+
+    const found = await runtime.byName.get("eleckoi_glob_setting_files").execute({ pattern: "**" });
+    const paths = found.required_files.map((file) => file.path);
+    expect(paths).toContain("宽窗口");
+    expect(paths).not.toContain("窄窗口");
+  });
+
+  it("does not match keywords across a message boundary", async () => {
+    const runtime = await tools({
+      history: [
+        { role: "user", content: "琳达" },
+        { role: "assistant", content: "梅尔出现了。" },
+      ],
+      extraEntries: [
+        entry({ id: "span", title: "跨消息", content: "跨消息命中。", agentReadStrategy: "keyword", keywords: ["琳达\\s*梅尔"], keywordUseRegex: true, keywordScanDepth: 2 }),
+        entry({ id: "inside", title: "同消息", content: "同消息命中。", agentReadStrategy: "keyword", keywords: ["梅尔出现"], keywordScanDepth: 2 }),
+      ],
+    });
+
+    const found = await runtime.byName.get("eleckoi_glob_setting_files").execute({ pattern: "**" });
+    const paths = found.required_files.map((file) => file.path);
+    expect(paths).toContain("同消息");
+    expect(paths).not.toContain("跨消息");
+  });
+
+  it("keeps the SillyTavern haystack boundaries and their known limits", async () => {
+    const runtime = await tools({
+      history: [
+        { role: "user", content: "琳达" },
+        { role: "assistant", content: "梅尔出现了。" },
+      ],
+      extraEntries: [
+        // \x01 加在每条消息前面，因此 ^ 锚不住消息开头（带不带 m 都一样，与酒馆一致）
+        entry({ id: "caret", title: "行首锚点", content: "行首。", agentReadStrategy: "keyword", keywords: ["^琳达"], keywordUseRegex: true, keywordScanDepth: 2 }),
+        entry({ id: "caret-m", title: "行首锚点m", content: "行首m。", agentReadStrategy: "keyword", keywords: ["/^琳达/m"], keywordUseRegex: true, keywordScanDepth: 2 }),
+        // \x01 加在消息前面而不是后面，因此消息末尾的 $ 锚点仍然可用
+        entry({ id: "dollar", title: "行尾锚点", content: "行尾。", agentReadStrategy: "keyword", keywords: ["现了。$"], keywordUseRegex: true, keywordScanDepth: 2 }),
+        // 已知边界：\x01 只挡住依赖空白符的跨越，任意字符类仍可跨消息（与酒馆相同，不是硬隔离）
+        entry({ id: "anychar", title: "任意字符跨越", content: "任意字符。", agentReadStrategy: "keyword", keywords: ["琳达[\\s\\S]*梅尔"], keywordUseRegex: true, keywordScanDepth: 2 }),
+      ],
+    });
+
+    const found = await runtime.byName.get("eleckoi_glob_setting_files").execute({ pattern: "**" });
+    const paths = found.required_files.map((file) => file.path);
+    expect(paths).not.toContain("行首锚点");
+    expect(paths).not.toContain("行首锚点m");
+    expect(paths).toContain("行尾锚点");
+    expect(paths).toContain("任意字符跨越");
+  });
+
   it("evaluates variable conditions and renders EJS controllers as promoted required files", async () => {
     const runtime = await tools({
       history: [{ role: "user", content: "继续故事。" }],
