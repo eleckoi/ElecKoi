@@ -454,6 +454,7 @@ export class DshRuntime {
         DSH_PERMISSION_MODE: 'workspace-write',
         DSH_TELEMETRY_DISABLED: '1'
       },
+      initializeTimeoutMs: 45_000,
       shutdownTimeoutMs: 1500,
       disposeEofGraceMs: 2500,
       disposeGraceMs: 1500,

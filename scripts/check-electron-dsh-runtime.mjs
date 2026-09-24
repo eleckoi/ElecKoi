@@ -9,7 +9,7 @@ const result = spawnSync(executable, [join(process.cwd(), 'scripts', 'probe-dsh-
   cwd: process.cwd(),
   env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
   encoding: 'utf8',
-  timeout: 30_000
+  timeout: 90_000
 })
 
 if (result.status !== 0) {
