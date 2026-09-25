@@ -129,7 +129,7 @@
 
 .character-manager-main {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   padding: 48px 34px 0;
@@ -137,6 +137,7 @@
 }
 
 .character-manager-titlebar {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(180px, auto) minmax(220px, 1fr) repeat(3, auto);
   align-items: center;
@@ -199,8 +200,120 @@
   color: #fff;
 }
 
+/* 导出操作复用标题栏和下方原有间距，切换模式时卡片位置不变。 */
+.character-manager-selection-bar {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.character-manager-selection-summary,
+.character-manager-selection-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.character-manager-selection-count {
+  flex: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.character-manager-format-switch {
+  display: inline-flex;
+  flex: none;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+
+/* 分段控件优先于选择条里 button 的通用外观（选择器更长，覆盖 border/height/padding）。 */
+.character-manager-selection-bar .character-manager-format-switch button {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.character-manager-selection-bar .character-manager-format-switch button[aria-pressed="true"] {
+  background: var(--control-bg-hover);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.character-manager-selection-bar .character-manager-format-switch button:hover:not(:disabled) {
+  background: var(--control-bg-hover);
+  color: var(--text);
+}
+
+.character-manager-selection-bar button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.character-manager-selection-bar .character-manager-selection-actions button {
+  height: 34px;
+  padding: 0 8px;
+}
+
+.character-manager-selection-bar .character-manager-selection-actions button:hover:not(:disabled) {
+  background: var(--control-bg-hover);
+  color: var(--text);
+}
+
+.character-manager-selection-bar .character-manager-confirm-export {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--surface-raised);
+}
+
+.character-manager-selection-bar .character-manager-confirm-export:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 85%, var(--surface-raised));
+  color: var(--surface-raised);
+}
+
+/* 目标名称位于标题栏已有的下方间距中，不参与网格高度计算。 */
+.character-manager-selection-targets {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 18px;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.character-manager-selection-targets > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.character-manager-selection-notice {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
+  color: color-mix(in srgb, #1a9c53 76%, var(--text));
+  text-overflow: ellipsis;
+}
+
 .character-manager-error {
-  margin: -10px 0 12px;
+  margin: 0 0 12px;
   color: color-mix(in srgb, #d93838 84%, var(--text));
   font-size: 12px;
 }
@@ -429,43 +542,6 @@
 .character-group-dialog .character-dialog-confirm:not(:disabled) {
   border-color: var(--blue);
   background: var(--blue);
-}
-
-.character-manager-export {
-  position: relative;
-  min-width: 0;
-}
-
-.character-manager-export > button {
-  width: 100%;
-}
-
-.character-manager-export-menu {
-  position: absolute;
-  z-index: 8;
-  top: calc(100% + 6px);
-  right: 0;
-  display: grid;
-  width: 132px;
-  padding: 5px;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  background: var(--surface-raised);
-  box-shadow: 0 10px 28px color-mix(in srgb, #000 16%, transparent);
-}
-
-.character-manager-titlebar .character-manager-export-menu button {
-  justify-content: start;
-  width: 100%;
-  border: 0;
-  background: transparent;
-}
-
-.character-manager-export-menu span[role="alert"] {
-  padding: 5px 8px;
-  color: var(--danger, #d92d20);
-  font-size: 12px;
-  line-height: 1.4;
 }
 
 .character-import-overlay {
