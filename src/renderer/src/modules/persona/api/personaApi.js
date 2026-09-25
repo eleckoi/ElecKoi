@@ -41,6 +41,10 @@ export function exportCharacter(characterId, format) {
   return desktopClient.request("command.characters.export", { characterId, format });
 }
 
+export function exportCharacterFiles(characterIds, format) {
+  return desktopClient.request("command.characters.export.files", { characterIds, format });
+}
+
 export function prepareCharacterImports(source, files) {
   return desktopClient.request("command.characters.import.prepare", { source, files });
 }

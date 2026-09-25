@@ -5,7 +5,7 @@ import {
   CharacterManager,
   commitCharacterImports,
   deleteCharacters,
-  exportCharacter,
+  exportCharacterFiles,
   getCharacters,
   getPersona,
   saveCharacterGroups,
@@ -71,18 +71,6 @@ export function CharacterManagerWindow() {
     return result;
   }
 
-  async function downloadCharacter(characterId, format) {
-    const exported = await exportCharacter(characterId, format);
-    const binary = atob(exported.base64);
-    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-    const url = URL.createObjectURL(new Blob([bytes], { type: exported.mimeType }));
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = exported.fileName;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-
   return (
     <main className="qq-shell management-window-shell">
       <TitleBar splitSurface />
@@ -99,7 +87,7 @@ export function CharacterManagerWindow() {
             onSaveGroups={persistGroups}
             onDeleteCharacters={removeCharacters}
             onImportCharacters={importCharacters}
-            onExportCharacter={downloadCharacter}
+            onExportCharacters={exportCharacterFiles}
           />
         )}
       </section>

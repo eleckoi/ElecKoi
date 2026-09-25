@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import { extname } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { basename, extname, join } from 'node:path'
 import type {
+  CharacterExportBatchResult,
   CharacterExportFormat,
   CharacterExportResult,
   CharacterImportFile,
@@ -86,7 +87,7 @@ export class CharacterTransferService {
         .slice().sort((left, right) => left.order - right.order)
     }
     const json = encodeCharacterCardJson(packageData)
-    const safeName = packageData.character.name.replace(/[\\/:*?"<>|]/g, '-').trim() || 'ElecKoi角色'
+    const safeName = safeExportFileStem(packageData.character.name)
     if (format === 'json') {
       return {
         fileName: `${safeName}.json`,
@@ -105,6 +106,33 @@ export class CharacterTransferService {
       mimeType: 'image/png',
       base64: Buffer.from(png).toString('base64')
     }
+  }
+
+  /** 批量导出到指定目录：一次选目录，逐个写盘；单个失败不打断其余。 */
+  exportMany(
+    characterIds: string[],
+    format: CharacterExportFormat,
+    directory: string
+  ): Pick<CharacterExportBatchResult, 'written' | 'failures'> {
+    const written: Array<{ characterId: string; fileName: string }> = []
+    const failures: Array<{ characterId: string; message: string }> = []
+    try {
+      mkdirSync(directory, { recursive: true })
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : '导出目录不可用。'
+      return { written: [], failures: characterIds.map((characterId) => ({ characterId, message })) }
+    }
+    for (const characterId of characterIds) {
+      try {
+        const exported = this.export(characterId, format)
+        const target = uniqueFilePath(directory, exported.fileName)
+        writeFileSync(target, Buffer.from(exported.base64, 'base64'))
+        written.push({ characterId, fileName: basename(target) })
+      } catch (cause) {
+        failures.push({ characterId, message: cause instanceof Error ? cause.message : '导出失败。' })
+      }
+    }
+    return { written, failures }
   }
 
   prepare(files: CharacterImportFile[], source: CharacterImportSource): CharacterImportPreview {
@@ -308,4 +336,35 @@ function string(value: unknown, fallback = ''): string {
 
 function boolean(value: unknown): boolean {
   return value === true || value === 1
+}
+
+const RESERVED_FILE_STEMS = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
+/** 名字过长会被文件系统拒绝，也会顶破契约的 fileName.max(260)，这里留足扩展名与序号的空间。 */
+const MAX_FILE_STEM_LENGTH = 80
+
+/**
+ * 角色名会直接变成文件名，所以统一在这里做一次规范化（导出与批量落盘共用）：
+ * 去掉路径分隔符、Windows 保留字符与控制字符，截断长度，避开 Windows 保留设备名。
+ */
+function safeExportFileStem(name: string): string {
+  const cleaned = Array.from(name
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-')
+    .replace(/[. ]+$/, '')
+    .trim())
+    .slice(0, MAX_FILE_STEM_LENGTH)
+    .join('')
+    .replace(/[. ]+$/, '')
+  if (cleaned.length === 0) return 'ElecKoi角色'
+  return RESERVED_FILE_STEMS.test(cleaned) ? `_${cleaned}` : cleaned
+}
+
+/** 目录里已有同名文件时按 "名字 (2).ext" 递增，不覆盖用户已有的文件。 */
+function uniqueFilePath(directory: string, fileName: string): string {
+  const extension = extname(fileName)
+  const stem = extension.length > 0 ? fileName.slice(0, -extension.length) : fileName
+  let candidate = join(directory, fileName)
+  for (let index = 2; existsSync(candidate) && index < 1000; index += 1) {
+    candidate = join(directory, `${stem} (${index})${extension}`)
+  }
+  return candidate
 }

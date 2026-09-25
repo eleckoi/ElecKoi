@@ -199,6 +199,135 @@
   color: #fff;
 }
 
+/* 导出勾选模式的选择条：承载模式标识、格式、已选清单与全部操作，
+   把选择期信息从标题栏里挪出来（不再和搜索抢宽度，也不会被截断）。 */
+.character-manager-selection-bar {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--blue) 26%, var(--line-strong));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--blue) 6%, var(--surface-raised));
+}
+
+.character-manager-selection-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.character-manager-selection-mode {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.character-manager-selection-count {
+  flex: none;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.character-manager-format-switch {
+  display: inline-flex;
+  flex: none;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+
+/* 分段控件优先于选择条里 button 的通用外观（选择器更长，覆盖 border/height/padding）。 */
+.character-manager-selection-bar .character-manager-format-switch button {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.character-manager-selection-bar .character-manager-format-switch button[aria-pressed="true"] {
+  background: var(--blue);
+  color: #fff;
+}
+
+.character-manager-selection-bar .character-manager-format-switch button[aria-pressed="true"]:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--blue) 84%, #000);
+  color: #fff;
+}
+
+.character-manager-selection-notice {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: color-mix(in srgb, #1a9c53 76%, var(--text));
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.character-manager-selection-bar button {
+  display: inline-grid;
+  grid-auto-flow: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: none;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.character-manager-selection-bar button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--blue) 40%, var(--line-strong));
+  color: var(--blue);
+}
+
+.character-manager-selection-bar button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.character-manager-selection-bar button:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.character-manager-selection-bar .character-manager-confirm-export {
+  background: var(--blue);
+  color: #fff;
+}
+
+.character-manager-selection-bar .character-manager-confirm-export:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--blue) 84%, #000);
+  color: #fff;
+}
+
+/* 目标清单固定两行高度：即使目标被搜索/分组隐藏，也不会看不见自己将导出什么；
+   固定高度还有第二个作用——勾选数量变化时选择条高度不变，网格不会在连点选卡的过程中往下跳
+   （实测：可变高度时 12 张比 3 张高 34px，整个网格随之下移）。 */
+.character-manager-selection-targets {
+  height: 36px;
+  margin: 0;
+  overflow-y: auto;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .character-manager-error {
   margin: -10px 0 12px;
   color: color-mix(in srgb, #d93838 84%, var(--text));

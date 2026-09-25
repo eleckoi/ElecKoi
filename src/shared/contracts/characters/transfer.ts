@@ -36,9 +36,23 @@ export const characterExportResultSchema = z.object({
   base64: z.string().min(1).max(132 * 1024 * 1024)
 }).strict()
 
+export const characterExportBatchResultSchema = z.object({
+  canceled: z.boolean(),
+  directory: z.string().max(520),
+  written: z.array(z.object({
+    characterId: z.string().min(1),
+    fileName: z.string().min(1).max(260)
+  }).strict()).max(50),
+  failures: z.array(z.object({
+    characterId: z.string().min(1),
+    message: z.string().min(1).max(500)
+  }).strict()).max(50)
+}).strict()
+
 export type CharacterImportSource = z.infer<typeof characterImportSourceSchema>
 export type CharacterExportFormat = z.infer<typeof characterExportFormatSchema>
 export type CharacterImportFile = z.infer<typeof characterImportFileSchema>
 export type CharacterImportPreview = z.infer<typeof characterImportPreviewSchema>
 export type CharacterImportResult = z.infer<typeof characterImportResultSchema>
 export type CharacterExportResult = z.infer<typeof characterExportResultSchema>
+export type CharacterExportBatchResult = z.infer<typeof characterExportBatchResultSchema>

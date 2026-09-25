@@ -24,6 +24,7 @@ import { settingLibraryConversationSchema, settingLibrarySchema } from '../setti
 import { variableConfigSchema } from '../variables/schemas'
 import { variableViewerTimelineSchema } from '../variables/viewer'
 import {
+  characterExportBatchResultSchema,
   characterExportFormatSchema,
   characterExportResultSchema,
   characterImportFileSchema,
@@ -140,6 +141,13 @@ export const requestContracts = {
   'command.characters.export': defineRoute(
     z.object({ characterId: z.string().min(1), format: characterExportFormatSchema }),
     characterExportResultSchema
+  ),
+  'command.characters.export.files': defineRoute(
+    z.object({
+      characterIds: z.array(z.string().min(1)).min(1).max(50),
+      format: characterExportFormatSchema
+    }),
+    characterExportBatchResultSchema
   ),
   'command.characters.import.prepare': defineRoute(
     z.object({

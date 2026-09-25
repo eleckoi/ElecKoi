@@ -9,12 +9,14 @@ import { CharacterImportDialog } from "./CharacterImportDialog.jsx";
 import { ALL_CHARACTERS, characterGroup, characterName } from "./characterUtils.js";
 
 const CHARACTER_ARTWORK_RATIOS = [0.76, 0.68, 0.84, 0.72];
+// 与契约 command.characters.export.files 的 max(50) 对齐：超了会被输入校验直接拒掉。
+const MAX_EXPORT_SELECTION = 50;
 
 export function characterArtworkAspectRatio(index) {
   return CHARACTER_ARTWORK_RATIOS[index % CHARACTER_ARTWORK_RATIOS.length];
 }
 
-export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCharacters, onImportCharacters, onExportCharacter }) {
+export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCharacters, onImportCharacters, onExportCharacters }) {
   const [selectedGroup, setSelectedGroup] = useState(ALL_CHARACTERS);
   const [selectedCharacterId, setSelectedCharacterId] = useState(characters.active_character_id || characters.items?.[0]?.id || "");
   const [keyword, setKeyword] = useState("");
@@ -26,6 +28,8 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
   const [groupDraft, setGroupDraft] = useState("");
   const [importOpen, setImportOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState("");
+  const [exportNotice, setExportNotice] = useState("");
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const exportControlRef = useRef(null);
@@ -48,6 +52,28 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
     });
   }, [characters, keyword, selectedGroup]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const selectionMode = deleteMode || Boolean(exportFormat);
+  // 导出目标的名字取自完整角色列表（而不是当前可见列表），
+  // 这样即使目标被搜索/分组隐藏，选择条也仍然点名它，不会静默导出看不见的卡。
+  const exportTargetNames = useMemo(() => {
+    const names = new Map((characters.items || []).map((character) => [character.id, characterName(character)]));
+    return selectedIds.map((characterId) => names.get(characterId) || characterId);
+  }, [characters, selectedIds]);
+  const exportTargetsText = exportTargetNames.length ? exportTargetNames.join("、") : "尚未选择角色卡";
+  const exportTargetsLine = exportTargetNames.length ? `将导出：${exportTargetsText}` : exportTargetsText;
+  const allVisibleSelected = Boolean(visibleCharacters.length)
+    && visibleCharacters.every((character) => selectedSet.has(character.id));
+
+  // 角色卡在别处被删除（另一个窗口、或导出途中）时，把失效的勾选一并剔除。
+  // 不剔除的话会留下一个导不出去的幽灵目标：清单只能显示裸 id，点导出必然失败，
+  // 用户只能靠「清空」脱身。这个 effect 同时覆盖删除模式。
+  useEffect(() => {
+    const existing = new Set((characters.items || []).map((character) => character.id));
+    setSelectedIds((current) => {
+      const next = current.filter((characterId) => existing.has(characterId));
+      return next.length === current.length ? current : next;
+    });
+  }, [characters]);
 
   useEffect(() => {
     if (selectedGroup !== ALL_CHARACTERS && !groups.includes(selectedGroup)) setSelectedGroup(ALL_CHARACTERS);
@@ -73,6 +99,21 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
       window.removeEventListener("keydown", closeMenus);
     };
   }, []);
+
+  // Escape 退出导出勾选模式（与 App 其他选择页一致）。弹层打开时让弹层先消费 Escape。
+  useEffect(() => {
+    if (!exportFormat) return undefined;
+    function leaveExportMode(event) {
+      if (event.key !== "Escape") return;
+      if (exporting || groupMenu || cardGroupMenu || groupDialog || importOpen) return;
+      event.preventDefault();
+      setExportFormat("");
+      setSelectedIds([]);
+      setExportNotice("");
+    }
+    window.addEventListener("keydown", leaveExportMode);
+    return () => window.removeEventListener("keydown", leaveExportMode);
+  }, [exportFormat, exporting, groupMenu, cardGroupMenu, groupDialog, importOpen]);
 
   useEffect(() => {
     if (exportOpen) exportMenuRef.current?.querySelector("button")?.focus();
@@ -104,7 +145,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
   function openCardGroupMenu(event, character) {
     event.preventDefault();
     event.stopPropagation();
-    if (deleteMode) return;
+    if (selectionMode) return;
     setSelectedCharacterId(character.id);
     setGroupMenu(null);
     setExportOpen(false);
@@ -165,14 +206,90 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
   }
 
   function toggleSelected(characterId) {
-    setSelectedIds((current) => current.includes(characterId)
-      ? current.filter((id) => id !== characterId)
-      : [...current, characterId]);
+    if (selectedIds.includes(characterId)) {
+      setSelectedIds(selectedIds.filter((id) => id !== characterId));
+      return;
+    }
+    if (selectedIds.length >= MAX_EXPORT_SELECTION) {
+      setError(`一次最多导出 ${MAX_EXPORT_SELECTION} 张。`);
+      return;
+    }
+    setError("");
+    setSelectedIds([...selectedIds, characterId]);
   }
 
   function cancelDeleteMode() {
     setDeleteMode(false);
     setSelectedIds([]);
+  }
+
+  /** 选定导出方式后进入勾选模式：卡片上出现可勾选圆圈，默认勾选当前那张卡。 */
+  function startExport(format) {
+    if (exporting) return;
+    const fallback = selectedCharacterId || characters.active_character_id;
+    const visibleIds = new Set(visibleCharacters.map((character) => character.id));
+    const initial = fallback && visibleIds.has(fallback) ? [fallback] : visibleCharacters.slice(0, 1).map((character) => character.id);
+    setExportFormat(format);
+    setExportOpen(false);
+    setError("");
+    setExportNotice("");
+    setSelectedIds(initial);
+  }
+
+  function cancelExport() {
+    setExportFormat("");
+    setSelectedIds([]);
+    setExportNotice("");
+    setError("");
+  }
+
+  /** 选择期内换格式：勾选保持不变，"先选卡再决定导什么格式"不用重来。 */
+  function changeExportFormat(format) {
+    if (exporting) return;
+    setExportFormat(format);
+  }
+
+  function selectAllVisible() {
+    const merged = [...new Set([...selectedIds, ...visibleCharacters.map((character) => character.id)])];
+    setSelectedIds(merged.slice(0, MAX_EXPORT_SELECTION));
+    setError(merged.length > MAX_EXPORT_SELECTION
+      ? `一次最多导出 ${MAX_EXPORT_SELECTION} 张，已选当前列表的前 ${MAX_EXPORT_SELECTION} 张。`
+      : "");
+  }
+
+  function clearSelection() {
+    setSelectedIds([]);
+  }
+
+  async function confirmExport() {
+    if (!selectedIds.length || exporting) return;
+    if (selectedIds.length > MAX_EXPORT_SELECTION) {
+      setError(`一次最多导出 ${MAX_EXPORT_SELECTION} 张。`);
+      return;
+    }
+    setError("");
+    setExportNotice("");
+    setExporting(true);
+    try {
+      // 主进程弹一次目录选择，然后把所有卡直接写进那个目录（见 command.characters.export.files）。
+      const result = await onExportCharacters([...selectedIds], exportFormat);
+      if (result?.canceled) return;
+      const failures = result?.failures || [];
+      const written = result?.written || [];
+      if (failures.length) {
+        // 只留下失败的：成功的移出勾选，重试时不会把同一张卡导出两遍。
+        const failed = new Set(failures.map((failure) => failure.characterId));
+        setSelectedIds((current) => current.filter((characterId) => failed.has(characterId)));
+        setError(`${failures[0].message}（已导出 ${written.length} 张，其余已从勾选中移除）`);
+        return;
+      }
+      // 成功后保留勾选与模式：用户可以直接换成另一种格式再导一次。
+      setExportNotice(`已导出 ${written.length} 张 · ${exportFormat.toUpperCase()} → ${result?.directory || ""}`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "导出失败，请重试。");
+    } finally {
+      setExporting(false);
+    }
   }
 
   async function confirmDelete() {
@@ -183,21 +300,6 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
       cancelDeleteMode();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "删除失败，请重试。");
-    }
-  }
-
-  async function exportCharacter(format) {
-    const characterId = selectedCharacterId || characters.active_character_id || characters.items?.[0]?.id;
-    if (!characterId || exporting) return;
-    setExporting(true);
-    setError("");
-    try {
-      await onExportCharacter(characterId, format);
-      setExportOpen(false);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "导出失败，请重试。");
-    } finally {
-      setExporting(false);
     }
   }
 
@@ -243,7 +345,14 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
             placeholder="搜索角色…"
             ariaLabel="搜索角色"
           />
-          {!deleteMode ? (
+          {deleteMode ? (
+            <>
+              <button className="character-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={confirmDelete}>
+                确认{selectedIds.length ? ` ${selectedIds.length}` : ""}
+              </button>
+              <button type="button" onClick={cancelDeleteMode}>取消</button>
+            </>
+          ) : exportFormat ? null : (
             <>
               <button type="button" onClick={() => setImportOpen(true)}><ImportIcon />导入角色</button>
               <div className="character-manager-export" ref={exportControlRef}>
@@ -258,22 +367,59 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
                 </button>
                 {exportOpen ? (
                   <div className="character-manager-export-menu" ref={exportMenuRef} role="menu" aria-label="选择角色卡格式">
-                    <button type="button" role="menuitem" disabled={exporting} onClick={() => exportCharacter("png")}>PNG 角色卡</button>
-                    <button type="button" role="menuitem" disabled={exporting} onClick={() => exportCharacter("json")}>JSON 角色卡</button>
+                    <button type="button" role="menuitem" disabled={exporting} onClick={() => startExport("png")}>PNG 角色卡</button>
+                    <button type="button" role="menuitem" disabled={exporting} onClick={() => startExport("json")}>JSON 角色卡</button>
                   </div>
                 ) : null}
               </div>
               <button type="button" disabled={!characters.items?.length} onClick={() => setDeleteMode(true)}><TrashIcon />删除</button>
             </>
-          ) : (
-            <>
-              <button className="character-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={confirmDelete}>
-                确认{selectedIds.length ? ` ${selectedIds.length}` : ""}
-              </button>
-              <button type="button" onClick={cancelDeleteMode}>取消</button>
-            </>
           )}
         </header>
+
+        {exportFormat ? (
+          <section className="character-manager-selection-bar" aria-label="导出选择">
+            <div className="character-manager-selection-row">
+              <strong className="character-manager-selection-mode">导出模式</strong>
+              <span className="character-manager-selection-count">已选 {selectedIds.length} 张</span>
+              <div className="character-manager-format-switch" role="group" aria-label="导出格式">
+                <button
+                  type="button"
+                  aria-pressed={exportFormat === "png"}
+                  disabled={exporting}
+                  onClick={() => changeExportFormat("png")}
+                >
+                  PNG
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={exportFormat === "json"}
+                  disabled={exporting}
+                  onClick={() => changeExportFormat("json")}
+                >
+                  JSON
+                </button>
+              </div>
+              <span className="character-manager-selection-notice" role="status">{exportNotice}</span>
+              <button type="button" disabled={exporting || allVisibleSelected} onClick={selectAllVisible}>
+                全选当前列表
+              </button>
+              <button type="button" disabled={exporting || !selectedIds.length} onClick={clearSelection}>清空</button>
+              <button type="button" disabled={exporting} onClick={cancelExport}>{exportNotice ? "完成" : "取消"}</button>
+              <button
+                className="character-manager-confirm-export"
+                type="button"
+                disabled={!selectedIds.length || exporting}
+                onClick={confirmExport}
+              >
+                {exporting ? "导出中…" : `导出 ${selectedIds.length} 张`}
+              </button>
+            </div>
+            <p className="character-manager-selection-targets" title={exportTargetsText}>
+              {exportTargetsLine}
+            </p>
+          </section>
+        ) : null}
 
         {error ? <p className="character-manager-error" role="alert">{error}</p> : null}
         <div className="character-manager-scroll">
@@ -286,11 +432,11 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
                   artworkAspectRatio={characterArtworkAspectRatio(index)}
                   authorName={persona?.user_name || "用户"}
                   authorAvatar={persona?.user_avatar || ""}
-                  selectable={deleteMode}
+                  selectable={selectionMode}
                   selected={selectedSet.has(character.id)}
-                  onClick={deleteMode ? toggleSelected : setSelectedCharacterId}
-                  onDoubleClick={deleteMode ? undefined : openCharacterEditorWindow}
-                  onContextMenu={deleteMode ? undefined : openCardGroupMenu}
+                  onClick={selectionMode ? toggleSelected : setSelectedCharacterId}
+                  onDoubleClick={selectionMode ? undefined : openCharacterEditorWindow}
+                  onContextMenu={selectionMode ? undefined : openCardGroupMenu}
                 />
               ))}
             </div>

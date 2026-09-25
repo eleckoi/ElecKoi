@@ -9,7 +9,15 @@ export function AddGroupDialog({ title = "添加分组", value, onChange, onConf
         }}
       >
         <h3>{title}</h3>
-        <input value={value} onChange={(event) => onChange(event.target.value)} placeholder="填写分组" autoFocus />
+        <input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") onCancel();
+          }}
+          placeholder="填写分组"
+          autoFocus
+        />
         <div>
           <button className="character-dialog-confirm" type="submit" disabled={!value.trim()}>
             确定

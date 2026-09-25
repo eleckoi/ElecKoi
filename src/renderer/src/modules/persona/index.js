@@ -3,6 +3,7 @@ export {
   createCharacter,
   deleteCharacters,
   exportCharacter,
+  exportCharacterFiles,
   getCharacters,
   getPersona,
   saveCharacterGroups,

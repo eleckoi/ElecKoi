@@ -13,6 +13,7 @@ import type { ElectronWindowHost } from '@main/platform/electron/ElectronWindowH
 import type { AppPaths } from '@main/platform/filesystem/AppPaths'
 import type { SqliteDatabase } from '@main/platform/sqlite/SqliteDatabase'
 import type { CredentialCipher } from '@main/platform/electron/CredentialCipher'
+import type { ElectronDirectoryPicker } from '@main/platform/electron/ElectronDirectoryPicker'
 import type { ConversationFiles } from '@main/platform/filesystem/ConversationFiles'
 import type { LocalMediaStore } from '@main/platform/filesystem/LocalMediaStore'
 import type { AuthorSdkService } from '@main/modules/authorSdk'
@@ -26,6 +27,7 @@ declare module '@deepseek-ai/cordis' {
     appLog: Logger
     database: SqliteDatabase
     credentialCipher: CredentialCipher
+    directoryPicker: ElectronDirectoryPicker
     conversationFiles: ConversationFiles
     mediaAssets: LocalMediaStore
     desktopGateway: DesktopGateway
