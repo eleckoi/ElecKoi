@@ -1,7 +1,7 @@
 import { assetSrc } from "../../app/services/assets.js";
 import { useEffect, useState } from "react";
 
-export function Avatar({ src, name, className = "", as: Element = "div" }) {
+export function Avatar({ src, name, className = "", as: Element = "div", ...elementProps }) {
   const resolvedSrc = assetSrc(src);
   const [failed, setFailed] = useState(false);
 
@@ -10,7 +10,7 @@ export function Avatar({ src, name, className = "", as: Element = "div" }) {
   }, [resolvedSrc]);
 
   return (
-    <Element className={`avatar ${className}`}>
+    <Element {...elementProps} className={`avatar ${className}`}>
       {resolvedSrc && !failed ? (
         <img src={resolvedSrc} alt={name || "avatar"} onError={() => setFailed(true)} />
       ) : (

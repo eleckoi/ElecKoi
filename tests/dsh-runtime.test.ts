@@ -375,7 +375,7 @@ describe('packaged DSH runtime composition', () => {
         apiKey: 'local-test-key',
         baseUrl: `http://127.0.0.1:${address.port}`,
         model: 'deepseek-chat',
-        systemPrompt: '只返回本地测试文本。',
+        systemPrompt: '只返回本地测试文本。保留 {{getvar::好感度}}。',
         apiFormat: 'openai-completions',
         customHeaders: {},
         contextWindow: 128000,
@@ -404,7 +404,7 @@ describe('packaged DSH runtime composition', () => {
           entries: [
             {
               id: 'cache-entry', title: '缓存设定区', enabled: true,
-              content: 'ELECKOI_CACHE_CONTEXT_SENTINEL', kind: 'normal', triggerMode: 'cache',
+              content: 'ELECKOI_CACHE_CONTEXT_SENTINEL', kind: 'normal', triggerMode: 'agent_tool', agentReadStrategy: 'required',
               position: null, promptPositionId: '', insertRole: 'assistant', order: 1
             },
             {
@@ -428,9 +428,12 @@ describe('packaged DSH runtime composition', () => {
       expect(requests).toHaveLength(1)
       expect(requests[0]?.authorization).toBe('Bearer local-test-key')
       expect(requests[0]?.body).toMatchObject({ model: 'deepseek-chat', stream: true, temperature: 0.65 })
+      expect(requests[0]?.body.messages).toEqual(expect.arrayContaining([
+        expect.objectContaining({ role: 'system', content: expect.stringContaining('{{getvar::好感度}}') })
+      ]))
       const dialogue = (requests[0]?.body.messages as Array<{ role?: string; content?: unknown }>)
         .filter((message) => message.role === 'user' || message.role === 'assistant')
-      expect(dialogue.slice(0, 4).map((message) => message.role)).toEqual(['assistant', 'assistant', 'user', 'user'])
+      expect(dialogue.slice(0, 4).map((message) => message.role)).toEqual(['user', 'assistant', 'user', 'user'])
       expect(JSON.stringify(dialogue[0]?.content)).toContain('ELECKOI_CACHE_CONTEXT_SENTINEL')
       expect(JSON.stringify(dialogue[1]?.content)).toContain('你好啊')
       expect(JSON.stringify(dialogue[2]?.content)).toContain('你好')
@@ -476,7 +479,7 @@ describe('packaged DSH runtime composition', () => {
           entries: [
             {
               id: 'cache-entry', title: '缓存设定区', enabled: true,
-              content: 'ELECKOI_CACHE_CONTEXT_SENTINEL', kind: 'normal', triggerMode: 'cache',
+              content: 'ELECKOI_CACHE_CONTEXT_SENTINEL', kind: 'normal', triggerMode: 'agent_tool', agentReadStrategy: 'required',
               position: null, promptPositionId: '', insertRole: 'assistant', order: 1
             },
             {
@@ -507,7 +510,8 @@ describe('packaged DSH runtime composition', () => {
       expect(settingBridge.history).toEqual([
         { role: 'assistant', content: '你好啊', speakerName: '角色 A' },
         { role: 'user', content: '你好' },
-        { role: 'assistant', content: '本地 Agent 回复', speakerName: '角色 A' }
+        { role: 'assistant', content: '本地 Agent 回复', speakerName: '角色 A' },
+        { role: 'user', content: '第二轮问题' }
       ])
       expect(settingBridge.variableState).toEqual({})
 
@@ -544,7 +548,7 @@ describe('packaged DSH runtime composition', () => {
           entries: [
             {
               id: 'cache-entry', title: '缓存设定区', enabled: true,
-              content: 'ELECKOI_CACHE_CONTEXT_V2', kind: 'normal', triggerMode: 'cache',
+              content: 'ELECKOI_CACHE_CONTEXT_V2', kind: 'normal', triggerMode: 'agent_tool', agentReadStrategy: 'required',
               position: null, promptPositionId: '', insertRole: 'assistant', order: 1
             },
             {
@@ -574,12 +578,12 @@ describe('packaged DSH runtime composition', () => {
       const requestContexts = trajectory.records.flatMap((record) => record.requests.map((request) => request.context))
       expect(requestContexts).toHaveLength(3)
       expect(requestContexts[0]).toEqual(expect.arrayContaining([
-        expect.objectContaining({ role: 'assistant', kind: 'prompt', title: '缓存设定 · 缓存设定区', content: 'ELECKOI_CACHE_CONTEXT_SENTINEL' }),
+        expect.objectContaining({ role: 'user', kind: 'prompt', title: 'Agent 必读 · 缓存设定区', content: '[Setting #S01: 缓存设定区]\nELECKOI_CACHE_CONTEXT_SENTINEL' }),
         expect.objectContaining({ role: 'user', kind: 'prompt', title: '预设固定条目 · 隐藏工具时间线', content: 'ELECKOI_HIDDEN_TIMELINE_SENTINEL' }),
         expect.objectContaining({ role: 'user', kind: 'user', title: '用户最新输入', content: '你好' })
       ]))
       expect(requestContexts[2]).toEqual(expect.arrayContaining([
-        expect.objectContaining({ role: 'assistant', kind: 'prompt', content: 'ELECKOI_CACHE_CONTEXT_V2' }),
+        expect.objectContaining({ role: 'user', kind: 'prompt', content: '[Setting #S01: 缓存设定区]\nELECKOI_CACHE_CONTEXT_V2' }),
         expect.objectContaining({ role: 'user', kind: 'prompt', content: 'ELECKOI_HIDDEN_TIMELINE_V2' }),
         expect.objectContaining({ role: 'user', kind: 'user', title: '用户最新输入', content: '第三轮问题' })
       ]))
@@ -610,12 +614,13 @@ describe('packaged DSH runtime composition', () => {
         history: [{ role: 'assistant', content: '你好啊', speakerName: '角色 A' }]
       }, 'runtime-thread-b', undefined, ['runtime-thread-a'], [], undefined, undefined, undefined, {
         previous: previousStats,
+        previousRuntimeThreadId: 'runtime-thread-a',
         retainedTurns: 1
       })).resolves.toBe('complete')
       expect(requests).toHaveLength(4)
       expect(runtime.generationStats('conversation-local-test', 'runtime-thread-b')).toMatchObject({
         turns: 1,
-        steps: (previousStats?.steps ?? 0) + 1
+        steps: 1
       })
       const regenerationDialogue = (requests[3]?.body.messages as Array<{ role?: string; content?: unknown }>)
         .filter((message) => message.role === 'user' || message.role === 'assistant')
@@ -655,17 +660,52 @@ describe('packaged DSH runtime composition', () => {
       }, 'runtime-thread-b')).resolves.toBe('complete')
       expect(runtime.generationStats('conversation-local-test', 'runtime-thread-b')).toMatchObject({
         turns: 2,
-        steps: (previousStats?.steps ?? 0) + 2
+        steps: 2
       })
       const storedStats = JSON.parse(await readFile(join(persistedRoot, 'eleckoi-generation-stats', 'runtime-thread-b.json'), 'utf8'))
       expect(storedStats.turns).toBe(2)
+      expect(storedStats.stepTotalsByTurn).toEqual({ '1': 1, '2': 2 })
+      const beforeSecondRegeneration = runtime.generationStats('conversation-local-test', 'runtime-thread-b')
+      await expect(runtime.stream('conversation-local-test', '继续对话', {
+        configId: 'local-main',
+        provider: 'deepseek',
+        apiKey: 'local-test-key',
+        baseUrl: `http://127.0.0.1:${address.port}`,
+        model: 'deepseek-chat',
+        systemPrompt: '只返回本地测试文本。',
+        apiFormat: 'openai-completions',
+        customHeaders: {},
+        contextWindow: 128000,
+        autoCompactTokenLimit: 96000,
+        temperature: 0.65,
+        supportsImageInput: false
+      }, {
+        onDelta: (delta) => deltas.push(delta),
+        onFinal: (content) => finals.push(content)
+      }, undefined, {
+        characterId: 'card-a',
+        characterName: '角色 A',
+        persona: {},
+        history: [
+          { role: 'assistant', content: '本地 Agent 回复', speakerName: '角色 A' },
+          { role: 'user', content: '继续对话' }
+        ]
+      }, 'runtime-thread-c', undefined, ['runtime-thread-b'], [], undefined, undefined, undefined, {
+        previous: beforeSecondRegeneration,
+        previousRuntimeThreadId: 'runtime-thread-b',
+        retainedTurns: 2
+      })).resolves.toBe('complete')
+      expect(runtime.generationStats('conversation-local-test', 'runtime-thread-c')).toMatchObject({
+        turns: 2,
+        steps: 2
+      })
     } finally {
       await runtime.close()
       server.close()
       await once(server, 'close')
       await rm(root, { recursive: true, force: true })
     }
-  }, 30_000)
+  }, 45_000)
 
   it('keeps concurrent chats and immutable request parameters isolated in one recoverable process', async () => {
     const requests: Array<{ authorization: string | undefined; body: Record<string, unknown> }> = []

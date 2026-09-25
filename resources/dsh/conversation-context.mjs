@@ -1,8 +1,9 @@
-import { createAssistantMessage, createUserMessage, freezeMessage, isAgentLoopRequest } from '@deepseek-ai/dsh-llm'
+import { createAssistantMessage, createSystemMessage, createUserMessage, freezeMessage, isAgentLoopRequest } from '@deepseek-ai/dsh-llm'
 import { createHash } from 'node:crypto'
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { readSessionSnapshot } from './session-snapshot.mjs'
+import { requiredSettingCache } from './required-setting-cache.mjs'
 
 export const name = 'eleckoi-conversation-context'
 export const projectionPlugin = 'eleckoi-request-projection'
@@ -84,19 +85,6 @@ export function createConversationSeed(snapshot, modelSelection) {
 /** Install product-owned prompt contributions for every root turn. */
 export function installConversationContext(agentCtx, snapshotRoot, sourceSessionId) {
   const read = () => readSessionSnapshot(snapshotRoot, sourceSessionId)
-  const disposeInstructions = agentCtx.systemPrompt.section({
-    name: 'eleckoi:session-instructions',
-    order: 1,
-    text: () => {
-      const snapshot = read()
-      const additions = settingInjections(snapshot.conversationContext)
-        .filter((entry) => entry.anchor === 'instructions')
-        .map((entry) => entry.content)
-      return [snapshot.model?.systemPrompt, ...additions]
-        .filter((value) => typeof value === 'string' && value.trim())
-        .join('\n\n')
-    }
-  })
   const disposeStepProjection = agentCtx.on('agent/pre-step', async ({ agent, signal }, next) => {
     const decision = await next()
     if (decision.kind === 'reject' || signal.aborted) return decision
@@ -116,6 +104,11 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
     ensureProjectionEnvelope(session, plan)
     const productMessages = projectProductHistory(session.deriveMessages(), snapshot.conversationContext)
     const messages = projectRequestMessages(productMessages, plan)
+    const instructions = sessionInstructions(snapshot)
+    if (instructions) {
+      const id = `eleckoi-system-${createHash('sha256').update(instructions).digest('hex')}`
+      messages.unshift(freezeMessage({ ...createSystemMessage(instructions, name), id }))
+    }
     recordRequestContextSnapshot(snapshot.requestContextFile, session, messages, plan)
     return agentCtx.llm.stream({
       ...options,
@@ -125,8 +118,16 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
   return () => {
     disposeRequestProjection()
     disposeStepProjection()
-    disposeInstructions()
   }
+}
+
+function sessionInstructions(snapshot) {
+  const additions = settingInjections(snapshot.conversationContext)
+    .filter((entry) => entry.anchor === 'instructions')
+    .map((entry) => entry.content)
+  return [snapshot.model?.systemPrompt, ...additions]
+    .filter((value) => typeof value === 'string' && value.trim())
+    .join('\n\n')
 }
 
 /** Freeze the complete active position graph into one durable projection definition. */
@@ -544,30 +545,26 @@ export function settingInjections(context) {
   const library = context?.settingLibrary
   if (!library) return []
   const promptPositions = new Map((library.promptPositions || []).map((position) => [position.id, position]))
-  return (library.entries || [])
+  const automatic = (library.entries || [])
     .filter((entry) => entry?.enabled
       && typeof entry.content === 'string'
       && entry.content.trim()
       && entry.kind !== 'opening'
       && entry.kind !== 'history_compaction'
-      && (entry.triggerMode === 'cache' || (entry.triggerMode === 'always' && entry.position)))
+      && entry.triggerMode === 'always' && entry.position)
     .map((entry) => {
       const custom = promptPositions.get(entry.promptPositionId)
-      const anchor = entry.triggerMode === 'cache' ? 'insert_point_1' : custom?.anchor || entry.position || 'insert_point_1'
+      const anchor = custom?.anchor || entry.position || 'insert_point_1'
       const title = String(entry.title || '').trim() || '未命名设定'
       return {
         id: String(entry.id || '').slice(0, 128),
         anchor,
         role: anchor === 'instructions' ? 'system' : entry.insertRole === 'assistant' ? 'assistant' : 'user',
         content: entry.content.slice(0, 40_000),
-        placementRank: entry.triggerMode === 'cache'
-          ? 3
-          : custom?.side === 'before_setting_position' ? 0 : custom?.side === 'after_setting_position' ? 2 : 1,
+        placementRank: custom?.side === 'before_setting_position' ? 0 : custom?.side === 'after_setting_position' ? 2 : 1,
         positionOrder: custom?.order ?? 0,
         order: Number.isInteger(entry.order) ? entry.order : 1,
-        traceTitle: entry.triggerMode === 'cache'
-          ? `缓存设定 · ${title}`
-          : entry.kind === 'hidden_tool_timeline'
+        traceTitle: entry.kind === 'hidden_tool_timeline'
             ? `预设固定条目 · ${title}`
             : String(entry.id || '').startsWith('agent-preset:')
               ? `预设条目 · ${title}`
@@ -575,12 +572,18 @@ export function settingInjections(context) {
         traceSource: String(custom?.name || '').trim() || positionLabel(anchor)
       }
     })
+  const required = requiredSettingCache(library).map((entry, index) => ({
+    id: `required-setting-${entry.reference.slice(1)}`,
+    anchor: 'insert_point_1', role: 'user', content: entry.prompt,
+    placementRank: 3, positionOrder: 0, order: index + 1,
+    traceTitle: `Agent 必读 · ${entry.title}`, traceSource: '缓存设定区'
+  }))
+  return [...automatic, ...required]
     .sort((left, right) => anchorOrder(left.anchor) - anchorOrder(right.anchor)
       || left.placementRank - right.placementRank
       || left.positionOrder - right.positionOrder
       || left.order - right.order
       || left.id.localeCompare(right.id))
-    .slice(0, 128)
 }
 
 function anchorOrder(anchor) {

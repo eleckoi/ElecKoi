@@ -50,11 +50,6 @@ const READ_STRATEGIES = [
   { value: "variable_condition", label: "变量条件" },
 ];
 
-const DYNAMIC_MODES = [
-  { value: "single_condition", label: "单条条件" },
-  { value: "ejs_controller", label: "EJS 控制器" },
-];
-
 const ICON_OPTIONS = [
   { id: "", label: "默认", Icon: ElecKoiSettingEntryIcon },
   { id: "character", label: "人物", Icon: UserCircle },
@@ -294,7 +289,7 @@ function TriggerSection({ entry, entries, groups, onChange }) {
     onChange({
       ...entry,
       agentReadStrategy,
-      dynamicMode: agentReadStrategy === "variable_condition" ? entry.dynamicMode : "single_condition",
+      dynamicMode: agentReadStrategy === "variable_condition" ? "ejs_controller" : "standard",
     });
   }
   return (
@@ -309,17 +304,6 @@ function TriggerSection({ entry, entries, groups, onChange }) {
               <span>注释（AI 读目录时靠它判断）</span>
               <textarea value={entry.agentSelectionHint} maxLength={200} placeholder="写给 AI 看的一句话" onChange={(event) => onChange({ ...entry, agentSelectionHint: event.target.value })} />
             </label>
-          ) : null}
-          {entry.agentReadStrategy === "variable_condition" ? (
-            <>
-              <SegmentedField label="动态方式" value={entry.dynamicMode === "ejs_controller" ? "ejs_controller" : "single_condition"} options={DYNAMIC_MODES} onChange={(dynamicMode) => onChange({ ...entry, dynamicMode })} />
-              {entry.dynamicMode !== "ejs_controller" ? (
-                <label className="setting-library-field-card setting-library-text-field">
-                  <span>变量条件</span>
-                  <textarea value={entry.agentReadCondition} placeholder="getvar('剧情.已完成事件', { defaults: 0 }) >= 3" onChange={(event) => onChange({ ...entry, agentReadCondition: event.target.value })} />
-                </label>
-              ) : null}
-            </>
           ) : null}
           <AgentDirectoryPreview currentEntryId={entry.id} entries={entries} groups={groups} />
         </>
@@ -441,26 +425,11 @@ export function VisualPositionPicker({ entry, entries, promptPositions, allowCus
   );
 }
 
-export function CachedEntryInsertSection({ entry, onChange }) {
-  return <div className="setting-library-entry-section">
-      <section className="setting-library-placement-card">
-        <div className="setting-library-placement-heading"><strong>插入位置</strong></div>
-        <div className="setting-library-placement-rail">
-          <div className="setting-library-placement-row is-context"><i /><span><Database size={16} />缓存设定区</span></div>
-        </div>
-      </section>
-      <section className="setting-library-order-card">
-        <NumberField label="位置内部排序" description="数字越小越靠前" value={entry.order} min={1} max={9999} onChange={(order) => onChange({ ...entry, order })} />
-      </section>
-    </div>;
-}
-
 function InsertSection({ entry, entries, promptPositions, allowCustomPromptPositions, onChange, onEntriesChange, onManagePositions }) {
   if (entry.triggerMode === "agent_tool") {
-    return <p className="setting-library-agent-insert-note">AI 读取后，正文直接作为工具结果返回，无需配置插入位置。</p>;
-  }
-  if (entry.triggerMode === "cache") {
-    return <CachedEntryInsertSection entry={entry} onChange={onChange} />;
+    return <p className="setting-library-agent-insert-note">{entry.agentReadStrategy === "required"
+      ? "必读正文会放入缓存设定区；读取工具只返回编号和标题。"
+      : "AI 读取后，正文直接作为工具结果返回，无需配置插入位置。"}</p>;
   }
   return (
     <div className="setting-library-entry-section">
@@ -492,7 +461,7 @@ export function SettingLibraryEntryEditor({ entry, entries, groups, promptPositi
     });
   }
   if (allowCustomPromptPositions && managingPositions) return <div ref={editorRef} className="setting-library-normal-entry-editor is-position-manager"><CustomPositionManager entry={entry} positions={promptPositions} entries={entries} onChange={onPromptPositionsChange} onBack={closePositionManager} /></div>;
-  const editorSections = EDITOR_SECTIONS.filter((item) => entry.triggerMode !== "cache" || item.id !== "trigger");
+  const editorSections = EDITOR_SECTIONS;
   const activeSection = editorSections.some((item) => item.id === section) ? section : editorSections[0].id;
   const activeSectionIndex = editorSections.findIndex((item) => item.id === activeSection);
   return (

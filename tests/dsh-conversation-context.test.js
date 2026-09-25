@@ -59,7 +59,7 @@ describe('DSH conversation context', () => {
   it('projects fixed and custom positions with their selected user/assistant identities', () => {
     const plan = requestProjectionPlan(context([
       setting('point-1', '第一插入点', 'insert_point_1', 1),
-      { ...setting('cache', '缓存内容', null, 1), triggerMode: 'cache', insertRole: 'assistant' },
+      { ...setting('cache', '缓存内容', null, 1), triggerMode: 'agent_tool', agentReadStrategy: 'required' },
       { ...setting('custom-before-2', '自定义二号位前', 'insert_point_2', 1), promptPositionId: 'custom-before-2', insertRole: 'assistant' },
       setting('point-2', '第二插入点', 'insert_point_2', 1),
       { ...setting('point-3', '最新输入前', 'insert_point_3', 1), insertRole: 'assistant' },
@@ -80,7 +80,7 @@ describe('DSH conversation context', () => {
     expect(projected.map((item) => [item.role, text(item)])).toEqual([
       ['system', '系统指令'],
       ['user', '第一插入点'],
-      ['assistant', '缓存内容'],
+      ['user', '[Setting #S01: cache]\n缓存内容'],
       ['assistant', '自定义二号位前'],
       ['user', '第二插入点'],
       ['user', '历史用户'],
@@ -97,7 +97,7 @@ describe('DSH conversation context', () => {
     ])).toEqual([
       [1, 'system', 'system', '系统提示词', 'system', '系统指令'],
       [2, 'user', 'prompt', '设定 · point-1', '设定插入点 1', '第一插入点'],
-      [3, 'assistant', 'prompt', '缓存设定 · cache', '设定插入点 1', '缓存内容'],
+      [3, 'user', 'prompt', 'Agent 必读 · cache', '缓存设定区', '[Setting #S01: cache]\n缓存内容'],
       [4, 'assistant', 'prompt', '设定 · custom-before-2', '二号位前扩展', '自定义二号位前'],
       [5, 'user', 'prompt', '设定 · point-2', '设定插入点 2', '第二插入点'],
       [6, 'user', 'user', '用户消息', '聊天记录', '历史用户'],
@@ -358,11 +358,11 @@ describe('DSH conversation context', () => {
   it('keeps cache and every custom position in the diagnostic projection view', () => {
     const rendered = renderRuntimeContext(context([
       setting('point-1', '第一插入点', 'insert_point_1', 1),
-      { ...setting('cache', '缓存内容', null, 2), triggerMode: 'cache' },
+      { ...setting('cache', '缓存内容', null, 2), triggerMode: 'agent_tool', agentReadStrategy: 'required' },
       setting('point-2', '第二插入点', 'insert_point_2', 1),
       setting('point-3', '输入前', 'insert_point_3', 1)
     ]))
-    expect(rendered).toBe('第一插入点\n\n缓存内容\n\n第二插入点\n\n输入前')
+    expect(rendered).toBe('第一插入点\n\n[Setting #S01: cache]\n缓存内容\n\n第二插入点\n\n输入前')
   })
 
   it('uses custom position anchors and ignores disabled/on-demand entries', () => {

@@ -8,6 +8,7 @@ import { CharacterRepository } from '../src/main/modules/personas/CharacterRepos
 import { LocalMediaStore } from '../src/main/platform/filesystem/LocalMediaStore'
 import { RegexRuleRepository } from '../src/main/modules/regexRules/RegexRuleRepository'
 import { AgentPresetRepository } from '../src/main/modules/agentPresets'
+import { requestContracts } from '../src/shared/contracts/gateway/definitions'
 import type { RegexRule } from '../src/shared/contracts/regex/schemas'
 import {
   includeImportedRulesInActiveVersion,
@@ -67,6 +68,26 @@ function harness() {
 const EMPTY_PRESET_REGEX_REVISION = '0'.repeat(64)
 
 describe('regex processor', () => {
+  it('accepts extra configuration fields without persisting them', () => {
+    const { repository } = harness()
+    const current = repository.get('card-a')
+    const input = requestContracts['command.regex_rules.save'].input.parse({
+      characterId: 'card-a', expectedRevision: current.revision,
+      collection: {
+        ...current, editorOnly: true,
+        characterRules: [{ ...rule(), editorOnly: true }]
+      }
+    })
+    expect(input.collection).not.toHaveProperty('editorOnly')
+    expect(input.collection.characterRules[0]).not.toHaveProperty('editorOnly')
+    const saved = repository.save('card-a', input.collection, input.expectedRevision)
+    expect(saved.characterRules).toHaveLength(1)
+    expect(requestContracts['command.regex_rules.save'].input.safeParse({
+      characterId: 'card-a', expectedRevision: saved.revision,
+      collection: { ...saved, characterRules: [{ ...rule(), enabled: 'yes' }] }
+    }).success).toBe(false)
+  })
+
   it('matches Android delimiter, flags and replacement semantics', () => {
     expect(transformWithRegexRules('HELLO world', [rule()], 'AiOutput'))
       .toBe('HELLO, world / HELLO world / $ / HELLO world')

@@ -10,13 +10,13 @@ export const settingLibraryPositionSchema = z.enum([
 ])
 
 export const settingLibraryInsertRoleSchema = z.enum(['system', 'user', 'assistant'])
-export const settingLibraryTriggerModeSchema = z.enum(['always', 'agent_tool', 'cache'])
+export const settingLibraryTriggerModeSchema = z.enum(['always', 'agent_tool'])
 export const settingLibraryPromptPositionSideSchema = z.enum([
   'before_setting_position',
   'after_setting_position'
 ])
 export const settingLibraryAgentReadStrategySchema = z.enum(['required', 'keyword', 'normal', 'variable_condition'])
-export const settingLibraryDynamicModeSchema = z.enum(['single_condition', 'ejs_controller', 'ejs_reference'])
+export const settingLibraryDynamicModeSchema = z.enum(['standard', 'ejs_controller', 'ejs_reference'])
 export const settingLibraryKeywordConditionSchema = z.enum(['none', 'any', 'all', 'not_any'])
 export const settingLibraryEntryKindSchema = z.enum([
   'normal',
@@ -30,7 +30,7 @@ export const settingLibraryOpeningMessageSchema = z.object({
   title: z.string(),
   content: z.string(),
   initialVariableStateJson: z.string()
-}).strict()
+})
 
 export const settingLibraryEntrySchema = z.object({
   id: z.string().min(1),
@@ -43,7 +43,6 @@ export const settingLibraryEntrySchema = z.object({
   defaultOpeningMessageId: z.string(),
   agentSelectionHint: z.string(),
   agentReadStrategy: settingLibraryAgentReadStrategySchema,
-  agentReadCondition: z.string(),
   dynamicMode: settingLibraryDynamicModeSchema,
   keywords: z.array(z.string()),
   keywordScanDepth: z.number().int().min(0),
@@ -64,7 +63,12 @@ export const settingLibraryEntrySchema = z.object({
   treeViewOrder: z.number().int(),
   createdAt: z.string(),
   updatedAt: z.string()
-}).strict()
+})
+
+export const settingLibraryStoredEntrySchema = settingLibraryEntrySchema.extend({
+  dynamicMode: settingLibraryDynamicModeSchema.catch('standard'),
+  triggerMode: settingLibraryTriggerModeSchema.nullable().catch(null)
+}).strip()
 
 export const settingLibraryGroupSchema = z.object({
   id: z.string().min(1),
@@ -74,7 +78,7 @@ export const settingLibraryGroupSchema = z.object({
   treeViewOrder: z.number().int(),
   createdAt: z.string(),
   updatedAt: z.string()
-}).strict()
+})
 
 export const settingLibraryPromptPositionSchema = z.object({
   id: z.string().min(1),
@@ -84,7 +88,7 @@ export const settingLibraryPromptPositionSchema = z.object({
   order: z.number().int().min(1),
   createdAt: z.string(),
   updatedAt: z.string()
-}).strict()
+})
 
 export const settingLibraryVersionSchema = z.object({
   id: z.string().min(1),
@@ -96,7 +100,7 @@ export const settingLibraryVersionSchema = z.object({
   expandedGroupIds: z.array(z.string()),
   createdAt: z.string(),
   updatedAt: z.string()
-}).strict()
+})
 
 export const settingLibrarySchema = z.object({
   characterId: z.string().min(1),
@@ -108,7 +112,7 @@ export const settingLibrarySchema = z.object({
   versions: z.array(settingLibraryVersionSchema),
   listAllExpanded: z.boolean(),
   expandedGroupIds: z.array(z.string())
-}).strict()
+})
 
 export const settingLibraryConversationSchema = z.object({
   sessionId: z.string().min(1),
@@ -118,7 +122,7 @@ export const settingLibraryConversationSchema = z.object({
   summary: z.string(),
   updatedAt: z.string(),
   library: settingLibrarySchema
-}).strict()
+})
 
 export type SettingLibrary = z.output<typeof settingLibrarySchema>
 export type SettingLibraryEntry = z.output<typeof settingLibraryEntrySchema>

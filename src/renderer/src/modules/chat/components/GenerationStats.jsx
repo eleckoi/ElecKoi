@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const RADIUS = 5.5;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
@@ -15,25 +16,138 @@ const GENERATION_LINE_FIELDS = [
 ];
 
 export function GenerationStatsLine({ stats }) {
-  const groups = useMemo(() => generationStatGroups(stats), [stats]);
-  if (!groups.length) return null;
-  const title = groups.join(" | ");
+  const [openPill, setOpenPill] = useState(null);
+  const timeRef = useRef(null);
+  const usageRef = useRef(null);
+  const panelRef = useRef(null);
+  const position = usePopupPosition(openPill, openPill === "time" ? timeRef : usageRef, 340);
+  const timeRows = useMemo(() => sessionTimeRows(stats), [stats]);
+  const usage = stats?.tokenUsage;
+  const totalTokens = billedInputTokens(usage) + (usage?.outputTokens || 0);
+  const hasTime = stats?.steps > 0;
+  const hasUsage = totalTokens > 0;
+  const cacheHit = cacheHitPercent(usage);
+
+  useEffect(() => {
+    if ((openPill === "time" && !hasTime) || (openPill === "usage" && !hasUsage)) setOpenPill(null);
+  }, [hasTime, hasUsage, openPill]);
+
+  useEffect(() => {
+    if (!openPill) return undefined;
+    const onPointerDown = (event) => {
+      const activeTrigger = openPill === "time" ? timeRef.current : usageRef.current;
+      if (!activeTrigger?.contains(event.target) && !panelRef.current?.contains(event.target)) setOpenPill(null);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") setOpenPill(null);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [openPill]);
+
+  if (!hasTime && !hasUsage && !contextOccupancy(stats?.contextPressure)) return null;
+  const speed = stats?.decodeMs > 0
+    ? `${formatThroughput(stats.decodeTokens / (stats.decodeMs / 1000))} tok/s`
+    : null;
+  const timeLabel = `${stats?.turns || 0} 轮 ${stats?.steps || 0} 步${speed ? ` · ${speed}` : ""}`;
+  const usageLabel = `${formatTokens(totalTokens)} tok${cacheHit !== null ? ` · 缓存命中 ${cacheHit}%` : ""}`;
+  const panelTitle = openPill === "time" ? "会话统计" : "Token 用量";
   return (
-    <div
-      className="generation-stats-line"
-      title={title}
-      aria-label={title}
-    >
-      {groups.map((group) => (
-        <span key={group} className="generation-stats-item">{group}</span>
-      ))}
+    <div className="generation-stats-line">
+      {hasTime ? <span className="generation-stat-anchor" ref={timeRef}>
+        {timeRows.length ? <button type="button" className="generation-stat-pill" aria-label={timeLabel} aria-haspopup="dialog" aria-expanded={openPill === "time"} onClick={() => setOpenPill(openPill === "time" ? null : "time")}>
+          <GaugeIcon /><span>{timeLabel}</span>
+        </button> : <span className="generation-stat-pill"><GaugeIcon /><span>{timeLabel}</span></span>}
+      </span> : null}
+      {hasUsage ? <span className="generation-stat-anchor" ref={usageRef}>
+        <button type="button" className="generation-stat-pill" aria-label={usageLabel} aria-haspopup="dialog" aria-expanded={openPill === "usage"} onClick={() => setOpenPill(openPill === "usage" ? null : "usage")}>
+          <DatabaseIcon /><span>{usageLabel}</span>
+        </button>
+      </span> : null}
+      <ContextMeter stats={stats} />
+      {openPill && typeof document !== "undefined" ? createPortal(
+        <div ref={panelRef} className="generation-stat-panel" role="dialog" aria-label={panelTitle} style={position || { visibility: "hidden" }}>
+          <div className="generation-stat-heading">
+            <span>{openPill === "time" ? <GaugeIcon /> : <DatabaseIcon />}{panelTitle}</span>
+            {openPill === "usage" ? <strong>{formatExactTokens(totalTokens)} tok</strong> : null}
+          </div>
+          <dl className="generation-stat-details">
+            {(openPill === "time" ? timeRows : sessionUsageRows(usage)).map(({ label, value }) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+          </dl>
+        </div>, document.body) : null}
     </div>
   );
+}
+
+function GaugeIcon() {
+  return <svg viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true"><path d="M3.1 14.4a7.5 7.5 0 1 1 13.8 0M10 11.6l3.2-4" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" /><circle cx="10" cy="12" r="1.2" fill="currentColor" /></svg>;
+}
+
+function DatabaseIcon() {
+  return <svg viewBox="0 0 20 20" width="16" height="16" fill="none" aria-hidden="true"><ellipse cx="10" cy="4.3" rx="6.5" ry="2.5" stroke="currentColor" strokeWidth="1.25" /><path d="M3.5 4.3v10.8c0 1.4 2.9 2.6 6.5 2.6s6.5-1.2 6.5-2.6V4.3M3.5 9.7c0 1.4 2.9 2.6 6.5 2.6s6.5-1.2 6.5-2.6" stroke="currentColor" strokeWidth="1.25" /></svg>;
+}
+
+function usePopupPosition(open, anchorRef, width) {
+  const [position, setPosition] = useState(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const update = () => {
+      const rect = anchorRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const panelWidth = Math.min(width, window.innerWidth - 24);
+      setPosition({
+        width: panelWidth,
+        left: Math.max(12, Math.min(window.innerWidth - panelWidth - 12, rect.left + rect.width / 2 - panelWidth / 2)),
+        top: rect.top - 8,
+        transform: "translateY(-100%)",
+      });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [anchorRef, open, width]);
+  return position;
+}
+
+export function sessionTimeRows(stats) {
+  if (!stats) return [];
+  const rows = [];
+  if (stats.llmMs > 0) rows.push({ label: "模型用时", value: formatDuration(stats.llmMs) });
+  if (stats.toolMs > 0) rows.push({ label: "工具调用用时", value: formatDuration(stats.toolMs) });
+  if (stats.ttftSteps > 0) rows.push({ label: "首 token 平均（TTFT）", value: formatDuration(stats.ttftMs / stats.ttftSteps) });
+  if (stats.decodeMs > 0) rows.push({ label: "输出速度（TPS）", value: `${formatThroughput(stats.decodeTokens / (stats.decodeMs / 1000))} tok/s` });
+  return rows;
+}
+
+export function sessionUsageRows(usage) {
+  if (!usage) return [];
+  const rows = [];
+  const cacheHit = cacheHitPercent(usage);
+  if (cacheHit !== null) rows.push({ label: "缓存命中", value: `${cacheHit}%` });
+  rows.push({ label: "未缓存输入", value: `${formatExactTokens(usage.uncachedInputTokens)} tok` });
+  rows.push({ label: "缓存读取", value: `${formatExactTokens(usage.cacheReadTokens)} tok` });
+  if (usage.cacheWriteTokens > 0) rows.push({ label: "缓存写入", value: `${formatExactTokens(usage.cacheWriteTokens)} tok` });
+  rows.push({ label: "输出", value: `${formatExactTokens(usage.outputTokens)} tok` });
+  return rows;
+}
+
+function formatExactTokens(value) {
+  return new Intl.NumberFormat("en-US").format(value || 0);
 }
 
 export function ContextMeter({ stats }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
+  const panelRef = useRef(null);
+  const position = usePopupPosition(open, rootRef, 350);
   const context = contextOccupancy(stats?.contextPressure);
 
   useEffect(() => {
@@ -43,7 +157,7 @@ export function ContextMeter({ stats }) {
   useEffect(() => {
     if (!open || !context) return undefined;
     const closeOutside = (event) => {
-      if (!rootRef.current?.contains(event.target)) setOpen(false);
+      if (!rootRef.current?.contains(event.target) && !panelRef.current?.contains(event.target)) setOpen(false);
     };
     const closeEscape = (event) => {
       if (event.key === "Escape") setOpen(false);
@@ -82,9 +196,10 @@ export function ContextMeter({ stats }) {
             transform="rotate(-90 7 7)"
           />
         </svg>
+        <span>{context.percentLabel}%</span>
       </button>
-      {open ? (
-        <div className="context-meter-panel" role="dialog" aria-label="上下文已用">
+      {open && typeof document !== "undefined" ? createPortal(
+        <div ref={panelRef} className="context-meter-panel" role="dialog" aria-label="上下文已用" style={position || { visibility: "hidden" }}>
           <div className="context-meter-heading">
             <span>上下文已用 <strong>{context.percentLabel}%</strong></span>
             <b>{`~${formatTokens(context.usedTokens)} / ${formatTokens(context.contextWindow)}`}</b>
@@ -102,7 +217,7 @@ export function ContextMeter({ stats }) {
               ))}
             </dl>
           ) : null}
-        </div>
+        </div>, document.body
       ) : null}
     </span>
   );
@@ -122,22 +237,14 @@ export function generationStatGroups(stats) {
   if (!stats) return [];
   const groups = [];
   if (stats.steps > 0) {
-    groups.push(`${stats.turns} 轮 · ${stats.steps} 步`);
-    const durations = [];
-    if (stats.llmMs > 0) durations.push(`LLM ${formatDuration(stats.llmMs)}`);
-    if (stats.toolMs > 0) durations.push(`工具调用 ${formatDuration(stats.toolMs)}`);
-    if (durations.length) groups.push(durations.join(" · "));
-    const speeds = [];
-    if (stats.ttftSteps > 0) speeds.push(`首 token 平均 ${formatDuration(stats.ttftMs / stats.ttftSteps)}`);
-    if (stats.decodeMs > 0) speeds.push(`${formatThroughput(stats.decodeTokens / (stats.decodeMs / 1000))} tok/s`);
-    if (speeds.length) groups.push(speeds.join(" · "));
+    const speed = stats.decodeMs > 0 ? ` · ${formatThroughput(stats.decodeTokens / (stats.decodeMs / 1000))} tok/s` : "";
+    groups.push(`${stats.turns} 轮 ${stats.steps} 步${speed}`);
   }
   const usage = stats.tokenUsage;
   const input = billedInputTokens(usage);
   if (usage && (input > 0 || usage.outputTokens > 0)) {
     const cacheHit = cacheHitPercent(usage);
-    if (cacheHit !== null) groups.push(`缓存命中 ${cacheHit}%`);
-    groups.push(`输入 ${formatTokens(input)} tok · 输出 ${formatTokens(usage.outputTokens)} tok`);
+    groups.push(`${formatTokens(input + usage.outputTokens)} tok${cacheHit !== null ? ` · 缓存命中 ${cacheHit}%` : ""}`);
   }
   return groups;
 }
@@ -230,9 +337,9 @@ export function formatTokens(value) {
 
 export function formatDuration(milliseconds) {
   const seconds = milliseconds / 1000;
-  if (seconds < 60) return `${Math.round(seconds * 10) / 10}s`;
+  if (seconds < 60) return `${Math.round(seconds * 10) / 10}秒`;
   const whole = Math.round(seconds);
-  return `${Math.floor(whole / 60)}m${whole % 60}s`;
+  return `${Math.floor(whole / 60)}分${whole % 60}秒`;
 }
 
 function formatThroughput(value) {

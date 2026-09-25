@@ -320,7 +320,7 @@
 .layout-choice-preview b { left: 45px; top: 18px; width: 45%; height: 8px; }
 .layout-choice-preview em { left: 45px; top: 34px; width: 68%; height: 31px; border-radius: 7px; }
 .layout-choice-preview.roleplay em { height: 6px; box-shadow: 0 11px 0 #d5d5d5, 0 22px 0 #d5d5d5; }
-.layout-choice-preview.agent em { background: #fff; border: 1px solid #e2e2e2; }
+.layout-choice-preview.agent em { left: 14px; top: 44px; width: calc(100% - 28px); height: 24px; background: #fff; border: 1px solid #e2e2e2; }
 
 .theme-setting-card {
   display: grid;
@@ -571,20 +571,12 @@
   --chat-reading-width: 100%;
   --chat-message-inline-inset: 0px;
   display: grid;
-  grid-template-rows: 42px minmax(0, 1fr) 58px;
+  grid-template-rows: minmax(0, 1fr) 58px;
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: 12px;
   background: var(--surface-raised);
-}
-
-.chat-display-preview-bar {
-  display: grid;
-  place-items: center;
-  border-bottom: 1px solid var(--line);
-  color: var(--text);
-  font-size: 13px;
 }
 
 .chat-display-preview .message-area {
@@ -609,7 +601,7 @@
 }
 
 .chat-display-preview .message-roleplay {
-  grid-template-columns: var(--chat-avatar-width, 55px) minmax(0, 1fr);
+  grid-template-columns: var(--chat-avatar-width, 65px) minmax(0, 1fr);
   gap: var(--chat-avatar-gap, 10px);
   width: 100%;
   padding: 0 var(--chat-horizontal-padding, 10px);
@@ -617,6 +609,10 @@
 
 .chat-display-preview .message.message-roleplay > .avatar {
   grid-column: 1;
+  margin-left: 0;
+}
+
+.chat-display-preview .message-roleplay .message-floor {
   margin-left: 0;
 }
 
@@ -666,6 +662,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+}
+
+.chat-roleplay-message-options {
+  display: grid;
+  gap: 2px;
 }
 
 .compact-setting-control {

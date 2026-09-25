@@ -19,7 +19,7 @@ export const variableObjectConfigSchema = z.object({
   treeViewOrder: z.number().int().nonnegative(),
   createdAt: z.string(),
   updatedAt: z.string()
-}).strict()
+})
 
 export const variableItemConfigSchema = z.object({
   id: z.string().min(1),
@@ -35,7 +35,7 @@ export const variableItemConfigSchema = z.object({
   treeViewOrder: z.number().int().nonnegative(),
   createdAt: z.string(),
   updatedAt: z.string()
-}).strict()
+})
 
 export const variableConfigVersionSchema = z.object({
   id: z.string().min(1),
@@ -47,7 +47,7 @@ export const variableConfigVersionSchema = z.object({
   expandedObjectIds: z.array(z.string()),
   createdAt: z.string(),
   updatedAt: z.string()
-}).strict()
+})
 
 export const variableConfigSchema = z.object({
   characterId: z.string().min(1),
@@ -59,7 +59,7 @@ export const variableConfigSchema = z.object({
   expandedObjectIds: z.array(z.string()),
   activeVersionId: z.string().min(1),
   versions: z.array(variableConfigVersionSchema).min(1)
-}).strict()
+})
 
 export type VariableValueType = z.output<typeof variableValueTypeSchema>
 export type VariableReadMode = z.output<typeof variableReadModeSchema>

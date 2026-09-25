@@ -1,4 +1,5 @@
 import type { HarnessNotification } from '@deepseek-ai/dsh-sdk-client'
+import { assistantStreamFirstTokenTime, type AssistantStreamRecord } from '@deepseek-ai/dsh-llm'
 import {
   deriveEventMessage,
   isSurfaceEvent,
@@ -75,6 +76,7 @@ export interface StoredDshGenerationStats extends DshGenerationStats {
   legacyBreakdownSurfaceTokens: number
   legacyBreakdownSystemTokens: number
   replaceFirstTurn?: boolean
+  stepTotalsByTurn: Record<string, number>
 }
 
 const zeroUsage = (): DshTokenUsageStats => ({
@@ -106,16 +108,28 @@ export function emptyStoredGenerationStats(): StoredDshGenerationStats {
     surfaceTokens: 0,
     breakdownNodes: [],
     legacyBreakdownSurfaceTokens: 0,
-    legacyBreakdownSystemTokens: 0
+    legacyBreakdownSystemTokens: 0,
+    stepTotalsByTurn: {}
   }
 }
 
-export function regenerationGenerationStats(previous: DshGenerationStatsAccumulated | undefined, retainedTurns: number): StoredDshGenerationStats {
+export function regenerationGenerationStats(
+  previous: DshGenerationStatsAccumulated | undefined,
+  retainedTurns: number,
+  previousStepTotalsByTurn: Record<string, number> = {}
+): StoredDshGenerationStats {
   const empty = emptyStoredGenerationStats()
+  const stepTotalsByTurn = Object.fromEntries(
+    Object.entries(previousStepTotalsByTurn).filter(([turn]) => Number(turn) < retainedTurns)
+  )
+  const retainedSteps = retainedTurns <= 1
+    ? 0
+    : stepTotalsByTurn[String(retainedTurns - 1)] ?? previous?.steps ?? 0
   return {
     ...empty,
     turns: retainedTurns,
-    steps: previous?.steps ?? 0,
+    steps: retainedSteps,
+    stepTotalsByTurn,
     llmMs: previous?.llmMs ?? 0,
     toolMs: previous?.toolMs ?? 0,
     ttftMs: previous?.ttftMs ?? 0,
@@ -160,17 +174,27 @@ export class DshGenerationStatsProjector {
       }
       const usage = chunk?.type === 'usage' ? record(chunk.usage) : undefined
       if (turn !== undefined && step !== undefined && usage && this.applyUsage(turn, step, usage)) changed = true
+    } else if (type === 'assistant/attempt' && turn !== undefined && step !== undefined) {
+      const open = this.state.openStep
+      if (open && open.turn === turn && open.step === step && open.firstTokenTime === null) {
+        const firstTokenTime = streamFirstTokenTime(data.stream)
+        if (firstTokenTime !== undefined) {
+          open.firstTokenTime = firstTokenTime
+          changed = true
+        }
+      }
     } else if (type === 'assistant/message' && turn !== undefined && step !== undefined) {
       const open = this.state.openStep
       if (open && open.turn === turn && open.step === step) {
         this.state.llmMs += Math.max(0, time - open.startTime)
-        if (open.firstTokenTime !== null) {
-          this.state.ttftMs += Math.max(0, open.firstTokenTime - open.startTime)
+        const firstTokenTime = open.firstTokenTime ?? streamFirstTokenTime(data.stream)
+        if (firstTokenTime !== undefined) {
+          this.state.ttftMs += Math.max(0, firstTokenTime - open.startTime)
           this.state.ttftSteps += 1
           const usage = record(data.usage)
           const outputTokens = usage ? nonnegativeInteger(usage.outputTokens) : undefined
           if (outputTokens !== undefined) {
-            this.state.decodeMs += Math.max(0, time - open.firstTokenTime)
+            this.state.decodeMs += Math.max(0, time - firstTokenTime)
             this.state.decodeTokens += outputTokens
           }
         }
@@ -201,6 +225,7 @@ export class DshGenerationStatsProjector {
         else this.state.turns += 1
       }
       this.state.steps += 1
+      this.state.stepTotalsByTurn[String(this.state.turns)] = this.state.steps
       this.state.lastTurn = turn
       this.state.openStep = null
       changed = true
@@ -408,6 +433,7 @@ export function parseStoredGenerationStats(value: unknown): StoredDshGenerationS
   const projectedTokens = nonnegativeInteger(pressure.projectedTokens)
   const contextWindow = positiveInteger(pressure.contextWindow)
   const breakdownNodes = parseBreakdownNodes(item.breakdownNodes)
+  const stepTotalsByTurn = parseStepTotalsByTurn(item.stepTotalsByTurn)
   const parsedSystemTokens = nonnegativeInteger(breakdown.systemTokens) ?? 0
   const parsedMessageTokens = nonnegativeInteger(breakdown.messageTokens) ?? 0
   const legacyBreakdownSurfaceTokens = breakdownNodes === undefined
@@ -431,12 +457,21 @@ export function parseStoredGenerationStats(value: unknown): StoredDshGenerationS
       messageTokens: parsedMessageTokens
     },
     breakdownNodes: breakdownNodes ?? [],
+    stepTotalsByTurn,
     legacyBreakdownSurfaceTokens,
     legacyBreakdownSystemTokens,
     replaceFirstTurn: item.replaceFirstTurn === true,
     openStep: null,
     pendingCalls: {}
   }
+}
+
+function parseStepTotalsByTurn(value: unknown): Record<string, number> {
+  const item = record(value)
+  if (!item) return {}
+  return Object.fromEntries(Object.entries(item).filter(([turn, steps]) =>
+    positiveInteger(Number(turn)) !== undefined && nonnegativeInteger(steps) !== undefined
+  )) as Record<string, number>
 }
 
 function usageFromEvent(type: string, data: Record<string, unknown>): Record<string, unknown> | undefined {
@@ -468,6 +503,15 @@ function isTokenDelta(chunk: Record<string, unknown> | undefined): boolean {
   if (!chunk) return false
   if (chunk.type === 'text-delta' || chunk.type === 'reasoning-delta') return string(chunk.text).length > 0
   return chunk.type === 'tool-call-delta' && (string(chunk.argumentsDelta).length > 0 || typeof chunk.name === 'string')
+}
+
+function streamFirstTokenTime(value: unknown): number | undefined {
+  if (!Array.isArray(value)) return undefined
+  try {
+    return assistantStreamFirstTokenTime(value as AssistantStreamRecord[])
+  } catch {
+    return undefined
+  }
 }
 
 function estimateMessage(value: unknown): number {

@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import { createEntryDraft } from '../src/renderer/src/modules/settingLibraries/model/settingLibraryEditing.js';
 import { createPositionDraft, fixedPlacementRowSelectable, moveCustomPosition, positionManagementRows, positionPickerRows, removeCustomPosition, savePositionDraft } from '../src/renderer/src/modules/settingLibraries/model/customPositions.js';
 import { CustomPositionManager } from '../src/renderer/src/modules/settingLibraries/components/CustomPositionManager.jsx';
-import { CachedEntryInsertSection, SettingLibraryEntryEditor, VisualPositionPicker } from '../src/renderer/src/modules/settingLibraries/components/SettingLibraryEntryEditor.jsx';
+import { SettingLibraryEntryEditor, VisualPositionPicker } from '../src/renderer/src/modules/settingLibraries/components/SettingLibraryEntryEditor.jsx';
 
 vi.stubGlobal('React', React);
 afterAll(() => vi.unstubAllGlobals());
@@ -152,27 +152,23 @@ describe('custom position editing', () => {
     ]);
     expect(rows.every((row) => fixedPlacementRowSelectable(row, false))).toBe(true);
   });
-  it('uses the three-step cache editor and keeps its insertion settings fixed', () => {
-    vi.stubGlobal('crypto', { randomUUID: () => 'cache-entry' });
-    const cacheEntry = createEntryDraft('', 1, [], 'cache');
+  it('keeps the cache placement visible without a manual cache-entry editor', () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'setting-entry' });
+    const entry = createEntryDraft('', 1, [], 'standard');
     const editorHtml = renderToStaticMarkup(<SettingLibraryEntryEditor
-      entry={cacheEntry}
-      entries={[cacheEntry]}
+      entry={entry}
+      entries={[entry]}
       groups={[]}
       onChange={() => {}}
       onEntriesChange={() => {}}
       onOpenEntry={() => {}}
     />);
-    expect((editorHtml.match(/setting-library-entry-tab-node/g) || [])).toHaveLength(3);
-    expect((editorHtml.match(/setting-library-entry-tab-connector/g) || [])).toHaveLength(2);
+    expect((editorHtml.match(/setting-library-entry-tab-node/g) || [])).toHaveLength(4);
+    expect((editorHtml.match(/setting-library-entry-tab-connector/g) || [])).toHaveLength(3);
     expect(editorHtml).toContain('基础');
+    expect(editorHtml).toContain('触发');
     expect(editorHtml).toContain('正文');
     expect(editorHtml).toContain('插入');
-    expect(editorHtml).not.toContain('触发');
-
-    const insertHtml = renderToStaticMarkup(<CachedEntryInsertSection entry={cacheEntry} onChange={() => {}} />);
-    expect(insertHtml).toContain('缓存设定区');
-    expect(insertHtml).toContain('位置内部排序');
-    expect(insertHtml).not.toContain('消息身份');
+    expect(positionPickerRows([]).some((row) => row.label === '缓存设定区')).toBe(true);
   });
 });

@@ -74,6 +74,7 @@ export interface ChatMessage {
   speakerName?: string
   speakerAvatar?: string
   sequence?: number
+  messageIndex?: number
   responseIndex?: number
   process?: AgentProcessItem[]
   inputImageAttachments?: ChatUserImageAttachment[]

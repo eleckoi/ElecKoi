@@ -38,6 +38,29 @@ function importDocument(value: unknown, displayName = 'preset.json') {
 }
 
 describe('agent preset repository', () => {
+  it('accepts extra editor fields without saving them into preset data', () => {
+    const repository = harness()
+    repository.ensureInitialized()
+    const initial = repository.active()
+    const request = requestContracts['command.agent_presets.save'].input.parse({
+      preset: {
+        ...initial, editorOnly: true,
+        profile: { ...initial.profile, editorOnly: true },
+        roleplayPlan: { ...initial.roleplayPlan, editorOnly: true },
+        entries: initial.entries.map((entry) => ({ ...entry, editorOnly: true }))
+      },
+      expectedRegexRules: initial.regexRules
+    })
+    expect(request.preset).not.toHaveProperty('editorOnly')
+    expect(request.preset.profile).not.toHaveProperty('editorOnly')
+    expect(request.preset.roleplayPlan).not.toHaveProperty('editorOnly')
+    expect(request.preset.entries[0]).not.toHaveProperty('editorOnly')
+    expect(repository.save(request.preset, request.expectedRegexRules).id).toBe(initial.id)
+    expect(requestContracts['command.agent_presets.save'].input.safeParse({
+      preset: { ...initial, name: 123 }, expectedRegexRules: initial.regexRules
+    }).success).toBe(false)
+  })
+
   it('removes unfinished empty roleplay tasks before the save command reaches the repository', () => {
     const repository = harness()
     repository.ensureInitialized()
@@ -92,7 +115,7 @@ describe('agent preset repository', () => {
       entries: [{
         id: 'prompt-1', title: '角色核心', iconId: '', kind: 'normal', groupId: '', content: '保持角色一致。',
         openingMessages: [], defaultOpeningMessageId: '', agentSelectionHint: '', agentReadStrategy: 'normal',
-        agentReadCondition: '', dynamicMode: 'single_condition', keywords: [], keywordScanDepth: 1,
+        dynamicMode: 'standard', keywords: [], keywordScanDepth: 1,
         conditionKeywords: [], keywordCondition: 'none', keywordUseRegex: false, keywordIgnoreCase: true,
         keywordWholeWord: false, keywordRecursionDepth: 0, triggerMode: 'always', enabled: true,
         position: 'insert_point_1', promptPositionId: '', insertRole: 'user', order: 1,

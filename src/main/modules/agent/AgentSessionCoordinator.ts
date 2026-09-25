@@ -229,7 +229,11 @@ export class AgentSessionCoordinator {
       conversationId, runId, requestId, messageId: assistantMessage.id, cancelled: false, terminalCommitted: false, accumulated: '', sequence: 0,
       done: Promise.resolve(), checkpointAt: 0, checkpointLength: 0, runtimeThreadId,
       discardRuntimeThreadIds: prepared.obsoleteRuntimeThreadIds,
-      generationStatsSeed: { previous: previousGenerationStats, retainedTurns: prepared.retainedTurns },
+      generationStatsSeed: {
+        previous: previousGenerationStats,
+        previousRuntimeThreadId,
+        retainedTurns: prepared.retainedTurns
+      },
       agentPreset,
       subagentSettings
     }

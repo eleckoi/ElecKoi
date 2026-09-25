@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { ModelRepository } from '../src/main/modules/models/ModelRepository'
 import { SqliteDatabase } from '../src/main/platform/sqlite/SqliteDatabase'
+import { requestContracts } from '../src/shared/contracts/gateway/definitions'
 
 const directories: string[] = []
 const databases: SqliteDatabase[] = []
@@ -27,6 +28,20 @@ function createRepository() {
 }
 
 describe('model repository providers', () => {
+  it('drops extra config and model option fields while validating known values', () => {
+    const repository = createRepository()
+    repository.save({ id: 'sample', provider: 'custom', model_options: [{ id: 'model', name: 'model' }] })
+    const current = repository.list()[0]!
+    const contract = requestContracts['command.models.save'].input
+    const parsed = contract.parse({
+      ...current, editorOnly: true,
+      model_options: [{ ...current.model_options[0]!, editorOnly: true }]
+    })
+    expect(parsed).not.toHaveProperty('editorOnly')
+    expect(parsed.model_options[0]).not.toHaveProperty('editorOnly')
+    expect(contract.safeParse({ ...current, enabled: 'yes' }).success).toBe(false)
+  })
+
   it.each([
     ['zhipu', 'https://open.bigmodel.cn/api/paas/v4', '', {}],
     ['zai', 'https://api.z.ai/api/paas/v4', '', {}],

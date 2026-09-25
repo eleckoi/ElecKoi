@@ -109,7 +109,7 @@ describe('agent process detail presentation', () => {
           { path: '人物/外貌与性格', title: '外貌与性格', read_strategy: 'normal' },
           { path: '世界/当前地点', title: '当前地点', read_strategy: 'required' },
         ],
-        required_files: [{ path: '世界/当前地点', title: '当前地点', read_strategy: 'required' }],
+        required_entries: [{ path: '世界/当前地点', title: '当前地点', read_strategy: 'required' }],
         truncated: false,
         omitted: 0,
       }),

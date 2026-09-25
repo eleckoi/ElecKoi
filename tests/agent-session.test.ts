@@ -764,7 +764,11 @@ describe('Agent session coordinator（Agent 会话协调器）', () => {
     harness.coordinator.regenerate(harness.conversationId, replaced.id)
     await harness.terminal
 
-    expect(runtimeInputs[0]?.generationStatsSeed).toEqual({ previous: previousStats, retainedTurns: 2 })
+    expect(runtimeInputs[0]?.generationStatsSeed).toEqual({
+      previous: previousStats,
+      previousRuntimeThreadId: 'old-thread',
+      retainedTurns: 2
+    })
     expect(runtimeInputs[0]?.runtimeThreadId).not.toBe('old-thread')
     expect(messages.list(harness.conversationId).map((message) => message.id)).toContain(replacedUser.id)
 

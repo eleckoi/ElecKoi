@@ -926,6 +926,9 @@ importers:
       '@deepseek-ai/dsh-attachment-local':
         specifier: 0.1.5-rc.2
         version: 0.1.5-rc.2(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-attachment@0.1.5-rc.2(@deepseek-ai/cordis@4.0.2)(@deepseek-ai/dsh-brand@0.1.5-rc.2(@deepseek-ai/cordis@4.0.2)))(@deepseek-ai/dsh-home-paths@0.1.5-rc.2(@deepseek-ai/cordis@4.0.2))(@types/node@26.3.0)
+      '@deepseek-ai/dsh-llm':
+        specifier: 0.1.5-rc.2
+        version: 0.1.5-rc.2(patch_hash=27728c111978e36e342b0894d09abd9ae0f3d91ecf1042c44068f13f85514dc3)(@deepseek-ai/cordis@4.0.2)
       '@deepseek-ai/dsh-sdk-client':
         specifier: 0.1.5-rc.2
         version: 0.1.5-rc.2(f590279b752b413e87013638940f160e)

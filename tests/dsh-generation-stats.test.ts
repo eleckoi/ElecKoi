@@ -17,6 +17,76 @@ function sessionEvent(seq: number, type: string, data: Record<string, unknown>, 
 }
 
 describe('DSH generation statistics projection', () => {
+  it('counts a new reply from durable attempt and compact message streams', () => {
+    const projector = new DshGenerationStatsProjector()
+    projector.project(sessionEvent(1, 'step/start', { turn: 1, step: 1 }, 1_000), 'session-a')
+    projector.project(sessionEvent(2, 'assistant/attempt', {
+      turn: 1, step: 1,
+      stream: [{ type: 'reasoning-chunks', time0: 1_300, index: 0, dt: [], texts: ['思考'] }]
+    }, 1_500), 'session-a')
+    projector.project(sessionEvent(3, 'assistant/message', {
+      turn: 1, step: 1,
+      stream: [{ type: 'text-chunks', time0: 1_800, index: 0, dt: [], texts: ['回答'] }],
+      usage: { inputTokens: 10, outputTokens: 60 },
+      message: { content: [{ type: 'text', text: '回答' }] }
+    }, 4_000, 'append'), 'session-a')
+    const stats = projector.project(sessionEvent(4, 'step/end', { turn: 1, step: 1 }, 4_100), 'session-a')
+
+    expect(stats).toMatchObject({
+      turns: 1, steps: 1, llmMs: 3_000,
+      ttftMs: 300, ttftSteps: 1, decodeMs: 2_700, decodeTokens: 60
+    })
+  })
+
+  it('counts regenerated reply timing while retaining conversation totals', () => {
+    const seed = regenerationGenerationStats({
+      steps: 2, llmMs: 5_000, toolMs: 0,
+      ttftMs: 0, ttftSteps: 0, decodeMs: 0, decodeTokens: 0,
+      tokenUsage: { uncachedInputTokens: 20, outputTokens: 40, cacheReadTokens: 0, cacheWriteTokens: 0 }
+    }, 2, { '1': 1, '2': 2 })
+    const projector = new DshGenerationStatsProjector(seed)
+    projector.project(sessionEvent(1, 'step/start', { turn: 1, step: 1 }, 10_000), 'session-a')
+    projector.project(sessionEvent(2, 'assistant/message', {
+      turn: 1, step: 1,
+      stream: [{ type: 'text-chunks', time0: 10_400, index: 0, dt: [], texts: ['重试回复'] }],
+      usage: { inputTokens: 8, outputTokens: 30 },
+      message: { content: [{ type: 'text', text: '重试回复' }] }
+    }, 12_000, 'append'), 'session-a')
+    const stats = projector.project(sessionEvent(3, 'step/end', { turn: 1, step: 1 }, 12_100), 'session-a')
+
+    expect(stats).toMatchObject({
+      turns: 2, steps: 2, llmMs: 7_000,
+      ttftMs: 400, ttftSteps: 1, decodeMs: 1_600, decodeTokens: 30
+    })
+  })
+
+  it('removes rolled-away steps and keeps retained turns through repeated regeneration', () => {
+    const original = new DshGenerationStatsProjector()
+    let seq = 0
+    for (const [turn, count] of [[1, 2], [2, 1], [3, 3]] as const) {
+      for (let step = 1; step <= count; step += 1) {
+        original.project(sessionEvent(++seq, 'step/end', { turn, step }, seq * 100), 'session-a')
+      }
+    }
+    expect(original.snapshot()).toMatchObject({ turns: 3, steps: 6 })
+
+    const firstSeed = regenerationGenerationStats(original.snapshot(), 2, original.stored().stepTotalsByTurn)
+    expect(firstSeed).toMatchObject({ turns: 2, steps: 2, stepTotalsByTurn: { '1': 2 } })
+    const regenerated = new DshGenerationStatsProjector(parseStoredGenerationStats(firstSeed))
+    regenerated.project(sessionEvent(1, 'step/end', { turn: 1, step: 1 }, 100), 'session-a')
+    regenerated.project(sessionEvent(2, 'step/end', { turn: 1, step: 2 }, 200), 'session-a')
+    regenerated.project(sessionEvent(3, 'step/end', { turn: 2, step: 1 }, 300), 'session-a')
+    expect(regenerated.snapshot()).toMatchObject({ turns: 3, steps: 5 })
+
+    const secondSeed = regenerationGenerationStats(regenerated.snapshot(), 3, regenerated.stored().stepTotalsByTurn)
+    expect(secondSeed).toMatchObject({ turns: 3, steps: 4, stepTotalsByTurn: { '1': 2, '2': 4 } })
+    const repeated = new DshGenerationStatsProjector(secondSeed)
+    expect(repeated.project(sessionEvent(1, 'step/end', { turn: 1, step: 1 }, 100), 'session-a'))
+      .toMatchObject({ turns: 3, steps: 5 })
+
+    expect(regenerationGenerationStats(repeated.snapshot(), 1, repeated.stored().stepTotalsByTurn).steps).toBe(0)
+  })
+
   it('folds whole-session timing, tool duration and replacement token usage', () => {
     const projector = new DshGenerationStatsProjector()
     projector.project(sessionEvent(1, 'request/context', { contextWindow: 128_000 }, 0), 'session-a')

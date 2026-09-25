@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { and, asc, eq } from 'drizzle-orm'
 import type { SettingLibrary, SettingLibraryEntry, SettingLibraryGroup } from '@shared/contracts/settingLibrary/schemas'
-import { settingLibraryEntrySchema, settingLibraryGroupSchema, settingLibrarySchema } from '@shared/contracts/settingLibrary/schemas'
+import { settingLibraryEntrySchema, settingLibraryGroupSchema, settingLibrarySchema, settingLibraryStoredEntrySchema } from '@shared/contracts/settingLibrary/schemas'
 import type { AgentSettingLibraryRuntimeContext } from '@shared/contracts/agent/runtime'
 import { requireCharacter } from '@main/modules/personas'
 import { type ElecKoiDatabase, SqliteDatabase } from '@main/platform/sqlite/SqliteDatabase'
@@ -164,7 +164,7 @@ export class SettingLibraryRepository {
       }
       try {
         if (row.targetType === 'entry') {
-          const entry = settingLibraryEntrySchema.parse(JSON.parse(row.payloadJson))
+          const entry = settingLibraryStoredEntrySchema.parse(JSON.parse(row.payloadJson))
           if (entry.kind !== 'opening') entries.set(row.targetId, { ...entry, id: row.targetId })
         } else if (row.targetType === 'group') {
           const group = settingLibraryGroupSchema.parse(JSON.parse(row.payloadJson))

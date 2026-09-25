@@ -21,7 +21,7 @@ export const regexRuleSchema = z.object({
   promptOnly: z.boolean(),
   runOnEdit: z.boolean(),
   order: z.number().int().nonnegative()
-}).strict()
+})
 
 export const regexRuleVersionSchema = z.object({
   id: z.string().min(1),
@@ -29,7 +29,7 @@ export const regexRuleVersionSchema = z.object({
   globalEnabledIds: z.array(z.string()),
   agentPresetEnabledIds: z.array(z.string()),
   characterEnabledIds: z.array(z.string())
-}).strict()
+})
 
 export const regexRuleCollectionSchema = z.object({
   characterId: z.string().min(1),
@@ -42,7 +42,7 @@ export const regexRuleCollectionSchema = z.object({
   versions: z.array(regexRuleVersionSchema),
   activeVersionId: z.string(),
   revision: z.number().int().nonnegative()
-}).strict()
+})
 
 export const regexRuleImportDocumentSchema = z.object({
   displayName: z.string().min(1).max(260),

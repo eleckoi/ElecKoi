@@ -74,6 +74,7 @@ export const messageSchema = z.object({
   speakerName: z.string().optional(),
   speakerAvatar: z.string().optional(),
   sequence: z.number().int().optional(),
+  messageIndex: z.number().int().nonnegative().optional(),
   responseIndex: z.number().int().nonnegative().optional(),
   process: z.array(agentProcessItemSchema).optional(),
   inputImageAttachments: z.array(chatUserImageAttachmentSchema).optional(),
@@ -122,7 +123,7 @@ export const modelOptionSchema = z.object({
   reasoningEfforts: z.union([z.literal(false), modelReasoningEffortsSchema]).nullable().optional(),
   reasoningEffort: modelReasoningEffortSchema.nullable().optional(),
   supportsImageInput: z.boolean().optional()
-}).strict().superRefine((option, context) => {
+}).superRefine((option, context) => {
   const capacity = option.contextWindowTokens
   if (capacity !== null && capacity !== undefined) {
     if (option.autoCompactTokenLimit !== null && option.autoCompactTokenLimit !== undefined && option.autoCompactTokenLimit > capacity) {
@@ -147,4 +148,4 @@ export const modelConfigSchema = z.object({
   enabled: z.boolean(),
   image_settings: recordSchema,
   api_format: modelApiFormatSchema
-}).strict()
+})

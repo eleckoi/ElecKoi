@@ -4,7 +4,7 @@ export const activeModelSelectionSchema = z.object({
   capability: z.literal('chat'),
   config_id: z.string(),
   model: z.string()
-}).strict()
+})
 
 export const appearanceModeSchema = z.enum(['light', 'dark', 'system'])
 export const resolvedAppearanceModeSchema = z.enum(['light', 'dark'])
@@ -16,7 +16,7 @@ export const listCollapseStateSchema = z.object({
   characters: collapsedGroupMapSchema.optional(),
   presets: collapsedGroupMapSchema.optional(),
   models: collapsedGroupMapSchema.optional()
-}).strict()
+})
 export const appearanceUiPreferencesSchema = z.object({
   sidebar_character_artwork: sidebarCharacterArtworkSchema.optional(),
   new_character_background: newCharacterBackgroundSchema.optional(),
@@ -40,7 +40,7 @@ export const chatTextColorsSchema = z.object({
   italics: cssHexColorSchema,
   underline: cssHexColorSchema,
   quote: cssHexColorSchema
-}).strict()
+})
 
 export const chatLayoutProfileSchema = z.object({
   assistant_bubble_enabled: z.boolean(),
@@ -56,19 +56,21 @@ export const chatLayoutProfileSchema = z.object({
   line_height_multiplier: z.number().min(0.8).max(1.6),
   letter_spacing: z.number().min(-1).max(4),
   paragraph_spacing: z.number().min(0).max(24)
-}).strict()
+})
 
 export const chatDisplayPreferencesSchema = z.object({
   layout: chatLayoutModeSchema,
   reasoning_display_mode: chatReasoningDisplayModeSchema,
   generation_stats_enabled: z.boolean(),
+  roleplay_timestamps_enabled: z.boolean().default(true),
+  roleplay_message_floors_enabled: z.boolean().default(true),
   text_colors: chatTextColorsSchema,
   profiles: z.object({
     social: chatLayoutProfileSchema,
     agent: chatLayoutProfileSchema,
     roleplay: chatLayoutProfileSchema
-  }).strict()
-}).strict()
+  })
+})
 
 export type ChatLayoutMode = z.output<typeof chatLayoutModeSchema>
 export type ChatAvatarShape = z.output<typeof chatAvatarShapeSchema>
@@ -81,6 +83,8 @@ export const DEFAULT_CHAT_DISPLAY_PREFERENCES: ChatDisplayPreferences = {
   layout: 'roleplay',
   reasoning_display_mode: 'collapsed',
   generation_stats_enabled: true,
+  roleplay_timestamps_enabled: true,
+  roleplay_message_floors_enabled: true,
   text_colors: { ...DEFAULT_CHAT_TEXT_COLORS },
   profiles: {
     social: {
@@ -101,22 +105,22 @@ export const DEFAULT_CHAT_DISPLAY_PREFERENCES: ChatDisplayPreferences = {
     agent: {
       assistant_bubble_enabled: false,
       bubble_corner_radius: 12,
-      avatar_size: 34.5,
+      avatar_size: 48,
       avatar_shape: 'circle',
-      name_font_size: 13,
+      name_font_size: 16,
       name_avatar_spacing: 8,
       horizontal_padding: 16,
       reply_spacing: 15,
       turn_spacing: 15,
-      message_font_size: 14,
-      line_height_multiplier: 1,
+      message_font_size: 16,
+      line_height_multiplier: 1.1,
       letter_spacing: 0,
       paragraph_spacing: 6
     },
     roleplay: {
       assistant_bubble_enabled: false,
       bubble_corner_radius: 10,
-      avatar_size: 55,
+      avatar_size: 65,
       avatar_shape: 'portrait',
       name_font_size: 15,
       name_avatar_spacing: 10,

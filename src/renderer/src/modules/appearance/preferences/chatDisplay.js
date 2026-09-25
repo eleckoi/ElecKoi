@@ -1,4 +1,20 @@
-import { DEFAULT_CHAT_TEXT_COLORS } from "@shared/contracts/settings/schemas";
+import { DEFAULT_CHAT_DISPLAY_PREFERENCES, DEFAULT_CHAT_TEXT_COLORS } from "@shared/contracts/settings/schemas";
+
+const previousAgentDefaults = {
+  assistant_bubble_enabled: false,
+  bubble_corner_radius: 12,
+  avatar_size: 34.5,
+  avatar_shape: "circle",
+  name_font_size: 13,
+  name_avatar_spacing: 8,
+  horizontal_padding: 16,
+  reply_spacing: 15,
+  turn_spacing: 15,
+  message_font_size: 14,
+  line_height_multiplier: 1,
+  letter_spacing: 0,
+  paragraph_spacing: 6,
+};
 
 function clamp(value, minimum, maximum) {
   return Math.min(Math.max(Number(value), minimum), maximum);
@@ -19,9 +35,12 @@ export function resolveChatAvatarShape(layout, shape) {
 
 export function resolveChatDisplayProfile(preferences) {
   const layout = preferences?.layout || "roleplay";
+  const savedProfile = preferences?.profiles?.[layout] || preferences?.profiles?.roleplay;
+  const agentUsesPreviousDefaults = layout === "agent" && savedProfile
+    && Object.entries(previousAgentDefaults).every(([key, value]) => savedProfile[key] === value);
   return {
     layout,
-    profile: preferences?.profiles?.[layout] || preferences?.profiles?.roleplay,
+    profile: agentUsesPreviousDefaults ? DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles.agent : savedProfile,
   };
 }
 
@@ -69,4 +88,22 @@ export function resolveChatAvatar(persona, role, shape) {
     return persona?.[`${prefix}_square`] || persona?.[`${prefix}_avatar`] || "";
   }
   return persona?.[`${prefix}_avatar`] || persona?.[`${prefix}_square`] || "";
+}
+
+export function messageFloorNumber(messages, index) {
+  const known = (position) => {
+    const value = messages[position]?.messageIndex;
+    return Number.isSafeInteger(value) && value >= 0 ? value : null;
+  };
+  const exact = known(index);
+  if (exact !== null) return exact;
+  for (let position = index - 1; position >= 0; position -= 1) {
+    const floor = known(position);
+    if (floor !== null) return floor + index - position;
+  }
+  for (let position = index + 1; position < messages.length; position += 1) {
+    const floor = known(position);
+    if (floor !== null) return Math.max(0, floor - position + index);
+  }
+  return index;
 }
