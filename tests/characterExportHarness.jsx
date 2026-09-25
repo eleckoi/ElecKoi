@@ -127,7 +127,7 @@ export function selectionBar(container) {
 
 /** 选择条上的目标清单（选择期信息从标题栏移到了这条里）。 */
 export function targetsText(container) {
-  return container.querySelector('.character-manager-selection-targets')?.textContent || ''
+  return container.querySelector('.character-manager-selection-targets > span:first-child')?.textContent || ''
 }
 
 /** 选择条上的「导出 N 张」按钮。 */
@@ -154,19 +154,9 @@ export function typeSearch(container, value) {
   return search
 }
 
-/** 默认模式：点开「导出角色」菜单。 */
-export function openExportMenu(container) {
+/** 点击「导出角色」直接进入勾选模式，必要时在选择条中切换格式。 */
+export function enterExport(container, format = 'PNG') {
   click(buttonByText(container, '导出角色'))
-  const menu = container.querySelector('[role="menu"]')
-  if (!menu) throw new Error('导出菜单没有打开')
-  return menu
-}
-
-/** 走完「导出角色 → 选方式」，进入卡片勾选模式。 */
-export function enterExport(container, formatLabel = 'PNG 角色卡') {
-  openExportMenu(container)
-  const item = [...container.querySelectorAll('[role="menuitem"]')]
-    .find((button) => button.textContent.includes(formatLabel))
-  click(item)
+  if (format === 'JSON') click(buttonByText(selectionBar(container), 'JSON'))
   return container
 }

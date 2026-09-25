@@ -76,25 +76,31 @@ function ChatDisplayPreview({ preferences, persona }) {
   };
   const userAvatar = resolveChatAvatar(persona, "user", avatarShape);
   const assistantAvatar = resolveChatAvatar(persona, "assistant", avatarShape);
+  const previewTime = new Date().toISOString();
 
   return (
     <div className={`chat-display-preview${profile.assistant_bubble_enabled ? " assistant-bubble-enabled" : ""}`} style={style}>
-      <div className="chat-display-preview-bar"><strong>对话预览</strong></div>
       <div className={`message-area layout-${layout}`}>
         <MessageBubble
-          message={{ id: "preview-user", role: "user", content: "今晚从这里继续。", status: "complete" }}
+          message={{ id: "preview-user", role: "user", content: "今晚从这里继续。", status: "complete", created_at: previewTime }}
           avatar={userAvatar}
           avatarShape={avatarShape}
           name={persona?.user_name || "你"}
           layoutMode={layout}
+          floorNumber={0}
+          showRoleplayTimestamp={preferences.roleplay_timestamps_enabled}
+          showRoleplayFloor={preferences.roleplay_message_floors_enabled}
           spacingAfter={layout === "agent" ? profile.reply_spacing : profile.turn_spacing}
         />
         <MessageBubble
-          message={{ id: "preview-assistant", role: "assistant", content: "夜色在窗外缓缓流淌，远处的灯火像落在城市里的星海。\n\n我们从这里继续。", status: "complete" }}
+          message={{ id: "preview-assistant", role: "assistant", content: "夜色在窗外缓缓流淌，远处的灯火像落在城市里的星海。\n\n我们从这里继续。", status: "complete", created_at: previewTime }}
           avatar={assistantAvatar}
           avatarShape={avatarShape}
           name={persona?.assistant_name || "AI"}
           layoutMode={layout}
+          floorNumber={1}
+          showRoleplayTimestamp={preferences.roleplay_timestamps_enabled}
+          showRoleplayFloor={preferences.roleplay_message_floors_enabled}
           spacingAfter={0}
         />
       </div>
@@ -253,6 +259,26 @@ function ChatDisplaySettings({
           </div>
         </section>
 
+        {layout === "roleplay" ? <section className="chat-settings-group chat-display-section">
+          <div className="setting-row-copy setting-row-title"><ChatCircleDots /><strong>消息信息</strong></div>
+          <div className="chat-roleplay-message-options">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={preferences.roleplay_timestamps_enabled}
+              className={`chat-setting-toggle${preferences.roleplay_timestamps_enabled ? " active" : ""}`}
+              onClick={() => onChatDisplayChange({ ...preferences, roleplay_timestamps_enabled: !preferences.roleplay_timestamps_enabled })}
+            ><span>聊天时间戳</span><i /></button>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={preferences.roleplay_message_floors_enabled}
+              className={`chat-setting-toggle${preferences.roleplay_message_floors_enabled ? " active" : ""}`}
+              onClick={() => onChatDisplayChange({ ...preferences, roleplay_message_floors_enabled: !preferences.roleplay_message_floors_enabled })}
+            ><span>显示消息楼层</span><i /></button>
+          </div>
+        </section> : null}
+
         <section className="chat-settings-group chat-display-section chat-text-colors-section">
           <div className="setting-row-copy setting-row-title">
             <Palette />
@@ -351,7 +377,7 @@ function ChatDisplaySettings({
       </div>
 
       <aside className="chat-display-preview-column" aria-label="实时预览">
-        <header><strong><Eye />实时预览</strong><span>角色扮演</span></header>
+        <header><strong><Eye />实时预览</strong><span>{chatLayouts.find((item) => item.id === layout)?.label}</span></header>
         <ChatDisplayPreview preferences={preferences} persona={persona} />
       </aside>
     </div>

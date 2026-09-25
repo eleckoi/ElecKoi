@@ -22,7 +22,7 @@ function openingEntry(source: SettingLibraryEntry | undefined, timestamp: string
     ...emptyEntry(OPENING_ENTRY_ID, timestamp), ...source,
     id: OPENING_ENTRY_ID, title: 'AI角色开场白', iconId: 'chat', kind: 'opening', groupId: '',
     content: selected.content, openingMessages: messages, defaultOpeningMessageId: defaultId,
-    agentReadStrategy: 'normal', agentReadCondition: '', dynamicMode: 'single_condition',
+    agentReadStrategy: 'normal', dynamicMode: 'standard',
     keywords: [], conditionKeywords: [], keywordCondition: 'none', keywordUseRegex: false,
     keywordIgnoreCase: true, keywordWholeWord: false, keywordRecursionDepth: 0,
     triggerMode: 'always', position: null, promptPositionId: '', insertRole: 'assistant',
@@ -34,8 +34,8 @@ function openingEntry(source: SettingLibraryEntry | undefined, timestamp: string
 export function emptyEntry(id: string = randomUUID(), timestamp = now()): SettingLibraryEntry {
   return {
     id, title: '', iconId: '', kind: 'normal', groupId: '', content: '', openingMessages: [],
-    defaultOpeningMessageId: '', agentSelectionHint: '', agentReadStrategy: 'normal', agentReadCondition: '',
-    dynamicMode: 'single_condition', keywords: [], keywordScanDepth: 1, conditionKeywords: [],
+    defaultOpeningMessageId: '', agentSelectionHint: '', agentReadStrategy: 'normal',
+    dynamicMode: 'standard', keywords: [], keywordScanDepth: 1, conditionKeywords: [],
     keywordCondition: 'none', keywordUseRegex: false, keywordIgnoreCase: true, keywordWholeWord: false,
     keywordRecursionDepth: 0, triggerMode: 'agent_tool', enabled: true, position: null,
     promptPositionId: '', insertRole: 'user', order: 1, viewOrder: 0, groupViewOrder: 0,

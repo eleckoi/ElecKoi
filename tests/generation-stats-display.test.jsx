@@ -1,5 +1,8 @@
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
+  GenerationStatsLine,
   billedInputTokens,
   cacheHitPercent,
   contextBreakdownRows,
@@ -8,7 +11,11 @@ import {
   formatTokens,
   generationStatGroups,
   retainVisibleGenerationStats,
+  sessionTimeRows,
+  sessionUsageRows,
 } from '../src/renderer/src/modules/chat/components/GenerationStats.jsx';
+
+globalThis.React = React;
 
 describe('generation statistics display', () => {
   it('matches the DSH statistics strip formatting', () => {
@@ -27,13 +34,35 @@ describe('generation statistics display', () => {
         cacheReadTokens: 18_300,
         cacheWriteTokens: 0,
       },
-    })).toEqual([
-      '1 轮 · 2 步',
-      'LLM 31.6s · 工具调用 0.8s',
-      '首 token 平均 13s · 76 tok/s',
-      '缓存命中 49%',
-      '输入 37K tok · 输出 429 tok',
+    })).toEqual(['1 轮 2 步 · 76 tok/s', '37.4K tok · 缓存命中 49%']);
+  });
+
+  it('separates time and exact token buckets in the detail panels', () => {
+    expect(sessionTimeRows({ llmMs: 31_600, toolMs: 800, ttftMs: 26_000, ttftSteps: 2, decodeMs: 5_645, decodeTokens: 429 })).toEqual([
+      { label: '模型用时', value: '31.6秒' },
+      { label: '工具调用用时', value: '0.8秒' },
+      { label: '首 token 平均（TTFT）', value: '13秒' },
+      { label: '输出速度（TPS）', value: '76 tok/s' },
     ]);
+    expect(sessionUsageRows({ uncachedInputTokens: 18_364, cacheReadTokens: 17_920, cacheWriteTokens: 0, outputTokens: 429 })).toEqual([
+      { label: '缓存命中', value: '49%' },
+      { label: '未缓存输入', value: '18,364 tok' },
+      { label: '缓存读取', value: '17,920 tok' },
+      { label: '输出', value: '429 tok' },
+    ]);
+    expect(sessionUsageRows({ uncachedInputTokens: 10, cacheReadTokens: 20, cacheWriteTokens: 5, outputTokens: 1 })).toContainEqual({ label: '缓存写入', value: '5 tok' });
+  });
+
+  it('renders the two statistics pills and a separate context reading', () => {
+    const html = renderToStaticMarkup(React.createElement(GenerationStatsLine, { stats: {
+      turns: 1, steps: 2, decodeMs: 5_645, decodeTokens: 429,
+      tokenUsage: { uncachedInputTokens: 18_364, cacheReadTokens: 17_920, cacheWriteTokens: 0, outputTokens: 429 },
+      contextPressure: { projectedTokens: 20_000, contextWindow: 1_000_000 },
+    } }));
+    expect(html).toContain('1 轮 2 步 · 76 tok/s');
+    expect(html).toContain('36.7K tok · 缓存命中 49%');
+    expect(html).toContain('2%');
+    expect(html).toContain('aria-haspopup="dialog"');
   });
 
   it('preserves the DSH near-100 cache precision rule', () => {
@@ -55,7 +84,7 @@ describe('generation statistics display', () => {
       percentLabel: '0.3',
     });
     expect(formatTokens(18_700)).toBe('18.7K');
-    expect(formatDuration(162_000)).toBe('2m42s');
+    expect(formatDuration(162_000)).toBe('2分42秒');
   });
 
   it('keeps heuristic categories separate from the provider context total', () => {

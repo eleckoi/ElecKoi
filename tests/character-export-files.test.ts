@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -49,47 +49,49 @@ function createCharacter(characters: CharacterRepository, id: string, name: stri
 }
 
 describe('character card batch export', () => {
-  it('writes every selected card into the chosen directory and reports them', () => {
+  it('writes every selected card into the chosen directory and reports them', async () => {
     // target 目录故意不预建：选完目录后被删掉时，导出不应整批按 ENOENT 失败。
     const { target, transfers, characters } = harness()
     createCharacter(characters, 'card-1', '角色甲')
     createCharacter(characters, 'card-2', '角色乙')
 
-    const result = transfers.exportMany(['card-1', 'card-2'], 'png', target)
+    const result = await transfers.exportMany(['card-1', 'card-2'], 'png', target)
 
     expect(result.failures).toEqual([])
     expect(result.written.map((item) => item.fileName).sort()).toEqual(['角色甲.png', '角色乙.png'].sort())
     expect(readdirSync(target).sort()).toEqual(['角色甲.png', '角色乙.png'].sort())
   })
 
-  it('keeps a character name from escaping the chosen directory', () => {
+  it('keeps a character name from escaping the chosen directory', async () => {
     const { target, transfers, characters } = harness()
     createCharacter(characters, 'card-1', '..\\..\\坏:名字*?')
 
-    const result = transfers.exportMany(['card-1'], 'json', target)
+    const result = await transfers.exportMany(['card-1'], 'json', target)
 
     expect(result.written).toHaveLength(1)
     expect(result.written[0]!.fileName).not.toMatch(/[\\/:*?"<>|]/)
     expect(readdirSync(target)).toEqual([result.written[0]!.fileName])
   })
 
-  it('does not overwrite an existing file: the second export gets a numeric suffix', () => {
+  it('does not overwrite an existing file: the second export gets a numeric suffix', async () => {
     const { target, transfers, characters } = harness()
     createCharacter(characters, 'card-1', '角色甲')
 
-    const first = transfers.exportMany(['card-1'], 'png', target)
-    const second = transfers.exportMany(['card-1'], 'png', target)
+    const first = await transfers.exportMany(['card-1'], 'png', target)
+    writeFileSync(join(target, '角色甲.png'), 'existing file')
+    const second = await transfers.exportMany(['card-1'], 'png', target)
 
     expect(first.written[0]!.fileName).toBe('角色甲.png')
     expect(second.written[0]!.fileName).toBe('角色甲 (2).png')
     expect(readdirSync(target).sort()).toEqual(['角色甲 (2).png', '角色甲.png'].sort())
+    expect(readFileSync(join(target, '角色甲.png'), 'utf8')).toBe('existing file')
   })
 
-  it('truncates an over-long character name so the file name stays legal', () => {
+  it('truncates an over-long character name so the file name stays legal', async () => {
     const { target, transfers, characters } = harness()
     createCharacter(characters, 'card-1', '角'.repeat(300))
 
-    const result = transfers.exportMany(['card-1'], 'png', target)
+    const result = await transfers.exportMany(['card-1'], 'png', target)
 
     expect(result.failures).toEqual([])
     const fileName = result.written[0]!.fileName
@@ -99,22 +101,22 @@ describe('character card batch export', () => {
     expect(readdirSync(target)).toEqual([fileName])
   })
 
-  it('avoids Windows reserved device names', () => {
+  it('avoids Windows reserved device names', async () => {
     const { target, transfers, characters } = harness()
     createCharacter(characters, 'card-1', 'NUL')
 
-    const result = transfers.exportMany(['card-1'], 'png', target)
+    const result = await transfers.exportMany(['card-1'], 'png', target)
 
     expect(result.failures).toEqual([])
     expect(result.written[0]!.fileName).toBe('_NUL.png')
     expect(readdirSync(target)).toEqual(['_NUL.png'])
   })
 
-  it('reports the failing card and still writes the others', () => {
+  it('reports the failing card and still writes the others', async () => {
     const { target, transfers, characters } = harness()
     createCharacter(characters, 'card-1', '角色甲')
 
-    const result = transfers.exportMany(['card-1', 'missing-card'], 'png', target)
+    const result = await transfers.exportMany(['card-1', 'missing-card'], 'png', target)
 
     expect(result.written.map((item) => item.characterId)).toEqual(['card-1'])
     expect(result.failures).toEqual([{ characterId: 'missing-card', message: '找不到对应的角色卡。' }])

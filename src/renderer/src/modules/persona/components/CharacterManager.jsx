@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ExportIcon, ImportIcon, PencilIcon, PlusIcon, TrashIcon } from "../../../ui/icons/index.jsx";
 import { DshSearchField } from "../../../ui/ui/DshSearchField.jsx";
 import { GroupAssignmentMenu } from "../../../ui/ui/GroupAssignmentMenu.jsx";
@@ -27,13 +27,10 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
   const [groupDialog, setGroupDialog] = useState(null);
   const [groupDraft, setGroupDraft] = useState("");
   const [importOpen, setImportOpen] = useState(false);
-  const [exportOpen, setExportOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState("");
   const [exportNotice, setExportNotice] = useState("");
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
-  const exportControlRef = useRef(null);
-  const exportMenuRef = useRef(null);
 
   const groups = useMemo(() => {
     const names = [...new Set((characters.groups || []).map((group) => group.trim()).filter(Boolean))];
@@ -59,8 +56,8 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
     const names = new Map((characters.items || []).map((character) => [character.id, characterName(character)]));
     return selectedIds.map((characterId) => names.get(characterId) || characterId);
   }, [characters, selectedIds]);
-  const exportTargetsText = exportTargetNames.length ? exportTargetNames.join("、") : "尚未选择角色卡";
-  const exportTargetsLine = exportTargetNames.length ? `将导出：${exportTargetsText}` : exportTargetsText;
+  const exportTargetsText = exportTargetNames.join("、");
+  const exportTargetsLine = exportTargetNames.length ? `将导出：${exportTargetsText}` : "";
   const allVisibleSelected = Boolean(visibleCharacters.length)
     && visibleCharacters.every((character) => selectedSet.has(character.id));
 
@@ -87,10 +84,8 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
   useEffect(() => {
     function closeMenus(event) {
       if (event.type === "keydown" && event.key !== "Escape") return;
-      if (event.type !== "keydown" && exportControlRef.current?.contains(event.target)) return;
       setGroupMenu(null);
       setCardGroupMenu(null);
-      setExportOpen(false);
     }
     window.addEventListener("pointerdown", closeMenus);
     window.addEventListener("keydown", closeMenus);
@@ -114,10 +109,6 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
     window.addEventListener("keydown", leaveExportMode);
     return () => window.removeEventListener("keydown", leaveExportMode);
   }, [exportFormat, exporting, groupMenu, cardGroupMenu, groupDialog, importOpen]);
-
-  useEffect(() => {
-    if (exportOpen) exportMenuRef.current?.querySelector("button")?.focus();
-  }, [exportOpen]);
 
   function countByGroup(group) {
     return (characters.items || []).filter((character) => characterGroup(character) === group).length;
@@ -148,7 +139,6 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
     if (selectionMode) return;
     setSelectedCharacterId(character.id);
     setGroupMenu(null);
-    setExportOpen(false);
     setCardGroupMenu({ character, x: event.clientX, y: event.clientY });
   }
 
@@ -210,7 +200,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
       setSelectedIds(selectedIds.filter((id) => id !== characterId));
       return;
     }
-    if (selectedIds.length >= MAX_EXPORT_SELECTION) {
+    if (exportFormat && selectedIds.length >= MAX_EXPORT_SELECTION) {
       setError(`一次最多导出 ${MAX_EXPORT_SELECTION} 张。`);
       return;
     }
@@ -223,17 +213,13 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
     setSelectedIds([]);
   }
 
-  /** 选定导出方式后进入勾选模式：卡片上出现可勾选圆圈，默认勾选当前那张卡。 */
-  function startExport(format) {
+  /** 进入勾选模式时不预选角色；格式默认 PNG，可在选择条中切换。 */
+  function startExport() {
     if (exporting) return;
-    const fallback = selectedCharacterId || characters.active_character_id;
-    const visibleIds = new Set(visibleCharacters.map((character) => character.id));
-    const initial = fallback && visibleIds.has(fallback) ? [fallback] : visibleCharacters.slice(0, 1).map((character) => character.id);
-    setExportFormat(format);
-    setExportOpen(false);
+    setExportFormat("png");
     setError("");
     setExportNotice("");
-    setSelectedIds(initial);
+    setSelectedIds([]);
   }
 
   function cancelExport() {
@@ -253,7 +239,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
     const merged = [...new Set([...selectedIds, ...visibleCharacters.map((character) => character.id)])];
     setSelectedIds(merged.slice(0, MAX_EXPORT_SELECTION));
     setError(merged.length > MAX_EXPORT_SELECTION
-      ? `一次最多导出 ${MAX_EXPORT_SELECTION} 张，已选当前列表的前 ${MAX_EXPORT_SELECTION} 张。`
+      ? `一次最多导出 ${MAX_EXPORT_SELECTION} 张，已保留原有勾选并添加至上限。`
       : "");
   }
 
@@ -337,92 +323,88 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
 
       <section className="character-manager-main">
         <header className="character-manager-titlebar">
-          <h2>角色卡管理器</h2>
-          <DshSearchField
-            className="character-manager-search"
-            value={keyword}
-            onValueChange={setKeyword}
-            placeholder="搜索角色…"
-            ariaLabel="搜索角色"
-          />
-          {deleteMode ? (
-            <>
-              <button className="character-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={confirmDelete}>
-                确认{selectedIds.length ? ` ${selectedIds.length}` : ""}
-              </button>
-              <button type="button" onClick={cancelDeleteMode}>取消</button>
-            </>
-          ) : exportFormat ? null : (
-            <>
-              <button type="button" onClick={() => setImportOpen(true)}><ImportIcon />导入角色</button>
-              <div className="character-manager-export" ref={exportControlRef}>
-                <button
-                  type="button"
-                  disabled={!characters.items?.length}
-                  aria-haspopup="menu"
-                  aria-expanded={exportOpen}
-                  onClick={() => setExportOpen((current) => !current)}
-                >
-                  <ExportIcon />导出角色
-                </button>
-                {exportOpen ? (
-                  <div className="character-manager-export-menu" ref={exportMenuRef} role="menu" aria-label="选择角色卡格式">
-                    <button type="button" role="menuitem" disabled={exporting} onClick={() => startExport("png")}>PNG 角色卡</button>
-                    <button type="button" role="menuitem" disabled={exporting} onClick={() => startExport("json")}>JSON 角色卡</button>
-                  </div>
-                ) : null}
+          {exportFormat ? (
+            <section className="character-manager-selection-bar" aria-label="导出选择">
+              <div className="character-manager-selection-summary">
+                <span className="character-manager-selection-count">已选 {selectedIds.length} 张</span>
+                <div className="character-manager-format-switch" role="group" aria-label="导出格式">
+                  <button
+                    type="button"
+                    aria-pressed={exportFormat === "png"}
+                    disabled={exporting}
+                    onClick={() => changeExportFormat("png")}
+                  >
+                    PNG
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={exportFormat === "json"}
+                    disabled={exporting}
+                    onClick={() => changeExportFormat("json")}
+                  >
+                    JSON
+                  </button>
+                </div>
               </div>
-              <button type="button" disabled={!characters.items?.length} onClick={() => setDeleteMode(true)}><TrashIcon />删除</button>
+              <DshSearchField
+                className="character-manager-search"
+                value={keyword}
+                onValueChange={setKeyword}
+                placeholder="搜索角色…"
+                ariaLabel="搜索角色"
+              />
+              <div className="character-manager-selection-actions">
+                <button type="button" disabled={exporting || allVisibleSelected} onClick={selectAllVisible}>
+                  全选当前列表
+                </button>
+                <button type="button" disabled={exporting || !selectedIds.length} onClick={clearSelection}>清空</button>
+                <button type="button" disabled={exporting} onClick={cancelExport}>{exportNotice ? "完成" : "取消"}</button>
+                <button
+                  className="character-manager-confirm-export"
+                  type="button"
+                  disabled={!selectedIds.length || exporting}
+                  onClick={confirmExport}
+                >
+                  {exporting ? "导出中…" : `导出 ${selectedIds.length} 张`}
+                </button>
+              </div>
+              <p className="character-manager-selection-targets" title={exportTargetsText}>
+                <span>{exportTargetsLine}</span>
+                <span className="character-manager-selection-notice" role="status">{exportNotice}</span>
+              </p>
+            </section>
+          ) : (
+            <>
+              <h2>角色卡管理器</h2>
+              <DshSearchField
+                className="character-manager-search"
+                value={keyword}
+                onValueChange={setKeyword}
+                placeholder="搜索角色…"
+                ariaLabel="搜索角色"
+              />
+              {deleteMode ? (
+                <>
+                  <button className="character-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={confirmDelete}>
+                    确认{selectedIds.length ? ` ${selectedIds.length}` : ""}
+                  </button>
+                  <button type="button" onClick={cancelDeleteMode}>取消</button>
+                </>
+              ) : (
+                <>
+                  <button type="button" onClick={() => setImportOpen(true)}><ImportIcon />导入角色</button>
+                  <button type="button" disabled={!characters.items?.length} onClick={startExport}>
+                    <ExportIcon />导出角色
+                  </button>
+                  <button type="button" disabled={!characters.items?.length} onClick={() => setDeleteMode(true)}><TrashIcon />删除</button>
+                </>
+              )}
             </>
           )}
         </header>
 
-        {exportFormat ? (
-          <section className="character-manager-selection-bar" aria-label="导出选择">
-            <div className="character-manager-selection-row">
-              <strong className="character-manager-selection-mode">导出模式</strong>
-              <span className="character-manager-selection-count">已选 {selectedIds.length} 张</span>
-              <div className="character-manager-format-switch" role="group" aria-label="导出格式">
-                <button
-                  type="button"
-                  aria-pressed={exportFormat === "png"}
-                  disabled={exporting}
-                  onClick={() => changeExportFormat("png")}
-                >
-                  PNG
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={exportFormat === "json"}
-                  disabled={exporting}
-                  onClick={() => changeExportFormat("json")}
-                >
-                  JSON
-                </button>
-              </div>
-              <span className="character-manager-selection-notice" role="status">{exportNotice}</span>
-              <button type="button" disabled={exporting || allVisibleSelected} onClick={selectAllVisible}>
-                全选当前列表
-              </button>
-              <button type="button" disabled={exporting || !selectedIds.length} onClick={clearSelection}>清空</button>
-              <button type="button" disabled={exporting} onClick={cancelExport}>{exportNotice ? "完成" : "取消"}</button>
-              <button
-                className="character-manager-confirm-export"
-                type="button"
-                disabled={!selectedIds.length || exporting}
-                onClick={confirmExport}
-              >
-                {exporting ? "导出中…" : `导出 ${selectedIds.length} 张`}
-              </button>
-            </div>
-            <p className="character-manager-selection-targets" title={exportTargetsText}>
-              {exportTargetsLine}
-            </p>
-          </section>
-        ) : null}
-
-        {error ? <p className="character-manager-error" role="alert">{error}</p> : null}
         <div className="character-manager-scroll">
+          {error ? <p className="character-manager-error" role="alert">{error}</p> : null}
           {visibleCharacters.length ? (
             <div className="character-manager-grid">
               {visibleCharacters.map((character, index) => (

@@ -121,8 +121,7 @@ export interface AuthorSettingLibraryEntry {
   defaultOpeningMessageId: string
   agentSelectionHint: string
   agentReadStrategy: 'required' | 'keyword' | 'normal' | 'variable_condition'
-  agentReadCondition: string
-  dynamicMode: 'single_condition' | 'ejs_controller' | 'ejs_reference'
+  dynamicMode: 'standard' | 'ejs_controller' | 'ejs_reference'
   keywords: string[]
   keywordScanDepth: number
   conditionKeywords: string[]
@@ -131,7 +130,7 @@ export interface AuthorSettingLibraryEntry {
   keywordIgnoreCase: boolean
   keywordWholeWord: boolean
   keywordRecursionDepth: number
-  triggerMode: 'always' | 'agent_tool' | 'cache' | null
+  triggerMode: 'always' | 'agent_tool' | null
   enabled: boolean
   position: 'instructions' | 'insert_point_1' | 'insert_point_2' | 'insert_point_3' | 'insert_point_4' | 'insert_point_5' | null
   promptPositionId: string

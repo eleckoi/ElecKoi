@@ -56,11 +56,12 @@ describe('preset list consistency', () => {
     expect(presetSource).not.toContain('新建缓存设定');
 
     const librarySource = readFileSync(new URL('../src/renderer/src/modules/settingLibraries/components/SettingLibraryPanel.jsx', import.meta.url), 'utf8');
-    const cacheOffsets = [...librarySource.matchAll(/requestAddNode\("cache"/g)].map((match) => match.index);
+    const entryOffsets = [...librarySource.matchAll(/requestAddNode\("entry"/g)].map((match) => match.index);
     const referenceOffsets = [...librarySource.matchAll(/requestAddNode\("reference"/g)].map((match) => match.index);
-    expect(cacheOffsets).toHaveLength(2);
+    expect(librarySource).not.toContain('requestAddNode("cache"');
+    expect(entryOffsets).toHaveLength(2);
     expect(referenceOffsets).toHaveLength(2);
-    expect(cacheOffsets.every((offset, index) => offset < referenceOffsets[index])).toBe(true);
+    expect(entryOffsets.every((offset, index) => offset < referenceOffsets[index])).toBe(true);
   });
 
   it('uses the Agent preset title in the sidebar', () => {

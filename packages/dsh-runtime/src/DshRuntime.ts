@@ -139,7 +139,11 @@ export class DshRuntime {
     agentPreset?: DshAgentPreset,
     webSearch?: DshWebSearchSettings,
     subagentSettings?: DshModelSettings,
-    generationStatsSeed?: { previous?: DshGenerationStatsAccumulated | undefined; retainedTurns: number }
+    generationStatsSeed?: {
+      previous?: DshGenerationStatsAccumulated | undefined
+      previousRuntimeThreadId?: string | undefined
+      retainedTurns: number
+    }
   ): Promise<'complete' | 'cancelled'> {
     if (this.activeRuns.has(conversationId) || this.startingRuns.has(conversationId)) {
       throw new Error('这个对话仍有回复正在生成。')
@@ -166,9 +170,17 @@ export class DshRuntime {
       const sessionRoot = join(this.options.runtimeDataRoot, 'sessions', safeConversationDirectory(conversationId))
       mkdirSync(sessionRoot, { recursive: true })
       if (generationStatsSeed) {
+        const previousStepTotalsByTurn = generationStatsSeed.previousRuntimeThreadId
+          ? this.generationStatsProjector(
+            conversationId,
+            generationStatsSeed.previousRuntimeThreadId,
+            sessionRoot
+          ).stored().stepTotalsByTurn
+          : undefined
         const seeded = new DshGenerationStatsProjector(regenerationGenerationStats(
           generationStatsSeed.previous,
-          generationStatsSeed.retainedTurns
+          generationStatsSeed.retainedTurns,
+          previousStepTotalsByTurn
         ))
         this.generationStatsProjectors.set(generationStatsKey(conversationId, runtimeThreadId), seeded)
         persistGenerationStats(sessionRoot, runtimeThreadId, seeded)
@@ -192,7 +204,7 @@ export class DshRuntime {
       const variableStateFile = join(sessionRoot, 'eleckoi-variable-state.json')
       writeVariableBridge(variableStateFile, variableContext)
       const settingStateFile = join(sessionRoot, 'eleckoi-setting-library-state.json')
-      writeSettingBridge(settingStateFile, conversationContext, variableContext)
+      writeSettingBridge(settingStateFile, text, conversationContext, variableContext)
       const contextFile = join(sessionRoot, 'eleckoi-conversation-context.json')
       writeContextBridge(contextFile, text, conversationContext)
       const requestContextFile = requestContextPath(sessionRoot, runtimeThreadId)
@@ -1087,13 +1099,15 @@ function writeContextBridge(path: string, currentUserInput: string, context?: Ds
 
 function writeSettingBridge(
   path: string,
+  currentUserInput: string,
   context?: DshConversationContext,
   variableContext?: DshVariableRuntimeContext
 ): void {
   writeFileSync(path, JSON.stringify({
     enabled: context?.settingLibrary !== undefined,
     library: context?.settingLibrary ?? null,
-    history: context?.history ?? [],
+    frozenLibrary: context?.settingLibrary ?? null,
+    history: [...(context?.history ?? []), { role: 'user', content: currentUserInput }],
     variableState: variableContext === undefined
       ? {}
       : parsedObject(variableContext.stateJson, '当前变量状态')

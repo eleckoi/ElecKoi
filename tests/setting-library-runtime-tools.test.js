@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { apply as applySettingLibraryTools } from "../resources/dsh/setting-library-tools.mjs";
+import { requiredSettingCache } from "../resources/dsh/required-setting-cache.mjs";
 
 const directories = [];
 
@@ -63,7 +64,7 @@ function entry(overrides) {
     content: "",
     agentSelectionHint: "",
     agentReadStrategy: "normal",
-    dynamicMode: "single_condition",
+    dynamicMode: "standard",
     triggerMode: "agent_tool",
     enabled: true,
     order: 1,
@@ -72,6 +73,17 @@ function entry(overrides) {
 }
 
 describe("DSH character setting-library tools", () => {
+  it("caches only readable fixed required bodies in directory order", () => {
+    const cache = requiredSettingCache({ entries: [
+      entry({ id: "regular", title: "正文", content: "正文内容", agentReadStrategy: "required", treeViewOrder: 2 }),
+      entry({ id: "reference", title: "引用", content: "引用内容", agentReadStrategy: "required", dynamicMode: "ejs_reference" }),
+      entry({ id: "timeline", title: "时间线", kind: "hidden_tool_timeline", content: "时间线内容", agentReadStrategy: "required", treeViewOrder: 1 }),
+      entry({ id: "timeline", title: "重复", kind: "hidden_tool_timeline", content: "重复内容", agentReadStrategy: "required" }),
+      entry({ id: "opening", title: "开场", kind: "opening", content: "开场内容", agentReadStrategy: "required" }),
+    ] });
+    expect(cache.map(({ id, reference }) => [id, reference])).toEqual([["timeline", "#S01"], ["regular", "#S02"]]);
+  });
+
   it("exposes only enabled Agent-readable files and returns required-file metadata", async () => {
     const runtime = await tools();
     expect([...runtime.byName.keys()]).toEqual([
@@ -80,14 +92,22 @@ describe("DSH character setting-library tools", () => {
       "eleckoi_read_setting_files",
       "eleckoi_apply_setting_patch",
     ]);
+    for (const name of ["eleckoi_glob_setting_files", "eleckoi_grep_setting_files"]) {
+      const description = runtime.byName.get(name).description;
+      expect(description).toContain("仅搜索不算读取");
+      expect(description).toContain("即使固定必读项标记为 cached_reference");
+      expect(description).toContain("把其中所有 path 一次传入 paths");
+    }
 
     const found = await runtime.byName.get("eleckoi_glob_setting_files").execute({ pattern: "**" });
     expect(found.files.map((file) => file.path)).toEqual(["世界/总览", "世界/城市/港口"]);
-    expect(found.required_files).toEqual([{
+    expect(found.required_entries).toEqual([{
       path: "世界/总览",
       title: "总览",
       read_strategy: "required",
       selection_hint: "",
+      content_delivery: "cached_reference",
+      cached_reference: "#S01",
     }]);
 
     const searched = await runtime.byName.get("eleckoi_grep_setting_files").execute({
@@ -103,6 +123,30 @@ describe("DSH character setting-library tools", () => {
       selection_hint: "抵达港口时读取",
       content: "港口终年多雾。",
     });
+    const required = await runtime.byName.get("eleckoi_read_setting_files").execute({ paths: ["世界/总览"] });
+    expect(required.files[0]).toMatchObject({ cached_reference: "#S01", content_delivery: "cached_reference" });
+    expect(required.files[0].content).toContain("#S01「总览」");
+    expect(required.files[0].content).not.toContain("王都是晴天。");
+  });
+
+  it("keeps fixed required references stable across search and read while returning dynamic bodies", async () => {
+    const runtime = await tools({ extraEntries: [
+      entry({ id: "second-required", title: "城规", groupId: "city", content: "城门傍晚关闭。", agentReadStrategy: "required", treeViewOrder: 2 }),
+      entry({ id: "dynamic", title: "本轮天气", content: "今日有雾。", agentReadStrategy: "keyword", keywords: ["天气"] }),
+    ], history: [{ role: "user", content: "看看天气。" }] });
+    const glob = await runtime.byName.get("eleckoi_glob_setting_files").execute({ pattern: "**" });
+    const grep = await runtime.byName.get("eleckoi_grep_setting_files").execute({ pattern: "城门" });
+    expect(glob.required_entries.map((item) => item.cached_reference)).toEqual(["#S01", "#S02", undefined]);
+    expect(grep.required_entries).toEqual(glob.required_entries);
+
+    const read = await runtime.byName.get("eleckoi_read_setting_files").execute({ paths: ["世界/总览", "世界/城市/城规", "本轮天气"] });
+    expect(read.files.map((item) => item.content)).toEqual([
+      expect.stringContaining("#S01「总览」"),
+      expect.stringContaining("#S02「城规」"),
+      "今日有雾。",
+    ]);
+    expect(read.files[0].content).not.toContain("王都是晴天。");
+    expect(read.files[1].content).not.toContain("城门傍晚关闭。");
   });
 
   it("returns every matched setting and complete file content without artificial limits", async () => {
@@ -206,28 +250,38 @@ describe("DSH character setting-library tools", () => {
       "天气警报",
       "密道",
     ]);
-    expect(found.required_files.map((file) => file.path)).toEqual(["世界/总览", "天气警报", "密道"]);
+    expect(found.required_entries.map((file) => file.path)).toEqual(["世界/总览", "天气警报", "密道"]);
+    const read = await runtime.byName.get("eleckoi_read_setting_files").execute({ paths: ["天气警报", "密道"] });
+    expect(read.files.map((file) => file.content)).toEqual(["地下港口即将关闭。", "密道入口在钟楼。"]);
   });
 
-  it("evaluates variable conditions and renders EJS controllers as promoted required files", async () => {
+  it("keeps unmatched keywords hidden when the latest user turn does not match the prior assistant", async () => {
+    const runtime = await tools({
+      history: [
+        { role: "user", content: "请介绍世界。" },
+        { role: "assistant", content: "世界中有商店和属性。" },
+        { role: "user", content: "我在哪里？" },
+      ],
+      extraEntries: [
+        entry({ id: "shop", title: "商店", content: "商店设定。", agentReadStrategy: "keyword", keywords: ["世界", "商店"] }),
+        entry({ id: "stats", title: "属性", content: "属性设定。", agentReadStrategy: "keyword", keywords: ["属性"] }),
+      ],
+    });
+    const glob = await runtime.byName.get("eleckoi_glob_setting_files").execute({ pattern: "**" });
+    const grep = await runtime.byName.get("eleckoi_grep_setting_files").execute({ pattern: "设定" });
+    expect(glob.files.map((file) => file.path)).toEqual(["世界/总览", "世界/城市/港口"]);
+    expect(glob.required_entries.map((file) => file.path)).toEqual(["世界/总览"]);
+    expect(grep.matches.map((file) => file.path)).not.toContain("商店");
+    expect(grep.required_entries.map((file) => file.path)).toEqual(["世界/总览"]);
+    const read = await runtime.byName.get("eleckoi_read_setting_files").execute({ paths: ["商店"] });
+    expect(read.status).toBe("not_found");
+  });
+
+  it("renders EJS controllers as dynamic required files and resolves references", async () => {
     const runtime = await tools({
       history: [{ role: "user", content: "继续故事。" }],
       variableState: { 剧情: { 章节: 2 } },
       extraEntries: [
-        entry({
-          id: "chapter-condition",
-          title: "第二章规则",
-          content: "第二章已经开始。",
-          agentReadStrategy: "variable_condition",
-          agentReadCondition: "getvar('剧情.章节', { defaults: 0 }) >= 2",
-        }),
-        entry({
-          id: "future-condition",
-          title: "第三章规则",
-          content: "第三章尚未开始。",
-          agentReadStrategy: "variable_condition",
-          agentReadCondition: "getvar('剧情.章节', { defaults: 0 }) >= 3",
-        }),
         entry({
           id: "chapter-reference",
           title: "章节素材",
@@ -249,10 +303,10 @@ describe("DSH character setting-library tools", () => {
     expect(found.files.map((file) => file.path)).toEqual([
       "世界/总览",
       "世界/城市/港口",
-      "第二章规则",
       "章节控制器",
     ]);
-    expect(found.required_files.map((file) => file.path)).toEqual(["世界/总览", "第二章规则", "章节控制器"]);
+    expect(found.required_entries.map((file) => file.path)).toEqual(["世界/总览", "章节控制器"]);
+    expect(found.required_entries[1].content_delivery).toBe("tool_result");
 
     const read = await runtime.byName.get("eleckoi_read_setting_files").execute({ paths: ["章节控制器"] });
     expect(read.files[0].content).toMatch(/^第二章隐藏线索。｜0\./);

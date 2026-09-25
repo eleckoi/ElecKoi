@@ -37,7 +37,17 @@ export class MessageRepository {
       FROM agent_conversations c JOIN agent_branch_turns p ON p.branchId = c.activeBranchId JOIN agent_responses r ON r.turnId = p.turnId AND r.conversationId = c.id
       WHERE c.id = ? AND p.sequence >= ? AND p.sequence < ? ORDER BY sequence, responseIndex
     `).all(conversationId, firstSequence, beforeSequence ?? Number.MAX_SAFE_INTEGER, conversationId, firstSequence, beforeSequence ?? Number.MAX_SAFE_INTEGER) as LedgerMessage[]
-    return { messages: rows.map((row) => this.project(conversationId, row)), hasMore, beforeSequence: firstSequence }
+    const preceding = this.store.native.prepare(`SELECT
+      (SELECT COUNT(*) FROM agent_branch_turns p WHERE p.branchId=c.activeBranchId AND p.sequence<?)
+      + (SELECT COUNT(*) FROM agent_responses r JOIN agent_branch_turns p ON p.turnId=r.turnId
+        WHERE p.branchId=c.activeBranchId AND p.sequence<?) AS count
+      FROM agent_conversations c WHERE c.id=?`
+    ).get(firstSequence, firstSequence, conversationId) as { count: number }
+    return {
+      messages: rows.map((row, index) => ({ ...this.project(conversationId, row), messageIndex: preceding.count + index })),
+      hasMore,
+      beforeSequence: firstSequence
+    }
   }
 
   list(conversationId: string): ChatMessage[] {

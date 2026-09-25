@@ -4,7 +4,6 @@ import {
   ChatCircleDots,
   Code,
   Copy,
-  Database,
   FileText,
   LinkSimple,
   MagnifyingGlass,
@@ -40,13 +39,11 @@ import {
 const CreateFolderIcon = SETTING_LIBRARY_CREATE_ICONS.group;
 const CreateEntryIcon = SETTING_LIBRARY_CREATE_ICONS.entry;
 const CreateReferenceIcon = SETTING_LIBRARY_CREATE_ICONS.reference;
-const CreateCacheIcon = SETTING_LIBRARY_CREATE_ICONS.cache;
 
 function nodeIcon(entry) {
   if (entry?.kind === "opening") return ChatCircleDots;
   if (entry?.dynamicMode === "ejs_controller") return Code;
   if (entry?.dynamicMode === "ejs_reference") return LinkSimple;
-  if (entry?.triggerMode === "cache") return Database;
   return FileText;
 }
 
@@ -241,7 +238,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
       nextLibrary = { ...sourceLibrary, groups: [...sourceLibrary.groups, group] };
       nextKey = nodeKey("group", group.id);
     } else {
-      const entry = createEntryDraft(parentId, order, sourceLibrary.entries, kind === "reference" ? "reference" : kind === "cache" ? "cache" : "standard");
+      const entry = createEntryDraft(parentId, order, sourceLibrary.entries, kind === "reference" ? "reference" : "standard");
       nextLibrary = { ...sourceLibrary, entries: [...sourceLibrary.entries, entry] };
       nextKey = nodeKey("entry", entry.id);
     }
@@ -441,7 +438,6 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
               <div className="setting-library-popover" role="menu">
                 <button type="button" role="menuitem" onClick={() => requestAddNode("group")}><CreateFolderIcon size={16} />文件夹</button>
                 <button type="button" role="menuitem" onClick={() => requestAddNode("entry")}><CreateEntryIcon size={16} />设定</button>
-                <button type="button" role="menuitem" onClick={() => requestAddNode("cache")}><CreateCacheIcon size={16} />缓存设定</button>
                 <button type="button" role="menuitem" onClick={() => requestAddNode("reference")}><CreateReferenceIcon size={16} />EJS引用设定</button>
               </div>
             ) : null}
@@ -500,7 +496,6 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
             <>
               <button type="button" role="menuitem" onClick={() => requestAddNode("group", contextMenu.parentId)}><CreateFolderIcon size={15} />新建文件夹</button>
               <button type="button" role="menuitem" onClick={() => requestAddNode("entry", contextMenu.parentId)}><CreateEntryIcon size={15} />新建设定</button>
-              <button type="button" role="menuitem" onClick={() => requestAddNode("cache", contextMenu.parentId)}><CreateCacheIcon size={15} />新建缓存设定</button>
               <button type="button" role="menuitem" onClick={() => requestAddNode("reference", contextMenu.parentId)}><CreateReferenceIcon size={15} />新建 EJS引用设定</button>
             </>
           ) : null}

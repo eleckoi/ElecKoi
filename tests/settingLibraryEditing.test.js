@@ -101,11 +101,9 @@ describe('setting-library editor model', () => {
     const standard = createEntryDraft('', 1, [], 'standard')
     const reference = createEntryDraft('', 2, [standard], 'reference')
     const prompt = createEntryDraft('', 3, [standard, reference], 'prompt')
-    expect(standard).toMatchObject({ title: '新建设定', enabled: false, triggerMode: 'agent_tool', agentReadStrategy: 'normal', dynamicMode: 'single_condition', position: null })
+    expect(standard).toMatchObject({ title: '新建设定', enabled: false, triggerMode: 'agent_tool', agentReadStrategy: 'normal', dynamicMode: 'standard', position: null })
     expect(reference).toMatchObject({ title: '新建设定 2', enabled: true, triggerMode: 'agent_tool', agentReadStrategy: 'variable_condition', dynamicMode: 'ejs_reference' })
     expect(prompt).toMatchObject({ title: '新建设定 3', enabled: false, triggerMode: 'always', position: null, promptPositionId: '' })
-    const cache = createEntryDraft('', 4, [standard, reference, prompt], 'cache')
-    expect(cache).toMatchObject({ title: '新建缓存设定', iconId: 'database', enabled: true, triggerMode: 'cache', position: null })
     vi.unstubAllGlobals()
   })
 

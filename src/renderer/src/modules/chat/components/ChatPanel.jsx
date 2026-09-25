@@ -15,6 +15,7 @@ import { getGenerationStats, listenGenerationStatsEvent } from "../api/chatApi.j
 import {
   chatDisplayCssVariables,
   chatTextColorCssVariables,
+  messageFloorNumber,
   resolveChatAvatar,
   resolveChatAvatarShape,
   resolveChatDisplayProfile,
@@ -337,6 +338,8 @@ export function ChatPanel({
           assistantAvatar={assistantAvatar}
           userName={persona.user_name}
           assistantName={persona.assistant_name}
+          showRoleplayTimestamp={chatDisplay?.roleplay_timestamps_enabled !== false}
+          showRoleplayFloor={chatDisplay?.roleplay_message_floors_enabled !== false}
           onOpenProcess={setProcessMessage}
           onEditMessage={onEditMessage}
           onEditOpening={onEditOpening}
@@ -453,6 +456,8 @@ function VirtualizedMessageList({
   assistantAvatar,
   userName,
   assistantName,
+  showRoleplayTimestamp,
+  showRoleplayFloor,
   onOpenProcess,
   onEditMessage,
   onEditOpening,
@@ -463,6 +468,7 @@ function VirtualizedMessageList({
   onSelectDeleteFrom,
 }) {
   const activeMessageIndex = messages.findIndex((message) => message.pending);
+  const latestAssistantIndex = messages.findLastIndex((message) => message.role === "assistant" && !message.pending);
   const getItemKey = useCallback(
     (index) => messages[index]?.renderKey || messages[index]?.id || `${messages[index]?.role || "message"}-${messages[index]?.created_at || index}`,
     [messages],
@@ -540,21 +546,29 @@ function VirtualizedMessageList({
                   name={item.role === "user" ? userName : assistantName}
                   layoutMode={layoutMode}
                   avatarShape={avatarShape}
+                  isLatestAssistant={virtualItem.index === latestAssistantIndex}
+                  floorNumber={messageFloorNumber(messages, virtualItem.index)}
+                  showRoleplayTimestamp={showRoleplayTimestamp}
+                  showRoleplayFloor={showRoleplayFloor}
                   onOpenProcess={onOpenProcess}
                   onSelectOpening={onSelectOpening}
                 />
               </div>
             ) : (
               <MessageBubble
-              message={item}
-              avatar={item.role === "user" ? userAvatar : assistantAvatar}
-              name={item.role === "user" ? userName : assistantName}
-              layoutMode={layoutMode}
-              avatarShape={avatarShape}
-              onOpenProcess={onOpenProcess}
-              onEdit={item.id === "opening" ? onEditOpening : onEditMessage}
-              onSelectOpening={onSelectOpening}
-              onRegenerate={(message) => onRegenerate?.({ targetMessageId: message.turnId || message.id })}
+                message={item}
+                avatar={item.role === "user" ? userAvatar : assistantAvatar}
+                name={item.role === "user" ? userName : assistantName}
+                layoutMode={layoutMode}
+                avatarShape={avatarShape}
+                isLatestAssistant={virtualItem.index === latestAssistantIndex}
+                floorNumber={messageFloorNumber(messages, virtualItem.index)}
+                showRoleplayTimestamp={showRoleplayTimestamp}
+                showRoleplayFloor={showRoleplayFloor}
+                onOpenProcess={onOpenProcess}
+                onEdit={item.id === "opening" ? onEditOpening : onEditMessage}
+                onSelectOpening={onSelectOpening}
+                onRegenerate={(message) => onRegenerate?.({ targetMessageId: message.turnId || message.id })}
               />
             )}
           </div>

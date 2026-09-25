@@ -10,6 +10,7 @@ function mapMessage(message) {
     id: message.id,
     conversationId: message.conversationId,
     sequence: message.sequence,
+    messageIndex: message.messageIndex,
     role: message.role,
     content: message.content,
     displayContent: message.displayContent,

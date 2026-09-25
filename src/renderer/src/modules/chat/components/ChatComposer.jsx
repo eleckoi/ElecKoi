@@ -5,7 +5,7 @@ import { TrashIcon } from "../../../ui/icons/index.jsx";
 import { Database } from "@phosphor-icons/react";
 import { ChatModelPicker } from "./ChatModelPicker.jsx";
 import { ChatImageGallery } from "./ChatImageGallery.jsx";
-import { ContextMeter, GenerationStatsLine } from "./GenerationStats.jsx";
+import { GenerationStatsLine } from "./GenerationStats.jsx";
 
 export function ChatComposer({
   input,
@@ -183,7 +183,6 @@ export function ChatComposer({
               onSaveModelConfig={onSaveModelConfig}
               onNotify={onNotify}
             />
-            {showGenerationStats ? <ContextMeter stats={generationStats} /> : null}
             {isSending ? (
               <button className="send-button generating" type="button" onClick={onStop} aria-label="停止生成" title="停止生成">
                 <DshStopIcon />

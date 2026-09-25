@@ -71,6 +71,22 @@ describe('local stable media store', () => {
     expect(existsSync(firstPath)).toBe(false)
   })
 
+  it('removes only the selected owner media tree', () => {
+    const store = harness()
+    const first = store.prepareImage('character/a', 'avatar', image('first'))
+    const second = store.prepareImage('character/b', 'avatar', image('second'))
+    first.commit()
+    second.commit()
+    const firstPath = store.pathForReference(first.reference)!
+    const secondPath = store.pathForReference(second.reference)!
+
+    store.removeOwner('character/a')
+
+    expect(existsSync(firstPath)).toBe(false)
+    expect(readFileSync(secondPath).toString()).toBe('second')
+    expect(() => store.removeOwner('character/a')).not.toThrow()
+  })
+
   it('rejects unsupported or malformed inline image data', () => {
     const store = harness()
     expect(() => store.prepareImage('character/a', 'avatar', 'data:image/svg+xml;base64,PHN2Zz4=')).toThrow('仅支持')

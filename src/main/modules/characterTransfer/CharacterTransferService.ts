@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { basename, extname, join } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { mkdir, open, unlink, type FileHandle } from 'node:fs/promises'
+import { extname, join } from 'node:path'
 import type {
   CharacterExportBatchResult,
   CharacterExportFormat,
@@ -109,27 +110,26 @@ export class CharacterTransferService {
   }
 
   /** 批量导出到指定目录：一次选目录，逐个写盘；单个失败不打断其余。 */
-  exportMany(
+  async exportMany(
     characterIds: string[],
     format: CharacterExportFormat,
     directory: string
-  ): Pick<CharacterExportBatchResult, 'written' | 'failures'> {
+  ): Promise<Pick<CharacterExportBatchResult, 'written' | 'failures'>> {
     const written: Array<{ characterId: string; fileName: string }> = []
     const failures: Array<{ characterId: string; message: string }> = []
     try {
-      mkdirSync(directory, { recursive: true })
+      await mkdir(directory, { recursive: true })
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : '导出目录不可用。'
+      const message = exportFailureMessage(cause, '导出目录不可用。')
       return { written: [], failures: characterIds.map((characterId) => ({ characterId, message })) }
     }
-    for (const characterId of characterIds) {
+    for (const characterId of new Set(characterIds)) {
       try {
         const exported = this.export(characterId, format)
-        const target = uniqueFilePath(directory, exported.fileName)
-        writeFileSync(target, Buffer.from(exported.base64, 'base64'))
-        written.push({ characterId, fileName: basename(target) })
+        const fileName = await writeUniqueExportFile(directory, exported.fileName, Buffer.from(exported.base64, 'base64'))
+        written.push({ characterId, fileName })
       } catch (cause) {
-        failures.push({ characterId, message: cause instanceof Error ? cause.message : '导出失败。' })
+        failures.push({ characterId, message: exportFailureMessage(cause, '导出失败。') })
       }
     }
     return { written, failures }
@@ -338,7 +338,7 @@ function boolean(value: unknown): boolean {
   return value === true || value === 1
 }
 
-const RESERVED_FILE_STEMS = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
+const RESERVED_FILE_STEMS = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?$/i
 /** 名字过长会被文件系统拒绝，也会顶破契约的 fileName.max(260)，这里留足扩展名与序号的空间。 */
 const MAX_FILE_STEM_LENGTH = 80
 
@@ -358,13 +358,33 @@ function safeExportFileStem(name: string): string {
   return RESERVED_FILE_STEMS.test(cleaned) ? `_${cleaned}` : cleaned
 }
 
-/** 目录里已有同名文件时按 "名字 (2).ext" 递增，不覆盖用户已有的文件。 */
-function uniqueFilePath(directory: string, fileName: string): string {
+/** 独占创建文件，防止两次导出同时选择同一目录时覆盖已有文件。 */
+async function writeUniqueExportFile(directory: string, fileName: string, bytes: Buffer): Promise<string> {
   const extension = extname(fileName)
   const stem = extension.length > 0 ? fileName.slice(0, -extension.length) : fileName
-  let candidate = join(directory, fileName)
-  for (let index = 2; existsSync(candidate) && index < 1000; index += 1) {
-    candidate = join(directory, `${stem} (${index})${extension}`)
+  for (let index = 1; index <= 1000; index += 1) {
+    const candidateName = index === 1 ? fileName : `${stem} (${index})${extension}`
+    const target = join(directory, candidateName)
+    let file: FileHandle
+    try {
+      file = await open(target, 'wx')
+    } catch (cause) {
+      if ((cause as NodeJS.ErrnoException).code === 'EEXIST') continue
+      throw cause
+    }
+    try {
+      await file.writeFile(bytes)
+      await file.close()
+      return candidateName
+    } catch (cause) {
+      await file.close().catch(() => undefined)
+      await unlink(target).catch(() => undefined)
+      throw cause
+    }
   }
-  return candidate
+  throw new Error('导出目录中的同名文件过多。')
+}
+
+function exportFailureMessage(cause: unknown, fallback: string): string {
+  return (cause instanceof Error ? cause.message : fallback).slice(0, 500)
 }

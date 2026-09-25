@@ -30,7 +30,7 @@ const avatarMediaTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'imag
 const modelFamilies = new Set<AgentPreset['modelFamily']>(['general', 'claude', 'openai', 'gemini', 'deepseek', 'other'])
 const entryKinds = new Set<SettingLibraryEntry['kind']>(['normal', 'opening', 'history_compaction', 'hidden_tool_timeline'])
 const readStrategies = new Set<SettingLibraryEntry['agentReadStrategy']>(['required', 'keyword', 'normal', 'variable_condition'])
-const dynamicModes = new Set<SettingLibraryEntry['dynamicMode']>(['single_condition', 'ejs_controller', 'ejs_reference'])
+const dynamicModes = new Set<SettingLibraryEntry['dynamicMode']>(['standard', 'ejs_controller', 'ejs_reference'])
 const keywordConditions = new Set<SettingLibraryEntry['keywordCondition']>(['none', 'any', 'all', 'not_any'])
 const positions = new Set<NonNullable<SettingLibraryEntry['position']>>([
   'instructions', 'insert_point_1', 'insert_point_2', 'insert_point_3', 'insert_point_4', 'insert_point_5'
@@ -382,14 +382,13 @@ function entryFromPortable(value: JsonObject, index: number, timestamp: string):
     defaultOpeningMessageId: stringValue(value.default_opening_message_id),
     agentSelectionHint: stringValue(value.agent_selection_hint),
     agentReadStrategy: readStrategies.has(strategy) ? strategy : 'normal',
-    agentReadCondition: stringValue(value.agent_read_condition),
-    dynamicMode: dynamicModes.has(dynamic) ? dynamic : 'single_condition',
+    dynamicMode: dynamicModes.has(dynamic) ? dynamic : 'standard',
     keywords: stringList(value.keywords), keywordScanDepth: Math.max(0, integerValue(value.keyword_scan_depth, 1)),
     conditionKeywords: stringList(value.condition_keywords),
     keywordCondition: keywordConditions.has(condition) ? condition : 'none',
     keywordUseRegex: booleanValue(value.keyword_use_regex), keywordIgnoreCase: booleanValue(value.keyword_ignore_case, true),
     keywordWholeWord: booleanValue(value.keyword_whole_word), keywordRecursionDepth: Math.max(0, integerValue(value.keyword_recursion_depth)),
-    triggerMode: trigger === 'always' || trigger === 'agent_tool' || trigger === 'cache' ? trigger : null,
+    triggerMode: trigger === 'always' || trigger === 'agent_tool' ? trigger : null,
     enabled: booleanValue(value.enabled, true), position: positions.has(position) ? position : null,
     promptPositionId: stringValue(value.prompt_position_id), insertRole: insertRole(value.insert_role),
     order: Math.max(1, integerValue(value.order, index + 1)), viewOrder: integerValue(value.view_order, index + 1),
@@ -408,7 +407,7 @@ function entryToPortable(entry: SettingLibraryEntry): JsonObject {
     })),
     default_opening_message_id: entry.defaultOpeningMessageId,
     agent_selection_hint: entry.agentSelectionHint, agent_read_strategy: entry.agentReadStrategy,
-    agent_read_condition: entry.agentReadCondition, dynamic_mode: entry.dynamicMode,
+    dynamic_mode: entry.dynamicMode,
     keywords: entry.keywords, keyword_scan_depth: entry.keywordScanDepth,
     condition_keywords: entry.conditionKeywords, keyword_condition: entry.keywordCondition,
     keyword_use_regex: entry.keywordUseRegex, keyword_ignore_case: entry.keywordIgnoreCase,
@@ -444,7 +443,7 @@ function emptyEntry(id: string, timestamp: string): SettingLibraryEntry {
   return {
     id, title: '', iconId: '', kind: 'normal', groupId: '', content: '', openingMessages: [],
     defaultOpeningMessageId: '', agentSelectionHint: '', agentReadStrategy: 'normal',
-    agentReadCondition: '', dynamicMode: 'single_condition', keywords: [], keywordScanDepth: 1,
+    dynamicMode: 'standard', keywords: [], keywordScanDepth: 1,
     conditionKeywords: [], keywordCondition: 'none', keywordUseRegex: false, keywordIgnoreCase: true,
     keywordWholeWord: false, keywordRecursionDepth: 0, triggerMode: null, enabled: true,
     position: null, promptPositionId: '', insertRole: 'system', order: 1, viewOrder: 0,

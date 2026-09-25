@@ -150,7 +150,7 @@ function specializedResult(toolName, result, args) {
       ? [...arrayOf(result.files).map((entry) => entry?.path), ...arrayOf(result.paths)]
       : arrayOf(result.paths));
     const required = uniqueStrings(toolName === SETTING_GLOB
-      ? [...arrayOf(result.required_files).map((entry) => entry?.path || entry), ...arrayOf(result.required_paths)]
+      ? [...arrayOf(result.required_entries).map((entry) => entry?.path || entry), ...arrayOf(result.required_paths)]
       : [...arrayOf(result.required_variables).map((entry) => entry?.path || entry), ...arrayOf(result.required_paths)]);
     return {
       type: 'glob',
@@ -161,7 +161,7 @@ function specializedResult(toolName, result, args) {
       omitted: numberValue(result.omitted),
       truncated: result.truncated === true,
       pathDetails: arrayOf(result.files).filter(Boolean),
-      requiredEntries: arrayOf(toolName === SETTING_GLOB ? result.required_files : result.required_variables),
+      requiredEntries: arrayOf(toolName === SETTING_GLOB ? result.required_entries : result.required_variables),
     };
   }
   if (toolName === SETTING_READ && arrayOf(result.files).length) {
@@ -255,7 +255,7 @@ function resultRecord(item) {
 }
 
 function hasResultShape(value) {
-  return ['files', 'variables', 'paths', 'required_files', 'required_variables', 'matches', 'operations', 'steps', 'plan'].some((key) => key in value);
+  return ['files', 'variables', 'paths', 'required_entries', 'required_variables', 'matches', 'operations', 'steps', 'plan'].some((key) => key in value);
 }
 
 function findRecord(value, predicate, depth = 0) {

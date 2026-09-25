@@ -23,11 +23,11 @@ import { UserSettingsStore } from '../src/main/modules/settings/UserSettingsStor
 import { DEFAULT_CHAT_DISPLAY_PREFERENCES } from '../src/shared/contracts/settings/schemas'
 import { SettingLibraryRepository } from '../src/main/modules/settingLibraries/SettingLibraryRepository'
 import { emptyEntry } from '../src/main/modules/settingLibraries/settingLibraryNormalization'
-import { writeEntry } from '../src/main/modules/settingLibraries/settingLibraryCodec'
+import { readEntry, writeEntry } from '../src/main/modules/settingLibraries/settingLibraryCodec'
 import { AgentPresetRepository } from '../src/main/modules/agentPresets/AgentPresetRepository'
 import { DEFAULT_AGENT_TOOL_GROUP_IDS } from '../src/main/modules/agentTools'
 import { defaultRoleplayPlanSettings } from '../src/shared/contracts/presets/roleplayPlan'
-import { settingLibraryEntrySchema, settingLibraryPromptPositionSchema } from '../src/shared/contracts/settingLibrary/schemas'
+import { settingLibraryEntrySchema, settingLibraryPromptPositionSchema, settingLibraryStoredEntrySchema } from '../src/shared/contracts/settingLibrary/schemas'
 import { VariableConfigRepository } from '../src/main/modules/variables/VariableConfigRepository'
 import { VariableStateRepository } from '../src/main/modules/variables/VariableStateRepository'
 import { VARIABLE_INITIALIZATION_OBJECT_ID } from '../src/shared/contracts/variables/schemas'
@@ -174,6 +174,28 @@ function currentV2Database(): Database.Database {
 }
 
 describe('shared SQLite baseline', () => {
+  it('reads existing setting payloads with unknown enum values without changing the database version', () => {
+    const raw = JSON.parse(writeEntry(emptyEntry('saved-setting', 'now'))) as Record<string, unknown>
+    raw.content = '已保存正文'
+    raw.dynamic_mode = 'single_condition'
+    raw.trigger_mode = 'cache'
+    raw.agent_read_condition = "getvar('剧情.章节') > 1"
+    expect(readEntry(JSON.stringify(raw))).toMatchObject({
+      content: '已保存正文', dynamicMode: 'standard', triggerMode: null
+    })
+    expect(settingLibraryStoredEntrySchema.parse({
+      ...emptyEntry('preset-setting', 'now'),
+      dynamicMode: 'single_condition', triggerMode: 'cache', agentReadCondition: '旧表达式'
+    })).toMatchObject({ dynamicMode: 'standard', triggerMode: null })
+  })
+
+  it('drops extra setting entry fields while rejecting invalid defined fields', () => {
+    const source = emptyEntry('setting', 'now')
+    const parsed = settingLibraryEntrySchema.parse({ ...source, editorOnly: true })
+    expect(parsed).not.toHaveProperty('editorOnly')
+    expect(settingLibraryEntrySchema.safeParse({ ...source, enabled: 'yes' }).success).toBe(false)
+  })
+
   it('uses Agent on-demand reading for newly created setting entries', () => {
     expect(emptyEntry('new-setting', '2026-09-15T00:00:00.000Z')).toMatchObject({
       triggerMode: 'agent_tool',
@@ -211,6 +233,25 @@ describe('shared SQLite baseline', () => {
     expect(settings.read('appearance.ui').hidden_chat_ids).toEqual(['hidden-chat'])
     expect(settings.read('appearance.ui').list_collapse_state?.models).toEqual({ general: false, image: true })
     expect(() => settings.write('appearance.mode', 'sepia' as never)).toThrow()
+  })
+
+  it('keeps valid saved preferences when old JSON has extra fields', () => {
+    const { database, media } = harness()
+    const settings = new UserSettingsStore(database, media)
+    const value = {
+      ...DEFAULT_CHAT_DISPLAY_PREFERENCES,
+      layout: 'social',
+      editorOnly: true,
+      profiles: {
+        ...DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles,
+        social: { ...DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles.social, editorOnly: true }
+      }
+    }
+    database.native.prepare('INSERT INTO desktop_preferences(key,valueJson,updatedAt) VALUES (?, ?, ?)')
+      .run('chat.display', JSON.stringify(value), 'now')
+    expect(settings.read('chat.display').layout).toBe('social')
+    expect(settings.read('chat.display')).not.toHaveProperty('editorOnly')
+    expect(settings.read('chat.display').profiles.social).not.toHaveProperty('editorOnly')
   })
 
   it('installs all common tables, views, indexes and foreign keys exactly and maps every column', () => {
@@ -700,13 +741,16 @@ describe('shared SQLite baseline', () => {
     for (let i = 0; i < 125; i++) { messages.create(id, 'user', String(i), 'complete'); messages.create(id, 'assistant', 'reply '+i, 'complete') }
     let cursor: number | undefined
     const seen: string[] = []
+    const seenFloors: number[] = []
     do {
       const page = messages.page(id, cursor, 40)
       seen.unshift(...page.messages.map((message) => message.content))
+      seenFloors.unshift(...page.messages.map((message) => message.messageIndex!))
       if (!page.hasMore) break
       cursor = page.beforeSequence!
     } while (true)
     expect(seen).toHaveLength(250)
+    expect(seenFloors).toEqual(Array.from({ length: 250 }, (_, index) => index))
     expect(seen[0]).toBe('0')
     expect(seen.at(-1)).toBe('reply 124')
     expect(() => messages.page(id, -1)).toThrow('游标')
@@ -813,7 +857,7 @@ describe('shared SQLite baseline', () => {
     const entry = {
       id: 'capital', title: '王都', iconId: '', kind: 'normal' as const, groupId: group.id, content: '群山之间的城市。',
       openingMessages: [], defaultOpeningMessageId: '', agentSelectionHint: '', agentReadStrategy: 'normal' as const,
-      agentReadCondition: '', dynamicMode: 'single_condition' as const, keywords: [], keywordScanDepth: 1,
+      dynamicMode: 'standard' as const, keywords: [], keywordScanDepth: 1,
       conditionKeywords: [], keywordCondition: 'none' as const, keywordUseRegex: false, keywordIgnoreCase: true,
       keywordWholeWord: false, keywordRecursionDepth: 0, triggerMode: 'always' as const, enabled: true,
       position: 'insert_point_3' as const, promptPositionId: '', insertRole: 'user' as const, order: 1,
@@ -880,8 +924,8 @@ describe('shared SQLite baseline', () => {
     const entry = {
       id: 'identity', title: '身份', iconId: '', kind: 'normal' as const, groupId: '',
       content: '你是{{char}}，我是{{user}}', openingMessages: [], defaultOpeningMessageId: '',
-      agentSelectionHint: '', agentReadStrategy: 'required' as const, agentReadCondition: '',
-      dynamicMode: 'single_condition' as const, keywords: [], keywordScanDepth: 1,
+      agentSelectionHint: '', agentReadStrategy: 'required' as const,
+      dynamicMode: 'standard' as const, keywords: [], keywordScanDepth: 1,
       conditionKeywords: [], keywordCondition: 'none' as const, keywordUseRegex: false,
       keywordIgnoreCase: true, keywordWholeWord: false, keywordRecursionDepth: 0,
       triggerMode: 'agent_tool' as const, enabled: true, position: 'insert_point_1' as const,
@@ -951,7 +995,7 @@ describe('shared SQLite baseline', () => {
     const entry = {
       id: 'agent-memory', title: '对话记忆', iconId: '', kind: 'normal' as const, groupId: '',
       content: '母设定', openingMessages: [], defaultOpeningMessageId: '', agentSelectionHint: '需要时读取',
-      agentReadStrategy: 'normal' as const, agentReadCondition: '', dynamicMode: 'single_condition' as const,
+      agentReadStrategy: 'normal' as const, dynamicMode: 'standard' as const,
       keywords: [], keywordScanDepth: 1, conditionKeywords: [], keywordCondition: 'none' as const,
       keywordUseRegex: false, keywordIgnoreCase: true, keywordWholeWord: false, keywordRecursionDepth: 0,
       triggerMode: 'agent_tool' as const, enabled: true, position: null, promptPositionId: '',
@@ -1109,11 +1153,14 @@ describe('shared SQLite baseline', () => {
     expect(prepared.runtimeThreadId).not.toBe('runtime-b')
     expect(prepared.obsoleteRuntimeThreadIds).toEqual(['runtime-a', 'runtime-b'])
     expect(messages.list(conversationId).map((message) => message.content)).toEqual(['第一轮', '第一轮回复', '第二轮原文'])
+    expect(messages.list(conversationId).map((message) => message.messageIndex)).toEqual([0, 1, 2])
     expect(database.native.prepare("SELECT stateJson FROM chat_session_variable_states WHERE sessionId=? AND kind='current'")
       .get(conversationId)).toEqual({ stateJson: '{"轮次":1}' })
     expect(database.native.prepare('SELECT historyMessageCount,historyUserMessageCount FROM chat_sessions WHERE id=?')
       .get(conversationId)).toEqual({ historyMessageCount: 3, historyUserMessageCount: 2 })
 
+    messages.create(conversationId, 'assistant', '重新生成的回复', 'complete')
+    expect(messages.list(conversationId).map((message) => message.messageIndex)).toEqual([0, 1, 2, 3])
     expect(messages.prepareRegeneration(conversationId, secondUser.id, '第二轮已编辑')).toMatchObject({ text: '第二轮已编辑' })
     expect(messages.list(conversationId).at(-1)?.content).toBe('第二轮已编辑')
     expect(database.native.pragma('foreign_key_check')).toEqual([])

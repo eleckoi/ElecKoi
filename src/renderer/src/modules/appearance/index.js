@@ -20,6 +20,7 @@ export {
 export {
   chatDisplayCssVariables,
   chatTextColorCssVariables,
+  messageFloorNumber,
   resolveChatAvatar,
   resolveChatAvatarShape,
   resolveChatDisplayProfile,

@@ -13,7 +13,7 @@ function entry(id, title, groupId = "", order = 1) {
   return {
     id, title, iconId: "", kind: "normal", groupId, content: `${title}正文`, openingMessages: [],
     defaultOpeningMessageId: "", agentSelectionHint: "", agentReadStrategy: "normal",
-    agentReadCondition: "", dynamicMode: "single_condition", keywords: [], keywordScanDepth: 1,
+    dynamicMode: "standard", keywords: [], keywordScanDepth: 1,
     conditionKeywords: [], keywordCondition: "none", keywordUseRegex: false, keywordIgnoreCase: true,
     keywordWholeWord: false, keywordRecursionDepth: 0, triggerMode: "always", enabled: true,
     position: "insert_point_1", promptPositionId: "", insertRole: "user", order,
@@ -120,6 +120,6 @@ describe("setting-library versions and transfer", () => {
       agentReadStrategy: "variable_condition",
       enabled: true,
     });
-    expect(parsed.entries.find((item) => item.title === "普通设定")?.dynamicMode).toBe("single_condition");
+    expect(parsed.entries.find((item) => item.title === "普通设定")?.dynamicMode).toBe("standard");
   });
 });

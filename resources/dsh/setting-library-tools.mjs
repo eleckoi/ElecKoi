@@ -2,9 +2,12 @@ import { randomUUID } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { readSessionSnapshot } from './session-snapshot.mjs'
+import { requiredSettingCache } from './required-setting-cache.mjs'
 
 export const name = 'eleckoi-setting-library-tools'
 export const inject = ['tools']
+
+const requiredEntriesReadInstruction = '搜索结果的 required_entries 是本回合必读清单（固定必读及关键词、EJS/变量触发项），与 files/matches 是否命中无关。若非空，回复用户前必须调用 eleckoi_read_setting_files，把其中所有 path 一次传入 paths；仅搜索不算读取。即使固定必读项标记为 cached_reference、正文已在前置缓存设定区，也必须读取，用工具回执的编号和标题核对前置正文。'
 
 export function apply(ctx) {
   return [
@@ -18,7 +21,7 @@ export function apply(ctx) {
 function globTool() {
   return defineTool({
     name: 'eleckoi_glob_setting_files',
-    description: '按 Glob 查找当前对话可读取的虚拟设定文件。路径使用 / 分隔且不带 .md 后缀；required_files 包含固定必读、关键词命中和变量条件/EJS 触发后晋升的本回合必读设定。',
+    description: `按 Glob 查找当前对话可读取的虚拟设定文件。路径使用 / 分隔且不带 .md 后缀。${requiredEntriesReadInstruction}`,
     parameters: {
       pattern: { type: 'string', description: '路径 Glob，例如 **、世界/**、**/*角色*。' },
       path: { type: 'string', description: '可选的精确目录路径；留空表示整个设定库。' }
@@ -35,8 +38,8 @@ function globTool() {
       return {
         status: entries.length ? 'ok' : 'no_matches',
         path: scope,
-        required_files: requiredFiles(catalog),
-        files: entries.map(summary)
+        required_entries: requiredFiles(catalog),
+        files: entries.map((entry) => summary(entry, catalog))
       }
     }
   })
@@ -45,7 +48,7 @@ function globTool() {
 function grepTool() {
   return defineTool({
     name: 'eleckoi_grep_setting_files',
-    description: '用正则搜索当前对话虚拟设定文件的路径、读取提示和正文。找到路径后使用读取工具取得完整正文；required_files 是本回合晋升后的必读设定。',
+    description: `用正则搜索当前对话虚拟设定文件的路径、读取提示和正文。${requiredEntriesReadInstruction}`,
     parameters: {
       pattern: { type: 'string', required: true, description: 'JavaScript 正则表达式。' },
       path: { type: 'string', description: '可选目录路径。' },
@@ -72,11 +75,11 @@ function grepTool() {
         const lines = (`${entry.path}\n${entry.selectionHint}\n${entry.content}`).split('\n')
         const hit = lines.flatMap((text, index) => expression.test(text) ? [{ line: index + 1, text }] : [])
         if (!hit.length) continue
-        if (mode === 'content') matches.push(...hit.map((line) => ({ ...summary(entry), ...line })))
-        else if (mode === 'count') matches.push({ ...summary(entry), count: hit.length })
-        else matches.push(summary(entry))
+        if (mode === 'content') matches.push(...hit.map((line) => ({ ...summary(entry, catalog), ...line })))
+        else if (mode === 'count') matches.push({ ...summary(entry, catalog), count: hit.length })
+        else matches.push(summary(entry, catalog))
       }
-      return { status: matches.length ? 'ok' : 'no_matches', required_files: requiredFiles(catalog), matches }
+      return { status: matches.length ? 'ok' : 'no_matches', required_entries: requiredFiles(catalog), matches }
     }
   })
 }
@@ -84,7 +87,7 @@ function grepTool() {
 function readTool() {
   return defineTool({
     name: 'eleckoi_read_setting_files',
-    description: '读取 Glob 或 Grep 已返回的虚拟设定文件完整正文。路径没有 .md 后缀；不得猜测路径；不会修改设定。',
+    description: '读取 Glob 或 Grep 已返回的虚拟设定文件。路径没有 .md 后缀；不得猜测路径。固定必读正文已在本轮缓存设定区，读取仅返回编号与标题；动态和按需条目返回正文。',
     parameters: { paths: { type: 'array', items: { type: 'string' }, required: true, description: '一个或多个完整虚拟设定文件路径。' } },
     output: output(),
     async execute(args, exec) {
@@ -97,7 +100,10 @@ function readTool() {
       if (missing.length) return { ...fail('not_found', '存在当前虚拟设定库没有的路径，请重新使用 Glob 或 Grep。'), paths: missing }
       return { status: 'ok', files: paths.map((path) => {
         const entry = byPath.get(path)
-        return { ...summary(entry), group_path: entry.groupPath, selection_hint: entry.selectionHint, read_strategy: entry.readStrategy, content: entry.content }
+        const cached = cachedReference(entry, catalog)
+        return { ...summary(entry, catalog), group_path: entry.groupPath, selection_hint: entry.selectionHint,
+          read_strategy: entry.readStrategy, content_delivery: cached ? 'cached_reference' : 'tool_result',
+          ...(cached ? { cached_reference: cached.reference } : {}), content: cached ? cached.receipt : entry.content }
       }) }
     }
   })
@@ -176,7 +182,7 @@ function writeFile(library, path, args) {
   library.entries.push({
     id: randomUUID(), title: leaf, iconId: 'setting', kind: 'normal', groupId, content: args.content,
     openingMessages: [], defaultOpeningMessageId: '', agentSelectionHint: normalizeSelectionHint(args.selection_hint),
-    agentReadStrategy: 'normal', agentReadCondition: '', dynamicMode: 'single_condition', keywords: [], keywordScanDepth: 1,
+    agentReadStrategy: 'normal', dynamicMode: 'standard', keywords: [], keywordScanDepth: 1,
     conditionKeywords: [], keywordCondition: 'none', keywordUseRegex: false, keywordIgnoreCase: true, keywordWholeWord: false,
     keywordRecursionDepth: 0, triggerMode: 'agent_tool', enabled: true, position: null, promptPositionId: '', insertRole: 'user',
     order: Math.max(0, ...library.entries.map((entry) => Number(entry.order) || 0)) + 1,
@@ -269,6 +275,9 @@ function isFixedEntry(entry) {
 
 async function runtimeCatalogOf(bridge, bridgeFile) {
   const catalog = catalogOf(bridge.library)
+  const original = catalogOf(bridge.frozenLibrary || bridge.library)
+  catalog.requiredCache = requiredSettingCache(bridge.frozenLibrary || bridge.library)
+    .map((item) => ({ ...item, path: original.entries.find((entry) => entry.raw.id === item.id)?.path }))
   if (bridge.runtimeResolution?.version === 1) return applyRuntimeResolution(catalog, bridge.runtimeResolution)
   const keywordEntries = catalog.entries.filter((entry) => entry.readStrategy === 'keyword')
   const keywordMatches = matchingKeywordEntryIds(keywordEntries, bridge.history)
@@ -278,18 +287,13 @@ async function runtimeCatalogOf(bridge, bridgeFile) {
     .filter((entry) => entry.readStrategy !== 'keyword' || keywordMatches.has(entry.raw.id))
     .map((entry) => keywordMatches.has(entry.raw.id) ? { ...entry, promotedToRequiredThisTurn: true } : entry)
 
-  const conditionMatches = evaluateVariableConditions(
-    entries.filter((entry) => entry.readStrategy === 'variable_condition' && entry.raw.dynamicMode !== 'ejs_controller' && entry.raw.dynamicMode !== 'ejs_reference'),
-    variableState
-  )
   entries = entries
     .filter((entry) => {
       if (entry.readStrategy !== 'variable_condition') return true
       if (entry.raw.dynamicMode === 'ejs_controller') return true
-      if (entry.raw.dynamicMode === 'ejs_reference') return false
-      return conditionMatches.get(entry.raw.id) === true
+      return false
     })
-    .map((entry) => conditionMatches.get(entry.raw.id) === true || (entry.readStrategy === 'variable_condition' && entry.raw.dynamicMode === 'ejs_controller')
+    .map((entry) => entry.readStrategy === 'variable_condition' && entry.raw.dynamicMode === 'ejs_controller'
       ? { ...entry, promotedToRequiredThisTurn: true }
       : entry)
 
@@ -418,25 +422,10 @@ function lastUnescapedSlash(value) {
   return -1
 }
 
-function evaluateVariableConditions(entries, state) {
-  const matches = new Map()
-  const getvar = createGetvar(state)
-  for (const entry of entries) {
-    const expression = String(entry.raw.agentReadCondition || '').trim()
-    if (!expression) {
-      matches.set(entry.raw.id, false)
-      continue
-    }
-    const evaluate = new Function('getvar', 'variables', 'stat_data', `return Boolean((${expression}));`)
-    matches.set(entry.raw.id, evaluate(getvar, state, state))
-  }
-  return matches
-}
-
 async function renderEjsController(target, candidates, state, messages) {
   const references = []
   const renderStack = []
-  const sources = candidates.filter((candidate) => candidate.raw.id === target.raw.id || candidate.raw.dynamicMode === 'ejs_reference' || candidate.raw.dynamicMode === 'ejs_controller')
+  const sources = candidates.filter((candidate) => candidate.raw.id === target.raw.id || candidate.raw.dynamicMode === 'ejs_reference')
   const sourceByName = new Map()
   for (const source of sources) {
     if (source.raw.title) sourceByName.set(source.raw.title, source)
@@ -646,8 +635,9 @@ function settingBridgeFor(exec) {
   return snapshot.settingStateFile
 }
 function output() { return { schema: { type: 'object', additionalProperties: true }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value, null, 2) }] } }
-function requiredFiles(catalog) { return catalog.entries.filter((entry) => entry.readStrategy === 'required' || entry.promotedToRequiredThisTurn === true).map(summary) }
-function summary(entry) { return { path: entry.path, title: entry.raw.title, read_strategy: entry.readStrategy, selection_hint: entry.selectionHint } }
+function requiredFiles(catalog) { return catalog.entries.filter((entry) => entry.readStrategy === 'required' || entry.promotedToRequiredThisTurn === true).map((entry) => summary(entry, catalog)) }
+function cachedReference(entry, catalog) { return catalog.requiredCache?.find((item) => item.id === entry.raw.id && item.path === entry.path && item.title === (String(entry.raw.title || '').trim() || '未命名设定') && item.content === entry.content && entry.readStrategy === 'required') }
+function summary(entry, catalog) { const cached = cachedReference(entry, catalog); return { path: entry.path, title: entry.raw.title, read_strategy: entry.readStrategy, selection_hint: entry.selectionHint, content_delivery: cached ? 'cached_reference' : 'tool_result', ...(cached ? { cached_reference: cached.reference } : {}) } }
 function directoryExists(catalog, path) { return !path || catalog.groups.some((group) => catalog.groupPath(group.id) === path) }
 function inScope(path, scope) { return !scope || path.startsWith(`${scope}/`) }
 function relative(path, scope) { return scope ? path.slice(scope.length + 1) : path }

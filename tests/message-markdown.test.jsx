@@ -159,4 +159,71 @@ describe("message markdown presentation", () => {
     expect(html).toMatch(/<\/div><div class="opening-pager"/);
     expect(html.indexOf('opening-pager-next')).toBeLessThan(html.indexOf('opening-pager-index'));
   });
+
+  it("places Agent response actions below the answer and keeps the opening pager with them", () => {
+    const html = renderToStaticMarkup(React.createElement(MessageBubble, {
+      message: {
+        id: "opening",
+        role: "assistant",
+        content: "开场白一",
+        process: [{ id: "step-1" }],
+        selectedOpeningId: "opening-a",
+        openingOptions: [
+          { id: "opening-a", content: "开场白一" },
+          { id: "opening-b", content: "开场白二" },
+        ],
+      },
+      name: "角色",
+      layoutMode: "agent",
+      onEdit: () => {},
+    }));
+
+    expect(html).toContain('class="message theirs message-agent');
+    expect(html).toContain('class="agent-message-footer"');
+    expect(html.indexOf('class="bubble markdown-message"')).toBeLessThan(html.indexOf('class="agent-message-footer"'));
+    expect(html.indexOf('class="opening-pager"')).toBeLessThan(html.indexOf('aria-label="复制"'));
+    expect(html).toContain('aria-label="查看过程"');
+    expect(html).toContain('aria-label="朗读"');
+    expect(html).toContain('aria-label="编辑"');
+    expect(html).not.toContain('aria-label="重新生成"');
+    expect(html).not.toContain('class="message-tools');
+  });
+
+  it("puts Agent regeneration immediately after copy in the persistent footer", () => {
+    const html = renderToStaticMarkup(React.createElement(MessageBubble, {
+      message: { id: "assistant-1", role: "assistant", content: "你好" },
+      name: "角色",
+      layoutMode: "agent",
+      onRegenerate: () => {},
+    }));
+
+    expect(html).toMatch(/aria-label="复制"[^>]*>.*?<\/button><button[^>]*aria-label="重新生成"/);
+    expect(html).toMatch(/aria-label="复制"[^>]*><svg width="18" height="18"/);
+    expect(html).toMatch(/aria-label="编辑"[^>]*><svg width="18" height="18"/);
+    expect(html).toContain('class="agent-message-footer"');
+  });
+
+  it("marks only the latest Agent assistant reply for an always-visible footer", () => {
+    const message = { id: "assistant-1", role: "assistant", content: "你好" };
+    const latest = renderToStaticMarkup(React.createElement(MessageBubble, { message, layoutMode: "agent", isLatestAssistant: true }));
+    const historical = renderToStaticMarkup(React.createElement(MessageBubble, { message, layoutMode: "agent", isLatestAssistant: false }));
+    expect(latest).toContain("is-latest-assistant");
+    expect(historical).not.toContain("is-latest-assistant");
+    expect(historical).toContain('class="agent-message-footer"');
+  });
+
+  it("keeps Agent user messages in their own bubble without an assistant footer", () => {
+    const html = renderToStaticMarkup(React.createElement(MessageBubble, {
+      message: { id: "user-1", role: "user", content: "继续" },
+      name: "我",
+      layoutMode: "agent",
+    }));
+
+    expect(html).toContain('class="message mine message-agent');
+    expect(html).toContain('class="bubble markdown-message"');
+    expect(html).toContain('class="agent-user-actions"');
+    expect(html.indexOf('class="bubble markdown-message"')).toBeLessThan(html.indexOf('class="agent-user-actions"'));
+    expect(html).not.toContain('class="message-tools');
+    expect(html).not.toContain('class="agent-message-footer"');
+  });
 });

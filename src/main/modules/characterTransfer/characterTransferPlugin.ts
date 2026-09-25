@@ -26,7 +26,7 @@ export const characterTransferPlugin = {
         if (directory === undefined) {
           return { canceled: true, directory: '', written: [], failures: [] }
         }
-        const { written, failures } = transfers.exportMany(characterIds, format, directory)
+        const { written, failures } = await transfers.exportMany(characterIds, format, directory)
         return { canceled: false, directory, written, failures }
       }),
       ctx.desktopGateway.register('command.characters.import.prepare', ({ source, files }) => (

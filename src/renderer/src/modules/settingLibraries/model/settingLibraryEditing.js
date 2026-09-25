@@ -37,11 +37,10 @@ export function createEntryDraft(groupId, order, entries, draftKind = "standard"
   const siblingNames = new Set(entries.filter((entry) => entry.groupId === groupId).map((entry) => entry.title));
   const isReference = draftKind === "reference";
   const isPrompt = draftKind === "prompt";
-  const isCache = draftKind === "cache";
   return {
     id: createId("setting"),
-    title: uniqueName(isCache ? "新建缓存设定" : "新建设定", siblingNames),
-    iconId: isReference ? "link" : isCache ? "database" : "",
+    title: uniqueName("新建设定", siblingNames),
+    iconId: isReference ? "link" : "",
     kind: "normal",
     groupId,
     content: "",
@@ -49,8 +48,7 @@ export function createEntryDraft(groupId, order, entries, draftKind = "standard"
     defaultOpeningMessageId: "",
     agentSelectionHint: "",
     agentReadStrategy: isReference ? "variable_condition" : "normal",
-    agentReadCondition: "",
-    dynamicMode: isReference ? "ejs_reference" : "single_condition",
+    dynamicMode: isReference ? "ejs_reference" : "standard",
     keywords: [],
     keywordScanDepth: 1,
     conditionKeywords: [],
@@ -59,8 +57,8 @@ export function createEntryDraft(groupId, order, entries, draftKind = "standard"
     keywordIgnoreCase: true,
     keywordWholeWord: false,
     keywordRecursionDepth: 0,
-    triggerMode: isCache ? "cache" : isPrompt ? "always" : "agent_tool",
-    enabled: isReference || isCache,
+    triggerMode: isPrompt ? "always" : "agent_tool",
+    enabled: isReference,
     position: null,
     promptPositionId: "",
     insertRole: "user",

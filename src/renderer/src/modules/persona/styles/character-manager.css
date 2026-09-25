@@ -129,7 +129,7 @@
 
 .character-manager-main {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   padding: 48px 34px 0;
@@ -137,6 +137,7 @@
 }
 
 .character-manager-titlebar {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(180px, auto) minmax(220px, 1fr) repeat(3, auto);
   align-items: center;
@@ -199,39 +200,29 @@
   color: #fff;
 }
 
-/* 导出勾选模式的选择条：承载模式标识、格式、已选清单与全部操作，
-   把选择期信息从标题栏里挪出来（不再和搜索抢宽度，也不会被截断）。 */
+/* 导出操作复用标题栏和下方原有间距，切换模式时卡片位置不变。 */
 .character-manager-selection-bar {
+  grid-column: 1 / -1;
   display: grid;
-  gap: 6px;
-  margin-bottom: 14px;
-  padding: 8px 10px;
-  border: 1px solid color-mix(in srgb, var(--blue) 26%, var(--line-strong));
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--blue) 6%, var(--surface-raised));
+  grid-template-columns: auto minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
-.character-manager-selection-row {
+.character-manager-selection-summary,
+.character-manager-selection-actions {
   display: flex;
   min-width: 0;
   align-items: center;
   gap: 8px;
 }
 
-.character-manager-selection-mode {
-  flex: none;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--blue);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-}
-
 .character-manager-selection-count {
   flex: none;
   color: var(--text);
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .character-manager-format-switch {
@@ -254,50 +245,14 @@
 }
 
 .character-manager-selection-bar .character-manager-format-switch button[aria-pressed="true"] {
-  background: var(--blue);
-  color: #fff;
-}
-
-.character-manager-selection-bar .character-manager-format-switch button[aria-pressed="true"]:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--blue) 84%, #000);
-  color: #fff;
-}
-
-.character-manager-selection-notice {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  color: color-mix(in srgb, #1a9c53 76%, var(--text));
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.character-manager-selection-bar button {
-  display: inline-grid;
-  grid-auto-flow: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex: none;
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  background: var(--surface-raised);
+  background: var(--control-bg-hover);
   color: var(--text);
-  font-size: 12px;
-  white-space: nowrap;
+  font-weight: 600;
 }
 
-.character-manager-selection-bar button:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--blue) 40%, var(--line-strong));
-  color: var(--blue);
-}
-
-.character-manager-selection-bar button:disabled {
-  opacity: 0.45;
-  cursor: default;
+.character-manager-selection-bar .character-manager-format-switch button:hover:not(:disabled) {
+  background: var(--control-bg-hover);
+  color: var(--text);
 }
 
 .character-manager-selection-bar button:focus-visible {
@@ -305,31 +260,60 @@
   outline-offset: 2px;
 }
 
+.character-manager-selection-bar .character-manager-selection-actions button {
+  height: 34px;
+  padding: 0 8px;
+}
+
+.character-manager-selection-bar .character-manager-selection-actions button:hover:not(:disabled) {
+  background: var(--control-bg-hover);
+  color: var(--text);
+}
+
 .character-manager-selection-bar .character-manager-confirm-export {
-  background: var(--blue);
-  color: #fff;
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--surface-raised);
 }
 
 .character-manager-selection-bar .character-manager-confirm-export:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--blue) 84%, #000);
-  color: #fff;
+  background: color-mix(in srgb, var(--text) 85%, var(--surface-raised));
+  color: var(--surface-raised);
 }
 
-/* 目标清单固定两行高度：即使目标被搜索/分组隐藏，也不会看不见自己将导出什么；
-   固定高度还有第二个作用——勾选数量变化时选择条高度不变，网格不会在连点选卡的过程中往下跳
-   （实测：可变高度时 12 张比 3 张高 34px，整个网格随之下移）。 */
+/* 目标名称位于标题栏已有的下方间距中，不参与网格高度计算。 */
 .character-manager-selection-targets {
-  height: 36px;
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 18px;
   margin: 0;
-  overflow-y: auto;
+  overflow: hidden;
   color: var(--muted);
   font-size: 12px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+}
+
+.character-manager-selection-targets > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.character-manager-selection-notice {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
+  color: color-mix(in srgb, #1a9c53 76%, var(--text));
+  text-overflow: ellipsis;
 }
 
 .character-manager-error {
-  margin: -10px 0 12px;
+  margin: 0 0 12px;
   color: color-mix(in srgb, #d93838 84%, var(--text));
   font-size: 12px;
 }
@@ -558,43 +542,6 @@
 .character-group-dialog .character-dialog-confirm:not(:disabled) {
   border-color: var(--blue);
   background: var(--blue);
-}
-
-.character-manager-export {
-  position: relative;
-  min-width: 0;
-}
-
-.character-manager-export > button {
-  width: 100%;
-}
-
-.character-manager-export-menu {
-  position: absolute;
-  z-index: 8;
-  top: calc(100% + 6px);
-  right: 0;
-  display: grid;
-  width: 132px;
-  padding: 5px;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  background: var(--surface-raised);
-  box-shadow: 0 10px 28px color-mix(in srgb, #000 16%, transparent);
-}
-
-.character-manager-titlebar .character-manager-export-menu button {
-  justify-content: start;
-  width: 100%;
-  border: 0;
-  background: transparent;
-}
-
-.character-manager-export-menu span[role="alert"] {
-  padding: 5px 8px;
-  color: var(--danger, #d92d20);
-  font-size: 12px;
-  line-height: 1.4;
 }
 
 .character-import-overlay {

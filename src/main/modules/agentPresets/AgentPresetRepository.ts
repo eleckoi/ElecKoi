@@ -30,6 +30,7 @@ import type {
 } from '@shared/contracts/settingLibrary/schemas'
 import {
   settingLibraryEntrySchema,
+  settingLibraryStoredEntrySchema,
   settingLibraryGroupSchema,
   settingLibraryPromptPositionSchema
 } from '@shared/contracts/settingLibrary/schemas'
@@ -77,7 +78,7 @@ import {
   projectAgentPresetRuntimeSelection
 } from './AgentPresetRuntime'
 
-const currentEntrySchema = settingLibraryEntrySchema
+const currentEntrySchema = settingLibraryStoredEntrySchema
 const currentPromptPositionSchema = settingLibraryPromptPositionSchema
 
 export const DEFAULT_AGENT_PRESET_ID = 'agent-preset-standard'
@@ -98,7 +99,7 @@ const toolConfigurationSchema = z.object({
   enabledGroupIds: z.array(z.string()),
   subagentModelSelection: subagentModelSelectionSchema,
   roleplayPlan: roleplayPlanSettingsSchema
-}).strict()
+})
 
 export class AgentPresetRepository {
   private initialized = false

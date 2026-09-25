@@ -6,7 +6,8 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import { Streamdown } from "streamdown";
 import { Avatar } from "../ui/Avatar.jsx";
-import { CopyIcon, HistoryIcon, MessageChevronRightIcon, MessagePencilIcon, MoreDotsIcon, RefreshMessageIcon, SpeakerIcon } from "../icons/elecKoiMessageIcons.jsx";
+import { AvatarPreviewDialog } from "./AvatarPreviewDialog.jsx";
+import { AgentPencilIcon, CopyIcon, HistoryIcon, MessageChevronRightIcon, MessagePencilIcon, MoreDotsIcon, RefreshMessageIcon, SpeakerIcon } from "../icons/elecKoiMessageIcons.jsx";
 import { AgentProcessIcon } from "../../modules/chat/components/AgentProcessIcon.jsx";
 import { ChatImageGallery } from "../../modules/chat/components/ChatImageGallery.jsx";
 import { liveProcessPresentation, shouldShowInlineAgentProcess } from "../../modules/chat/model/agentProcessPresentation.js";
@@ -93,6 +94,15 @@ export function remarkDialogueQuotes() {
 }
 
 const OPENING_SWIPE_DURATION = 125;
+const timestampFormatter = new Intl.DateTimeFormat("zh-CN", {
+  year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+});
+
+function formatMessageTimestamp(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? timestampFormatter.format(date) : "";
+}
 
 function nextPaint() {
   return new Promise((resolve) => {
@@ -101,9 +111,11 @@ function nextPaint() {
 }
 
 async function animateOpeningSlide(article, fromX, toX, freezeAtEnd = false) {
+  const content = article?.querySelector(":scope > .message-content");
   const elements = [
     article?.querySelector(":scope > .avatar"),
-    article?.querySelector(":scope > .message-content"),
+    article?.querySelector(":scope > .message-floor"),
+    ...(content && window.getComputedStyle(content).display === "contents" ? [...content.children] : [content]),
   ].filter(Boolean);
   if (!elements.length) return () => {};
 
@@ -174,14 +186,20 @@ function MessagePresentation({ message, content, streaming }) {
   })}</div>;
 }
 
-function MessageBubbleComponent({ message = {}, avatar, name, layoutMode = "roleplay", avatarShape = "portrait", spacingAfter, onOpenProcess, onSelectOpening, onEdit, onRegenerate }) {
+function MessageBubbleComponent({ message = {}, avatar, name, layoutMode = "roleplay", avatarShape = "portrait", spacingAfter, floorNumber, showRoleplayTimestamp = true, showRoleplayFloor = true, isLatestAssistant = true, onOpenProcess, onSelectOpening, onEdit, onRegenerate }) {
   const { role, content, pending = false } = message;
   const displayContent = message.displayContent ?? content;
   const isUser = role === "user";
+  const roleplayTimestamp = layoutMode === "roleplay" && showRoleplayTimestamp
+    ? formatMessageTimestamp(message.created_at ?? message.createdAt)
+    : "";
+  const roleplayFloor = layoutMode === "roleplay" && showRoleplayFloor
+    && Number.isSafeInteger(floorNumber) && floorNumber >= 0;
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(content || "");
   const [jumpOpen, setJumpOpen] = useState(false);
+  const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false);
   const [pageInput, setPageInput] = useState("");
   const [openingSwitching, setOpeningSwitching] = useState(false);
   const articleRef = useRef(null);
@@ -294,17 +312,28 @@ function MessageBubbleComponent({ message = {}, avatar, name, layoutMode = "role
     closePageJump(false);
     void selectOpeningAt(requestedIndex);
   }
+  const openingPager = options.length > 1 ? <div className="opening-pager" aria-label="切换开场白" aria-busy={openingSwitching || undefined}>
+    <button type="button" className="opening-pager-prev" disabled={openingSwitching || selectedIndex <= 0} onClick={() => { void selectOpeningAt(selectedIndex - 1); }} aria-label="上一条开场白"><FontAwesomeIcon icon={faChevronLeft} /></button>
+    <button type="button" className="opening-pager-next" disabled={openingSwitching || selectedIndex >= options.length - 1} onClick={() => { void selectOpeningAt(selectedIndex + 1); }} aria-label="下一条开场白"><FontAwesomeIcon icon={faChevronRight} /></button>
+    <button ref={jumpTriggerRef} type="button" className="opening-pager-index" disabled={openingSwitching} onClick={() => { setPageInput(String(selectedIndex + 1)); setJumpOpen(true); }} aria-label={`第 ${selectedIndex + 1} 条，共 ${options.length} 条开场白，点击跳转`}>{selectedIndex + 1}/{options.length}</button>
+  </div> : null;
   return (
     <article
       ref={articleRef}
-      className={`message ${isUser ? "mine" : "theirs"} message-${layoutMode} avatar-shape-${avatarShape}${options.length > 1 ? " has-opening-pager" : ""}`}
+      className={`message ${isUser ? "mine" : "theirs"} message-${layoutMode} avatar-shape-${avatarShape}${options.length > 1 ? " has-opening-pager" : ""}${layoutMode === "agent" && !isUser && isLatestAssistant ? " is-latest-assistant" : ""}`}
       style={Number.isFinite(spacingAfter) ? { marginBottom: `${spacingAfter}px` } : undefined}
     >
-      <Avatar src={avatar} name={name} />
+      {avatar
+        ? <Avatar as="button" type="button" src={avatar} name={name} className="avatar-preview-trigger" onClick={() => setAvatarPreviewOpen(true)} aria-label={`放大${name || (isUser ? "你" : "助手")}的头像`} title="放大头像" />
+        : <Avatar src={avatar} name={name} />}
+      {roleplayFloor ? <span className="message-floor" aria-label={`消息楼层 ${floorNumber}`}>#{floorNumber}</span> : null}
       <div className="message-content">
         <div className="message-heading">
-          <header className="message-author">{name || (isUser ? "你" : "助手")}</header>
-          {!pending ? <div className={`message-tools${expanded ? ' expanded' : ''}`} ref={toolsRef}>
+          {layoutMode === "roleplay" ? <div className="message-author-line">
+            <header className="message-author">{name || (isUser ? "你" : "助手")}</header>
+            {roleplayTimestamp ? <time className="message-timestamp" dateTime={message.created_at ?? message.createdAt}>{roleplayTimestamp}</time> : null}
+          </div> : <header className="message-author">{name || (isUser ? "你" : "助手")}</header>}
+          {!pending && layoutMode !== "agent" ? <div className={`message-tools${expanded ? ' expanded' : ''}`} ref={toolsRef}>
             {expanded ? <div className="message-tools-expanded">
               {message.process?.length ? <button type="button" onClick={openProcess} aria-label="查看过程" title="查看过程"><HistoryIcon /></button> : null}
               <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || '')} aria-label="复制" title="复制"><CopyIcon /></button>
@@ -315,7 +344,7 @@ function MessageBubbleComponent({ message = {}, avatar, name, layoutMode = "role
             <button type="button" onClick={() => setEditing(true)} aria-label="编辑" title="编辑"><MessagePencilIcon /></button>
           </div> : null}
         </div>
-        {isUser ? <ChatImageGallery images={message.inputImageAttachments || []} conversationId={message.conversationId} /> : null}
+        {isUser ? <ChatImageGallery images={message.inputImageAttachments || []} conversationId={message.conversationId} agentMessage={layoutMode === "agent"} /> : null}
         {editing ? <div className="message-inline-editor"><textarea
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -338,12 +367,23 @@ function MessageBubbleComponent({ message = {}, avatar, name, layoutMode = "role
         </button> : displayContent ? <div className="bubble markdown-message">
           <MessagePresentation message={message} content={displayContent} streaming={pending} />
         </div> : null}
+        {layoutMode === "agent" && isUser && !pending && !editing ? <div className="agent-user-actions" aria-label="用户消息操作">
+          <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || "")} aria-label="复制" title="复制" disabled={!displayContent}><CopyIcon /></button>
+          <button type="button" onClick={() => setEditing(true)} aria-label="编辑" title="编辑" disabled={!onEdit}><AgentPencilIcon /></button>
+        </div> : null}
+        {layoutMode === "agent" && !isUser && !pending && !editing ? <div className="agent-message-footer" aria-label="消息操作">
+          <div className="agent-message-footer-leading">
+            {openingPager}
+            <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || "")} aria-label="复制" title="复制" disabled={!displayContent}><CopyIcon /></button>
+            {message.id !== "opening" ? <button type="button" onClick={() => onRegenerate?.(message)} aria-label="重新生成" title="重新生成" disabled={!onRegenerate}><RefreshMessageIcon /></button> : null}
+            {message.process?.length ? <button type="button" onClick={openProcess} aria-label="查看过程" title="查看过程"><HistoryIcon /></button> : null}
+            <button type="button" onClick={speak} aria-label="朗读" title="朗读" disabled={!displayContent}><SpeakerIcon /></button>
+            <button type="button" onClick={() => setEditing(true)} aria-label="编辑" title="编辑" disabled={!onEdit}><AgentPencilIcon /></button>
+          </div>
+        </div> : null}
       </div>
-      {options.length > 1 ? <div className="opening-pager" aria-label="切换开场白" aria-busy={openingSwitching || undefined}>
-        <button type="button" className="opening-pager-prev" disabled={openingSwitching || selectedIndex <= 0} onClick={() => { void selectOpeningAt(selectedIndex - 1); }} aria-label="上一条开场白"><FontAwesomeIcon icon={faChevronLeft} /></button>
-        <button type="button" className="opening-pager-next" disabled={openingSwitching || selectedIndex >= options.length - 1} onClick={() => { void selectOpeningAt(selectedIndex + 1); }} aria-label="下一条开场白"><FontAwesomeIcon icon={faChevronRight} /></button>
-        <button ref={jumpTriggerRef} type="button" className="opening-pager-index" disabled={openingSwitching} onClick={() => { setPageInput(String(selectedIndex + 1)); setJumpOpen(true); }} aria-label={`第 ${selectedIndex + 1} 条，共 ${options.length} 条开场白，点击跳转`}>{selectedIndex + 1}/{options.length}</button>
-      </div> : null}
+      {layoutMode !== "agent" ? openingPager : null}
+      {avatarPreviewOpen && avatar ? <AvatarPreviewDialog src={avatar} name={name} onClose={() => setAvatarPreviewOpen(false)} /> : null}
       {jumpOpen && typeof document !== "undefined" ? createPortal(
         <div className="opening-jump-backdrop" onPointerDown={() => closePageJump()}>
           <form ref={jumpDialogRef} className="opening-jump-dialog" role="dialog" aria-modal="true" aria-labelledby="opening-jump-title" onPointerDown={(event) => event.stopPropagation()} onSubmit={submitPageJump}>

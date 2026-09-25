@@ -114,6 +114,24 @@ describe("variable configuration editing", () => {
 });
 
 describe("variable configuration versions and transfer", () => {
+  it("ignores extra configuration fields while still rejecting invalid defined fields", () => {
+    const source = config();
+    const withVersionFields = {
+      ...source, id: "v1", createdAt: stamp, updatedAt: stamp,
+      objects: source.objects.map((object) => ({ ...object, editorOnly: true })),
+      variables: source.variables.map((variable) => ({ ...variable, editorOnly: true })),
+      versions: source.versions.map((version) => ({ ...version, editorOnly: true })),
+    };
+    const contract = requestContracts["command.variable_config.save"].input;
+    const parsed = contract.parse({ characterId: source.characterId, config: withVersionFields });
+    expect(parsed.config).not.toHaveProperty("id");
+    expect(parsed.config).not.toHaveProperty("createdAt");
+    expect(parsed.config.objects[0]).not.toHaveProperty("editorOnly");
+    expect(parsed.config.variables[0]).not.toHaveProperty("editorOnly");
+    expect(parsed.config.versions[0]).not.toHaveProperty("editorOnly");
+    expect(contract.safeParse({ characterId: source.characterId, config: { ...source, name: 123 } }).success).toBe(false);
+  });
+
   it("submits new variables and version operations using the Gateway configuration contract", () => {
     const source = ensureInitializationObject(config());
     const createdVariable = createVariableDraft(source);

@@ -2,7 +2,7 @@
 //
 // 导出选择条的逐项验收，编号对应下列行为：
 //   ① Escape 退出   ② 全选 / 清空   ③ 部分失败去重   ④ 模式内换格式   ⑤ 成功后保留选择
-//   ⑥ 模式标识      ⑦ 目标清单常驻   以及失效勾选自动剔除、空清单文案。
+//   ⑥ 标题栏内选择区 ⑦ 目标名称不推动卡片   以及失效勾选自动剔除、空选择。
 
 import { act } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -45,7 +45,7 @@ describe('导出选择条', () => {
   it('全选当前列表：一次选中当前筛选范围内的全部卡片', () => {
     const { container } = renderManager({ characters: fixture(12) })
     enterExport(container)
-    expect(selectedIds(container)).toBe(1)
+    expect(selectedIds(container)).toBe(0)
 
     click(buttonByText(container, '全选当前列表'))
 
@@ -66,20 +66,21 @@ describe('导出选择条', () => {
     expect(cards(container)).toHaveLength(3)
     expect(selectedIds(container), '渲染出来的这 3 张全部勾上').toBe(3)
     expect(targetsText(container)).toContain('角色12')
-    expect(targetsText(container), '进来时默认勾选的 角色甲 仍然被保留').toContain('角色甲')
+    expect(targetsText(container), '未点选的角色甲不应被带上').not.toContain('角色甲')
     expect(targetsText(container), '没被筛出来、也没勾过的卡不该被带上').not.toContain('角色4')
   })
 
   it('清空：一次取消全部勾选，导出按钮随之禁用', () => {
     const { container } = renderManager()
     enterExport(container)
+    click(cardByName(container, '角色甲'))
     click(cardByName(container, '角色乙'))
     expect(selectedIds(container)).toBe(2)
 
     click(buttonByText(container, '清空'))
 
     expect(selectedIds(container)).toBe(0)
-    expect(targetsText(container)).toContain('尚未选择角色卡')
+    expect(targetsText(container)).toBe('')
     expect(exportButton(container).disabled).toBe(true)
   })
 
@@ -102,6 +103,7 @@ describe('导出选择条', () => {
     })
 
     enterExport(container)
+    click(cardByName(container, '角色甲'))
     click(cardByName(container, '角色乙'))
     click(cardByName(container, '角色丙'))
     await clickAsync(exportButton(container))
@@ -118,7 +120,8 @@ describe('导出选择条', () => {
 
   it('勾选模式内可换格式，勾选不丢', async () => {
     const { container, onExportCharacters } = renderManager()
-    enterExport(container, 'PNG 角色卡')
+    enterExport(container, 'PNG')
+    click(cardByName(container, '角色甲'))
     click(cardByName(container, '角色乙'))
     expect(pressedFormat(container)).toBe('PNG')
 
@@ -133,7 +136,8 @@ describe('导出选择条', () => {
 
   it('成功后保留勾选与模式，可以直接换格式再导一次', async () => {
     const { container, onExportCharacters } = renderManager()
-    enterExport(container, 'PNG 角色卡')
+    enterExport(container, 'PNG')
+    click(cardByName(container, '角色甲'))
     click(cardByName(container, '角色乙'))
 
     await clickAsync(exportButton(container))
@@ -155,6 +159,7 @@ describe('导出选择条', () => {
   it('「完成」退出勾选模式并清空勾选', async () => {
     const { container } = renderManager()
     enterExport(container)
+    click(cardByName(container, '角色甲'))
     await clickAsync(exportButton(container))
 
     click(buttonByText(container, '完成'))
@@ -163,12 +168,12 @@ describe('导出选择条', () => {
     expect(circles(container)).toHaveLength(0)
   })
 
-  it('选择条明示「导出模式」，卡片圆圈与批量删除保持同形（有意保留）', () => {
+  it('选择条不显示多余模式标签，卡片圆圈与批量删除保持同形', () => {
     const { container } = renderManager()
     enterExport(container)
     const exportCircle = circles(container)[0].outerHTML
 
-    expect(selectionBar(container).querySelector('.character-manager-selection-mode').textContent).toBe('导出模式')
+    expect(selectionBar(container).querySelector('.character-manager-selection-mode')).toBeNull()
     expect(selectionBar(container).getAttribute('aria-label')).toBe('导出选择')
 
     click(buttonByText(container, '取消'))
@@ -178,14 +183,15 @@ describe('导出选择条', () => {
     expect(selectionBar(container), '删除模式不引入选择条，维持原有形态').toBeNull()
   })
 
-  it('目标清单搬到选择条里，不再和搜索抢标题栏的宽度', () => {
+  it('选择区复用标题栏，目标名称留在原有间距里', () => {
     const { container } = renderManager({ characters: fixture(12) })
     enterExport(container)
     click(buttonByText(container, '全选当前列表'))
     typeSearch(container, '角色')
 
-    expect(container.querySelector('.character-manager-titlebar').textContent, '标题栏里不再有导出目标信息')
-      .not.toContain('将导出')
+    expect(container.querySelector('.character-manager-titlebar').contains(selectionBar(container))).toBe(true)
+    expect(selectionBar(container).nextElementSibling).toBeNull()
+    expect(container.querySelector('input[aria-label="搜索角色"]')).toBeTruthy()
     expect(targetsText(container)).toContain('角色甲')
     expect(targetsText(container)).toContain('角色12')
     expect(container.querySelector('.character-manager-selection-targets').getAttribute('title'))
@@ -198,6 +204,7 @@ describe('导出选择条', () => {
     onExportCharacters.mockImplementation(() => new Promise((resolve) => { finish = resolve }))
 
     enterExport(container)
+    click(cardByName(container, '角色甲'))
     click(cardByName(container, '角色乙'))
     expect(exportButton(container).textContent.trim()).toBe('导出 2 张')
 
@@ -224,6 +231,7 @@ describe('导出选择条', () => {
     const { container, onExportCharacters } = renderManager()
     onExportCharacters.mockResolvedValue({ canceled: true, directory: '', written: [], failures: [] })
     enterExport(container)
+    click(cardByName(container, '角色甲'))
     click(cardByName(container, '角色乙'))
 
     await clickAsync(exportButton(container))
@@ -238,7 +246,8 @@ describe('导出选择条', () => {
   describe('失效勾选与空清单文案', () => {
     it('勾选的角色卡在别处被删除后，失效的勾选会被自动剔除', () => {
       const { container, rerender } = renderManager()
-      enterExport(container, 'PNG 角色卡')
+      enterExport(container, 'PNG')
+      click(cardByName(container, '角色甲'))
       click(cardByName(container, '角色乙'))
       click(cardByName(container, '角色丙'))
       expect(selectedIds(container)).toBe(3)
@@ -257,24 +266,23 @@ describe('导出选择条', () => {
 
     it('全部勾选都失效时，选择条回到空态而不是卡住', () => {
       const { container, rerender } = renderManager()
-      enterExport(container, 'PNG 角色卡')
+      enterExport(container, 'PNG')
+      click(cardByName(container, '角色甲'))
       expect(selectedIds(container)).toBe(1)
 
       rerender({ active_character_id: '', groups: [], items: [] })
 
       expect(selectedIds(container)).toBe(0)
-      expect(targetsText(container)).toBe('尚未选择角色卡')
+      expect(targetsText(container)).toBe('')
       expect(exportButton(container).disabled).toBe(true)
     })
 
-    it('一张都没选时，清单文案不再带「将导出：」前缀', () => {
+    it('一张都没选时不显示重复的清单提示', () => {
       const { container } = renderManager()
-      enterExport(container, 'PNG 角色卡')
-      click(buttonByText(container, '清空'))
+      enterExport(container, 'PNG')
 
-      expect(targetsText(container), '空态文案读起来要通顺').toBe('尚未选择角色卡')
-      expect(targetsText(container)).not.toContain('将导出')
-      // 有选择时仍然带前缀
+      expect(targetsText(container)).toBe('')
+      expect(exportButton(container).disabled).toBe(true)
       click(cardByName(container, '角色甲'))
       expect(targetsText(container)).toBe('将导出：角色甲')
     })

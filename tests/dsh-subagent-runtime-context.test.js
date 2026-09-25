@@ -102,7 +102,7 @@ function runtimeFixture() {
       entries: [{
         id: 'port', title: '港口', iconId: 'setting', kind: 'normal', groupId: 'world',
         content: '港口终年多雾。', agentSelectionHint: '抵达港口时读取', agentReadStrategy: 'normal',
-        dynamicMode: 'single_condition', triggerMode: 'agent_tool', enabled: true, order: 1
+        dynamicMode: 'standard', triggerMode: 'agent_tool', enabled: true, order: 1
       }]
     },
     history: [],

@@ -21,27 +21,27 @@ export const agentPresetModelTagSchema = z.object({
   id: z.string().min(1).max(40),
   label: z.string().min(1).max(40),
   providerId: z.string().max(80)
-}).strict()
+})
 
 export const agentPresetTimelineItemSchema = z.object({
   id: z.string().min(1),
   title: z.string().max(80),
   dateLabel: z.string().max(24),
   note: z.string().max(800)
-}).strict()
+})
 
 export const agentPresetProfileSchema = z.object({
   authorName: z.string().max(40),
   authorAvatarPath: z.string(),
   usageInstructions: z.string().max(1_000),
   timeline: z.array(agentPresetTimelineItemSchema).max(100)
-}).strict()
+})
 
 export const agentPresetLibraryGroupSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(60),
   sortIndex: z.number().int().nonnegative()
-}).strict()
+})
 
 export const agentPresetSummarySchema = z.object({
   id: z.string().min(1),
@@ -53,18 +53,18 @@ export const agentPresetSummarySchema = z.object({
   activeVersionNumber: z.number().int().positive(),
   entryCount: z.number().int().nonnegative(),
   profile: agentPresetProfileSchema
-}).strict()
+})
 
 export const agentPresetCatalogSchema = z.object({
   activePresetId: z.string(),
   groups: z.array(agentPresetLibraryGroupSchema),
   presets: z.array(agentPresetSummarySchema)
-}).strict()
+})
 
 export const subagentModelSelectionSchema = z.object({
   configId: z.string(),
   model: z.string()
-}).strict()
+})
 
 export const agentPresetSchema = z.object({
   id: z.string().min(1),
@@ -83,7 +83,7 @@ export const agentPresetSchema = z.object({
   roleplayPlan: roleplayPlanSettingsSchema,
   regexRules: z.array(regexRuleSchema),
   expandedGroupIds: z.array(z.string())
-}).strict()
+})
 
 export const agentPresetImportDocumentSchema = z.object({
   displayName: z.string().min(1).max(260),
