@@ -38,6 +38,11 @@ export interface AgentPresetRegexPort {
   replaceActiveRegexRules(rules: RegexRule[], db: ElecKoiDatabase): void
 }
 
+export interface RegexRuleExtensionPort {
+  read(scope: string): Record<string, Partial<RegexRule>>
+  replace(scope: string, rules: RegexRule[]): void
+}
+
 function parseStringList(raw: string, description: string): string[] {
   try {
     const parsed: unknown = JSON.parse(raw)
@@ -123,7 +128,8 @@ function ruleRow(rule: RegexRule, sortIndex: number) {
 export class RegexRuleRepository {
   constructor(
     private readonly store: ElecKoiSqliteStore,
-    private readonly agentPresetRegexes: AgentPresetRegexPort
+    private readonly agentPresetRegexes: AgentPresetRegexPort,
+    private readonly extensions?: RegexRuleExtensionPort
   ) {}
 
   get(characterId: string, db: ElecKoiDatabase = this.store.db): RegexRuleCollection {
@@ -143,10 +149,10 @@ export class RegexRuleRepository {
       agentPresetId: preset.presetId,
       agentPresetName: preset.presetName,
       agentPresetRegexRevision: preset.revision,
-      globalRules: db.select().from(globalRegexRules).orderBy(asc(globalRegexRules.sortIndex)).all().map(rowToRule),
+      globalRules: this.withExtensions('global', db.select().from(globalRegexRules).orderBy(asc(globalRegexRules.sortIndex)).all().map(rowToRule)),
       agentPresetRules: preset.rules,
-      characterRules: db.select().from(characterRegexRules).where(eq(characterRegexRules.characterId, characterId))
-        .orderBy(asc(characterRegexRules.sortIndex)).all().map(rowToRule),
+      characterRules: this.withExtensions(`character:${characterId}`, db.select().from(characterRegexRules).where(eq(characterRegexRules.characterId, characterId))
+        .orderBy(asc(characterRegexRules.sortIndex)).all().map(rowToRule)),
       versions,
       activeVersionId: state?.activeVersionId ?? '',
       revision: state?.revision ?? 0
@@ -198,6 +204,8 @@ export class RegexRuleRepository {
       target: regexState.singletonId,
       set: { activeVersionId: normalized.activeVersionId || null, revision: revision + 1 }
     }).run()
+    this.extensions?.replace('global', normalized.globalRules)
+    this.extensions?.replace(`character:${characterId}`, normalized.characterRules)
     return this.get(characterId, db)
   }
 
@@ -250,6 +258,11 @@ export class RegexRuleRepository {
 
   transform(characterId: string, text: string, target: RegexRuleTarget, surface: RegexRuleSurface): string {
     return transformCollectionSurface(text, this.get(characterId), target, surface)
+  }
+
+  private withExtensions(scope: string, rules: RegexRule[]): RegexRule[] {
+    const extensions = this.extensions?.read(scope) ?? {}
+    return rules.map(rule => ({ ...extensions[rule.id], ...rule }))
   }
 
   private persistShared(db: ElecKoiDatabase, collection: RegexRuleCollection): void {

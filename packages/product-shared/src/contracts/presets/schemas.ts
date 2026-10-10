@@ -33,7 +33,7 @@ export const agentPresetTimelineItemSchema = z.object({
 export const agentPresetProfileSchema = z.object({
   authorName: z.string().max(40),
   authorAvatarPath: z.string(),
-  usageInstructions: z.string().max(1_000),
+  usageInstructions: z.string().max(8_000),
   timeline: z.array(agentPresetTimelineItemSchema).max(100)
 })
 
@@ -74,6 +74,8 @@ export const agentPresetSchema = z.object({
   groups: z.array(settingLibraryGroupSchema),
   promptPositions: z.array(settingLibraryPromptPositionSchema),
   toolGroups: z.array(agentToolGroupSchema),
+  subagentModelSelection: z.object({ configId: z.string(), model: z.string() }).optional(),
+  toolModelConfigIds: z.record(z.string(), z.string()).optional(),
   roleplayPlan: roleplayPlanSettingsSchema,
   regexRules: z.array(regexRuleSchema),
   expandedGroupIds: z.array(z.string())

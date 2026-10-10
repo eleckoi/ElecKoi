@@ -184,6 +184,13 @@ export class ConversationRepository {
     return this.get(id, db)
   }
 
+  rename(id: string, title: string): Conversation {
+    this.get(id)
+    if (!title.trim()) throw new Error('聊天标题不能为空。')
+    this.store.db.update(chatSessions).set({ title, updatedAt: new Date().toISOString() }).where(eq(chatSessions.id, id)).run()
+    return this.get(id)
+  }
+
   touch(id: string, _preview?: string, db: ElecKoiDatabase = this.store.db): Conversation {
     db.update(chatSessions).set({ updatedAt: new Date().toISOString() }).where(eq(chatSessions.id, id)).run()
     return this.get(id, db)

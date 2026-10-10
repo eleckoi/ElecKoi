@@ -1,4 +1,5 @@
 export { ChatBackgroundModal } from "./components/ChatBackgroundModal.jsx";
+export { ChatImageGallery } from "./components/ChatImageGallery.jsx";
 export { ChatPanel } from "./components/ChatPanel.jsx";
 export { ChatWallpaperLayer } from "./components/ChatWallpaperLayer.jsx";
 export { ConversationList } from "./components/ConversationList.jsx";

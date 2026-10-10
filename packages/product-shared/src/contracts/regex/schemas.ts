@@ -20,7 +20,11 @@ export const regexRuleSchema = z.object({
   displayOnly: z.boolean(),
   promptOnly: z.boolean(),
   runOnEdit: z.boolean(),
-  order: z.number().int().nonnegative()
+  order: z.number().int().nonnegative(),
+  trimStrings: z.array(z.string()).optional(),
+  minDepth: z.number().int().nullable().optional(),
+  maxDepth: z.number().int().nullable().optional(),
+  substituteRegex: z.union([z.literal(0), z.literal(1), z.literal(2)]).optional()
 })
 
 export const regexRuleVersionSchema = z.object({

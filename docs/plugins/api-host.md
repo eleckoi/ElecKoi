@@ -113,6 +113,38 @@ Types: [AgentPreset](types-host.md#agentpreset) · [AgentPresetCatalog](types-ho
 
 Source: [`packages/dsh-product-api/src/index.ts`](../../packages/dsh-product-api/src/index.ts)
 
+<a id="ctxeleckoiauthorpluginsapi--eleckoiauthorpluginsapi"></a>
+
+### `ctx.eleckoiAuthorPluginsApi` — `ElecKoiAuthorPluginsApi`
+
+作者插件的 Host 兼容入口，提供能力发现、命令调用和实时变更订阅。 通过 `ctx.eleckoiAuthorPluginsApi` 使用，并在 `eleckoiAuthorPlugins` Remote 命名空间公开。
+
+```ts cordis-catalog
+/**
+ * 读取当前 Host 支持的作者插件命令和同源资源入口。
+ * @returns 命令名称列表、协议版本（当前为 1）及作者插件资源的基础 URL。
+ */
+@Remote capabilities(): AuthorCapabilities
+
+/**
+ * 按命令名称调用作者插件、聊天生成、Web 回调、扩展或媒体操作。
+ * @param command 要执行的命令；`method` 为能力列表中的命令名称，`params` 为该命令的 JSON 参数对象。
+ * @returns 对应操作完成后的 JSON 值；回调接入和移除返回 null，回调应答返回是否匹配到待处理请求。
+ */
+@Remote async invoke(command: AuthorCommand): Promise<AuthorValue>
+
+/**
+ * 订阅作者插件、生成过程和 Web 回调发布的实时变更。
+ * @param signal 订阅的取消信号；触发取消后结束此订阅并移除订阅者。
+ * @returns 异步变更流；活动订阅先收到 payload 为 null 的 `plugins.snapshot` 重载标记，随后收到实时事件，直到取消订阅或 Host 关闭。
+ */
+@Remote({ mode: 'stream' }) changes(signal: AbortSignal): AsyncIterable<AuthorChange>
+```
+
+Types: [AuthorCapabilities](types-host.md#authorcapabilities) · [AuthorChange](types-host.md#authorchange) · [AuthorCommand](types-host.md#authorcommand) · [AuthorValue](types-host.md#authorvalue)
+
+Source: [`packages/dsh-compatibility-host/src/index.ts`](../../packages/dsh-compatibility-host/src/index.ts)
+
 <a id="ctxeleckoicharacterconfigurationapi--eleckoicharacterconfigurationapi"></a>
 
 ### `ctx.eleckoiCharacterConfigurationApi` — `ElecKoiCharacterConfigurationApi`
@@ -304,7 +336,7 @@ Source: [`packages/dsh-product-api/src/index.ts`](../../packages/dsh-product-api
 @Remote saveGroups(groups: string[], assignments: CharacterGroupAssignment[]): CharacterCollection
 
 /**
- * 删除指定项目及其关联数据。
+ * 删除指定角色及其关联聊天和官方 Session。
  * @param characterIds - 待删除角色编号列表。
  * @returns 操作结果，结构见返回类型；失败抛出错误。
  */
@@ -342,6 +374,38 @@ Source: [`packages/dsh-product-api/src/index.ts`](../../packages/dsh-product-api
 ```
 
 Types: [CharacterCollection](types-host.md#charactercollection) · [CharacterExportFormat](types-host.md#characterexportformat) · [CharacterExportResult](types-host.md#characterexportresult) · [CharacterGroupAssignment](types-host.md#charactergroupassignment) · [CharacterImportFile](types-host.md#characterimportfile) · [CharacterImportPreview](types-host.md#characterimportpreview) · [CharacterImportResult](types-host.md#characterimportresult) · [CharacterImportSource](types-host.md#characterimportsource) · [CharacterRecord](types-host.md#characterrecord) · [ProductRecordChange](types-host.md#productrecordchange)
+
+Source: [`packages/dsh-product-api/src/index.ts`](../../packages/dsh-product-api/src/index.ts)
+
+<a id="ctxeleckoicompatibilityapi--eleckoicompatibilityapi"></a>
+
+### `ctx.eleckoiCompatibilityApi` — `ElecKoiCompatibilityApi`
+
+将酒馆兼容命令转交已有产品服务，并向客户端发布兼容数据变更。
+
+```ts cordis-catalog
+/**
+ * 读取当前宿主实际注册的兼容命令及协议版本。
+ * @returns 去重后的方法名称列表与兼容协议版本。
+ */
+@Remote capabilities(): { methods: string[]; version: number }
+
+/**
+ * 调用兼容命令，复用角色、消息、预设、世界书及其他产品服务。
+ * @param command - 包含 method 名称与 params 参数的兼容命令。
+ * @returns 命令的可序列化结果；未知命令或执行失败会抛出错误。
+ */
+@Remote async invoke(command: CompatibilityCommand): Promise<CompatibilityValue>
+
+/**
+ * 订阅兼容数据变更，连接时先返回快照标记以便客户端重新读取状态。
+ * @param signal - 取消订阅的信号。
+ * @returns 当前连接期间的变更流，不回放连接之前的历史事件。
+ */
+@Remote({ mode: 'stream' }) changes(signal: AbortSignal): AsyncIterable<CompatibilityChange>
+```
+
+Types: [CompatibilityChange](types-host.md#compatibilitychange) · [CompatibilityCommand](types-host.md#compatibilitycommand) · [CompatibilityValue](types-host.md#compatibilityvalue)
 
 Source: [`packages/dsh-product-api/src/index.ts`](../../packages/dsh-product-api/src/index.ts)
 
@@ -508,10 +572,28 @@ Source: [`packages/dsh-product-api/src/index.ts`](../../packages/dsh-product-api
 @Remote async delete(conversationId: string): Promise<void>
 
 /**
+ * 重命名聊天，同时保存官方 Session 与产品目录中的标题。
+ * @param conversationId - ElecKoi 聊天编号。
+ * @param title - 新的聊天标题。
+ * @returns 操作结果，结构见返回类型；失败抛出错误。
+ */
+@Remote async rename(conversationId: string, title: string): Promise<ConversationDetailsMetadata>
+
+/**
+ * 从指定官方 Session 事件创建聊天分支，复制保留的产品轮次和历史运行状态。
+ * @param conversationId - 来源 ElecKoi 聊天编号。
+ * @param atSeq - 分支边界的官方事件序号；省略时创建同配置和开场白的空聊天。
+ * @param retainedTurnIds - 分支中需要保留的产品轮次编号；开场白轮次自动保留。
+ * @param title - 新聊天的标题。
+ * @returns 新建分支的 ElecKoi 聊天编号；创建失败会清理分支并抛出错误。
+ */
+@Remote async fork(conversationId: string, atSeq: number | undefined, retainedTurnIds: string[], title: string): Promise<string>
+
+/**
  * 准备本次输入需要的产品配置和官方 Session，不直接生成回复。
  * @param conversationId - ElecKoi 聊天编号。
  * @param text - 本次输入或待测试文本。
- * @param signal - 取消准备过程的信号；插件回调也会收到此信号。
+ * @param signal - 取消准备过程的信号。
  * @returns 操作结果，结构见返回类型；失败抛出错误。
  */
 @Remote async preparePrompt(conversationId: string, text: string, signal: AbortSignal): Promise<{ runtimeSessionId: string; operationId: string }>
@@ -525,12 +607,21 @@ Source: [`packages/dsh-product-api/src/index.ts`](../../packages/dsh-product-api
 @Remote async waitForGeneration(conversationId: string, operationId: string): Promise<void>
 
 /**
- * 修改同一 Session 中指定消息并刷新投影。
+ * 保存当前群聊成员的回复，并按群聊策略依次执行余下成员的 Agent 回合。
  * @param conversationId - ElecKoi 聊天编号。
- * @param eventSeq - 官方 Session 中消息的事件序号。
- * @param role - 消息角色。
- * @param content - 要保存的完整文本。
- * @returns 操作结果，结构见返回类型；失败抛出错误。
+ * @param cancelled - 当前成员是否已取消；为 true 时直接结束群聊轮次。
+ * @param signal - 取消后续成员生成的信号。
+ * @returns 是否发生取消；无活跃群聊时返回 cancelled 为 false，生成失败抛出错误。
+ */
+@Remote async completeGroupRound(conversationId: string, cancelled: boolean, signal: AbortSignal): Promise<{ cancelled: boolean }>
+
+/**
+ * 修改同一官方 Session 中的用户或模型消息，刷新投影并发布消息变更。
+ * @param conversationId - ElecKoi 聊天编号。
+ * @param eventSeq - 官方 Session 中待修改消息的事件序号。
+ * @param role - 消息角色，必须与指定事件中的消息一致。
+ * @param content - 保存后替换原正文的完整文本。
+ * @returns 修改后的聊天详情与元数据；消息不存在或角色不一致时抛出错误。
  */
 @Remote async editMessage( conversationId: string, eventSeq: number, role: 'user' | 'assistant', content: string ): Promise<ConversationDetailsMetadata>
 
@@ -783,6 +874,14 @@ Source: [`packages/dsh-client-roleplay/src/host/request-preview.d.mts`](../../pa
 
 ```ts cordis-catalog
 /**
+ * 在同一官方 Session 日志中批量更新或插入兼容消息，并刷新消息投影。
+ * @param sessionId - 待编辑的官方 Session 编号。
+ * @param mutation - updates 按 sessionEventSeq 更新已有消息；inserts 按给定顺序追加消息。
+ * @returns 新插入的消息及其实际 id、sessionEventSeq；仅更新已有消息时返回空数组。
+ */
+mutateTimeline(sessionId: string, mutation: { updates?: CompatibilityTimelineInput[]; inserts?: CompatibilityTimelineInput[] }): Promise<CompatibilityTimelineInput[]>
+
+/**
  * 修改一条消息并刷新官方投影。
  * @param sessionId - 官方 Session 编号。
  * @param eventSeq - 消息事件序号。
@@ -802,6 +901,8 @@ editMessage(sessionId: string, eventSeq: number, role: 'user' | 'assistant', con
  */
 rewind(sessionId: string, fromTurn: number, fromEventSeq?: number, retainInput?: boolean): Promise<number | undefined>
 ```
+
+Types: [CompatibilityTimelineInput](types-host.md#compatibilitytimelineinput)
 
 Source: [`packages/dsh-product-api/src/sessionEditor.ts`](../../packages/dsh-product-api/src/sessionEditor.ts)
 

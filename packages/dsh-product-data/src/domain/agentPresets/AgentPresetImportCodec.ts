@@ -58,6 +58,8 @@ export interface AgentPresetTransferContent {
   groups: AgentPreset['groups']
   promptPositions: AgentPreset['promptPositions']
   toolGroups: AgentPreset['toolGroups']
+  subagentModelSelection?: AgentPreset['subagentModelSelection']
+  toolModelConfigIds?: AgentPreset['toolModelConfigIds']
   roleplayPlan: AgentPreset['roleplayPlan']
   regexRules: AgentPreset['regexRules']
   expandedGroupIds: AgentPreset['expandedGroupIds']
@@ -95,6 +97,8 @@ export function encodeElecKoiAgentPreset(preset: AgentPreset, options: AgentPres
     groups: preset.groups,
     promptPositions: preset.promptPositions,
     toolGroups: preset.toolGroups,
+    ...(preset.subagentModelSelection ? { subagentModelSelection: preset.subagentModelSelection } : {}),
+    ...(preset.toolModelConfigIds ? { toolModelConfigIds: preset.toolModelConfigIds } : {}),
     roleplayPlan: preset.roleplayPlan,
     regexRules: preset.regexRules,
     expandedGroupIds: preset.expandedGroupIds
@@ -205,6 +209,8 @@ function decodeElecKoi(document: AgentPresetImportDocument, bytes: Uint8Array): 
       groups: content.groups,
       promptPositions: content.promptPositions,
       toolGroups: content.toolGroups,
+      ...(content.subagentModelSelection ? { subagentModelSelection: content.subagentModelSelection } : {}),
+      ...(content.toolModelConfigIds ? { toolModelConfigIds: content.toolModelConfigIds } : {}),
       roleplayPlan: content.roleplayPlan,
       regexRules: content.regexRules,
       expandedGroupIds: content.expandedGroupIds
@@ -301,7 +307,9 @@ function contentToPortable(content: AgentPresetTransferContent): JsonObject {
     })),
     tool_configuration: {
       included_group_ids: content.toolGroups.filter((group) => group.included).map((group) => group.id),
-      enabled_group_ids: content.toolGroups.filter((group) => group.included && group.enabled).map((group) => group.id)
+      enabled_group_ids: content.toolGroups.filter((group) => group.included && group.enabled).map((group) => group.id),
+      ...(content.subagentModelSelection?.configId || content.subagentModelSelection?.model ? { subagent_model_selection: content.subagentModelSelection } : {}),
+      ...(content.toolModelConfigIds && Object.keys(content.toolModelConfigIds).length ? { tool_model_config_ids: content.toolModelConfigIds } : {})
     },
     roleplay_plan: content.roleplayPlan,
     expanded_group_ids: content.expandedGroupIds
@@ -340,6 +348,8 @@ function contentFromPortable(
     groups,
     promptPositions,
     toolGroups,
+    ...(toolConfiguration?.subagent_model_selection ? { subagentModelSelection: toolConfiguration.subagent_model_selection as AgentPreset['subagentModelSelection'] } : {}),
+    ...(toolConfiguration?.tool_model_config_ids ? { toolModelConfigIds: toolConfiguration.tool_model_config_ids as AgentPreset['toolModelConfigIds'] } : {}),
     roleplayPlan: roleplayPlan.success ? roleplayPlan.data : defaultRoleplayPlanSettings(),
     regexRules,
     expandedGroupIds: stringList(value.expanded_group_ids)

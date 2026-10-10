@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "composite": true,
+    "declaration": true,
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true,
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "src/index.ts",
+    "src/types.ts",
+    "src/*.js"
+  ]
+}

@@ -1,0 +1,3 @@
+The NUMBER mode in public/scripts/slash-commands/SlashCommandParser.js uses
+the JavaScript numeric literal grammar from highlight.js.
+The highlight.js MIT license is included in the desktop author runtime notices.

@@ -44,6 +44,8 @@ export function projectAgentPresetRuntimeSelection(preset: AgentPreset): {
   versionId: string
   name: string
   roleplayPlan: AgentPreset['roleplayPlan']
+  subagentModelSelection?: AgentPreset['subagentModelSelection']
+  toolModelConfigIds?: AgentPreset['toolModelConfigIds']
   historyCompactionInstructions?: string
 } {
   const revision = createHash('sha256').update(JSON.stringify({
@@ -53,6 +55,8 @@ export function projectAgentPresetRuntimeSelection(preset: AgentPreset): {
     groups: preset.groups,
     promptPositions: preset.promptPositions,
     toolGroups: preset.toolGroups,
+    subagentModelSelection: preset.subagentModelSelection,
+    toolModelConfigIds: preset.toolModelConfigIds,
     roleplayPlan: preset.roleplayPlan,
     regexRules: preset.regexRules
   })).digest('hex').slice(0, 12)
@@ -62,6 +66,8 @@ export function projectAgentPresetRuntimeSelection(preset: AgentPreset): {
     versionId: `${preset.activeVersionId}-${revision}`,
     name: preset.name,
     roleplayPlan: preset.roleplayPlan,
+    ...(preset.subagentModelSelection ? { subagentModelSelection: preset.subagentModelSelection } : {}),
+    ...(preset.toolModelConfigIds ? { toolModelConfigIds: preset.toolModelConfigIds } : {}),
     ...(historyCompactionInstructions ? { historyCompactionInstructions } : {})
   }
 }

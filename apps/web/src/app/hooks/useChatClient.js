@@ -211,6 +211,7 @@ export function useChatClient({ conversations, characters: characterCatalog, mod
     chatBackgroundCharacter,
     chatCharacter: chatSessions.chatCharacter,
     filteredSessions: chatSessions.filteredSessions,
+    visibleConversationSessions: chatSessions.visibleConversationSessions,
     historyOpen: chatSessions.historyOpen,
     pinnedIds: chatSessions.pinnedIds,
     currentTitle: chatSessions.currentTitle,

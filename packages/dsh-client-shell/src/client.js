@@ -29,6 +29,8 @@ window.__ModuleLoader__.load({
       "@eleckoi/dsh-client-web-search",
       "@eleckoi/dsh-client-shell",
       "@eleckoi/dsh-client-roleplay",
+      "@eleckoi/dsh-client-tavern-shared",
+      "@eleckoi/dsh-compatibility-host",
       "@eleckoi/dsh-product-api",
       "@eleckoi/dsh-runtime",
       "@eleckoi/dsh-web-search-tavily"
@@ -113,7 +115,7 @@ window.__ModuleLoader__.load({
     function ElecKoiSidebar({ renderContent, renderSlot }) {
       return renderContent(renderSlot)
     }
-    function ElecKoiRoot({ layout, slots, locale, theme, subscribeTheme, conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, webSearch, displayPreferences, renderSlot, renderSlotChain }) {
+    function ElecKoiRoot({ layout, slots, subscribeSlots, locale, theme, subscribeTheme, conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, webSearch, displayPreferences, renderSlot, renderSlotChain }) {
       const [ProductApp, setProductApp] = React.useState(null)
       const [loadError, setLoadError] = React.useState('')
       const settingsVersion = React.useSyncExternalStore(
@@ -357,6 +359,7 @@ window.__ModuleLoader__.load({
           style: { position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'auto' }
         }, ProductApp ? React.createElement(ProductApp, {
           markdownComponent: MarkdownText,
+          slots, subscribeSlots,
           conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, webSearch, displayPreferences, appearance, settingsSections, rightbar,
           navigation: {
             items: navigationItems,
@@ -392,6 +395,7 @@ window.__ModuleLoader__.load({
     }
 
     function apply(ctx) {
+      const subscribeSlots = listener => ctx.on('slots/changed', listener)
       {
         let panelSnapshot = { activePanelId: null }
         let rightbarSnapshot = {
@@ -503,7 +507,7 @@ window.__ModuleLoader__.load({
             'eleckoi.preset.manager': { kind: 'chain', scope: 'root' },
             'eleckoi.roleplay': { kind: 'chain', scope: 'root' }
           },
-          inject: () => ({ layout, slots: ctx.slots, locale: ctx.locale,
+          inject: () => ({ layout, slots: ctx.slots, subscribeSlots, locale: ctx.locale,
             theme: ctx.theme, subscribeTheme: listener => ctx.on('theme/change', listener),
             conversations: ctx.get('eleckoiConversations'), characters: ctx.eleckoiCharacters,
             characterConfiguration: { settingLibraries: ctx.eleckoiSettingLibraries,

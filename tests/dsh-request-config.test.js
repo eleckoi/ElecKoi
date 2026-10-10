@@ -2,9 +2,75 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { Context } from '@deepseek-ai/cordis';
+import { LlmAdapter, LlmRuntime, createUserMessage } from '@deepseek-ai/dsh-llm';
+import AgentRegistry from '@deepseek-ai/dsh-agent';
+import AgentLoop from '@deepseek-ai/dsh-agent-loop';
+import SessionStore, { SessionId } from '@deepseek-ai/dsh-session';
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection';
+import SystemPrompt from '@deepseek-ai/dsh-system-prompt';
+import ToolRuntime from '@deepseek-ai/dsh-tools';
+import TokenMeter from '@deepseek-ai/dsh-token-meter';
+import BasicCompactionEngine from '@deepseek-ai/dsh-compaction-basic';
+import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl';
 import { installRequestConfig, projectCompactionRequest } from '../apps/desktop/resources/dsh/request-config.mjs';
 
 describe('DSH request configuration', () => {
+  it('routes compaction once to its owning session with multiple live request configurations', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'eleckoi-compaction-scope-'));
+    const ctx = new Context();
+    const calls = [];
+    const agents = [];
+    try {
+      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry, TokenMeter]) {
+        await ctx.plugin(plugin);
+      }
+      await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' });
+      await ctx.plugin(BasicCompactionEngine, { retainTokens: 0 });
+      await ctx.plugin(AgentLoop, { agents: [] });
+      class Adapter extends LlmAdapter {
+        async *stream(request) {
+          calls.push(request);
+          yield { type: 'block-start', index: 0, blockType: 'text' };
+          yield { type: 'block-end', index: 0, block: { type: 'text', text: '合成摘要' } };
+          yield { type: 'finish', reason: { kind: 'stop' } };
+        }
+      }
+      ctx.llm.registerAdapter(['synthetic'], new Adapter());
+      for (const id of ['session-a', 'session-b']) {
+        writeFileSync(join(root, `${id}.json`), JSON.stringify({
+          model: { provider: 'synthetic', model: id },
+          historyCompactionInstructions: `摘要要求 ${id}`,
+        }));
+        const handle = await ctx.agentLoop.createAgent(ctx, {
+          sessionId: SessionId(id), agentOptions: { provider: 'synthetic', model: id },
+        });
+        agents.push(handle.agent);
+        installRequestConfig(handle.agent.ctx, root, id);
+      }
+      await Array.fromAsync(ctx.llm.stream({
+        provider: 'synthetic', model: 'session-a', sessionId: 'session-a', purpose: 'compaction',
+        messages: [{ id: 'synthetic-input', role: 'user', content: [{ type: 'text', text: '默认摘要要求' }], source: { kind: 'user' } }],
+        signal: new AbortController().signal,
+      }));
+      expect(calls).toHaveLength(1);
+      expect(calls[0].messages.at(-1).content[0].text).toContain('摘要要求 session-a');
+      expect(calls[0].messages.at(-1).content[0].text).not.toContain('session-b');
+      const agent = agents[0];
+      const events = [];
+      ctx.on('session/event', (session, event) => { if (session === agent.session) events.push(event); });
+      agent.followup(createUserMessage({ content: [{ type: 'text', text: '合成历史输入。'.repeat(200) }], source: { kind: 'user' } }));
+      await agent.whenIdle();
+      const compacted = await ctx.compaction.compactNow(agent, new AbortController().signal);
+      expect(compacted).not.toBeNull();
+      expect(agent.status).toBe('idle');
+      expect(calls.filter(request => request.purpose === 'compaction')).toHaveLength(2);
+      expect(events.some(event => event.type === 'compaction/end')).toBe(true);
+    } finally {
+      await ctx.fiber.dispose();
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 30_000);
   it('overrides a persisted legacy route with the model frozen for the current turn', async () => {
     const root = mkdtempSync(join(tmpdir(), 'eleckoi-request-route-'));
     try {
@@ -170,7 +236,7 @@ describe('DSH request configuration', () => {
       };
       const dispose = installRequestConfig(agentCtx, root, 'session-a');
       const options = deepFreeze({
-        provider: 'deepseek-official', model: 'deepseek-flash', purpose: 'compaction',
+        provider: 'deepseek-official', model: 'deepseek-flash', sessionId: 'session-a', purpose: 'compaction',
         tools: [{ name: 'read', description: 'read', parameters: {} }],
         messages: [{ role: 'user', content: [{ type: 'text', text: '上游默认模板' }] }],
       });

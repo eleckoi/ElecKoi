@@ -149,6 +149,31 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'eleckoiAuthorPluginsApi',
+    summary: '作者插件的 Host 兼容入口，提供能力发现、命令调用和实时变更订阅。 通过 `ctx.eleckoiAuthorPluginsApi` 使用，并在 `eleckoiAuthorPlugins` Remote 命名空间公开。',
+    description: '作者插件的 Host 兼容入口，提供能力发现、命令调用和实时变更订阅。 通过 `ctx.eleckoiAuthorPluginsApi` 使用，并在 `eleckoiAuthorPlugins` Remote 命名空间公开。',
+    methods: [
+      {
+        signature: '@Remote capabilities(): AuthorCapabilities',
+        description: '读取当前 Host 支持的作者插件命令和同源资源入口。',
+        parameters: [],
+        returns: '命令名称列表、协议版本（当前为 1）及作者插件资源的基础 URL。',
+      },
+      {
+        signature: '@Remote async invoke(command: AuthorCommand): Promise<AuthorValue>',
+        description: '按命令名称调用作者插件、聊天生成、Web 回调、扩展或媒体操作。',
+        parameters: [{ name: 'command', description: '要执行的命令；`method` 为能力列表中的命令名称，`params` 为该命令的 JSON 参数对象。' }],
+        returns: '对应操作完成后的 JSON 值；回调接入和移除返回 null，回调应答返回是否匹配到待处理请求。',
+      },
+      {
+        signature: '@Remote({ mode: \'stream\' }) changes(signal: AbortSignal): AsyncIterable<AuthorChange>',
+        description: '订阅作者插件、生成过程和 Web 回调发布的实时变更。',
+        parameters: [{ name: 'signal', description: '订阅的取消信号；触发取消后结束此订阅并移除订阅者。' }],
+        returns: '异步变更流；活动订阅先收到 payload 为 null 的 `plugins.snapshot` 重载标记，随后收到实时事件，直到取消订阅或 Host 关闭。',
+      },
+    ],
+  },
+  {
     key: 'eleckoiCharacterConfigurationApi',
     summary: '管理完整设定库、变量定义和正则配置，通过官方 Typert Remote 公开跨端调用。',
     description: '管理完整设定库、变量定义和正则配置，通过官方 Typert Remote 公开跨端调用。',
@@ -294,7 +319,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote async delete(characterIds: string[]): Promise<CharacterCollection>',
-        description: '删除指定项目及其关联数据。',
+        description: '删除指定角色及其关联聊天和官方 Session。',
         parameters: [{ name: 'characterIds', description: '待删除角色编号列表。' }],
         returns: '操作结果，结构见返回类型；失败抛出错误。',
       },
@@ -321,6 +346,31 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: '取消导入预览并清理临时数据。',
         parameters: [{ name: 'token', description: '导入预览编号。' }],
         returns: '操作结果，结构见返回类型；失败抛出错误。',
+      },
+    ],
+  },
+  {
+    key: 'eleckoiCompatibilityApi',
+    summary: '将酒馆兼容命令转交已有产品服务，并向客户端发布兼容数据变更。',
+    description: '将酒馆兼容命令转交已有产品服务，并向客户端发布兼容数据变更。',
+    methods: [
+      {
+        signature: '@Remote capabilities(): { methods: string[]; version: number }',
+        description: '读取当前宿主实际注册的兼容命令及协议版本。',
+        parameters: [],
+        returns: '去重后的方法名称列表与兼容协议版本。',
+      },
+      {
+        signature: '@Remote async invoke(command: CompatibilityCommand): Promise<CompatibilityValue>',
+        description: '调用兼容命令，复用角色、消息、预设、世界书及其他产品服务。',
+        parameters: [{ name: 'command', description: '包含 method 名称与 params 参数的兼容命令。' }],
+        returns: '命令的可序列化结果；未知命令或执行失败会抛出错误。',
+      },
+      {
+        signature: '@Remote({ mode: \'stream\' }) changes(signal: AbortSignal): AsyncIterable<CompatibilityChange>',
+        description: '订阅兼容数据变更，连接时先返回快照标记以便客户端重新读取状态。',
+        parameters: [{ name: 'signal', description: '取消订阅的信号。' }],
+        returns: '当前连接期间的变更流，不回放连接之前的历史事件。',
       },
     ],
   },
@@ -446,9 +496,21 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '操作结果，结构见返回类型；失败抛出错误。',
       },
       {
+        signature: '@Remote async rename(conversationId: string, title: string): Promise<ConversationDetailsMetadata>',
+        description: '重命名聊天，同时保存官方 Session 与产品目录中的标题。',
+        parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'title', description: '新的聊天标题。' }],
+        returns: '操作结果，结构见返回类型；失败抛出错误。',
+      },
+      {
+        signature: '@Remote async fork(conversationId: string, atSeq: number | undefined, retainedTurnIds: string[], title: string): Promise<string>',
+        description: '从指定官方 Session 事件创建聊天分支，复制保留的产品轮次和历史运行状态。',
+        parameters: [{ name: 'conversationId', description: '来源 ElecKoi 聊天编号。' }, { name: 'atSeq', description: '分支边界的官方事件序号；省略时创建同配置和开场白的空聊天。' }, { name: 'retainedTurnIds', description: '分支中需要保留的产品轮次编号；开场白轮次自动保留。' }, { name: 'title', description: '新聊天的标题。' }],
+        returns: '新建分支的 ElecKoi 聊天编号；创建失败会清理分支并抛出错误。',
+      },
+      {
         signature: '@Remote async preparePrompt(conversationId: string, text: string, signal: AbortSignal): Promise<{ runtimeSessionId: string; operationId: string }>',
         description: '准备本次输入需要的产品配置和官方 Session，不直接生成回复。',
-        parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'text', description: '本次输入或待测试文本。' }, { name: 'signal', description: '取消准备过程的信号；插件回调也会收到此信号。' }],
+        parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'text', description: '本次输入或待测试文本。' }, { name: 'signal', description: '取消准备过程的信号。' }],
         returns: '操作结果，结构见返回类型；失败抛出错误。',
       },
       {
@@ -458,10 +520,16 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '本轮收尾完成；此方法不启动模型，也不重复执行插件。',
       },
       {
+        signature: '@Remote async completeGroupRound(conversationId: string, cancelled: boolean, signal: AbortSignal): Promise<{ cancelled: boolean }>',
+        description: '保存当前群聊成员的回复，并按群聊策略依次执行余下成员的 Agent 回合。',
+        parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'cancelled', description: '当前成员是否已取消；为 true 时直接结束群聊轮次。' }, { name: 'signal', description: '取消后续成员生成的信号。' }],
+        returns: '是否发生取消；无活跃群聊时返回 cancelled 为 false，生成失败抛出错误。',
+      },
+      {
         signature: '@Remote async editMessage( conversationId: string, eventSeq: number, role: \'user\' | \'assistant\', content: string ): Promise<ConversationDetailsMetadata>',
-        description: '修改同一 Session 中指定消息并刷新投影。',
-        parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'eventSeq', description: '官方 Session 中消息的事件序号。' }, { name: 'role', description: '消息角色。' }, { name: 'content', description: '要保存的完整文本。' }],
-        returns: '操作结果，结构见返回类型；失败抛出错误。',
+        description: '修改同一官方 Session 中的用户或模型消息，刷新投影并发布消息变更。',
+        parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'eventSeq', description: '官方 Session 中待修改消息的事件序号。' }, { name: 'role', description: '消息角色，必须与指定事件中的消息一致。' }, { name: 'content', description: '保存后替换原正文的完整文本。' }],
+        returns: '修改后的聊天详情与元数据；消息不存在或角色不一致时抛出错误。',
       },
       {
         signature: '@Remote async deleteMessagesFrom( conversationId: string, eventSeq: number, role: \'user\' | \'assistant\' ): Promise<{ details: ConversationDetailsMetadata deletedMessageCount: number remainingMessageCount: number }>',
@@ -648,6 +716,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: '修改同一个官方 Session 的消息和回退位置，保留 Session 编号。',
     methods: [
       {
+        signature: 'mutateTimeline(sessionId: string, mutation: { updates?: CompatibilityTimelineInput[]; inserts?: CompatibilityTimelineInput[] }): Promise<CompatibilityTimelineInput[]>',
+        description: '在同一官方 Session 日志中批量更新或插入兼容消息，并刷新消息投影。',
+        parameters: [{ name: 'sessionId', description: '待编辑的官方 Session 编号。' }, { name: 'mutation', description: 'updates 按 sessionEventSeq 更新已有消息；inserts 按给定顺序追加消息。' }],
+        returns: '新插入的消息及其实际 id、sessionEventSeq；仅更新已有消息时返回空数组。',
+      },
+      {
         signature: 'editMessage(sessionId: string, eventSeq: number, role: \'user\' | \'assistant\', content: string): Promise<void>',
         description: '修改一条消息并刷新官方投影。',
         parameters: [{ name: 'sessionId', description: '官方 Session 编号。' }, { name: 'eventSeq', description: '消息事件序号。' }, { name: 'role', description: '消息角色。' }, { name: 'content', description: '新的完整消息文本。' }],
@@ -709,7 +783,7 @@ export const EVENT_API: readonly EventApiEntry[] = [
 export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AgentPreset',
-    declaration: 'export interface AgentPreset {\n    id: string;\n    name: string;\n    modelFamily: AgentPresetModelFamily;\n    modelTags: AgentPresetModelTag[];\n    libraryGroupId: string;\n    activeVersionId: string;\n    activeVersionNumber: number;\n    profile: AgentPresetProfile;\n    entries: SettingLibraryEntry[];\n    groups: SettingLibraryGroup[];\n    promptPositions: SettingLibraryPromptPosition[];\n    toolGroups: AgentToolGroup[];\n    roleplayPlan: {\n        steps: string[];\n    };\n    regexRules: RegexRule[];\n    expandedGroupIds: string[];\n}',
+    declaration: 'export interface AgentPreset {\n    id: string;\n    name: string;\n    modelFamily: AgentPresetModelFamily;\n    modelTags: AgentPresetModelTag[];\n    libraryGroupId: string;\n    activeVersionId: string;\n    activeVersionNumber: number;\n    profile: AgentPresetProfile;\n    entries: SettingLibraryEntry[];\n    groups: SettingLibraryGroup[];\n    promptPositions: SettingLibraryPromptPosition[];\n    toolGroups: AgentToolGroup[];\n    subagentModelSelection?: {\n        configId: string;\n        model: string;\n    };\n    toolModelConfigIds?: Record<string, string>;\n    roleplayPlan: {\n        steps: string[];\n    };\n    regexRules: RegexRule[];\n    expandedGroupIds: string[];\n}',
   },
   {
     name: 'AgentPresetCatalog',
@@ -768,8 +842,24 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface AgentToolMember {\n    name: string;\n    description: string;\n}',
   },
   {
+    name: 'AuthorCapabilities',
+    declaration: 'export interface AuthorCapabilities {\n    methods: string[];\n    version: number;\n    assetsBaseUrl: string;\n}',
+  },
+  {
+    name: 'AuthorChange',
+    declaration: 'export interface AuthorChange {\n    event: string;\n    payload: AuthorValue;\n}',
+  },
+  {
+    name: 'AuthorCommand',
+    declaration: 'export interface AuthorCommand {\n    method: string;\n    params: {\n        [key: string]: AuthorValue;\n    };\n}',
+  },
+  {
     name: 'AuthorConversationState',
     declaration: 'export interface AuthorConversationState {\n    initialVariableStateJson: string;\n    currentVariableStateJson: string;\n    variableConfig: VariableConfig | null;\n    settingLibrarySummary: {\n        characterId: string;\n        name: string;\n        activeVersionId: string;\n        entryCount: number;\n        groupCount: number;\n    } | null;\n    settingLibrary: ConversationRuntimeSettingLibrary | null;\n}',
+  },
+  {
+    name: 'AuthorValue',
+    declaration: 'export type AuthorValue = null | boolean | number | string | AuthorValue[] | {\n    [key: string]: AuthorValue;\n};',
   },
   {
     name: 'CharacterCollection',
@@ -820,8 +910,24 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface CharacterRecord {\n    id: string;\n    name?: string;\n    avatar?: string;\n    group?: string;\n    groupName?: string;\n    groupViewOrder?: number;\n    folder?: string;\n    frontendBeautyEnabled?: boolean | number;\n    profileAge?: string;\n    profileSex?: string;\n    profileHeight?: string;\n    profileBirthday?: string;\n    profileLike?: string;\n    showOpening?: boolean | number;\n    chatBackground?: string;\n    chatBackgroundOpacity?: number;\n    chatBackgroundBlur?: number;\n    chatBackgroundScrim?: number;\n    primaryOpening?: string;\n    persona?: CharacterPersona;\n}',
   },
   {
+    name: 'CompatibilityChange',
+    declaration: 'export interface CompatibilityChange {\n    event: string;\n    payload: CompatibilityValue;\n}',
+  },
+  {
+    name: 'CompatibilityCommand',
+    declaration: 'export interface CompatibilityCommand {\n    method: string;\n    params: {\n        [key: string]: CompatibilityValue;\n    };\n}',
+  },
+  {
+    name: 'CompatibilityTimelineInput',
+    declaration: 'export interface CompatibilityTimelineInput {\n    id: string;\n    role: \'user\' | \'assistant\' | \'system\';\n    content: string;\n    sessionEventSeq?: number;\n    reasoning?: string;\n}',
+  },
+  {
+    name: 'CompatibilityValue',
+    declaration: 'export type CompatibilityValue = null | boolean | number | string | CompatibilityValue[] | {\n    [key: string]: CompatibilityValue;\n};',
+  },
+  {
     name: 'ConversationChange',
-    declaration: 'export type ConversationChange = {\n    kind: \'snapshot\';\n} | {\n    kind: \'generation\';\n    conversationId: string;\n    error: string;\n} | {\n    kind: \'catalog\';\n    conversationId: string;\n    reason: \'created\' | \'deleted\';\n} | {\n    kind: \'messages\';\n    conversationId: string;\n    reason: \'edited\' | \'deleted\' | \'regenerated\';\n    messageIds: string[];\n};',
+    declaration: 'export type ConversationChange = {\n    kind: \'snapshot\';\n} | {\n    kind: \'generation\';\n    conversationId: string;\n    error: string;\n} | {\n    kind: \'catalog\';\n    conversationId: string;\n    reason: \'created\' | \'deleted\' | \'updated\';\n} | {\n    kind: \'messages\';\n    conversationId: string;\n    reason: \'edited\' | \'deleted\' | \'regenerated\';\n    messageIds: string[];\n    sessionRewritten?: boolean;\n};',
   },
   {
     name: 'ConversationCreateInput',
@@ -829,7 +935,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ConversationDetailsMetadata',
-    declaration: 'export interface ConversationDetailsMetadata {\n    conversation: ConversationRecord;\n    metadata: ConversationMetadata;\n    runtimeSessionId: string;\n    messages: ConversationMessageMetadata[];\n    hasMore: boolean;\n    beforeSequence: number | null;\n    runtimeVariableStateByTurn?: Record<string, string>;\n}',
+    declaration: 'export interface ConversationDetailsMetadata {\n    conversation: ConversationRecord;\n    metadata: ConversationMetadata;\n    runtimeSessionId: string;\n    messages: ConversationMessageMetadata[];\n    hasMore: boolean;\n    beforeSequence: number | null;\n    runtimeVariableStateByTurn?: Record<string, string>;\n    compatibilityPresentation?: {\n        groupId?: CompatibilityValue;\n        metadata: {\n            [id: string]: CompatibilityValue;\n        };\n        extensions: {\n            [id: string]: CompatibilityValue;\n        };\n        bindings: {\n            [id: string]: CompatibilityValue;\n        };\n        swipes?: {\n            [id: string]: CompatibilityValue;\n        };\n        variables?: {\n            [id: string]: CompatibilityValue;\n        };\n        timeline: CompatibilityValue;\n    };\n}',
   },
   {
     name: 'ConversationLifecycleParticipant',
@@ -885,7 +991,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ConversationRuntimePreparation',
-    declaration: 'export interface ConversationRuntimePreparation {\n    conversationId: string;\n    runtimeSessionId: string;\n    variableContext?: {\n        initialStateJson: string;\n        schemaCode: string;\n        objects: VariableObjectConfig[];\n        variables: VariableItemConfig[];\n        stateJson: string;\n    };\n    conversationContext: {\n        characterId: string;\n        characterName: string;\n        persona: Record<string, unknown>;\n        history: Array<{\n            role: \'user\' | \'assistant\';\n            content: string;\n            speakerName?: string;\n        }>;\n        historyMode: \'prefix\';\n        currentPromptText: string;\n        settingLibrary?: ConversationRuntimeSettingLibrary;\n    };\n    disabledToolGroupIds: string[];\n    agentPreset: {\n        id: string;\n        versionId: string;\n        name: string;\n        roleplayPlan: {\n            steps: string[];\n        };\n        historyCompactionInstructions?: string;\n    };\n    settingLibraryBaseline?: {\n        source: ConversationRuntimeSettingLibrary;\n        projected: ConversationRuntimeSettingLibrary;\n    };\n}',
+    declaration: 'export interface ConversationRuntimePreparation {\n    conversationId: string;\n    runtimeSessionId: string;\n    promptTextContext: {\n        macros?: {\n            userName: string;\n            characterName: string;\n        };\n        rules?: RegexRuleCollection;\n    };\n    variableContext?: {\n        initialStateJson: string;\n        schemaCode: string;\n        objects: VariableObjectConfig[];\n        variables: VariableItemConfig[];\n        stateJson: string;\n    };\n    conversationContext: {\n        characterId: string;\n        characterName: string;\n        persona: Record<string, unknown>;\n        history: Array<{\n            role: \'user\' | \'assistant\';\n            content: string;\n            speakerName?: string;\n        }>;\n        historyMode: \'prefix\';\n        currentPromptText: string;\n        settingLibrary?: ConversationRuntimeSettingLibrary;\n    };\n    disabledToolGroupIds: string[];\n    agentPreset: {\n        id: string;\n        versionId: string;\n        name: string;\n        roleplayPlan: {\n            steps: string[];\n        };\n        subagentModelSelection?: {\n            configId: string;\n            model: string;\n        };\n        toolModelConfigIds?: Record<string, string>;\n        historyCompactionInstructions?: string;\n    };\n    settingLibraryBaseline?: {\n        source: ConversationRuntimeSettingLibrary;\n        projected: ConversationRuntimeSettingLibrary;\n    };\n}',
   },
   {
     name: 'ConversationRuntimeSettingLibrary',
@@ -953,7 +1059,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'RegexRule',
-    declaration: 'export interface RegexRule {\n    id: string;\n    name: string;\n    pattern: string;\n    replacement: string;\n    targets: RegexRuleTarget[];\n    enabled: boolean;\n    displayOnly: boolean;\n    promptOnly: boolean;\n    runOnEdit: boolean;\n    order: number;\n}',
+    declaration: 'export interface RegexRule {\n    id: string;\n    name: string;\n    pattern: string;\n    replacement: string;\n    targets: RegexRuleTarget[];\n    enabled: boolean;\n    displayOnly: boolean;\n    promptOnly: boolean;\n    runOnEdit: boolean;\n    order: number;\n    trimStrings?: string[];\n    minDepth?: number | null;\n    maxDepth?: number | null;\n    substituteRegex?: 0 | 1 | 2;\n}',
   },
   {
     name: 'RegexRuleCollection',

@@ -48,6 +48,8 @@
     "@eleckoi/dsh-client-web-search": "workspace:*",
     "@eleckoi/dsh-client-roleplay": "workspace:*",
     "@eleckoi/dsh-client-shell": "workspace:*",
+    "@eleckoi/dsh-client-tavern-shared": "workspace:*",
+    "@eleckoi/dsh-compatibility-host": "workspace:*",
     "@eleckoi/dsh-product-api": "workspace:*",
     "@eleckoi/dsh-product-data": "workspace:*",
     "@eleckoi/dsh-web-search-tavily": "workspace:*",
@@ -103,7 +105,8 @@
         "relation": "provides",
         "members": [
           "editMessage",
-          "rewind"
+          "rewind",
+          "mutateTimeline"
         ]
       }
     ]

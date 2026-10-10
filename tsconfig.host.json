@@ -1,7 +1,18 @@
 {
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false
+  },
   "files": [],
   "references": [
-    { "path": "./packages/dsh-client-roleplay/tsconfig.host.json" },
-    { "path": "./packages/dsh-product-api/tsconfig.host.json" }
+    {
+      "path": "./packages/dsh-compatibility-host/tsconfig.json"
+    },
+    {
+      "path": "./packages/dsh-client-roleplay/tsconfig.host.json"
+    },
+    {
+      "path": "./packages/dsh-product-api/tsconfig.host.json"
+    }
   ]
 }

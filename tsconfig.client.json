@@ -2,6 +2,9 @@
   "files": [],
   "references": [
     {
+      "path": "./packages/dsh-client-tavern-shared/tsconfig.client.json"
+    },
+    {
       "path": "./packages/dsh-client-character-configuration/tsconfig.client.json"
     },
     {

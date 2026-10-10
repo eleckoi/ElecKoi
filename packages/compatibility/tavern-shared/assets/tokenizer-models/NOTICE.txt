@@ -1,0 +1,1 @@
+Original SillyTavern 1.19.0 and SillyTavern-Tokenizers vocabularies. Sources and SHA-256 are recorded in manifest.json. These compatibility vocabularies do not promise current provider-model tokenization.

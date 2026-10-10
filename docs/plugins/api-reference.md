@@ -4,7 +4,7 @@
 
 本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.0-rc.2`，提交 `c1b47e41fcd54d20a0f061df28683bfc29ee24e5`。
 
-当前共 **14 个 bundle、89 个开发接口**：56 个界面插槽、15 个服务、0 个事件、1 个贡献点、17 个 Remote 合同。
+当前共 **16 个 bundle、92 个开发接口**：56 个界面插槽、16 个服务、0 个事件、1 个贡献点、19 个 Remote 合同。
 
 接口标题和说明用于插件中心展示；真实调用合同以对应类型导出和实现为准。完整参数、返回值和数据字段见 [Client 参考](api-client.md)、[Host 参考](api-host.md) 与 [Remote 调用声明](api-remote.md)。使用方法见 [界面插槽](ui-slots.md)、[服务接口](services.md) 与 [能力贡献](contributions.md)。
 
@@ -23,7 +23,9 @@
 | `@eleckoi/dsh-client-web-search` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-shell` | 15 | 1 | 0 | 0 | 0 | 16 |
 | `@eleckoi/dsh-client-roleplay` | 25 | 1 | 0 | 0 | 0 | 26 |
-| `@eleckoi/dsh-product-api` | 0 | 1 | 0 | 0 | 17 | 18 |
+| `@eleckoi/dsh-client-tavern-shared` | 0 | 1 | 0 | 0 | 0 | 1 |
+| `@eleckoi/dsh-compatibility-host` | 0 | 0 | 0 | 0 | 1 | 1 |
+| `@eleckoi/dsh-product-api` | 0 | 1 | 0 | 0 | 18 | 19 |
 | `@eleckoi/dsh-runtime` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-web-search-tavily` | 0 | 0 | 0 | 1 | 0 | 1 |
 
@@ -195,6 +197,22 @@
 | `eleckoi.roleplay.trajectory` | 角色聊天轨迹 | 界面插槽 | 提供 | `replace` | `session` | 替换角色聊天轨迹视图，读取正式 Session 轨迹。 | — |
 | `eleckoiRequestPreviews` | 运行期间请求预览 | 服务 | 提供 | `call` | `host` | 在实际发送位置捕获请求，运行期间共用未变化的消息内容；不写入日志、数据库或投影缓存。 | `capture`、`list`、`read`、`stream`、`forget`、`close` |
 
+## `@eleckoi/dsh-client-tavern-shared`
+
+来源：`packages/dsh-client-tavern-shared/package.json`
+
+| ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `eleckoiTavernShared` | 应用共享插件运行时 | 服务 | 提供 | `call-and-listen` | `client` | 应用持有的 JS 共享环境，供脚本、聊天 HTML、插件面板互通，并接入同一宿主协议。 | `getSnapshot`、`subscribe`、`openPanel`、`registerChatUi`、`capturePresentation` |
+
+## `@eleckoi/dsh-compatibility-host`
+
+来源：`packages/dsh-compatibility-host/package.json`
+
+| ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `eleckoiAuthorPlugins` | 共同插件宿主 | Remote 合同 | 提供 | `call-and-listen` | `host` | 通过同一 DSH Host 调用已公布的插件能力、读取能力清单及监听真实宿主变更；Android 与 Electron 共用。 | `capabilities`、`invoke`、`changes` |
+
 ## `@eleckoi/dsh-product-api`
 
 ElecKoi 产品能力的 DSH Host Remote 接口。
@@ -204,6 +222,7 @@ ElecKoi 产品能力的 DSH Host Remote 接口。
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `eleckoiConversationLifecycle` | 聊天流程参与 | 服务 | 提供 | `call` | `host` | Host 插件注册生成前准备、保存后收尾及消息回退处理，回调完成后继续原流程。 | `register` |
+| `eleckoiCompatibilityRemote` | 酒馆兼容产品能力 | Remote 合同 | 提供 | `call-and-listen` | `host` | 通过现有产品服务调用兼容命令、读取能力清单并订阅变更。 | `capabilities`、`invoke`、`changes` |
 | `eleckoiSystem` | 桌面运行状态 | Remote 合同 | 提供 | `call` | `host` | 读取当前 ElecKoi DSH Host 的架构版本与 Remote 协议状态。 | `status` |
 | `eleckoiCharactersRemote` | 角色数据 | Remote 合同 | 提供 | `call` | `host` | 通过 DSH Host 读取和维护角色、分组及角色卡导入导出。 | `list`、`create`、`update`、`select`、`saveGroups`、`delete`、`export`、`prepareImport`、`commitImport`、`discardImport` |
 | `eleckoiCharacterChangesRemote` | 角色数据变更通知 | Remote 合同 | 提供 | `listen` | `host` | 通过 DSH Remote stream 通知角色、分组和当前角色发生变化。 | `changes` |
@@ -216,7 +235,7 @@ ElecKoi 产品能力的 DSH Host Remote 接口。
 | `eleckoiCreatorStudioChangesRemote` | 创作项目变更通知 | Remote 合同 | 提供 | `listen` | `host` | 通过 DSH Remote stream 通知创作项目目录发生变化。 | `changes` |
 | `eleckoiDisplayPreferencesRemote` | 显示偏好配置 | Remote 合同 | 提供 | `call` | `host` | 通过 DSH Host 读取和保存显示偏好，并将本地壁纸写入媒体库。 | `read`、`updateUi`、`setChatDisplay` |
 | `eleckoiConversationModelsRemote` | 全局模型选择 | Remote 合同 | 提供 | `call` | `host` | 读取并选择全部聊天下一轮共同使用的模型。 | `current`、`select` |
-| `eleckoiConversationsRemote` | 聊天记录目录 | Remote 合同 | 提供 | `call` | `host` | 通过 DSH Host 读取聊天目录与角色关联元数据；消息正文、分页和运行状态由 DSH Session 协议提供。 | `list`、`details`、`requestPreview`、`projectDisplay`、`variableTimeline`、`authorState`、`replaceVariableState`、`exportArchive`、`importArchive`、`revealFile`、`create`、`delete`、`preparePrompt`、`waitForGeneration`、`editMessage`、`deleteMessagesFrom`、`regenerateMessage`、`selectOpening`、`updateOpening`、`startRegeneration` |
+| `eleckoiConversationsRemote` | 聊天记录目录 | Remote 合同 | 提供 | `call` | `host` | 通过 DSH Host 读取聊天目录与角色关联元数据；消息正文、分页和运行状态由 DSH Session 协议提供。 | `list`、`details`、`requestPreview`、`projectDisplay`、`variableTimeline`、`authorState`、`replaceVariableState`、`exportArchive`、`importArchive`、`revealFile`、`create`、`delete`、`rename`、`fork`、`completeGroupRound`、`preparePrompt`、`waitForGeneration`、`editMessage`、`deleteMessagesFrom`、`regenerateMessage`、`selectOpening`、`updateOpening`、`startRegeneration` |
 | `eleckoiConversationChangesRemote` | 聊天变更通知 | Remote 合同 | 提供 | `listen` | `host` | 通过 DSH Remote stream 通知聊天目录和消息投影发生变化；消息正文仍由 DSH Session 协议读取。 | `changes` |
 | `eleckoiRequestPreviewsRemote` | 运行期间请求目录 | Remote 合同 | 提供 | `listen` | `host` | 订阅本次 Host 运行期间实际发起的请求；目录不含请求正文，关闭后不恢复。 | `requestPreviews` |
 | `eleckoiWebSearchRemote` | 联网搜索配置 | Remote 合同 | 提供 | `call` | `host` | 通过 DSH Host 选择搜索提供商并验证 Tavily 连接。密钥由 DSH Credentials 独立管理。 | `selection`、`select`、`testTavily` |
@@ -230,7 +249,7 @@ ElecKoi 产品能力的 DSH Host Remote 接口。
 
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `eleckoiSessionEditor` | 消息编辑服务 | 服务 | 提供 | `call` | `host` | 通过正式 DSH 会话日志修改消息并回退轮次。 | `editMessage`、`rewind` |
+| `eleckoiSessionEditor` | 消息编辑服务 | 服务 | 提供 | `call` | `host` | 通过正式 DSH 会话日志修改消息并回退轮次。 | `editMessage`、`rewind`、`mutateTimeline` |
 
 ## `@eleckoi/dsh-web-search-tavily`
 

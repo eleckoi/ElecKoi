@@ -30,6 +30,7 @@ ElecKoi 使用 DSH 官方 bundle、Cordis 生命周期和 Web Client Slots 作�
 | [界面插槽](ui-slots.md) | 界面接入点、组合方式、作用域和 owner props |
 | [服务接口](services.md) | 如何导入公开类型、调用服务和查询接口 |
 | [插件参与聊天流程](conversation-lifecycle.md) | 生成前准备、保存后收尾、消息回退及本轮等待 |
+| [SDK 兼容边界](sdk-compatibility.md) | 兼容存储、世界书缓存位置、界面扩展与生成规则 |
 | [Client 完整参考](api-client.md) | 客户端服务的全部公开方法与参数 |
 | [Host 完整参考](api-host.md) | Host 产品 API 和 Session 编辑服务 |
 | [Remote 完整声明](api-remote.md) | 官方生成的全部跨端调用声明 |

@@ -14,9 +14,12 @@ interface ParsedPattern {
 export interface RegexTransformOptions {
   replacementDecorator?: (replacement: string) => string
   protectDecoratedReplacements?: boolean
+  depth?: number
+  isEdit?: boolean
+  expandMacros?: (text: string, escape?: (value: string) => string) => string
 }
 
-const supportedFlags = new Set(['g', 'i', 'm', 's'])
+const supportedFlags = new Set(['d', 'g', 'i', 'm', 's', 'u', 'v', 'y'])
 const compiledExpressions = new Map<string, RegExp>()
 const maxCompiledPatterns = 128
 
@@ -60,30 +63,41 @@ function compileRegexRule(rule: RegexRule): RegExp {
   return expression
 }
 
-function replacementFor(match: RegExpExecArray, source: string): string {
+function replacementFor(match: RegExpExecArray, source: string, trimStrings: string[] = []): string {
+  const trim = (value: string) => trimStrings.reduce((result, trim) => trim ? result.replaceAll(trim, '') : result, value)
   return source.replace(
     /\$\$|\$&|\$<([^>]+)>|\$(\d+)|\{\{match\}\}/gi,
     (token, groupName: string | undefined, rawGroupIndex: string | undefined) => {
       if (token === '$$') return '$'
-      if (token === '$&' || token.toLowerCase() === '{{match}}') return match[0]
-      if (groupName !== undefined) return match.groups?.[groupName] ?? ''
-      return match[Number(rawGroupIndex)] ?? ''
+      if (token === '$&' || token.toLowerCase() === '{{match}}') return trim(match[0])
+      if (groupName !== undefined) return trim(match.groups?.[groupName] ?? '')
+      return trim(match[Number(rawGroupIndex)] ?? '')
     }
   )
 }
 
-function applyRule(text: string, rule: RegexRule, replacementDecorator?: (replacement: string) => string): string {
+function applyRule(text: string, rule: RegexRule, replacementDecorator?: (replacement: string) => string, options: RegexTransformOptions = {}): string {
+  const expand = (value: string, escape?: (value: string) => string): string => {
+    if (!value.includes('{{')) return value
+    if (!options.expandMacros) throw new Error(`Regex rule ${rule.id} requires the macro runtime`)
+    return options.expandMacros(value, escape)
+  }
+  if (rule.substituteRegex) rule = { ...rule, pattern: expand(rule.pattern, rule.substituteRegex === 2
+    ? value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : undefined) }
   const parsed = parseRegexPattern(rule.pattern)
   let expression: RegExp
   try {
     expression = compileRegexRule(rule)
-  } catch {
+  } catch (error) {
+    if (rule.trimStrings || rule.minDepth !== undefined || rule.maxDepth !== undefined || rule.substituteRegex !== undefined) throw error
     return text
   }
+  const trimStrings = (rule.trimStrings ?? []).map(value => expand(value))
+  const replacementForMatch = (match: RegExpExecArray) => expand(replacementFor(match, rule.replacement, trimStrings))
   if (!parsed.flags.includes('g')) {
     const match = expression.exec(text)
     if (!match) return text
-    const replacement = replacementFor(match, rule.replacement)
+    const replacement = replacementForMatch(match)
     return text.slice(0, match.index) + (replacementDecorator?.(replacement) ?? replacement) + text.slice(match.index + match[0].length)
   }
   let cursor = 0
@@ -91,7 +105,7 @@ function applyRule(text: string, rule: RegexRule, replacementDecorator?: (replac
   let matched = false
   for (let match = expression.exec(text); match; match = expression.exec(text)) {
     matched = true
-    const replacement = replacementFor(match, rule.replacement)
+    const replacement = replacementForMatch(match)
     output += text.slice(cursor, match.index) + (replacementDecorator?.(replacement) ?? replacement)
     cursor = match.index + match[0].length
     if (match[0].length === 0) expression.lastIndex += 1
@@ -116,7 +130,10 @@ export function transformWithRegexRules(
   options: RegexTransformOptions = {}
 ): string {
   if (!text) return text
-  const activeRules = rules.filter((rule) => rule.enabled && rule.pattern.trim() && rule.targets.includes(target))
+  const activeRules = rules.filter((rule) => rule.enabled && rule.pattern.trim() && rule.targets.includes(target)
+    && (options.isEdit !== true || rule.runOnEdit)
+    && (options.depth === undefined || (rule.minDepth == null || rule.minDepth < 0 || options.depth >= rule.minDepth)
+      && (rule.maxDepth == null || rule.maxDepth < 0 || options.depth <= rule.maxDepth)))
   const protectedSegments = options.protectDecoratedReplacements ? [] as string[] : null
   const decorateReplacement = options.replacementDecorator
     ? (replacement: string) => {
@@ -130,7 +147,7 @@ export function transformWithRegexRules(
     : undefined
   let output = text
   for (const rule of activeRules) {
-    output = applyRule(output, rule, decorateReplacement)
+    output = applyRule(output, rule, decorateReplacement, options)
   }
   return protectedSegments
     ? restoreDecoratedSegments(output, protectedSegments)

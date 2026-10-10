@@ -6,6 +6,12 @@ export const HIDDEN_TOOL_TIMELINE_PROMPT_POSITION_ID = 'hidden-tool-timeline'
 export const HISTORY_COMPACTION_ENTRY_ID = 'built-in-roleplay-history-compaction'
 export const HISTORY_COMPACTION_ENTRY_TITLE = '自动压缩摘要模板'
 
+export const NOVELAI_ILLUSTRATION_ENTRY_ID = 'built-in-novelai-illustration'
+export const DEFAULT_NOVELAI_ILLUSTRATION_CONTENT = `启用角色自动配图并绑定 NovelAI 图片模型后，使用原生 generate_image 为本轮剧情配图；工具不可用时继续正文，不得假装生成。
+根据已确定的剧情选择有区别的可见画面，按工具声明的数量组织 frames；每帧使用唯一正整数 id、prompt、negative_prompt 和 after_paragraph，指明在本轮最终正文对应段落之后插图。
+NovelAI prompt 使用逗号分隔的英文 tag，描述人物外貌、表情动作、构图视角、环境与光照；negative_prompt 描述要避免的视觉元素。不虚构未来剧情，不重复工具已添加的角色外貌与风格前缀。
+先调用工具，再按真实返回结果在正文对应位置插入 [[IMAGE:id]]。不得编造图片地址或声称失败帧已成功；部分失败保留成功帧并如实说明失败，用户可在消息中重画。未经用户要求不得自动反复重试。`
+
 export const DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT = `<roleplay_output_protocol>
 tool_phase:
   setting_library:
@@ -55,6 +61,17 @@ export function withRequiredAgentPresetEntries(entries: SettingLibraryEntry[]): 
     !isHiddenToolTimelineEntry(entry)
     && !isHistoryCompactionEntry(entry)
   ))]
+}
+
+export function withDefaultNovelAIIllustration(entries: SettingLibraryEntry[]): SettingLibraryEntry[] {
+  if (entries.some((entry) => entry.id === NOVELAI_ILLUSTRATION_ENTRY_ID)) return entries
+  const illustration = {
+    ...entryDefaults(NOVELAI_ILLUSTRATION_ENTRY_ID, 'NovelAI 剧情配图'),
+    iconId: 'image', content: DEFAULT_NOVELAI_ILLUSTRATION_CONTENT, enabled: false,
+    triggerMode: 'always' as const, position: 'instructions' as const,
+    treeViewOrder: Number.MIN_SAFE_INTEGER + 2
+  }
+  return [...entries, illustration]
 }
 
 export function withRequiredAgentPresetPromptPositions(

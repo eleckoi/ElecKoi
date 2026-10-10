@@ -139,5 +139,21 @@ export const DEFAULT_CHAT_DISPLAY_PREFERENCES: ChatDisplayPreferences = {
 }
 
 export type ChatSelection = z.output<typeof chatSelectionSchema>
+/** Unconfigured display documents use the same canonical defaults as the native renderer. */
+export function normalizeChatDisplaySettings(value: unknown): ChatDisplayPreferences {
+  if (value == null || (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0)) {
+    return structuredClone(DEFAULT_CHAT_DISPLAY_PREFERENCES)
+  }
+  // A nonempty malformed document is a real configuration error, not an alternate profile.
+  const parsed = chatDisplayPreferencesSchema.parse(value)
+  const original = value as Record<string, unknown>
+  const profiles = original.profiles as Record<string, Record<string, unknown>>
+  return { ...original, ...parsed, profiles: {
+    ...profiles,
+    social: { ...profiles.social, ...parsed.profiles.social },
+    agent: { ...profiles.agent, ...parsed.profiles.agent },
+    roleplay: { ...profiles.roleplay, ...parsed.profiles.roleplay }
+  } }
+}
 export type SidebarCharacterArtwork = z.output<typeof sidebarCharacterArtworkSchema>
 export type NewCharacterBackground = z.output<typeof newCharacterBackgroundSchema>

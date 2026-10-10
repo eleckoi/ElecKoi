@@ -25,6 +25,11 @@ function variableDefaultValue(variable: VariableItemConfig): unknown {
         return []
       }
     }
+    case 'object': {
+      const value: unknown = JSON.parse(variable.defaultValue || '{}')
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`变量“${variable.title}”的对象默认值不是 JSON 对象。`)
+      return value
+    }
     case 'string':
     case '':
     default:

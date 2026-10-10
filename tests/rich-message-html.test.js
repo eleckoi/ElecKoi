@@ -1,71 +1,33 @@
 import { describe, expect, it } from 'vitest';
+import * as libraries from '@eleckoi/compatibility-tavern-shared/browser-libraries';
 import { buildRichMessageHtml } from '../apps/web/src/modules/authorFrontend/model/buildRichMessageHtml.js';
-import { createHostSnapshot, hostSnapshotKey } from '../apps/web/src/modules/authorFrontend/components/RichMessageFrame.jsx';
 
-describe('rich message sandbox document', () => {
-  const runtime = {
-    scriptUrl: 'blob:eleckoi-author-libraries-js',
-    styleUrl: 'blob:eleckoi-author-libraries-css',
-    versions: { jquery: '3.7.1', vue: '3.5.42' },
-  };
+const runtime = { assetsBaseUrl: '/eleckoi/compat/', sdk: libraries };
 
-  it('injects the constrained host transport and author SDK before authored scripts', () => {
-    const authored = '<!doctype html><html><head><script>window.cardLoaded=true</script></head><body>card</body></html>';
-    const output = buildRichMessageHtml({ source: authored, kind: 'full-document', contentKey: 'a' }, 'channel-a', runtime);
-    expect(output).not.toContain('Content-Security-Policy')
-    expect(output).toContain("Object.defineProperty(window, 'ElecKoiNative'")
-    expect(output).toContain('0.1.0')
-    expect(output).toContain('blob:eleckoi-author-libraries-js')
-    expect(output).toContain('blob:eleckoi-author-libraries-css')
-    expect(output).toContain('window.ElecKoiLibraries')
-    expect(output).toContain('audio.setPlaylist')
-    expect(output).toContain('media.getMessageAttachments')
-    expect(output.indexOf('ElecKoiNative')).toBeLessThan(output.indexOf('window.cardLoaded'))
-    expect(output.indexOf('blob:eleckoi-author-libraries-js')).toBeLessThan(output.indexOf('window.cardLoaded'))
+describe('shared rich message document', () => {
+  it('loads the shared SDK and declared browser resources before authored scripts', () => {
+    const output = buildRichMessageHtml({ source: '<html><head><script>window.cardLoaded=true</script></head><body>card</body></html>' },
+      'channel-a', runtime, { messageId: 'message-a', conversationId: 'chat-a' });
+    expect(output).not.toContain('Content-Security-Policy');
+    expect(output).toContain('parent.__ElecKoiClientCompatibility.prepareDocument');
+    expect(output).toContain('"messageId":"message-a"');
+    expect(output).toContain('"conversationId":"chat-a"');
+    for (const file of [...libraries.BROWSER_LIBRARY_SCRIPTS, ...libraries.BROWSER_LIBRARY_STYLES]) {
+      expect(output).toContain(`/eleckoi/compat/assets/assets/${file}`);
+      expect(output.indexOf(file)).toBeLessThan(output.indexOf('window.cardLoaded'));
+    }
+    expect(output.indexOf('prepareDocument')).toBeLessThan(output.indexOf('window.cardLoaded'));
   });
-
-  it('wraps fragments in a complete transparent document', () => {
-    const output = buildRichMessageHtml({ source: '<div class="card">card</div>', kind: 'fragment', contentKey: 'b' }, 'channel-b');
-    expect(output.startsWith('<!doctype html><html><head>')).toBe(true)
-    expect(output).toContain('<body><div class="card">card</div></body>')
+  it('wraps fragments in a transparent document and retains body-only documents', () => {
+    const fragment = buildRichMessageHtml({ source: '<div class="card">card</div>' }, 'channel-b', runtime);
+    expect(fragment.startsWith('<!doctype html><html><head>')).toBe(true);
+    expect(fragment).toContain('<body><div class="card">card</div></body>');
+    expect(fragment).toContain('background:transparent');
+    const body = buildRichMessageHtml({ source: '<body><main>panel</main></body>' }, 'channel-c', runtime);
+    expect(body).toContain('</head><body><main>panel</main>');
+    expect(body).not.toContain('<body><body>');
   });
-
-  it('keeps a body-only authored document as the document body', () => {
-    const authored = '<body><main>panel</main><script>window.panelLoaded=true</script></body>';
-    const output = buildRichMessageHtml({ source: authored, kind: 'full-document', contentKey: 'c' }, 'channel-c');
-    expect(output).toContain('</head><body><main>panel</main>')
-    expect(output).not.toContain('<body><body>')
-    expect(output.indexOf('ElecKoiNative')).toBeLessThan(output.indexOf('window.panelLoaded'))
-  });
-
-  it('does not rebuild settled rich-message state for a changing streaming tail', () => {
-    const message = { id: 'rich-1', role: 'assistant', content: '已完成的卡片', variableStateJson: '{}' };
-    const settled = { ...message, messageIndex: 1 };
-    const first = { ...settled, id: 'rich-1' };
-    const second = { ...settled, id: 'rich-1' };
-    const liveFirst = { id: 'pending-1', role: 'assistant', pending: true, content: '第一段' };
-    const liveSecond = { ...liveFirst, content: '第一段继续增长' };
-    const firstChat = { messages: [first, liveFirst] };
-    const secondChat = { messages: [second, liveSecond] };
-
-    expect(hostSnapshotKey(message, firstChat)).toBe(hostSnapshotKey(message, secondChat));
-    expect(createHostSnapshot(message, secondChat).messages).toEqual([
-      expect.objectContaining({ id: 'rich-1', content: '已完成的卡片' }),
-    ]);
-  });
-
-  it('does not rebuild an earlier rich message when a later user message becomes durable', () => {
-    const message = { id: 'rich-1', role: 'assistant', messageIndex: 1,
-      content: '已完成的卡片', variableStateJson: '{}' };
-    const firstChat = { messages: [message] };
-    const secondChat = { messages: [
-      { ...message },
-      { id: 'user-2', role: 'user', messageIndex: 2, content: '你好', variableStateJson: '{}' },
-    ] };
-
-    expect(hostSnapshotKey(message, firstChat)).toBe(hostSnapshotKey(message, secondChat));
-    expect(createHostSnapshot(message, secondChat).messages).toEqual([
-      expect.objectContaining({ id: 'rich-1', content: '已完成的卡片' }),
-    ]);
+  it('diagnoses a missing shared runtime instead of emitting an unusable document', () => {
+    expect(() => buildRichMessageHtml({ source: '<div>card</div>' }, 'channel')).toThrow('SDK');
   });
 });

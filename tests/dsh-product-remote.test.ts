@@ -447,6 +447,7 @@ describe('ElecKoi DSH Remote contract', () => {
     const revealedPaths: string[] = []
     let sessionEvents: unknown[] = []
     let rejectNextSession = false
+    let rejectNextDeletion = false
     let unregister: (() => void) | undefined
     try {
       await ctx.plugin(TypertRegistry)
@@ -555,7 +556,13 @@ describe('ElecKoi DSH Remote contract', () => {
               return fromTurn
             },
             transaction: async <T,>(_sessionId: string, operation: () => Promise<T>) => operation(),
-            deleteSession: async (sessionId: string) => { deletedSessionIds.push(sessionId) }
+            deleteSession: async (sessionId: string) => {
+              if (rejectNextDeletion) {
+                rejectNextDeletion = false
+                throw new Error('Synthetic session deletion failed')
+              }
+              deletedSessionIds.push(sessionId)
+            }
           })
         }
       })
@@ -1013,11 +1020,43 @@ describe('ElecKoi DSH Remote contract', () => {
 
       await ctx.typertGateway.invoke({
         namespace: 'eleckoiCharacters',
+        method: 'create',
+        args: { character: { ...currentCharacter, id: 'character-2', name: 'Synthetic Character Two',
+          persona: { ...currentCharacter.persona, assistant_name: 'Synthetic Character Two' } } }
+      })
+      const otherConversation = await ctx.typertGateway.invoke({
+        namespace: 'eleckoiConversations',
+        method: 'create',
+        args: { input: { title: 'Synthetic Other Chat', metadata: { characterId: 'character-2' } } }
+      }) as { conversation: { id: string }; runtimeSessionId: string }
+      const artifactsBeforeDeletion = removedArtifacts.length
+      rejectNextDeletion = true
+      await expect(ctx.typertGateway.invoke({
+        namespace: 'eleckoiCharacters',
         method: 'delete',
         args: { characterIds: ['character-1'] }
-      })
+      })).rejects.toThrow('Synthetic session deletion failed')
+      expect(removedArtifacts).toHaveLength(artifactsBeforeDeletion)
+      expect(ctx.eleckoiProductData.readCharacters().items).toContainEqual(expect.objectContaining({ id: 'character-1' }))
+      expect(ctx.eleckoiProductData.readConversationCatalog()).toContainEqual(expect.objectContaining({ id: 'conversation-1' }))
+
+      const remainingCharacters = await ctx.typertGateway.invoke({
+        namespace: 'eleckoiCharacters',
+        method: 'delete',
+        args: { characterIds: ['character-1'] }
+      }) as { items: Array<{ id: string }> }
+      expect(remainingCharacters.items.map(item => item.id)).toEqual(['character-2'])
       expect(deletedSessionIds).toContain('conversation-1')
+      expect(deletedSessionIds).toContain(importedConversationId)
+      expect(deletedSessionIds).not.toContain(otherConversation.runtimeSessionId)
       expect(removedArtifacts).toContainEqual({ conversationId: 'conversation-1', sessionId: 'conversation-1' })
+      const deletionReader = new Database(path, { readonly: true })
+      try {
+        expect(deletionReader.prepare('SELECT id FROM characters ORDER BY id').all()).toEqual([{ id: 'character-2' }])
+        expect(deletionReader.prepare('SELECT id FROM chat_sessions ORDER BY id').all()).toEqual([{ id: otherConversation.conversation.id }])
+        expect(deletionReader.pragma('foreign_key_check')).toEqual([])
+        expect(deletionReader.pragma('integrity_check', { simple: true })).toBe('ok')
+      } finally { deletionReader.close() }
     } finally {
       unregister?.()
       await ctx.fiber.dispose()

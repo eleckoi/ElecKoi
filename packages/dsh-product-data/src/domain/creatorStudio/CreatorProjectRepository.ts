@@ -110,6 +110,35 @@ export class CreatorProjectRepository {
     return this.list()
   }
 
+  /** Register an already restored project through the same official catalog/manifest boundary.
+   * The importer owns copying source bytes; this service owns only project registration. */
+  adopt(input: CreatorProject, extension: Record<string, unknown> = {}, conflicts: 'fail' | 'replace' = 'fail'): CreatorProjectCollection {
+    const project = creatorProjectSchema.parse({ ...input, rootPath: resolve(input.rootPath) })
+    if (!isAbsolute(input.rootPath) || project.rootPath === parse(project.rootPath).root || !existsSync(project.rootPath)) {
+      throw new DesktopError(DESKTOP_ERROR_CODES.INVALID_REQUEST, '恢复的创作项目目录不存在或无效。')
+    }
+    const current = this.readIndex(), previous = current.items.find(item => item.id === project.id)
+    if (previous && JSON.stringify(previous) !== JSON.stringify(project) && conflicts !== 'replace') {
+      throw new DesktopError(DESKTOP_ERROR_CODES.CONFLICT, `创作项目编号冲突：${project.id}`)
+    }
+    const path = join(project.rootPath, MANIFEST_FILE), original = existsSync(path) ? readFileSync(path) : undefined
+    if (original && !previous) {
+      const manifest = JSON.parse(original.toString('utf8')) as Record<string, unknown>
+      if (manifest.id !== project.id || manifest.kind !== 'eleckoi-character-project') {
+        throw new DesktopError(DESKTOP_ERROR_CODES.CONFLICT, '目标目录已包含其他创作项目。')
+      }
+    }
+    try {
+      writeFileSync(`${path}.tmp`, `${JSON.stringify({ ...extension, schemaVersion: 1, kind: 'eleckoi-character-project', ...project }, null, 2)}\n`, 'utf8')
+      renameSync(`${path}.tmp`, path)
+      this.writeIndex({ version: INDEX_VERSION, items: [...current.items.filter(item => item.id !== project.id), project] })
+    } catch (error) {
+      if (original) writeFileSync(path, original); else if (existsSync(path)) rmSync(path)
+      throw error
+    }
+    return this.list()
+  }
+
   delete(projectId: string): CreatorProjectCollection {
     const current = this.readIndex()
     const project = current.items.find((item) => item.id === projectId)

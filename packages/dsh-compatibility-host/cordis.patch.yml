@@ -1,0 +1,3 @@
+- insert:
+    - id: eleckoi-compatibility-host
+      name: '@eleckoi/dsh-compatibility-host'

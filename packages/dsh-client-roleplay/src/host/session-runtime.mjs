@@ -9,6 +9,8 @@ import { durableProductPluginSpecifier } from './preset-definition.mjs'
 import { turnOutcomesProjection } from './turn-outcomes-projection.mjs'
 import { inputContinuationsProjection } from './input-continuations-projection.mjs'
 import { currentRequestSnapshot } from './model-selection-migration.mjs'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import { projectRequestInput, requestProjectionSnapshot, sessionInstructions } from './conversation-context.mjs'
 
 export { requestSnapshot } from './model-selection-migration.mjs'
 
@@ -37,11 +39,13 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
   const disposeHistoryStats = ctx.sessionProjections.register(historyStatsProjection)
   const disposeTurnOutcomes = ctx.sessionProjections.register(turnOutcomesProjection)
   const disposeInputContinuations = ctx.sessionProjections.register(inputContinuationsProjection)
+  const generationOptions = new Map()
 
   const prepareCurrentPreset = async (conversationId, text, creating = false) => {
     const runtime = ctx.eleckoiProductData.prepareConversationRuntime(conversationId, text)
     const previous = readOptionalSnapshot(snapshotRoot, runtime.runtimeSessionId)
-    const mainModel = await currentRequestSnapshot(ctx)
+    const controls = generationOptions.get(conversationId) ?? {}
+    const mainModel = { ...await currentRequestSnapshot(ctx), ...(controls.responseLength ? { maxTokens: controls.responseLength } : {}) }
     const effectiveToolPolicy = { disabledGroupIds: [...(runtime.disabledToolGroupIds ?? [])] }
     const requestedPreset = materializeAgentPreset(
       presetRoot,
@@ -69,6 +73,8 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
     const presetChanged = mountedPresetId !== requestedPreset.id
       || mountedPresetRevision !== requestedPreset.revision
     if (!creating) await requireIdleSession(ctx, runtime.runtimeSessionId)
+    const worldbooks = optionalService(ctx, 'eleckoiWorldbookRounds')
+    worldbooks?.release(runtime.runtimeSessionId)
     const sessionRoot = join(bridgeRoot, safePathPart(conversationId))
     mkdirSync(sessionRoot, { recursive: true })
     const nextTurn = creating ? 1 : await nextSessionTurn(ctx, runtime.runtimeSessionId)
@@ -78,6 +84,15 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
         operationId, conversationId, runtimeSessionId: runtime.runtimeSessionId, turn: nextTurn,
         text, model: mainModel, runtime
       }, signal)
+    }
+    if (!creating && !generationOptions.get(conversationId)?.skipWIAN && worldbooks?.hasManagedBindings(conversationId)) {
+      const context = runtime.conversationContext
+      const round = await worldbooks.prepareRound({
+        conversationId, runtimePreparation: runtime, modelSnapshot: mainModel,
+        currentPromptText: context.currentPromptText ?? text
+      })
+      signal?.throwIfAborted()
+      worldbooks.activate(runtime.runtimeSessionId, round)
     }
     writeRuntimeCheckpoint(
       sessionRoot,
@@ -130,6 +145,19 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
   }
 
   const service = {
+    withGenerationOptions(conversationId, options, action) {
+      if (generationOptions.has(conversationId)) throw new Error('当前聊天已有 SDK 生成准备。')
+      generationOptions.set(conversationId, { ...options })
+      return Promise.resolve().then(action).finally(() => generationOptions.delete(conversationId))
+    },
+    async adoptFork(conversationId, sourceConversationId, sourceTurn, afterTurn) {
+      const sourceRoot = join(bridgeRoot, safePathPart(sourceConversationId))
+      const state = readRuntimeCheckpoint(sourceRoot, sourceTurn + (afterTurn ? 1 : 0))?.state
+      if (state) ctx.eleckoiProductData.restoreConversationRuntime(conversationId, state)
+      const prepared = await prepare(conversationId, '', true)
+      await presetRegistrar.registerForSession(prepared.runtimeSessionId)
+      return prepared.runtimeSessionId
+    },
     async prepareSessionAccess(conversationId) {
       await ctx.eleckoiConversationLifecycle.drain(conversationId)
       const prepared = await prepareCurrentPreset(conversationId, '')
@@ -149,8 +177,40 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       return prepared.runtimeSessionId
     },
     async preparePrompt(conversationId, text, signal) {
-      const prepared = await prepare(conversationId, text, false, signal)
-      return prepared.runtimeSessionId
+      const sessionId = ctx.eleckoiProductData.runtimeSessionId(conversationId)
+      try {
+        const prepared = await prepare(conversationId, text, false, signal)
+        return prepared.runtimeSessionId
+      } catch (error) {
+        optionalService(ctx, 'eleckoiWorldbookRounds')?.release(sessionId)
+        throw error
+      }
+    },
+    async previewPrompt(conversationId, text) {
+      const runtime = ctx.eleckoiProductData.prepareConversationRuntime(conversationId, text)
+      const model = { ...await currentRequestSnapshot(ctx), ...(generationOptions.get(conversationId)?.responseLength
+        ? { maxTokens: generationOptions.get(conversationId).responseLength } : {}) }
+      const resolved = await ctx.sessionController.resolveAgent(runtime.runtimeSessionId)
+      if ('error' in resolved) throw resolved.error
+      let surface = resolved.agent.session.deriveMessages()
+      const cutoff = generationOptions.get(conversationId)?.historyCutoffId
+      if (cutoff) {
+        const index = surface.findIndex(message => message.id === cutoff)
+        if (index < 0) throw new Error('预览的原始用户输入不在当前 Session 中。')
+        surface = surface.slice(0, index + 1)
+      } else surface = [...surface, createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })]
+      let conversationContext = runtime.conversationContext
+      const worldbooks = optionalService(ctx, 'eleckoiWorldbookRounds')
+      if (!generationOptions.get(conversationId)?.skipWIAN && worldbooks?.hasManagedBindings(conversationId)) {
+        const worldbookRound = await worldbooks.prepareRound({ conversationId, runtimePreparation: runtime,
+          modelSnapshot: model, currentPromptText: conversationContext.currentPromptText ?? text, dryRun: true })
+        conversationContext = { ...conversationContext, worldbookRound, settingLibrary: worldbooks.nativeStaticLibrary(runtime, worldbookRound) }
+      }
+      const messages = projectRequestInput(surface, requestProjectionSnapshot(conversationContext), {
+        instructions: sessionInstructions({ model, conversationContext }) || null,
+        currentPromptText: conversationContext.currentPromptText ?? text
+      })
+      return { model, messages, dryRun: true }
     },
     currentOperation(conversationId) {
       const sessionId = ctx.eleckoiProductData.runtimeSessionId(conversationId)
@@ -230,6 +290,7 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
     async removeArtifacts(conversationId, sessionId) {
       await ctx.eleckoiConversationLifecycle.drain(conversationId)
       ctx.eleckoiConversationLifecycle.forget(conversationId)
+      optionalService(ctx, 'eleckoiWorldbookRounds')?.release(sessionId, conversationId)
       removeSessionSnapshot(snapshotRoot, sessionId)
       rmSync(join(bridgeRoot, safePathPart(conversationId)), { recursive: true, force: true })
       refreshSettingBranches()
@@ -239,6 +300,7 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
 
   const disposeCommit = ctx.on('session/event', (session, event) => {
     if (event.type !== 'turn/end') return
+    optionalService(ctx, 'eleckoiWorldbookRounds')?.release(session.id)
     let snapshot
     try {
       snapshot = readSessionSnapshot(snapshotRoot, session.id)
@@ -279,6 +341,10 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
     }
   })
   return () => { disposeCommit(); disposeHistoryStats(); disposeTurnOutcomes(); disposeInputContinuations() }
+}
+
+function optionalService(ctx, name) {
+  return typeof ctx.get === 'function' ? ctx.get(name, false) : ctx[name]
 }
 
 async function nextSessionTurn(ctx, sessionId) {

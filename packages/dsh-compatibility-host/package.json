@@ -1,0 +1,102 @@
+{
+  "name": "@eleckoi/dsh-compatibility-host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./lib/types/index.js",
+  "types": "./lib/types/index.d.ts",
+  "files": [
+    "lib/types",
+    "lib/web",
+    "lib/client.js",
+    "lib/typert.host.js",
+    "lib/typert.host.d.ts",
+    "lib/typert.remote-client.js",
+    "lib/typert.remote-client.d.ts",
+    "lib/typert.remote-client.d.ts.map",
+    "cordis.patch.yml",
+    "locale/*.json"
+  ],
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/types/index.js"
+    },
+    "./types": {
+      "types": "./lib/types/types.d.ts",
+      "default": "./lib/types/types.js"
+    },
+    "./remote": {
+      "types": "./lib/typert.remote-client.d.ts",
+      "default": "./lib/typert.remote-client.js"
+    },
+    "./typert": {
+      "types": "./lib/typert.host.d.ts",
+      "default": "./lib/typert.host.js"
+    },
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "scripts": {
+    "build": "tsc -b && node scripts/build.mjs"
+  },
+  "dependencies": {
+    "@deepseek-ai/cordis": "4.0.4",
+    "@deepseek-ai/dsh-api-gateway": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-api-session-controller": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-credentials": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-launch-environment": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-llm-deepseek": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-llm-pi-ai": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.0-rc.2",
+    "@eleckoi/compatibility-tavern-shared": "workspace:*",
+    "@eleckoi/dsh-product-api": "workspace:*",
+    "@eleckoi/dsh-product-data": "workspace:*",
+    "fflate": "0.8.3",
+    "https-proxy-agent": "9.1.0",
+    "undici": "8.10.2"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-typert-generator": "0.2.0-rc.2",
+    "@types/node": "26.3.0",
+    "esbuild": "0.25.12",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "dsh": "0.2.0-rc.2"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@eleckoi/dsh-product-api"
+      ]
+    }
+  },
+  "eleckoi": {
+    "developerInterfaces": [
+      {
+        "id": "eleckoiAuthorPlugins",
+        "kind": "remote",
+        "title": "共同插件宿主",
+        "description": "通过同一 DSH Host 调用已公布的插件能力、读取能力清单及监听真实宿主变更；Android 与 Electron 共用。",
+        "mode": "call-and-listen",
+        "scope": "host",
+        "relation": "provides",
+        "owner": "eleckoiAuthorPlugins",
+        "members": [
+          "capabilities",
+          "invoke",
+          "changes"
+        ]
+      }
+    ]
+  }
+}

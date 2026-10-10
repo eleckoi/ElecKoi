@@ -121,6 +121,21 @@ export class VariableConfigRepository {
     return normalized
   }
 
+  /** Backups already contain the evaluated initial state for every historical version. */
+  restoreInTransaction(characterId: string, input: VariableConfig, db: ElecKoiDatabase): VariableConfig {
+    const config = variableConfigSchema.parse(input)
+    if (config.characterId !== characterId) throw new Error('变量备份与角色不匹配。')
+    requireCharacter(db, characterId)
+    const active = config.versions.find(version => version.id === config.activeVersionId)
+    if (!active) throw new Error('变量备份的当前版本不存在。')
+    for (const version of config.versions) {
+      const state: unknown = JSON.parse(version.initialStateJson)
+      if (!state || typeof state !== 'object' || Array.isArray(state)) throw new Error(`变量备份“${version.id}”的初始状态不是对象。`)
+    }
+    this.persist(db, config)
+    return this.get(characterId, db)
+  }
+
   saveViewState(characterId: string, expandedObjectIds: string[]): string[] {
     return this.store.withWriteTx((db) => {
       const current = this.get(characterId, db)

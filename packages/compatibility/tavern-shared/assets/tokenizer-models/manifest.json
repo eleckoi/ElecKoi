@@ -1,0 +1,100 @@
+{
+  "llama": {
+    "filename": "llama.model",
+    "kind": "sentencepiece",
+    "source": "SillyTavern@06bde939:src/tokenizers/llama.model",
+    "sha256": "9e556afd44213b6bd1be2b850ebbbd98f5481437a8021afaf58ee7fb1818d347",
+    "bytes": 499723
+  },
+  "nerdstash": {
+    "filename": "nerdstash.model",
+    "kind": "sentencepiece",
+    "source": "SillyTavern@06bde939:src/tokenizers/nerdstash.model",
+    "sha256": "578fa0ed4d6dbee435f21d7f7a741506d09cdd93cce241008abf725407cbdb41",
+    "bytes": 1033724
+  },
+  "nerdstash_v2": {
+    "filename": "nerdstash_v2.model",
+    "kind": "sentencepiece",
+    "source": "SillyTavern@06bde939:src/tokenizers/nerdstash_v2.model",
+    "sha256": "005ad680b10f1abd406bdb0ca9c6a5d83fc1f6e0a855bdd1942c1ceab1fb47ab",
+    "bytes": 1033744
+  },
+  "mistral": {
+    "filename": "mistral.model",
+    "kind": "sentencepiece",
+    "source": "SillyTavern@06bde939:src/tokenizers/mistral.model",
+    "sha256": "dadfd56d766715c61d2ef780a525ab43b8e6da4de6865bda3d95fdef5e134055",
+    "bytes": 493443
+  },
+  "yi": {
+    "filename": "yi.model",
+    "kind": "sentencepiece",
+    "source": "SillyTavern@06bde939:src/tokenizers/yi.model",
+    "sha256": "386c49cf943d71aa110361135338c50e38beeff0a66593480421f37b319e1a39",
+    "bytes": 1033105
+  },
+  "gemma": {
+    "filename": "gemma.model",
+    "kind": "sentencepiece",
+    "source": "SillyTavern@06bde939:src/tokenizers/gemma.model",
+    "sha256": "61a7b147390c64585d6c3543dd6fc636906c9af3865a5548f27f31aee1d4c8e2",
+    "bytes": 4241003
+  },
+  "jamba": {
+    "filename": "jamba.model",
+    "kind": "sentencepiece",
+    "source": "SillyTavern@06bde939:src/tokenizers/jamba.model",
+    "sha256": "8b0df4fb43262c452ef37061951a06df4c63ca191d02a60ea08f14428af24376",
+    "bytes": 1124714
+  },
+  "claude": {
+    "filename": "claude.json",
+    "kind": "json",
+    "source": "SillyTavern@06bde939:src/tokenizers/claude.json",
+    "sha256": "c241737df24b4e7f7c9af4fdcee29a0ca903dcb288a8b753bc346a3092911767",
+    "bytes": 1774213
+  },
+  "llama3": {
+    "filename": "llama3.json",
+    "kind": "json",
+    "source": "SillyTavern@06bde939:src/tokenizers/llama3.json",
+    "sha256": "7a413fb6f10a3e285a400d7cc9b8959c32116caf81ba8a60a4ec26b9aca2bd25",
+    "bytes": 6082250
+  },
+  "command-r": {
+    "filename": "command-r.json",
+    "kind": "json",
+    "source": "https://raw.githubusercontent.com/SillyTavern/SillyTavern-Tokenizers/798bcd823dfd04227a79b487e1cf29e6de9aaece/command-r.json.gz",
+    "sha256": "23cf885a64b0f790f8da6ee36a47eef6005c9231287ee1ad22463a34d7b092d2",
+    "bytes": 8960966
+  },
+  "command-a": {
+    "filename": "command-a.json",
+    "kind": "json",
+    "source": "https://raw.githubusercontent.com/SillyTavern/SillyTavern-Tokenizers/798bcd823dfd04227a79b487e1cf29e6de9aaece/command-a.json.gz",
+    "sha256": "c6a9a15bf2175a05fcbe58f1242678bba7d2afcef1138a54983bcbd1745e5d12",
+    "bytes": 8961533
+  },
+  "qwen2": {
+    "filename": "qwen2.json",
+    "kind": "json",
+    "source": "https://raw.githubusercontent.com/SillyTavern/SillyTavern-Tokenizers/798bcd823dfd04227a79b487e1cf29e6de9aaece/qwen2.json.gz",
+    "sha256": "fb366a22efb7db2dcca2c619402431cda342a97721395a2da2879ceb36262782",
+    "bytes": 4754645
+  },
+  "nemo": {
+    "filename": "nemo.json",
+    "kind": "json",
+    "source": "https://raw.githubusercontent.com/SillyTavern/SillyTavern-Tokenizers/798bcd823dfd04227a79b487e1cf29e6de9aaece/nemo.json.gz",
+    "sha256": "d27c2739d2d9ad785baa78f62ed23e79984246cb3e29c25d6cb5f43d9d00a6a9",
+    "bytes": 6262925
+  },
+  "deepseek": {
+    "filename": "deepseek.json",
+    "kind": "json",
+    "source": "https://raw.githubusercontent.com/SillyTavern/SillyTavern-Tokenizers/798bcd823dfd04227a79b487e1cf29e6de9aaece/deepseek.json.gz",
+    "sha256": "a8d67ac5efa0def0716d813ccd9b288eaae51654221eb30112fb603cf241b247",
+    "bytes": 4299301
+  }
+}

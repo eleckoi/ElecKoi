@@ -24,6 +24,7 @@ import {
 import { findLatestRegenerateTargetMessageId } from "../model/chatRegeneration.js";
 import { selectRoleplayChatSeat, selectRoleplayPendingInput } from "../model/chatViewSeats.js";
 import { revealChatFile } from "../api/chatApi.js";
+import { useSharedFrontendRuntime } from '../../../ui/hooks/useSharedFrontendRuntime.js';
 
 const TrajectoryView = lazy(() => import("./TrajectoryDialog.jsx").then((module) => ({
   default: module.TrajectoryView,
@@ -114,6 +115,36 @@ export function ChatPanel({
   const chatPanelRef = useRef(null);
   const composerRegionRef = useRef(null);
   const headerMenuRef = useRef(null);
+  const { runtime: sharedRuntime } = useSharedFrontendRuntime();
+  const inputStateRef = useRef(input);
+  inputStateRef.current = input;
+  useEffect(() => {
+    if (!sharedRuntime || !conversationId) return undefined;
+    const handlers = {
+      'input.get': () => ({ text: inputStateRef.current || '' }),
+      'input.set': params => { const text = String(params.text ?? ''); inputStateRef.current = text; setInput(text); return { text }; },
+      'input.append': params => { const text = String(inputStateRef.current || '') + String(params.text ?? ''); inputStateRef.current = text; setInput(text); return { text }; },
+      'input.clear': () => { inputStateRef.current = ''; setInput(''); return { text: '' }; },
+      'input.send': async () => {
+        const text = inputStateRef.current;
+        if (!String(text || '').trim() && !inputImages.length && !inputFiles.length) return { submitted: false };
+        if (!onSend) throw new Error('当前对话没有发送入口。');
+        return { submitted: await onSend({ preventDefault() {} }, text) !== false };
+      },
+      'presentation.current': () => ({ conversationId, title: currentTitle, messages, isGenerating: isSending, persona, chatDisplay }),
+      'ui.showProcess': params => {
+        const message = messages.find(value => value.id === params.id);
+        if (!message) throw new Error(`显示消息不存在：${params.id}`);
+        setProcessMessage(message); return null;
+      }
+    };
+    if (onOpenChatBackground) handlers['ui.openBackground'] = () => { onOpenChatBackground(); return null; };
+    if (onOpenHistory) {
+      handlers['ui.openHistory'] = () => { onOpenHistory(); return null; };
+      handlers['chats.openHistory'] = handlers['ui.openHistory'];
+    }
+    return sharedRuntime.registerChatUi(conversationId, handlers);
+  }, [sharedRuntime, conversationId, currentTitle, messages, isSending, persona, chatDisplay, setInput, onSend, onOpenChatBackground, onOpenHistory, inputImages.length, inputFiles.length]);
 
   useLayoutEffect(() => {
     const panel = chatPanelRef.current;

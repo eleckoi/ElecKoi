@@ -5,10 +5,12 @@
 从 `@eleckoi/dsh-product-api/remote` 导入类型贡献，在 Client 中通过 `ctx.remote` 调用；装配及错误处理见 [DSH Remote](remote.md)。下列声明直接由 Host 的 `@Remote` 生成，包含真实参数、`RemoteResult` 和 `RemoteStreamHandle`。
 
 - `ctx.remote.eleckoiAgentPresets`：`assignGroup`、`catalog`、`create`、`createGroup`、`delete`、`deleteGroup`、`export`、`import`、`read`、`renameGroup`、`save`、`setActive`
+- `ctx.remote.eleckoiAuthorPlugins`：`capabilities`、`changes`、`invoke`
 - `ctx.remote.eleckoiCharacterConfiguration`：`changes`、`exportRegexRules`、`importRegexRules`、`readConversationSettingLibraries`、`readRegexRules`、`readSettingLibrary`、`readVariableConfig`、`resetConversationSettingLibrary`、`saveConversationSettingLibrary`、`saveConversationSettingLibraryVersion`、`saveRegexRules`、`saveSettingLibrary`、`saveSettingLibraryViewState`、`saveVariableConfig`、`saveVariableConfigViewState`、`testRegexRule`
 - `ctx.remote.eleckoiCharacters`：`changes`、`commitImport`、`create`、`delete`、`discardImport`、`export`、`list`、`prepareImport`、`saveGroups`、`select`、`update`
+- `ctx.remote.eleckoiCompatibility`：`capabilities`、`changes`、`invoke`
 - `ctx.remote.eleckoiConversationModels`：`current`、`select`
-- `ctx.remote.eleckoiConversations`：`authorState`、`changes`、`create`、`delete`、`deleteMessagesFrom`、`details`、`editMessage`、`exportArchive`、`importArchive`、`list`、`preparePrompt`、`projectDisplay`、`regenerateMessage`、`replaceVariableState`、`requestPreview`、`requestPreviews`、`revealFile`、`selectOpening`、`startRegeneration`、`updateOpening`、`variableTimeline`、`waitForGeneration`
+- `ctx.remote.eleckoiConversations`：`authorState`、`changes`、`completeGroupRound`、`create`、`delete`、`deleteMessagesFrom`、`details`、`editMessage`、`exportArchive`、`fork`、`importArchive`、`list`、`preparePrompt`、`projectDisplay`、`regenerateMessage`、`rename`、`replaceVariableState`、`requestPreview`、`requestPreviews`、`revealFile`、`selectOpening`、`startRegeneration`、`updateOpening`、`variableTimeline`、`waitForGeneration`
 - `ctx.remote.eleckoiCreatorStudio`：`changes`、`create`、`delete`、`list`
 - `ctx.remote.eleckoiDisplayPreferences`：`read`、`setChatDisplay`、`updateUi`
 - `ctx.remote.eleckoiModels`：`discoverModels`、`revealApiKey`、`testConnection`
@@ -23,7 +25,7 @@ import type {
   RemoteStreamHandle,
   TypertRemoteContribution,
 } from '@deepseek-ai/dsh-typert-protocol'
-import type { AgentPreset, AgentPresetCatalog, AgentPresetExportFormat, AgentPresetExportResult, AgentPresetImportDocument, AgentPresetImportResult, AgentPresetImportSource, AuthorConversationState, CharacterCollection, CharacterConfigurationChange, CharacterExportFormat, CharacterExportResult, CharacterGroupAssignment, CharacterImportFile, CharacterImportPreview, CharacterImportResult, CharacterImportSource, CharacterRecord, ConversationChange, ConversationCreateInput, ConversationDetailsMetadata, ConversationMessageDisplayInput, ConversationMessageDisplayResult, ConversationModelSelection, ConversationRequestPreview, ConversationRequestPreviewSummary, ConversationSummary, CreateCreatorProjectInput, CreatorProjectCollection, DisplayPreferencesSnapshot, DisplayPreferenceValue, ElecKoiHostStatus, ModelConnectionInput, ModelDiscoveryInput, ModelDiscoveryResult, PersonaProfile, ProductRecordChange, RegexRule, RegexRuleCollection, RegexRuleImportDocument, RegexRuleImportResult, RegexRuleScope, RegexRuleTarget, RegexRuleTestResult, SettingLibrary, SettingLibraryConversation, TavilyConnection, VariableConfig, VariableViewerTimeline, WebSearchMode } from '@eleckoi/dsh-product-api/types'
+import type { AgentPreset, AgentPresetCatalog, AgentPresetExportFormat, AgentPresetExportResult, AgentPresetImportDocument, AgentPresetImportResult, AgentPresetImportSource, AuthorConversationState, CharacterCollection, CharacterConfigurationChange, CharacterExportFormat, CharacterExportResult, CharacterGroupAssignment, CharacterImportFile, CharacterImportPreview, CharacterImportResult, CharacterImportSource, CharacterRecord, CompatibilityChange, CompatibilityCommand, CompatibilityValue, ConversationChange, ConversationCreateInput, ConversationDetailsMetadata, ConversationMessageDisplayInput, ConversationMessageDisplayResult, ConversationModelSelection, ConversationRequestPreview, ConversationRequestPreviewSummary, ConversationSummary, CreateCreatorProjectInput, CreatorProjectCollection, DisplayPreferencesSnapshot, DisplayPreferenceValue, ElecKoiHostStatus, ModelConnectionInput, ModelDiscoveryInput, ModelDiscoveryResult, PersonaProfile, ProductRecordChange, RegexRule, RegexRuleCollection, RegexRuleImportDocument, RegexRuleImportResult, RegexRuleScope, RegexRuleTarget, RegexRuleTestResult, SettingLibrary, SettingLibraryConversation, TavilyConnection, VariableConfig, VariableViewerTimeline, WebSearchMode } from '@eleckoi/dsh-product-api/types'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$656c65636b6f694167656e7450726573657473 {
@@ -71,6 +73,11 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     select: (characterId: string) => Promise<RemoteResult<CharacterCollection>>
     update: (character: CharacterRecord) => Promise<RemoteResult<CharacterCollection>>
   }
+  interface TypertRemoteNamespace$656c65636b6f69436f6d7061746962696c697479 {
+    capabilities: () => Promise<RemoteResult<{ methods: string[]; version: number; }>>
+    changes: (signal?: AbortSignal) => RemoteStreamHandle<CompatibilityChange, never>
+    invoke: (command: CompatibilityCommand) => Promise<RemoteResult<CompatibilityValue>>
+  }
   interface TypertRemoteNamespace$656c65636b6f69436f6e766572736174696f6e4d6f64656c73 {
     current: (conversationId: string) => Promise<RemoteResult<ConversationModelSelection>>
     select: (conversationId: string, selection: ConversationModelSelection) => Promise<RemoteResult<ConversationModelSelection>>
@@ -78,17 +85,20 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$656c65636b6f69436f6e766572736174696f6e73 {
     authorState: (conversationId: string) => Promise<RemoteResult<AuthorConversationState>>
     changes: (signal?: AbortSignal) => RemoteStreamHandle<ConversationChange, never>
+    completeGroupRound: (conversationId: string, cancelled: boolean, signal?: AbortSignal) => Promise<RemoteResult<{ cancelled: boolean; }>>
     create: (input: ConversationCreateInput) => Promise<RemoteResult<ConversationDetailsMetadata>>
     delete: (conversationId: string) => Promise<RemoteResult<void>>
     deleteMessagesFrom: (conversationId: string, eventSeq: number, role: 'user' | 'assistant') => Promise<RemoteResult<{ details: ConversationDetailsMetadata; deletedMessageCount: number; remainingMessageCount: number; }>>
     details: (conversationId: string, beforeSequence?: number, limit?: number) => Promise<RemoteResult<ConversationDetailsMetadata>>
     editMessage: (conversationId: string, eventSeq: number, role: 'user' | 'assistant', content: string) => Promise<RemoteResult<ConversationDetailsMetadata>>
     exportArchive: (conversationId: string) => Promise<RemoteResult<string>>
+    fork: (conversationId: string, atSeq: number | undefined, retainedTurnIds: string[], title: string) => Promise<RemoteResult<string>>
     importArchive: (characterId: string, json: string) => Promise<RemoteResult<string>>
     list: (signal?: AbortSignal) => Promise<RemoteResult<ConversationSummary[]>>
     preparePrompt: (conversationId: string, text: string, signal?: AbortSignal) => Promise<RemoteResult<{ runtimeSessionId: string; operationId: string; }>>
     projectDisplay: (conversationId: string, messages: ConversationMessageDisplayInput[]) => Promise<RemoteResult<ConversationMessageDisplayResult[]>>
     regenerateMessage: (conversationId: string, eventSeq: number, requestId: string, replacementMessage?: string) => Promise<RemoteResult<{ runtimeSessionId: string; prepared: true; operationId: string; }>>
+    rename: (conversationId: string, title: string) => Promise<RemoteResult<ConversationDetailsMetadata>>
     replaceVariableState: (conversationId: string, stateJson: string) => Promise<RemoteResult<string>>
     requestPreview: (conversationId: string, requestId: string, signal?: AbortSignal) => Promise<RemoteResult<ConversationRequestPreview>>
     requestPreviews: (conversationId: string, signal?: AbortSignal) => RemoteStreamHandle<ConversationRequestPreviewSummary[], never>
@@ -168,21 +178,27 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'eleckoiCharacters/saveGroups': (groups: string[], assignments: CharacterGroupAssignment[]) => Promise<RemoteResult<CharacterCollection>>
     'eleckoiCharacters/select': (characterId: string) => Promise<RemoteResult<CharacterCollection>>
     'eleckoiCharacters/update': (character: CharacterRecord) => Promise<RemoteResult<CharacterCollection>>
+    'eleckoiCompatibility/capabilities': () => Promise<RemoteResult<{ methods: string[]; version: number; }>>
+    'eleckoiCompatibility/changes': (signal?: AbortSignal) => RemoteStreamHandle<CompatibilityChange, never>
+    'eleckoiCompatibility/invoke': (command: CompatibilityCommand) => Promise<RemoteResult<CompatibilityValue>>
     'eleckoiConversationModels/current': (conversationId: string) => Promise<RemoteResult<ConversationModelSelection>>
     'eleckoiConversationModels/select': (conversationId: string, selection: ConversationModelSelection) => Promise<RemoteResult<ConversationModelSelection>>
     'eleckoiConversations/authorState': (conversationId: string) => Promise<RemoteResult<AuthorConversationState>>
     'eleckoiConversations/changes': (signal?: AbortSignal) => RemoteStreamHandle<ConversationChange, never>
+    'eleckoiConversations/completeGroupRound': (conversationId: string, cancelled: boolean, signal?: AbortSignal) => Promise<RemoteResult<{ cancelled: boolean; }>>
     'eleckoiConversations/create': (input: ConversationCreateInput) => Promise<RemoteResult<ConversationDetailsMetadata>>
     'eleckoiConversations/delete': (conversationId: string) => Promise<RemoteResult<void>>
     'eleckoiConversations/deleteMessagesFrom': (conversationId: string, eventSeq: number, role: 'user' | 'assistant') => Promise<RemoteResult<{ details: ConversationDetailsMetadata; deletedMessageCount: number; remainingMessageCount: number; }>>
     'eleckoiConversations/details': (conversationId: string, beforeSequence?: number, limit?: number) => Promise<RemoteResult<ConversationDetailsMetadata>>
     'eleckoiConversations/editMessage': (conversationId: string, eventSeq: number, role: 'user' | 'assistant', content: string) => Promise<RemoteResult<ConversationDetailsMetadata>>
     'eleckoiConversations/exportArchive': (conversationId: string) => Promise<RemoteResult<string>>
+    'eleckoiConversations/fork': (conversationId: string, atSeq: number | undefined, retainedTurnIds: string[], title: string) => Promise<RemoteResult<string>>
     'eleckoiConversations/importArchive': (characterId: string, json: string) => Promise<RemoteResult<string>>
     'eleckoiConversations/list': (signal?: AbortSignal) => Promise<RemoteResult<ConversationSummary[]>>
     'eleckoiConversations/preparePrompt': (conversationId: string, text: string, signal?: AbortSignal) => Promise<RemoteResult<{ runtimeSessionId: string; operationId: string; }>>
     'eleckoiConversations/projectDisplay': (conversationId: string, messages: ConversationMessageDisplayInput[]) => Promise<RemoteResult<ConversationMessageDisplayResult[]>>
     'eleckoiConversations/regenerateMessage': (conversationId: string, eventSeq: number, requestId: string, replacementMessage?: string) => Promise<RemoteResult<{ runtimeSessionId: string; prepared: true; operationId: string; }>>
+    'eleckoiConversations/rename': (conversationId: string, title: string) => Promise<RemoteResult<ConversationDetailsMetadata>>
     'eleckoiConversations/replaceVariableState': (conversationId: string, stateJson: string) => Promise<RemoteResult<string>>
     'eleckoiConversations/requestPreview': (conversationId: string, requestId: string, signal?: AbortSignal) => Promise<RemoteResult<ConversationRequestPreview>>
     'eleckoiConversations/requestPreviews': (conversationId: string, signal?: AbortSignal) => RemoteStreamHandle<ConversationRequestPreviewSummary[], never>
@@ -214,6 +230,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'eleckoiAgentPresets': TypertRemoteNamespace$656c65636b6f694167656e7450726573657473
     'eleckoiCharacterConfiguration': TypertRemoteNamespace$656c65636b6f69436861726163746572436f6e66696775726174696f6e
     'eleckoiCharacters': TypertRemoteNamespace$656c65636b6f6943686172616374657273
+    'eleckoiCompatibility': TypertRemoteNamespace$656c65636b6f69436f6d7061746962696c697479
     'eleckoiConversationModels': TypertRemoteNamespace$656c65636b6f69436f6e766572736174696f6e4d6f64656c73
     'eleckoiConversations': TypertRemoteNamespace$656c65636b6f69436f6e766572736174696f6e73
     'eleckoiCreatorStudio': TypertRemoteNamespace$656c65636b6f6943726561746f7253747564696f

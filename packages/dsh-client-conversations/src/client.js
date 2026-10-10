@@ -359,7 +359,14 @@ window.__ModuleLoader__.load({
     function officialMessages(snapshot, details, runtimeSessionId, processByTurn = new Map(), pendingSubmissions = [], sessionRunning, inputLinks = [], abortedTurns = []) {
       if (!snapshot) return (details?.messages || []).filter(message => message.id === 'opening')
       const entries = orderedChatEntries(snapshot)
+      for (const node of snapshot.nodes?.values?.() || []) {
+        const seq = Number(node.id), binding = details?.compatibilityPresentation?.bindings?.[`${runtimeSessionId}:${seq}`]
+        if (node.kind === 'system-prompt' && binding?.role === 'system' && !entries.some(entry => entry.node === node)) {
+          entries.push({ key: node.key || `plugin-system-${seq}`, node })
+        }
+      }
       const nodes = entries.map(entry => entry.node)
+      const failedTurns = new Set(nodes.filter(node => node.kind === 'turn-error').map(nodeTurn))
       const endedTurns = new Set(nodes.filter(node => node.kind === 'turn-tail')
         .map(nodeTurn).filter(Number.isSafeInteger))
       const aborted = new Set(abortedTurns)
@@ -375,12 +382,20 @@ window.__ModuleLoader__.load({
         // The official Session can publish the running assistant-step before
         // its first text/process event. Keep that real DSH node visible while
         // the Session is running; do not manufacture a product-only row.
-        if (hasActivity || (entry.node.data?.status === 'running' && sessionRunning === true)) {
+        if (hasActivity || (entry.node.data?.status === 'running' && sessionRunning === true && !failedTurns.has(turn))) {
           latestOpenAssistantByTurn.set(turn, index)
         }
       })
       const projected = entries.flatMap((entry, nodeIndex) => {
         const node = entry.node
+        if (node.kind === 'system-prompt') {
+          const seq = Number(node.id), binding = details?.compatibilityPresentation?.bindings?.[`${runtimeSessionId}:${seq}`]
+          // Only a real plugin-inserted system message has a persisted binding.
+          // Internal Agent system prompts remain part of its process projection.
+          if (!binding || binding.role !== 'system') return []
+          return [{ role: 'system', seq, time: node.location?.step?.start?.time,
+            content: node.data?.text || '', sessionEventSeq: seq }]
+        }
         if (node.kind === 'user' || node.kind === 'steering') {
           const input = node.data
           const dshTurn = projectedUserTurn(nodes, nodeIndex)
@@ -465,7 +480,8 @@ window.__ModuleLoader__.load({
       }
       const visible = projected.map((item, index) => {
         const source = matched.get(index)
-        const id = source?.id || item.dshMessageId || item.nodeKey || (item.requestId
+        const migration = details?.compatibilityPresentation?.bindings?.[`${runtimeSessionId}:${item.seq}`]
+        const id = migration?.id || source?.id || item.dshMessageId || item.nodeKey || (item.requestId
           ? `dsh-pending-${item.requestId}`
           : `dsh-${runtimeSessionId}-${item.seq}-${item.role}`)
         const runtimeVariableState = item.role === 'assistant' && Number.isSafeInteger(item.dshTurn)
@@ -498,7 +514,9 @@ window.__ModuleLoader__.load({
           // product-row metadata is only a fallback for pre-checkpoint history.
           variableStateJson: runtimeVariableState || source?.variableStateJson || '{}',
           createdAt: source?.createdAt || new Date(item.time || Date.now()).toISOString(),
-          status: item.pending ? 'streaming' : item.interrupted ? 'cancelled' : 'complete',
+          ...(item.kind ? { kind: item.kind } : {}),
+          ...(item.error ? { error: item.error, dshTurn: item.dshTurn } : {}),
+          status: item.error ? 'error' : item.pending ? 'streaming' : item.interrupted ? 'cancelled' : 'complete',
           process: mergedProcess(source?.process, processByTurn.get(item.dshTurn)),
           ...(item.turnUsage || source?.turnUsage ? { turnUsage: item.turnUsage || source.turnUsage } : {}),
           ...(item.images?.length ? { inputImageAttachments: item.images } : {}),
@@ -511,8 +529,25 @@ window.__ModuleLoader__.load({
       }).filter(item => item.keep).map(item => item.message)
       const anchor = visible.findIndex(message => Number.isSafeInteger(matched.get(projected.findIndex(item => item.seq === message.sequence))?.messageIndex))
       const firstFloor = !details?.hasMore || anchor < 0 ? opening.length : Math.max(opening.length,
-        matched.get(projected.findIndex(item => item.seq === visible[anchor].sequence)).messageIndex - anchor)
-      return [...opening, ...visible.map((message, index) => ({ ...message, messageIndex: firstFloor + index }))]
+        matched.get(projected.findIndex(item => item.seq === visible[anchor].sequence)).messageIndex
+          - visible.slice(0, anchor).filter(message => message.kind !== 'turn-error').length)
+      const presentation = details?.compatibilityPresentation, timeline = presentation?.timeline || {}, deleted = new Set(timeline.deleted || [])
+      const order = new Map((timeline.order || []).map((id, index) => [id, index]))
+      let messageFloor = firstFloor
+      let finalFloor = 0
+        return [...opening, ...visible.map(message => ({ ...message,
+          messageIndex: message.kind === 'turn-error' ? undefined : messageFloor++ }))]
+        .filter(message => !deleted.has(message.id)).map(message => {
+          const metadata = presentation?.metadata?.[message.id] || {}, extensions = presentation?.extensions?.[message.id] || {}
+          const binding = presentation?.bindings?.[`${runtimeSessionId}:${message.sessionEventSeq}`], swipes = presentation?.swipes?.[message.id] || {}
+          return { ...message, ...extensions, ...swipes, ...(presentation?.variables?.[message.id] ? { variables: presentation.variables[message.id] } : {}),
+            ...(binding?.role ? { role: binding.role } : {}), metadata, ...(typeof metadata.name === 'string' ? { name: metadata.name, speakerName: metadata.name } : {}),
+            ...(typeof metadata.speakerId === 'string' ? { speakerId: metadata.speakerId } : {}),
+            ...(typeof metadata.avatar === 'string' ? { speakerAvatar: metadata.avatar } : {}),
+            ...(metadata.extra?.reasoning !== undefined ? { reasoning: metadata.extra.reasoning } : {}) }
+        }).sort((a, b) => (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (order.get(b.id) ?? Number.MAX_SAFE_INTEGER))
+        .map(message => message.kind === 'turn-error' ? { ...message, messageIndex: undefined }
+          : { ...message, messageIndex: order.size || deleted.size ? finalFloor++ : message.messageIndex })
     }
 
     class ConversationCatalog {
@@ -820,6 +855,15 @@ window.__ModuleLoader__.load({
         next = this.applyDisplayProjection(next)
         this.detailsSnapshot = next
         this.officialProjectionSignature = officialProjectionSignature
+        // The active chat observes regex configuration even when its editor
+        // has never been opened, so existing change notifications reach it.
+        const characterId = next.details?.metadata?.characterId
+        if (next.status === 'ready' && characterId
+          && this.regexRules?.getSnapshot?.(characterId)?.status === 'idle') {
+          void this.regexRules.read(characterId).catch(error => {
+            console.error('读取聊天正则配置失败：', error)
+          })
+        }
         return next
       }
 
@@ -849,7 +893,7 @@ window.__ModuleLoader__.load({
       }
 
       displayProjectionInput(messages) {
-        return messages.filter(message => typeof message.content === 'string')
+        return messages.filter(message => (message.role === 'user' || message.role === 'assistant') && typeof message.content === 'string')
           .map(message => ({
             id: message.id,
             role: message.role,
@@ -1025,6 +1069,15 @@ window.__ModuleLoader__.load({
           return
         }
         if (change.kind !== 'messages' || change.conversationId !== this.detailsSnapshot.id) return
+        if (change.sessionRewritten === true && !this.sessionMutations.has(change.conversationId)) {
+          void this.reloadCompatibilityProjection(change.conversationId).catch(error => {
+            if (!this.disposed && this.detailsSnapshot.id === change.conversationId) this.publishDetails({
+              ...this.detailsSnapshot, status: 'error', error: error.message || String(error)
+            })
+            console.error('重载修改后的 DSH 会话失败：', error)
+          })
+          return
+        }
         if (change.reason === 'deleted' || change.reason === 'regenerated' || change.reason === 'edited') {
           if (this.sessionMutations.has(change.conversationId)
             || this.detailInvalidationFences.has(change.conversationId)) return
@@ -1127,6 +1180,31 @@ window.__ModuleLoader__.load({
         return this.detailsSnapshot.details
       }
 
+      async reloadCompatibilityProjection(conversationId) {
+        if (this.disposed || this.detailsSnapshot.id !== conversationId) return
+        const runtimeSessionId = this.sessionReference?.sessionId || this.runtimeSessionId(conversationId) || this.detailsSnapshot.runtimeSessionId
+        this.releaseOfficialSession()
+        this.invalidateDetails(conversationId)
+        if (runtimeSessionId && this.sessions) await this.sessions.reloadHistory(runtimeSessionId)
+        await this.bindOfficialSession(conversationId, runtimeSessionId)
+        return this.refreshDetails()
+      }
+
+      async mutateCompatibilityTimeline(conversationId, operation) {
+        if (!conversationId || typeof operation !== 'function') throw new Error('修改消息需要绑定的会话和实际操作。')
+        if (this.detailsSnapshot.id !== conversationId) {
+          const result = await operation()
+          const runtimeSessionId = this.runtimeSessionId(conversationId)
+          if (runtimeSessionId && this.sessions) await this.sessions.reloadHistory(runtimeSessionId)
+          return result
+        }
+        const result = await this.mutateSession(conversationId, operation)
+        await this.sessions.refresh()
+        await this.bindOfficialSession(conversationId)
+        await this.refreshDetails()
+        return result
+      }
+
       async deleteMessagesFrom(conversationId, eventSeq, role) {
         if (!this.sessions || !this.uiConversation) throw new Error('DSH 会话客户端尚未就绪。')
         this.detailInvalidationFences.add(conversationId)
@@ -1178,6 +1256,7 @@ window.__ModuleLoader__.load({
       activate(id) {
         if (this.disposed) return
         if (id === this.detailsSnapshot.id) return
+        this.displayProjectionResults = new Map()
         this.releaseOfficialSession()
         this.publishStats('', null)
         this.detailGeneration += 1
@@ -1197,7 +1276,8 @@ window.__ModuleLoader__.load({
       releaseOfficialSession() {
         this.displayProjectionGeneration += 1
         this.displayProjectionKey = ''
-        this.displayProjectionResults = new Map()
+        // Same-chat Session rewrites keep unchanged authored display documents.
+        // applyDisplayProjection still rejects entries whose source/input changed.
         this.displayProjectionPromise = null
         this.sessionBindingGeneration += 1
         this.stopSessionTarget()
@@ -1535,7 +1615,8 @@ window.__ModuleLoader__.load({
         const promptError = sessionState.promptError?.op === 'send'
           ? sessionState.promptError.error?.message || '生成失败。'
           : ''
-        const executionError = promptError || sessionState.lastAgentError || sessionState.openError?.message
+        const terminalFailure = orderedChatNodes(chat).findLast(node => node.kind === 'turn-error' && nodeTurn(node) === openTurn)
+        const executionError = promptError || sessionState.lastAgentError || terminalFailure?.data?.message || sessionState.openError?.message
           || (sessionState.removed ? 'DSH 会话已关闭。' : '')
         const cancellationSettling = this.cancelledStreamConversations.has(id)
         // DSH publishes the turn-tail as soon as `turn/end` is observed. Its
@@ -1770,7 +1851,11 @@ window.__ModuleLoader__.load({
         if (request.cancelled || input.signal?.aborted) this.unwrap(await session.cancel(), '停止生成失败。')
         const completed = await waitForOfficialSession(session, this.sessionReference.binding.eventSource, input.requestId)
         if (prepared.operationId) {
-          this.unwrap(await this.remote.eleckoiConversations.waitForGeneration(conversationId, prepared.operationId), '等待保存及插件收尾失败。')
+          this.unwrap(await this.remote.eleckoiConversations.waitForGeneration(conversationId, prepared.operationId), '等待聊天保存失败。')
+        }
+        if (this.detailsSnapshot.id === conversationId && this.detailsSnapshot.details?.compatibilityPresentation?.groupId) {
+          const group = this.unwrap(await this.remote.eleckoiConversations.completeGroupRound(conversationId, completed.cancelled || request.cancelled), '群聊回合执行失败。')
+          completed.cancelled ||= group.cancelled
         }
         const details = this.detailsSnapshot.id === conversationId
           ? await this.refreshDetails()
@@ -1846,6 +1931,9 @@ window.__ModuleLoader__.load({
         }
         await this.sessions.refresh()
         await this.bindOfficialSession(input.conversationId)
+        // Rewind invalidates the projection. Request presentation hooks need the
+        // fresh retained history before the Agent can begin its next request.
+        if (this.detailsSnapshot.id === input.conversationId) await this.refreshDetails()
         request.statsBaselineSteps = this.latestStatsSnapshot.stats?.sessionStats?.steps ?? 0
         const session = this.sessionReference?.binding.session
         if (!session || prepared.prepared !== true) throw new Error('重新生成请求未完成 DSH Session 回退。')
@@ -1861,7 +1949,7 @@ window.__ModuleLoader__.load({
         if (request.cancelled || input.signal?.aborted) this.unwrap(await session.cancel(), '停止生成失败。')
         const completed = await waitForOfficialSession(session, this.sessionReference.binding.eventSource, input.requestId, accepted.turn)
         if (prepared.operationId) {
-          this.unwrap(await this.remote.eleckoiConversations.waitForGeneration(input.conversationId, prepared.operationId), '等待保存及插件收尾失败。')
+          this.unwrap(await this.remote.eleckoiConversations.waitForGeneration(input.conversationId, prepared.operationId), '等待聊天保存失败。')
         }
         const details = await this.refreshDetails()
         return {
@@ -1966,7 +2054,10 @@ window.__ModuleLoader__.load({
             await this.displayProjectionPromise
             return this.detailsSnapshot.details
           }
-          return projected
+          // A newer Session publication can supersede this read. Its return
+          // value still feeds the renderer, so apply matching display results
+          // just as the published snapshot does.
+          return this.applyDisplayProjection({ id, status: 'ready', details: projected }).details
         } catch (error) {
           if (!this.disposed && generation === this.detailGeneration && this.detailsSnapshot.id === id) {
             this.publishDetails({

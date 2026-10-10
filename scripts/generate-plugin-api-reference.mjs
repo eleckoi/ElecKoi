@@ -1,11 +1,15 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import vm from 'node:vm'
+import { createRequire } from 'node:module'
 import {
   WorkspaceAnalyzer, CordisCatalogProjector, TypeGraphRenderer,
   FaceModelEmitter, renderPageRegion
 } from '@deepseek-ai/dsh-typert-generator'
+
+const require = createRequire(import.meta.url)
+const ts = createRequire(require.resolve('@deepseek-ai/dsh-typert-generator'))('typescript')
 
 const foundationTypes = new Set([
   'Promise', 'AsyncIterable', 'AsyncIterator', 'Iterator', 'Array', 'ReadonlyArray',
@@ -183,14 +187,34 @@ async function checkClientImplementation(root, row, members) {
   let plugin
   const services = new Map()
   const react = { lazy: () => () => null, createElement: () => null }
-  vm.runInNewContext(await readFile(resolve(root, row.packageRoot, 'src/client.js'), 'utf8'), {
-    window: { __ModuleLoader__: { load: entry => { plugin = entry.factory(name => {
-      if (name === 'react') return react
-      throw new Error(`接口探针不支持执行依赖：${name}`)
-    }) } } }, AbortController, AbortSignal, console
+  const assetsBaseUrl = 'https://eleckoi.invalid/probe/'
+  const document = { createElement: () => ({}), head: { appendChild: script => queueMicrotask(() => script.onload()) } }
+  const window = { document, location: { href: assetsBaseUrl }, __ModuleLoader__: { load: entry => { plugin = entry.factory(name => {
+    if (name === 'react') return react
+    throw new Error(`接口探针不支持执行依赖：${name}`)
+  }) } } }
+  const source = ts.createSourceFile('client.js', await readFile(resolve(root, row.packageRoot, 'src/client.js'), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)
+  const transformed = ts.transform(source, [context => {
+    const visit = node => ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword
+      ? ts.factory.updateCallExpression(node, ts.factory.createIdentifier('__probeImport'), node.typeArguments, node.arguments)
+      : ts.visitEachChild(node, visit, context)
+    return node => ts.visitNode(node, visit)
+  }])
+  const probe = ts.createPrinter().printFile(transformed.transformed[0])
+  transformed.dispose()
+  vm.runInNewContext(probe, {
+    window, document, URL, AbortController, AbortSignal, console,
+    __probeImport: specifier => {
+      if (row.packageName !== '@eleckoi/dsh-client-tavern-shared' || specifier !== assetsBaseUrl + 'client/runtime.js') {
+        throw new Error(`接口探针没有登记浏览器模块：${specifier}`)
+      }
+      return import(pathToFileURL(resolve(root, row.packageRoot, 'src/runtime.js')).href)
+    }
   }, { filename: `${row.packageRoot}/src/client.js`, timeout: 1000 })
-  plugin.apply({ remote: {}, provide: (key, value) => services.set(key, value),
-    effect: () => {}, on: () => () => {}, slots: { inject: () => {} } })
+  await plugin.apply({ remote: { eleckoiAuthorPlugins: { capabilities: async () => ({ ok: true, value: { assetsBaseUrl } }) } },
+    eleckoiConversations: { getDetailsSnapshot: () => ({ id: null }) },
+    provide: (key, value) => services.set(key, value), effect: () => {}, on: () => () => {},
+    slots: { inject: () => {}, entriesOfSlot: () => [], subscribe: () => () => {} } })
   const service = services.get(row.id)
   if (!service) throw new Error(`实现没有提供 ctx.${row.id}`)
   for (const member of members) {

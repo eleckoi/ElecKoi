@@ -75,7 +75,11 @@ function decodeDocument(source: string, fallbackScope: RegexRuleScope): ScopedRe
         displayOnly: booleanValue(value.display_only, booleanValue(value.markdownOnly)),
         promptOnly: booleanValue(value.prompt_only, booleanValue(value.promptOnly)),
         runOnEdit: booleanValue(value.run_on_edit, booleanValue(value.runOnEdit)),
-        order: index
+        order: index,
+        trimStrings: (value.trimStrings ?? value.trim_strings ?? []) as string[],
+        minDepth: (value.minDepth ?? value.min_depth ?? null) as number | null,
+        maxDepth: (value.maxDepth ?? value.max_depth ?? null) as number | null,
+        substituteRegex: Number(value.substituteRegex ?? 0) as 0 | 1 | 2
       }
     })
   })

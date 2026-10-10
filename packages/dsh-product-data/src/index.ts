@@ -1,4 +1,5 @@
-import { isAbsolute } from 'node:path'
+import { dirname, isAbsolute, join } from 'node:path'
+import { CompatibilityStore } from './storage/compatibility/CompatibilityStore'
 import type { Context, Plugin } from '@deepseek-ai/cordis'
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
@@ -19,6 +20,7 @@ import {
   resolveVariableContextCharacterCardMacros
 } from '@product-data/domain/agent/CharacterCardMacroResolver'
 import { mergeAgentPresetAndCharacterLibraries } from '@product-data/domain/agentPresets'
+import { projectAgentPresetRuntimeContext, projectAgentPresetRuntimeSelection, disabledAgentPresetToolGroupIds } from '@product-data/domain/agentPresets/AgentPresetRuntime'
 import {
   characterCardMacroValues,
   resolveCharacterCardMacros,
@@ -43,6 +45,7 @@ import type { CharacterCollection, CharacterRecord, Persona } from '@shared/cont
 import type { ChatMessage } from '@shared/contracts/entities/chat'
 import type { SettingLibrary } from '@shared/contracts/settingLibrary/schemas'
 import type { VariableConfig } from '@shared/contracts/variables/schemas'
+import { normalizeChatDisplaySettings as normalizeCanonicalChatDisplaySettings } from '@shared/contracts/settings/schemas'
 import type { CreatorProjectCollection, CreatorProjectMode } from '@shared/contracts/creatorStudio/schemas'
 import type {
   AgentPreset,
@@ -151,6 +154,7 @@ class HostPersonaConversationSync {
 }
 
 class ProductDataStore {
+  private compatibility: CompatibilityStore | undefined
   private connection: Database.Database | undefined
   private personas: PersonaRepository | undefined
   private characters: CharacterRepository | undefined
@@ -217,13 +221,19 @@ class ProductDataStore {
       const presets = new AgentPresetRepository(store, media)
       presets.ensureInitialized()
       this.presets = presets
-      this.regexRules = new RegexRuleRepository(store, presets)
+      const regexExtensions = {
+        read: (scope: string) => (this.compatibilityStore().get('regex-rule-extensions', scope) ?? {}) as Record<string, Partial<RegexRule>>,
+        replace: (scope: string, rules: RegexRule[]) => this.compatibilityStore().put('regex-rule-extensions', scope,
+          Object.fromEntries(rules.map(rule => [rule.id, { trimStrings: rule.trimStrings ?? [], minDepth: rule.minDepth ?? null,
+            maxDepth: rule.maxDepth ?? null, substituteRegex: rule.substituteRegex ?? 0 }])))
+      }
+      this.regexRules = new RegexRuleRepository(store, presets, regexExtensions)
       this.transfers = new CharacterTransferService(
         store,
         this.characters,
         this.settingLibraries,
         this.variables,
-        new RegexRuleRepository(store, presets),
+        this.regexRules,
         media
       )
     }
@@ -250,6 +260,11 @@ class ProductDataStore {
 
   readCharacters(): CharacterCollection {
     return this.withPrimaryOpenings(this.databaseRepositories().characters.get())
+  }
+
+  compatibilityStore(): CompatibilityStore {
+    if (!this.path || !isAbsolute(this.path)) throw new Error('Compatibility storage requires the product data directory')
+    return this.compatibility ??= new CompatibilityStore(join(dirname(this.path), 'author-plugins'))
   }
 
   setDisplayPreferences(value: unknown): void {
@@ -313,10 +328,11 @@ class ProductDataStore {
     snapshot: Parameters<ConversationArchiveRepository['import']>[0],
     characterId: string,
     runtimeIds: ReadonlyMap<string, string>,
-    conversationId: string
+    conversationId: string,
+    options?: { preserveIds?: boolean }
   ) {
     this.databaseRepositories()
-    return this.archives!.import(snapshot, characterId, runtimeIds, conversationId)
+    return this.archives!.import(snapshot, characterId, runtimeIds, conversationId, options)
   }
 
   snapshotConversationRuntime(conversationId: string) {
@@ -434,11 +450,11 @@ class ProductDataStore {
           activeVersionId: '',
           revision: 0
         }
-    return messages.map((input) => {
+    return messages.map((input, index) => {
       const projected = this.messageDisplayProjector.project({
         ...input,
         conversationId
-      }, collection, macroValues)
+      }, collection, macroValues, messages.length - index - 1)
       return {
         id: input.id,
         sourceContent: input.content,
@@ -533,6 +549,16 @@ class ProductDataStore {
     await this.conversations!.delete(conversationId)
   }
 
+  normalizeChatDisplaySettings(value: unknown): unknown {
+    return normalizeCanonicalChatDisplaySettings(value)
+  }
+
+  renameConversation(conversationId: string, title: string) {
+    this.databaseRepositories()
+    this.conversations!.rename(conversationId, title)
+    return this.readConversationDetails(conversationId)
+  }
+
   selectConversationOpening(conversationId: string, openingId: string) {
     this.databaseRepositories()
     this.conversations!.selectOpening(conversationId, openingId)
@@ -545,10 +571,18 @@ class ProductDataStore {
     return this.readConversationDetails(conversationId)
   }
 
-  prepareConversationRuntime(conversationId: string, text: string) {
+  prepareConversationRuntime(conversationId: string, text: string, options: { preset?: AgentPreset; persona?: Record<string, unknown>; characterId?: string } = {}) {
     this.databaseRepositories()
     const metadata = this.conversations!.getMetadata(conversationId)
-    const characterBinding = this.conversations!.getCharacterBinding(conversationId)
+    if (options.characterId) {
+      const character = this.readCharacters().items.find(item => item.id === options.characterId)
+      if (!character) throw new Error(`群聊成员不存在：${options.characterId}`)
+      metadata.characterId = character.id; metadata.characterName = typeof character.name === 'string' ? character.name : character.id
+      metadata.characterAvatar = typeof character.avatar === 'string' ? character.avatar : ''
+      metadata.characterPersona = { ...metadata.characterPersona, ...(isRecord(character.persona) ? character.persona : {}) }
+    }
+    if (options.persona) metadata.characterPersona = { ...metadata.characterPersona, ...options.persona }
+    const characterBinding = { characterId: metadata.characterId }
     const macroValues = characterCardMacroValues(metadata, metadata.characterPersona.user_name)
     const variableContext = resolveVariableContextCharacterCardMacros(
       this.variableStates?.runtimeContext(conversationId, characterBinding),
@@ -557,10 +591,11 @@ class ProductDataStore {
     const regexRules = metadata.characterId
       ? this.requireRegexRules().get(metadata.characterId)
       : undefined
+    if (regexRules && options.preset) regexRules.agentPresetRules = options.preset.regexRules
     const preset = this.requirePresets()
-    const disabledToolGroupIds = preset.disabledToolGroupIds()
+    const disabledToolGroupIds = options.preset ? disabledAgentPresetToolGroupIds(options.preset) : preset.disabledToolGroupIds()
     const rawSettingLibrary = mergeAgentPresetAndCharacterLibraries(
-      preset.runtimeContext(),
+      options.preset ? projectAgentPresetRuntimeContext(options.preset) : preset.runtimeContext(),
       this.settingLibraries!.runtimeContext(conversationId, characterBinding)
     )
     const macroSettingLibrary = resolveSettingLibraryCharacterCardMacros(rawSettingLibrary, macroValues)
@@ -584,6 +619,7 @@ class ProductDataStore {
     return {
       conversationId,
       runtimeSessionId: this.runtimeSessionId(conversationId),
+      promptTextContext: { macros: macroValues, rules: regexRules },
       variableContext,
       conversationContext: {
         characterId: metadata.characterId,
@@ -595,11 +631,26 @@ class ProductDataStore {
         ...(settingLibrary ? { settingLibrary } : {})
       },
       disabledToolGroupIds,
-      agentPreset: preset.runtimeSelection(),
+      agentPreset: options.preset ? projectAgentPresetRuntimeSelection(options.preset) : preset.runtimeSelection(),
       settingLibraryBaseline: rawSettingLibrary && settingLibrary
         ? { source: rawSettingLibrary, projected: settingLibrary }
         : undefined
     }
+  }
+
+  projectConversationPromptHistory<T extends { role: string; content: string }>(
+    history: readonly T[],
+    preparation: { promptTextContext: { macros?: CharacterCardMacroValues; rules?: RegexRuleCollection } }
+  ): T[] {
+    const { macros, rules } = preparation.promptTextContext
+    // The pending input is depth zero; the latest saved message is depth one.
+    // Keep identities, speaker bindings, attachments and extension fields intact.
+    return history.map((message, index) => ({
+      ...message,
+      content: message.role === 'user' || message.role === 'assistant'
+        ? runtimeText(message.content, macros, rules, message.role === 'user' ? 'UserInput' : 'AiOutput', history.length - index)
+        : message.content
+    }))
   }
 
   commitConversationRuntime(
@@ -626,7 +677,7 @@ class ProductDataStore {
         this.settingLibraries!.replaceConversationRuntimeState(
           conversationId,
           settingLibraryStateJson,
-          characterBinding,
+          { characterId: settingLibraryBaseline.source.characterId || characterBinding.characterId },
           settingLibraryBaseline,
           db
         )
@@ -881,6 +932,8 @@ class ProductDataStore {
   }
 
   close(): void {
+    this.compatibility?.close()
+    this.compatibility = undefined
     this.connection?.close()
     this.connection = undefined
     this.personas = undefined
@@ -923,10 +976,15 @@ function runtimeText(
   source: string,
   macros: CharacterCardMacroValues | undefined,
   rules: RegexRuleCollection | undefined,
-  target: 'UserInput' | 'AiOutput'
+  target: 'UserInput' | 'AiOutput',
+  depth = 0
 ): string {
   const expanded = macros ? resolveCharacterCardMacros(source, macros) : source
-  return rules ? transformCollectionSurface(expanded, rules, target, 'Prompt') : expanded
+  return rules ? transformCollectionSurface(expanded, rules, target, 'Prompt', {
+      depth, expandMacros: (value, escape) => macros ? resolveCharacterCardMacros(value, {
+        userName: escape?.(macros.userName) ?? macros.userName, characterName: escape?.(macros.characterName) ?? macros.characterName
+      }) : value
+    }) : expanded
 }
 
 function parseJsonObject(value: string): Record<string, unknown> {

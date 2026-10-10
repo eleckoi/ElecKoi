@@ -1,0 +1,5 @@
+@agnai/web-tokenizers 0.1.6-pre3 (bundled WebAssembly runtime): Apache-2.0; https://github.com/mlc-ai/tokenizers-cpp/tree/main/web
+@agnai/sentencepiece-js 1.1.1 (pinned comparison/build tooling): Apache-2.0; https://github.com/JanKaul/sentencepiece
+Both package manifests declare Apache-2.0. The shared license text is supplied in tokenizers.Apache-2.0.LICENSE.txt.
+js-tiktoken 1.0.21: MIT; tiktoken.LICENSE.txt. SillyTavern 1.19.0 model-to-tokenizer resolver: AGPL-3.0; SillyTavern.LICENSE.txt.
+Vocabulary provenance and SHA-256 are recorded separately in tokenizer-models/manifest.json.

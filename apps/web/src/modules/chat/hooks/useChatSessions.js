@@ -745,6 +745,7 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
     isSending: chatBusy,
     filteredSessions,
     historyOpen,
+    visibleConversationSessions,
     pinnedIds,
     currentTitle,
     chatCharacter,

@@ -48,6 +48,8 @@
     "build": "pnpm build:host && pnpm build:client"
   },
   "dependencies": {
+    "fflate": "0.8.3",
+    "@eleckoi/dsh-worldbook-compat": "workspace:*",
     "@eleckoi/dsh-client-roleplay": "workspace:*",
     "@deepseek-ai/cordis": "4.0.4",
     "@deepseek-ai/dsh-agent": "0.2.0-rc.2",
@@ -104,6 +106,21 @@
         "relation": "provides",
         "members": ["register"],
         "owner": "eleckoiConversationLifecycle"
+      },
+      {
+        "id": "eleckoiCompatibilityRemote",
+        "kind": "remote",
+        "title": "酒馆兼容产品能力",
+        "description": "通过现有产品服务调用兼容命令、读取能力清单并订阅变更。",
+        "mode": "call-and-listen",
+        "scope": "host",
+        "relation": "provides",
+        "members": [
+          "capabilities",
+          "invoke",
+          "changes"
+        ],
+        "owner": "eleckoiCompatibility"
       },
       {
         "id": "eleckoiSystem",
@@ -322,6 +339,9 @@
           "revealFile",
           "create",
           "delete",
+          "rename",
+          "fork",
+          "completeGroupRound",
           "preparePrompt",
           "waitForGeneration",
           "editMessage",

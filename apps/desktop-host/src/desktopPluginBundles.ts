@@ -17,18 +17,20 @@ export const ELECKOI_DESKTOP_BUNDLES = [
   '@eleckoi/dsh-client-web-search',
   '@eleckoi/dsh-client-shell',
   '@eleckoi/dsh-client-roleplay',
+  '@eleckoi/dsh-client-tavern-shared',
+  '@eleckoi/dsh-compatibility-host',
   '@eleckoi/dsh-product-api',
   '@eleckoi/dsh-runtime'
 ] as const
 
 /**
  * Register shipped bundles once while retaining the profile's existing selections.
- * TODO(迁移清理)：受支持的升级及 profile 恢复入口都已完成 bundles-v5 登记后，
+ * TODO(迁移清理)：受支持的升级及 profile 恢复入口都已完成 bundles-v6 登记后，
  * 删除本函数、Host 调用、专用 import 和旧 profile 迁移用例。保留
  * ELECKOI_DESKTOP_BUNDLES 与新 profile 的 initProfile 初始化及正常启停测试。
  */
 export function registerDesktopBundles(profile: string): void {
-  const marker = join(profile, '.eleckoi-desktop-bundles-v5')
+  const marker = join(profile, '.eleckoi-desktop-bundles-v6')
   if (existsSync(marker)) return
   const manifest = readProfileManifest('dsh', profile)
   const selected = manifest.dsh?.profile?.bundles ?? []

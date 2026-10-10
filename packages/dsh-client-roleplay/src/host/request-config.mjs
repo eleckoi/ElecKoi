@@ -50,7 +50,7 @@ export function installRequestConfig(agentCtx, snapshotRoot, sourceSessionId) {
     }
   }, { prepend: true })
   const disposeCompaction = agentCtx.on('llm/stream', (options, next) => {
-    if (reroutedCompactions.has(options)) return next()
+    if (options.sessionId !== sourceSessionId || reroutedCompactions.has(options)) return next()
     const snapshot = readSessionSnapshot(snapshotRoot, sourceSessionId)
     const projected = projectCompactionRequest(
       options,

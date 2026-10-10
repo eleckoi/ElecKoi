@@ -22,7 +22,9 @@
     "lib/index.js.map",
     "lib/media.js",
     "lib/media.d.ts",
-    "lib/media.js.map"
+    "lib/media.js.map",
+    "lib/*.js",
+    "lib/*.js.map"
   ],
   "scripts": {
     "build": "tsdown"

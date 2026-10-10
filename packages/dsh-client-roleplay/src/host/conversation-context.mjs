@@ -24,6 +24,13 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
     const session = agentCtx.sessions.get(options.sessionId)
     if (!session) return next()
     const snapshot = read()
+    const worldbooks = agentCtx.get?.('eleckoiWorldbookRounds', false)
+    const worldbookRound = worldbooks?.current(options.sessionId)
+    if (worldbookRound) snapshot.conversationContext = {
+      ...snapshot.conversationContext,
+      worldbookRound,
+      settingLibrary: worldbooks.nativeStaticLibrary({ conversationContext: snapshot.conversationContext }, worldbookRound)
+    }
     const projection = requestProjectionSnapshot(snapshot.conversationContext)
     const surface = session.deriveMessages()
     const currentUser = surface.findLast(isDirectUserMessage)
@@ -70,7 +77,7 @@ export function projectRequestInput(surface, snapshot, transform) {
   return messages
 }
 
-function sessionInstructions(snapshot) {
+export function sessionInstructions(snapshot) {
   const additions = settingInjections(snapshot.conversationContext)
     .filter((entry) => entry.anchor === 'instructions')
     .map((entry) => entry.content)
@@ -433,8 +440,7 @@ export function renderRuntimeContext(context) {
 }
 
 export function settingInjections(context) {
-  const library = context?.settingLibrary
-  if (!library) return []
+  const library = context?.settingLibrary ?? {}
   const promptPositions = new Map((library.promptPositions || []).map((position) => [position.id, position]))
   const automatic = (library.entries || [])
     .filter((entry) => entry?.enabled
@@ -469,12 +475,43 @@ export function settingInjections(context) {
     placementRank: 3, positionOrder: 0, order: index + 1,
     traceTitle: `Agent 必读 · ${entry.title}`, traceSource: '缓存设定区'
   }))
-  return [...automatic, ...required]
+  return [...automatic, ...required, ...worldbookSettingInjections(context, promptPositions)]
     .sort((left, right) => anchorOrder(left.anchor) - anchorOrder(right.anchor)
       || left.placementRank - right.placementRank
       || left.positionOrder - right.positionOrder
       || left.order - right.order
       || left.id.localeCompare(right.id))
+}
+
+export function worldbookSettingInjections(context, promptPositions = new Map()) {
+  const round = context?.worldbookRound
+  if (!round) return []
+  const entries = [...round.fragments, ...round.examples]
+  if (round.authorNote?.content && round.authorNote.position !== 'none') entries.push({
+    id: 'authors-note', content: round.authorNote.content, role: round.authorNote.role ?? 'system', worldbookPosition: 'at_depth'
+  })
+  const anchors = {
+    beforeCharacterDefinition: 'insert_point_1', afterCharacterDefinition: 'insert_point_2',
+    beforeExamples: 'insert_point_2', examples: 'insert_point_2', afterExamples: 'insert_point_2',
+    beforeBaseInstructions: 'instructions', beforeHistory: 'insert_point_1',
+    beforeLatestUserInput: 'insert_point_3', afterLatestUserInput: 'insert_point_4', afterHistory: 'insert_point_5'
+  }
+  return entries.filter(entry => typeof entry.content === 'string' && entry.content.trim()).map((entry, index) => {
+    const native = entry.nativePlacement
+    const custom = native && promptPositions.get(native.promptPositionId)
+    const cache = !native && entry.worldbookPosition === 'at_depth'
+    const anchor = cache ? 'insert_point_1' : native ? custom?.anchor ?? native.position : anchors[entry.anchor]
+    if (!['instructions', 'insert_point_1', 'insert_point_2', 'insert_point_3', 'insert_point_4', 'insert_point_5'].includes(anchor)) {
+      throw new Error(`世界书条目 ${entry.id} 缺少明确的请求位置。`)
+    }
+    if (!['system', 'user', 'assistant'].includes(entry.role)) throw new Error(`世界书条目 ${entry.id} 的消息角色无效。`)
+    return {
+      id: `worldbook:${entry.id}`, content: entry.content, role: entry.role, anchor,
+      placementRank: cache ? 3 : custom?.side === 'before_setting_position' ? 0 : custom?.side === 'after_setting_position' ? 2 : 1,
+      positionOrder: custom?.order ?? 0, order: Number.isInteger(entry.order) ? entry.order : index,
+      traceTitle: `世界书 · ${entry.id}`, traceSource: cache ? '缓存设定区' : custom?.name || positionLabel(anchor)
+    }
+  })
 }
 
 function anchorOrder(anchor) {

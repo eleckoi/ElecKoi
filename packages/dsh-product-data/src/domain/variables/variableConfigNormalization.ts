@@ -12,7 +12,7 @@ import {
 } from '@shared/contracts/variables/schemas'
 import { generatedInitialStateJson } from '@shared/foundation/variables/initialState'
 
-const valueTypes = new Set(['', 'number', 'string', 'boolean', 'array'])
+const valueTypes = new Set(['', 'number', 'string', 'boolean', 'object', 'array'])
 
 function validObjectJson(value: string): boolean {
   try {

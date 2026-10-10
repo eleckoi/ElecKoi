@@ -1,0 +1,66 @@
+{
+  "name": "@eleckoi/dsh-client-tavern-shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": {
+      "types": "./src/client/types.ts",
+      "default": "./src/client.js"
+    },
+    "./runtime": "./src/runtime.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "dependencies": {
+    "@eleckoi/dsh-compatibility-host": "workspace:*",
+    "@eleckoi/compatibility-tavern-shared": "workspace:*",
+    "@eleckoi/dsh-product-api": "workspace:*"
+  },
+  "scripts": {},
+  "engines": {
+    "dsh": "0.2.0-rc.2"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@eleckoi/dsh-compatibility-host",
+        "@eleckoi/dsh-product-api",
+        "@eleckoi/dsh-client-conversations",
+        "@eleckoi/dsh-client-display-preferences",
+        "@eleckoi/dsh-client-characters",
+        "@eleckoi/dsh-client-character-configuration",
+        "@eleckoi/dsh-client-presets",
+        "@eleckoi/dsh-client-models",
+        "@eleckoi/dsh-client-persona",
+        "@eleckoi/dsh-client-web-search",
+        "@eleckoi/dsh-client-creator-studio"
+      ]
+    }
+  },
+  "eleckoi": {
+    "developerInterfaces": [
+      {
+        "id": "eleckoiTavernShared",
+        "kind": "service",
+        "title": "应用共享插件运行时",
+        "description": "应用持有的 JS 共享环境，供脚本、聊天 HTML、插件面板互通，并接入同一宿主协议。",
+        "mode": "call-and-listen",
+        "scope": "client",
+        "relation": "provides",
+        "members": [
+          "getSnapshot",
+          "subscribe",
+          "openPanel",
+          "registerChatUi",
+          "capturePresentation"
+        ]
+      }
+    ]
+  }
+}

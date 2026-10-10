@@ -33,6 +33,7 @@ release/
 packages/dsh-product-api/lib/
 packages/dsh-product-data/lib/
 packages/dsh-client-*/lib/
+packages/dsh-compatibility-host/lib/
 apps/desktop/resources/native/
 coverage/
 playwright-report/

@@ -8,12 +8,17 @@ import { WebSearchProvider } from "../../modules/agentTools/index.js";
 import { AppearanceProvider } from "../../modules/appearance/index.js";
 import { DisplayPreferencesProvider } from "../../modules/settings/index.js";
 import { OfficialMarkdownProvider } from "../../ui/messages/OfficialMarkdown.jsx";
+import { ApplicationFrontendController } from "../../modules/authorFrontend/index.js";
 
 export default function App(props = {}) {
   return <OfficialMarkdownProvider component={props.markdownComponent}>
     <AppearanceProvider model={props.appearance}>
     <DisplayPreferencesProvider model={props.displayPreferences}>
-      <WebSearchProvider model={props.webSearch}><AppContent {...props} /></WebSearchProvider>
+      <WebSearchProvider model={props.webSearch}>
+        <ApplicationFrontendController slots={props.slots} subscribeSlots={props.subscribeSlots} navigation={props.navigation}>
+          {navigation => <AppContent {...props} navigation={navigation} />}
+        </ApplicationFrontendController>
+      </WebSearchProvider>
     </DisplayPreferencesProvider>
     </AppearanceProvider>
   </OfficialMarkdownProvider>;

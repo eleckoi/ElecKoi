@@ -5,7 +5,8 @@ import { dirname } from 'node:path'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { SessionWriteLease } from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { editDshSessionMessage } from './sessionMessageEdit'
-import { readDshSessionLog, removeDshSessionTree } from './trajectory'
+import { mutateDshCompatibilityTimeline, type CompatibilityTimelineMutation } from './sessionCompatibilityTimeline'
+import { readDshSessionLog, removeDshSessionTree, readDshTrajectory, type DshTrajectoryReadOptions } from './trajectory'
 import { refreshSessionProjections, type SessionProjectionRefreshContext } from './sessionProjectionRefresh'
 
 export const name = 'eleckoi-session-edit'
@@ -19,6 +20,23 @@ export function apply(ctx: SessionProjectionRefreshContext & {
   const sessionRoot = process.env.DSH_SESSION_ROOT
   if (!sessionRoot) throw new Error('DSH_SESSION_ROOT is required')
   ctx.provide('eleckoiSessionEditor', {
+    readTrajectory(sessionId: string, options?: DshTrajectoryReadOptions) {
+      return readDshTrajectory(sessionRoot, sessionId, options)
+    },
+    async mutateTimeline(sessionId: string, mutation: CompatibilityTimelineMutation) {
+      return ctx.eleckoiSessionHandles.withClosed(sessionId, async () => {
+        const probe = await ctx.sessionPersistence.open(SessionId(sessionId), 'write')
+        await probe.close()
+        const log = readDshSessionLog(sessionRoot, sessionId)
+        if (!log) throw new Error('当前聊天对应的 DSH 会话日志无法读取。')
+        const lease = await SessionWriteLease.acquire(dirname(log.path), SessionId(sessionId))
+        try {
+          const result = mutateDshCompatibilityTimeline(sessionRoot, sessionId, mutation)
+          await refreshSessionProjections(ctx, sessionId)
+          return result
+        } finally { await lease.release() }
+      })
+    },
     async editMessage(sessionId: string, eventSeq: number, role: 'user' | 'assistant', content: string): Promise<void> {
       await ctx.eleckoiSessionHandles.withClosed(sessionId, async () => {
         const probe = await ctx.sessionPersistence.open(sessionId as SessionId, 'write')

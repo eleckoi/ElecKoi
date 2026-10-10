@@ -1,0 +1,63 @@
+{
+  "name": "@eleckoi/compatibility-tavern-shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared Tavern compatibility runtime with injected Host services.",
+  "main": "./src/index.js",
+  "types": "./types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./plugin-types": "./types/plugins.d.ts",
+    "./runtime": "./dist/tavern-runtime.global.js",
+    "./browser": "./dist/tavern-shared.global.js",
+    "./browser-libraries": "./src/browser-libraries.js",
+    "./assets/*": "./assets/*"
+  },
+  "files": [
+    "src",
+    "types",
+    "dist",
+    "assets",
+    "SOURCE.json",
+    "LIBRARY-SOURCE.json"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check:types": "tsc --noEmit --skipLibCheck --lib es2022,dom --module nodenext --moduleResolution nodenext types/index.d.ts types/plugins.d.ts"
+  },
+  "dependencies": {
+    "@adobe/css-tools": "4.4.4",
+    "@eleckoi/dsh-product-api": "workspace:*",
+    "@iconfu/svg-inject": "1.2.3",
+    "@mozilla/readability": "0.6.0",
+    "@popperjs/core": "2.11.8",
+    "bowser": "2.12.1",
+    "chalk": "5.6.0",
+    "chevrotain": "11.2.0",
+    "diff-match-patch": "1.0.5",
+    "dompurify": "3.4.2",
+    "droll": "0.2.1",
+    "fflate": "0.8.2",
+    "fuse.js": "7.1.0",
+    "handlebars": "4.7.9",
+    "highlight.js": "11.11.1",
+    "js-sha256": "0.11.1",
+    "localforage": "1.10.0",
+    "lodash": "4.18.1",
+    "moment": "2.30.1",
+    "morphdom": "2.7.7",
+    "seedrandom": "3.0.5",
+    "showdown": "2.1.0",
+    "slidetoggle": "4.0.0",
+    "yaml": "2.8.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "jsdom": "27.0.0",
+    "typescript": "5.9.3"
+  }
+}

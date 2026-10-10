@@ -1,0 +1,876 @@
+{
+  "includesUncommittedWorkingTree": true,
+  "capturedOn": "2026-10-05",
+  "transformations": [
+    "Export explicit installers instead of auto-running SDK/compat IIFEs",
+    "Replace Kotlin JSON bridge with injectable JS Host adapter",
+    "Keep rich compatibility semantics and change build/test resource roots",
+    "Provider sync tokenizer is an explicit capability without a native Kotlin bridge",
+    "Browser resource roots now point to same-origin shared Host HTTP assets",
+    "Character deletion always removes associated chats through the native one-argument action"
+  ],
+  "package": "@eleckoi/compatibility-tavern-shared",
+  "nativeHostAcceptanceInherited": false,
+  "files": [
+    {
+      "sourcePath": "tools/tavern-runtime/command-contract.json",
+      "path": "runtime/tavern-runtime/command-contract.json",
+      "migratedSha256": "6fa1043a8538834f54c767ead28189eaac191be1dc614338fb14ff104a78ecab",
+      "sourceSha256": "2342ca51e13ecfff890ef508f4480a2d0f1a28d4e141aa36d30b04cdac2bdabf"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/connections.js",
+      "path": "runtime/tavern-runtime/connections.js",
+      "migratedSha256": "d6a9c4d55c7368194bac596375bbc4c998fde8f2cf43aecc4a6375f9b3c9979a",
+      "sourceSha256": "d6a9c4d55c7368194bac596375bbc4c998fde8f2cf43aecc4a6375f9b3c9979a"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/context-templates.json",
+      "path": "runtime/tavern-runtime/context-templates.json",
+      "migratedSha256": "e8f155d479574e0bf618e1c3f26d246620138bfdcb7d4b35e0a461e7d29da98c",
+      "sourceSha256": "e8f155d479574e0bf618e1c3f26d246620138bfdcb7d4b35e0a461e7d29da98c"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/databank-ui.js",
+      "path": "runtime/tavern-runtime/databank-ui.js",
+      "migratedSha256": "e49f8b7ae9ee0abeafd76a901cc95af98f05a2071a5fd31bbbf796a9c2f65d5a",
+      "sourceSha256": "e49f8b7ae9ee0abeafd76a901cc95af98f05a2071a5fd31bbbf796a9c2f65d5a"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/generation-commands.js",
+      "path": "runtime/tavern-runtime/generation-commands.js",
+      "migratedSha256": "771b6965113ce648c15be1c47c142f309b8c7cee1444c65ff25ec2fb454420fe",
+      "sourceSha256": "771b6965113ce648c15be1c47c142f309b8c7cee1444c65ff25ec2fb454420fe"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/host.js",
+      "path": "runtime/tavern-runtime/host.js",
+      "migratedSha256": "33b6ab52d12b71160775ffc3378e6dd12243b77d4e1cc69cc78c4e7872921c1f",
+      "sourceSha256": "33b6ab52d12b71160775ffc3378e6dd12243b77d4e1cc69cc78c4e7872921c1f"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/icon-inventory.json",
+      "path": "runtime/tavern-runtime/icon-inventory.json",
+      "migratedSha256": "3f3e989488d41e5242cf42379fbedaa6ba76b56106402ec666d40cb6e4bdda9e",
+      "sourceSha256": "3f3e989488d41e5242cf42379fbedaa6ba76b56106402ec666d40cb6e4bdda9e"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/instruct-templates.json",
+      "path": "runtime/tavern-runtime/instruct-templates.json",
+      "migratedSha256": "b3a5ff4d60dc51bac66231fb7f6213505f224329c1b588d9f8c1ac0abec00a08",
+      "sourceSha256": "b3a5ff4d60dc51bac66231fb7f6213505f224329c1b588d9f8c1ac0abec00a08"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/integration.js",
+      "path": "runtime/tavern-runtime/integration.js",
+      "migratedSha256": "2182cd549dc79f0e57ce4f7e93641f6afcee8a0890a199e63b617a6de6bb9ed8",
+      "sourceSha256": "2182cd549dc79f0e57ce4f7e93641f6afcee8a0890a199e63b617a6de6bb9ed8"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/libraries.js",
+      "path": "runtime/tavern-runtime/libraries.js",
+      "migratedSha256": "baba2e6aef18ff07495b146973db5a054c3708df73a1cef1edf46961901295cb",
+      "sourceSha256": "baba2e6aef18ff07495b146973db5a054c3708df73a1cef1edf46961901295cb"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/master-preset-templates.json",
+      "path": "runtime/tavern-runtime/master-preset-templates.json",
+      "migratedSha256": "f7eb4e2d001ef7f20a4a82ad545f202a0b48c11cf565970552ff52842cf42efa",
+      "sourceSha256": "f7eb4e2d001ef7f20a4a82ad545f202a0b48c11cf565970552ff52842cf42efa"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/media-commands.js",
+      "path": "runtime/tavern-runtime/media-commands.js",
+      "migratedSha256": "c89919542f046ba22e1228a60c1b071ab449a09f25a8cb7a8e3ef138446c9317",
+      "sourceSha256": "c89919542f046ba22e1228a60c1b071ab449a09f25a8cb7a8e3ef138446c9317"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/native-commands.js",
+      "path": "runtime/tavern-runtime/native-commands.js",
+      "migratedSha256": "33297d1b9f4aff5b089d522be887cf5295e11111d8ba7f5672d3710be8cf9e3a",
+      "sourceSha256": "33297d1b9f4aff5b089d522be887cf5295e11111d8ba7f5672d3710be8cf9e3a"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/presentation-commands.js",
+      "path": "runtime/tavern-runtime/presentation-commands.js",
+      "migratedSha256": "030409a8b4a56191ef79b430391af9db2c1d063e56a2f021184e2655967deebb",
+      "sourceSha256": "030409a8b4a56191ef79b430391af9db2c1d063e56a2f021184e2655967deebb"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/preset-defaults.json",
+      "path": "runtime/tavern-runtime/preset-defaults.json",
+      "migratedSha256": "7ef9a8cae78f5ee731d46a9bd469bacf40561b9b316bb4686b427cc441d5d24d",
+      "sourceSha256": "7ef9a8cae78f5ee731d46a9bd469bacf40561b9b316bb4686b427cc441d5d24d"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/preset-manager-api.js",
+      "path": "runtime/tavern-runtime/preset-manager-api.js",
+      "migratedSha256": "29d9efd017ca3b081cfc63f82dda1b706079ea12f1d3139b1d521fc685a3c23b",
+      "sourceSha256": "29d9efd017ca3b081cfc63f82dda1b706079ea12f1d3139b1d521fc685a3c23b"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/prompt-commands.js",
+      "path": "runtime/tavern-runtime/prompt-commands.js",
+      "migratedSha256": "b2df47a9459d8661861abea47ca156ecba6172a965179a9e27fac78fccdb9bd9",
+      "sourceSha256": "b2df47a9459d8661861abea47ca156ecba6172a965179a9e27fac78fccdb9bd9"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/prompt-manager-ui.js",
+      "path": "runtime/tavern-runtime/prompt-manager-ui.js",
+      "migratedSha256": "f0b0f47d6de65f37a01622a3c762e338fecc98141d69a1531372cd9e691858cc",
+      "sourceSha256": "f0b0f47d6de65f37a01622a3c762e338fecc98141d69a1531372cd9e691858cc"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/prompt-manager.js",
+      "path": "runtime/tavern-runtime/prompt-manager.js",
+      "migratedSha256": "1c06f9c83953edccb671acb1b12f04fcf4d23a4e1b905394bcea180ab2cbd53e",
+      "sourceSha256": "1c06f9c83953edccb671acb1b12f04fcf4d23a4e1b905394bcea180ab2cbd53e"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/quick-replies.js",
+      "path": "runtime/tavern-runtime/quick-replies.js",
+      "migratedSha256": "e532bd3b8da8f7bdf8f0123d48a79f2e14f64c09603f7e0c1d072804aeb80300",
+      "sourceSha256": "e532bd3b8da8f7bdf8f0123d48a79f2e14f64c09603f7e0c1d072804aeb80300"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/reasoning-templates.json",
+      "path": "runtime/tavern-runtime/reasoning-templates.json",
+      "migratedSha256": "cde370ccd32fad08cce71bbc60e4606d98653ac676afba7488523c1b962875fd",
+      "sourceSha256": "cde370ccd32fad08cce71bbc60e4606d98653ac676afba7488523c1b962875fd"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/request-transport.js",
+      "path": "runtime/tavern-runtime/request-transport.js",
+      "migratedSha256": "3224bea5a2341e195d2e751d95c3812470b8d154e9d39466d9f734bee612d11f",
+      "sourceSha256": "3224bea5a2341e195d2e751d95c3812470b8d154e9d39466d9f734bee612d11f"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/service-commands.js",
+      "path": "runtime/tavern-runtime/service-commands.js",
+      "migratedSha256": "e585a6dba9eda9b97d1653d096dbff473b50186ccf69f62c39e8fee07b49aa6c",
+      "sourceSha256": "e585a6dba9eda9b97d1653d096dbff473b50186ccf69f62c39e8fee07b49aa6c"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/special-text-backends.js",
+      "path": "runtime/tavern-runtime/special-text-backends.js",
+      "migratedSha256": "25d709019721dab50d631bceb8b284fb6012bb295f02c4a6fcf174d6bfece3bf",
+      "sourceSha256": "25d709019721dab50d631bceb8b284fb6012bb295f02c4a6fcf174d6bfece3bf"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/streaming-processor.js",
+      "path": "runtime/tavern-runtime/streaming-processor.js",
+      "migratedSha256": "0a89d8249c083def4f8bcf3b8a2db44a24123ac5a56aef7af9b58be84c7a61f3",
+      "sourceSha256": "0a89d8249c083def4f8bcf3b8a2db44a24123ac5a56aef7af9b58be84c7a61f3"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/summary-commands.js",
+      "path": "runtime/tavern-runtime/summary-commands.js",
+      "migratedSha256": "654901dc8e7028069d555af0d2bd810f8803baa87200374d694426be5c982ea5",
+      "sourceSha256": "654901dc8e7028069d555af0d2bd810f8803baa87200374d694426be5c982ea5"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/system-prompt-templates.json",
+      "path": "runtime/tavern-runtime/system-prompt-templates.json",
+      "migratedSha256": "99dfb131ce6e7856592d85dd472218afed9ea33f30ff12a6f97213295299fa53",
+      "sourceSha256": "99dfb131ce6e7856592d85dd472218afed9ea33f30ff12a6f97213295299fa53"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/textgen-setting-names.json",
+      "path": "runtime/tavern-runtime/textgen-setting-names.json",
+      "migratedSha256": "9a2aab68348b9ce86de78d9664c9e50981d6b8e9a6a27158c6c1614d498e57f9",
+      "sourceSha256": "9a2aab68348b9ce86de78d9664c9e50981d6b8e9a6a27158c6c1614d498e57f9"
+    },
+    {
+      "sourcePath": "tools/tavern-runtime/youtube-commands.js",
+      "path": "runtime/tavern-runtime/youtube-commands.js",
+      "migratedSha256": "f5184eae63002f7c7203bad4afe620289bada0ec5b3deabd6a89e828b56b6b23",
+      "sourceSha256": "f5184eae63002f7c7203bad4afe620289bada0ec5b3deabd6a89e828b56b6b23"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/cropper-style.html",
+      "path": "runtime/vendor/sillytavern/cropper-style.html",
+      "migratedSha256": "86c0a2dc7967e6387dc8025529944450ec65a9973f92e2526d3e144998b68739",
+      "sourceSha256": "86c0a2dc7967e6387dc8025529944450ec65a9973f92e2526d3e144998b68739"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/LICENSE",
+      "path": "runtime/vendor/sillytavern/LICENSE",
+      "migratedSha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef",
+      "sourceSha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/manifest.json",
+      "path": "runtime/vendor/sillytavern/manifest.json",
+      "migratedSha256": "196b38f4716d35a8cf6ea874bc51170685a602dc1c3be0067f1e797538396a62",
+      "sourceSha256": "196b38f4716d35a8cf6ea874bc51170685a602dc1c3be0067f1e797538396a62"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/popup-template.html",
+      "path": "runtime/vendor/sillytavern/popup-template.html",
+      "migratedSha256": "a63cedcca5d2ccf932e23febedf29edcb89fba6366170aa0540e6ef4902676af",
+      "sourceSha256": "a63cedcca5d2ccf932e23febedf29edcb89fba6366170aa0540e6ef4902676af"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/token-count-oracle.json",
+      "path": "runtime/vendor/sillytavern/token-count-oracle.json",
+      "migratedSha256": "21ee24c24a5ede1572b3575706063f4af03cd52b974e564ec830faccb8ad93f8",
+      "sourceSha256": "21ee24c24a5ede1572b3575706063f4af03cd52b974e564ec830faccb8ad93f8"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/lib/cropper.min.cjs",
+      "path": "runtime/vendor/sillytavern/public/lib/cropper.min.cjs",
+      "migratedSha256": "615835110d07d9842d1c0a995e9fc79fb4dfa8d2c1b879ff0d648570714ee1c7",
+      "sourceSha256": "615835110d07d9842d1c0a995e9fc79fb4dfa8d2c1b879ff0d648570714ee1c7"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/lib/dialog-polyfill.esm.js",
+      "path": "runtime/vendor/sillytavern/public/lib/dialog-polyfill.esm.js",
+      "migratedSha256": "633e2f767762ac1b576e0e1bb5cef497ce0e3d04d7c5d71c5067991566fffd36",
+      "sourceSha256": "633e2f767762ac1b576e0e1bb5cef497ce0e3d04d7c5d71c5067991566fffd36"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/lib/eleckoi-jquery-cropper.js",
+      "path": "runtime/vendor/sillytavern/public/lib/eleckoi-jquery-cropper.js",
+      "migratedSha256": "9842f009b5d41a786632d9c07d593c677ec5a14416e69e0352fb2e661f6cd135",
+      "sourceSha256": "9842f009b5d41a786632d9c07d593c677ec5a14416e69e0352fb2e661f6cd135"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/action-loader-slashcommands.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/action-loader-slashcommands.js",
+      "migratedSha256": "974fa17f413812b36665030e19b451c8414bd5d1e571521339dbcc78a8916291",
+      "sourceSha256": "974fa17f413812b36665030e19b451c8414bd5d1e571521339dbcc78a8916291"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/action-loader.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/action-loader.js",
+      "migratedSha256": "57a65605efe809743c28386e6e272c221fd1773d45e0da92dbc4c728b41f917b",
+      "sourceSha256": "57a65605efe809743c28386e6e272c221fd1773d45e0da92dbc4c728b41f917b"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/constants.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/constants.js",
+      "migratedSha256": "953a09a8cea181f6d82e2aafbb021e7bc3649a41a144d0e798d8e19b99cf4066",
+      "sourceSha256": "953a09a8cea181f6d82e2aafbb021e7bc3649a41a144d0e798d8e19b99cf4066"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-chat-sources.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-chat-sources.js",
+      "migratedSha256": "c86b473486c63f51dfc2822bd104096c072098a001f86a4bd334a86b60dbd20d",
+      "sourceSha256": "c86b473486c63f51dfc2822bd104096c072098a001f86a4bd334a86b60dbd20d"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-connect-map.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-connect-map.js",
+      "migratedSha256": "f7cc88cdd0a9fbc07ef1e14a763a4f9322453cb48eb1a126e0936c112c5a7b08",
+      "sourceSha256": "f7cc88cdd0a9fbc07ef1e14a763a4f9322453cb48eb1a126e0936c112c5a7b08"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-context-preset-controls.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-context-preset-controls.js",
+      "migratedSha256": "5908db92585179443f164636757923c5a42f5d96d06181de078967d3862708fd",
+      "sourceSha256": "5908db92585179443f164636757923c5a42f5d96d06181de078967d3862708fd"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-context-template.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-context-template.js",
+      "migratedSha256": "78517f534500074a9f6b391dd0dcf02238589b62afbbc24fae06252dcb2c5186",
+      "sourceSha256": "78517f534500074a9f6b391dd0dcf02238589b62afbbc24fae06252dcb2c5186"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-core-commands.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-core-commands.js",
+      "migratedSha256": "e44eac4bb4eeb74a85d906ea63496d5f48905ae38c0957b6b360606dcee670ae",
+      "sourceSha256": "e44eac4bb4eeb74a85d906ea63496d5f48905ae38c0957b6b360606dcee670ae"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-generation-utils.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-generation-utils.js",
+      "migratedSha256": "5b870d4eacf0ab2409fd2f50fee5315b8e6899bbf3b6c57064fa72cb5fa5f0f5",
+      "sourceSha256": "5b870d4eacf0ab2409fd2f50fee5315b8e6899bbf3b6c57064fa72cb5fa5f0f5"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-group-selection.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-group-selection.js",
+      "migratedSha256": "66d0919ca65f01799eef142aaca5baf5126cfdbf342bd2be286093fb442639c5",
+      "sourceSha256": "66d0919ca65f01799eef142aaca5baf5126cfdbf342bd2be286093fb442639c5"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-icon-picker.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-icon-picker.js",
+      "migratedSha256": "42579f136fda49b88ad034bb02771f1000982081c4d85d2815b06a7e8ce1f957",
+      "sourceSha256": "42579f136fda49b88ad034bb02771f1000982081c4d85d2815b06a7e8ce1f957"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-image-processing.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-image-processing.js",
+      "migratedSha256": "ce0fd8a24adb59d968b2fc9e0168ce20aa6d7712d76913cf2a2a7a724c97eac3",
+      "sourceSha256": "ce0fd8a24adb59d968b2fc9e0168ce20aa6d7712d76913cf2a2a7a724c97eac3"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-instruct.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-instruct.js",
+      "migratedSha256": "0f4dd42d7a9693d1df9306a8e84fddb11b218cecc5ab19f61ba30c520278252e",
+      "sourceSha256": "0f4dd42d7a9693d1df9306a8e84fddb11b218cecc5ab19f61ba30c520278252e"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-media.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-media.js",
+      "migratedSha256": "3a1d71cf83ca54f5fddafd38f4aee58e7c464b194423af5ec6e2791ac6b90f2e",
+      "sourceSha256": "3a1d71cf83ca54f5fddafd38f4aee58e7c464b194423af5ec6e2791ac6b90f2e"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-novel-defaults.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-novel-defaults.js",
+      "migratedSha256": "66e6884c57e1a299b427a2eba9e87820ee67f173da92cff1f9cd93f80077defe",
+      "sourceSha256": "66e6884c57e1a299b427a2eba9e87820ee67f173da92cff1f9cd93f80077defe"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-novel-preset.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-novel-preset.js",
+      "migratedSha256": "dd009af87dde526a2788f9993330c506d800df4503fd642b8d495c56f519e0c4",
+      "sourceSha256": "dd009af87dde526a2788f9993330c506d800df4503fd642b8d495c56f519e0c4"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-preset-manager.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-preset-manager.js",
+      "migratedSha256": "17c74a3a2a964850fca9e1cf51fc7996f67566b3f047ff10a7d989747f1567e2",
+      "sourceSha256": "17c74a3a2a964850fca9e1cf51fc7996f67566b3f047ff10a7d989747f1567e2"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-preset-setting-map.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-preset-setting-map.js",
+      "migratedSha256": "db3842239e3023c8dfc5a67d3d61d0e73cd01129fa847e30f2a96d58b34bc492",
+      "sourceSha256": "db3842239e3023c8dfc5a67d3d61d0e73cd01129fa847e30f2a96d58b34bc492"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-prompt-models.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-prompt-models.js",
+      "migratedSha256": "e3cfb7674258aa0859b463cbd7dfdf4dcb2212e638b17e04392ca4f058be65cd",
+      "sourceSha256": "e3cfb7674258aa0859b463cbd7dfdf4dcb2212e638b17e04392ca4f058be65cd"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-prompt-post-processing.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-prompt-post-processing.js",
+      "migratedSha256": "7a23f66b3bf7c2512fb5e6541fca93499d0f6489e7b6434d21a99f2e6e670456",
+      "sourceSha256": "7a23f66b3bf7c2512fb5e6541fca93499d0f6489e7b6434d21a99f2e6e670456"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-reasoning.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-reasoning.js",
+      "migratedSha256": "2093f44012560134b5063be6e6c0d7f1cfd8a21cce99f2fbc1944ccbaabf19f3",
+      "sourceSha256": "2093f44012560134b5063be6e6c0d7f1cfd8a21cce99f2fbc1944ccbaabf19f3"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-request-services.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-request-services.js",
+      "migratedSha256": "1c12767a28991f036f40c1f90e278b8d3743ab9c0e03325f89208535c7aab088",
+      "sourceSha256": "1c12767a28991f036f40c1f90e278b8d3743ab9c0e03325f89208535c7aab088"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-service-responses.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-service-responses.js",
+      "migratedSha256": "c27de792d404de41d2a1b750c2216b9c5e72100ca21071f52db535e5859a23b7",
+      "sourceSha256": "c27de792d404de41d2a1b750c2216b9c5e72100ca21071f52db535e5859a23b7"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-tokenizer-model.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-tokenizer-model.js",
+      "migratedSha256": "3a6384f7575f60ff8c08939c49e2a635b1809ce56da96a3fc0410798dd11747b",
+      "sourceSha256": "3a6384f7575f60ff8c08939c49e2a635b1809ce56da96a3fc0410798dd11747b"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-tokenizer-selection.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-tokenizer-selection.js",
+      "migratedSha256": "a2084268ea2be289d7cd948a9ac43d12fe4d750aa4c982078db181eda0375802",
+      "sourceSha256": "a2084268ea2be289d7cd948a9ac43d12fe4d750aa4c982078db181eda0375802"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-worldbook-matching.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-worldbook-matching.js",
+      "migratedSha256": "cd28eb3d78accc711ec8ebaf1c5b0d89c381f4d4f99a46bd393ef06970d13ec3",
+      "sourceSha256": "cd28eb3d78accc711ec8ebaf1c5b0d89c381f4d4f99a46bd393ef06970d13ec3"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-worldbook-timing.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-worldbook-timing.js",
+      "migratedSha256": "44a5fc452379909b0b3c9b570e5549f5b99eb2caaa3d70320a38f963e5a89c52",
+      "sourceSha256": "44a5fc452379909b0b3c9b570e5549f5b99eb2caaa3d70320a38f963e5a89c52"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/eleckoi-worldbook-utils.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/eleckoi-worldbook-utils.js",
+      "migratedSha256": "05b4a1d5e2706e942b7ca9dc5533ba1497a58de0e3d80f1c2e8ebdca548dd507",
+      "sourceSha256": "05b4a1d5e2706e942b7ca9dc5533ba1497a58de0e3d80f1c2e8ebdca548dd507"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/message-formatter.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/message-formatter.js",
+      "migratedSha256": "f09a5f5051b8dab6ce5f3a53889c29334804b0ece04b64b8bfed96b0e480a16d",
+      "sourceSha256": "f09a5f5051b8dab6ce5f3a53889c29334804b0ece04b64b8bfed96b0e480a16d"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/popup.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/popup.js",
+      "migratedSha256": "b36f36824c52b9d70d8db078f223e1c5ee4997a050934157e6e405879d6f46fd",
+      "sourceSha256": "b36f36824c52b9d70d8db078f223e1c5ee4997a050934157e6e405879d6f46fd"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/tool-calling.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/tool-calling.js",
+      "migratedSha256": "934be74f6bd672a821e5f3e5dc34ad4548c1cac60ee41c48feaa630e6e2f7712",
+      "sourceSha256": "934be74f6bd672a821e5f3e5dc34ad4548c1cac60ee41c48feaa630e6e2f7712"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/utils.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/utils.js",
+      "migratedSha256": "44814943b4b12a1575bd72cbe5b05ab89d3a71307b3c035cdde4acb4b913a215",
+      "sourceSha256": "44814943b4b12a1575bd72cbe5b05ab89d3a71307b3c035cdde4acb4b913a215"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/variables.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/variables.js",
+      "migratedSha256": "92e1bfa793e6072c2daeecdbb6d7429faf990e251bfc5f8d97c0ba7088a1282a",
+      "sourceSha256": "92e1bfa793e6072c2daeecdbb6d7429faf990e251bfc5f8d97c0ba7088a1282a"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/autocomplete/AutoCompleteFuzzyScore.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/autocomplete/AutoCompleteFuzzyScore.js",
+      "migratedSha256": "283a454bf4bced07875595a08a15d3838651f4c0919ef47002be19893d2c29cd",
+      "sourceSha256": "283a454bf4bced07875595a08a15d3838651f4c0919ef47002be19893d2c29cd"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/autocomplete/AutoCompleteNameResult.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/autocomplete/AutoCompleteNameResult.js",
+      "migratedSha256": "f1d61538c0952f04ec4ecfbe16c2c7891fe3503baa8e7e643a800bce4d8a0752",
+      "sourceSha256": "f1d61538c0952f04ec4ecfbe16c2c7891fe3503baa8e7e643a800bce4d8a0752"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/autocomplete/AutoCompleteNameResultBase.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/autocomplete/AutoCompleteNameResultBase.js",
+      "migratedSha256": "861786a1ab31d15c4a4f3df7e3586cba9a763e5bbdc7e817e1fed270765de95d",
+      "sourceSha256": "861786a1ab31d15c4a4f3df7e3586cba9a763e5bbdc7e817e1fed270765de95d"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/autocomplete/AutoCompleteOption.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/autocomplete/AutoCompleteOption.js",
+      "migratedSha256": "aea62b263d335c49637c0ac81b989ecddd1179701297391c4025cf3e5d175244",
+      "sourceSha256": "aea62b263d335c49637c0ac81b989ecddd1179701297391c4025cf3e5d175244"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/autocomplete/AutoCompleteSecondaryNameResult.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/autocomplete/AutoCompleteSecondaryNameResult.js",
+      "migratedSha256": "52adff3686e1d90caf89e1a458cdf7dd91de2c6b85253a458da1b8855029633d",
+      "sourceSha256": "52adff3686e1d90caf89e1a458cdf7dd91de2c6b85253a458da1b8855029633d"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/autocomplete/BlankAutoCompleteOption.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/autocomplete/BlankAutoCompleteOption.js",
+      "migratedSha256": "c33e211f11b4ae2362b4c479a3fc695eac5420348cd679f1a09c76e2b8bd35dd",
+      "sourceSha256": "c33e211f11b4ae2362b4c479a3fc695eac5420348cd679f1a09c76e2b8bd35dd"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/autocomplete/EnhancedMacroAutoCompleteOption.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/autocomplete/EnhancedMacroAutoCompleteOption.js",
+      "migratedSha256": "5bd98618d64e86a73aa57ef3df20402b3dff4d618aa2da06aa0781fcd9db37ca",
+      "sourceSha256": "5bd98618d64e86a73aa57ef3df20402b3dff4d618aa2da06aa0781fcd9db37ca"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/autocomplete/MacroAutoCompleteHelper.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/autocomplete/MacroAutoCompleteHelper.js",
+      "migratedSha256": "1290d8362e21cee619eb8b70a01b44896dfbae7f7994b2642c047d888247a89c",
+      "sourceSha256": "1290d8362e21cee619eb8b70a01b44896dfbae7f7994b2642c047d888247a89c"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/autocomplete/MacroAutoCompleteOption.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/autocomplete/MacroAutoCompleteOption.js",
+      "migratedSha256": "93b94ce6fd4fddf7dc4e6c54a3f45bf6e768a849898ea1e2bd5c89e445faec7d",
+      "sourceSha256": "93b94ce6fd4fddf7dc4e6c54a3f45bf6e768a849898ea1e2bd5c89e445faec7d"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/extensions/regex/engine.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/extensions/regex/engine.js",
+      "migratedSha256": "091bb3402a12552cf1754d6e4d2b44df38d3553aa374539896c716e78905d350",
+      "sourceSha256": "091bb3402a12552cf1754d6e4d2b44df38d3553aa374539896c716e78905d350"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/macro-system.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/macro-system.js",
+      "migratedSha256": "de20c4240785bc6fbb03ffa34506014e287bb65dd2fe41a05a08a029896c3d3e",
+      "sourceSha256": "de20c4240785bc6fbb03ffa34506014e287bb65dd2fe41a05a08a029896c3d3e"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/definitions/chat-macros.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/definitions/chat-macros.js",
+      "migratedSha256": "0e5c005533b64e8a93bc0cff4e58bc33a9710db49b5cb279b2e1451e9d31f4e0",
+      "sourceSha256": "0e5c005533b64e8a93bc0cff4e58bc33a9710db49b5cb279b2e1451e9d31f4e0"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/definitions/core-macros.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/definitions/core-macros.js",
+      "migratedSha256": "a45ced11240d0174b75f1cc31a17c4670236e96be92a7d2264cf9a0802c37a7f",
+      "sourceSha256": "a45ced11240d0174b75f1cc31a17c4670236e96be92a7d2264cf9a0802c37a7f"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/definitions/env-macros.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/definitions/env-macros.js",
+      "migratedSha256": "14ff92d8ee9fe12d3ded8914b714cea239342d458dbe6f5be32f00c6d2f1da58",
+      "sourceSha256": "14ff92d8ee9fe12d3ded8914b714cea239342d458dbe6f5be32f00c6d2f1da58"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/definitions/instruct-macros.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/definitions/instruct-macros.js",
+      "migratedSha256": "2c2bce3ec27ca24469ee2eb6ea09077e79e98037e3dc42940951f5a81743b75f",
+      "sourceSha256": "2c2bce3ec27ca24469ee2eb6ea09077e79e98037e3dc42940951f5a81743b75f"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/definitions/state-macros.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/definitions/state-macros.js",
+      "migratedSha256": "6e21a98c580e4c79e95aafa2ffec048f3296f2a7a5c0ff3a60bcae3a7e5073b8",
+      "sourceSha256": "6e21a98c580e4c79e95aafa2ffec048f3296f2a7a5c0ff3a60bcae3a7e5073b8"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/definitions/time-macros.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/definitions/time-macros.js",
+      "migratedSha256": "cee858a3549285f2b4239c8941b54eb02863bea0dbc8ccfc07aec40ba83f3e06",
+      "sourceSha256": "cee858a3549285f2b4239c8941b54eb02863bea0dbc8ccfc07aec40ba83f3e06"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/definitions/variable-macros.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/definitions/variable-macros.js",
+      "migratedSha256": "ea6ce2cc4595440c55e7921147cff1a17004236241ad5add4a84d82372ed179c",
+      "sourceSha256": "ea6ce2cc4595440c55e7921147cff1a17004236241ad5add4a84d82372ed179c"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/engine/MacroBrowser.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/engine/MacroBrowser.js",
+      "migratedSha256": "ba5e6be53b52641e878bca8204d69e866d85c8ca8890f87db018f3a84ebd960f",
+      "sourceSha256": "ba5e6be53b52641e878bca8204d69e866d85c8ca8890f87db018f3a84ebd960f"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/engine/MacroCstWalker.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/engine/MacroCstWalker.js",
+      "migratedSha256": "52e9fd2af42d6b54dfbd7ce9e8dc12390e210d4a4921fed55c8a589292cdb766",
+      "sourceSha256": "52e9fd2af42d6b54dfbd7ce9e8dc12390e210d4a4921fed55c8a589292cdb766"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/engine/MacroDiagnostics.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/engine/MacroDiagnostics.js",
+      "migratedSha256": "35db082a5f8b44b599118b641088d068de6fc456c477703ea10f28a9396a6c72",
+      "sourceSha256": "35db082a5f8b44b599118b641088d068de6fc456c477703ea10f28a9396a6c72"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/engine/MacroEngine.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/engine/MacroEngine.js",
+      "migratedSha256": "267a4f8dea81854b825aaf0423d90a0a9d48d3a123ea118bbac11c9ca5121c4b",
+      "sourceSha256": "267a4f8dea81854b825aaf0423d90a0a9d48d3a123ea118bbac11c9ca5121c4b"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/engine/MacroEnv.types.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/engine/MacroEnv.types.js",
+      "migratedSha256": "143d10868052c8d773a1d244d5ee6ec4393665022396cae959b0b28a58051738",
+      "sourceSha256": "143d10868052c8d773a1d244d5ee6ec4393665022396cae959b0b28a58051738"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/engine/MacroEnvBuilder.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/engine/MacroEnvBuilder.js",
+      "migratedSha256": "95a3cfef74e2987120dfe124ae876339d99d75c950293106c9a671ef77498506",
+      "sourceSha256": "95a3cfef74e2987120dfe124ae876339d99d75c950293106c9a671ef77498506"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/engine/MacroFlags.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/engine/MacroFlags.js",
+      "migratedSha256": "dfa56918fdc78648baad8343fba77d98d7bf80aec244d4ac97d4a77952cb767c",
+      "sourceSha256": "dfa56918fdc78648baad8343fba77d98d7bf80aec244d4ac97d4a77952cb767c"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/engine/MacroLexer.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/engine/MacroLexer.js",
+      "migratedSha256": "b213046d93b21a4a024b97145628f1f7c25d759578e64fbbf1605f30fc636d08",
+      "sourceSha256": "b213046d93b21a4a024b97145628f1f7c25d759578e64fbbf1605f30fc636d08"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/engine/MacroParser.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/engine/MacroParser.js",
+      "migratedSha256": "e0f94a641c4fd7ec41e75c363303e56f34f297959413f419f9328058c4221f11",
+      "sourceSha256": "e0f94a641c4fd7ec41e75c363303e56f34f297959413f419f9328058c4221f11"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/macros/engine/MacroRegistry.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/macros/engine/MacroRegistry.js",
+      "migratedSha256": "d02328f1886e896d328a5603b9a135ebaf68fd0746070e2634b697857de283f2",
+      "sourceSha256": "d02328f1886e896d328a5603b9a135ebaf68fd0746070e2634b697857de283f2"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/AbstractEventTarget.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/AbstractEventTarget.js",
+      "migratedSha256": "cd1dcd29778d7017d05460c9c69cdd809264a908c315b950d7676a7335382997",
+      "sourceSha256": "cd1dcd29778d7017d05460c9c69cdd809264a908c315b950d7676a7335382997"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommand.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommand.js",
+      "migratedSha256": "013016f70af2e8de7c3dd30dcb8dd8aa9278a2b4229e91dfe5010862a5e95f09",
+      "sourceSha256": "013016f70af2e8de7c3dd30dcb8dd8aa9278a2b4229e91dfe5010862a5e95f09"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandAbortController.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandAbortController.js",
+      "migratedSha256": "7cbf738791df408fc9ff3f7f96e343be6df048e24325c97a177180fad4dfaeb2",
+      "sourceSha256": "7cbf738791df408fc9ff3f7f96e343be6df048e24325c97a177180fad4dfaeb2"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandArgument.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandArgument.js",
+      "migratedSha256": "5219d4e8153b48783c93c4e01751d412a80743040ff0301a33bfb210a956b3fd",
+      "sourceSha256": "5219d4e8153b48783c93c4e01751d412a80743040ff0301a33bfb210a956b3fd"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandAutoCompleteNameResult.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandAutoCompleteNameResult.js",
+      "migratedSha256": "38f2d1be5c0c3cb0528e4bbe64268facf20f5d40ff3a3c8d65eac0d457668d00",
+      "sourceSha256": "38f2d1be5c0c3cb0528e4bbe64268facf20f5d40ff3a3c8d65eac0d457668d00"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandBreak.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandBreak.js",
+      "migratedSha256": "7cf4a943bf5d2b170ba484bc5c57c6fb3c83e255bacda7d500e44d3c27d517ae",
+      "sourceSha256": "7cf4a943bf5d2b170ba484bc5c57c6fb3c83e255bacda7d500e44d3c27d517ae"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandBreakController.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandBreakController.js",
+      "migratedSha256": "d57b58d2ccd53980437ac82e3a95e31336872c8df7ad64e443391df6c8a267a7",
+      "sourceSha256": "d57b58d2ccd53980437ac82e3a95e31336872c8df7ad64e443391df6c8a267a7"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandBreakPoint.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandBreakPoint.js",
+      "migratedSha256": "80c43c84ecb319f355b165ed22058c77e7a51bf17b8f311c15b6f0ed0925a5f0",
+      "sourceSha256": "80c43c84ecb319f355b165ed22058c77e7a51bf17b8f311c15b6f0ed0925a5f0"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandBrowser.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandBrowser.js",
+      "migratedSha256": "f2e4a710cdfdc0c140efb0bc7274af032078b083e046f5ba54f0a9c4191240a6",
+      "sourceSha256": "f2e4a710cdfdc0c140efb0bc7274af032078b083e046f5ba54f0a9c4191240a6"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandClosure.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandClosure.js",
+      "migratedSha256": "a0aab000ed491ca809fb5d33cb2b7a005ea4f97c3d641490f1026fa1e563bbe3",
+      "sourceSha256": "a0aab000ed491ca809fb5d33cb2b7a005ea4f97c3d641490f1026fa1e563bbe3"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandClosureResult.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandClosureResult.js",
+      "migratedSha256": "72cc71ab8373fdbe8d529867ac0dd5aa29a7d55fdb705eb6ce0ff386948f9602",
+      "sourceSha256": "72cc71ab8373fdbe8d529867ac0dd5aa29a7d55fdb705eb6ce0ff386948f9602"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandCommandAutoCompleteOption.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandCommandAutoCompleteOption.js",
+      "migratedSha256": "ecad7fd1009ac1ba652fc53b417e6dbae4157f9b9f2096fb9e6d0e84a9ffd168",
+      "sourceSha256": "ecad7fd1009ac1ba652fc53b417e6dbae4157f9b9f2096fb9e6d0e84a9ffd168"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandCommonEnumsProvider.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandCommonEnumsProvider.js",
+      "migratedSha256": "b0585af8d51c8ae8c6f8d38234069726dbabc2255d60083ca9a809651ed6b890",
+      "sourceSha256": "b0585af8d51c8ae8c6f8d38234069726dbabc2255d60083ca9a809651ed6b890"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandDebugController.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandDebugController.js",
+      "migratedSha256": "64a972a6fab07804e1da94406768391fabac76a4b5486f9f6ce2fef7aceb284d",
+      "sourceSha256": "64a972a6fab07804e1da94406768391fabac76a4b5486f9f6ce2fef7aceb284d"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandEnumAutoCompleteOption.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandEnumAutoCompleteOption.js",
+      "migratedSha256": "78a9a2d2157882c9dd7eff866c7095c46f464f898293ff1b893e8456b8b1e842",
+      "sourceSha256": "78a9a2d2157882c9dd7eff866c7095c46f464f898293ff1b893e8456b8b1e842"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandEnumValue.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandEnumValue.js",
+      "migratedSha256": "df4c88a4efe2e86958c6ca260837ca862747912dce6ae96c2d9b9a1e425b1291",
+      "sourceSha256": "df4c88a4efe2e86958c6ca260837ca862747912dce6ae96c2d9b9a1e425b1291"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandExecutionError.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandExecutionError.js",
+      "migratedSha256": "c134cf5fd4634212a08da5ce05261aaa22133f660a6dc3a4b63ae8c07a31733e",
+      "sourceSha256": "c134cf5fd4634212a08da5ce05261aaa22133f660a6dc3a4b63ae8c07a31733e"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandExecutor.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandExecutor.js",
+      "migratedSha256": "ec801ec399c82e99ff35a9d5171490a6a499ad3adb7cb06aa397c371670dc6f7",
+      "sourceSha256": "ec801ec399c82e99ff35a9d5171490a6a499ad3adb7cb06aa397c371670dc6f7"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandNamedArgumentAssignment.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandNamedArgumentAssignment.js",
+      "migratedSha256": "6c8122bfe6a0e180785dd20ecbdf3be1c50ac46620f63cb4eb52f5d75c2db13b",
+      "sourceSha256": "6c8122bfe6a0e180785dd20ecbdf3be1c50ac46620f63cb4eb52f5d75c2db13b"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandNamedArgumentAutoCompleteOption.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandNamedArgumentAutoCompleteOption.js",
+      "migratedSha256": "4653519d0d4c13a5f4f35fb8f5d58e2d2e493a63d243fa29646d74d0ee86b49c",
+      "sourceSha256": "4653519d0d4c13a5f4f35fb8f5d58e2d2e493a63d243fa29646d74d0ee86b49c"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandParser.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandParser.js",
+      "migratedSha256": "a771e02b4799b6185dc3c518aa6bf453314f30155f73f2588b3e703f13908741",
+      "sourceSha256": "2ed3512bf887be9e944bacc5f29461ad460a87bd876277f5898e9a53766017eb"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandParserError.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandParserError.js",
+      "migratedSha256": "3d02b441c7561118fa8b7d269d25eb1cef28ebbd126da06656a7bd13d14bb432",
+      "sourceSha256": "3d02b441c7561118fa8b7d269d25eb1cef28ebbd126da06656a7bd13d14bb432"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandQuickReplyAutoCompleteOption.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandQuickReplyAutoCompleteOption.js",
+      "migratedSha256": "21a453532d3ab830950ef8e09916eccf910a43f1754271a62a28d8aa6aa1a435",
+      "sourceSha256": "21a453532d3ab830950ef8e09916eccf910a43f1754271a62a28d8aa6aa1a435"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandReturnHelper.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandReturnHelper.js",
+      "migratedSha256": "fa1f733d000f9774dc7f84c5e372c9e5aca84fdb7b86c0dc90f634ff108c5b24",
+      "sourceSha256": "fa1f733d000f9774dc7f84c5e372c9e5aca84fdb7b86c0dc90f634ff108c5b24"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandScope.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandScope.js",
+      "migratedSha256": "669e6912a90f5bbbdd145263b53591d09293588f0127bac47bb0a9c24dea7e36",
+      "sourceSha256": "669e6912a90f5bbbdd145263b53591d09293588f0127bac47bb0a9c24dea7e36"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandUnnamedArgumentAssignment.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandUnnamedArgumentAssignment.js",
+      "migratedSha256": "f6dac2d450db9eed8adbfee841622d7b6a67649c734079d05439b79f457c8acc",
+      "sourceSha256": "f6dac2d450db9eed8adbfee841622d7b6a67649c734079d05439b79f457c8acc"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/slash-commands/SlashCommandVariableAutoCompleteOption.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/slash-commands/SlashCommandVariableAutoCompleteOption.js",
+      "migratedSha256": "2378d22772dc0d29442c84cf20248bb8610d7a1f2f9fd967600d657729f14945",
+      "sourceSha256": "2378d22772dc0d29442c84cf20248bb8610d7a1f2f9fd967600d657729f14945"
+    },
+    {
+      "sourcePath": "tools/vendor/sillytavern/public/scripts/util/SimpleMutex.js",
+      "path": "runtime/vendor/sillytavern/public/scripts/util/SimpleMutex.js",
+      "migratedSha256": "1cc9c206647912ee5b05902f2b55995c6d46c4bb373a127193cf1b76dee50cc7",
+      "sourceSha256": "1cc9c206647912ee5b05902f2b55995c6d46c4bb373a127193cf1b76dee50cc7"
+    },
+    {
+      "sourcePath": "app/src/main/assets/frontend/runtime-libraries/document-parsers.global.js",
+      "path": "assets/document-parsers.global.js",
+      "migratedSha256": "065c847f6a4f771a52282599f2ae8407f1431733436bf992bf837fde515dda4f",
+      "sourceSha256": "36c37808bc2a0893cf62488b2649f656c2f5fd9e3f5100bcf6d2f6254afdb508"
+    },
+    {
+      "sourcePath": "app/src/main/assets/frontend/runtime-libraries/jquery.min.js",
+      "path": "assets/jquery.min.js",
+      "migratedSha256": "7aa6b0e08f48a0f95d8df7ea89e4cbfe1ef3d1e8c0f7373f7f25edfb4e4a325e",
+      "sourceSha256": "7aa6b0e08f48a0f95d8df7ea89e4cbfe1ef3d1e8c0f7373f7f25edfb4e4a325e"
+    },
+    {
+      "sourcePath": "app/src/main/assets/frontend/runtime-libraries/SillyTavern.LICENSE.txt",
+      "path": "assets/SillyTavern.LICENSE.txt",
+      "migratedSha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef",
+      "sourceSha256": "8486a10c4393cee1c25392769ddd3b2d6c242d6ec7928e1414efff7dfb2f07ef"
+    },
+    {
+      "sourcePath": "app/src/main/assets/frontend/runtime-libraries/toastr.min.css",
+      "path": "assets/toastr.min.css",
+      "migratedSha256": "47dd690f8f315bea076e92581a7e7147443bb4c847e313ab5a7d50a8c44836d0",
+      "sourceSha256": "47dd690f8f315bea076e92581a7e7147443bb4c847e313ab5a7d50a8c44836d0"
+    },
+    {
+      "sourcePath": "app/src/main/assets/frontend/runtime-libraries/toastr.min.js",
+      "path": "assets/toastr.min.js",
+      "migratedSha256": "95da8df7f39c54566d7adc3264cbe00c78a25a06b5851814898d8c2f50412c5d",
+      "sourceSha256": "95da8df7f39c54566d7adc3264cbe00c78a25a06b5851814898d8c2f50412c5d"
+    },
+    {
+      "sourcePath": "app/src/main/assets/frontend/runtime-libraries/fontawesome/css/all.min.css",
+      "path": "assets/fontawesome/css/all.min.css",
+      "migratedSha256": "d9e331a6871e1764abf3d5acb90c8439071c2e121816a486b5041a3b4555eeec",
+      "sourceSha256": "d9e331a6871e1764abf3d5acb90c8439071c2e121816a486b5041a3b4555eeec"
+    },
+    {
+      "sourcePath": "app/src/main/assets/frontend/runtime-libraries/fontawesome/webfonts/fa-brands-400.woff2",
+      "path": "assets/fontawesome/webfonts/fa-brands-400.woff2",
+      "migratedSha256": "ff66d1cfb67dbe3da432bbe36572cabfa4eef0e591303c2cba111474ba1d15bc",
+      "sourceSha256": "ff66d1cfb67dbe3da432bbe36572cabfa4eef0e591303c2cba111474ba1d15bc"
+    },
+    {
+      "sourcePath": "app/src/main/assets/frontend/runtime-libraries/fontawesome/webfonts/fa-regular-400.woff2",
+      "path": "assets/fontawesome/webfonts/fa-regular-400.woff2",
+      "migratedSha256": "f4722d10b9e1b41eefe3b51a026312ee1970edb7782f94b0080d3d475945734c",
+      "sourceSha256": "f4722d10b9e1b41eefe3b51a026312ee1970edb7782f94b0080d3d475945734c"
+    },
+    {
+      "sourcePath": "app/src/main/assets/frontend/runtime-libraries/fontawesome/webfonts/fa-solid-900.woff2",
+      "path": "assets/fontawesome/webfonts/fa-solid-900.woff2",
+      "migratedSha256": "24e5fae26b41c08b2df81c91669f5aaae71d81a84a4713fc56b5c621b78dd456",
+      "sourceSha256": "24e5fae26b41c08b2df81c91669f5aaae71d81a84a4713fc56b5c621b78dd456"
+    },
+    {
+      "sourcePath": "app/src/main/assets/frontend/runtime-libraries/fontawesome/webfonts/fa-v4compatibility.woff2",
+      "path": "assets/fontawesome/webfonts/fa-v4compatibility.woff2",
+      "migratedSha256": "c776ee1f1fe21cd72195e91de7afd5c9dbd007e9d06016254d65fbcc091398ca",
+      "sourceSha256": "c776ee1f1fe21cd72195e91de7afd5c9dbd007e9d06016254d65fbcc091398ca"
+    },
+    {
+      "sourcePath": "app/src/main/assets/frontend/preview/eleckoi.js",
+      "path": "src/preview/eleckoi.js",
+      "migratedSha256": "cd2e59d1422aa51959b97c956fd4a8425920090888e8f52a8ff81030f14d5ea9",
+      "sourceSha256": "4e16c6313df32c68a42fb60ac54cae67beecdb7942a6414648f45bc3021e72a8"
+    },
+    {
+      "sourcePath": "app/src/main/assets/frontend/preview/shared-frame.js",
+      "path": "src/preview/shared-frame.js",
+      "migratedSha256": "fd3a66e1baa9566f57668b4acae59f70e8fa8844426f1566d8e44fd108d6c993",
+      "sourceSha256": "fd3a66e1baa9566f57668b4acae59f70e8fa8844426f1566d8e44fd108d6c993"
+    },
+    {
+      "sourcePath": "app/src/main/assets/frontend/preview/tavern-compat.js",
+      "path": "src/preview/tavern-compat.js",
+      "migratedSha256": "7b6754d5cf076aee189d8ff5fbe5166db8113d76a13678136683a20902a7a02e",
+      "sourceSha256": "fca995f6a8cc4982f658498077a86f309099570ba42c80b9a8c96a688e67a6d9"
+    },
+    {
+      "sourcePath": "app/src/main/assets/frontend/preview/tavern-contract.js",
+      "path": "src/preview/tavern-contract.js",
+      "migratedSha256": "e5663bf0897c32710539cb1f64fab567517cb9607c0762ac61de78b395ded6ea",
+      "sourceSha256": "56ee0b46cb608fa72455cba4c6a5e3b2bfb99088da5b82c5ce918e14c344c3b6"
+    },
+    {
+      "sourcePath": "sdk/author/types/plugins.d.ts",
+      "path": "types/plugins.d.ts",
+      "migratedSha256": "ead088eee529e030021b06e7910b1ebd6c0de603eae0a2af90275f47bb337bd9",
+      "sourceSha256": "ead088eee529e030021b06e7910b1ebd6c0de603eae0a2af90275f47bb337bd9"
+    }
+  ],
+  "legacyHead": "ba272b2ac93b0ac83ee8167ed159b46bcabf466f",
+  "upstream": {
+    "TavernHelper": {
+      "revision": "46ec10df770b47e1ce6562de747d72f1bde3549e",
+      "version": "4.11.2"
+    },
+    "SillyTavern": {
+      "license": "AGPL-3.0",
+      "revision": "06bde939fb1e9c4c8d8641d810f0a916b5bce127",
+      "version": "1.19.0"
+    }
+  },
+  "scope": "Shared JS/runtime sources only; full legacy snapshot is owned by migration root",
+  "schemaVersion": 1
+}

@@ -99,7 +99,7 @@ export class ConversationArchiveRepository {
       .map((response) => response.runtimeThreadId as string))]
   }
 
-  import(snapshot: ConversationArchiveSnapshot, characterId: string, runtimeIds: ReadonlyMap<string, string>, conversationId: string = randomUUID()): string {
+  import(snapshot: ConversationArchiveSnapshot, characterId: string, runtimeIds: ReadonlyMap<string, string>, conversationId: string = randomUUID(), options: { preserveIds?: boolean } = {}): string {
     if (snapshot.characterId !== characterId) throw new Error('聊天记录与当前角色不匹配。')
     const character = this.store.native.prepare('SELECT id,name,avatar FROM characters WHERE id=?').get(characterId) as
       { id: string; name: string; avatar: string } | undefined
@@ -108,7 +108,7 @@ export class ConversationArchiveRepository {
     for (const table of ['agent_branches', 'conversation_speakers', 'agent_turns', 'agent_responses'] as const) {
       for (const row of snapshot.tables[table]) {
         if (typeof row.id !== 'string' || !row.id || ids.has(row.id)) throw new Error('聊天记录身份无效。')
-        ids.set(row.id, randomUUID())
+        ids.set(row.id, options.preserveIds ? row.id : randomUUID())
       }
     }
     const remap = (key: string, value: Cell): Cell => typeof value === 'string'

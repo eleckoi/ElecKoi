@@ -382,6 +382,40 @@ export interface PresetDetailSnapshot {
 
 源码：[packages/dsh-client-presets/src/client/types.ts:5](../../packages/dsh-client-presets/src/client/types.ts#L5)
 
+## TavernSharedChatHandlers
+
+```ts
+export type TavernSharedChatHandlers = Record<string, (params: Record<string, unknown>) => unknown | Promise<unknown>>;
+```
+
+源码：[packages/dsh-client-tavern-shared/src/client/types.ts:19](../../packages/dsh-client-tavern-shared/src/client/types.ts#L19)
+
+## TavernSharedPresentation
+
+```ts
+export interface TavernSharedPresentation {
+    conversationId: string;
+    messages: ConversationClientMessage[];
+    isGenerating: boolean;
+    generation?: { runId: string; messageId: string; content: string; sequence: number; };
+}
+```
+
+源码：[packages/dsh-client-tavern-shared/src/client/types.ts:12](../../packages/dsh-client-tavern-shared/src/client/types.ts#L12)
+
+## TavernSharedSnapshot
+
+```ts
+export interface TavernSharedSnapshot {
+    status: 'starting' | 'waiting-for-chat' | 'ready' | 'ready-global' | 'error';
+    error: string;
+    methods: string[];
+    uiEntries: Array<{ pluginId: string; [key: string]: CompatibilityValue; }>;
+}
+```
+
+源码：[packages/dsh-client-tavern-shared/src/client/types.ts:5](../../packages/dsh-client-tavern-shared/src/client/types.ts#L5)
+
 ## WebSearchSnapshot
 
 ```ts

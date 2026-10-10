@@ -4,7 +4,7 @@ export const VARIABLE_INITIALIZATION_OBJECT_ID = 'fixed-variable-initialization-
 export const VARIABLE_INITIALIZATION_OBJECT_NAME = '变量运行配置'
 export const DEFAULT_VARIABLE_CONFIG_VERSION_ID = 'variable-config-default'
 
-export const variableValueTypeSchema = z.enum(['', 'number', 'string', 'boolean', 'array'])
+export const variableValueTypeSchema = z.enum(['', 'number', 'string', 'boolean', 'object', 'array'])
 export const variableReadModeSchema = z.enum(['required', 'on_demand'])
 
 export const variableObjectConfigSchema = z.object({
