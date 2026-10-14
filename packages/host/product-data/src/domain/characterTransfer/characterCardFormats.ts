@@ -204,7 +204,7 @@ function convertWorldBookEntries(worldBook: JsonObject | undefined, timestamp: s
       agentReadStrategy: constant ? 'required' : 'keyword',
       keywords: constant ? [] : keys,
       conditionKeywords: constant ? [] : secondary,
-      keywordCondition: constant || !secondary.length ? 'none' : selectiveLogic === 2 ? 'not_any' : selectiveLogic === 3 ? 'all' : 'any',
+      keywordCondition: constant || !secondary.length ? 'none' : selectiveLogic === 1 ? 'not_all' : selectiveLogic === 2 ? 'not_any' : selectiveLogic === 3 ? 'all' : 'any',
       keywordUseRegex: !constant && boolean(item.use_regex),
       keywordIgnoreCase: !boolean(item.case_sensitive, boolean(record(item.extensions)?.case_sensitive)),
       keywordWholeWord: boolean(item.match_whole_words, boolean(record(item.extensions)?.match_whole_words)),
@@ -276,7 +276,8 @@ function portableRoot(value: PortableCharacterPackage): JsonObject {
       profile_like: value.character.profileLike,
       image_prompt: value.character.imagePrompt,
       opening: value.character.opening,
-      show_opening: value.character.showOpening
+      show_opening: value.character.showOpening,
+      ...(value.character.expressions ? { expressions: value.character.expressions } : {})
     },
     assets: value.assets.map((asset) => ({
       key: asset.key,
@@ -342,7 +343,8 @@ function portableCharacter(value: JsonObject): PortableCharacterPackage['charact
     profileAge: string(value.profile_age), profileSex: string(value.profile_sex),
     profileHeight: string(value.profile_height), profileBirthday: string(value.profile_birthday),
     profileLike: string(value.profile_like), imagePrompt: string(value.image_prompt),
-    opening: string(value.opening), showOpening: boolean(value.show_opening)
+    opening: string(value.opening), showOpening: boolean(value.show_opening),
+    ...(Array.isArray(value.expressions) ? { expressions: objectList(value.expressions).map(row => ({ ...row, name: string(row.name), label: string(row.label), folder: string(row.folder), url: string(row.url) })) } : {})
   }
 }
 

@@ -1,7 +1,7 @@
 import { AuthorApiError, type AuthorAudioChannel, type AuthorAudioSettings, type AuthorAudioState, type AuthorAudioTrack } from '@eleckoi/author-sdk'
 
 export const nativeAudioMethods = ['audio.play', 'audio.pause', 'audio.resume', 'audio.stop', 'audio.seek', 'audio.getState',
-  'audio.getPlaylist', 'audio.setPlaylist', 'audio.appendPlaylist', 'audio.getSettings', 'audio.setSettings'] as const
+  'audio.getPlaylist', 'audio.setPlaylist', 'audio.appendPlaylist', 'audio.getSettings', 'audio.setSettings', 'audio.configure'] as const
 export const nativeAudioEvents = ['audio.state.changed', 'audio.time.updated'] as const
 const channels: readonly AuthorAudioChannel[] = ['bgm', 'ambient', 'voice', 'sfx']
 type AudioEvent = { name: typeof nativeAudioEvents[number]; payload: { conversationId: string; state: AuthorAudioState } }
@@ -10,6 +10,8 @@ type Entry = {
   loop: boolean; shuffle: boolean; volume: number; error: string; visited: Set<number>
   audio?: HTMLAudioElement; removeListeners?: () => void; cancelPlay?: (error: unknown) => void
   lastTimeEvent: number
+  enabled?: boolean
+  mode?: 'repeat_one' | 'repeat_all' | 'shuffle' | 'play_one_and_stop'
 }
 export interface NativeAudioOptions {
   createAudio(): HTMLAudioElement
@@ -36,6 +38,7 @@ function channel(value: unknown): AuthorAudioChannel {
 /** One Client owns live audio; neither scripts nor project frames own a second player. */
 export class NativeAudioRuntime {
   private readonly entries = new Map<AuthorAudioChannel, Entry>()
+  private readonly stateListeners = new Set<(state: AuthorAudioState) => void>()
   private conversationId = ''
   private closed = false
   private sequence = 0
@@ -45,10 +48,17 @@ export class NativeAudioRuntime {
   } }
   constructor(private readonly options: NativeAudioOptions) {}
 
+  subscribeState(listener: (state: AuthorAudioState) => void): () => void {
+    this.stateListeners.add(listener); return () => { this.stateListeners.delete(listener) }
+  }
+
   activate(conversationId: string): void {
     if (conversationId === this.conversationId) return
     this.conversationId = conversationId
-    for (const entry of this.entries.values()) this.releaseMedia(entry, new AuthorApiError('AUDIO_CONTEXT_CHANGED', '音频所属聊天已切换。'))
+    for (const entry of this.entries.values()) {
+      this.releaseMedia(entry, new AuthorApiError('AUDIO_CONTEXT_CHANGED', '音频所属聊天已切换。'))
+      entry.status = 'idle'; this.publish('audio.state.changed', entry)
+    }
     this.entries.clear()
   }
 
@@ -82,6 +92,18 @@ export class NativeAudioRuntime {
     } else if (method === 'audio.seek') startAt = number(params.seconds, '播放位置')
     this.activate(conversationId)
     const entry = this.entry(key)
+    if (method === 'audio.configure') {
+      if (params.enabled !== undefined) entry.enabled = flag(params.enabled,'音频启用状态')
+      if (params.mode !== undefined) {
+        if (!['repeat_one','repeat_all','shuffle','play_one_and_stop'].includes(String(params.mode))) throw new AuthorApiError('INVALID_PARAMS','未知播放模式。')
+        entry.mode = params.mode as NonNullable<Entry['mode']>
+      }
+      if (params.volume !== undefined) entry.volume = number(params.volume,'频道音量',1)
+      if (params.muted !== undefined) this.settings.channels[key].muted = flag(params.muted,'频道静音状态')
+      if (entry.enabled === false) entry.audio?.pause()
+      this.applyVolume(entry); this.publish('audio.state.changed',entry)
+      return this.snapshot(entry)
+    }
     switch (method) {
       case 'audio.play':
       case 'audio.setPlaylist':
@@ -141,13 +163,14 @@ export class NativeAudioRuntime {
   }
   private snapshot(entry: Entry): AuthorAudioState {
     const duration = entry.audio?.duration, time = entry.audio?.currentTime
-    return { conversationId: this.conversationId, channel: entry.channel, status: entry.status,
+    return Object.assign({ conversationId: this.conversationId, channel: entry.channel, status: entry.status,
       playlist: structuredClone(entry.playlist), currentIndex: entry.currentIndex,
       currentTrack: structuredClone(entry.playlist[entry.currentIndex] ?? null),
       currentTime: typeof time === 'number' && Number.isFinite(time) ? time : 0,
       duration: typeof duration === 'number' && Number.isFinite(duration) && duration >= 0 ? duration : null,
       loop: entry.loop, shuffle: entry.shuffle, volume: entry.volume,
-      muted: this.settings.muted || this.settings.channels[entry.channel].muted, error: entry.error }
+      muted: this.settings.muted || this.settings.channels[entry.channel].muted, error: entry.error },
+      { enabled: entry.enabled ?? true, ...(entry.mode ? { mode: entry.mode } : {}) })
   }
   private position(audio: HTMLAudioElement, seconds: number): number {
     return Number.isFinite(audio.duration) && audio.duration >= 0 ? Math.min(seconds, audio.duration) : seconds
@@ -176,6 +199,9 @@ export class NativeAudioRuntime {
       this.publish('audio.state.changed', entry)
     })
     on('ended', () => { entry.status = 'ended'; this.publish('audio.state.changed', entry)
+      if (entry.enabled === false || entry.mode === 'play_one_and_stop') return
+      if (entry.mode === 'repeat_one') { audio.currentTime = 0; void this.start(entry).catch(error=>this.options.report(error)); return }
+      if (entry.mode === 'repeat_all' || entry.mode === 'shuffle') { entry.loop=true; entry.shuffle=entry.mode==='shuffle' }
       void this.advance(entry).catch(error => { if (!this.closed && this.entries.get(entry.channel) === entry) this.options.report(error) })
     })
   }
@@ -246,7 +272,11 @@ export class NativeAudioRuntime {
     for (const entry of this.entries.values()) { this.applyVolume(entry); this.publish('audio.state.changed', entry) }
     return structuredClone(next)
   }
-  private publish(name: AudioEvent['name'], entry: Entry): void { this.options.emit({ name, payload: { conversationId: this.conversationId, state: this.snapshot(entry) } }) }
+  private publish(name: AudioEvent['name'], entry: Entry): void {
+    const state = this.snapshot(entry)
+    for (const listener of this.stateListeners) listener(structuredClone(state))
+    this.options.emit({ name, payload: { conversationId: this.conversationId, state } })
+  }
   private assertOpen(): void { if (this.closed) throw new AuthorApiError('AUDIO_CLOSED', '原生播放器已经关闭。') }
-  dispose(): void { if (this.closed) return; this.closed = true; this.activate('') }
+  dispose(): void { if (this.closed) return; this.closed = true; this.activate(''); this.stateListeners.clear() }
 }

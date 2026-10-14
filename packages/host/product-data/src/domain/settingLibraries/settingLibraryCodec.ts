@@ -49,6 +49,7 @@ export function readEntry(payloadJson: string): SettingLibraryEntry {
     iconId: string(value.icon_id),
     kind: string(value.kind) || 'normal',
     groupId: string(value.group_id),
+    sendGroupId: string(value.send_group_id),
     content: string(value.content),
     openingMessages: objects(value.opening_messages).map((message) => ({
       id: string(message.id),
@@ -80,7 +81,8 @@ export function readEntry(payloadJson: string): SettingLibraryEntry {
     groupViewOrder: number(value.group_view_order),
     treeViewOrder: number(value.tree_view_order),
     createdAt: string(value.created_at),
-    updatedAt: string(value.updated_at)
+    updatedAt: string(value.updated_at),
+    sillyTavern: value.silly_tavern
   })
 }
 
@@ -91,6 +93,7 @@ export function writeEntry(entry: SettingLibraryEntry): string {
     icon_id: entry.iconId,
     kind: entry.kind,
     group_id: entry.groupId,
+    send_group_id: entry.sendGroupId || '',
     content: entry.content,
     opening_messages: entry.openingMessages.map((message) => ({
       id: message.id,
@@ -122,7 +125,8 @@ export function writeEntry(entry: SettingLibraryEntry): string {
     group_view_order: entry.groupViewOrder,
     tree_view_order: entry.treeViewOrder,
     created_at: entry.createdAt,
-    updated_at: entry.updatedAt
+    updated_at: entry.updatedAt,
+    silly_tavern: entry.sillyTavern
   })
 }
 
@@ -130,15 +134,19 @@ export function readGroup(payloadJson: string): SettingLibraryGroup {
   const value = object(payloadJson)
   return settingLibraryGroupSchema.parse({
     id: string(value.id), name: string(value.name), parentId: string(value.parent_id),
+    mergeSend: boolean(value.merge_send),
     order: number(value.order, 1), treeViewOrder: number(value.tree_view_order),
-    createdAt: string(value.created_at), updatedAt: string(value.updated_at)
+    createdAt: string(value.created_at), updatedAt: string(value.updated_at),
+    sillyTavern: value.silly_tavern
   })
 }
 
 export function writeGroup(group: SettingLibraryGroup): string {
   return JSON.stringify({
     id: group.id, name: group.name, parent_id: group.parentId, order: group.order,
-    tree_view_order: group.treeViewOrder, created_at: group.createdAt, updated_at: group.updatedAt
+    merge_send: group.mergeSend === true,
+    tree_view_order: group.treeViewOrder, created_at: group.createdAt, updated_at: group.updatedAt,
+    silly_tavern: group.sillyTavern
   })
 }
 

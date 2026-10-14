@@ -1,4 +1,6 @@
 export { SettingLibraryPanel } from "./components/SettingLibraryPanel.jsx";
+export { GlobalSettingLibraryPanel } from "./components/GlobalSettingLibraryPanel.jsx";
+export { GlobalSettingLibraryDialog } from "./components/GlobalSettingLibraryDialog.jsx";
 export { DynamicSettingsPanel } from "./components/DynamicSettingsPanel.jsx";
 export { SettingLibraryInspector } from "./components/SettingLibraryInspector.jsx";
 export { SettingEntryGlyph } from "./components/SettingLibraryEntryEditor.jsx";

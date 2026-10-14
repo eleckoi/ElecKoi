@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import { ChatCircleDots, Code, LinkSimple } from "../../../ui/icons/interfaceIcons.jsx";
+import { ArrowsMerge, ChatCircleDots, Code, DotsThree, LinkSimple } from "../../../ui/icons/interfaceIcons.jsx";
 import { DshFolderClosedIcon, DshFolderOpenIcon, DshTriangleRightIcon } from "../../../ui/icons/dshTreeIcons.jsx";
 import { HeadlessTree } from "../../../ui/tree/HeadlessTree.jsx";
 import { SettingEntryGlyph } from "./SettingLibraryEntryEditor.jsx";
@@ -54,7 +54,13 @@ export function SettingTreeNode({ item, data, itemProps, style, level, isSelecte
           {Icon ? <Icon weight="regular" /> : <SettingEntryGlyph iconId={data.iconId} weight="regular" />}
         </span>}
         <span className="setting-library-tree-label">{data.label}</span>
-        {data.nodeKind === "group" ? <span className="setting-library-tree-count">{data.childCount}</span> : (
+        {data.mergeSend ? <ArrowsMerge size={15} className="setting-library-merge-marker" aria-label="合并发送" /> : null}
+        {data.nodeKind === "group" ? <>
+          <span className="setting-library-tree-count">{data.childCount}</span>
+          <button type="button" className="setting-library-tree-more" title={`${data.label} · 更多`} aria-label={`${data.label} · 更多`} aria-haspopup="menu"
+            onMouseDown={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}
+            onClick={event => actions?.openFolderMenu?.(event, data)}><DotsThree size={18} aria-hidden="true" /></button>
+        </> : (
           <button
             type="button"
             className="setting-library-tree-switch"

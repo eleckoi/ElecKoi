@@ -43,8 +43,8 @@ export function useWindowAppearance({ notify = () => {} } = {}) {
   const chatDisplayDirtyRef = useRef(false);
 
   useEffect(() => {
-    applyAppearanceTheme(null);
     const preferences = displaySnapshot.ui;
+    applyAppearanceTheme(preferences.appearance_theme);
     if (Object.hasOwn(preferences, "global_chat_wallpaper")) {
       setGlobalChatWallpaper(normalizeGlobalChatWallpaper(preferences.global_chat_wallpaper));
     }
@@ -148,6 +148,8 @@ export function useWindowAppearance({ notify = () => {} } = {}) {
 
   return {
     appearanceMode,
+    messageStyle: displaySnapshot.ui.message_style,
+    chatBackgroundLocks: displaySnapshot.ui.chat_background_locks,
     sidebarCharacterArtwork,
     chatDisplay,
     globalChatWallpaper,

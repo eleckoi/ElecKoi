@@ -1,0 +1,74 @@
+.global-setting-library-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--modal-backdrop, rgb(0 0 0 / 18%));
+}
+
+.global-setting-library-backdrop > .global-setting-library-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(1200px, 100%);
+  height: min(820px, 100%);
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--chat);
+  color: var(--text);
+  box-shadow: 0 16px 56px var(--shadow-color);
+}
+
+.global-setting-library-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  height: 54px;
+  padding: 0 14px 0 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.global-setting-library-header h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.global-setting-library-header > button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.global-setting-library-header > button:hover { background: var(--control-bg-hover); }
+
+.global-setting-library-content {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.global-setting-library-dialog .setting-library-toolbar { grid-template-columns: minmax(160px, 1fr) auto auto auto; }
+.global-setting-library-dialog.mobile-character-editor .setting-library-toolbar { grid-template-columns: minmax(0, 1fr) auto auto; }
+.global-setting-library-dialog.mobile-character-editor .setting-library-toolbar .setting-library-save-control { grid-column: auto; }
+.global-setting-library-dialog.mobile-character-editor .setting-library-save-button { display: inline-flex; min-height: 44px; }
+.global-setting-library-dialog.mobile-character-editor .setting-library-save-control:not(:has(.setting-library-save-feedback)) { display: flex; }
+
+@media (max-width: 700px) {
+  .global-setting-library-backdrop { padding: 8px; }
+  .global-setting-library-backdrop > .global-setting-library-dialog { height: 100%; }
+  .global-setting-library-dialog .setting-library-toolbar { grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 4px; padding-inline: 8px; }
+}

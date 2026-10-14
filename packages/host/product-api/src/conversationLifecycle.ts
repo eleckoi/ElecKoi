@@ -64,6 +64,14 @@ export class ElecKoiConversationLifecycle extends Service {
     await this.current.get(conversationId)?.pending?.catch(() => undefined)
   }
 
+  /** @internal 释放尚未被 Session 接受的准备；已经收尾的轮次仍由 turn/end 管理。 */
+  release(conversationId: string, operationId: string): boolean {
+    const entry = this.current.get(conversationId)
+    if (!entry || entry.input.operationId !== operationId || entry.pending) return false
+    this.current.delete(conversationId)
+    return true
+  }
+
   /** @internal 删除聊天后释放本进程当前操作，调用前等待正在收尾的工作。 */
   forget(conversationId: string): void {
     this.current.delete(conversationId)

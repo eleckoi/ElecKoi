@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import {
+  createWriteStream,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -8,6 +9,9 @@ import {
   rmSync,
   writeFileSync
 } from 'node:fs'
+import { mkdir, rename, rm } from 'node:fs/promises'
+import { Transform, type TransformCallback } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import { join, resolve, sep } from 'node:path'
 import { LOCAL_MEDIA_SCHEME } from '@shared/foundation/mediaReference'
 
@@ -15,13 +19,21 @@ const REFERENCE_PREFIX = `${LOCAL_MEDIA_SCHEME}://asset/v1/`
 const MAX_IMAGE_BYTES = 64 * 1024 * 1024
 const HASH_PATTERN = /^[a-f0-9]{64}$/
 const SLOT_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/
-const FILE_PATTERN = /^([a-f0-9]{64})\.(png|jpg|webp|gif)$/
+const FILE_PATTERN = /^([a-f0-9]{64})\.(png|jpg|webp|gif|mp4|webm|mov|ogv)$/
+const IMAGE_FILE_PATTERN = /^([a-f0-9]{64})\.(png|jpg|webp|gif)$/
 
 const IMAGE_TYPES = new Map([
   ['image/png', 'png'],
   ['image/jpeg', 'jpg'],
   ['image/webp', 'webp'],
   ['image/gif', 'gif']
+])
+const MEDIA_TYPES = new Map([
+  ...IMAGE_TYPES,
+  ['video/mp4', 'mp4'],
+  ['video/webm', 'webm'],
+  ['video/quicktime', 'mov'],
+  ['video/ogg', 'ogv']
 ])
 
 export interface PreparedLocalMedia {
@@ -52,6 +64,10 @@ interface DecodedImage {
   bytes: Buffer
   extension: string
 }
+export interface PreparedMediaBytes extends PreparedLocalMedia {
+  readonly mediaType: string
+  readonly byteLength: number
+}
 
 export class LocalMediaStore {
   constructor(private readonly root: string) {
@@ -64,12 +80,15 @@ export class LocalMediaStore {
     this.assertSlot(slot)
 
     const existingPath = this.pathForReference(normalized)
+    if (existingPath && !IMAGE_FILE_PATTERN.test(existingPath.split(/[\\/]/).at(-1) ?? '')) {
+      throw new TypeError('图片槽位不能引用视频媒体。')
+    }
     if (existingPath && this.referenceMatchesOwnerSlot(normalized, ownerHash, slot)) {
       const fileName = existingPath.split(/[\\/]/).at(-1) ?? ''
       return this.prepared(normalized, ownerHash, slot, fileName, false)
     }
     const decoded = normalized.startsWith('data:')
-      ? decodeImageDataUrl(normalized)
+      ? decodeMediaDataUrl(normalized, IMAGE_TYPES, MAX_IMAGE_BYTES, '图片')
       : existingPath
         ? decodeStoredImage(existingPath)
         : undefined
@@ -96,6 +115,44 @@ export class LocalMediaStore {
     }
     const reference = `${REFERENCE_PREFIX}${ownerHash}/${slot}/${fileName}`
     return this.prepared(reference, ownerHash, slot, fileName, created)
+  }
+
+  /** Store binary image/video data in the shared media root; metadata references stay in SQLite. */
+  async prepareBytes(owner: string, slot: string, bytes: Uint8Array, mediaType: string, signal?: AbortSignal): Promise<PreparedMediaBytes> {
+    if (!(bytes instanceof Uint8Array) || bytes.byteLength === 0) throw new TypeError('媒体数据为空。')
+    const source = async function* () { yield bytes }
+    return this.prepareStream(owner, slot, source(), mediaType, signal)
+  }
+
+  /** Download incrementally; only the final content hash and reference enter the native catalog. */
+  async prepareStream(owner: string, slot: string, source: AsyncIterable<Uint8Array>, mediaType: string, signal?: AbortSignal): Promise<PreparedMediaBytes> {
+    const normalizedType = mediaType.split(';', 1)[0]!.trim().toLowerCase()
+    const extension = MEDIA_TYPES.get(normalizedType)
+    if (!extension) throw new TypeError(`不支持的媒体类型：${normalizedType}`)
+    const ownerHash = this.ownerHash(owner)
+    this.assertSlot(slot)
+    const directory = this.slotDirectory(ownerHash, slot)
+    signal?.throwIfAborted()
+    await mkdir(directory, { recursive: true })
+    const temporary = join(directory, `.import-${randomUUID()}.tmp`), hash = createHash('sha256')
+    let byteLength = 0, created = false, target: string | undefined
+    const measure = new Transform({ transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback) {
+      byteLength += chunk.byteLength; hash.update(chunk); callback(null, chunk)
+    } })
+    try {
+      await pipeline(source, measure, createWriteStream(temporary, { flags: 'wx' }), { signal })
+      signal?.throwIfAborted()
+      if (!byteLength) throw new TypeError('媒体数据为空。')
+      const fileName = `${hash.digest('hex')}.${extension}`
+      target = join(directory, fileName)
+      if (!existsSync(target)) { await rename(temporary, target); created = true }
+      signal?.throwIfAborted()
+      const reference = `${REFERENCE_PREFIX}${ownerHash}/${slot}/${fileName}`
+      return Object.assign(this.prepared(reference, ownerHash, slot, fileName, created), { mediaType: normalizedType, byteLength })
+    } catch (error) {
+      if (created && target) await rm(target, { force: true })
+      throw error
+    } finally { await rm(temporary, { force: true }) }
   }
 
   pathForReference(reference: string): string | undefined {
@@ -158,22 +215,22 @@ export class LocalMediaStore {
   }
 }
 
-function decodeImageDataUrl(value: string): DecodedImage {
+function decodeMediaDataUrl(value: string, types: Map<string, string>, maxBytes: number, label: string): DecodedImage {
   const match = /^data:([^;,]+);base64,([a-z0-9+/=\r\n]+)$/i.exec(value)
-  if (!match) throw new Error('图片数据格式无效。')
+  if (!match) throw new Error(`${label}数据格式无效。`)
   const mediaType = match[1]!.toLowerCase()
-  const extension = IMAGE_TYPES.get(mediaType)
-  if (!extension) throw new Error('仅支持 PNG、JPEG、WebP 和 GIF 图片。')
+  const extension = types.get(mediaType)
+  if (!extension) throw new Error(`不支持的${label}类型：${mediaType}`)
   const encoded = match[2]!.replace(/\s+/g, '')
   const bytes = Buffer.from(encoded, 'base64')
-  if (!bytes.length || bytes.length > MAX_IMAGE_BYTES || bytes.toString('base64').replace(/=+$/, '') !== encoded.replace(/=+$/, '')) {
-    throw new Error('图片数据无效或超过 64 MB。')
+  if (!bytes.length || bytes.length > maxBytes || bytes.toString('base64').replace(/=+$/, '') !== encoded.replace(/=+$/, '')) {
+    throw new Error(`${label}数据无效或超过限制。`)
   }
   return { bytes, extension }
 }
 
 function decodeStoredImage(path: string): DecodedImage {
-  const match = FILE_PATTERN.exec(path.split(/[\\/]/).at(-1) ?? '')
+  const match = IMAGE_FILE_PATTERN.exec(path.split(/[\\/]/).at(-1) ?? '')
   if (!match) throw new Error('本地媒体引用无效。')
   return { bytes: readFileSync(path), extension: match[2]! }
 }

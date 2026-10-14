@@ -35,7 +35,7 @@ const entryKinds = new Set<SettingLibraryEntry['kind']>(['normal', 'opening', 'h
 const readStrategies = new Set<SettingLibraryEntry['agentReadStrategy']>(['required', 'keyword', 'normal'])
 const dynamicModes = new Set<SettingLibraryEntry['dynamicMode']>(['standard', 'ejs_reference'])
 const contentModes = new Set<SettingLibraryEntry['contentMode']>(['plain_text', 'ejs'])
-const keywordConditions = new Set<SettingLibraryEntry['keywordCondition']>(['none', 'any', 'all', 'not_any'])
+const keywordConditions = new Set<SettingLibraryEntry['keywordCondition']>(['none', 'any', 'all', 'not_any', 'not_all'])
 const positions = new Set<NonNullable<SettingLibraryEntry['position']>>([
   'instructions', 'insert_point_1', 'insert_point_2', 'insert_point_3', 'insert_point_4', 'insert_point_5'
 ])

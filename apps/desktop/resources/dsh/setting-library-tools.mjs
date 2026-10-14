@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { readSessionSnapshot } from './session-snapshot.mjs'
 import { requiredSettingCache } from './required-setting-cache.mjs'
+import { settingSendBatches, mergedSettingText, compareSettingOrder } from '@eleckoi/dsh-client-roleplay/host/setting-send-groups.mjs'
 
 export const name = 'eleckoi-setting-library-tools'
 export const inject = ['tools', 'eleckoiProductData', 'eleckoiCharacterConfigurationChanges']
@@ -36,7 +37,8 @@ function globTool() {
       if (scope === null || !directoryExists(catalog, scope)) return fail('invalid_path', 'path 必须是当前虚拟设定库中真实存在的目录。')
       let matcher
       try { matcher = globRegex(String(args.pattern || '**').trim() || '**') } catch (error) { return fail('glob_error', message(error)) }
-      const entries = catalog.entries.filter((entry) => inScope(entry.path, scope) && matcher.test(relative(entry.path, scope)))
+      const entries = catalog.entries.filter(entry => (entry.members || [entry]).some(member =>
+        inScope(member.path, scope) && matcher.test(relative(member.path, scope))))
       return {
         status: entries.length ? 'ok' : 'no_matches',
         path: scope,
@@ -76,7 +78,8 @@ function grepTool() {
       const mode = args.output_mode || 'files_with_matches'
       const matches = []
       for (const entry of catalog.entries) {
-        if (!inScope(entry.path, scope) || (pathMatcher && !pathMatcher.test(relative(entry.path, scope)))) continue
+        if (!(entry.members || [entry]).some(member => inScope(member.path, scope)
+          && (!pathMatcher || pathMatcher.test(relative(member.path, scope))))) continue
         const lines = (`${entry.path}\n${entry.selectionHint}\n${entry.content}`).split('\n')
         const hit = lines.flatMap((text, index) => expression.test(text) ? [{ line: index + 1, text }] : [])
         if (!hit.length) continue
@@ -98,7 +101,7 @@ function grepTool() {
 function readTool() {
   return defineTool({
     name: 'eleckoi_read_setting_files',
-    description: '按完整路径读取当前可用的虚拟设定文件；已知准确路径时无需重新搜索。路径没有 .md 后缀；不得猜测未知路径。固定必读正文已在本轮缓存设定区，读取仅返回编号与标题；本轮须读和选读条目返回正文。',
+    description: '按完整路径读取当前可用的虚拟设定文件；已知准确路径时无需重新搜索。路径没有 .md 后缀；不得猜测未知路径。标有 merged_paths 的文件是作者配置的发送组合，读取任一成员路径会一次返回本轮启用且可用的组合内容，无需逐条读取。固定必读正文已在本轮缓存设定区，读取仅返回编号与标题；本轮须读和选读条目返回正文。',
     parameters: { paths: { type: 'array', items: { type: 'string' }, required: true, description: '一个或多个当前可用的完整虚拟设定文件路径。' } },
     output: output(),
     async execute(args, exec) {
@@ -108,29 +111,45 @@ function readTool() {
       const bridge = readBridge(bridgeFile, exec)
       if (!bridge.enabled) return { status: 'ok', files: [] }
       const catalog = await runtimeCatalogOf(bridge, bridgeFile)
-      const byPath = new Map(catalog.entries.map((entry) => [entry.path, entry]))
+      const byPath = catalog.byPath
       const missing = paths.filter((path) => !byPath.has(path))
       if (missing.length) return { ...fail('not_found', '存在当前虚拟设定库没有的路径，请重新使用 Glob 或 Grep。'), paths: missing }
-      const files = paths.map((path) => {
-        const entry = byPath.get(path)
-        const cached = cachedReference(entry, catalog)
-        if (entry.renderError) return {
-          ...summary(entry, catalog),
-          group_path: entry.groupPath,
-          selection_hint: entry.selectionHint,
-          read_strategy: entry.readStrategy,
-          content_delivery: 'error',
-          error: entry.renderError
+      const selected = [...new Set(paths.map(path => byPath.get(path)))]
+      const files = selected.map((entry) => {
+        if (entry.members) {
+          const members = entry.members.map(member => readFileResult(member, catalog))
+          const errors = members.filter(member => member.content_delivery === 'error')
+          const cached = cachedReference(entry, catalog)
+          return {
+            ...summary(entry, catalog), group_path: entry.groupPath,
+            content_delivery: cached ? 'cached_reference' : 'tool_result',
+            content: mergedSettingText(members, member => member.path, member => member.content || `读取失败：${member.error.message}`),
+            entries: members.map(({ content, ...metadata }) => metadata),
+            ...(errors.length ? { errors } : {})
+          }
         }
-        return { ...summary(entry, catalog), group_path: entry.groupPath, selection_hint: entry.selectionHint,
-          read_strategy: entry.readStrategy, content_delivery: cached ? 'cached_reference' : 'tool_result',
-          resolved_references: (entry.resolvedReferences || []).map((reference) => ({ title: reference.title })),
-          ...(cached ? { cached_reference: cached.reference } : {}), content: cached ? cached.receipt : entry.content }
+        return readFileResult(entry, catalog)
       })
-      const errors = files.filter((file) => file.content_delivery === 'error')
+      const errors = files.flatMap(file => file.errors || (file.content_delivery === 'error' ? [file] : []))
       return { status: errors.length ? 'partial' : 'ok', files, ...(errors.length ? { errors } : {}) }
     }
   })
+}
+
+function readFileResult(entry, catalog) {
+  const cached = cachedReference(entry, catalog)
+  if (entry.renderError) return {
+    ...summary(entry, catalog),
+    group_path: entry.groupPath,
+    selection_hint: entry.selectionHint,
+    read_strategy: entry.readStrategy,
+    content_delivery: 'error',
+    error: entry.renderError
+  }
+  return { ...summary(entry, catalog), group_path: entry.groupPath, selection_hint: entry.selectionHint,
+    read_strategy: entry.readStrategy, content_delivery: cached ? 'cached_reference' : 'tool_result',
+    resolved_references: (entry.resolvedReferences || []).map((reference) => ({ title: reference.title })),
+    ...(cached ? { cached_reference: cached.reference } : {}), content: cached ? cached.receipt : entry.content }
 }
 
 function patchTool(ctx) {
@@ -338,12 +357,16 @@ async function runtimeCatalogOf(bridge, bridgeFile) {
   const original = catalogOf(bridge.frozenLibrary || bridge.library)
   catalog.requiredCache = requiredSettingCache(bridge.frozenLibrary || bridge.library)
     .map((item) => ({ ...item, path: original.entries.find((entry) => entry.raw.id === item.id)?.path }))
-  if (bridge.runtimeResolution?.version === 1) return applyRuntimeResolution(catalog, bridge.runtimeResolution)
+  if (bridge.runtimeResolution?.version === 1) return mergeReadCatalog(bridge.library, applyRuntimeResolution(catalog, bridge.runtimeResolution))
   const keywordEntries = catalog.entries.filter((entry) => entry.readStrategy === 'keyword')
-  const keywordMatches = matchingKeywordEntryIds(keywordEntries, bridge.history)
+  const managed = new Set(bridge.worldbookRound?.managedEntryIds ?? [])
+  const activated = new Set(bridge.worldbookRound?.activatedEntryIds ?? [])
+  const keywordMatches = matchingKeywordEntryIds(keywordEntries.filter(entry => !managed.has(entry.raw.id)), bridge.history)
+  for (const id of activated) keywordMatches.add(id)
   const variableState = objectValue(bridge.variableState)
 
   let entries = catalog.entries
+    .filter(entry => !managed.has(entry.raw.id) || activated.has(entry.raw.id))
     .filter((entry) => entry.raw.dynamicMode !== 'ejs_reference')
     .filter((entry) => entry.readStrategy !== 'keyword' || keywordMatches.has(entry.raw.id))
     .map((entry) => keywordMatches.has(entry.raw.id) ? { ...entry, promotedToRequiredThisTurn: true } : entry)
@@ -377,7 +400,23 @@ async function runtimeCatalogOf(bridge, bridgeFile) {
   }
   bridge.runtimeResolution = resolution
   writeBridge(bridgeFile, bridge)
-  return applyRuntimeResolution(catalog, resolution)
+  return mergeReadCatalog(bridge.library, applyRuntimeResolution(catalog, resolution))
+}
+
+function mergeReadCatalog(library, catalog) {
+  const compare = compareSettingOrder(library)
+  const ordered = [...catalog.entries].sort((left, right) => compare(left.raw, right.raw))
+  const entries = settingSendBatches(library, ordered, { entryId: entry => entry.raw.id }).map(batch => {
+    if (!batch.merged) return batch.items[0]
+    const members = batch.items
+    return { ...members[0], members, displayTitle: `${batch.title} · 合并 ${members.length} 条`,
+      content: mergedSettingText(members, member => member.path, member => member.content),
+      selectionHint: members.map(member => member.selectionHint).filter(Boolean).join('\n'),
+      readStrategy: members.some(member => member.readStrategy === 'required') ? 'required' : members[0].readStrategy,
+      promotedToRequiredThisTurn: members.some(member => member.promotedToRequiredThisTurn) }
+  })
+  return { ...catalog, entries,
+    byPath: new Map(entries.flatMap(entry => (entry.members || [entry]).map(member => [member.path, entry]))) }
 }
 
 function applyRuntimeResolution(catalog, resolution) {
@@ -438,17 +477,21 @@ function matchesKeywordText(entry, text) {
   const conditionKeywords = stringList(entry.conditionKeywords)
   if (!conditionKeywords.length) return true
   const matches = conditionKeywords.map((keyword) => containsKeyword(text, keyword, entry))
-  const condition = entry.keywordCondition === 'all' || entry.keywordCondition === 'not_any'
+  const condition = entry.keywordCondition === 'all' || entry.keywordCondition === 'not_any' || entry.keywordCondition === 'not_all'
     ? entry.keywordCondition
     : 'any'
   if (condition === 'all') return matches.length > 0 && matches.every(Boolean)
   if (condition === 'not_any') return matches.every((matched) => !matched)
+  if (condition === 'not_all') return !matches.every(Boolean)
   return matches.some(Boolean)
 }
 
 function containsKeyword(text, rawKeyword, entry) {
   const keyword = String(rawKeyword || '').trim()
   if (!keyword) return false
+  const encoded = [...(entry.sillyTavern?.strategy?.keys ?? []), ...(entry.sillyTavern?.strategy?.keys_secondary?.keys ?? [])]
+    .map(value => value?.__eleckoiKeywordRegex).find(value => value && `/${value.source}/${value.flags}` === keyword)
+  if (encoded) return new RegExp(encoded.source, encoded.flags).test(text)
   if (entry.keywordUseRegex === true) {
     const expression = compileTavernKeywordRegex(keyword, entry.keywordIgnoreCase !== false)
     if (!expression) return false
@@ -756,12 +799,22 @@ function settingBridgeFor(exec) {
 }
 function output() { return { schema: { type: 'object', additionalProperties: true }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value, null, 2) }] } }
 function requiredFiles(catalog) { return catalog.entries.filter((entry) => entry.readStrategy === 'required' || entry.promotedToRequiredThisTurn === true).map((entry) => summary(entry, catalog)) }
-function cachedReference(entry, catalog) { return catalog.requiredCache?.find((item) => item.id === entry.raw.id && item.path === entry.path && item.title === (String(entry.raw.title || '').trim() || '未命名设定') && item.content === entry.content && entry.readStrategy === 'required') }
+function cachedReference(entry, catalog) {
+  if (entry.members) {
+    const references = entry.members.map(member => cachedReference(member, catalog))
+    return references.every(Boolean) ? { reference: references.map(item => item.reference).join(', '),
+      receipt: references.map(item => item.receipt).join('\n') } : undefined
+  }
+  return catalog.requiredCache?.find(item => item.id === entry.raw.id && item.path === entry.path
+    && item.title === (String(entry.raw.title || '').trim() || '未命名设定')
+    && item.content === entry.content && entry.readStrategy === 'required')
+}
 function summary(entry, catalog) {
   const cached = cachedReference(entry, catalog)
   return {
     path: entry.path,
-    title: entry.raw.title,
+    title: entry.displayTitle || entry.raw.title,
+    ...(entry.members ? { merged_paths: entry.members.map(member => member.path) } : {}),
     read_strategy: entry.readStrategy,
     selection_hint: entry.selectionHint,
     content_delivery: entry.renderError ? 'error' : cached ? 'cached_reference' : 'tool_result',

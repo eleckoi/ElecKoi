@@ -181,6 +181,7 @@ function entryFromJson(value, index) {
     iconId: text(value.icon_id),
     kind: ["normal", "opening", "history_compaction", "hidden_tool_timeline"].includes(value.kind) ? value.kind : "normal",
     groupId: text(value.group_id),
+    sendGroupId: text(value.send_group_id),
     content: text(value.content),
     openingMessages: objectList(value.opening_messages).map(openingMessageFromJson),
     defaultOpeningMessageId: text(value.default_opening_message_id),
@@ -191,7 +192,7 @@ function entryFromJson(value, index) {
     keywords: stringList(value.keywords),
     keywordScanDepth: Math.max(0, integer(value.keyword_scan_depth, 1)),
     conditionKeywords: stringList(value.condition_keywords),
-    keywordCondition: ["none", "any", "all", "not_any"].includes(value.keyword_condition) ? value.keyword_condition : "none",
+    keywordCondition: ["none", "any", "all", "not_any", "not_all"].includes(value.keyword_condition) ? value.keyword_condition : "none",
     keywordUseRegex: bool(value.keyword_use_regex),
     keywordIgnoreCase: bool(value.keyword_ignore_case, true),
     keywordWholeWord: bool(value.keyword_whole_word),
@@ -207,6 +208,7 @@ function entryFromJson(value, index) {
     treeViewOrder: integer(value.tree_view_order, index + 1),
     createdAt: text(value.created_at),
     updatedAt: text(value.updated_at),
+    ...(value.silly_tavern && typeof value.silly_tavern === "object" ? { sillyTavern: clone(value.silly_tavern) } : {}),
   };
 }
 
@@ -215,10 +217,12 @@ function groupFromJson(value, index) {
     id: text(value.id) || createId("group"),
     name: text(value.name).slice(0, 80),
     parentId: text(value.parent_id),
+    mergeSend: bool(value.merge_send),
     order: Math.max(1, integer(value.order, index + 1)),
     treeViewOrder: integer(value.tree_view_order, index + 1),
     createdAt: text(value.created_at),
     updatedAt: text(value.updated_at),
+    ...(value.silly_tavern && typeof value.silly_tavern === "object" ? { sillyTavern: clone(value.silly_tavern) } : {}),
   };
 }
 
@@ -269,7 +273,8 @@ function worldBookEntries(source) {
   const raw = source?.entries;
   if (Array.isArray(raw)) return raw;
   if (raw && typeof raw === "object") {
-    return Object.keys(raw).sort((left, right) => (Number(left) || Number.MAX_SAFE_INTEGER) - (Number(right) || Number.MAX_SAFE_INTEGER))
+    return Object.keys(raw).sort((left, right) => (Number.isFinite(Number(left)) ? Number(left) : Number.MAX_SAFE_INTEGER)
+      - (Number.isFinite(Number(right)) ? Number(right) : Number.MAX_SAFE_INTEGER))
       .map((key) => raw[key]).filter(Boolean);
   }
   return [];
@@ -329,7 +334,7 @@ function parseSillyTavernExport(source) {
       keywords: constant ? [] : keys,
       keywordScanDepth: 1,
       conditionKeywords: constant ? [] : secondary,
-      keywordCondition: constant || !secondary.length ? "none" : logic === 2 ? "not_any" : logic === 3 ? "all" : "any",
+      keywordCondition: constant || !secondary.length ? "none" : logic === 1 ? "not_all" : logic === 2 ? "not_any" : logic === 3 ? "all" : "any",
       keywordUseRegex: !constant && bool(item.use_regex),
       keywordIgnoreCase: !bool(item.case_sensitive, bool(item?.extensions?.case_sensitive)),
       keywordWholeWord: bool(item.match_whole_words, bool(item?.extensions?.match_whole_words)),
@@ -345,6 +350,7 @@ function parseSillyTavernExport(source) {
       treeViewOrder: index + 1,
       createdAt: timestamp,
       updatedAt: timestamp,
+      sillyTavern: clone(item),
     } };
   });
   const controllers = imported.filter((item) => ejsController(item.content));
@@ -375,7 +381,8 @@ function parseSillyTavernExport(source) {
   });
   return {
     id: createId("import"), name, entries,
-    groups: [{ id: groupId, name, parentId: "", order: 1, treeViewOrder: 1, createdAt: timestamp, updatedAt: timestamp }],
+    groups: [{ id: groupId, name, parentId: "", order: 1, treeViewOrder: 1, createdAt: timestamp, updatedAt: timestamp,
+      sillyTavern: Object.fromEntries(Object.entries(book).filter(([key]) => key !== "entries")) }],
     promptPositions: [], listAllExpanded: true, expandedGroupIds: [groupId], createdAt: "", updatedAt: "",
   };
 }
@@ -398,6 +405,7 @@ function entryToJson(entry) {
   return {
     id: entry.id, title: entry.title, icon_id: entry.iconId, kind: entry.kind,
     group_id: entry.groupId, content: entry.content,
+    send_group_id: entry.sendGroupId || '',
     opening_messages: entry.openingMessages.map((message) => ({
       id: message.id, title: message.title, content: message.content,
       initial_variable_state: message.initialVariableStateJson,
@@ -415,12 +423,13 @@ function entryToJson(entry) {
     prompt_position_id: entry.promptPositionId, insert_role: entry.insertRole, order: entry.order,
     view_order: entry.viewOrder, group_view_order: entry.groupViewOrder, tree_view_order: entry.treeViewOrder,
     created_at: entry.createdAt, updated_at: entry.updatedAt,
+    ...(entry.sillyTavern ? { silly_tavern: clone(entry.sillyTavern) } : {}),
   };
 }
 
-export function serializeSettingLibrary(library) {
+export function toSettingLibraryExport(library) {
   const current = syncActiveVersion(library);
-  return JSON.stringify({
+  return {
     format: SETTING_LIBRARY_EXPORT_FORMAT,
     version: SETTING_LIBRARY_EXPORT_VERSION,
     character_id: current.characterId,
@@ -430,13 +439,19 @@ export function serializeSettingLibrary(library) {
     entries: current.entries.map(entryToJson),
     groups: current.groups.map((group) => ({
       id: group.id, name: group.name, parent_id: group.parentId, order: group.order,
+      merge_send: group.mergeSend === true,
       tree_view_order: group.treeViewOrder, created_at: group.createdAt, updated_at: group.updatedAt,
+      ...(group.sillyTavern ? { silly_tavern: clone(group.sillyTavern) } : {}),
     })),
     prompt_positions: current.promptPositions.map((position) => ({
       id: position.id, name: position.name, anchor: position.anchor, side: position.side, order: position.order,
       created_at: position.createdAt, updated_at: position.updatedAt,
     })),
-  }, null, 2);
+  };
+}
+
+export function serializeSettingLibrary(library) {
+  return JSON.stringify(toSettingLibraryExport(library), null, 2);
 }
 
 function currentPosition(value) {
@@ -526,7 +541,9 @@ export function mergeSettingLibraryEntries(library, sourceVersion, selectedIds, 
   let renamedEntryCount = 0;
   let reorderedEntryCount = 0;
   let viewOrder = Math.max(0, ...entries.map((entry) => entry.viewOrder));
+  const sendGroupIds = new Map();
   for (const source of picked) {
+    if (source.sendGroupId && !sendGroupIds.has(source.sendGroupId)) sendGroupIds.set(source.sendGroupId, createId('send-group'));
     const groupId = source.groupId ? resolved.get(source.groupId) || destination : destination;
     const title = availableTitle(groupId, source.title, entries);
     const order = availableOrder(source, entries);
@@ -535,6 +552,7 @@ export function mergeSettingLibraryEntries(library, sourceVersion, selectedIds, 
     const timestamp = new Date().toISOString();
     entries.push({
       ...clone(source), id: createId("setting"), title, groupId, order, viewOrder: ++viewOrder,
+      sendGroupId: sendGroupIds.get(source.sendGroupId) || '',
       groupViewOrder: Math.max(0, ...entries.filter((entry) => entry.groupId === groupId).map((entry) => entry.groupViewOrder)) + 1,
       treeViewOrder: nextTreeViewOrder(groupId, groups, entries), createdAt: timestamp, updatedAt: timestamp,
     });
@@ -544,4 +562,228 @@ export function mergeSettingLibraryEntries(library, sourceVersion, selectedIds, 
     library: next,
     plan: { entryCount: picked.length, mergedFolderCount, newFolderCount, renamedEntryCount, reorderedEntryCount },
   };
+}
+
+function record(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function bookMetadata(book) {
+  const metadata = clone(record(book));
+  delete metadata.entries;
+  if (metadata.extensions) delete metadata.extensions.eleckoi;
+  return metadata;
+}
+
+function availableTransferName(requested, existing, maxLength, fallback) {
+  const base = requested.trim().slice(0, maxLength) || fallback;
+  const used = new Set(existing.map(name => name.trim().toLocaleLowerCase()));
+  let name = base, index = 2;
+  while (used.has(name.toLocaleLowerCase())) {
+    const suffix = ` (${index++})`;
+    name = `${base.slice(0, maxLength - suffix.length)}${suffix}`;
+  }
+  return name;
+}
+
+function worldbookValue(values, expected, preserveNative) {
+  const supplied = values.filter(value => value !== undefined);
+  return (preserveNative ? supplied.find(value => JSON.stringify(value) !== JSON.stringify(expected)) : undefined)
+    ?? supplied[0] ?? expected;
+}
+
+function applyWorldbookFields(entry, item, preserveNativePlacement = false) {
+  const extensions = record(item.extensions);
+  const baseline = preserveNativePlacement ? worldbookEntry(entry, 0) : null;
+  const baselineExtensions = record(baseline?.extensions);
+  const secondary = stringList(worldbookValue([item.keysecondary, item.secondary_keys], entry.conditionKeywords, preserveNativePlacement));
+  const logic = integer(worldbookValue([item.selectiveLogic, extensions.selectiveLogic], baseline?.selectiveLogic ?? baselineExtensions.selectiveLogic, preserveNativePlacement));
+  const rawRole = worldbookValue([item.role, extensions.role], baseline?.role ?? baselineExtensions.role, preserveNativePlacement);
+  const role = ["system", "user", "assistant"].includes(rawRole) ? rawRole : ["system", "user", "assistant"][rawRole];
+  const wirePosition = worldbookValue([item.position, extensions.position], baseline?.position ?? baselineExtensions.position, preserveNativePlacement);
+  const position = currentPosition(wirePosition) || (Number.isInteger(wirePosition)
+    ? ["insert_point_1", "insert_point_2", "insert_point_3", "insert_point_4", "insert_point_3", "insert_point_1", "insert_point_2"][wirePosition] : null);
+  const order = worldbookValue([item.order, item.insertion_order, extensions.insertion_order], entry.order, preserveNativePlacement);
+  const positionChanged = !baseline || wirePosition !== (baseline.position ?? record(baseline.extensions).position);
+  const roleChanged = !baseline || rawRole !== (baseline.role ?? record(baseline.extensions).role);
+  return { ...entry,
+    title: text(worldbookValue([item.comment, item.name], entry.title, preserveNativePlacement), entry.title).slice(0, 120), content: text(item.content, entry.content),
+    keywords: stringList(worldbookValue([item.key, item.keys], entry.keywords, preserveNativePlacement)), conditionKeywords: secondary,
+    keywordCondition: !secondary.length ? "none" : logic === 1 ? "not_all" : logic === 2 ? "not_any" : logic === 3 ? "all" : "any",
+    keywordScanDepth: Math.max(0, integer(worldbookValue([item.scanDepth, item.scan_depth, extensions.scan_depth], entry.keywordScanDepth, preserveNativePlacement), entry.keywordScanDepth)),
+    keywordUseRegex: bool(item.use_regex, entry.keywordUseRegex),
+    keywordIgnoreCase: !bool(worldbookValue([item.case_sensitive, extensions.case_sensitive], !entry.keywordIgnoreCase, preserveNativePlacement), !entry.keywordIgnoreCase),
+    keywordWholeWord: bool(worldbookValue([item.match_whole_words, extensions.match_whole_words], entry.keywordWholeWord, preserveNativePlacement), entry.keywordWholeWord),
+    triggerMode: bool(item.constant) ? "always" : entry.triggerMode === "always" ? "agent_tool" : entry.triggerMode,
+    enabled: bool(worldbookValue([typeof item.disable === "boolean" ? !item.disable : undefined, item.enabled], entry.enabled, preserveNativePlacement), entry.enabled),
+    order: Math.max(1, integer(order, entry.order)),
+    ...(positionChanged && position ? { position, ...(preserveNativePlacement ? { promptPositionId: "" } : {}) } : {}),
+    ...(roleChanged && role ? { insertRole: role } : {}),
+    sillyTavern: clone(item),
+  };
+}
+
+/** Parse either supported file format while preserving worldbook extension fields. */
+export function parseSettingLibraryTransfer(json, { filename = "", format = "auto" } = {}) {
+  let source;
+  try { source = JSON.parse(json); }
+  catch (error) { throw new Error("JSON 文件无法读取。", { cause: error }); }
+  const book = source?.data?.character_book || source?.character_book || source;
+  const embedded = record(record(book?.extensions).eleckoi);
+  if (!source?.format && embedded.format === SETTING_LIBRARY_EXPORT_FORMAT) {
+    if (format === "eleckoi") throw new Error("请选择 ElecKoi 导出的设定库文件。");
+    const imported = parseElecKoiExport(embedded);
+    imported.name = text(book.name, imported.name);
+    const items = worldBookEntries(book), nativeEntries = new Map(imported.entries.map(entry => [entry.id, entry]));
+    let rootGroupId = text(embedded.root_group_id);
+    let root = imported.groups.find(group => group.id === rootGroupId);
+    if (root) { root.name = imported.name.slice(0, 80); root.sillyTavern = bookMetadata(book); }
+    if (!root) {
+      rootGroupId = createId("tavern-world-book");
+      const timestamp = new Date().toISOString();
+      root = { id: rootGroupId, name: imported.name.slice(0, 80), parentId: "", order: 1, treeViewOrder: 1,
+        createdAt: timestamp, updatedAt: timestamp, sillyTavern: bookMetadata(book) };
+      imported.groups = [root, ...imported.groups.map(group => ({ ...group, parentId: group.parentId || rootGroupId }))];
+      imported.expandedGroupIds = [rootGroupId, ...imported.expandedGroupIds];
+    }
+    const newEntries = items.length ? parseSillyTavernExport({ ...book, entries: items }).entries : [];
+    const usedIds = new Set();
+    imported.entries = items.map((item, index) => {
+      const id = record(item.extensions).eleckoi_entry_id, entry = nativeEntries.get(id);
+      if (entry && !usedIds.has(id)) {
+        usedIds.add(id);
+        return applyWorldbookFields({ ...entry, groupId: entry.groupId || rootGroupId }, item, true);
+      }
+      return applyWorldbookFields({ ...newEntries[index], groupId: rootGroupId }, item);
+    });
+    return { ...imported, sourceFormat: "sillytavern", rootGroupId };
+  }
+  const imported = parseSettingLibraryFile(json, format);
+  if (source.format === SETTING_LIBRARY_EXPORT_FORMAT) return { ...imported, sourceFormat: "eleckoi", rootGroupId: text(source.root_group_id) };
+  const name = text(book.name) || text(source.name) || filename.replace(/\.[^.]+$/, "") || imported.name;
+  const items = worldBookEntries(book);
+  const root = imported.groups[0];
+  root.name = name.slice(0, 80);
+  root.sillyTavern = bookMetadata(book);
+  return { ...imported, name, sourceFormat: "sillytavern", rootGroupId: root.id,
+    entries: imported.entries.map((entry, index) => applyWorldbookFields(entry, items[index])) };
+}
+
+/** Append an imported draft; the caller's existing save action owns persistence. */
+export function mergeSettingLibraryTransfer(library, imported, { targetGroupId = "" } = {}) {
+  if (targetGroupId && !library.groups.some(group => group.id === targetGroupId)) throw new Error("导入目标文件夹不存在。");
+  for (const values of [imported.entries, imported.groups, imported.promptPositions]) {
+    if (new Set(values.map(value => value.id)).size !== values.length) throw new Error("导入文件中存在重复编号。");
+  }
+  const entryIds = new Map(imported.entries.filter(entry => entry.kind === "normal" && !PINNED_ENTRY_IDS.has(entry.id))
+    .map(entry => [entry.id, createId("setting")]));
+  const flattenRoot = targetGroupId ? imported.rootGroupId : "";
+  const groupIds = new Map(imported.groups.map(group => [group.id, group.id === flattenRoot ? targetGroupId : createId("group")]));
+  const positionIds = new Map(imported.promptPositions.map(position => [position.id, createId("prompt-position")]));
+  const sendGroupIds = new Map(imported.entries.filter(entry => entry.sendGroupId)
+    .map(entry => [entry.sendGroupId, createId('send-group')]));
+  if (imported.entries.some(entry => entry.promptPositionId && !positionIds.has(entry.promptPositionId))) throw new Error("导入条目引用了不存在的自定义位置。");
+  const groups = clone(library.groups), entries = clone(library.entries);
+  if (flattenRoot) {
+    const source = imported.groups.find(group => group.id === flattenRoot);
+    const target = groups.find(group => group.id === targetGroupId);
+    if (source?.mergeSend) target.mergeSend = true;
+    if (source?.sillyTavern) target.sillyTavern = { ...clone(source.sillyTavern), ...record(target.sillyTavern),
+      extensions: { ...record(source.sillyTavern.extensions), ...record(target.sillyTavern?.extensions) } };
+  }
+  const offset = nextTreeViewOrder(targetGroupId, groups, entries);
+  for (const source of imported.groups) {
+    if (source.id === flattenRoot) continue;
+    const parentId = groupIds.get(source.parentId) || targetGroupId;
+    const name = availableTransferName(source.name, groups.filter(group => group.parentId === parentId).map(group => group.name), 80, "未命名文件夹");
+    groups.push({ ...clone(source), id: groupIds.get(source.id), name, parentId,
+      treeViewOrder: source.parentId && source.parentId !== flattenRoot ? source.treeViewOrder : offset + source.treeViewOrder });
+  }
+  const viewOffset = Math.max(0, ...entries.map(entry => entry.viewOrder));
+  for (const source of imported.entries) {
+    if (!entryIds.has(source.id)) continue;
+    const groupId = groupIds.get(source.groupId) || targetGroupId;
+    const title = availableTransferName(source.title, entries.filter(entry => entry.groupId === groupId).map(entry => entry.title), 120, "未命名设定");
+    entries.push({ ...clone(source), id: entryIds.get(source.id), title, groupId,
+      sendGroupId: sendGroupIds.get(source.sendGroupId) || '',
+      promptPositionId: source.promptPositionId ? positionIds.get(source.promptPositionId) || "" : "",
+      viewOrder: viewOffset + source.viewOrder,
+      treeViewOrder: groupId === targetGroupId ? offset + source.treeViewOrder : source.treeViewOrder });
+  }
+  return { ...library, entries, groups,
+    promptPositions: [...clone(library.promptPositions), ...imported.promptPositions.map(position => ({ ...clone(position), id: positionIds.get(position.id) }))],
+    expandedGroupIds: [...new Set([...library.expandedGroupIds, ...imported.expandedGroupIds.map(id => groupIds.get(id)).filter(Boolean)])] };
+}
+
+function transferSubset(library, groupId) {
+  if (!groupId) return { ...library, entries: clone(library.entries), groups: clone(library.groups), promptPositions: clone(library.promptPositions) };
+  const root = library.groups.find(group => group.id === groupId);
+  if (!root) throw new Error("导出文件夹不存在。");
+  const ids = new Set([groupId]);
+  let count;
+  do { count = ids.size; for (const group of library.groups) if (ids.has(group.parentId)) ids.add(group.id); } while (count !== ids.size);
+  const entries = library.entries.filter(entry => ids.has(entry.groupId) && entry.kind === "normal").map(clone);
+  const referencedPositions = new Set(entries.map(entry => entry.promptPositionId).filter(Boolean));
+  return { ...library, name: root.name, entries,
+    groups: library.groups.filter(group => ids.has(group.id)).map(group => ({ ...clone(group), parentId: group.id === groupId ? "" : group.parentId })),
+    promptPositions: library.promptPositions.filter(position => referencedPositions.has(position.id)).map(clone),
+    expandedGroupIds: library.expandedGroupIds.filter(id => ids.has(id)) };
+}
+
+function worldbookEntry(entry, index) {
+  const source = record(entry.sillyTavern), extensions = clone(record(source.extensions));
+  const sourceSecondary = stringList(source.secondary_keys ?? source.keysecondary);
+  const sourceLogic = integer(source.selectiveLogic ?? extensions.selectiveLogic);
+  const sourceCondition = !sourceSecondary.length ? "none" : sourceLogic === 1 ? "not_all" : sourceLogic === 2 ? "not_any" : sourceLogic === 3 ? "all" : "any";
+  if (entry.keywordCondition !== sourceCondition || !Object.hasOwn(extensions, "selectiveLogic")) {
+    extensions.selectiveLogic = entry.keywordCondition === "not_all" ? 1 : entry.keywordCondition === "not_any" ? 2 : entry.keywordCondition === "all" ? 3 : 0;
+  }
+  if (Object.hasOwn(source, "selectiveLogic")) extensions.selectiveLogic = entry.keywordCondition === sourceCondition
+    ? sourceLogic : entry.keywordCondition === "not_all" ? 1 : entry.keywordCondition === "not_any" ? 2 : entry.keywordCondition === "all" ? 3 : 0;
+  extensions.eleckoi_entry_id = entry.id;
+  const result = { ...clone(source), uid: index, comment: entry.title, content: entry.content,
+    key: [...entry.keywords], keysecondary: [...entry.conditionKeywords],
+    constant: entry.triggerMode === "always", disable: !entry.enabled,
+    selective: entry.keywordCondition === sourceCondition && JSON.stringify(entry.conditionKeywords) === JSON.stringify(sourceSecondary)
+      ? source.selective ?? entry.conditionKeywords.length > 0 : entry.conditionKeywords.length > 0 && entry.keywordCondition !== "none",
+    order: entry.order, insertion_order: entry.order, scanDepth: entry.keywordScanDepth,
+    use_regex: entry.keywordUseRegex, case_sensitive: !entry.keywordIgnoreCase, match_whole_words: entry.keywordWholeWord,
+    extensions };
+  if (Object.hasOwn(source, "name")) result.name = entry.title;
+  if (Object.hasOwn(source, "keys")) result.keys = [...entry.keywords];
+  if (Object.hasOwn(source, "secondary_keys")) result.secondary_keys = [...entry.conditionKeywords];
+  if (Object.hasOwn(source, "enabled")) result.enabled = entry.enabled;
+  if (Object.hasOwn(source, "selectiveLogic")) result.selectiveLogic = extensions.selectiveLogic;
+  if (Object.hasOwn(source, "scan_depth")) result.scan_depth = entry.keywordScanDepth;
+  if (Object.hasOwn(extensions, "scan_depth")) extensions.scan_depth = entry.keywordScanDepth;
+  if (Object.hasOwn(extensions, "insertion_order")) extensions.insertion_order = entry.order;
+  if (Object.hasOwn(extensions, "case_sensitive")) extensions.case_sensitive = !entry.keywordIgnoreCase;
+  if (Object.hasOwn(extensions, "match_whole_words")) extensions.match_whole_words = entry.keywordWholeWord;
+  const sourcePosition = source.position ?? extensions.position;
+  const mappedPosition = currentPosition(sourcePosition) || ["insert_point_1", "insert_point_2", "insert_point_3", "insert_point_4", "insert_point_3", "insert_point_1", "insert_point_2"][sourcePosition];
+  result.position = sourcePosition !== undefined && mappedPosition === entry.position ? sourcePosition : entry.position === "insert_point_2" ? 1 :
+    ["insert_point_3", "insert_point_4", "insert_point_5"].includes(entry.position) ? 4 : 0;
+  if (Object.hasOwn(extensions, "position")) extensions.position = result.position;
+  const sourceRole = source.role ?? extensions.role;
+  const mappedRole = ["system", "user", "assistant"].includes(sourceRole) ? sourceRole : ["system", "user", "assistant"][sourceRole];
+  if (sourceRole !== undefined || result.position === 4) result.role = mappedRole === entry.insertRole
+    ? sourceRole : ["system", "user", "assistant"].indexOf(entry.insertRole);
+  if (Object.hasOwn(extensions, "role")) extensions.role = result.role;
+  return result;
+}
+
+/** Export one folder recursively or the active library without unrelated versions. */
+export function exportSettingLibraryTransfer(library, { groupId = "", format = "eleckoi" } = {}) {
+  if (!["eleckoi", "sillytavern"].includes(format)) throw new Error("选择有效的设定库导出格式。");
+  const subset = transferSubset(library, groupId);
+  const native = { ...toSettingLibraryExport(subset), ...(groupId ? { root_group_id: groupId } : {}) };
+  const safeName = (subset.name || "设定库").replace(/[\\/:*?"<>|]/g, "_");
+  if (format === "eleckoi") return { filename: `${safeName}.eleckoi.json`, value: native };
+  const root = subset.groups.find(group => group.id === groupId);
+  const source = record(root?.sillyTavern);
+  const normal = subset.entries.filter(entry => entry.kind === "normal");
+  native.entries = normal.map(entryToJson);
+  return { filename: `${safeName}.worldbook.json`, value: { ...clone(source), name: subset.name,
+    extensions: { ...clone(record(source.extensions)), eleckoi: native },
+    entries: Object.fromEntries(normal.map((entry, index) => [index, worldbookEntry(entry, index)])) } };
 }

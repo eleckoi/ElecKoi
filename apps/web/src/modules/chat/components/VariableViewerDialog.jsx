@@ -1,5 +1,6 @@
+import { VariableEditorPane } from './VariableEditorPane.jsx';
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, CaretDown, CaretRight, Database, X } from "../../../ui/icons/interfaceIcons.jsx";
 import { MobileConversationOverlay, MobileOverlayScroll, isMobilePresentation } from '../../../mobile/MobileConversationOverlay.jsx';
@@ -8,10 +9,16 @@ const EMPTY_TIMELINE = { id: "", status: "idle", timeline: null, error: "" };
 const subscribeEmptyTimeline = () => () => {};
 const getEmptyTimeline = () => EMPTY_TIMELINE;
 
-export function VariableViewerDialog({ conversationId, conversationModel, onClose, onNotify }) {
+export function VariableViewerDialog({ conversationId, conversationModel, nativeAuthorRuntime, onClose: onRequestClose, onNotify }) {
   const mobile = isMobilePresentation();
+  const [mode, setMode] = useState('history');
   const [showDetails, setShowDetails] = useState(false);
   const snapshotBack = useRef(null);
+  const editorDirty = useRef(false);
+  const onEditorDirtyChange = useCallback(dirty => { editorDirty.current = dirty; }, []);
+  const canLeaveEditor = () => !editorDirty.current || window.confirm('当前变量尚未保存，放弃修改？');
+  const onClose = useCallback(() => { if (!editorDirty.current || window.confirm('当前变量尚未保存，放弃修改？')) onRequestClose(); }, [onRequestClose]);
+  const changeMode = next => { if (mode !== next && canLeaveEditor()) setMode(next); };
   const [selectedId, setSelectedId] = useState("");
   const closeRef = useRef(null);
   const dialogRef = useRef(null);
@@ -73,19 +80,26 @@ export function VariableViewerDialog({ conversationId, conversationModel, onClos
   const selectedFloor = visibleTimeline?.floors.find((floor) => floor.id === selectedId) || null;
   const latestId = visibleTimeline?.floors.at(-1)?.id || "";
 
-  if (mobile) return <MobileConversationOverlay kind="page" title="变量查看器" className="mobile-variable-viewer" onClose={onClose}
-    onBack={showDetails ? () => { if (!snapshotBack.current?.()) setShowDetails(false); } : undefined}>
-    <div className="variable-viewer-body" data-page-direction={showDetails ? 'forward' : 'back'}>
+  const modeSwitch = <div className="variable-editor-modes" role="tablist" aria-label="变量工具">
+    <button type="button" role="tab" aria-selected={mode === 'history'} onClick={() => changeMode('history')}>楼层历史</button>
+    <button type="button" role="tab" aria-selected={mode === 'editor'} onClick={() => changeMode('editor')}>编辑变量</button>
+  </div>;
+  const editorPane = <VariableEditorPane conversationId={conversationId} runtime={nativeAuthorRuntime} onNotify={onNotify} onDirtyChange={onEditorDirtyChange} />;
+
+  if (mobile) return <MobileConversationOverlay kind="page" title="变量查看器" className="mobile-variable-viewer" onClose={onRequestClose} beforeClose={canLeaveEditor}
+    onBack={mode === 'history' && showDetails ? () => { if (!snapshotBack.current?.()) setShowDetails(false); } : undefined}>
+    {modeSwitch}
+    {mode === 'editor' ? editorPane : <div className="variable-viewer-body" data-page-direction={showDetails ? 'forward' : 'back'}>
       <div className="mobile-variable-timeline" hidden={showDetails}><TimelinePane timeline={visibleTimeline} loading={visibleLoading} error={visibleError} selectedId={selectedId} onSelect={id => { setSelectedId(id); setShowDetails(true); }} /></div>
       {showDetails && <SnapshotPane timeline={visibleTimeline} floor={selectedFloor} latestId={latestId} loading={visibleLoading} error={visibleError} mobile onBackRef={snapshotBack} />}
-    </div>
+    </div>}
   </MobileConversationOverlay>;
 
   return createPortal(
     <SystemBarOverlay className="variable-viewer-backdrop" role="presentation" onMouseDown={onClose}>
       <section
         ref={dialogRef}
-        className="variable-viewer-dialog"
+        className="variable-viewer-dialog has-editor-tabs"
         role="dialog"
         aria-modal="true"
         aria-labelledby="variable-viewer-title"
@@ -96,7 +110,8 @@ export function VariableViewerDialog({ conversationId, conversationModel, onClos
           <h2 id="variable-viewer-title">变量查看器</h2>
           <button ref={closeRef} type="button" onClick={onClose} aria-label="关闭变量查看器"><X /></button>
         </header>
-        <div className="variable-viewer-body">
+        {modeSwitch}
+        {mode === 'editor' ? editorPane : <div className="variable-viewer-body">
           <TimelinePane
             timeline={visibleTimeline}
             loading={visibleLoading}
@@ -105,7 +120,7 @@ export function VariableViewerDialog({ conversationId, conversationModel, onClos
             onSelect={setSelectedId}
           />
           <SnapshotPane timeline={visibleTimeline} floor={selectedFloor} latestId={latestId} loading={visibleLoading} error={visibleError} />
-        </div>
+        </div>}
       </section>
     </SystemBarOverlay>,
     document.body,

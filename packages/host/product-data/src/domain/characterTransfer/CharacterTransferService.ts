@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { mkdir, open, unlink, type FileHandle } from 'node:fs/promises'
 import { extname, join } from 'node:path'
@@ -68,6 +68,12 @@ export class CharacterTransferService {
       this.portableAsset('avatar.square', string(persona.assistant_square)),
       this.portableAsset('avatar.portrait', string(persona.assistant_cover))
     ].filter((asset): asset is PortableAsset => !!asset)
+    const expressions = character.expressions?.map(row => {
+      const key = `expression.${createHash('sha256').update(JSON.stringify([row.folder, row.name])).digest('hex').slice(0, 40)}`
+      const asset = this.portableAsset(key, row.url)
+      if (asset) assets.push(asset)
+      return { ...row, url: asset ? `asset:${key}` : row.url }
+    })
     if (assets.reduce((total, asset) => total + asset.bytes.length, 0) > 48 * 1024 * 1024) {
       throw new Error('角色图片总大小不能超过 48 MB')
     }
@@ -83,7 +89,8 @@ export class CharacterTransferService {
         profileLike: string(character.profileLike),
         imagePrompt: string(persona.image_prompt),
         opening: string(persona.opening),
-        showOpening: boolean(persona.show_opening)
+        showOpening: boolean(persona.show_opening),
+        ...(expressions ? { expressions } : {})
       },
       assets,
       scriptLibrary: this.scripts.portable('character', characterId),
@@ -241,6 +248,7 @@ export class CharacterTransferService {
       id: characterId,
       name: source.name,
       avatar: circle,
+      ...(source.expressions ? { expressions: source.expressions.map(row => ({ ...row, url: row.url.startsWith('asset:') ? assetUrl(assets, row.url.slice(6)) : row.url })) } : {}),
       group: source.group.trim(),
       folder: '',
       frontendBeautyEnabled: source.frontendBeautyEnabled,

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Blank",
+    "prefix": "",
+    "suffix": "",
+    "separator": ""
+  },
+  {
+    "name": "DeepSeek",
+    "prefix": "<think>\n",
+    "suffix": "\n</think>",
+    "separator": "\n\n"
+  },
+  {
+    "name": "Gemma 4",
+    "prefix": "<|channel>thought\n",
+    "suffix": "<channel|>",
+    "separator": "\n\n"
+  },
+  {
+    "prefix": "<|start|>assistant<|channel|>analysis<|message|>",
+    "suffix": "<|start|>assistant<|channel|>final<|message|>",
+    "separator": "",
+    "name": "OpenAI Harmony"
+  },
+  {
+    "name": "Think XML",
+    "prefix": "<think>",
+    "suffix": "</think>",
+    "separator": "\n"
+  }
+]

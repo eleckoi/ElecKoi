@@ -3,8 +3,11 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { readSessionSnapshot } from './session-snapshot.mjs'
 import { requiredSettingCache } from './required-setting-cache.mjs'
+import { settingSendBatches, settingEntryPaths, mergedSettingText } from './setting-send-groups.mjs'
 import { INPUT_CONTINUATIONS_PROJECTION } from './input-continuations-projection.mjs'
 import { illustrationInstructions, prepareIllustration } from './generated-image-result.mjs'
+import { projectPresetModelOptions, presetRequiresPayloadAdapter } from './preset-model-options.mjs'
+import { tavernPresetPlan, projectTavernPresetMessages, isCompatibilityCharacterField } from './tavern-preset-projection.mjs'
 
 export const name = 'eleckoi-conversation-context'
 export const projectionPlugin = 'eleckoi-request-projection'
@@ -42,10 +45,17 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
     const inputs = inputState.inputs
     const inputIndex = currentUser ? inputs.findIndex(input => input.messageId === currentUser.id) : -1
     if (currentUser && inputIndex < 0) throw new Error('实际模型请求的用户输入不在 Session 投影中。')
-    previews.capture(session, { ...options, messages }, projection.plan, {
+    const parameters = snapshot.conversationContext.generationParameters
+    const request = { ...projectPresetModelOptions(options, parameters), messages }
+    previews.capture(session, request, projection.plan, {
       ...executionStep, round: currentUser ? inputIndex + 1 : null
     })
-    return agentCtx.llm.stream({ ...options, messages })
+    if (presetRequiresPayloadAdapter(parameters)) {
+      const compatibility = agentCtx.get('eleckoiTavernCompatibilityApi')
+      if (!compatibility) throw new Error('预设模型参数服务尚未加载。')
+      return compatibility.streamPresetModel(request, parameters, snapshot.operationId)
+    }
+    return agentCtx.llm.stream(request)
   })
   return () => { disposeRequestProjection(); disposeStep() }
 }
@@ -55,7 +65,7 @@ export function projectRequestInput(surface, snapshot, transform) {
   const messages = projectRequestMessages(
     projectCurrentUserPrompt(projectProductHistory(surface, snapshot), transform), snapshot.plan
   )
-  return appendRequestInstructions(messages, transform.instructions)
+  return resolveRequestOutlets(appendRequestInstructions(messages, transform.instructions), snapshot.outlets)
 }
 
 /** Add preset positions and instructions without replacing or filtering native Session history. */
@@ -80,24 +90,24 @@ export function extendNativeRequestInput(surface, plan = [], instructions) {
 
 function appendRequestInstructions(messages, instructions) {
   if (instructions) {
-      const systemIndex = messages.findLastIndex((message) => message?.role === 'system')
-      if (systemIndex >= 0) {
-        const system = messages[systemIndex]
-        messages[systemIndex] = freezeMessage({
-          ...system,
-          content: [...system.content, { type: 'text', text: `\n\n${instructions}` }]
-        })
-      } else {
-        const id = `eleckoi-system-${createHash('sha256').update(instructions).digest('hex')}`
-        messages.unshift(freezeMessage({ ...createSystemMessage(instructions, name), id }))
-      }
+    const systemIndex = messages.findLastIndex((message) => message?.role === 'system')
+    if (systemIndex >= 0) {
+      const system = messages[systemIndex]
+      messages[systemIndex] = freezeMessage({
+        ...system,
+        content: [...system.content, { type: 'text', text: `\n\n${instructions}` }]
+      })
+    } else {
+      const id = `eleckoi-system-${createHash('sha256').update(instructions).digest('hex')}`
+      messages.unshift(freezeMessage({ ...createSystemMessage(instructions, name), id }))
+    }
   }
   return messages
 }
 
 export function sessionInstructions(snapshot, imageInstructions = '') {
   const additions = settingInjections(snapshot.conversationContext)
-    .filter((entry) => entry.anchor === 'instructions')
+    .filter((entry) => entry.anchor === 'instructions' && entry.role === 'system')
     .map((entry) => entry.content)
   return [snapshot.model?.systemPrompt, ...additions, imageInstructions]
     .filter((value) => typeof value === 'string' && value.trim())
@@ -107,11 +117,13 @@ export function sessionInstructions(snapshot, imageInstructions = '') {
 /** Describe the active position graph for request assembly and the in-memory preview. */
 export function requestProjectionPlan(context) {
   return settingInjections(context)
-    .filter((entry) => entry.anchor !== 'instructions')
+    .filter((entry) => entry.anchor !== 'instructions' || entry.role !== 'system')
     .map((entry) => ({
       id: entry.id,
-      anchor: entry.anchor,
-      role: entry.role,
+      anchor:entry.anchor,depth:entry.depth,
+      section: entry.section, projectionKind: entry.projectionKind, presetPromptId: entry.presetPromptId,
+      worldbookPosition: entry.worldbookPosition, authorNotePart: entry.authorNotePart,
+      role:entry.role,
       content: entry.content,
       placementRank: entry.placementRank,
       positionOrder: entry.positionOrder,
@@ -125,6 +137,9 @@ export function requestProjectionPlan(context) {
 export function requestProjectionSnapshot(context) {
   return {
     plan: requestProjectionPlan(context),
+    outlets: structuredClone(context?.worldbookRound?.outlets ?? {}),
+    hiddenMessageIds: [...(context?.hiddenMessageIds ?? [])],
+    groupSpeakers: structuredClone(context?.groupSpeakers ?? {}),
     historyMode: context?.historyMode === 'prefix' ? 'prefix' : 'replace',
     history: (Array.isArray(context?.history) ? context.history : [])
       .flatMap((item) => isProductHistoryEntry(item)
@@ -142,31 +157,49 @@ export function requestProjectionSnapshot(context) {
 export function projectRequestMessages(messages, plan = []) {
   const visible = messages.filter((message) => !isProjectionEnvelope(message))
   if (!plan) return visible
+  const finish = input => projectDepthMessages(projectTavernPresetMessages(input, plan, projectionMessage, projectionPlugin).messages, plan)
   const system = visible.filter((message) => message?.role === 'system')
   const dialogue = visible.filter((message) => message?.role !== 'system')
   const latestUserIndex = dialogue.findLastIndex(isDirectUserMessage)
   if (latestUserIndex < 0) {
-    return [
+    return finish([
+      ...messagesForAnchor(plan, 'instructions'),
       ...system,
       ...messagesForAnchor(plan, 'insert_point_1'),
       ...messagesForAnchor(plan, 'insert_point_2'),
+      ...messagesForAnchor(plan, 'character-definition'),
+      ...messagesForAnchor(plan, 'examples'),
       ...dialogue,
       ...messagesForAnchor(plan, 'insert_point_3'),
       ...messagesForAnchor(plan, 'insert_point_4'),
       ...messagesForAnchor(plan, 'insert_point_5')
-    ]
+    ])
   }
-  return [
+  return finish([
+    ...messagesForAnchor(plan, 'instructions'),
     ...system,
     ...messagesForAnchor(plan, 'insert_point_1'),
     ...messagesForAnchor(plan, 'insert_point_2'),
+    ...messagesForAnchor(plan, 'character-definition'),
+    ...messagesForAnchor(plan, 'examples'),
     ...dialogue.slice(0, latestUserIndex),
     ...messagesForAnchor(plan, 'insert_point_3'),
     dialogue[latestUserIndex],
     ...messagesForAnchor(plan, 'insert_point_4'),
     ...dialogue.slice(latestUserIndex + 1),
     ...messagesForAnchor(plan, 'insert_point_5')
-  ]
+  ])
+}
+
+/** Insert before history boundaries, keeping the active assistant/tool continuation contiguous. */
+export function projectDepthMessages(messages,plan) {
+  const entries=plan.filter(entry=>entry.anchor==='chat_depth');if(!entries.length)return messages;
+  const current=messages.findLastIndex(isDirectUserMessage),limit=current<0?messages.length-1:current;
+  const boundaries=messages.flatMap((message,index)=>index<=limit&&isDialogueMessage(message)&&!String(message.id??'').startsWith(`${projectionPlugin}:`)?[index]:[]);
+  const insertions=new Map();
+  for(const entry of entries){const depth=Math.max(0,Math.trunc(Number(entry.depth)||0));const index=depth===0?limit+1:boundaries[Math.max(0,boundaries.length-depth)]??0;const group=insertions.get(index)??[];group.push(entry);insertions.set(index,group);}
+  const result=[];for(let index=0;index<=messages.length;index++){result.push(...(insertions.get(index)??[]).sort((a,b)=>(a.order??0)-(b.order??0)||String(a.id).localeCompare(String(b.id))).map(projectionMessage));if(index<messages.length)result.push(messages[index]);}
+  return result;
 }
 
 export function isProjectionEnvelope(message) {
@@ -309,6 +342,17 @@ function projectionMessage(entry) {
  * Keep prior user input and final replies, with the active turn's full flow.
  */
 export function projectProductHistory(messages, context) {
+  // Author system messages use a plugin-owned native context source. The
+  // Agent's system-prompt refresh owns only its actual system/message nodes.
+  messages = messages.map(message => message?.source?.kind === 'plugin:eleckoi-author-system'
+    ? freezeMessage({ ...message, role: 'system', source: { kind: 'system-prompt' } }) : message)
+  const hidden = new Set(context?.hiddenMessageIds ?? [])
+  if (hidden.size) messages = messages.filter(message => !hidden.has(String(message?.id ?? '')))
+  messages = messages.map(message => {
+    const actor = context?.groupSpeakers?.[message.id]
+    return actor && message.role === 'assistant' ? freezeMessage({ ...message,
+      source: { ...message.source, ...actor } }) : message
+  })
   const currentUserIndex = findCurrentUserIndex(messages)
   if (currentUserIndex < 0) return messages
   const firstDialogue = messages.findIndex((message, index) => (
@@ -339,24 +383,30 @@ export function projectProductHistory(messages, context) {
 
 function previousTurnDialogue(messages) {
   const history = []
-  let finalReply
+  let finalReply, continuing = false
   const flush = () => {
     if (finalReply) history.push(finalReply)
-    finalReply = undefined
+    finalReply = undefined; continuing = false
   }
   for (const message of messages) {
-    if (isDirectUserMessage(message) || isCompactionCheckpoint(message)) {
+    if (message?.source?.kind === 'plugin:eleckoi-group-response') { flush(); continue }
+    if (message?.source?.kind === 'plugin:eleckoi-assistant-continuation') {
+      continuing = true
+      continue
+    }
+    if (message?.role === 'system' || isDirectUserMessage(message) || isCompactionCheckpoint(message)) {
       flush()
       history.push(message)
     } else if (message?.role === 'assistant'
       && message?.source?.kind !== 'tool'
       && !message.content?.some(block => block?.type === 'tool-call' || block?.type === 'tool-result')) {
-      const content = normalizedDialogueText(messageText(message), 'assistant')
+      const plain = normalizedDialogueText(messageText(message), 'assistant')
+      const content = plain && message.source?.speakerName && !continuing ? '[' + message.source.speakerName + ']\n' + plain : plain
       if (content) finalReply = freezeMessage({
-        id: message.id,
+        id: continuing && finalReply ? finalReply.id : message.id,
         role: 'assistant',
-        content: [{ type: 'text', text: content }],
-        source: { kind: 'plugin:eleckoi-product-history' }
+        content: [{ type: 'text', text: continuing && finalReply ? messageText(finalReply) + content : content }],
+        source: { kind: 'plugin:eleckoi-product-history', ...(message.source?.characterId ? { characterId: message.source.characterId, speakerName: message.source.speakerName, groupId: message.source.groupId } : {}) }
       })
     }
   }
@@ -418,7 +468,7 @@ function compactedProjection(productHistory, nativeHistory) {
 }
 
 function findCurrentUserIndex(messages) {
-  return messages.findLastIndex((message) => message?.role === 'user' && message?.source?.kind === 'user')
+  return messages.findLastIndex((message) => message?.role === 'user' && ['user', 'plugin:eleckoi-group-response'].includes(message?.source?.kind))
 }
 
 function isDialogueMessage(message) {
@@ -459,9 +509,15 @@ export function renderRuntimeContext(context) {
 
 export function settingInjections(context) {
   const library = context?.settingLibrary ?? {}
+  const presetPlan = tavernPresetPlan(context)
+  const compatiblePreset = context?.compatibilityPreset?.compatibility === true
+  const compatibleIds = compatiblePreset ? context.compatibilityPreset.prompts.map(prompt => 'agent-preset:' + context.compatibilityPreset.id + ':' + prompt.id) : []
+  const managed = new Set([...(context?.worldbookRound?.managedEntryIds ?? []), ...(context?.replacedCharacterFieldIds ?? []), ...compatibleIds])
   const promptPositions = new Map((library.promptPositions || []).map((position) => [position.id, position]))
   const automatic = (library.entries || [])
     .filter((entry) => entry?.enabled
+      && !managed.has(entry.id)
+      && !(compatiblePreset && (entry.id === 'tavern-character-description' || isCompatibilityCharacterField(entry.id)))
       && typeof entry.content === 'string'
       && entry.content.trim()
       && entry.kind !== 'opening'
@@ -469,16 +525,20 @@ export function settingInjections(context) {
       && entry.triggerMode === 'always' && entry.position)
     .map((entry) => {
       const custom = promptPositions.get(entry.promptPositionId)
-      const anchor = custom?.anchor || entry.position || 'insert_point_1'
+      const preset=entry.sillyTavern?.presetPrompt, depthPosition=preset?.position?.type==='in_chat'?preset.position:null
+      const section = nativeCardSection(entry)
+      const requestedAnchor = custom?.anchor || entry.position || 'insert_point_1'
+      const anchor = depthPosition ? 'chat_depth' : section && requestedAnchor === 'instructions' ? section : requestedAnchor
       const title = String(entry.title || '').trim() || '未命名设定'
       return {
         id: String(entry.id || '').slice(0, 128),
-        anchor,
-        role: anchor === 'instructions' ? 'system' : entry.insertRole === 'assistant' ? 'assistant' : 'user',
-        content: entry.content.slice(0, 40_000),
+        sourceEntryId: entry.id,
+        anchor,depth:depthPosition?.depth,section,
+        role:anchor==='instructions'?'system':['assistant','user'].includes(entry.insertRole)?entry.insertRole:'system',
+        content: entry.content,
         placementRank: custom?.side === 'before_setting_position' ? 0 : custom?.side === 'after_setting_position' ? 2 : 1,
         positionOrder: custom?.order ?? 0,
-        order: Number.isInteger(entry.order) ? entry.order : 1,
+        order:Number.isInteger(depthPosition?.order)?depthPosition.order:Number.isInteger(entry.order)?entry.order:1,
         traceTitle: entry.kind === 'hidden_tool_timeline'
             ? `预设固定条目 · ${title}`
             : String(entry.id || '').startsWith('agent-preset:')
@@ -487,49 +547,110 @@ export function settingInjections(context) {
         traceSource: String(custom?.name || '').trim() || positionLabel(anchor)
       }
     })
-  const required = requiredSettingCache(library).map((entry, index) => ({
+  const required = requiredSettingCache(library).filter(entry => !managed.has(entry.id)
+    && !(compatiblePreset && (entry.id === 'tavern-character-description' || isCompatibilityCharacterField(entry.id)))).map((entry, index) => ({
     id: `required-setting-${entry.reference.slice(1)}`,
+    sourceEntryId: entry.id, section: nativeCardSection(entry),
     anchor: 'insert_point_1', role: 'user', content: entry.prompt,
     placementRank: 3, positionOrder: 0, order: index + 1,
     traceTitle: `Agent 必读 · ${entry.title}`, traceSource: '缓存设定区'
   }))
-  return [...automatic, ...required, ...worldbookSettingInjections(context, promptPositions)]
+  const contributions=(context?.promptContributions??[]).filter(entry=>typeof entry.content==='string'&&entry.content.trim()
+    && !(compatiblePreset && !entry.source && entry.anchor !== 'chat_depth' && presetPlan.some(prompt => prompt.presetPromptId === 'personaDescription'))).map(entry=>({...entry,section:nativeCardSection(entry),anchor:nativeCardSection(entry)&&entry.anchor==='instructions'?nativeCardSection(entry):entry.anchor,placementRank:1,positionOrder:0,traceTitle:entry.title,traceSource:entry.anchor==='chat_depth'?`聊天深度 ${entry.depth??0}`:entry.source?'插件注入':'用户资料'}))
+  const ordered = [...automatic,...required,...contributions,...worldbookSettingInjections(context,promptPositions),...presetPlan]
     .sort((left, right) => anchorOrder(left.anchor) - anchorOrder(right.anchor)
       || left.placementRank - right.placementRank
       || left.positionOrder - right.positionOrder
       || left.order - right.order
       || left.id.localeCompare(right.id))
+  const paths = settingEntryPaths(library)
+  const sourceEntries = new Map((library.entries || []).map(entry => [entry.id, entry]))
+  return settingSendBatches(library, ordered, {
+    entryId: item => item.sourceEntryId,
+    boundary:item=>JSON.stringify([item.anchor,item.depth,item.role,item.section,item.placementRank,item.positionOrder,
+      sourceEntries.get(item.sourceEntryId)?.promptPositionId || ''])
+  }).map(batch => batch.merged ? {
+    ...batch.items[0], id: `merged-setting:${batch.items[0].id}`,
+    content: mergedSettingText(batch.items, item => paths.get(item.sourceEntryId) || item.traceTitle, item => item.content),
+    traceTitle: `合并设定 · ${batch.title}（${batch.items.length}）`
+  } : batch.items[0])
 }
 
 export function worldbookSettingInjections(context, promptPositions = new Map()) {
   const round = context?.worldbookRound
   if (!round) return []
-  const entries = [...round.fragments, ...round.examples]
-  if (round.authorNote?.content && round.authorNote.position !== 'none') entries.push({
-    id: 'authors-note', content: round.authorNote.content, role: round.authorNote.role ?? 'system', worldbookPosition: 'at_depth'
-  })
+  const fragments = [...(round.fragments ?? []), ...(round.examples ?? [])]
+  const noteEntries = fragments.filter(entry => ['top_of_an', 'bottom_of_an'].includes(entry.worldbookPosition))
+  const entries = fragments.filter(entry => !['outlet', 'top_of_an', 'bottom_of_an'].includes(entry.worldbookPosition))
+  const note = round.authorNote
+  const notePosition = note?.position ?? (noteEntries.length ? 'at_depth' : 'none')
+  const noteDepth = Number(note?.depth) || 0, noteOrder = Number(note?.order) || 0
+  const noteRole = note?.role ?? 'system'
+  const notePlacement = notePosition === 'before_prompt' ? { nativePlacement: { position: 'instructions' } }
+    : notePosition === 'in_prompt' ? { nativePlacement: { position: 'insert_point_2' } } : {}
+  if (notePosition !== 'none') {
+    const top = noteEntries.filter(entry => entry.worldbookPosition === 'top_of_an')
+    const bottom = noteEntries.filter(entry => entry.worldbookPosition === 'bottom_of_an')
+    const noteAtDepth = !['before_prompt', 'in_prompt'].includes(notePosition)
+    for (const [index, entry] of top.entries()) entries.push({ ...entry, id: 'authors-note-top:' + entry.id, role: noteRole,
+      worldbookPosition: noteAtDepth ? 'at_depth' : 'top_of_an', depth: noteDepth,
+      authorNotePart: 'before', order: noteOrder - top.length + index, ...notePlacement })
+    if (note?.content) entries.push({ id: 'authors-note', content: note.content, role: noteRole,
+      worldbookPosition: noteAtDepth ? 'at_depth' : 'author_note', depth: noteDepth,
+      authorNotePart: 'body', order: noteOrder, ...notePlacement })
+    for (const [index, entry] of bottom.entries()) entries.push({ ...entry, id: 'authors-note-bottom:' + entry.id, role: noteRole,
+      worldbookPosition: noteAtDepth ? 'at_depth' : 'bottom_of_an', depth: noteDepth,
+      authorNotePart: 'after', order: noteOrder + index + 1, ...notePlacement })
+  }
   const anchors = {
-    beforeCharacterDefinition: 'insert_point_1', afterCharacterDefinition: 'insert_point_2',
-    beforeExamples: 'insert_point_2', examples: 'insert_point_2', afterExamples: 'insert_point_2',
-    beforeBaseInstructions: 'instructions', beforeHistory: 'insert_point_1',
+    beforeCharacterDefinition: 'beforeCharacterDefinition', afterCharacterDefinition: 'afterCharacterDefinition',
+    beforeExamples: 'beforeExamples', examples: 'examples', afterExamples: 'afterExamples',
+    beforeBaseInstructions: 'instructions', beforeHistory: 'beforeHistory',
     beforeLatestUserInput: 'insert_point_3', afterLatestUserInput: 'insert_point_4', afterHistory: 'insert_point_5'
   }
   return entries.filter(entry => typeof entry.content === 'string' && entry.content.trim()).map((entry, index) => {
-    const native = entry.nativePlacement
-    const custom = native && promptPositions.get(native.promptPositionId)
-    const cache = !native && entry.worldbookPosition === 'at_depth'
-    const anchor = cache ? 'insert_point_1' : native ? custom?.anchor ?? native.position : anchors[entry.anchor]
-    if (!['instructions', 'insert_point_1', 'insert_point_2', 'insert_point_3', 'insert_point_4', 'insert_point_5'].includes(anchor)) {
-      throw new Error(`世界书条目 ${entry.id} 缺少明确的请求位置。`)
-    }
-    if (!['system', 'user', 'assistant'].includes(entry.role)) throw new Error(`世界书条目 ${entry.id} 的消息角色无效。`)
+    const native = entry.nativePlacement, custom = native && promptPositions.get(native.promptPositionId)
+    const atDepth = !native && entry.worldbookPosition === 'at_depth'
+    const anchor = atDepth ? 'chat_depth' : native ? custom?.anchor ?? native.position : anchors[entry.anchor]
+    if (!anchor) throw new Error('世界书条目 ' + entry.id + ' 缺少明确的请求位置。')
+    if (!['system', 'user', 'assistant'].includes(entry.role)) throw new Error('世界书条目 ' + entry.id + ' 的消息角色无效。')
     return {
-      id: `worldbook:${entry.id}`, content: entry.content, role: entry.role, anchor,
-      placementRank: cache ? 3 : custom?.side === 'before_setting_position' ? 0 : custom?.side === 'after_setting_position' ? 2 : 1,
+      id: 'worldbook:' + entry.id, sourceEntryId: entry.sourceEntryId ?? entry.id, content: entry.content, role: entry.role, anchor,
+      worldbookPosition: entry.worldbookPosition, authorNotePart: entry.authorNotePart,
+      depth: atDepth ? entry.depth : undefined,
+      placementRank: custom?.side === 'before_setting_position' ? 0 : custom?.side === 'after_setting_position' ? 2 : 1,
       positionOrder: custom?.order ?? 0, order: Number.isInteger(entry.order) ? entry.order : index,
-      traceTitle: `世界书 · ${entry.id}`, traceSource: cache ? '缓存设定区' : custom?.name || positionLabel(anchor)
+      traceTitle: '设定 · ' + (entry.title ?? entry.id), traceSource: atDepth ? '聊天深度 ' + (entry.depth ?? 0) : custom?.name || positionLabel(anchor)
     }
   })
+}
+
+export function resolveWorldbookOutlets(content, outlets = {}) {
+  return String(content).replace(/\{\{outlet::([^}]+)\}\}/gi, (_match, name) =>
+    Array.isArray(outlets?.[name.trim()]) ? outlets[name.trim()].join('\n\n') : '')
+}
+
+function resolveRequestOutlets(messages, outlets) {
+  if (!outlets) return messages
+  return messages.map(message => {
+    let changed = false
+    const content = message.content.map(block => {
+      if (block.type !== 'text') return block
+      const text = resolveWorldbookOutlets(block.text, outlets)
+      if (text === block.text) return block
+      changed = true
+      return { ...block, text }
+    })
+    return changed ? freezeMessage({ ...message, content }) : message
+  })
+}
+
+function nativeCardSection(entry) {
+  const id = String(entry.sourceEntryId ?? entry.id ?? '')
+  if (/^compat-character:[^:]+:mes_example$/.test(id) || entry.id?.endsWith(':card:mesExamples')) return 'examples'
+  if (id === 'tavern-character-description' || /^compat-character:[^:]+:(description|personality|scenario)$/.test(id)
+    || /:card:(description|personality|scenario)$/.test(id)) return 'character-definition'
+  return undefined
 }
 
 function anchorOrder(anchor) {

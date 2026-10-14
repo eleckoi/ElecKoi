@@ -69,11 +69,11 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
     chat.setActiveSection(section);
   }, [chat]);
 
-  const chatWallpaper = useMemo(() => resolveChatWallpaper({
+  const chatWallpaper = useMemo(() => appearance.chatBackgroundLocks?.[chat.sessionId] || resolveChatWallpaper({
     character: chat.chatBackgroundCharacter,
     persona: chat.chatPersona,
     globalWallpaper: appearance.globalChatWallpaper,
-  }), [appearance.globalChatWallpaper, chat.chatBackgroundCharacter, chat.chatPersona]);
+  }), [appearance.chatBackgroundLocks, appearance.globalChatWallpaper, chat.sessionId, chat.chatBackgroundCharacter, chat.chatPersona]);
   const showChatWallpaper = chat.activeSection === "messages" && Boolean(chat.sessionId || chat.chatCharacter?.character_id) && Boolean(chatWallpaper.image);
 
   function selectConversation(chatId) {

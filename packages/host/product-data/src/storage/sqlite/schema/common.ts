@@ -226,6 +226,11 @@ export const agentSettingSnapshots = sqliteTable('agent_setting_snapshots', {
   stateJson: text('stateJson').notNull(),
 }, (table) => [primaryKey({ columns: [table.ownerType, table.ownerId] })])
 
+export const globalSettingLibrary = sqliteTable('global_setting_library', {
+  id: text('id').notNull().primaryKey(),
+  payloadJson: text('payloadJson').notNull(),
+})
+
 export const settingLibraries = sqliteTable('setting_libraries', {
   characterId: text('characterId').notNull().primaryKey(),
   name: text('name').notNull(),
@@ -383,4 +388,33 @@ export const scriptLibraries = sqliteTable('script_libraries', {
   variablesJson: text('variablesJson').notNull(),
 }, (table) => [primaryKey({ columns: [table.scope, table.ownerId] })])
 
-export const commonTables = { chatSessions, chatSessionCharacterSnapshots, chatSessionVariableStates, characters, characterTextContents, characterMeta, userProfile, variableConfigs, variableConfigVersions, variableConfigVersionContents, variableConfigObjects, variableConfigVariables, globalRegexRules, characterRegexRules, regexEnablementVersions, regexState, agentConversations, agentBranches, conversationSpeakers, agentTurns, agentPendingInputs, agentResponses, agentBranchTurns, agentOpenings, agentSettingSnapshots, settingLibraries, settingEntryContents, settingLibraryEntryLinks, settingLibraryGroups, settingLibraryVersions, settingLibraryVersionEntryLinks, settingLibraryVersionGroups, conversationSettingChanges, agentPresetState, agentPresetLibraryGroups, agentPresets, agentPresetContents, agentPresetEntries, agentPresetGroups, agentPresetVersions, agentPresetVersionContents, agentPresetVersionEntries, agentPresetVersionGroups, scriptLibraries }
+export const databankDocuments = sqliteTable('databank_documents', {
+  id: text('id').notNull().primaryKey(),
+  scope: text('scope').notNull(),
+  name: text('name').notNull(),
+  text: text('text').notNull(),
+  enabled: integer('enabled').notNull(),
+  revision: integer('revision').notNull(),
+  createdAt: integer('createdAt').notNull(),
+  updatedAt: integer('updatedAt').notNull(),
+})
+
+export const databankChunks = sqliteTable('databank_chunks', {
+  documentId: text('documentId').notNull(),
+  chunkIndex: integer('chunkIndex').notNull(),
+  offset: integer('offset').notNull(),
+  text: text('text').notNull(),
+  embeddingJson: text('embeddingJson').notNull(),
+  modelKey: text('modelKey').notNull(),
+  revision: integer('revision').notNull(),
+}, (table) => [primaryKey({ columns: [table.documentId, table.chunkIndex] })])
+
+export const databankEntryVectors = sqliteTable('databank_entry_vectors', {
+  entryId: text('entryId').notNull(),
+  contentHash: text('contentHash').notNull(),
+  modelKey: text('modelKey').notNull(),
+  chunkIndex: integer('chunkIndex').notNull(),
+  embeddingJson: text('embeddingJson').notNull(),
+}, (table) => [primaryKey({ columns: [table.entryId, table.contentHash, table.modelKey, table.chunkIndex] })])
+
+export const commonTables = { chatSessions, chatSessionCharacterSnapshots, chatSessionVariableStates, characters, characterTextContents, characterMeta, userProfile, variableConfigs, variableConfigVersions, variableConfigVersionContents, variableConfigObjects, variableConfigVariables, globalRegexRules, characterRegexRules, regexEnablementVersions, regexState, agentConversations, agentBranches, conversationSpeakers, agentTurns, agentPendingInputs, agentResponses, agentBranchTurns, agentOpenings, agentSettingSnapshots, globalSettingLibrary, settingLibraries, settingEntryContents, settingLibraryEntryLinks, settingLibraryGroups, settingLibraryVersions, settingLibraryVersionEntryLinks, settingLibraryVersionGroups, conversationSettingChanges, agentPresetState, agentPresetLibraryGroups, agentPresets, agentPresetContents, agentPresetEntries, agentPresetGroups, agentPresetVersions, agentPresetVersionContents, agentPresetVersionEntries, agentPresetVersionGroups, scriptLibraries, databankDocuments, databankChunks, databankEntryVectors }

@@ -1,0 +1,24 @@
+{
+  "project": "SillyTavern",
+  "version": "1.19.0",
+  "revision": "06bde939fb1e9c4c8d8641d810f0a916b5bce127",
+  "license": "AGPL-3.0",
+  "source": "https://github.com/SillyTavern/SillyTavern",
+  "migrationSource": {
+    "repository": "https://github.com/eleckoi/ElecKoi",
+    "revision": "21ba753",
+    "paths": [
+      "packages/compatibility/tavern-shared/runtime/vendor/sillytavern",
+      "packages/compatibility/tavern-shared/runtime/tavern-runtime"
+    ]
+  },
+  "adaptation": "Licensed upstream modules and ElecKoi ST-only adapters. Imports bind to the native host facade. No TavernHelper implementation or worldbook storage/scanner is included.",
+  "extractedData": {
+    "events": {
+      "source": "https://raw.githubusercontent.com/SillyTavern/SillyTavern/06bde939fb1e9c4c8d8641d810f0a916b5bce127/public/scripts/events.js",
+      "symbol": "event_types",
+      "verified": "2026-10-13",
+      "file": "events.json"
+    }
+  }
+}

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { copyFileSync, existsSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
-import { interruptedTurnClosers } from '@deepseek-ai/dsh-session'
+import { interruptedFormatClosers } from './sessionFormatBoundary.mjs'
 import { readDshSessionLog } from './trajectory'
 import { HISTORY_RESTORED_EVENT, historyRestoredSchema } from '@eleckoi/dsh-client-roleplay/host/history-stats-projection.mjs'
 
@@ -91,7 +91,7 @@ export function rewindDshSession(
   }
   if (log.events[cut - 1]?.type === HISTORY_RESTORED_EVENT) cut--
   const retained = log.events.slice(0, cut)
-  if (retainInput) retained.push(...interruptedTurnClosers(retained))
+  if (retainInput) retained.push(...interruptedFormatClosers({ ...log, events: retained }))
   if (closePrefixStep) {
     const stepEnd = log.events.find(event => event.type === 'step/end'
       && isRecord(event.data) && event.data.turn === 1 && event.data.step === 1)

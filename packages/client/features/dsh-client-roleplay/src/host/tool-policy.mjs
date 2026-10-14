@@ -3,6 +3,14 @@
 export const name = 'eleckoi-tool-policy'
 export const inject = ['tools']
 const activeRestrictions = new WeakMap()
+const authorToolNames = new WeakMap()
+
+/** Explicit author tools already have this Agent's own registration and callback owner. */
+export function registerAuthorToolNames(agentCtx, names) {
+  const owned = new Set(names)
+  authorToolNames.set(agentCtx, owned)
+  return () => { if (authorToolNames.get(agentCtx) === owned) authorToolNames.delete(agentCtx) }
+}
 
 export function apply(ctx) {
   return undefined
@@ -14,7 +22,7 @@ export function applyDisabledPolicy(agentCtx, disabledGroupIds = []) {
   const disabled = new Set(disabledGroupIds)
   if (disabled.size === 0) return
   const deniedNames = agentCtx.tools.schemas()
-    .filter((declaration) => !isEssential(declaration) && disabled.has(classify(declaration)))
+    .filter((declaration) => !authorToolNames.get(agentCtx)?.has(declarationName(declaration)) && !isEssential(declaration) && disabled.has(classify(declaration)))
     .map((declaration) => declaration.name)
   if (deniedNames.length > 0) activeRestrictions.set(agentCtx, agentCtx.tools.restrict({ deny: deniedNames }))
 }

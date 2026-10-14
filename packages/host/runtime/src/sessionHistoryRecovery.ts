@@ -1,15 +1,16 @@
 import { randomUUID } from 'node:crypto'
 import { copyFileSync, existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { createUserMessage, freezeMessage } from '@deepseek-ai/dsh-llm'
-import { KNOWN_SESSION_EVENT_TYPES, Session, SessionId, SessionSeq, type SessionEvent, type SessionHeader } from '@deepseek-ai/dsh-session'
+import { createUserMessage, freezeMessage, MessageId } from '@deepseek-ai/dsh-llm'
+import { KNOWN_SESSION_EVENT_TYPES, Session, SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import { SessionWriteLease } from '@deepseek-ai/dsh-session-persistence-jsonl'
-import { validateStoredEvents } from '@deepseek-ai/dsh-session-persistence'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
 import { REQUEST_CONTEXT_EVENT } from '@eleckoi/dsh-client-roleplay/host/request-context-record.mjs'
 import { HISTORY_RESTORED_EVENT } from '@eleckoi/dsh-client-roleplay/host/history-stats-projection.mjs'
 import type {} from '@eleckoi/dsh-client-roleplay/projections'
 import { readDshSessionLog } from './trajectory'
+import type { EditableSessionEvent, EditableSessionJson } from './sessionMessageEdit'
+import { runtimeEventToFormat } from './sessionFormatBoundary.mjs'
 
 type Row = Record<string, string | number | null>
 export interface HistoryRecoveryArchive {
@@ -37,9 +38,9 @@ export async function recoverSessionHistory(root: string, id: string, archive: H
     if (log.header.id !== id || log.header.version !== sessionFormatCatalog.currentVersion) {
       throw new Error('旧聊天历史恢复的 Session 身份或版本不匹配。')
     }
-    const events = log.events as unknown as SessionEvent[]
+    const events = log.events
     const envelopeIndex = events.findIndex(event => event.type === 'user/message'
-      && record(event.data.source).kind === 'plugin:eleckoi-request-projection')
+      && record(record(event.data).source).kind === 'plugin:eleckoi-request-projection')
     if (envelopeIndex < 0) return 0
     const envelope = events[envelopeIndex]!
     const data = record(envelope.data)
@@ -113,12 +114,12 @@ export async function recoverSessionHistory(root: string, id: string, archive: H
       }
       const message = freezeMessage({ ...createUserMessage({
         content: [{ type: 'text', text: item.content }], source: { kind: 'user' }
-      }), id: turn!.id as ReturnType<typeof createUserMessage>['id'] })
+      }), id: MessageId(turn!.id) })
       const event = generated.append('user/message', message, { surfaceOp: 'append' })
-      return { ...event, seq: SessionSeq(insertion + index), time }
+      return { ...runtimeEventToFormat(event), seq: insertion + index, time }
     })
-    const marker = generated.append(HISTORY_RESTORED_EVENT,
-      { messageIds: additions.map(event => event.data.id) }, { ignorable: true })
+    const marker = runtimeEventToFormat(generated.append(HISTORY_RESTORED_EVENT,
+      { messageIds: additions.map(event => String(record(event.data).id)) }, { ignorable: true }))
     const ordered = [...events.slice(0, insertion), marker, ...additions, ...events.slice(insertion)]
     const originals = new Set(events)
     const relocated = new Map<number, number>()
@@ -130,10 +131,9 @@ export async function recoverSessionHistory(root: string, id: string, archive: H
     }
     const recovered = ordered.map((event, index) => originals.has(event)
       ? shiftEvent(event, shift, id) : { ...event, seq: SessionSeq(index) })
-    validateStoredEvents(log.header as unknown as SessionHeader, recovered)
     const encoded = [sessionFormatCatalog.encodeCurrentHeader(log.header, log.inheritedEventCount),
       ...recovered.map(event => sessionFormatCatalog.encodeCurrentEvent(
-        event as unknown as Parameters<typeof sessionFormatCatalog.encodeCurrentEvent>[0]))]
+        event))]
     const checked = sessionFormatCatalog.createRestore(encoded[0], { recovery: 'strict', validation: 'current' })
     for (const row of encoded.slice(1)) checked.decodeRow(row)
     checked.finish()
@@ -162,48 +162,46 @@ export async function recoverSessionHistory(root: string, id: string, archive: H
   } finally { await lease.release() }
 }
 
-function shiftEvent(event: SessionEvent, shift: (seq: number) => number, eventSessionId: string): SessionEvent {
-  const shifted = structuredClone(event)
-  shifted.seq = SessionSeq(shift(event.seq))
-  if (shifted.surfaceOp && shifted.surfaceOp !== 'append') {
-    shifted.surfaceOp.startSeq = SessionSeq(shift(shifted.surfaceOp.startSeq))
-    shifted.surfaceOp.endSeq = SessionSeq(shift(shifted.surfaceOp.endSeq))
-  }
-  if (shifted.sourceEventSeqs) shifted.sourceEventSeqs = shifted.sourceEventSeqs.map(seq => SessionSeq(shift(seq)))
-  if (shifted.type === 'developer/message' && shifted.data.headerSeq !== undefined) {
-    shifted.data.headerSeq = SessionSeq(shift(shifted.data.headerSeq))
-  }
-  if (String(shifted.type) === REQUEST_CONTEXT_EVENT) {
-    const data = record(shifted.data)
+function shiftEvent(event: EditableSessionEvent, shift: (seq: number) => number, eventSessionId: string): EditableSessionEvent {
+  const data = record(structuredClone(event.data))
+  if (event.type === 'developer/message' && data.headerSeq !== undefined) data.headerSeq = shift(Number(data.headerSeq))
+  if (event.type === REQUEST_CONTEXT_EVENT) {
     if (!Number.isSafeInteger(data.requestSeq)) throw new Error('旧聊天请求记录序号不正确，原日志未修改。')
     data.requestSeq = shift(Number(data.requestSeq))
   }
-  const data = record(shifted.data)
-  if (String(shifted.type) === 'compaction/summary' || String(shifted.type) === 'compaction/prune') {
+  if (event.type === 'compaction/summary' || event.type === 'compaction/prune') {
     const range = record(data.shadowedRange)
-    range.start = shift(Number(range.start))
-    range.end = shift(Number(range.end))
+    range.start = shift(Number(range.start)); range.end = shift(Number(range.end))
     if (Array.isArray(data.shadowedSeqs)) data.shadowedSeqs = data.shadowedSeqs.map(seq => shift(Number(seq)))
   }
-  if (String(shifted.type) === 'image/offload' && Array.isArray(data.targets)) {
+  if (event.type === 'image/offload' && Array.isArray(data.targets)) {
     for (const target of data.targets) { const value = record(target); value.seq = shift(Number(value.seq)) }
   }
-  if (String(shifted.type) === 'command/done' && typeof data.sourceEventSeq === 'number') {
-    data.sourceEventSeq = shift(data.sourceEventSeq)
-  }
-  if (String(shifted.type) === 'session/title' && Array.isArray(data.messageSeqs)) {
-    data.messageSeqs = data.messageSeqs.map(seq => shift(Number(seq)))
-  }
-  if (String(shifted.type) === 'session-log-deepseek/delivery-accepted' && data.sessionId === eventSessionId
+  if (event.type === 'command/done' && typeof data.sourceEventSeq === 'number') data.sourceEventSeq = shift(data.sourceEventSeq)
+  if (event.type === 'session/title' && Array.isArray(data.messageSeqs)) data.messageSeqs = data.messageSeqs.map(seq => shift(Number(seq)))
+  if (event.type === 'session-log-deepseek/delivery-accepted' && data.sessionId === eventSessionId
     && typeof data.throughSeq === 'number') data.throughSeq = shift(data.throughSeq)
-  return shifted
+  const surface = record(event.surfaceOp)
+  return { ...event, seq: shift(event.seq),
+    ...(event.surfaceOp && event.surfaceOp !== 'append' ? { surfaceOp: { ...jsonObject(surface), startSeq: shift(Number(surface.startSeq)), endSeq: shift(Number(surface.endSeq)) } } : {}),
+    ...(Array.isArray(event.sourceEventSeqs) ? { sourceEventSeqs: event.sourceEventSeqs.map(seq => shift(Number(seq))) } : {}), data: jsonObject(data) }
+}
+function jsonObject(value: Record<string, unknown>): { [key: string]: EditableSessionJson } {
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, jsonValue(entry)]))
+}
+function jsonValue(value: unknown): EditableSessionJson {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (Array.isArray(value)) return value.map(jsonValue)
+  if (isRecord(value)) return jsonObject(value)
+  throw new TypeError('正式 Session 事件包含非 JSON 数据。')
 }
 
-function directUser(event: SessionEvent): boolean {
-  return event.type === 'user/message' && event.surfaceOp === 'append' && event.data.source.kind === 'user'
+function directUser(event: EditableSessionEvent): boolean {
+  return event.type === 'user/message' && event.surfaceOp === 'append' && record(record(event.data).source).kind === 'user'
 }
 function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+  return isRecord(value) ? value : {}
 }
 function messageText(message: Record<string, unknown>): string {
   return Array.isArray(message.content) ? message.content.map(part => {
@@ -211,3 +209,5 @@ function messageText(message: Record<string, unknown>): string {
     return block.type === 'text' && typeof block.text === 'string' ? block.text : ''
   }).join('') : ''
 }
+
+function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value) }

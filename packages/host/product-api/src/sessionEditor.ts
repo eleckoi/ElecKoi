@@ -3,6 +3,14 @@ import type { GeneratedImageFrame } from '@eleckoi/dsh-product-data'
 
 /** 修改同一个官方 Session 的消息和回退位置，保留 Session 编号。 */
 export interface ElecKoiSessionEditor {
+  /** Apply an ordered author message batch to the same Session, preserving Agent traces. */
+  batchMessages(sessionId: string,
+    previous: Array<{ id?: string; eventSeq?: number; role: 'user' | 'assistant' | 'system'; content: string }>,
+    desired: Array<{ id?: string; eventSeq?: number; role: 'user' | 'assistant' | 'system'; content: string }>): Promise<{
+      messages: Array<{ id: string; eventSeq: number; turn: number | null; role: 'user' | 'assistant' | 'system' }>
+      turns: Array<{ previous: number; current: number }>
+      sequences: Array<{ previous: number; current: number }>
+    }>
   /**
    * 将导入的正文写入新建的空白官方 Session，并刷新消息投影。
    * @param sessionId - 空白官方 Session 编号。

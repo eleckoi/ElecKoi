@@ -20,6 +20,19 @@ class ProbeCredentials extends CredentialProvider {
   async deleteRecord(_key: CredentialKey): Promise<void> { throw new Error('测试凭据不能持久化。') }
 }
 
+/** A caller-scoped route using the same official adapter as saved model profiles. */
+export async function createTemporaryModelConnection(owner: Context, input: { apiKey: string; baseURL: string; model: string; api?: ModelConnectionInput['api']; headers?: Record<string,string> }) {
+  const ctx = new Context(), provider = 'eleckoi-auxiliary'
+  try {
+    new ProbeCredentials(ctx, input.apiKey, owner.credentials)
+    await ctx.plugin(LlmRuntime)
+    await ctx.plugin(piAi, { providers: { [provider]: { apiKeyEnv: 'PROBE_API_KEY',
+      api: input.api ?? 'openai-completions', baseURL: input.baseURL, headers: input.headers ?? {}, models: [{ id: input.model }],
+    } } })
+    return { context: ctx, provider, dispose: () => ctx.fiber.dispose() }
+  } catch (error) { await ctx.fiber.dispose(); throw error }
+}
+
 const tool: ToolSchema = {
   name: 'eleckoi_connection_probe', description: 'Return the supplied nonce using this tool.',
   parameters: { type: 'object', properties: { nonce: { type: 'string' } }, required: ['nonce'], additionalProperties: false },

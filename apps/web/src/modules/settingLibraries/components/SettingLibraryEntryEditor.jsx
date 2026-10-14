@@ -240,6 +240,7 @@ function KeywordRules({ entry, onChange }) {
                 <option value="any">任意命中</option>
                 <option value="all">全部命中</option>
                 <option value="not_any">排除命中</option>
+                <option value="not_all">不全部命中</option>
               </>
             )}
           </select></label>

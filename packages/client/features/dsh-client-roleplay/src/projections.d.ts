@@ -12,7 +12,23 @@ export interface RoleplayRequestContextItem {
   content: string
 }
 
+export interface RoleplayGroupResponse {
+  turn: number
+  groupId: string
+  characterId: string
+  speakerName: string
+  speakerAvatar: string
+  requestId: string
+  operationId: string
+  inputMessageId?: string
+  inputEventSeq?: number
+}
+
 export interface RoleplayInputContinuation {
+  mode?: 'continue'
+  targetAssistantMessageId?: string
+  requestId?: string
+  operationId?: string
   turn: number
   inputMessageId: string
   inputEventSeq: number
@@ -29,6 +45,8 @@ export interface RoleplayInputContinuationsState extends RoleplayInputContinuati
 
 declare module '@deepseek-ai/dsh-session' {
   interface SessionEventMap {
+    'eleckoi/group-response-cancelled': { requestId: string; turn: number; error: string }
+    'eleckoi/group-response': RoleplayGroupResponse
     'eleckoi/illustration': {
       batchId: string
       turn: number
@@ -57,6 +75,7 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
     eleckoiConversationPreview: string
     eleckoiHistoryStatsAdjustment: { steps: number; turns: number }
     eleckoiTurnOutcomes: { abortedTurns: number[] }
+    eleckoiGroupResponses: { responses: RoleplayGroupResponse[] }
     eleckoiInputContinuations: RoleplayInputContinuations
   }
   interface SessionProjectionStateMap {

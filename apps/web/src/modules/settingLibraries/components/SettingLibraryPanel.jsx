@@ -1,5 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
+  ArrowsMerge,
   ChatCircleDots,
   Code,
   Copy,
@@ -13,9 +15,12 @@ import {
 } from "../../../ui/icons/interfaceIcons.jsx";
 import { DshFolderClosedIcon } from "../../../ui/icons/dshTreeIcons.jsx";
 import { SETTING_LIBRARY_CREATE_ICONS } from "../../../ui/icons/settingLibraryCreateIcons.jsx";
-import { SettingLibraryManager } from "./SettingLibraryManager.jsx";
+import { SettingLibraryManager, exportJson } from "./SettingLibraryManager.jsx";
+import { ExportIcon, ImportIcon } from "../../../ui/icons/index.jsx";
+import { exportSettingLibraryTransfer, mergeSettingLibraryTransfer, parseSettingLibraryTransfer } from "../model/settingLibraryTransfer.js";
 import { ConfirmationDialog, SaveControl } from "./SettingLibraryControls.jsx";
 import { SettingLibraryInspector } from "./SettingLibraryInspector.jsx";
+import { SettingSendGroupsDialog } from './SettingSendGroupsDialog.jsx';
 import { SettingLibraryTree, SettingTreeActionsContext } from "./SettingLibraryTree.jsx";
 import { EditorSidebarLayout } from "../../../ui/ui/EditorSidebarLayout.jsx";
 import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
@@ -51,7 +56,7 @@ function nodeIcon(entry) {
   return FileText;
 }
 
-export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ characterId, settingLibraries, variables, onDirtyChange }, ref) {
+export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ characterId, settingLibraries, variables, onDirtyChange, autoFocusNewEntry = true, globalLibrary = false }, ref) {
   const { compact } = useEditorPresentation();
   const [library, setLibrary] = useState(null);
   const [variableSnapshot, setVariableSnapshot] = useState({ value: null, error: "" });
@@ -63,11 +68,16 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
   const [query, setQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [managerOpen, setManagerOpen] = useState(false);
+  const [sendGroupsTarget, setSendGroupsTarget] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [saveNotice, setSaveNotice] = useState("");
+  const [exportTarget, setExportTarget] = useState(null);
+  const [transferBusy, setTransferBusy] = useState(false);
+  const transferInputRef = useRef(null);
+  const importTargetRef = useRef("");
   const nameInputRef = useRef(null);
   const libraryRef = useRef(null);
   const persistedRef = useRef(null);
@@ -79,6 +89,20 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
   const searchHasResults = useMemo(() => library ? hasSearchResults(library, query) : false, [library, query]);
 
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!exportTarget && !contextMenu) return undefined;
+    const dismiss = event => {
+      if (event.type === 'keydown' && event.key !== 'Escape') return;
+      if (event.type === 'pointerdown' && event.target.closest('[data-setting-transfer-menu]')) return;
+      if (event.type === 'keydown') event.preventDefault();
+      setExportTarget(null);
+      setContextMenu(null);
+    };
+    document.addEventListener('pointerdown', dismiss);
+    document.addEventListener('keydown', dismiss);
+    return () => { document.removeEventListener('pointerdown', dismiss); document.removeEventListener('keydown', dismiss); };
+  }, [exportTarget, contextMenu]);
 
   useEffect(() => {
     expandedKeysRef.current = expandedKeys;
@@ -100,6 +124,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
     setPersisted(null);
     setSelectedKey("");
     setManagerOpen(false);
+    setSendGroupsTarget(null);
     const adopt = (loaded) => {
       if (!active || savePromiseRef.current || (libraryRef.current && persistedRef.current
         && JSON.stringify(libraryRef.current) !== JSON.stringify(persistedRef.current))) return;
@@ -145,6 +170,63 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
       libraryRef.current = next;
       return next;
     });
+  }
+
+  function requestImport(groupId = "") {
+    importTargetRef.current = groupId;
+    setContextMenu(null);
+    setExportTarget(null);
+    transferInputRef.current.value = "";
+    transferInputRef.current.click();
+  }
+
+  async function importFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const targetGroupId = importTargetRef.current;
+    setTransferBusy(true);
+    setError("");
+    try {
+      const imported = parseSettingLibraryTransfer(await file.text(), { filename: file.name });
+      const next = mergeSettingLibraryTransfer(libraryRef.current, imported, { targetGroupId, global: globalLibrary });
+      const keys = next.expandedGroupIds.map(id => nodeKey('group', id));
+      expandedKeysRef.current = keys;
+      setExpandedKeys(keys);
+      changeLibrary(next);
+    } catch (cause) { setError(cause?.message || "导入设定库失败"); }
+    finally { setTransferBusy(false); }
+  }
+
+  function requestExport(event, groupId = "") {
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    setContextMenu(null);
+    setExportTarget({ groupId, x: Math.max(8, Math.min(rect.right - 190, window.innerWidth - 198)),
+      y: Math.max(8, Math.min(rect.bottom + 5, window.innerHeight - 112)) });
+  }
+
+  async function exportFile(format) {
+    const groupId = exportTarget.groupId;
+    setExportTarget(null);
+    setTransferBusy(true);
+    setError("");
+    try {
+      const exported = exportSettingLibraryTransfer(libraryRef.current, { groupId, format });
+      await exportJson(JSON.stringify(exported.value, null, 2), exported.filename);
+    } catch (cause) { if (cause?.name !== 'AbortError') setError(cause?.message || "导出设定库失败"); }
+    finally { setTransferBusy(false); }
+  }
+
+  function openFolderMenu(event, node) {
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = event.currentTarget.getBoundingClientRect();
+    setSelectedKey(nodeKey('group', node.recordId));
+    setMenuOpen(false);
+    setExportTarget(null);
+    setContextMenu({ kind: 'group', id: node.recordId, parentId: node.recordId,
+      x: Math.max(8, Math.min(rect.right - 190, window.innerWidth - 198)),
+      y: Math.max(8, Math.min(rect.bottom + 4, window.innerHeight - 310)) });
   }
 
   async function save() {
@@ -335,7 +417,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
     setMenuOpen(false);
     setContextMenu(null);
     openEditor(nextKey);
-    requestAnimationFrame(() => nameInputRef.current?.select());
+    if (autoFocusNewEntry) requestAnimationFrame(() => nameInputRef.current?.select());
   }
 
   function askDelete(kind, id) {
@@ -466,7 +548,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
     }
     const nextContextMenu = {
       x: Math.min(event.clientX, window.innerWidth - 176),
-      y: Math.min(event.clientY, window.innerHeight - 190),
+      y: Math.max(8, Math.min(event.clientY, window.innerHeight - (node.nodeKind === 'group' ? 310 : 190))),
       kind: node.nodeKind,
       id: node.recordId,
       parentId: node.nodeKind === "group"
@@ -512,6 +594,10 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
       onClose={requestCloseInspector}
       onUpdateGroup={updateGroup}
       onDeleteGroup={() => askDelete("group", selected.value.id)}
+      onImportGroup={() => requestImport(selected.value.id)}
+      onExportGroup={event => requestExport(event, selected.value.id)}
+      onSendGroups={(scopeGroupId = '', initialSendGroupId = '') => setSendGroupsTarget({ scopeGroupId, initialSendGroupId })}
+      transferBusy={transferBusy}
       onUpdateEntry={(entry) => updateEntryById(entry.id, entry)}
       onEntriesChange={(entries) => changeLibrary((current) => ({ ...current, entries }))}
       onOpenEntry={(entryId) => openEditor(nodeKey("entry", entryId))}
@@ -533,7 +619,8 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
       onMouseDown={() => setMenuOpen(false)}
     >
       <div className="setting-library-browser">
-        <div className="setting-library-toolbar" onMouseDown={(event) => event.stopPropagation()}>
+        <input ref={transferInputRef} type="file" accept=".json,application/json" className="setting-library-file-input" aria-label="导入设定库文件" onChange={importFile} />
+        <div className="setting-library-toolbar has-library-transfer" onMouseDown={(event) => event.stopPropagation()}>
           <label className="setting-library-search">
             <MagnifyingGlass size={15} aria-hidden="true" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索设定" aria-label="搜索设定" />
@@ -548,12 +635,17 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
               </div>
             ) : null}
           </div>}
+          <div className="setting-library-transfer-buttons" role="group" aria-label={globalLibrary ? '全局设定库导入导出' : '设定库导入导出'}>
+            <button type="button" disabled={!library} title="组合发送" aria-label="组合发送" onClick={() => setSendGroupsTarget({})}><ArrowsMerge size={18} aria-hidden="true" /></button>
+            <button type="button" disabled={!library || transferBusy} title="导入设定库或世界书" aria-label={globalLibrary ? '导入全局设定库' : '导入设定库'} onClick={() => requestImport()}><ImportIcon size={18} aria-hidden="true" /></button>
+            <button type="button" disabled={!library || transferBusy} title="导出设定库" aria-label={globalLibrary ? '导出全局设定库' : '导出设定库'} aria-haspopup="menu" aria-expanded={Boolean(exportTarget && !exportTarget.groupId)} onClick={event => requestExport(event)}><ExportIcon size={18} aria-hidden="true" /></button>
+          </div>
           <button type="button" className="setting-library-manage-button" disabled={!library} aria-expanded={managerOpen} onClick={() => { setMenuOpen(false); setManagerOpen(true); }}><SlidersHorizontal size={16} />管理</button>
           <SaveControl dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} />
         </div>
 
         <div className="setting-library-tree editor-sidebar-directory" onMouseDown={handleTreeMouseDown} onContextMenu={openTreeContextMenu}>
-          <SettingTreeActionsContext.Provider value={{ openContextMenu, updateEntryById, openEditor: compact ? openEditor : undefined }}>
+          <SettingTreeActionsContext.Provider value={{ openContextMenu, openFolderMenu, updateEntryById, openEditor: compact ? openEditor : undefined }}>
             <SettingLibraryTree
               key={characterId}
               nodes={nodes}
@@ -597,8 +689,12 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
         />
       ) : null}
 
-      {contextMenu ? (
-        <div className="setting-library-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" onMouseDown={(event) => event.stopPropagation()}>
+      {sendGroupsTarget && library ? <SettingSendGroupsDialog library={library} {...sendGroupsTarget}
+        onEntriesChange={entries => changeLibrary(current => ({ ...current, entries }))}
+        onClose={() => setSendGroupsTarget(null)} /> : null}
+
+      {contextMenu ? createPortal(
+        <div className="setting-library-context-menu setting-library-transfer-menu" data-setting-transfer-menu style={{ left: contextMenu.x, top: contextMenu.y }} role="menu" onMouseDown={(event) => event.stopPropagation()}>
           {contextMenu.kind === "background" || contextMenu.kind === "group" ? (
             <>
               <button type="button" role="menuitem" onClick={() => requestAddNode("group", contextMenu.parentId)}><CreateFolderIcon size={15} />新建文件夹</button>
@@ -606,11 +702,19 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
               <button type="button" role="menuitem" onClick={() => requestAddNode("reference", contextMenu.parentId)}><CreateReferenceIcon size={15} />新建 EJS引用设定</button>
             </>
           ) : null}
+          {contextMenu.kind === 'group' ? <>
+            <button type="button" role="menuitem" disabled={transferBusy} onClick={() => requestImport(contextMenu.id)}><ImportIcon size={16} />导入到此文件夹</button>
+            <button type="button" role="menuitem" disabled={transferBusy} onClick={event => requestExport(event, contextMenu.id)}><ExportIcon size={16} />导出此文件夹</button>
+          </> : null}
           {contextMenu.kind === "entry" ? <button type="button" role="menuitem" onClick={() => duplicateEntry(contextMenu.id)}><Copy size={15} />复制</button> : null}
-          {contextMenu.kind !== "background" ? <button type="button" role="menuitem" onClick={() => { setContextMenu(null); requestAnimationFrame(() => nameInputRef.current?.select()); }}><PencilSimple size={15} />重命名</button> : null}
+          {contextMenu.kind !== "background" ? <button type="button" role="menuitem" onClick={() => { setContextMenu(null); if (compact) openEditor(); requestAnimationFrame(() => nameInputRef.current?.select()); }}><PencilSimple size={15} />重命名</button> : null}
           {contextMenu.kind !== "background" ? <button type="button" role="menuitem" className="is-destructive" onClick={() => askDelete(contextMenu.kind, contextMenu.id)}><Trash size={15} />删除</button> : null}
-        </div>
+        </div>, document.body
       ) : null}
+      {exportTarget ? createPortal(<div className="setting-library-context-menu setting-library-transfer-menu" data-setting-transfer-menu style={{ left: exportTarget.x, top: exportTarget.y }} role="menu" aria-label="导出格式">
+        <button type="button" role="menuitem" onClick={() => exportFile('eleckoi')}><ExportIcon size={16} />ElecKoi 设定库</button>
+        <button type="button" role="menuitem" onClick={() => exportFile('sillytavern')}><ExportIcon size={16} />酒馆世界书</button>
+      </div>, document.body) : null}
       <ConfirmationDialog target={deleteTarget} confirmLabel="删除" tone="destructive" onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
     </EditorSidebarLayout>
   );

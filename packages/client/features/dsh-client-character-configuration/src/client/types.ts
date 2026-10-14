@@ -5,6 +5,16 @@ export interface ConfigurationSnapshot<T> { status: 'idle' | 'loading' | 'ready'
 
 /** 读取和保存角色配置，保留完整字段、触发方式和提示词插入位置。 */
 export interface ElecKoiSettingLibraries {
+  /** Read the global library's current client snapshot. */
+  getGlobalSnapshot(): ConfigurationSnapshot<SettingLibrary>
+  /** Subscribe to changes of the independently owned global library. */
+  subscribeGlobal(listener: (snapshot: ConfigurationSnapshot<SettingLibrary>) => void): () => void
+  /** Read the full global library and update its client snapshot. */
+  readGlobal(): Promise<SettingLibrary>
+  /** Save the global library with all entries, versions, and insertion settings. */
+  saveGlobal(library: SettingLibrary): Promise<SettingLibrary>
+  /** Save expanded folders in the global library editor. */
+  saveGlobalViewState(expandedIds: string[]): Promise<string[]>
   /**
    * 读取指定角色在页面中的配置状态。
    * @param characterId - 角色编号。

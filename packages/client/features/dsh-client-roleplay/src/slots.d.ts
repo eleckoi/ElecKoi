@@ -24,6 +24,8 @@ export interface RoleplaySessionOwner {
 
 export interface ComposerBridgeOwner {
   renderBridgeSlot?: BridgeSlotRenderer
+  auxiliaryGenerating?: boolean
+  onStopAuxiliary?: () => void
 }
 
 export interface RoleplayChatOwner extends ConvViewOwnerProps {

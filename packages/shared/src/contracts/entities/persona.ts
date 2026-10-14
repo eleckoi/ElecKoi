@@ -12,8 +12,17 @@ export interface Persona {
   [key: string]: unknown
 }
 
+export interface CharacterExpression {
+  name: string
+  label: string
+  folder: string
+  url: string
+  [key: string]: unknown
+}
+
 export interface CharacterRecord {
   id: string
+  expressions?: CharacterExpression[]
   [key: string]: unknown
 }
 

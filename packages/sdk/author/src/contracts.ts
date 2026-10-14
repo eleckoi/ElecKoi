@@ -134,7 +134,7 @@ export interface AuthorSettingLibraryEntry {
   keywords: string[]
   keywordScanDepth: number
   conditionKeywords: string[]
-  keywordCondition: 'none' | 'any' | 'all' | 'not_any'
+  keywordCondition: 'none' | 'any' | 'all' | 'not_any' | 'not_all'
   keywordUseRegex: boolean
   keywordIgnoreCase: boolean
   keywordWholeWord: boolean

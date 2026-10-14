@@ -3,6 +3,9 @@ export type { GeneratedImageFrame, ChatUserImageAttachment } from '@shared/contr
 export { normalizeNovelAiImageSettings, NOVELAI_IMAGE_PROVIDER, AUTO_ILLUSTRATION_TOOL_GROUP, DEFAULT_NOVELAI_COMPILER_INSTRUCTION, MAX_STORY_IMAGES } from '@shared/contracts/agent/novelAiImageSettings'
 import type { Context, Plugin } from '@deepseek-ai/cordis'
 import Database from 'better-sqlite3'
+import { DataBankRepository } from '@product-data/domain/databank/DataBankRepository'
+export { DataBankRepository } from '@product-data/domain/databank/DataBankRepository'
+export type { DataBankDocument, DataBankDocumentInput, DataBankChunk } from '@product-data/domain/databank/DataBankRepository'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { eq } from 'drizzle-orm'
 import { PersonaRepository } from '@product-data/domain/personas/PersonaRepository'
@@ -22,6 +25,8 @@ import { CreatorProjectRepository } from '@product-data/domain/creatorStudio/Cre
 export { creatorCapabilities, creatorToolsets, creatorAuthoringInstructions } from '@product-data/domain/creatorStudio/capabilities'
 import { FrontendIndex, FrontendProjectRepository } from '@product-data/domain/frontends'
 import { SettingLibraryRepository } from '@product-data/domain/settingLibraries/SettingLibraryRepository'
+import { GLOBAL_SETTING_LIBRARY_ID } from '@shared/contracts/settingLibrary/scope'
+export { GLOBAL_SETTING_LIBRARY_ID } from '@shared/contracts/settingLibrary/scope'
 import { VariableConfigRepository } from '@product-data/domain/variables/VariableConfigRepository'
 import { VariableStateRepository } from '@product-data/domain/variables/VariableStateRepository'
 import {
@@ -165,6 +170,7 @@ class HostPersonaConversationSync {
 
 class ProductDataStore {
   private connection: Database.Database | undefined
+  private databank: DataBankRepository | undefined
   private personas: PersonaRepository | undefined
   private characters: CharacterRepository | undefined
   private transfers: CharacterTransferService | undefined
@@ -183,6 +189,9 @@ class ProductDataStore {
   private mediaAssets: LocalMediaStore | undefined
   private readonly messageDisplayProjector = new MessageDisplayProjector(mvuMessageDisplayCompatibility)
   private displayUi: Record<string, unknown> = {}
+  private tavernRuntimeSource:()=>Record<string,unknown>=()=>({})
+
+  setTavernRuntimeSource(reader:()=>Record<string,unknown>):void {this.tavernRuntimeSource=reader}
 
   constructor(
     private readonly path: string | undefined,
@@ -268,6 +277,11 @@ class ProductDataStore {
 
   readCharacters(): CharacterCollection {
     return this.withPrimaryOpenings(this.databaseRepositories().characters.get())
+  }
+
+  dataBank(): DataBankRepository {
+    if (!this.databank) this.databank = new DataBankRepository(this.databaseRepositories().store.native)
+    return this.databank
   }
 
   frontendProjects(): FrontendProjectRepository {
@@ -626,7 +640,12 @@ class ProductDataStore {
 
   prepareConversationRuntime(conversationId: string, text: string, options: { preset?: AgentPreset; persona?: Record<string, unknown>; characterId?: string } = {}) {
     this.databaseRepositories()
-    const metadata = this.conversations!.getMetadata(conversationId)
+    const metadata=this.conversations!.getMetadata(conversationId), compatibility=this.tavernRuntimeSource()
+    const currentPresetId=this.requirePresets().catalog().activePresetIds.roleplay, draft=isRecord(compatibility.presetDraft)?compatibility.presetDraft:{}
+    const effectivePreset=options.preset??(draft.loadedId===currentPresetId&&isRecord(draft.preset)?structuredClone(draft.preset) as unknown as AgentPreset:undefined)
+    const presetFields=isRecord(compatibility.presetFields)?compatibility.presetFields:{}
+    const selectedFields=!options.preset&&draft.loadedId===currentPresetId&&isRecord(draft.fields)?draft.fields:presetFields[options.preset?.id??currentPresetId]
+    const generationParameters=isRecord(selectedFields)&&isRecord(selectedFields.settings)?structuredClone(selectedFields.settings):undefined
     if (options.characterId) {
       const character = this.readCharacters().items.find(item => item.id === options.characterId)
       if (!character) throw new Error(`群聊成员不存在：${options.characterId}`)
@@ -634,8 +653,17 @@ class ProductDataStore {
       metadata.characterAvatar = typeof character.avatar === 'string' ? character.avatar : ''
       metadata.characterPersona = { ...metadata.characterPersona, ...(isRecord(character.persona) ? character.persona : {}) }
     }
-    if (options.persona) metadata.characterPersona = { ...metadata.characterPersona, ...options.persona }
-    const characterBinding = { characterId: metadata.characterId }
+    const personas=isRecord(compatibility.personas)?compatibility.personas:{}
+    const connected=Object.values(personas).find(value=>isRecord(value)&&Array.isArray(value.connections)&&value.connections.some(connection=>isRecord(connection)&&connection.type==='character'&&connection.id===metadata.characterId))
+    const activePersonaId=stringValue(compatibility.activePersonaId)||'default'
+    const activePersona=isRecord(connected)?connected:isRecord(personas[activePersonaId])?personas[activePersonaId] as Record<string,unknown>:{}
+    const persona={...activePersona,...options.persona}
+    if(Object.keys(persona).length)metadata.characterPersona={...metadata.characterPersona,...persona,user_name:stringValue(persona.name)||metadata.characterPersona.user_name,user_avatar:stringValue(persona.avatar)||metadata.characterPersona.user_avatar}
+    const personaBook = stringValue(persona.lorebook), globalLibrary = this.readGlobalSettingLibrary()
+    const personaBookGroup = globalLibrary.groups.find(group => group.sillyTavern?.worldbook === true && group.name === personaBook)
+    const nativePersonaBook = /\[([^\]]+)\]$/.exec(personaBook)?.[1]
+    const personaBookKey = !personaBook ? undefined : personaBook === globalLibrary.name ? `native:${GLOBAL_SETTING_LIBRARY_ID}` : personaBookGroup ? `folder:${personaBookGroup.id}` : nativePersonaBook ? `native:${nativePersonaBook}` : undefined
+    const characterBinding = { characterId: metadata.characterId, ...(personaBookKey ? { worldbookKeys: [personaBookKey] } : {}) }
     const macroValues = characterCardMacroValues(metadata, metadata.characterPersona.user_name)
     const variableContext = resolveVariableContextCharacterCardMacros(
       this.variableStates?.runtimeContext(conversationId, characterBinding),
@@ -644,11 +672,11 @@ class ProductDataStore {
     const regexRules = metadata.characterId
       ? this.requireRegexRules().get(metadata.characterId)
       : undefined
-    if (regexRules && options.preset) regexRules.agentPresetRules = options.preset.regexRules
+    if(regexRules&&effectivePreset)regexRules.agentPresetRules=effectivePreset.regexRules
     const preset = this.requirePresets()
-    const disabledToolGroupIds = options.preset ? disabledAgentPresetToolGroupIds(options.preset) : preset.disabledToolGroupIds()
+    const disabledToolGroupIds=effectivePreset?disabledAgentPresetToolGroupIds(effectivePreset):preset.disabledToolGroupIds()
     const rawSettingLibrary = mergeAgentPresetAndCharacterLibraries(
-      options.preset ? projectAgentPresetRuntimeContext(options.preset) : preset.runtimeContext(),
+      effectivePreset?projectAgentPresetRuntimeContext(effectivePreset):preset.runtimeContext(),
       this.settingLibraries!.runtimeContext(conversationId, characterBinding)
     )
     const macroSettingLibrary = resolveSettingLibraryCharacterCardMacros(rawSettingLibrary, macroValues)
@@ -669,6 +697,32 @@ class ProductDataStore {
         }]
       : []
     const currentPromptText = runtimeText(text, macroValues, regexRules, 'UserInput')
+    const characterFields = isRecord(compatibility.characterFields) && isRecord(compatibility.characterFields[metadata.characterId])
+      ? compatibility.characterFields[metadata.characterId] as Record<string, unknown> : {}
+    const cardFields = { ...(isRecord(characterFields.data) ? characterFields.data : {}), ...characterFields }
+    const chatMetadata = isRecord(compatibility.chatMetadata) && isRecord(compatibility.chatMetadata[conversationId])
+      ? compatibility.chatMetadata[conversationId] as Record<string, unknown> : {}
+    const note = isRecord(chatMetadata.author_note) ? chatMetadata.author_note : undefined
+    const runtimePreset = effectivePreset ?? this.readAgentPreset(currentPresetId)
+    const savedPromptFields = isRecord(selectedFields) && isRecord(selectedFields.promptFields) ? selectedFields.promptFields : {}
+    const compatiblePreset = (isRecord(selectedFields) && selectedFields.compatibility === true)
+      || runtimePreset.entries.some(entry => isRecord(entry.sillyTavern?.presetPrompt))
+    const compatiblePrompts = compatiblePreset ? runtimePreset.entries.map(entry => {
+      const savedPrompt = savedPromptFields[entry.id]
+      const entryPrompt = entry.sillyTavern?.presetPrompt
+      const preserved = { ...(isRecord(savedPrompt) ? savedPrompt : {}),
+        ...(isRecord(entryPrompt) ? entryPrompt : {}) }
+      return { ...preserved, id: entry.id, name: entry.title, role: entry.insertRole, enabled: entry.enabled,
+        content: runtimeText(entry.content, macroValues, regexRules, 'SettingContent'),
+        position: isRecord(preserved.position) ? preserved.position : { type: 'relative' } }
+    }) : []
+    const compatibleCard = { description: settingLibrary?.entries.find(entry => entry.id === 'tavern-character-description')?.content
+        ?? runtimeText(stringValue(cardFields.description), macroValues, regexRules, 'SettingContent'),
+      personality: runtimeText(stringValue(cardFields.personality), macroValues, regexRules, 'SettingContent'),
+      scenario: runtimeText(stringValue(cardFields.scenario), macroValues, regexRules, 'SettingContent'),
+      mes_example: runtimeText(stringValue(cardFields.mes_example), macroValues, regexRules, 'SettingContent'),
+      system_prompt: runtimeText(stringValue(cardFields.system_prompt), macroValues, regexRules, 'SettingContent'),
+      post_history_instructions: runtimeText(stringValue(cardFields.post_history_instructions), macroValues, regexRules, 'SettingContent') }
     return {
       conversationId,
       runtimeSessionId: this.runtimeSessionId(conversationId),
@@ -677,18 +731,54 @@ class ProductDataStore {
       conversationContext: {
         characterId: metadata.characterId,
         characterName: metadata.characterName,
+        characterDescription: settingLibrary?.entries.find(entry => entry.id === 'tavern-character-description')?.content ?? stringValue(cardFields.description),
+        characterPersonality: stringValue(cardFields.personality),
+        characterDepthPrompt: stringValue(isRecord(cardFields.extensions) && isRecord(cardFields.extensions.depth_prompt) ? cardFields.extensions.depth_prompt.prompt : ''),
+        scenario: stringValue(cardFields.scenario),
+        creatorNotes: stringValue(cardFields.creator_notes),
+        personaDescription: stringValue(persona.description),
+        ...(note ? { authorNote: {
+          content: runtimeText(stringValue(note.content), macroValues, regexRules, 'SettingContent'),
+          role: note.role === 1 ? 'user' : note.role === 2 ? 'assistant' : 'system',
+          position: Number(note.position) === -1 ? 'none' : Number(note.position) === 0 ? 'in_prompt' : Number(note.position) === 2 ? 'before_prompt' : 'in_chat',
+          depth: Math.max(0, Number(note.depth) || 0), order: Number(note.order) || 0,
+          frequency: note.frequency === undefined ? 1 : Math.max(0, Math.trunc(Number(note.frequency) || 0))
+        } } : {}),
         persona: metadata.characterPersona,
         history,
         historyMode: 'prefix' as const,
         currentPromptText,
+        ...(generationParameters?{generationParameters}:{}),
+        ...(compatiblePreset ? { compatibilityPreset: { compatibility: true, id: runtimePreset.id, name: runtimePreset.name,
+          settings: generationParameters ?? {}, prompts: compatiblePrompts }, compatibilityCard: { data: compatibleCard },
+          compatibilityPersona: { ...persona, description: runtimeText(stringValue(persona.description), macroValues, regexRules, 'SettingContent') } } : {}),
+        promptContributions:stringValue(persona.description)?[{id:`persona:${stringValue(persona.avatar_id)||stringValue(compatibility.activePersonaId)}`,content:runtimeText(stringValue(persona.description),macroValues,regexRules,'SettingContent'),
+          role:persona.role===1?'user' as const:persona.role===2?'assistant' as const:'system' as const,anchor:Number(persona.position)===0?'insert_point_2':'chat_depth',depth:Math.max(0,Number(persona.depth)||0),order:0,title:stringValue(persona.title)||'用户资料'}]:[],
         ...(settingLibrary ? { settingLibrary } : {})
       },
       disabledToolGroupIds,
-      agentPreset: options.preset ? projectAgentPresetRuntimeSelection(options.preset) : preset.runtimeSelection(),
+      agentPreset:effectivePreset?projectAgentPresetRuntimeSelection(effectivePreset):preset.runtimeSelection(),
       settingLibraryBaseline: rawSettingLibrary && settingLibrary
         ? { source: rawSettingLibrary, projected: settingLibrary }
         : undefined
     }
+  }
+
+  /** Use the existing card macro and regex services for group field projection. */
+  projectSettingPromptText(source: string, preparation: { promptTextContext: { macros?: CharacterCardMacroValues; rules?: RegexRuleCollection } },
+    options: { characterName?: string; stage?: 'macros' | 'regex'; depth?: number } = {}): string {
+    const macros = preparation.promptTextContext.macros && { ...preparation.promptTextContext.macros,
+      ...(options.characterName === undefined ? {} : { characterName: options.characterName }) }
+    const rules = preparation.promptTextContext.rules
+    if (options.stage === 'macros') return macros ? resolveCharacterCardMacros(source, macros) : source
+    if (options.stage !== 'regex') return runtimeText(source, macros, rules, 'SettingContent', options.depth)
+    return rules ? transformCollectionSurface(source, rules, 'SettingContent', 'Prompt', {
+      ...(options.depth === undefined ? {} : { depth: options.depth }),
+      expandMacros: (value, escape) => macros ? resolveCharacterCardMacros(value, {
+        userName: escape?.(macros.userName) ?? macros.userName,
+        characterName: escape?.(macros.characterName) ?? macros.characterName
+      }) : value
+    }) : source
   }
 
   projectConversationPromptHistory<T extends { role: string; content: string }>(
@@ -754,13 +844,13 @@ class ProductDataStore {
     return this.withPrimaryOpenings(this.databaseRepositories().characters.saveGroups(groups, assignments))
   }
 
-  deleteCharacters(characterIds: string[]): CharacterCollection {
+  deleteCharacters(characterIds: string[], options: { deleteChats?: boolean } = {}): CharacterCollection {
     const { characters } = this.databaseRepositories()
     const current = characters.get(), removed = new Set(characterIds)
     try {
       const result = this.frontendProjects().deleteCharacterOwners(current.items.filter(item => removed.has(item.id)).map(item => item.id), () => this.scripts!.transaction(db => {
         for (const id of removed) this.scripts!.deleteOwnerInTransaction('character', id, db)
-        return characters.replaceAll({ ...current, items: current.items.filter(item => !removed.has(item.id)) }, db)
+        return characters.replaceAll({ ...current, items: current.items.filter(item => !removed.has(item.id)) }, db, options)
       }))
       characters.commitMediaChanges()
       return this.withPrimaryOpenings(result)
@@ -799,6 +889,24 @@ class ProductDataStore {
 
   readSettingLibrary(characterId: string): SettingLibrary {
     return this.databaseRepositories().settingLibraries.get(characterId)
+  }
+
+  readGlobalSettingLibrary(): SettingLibrary { return this.readSettingLibrary(GLOBAL_SETTING_LIBRARY_ID) }
+
+  saveGlobalSettingLibrary(library: SettingLibrary): SettingLibrary {
+    return this.saveSettingLibrary(GLOBAL_SETTING_LIBRARY_ID, library)
+  }
+
+  replaceGlobalSettingLibraryContent(library: Pick<SettingLibrary, 'characterId' | 'name' | 'entries' | 'groups' | 'promptPositions'>): SettingLibrary {
+    return this.replaceSettingLibraryContent(GLOBAL_SETTING_LIBRARY_ID, library)
+  }
+
+  updateGlobalSettingLibraryEntries(updates: SettingLibraryEntryUpdate[]) {
+    return this.updateSettingLibraryEntries(GLOBAL_SETTING_LIBRARY_ID, updates)
+  }
+
+  saveGlobalSettingLibraryViewState(expandedGroupIds: string[]): string[] {
+    return this.saveSettingLibraryViewState(GLOBAL_SETTING_LIBRARY_ID, expandedGroupIds)
   }
 
   replaceSettingLibraryContent(
@@ -1061,6 +1169,7 @@ class ProductDataStore {
   close(): void {
     this.connection?.close()
     this.connection = undefined
+    this.databank = undefined
     this.personas = undefined
     this.characters = undefined
     this.transfers = undefined
@@ -1103,7 +1212,7 @@ function runtimeText(
   source: string,
   macros: CharacterCardMacroValues | undefined,
   rules: RegexRuleCollection | undefined,
-  target: 'UserInput' | 'AiOutput',
+  target: RegexRuleTarget,
   depth = 0
 ): string {
   const expanded = macros ? resolveCharacterCardMacros(source, macros) : source

@@ -2,8 +2,10 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { OfficialMarkdown } from "../../../ui/messages/OfficialMarkdown.jsx";
 import { CornersIn, CornersOut, Eye, PencilSimple } from "../../../ui/icons/interfaceIcons.jsx";
+import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
 
 export function MarkdownTextareaField({ label, value, placeholder, onChange, preview = true, labelAction = null }) {
+  const { autoFocusInputs = true } = useEditorPresentation();
   const inputId = useId();
   const editorRef = useRef(null);
   const [immersive, setImmersive] = useState(false);
@@ -15,7 +17,7 @@ export function MarkdownTextareaField({ label, value, placeholder, onChange, pre
     setMode("edit");
     const focusFrame = requestAnimationFrame(() => {
       const editor = editorRef.current;
-      editor?.focus();
+      if (autoFocusInputs) editor?.focus();
       editor?.setSelectionRange(editor.value.length, editor.value.length);
     });
     const closeOnEscape = (event) => {
@@ -29,7 +31,7 @@ export function MarkdownTextareaField({ label, value, placeholder, onChange, pre
       window.removeEventListener("keydown", closeOnEscape);
       document.documentElement.classList.remove("immersive-editor-open");
     };
-  }, [immersive]);
+  }, [immersive, autoFocusInputs]);
 
   const overlayHost = immersive
     ? document.querySelector(".qq-character-editor-window-shell") || document.body

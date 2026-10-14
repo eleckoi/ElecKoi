@@ -1,52 +1,78 @@
 import { chmod, lstat, realpath, unlink } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { assistantStreamChunks } from '@deepseek-ai/dsh-llm'
-import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import { AttachmentId, type ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import { SessionId } from '@deepseek-ai/dsh-session'
+import { storedAssistantBlocks } from './sessionFormatBoundary.mjs'
+
+type ImageEvent = { readonly type: string; readonly data: unknown }
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+function record(value: unknown): Record<string, unknown> { return isRecord(value) ? value : {} }
+
+/** Restore attachment identity at the durable product/Session boundary. */
+export function generatedImageReference(value: unknown): ImageAttachmentRef {
+  const ref = record(value)
+  if (typeof ref.attachmentId !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(ref.attachmentId)
+    || !['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(String(ref.mediaType))
+    || typeof ref.bytes !== 'number' || typeof ref.width !== 'number' || typeof ref.height !== 'number') {
+    throw new TypeError('生成图片附件引用不正确。')
+  }
+  const mediaType = ref.mediaType
+  if (mediaType !== 'image/png' && mediaType !== 'image/jpeg' && mediaType !== 'image/webp' && mediaType !== 'image/gif') {
+    throw new TypeError('生成图片附件类型不正确。')
+  }
+  const dimensions = record(ref.originalDimensions)
+  return { attachmentId: AttachmentId(ref.attachmentId), mediaType, bytes: ref.bytes, width: ref.width, height: ref.height,
+    ...(typeof ref.name === 'string' ? { name: ref.name } : {}),
+    ...(typeof dimensions.width === 'number' && typeof dimensions.height === 'number'
+      ? { originalDimensions: { width: dimensions.width, height: dimensions.height } } : {}) }
+}
 
 /** Only this tool's declared result metadata establishes generated-image ownership. */
-export function generatedImageReferences(events: readonly SessionEvent[]): Map<string, ImageAttachmentRef> {
+export function generatedImageReferences(events: readonly ImageEvent[]): Map<string, ImageAttachmentRef> {
   const refs = new Map<string, ImageAttachmentRef>()
+  const add = (value: unknown) => {
+    const id = record(value).attachmentId
+    if (typeof id !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(id)) return
+    refs.set(id, generatedImageReference(value))
+  }
   for (const event of events) {
+    const data = record(event.data)
     if (event.type === 'eleckoi/illustration') {
-      for (const frame of event.data.frames) if (frame.attachment && /^sha256:[a-f0-9]{64}$/.test(frame.attachment.attachmentId)) refs.set(frame.attachment.attachmentId, frame.attachment)
+      if (Array.isArray(data.frames)) for (const frame of data.frames) if (record(frame).attachment) add(record(frame).attachment)
       continue
     }
-    if (event.type !== 'tool/result' || event.data.meta?.source !== 'eleckoi-auto-illustration') continue
-    for (const block of event.data.message.content) {
-      if (block.type === 'image' && /^sha256:[a-f0-9]{64}$/.test(block.attachment.attachmentId)) refs.set(block.attachment.attachmentId, block.attachment)
-    }
+    if (event.type !== 'tool/result' || record(data.meta).source !== 'eleckoi-auto-illustration') continue
+    const content = record(data.message).content
+    if (Array.isArray(content)) for (const block of content) if (record(block).type === 'image') add(record(block).attachment)
   }
   return refs
 }
 
 /** Read declared image carriers, including history that remains in the log. */
-export function referencedImageIds(events: readonly SessionEvent[]): Set<string> {
-  const ids = new Set<string>()
-  const illustrationBatches = new Map<string, SessionEvent<'eleckoi/illustration'>['data']>()
+export function referencedImageIds(events: readonly ImageEvent[]): Set<string> {
+  const ids = new Set<string>(), illustrationBatches = new Map<string, unknown[]>()
+  const attachment = (value: unknown) => { const id = record(value).attachmentId; if (typeof id === 'string') ids.add(id) }
   const content = (blocks: unknown) => {
-    if (!Array.isArray(blocks)) return
-    for (const block of blocks) if (block?.type === 'image' && typeof block.attachment?.attachmentId === 'string') ids.add(block.attachment.attachmentId)
+    if (Array.isArray(blocks)) for (const block of blocks) if (record(block).type === 'image') attachment(record(block).attachment)
   }
   for (const event of events) {
+    const data = record(event.data)
     if (event.type === 'eleckoi/illustration') {
-      illustrationBatches.set(event.data.batchId, event.data)
+      if (typeof data.batchId === 'string' && Array.isArray(data.frames)) illustrationBatches.set(data.batchId, data.frames)
       continue
     }
-    const data = event.data as { content?: unknown; message?: { content?: unknown }; inserted?: { content?: unknown }[]; summary?: unknown; rawOutput?: unknown }
-    switch (event.type as string) {
+    switch (event.type) {
       case 'user/message': case 'tool/ptc-dispatch': content(data.content); break
-      case 'system/message': case 'developer/message': case 'tool/result': case 'team/message/queued': content(data.message?.content); break
-      case 'agent/inbox/spliced': if (Array.isArray(data.inserted)) for (const message of data.inserted) content(message?.content); break
+      case 'system/message': case 'developer/message': case 'tool/result': case 'team/message/queued': content(record(data.message).content); break
+      case 'agent/inbox/spliced': if (Array.isArray(data.inserted)) for (const message of data.inserted) content(record(message).content); break
       case 'compaction/summary': content(data.summary); content(data.rawOutput); break
-      case 'assistant/message': content(data.message?.content)
-      case 'assistant/attempt':
-        for (const chunk of assistantStreamChunks((event as SessionEvent<'assistant/message' | 'assistant/attempt'>).data.stream, 'block-end')) content([chunk.block])
-        break
+      case 'assistant/message': content(record(data.message).content)
+      case 'assistant/attempt': content(storedAssistantBlocks(data.stream)); break
     }
   }
-  for (const batch of illustrationBatches.values()) for (const frame of batch.frames) if (frame.attachment) ids.add(frame.attachment.attachmentId)
+  for (const frames of illustrationBatches.values()) for (const frame of frames) if (record(frame).attachment) attachment(record(frame).attachment)
   return ids
 }
 
@@ -54,9 +80,9 @@ export interface GeneratedImageCleanupContext {
   attachments: { root?: string; imageHostPath(ref: ImageAttachmentRef): string }
   sessionPersistence: {
     list(): Promise<Array<{ header: { id: string } }>>
-    open(id: SessionId, access: 'read'): Promise<{ read(): Promise<{ events: readonly SessionEvent[] }>; close(): Promise<void> }>
+    open(id: SessionId, access: 'read'): Promise<{ read(): Promise<{ events: readonly ImageEvent[] }>; close(): Promise<void> }>
   }
-  sessions: { list(): Array<{ id: string; snapshotEvents(): readonly SessionEvent[] }> }
+  sessions: { list(): Array<{ id: string; snapshotEvents(): readonly ImageEvent[] }> }
   eleckoiProductData: { listInputImageReferences(): Array<{ conversationId: string; attachmentId: string }>; runtimeSessionId(conversationId: string): string }
 }
 
@@ -94,6 +120,6 @@ export async function deleteRemovedGeneratedImages(ctx: GeneratedImageCleanupCon
       if (!info.isFile() || info.isSymbolicLink()) throw new Error('生成图片对象不是本地文件，未删除。')
       await chmod(path, 0o600)
       await unlink(path)
-    } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+    } catch (error) { if (record(error).code !== 'ENOENT') throw error }
   }
 }

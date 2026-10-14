@@ -13,9 +13,13 @@
   },
   "dependencies": {
     "@eleckoi/author-sdk": "workspace:*",
+    "@eleckoi/tavern-native": "workspace:*",
     "@eleckoi/dsh-product-api": "workspace:*",
     "@eleckoi/dsh-client-conversations": "workspace:*",
     "@eleckoi/dsh-client-models": "workspace:*",
+    "@eleckoi/dsh-client-characters": "workspace:*",
+    "@eleckoi/dsh-client-persona": "workspace:*",
+    "@eleckoi/dsh-client-presets": "workspace:*",
     "@eleckoi/dsh-client-character-configuration": "workspace:*"
   },
   "scripts": { "build": "tsc -b tsconfig.client.json && tsdown" },
@@ -23,7 +27,7 @@
   "engines": { "dsh": "0.2.0-rc.2" },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
-    "client": { "platform": "web", "inject": ["@eleckoi/dsh-product-api", "@eleckoi/dsh-client-conversations", "@eleckoi/dsh-client-character-configuration", "@eleckoi/dsh-client-models"] }
+    "client": { "platform": "web", "inject": ["@eleckoi/dsh-product-api", "@eleckoi/dsh-client-conversations", "@eleckoi/dsh-client-character-configuration", "@eleckoi/dsh-client-models", "@eleckoi/dsh-client-characters", "@eleckoi/dsh-client-persona", "@eleckoi/dsh-client-presets"] }
   },
   "eleckoi": {
     "developerInterfaces": [{

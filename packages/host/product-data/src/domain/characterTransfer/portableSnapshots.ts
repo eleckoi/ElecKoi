@@ -129,7 +129,7 @@ function settingEntry(value: JsonObject, index: number): SettingLibraryEntry {
     keywords: stringList(value.keywords),
     keywordScanDepth: Math.max(0, integer(value.keyword_scan_depth, 1)),
     conditionKeywords: stringList(value.condition_keywords),
-    keywordCondition: enumValue(value.keyword_condition, ['none', 'any', 'all', 'not_any'], 'none'),
+    keywordCondition: enumValue(value.keyword_condition, ['none', 'any', 'all', 'not_any', 'not_all'], 'none'),
     keywordUseRegex: boolean(value.keyword_use_regex),
     keywordIgnoreCase: boolean(value.keyword_ignore_case, true),
     keywordWholeWord: boolean(value.keyword_whole_word),

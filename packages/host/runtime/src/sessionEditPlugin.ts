@@ -5,13 +5,14 @@ import { dirname } from 'node:path'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { SessionWriteLease } from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { editDshSessionMessage, readEditableDshSessionLog, rewriteDshSessionEvents } from './sessionMessageEdit'
+import { runtimeEventToFormat } from './sessionFormatBoundary.mjs'
 import { findGeneratedImage } from '@eleckoi/dsh-client-roleplay/host/generated-image-result.mjs'
 import type { GeneratedImageFrame } from '@eleckoi/dsh-product-data'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { importDshTranscript, type TranscriptMessage } from './sessionTranscriptImport'
+import { batchDshSessionMessages, type SessionMessageBatchItem } from './sessionMessageBatch'
 import { readDshSessionLog, removeDshSessionTree, readDshTrajectory, type DshTrajectoryReadOptions } from './trajectory'
 import { refreshSessionProjections, type SessionProjectionRefreshContext } from './sessionProjectionRefresh'
-import { generatedImageReferences, deleteRemovedGeneratedImages, type GeneratedImageCleanupContext } from './generatedImageCleanup'
+import { generatedImageReferences, generatedImageReference, deleteRemovedGeneratedImages, type GeneratedImageCleanupContext } from './generatedImageCleanup'
 
 export const name = 'eleckoi-session-edit'
 export const inject = ['eleckoiSessionHandles', 'sessionPersistence', 'sessionProjections', 'sessionProjectionCache', 'attachments', 'sessions', 'eleckoiProductData']
@@ -25,6 +26,20 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
   if (!sessionRoot) throw new Error('DSH_SESSION_ROOT is required')
   const transactions = new Set<string>()
   ctx.provide('eleckoiSessionEditor', {
+    async batchMessages(sessionId: string, previous: SessionMessageBatchItem[], desired: SessionMessageBatchItem[]) {
+      return ctx.eleckoiSessionHandles.withClosed(sessionId, async () => {
+        const probe = await ctx.sessionPersistence.open(SessionId(sessionId), 'write')
+        await probe.close()
+        const log = readEditableDshSessionLog(sessionRoot, sessionId)
+        const lease = await SessionWriteLease.acquire(dirname(log.path), SessionId(sessionId))
+        try {
+          const result = batchDshSessionMessages(sessionRoot, sessionId, previous, desired)
+          await refreshSessionProjections(ctx, sessionId)
+          if (!transactions.has(sessionId)) await deleteRemovedGeneratedImages(ctx, generatedImageReferences(log.events))
+          return result
+        } finally { await lease.release() }
+      })
+    },
     readTrajectory(sessionId: string, options?: DshTrajectoryReadOptions) {
       return readDshTrajectory(sessionRoot, sessionId, options)
     },
@@ -44,7 +59,7 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
     },
     async editMessage(sessionId: string, eventSeq: number, role: 'user' | 'assistant', content: string): Promise<void> {
       await ctx.eleckoiSessionHandles.withClosed(sessionId, async () => {
-        const probe = await ctx.sessionPersistence.open(sessionId as SessionId, 'write')
+        const probe = await ctx.sessionPersistence.open(SessionId(sessionId), 'write')
         await probe.close()
         const log = readDshSessionLog(sessionRoot, sessionId)
         if (!log) throw new Error('当前聊天对应的 DSH 会话日志无法读取。')
@@ -58,7 +73,7 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
     async rewind(sessionId: string, fromTurn: number, fromEventSeq?: number, retainInput = false): Promise<number | undefined> {
       return ctx.eleckoiSessionHandles.withClosed(sessionId, async () => {
         if (!readDshSessionLog(sessionRoot, sessionId)) return undefined
-        const probe = await ctx.sessionPersistence.open(sessionId as SessionId, 'write')
+        const probe = await ctx.sessionPersistence.open(SessionId(sessionId), 'write')
         await probe.close()
         const log = readDshSessionLog(sessionRoot, sessionId)
         if (!log) return undefined
@@ -114,7 +129,7 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
       })
     },
     async discardGeneratedImages(images: NonNullable<GeneratedImageFrame['attachment']>[]): Promise<void> {
-      await deleteRemovedGeneratedImages(ctx, new Map(images.map(ref => [ref.attachmentId, ref])))
+      await deleteRemovedGeneratedImages(ctx, new Map(images.map(ref => [ref.attachmentId, generatedImageReference(ref)])))
     },
     async regenerateImage(sessionId: string, batchId: string, frameId: number, generate: (frame: GeneratedImageFrame) => Promise<GeneratedImageFrame>): Promise<GeneratedImageFrame> {
       return ctx.eleckoiSessionHandles.withClosed(sessionId, async () => {
@@ -128,19 +143,19 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
           next = await generate(structuredClone(selected.frame))
           if (next.id !== frameId) throw new Error('生图结果的分镜编号与选中图片不一致。')
           const { prompt, negative_prompt, after_paragraph, ...outcome } = next
-          const frames = selected.event.data.frames.map((frame: GeneratedImageFrame) => frame.id === frameId ? outcome : frame)
-          const ready = frames.filter((frame: GeneratedImageFrame) => frame.status === 'ready').length
-          const errors = frames.filter((frame: GeneratedImageFrame) => frame.error).map((frame: GeneratedImageFrame) => frame.error)
+          const frames = selected.data.frames.map(frame => frame.id === frameId ? outcome : frame)
+          const ready = frames.filter(frame => frame.status === 'ready').length
+          const errors = frames.filter(frame => frame.error).map(frame => frame.error)
           const value = { frames, status: ready === frames.length && !errors.length ? 'complete' : ready ? 'partial' : 'failed',
             ...(errors.length ? { error: errors.join('\n') } : {}) }
-          const { error: previousError, ...previousData } = selected.event.data
-          const events = original.events.map(event => event === selected.event ? { ...event, data: { ...previousData, ...value } } as SessionEvent : event)
+          const { error: previousError, ...previousData } = selected.data
+          const events = original.events.map(event => event === selected.event ? runtimeEventToFormat({ ...event, data: { ...previousData, ...value } }) : event)
           rewriteDshSessionEvents(sessionRoot, original, events)
           await refreshSessionProjections(ctx, sessionId)
           await deleteRemovedGeneratedImages(ctx, generatedImageReferences(original.events))
           return next
         } catch (error) {
-          if (next?.attachment) await deleteRemovedGeneratedImages(ctx, new Map([[next.attachment.attachmentId, next.attachment]]))
+          if (next?.attachment) await deleteRemovedGeneratedImages(ctx, new Map([[next.attachment.attachmentId, generatedImageReference(next.attachment)]]))
           throw error
         } finally { await lease.release() }
       })

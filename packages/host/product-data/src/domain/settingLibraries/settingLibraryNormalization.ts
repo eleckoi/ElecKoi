@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { GLOBAL_SETTING_LIBRARY_ID } from '@shared/contracts/settingLibrary/scope'
 import type {
   SettingLibrary,
   SettingLibraryEntry,
@@ -72,14 +73,14 @@ function validateTree(groups: SettingLibraryGroup[], entries: SettingLibraryEntr
   }
 }
 
-function normalizedVersion(source: SettingLibraryVersion, active: boolean, timestamp: string): SettingLibraryVersion {
+function normalizedVersion(source: SettingLibraryVersion, active: boolean, timestamp: string, withOpening: boolean): SettingLibraryVersion {
   const groups = source.groups.map((group, index) => ({
     ...group, name: group.name.trim().slice(0, 80), order: Math.max(1, group.order || index + 1),
     treeViewOrder: group.treeViewOrder || index + 1, createdAt: group.createdAt || timestamp,
     updatedAt: active ? timestamp : group.updatedAt || timestamp
   }))
   const opening = openingEntry(source.entries.find((entry) => entry.id === OPENING_ENTRY_ID || entry.kind === 'opening'), timestamp)
-  const entries = [opening, ...source.entries.filter((entry) => entry.id !== OPENING_ENTRY_ID && entry.kind !== 'opening').map((entry, index) => ({
+  const entries = [...(withOpening ? [opening] : []), ...source.entries.filter((entry) => entry.id !== OPENING_ENTRY_ID && entry.kind !== 'opening').map((entry, index) => ({
     ...entry, title: entry.title.trim().slice(0, 120), groupId: entry.groupId.trim(),
     agentSelectionHint: entry.agentSelectionHint.replace(/\s+/g, ' ').trim().slice(0, 500),
     keywords: [...new Set(entry.keywords.map((item) => item.trim()).filter(Boolean))],
@@ -99,7 +100,7 @@ export function normalizeSettingLibrary(characterId: string, source?: SettingLib
   const timestamp = now()
   const versionId = source?.activeVersionId || source?.versions[0]?.id || `library-${randomUUID()}`
   const activeSource: SettingLibraryVersion = {
-    id: versionId, name: source?.name ?? '', entries: source?.entries ?? [], groups: source?.groups ?? [],
+    id: versionId, name: source?.name ?? (characterId === GLOBAL_SETTING_LIBRARY_ID ? '全局设定库' : ''), entries: source?.entries ?? [], groups: source?.groups ?? [],
     promptPositions: source?.promptPositions ?? [], listAllExpanded: source?.listAllExpanded ?? true,
     expandedGroupIds: source?.expandedGroupIds ?? [],
     createdAt: source?.versions.find((item) => item.id === versionId)?.createdAt ?? '', updatedAt: ''
@@ -109,10 +110,11 @@ export function normalizeSettingLibrary(characterId: string, source?: SettingLib
     ? supplied.map((version) => version.id === versionId ? activeSource : version)
     : [...supplied, activeSource])
     .filter((version, index, list) => version.id && list.findIndex((item) => item.id === version.id) === index)
-    .map((version) => normalizedVersion(version, version.id === versionId, timestamp))
+    .map((version) => normalizedVersion(version, version.id === versionId, timestamp, characterId !== GLOBAL_SETTING_LIBRARY_ID))
   const active = versions.find((version) => version.id === versionId)!
   return {
     characterId, name: active.name, entries: active.entries, groups: active.groups,
+    ...(source?.worldbookBindings ? { worldbookBindings: source.worldbookBindings } : {}),
     promptPositions: active.promptPositions, activeVersionId: active.id, versions,
     listAllExpanded: active.listAllExpanded, expandedGroupIds: active.expandedGroupIds
   }

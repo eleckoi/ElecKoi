@@ -3,7 +3,12 @@ import { ElecKoiConversationLifecycle } from './conversationLifecycle.js'
 import { parseChatImport } from './chatImport.js'
 import { registerHostApiInspect } from './hostInspect.js'
 import { randomUUID } from 'node:crypto'
+import { GLOBAL_SETTING_LIBRARY_ID } from '@eleckoi/dsh-product-data'
 import { RemoteChangeFeed } from './remote-change-feed.js'
+import z from '@deepseek-ai/schemastery'
+import { ElecKoiTavernCompatibilityApi } from './tavern-compatibility.js'
+export { ElecKoiTavernCompatibilityApi } from './tavern-compatibility.js'
+export type { TavernCompatibilityJson, TavernCompatibilityRecord, TavernAuxiliaryGenerationEvent, TavernAuxiliaryGenerationResult } from './types.js'
 import { ElecKoiAuthorFrontendsApi, eleckoiFrontendAssetsPlugin } from './author-frontends.js'
 export { ElecKoiAuthorFrontendsApi, eleckoiFrontendAssetsPlugin } from './author-frontends.js'
 export type * from './frontend-project-types.js'
@@ -20,7 +25,7 @@ import { SessionLogOffset, type SessionEvent, type SessionHeader, type SessionId
 
 declare module '@deepseek-ai/dsh-session' {
   interface SessionEventMap {
-    'eleckoi/input-continuation': { turn: number; inputMessageId: string; inputEventSeq: number }
+    'eleckoi/input-continuation': { turn: number; inputMessageId: string; inputEventSeq: number; mode?: 'continue'; targetAssistantMessageId?: string; requestId?: string; operationId?: string }
   }
 }
 import type {} from '@deepseek-ai/dsh-session-persistence'
@@ -84,6 +89,7 @@ import type {
   ScriptLibraryScope,
   ScriptWorkspace,
   TavilyConnection,
+  TavernCompatibilityRecord,
   WebSearchMode,
   VariableConfig,
   VariableViewerTimeline
@@ -202,17 +208,25 @@ declare module '@deepseek-ai/cordis' {
     /** @internal 聊天操作互斥和本轮产品保存等待。 */
     eleckoiConversationLifecycle: ElecKoiConversationLifecycle
     eleckoiRoleplaySessions: {
+      readWorldbookState(conversationId: string): Record<string, unknown>
+      worldbookTimedEffect(conversationId: string, entryId: string, kind: string, duration: number, value?: unknown): Promise<{ active: boolean; remaining: number }>
       readGeneratedImage(conversationId: string, batchId: string, frameId: number, attachmentId: string, signal: AbortSignal): Promise<{ mediaType: string; data: string }>
       regenerateImage(conversationId: string, batchId: string, frameId: number, signal: AbortSignal): Promise<import('@eleckoi/dsh-product-data').GeneratedImageFrame>
       create(conversationId: string): Promise<string>
       adoptFork(conversationId: string, sourceConversationId: string, sourceTurn: number, afterTurn: boolean): Promise<string>
       prepareSessionAccess(conversationId: string): Promise<string>
+      withGenerationOptions<T>(conversationId: string, options: Record<string, unknown>, action: () => T | Promise<T>): Promise<T>
       preparePrompt(conversationId: string, text: string, signal?: AbortSignal): Promise<string>
+      prepareContinuation(conversationId: string, text: string, signal?: AbortSignal): Promise<string>
+      previewPrompt(conversationId: string, text: string, continuation?: boolean): Promise<{ model: Record<string, unknown>; messages: readonly import('@deepseek-ai/dsh-llm').Message[]; dryRun: boolean }>
       currentOperation(conversationId: string): string
+      releasePreparation(conversationId: string, operationId: string): Promise<void>
       prepareRegeneration(conversationId: string, text: string): Promise<{
         rollback(): void
       }>
       variableStatesByTurn(conversationId: string): Record<string, string>
+      rewriteMessageCheckpoints(conversationId: string, turns: Array<{ previous: number; current: number }>,
+        messages: Array<{ turn: number | null; variableStateJson: string }>): { rollback(): void }
       prepareRestoreBeforeTurn(conversationId: string, sessionId: string, fromTurn: number, beforeMessageId?: string): {
         state: import('./types.js').ConversationRuntimeStateSnapshot
         apply(): void
@@ -403,7 +417,8 @@ export class ElecKoiConversationModelsApi extends TypertRemoteService {
 
 /** 管理聊天目录、产品资料和官方 Session 消息修改，通过官方 Typert Remote 公开跨端调用。 */
 export class ElecKoiConversationsApi extends TypertRemoteService {
-  private readonly pendingRegenerations = new Map<string, { requestId: string; inputMessageId: string; inputEventSeq: number }>()
+  private readonly pendingRegenerations = new Map<string, { requestId: string; inputMessageId: string; inputEventSeq: number;
+    groupActor?: { groupId: string; characterId: string; name: string; avatar: string }; groupContinue?: boolean }>()
   static inject = [
     'typert',
     'agents',
@@ -525,8 +540,77 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
   details(conversationId: string, beforeSequence?: number, limit?: number): ConversationDetailsMetadata {
     return {
       ...this.productData.readConversationDetails(conversationId, beforeSequence, limit),
+      metadata: { ...this.productData.readConversationDetails(conversationId, beforeSequence, limit).metadata,
+        groupId: this.ownerContext.eleckoiTavernCompatibilityApi?.groupSnapshot(conversationId).groupId ?? null },
       runtimeVariableStateByTurn: this.ownerContext.eleckoiRoleplaySessions.variableStatesByTurn(conversationId)
     }
+  }
+
+  /** @internal Read actual Session text and join product annotations for compatibility realms. */
+  async tavernSnapshot(conversationId: string): Promise<Record<string, unknown>> {
+    if (!conversationId) return { messages: [] }
+    const details = this.details(conversationId, undefined, 200)
+    const metadata = [...details.messages]
+    let page = details
+    while (page.hasMore && page.beforeSequence !== null) {
+      page = this.details(conversationId, page.beforeSequence, 200)
+      metadata.unshift(...page.messages)
+    }
+    const sessionId = details.runtimeSessionId
+    const inspection = await this.ownerContext.sessionController.inspect(sessionId as SessionId)
+    const history = this.productData.readRuntimeVariableHistory(conversationId, sessionId)
+    const historicalByTurn = new Map<number, typeof history>()
+    for (const row of history) historicalByTurn.set(row.turn, [...(historicalByTurn.get(row.turn) ?? []), row])
+    const assistants = sessionAssistantMessages(conversationId, sessionId, inspection.events,
+      details.runtimeVariableStateByTurn ?? {}, historicalByTurn)
+    const opening = metadata.filter(row => row.id === 'opening').map(row => ({ ...row,
+      content: row.content ?? '', variableState: JSON.parse(row.variableStateJson),
+      openingOptions: row.openingOptions?.map(option => ({ ...option, initialVariableState: JSON.parse(option.initialVariableStateJson) })) }))
+    const groupModule = '@eleckoi/dsh-client-roleplay/host/native-group-chat.mjs'
+    const { groupSpeakerRows } = await import(groupModule)
+    const groupSpeakers = groupSpeakerRows(inspection.events)
+    const rows: Array<ConversationMessageDisplayInput & Record<string, unknown>> = []
+    const initialVariableStateJson = this.productData.readAuthorConversationState(conversationId).initialVariableStateJson
+    for (const [index, value] of inspection.events.entries()) {
+      const event = jsonRecord(value), input = jsonRecord(event.data)
+      if (event.type !== 'user/message' || event.surfaceOp !== 'append' || jsonRecord(input.source).kind !== 'user') continue
+      const messageId = typeof input.id === 'string' ? input.id : ''
+      const source = metadata.find(row => row.role === 'user' && (row.dshMessageId === messageId || row.id === messageId || row.sessionEventSeq === event.seq))
+      const rawTime = Number(event.time ?? input.time)
+      rows.push({ ...source, id: source?.id ?? (messageId || `dsh-${sessionId}-${String(event.seq)}-user`), role: 'user',
+        conversationId, content: sessionMessageText(event), rawContent: sessionMessageText(event),
+        variableStateJson: source?.variableStateJson ?? assistants.filter(row => row.sessionEventSeq < Number(event.seq)).at(-1)?.variableStateJson ?? initialVariableStateJson,
+        status: source?.status ?? 'complete', createdAt: source?.createdAt ?? new Date(Number.isFinite(rawTime) ? rawTime : 0).toISOString(),
+        runtimeSessionId: sessionId, dshMessageId: messageId, sessionEventSeq: Number(event.seq), dshTurn: sessionMessageTurn(inspection.events, index) })
+    }
+    for (const assistant of assistants) {
+      const source = metadata.find(row => row.role === 'assistant' && row.id === historicalByTurn.get(assistant.dshTurn)?.[0]?.messageId)
+      const event = jsonRecord(inspection.events.find(candidate => Number(jsonRecord(candidate).seq) === assistant.sessionEventSeq))
+      const messageId = jsonRecord(jsonRecord(event.data).message).id
+      rows.push({ ...source, ...assistant, id: source?.id ?? (typeof messageId === 'string' ? messageId : assistant.id),
+        dshMessageId: typeof messageId === 'string' ? messageId : '', rawContent: assistant.content, content: officialFinalReplyText(assistant.content),
+        ...(groupSpeakers.get(messageId) ? { speakerCharacterId: groupSpeakers.get(messageId).characterId,
+          speakerName: groupSpeakers.get(messageId).speakerName, speakerAvatar: groupSpeakers.get(messageId).speakerAvatar,
+          groupId: groupSpeakers.get(messageId).groupId } : {}) })
+    }
+    rows.sort((left, right) => Number(left.sessionEventSeq) - Number(right.sessionEventSeq))
+    const continuationModule = '@eleckoi/dsh-client-roleplay/host/assistant-continuation.mjs'
+    const { assistantContinuationLinks, mergeAssistantContinuationRows } = await import(continuationModule)
+    mergeAssistantContinuationRows(rows, assistantContinuationLinks(inspection.events))
+    const displays = new Map(this.productData.projectConversationMessages(conversationId, rows).map(row => [row.id, row]))
+    const systemMessages = inspection.events.flatMap(candidate => {
+      const event = jsonRecord(candidate), data = jsonRecord(event.data)
+      const message = event.type === 'user/message' ? data : jsonRecord(data.message)
+      const authoredSystem = event.type === 'user/message' && jsonRecord(message.source).kind === 'plugin:eleckoi-author-system'
+      if ((!authoredSystem && event.type !== 'system/message') || event.surfaceOp !== 'append') return []
+      return [{ id: String(message.id), dshMessageId: String(message.id), role: 'system', content: Array.isArray(message.content)
+        ? message.content.filter(item => jsonRecord(item).type === 'text').map(item => String(jsonRecord(item).text)).join('') : '',
+        sessionEventSeq: Number(event.seq), dshTurn: authoredSystem ? sessionMessageTurn(inspection.events, inspection.events.indexOf(candidate)) : Number(data.turn) }]
+    })
+    return { systemMessages, messages: [...opening, ...rows.map(row => ({ ...row, displayContent: displays.get(row.id)?.displayContent ?? row.content,
+      variableState: JSON.parse(displays.get(row.id)?.variableStateJson ?? row.variableStateJson),
+      speakerName: row.speakerName ?? (row.role === 'user' ? details.metadata.characterPersona.user_name : details.metadata.characterName) }))]
+      .map((row, messageIndex) => ({ ...row, messageIndex })) }
   }
 
   /**
@@ -855,6 +939,108 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
     })
   }
 
+  /** Continue the last assistant with the native Agent, preserving its complete history.
+   * @param conversationId - Product chat and its existing native Session.
+   * @param requestId - Unique continuation admission ID.
+   * @param signal - Cancellation before admission.
+   * @returns Actual admitted native turn and product-save operation.
+   */
+  @Remote
+  async continueMessage(conversationId: string, requestId: string, signal: AbortSignal): Promise<{ runtimeSessionId: string; turn: number; operationId: string }> {
+    return this.ownerContext.eleckoiConversationLifecycle.exclusive(conversationId, async () => {
+      if (!requestId.trim()) throw new Error('续写请求缺少有效标识。')
+      signal.throwIfAborted()
+      const runtimeSessionId = this.productData.runtimeSessionId(conversationId)
+      await this.ownerContext.eleckoiRoleplaySessions.prepareSessionAccess(conversationId)
+      const resolved = await this.ownerContext.sessionController.resolveAgent(runtimeSessionId as SessionId)
+      if ('error' in resolved) throw resolved.error
+      const previous = resolved.agent.session.snapshotEvents().find(event => event.type === 'eleckoi/input-continuation'
+        && event.data.mode === 'continue' && event.data.requestId === requestId)
+      if (previous?.type === 'eleckoi/input-continuation' && previous.data.operationId)
+        return { runtimeSessionId, turn: previous.data.turn, operationId: previous.data.operationId }
+      const module = '@eleckoi/dsh-client-roleplay/host/assistant-continuation.mjs'
+      const { assistantContinuationTarget, startAssistantContinuation } = await import(module)
+      const target = assistantContinuationTarget(resolved.agent)
+      const targetEvent = resolved.agent.session.snapshotEvents().find(event => event.type === 'assistant/message'
+        && event.data.message.id === target.targetAssistantMessageId)
+      const targetTurn = targetEvent?.type === 'assistant/message' ? targetEvent.data.turn : undefined
+      const actor = resolved.agent.session.snapshotEvents().find(event => event.type === 'eleckoi/group-response' && event.data.turn === targetTurn)
+      if (actor?.type === 'eleckoi/group-response') await this.ownerContext.eleckoiRoleplaySessions.withGenerationOptions(
+        conversationId,{ characterId: actor.data.characterId },()=>this.ownerContext.eleckoiRoleplaySessions.prepareContinuation(conversationId,target.text,signal))
+      else await this.ownerContext.eleckoiRoleplaySessions.prepareContinuation(conversationId, target.text, signal)
+      const operationId = this.ownerContext.eleckoiRoleplaySessions.currentOperation(conversationId)
+      try {
+        const started = startAssistantContinuation(resolved.agent, target, requestId, operationId, signal)
+        return { runtimeSessionId, turn: started.turn, operationId }
+      } catch (error) {
+        try { await this.ownerContext.eleckoiRoleplaySessions.releasePreparation(conversationId, operationId) }
+        catch (releaseError) { throw new AggregateError([error, releaseError], '续写未被接受，且释放准备失败。') }
+        throw error
+      }
+    })
+  }
+
+  /** Admit a group member into the existing Session and real Agent.
+   * @param conversationId - Native product chat bound to this group.
+   * @param groupId - Persistent group configuration ID.
+   * @param characterId - Actual native actor ID.
+   * @param text - First member's direct user input; omitted for later members.
+   * @param requestId - Unique admission identity per member.
+   * @param options - Native generation overrides, frozen during preparation.
+   * @param signal - Cancellation before admission.
+   * @returns Admitted turn and actual product-save operation.
+   */
+  @Remote
+  async generateGroupMember(conversationId: string, groupId: string, characterId: string, text: string | undefined,
+    requestId: string, options: TavernCompatibilityRecord,
+    promptContent?: import('@deepseek-ai/dsh-api-session-controller/types').PromptContentPart[], mode?: 'queue' | 'steer', signal?: AbortSignal): Promise<{ runtimeSessionId: string; turn: number; operationId: string }> {
+    const admissionSignal = signal ?? new AbortController().signal
+    return this.ownerContext.eleckoiConversationLifecycle.exclusive(conversationId, async () => {
+      admissionSignal.throwIfAborted()
+      if (!requestId.trim()) throw new Error('群聊请求缺少有效标识。')
+      const actor = this.ownerContext.eleckoiTavernCompatibilityApi.groupActors(conversationId,groupId,[characterId])[0]
+      const runtimeSessionId = this.productData.runtimeSessionId(conversationId)
+      const resolved = await this.ownerContext.sessionController.resolveAgent(runtimeSessionId as SessionId)
+      if ('error' in resolved) throw resolved.error
+      const groupModule = '@eleckoi/dsh-client-roleplay/host/native-group-chat.mjs'
+      const { activeGroupResponses } = await import(groupModule)
+      const previous = activeGroupResponses(resolved.agent.session.snapshotEvents()).find((item: { requestId: string; turn: number; operationId: string }) => item.requestId === requestId)
+      if (previous) return { runtimeSessionId, turn: previous.turn, operationId: previous.operationId }
+      return this.ownerContext.eleckoiRoleplaySessions.withGenerationOptions(conversationId, { ...options, characterId }, async () => {
+        const direct = resolved.agent.session.deriveMessages().findLast(message => message.role === 'user' && message.source?.kind === 'user')
+        const input = text ?? (promptContent ? '' : direct?.content.filter(block => block.type === 'text').map(block => block.text).join('\n'))
+        if (input === undefined) throw new Error('群聊没有真实用户输入。')
+        if (text === undefined && !promptContent) await this.ownerContext.eleckoiRoleplaySessions.prepareContinuation(conversationId,input,admissionSignal)
+        else await this.ownerContext.eleckoiRoleplaySessions.preparePrompt(conversationId,text ?? '',admissionSignal)
+        const operationId = this.ownerContext.eleckoiRoleplaySessions.currentOperation(conversationId)
+        try {
+          const module = '@eleckoi/dsh-client-roleplay/host/native-group-chat.mjs'
+          const { startGroupMember, recordGroupAdmission } = await import(module)
+          let started
+          if (promptContent) {
+            started = recordGroupAdmission(resolved.agent,actor,requestId,operationId,admissionSignal)
+            try {
+              await this.ownerContext.sessionController.prompt({ sessionId: runtimeSessionId as SessionId,
+                requestId: requestId as import('@deepseek-ai/dsh-api-session-controller/types').SessionRequestId,
+                mode: mode ?? 'queue', content: promptContent },admissionSignal)
+            } catch (error) {
+              resolved.agent.session.append('eleckoi/group-response-cancelled', {
+                requestId, turn: started.turn, error: String(error instanceof Error ? error.message : error)
+              }, { ignorable: true })
+              throw error
+            }
+          } else started = startGroupMember(resolved.agent,actor,text,requestId,operationId,admissionSignal)
+          return { runtimeSessionId, turn: started.turn, operationId }
+        } catch (error) {
+          try { await this.ownerContext.eleckoiRoleplaySessions.releasePreparation(conversationId,operationId) }
+          catch (releaseError) { throw new AggregateError([error, releaseError], '群聊未被接受，且释放准备失败。') }
+          throw error
+        }
+      })
+    })
+  }
+
+
   /**
    * 等待当前进程本次产品保存，失败抛出错误；不查询历史或重启前结果。
    * @param conversationId - ElecKoi 聊天编号。
@@ -977,7 +1163,16 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
       const fromTurn = sessionMessageTurn(inspection.events, target.index)
       const inputMessageId = String(jsonRecord(target.event.data).id ?? '')
       if (!inputMessageId) throw new Error('重新生成的用户事件缺少消息标识。')
-      const promptText = replacementMessage ?? sessionMessageText(target.event)
+      const groupRecord = inspection.events.find(event => event.type === 'eleckoi/group-response' && event.data.turn === fromTurn)
+      const groupActor = groupRecord?.type === 'eleckoi/group-response' ? {
+        groupId: groupRecord.data.groupId, characterId: groupRecord.data.characterId,
+        name: groupRecord.data.speakerName, avatar: groupRecord.data.speakerAvatar } : undefined
+      const groupContinue = jsonRecord(jsonRecord(target.event.data).source).kind === 'plugin:eleckoi-group-response'
+      const originalInput = groupContinue ? inspection.events.slice(0,target.index).findLast(event => event.type === 'user/message'
+        && jsonRecord(jsonRecord(event.data).source).kind === 'user') : target.event
+      if (!originalInput) throw new Error('群聊重新生成缺少原始用户输入。')
+      if (groupContinue && replacementMessage !== undefined) throw new Error('修改群聊输入请编辑原始用户消息。')
+      const promptText = replacementMessage ?? sessionMessageText(originalInput)
       if (replacementMessage !== undefined && !replacementMessage.trim()) throw new Error('重新生成的用户输入不能为空。')
       const restoreRuntime = this.ownerContext.eleckoiRoleplaySessions.prepareRestoreBeforeTurn(
         conversationId,
@@ -991,10 +1186,14 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
           if (replacementMessage !== undefined) {
             await this.ownerContext.eleckoiSessionEditor.editMessage(runtimeSessionId, eventSeq, 'user', replacementMessage)
           }
-          const rewound = await this.ownerContext.eleckoiSessionEditor.rewind(runtimeSessionId, fromTurn, eventSeq, true)
+          const rewound = await this.ownerContext.eleckoiSessionEditor.rewind(runtimeSessionId, fromTurn, eventSeq, !groupContinue)
           if (rewound === undefined) throw new Error('当前 DSH Session 不能安全回退。')
           restoreRuntime.apply()
-          await this.ownerContext.eleckoiRoleplaySessions.preparePrompt(conversationId, promptText)
+          if (groupActor) await this.ownerContext.eleckoiRoleplaySessions.withGenerationOptions(conversationId,
+            { characterId: groupActor.characterId },()=> groupContinue
+              ? this.ownerContext.eleckoiRoleplaySessions.prepareContinuation(conversationId,promptText)
+              : this.ownerContext.eleckoiRoleplaySessions.preparePrompt(conversationId,promptText))
+          else await this.ownerContext.eleckoiRoleplaySessions.preparePrompt(conversationId, promptText)
         })
       } catch (error) {
         restoreRuntime.rollback()
@@ -1002,7 +1201,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
         this.changeFeed.publish({ kind: 'messages', conversationId, reason: 'edited', messageIds: [String(eventSeq)], sessionRewritten: true })
         throw error
       }
-      this.pendingRegenerations.set(conversationId, { requestId, inputMessageId, inputEventSeq: eventSeq })
+      this.pendingRegenerations.set(conversationId, { requestId, inputMessageId, inputEventSeq: eventSeq, ...(groupActor ? { groupActor } : {}), groupContinue })
       this.changeFeed.publish({ kind: 'messages', conversationId, reason: 'regenerated', messageIds: [String(eventSeq)], sessionRewritten: true })
       return { runtimeSessionId, prepared: true, operationId: this.ownerContext.eleckoiRoleplaySessions.currentOperation(conversationId) }
     })
@@ -1026,7 +1225,21 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
     if ('error' in resolved) throw resolved.error
     const agent = resolved.agent as typeof resolved.agent & { continueFromInput?: (messageId: string) => number }
     if (typeof agent.continueFromInput !== 'function') throw new Error('当前 DSH 运行时不支持复用已有用户事件。')
-    const turn = agent.continueFromInput(pending.inputMessageId)
+    let turn: number
+    if (pending.groupActor && pending.groupContinue) {
+      const module = '@eleckoi/dsh-client-roleplay/host/native-group-chat.mjs'
+      const { startGroupMember } = await import(module)
+      turn = startGroupMember(agent,pending.groupActor,undefined,requestId,
+        this.ownerContext.eleckoiRoleplaySessions.currentOperation(conversationId),new AbortController().signal).turn
+      return { accepted: true, turn }
+    }
+    turn = agent.continueFromInput(pending.inputMessageId)
+    if (pending.groupActor) agent.session.append('eleckoi/group-response', {
+      turn, groupId: pending.groupActor.groupId, characterId: pending.groupActor.characterId,
+      speakerName: pending.groupActor.name, speakerAvatar: pending.groupActor.avatar, requestId,
+      operationId: this.ownerContext.eleckoiRoleplaySessions.currentOperation(conversationId),
+      inputMessageId: pending.inputMessageId, inputEventSeq: pending.inputEventSeq
+    }, { ignorable: true })
     agent.session.append('eleckoi/input-continuation', {
       turn, inputMessageId: pending.inputMessageId, inputEventSeq: pending.inputEventSeq
     }, { ignorable: true })
@@ -1278,7 +1491,10 @@ function sessionAssistantMessages(
     if (event.type !== 'assistant/message' || event.surfaceOp !== 'append'
       || !Number.isSafeInteger(event.seq)) continue
     const content = sessionMessageText(event)
-    if (!officialFinalReplyText(content).trim()) continue
+    // Authored placeholders are real chat messages, including an empty body.
+    // Reasoning-only Agent events remain absent from the transcript.
+    const source = jsonRecord(jsonRecord(jsonRecord(event.data).message).source)
+    if (!officialFinalReplyText(content).trim() && !content.includes('<FINAL>') && source.model !== 'authored-message') continue
     const turn = sessionMessageTurn(events, index)
     finalByTurn.set(turn, { event, index, content, turn })
   }
@@ -1546,20 +1762,21 @@ export class ElecKoiCharactersApi extends TypertRemoteService {
   }
 
   /**
-   * 删除指定角色及其前端项目、关联聊天和官方 Session。
+   * 删除指定角色及其前端项目；默认同时删除关联聊天和官方 Session。
    * @param characterIds - 待删除角色编号列表。
+   * @param options - deleteChats 为 false 时保留关联聊天及 Session。
    * @returns 操作结果，结构见返回类型；失败抛出错误。
    */
   @Remote
-  async delete(characterIds: string[]): Promise<CharacterCollection> {
+  async delete(characterIds: string[], options?: { deleteChats?: boolean }): Promise<CharacterCollection> {
     const deleting = new Set(characterIds)
-    const conversations = this.productData.readConversationCatalog()
+    const conversations = options?.deleteChats === false ? [] : this.productData.readConversationCatalog()
       .filter(item => deleting.has(item.metadata.characterId))
     for (const conversation of conversations) {
       await this.ownerContext.eleckoiSessionEditor.deleteSession(conversation.runtimeSessionId)
       await this.ownerContext.eleckoiRoleplaySessions.removeArtifacts(conversation.id, conversation.runtimeSessionId)
     }
-    const collection = this.productData.deleteCharacters(characterIds)
+    const collection = this.productData.deleteCharacters(characterIds, options)
     this.publishChange(characterIds)
     for (const conversation of conversations) {
       this.ownerContext.eleckoiConversationChanges.publish({ kind: 'catalog', conversationId: conversation.id, reason: 'deleted' })
@@ -1715,6 +1932,65 @@ export class ElecKoiCharacterConfigurationApi extends TypertRemoteService {
   @Remote
   readSettingLibrary(characterId: string): SettingLibrary {
     return this.productData.readSettingLibrary(characterId)
+  }
+
+  /**
+   * 读取与角色无关的完整全局设定库。
+   * @returns 全局设定的分组、条目、插入位置及版本。
+   */
+  @Remote
+  readGlobalSettingLibrary(): SettingLibrary { return this.productData.readGlobalSettingLibrary() }
+
+  /**
+   * 保存全局设定库，通知手机及 PC 编辑页面刷新。
+   * @param library - 完整全局库及全部版本。
+   * @returns 实际保存后的全局设定库。
+   */
+  @Remote
+  saveGlobalSettingLibrary(library: SettingLibrary): SettingLibrary {
+    const saved = this.productData.saveGlobalSettingLibrary(library)
+    this.publish('settingLibraries', GLOBAL_SETTING_LIBRARY_ID)
+    return saved
+  }
+
+  /**
+   * 替换全局设定库当前版本的内容，保留其他版本。
+   * @param library - 全局设定的条目、分组及插入位置。
+   * @param signal - 取消保存的信号。
+   * @returns 实际保存后的全局库。
+   */
+  @Remote
+  replaceGlobalSettingLibraryContent(library: SettingLibraryContent, signal: AbortSignal): SettingLibrary {
+    signal.throwIfAborted()
+    const saved = this.productData.replaceGlobalSettingLibraryContent(library)
+    this.publish('settingLibraries', GLOBAL_SETTING_LIBRARY_ID)
+    return saved
+  }
+
+  /**
+   * 原子修改全局库普通条目。
+   * @param updates - 条目编号和需要修改的字段。
+   * @param signal - 取消保存的信号。
+   * @returns 保存后的指定条目。
+   */
+  @Remote
+  updateGlobalSettingLibraryEntries(updates: SettingLibraryEntryUpdate[], signal: AbortSignal): SettingLibraryEntry[] {
+    signal.throwIfAborted()
+    const saved = this.productData.updateGlobalSettingLibraryEntries(updates)
+    if (saved.length) this.publish('settingLibraries', GLOBAL_SETTING_LIBRARY_ID)
+    return saved
+  }
+
+  /**
+   * 保存全局库已展开的分组。
+   * @param expandedGroupIds - 展开的分组编号。
+   * @returns 实际保存的分组编号。
+   */
+  @Remote
+  saveGlobalSettingLibraryViewState(expandedGroupIds: string[]): string[] {
+    const saved = this.productData.saveGlobalSettingLibraryViewState(expandedGroupIds)
+    this.publish('settingLibraries', GLOBAL_SETTING_LIBRARY_ID)
+    return saved
   }
 
   /**
@@ -2328,8 +2604,11 @@ export class ElecKoiCreatorStudioSessionsApi extends TypertRemoteService {
 }
 
 
+export const Config = z.object({ state: z.any().default({}).volatile(), media: z.any().default({}).volatile(), databank: z.any().default({}).volatile(), tts: z.any().default({}).volatile() })
+
 const eleckoiProductApiPlugin = {
   name: 'eleckoi-product-api',
+  Config,
   inject: ['typert', 'eleckoiProductData'],
   provide: ['eleckoiConversationChanges', 'eleckoiVariableProcessing', 'eleckoiCharacterConfigurationChanges', 'eleckoiProductRecordChanges'],
   async apply(ctx: Context) {
@@ -2357,6 +2636,14 @@ const eleckoiProductApiPlugin = {
     await ctx.plugin(eleckoiFrontendAssetsPlugin)
     await ctx.plugin(ElecKoiAuthorScriptsApi)
     await ctx.plugin(eleckoiScriptAssetsPlugin)
+    await ctx.plugin(ElecKoiTavernCompatibilityApi)
+    ctx.inject(['eleckoiTavernCompatibilityApi', 'eleckoiConversationsApi'], scope => {
+      scope.eleckoiTavernCompatibilityApi.setSnapshotReader(conversationId => scope.eleckoiConversationsApi.tavernSnapshot(conversationId))
+    })
+    ctx.inject(['eleckoiTavernCompatibilityApi', 'eleckoiRoleplaySessions'], scope => {
+      scope.eleckoiTavernCompatibilityApi.registerOperation('generation.preview', (conversationId, params) =>
+        scope.eleckoiRoleplaySessions.previewPrompt(conversationId, typeof params.text === 'string' ? params.text : '', params.type === 'continue'))
+    })
     const inspect = registerHostApiInspect(ctx)
     return async () => {
       try { await inspect.dispose() }

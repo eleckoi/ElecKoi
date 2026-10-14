@@ -1,6 +1,7 @@
 import { useContext, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { buildAuthorDocumentSource } from '@eleckoi/author-sdk';
 import { MainPageContext } from '../../../app/windows/MainPageContext.jsx';
+import { activateFrontendScripts, deferFrontendScripts } from '../model/sharedFrontendDocument.js';
 
 const noSubscription = () => () => {};
 const noRuntime = () => null;
@@ -15,7 +16,7 @@ export function NativeMessageFrame({ message, document, rootIndex = 0, onSettled
   const settled = useRef(onSettled);
   settled.current = onSettled;
   const channel = useMemo(() => crypto.randomUUID(), [message.conversationId, message.id, document.source, rootIndex, runtime]);
-  const source = useMemo(() => buildAuthorDocumentSource(document.source, channel, true), [document.source, channel]);
+  const source = useMemo(() => buildAuthorDocumentSource(deferFrontendScripts(document.source), channel, true), [document.source, channel]);
   useLayoutEffect(() => {
     setError(''); setHeight(1);
     let ready = false, measured = false, reported = false;
@@ -43,17 +44,23 @@ export function NativeMessageFrame({ message, document, rootIndex = 0, onSettled
   useLayoutEffect(() => {
     if (!runtime || error) settled.current?.({ status: 'error', error: error || '原生作者插件未启用' });
   }, [runtime, error]);
-  const loaded = () => {
+  const loaded = async () => {
     const target = frame.current?.contentWindow;
     if (!target || !runtime) return;
-    let complete;
+    let complete, mounted;
+    const current = () => frame.current?.contentWindow === target && target.__ElecKoiDocumentChannel === channel && release.current === mounted;
     try {
       complete = target.__ElecKoiCompleteDocument;
       if (target.__ElecKoiDocumentChannel !== channel) throw new Error('原生作者页面已离开所属文档');
       if (release.current) return;
-      release.current = runtime.mountDocument(target, message.conversationId, message.id);
+      mounted = runtime.mountDocument(target, message.conversationId, message.id);
+      release.current = mounted;
+      await mounted.ready;
+      if (!current()) return;
       complete(target.ElecKoi);
+      await activateFrontendScripts(target, current);
     } catch (failure) {
+      if (mounted && !current()) return;
       release.current?.(); release.current = null;
       complete?.(undefined, failure);
       setError(failure.message || String(failure));

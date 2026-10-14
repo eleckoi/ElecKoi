@@ -2,6 +2,7 @@ window.__ModuleLoader__.load({
   id: '@eleckoi/dsh-client-character-configuration',
   factory() {
     const idle = { status: 'idle', value: null, error: '' }
+    const globalSettingLibraryOwner = 'eleckoi:global-settings'
 
     class CharacterConfigurationBridge {
       constructor(remote) {
@@ -204,6 +205,26 @@ window.__ModuleLoader__.load({
         this.conversationSnapshots = new Map()
         this.conversationGenerations = new Map()
       }
+
+      request(method, ...args) {
+        if (args[0] === globalSettingLibraryOwner) {
+          const globalMethods = {
+            readSettingLibrary: 'readGlobalSettingLibrary',
+            saveSettingLibrary: 'saveGlobalSettingLibrary',
+            saveSettingLibraryViewState: 'saveGlobalSettingLibraryViewState',
+          }
+          if (globalMethods[method]) return super.request(globalMethods[method], ...args.slice(1))
+        }
+        return super.request(method, ...args)
+      }
+
+      getGlobalSnapshot = () => this.getSnapshot(globalSettingLibraryOwner)
+      readGlobal = () => this.read(globalSettingLibraryOwner)
+      saveGlobal = library => this.save(globalSettingLibraryOwner, library)
+      saveGlobalViewState = expandedIds => this.saveViewState(globalSettingLibraryOwner, expandedIds)
+      subscribeGlobal = listener => this.subscribe((kind, ownerId, snapshot) => {
+        if (kind === 'configuration' && ownerId === globalSettingLibraryOwner) listener(snapshot)
+      })
 
       getConversationSnapshot = characterId => this.conversationSnapshots.get(characterId) || idle
 

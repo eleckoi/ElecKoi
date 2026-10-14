@@ -3,6 +3,27 @@ export interface ElecKoiHostStatus {
   protocolVersion: 1
 }
 
+export type TavernCompatibilityJson = null | boolean | number | string | TavernCompatibilityJson[] | { [key: string]: TavernCompatibilityJson }
+export type TavernCompatibilityRecord = { [key: string]: TavernCompatibilityJson }
+export interface TavernAuxiliaryGenerationResult {
+  generationId: string
+  text: string
+  reasoning: string
+  finishReason: string
+  usage: import('@deepseek-ai/dsh-llm/types').TokenUsage | null
+  provider: string
+  model: string
+  toolCalls?: Array<{ id: string; name: string; arguments: string; thoughtSignature?: string }>
+  reasoningSignature?: string
+  replayState?: TavernCompatibilityRecord
+  signatures?: Array<{ type: string; [key: string]: TavernCompatibilityJson }>
+}
+export type TavernAuxiliaryGenerationEvent =
+  | { kind: 'started'; generationId: string; provider: string; model: string }
+  | { kind: 'delta'; generationId: string; delta: string; text: string }
+  | { kind: 'reasoning'; generationId: string; delta: string; reasoning: string }
+  | ({ kind: 'finished' } & TavernAuxiliaryGenerationResult)
+
 
 export type ScriptLibraryScope = 'global' | 'character' | 'preset'
 export interface ScriptItem {
@@ -69,6 +90,48 @@ export interface NativeAuthorScriptSettingsUpdate {
   settings: { [key: string]: AuthorScriptJson }
   librarySettings: { [key: string]: AuthorScriptJson }
 }
+export interface TavernMainPromptContribution {
+  id: string
+  source: 'extension' | 'helper'
+  sourceName: string
+  content: string
+  role: 'system' | 'user' | 'assistant'
+  position: 'before_prompt' | 'in_prompt' | 'in_chat' | 'none'
+  depth: number
+  order: number
+  scan: boolean
+  should_scan: boolean
+}
+export interface TavernPromptText {
+  content: string
+  userName: string
+  characterName: string
+}
+export interface TavernFunctionToolDefinition {
+  name: string
+  description: string
+  parameters: TavernCompatibilityRecord
+  token: string
+  stealth: boolean
+}
+export type TavernWorldbookEventName = 'worldinfo_entries_loaded' | 'worldinfo_scan_done' | 'world_info_activated'
+export type TavernFunctionToolTask =
+  | { kind: 'ready' }
+  | { kind: 'prepare'; id: string }
+  | { kind: 'prompts'; id: string; requestId: string; preview: boolean }
+  | { kind: 'prompt-texts'; id: string; requestId: string; preview: boolean; texts: TavernPromptText[] }
+  | { kind: 'worldbook-event'; id: string; requestId: string; eventKey: string; eventName: TavernWorldbookEventName; payloadJson: string; preview: boolean }
+  | { kind: 'release-prompts'; id: string; requestId: string }
+  | { kind: 'invoke'; id: string; token: string; argumentsJson: string; callId: string }
+  | { kind: 'cancel'; id: string }
+export type TavernFunctionToolReply =
+  | { kind: 'prepared'; id: string; tools: TavernFunctionToolDefinition[] }
+  | { kind: 'result'; id: string; valueJson: string }
+  | { kind: 'prompts'; id: string; contributions: TavernMainPromptContribution[] }
+  | { kind: 'prompt-texts'; id: string; texts: string[] }
+  | { kind: 'worldbook-event'; id: string; payloadJson: string }
+  | { kind: 'released-prompts'; id: string }
+  | { kind: 'error'; id: string; message: string }
 export type NativeAuthorRuleTask =
   | { kind: 'ready'; version: string }
   | { kind: 'process'; id: string; runId: string; conversationId: string; stage: 'before' | 'after' | 'afterSchema'; stateJson: string; beforeJson: string; scriptSettings: NativeAuthorScriptSettingsUpdate[] | null }
@@ -118,6 +181,8 @@ export interface ConversationRecord {
 }
 
 export interface ConversationMetadata {
+  /** Native persistent group configuration bound to this Session, if any. */
+  groupId?: string | null
   characterId: string
   characterName: string
   characterAvatar: string
@@ -357,8 +422,17 @@ export interface CharacterPersona {
   user_portrait?: string
 }
 
+export interface CharacterExpression {
+  name: string
+  label: string
+  folder: string
+  url: string
+  [key: string]: TavernCompatibilityJson
+}
+
 export interface CharacterRecord {
   id: string
+  expressions?: CharacterExpression[]
   name?: string
   avatar?: string
   group?: string
@@ -473,6 +547,7 @@ export interface SettingLibraryEntry {
   iconId: string
   kind: 'normal' | 'opening' | 'history_compaction' | 'hidden_tool_timeline'
   groupId: string
+  sendGroupId?: string
   content: string
   openingMessages: SettingLibraryOpeningMessage[]
   defaultOpeningMessageId: string
@@ -483,7 +558,7 @@ export interface SettingLibraryEntry {
   keywords: string[]
   keywordScanDepth: number
   conditionKeywords: string[]
-  keywordCondition: 'none' | 'any' | 'all' | 'not_any'
+  keywordCondition: 'none' | 'any' | 'all' | 'not_any' | 'not_all'
   keywordUseRegex: boolean
   keywordIgnoreCase: boolean
   keywordWholeWord: boolean
@@ -499,16 +574,19 @@ export interface SettingLibraryEntry {
   treeViewOrder: number
   createdAt: string
   updatedAt: string
+  sillyTavern?: TavernCompatibilityRecord
 }
 
 export interface SettingLibraryGroup {
   id: string
   name: string
   parentId: string
+  mergeSend?: boolean
   order: number
   treeViewOrder: number
   createdAt: string
   updatedAt: string
+  sillyTavern?: TavernCompatibilityRecord
 }
 
 export type SettingLibraryEntryChanges = Partial<Omit<SettingLibraryEntry,
@@ -538,6 +616,7 @@ export interface SettingLibraryVersion {
 }
 
 export interface SettingLibrary {
+  worldbookBindings?: Record<string, { global: boolean; characterIds: string[]; conversationIds: string[]; primaryCharacterIds?: string[]; deleted?: boolean }>
   characterId: string
   name: string
   entries: SettingLibraryEntry[]
@@ -808,7 +887,9 @@ export interface ConversationRuntimePreparation {
     history: Array<{ role: 'user' | 'assistant'; content: string; speakerName?: string }>
     historyMode: 'prefix'
     currentPromptText: string
-    settingLibrary?: ConversationRuntimeSettingLibrary
+    generationParameters?: Record<string, unknown>
+    settingLibrary?:ConversationRuntimeSettingLibrary
+    promptContributions?:Array<{id:string;content:string;role:'system'|'user'|'assistant';anchor:string;depth?:number;order:number;title:string}>
   }
   disabledToolGroupIds: string[]
   agentPreset: {
@@ -833,6 +914,7 @@ export interface ElecKoiProductDataStore {
   readScriptWorkspace(scope: ScriptLibraryScope, ownerId: string): ScriptWorkspace
   readScriptAsset(scope: ScriptLibraryScope, ownerId: string, version: string, file: string): Uint8Array
   watchScriptSources(changed: () => void): () => void
+  dataBank(): import('@eleckoi/dsh-product-data').DataBankRepository
   frontendProjects(): import('@eleckoi/dsh-product-data/frontends').FrontendProjectRepository
   normalizeChatDisplaySettings(value: unknown): unknown
   setDisplayPreferences(value: unknown): void
@@ -869,7 +951,10 @@ export interface ElecKoiProductDataStore {
   listInputImageReferences(): Array<{ conversationId: string; attachmentId: string }>
   selectConversationOpening(conversationId: string, openingId: string): ConversationDetailsMetadata
   updateConversationOpening(conversationId: string, content: string): ConversationDetailsMetadata
+  setTavernRuntimeSource(reader:()=>Record<string,unknown>):void
   prepareConversationRuntime(conversationId: string, text: string, options?: { preset?: AgentPreset; persona?: Record<string, unknown>; characterId?: string }): ConversationRuntimePreparation
+  projectSettingPromptText(source: string, preparation: Pick<ConversationRuntimePreparation, 'promptTextContext'>,
+    options?: { characterName?: string; stage?: 'macros' | 'regex'; depth?: number }): string
   projectConversationPromptHistory<T extends { role: string; content: string }>(history: readonly T[], preparation: Pick<ConversationRuntimePreparation, 'promptTextContext'>): T[]
   commitConversationRuntime(
     conversationId: string,
@@ -889,7 +974,7 @@ export interface ElecKoiProductDataStore {
   updateCharacter(character: CharacterRecord): CharacterCollection
   selectCharacter(characterId: string): CharacterCollection
   saveCharacterGroups(groups: string[], assignments: CharacterGroupAssignment[]): CharacterCollection
-  deleteCharacters(characterIds: string[]): CharacterCollection
+  deleteCharacters(characterIds: string[], options?: { deleteChats?: boolean }): CharacterCollection
   exportCharacter(characterId: string, format: CharacterExportFormat): CharacterExportResult
   prepareCharacterImports(files: CharacterImportFile[], source: CharacterImportSource): CharacterImportPreview
   commitCharacterImports(token: string): CharacterImportResult
@@ -897,6 +982,11 @@ export interface ElecKoiProductDataStore {
   readPersona(): PersonaProfile
   savePersona(profile: PersonaProfile): PersonaProfile
   readSettingLibrary(characterId: string): SettingLibrary
+  readGlobalSettingLibrary(): SettingLibrary
+  saveGlobalSettingLibrary(library: SettingLibrary): SettingLibrary
+  replaceGlobalSettingLibraryContent(library: SettingLibraryContent): SettingLibrary
+  updateGlobalSettingLibraryEntries(updates: SettingLibraryEntryUpdate[]): SettingLibraryEntry[]
+  saveGlobalSettingLibraryViewState(expandedGroupIds: string[]): string[]
   replaceSettingLibraryContent(characterId: string, library: SettingLibraryContent): SettingLibrary
   updateSettingLibraryEntries(characterId: string, updates: SettingLibraryEntryUpdate[]): SettingLibraryEntry[]
   saveSettingLibrary(characterId: string, library: SettingLibrary): SettingLibrary

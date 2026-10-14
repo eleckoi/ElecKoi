@@ -265,14 +265,16 @@ window.__ModuleLoader__.load({
               }
               if (source === 'conversation.composer' || source === 'conversation.composer.bar') {
                 const display = useDisplayStats(ownerProps)
-                const { renderBridgeSlot, ...props } = ownerProps
+                const { renderBridgeSlot, auxiliaryGenerating, onStopAuxiliary, ...props } = ownerProps
                 const renderSlot = (name, owner, renderOptions) => {
                   const bridged = bridgedComposerChildren[name]
                   return bridged && renderBridgeSlot
                     ? renderBridgeSlot(bridged, owner, renderOptions)
                     : null
                 }
-                return React.createElement(entry.component, { ...props, useProjection: display.useProjection, renderSlot })
+                const useSession = auxiliaryGenerating ? (selector, equal) => props.useSession(session => selector({ ...session, running: true }), equal) : props.useSession
+                return React.createElement(entry.component, { ...props, useSession,
+                  ...(auxiliaryGenerating ? { stop: onStopAuxiliary } : {}), useProjection: display.useProjection, renderSlot })
               }
               if (source !== 'conversation.view') return React.createElement(entry.component, ownerProps)
               if (options.entryId === 'chat') {

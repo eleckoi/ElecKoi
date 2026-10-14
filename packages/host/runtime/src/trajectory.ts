@@ -10,7 +10,6 @@ import { dirname, isAbsolute, join, relative } from 'node:path'
 import { assistantStreamFirstTokenTime, type AssistantStreamRecord } from '@deepseek-ai/dsh-llm'
 import { createSessionFormatCatalogWithChildren, historicalSessionFormatCatalog, sessionFormatCatalog, SessionFormatUnsupportedMigrationError } from '@deepseek-ai/dsh-session-format-catalog'
 import { historicalChildCatalogSource } from '@deepseek-ai/dsh-session-format-v3-to-v4'
-import { finalReplyText } from '@shared/foundation/finalReply'
 
 const REQUEST_PROJECTION_PLUGIN = 'eleckoi-request-projection'
 

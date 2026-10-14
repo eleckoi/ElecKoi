@@ -52,6 +52,84 @@
   background: var(--active);
 }
 
+.setting-library-layout .setting-library-toolbar.has-library-transfer {
+  display: flex;
+  gap: 8px;
+}
+.has-library-transfer .setting-library-search { flex: 1; }
+.has-library-transfer > :not(.setting-library-search) { flex-shrink: 0; }
+.setting-library-transfer-buttons { display: flex; gap: 3px; }
+.setting-library-transfer-buttons button,
+.setting-library-tree-more {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  color: var(--text);
+  background: var(--field-bg);
+}
+.setting-library-transfer-buttons button:hover,
+.setting-library-tree-more:hover { background: var(--active); }
+.setting-library-tree-more { width: 26px; height: 26px; background: transparent; }
+.setting-library-folder-transfer-actions { display: flex; gap: 8px; }
+.setting-library-folder-transfer-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--text);
+  background: var(--field-bg);
+}
+.setting-library-folder-transfer-actions button:hover { background: var(--active); }
+.setting-library-context-menu.setting-library-transfer-menu { z-index: 1300; width: 190px; max-height: calc(100dvh - 16px); overflow: auto; }
+.setting-library-transfer-menu button { min-height: 38px; height: auto; padding-block: 8px; }
+.setting-library-transfer-buttons button:disabled,
+.setting-library-folder-transfer-actions button:disabled { opacity: .45; }
+.mobile-character-editor .setting-library-transfer-buttons button { width: 36px; min-height: 44px; }
+.mobile-character-editor .setting-library-tree-more { width: 36px; min-height: 40px; }
+.mobile-character-editor .setting-library-toolbar.has-library-transfer { gap: 4px; }
+.mobile-character-editor .has-library-transfer .setting-library-save-control { grid-column: auto; }
+
+.setting-library-merge-marker { color: var(--accent, var(--text)); flex-shrink: 0; }
+.setting-library-merge-send-row { display: flex; align-items: center; justify-content: space-between; min-height: 44px; gap: 12px; }
+.setting-library-merge-send-row > span { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.setting-library-folder-transfer-actions { flex-wrap: wrap; }
+.setting-library-send-group-link { display: flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 12px; margin-bottom: 12px; border: 0; border-radius: 10px; color: var(--text); background: var(--active); }
+.setting-library-dialog-overlay.setting-send-groups-overlay { z-index: 1500; }
+.setting-send-groups-dialog { display: flex; flex-direction: column; width: min(560px, calc(100vw - 24px)); max-height: min(680px, calc(100dvh - 32px)); overflow: hidden; border-radius: 18px; color: var(--text); background: var(--chat); box-shadow: 0 18px 70px #0003; }
+.setting-send-groups-dialog > header { display: flex; align-items: center; gap: 9px; flex-shrink: 0; min-height: 52px; padding: 0 16px; }
+.setting-send-groups-dialog h2 { flex: 1; margin: 0; font-size: 17px; }
+.setting-send-groups-dialog > header button { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; background: transparent; border: 0; border-radius: 10px; color: var(--text); }
+.setting-send-groups-tools { display: grid; gap: 10px; padding: 0 12px 10px; flex-shrink: 0; }
+.setting-send-groups-tabs { display: flex; gap: 6px; overflow-x: auto; min-width: 0; }
+.setting-send-groups-tabs button { display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border: 0; border-radius: 12px; color: var(--text); background: var(--field-bg); white-space: nowrap; }
+.setting-send-groups-tabs button[aria-pressed="true"] { background: var(--active); }
+.setting-send-groups-tabs button span { opacity: .65; font-size: 12px; }
+.setting-send-groups-list { min-height: 0; overflow-y: auto; padding: 0 8px 8px; }
+.setting-send-groups-row { display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 7px 10px; border-radius: 12px; cursor: pointer; }
+.setting-send-groups-row.is-picked { background: var(--active); }
+.setting-send-groups-row input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--accent, #2874db); }
+.setting-send-groups-row > span { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.setting-send-groups-row strong { font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
+.setting-send-groups-row small { color: var(--soft-text); font-size: 12px; overflow-wrap: anywhere; }
+.setting-send-groups-row em { font-size: 12px; font-style: normal; color: var(--soft-text); }
+.setting-send-groups-dialog > footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; flex-shrink: 0; font-size: 13px; background: var(--field-bg); }
+.setting-send-groups-dialog > footer button { display: flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border: 0; border-radius: 12px; color: var(--text); background: var(--active); }
+.setting-send-groups-dialog > footer .is-primary { color: white; background: var(--accent, #2874db); }
+.setting-send-groups-dialog > footer .is-destructive { color: var(--danger, #db354f); background: transparent; }
+.setting-send-groups-dialog > footer button:disabled { opacity: .4; }
+@media (max-width: 600px) {
+  .setting-send-groups-dialog { max-height: calc(100dvh - 24px); }
+  .setting-send-groups-tabs button, .setting-send-groups-dialog > footer button, .setting-send-groups-dialog > header button { min-height: 44px; }
+}
+
 .setting-library-search {
   display: flex;
   min-width: 0;

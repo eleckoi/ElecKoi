@@ -139,6 +139,7 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
   const [pageInput, setPageInput] = useState("");
   const [openingSwitching, setOpeningSwitching] = useState(false);
   const [pagerOpeningId, setPagerOpeningId] = useState(message.selectedOpeningId);
+  const [presentationRevision, setPresentationRevision] = useState(0);
   const articleRef = useRef(null);
   const toolsRef = useRef(null);
   const mobileRoleplay = layoutMode === "roleplay" && typeof document !== "undefined" && document.documentElement.dataset.eleckoiMobile === "true";
@@ -169,6 +170,17 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
   const requestedPageValid = requestedIndex >= 0 && requestedIndex < options.length;
 
   useEffect(() => setDraft(editableContent || ""), [editableContent]);
+  useEffect(() => {
+    const article = articleRef.current;
+    const refresh = () => setPresentationRevision(value => value + 1);
+    article.addEventListener('eleckoi:refresh-message', refresh);
+    return () => article.removeEventListener('eleckoi:refresh-message', refresh);
+  }, []);
+  useLayoutEffect(() => {
+    if (message.conversationId && message.id && !pending) window.dispatchEvent(new CustomEvent('eleckoi:message-rendered', {
+      detail: { conversationId: message.conversationId, messageId: message.id, role },
+    }));
+  }, [message.conversationId, message.id, displayContent, pending, presentationRevision, role]);
   useEffect(() => {
     if (!openingEnabled) setJumpOpen(false);
     if (!editingEnabled) setEditing(false);
@@ -303,6 +315,7 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
   return (
     <article
       ref={articleRef}
+      data-message-id={message.id || undefined}
       className={`message ${isUser ? "mine" : "theirs"} message-${layoutMode} avatar-shape-${avatarShape}${toolbar.reserved ? " mobile-tools-reserved" : ""}${showOpeningPager ? " has-opening-pager" : ""}${layoutMode === "agent" && !isUser && isLatestAssistant ? " is-latest-assistant" : ""}`}
       style={Number.isFinite(spacingAfter) ? { marginBottom: `${spacingAfter}px` } : undefined}
     >
@@ -340,7 +353,7 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
           <AgentProcessIcon name={liveProcess.icon} size={liveProcess.icon === 'reasoning' ? 27 : 17} animated={liveProcess.icon === 'reasoning'} />
           <span className="agent-process-inline-label">{liveProcess.title}</span>
           <MessageChevronRightIcon size={14} />
-        </button> : displayContent ? <div ref={markdownRef} className="bubble markdown-message">
+        </button> : displayContent ? <div key={presentationRevision} ref={markdownRef} className="bubble markdown-message">
           {!isUser && message.generatedImageAttachments?.length ? generatedImageSegments(markdownTonePresentation.markdown, message.generatedImageAttachments, pending).map((segment, index) => segment.type === 'images'
             ? <ChatImageGallery key={`images-${index}`} images={segment.images} conversationId={message.conversationId} agentMessage={layoutMode === 'agent'} loadImage={loadImage} onRegenerateImage={onRegenerateImage} />
             : <MessagePresentation key={`text-${index}`} message={message} content={segment.content} streaming={pending} renderMessageContent={renderMessageContent} />) : <MessagePresentation

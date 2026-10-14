@@ -1,0 +1,62 @@
+{
+  "mistral": {
+    "filename": "mistral.model",
+    "kind": "sentencepiece",
+    "source": "SillyTavern@06bde939:src/tokenizers/mistral.model",
+    "sha256": "dadfd56d766715c61d2ef780a525ab43b8e6da4de6865bda3d95fdef5e134055",
+    "bytes": 493443,
+    "license": "Apache-2.0",
+    "licenseSource": "https://huggingface.co/mistralai/Mistral-7B-v0.1/raw/main/README.md",
+    "modelSource": "https://huggingface.co/mistralai/Mistral-7B-v0.1"
+  },
+  "qwen2": {
+    "filename": "qwen2.json",
+    "kind": "json",
+    "source": "https://raw.githubusercontent.com/SillyTavern/SillyTavern-Tokenizers/798bcd823dfd04227a79b487e1cf29e6de9aaece/qwen2.json.gz",
+    "sha256": "fb366a22efb7db2dcca2c619402431cda342a97721395a2da2879ceb36262782",
+    "bytes": 4754645,
+    "license": "Apache-2.0",
+    "licenseSource": "https://huggingface.co/Qwen/Qwen2-7B/raw/main/LICENSE",
+    "modelSource": "https://huggingface.co/Qwen/Qwen2-7B"
+  },
+  "yi": {
+    "filename": "yi.model",
+    "kind": "sentencepiece",
+    "source": "SillyTavern@06bde939:src/tokenizers/yi.model",
+    "sha256": "386c49cf943d71aa110361135338c50e38beeff0a66593480421f37b319e1a39",
+    "bytes": 1033105,
+    "license": "Apache-2.0",
+    "licenseSource": "https://huggingface.co/01-ai/Yi-6B/raw/main/LICENSE",
+    "modelSource": "https://huggingface.co/01-ai/Yi-6B"
+  },
+  "jamba": {
+    "filename": "jamba.model",
+    "kind": "sentencepiece",
+    "source": "SillyTavern@06bde939:src/tokenizers/jamba.model",
+    "sha256": "8b0df4fb43262c452ef37061951a06df4c63ca191d02a60ea08f14428af24376",
+    "bytes": 1124714,
+    "license": "Apache-2.0",
+    "licenseSource": "https://huggingface.co/ai21labs/Jamba-v0.1/raw/main/README.md",
+    "modelSource": "https://huggingface.co/ai21labs/Jamba-v0.1"
+  },
+  "nemo": {
+    "filename": "nemo.json",
+    "kind": "json",
+    "source": "https://raw.githubusercontent.com/SillyTavern/SillyTavern-Tokenizers/798bcd823dfd04227a79b487e1cf29e6de9aaece/nemo.json.gz",
+    "sha256": "d27c2739d2d9ad785baa78f62ed23e79984246cb3e29c25d6cb5f43d9d00a6a9",
+    "bytes": 6262925,
+    "license": "Apache-2.0",
+    "licenseSource": "https://huggingface.co/mistralai/Mistral-Nemo-Base-2407/raw/main/README.md",
+    "modelSource": "https://huggingface.co/mistralai/Mistral-Nemo-Base-2407"
+  },
+  "claude": {
+    "filename": "claude.json",
+    "kind": "json",
+    "source": "SillyTavern@06bde939:src/tokenizers/claude.json",
+    "sha256": "c241737df24b4e7f7c9af4fdcee29a0ca903dcb288a8b753bc346a3092911767",
+    "bytes": 1774213,
+    "license": "MIT",
+    "licenseSource": "https://raw.githubusercontent.com/anthropics/anthropic-tokenizer-typescript/main/LICENSE",
+    "modelSource": "https://github.com/anthropics/anthropic-tokenizer-typescript"
+  }
+}

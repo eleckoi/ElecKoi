@@ -36,6 +36,9 @@ export interface ConversationClientMessage extends Omit<ConversationMessageMetad
   runtimeSessionId?: string
   renderKey?: string
   dshNodeKey?: string
+  continuationMessageIds?: string[]
+  continuationEventSeqs?: number[]
+  continuationTurns?: number[]
   turnUsage?: TurnTailChatData['tokenUsage']
   inputImageAttachments?: (ImageAttachmentRef | ConversationPendingImage)[]
   generatedImageAttachments?: ConversationGeneratedImage[]
@@ -73,7 +76,14 @@ export interface ConversationSelection { active_conversation_id: string; preferr
 export interface ConversationUploadedFile { id: string; receiptId: string; attachmentId: string; name: string; bytes: number }
 export interface ConversationSendInput { conversationId: string; requestId: string; text?: string; mode?: 'steer' | 'queue'; signal?: AbortSignal; images?: { mediaType: 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'; data: string; name?: string }[]; files?: string[] }
 export interface ConversationRegenerateInput { conversationId: string; requestId: string; eventSeq: number; replacementMessage?: string; signal?: AbortSignal }
+export interface ConversationContinueInput { conversationId: string; requestId: string; signal?: AbortSignal }
 export interface ConversationRunResult { details: ConversationClientDetails | null; cancelled: boolean }
+export interface ConversationGroupInput extends ConversationSendInput { groupId: string; memberIds?: string[]; options?: Record<string, unknown> }
+export interface ConversationGroupRunResult extends ConversationRunResult { members: Array<{ characterId: string; requestId: string; turn: number; operationId: string }> }
+export interface ConversationGroupGenerationChange {
+  conversationId: string; groupId: string; requestId: string
+  phase: 'started' | 'member' | 'finished'; characterId?: string
+}
 
 /** 管理聊天目录、官方 Session 的消息显示、提交、停止、回退和角色资料。 */
 export interface ElecKoiConversations {
@@ -179,6 +189,8 @@ export interface ElecKoiConversations {
    * @returns 取消本次订阅的函数。
    */
   subscribeGeneration(listener: (change: ConversationGenerationChange) => void): () => void
+  /** Observe the real native group wrapper and each admitted character; no historical replay. */
+  subscribeGroupGeneration(listener: (change: ConversationGroupGenerationChange) => void | Promise<void>): () => void
   /**
    * 按正式生成身份读取结算后的显示消息；空消息只在明确关闭节点确认后返回。
    * @param runtimeSessionId - 当前绑定的正式 Session。
@@ -268,6 +280,10 @@ export interface ElecKoiConversations {
    * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
    */
   regenerate(input: ConversationRegenerateInput): Promise<ConversationRunResult>
+  /** Continue the existing assistant body without rewinding native history. */
+  continue(input: ConversationContinueInput): Promise<ConversationRunResult>
+  /** Run enabled or explicitly selected native group actors serially in the same Session. */
+  groupGenerate(input: ConversationGroupInput): Promise<ConversationGroupRunResult>
   /**
    * 停止指定请求；未匹配当前运行请求时返回 false。
    * @param conversationId - ElecKoi 聊天编号。

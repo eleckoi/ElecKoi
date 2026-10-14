@@ -3203,3 +3203,15 @@ button.chat-file-card:hover { border-color: var(--blue); }
   border-color: #c6261d;
   background: #c6261d;
 }
+
+/* Single-document presentation keeps native message actions and editing intact. */
+.chat-panel[data-message-style="single"] .message-roleplay {
+  grid-template-columns: minmax(0, 1fr) auto;
+  width: min(100%, var(--chat-reading-width));
+  min-height: 0;
+}
+.chat-panel[data-message-style="single"] .message-roleplay > .avatar,
+.chat-panel[data-message-style="single"] .message-roleplay > .message-floor,
+.chat-panel[data-message-style="single"] .message-roleplay .message-heading { display: none; }
+.chat-panel[data-message-style="single"] .message-roleplay .message-content { grid-column: 1; min-height: 0; }
+.chat-panel[data-message-style="single"] .message-roleplay > .message-tools { grid-column: 2; }

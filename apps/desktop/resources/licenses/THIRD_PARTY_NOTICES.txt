@@ -13,6 +13,11 @@ Author: Zed Industries
 Homepage: https://github.com/agentclientprotocol/typescript-sdk#readme
 Bundled notice text: e8e2fe35f5fdc1e2
 
+@agnai/web-tokenizers@0.1.6-pre3
+License: Apache-2.0
+Homepage: https://github.com/mlc-ai/tokenizers-cpp/tree/main/web
+Bundled notice text: not supplied by package
+
 @anthropic-ai/sdk@0.124.0
 License: MIT
 Author: Anthropic
@@ -3558,6 +3563,11 @@ Author: Filip Skokan
 Homepage: https://github.com/panva/jose
 Bundled notice text: d6f4fc856b9900ac
 
+js-tiktoken@1.0.21
+License: MIT
+Homepage: https://github.com/dqbd/tiktoken#readme
+Bundled notice text: not supplied by package
+
 js-tokens@4.0.0
 License: MIT
 Author: Simon Lydell
@@ -3664,7 +3674,7 @@ Author: Nick Frasser
 Homepage: https://linkify.js.org
 Bundled notice text: 699b4f57c56807f6
 
-lodash@4.17.21, 4.18.1
+lodash@4.17.21
 License: MIT
 Author: John-David Dalton
 Homepage: https://lodash.com/
@@ -6439,7 +6449,7 @@ NOTICE TEXT 2314aa0e2bae2fcb
 ------------------------------------
 Source filenames: LICENSE
 Applies to:
-- lodash@4.17.21,4.18.1
+- lodash@4.17.21
 
 Copyright OpenJS Foundation and other contributors <https://openjsf.org/>
 

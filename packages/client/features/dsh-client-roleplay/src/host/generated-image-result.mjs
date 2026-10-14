@@ -70,5 +70,5 @@ export function findGeneratedImage(events, batchId, frameId) {
   const text = replies[0].data.message.content.filter(block => block.type === 'text').map(block => block.text).join('')
   const prompt = parseImagePrompts(text)?.find(frame => frame.id === frameId)
   if (!prompt) throw new Error('原始 AI 回复中没有这张图片的有效提示词。')
-  return { event: result, frame: { ...matches[0], ...prompt } }
+  return { event: result, data: result.data, frame: { ...matches[0], ...prompt } }
 }

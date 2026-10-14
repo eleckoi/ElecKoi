@@ -1,5 +1,6 @@
+import { createHash } from 'node:crypto'
 import { and, asc, eq } from 'drizzle-orm'
-import type { CharacterCollection, CharacterRecord } from '@shared/contracts/entities/persona'
+import type { CharacterCollection, CharacterExpression, CharacterRecord } from '@shared/contracts/entities/persona'
 import { isRecord, parseJsonArray } from '@shared/foundation/json'
 import type { ElecKoiDatabase, ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
 import { characterMeta, characters, characterTextContents, userProfile } from '@product-data/storage/sqlite/schema/common'
@@ -9,6 +10,7 @@ const string = (value: unknown, fallback = ''): string => typeof value === 'stri
 const number = (value: unknown, fallback = 0): number => typeof value === 'number' && Number.isFinite(value) ? value : fallback
 const flag = (value: unknown): number => value ? 1 : 0
 const ALL_CHARACTERS_GROUP = '全部角色'
+const expressionSlot = (row: CharacterExpression): string => `expression-${createHash('sha256').update(JSON.stringify([row.folder, row.name])).digest('hex').slice(0, 40)}`
 
 function normalizedGroup(value: unknown): string {
   const group = string(value).trim()
@@ -52,6 +54,7 @@ export class CharacterRepository {
         const content = Object.fromEntries(texts.filter((item) => item.characterId === row.id).map((item) => [item.kind, item.content]))
         return {
           ...row, group: normalizedGroup(row.groupName),
+          expressions: parseJsonArray<CharacterExpression>(content.expressions ?? '[]'),
           persona: {
             assistant_name: row.assistantName, assistant_avatar: row.assistantAvatar,
             assistant_square: row.squareImage, assistant_cover: row.coverImage,
@@ -154,14 +157,14 @@ export class CharacterRepository {
     return this.get()
   }
 
-  replaceAll(collection: CharacterCollection, db?: ElecKoiDatabase): CharacterCollection {
+  replaceAll(collection: CharacterCollection, db?: ElecKoiDatabase, options: { deleteChats?: boolean } = {}): CharacterCollection {
     const ids = new Set(collection.items.map((item) => item.id))
     if (ids.size !== collection.items.length || collection.items.some((item) => !item.id.trim())) throw new Error('角色编号不能为空或重复。')
     const persist = (database: ElecKoiDatabase) => {
       const existing = database.select().from(characters).all()
       for (const row of existing) {
         if (ids.has(row.id)) continue
-        this.conversationCleanup.deleteForCharacter(row.id)
+        if (options.deleteChats !== false) this.conversationCleanup.deleteForCharacter(row.id)
         this.pendingRemovedOwners.add(`character/${row.id}`)
         // Public common FKs delete card-owned configuration. Workspace relationships
         // that represent independent use are detached by the conversation cleanup.
@@ -215,6 +218,15 @@ export class CharacterRepository {
       square: row.squareImage,
       portrait: row.coverImage
     }, db)
+    if (input.expressions !== undefined) {
+      const current = db.select().from(characterTextContents).where(and(eq(characterTextContents.characterId, input.id), eq(characterTextContents.kind, 'expressions'))).get()
+      const retained = new Set(input.expressions.map(expressionSlot))
+      for (const old of parseJsonArray<CharacterExpression>(current?.content ?? '[]')) {
+        if (!retained.has(expressionSlot(old))) this.pendingMedia.push(this.mediaAssets.prepareImage(`character/${input.id}`, expressionSlot(old), ''))
+      }
+      const content = JSON.stringify(input.expressions)
+      if (current?.content !== content) db.insert(characterTextContents).values({ characterId: input.id, kind: 'expressions', content }).onConflictDoUpdate({ target: [characterTextContents.characterId, characterTextContents.kind], set: { content } }).run()
+    }
     for (const kind of ['image_prompt', 'opening']) {
       const current = db.select().from(characterTextContents).where(and(eq(characterTextContents.characterId, input.id), eq(characterTextContents.kind, kind))).get()
       const content = string(persona[kind], current?.content)
@@ -256,10 +268,16 @@ export class CharacterRepository {
     const square = prepare('square', persona.assistant_square)
     const portrait = prepare('portrait', persona.assistant_cover)
     const background = prepare('chat-background', input.chatBackground)
+    const expressions = input.expressions?.map(row => {
+      if (!row.name?.trim() || !row.label?.trim() || !row.url?.trim()) throw new TypeError('角色表情需要 name、label 和图片 URL。')
+      const expression = { ...row, folder: string(row.folder) }
+      return { ...expression, url: prepare(expressionSlot(expression), row.url) }
+    })
     return {
       ...input,
       avatar,
       chatBackground: background,
+      ...(expressions === undefined ? {} : { expressions }),
       persona: {
         ...persona,
         assistant_avatar: avatar,

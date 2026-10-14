@@ -141,3 +141,23 @@
   .variable-view-switch { margin-right: 18px; margin-left: 18px; }
   .variable-viewer-tree-scroll { padding-right: 18px; padding-left: 18px; }
 }
+
+.variable-viewer-dialog.has-editor-tabs { grid-template-rows: 58px 44px minmax(0, 1fr); }
+.variable-editor-modes { display: flex; gap: 4px; padding: 4px 16px; background: var(--surface-raised); }
+.variable-editor-modes button { min-height: 36px; padding: 0 14px; border: 0; border-radius: 12px; color: var(--muted); background: transparent; font: inherit; }
+.variable-editor-modes button[aria-selected="true"] { color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, transparent); }
+.variable-editor-pane { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; padding: 8px 16px 16px; overflow: auto; color: var(--text); background: var(--surface-raised); }
+.variable-editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.variable-editor-toolbar label { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 120px; font-size: 12px; }
+.variable-editor-toolbar select { min-width: 0; width: 100%; height: 40px; padding: 0 10px; border: 0; border-radius: 12px; background: var(--control-bg); color: var(--text); }
+.variable-editor-toolbar button { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 40px; padding: 0 12px; border: 0; border-radius: 12px; color: var(--text); background: var(--control-bg); }
+.variable-editor-toolbar button svg { width: 18px; height: 18px; }
+.variable-editor-toolbar .variable-editor-save { color: var(--blue); background: color-mix(in srgb, var(--blue) 13%, transparent); min-width: 84px; }
+.variable-editor-toolbar button:disabled { opacity: .55; }
+.variable-editor-json { flex: 1; min-height: 180px; width: 100%; resize: none; padding: 12px; border: 0; border-radius: 14px; outline-offset: -2px; color: var(--text); background: var(--control-bg); font: 13px/1.6 Consolas, 'Cascadia Mono', monospace; tab-size: 2; }
+.variable-editor-schema { flex-shrink: 0; max-height: 32%; overflow: auto; border-radius: 12px; padding: 9px 12px; background: var(--surface-subtle); font-size: 12px; }
+.variable-editor-schema summary { cursor: pointer; color: var(--blue); }
+.variable-editor-schema pre { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.variable-editor-error { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--danger, #d94747); font-size: 13px; }
+.mobile-variable-viewer .variable-editor-modes { flex: none; }
+.mobile-variable-viewer .variable-editor-pane { flex: 1; }

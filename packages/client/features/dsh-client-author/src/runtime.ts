@@ -7,21 +7,29 @@ import type { ElecKoiModels } from '@eleckoi/dsh-client-models/client'
 import type { NativeAuthorScriptCatalog, NativeAuthorRuleTask, NativeAuthorScriptIdentity } from '@eleckoi/dsh-product-api/types'
 import type {} from '@eleckoi/dsh-product-api/remote'
 import { createAuthorScriptFrame, type AuthorBrowserWindow } from './frame.js'
-import type { NativeAuthorRuntimeSnapshot, NativeAuthorChatHandlers, NativeAuthorProjectContext } from './client/types.js'
+import type { NativeAuthorRuntimeSnapshot, NativeAuthorChatHandlers, NativeAuthorProjectContext, NativeAuthorDocumentRelease } from './client/types.js'
+import { NativeVariableEditor } from './variable-editor.js'
+import type { EditingVariableTarget } from '@eleckoi/tavern-native'
+import { createCompatibilitySharedState } from '@eleckoi/tavern-native'
 import { createNativeMessageBindings } from './messages.js'
 import { createNativeChatBindings } from './chats.js'
 import { createNativeSettingLibraryBindings, createNativePresetBindings } from './settings.js'
 import { createNativeScriptSettingsBindings } from './script-settings.js'
 import { NativeAudioRuntime, nativeAudioMethods } from './audio.js'
 import { NativeGenerationEvents } from './generation.js'
+import { NativeTavernClient } from './tavern-client.js'
+import { NativeTavernEvents, observeMessageIframe } from './tavern-events.js'
+import { NativeFunctionToolRuntime } from './function-tools.js'
 import { NativeScriptUi, type NativeScriptUiOwner } from './script-ui.js'
+import { mountTavernDocument, type TavernDocumentContext, type TavernDocumentMount, type TavernRemote } from './tavern.js'
 
 export interface NativeAuthorRuntimeOptions {
   window: AuthorBrowserWindow
-  remote: Pick<Context['remote'], 'eleckoiAuthorScripts' | 'eleckoiAuthorVariables' | 'eleckoiConversations' | 'eleckoiCharacters' | 'eleckoiCharacterConfiguration' | 'eleckoiAgentPresets'>
+  remote: Pick<Context['remote'], 'eleckoiAuthorScripts' | 'eleckoiAuthorVariables' | 'eleckoiConversations' | 'eleckoiCharacters' | 'eleckoiCharacterConfiguration' | 'eleckoiAgentPresets'> & { eleckoiTavernCompatibility?: TavernRemote }
   conversations: ElecKoiConversations
   libraries: ElecKoiScriptLibraries
   models: ElecKoiModels
+  catalogSources?: ReadonlyArray<{ subscribe(listener: () => void): () => void }>
   report(error: unknown): void
   createFrame?: typeof createAuthorScriptFrame
   createAudio?: () => HTMLAudioElement
@@ -35,9 +43,19 @@ export class NativeAuthorClient {
   private readonly stops: Array<() => void> = []
   private readonly events = new Map<string, Set<(value: unknown) => void>>()
   private readonly projectEvents = new Map<string, Set<(value: unknown) => void>>()
+  private readonly tavernShared = createCompatibilitySharedState()
+  private readonly variableEditor: NativeVariableEditor
+  private readonly tavernDocuments = new Map<Window, TavernDocumentMount>()
+  private readonly tavernReadyErrors = new Set<unknown>()
+  private readonly auxiliaryGenerations = new Map<string, { conversationId: string; shouldSilence: boolean }>()
+  private tavernSelectedChat = ''
+  private readonly tavernEvents: NativeTavernEvents
+  private tavernEventTail = Promise.resolve()
+  private readonly tavernClient: NativeTavernClient
   private readonly audio: NativeAudioRuntime
   private readonly generation: NativeGenerationEvents
   private readonly scriptUi: NativeScriptUi
+  private readonly functionTools: NativeFunctionToolRuntime | undefined
   private current: { catalog: NativeAuthorScriptCatalog; revision: number; session: AuthorScriptSession; abort: AbortController; stream?: ReturnType<Context['remote']['eleckoiAuthorScripts']['connect']> } | undefined
   private queue = Promise.resolve()
   private revision = 0
@@ -47,6 +65,26 @@ export class NativeAuthorClient {
   private readonly lifetime = new AbortController()
 
   constructor(private readonly options: NativeAuthorRuntimeOptions) {
+    this.variableEditor = new NativeVariableEditor({ shared: this.tavernShared, remote: () => options.remote.eleckoiTavernCompatibility,
+      available: id => this.assertChat(id), refresh: () => this.refreshTavernCatalog() })
+    this.tavernClient = new NativeTavernClient({ window: options.window, conversations: options.conversations, remote: options.remote,
+      audio: () => this.audio, speechProviders: this.tavernShared.ttsProviders, report: options.report,
+      invokeHost: async (conversationId, method, params) => {
+        const remote = options.remote.eleckoiTavernCompatibility
+        if (!remote) throw new Error('原生语音服务没有连接。')
+        const result = await remote.invoke(conversationId, method, params)
+        if (!result.ok) throw new Error(result.error?.message || '语音服务请求失败。')
+        return result.value
+      },
+      createId: () => options.window.crypto.randomUUID(), ui: (conversationId, method, params) => {
+        const handler = this.ui.get(conversationId)?.[method]
+        if (!handler) throw new Error(`Native chat UI is not mounted: ${method}`)
+        return handler(params)
+      } })
+    this.tavernEvents = new NativeTavernEvents((event, ...args) => this.emitTavern(event, ...args))
+    const toolRemote = options.remote.eleckoiTavernCompatibility
+    this.functionTools = toolRemote?.connectTools ? new NativeFunctionToolRuntime({ connectTools: toolRemote.connectTools.bind(toolRemote) },
+      this.tavernShared, () => options.window.crypto.randomUUID(), error => this.reportTavernReadyError(error)) : undefined
     this.scriptUi = new NativeScriptUi({ window: options.window, report: options.report, available: owner => {
       this.assertChat(owner.conversationId)
       if (this.current?.catalog.version !== owner.version) throw new Error('原生脚本已被替换')
@@ -55,6 +93,17 @@ export class NativeAuthorClient {
       emit: event => this.emitAuthorEvent(event.name, event.payload), report: options.report })
     this.generation = new NativeGenerationEvents(options.conversations, () => options.window.crypto.randomUUID(),
       (name, payload) => this.emitAuthorEvent(name, payload), options.report)
+    this.stops.push(options.conversations.subscribeGroupGeneration(async change => {
+      if (this.closed || change.conversationId !== this.tavernSelectedChat) return
+      if (change.phase === 'member') {
+        if (!this.tavernShared.eventHub.listeners('group_member_drafted').length) return
+        const characters = this.tavernShared.acceptedCatalog?.characters?.items ?? []
+        const index = characters.findIndex((item: { id: string }) => item.id === change.characterId)
+        if (index < 0) throw new Error(`Group speaker is absent from the native character catalog: ${change.characterId}`)
+        await this.tavernShared.eventHub.emitAndWait('group_member_drafted', index)
+      } else await this.tavernShared.eventHub.emitAndWait(change.phase === 'started' ? 'group_wrapper_started' : 'group_wrapper_finished',
+        { selected_group: change.groupId, type: 'normal' })
+    }))
   }
 
   /** 读取当前聊天的原生脚本运行状态。
@@ -66,25 +115,107 @@ export class NativeAuthorClient {
    * @returns 取消订阅函数。
    */
   subscribe = (listener: () => void): (() => void) => { this.listeners.add(listener); return () => this.listeners.delete(listener) }
+  getVariableSchemaRevision = () => this.variableEditor.getRevision()
+  subscribeVariableSchemas = (listener: () => void) => this.variableEditor.subscribe(listener)
+  listVariableEditorScopes = (conversationId: string) => this.variableEditor.listScopes(conversationId)
+  readVariableEditorScope = (conversationId: string, target: EditingVariableTarget) => this.variableEditor.read(conversationId, target)
+  describeVariableEditorSchema = (target: EditingVariableTarget, variables: Record<string, unknown>) => this.variableEditor.describe(target, variables)
+  saveVariableEditorScope = (conversationId: string, target: EditingVariableTarget, variables: Record<string, unknown>) => this.variableEditor.save(conversationId, target, variables)
   getUiSnapshot = () => this.scriptUi.getSnapshot()
   subscribeUi = (listener: () => void) => this.scriptUi.subscribe(listener)
   invokeButton = (key: string): Promise<void> => this.snapshot.status !== 'ready'
     ? Promise.reject(new Error('原生脚本尚未就绪')) : this.scriptUi.invokeButton(key)
   dismissPanel = (key: string) => this.scriptUi.dismissPanel(key)
 
-  mountScriptPanelDocument(target: Window, key: string): () => void {
-    return this.scriptUi.mountPanel(key, owner => {
+  async stopAuxiliaryGenerations(conversationId: string): Promise<boolean> {
+    const active = [...this.auxiliaryGenerations].filter(([, task]) => task.conversationId === conversationId && !task.shouldSilence)
+    for (const [id] of active) this.tavernShared.helperGenerations?.get(id)?.abort(new Error('Generation stopped.'))
+    const remote = this.options.remote.eleckoiTavernCompatibility
+    if (remote) for (const [id] of active) {
+      const result = await remote.invoke(conversationId, 'generation.cancel', { generationId: id })
+      if (!result.ok) throw new Error(result.error?.message || 'Auxiliary generation cancellation failed.')
+    }
+    return active.length > 0
+  }
+
+  /** Observe owner initialization failures once; callers still receive the rejected ready Promise. */
+  private reportTavernReadyError(error: unknown): void {
+    if (this.closed || this.tavernReadyErrors.has(error)) return
+    this.tavernReadyErrors.add(error)
+    this.options.report(error)
+  }
+
+  private mountTavern(page: AuthorBrowserWindow, context: TavernDocumentContext, adapter: AuthorHostAdapter,
+    available: () => void = () => this.assertChat(context.conversationId)): TavernDocumentMount {
+    const remote = this.options.remote.eleckoiTavernCompatibility
+    if (!remote) throw new Error('Tavern compatibility host is not connected')
+    this.tavernDocuments.get(page)?.dispose()
+    const ui = (method: string, params: Record<string, unknown>) => {
+      available()
+      const handler = this.ui.get(context.conversationId)?.[method]
+      if (!handler) throw new Error('The chat message renderer is not mounted')
+      return handler(params)
+    }
+    let active = true
+    const markClosed = () => { active = false }
+    // Register before installation so a closed page is never reported as a startup failure.
+    page.addEventListener('pagehide', markClosed, { once: true })
+    const reportReadyError = (error: unknown) => { if (active) this.reportTavernReadyError(error) }
+    const toolOwner = this.functionTools?.acquire(context.conversationId)
+    const controller = mountTavernDocument(page, { remote, shared: this.tavernShared, context, adapter, available,
+      report: reportReadyError, invokeNative: (method, params, request) => this.tavernClient.invoke(context.conversationId, method, params, request), ui: {
+        mediaSrc: reference => {
+          const result = ui('compatibility.mediaSrc', { reference })
+          if (typeof result !== 'string') throw new Error('The native media resolver returned no URL')
+          return result
+        },
+        formatMessage: (text, options = {}) => {
+          const result = ui('compatibility.formatMessage', { text, options })
+          if (typeof result !== 'string') throw new Error('The chat formatter returned no HTML')
+          return result
+        },
+        refreshMessage: async (index, options = {}) => { await ui('compatibility.refreshMessage', { index, options }) },
+        generationState: state => {
+          if (state.running) this.auxiliaryGenerations.set(state.id, { conversationId: state.conversationId, shouldSilence: state.shouldSilence })
+          else this.auxiliaryGenerations.delete(state.id)
+          if (!this.closed) this.publish(this.snapshot)
+        },
+      } })
+    const mounted = { ...controller,
+      ready: Promise.all([controller.ready, toolOwner?.ready]).then(() => undefined),
+      dispose: () => {
+        markClosed(); page.removeEventListener('pagehide', markClosed)
+        controller.dispose(); toolOwner?.release()
+      },
+    }
+    // Promise.all(...).then(...) creates its own rejection even when each input is observed.
+    // This observer does not replace ready, so awaiting consumers retain the original failure.
+    void mounted.ready.catch(reportReadyError)
+    page.addEventListener('pagehide', () => toolOwner?.release(), { once: true })
+    this.tavernDocuments.set(page, mounted)
+    page.addEventListener('pagehide', () => this.tavernDocuments.delete(page), { once: true })
+    if (context.messageId) observeMessageIframe(page, mounted.ready,
+      (event, ...args) => this.emitTavern(event, ...args), reportReadyError)
+    return mounted
+  }
+
+  mountScriptPanelDocument(target: Window, key: string): NativeAuthorDocumentRelease {
+    let ready!: Promise<void>
+    const release = this.scriptUi.mountPanel(key, owner => {
       const page = target as AuthorBrowserWindow
-      installElecKoiAuthorApi(page, this.adapter(owner.conversationId, '', { version: owner.version,
-        identity: owner.identity }, owner))
+      const adapter = this.adapter(owner.conversationId, '', { version: owner.version, identity: owner.identity }, owner)
+      installElecKoiAuthorApi(page, adapter)
+      const compatibility = this.mountTavern(page, { conversationId: owner.conversationId, scriptId: owner.identity.scriptId }, adapter)
+      ready = compatibility.ready
       const entry = { conversationId: owner.conversationId, close: () => {
         if (!this.documents.delete(entry)) return
         page.dispatchEvent(new page.Event('pagehide'))
       } }
       this.documents.add(entry)
       page.addEventListener('pagehide', () => this.documents.delete(entry), { once: true })
-      return entry.close
+      return Object.assign(entry.close, { ready: compatibility.ready })
     })
+    return Object.assign(release, { ready })
   }
   /** 绑定当前聊天的输入框操作，卸载时撤回该绑定。
    * @param conversationId - 聊天编号。
@@ -103,17 +234,19 @@ export class NativeAuthorClient {
    * @param messageId - 所属消息编号；聊天页面传空字符串。
    * @returns 关闭页面 SDK 的函数。
    */
-  mountDocument(target: Window, conversationId: string, messageId: string): () => void {
+  mountDocument(target: Window, conversationId: string, messageId: string): NativeAuthorDocumentRelease {
     this.assertChat(conversationId)
     const page = target as AuthorBrowserWindow
-    installElecKoiAuthorApi(page, this.adapter(conversationId, messageId))
+    const adapter = this.adapter(conversationId, messageId)
+    installElecKoiAuthorApi(page, adapter)
+    const compatibility = this.mountTavern(page, { conversationId, messageId }, adapter)
     const entry = { conversationId, close: () => {
       if (!this.documents.delete(entry)) return
       page.dispatchEvent(new page.Event('pagehide'))
     } }
     this.documents.add(entry)
     page.addEventListener('pagehide', () => this.documents.delete(entry), { once: true })
-    return entry.close
+    return Object.assign(entry.close, { ready: compatibility.ready })
   }
 
   /** 在项目页面安装独立 SDK，明确区分应用和角色归属。
@@ -121,7 +254,7 @@ export class NativeAuthorClient {
    * @param project - 明确项目、入口、窗口及角色页面的所属角色和聊天。
    * @returns 撤回 SDK 与订阅的函数。
    */
-  mountProjectDocument(target: Window, project: NativeAuthorProjectContext): () => void {
+  mountProjectDocument(target: Window, project: NativeAuthorProjectContext): NativeAuthorDocumentRelease {
     if (this.closed) throw new Error('Native author runtime is closed')
     if (!project.projectId || !project.entryFile || !project.view) throw new Error('Author project identity is required')
     if (project.scope !== 'application' && project.scope !== 'character') throw new Error('Author project scope is required')
@@ -147,7 +280,7 @@ export class NativeAuthorClient {
         conversationId: details ? selected.id : '', conversationTitle: details?.conversation.title || '',
         characterId: fixed.scope === 'character' ? fixed.characterId : details?.metadata.characterId || '' }
     }
-    installElecKoiAuthorApi(page, {
+    const adapter: AuthorHostAdapter = {
       request: async (method, params, options) => {
         available(); options.signal.throwIfAborted()
         if (method === 'app.getInfo') return { name: 'ElecKoi', apiVersion: '0.1.0', stage: 'preview' }
@@ -186,7 +319,19 @@ export class NativeAuthorClient {
         return active && !this.closed && matches(selected) && !!payload && typeof payload === 'object'
           && (payload as { conversationId?: unknown }).conversationId === selected.id
       },
-    })
+    }
+    installElecKoiAuthorApi(page, adapter)
+    const projectContext = context()
+    const fixedCompatibilityContext = () => {
+      available()
+      if (projectContext.conversationId) this.assertChat(projectContext.conversationId)
+      else if (this.isActive(this.options.conversations.getDetailsSnapshot())) throw new Error('This author compatibility page has no chat context; reload it after selecting a chat')
+    }
+    const compatibility = this.mountTavern(page, {
+      conversationId: projectContext.conversationId, characterId: projectContext.characterId,
+    }, { ...adapter, request: (method, params, options) => {
+      fixedCompatibilityContext(); return adapter.request(method, params, options)
+    } }, fixedCompatibilityContext)
     const entry = { close: () => {
       if (!this.documents.delete(entry)) return
       active = false; stop()
@@ -196,18 +341,31 @@ export class NativeAuthorClient {
     close = entry.close
     this.documents.add(entry)
     page.addEventListener('pagehide', entry.close, { once: true })
-    return entry.close
+    return Object.assign(entry.close, { ready: compatibility.ready })
   }
 
   /** @internal */
   async start(): Promise<void> {
     this.generation.start()
+    this.observeTavernChat()
     this.stops.push(this.options.conversations.subscribeDetails(() => {
+      this.observeTavernChat()
       void this.refresh().catch(() => {})
     }))
+    const rendered = (event: Event) => {
+      const detail = (event as CustomEvent<{ conversationId: string; messageId: string; role: string }>).detail
+      if (detail.conversationId !== this.tavernSelectedChat) return
+      const index = this.options.conversations.getDetailsSnapshot().details?.messages.findIndex(message => message.id === detail.messageId) ?? -1
+      if (index >= 0) this.emitTavern(detail.role === 'user' ? 'user_message_rendered' : 'character_message_rendered', index)
+    }
+    this.options.window.addEventListener('eleckoi:message-rendered', rendered)
+    this.stops.push(() => this.options.window.removeEventListener('eleckoi:message-rendered', rendered))
     this.stops.push(this.options.libraries.subscribeChanges(() => {
       void this.refreshConfiguration().catch(error => this.fail(error))
+      this.refreshTavernCatalog()
     }))
+    for (const source of [this.options.models, ...(this.options.catalogSources ?? [])])
+      this.stops.push(source.subscribe(() => this.refreshTavernCatalog()))
     void this.consumeChanges().catch(error => { if (!this.closed) this.fail(error) })
     // Author errors remain editable without removing the management service.
     await this.refresh().catch(() => {})
@@ -282,13 +440,28 @@ export class NativeAuthorClient {
       return
     }
     this.publish({ status: 'starting', conversationId: selected.id, error: '', scriptStatuses: {} })
+    const scriptAdapters = new Map<string, AuthorHostAdapter>()
     const session = new AuthorScriptSession({ conversationId: selected.id, scripts: catalog.scripts,
-      createFrame: script => (this.options.createFrame || createAuthorScriptFrame)(this.options.window,
-        catalog.scripts.find(item => item.key === script.key)!.entryUrl),
+      createFrame: script => {
+        const frame = (this.options.createFrame || createAuthorScriptFrame)(this.options.window,
+          catalog.scripts.find(item => item.key === script.key)!.entryUrl)
+        const load = frame.load.bind(frame)
+        return { ...frame, load: async (source, signal) => {
+          signal.throwIfAborted()
+          const compatibility = this.mountTavern(frame.window as AuthorBrowserWindow, {
+            conversationId: selected.id, scriptId: script.id,
+          }, scriptAdapters.get(script.key)!)
+          await compatibility.ready
+          signal.throwIfAborted()
+          return load(source, signal)
+        } }
+      },
       adapter: script => {
         const owner = this.scriptUi.createOwner(selected.id, catalog.version, catalog.scripts.find(item => item.key === script.key)!)
-        return { ...this.adapter(selected.id, '', { version: catalog.version, identity: owner.identity }, owner),
+        const adapter = { ...this.adapter(selected.id, '', { version: catalog.version, identity: owner.identity }, owner),
           registerButton: owner.registerButton, dispose: owner.dispose }
+        scriptAdapters.set(script.key, adapter)
+        return adapter
       },
       status: status => {
         const script = catalog.scripts.find(item => item.key === status.key)!
@@ -421,6 +594,7 @@ export class NativeAuthorClient {
     const stream = this.options.remote.eleckoiConversations.changes(this.lifetime.signal)
     try {
       for await (const change of stream) {
+        if (change.kind === 'catalog') { this.refreshTavernCatalog(); continue }
         if (change.kind !== 'messages') continue
         const { conversationId, reason, messageIds } = change
         this.emitAuthorEvent('messages.changed', { conversationId, reason, messageIds })
@@ -434,6 +608,53 @@ export class NativeAuthorClient {
     if (this.isActive(selected) && selected.id === payload.conversationId) {
       for (const listener of this.projectEvents.get(event) ?? []) listener(structuredClone(payload))
     }
+    void this.bridgeTavernEvent(event, payload).catch(error => { if (!this.closed) this.options.report(error) })
+  }
+  private emitTavern(event: string, ...args: unknown[]): void {
+    for (const result of this.tavernShared.eventHub.emit(event, ...args)) {
+      if (result && (typeof result === 'object' || typeof result === 'function') && 'then' in result && typeof result.then === 'function') {
+        void Promise.resolve(result).catch(error => this.options.report(error))
+      }
+    }
+  }
+  private queueTavern(task: () => Promise<void>): void {
+    this.tavernEventTail = this.tavernEventTail.then(task).catch(error => { if (!this.closed) this.options.report(error) })
+  }
+  private refreshTavernCatalog(): void {
+    this.queueTavern(async () => {
+      if (this.closed) return
+      const mounted = [...this.tavernDocuments.values()].find(document => document.conversationId === this.tavernSelectedChat)
+      if (mounted) await mounted.refresh()
+    })
+  }
+  private observeTavernChat(): void {
+    const selected = this.options.conversations.getDetailsSnapshot()
+    if (!this.isActive(selected)) return
+    const changed = selected.id !== this.tavernSelectedChat
+    this.tavernSelectedChat = selected.id
+    const id = selected.id, messages = structuredClone(selected.details!.messages)
+    this.queueTavern(async () => {
+      if (this.closed || this.tavernSelectedChat !== id) return
+      if (changed) {
+        const mounted = [...this.tavernDocuments.values()].find(document => document.conversationId === id)
+        if (mounted) await mounted.refresh()
+      }
+      if (!this.closed && this.tavernSelectedChat === id) this.tavernEvents.observe(id, messages)
+    })
+  }
+  private bridgeTavernEvent<TName extends AuthorEventName>(event: TName, payload: AuthorEventMap[TName]): Promise<void> {
+    this.queueTavern(async () => {
+      if (this.closed || payload.conversationId !== this.tavernSelectedChat) return
+      if (event === 'messages.changed' || event === 'agent.run.finished') {
+        const mounted = [...this.tavernDocuments.values()].find(document => document.conversationId === payload.conversationId)
+        if (mounted) await mounted.refresh()
+        if (this.closed || payload.conversationId !== this.tavernSelectedChat) return
+      }
+      const record = this.tavernShared.conversations.get(payload.conversationId)?.snapshot
+      const messages = record?.messages ?? this.options.conversations.getDetailsSnapshot().details?.messages ?? []
+      this.tavernEvents.accept(event, payload, messages)
+    })
+    return this.tavernEventTail
   }
   private assertChat(id: string): void {
     const selected = this.options.conversations.getDetailsSnapshot()
@@ -442,13 +663,16 @@ export class NativeAuthorClient {
   private isActive(selected: ReturnType<ElecKoiConversations['getDetailsSnapshot']>): boolean {
     return !!selected.id && !!selected.details && (selected.status === 'ready' || selected.status === 'loading')
   }
-  private publish(snapshot: NativeAuthorRuntimeSnapshot): void { this.snapshot = snapshot; for (const listener of this.listeners) listener() }
+  private publish(snapshot: NativeAuthorRuntimeSnapshot): void {
+    this.snapshot = { ...snapshot, auxiliaryGenerating: [...this.auxiliaryGenerations.values()].some(task => task.conversationId === snapshot.conversationId && !task.shouldSilence) }
+    for (const listener of this.listeners) listener()
+  }
   private fail(error: unknown): void {
     if (this.closed) return
     this.scriptUi.close()
     this.current?.abort.abort(error)
     void this.current?.session.close().catch(cleanupError => this.options.report(cleanupError))
-    this.publish({ ...this.snapshot, status: 'error', error: error instanceof Error ? error.message : String(error) }); this.options.report(error)
+    this.publish({ ...this.snapshot, status: 'error', error: error instanceof Error ? error.message : String(error) }); this.reportTavernReadyError(error)
   }
   private async stopCurrent(): Promise<void> {
     this.scriptUi.close()
@@ -464,6 +688,11 @@ export class NativeAuthorClient {
     this.lifetime.abort(new Error('Native author runtime closed'))
     this.stops.splice(0).forEach(stop => stop())
     for (const page of this.documents) page.close()
+    for (const document of this.tavernDocuments.values()) document.dispose()
+    this.tavernDocuments.clear()
+    this.functionTools?.dispose()
+    this.tavernReadyErrors.clear()
+    await this.tavernClient.dispose()
     this.generation.dispose(); this.audio.dispose(); this.ui.clear(); this.events.clear(); this.projectEvents.clear()
     try { await this.stopCurrent() }
     finally { this.scriptUi.dispose(); this.publish({ ...this.snapshot, status: 'closed' }); this.listeners.clear() }

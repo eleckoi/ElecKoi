@@ -3,7 +3,10 @@ import { copyFileSync, existsSync, renameSync, rmSync, statSync, writeFileSync }
 import { basename } from 'node:path'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
 import { readDshSessionLog } from './trajectory'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import { assistantContinuationSuffixEvents } from '@eleckoi/dsh-client-roleplay/host/assistant-continuation.mjs'
+export type EditableSessionEvent = NonNullable<ReturnType<typeof readDshSessionLog>>['events'][number]
+export type EditableSessionJson = EditableSessionEvent['data']
+export type EditableSessionObject = Extract<EditableSessionJson, { readonly [key: string]: EditableSessionJson }>
 
 type MessageRole = 'user' | 'assistant'
 
@@ -19,11 +22,14 @@ export function editDshSessionMessage(
     && isRecord(event.data))
   if (matches.length !== 1) throw new Error('找不到唯一对应的消息；原聊天记录未修改。')
   const selected = matches[0]!
-  const data = selected.data as Record<string, unknown>
-  const message = (role === 'user' ? data : data.message) as Record<string, unknown>
+  if (!isRecord(selected.data)) throw new Error('消息事件正文不是对象；原聊天记录未修改。')
+  const data = selected.data
+  const message = role === 'user' ? data : data.message
+  if (!isRecord(message)) throw new Error('消息正文不是对象；原聊天记录未修改。')
   if (message.role !== role || !Array.isArray(message.content)) {
     throw new Error('消息角色或内容与编辑目标不一致；原聊天记录未修改。')
   }
+  const continuationEvents = role === 'assistant' ? assistantContinuationSuffixEvents(log.events, message.id) : []
   if (role === 'assistant') {
     const raw = message.content.filter(isRecord).filter(block => block.type === 'text').map(block => String(block.text || '')).join('')
     const bodyStart = raw.indexOf('<FINAL>')
@@ -33,8 +39,13 @@ export function editDshSessionMessage(
       content = `${raw.slice(0, bodyStart + '<FINAL>'.length)}\n${content}\n${raw.slice(bodyEnd)}`
     }
   }
+  if (continuationEvents.length && !content.includes('<FINAL>')) {
+    const raw = message.content.filter(isRecord).filter(block => block.type === 'text').map(block => String(block.text || '')).join('')
+    const marker = raw.indexOf('<FINAL>')
+    content = `${marker >= 0 ? raw.slice(0, marker) : ''}<FINAL>\n${content}\n</FINAL>`
+  }
   let replaced = false
-  const blocks = message.content.flatMap((part: unknown) => {
+  const blocks = message.content.flatMap((part: EditableSessionJson) => {
     if (!isRecord(part) || part.type !== 'text') return [part]
     if (replaced) return []
     replaced = true
@@ -43,8 +54,16 @@ export function editDshSessionMessage(
   if (!replaced) blocks.unshift({ type: 'text', text: content })
   const editedMessage = { ...message, content: blocks }
   const editedData = role === 'user' ? editedMessage : { ...data, message: editedMessage }
-  const events = log.events.map((event) => event === selected
-    ? { ...event, data: editedData } as typeof event : event)
+  const suffixSeqs = new Set(continuationEvents.map(event => Number(event.seq)))
+  const events = log.events.map((event) => {
+    if (event === selected) return { ...event, data: editedData }
+    if (!suffixSeqs.has(Number(event.seq))) return event
+    const data = event.data
+    if (!isRecord(data) || !isRecord(data.message) || !Array.isArray(data.message.content)) throw new Error('续写正文不是可编辑的正式消息；原聊天记录未修改。')
+    const message = data.message
+    const content = data.message.content.filter((part: EditableSessionJson) => !isRecord(part) || part.type !== 'text')
+    return { ...event, data: { ...data, message: { ...message, content: [{ type: 'text', text: '<FINAL>\n\n</FINAL>' }, ...content] } } }
+  })
   rewriteDshSessionEvents(sessionRoot, log, events)
 }
 
@@ -62,7 +81,7 @@ export function readEditableDshSessionLog(sessionRoot: string, sessionId: string
 }
 
 /** Preserve the current official format, identities and all unrelated events. */
-export function rewriteDshSessionEvents(sessionRoot: string, log: NonNullable<ReturnType<typeof readDshSessionLog>>, events: SessionEvent[]): void {
+export function rewriteDshSessionEvents(sessionRoot: string, log: NonNullable<ReturnType<typeof readDshSessionLog>>, events: readonly EditableSessionEvent[]): void {
   const sessionId = log.header.id
   const rows = [sessionFormatCatalog.encodeCurrentHeader(log.header, log.inheritedEventCount),
     ...events.map((event) => sessionFormatCatalog.encodeCurrentEvent(event))]
@@ -110,6 +129,6 @@ export function rewriteDshSessionEvents(sessionRoot: string, log: NonNullable<Re
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is EditableSessionObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

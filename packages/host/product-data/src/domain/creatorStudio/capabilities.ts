@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { parse } from '@babel/parser'
-import type { Context } from '@deepseek-ai/cordis'
+import type { CharacterCollection, CharacterRecord } from '@shared/contracts/entities/persona'
+import type { SettingLibrary, SettingLibraryEntry, SettingLibraryEntryUpdate } from '@shared/contracts/settingLibrary/schemas'
+import type { VariableConfig } from '@shared/contracts/variables/schemas'
+import type { RegexRuleCollection } from '@shared/contracts/regex/schemas'
+import type { ScriptLibraryScope } from '@shared/contracts/scripts/schemas'
 import { emptyEntry, OPENING_ENTRY_ID } from '../settingLibraries/index'
 import { settingLibraryEntryChangesSchema, settingLibraryGroupSchema } from '@shared/contracts/settingLibrary/schemas'
 import { variableItemConfigSchema, variableObjectConfigSchema, VARIABLE_INITIALIZATION_OBJECT_ID } from '@shared/contracts/variables/schemas'
@@ -60,8 +64,24 @@ export interface CreatorCapability {
   execute(characterId: string, input: unknown): unknown
 }
 
+/** Native authoring uses repository operations, independent of API Context registration. */
+export interface CreatorProductData {
+  readCharacters(): CharacterCollection
+  createCharacter(character: CharacterRecord): CharacterCollection
+  updateCharacter(character: CharacterRecord): CharacterCollection
+  readSettingLibrary(characterId: string): SettingLibrary
+  saveSettingLibrary(characterId: string, library: SettingLibrary): SettingLibrary
+  updateSettingLibraryEntries(characterId: string, updates: SettingLibraryEntryUpdate[]): SettingLibraryEntry[]
+  readVariableConfig(characterId: string): VariableConfig
+  saveVariableConfig(characterId: string, config: VariableConfig): VariableConfig
+  readScriptLibrary(scope: ScriptLibraryScope, ownerId: string): ScriptLibrary
+  saveScriptLibrary(library: ScriptLibrary): ScriptLibrary
+  readRegexRules(characterId: string): RegexRuleCollection
+  saveRegexRules(characterId: string, collection: RegexRuleCollection, expectedRevision: number): RegexRuleCollection
+}
+
 /** Permanent character authoring operations. The target identity comes from the Session. */
-export function creatorCapabilities(data: Context['eleckoiProductData']): CreatorCapability[] {
+export function creatorCapabilities(data: CreatorProductData): CreatorCapability[] {
   const catalog: CreatorCapability[] = []
   function operation<T extends z.ZodType>(toolsetId: string, name: string, title: string, effect: 'read' | 'write', schema: T, execute: (characterId: string, input: z.output<T>) => unknown, target: CreatorCapability['target'] = 'selected-character') {
     catalog.push({ id: `${toolsetId}.${name}`, toolsetId, title, effect, target,
@@ -94,7 +114,7 @@ export function creatorCapabilities(data: Context['eleckoiProductData']): Creato
   operation('settings', 'create', '新增设定条目', 'write', settingChanges, (characterId, input) => {
     const library = data.readSettingLibrary(characterId)
     const base = emptyEntry()
-    const entry = { ...base, openingMessages: base.openingMessages.map(defined), ...defined(input), order: library.entries.length + 1 }
+    const entry = { ...defined(base), openingMessages: base.openingMessages.map(defined), ...defined(input), order: library.entries.length + 1 }
     assertSettingFormat(entry)
     return find(data.saveSettingLibrary(characterId, { ...library, entries: [...library.entries, entry] }).entries, entry.id)
   })
@@ -114,7 +134,7 @@ export function creatorCapabilities(data: Context['eleckoiProductData']): Creato
   })
   operation('settings', 'create_group', '新增设定文件夹', 'write', mutableGroup.strict(), (characterId, input) => {
     const library = data.readSettingLibrary(characterId), timestamp = stamp()
-    const group = { ...input, id: randomUUID(), createdAt: timestamp, updatedAt: timestamp }
+    const group = { ...defined(input), id: randomUUID(), createdAt: timestamp, updatedAt: timestamp }
     data.saveSettingLibrary(characterId, { ...library, groups: [...library.groups, group] })
     return group
   })

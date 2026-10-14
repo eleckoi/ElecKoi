@@ -1,3 +1,5 @@
+import type { NativeVariableEditorScope } from '../variable-editor.js'
+import type { EditingVariableTarget, EditingVariableSchemaDescription } from '@eleckoi/tavern-native'
 import type { AuthorScriptStatus, AuthorScriptPanel } from '@eleckoi/author-sdk'
 import type { NativeFrontendClient } from '../frontends.js'
 
@@ -6,6 +8,7 @@ export interface NativeAuthorRuntimeSnapshot {
   conversationId: string
   error: string
   scriptStatuses: Record<string, AuthorScriptStatus & { scope: string; ownerId: string; source: string }>
+  auxiliaryGenerating?: boolean
 }
 
 export interface NativeAuthorPanel extends AuthorScriptPanel {
@@ -18,6 +21,7 @@ export interface NativeAuthorUiSnapshot {
 }
 
 export type NativeAuthorChatHandlers = Record<string, (params: Record<string, unknown>) => unknown | Promise<unknown>>
+export type NativeAuthorDocumentRelease = (() => void) & { ready: Promise<void> }
 export type NativeAuthorProjectContext = { projectId: string; entryFile: string; view: string } & (
   | { scope: 'application' }
   | { scope: 'character'; characterId: string; conversationId?: string }
@@ -25,6 +29,13 @@ export type NativeAuthorProjectContext = { projectId: string; entryFile: string;
 
 /** 正式原生作者页面与脚本运行服务。 */
 export interface ElecKoiAuthorRuntime {
+  /** Manual variable editing shares native scopes, live schema objects and ordered persistence. */
+  getVariableSchemaRevision(): number
+  subscribeVariableSchemas(listener: () => void): () => void
+  listVariableEditorScopes(conversationId: string): Promise<NativeVariableEditorScope[]>
+  readVariableEditorScope(conversationId: string, target: EditingVariableTarget): Promise<Record<string, unknown>>
+  describeVariableEditorSchema(target: EditingVariableTarget, variables: Record<string, unknown>): Promise<EditingVariableSchemaDescription>
+  saveVariableEditorScope(conversationId: string, target: EditingVariableTarget, variables: Record<string, unknown>): Promise<Record<string, unknown>>
   /** 读取当前运行状态。
    * @returns 当前聊天与各脚本的运行状态。
    */
@@ -34,6 +45,8 @@ export interface ElecKoiAuthorRuntime {
    * @returns 取消订阅函数。
    */
   subscribe(listener: () => void): () => void
+  /** Stop non-silent auxiliary requests attached to the current chat's stop button. */
+  stopAuxiliaryGenerations(conversationId: string): Promise<boolean>
   /** 读取当前脚本按钮与作者面板。
    * @returns 仅包含当前程序代际的界面注册。
    */
@@ -58,7 +71,7 @@ export interface ElecKoiAuthorRuntime {
    * @param key - 界面快照中的面板编号。
    * @returns 撤回本页面 SDK 的函数。
    */
-  mountScriptPanelDocument(target: Window, key: string): () => void
+  mountScriptPanelDocument(target: Window, key: string): NativeAuthorDocumentRelease
   /** 注册指定聊天的输入框操作。
    * @param conversationId - 聊天编号。
    * @param handlers - 页面实际实现的操作。
@@ -71,13 +84,13 @@ export interface ElecKoiAuthorRuntime {
    * @param messageId - 所属消息编号；聊天页面传空字符串。
    * @returns 关闭该页面 SDK 的函数。
    */
-  mountDocument(target: Window, conversationId: string, messageId: string): () => void
+  mountDocument(target: Window, conversationId: string, messageId: string): NativeAuthorDocumentRelease
   /** 在项目页面安装 SDK；应用项目跟随选择，角色项目只操作明确所属角色的聊天。
    * @param target - 同源项目页面窗口。
    * @param project - 明确项目编号、入口、窗口及所属角色；聊天页面还须提供所属聊天。
    * @returns 关闭该页面 SDK 的函数。
    */
-  mountProjectDocument(target: Window, project: NativeAuthorProjectContext): () => void
+  mountProjectDocument(target: Window, project: NativeAuthorProjectContext): NativeAuthorDocumentRelease
 }
 
 declare module '@deepseek-ai/cordis' {

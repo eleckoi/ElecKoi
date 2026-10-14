@@ -310,6 +310,20 @@ window.__ModuleLoader__.load({
       return attachment?.attachmentId ? [{ ...attachment }] : []
     }) : []
 
+    function officialPromptContent(input) {
+      const content = []
+      if (typeof input.text === 'string' && input.text.length > 0) content.push({ type: 'text', text: input.text })
+      for (const image of Array.isArray(input.images) ? input.images : []) {
+        if (!image?.data || !image?.mediaType) continue
+        content.push({ type: 'image', data: image.data, mediaType: image.mediaType, ...(image.name ? { name: image.name } : {}) })
+      }
+      for (const file of Array.isArray(input.files) ? input.files : []) {
+        if (typeof file !== 'string' || !file) continue
+        content.push({ type: 'file', receiptId: file })
+      }
+      return content
+    }
+
     async function waitForOfficialSession(session, eventSource, requestId, executionTurn) {
       return new Promise((resolve, reject) => {
         let settled = false
@@ -384,7 +398,7 @@ window.__ModuleLoader__.load({
       })
     }
 
-    function officialMessages(snapshot, details, runtimeSessionId, processByTurn = new Map(), pendingSubmissions = [], sessionRunning, inputLinks = [], abortedTurns = [], regeneratingInputTurn, illustrations = []) {
+    function officialMessages(snapshot, details, runtimeSessionId, processByTurn = new Map(), pendingSubmissions = [], sessionRunning, inputLinks = [], abortedTurns = [], regeneratingInputTurn, illustrations = [], groupResponses = []) {
       if (!snapshot) return (details?.messages || []).filter(message => message.id === 'opening')
       const entries = orderedChatEntries(snapshot)
       const nodes = entries.map(entry => entry.node)
@@ -401,7 +415,7 @@ window.__ModuleLoader__.load({
       const aborted = new Set(abortedTurns)
       const closedTurns = new Set(nodes.filter(node => node.kind === 'turn-tail' && node.data?.closing)
         .map(nodeTurn).filter(Number.isSafeInteger))
-      const supersededInputTurns = new Set(inputLinks.filter(link => Number.isSafeInteger(link.inputTurn)
+      const supersededInputTurns = new Set(inputLinks.filter(link => link.mode !== 'continue' && Number.isSafeInteger(link.inputTurn)
         && link.inputTurn > 0 && link.inputTurn !== link.turn).map(link => link.inputTurn))
       if (Number.isSafeInteger(regeneratingInputTurn) && regeneratingInputTurn > 0) supersededInputTurns.add(regeneratingInputTurn)
       const latestOpenAssistantByTurn = new Map()
@@ -422,6 +436,7 @@ window.__ModuleLoader__.load({
         const node = entry.node
         if (node.kind === 'user' || node.kind === 'steering') {
           const input = node.data
+          if (['plugin:eleckoi-assistant-continuation', 'plugin:eleckoi-group-response'].includes(input.source?.kind)) return []
           const dshTurn = projectedUserTurn(nodes, nodeIndex)
           return [{
             role: 'user', seq: input.seq, time: input.time, content: contentText(input.content),
@@ -520,6 +535,7 @@ window.__ModuleLoader__.load({
           matched.set(index, source)
         }
       }
+      const actors = new Map(groupResponses.map(actor => [actor.turn, actor]))
       const visible = projected.map((item, index) => {
         const source = matched.get(index)
         const id = source?.id || item.dshMessageId || item.nodeKey || (item.requestId
@@ -529,7 +545,10 @@ window.__ModuleLoader__.load({
           ? details?.runtimeVariableStateByTurn?.[String(item.dshTurn)]
           : undefined
         const message = {
-          ...(source || {}), id, conversationId: details?.conversation?.id || source?.conversationId || '',
+          ...(source || {}), ...(item.role === 'assistant' && actors.has(item.dshTurn) ? {
+            groupId: actors.get(item.dshTurn).groupId, speakerCharacterId: actors.get(item.dshTurn).characterId,
+            speakerName: actors.get(item.dshTurn).speakerName, speakerAvatar: actors.get(item.dshTurn).speakerAvatar
+          } : {}), id, conversationId: details?.conversation?.id || source?.conversationId || '',
           ...(Number.isInteger(source?.productSequence ?? source?.sequence) ? { productSequence: source.productSequence ?? source.sequence } : {}),
           runtimeSessionId, dshMessageId: item.dshMessageId || source?.dshMessageId || '',
           sessionEventSeq: item.sessionEventSeq,
@@ -537,7 +556,7 @@ window.__ModuleLoader__.load({
           ...(Object.prototype.hasOwnProperty.call(item, 'dshTurn') ? { dshTurn: item.dshTurn } : {}),
           ...(item.role === 'assistant' && Number.isSafeInteger(item.dshTurn) ? {
             dshTurn: item.dshTurn,
-            inputEventSeq: inputLinks.find(link => link.turn === item.dshTurn)?.inputEventSeq,
+            inputEventSeq: actors.get(item.dshTurn)?.inputEventSeq ?? inputLinks.find(link => link.turn === item.dshTurn)?.inputEventSeq,
             renderKey: `dsh-reply-${runtimeSessionId}-${item.dshTurn}`
           } : {}),
           ...(item.nodeKey ? { dshNodeKey: item.nodeKey } : {}),
@@ -571,6 +590,7 @@ window.__ModuleLoader__.load({
         const hasText = String(message.content || '').trim().length > 0
         return { message, keep: hasText || hasAttachments || hasProcess || message.status === 'streaming' }
       }).filter(item => item.keep).map(item => item.message)
+      mergeAssistantContinuations(visible, inputLinks)
       const anchor = visible.findIndex(message => Number.isSafeInteger(matched.get(projected.findIndex(item => item.seq === message.sequence))?.messageIndex))
       const firstFloor = !details?.hasMore || anchor < 0 ? opening.length : Math.max(opening.length,
         matched.get(projected.findIndex(item => item.seq === visible[anchor].sequence)).messageIndex
@@ -578,6 +598,31 @@ window.__ModuleLoader__.load({
       let messageFloor = firstFloor
       return [...opening, ...visible.map(message => ({ ...message,
         messageIndex: message.kind === 'turn-error' ? undefined : messageFloor++ }))]
+    }
+
+    /** Fold durable continuation turns into their original bubble without changing Session history. */
+    function mergeAssistantContinuations(messages, links) {
+      for (const link of links.filter(value => value.mode === 'continue').sort((a,b) => a.turn - b.turn)) {
+        const target = messages.find(message => message.role === 'assistant'
+          && (message.dshMessageId === link.targetAssistantMessageId || message.continuationMessageIds?.includes(link.targetAssistantMessageId)))
+        const suffix = messages.find(message => message.role === 'assistant' && message.dshTurn === link.turn)
+        if (!suffix || target === suffix) continue
+        if (!target) { if (!String(suffix.content || '').trim()) messages.splice(messages.indexOf(suffix),1); continue }
+        const body = finalReplyText(String(target.content || '')) + finalReplyText(String(suffix.content || ''))
+        target.content = body
+        target.displayContent = String(target.displayContent ?? '') + String(suffix.displayContent ?? '')
+        target.status = suffix.status
+        target.dshTurn = suffix.dshTurn
+        target.inputEventSeq = link.inputEventSeq
+        target.process = mergedProcess(target.process, suffix.process)
+        target.generatedImageAttachments = [...(target.generatedImageAttachments || []), ...(suffix.generatedImageAttachments || [])]
+        target.continuationMessageIds = [...(target.continuationMessageIds || []), suffix.dshMessageId].filter(Boolean)
+        target.continuationEventSeqs = [...(target.continuationEventSeqs || []), suffix.sessionEventSeq].filter(Number.isSafeInteger)
+        target.continuationTurns = [...(target.continuationTurns || []), suffix.dshTurn]
+        target.nativeVariableStateJson = suffix.nativeVariableStateJson
+        target.variableStateJson = suffix.variableStateJson
+        messages.splice(messages.indexOf(suffix),1)
+      }
     }
 
     class ConversationCatalog {
@@ -607,6 +652,7 @@ window.__ModuleLoader__.load({
         this.streamStateKey = streamSnapshotKey(this.streamState)
         this.streamListeners = new Set()
         this.generationListeners = new Set()
+        this.groupGenerationListeners = new Set()
         this.streamGeneration = 0
         this.streamFrame = undefined
         // A DSH cancel is asynchronous. Keep the run identity locally so
@@ -675,6 +721,15 @@ window.__ModuleLoader__.load({
 
       publishGeneration(change) {
         for (const listener of this.generationListeners) listener(change)
+      }
+
+      subscribeGroupGeneration = listener => {
+        this.groupGenerationListeners.add(listener)
+        return () => this.groupGenerationListeners.delete(listener)
+      }
+
+      async publishGroupGeneration(change) {
+        for (const listener of this.groupGenerationListeners) await listener(change)
       }
 
       getGenerationReply(runtimeSessionId, turn, eventSeq) {
@@ -1334,7 +1389,7 @@ window.__ModuleLoader__.load({
         const session = this.sessionReference?.binding?.session
         const sessionRunning = session ? session.getSnapshot().running === true : undefined
         const next = { ...details, runtimeSessionId, hasMore,
-          messages: chat ? officialMessages(chat, { ...details, hasMore }, runtimeSessionId, this.officialProcess(chat), [], sessionRunning, this.inputContinuations(runtimeSessionId), this.abortedTurns(runtimeSessionId), this.regeneratingInputTurn(runtimeSessionId), this.illustrations(runtimeSessionId))
+          messages: chat ? officialMessages(chat, { ...details, hasMore }, runtimeSessionId, this.officialProcess(chat), [], sessionRunning, this.inputContinuations(runtimeSessionId), this.abortedTurns(runtimeSessionId), this.regeneratingInputTurn(runtimeSessionId), this.illustrations(runtimeSessionId), this.groupResponses(runtimeSessionId))
             : details.messages.filter(message => message.id === 'opening') }
         if (chat) next.beforeSequence = next.messages.find(message => message.id !== 'opening')?.sequence ?? null
         this.publishDetails({
@@ -1428,6 +1483,13 @@ window.__ModuleLoader__.load({
           // and message identities distinguish that retired turn from a stop.
           return { ...link, inputTurn: input && input.messageId === link.inputMessageId ? input.turn : undefined }
         })
+      }
+
+      groupResponses(runtimeSessionId) {
+        const reference = this.sessionReference
+        if (reference?.sessionId !== runtimeSessionId) return []
+        const value = reference.binding.session.projections?.faceOf('eleckoiGroupResponses')?.getSnapshot()
+        return Array.isArray(value?.responses) ? value.responses : []
       }
 
       illustrations(runtimeSessionId) {
@@ -1657,6 +1719,7 @@ window.__ModuleLoader__.load({
           const subagentCatalogFace = binding.session.projections?.faceOf('subagentCatalog')
           const inputContinuationsFace = binding.session.projections?.faceOf('eleckoiInputContinuations')
           const turnOutcomesFace = binding.session.projections?.faceOf('eleckoiTurnOutcomes')
+          const groupResponsesFace = binding.session.projections?.faceOf('eleckoiGroupResponses')
           const illustrationsFace = binding.session.projections?.faceOf('eleckoiIllustrations')
           const inboxFace = binding.session.projections?.faceOf('inbox')
           const publishProjections = () => {
@@ -1701,6 +1764,7 @@ window.__ModuleLoader__.load({
             subagentCatalogFace?.subscribe(publishSubagents),
             inputContinuationsFace?.subscribe(() => { publishProjections(); publish() }),
             turnOutcomesFace?.subscribe(publish),
+            groupResponsesFace?.subscribe(publish),
             illustrationsFace?.subscribe(publish),
             inboxFace?.subscribe(publish),
             this.sessions.list.subscribe?.(publishSubagents),
@@ -1731,7 +1795,7 @@ window.__ModuleLoader__.load({
           if (!this.sameOfficialProjection(signature, this.officialProjectionSignature)) {
             const next = {
               ...details, runtimeSessionId,
-              messages: officialMessages(chat, { ...details, hasMore }, runtimeSessionId, processByTurn, pendingSubmissions, sessionRunning, this.inputContinuations(runtimeSessionId), this.abortedTurns(runtimeSessionId), this.regeneratingInputTurn(runtimeSessionId), this.illustrations(runtimeSessionId)),
+              messages: officialMessages(chat, { ...details, hasMore }, runtimeSessionId, processByTurn, pendingSubmissions, sessionRunning, this.inputContinuations(runtimeSessionId), this.abortedTurns(runtimeSessionId), this.regeneratingInputTurn(runtimeSessionId), this.illustrations(runtimeSessionId), this.groupResponses(runtimeSessionId)),
               hasMore,
             }
             next.beforeSequence = next.messages.find(message => message.id !== 'opening')?.sequence ?? null
@@ -1767,8 +1831,12 @@ window.__ModuleLoader__.load({
         const sameLiveTurn = current.id === id && current.status === 'running'
           && (current.dshTurn === openTurn || (openTurn === undefined && retiredTurns.has(current.dshTurn)))
         const projectedReply = liveFinalReply(assistantText(runningAssistant?.data?.blocks))
-        const content = projectedReply.started ? projectedReply.content
+        let content = projectedReply.started ? projectedReply.content
           : !runningAssistant && sameLiveTurn ? current.content : ''
+        const continuation = this.inputContinuations(runtimeSessionId).find(link => link.mode === 'continue' && link.turn === openTurn)
+        const continuationMessage = continuation && details?.messages?.find(message => message.role === 'assistant'
+          && (message.dshMessageId === continuation.targetAssistantMessageId || message.continuationMessageIds?.includes(continuation.targetAssistantMessageId)))
+        if (continuationMessage) content = continuationMessage.displayContent ?? continuationMessage.content ?? content
         const promptError = sessionState.promptError?.op === 'send'
           ? sessionState.promptError.error?.message || '生成失败。'
           : ''
@@ -1850,11 +1918,11 @@ window.__ModuleLoader__.load({
             || (sameLiveTurn && Boolean(current.messageId)))
           this.publishStream({
             id, status: 'running', runId: runtimeSessionId, requestId: '',
-            messageId: hasLiveMessage ? runningAssistant?.data?.messageId
+            messageId: hasLiveMessage ? continuationMessage?.dshMessageId || runningAssistant?.data?.messageId
               || (sameLiveTurn ? current.messageId : '') : '',
             nodeKey: hasLiveMessage ? runningAssistant?.key
               || (sameLiveTurn ? current.nodeKey : '') : '',
-            renderKey: `dsh-reply-${runtimeSessionId}-${openTurn}`,
+            renderKey: continuationMessage?.renderKey || `dsh-reply-${runtimeSessionId}-${openTurn}`,
             dshTurn: openTurn,
             sequence: current.id === id ? current.sequence + 1 : 1,
             content, process, error: ''
@@ -1906,6 +1974,8 @@ window.__ModuleLoader__.load({
         if (!this.sessions || !this.uiConversation || !this.remote?.session) {
           throw new Error('DSH 会话客户端尚未就绪。')
         }
+        const groupId = this.detailsSnapshot.id === input.conversationId ? this.detailsSnapshot.details?.metadata?.groupId : null
+        if (groupId) return this.groupGenerate({ ...input, groupId })
         return this.runRequest(input, request => this.runOfficialPrompt(input, request))
       }
 
@@ -1961,6 +2031,81 @@ window.__ModuleLoader__.load({
         } catch (error) {
           return { kind: 'error', text: error?.message || '准备 DSH 会话失败。' }
         }
+      }
+
+      async groupGenerate(input) {
+        if (this.disposed || !input?.conversationId || !input.groupId || !input.requestId)
+          throw new Error('无法开始群聊回复。')
+        if (!this.sessions || !this.uiConversation || !this.remote?.session)
+          throw new Error('DSH 群聊客户端尚未就绪。')
+        return this.runRequest(input, request => this.runOfficialGroup(input,request))
+      }
+
+      async runOfficialGroup(input, request) {
+        const nativeDetails = this.unwrap(await this.remote.eleckoiConversations.details(input.conversationId,undefined,undefined),'读取群聊详情失败。')
+        const runtimeSessionId = nativeDetails.runtimeSessionId
+        if (!this.sessions.list.getSnapshot().byId[runtimeSessionId]) await this.sessions.refresh()
+        return this.sessions.using(runtimeSessionId,{source:'controllerOperation'},async reference => {
+        const binding = await reference.ready, session = binding.session
+        request.session = session
+        const actors = this.unwrap(await this.remote.eleckoiTavernCompatibility.invoke(input.conversationId,'group.members', {
+          groupId: input.groupId, ...(input.memberIds ? { memberIds: input.memberIds } : {}),
+          ...(typeof input.text === 'string' ? { text: input.text } : {}), isUserInput: input.text !== undefined || Boolean(input.images?.length || input.files?.length)
+        }), '读取群聊成员失败。')
+        const members = []
+        let cancelled = request.cancelled || input.signal?.aborted
+        const lifecycle = { conversationId: input.conversationId, groupId: input.groupId, requestId: input.requestId }
+        try {
+        await this.publishGroupGeneration({ ...lifecycle, phase: 'started' })
+        for (const [index, actor] of actors.entries()) {
+          if (request.cancelled || input.signal?.aborted) { cancelled = true; break }
+          await this.publishGroupGeneration({ ...lifecycle, phase: 'member', characterId: actor.characterId })
+          const requestId = `${input.requestId}:${actor.characterId}`
+          const prepared = this.unwrap(await this.remote.eleckoiConversations.generateGroupMember(
+            input.conversationId,input.groupId,actor.characterId,index === 0 ? input.text : undefined,
+            requestId,input.options || {},index === 0 && (input.text !== undefined || input.images?.length || input.files?.length) ? officialPromptContent(input) : undefined,
+            input.mode === 'steer' ? 'steer' : 'queue',input.signal), '群聊成员生成失败。')
+          members.push({ characterId: actor.characterId, requestId, turn: prepared.turn, operationId: prepared.operationId })
+          if (request.cancelled || input.signal?.aborted) this.unwrap(await session.cancel(), '停止群聊失败。')
+          const completed = await waitForOfficialSession(session,reference.binding.eventSource,requestId,prepared.turn)
+          this.unwrap(await this.remote.eleckoiConversations.waitForGeneration(input.conversationId,prepared.operationId), '等待群聊保存失败。')
+          if (completed.cancelled || request.cancelled || input.signal?.aborted) { cancelled = true; break }
+        }
+        } finally { await this.publishGroupGeneration({ ...lifecycle, phase: 'finished' }) }
+        let details
+        if (this.detailsSnapshot.id === input.conversationId) details = await this.refreshDetails()
+        else {
+          const saved = this.unwrap(await this.remote.eleckoiConversations.details(input.conversationId,undefined,undefined),'读取群聊详情失败。')
+          const snapshot = this.unwrap(await this.remote.eleckoiTavernCompatibility.snapshot(input.conversationId),'读取原群聊正文失败。')
+          details = { ...saved, messages: snapshot.messages }
+        }
+        return { details: this.assertDetails(details,input.conversationId), cancelled: Boolean(cancelled), members }
+        })
+      }
+
+
+      async continue(input) {
+        if (this.disposed || !input?.conversationId || !input.requestId) throw new Error('无法续写这条模型回复。')
+        if (!this.sessions || !this.uiConversation || !this.remote?.session) throw new Error('DSH 会话客户端尚未就绪。')
+        return this.runRequest(input, request => this.runOfficialContinuation(input,request))
+      }
+
+      async runOfficialContinuation(input, request) {
+        if (!this.sessionReference || this.sessionReference.sessionId !== this.runtimeSessionId(input.conversationId))
+          await this.bindOfficialSession(input.conversationId)
+        const reference = this.sessionReference, session = reference?.binding.session
+        if (!session) throw new Error('当前聊天的 DSH Session 尚未连接。')
+        request.session = session
+        if (request.cancelled || input.signal?.aborted) return { details: await this.refreshDetails(), cancelled: true }
+        const prepared = this.unwrap(await this.remote.eleckoiConversations.continueMessage(
+          input.conversationId,input.requestId,input.signal), '续写请求失败。')
+        if (request.cancelled || input.signal?.aborted) this.unwrap(await session.cancel(), '停止生成失败。')
+        const completed = await waitForOfficialSession(session,reference.binding.eventSource,input.requestId,prepared.turn)
+        if (prepared.operationId) this.unwrap(await this.remote.eleckoiConversations.waitForGeneration(
+          input.conversationId,prepared.operationId), '等待聊天保存失败。')
+        const details = this.detailsSnapshot.id === input.conversationId ? await this.refreshDetails()
+          : this.unwrap(await this.remote.eleckoiConversations.details(input.conversationId,undefined,undefined),'读取会话详情失败。')
+        return { details: this.assertDetails(details,input.conversationId), cancelled: completed.cancelled || request.cancelled }
       }
 
       async regenerate(input) {
@@ -2031,16 +2176,7 @@ window.__ModuleLoader__.load({
         if (request.cancelled || input.signal?.aborted) {
           return { details: await this.refreshDetails(), cancelled: true }
         }
-        const content = []
-        if (typeof input.text === 'string' && input.text.length > 0) content.push({ type: 'text', text: input.text })
-        for (const image of Array.isArray(input.images) ? input.images : []) {
-          if (!image?.data || !image?.mediaType) continue
-          content.push({ type: 'image', data: image.data, mediaType: image.mediaType, ...(image.name ? { name: image.name } : {}) })
-        }
-        for (const file of Array.isArray(input.files) ? input.files : []) {
-          if (typeof file !== 'string' || !file) continue
-          content.push({ type: 'file', receiptId: file })
-        }
+        const content = officialPromptContent(input)
         const accepted = await session.prompt(content, input.mode === 'steer' ? 'steer' : 'queue', input.signal, input.requestId)
         if (!accepted?.ok) throw new Error(accepted?.error?.message || '生成请求失败。')
         if (request.cancelled || input.signal?.aborted) this.unwrap(await session.cancel(), '停止生成失败。')
@@ -2246,7 +2382,7 @@ window.__ModuleLoader__.load({
           const sessionRunning = session ? session.getSnapshot().running === true : undefined
           const projected = chat
             ? { ...details, runtimeSessionId, hasMore,
-              messages: officialMessages(chat, { ...details, hasMore }, runtimeSessionId, this.officialProcess(chat), [], sessionRunning, this.inputContinuations(runtimeSessionId), this.abortedTurns(runtimeSessionId), this.regeneratingInputTurn(runtimeSessionId), this.illustrations(runtimeSessionId)) }
+              messages: officialMessages(chat, { ...details, hasMore }, runtimeSessionId, this.officialProcess(chat), [], sessionRunning, this.inputContinuations(runtimeSessionId), this.abortedTurns(runtimeSessionId), this.regeneratingInputTurn(runtimeSessionId), this.illustrations(runtimeSessionId), this.groupResponses(runtimeSessionId)) }
             : details
           if (chat) projected.beforeSequence = projected.messages.find(message => message.id !== 'opening')?.sequence ?? null
           if (generation === this.detailGeneration) {
@@ -2311,7 +2447,7 @@ window.__ModuleLoader__.load({
           const metadata = { ...latest.details, messages: [...page.messages, ...latest.details.messages] }
           const hasMore = Boolean(this.sessionReference.binding.eventSource.getSnapshot().hasMore)
           const sessionRunning = session ? session.getSnapshot().running === true : undefined
-          const messages = officialMessages(chat, { ...metadata, hasMore }, latest.runtimeSessionId, this.officialProcess(chat), [], sessionRunning, this.inputContinuations(latest.runtimeSessionId), this.abortedTurns(latest.runtimeSessionId), this.regeneratingInputTurn(latest.runtimeSessionId), this.illustrations(latest.runtimeSessionId))
+          const messages = officialMessages(chat, { ...metadata, hasMore }, latest.runtimeSessionId, this.officialProcess(chat), [], sessionRunning, this.inputContinuations(latest.runtimeSessionId), this.abortedTurns(latest.runtimeSessionId), this.regeneratingInputTurn(latest.runtimeSessionId), this.illustrations(latest.runtimeSessionId), this.groupResponses(latest.runtimeSessionId))
           const next = { ...latest.details, messages, hasMore,
             beforeSequence: messages.find(message => message.id !== 'opening')?.sequence ?? null }
           this.publishDetails({ ...latest, status: 'ready', error: '', details: next })
@@ -2428,6 +2564,7 @@ window.__ModuleLoader__.load({
         this.timelineListeners.clear()
         this.streamListeners.clear()
         this.generationListeners.clear()
+        this.groupGenerationListeners.clear()
         this.statsListeners.clear()
       }
     }

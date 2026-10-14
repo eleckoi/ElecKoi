@@ -3,13 +3,14 @@ import { createPortal } from 'react-dom';
 import { buildAuthorDocumentSource } from '@eleckoi/author-sdk';
 import { ArrowClockwise, X } from '../../../ui/icons/interfaceIcons.jsx';
 import '../styles/native-script-ui.css';
+import { activateFrontendScripts, deferFrontendScripts } from '../../authorFrontend/model/sharedFrontendDocument.js';
 
 /** The modal owns DOM lifetime; the injected Client service owns the exact script identity. */
 export function NativeScriptPanel({ runtime, panel }) {
   const dialog = useRef(null), frame = useRef(null), release = useRef(null);
   const [error, setError] = useState(''), [ready, setReady] = useState(false), [reload, setReload] = useState(0);
   const channel = useMemo(() => crypto.randomUUID(), [panel.key, reload]);
-  const source = useMemo(() => buildAuthorDocumentSource(panel.html, channel, false, { baseUrl: panel.baseUrl }), [panel.html, panel.baseUrl, channel]);
+  const source = useMemo(() => buildAuthorDocumentSource(deferFrontendScripts(panel.html), channel, false, { baseUrl: panel.baseUrl }), [panel.html, panel.baseUrl, channel]);
   const close = () => runtime.dismissPanel(panel.key);
   useLayoutEffect(() => {
     setError(''); setReady(false);
@@ -29,17 +30,23 @@ export function NativeScriptPanel({ runtime, panel }) {
     target.showModal();
     return () => { target.close(); if (previous?.isConnected) previous.focus(); };
   }, []);
-  const loaded = () => {
+  const loaded = async () => {
     const target = frame.current?.contentWindow;
     if (!target || release.current) return;
-    let complete;
+    let complete, mounted;
+    const current = () => frame.current?.contentWindow === target && target.__ElecKoiDocumentChannel === channel && release.current === mounted;
     try {
       complete = target.__ElecKoiCompleteDocument;
       if (target.__ElecKoiDocumentChannel !== channel) throw new Error('作者面板已离开所属文档');
-      release.current = runtime.mountScriptPanelDocument(target, panel.key);
+      mounted = runtime.mountScriptPanelDocument(target, panel.key);
+      release.current = mounted;
       target.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
+      await mounted.ready;
+      if (!current()) return;
       complete(target.ElecKoi);
+      await activateFrontendScripts(target, current);
     } catch (failure) {
+      if (mounted && !current()) return;
       release.current?.(); release.current = null;
       complete?.(undefined, failure);
       setError(failure.message || String(failure));

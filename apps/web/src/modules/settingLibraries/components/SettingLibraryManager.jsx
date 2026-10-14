@@ -16,6 +16,7 @@ import {
 } from "../../../ui/icons/interfaceIcons.jsx";
 import { ExportIcon, ImportIcon } from "../../../ui/icons/index.jsx";
 import { VersionNameDialog } from "../../../ui/ui/VersionNameDialog.jsx";
+import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
 import {
   createLibraryVersion,
   deleteActiveLibraryVersion,
@@ -144,7 +145,7 @@ function flattenGroups(groups) {
   return result;
 }
 
-async function saveJsonFile(json, suggestedName) {
+export async function exportJson(json, suggestedName) {
   if (typeof window.showSaveFilePicker === "function") {
     const handle = await window.showSaveFilePicker({
       suggestedName,
@@ -164,6 +165,7 @@ async function saveJsonFile(json, suggestedName) {
 }
 
 export function SettingLibraryManager({ characterId, settingLibraries, library, onChange, onClose, onError }) {
+  const { autoFocusInputs = true } = useEditorPresentation();
   const [page, setPage] = useState("home");
   const [dialog, setDialog] = useState("");
   const [notice, setNotice] = useState("");
@@ -276,7 +278,7 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
     try {
       onError("");
       const safeName = (current.name.trim() || "setting-library").replace(/[\\/:*?"<>|]/g, "-");
-      await saveJsonFile(serializeSettingLibrary(current), `${safeName}.json`);
+      await exportJson(serializeSettingLibrary(current), `${safeName}.json`);
       setNotice("设定库已导出");
     } catch (cause) {
       if (cause?.name !== "AbortError") onError(cause?.message || "导出设定库失败");
@@ -371,6 +373,7 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
       ) : null}
 
         {dialog.type === "copy" || dialog.type === "create" ? <VersionNameDialog
+          autoFocus={autoFocusInputs}
           title={dialog.type === "copy" ? "复制当前版本" : "创建空白版本"} versions={current.versions}
           confirmLabel={dialog.type === "copy" ? "复制" : "创建"}
           onCancel={() => setDialog("")} onCreate={(name) => {

@@ -1,7 +1,7 @@
 import { SystemBarOverlay } from './SystemBarOverlay.jsx';
 import { useEffect, useId, useRef, useState } from 'react';
 
-export function VersionNameDialog({ title, confirmLabel, versions, onCancel, onCreate }) {
+export function VersionNameDialog({ title, confirmLabel, versions, onCancel, onCreate, autoFocus = true }) {
   const titleId = useId();
   const errorId = useId();
   const inputRef = useRef(null);
@@ -11,7 +11,8 @@ export function VersionNameDialog({ title, confirmLabel, versions, onCancel, onC
 
   useEffect(() => {
     const previousFocus = document.activeElement;
-    inputRef.current?.focus();
+    if (autoFocus) inputRef.current?.focus();
+    else formRef.current?.focus({ preventScroll: true });
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -32,11 +33,11 @@ export function VersionNameDialog({ title, confirmLabel, versions, onCancel, onC
       window.removeEventListener('keydown', onKeyDown, true);
       if (previousFocus?.isConnected) previousFocus.focus();
     };
-  }, [onCancel]);
+  }, [onCancel, autoFocus]);
 
   return (
     <SystemBarOverlay className="version-name-overlay" role="presentation" onMouseDown={onCancel}>
-      <form ref={formRef} className="version-name-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}
+      <form ref={formRef} tabIndex={-1} className="version-name-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}
         onMouseDown={(event) => event.stopPropagation()} onSubmit={(event) => {
           event.preventDefault();
           const normalized = name.trim();

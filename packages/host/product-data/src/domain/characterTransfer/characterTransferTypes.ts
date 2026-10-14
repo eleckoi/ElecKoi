@@ -1,3 +1,4 @@
+import type { CharacterExpression } from '@shared/contracts/entities/persona'
 import type { RegexRule } from '@shared/contracts/regex/schemas'
 import type { SettingLibrary } from '@shared/contracts/settingLibrary/schemas'
 import type { VariableConfig } from '@shared/contracts/variables/schemas'
@@ -15,6 +16,7 @@ export interface PortableCharacter {
   imagePrompt: string
   opening: string
   showOpening: boolean
+  expressions?: CharacterExpression[]
 }
 
 export interface PortableAsset {

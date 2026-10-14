@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { buildAuthorDocumentSource } from '@eleckoi/author-sdk';
 import { frontendAssetUrl } from '../model/applicationFrontendTargets.js';
+import { activateFrontendScripts, deferFrontendScripts } from '../model/sharedFrontendDocument.js';
 
 /** Native project documents contain only their own assets and the native SDK bootstrap. */
 export function NativeProjectFrame({ content, project, entryFile, revision, context, runtime, onError }) {
@@ -17,7 +18,7 @@ export function NativeProjectFrame({ content, project, entryFile, revision, cont
   const fullHeight = context?.binding?.target === 'root' || context?.binding?.target === 'page' || context?.binding?.slot === 'main';
   const source = useMemo(() => {
     const folder = entryFile.includes('/') ? entryFile.slice(0, entryFile.lastIndexOf('/') + 1).split('/').map(encodeURIComponent).join('/') : '';
-    return buildAuthorDocumentSource(content, channel, autoHeight, {
+    return buildAuthorDocumentSource(deferFrontendScripts(content), channel, autoHeight, {
       baseUrl: `/eleckoi/frontends/${encodeURIComponent(project.id)}/${folder}`, context: currentContext.current,
       globalStyles: (project.manifest?.globalStyles || []).map(path => frontendAssetUrl(project, path, revision)),
     });
@@ -34,16 +35,22 @@ export function NativeProjectFrame({ content, project, entryFile, revision, cont
     page.ElecKoiFrontendContext = { ...(currentContext.current || {}), container: { width: rect.width, height: rect.height } };
     page.dispatchEvent(new page.CustomEvent('eleckoi:frontend-context', { detail: page.ElecKoiFrontendContext }));
   };
-  const load = () => {
+  const load = async () => {
     const page = frame.current?.contentWindow;
     if (!page || page.__ElecKoiDocumentChannel !== channel || mountedPage.current === page) return;
+    let mounted;
+    const current = () => frame.current?.contentWindow === page && page.__ElecKoiDocumentChannel === channel && release.current === mounted;
     try {
       close(); sync();
       if (!runtime) throw new Error('原生作者插件未启用');
-      release.current = runtime.mountProjectDocument(page, { projectId: project.id, entryFile, view: currentContext.current?.view || 'main', scope: project.scope,
+      mounted = runtime.mountProjectDocument(page, { projectId: project.id, entryFile, view: currentContext.current?.view || 'main', scope: project.scope,
         ...(project.scope === 'character' ? { characterId, ...(conversationId ? { conversationId } : {}) } : {}) });
-      mountedPage.current = page; page.__ElecKoiCompleteDocument(page.ElecKoi);
-    } catch (reason) { page.__ElecKoiCompleteDocument(undefined, reason); fail(reason); }
+      release.current = mounted; mountedPage.current = page;
+      await mounted.ready;
+      if (!current()) return;
+      page.__ElecKoiCompleteDocument(page.ElecKoi);
+      await activateFrontendScripts(page, current);
+    } catch (reason) { if (!mounted || current()) { page.__ElecKoiCompleteDocument(undefined, reason); fail(reason); } }
   };
   useEffect(() => {
     setError('');

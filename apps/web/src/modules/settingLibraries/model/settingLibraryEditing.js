@@ -119,7 +119,7 @@ export function copySettingNode(library, target, destinationParentId) {
   if (target.kind === 'entry') {
     const source = library.entries.find(entry => entry.id === target.id);
     const names = new Set(library.entries.filter(entry => entry.groupId === destinationParentId).map(entry => entry.title));
-    const entry = { ...structuredClone(source), id: createId('setting'), groupId: destinationParentId,
+    const entry = { ...structuredClone(source), id: createId('setting'), groupId: destinationParentId, sendGroupId: '',
       title: uniqueName(`${source.title || '新建设定'} 副本`, names), treeViewOrder: order, createdAt: stamp, updatedAt: stamp };
     return { library: { ...library, entries: [...library.entries, entry] }, key: `entry:${entry.id}` };
   }
@@ -133,6 +133,12 @@ export function copySettingNode(library, target, destinationParentId) {
     treeViewOrder: group.id === target.id ? order : group.treeViewOrder, createdAt: stamp, updatedAt: stamp }));
   const entries = library.entries.filter(entry => subtree.has(entry.groupId) && !PINNED_ENTRY_IDS.has(entry.id))
     .map(entry => ({ ...structuredClone(entry), id: createId('setting'), groupId: ids.get(entry.groupId), createdAt: stamp, updatedAt: stamp }));
+  const sendGroups = new Map();
+  for (const entry of entries) {
+    if (!entry.sendGroupId) continue;
+    if (!sendGroups.has(entry.sendGroupId)) sendGroups.set(entry.sendGroupId, createId('send-group'));
+    entry.sendGroupId = sendGroups.get(entry.sendGroupId);
+  }
   return { library: { ...library, groups: [...library.groups, ...groups], entries: [...library.entries, ...entries] }, key: `group:${ids.get(target.id)}` };
 }
 

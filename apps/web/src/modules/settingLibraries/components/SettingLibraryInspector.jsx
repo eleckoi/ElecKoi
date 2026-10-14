@@ -1,5 +1,6 @@
-import { Trash, X } from "../../../ui/icons/interfaceIcons.jsx";
+import { ArrowsMerge, Trash, X } from "../../../ui/icons/interfaceIcons.jsx";
 import { DshFolderClosedIcon } from "../../../ui/icons/dshTreeIcons.jsx";
+import { ExportIcon, ImportIcon } from "../../../ui/icons/index.jsx";
 import { FIXED_ENTRY_IDS } from "../model/settingLibraryEditing.js";
 import { MarkdownTextareaField } from "./MarkdownTextareaField.jsx";
 import { OpeningEditor } from "./OpeningEditor.jsx";
@@ -77,6 +78,10 @@ export function SettingLibraryInspector({
   onClose,
   onUpdateGroup,
   onDeleteGroup,
+  onImportGroup,
+  onExportGroup,
+  onSendGroups,
+  transferBusy = false,
   onUpdateEntry,
   onEntriesChange,
   onOpenEntry,
@@ -100,9 +105,23 @@ export function SettingLibraryInspector({
         {selected.kind === "group" ? (
           <div className="setting-library-group-editor">
             <label><span>文件夹名称</span><input ref={nameInputRef} value={selected.value.name} maxLength={80} onChange={(event) => onUpdateGroup({ name: event.target.value })} /></label>
+            {onSendGroups ? <div className="setting-library-merge-send-row">
+              <span><ArrowsMerge size={18} />合并发送</span>
+              <button type="button" className="setting-library-tree-switch" role="switch" aria-label="文件夹合并发送" aria-checked={Boolean(selected.value.mergeSend)}
+                onClick={() => onUpdateGroup({ mergeSend: !selected.value.mergeSend })}><span aria-hidden="true" /></button>
+            </div> : null}
+            <div className="setting-library-folder-transfer-actions" role="group" aria-label="文件夹世界书">
+              <button type="button" disabled={transferBusy} title="导入到此文件夹" aria-label="导入到此文件夹" onClick={onImportGroup}><ImportIcon size={17} aria-hidden="true" />导入</button>
+              <button type="button" disabled={transferBusy} title="导出此文件夹世界书" aria-label="导出此文件夹世界书" onClick={onExportGroup}><ExportIcon size={17} aria-hidden="true" />导出</button>
+              {onSendGroups ? <button type="button" onClick={() => onSendGroups(selected.value.id)}><ArrowsMerge size={17} />组合条目</button> : null}
+            </div>
             <button type="button" className="setting-library-delete-link" onClick={onDeleteGroup}><Trash size={15} />删除文件夹</button>
           </div>
         ) : (
+          <>
+          {selected.value.sendGroupId && onSendGroups ? <button type="button" className="setting-library-send-group-link" onClick={() => onSendGroups('', selected.value.sendGroupId)}>
+            <ArrowsMerge size={16} />发送组合 · {library.entries.filter(entry => entry.sendGroupId === selected.value.sendGroupId).length} 条
+          </button> : null}
           <EntryEditor
             entry={selected.value}
             variableVersions={variableVersions}
@@ -117,6 +136,7 @@ export function SettingLibraryInspector({
             onRequestDeleteOpening={onRequestDeleteOpening}
             onPromptPositionsChange={onPromptPositionsChange}
           />
+          </>
         )}
       </div>
     </aside>

@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { buildSharedFrontendDocument } from '../model/sharedFrontendDocument.js';
+import { activateFrontendScripts, buildSharedFrontendDocument } from '../model/sharedFrontendDocument.js';
 import { frontendAssetUrl } from '../model/applicationFrontendTargets.js';
 import { readAuthorDocumentDeclaration } from '@eleckoi/author-sdk';
 import { useNativeFrontendServices } from '../hooks/NativeFrontendContext.jsx';
@@ -27,12 +27,12 @@ export function AdvancedFrontendFrame(props) {
   if (loaded.error) return <div className="frontend-state" role="alert">HTML 前端加载失败：{loaded.error}</div>;
   const document = loaded.document;
   if (document.declaration.kind === 'native') return <NativeProjectFrame {...props} entryFile={entryFile} content={document.content} runtime={authorRuntime} />;
-  return <LegacyProjectFrame {...props} entryFile={entryFile} content={document.content} />;
+  return <LegacyProjectFrame {...props} entryFile={entryFile} content={document.content} authorRuntime={authorRuntime} />;
 }
 
 /** Project identity owns the document; message updates never replace its DOM. */
-function LegacyProjectFrame({ project, runtime, request, content, entryFile = project.entryFile, revision, context, onError }) {
-  const frame = useRef(null), [source, setSource] = useState(''), [error, setError] = useState('');
+function LegacyProjectFrame({ project, runtime, authorRuntime, request, content, entryFile = project.entryFile, revision, context, onError }) {
+  const frame = useRef(null), releaseDocument = useRef(null), [source, setSource] = useState(''), [error, setError] = useState('');
   const [slotHeight, setSlotHeight] = useState(180), currentDocument = useRef(null);
   const autoHeight = context?.binding?.target === 'slot' && context?.binding?.slot !== 'main';
   const fullHeight = context?.binding?.target === 'root' || context?.binding?.target === 'page' || context?.binding?.slot === 'main';
@@ -58,12 +58,14 @@ function LegacyProjectFrame({ project, runtime, request, content, entryFile = pr
     let mounted = true;
     let documentWindow;
     const release = () => {
+      releaseDocument.current?.(); releaseDocument.current = null;
       documentWindow ||= currentDocument.current;
       if (!documentWindow) return;
       documentWindow = null;
       currentDocument.current = null;
     };
     const fail = failure => {
+      release();
       const message = `${project.name} · ${entryFile}: ${failure.message || String(failure)}`;
       if (mounted) { setError(message); errorRef.current?.(message); }
     };
@@ -90,10 +92,34 @@ function LegacyProjectFrame({ project, runtime, request, content, entryFile = pr
       mounted = false; window.removeEventListener('message', receive);
       node?.removeEventListener('load', loaded); release();
     };
-  }, [channel, entryFile, project.id, project.updatedAt, revision, request, runtime, autoHeight, content]);
+  }, [channel, entryFile, project.id, project.updatedAt, revision, request, runtime, authorRuntime, autoHeight, content]);
+  const loaded = async () => {
+    const page = frame.current?.contentWindow;
+    if (!page || page.__ElecKoiDocumentChannel !== channel || releaseDocument.current) return;
+    currentDocument.current = page; syncContext();
+    let mounted;
+    const current = () => frame.current?.contentWindow === page && currentDocument.current === page && releaseDocument.current === mounted;
+    try {
+      if (!authorRuntime) throw new Error('原生作者插件未启用');
+      mounted = authorRuntime.mountProjectDocument(page, { projectId: project.id, entryFile, view: contextRef.current?.view || 'main', scope: project.scope,
+        ...(project.scope === 'character' ? { characterId: project.characterId, ...(contextRef.current?.owner?.conversationId ? { conversationId: contextRef.current.owner.conversationId } : {}) } : {}) });
+      releaseDocument.current = mounted;
+      await mounted.ready;
+      if (!current()) return;
+      page.ElecKoiReady = Promise.resolve(page.ElecKoi);
+      await activateFrontendScripts(page, current);
+      if (current()) page.__ElecKoiCompleteSharedDocument();
+    } catch (failure) {
+      if (mounted && !current()) return;
+      releaseDocument.current?.(); releaseDocument.current = null;
+      page.__ElecKoiCompleteSharedDocument(failure);
+      const message = `${project.name} · ${entryFile}: ${failure.message || String(failure)}`;
+      setError(message); errorRef.current?.(message);
+    }
+  };
   return <div className="advanced-frontend-region" style={autoHeight ? { minHeight: slotHeight, width: '100%', flex: 'none' } : fullHeight ? { height: '100%' } : undefined}>
     {error ? <div className="frontend-state" role="alert">HTML 前端加载失败：{error}</div>
-      : source ? <iframe ref={frame} name={channel} title={project.name} srcDoc={source} onLoad={() => { currentDocument.current = frame.current?.contentWindow; syncContext(); }}
+      : source ? <iframe ref={frame} name={channel} title={project.name} srcDoc={source} onLoad={loaded}
         allow="fullscreen; autoplay; clipboard-read; clipboard-write" /> : <div className="frontend-state" role="status">正在加载 HTML 前端…</div>}
   </div>;
 }
