@@ -13,7 +13,8 @@ import {
   requestContextItems,
   requestProjectionPlan,
   renderRuntimeContext,
-  settingInjections
+  settingInjections,
+  visibleDialogueHistory
 } from '../../../../../../apps/desktop/resources/dsh/conversation-context.mjs'
 
 function text(message) {
@@ -420,6 +421,51 @@ describe('DSH conversation context', () => {
       positionOrder: 7,
       order: 2
     })])
+  })
+
+  describe('visible dialogue history', () => {
+    it('keeps user input and final replies without tool steps or FINAL tags', () => {
+      const messages = [
+        message('system', '系统配置', { kind: 'plugin:system' }),
+        message('user', '旧输入', { kind: 'user' }),
+        { ...message('assistant', '', { kind: 'model' }), content: [{ type: 'tool-call', id: 'call-1', name: 'lookup', arguments: '{}' }] },
+        message('user', '工具结果', { kind: 'tool', callId: 'call-1' }),
+        message('assistant', '<FINAL>旧回复</FINAL>', { kind: 'model' })
+      ]
+      expect(visibleDialogueHistory(messages)).toEqual([
+        { role: 'user', content: '旧输入' },
+        { role: 'assistant', content: '旧回复' }
+      ])
+    })
+
+    it('drops the trailing user input retained by regeneration', () => {
+      const messages = [
+        message('user', '旧输入', { kind: 'user' }),
+        message('assistant', '旧回复', { kind: 'model' }),
+        message('user', '当前输入', { kind: 'user' })
+      ]
+      expect(visibleDialogueHistory(messages)).toEqual([
+        { role: 'user', content: '旧输入' },
+        { role: 'assistant', content: '旧回复' }
+      ])
+    })
+
+    it('keeps a trailing compaction checkpoint', () => {
+      const messages = [
+        message('user', '旧输入', { kind: 'user' }),
+        message('assistant', '旧回复', { kind: 'model' }),
+        message('user', '<compacted-summary>摘要</compacted-summary>', { kind: 'user' })
+      ]
+      expect(visibleDialogueHistory(messages).at(-1)).toEqual({
+        role: 'user',
+        content: '<compacted-summary>摘要</compacted-summary>'
+      })
+    })
+
+    it('returns empty history when no messages are available', () => {
+      expect(visibleDialogueHistory(undefined)).toEqual([])
+      expect(visibleDialogueHistory([])).toEqual([])
+    })
   })
 })
 

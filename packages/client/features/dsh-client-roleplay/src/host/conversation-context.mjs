@@ -362,6 +362,20 @@ export function projectProductHistory(messages, context) {
   ]
 }
 
+/**
+ * Visible dialogue of earlier turns: user messages (including compaction checkpoints)
+ * and final replies, without tool steps or FINAL tags.
+ * A trailing direct user message is the input a regeneration retains in the session;
+ * leave it out because callers append the current input separately.
+ */
+export function visibleDialogueHistory(messages) {
+  const list = Array.isArray(messages) ? messages : []
+  const dialogue = previousTurnDialogue(list)
+  const trailing = list.at(-1)
+  if (trailing && isDirectUserMessage(trailing) && !isCompactionCheckpoint(trailing)) dialogue.pop()
+  return dialogue.map((message) => ({ role: message.role, content: messageText(message) }))
+}
+
 function previousTurnDialogue(messages) {
   const history = []
   let finalReply

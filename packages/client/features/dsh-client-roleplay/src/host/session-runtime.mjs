@@ -9,7 +9,7 @@ import { turnOutcomesProjection } from './turn-outcomes-projection.mjs'
 import { inputContinuationsProjection } from './input-continuations-projection.mjs'
 import { currentRequestSnapshot } from './model-selection-migration.mjs'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { projectRequestInput, requestProjectionSnapshot, sessionInstructions } from './conversation-context.mjs'
+import { projectRequestInput, requestProjectionSnapshot, sessionInstructions, visibleDialogueHistory } from './conversation-context.mjs'
 import { capturedImageResult, prepareIllustration } from './generated-image-result.mjs'
 
 export { requestSnapshot } from './model-selection-migration.mjs'
@@ -85,7 +85,8 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
     writeSettingBridge(
       settingStateFile,
       runtime.conversationContext.currentPromptText ?? text,
-      runtime.conversationContext
+      runtime.conversationContext,
+      visibleDialogueHistory(ctx.sessions.get(runtime.runtimeSessionId)?.deriveMessages?.() ?? [])
     )
     writeContextBridge(
       contextFile,
@@ -416,12 +417,17 @@ function writeContextBridge(path, currentUserInput, context) {
   writeAtomically(path, `${JSON.stringify({ ...context, currentUserInput }, null, 2)}\n`)
 }
 
-function writeSettingBridge(path, currentUserInput, context) {
+/**
+ * The setting tools match keywords and EJS chat conditions against this history.
+ * Regeneration keeps the current input in the session surface; visibleDialogueHistory
+ * leaves that trailing input out, and the setting bridge appends the current input once.
+ */
+function writeSettingBridge(path, currentUserInput, context, conversationHistory) {
   writeAtomically(path, `${JSON.stringify({
     enabled: context.settingLibrary !== undefined,
     library: context.settingLibrary ?? null,
     frozenLibrary: context.settingLibrary ?? null,
-    history: [...(context.history ?? []), { role: 'user', content: currentUserInput }]
+    history: [...(context.history ?? []), ...conversationHistory, { role: 'user', content: currentUserInput }]
   }, null, 2)}\n`)
 }
 
