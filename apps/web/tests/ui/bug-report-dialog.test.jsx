@@ -10,7 +10,8 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { CommunityDialog } from "../../src/app/windows/shell/components/CommunityDialog.jsx";
-import { BugReportDialog, isDesktopBugReportAvailable } from "../../src/app/windows/shell/components/BugReportDialog.jsx";
+import { BugReportDialog } from "../../src/app/windows/shell/components/BugReportDialog.jsx";
+import { isBugReportAvailable } from "../../src/app/windows/shell/components/bugReportBridge.js";
 
 vi.stubGlobal("React", React);
 afterAll(() => vi.unstubAllGlobals());
@@ -41,7 +42,7 @@ describe("bug report entry", () => {
   });
 
   it("没有桌面桥时不认为报告功能可用", () => {
-    expect(isDesktopBugReportAvailable()).toBe(false);
+    expect(isBugReportAvailable()).toBe(false);
   });
 
   it("发送前能展开看全文（代发没有邮件客户端可看，预览就是唯一的「看见」）", () => {

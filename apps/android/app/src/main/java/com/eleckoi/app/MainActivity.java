@@ -661,6 +661,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
                 case "abortFile": return abortFile(a.getString(0));
                 case "reportError": reportError(a.getString(0)); return null;
                 case "openExternal": openExternal(a.getString(0)); return null;
+                case "bugReportFacts": return diagnostics.bugReportFacts();
                 case "notificationSettings": notificationSettings(); return null;
                 case "updateStatus": return updateStatus();
                 case "checkUpdates": checkUpdates(a.getString(0)); return null;
@@ -789,6 +790,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         web.onPause(); super.onPause();
     }
     @Override protected void onDestroy() {
+        if (isFinishing()) diagnostics.sessionEnd();
         updates.removeObserver(updateListener);
         pageLoadGeneration++;
         hideStartupProgress();

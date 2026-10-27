@@ -9,7 +9,8 @@ import { subscribeAppFailure } from "../../utils/appFailureOutlet.js";
 import { resolveFailure } from "../../utils/failureText.js";
 import { SidebarContent } from "./shell/components/SidebarContent.jsx";
 import { CommunityDialog } from "./shell/components/CommunityDialog.jsx";
-import { BugReportDialog, isDesktopBugReportAvailable } from "./shell/components/BugReportDialog.jsx";
+import { BugReportDialog } from "./shell/components/BugReportDialog.jsx";
+import { isBugReportAvailable } from "./shell/components/bugReportBridge.js";
 import { PluginCenterSurface, PluginListPanel } from "./shell/components/PluginCenter.jsx";
 import { SidePanelResizeHandle } from "./shell/components/SidePanelResizeHandle.jsx";
 import { TitleBar, WindowControls } from "./shell/components/TitleBar.jsx";
@@ -278,7 +279,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
         open={communityOpen}
         onClose={() => setCommunityOpen(false)}
         onNotify={chat.notify}
-        onReportProblem={isDesktopBugReportAvailable() ? () => {
+        onReportProblem={isBugReportAvailable() ? () => {
           setCommunityOpen(false);
           setBugReportOpen(true);
         } : undefined}

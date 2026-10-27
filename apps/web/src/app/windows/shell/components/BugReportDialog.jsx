@@ -7,6 +7,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CopyIcon, DownloadIcon, XIcon } from "../../../../ui/icons/index.jsx";
 import { resolveFailure } from "../../../../utils/failureText.js";
+import { bugReportBridge, letterOf } from "./bugReportBridge.js";
 
 const PLATFORM_LABELS = {
   windows: "Windows",
@@ -15,27 +16,8 @@ const PLATFORM_LABELS = {
   android: "Android",
 };
 
-/** 报告功能在不在这个平台上线：Android 壳没有 `dshDesktop` 桥，返回 undefined。 */
-export function desktopBugReportBridge() {
-  if (typeof window === "undefined") return undefined;
-  return window.dshDesktop?.bugReport;
-}
-
-/** 社区入口用：当前平台有没有报告功能。 */
-export function isDesktopBugReportAvailable() {
-  return Boolean(desktopBugReportBridge());
-}
-
-/** 邮件正文里要不要带上列表名与订阅地址。 */
-function letterOf(delivery) {
-  return {
-    ...(delivery?.mailboxName ? { mailboxName: delivery.mailboxName } : {}),
-    ...(delivery?.subscribeUrl ? { subscribeUrl: delivery.subscribeUrl } : {}),
-  };
-}
-
 function bridgeOrFail() {
-  const bridge = desktopBugReportBridge();
+  const bridge = bugReportBridge();
   if (!bridge) {
     throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, "当前平台暂不支持报告功能。", { what: "报告服务" });
   }
@@ -53,7 +35,8 @@ async function copyText(text) {
  * 报告问题对话框：展示主进程收集好的报告，让用户选一条投递通道。
  *
  * 判据（ADR 0041）：用户发出去的东西必须是他看过的。所以这里只做三件事——把报告摆出来、
- * 让用户勾选与补一句话、调用对应的通道。报告本身与脱敏都在主进程完成，这里不拼、不改。
+ * 让用户勾选与补一句话、调用对应的通道。桌面端的报告与脱敏在 Electron 主进程完成；Android 的
+ * 运行诊断只给原始事实，报告由 `bugReportBridge.js` 用共享契约拼。
  */
 export function BugReportDialog({ open, onClose, onNotify }) {
   const titleId = useId();
