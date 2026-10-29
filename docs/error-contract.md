@@ -109,7 +109,7 @@
 | `eleckoi/plugin/load-failed` | `pluginLoadFailed` | `what`、`path` | 应用级（app） | 插件服务没有启动起来，请重新打开插件中心。 |
 | `eleckoi/io/failed` | `ioFailed` | `operation`、`path` | 功能内（inline） | 读写失败。 |
 | `eleckoi/net/operation-failed` | `netOperationFailed` | `operation`、`what` | 功能内（inline） | 网络请求失败，请检查网络连接后重试。 |
-| `eleckoi/shell/open-failed` | `shellOpenFailed` | `what` | 功能内（inline） | 没能打开外部程序。报告全文已经复制到剪贴板，粘到任意地方发给作者即可。 |
+| `eleckoi/shell/open-failed` | `shellOpenFailed` | `what` | 功能内（inline） | 没能打开外部程序。可以点「复制报告」，把全文粘到任意地方发给作者。 |
 | `eleckoi/timeout/expired` | `timeoutExpired` | `what` | 功能内（inline） | 操作超时，请重试。 |
 | `eleckoi/storage/corrupt` | `storageCorrupt` | `what` | 应用级（app） | 存储内容已损坏，读不出来。 |
 | `eleckoi/db/schema-mismatch` | `dbSchemaMismatch` | `what`、`expected` | 应用级（app） | 本地数据库结构不对，请重新安装或升级后再试。 |
