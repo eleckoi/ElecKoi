@@ -1,0 +1,89 @@
+# 报告投递端点配置
+
+这份文档写给维护者：报告功能往哪儿投、配置在哪、换端点时改什么。
+决策依据见 [ADR 0041](./adr/0041-bug-report-delivery.md) 决定 12 与 16；失败码与文案不在本文范围。
+
+## 配置在哪
+
+发布配置就是仓库里的 [`apps/desktop/resources/bug-report.json`](../apps/desktop/resources/bug-report.json)。
+`electron-builder.yml` 的 `files: resources/**/*` 会把它打进 asar，所以**不需要**改打包配置。
+主进程读配置时按两个候选路径找它（开发态是 `apps/desktop/resources/`，打包态在 asar 里），
+读不到、JSON 坏、字段形状不对，一律按「未配置」处理并**不抛**——报告功能照样起来，只是少一个按钮。
+
+```json
+{
+  "form": {
+    "shareUrl": "https://<tenant>.feishu.cn/share/base/form/<shrcn…>",
+    "fields": {
+      "body": "report_body",
+      "meta": "report_meta",
+      "code": "report_code",
+      "file": "report_file"
+    }
+  },
+  "mailbox": "",
+  "mailboxName": "",
+  "subscribeUrl": "",
+  "repository": ""
+}
+```
+
+- `form`：飞书表单通道（默认收件端点）。`shareUrl` 与 `fields.body` 缺一个整段不生效。
+- `mailbox` / `mailboxName` / `subscribeUrl` / `repository`：邮件与仓库通道，空串 = 未配置。
+- 代发通道（`web3forms` / `formspree` / `eleckoi-relay`）只走环境变量，**文件里不配代发**。
+
+## 四个题目名是发布契约
+
+`report_body`（正文）、`report_meta`（版本/平台/签名）、`report_code`（失败码）、
+`report_file`（附件提示）是飞书表单里的**题目名**，参数名是 `prefill_<题目名>`。
+维护者改题目名等于破坏预填：表单会打开，但内容是空的。**改题目名要同步改这个文件并跟着发版。**
+
+## `/form/` 的坑
+
+飞书 `+form-share-get` 返回的 `https://<tenant>.feishu.cn/share/base/<shrcn…>` 是 **Base 分享链接**，
+未登录打开会 302 到登录页。能匿名填写的**表单填写页**是 `.../share/base/form/<shrcn…>`——
+多一段 `form`。客户端不做推导也不校验形状（决定 12）：复制错就只是「表单打不开」，所以请从飞书界面
+复制填写页地址，存完整链接。
+
+当前仓库里那份指向 2026-10-29 建的测试 Base（验证用）。**上线前换成正式 Base 的填写链接**，
+并同步删掉这句说明。
+
+## 环境变量覆盖
+
+环境变量逐项覆盖文件值，优先级高于文件。三态规则：
+
+| 环境变量 | 效果 |
+| --- | --- |
+| 没设（`undefined`） | 保留文件值 |
+| 空串或全空白 | **显式清空**这一项（例如临时关掉表单通道） |
+| 其它值 | 覆盖文件值（两端空白会 trim） |
+
+| 环境变量 | 覆盖的配置项 |
+| --- | --- |
+| `ELECKOI_BUG_REPORT_FORM_URL` | `form.shareUrl` |
+| `ELECKOI_BUG_REPORT_FORM_FIELD_BODY` / `_META` / `_CODE` / `_FILE` | 四个题目名 |
+| `ELECKOI_BUG_REPORT_MAILBOX` / `_MAILBOX_NAME` / `_SUBSCRIBE_URL` / `_REPOSITORY` | 邮件与仓库通道 |
+| `ELECKOI_BUG_REPORT_RELAY_PROVIDER` / `_ENDPOINT` / `_KEY` / `_FROM_NAME` | 代发通道（沿用既有语义） |
+
+只设环境变量、文件里没有 `form` 也可以——`FORM_URL` + `FORM_FIELD_BODY` 给齐就能产出一条表单通道。
+
+## 换 Base 时怎么刷新
+
+1. 在新 Base 里建表单视图，分享设置选「任何人可填写 + 允许匿名填写 + 不要求登录」。
+2. 从浏览器地址栏复制**填写页**链接（带 `/share/base/form/`），填进 `bug-report.json` 的
+   `form.shareUrl`。
+3. 新表单的题目名若与旧的不同，同步改 `fields` 里的四个题目名——但优先沿用旧题目名，
+   否则老版本客户端会发出空表单。
+4. 提交一条测试记录，确认表格里正文、元信息、失败码都在，再发版。
+
+## 红线：客户端不放服务端凭据
+
+飞书自建应用的 `app_secret`、企业微信 Secret、GitHub token、SMTP 授权码一律**不进**这个文件，
+也不进任何环境变量——拆包即泄露，后果是能以你的身份读写整个租户。表单分享链接与自定义机器人
+webhook 是另一类凭证：只能往指定表 / 群写，泄漏的后果是脏数据而非数据外泄，即便如此也要能轮换
+（重建表单、删机器人），不能当作身份使用。
+
+## 客户端不发请求
+
+客户端只把预填参数拼到分享链接后面，然后交给系统浏览器（`openExternal`）。没有飞书凭据、
+不调 `+form-submit`、不做网络探测——提交是用户在看过的表单页上按的那一下。

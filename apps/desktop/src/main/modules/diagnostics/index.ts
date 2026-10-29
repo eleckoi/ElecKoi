@@ -18,3 +18,14 @@ export {
   readBugReportDelivery,
   type DesktopEnvironmentInput
 } from './reportDelivery'
+export { readBundledReportConfigText, readReportConfig } from './bundledReportConfig'
+export {
+  BUG_REPORT_CONFIG_FILE_NAME,
+  BUG_REPORT_FORM_FIELD_BODY_ENV,
+  BUG_REPORT_FORM_FIELD_CODE_ENV,
+  BUG_REPORT_FORM_FIELD_FILE_ENV,
+  BUG_REPORT_FORM_FIELD_META_ENV,
+  BUG_REPORT_FORM_URL_ENV,
+  parseBugReportConfig,
+  type BugReportConfigInput
+} from './reportConfig'
