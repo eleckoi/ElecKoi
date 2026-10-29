@@ -61,7 +61,7 @@
 | `path` | 涉及的文件系统路径（操作对象、被占用的目录）。 | `eleckoi/data/shape-invalid`、`eleckoi/lookup/duplicate`、`eleckoi/creator-project/name-taken`、`eleckoi/plugin/load-failed`、`eleckoi/io/failed` |
 | `operation` | 动作名（`read` / `write` / `delete` / `spawn` / `request` …）。 | `eleckoi/io/failed`、`eleckoi/net/operation-failed`、`eleckoi/ipc/call-failed` |
 | `guard` | 拒绝执行的那道护栏名（如 `untrusted-sender`）。 | `eleckoi/safety/refused`、`eleckoi/security/denied`、`eleckoi/sender/untrusted` |
-| `what` | 涉及的**东西**（会被拼进用户句，如「角色」「预设分组」）；多数码写名词短语，`eleckoi/state/precondition` 例外、写用户该先做的**动作**；不是 id。 | `eleckoi/internal`、`eleckoi/data/shape-invalid`、`eleckoi/data/legacy-mismatch`、`eleckoi/input/unsupported`、`eleckoi/lookup/not-found`、`eleckoi/lookup/duplicate`、`eleckoi/character/not-found`、`eleckoi/creator-project/not-found`、`eleckoi/agent-preset/not-found`、`eleckoi/conflict/stale-revision`、`eleckoi/state/mismatch`、`eleckoi/state/precondition`、`eleckoi/security/denied`、`eleckoi/sender/untrusted`、`eleckoi/lifecycle/not-ready`、`eleckoi/lifecycle/disposed`、`eleckoi/plugin/load-failed`、`eleckoi/net/operation-failed`、`eleckoi/timeout/expired`、`eleckoi/storage/corrupt`、`eleckoi/db/schema-mismatch`、`eleckoi/model/config-invalid`、`eleckoi/media/invalid`、`eleckoi/ipc/call-failed` |
+| `what` | 涉及的**东西**（会被拼进用户句，如「角色」「预设分组」）；多数码写名词短语，`eleckoi/state/precondition` 例外、写用户该先做的**动作**；不是 id。 | `eleckoi/internal`、`eleckoi/data/shape-invalid`、`eleckoi/data/legacy-mismatch`、`eleckoi/input/unsupported`、`eleckoi/lookup/not-found`、`eleckoi/lookup/duplicate`、`eleckoi/character/not-found`、`eleckoi/creator-project/not-found`、`eleckoi/agent-preset/not-found`、`eleckoi/conflict/stale-revision`、`eleckoi/state/mismatch`、`eleckoi/state/precondition`、`eleckoi/security/denied`、`eleckoi/sender/untrusted`、`eleckoi/lifecycle/not-ready`、`eleckoi/lifecycle/disposed`、`eleckoi/plugin/load-failed`、`eleckoi/net/operation-failed`、`eleckoi/shell/open-failed`、`eleckoi/timeout/expired`、`eleckoi/storage/corrupt`、`eleckoi/db/schema-mismatch`、`eleckoi/model/config-invalid`、`eleckoi/media/invalid`、`eleckoi/ipc/call-failed` |
 | `expected` | 当前版本或支持范围要求的形态（如 `schema v3`）。 | `eleckoi/data/legacy-mismatch`、`eleckoi/input/unsupported`、`eleckoi/db/schema-mismatch` |
 | `actual` | 实际观察到的形态。 | —（当前没有码要求） |
 
@@ -77,11 +77,11 @@
 
 默认走应用级的码（5 条）：`eleckoi/sender/untrusted`、`eleckoi/lifecycle/disposed`、`eleckoi/plugin/load-failed`、`eleckoi/storage/corrupt`、`eleckoi/db/schema-mismatch`。
 
-## 5. 码表（30 条，逐码一行）
+## 5. 码表（31 条，逐码一行）
 
 顺序即文档表格与逐条断言的**列举顺序**（先兜底，再按「谁的问题」分组），别各自重排。
 「语义键」是契约源码里那条常量的键（给代码读）；「详情参数」是该码会带的参数（必填 / 可选见
-[详情形状](../packages/shared/src/contracts/errors/details.ts)）；「用户句」是**没有详情参数时**渲染层给用户的说法：29 条码各有一句固定说法，兜底码 `eleckoi/internal` 不设固定句（见 §5.1）。
+[详情形状](../packages/shared/src/contracts/errors/details.ts)）；「用户句」是**没有详情参数时**渲染层给用户的说法：30 条码各有一句固定说法，兜底码 `eleckoi/internal` 不设固定句（见 §5.1）。
 
 | 码 | 语义键 | 详情参数 | 默认通道 | 用户句（无参数时） |
 | --- | --- | --- | --- | --- |
@@ -109,6 +109,7 @@
 | `eleckoi/plugin/load-failed` | `pluginLoadFailed` | `what`、`path` | 应用级（app） | 插件服务没有启动起来，请重新打开插件中心。 |
 | `eleckoi/io/failed` | `ioFailed` | `operation`、`path` | 功能内（inline） | 读写失败。 |
 | `eleckoi/net/operation-failed` | `netOperationFailed` | `operation`、`what` | 功能内（inline） | 网络请求失败，请检查网络连接后重试。 |
+| `eleckoi/shell/open-failed` | `shellOpenFailed` | `what` | 功能内（inline） | 没能打开外部程序。报告全文已经复制到剪贴板，粘到任意地方发给作者即可。 |
 | `eleckoi/timeout/expired` | `timeoutExpired` | `what` | 功能内（inline） | 操作超时，请重试。 |
 | `eleckoi/storage/corrupt` | `storageCorrupt` | `what` | 应用级（app） | 存储内容已损坏，读不出来。 |
 | `eleckoi/db/schema-mismatch` | `dbSchemaMismatch` | `what`、`expected` | 应用级（app） | 本地数据库结构不对，请重新安装或升级后再试。 |
