@@ -1,6 +1,6 @@
 {
   "name": "eleckoi-workspace",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "description": "ElecKoi multi-application workspace",
   "author": "ElecKoi",
   "private": true,
@@ -20,7 +20,7 @@
     "build:installation-helper": "node scripts/build-windows-installation-helper.mjs",
     "build:dsh-renderer": "pnpm --filter @eleckoi/web-client build && node scripts/check-dsh-client-pages.mjs",
     "dev": "pnpm --filter eleckoi-desktop dev",
-    "build": "pnpm check:docs && pnpm check:error-contract && pnpm check:error-contract-doc && pnpm check:error-codes && pnpm check:author-docs && pnpm check:architecture && pnpm check:database-schema && pnpm check:dsh-versions && pnpm check:dsh-runtime && pnpm check:plugin-types && pnpm check:plugin-docs && pnpm check:author-runtime-notices && pnpm check:licenses && pnpm check:desktop-licenses && pnpm typecheck && pnpm --filter eleckoi-desktop build && pnpm build:dsh-renderer && node scripts/check-built-preload.mjs && pnpm build:native-frame && pnpm build:installation-helper",
+    "build": "pnpm check:docs && pnpm check:error-contract && pnpm check:error-contract-doc && pnpm check:error-codes && pnpm check:author-docs && pnpm check:architecture && pnpm check:database-schema && pnpm check:dsh-versions && pnpm check:dsh-runtime && pnpm check:plugin-types && pnpm check:plugin-docs && pnpm check:author-runtime-notices && pnpm check:desktop-licenses && pnpm typecheck && pnpm --filter eleckoi-desktop build && pnpm build:dsh-renderer && node scripts/check-built-preload.mjs && pnpm build:native-frame && pnpm build:installation-helper",
     "build:unpack": "pnpm build && pnpm rebuild:electron && pnpm check:electron-sqlite && pnpm check:electron-dsh && electron-builder --projectDir apps/desktop --dir && pnpm verify:packaged-dsh",
     "build:win": "pnpm build && pnpm rebuild:electron && pnpm check:electron-sqlite && pnpm check:electron-dsh && electron-builder --projectDir apps/desktop --win --x64 && pnpm verify:packaged-dsh",
     "prepreview": "pnpm rebuild:electron",
@@ -56,10 +56,7 @@
     "generate:error-contract-doc": "node scripts/generate-error-contract-doc.mjs",
     "check:error-contract-doc": "node scripts/generate-error-contract-doc.mjs --check",
     "generate:error-codes": "node scripts/generate-error-codes.mjs",
-    "check:error-codes": "node scripts/generate-error-codes.mjs --check",
-    "build:author-docs-site": "node scripts/build-author-docs-site.mjs",
-    "licenses:generate": "node scripts/generate-third-party-notices.mjs",
-    "check:licenses": "node scripts/generate-third-party-notices.mjs --check"
+    "check:error-codes": "node scripts/generate-error-codes.mjs --check"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.5",

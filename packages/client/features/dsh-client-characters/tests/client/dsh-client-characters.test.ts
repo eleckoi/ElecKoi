@@ -41,6 +41,97 @@ function recordChanges() {
 }
 
 describe('DSH ElecKoi character client model', () => {
+  function exportCatalog(platform?: { saveBytes: ReturnType<typeof vi.fn> }) {
+    let registration: any, catalog: any
+    const blobs: Blob[] = []
+    const anchors: any[] = []
+    const remoteExport = vi.fn()
+    const revoke = vi.fn()
+    const timers: Array<() => void> = []
+    const document = {
+      body: { append: vi.fn() },
+      createElement: vi.fn(() => {
+        const anchor = { href: '', download: '', style: {}, click: vi.fn(), remove: vi.fn() }
+        anchors.push(anchor)
+        return anchor
+      }),
+    }
+    class ExportUrl extends URL {
+      static override createObjectURL(blob: Blob) { blobs.push(blob); return `blob:synthetic/${blobs.length}` }
+      static override revokeObjectURL = revoke
+    }
+    runInNewContext(source, {
+      window: { ElecKoiPlatform: platform, __ModuleLoader__: { load: (item: any) => { registration = item } } },
+      document, URL: ExportUrl, Blob, Uint8Array, atob,
+      setTimeout: (callback: () => void) => { timers.push(callback) },
+    })
+    dshClientPlugin(registration).apply({
+      remote: { eleckoiCharacters: { export: remoteExport } },
+      provide: (_name: string, value: any) => { catalog = value },
+      effect: () => {},
+    })
+    return { catalog, remoteExport, document, blobs, anchors, timers, revoke }
+  }
+
+  it.each(['png', 'json'])('hands the actual %s bytes and filename to the desktop browser download', async format => {
+    const test = exportCatalog()
+    const bytes = format === 'png' ? Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 255, 0, 128])
+      : Buffer.from(JSON.stringify({ name: 'Synthetic export', entries: Array.from({ length: 10001 }, (_, i) => ({ id: i, text: `Synthetic ${i} ` + '正文'.repeat(30) })) }))
+    const file = { fileName: `synthetic.${format}`, mimeType: format === 'png' ? 'image/png' : 'application/json', base64: bytes.toString('base64') }
+    test.remoteExport.mockResolvedValue({ ok: true, value: file })
+    const result = await test.catalog.exportCharacters(['a', 'a'], format)
+    expect(test.remoteExport).toHaveBeenCalledExactlyOnceWith('a', format)
+    expect(test.anchors).toHaveLength(1)
+    expect(test.document.body.append).toHaveBeenCalledWith(test.anchors[0])
+    expect(test.anchors[0]).toMatchObject({ href: 'blob:synthetic/1', download: file.fileName })
+    expect(test.anchors[0].click).toHaveBeenCalledOnce()
+    expect(test.anchors[0].remove).toHaveBeenCalledOnce()
+    expect(test.blobs[0]!.type).toBe(file.mimeType)
+    expect(Buffer.from(await test.blobs[0]!.arrayBuffer())).toEqual(bytes)
+    expect(result).toMatchObject({ canceled: false, written: [{ characterId: 'a', fileName: file.fileName }], failures: [] })
+    expect(test.revoke).not.toHaveBeenCalled()
+    test.timers.forEach(callback => callback())
+    expect(test.revoke).toHaveBeenCalledWith('blob:synthetic/1')
+  })
+
+  it('waits for Android native saving before starting another card or reporting success', async () => {
+    let finish!: (result: unknown) => void
+    const saveBytes = vi.fn().mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+      .mockResolvedValue({ result: 'content://synthetic/second', cancelled: false })
+    const test = exportCatalog({ saveBytes })
+    const bytes = Buffer.from('Synthetic\u0000二进制\u00ff')
+    test.remoteExport.mockImplementation(async (id: string) => ({ ok: true, value: { fileName: `${id}.png`, mimeType: 'image/png', base64: bytes.toString('base64') } }))
+    let done = false
+    const pending = test.catalog.exportCharacters(['a', 'b'], 'png').then((result: unknown) => { done = true; return result })
+    await settle()
+    expect(done).toBe(false)
+    expect(test.remoteExport).toHaveBeenCalledTimes(1)
+    expect(saveBytes.mock.calls[0]![0]).toBe('a.png')
+    expect(Buffer.from(saveBytes.mock.calls[0]![1])).toEqual(bytes)
+    expect(saveBytes.mock.calls[0]![2]).toBe('image/png')
+    finish({ result: 'content://synthetic/first', cancelled: false })
+    expect(await pending).toMatchObject({ canceled: false, written: [{ characterId: 'a' }, { characterId: 'b' }], failures: [] })
+    expect(test.anchors).toHaveLength(0)
+  })
+
+  it('stops on native cancellation without counting canceled or unattempted cards as written', async () => {
+    const saveBytes = vi.fn().mockResolvedValueOnce({ cancelled: false }).mockResolvedValueOnce({ cancelled: true })
+    const test = exportCatalog({ saveBytes })
+    test.remoteExport.mockImplementation(async (id: string) => ({ ok: true, value: { fileName: `${id}.json`, mimeType: 'application/json', base64: 'e30=' } }))
+    expect(await test.catalog.exportCharacters(['a', 'b', 'c'], 'json')).toMatchObject({ canceled: true, written: [{ characterId: 'a' }], failures: [] })
+    expect(test.remoteExport.mock.calls).toEqual([['a', 'json'], ['b', 'json']])
+  })
+
+  it('reports remote and native write failures while still exporting the other selected cards', async () => {
+    const saveBytes = vi.fn().mockRejectedValueOnce(new Error('Synthetic write failure')).mockResolvedValue({ cancelled: false })
+    const test = exportCatalog({ saveBytes })
+    test.remoteExport.mockRejectedValueOnce(new Error('Synthetic export failure'))
+      .mockResolvedValue({ ok: true, value: { fileName: 'synthetic.json', mimeType: 'application/json', base64: 'e30=' } })
+    const result = await test.catalog.exportCharacters(['a', 'b', 'c'], 'json')
+    expect(result.written).toEqual([{ characterId: 'c', fileName: 'synthetic.json' }])
+    expect(result.failures).toEqual([{ characterId: 'a', message: 'Synthetic export failure' }, { characterId: 'b', message: 'Synthetic write failure' }])
+  })
+
   it('uses the generated Character Remote and keeps a mutation ahead of an older read', async () => {
     const pending: Array<(result: { ok: true; value: Collection }) => void> = []
     let registration: { id: string; factory: () => { apply: (ctx: unknown) => void } } | undefined

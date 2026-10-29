@@ -155,12 +155,14 @@ window.__ModuleLoader__.load({
         for (const characterId of [...new Set(characterIds || [])]) {
           try {
             const value = unwrapOrFail(await this.remote.eleckoiCharacters.export(characterId, format), '导出失败。')
+            const saved = await downloadExport(value)
+            if (saved?.cancelled) return { canceled: true, directory: '所选保存位置', written, failures }
             written.push({ characterId, fileName: value.fileName })
           } catch (error) {
             failures.push({ characterId, message: typeof error?.message === 'string' && error.message.trim() ? error.message : '导出失败。' })
           }
         }
-        return { canceled: false, directory: '下载目录', written, failures }
+        return { canceled: false, directory: '所选保存位置', written, failures }
       }
 
       dispose() {
@@ -197,15 +199,21 @@ window.__ModuleLoader__.load({
   }
 })
 
-function downloadExport(file) {
+async function downloadExport(file) {
   const bytes = Uint8Array.from(atob(file.base64), character => character.charCodeAt(0))
+  if (window.ElecKoiPlatform?.saveBytes) {
+    return window.ElecKoiPlatform.saveBytes(file.fileName, bytes, file.mimeType)
+  }
   const url = URL.createObjectURL(new Blob([bytes], { type: file.mimeType }))
   const link = document.createElement('a')
   link.href = url
   link.download = file.fileName
   link.style.display = 'none'
-  document.body.append(link)
-  link.click()
-  link.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 0)
+  try {
+    document.body.append(link)
+    link.click()
+  } finally {
+    link.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 0)
+  }
 }

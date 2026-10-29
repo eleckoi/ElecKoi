@@ -30,7 +30,7 @@ async function mount(page = 'character', initialRoute = { kind: 'root' }, charac
   function Harness() {
     const [route, setRoute] = useState(initialRoute);
     const [collection, setCollection] = useState({ items: structuredClone(characters), groups: ['分组甲', '分组乙'], active_character_id: 'character-a' });
-    view = { route, routeBusy: false, scrollPositions: new Map(), guardRef: { current: null }, characters: { exportCharacters: vi.fn() },
+    view = { route, routeBusy: false, scrollPositions: new Map(), guardRef: { current: null }, characters: { exportCharacters: vi.fn(), duplicate: vi.fn() },
       openDrawer: vi.fn(), pushRoute: setRoute, replaceRoute: setRoute, goBack: () => setRoute({ kind: 'root' }), openCharacterConversation: start,
       registerBackHandler: callback => { backHandlers.push(callback); return () => { backHandlers = backHandlers.filter(item => item !== callback); }; },
       renderCharacterPageSection: renderSection,
@@ -53,6 +53,33 @@ async function input(value) {
 }
 
 describe('Android character and preset library contracts', () => {
+  it('copies only selected cards and keeps failed cards selected for retry', async () => {
+    await mount()
+    view.characters.duplicate.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error('Synthetic copy failure')).mockResolvedValue({})
+    await click('角色操作'); await click('复制角色卡')
+    expect(document.querySelector('[aria-label="导出格式"]')).toBeNull()
+    await click('合成角色甲'); await click('合成角色丙'); await click('复制')
+    expect(view.characters.duplicate.mock.calls).toEqual([['character-a'], ['character-c']])
+    expect(view.chat.notify).toHaveBeenCalledWith('info', '已复制 1 张角色卡')
+    expect(document.querySelectorAll('.mobile-character-card[aria-pressed=true]')).toHaveLength(1)
+    expect(document.querySelector('.mobile-character-card[aria-pressed=true]').getAttribute('aria-label')).toBe('合成角色丙')
+    expect(document.querySelector('.mobile-inline-error').textContent).toContain('Synthetic copy failure')
+    await click('复制')
+    expect(view.characters.duplicate.mock.calls).toEqual([['character-a'], ['character-c'], ['character-c']])
+    expect(document.querySelector('.mobile-library-selection-header')).toBeNull()
+  })
+
+  it.each([0, 1])('keeps canceled export selection and only reports files actually saved (%i written)', async count => {
+    await mount()
+    view.characters.exportCharacters.mockResolvedValue({ canceled: true, written: samples.slice(0, count).map(item => ({ characterId: item.id, fileName: 'synthetic.png' })), failures: [] })
+    await click('角色操作'); await click('导出角色卡'); await click('全选'); await click('导出')
+    expect(document.querySelector('.mobile-library-selection-header')).toBeTruthy()
+    expect(document.querySelectorAll('.mobile-character-card[aria-pressed=true]')).toHaveLength(3 - count)
+    if (count) expect(view.chat.notify).toHaveBeenCalledWith('info', '已导出 1 张角色卡')
+    else expect(view.chat.notify).not.toHaveBeenCalled()
+    expect(document.querySelector('.mobile-inline-error')).toBeNull()
+  })
+
   it('selects more than fifty export cards individually and through select all', async () => {
     const characters = Array.from({ length: 101 }, (_, index) => ({ id: `synthetic-card-${index}`, name: `Synthetic card ${index}`, group: '', persona: {} }));
     await mount('character', { kind: 'root' }, characters);
@@ -84,7 +111,8 @@ describe('Android character and preset library contracts', () => {
   it('opens the anchored action menu, restores focus and enters a full-page manager', async () => {
     await mount(); await click('角色操作');
     const menu = document.querySelector('.mobile-bubble-menu');
-    expect(menu.querySelectorAll('[role="menuitem"]')).toHaveLength(5);
+    expect([...menu.querySelectorAll('[role="menuitem"]')].map(item => item.textContent.trim()))
+      .toEqual(['新建角色', '分组管理', '复制角色卡', '导入角色卡', '导出角色卡', '删除角色卡']);
     expect(menu.querySelectorAll('hr')).toHaveLength(2);
     expect(document.querySelector('.mobile-dialog')).toBeNull();
     expect(maskEvents.filter(event => event.active)).toHaveLength(1);

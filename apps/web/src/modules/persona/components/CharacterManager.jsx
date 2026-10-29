@@ -251,9 +251,15 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
     setExporting(true);
     try {
       const result = await onExportCharacters([...selectedIds], exportFormat);
-      if (result?.canceled) return;
       const failures = result?.failures || [];
       const written = result?.written || [];
+      if (result?.canceled) {
+        const writtenIds = new Set(written.map(item => item.characterId));
+        setSelectedIds(current => current.filter(id => !writtenIds.has(id)));
+        if (written.length) setExportNotice(`已导出 ${written.length} 张 · ${exportFormat.toUpperCase()} → ${result.directory}`);
+        if (failures.length) setError(failures[0].message);
+        return;
+      }
       if (failures.length) {
         // 只留下失败的：成功的移出勾选，重试时不会把同一张卡导出两遍。
         const failed = new Set(failures.map((failure) => failure.characterId));

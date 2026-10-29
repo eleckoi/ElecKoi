@@ -243,6 +243,17 @@ describe('导出选择条', () => {
   })
 
   // ── 勾选失效与空清单 ────────────────────────────────────────────────
+  it('批量中途取消时，只移除已经保存的卡，保留取消和未处理的卡', async () => {
+    const { container, onExportCharacters } = renderManager()
+    onExportCharacters.mockResolvedValue({ canceled: true, directory: '所选保存位置', written: [{ characterId: 'card-1', fileName: 'synthetic.png' }], failures: [] })
+    enterExport(container)
+    click(buttonByText(container, '全选当前列表'))
+    await clickAsync(exportButton(container))
+    expect(selectedIds(container)).toBe(2)
+    expect(targetsText(container)).not.toContain('角色甲')
+    expect(container.querySelector('.character-manager-selection-notice').textContent).toContain('已导出 1 张')
+  })
+
   describe('失效勾选与空清单文案', () => {
     it('勾选的角色卡在别处被删除后，失效的勾选会被自动剔除', () => {
       const { container, rerender } = renderManager()
