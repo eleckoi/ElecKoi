@@ -1,6 +1,7 @@
 export { diagnosticsPlugin } from './diagnosticsPlugin'
 export { buildBugReport, collectReportFailures, type BugReportCollection } from './bugReportCollection'
 export {
+  BUG_REPORT_SESSION_SCAN_FILES,
   parseSessionEvents,
   previousSessionOf,
   readPreviousSession,
