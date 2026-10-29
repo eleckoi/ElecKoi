@@ -1,8 +1,11 @@
 import type { DesktopHostFailureNotice } from './errors/ipc'
 import type {
+  BugReportDraftSaveRequest,
+  BugReportDraftSaved,
   BugReportExportRequest,
   BugReportExportResult,
   BugReportExternalTarget,
+  BugReportPendingDrafts,
   BugReportPreview,
   BugReportPreviewRequest,
   BugReportSendRequest,
@@ -47,7 +50,10 @@ export const DESKTOP_SHELL_IPC = {
   bugReportPreview: 'dsh-desktop:bug-report-preview',
   bugReportExport: 'dsh-desktop:bug-report-export',
   bugReportOpen: 'dsh-desktop:bug-report-open',
-  bugReportSend: 'dsh-desktop:bug-report-send'
+  bugReportSend: 'dsh-desktop:bug-report-send',
+  bugReportSaveDraft: 'dsh-desktop:bug-report-save-draft',
+  bugReportDrafts: 'dsh-desktop:bug-report-drafts',
+  bugReportDiscardDraft: 'dsh-desktop:bug-report-discard-draft'
 } as const
 
 /** Narrow desktop-only capabilities exposed by the preload script. */
@@ -78,6 +84,14 @@ export interface DshDesktopProductApi {
     open(target: BugReportExternalTarget): Promise<void>
     /** 经托管代发服务直接寄出；没配代发通道时拒绝。 */
     send(request: BugReportSendRequest): Promise<BugReportSendResult>
+    /**
+     * 把已脱敏的报告存成一份草稿（ADR 0041 决定 14：失败不丢）。写不进去时拒绝。
+     */
+    saveDraft(request: BugReportDraftSaveRequest): Promise<BugReportDraftSaved>
+    /** 列出现有待重发的草稿（新到旧）；坏文件跳过，永不拒绝。 */
+    drafts(): Promise<BugReportPendingDrafts>
+    /** 删一份草稿；键非法或文件不存在都不拒绝。 */
+    discardDraft(key: string): Promise<void>
   }
   readonly host?: {
     /**

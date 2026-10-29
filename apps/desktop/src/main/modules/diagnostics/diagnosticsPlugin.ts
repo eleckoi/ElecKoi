@@ -1,18 +1,21 @@
 /**
- * Bug 报告的主进程侧：收集、导出、打开投递通道（[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md)）。
+ * Bug 报告的主进程侧：收集、导出、打开投递通道、存草稿（[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md)）。
  *
  * 判据：渲染层只做展示与选择，报告一律在主进程生成——日志在它手里，脱敏也在它手里。所以这里
- * 只有三件事：
+ * 只有四件事：
  *
  * 1. **收集**：读最近日志 → 判断上次会话 → 拼报告 → 脱敏（`buildBugReport` 内部完成）。
  * 2. **导出**：用户按了「导出」就带日志尾，写成一个 JSON 文件。
- * 3. **打开通道**：只放行 `mailto:` 与 GitHub 的 https 地址，其余一律拒收。
+ * 3. **打开通道**：只放行 `mailto:`、GitHub 的 https 地址与表单的 http(s) 地址，其余一律拒收；
+ *    打开失败折成 `eleckoi/shell/open-failed`（带 `what: 'mail' | 'form'`，决定 13）。
+ * 4. **草稿**：失败或中途关闭时把已脱敏的报告存进 `userData/bug-reports/pending/`（决定 14）。
  *
  * 两条约束：
  *
- * 1. **地址来自发布配置，不写死在代码里**（见 `reportDelivery.ts`）。
+ * 1. **地址来自发布配置，不写死在代码里**（见 `bundledReportConfig.ts`）。
  * 2. **失败带码。** 载荷不合合同走 `contract/invalid-request`（带 `issues`），写文件失败走
- *    `io/failed`（带 `operation` / `path`）。三个动作各有开始 / 成功 / 失败日志行。
+ *    `io/failed`（带 `operation` / `path`）。三个投递动作各有开始 / 成功 / 失败日志行；
+ *    草稿是尽力而为的功能，不为它新增日志动作。
  */
 import { writeFileSync } from 'node:fs'
 import * as os from 'node:os'
@@ -23,9 +26,12 @@ import { LOG_ACTIONS } from '@shared/contracts/logActions'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import {
+  isBugReportDraftKey,
   isBugReportExternalTarget,
+  type BugReportDraftSaved,
   type BugReportExportRequest,
   type BugReportExportResult,
+  type BugReportPendingDrafts,
   type BugReportPreview,
   type BugReportPreviewRequest,
   type BugReportSendResult
@@ -36,13 +42,20 @@ import { assertTrustedDshClientFrame } from '@main/platform/electron/validateSen
 import { handleDesktopIpcCall } from '@main/platform/electron/desktopIpcHandler'
 import { logAction } from '@main/platform/logging/logActions'
 import { buildBugReport } from './bugReportCollection'
+import { readReportConfig } from './bundledReportConfig'
+import { bugReportOpenFailure } from './reportOpen'
+import {
+  discardPendingDraft,
+  listPendingDrafts,
+  pendingDraftDirectory,
+  savePendingDraft
+} from './reportDrafts'
 import { readPreviousSession, readRecentLogLines } from './previousSession'
 import {
   BUG_REPORT_LOG_SCAN_LINES,
   BUG_REPORT_RELAY_TIMEOUT_MS,
   desktopReportEnvironment,
-  exportFileName,
-  readBugReportDelivery
+  exportFileName
 } from './reportDelivery'
 
 export const diagnosticsPlugin = {
@@ -52,7 +65,8 @@ export const diagnosticsPlugin = {
     const appLog = ctx.appLog
     const userData = ctx.appPaths.userData
     const windows = ctx.electronWindows
-    const delivery = readBugReportDelivery()
+    const delivery = readReportConfig()
+    const draftDirectory = pendingDraftDirectory(userData)
 
     const assertSender = (event: Electron.IpcMainInvokeEvent): void => assertTrustedDshClientFrame(
       event.sender,
@@ -138,8 +152,10 @@ export const diagnosticsPlugin = {
         await shell.openExternal(target.url)
         logAction(appLog, LOG_ACTIONS.bugReportOpen, 'success')
       } catch (error) {
-        logAction(appLog, LOG_ACTIONS.bugReportOpen, 'failure', error)
-        throw error
+        // 失败行带上新码：用户看到的是「没能打开」，日志里要能读出是哪类外部程序。
+        const failure = bugReportOpenFailure(target.kind, error)
+        logAction(appLog, LOG_ACTIONS.bugReportOpen, 'failure', failure)
+        throw failure
       }
     })
 
@@ -177,11 +193,44 @@ export const diagnosticsPlugin = {
       }
     })
 
+    // 草稿三条都**不写日志动作**：它是尽力而为的功能，失败经 IPC 错误回到渲染层就够，
+    // 不为它扩共享日志契约（LOG_ACTIONS）。
+    handleDesktopIpcCall(DESKTOP_SHELL_IPC.bugReportSaveDraft, (event, request) => {
+      assertSender(event)
+      const parsed = previewRequestOf(request)
+      return savePendingDraft({
+        directory: draftDirectory,
+        report: collect(parsed),
+        now: new Date()
+      }) satisfies BugReportDraftSaved
+    })
+
+    handleDesktopIpcCall(DESKTOP_SHELL_IPC.bugReportDrafts, event => {
+      assertSender(event)
+      return {
+        drafts: listPendingDrafts({ directory: draftDirectory, now: new Date() })
+      } satisfies BugReportPendingDrafts
+    })
+
+    handleDesktopIpcCall(DESKTOP_SHELL_IPC.bugReportDiscardDraft, (event, key) => {
+      assertSender(event)
+      if (!isBugReportDraftKey(key)) {
+        throw new DesktopError(ELECKOI_FAILURE_CODES.contractInvalidRequest,
+          '报告草稿键不合合同：只接受文件名安全字符。', {
+            issues: [{ path: 'key', message: '必须是 [A-Za-z0-9._-] 组成的草稿键' }]
+          })
+      }
+      discardPendingDraft({ directory: draftDirectory, key })
+    })
+
     return () => {
       ipcMain.removeHandler(DESKTOP_SHELL_IPC.bugReportPreview)
       ipcMain.removeHandler(DESKTOP_SHELL_IPC.bugReportExport)
       ipcMain.removeHandler(DESKTOP_SHELL_IPC.bugReportOpen)
       ipcMain.removeHandler(DESKTOP_SHELL_IPC.bugReportSend)
+      ipcMain.removeHandler(DESKTOP_SHELL_IPC.bugReportSaveDraft)
+      ipcMain.removeHandler(DESKTOP_SHELL_IPC.bugReportDrafts)
+      ipcMain.removeHandler(DESKTOP_SHELL_IPC.bugReportDiscardDraft)
     }
   }
 } satisfies Plugin.Object

@@ -19,6 +19,16 @@ export {
   type DesktopEnvironmentInput
 } from './reportDelivery'
 export { readBundledReportConfigText, readReportConfig } from './bundledReportConfig'
+export { bugReportOpenFailure } from './reportOpen'
+export {
+  BUG_REPORT_DRAFT_RETENTION_DAYS,
+  BUG_REPORT_MAX_PENDING_DRAFTS,
+  discardPendingDraft,
+  listPendingDrafts,
+  pendingDraftDirectory,
+  pendingDraftKey,
+  savePendingDraft
+} from './reportDrafts'
 export {
   BUG_REPORT_CONFIG_FILE_NAME,
   BUG_REPORT_FORM_FIELD_BODY_ENV,

@@ -3,9 +3,12 @@ import { DESKTOP_SHELL_IPC, type DesktopBrowserBridge, type DesktopBrowserLeaseI
 import type { DesktopHostFailureNotice } from '@shared/contracts/errors/ipc'
 import type { UpdateInstallResult, UpdateStatus } from '@shared/contracts/updates/schemas'
 import type {
+  BugReportDraftSaveRequest,
+  BugReportDraftSaved,
   BugReportExportRequest,
   BugReportExportResult,
   BugReportExternalTarget,
+  BugReportPendingDrafts,
   BugReportPreview,
   BugReportPreviewRequest,
   BugReportSendRequest,
@@ -96,7 +99,12 @@ function createDesktopProductApi(): DshDesktopProductApi {
       open: (target: BugReportExternalTarget) =>
         invokeOrFail<void>(DESKTOP_SHELL_IPC.bugReportOpen, target),
       send: (request: BugReportSendRequest) =>
-        invokeOrFail<BugReportSendResult>(DESKTOP_SHELL_IPC.bugReportSend, request)
+        invokeOrFail<BugReportSendResult>(DESKTOP_SHELL_IPC.bugReportSend, request),
+      saveDraft: (request: BugReportDraftSaveRequest) =>
+        invokeOrFail<BugReportDraftSaved>(DESKTOP_SHELL_IPC.bugReportSaveDraft, request),
+      drafts: () => invokeOrFail<BugReportPendingDrafts>(DESKTOP_SHELL_IPC.bugReportDrafts),
+      discardDraft: (key: string) =>
+        invokeOrFail<void>(DESKTOP_SHELL_IPC.bugReportDiscardDraft, key)
     }
   }
 }
