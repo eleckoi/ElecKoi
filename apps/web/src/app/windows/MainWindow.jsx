@@ -10,7 +10,7 @@ import { resolveFailure } from "../../utils/failureText.js";
 import { SidebarContent } from "./shell/components/SidebarContent.jsx";
 import { CommunityDialog } from "./shell/components/CommunityDialog.jsx";
 import { BugReportDialog } from "./shell/components/BugReportDialog.jsx";
-import { isBugReportAvailable } from "./shell/components/bugReportBridge.js";
+import { bugReportBridge, isBugReportAvailable } from "./shell/components/bugReportBridge.js";
 import { PluginCenterSurface, PluginListPanel } from "./shell/components/PluginCenter.jsx";
 import { SidePanelResizeHandle } from "./shell/components/SidePanelResizeHandle.jsx";
 import { TitleBar, WindowControls } from "./shell/components/TitleBar.jsx";
@@ -20,6 +20,12 @@ import { useColumnTransition } from "./shell/hooks/useColumnTransition.js";
 import { AppUpdateController, useAppUpdates } from "../../modules/updates/index.js";
 import { openCreatorStudioWindow } from "../../modules/creatorStudio/index.js";
 import { MainPageContext } from "./MainPageContext.jsx";
+
+/**
+ * 「上次有一份报告没发出去」只提示一次（ADR 0041 决定 14：不偷偷重发，也不反复打扰）。
+ * 模块级标记：窗口重新挂载也算同一次运行。
+ */
+let bugReportDraftPrompted = false;
 
 class MainPageErrorBoundary extends Component {
   state = { error: null };
@@ -77,6 +83,21 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
   useEffect(() => subscribeAppFailure((resolved) => {
     chat.notify("error", resolved.text, resolved);
   }), [chat.notify]);
+
+  // 上次没发出去的报告：每次运行最多提示一次，送不送由用户点（ADR 0041 决定 14）。
+  // 只查一次、不轮询、不重发——草稿的处置全在「报告问题」对话框里。
+  useEffect(() => {
+    if (bugReportDraftPrompted || !isBugReportAvailable()) return;
+    const bridge = bugReportBridge();
+    if (typeof bridge?.drafts !== "function") return;
+    bugReportDraftPrompted = true;
+    bridge.drafts()
+      .then((result) => {
+        if (!Array.isArray(result?.drafts) || result.drafts.length === 0) return;
+        chat.notify("info", "上次有一份报告没发出去，打开「报告问题」可以重发。");
+      })
+      .catch(() => {});
+  }, []);
 
   const changeActiveSection = useCallback((section) => {
     if (chat.activeSection === "model" && section !== "model" && modelNavigationGuardRef.current) {

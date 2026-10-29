@@ -98,6 +98,15 @@ function androidBugReportBridge(platform) {
     async open(target) {
       await platform.openExternal(target.url);
     },
+    // Android 没有草稿持久化（ADR 0041 决定 14 的落盘只在桌面主进程）。这三条必须诚实：
+    // 存草稿回 `undefined`，组件据此**不**说"已保存草稿"；列草稿给空表，丢弃是空操作。
+    async saveDraft() {
+      return undefined;
+    },
+    async drafts() {
+      return { drafts: [] };
+    },
+    async discardDraft() {},
   };
 }
 
