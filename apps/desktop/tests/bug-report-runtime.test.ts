@@ -1,12 +1,14 @@
 /**
- * 主进程报告运行时：打开外部程序失败带码、草稿落盘 / 列目录 / 30 天清理 / 最多 10 份。
+ * 主进程报告运行时：打开外部程序失败带码、表单端点的白名单、草稿落盘 / 列目录 / 同签名去重 /
+ * 30 天清理 / 最多 10 份。
  *
- * 判据（[ADR 0041](../../../docs/adr/0041-bug-report-delivery.md) 决定 13 / 14）：
+ * 判据（[ADR 0041](../../../docs/adr/0041-bug-report-delivery.md) 决定 12 / 13 / 14）：
  *
  * 1. **打开失败带码**：`eleckoi/shell/open-failed` + 判别值 `what: 'mail' | 'form'`，界面才知道
  *    该说「没能打开邮件客户端」还是「没能打开浏览器」，下一步是「全文已复制」。
- * 2. **失败不丢**：发送失败或中途关闭时报告落进 `userData/bug-reports/pending/`；30 天后清掉，
- *    最多留 10 份，坏文件跳过，草稿出问题永不拖垮主流程。
+ * 2. **表单只开配置的那一个端点**：`kind:'form'` 不能把 `openExternal` 变成任意 http(s)。
+ * 3. **失败不丢**：发送失败或中途关闭时报告落进 `userData/bug-reports/pending/`；同签名只留最新
+ *    一份，30 天后清掉，最多留 10 份，坏文件跳过，草稿出问题永不拖垮主流程。
  *
  * 全部写进 `mkdtempSync` 的临时目录，不碰真实 userData；不 import `electron`。
  */
@@ -18,7 +20,7 @@ import { isBugReportDraftKey } from '@shared/contracts/bugReport/delivery'
 import type { BugReport } from '@shared/contracts/bugReport/report'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
-import { bugReportOpenFailure } from '../src/main/modules/diagnostics/reportOpen'
+import { bugReportOpenFailure, isConfiguredFormTarget } from '../src/main/modules/diagnostics/reportOpen'
 import {
   discardPendingDraft,
   listPendingDrafts,
@@ -28,6 +30,9 @@ import {
 } from '../src/main/modules/diagnostics/reportDrafts'
 
 const GENERATED_AT = '2026-10-27T12:00:00.000Z'
+
+/** 发布配置里的表单分享链接（测试用假租户域）。 */
+const SHARE_URL = 'https://example.feishu.cn/share/base/form/shrcAbCdEf'
 
 let base: string
 let directory: string
@@ -41,14 +46,14 @@ afterEach(() => {
   rmSync(base, { recursive: true, force: true })
 })
 
-/** 一份固定形状的报告；只需要改生成时间就能造出「不同的草稿」。 */
-function reportAt(generatedAt: string): BugReport {
+/** 一份固定形状的报告；改生成时间或失败码就能造出「不同的草稿」。 */
+function reportAt(generatedAt: string, code = 'eleckoi/io/failed'): BugReport {
   return {
     schemaVersion: 1,
     generatedAt,
     environment: { appVersion: '0.2.14', platform: 'windows', arch: 'x64' },
     session: { startedAt: '2026-10-27T09:00:00.000Z', ended: false },
-    failures: [{ code: 'eleckoi/io/failed', message: '写入报告失败' }]
+    failures: [{ code, message: '写入报告失败' }]
   }
 }
 
@@ -65,6 +70,25 @@ describe('打开外部程序失败', () => {
 
   it('非 Error 的抛出也保留诊断原文', () => {
     expect(bugReportOpenFailure('form', '打开失败').message).toContain('打开失败')
+  })
+})
+
+describe('表单通道只开配置里的那个端点', () => {
+  it('恰好是配置的端点，或它后面接 ? / & 的预填链接', () => {
+    expect(isConfiguredFormTarget(SHARE_URL, SHARE_URL)).toBe(true)
+    expect(isConfiguredFormTarget(`${SHARE_URL}?prefill_x=1`, SHARE_URL)).toBe(true)
+    expect(isConfiguredFormTarget(`${SHARE_URL}&a=b`, SHARE_URL)).toBe(true)
+    expect(isConfiguredFormTarget(`${SHARE_URL}?prefill_x=1&prefill_y=2`, SHARE_URL)).toBe(true)
+  })
+
+  it('别的域名、接在端点后面的路径、以及没配置端点都拒', () => {
+    expect(isConfiguredFormTarget('https://evil.example/form', SHARE_URL)).toBe(false)
+    expect(isConfiguredFormTarget(`${SHARE_URL}evil`, SHARE_URL)).toBe(false)
+    expect(isConfiguredFormTarget('https://evil.example/?prefill_x=1', SHARE_URL)).toBe(false)
+    expect(isConfiguredFormTarget(`${SHARE_URL}?prefill_x=1`, 'https://other.feishu.cn/f')).toBe(false)
+    expect(isConfiguredFormTarget(SHARE_URL, undefined)).toBe(false)
+    expect(isConfiguredFormTarget(SHARE_URL, '   ')).toBe(false)
+    expect(isConfiguredFormTarget('', SHARE_URL)).toBe(false)
   })
 })
 
@@ -113,7 +137,12 @@ describe('草稿存储', () => {
   it('列表新到旧', () => {
     const older = new Date('2026-10-25T12:00:00.000Z')
     const newer = new Date(GENERATED_AT)
-    savePendingDraft({ directory, report: reportAt(older.toISOString()), now: older })
+    // 签名不同才是两份独立草稿：同签名会被去重成一份（见「同签名去重」）。
+    savePendingDraft({
+      directory,
+      report: reportAt(older.toISOString(), 'eleckoi/plugin/load-failed'),
+      now: older
+    })
     savePendingDraft({ directory, report: reportAt(newer.toISOString()), now: newer })
     expect(listPendingDrafts({ directory, now: newer }).map(draft => draft.savedAt)).toEqual([
       newer.toISOString(),
@@ -158,12 +187,26 @@ describe('草稿存储', () => {
     const keys: string[] = []
     for (let index = 0; index < 11; index += 1) {
       const time = new Date(start + index * 60_000)
-      keys.push(savePendingDraft({ directory, report: reportAt(time.toISOString()), now: time }).key)
+      // 签名不同才有 11 份独立草稿：同签名只留最新一份（去重跑在上限之前）。
+      const report = reportAt(time.toISOString(), `eleckoi/test/failed-${index}`)
+      keys.push(savePendingDraft({ directory, report, now: time }).key)
     }
     const drafts = listPendingDrafts({ directory, now: new Date(start + 11 * 60_000) })
     expect(drafts).toHaveLength(10)
     expect(drafts.map(draft => draft.key)).not.toContain(keys[0])
     expect(drafts.map(draft => draft.key)).toEqual(keys.slice(1).reverse())
+  })
+
+  it('同签名不同生成时间存两次只留最新一份', () => {
+    const earlier = new Date(GENERATED_AT)
+    const later = new Date('2026-10-28T12:00:00.000Z')
+    const first = savePendingDraft({ directory, report: reportAt(GENERATED_AT), now: earlier })
+    const second = savePendingDraft({ directory, report: reportAt(later.toISOString()), now: later })
+    expect(second.key).not.toBe(first.key)
+    expect(readdirSync(directory)).toEqual([`${second.key}.json`])
+    const drafts = listPendingDrafts({ directory, now: later })
+    expect(drafts).toHaveLength(1)
+    expect(drafts[0]?.report.generatedAt).toBe(later.toISOString())
   })
 
   it('目录写不进去时抛 ioFailed，详情带操作与路径', () => {

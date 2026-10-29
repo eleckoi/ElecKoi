@@ -133,6 +133,13 @@ export interface BugReportPendingDrafts {
 }
 
 /**
+ * 草稿键的最大长度，与 `BUG_REPORT_DRAFT_KEY_PATTERN` 的 `{1,120}` 对齐。
+ *
+ * 主进程拿它截断过长的签名，所以上限只在这里写一次：形状守卫与落盘实现读同一个数。
+ */
+export const BUG_REPORT_DRAFT_KEY_MAX_LENGTH = 120
+
+/**
  * 草稿键的形态：只允许 `[A-Za-z0-9._-]`，1..120 字符。
  *
  * 主进程拿它拼文件名，所以这里是防目录穿越的那道门。

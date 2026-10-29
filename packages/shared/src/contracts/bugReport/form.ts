@@ -35,17 +35,17 @@ export const BUG_REPORT_FORM_MAX_URL_LENGTH = 32000
 /** 第一档降级时日志尾保留多少行。 */
 export const BUG_REPORT_FORM_LOG_TAIL_LINES = 40
 
-/** 第一档降级时随正文给出的原因（界面原样显示）。 */
-const LOG_TAIL_TRUNCATED_REASON = `日志尾已截断到最近 ${BUG_REPORT_FORM_LOG_TAIL_LINES} 行以适应表单链接长度`
-
-/** 第二档降级的原因。 */
-const SUMMARIZED_REASON = '报告较长，正文本条只带摘要'
-
-/** 连摘要都装不下时的原因。 */
-const HARD_TRUNCATED_REASON = '摘要仍超出表单链接预算，正文已截断'
-
 /** 硬截时正文末尾的标注。 */
 const HARD_TRUNCATED_MARK = '（已截断）'
+
+/**
+ * 一次表单投递的降级原因。界面据此写句子；契约不拼用户文案
+ * （[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md)「与已有记录的关系」：报告里的字段是
+ * 数据，不是句子；界面上的说明由渲染层写）。
+ *
+ * 三档与 {@link BugReportFormUrl} 的标记一一对应：截日志尾、只带摘要、摘要也硬截。
+ */
+export type BugReportFormDegradation = 'log-tail-truncated' | 'summarized' | 'hard-truncated'
 
 /**
  * 表单题目名映射。题目名是发布契约：维护者改题目名 = 客户端必须跟着发版。
@@ -78,8 +78,8 @@ export interface BugReportFormUrl {
   readonly summarized: boolean
   /** 日志尾被截短（第一档）。 */
   readonly truncatedLogTail: boolean
-  /** 给界面直接显示的原因说明；`[]` = 全文。 */
-  readonly reasons: readonly string[]
+  /** 降级原因的判别值；`[]` = 全文。句子由渲染层写，这里只给枚举。 */
+  readonly reasons: readonly BugReportFormDegradation[]
 }
 
 /** 一份表单题目的取值：角色 → 进链接的文本。 */
@@ -123,7 +123,7 @@ export function buildBugReportFormUrl(
     const body = `${formatBugReportBody({ ...report, logTail: truncated })}\n${logTailTruncatedMark(logTail)}`
     const url = compose(body)
     if (url.length <= maxLength) {
-      return { url, summarized: false, truncatedLogTail: true, reasons: [LOG_TAIL_TRUNCATED_REASON] }
+      return { url, summarized: false, truncatedLogTail: true, reasons: ['log-tail-truncated'] }
     }
   }
 
@@ -131,7 +131,7 @@ export function buildBugReportFormUrl(
   const summary = formatBugReportSummary(report)
   const summaryUrl = compose(summary)
   if (summaryUrl.length <= maxLength) {
-    return { url: summaryUrl, summarized: true, truncatedLogTail: false, reasons: [SUMMARIZED_REASON] }
+    return { url: summaryUrl, summarized: true, truncatedLogTail: false, reasons: ['summarized'] }
   }
 
   // 第三档：摘要也装不下，硬截到能装下的长度。仍然返回——「太长」不是「端点没配」。
@@ -142,7 +142,7 @@ export function buildBugReportFormUrl(
     url: compose(body),
     summarized: true,
     truncatedLogTail: false,
-    reasons: [SUMMARIZED_REASON, HARD_TRUNCATED_REASON]
+    reasons: ['summarized', 'hard-truncated']
   }
 }
 

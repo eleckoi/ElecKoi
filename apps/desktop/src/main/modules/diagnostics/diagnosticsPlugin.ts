@@ -6,13 +6,14 @@
  *
  * 1. **收集**：读最近日志 → 判断上次会话 → 拼报告 → 脱敏（`buildBugReport` 内部完成）。
  * 2. **导出**：用户按了「导出」就带日志尾，写成一个 JSON 文件。
- * 3. **打开通道**：只放行 `mailto:`、GitHub 的 https 地址与表单的 http(s) 地址，其余一律拒收；
+ * 3. **打开通道**：只放行 `mailto:`、GitHub 的 https 地址与**配置里那一个**表单端点，其余一律拒收；
  *    打开失败折成 `eleckoi/shell/open-failed`（带 `what: 'mail' | 'form'`，决定 13）。
  * 4. **草稿**：失败或中途关闭时把已脱敏的报告存进 `userData/bug-reports/pending/`（决定 14）。
  *
  * 两条约束：
  *
- * 1. **地址来自发布配置，不写死在代码里**（见 `bundledReportConfig.ts`）。
+ * 1. **地址来自发布配置，不写死在代码里**（见 `bundledReportConfig.ts`）。表单通道还要再收窄一次：
+ *    形状校验只说明「是个 http(s) 地址」，是不是配置的那个端点由 `isConfiguredFormTarget` 判。
  * 2. **失败带码。** 载荷不合合同走 `contract/invalid-request`（带 `issues`），写文件失败走
  *    `io/failed`（带 `operation` / `path`）。三个投递动作各有开始 / 成功 / 失败日志行；
  *    草稿是尽力而为的功能，不为它新增日志动作。
@@ -36,14 +37,18 @@ import {
   type BugReportPreviewRequest,
   type BugReportSendResult
 } from '@shared/contracts/bugReport/delivery'
-import { bugReportRelayReceipt, buildBugReportRelayRequest } from '@shared/contracts/bugReport/relay'
+import {
+  bugReportRelayReceipt,
+  buildBugReportRelayRequest,
+  isRetriableRelayStatus
+} from '@shared/contracts/bugReport/relay'
 import type { BugReport } from '@shared/contracts/bugReport/report'
 import { assertTrustedDshClientFrame } from '@main/platform/electron/validateSender'
 import { handleDesktopIpcCall } from '@main/platform/electron/desktopIpcHandler'
 import { logAction } from '@main/platform/logging/logActions'
 import { buildBugReport } from './bugReportCollection'
 import { readReportConfig } from './bundledReportConfig'
-import { bugReportOpenFailure } from './reportOpen'
+import { bugReportOpenFailure, isConfiguredFormTarget } from './reportOpen'
 import {
   discardPendingDraft,
   listPendingDrafts,
@@ -143,8 +148,19 @@ export const diagnosticsPlugin = {
       assertSender(event)
       if (!isBugReportExternalTarget(target)) {
         throw new DesktopError(ELECKOI_FAILURE_CODES.contractInvalidRequest,
-          '报告投递地址不合合同：只接受 mailto: 与 GitHub issue 链接。', {
-            issues: [{ path: 'target', message: '必须是 mailto: 或 https://github.com/ 开头的地址' }]
+          '报告投递地址不合合同：只接受 mailto:、GitHub issue 链接与配置里的表单端点。', {
+            issues: [{ path: 'target', message: '必须是 mailto:、https://github.com/ 开头的地址或 http(s) 表单地址' }]
+          })
+      }
+      // 形状校验只说明「是个 http(s) 地址」；表单通道还要是配置里那一个端点，否则主进程的
+      // `openExternal` 就成了「渲染层想开什么就开什么」。
+      if (target.kind === 'form' && !isConfiguredFormTarget(target.url, delivery.form?.shareUrl)) {
+        throw new DesktopError(ELECKOI_FAILURE_CODES.contractInvalidRequest,
+          '报告投递地址不合合同：表单通道只允许打开配置里的表单端点。', {
+            issues: [{
+              path: 'target.url',
+              message: '必须是配置里的表单分享链接本身，或它后面接 ? / & 的预填链接'
+            }]
           })
       }
       logAction(appLog, LOG_ACTIONS.bugReportOpen, 'start')
@@ -284,17 +300,45 @@ function invalidRequest(path: string, message: string): DesktopError {
     `报告请求不合合同：${path} ${message}。`, { issues: [{ path, message }] })
 }
 
+/** 重试前等多久（决定 14 只允许一次重试；给瞬时故障一点余地，又别让对话框看起来卡住）。 */
+const BUG_REPORT_RELAY_RETRY_DELAY_MS = 250
+
+/** 一次 POST 的结果：`ok` 为假时 `status` 是服务返回的状态码。 */
+type RelayResponse =
+  | { readonly ok: true; readonly text: string }
+  | { readonly ok: false; readonly status: number }
+
 /**
- * 把一条代发请求发出去。
+ * 把一条代发请求发出去；429 与 5xx 在同一次用户动作里重试一次（决定 14）。
  *
- * 三种失败都折成 `net/operation-failed`：连不上、超时、服务返回非 2xx。超时必须自己设——
+ * 三类失败都折成 `net/operation-failed`：连不上、超时、服务返回非 2xx。超时必须自己设——
  * 对话框在等这个 Promise，`fetch` 默认没有超时。
+ *
+ * 重试只发生在用户点下去的那一次里，且只对限流与临时性服务端错误：再试一次可能就好了。其它非 2xx
+ * 是「请求本身不对」，重试只是再错一次；**网络层失败不重试**——连不上再试还是连不上，直接降级，
+ * 用户手里还有剪贴板与导出。
  *
  * @param url - 服务端点（已校验 https）。
  * @param body - 请求体。
  * @returns 响应体原文（只有自有 Worker 会给回执，其余服务用不上）。
  */
 async function postRelayRequest(url: string, body: Readonly<Record<string, unknown>>): Promise<string> {
+  const first = await postOnce(url, body)
+  if (first.ok) return first.text
+  if (!isRetriableRelayStatus(first.status)) throw relayStatusFailure(first.status)
+  await delay(BUG_REPORT_RELAY_RETRY_DELAY_MS)
+  const second = await postOnce(url, body)
+  if (second.ok) return second.text
+  throw relayStatusFailure(second.status)
+}
+
+/**
+ * 发一次 POST，不带重试。
+ *
+ * 非 2xx 是「服务答复了」，作为结果返回（要不要重试由调用方判）；`fetch` 抛出与超时是「没答复」，
+ * 直接折成 `net/operation-failed`——这类失败一律不重试。
+ */
+async function postOnce(url: string, body: Readonly<Record<string, unknown>>): Promise<RelayResponse> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), BUG_REPORT_RELAY_TIMEOUT_MS)
   try {
@@ -304,18 +348,24 @@ async function postRelayRequest(url: string, body: Readonly<Record<string, unkno
       body: JSON.stringify(body),
       signal: controller.signal
     })
-    if (!response.ok) {
-      throw new DesktopError(ELECKOI_FAILURE_CODES.netOperationFailed,
-        `报告代发服务返回 ${response.status}。`, { operation: '发送报告', what: '报告代发服务' })
-    }
-    return await response.text()
+    if (!response.ok) return { ok: false, status: response.status }
+    return { ok: true, text: await response.text() }
   } catch (error) {
-    if (error instanceof DesktopError) throw error
     throw new DesktopError(ELECKOI_FAILURE_CODES.netOperationFailed,
       `报告代发服务不可达：${errorTextOf(error)}`, { operation: '发送报告', what: '报告代发服务' })
   } finally {
     clearTimeout(timer)
   }
+}
+
+/** 服务返回非 2xx 时的契约错误：带上状态码，重试用尽时也用它。 */
+function relayStatusFailure(status: number): DesktopError {
+  return new DesktopError(ELECKOI_FAILURE_CODES.netOperationFailed,
+    `报告代发服务返回 ${status}。`, { operation: '发送报告', what: '报告代发服务' })
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 function errorTextOf(error: unknown): string {

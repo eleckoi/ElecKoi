@@ -6,13 +6,14 @@
  *
  * 1. **题目名是契约**：参数名 = `prefill_<题目名>`，题目名可能是中文，编码要能被 `URL` 解回来；
  * 2. **预算按编码后算**：超限先截日志尾并注明，再只带摘要，最后硬截——永不返回 `undefined`
- *    （那是「端点没配」的语义）；
- * 3. **通道与草稿**：表单进通道名单、`http(s)` 才交给系统打开；草稿键挡目录穿越。
+ *    （那是「端点没配」的语义）。降级原因只给枚举值（界面自己写句子），正文里的截断标注仍在；
+ * 3. **通道与草稿**：表单进通道名单、`http(s)` 才交给系统打开；草稿键挡目录穿越，长度上限从契约导出。
  */
 import { describe, expect, it } from 'vitest'
 import { formatBugReportBody, formatBugReportSummary } from '../src/contracts/bugReport/mailto'
 import type { BugReport } from '../src/contracts/bugReport/report'
 import {
+  BUG_REPORT_DRAFT_KEY_MAX_LENGTH,
   BUG_REPORT_TARGET_KINDS,
   hasBugReportChannel,
   isBugReportDraftKey,
@@ -24,7 +25,8 @@ import {
   BUG_REPORT_FORM_LOG_TAIL_LINES,
   BUG_REPORT_FORM_MAX_URL_LENGTH,
   isBugReportFormConfig,
-  buildBugReportFormUrl
+  buildBugReportFormUrl,
+  type BugReportFormDegradation
 } from '../src/contracts/bugReport/form'
 
 const SHARE_URL = 'https://example.feishu.cn/share/base/form/shrcAbCdEf'
@@ -182,10 +184,10 @@ describe('日志尾与预算', () => {
     if (built === undefined) return
     expect(built.truncatedLogTail).toBe(true)
     expect(built.summarized).toBe(false)
-    expect(built.reasons.length).toBeGreaterThan(0)
+    expect(built.reasons).toEqual(['log-tail-truncated'])
     expect(built.url.length).toBeLessThanOrEqual(32000)
     const body = prefill(built.url, 'report_body') ?? ''
-    expect(body).toContain('截断')
+    expect(body).toContain('日志尾已截断')
     expect(body).toContain('第 199 行')
     expect(body).not.toContain('第 0 行')
   })
@@ -197,7 +199,7 @@ describe('日志尾与预算', () => {
     if (built === undefined) return
     expect(built.summarized).toBe(true)
     expect(built.truncatedLogTail).toBe(false)
-    expect(built.reasons.length).toBeGreaterThan(0)
+    expect(built.reasons).toEqual(['summarized'])
     expect(prefill(built.url, 'report_body')).toBe(formatBugReportSummary(report))
     expect(built.url.length).toBeLessThanOrEqual(2500)
   })
@@ -212,8 +214,27 @@ describe('日志尾与预算', () => {
     expect(built).toBeDefined()
     if (built === undefined) return
     expect(built.summarized).toBe(true)
+    expect(built.reasons).toEqual(['summarized', 'hard-truncated'])
     expect(built.url.length).toBeLessThanOrEqual(300)
-    expect(prefill(built.url, 'report_body') ?? '').toContain('截断')
+    expect(prefill(built.url, 'report_body') ?? '').toContain('（已截断）')
+  })
+
+  it('降级原因是枚举值，不是拼好的用户句子', () => {
+    const report = reportOf({ logTail: longLogTail })
+    const tiers: readonly (readonly BugReportFormDegradation[])[] = [
+      buildBugReportFormUrl(BASE_REPORT, { shareUrl: SHARE_URL, fields: FIELDS })?.reasons ?? [],
+      buildBugReportFormUrl(report, { shareUrl: SHARE_URL, fields: FIELDS })?.reasons ?? [],
+      buildBugReportFormUrl(report, { shareUrl: SHARE_URL, fields: FIELDS }, { maxLength: 2500 })?.reasons ?? [],
+      buildBugReportFormUrl(
+        BASE_REPORT,
+        { shareUrl: SHARE_URL, fields: { body: 'report_body' } },
+        { maxLength: 300 }
+      )?.reasons ?? []
+    ]
+    const degradations = tiers.flat()
+    expect(tiers[0]).toEqual([])
+    expect([...new Set(degradations)].sort()).toEqual(['hard-truncated', 'log-tail-truncated', 'summarized'])
+    for (const reason of degradations) expect(reason).not.toMatch(/[\u4e00-\u9fff]/)
   })
 })
 
@@ -256,6 +277,12 @@ describe('通道与草稿', () => {
     expect(isBugReportDraftKey('x'.repeat(121))).toBe(false)
     expect(isBugReportDraftKey(42)).toBe(false)
     expect(isBugReportDraftKey(null)).toBe(false)
+  })
+
+  it('草稿键长度上限从契约导出，就是形状守卫允许的上限', () => {
+    expect(BUG_REPORT_DRAFT_KEY_MAX_LENGTH).toBe(120)
+    expect(isBugReportDraftKey('x'.repeat(BUG_REPORT_DRAFT_KEY_MAX_LENGTH))).toBe(true)
+    expect(isBugReportDraftKey('x'.repeat(BUG_REPORT_DRAFT_KEY_MAX_LENGTH + 1))).toBe(false)
   })
 
   it('草稿读回时整份校验：键、时间、报告形状都对才收', () => {

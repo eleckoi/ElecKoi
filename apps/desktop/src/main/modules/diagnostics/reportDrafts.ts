@@ -4,6 +4,7 @@
  * 判据（[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md) 决定 14）：**失败不丢，但也不
  * 偷偷重发。** 发送失败或用户中途关闭时，已脱敏的报告写进 `userData/bug-reports/pending/<key>.json`；
  * 30 天后清理，最多留 10 份；下次启动最多提示一次要不要重发——重发永远是用户点的。
+ * 同一份失败（同签名）重复失败只留最新一份：一次崩溃循环不该把清理额度吃满、更不该把别的草稿挤掉。
  *
  * 四条约束：
  *
@@ -20,7 +21,11 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { BugReportDraftSaved, BugReportPendingDraft } from '@shared/contracts/bugReport/delivery'
-import { isBugReportDraftKey, isBugReportPendingDraft } from '@shared/contracts/bugReport/delivery'
+import {
+  BUG_REPORT_DRAFT_KEY_MAX_LENGTH,
+  isBugReportDraftKey,
+  isBugReportPendingDraft
+} from '@shared/contracts/bugReport/delivery'
 import { bugReportSignature, type BugReport } from '@shared/contracts/bugReport/report'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
@@ -34,9 +39,6 @@ export const BUG_REPORT_MAX_PENDING_DRAFTS = 10
 
 /** 一天的毫秒数。 */
 const DAY_MS = 24 * 60 * 60 * 1000
-
-/** 草稿键长度上限，与 `BUG_REPORT_DRAFT_KEY_PATTERN` 的 `{1,120}` 对齐。 */
-const DRAFT_KEY_MAX_LENGTH = 120
 
 /** 草稿文件后缀；只有这个后缀的条目才归我们管。 */
 const DRAFT_FILE_SUFFIX = '.json'
@@ -69,13 +71,17 @@ export function pendingDraftDirectory(userData: string): string {
  */
 export function pendingDraftKey(report: BugReport): string {
   const raw = `${keyPart(bugReportSignature(report))}-${keyPart(report.generatedAt)}`
-  if (raw.length <= DRAFT_KEY_MAX_LENGTH) return raw
+  if (raw.length <= BUG_REPORT_DRAFT_KEY_MAX_LENGTH) return raw
   const digest = shortDigest(raw)
-  return `${raw.slice(0, DRAFT_KEY_MAX_LENGTH - digest.length - 1)}-${digest}`
+  return `${raw.slice(0, BUG_REPORT_DRAFT_KEY_MAX_LENGTH - digest.length - 1)}-${digest}`
 }
 
 /**
- * 写一份草稿（原子：临时文件 + rename），返回 `{ key, savedAt }`；超过 10 份时删最旧的。
+ * 写一份草稿（原子：临时文件 + rename），返回 `{ key, savedAt }`。
+ *
+ * 写完在**同一趟**目录扫描里做两件事：同签名的旧草稿只留刚写的这份（同一份失败重复失败不该攒出
+ * 一堆副本，否则一次崩溃循环就会把 30 天清理与 10 份上限吃满），再把多出来的按最旧删到 10 份。
+ * 两件事看的是同一份快照，`storedDrafts` 已经解析过整份 JSON，没必要扫两遍。
  *
  * 写失败抛 `eleckoi/io/failed`（带 `operation` / `path`）——用户按下的动作必须有个交代。
  *
@@ -99,7 +105,7 @@ export function savePendingDraft(input: {
     throw new DesktopError(ELECKOI_FAILURE_CODES.ioFailed,
       `写入报告草稿失败：${errorTextOf(error)}`, { operation: '写入报告草稿', path })
   }
-  pruneOldest(input.directory)
+  pruneAfterSave(input.directory, key, bugReportSignature(input.report))
   return { key, savedAt }
 }
 
@@ -234,12 +240,22 @@ function draftOf(value: unknown): BugReportPendingDraft | undefined {
   return Number.isFinite(Date.parse(value.savedAt)) ? value : undefined
 }
 
-/** 超过上限时删最旧的（按 `savedAt`；同一时刻的按键定序，保证可复现）。 */
-function pruneOldest(directory: string): void {
-  const drafts = storedDrafts(directory)
-  if (drafts.length <= BUG_REPORT_MAX_PENDING_DRAFTS) return
-  const newestFirst = [...drafts].sort(compareNewestFirst)
-  for (const entry of newestFirst.slice(BUG_REPORT_MAX_PENDING_DRAFTS)) removeQuietly(entry.path)
+/**
+ * 写完一趟扫描里做完两件事：同签名只留刚写的那份，多出来的按最旧删到上限。
+ *
+ * 「同签名」用 `bugReportSignature(report)` 重新派生——不信任文件名、也不额外存一份签名。
+ * 刚写的那份按键排除：它可能因为时钟偏差排不到最前，但用户刚按下的动作不该被自己的清理删掉。
+ */
+function pruneAfterSave(directory: string, keptKey: string, signature: string): void {
+  const survivors: StoredDraft[] = []
+  for (const entry of [...storedDrafts(directory)].sort(compareNewestFirst)) {
+    if (entry.draft.key !== keptKey && bugReportSignature(entry.draft.report) === signature) {
+      removeQuietly(entry.path)
+      continue
+    }
+    survivors.push(entry)
+  }
+  for (const entry of survivors.slice(BUG_REPORT_MAX_PENDING_DRAFTS)) removeQuietly(entry.path)
 }
 
 /** 新的在前；同一时刻按键升序，排序结果与目录读取顺序无关。 */

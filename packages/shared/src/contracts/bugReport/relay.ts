@@ -117,6 +117,21 @@ export function fromNameOf(relay: BugReportRelayConfig): string {
 }
 
 /**
+ * 这个 HTTP 状态码值不值得在同一次用户动作里重试一次：只有 429 与 5xx。
+ *
+ * 判据是 [ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md) 决定 14：限流与临时性服务端错误
+ * 再试一次可能就好了；其它 4xx 是「请求本身不对」，重试只会再错一次。网络层失败（连不上、DNS、TLS）
+ * 不在这个函数里——那种情况由调用方直接降级，连不上再试还是连不上。
+ *
+ * @param status - HTTP 状态码。
+ * @returns 429 或 500..599 时为 true；不是整数、或落在 HTTP 范围外时为 false。
+ */
+export function isRetriableRelayStatus(status: number): boolean {
+  if (!Number.isInteger(status)) return false
+  return status === 429 || (status >= 500 && status <= 599)
+}
+
+/**
  * 从代发服务的响应里取回执。
  *
  * 只有自有 Worker 会给：它回 `{ "ok": true, "issue": 123 }`。托管表单服务回什么不可控，
