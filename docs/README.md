@@ -26,6 +26,7 @@
 - [产品数据库](DATABASE.md)：数据所有权、结构与迁移。
 - [失败契约](error-contract.md)：失败码、每条码的详情参数、用户文案通道与四条契约规则；由码表生成。
 - [错误处理协作声明](error-handling.md)：新增失败怎么写、用户可见文案在哪产生、加码与日志动作的顺序；`pnpm check:error-contract` 守四条规则。
+- [报告投递端点配置](bug-report-endpoint.md)：报告往哪投、内置配置在哪、四个题目名契约、`/form/` 的坑与换 Base 步骤。
 - [插件归属与接入清单](DSH_PLUGIN_MIGRATION.md)：内置能力的归属与公开接入点。
 
 ## 插件开发
