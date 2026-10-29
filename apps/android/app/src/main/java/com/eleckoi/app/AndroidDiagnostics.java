@@ -137,12 +137,24 @@ final class AndroidDiagnostics {
             JSONObject session = new JSONObject()
                 .put("startedAt", previousStartMillis > 0 ? Instant.ofEpochMilli(previousStartMillis).toString() : Instant.now().toString())
                 .put("ended", previousStartMillis > 0 ? previousEnded : true);
+            // 投递配置的唯一来源是 Android 资源（没有内置配置文件）；链接为空就不带 form，与「未配置」同义。
+            JSONObject delivery = new JSONObject().put("mailbox", "").put("repository", "");
+            String formUrl = context.getString(R.string.bug_report_form_url).trim();
+            if (!formUrl.isEmpty()) {
+                delivery.put("form", new JSONObject()
+                    .put("shareUrl", formUrl)
+                    .put("fields", new JSONObject()
+                        .put("body", context.getString(R.string.bug_report_form_field_body))
+                        .put("meta", context.getString(R.string.bug_report_form_field_meta))
+                        .put("code", context.getString(R.string.bug_report_form_field_code))
+                        .put("file", context.getString(R.string.bug_report_form_field_file))));
+            }
             return new JSONObject()
                 .put("available", true)
                 .put("environment", environment)
                 .put("session", session)
                 .put("events", events)
-                .put("delivery", new JSONObject().put("mailbox", "").put("repository", ""))
+                .put("delivery", delivery)
                 .toString();
         } catch (Exception failure) { return "{\"available\":false}"; }
     }
