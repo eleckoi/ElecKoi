@@ -5,6 +5,9 @@
  * 判据：「用户看得见入口、看得见自己将发出什么、每次投递都先把全文留在手里」。这里只断言
  * 外部可观察行为——按钮文案与顺序、平台桥的调用顺序与参数、界面上出现的句子；收集与脱敏仍由
  * `apps/desktop/tests/bug-report-collection.test.ts` 守着。
+ *
+ * 两条评审修复在这里被钉住：剪贴板成功才说「已复制」（决定 13），打开表单页不等于提交
+ * （决定 14）——草稿只由用户点「丢弃」时才删。
  */
 import React, { act } from "react";
 import { readFileSync } from "node:fs";
@@ -13,10 +16,14 @@ import { fileURLToPath } from "node:url";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+import { buildBugReportFormUrl } from "@shared/contracts/bugReport/form";
 import { formatBugReportBody } from "@shared/contracts/bugReport/mailto";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { CommunityDialog } from "../../src/app/windows/shell/components/CommunityDialog.jsx";
-import { BugReportDialog } from "../../src/app/windows/shell/components/BugReportDialog.jsx";
+import {
+  BugReportDialog,
+  resetSessionChannelFailuresForTests,
+} from "../../src/app/windows/shell/components/BugReportDialog.jsx";
 import { bugReportBridge, isBugReportAvailable } from "../../src/app/windows/shell/components/bugReportBridge.js";
 
 vi.stubGlobal("React", React);
@@ -25,8 +32,8 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 afterAll(() => vi.unstubAllGlobals());
 
 /** 一份形状合法的报告；正常结束（异常结束由需要它的用例显式覆盖）。 */
-function buildReport({ ended = true } = {}) {
-  return {
+function buildReport({ ended = true, logTail, notes, failures } = {}) {
+  const report = {
     schemaVersion: 1,
     generatedAt: "2026-10-29T08:00:00.000Z",
     environment: {
@@ -41,6 +48,10 @@ function buildReport({ ended = true } = {}) {
       { code: "eleckoi/io/failed", message: "读取失败：settings.json", details: { operation: "读取" } },
     ],
   };
+  if (failures !== undefined) report.failures = failures;
+  if (logTail !== undefined) report.logTail = logTail;
+  if (notes !== undefined) report.notes = notes;
+  return report;
 }
 
 /** 01 号票的表单配置形状（题目名是发布契约，用例照抄一份）。 */
@@ -56,9 +67,17 @@ function openFailure(what, message = "打开外部程序失败：ENOENT") {
   return new DesktopError("eleckoi/shell/open-failed", message, { what });
 }
 
-/** 桌面桥的桩：剪贴板与 open 的调用记在同一条时间线上，用例据此断言顺序。 */
+function draftOf(key, savedAt = "2026-10-29T08:00:00.000Z", report = buildReport()) {
+  return { key, savedAt, report };
+}
+
+/**
+ * 桌面桥的桩：剪贴板与 open 的调用记在同一条时间线上，用例据此断言顺序。
+ * 草稿列表与丢弃是**有状态**的：主进程删掉一份之后，下一次 `drafts()` 就该少一条。
+ */
 function installBridge({ report = buildReport(), delivery = DELIVERY, drafts = [], openImpl } = {}) {
   const order = [];
+  const draftList = [...drafts];
   const writeText = vi.fn(async () => {
     order.push("clipboard:writeText");
   });
@@ -73,8 +92,11 @@ function installBridge({ report = buildReport(), delivery = DELIVERY, drafts = [
     }),
     send: vi.fn(async () => ({ sent: true })),
     saveDraft: vi.fn(async () => ({ key: "draft-synthetic", savedAt: "2026-10-29T08:00:00.000Z" })),
-    drafts: vi.fn(async () => ({ drafts })),
-    discardDraft: vi.fn(async () => undefined),
+    drafts: vi.fn(async () => ({ drafts: [...draftList] })),
+    discardDraft: vi.fn(async (key) => {
+      const index = draftList.findIndex((draft) => draft.key === key);
+      if (index >= 0) draftList.splice(index, 1);
+    }),
   };
   window.dshDesktop = { bugReport };
   return { bugReport, order, writeText };
@@ -90,17 +112,24 @@ afterEach(async () => {
   delete window.dshDesktop;
   delete window.ElecKoiPlatform;
   delete navigator.clipboard;
+  // 会话内降级表是模块级状态（窗口重载才复位）；用例之间复位，免得相互污染。
+  resetSessionChannelFailuresForTests();
   vi.restoreAllMocks();
 });
+
+/** 重新渲染（`open` 由用例给），用于「关掉再打开」。 */
+async function renderDialog(open) {
+  await act(async () => {
+    root.render(<BugReportDialog open={open} onClose={() => {}} onNotify={() => {}} />);
+  });
+}
 
 /** 挂载对话框并等首批预览落定。 */
 async function mountDialog() {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
-  await act(async () => {
-    root.render(<BugReportDialog open onClose={() => {}} onNotify={() => {}} />);
-  });
+  await renderDialog(true);
   await act(async () => {});
 }
 
@@ -110,6 +139,10 @@ function buttonByText(label) {
 
 function actionLabels() {
   return [...document.querySelectorAll(".bug-report-actions button")].map((button) => button.textContent.trim());
+}
+
+function noticeText() {
+  return document.querySelector(".bug-report-notice")?.textContent ?? "";
 }
 
 function bodyText() {
@@ -178,6 +211,26 @@ describe("通道顺序与可见性", () => {
     expect(buttonByText("提交到飞书").className).toContain("is-primary");
   });
 
+  it("配了代发也不抢主位：表单是主按钮，代发排在邮件之后（决定 11）", async () => {
+    installBridge({
+      delivery: {
+        ...DELIVERY,
+        relay: { provider: "eleckoi-relay", endpoint: "https://relay.example.com/report", accessKey: "" },
+      },
+    });
+    await mountDialog();
+    expect(actionLabels()).toEqual([
+      "提交到飞书",
+      "用邮件发送",
+      "直接发送",
+      "复制报告",
+      "导出文件",
+      "关闭",
+    ]);
+    expect(buttonByText("提交到飞书").className).toContain("is-primary");
+    expect(actionLabels().indexOf("直接发送")).toBeGreaterThan(actionLabels().indexOf("用邮件发送"));
+  });
+
   it("没配表单与邮箱时不渲染会失败的按钮，并说清端点没配", async () => {
     installBridge({ delivery: { mailbox: "", repository: "" } });
     await mountDialog();
@@ -211,7 +264,7 @@ describe("投递动作：先复制，再打开", () => {
     expect(url.searchParams.get(`prefill_${FORM.fields.body}`)).toBe(formatBugReportBody(report));
   });
 
-  it("打开失败：原因与「全文已在剪贴板」同时出现，且不自动改开别的通道", async () => {
+  it("剪贴板成功、打开失败：原因与「全文已复制」同时出现，且不自动改开别的通道", async () => {
     const { bugReport } = installBridge({
       openImpl: async () => {
         throw openFailure("form");
@@ -225,8 +278,27 @@ describe("投递动作：先复制，再打开", () => {
 
     expect(bugReport.open).toHaveBeenCalledTimes(1);
     expect(bodyText()).toContain("没能打开浏览器");
-    expect(bodyText()).toContain("粘到任意地方发给作者即可");
-    expect(bodyText()).toContain("可以重试，或复制全文自己发");
+    expect(bodyText()).toContain("全文已复制");
+    expect(bodyText()).toContain("可以点「复制报告」，把全文粘到任意地方发给作者");
+  });
+
+  it("剪贴板失败、打开也失败：不宣称已复制，直说复制也没成功", async () => {
+    const { writeText } = installBridge({
+      openImpl: async () => {
+        throw openFailure("form");
+      },
+    });
+    writeText.mockRejectedValueOnce(new Error("剪贴板被系统占用"));
+    await mountDialog();
+
+    await act(async () => {
+      buttonByText("提交到飞书").click();
+    });
+
+    expect(bodyText()).not.toContain("全文已复制");
+    expect(bodyText()).not.toContain("全文已在剪贴板");
+    expect(noticeText()).toContain("复制也没成功");
+    expect(noticeText()).toContain("复制报告");
   });
 
   it("剪贴板写不进去时仍然打开表单", async () => {
@@ -266,6 +338,33 @@ describe("投递动作：先复制，再打开", () => {
   });
 });
 
+describe("会话内降级跨「关掉再打开」", () => {
+  it("降级后关掉再打开，该通道仍在降级位（不是主按钮）", async () => {
+    installBridge({
+      openImpl: async () => {
+        throw openFailure("form");
+      },
+    });
+    await mountDialog();
+
+    await act(async () => {
+      buttonByText("提交到飞书").click();
+    });
+    expect(actionLabels().indexOf("提交到飞书")).toBeGreaterThan(actionLabels().indexOf("复制报告"));
+    expect(buttonByText("提交到飞书").className).not.toContain("is-primary");
+
+    await renderDialog(false);
+    await renderDialog(true);
+    await act(async () => {});
+    await act(async () => {});
+
+    expect(buttonByText("提交到飞书")).toBeDefined();
+    expect(actionLabels().indexOf("提交到飞书")).toBeGreaterThan(actionLabels().indexOf("复制报告"));
+    expect(buttonByText("提交到飞书").className).not.toContain("is-primary");
+    expect(bodyText()).toContain("飞书表单：没能打开浏览器");
+  });
+});
+
 describe("崩溃证据默认带上", () => {
   it("上次异常结束：默认勾上日志尾并写明是默认带的", async () => {
     const { bugReport } = installBridge({ report: buildReport({ ended: false }) });
@@ -280,16 +379,12 @@ describe("崩溃证据默认带上", () => {
 });
 
 describe("草稿：失败不丢，也不偷偷重发", () => {
-  it("有草稿时给出「重新送出」与「丢弃」，丢弃后块消失", async () => {
-    const draft = {
-      key: "draft-20261029T0800",
-      savedAt: "2026-10-29T08:00:00.000Z",
-      report: buildReport(),
-    };
+  it("有草稿时按份数给出「重新送出」与「丢弃」，丢弃后块消失", async () => {
+    const draft = draftOf("draft-20261029T0800");
     const { bugReport } = installBridge({ drafts: [draft] });
     await mountDialog();
 
-    expect(bodyText()).toContain("上次有一份没发出去的报告");
+    expect(bodyText()).toContain("上次有 1 份没送出去的报告");
     expect(buttonByText("重新送出")).toBeDefined();
 
     await act(async () => {
@@ -298,6 +393,38 @@ describe("草稿：失败不丢，也不偷偷重发", () => {
 
     expect(bugReport.discardDraft).toHaveBeenCalledWith("draft-20261029T0800");
     expect(buttonByText("丢弃")).toBeUndefined();
+  });
+
+  it("2 份草稿按份数说话；丢弃最新一份后块按剩余份数更新", async () => {
+    const newer = draftOf("draft-newer", "2026-10-29T09:00:00.000Z");
+    const older = draftOf("draft-older", "2026-10-29T08:00:00.000Z");
+    const { bugReport } = installBridge({ drafts: [newer, older] });
+    await mountDialog();
+
+    expect(bodyText()).toContain("上次有 2 份没送出去的报告");
+
+    await act(async () => {
+      buttonByText("丢弃").click();
+    });
+
+    expect(bugReport.discardDraft).toHaveBeenCalledWith("draft-newer");
+    expect(bodyText()).toContain("上次有 1 份没送出去的报告");
+    expect(bugReport.drafts).toHaveBeenCalledTimes(2);
+  });
+
+  it("「重新送出」打开成功后不删草稿：等用户确认提交后再点「丢弃」", async () => {
+    const draft = draftOf("draft-20261029T0800");
+    const { bugReport } = installBridge({ drafts: [draft] });
+    await mountDialog();
+
+    await act(async () => {
+      buttonByText("重新送出").click();
+    });
+
+    expect(bugReport.open).toHaveBeenCalledTimes(1);
+    expect(bugReport.open.mock.calls[0][0]).toMatchObject({ kind: "form" });
+    expect(bugReport.discardDraft).not.toHaveBeenCalled();
+    expect(bodyText()).toContain("确认提交后再点「丢弃」");
   });
 
   it("投递失败时把报告存成草稿，并在错误里说清可以重发", async () => {
@@ -340,6 +467,47 @@ describe("草稿：失败不丢，也不偷偷重发", () => {
 
     release();
     await act(async () => {});
+  });
+});
+
+describe("表单预填的降级原因（契约给枚举，句子在渲染层）", () => {
+  /** 200 行日志：全文超预算，截到最近 40 行才装得下。 */
+  const LONG_LOG = Array.from(
+    { length: 200 },
+    (_, index) => `2026-10-29 08:00:00.000 INFO 第 ${index} 行 ${"x".repeat(280)}`,
+  ).join("\n");
+
+  const REASON_CASES = [
+    {
+      reason: "log-tail-truncated",
+      sentence: "日志尾已截断到最近 40 行以适应表单链接长度。",
+      report: buildReport({ logTail: LONG_LOG }),
+    },
+    {
+      reason: "summarized",
+      sentence: "报告较长，这次只带摘要；全文已复制到剪贴板。",
+      report: buildReport({ notes: "x".repeat(40000) }),
+    },
+    {
+      reason: "hard-truncated",
+      sentence: "摘要仍超出表单链接预算，正文已截断。",
+      report: buildReport({
+        failures: [{ code: `eleckoi/io/failed-${"y".repeat(40000)}`, message: "读取失败" }],
+      }),
+    },
+  ];
+
+  it.each(REASON_CASES)("$reason 渲染成对应的中文句子", async ({ reason, sentence, report }) => {
+    expect(buildBugReportFormUrl(report, FORM)?.reasons).toContain(reason);
+
+    installBridge({ report });
+    await mountDialog();
+
+    await act(async () => {
+      buttonByText("提交到飞书").click();
+    });
+
+    expect(bodyText()).toContain(sentence);
   });
 });
 

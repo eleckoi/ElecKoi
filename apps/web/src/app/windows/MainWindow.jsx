@@ -7,6 +7,7 @@ import { AppToast } from "../../ui/ui/AppToast.jsx";
 import { FailureAlert } from "../../ui/ui/FailureAlert.jsx";
 import { subscribeAppFailure } from "../../utils/appFailureOutlet.js";
 import { resolveFailure } from "../../utils/failureText.js";
+import { bestEffort } from "../../utils/swallowedFailure.js";
 import { SidebarContent } from "./shell/components/SidebarContent.jsx";
 import { CommunityDialog } from "./shell/components/CommunityDialog.jsx";
 import { BugReportDialog } from "./shell/components/BugReportDialog.jsx";
@@ -22,8 +23,8 @@ import { openCreatorStudioWindow } from "../../modules/creatorStudio/index.js";
 import { MainPageContext } from "./MainPageContext.jsx";
 
 /**
- * 「上次有一份报告没发出去」只提示一次（ADR 0041 决定 14：不偷偷重发，也不反复打扰）。
- * 模块级标记：窗口重新挂载也算同一次运行。
+ * 「上次没送出去的报告」只提示一次（ADR 0041 决定 14：不偷偷重发，也不反复打扰）。
+ * 提示按份数说话；模块级标记：窗口重新挂载也算同一次运行。
  */
 let bugReportDraftPrompted = false;
 
@@ -85,7 +86,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
   }), [chat.notify]);
 
   // 上次没发出去的报告：每次运行最多提示一次，送不送由用户点（ADR 0041 决定 14）。
-  // 只查一次、不轮询、不重发——草稿的处置全在「报告问题」对话框里。
+  // 只查一次、不轮询、不重发——草稿的处置全在「报告问题」对话框里。提示按份数说话。
   useEffect(() => {
     if (bugReportDraftPrompted || !isBugReportAvailable()) return;
     const bridge = bugReportBridge();
@@ -93,10 +94,12 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
     bugReportDraftPrompted = true;
     bridge.drafts()
       .then((result) => {
-        if (!Array.isArray(result?.drafts) || result.drafts.length === 0) return;
-        chat.notify("info", "上次有一份报告没发出去，打开「报告问题」可以重发。");
+        const count = Array.isArray(result?.drafts) ? result.drafts.length : 0;
+        if (count === 0) return;
+        chat.notify("info", `上次有 ${count} 份没送出去的报告，打开「报告问题」可以重发。`);
       })
-      .catch(() => {});
+      // 草稿列表问不到不是用户能处理的事：不提示，等下次启动再问。
+      .catch(bestEffort);
   }, []);
 
   const changeActiveSection = useCallback((section) => {

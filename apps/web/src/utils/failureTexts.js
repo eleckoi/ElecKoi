@@ -131,11 +131,12 @@ export const FAILURE_TEXTS = {
     const what = detailString(details.what);
     return what ? `网络请求失败：${what}。` : "网络请求失败，请检查网络连接后重试。";
   },
-  // 投递动作先写剪贴板再打开外部程序，所以打开失败时全文已经在剪贴板里了；句子必须点明
-  // 下一步是"粘到任意地方发给作者"，否则用户不知道复制那条路已经替他铺好（ADR 0041 决定 13）。
+  // 投递动作先写剪贴板再打开外部程序，但**剪贴板也可能失败**（ADR 0041 决定 13）。这条码只说
+  // 程序没打开、下一步可以点「复制报告」；"全文已复制"成不成是运行期事实，由对话框按 `copied`
+  // 另说——静态句子宣称一件没发生的事，比少说一句更糟。
   [ELECKOI_FAILURE_CODES.shellOpenFailed]: (details) => {
     const program = SHELL_OPEN_PROGRAM_TEXTS[detailString(details.what)] || "外部程序";
-    return `没能打开${program}。报告全文已经复制到剪贴板，粘到任意地方发给作者即可。`;
+    return `没能打开${program}。可以点「复制报告」，把全文粘到任意地方发给作者。`;
   },
   [ELECKOI_FAILURE_CODES.timeoutExpired]: (details) => {
     const what = detailString(details.what);

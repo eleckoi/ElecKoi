@@ -85,12 +85,13 @@ describe("参数化详情进句子", () => {
 
 /**
  * `eleckoi/shell/open-failed`（ADR 0041 决定 13）：投递动作是「先写剪贴板，再打开外部程序」，
- * 所以打开失败时全文已经在用户手里了。句子必须由渲染层按 `details.what` 映射成中文
- * （`mail` / `form` 是判别值，不是名词短语，不能原样拼进句子），并说清下一步是
- * 「粘到任意地方发给作者」——否则用户不知道复制那条路已经替他铺好了。
+ * 但**剪贴板也可能失败**，所以静态句子不能宣称「已经复制」——那件事由对话框按 `copied`
+ * 另说（成不成是运行期事实，不是这条码的属性）。静态句子只按 `details.what` 给程序名
+ * （`mail` / `form` 是判别值，不是名词短语，不能原样拼进句子），并指出下一步：
+ * 「复制报告」，把全文粘到任意地方发给作者。
  */
 describe("打开外部程序失败按 what 给中文句子", () => {
-  const NEXT_STEP = "报告全文已经复制到剪贴板，粘到任意地方发给作者即可。";
+  const NEXT_STEP = "可以点「复制报告」，把全文粘到任意地方发给作者。";
 
   it("mail：说清是邮件客户端", () => {
     expect(resolveFailure(failureOf(ELECKOI_FAILURE_CODES.shellOpenFailed, { what: "mail" })).text)
@@ -106,6 +107,14 @@ describe("打开外部程序失败按 what 给中文句子", () => {
     for (const details of [{}, { what: "elsewhere" }, { what: "" }]) {
       const { text } = resolveFailure(failureOf(ELECKOI_FAILURE_CODES.shellOpenFailed, details));
       expect(text).toBe(`没能打开外部程序。${NEXT_STEP}`);
+    }
+  });
+
+  it("静态句子不宣称已经复制（剪贴板可能失败，界面另按运行期事实说话）", () => {
+    for (const what of ["mail", "form", undefined]) {
+      const { text } = resolveFailure(failureOf(ELECKOI_FAILURE_CODES.shellOpenFailed, { what }));
+      expect(text).not.toContain("已复制");
+      expect(text).not.toContain("剪贴板");
     }
   });
 });

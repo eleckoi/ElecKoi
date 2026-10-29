@@ -8,8 +8,10 @@
  *    其余记录只进日志尾、不冒充失败；
  * 2. 预览能把事实拼成一份合法 `BugReport`，且代发通道在 Android 上不存在（没配就不显示按钮）。
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { buildBugReportFormUrl } from "@shared/contracts/bugReport/form";
 import { isBugReport } from "@shared/contracts/bugReport/report";
+import { buildBugReport } from "@shared/foundation/bugReport";
 import { androidReportLines, bugReportBridge, isBugReportAvailable } from "../../src/app/windows/shell/components/bugReportBridge.js";
 
 const ENVIRONMENT = {
@@ -101,5 +103,63 @@ describe("Android 报告桥", () => {
     const result = await bugReportBridge().export({});
     expect(result.saved).toBe(true);
     expect(result.path).toMatch(/^eleckoi-report-\d{8}-\d{6}\.json$/);
+  });
+
+  /**
+   * Testing Decisions 第 5 条：Android 桥与桌面桥给出**同形**的预览结果。
+   *
+   * 桌面侧在这里是桩（真实收集在主进程，`apps/desktop/tests/bug-report-collection.test.ts`
+   * 守着）：等价输入下两边都必须是 `{ report, delivery }`，`report` 过 `isBugReport`，
+   * `delivery` 的键集合相同，且都能直接喂给 `buildBugReportFormUrl` 产出表单链接。
+   * 用假时钟钉住 `generatedAt`，这样两边拼出来的链接必须逐字相同。
+   */
+  it("Android 桥与桌面桥给出同形的预览", async () => {
+    const FORM = {
+      shareUrl: "https://example.feishu.cn/share/base/form/shrcSyntheticForm",
+      fields: { body: "report_body", meta: "report_meta", code: "report_code", file: "report_file" },
+    };
+    const DELIVERY = { mailbox: "reports@example.com", repository: "", form: FORM };
+    const events = [
+      JSON.stringify({ kind: "java-uncaught", message: "空指针" }),
+      JSON.stringify({ kind: "session", stage: "started" }),
+    ];
+    installPlatform({ available: true, environment: ENVIRONMENT, session: SESSION, events, delivery: DELIVERY });
+
+    vi.useFakeTimers({ now: new Date("2026-10-29T08:00:00.000Z") });
+    try {
+      const androidPreview = await bugReportBridge().preview({ includeLogTail: true });
+
+      // 桌面桥的桩：主进程把已脱敏的报告与通道配置原样送过来。
+      window.dshDesktop = {
+        bugReport: {
+          preview: async () => ({
+            report: buildBugReport({
+              lines: androidReportLines(events),
+              environment: ENVIRONMENT,
+              session: SESSION,
+              includeLogTail: true,
+            }),
+            delivery: DELIVERY,
+          }),
+        },
+      };
+      const desktopPreview = await bugReportBridge().preview({ includeLogTail: true });
+
+      expect(Object.keys(androidPreview).sort()).toEqual(["delivery", "report"]);
+      expect(Object.keys(desktopPreview).sort()).toEqual(Object.keys(androidPreview).sort());
+      expect(isBugReport(androidPreview.report)).toBe(true);
+      expect(isBugReport(desktopPreview.report)).toBe(true);
+      expect(Object.keys(androidPreview.delivery).sort()).toEqual(Object.keys(desktopPreview.delivery).sort());
+
+      const androidUrl = buildBugReportFormUrl(androidPreview.report, FORM);
+      const desktopUrl = buildBugReportFormUrl(desktopPreview.report, FORM);
+      expect(androidUrl).toBeDefined();
+      expect(desktopUrl?.url).toBe(androidUrl.url);
+      expect(androidUrl.reasons).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+      delete window.dshDesktop;
+      delete window.ElecKoiPlatform;
+    }
   });
 });
