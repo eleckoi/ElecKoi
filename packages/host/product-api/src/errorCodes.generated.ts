@@ -35,6 +35,7 @@ export const ELECKOI_FAILURE_CODES = {
   pluginLoadFailed:        'eleckoi/plugin/load-failed',
   ioFailed:                'eleckoi/io/failed',
   netOperationFailed:      'eleckoi/net/operation-failed',
+  shellOpenFailed:         'eleckoi/shell/open-failed',
   timeoutExpired:          'eleckoi/timeout/expired',
   storageCorrupt:          'eleckoi/storage/corrupt',
   dbSchemaMismatch:        'eleckoi/db/schema-mismatch',

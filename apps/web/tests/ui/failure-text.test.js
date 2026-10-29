@@ -84,6 +84,33 @@ describe("参数化详情进句子", () => {
 });
 
 /**
+ * `eleckoi/shell/open-failed`（ADR 0041 决定 13）：投递动作是「先写剪贴板，再打开外部程序」，
+ * 所以打开失败时全文已经在用户手里了。句子必须由渲染层按 `details.what` 映射成中文
+ * （`mail` / `form` 是判别值，不是名词短语，不能原样拼进句子），并说清下一步是
+ * 「粘到任意地方发给作者」——否则用户不知道复制那条路已经替他铺好了。
+ */
+describe("打开外部程序失败按 what 给中文句子", () => {
+  const NEXT_STEP = "报告全文已经复制到剪贴板，粘到任意地方发给作者即可。";
+
+  it("mail：说清是邮件客户端", () => {
+    expect(resolveFailure(failureOf(ELECKOI_FAILURE_CODES.shellOpenFailed, { what: "mail" })).text)
+      .toBe(`没能打开邮件客户端。${NEXT_STEP}`);
+  });
+
+  it("form：说清是浏览器", () => {
+    expect(resolveFailure(failureOf(ELECKOI_FAILURE_CODES.shellOpenFailed, { what: "form" })).text)
+      .toBe(`没能打开浏览器。${NEXT_STEP}`);
+  });
+
+  it("what 缺失或认不出：给通用说法，不把英文判别值拼进句子", () => {
+    for (const details of [{}, { what: "elsewhere" }, { what: "" }]) {
+      const { text } = resolveFailure(failureOf(ELECKOI_FAILURE_CODES.shellOpenFailed, details));
+      expect(text).toBe(`没能打开外部程序。${NEXT_STEP}`);
+    }
+  });
+});
+
+/**
  * 契约钉住的一类写法：`state/precondition` 的 `what` 是**动作短语**，不是名词短语。
  *
  * 这条码的模板是 `请先${what}。`（见 `failureTexts.js` 的 `statePrecondition`），

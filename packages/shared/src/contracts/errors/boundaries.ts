@@ -162,6 +162,9 @@ export const ELECKOI_BOUNDARIES = [
       { when: '发送方不是可信的 ElecKoi 页面或 frame', code: ELECKOI_FAILURE_CODES.senderUntrusted },
       { when: '入参不合合同（zod 失败）', code: ELECKOI_FAILURE_CODES.contractInvalidRequest },
       { when: '通道不存在或调用形态不对', code: ELECKOI_FAILURE_CODES.internal },
+      // 投递动作的第二步（`openExternal`）失败：主进程折成壳码，详情 `{ what: 'mail' | 'form' }`，
+      // 用户句由渲染层按 `what` 映射（ADR 0041 决定 13）。
+      { when: '打开外部程序失败（邮件客户端或浏览器没起来）', code: ELECKOI_FAILURE_CODES.shellOpenFailed },
       { when: '主进程侧失败已带契约码', code: null }
     ],
     fallback: ELECKOI_FAILURE_CODES.internal
