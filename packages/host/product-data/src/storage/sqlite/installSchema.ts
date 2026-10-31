@@ -218,6 +218,12 @@ export function installSchema(database: Database.Database): void {
       }).immediate()
       version = 12
     }
+    // 数据库比当前程序新：可能是装过更新版本后又回退，或同一版本号下构建过更高 schema。
+    // 这里必须与"迁移没跑完"分开报，否则诊断句会把排查引向迁移链，而真实原因是程序旧。
+    // 放在开发库整理之后：v12/v13/v14 那几段是未发布基线的有意整理入口，不能当成超前库。
+    if (version > CURRENT_SCHEMA_VERSION) {
+      throw new DesktopError(ELECKOI_FAILURE_CODES.dbSchemaMismatch, `数据库版本 v${version} 高于当前程序支持的 v${CURRENT_SCHEMA_VERSION}，请升级 ElecKoi 后再打开，拒绝修改数据。`, { what: '数据库版本', expected: `不高于 v${CURRENT_SCHEMA_VERSION}` })
+    }
     if (version < CURRENT_SCHEMA_VERSION) {
       if (version >= 6 && version < 13) {
         normalizePreReleaseV6(database, version)
@@ -233,7 +239,7 @@ export function installSchema(database: Database.Database): void {
       }
     }
     if (database.pragma('user_version', { simple: true }) !== CURRENT_SCHEMA_VERSION) {
-      throw new DesktopError(ELECKOI_FAILURE_CODES.dbSchemaMismatch, `数据库迁移未到达当前版本 ${CURRENT_SCHEMA_VERSION}。`, { what: '数据库迁移结果', expected: `v${CURRENT_SCHEMA_VERSION}` })
+      throw new DesktopError(ELECKOI_FAILURE_CODES.dbSchemaMismatch, `数据库迁移未到达当前版本 ${CURRENT_SCHEMA_VERSION}：迁移链从 v${version} 出发没有走到终点。`, { what: '数据库迁移结果', expected: `v${CURRENT_SCHEMA_VERSION}` })
     }
     validateTableInventory(database)
     validateSchema(database)

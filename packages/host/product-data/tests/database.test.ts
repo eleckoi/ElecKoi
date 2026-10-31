@@ -1,5 +1,7 @@
 import { CharacterOpeningRepository } from '../src/domain/characterOpenings'
 import { restoreEditorSchemaV12 } from './helpers/editorSchemaV12'
+import { DesktopError } from '@shared/foundation/DesktopError'
+import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative } from 'node:path'
@@ -432,6 +434,31 @@ describe('shared SQLite baseline', () => {
       expect(schemaObjects(database)).toEqual(before)
       expect(database.prepare('SELECT historyUserMessageCount,title FROM chat_sessions').get())
         .toEqual({ historyUserMessageCount: 1, title: '合成聊天' })
+    } finally { database.close() }
+  })
+
+  // 用户装上更新版本又回退时，库的 user_version 会高于 CURRENT_SCHEMA_VERSION。这类库不能被
+  // 迁移链当成"没跑完"（旧实现的诊断句正是这么误导的），也不能被改动一个字节。
+  it.each([CURRENT_SCHEMA_VERSION + 1, CURRENT_SCHEMA_VERSION + 2])('refuses a v%s database from a newer build without changing its data', (newerVersion) => {
+    const database = new Database(':memory:')
+    try {
+      database.exec(commonSchemaSql.replace(/PRAGMA user_version = \d+;/, `PRAGMA user_version = ${newerVersion};`))
+      database.prepare("INSERT INTO user_profile VALUES ('synthetic-user','合成用户','','','','')").run()
+      const before = schemaObjects(database)
+      const records = productRecords(database)
+      let failure: unknown
+      try { installSchema(database) } catch (error) { failure = error }
+      expect(failure).toBeInstanceOf(DesktopError)
+      expect((failure as DesktopError).code).toBe(ELECKOI_FAILURE_CODES.dbSchemaMismatch)
+      // 诊断句必须指向"程序旧"，不能再说成迁移链没走完。
+      expect((failure as Error).message).toContain(`v${newerVersion}`)
+      expect((failure as Error).message).toContain('高于当前程序支持的')
+      expect((failure as DesktopError).details).toMatchObject({ what: '数据库版本', expected: `不高于 v${CURRENT_SCHEMA_VERSION}` })
+      expect(database.pragma('user_version', { simple: true })).toBe(newerVersion)
+      expect(schemaObjects(database)).toEqual(before)
+      expect(productRecords(database)).toEqual(records)
+      expect(database.pragma('foreign_key_check')).toEqual([])
+      expect(database.pragma('integrity_check', { simple: true })).toBe('ok')
     } finally { database.close() }
   })
 

@@ -11,6 +11,8 @@
 - 当前 `PRAGMA user_version`：`13`。
 - 当前结构：49 张业务表、2 个视图；数据库物理结构版本只使用 SQLite `PRAGMA user_version`。
 
+应用版本与 schema 之间没有代码关联：`CURRENT_SCHEMA_VERSION` 变了必须同时提升 `package.json` 的 `version`，否则同一版本号会发出两份不同的库结构——装过新库的用户回退到旧包时，旧程序会拒绝启动（`eleckoi/db/schema-mismatch`）。发版前按实际打出去的 schema 核对一次版本号（PR 模板里有这条勾选）。
+
 `pnpm db:generate` 从固定 SQL 生成内嵌迁移 SQL与 Drizzle 查询映射；`pnpm check:database-schema` 校验生成内容。SQL 是公共结构权威，Drizzle 映射不反向生成迁移。
 
 公开数据库 v11 到 v12 的迁移统一建立显示模板、完整编辑器版本、正则整体启停与聊天历史状态存储，并原子整理已移除的快捷命令正则目标：混合目标保留其他目标；仅有该目标的规则停用，保留原始名称、表达式与替换文本。当前全局、角色、预设规则及预设历史版本使用同一正式目标集合。无效的回复规则快照列删除，当前显示规则仍即时作用于 Session 正文。
