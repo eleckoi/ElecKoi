@@ -40,9 +40,16 @@ it.each([101, 1001, 10001])('preserves all %i global entries, long content, fina
   }
   expect(f.roles.get(role.characterId).activeVersionId).toBe(versionId)
   expect(f.roles.get(role.characterId).entries).toEqual([])
+  const renamed = f.globals.save({ ...saved, libraries: saved.libraries.map(item => item.id === source.id ? { ...item, name: '合成改名共享库' } : item) })
+  const renamedLibrary = renamed.libraries.find(item => item.id === source.id)!
+  expect(renamedLibrary.name).toBe('合成改名共享库')
+  expect(renamedLibrary.entries).toEqual(saved.libraries[0]!.entries)
+  expect(renamedLibrary.groups).toEqual(saved.libraries[0]!.groups)
+  const renamedRuntime = f.globals.merge({ characterId: role.characterId, name: role.name, entries: [emptyEntry('entry-0')], groups: [], promptPositions: [] })!
+  expect(renamedRuntime.entries.map(item => item.id)).toEqual(runtime.entries.map(item => item.id))
   f.roles.save(role.characterId, { ...role, entries: [emptyEntry('role-only')] })
-  expect(f.globals.get()).toEqual(saved)
-  f.db.close(); f.db.open(); expect(f.globals.get()).toEqual(saved)
+  expect(f.globals.get()).toEqual(renamed)
+  f.db.close(); f.db.open(); expect(f.globals.get()).toEqual(renamed)
   expect(f.db.native.pragma('user_version', { simple: true })).toBe(13)
   expect(f.db.native.pragma('foreign_key_check')).toEqual([])
   expect(f.db.native.pragma('integrity_check', { simple: true })).toBe('ok')

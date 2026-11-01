@@ -20,8 +20,8 @@ app.whenReady().then(async () => {
   };
   try {
     const reports = [];
-    for (const theme of ['light', 'dark']) for (const [width, height] of [[1440, 900], [900, 500], [390, 700]]) {
-      const compact = width === 390;
+    for (const theme of ['light', 'dark']) for (const [width, height] of [[1440, 900], [900, 500], [390, 700], [320, 640]]) {
+      const compact = width < 700;
       win.setContentSize(width, height);
       await win.loadURL(`${pathToFileURL(htmlPath).href}${compact ? '?compact' : ''}`);
       await wait('Boolean(document.querySelector("[data-testid]")) || Boolean(document.querySelector(".character-basic-content"))');
@@ -40,6 +40,8 @@ app.whenReady().then(async () => {
           enabled:measure(panel.querySelector('.character-openings-enabled')),
           title:measure(panel.querySelector('.setting-library-opening-toggle strong')),
           card:measure(panel.querySelector('.setting-library-opening-item')),
+          material:(()=>{const card=panel.querySelector('.setting-library-opening-item'),material=getComputedStyle(card.firstElementChild),reference=document.createElement('div');reference.style.cssText='background:var(--dsw-menu-surface-fill);backdrop-filter:var(--dsw-menu-backdrop-filter)';card.append(reference);const official=getComputedStyle(reference),value={fill:material.backgroundColor,filter:material.backdropFilter,officialFill:official.backgroundColor,officialFilter:official.backdropFilter};reference.remove();return value})(),
+          iconButtons:[...panel.querySelectorAll('.setting-library-opening-tools button')].map(measure),
           headingColor:sample(getComputedStyle(panel.querySelector('.setting-library-opening-summary')).backgroundColor),
           borderColor:sample(getComputedStyle(panel.querySelector('.setting-library-opening-item')).borderTopColor),
           pageColor:sample(getComputedStyle(document.querySelector('.character-editor-workspace')).backgroundColor),
@@ -63,6 +65,7 @@ app.whenReady().then(async () => {
       await evaluate(`[...document.querySelectorAll('button')].find(button=>button.getAttribute('aria-label')==='新建开场白').click()`);
       await wait('document.querySelectorAll(".setting-library-opening-item").length===2');
       await wait(`document.querySelectorAll('.setting-library-opening-item')[1].querySelector('.setting-library-opening-fields')!==null`);
+      const backupButtons=await evaluate(`Array.from(document.querySelectorAll('.setting-library-opening-item')[1].querySelectorAll('.setting-library-opening-tools button')).map(button=>{const r=button.getBoundingClientRect();return {width:r.width,height:r.height,right:r.right}})`);
       await evaluate(`(() => {const select=document.querySelector('.setting-library-opening-fields select');select.value='synthetic-variables';select.dispatchEvent(new Event('change',{bubbles:true}));})()`);
       await evaluate(`document.querySelector('.setting-library-save-button').click()`);
       await wait('window.syntheticSaveCount===1');
@@ -84,7 +87,7 @@ app.whenReady().then(async () => {
       await evaluate(`document.querySelectorAll('.setting-library-opening-toggle')[1].click()`);
       const binding = await evaluate(`document.querySelector('.setting-library-opening-fields select').value`);
       const noOpeningVersions = await evaluate(`!document.querySelector('select[aria-label="开场白版本"]')`);
-      reports.push({ theme, width, height, layout, settingsSeparated, binding, noOpeningVersions });
+      reports.push({ theme, width, height, layout, backupButtons, settingsSeparated, binding, noOpeningVersions });
     }
     writeFileSync(reportPath, JSON.stringify(reports)); app.exit(0);
   } catch (error) {

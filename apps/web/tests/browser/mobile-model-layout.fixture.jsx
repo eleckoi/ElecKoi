@@ -10,6 +10,7 @@ import '../../src/app/windows/styles/tokens.css';
 import '../../src/app/windows/styles/base.css';
 import '../../src/mobile/mobile.css';
 import '../../src/modules/models/styles/model-config.css';
+import '../../src/modules/models/styles/model-picker.css';
 
 const initial = { id: 'synthetic-config', name: '合成配置', provider: 'custom', api_format: 'responses', base_url: '', api_key: '',
   model: 'synthetic-model', model_options: [{ id: 'synthetic-model', isUserAdded: true, inputModalities: ['text', 'image'], supportsImageInput: true,

@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from 'react';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
-import { BookOpen, CaretRight, Trash } from '../../../ui/icons/interfaceIcons.jsx';
+import { BookOpen, CaretRight, PencilSimple, Trash } from '../../../ui/icons/interfaceIcons.jsx';
 import { ImportIcon } from '../../../ui/icons/index.jsx';
-import { Button, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Menu, MenuSurface } from '@deepseek-ai/dsh-client-ui-primitives';
 import { EditorManagementModal } from '../../../ui/ui/EditorCollectionControls.jsx';
+import { VersionNameDialog } from '../../../ui/ui/VersionNameDialog.jsx';
 import { useCharacterConfigurationDraft } from '../../../ui/hooks/useCharacterConfigurationDraft.js';
 import { globalSettingLibrarySchema } from '@shared/contracts/settingLibrary/global';
 import { SettingLibraryTree, SettingTreeActionsContext } from './SettingLibraryTree.jsx';
@@ -95,7 +96,7 @@ export function GlobalSettingLibraryImport({ state, settingLibraries, disabled }
     const file = event.target.files?.[0]; event.target.value = '';
     if (!file) return;
     try {
-      const parsed = parseSettingLibraryFile(await file.text());
+      const parsed = parseSettingLibraryFile(await file.text(), 'auto', file.name);
       state.importLibrary({ ...parsed, name: parsed.name || file.name.replace(/\.json$/i, '') });
     } catch (cause) { state.setError(resolveFailure(cause, { fallback: '导入全局设定库失败' }).text); }
   }
@@ -133,6 +134,7 @@ function scopeTreeNodes(nodes, prefix) {
 
 export function GlobalSettingLibrariesDirectory({ state, query, disabled, editor }) {
   const [deleting, setDeleting] = useState(null);
+  const [renaming, setRenaming] = useState(null);
   if (!state.available) return null;
   const libraries = state.libraryRef.current?.libraries;
   const visible = libraries?.filter(library => !query.trim() || library.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) || hasSearchResults(library, query));
@@ -154,15 +156,19 @@ export function GlobalSettingLibrariesDirectory({ state, query, disabled, editor
           check: (key, checked) => editor.selection.check(unscoped(key), checked) } : null };
       const nodeQuery = library.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) ? '' : query;
       const toggle = () => state.setExpanded(current => { const next = new Set(current); next.has(library.id) ? next.delete(library.id) : next.add(library.id); return next; });
-      return <div key={library.id} className={`global-setting-library${selected ? ' is-current' : ''}${library.enabled === false ? ' is-disabled' : ''}`}>
+      return <MenuSurface key={library.id} className={`global-setting-library${selected ? ' is-current' : ''}${library.enabled === false ? ' is-disabled' : ''}`}>
         <div className="global-setting-library-header">
           <button type="button" className="global-setting-library-expand" aria-label={`${open ? '折叠' : '展开'}${library.name}`} aria-expanded={open} onClick={toggle}><CaretRight size={13} /></button>
           <button type="button" className="global-setting-library-name" title={library.name} onClick={() => { choose(''); toggle(); }}><BookOpen size={17} /><span>{library.name}</span></button>
           <span className="setting-library-tree-count">{library.entries.length}</span>
+          <div className="global-setting-library-actions">
           <button type="button" className="setting-library-tree-switch" role="switch" aria-checked={library.enabled} aria-label={`${library.enabled ? '停用' : '启用'}全局库${library.name}`} disabled={disabled}
             onClick={() => state.setEnabled(library.id, !library.enabled)}><span aria-hidden="true" /></button>
-          <button type="button" className="global-setting-library-delete" aria-label={`删除全局库${library.name}`} disabled={disabled}
+          <button type="button" className="global-setting-library-action global-setting-library-rename" aria-label={`重命名全局库${library.name}`} title="重命名" disabled={disabled}
+            onClick={() => setRenaming({ id: library.id, name: library.name })}><PencilSimple size={15} /></button>
+          <button type="button" className="global-setting-library-action global-setting-library-delete" aria-label={`删除全局库${library.name}`} title="删除" disabled={disabled}
             onClick={() => setDeleting({ id: library.id, title: `删除“${library.name}”？`, message: '此库将在保存后删除，并对所有角色停止生效。来源角色和本地文件不会改动。' })}><Trash size={15} /></button>
+          </div>
         </div>
         {open ? <div className="global-setting-library-entries" onContextMenu={event => editor.openTreeContextMenu(event, library)}><SettingTreeActionsContext.Provider value={actions}>
           <SettingLibraryTree nodes={scopeTreeNodes(treeNodes(library), prefix)} query={nodeQuery} selectedId={selected && !editor.selection.active && editor.selectedKey ? prefix + editor.selectedKey : ''}
@@ -176,8 +182,12 @@ export function GlobalSettingLibrariesDirectory({ state, query, disabled, editor
               editor.moveLibrary(library.id, { ...drop, dragId, parentId, expandParentId }); }}
             ariaLabel={`${library.name}设定树`} />
         </SettingTreeActionsContext.Provider>{!library.entries.length && !library.groups.length ? <p className="global-setting-library-empty">暂无设定</p> : null}</div> : null}
-      </div>;
+      </MenuSurface>;
     })}
+    {renaming ? <VersionNameDialog key={renaming.id} title="重命名全局设定库" nameLabel="设定库名称" confirmLabel="完成"
+      initialName={renaming.name} versions={[]} onCancel={() => setRenaming(null)} onCreate={name => {
+        state.updateLibrary(renaming.id, current => ({ ...current, name })); setRenaming(null);
+      }} /> : null}
     <ConfirmationDialog target={deleting} confirmLabel="删除" tone="destructive" onCancel={() => setDeleting(null)} onConfirm={() => { state.remove(deleting.id); setDeleting(null); }} />
   </section>;
 }

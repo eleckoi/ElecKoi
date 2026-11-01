@@ -297,11 +297,12 @@ function hasDynamicGetwi(content) {
   return false;
 }
 
-function parseSillyTavernExport(source) {
+function parseSillyTavernExport(source, fileName) {
   const book = source?.data?.character_book || source?.character_book || source;
   const rawEntries = worldBookEntries(book);
   if (!rawEntries.length) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, "这个文件里没有可导入的酒馆世界书条目。", { what: "酒馆世界书条目", path: "entries" });
-  const name = text(source.name) || text(source?.originalData?.name) || text(book?.name) || "酒馆世界书";
+  const name = text(source.name).trim() || text(source?.originalData?.name).trim() || text(book?.name).trim()
+    || text(fileName).replace(/\.json$/i, '').trim() || "酒馆世界书";
   const groupId = createId("tavern-world-book");
   const timestamp = new Date().toISOString();
   const used = new Set();
@@ -380,7 +381,7 @@ function parseSillyTavernExport(source) {
   };
 }
 
-export function parseSettingLibraryFile(json, expected = "auto") {
+export function parseSettingLibraryFile(json, expected = "auto", fileName = "") {
   let source;
   try {
     source = JSON.parse(json);
@@ -391,7 +392,7 @@ export function parseSettingLibraryFile(json, expected = "auto") {
   const isSillyTavern = !source.format && Boolean(source.entries || source.character_book || source?.data?.character_book);
   if (expected === "eleckoi" && isSillyTavern) throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, "请选择 ElecKoi 导出的设定库文件。", { what: "选中的设定库文件", expected: "ElecKoi 导出的设定库文件" });
   if (expected === "sillytavern" && !isSillyTavern) throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, "请选择 SillyTavern 世界书 JSON。", { what: "选中的设定库文件", expected: "SillyTavern 世界书 JSON" });
-  return isSillyTavern ? parseSillyTavernExport(source) : parseElecKoiExport(source);
+  return isSillyTavern ? parseSillyTavernExport(source, fileName) : parseElecKoiExport(source);
 }
 
 function entryToJson(entry) {

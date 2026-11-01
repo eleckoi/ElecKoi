@@ -181,7 +181,7 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
     const action = fileActionRef.current;
     if (!file || !action) return;
     try {
-      const parsed = parseSettingLibraryFile(await file.text(), action.expected || "auto");
+      const parsed = parseSettingLibraryFile(await file.text(), action.expected || "auto", file.name);
       if (action.type === "import") {
         onChange(importLibraryAsVersion(current, parsed));
         setDialog("");

@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <application>
+        <receiver android:name=".NotificationPresentationProbeReceiver" android:exported="true"
+            android:permission="android.permission.DUMP" />
         <receiver android:name=".GlibcProbeReceiver" android:exported="true"
             android:permission="android.permission.DUMP" />
         <service android:name=".HostRuntimeService" android:exported="true"

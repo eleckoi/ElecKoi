@@ -58,8 +58,8 @@
 .chat-model-actions button { min-height: 32px; padding: 5px 14px; border: 1px solid transparent; border-radius: 8px; font: inherit; line-height: 20px; }
 .chat-model-cancel { background: transparent; color: var(--model-fg); }
 .chat-model-cancel:hover:not(:disabled) { background: var(--model-hover); }
-.chat-model-save { background: var(--model-fg); color: var(--model-paper); }
-.chat-model-save:hover:not(:disabled) { opacity: .85; }
+.chat-model-panel.is-compact .chat-model-save { background: var(--model-fg); color: var(--model-paper); }
+.chat-model-panel.is-compact .chat-model-save:hover:not(:disabled) { opacity: .85; }
 .chat-model-panel.is-compact button:disabled { cursor: default; opacity: .38; }
 .chat-model-panel.is-compact button:focus-visible, .chat-model-panel.is-compact summary:focus-visible, .chat-model-panel.is-compact select:focus-visible, .chat-model-panel.is-compact input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .chat-model-list-tools label:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }

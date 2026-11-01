@@ -30,14 +30,12 @@ final class BackgroundRunSettings {
                 dataSaver = "未开启"; break;
             default: dataSaver = "尚未确认";
         }
-        return "电池优化：" + (exempt ? "本应用已豁免" : "本应用尚未豁免")
-            + "\n后台运行：" + restricted + "\n节省流量：" + dataSaver;
+        return "电池优化豁免：" + (exempt ? "已豁免" : "未豁免")
+            + "\n系统通用后台限制：" + restricted + "\n节省流量：" + dataSaver
+            + "\n手机的智能省电策略请在应用设置中确认，电池优化豁免不代表全部后台限制已解除。";
     }
 
     static Intent battery(Context context) {
-        PowerManager power = context.getSystemService(PowerManager.class);
-        if (power.isIgnoringBatteryOptimizations(context.getPackageName()))
-            return new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
         return new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
             Uri.parse("package:" + context.getPackageName()));
     }

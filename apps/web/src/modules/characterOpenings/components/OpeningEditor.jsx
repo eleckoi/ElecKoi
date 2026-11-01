@@ -1,4 +1,4 @@
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, MenuSurface } from '@deepseek-ai/dsh-client-ui-primitives';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, CaretRight, Copy, Trash } from "../../../ui/icons/interfaceIcons.jsx";
 import {
@@ -37,7 +37,7 @@ export const OpeningEditor = forwardRef(function OpeningEditor({ entry, variable
   function renderMessage(message, index, isPrimary) {
     const expanded = expandedId === message.id;
     return (
-      <article className={`setting-library-opening-item${expanded ? " is-expanded" : ""}`} key={message.id}>
+      <MenuSurface role="article" className={`setting-library-opening-item${expanded ? " is-expanded" : ""}`} key={message.id}>
         <div className="setting-library-opening-summary">
           <button type="button" className="setting-library-opening-toggle" aria-expanded={expanded} title={message.title || '未命名开场白'} onClick={() => setExpandedId(expanded ? "" : message.id)}>
             <CaretRight className={expanded ? "is-expanded" : ""} size={14} aria-hidden="true" />
@@ -78,7 +78,7 @@ export const OpeningEditor = forwardRef(function OpeningEditor({ entry, variable
             />
           </div>
         ) : null}
-      </article>
+      </MenuSurface>
     );
   }
 

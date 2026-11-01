@@ -14,6 +14,10 @@ function pageWithTransport(asyncTransport) {
   window.ElecKoiAndroidTransport = { invoke(method, json) {
     const args = JSON.parse(json); calls.push({ method, args })
     let result = null
+    if (method === 'replyNotificationStatus') result = JSON.stringify({ enabled: true, allowed: false })
+    if (method === 'setReplyNotifications') result = JSON.stringify({ enabled: args[0], allowed: false })
+    if (method === 'backgroundRunStatus') result = JSON.stringify({ batteryExempt: false, backgroundRestricted: false, enhancedEnabled: false, overlayAllowed: false })
+    if (method === 'setEnhancedBackground') result = JSON.stringify({ batteryExempt: false, backgroundRestricted: false, enhancedEnabled: args[0], overlayAllowed: false })
     if (method === 'beginFile') result = JSON.stringify({ success: true, result: 'synthetic-transfer' })
     if (['writeFile', 'finishFile', 'abortFile'].includes(method)) result = JSON.stringify({ success: true, result: '' })
     if (method === 'finishFile') queueMicrotask(() => window.dispatchEvent(new window.CustomEvent('eleckoi:platform-result', {
@@ -27,6 +31,27 @@ function pageWithTransport(asyncTransport) {
 }
 
 describe.each([false, true])('shared Android facade with asynchronous transport=%s', asyncTransport => {
+  it('keeps background preference changes separate from user-owned system permission settings', async () => {
+    const { dom, window, calls } = pageWithTransport(asyncTransport)
+    try {
+      expect((await window.ElecKoiPlatform.backgroundRun.status()).enhancedEnabled).toBe(false)
+      expect((await window.ElecKoiPlatform.backgroundRun.setEnhanced(true)).overlayAllowed).toBe(false)
+      await window.ElecKoiPlatform.backgroundRun.settings('battery')
+      await window.ElecKoiPlatform.backgroundRun.settings('overlay')
+      expect(calls.slice(-2)).toEqual([{ method: 'backgroundRunSettings', args: ['battery'] }, { method: 'backgroundRunSettings', args: ['overlay'] }])
+    } finally { dom.window.close() }
+  })
+  it('reads and saves native notification preferences with both browser transports', async () => {
+    const { dom, window, calls } = pageWithTransport(asyncTransport)
+    try {
+      expect(await window.ElecKoiPlatform.replyNotifications.status()).toEqual({ enabled: true, allowed: false })
+      expect(await window.ElecKoiPlatform.replyNotifications.setEnabled(false)).toEqual({ enabled: false, allowed: false })
+      await window.ElecKoiPlatform.replyNotifications.settings()
+      expect(calls.slice(-3)).toEqual([
+        { method: 'replyNotificationStatus', args: [] }, { method: 'setReplyNotifications', args: [false] }, { method: 'notificationSettings', args: [] },
+      ])
+    } finally { dom.window.close() }
+  })
   it('resizes the Android layout viewport for the keyboard and preserves existing viewport options', async () => {
     const { dom, window } = pageWithTransport(asyncTransport)
     try {

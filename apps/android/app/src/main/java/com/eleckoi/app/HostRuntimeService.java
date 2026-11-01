@@ -16,12 +16,11 @@ import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.*;
 
-/** Owns one actual ARM64 Node Host independently of Activity rotation and WebView lifetime. */
+/** Owns the ARM64 Node Host; generation protection follows the user's overlay preference. */
 public final class HostRuntimeService extends Service {
     static final String START = "com.eleckoi.app.START", STOP = "com.eleckoi.app.STOP", RESTART = "com.eleckoi.app.RESTART";
     static final String RECOVER_PLUGINS = "com.eleckoi.app.RECOVER_PLUGINS";
-    private static final String CHANNEL = "unified-host", PREFIX = "ELECKOI_HOST\t";
-    private static final int NOTIFICATION = 41;
+    private static final String PREFIX = "ELECKOI_HOST\t";
     public interface Listener { void changed(Snapshot snapshot); }
     public static final class Snapshot {
         public final String phase, message, url, diagnostic;
@@ -56,18 +55,19 @@ public final class HostRuntimeService extends Service {
     private long lastInstallationProgressAt;
     private volatile Process process;
     private volatile RuntimeInstaller.Installation activeInstallation;
-    private volatile boolean starting, stopping, foregroundActive;
+    private volatile boolean starting, stopping;
     private PowerManager.WakeLock wakeLock;
     private RuntimePaths paths;
     private ConnectivityManager connectivity;
     private ConnectivityManager.NetworkCallback networkCallback;
     private final BackgroundNetworkState backgroundNetwork = new BackgroundNetworkState();
     private String lastBackgroundStatus = "";
+    private ReplyNotifications replyNotifications;
+    private BackgroundRunProtection backgroundProtection;
 
     @Override public void onCreate() {
         super.onCreate();
-        NotificationManager notifications = getSystemService(NotificationManager.class);
-        notifications.createNotificationChannel(new NotificationChannel(CHANNEL, "本地 ElecKoi Host", NotificationManager.IMPORTANCE_LOW));
+        backgroundProtection=new BackgroundRunProtection(this,this::log);
         connectivity = getSystemService(ConnectivityManager.class);
         Network initialNetwork = connectivity.getActiveNetwork();
         if (initialNetwork == null) backgroundNetwork.disconnected();
@@ -89,10 +89,9 @@ public final class HostRuntimeService extends Service {
     @Override public IBinder onBind(Intent intent) { return binder; }
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? START : intent.getAction();
-        startForeground(NOTIFICATION, notification(snapshot.message)); foregroundActive = true;
         refreshBackgroundStatus();
         if (STOP.equals(action)) {
-            stopping = true; control.execute(() -> { if (stopHost()) { foregroundActive = false; stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); } });
+            stopping = true; control.execute(() -> { if (stopHost()) stopSelf(); });
         } else if (RESTART.equals(action) || RECOVER_PLUGINS.equals(action)) {
             stopping = true; control.execute(() -> {
                 if (stopHost()) { stopping = false; startHost(RECOVER_PLUGINS.equals(action)); }
@@ -112,14 +111,13 @@ public final class HostRuntimeService extends Service {
     }
     void refreshBackgroundStatus() {
         main.post(() -> {
-            if (!foregroundActive) return;
+            backgroundProtection.refresh();
             String status = backgroundStatus();
             if (!status.equals(lastBackgroundStatus)) {
                 lastBackgroundStatus = status;
                 log("Background policy: " + status.replace('\n', ';'));
                 ((ElecKoiApplication)getApplication()).diagnostics().record(RuntimeDiagnostics.event("background-policy", status));
             }
-            getSystemService(NotificationManager.class).notify(NOTIFICATION, notification(snapshot.message));
         });
     }
     private void startHost() {
@@ -228,12 +226,14 @@ public final class HostRuntimeService extends Service {
                 } finally { probe.disconnect(); }
                 // ready is published by the Host only after eleckoiSystem.status succeeds;
                 // Android also verifies the actual HTTP application is reachable.
-                HostPageHandshake.verify(target);
+                String notificationCookie = HostPageHandshake.verify(target);
                 log("Startup HTTP verified after " + (SystemClock.elapsedRealtime() - startupStartedAt) + " ms");
                 synchronized (this) {
                     if (process == child && !stopping && !snapshot.phase.equals("failed")) {
                         hostPid = readyPid; healthUrl = health.toExternalForm();
                         state("ready", "共同 Host 已就绪", url);
+                        try { replyNotifications = new ReplyNotifications((ElecKoiApplication)getApplication(),target,notificationCookie,this::log); }
+                        catch (Exception error) { log("回复通知连接未建立"); }
                         RuntimeInstaller.Installation admitted = activeInstallation;
                         control.execute(() -> {
                             if (process != child || stopping || !snapshot.phase.equals("ready")) return;
@@ -254,6 +254,9 @@ public final class HostRuntimeService extends Service {
         }
     }
     private boolean stopHost() {
+        synchronized (this) {
+            if (replyNotifications != null) { replyNotifications.close(); replyNotifications = null; }
+        }
         Process child = process;
         if (child != null) {
             try {
@@ -303,6 +306,9 @@ public final class HostRuntimeService extends Service {
         state("installing", progress.message(), "", progress, stageChanged);
     }
     private synchronized void state(String phase, String message, String url, RuntimeInstallProgress progress, boolean durable) {
+        if (!phase.equals("ready") && replyNotifications != null) {
+            replyNotifications.close(); replyNotifications = null;
+        }
         snapshot = new Snapshot(phase, message, url, diagnostics(), healthUrl, runtimeVersion, hostPid, progress);
         if(durable) ((ElecKoiApplication)getApplication()).diagnostics().record(RuntimeDiagnostics.event("host-lifecycle",phase).with("hostPid",hostPid));
         Snapshot current = snapshot;
@@ -310,7 +316,6 @@ public final class HostRuntimeService extends Service {
         if (durable) persistState(current);
         main.post(() -> {
             for (Listener listener : listeners) listener.changed(current);
-            if (durable && foregroundActive) getSystemService(NotificationManager.class).notify(NOTIFICATION, notification(current.message));
         });
     }
     private void persistState(Snapshot current) {
@@ -328,23 +333,10 @@ public final class HostRuntimeService extends Service {
             }
         } catch (Exception error) { Log.e("ElecKoiUnifiedHost", "Host state persistence failed", error); }
     }
-    private Notification notification(String text) {
-        PendingIntent open = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        PendingIntent stop = PendingIntent.getService(this, 1, new Intent(this, HostRuntimeService.class).setAction(STOP), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        PendingIntent diagnostics = PendingIntent.getActivity(this, 2, new Intent(this,MainActivity.class).setAction("eleckoi.diagnostics")
-            .putExtra("eleckoi.diagnostics",true).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        PendingIntent background = PendingIntent.getActivity(this, 3, new Intent(this,MainActivity.class)
-            .setAction(BackgroundRunSettings.OPEN).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        Notification.Builder notification=new Notification.Builder(this,CHANNEL).setSmallIcon(android.R.drawable.ic_menu_info_details).setContentTitle("ElecKoi 本地 Host")
-            .setContentText(backgroundNetwork.notification(text)).setContentIntent(open).setOngoing(true)
-            .addAction(new Notification.Action.Builder(null,"后台运行",background).build());
-        if("compat".equals(BuildConfig.BROWSER_VARIANT)) notification.addAction(new Notification.Action.Builder(null,"运行诊断",diagnostics).build());
-        return notification.addAction(new Notification.Action.Builder(null,"停止",stop).build()).build();
-    }
     private synchronized void releaseWakeLock() { if (wakeLock != null && wakeLock.isHeld()) wakeLock.release(); wakeLock = null; }
     @Override public void onDestroy() {
-        stopping = true; foregroundActive = false; connectivity.unregisterNetworkCallback(networkCallback);
+        backgroundProtection.close();
+        stopping = true; connectivity.unregisterNetworkCallback(networkCallback);
         control.execute(() -> { stopHost(); streams.shutdownNow(); control.shutdown(); });
         listeners.clear(); super.onDestroy();
     }

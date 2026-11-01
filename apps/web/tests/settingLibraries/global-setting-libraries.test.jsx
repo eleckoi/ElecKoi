@@ -30,9 +30,9 @@ async function switchScope(label) {
   const tab = [...container.querySelectorAll('[role="tab"]')].find(item => item.textContent === label);
   await act(async () => tab.click());
 }
-async function importFile(text) {
+async function importFile(text, name = 'synthetic-worldbook.json') {
   const input = container.querySelector('[aria-label="全局设定库文件"]');
-  Object.defineProperty(input, 'files', { configurable: true, value: [{ text: async () => text }] });
+  Object.defineProperty(input, 'files', { configurable: true, value: [{ name, text: async () => text }] });
   await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
 }
 async function inputValue(input, value) {
@@ -51,6 +51,45 @@ async function editorStep(label) {
   const button = [...container.querySelectorAll('.setting-library-entry-tabs button')].find(item => item.textContent.endsWith(label));
   expect(button, label).toBeTruthy(); await act(async () => button.click());
 }
+it('keeps the exported file name when a standalone SillyTavern worldbook contains only entries', async () => {
+  const exported = JSON.stringify({ entries: { 0: { uid: 0, key: ['合成关键词'], comment: '合成条目', content: '合成正文' } } });
+  await switchScope('全局'); await importFile(exported, '合成独立世界书.json'); await click('保存');
+  const imported = collection.libraries[1];
+  expect(imported.name).toBe('合成独立世界书');
+  expect(imported.groups[0].name).toBe('合成独立世界书');
+  expect(imported.entries[0]).toMatchObject({ title: '合成条目', content: '合成正文', keywords: ['合成关键词'] });
+});
+it('renames the selected global library through a dialog and preserves its draft through a failed save and reopen', async () => {
+  const original = structuredClone(collection.libraries[0]);
+  await switchScope('全局'); await click('合成共享库'); await selectEntry('合成共享条目');
+  const rename = () => container.querySelector('.global-setting-library-rename');
+  expect(rename().nextElementSibling).toBe(container.querySelector('.global-setting-library-delete'));
+  await click('重命名全局库合成共享库');
+  expect(document.querySelector('input[placeholder="设定库名称"]').value).toBe('合成共享库');
+  await click('取消', document.querySelector('[role="dialog"]'));
+  expect(collection.libraries[0]).toEqual(original); expect(globals.save).not.toHaveBeenCalled();
+  await click('重命名全局库合成共享库');
+  await inputValue(document.querySelector('input[placeholder="设定库名称"]'), '   ');
+  await click('完成', document.querySelector('[role="dialog"]'));
+  expect(document.querySelector('[role="dialog"] [role="alert"]').textContent).toBe('请输入设定库名称');
+  await inputValue(document.querySelector('input[placeholder="设定库名称"]'), '  合成改名库  ');
+  await click('完成', document.querySelector('[role="dialog"]'));
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect(container.querySelector('.global-setting-library-name').textContent).toBe('合成改名库');
+  expect(container.querySelector('.setting-library-owner-path').textContent).toContain('合成改名库');
+  expect(container.querySelector('input[placeholder="条目标题/待命名"]').value).toBe('合成共享条目');
+  expect(collection.libraries[0]).toEqual(original); expect(globals.save).not.toHaveBeenCalled();
+  globals.save.mockRejectedValueOnce(new Error('合成保存失败'));
+  await click('保存');
+  expect(collection.libraries[0].name).toBe(original.name);
+  expect(container.querySelector('.global-setting-library-name').textContent).toBe('合成改名库');
+  await click('保存');
+  expect(collection.libraries[0]).toEqual({ ...original, name: '合成改名库', updatedAt: expect.any(String) });
+  expect(roles.save).not.toHaveBeenCalled();
+  await act(async () => root.render(<SettingLibraryPanel key="reopened" characterId="synthetic-role" settingLibraries={roles} globalSettingLibraries={globals} />));
+  await switchScope('全局'); await click('重命名全局库合成改名库');
+  expect(document.querySelector('input[placeholder="设定库名称"]').value).toBe('合成改名库');
+});
 it('uses the normal editor for imported contents and saves title, trigger, content and placement independently', async () => {
   expect([...container.querySelectorAll('[role="tab"]')].map(item => item.textContent)).toEqual(['角色', '全局']);
   expect(container.querySelector('[role="tab"][aria-selected="true"]').textContent).toBe('角色');
@@ -175,6 +214,12 @@ it.each([101, 1001, 10001])('imports all %i worldbook entries without creating a
     const item = byTitle.get(entries[i].comment);
     expect(item.content === entries[i].content).toBe(true); expect(item.keywords).toEqual(entries[i].key);
   }
+  await click('重命名全局库合成导入库');
+  await inputValue(document.querySelector('input[placeholder="设定库名称"]'), '合成大量条目库');
+  await click('完成', document.querySelector('[role="dialog"]')); await click('保存');
+  const renamed = collection.libraries.find(item => item.id === imported.id);
+  expect(renamed.name).toBe('合成大量条目库'); expect(renamed.enabled).toBe(imported.enabled);
+  expect(renamed.entries).toEqual(imported.entries); expect(renamed.groups).toEqual(imported.groups);
   expect(roles.save).not.toHaveBeenCalled(); expect(role.entries).toHaveLength(0);
 });
 it('imports an explicitly selected saved role version and keeps the source independent', async () => {

@@ -327,7 +327,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
     private void startRuntime(String action) {
         Intent intent = new Intent(this, HostRuntimeService.class).setAction(action)
             .putExtra("eleckoi.profileStartup", getIntent().getBooleanExtra("eleckoi.profileStartup", false));
-        startForegroundService(intent);
+        startService(intent);
         if (!bound) { bound = bindService(intent, connection, BIND_AUTO_CREATE); }
     }
     private void retryStartup() {
@@ -704,6 +704,26 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
                 case "reportError": reportError(a.getString(0)); return null;
                 case "openExternal": openExternal(a.getString(0)); return null;
                 case "notificationSettings": notificationSettings(); return null;
+                case "replyNotificationStatus": return ReplyNotifications.status(MainActivity.this);
+                case "setReplyNotifications": return ReplyNotifications.setEnabled(MainActivity.this,a.getBoolean(0));
+                case "backgroundRunStatus": return BackgroundRunProtection.status(MainActivity.this);
+                case "setEnhancedBackground":
+                    BackgroundRunProtection.setEnabled(MainActivity.this,a.getBoolean(0));
+                    if (runtime!=null) runtime.refreshBackgroundStatus();
+                    return BackgroundRunProtection.status(MainActivity.this);
+                case "backgroundRunSettings":
+                    String destination=a.getString(0);
+                    Intent settings;
+                    switch (destination) {
+                        case "battery": settings=BackgroundRunSettings.battery(MainActivity.this); break;
+                        case "application": settings=BackgroundRunSettings.application(MainActivity.this); break;
+                        case "overlay": settings=BackgroundRunProtection.overlaySettings(MainActivity.this); break;
+                        default: throw new IllegalArgumentException("Unsupported background setting");
+                    }
+                    runOnUiThread(() -> {
+                        try { startActivity(settings); }
+                        catch (RuntimeException error) { showFailure("无法打开系统后台设置，请在手机设置中手动查看本应用权限。"); }
+                    }); return null;
                 case "updateStatus": return updateStatus();
                 case "checkUpdates": checkUpdates(a.getString(0)); return null;
                 case "downloadUpdate": downloadUpdate(a.getString(0)); return null;
@@ -825,6 +845,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
     }
     @Override protected void onResume() {
         super.onResume(); diagnostics.visible(true); web.onResume(); startupMascot.setActive(true);
+        ReplyNotificationGroup.refresh(this);
         refreshBackgroundSettings();
     }
     @Override protected void onPause() {

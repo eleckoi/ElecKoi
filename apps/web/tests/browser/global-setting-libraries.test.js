@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { expect, it } from 'vitest';
+import { browserThemeCss } from '../helpers/browserTheme.js';
 const require = createRequire(import.meta.url);
 const { build } = createRequire(require.resolve('vite/package.json'))('esbuild');
 it('renders independent global and role sections, shared editing and save in light/dark desktop windows', async () => {
@@ -17,7 +18,8 @@ it('renders independent global and role sections, shared editing and save in lig
         builder.onLoad({ filter: /.*/, namespace: 'inline-css' }, async args => ({ contents: await readFile(args.path, 'utf8'), loader: 'text' }));
       } }] });
     const html = resolve(directory, 'fixture.html'), report = resolve(directory, 'report.json');
-    await writeFile(html, '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="fixture.css"></head><body style="margin:0"><div id="root" style="height:100vh"></div><script src="fixture.js"></script></body></html>');
+    await writeFile(resolve(directory, 'theme.css'), browserThemeCss());
+    await writeFile(html, '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="fixture.css"></head><body style="margin:0"><div id="root" style="height:100vh"></div><script src="fixture.js"></script></body></html>');
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
     try { await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/global-setting-libraries.probe.cjs'), html, report], { env, timeout: 45000, windowsHide: true }); }
     catch (cause) { throw new Error(await readFile(report, 'utf8').catch(() => cause.message)); }

@@ -1,18 +1,21 @@
 .role-setting-library-container { width: min(380px, 100%); box-sizing: border-box; }
-.global-setting-libraries { width: min(396px, 100%); }
+.global-setting-libraries { width: min(396px, 100%); container-type: inline-size; container-name: global-setting-libraries; }
 .setting-library-layout .setting-library-tree { padding-top: 16px; }
-.global-setting-library-delete { display: grid; place-items: center; flex: 0 0 26px; width: 26px; height: 30px; background: transparent; border-radius: 5px; color: var(--muted); }
-.global-setting-library-delete:hover { background: var(--active); }
+.global-setting-library-action { display: grid; place-items: center; flex: 0 0 26px; width: 26px; height: 30px; background: transparent; border-radius: 5px; color: var(--muted); }
+.global-setting-library-action:hover { background: var(--active); }
 .global-library-import-fields { display: grid; gap: 16px; padding: 18px 22px; }
 .global-library-import-fields label { display: grid; gap: 8px; }
 .global-library-import-fields select { width: 100%; min-height: 36px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--text); background: var(--field-bg); }
 .global-library-import-fields p { margin: 0; color: var(--muted); }
 .role-setting-library-container .setting-library-tree-row-content { width: 100%; }
 .setting-library-tree .role-setting-library-container [role="tree"] { min-height: 0; padding: 2px 0 6px; }
-.global-setting-library { border: 1px solid color-mix(in srgb, var(--text) 13%, transparent); border-radius: 9px; overflow: hidden; margin-bottom: 8px; background: var(--chat); }
-.global-setting-library-header { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 5px 12px 5px 7px; background: color-mix(in srgb, var(--text) 3%, var(--chat)); }
-.global-setting-library.is-current > .global-setting-library-header { background: var(--active); }
+.global-setting-library { border: 1px solid var(--dsw-alias-border-l1); border-radius: 9px; overflow: hidden; margin-bottom: 8px; background: transparent; }
+.global-setting-library-header { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 5px 12px 5px 7px; background: transparent; }
+.global-setting-library.is-current > .global-setting-library-header { background: var(--dsw-alias-interactive-bg-hover); }
 .global-setting-library-header button { color: var(--text); }
+.global-setting-library-actions { display: flex; flex: none; align-items: center; gap: 0; }
+.global-setting-library-actions > .setting-library-tree-switch { margin-inline: 0 4px; }
+.global-setting-library-rename > svg { margin-inline-start: 1px; }
 .global-setting-library-expand, .global-setting-library-name { background: transparent; }
 .global-setting-library-expand[aria-expanded="true"] svg { transform: rotate(90deg); }
 .global-setting-library-expand { display: grid; place-items: center; width: 24px; height: 30px; flex: 0 0 24px; border-radius: 5px; }
@@ -30,6 +33,21 @@
 .setting-library-owner-path { flex: 0 0 auto; padding: 14px 18px 0; color: color-mix(in srgb, var(--text) 60%, var(--chat)); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .setting-library-owner-path button { padding: 0; color: inherit; background: transparent; text-align: start; }
 .global-setting-libraries button:focus-visible, .setting-library-owner-path button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+.mobile-character-editor .global-setting-library-header { gap: 4px; padding-inline: 6px; }
+.mobile-character-editor .global-setting-library-header > .setting-library-tree-count { width: 20px; flex-basis: 20px; }
+.mobile-character-editor .global-setting-library-actions { width: 94px; height: 44px; }
+.mobile-character-editor .global-setting-library-actions > .setting-library-tree-switch { margin-inline: 0 2px; }
+.mobile-character-editor .global-setting-library-actions > .setting-library-tree-switch::before { width: 32px; }
+.mobile-character-editor .global-setting-library-rename > svg { margin-inline-start: 6px; }
+.mobile-character-editor .global-setting-library-action { flex-basis: 32px; width: 32px; height: 44px; }
+@container global-setting-libraries (max-width: 280px) {
+  .mobile-character-editor .global-setting-library-header { display: grid; grid-template-columns: 24px minmax(0, 1fr) 20px; row-gap: 0; }
+  .mobile-character-editor .global-setting-library-expand { grid-column: 1; grid-row: 1; }
+  .mobile-character-editor .global-setting-library-name { grid-column: 2; grid-row: 1; }
+  .mobile-character-editor .global-setting-library-header > .setting-library-tree-count { grid-column: 3; grid-row: 1; justify-self: end; }
+  .mobile-character-editor .global-setting-library-actions { grid-column: 2 / 4; grid-row: 2; justify-self: end; }
+}
 
 .setting-library-layout {
   position: relative;
@@ -1748,13 +1766,13 @@ html.immersive-editor-open .qq-character-editor-window-shell .window-controls {
 
 .setting-library-opening-item {
   overflow: hidden;
-  background: var(--field-bg);
-  border: 1px solid color-mix(in srgb, var(--text) 18%, var(--chat));
+  background: transparent;
+  border: 1px solid var(--dsw-alias-border-l1);
   border-radius: 10px;
 }
 
 .setting-library-opening-summary {
-  background: color-mix(in srgb, var(--text) 3%, var(--chat));
+  background: transparent;
   display: flex;
   min-width: 0;
   min-height: 48px;

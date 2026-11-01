@@ -3,3 +3,7 @@
 .editor-scope-tabs > [aria-hidden="true"] { border-color: var(--dsw-alias-border-l3, var(--line-strong)); border-radius: var(--dsw-radius-md, 8px); background: var(--dsw-alias-bg-layer-3, var(--chat)); }
 .editor-scope-tabs [role="tab"] { color: var(--dsw-alias-label-secondary, var(--muted)); }
 .editor-scope-tabs [role="tab"][aria-selected="true"] { color: var(--dsw-alias-label-primary, var(--text)); }
+
+:is(.mobile-character-editor, .mobile-preset-editor) .editor-scope-tabs-bar { padding-bottom: 12px; }
+:is(.mobile-character-editor, .mobile-preset-editor) .editor-scope-tabs { width: min(160px, 100%); padding-block: 0; }
+:is(.mobile-character-editor, .mobile-preset-editor) .editor-scope-tabs [role="tab"] { height: 44px; min-height: 44px; font-size: 12px; }

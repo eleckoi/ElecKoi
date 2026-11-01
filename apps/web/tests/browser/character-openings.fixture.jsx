@@ -27,11 +27,11 @@ const variables = { getSnapshot: () => ({ status: 'ready', value: { versions: [{
   subscribe: () => () => {}, read: async () => {} };
 window.syntheticSaveCount = 0;
 const compact = new URLSearchParams(location.search).has('compact');
-createRoot(document.getElementById('root')).render(<div className={compact ? 'mobile-character-editor' : ''} style={{ height: '100vh' }}>
+createRoot(document.getElementById('root')).render(<div className={compact ? 'mobile-shell' : ''} style={{ height: '100vh' }}><div className={compact ? 'mobile-character-editor' : ''} style={{ height: '100vh' }}>
   <CharacterEditorWindow compact={compact} embeddedCharacterId={character.id} characterCatalog={{ refresh: async () => ({ items: [character] }) }}
     characterConfiguration={{ settingLibraries: settings, openings, variables }}
     renderHeader={({ dirty, saving, save }) => <header style={{ height: 40, gridColumn: '1 / -1', padding: 10, display: 'flex', justifyContent: 'space-between' }}>
       合成角色编辑器
       {compact && <button className="setting-library-save-button" disabled={!dirty || saving} onClick={save}>{saving ? '保存中…' : '保存'}</button>}
     </header>} />
-</div>);
+</div></div>);

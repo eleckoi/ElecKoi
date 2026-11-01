@@ -79,7 +79,7 @@
 .mobile-settings-scroll .about-version-card { display: flex; flex-wrap: wrap; min-width: 0; border-radius: 20px; padding: 20px 16px; background: var(--surface-raised); }
 .mobile-settings-plugin { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .mobile-settings-plugin > * { max-width: 100%; min-width: 0; }
-@media (hover: hover) { .mobile-settings-row:hover, .mobile-settings-choices > button:hover:not(:disabled) { background: var(--control-bg); } }
+@media (hover: hover) { button.mobile-settings-row:hover, .mobile-settings-choices > button:hover:not(:disabled) { background: var(--control-bg); } }
 @media (prefers-reduced-motion: reduce) { .mobile-settings-switch > i, .mobile-settings-switch > i::after { transition: none; } }
 
 html[data-eleckoi-mobile="true"] .avatar-crop-overlay { padding: 12px; backdrop-filter: none; }

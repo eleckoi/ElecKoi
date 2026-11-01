@@ -35,6 +35,17 @@ app.whenReady().then(async () => {
           remove:remove?{...bounds(remove),icon:bounds(remove.querySelector('svg'))}:null,
           reasoning:reasoning?{...bounds(reasoning),legend:bounds(reasoning.querySelector('legend')),buttons:[...reasoning.querySelectorAll('button')].map(bounds)}:null};
       })()`);
+      if (mode === 'picker') {
+        report.save = await evaluate(`(() => {
+          const save=document.querySelector('.mobile-chat-models .mobile-overlay-primary');
+          const reference=document.createElement('button'); reference.className='mobile-overlay-primary';
+          save.parentElement.append(reference);
+          const sample=node=>{const css=getComputedStyle(node);return {background:css.backgroundColor,color:css.color,opacity:css.opacity}};
+          const disabled={disabled:save.disabled,...sample(save)}, expected=sample(reference);
+          save.disabled=false; const enabled=sample(save); save.disabled=disabled.disabled; reference.remove();
+          return {disabled,enabled,expected};
+        })()`);
+      }
       if (mode === 'editor') {
         report.modelActions = await evaluate(`(()=>{const rect=node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right}},buttons=[...document.querySelectorAll('.mobile-model-connection-actions button')];return buttons.map(button=>({text:button.textContent,...rect(button)}))})()`);
         await evaluate(`document.querySelector('.model-picker-value').click()`);

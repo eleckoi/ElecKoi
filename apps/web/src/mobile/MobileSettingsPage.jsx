@@ -1,7 +1,7 @@
 import { MobileSaveFeedback } from './MobileSaveFeedback.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
-import { ArrowsOutLineVertical, ChatCenteredText, ChatCircleDots, Check, Image, Info, Palette, SlidersHorizontal, TextT, UserCircle } from '../ui/icons/interfaceIcons.jsx';
+import { ArrowsOutLineVertical, BatteryFull, ChatCenteredText, ChatCircleDots, Check, Cpu, Image, Info, Palette, SlidersHorizontal, TextT, UserCircle } from '../ui/icons/interfaceIcons.jsx';
 import { Avatar } from '../ui/ui/Avatar.jsx';
 import { TunerSliderRow } from '../ui/ui/TunerSliderRow.jsx';
 import { UnsavedChangesDialog } from '../ui/ui/UnsavedChangesDialog.jsx';
@@ -20,14 +20,15 @@ function SettingsGroup({ title, children }) {
 }
 
 function SettingsRow({ icon: Icon, label, value, onClick }) {
-  return <button type="button" className="mobile-settings-row" onClick={onClick}>
+  const Row = onClick ? 'button' : 'div';
+  return <Row type={onClick ? 'button' : undefined} className="mobile-settings-row" onClick={onClick}>
     {Icon && <Icon size={21} />}<span className="mobile-settings-label">{label}</span>
-    {value != null && <span className="mobile-settings-value">{value}</span>}<MobileChevronRightIcon size={18} />
-  </button>;
+    {value != null && <span className="mobile-settings-value">{value}</span>}{onClick && <MobileChevronRightIcon size={18} />}
+  </Row>;
 }
 
-function SettingsSwitch({ label, checked, onChange }) {
-  return <button type="button" className="mobile-settings-switch" role="switch" aria-label={label} aria-checked={checked} onClick={() => onChange(!checked)}>
+function SettingsSwitch({ label, checked, onChange, disabled = false }) {
+  return <button type="button" className="mobile-settings-switch" role="switch" aria-label={label} aria-checked={checked} disabled={disabled} onClick={() => onChange(!checked)}>
     <span>{label}</span><i aria-hidden="true" />
   </button>;
 }
@@ -91,6 +92,73 @@ const UNAVAILABLE_SETTING_FAILURE = new DesktopError(
 const themeChoices = [{ id: 'light', label: '浅色' }, { id: 'dark', label: '深色' }];
 const artworkChoices = [{ id: 'cover', label: '封面立绘' }, { id: 'avatar', label: '头像' }];
 
+function ReplyNotificationSettings({ platform }) {
+  const [status, setStatus] = useState(null);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const refresh = () => platform.status().then(value => {
+      if (active) { setStatus(value); setError(''); }
+    }).catch(() => { if (active) setError('通知设置读取失败，请返回后重试。'); });
+    refresh();
+    window.addEventListener('focus', refresh);
+    const visible = () => { if (!document.hidden) refresh(); };
+    document.addEventListener('visibilitychange', visible);
+    return () => { active = false; window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', visible); };
+  }, [platform]);
+  async function change(enabled) {
+    if (saving) return;
+    setSaving(true);
+    try { setStatus(await platform.setEnabled(enabled)); setError(''); }
+    catch { setError('通知设置保存失败，请重试。'); }
+    finally { setSaving(false); }
+  }
+  return <>
+    {status && <SettingsGroup>
+      <SettingsSwitch label="回复完成通知" checked={status.enabled} disabled={saving} onChange={change} />
+      <SettingsRow icon={ChatCircleDots} label="系统通知权限" value={status.allowed ? '已开启' : '未开启'} onClick={() => platform.settings()} />
+    </SettingsGroup>}
+    <p className="mobile-settings-note">应用在后台时，回复完成会显示角色头像和回复内容。通知声音由系统设置控制。</p>
+    {error && <p className="mobile-settings-error" role="alert">{error}</p>}
+  </>;
+}
+
+function BackgroundRunPreferences({ platform }) {
+  const [status, setStatus] = useState(null);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const refresh = () => platform.status().then(value => {
+      if (active) { setStatus(value); setError(''); }
+    }).catch(() => { if (active) setError('后台运行设置读取失败，请返回后重试。'); });
+    refresh(); window.addEventListener('focus', refresh);
+    const visible = () => { if (!document.hidden) refresh(); };
+    document.addEventListener('visibilitychange', visible);
+    return () => { active = false; window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', visible); };
+  }, [platform]);
+  async function change(enabled) {
+    if (saving) return;
+    setSaving(true);
+    try { setStatus(await platform.setEnhanced(enabled)); setError(''); }
+    catch { setError('后台运行设置保存失败，请重试。'); }
+    finally { setSaving(false); }
+  }
+  return <>
+    {status && <>
+      <SettingsGroup title="省电设置">
+        <SettingsRow icon={BatteryFull} label="电池优化豁免" value={status.batteryExempt ? '已豁免' : '未豁免'} onClick={status.batteryExempt ? undefined : () => platform.settings('battery')} />
+      </SettingsGroup>
+      <SettingsGroup>
+        <SettingsSwitch label="悬浮窗保活" checked={status.enhancedEnabled} disabled={saving} onChange={change} />
+        <SettingsRow icon={SlidersHorizontal} label="悬浮窗权限" value={status.overlayAllowed ? '已授权' : '未授权'} onClick={() => platform.settings('overlay')} />
+      </SettingsGroup>
+    </>}
+    {error && <p className="mobile-settings-error" role="alert">{error}</p>}
+  </>;
+}
+
 export function MobileSettingsPage() {
   const view = useMainPageView();
   const { appearance, chat, settingsPage: page, setSettingsPage: open, settingsSections = [] } = view;
@@ -98,6 +166,8 @@ export function MobileSettingsPage() {
   const { preferences, layout, profile, defaults, updateProfile, updatePreferences } = model;
   const plugin = page.startsWith('dsh:') ? settingsSections.find(section => `dsh:${section.id}` === page) : null;
   const scroll = useMobileScroll(`settings:${page}`);
+  const replyNotifications = window.ElecKoiPlatform?.replyNotifications;
+  const backgroundRun = window.ElecKoiPlatform?.backgroundRun;
   function back() {
     if (page.startsWith('chat:')) open('chat');
     else if (page !== 'home') open('home');
@@ -110,7 +180,7 @@ export function MobileSettingsPage() {
     return <TunerSliderRow key={key} {...config} label={label || config.label} suffix={config.suffix || ''}
       value={profile[key]} defaultValue={defaults[key]} onChange={value => updateProfile({ [key]: value })} />;
   };
-  const title = page === 'home' ? '设置' : page === 'theme' ? '主题风格' : page === 'artwork' ? '列表角色图' : page === 'chat' ? '聊天显示' : page === 'about' ? '关于 ElecKoi' : plugin?.label || detailTitles[page] || '设置';
+  const title = page === 'home' ? '设置' : page === 'theme' ? '主题风格' : page === 'artwork' ? '列表角色图' : page === 'chat' ? '聊天显示' : page === 'about' ? '关于 ElecKoi' : page === 'notifications' ? '回复完成通知' : page === 'background' ? '后台运行' : plugin?.label || detailTitles[page] || '设置';
   let content;
   if (page === 'home') {
     content = <>
@@ -120,7 +190,11 @@ export function MobileSettingsPage() {
         <SettingsRow icon={ChatCircleDots} label="聊天显示" onClick={() => open('chat')} />
         <SettingsRow icon={Image} label="列表角色图" value={artworkChoices.find(item => item.id === appearance.sidebarCharacterArtwork)?.label} onClick={() => open('artwork')} />
       </SettingsGroup>
-      {settingsSections.length > 0 && <SettingsGroup title="应用">{settingsSections.map(section => <SettingsRow key={section.id} icon={SlidersHorizontal} label={section.label} onClick={() => open(`dsh:${section.id}`)} />)}</SettingsGroup>}
+      {(settingsSections.length > 0 || replyNotifications || backgroundRun) && <SettingsGroup title="应用">
+        {settingsSections.map(section => <SettingsRow key={section.id} icon={SlidersHorizontal} label={section.label} onClick={() => open(`dsh:${section.id}`)} />)}
+        {replyNotifications && <SettingsRow icon={ChatCircleDots} label="回复完成通知" onClick={() => open('notifications')} />}
+        {backgroundRun && <SettingsRow icon={Cpu} label="后台运行" onClick={() => open('background')} />}
+      </SettingsGroup>}
       <SettingsGroup title="关于"><SettingsRow icon={Info} label="关于 ElecKoi" onClick={() => open('about')} /></SettingsGroup>
     </>;
   } else if (page === 'profile') {
@@ -175,6 +249,10 @@ export function MobileSettingsPage() {
       <button type="button" className="mobile-settings-reset" onClick={model.resetTextColors}>恢复默认</button></>;
   } else if (page === 'chat:bubble' && layout === 'agent') {
     content = <SettingsGroup><SettingsSwitch label="角色气泡" checked={profile.assistant_bubble_enabled} onChange={value => updateProfile({ assistant_bubble_enabled: value })} /><div className="mobile-settings-tuners">{tune('bubble_corner_radius')}</div></SettingsGroup>;
+  } else if (page === 'notifications' && replyNotifications) {
+    content = <ReplyNotificationSettings platform={replyNotifications} />;
+  } else if (page === 'background' && backgroundRun) {
+    content = <BackgroundRunPreferences platform={backgroundRun} />;
   } else if (page === 'about') {
     content = <AboutSettings updates={view.appUpdates} />;
   } else if (plugin) {
