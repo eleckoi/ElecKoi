@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { OfficialMarkdown } from "../../../ui/messages/OfficialMarkdown.jsx";
@@ -47,7 +48,7 @@ export function MarkdownTextareaField({ label, value, placeholder, onChange, pre
               <button type="button" role="tab" aria-selected={mode === "preview"} onClick={() => setMode("preview")}><Eye size={15} />预览</button>
             </div>
           ) : null}
-          <button type="button" className="immersive-markdown-exit" onClick={() => setImmersive(false)}><CornersIn size={15} />退出沉浸</button>
+          <Button data-dsh-control variant="outline" type="button" className="immersive-markdown-exit" onClick={() => setImmersive(false)}><CornersIn size={15} />退出沉浸</Button>
         </div>
       </header>
       <div className="immersive-markdown-body">

@@ -4,6 +4,7 @@
 
 @import "./tokens.css";
 @import "./dsh-theme-bridge.css";
+@import "../../../ui/styles/dsh-editor-controls.css";
 @import "./base.css";
 @import "../shell/styles/titlebar.css";
 @import "../shell/styles/client-shell.css";

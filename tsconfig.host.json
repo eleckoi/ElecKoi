@@ -13,6 +13,9 @@
     },
     {
       "path": "./packages/host/product-api/tsconfig.host.json"
+    },
+    {
+      "path": "./packages/client/features/dsh-auto-illustration/tsconfig.host.json"
     }
   ]
 }

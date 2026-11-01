@@ -365,7 +365,8 @@
     "@eleckoi/dsh-product-data": "workspace:*",
     "@eleckoi/dsh-web-search-tavily": "workspace:*",
     "yaml": "2.9.0",
-    "@deepseek-ai/dsh-client-ui-entry-customization": "0.2.1-rc.3"
+    "@deepseek-ai/dsh-client-ui-entry-customization": "0.2.1-rc.3",
+    "@eleckoi/dsh-auto-illustration": "workspace:*"
   },
   "devDependencies": {
     "tsdown": "0.16.6",

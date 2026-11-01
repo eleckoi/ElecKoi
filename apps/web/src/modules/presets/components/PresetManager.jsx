@@ -1,7 +1,8 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from '../../../ui/ui/Avatar.jsx';
-import { DshSearchField } from '../../../ui/ui/DshSearchField.jsx';
+import { Input, IconSearchOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import { GroupAssignmentMenu } from '../../../ui/ui/GroupAssignmentMenu.jsx';
 import { ExportIcon, ImportIcon, PencilIcon, PlusIcon, TrashIcon } from '../../../ui/icons/index.jsx';
 import defaultPresetAvatar from '../../../assets/eleckoi-app-icon.png';
@@ -182,26 +183,26 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
         <button type="button" className={selectedGroup === ALL_PRESETS ? 'active' : ''} onClick={() => onSelectGroup(ALL_PRESETS)} onContextMenu={(event) => openGroupMenu(event, null)}><span>{ALL_PRESETS}</span><em>{catalog.presets.length}</em></button>
         <small>分组</small>
         <div>{catalog.groups.map((group) => <button type="button" className={selectedGroup === group.id ? 'active' : ''} key={group.id} onClick={() => onSelectGroup(group.id)} onContextMenu={(event) => openGroupMenu(event, group)}><span>{group.name}</span><em>{catalog.presets.filter((preset) => preset.libraryGroupId === group.id).length}</em></button>)}</div>
-        <button className="preset-manager-add-group" type="button" onClick={() => openGroupDialog()}><PlusIcon /><span>添加分组</span></button>
+        <Button data-dsh-control variant="outline" className="preset-manager-add-group" type="button" onClick={() => openGroupDialog()}><PlusIcon /><span>添加分组</span></Button>
       </aside>
       <div className="preset-manager-main">
         <header className="preset-manager-titlebar">
           <h2>预设管理器</h2>
-          <DshSearchField className="preset-manager-search" value={keyword} onValueChange={setKeyword} placeholder="搜索预设…" ariaLabel="搜索预设" />
+          <Input data-dsh-control className="preset-manager-search" type="search" icon={<IconSearchOutlineRegular />} value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="搜索预设…" aria-label="搜索预设" />
           {!deleteMode ? <>
-            <button type="button" disabled={importing} onClick={onImport}><ImportIcon /><span>导入预设</span></button>
+            <Button data-dsh-control variant="outline" type="button" disabled={importing} onClick={onImport}><ImportIcon /><span>导入预设</span></Button>
             <div className="preset-manager-export" ref={exportControlRef}>
-              <button type="button" disabled={!selectedPresetId} aria-haspopup="menu" aria-expanded={exportOpen} onClick={() => { setExportError(''); setExportOpen((current) => !current); }}><ExportIcon /><span>导出预设</span></button>
+              <Button data-dsh-control variant="outline" type="button" disabled={!selectedPresetId} aria-haspopup="menu" aria-expanded={exportOpen} onClick={() => { setExportError(''); setExportOpen((current) => !current); }}><ExportIcon /><span>导出预设</span></Button>
               {exportOpen ? <div className="preset-manager-export-menu" ref={exportMenuRef} role="menu" aria-label="选择预设格式">
                 <button type="button" role="menuitem" disabled={exporting} onClick={() => void exportPreset('png')}>PNG 预设卡</button>
                 <button type="button" role="menuitem" disabled={exporting} onClick={() => void exportPreset('json')}>JSON 预设</button>
                 {exportError ? <span role="alert">{exportError}</span> : null}
               </div> : null}
             </div>
-            <button type="button" onClick={() => setDeleteMode(true)}><TrashIcon /><span>删除</span></button>
+            <Button data-dsh-control variant="outline" type="button" onClick={() => setDeleteMode(true)}><TrashIcon /><span>删除</span></Button>
           </> : <>
-            <button className="preset-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={() => void removeSelectedPresets()}>确认{selectedIds.length ? ` ${selectedIds.length}` : ''}</button>
-            <button type="button" onClick={cancelDeleteMode}>取消</button>
+            <Button data-dsh-control variant="primary" className="preset-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={() => void removeSelectedPresets()}>确认{selectedIds.length ? ` ${selectedIds.length}` : ''}</Button>
+            <Button data-dsh-control variant="outline" type="button" onClick={cancelDeleteMode}>取消</Button>
           </>}
         </header>
         {error || importError ? <p className="preset-manager-error">{error || importError}</p> : null}
@@ -248,8 +249,8 @@ function PresetGroupDialog({ title, value, onChange, onConfirm, onCancel }) {
       <h3>{title}</h3>
       <input value={value} onChange={(event) => onChange(event.target.value)} placeholder="填写分组" autoFocus />
       <div>
-        <button className="preset-group-dialog-confirm" type="submit" disabled={!value.trim()}>确定</button>
-        <button type="button" onClick={onCancel}>取消</button>
+        <Button data-dsh-control variant="primary" className="preset-group-dialog-confirm" type="submit" disabled={!value.trim()}>确定</Button>
+        <Button data-dsh-control variant="outline" type="button" onClick={onCancel}>取消</Button>
       </div>
     </form>
   </SystemBarOverlay>;

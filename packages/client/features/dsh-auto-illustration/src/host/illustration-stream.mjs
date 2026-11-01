@@ -1,27 +1,25 @@
 import { randomUUID } from 'node:crypto'
-import { z } from 'zod'
 import { isAgentLoopRequest } from '@deepseek-ai/dsh-llm'
-import { scopeChainOf, scopeOf } from '@deepseek-ai/dsh-scope'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
-import { readSessionSnapshot } from './session-snapshot.mjs'
-import { capturedImageResult, IMAGE_EVENT, parseImagePrompts, prepareIllustration } from './generated-image-result.mjs'
+import { capturedImageResult, IMAGE_EVENT, parseImagePrompts } from '@eleckoi/dsh-client-roleplay/host/generated-image-result.mjs'
+import { prepareIllustration } from './configuration.mjs'
 
-export const name = 'eleckoi-image-generation-tools'
-export const inject = ['agents', 'llm', 'sessions', 'settings', 'eleckoiImageGeneration', 'eleckoiSessionEditor']
-export const Config = z.object({ configId: z.string().min(1) })
-
-/** Capture the text command while the same model response continues streaming its final body. */
-export function apply(ctx, config) {
-  Config.parse(config)
-  const ownerScope = scopeOf(ctx)
-  if (ownerScope === undefined) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, '自动配图插件必须挂载在正式预设或 Agent 作用域中。', { what: '自动配图插件作用域' })
+/** Capture text instructions without registering an Agent tool. */
+export function installIllustrationStream(ctx, images, readConfiguration) {
   const owns = sessionId => {
-    const agent = ctx.agents.get(sessionId)
-    return agent && scopeChainOf(scopeOf(agent.ctx)).includes(ownerScope)
+    const snapshot = readConfiguration(sessionId)
+    return snapshot && !snapshot.inheritedFromSessionId
   }
   const positions = new Map(), submitted = new Set(), jobs = new Set()
-  const snapshotRoot = process.env.ELECKOI_SESSION_SNAPSHOT_ROOT
+  const retire = job => {
+    jobs.delete(job)
+    const release = job.release
+    job.release = undefined
+    if (release) void Promise.resolve().then(release)
+      .catch(error => ctx.logger.error('自动配图任务释放失败', error))
+  }
   const disposePosition = ctx.on('session/event', (session, event) => {
+    if (event.type !== 'step/start' && event.type !== 'turn/end') return
     if (!owns(session.id)) return
     if (event.type === 'step/start') positions.set(session.id, event.data)
     if (event.type === 'turn/end') { positions.delete(session.id); submitted.delete(session.id) }
@@ -30,8 +28,7 @@ export function apply(ctx, config) {
     if (!isAgentLoopRequest(options) || !owns(options.sessionId)) { yield* next(); return }
     const session = ctx.sessions.get(options.sessionId)
     if (!session) { yield* next(); return }
-    const snapshot = readSessionSnapshot(snapshotRoot, options.sessionId)
-    if (snapshot.toolModelConfigIds?.['builtin:auto-illustration'] !== config.configId) { yield* next(); return }
+    const snapshot = readConfiguration(options.sessionId)
     const state = prepareIllustration(ctx.settings, snapshot)
     if (!state || submitted.has(session.id)) { yield* next(); return }
     const position = positions.get(session.id)
@@ -59,9 +56,9 @@ export function apply(ctx, config) {
                 await job.promise
                 const images = job.output?.frames.flatMap(frame => frame.attachment ? [frame.attachment] : []) || []
                 if (images.length) { publish(failed(job.output)); await ctx.eleckoiSessionEditor.discardGeneratedImages(images) }
-                jobs.delete(job)
+                retire(job)
               })()
-              job.promise = ctx.eleckoiImageGeneration.generate(state.entry, state.settings, frames, AbortSignal.any([options.signal, job.controller.signal]))
+              job.promise = images.generate(state.entry, state.settings, frames, AbortSignal.any([options.signal, job.controller.signal]))
                 .catch(error => ({ status: 'failed', frames: [], error: String(error?.message || error) }))
                 .then(async generated => {
                   const value = capturedImageResult(frames, state.settings, generated)
@@ -69,16 +66,26 @@ export function apply(ctx, config) {
                   publish(job.output)
                   if (job.controller.signal.aborted) await ctx.eleckoiSessionEditor.discardGeneratedImages(value.frames.flatMap(frame => frame.attachment ? [frame.attachment] : []))
                   job.settled = true
-                  if (finished) jobs.delete(job)
+                  if (finished) retire(job)
                 })
               job.promise.catch(error => ctx.logger.error('自动配图结果写入失败', error))
+              const agent = ctx.agents.get(session.id)
+              if (!agent) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady,
+                '自动配图所属的角色会话已关闭。', { what: '当前角色会话' })
+              job.release = agent.ctx.effect(() => async () => {
+                job.release = undefined
+                if (jobs.has(job)) {
+                  await job.stop()
+                  positions.delete(session.id); submitted.delete(session.id)
+                }
+              })
             }
           }
         }
         if (chunk.type === 'finish') {
           if (!['stop', 'max-tokens'].includes(chunk.reason.kind)) await job?.stop()
           finished = true
-          if (job?.settled) jobs.delete(job)
+          if (job?.settled) retire(job)
         }
         yield chunk
       }

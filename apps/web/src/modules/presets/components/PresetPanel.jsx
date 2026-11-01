@@ -60,6 +60,20 @@ export function shouldShowPresetCatalogLoading(catalog, error) {
   return !catalog && !error;
 }
 
+export function reconcilePresetToolRefresh(draft, previous, incoming) {
+  const ids = new Set(previous.toolGroups.map(group => group.id));
+  const content = ({ extraToolGroups, ...preset }) => JSON.stringify({ ...preset, toolGroups: preset.toolGroups.map(({ available, plugin, ...group }) => group) });
+  const comparable = { ...incoming, toolGroups: incoming.toolGroups.filter(group => ids.has(group.id) || group.source !== 'extension') };
+  if (content(comparable) !== content(previous)) return null;
+  const latest = new Map([...incoming.toolGroups, ...(incoming.extraToolGroups || [])].map(group => [group.id, group]));
+  const referencedNames = new Set(draft.toolGroups.filter(group => group.included).flatMap(group => group.members.map(member => member.name)));
+  return { ...draft, toolGroups: [
+    ...draft.toolGroups.map(group => latest.has(group.id) ? { ...group, available: latest.get(group.id).available, ...(latest.get(group.id).plugin ? { plugin: latest.get(group.id).plugin } : {}) } : group),
+    ...incoming.toolGroups.filter(group => !ids.has(group.id)),
+  ], extraToolGroups: [...latest.values()].filter(group => group.source === 'extension' && group.available === true
+    && !group.members.some(member => referencedNames.has(member.name))).map(group => ({ ...group, included: false, enabled: true })) };
+}
+
 export function PresetProvider({ children, catalogModel, navigationGuardRef: externalNavigationGuardRef }) {
   const snapshot = useSyncExternalStore(
     catalogModel?.subscribe || subscribeEmptyCatalog,
@@ -387,6 +401,12 @@ export function PresetWorkspace({
     const applyLatest = (loaded) => {
         if (!active || savingRef.current) return;
         if (presetDirtyRef.current) {
+          const refreshed = reconcilePresetToolRefresh(preset, persisted, loaded);
+          if (refreshed) {
+            setPreset(refreshed);
+            setPersisted(loaded);
+            return;
+          }
           if (JSON.stringify(loaded) !== JSON.stringify(persisted)) {
             pendingLatestRef.current = loaded;
             externalChangeRef.current = true;
@@ -405,7 +425,7 @@ export function PresetWorkspace({
       if (snapshot.status === 'ready') applyLatest(snapshot.preset);
       else if (snapshot.status === 'error') setError(snapshot.error);
     });
-  }, [catalogModel, selectedPresetId, persisted]);
+  }, [catalogModel, selectedPresetId, persisted, preset]);
 
   useEffect(() => {
     function saveShortcut(event) {

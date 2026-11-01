@@ -119,12 +119,6 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 40px;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  background: var(--surface-raised);
-  color: var(--text);
-  font-size: 16px;
 }
 
 .character-manager-main {
@@ -163,41 +157,16 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 34px;
   min-width: 0;
-  padding: 0 10px;
-  border-radius: 9px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface-raised);
-  color: var(--text);
-  font-size: 14px;
   white-space: nowrap;
 }
 
 .character-manager-titlebar button svg {
-  width: 18px;
-  height: 18px;
   flex: none;
 }
 
-.character-manager-titlebar button:hover {
-  background: color-mix(in srgb, var(--blue) 10%, var(--surface-raised));
-  color: var(--blue);
-}
-
 .character-manager-titlebar button:disabled {
-  opacity: 0.45;
   cursor: default;
-}
-
-.character-manager-titlebar .character-manager-confirm-delete {
-  background: #ff4d4f;
-  color: #fff;
-}
-
-.character-manager-titlebar .character-manager-confirm-delete:not(:disabled):hover {
-  background: #ff3437;
-  color: #fff;
 }
 
 /* 导出操作复用标题栏和下方原有间距，切换模式时卡片位置不变。 */
@@ -253,32 +222,6 @@
 .character-manager-selection-bar .character-manager-format-switch button:hover:not(:disabled) {
   background: var(--control-bg-hover);
   color: var(--text);
-}
-
-.character-manager-selection-bar button:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
-}
-
-.character-manager-selection-bar .character-manager-selection-actions button {
-  height: 34px;
-  padding: 0 8px;
-}
-
-.character-manager-selection-bar .character-manager-selection-actions button:hover:not(:disabled) {
-  background: var(--control-bg-hover);
-  color: var(--text);
-}
-
-.character-manager-selection-bar .character-manager-confirm-export {
-  border-color: var(--text);
-  background: var(--text);
-  color: var(--surface-raised);
-}
-
-.character-manager-selection-bar .character-manager-confirm-export:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--text) 85%, var(--surface-raised));
-  color: var(--surface-raised);
 }
 
 /* 目标名称位于标题栏已有的下方间距中，不参与网格高度计算。 */
@@ -525,23 +468,6 @@
 
 .character-group-dialog button {
   min-width: 96px;
-  height: 38px;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  background: var(--surface-raised);
-  color: var(--text);
-  font-size: 16px;
-}
-
-.character-group-dialog .character-dialog-confirm {
-  border-color: color-mix(in srgb, var(--blue) 42%, var(--surface-raised));
-  background: color-mix(in srgb, var(--blue) 42%, var(--surface-raised));
-  color: var(--on-accent);
-}
-
-.character-group-dialog .character-dialog-confirm:not(:disabled) {
-  border-color: var(--blue);
-  background: var(--blue);
 }
 
 .character-import-overlay {
@@ -711,19 +637,6 @@
 
 .character-import-dialog > footer button {
   min-width: 72px;
-  height: 34px;
-  padding: 0 13px;
-  color: var(--text);
-  background: var(--control-bg);
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  font-size: 13px;
-}
-
-.character-import-dialog > footer button.primary {
-  color: #fff;
-  background: var(--blue);
-  border-color: var(--blue);
 }
 
 .character-import-dialog button:disabled {
@@ -764,10 +677,6 @@
 
   .character-manager-titlebar {
     grid-template-columns: minmax(160px, auto) minmax(190px, 1fr) repeat(3, auto);
-  }
-
-  .character-manager-titlebar button {
-    padding: 0 8px;
   }
 
   .character-manager-grid {

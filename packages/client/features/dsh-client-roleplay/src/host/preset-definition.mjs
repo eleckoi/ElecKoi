@@ -51,8 +51,7 @@ function resolveRuntimePlugin(plugin, templatePath) {
   let name = plugin.name
   if (typeof name === 'string' && (name.startsWith('@deepseek-ai/') || name.startsWith('@eleckoi/'))) {
     name = pathToFileURL(resolveRuntimeModule(name)).href
-  } else if (plugin.id === 'image-generation-tools' && name === productSpecifier(plugin.id)) {
-    name = new URL('./image-generation-tools.mjs', import.meta.url).href
+
   } else if (productFile && name === productSpecifier(plugin.id)) {
     if (!templatePath) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `ElecKoi Agent preset ${plugin.id} is missing its runtime template path`, { what: '预设的运行时模板路径' })
     name = pathToFileURL(join(dirname(templatePath), '..', productFile)).href
@@ -71,5 +70,9 @@ function resolveRuntimePlugin(plugin, templatePath) {
 // sessions restore without filtering. Remove this filter, its two identity
 // constants and the currentPlugins calls together; keep summary compaction.
 function currentPlugins(plugins) {
-  return plugins.filter(plugin => plugin?.name !== retiredPruner && plugin?.name !== retiredPrunerUrl)
+  // RETIRE WHEN: supported Session presets have been regenerated without the
+  // former preset-mounted image handler. Remove this filter with its regression.
+  const oldImage = plugin => plugin?.id === 'image-generation-tools' &&
+    [productSpecifier('image-generation-tools'), new URL('./image-generation-tools.mjs', import.meta.url).href].includes(plugin.name)
+  return plugins.filter(plugin => !oldImage(plugin) && plugin?.name !== retiredPruner && plugin?.name !== retiredPrunerUrl)
 }

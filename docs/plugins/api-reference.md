@@ -4,7 +4,7 @@
 
 本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.1-rc.3`，提交 `1f81c047fc48fa190a683e469daa699857e9afe8`。
 
-当前共 **16 个 bundle、108 个开发接口**：65 个界面插槽、20 个服务、0 个事件、2 个贡献点、21 个 Remote 合同。
+当前共 **17 个 bundle、109 个开发接口**：65 个界面插槽、21 个服务、0 个事件、2 个贡献点、21 个 Remote 合同。
 
 接口标题和说明用于插件中心展示；真实调用合同以对应类型导出和实现为准。完整参数、返回值和数据字段见 [Client 参考](api-client.md)、[Host 参考](api-host.md) 与 [Remote 调用声明](api-remote.md)。使用方法见 [界面插槽](ui-slots.md)、[服务接口](services.md) 与 [能力贡献](contributions.md)。
 
@@ -23,6 +23,7 @@
 | `@eleckoi/dsh-client-web-search` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-shell` | 17 | 1 | 0 | 0 | 0 | 18 |
 | `@eleckoi/dsh-client-roleplay` | 28 | 1 | 0 | 0 | 0 | 29 |
+| `@eleckoi/dsh-auto-illustration` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-author` | 0 | 2 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-html-resources` | 0 | 1 | 0 | 1 | 0 | 2 |
 | `@eleckoi/dsh-product-api` | 0 | 0 | 0 | 0 | 21 | 21 |
@@ -208,6 +209,16 @@
 | `eleckoiRequestPreviews` | 运行期间请求预览 | 服务 | 提供 | `call` | `host` | 在实际发送位置捕获请求，运行期间共用未变化的消息内容；不写入日志、数据库或投影缓存。 | `capture`、`list`、`read`、`stream`、`forget`、`close` |
 | `eleckoi.roleplay.chat.flow` | 角色聊天正文流程 | 界面插槽 | 提供 | `replace` | `session` | 角色聊天正文流程，复用官方会话渲染入口。 | — |
 | `eleckoi.roleplay.chat.user.images` | 角色聊天用户图片 | 界面插槽 | 提供 | `replace` | `session` | 角色聊天用户图片，复用官方会话渲染入口。 | — |
+
+## `@eleckoi/dsh-auto-illustration`
+
+通过回复中的分镜指令自动生成剧情配图，不向 Agent 注册工具。
+
+来源：`packages/client/features/dsh-auto-illustration/package.json`
+
+| ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `eleckoiAutoIllustration` | 角色自动配图 | 服务 | 提供 | `call` | `host` | 由独立插件贡献配图提示词并处理分镜生成与重画，不注册 AI 工具。 | `instructions`、`regenerateImage` |
 
 ## `@eleckoi/dsh-client-author`
 

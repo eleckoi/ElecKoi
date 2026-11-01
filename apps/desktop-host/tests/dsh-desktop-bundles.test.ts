@@ -3,16 +3,36 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { initProfile, loadProfileDirectory, OPTIONAL_BUNDLES, PROFILE_TEMPLATES, readProfileManifest, writeProfileBundles } from '@deepseek-ai/dsh-app-boot'
 import { describe, expect, it } from 'vitest'
-import { ELECKOI_DESKTOP_BUNDLES, ELECKOI_INSTALL_ANCHOR, registerDesktopBundles } from '@eleckoi/desktop-host'
+import { ELECKOI_DESKTOP_BUNDLES, ELECKOI_DESKTOP_RECOVERY_BUNDLES, ELECKOI_INSTALL_ANCHOR, registerDesktopBundles } from '@eleckoi/desktop-host'
 
 describe('desktop bundle registration', () => {
-  it.each([true, false])('replaces the retired HTML resource pair without re-enabling disabled bundles: %s', enabled => {
+  it.each([0, 7, 8])('leaves automatic illustration disabled until explicitly selected: profile v%s', version => {
+    const root = mkdtempSync(join(tmpdir(), 'eleckoi-illustration-default-'))
+    const bundle = '@eleckoi/dsh-auto-illustration'
+    try {
+      initProfile(root, [...PROFILE_TEMPLATES.web!.bundles, ...ELECKOI_DESKTOP_BUNDLES])
+      if (version) writeFileSync(join(root, `.eleckoi-desktop-bundles-v${version}`), 'initialized\n')
+      registerDesktopBundles(root)
+      expect(ELECKOI_DESKTOP_RECOVERY_BUNDLES).not.toContain(bundle)
+      const manifest = readProfileManifest('dsh', root)
+      const selected = manifest.dsh!.profile!.bundles!
+      expect(selected).not.toContain(bundle)
+      expect(loadProfileDirectory('dsh', root, ELECKOI_INSTALL_ANCHOR).layers.map(layer => layer.packageName)).not.toContain(bundle)
+      writeProfileBundles(root, manifest, [...selected, bundle])
+      registerDesktopBundles(root)
+      expect(loadProfileDirectory('dsh', root, ELECKOI_INSTALL_ANCHOR).layers.map(layer => layer.packageName)).toContain(bundle)
+      writeProfileBundles(root, readProfileManifest('dsh', root), selected)
+      registerDesktopBundles(root)
+      expect(readProfileManifest('dsh', root).dsh!.profile!.bundles).not.toContain(bundle)
+    } finally { rmSync(root, { recursive: true, force: true }) }
+  })
+  it.each([[7, true], [7, false], [8, true], [8, false]])('replaces the retired HTML resource pair without re-enabling disabled bundles: v%s %s', (version, enabled) => {
     const root = mkdtempSync(join(tmpdir(), 'eleckoi-html-upgrade-'))
     try {
       const old = ['@eleckoi/dsh-client-tavern-shared', '@eleckoi/dsh-compatibility-host']
       const selected = [...PROFILE_TEMPLATES.web!.bundles, ...old.slice(0, enabled ? 2 : 1), '@test/navigation']
       initProfile(root, selected)
-      writeFileSync(join(root, '.eleckoi-desktop-bundles-v7'), 'initialized\n')
+      writeFileSync(join(root, `.eleckoi-desktop-bundles-v${version}`), 'initialized\n')
       const patch = '- id: synthetic-navigation\n  disabled: true\n'
       writeFileSync(join(root, 'cordis.patch.yml'), patch)
       registerDesktopBundles(root)
@@ -61,9 +81,10 @@ describe('desktop bundle registration', () => {
       const profile = loadProfileDirectory('dsh', root, ELECKOI_INSTALL_ANCHOR)
       expect(profile.skippedBundles).toEqual([])
       expect(profile.layers.map(layer => layer.packageName)).toEqual(expect.arrayContaining([...ELECKOI_DESKTOP_BUNDLES]))
-      writeProfileBundles(root, manifest, selected.filter(name => name !== '@eleckoi/dsh-web-search-tavily'))
+      writeProfileBundles(root, manifest, selected.filter(name => !['@eleckoi/dsh-web-search-tavily', '@eleckoi/dsh-auto-illustration'].includes(name)))
       registerDesktopBundles(root)
       expect(readProfileManifest('dsh', root).dsh!.profile!.bundles).not.toContain('@eleckoi/dsh-web-search-tavily')
+      expect(readProfileManifest('dsh', root).dsh!.profile!.bundles).not.toContain('@eleckoi/dsh-auto-illustration')
       expect(readFileSync(join(root, 'cordis.patch.yml'), 'utf8')).toBe(patch)
     } finally { rmSync(root, { recursive: true, force: true }) }
   }, 30_000)

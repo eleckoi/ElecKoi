@@ -75,7 +75,7 @@ export function apply(ctx, config) {
   disposers.push(ctx.on('agent/created', ({ agent }) => {
     if (!owns(agent)) return
     const preset = ctx.eleckoiProductData.readAgentPreset(config.presetId)
-    applyDisabledPolicy(agent.ctx, preset.toolGroups.filter(group => !group.included || !group.enabled).map(group => group.id))
+    applyDisabledPolicy(agent.ctx, preset.toolGroups.filter(group => !group.included || !group.enabled).map(group => group.id), ctx.get('tools'))
   }))
   disposers.push(ctx.on('agent/request', async ({ agent, signal }, next) => {
     const request = await next()

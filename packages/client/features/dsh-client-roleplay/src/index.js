@@ -3,7 +3,6 @@ import { RequestPreviewStore } from './host/request-preview.mjs'
 import { conversationPreviewProjection } from './host/conversation-preview.mjs'
 import { retireRequestContextCache } from './host/request-cache-retirement.mjs'
 import { migrateLegacyGlobalModelSelection } from './host/model-selection-migration.mjs'
-import { createNovelAiImageGeneration } from './host/novelai-image-generation.mjs'
 import { illustrationProjection } from './host/illustration-projection.mjs'
 
 export const name = 'eleckoi-roleplay'
@@ -30,11 +29,6 @@ export const inject = [
 
 export async function apply(ctx) {
   await migrateLegacyGlobalModelSelection(ctx)
-  ctx.inject(['credentials', 'attachments', 'eleckoiSessionEditor'], owner => {
-    const images = createNovelAiImageGeneration(owner)
-    owner.provide('eleckoiImageGeneration', images)
-    owner.effect(() => () => images.close())
-  })
   const previews = new RequestPreviewStore()
   ctx.provide('eleckoiRequestPreviews', previews)
   ctx.effect(() => () => previews.close())

@@ -70,7 +70,7 @@ export async function installCreatorStudioRuntime(ctx) {
       const preset = ctx.eleckoiProductData.readAgentPreset(catalog.activePresetIds.creator)
       if (preset.purpose !== 'creator') throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '当前全局预设不是创作预设。', { what: '把全局预设切换为创作预设' })
       const disabledGroupIds = preset.toolGroups.filter(group => !group.included || !group.enabled).map(group => group.id)
-      for (const groupId of ['builtin:variables', 'builtin:setting-library', 'builtin:roleplay-workflow', 'builtin:auto-illustration']) {
+      for (const groupId of ['builtin:variables', 'builtin:setting-library', 'builtin:roleplay-workflow']) {
         if (!disabledGroupIds.includes(groupId)) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '创作预设中的角色对话工具不适用于 AI 创作工作室，请使用创作能力。', { what: '在创作预设中关闭角色对话工具' })
       }
       const model = await currentRequestSnapshot(ctx)

@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   BookOpenText,
@@ -344,7 +345,7 @@ export function VisualPositionPicker({ entry, entries, promptPositions, allowCus
   return (
     <>
       <section className="setting-library-placement-card">
-        <div className="setting-library-placement-heading"><strong>插入位置</strong>{allowCustomPromptPositions ? <button type="button" className="setting-library-position-manage" onClick={onManagePositions}><SlidersHorizontal size={14} />管理位置</button> : null}</div>
+        <div className="setting-library-placement-heading"><strong>插入位置</strong>{allowCustomPromptPositions ? <Button data-dsh-control variant="outline" type="button" className="setting-library-position-manage" onClick={onManagePositions}><SlidersHorizontal size={14} />管理位置</Button> : null}</div>
         <div className="setting-library-placement-rail">
           {positionPickerRows(allowCustomPromptPositions ? promptPositions : []).map((row, index) => {
             if (row.type === 'custom') {

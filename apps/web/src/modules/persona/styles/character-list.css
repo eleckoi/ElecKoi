@@ -365,37 +365,6 @@ button.character-group-row:hover {
 
 .character-delete-actions button {
   min-width: 76px;
-  height: 34px;
-  padding: 0 14px;
-  color: var(--text);
-  background: var(--surface-raised);
-  border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  font-size: 13px;
-}
-
-.character-delete-actions button:hover:not(:disabled) {
-  background: var(--control-bg-hover);
-}
-
-.character-delete-actions button.is-danger {
-  color: #fff;
-  background: var(--character-danger);
-  border-color: var(--character-danger);
-}
-
-.character-delete-actions button.is-danger:hover:not(:disabled) {
-  background: #c6261d;
-  border-color: #c6261d;
-}
-
-.character-delete-actions button:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--blue) 55%, transparent);
-  outline-offset: 2px;
-}
-
-.character-delete-actions button:disabled {
-  opacity: 0.5;
 }
 
 :root[data-theme="dark"] :is(.character-context-menu, .character-delete-dialog) {

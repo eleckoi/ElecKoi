@@ -2,7 +2,7 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PresetProvider, PresetWorkspace, usePresets } from '../../src/modules/presets/components/PresetPanel.jsx';
+import { PresetProvider, PresetWorkspace, usePresets, reconcilePresetToolRefresh } from '../../src/modules/presets/components/PresetPanel.jsx';
 import { PresetPurposeSwitch } from '../../src/modules/presets/components/PresetPurposeSwitch.jsx';
 
 const presets = ['roleplay', 'creator'].map(purpose => ({
@@ -56,6 +56,51 @@ async function switchPurpose(purpose) {
 }
 
 describe('preset workspace loading', () => {
+  it('keeps tool selections in the shared draft until the outer save and preserves them after a save failure', async () => {
+    const group = { id: 'builtin:variables', name: '合成变量工具', description: '工具说明', source: 'built_in', included: false, enabled: false, members: [{ name: 'synthetic_read' }] };
+    await mount();
+    await act(async () => requests.at(-1).resolve({ ...structuredClone(presets[0]), toolGroups: [group] }));
+    await act(async () => [...host.querySelectorAll('.preset-workspace-tabs button')].find(button => button.textContent.startsWith('工具')).click());
+    const saveButton = () => host.querySelector('.setting-library-save-button');
+    expect(saveButton().disabled).toBe(true);
+    await act(async () => host.querySelector('[aria-label="管理预设工具"]').click());
+    await act(async () => document.querySelector('input[aria-label="选择：合成变量工具"]').click());
+    expect(model.save).not.toHaveBeenCalled();
+    expect(latestHeader.dirty).toBe(true);
+    expect(saveButton().disabled).toBe(false);
+    await act(async () => document.querySelector('[aria-label="关闭管理窗口"]').click());
+    expect(host.querySelector('.preset-tool-row').textContent).toContain(group.name);
+    model.save.mockRejectedValueOnce(new Error('合成保存失败'));
+    await act(async () => saveButton().click());
+    expect(model.save).toHaveBeenCalledTimes(1);
+    expect(model.save.mock.calls[0][0].toolGroups[0]).toMatchObject({ included: true, enabled: true });
+    expect(latestHeader.dirty).toBe(true);
+    expect(host.querySelector('.preset-tool-row')).not.toBeNull();
+    await act(async () => saveButton().click());
+    expect(model.save).toHaveBeenCalledTimes(2);
+    expect(latestHeader.dirty).toBe(false);
+    expect(saveButton().disabled).toBe(true);
+    await act(async () => host.querySelector('[aria-label="管理预设工具"]').click());
+    await act(async () => document.querySelector('input[aria-label="选择：合成变量工具"]').click());
+    await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    const reads = model.read.mock.calls.length;
+    await switchPurpose('creator');
+    expect(model.read).toHaveBeenCalledTimes(reads);
+    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+    expect(model.save).toHaveBeenCalledTimes(2);
+    await act(async () => [...document.querySelectorAll('[role="alertdialog"] button')].find(button => button.textContent === '不保存').click());
+    await finishRead();
+    expect(model.save).toHaveBeenCalledTimes(2);
+  });
+
+  it('refreshes plugin availability without discarding drafts or treating it as an external preset edit', () => {
+    const group = { id: 'plugin-tool:synthetic_roll', name: '骰子', members: [{ name: 'synthetic_roll' }], source: 'extension', enabled: true, included: true, available: true };
+    const previous = { id: 'synthetic-preset', name: '原名', toolGroups: [group] };
+    const draft = { ...previous, name: '未保存的名称', toolGroups: [{ ...group, enabled: false }] };
+    const incoming = { ...previous, toolGroups: [{ ...group, available: false }] };
+    expect(reconcilePresetToolRefresh(draft, previous, incoming)).toEqual({ ...draft, toolGroups: [{ ...draft.toolGroups[0], available: false }], extraToolGroups: [] });
+    expect(reconcilePresetToolRefresh(draft, previous, { ...incoming, name: '其他窗口修改' })).toBeNull();
+  });
   it('keeps the workspace without loading copy during its first read', async () => {
     await mount();
     expect(host.textContent).not.toContain('正在读取');

@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 export function AddGroupDialog({ title = "添加分组", value, onChange, onConfirm, onCancel }) {
   return (
@@ -20,12 +21,12 @@ export function AddGroupDialog({ title = "添加分组", value, onChange, onConf
           autoFocus
         />
         <div>
-          <button className="character-dialog-confirm" type="submit" disabled={!value.trim()}>
+          <Button data-dsh-control variant="primary" className="character-dialog-confirm" type="submit" disabled={!value.trim()}>
             确定
-          </button>
-          <button type="button" onClick={onCancel}>
+          </Button>
+          <Button data-dsh-control variant="outline" type="button" onClick={onCancel}>
             取消
-          </button>
+          </Button>
         </div>
       </form>
     </SystemBarOverlay>

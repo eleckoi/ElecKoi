@@ -291,7 +291,7 @@ describe('ElecKoi built-in bundle details', () => {
     it('uses actual declared bundle identities without fabricated plugin items', () => {
         const entries = inventory({});
         expect(entries.filter(entry => entry.options.name === 'plugins.item')).toHaveLength(0);
-        expect(entries.filter(entry => entry.options.name === 'plugins.bundle.config').map(entry => entry.options.key)).toEqual(bundles);
+        expect(entries.filter(entry => entry.options.name === 'plugins.bundle.config').map(entry => entry.options.key)).toEqual(bundles.filter(name => name !== '@eleckoi/dsh-auto-illustration'));
     });
     it('projects real observable phases, counts and enable actions', async () => {
         await withDetail(async (container, show, update, face) => {
@@ -323,10 +323,26 @@ describe('ElecKoi built-in bundle details', () => {
             expect(face.setRowEnabled).not.toHaveBeenCalled();
         });
     });
+    it('keeps the independent illustration configuration from being shadowed by generic package details', () => {
+        const name = '@eleckoi/dsh-auto-illustration';
+        expect(inventory({}).some(entry => entry.options.name === 'plugins.bundle.config' && entry.options.key === name)).toBe(false);
+        let plugin;
+        runInNewContext(readFileSync(resolve(bundleRoot(name), 'src/client.js'), 'utf8'), {
+            window: { __ModuleLoader__: { load: value => { plugin = value; } } },
+        });
+        const entries = [];
+        plugin.factory(() => React).apply({ eleckoiModels: {}, eleckoiPresets: {}, slots: {
+            inject: (_slot, register) => register(),
+            register: (options, component) => { entries.push({ options, component }); return () => {}; },
+        } });
+        expect(entries).toHaveLength(1);
+        expect(entries[0].options).toMatchObject({ name: 'plugins.bundle.config', key: name, registrant: name });
+    });
     it('separates interfaces by their actual declaring package and supports keyboard tabs', async () => {
         await withDetail(async (container, show) => {
             const ids = new Set();
-            for (const name of bundles) {
+            const sharedDetails = bundles.filter(name => name !== '@eleckoi/dsh-auto-illustration');
+            for (const name of sharedDetails) {
                 await show(name);
                 const declared = developerInterfaces(name);
                 const tabs = container.querySelectorAll('[role="tab"]');
@@ -373,7 +389,7 @@ describe('ElecKoi built-in bundle details', () => {
                 await act(async () => tabs[1].dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true })));
                 expect(document.activeElement).toBe(tabs[0]);
             }
-            expect(ids.size).toBe(bundles.reduce((total, name) => total + developerInterfaces(name).length, 0));
+            expect(ids.size).toBe(sharedDetails.reduce((total, name) => total + developerInterfaces(name).length, 0));
         });
     });
     it('transports package-declared developer interfaces through the official manager', () => {

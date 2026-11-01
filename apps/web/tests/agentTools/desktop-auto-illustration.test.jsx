@@ -1,10 +1,10 @@
+import { AutoIllustrationPage } from '../../../../packages/client/features/dsh-auto-illustration/src/page.jsx';
 // @vitest-environment jsdom
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
-import { AutoIllustrationSettings } from '../../src/modules/agentTools/components/AutoIllustrationSettings.jsx';
-import { AgentToolsDialog } from '../../src/modules/chat/components/AgentToolsDialog.jsx';
+import { AutoIllustrationSettings } from '../../src/modules/autoIllustration/components/AutoIllustrationSettings.jsx';
 
 let host, root;
 const config = (id, provider = 'novelai_image') => ({ id, name: id, provider, model: 'nai-diffusion-4-5-full',
@@ -120,17 +120,18 @@ describe('Desktop automatic illustration dialogs', () => {
     expect(document.querySelector('.desktop-illustration-models')).toBeNull();
   });
 
-  it('keeps the parent tool detail open when dismissing the desktop model picker', async () => {
-    const preset = { id: 'preset-a', toolGroups: [{ id: 'builtin:auto-illustration', name: '角色自动配图', included: true, enabled: true,
-      members: [{ name: 'generate_image' }], source: 'built_in' }], roleplayPlan: { steps: [] }, regexRules: [], toolModelConfigIds: {} };
-    const presets = { refresh: vi.fn(async () => ({ activePresetIds: { roleplay: 'preset-a', creator: 'synthetic-creator' } })), read: vi.fn(async () => preset) }, onClose = vi.fn();
-    await render(<AgentToolsDialog presetCatalog={presets} onClose={onClose} />, catalog());
-    await click(find('角色自动配图'));
-    expect(document.querySelector('.desktop-illustration-tool-dialog header h2').textContent).toBe('角色自动配图');
+  it('configures drawing in the independent plugin and retains its page when the picker closes', async () => {
+    const models = catalog([config('image-config-a')]);
+    const current = { id: 'preset-a', name: '合成预设', autoIllustration: { enabled: true, modelConfigId: 'image-config-a' }, regexRules: [] };
+    const presets = { refresh: vi.fn(async () => ({ presets: [{ id: current.id, name: current.name, purpose: 'roleplay' }], activePresetIds: { roleplay: current.id } })), read: vi.fn(async () => current), save: vi.fn(async value => value) };
+    await render(<AutoIllustrationPage presetCatalog={presets} modelCatalog={models} />, models);
+    expect(document.querySelector('.auto-illustration-model').textContent).toContain('image-config-a');
     await click(document.querySelector('.auto-illustration-model'));
     await escape();
-    expect(document.querySelector('.desktop-illustration-models')).toBeNull();
-    expect(document.querySelector('.desktop-illustration-tool-dialog')).toBeTruthy();
-    expect(onClose).not.toHaveBeenCalled();
+    expect(document.querySelector('.auto-illustration-plugin')).toBeTruthy();
+    expect(document.querySelector('.desktop-illustration-model-dialog')).toBeNull();
+    expect(presets.save).not.toHaveBeenCalled();
+    await click(document.querySelector('.auto-illustration-plugin [role=switch]'));
+    expect(presets.save).toHaveBeenCalledWith(expect.objectContaining({ autoIllustration: { enabled: false, modelConfigId: 'image-config-a' } }), []);
   });
 });

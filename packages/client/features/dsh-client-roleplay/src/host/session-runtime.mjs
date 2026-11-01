@@ -12,7 +12,6 @@ import { currentRequestSnapshot } from './model-selection-migration.mjs'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 import { projectRequestInput, requestProjectionSnapshot, sessionInstructions, visibleDialogueHistory } from './conversation-context.mjs'
-import { capturedImageResult, prepareIllustration } from './generated-image-result.mjs'
 
 export { requestSnapshot } from './model-selection-migration.mjs'
 
@@ -98,6 +97,7 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       settingLibraryEnabled: runtime.conversationContext.settingLibrary !== undefined,
       disabledToolGroupIds: effectiveToolPolicy.disabledGroupIds,
       toolModelConfigIds: structuredClone(runtime.agentPreset.toolModelConfigIds || {}),
+      autoIllustration: runtime.agentPreset.autoIllustration ?? { enabled: false, modelConfigId: '' },
       roleplayPlanSteps: runtime.agentPreset.roleplayPlan.steps,
       historyCompactionInstructions: runtime.agentPreset.historyCompactionInstructions ?? ''
     })
@@ -111,6 +111,7 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
   }
 
   const service = {
+    configuration(sessionId) { return readOptionalSnapshot(snapshotRoot, sessionId) },
     async readGeneratedImage(conversationId, batchId, frameId, attachmentId, signal) {
       const runtimeSessionId = ctx.eleckoiProductData.runtimeSessionId(conversationId)
       const inspection = await ctx.sessionController.inspect(runtimeSessionId, signal)
@@ -128,19 +129,11 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       await ctx.eleckoiConversationLifecycle.drain(conversationId)
       const runtime = ctx.eleckoiProductData.prepareConversationRuntime(conversationId, '')
       await requireIdleSession(ctx, runtime.runtimeSessionId)
-      const state = prepareIllustration(ctx.settings, { disabledToolGroupIds: runtime.disabledToolGroupIds,
-        toolModelConfigIds: runtime.agentPreset.toolModelConfigIds })
-      if (!state) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '当前预设没有启用配图配置。', { what: '在预设里启用配图' })
-      return ctx.eleckoiSessionEditor.regenerateImage(runtime.runtimeSessionId, batchId, frameId, async previous => {
-        const { seed, attachment, error, status, width, height, ...prompt } = previous
-        let generated
-        try { generated = await ctx.eleckoiImageGeneration.generate(state.entry, state.settings, [prompt], signal) }
-        catch (failure) { generated = { status: 'failed', frames: [], error: String(failure?.message || failure) } }
-        const next = capturedImageResult([prompt], state.settings, generated).frames[0]
-        return next.status === 'failed' && attachment
-          ? { ...previous, error: next.error }
-          : { ...prompt, ...next }
-      })
+      const plugin = ctx.get('eleckoiAutoIllustration')
+      if (!plugin) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition,
+        '自动配图插件未启用，请在插件页启用后重画。', { what: '启用自动配图插件' })
+      return plugin.regenerateImage(runtime.runtimeSessionId, batchId, frameId,
+        { autoIllustration: runtime.agentPreset.autoIllustration }, signal)
     },
     withGenerationOptions(conversationId, options, action) {
       if (generationOptions.has(conversationId)) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '当前聊天已有 SDK 生成准备。', { what: '结束上一次 SDK 生成' })
@@ -355,10 +348,6 @@ export function materializeAgentPreset(root, templatePath, preset, toolPolicy, m
   const plugins = parseYaml(composition)
   if (!Array.isArray(plugins)) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, 'DSH Agent 预设组合必须是插件列表。', { what: 'DSH Agent 预设组合' })
   plugins.push(...(options.plugins ?? []))
-  const imageConfigId = preset.toolModelConfigIds?.['builtin:auto-illustration']
-  if (imageConfigId && !toolPolicy.disabledGroupIds.includes('builtin:auto-illustration')) {
-    plugins.push({ id: 'image-generation-tools', name: durableProductPluginSpecifier('image-generation-tools'), config: { configId: imageConfigId } })
-  }
   const definition = {
     id: mountedPresetId,
     name: preset.name,

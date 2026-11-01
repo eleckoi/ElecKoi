@@ -18,6 +18,7 @@ ElecKoi 使用 DSH 官方 bundle、Cordis 生命周期和 Web Client Slots 作�
 5. 需要跨 Host/Client 调用时查 [DSH Remote](remote.md)。
 6. 需要向 DSH 能力注册实现时查 [能力贡献](contributions.md)。
 7. 发布前按 [生命周期、数据与安全](lifecycle-and-data.md) 和 [测试与验收](testing.md) 检查。
+8. 为可分享预设提供工具时，参见 [预设工具引用](preset-tools.md)。
 
 ## 文档索引
 
@@ -36,6 +37,7 @@ ElecKoi 使用 DSH 官方 bundle、Cordis 生命周期和 Web Client Slots 作�
 | [Remote 完整声明](api-remote.md) | 官方生成的全部跨端调用声明 |
 | [Client 数据类型](types-client.md) / [Host 数据类型](types-host.md) | 方法引用的完整数据结构 |
 | [DSH Remote](remote.md) | 如何声明、生成、装配和调用类型化 Host API |
+| [角色自动配图](auto-illustration.md) | 独立功能插件、预设配图配置与旧工具配置转换 |
 | [能力贡献](contributions.md) | 如何为已有能力注册 provider，以及 `provides` 与 `contributes` 的区别 |
 | [生命周期、数据与安全](lifecycle-and-data.md) | 启停、卸载、存储、权限、失败隔离和桌面边界 |
 | [测试与验收](testing.md) | 本地安装探针、源码检查和发布前清单 |

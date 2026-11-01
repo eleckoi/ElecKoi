@@ -26,7 +26,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  				...bundle.readOnlyReason === void 0 ? {} : { readOnlyReason: bundle.readOnlyReason },
  				...bundle.error === void 0 ? {} : { error: bundle.error }
  			};
-@@ -2175,6 +2178,33 @@ window.__ModuleLoader__.load({
+@@ -2175,6 +2178,34 @@ window.__ModuleLoader__.load({
  			"@deepseek-ai/dsh-acp-app",
  			"@deepseek-ai/dsh-sdk-minimal"
  		]);
@@ -43,6 +43,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
 +			"@eleckoi/dsh-client-web-search",
 +			"@eleckoi/dsh-client-shell",
 +			"@eleckoi/dsh-client-roleplay",
++			"@eleckoi/dsh-auto-illustration",
 +			"@eleckoi/dsh-client-author",
 +			"@eleckoi/dsh-client-html-resources",
 +			"@eleckoi/dsh-product-api",
@@ -60,7 +61,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  		/** The optional bundles the main list always holds, in this order; new bundles join the main list. */
  		const EXTENSION_BUNDLES = [
  			"@deepseek-ai/dsh-experimental-agent-team-profile",
-@@ -2831,7 +2861,7 @@ window.__ModuleLoader__.load({
+@@ -2831,7 +2862,7 @@ window.__ModuleLoader__.load({
  		* configuration the bundle registered for itself; its rows with their switches
  		* and configure controls; and where it comes from.
  		*/
@@ -69,7 +70,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  			const { title, description, beta } = packageText(pkg, resolveText);
  			const status = packageStatus(pkg);
  			const previews = BUNDLE_PREVIEWS.get(pkg.name);
-@@ -2845,8 +2875,8 @@ window.__ModuleLoader__.load({
+@@ -2845,8 +2876,8 @@ window.__ModuleLoader__.load({
  				"data-plugin-detail": pkg.name,
  				children: [
  					(0, react_jsx_runtime.jsx)(DetailTop, {
@@ -80,7 +81,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  						onBack,
  						icon: (0, react_jsx_runtime.jsx)(PackageArtwork, { src: pkg.meta?.icon }, pkg.meta?.icon),
  						actions: (0, react_jsx_runtime.jsxs)("div", {
-@@ -3876,8 +3906,10 @@ window.__ModuleLoader__.load({
+@@ -3876,8 +3907,10 @@ window.__ModuleLoader__.load({
  				};
  			}, [highlight, clearHighlight]);
  			const noticeLine = state.notice === null || state.notice.kind === "refresh-failed" ? null : noticeText(state.notice, t);
@@ -93,7 +94,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  			const official = listed.filter((pkg) => pkg.official);
  			const ordered = orderOptionalBundles(official);
  			const pinned = new Set(official.filter(pinnedToMainList).map((pkg) => pkg.name));
-@@ -3891,10 +3923,13 @@ window.__ModuleLoader__.load({
+@@ -3891,10 +3924,13 @@ window.__ModuleLoader__.load({
  			const onInstalled = tab === INSTALLED_TAB;
  			const showsCards = !onInstalled || openPkg === void 0 && openItem === void 0;
  			const detailFromMore = (view.kind === "package" || view.kind === "row") && (view.from === "more" || MORE_BUNDLES.includes(view.name) && !pinned.has(view.name));
@@ -108,7 +109,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  			const installedPanel = tabs.length === 0 || showsMoreList ? {} : {
  				role: "tabpanel",
  				id: `${tabsId}-${INSTALLED_TAB}-panel`,
-@@ -3912,7 +3947,7 @@ window.__ModuleLoader__.load({
+@@ -3912,7 +3948,7 @@ window.__ModuleLoader__.load({
  						kind: "row",
  						name: pkg.name,
  						rowId: row.rowId,
@@ -117,7 +118,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  					});
  				}
  			});
-@@ -3928,7 +3963,7 @@ window.__ModuleLoader__.load({
+@@ -3928,7 +3964,7 @@ window.__ModuleLoader__.load({
  					setView({
  						kind: "package",
  						name: pkg.name,
@@ -126,7 +127,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  					});
  				},
  				onSetEnabled: (enabled) => {
-@@ -3948,7 +3983,7 @@ window.__ModuleLoader__.load({
+@@ -3948,7 +3984,7 @@ window.__ModuleLoader__.load({
  				}
  			}, `item:${item.id}`));
  			const renderGroup = (id, heading, cards) => {
@@ -135,7 +136,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  				if (cards.length === 0 && !offersMore) return null;
  				return (0, react_jsx_runtime.jsxs)("section", {
  					className: PluginManagerPage_module_css_default.group,
-@@ -3963,7 +3998,7 @@ window.__ModuleLoader__.load({
+@@ -3963,7 +3999,7 @@ window.__ModuleLoader__.load({
  							size: "sm",
  							className: PluginManagerPage_module_css_default.groupMore,
  							onClick: () => {
@@ -144,7 +145,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  							},
  							children: [t("moreAction"), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, {
  								size: 14,
-@@ -4106,7 +4141,7 @@ window.__ModuleLoader__.load({
+@@ -4106,7 +4142,7 @@ window.__ModuleLoader__.load({
  							})
  						}), (0, react_jsx_runtime.jsx)("h1", {
  							className: PluginManagerPage_module_css_default.pageTitle,
@@ -153,7 +154,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  						})]
  					}) : null,
  					installedCards && !loaded ? (0, react_jsx_runtime.jsxs)("div", {
-@@ -4148,7 +4183,7 @@ window.__ModuleLoader__.load({
+@@ -4148,7 +4184,7 @@ window.__ModuleLoader__.load({
  							setView({
  								kind: "package",
  								name: openPkg.name,
@@ -162,7 +163,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  							});
  						}
  					}) : null,
-@@ -4162,8 +4197,9 @@ window.__ModuleLoader__.load({
+@@ -4162,8 +4198,9 @@ window.__ModuleLoader__.load({
  						configure: configure(openPkg),
  						renderSlot,
  						inMore: openPkgInMore,
@@ -173,7 +174,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  						},
  						onSetEnabled: (enabled) => {
  							props.setEnabled(openPkg.name, enabled);
-@@ -4185,7 +4221,7 @@ window.__ModuleLoader__.load({
+@@ -4185,7 +4222,7 @@ window.__ModuleLoader__.load({
  							setView({ kind: "list" });
  						}
  					}) : null,
@@ -182,7 +183,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  						className: PluginManagerPage_module_css_default.installedPanel,
  						...installedPanel,
  						children: (0, react_jsx_runtime.jsx)("p", {
-@@ -4198,14 +4234,15 @@ window.__ModuleLoader__.load({
+@@ -4198,14 +4235,15 @@ window.__ModuleLoader__.load({
  						children: [showsMoreList ? (0, react_jsx_runtime.jsx)("section", {
  							className: PluginManagerPage_module_css_default.group,
  							"data-plugin-scope": "global",
@@ -200,7 +201,7 @@ index 5b7c726471dc46073db41084f37339f270468c20..af5948f736236568a54c6a6e54e2c20a
  							renderGroup("bundles", t("bundlesTitle"), mine.map(packageCard))
  						] }), state.status === "error" && !refreshing ? (0, react_jsx_runtime.jsxs)("div", {
  							className: PluginManagerPage_module_css_default.failure,
-@@ -4231,7 +4268,7 @@ window.__ModuleLoader__.load({
+@@ -4231,7 +4269,7 @@ window.__ModuleLoader__.load({
  							setView({
  								kind: "package",
  								name: activated.name,
@@ -213,7 +214,7 @@ diff --git a/lib/types/client/locales.d.ts b/lib/types/client/locales.d.ts
 index 62d76941b9280e39491b26befc6321b8654f0e1d..6b64886b9d335cc47d13abe8f573fde395996e88 100644
 --- a/lib/types/client/locales.d.ts
 +++ b/lib/types/client/locales.d.ts
-@@ -31,6 +31,7 @@ export declare const zh: {
+@@ -31,6 +69,7 @@ export declare const zh: {
      bundlesTitle: string;
      basicTitle: string;
      extensionsTitle: string;
@@ -221,7 +222,7 @@ index 62d76941b9280e39491b26befc6321b8654f0e1d..6b64886b9d335cc47d13abe8f573fde3
      moreTitle: string;
      moreAction: string;
      tabsLabel: string;
-@@ -257,6 +258,7 @@ export declare const en: {
+@@ -257,6 +296,7 @@ export declare const en: {
      bundlesTitle: string;
      basicTitle: string;
      extensionsTitle: string;
@@ -233,7 +234,7 @@ diff --git a/lib/types/client/manager-store.d.ts b/lib/types/client/manager-stor
 index 686a1be3b0d73cb4948b3f324f195fe069434c55..35cbf90ea1bb79b7d361fb6370bfbaab8d7e574b 100644
 --- a/lib/types/client/manager-store.d.ts
 +++ b/lib/types/client/manager-store.d.ts
-@@ -61,6 +61,7 @@ export interface PackageRow {
+@@ -61,6 +101,7 @@ export interface PackageRow {
  }
  /** One bundle as the page shows it: the Host's bundle joined with the entries its rows run as. */
  export interface PackageView {
@@ -245,7 +246,7 @@ diff --git a/lib/types/client/navigation-store.d.ts b/lib/types/client/navigatio
 index fafc8c10e4aef11963b41f12433265103ed71fe9..e5371850248a9958535a5d287d132b643ac61d27 100644
 --- a/lib/types/client/navigation-store.d.ts
 +++ b/lib/types/client/navigation-store.d.ts
-@@ -5,10 +5,12 @@ type View = {
+@@ -5,10 +46,12 @@ type View = {
      readonly kind: 'list';
  } | {
      readonly kind: 'more';
@@ -259,7 +260,7 @@ index fafc8c10e4aef11963b41f12433265103ed71fe9..e5371850248a9958535a5d287d132b64
  } | {
      readonly kind: 'item';
      readonly id: string;
-@@ -16,7 +18,7 @@ type View = {
+@@ -16,7 +59,7 @@ type View = {
      readonly kind: 'row';
      readonly name: string;
      readonly rowId: string;

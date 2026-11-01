@@ -36,7 +36,6 @@ export const AGENT_TOOL_GROUPS: ReadonlyArray<Omit<AgentToolGroup, 'enabled' | '
   group('builtin:roleplay-workflow', '角色扮演计划', '维护角色扮演专用任务计划', [
     'update_roleplay_plan'
   ]),
-  group('builtin:auto-illustration', '角色自动配图', '为当前角色回复生成剧情分镜；需绑定图片模型，支持 NovelAI', ['generate_image']),
   group('builtin:setting-library', '角色设定库', '按需读取角色设定，并把运行时修改保存为当前对话差异', [
     'eleckoi_glob_setting_files', 'eleckoi_grep_setting_files', 'eleckoi_read_setting_files',
     'eleckoi_apply_setting_patch'
@@ -44,7 +43,7 @@ export const AGENT_TOOL_GROUPS: ReadonlyArray<Omit<AgentToolGroup, 'enabled' | '
 ]
 
 export const AGENT_TOOL_GROUP_IDS = new Set(AGENT_TOOL_GROUPS.map((item) => item.id))
-export const AGENT_TOOL_EXPLICIT_OPT_IN = new Set(['builtin:auto-illustration', 'builtin:creator'])
+export const AGENT_TOOL_EXPLICIT_OPT_IN = new Set(['builtin:creator'])
 export const DEFAULT_AGENT_TOOL_GROUP_IDS = new Set(['builtin:variables', 'builtin:setting-library'])
 
 export function agentToolGroups(enabledIds: ReadonlySet<string> = DEFAULT_AGENT_TOOL_GROUP_IDS): AgentToolGroup[] {

@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { ArrowCounterClockwise, ArrowSquareOut, Check, Code, File, FilePlus, FloppyDisk, Folder, Image, PencilSimple, Play, Plus, Trash, X } from '@phosphor-icons/react';
 import { ImportIcon, ExportIcon } from '../../../ui/icons/openSourceIcons.jsx';
@@ -6,6 +7,7 @@ import { registerOverlayBack } from '../../../ui/hooks/overlayBack.js';
 import { FrontendWorkbenchPrompt } from './FrontendWorkbenchPrompt.jsx';
 import { AUTHOR_API_VERSION } from '@eleckoi/author-sdk';
 import { resolveFailure } from '../../../utils/failureText.js';
+import { useShadowControlStyles } from '../../../ui/hooks/useShadowControlStyles.js';
 
 const manifestPath = 'eleckoi.frontend.json';
 const textual = path => /\.(html?|css|[cm]?js|jsx|tsx?|json|svg|txt|md|xml|yaml|yml|csv|map)$/i.test(path);
@@ -26,6 +28,7 @@ export const FrontendWorkbench = forwardRef(function FrontendWorkbench({ workspa
   const replaceTarget = useRef(null);
   const context = useEditorContextMenu();
   const dialog = useRef(null);
+  useShadowControlStyles(dialog);
   const [question, setQuestion] = useState(null), questionResolver = useRef(null);
   const ask = options => new Promise(resolve => { questionResolver.current = resolve; setQuestion(options); });
   const resolveQuestion = value => { const resolve = questionResolver.current; questionResolver.current = null; setQuestion(null); resolve?.(value); };
@@ -157,30 +160,30 @@ export const FrontendWorkbench = forwardRef(function FrontendWorkbench({ workspa
     {!embedded && <header><Code size={20} /><strong>{label}</strong><span className="af-count">{workspace.projects.length}</span><span className="af-spacer" />
       <button disabled={busy} onClick={onRestore} title="恢复默认界面"><ArrowCounterClockwise size={18} /><span>默认</span></button>
       <button disabled={busy} onClick={close} aria-label="关闭工作台"><X size={20} /></button></header>}
-    <div className="af-toolbar"><button disabled={busy} onClick={create} aria-label="新建" title="新建项目"><Plus size={17} />{!embedded && '新建'}</button>
-      <button disabled={busy} onClick={() => importInput.current.click()} aria-label="导入" title="导入 HTML / ZIP"><ImportIcon size={17} />{!embedded && '导入'}</button>
-      <span className="af-spacer" />{embedded && <button disabled={busy} onClick={onRestore} title="恢复默认对话界面" aria-label="恢复默认对话界面"><ArrowCounterClockwise size={18} /></button>}
-      <button aria-pressed={showTargets} aria-label="接入位置" title="接入位置" onClick={() => setShowTargets(!showTargets)}><ArrowSquareOut size={17} />{!embedded && '接入位置'}</button></div>
+    <div className="af-toolbar"><Button data-dsh-control variant="primary" disabled={busy} onClick={create} aria-label="新建" title="新建项目"><Plus size={17} />{!embedded && '新建'}</Button>
+      <Button data-dsh-control variant="outline" disabled={busy} onClick={() => importInput.current.click()} aria-label="导入" title="导入 HTML / ZIP"><ImportIcon size={17} />{!embedded && '导入'}</Button>
+      <span className="af-spacer" />{embedded && <Button data-dsh-control variant="outline" disabled={busy} onClick={onRestore} title="恢复默认对话界面" aria-label="恢复默认对话界面"><ArrowCounterClockwise size={18} /></Button>}
+      <Button data-dsh-control variant="outline" aria-pressed={showTargets} aria-label="接入位置" title="接入位置" onClick={() => setShowTargets(!showTargets)}><ArrowSquareOut size={17} />{!embedded && '接入位置'}</Button></div>
     <div className="af-workspace"><aside className="af-explorer">
       <nav aria-label="前端项目">{workspace.projects.map(item => <button key={item.id} disabled={busy} aria-pressed={item.id === projectId} onClick={() => chooseProject(item)} onContextMenu={event => context.open(event, { projectId: item.id })}>
         <Folder size={17} /><span>{item.name}</span>{item.id === workspace.selectedProjectId && <Check size={16} />}</button>)}</nav>
-      {project && <><div className="af-file-actions"><strong>文件</strong><span className="af-spacer" /><button disabled={busy} onClick={addText} aria-label="新建文件"><FilePlus size={17} /></button><button disabled={busy} onClick={() => addInput.current.click()} aria-label="添加资源"><ImportIcon size={17} /></button></div>
+      {project && <><div className="af-file-actions"><strong>文件</strong><span className="af-spacer" /><Button data-dsh-control variant="outline" disabled={busy} onClick={addText} aria-label="新建文件"><FilePlus size={17} /></Button><Button data-dsh-control variant="outline" disabled={busy} onClick={() => addInput.current.click()} aria-label="添加资源"><ImportIcon size={17} /></Button></div>
         <nav aria-label="项目文件">{[...new Set([manifestPath, ...project.files])].sort().map(filename => <button key={filename} disabled={busy} aria-pressed={path === filename} onClick={() => chooseFile(filename)} title={filename} onContextMenu={event => context.open(event, { projectId, path: filename })}>
           {textual(filename) ? <File size={15} /> : <Image size={15} />}<span style={{ paddingInlineStart: Math.min(4, filename.split('/').length - 1) * 9 }}>{filename}</span></button>)}</nav></>}
     </aside><div className="af-editor">
       {project ? <><div className="af-project-actions"><strong>{project.name}</strong><span className="af-spacer" />
-        <button disabled={busy} title="重命名项目" onClick={() => renameProject(project)}><PencilSimple size={17} /></button>
-        <button disabled={busy || dirty} onClick={() => onPreview(projectId)} aria-label="预览" title="预览"><Play size={17} />{!embedded && '预览'}</button>
-        <button disabled={busy || dirty} aria-pressed={workspace.selectedProjectId === projectId} aria-label="启用" title="启用" onClick={() => run(() => request('frontends.select', { projectId }))}><Check size={17} />{!embedded && '启用'}</button>
-        <button disabled={busy} onClick={() => exportProject()} title="导出项目" aria-label="导出项目"><ExportIcon size={17} /></button>
-        <button disabled={busy} title="删除项目" onClick={() => deleteProject(project)}><Trash size={17} /></button>
+        <Button data-dsh-control variant="outline" disabled={busy} title="重命名项目" onClick={() => renameProject(project)}><PencilSimple size={17} /></Button>
+        <Button data-dsh-control variant="outline" disabled={busy || dirty} onClick={() => onPreview(projectId)} aria-label="预览" title="预览"><Play size={17} />{!embedded && '预览'}</Button>
+        <Button data-dsh-control variant="primary" disabled={busy || dirty} aria-pressed={workspace.selectedProjectId === projectId} aria-label="启用" title="启用" onClick={() => run(() => request('frontends.select', { projectId }))}><Check size={17} />{!embedded && '启用'}</Button>
+        <Button data-dsh-control variant="outline" disabled={busy} onClick={() => exportProject()} title="导出项目" aria-label="导出项目"><ExportIcon size={17} /></Button>
+        <Button data-dsh-control variant="outline" disabled={busy} title="删除项目" onClick={() => deleteProject(project)}><Trash size={17} /></Button>
       </div><div className="af-file-bar"><code>{path || '选择文件'}</code>{dirty && <span className="af-dirty">●</span>}<span className="af-spacer" />
-        {path && <><button disabled={busy || fileLoading || !textual(path) || !dirty} onClick={save} aria-label="保存" title="保存文件"><FloppyDisk size={17} />{!embedded && '保存'}</button>
-          {path !== manifestPath && <><button disabled={busy} onClick={() => replaceFile()} title="替换文件"><ImportIcon size={17} /></button>
-            <button disabled={busy} title="删除文件" onClick={() => deleteFile(path)}><Trash size={17} /></button></>}</>}
+        {path && <><Button data-dsh-control variant="primary" disabled={busy || fileLoading || !textual(path) || !dirty} onClick={save} aria-label="保存" title="保存文件"><FloppyDisk size={17} />{!embedded && '保存'}</Button>
+          {path !== manifestPath && <><Button data-dsh-control variant="outline" disabled={busy} onClick={() => replaceFile()} title="替换文件"><ImportIcon size={17} /></Button>
+            <Button data-dsh-control variant="outline" disabled={busy} title="删除文件" onClick={() => deleteFile(path)}><Trash size={17} /></Button></>}</>}
       </div>{fileLoading ? <div className="af-empty" role="status">正在读取…</div> : path && textual(path) ? <textarea aria-label={`编辑 ${path}`} spellCheck="false" value={text} disabled={busy} onChange={event => setText(event.target.value)} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 's') { event.preventDefault(); void save(); } }} />
-        : <div className="af-empty">{path ? <><Image size={40} /><strong>{path}</strong><button onClick={() => replaceFile()}><ImportIcon size={18} />替换二进制资源</button></> : <><Code size={40} /><button onClick={() => chooseFile(manifestPath)}>编辑入口与绑定</button><button onClick={() => chooseFile(project.entryFile)}>打开 {project.entryFile}</button></>}</div>}</>
-        : <div className="af-empty"><Code size={44} /><button onClick={create}>创建{label}</button><button onClick={() => importInput.current.click()}>导入 HTML / ZIP</button></div>}
+        : <div className="af-empty">{path ? <><Image size={40} /><strong>{path}</strong><Button data-dsh-control variant="outline" onClick={() => replaceFile()}><ImportIcon size={18} />替换二进制资源</Button></> : <><Code size={40} /><Button data-dsh-control variant="outline" onClick={() => chooseFile(manifestPath)}>编辑入口与绑定</Button><Button data-dsh-control variant="outline" onClick={() => chooseFile(project.entryFile)}>打开 {project.entryFile}</Button></>}</div>}</>
+        : <div className="af-empty"><Code size={44} /><Button data-dsh-control variant="primary" onClick={create}>创建{label}</Button><Button data-dsh-control variant="outline" onClick={() => importInput.current.click()}>导入 HTML / ZIP</Button></div>}
     </div>{showTargets && <aside className="af-targets"><strong>当前可用目标</strong>{targets.map((target, index) => <button key={index} onClick={async () => {
       if (!project || !await discard()) return;
       readVersion.current++; setFileLoading(false);

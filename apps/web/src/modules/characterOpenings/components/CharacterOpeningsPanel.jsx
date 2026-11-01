@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { OpeningEditor } from './OpeningEditor.jsx';
 import { ConfirmationDialog, SaveControl } from '../../settingLibraries/index.js';
@@ -42,8 +43,8 @@ export const CharacterOpeningsPanel = forwardRef(function CharacterOpeningsPanel
     <section className="character-openings-panel" aria-label="开场白">
       <header className="character-openings-toolbar editor-collection-toolbar" aria-label="开场白操作">
         <div className="character-openings-actions editor-collection-actions">
-          <button type="button" className="editor-collection-action" aria-label="新建开场白" disabled={!entry || saving}
-            onClick={() => openingEditorRef.current?.createBackup()}><Plus size={16} aria-hidden="true" />新建</button>
+          <Button data-dsh-control variant="primary" type="button" className="editor-collection-action" aria-label="新建开场白" disabled={!entry || saving}
+            onClick={() => openingEditorRef.current?.createBackup()}><Plus size={16} aria-hidden="true" />新建</Button>
           <SaveControl dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} />
           {entry && <label className="character-openings-enabled">
             <span>启用</span>

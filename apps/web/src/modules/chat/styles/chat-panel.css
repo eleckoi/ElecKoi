@@ -1647,6 +1647,9 @@
 
 .agent-tool-open:hover { background: var(--control-bg-hover); }
 .agent-tool-open strong { overflow: hidden; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.agent-tool-open strong small { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; font-weight: 400; }
+.agent-tools-membership > h3 { margin: 12px 12px 4px; color: var(--muted); font-size: 12px; font-weight: 500; }
+.agent-tool-extra-state { color: var(--muted); font-size: 12px; white-space: nowrap; }
 
 .agent-tool-icon {
   display: grid;

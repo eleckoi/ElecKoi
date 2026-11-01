@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -61,10 +62,10 @@ export function DeleteCharacterDialog({ character, deleting = false, error = nul
         <p id={descriptionId}>角色及其对话记录将被永久删除。</p>
         <FailureAlert failure={error} className="character-delete-error" />
         <div className="character-delete-actions">
-          <button ref={cancelRef} type="button" disabled={deleting} onClick={onCancel}>取消</button>
-          <button type="button" className="is-danger" disabled={deleting} onClick={onConfirm}>
+          <Button data-dsh-control variant="outline" ref={cancelRef} type="button" disabled={deleting} onClick={onCancel}>取消</Button>
+          <Button data-dsh-control variant="outline" type="button" className="is-danger" disabled={deleting} onClick={onConfirm}>
             {deleting ? "删除中" : "删除角色"}
-          </button>
+          </Button>
         </div>
       </section>
     </SystemBarOverlay>,

@@ -1,0 +1,6 @@
+.auto-illustration-plugin { display: grid; gap: 24px; max-width: 720px; color: var(--dsw-alias-label-primary); }
+.auto-illustration-preset { display: grid; gap: 8px; }
+.auto-illustration-preset select { min-height: 44px; width: 100%; padding: 10px 12px; border: 1px solid var(--dsw-alias-border-l4); border-radius: 10px; color: inherit; background: var(--dsw-alias-bg-base); font: inherit; }
+.auto-illustration-fields { min-width: 0; margin: 0; padding: 0; border: 0; }
+.auto-illustration-enabled { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 32px; }
+.auto-illustration-plugin h3 { margin: 0 0 12px; }

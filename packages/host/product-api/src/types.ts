@@ -806,6 +806,8 @@ export interface AgentToolGroup {
   members: AgentToolMember[]
   enabled: boolean
   included: boolean
+  available?: boolean
+  plugin?: { id: string; name: string }
 }
 
 export interface AgentPreset {
@@ -822,8 +824,11 @@ export interface AgentPreset {
   groups: SettingLibraryGroup[]
   promptPositions: SettingLibraryPromptPosition[]
   toolGroups: AgentToolGroup[]
+  /** Runtime-only tools provided by the player's plugins, outside the preset. */
+  extraToolGroups?: AgentToolGroup[]
   subagentModelSelection?: { configId: string; model: string }
   toolModelConfigIds?: Record<string, string>
+  autoIllustration?: { enabled: boolean; modelConfigId: string }
   roleplayPlan: { steps: string[] }
   regexRules: RegexRule[]
   expandedGroupIds: string[]
@@ -887,6 +892,7 @@ export interface ConversationRuntimePreparation {
     roleplayPlan: { steps: string[] }
     subagentModelSelection?: { configId: string; model: string }
     toolModelConfigIds?: Record<string, string>
+    autoIllustration?: { enabled: boolean; modelConfigId: string }
     historyCompactionInstructions?: string
   }
   settingLibraryBaseline?: {

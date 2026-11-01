@@ -71,7 +71,8 @@
     "@earendil-works/pi-ai": "1.1.0",
     "yaml": "2.9.0",
     "@eleckoi/dsh-runtime": "workspace:*",
-    "@eleckoi/dsh-client-html-resources": "workspace:*"
+    "@eleckoi/dsh-client-html-resources": "workspace:*",
+    "@eleckoi/dsh-auto-illustration": "workspace:*"
   },
   "devDependencies": {
     "tsdown": "0.16.6",

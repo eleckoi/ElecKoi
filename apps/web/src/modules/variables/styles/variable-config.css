@@ -215,8 +215,6 @@
 .variable-object-json-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 2px; }
 .variable-object-json-heading > div { display: flex; align-items: center; gap: 7px; font-size: 12px; }
 .variable-object-json-heading span { color: var(--soft-text); font-size: 10px; }
-.variable-object-json-heading button { height: 28px; padding: 0 9px; color: var(--blue); border-radius: 6px; font-size: 12px; font-weight: 600; }
-.variable-object-json-heading button:hover { background: color-mix(in srgb, var(--blue) 9%, transparent); }
 .variable-inline-error { margin: -5px 0 0; color: #cf3737; font-size: 11px; }
 
 .variable-manager-overlay {

@@ -44,16 +44,9 @@
 .editor-collection-browser > .regex-list-scroll { flex: 1; min-height: 0; }
 .script-libraries-panel .script-groups.editor-collection-directory > .script-group { width: min(380px, 100%); padding: 0; margin-bottom: 24px; border-bottom: 0; }
 .script-libraries-panel .script-groups.editor-collection-directory .script-list-row { min-height: 40px; }
-.editor-collection-search {
-  display: flex; align-items: center; gap: 8px; width: min(380px, 100%); min-width: 180px;
-  height: 32px; padding: 0 10px; border: 1px solid var(--dsw-border-l4, var(--line-strong));
-  border-radius: var(--dsw-radius-md, 8px); color: var(--muted); background: var(--field-bg);
-}
-.editor-collection-search input { min-width: 0; width: 100%; padding: 0; border: 0; color: var(--text); background: transparent; outline: none; font: inherit; }
-.editor-collection-search:focus-within { border-color: var(--blue); }
+.editor-collection-search { width: min(380px, 100%); min-width: 180px; }
 .editor-collection-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .editor-collection-actions .setting-library-save-control { justify-content: flex-start; margin: 0; }
-.editor-collection-actions > [aria-pressed="true"] { background: var(--active); color: var(--blue); }
 .editor-selection-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; padding: 10px 22px; border-bottom: 1px solid var(--line-strong); background: var(--surface-subtle); flex-shrink: 0; }
 .editor-selection-bar > label { display: flex; align-items: center; gap: 8px; }
 .editor-selection-bar > span { color: var(--muted); font-size: 13px; }
@@ -100,7 +93,6 @@
   .editor-collection-toolbar { padding: 12px 16px; gap: 10px; }
   .editor-collection-search { width: 100%; }
   .editor-collection-actions { gap: 6px; }
-  .editor-collection-actions > button, .editor-collection-actions > span > button { padding-inline: 10px; }
   .editor-selection-bar { padding: 10px 16px; }
   .editor-library-row, .script-libraries-panel .script-groups.editor-collection-directory .script-list-row,
   .editor-collection-browser .setting-library-tree-row-content, .editor-collection-browser .variable-tree-row, .editor-collection-browser .regex-rule-row { height: 44px; min-height: 44px; }

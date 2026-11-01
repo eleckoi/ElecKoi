@@ -10,6 +10,7 @@ function asToolCatalog(preset) {
     characterId: '',
     scopeId: `agent-preset:${preset.id}`,
     groups: preset.toolGroups.filter((group) => group.included),
+    extraGroups: preset.extraToolGroups || [],
     roleplayPlan: preset.roleplayPlan,
     toolModelConfigIds: preset.toolModelConfigIds || {},
   };
@@ -32,11 +33,5 @@ export async function setAgentToolGroupEnabled(presetCatalog, groupId, enabled, 
 export async function setRoleplayPlanSettings(presetCatalog, roleplayPlan) {
   const { preset } = await loadActivePreset(presetCatalog);
   const saved = await presetCatalog.save({ ...preset, roleplayPlan }, preset.regexRules);
-  return asToolCatalog(saved);
-}
-
-export async function setAutoIllustrationModel(presetCatalog, presetId, configId) {
-  const preset = await presetCatalog.read(presetId);
-  const saved = await presetCatalog.save({ ...preset, toolModelConfigIds: { ...preset.toolModelConfigIds, 'builtin:auto-illustration': configId } }, preset.regexRules);
   return asToolCatalog(saved);
 }

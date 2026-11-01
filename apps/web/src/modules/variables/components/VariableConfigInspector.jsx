@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useId, useRef, useState } from "react";
 import { CaretDown, X } from "../../../ui/icons/interfaceIcons.jsx";
 import { generatedInitialStatePreviewJson, generatedObjectStateJson } from "../../../../../../packages/shared/src/foundation/variables/initialState.ts";
@@ -145,7 +146,7 @@ function ObjectEditor({ config, object, nameInputRef, onChange, onReplaceContent
       <Field label="变量组名称" wide><input ref={nameInputRef} value={object.name} onChange={(event) => update({ name: event.target.value })} /></Field>
       <Field label="说明" wide><textarea value={object.description} onChange={(event) => update({ description: event.target.value })} placeholder="这个变量组保存什么信息" /></Field>
       <Field label="更新规则" wide><textarea value={object.updateRule} onChange={(event) => update({ updateRule: event.target.value })} placeholder="何时、如何更新这个变量组" /></Field>
-      <div className="variable-object-json-heading"><div><strong>对象内容</strong><span>JSON</span></div><button type="button" onClick={() => { try { onReplaceContents(object.id, jsonText); setJsonError(null); } catch (error) { setJsonError(error ?? "JSON 格式不正确"); } }}>应用结构</button></div>
+      <div className="variable-object-json-heading"><div><strong>对象内容</strong><span>JSON</span></div><Button data-dsh-control variant="outline" type="button" onClick={() => { try { onReplaceContents(object.id, jsonText); setJsonError(null); } catch (error) { setJsonError(error ?? "JSON 格式不正确"); } }}>应用结构</Button></div>
       <textarea className="variable-code-area is-object" value={jsonText} onChange={(event) => setJsonText(event.target.value)} spellCheck="false" />
       <FailureAlert failure={jsonError} className="variable-inline-error" />
     </div>

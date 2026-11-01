@@ -67,17 +67,9 @@
 
 .setting-library-manage-button {
   display: inline-flex;
-  height: 34px;
   align-items: center;
   gap: 6px;
   justify-self: start;
-  padding: 0 11px;
-  color: var(--text);
-  background: var(--field-bg);
-  border: 1px solid color-mix(in srgb, var(--text) 13%, transparent);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
 }
 
 .setting-library-manage-button:hover,
@@ -119,15 +111,8 @@
 
 .setting-library-create-button {
   display: flex;
-  height: 34px;
   align-items: center;
   gap: 6px;
-  padding: 0 13px;
-  color: #fff;
-  background: var(--blue);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
 }
 
 .setting-library-create-button:hover,
@@ -145,33 +130,12 @@
 
 .setting-library-save-button {
   display: inline-flex;
-  height: 34px;
   align-items: center;
   gap: 6px;
-  padding: 0 12px;
-  color: #fff;
-  background: var(--blue);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.setting-library-save-button:disabled {
-  color: var(--soft-text);
-  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .setting-library-save-button svg {
   flex: 0 0 auto;
-}
-
-.setting-library-save-button:not(:disabled):hover {
-  filter: brightness(.96);
-}
-
-.setting-library-save-button svg:first-child:last-child,
-.setting-library-save-button:disabled svg {
-  opacity: .85;
 }
 
 .setting-library-save-button.is-saving svg {
@@ -1629,15 +1593,6 @@
   box-shadow: 0 1px 3px color-mix(in srgb, var(--shadow-color) 16%, transparent);
 }
 
-.immersive-markdown-exit {
-  padding-inline: 8px;
-}
-
-.immersive-markdown-exit:hover {
-  color: var(--text);
-  background: var(--active);
-}
-
 .immersive-markdown-body {
   min-width: 0;
   min-height: 0;
@@ -1766,18 +1721,9 @@ html.immersive-editor-open .qq-character-editor-window-shell .window-controls {
 
 .setting-library-delete-link {
   display: flex;
-  height: 32px;
   align-items: center;
   gap: 7px;
   justify-self: start;
-  padding: 0 8px;
-  color: #cf3737;
-  border-radius: 6px;
-  font-size: 13px;
-}
-
-.setting-library-delete-link:hover {
-  background: color-mix(in srgb, #cf3737 9%, transparent);
 }
 
 .setting-library-opening-list {
@@ -1868,16 +1814,6 @@ html.immersive-editor-open .qq-character-editor-window-shell .window-controls {
   gap: 2px;
 }
 
-.setting-library-opening-tools button {
-  width: 32px;
-  height: 32px;
-  color: color-mix(in srgb, var(--text) 65%, var(--field-bg));
-}
-
-.setting-library-opening-tools button:disabled {
-  opacity: .26;
-}
-
 .setting-library-opening-fields {
   display: grid;
   gap: 12px;
@@ -1891,14 +1827,6 @@ html.immersive-editor-open .qq-character-editor-window-shell .window-controls {
 
 .setting-library-dialog button {
   min-width: 76px;
-  height: 32px;
-  padding: 0 14px;
-  color: var(--text);
-  background: var(--chat);
-  border: 1px solid color-mix(in srgb, var(--text) 15%, transparent);
-  border-radius: 7px;
-  font-size: 13px;
-  font-weight: 600;
 }
 
 .setting-library-dialog-overlay {
@@ -1936,24 +1864,6 @@ html.immersive-editor-open .qq-character-editor-window-shell .window-controls {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-}
-
-.setting-library-dialog button.is-destructive {
-  color: #fff;
-  background: #d84646;
-  border-color: #d84646;
-}
-
-.setting-library-dialog button.is-primary {
-  color: #fff;
-  background: var(--blue);
-  border-color: var(--blue);
-}
-
-.setting-library-dialog button:disabled {
-  color: var(--soft-text);
-  background: color-mix(in srgb, var(--text) 6%, transparent);
-  border-color: color-mix(in srgb, var(--text) 9%, transparent);
 }
 
 .setting-library-manager-overlay {
@@ -2379,19 +2289,7 @@ html.immersive-editor-open .qq-character-editor-window-shell .window-controls {
 }
 
 .setting-library-merge-button {
-  height: 34px;
   justify-self: end;
-  padding: 0 12px;
-  color: #fff;
-  background: var(--blue);
-  border-radius: 7px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.setting-library-merge-button:disabled {
-  color: var(--soft-text);
-  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .setting-library-merge-summary {

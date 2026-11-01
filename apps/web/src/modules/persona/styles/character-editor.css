@@ -416,38 +416,6 @@
 
 .character-basic-actions button {
   min-width: 88px;
-  height: 36px;
-  padding: 0 18px;
-  color: var(--text);
-  background: var(--chat);
-  border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.character-basic-actions button:hover:not(:disabled) {
-  background: var(--control-bg);
-}
-
-.character-basic-actions button.is-primary {
-  color: #fff;
-  background: var(--blue);
-  border-color: var(--blue);
-}
-
-.character-basic-actions button.is-primary:hover:not(:disabled) {
-  background: var(--blue-hover);
-  border-color: var(--blue-hover);
-}
-
-.character-basic-actions button:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--blue) 55%, transparent);
-  outline-offset: 2px;
-}
-
-.character-basic-actions button:disabled {
-  opacity: 0.45;
 }
 
 @media (prefers-reduced-motion: reduce) {

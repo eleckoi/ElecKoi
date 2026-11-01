@@ -31,6 +31,7 @@ window.__ModuleLoader__.load({
       "@eleckoi/dsh-client-web-search",
       "@eleckoi/dsh-client-shell",
       "@eleckoi/dsh-client-roleplay",
+      "@eleckoi/dsh-auto-illustration",
       "@eleckoi/dsh-client-author",
       "@eleckoi/dsh-client-html-resources",
       "@eleckoi/dsh-product-api",
@@ -209,6 +210,7 @@ window.__ModuleLoader__.load({
           ['@deepseek-ai/dsh-client-ui-plugin-manager', 'DSH 插件页面适配'],
           ['@deepseek-ai/dsh-client-ui-conversation', 'DSH 会话输入框适配'],
           ['@deepseek-ai/dsh-client-ui-workspace', 'DSH 启动导航适配'],
+          ['@deepseek-ai/dsh-tools', 'DSH 工具注册来源适配'],
           ['@deepseek-ai/dsh-plugin-manager', 'DSH 插件管理适配'],
           ['@deepseek-ai/dsh-llm', 'DSH 模型运行适配'],
           ['@deepseek-ai/dsh-llm-pi-ai', 'DSH 通用模型适配'],
@@ -649,7 +651,7 @@ window.__ModuleLoader__.load({
 
       ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'settings', registrant: '@eleckoi/dsh-client-shell' },
         () => React.createElement(SettingsPage)))
-      ctx.slots.inject('plugins.bundle.config', () => builtInBundles.map(packageName => ctx.slots.register({
+      ctx.slots.inject('plugins.bundle.config', () => builtInBundles.filter(name => name !== '@eleckoi/dsh-auto-illustration').map(packageName => ctx.slots.register({
         name: 'plugins.bundle.config', key: packageName, registrant: '@eleckoi/dsh-client-shell'
       }, () => {
         const entry = ctx.slots.entriesOfSlot('main').find(candidate => candidate.options.key === 'plugins')

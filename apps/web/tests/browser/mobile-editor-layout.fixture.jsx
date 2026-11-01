@@ -11,6 +11,7 @@ import { PresetToolsEditor } from '../../src/modules/presets/components/PresetTo
 import { DynamicSettingsPanel } from '../../src/modules/settingLibraries/components/DynamicSettingsPanel.jsx';
 import { createEntryDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
 import { EditorPresentationContext } from '../../src/ui/ui/EditorPresentationContext.jsx';
+import { Input, Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { editorCollectionService } from '../helpers/editorCollectionServices.js';
 import '../../src/app/windows/styles/tokens.css';
 import '../../src/app/windows/styles/base.css';
@@ -52,6 +53,7 @@ function Fixture() {
   const presentation = useMemo(() => ({ compact }), [compact]);
   const ownerProps = { [scope === 'preset' ? 'presetId' : 'characterId']: `synthetic-${scope}` };
   return <>
+    <div className="setting-library-save-control" data-official-controls style={{ position: 'fixed', top: -2000 }}><Input /><Button variant="outline">操作</Button><Button variant="primary">操作</Button></div>
     <nav hidden>{kinds.flatMap(kind => ['character', 'preset'].flatMap(scope => [true, false].map(compact =>
       <button key={`${kind}:${scope}:${compact}`} data-editor={`${kind}:${scope}:${compact}`} onClick={() => setAddress({ kind, scope, compact })}>fixture</button>)))}</nav>
     <main data-current={`${kind}:${scope}:${compact}`} className={compact ? 'mobile-shell' : ''} style={{ height: '100vh', overflow: 'hidden' }}>

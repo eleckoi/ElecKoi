@@ -14,7 +14,6 @@ import {
 } from '@phosphor-icons/react';
 
 export const AGENT_TOOL_GROUP_ICONS = Object.freeze({
-  'builtin:auto-illustration': ImageSquare,
   'builtin:creator': MagicWand,
   'builtin:variables': TreeStructure,
   'builtin:setting-library': BookOpen,

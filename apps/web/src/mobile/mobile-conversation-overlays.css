@@ -4,10 +4,10 @@
 .mobile-conversation-overlay::before { content: ''; position: absolute; inset: 0; background: var(--modal-backdrop, rgb(0 0 0 / 18%)); animation: mobile-sheet-scrim-in 160ms linear; }
 .mobile-conversation-overlay.is-page::before { background: var(--rail); }
 .mobile-conversation-overlay [hidden] { display: none !important; }
-.mobile-conversation-overlay button { border: 0; font: inherit; cursor: pointer; touch-action: manipulation; }
-.mobile-conversation-overlay button:disabled { opacity: .45; cursor: default; }
-.mobile-conversation-overlay .mobile-conversation-surface :is(button, input, select, textarea):focus-visible { outline: 2px solid color-mix(in srgb, var(--text) 32%, transparent); outline-offset: -2px; }
-.mobile-conversation-overlay button:not([role="switch"]):active:not(:disabled) { background-color: var(--control-bg-hover); }
+.mobile-conversation-overlay button:not([data-dsh-control]) { border: 0; font: inherit; cursor: pointer; touch-action: manipulation; }
+.mobile-conversation-overlay button:not([data-dsh-control]):disabled { opacity: .45; cursor: default; }
+.mobile-conversation-overlay .mobile-conversation-surface :is(button, input, select, textarea):not([data-dsh-control]):focus-visible { outline: 2px solid color-mix(in srgb, var(--text) 32%, transparent); outline-offset: -2px; }
+.mobile-conversation-overlay button:not([data-dsh-control]):not([role="switch"]):active:not(:disabled) { background-color: var(--control-bg-hover); }
 .mobile-conversation-surface { position: relative; display: flex; flex-direction: column; flex: none; width: 100%; max-width: 640px; height: min(88dvh, 800px); max-height: 100%; min-height: 0; overflow: hidden; border: 0; border-radius: 26px 26px 0 0; corner-shape: round; background: var(--surface-raised); box-shadow: 0 -3px 24px var(--shadow-color); outline: none; animation: mobile-sheet-in 220ms cubic-bezier(.4, 0, .2, 1); }
 .mobile-conversation-overlay.is-page .mobile-conversation-surface { height: 100%; max-width: none; border-radius: 0; background: var(--rail); box-shadow: none; }
 .mobile-sheet-handle { flex: none; align-self: center; width: 38px; height: 4px; margin-top: 10px; border-radius: 4px; background: color-mix(in srgb, var(--muted) 30%, transparent); }

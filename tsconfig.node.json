@@ -60,6 +60,7 @@
     "packages/host/product-data/src/**/*.ts",
     "packages/host/product-api/src/hostInspect.ts",
     "packages/host/product-api/src/inspectProvider.ts",
+    "packages/host/product-api/src/tool-provenance.ts",
     "packages/host/product-api/src/cordisApi.generated.ts",
     "packages/host/product-api/src/client/inspect.ts",
     "packages/host/product-api/src/errorCodes.generated.ts",

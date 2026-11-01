@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { useEffect, useRef, useState } from "react";
@@ -200,9 +201,9 @@ export function CharacterBasicInfoPanel({ character, dirty, saving, error, saveN
           {status?.label || ""}
         </span>
         {dirty ? (
-          <button type="button" title="放弃所有未保存的更改" disabled={saving} onClick={onCancel}>放弃更改</button>
+          <Button data-dsh-control variant="outline" type="button" title="放弃所有未保存的更改" disabled={saving} onClick={onCancel}>放弃更改</Button>
         ) : null}
-        <button
+        <Button data-dsh-control variant="primary"
           type="button"
           className="is-primary"
           title="保存（Ctrl/Command + S）"
@@ -211,7 +212,7 @@ export function CharacterBasicInfoPanel({ character, dirty, saving, error, saveN
           onClick={() => onSave()}
         >
           {saving ? "保存中…" : "保存更改"}
-        </button>
+        </Button>
       </footer>
     </section>
   );

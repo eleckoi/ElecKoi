@@ -1,0 +1,24 @@
+.character-editor-workspace,
+.character-basic-content,
+.character-frontend-editor,
+.character-manager-titlebar,
+.character-group-dialog,
+.character-import-dialog,
+.character-delete-dialog,
+.preset-workspace,
+.preset-profile-hero,
+.preset-profile-editor-page,
+.preset-manager-titlebar,
+.preset-group-dialog,
+.preset-content-dialog,
+.preset-tool-config-dialog,
+.mobile-preset-tool-manager,
+.editor-collection-toolbar,
+.editor-management-modal,
+.setting-library-save-control,
+.setting-library-dialog,
+.setting-position-dialog {
+  --dsw-alias-button-primary-fill: var(--dsw-static-deepseek-500);
+  --dsw-alias-button-primary-hover: var(--dsw-static-deepseek-600);
+  --dsw-alias-label-primary-foreground: var(--dsw-static-neutral-bluish-00);
+}

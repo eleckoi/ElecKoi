@@ -422,7 +422,8 @@
     "react-dom": "19.2.8",
     "yaml": "2.9.0",
     "zod": "4.1.11",
-    "@deepseek-ai/dsh-client-ui-entry-customization": "0.2.1-rc.3"
+    "@deepseek-ai/dsh-client-ui-entry-customization": "0.2.1-rc.3",
+    "@eleckoi/dsh-auto-illustration": "workspace:*"
   },
   "devDependencies": {
     "@electron/rebuild": "4.2.0",

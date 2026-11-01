@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft } from '@phosphor-icons/react';
@@ -41,7 +42,7 @@ export const CharacterFrontendPanel = forwardRef(function CharacterFrontendPanel
       : <><div className="af-inline-editor" hidden={Boolean(preview)}><FrontendWorkbench key={characterId} ref={workbench} {...state} embedded targets={targets} error={error || state.error}
         onDirtyChange={onDirtyChange} onPreview={startPreview} onRestore={restore} /></div>
       {preview && <section className="af-role-preview">
-        <header><button onClick={() => setPreviewId(null)}><ArrowLeft size={18} />返回文件</button><strong>{preview.name}</strong></header>
+        <header><Button data-dsh-control variant="outline" onClick={() => setPreviewId(null)}><ArrowLeft size={18} />返回文件</Button><strong>{preview.name}</strong></header>
         {previewError ? <div role="alert">{previewError}</div> : <AdvancedFrontendFrame nativeOnly project={preview} request={request} entryFile={previewEntry} revision={workspace.revision}
           context={{ view: 'chat', preview: true, binding: { target: 'root' }, owner: { characterId } }} />}
       </section>}</>}

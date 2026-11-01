@@ -233,17 +233,17 @@ describe('preset list consistency', () => {
     expect(html).not.toContain('disabled=""');
   });
 
-  it('shows only tool groups included by the preset and uses add instead of new', () => {
+  it('shows included tool groups and opens the preset tool manager', () => {
     const toolGroups = [
       { id: 'builtin:variables', name: '剧情变量', description: '读取剧情变量', source: 'built_in', included: true, enabled: true, members: [{ name: 'read_variables', description: '' }] },
       { id: 'builtin:web', name: '联网搜索', description: '搜索最新信息', source: 'built_in', included: false, enabled: false, members: [{ name: 'web_search', description: '' }] },
     ];
     const html = renderToStaticMarkup(<PresetToolsEditor {...props} preset={{ ...preset, toolGroups }} />);
     expect(html).toContain('placeholder="搜索工具"');
-    expect(html).toContain('>添加<');
+    expect(html).toContain('管理预设工具');
     expect(html).toContain('剧情变量');
     expect(html).not.toContain('联网搜索');
-    expect(html).toContain('预设自带');
+    expect(html).toContain('预设工具');
     expect(html).toContain('role="switch" aria-checked="true"');
     expect(html).toContain('aria-label="关闭剧情变量"');
     expect(html).toContain('aria-haspopup="dialog"');

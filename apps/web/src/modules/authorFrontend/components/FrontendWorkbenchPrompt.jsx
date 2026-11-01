@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useRef, useState } from 'react';
 import { Check, X } from '@phosphor-icons/react';
 import { registerOverlayBack } from '../../../ui/hooks/overlayBack.js';
@@ -34,8 +35,8 @@ export function FrontendWorkbenchPrompt({ question, onResolve }) {
       <strong>{question.title}</strong>
       {inputMode ? <label>{question.label || question.title}<input aria-label={question.label || question.title} value={value} disabled={closing} onChange={event => setValue(event.target.value)} /></label>
         : <p>{question.message}</p>}
-      <div className="af-prompt-actions"><button data-cancel type="button" disabled={closing} onClick={() => finish(null)}><X size={16} />取消</button>
-        <button type="submit" className={question.danger ? 'danger' : 'primary'} disabled={closing || (inputMode && !value.trim())}><Check size={16} />{question.confirmLabel || '确定'}</button></div>
+      <div className="af-prompt-actions"><Button data-dsh-control variant="outline" data-cancel type="button" disabled={closing} onClick={() => finish(null)}><X size={16} />取消</Button>
+        <Button data-dsh-control variant="primary" type="submit" className={question.danger ? 'danger' : 'primary'} disabled={closing || (inputMode && !value.trim())}><Check size={16} />{question.confirmLabel || '确定'}</Button></div>
     </form>
   </div>;
 }

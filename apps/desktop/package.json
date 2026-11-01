@@ -375,7 +375,8 @@
     "semver": "7.8.5",
     "yaml": "2.9.0",
     "zod": "4.1.11",
-    "@deepseek-ai/dsh-client-ui-entry-customization": "0.2.1-rc.3"
+    "@deepseek-ai/dsh-client-ui-entry-customization": "0.2.1-rc.3",
+    "@eleckoi/dsh-auto-illustration": "workspace:*"
   },
   "devDependencies": {
     "@types/semver": "7.8.0"

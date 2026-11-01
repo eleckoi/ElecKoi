@@ -1,5 +1,5 @@
 import { runtimeContextsFor } from '../../../../../../tests/helpers/runtime-contexts.js'
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:http';
@@ -14,15 +14,16 @@ import AgentLoop from '@deepseek-ai/dsh-agent-loop';
 import LocalAttachmentStore from '@deepseek-ai/dsh-attachment-local';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { normalizeNovelAiImageSettings, novelAiImageSettingsError } from '../../../../../shared/src/contracts/agent/novelAiImageSettings';
-import { materializeAgentPreset } from '../../src/host/session-runtime.mjs';
-import { readRuntimePresetDefinition } from '../../src/host/preset-definition.mjs';
-import { writeSessionSnapshot } from '../../src/host/session-snapshot.mjs';
-import * as imageTool from '../../src/host/image-generation-tools.mjs';
+import { materializeAgentPreset } from '../../../dsh-client-roleplay/src/host/session-runtime.mjs';
+import { readRuntimePresetDefinition } from '../../../dsh-client-roleplay/src/host/preset-definition.mjs';
+import { writeSessionSnapshot } from '../../../dsh-client-roleplay/src/host/session-snapshot.mjs';
+import * as imagePlugin from '../../src/index.js';
+import { readSessionSnapshot } from '../../../dsh-client-roleplay/src/host/session-snapshot.mjs';
 import { createNovelAiImageGeneration } from '../../src/host/novelai-image-generation.mjs';
-import { installConversationContext } from '../../src/host/conversation-context.mjs';
-import { illustrationProjection } from '../../src/host/illustration-projection.mjs';
-import { IMAGE_PROMPT_OPEN, IMAGE_PROMPT_CLOSE } from '../../src/host/generated-image-result.mjs';
-import { inputContinuationsProjection } from '../../src/host/input-continuations-projection.mjs';
+import { installConversationContext } from '../../../dsh-client-roleplay/src/host/conversation-context.mjs';
+import { illustrationProjection } from '../../../dsh-client-roleplay/src/host/illustration-projection.mjs';
+import { IMAGE_PROMPT_OPEN, IMAGE_PROMPT_CLOSE } from '../../../dsh-client-roleplay/src/host/generated-image-result.mjs';
+import { inputContinuationsProjection } from '../../../dsh-client-roleplay/src/host/input-continuations-projection.mjs';
 
 const directories = [], servers = [];
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
@@ -45,20 +46,16 @@ afterEach(async () => {
 });
 
 describe('NAI preset illustration', () => {
-  it('mounts only when the preset explicitly binds and enables the tool', () => {
+  it('keeps image handling out of generated tool compositions and retires the old mounted handler', () => {
     const dir = temporary(), template = resolve('apps/desktop/resources/dsh/agent-preset-template/agent.cordis.yml');
-    const preset = { id: 'synthetic-preset', name: '合成预设', versionId: 'v1', roleplayPlan: { steps: [] }, toolModelConfigIds: { 'builtin:auto-illustration': 'image-a' } };
-    const build = disabled => {
-      const result = materializeAgentPreset(dir, template, preset, { disabledGroupIds: disabled }, {});
-      return { json: JSON.parse(readFileSync(join(dir, result.id, 'preset.json'), 'utf8')), result };
-    };
-    expect(build(['builtin:auto-illustration']).json.plugins.some(plugin => plugin.id === 'image-generation-tools')).toBe(false);
-    const enabled = build([]);
-    expect(enabled.json.plugins.find(plugin => plugin.id === 'image-generation-tools')).toMatchObject({ name: 'eleckoi:agent-preset/image-generation-tools', config: { configId: 'image-a' } });
-    const runtime = readRuntimePresetDefinition(join(dir, enabled.result.id, 'preset.json'), enabled.result.id, template);
-    expect(runtime.plugins.find(plugin => plugin.id === 'image-generation-tools').name).toBe(new URL('../../src/host/image-generation-tools.mjs', import.meta.url).href);
-    delete preset.toolModelConfigIds['builtin:auto-illustration'];
-    expect(build([]).json.plugins.some(plugin => plugin.id === 'image-generation-tools')).toBe(false);
+    const preset = { id: 'synthetic-preset', name: '合成预设', versionId: 'v1', roleplayPlan: { steps: [] }, autoIllustration: { enabled: true, modelConfigId: 'image-a' } };
+    const result = materializeAgentPreset(dir, template, preset, { disabledGroupIds: [] }, {});
+    const path = join(dir, result.id, 'preset.json');
+    const definition = JSON.parse(readFileSync(path, 'utf8'));
+    expect(definition.plugins.some(plugin => plugin.id === 'image-generation-tools')).toBe(false);
+    definition.plugins.push({ id: 'image-generation-tools', name: 'eleckoi:agent-preset/image-generation-tools', config: { configId: 'image-a' } });
+    writeFileSync(path, JSON.stringify(definition));
+    expect(readRuntimePresetDefinition(path, result.id, template).plugins.some(plugin => plugin.id === 'image-generation-tools')).toBe(false);
   });
 
   it('rejects invalid saved parameters and reversed automatic ranges', () => {
@@ -69,7 +66,7 @@ describe('NAI preset illustration', () => {
     expect(() => normalizeNovelAiImageSettings({ sampler: 'unknown' })).toThrow();
   });
 
-  it.each(['image-first', 'text-first'])('publishes %s completion independently of the real Agent text stream', async order => {
+  it.each(['image-first', 'text-first', 'agent-close', 'plugin-close'])('publishes %s completion independently of the real Agent text stream', async order => {
     let finishImage, imageFinished = false, bodyStreamed = false, requestArrived, resultArrived;
     const bodyVisible = new Promise(resolve => { finishImage = resolve; });
     const imageRequested = new Promise(resolve => { requestArrived = resolve; });
@@ -80,7 +77,7 @@ describe('NAI preset illustration', () => {
     process.env.ELECKOI_SESSION_SNAPSHOT_ROOT = snapshotRoot;
 
     const contexts = runtimeContextsFor(sessionId, { conversationContext: { currentPromptText: '合成场景', history: [] } });
-    const snapshot = { model: { systemPrompt: '合成角色指令' }, toolModelConfigIds: { 'builtin:auto-illustration': 'image-a' }, disabledToolGroupIds: [] };
+    const snapshot = { model: { systemPrompt: '合成角色指令' }, autoIllustration: { enabled: true, modelConfigId: 'image-a' }, disabledToolGroupIds: [] };
     writeSessionSnapshot(snapshotRoot, sessionId, snapshot);
     const entry = { provider: 'novelai_image', model: 'nai-diffusion-4-5-full', base_url: remote.url, credentialRef: 'SYNTHETIC_NAI_KEY', image_settings: { promptPrefix: 'synthetic prefix', negativePrompt: 'synthetic negative' } };
     const ctx = new Context(), requests = [], previews = [];
@@ -123,10 +120,10 @@ describe('NAI preset illustration', () => {
         settingsCtx.provide('settings', { describe: () => [{ ns: 'eleckoi-client-models', value: { entries: { 'image-a': entry } } }] });
       } });
       ctx.provide('eleckoiRuntimeContexts', contexts);
-      const images = createNovelAiImageGeneration(ctx); ctx.provide('eleckoiImageGeneration', images);
+      ctx.provide('eleckoiRoleplaySessions', { configuration: id => id === sessionId ? readSessionSnapshot(snapshotRoot, id) : undefined });
+      const imageFork = await ctx.plugin(imagePlugin);
       ctx.llm.registerAdapter(['synthetic'], new Adapter());
-      const handle = await ctx.agents.create({ sessionId: SessionId(sessionId), agentOptions: { provider: 'synthetic', model: 'synthetic' },
-        setup: async owner => { await owner.plugin(imageTool, { configId: 'image-a' }); } });
+      const handle = await ctx.agents.create({ sessionId: SessionId(sessionId), agentOptions: { provider: 'synthetic', model: 'synthetic' } });
       ctx.on('agent/assistant-stream', event => {
         if (!bodyStreamed && event.frame.type === 'chunk' && event.frame.chunk.type === 'text-delta' && event.frame.chunk.text.includes('<FINAL>')) {
           bodyStreamed = true;
@@ -142,6 +139,23 @@ describe('NAI preset illustration', () => {
       } });
       handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: '合成场景' }], source: { kind: 'user' } }));
       await handle.agent.whenIdle();
+      if (order === 'agent-close' || order === 'plugin-close') {
+        if (order === 'agent-close') await handle.dispose();
+        else await imageFork.dispose();
+        const outcomes = handle.agent.session.snapshotEvents().filter(event => event.type === 'eleckoi/illustration');
+        expect(outcomes.at(-1).data.status).toBe('failed');
+        expect(outcomes.at(-1).data.frames.every(frame => frame.status === 'failed' && !frame.attachment)).toBe(true);
+        expect(Boolean(ctx.get('eleckoiAutoIllustration'))).toBe(order === 'agent-close');
+        finishImage();
+        if (order === 'plugin-close') {
+          handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: '停用插件后继续合成对话' }], source: { kind: 'user' } }));
+          await handle.agent.whenIdle();
+          expect(handle.agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' });
+          expect(requests).toHaveLength(2);
+          expect(JSON.stringify(requests[1].messages)).not.toContain('当前角色对话已启用每轮自动配图');
+        }
+        return;
+      }
       if (order === 'text-first') {
         expect(imageFinished).toBe(false);
         expect(handle.agent.session.snapshotEvents().filter(event => event.type === 'eleckoi/illustration').map(event => event.data.status)).toEqual(['generating']);
@@ -164,7 +178,8 @@ describe('NAI preset illustration', () => {
       expect(previews.map(request => request.messages)).toEqual(requests.map(request => request.messages));
       expect(JSON.stringify(events.filter(event => event.type !== 'request/header'))).not.toContain('当前角色对话已启用每轮自动配图');
       expect(remote.requests[0]).toMatchObject({ url: '/ai/generate-image', headers: { authorization: 'Bearer synthetic-token', accept: 'application/json' }, body: { input: 'synthetic prefix, synthetic scene', model: 'nai-diffusion-4-5-full', parameters: { width: 832, height: 1216, steps: 28, scale: 5, sampler: 'k_euler_ancestral', negative_prompt: 'synthetic avoid, synthetic negative', seed: 42, n_samples: 1 } } });
-      writeSessionSnapshot(snapshotRoot, sessionId, { ...snapshot, disabledToolGroupIds: ['builtin:auto-illustration'] });
+      if (order === 'text-first') await imageFork.dispose();
+      else writeSessionSnapshot(snapshotRoot, sessionId, { ...snapshot, autoIllustration: { ...snapshot.autoIllustration, enabled: false } });
       expect((await ctx.systemPrompt.assemble({ agent: handle.agent, scope: handle.agent })).tools.some(tool => tool.name === 'generate_image')).toBe(false);
       handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: '关闭配图后的合成场景' }], source: { kind: 'user' } }));
       await handle.agent.whenIdle();
@@ -183,7 +198,6 @@ describe('NAI preset illustration', () => {
       await handle.agent.whenIdle();
       expect(handle.agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toMatchObject({ kind: 'error', error: { message: expect.stringContaining('ENOENT') } });
       expect(requests).toHaveLength(3);
-      images.close();
     } finally { await ctx.fiber.dispose(); }
   }, 30000);
 

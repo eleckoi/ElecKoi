@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
@@ -126,10 +127,10 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
         {error ? <p className="character-import-error" role="alert">{error}</p> : null}
         {preview ? (
           <footer>
-            <button type="button" onClick={close} disabled={importing}>取消</button>
-            <button className="primary" type="button" onClick={confirmImport} disabled={!importableCount || importing}>
+            <Button data-dsh-control variant="outline" type="button" onClick={close} disabled={importing}>取消</Button>
+            <Button data-dsh-control variant="primary" className="primary" type="button" onClick={confirmImport} disabled={!importableCount || importing}>
               {importing ? "导入中…" : `导入${importableCount ? ` ${importableCount}` : ""}`}
-            </button>
+            </Button>
           </footer>
         ) : null}
         {preparing ? <div className="character-import-busy">正在读取角色卡…</div> : null}

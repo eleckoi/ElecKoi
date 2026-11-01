@@ -1,3 +1,4 @@
+import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -501,10 +502,8 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
     return (
       <section className="dynamic-settings-list-page" aria-label="分支设定">
         <header className={`dynamic-settings-list-toolbar${compact ? ' editor-collection-toolbar' : ''}`}>
-          <label className={`setting-library-search${compact ? ' editor-collection-search' : ''}`}>
-            <MagnifyingGlass size={15} aria-hidden="true" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索对话" aria-label="搜索分支设定对话" />
-          </label>
+          <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
+            value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索对话" aria-label="搜索分支设定对话" />
         </header>
         <div className="dynamic-settings-conversation-list">
           {loading ? <p className="dynamic-settings-status" role="status">正在读取分支设定…</p> : <FailureAlert failure={error} className="dynamic-settings-status is-error" />}
@@ -551,17 +550,17 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
         <div className="dynamic-settings-toolbar-copy">
           <strong title={selectedItem.title}>{selectedItem.title || "未命名聊天"}</strong>
         </div>
-        {!compact && <button type="button" className="dynamic-settings-secondary-action" title="保存为设定版本" aria-label="保存为设定版本" disabled={saving} onClick={() => setNameDialog({
+        {!compact && <Button data-dsh-control variant="primary" type="button" className="dynamic-settings-secondary-action" title="保存为设定版本" aria-label="保存为设定版本" disabled={saving} onClick={() => setNameDialog({
           type: "version",
           title: "保存为设定版本",
           label: "版本名称",
           value: versionName(selectedItem),
           confirmLabel: "保存",
-        })}><Copy size={15} />另存版本</button>}
-        {!compact && <button type="button" className="dynamic-settings-danger-action" title="清空分支设定" aria-label="清空分支设定" disabled={saving} onClick={() => setResetTarget({
+        })}><Copy size={15} />另存版本</Button>}
+        {!compact && <Button data-dsh-control variant="outline" type="button" className="dynamic-settings-danger-action" title="清空分支设定" aria-label="清空分支设定" disabled={saving} onClick={() => setResetTarget({
           title: "清空这段对话的分支设定？",
           message: "将删除这段对话里由 AI 和你产生的全部设定改动，并回归母设定。母设定不会被修改。",
-        })}><Trash size={15} />清空</button>}
+        })}><Trash size={15} />清空</Button>}
       </header>
 
       <BranchSettingsSplitView preferredWidth={inspectorWidth} onWidthChange={setInspectorWidth}
@@ -569,12 +568,10 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
         inspectorTitle={selected.kind === 'group' ? '编辑文件夹' : selected.value?.title || '编辑分支设定'} onCloseInspector={closeEditor}>
         <section className="dynamic-settings-tree-pane">
           <div className={`dynamic-settings-tree-toolbar${compact ? ' editor-collection-toolbar' : ''}`}>
-            <label className={`setting-library-search${compact ? ' editor-collection-search' : ''}`}>
-              <MagnifyingGlass size={15} aria-hidden="true" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索设定" aria-label="搜索分支设定" />
-            </label>
+            <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
+              value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索设定" aria-label="搜索分支设定" />
             {!compact && <div className="setting-library-add-wrap">
-              <button type="button" className="setting-library-create-button" aria-label="新建" aria-expanded={addMenuOpen} onClick={() => setAddMenuOpen((open) => !open)}><Plus size={16} />新建</button>
+              <Button data-dsh-control variant="primary" type="button" className="setting-library-create-button" aria-label="新建" aria-expanded={addMenuOpen} onClick={() => setAddMenuOpen((open) => !open)}><Plus size={16} />新建</Button>
               {addMenuOpen ? (
                 <div className="setting-library-popover" role="menu">
                   <button type="button" role="menuitem" onClick={() => {
@@ -587,7 +584,7 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
               ) : null}
             </div>}
             {compact && <div className="setting-library-add-wrap">
-              <button type="button" className="setting-library-manage-button" aria-expanded={managerOpen} onClick={() => setManagerOpen(open => !open)}><SlidersHorizontal size={16} />管理</button>
+              <Button data-dsh-control variant="outline" type="button" className="setting-library-manage-button" aria-expanded={managerOpen} onClick={() => setManagerOpen(open => !open)}><SlidersHorizontal size={16} />管理</Button>
               {managerOpen && <div className="setting-library-popover" role="menu">
                 <button type="button" role="menuitem" disabled={saving} onClick={requestVersion}><Copy size={16} />另存版本</button>
                 <button type="button" role="menuitem" disabled={saving} onClick={requestReset}><Trash size={16} />清空分支设定</button>
@@ -711,7 +708,7 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
                 ) : (
                   <div className="dynamic-settings-readonly-content">{selected.value.content || "暂无正文"}</div>
                 )}
-                {canDeleteSelected ? <button type="button" className="setting-library-delete-link" onClick={requestDeleteSelected}><Trash size={15} />{selected.kind === "group" ? "删除文件夹" : "删除设定"}</button> : null}
+                {canDeleteSelected ? <Button data-dsh-control variant="outline" type="button" className="setting-library-delete-link" onClick={requestDeleteSelected}><Trash size={15} />{selected.kind === "group" ? "删除文件夹" : "删除设定"}</Button> : null}
               </div>
             </>
         </aside> : null}

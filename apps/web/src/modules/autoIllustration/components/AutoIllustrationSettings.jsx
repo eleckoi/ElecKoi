@@ -25,7 +25,7 @@ export function AutoIllustrationSettings({ configId = '', onSelect, modelCatalog
   return <section className={`auto-illustration-settings${mobile ? '' : ' desktop-auto-illustration-settings'}`} aria-label="绘图模型与参数">
     <h3>绘图模型与参数</h3>
     <button type="button" className="auto-illustration-model" aria-haspopup="dialog" onClick={() => setOpen(true)}>
-      <span><strong>{selected?.name || (configId ? '绑定的模型配置已不可用' : '不指定图片模型')}</strong><small>{selected?.model || (configId ? configId : '工具启用时不会生成图片')}</small></span><CaretRight size={18} />
+      <span><strong>{selected?.name || (configId ? '绑定的模型配置已不可用' : '不指定图片模型')}</strong><small>{selected?.model || (configId ? configId : '未绑定模型时不会生成图片')}</small></span><CaretRight size={18} />
     </button>
     {open && <IllustrationModelPicker configs={snapshot.configs.filter(config => config.provider === NOVELAI_IMAGE_PROVIDER)} status={snapshot.status} catalogError={snapshot.error} selectedId={configId}
       onSaveConfig={config => models.save(config)} onReload={() => models.refresh()} onSelect={onSelect} onClose={() => setOpen(false)} />}
@@ -83,7 +83,7 @@ function IllustrationModelPicker({ configs, selectedId, status, catalogError, on
           setDrafts(current => current.map(config => config.id === chosenId ? { ...config, image_settings: settings } : config));
           setChangedIds(current => [...new Set([...current, chosenId])]); setError(null);
         }} /></div> : <>
-          <div className={mobile ? 'mobile-choice-group' : 'desktop-illustration-unbound'}>{choice('', '不指定图片模型', '工具启用时不会生成图片')}</div>
+          <div className={mobile ? 'mobile-choice-group' : 'desktop-illustration-unbound'}>{choice('', '不指定图片模型', '未绑定模型时不会生成图片')}</div>
           {chosenId && !selected && <p className="model-parameter-error" role="alert">绑定的图片模型配置已不可用，请重新选择。</p>}
           <section className={mobile ? 'mobile-provider-choices' : 'desktop-illustration-provider'}><h3><ModelIdentityIcon modelName="" providerId={NOVELAI_IMAGE_PROVIDER} />NovelAI</h3>
             <div className={mobile ? 'mobile-choice-group' : 'desktop-illustration-configs'}>{drafts.map(config => <div key={config.id} className={mobile ? 'mobile-config-choice' : 'desktop-illustration-config'}>{choice(config.id, config.name || '未命名配置', config.model || '未选择模型')}

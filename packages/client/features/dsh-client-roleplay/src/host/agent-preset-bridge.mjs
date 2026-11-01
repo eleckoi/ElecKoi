@@ -161,7 +161,7 @@ export async function apply(ctx) {
           throw error
         }
         commitSessionPreset(snapshotRoot, sessionId, requested, current.revision)
-        applyDisabledPolicy(agent.ctx, snapshot.disabledToolGroupIds)
+        applyDisabledPolicy(agent.ctx, snapshot.disabledToolGroupIds, ctx.get('tools'))
         return requested
       })
     }
@@ -192,7 +192,7 @@ export async function apply(ctx) {
         installRequestConfig(agent.ctx, snapshotRoot, agent.id)
         installConversationContext(agent.ctx, snapshotRoot, agent.id, ctx.eleckoiRequestPreviews, ctx.settings, runtimeContexts)
       }
-      applyDisabledPolicy(agent.ctx, snapshot.disabledToolGroupIds)
+      applyDisabledPolicy(agent.ctx, snapshot.disabledToolGroupIds, ctx.get('tools'))
     } catch (error) {
       if (inherited) {
         removeSessionSnapshot(snapshotRoot, agent.id)
@@ -202,7 +202,7 @@ export async function apply(ctx) {
       throw error
     }
   })
-  const disposeRuntime = ctx.inject(['attachments', 'eleckoiSessionEditor', 'eleckoiImageGeneration'],
+  const disposeRuntime = ctx.inject(['attachments', 'eleckoiSessionEditor'],
     owner => installRoleplaySessionRuntime(owner, presetRegistrar))
   return async () => {
     await disposeRuntime.dispose()

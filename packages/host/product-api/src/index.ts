@@ -18,6 +18,9 @@ import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/dsh-api-session-controller'
 import type {} from '@deepseek-ai/dsh-session-projection'
 import type {} from '@eleckoi/dsh-client-roleplay/projections'
+import type {} from '@deepseek-ai/dsh-tools'
+import { withPluginTools } from '@eleckoi/dsh-client-roleplay/host/tool-policy.mjs'
+import { toolPluginSources } from './tool-provenance.js'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { SessionLogOffset, type SessionEvent, type SessionHeader, type SessionId } from '@deepseek-ai/dsh-session'
 
@@ -219,6 +222,8 @@ declare module '@deepseek-ai/cordis' {
     /** @internal 聊天操作互斥和本轮产品保存等待。 */
     eleckoiConversationLifecycle: ElecKoiConversationLifecycle
     eleckoiRoleplaySessions: {
+      /** @internal 当前正式角色会话的根配置；非角色会话返回 undefined。 */
+      configuration(sessionId: string): { autoIllustration?: { enabled: boolean; modelConfigId: string }; inheritedFromSessionId?: string } | undefined
       readGeneratedImage(conversationId: string, batchId: string, frameId: number, attachmentId: string, signal: AbortSignal): Promise<{ mediaType: string; data: string }>
       regenerateImage(conversationId: string, batchId: string, frameId: number, signal: AbortSignal): Promise<import('@eleckoi/dsh-product-data').GeneratedImageFrame>
       create(conversationId: string): Promise<string>
@@ -2250,6 +2255,21 @@ export class ElecKoiAgentPresetsApi extends TypertRemoteService {
     super(ctx, 'eleckoiAgentPresetsApi', { namespace: 'eleckoiAgentPresets' })
     this.productData = ctx.eleckoiProductData
     this.configurationChanges = ctx.eleckoiCharacterConfigurationChanges
+    ctx.inject(['tools'], owner => {
+      let previous = JSON.stringify(owner.tools.schemas())
+      owner.on('tools/change', () => {
+        const current = JSON.stringify(owner.tools.schemas())
+        if (current === previous) return
+        previous = current
+        this.publishChange()
+      })
+    })
+  }
+
+  private async resolveToolReferences(preset: AgentPreset): Promise<AgentPreset> {
+    const declarations = this.ctx.get('tools')?.schemas() ?? []
+    const sources = await toolPluginSources(this.ctx, declarations.map(tool => tool.name))
+    return withPluginTools(preset, declarations, sources)
   }
 
   /**
@@ -2267,8 +2287,8 @@ export class ElecKoiAgentPresetsApi extends TypertRemoteService {
    * @returns 操作结果，结构见返回类型；失败抛出错误。
    */
   @Remote
-  read(presetId: string): AgentPreset {
-    return this.productData.readAgentPreset(presetId)
+  read(presetId: string): Promise<AgentPreset> {
+    return this.resolveToolReferences(this.productData.readAgentPreset(presetId))
   }
 
   /**
@@ -2293,10 +2313,10 @@ export class ElecKoiAgentPresetsApi extends TypertRemoteService {
    * @returns 操作结果，结构见返回类型；失败抛出错误。
    */
   @Remote
-  save(preset: AgentPreset, expectedRegexRules: RegexRule[]): AgentPreset {
+  save(preset: AgentPreset, expectedRegexRules: RegexRule[]): Promise<AgentPreset> {
     const saved = this.productData.saveAgentPreset(preset, expectedRegexRules)
     this.publishChange()
-    return saved
+    return this.resolveToolReferences(saved)
   }
 
   /**
@@ -2307,10 +2327,10 @@ export class ElecKoiAgentPresetsApi extends TypertRemoteService {
    * @returns 操作结果，结构见返回类型；失败抛出错误。
    */
   @Remote
-  create(name: string, libraryGroupId: string, purpose: AgentPresetPurpose): AgentPreset {
+  create(name: string, libraryGroupId: string, purpose: AgentPresetPurpose): Promise<AgentPreset> {
     const created = this.productData.createAgentPreset(name, libraryGroupId, purpose)
     this.publishChange()
-    return created
+    return this.resolveToolReferences(created)
   }
 
   /**
@@ -2321,10 +2341,10 @@ export class ElecKoiAgentPresetsApi extends TypertRemoteService {
    * @returns 操作结果，结构见返回类型；失败抛出错误。
    */
   @Remote
-  import(source: AgentPresetImportSource, document: AgentPresetImportDocument, purpose: AgentPresetPurpose): AgentPresetImportResult {
+  async import(source: AgentPresetImportSource, document: AgentPresetImportDocument, purpose: AgentPresetPurpose): Promise<AgentPresetImportResult> {
     const imported = this.productData.importAgentPreset(source, document, purpose)
     this.publishChange()
-    return imported
+    return { ...imported, preset: await this.resolveToolReferences(imported.preset) }
   }
 
   /**

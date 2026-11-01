@@ -1,4 +1,5 @@
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useId, useRef, useState } from "react";
 import { CheckCircle, CircleNotch, FloppyDisk, WarningCircle } from "@phosphor-icons/react";
 import { useEditorPresentation, useEditorSaveFeedback } from '../../../ui/ui/EditorPresentationContext.jsx';
@@ -46,8 +47,8 @@ export function ConfirmationDialog({ target, cancelLabel = "取消", confirmLabe
         <h2 id={titleId}>{target.title}</h2>
         <p id={messageId}>{target.message}</p>
         <div>
-          <button ref={cancelRef} type="button" onClick={onCancel}>{cancelLabel}</button>
-          <button type="button" className={tone === "destructive" ? "is-destructive" : "is-primary"} onClick={onConfirm}>{confirmLabel}</button>
+          <Button data-dsh-control ref={cancelRef} type="button" variant="outline" onClick={onCancel}>{cancelLabel}</Button>
+          <Button data-dsh-control type="button" variant="primary" className={tone === "destructive" ? "is-destructive" : undefined} onClick={onConfirm}>{confirmLabel}</Button>
         </div>
       </section>
     </SystemBarOverlay>
@@ -62,7 +63,7 @@ export function SaveControl({ dirty, error, notice, saving, onSave }) {
   if (inHeader) return null;
   return (
     <div className="setting-library-save-control">
-      <button
+      <Button data-dsh-control variant="primary"
         type="button"
         className={`setting-library-save-button${saving ? " is-saving" : ""}`}
         title="保存（Ctrl/Command + S）"
@@ -72,7 +73,7 @@ export function SaveControl({ dirty, error, notice, saving, onSave }) {
       >
         {saving ? <CircleNotch size={16} aria-hidden="true" /> : <FloppyDisk size={16} aria-hidden="true" />}
         {saving ? "保存中…" : "保存"}
-      </button>
+      </Button>
       {error ? <span className="setting-library-save-feedback is-error" role="alert" title={error}>
         {compact ? <><WarningCircle size={14} />{error}</> : <button type="button" className="setting-library-error-detail-button" aria-label="查看保存错误" onClick={() => setErrorOpen(true)}><WarningCircle size={14} />保存失败</button>}
       </span> : null}

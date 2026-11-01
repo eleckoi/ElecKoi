@@ -25,6 +25,7 @@
       "@eleckoi/dsh-client-web-search",
       "@eleckoi/dsh-client-shell",
       "@eleckoi/dsh-client-roleplay",
+      "@eleckoi/dsh-auto-illustration",
       "@eleckoi/dsh-client-author",
       "@eleckoi/dsh-client-html-resources",
       "@eleckoi/dsh-product-api",

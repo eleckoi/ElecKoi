@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { useEffect, useRef, useState } from "react";
@@ -113,7 +114,7 @@ export function RegexRuleInspector({ scope, rule, scopes = REGEX_SCOPES, scopeLo
         <section className="regex-test" aria-label="测试正则">
           <div className="regex-test-heading">
             <strong>测试</strong>
-            <button type="button" onClick={runTest} disabled={testing}><Play size={14} weight="fill" />{testing ? "运行中…" : "运行"}</button>
+            <Button data-dsh-control variant="primary" type="button" onClick={runTest} disabled={testing}><Play size={14} weight="fill" />{testing ? "运行中…" : "运行"}</Button>
           </div>
           <label className="regex-field"><span>测试对象</span><select value={testTarget} onChange={event => setTestTarget(event.target.value)}>
             {REGEX_TARGETS.map(target => <option key={target.id} value={target.id}>{target.label}</option>)}
@@ -128,8 +129,8 @@ export function RegexRuleInspector({ scope, rule, scopes = REGEX_SCOPES, scopeLo
         </section>
       </div>
       <footer className="regex-inspector-footer">
-        <button type="button" onClick={onDuplicate}><Copy size={15} />复制规则</button>
-        <button type="button" className="is-destructive" onClick={onDelete}><Trash size={15} />删除规则</button>
+        <Button data-dsh-control variant="outline" type="button" onClick={onDuplicate}><Copy size={15} />复制规则</Button>
+        <Button data-dsh-control variant="outline" type="button" className="is-destructive" onClick={onDelete}><Trash size={15} />删除规则</Button>
       </footer>
     </aside>
   );

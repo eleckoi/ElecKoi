@@ -14,14 +14,6 @@
 .desktop-auto-illustration-settings .auto-illustration-model:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .desktop-auto-illustration-settings .auto-illustration-model strong { font-size: 14px; font-weight: 600; }
 .desktop-auto-illustration-settings .auto-illustration-model small { font-size: 12px; }
-.desktop-illustration-tool-dialog.agent-tools-dialog { width: min(680px, calc(100vw - 64px)); height: auto; max-height: calc(100dvh - 64px); border-radius: 12px; }
-.agent-tools-dialog.desktop-illustration-tool-dialog > header h2 { text-align: left; }
-.desktop-illustration-tool-dialog .agent-tool-detail { max-height: min(480px, calc(100dvh - 180px)); padding: 16px 22px 20px; }
-.desktop-illustration-tool-dialog .agent-tool-detail-switch { min-height: 40px; padding: 0; border: 0; border-radius: 0; background: transparent; }
-.desktop-illustration-tool-dialog .agent-tool-detail-description { margin: 4px 0 0; }
-.desktop-illustration-tool-dialog .agent-tool-detail h3 { margin: 18px 0 8px; }
-.desktop-illustration-tool-dialog :is(.agent-tool-members, .agent-tool-source) { border-radius: 8px; background: var(--surface-subtle); }
-.desktop-illustration-tool-dialog .agent-tool-source { min-height: 44px; }
 
 .desktop-illustration-models.chat-model-panel { width: min(680px, calc(100vw - 64px)); height: min(560px, calc(100dvh - 64px)); border-radius: 12px; }
 .desktop-illustration-models .chat-model-tabs > button:disabled { color: var(--soft-text); }

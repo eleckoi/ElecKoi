@@ -21,15 +21,17 @@ export interface AgentPreset {
     groups: SettingLibraryGroup[];
     promptPositions: SettingLibraryPromptPosition[];
     toolGroups: AgentToolGroup[];
+    extraToolGroups?: AgentToolGroup[];
     subagentModelSelection?: { configId: string; model: string; };
     toolModelConfigIds?: Record<string, string>;
+    autoIllustration?: { enabled: boolean; modelConfigId: string; };
     roleplayPlan: { steps: string[]; };
     regexRules: RegexRule[];
     expandedGroupIds: string[];
 }
 ```
 
-源码：[packages/host/product-api/src/types.ts:811](../../packages/host/product-api/src/types.ts#L811)
+源码：[packages/host/product-api/src/types.ts:813](../../packages/host/product-api/src/types.ts#L813)
 
 ## AgentPresetCatalog
 
@@ -61,7 +63,7 @@ export interface AgentPresetExportResult {
 }
 ```
 
-源码：[packages/host/product-api/src/types.ts:845](../../packages/host/product-api/src/types.ts#L845)
+源码：[packages/host/product-api/src/types.ts:850](../../packages/host/product-api/src/types.ts#L850)
 
 ## AgentPresetImportDocument
 
@@ -73,7 +75,7 @@ export interface AgentPresetImportDocument {
 }
 ```
 
-源码：[packages/host/product-api/src/types.ts:832](../../packages/host/product-api/src/types.ts#L832)
+源码：[packages/host/product-api/src/types.ts:837](../../packages/host/product-api/src/types.ts#L837)
 
 ## AgentPresetImportResult
 
@@ -86,7 +88,7 @@ export interface AgentPresetImportResult {
 }
 ```
 
-源码：[packages/host/product-api/src/types.ts:838](../../packages/host/product-api/src/types.ts#L838)
+源码：[packages/host/product-api/src/types.ts:843](../../packages/host/product-api/src/types.ts#L843)
 
 ## AgentPresetImportSource
 
@@ -193,6 +195,8 @@ export interface AgentToolGroup {
     members: AgentToolMember[];
     enabled: boolean;
     included: boolean;
+    available?: boolean;
+    plugin?: { id: string; name: string; };
 }
 ```
 
@@ -629,7 +633,7 @@ export interface ConversationRuntimeSettingLibrary {
 }
 ```
 
-源码：[packages/host/product-api/src/types.ts:851](../../packages/host/product-api/src/types.ts#L851)
+源码：[packages/host/product-api/src/types.ts:856](../../packages/host/product-api/src/types.ts#L856)
 
 ## ConversationSummary
 
@@ -701,7 +705,7 @@ export interface CreatorStudioMessage {
 }
 ```
 
-源码：[packages/host/product-api/src/types.ts:1042](../../packages/host/product-api/src/types.ts#L1042)
+源码：[packages/host/product-api/src/types.ts:1048](../../packages/host/product-api/src/types.ts#L1048)
 
 ## CreatorStudioSession
 
@@ -713,7 +717,7 @@ export interface CreatorStudioSession {
 }
 ```
 
-源码：[packages/host/product-api/src/types.ts:1041](../../packages/host/product-api/src/types.ts#L1041)
+源码：[packages/host/product-api/src/types.ts:1047](../../packages/host/product-api/src/types.ts#L1047)
 
 ## CreatorStudioSessionSummary
 
@@ -726,7 +730,7 @@ export interface CreatorStudioSessionSummary extends CreatorStudioSession {
 }
 ```
 
-源码：[packages/host/product-api/src/types.ts:1043](../../packages/host/product-api/src/types.ts#L1043)
+源码：[packages/host/product-api/src/types.ts:1049](../../packages/host/product-api/src/types.ts#L1049)
 
 ## DisplayPreferencesSnapshot
 
@@ -739,7 +743,7 @@ export interface DisplayPreferencesSnapshot {
 }
 ```
 
-源码：[packages/host/product-api/src/types.ts:1035](../../packages/host/product-api/src/types.ts#L1035)
+源码：[packages/host/product-api/src/types.ts:1041](../../packages/host/product-api/src/types.ts#L1041)
 
 ## DisplayPreferenceValue
 
@@ -747,7 +751,7 @@ export interface DisplayPreferencesSnapshot {
 export type DisplayPreferenceValue = null | boolean | number | string | DisplayPreferenceValue[] | { [key: string]: DisplayPreferenceValue; };
 ```
 
-源码：[packages/host/product-api/src/types.ts:1032](../../packages/host/product-api/src/types.ts#L1032)
+源码：[packages/host/product-api/src/types.ts:1038](../../packages/host/product-api/src/types.ts#L1038)
 
 ## EditorLibraryAddress
 
@@ -941,6 +945,17 @@ export interface GlobalSettingLibraryCollection {
 ```
 
 源码：[packages/host/product-api/src/types.ts:14](../../packages/host/product-api/src/types.ts#L14)
+
+## IllustrationSessionConfiguration
+
+```ts
+export interface IllustrationSessionConfiguration {
+    autoIllustration?: { enabled: boolean; modelConfigId: string; };
+    inheritedFromSessionId?: string;
+}
+```
+
+源码：[packages/client/features/dsh-auto-illustration/src/index.d.ts:3](../../packages/client/features/dsh-auto-illustration/src/index.d.ts#L3)
 
 ## ModelDiscoveryInput
 

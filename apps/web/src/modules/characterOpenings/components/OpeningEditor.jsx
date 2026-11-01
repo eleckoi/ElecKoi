@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, CaretRight, Copy, Trash } from "../../../ui/icons/interfaceIcons.jsx";
 import {
@@ -44,10 +45,10 @@ export const OpeningEditor = forwardRef(function OpeningEditor({ entry, variable
             {isPrimary ? <span>主开场白</span> : null}
           </button>
           <div className="setting-library-opening-tools">
-            {!isPrimary ? <button type="button" aria-label="上移" title="上移" disabled={index === 1} onClick={() => onChange(moveBackupOpening(entry, message.id, -1))}><ArrowUp size={16} /></button> : null}
-            {!isPrimary ? <button type="button" aria-label="下移" title="下移" disabled={index === backups.length} onClick={() => onChange(moveBackupOpening(entry, message.id, 1))}><ArrowDown size={16} /></button> : null}
-            <button type="button" aria-label="复制开场白" title="复制开场白" onClick={() => duplicate(message.id)}><Copy size={16} /></button>
-            <button type="button" aria-label="删除开场白" title="删除开场白" disabled={messages.length <= 1} onClick={() => onRequestDelete(message)}><Trash size={16} /></button>
+            {!isPrimary ? <Button data-dsh-control variant="outline" type="button" aria-label="上移" title="上移" disabled={index === 1} onClick={() => onChange(moveBackupOpening(entry, message.id, -1))}><ArrowUp size={16} /></Button> : null}
+            {!isPrimary ? <Button data-dsh-control variant="outline" type="button" aria-label="下移" title="下移" disabled={index === backups.length} onClick={() => onChange(moveBackupOpening(entry, message.id, 1))}><ArrowDown size={16} /></Button> : null}
+            <Button data-dsh-control variant="outline" type="button" aria-label="复制开场白" title="复制开场白" onClick={() => duplicate(message.id)}><Copy size={16} /></Button>
+            <Button data-dsh-control variant="outline" type="button" aria-label="删除开场白" title="删除开场白" disabled={messages.length <= 1} onClick={() => onRequestDelete(message)}><Trash size={16} /></Button>
           </div>
         </div>
         {expanded ? (
