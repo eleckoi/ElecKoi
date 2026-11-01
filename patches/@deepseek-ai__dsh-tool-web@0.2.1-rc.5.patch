@@ -1,5 +1,5 @@
 diff --git a/lib/index.js b/lib/index.js
-index 9ef2a7e5..e37aac08 100644
+index 9ef2a7e5..af98dc66 100644
 --- a/lib/index.js
 +++ b/lib/index.js
 @@ -189,7 +189,7 @@ function presentSearchResult(args, result) {

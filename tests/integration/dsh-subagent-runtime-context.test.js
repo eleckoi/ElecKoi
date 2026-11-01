@@ -72,6 +72,7 @@ describe('DSH subagent runtime context inheritance', () => {
     const entered = Promise.withResolvers(), released = Promise.withResolvers()
     let activeAgent, resumeStarted = false, rewriteStarted = false, writer
     const ctx = {
+      get(name) { return this[name] },
       inject: vi.fn(() => ({ dispose: vi.fn() })),
       provide: vi.fn(), on: vi.fn(() => () => {}),
       agents: {
@@ -190,6 +191,7 @@ describe('DSH subagent runtime context inheritance', () => {
     const originalCreate = vi.fn(async options => ({ agent: { id: options.sessionId }, dispose: vi.fn() }))
     const originalResume = vi.fn(async () => ({ agent, dispose: vi.fn() }))
     const ctx = {
+      get(name) { return this[name] },
       inject: vi.fn(() => ({ dispose: vi.fn() })),
       provide: vi.fn(),
       on: vi.fn(),
@@ -250,6 +252,7 @@ describe('DSH subagent runtime context inheritance', () => {
     const originalCreate = vi.fn()
     const originalResume = vi.fn()
     const ctx = {
+      get(name) { return this[name] },
       inject: vi.fn(() => ({ dispose: vi.fn() })),
       provide: vi.fn(),
       on: vi.fn(() => () => undefined),
@@ -316,6 +319,7 @@ describe('DSH subagent runtime context inheritance', () => {
       disabledToolGroupIds: ['builtin:web']
     }))
     const ctx = {
+      get(name) { return this[name] },
       inject: vi.fn(() => ({ dispose: vi.fn() })),
       provide: vi.fn(),
       on: vi.fn(() => () => undefined),
@@ -346,6 +350,7 @@ function runtimeAgent(id, header = {}, session = {}) {
     id,
     status: 'idle',
     ctx: {
+      get(name) { return this[name] },
       on: vi.fn(() => () => undefined),
       llm: { stream: vi.fn() },
       sessions: { get: vi.fn() },

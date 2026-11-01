@@ -80,6 +80,7 @@ export function officialTrajectoryFixture() {
 export const trajectoryAssistantDefinition = officialTrajectoryFixture().definitions.get('trajectory-assistant-step')
 
 export const OfficialActivityPill = loadClient('dsh-client-ui-chat', ', ActivityPill').ActivityPill
+export const OfficialReasoningRow = loadClient('dsh-client-ui-chat', ', ReasoningRow').ReasoningRow
 export const OfficialContextMeter = conversation.ContextMeter
 
 export function officialChatFixture() {

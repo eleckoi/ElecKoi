@@ -23,42 +23,42 @@ overrides:
 
 patchedDependencies:
   # RETIRE WHEN: upstream can continue the exact durable user input without duplicating it.
-  '@deepseek-ai/dsh-agent-loop@0.2.1-rc.3': patches/@deepseek-ai__dsh-agent-loop@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-agent-loop@0.2.1-rc.5': patches/@deepseek-ai__dsh-agent-loop@0.2.1-rc.5.patch
   # RETIRE WHEN: official controller supports same-session retained-input regeneration and product-safe creation.
-  '@deepseek-ai/dsh-api-session-controller@0.2.1-rc.3': patches/@deepseek-ai__dsh-api-session-controller@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-api-session-controller@0.2.1-rc.5': patches/@deepseek-ai__dsh-api-session-controller@0.2.1-rc.5.patch
   # RETIRE WHEN: upstream exposes the product flow, pending input, running seat and logical turn navigation capabilities.
-  '@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.3': patches/@deepseek-ai__dsh-client-ui-chat@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-client-ui-chat@0.2.1-rc.5': patches/@deepseek-ai__dsh-client-ui-chat@0.2.1-rc.5.patch
   # RETIRE WHEN: official composer exposes the product accessory and Enter-key controls.
-  '@deepseek-ai/dsh-client-ui-conversation@0.2.1-rc.3': patches/@deepseek-ai__dsh-client-ui-conversation@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-client-ui-conversation@0.2.1-rc.5': patches/@deepseek-ai__dsh-client-ui-conversation@0.2.1-rc.5.patch
   # RETIRE WHEN: upstream supports shipped product groups with featured entries and More navigation, and displays product bundle declarations and developer interface metadata.
-  '@deepseek-ai/dsh-client-ui-plugin-manager@0.2.1-rc.3': patches/@deepseek-ai__dsh-client-ui-plugin-manager@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-client-ui-plugin-manager@0.2.1-rc.5': patches/@deepseek-ai__dsh-client-ui-plugin-manager@0.2.1-rc.5.patch
   # RETIRE WHEN: retained input boundaries and original system baselines are represented without synthetic model failures.
-  '@deepseek-ai/dsh-client-ui-trajectory@0.2.1-rc.3': patches/@deepseek-ai__dsh-client-ui-trajectory@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-client-ui-trajectory@0.2.1-rc.5': patches/@deepseek-ai__dsh-client-ui-trajectory@0.2.1-rc.5.patch
   # RETIRE WHEN: upstream offers an explicit setting disabling automatic session selection and creation.
-  '@deepseek-ai/dsh-client-ui-workspace@0.2.1-rc.3': patches/@deepseek-ai__dsh-client-ui-workspace@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-client-ui-workspace@0.2.1-rc.5': patches/@deepseek-ai__dsh-client-ui-workspace@0.2.1-rc.5.patch
   # RETIRE WHEN: official adapter forwards topP through both supported protocols.
-  '@deepseek-ai/dsh-llm-deepseek@0.2.1-rc.3': patches/@deepseek-ai__dsh-llm-deepseek@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-llm-deepseek@0.2.1-rc.5': patches/@deepseek-ai__dsh-llm-deepseek@0.2.1-rc.5.patch
   # RETIRE WHEN: official adapter forwards topP and exposes complete configured Google model discovery.
-  '@deepseek-ai/dsh-llm-pi-ai@0.2.1-rc.3': patches/@deepseek-ai__dsh-llm-pi-ai@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-llm-pi-ai@0.2.1-rc.5': patches/@deepseek-ai__dsh-llm-pi-ai@0.2.1-rc.5.patch
   # RETIRE WHEN: official call controls include topP and compare it in request identity.
-  '@deepseek-ai/dsh-llm@0.2.1-rc.3': patches/@deepseek-ai__dsh-llm@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-llm@0.2.1-rc.5': patches/@deepseek-ai__dsh-llm@0.2.1-rc.5.patch
   # RETIRE WHEN: upstream carries product developer interfaces and required product bundle guards.
-  '@deepseek-ai/dsh-plugin-manager@0.2.1-rc.3': patches/@deepseek-ai__dsh-plugin-manager@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-plugin-manager@0.2.1-rc.5': patches/@deepseek-ai__dsh-plugin-manager@0.2.1-rc.5.patch
   # RETIRE WHEN: SDK compatibility consumers use official streaming, cancel and dispose operations.
-  '@deepseek-ai/dsh-sdk-jsonrpc-server@0.2.1-rc.3': patches/@deepseek-ai__dsh-sdk-jsonrpc-server@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-sdk-jsonrpc-server@0.2.1-rc.5': patches/@deepseek-ai__dsh-sdk-jsonrpc-server@0.2.1-rc.5.patch
   # RETIRE WHEN: supported released logs with the late system head replay through the official codec without this stage.
-  '@deepseek-ai/dsh-session-format-v3-to-v4@0.2.1-rc.3': patches/@deepseek-ai__dsh-session-format-v3-to-v4@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-session-format-v3-to-v4@0.2.1-rc.5': patches/@deepseek-ai__dsh-session-format-v3-to-v4@0.2.1-rc.5.patch
   # RETIRE WHEN: upstream publicly exposes the writer lease needed by coordinated editing.
-  '@deepseek-ai/dsh-session-persistence-jsonl@0.2.1-rc.3': patches/@deepseek-ai__dsh-session-persistence-jsonl@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-session-persistence-jsonl@0.2.1-rc.5': patches/@deepseek-ai__dsh-session-persistence-jsonl@0.2.1-rc.5.patch
   # RETIRE WHEN: supported product event identities can be appended as ignorable records without renaming persisted events.
-  '@deepseek-ai/dsh-session@0.2.1-rc.3': patches/@deepseek-ai__dsh-session@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-session@0.2.1-rc.5': patches/@deepseek-ai__dsh-session@0.2.1-rc.5.patch
   # RETIRE WHEN: explicit continuation output can bypass secondary spilling through an official contract.
-  '@deepseek-ai/dsh-spill-policy@0.2.1-rc.3': patches/@deepseek-ai__dsh-spill-policy@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-spill-policy@0.2.1-rc.5': patches/@deepseek-ai__dsh-spill-policy@0.2.1-rc.5.patch
   # RETIRE WHEN: official tools support complete provider output.
-  '@deepseek-ai/dsh-tool-web@0.2.1-rc.3': patches/@deepseek-ai__dsh-tool-web@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-tool-web@0.2.1-rc.5': patches/@deepseek-ai__dsh-tool-web@0.2.1-rc.5.patch
   # RETIRE WHEN: official tools expose the exact registration context under the same scope and visibility rules (ADR 0041).
-  '@deepseek-ai/dsh-tools@0.2.1-rc.3': patches/@deepseek-ai__dsh-tools@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-tools@0.2.1-rc.5': patches/@deepseek-ai__dsh-tools@0.2.1-rc.5.patch
   # RETIRE WHEN: official generator handles this product TypeScript declaration graph.
-  '@deepseek-ai/dsh-typert-generator@0.2.1-rc.3': patches/@deepseek-ai__dsh-typert-generator@0.2.1-rc.3.patch
+  '@deepseek-ai/dsh-typert-generator@0.2.1-rc.5': patches/@deepseek-ai__dsh-typert-generator@0.2.1-rc.5.patch
   # RETIRE WHEN: official provider serializers expose topP across supported protocols.
   '@earendil-works/pi-ai@1.1.0': patches/@earendil-works__pi-ai@1.1.0.patch

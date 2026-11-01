@@ -1,5 +1,5 @@
 diff --git a/lib/client.js b/lib/client.js
-index 5cca45b3..a9c44041 100644
+index bf57a024..0f61e6e2 100644
 --- a/lib/client.js
 +++ b/lib/client.js
 @@ -1383,16 +1383,12 @@ window.__ModuleLoader__.load({
@@ -25,7 +25,7 @@ index 5cca45b3..a9c44041 100644
  			}
  			connectWorkspace(workspaceId, options = {}) {
  				return this.connectBlank(workspaceId, options);
-@@ -1571,76 +1567,6 @@ window.__ModuleLoader__.load({
+@@ -1572,76 +1568,6 @@ window.__ModuleLoader__.load({
  				if (!result.ok) throw new DirectoryBrowseError(result.error);
  				return result.value;
  			}
@@ -103,10 +103,10 @@ index 5cca45b3..a9c44041 100644
  				const previous = this.mainReference;
  				this.mainReference = void 0;
 diff --git a/lib/types/client/navigation.d.ts b/lib/types/client/navigation.d.ts
-index 18081beb..4b6bbe1f 100644
+index 27b4d6c8..703def06 100644
 --- a/lib/types/client/navigation.d.ts
 +++ b/lib/types/client/navigation.d.ts
-@@ -171,11 +171,6 @@ declare class UiWorkspaceService extends Service implements UiWorkspace {
+@@ -173,11 +173,6 @@ declare class UiWorkspaceService extends Service implements UiWorkspace {
      pickDirectory(): Promise<string | null>;
      listDirectory(path?: string, signal?: AbortSignal): Promise<DirectoryListing>;
      createDirectory(path: string, name: string): Promise<string>;

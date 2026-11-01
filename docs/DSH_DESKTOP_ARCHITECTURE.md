@@ -4,11 +4,11 @@
 
 ## 权威来源
 
-当前仓库锁定 `deepseek-ai/deepseek-harness` `0.2.1-rc.3`，提交 `1f81c047fc48fa190a683e469daa699857e9afe8`。核对架构和行为时使用这个**精确提交**的官方源码，而不是浮动的 `master`、旧版文档或 ElecKoi 的临时实现：
+当前仓库锁定 `deepseek-ai/deepseek-harness` `0.2.1-rc.5`，提交 `b830ec950faba0a46dda564be3e2d854afed94f1`。核对架构和行为时使用这个**精确提交**的官方源码，而不是浮动的 `master`、旧版文档或 ElecKoi 的临时实现：
 
-- [DSH 架构](https://github.com/deepseek-ai/deepseek-harness/blob/1f81c047fc48fa190a683e469daa699857e9afe8/docs/architecture.zh.md)：Cordis、profile、bundle 与插件树。
-- [Web Client 架构](https://github.com/deepseek-ai/deepseek-harness/blob/1f81c047fc48fa190a683e469daa699857e9afe8/docs/subsystems/web-client.zh.md)：Host、Remote、Client model、Slots 与 React。
-- [官方 Desktop](https://github.com/deepseek-ai/deepseek-harness/blob/1f81c047fc48fa190a683e469daa699857e9afe8/apps/desktop/README.zh.md)：Electron 壳、受管 profile、Web Host、客户端资源及插件管理。
+- [DSH 架构](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/docs/architecture.zh.md)：Cordis、profile、bundle 与插件树。
+- [Web Client 架构](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/docs/subsystems/web-client.zh.md)：Host、Remote、Client model、Slots 与 React。
+- [官方 Desktop](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/apps/desktop/README.zh.md)：Electron 壳、受管 profile、Web Host、客户端资源及插件管理。
 
 升级时先锁定同一上游发布批次的提交、包和构建产物，再把上述引用与本仓库的依赖一起更新。不同版本的官方文件不能混作一次架构依据。
 
@@ -81,7 +81,7 @@ Windows 更新控制和 Electron HTTP 空闲超时采用同一锁定提交的官
 数据位置由它的权威所有者决定，不以“统一放数据库”为目标：
 
 - DSH 已有正式领域使用 DSH 自己的持久化合同：模型配置使用 settings/profile，密钥使用 `ctx.credentials`，聊天正文使用 Session 日志，bundle 选择使用 profile。
-- DSH 的 [`dsh-storage-sqlite`](https://github.com/deepseek-ai/deepseek-harness/blob/1f81c047fc48fa190a683e469daa699857e9afe8/packages/storage/storage-sqlite/README.zh.md) 是 Host 侧的文档型 KV 后端：每个键保存一行 JSON，配合 `ctx.storageDomain` 提供 schema 校验、持久写入和进程内变更事件。简单、独立且按键读写的新增 Host 状态应优先评估这套正式合同。
+- DSH 的 [`dsh-storage-sqlite`](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/packages/storage/storage-sqlite/README.zh.md) 是 Host 侧的文档型 KV 后端：每个键保存一行 JSON，配合 `ctx.storageDomain` 提供 schema 校验、持久写入和进程内变更事件。简单、独立且按键读写的新增 Host 状态应优先评估这套正式合同。
 - ElecKoi 的角色关系、聊天索引等关系型产品数据，在领域迁入 DSH Host 后由 Host Repository 独占 SQLite 写入；Client 和 Electron Main 不直接写。
 - 创作项目、导出文件和其他以目录为产品形态的数据保存在用户选择的文件目录；Host 只维护对应文件索引，不复制进 SQLite。
 - 页面加载状态、当前选择和生成中的临时状态留在 Client 内存，除非存在明确的重启恢复需求。
@@ -100,7 +100,19 @@ Windows 更新控制和 Electron HTTP 空闲超时采用同一锁定提交的官
 
 当前 `pnpm check:architecture` 检查目录、进程边界，并阻止已删除的 Desktop Gateway 业务桥回流；它仍不能代替真实 Host、Session 与插件生命周期验收。旧的 [桌面架构说明](history/ARCHITECTURE.md) 和私有知识库中的《ElecKoi Desktop 架构最终总纲》仅作历史索引。
 
-## 0.2.1-rc.3 对齐
+## 0.2.1-rc.5 对齐
+
+共用 Host、Web Client、SDK、Session format、LLM 适配器、插件组合和运行清单统一锁定到 DSH `0.2.1-rc.5`，提交 `b830ec950faba0a46dda564be3e2d854afed94f1`。Cordis 4.0.5、pi-ai 1.1.0 和 Electron 44.7.0 与该批次的官方依赖合同一致，保持精确锁定。19 个 DSH 补丁按新版实际发布包重新生成，退役条件仍在 `pnpm-workspace.yaml` 各入口维护；没有新增产品数据迁移。
+
+思考展示直接使用新版官方实现。`conversation.chat.reasoning.body` 的 `rawText` 保留模型原文，`text` 是官方处理后的展示文本；`conversation.chat.reasoning.content` 工厂渲染调用方传入的 Markdown。产品没有额外复制一套处理规则，也不把展示处理写回 Session。上游同时修复溢出标签提示与 MCP／ACP 标准输出中的诊断日志。合同见同提交的 [思考 Body 属性升级指南](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/docs/upgrade-guide/v0.2.1-rc.4/reasoning-body-props/guide.zh.md)。
+
+Android 只同步共用源码版本和锁定清单，不代表已重新生成运行资源、APK 或完成真机验收。
+
+Android 的 JSONL 发布和附件适配只更新版本及来源提交，实际安装包依赖中的两个源码摘要与既有锁定摘要一致；没有新增归档改写。已有适配仍按 [Android 运行时说明](../native/android-runtime/README.md) 的 `RETIRE WHEN` 条件保留：上游完成应用沙箱中的独占发布、目标冲突、失败恢复与持久化验收，不再需要硬链接替换或应用目录边界适配后，删除对应锁和替换。DSH 产品补丁分别在上游提供各入口注明的等价公开能力并通过对应行为回归后退役。
+
+本轮完成 339 个文件、2374 项 JS／TS 回归。初次失败的 7 个文件涉及旧配图依赖断言、缺少公开 `get()` 的模拟上下文，以及 Electron 下只读附件的同步清理；对齐当前可选插件合同和异步清理后，对应 49 项复核通过。完整桌面源码构建、Electron SQLite 校验、实际 Host 启动／重开／重新生成，以及构建后的角色、预设、脚本、前端和异步 EJS 客户端探针通过。未生成安装包或发布更新。
+
+## 0.2.1-rc.3 对齐记录
 
 当前批次同步 Cordis 4.0.5、DSH 0.2.1-rc.3、pi-ai 1.1.0 与官方 Desktop 使用的 Electron 44.7.0；依赖均锁定精确版本。角色聊天将根视图、正文 flow 与用户／输出图片分开的公开 Slots 映射到产品座位，保留官方滚动和 motion 合同。Remote 的进程内调用必须提供显式 Peer，并装配官方 RemoteAccessService。桌面及 Android Host 的启动自检使用短生命周期的 owner Peer，检查完成即释放；不改变网络调用的身份与授权。新版 `working_directory` 工具随现有工作区工具组启停，不新增工具组。
 

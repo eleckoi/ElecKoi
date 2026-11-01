@@ -1,5 +1,5 @@
 diff --git a/lib/client.js b/lib/client.js
-index 9700d036..4988dd29 100644
+index 3ddb504c..322eabdf 100644
 --- a/lib/client.js
 +++ b/lib/client.js
 @@ -239,7 +239,7 @@ window.__ModuleLoader__.load({
@@ -20,12 +20,24 @@ index 9700d036..4988dd29 100644
  						}), preview.response !== "" && (0, react_jsx_runtime.jsx)("div", {
  							className: TurnNavigator_module_css_default.previewResponse,
  							children: preview.response
-@@ -2081,1 +2081,1 @@
+@@ -2078,7 +2078,7 @@ window.__ModuleLoader__.load({
+ 				const elements = this.elements;
+ 				if (elements === null) return null;
+ 				const viewport = elements.scroller.getBoundingClientRect();
 -				const rows = (elements.column.querySelector(":scope > [data-slot=\"conversation.chat.flow\"]") ?? elements.column).children;
 +				const rows = ([...elements.column.children].find((row) => row.getAttribute("data-slot") === (elements.column.dataset.chatFlowSlot ?? "conversation.chat.flow")) ?? elements.column).children;
-@@ -2226,1 +2226,1 @@
+ 				let low = 0;
+ 				let high = rows.length;
+ 				while (low < high) {
+@@ -2223,7 +2223,7 @@ window.__ModuleLoader__.load({
+ 				const first = this.turns[0];
+ 				if (elements === null || metrics === null || first === void 0) return null;
+ 				const line = elements.scroller.getBoundingClientRect().top + Math.min(96, metrics.height * .2);
 -				const rows = (elements.column.querySelector(":scope > [data-slot=\"conversation.chat.flow\"]") ?? elements.column).children;
 +				const rows = ([...elements.column.children].find((row) => row.getAttribute("data-slot") === (elements.column.dataset.chatFlowSlot ?? "conversation.chat.flow")) ?? elements.column).children;
+ 				let low = 0;
+ 				let high = rows.length;
+ 				let reading = first.turn;
 @@ -2741,7 +2741,7 @@ window.__ModuleLoader__.load({
  		* The chat view slot entry: pure component over the composed props; each
  		* ordered business Node crosses the keyed renderer seat.
@@ -85,7 +97,7 @@ index 9700d036..4988dd29 100644
  									openState === "error" && openError !== null && (0, react_jsx_runtime.jsx)("div", {
  										className: ChatView_module_css_default.openError,
  										children: t("chat.loadError", {
-@@ -2911,6 +2921,7 @@ window.__ModuleLoader__.load({
+@@ -2911,6 +2922,7 @@ window.__ModuleLoader__.load({
  										openExternalLink,
  										fileImages,
  										children: renderSlot("conversation.chat.flow", {
@@ -93,7 +105,7 @@ index 9700d036..4988dd29 100644
  											entries,
  											pendingInputs,
  											lastInputTurn,
-@@ -2933,6 +2944,7 @@ window.__ModuleLoader__.load({
+@@ -2933,6 +2945,7 @@ window.__ModuleLoader__.load({
  					}),
  					!scroll.followingTail && (0, react_jsx_runtime.jsx)("div", {
  						className: ChatView_module_css_default.toBottomSlot,
@@ -101,7 +113,7 @@ index 9700d036..4988dd29 100644
  						children: (0, react_jsx_runtime.jsx)("button", {
  							type: "button",
  							className: ChatView_module_css_default.toBottom,
-@@ -5639,7 +5651,7 @@ window.__ModuleLoader__.load({
+@@ -5639,7 +5652,7 @@ window.__ModuleLoader__.load({
  		//#region lib/types/client/chat/ChatFlow.js
  		/** Ordered Chat rows, local echoes, and running status share the flow slot's parent. */
  		/** Render the flow without adding a DOM parent or changing keyed row positions. */
@@ -110,7 +122,7 @@ index 9700d036..4988dd29 100644
  			const nodeStore = useChat((snapshot) => snapshot.nodes);
  			const running = useSession((snapshot) => snapshot.running);
  			const runningStartTime = useChatNode(useChat((snapshot) => snapshot.navigation.items().at(-1)?.anchorKey) ?? "", (node) => {
-@@ -5683,7 +5695,7 @@ window.__ModuleLoader__.load({
+@@ -5683,7 +5696,7 @@ window.__ModuleLoader__.load({
  					default: return assertNever(entry);
  				}
  			});
@@ -119,7 +131,7 @@ index 9700d036..4988dd29 100644
  				submission: item,
  				loadImage,
  				renderFactorySlot,
-@@ -5693,7 +5705,7 @@ window.__ModuleLoader__.load({
+@@ -5693,7 +5706,7 @@ window.__ModuleLoader__.load({
  				loadImage,
  				renderFactorySlot,
  				t
@@ -128,7 +140,7 @@ index 9700d036..4988dd29 100644
  			const tail = entries.at(-1);
  			const node = tail?.kind === "node" ? nodeStore.get(tail.key) : void 0;
  			if (node?.kind === "turn-process" && node.location.kind === "turn" && node.location.turn.status === "open" && node.location.turn.turn !== lastInputTurn) {
-@@ -5701,12 +5713,11 @@ window.__ModuleLoader__.load({
+@@ -5701,12 +5714,11 @@ window.__ModuleLoader__.load({
  				if (index !== -1) rows.splice(rows.length - 1, 0, ...pendingRows.splice(index, 1));
  			}
  			return [
@@ -144,7 +156,7 @@ index 9700d036..4988dd29 100644
  			];
  		});
  		//#endregion
-@@ -5850,6 +5861,7 @@ window.__ModuleLoader__.load({
+@@ -5850,6 +5862,7 @@ window.__ModuleLoader__.load({
  			"message.context.recall.truncated": "已截断",
  			"message.compaction": "上下文已压缩",
  			"message.compaction.running": "正在压缩…",
@@ -152,7 +164,7 @@ index 9700d036..4988dd29 100644
  			"message.compaction.completed": "已压缩 {items} 条历史记录（约 {tokens} tokens）",
  			"message.compaction.expand": "点击查看压缩摘要",
  			"message.compaction.unavailable": "压缩摘要不可用",
-@@ -6044,6 +6056,7 @@ window.__ModuleLoader__.load({
+@@ -6044,6 +6057,7 @@ window.__ModuleLoader__.load({
  			"message.context.recall.truncated": "truncated",
  			"message.compaction": "Context compacted",
  			"message.compaction.running": "Compacting context…",
@@ -160,7 +172,7 @@ index 9700d036..4988dd29 100644
  			"message.compaction.completed": "Compacted {items} history items (~{tokens} tokens)",
  			"message.compaction.expand": "View compaction summary",
  			"message.compaction.unavailable": "Compaction summary unavailable",
-@@ -6478,7 +6491,15 @@ window.__ModuleLoader__.load({
+@@ -6511,7 +6525,15 @@ window.__ModuleLoader__.load({
  		//#endregion
  		//#region lib/types/client/chat/CompactionCommandCard.js
  		/** Render one manual compaction lifecycle without duplicating its checkpoint marker. */
@@ -177,7 +189,7 @@ index 9700d036..4988dd29 100644
  			if (compaction !== void 0) return (0, react_jsx_runtime.jsx)(CompactionItem, {
  				node: compaction,
  				title: t("message.compaction.commandTitle"),
-@@ -6519,6 +6540,7 @@ window.__ModuleLoader__.load({
+@@ -6552,6 +6574,7 @@ window.__ModuleLoader__.load({
  				className: ChatView_module_css_default.callRow,
  				children: (0, react_jsx_runtime.jsx)(CompactionCommandCard, {
  					node: data.command,
@@ -185,7 +197,7 @@ index 9700d036..4988dd29 100644
  					...data.compaction === null ? {} : { compaction: data.compaction },
  					t
  				})
-@@ -9302,7 +9324,46 @@ window.__ModuleLoader__.load({
+@@ -9335,7 +9358,46 @@ window.__ModuleLoader__.load({
  		function partialContributionChanged(previous, next) {
  			return previous?.partial?.blocks !== next.partial?.blocks || previous?.partial?.turn !== next.partial?.turn || previous?.partial?.step !== next.partial?.step || ((previous?.partial ?? null) !== null || next.partial !== null) && previous?.anchorSeq !== next.anchorSeq;
  		}
@@ -233,7 +245,7 @@ index 9700d036..4988dd29 100644
  		var ChatSnapshotBuilder = class {
  			store = new MutableChatNodeStore();
  			locations = new MutableChatLocationIndex();
-@@ -9310,6 +9371,7 @@ window.__ModuleLoader__.load({
+@@ -9343,6 +9405,7 @@ window.__ModuleLoader__.load({
  			legacy = new LegacySliceBuilder();
  			referenceLabels = new ReferenceLabelProjector();
  			skillNames = new SkillNameProjector();
@@ -241,7 +253,7 @@ index 9700d036..4988dd29 100644
  			order = EMPTY_KEYS;
  			latestGroupInput;
  			readGroupNode = (key) => this.store.get(key);
-@@ -9333,7 +9395,7 @@ window.__ModuleLoader__.load({
+@@ -9366,7 +9429,7 @@ window.__ModuleLoader__.load({
  				};
  			}
  			replace(input) {
@@ -250,7 +262,7 @@ index 9700d036..4988dd29 100644
  				this.store.replace(nodes);
  				this.order = orderedVisibleChatNodes(nodes).map((node) => node.key);
  				this.locations.rebuild(this.order, this.store);
-@@ -9352,7 +9414,7 @@ window.__ModuleLoader__.load({
+@@ -9385,7 +9448,7 @@ window.__ModuleLoader__.load({
  				return this.snapshot(input.timeline, this.legacy.replace(nodes, input.timeline));
  			}
  			apply(input) {
@@ -259,7 +271,7 @@ index 9700d036..4988dd29 100644
  				const processTurns = /* @__PURE__ */ new Set();
  				let structural = false;
  				const contentOnly = [];
-@@ -9653,9 +9715,18 @@ window.__ModuleLoader__.load({
+@@ -9686,9 +9749,18 @@ window.__ModuleLoader__.load({
  		* Register the command lifecycle business contribution.
  		* @param ctx - owning UI Conversation context.
  		*/
@@ -281,7 +293,7 @@ index 9700d036..4988dd29 100644
  		//#endregion
  		//#region lib/types/client/conversation-nodes/compaction.js
  		function fallbackState$3(context) {
-@@ -13208,7 +13279,7 @@ window.__ModuleLoader__.load({
+@@ -13242,7 +13314,7 @@ window.__ModuleLoader__.load({
  				name: "conversation.chat.flow",
  				locale: NS,
  				store: chatStore,
@@ -320,10 +332,10 @@ index b8d23ec7..80474fbf 100644
  /** One durable retry chain rendered as a single row. */
  export interface RetryChatData {
 diff --git a/lib/types/client/contract/slots.d.ts b/lib/types/client/contract/slots.d.ts
-index 8a03bd5a..9a962967 100644
+index 9fb92fa0..3989d129 100644
 --- a/lib/types/client/contract/slots.d.ts
 +++ b/lib/types/client/contract/slots.d.ts
-@@ -275,15 +275,17 @@ export interface ChatViewInjected {
+@@ -281,15 +281,17 @@ export interface ChatViewInjected {
  export type ChatFlowDataInjected = Pick<ChatViewInjected, 'hooks' | 'keyedHooks'>;
  /** Ordered rows and reconciled local echoes rendered inside one Chat viewport. */
  export interface ChatFlowOwnerProps extends Pick<ChatNodeOwnerProps, 'cwd' | 'openFile' | 'inspectCall' | 'forkAt' | 'loadImage' | 'fileMentions'> {
@@ -343,7 +355,7 @@ index 8a03bd5a..9a962967 100644
  /** Full props shared by the user and output image entries. */
  export type MessageImagesProps = PropsRuntime<'conversation.chat.user.images' | 'conversation.chat.message.images'> & PropsRenderFactories;
  declare module '@deepseek-ai/dsh-client-ui-slots' {
-@@ -316,6 +318,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
+@@ -322,6 +324,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
          };
      }
      interface SlotMap {

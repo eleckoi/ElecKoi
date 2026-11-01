@@ -29,7 +29,7 @@
   },
   "description": "管理预设内容、提示词、工具策略和正则。",
   "engines": {
-    "dsh": "0.2.1-rc.3"
+    "dsh": "0.2.1-rc.5"
   },
   "eleckoi": {
     "developerInterfaces": [

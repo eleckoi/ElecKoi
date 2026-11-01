@@ -31,7 +31,7 @@ describe('regex EJS actual request computation', () => {
       const original = createUserMessage({ content: [{ type: 'text', text: 'Synthetic original' }], source: { kind: 'user' } });
       const session = { deriveMessages: () => [original] }, listeners = new Map();
       let sent, captured;
-      dispose = installConversationContext({ eleckoiRuntimeContexts: contexts, on: (event, handler) => { listeners.set(event, handler); return () => listeners.delete(event); },
+      dispose = installConversationContext({ get(name) { return this[name]; }, eleckoiRuntimeContexts: contexts, on: (event, handler) => { listeners.set(event, handler); return () => listeners.delete(event); },
         sessions: { get: () => session }, sessionProjections: { stateOf: () => ({ inputs: [{ messageId: original.id }] }) },
         llm: { stream: async function* (options) { sent = options; yield { type: 'synthetic-accepted' }; } },
       }, directory, sessionId, { capture: (_session, options) => { captured = options; } });

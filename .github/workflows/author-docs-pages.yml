@@ -1,16 +1,6 @@
 name: ElecKoi Author SDK Docs
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/author-docs-pages.yml'
-      - 'docs/plugins/author-sdk*'
-      - 'packages/examples/native-author/**'
-      - 'apps/web/src/assets/eleckoi-app-icon.png'
-      - 'scripts/build-author-docs-site.mjs'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
   workflow_dispatch:
 
 permissions:

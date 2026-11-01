@@ -25,7 +25,7 @@ describe('reasoning regex in the actual roleplay request projection', () => {
         { type: 'tool-call', id: 'synthetic-call', name: 'synthetic-tool', arguments: '{}' }])];
       const session = { id: sessionId, deriveMessages: () => messages, append: vi.fn() };
       const listeners = new Map(), capture = vi.fn(), stream = vi.fn(options => options);
-      const dispose = installConversationContext({ eleckoiRuntimeContexts: contexts, on: (type, listener) => { listeners.set(type, listener); return () => listeners.delete(type); },
+      const dispose = installConversationContext({ get(name) { return this[name]; }, eleckoiRuntimeContexts: contexts, on: (type, listener) => { listeners.set(type, listener); return () => listeners.delete(type); },
         sessions: { get: () => session }, sessionProjections: { stateOf: () => ({ inputs: [{ messageId: messages[0].id }] }) },
         llm: { stream } }, directory, sessionId, { capture });
       listeners.get('session/event')(session, { type: 'step/start', data: { turn: 1, step: 2 } });

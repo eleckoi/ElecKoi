@@ -29,7 +29,7 @@
   },
   "description": "展示角色列表和资料，提供角色操作入口。",
   "engines": {
-    "dsh": "0.2.1-rc.3"
+    "dsh": "0.2.1-rc.5"
   },
   "eleckoi": {
     "developerInterfaces": [

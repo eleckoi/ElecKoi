@@ -108,7 +108,7 @@ async function fixture({ stream } = {}) {
   await editor
   await vi.waitFor(() => {
     expect(ctx.get('eleckoiSessionEditor')).toBeDefined()
-    expect(ctx.get('eleckoiImageGeneration')).toBeDefined()
+    expect(ctx.get('eleckoiAutoIllustration')).toBeUndefined()
     expect(ctx.get('eleckoiRoleplaySessions')).toBeDefined()
   })
   const handle = await ctx.agents.create({ sessionId: SessionId(conversationId), agentOptions: { provider: 'synthetic', model: 'synthetic' } })

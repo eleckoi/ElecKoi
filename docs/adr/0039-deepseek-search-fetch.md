@@ -6,7 +6,7 @@
 
 ## 当前决定（2026-10-19）
 
-DeepSeek 使用锁定 DSH 0.2.1-rc.3（`1f81c047fc48fa190a683e469daa699857e9afe8`）的官方 Messages、Search 与 Fetch，HTTP 抓取也沿用官方实现。工具弹窗只保留 DeepSeek 与 Tavily 两张卡片，点击 DeepSeek 卡片通过 Slots 中正式 `plugins` 面板的导航 store 打开精确的 `web-search` 配置项；密钥、基础地址和官方参数只有这一个表单。Tavily 的扩展和配置保留。
+DeepSeek 使用锁定 DSH 0.2.1-rc.5（`b830ec950faba0a46dda564be3e2d854afed94f1`）的官方 Messages、Search 与 Fetch，HTTP 抓取也沿用官方实现。工具弹窗只保留 DeepSeek 与 Tavily 两张卡片，点击 DeepSeek 卡片通过 Slots 中正式 `plugins` 面板的导航 store 打开精确的 `web-search` 配置项；密钥、基础地址和官方参数只有这一个表单。Tavily 的扩展和配置保留。
 
 删除 `@eleckoi/dsh-web-deepseek`、其装配依赖、Remote 测试入口和客户端重复表单，同时退役未知状态的 Web 类型及工具展示补丁。官方 Search 不提供旧扩展的正文／地域行为，官方 Fetch 成功解析映射为 200；这些行为按用户选择接受，不能继续声称保留旧扩展的结果合同。已有的工具完整输出补丁保留，退役条件为上游正式支持提供器自主条数和完整抓取输出。
 

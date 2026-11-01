@@ -1,6 +1,6 @@
 # DSH Remote
 
-ElecKoi 的跨 Host/Client 业务调用只使用锁定版本 DSH 的 Typert Remote。权威规范是 [`api-gateway.zh.md`](https://github.com/deepseek-ai/deepseek-harness/blob/1f81c047fc48fa190a683e469daa699857e9afe8/docs/api-gateway.zh.md)；本文说明如何在 ElecKoi bundle 中落地该规范。
+ElecKoi 的跨 Host/Client 业务调用只使用锁定版本 DSH 的 Typert Remote。权威规范是 [`api-gateway.zh.md`](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/docs/api-gateway.zh.md)；本文说明如何在 ElecKoi bundle 中落地该规范。
 
 全部产品 namespace 的实际参数、返回值和变更流见 [完整 Remote 调用声明](api-remote.md)。该文件直接由官方生成器从 Host 的 @Remote 生成，不手写另一套签名。
 
@@ -116,7 +116,7 @@ export default GreetingApi
 
 ElecKoi 根命令 `pnpm build:workspace-runtime` 已执行这一顺序。`@eleckoi/dsh-product-api` 是可运行参考实现；生成入口位于 `scripts/generate-dsh-product-remote.mjs`。
 
-锁定的 DSH `0.2.1-rc.3` 生成器只识别 DSH 单仓中的协议源码，未识别安装在 `node_modules` 中的同版本 `@deepseek-ai/dsh-typert-protocol`。ElecKoi 使用版本锁定补丁 `patches/@deepseek-ai__dsh-typert-generator@0.2.1-rc.3.patch` 补充该包身份识别；补丁不修改 Remote 模型、codec 或 wire 协议。升级 DSH 时必须先对照新版本源码重新判断是否仍需该补丁。
+锁定的 DSH `0.2.1-rc.5` 生成器只识别 DSH 单仓中的协议源码，未识别安装在 `node_modules` 中的同版本 `@deepseek-ai/dsh-typert-protocol`。ElecKoi 使用版本锁定补丁 `patches/@deepseek-ai__dsh-typert-generator@0.2.1-rc.5.patch` 补充该包身份识别；补丁不修改 Remote 模型、codec 或 wire 协议。升级 DSH 时必须先对照新版本源码重新判断是否仍需该补丁。
 
 ## Client assembly 与调用
 

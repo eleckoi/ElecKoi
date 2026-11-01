@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "upstreamCommit": "1f81c047fc48fa190a683e469daa699857e9afe8",
+  "upstreamCommit": "b830ec950faba0a46dda564be3e2d854afed94f1",
   "package": "@deepseek-ai/dsh-session-persistence-jsonl",
-  "version": "0.2.1-rc.3",
+  "version": "0.2.1-rc.5",
   "file": "lib/index.js",
   "sourceSha256": "dc39ad5315c5f7186142a3d5ed5dff9884b7de5a7e9e5cfbb7e04b0de2336bd3",
   "helper": "android-file-publication.mjs",

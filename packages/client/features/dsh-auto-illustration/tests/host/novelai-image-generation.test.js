@@ -1,5 +1,6 @@
 import { runtimeContextsFor } from '../../../../../../tests/helpers/runtime-contexts.js'
 import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:http';
@@ -42,7 +43,7 @@ async function server(respond) {
 afterEach(async () => {
   delete process.env.ELECKOI_SESSION_SNAPSHOT_ROOT;
   for (const instance of servers.splice(0)) { instance.closeAllConnections(); await new Promise(resolve => instance.close(resolve)); }
-  for (const dir of directories.splice(0)) rmSync(dir, { force: true, recursive: true });
+  for (const dir of directories.splice(0)) await rm(dir, { force: true, recursive: true });
 });
 
 describe('NAI preset illustration', () => {

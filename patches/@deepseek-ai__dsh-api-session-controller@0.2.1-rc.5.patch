@@ -69,7 +69,7 @@ index 398e3039..a6891952 100644
          this.pruneEngagement(sessionId, this.retainedIds(this.summaries));
          this.projectionInflight.get(sessionId)?.controller.abort();
 diff --git a/lib/types/client/sessions/service.d.ts b/lib/types/client/sessions/service.d.ts
-index f9498e0c..4747d0ec 100644
+index 7694fa04..bc6d3770 100644
 --- a/lib/types/client/sessions/service.d.ts
 +++ b/lib/types/client/sessions/service.d.ts
 @@ -128,6 +128,8 @@ export declare class ClientSessions implements ISessions {

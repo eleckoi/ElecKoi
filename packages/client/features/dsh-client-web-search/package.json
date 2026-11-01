@@ -30,7 +30,7 @@
   },
   "description": "通过 DSH Settings、Credentials 与 Remote 管理联网搜索配置。",
   "engines": {
-    "dsh": "0.2.1-rc.3"
+    "dsh": "0.2.1-rc.5"
   },
   "eleckoi": {
     "developerInterfaces": [
@@ -59,6 +59,6 @@
     "@deepseek-ai/cordis": "4.0.5",
     "@eleckoi/dsh-product-api": "workspace:*",
     "yaml": "2.9.0",
-    "@deepseek-ai/dsh-atomic-write": "0.2.1-rc.3"
+    "@deepseek-ai/dsh-atomic-write": "0.2.1-rc.5"
   }
 }

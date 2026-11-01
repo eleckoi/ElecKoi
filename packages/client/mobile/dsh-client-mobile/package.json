@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Android 专用页面与导航装配。",
-  "engines": { "dsh": "0.2.1-rc.3" },
+  "engines": { "dsh": "0.2.1-rc.5" },
   "exports": { ".": "./src/index.js", "./client": { "types": "./src/client/types.ts", "default": "./src/client.js" }, "./package.json": "./package.json", "./locale/*.json": "./locale/*.json" },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },

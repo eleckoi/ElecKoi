@@ -67,6 +67,6 @@
   },
   "description": "ElecKoi 产品数据的 DSH Host Cordis 服务。",
   "engines": {
-    "dsh": "0.2.1-rc.3"
+    "dsh": "0.2.1-rc.5"
   }
 }

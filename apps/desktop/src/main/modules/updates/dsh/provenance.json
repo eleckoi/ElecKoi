@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/deepseek-ai/deepseek-harness",
-  "commit": "1f81c047fc48fa190a683e469daa699857e9afe8",
+  "commit": "b830ec950faba0a46dda564be3e2d854afed94f1",
   "license": "MIT",
   "licenseFile": "apps/desktop/resources/licenses/dsh-desktop-MIT.txt",
   "files": [

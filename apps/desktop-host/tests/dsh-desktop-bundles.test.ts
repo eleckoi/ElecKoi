@@ -50,7 +50,7 @@ describe('desktop bundle registration', () => {
     const runtime = JSON.parse(readFileSync('packages/host/runtime/package.json', 'utf8'))
     const desktop = JSON.parse(readFileSync('package.json', 'utf8'))
     for (const name of OPTIONAL_BUNDLES) {
-      expect(runtime.dependencies[name]).toBe('0.2.1-rc.3')
+      expect(runtime.dependencies[name]).toBe('0.2.1-rc.5')
       expect(desktop.dependencies[name]).toBe(runtime.dependencies[name])
     }
     const root = mkdtempSync(join(tmpdir(), 'eleckoi-optional-bundles-'))

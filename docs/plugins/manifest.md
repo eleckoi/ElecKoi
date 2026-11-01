@@ -9,7 +9,7 @@
   "description": "插件的无本地化回退说明。",
   "type": "module",
   "engines": {
-    "dsh": "0.2.1-rc.3"
+    "dsh": "0.2.1-rc.5"
   },
   "exports": {
     ".": "./src/index.js",

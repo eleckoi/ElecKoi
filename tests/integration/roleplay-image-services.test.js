@@ -1,4 +1,5 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
@@ -87,6 +88,6 @@ it('binds the real roleplay image APIs after editor readiness and reads, repaint
   } finally {
     await ctx.fiber.dispose();
     server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
-    rmSync(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true });
   }
 }, 30000);
