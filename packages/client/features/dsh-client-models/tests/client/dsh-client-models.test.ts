@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
 import { describe, expect, it, vi } from 'vitest'
 import { dshClientPlugin } from '../../../../../../tests/helpers/dshClientPlugin'
+import type { ModelDiscoveryResult } from '@eleckoi/dsh-product-api/types'
 
 const source = readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8')
 const settle = () => new Promise<void>(resolve => setImmediate(resolve))
@@ -46,7 +47,7 @@ describe('DSH ElecKoi model catalog', () => {
           ...(rows.some(row => row.ns === 'llm-deepseek') ? [{ provider: 'deepseek-official', settingsNs: 'llm-deepseek', settingsPath: [] }] : []),
         ] }),
       },
-      eleckoiModels: { discoverModels: vi.fn(async () => ({ ok: true, value: [{ id: 'example-model' }] })),
+      eleckoiModels: { discoverModels: vi.fn(async (): Promise<{ ok: true; value: ModelDiscoveryResult[] }> => ({ ok: true, value: [{ id: 'example-model' }] })),
         revealApiKey: vi.fn(async () => ({ ok: true, value: 'synthetic-stored-value' })) },
       credentials: {
         describe: async (refs: string[]) => ({ ok: true, value: Object.fromEntries(refs.map(ref => [ref, { configured: keys.has(ref) }])) }),
