@@ -31,7 +31,17 @@ it('bridges the official view roster, header, plugin children and composer witho
   const register = (options: any, component: any = () => null) => { const dispose = slots.register(options, component); cleanups.push(dispose); return dispose }
   register({ name: 'conversation.session', store, inject, children: { 'conversation.view': { kind: 'list', scope: 'session' } } })
   register({ name: 'conversation.session.header', store, inject, children: { 'conversation.session.header.corner': { kind: 'single', scope: 'session' } } })
-  register({ name: 'conversation.composer.bar', children: { 'conversation.input.right': { kind: 'list', scope: 'session' } } })
+  register({ name: 'conversation.composer.bar', children: { 'conversation.input.right': { kind: 'list', scope: 'session' }, 'conversation.input.model': { kind: 'single', scope: 'session' } } })
+  register({ name: 'conversation.input.model', children: { 'conversation.input.model.label': { kind: 'single', scope: 'session', inline: true } } })
+  const ModelLabel = () => null
+  const releaseLabel = register({ name: 'conversation.input.model.label', locale: 'model-label' }, ModelLabel)
+  await settle()
+  const label = slots.entriesOfSlot('eleckoi.creator-studio.model.label')[0]
+  expect(label.locale).toBe('model-label')
+  expect(label.component({ model: { id: 'example', name: 'Example' } }).type).toBe(ModelLabel)
+  releaseLabel()
+  await settle()
+  expect(slots.entriesOfSlot('eleckoi.creator-studio.model.label')).toHaveLength(0)
   const Sidebar = () => null, Control = () => null
   register({ name: 'conversation.session.header.corner', store, inject }, Sidebar)
   register({ name: 'conversation.input.right', id: 'synthetic-image-provider' }, Control)

@@ -32,6 +32,8 @@ export const DESKTOP_SHELL_IPC = {
   updatesChanged: 'dsh-desktop:updates-changed',
   hostFailure: 'dsh-desktop:host-failure',
   windowControl: 'dsh-desktop:window-control',
+  windowsMenu: 'dsh-desktop:windows-menu',
+  menuCommand: 'dsh-desktop:menu-command',
   browserAcquire: 'dsh-desktop:browser-acquire',
   browserRelease: 'dsh-desktop:browser-release',
   browserOpenRequested: 'dsh-desktop:browser-open-requested'
@@ -52,6 +54,9 @@ export interface DshDesktopProductApi {
     minimize(): Promise<void>
     maximizeToggle(): Promise<void>
     close(): Promise<void>
+  }
+  readonly menu?: {
+    subscribe(listener: (command: 'about' | 'check-updates') => void): () => void
   }
   readonly host?: {
     /**

@@ -301,7 +301,6 @@
 .mobile-conversation-page .composer-more-anchor { order: 0; flex: none; position: static; }
 .mobile-conversation-page :is(.composer-more-menu, [data-trigger-menu]) { --dsw-elevation-stroke-color: var(--dsw-alias-border-l1); border: 0; border-radius: var(--dsw-radius-lg); corner-shape: round; box-shadow: var(--dsw-elevation-prominent); padding: 4px; font-size: 13px; line-height: 20px; }
 .mobile-conversation-page .composer-more-menu { left: 0; right: auto; bottom: calc(100% + 4px); width: min(192px, calc(100% - 8px)); max-height: min(400px, 60dvh); overflow-y: auto; isolation: isolate; background: transparent; }
-.mobile-conversation-page .composer-more-menu::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--dsw-menu-surface-fill); backdrop-filter: var(--dsw-menu-backdrop-filter); pointer-events: none; }
 .mobile-conversation-page :is(.composer-more-menu button, [data-trigger-menu] [role="option"]) { min-height: 40px; padding: 8px; gap: 6px; border-radius: var(--dsw-radius-md); font-family: inherit; font-size: 13px; font-weight: 400; line-height: 20px; color: var(--dsw-alias-label-primary); }
 .mobile-conversation-page .composer-more-menu button { grid-template-columns: 16px minmax(0, 1fr); }
 .mobile-conversation-page .composer-more-menu button svg { width: 14px; height: 14px; color: var(--dsw-alias-menu-icon); }

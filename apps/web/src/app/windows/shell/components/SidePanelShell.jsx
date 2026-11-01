@@ -6,7 +6,7 @@ function stopDrag(event) {
   event.stopPropagation();
 }
 
-export function SidePanelShell({ collapsed = false, onCollapse, footerActions, renderSidebarSlot, children }) {
+export function SidePanelShell({ collapsed = false, onCollapse, footerActions, renderSidebarSlot, desktopMenu = false, children }) {
   return (
     <section
       className={`side-panel-shell${collapsed ? " collapsed" : ""}${footerActions ? " has-footer-actions" : ""}`}
@@ -18,6 +18,7 @@ export function SidePanelShell({ collapsed = false, onCollapse, footerActions, r
         <div className="side-panel-brand">
           {renderSidebarSlot?.("sidebar.brand.name", { content: <ElecKoiWordmark /> }) || <ElecKoiWordmark />}
         </div>
+        {desktopMenu && !collapsed ? <span className="desktop-menu-seat" data-desktop-menu-seat /> : null}
         <button
           className="side-panel-collapse-button"
           type="button"

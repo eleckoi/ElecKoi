@@ -43,7 +43,7 @@ describe("community navigation", () => {
       />,
     );
 
-    expect(html).toContain('class="nav-fill message-fill"');
+    expect(html.match(/class="message-nav-icon"/g)).toHaveLength(2);
     expect(html).toContain('class="preset-nav-agent"');
     expect(html).toContain('class="creator-studio-nav"');
     expect(html).toContain('class="creator-studio-star"');

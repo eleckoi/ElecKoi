@@ -1,5 +1,5 @@
 import claudeIcon from "../../../assets/model-icons/claude.svg";
-import customIcon from "../../../assets/model-icons/whale-maid-thinking.png";
+import customIcon from "../../../assets/eleckoi-app-icon.png";
 import deepseekIcon from "../../../assets/model-icons/deepseek.svg";
 import geminiIcon from "../../../assets/model-icons/gemini.svg";
 import grokIcon from "../../../assets/model-icons/grok.svg";

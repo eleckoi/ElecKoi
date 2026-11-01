@@ -2,6 +2,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { CreatorProjectCollection, CreateCreatorProjectInput } from '@eleckoi/dsh-product-api/types'
 import type { CreatorStudioSession, CreatorStudioSessionSummary, CreatorStudioMessage, ConversationModelSelection } from '@eleckoi/dsh-product-api/types'
 import type { ComponentType } from 'react'
+import type { ModelLabelOwner } from '@deepseek-ai/dsh-client-ui-model-selection/client'
 import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 
@@ -38,6 +39,7 @@ export interface CreatorStudioSessions {
 }
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
+    'eleckoi.creator-studio.model.label': { kind: 'single'; scope: 'session'; inline: true; owner: ModelLabelOwner }
     'eleckoi.creator-studio.conversation': { kind: 'single'; scope: 'root'; owner: { reference: SessionReference; component: ComponentType<any>; props: Record<string, unknown> } }
     'eleckoi.creator-studio.session': { kind: 'single'; scope: 'session'; owner: { component: ComponentType<any>; props: Record<string, unknown> } }
   }

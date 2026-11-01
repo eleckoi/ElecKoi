@@ -61,15 +61,28 @@ public final class HostRuntimeService extends Service {
     private RuntimePaths paths;
     private ConnectivityManager connectivity;
     private ConnectivityManager.NetworkCallback networkCallback;
+    private final BackgroundNetworkState backgroundNetwork = new BackgroundNetworkState();
+    private String lastBackgroundStatus = "";
 
     @Override public void onCreate() {
         super.onCreate();
         NotificationManager notifications = getSystemService(NotificationManager.class);
         notifications.createNotificationChannel(new NotificationChannel(CHANNEL, "本地 ElecKoi Host", NotificationManager.IMPORTANCE_LOW));
         connectivity = getSystemService(ConnectivityManager.class);
+        Network initialNetwork = connectivity.getActiveNetwork();
+        if (initialNetwork == null) backgroundNetwork.disconnected();
+        else backgroundNetwork.available(initialNetwork.getNetworkHandle());
         networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override public void onAvailable(Network network) {
+                control.execute(() -> { backgroundNetwork.available(network.getNetworkHandle()); refreshDns(); refreshBackgroundStatus(); });
+            }
             @Override public void onLinkPropertiesChanged(Network network, LinkProperties links) { control.execute(() -> refreshDns()); }
-            @Override public void onLost(Network network) { control.execute(() -> refreshDns()); }
+            @Override public void onLost(Network network) {
+                control.execute(() -> { backgroundNetwork.lost(network.getNetworkHandle()); refreshDns(); refreshBackgroundStatus(); });
+            }
+            @Override public void onBlockedStatusChanged(Network network, boolean blocked) {
+                control.execute(() -> { if (backgroundNetwork.blocked(network.getNetworkHandle(), blocked)) refreshBackgroundStatus(); });
+            }
         };
         connectivity.registerDefaultNetworkCallback(networkCallback);
     }
@@ -77,6 +90,7 @@ public final class HostRuntimeService extends Service {
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? START : intent.getAction();
         startForeground(NOTIFICATION, notification(snapshot.message)); foregroundActive = true;
+        refreshBackgroundStatus();
         if (STOP.equals(action)) {
             stopping = true; control.execute(() -> { if (stopHost()) { foregroundActive = false; stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); } });
         } else if (RESTART.equals(action) || RECOVER_PLUGINS.equals(action)) {
@@ -93,6 +107,21 @@ public final class HostRuntimeService extends Service {
     public Snapshot snapshot() { return snapshot; }
     public void observe(Listener listener) { listeners.add(listener); main.post(() -> listener.changed(snapshot)); }
     public void removeObserver(Listener listener) { listeners.remove(listener); }
+    String backgroundStatus() {
+        return backgroundNetwork.description() + "\n" + BackgroundRunSettings.description(this);
+    }
+    void refreshBackgroundStatus() {
+        main.post(() -> {
+            if (!foregroundActive) return;
+            String status = backgroundStatus();
+            if (!status.equals(lastBackgroundStatus)) {
+                lastBackgroundStatus = status;
+                log("Background policy: " + status.replace('\n', ';'));
+                ((ElecKoiApplication)getApplication()).diagnostics().record(RuntimeDiagnostics.event("background-policy", status));
+            }
+            getSystemService(NotificationManager.class).notify(NOTIFICATION, notification(snapshot.message));
+        });
+    }
     private void startHost() {
         startHost(false);
     }
@@ -304,8 +333,12 @@ public final class HostRuntimeService extends Service {
         PendingIntent stop = PendingIntent.getService(this, 1, new Intent(this, HostRuntimeService.class).setAction(STOP), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         PendingIntent diagnostics = PendingIntent.getActivity(this, 2, new Intent(this,MainActivity.class).setAction("eleckoi.diagnostics")
             .putExtra("eleckoi.diagnostics",true).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent background = PendingIntent.getActivity(this, 3, new Intent(this,MainActivity.class)
+            .setAction(BackgroundRunSettings.OPEN).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification.Builder notification=new Notification.Builder(this,CHANNEL).setSmallIcon(android.R.drawable.ic_menu_info_details).setContentTitle("ElecKoi 本地 Host")
-            .setContentText(text).setContentIntent(open).setOngoing(true);
+            .setContentText(backgroundNetwork.notification(text)).setContentIntent(open).setOngoing(true)
+            .addAction(new Notification.Action.Builder(null,"后台运行",background).build());
         if("compat".equals(BuildConfig.BROWSER_VARIANT)) notification.addAction(new Notification.Action.Builder(null,"运行诊断",diagnostics).build());
         return notification.addAction(new Notification.Action.Builder(null,"停止",stop).build()).build();
     }

@@ -18,6 +18,11 @@ async function fixture() {
     const previous = process.env[name]; process.env[name] = value
     cleanups.push(() => { if (previous === undefined) delete process.env[name]; else process.env[name] = previous })
   }
+  writeFileSync(join(root, 'template'), '- id: synthetic\n  name: synthetic\n' + ['variables', 'setting-library', 'web', 'workspace', 'collaboration', 'roleplay-workflow', 'workflow'].map(id => `# ELECKOI:${id}:BEGIN\n# ELECKOI:${id}:END\n`).join(''))
+  const tools = { schemas: () => [] }
+  const makeAgent = session => ({ session, ctx: { tools, on: () => () => {} }, status: 'idle', followup: vi.fn(), runMaintenance: action => action(new AbortController().signal) })
+  const preset = { id: 'synthetic-creator', purpose: 'creator', name: 'Synthetic creator', activeVersionId: 'v1', roleplayPlan: { steps: [] },
+    toolGroups: ['variables', 'setting-library', 'roleplay-workflow'].map(id => ({ id: `builtin:${id}`, included: false, enabled: false })) }
   const id = 'synthetic-studio-edit'
   const directory = join(root, 'logs', 'synthetic-project', 'synthetic-session'); mkdirSync(directory, { recursive: true })
   const path = join(directory, `session.v${sessionFormatCatalog.currentVersion}.jsonl`)
@@ -37,7 +42,7 @@ async function fixture() {
   const save = value => writeFileSync(path, [sessionFormatCatalog.encodeCurrentHeader({ ...value.header, delegationDepth: 0 }, value.inheritedEventCount),
     ...value.snapshotEvents().map(event => sessionFormatCatalog.encodeCurrentEvent(event))].map(row => JSON.stringify(row)).join('\n') + '\n')
   save(session)
-  let agent = { session, status: 'idle', followup: vi.fn() }, service
+  let agent = makeAgent(session), service
   const meta = { cwd: root, agentPreset: 'synthetic-runtime-preset' }
   const controller = {
     inspect: vi.fn(async () => ({ meta, events: agent?.session.snapshotEvents() ?? readDshSessionLog(join(root, 'logs'), id).events })),
@@ -46,14 +51,18 @@ async function fixture() {
       expect(sessionId).toBe(id)
       if (agent) return { agent }
       const log = readDshSessionLog(join(root, 'logs'), id)
-      agent = { session: Session.create(SessionId(id), log.events, log.header, log.inheritedEventCount), status: 'idle', followup: vi.fn() }
+      agent = makeAgent(Session.create(SessionId(id), log.events, log.header, log.inheritedEventCount))
       return { agent }
     }),
     rename: vi.fn(async ({ title }) => agent.session.append('session/title', { title, messageSeqs: [], source: { kind: 'user' } })),
   }
   const dispose = await installCreatorStudioRuntime({
     sessionController: controller, agents: { get: () => agent },
-    eleckoiProductData: { readCharacters: () => ({ items: characters }) },
+    eleckoiProductData: { readCharacters: () => ({ items: characters }), readAgentPresetCatalog: () => ({ activePresetIds: { creator: preset.id } }), readAgentPreset: () => preset },
+    agentPresets: { register: async () => () => {}, recompose: async () => {} },
+    agentDefaultModel: { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) },
+    llm: { resolveModelInfo: async () => ({}) }, settings: { describe: () => [] },
+    on: () => () => {}, get: () => tools,
     eleckoiSessionEditor: {
       transaction: async (_id, action) => action(),
       rewind: async (_id, turn, seq, retain) => { agent = undefined; return rewindDshSession(join(root, 'logs'), id, turn, seq, retain) },

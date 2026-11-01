@@ -385,6 +385,7 @@ export function ChatPanel({
     regenerateTargetMessageId={regenerateTargetMessageId}
   />;
   const roleplayModel = <ChatModelPicker
+    renderModelLabel={owner => renderRoleplaySlot?.('eleckoi.roleplay.conversation.input.model.label', owner, { fallback: owner.model.name }) ?? owner.model.name}
     configs={modelConfigs}
     selectedConfigId={selectedModelConfigId}
     selectedModel={selectedModel}

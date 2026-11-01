@@ -6,7 +6,7 @@ import Loader, { Group } from '@deepseek-ai/cordis-plugin-loader'
 import AgentPresetRegistry from '@deepseek-ai/dsh-agent-preset-registry'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import SessionStore from '@deepseek-ai/dsh-session'
+import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SessionQuery from '@deepseek-ai/dsh-session-query-sqlite'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -22,12 +22,13 @@ import TokenMeter from '@deepseek-ai/dsh-token-meter'
 import * as spillPolicy from '@deepseek-ai/dsh-spill-policy'
 import ToolResultStore from '../../packages/client/features/dsh-client-roleplay/src/host/tool-result-store.mjs'
 import { emptyEntry } from '../../packages/host/product-data/src/domain/settingLibraries/index'
-import LlmRuntime, { LlmAdapter } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, { LlmAdapter, createUserMessage, createAssistantMessage } from '@deepseek-ai/dsh-llm'
 import productDataPlugin from '@eleckoi/dsh-product-data'
 import { CharacterConfigurationChangeFeed, ProductRecordChangeFeed } from '../../packages/host/product-api/src/index'
-import { installCreatorStudioRuntime } from '../../packages/client/features/dsh-client-creator-studio/src/host/runtime.mjs'
-import { creatorStudioProjection } from '../../packages/client/features/dsh-client-creator-studio/src/host/projection.mjs'
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { installCreatorStudioRuntime, CREATOR_RUNTIME_PRESET_ID } from '../../packages/client/features/dsh-client-creator-studio/src/host/runtime.mjs'
+import { materializeAgentPreset } from '@eleckoi/dsh-client-roleplay'
+import { creatorStudioProjection, CREATOR_STUDIO_EVENT } from '../../packages/client/features/dsh-client-creator-studio/src/host/projection.mjs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative, resolve } from 'node:path'
@@ -39,7 +40,7 @@ const RESULT_READER = 'eleckoi_call_capability'
 const cleanups = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
 
-async function fixture(existing, { productionTemplate = false, stream } = {}) {
+async function fixture(existing, { productionTemplate = false, stream, legacy = false } = {}) {
   const root = existing?.root ?? mkdtempSync(join(tmpdir(), 'eleckoi-studio-files-'))
   if (!existing) cleanups.push(async () => {
     const child = relative(tmpdir(), root)
@@ -108,12 +109,34 @@ async function fixture(existing, { productionTemplate = false, stream } = {}) {
     }
   }
   ctx.llm.registerAdapter(['synthetic'], new Adapter())
+  const legacySessions = []
+  if (legacy) {
+    const preset = ctx.eleckoiProductData.readAgentPreset(ctx.eleckoiProductData.readAgentPresetCatalog().activePresetIds.creator)
+    for (let index = 0; index < 2; index++) {
+      const id = `eleckoi-creator-${String(index + 1).repeat(64)}`
+      materializeAgentPreset(join(root, 'presets', 'creator-studio'), template, { ...preset, versionId: preset.activeVersionId },
+        { disabledGroupIds: preset.toolGroups.filter(group => !group.included || !group.enabled).map(group => group.id) }, {},
+        { id, plugins: [{ id: 'creator-studio-agent', name: '@eleckoi/dsh-client-creator-studio/agent', config: { presetId: preset.id, creatorTools: true } }] })
+      const session = ctx.sessions.prepare(SessionId(`synthetic-legacy-studio-${index}`), { meta: { cwd: root, agentPreset: id } })
+      session.append(CREATOR_STUDIO_EVENT, { presetId: preset.id, characterId: '' }, { ignorable: true })
+      session.append('turn/start', { turn: 1 })
+      session.append('step/start', { turn: 1, step: 1 })
+      session.append('user/message', createUserMessage({ content: [{ type: 'text', text: `Synthetic retained input ${index}` }], source: { kind: 'user' } }), { surfaceOp: 'append' })
+      session.append('assistant/message', { turn: 1, step: 1, stream: [], message: createAssistantMessage({ content: [{ type: 'text', text: `Synthetic retained reply ${index}` }], source: { provider: 'synthetic', model: 'synthetic' } }) }, { surfaceOp: 'append' })
+      session.append('step/end', { turn: 1, step: 1 })
+      session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+      session.append('session/title', { title: `Synthetic retained title ${index}`, messageSeqs: [], source: { kind: 'user' } })
+      const handle = await ctx.sessionPersistence.create(session.header)
+      try { await handle.append(session.snapshotEvents()); await handle.flush() } finally { await handle.close() }
+      legacySessions.push({ id: session.id, presetId: id, events: session.snapshotEvents() })
+    }
+  }
   const runtimePlugin = { name: 'synthetic-studio-file-runtime',
-    inject: ['agents', 'agentPresets', 'agentDefaultModel', 'llm', 'settings', 'sessionController', 'eleckoiProductData', 'workspaceRegistry'],
+    inject: ['agents', 'agentPresets', 'agentDefaultModel', 'llm', 'settings', 'sessionController', 'sessionPersistence', 'sessionProjections', 'eleckoiProductData', 'workspaceRegistry'],
     apply: installCreatorStudioRuntime }
   await ctx.plugin(runtimePlugin)
   const service = ctx.eleckoiCreatorStudioRuntime
-  const opened = existing ? await service.open(existing.sessionId) : await service.create()
+  const opened = existing ? await service.open(existing.sessionId) : legacy ? await service.open(legacySessions[0].id) : await service.create()
   async function sendFile(sessionId, { content = expectedContent, readPath } = {}) {
     const { agent } = await ctx.sessionController.resolveAgent(sessionId)
     if (readPath === undefined) requestedPaths.delete(sessionId)
@@ -124,13 +147,117 @@ async function fixture(existing, { productionTemplate = false, stream } = {}) {
     await agent.whenIdle()
     return { agent, receipt }
   }
-  return { ctx, root, opened, requests, expectedContent, sendFile, service, async restart() {
+  return { ctx, root, opened, requests, expectedContent, sendFile, service, legacySessions, async restart() {
     await ctx.fiber.dispose()
     return fixture({ root, sessionId: opened.sessionId }, { productionTemplate, stream })
   } }
 }
 
 describe('Creator studio uploaded-file composition', { timeout: 30_000 }, () => {
+  it('uses the global preset in existing Sessions on their first request and keeps one generated configuration', async () => {
+    const f = await fixture(undefined, { stream: async function* () {
+      yield { type: 'block-start', index: 0, blockType: 'text' }
+      yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Synthetic reply' } }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    } })
+    const first = f.opened, second = await f.service.create()
+    const data = f.ctx.eleckoiProductData
+    const current = data.readAgentPreset(data.readAgentPresetCatalog().activePresetIds.creator)
+    const changed = data.createAgentPreset('Synthetic current creator preset', '', 'creator')
+    const marker = 'SYNTHETIC_CURRENT_GLOBAL_PRESET'
+    data.saveAgentPreset({ ...changed, entries: [...changed.entries, { ...emptyEntry('synthetic-global-prompt'), content: marker, agentReadStrategy: 'required' }],
+      toolGroups: changed.toolGroups.map(group => group.id === 'builtin:creator' ? { ...group, enabled: false } : group) }, changed.regexRules)
+    data.setActiveAgentPreset(changed.id)
+    for (const opened of [first, second]) {
+      const { agent } = await f.ctx.sessionController.resolveAgent(opened.sessionId)
+      await f.ctx.sessionController.prompt({ sessionId: agent.id, requestId: randomUUID(), mode: 'queue', content: [{ type: 'text', text: 'Synthetic next turn' }] }, new AbortController().signal)
+      await agent.whenIdle()
+      expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
+      const request = f.requests.at(-1)
+      expect(JSON.stringify(request.messages)).toContain(marker)
+      expect(request.tools.map(tool => tool.name)).not.toContain('eleckoi_call_capability')
+      expect(f.ctx.agentPresets.composedPreset(agent.ctx)).toBe(CREATOR_RUNTIME_PRESET_ID)
+      expect(f.ctx.sessionProjections.stateOf(agent.session, creatorStudioProjection.key).presetId).toBe(changed.id)
+    }
+    data.setActiveAgentPreset(current.id)
+    const { agent } = await f.ctx.sessionController.resolveAgent(first.sessionId)
+    await f.ctx.sessionController.prompt({ sessionId: agent.id, requestId: randomUUID(), mode: 'queue', content: [{ type: 'text', text: 'Synthetic restored creator tools' }] }, new AbortController().signal)
+    await agent.whenIdle()
+    expect(f.requests.at(-1).tools.map(tool => tool.name)).toContain('eleckoi_call_capability')
+    expect(JSON.stringify(f.requests.at(-1).messages)).not.toContain(marker)
+    await f.service.create()
+    expect((await f.ctx.agentPresets.compositionInventory()).map(preset => preset.id)).toEqual([CREATOR_RUNTIME_PRESET_ID])
+    expect(readdirSync(join(f.root, 'presets', 'creator-studio'))).toEqual([CREATOR_RUNTIME_PRESET_ID])
+    const id = first.sessionId, before = agent.session.snapshotEvents()
+    await f.ctx.sessions.flush(agent.session)
+    const reopened = await f.restart()
+    expect(reopened.opened.sessionId).toBe(id)
+    const resumed = (await reopened.ctx.sessionController.resolveAgent(id)).agent
+    expect(resumed.session.snapshotEvents().slice(0, before.length)).toEqual(before)
+    expect(resumed.ctx.tools.schemas(resumed).map(tool => tool.name)).toContain('eleckoi_call_capability')
+  })
+
+  it('converts both historical generated presets through persistence and resumes their original Sessions', async () => {
+    const f = await fixture(undefined, { legacy: true })
+    for (const original of f.legacySessions) {
+      const opened = await f.service.open(original.id)
+      const { agent } = await f.ctx.sessionController.resolveAgent(original.id)
+      expect(opened.sessionId).toBe(original.id)
+      expect(agent.session.snapshotEvents().slice(0, original.events.length)).toEqual(original.events)
+      expect(agent.session.snapshotEvents().filter(event => event.type === 'agent-preset/selected')).toHaveLength(1)
+      expect(agent.session.snapshotEvents().findLast(event => event.type === 'agent-preset/selected').data.agentPreset).toBe(CREATOR_RUNTIME_PRESET_ID)
+      expect(agent.session.snapshotEvents().findLast(event => event.type === 'session/title').data.title).toContain('Synthetic retained title')
+      expect((await f.service.messages(original.id)).map(message => message.text)).toEqual([
+        `Synthetic retained input ${f.legacySessions.indexOf(original)}`, `Synthetic retained reply ${f.legacySessions.indexOf(original)}`,
+      ])
+      expect(existsSync(join(f.root, 'presets', 'creator-studio', original.presetId))).toBe(false)
+    }
+    expect((await f.ctx.agentPresets.compositionInventory()).map(preset => preset.id)).toEqual([CREATOR_RUNTIME_PRESET_ID])
+    await f.ctx.sessionPersistence.flush()
+    const reopened = await f.restart()
+    for (const original of f.legacySessions) {
+      const { agent } = await reopened.ctx.sessionController.resolveAgent(original.id)
+      expect(agent.session.snapshotEvents().filter(event => event.type === 'agent-preset/selected')).toHaveLength(1)
+    }
+  })
+
+  it('finishes an active tool round with its preset and applies a global switch to the queued turn', async () => {
+    let started, release
+    const firstRequest = new Promise(resolve => { started = resolve })
+    const resume = new Promise(resolve => { release = resolve })
+    const f = await fixture(undefined, { stream: async function* (_request, step) {
+      if (step === 1) {
+        started()
+        await resume
+        yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+        yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: 'synthetic-before-global-switch', name: 'eleckoi_list_toolsets', arguments: '{}' } }
+        yield { type: 'finish', reason: { kind: 'tool-calls' } }
+      } else {
+        yield { type: 'block-start', index: 0, blockType: 'text' }
+        yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Synthetic completed turn' } }
+        yield { type: 'finish', reason: { kind: 'stop' } }
+      }
+    } })
+    const data = f.ctx.eleckoiProductData
+    const { agent } = await f.ctx.sessionController.resolveAgent(f.opened.sessionId)
+    await f.ctx.sessionController.prompt({ sessionId: agent.id, requestId: randomUUID(), mode: 'queue', content: [{ type: 'text', text: 'Synthetic active turn' }] }, new AbortController().signal)
+    await firstRequest
+    try {
+      const changed = data.createAgentPreset('Synthetic queued creator preset', '', 'creator')
+      data.saveAgentPreset({ ...changed, entries: [...changed.entries, { ...emptyEntry('synthetic-queued-prompt'), content: 'SYNTHETIC_QUEUED_PRESET', agentReadStrategy: 'required' }],
+        toolGroups: changed.toolGroups.map(group => group.id === 'builtin:creator' ? { ...group, enabled: false } : group) }, changed.regexRules)
+      data.setActiveAgentPreset(changed.id)
+      await f.ctx.sessionController.prompt({ sessionId: agent.id, requestId: randomUUID(), mode: 'queue', content: [{ type: 'text', text: 'Synthetic queued turn' }] }, new AbortController().signal)
+    } finally { release() }
+    await agent.whenIdle()
+    expect(f.requests).toHaveLength(3)
+    expect(f.requests[1].tools.map(tool => tool.name)).toContain('eleckoi_list_toolsets')
+    expect(JSON.stringify(f.requests[1].messages)).not.toContain('SYNTHETIC_QUEUED_PRESET')
+    expect(f.requests[2].tools.map(tool => tool.name)).not.toContain('eleckoi_list_toolsets')
+    expect(JSON.stringify(f.requests[2].messages)).toContain('SYNTHETIC_QUEUED_PRESET')
+    expect(agent.session.snapshotEvents().filter(event => event.type === 'turn/end').map(event => event.data.reason.kind)).toEqual(['completed', 'completed'])
+  })
+
   it('recovers a complete large upload through its original reader under the formal spill policy', async () => {
     const body = 'Synthetic uploaded text 😀'.repeat(10001) + 'tail-marker'
     let f, ref, offset = 0, recovered = '', finished = false
@@ -317,7 +444,7 @@ describe('Creator studio uploaded-file composition', { timeout: 30_000 }, () => 
     await reopened.sendFile(agent.id)
     expect(reopened.requests.at(-2).tools.map(tool => tool.name)).toContain('eleckoi_read_uploaded_file')
     expect(JSON.stringify(reopened.requests.at(-1).messages)).toContain(f.expectedContent)
-    expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual(definition)
+    expect(JSON.parse(readFileSync(path, 'utf8')).plugins.map(plugin => plugin.id)).toContain('uploaded-file-tools')
   })
 
   it('rejects another studio Session file even when its exact attachment id is known', async () => {

@@ -1,0 +1,44 @@
+{
+  "repository": "https://github.com/deepseek-ai/deepseek-harness",
+  "commit": "b830ec950faba0a46dda564be3e2d854afed94f1",
+  "license": "MIT",
+  "licenseFile": "apps/desktop/resources/licenses/dsh-desktop-MIT.txt",
+  "files": [
+    {
+      "path": "apps/desktop/src/preload/windowsMenu.ts",
+      "source": "apps/desktop/src/preload-menu.ts",
+      "sha256": "456b5004c2c0c7f511e7b2d732ad1bfc394712cb26c9f38d8852aba75c0d1c60",
+      "localSha256": "bca0d073ca71d482adbeb33e457f849244cbe826a4c036a6f6b4202e2391ef97",
+      "changes": [
+        "Local module imports use the desktop shell channel and locale paths.",
+        "The existing product caption seat owns menu placement; observing the seat supports layout remounts.",
+        "An explicit DOM library reference supplies the preload document types.",
+        "Native popup requests carry the current document language; observing a remount skips work while the menu is connected."
+      ]
+    },
+    {
+      "path": "packages/shared/src/contracts/desktopMenuLocale.ts",
+      "source": "apps/desktop/src/locale.ts",
+      "sha256": "8426a3943be0dfe81d0f0ecef1d9fe3cc03dc6cd79d3b8177a316f12ac09b242",
+      "localSha256": "a34fd957c48d24f32fe03f0829681e500935773a3dac509fb7ac8f54f0887630",
+      "changes": [
+        "Only the caption-menu dictionary entries and locale resolver are retained for sharing across the main/preload boundary."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/platform/electron/desktopCaptionMenu.ts",
+      "source": "apps/desktop/src/main.ts",
+      "sha256": "e345eda0425f2df795d20413bb87bb9a3ddc46e71ceb1cec0755ad1cca3fb847",
+      "localSha256": "ad509ebac4450e6905669b8c5c625bad85bdd42d7859efde03d619a70096db9b",
+      "changes": [
+        "Extracted Windows caption popup validation, edit-item construction and zoom-adjusted native placement.",
+        "Application actions use existing ElecKoi About and update surfaces; no Desktop CLI manager is installed.",
+        "Editing keys follow the focused product contents or an owned browser guest."
+      ],
+      "relatedSource": {
+        "path": "apps/desktop/src/keyboard.ts",
+        "sha256": "7cf07391d8998813ea894d0e5d2f47053f5cc13dc9f48f257856cd19143b6728"
+      }
+    }
+  ]
+}

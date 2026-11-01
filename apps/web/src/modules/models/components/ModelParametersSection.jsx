@@ -1,3 +1,5 @@
+import { Children, Fragment } from 'react';
+import { IconCheckOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives';
 import { reasoningEffortIds, reasoningEffortLabel, reasoningOptions } from "../model/modelReasoningOptions.js";
 
 function optionalNumber(value) {
@@ -11,7 +13,22 @@ function compactTokens(value) {
   return value >= 1000 ? `${Number((value / 1000).toFixed(3))}K` : String(value);
 }
 
-export function ModelParametersSection({ form, activeModelOption, automaticContextWindow, effectiveContextWindow, parameterError, modelCapabilities, showReasoningProfileEditor = false, compact = false, onChange }) {
+function ParameterGrid({ picker, children }) {
+  const order = ['reasoning', 'temperature', 'context', 'compaction', 'output', 'top-p'];
+  const fields = Children.toArray(children);
+  if (picker) fields.sort((a, b) => order.indexOf(a.props['data-parameter']) - order.indexOf(b.props['data-parameter']));
+  return <div className="model-parameter-grid">{fields}</div>;
+}
+
+function CapabilityCheckbox({ picker, label, className = '', ...props }) {
+  return <label className={`${className}${picker ? ' chat-model-capability-choice' : ''}`}>
+    <input type="checkbox" {...props} />
+    {picker ? <span className="chat-model-capability-box" aria-hidden="true"><IconCheckOutlineMedium size={12} /></span> : null}
+    <span>{label}</span>
+  </label>;
+}
+
+export function ModelParametersSection({ form, activeModelOption, automaticContextWindow, effectiveContextWindow, parameterError, modelCapabilities, showReasoningProfileEditor = false, compact = false, picker = false, onChange }) {
   const options = reasoningOptions(modelCapabilities.reasoningEfforts);
   const selectedEffort = options.some((item) => item.id === activeModelOption?.reasoningEffort)
     ? activeModelOption.reasoningEffort
@@ -19,6 +36,7 @@ export function ModelParametersSection({ form, activeModelOption, automaticConte
   const reasoningAvailable = modelCapabilities.reasoningEfforts.length > 0;
   const inheritsCapabilities = form.builtin && form.useBuiltinModels !== false && activeModelOption?.capabilitiesOverride !== true;
   const inputModalities = activeModelOption?.inputModalities || (activeModelOption?.supportsImageInput ? ['text', 'image'] : ['text']);
+  const Capabilities = picker ? 'details' : Fragment;
 
   function toggleModality(modality, checked) {
     const next = checked ? [...inputModalities.filter(item => item !== modality), modality] : inputModalities.filter(item => item !== modality);
@@ -46,50 +64,50 @@ export function ModelParametersSection({ form, activeModelOption, automaticConte
   }
   return (
     <section className={`model-form-section${compact ? " mobile-model-section mobile-model-parameters" : ""}`}>
-      <div className="model-section-heading">
+      {!picker && <div className="model-section-heading">
         <h3>{compact ? "参数" : "模型参数"}</h3>
         {!compact && <span>{form.model ? `仅作用于 ${form.model}` : "先选择模型后设置"}</span>}
-      </div>
-      <div className="model-parameter-grid">
-        <label>
+      </div>}
+      <ParameterGrid picker={picker}>
+        <label data-parameter="context">
           <span>上下文窗口 <small>{compact ? `= ${compactTokens(effectiveContextWindow)}` : `自动 ${automaticContextWindow.toLocaleString()}`}</small></span>
           <input type="number" min="1" disabled={!form.model} value={activeModelOption?.contextWindowTokens ?? ""} onChange={(event) => onChange({ contextWindowTokens: optionalNumber(event.target.value) })} placeholder={String(automaticContextWindow)} />
         </label>
-        <label>
+        <label data-parameter="compaction">
           <span>自动压缩阈值 <small>{compact ? `= ${compactTokens(activeModelOption?.autoCompactTokenLimit ?? Math.floor(effectiveContextWindow * 0.8))} · ${activeModelOption?.autoCompactTokenLimit == null ? '占上下文 80%' : '自定义'}` : '默认占上下文 80%'}</small></span>
           <input type="number" min="1" max={effectiveContextWindow} disabled={!form.model} value={activeModelOption?.autoCompactTokenLimit ?? ""} onChange={(event) => onChange({ autoCompactTokenLimit: optionalNumber(event.target.value) })} placeholder={`${compact ? '自动 ' : ''}${Math.floor(effectiveContextWindow * 0.8)}`} />
         </label>
-        <label>
+        <label data-parameter="output">
           <span>单次最大输出 <small>{compact && activeModelOption?.maxOutputTokens != null ? `= ${compactTokens(activeModelOption.maxOutputTokens)}` : '留空由上游决定'}</small></span>
           <input type="number" min="1" disabled={!form.model} value={activeModelOption?.maxOutputTokens ?? ""} onChange={(event) => onChange({ maxOutputTokens: optionalNumber(event.target.value) })} placeholder="自动" />
         </label>
-        <label>
+        <label data-parameter="reasoning">
           <span>推理强度 <small>当前请求</small></span>
           <select disabled={!form.model || !reasoningAvailable} value={selectedEffort} onChange={(event) => updateReasoningEffort(event.target.value)}>
             {options.map((effort) => <option key={effort.id} value={effort.id}>{compact && !effort.id ? '上游默认' : effort.label}</option>)}
           </select>
         </label>
-        <label>
+        <label data-parameter="temperature">
           <span>温度 <small>留空不发送</small></span>
           <input type="number" min="0" step="0.01" disabled={!form.model} value={activeModelOption?.temperature ?? ""} onChange={(event) => onChange({ temperature: optionalNumber(event.target.value) })} placeholder={compact ? '留空' : '上游默认'} />
         </label>
-        <label>
+        <label data-parameter="top-p">
           <span>Top P <small>{compact ? '留空不发送' : '0–1'}</small></span>
           <input type="number" min="0" max="1" step="0.01" disabled={!form.model} value={activeModelOption?.topP ?? ""} onChange={(event) => onChange({ topP: optionalNumber(event.target.value) })} placeholder={compact ? '留空' : '上游默认'} />
         </label>
-      </div>
+      </ParameterGrid>
+      <Capabilities {...(picker ? { className: 'chat-model-capabilities' } : {})}>
+      {picker ? <summary>模型能力</summary> : null}
       <div className="model-capabilities">
-        <div className="model-capabilities-heading">
-          <span>模型能力声明</span>
-          {form.builtin && form.useBuiltinModels !== false && <label className="model-capability-toggle">
-            <input type="checkbox" disabled={!form.model} checked={inheritsCapabilities} onChange={event => onChange({ capabilitiesOverride: !event.target.checked })} />
-            <span>使用目录默认</span>
-          </label>}
-        </div>
+        {(!picker || (form.builtin && form.useBuiltinModels !== false)) && <div className="model-capabilities-heading">
+          {!picker && <span>模型能力</span>}
+          {form.builtin && form.useBuiltinModels !== false && <CapabilityCheckbox picker={picker} className="model-capability-toggle" label="使用目录默认"
+            disabled={!form.model} checked={inheritsCapabilities} onChange={event => onChange({ capabilitiesOverride: !event.target.checked })} />}
+        </div>}
         <fieldset className="model-input-capabilities" aria-label="输入能力" disabled={!form.model || inheritsCapabilities}>
           <div>
-            <label><input type="checkbox" checked={inputModalities.includes('text')} onChange={event => toggleModality('text', event.target.checked)} />文本</label>
-            <label><input type="checkbox" checked={inputModalities.includes('image')} onChange={event => toggleModality('image', event.target.checked)} />图片</label>
+            <CapabilityCheckbox picker={picker} label="文本" checked={inputModalities.includes('text')} onChange={event => toggleModality('text', event.target.checked)} />
+            <CapabilityCheckbox picker={picker} label="图片" checked={inputModalities.includes('image')} onChange={event => toggleModality('image', event.target.checked)} />
           </div>
         </fieldset>
         {showReasoningProfileEditor && modelCapabilities.canDeclareReasoning ? (
@@ -117,6 +135,7 @@ export function ModelParametersSection({ form, activeModelOption, automaticConte
           </fieldset>
         ) : null}
       </div>
+      </Capabilities>
       {parameterError ? <p className="model-parameter-error">上下文、压缩阈值和输出需为正整数；压缩不能超过上下文；温度需为非负数，Top P 为 0–1；已声明推理能力时至少选择一个非关闭档位。</p> : null}
       {activeModelOption?.inputModalities?.length === 0 && <p className="model-parameter-error">至少选择一种输入能力。</p>}
     </section>

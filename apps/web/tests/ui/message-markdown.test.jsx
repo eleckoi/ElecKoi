@@ -338,7 +338,7 @@ describe("message markdown presentation", () => {
     expect(html.indexOf('class="bubble markdown-message"')).toBeLessThan(html.indexOf('class="agent-message-footer"'));
     expect(html.indexOf('class="opening-pager"')).toBeLessThan(html.indexOf('aria-label="复制"'));
     expect(html).toContain('aria-label="查看过程"');
-    expect(html).toContain('aria-label="朗读"');
+    expect(html).not.toContain('aria-label="朗读"');
     expect(html).toContain('aria-label="编辑"');
     expect(html).not.toContain('aria-label="重新生成"');
     expect(html).not.toContain('class="message-tools');
@@ -381,7 +381,7 @@ describe("message markdown presentation", () => {
     }));
 
     expect(html).toMatch(/aria-label="复制"[^>]*>.*?<\/button><button[^>]*aria-label="重新生成"/);
-    expect(html).toMatch(/aria-label="复制"[^>]*><svg width="18" height="18"/);
+    expect(html).toMatch(/aria-label="复制"[^>]*><svg /);
     expect(html).toMatch(/aria-label="编辑"[^>]*><svg width="18" height="18"/);
     expect(html).toContain('class="agent-message-footer"');
   });

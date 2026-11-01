@@ -51,6 +51,7 @@ export function CreatorStudioConversation({ model, editing = false, creating = f
     onOpenTools={() => setTools(true)} onEnterDeleteMode={showMessages} canDeleteMessages={!session.blank}
     onRegenerate={regenerate} regenerateTargetMessageId={session.blank ? null : sessionId} />;
   const modelPicker = <ModelPicker configs={configs.configs} selectedConfigId={selectedModel?.provider} selectedModel={selectedModel?.model}
+    renderModelLabel={owner => renderSlot('eleckoi.creator-studio.model.label', owner, { fallback: owner.model.name }) ?? owner.model.name}
     onSaveModelConfig={config => models.save(config)}
     onLoadModels={config => models.discover(config)} onNotify={notify} onSelect={selection => model.selectModel({ provider: selection.configId, model: selection.model })} />;
   const resident = renderSlot('eleckoi.creator-studio.composer.bar', { variant: 'composer', placeholder: '输入消息', leadingAccessory: menu, modelAccessory: modelPicker });

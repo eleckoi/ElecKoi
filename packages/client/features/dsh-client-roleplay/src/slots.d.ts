@@ -1,4 +1,5 @@
 import type { ComponentType, ReactNode } from 'react'
+import type { ModelLabelOwner } from '@deepseek-ai/dsh-client-ui-model-selection/client'
 import type {
   ComposerAttachmentsOwnerProps,
   ComposerBarOwnerProps,
@@ -47,6 +48,12 @@ export interface RoleplayMessageContentOwner extends RoleplayMessageOwner {
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
+    'eleckoi.roleplay.conversation.input.model.label': {
+      kind: 'single'
+      scope: 'session'
+      inline: true
+      owner: ModelLabelOwner
+    }
     'eleckoi.roleplay.chat': {
       kind: 'single'
       scope: 'session'

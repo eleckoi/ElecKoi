@@ -141,6 +141,33 @@
   min-width: 0;
 }
 
+.desktop-menu-seat {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  flex: none;
+  -webkit-app-region: no-drag;
+}
+
+.side-panel-header:has(> .desktop-menu-seat > [data-windows-menu]) {
+  justify-content: flex-start;
+  gap: 6px;
+}
+
+.side-panel-header:has(> .desktop-menu-seat > [data-windows-menu]) > .side-panel-brand { margin-right: 4px; }
+
+.title-caption-actions {
+  position: absolute;
+  top: 0;
+  left: 14px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.title-caption-actions .side-panel-expand-button { position: static; flex: none; }
+
 .title-project-tab {
   display: flex;
   align-items: center;

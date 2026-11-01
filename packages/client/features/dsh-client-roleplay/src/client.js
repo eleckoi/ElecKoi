@@ -357,6 +357,7 @@ window.__ModuleLoader__.load({
             'eleckoi.roleplay.conversation.input.permission': { kind: 'single', scope: 'session' },
             'eleckoi.roleplay.conversation.input.plan': { kind: 'single', scope: 'session' },
             'eleckoi.roleplay.conversation.input.model': { kind: 'single', scope: 'session' },
+            'eleckoi.roleplay.conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
             'eleckoi.roleplay.conversation.input.activity': { kind: 'single', scope: 'session' },
             'eleckoi.roleplay.conversation.composer.dock': { kind: 'list', scope: 'session' },
             'eleckoi.roleplay.conversation.composer': { kind: 'chain', scope: 'session' },
@@ -384,6 +385,7 @@ window.__ModuleLoader__.load({
           winnerOnly: true
         })
         projectConversationSeat('conversation.input.left', 'eleckoi.roleplay.conversation.input.left', { leafOnly: true })
+        projectConversationSeat('conversation.input.model.label', 'eleckoi.roleplay.conversation.input.model.label', { leafOnly: true, winnerOnly: true })
         projectConversationSeat('conversation.input.right', 'eleckoi.roleplay.conversation.input.right', { leafOnly: true })
         projectConversationSeat('conversation.input.overlay', 'eleckoi.roleplay.conversation.input.overlay', { leafOnly: true })
         projectConversationSeat('conversation.input.dock', 'eleckoi.roleplay.conversation.input.dock', {

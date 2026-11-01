@@ -87,6 +87,14 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
     chat.setActiveSection(section);
   }, [chat]);
 
+  useEffect(() => window.dshDesktop?.menu?.subscribe((command) => {
+    if (command === 'about') { setSettingsPage('about'); changeActiveSection('settings'); }
+    if (command === 'check-updates') void appUpdates.check().catch((cause) => {
+      const failure = resolveFailure(cause, { fallback: '检查更新失败。' });
+      chat.notify('error', failure.text, failure);
+    });
+  }), [changeActiveSection, appUpdates.check, chat.notify]);
+
   const chatWallpaper = useMemo(() => resolveChatWallpaper({
     character: chat.chatBackgroundCharacter,
     persona: chat.chatPersona,
@@ -104,6 +112,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
 
   function renderWindowLayout({ sidePanel, mainPanel, overlays = null }) {
     const renderSidebarContent = (renderSidebarSlot) => <SidebarContent
+          desktopMenu
           activeSection={chat.activeSection}
           navigationItems={navigation?.items}
           renderEntryActions={navigation?.hasSidebarEntryActions && renderSidebarSlot
@@ -136,6 +145,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
         <section className="main-panel-shell" aria-label="主功能界面">
           <TitleBar
             splitSurface
+            desktopMenu={sidePanelLayout.sidePanelCollapsed || isPluginPanel}
             showWindowControls={false}
             sidePanelCollapsed={sidePanelLayout.sidePanelCollapsed && !isPluginPanel}
             onToggleSidePanel={sidePanelLayout.expandSidePanel}

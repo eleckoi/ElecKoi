@@ -1,8 +1,8 @@
 import {
-  IconCopyOutlineRegular, IconEditOutlineRegular,
-  IconRefreshOutlineRegular, IconChevronLeftOutlineRegular, IconChevronRightOutlineRegular,
+  IconCopyOutlineRegular, IconCopyOutlineMedium, IconEditOutlineRegular,
+  IconRefreshOutlineRegular, IconRefreshOutlineMedium, IconChevronLeftOutlineRegular, IconChevronRightOutlineRegular,
+  IconClockOutlineRegular, IconClockOutlineMedium,
 } from '@deepseek-ai/dsh-client-ui-primitives';
-import { ClockCounterClockwise, SpeakerHigh } from '@phosphor-icons/react';
 
 function StrokeIcon({ paths, size = 18, className, viewBox = '0 0 24 24', strokeWidth = 1.9 }) {
   return (
@@ -22,12 +22,16 @@ export const MessagePencilIcon = ({ size = 18, className }) => <svg width={size}
   <path d="M410 231 422 220 410 231 422 220 388 186 326 124 292 90 280 101 258 124 59 323Q43 339 36 360L1 481Q-3 494 7 504Q17 514 31 511L151 475Q173 469 189 453L388 254L410 231ZM160 399 151 422 160 399 151 422Q145 427 138 429L59 452L82 374Q85 367 89 361L112 352V384Q113 398 128 400H160ZM363 19 348 33 363 19 348 33 326 56 314 67 348 101 410 163 444 197 455 186 478 163 493 149Q511 129 511 103Q511 78 493 58L453 19Q434 0 408 0Q383 0 363 19ZM315 187 171 331 315 187 171 331Q160 340 149 331Q139 319 149 308L293 164Q304 155 315 164Q325 175 315 187Z" fill="currentColor" />
 </svg>;
 export const AgentPencilIcon = ({ size = 18, className }) => <IconEditOutlineRegular size={size} className={className} />;
-export const AgentHistoryIcon = ({ size = 18, className }) => <ClockCounterClockwise size={size} className={className} weight="regular" aria-hidden="true" />;
-export const AgentSpeakerIcon = ({ size = 18, className }) => <SpeakerHigh size={size} className={className} weight="regular" aria-hidden="true" />;
-export const HistoryIcon = (props) => <StrokeIcon {...props} paths={['M4.8 12a7.2 7.2 0 1 0 2.1-5.1', 'M4.8 5.2v4.1h4.1', 'M12 7.8v4.55l3.1 1.85']} />;
-export const CopyIcon = ({ size = 18, className }) => <IconCopyOutlineRegular size={size} className={className} />;
-export const RefreshMessageIcon = ({ size = 18, className }) => <IconRefreshOutlineRegular size={size} className={className} />;
-export const SpeakerIcon = (props) => <StrokeIcon {...props} paths={['M5 14.5h3.2l4.3 3.8V5.7L8.2 9.5H5a1.5 1.5 0 0 0-1.5 1.5v2A1.5 1.5 0 0 0 5 14.5Z', 'M16.2 9.2a4.2 4.2 0 0 1 0 5.6M18.8 6.8a7.6 7.6 0 0 1 0 10.4']} />;
+export const AgentHistoryIcon = ({ size = 18, className }) => <IconClockOutlineRegular size={size} className={className} />;
+export const HistoryIcon = ({ size = 18, className }) => <IconClockOutlineMedium size={size} className={className} />;
+export const CopyIcon = ({ size = 16, className, emphasized = false }) => {
+  const Icon = emphasized ? IconCopyOutlineMedium : IconCopyOutlineRegular;
+  return <Icon size={size} className={`message-action-wide-glyph${className ? ` ${className}` : ''}`} />;
+};
+export const RefreshMessageIcon = ({ size = 16, className, emphasized = false }) => {
+  const Icon = emphasized ? IconRefreshOutlineMedium : IconRefreshOutlineRegular;
+  return <Icon size={size} className={`message-action-wide-glyph${className ? ` ${className}` : ''}`} />;
+};
 export const TranslateIcon = (props) => <StrokeIcon {...props} paths={['M4.5 5.2h7.8M8.4 3.8v1.4M6.1 8.4c1 2.2 2.7 4 5.1 5.2', 'M11.9 8.4c-.75 1.85-2.35 3.72-4.9 5.65', 'M13.3 20.2 17 10.8l3.7 9.4M14.4 17.4h5.2']} />;
 export const MessageChevronRightIcon = ({ size = 18, className }) => <IconChevronRightOutlineRegular size={size} className={className} />;
 export const MessageChevronLeftIcon = ({ size = 18, className }) => <IconChevronLeftOutlineRegular size={size} className={className} />;

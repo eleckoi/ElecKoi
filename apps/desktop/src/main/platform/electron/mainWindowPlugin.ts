@@ -17,6 +17,7 @@ import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import { logAction, relayRendererActionLog } from '@main/platform/logging/logActions'
 import { handleDesktopIpcCall } from './desktopIpcHandler'
+import { createDesktopCaptionMenu } from './desktopCaptionMenu'
 
 export const mainWindowPlugin = {
   name: 'eleckoi-main-window',
@@ -31,6 +32,10 @@ export const mainWindowPlugin = {
     const windows = new ElectronWindowHost()
     ctx.provide('electronWindows', windows)
     let mainWindow: BrowserWindow | undefined
+    if (process.platform === 'win32') {
+      handleDesktopIpcCall(DESKTOP_SHELL_IPC.windowsMenu,
+        createDesktopCaptionMenu(() => mainWindow, owner => browserGuests.focusedContents(owner)))
+    }
     let pluginHostReady: { url: string; injections: readonly unknown[]; cookie: string } | undefined
     const browserGuests = new DesktopBrowserGuests(() => pluginHostReady?.url)
 
@@ -232,6 +237,7 @@ export const mainWindowPlugin = {
     pluginHostReady = { ...ready, cookie: await authenticateDshClientHost(ready.url) }
     await windows.open('main')
     return () => {
+      if (process.platform === 'win32') ipcMain.removeHandler(DESKTOP_SHELL_IPC.windowsMenu)
       ipcMain.removeHandler(DESKTOP_SHELL_IPC.windowControl)
       ipcMain.removeHandler(DESKTOP_SHELL_IPC.browserAcquire)
       ipcMain.removeHandler(DESKTOP_SHELL_IPC.browserRelease)

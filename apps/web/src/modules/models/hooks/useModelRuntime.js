@@ -25,10 +25,8 @@ export function useModelRuntime({ modelCatalog, setStatus }) {
   }, [modelCatalog, setStatus]);
 
   async function loadModelOptions(config = modelConfigs[0]) {
-    await modelCatalog.refresh();
     if (!config) return [];
-    const current = modelCatalog.getSnapshot().configs.find((item) => item.id === config.id);
-    return current?.model_options || [];
+    return modelCatalog.discover(config);
   }
 
   return {

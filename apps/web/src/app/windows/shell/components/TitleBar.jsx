@@ -41,11 +41,14 @@ export function TitleBar({
   sidePanelCollapsed = false,
   onToggleSidePanel,
   onClose,
+  desktopMenu = false,
 }) {
   if (splitSurface) {
     return (
       <header className="client-titlebar split-surface" data-tauri-drag-region>
-        {sidePanelCollapsed && onToggleSidePanel ? (
+        {desktopMenu || (sidePanelCollapsed && onToggleSidePanel) ? <div className={desktopMenu ? 'title-caption-actions' : undefined}>
+          {desktopMenu ? <span className="desktop-menu-seat" data-desktop-menu-seat /> : null}
+          {sidePanelCollapsed && onToggleSidePanel ? (
           <button
             className="side-panel-expand-button"
             type="button"
@@ -57,7 +60,8 @@ export function TitleBar({
           >
             <DshPanelLeftIcon size={16} />
           </button>
-        ) : null}
+          ) : null}
+        </div> : null}
         <div className="title-spacer" data-tauri-drag-region>
           {projectTitle ? (
             <div className="title-project-tab">

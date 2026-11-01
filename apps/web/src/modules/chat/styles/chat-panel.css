@@ -752,6 +752,7 @@
 }
 
 .agent-user-actions button > svg { width: calc(15px + var(--dsh-content-font-delta, 0px)); height: calc(15px + var(--dsh-content-font-delta, 0px)); }
+.agent-user-actions button > svg.message-action-wide-glyph { width: calc(14px + var(--dsh-content-font-delta, 0px)); height: calc(14px + var(--dsh-content-font-delta, 0px)); }
 .agent-user-actions button:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, var(--active)); color: var(--dsw-alias-label-secondary, var(--muted)); }
 .agent-user-actions button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .agent-user-actions button:disabled { opacity: .42; cursor: default; }
@@ -789,6 +790,7 @@
 }
 
 .agent-message-footer-leading > button > svg { width: calc(17px + var(--dsh-content-font-delta, 0px)); height: calc(17px + var(--dsh-content-font-delta, 0px)); }
+.agent-message-footer-leading > button > svg.message-action-wide-glyph { width: calc(16px + var(--dsh-content-font-delta, 0px)); height: calc(16px + var(--dsh-content-font-delta, 0px)); }
 .agent-message-footer button:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, var(--active)); color: var(--dsw-alias-label-secondary, var(--muted)); }
 .agent-message-footer button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .agent-message-footer button:disabled { opacity: .42; cursor: default; }
@@ -1209,11 +1211,13 @@
 }
 
 .message-tools-expanded > button > svg { width: calc(17px + var(--dsh-content-font-delta, 0px)); height: calc(17px + var(--dsh-content-font-delta, 0px)); }
+.message-tools-expanded > button > svg.message-action-wide-glyph { width: calc(16px + var(--dsh-content-font-delta, 0px)); height: calc(16px + var(--dsh-content-font-delta, 0px)); }
 .message-tools-expanded > button:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, var(--active)); color: var(--dsw-alias-label-secondary, var(--muted)); }
 .message-tools > button:hover:not(:disabled),
 .message-tools-leading > button:hover:not(:disabled),
 .opening-pager button:hover:not(:disabled) { background: color-mix(in srgb, currentColor 9%, transparent); }
 .message-tools-expanded { display: flex; align-items: center; gap: 2px; color: var(--dsw-alias-label-tertiary, var(--soft-text)); }
+.message-roleplay .message-tools-expanded { color: inherit; }
 
 .message-inline-editor {
   display: grid;
@@ -2788,10 +2792,11 @@ button.chat-file-card:hover { border-color: var(--blue); }
   width: 174px;
   padding: 6px;
   overflow: hidden;
-  border: 1px solid var(--line-strong);
+  border: 0;
   border-radius: 14px;
-  background: var(--surface-raised);
-  box-shadow: 0 18px 42px var(--shadow-color);
+  background: transparent;
+  --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
+  box-shadow: var(--dsw-elevation-prominent);
 }
 
 .composer-more-menu button {
@@ -2805,14 +2810,17 @@ button.chat-file-card:hover { border-color: var(--blue); }
   border: 0;
   border-radius: 9px;
   background: transparent;
-  color: var(--text);
+  color: var(--dsw-alias-label-primary);
   font-size: 13px;
   font-weight: 520;
   text-align: left;
   text-shadow: none;
 }
 
-.composer-more-menu button:hover:not(:disabled),
+.composer-more-menu button:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
 .composer-more-trigger.active {
   background: var(--control-bg-hover);
 }
@@ -2829,7 +2837,7 @@ button.chat-file-card:hover { border-color: var(--blue); }
 .composer-more-menu > i {
   height: 1px;
   margin: 4px 8px;
-  background: var(--line);
+  background: var(--dsw-alias-border-l1);
 }
 
 .roleplay-menu-trigger {

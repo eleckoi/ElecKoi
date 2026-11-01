@@ -72,9 +72,10 @@
   flex: none;
 }
 
-.side-panel-brand > .eleckoi-wordmark {
+.side-panel-brand .eleckoi-wordmark {
   flex-shrink: 1;
   min-width: 0;
+  height: auto;
 }
 
 .side-panel-collapse-button {

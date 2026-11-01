@@ -421,7 +421,7 @@ export interface CreatorStudioConversationSnapshot {
 }
 ```
 
-源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:12](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L12)
+源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:13](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L13)
 
 ## CreatorStudioSessions
 
@@ -447,7 +447,7 @@ export interface CreatorStudioSessions {
 }
 ```
 
-源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:20](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L20)
+源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:21](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L21)
 
 ## CreatorStudioSnapshot
 
@@ -459,7 +459,7 @@ export interface CreatorStudioSnapshot {
 }
 ```
 
-源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:46](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L46)
+源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:48](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L48)
 
 ## EditorLibraryVersionModel
 

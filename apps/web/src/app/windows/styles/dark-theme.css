@@ -103,7 +103,7 @@
   .app-settings-card,
   .avatar-manager-dialog,
   .avatar-crop-window,
-  .chat-model-panel,
+  .chat-model-panel:not(.is-compact),
   .history-confirm
 ) {
   border-color: var(--line-strong);

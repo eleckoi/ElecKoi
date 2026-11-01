@@ -4,7 +4,7 @@
 
 本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.1-rc.5`，提交 `b830ec950faba0a46dda564be3e2d854afed94f1`。
 
-当前共 **17 个 bundle、109 个开发接口**：65 个界面插槽、21 个服务、0 个事件、2 个贡献点、21 个 Remote 合同。
+当前共 **17 个 bundle、111 个开发接口**：67 个界面插槽、21 个服务、0 个事件、2 个贡献点、21 个 Remote 合同。
 
 接口标题和说明用于插件中心展示；真实调用合同以对应类型导出和实现为准。完整参数、返回值和数据字段见 [Client 参考](api-client.md)、[Host 参考](api-host.md) 与 [Remote 调用声明](api-remote.md)。使用方法见 [界面插槽](ui-slots.md)、[服务接口](services.md) 与 [能力贡献](contributions.md)。
 
@@ -15,14 +15,14 @@
 | `@eleckoi/dsh-client-characters` | 11 | 1 | 0 | 0 | 0 | 12 |
 | `@eleckoi/dsh-client-character-configuration` | 0 | 6 | 0 | 0 | 0 | 6 |
 | `@eleckoi/dsh-client-conversations` | 1 | 1 | 0 | 0 | 0 | 2 |
-| `@eleckoi/dsh-client-creator-studio` | 0 | 1 | 0 | 0 | 0 | 1 |
+| `@eleckoi/dsh-client-creator-studio` | 1 | 1 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-display-preferences` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-models` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-persona` | 1 | 1 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-presets` | 7 | 1 | 0 | 0 | 0 | 8 |
 | `@eleckoi/dsh-client-web-search` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-shell` | 17 | 1 | 0 | 0 | 0 | 18 |
-| `@eleckoi/dsh-client-roleplay` | 28 | 1 | 0 | 0 | 0 | 29 |
+| `@eleckoi/dsh-client-roleplay` | 29 | 1 | 0 | 0 | 0 | 30 |
 | `@eleckoi/dsh-auto-illustration` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-author` | 0 | 2 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-html-resources` | 0 | 1 | 0 | 1 | 0 | 2 |
@@ -86,6 +86,7 @@
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `eleckoiCreatorStudio` | 创作项目服务 | 服务 | 提供 | `call` | `client` | 读取、创建、删除创作项目并订阅项目列表变化。 | `getSnapshot`、`subscribe`、`refresh`、`create`、`delete`、`selectDirectory` |
+| `eleckoi.creator-studio.model.label` | 创作工作室模型标签 | 界面插槽 | 提供 | `replace` | `session` | 在工作室模型入口、当前模型及选项中复用官方模型名称与标签扩展。 | — |
 
 ## `@eleckoi/dsh-client-display-preferences`
 
@@ -199,6 +200,7 @@
 | `eleckoi.roleplay.conversation.input.permission` | 权限控件 | 界面插槽 | 提供 | `replace` | `session` | 替换输入框中的权限控件。 | — |
 | `eleckoi.roleplay.conversation.input.plan` | 计划控件 | 界面插槽 | 提供 | `replace` | `session` | 替换输入框中的计划模式控件。 | — |
 | `eleckoi.roleplay.conversation.input.model` | 输入框皮肤模型位 | 界面插槽 | 提供 | `replace` | `session` | 供输入框皮肤调用的模型控件位置；默认输入框使用 ElecKoi 模型选择器。 | — |
+| `eleckoi.roleplay.conversation.input.model.label` | 模型名称与标签 | 界面插槽 | 提供 | `replace` | `session` | 在模型入口、当前模型及选项中复用官方模型名称扩展，只显示名称与标签。 | — |
 | `eleckoi.roleplay.conversation.input.activity` | 输入框活动区 | 界面插槽 | 提供 | `replace` | `session` | 替换输入框右侧活动区，展开时占用工具栏空间。 | — |
 | `eleckoi.roleplay.conversation.composer.dock` | 输入框下方 | 界面插槽 | 提供 | `append` | `session` | 在输入框下方的产品统计区域追加内容；默认官方统计不重复显示。 | — |
 | `eleckoi.roleplay.conversation.approval.detail` | 审批详情 | 界面插槽 | 提供 | `replace` | `session` | 在输入区被审批组件接管时替换审批详情。 | — |

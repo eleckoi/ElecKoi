@@ -1,10 +1,14 @@
+const messageBubblePath = 'M2.37067 11.2497C1.5872 9.89252 1.32042 8.29798 1.61945 6.7597C1.91847 5.22141 2.76317 3.84293 3.99801 2.87809C5.23285 1.91325 6.7747 1.427 8.33964 1.50888C9.90458 1.59076 11.3873 2.23526 12.5147 3.32369C13.6422 4.41232 14.3384 5.8717 14.4751 7.43304C14.6118 8.99438 14.1797 10.5525 13.2585 11.8205C12.3372 13.0885 10.9889 13.9809 9.4617 14.3334C8.18666 14.6277 6.8587 14.529 5.64964 14.0601C5.17095 13.8745 4.76937 13.4929 4.26509 13.3963L2.0377 14.3334Z';
+
 export function MessageNavIcon() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path className="nav-fill message-fill" d="M6.2 5.1h11.6a3.2 3.2 0 0 1 3.2 3.2v5.2a3.2 3.2 0 0 1-3.2 3.2h-5.5L7.1 20v-3.3h-.9A3.2 3.2 0 0 1 3 13.5V8.3a3.2 3.2 0 0 1 3.2-3.2Z" />
-      <path d="M6.2 5.1h11.6a3.2 3.2 0 0 1 3.2 3.2v5.2a3.2 3.2 0 0 1-3.2 3.2h-5.5L7.1 20v-3.3h-.9A3.2 3.2 0 0 1 3 13.5V8.3a3.2 3.2 0 0 1 3.2-3.2Z" />
-      <circle className="nav-cutout" cx="9.5" cy="10.9" r="1.15" />
-      <circle className="nav-cutout" cx="14.5" cy="10.9" r="1.15" />
+    <svg className="message-nav-icon" viewBox="0 0 16 16" aria-hidden="true">
+      <g transform="translate(16 0) scale(-1 1)">
+        <path className="nav-fill" d={messageBubblePath} />
+        <path d={messageBubblePath} />
+      </g>
+      <circle className="nav-cutout message-nav-dot" cx="6" cy="7.6" r="0.7" />
+      <circle className="nav-cutout message-nav-dot" cx="10" cy="7.6" r="0.7" />
     </svg>
   );
 }

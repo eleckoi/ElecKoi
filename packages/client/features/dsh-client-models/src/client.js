@@ -347,13 +347,14 @@ window.__ModuleLoader__.load({
         return models.map(model => {
           const defaults = { id: model.id, name: model.name || model.id, contextWindowTokens: model.contextWindow, maxOutputTokens: model.maxTokens, inputModalities: model.inputModalities || ['text'], supportsImageInput: model.inputModalities?.includes('image') === true, reasoningEfforts: model.reasoningEfforts || false };
           return ({ ...(unchangedEndpoint ? saved.model_options?.find(item => item.id === model.id) : {}),
-          id: model.id, name: model.name || model.id,
+          id: model.id,
           ...(model.contextWindow ? { contextWindowTokens: model.contextWindow } : {}),
           ...(model.maxTokens ? { maxOutputTokens: model.maxTokens } : {}),
           ...(model.inputModalities ? { inputModalities: [...model.inputModalities], supportsImageInput: model.inputModalities.includes('image') } : {}),
           ...(model.reasoningEfforts === undefined ? {} : { reasoningEfforts: model.reasoningEfforts }),
           ...(model.reasoningEffort === undefined ? {} : { reasoningEffort: model.reasoningEffort }),
           ...(config.model_options?.find(item => item.id === model.id) || {}),
+          name: model.name || model.id,
           ...(config.builtin ? { catalogDefaults: defaults } : {}) }) })
       }
 

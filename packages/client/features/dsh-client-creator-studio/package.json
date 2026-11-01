@@ -53,23 +53,33 @@
           "delete",
           "selectDirectory"
         ]
+      },
+      {
+        "id": "eleckoi.creator-studio.model.label",
+        "kind": "ui-slot",
+        "title": "创作工作室模型标签",
+        "description": "在工作室模型入口、当前模型及选项中复用官方模型名称与标签扩展。",
+        "mode": "replace",
+        "scope": "session",
+        "relation": "provides"
       }
     ]
   },
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.5",
-    "@eleckoi/dsh-product-api": "workspace:*",
-    "@deepseek-ai/dsh-tools": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-api-session-controller": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-model-selection": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-session": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.5",
     "@deepseek-ai/dsh-llm": "0.2.1-rc.5",
     "@deepseek-ai/dsh-scope": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-api-session-controller": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-session": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-rc.5",
     "@deepseek-ai/dsh-session": "0.2.1-rc.5",
     "@deepseek-ai/dsh-session-projection": "0.2.1-rc.5",
-    "@eleckoi/dsh-product-data": "workspace:*",
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.5",
     "@eleckoi/dsh-client-roleplay": "workspace:*",
+    "@eleckoi/dsh-product-api": "workspace:*",
+    "@eleckoi/dsh-product-data": "workspace:*",
     "zod": "4.1.11"
   }
 }

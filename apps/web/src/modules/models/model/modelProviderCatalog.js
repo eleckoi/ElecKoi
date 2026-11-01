@@ -154,7 +154,8 @@ export function modelOptionsKey(config) {
 
 export function configProviderMeta(config, providers = []) {
   if (isImageProviderId(config?.provider) || config?.provider === 'deepseek') return catalogItem(config.provider);
-  const route = providers.find(item => item.provider === config?.id);
+  const route = providers.find(item => item.provider === config?.id)
+    ?? (config?.builtin ? { provider: config.id, displayName: config.name || config.id } : undefined);
   if (config?.builtin && route) {
     return { ...catalogItem('custom'), id: route.provider, label: route.displayName || route.provider,
       badge: '内置提供商', summary: '',

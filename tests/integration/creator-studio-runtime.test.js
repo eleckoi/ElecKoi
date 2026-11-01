@@ -492,13 +492,17 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     const last = createUserMessage({ content: [{ type: 'text', text: '合成待重新生成输入' }], source: { kind: 'user' } })
     for (const input of [first, last]) { f.handle.agent.followup(input); await f.handle.agent.whenIdle() }
     const previous = {}
-    for (const [key, value] of Object.entries({ ELECKOI_PRESET_ROOT: join(f.root, 'presets'), ELECKOI_PRESET_TEMPLATE_PATH: join(f.root, 'template'), ELECKOI_WORKSPACE_ROOT: f.root })) {
+    for (const [key, value] of Object.entries({ ELECKOI_PRESET_ROOT: join(f.root, 'presets'), ELECKOI_PRESET_TEMPLATE_PATH: join(process.cwd(), 'apps/desktop/resources/dsh/agent-preset-template/agent.cordis.yml'), ELECKOI_WORKSPACE_ROOT: f.root })) {
       previous[key] = process.env[key]; process.env[key] = value
     }
     cleanups.push(() => { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value } })
     let service
     const dispose = await installCreatorStudioRuntime({
       agents: f.ctx.agents, eleckoiProductData: f.ctx.eleckoiProductData,
+      agentPresets: { register: async () => () => {}, recompose: async () => {} },
+      agentDefaultModel: { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) },
+      llm: f.ctx.llm, settings: f.ctx.settings, sessionProjections: f.ctx.sessionProjections,
+      on: f.ctx.on.bind(f.ctx), get: f.ctx.get.bind(f.ctx),
       provide: (_key, value) => { service = value },
       sessionController: {
         inspect: async () => ({ meta: f.handle.agent.session.header, events: f.handle.agent.session.snapshotEvents() }),

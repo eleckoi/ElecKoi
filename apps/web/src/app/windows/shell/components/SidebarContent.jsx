@@ -1,7 +1,7 @@
 import { SidebarRail } from './SidebarRail.jsx';
 import { SidePanelShell } from './SidePanelShell.jsx';
 
-export function SidebarContent({ expanded = false, collapsed, onCollapse, sidePanel, hasFooterActions, renderSidebarSlot, ...railProps }) {
+export function SidebarContent({ expanded = false, collapsed, onCollapse, sidePanel, hasFooterActions, renderSidebarSlot, desktopMenu = false, ...railProps }) {
   const footerActions = hasFooterActions ? renderSidebarSlot?.('sidebar.footer.action', { wide: true }) : null;
   const rail = <SidebarRail {...railProps} expanded={expanded} onCollapse={onCollapse}
     renderSidebarSlot={renderSidebarSlot} footerActions={expanded ? footerActions : null} />;
@@ -11,7 +11,7 @@ export function SidebarContent({ expanded = false, collapsed, onCollapse, sidePa
       <div className="navigation-rail-title" data-tauri-drag-region />
       {rail}
     </section>
-    <SidePanelShell collapsed={collapsed} onCollapse={onCollapse} renderSidebarSlot={renderSidebarSlot} footerActions={footerActions}>
+    <SidePanelShell collapsed={collapsed} onCollapse={onCollapse} renderSidebarSlot={renderSidebarSlot} footerActions={footerActions} desktopMenu={desktopMenu}>
       {renderSidebarSlot?.('sidebar.workspaces', { wide: true, content: sidePanel }) || sidePanel}
     </SidePanelShell>
   </>;

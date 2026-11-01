@@ -34,20 +34,21 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/dsh-spill-local": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-credentials": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-session-projection-cache": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-chat": "0.2.1-rc.5",
     "@deepseek-ai/dsh-agent-default-model": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-scope": "0.2.1-rc.5",
     "@deepseek-ai/dsh-api-session-controller": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-chat": "0.2.1-rc.5",
     "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-model-selection": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-credentials": "0.2.1-rc.5",
     "@deepseek-ai/dsh-llm": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-scope": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-session": "0.2.1-rc.5",
     "@deepseek-ai/dsh-session-projection": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-session-projection-cache": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-spill-local": "0.2.1-rc.5",
     "@eleckoi/dsh-product-data": "workspace:*",
     "yaml": "2.9.0",
-    "zod": "4.1.11",
-    "@deepseek-ai/dsh-session": "0.2.1-rc.5"
+    "zod": "4.1.11"
   },
   "description": "提供角色聊天界面，并将角色配置接入 DSH 对话运行。",
   "engines": {
@@ -222,6 +223,15 @@
         "kind": "ui-slot",
         "title": "输入框皮肤模型位",
         "description": "供输入框皮肤调用的模型控件位置；默认输入框使用 ElecKoi 模型选择器。",
+        "mode": "replace",
+        "scope": "session",
+        "relation": "provides"
+      },
+      {
+        "id": "eleckoi.roleplay.conversation.input.model.label",
+        "kind": "ui-slot",
+        "title": "模型名称与标签",
+        "description": "在模型入口、当前模型及选项中复用官方模型名称扩展，只显示名称与标签。",
         "mode": "replace",
         "scope": "session",
         "relation": "provides"

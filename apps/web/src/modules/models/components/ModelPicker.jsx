@@ -1,11 +1,14 @@
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { IconCheckOutlineRegular, MenuSurface, useAnchoredPosition } from '@deepseek-ai/dsh-client-ui-primitives';
 import { createPortal } from "react-dom";
 import { ModelIdentityIcon } from "./ModelIdentityIcon.jsx";
+import { ProviderLogo } from './ProviderLogo.jsx';
 import { UnsavedChangesDialog } from "../../../ui/ui/UnsavedChangesDialog.jsx";
-import { modelOptionsKey } from "../model/modelProviderCatalog.js";
+import { configProviderMeta, modelOptionsKey } from "../model/modelProviderCatalog.js";
 import { modelParameterState } from "../model/modelConfigDraft.js";
+import { reasoningEffortLabel } from '../model/modelReasoningOptions.js';
 import { useModelCapabilities } from "../hooks/useModelCapabilities.js";
 import { ModelParametersSection } from "./ModelParametersSection.jsx";
 import { MobileChatModelPicker } from '../../../mobile/MobileChatModelPicker.jsx';
@@ -58,6 +61,7 @@ export function ModelPicker({
   allowFollowMain = false,
   elevated = false,
   renderTrigger,
+  renderModelLabel,
   onLoadModels,
   onSelect,
   onSaveModelConfig,
@@ -66,6 +70,10 @@ export function ModelPicker({
   const mobile = isMobilePresentation();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("models");
+  const anchorRef = useRef(null), modelsPanelRef = useRef(null), parametersPanelRef = useRef(null), generationRef = useRef(0);
+  // Re-measure each pane before paint when its content height changes.
+  const panelRef = tab === 'parameters' ? parametersPanelRef : modelsPanelRef;
+  const position = useAnchoredPosition({ open: open && !mobile, anchorRef, panelRef, side: 'top', align: 'end', gap: 12, margin: 12 });
   const [changedConfigIds, setChangedConfigIds] = useState([]);
   const [focusedConfigId, setFocusedConfigId] = useState("");
   const [query, setQuery] = useState("");
@@ -107,6 +115,12 @@ export function ModelPicker({
       ? focusedModels.filter((item) => `${item.name} ${item.id}`.toLocaleLowerCase().includes(needle))
       : focusedModels;
   }, [focusedModels, query]);
+  const visibleGroups = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    return activeConfigs.map(config => ({ config, models: modelItems(config, open ? {} : modelOptionsByKey).filter(model =>
+      !needle || `${configName(config)} ${config.provider || ''} ${model.name} ${model.id}`.toLocaleLowerCase().includes(needle))
+    })).filter(group => group.models.length);
+  }, [activeConfigs, modelOptionsByKey, open, query]);
   const selectedModelId = followingMain
     ? ""
     : String(draftSelection.model || configDefaultModel(draftSelectedConfig, modelOptionsByKey)).trim();
@@ -117,6 +131,13 @@ export function ModelPicker({
     || draftSelection.model !== committedSelection.model;
 
   useEffect(() => {
+    if (!open || mobile) return;
+    const previous = document.activeElement;
+    const frame = window.requestAnimationFrame(() => panelRef.current?.focus({ preventScroll: true }));
+    return () => { window.cancelAnimationFrame(frame); if (previous?.isConnected) previous.focus({ preventScroll: true }); };
+  }, [open, mobile]);
+
+  useEffect(() => {
     if (!open || mobile) return undefined;
     const closeOnEscape = (event) => {
       if (event.key !== "Escape" || leaveDialogOpen) return;
@@ -124,12 +145,19 @@ export function ModelPicker({
       event.stopImmediatePropagation();
       requestClosePicker();
     };
+    const closeOutside = event => {
+      if (leaveDialogOpen || anchorRef.current?.contains(event.target) || panelRef.current?.contains(event.target)) return;
+      requestClosePicker();
+    };
     window.addEventListener("keydown", closeOnEscape, true);
-    return () => window.removeEventListener("keydown", closeOnEscape, true);
-  }, [hasChanges, leaveDialogOpen, open, saving, mobile]);
+    document.addEventListener('pointerdown', closeOutside);
+    return () => { window.removeEventListener("keydown", closeOnEscape, true); document.removeEventListener('pointerdown', closeOutside); };
+  }, [hasChanges, leaveDialogOpen, open, saving, mobile, panelRef]);
 
   function openPicker() {
-    const nextConfigs = configs.map(cloneConfig);
+    if (open) { requestClosePicker(); return; }
+    generationRef.current += 1;
+    const nextConfigs = configs.map(config => cloneConfig({ ...config, model_options: modelItems(config, modelOptionsByKey) }));
     setDraftConfigs(nextConfigs);
     setChangedConfigIds([]);
     setTab("models");
@@ -148,6 +176,7 @@ export function ModelPicker({
       setLeaveDialogOpen(true);
       return;
     }
+    generationRef.current += 1;
     setOpen(false);
   }
 
@@ -155,6 +184,7 @@ export function ModelPicker({
     if (saving) return;
     setLeaveDialogOpen(false);
     setLeaveError("");
+    generationRef.current += 1;
     setOpen(false);
   }
 
@@ -168,7 +198,7 @@ export function ModelPicker({
     const id = draftSelectedConfig.id;
     setDraftConfigs(current => current.map(config => {
       if (config.id !== id) return config;
-      const options = modelItems(config, modelOptionsByKey);
+      const options = modelItems(config, {});
       return { ...config, model_options: options.map(option => option.id === selectedModelId ? { ...option, ...patch } : option) };
     }));
     setChangedConfigIds(current => current.includes(id) ? current : [...current, id]);
@@ -190,17 +220,23 @@ export function ModelPicker({
   }
 
   async function refreshModels() {
-    if (!focusedConfig || loadingConfigId) return;
-    setLoadingConfigId(focusedConfig.id);
+    if (!activeConfigs.length || loadingConfigId) return;
+    const targets = mobile ? [focusedConfig].filter(Boolean) : activeConfigs;
+    const generation = generationRef.current;
+    setLoadingConfigId(mobile ? focusedConfig.id : '*');
     try {
-      const models = await onLoadModels?.(focusedConfig);
-      if (Array.isArray(models)) {
-        setDraftConfigs((current) => current.map((config) => (
-          config.id === focusedConfig.id
-            ? { ...config, model_options: models.map((item) => ({ ...item })) }
-            : config
-        )));
+      const results = await Promise.allSettled(targets.map(async config => ({ config, models: await onLoadModels?.(config) })));
+      if (generation !== generationRef.current) return;
+      const failures = [];
+      for (const result of results) {
+        if (result.status === 'rejected') { failures.push(result.reason); continue; }
+        const { config, models } = result.value;
+        if (!Array.isArray(models)) continue;
+        const changed = JSON.stringify(config.model_options) !== JSON.stringify(models);
+        setDraftConfigs(current => current.map(item => item.id === config.id ? { ...item, model_options: models.map(model => ({ ...model })) } : item));
+        if (changed) setChangedConfigIds(current => current.includes(config.id) ? current : [...current, config.id]);
       }
+      if (failures.length) throw new AggregateError(failures, failures.map(error => error.message || '读取模型失败').join('；'));
     } catch (error) {
       onNotify?.("error", error.message || "刷新模型目录失败");
     } finally {
@@ -224,6 +260,7 @@ export function ModelPicker({
       setChangedConfigIds([]);
       await onSelect?.(draftSelection);
       setLeaveDialogOpen(false);
+      generationRef.current += 1;
       setOpen(false);
       onNotify?.("success", "模型选择已保存，将从下一次请求生效。");
       return true;
@@ -237,7 +274,15 @@ export function ModelPicker({
     }
   }
 
-  const triggerLabel = (selectedConfig ? selectedModel : "") || committedConfig?.model || "选择模型";
+  const triggerModelId = (selectedConfig ? selectedModel : '') || committedConfig?.model || '';
+  const triggerModel = modelItems(committedConfig, modelOptionsByKey).find(model => model.id === triggerModelId);
+  const triggerLabel = triggerModel?.name || triggerModelId || '选择模型';
+  const label = (config, model, placement, selected = false) => renderModelLabel?.({
+    provider: { id: config.id, name: configName(config) }, model: { ...model, name: model.name || model.id }, placement, selected,
+  }) ?? model.name ?? model.id;
+  const selectedOption = parameterState.activeModelOption;
+  const triggerEfforts = triggerModel?.reasoningEfforts;
+  const triggerEffort = triggerModel?.reasoningEffort;
   const trigger = renderTrigger ? renderTrigger({
     open,
     openPicker,
@@ -257,13 +302,14 @@ export function ModelPicker({
         providerId={committedConfig?.provider}
         className="chat-model-trigger-icon"
       />
-      <span className="chat-model-trigger-label">{triggerLabel}</span>
+      <span className="chat-model-trigger-label">{committedConfig && triggerModel ? label(committedConfig, triggerModel, 'trigger', true) : triggerLabel}</span>
+      {triggerEffort && triggerEfforts && Object.hasOwn(triggerEfforts, triggerEffort) ? <span className="chat-model-trigger-effort">{reasoningEffortLabel(triggerEffort)}</span> : null}
       <DshChevronDownIcon />
     </button>
   );
 
   return (
-    <div className="chat-model-picker">
+    <div className={`chat-model-picker${mobile ? ' is-mobile' : ''}`} ref={anchorRef}>
       {trigger}
       {open && mobile ? <MobileChatModelPicker title={title} elevated={elevated} configs={activeConfigs} focusedConfig={focusedConfig}
         selectedConfig={draftSelectedConfig} selectedModelId={selectedModelId} followingMain={followingMain} allowFollowMain={allowFollowMain}
@@ -273,24 +319,12 @@ export function ModelPicker({
         onOpenConfig={config => { setFocusedConfigId(config.id); setQuery(''); }} onFollowMain={followMainModel} onRefresh={refreshModels}
         onSave={saveChanges} onClose={discardAndClosePicker} beforeClose={() => { if (hasChanges) { requestClosePicker(); return false; } return true; }} selectionIndicator={ModelSelectionIndicator}
       /> : open ? createPortal(
-        <div className={`chat-model-backdrop${elevated ? " is-elevated" : ""}`} role="presentation" onMouseDown={requestClosePicker}>
-          <section className="chat-model-panel" role="dialog" aria-modal="true" aria-label={title} aria-busy={saving} onMouseDown={(event) => event.stopPropagation()}>
+          <MenuSurface ref={panelRef} tabIndex={-1} className={`chat-model-panel is-compact${tab === 'parameters' ? ' is-parameters' : ''}${elevated ? ' is-elevated' : ''}`} role="dialog" aria-modal="false" aria-label={title === '选择模型' ? '模型配置' : title} aria-busy={saving}
+            style={position || { visibility: 'hidden', left: 0, top: 0 }}>
             <header>
-              <div className="chat-model-title">
-                <strong>{title}</strong>
-                {selectedModelId ? (
-                  <span>
-                    <ModelIdentityIcon
-                      modelName={selectedModelId}
-                      providerId={draftSelectedConfig?.provider}
-                      className="chat-model-title-icon"
-                    />
-                    {selectedModelId}
-                  </span>
-                ) : null}
-              </div>
+              <h2>{title === '选择模型' ? '模型配置' : title}</h2>
               <button type="button" className="chat-model-close" aria-label="关闭" disabled={saving} onClick={requestClosePicker}>
-                <DshCloseIcon size={20} />
+                <DshCloseIcon size={16} />
               </button>
             </header>
 
@@ -300,63 +334,33 @@ export function ModelPicker({
               <button type="button" role="tab" aria-selected={tab === "parameters"} onClick={() => setTab("parameters")}>参数</button>
             </div> : null}
             {tab === "parameters" ? <div className="chat-model-parameters">
-              <ModelParametersSection form={parameterForm} {...parameterState} modelCapabilities={modelCapabilities} onChange={updateParameters} />
+              <div className="chat-model-current">{draftSelectedConfig && selectedModelId ? label(draftSelectedConfig, selectedOption || { id: selectedModelId, name: selectedModelId }, 'menu', true) : '请先选择模型'}</div>
+              <ModelParametersSection form={parameterForm} {...parameterState} modelCapabilities={modelCapabilities} onChange={updateParameters} picker />
             </div> : <div className="chat-model-browser">
-              <div className="chat-model-configs">
+              <div className="chat-model-list-tools">
+                <label><DshSearchIcon size={16} /><input type="search" aria-label="搜索模型或提供商" value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索模型或提供商" /></label>
+                <button type="button" aria-label="刷新模型" title="刷新模型" disabled={!activeConfigs.length || Boolean(loadingConfigId) || saving} onClick={refreshModels}><DshRefreshIcon size={16} /></button>
+              </div>
+              <div className="chat-model-list">
                 {allowFollowMain ? <section className="chat-model-provider-group chat-model-follow-group">
-                  <button type="button" className={followingMain ? "active" : ""} aria-pressed={followingMain} onClick={followMainModel}>
-                    <ModelSelectionIndicator selected={followingMain} />
-                    <span className="chat-model-config-copy"><strong>跟随主模型</strong><small>使用当前对话选择的模型</small></span>
-                  </button>
+                  <button type="button" className={`chat-model-row${followingMain ? ' active' : ''}`} aria-pressed={followingMain} disabled={saving} onClick={followMainModel}><span className="chat-model-name">跟随主模型</span>{followingMain ? <IconCheckOutlineRegular size={16} /> : null}</button>
                 </section> : null}
-                {activeConfigs.length ? activeConfigs.map((config) => (
+                {visibleGroups.map(({ config, models }) => (
                   <section className="chat-model-provider-group" key={config.id}>
                     <h3>
-                      <ModelIdentityIcon modelName="" providerId={config.provider} className="chat-model-provider-icon" />
+                      <ProviderLogo provider={configProviderMeta(config)} className="chat-model-provider-icon" />
                       {configName(config)}
                     </h3>
-                    <div className={`chat-model-config-row${focusedConfig?.id === config.id ? " active" : ""}`}>
-                      <button
-                        type="button"
-                        className="chat-model-config-select"
-                        aria-label={`使用 ${configName(config)}`}
-                        aria-pressed={draftSelectedConfig?.id === config.id}
-                        onClick={() => chooseConfig(config)}
-                      >
-                        <ModelSelectionIndicator selected={draftSelectedConfig?.id === config.id} />
-                      </button>
-                      <button
-                        type="button"
-                        className="chat-model-config-open"
-                        aria-label={`查看 ${configName(config)} 的模型`}
-                        onClick={() => { setFocusedConfigId(config.id); setQuery(""); }}
-                      >
-                        <span className="chat-model-config-copy"><strong>{configName(config)}</strong><small>{config.model || "未选择模型"}</small></span>
-                      </button>
-                    </div>
+                    {models.map(model => {
+                      const selected = draftSelectedConfig?.id === config.id && selectedModelId === model.id;
+                      return <button type="button" className={`chat-model-row${selected ? ' active' : ''}`} aria-pressed={selected} disabled={saving} key={model.id} onClick={() => chooseModel(config, model.id)}>
+                        <span className="chat-model-name">{label(config, model, 'option', selected)}</span>
+                        {selected ? <IconCheckOutlineRegular size={16} /> : null}
+                      </button>;
+                    })}
                   </section>
-                )) : <p className="chat-model-empty">请先在 DSH 模型设置中配置模型</p>}
-              </div>
-
-              <div className="chat-model-list-pane">
-                <div className="chat-model-list-tools">
-                  <label>
-                    <DshSearchIcon size={16} />
-                    <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索模型" />
-                  </label>
-                  <button type="button" aria-label="刷新模型" title="刷新模型" disabled={!focusedConfig || Boolean(loadingConfigId)} onClick={refreshModels}>
-                    <DshRefreshIcon size={17} />
-                  </button>
-                </div>
-                <div className="chat-model-list">
-                  {visibleModels.length ? visibleModels.map((model) => {
-                    const selected = draftSelectedConfig?.id === focusedConfig?.id && selectedModelId === model.id;
-                    return <button type="button" className={selected ? "active" : ""} aria-pressed={selected} key={model.id} onClick={() => chooseModel(focusedConfig, model.id)}>
-                      <ModelSelectionIndicator selected={selected} />
-                      <span className="chat-model-name">{model.name}</span>
-                    </button>;
-                  }) : <p className="chat-model-empty">{query ? "没有匹配模型" : "当前提供商没有可用模型"}</p>}
-                </div>
+                ))}
+                {!visibleGroups.length ? <p className="chat-model-empty">{query ? '没有匹配模型' : activeConfigs.length ? '当前提供商没有可用模型' : '请先在 DSH 模型设置中配置模型'}</p> : null}
               </div>
             </div>}
             </div>
@@ -367,8 +371,7 @@ export function ModelPicker({
                 {saving ? "保存中…" : "保存"}
               </button>
             </footer>
-          </section>
-        </div>,
+          </MenuSurface>,
         document.body,
       ) : null}
       <UnsavedChangesDialog

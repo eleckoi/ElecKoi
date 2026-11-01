@@ -314,6 +314,7 @@ window.__ModuleLoader__.load({
       projectSeat('conversation.session', 'eleckoi.creator-studio.session', undefined, { children: {
         ...Object.fromEntries(Object.entries(composerSeats).map(([name, spec]) => [studioSeat(name), spec])),
         'eleckoi.creator-studio.session.header': { kind: 'single', scope: 'session' },
+        'eleckoi.creator-studio.model.label': { kind: 'single', scope: 'session', inline: true },
       }, component: ({ component, props, ...native }) => native.renderSlot('eleckoi.creator-studio.session.header', { component, props, native }) })
       projectSeat('conversation.session.header', 'eleckoi.creator-studio.session.header', undefined, {
           component: ({ component, props, native, selectView, renderSlot, useEntryPins, useEntryActions, setPinned }) => React.createElement(component, {
@@ -321,6 +322,7 @@ window.__ModuleLoader__.load({
         }),
       })
       for (const name of Object.keys(composerSeats)) projectSeat(name, studioSeat(name))
+      projectSeat('conversation.input.model.label', 'eleckoi.creator-studio.model.label')
       ctx.effect(() => {
         projects.start()
         const stopReset = ctx.on('connection/reset', () => { void projects.refresh().catch(failureAlreadyPublished) })
