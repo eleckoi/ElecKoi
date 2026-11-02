@@ -2275,6 +2275,7 @@
   bottom: 0;
   z-index: 7;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   flex: none;
   min-width: 0;
   background: linear-gradient(

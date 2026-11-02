@@ -56,18 +56,22 @@ export async function installCreatorStudioRuntime(ctx) {
   // its open/edit calls and the generated-directory cleanup together; keep the
   // current-selection helper and global binding. Session identities and history
   // stay; only append the official selection before retiring generated files.
-  const migrateStoredPreset = async sessionId => {
+  // First-turn edits can remove every event. Only their already validated
+  // pre-edit state may restore a missing Studio marker before Agent resolution.
+  const migrateStoredPreset = async (sessionId, restoredState) => {
     const handle = await ctx.sessionPersistence.open(SessionId(sessionId), 'write')
     try {
       const { events } = await handle.read()
       if (!legacyPresetId(selectedPreset({ meta: handle.header, events }))) return
       const previous = events.findLast(event => event.type === CREATOR_STUDIO_EVENT)
-      if (!previous) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, '旧创作配置缺少工作室会话标记。', { what: '旧创作工作室会话标记' })
+      if (!previous && !restoredState) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, '旧创作配置缺少工作室会话标记。', { what: '旧创作工作室会话标记' })
+      const state = creatorStudioStateSchema.parse(restoredState ?? previous.data)
       const session = Session.create(handle.id, events, handle.header, handle.inheritedEventCount)
       session.append('agent-preset/selected', { agentPreset: CREATOR_RUNTIME_PRESET_ID })
-      const state = creatorStudioStateSchema.parse(previous.data)
       const presetId = currentPreset().preset.id
-      if (state.presetId !== presetId) session.append(CREATOR_STUDIO_EVENT, { ...state, presetId }, { ignorable: true })
+      if (!previous || previous.data.presetId !== presetId || previous.data.characterId !== state.characterId) {
+        session.append(CREATOR_STUDIO_EVENT, { ...state, presetId }, { ignorable: true })
+      }
       await handle.append(session.snapshotEvents(events.length))
       await handle.flush()
     } finally { await handle.close() }
@@ -129,7 +133,7 @@ export async function installCreatorStudioRuntime(ctx) {
   }
   const reopenAfterMessageEdit = async (sessionId, inspection, state) => {
     const rewound = await ctx.sessionController.inspect(sessionId)
-    if (legacyPresetId(selectedPreset(rewound))) await migrateStoredPreset(sessionId)
+    if (legacyPresetId(selectedPreset(rewound))) await migrateStoredPreset(sessionId, state)
     const resolved = await ctx.sessionController.resolveAgent(sessionId)
     if ('error' in resolved) throw resolved.error
     const { agent } = resolved
