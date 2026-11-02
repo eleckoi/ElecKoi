@@ -107,7 +107,7 @@ ElecKoi 当前 49 张产品表需要关系、外键、排序、搜索、跨表�
 | [模型设置 schema v0/v1 → v2](../packages/client/features/dsh-client-models/src/index.js) | 支持的升级和 profile 恢复入口均已保存至少 schema v2 的设置 | 旧 schema 转换、专用常量与用例；函数和启动调用须等两段整理均退役，保留当前设置合同和插件装配 |
 | [旧子 Agent 占位路由](../packages/client/features/dsh-client-models/src/index.js) | 停止支持 v0.2.3 之前版本直升，且支持的 profile 恢复入口不再携带该路由 | 占位路由过滤、专用常量与用例；与模型设置 schema 转换分别核对 |
 | [旧默认模型路由](../packages/client/features/dsh-client-roleplay/src/host/model-selection-migration.mjs) | 停止支持 v0.2.1 及更早版本直升，且支持的 profile 恢复入口不再携带旧路由 | 迁移函数、辅助函数、启动调用和旧路由用例；当前请求快照改为直接解析正式选择，保留每轮冻结与恢复后的模型刷新 |
-| [旧实体化预设 ID](../packages/client/features/dsh-client-roleplay/src/host/agent-preset-bridge.mjs) | 支持恢复的 Session、快照和导入记录均已持久选择 `eleckoi-active`，且对应旧版本直升已退役 | 旧声明注册、别名、目录扫描、分支与用例；保留当前预设注册、重组和恢复服务 |
+| [旧实体化预设 ID](../packages/client/features/dsh-client-roleplay/src/host/agent-preset-bridge.mjs) | 支持恢复的 Session、快照、导入及历史回退入口均不会再选中实体化预设 ID，且对应旧版本直升已退役 | `migrateStoredPreset`、`legacyPresetId`、启动扫描、准备及关闭写入句柄后的转换调用和专用用例；保留当前预设注册、重组和恢复服务 |
 | [创作工作室旧散列预设 ID](../packages/client/features/dsh-client-creator-studio/src/host/runtime.mjs) | 停止支持会产生旧散列 ID 的版本直升，且受支持的恢复、导入及历史回退入口均不会再选中 `eleckoi-creator-<64位散列>` | `migrateStoredPreset`、`legacyPresetId`、启动扫描、打开与编辑回退的转换调用、旧生成文件清理及专用迁移用例；保留当前选择读取、固定 `eleckoi-creator-active` 注册、全局预设重组及正常新旧会话回归 |
 | [profile 内置 bundle 登记](../apps/desktop-host/src/desktopPluginBundles.ts)、[Tavily 首次选择](../apps/desktop-host/src/desktopPluginHost.ts) | 支持的升级和 profile 恢复入口分别已完成 `bundles-v5`、`tavily-bundle-v1` 登记 | 各自的一次性函数、调用及旧 profile 用例；保留新 profile 初始化和用户启停选择 |
 | [请求上下文记录修复](../packages/host/runtime/src/sessionRequestContextRepair.ts) | 对应旧版本直升已退役，且支持的 Session 恢复和导入入口已有转换缺失可忽略标记的能力 | 修复模块、启动扫描、导出与专用用例；旧事件保留，新预览不落盘，见 [ADR 0029](adr/0029-ephemeral-request-context-preview.md) |
@@ -117,6 +117,8 @@ ElecKoi 当前 49 张产品表需要关系、外键、排序、搜索、跨表�
 | [v3 → v4 系统开头补丁](adr/0026-legacy-session-system-head-migration.md) | 锁定上游的正式相邻迁移能通过同一组旧日志用例 | 版本补丁、`patchedDependencies` 登记和锁文件；保留官方格式目录与完整迁移链 |
 
 删除恢复或迁移入口时只移除其专用用例；新建、重开、备份、完整性、当前模型请求、预设重组和重新生成等正常路径的验证继续保留。异常退出后的响应状态恢复是当前运行职责，仍由 [启动恢复](../packages/host/product-data/src/storage/sqlite/recoverInterruptedState.ts) 执行。
+
+角色对话只生成、注册固定的 `eleckoi-active`，切换全局预设、模型和工具配置时更新同一个生成文件。Host 启动按正式会话头识别旧实体化预设，恢复前通过官方 Session Persistence 追加当前全局预设选择，并将仍引用旧 ID 的运行快照切到当前 ID；不注册旧声明或别名，不读取、删除历史生成文件，也不新增数据库迁移。打开准备和关闭写入句柄后的编辑边界复用同一入口，覆盖首轮删除、重新生成或失败回滚重新暴露旧头部选择的情况；转换不会删除或替换原消息、会话身份及产品数据。不支持或损坏的单个历史日志明确记录转换失败，不阻断其他会话启动；后续访问仍报告原错误。
 
 创作工作室旧散列预设整理在 Host 启动发现旧生成目录时执行；打开或编辑回退到旧预设选择的会话也调用同一转换。通过官方 Session Persistence 追加当前预设选择，保留原 Session ID、消息、标题和编辑目标；确认转换成功后，只删除对应的生成 `preset.json` 与空目录。第一轮删除或重新生成可能回退掉全部事件，只允许使用本次编辑前已校验的工作室状态补回标记，并在恢复 Agent 前持久追加当前预设选择；普通打开与启动转换仍要求存在工作室标记，不依据旧预设名称猜测编辑目标。没有产品数据库结构变更，不删除用户创作预设或聊天。历史回退仍可能重新暴露旧选择，因此本机完成一次整理不能单独作为移除代码的依据；本次补回随同表中该转换入口一起退役。
 

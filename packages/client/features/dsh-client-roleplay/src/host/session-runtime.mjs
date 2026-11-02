@@ -44,7 +44,6 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
 
   const prepareCurrentPreset = async (conversationId, text, creating = false) => {
     const runtime = ctx.eleckoiProductData.prepareConversationRuntime(conversationId, text)
-    const previous = readOptionalSnapshot(snapshotRoot, runtime.runtimeSessionId)
     const controls = generationOptions.get(conversationId) ?? {}
     const mainModel = { ...await currentRequestSnapshot(ctx), ...(controls.responseLength ? { maxTokens: controls.responseLength } : {}) }
     const effectiveToolPolicy = { disabledGroupIds: [...(runtime.disabledToolGroupIds ?? [])] }
@@ -56,6 +55,7 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       mainModel
     )
     if (!creating) await presetRegistrar.prepareForSession(runtime.runtimeSessionId, requestedPreset.id)
+    const previous = readOptionalSnapshot(snapshotRoot, runtime.runtimeSessionId)
     return { runtime, previous, mainModel, effectiveToolPolicy, requestedPreset }
   }
 

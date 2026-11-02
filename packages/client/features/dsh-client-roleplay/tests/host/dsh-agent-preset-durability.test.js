@@ -3,6 +3,15 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { Context } from '@deepseek-ai/cordis'
+import Loader from '@deepseek-ai/cordis-plugin-loader'
+import AgentPresetRegistry from '@deepseek-ai/dsh-agent-preset-registry'
+import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
+import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import { rewindDshSession } from '@eleckoi/dsh-runtime'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import { readPluginInventory } from '@deepseek-ai/dsh-host-plugin-inventory'
 import { apply as applyAgentPresetBridge } from '../../../../../../apps/desktop/resources/dsh/agent-preset-bridge.mjs'
 import { materializeAgentPreset } from '../../src/host/session-runtime.mjs'
 import { readRuntimePresetDefinition } from '../../src/host/preset-definition.mjs'
@@ -18,6 +27,95 @@ afterEach(() => {
 })
 
 describe('DSH Agent preset durability', () => {
+  it.each([true, false])('moves legacy Sessions to the global preset without requiring or deleting their old declaration (file=%s)', async oldFile => {
+    const directory = temporaryDirectory(), presetRoot = join(directory, 'presets')
+    const snapshotRoot = join(directory, 'snapshots'), sessionRoot = join(directory, 'sessions')
+    mkdirSync(snapshotRoot)
+    const legacyId = 'agent-preset-synthetic-0123456789abcdef'
+    mkdirSync(join(presetRoot, 'eleckoi-active'), { recursive: true })
+    writeFileSync(join(presetRoot, 'eleckoi-active', 'preset.json'), JSON.stringify({ id: 'eleckoi-active', name: 'Synthetic preset', plugins: [] }))
+    const legacyFile = join(presetRoot, legacyId, 'preset.json')
+    if (oldFile) {
+      mkdirSync(join(presetRoot, legacyId), { recursive: true })
+      writeFileSync(legacyFile, 'unused historical configuration')
+    }
+    process.env.ELECKOI_SESSION_SNAPSHOT_ROOT = snapshotRoot
+    process.env.ELECKOI_PRESET_ROOT = presetRoot
+    process.env.ELECKOI_PRESET_TEMPLATE_PATH = templatePath
+    const ctx = new Context()
+    const id = SessionId('synthetic-session')
+    let dispose
+    try {
+      await ctx.plugin(SessionStore)
+      await ctx.plugin(SessionProjectionRegistry)
+      await ctx.plugin(JsonlSessionPersistence, { root: sessionRoot, compression: 'none' })
+      await ctx.plugin(Loader)
+      await ctx.plugin(AgentPresetRegistry, { default: 'eleckoi-active' })
+      ctx.provide('agents', { create: vi.fn(), resume: vi.fn(), get: vi.fn() })
+      const session = ctx.sessions.prepare(id, { meta: { cwd: directory, agentPreset: legacyId } })
+      session.append('turn/start', { turn: 1 })
+      const input = session.append('user/message', createUserMessage({ content: [{ type: 'text', text: 'Synthetic retained input' }], source: { kind: 'user' } }), { surfaceOp: 'append' })
+      session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+      session.append('session/title', { title: 'Synthetic retained title', messageSeqs: [], source: { kind: 'user' } })
+      const original = session.snapshotEvents()
+      const seed = await ctx.sessionPersistence.create(session.header)
+      try { await seed.append(original); await seed.flush() } finally { await seed.close() }
+      const snapshotFile = join(snapshotRoot, `${id}.json`)
+      writeFileSync(snapshotFile, JSON.stringify({ conversationId: 'synthetic-conversation', mountedPresetId: legacyId, mountedPresetRevision: 'old' }))
+      const read = async () => {
+        const h = await ctx.sessionPersistence.open(id, 'read')
+        try { return { ...(await h.read()), header: h.header } } finally { await h.close() }
+      }
+      const originalStored = await read()
+      const bridge = ctx.plugin({ name: 'synthetic-preset-bridge', inject: ['agents', 'agentPresets', 'sessionPersistence'], apply: applyAgentPresetBridge })
+      await bridge
+      dispose = () => bridge.dispose()
+      await ctx.agentPresets.register({ id: 'synthetic-user-preset', name: 'Synthetic preset', plugins: [] })
+      expect((await ctx.agentPresets.remoteExportList()).presets.map(row => row.id)).toEqual(['eleckoi-active', 'synthetic-user-preset'])
+      expect((await readPluginInventory(ctx)).agentPresets.map(row => row.id)).toEqual(['eleckoi-active', 'synthetic-user-preset'])
+      const migrated = await read()
+      expect(migrated.header).toEqual(originalStored.header)
+      expect(migrated.events.slice(0, original.length)).toEqual(original)
+      expect(migrated.events.at(-1)).toMatchObject({ type: 'agent-preset/selected', data: { agentPreset: 'eleckoi-active' } })
+      expect(JSON.parse(readFileSync(snapshotFile, 'utf8'))).toMatchObject({ conversationId: 'synthetic-conversation', mountedPresetId: 'eleckoi-active' })
+      await ctx.eleckoiPresetRegistrar.prepareForSession(id)
+      expect((await read()).events).toEqual(migrated.events)
+      writeFileSync(snapshotFile, JSON.stringify({ conversationId: 'synthetic-conversation', mountedPresetId: legacyId, mountedPresetRevision: 'old' }))
+      await ctx.eleckoiPresetRegistrar.prepareForSession(id)
+      expect(JSON.parse(readFileSync(snapshotFile, 'utf8')).mountedPresetId).toBe('eleckoi-active')
+      expect((await read()).events).toEqual(migrated.events)
+      // First-turn deletion removes the selection too; the closed-edit boundary restores it before any Agent resume.
+      for (let index = 0; index < 3; index++) {
+        let inputSeq = input.seq
+        if (index > 0) {
+          const writer = await ctx.sessionPersistence.open(id, 'write')
+          try {
+            const { events } = await writer.read()
+            const next = Session.create(id, events, writer.header, writer.inheritedEventCount)
+            next.append('turn/start', { turn: 1 })
+            inputSeq = next.append('user/message', createUserMessage({ content: [{ type: 'text', text: 'Synthetic replacement input' }], source: { kind: 'user' } }), { surfaceOp: 'append' }).seq
+            next.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+            await writer.append(next.snapshotEvents(events.length)); await writer.flush()
+          } finally { await writer.close() }
+        }
+        await ctx.eleckoiSessionHandles.withClosed(id, () => rewindDshSession(sessionRoot, id, 1, inputSeq, false))
+        expect((await read()).events.filter(event => event.type === 'agent-preset/selected')).toMatchObject([{ data: { agentPreset: 'eleckoi-active' } }])
+        expect((await read()).events.some(event => event.type === 'user/message')).toBe(false)
+      }
+      const beforeRestart = await read()
+      await dispose()
+      const restarted = ctx.plugin({ name: 'synthetic-preset-bridge', inject: ['agents', 'agentPresets', 'sessionPersistence'], apply: applyAgentPresetBridge })
+      await restarted
+      dispose = () => restarted.dispose()
+      expect((await read()).events).toEqual(beforeRestart.events)
+      if (oldFile) expect(readFileSync(legacyFile, 'utf8')).toBe('unused historical configuration')
+      else expect(existsSync(legacyFile)).toBe(false)
+    } finally {
+      await dispose?.()
+      await ctx.fiber.dispose()
+    }
+  })
+
   it('persists stable plugin identities instead of installation-specific pnpm paths', () => {
     const directory = temporaryDirectory()
     const presetRoot = join(directory, 'generated-presets')
@@ -68,6 +166,22 @@ describe('DSH Agent preset durability', () => {
     )
     expect(updated.id).toBe(preset.id)
     expect(updated.revision).not.toBe(preset.revision)
+    for (let index = 0; index < 24; index++) {
+      const disabled = index % 2 === 0
+      const next = materializeAgentPreset(presetRoot, templatePath, {
+        id: `synthetic-preset-${index % 3}`, name: `Synthetic preset ${index % 3}`,
+        versionId: `version-${index}`, roleplayPlan: { steps: [] }
+      }, { disabledGroupIds: disabled ? ['builtin:variables'] : [] }, {
+        provider: `synthetic-provider-${index % 2}`, model: `synthetic-model-${index % 4}`,
+        contextWindow: 100_000, autoCompactTokenLimit: (index + 1) * 1000
+      })
+      const current = JSON.parse(readFileSync(join(presetRoot, next.id, 'preset.json'), 'utf8'))
+      expect(current.name).toBe(`Synthetic preset ${index % 3}`)
+      expect(Boolean(pluginById(current.plugins, 'variable-tools'))).toBe(!disabled)
+      expect(pluginById(current.plugins, 'compaction-basic').config.thresholdRatio).toBe((index + 1) / 100)
+      expect(readdirSync(presetRoot)).toEqual(['eleckoi-active'])
+      expect(readdirSync(join(presetRoot, next.id))).toEqual(['preset.json'])
+    }
     expect(readdirSync(presetRoot)).toEqual(['eleckoi-active'])
   })
 

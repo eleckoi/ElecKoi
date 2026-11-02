@@ -170,7 +170,7 @@ describe('DSH subagent runtime context inheritance', () => {
     await registry.dispose()
   })
 
-  it('keeps legacy declarations available and aliases a missing one until its Session selects the current preset', async () => {
+  it('registers only the global declaration while a live Session switches away from a historical snapshot', async () => {
     const fixture = runtimeFixture()
     writeFileSync(join(fixture.snapshotRoot, 'orphan-session.json'), JSON.stringify({
       ...JSON.parse(readFileSync(join(fixture.snapshotRoot, 'root-session.json'), 'utf8')),
@@ -210,7 +210,7 @@ describe('DSH subagent runtime context inheritance', () => {
     ctx.eleckoiRuntimeContexts = runtimeContexts
     runtimeContexts.set('root-session', fixture.contexts.get('root-session'))
     expect(ctx.agentPresets.register.mock.calls.map(([definition]) => definition.id))
-      .toEqual(['eleckoi-active', 'obsolete-preset'])
+      .toEqual(['eleckoi-active'])
     expect(existsSync(join(process.env.ELECKOI_PRESET_ROOT, 'obsolete-preset'))).toBe(true)
     expect(ctx.provide).toHaveBeenCalledWith('eleckoiPresetRegistrar', expect.any(Object))
     runtimeContexts.set('orphan-session', fixture.contexts.get('root-session'))
@@ -218,7 +218,7 @@ describe('DSH subagent runtime context inheritance', () => {
     expect(JSON.parse(readFileSync(join(fixture.snapshotRoot, 'orphan-session.json'), 'utf8')).model)
       .toMatchObject({ configId: 'provider-main', provider: 'provider-main', model: 'model-main' })
     expect(ctx.agentPresets.register.mock.calls.map(([definition]) => definition.id))
-      .toEqual(['eleckoi-active', 'obsolete-preset', 'snapshot-preset'])
+      .toEqual(['eleckoi-active'])
     expect(originalCreate).not.toHaveBeenCalled()
     expect(originalResume).not.toHaveBeenCalled()
 
@@ -232,9 +232,9 @@ describe('DSH subagent runtime context inheritance', () => {
     }))
     const registrar = ctx.provide.mock.calls.find(([name]) => name === 'eleckoiPresetRegistrar')[1]
     await expect(registrar.prepareForSession('orphan-session', 'eleckoi-active'))
-      .resolves.toBe('deleted-preset')
+      .resolves.toBe('eleckoi-active')
     expect(ctx.agentPresets.register.mock.calls.map(([definition]) => definition.id))
-      .toEqual(['eleckoi-active', 'obsolete-preset', 'snapshot-preset', 'deleted-preset'])
+      .toEqual(['eleckoi-active'])
     await expect(registrar.selectForSession('orphan-session')).resolves.toBe('eleckoi-active')
     expect(ctx.agentPresets.recompose).toHaveBeenCalledWith(agent.ctx, 'eleckoi-active')
     expect(append).toHaveBeenCalledWith('agent-preset/selected', { agentPreset: 'eleckoi-active' })
@@ -243,7 +243,7 @@ describe('DSH subagent runtime context inheritance', () => {
       mountedPresetRevision: activeRevision
     })
     await dispose()
-    expect(unregister).toHaveBeenCalledTimes(4)
+    expect(unregister).toHaveBeenCalledTimes(1)
     expect(existsSync(join(fixture.snapshotRoot, 'orphan-session.json'))).toBe(true)
   })
 

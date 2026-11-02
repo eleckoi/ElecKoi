@@ -22,8 +22,6 @@
   .app-settings-heading h1,
   .app-settings-sidebar nav button,
   .setting-row-copy strong,
-  .layout-choice-grid > button,
-  .profile-settings-name input,
   .avatar-slots-heading strong,
   .avatar-slot-copy strong,
   .avatar-manager-dialog > header strong,
@@ -61,8 +59,6 @@
   .app-settings-sidebar header span,
   .app-settings-heading p,
   .setting-row-copy span,
-  .layout-choice-grid > button > small,
-  .profile-settings-name > span,
   .avatar-slots-heading span,
   .avatar-slot-copy span,
   .avatar-manager-dialog > header span,
@@ -119,7 +115,6 @@
   .model-picker-value,
   .model-picker-shell > button:not(.model-picker-value),
   .model-manual-add button,
-  .profile-settings-name input,
   .character-group-dialog input,
   .history-confirm button,
   .chat-empty-guide button
@@ -303,41 +298,6 @@
 
 :root[data-theme="dark"] .app-settings-sidebar nav button.active {
   color: var(--text);
-}
-
-:root[data-theme="dark"] .layout-choice-grid > button {
-  border-color: var(--line-strong);
-  background: var(--surface-subtle);
-}
-
-:root[data-theme="dark"] .layout-choice-grid > button.active {
-  border-color: color-mix(in srgb, var(--blue) 52%, var(--line-strong));
-  background: color-mix(in srgb, var(--blue) 10%, var(--surface-subtle));
-}
-
-:root[data-theme="dark"] .layout-choice-preview {
-  background: var(--surface-muted);
-}
-
-:root[data-theme="dark"] :is(.layout-choice-preview i, .layout-choice-preview b, .layout-choice-preview em) {
-  background: rgba(255, 255, 255, 0.16);
-}
-
-:root[data-theme="dark"] .layout-choice-preview.roleplay em {
-  box-shadow: 0 11px 0 rgba(255, 255, 255, 0.16), 0 22px 0 rgba(255, 255, 255, 0.16);
-}
-
-:root[data-theme="dark"] .layout-choice-preview.agent em {
-  border-color: var(--line-strong);
-  background: var(--surface-raised);
-}
-
-:root[data-theme="dark"] .theme-setting-icon {
-  background: color-mix(in srgb, var(--blue) 14%, var(--surface-subtle));
-}
-
-:root[data-theme="dark"] .profile-settings-avatar-button > span {
-  border-color: var(--chat);
 }
 
 :root[data-theme="dark"] .rail-user-trigger {

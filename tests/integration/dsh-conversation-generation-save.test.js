@@ -19,7 +19,7 @@ import { ElecKoiConversationLifecycle } from '../../packages/host/product-api/sr
 import { ConversationChangeFeed, CharacterConfigurationChangeFeed } from '../../packages/host/product-api/src/index'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SqliteDatabase } from '../../packages/host/product-data/src/storage/sqlite/SqliteDatabase'
 import { ConversationRepository } from '../../packages/host/product-data/src/domain/conversations/ConversationRepository'
@@ -40,7 +40,7 @@ async function fixture({ stream } = {}) {
   const path = join(root, 'product.sqlite3')
   for (const [key, value] of Object.entries({ ELECKOI_DATABASE_PATH: path, ELECKOI_MEDIA_ROOT: root,
     ELECKOI_WORKSPACE_ROOT: root, ELECKOI_SESSION_SNAPSHOT_ROOT: root, ELECKOI_PRESET_ROOT: root,
-    ELECKOI_PRESET_TEMPLATE_PATH: root, ELECKOI_SESSION_BRIDGE_ROOT: root,
+    ELECKOI_PRESET_TEMPLATE_PATH: resolve('apps/desktop/resources/dsh/agent-preset-template/agent.cordis.yml'), ELECKOI_SESSION_BRIDGE_ROOT: root,
     DSH_SESSION_ROOT: join(root, 'sessions') })) {
     const previous = process.env[key]; process.env[key] = value
     cleanups.push(() => { if (previous === undefined) delete process.env[key]; else process.env[key] = previous })

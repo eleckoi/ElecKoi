@@ -2,11 +2,15 @@
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { AppUpdateController } from '../../src/modules/updates/components/AppUpdateController.jsx'
+import { AppUpdateController as ProductAppUpdateController } from '../../src/modules/updates/components/AppUpdateController.jsx'
+import { WithOfficialMarkdown } from '../helpers/officialMarkdown.jsx'
 import { useAppUpdates } from '../../src/modules/updates/hooks/useAppUpdates.js'
 import { AboutSettings } from '../../src/modules/settings/components/AboutSettings.jsx'
 
 let root, host
+function AppUpdateController(props) {
+  return <WithOfficialMarkdown><ProductAppUpdateController {...props} /></WithOfficialMarkdown>
+}
 beforeEach(() => {
   vi.stubGlobal('React', React)
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -100,7 +104,7 @@ it('keeps complete notes and update controls through download and install withou
   await render()
   await new Promise(resolve => setTimeout(resolve, 5))
   const notes = document.querySelector('.app-update-notes-section')
-  expect(notes.textContent.trim()).toBe(releaseNotes)
+  expect(notes.textContent.trim().replace(/\s+/g, ' ')).toBe(releaseNotes.replace(/\s+/g, ' '))
   expect(notes.tabIndex).toBe(0)
   expect(document.querySelector('a').href).toBe('https://github.com/eleckoi/ElecKoi/releases/tag/v0.2.8')
   await act(async () => document.querySelector('.is-primary').click())
@@ -145,4 +149,24 @@ it.each([
   for (const stage of ['check', 'download', 'install']) {
     expect(updates[stage]).toHaveBeenCalledTimes(stage === action ? 1 : 0)
   }
+})
+
+it.each(['desktop', 'android'])('renders complete release Markdown and keeps both platform download links on %s', async platform => {
+  vi.stubGlobal('__ELECKOI_CLIENT_PLATFORM__', { kind: platform })
+  const updates = { status: {
+    phase: 'available', currentVersion: '1.0.0', availableVersion: '1.0.1',
+    releaseUrl: 'https://github.com/eleckoi/ElecKoi/releases/tag/v1.0.1',
+    releaseNotes: '## 修复\n\n- **合成修复**\n\n## 下载\n\n- [Windows 安装包](https://example.com/update.exe)\n- [Android 安装包](https://example.com/update.apk)\n\n末尾说明。'
+  } }
+  await act(async () => root.render(<AppUpdateController updates={updates} />))
+  const notes = document.querySelector('.app-update-notes-section')
+  expect([...notes.querySelectorAll('h2')].map(heading => heading.textContent)).toEqual(['修复', '下载'])
+  expect(notes.querySelector('strong')?.textContent).toBe('合成修复')
+  expect([...notes.querySelectorAll('a')].map(link => [link.textContent, link.href])).toEqual([
+    ['Windows 安装包', 'https://example.com/update.exe'],
+    ['Android 安装包', 'https://example.com/update.apk']
+  ])
+  expect(notes.textContent).toContain('末尾说明。')
+  expect(notes.textContent).not.toContain('##')
+  expect(notes.textContent).not.toContain('https://example.com')
 })

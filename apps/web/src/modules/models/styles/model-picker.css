@@ -56,7 +56,7 @@
 .chat-model-empty { margin: 0; padding: 28px 10px; color: var(--model-muted); font-size: 13px; }
 .chat-model-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 8px 16px 12px; }
 .chat-model-actions button { min-height: 32px; padding: 5px 14px; border: 1px solid transparent; border-radius: 8px; font: inherit; line-height: 20px; }
-.chat-model-cancel { background: transparent; color: var(--model-fg); }
+.chat-model-cancel { border-color: var(--dsw-alias-border-l2); background: var(--model-paper); color: var(--model-fg); }
 .chat-model-cancel:hover:not(:disabled) { background: var(--model-hover); }
 .chat-model-panel.is-compact .chat-model-save { background: var(--model-fg); color: var(--model-paper); }
 .chat-model-panel.is-compact .chat-model-save:hover:not(:disabled) { opacity: .85; }

@@ -27,7 +27,7 @@
 .app-update-release-link { flex: none; padding: 10px 16px; border-radius: 10px; color: var(--on-accent); background: var(--blue); font-size: 14px; text-decoration: none; }
 .app-update-release-link:hover { background: var(--blue-hover); }
 .app-update-notes-section { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 8px 32px 20px; }
-.app-update-notes { margin: 0; color: var(--text); font-size: 15px; line-height: 1.8; overflow-wrap: anywhere; white-space: pre-wrap; }
+.app-update-notes { margin: 0; color: var(--text); font-size: 15px; line-height: 1.8; overflow-wrap: anywhere; }
 .app-update-footer { padding: 16px 32px 24px; }
 .app-update-download-progress { margin-bottom: 14px; }
 .app-update-progress { height: 7px; overflow: hidden; background: var(--surface-muted); border-radius: 999px; }

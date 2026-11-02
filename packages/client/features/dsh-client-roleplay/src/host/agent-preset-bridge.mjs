@@ -1,20 +1,23 @@
-/** Composes each ElecKoi Agent from its immutable Session snapshot. */
+/** Restores roleplay Sessions against the single global preset. */
 
 import { installConversationContext } from './conversation-context.mjs'
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { Session, SessionId } from '@deepseek-ai/dsh-session'
+import { SessionPersistenceNotFoundError } from '@deepseek-ai/dsh-session-persistence'
 import { join } from 'node:path'
 import { installRequestConfig } from './request-config.mjs'
 import { readRuntimePresetDefinition } from './preset-definition.mjs'
 import { commitSessionPreset, inheritSessionSnapshot, readSessionSnapshot, removeSessionSnapshot } from './session-snapshot.mjs'
 import { applyDisabledPolicy } from './tool-policy.mjs'
-import { ACTIVE_RUNTIME_PRESET_ID, installRoleplaySessionRuntime } from './session-runtime.mjs'
+import { ACTIVE_RUNTIME_PRESET_ID, installRoleplaySessionRuntime, materializeAgentPreset } from './session-runtime.mjs'
 import { refreshSessionModelSnapshot } from './model-selection-migration.mjs'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 import { RuntimeContexts, restoreRuntimeContext } from './runtime-contexts.mjs'
 
 export const name = 'eleckoi-agent-preset-bridge'
-export const inject = ['agents', 'agentPresets', 'agentDefaultModel', 'llm', 'settings', 'sessionController', 'sessions', 'eleckoiConversationLifecycle']
+const legacyPresetId = id => /^agent-preset-[a-z0-9-]+-[0-9a-f]{16}$/.test(id ?? '')
+export const inject = ['agents', 'agentPresets', 'agentDefaultModel', 'llm', 'settings', 'sessionController', 'sessionPersistence', 'sessions', 'eleckoiConversationLifecycle']
 
 export async function apply(ctx) {
   const runtimeContexts = new RuntimeContexts()
@@ -26,7 +29,6 @@ export async function apply(ctx) {
   if (!presetRoot) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, 'ELECKOI_PRESET_ROOT is required', { what: '配置必需的运行环境变量' })
   let activeRegistration
   let registrationQueue = Promise.resolve()
-  const legacyRegistrations = new Map()
   const sessionHandles = new Map()
   const sessionLocks = new Map()
   const withSessionLock = async (sessionId, action) => {
@@ -57,7 +59,9 @@ export async function apply(ctx) {
     dispose: (sessionId) => withSessionLock(sessionId, () => disposeTracked(sessionId)),
     withClosed: (sessionId, action) => withSessionLock(sessionId, async () => {
       await disposeTracked(sessionId)
-      return action()
+      const result = await action()
+      await migrateStoredPreset(sessionId, true)
+      return result
     })
   })
   ctx.on('agent/disposed', ({ agent }) => {
@@ -87,60 +91,69 @@ export async function apply(ctx) {
     return operation
   }
 
-  const registerLegacyPreset = (id) => {
-    const existing = legacyRegistrations.get(id)
-    if (existing) return existing
-    const operation = Promise.resolve().then(async () => {
-      const legacyPath = join(presetRoot, id, 'preset.json')
-      const definition = existsSync(legacyPath)
-        ? readRuntimePresetDefinition(legacyPath, id, templatePath)
-        : legacyAliasDefinition(presetRoot, id, templatePath)
-      const dispose = await ctx.agentPresets.register(definition)
-      return { dispose }
-    }).catch((error) => {
-      legacyRegistrations.delete(id)
-      throw error
-    })
-    legacyRegistrations.set(id, operation)
-    return operation
+  const activePath = join(presetRoot, ACTIVE_RUNTIME_PRESET_ID, 'preset.json')
+  // The inventory and cold restores start from the actual global roleplay preset.
+  const productData = typeof ctx.get === 'function' ? ctx.get('eleckoiProductData') : ctx.eleckoiProductData
+  if (productData?.readAgentPresetCatalog) {
+    const catalog = productData.readAgentPresetCatalog()
+    const preset = productData.readAgentPreset(catalog.activePresetIds.roleplay)
+    if (preset.purpose !== 'roleplay') throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '当前全局预设不是角色对话预设。', { what: '选择全局角色对话预设' })
+    const disabledGroupIds = preset.toolGroups.filter(group => !group.included || !group.enabled).map(group => group.id)
+    materializeAgentPreset(presetRoot, templatePath, { ...preset, versionId: preset.activeVersionId }, { disabledGroupIds }, {})
   }
+  if (existsSync(activePath)) await registerActivePreset()
 
-  const registerPreset = (id) => id === ACTIVE_RUNTIME_PRESET_ID
-    ? registerActivePreset()
-    : registerLegacyPreset(id)
-
-  // TODO(迁移清理)：停止支持保存实体化预设 ID 的旧版本直升，并确认仍支持恢复的
-  // Session、快照及导入记录都已持久选择 eleckoi-active 后，删除 legacyRegistrations、
-  // registerLegacyPreset、legacyAliasDefinition、旧目录扫描及对应迁移用例。
-  // 同步收口 registerPreset 的旧 ID 分支；保留当前预设注册、重组和 Session 恢复服务。
-  // 升级客户端不会自动改写未打开的旧 Session；不能只按客户端版本号删除旧声明。
-  if (existsSync(presetRoot)) {
-    const ids = readdirSync(presetRoot, { withFileTypes: true })
-      .filter(entry => entry.isDirectory() && existsSync(join(presetRoot, entry.name, 'preset.json')))
-      .map(entry => entry.name)
-      .sort()
-    await Promise.all(ids.map(registerPreset))
+  // RETIRE WHEN: supported upgrade, import and rewind sources no longer select
+  // materialized roleplay preset IDs. Remove this conversion, legacyPresetId,
+  // startup scan and its prepare/closed-edit calls together. Keep the active
+  // registration and normal restoration; legacy generated files are not deleted.
+  const migrateStoredPreset = async (sessionId, allowMissing = false) => {
+    if (!ctx.sessionPersistence) return
+    let reader, legacySelection, snapshot
+    try {
+      reader = await ctx.sessionPersistence.open(SessionId(sessionId), 'read')
+      const { events } = await reader.read()
+      const selected = storedPresetForInspection({ meta: reader.header, events })
+      legacySelection = legacyPresetId(selected)
+      if (!legacySelection && selected !== ACTIVE_RUNTIME_PRESET_ID) return
+      try { snapshot = readSessionSnapshot(snapshotRoot, sessionId) }
+      catch (error) { if (error?.code !== 'ENOENT') throw error }
+      if (!legacySelection && !legacyPresetId(snapshot?.mountedPresetId) && !legacyPresetId(snapshot?.pendingPresetId)) return
+    } catch (error) {
+      if (allowMissing && error instanceof SessionPersistenceNotFoundError) return
+      throw error
+    } finally { await reader?.close() }
+    const current = await registerActivePreset()
+    if (legacySelection) {
+      const writer = await ctx.sessionPersistence.open(SessionId(sessionId), 'write')
+      try {
+        const { events } = await writer.read()
+        if (legacyPresetId(storedPresetForInspection({ meta: writer.header, events }))) {
+          const session = Session.create(writer.id, events, writer.header, writer.inheritedEventCount)
+          session.append('agent-preset/selected', { agentPreset: ACTIVE_RUNTIME_PRESET_ID })
+          await writer.append(session.snapshotEvents(events.length))
+          await writer.flush()
+        }
+      } finally { await writer.close() }
+    }
+    if (snapshot) commitSessionPreset(snapshotRoot, sessionId, ACTIVE_RUNTIME_PRESET_ID, current.revision)
+  }
+  if (ctx.sessionPersistence) {
+    for (const stored of await ctx.sessionPersistence.list()) {
+      if (!legacyPresetId(stored.header.agentPreset)) continue
+      try { await migrateStoredPreset(stored.header.id) }
+      catch (error) { ctx.logger.error(`角色会话 ${stored.header.id} 的全局预设恢复失败：${String(error)}`) }
+    }
   }
   const presetRegistrar = {
-    async prepareForSession(sessionId, requestedPresetId) {
-      await registerPreset(requestedPresetId)
-      const inspection = await ctx.sessionController.inspect(sessionId)
-      const storedPresetId = storedPresetForInspection(inspection)
-      if (storedPresetId) await registerPreset(storedPresetId)
-      let snapshot
-      try {
-        snapshot = readSessionSnapshot(snapshotRoot, sessionId)
-      } catch (error) {
-        if (error?.code === 'ENOENT') return storedPresetId ?? requestedPresetId
-        throw error
-      }
-      await registerPreset(snapshot.mountedPresetId)
-      return storedPresetId ?? snapshot.mountedPresetId
+    async prepareForSession(sessionId) {
+      await registerActivePreset()
+      if (!ctx.agents.get(sessionId)) await migrateStoredPreset(sessionId)
+      return ACTIVE_RUNTIME_PRESET_ID
     },
-    async registerForSession(sessionId) {
-      const snapshot = readSessionSnapshot(snapshotRoot, sessionId)
-      await registerPreset(snapshot.mountedPresetId)
-      return snapshot.mountedPresetId
+    async registerForSession() {
+      await registerActivePreset()
+      return ACTIVE_RUNTIME_PRESET_ID
     },
     async selectForSession(sessionId) {
       return withSessionLock(sessionId, async () => {
@@ -153,7 +166,7 @@ export async function apply(ctx) {
         const agent = ctx.agents.get(sessionId)
         if (!agent) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, `DSH 会话 ${sessionId} 尚未激活，不能切换预设。`, { what: '激活这个 DSH 会话' })
         if (agent.status !== 'idle') throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, `DSH 会话 ${sessionId} 正在生成，不能切换预设。`, { what: '等这次生成结束再切换预设' })
-        const current = await registerPreset(requested)
+        const current = await registerActivePreset()
         try {
           await ctx.agentPresets.recompose(agent.ctx, requested)
           agent.session.append('agent-preset/selected', { agentPreset: requested })
@@ -187,7 +200,7 @@ export async function apply(ctx) {
       } else {
         restoreRuntimeContext(ctx, agent.session, snapshot)
       }
-      await registerPreset(snapshot.mountedPresetId)
+      await registerActivePreset()
       if (!child) {
         installRequestConfig(agent.ctx, snapshotRoot, agent.id)
         installConversationContext(agent.ctx, snapshotRoot, agent.id, ctx.eleckoiRequestPreviews, ctx.settings, runtimeContexts)
@@ -210,10 +223,6 @@ export async function apply(ctx) {
     disposeHandleTracking()
     await registrationQueue
     await activeRegistration?.dispose()
-    await Promise.allSettled([...legacyRegistrations.values()].map(async task => {
-      const legacy = await task
-      await legacy.dispose()
-    }))
   }
 }
 
@@ -250,12 +259,6 @@ export function installAgentHandleTracking(agents, track, withSessionLock) {
     if (target.create === wrappedCreate) target.create = originalCreate
     if (target.resume === wrappedResume) target.resume = originalResume
   }
-}
-
-function legacyAliasDefinition(presetRoot, id, templatePath) {
-  const activePath = join(presetRoot, ACTIVE_RUNTIME_PRESET_ID, 'preset.json')
-  const active = readRuntimePresetDefinition(activePath, ACTIVE_RUNTIME_PRESET_ID, templatePath)
-  return { ...active, id }
 }
 
 function storedPresetForInspection(inspection) {
