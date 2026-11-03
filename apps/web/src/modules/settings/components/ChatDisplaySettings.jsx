@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { MenuSurface } from '@deepseek-ai/dsh-client-ui-primitives';
 import { DEFAULT_CHAT_TEXT_COLORS } from '@shared/contracts/settings/schemas';
 import {
-  ArrowsOutLineVertical, ArrowCounterClockwise, CaretDown, CaretRight,
+  ArrowsOutLineVertical, ArrowCounterClockwise, CaretRight,
   ChatCircleDots, Check, Palette, SlidersHorizontal,
   TextT, UserCircle, Browsers,
 } from '../../../ui/icons/interfaceIcons.jsx';
@@ -16,7 +16,7 @@ import {
 } from '../../appearance/index.js';
 import {
   chatDisplaySettings, chatDisplayTuners, chatLayouts, avatarShapes,
-  reasoningDisplayModes, textColorOptions, richMessageFloorTuner, richMessageLimitDescription,
+  textColorOptions, richMessageFloorTuner, richMessageLimitDescription,
 } from '../model/chatDisplaySettings.js';
 import '../styles/chat-display-settings.css';
 
@@ -135,12 +135,8 @@ export function ChatDisplaySettings({ persona, chatDisplay, onChatDisplayChange 
           </section>
           <div className="ec-settings-list">
             <DisplayGroup id="behavior" icon={SlidersHorizontal} title="显示行为"
-              description={`思维链${reasoningDisplayModes.find(mode => mode.id === preferences.reasoning_display_mode)?.label}${visibleMessageInfo.length ? ` · 显示${visibleMessageInfo.join('与')}` : ''}`}
-              preview={<span className="ec-behavior-sample">思考过程<CaretDown /></span>}>
-              <label className="ec-field"><span>思维链显示</span><span className="ec-select"><select aria-label="思维链显示" value={preferences.reasoning_display_mode}
-                onChange={event => updatePreferences({ reasoning_display_mode: event.target.value })}>
-                {reasoningDisplayModes.map(mode => <option key={mode.id} value={mode.id}>{mode.label}</option>)}
-              </select><CaretDown aria-hidden="true" /></span></label>
+              description={`生成统计${visibleMessageInfo.length ? ` · 显示${visibleMessageInfo.join('与')}` : ''}`}
+              preview={<span className="ec-behavior-sample">统计{preferences.generation_stats_enabled ? '已开启' : '已关闭'}</span>}>
               <DisplaySwitch label="生成统计" checked={preferences.generation_stats_enabled} onChange={value => updatePreferences({ generation_stats_enabled: value })} />
               {layout === 'roleplay' && <>
                 <DisplaySwitch label="聊天时间戳" checked={preferences.roleplay_timestamps_enabled} onChange={value => updatePreferences({ roleplay_timestamps_enabled: value })} />

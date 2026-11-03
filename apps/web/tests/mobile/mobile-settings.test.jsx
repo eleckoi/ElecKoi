@@ -154,6 +154,8 @@ describe('Android settings presentation with shared PC contracts', () => {
     expect([...container.querySelectorAll('[role="radio"]')].map(item => item.textContent)).toEqual(['浅色', '深色']);
     await click('返回'); expect(view.settingsPage).toBe('home');
     await click('聊天显示');
+    expect(container.textContent).not.toMatch(/思维链|适当收起|全量展开/);
+    expect(container.textContent).toContain('生成统计');
     expect(container.querySelectorAll('.tuner-slider-row')).toHaveLength(0);
     await click('正文文字15 · 400');
     expect(container.querySelectorAll('.tuner-slider-row')).toHaveLength(5);

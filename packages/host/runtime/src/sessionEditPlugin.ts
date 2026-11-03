@@ -6,6 +6,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 import { SessionWriteLease } from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { editDshSessionMessage, readEditableDshSessionLog, rewriteDshSessionEvents } from './sessionMessageEdit'
 import { findGeneratedImage } from '@eleckoi/dsh-client-roleplay/host/generated-image-result.mjs'
+import { removeSessionSnapshot } from '@eleckoi/dsh-client-roleplay/host/session-snapshot.mjs'
 import type { GeneratedImageFrame } from '@eleckoi/dsh-product-data'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { importDshTranscript, type TranscriptMessage } from './sessionTranscriptImport'
@@ -113,6 +114,11 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
       await ctx.eleckoiSessionHandles.withClosed(sessionId, async () => {
         const images = generatedImageReferences(readDshSessionLog(sessionRoot, sessionId)?.events || [])
         const deletedSessionIds = removeDshSessionTree(sessionRoot, sessionId)
+        try {
+          for (const id of deletedSessionIds) removeSessionSnapshot(process.env.ELECKOI_SESSION_SNAPSHOT_ROOT, id)
+        } catch (error) {
+          ctx.logger.error(`会话 ${sessionId} 已删除，但运行配置清理失败。${String(error)}`)
+        }
         try {
           const store = ctx.get('spillStore')
           if (!store?.removeSessionResults) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, '当前 Host 未提供工具结果删除服务。', { what: '工具结果删除服务' })

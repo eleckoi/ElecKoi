@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import {
   IconAgentPresetOutlineRegular, IconApiOutlineRegular, IconBrowseOutlineRegular, IconChevronDownOutlineRegular,
   IconCodeOutlineRegular, IconEditOutlineRegular, IconGlobeOutlineRegular, IconPlanOutlineRegular,
-  IconQuestionOutlineRegular, IconSearchOutlineRegular, IconSparkleRegular, IconThinkOutlineRegular, TextShimmer,
+  IconQuestionOutlineRegular, IconSearchOutlineRegular, IconSparkleRegular, TextShimmer,
 } from '@deepseek-ai/dsh-client-ui-primitives';
+import { ReadSettingIcon, SearchSettingIcon, ThoughtBulbIcon } from '../../../ui/icons/elecKoiMessageIcons.jsx';
 
-const icons = { thinking: IconThinkOutlineRegular, read: IconBrowseOutlineRegular,
-  search: IconSearchOutlineRegular, 'search-setting': IconSearchOutlineRegular,
+const icons = { thinking: ThoughtBulbIcon, read: ReadSettingIcon,
+  search: IconSearchOutlineRegular, 'search-setting': SearchSettingIcon,
   folder: IconBrowseOutlineRegular, edit: IconEditOutlineRegular, terminal: IconApiOutlineRegular,
   code: IconCodeOutlineRegular, globe: IconGlobeOutlineRegular, groups: IconAgentPresetOutlineRegular,
   list: IconPlanOutlineRegular, question: IconQuestionOutlineRegular, description: IconBrowseOutlineRegular };

@@ -3,8 +3,12 @@ import Loader, { Group } from '@deepseek-ai/cordis-plugin-loader'
 import AgentPresetRegistry from '@deepseek-ai/dsh-agent-preset-registry'
 import AgentRegistry, { installModelSelection } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
+import SubagentRuntime from '@deepseek-ai/dsh-subagent'
+import * as SpawnSubagent from '@deepseek-ai/dsh-subagent-spawn-in-process'
+import * as ForkSubagent from '@deepseek-ai/dsh-subagent-fork-in-process'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import SessionQuery from '@deepseek-ai/dsh-session-query'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { defineTool } from '@deepseek-ai/dsh-tools'
 import LlmRuntime, { LlmAdapter, createUserMessage } from '@deepseek-ai/dsh-llm'
@@ -29,7 +33,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const cleanups = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
-async function fixture(stream, creatorTools = true, { compaction = false } = {}) {
+async function fixture(stream, creatorTools = true, { compaction = false, subagents = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-studio-'))
   cleanups.push(() => { const child = relative(tmpdir(), root); if (!child || child.startsWith('..') || isAbsolute(child)) throw new Error('Unexpected cleanup path'); rmSync(root, { recursive: true, force: true }) })
   for (const [key, value] of Object.entries({ ELECKOI_DATABASE_PATH: join(root, 'product.sqlite'), ELECKOI_MEDIA_ROOT: join(root, 'media') })) {
@@ -46,6 +50,17 @@ async function fixture(stream, creatorTools = true, { compaction = false } = {})
   for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry, Commands, TokenMeter]) await ctx.plugin(plugin)
   await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' })
   await ctx.plugin(AgentLoop, { agents: [] })
+  if (subagents) {
+    await ctx.plugin(SessionQuery)
+    ctx.provide('workingDirectory', {
+      get: session => session.header.cwd ?? root,
+      ensure: async agent => agent.session.header.cwd ?? root,
+      set: async (_agent, directory) => directory,
+    })
+    await ctx.plugin(SubagentRuntime)
+    await ctx.plugin(SpawnSubagent)
+    await ctx.plugin(ForkSubagent)
+  }
   await ctx.plugin(productDataPlugin)
   await ctx.plugin({ name: 'synthetic-studio-notifications', provide: ['eleckoiCharacterConfigurationChanges', 'eleckoiProductRecordChanges'], apply(owner) {
     const configuration = new CharacterConfigurationChangeFeed(), records = new ProductRecordChangeFeed()
@@ -95,6 +110,43 @@ async function* text(text) {
 }
 
 describe('AI creator studio official Agent integration', { timeout: 30_000 }, () => {
+  it.each(['spawn', 'fork'])('runs a first-turn %s child with its Studio binding and selected model', async provider => {
+    const f = await fixture(async function* (options, step) {
+      if (options.model === 'synthetic') { yield* text('合成父会话收尾'); return }
+      expect(options.model).toBe('synthetic-child')
+      expect(JSON.stringify(options.messages)).toContain('合成编辑目标')
+      if (step === 1) {
+        yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+        yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: 'synthetic-child-read', name: 'eleckoi_call_capability',
+          arguments: JSON.stringify({ capability_id: 'character.read', arguments: {} }) } }
+        yield { type: 'finish', reason: { kind: 'tool-calls' } }
+      } else {
+        const result = options.messages.find(message => message.role === 'tool' && message.toolCallId === 'synthetic-child-read')
+        expect(JSON.stringify(result)).toContain('synthetic-character')
+        yield* text('合成子代理已完成')
+      }
+    }, true, { subagents: true })
+    const activation = await f.ctx.subagents.startActivation({
+      provider, label: '合成子任务', delivery: 'caller', signal: new AbortController().signal,
+      request: { parent: f.handle.agent, prompt: [{ type: 'text', text: '合成独立任务' }], agentOptions: { model: 'synthetic-child' } },
+    })
+    cleanups.push(() => activation.dispose())
+    const result = await activation.result
+    expect(result.stopReason).toBe('completed')
+    expect(JSON.stringify(result.output)).toContain('合成子代理已完成')
+    expect(f.requests).toHaveLength(2)
+    const stored = readDshSessionLog(join(f.root, 'sessions'), activation.childId)
+    expect(stored.events.filter(event => event.type === CREATOR_STUDIO_EVENT).map(event => event.data))
+      .toEqual([{ presetId: 'agent-preset-creator', characterId: f.character.id }])
+    expect(stored.events.find(event => event.type === 'tool/result').data.isError).not.toBe(true)
+    await f.ctx.subagents.sendMessage(f.handle.agent, activation.childId, [{ type: 'text', text: '合成恢复后继续' }], { signal: new AbortController().signal })
+    await f.ctx.subagents.waitForChildren(f.handle.agent)
+    await f.handle.agent.whenIdle()
+    const resumed = readDshSessionLog(join(f.root, 'sessions'), activation.childId)
+    expect(resumed.events.filter(event => event.type === CREATOR_STUDIO_EVENT)).toHaveLength(1)
+    expect(resumed.events.findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
+  })
+
   it('waits for regex EJS computation in the actual authoring tool and preserves the rule library', async () => {
     const f = await fixture(async function* () { yield* text('Synthetic completion') })
     const before = f.ctx.eleckoiProductData.readRegexRules(f.character.id)

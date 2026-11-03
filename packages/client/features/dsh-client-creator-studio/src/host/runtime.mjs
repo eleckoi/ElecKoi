@@ -105,7 +105,7 @@ export async function installCreatorStudioRuntime(ctx) {
   }
   const stopAssembly = ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const assembled = await next(), agent = context.agent
-    if (!agent) return assembled
+    if (!agent || agent.session.header.origin === 'subagent') return assembled
     const state = ctx.sessionProjections.stateOf(agent.session, creatorStudioProjection.key)
     if (!state) return assembled
     const boundary = ctx.sessionProjections.stateOf(agent.session, 'turnBoundary')
@@ -160,6 +160,7 @@ export async function installCreatorStudioRuntime(ctx) {
       const characters = ctx.eleckoiProductData.readCharacters().items
       const presetId = currentPreset().preset.id
       return items.flatMap(item => {
+        if (item.origin === 'subagent') return []
         const state = item.projections?.values?.[creatorStudioProjection.key]
         if (!state) return []
         const pinIndex = ctx.workspaceRegistry.pinnedSessionIds.indexOf(item.sessionId)

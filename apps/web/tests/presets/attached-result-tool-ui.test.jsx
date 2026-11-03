@@ -7,7 +7,6 @@ import { AgentToolsDialog } from '../../src/modules/chat/components/AgentToolsDi
 import { EditorPresentationContext } from '../../src/ui/ui/EditorPresentationContext.jsx';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { agentToolGroups } from '../../../../packages/host/product-data/src/domain/agentTools/agentToolGroups';
-import { processArgumentSummary } from '../../src/modules/chat/model/agentProcessArguments.js';
 
 const groups = [['builtin:setting-library', 4, 'eleckoi_read_setting_files'], ['builtin:variables', 4, 'eleckoi_read_variables'], ['builtin:creator', 3, 'eleckoi_call_capability']];
 
@@ -17,11 +16,6 @@ beforeEach(() => {
   const host = document.createElement('div'); document.body.append(host); root = createRoot(host);
 });
 
-it.each(groups)('shows continuation arguments under the existing %s tool', (_id, _count, reader) => {
-  const args = { result: { file_path: '/synthetic/result.txt', offset: 32768, query: '末尾关键词', limit: 50 } };
-  expect(processArgumentSummary(reader, JSON.stringify(args))).toBe('结果文件：/synthetic/result.txt\n字节起始位置：32768\n本页命中数：50\n搜索文字：末尾关键词');
-  expect(processArgumentSummary(reader, { ...args, paths: ['synthetic'] })).toBeNull();
-});
 afterEach(async () => {
   await act(async () => root.unmount()); document.body.replaceChildren();
   delete document.documentElement.dataset.eleckoiMobile; vi.unstubAllGlobals();

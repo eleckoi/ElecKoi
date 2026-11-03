@@ -116,6 +116,7 @@ window.__ModuleLoader__.load({
         matched,
         navigation: {
           tabs: tabs.filter(tab => !unpinned.includes(tab.id)), activeView: active?.id, selectView,
+          renderHeaderActions: () => renderSlot(viewSeatName('conversation.session.header.actions'), {}),
           renderEntryActions: hasEntryActions ? onDismiss => renderSlot(viewSeatName('conversation.session.header.views.actions'), {
             entries: tabs.filter(tab => unpinned.includes(tab.id)).map(tab => ({ id: tab.id, label: tab.label, pinned: false, active: tab.id === active?.id })),
             onOpen: selectView, onPinnedChange: setPinned, onDismiss
@@ -204,14 +205,22 @@ window.__ModuleLoader__.load({
         }
         const projectedViewChildren = new Set()
         const projectConversationSeat = (source, target, options = {}) => {
+          const childSeatName = name => options.childNamespace ? `${options.childNamespace}.${name}` : viewSeatName(name)
           ctx.slots.inject(target, () => {
             const projected = new Map()
             const adapt = entry => function ConversationSeatEntry(ownerProps) {
               if (options.component) return React.createElement(options.component, ownerProps)
               if (options.bridgeChildren) return React.createElement(entry.component, {
                 ...ownerProps,
-                renderSlot: (name, owner, renderOptions) => ownerProps.renderSlot(viewSeatName(name), owner, renderOptions),
-                renderSlotChain: (name, owner, renderOptions) => ownerProps.renderSlotChain(viewSeatName(name), owner, renderOptions),
+                renderSlot: (name, owner, renderOptions) => {
+                  const renderNative = () => ownerProps.renderSlot(childSeatName(name), owner, renderOptions)
+                  if (name === 'tool.call.toolview' && ownerProps.renderToolCall) {
+                    const rendered = ownerProps.renderToolCall(owner, renderNative)
+                    if (rendered !== undefined) return rendered
+                  }
+                  return renderNative()
+                },
+                renderSlotChain: (name, owner, renderOptions) => ownerProps.renderSlotChain(childSeatName(name), owner, renderOptions),
               })
               if (source === 'conversation.composer.dock' && ['activity', 'usage'].includes(entry.options.id)) {
                 const display = useDisplayStats(ownerProps)
@@ -245,6 +254,8 @@ window.__ModuleLoader__.load({
                 const identities = props.useProjection('eleckoiInputContinuations')
                 const roundIndex = React.useMemo(() => createInputRoundIndex(identities), [identities])
                 const presentTurnNavigation = React.useCallback(navigation => presentChatTurnNavigation(navigation, roundIndex), [roundIndex])
+                const nodeOrder = props.useChat(snapshot => snapshot.order)
+                const renderIndices = React.useMemo(() => new Map(nodeOrder.map((key, index) => [key, index])), [nodeOrder])
                 const renderSlot = React.useCallback((name, owner, renderOptions) => {
                   if (name === 'conversation.chat.flow') return props.renderSlot(bridgedChatChildren[name], { ...owner, renderChatNode, renderPendingInput, before }, renderOptions)
                   if (name === 'conversation.chat.before') return props.renderSlot(bridgedChatChildren[name], owner, {
@@ -254,11 +265,12 @@ window.__ModuleLoader__.load({
                     ...renderOptions, fallback: renderPendingInput(owner)
                   })
                   if (name === 'conversation.chat.node' && renderChatNode) {
-                    const rendered = renderChatNode(owner)
+                    const renderOfficial = overrides => props.renderSlot(bridgedChatChildren[name], { ...owner, ...overrides }, renderOptions)
+                    const rendered = renderChatNode(owner, renderOfficial, renderIndices.get(owner.node.key))
                     if (rendered !== undefined) return rendered
                   }
                   return props.renderSlot(bridgedChatChildren[name] || name, owner, renderOptions)
-                }, [props.renderSlot, before, renderChatNode, renderPendingInput])
+                }, [props.renderSlot, before, renderChatNode, renderPendingInput, renderIndices])
                 // Roleplay owns process disclosure in its trajectory dialog.
                 // Keep the actual Turn seat visible throughout its lifecycle.
                 const usePresentation = React.useCallback(selector => props.usePresentation(policy => selector({
@@ -300,18 +312,21 @@ window.__ModuleLoader__.load({
                   ...(entry.options.label !== undefined ? { label: entry.options.label } : {}),
                   ...(entry.options.priority !== undefined ? { priority: entry.options.priority } : {}),
                   ...(entry.select ? { select: entry.select } : {}),
-                  ...(entry.inject ? { inject: entry.inject } : {}),
+                  ...(entry.inject ? { inject: source === 'conversation.session.header.actions' && entry.options.id === 'subagent-catalog'
+                    ? owner => { const actions = entry.inject(owner); return { ...actions, openChild: actions.openChildAside } }
+                    : entry.inject } : {}),
                   ...(entry.store ? { store: entry.store } : {}),
                   ...(entry.locale ? { locale: entry.locale } : {}),
                   ...(entry.registrant ? { registrant: entry.registrant } : {})
                 }
                 if (options.bridgeChildren && entry.children) {
                   registrationOptions.children = Object.fromEntries(Object.entries(entry.children)
-                    .map(([name, spec]) => [viewSeatName(name), spec]))
+                    .map(([name, spec]) => [childSeatName(name), spec]))
                   for (const name of Object.keys(entry.children)) {
-                    if (projectedViewChildren.has(name)) continue
-                    projectedViewChildren.add(name)
-                    projectConversationSeat(name, viewSeatName(name), { bridgeChildren: true })
+                    const childName = childSeatName(name)
+                    if (projectedViewChildren.has(childName)) continue
+                    projectedViewChildren.add(childName)
+                    projectConversationSeat(name, childName, { bridgeChildren: true, childNamespace: options.childNamespace })
                   }
                 }
                 if (!options.bridgeChildren && (options.entryId === 'chat' || source === 'conversation.chat.flow') && entry.children) {
@@ -403,7 +418,9 @@ window.__ModuleLoader__.load({
         projectConversationSeat('conversation.trajectory.images', 'eleckoi.roleplay.trajectory.images')
         projectConversationSeat('conversation.view', 'eleckoi.roleplay.trajectory', { entryId: 'trajectory' })
         projectConversationSeat('conversation.view', 'eleckoi.roleplay.chat', { entryId: 'chat' })
-        projectConversationSeat('conversation.chat.node', 'eleckoi.roleplay.chat.node', { leafOnly: true })
+        projectConversationSeat('conversation.chat.node', 'eleckoi.roleplay.chat.node', {
+          bridgeChildren: true, childNamespace: 'eleckoi.roleplay.chat.node'
+        })
         projectConversationSeat('conversation.chat.flow', 'eleckoi.roleplay.chat.flow')
         projectConversationSeat('conversation.chat.user.images', 'eleckoi.roleplay.chat.user.images')
         projectConversationSeat('conversation.chat.message.images', 'eleckoi.roleplay.chat.images')

@@ -42,7 +42,17 @@ describe('ElecKoi roleplay client contribution', () => {
     const store = () => null
     const injectHeader = () => ({})
     const injectBody = () => ({})
-    const releaseHeader = slots.register({ name: 'conversation.session.header', store, inject: injectHeader, locale: 'conversation' }, () => null)
+    const releaseHeader = slots.register({ name: 'conversation.session.header', store, inject: injectHeader, locale: 'conversation', children: {
+      'conversation.session.header.actions': { kind: 'list', scope: 'session' },
+    } }, () => null)
+    const SubagentAction = () => null
+    const opened: unknown[] = []
+    const injectedOwner = {}
+    const injectSubagents = (owner: unknown) => ({ owner, openChild: () => { throw new Error('Main conversation must stay mounted') },
+      openChildAside: (address: unknown) => opened.push(address) })
+    const releaseHeaderAction = slots.register({ name: 'conversation.session.header.actions', id: 'subagent-catalog', order: 10,
+      inject: injectSubagents }, SubagentAction)
+    const releasePresetLabel = slots.register({ name: 'conversation.session.header.actions', id: 'agent-preset', order: 0 }, () => null)
     const releaseBody = slots.register({ name: 'conversation.session', store, inject: injectBody, children: {
       'conversation.chat.user.images': { kind: 'single', scope: 'session' },
         'conversation.chat.message.images': { kind: 'single', scope: 'session' },
@@ -104,6 +114,17 @@ describe('ElecKoi roleplay client contribution', () => {
     const selected = headerNode.type(headerNode.props)
     expect(selected.owner.navigation.tabs.map((tab: any) => tab.id)).toEqual(['chat', 'sample-view', 'trajectory'])
     expect(selected.owner.navigation.activeView).toBe('sample-view')
+    expect(slots.entriesOfSlot('eleckoi.roleplay.view.conversation.session.header.actions').map((entry: any) => entry.options.id))
+      .toEqual(['agent-preset', 'subagent-catalog'])
+    const projectedCatalog = slots.entriesOfSlot('eleckoi.roleplay.view.conversation.session.header.actions')[1]
+    const catalogActions = projectedCatalog.inject(injectedOwner)
+    const childAddress = { parentSessionId: 'parent', childSessionId: 'child', mode: 'continuable' }
+    catalogActions.openChild(childAddress)
+    expect(catalogActions.owner).toBe(injectedOwner)
+    expect(opened).toEqual([childAddress])
+    const renderHeaderSlot = (name: string, owner: unknown) => ({ name, owner })
+    const selectedHeader = headerNode.type({ ...headerNode.props, renderSlot: renderHeaderSlot })
+    expect(selectedHeader.owner.navigation.renderHeaderActions()).toEqual({ name: 'eleckoi.roleplay.view.conversation.session.header.actions', owner: {} })
     const renderSlot = (name: string, owner: unknown, options: unknown) => ({ name, owner, options })
     const completeViewRequest = () => {}
     const inspectCall = () => {}
@@ -127,6 +148,8 @@ describe('ElecKoi roleplay client contribution', () => {
     expect(slots.spec('sample-view.controls')).toBeUndefined()
     expect(slots.spec('eleckoi.roleplay.view.sample-view.controls')).toBeUndefined()
     releaseBody()
+    releaseHeaderAction()
+    releasePresetLabel()
     releaseHeader()
     await Promise.resolve()
     expect(slots.entriesOfSlot('eleckoi.roleplay.session.body')).toHaveLength(0)
@@ -396,6 +419,29 @@ describe('ElecKoi roleplay client contribution', () => {
     }, officialChat)
     const releaseChat = () => { releaseFlow(); releaseChatView() }
     await Promise.resolve()
+    const toolNode = () => null
+    const toolCard = () => null
+    const releaseToolNode = slots.register({ name: 'conversation.chat.node', key: 'tool-call', children: {
+      'tool.call.toolview': { kind: 'keyed', scope: 'session' },
+    } }, toolNode)
+    const releaseToolCard = slots.register({ name: 'tool.call.toolview', key: 'synthetic-read' }, toolCard)
+    await Promise.resolve()
+    expect(slots.spec('eleckoi.roleplay.chat.node.tool.call.toolview')).toEqual({ kind: 'keyed', scope: 'session' })
+    const toolProjection = slots.entriesOfSlot('eleckoi.roleplay.chat.node').find((entry: any) => entry.options.key === 'tool-call')
+    const projectedTool = toolProjection.component({ renderSlot: (name: string, owner: unknown, options: unknown) => ({ name, owner, options }) })
+    expect(projectedTool.type).toBe(toolNode)
+    expect(projectedTool.props.renderSlot('tool.call.toolview', { callId: 'native-call' }, { entryKey: 'synthetic-read' }))
+      .toEqual({ name: 'eleckoi.roleplay.chat.node.tool.call.toolview', owner: { callId: 'native-call' }, options: { entryKey: 'synthetic-read' } })
+    const ownToolOwner = { callId: 'owned-call', toolName: 'eleckoi_read_setting_files' }
+    const customCard = { type: 'custom-results' }
+    const renderToolCall = (owner: unknown, renderNative: () => unknown) => owner === ownToolOwner ? customCard : renderNative()
+    const customTool = toolProjection.component({ renderToolCall,
+      renderSlot: (name: string, owner: unknown, options: unknown) => ({ name, owner, options }) })
+    expect(customTool.props.renderSlot('tool.call.toolview', ownToolOwner, { entryKey: ownToolOwner.toolName })).toBe(customCard)
+    const foreignOwner = { callId: 'foreign-call', toolName: 'synthetic-read' }
+    expect(customTool.props.renderSlot('tool.call.toolview', foreignOwner, { entryKey: foreignOwner.toolName }))
+      .toEqual({ name: 'eleckoi.roleplay.chat.node.tool.call.toolview', owner: foreignOwner, options: { entryKey: foreignOwner.toolName } })
+    expect(slots.entriesOfSlot('eleckoi.roleplay.chat.node.tool.call.toolview')[0].component({}).type).toBe(toolCard)
 
     const typeDeclarations = [...slotTypes.matchAll(/'([^']+)':\s*\{\s*kind:\s*'([^']+)'\s*scope:\s*'([^']+)'/g)]
       .filter(([, id]) => !id!.startsWith('eleckoi.roleplay.session'))
@@ -584,6 +630,7 @@ describe('ElecKoi roleplay client contribution', () => {
     expect(slots.spec('eleckoi.roleplay.chat.node').inject).toBe(nodeInject)
     const useChatNode = () => null
     const renderedChat = chatEntry.component({
+      useChat: (select: any) => select({ order: [] }),
       useChatNode, renderSlot: renderBridgeSlot, before: 'opening',
       useProjection: () => undefined,
       renderChatNode: ({ node }: any) => node.kind === 'user' ? 'roleplay-input' : node.kind === 'turn-process' ? null : undefined,
@@ -634,6 +681,8 @@ describe('ElecKoi roleplay client contribution', () => {
     releaseOfficialComposer()
     await Promise.resolve()
     expect(slots.entriesOfSlot('eleckoi.roleplay.conversation.composer.bar')).toHaveLength(0)
+    releaseToolCard()
+    releaseToolNode()
     releaseChat()
     await Promise.resolve()
     expect(slots.entriesOfSlot('eleckoi.roleplay.chat')).toHaveLength(0)

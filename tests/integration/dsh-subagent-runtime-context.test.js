@@ -9,6 +9,21 @@ import { AgentRegistry } from '@deepseek-ai/dsh-agent'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, { LlmAdapter } from '@deepseek-ai/dsh-llm'
+import AgentLoop from '@deepseek-ai/dsh-agent-loop'
+import SessionStore from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
+import ToolRuntime from '@deepseek-ai/dsh-tools'
+import SubagentRuntime from '@deepseek-ai/dsh-subagent'
+import * as SpawnSubagent from '@deepseek-ai/dsh-subagent-spawn-in-process'
+import * as ForkSubagent from '@deepseek-ai/dsh-subagent-fork-in-process'
+import * as SubagentTool from '@deepseek-ai/dsh-tool-subagent'
+import * as SubagentControl from '@deepseek-ai/dsh-tool-subagent-control'
+import { installRoleplaySubagentTurn } from '../../packages/client/features/dsh-client-roleplay/src/host/subagent-turn.mjs'
+import { readDshSessionLog } from '@eleckoi/dsh-runtime'
+import { apply as applySessionEdit } from '../../packages/host/runtime/src/sessionEditPlugin'
+import { snapshotPath } from '../../packages/client/features/dsh-client-roleplay/src/host/session-snapshot.mjs'
 import { ElecKoiVariableProcessing } from '@eleckoi/dsh-product-api'
 import {
   apply as applyAgentPresetBridge,
@@ -19,14 +34,113 @@ import { apply as applyVariableTools } from '../../apps/desktop/resources/dsh/va
 import { restoreRuntimeContext } from '../../packages/client/features/dsh-client-roleplay/src/host/runtime-contexts.mjs'
 
 const directories = []
+const previousSessionRoot = process.env.DSH_SESSION_ROOT
 
 afterEach(() => {
   delete process.env.ELECKOI_SESSION_SNAPSHOT_ROOT
   delete process.env.ELECKOI_PRESET_ROOT
+  if (previousSessionRoot === undefined) delete process.env.DSH_SESSION_ROOT
+  else process.env.DSH_SESSION_ROOT = previousSessionRoot
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true })
 })
 
 describe('DSH subagent runtime context inheritance', () => {
+  it.each(['spawn', 'fork', 'cancel', 'delete-spawn', 'delete-fork'])('settles delegated work before closing or deleting its roleplay turn (%s)', async mode => {
+    const ctx = new Context(), childEntered = Promise.withResolvers(), release = Promise.withResolvers(), stopped = Promise.withResolvers()
+    const counts = new Map(), requests = []
+    const rootId = SessionId('synthetic-roleplay-parent')
+    try {
+      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry]) await ctx.plugin(plugin)
+      const directory = mkdtempSync(join(tmpdir(), 'eleckoi-subagent-turn-'))
+      directories.push(directory)
+      await ctx.plugin(JsonlSessionPersistence, { root: directory, compression: 'none' })
+      await ctx.plugin(AgentLoop, { agents: [] })
+      const deleting = mode.startsWith('delete-')
+      if (deleting) {
+        process.env.ELECKOI_SESSION_SNAPSHOT_ROOT = join(directory, 'snapshots')
+        process.env.ELECKOI_PRESET_ROOT = join(directory, 'presets')
+        await applyAgentPresetBridge(ctx)
+      }
+      ctx.provide('workingDirectory', { get: () => process.cwd(), ensure: async () => process.cwd(), set: async (_agent, value) => value })
+      await ctx.plugin(SubagentRuntime)
+      await ctx.plugin(SpawnSubagent)
+      await ctx.plugin(ForkSubagent)
+      await ctx.plugin(SubagentTool, { provider: mode.endsWith('fork') ? 'fork' : 'spawn' })
+      await ctx.plugin(SubagentControl)
+      class Adapter extends LlmAdapter {
+        async resolveModel(provider, id) { return { provider, id, name: id } }
+        async *stream(options) {
+          requests.push(options)
+          const step = (counts.get(options.sessionId) ?? 0) + 1
+          counts.set(options.sessionId, step)
+          if (options.sessionId === rootId) {
+            if (step === 1) yield* call('subagent', { description: 'Synthetic task', prompt: 'Synthetic child input' })
+            else {
+              if (step === 2) stopped.resolve()
+              yield* reply(step === 2 ? 'Synthetic pending child' : 'Synthetic final child result')
+            }
+          } else if (step === 1) {
+            childEntered.resolve()
+            await Promise.race([release.promise, new Promise((_, reject) => options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true }))])
+            yield* call('send_message', { agent_id: rootId, message: 'Synthetic delivered result' })
+          } else yield* reply('Synthetic child closing result')
+        }
+      }
+      ctx.llm.registerAdapter(['synthetic'], new Adapter())
+      const root = await ctx.agents.create({ sessionId: rootId, agentOptions: { provider: 'synthetic', model: 'synthetic' },
+        setup: owner => { if (!deleting) installRoleplaySubagentTurn(owner) } })
+      root.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Synthetic delegation' }], source: { kind: 'user' } }))
+      await Promise.race([
+        Promise.all([childEntered.promise, stopped.promise]),
+        ...(!deleting ? [root.agent.whenIdle().then(() => { throw new Error(`Parent ended before delegation: ${JSON.stringify(root.agent.session.snapshotEvents())}`) })] : []),
+      ])
+      if (deleting) {
+        // Older Sessions can already be idle while a child is still running.
+        await root.agent.whenIdle()
+        const child = ctx.agents.list().find(agent => agent.session.header.origin === 'subagent')
+        expect(readDshSessionLog(directory, child.id)).toBeDefined()
+        const snapshots = process.env.ELECKOI_SESSION_SNAPSHOT_ROOT
+        mkdirSync(snapshots, { recursive: true })
+        for (const id of [rootId, child.id, 'unrelated']) writeFileSync(snapshotPath(snapshots, id), '{}')
+        process.env.DSH_SESSION_ROOT = directory
+        const removeResults = vi.fn(async () => {})
+        ctx.provide('spillStore', { removeSessionResults: removeResults })
+        applySessionEdit(ctx)
+        await ctx.eleckoiSessionEditor.deleteSession(rootId)
+        expect(removeResults.mock.calls[0][0].sort()).toEqual([rootId, child.id].sort())
+        expect(ctx.agents.list()).toHaveLength(0)
+        release.resolve()
+        await new Promise(resolve => setImmediate(resolve))
+        expect(readDshSessionLog(directory, rootId)).toBeUndefined()
+        expect(readDshSessionLog(directory, child.id)).toBeUndefined()
+        expect(await ctx.sessionPersistence.list()).toHaveLength(0)
+        expect(existsSync(snapshotPath(snapshots, rootId))).toBe(false)
+        expect(existsSync(snapshotPath(snapshots, child.id))).toBe(false)
+        expect(existsSync(snapshotPath(snapshots, 'unrelated'))).toBe(true)
+        return
+      }
+      let idle = false
+      const wait = root.agent.whenIdle().then(() => { idle = true })
+      await new Promise(resolve => setImmediate(resolve))
+      expect(idle).toBe(false)
+      if (mode === 'cancel') root.agent.cancel({ kind: 'user' })
+      else release.resolve()
+      await wait
+      const events = root.agent.session.snapshotEvents()
+      expect(events.filter(event => event.type === 'turn/start')).toHaveLength(1)
+      expect(events.findLast(event => event.type === 'turn/end').data.reason.kind).toBe(mode === 'cancel' ? 'aborted' : 'completed')
+      if (mode !== 'cancel') {
+        const sources = events.filter(event => event.type === 'user/message').map(event => event.data.source.kind)
+        expect(sources).toEqual(expect.arrayContaining(['user', 'agent-message', 'subagent-settled']))
+        const final = requests.filter(request => request.sessionId === rootId).at(-1)
+        expect(JSON.stringify(final.messages)).toContain('Synthetic delivered result')
+        expect(JSON.stringify(final.messages)).toContain('Synthetic child closing result')
+      }
+      expect(ctx.agents.list().filter(agent => agent.session.header.origin === 'subagent')).toHaveLength(0)
+      await root.dispose()
+    } finally { release.resolve(); await ctx.fiber.dispose() }
+  }, 30_000)
+
   it('restores only durable variables and keeps the official dialogue order without replaying an input', () => {
     const id = 'synthetic-restored-session'
     const contexts = runtimeContextsFor(id)
@@ -340,6 +454,18 @@ describe('DSH subagent runtime context inheritance', () => {
     expect(existsSync(join(fixture.snapshotRoot, 'failed-child.json'))).toBe(false)
   })
 })
+
+async function* call(name, args) {
+  yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+  yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: `synthetic-${name}`, name, arguments: JSON.stringify(args) } }
+  yield { type: 'finish', reason: { kind: 'tool-calls' } }
+}
+async function* reply(text) {
+  yield { type: 'block-start', index: 0, blockType: 'text' }
+  yield { type: 'text-delta', index: 0, text: `<FINAL>${text}</FINAL>` }
+  yield { type: 'block-end', index: 0, block: { type: 'text', text: `<FINAL>${text}</FINAL>` } }
+  yield { type: 'finish', reason: { kind: 'stop' } }
+}
 
 function agentCreatedListener(ctx) {
   return ctx.on.mock.calls.find(([name]) => name === 'agent/created')[1]

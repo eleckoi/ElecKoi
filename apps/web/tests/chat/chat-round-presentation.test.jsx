@@ -142,4 +142,41 @@ describe('chat rounds presented by native DSH components', () => {
     expect(fold(events)).toEqual({ steps: 1, turns: 1 })
     expect(fold([events[0], events[1], event('request/header'), ...events.slice(2)])).toEqual({ steps: 0, turns: 0 })
   })
+
+  it('keeps late child results attached to their delegation and changes ownership only after a successful follow-up', () => {
+    let state = inputContinuationsProjection.init(), seq = 0
+    const apply = (type, data) => { state = inputContinuationsProjection.apply(state, { type, data, seq: ++seq }) }
+    const human = (turn, id) => {
+      apply('turn/start', { turn })
+      apply('user/message', { id, source: { kind: 'user' } })
+    }
+    const wake = turn => {
+      apply('turn/start', { turn })
+      apply('user/message', { id: `wake-${turn}`, source: { kind: 'subagent-settled', senderSessionId: 'child' } })
+      apply('turn/end', { turn })
+    }
+    const send = isError => {
+      apply('tool/call', { callId: 'send', name: 'send_message', arguments: JSON.stringify({ agent_id: 'child', message: 'Synthetic follow-up' }) })
+      apply('tool/result', { message: { toolCallId: 'send', isError } })
+    }
+    human(1, 'original-input')
+    apply('subagent/catalog', { childId: 'child' })
+    apply('turn/end', { turn: 1 })
+    human(2, 'unrelated-input')
+    apply('turn/end', { turn: 2 })
+    wake(3)
+    expect(state.links.at(-1)).toMatchObject({ turn: 3, inputMessageId: 'original-input' })
+    human(4, 'rejected-follow-up')
+    send(true)
+    apply('turn/end', { turn: 4 })
+    wake(5)
+    expect(state.links.at(-1).inputMessageId).toBe('original-input')
+    human(6, 'accepted-follow-up')
+    send(false)
+    apply('turn/end', { turn: 6 })
+    wake(7)
+    expect(state.links.at(-1)).toMatchObject({ turn: 7, inputMessageId: 'accepted-follow-up' })
+    expect(state.sends).toEqual({})
+    expect(Object.keys(state.children)).toEqual(['child'])
+  })
 })

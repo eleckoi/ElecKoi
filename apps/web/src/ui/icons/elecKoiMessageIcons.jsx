@@ -3,6 +3,14 @@ import {
   IconRefreshOutlineRegular, IconRefreshOutlineMedium, IconChevronLeftOutlineRegular, IconChevronRightOutlineRegular,
   IconClockOutlineRegular, IconClockOutlineMedium,
 } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Eye } from './interfaceIcons.jsx';
+import thoughtBulb from './thought-bulb.svg';
+
+export function ThoughtBulbIcon({ size = 14, className }) {
+  return <span aria-hidden="true" className={className} data-thought-bulb=""
+    style={{ display: 'inline-block', width: size, height: size, background: 'currentColor',
+      mask: `url("${thoughtBulb}") center / contain no-repeat` }} />;
+}
 
 function StrokeIcon({ paths, size = 18, className, viewBox = '0 0 24 24', strokeWidth = 1.9 }) {
   return (
@@ -24,6 +32,16 @@ export const MessagePencilIcon = ({ size = 18, className }) => <svg width={size}
 export const AgentPencilIcon = ({ size = 18, className }) => <IconEditOutlineRegular size={size} className={className} />;
 export const AgentHistoryIcon = ({ size = 18, className }) => <IconClockOutlineRegular size={size} className={className} />;
 export const HistoryIcon = ({ size = 18, className }) => <IconClockOutlineMedium size={size} className={className} />;
+export function ViewProcessIcon({ size = 19, className }) {
+  return <Eye size={size} weight="regular" aria-hidden="true"
+    className={`message-action-eye-glyph${className ? ` ${className}` : ''}`} />;
+}
+export function ReadSettingIcon({ size = 14, className }) {
+  return <StrokeIcon size={size} className={className} strokeWidth={1.5} paths={[
+    'M12 6C9.4 4.1 5.9 3.5 2.5 4.5V20c3.5-1 6.6-.4 9.5 1.5 2.9-1.9 6-2.5 9.5-1.5V4.5C18 3.5 14.6 4.1 12 6Zm0 0v15.5',
+    'M17 2.5v7l2-1 2 1v-7',
+  ]} />;
+}
 export const CopyIcon = ({ size = 16, className, emphasized = false }) => {
   const Icon = emphasized ? IconCopyOutlineMedium : IconCopyOutlineRegular;
   return <Icon size={size} className={`message-action-wide-glyph${className ? ` ${className}` : ''}`} />;

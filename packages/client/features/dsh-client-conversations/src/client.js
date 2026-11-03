@@ -296,108 +296,6 @@ window.__ModuleLoader__.load({
       return byTurn
     }
 
-    function subagentSessionId(item) {
-      const value = `${item?.detail || ''}\n${item?.summary || ''}`
-      return value.match(/started (?:background )?subagent(?: job)?\s+([0-9a-z-]+)/i)?.[1] || ''
-    }
-
-    function subagentAssignments(processByTurn, catalog) {
-      const roots = [...processByTurn.entries()].flatMap(([turn, items]) => items
-        .filter(item => item?.kind === 'subagent' || item?.toolName === 'subagent' || item?.toolName === 'subagent_fork')
-        .map(item => ({ turn, item })))
-        .sort((left, right) => Number(left.item.startedAtMillis || 0) - Number(right.item.startedAtMillis || 0))
-      const entries = [...(catalog || [])].sort((left, right) => Number(left.createdAt || 0) - Number(right.createdAt || 0))
-      const claimedEntries = new Set()
-      const assigned = new Map()
-      for (const root of roots) {
-        const sessionId = subagentSessionId(root.item)
-        const entry = sessionId ? entries.find(candidate => candidate.id === sessionId) : undefined
-        if (!entry || claimedEntries.has(entry.id)) continue
-        claimedEntries.add(entry.id)
-        assigned.set(entry.id, root)
-      }
-      for (const root of roots) {
-        if ([...assigned.values()].includes(root)) continue
-        const startedAt = Number(root.item.startedAtMillis || 0)
-        const candidates = entries.filter(entry => !claimedEntries.has(entry.id))
-        if (!candidates.length) break
-        const entry = candidates.reduce((best, candidate) => {
-          const delta = Math.abs(Number(candidate.createdAt || 0) - startedAt)
-          const bestDelta = Math.abs(Number(best.createdAt || 0) - startedAt)
-          return delta < bestDelta ? candidate : best
-        })
-        claimedEntries.add(entry.id)
-        assigned.set(entry.id, root)
-      }
-      return assigned
-    }
-
-    function childSessionProcess(entry, target, processCache, toolCache) {
-      const snapshot = target?.getSnapshot()
-      if (!snapshot) return []
-      const prefix = `subagent:${entry.id}:`
-      const nodes = orderedChatNodes(snapshot)
-      const closingAssistantNodes = new Set()
-      for (const tail of nodes) {
-        if (tail.kind !== 'turn-tail' || !tail.data?.closing) continue
-        const finalNode = tail.data.closing.finalNode
-        const candidates = nodes.filter(node => node.kind === 'assistant-step'
-          && nodeTurn(node) === nodeTurn(tail))
-        const closingText = assistantText(tail.data.closing.blocks)
-        const closingNode = candidates.find(node => (finalNode?.messageId
-          && node.data?.messageId === finalNode.messageId)
-          || (Number.isSafeInteger(finalNode?.seq) && node.data?.seq === finalNode.seq))
-          || candidates.findLast(node => closingText
-            && assistantText(node.data?.blocks) === closingText)
-        if (closingNode) closingAssistantNodes.add(closingNode)
-      }
-      const items = [...officialProcess(snapshot, {
-        includeAllNarrative: true,
-        skipNarrativeNodes: closingAssistantNodes,
-        narrativeText: finalReplyText, processCache, toolCache,
-      }).values()].flat().map(item => ({
-        ...item,
-        id: `${prefix}${item.id}`,
-        ...(item.parentId ? { parentId: `${prefix}${item.parentId}` } : {})
-      }))
-      for (const node of nodes) {
-        if (node.kind !== 'turn-tail' || !node.data?.closing) continue
-        const content = assistantContent(node.data.closing.blocks).final.trim()
-        if (!content) continue
-        items.push({
-          id: `${prefix}final:${node.data.turn}`,
-          kind: 'narrative', status: 'complete', toolName: 'assistant_final',
-          arguments: '', summary: content, detail: content,
-          startedAtMillis: Number(node.data.closing.finalNode?.time) || Number(entry.createdAt) || 0,
-          completedAtMillis: Number(node.data.closing.finalNode?.time) || Number(entry.createdAt) || 0,
-        })
-      }
-      return items
-    }
-
-    function officialProcessWithSubagents(snapshot, catalog, subagentSessions, trajectory, illustrations = [], processCache, nodes, toolCache) {
-      const byTurn = officialProcess(snapshot, { trajectory, illustrations, processCache, nodes, toolCache })
-      // DSH records every subagent in an independent child Session. A parent
-      // tool call contains only the delegation receipt, so its visible process
-      // must join the parent catalog identity with the child's official Chat
-      // projection instead of treating tool-call `subCalls` as child history.
-      const assignments = subagentAssignments(byTurn, catalog)
-      for (const entry of catalog || []) {
-        const root = assignments.get(entry.id)
-        const child = subagentSessions.get(entry.id)
-        if (!root || !child?.target) continue
-        const delegated = childSessionProcess(entry, child.target, processCache, toolCache).map(item => ({
-          ...item,
-          parentId: item.parentId || root.item.id,
-        }))
-        if (!delegated.length) continue
-        const current = byTurn.get(root.turn) || []
-        const delegatedIds = new Set(delegated.map(item => item.id))
-        byTurn.set(root.turn, [...current.filter(item => !delegatedIds.has(item.id)), ...delegated])
-      }
-      return byTurn
-    }
-
     function mergedProcess(product = [], official = []) {
       const items = [...product]
       const positions = new Map()
@@ -542,7 +440,7 @@ window.__ModuleLoader__.load({
       const aborted = new Set(abortedTurns)
       const closedTurns = new Set(nodes.filter(node => node.kind === 'turn-tail' && node.data?.closing)
         .map(nodeTurn).filter(Number.isSafeInteger))
-      const supersededInputTurns = new Set(inputLinks.filter(link => Number.isSafeInteger(link.inputTurn)
+      const supersededInputTurns = new Set(inputLinks.filter(link => link.kind !== 'subagent' && Number.isSafeInteger(link.inputTurn)
         && link.inputTurn > 0 && link.inputTurn !== link.turn).map(link => link.inputTurn))
       if (Number.isSafeInteger(regeneratingInputTurn) && regeneratingInputTurn > 0) supersededInputTurns.add(regeneratingInputTurn)
       const latestOpenAssistantByTurn = new Map()
@@ -789,9 +687,6 @@ window.__ModuleLoader__.load({
         this.stopSessionState = () => {}
         this.stopSessionGeneration = () => {}
         this.stopProjections = () => {}
-        this.subagentCatalog = []
-        this.subagentSessions = new Map()
-        this.subagentProjectionRevision = 0
         this.statsSnapshot = { id: '', stats: null }
         this.latestStatsSnapshot = this.statsSnapshot
         this.statsListeners = new Set()
@@ -1573,7 +1468,6 @@ window.__ModuleLoader__.load({
         this.stopSessionTarget = () => {}
         this.stopSessionState = () => {}
         this.stopProjections = () => {}
-        this.releaseSubagentSessions()
         this.sessionTarget = null
         this.sessionTrajectoryTarget = null
         this.officialProjectionSignature = null
@@ -1586,26 +1480,9 @@ window.__ModuleLoader__.load({
         this.sessionReference = null
       }
 
-      releaseSubagentSessions() {
-        for (const child of this.subagentSessions.values()) {
-          this.disposeSubagentSession(child)
-        }
-        this.subagentSessions.clear()
-        this.subagentCatalog = []
-        this.subagentProjectionRevision += 1
-      }
-
-      disposeSubagentSession(child) {
-        if (!child || child.released) return
-        child.released = true
-        child.stopTarget?.()
-        child.stopSession?.()
-        child.reference?.release()
-      }
-
       officialProcess(chat, nodes) {
-        return officialProcessWithSubagents(chat, this.subagentCatalog, this.subagentSessions,
-          this.sessionTrajectoryTarget?.getSnapshot(), this.illustrations(this.sessionReference?.sessionId), this.nodeProcessCache, nodes, this.toolProcessCache)
+        return officialProcess(chat, { trajectory: this.sessionTrajectoryTarget?.getSnapshot(),
+          illustrations: this.illustrations(this.sessionReference?.sessionId), processCache: this.nodeProcessCache, nodes, toolCache: this.toolProcessCache })
       }
 
       inputContinuations(runtimeSessionId) {
@@ -1649,75 +1526,11 @@ window.__ModuleLoader__.load({
         return Array.isArray(value?.abortedTurns) ? value.abortedTurns : []
       }
 
-      subagentCatalogEntries(runtimeSessionId, face) {
-        const direct = face?.getSnapshot()
-        const listed = this.sessions.list.getSnapshot()?.projectionsBySession?.[runtimeSessionId]
-          ?.values?.subagentCatalog
-        // A reopened parent can receive its durable catalog through the Session
-        // list before the retained Session face hydrates. Do not treat that
-        // temporary empty face as an authoritative empty catalog.
-        if (Array.isArray(direct) && direct.length > 0) return direct
-        if (Array.isArray(listed)) return listed
-        return Array.isArray(direct) ? direct : []
-      }
-
-      reconcileSubagentSessions(id, runtimeSessionId, binding, target, entries, generation) {
-        const catalog = Array.isArray(entries) ? entries.filter(entry => entry?.id) : []
-        const nextIds = new Set(catalog.map(entry => entry.id))
-        let changed = catalog.length !== this.subagentCatalog.length
-          || catalog.some((entry, index) => entry.id !== this.subagentCatalog[index]?.id
-            || entry.mode !== this.subagentCatalog[index]?.mode)
-        this.subagentCatalog = catalog
-        for (const [childId, child] of this.subagentSessions) {
-          if (nextIds.has(childId)) continue
-          this.disposeSubagentSession(child)
-          this.subagentSessions.delete(childId)
-          changed = true
-        }
-        for (const entry of catalog) {
-          const existing = this.subagentSessions.get(entry.id)
-          if (existing) {
-            existing.entry = entry
-            continue
-          }
-          changed = true
-          // Retain the durable direct-parent address published by DSH. This is
-          // the same official read path used by the upstream subagent sidebar;
-          // no Session log layout or private child transport is reconstructed.
-          const address = { parentSessionId: runtimeSessionId, childSessionId: entry.id, mode: entry.mode }
-          const reference = this.sessions.retain(address, { source: 'eleckoiConversations' })
-          const child = { entry, reference, target: null, stopTarget: () => {}, stopSession: () => {}, released: false }
-          this.subagentSessions.set(entry.id, child)
-          void reference.ready.then(childBinding => {
-            if (this.disposed || generation !== this.sessionBindingGeneration || id !== this.detailsSnapshot.id
-              || this.subagentSessions.get(entry.id) !== child) {
-              this.disposeSubagentSession(child)
-              return
-            }
-            child.target = this.uiConversation.binding(childBinding).target('chat')
-            const publish = () => {
-              if (this.disposed || generation !== this.sessionBindingGeneration || id !== this.detailsSnapshot.id) return
-              this.subagentProjectionRevision += 1
-              this.acceptOfficialSession(id, runtimeSessionId, binding.session, target)
-            }
-            child.stopTarget = child.target.subscribe(publish)
-            child.stopSession = childBinding.session.subscribe(publish)
-            publish()
-          }).catch(error => {
-            if (this.subagentSessions.get(entry.id) === child) this.subagentSessions.delete(entry.id)
-            this.disposeSubagentSession(child)
-            console.error(`读取子 Agent 会话 ${entry.id} 失败：`, error)
-          })
-        }
-        if (changed) this.subagentProjectionRevision += 1
-      }
-
       createOfficialProjectionSignature(chat, runtimeSessionId, hasMore, pendingSubmissions = [], sessionRunning, loadedNodes) {
         const nodes = loadedNodes || orderedChatNodes(chat)
         return {
           runtimeSessionId,
           hasMore,
-          subagentProjectionRevision: this.subagentProjectionRevision,
           inputContinuations: this.inputContinuations(runtimeSessionId),
           illustrations: this.sessionReference?.binding.session.projections?.faceOf('eleckoiIllustrations')?.getSnapshot(),
           regeneratingInputTurn: this.regeneratingInputTurn(runtimeSessionId),
@@ -1737,7 +1550,6 @@ window.__ModuleLoader__.load({
       sameOfficialProjection(left, right) {
         return left?.runtimeSessionId === right?.runtimeSessionId
           && left?.hasMore === right?.hasMore
-          && left?.subagentProjectionRevision === right?.subagentProjectionRevision
           && left?.inputContinuations?.length === right?.inputContinuations?.length
           && left.inputContinuations.every((item, index) => sameRecord(item, right.inputContinuations[index]))
           && left?.illustrations === right?.illustrations
@@ -1853,7 +1665,6 @@ window.__ModuleLoader__.load({
           publishGeneration('baseline', binding.eventSource.getSnapshot().entries)
           const projections = ['sessionStats', 'tokenUsage', 'contextPressure', 'contextBreakdown', 'eleckoiHistoryStatsAdjustment']
             .map(key => [key, binding.session.projections?.faceOf(key)])
-          const subagentCatalogFace = binding.session.projections?.faceOf('subagentCatalog')
           const inputContinuationsFace = binding.session.projections?.faceOf('eleckoiInputContinuations')
           const turnOutcomesFace = binding.session.projections?.faceOf('eleckoiTurnOutcomes')
           const illustrationsFace = binding.session.projections?.faceOf('eleckoiIllustrations')
@@ -1872,41 +1683,15 @@ window.__ModuleLoader__.load({
             }
             this.publishStats(id, stats)
           }
-          let publishingSubagents = false
-          let pendingSubagentPublish = false
-          const publishSubagents = () => {
-            if (this.disposed || generation !== this.sessionBindingGeneration || id !== this.detailsSnapshot.id) return
-            if (publishingSubagents) {
-              pendingSubagentPublish = true
-              return
-            }
-            do {
-              pendingSubagentPublish = false
-              publishingSubagents = true
-              try {
-                this.reconcileSubagentSessions(id, runtimeSessionId, binding, target,
-                  this.subagentCatalogEntries(runtimeSessionId, subagentCatalogFace), generation)
-                this.acceptOfficialSession(id, runtimeSessionId, binding.session, target)
-              } finally {
-                publishingSubagents = false
-              }
-            } while (pendingSubagentPublish
-              && !this.disposed
-              && generation === this.sessionBindingGeneration
-              && id === this.detailsSnapshot.id)
-          }
           const stops = [
             ...projections.map(([, face]) => face?.subscribe(publishProjections)),
-            subagentCatalogFace?.subscribe(publishSubagents),
             inputContinuationsFace?.subscribe(() => { publishProjections(); publish() }),
             turnOutcomesFace?.subscribe(publish),
             illustrationsFace?.subscribe(publish),
             inboxFace?.subscribe(publish),
-            this.sessions.list.subscribe?.(publishSubagents),
           ].filter(Boolean)
           this.stopProjections = () => { for (const stop of stops) stop() }
           publishProjections()
-          publishSubagents()
           publish()
         } catch (error) {
           if (this.sessionReference === reference) this.sessionReference = null

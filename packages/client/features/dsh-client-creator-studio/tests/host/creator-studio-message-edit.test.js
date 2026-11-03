@@ -46,8 +46,10 @@ async function fixture({ legacy = false } = {}) {
   const writer = await persistence.sessionPersistence.create(session.header)
   try { await writer.append(session.snapshotEvents()); await writer.flush() } finally { await writer.close() }
   let agent = makeAgent(session), service
+  const listeners = new Map()
   const meta = { cwd: root, agentPreset: runtimePreset }
   const controller = {
+    list: vi.fn(async () => ({ items: [] })),
     inspect: vi.fn(async () => ({ meta, events: agent?.session.snapshotEvents() ?? readDshSessionLog(join(root, 'logs'), id).events })),
     create: vi.fn(),
     resolveAgent: vi.fn(async sessionId => {
@@ -61,12 +63,13 @@ async function fixture({ legacy = false } = {}) {
   }
   const dispose = await installCreatorStudioRuntime({
     sessionPersistence: persistence.sessionPersistence,
+    workspaceRegistry: { pinnedSessionIds: [] },
     sessionController: controller, agents: { get: () => agent },
     eleckoiProductData: { readCharacters: () => ({ items: characters }), readAgentPresetCatalog: () => ({ activePresetIds: { creator: preset.id } }), readAgentPreset: () => preset },
     agentPresets: { register: async () => () => {}, recompose: async () => {} },
     agentDefaultModel: { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) },
     llm: { resolveModelInfo: async () => ({}) }, settings: { describe: () => [] },
-    on: () => () => {}, get: () => tools,
+    on: (name, listener) => { listeners.set(name, listener); return () => {} }, get: () => tools,
     eleckoiSessionEditor: {
       transaction: async (_id, action) => action(),
       rewind: async (_id, turn, seq, retain) => { agent = undefined; return rewindDshSession(join(root, 'logs'), id, turn, seq, retain) },
@@ -74,10 +77,20 @@ async function fixture({ legacy = false } = {}) {
     provide: (_name, value) => { service = value },
   })
   cleanups.push(dispose)
-  return { id, input, inputEvent, selected, characters, controller, service, current: () => agent }
+  return { id, input, inputEvent, selected, characters, controller, service, listeners, current: () => agent }
 }
 
 describe('Studio message edits retain independent conversation preferences', { timeout: 30_000 }, () => {
+  it('keeps child Sessions out of Studio history and preserves their composition at the request boundary', async () => {
+    const f = await fixture()
+    const item = { sessionId: 'synthetic-root', projections: { values: { eleckoiCreatorStudio: f.selected } } }
+    f.controller.list.mockResolvedValue({ items: [item, { ...item, sessionId: 'synthetic-child', origin: 'subagent' }] })
+    expect((await f.service.list()).map(item => item.sessionId)).toEqual(['synthetic-root'])
+    const next = vi.fn(async () => 'synthetic-child-prompt')
+    const child = { session: { header: { origin: 'subagent' } } }
+    await expect(f.listeners.get('system-prompt/assemble')({}, { agent: child }, next)).resolves.toBe('synthetic-child-prompt')
+    expect(next).toHaveBeenCalledOnce()
+  })
   it('opens the same conversation after deleting its selected character and allows selecting another target', async () => {
     const f = await fixture()
     f.characters.splice(f.characters.findIndex(item => item.id === f.selected.characterId), 1)

@@ -180,7 +180,7 @@ describe('character frontend file management', () => {
 
 describe('native role chat project', () => {
   const view = (id = characterId, conversationId = 'synthetic-chat') => <CharacterFrontendView characterId={id} conversationId={conversationId} fallback={<div>Default transcript</div>} />;
-  it('uses only the explicit selection, restores the default without deleting source and releases the old chat page', async () => {
+  it('uses only the explicit selection and releases the page when the owner deselects the project', async () => {
     await render(view()); expect(container.textContent).toBe('Default transcript'); expect(service.projects.readFile).not.toHaveBeenCalled();
     await act(() => { state.selectedProjectId = 'synthetic-role-project'; state.revision++; watchers.forEach(listener => listener(value())); });
     const first = container.querySelector('iframe'); await act(() => first.dispatchEvent(new Event('load')));
@@ -189,7 +189,7 @@ describe('native role chat project', () => {
     await render(view(characterId, 'synthetic-next-chat'));
     const second = container.querySelector('iframe'); await act(() => second.dispatchEvent(new Event('load')));
     expect(second).not.toBe(first); expect(stopPage).toHaveBeenCalledOnce();
-    await click('恢复默认对话界面', container);
+    await act(() => service.projects.restoreDefault({ scope: 'character', characterId }));
     expect(container.textContent).toBe('Default transcript'); expect(state.projects).toHaveLength(1); expect(files.get('pages/main.html')).toBe(html);
     expect(stopPage).toHaveBeenCalledTimes(2);
   });

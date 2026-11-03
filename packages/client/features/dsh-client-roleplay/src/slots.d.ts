@@ -12,9 +12,11 @@ import type {
   ViewTab,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ChatNodeOwnerProps, ChatNode } from '@deepseek-ai/dsh-client-ui-chat/client'
+import type { ToolCallOwnerProps } from '@deepseek-ai/dsh-client-ui-tool/client'
 import type { SlotMap } from '@deepseek-ai/dsh-client-ui-slots'
 
 type BridgeSlotRenderer = (name: string, owner: unknown, options?: unknown) => ReactNode
+type RoleplayToolRenderer = (owner: ToolCallOwnerProps, renderNative: () => ReactNode) => ReactNode | undefined
 
 export interface RoleplaySessionOwner {
   matched: {
@@ -30,7 +32,11 @@ export interface ComposerBridgeOwner {
 export interface RoleplayChatOwner extends ConvViewOwnerProps {
   before?: ReactNode
   transition?: ReactNode
-  renderChatNode?: (owner: ChatNodeOwnerProps & { node: ChatNode }) => ReactNode | undefined
+  renderChatNode?: (
+    owner: ChatNodeOwnerProps & { node: ChatNode },
+    renderOfficial: (overrides?: Partial<ChatNodeOwnerProps> & { renderToolCall?: RoleplayToolRenderer }) => ReactNode,
+    renderIndex: number | undefined,
+  ) => ReactNode | undefined
   renderPendingInput?: (owner: SlotMap['conversation.chat.pending-input']['owner']) => ReactNode
 }
 
@@ -117,6 +123,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
           tabs: readonly ViewTab[]
           activeView: string | undefined
           selectView: (view: string) => void
+          renderHeaderActions: () => ReactNode
         }
       }
     }

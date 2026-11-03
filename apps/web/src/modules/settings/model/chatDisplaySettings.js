@@ -11,10 +11,6 @@ export const avatarShapes = [
   { id: 'rounded_square', label: '圆角正方形' },
   { id: 'portrait', label: '圆角矩形' },
 ];
-export const reasoningDisplayModes = [
-  { id: 'collapsed', label: '适当收起' },
-  { id: 'expanded', label: '全量展开' },
-];
 export const textColorOptions = [
   { key: 'italics', label: '斜体文本' },
   { key: 'underline', label: '下划线文本' },

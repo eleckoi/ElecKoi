@@ -74,6 +74,12 @@ export function apply(ctx, config) {
   }
   disposers.push(ctx.on('agent/created', ({ agent }) => {
     if (!owns(agent)) return
+    if (agent.session.header.origin === 'subagent' && !ctx.sessionProjections.stateOf(agent.session, creatorStudioProjection.key)) {
+      // Fresh and first-turn fork children have no Studio events. Capture the
+      // editing target through their official lineage before queued work runs.
+      const parent = ctx.agents.get(agent.session.header.parentSession)
+      agent.session.append(CREATOR_STUDIO_EVENT, readState(parent), { ignorable: true })
+    }
     const preset = ctx.eleckoiProductData.readAgentPreset(config.presetId)
     applyDisabledPolicy(agent.ctx, preset.toolGroups.filter(group => !group.included || !group.enabled).map(group => group.id), ctx.get('tools'))
   }))

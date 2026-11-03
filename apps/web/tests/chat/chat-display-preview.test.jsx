@@ -54,6 +54,9 @@ describe("chat display preview", () => {
     renderToMarkup(<WithOfficialMarkdown><SettingsPanel activePage="chat" chatDisplay={DEFAULT_CHAT_DISPLAY_PREFERENCES}
       onChatDisplayChange={() => {}} renderLayout={({ mainPanel }) => mainPanel} /></WithOfficialMarkdown>);
     const behavior = document.querySelector('[data-group="behavior"]');
+    expect(behavior.textContent).toContain('生成统计');
+    expect(behavior.textContent).not.toMatch(/思维链|适当收起|全量展开/);
+    expect(behavior.querySelector('select')).toBeNull();
     expect(behavior.textContent).toContain('聊天时间戳');
     expect(behavior.textContent).toContain('显示消息楼层');
     expect(document.querySelector('[data-group="avatar"]').textContent).not.toContain('聊天时间戳');

@@ -7,7 +7,7 @@ import { TunerSliderRow } from '../ui/ui/TunerSliderRow.jsx';
 import { UnsavedChangesDialog } from '../ui/ui/UnsavedChangesDialog.jsx';
 import { ChatDisplayPreview, UserProfileSettings } from '../modules/settings/components/SettingsPanel.jsx';
 import { AboutSettings } from '../modules/settings/components/AboutSettings.jsx';
-import { chatDisplaySettings, chatDisplayTuners, chatLayouts, avatarShapes, reasoningDisplayModes, textColorOptions, richMessageFloorTuner, richMessageLimitDescription } from '../modules/settings/model/chatDisplaySettings.js';
+import { chatDisplaySettings, chatDisplayTuners, chatLayouts, avatarShapes, textColorOptions, richMessageFloorTuner, richMessageLimitDescription } from '../modules/settings/model/chatDisplaySettings.js';
 import { MobileHeader, useMobileBack, useMobileScroll } from './MobileChrome.jsx';
 import { FailureAlert } from '../ui/ui/FailureAlert.jsx';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
@@ -79,7 +79,7 @@ function ProfileAvatars({ owner, children }) {
 
 const detailTitles = {
   'chat:layout': '对话布局', 'chat:avatar': '头像与名字', 'chat:text': '正文文字',
-  'chat:spacing': '间距与留白', 'chat:reasoning': '思维链显示', 'chat:colors': '文本颜色', 'chat:bubble': '气泡样式',
+  'chat:spacing': '间距与留白', 'chat:colors': '文本颜色', 'chat:bubble': '气泡样式',
   'chat:rich': '富消息',
 };
 /** 设置项已从设置列表消失时的失败（码给用户话，这里只写开发者诊断）。 */
@@ -212,7 +212,6 @@ export function MobileSettingsPage() {
         <SettingsRow icon={UserCircle} label="头像与名字" value={`${avatarShapes.find(item => item.id === profile.avatar_shape)?.label || ''} · ${profile.avatar_size}`} onClick={() => open('chat:avatar')} />
         <SettingsRow icon={TextT} label="正文文字" value={`${profile.message_font_size} · ${profile.message_font_weight}`} onClick={() => open('chat:text')} />
         <SettingsRow icon={ArrowsOutLineVertical} label="间距与留白" value={`${profile.reply_spacing} / ${profile.turn_spacing}`} onClick={() => open('chat:spacing')} />
-        <SettingsRow icon={SlidersHorizontal} label="思维链显示" value={reasoningDisplayModes.find(item => item.id === preferences.reasoning_display_mode)?.label} onClick={() => open('chat:reasoning')} />
         <SettingsRow icon={Palette} label="文本颜色" onClick={() => open('chat:colors')} />
         <SettingsRow icon={ChatCircleDots} label="富消息" onClick={() => open('chat:rich')} />
         {layout === 'agent' && <SettingsRow icon={ChatCircleDots} label="气泡样式" onClick={() => open('chat:bubble')} />}
@@ -231,8 +230,6 @@ export function MobileSettingsPage() {
     content = <SettingsGroup><div className="mobile-settings-tuners">{['message_font_size', 'message_font_weight', 'line_height_multiplier', 'letter_spacing', 'paragraph_spacing'].map(key => tune(key))}</div></SettingsGroup>;
   } else if (page === 'chat:spacing') {
     content = <SettingsGroup><div className="mobile-settings-tuners">{tune('reply_spacing')}{tune('turn_spacing', layout === 'agent' ? '轮次间距' : '消息间距')}</div></SettingsGroup>;
-  } else if (page === 'chat:reasoning') {
-    content = <SettingsGroup><SettingsChoices label={title} options={reasoningDisplayModes} value={preferences.reasoning_display_mode} onChange={value => updatePreferences({ reasoning_display_mode: value })} /></SettingsGroup>;
   } else if (page === 'chat:rich') {
     content = <>
       <SettingsGroup><SettingsSwitch label="限制富消息运行楼层" checked={preferences.rich_message_limit_enabled}
