@@ -1,0 +1,8 @@
+.af-prompt-backdrop{position:absolute;inset:0;z-index:5;display:grid;place-items:center;padding:18px;background:#0003;backdrop-filter:blur(3px);animation:af-enter .16s ease-out}
+.af-prompt{width:min(360px,100%);padding:18px;border:1px solid var(--af-line);border-radius:14px;background:Canvas;box-shadow:0 14px 50px #0003;transform:translateY(0);opacity:1;transition:transform .16s,opacity .16s}
+.af-prompt-backdrop.closing{background:transparent;backdrop-filter:none;transition:background .16s,backdrop-filter .16s}
+.af-prompt-backdrop.closing .af-prompt{transform:translateY(7px);opacity:0}
+.af-prompt>strong{display:block;font-size:14px;margin-bottom:12px}.af-prompt label{display:flex;flex-direction:column;gap:6px;font-size:12px}
+.af-prompt input{width:100%;min-height:38px;padding:7px 10px;border:1px solid var(--af-line);border-radius:8px;background:color-mix(in srgb,Canvas 96%,#8ba7cc);color:CanvasText;font:inherit;outline-color:#65a9e9}
+.af-prompt p{margin:0 0 14px;overflow-wrap:anywhere;opacity:.75}.af-prompt-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:15px}
+.af-prompt-actions button:where(:not([data-dsh-control])){min-height:36px}
