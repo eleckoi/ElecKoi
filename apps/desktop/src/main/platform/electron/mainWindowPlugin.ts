@@ -18,6 +18,7 @@ import { DesktopError } from '@shared/foundation/DesktopError'
 import { logAction, relayRendererActionLog } from '@main/platform/logging/logActions'
 import { handleDesktopIpcCall } from './desktopIpcHandler'
 import { createDesktopCaptionMenu } from './desktopCaptionMenu'
+import { WINDOWS_TITLEBAR_HEIGHT } from '../../../windowsLayout'
 
 export const mainWindowPlugin = {
   name: 'eleckoi-main-window',
@@ -139,12 +140,15 @@ export const mainWindowPlugin = {
       appLog.error({ message }, 'DSH plugin client boot failed')
       ctx.emit('eleckoi/desktop-fatal', new DesktopError(ELECKOI_FAILURE_CODES.pluginLoadFailed, message, { what: 'DSH 插件页面启动' }))
     })
-    const syncNativeTheme = (event: Electron.IpcMainEvent, source: unknown) => {
-      const mainContents = mainWindow?.webContents
-      if (mainContents === undefined || event.sender !== mainContents
-        || event.senderFrame !== mainContents.mainFrame
-        || event.senderFrame?.url !== `${DSH_CLIENT_ORIGIN}/`) return
-      if (source === 'light' || source === 'dark' || source === 'system') nativeTheme.themeSource = source
+    const syncNativeTheme = (event: Electron.IpcMainEvent, source: unknown, color: unknown, symbolColor: unknown) => {
+      const target = windows.all().find(window => window.webContents === event.sender)
+      if (!target || event.senderFrame !== target.webContents.mainFrame) return
+      const url = event.senderFrame.url
+      if (url !== `${DSH_CLIENT_ORIGIN}/` && !isDshChildUrl(url)) return
+      if (target === mainWindow && (source === 'light' || source === 'dark' || source === 'system')) nativeTheme.themeSource = source
+      const validColor = (value: unknown): value is string => typeof value === 'string'
+        && /^(?:#[\da-f]{3,8}|rgba?\([\d.,%\s]+\))$/iu.test(value)
+      if (process.platform === 'win32' && validColor(color) && validColor(symbolColor)) target.setTitleBarOverlay({ color, symbolColor })
     }
     ipcMain.on('eleckoi:dsh-native-theme', syncNativeTheme)
     session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['ws://127.0.0.1/*'] }, (details, callback) => {
@@ -264,7 +268,8 @@ function windowOptions(appPaths: Context['appPaths'], child: boolean, payload?: 
     center: true,
     show: false,
     ...(process.platform === 'win32'
-      ? { titleBarStyle: 'hidden' as const }
+      ? { titleBarStyle: 'hidden' as const, titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT,
+        color: nativeTheme.shouldUseDarkColors ? '#1b1b1c' : '#f9fafb', symbolColor: nativeTheme.shouldUseDarkColors ? '#f2f2f5' : '#111111' } }
       : { frame: false }),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#13131a' : '#ffffff',
     icon: appPaths.resolveResource('icons', 'eleckoi-app-icon.png'),
@@ -356,7 +361,7 @@ function configureWindowsAppDetails(appPaths: Context['appPaths'], window: Brows
 }
 
 function initialWindowSize(): { width: number; height: number } {
-  return fitWindowSize(1536, 1070)
+  return fitWindowSize(1760, 1090)
 }
 
 function initialChildWindowSize(payload?: unknown): { width: number; height: number } {

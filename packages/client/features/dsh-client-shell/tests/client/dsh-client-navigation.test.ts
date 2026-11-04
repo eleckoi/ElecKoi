@@ -45,6 +45,7 @@ describe('ElecKoi DSH client navigation', () => {
         if (typeof result === 'function') return
         for (const _dispose of result) { /* Cordis owns each disposer. */ }
       },
+      entries: (name: string) => entries.filter(entry => entry.options.name === name),
       entriesOfSlot: (name: string) => entries.filter(entry => entry.options.name === name),
       spec: () => undefined,
       subscribe: () => () => {},
@@ -81,7 +82,7 @@ describe('ElecKoi DSH client navigation', () => {
         plugin: (child: any) => { child.apply(context); return { dispose: async () => {} } },
         extend: (values: any) => ({ ...context, ...values }),
         remote: { eleckoiAgentPresets: {} },
-        reflect: { provide: () => () => {} },
+        reflect: { provide: (name: string, value: unknown) => { services[name] = value; context[name] = value; return () => {} } },
         effect: (run: () => void, label: string) => {
           if (packageName === 'dsh-client-shell' && (effectCount++ === 0 || label === 'eleckoi: native workspace sidebar library')) run()
         },
@@ -105,14 +106,7 @@ describe('ElecKoi DSH client navigation', () => {
     }
 
     const layout = root.inject().layout
-    const workspaceEntry = slots.entriesOfSlot('sidebar.panellist.actions').find(entry => entry.options.id === 'eleckoi-workspace')!
-    expect(workspaceEntry.options.order).toBeGreaterThan(0)
-    const dismiss = vi.fn()
-    const action = workspaceEntry.component({ onDismiss: dismiss })
-    expect(action.children).toEqual(['进入工作区界面'])
-    action.props.onSelect()
-    expect(dismiss).toHaveBeenCalledOnce()
-    expect(startSession).toHaveBeenCalledExactlyOnceWith(undefined, { agentPreset: 'cordis' })
+    expect(slots.entriesOfSlot('sidebar.panellist.actions').some(entry => entry.options.id === 'eleckoi-workspace')).toBe(false)
     slots.register({ name: 'main', key: 'extension-page' }, () => null)
     layout.selectPanel('extension-page')
     expect(layout.panelInfo.getSnapshot().activePanelId).toBe('extension-page')
@@ -198,7 +192,8 @@ describe('ElecKoi DSH client navigation', () => {
     const slots = {
       subscribe: () => () => {},
       getVersion: () => 1,
-      entriesOfSlot: (name: string) => name === 'sidebar.footer.action' ? footerEntries
+      entries: () => [],
+    entriesOfSlot: (name: string) => name === 'sidebar.footer.action' ? footerEntries
         : name === 'settings.section' ? settingsEntries : [],
       provideRoot: () => () => {},
       register: (options: any, component: any) => {

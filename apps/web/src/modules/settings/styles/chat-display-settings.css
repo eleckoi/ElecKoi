@@ -701,6 +701,26 @@
   padding-top: 10px;
 }
 
+.chat-display-design .ec-style-section { padding-bottom: 8px; }
+.chat-display-design .ec-style-section h3 { margin: 12px 0 2px; font-size: 13px; font-weight: 600; }
+.chat-display-design .ec-style-section + .ec-style-section { padding-top: 8px; border-top: .5px solid var(--ec-line); }
+.chat-display-design .ec-style-tint-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 28px 26px; align-items: center; gap: 9px; min-height: 49px; font-size: 12px; }
+.chat-display-design .ec-style-tint-value { color: var(--ec-secondary); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chat-display-design .ec-style-sample { display: grid; align-content: center; gap: 4px; width: 76px; height: 36px; padding: 5px 6px; border-radius: 5px; background: light-dark(#e5e9ee,#333b46); }
+.chat-display-design .ec-style-sample > span { display: block; height: 11px; border-radius: 3px; background: transparent; }
+.chat-display-design .ec-style-sample > span::after { content: ''; display: block; width: 70%; height: 2px; margin: 5px 4px; background: light-dark(#a8b3c3,#9aa5b4); }
+.chat-display-design .ec-style-sample.has-bubbles > span { background: light-dark(#ffffffa8,#131b26aa); }
+.ec-style-mobile.chat-display-design { padding: 8px 16px; width: 100%; min-width: 0; container: roleplay-style-controls / inline-size; }
+.ec-style-mobile.chat-display-design .ec-field { min-height: 52px; }
+.ec-style-mobile.chat-display-design .ec-range-control { gap: 6px; }
+.ec-style-mobile.chat-display-design .ec-style-tint-row { min-height: 52px; gap: 6px; }
+.chat-display-design .ec-roleplay-style-controls .ec-field:has(> .ec-switch) { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+.chat-display-design .ec-roleplay-style-controls .ec-field > .ec-switch { grid-column: 2; grid-row: 1; }
+@container roleplay-style-controls (max-width: 360px) {
+  .ec-roleplay-style-controls .ec-tuner { grid-template-columns: 1fr; gap: 2px; padding-block: 6px; }
+  .ec-roleplay-style-controls .ec-range-control { grid-template-columns: minmax(50px, 1fr) 62px 32px; }
+}
+
 .chat-display-design .ec-preview {
   min-width: 0;
   position: sticky;
@@ -753,6 +773,8 @@
 .chat-display-design .ec-chat-window.chat-display-preview { display: block; min-height: 0; height: auto; border: 0; border-radius: 12px; background: var(--ec-paper); box-shadow: 0 0 0 .6px var(--ec-line), 0 2px 4px var(--ec-direct), 0 12px 28px var(--ec-ambient); --chat-horizontal-padding: 0px; }
 .chat-display-design .ec-chat-window .message-area { padding: 22px 19px; overflow: visible; }
 .chat-display-design .ec-chat-window .message-roleplay { padding: 0; }
+.chat-display-design .ec-chat-window:is([data-roleplay-backdrop], [data-roleplay-bubbles]) .message-roleplay { padding-block: 10px; }
+.chat-display-design .ec-chat-window:is([data-roleplay-backdrop], [data-roleplay-bubbles]) .message-roleplay:has(> .message-floor) { min-height: calc(var(--chat-roleplay-leading-stack-height) + 20px); }
 .chat-display-design .ec-chat-window .message-roleplay .message-author { font-weight: 600; color: var(--ec-ink); }
 .chat-display-design .ec-chat-window .message-roleplay .message-timestamp { font-size: 11px; color: var(--ec-secondary); opacity: 1; }
 .chat-display-design .ec-chat-window .message-roleplay .message-content { row-gap: 7px; }

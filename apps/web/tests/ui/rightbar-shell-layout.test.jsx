@@ -63,12 +63,10 @@ describe("right sidebar shell layout", () => {
     );
   });
 
-  it("places the Workspace caption toggle before its menus without changing the product caption order", () => {
+  it("places the sidebar toggle before its menus on the collapsed caption", () => {
     const options = { splitSurface: true, desktopMenu: true, sidePanelCollapsed: true, onToggleSidePanel: () => {} };
-    const workspace = renderToStaticMarkup(<TitleBar {...options} sidebarFirst />);
     const product = renderToStaticMarkup(<TitleBar {...options} />);
-    expect(workspace.indexOf('aria-label="展开侧边栏"')).toBeLessThan(workspace.indexOf('data-desktop-menu-seat'));
-    expect(product.indexOf('data-desktop-menu-seat')).toBeLessThan(product.indexOf('aria-label="展开侧边栏"'));
+    expect(product.indexOf('aria-label="展开侧边栏"')).toBeLessThan(product.indexOf('data-desktop-menu-seat'));
   });
 
   it("uses the collapsed left-sidebar width immediately on narrow windows", () => {

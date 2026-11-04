@@ -2,8 +2,8 @@
   display: flex;
   flex-direction: column;
 }
-.preset-list-panel > :not(.preset-list-scroll) { flex: none; }
-.preset-list-panel > .preset-list-scroll { flex: 1; min-height: 0; }
+.preset-list-panel > :not(.sidebar-scroll-area) { flex: none; }
+.preset-list-panel > .sidebar-scroll-area { flex: 1; min-height: 0; }
 
 .preset-purpose-switch {
   display: flex;
@@ -79,7 +79,6 @@
 
 .preset-list-scroll {
   padding-top: 0;
-  scrollbar-gutter: auto;
 }
 
 .preset-list-group + .preset-list-group {

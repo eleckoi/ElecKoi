@@ -1061,9 +1061,10 @@ AI 创作工作室的 DSH 会话与永久编辑目标。
 /**
  * 使用当前全局创作预设创建工作室会话。
  * @param characterId - 编辑目标角色编号；空字符串表示尚未选择。
+ * @param workspaceId - 官方工作区编号；省略时沿用默认工作目录。
  * @returns 创建的会话及其编辑目标。
  */
-@Remote create(characterId: string): Promise<CreatorStudioSession>
+@Remote create(characterId: string, workspaceId?: string): Promise<CreatorStudioSession>
 
 /**
  * 恢复一个已有工作室会话。

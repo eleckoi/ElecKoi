@@ -27,6 +27,7 @@ import { ELECKOI_FAILURE_CODES } from '../../packages/host/product-api/src/error
 /** 测试用的 `require`：只认 bundle 真的会取的那几个模块，其余一律报错（防止悄悄新增依赖）。 */
 export function dshClientRequire(name: string): any {
   if (name === 'react') return { createElement: () => null, lazy: () => () => null }
+  if (name === '@deepseek-ai/dsh-client-ui-primitives') return { MenuItemButton: () => null, IconTrashOutlineRegular: () => null, Modal: () => null, Button: () => null }
   if (name === '@eleckoi/dsh-product-api') {
     return {
       unwrapOrFail,

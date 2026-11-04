@@ -1,3 +1,5 @@
+// NODE STUDIO: retained project/canvas development entry; future integration starts here.
+// Production creation is assembled in dsh-client-creator-studio/page.jsx in the main window.
 import { useEffect, useId, useState } from "react";
 import { ArrowLeft, CheckCircle, Sparkle } from "@phosphor-icons/react";
 import logoIcon from "../../assets/eleckoi-app-icon.png";

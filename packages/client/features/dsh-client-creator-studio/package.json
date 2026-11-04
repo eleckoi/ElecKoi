@@ -14,7 +14,8 @@
     },
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json",
-    "./agent": "./src/host/agent.mjs"
+    "./agent": "./src/host/agent.mjs",
+    "./agent/locale/*.json": "./locale/agent/*.json"
   },
   "dsh": {
     "client": {
@@ -72,6 +73,8 @@
     "@deepseek-ai/dsh-client-ui-model-selection": "0.2.1-rc.5",
     "@deepseek-ai/dsh-client-ui-session": "0.2.1-rc.5",
     "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-workspace": "0.2.1-rc.5",
     "@deepseek-ai/dsh-llm": "0.2.1-rc.5",
     "@deepseek-ai/dsh-scope": "0.2.1-rc.5",
     "@deepseek-ai/dsh-session": "0.2.1-rc.5",
@@ -80,6 +83,8 @@
     "@eleckoi/dsh-client-roleplay": "workspace:*",
     "@eleckoi/dsh-product-api": "workspace:*",
     "@eleckoi/dsh-product-data": "workspace:*",
-    "zod": "4.1.11"
+    "zod": "4.1.11",
+    "@deepseek-ai/cordis-plugin-include": "1.0.10",
+    "js-yaml": "4.1.1"
   }
 }

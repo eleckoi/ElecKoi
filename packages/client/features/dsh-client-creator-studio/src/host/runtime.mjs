@@ -5,6 +5,7 @@ import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { materializeAgentPreset, readRuntimePresetDefinition, currentRequestSnapshot, applyDisabledPolicy } from '@eleckoi/dsh-client-roleplay'
 import { requireSessionMessage, sessionMessageText, sessionMessageTurn, productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 import { CREATOR_STUDIO_EVENT, creatorStudioProjection, creatorStudioStateSchema, resolveCreatorStudioSelection } from './projection.mjs'
+import { creatorComposition } from './composition.mjs'
 
 export const CREATOR_RUNTIME_PRESET_ID = 'eleckoi-creator-active'
 const legacyPresetId = id => /^eleckoi-creator-[0-9a-f]{64}$/.test(id ?? '')
@@ -36,9 +37,11 @@ export async function installCreatorStudioRuntime(ctx) {
   }
   const prepareDefinition = async (model = registration?.model ?? {}) => {
     const { preset, disabledGroupIds } = currentPreset()
+    const creator = await ctx.agentPresets.readDocument('cordis')
     const generated = materializeAgentPreset(root, template, { ...preset, versionId: preset.activeVersionId }, { disabledGroupIds }, model,
       { id: CREATOR_RUNTIME_PRESET_ID, plugins: [{ id: 'creator-studio-agent', name: '@eleckoi/dsh-client-creator-studio/agent',
-        config: { presetId: preset.id, creatorTools: !disabledGroupIds.includes('builtin:creator') } }] })
+        config: { presetId: preset.id, creatorTools: !disabledGroupIds.includes('builtin:creator') } }],
+        transformPlugins: plugins => creatorComposition(creator, plugins, disabledGroupIds) })
     if (registration?.revision !== generated.revision) {
       await registration?.dispose()
       registration = undefined
@@ -168,11 +171,14 @@ export async function installCreatorStudioRuntime(ctx) {
           ...resolveCreatorStudioSelection(creatorStudioStateSchema.parse(state), characters), presetId }]
       })
     },
-    async create(characterId = '') {
+    async create(characterId = '', workspaceId) {
       requireCharacter(characterId)
+      const workspace = workspaceId === undefined ? undefined : ctx.workspaceRegistry.get(workspaceId)
+      if (workspaceId !== undefined && !workspace) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '找不到所选工作区。', { what: '工作区' })
       return serialized(async () => {
         const prepared = await prepareDefinition(await currentRequestSnapshot(ctx))
-        const { sessionId } = await ctx.sessionController.create({ sessionId: `session-${randomUUID()}`, cwd, agentPreset: prepared.id })
+        const { sessionId } = await ctx.sessionController.create({ sessionId: `session-${randomUUID()}`,
+          ...(workspace ? { workspaceId: workspace.id } : { cwd }), agentPreset: prepared.id })
         const agent = ctx.agents.get(sessionId)
         if (!agent) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, 'AI 创作工作室 Agent 未完成创建。', { what: 'AI 创作工作室 Agent' })
         bindings.set(agent, prepared.revision)
@@ -204,9 +210,20 @@ export async function installCreatorStudioRuntime(ctx) {
       else await ctx.workspaceRegistry.unpinSession(sessionId)
     },
     async delete(sessionId) {
-      await readState(sessionId)
+      // Workspace history also contains ordinary Sessions created before Studio consolidation.
+      // Roleplay Sessions and their descendants remain owned by the roleplay deletion flow.
+      const protectedIds = new Set(ctx.eleckoiProductData.readConversationCatalog().map(item => item.runtimeSessionId))
+      if (protectedIds.has(sessionId)) throw productFailure(ELECKOI_FAILURE_CODES.securityDenied, '角色对话请从消息列表删除。', { what: '角色对话', guard: '角色对话归属' })
+      const { items } = await ctx.sessionController.list({})
+      for (const item of items) if (item.projections?.values?.agentPreset === 'eleckoi-active') protectedIds.add(item.sessionId)
+      let changed = true
+      while (changed) {
+        changed = false
+        for (const item of items) if (protectedIds.has(item.parentSessionId) && !protectedIds.has(item.sessionId)) { protectedIds.add(item.sessionId); changed = true }
+      }
+      if (protectedIds.has(sessionId)) throw productFailure(ELECKOI_FAILURE_CODES.securityDenied, '角色对话请从消息列表删除。', { what: '角色对话', guard: '角色对话归属' })
+      await ctx.sessionController.inspect(sessionId)
       await ctx.eleckoiSessionEditor.deleteSession(sessionId)
-      await ctx.workspaceRegistry.unpinSession(sessionId)
     },
     async messages(sessionId) {
       const { inspection } = await readState(sessionId)

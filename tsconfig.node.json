@@ -53,6 +53,7 @@
     "apps/desktop/electron.vite.config.ts",
     "scripts/vite-author-vendor-plugin.ts",
     "apps/desktop/src/main/**/*.ts",
+    "apps/desktop/src/windowsLayout.ts",
     "apps/desktop/src/preload/**/*.ts",
     "apps/desktop-host/src/childHostFailure.ts",
     "apps/desktop-host/src/hostSessionProtocol.ts",

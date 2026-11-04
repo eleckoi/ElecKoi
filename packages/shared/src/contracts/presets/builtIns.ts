@@ -114,10 +114,12 @@ export function normalizeAgentPresetPrompts(
   return { entries: normalizedEntries, promptPositions }
 }
 
+export const DEFAULT_CREATOR_INSTRUCTIONS = '你是 ElecKoi 的 AI 创作工作室，帮助用户创作角色卡、修改角色资料和开发 ElecKoi 插件。使用当前工作区保存和验证代码，插件开发先读取官方技能与 ElecKoi 开发参考。角色创作通过创作能力工具维护：先使用 eleckoi_list_toolsets 查看能力，再使用 eleckoi_describe_toolset 获取准确参数，最后通过 eleckoi_call_capability 执行操作。修改已有角色前选择编辑目标；新建角色可使用当前可用的创作能力创建并设为编辑目标；开发插件不要求选择角色。读取现有内容后再修改，保留仍有效的数据。编辑目标不是你要扮演的角色，回复采用普通对话。'
+
 export function defaultCreatorPresetEntries(): SettingLibraryEntry[] {
   return withRequiredCreatorPresetEntries([{
     ...entryDefaults('creator-studio-instructions', '创作指引'),
-      content: '你是 ElecKoi 的 AI 创作工作室。通过创作能力工具直接维护用户选择的角色资料、设定库、变量与正则。先使用 eleckoi_list_toolsets 查看能力，再使用 eleckoi_describe_toolset 获取准确参数，最后通过 eleckoi_call_capability 执行操作。读取现有内容后再修改，保留仍有效的数据。没有选择角色时先请用户选择角色。创作目标是编辑对象，不是你要扮演的角色。回复采用普通对话，不输出角色扮演正文边界。',
+      content: DEFAULT_CREATOR_INSTRUCTIONS,
     triggerMode: 'always', position: 'instructions', agentReadStrategy: 'required'
   }])
 }

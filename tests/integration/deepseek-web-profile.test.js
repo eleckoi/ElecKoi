@@ -1,6 +1,6 @@
 import { retireDeepSeekExtensionSelection } from '@eleckoi/dsh-client-web-search/profile'
 import Hmr from '@deepseek-ai/cordis-plugin-hmr'
-import { existsSync, mkdtempSync, writeFileSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve, relative, isAbsolute } from 'node:path'
@@ -8,12 +8,62 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { initProfile, loadLayeredEnv, loadProfileDirectory, PROFILE_TEMPLATES } from '@deepseek-ai/dsh-app-boot'
 import { runProfile } from '@deepseek-ai/dsh/profile-boot'
 import { LlmAdapter, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { ELECKOI_DESKTOP_BUNDLES, ELECKOI_INSTALL_ANCHOR } from '../../apps/desktop-host/src/desktopPluginBundles'
 import { preparePluginHost } from '../../apps/android-host/src/pluginHostConfiguration'
 import { ELECKOI_INSTALL_ANCHOR as ANDROID_INSTALL_ANCHOR } from '../../apps/android-host/src/androidPluginBundles'
 
 const cleanups = []
 afterEach(async () => { vi.unstubAllGlobals(); for (const stop of cleanups.splice(0).reverse()) await stop() })
+
+it('deletes workspace Session trees, durable membership and results, and keeps unrelated files across restart', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'eleckoi-workspace-delete-'))
+  cleanups.push(() => rm(root, { recursive: true, force: true, maxRetries: 3 }))
+  const f = await start('desktop', root), { ctx } = f
+  const workspace = await ctx.workspaceRegistry.create(join(root, 'workspace'))
+  const projectFile = join(workspace.path, 'synthetic-project.txt')
+  writeFileSync(projectFile, 'Synthetic workspace file')
+  const created = await ctx.eleckoiCreatorStudioRuntime.create('', workspace.id)
+  const kept = await ctx.eleckoiCreatorStudioRuntime.create('', workspace.id)
+  const ordinary = await ctx.sessionController.create({ sessionId: 'synthetic-ordinary-workspace', workspaceId: workspace.id, agentPreset: 'cordis' })
+  await ctx.eleckoiCreatorStudioSessionsApi.delete(ordinary.sessionId)
+  expect((await ctx.sessionController.list({})).items.some(item => item.sessionId === ordinary.sessionId)).toBe(false)
+  const childId = SessionId('synthetic-deleted-child')
+  const child = Session.create(childId, [], { ...Session.create(childId).header, cwd: workspace.path,
+    parentSession: SessionId(created.sessionId), origin: 'subagent', delegationDepth: 1 })
+  const handle = await ctx.sessionPersistence.create(child.header)
+  await handle.flush(); await handle.close()
+  await workspace.attachSession(childId)
+  await ctx.workspaceRegistry.pinSession(SessionId(created.sessionId))
+  await ctx.workspaceRegistry.archiveSession(childId)
+  const ids = [created.sessionId, childId]
+  mkdirSync(process.env.ELECKOI_SESSION_SNAPSHOT_ROOT, { recursive: true })
+  for (const id of ids) writeFileSync(join(process.env.ELECKOI_SESSION_SNAPSHOT_ROOT, `${id}.json`), '{}')
+  const results = await Promise.all(ids.map(sessionId => ctx.spillStore.saveText({ owner: { sessionId },
+    source: { kind: 'tool', toolName: 'synthetic_tool', callId: 'synthetic-call' }, suggestedName: 'synthetic-result.txt', content: 'Synthetic result' })))
+  const snapshots = ids.map(id => join(process.env.ELECKOI_SESSION_SNAPSHOT_ROOT, `${id}.json`))
+  await ctx.eleckoiCreatorStudioSessionsApi.delete(created.sessionId)
+  expect(workspace.sessionIds).toEqual([kept.sessionId])
+  expect(ctx.workspaceRegistry.pinnedSessionIds).not.toContain(created.sessionId)
+  expect(ctx.workspaceRegistry.archivedSessionIds).not.toContain(childId)
+  for (const id of ids) {
+    expect(ctx.agents.get(id)).toBeUndefined()
+    expect((await ctx.sessionController.list({})).items.some(item => item.sessionId === id)).toBe(false)
+    await expect(ctx.sessionController.inspect(id)).rejects.toBeDefined()
+  }
+  for (const file of [...snapshots, ...results.flatMap(result => [result.locator, `${result.locator}.owner.json`])]) expect(existsSync(file)).toBe(false)
+  expect(readFileSync(projectFile, 'utf8')).toBe('Synthetic workspace file')
+  const roleplayRecord = ctx.eleckoiProductData.createConversation({})
+  const roleplay = await ctx.eleckoiRoleplaySessions.create(roleplayRecord.conversation.id)
+  await expect(ctx.eleckoiCreatorStudioSessionsApi.delete(roleplay)).rejects.toMatchObject({ code: 'eleckoi/security/denied' })
+  await f.close()
+  const reopened = await start('desktop', root)
+  expect(reopened.ctx.workspaceRegistry.get(workspace.id).sessionIds).toEqual([kept.sessionId])
+  expect((await reopened.ctx.sessionController.list({})).items.some(item => ids.includes(item.sessionId))).toBe(false)
+  await reopened.ctx.eleckoiCreatorStudioRuntime.open(kept.sessionId)
+  expect((await reopened.ctx.eleckoiCreatorStudioRuntime.list()).map(item => item.sessionId)).toContain(kept.sessionId)
+  expect(readFileSync(projectFile, 'utf8')).toBe('Synthetic workspace file')
+}, 60_000)
 
 async function start(platform, root, legacySelection = false) {
   const resources = resolve('apps/desktop/resources/dsh')

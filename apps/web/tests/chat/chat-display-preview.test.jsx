@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import React, { act } from "react";
+import React, { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import { SettingsPanel } from "../../src/modules/settings/components/SettingsPanel.jsx";
@@ -22,6 +22,44 @@ afterEach(() => {
 });
 
 describe("chat display preview", () => {
+  it('updates the formal layout style, preview, individual resets, and layout isolation', () => {
+    let preferences;
+    function Harness() {
+      const [value, update] = useState(structuredClone(DEFAULT_CHAT_DISPLAY_PREFERENCES));
+      preferences = value;
+      return <WithOfficialMarkdown><SettingsPanel activePage="chat" chatDisplay={value} onChatDisplayChange={update}
+        renderLayout={({ mainPanel }) => mainPanel} /></WithOfficialMarkdown>;
+    }
+    renderToMarkup(<Harness />);
+    const input = (label, value) => act(() => {
+      const node = document.querySelector(`[aria-label="${label}"]`);
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(node, value);
+      node.dispatchEvent(new Event('input', { bubbles: true }));
+      node.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const click = label => act(() => document.querySelector(`[aria-label="${label}"]`).click());
+    expect(document.querySelector('[data-group="layout-style"]')).toBeTruthy();
+    expect([...document.querySelectorAll('.ec-settings-list [data-group]')].at(-1).dataset.group).toBe('layout-style');
+    expect(document.querySelector('[aria-label="对话底板"]').checked).toBe(false);
+    expect(document.querySelector('[aria-label="消息气泡"]').checked).toBe(false);
+    click('对话底板');
+    click('消息气泡');
+    input('用户气泡色调', '#987654');
+    input('底板模糊程度滑杆', '31');
+    expect(preferences.roleplay_style).toMatchObject({ bubbles_enabled: true, user_bubble_tint: '#987654', assistant_bubble_tint: null, backdrop_blur: 31 });
+    expect(document.querySelector('.chat-display-preview').style.getPropertyValue('--rp-user-tint')).toBe('#987654');
+    click('对话底板'); click('对话底板');
+    expect(preferences.roleplay_style.backdrop_blur).toBe(31);
+    click('恢复用户气泡色调默认值');
+    expect(preferences.roleplay_style.user_bubble_tint).toBeNull();
+    act(() => document.querySelectorAll('.ec-layout-choice')[1].click());
+    expect(document.querySelector('[data-group="layout-style"]')).toBeNull();
+    expect(document.querySelector('.chat-display-preview').hasAttribute('data-roleplay-backdrop')).toBe(false);
+    expect(document.querySelector('.chat-display-preview').style.getPropertyValue('--rp-backdrop-blur')).toBe('');
+    act(() => document.querySelectorAll('.ec-layout-choice')[0].click());
+    expect(document.querySelector('.chat-display-preview').hasAttribute('data-roleplay-bubbles')).toBe(true);
+    expect(preferences.roleplay_style.backdrop_blur).toBe(31);
+  });
   it("shows the same rich message count and bounds as mobile only when limits are enabled", () => {
     const render = enabled => renderToMarkup(React.createElement(WithOfficialMarkdown, null,
       React.createElement(SettingsPanel, { activePage: "chat", chatDisplay: { ...DEFAULT_CHAT_DISPLAY_PREFERENCES,

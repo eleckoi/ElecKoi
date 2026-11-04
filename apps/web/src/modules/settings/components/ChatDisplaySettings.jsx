@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { MenuSurface } from '@deepseek-ai/dsh-client-ui-primitives';
-import { DEFAULT_CHAT_TEXT_COLORS } from '@shared/contracts/settings/schemas';
+import { DEFAULT_CHAT_TEXT_COLORS, DEFAULT_ROLEPLAY_STYLE } from '@shared/contracts/settings/schemas';
 import {
   ArrowsOutLineVertical, ArrowCounterClockwise, CaretRight,
   ChatCircleDots, Check, Palette, SlidersHorizontal,
@@ -13,12 +13,14 @@ import { assetSrc } from '../../../app/services/assets.js';
 import {
   chatDisplayCssVariables, chatTextColorCssVariables, resolveChatAvatar,
   resolveChatAvatarShape, resolveChatDisplayProfile,
+  resolveRoleplayStyle, roleplayStyleCssVariables, roleplayStyleDefaultTint,
 } from '../../appearance/index.js';
 import {
   chatDisplaySettings, chatDisplayTuners, chatLayouts, avatarShapes,
   textColorOptions, richMessageFloorTuner, richMessageLimitDescription,
 } from '../model/chatDisplaySettings.js';
 import '../styles/chat-display-settings.css';
+import '../../chat/styles/roleplay-style.css';
 
 function ResetParameter({ label, disabled, onClick }) {
   return <button type="button" className="ec-parameter-reset" aria-label={`恢复${label}默认值`}
@@ -70,6 +72,50 @@ function DisplaySwitch({ label, checked, onChange }) {
   </label>;
 }
 
+function StyleTintField({ label, value, defaultColor, onChange }) {
+  return <div className="ec-style-tint-row"><span>{label}</span><span className="ec-style-tint-value">{value ? value.toUpperCase() : '跟随主题'}</span>
+    <input type="color" aria-label={label} value={value || defaultColor} onChange={event => onChange(event.target.value)} />
+    <ResetParameter label={label} disabled={value === null} onClick={() => onChange(null)} />
+  </div>;
+}
+
+/** Shared controls keep the desktop and mobile preference contract identical. */
+export function RoleplayStyleControls({ model }) {
+  const { roleplayStyle: style, updateRoleplayStyle: update, profile, defaults, updateProfile } = model;
+  const [dark, setDark] = useState(() => document.documentElement.dataset.theme === 'dark');
+  useEffect(() => {
+    const updateTheme = () => setDark(document.documentElement.dataset.theme === 'dark');
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    updateTheme();
+    return () => observer.disconnect();
+  }, []);
+  const tune = (key, label, max = 100, suffix = '%') => <DisplayTuner key={key} label={label} min={0} max={max} step={1} suffix={suffix}
+    value={style[key]} defaultValue={DEFAULT_ROLEPLAY_STYLE[key]} onChange={value => update({ [key]: value })} />;
+  return <div className="ec-roleplay-style-controls">
+    <DisplaySwitch label="对话底板" checked={style.backdrop_enabled} onChange={value => update({ backdrop_enabled: value })} />
+    {style.backdrop_enabled && <div className="ec-style-section">
+      {tune('backdrop_blur', '底板模糊程度', 40, 'px')}
+      <StyleTintField label="底板色调" value={style.backdrop_tint} defaultColor={roleplayStyleDefaultTint('backdrop', dark)} onChange={value => update({ backdrop_tint: value })} />
+      {tune('backdrop_opacity', '底板不透明度')}
+    </div>}
+    <DisplaySwitch label="消息气泡" checked={style.bubbles_enabled} onChange={value => update({ bubbles_enabled: value })} />
+    {style.bubbles_enabled && <>
+      <div className="ec-style-section">{tune('bubble_blur', '气泡模糊程度', 40, 'px')}
+        <DisplayTuner {...chatDisplayTuners.bubble_corner_radius} value={profile.bubble_corner_radius} defaultValue={defaults.bubble_corner_radius} onChange={value => updateProfile({ bubble_corner_radius: value })} />
+      </div>
+      <div className="ec-style-section"><h3>用户消息</h3>
+        <StyleTintField label="用户气泡色调" value={style.user_bubble_tint} defaultColor={roleplayStyleDefaultTint('bubble', dark)} onChange={value => update({ user_bubble_tint: value })} />
+        {tune('user_bubble_opacity', '用户气泡不透明度')}
+      </div>
+      <div className="ec-style-section"><h3>AI 消息</h3>
+        <StyleTintField label="AI 气泡色调" value={style.assistant_bubble_tint} defaultColor={roleplayStyleDefaultTint('bubble', dark)} onChange={value => update({ assistant_bubble_tint: value })} />
+        {tune('assistant_bubble_opacity', 'AI 气泡不透明度')}
+      </div>
+    </>}
+  </div>;
+}
+
 function LayoutThumbnail({ layout }) {
   return <span className="ec-layout-picture" aria-hidden="true">
     <span className="ec-mini-titlebar"><span /><span /><span /></span>
@@ -84,8 +130,10 @@ function LayoutThumbnail({ layout }) {
 
 export function ChatDisplayPreview({ preferences, persona, compact = false }) {
   const { layout, profile } = resolveChatDisplayProfile(preferences);
+  const roleplayStyle = resolveRoleplayStyle(preferences);
   const avatarShape = resolveChatAvatarShape(layout, profile.avatar_shape);
-  const style = { ...chatDisplayCssVariables(layout, profile), ...chatTextColorCssVariables(preferences.text_colors) };
+  const style = { ...chatDisplayCssVariables(layout, profile), ...chatTextColorCssVariables(preferences.text_colors),
+    ...(layout === 'roleplay' ? roleplayStyleCssVariables(roleplayStyle) : {}) };
   if (compact) {
     const scale = .94;
     for (const key of ['--chat-avatar-width', '--chat-avatar-height', '--chat-avatar-radius']) style[key] = `${parseFloat(style[key]) * .62}px`;
@@ -95,6 +143,9 @@ export function ChatDisplayPreview({ preferences, persona, compact = false }) {
   }
   const userAvatar = resolveChatAvatar(persona, 'user', avatarShape);
   const assistantAvatar = resolveChatAvatar(persona, 'assistant', avatarShape);
+  if (layout === 'roleplay' && (roleplayStyle.backdrop_enabled || roleplayStyle.bubbles_enabled) && assistantAvatar) {
+    style.backgroundImage = `url(${JSON.stringify(assetSrc(assistantAvatar))})`;
+  }
   const previewTime = new Date().toISOString();
   const messages = <div className={`message-area layout-${layout}`}>
     <MessageBubble message={{ id: 'preview-user', role: 'user', content: '今晚从这里继续。', status: 'complete', created_at: previewTime }}
@@ -105,7 +156,9 @@ export function ChatDisplayPreview({ preferences, persona, compact = false }) {
       avatar={assistantAvatar} avatarShape={avatarShape} name={persona?.assistant_name || 'AI'} layoutMode={layout} floorNumber={1}
       showRoleplayTimestamp={preferences.roleplay_timestamps_enabled} showRoleplayFloor={preferences.roleplay_message_floors_enabled} spacingAfter={0} />
   </div>;
-  return <div className={`chat-display-preview${profile.assistant_bubble_enabled ? ' assistant-bubble-enabled' : ''}${compact ? ' ec-chat-window' : ''}`} style={style}>
+  return <div className={`chat-display-preview${profile.assistant_bubble_enabled ? ' assistant-bubble-enabled' : ''}${compact ? ' ec-chat-window' : ''}`} style={style}
+    data-roleplay-backdrop={layout === 'roleplay' && roleplayStyle.backdrop_enabled || undefined}
+    data-roleplay-bubbles={layout === 'roleplay' && roleplayStyle.bubbles_enabled || undefined}>
     {messages}
   </div>;
 }
@@ -187,7 +240,12 @@ export function ChatDisplaySettings({ persona, chatDisplay, onChatDisplayChange 
                 onChange={value => updatePreferences({ rich_message_floor_limit: Math.round(value) })} /></div>}
               <p className="ec-help">{richMessageLimitDescription}</p>
             </DisplayGroup>
-            {layout !== 'roleplay' && <DisplayGroup id="bubble" icon={ChatCircleDots} title="气泡样式"
+            {layout === 'roleplay' && <DisplayGroup id="layout-style" icon={ChatCircleDots} title="布局独有风格"
+              description={`${model.roleplayStyle.backdrop_enabled ? `底板模糊 ${model.roleplayStyle.backdrop_blur} px` : '底板已关闭'} · ${model.roleplayStyle.bubbles_enabled ? '有气泡' : '无气泡'}`}
+              preview={<span className={`ec-style-sample${model.roleplayStyle.bubbles_enabled ? ' has-bubbles' : ''}`}><span /><span /></span>}>
+              <RoleplayStyleControls model={model} />
+            </DisplayGroup>}
+            {layout !== 'roleplay' && <DisplayGroup id="bubble" icon={ChatCircleDots} title="布局独有风格"
               description={`圆角 ${profile.bubble_corner_radius} px${profile.assistant_bubble_enabled ? ' · 角色气泡已开启' : ''}`}
               preview={<ChatCircleDots className="ec-bubble-sample" />}>
               {layout === 'agent' && <DisplaySwitch label="角色气泡" checked={profile.assistant_bubble_enabled} onChange={value => updateProfile({ assistant_bubble_enabled: value })} />}

@@ -51,6 +51,7 @@ describe("community navigation", () => {
     expect(html).toContain('class="community-nav-group"');
     expect(html).toContain('class="model-nav-cube"');
     expect(html.match(/class="plugin-nav-icon"/g)).toHaveLength(2);
+    expect(html).not.toContain('plugin-nav-filled');
     expect(html).toContain('class="rail-icon-layer active-fill"');
   });
 

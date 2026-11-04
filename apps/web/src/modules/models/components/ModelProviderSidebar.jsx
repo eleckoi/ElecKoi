@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronRightIcon, TrashIcon } from "../../../ui/icons/index.jsx";
 import { SidebarSectionHeader } from "../../../ui/ui/SidebarSectionHeader.jsx";
+import { SidebarScrollArea } from "../../../ui/ui/SidebarScrollArea.jsx";
+import { useSidebarGroupCollapse } from "../../../ui/hooks/useSidebarGroupCollapse.js";
 import { builtinProviderItems, filterProviderItems, modelProviderSections } from "../model/modelProviderCatalog.js";
 import { ProviderLogo } from "./ProviderLogo.jsx";
 
@@ -21,6 +23,7 @@ export function ModelProviderSidebar({
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [providerMenu, setProviderMenu] = useState(null);
   const createMenuRef = useRef(null);
+  const keepCollapsedHeading = useSidebarGroupCollapse(collapsedGroups, '.model-config-list');
   const visibleItems = useMemo(() => filterProviderItems(providerItems, query), [providerItems, query]);
   const visibleGroups = useMemo(() => modelProviderSections
     .map((section) => ({ ...section, items: visibleItems.filter((item) => item.section === section.id) }))
@@ -105,13 +108,16 @@ export function ModelProviderSidebar({
           </div>
         ) : null}
       </div>
-      <div className="model-config-list">
+      <SidebarScrollArea className="model-config-list">
         {collapseStateReady ? visibleGroups.map((section) => {
           const collapsed = collapsedGroups?.[section.id] === true;
           const showProviderList = !collapsed || Boolean(query.trim());
           return (
             <div className="model-group-block" key={section.id}>
-              <button className="model-group-row" type="button" onClick={() => onToggle(section.id)}>
+              <button className="model-group-row" type="button" aria-expanded={showProviderList} onClick={(event) => {
+                if (showProviderList) keepCollapsedHeading(event.currentTarget);
+                onToggle(section.id);
+              }}>
                 <span>
                   <i className={`model-group-toggle ${collapsed ? "collapsed" : ""}`}>
                     <ChevronRightIcon />
@@ -153,7 +159,7 @@ export function ModelProviderSidebar({
           );
         }) : null}
         {collapseStateReady && !visibleGroups.length ? <p className="model-provider-empty">没有匹配的模型配置</p> : null}
-      </div>
+      </SidebarScrollArea>
       {providerMenu ? (
         <ModelProviderContextMenu
           menu={providerMenu}

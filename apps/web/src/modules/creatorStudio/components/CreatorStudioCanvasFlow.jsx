@@ -1,3 +1,4 @@
+// NODE STUDIO: retained node/project development surface for future main-window integration.
 import { BaseEdge, ConnectionMode, getBezierPath, ReactFlow } from "@xyflow/react";
 import { CanvasNode, CanvasQuickCreate } from "./CreatorStudioCanvasParts.jsx";
 

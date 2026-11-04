@@ -20,6 +20,8 @@ import { SlidersHorizontal } from "../../../ui/icons/interfaceIcons.jsx";
 import { lazy, memo, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   chatDisplayCssVariables,
+  resolveRoleplayStyle,
+  roleplayStyleCssVariables,
   chatTextColorCssVariables,
   messageFloorNumber,
   resolveChatAvatar,
@@ -33,6 +35,7 @@ import { MainPageContext } from '../../../app/windows/MainPageContext.jsx';
 import { DshEntryActionsMenu } from '../../../ui/ui/DshEntryActionsMenu.jsx';
 import { CharacterFrontendView, RichMessageRenderProvider } from '../../authorFrontend/index.js';
 import { DEFAULT_CHAT_DISPLAY_PREFERENCES, RICH_MESSAGE_FLOOR_RANGE } from '@shared/contracts/settings/schemas';
+import '../styles/roleplay-style.css';
 
 const noAuthorSubscription = () => () => {};
 const noAuthorRuntime = () => null;
@@ -305,9 +308,11 @@ export function ChatPanel({
   }
 
   const { layout: layoutMode, profile } = resolveChatDisplayProfile(chatDisplay);
+  const roleplayStyle = resolveRoleplayStyle(chatDisplay);
   const avatarShape = resolveChatAvatarShape(layoutMode, profile?.avatar_shape || "portrait");
   const displayStyle = {
     ...chatDisplayCssVariables(layoutMode, profile),
+    ...(layoutMode === 'roleplay' ? roleplayStyleCssVariables(roleplayStyle) : {}),
     ...chatTextColorCssVariables(chatDisplay?.text_colors),
   };
   const userAvatar = resolveChatAvatar(persona, "user", avatarShape);
@@ -456,6 +461,8 @@ export function ChatPanel({
     <section
       ref={chatPanelRef}
       className={`chat-panel layout-${layoutMode} view-${activeView}${profile?.assistant_bubble_enabled ? " assistant-bubble-enabled" : ""}${deleteMode ? " message-delete-mode" : ""}`}
+      data-roleplay-backdrop={layoutMode === 'roleplay' && activeView === 'chat' && roleplayStyle.backdrop_enabled || undefined}
+      data-roleplay-bubbles={layoutMode === 'roleplay' && activeView === 'chat' && roleplayStyle.bubbles_enabled || undefined}
       style={displayStyle}
     >
       <header className="chat-header">

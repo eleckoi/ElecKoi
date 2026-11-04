@@ -3,7 +3,8 @@ import { readCharacterOpenings } from '@product-data/domain/characterOpenings'
 import { characterOpenings } from '@product-data/storage/sqlite/schema/common'
 import { and, asc, eq } from 'drizzle-orm'
 import type { CharacterCollection, CharacterRecord } from '@shared/contracts/entities/persona'
-import { isRecord, parseJsonArray } from '@shared/foundation/json'
+import { isRecord, parseJsonArray, parseJsonObject } from '@shared/foundation/json'
+import { customChatBackgroundFromCharacter, isCustomChatBackground } from '@shared/contracts/characters/chatBackground'
 import type { ElecKoiDatabase, ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
 import { characterMeta, characters, characterTextContents, userProfile } from '@product-data/storage/sqlite/schema/common'
 import type { LocalMediaStore, PreparedLocalMedia } from '@product-data/storage/media/LocalMediaStore'
@@ -14,6 +15,7 @@ const string = (value: unknown, fallback = ''): string => typeof value === 'stri
 const number = (value: unknown, fallback = 0): number => typeof value === 'number' && Number.isFinite(value) ? value : fallback
 const flag = (value: unknown): number => value ? 1 : 0
 const ALL_CHARACTERS_GROUP = '全部角色'
+const CUSTOM_BACKGROUND_KIND = 'chat-background-custom'
 
 function normalizedGroup(value: unknown): string {
   const group = string(value).trim()
@@ -59,6 +61,8 @@ export class CharacterRepository {
         const content = Object.fromEntries(texts.filter((item) => item.characterId === row.id).map((item) => [item.kind, item.content]))
         return {
           ...row, group: normalizedGroup(row.groupName),
+          chatBackgroundCustom: customChatBackgroundFromCharacter({ ...row,
+            chatBackgroundCustom: parseJsonObject(content[CUSTOM_BACKGROUND_KIND] ?? '{}') }),
           persona: {
             assistant_name: row.assistantName, assistant_avatar: row.assistantAvatar,
             assistant_square: row.squareImage, assistant_cover: row.coverImage,
@@ -197,9 +201,12 @@ export class CharacterRepository {
   }
 
   private saveCard(input: CharacterRecord, index: number, db: ElecKoiDatabase): void {
-    const prepared = this.prepareCardMedia(input)
-    input = prepared
     const previous = db.select().from(characters).where(eq(characters.id, input.id)).get()
+    const customContent = db.select().from(characterTextContents).where(and(eq(characterTextContents.characterId, input.id), eq(characterTextContents.kind, CUSTOM_BACKGROUND_KIND))).get()
+    const previousCustom = customChatBackgroundFromCharacter({ ...previous, chatBackgroundCustom: parseJsonObject(customContent?.content ?? '{}') })
+    input = this.prepareCardMedia({ ...input, chatBackground: string(input.chatBackground, previous?.chatBackground),
+      chatBackgroundCustom: customChatBackgroundFromCharacter({ ...previous, ...input,
+        chatBackgroundCustom: input.chatBackgroundCustom ?? previousCustom }) })
     const persona = isRecord(input.persona) ? input.persona : {}
     const row: typeof characters.$inferInsert = {
       id: input.id, name: string(input.name, '未命名角色'), avatar: string(input.avatar),
@@ -215,6 +222,12 @@ export class CharacterRepository {
       chatBackgroundBlur: number(input.chatBackgroundBlur, previous?.chatBackgroundBlur ?? 2), chatBackgroundScrim: number(input.chatBackgroundScrim, previous?.chatBackgroundScrim ?? 0.5)
     }
     if (JSON.stringify(previous) !== JSON.stringify(row)) db.insert(characters).values(row).onConflictDoUpdate({ target: characters.id, set: row }).run()
+    const custom = customChatBackgroundFromCharacter(input)
+    if (custom.image) {
+      const content = JSON.stringify(custom)
+      if (customContent?.content !== content) db.insert(characterTextContents).values({ characterId: input.id, kind: CUSTOM_BACKGROUND_KIND, content })
+        .onConflictDoUpdate({ target: [characterTextContents.characterId, characterTextContents.kind], set: { content } }).run()
+    } else if (customContent) db.delete(characterTextContents).where(and(eq(characterTextContents.characterId, input.id), eq(characterTextContents.kind, CUSTOM_BACKGROUND_KIND))).run()
     if (!previous) db.insert(characterOpenings).values({ characterId: input.id,
       configurationJson: JSON.stringify(createCharacterOpenings(input.id, string(persona.opening), Boolean(persona.show_opening ?? input.showOpening ?? true))) }).run()
     this.conversationCleanup.refreshCharacterIdentity(input.id, {
@@ -263,11 +276,13 @@ export class CharacterRepository {
     const avatar = prepare('avatar', string(persona.assistant_avatar, string(input.avatar)))
     const square = prepare('square', persona.assistant_square)
     const portrait = prepare('portrait', persona.assistant_cover)
-    const background = prepare('chat-background', input.chatBackground)
+    const custom = customChatBackgroundFromCharacter(input)
+    const background = prepare('chat-background', custom.image)
     return {
       ...input,
       avatar,
-      chatBackground: background,
+      chatBackground: isCustomChatBackground(input.chatBackground) ? background : input.chatBackground,
+      chatBackgroundCustom: { ...custom, image: background },
       persona: {
         ...persona,
         assistant_avatar: avatar,

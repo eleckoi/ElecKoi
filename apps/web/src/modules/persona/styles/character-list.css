@@ -117,30 +117,21 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 0 16px;
-  scrollbar-color: var(--dsw-alias-scrollbar-bg-l2, color-mix(in srgb, var(--muted) 42%, transparent)) transparent;
-  scrollbar-gutter: auto;
-  scrollbar-width: thin;
 }
 
-.character-list-scroll::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.character-list-scroll > .sidebar-scroll-content > .character-group-block > .character-group-row {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--list);
 }
 
-.character-list-scroll::-webkit-scrollbar-track {
-  background: transparent;
+.character-list-scroll .character-group-row:hover {
+  background: var(--dsw-alias-interactive-bg-hover-solid, var(--control-bg-hover));
 }
 
-.character-list-scroll::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: var(--dsw-alias-scrollbar-bg-l2, color-mix(in srgb, var(--muted) 42%, transparent));
-  background-clip: content-box;
-}
-
-.character-list-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--dsw-alias-scrollbar-hover-l2, color-mix(in srgb, var(--muted) 64%, transparent));
-  background-clip: content-box;
+.character-list-scroll .character-group-row.drag-over {
+  background: color-mix(in srgb, var(--blue) 14%, var(--list));
 }
 
 .character-group-block {
@@ -156,7 +147,7 @@
   min-height: 36px;
   margin: 0 var(--character-list-item-inset);
   padding: 0 8px;
-  border-radius: 8px;
+  border-radius: 0;
   text-align: left;
   color: #161616;
   font-size: 13px;
@@ -195,7 +186,7 @@ button.character-group-row:hover {
   width: 18px;
   height: 18px;
   flex: none;
-  color: #333;
+  color: var(--muted);
   transition: transform 0.14s ease;
 }
 

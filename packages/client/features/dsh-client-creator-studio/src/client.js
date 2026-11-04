@@ -6,14 +6,17 @@ window.__ModuleLoader__.load({
     const { unwrapOrFail, failureAlreadyPublished, productFailure, ELECKOI_FAILURE_CODES } = require('@eleckoi/dsh-product-api')
     /** Own one independent official Client Session reference for the Studio surface. */
     class CreatorStudioSessions {
-      constructor(remote, sessions) {
+      constructor(remote, sessions, workspaces, getConversation) {
         this.remote = remote
         this.sessions = sessions
+        this.workspaces = workspaces
+        this.getConversation = getConversation
         this.snapshot = { status: 'idle', active: null, reference: null, items: [], error: '', editingSessionId: '' }
         this.listeners = new Set()
         this.generation = 0
         this.reference = null
         this.disposed = false
+        this.draftReferences = new Map()
         this.messageMutation = false
       }
       getSnapshot = () => this.snapshot
@@ -30,24 +33,30 @@ window.__ModuleLoader__.load({
         const current = this.snapshot.active?.sessionId === sessionId
           ? items.find(item => item.sessionId === sessionId) : undefined
         this.publish({ items, ...(current ? { active: { sessionId: current.sessionId, presetId: current.presetId, characterId: current.characterId } } : {}) })
+        const known = new Set(items.map(item => item.sessionId))
+        for (const [id, reference] of this.draftReferences) if (!known.has(id)) { this.draftReferences.delete(id); reference.release() }
         return items
       }
-      async acquire(create, value) {
+      async acquire(create, value, workspaceId) {
         if (this.disposed) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleDisposed, 'AI 创作工作室服务已关闭。', { what: 'AI 创作工作室服务' })
         const generation = ++this.generation
         this.publish({ status: 'loading', error: '' })
         let reference
         try {
-          const active = await this.call(create ? 'create' : 'open', value)
+          const active = create ? await this.call('create', value, workspaceId) : await this.call('open', value)
           await this.sessions.refresh()
           // The catalog retains data; StudioConversation owns the visible mainView.
           reference = this.sessions.retain(active.sessionId, { source: 'eleckoiCreatorStudio' })
           await reference.ready
           if (this.disposed || generation !== this.generation) { reference.release(); return }
           const previous = this.reference
+          const previousId = this.snapshot.active?.sessionId
           this.reference = reference
           this.publish({ status: 'ready', active, reference, error: '' })
-          previous?.release()
+          const cached = this.draftReferences.get(active.sessionId)
+          this.draftReferences.delete(active.sessionId)
+          cached?.release()
+          if (previous !== cached && this.draftReferences.get(previousId) !== previous) previous?.release()
           await this.refresh()
           return active
         } catch (error) {
@@ -56,10 +65,55 @@ window.__ModuleLoader__.load({
           throw error
         }
       }
-      create(characterId = '') { return this.acquire(true, characterId) }
+      async create(characterId = '', workspaceId) {
+        if (this.workspaces && this.workspaces.list.getSnapshot().items.length === 0 && this.sessions.list.getSnapshot().ids.length === 0) {
+          const workspace = await this.workspaces.initializeDefault(new AbortController().signal)
+          workspaceId ??= workspace?.workspaceId
+        }
+        const registry = this.workspaces?.list.getSnapshot()
+        const inherited = registry?.items.find(item => item.sessionIds.includes(this.snapshot.active?.sessionId))?.workspaceId
+        let recent, latest = -Infinity
+        for (const item of registry?.items ?? []) {
+          let time = -Infinity
+          for (const id of item.sessionIds) { const row = this.sessions.list.getSnapshot().byId[id]; if (row) time = Math.max(time, row.updatedAt) }
+          if (time === -Infinity) time = Date.parse(item.createdAt)
+          if (recent === undefined || time > latest) { recent = item.workspaceId; latest = time }
+        }
+        const target = workspaceId ?? inherited ?? recent
+        const catalog = this.sessions.list.getSnapshot()
+        const canReuse = item => item.characterId === characterId && catalog.byId[item.sessionId]?.blank
+          && !registry?.archivedSessionIds?.includes(item.sessionId)
+          && registry?.items.find(workspace => workspace.sessionIds.includes(item.sessionId))?.workspaceId === target
+        const reusable = this.snapshot.items.find(item => item.sessionId === this.snapshot.active?.sessionId && canReuse(item))
+          ?? this.snapshot.items.find(canReuse)
+        if (reusable) return reusable.sessionId === this.snapshot.active?.sessionId ? this.snapshot.active : this.open(reusable.sessionId)
+        return this.acquire(true, characterId, target)
+      }
+      async startWorkspace(workspaceId, options = {}) {
+        const current = this.snapshot.active
+        const blank = this.sessions.list.getSnapshot().byId[current?.sessionId]?.blank
+        const currentWorkspace = this.workspaces?.list.getSnapshot().items.find(item => item.sessionIds.includes(current?.sessionId))?.workspaceId
+        if (!current || !blank || workspaceId !== undefined && workspaceId !== currentWorkspace) {
+          if (current && blank && this.reference) {
+            const scope = this.sessions.scope(current.sessionId)
+            const draft = this.getConversation().input.for(scope).state.getSnapshot()
+            // Retain the original input owner; semantic references and files stay in their existing store.
+            if (draft.draft !== '' || draft.attachmentIds.length) this.draftReferences.set(current.sessionId, this.reference)
+          }
+          await this.create('', workspaceId)
+        }
+        if (options.prompt !== undefined) {
+          const binding = this.sessions.binding(this.snapshot.active.sessionId)
+          if (!binding || this.getConversation().input.requestDraftInitialization(binding, options) === 'blocked') {
+            throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '无法准备插件创作草稿。', { what: '准备插件创作草稿' })
+          }
+        }
+      }
       open(sessionId) { return this.acquire(false, sessionId) }
       async restoreRecent() {
+        const generation = this.generation
         const items = await this.refresh()
+        if (this.disposed || generation !== this.generation) return
         if (this.snapshot.active) return this.snapshot.active
         // The Host list is ordered by activity, independently of sidebar pins.
         return items.length ? this.open(items[0].sessionId) : this.create()
@@ -68,7 +122,14 @@ window.__ModuleLoader__.load({
       async pin(sessionId, pinned) { await this.call('pin', sessionId, pinned); await this.refresh() }
       async delete(sessionId) {
         await this.call('delete', sessionId)
-        if (this.snapshot.active?.sessionId === sessionId) this.release()
+        const deleted = new Set([sessionId])
+        const rows = Object.values(this.sessions.list.getSnapshot().byId)
+        for (let changed = true; changed;) {
+          changed = false
+          for (const row of rows) if (deleted.has(row.parentId) && !deleted.has(row.id)) { deleted.add(row.id); changed = true }
+        }
+        for (const id of deleted) { this.draftReferences.get(id)?.release(); this.draftReferences.delete(id) }
+        if (deleted.has(this.snapshot.active?.sessionId)) this.release()
         await this.sessions.refresh()
         await this.refresh()
       }
@@ -121,11 +182,12 @@ window.__ModuleLoader__.load({
       release() {
         ++this.generation
         const previous = this.reference
+        if (this.draftReferences.get(this.snapshot.active?.sessionId) === previous) this.draftReferences.delete(this.snapshot.active.sessionId)
         this.reference = null
         this.publish({ reference: null, active: null, status: 'idle', error: '', editingSessionId: '' })
         previous?.release()
       }
-      dispose() { this.release(); this.disposed = true; this.listeners.clear() }
+      dispose() { this.release(); for (const reference of this.draftReferences.values()) reference.release(); this.draftReferences.clear(); this.disposed = true; this.listeners.clear() }
     }
 
     class CreatorStudioProjects {
@@ -258,9 +320,48 @@ window.__ModuleLoader__.load({
 
     function apply(ctx) {
       const projects = new CreatorStudioProjects(ctx.remote)
-      const conversations = new CreatorStudioSessions(ctx.remote, ctx.sessions)
+      const conversations = new CreatorStudioSessions(ctx.remote, ctx.sessions, ctx.workspaces, () => ctx.get('conversation'))
       projects.sessions = conversations
       ctx.provide('eleckoiCreatorStudio', projects)
+      const { MenuItemButton, IconTrashOutlineRegular, Modal, Button } = require('@deepseek-ai/dsh-client-ui-primitives')
+      let deleteRequest = null
+      const deleteListeners = new Set()
+      const requestDelete = request => { deleteRequest = request; for (const listener of deleteListeners) listener() }
+      ctx.slots.inject('sidebar.workspaces.session.menu.item', () => ctx.slots.register({
+        name: 'sidebar.workspaces.session.menu.item', id: 'eleckoi-creator-studio.delete', order: 425,
+      }, ({ sessionId, displayTitle, useMenuOpenState }) => {
+        const [, setMenuOpen] = useMenuOpenState()
+        return React.createElement(MenuItemButton, { icon: React.createElement(IconTrashOutlineRegular, { size: 14 }), danger: true,
+          onSelect: () => { setMenuOpen(false); requestDelete({ sessionId, displayTitle }) } }, '删除会话')
+      }))
+      function DeleteSessionForm({ request }) {
+        const [busy, setBusy] = React.useState(false), [error, setError] = React.useState('')
+        const close = () => { if (!busy) requestDelete(null) }
+        const confirm = async () => {
+          if (busy) return
+          setBusy(true); setError('')
+          try {
+            const wasActive = conversations.getSnapshot().active?.sessionId === request.sessionId
+            await conversations.delete(request.sessionId)
+            requestDelete(null)
+            if (wasActive && !conversations.getSnapshot().active) void conversations.restoreRecent().catch(failureAlreadyPublished)
+          } catch (reason) { setError(reason?.message || String(reason)); setBusy(false) }
+        }
+        return React.createElement(Modal, { open: true, title: '删除会话', closeLabel: '关闭', onClose: close,
+          description: `确定删除“${request.displayTitle || '新会话'}”及其关联子会话吗？聊天记录和会话附件将被永久删除，工作区中的项目文件保留。`,
+          footer: React.createElement(React.Fragment, null,
+            React.createElement(Button, { variant: 'outline', disabled: busy, onClick: close }, '取消'),
+            React.createElement(Button, { variant: 'outline', style: { color: 'var(--dsw-alias-text-error, var(--danger, #d14c4c))' }, disabled: busy, onClick: confirm }, busy ? '正在删除…' : '删除会话')) },
+          error ? React.createElement('div', { role: 'alert', className: 'creator-simple-error' }, error) : null)
+      }
+      ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'eleckoi-creator-studio.delete' }, () => {
+        const request = React.useSyncExternalStore(listener => { deleteListeners.add(listener); return () => deleteListeners.delete(listener) }, () => deleteRequest)
+        return request ? React.createElement(DeleteSessionForm, { key: request.sessionId, request }) : null
+      }))
+      const Page = React.lazy(() => import(new URL('eleckoi-page-creator-studio.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
+        .then(module => ({ default: module.CreatorStudioPage })))
+      ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'creatorStudio', priority: 0,
+        registrant: '@eleckoi/dsh-client-creator-studio' }, () => React.createElement(Page)))
       const studioSeat = name => name.startsWith('eleckoi.creator-studio.') ? name : `eleckoi.creator-studio.${name.replace(/^conversation\./, '')}`
       const projected = new Set()
       function projectSeat(source, target, entryId, override) {
@@ -299,11 +400,11 @@ window.__ModuleLoader__.load({
         'conversation.composer': { kind: 'chain', scope: 'session' },
         'conversation.composer.bar': { kind: 'single', scope: 'session-maybe' },
         'conversation.input.dock': { kind: 'list', scope: 'session' },
+        'conversation.hero.workspace': { kind: 'single', scope: 'root' },
       }
       function StudioConversation({ reference, component, props, SessionProvider, renderSlot }) {
         React.useLayoutEffect(() => {
-          const visible = ctx.sessions.retain(reference.sessionId, { source: 'mainView' })
-          return () => visible.release()
+          ctx.get('uiWorkspace').openSession(reference.sessionId)
         }, [reference])
         return React.createElement(SessionProvider, { session: reference, empty: () => null }, renderSlot('eleckoi.creator-studio.session', { component, props }))
       }
@@ -334,6 +435,6 @@ window.__ModuleLoader__.load({
       }, 'eleckoi: creator studio projects')
     }
 
-    return { inject: ['remote', 'remote.eleckoiCreatorStudio', 'remote.eleckoiCreatorStudioSessions', 'remote.eleckoiConversationModels', 'remote.session', 'remote.directoryPicker', 'sessions', 'slots', 'uiSession'], apply }
+    return { inject: ['remote', 'remote.eleckoiCreatorStudio', 'remote.eleckoiCreatorStudioSessions', 'remote.eleckoiConversationModels', 'remote.session', 'remote.directoryPicker', 'sessions', 'workspaces', 'slots', 'uiSession'], apply }
   }
 })

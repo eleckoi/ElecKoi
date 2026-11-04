@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_CHAT_DISPLAY_PREFERENCES,
   chatDisplayPreferencesSchema,
+  DEFAULT_ROLEPLAY_STYLE,
+  normalizeChatDisplaySettings,
 } from "../../../../packages/shared/src/contracts/settings/schemas.ts";
 import {
   chatDisplayCssVariables,
@@ -10,9 +12,46 @@ import {
   resolveChatAvatar,
   resolveChatAvatarShape,
   resolveChatDisplayProfile,
+  resolveRoleplayStyle,
+  roleplayStyleCssVariables,
 } from "../../src/modules/appearance/preferences/chatDisplay.js";
+import { chatDisplaySettings } from '../../src/modules/settings/model/chatDisplaySettings.js';
 
 describe("chat display preferences", () => {
+  it('fills older display documents without changing their profiles or unknown extension fields', () => {
+    const { roleplay_style, ...older } = structuredClone(DEFAULT_CHAT_DISPLAY_PREFERENCES);
+    older.profiles.roleplay.avatar_size = 72;
+    expect(normalizeChatDisplaySettings(older)).toMatchObject({ roleplay_style: DEFAULT_ROLEPLAY_STYLE, profiles: { roleplay: { avatar_size: 72 } } });
+    const saved = { ...older, roleplay_style: { bubbles_enabled: true, user_bubble_tint: '#987654', extra: 'preserved' } };
+    expect(normalizeChatDisplaySettings(saved).roleplay_style).toMatchObject({ ...DEFAULT_ROLEPLAY_STYLE, bubbles_enabled: true, user_bubble_tint: '#987654', extra: 'preserved' });
+  });
+  it('uses identical theme-aware bubble defaults and rejects out-of-range or invalid stored styles', () => {
+    expect(DEFAULT_ROLEPLAY_STYLE).toMatchObject({ backdrop_enabled: false, bubbles_enabled: false });
+    const css = roleplayStyleCssVariables(resolveRoleplayStyle({}));
+    expect(css['--rp-user-tint']).toBe(css['--rp-assistant-tint']);
+    expect(css['--rp-user-tint']).toContain('light-dark(');
+    expect(css['--rp-user-opacity']).toBe(css['--rp-assistant-opacity']);
+    for (const patch of [{ backdrop_blur: 41 }, { bubble_blur: -1 }, { user_bubble_opacity: 101 }, { assistant_bubble_tint: 'red' }]) {
+      expect(chatDisplayPreferencesSchema.safeParse({ ...DEFAULT_CHAT_DISPLAY_PREFERENCES, roleplay_style: patch }).success).toBe(false);
+    }
+    const custom = roleplayStyleCssVariables({ user_bubble_tint: '#987654', backdrop_blur: 0 });
+    expect(custom['--rp-user-tint']).toBe('#987654');
+    expect(custom['--rp-assistant-tint']).toBe(css['--rp-assistant-tint']);
+    expect(custom['--rp-backdrop-blur']).toBe('0px');
+  });
+  it('retains roleplay style across layout switching, toggles, and Agent profile resets', () => {
+    let saved = structuredClone(DEFAULT_CHAT_DISPLAY_PREFERENCES);
+    const model = () => chatDisplaySettings(saved, next => { saved = next; });
+    model().updateRoleplayStyle({ bubbles_enabled: true, backdrop_blur: 32, user_bubble_tint: '#987654' });
+    model().updateRoleplayStyle({ bubbles_enabled: false });
+    expect(saved.roleplay_style.user_bubble_tint).toBe('#987654');
+    model().selectLayout('agent');
+    model().resetProfile();
+    expect(saved.roleplay_style).toMatchObject({ backdrop_blur: 32, user_bubble_tint: '#987654' });
+    model().selectLayout('roleplay');
+    model().resetProfile();
+    expect(saved.roleplay_style).toEqual(DEFAULT_ROLEPLAY_STYLE);
+  });
   it("keeps rich message limits opt-in and accepts authored positive floor counts", () => {
     const defaults = DEFAULT_CHAT_DISPLAY_PREFERENCES;
     expect(defaults.rich_message_limit_enabled).toBe(false);
@@ -36,7 +75,7 @@ describe("chat display preferences", () => {
       name_font_size: 15,
       name_avatar_spacing: 10,
       reply_spacing: 4,
-      turn_spacing: 10,
+      turn_spacing: 12,
       message_font_size: 15,
       message_font_weight: 400,
       paragraph_spacing: 10,
@@ -67,7 +106,19 @@ describe("chat display preferences", () => {
     expect(css["--chat-font-weight"]).toBe(400);
     expect(Number.parseFloat(css["--chat-line-height"])).toBeCloseTo(23, 5);
     expect(css["--chat-reply-gap"]).toBe("4px");
-    expect(css["--chat-turn-gap"]).toBe("10px");
+    expect(css["--chat-turn-gap"]).toBe("12px");
+  });
+
+  it('refreshes the untouched previous roleplay radius while preserving a customized profile', () => {
+    const previous = { ...DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles.roleplay, bubble_corner_radius: 10, turn_spacing: 10 };
+    const saved = { ...DEFAULT_CHAT_DISPLAY_PREFERENCES, profiles: { ...DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles, roleplay: previous } };
+    expect(resolveChatDisplayProfile(saved).profile.bubble_corner_radius).toBe(12);
+    expect(resolveChatDisplayProfile(saved).profile.turn_spacing).toBe(12);
+    saved.profiles.roleplay = { ...previous, bubble_corner_radius: 12 };
+    expect(resolveChatDisplayProfile(saved).profile.turn_spacing).toBe(12);
+    saved.profiles.roleplay = { ...previous, avatar_size: 72 };
+    expect(resolveChatDisplayProfile(saved).profile.bubble_corner_radius).toBe(10);
+    expect(resolveChatDisplayProfile(saved).profile.turn_spacing).toBe(10);
   });
 
   it("allows lighter message weights below normal text", () => {

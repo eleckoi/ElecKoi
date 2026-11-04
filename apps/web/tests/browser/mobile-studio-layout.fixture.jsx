@@ -25,7 +25,8 @@ const modelSnapshot = { configs: [] }, characterSnapshot = { collection: { items
 const studioSnapshot = { status: 'ready', active: { sessionId, characterId: '', presetId: 'synthetic-preset' }, reference: {}, items: [], error: '' };
 const model = { subscribe: () => () => {}, getSnapshot: () => studioSnapshot, restoreRecent: async () => studioSnapshot.active, release() {},
   readDefaultModel: async () => null, refresh: async () => {}, create: async () => {} };
-const view = { creatorStudio: { sessions: model }, models: { subscribe: () => () => {}, getSnapshot: () => modelSnapshot },
+const drawerSnapshot = { shown: false };
+const view = { navigation: { sidebar: { subscribe: () => () => {}, getSnapshot: () => drawerSnapshot }, closeSidebar() {} }, openWorkspaceDrawer() {}, creatorStudio: { sessions: model }, models: { subscribe: () => () => {}, getSnapshot: () => modelSnapshot },
   characters: { subscribe: () => () => {}, getSnapshot: () => characterSnapshot }, registerBackHandler: () => () => {}, goBack() {},
   renderCreatorStudioConversation: ({ component: Component, props }) => <Component {...props} sessionId={sessionId}
     useSession={select => select(session)} useInput={select => select({})} useSessionStatus={select => select(new Map())}

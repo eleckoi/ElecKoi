@@ -345,9 +345,10 @@ export function materializeAgentPreset(root, templatePath, preset, toolPolicy, m
     .replace('__ELECKOI_COMPACTION_THRESHOLD_RATIO__', String(compactionRatio(mainModel)))
     .replace('__ELECKOI_COMPACTION_RETENTION__', 'retainTokens: 0')
   composition = applyPresetToolPolicy(composition, new Set(toolPolicy.disabledGroupIds))
-  const plugins = parseYaml(composition)
+  let plugins = parseYaml(composition)
   if (!Array.isArray(plugins)) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, 'DSH Agent 预设组合必须是插件列表。', { what: 'DSH Agent 预设组合' })
   plugins.push(...(options.plugins ?? []))
+  if (options.transformPlugins) plugins = options.transformPlugins(plugins)
   const definition = {
     id: mountedPresetId,
     name: preset.name,

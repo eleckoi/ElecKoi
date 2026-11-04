@@ -42,13 +42,14 @@ function AppContent({ renderWindow, ...windowProps } = {}) {
   if (params.get("view") === "preset-manager") {
     return <PresetManagerWindow presetCatalog={presets} renderPresetManager={renderPresetManager} />;
   }
-  if (params.get("view") === "creator-studio") {
+  if (params.get("view") === "creator-studio-nodes") {
     return <CreatorStudioWindow characterCatalog={characters} projectCatalog={creatorStudio} models={models} presetCatalog={presets} rightbar={rightbar}
       navigation={navigation}
       renderCreatorStudioConversation={windowProps.renderCreatorStudioConversation} />;
   }
 
   const fallback = <MainWindow conversations={conversations} characters={characters} characterConfiguration={characterConfiguration} models={models} persona={persona} presets={presets}
+    creatorStudio={creatorStudio} renderCreatorStudioConversation={windowProps.renderCreatorStudioConversation}
     settingsSections={settingsSections} navigation={navigation} rightbar={rightbar} renderSettingsSection={renderSettingsSection}
     renderUserProfileEditor={renderUserProfileEditor} renderCharacterPageSection={renderCharacterPageSection}
     renderConversationList={renderConversationList} renderPresetEditorSection={renderPresetEditorSection}

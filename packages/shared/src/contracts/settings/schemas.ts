@@ -41,6 +41,34 @@ export const chatTextColorsSchema = z.object({
   quote: cssHexColorSchema
 })
 
+/** A null tint follows the active theme; authored tints remain explicit. */
+export const DEFAULT_ROLEPLAY_STYLE = {
+  backdrop_enabled: false,
+  backdrop_blur: 20,
+  backdrop_opacity: 65,
+  backdrop_tint: null,
+  bubbles_enabled: false,
+  bubble_blur: 0,
+  user_bubble_tint: null,
+  assistant_bubble_tint: null,
+  user_bubble_opacity: 48,
+  assistant_bubble_opacity: 48,
+} as const
+
+export const roleplayStyleSchema = z.object({
+  backdrop_enabled: z.boolean().default(DEFAULT_ROLEPLAY_STYLE.backdrop_enabled),
+  backdrop_blur: z.number().min(0).max(40).default(DEFAULT_ROLEPLAY_STYLE.backdrop_blur),
+  backdrop_opacity: z.number().min(0).max(100).default(DEFAULT_ROLEPLAY_STYLE.backdrop_opacity),
+  backdrop_tint: cssHexColorSchema.nullable().default(null),
+  bubbles_enabled: z.boolean().default(DEFAULT_ROLEPLAY_STYLE.bubbles_enabled),
+  bubble_blur: z.number().min(0).max(40).default(DEFAULT_ROLEPLAY_STYLE.bubble_blur),
+  user_bubble_tint: cssHexColorSchema.nullable().default(null),
+  assistant_bubble_tint: cssHexColorSchema.nullable().default(null),
+  user_bubble_opacity: z.number().min(0).max(100).default(DEFAULT_ROLEPLAY_STYLE.user_bubble_opacity),
+  assistant_bubble_opacity: z.number().min(0).max(100).default(DEFAULT_ROLEPLAY_STYLE.assistant_bubble_opacity),
+})
+export type RoleplayStyle = z.output<typeof roleplayStyleSchema>
+
 export const chatLayoutProfileSchema = z.object({
   assistant_bubble_enabled: z.boolean(),
   bubble_corner_radius: z.number().min(0).max(24),
@@ -62,6 +90,7 @@ export const RICH_MESSAGE_FLOOR_RANGE = { min: 1, defaultValue: 10 } as const
 
 export const chatDisplayPreferencesSchema = z.object({
   layout: chatLayoutModeSchema,
+  roleplay_style: roleplayStyleSchema.default({ ...DEFAULT_ROLEPLAY_STYLE }),
   reasoning_display_mode: chatReasoningDisplayModeSchema,
   generation_stats_enabled: z.boolean(),
   roleplay_timestamps_enabled: z.boolean().default(true),
@@ -85,6 +114,7 @@ export type ChatDisplayPreferences = z.output<typeof chatDisplayPreferencesSchem
 
 export const DEFAULT_CHAT_DISPLAY_PREFERENCES: ChatDisplayPreferences = {
   layout: 'roleplay',
+  roleplay_style: { ...DEFAULT_ROLEPLAY_STYLE },
   reasoning_display_mode: 'collapsed',
   generation_stats_enabled: true,
   roleplay_timestamps_enabled: true,
@@ -127,14 +157,14 @@ export const DEFAULT_CHAT_DISPLAY_PREFERENCES: ChatDisplayPreferences = {
     },
     roleplay: {
       assistant_bubble_enabled: false,
-      bubble_corner_radius: 10,
+      bubble_corner_radius: 12,
       avatar_size: 65,
       avatar_shape: 'portrait',
       name_font_size: 15,
       name_avatar_spacing: 10,
       horizontal_padding: 10,
       reply_spacing: 4,
-      turn_spacing: 10,
+      turn_spacing: 12,
       message_font_size: 15,
       message_font_weight: 400,
       line_height_multiplier: 1,
@@ -154,7 +184,7 @@ export function normalizeChatDisplaySettings(value: unknown): ChatDisplayPrefere
   const parsed = chatDisplayPreferencesSchema.parse(value)
   const original = value as Record<string, unknown>
   const profiles = original.profiles as Record<string, Record<string, unknown>>
-  return { ...original, ...parsed, profiles: {
+  return { ...original, ...parsed, roleplay_style: { ...(original.roleplay_style as object), ...parsed.roleplay_style }, profiles: {
     ...profiles,
     social: { ...profiles.social, ...parsed.profiles.social },
     agent: { ...profiles.agent, ...parsed.profiles.agent },

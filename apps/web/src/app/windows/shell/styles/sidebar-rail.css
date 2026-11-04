@@ -1,4 +1,8 @@
 .qq-rail {
+  --rail-item-size: 38px;
+  --rail-item-gap: 18px;
+  --rail-icon-active-fg: var(--blue);
+  --rail-icon-cutout: var(--on-accent);
   --rail-icon-stroke: 1.5;
   --rail-hover-bg: color-mix(in srgb, var(--rail-fg) 6%, var(--rail));
   --rail-pressed-bg: color-mix(in srgb, var(--rail-fg) 10%, var(--rail));
@@ -11,6 +15,10 @@
   padding: 3px 0 16px;
   border-right: 1px solid var(--rail-divider);
   background: var(--rail);
+}
+
+.navigation-rail-shell .qq-rail {
+  padding-top: calc((var(--rail-column-width) - 1px) / 2 + var(--rail-item-size) / 2 + var(--rail-item-gap) - var(--window-caption-height, 40px));
 }
 
 .rail-brand-seat {
@@ -37,7 +45,7 @@
 
 .rail-nav-group {
   display: grid;
-  gap: 18px;
+  gap: var(--rail-item-gap);
   justify-items: center;
   align-content: start;
   width: 100%;
@@ -118,6 +126,7 @@
 }
 
 .rail-settings-trigger {
+  position: relative;
   display: grid;
   place-items: center;
   width: 38px;
@@ -151,13 +160,11 @@
 }
 
 .rail-nav-button {
-  --rail-icon-active-fg: var(--blue);
-  --rail-icon-cutout: var(--on-accent);
   display: grid;
   place-items: center;
   position: relative;
-  width: 38px;
-  height: 38px;
+  width: var(--rail-item-size);
+  height: var(--rail-item-size);
   border-radius: 12px;
   color: var(--rail-fg);
   overflow: hidden;
@@ -195,7 +202,7 @@
   transition: opacity 160ms ease;
 }
 
-.rail-nav-button.active .rail-icon-layer.base {
+:is(.rail-nav-button, .rail-settings-trigger).active .rail-icon-layer.base {
   opacity: 0;
 }
 
@@ -205,11 +212,11 @@
   transition: opacity 160ms ease;
 }
 
-.rail-nav-button.active .rail-icon-layer.active-fill {
+:is(.rail-nav-button, .rail-settings-trigger).active .rail-icon-layer.active-fill {
   opacity: 1;
 }
 
-.rail-nav-button:not(.active) .rail-icon-layer.active-fill {
+:is(.rail-nav-button, .rail-settings-trigger):not(.active) .rail-icon-layer.active-fill {
   opacity: 0;
 }
 
@@ -281,6 +288,19 @@
 
 .rail-icon-layer.active-fill .model-nav-cube .model-cube-inner {
   stroke: var(--rail-icon-cutout);
+}
+
+.rail-icon-layer.active-fill .creator-studio-star {
+  fill: var(--rail-icon-cutout);
+}
+
+.rail-nav-button[data-plugin-entry-more="sidebar"] .rail-icon-layer.active-fill svg rect,
+.rail-settings-trigger .rail-icon-layer.active-fill svg path {
+  fill: currentColor;
+}
+
+.rail-settings-trigger .rail-icon-layer.active-fill svg {
+  mask-image: radial-gradient(circle at center, transparent 2.5px, #000 2.75px);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -165,7 +165,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     list: () => Promise<RemoteResult<CreatorProjectCollection>>
   }
   interface TypertRemoteNamespace$656c65636b6f6943726561746f7253747564696f53657373696f6e73 {
-    create: (characterId: string) => Promise<RemoteResult<CreatorStudioSession>>
+    create: (characterId: string, workspaceId?: string) => Promise<RemoteResult<CreatorStudioSession>>
     delete: (sessionId: string) => Promise<RemoteResult<void>>
     deleteMessagesFrom: (sessionId: string, eventSeq: number, role: 'user' | 'assistant') => Promise<RemoteResult<void>>
     list: () => Promise<RemoteResult<CreatorStudioSessionSummary[]>>
@@ -313,7 +313,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'eleckoiCreatorStudio/create': (input: CreateCreatorProjectInput) => Promise<RemoteResult<CreatorProjectCollection>>
     'eleckoiCreatorStudio/delete': (projectId: string) => Promise<RemoteResult<CreatorProjectCollection>>
     'eleckoiCreatorStudio/list': () => Promise<RemoteResult<CreatorProjectCollection>>
-    'eleckoiCreatorStudioSessions/create': (characterId: string) => Promise<RemoteResult<CreatorStudioSession>>
+    'eleckoiCreatorStudioSessions/create': (characterId: string, workspaceId?: string) => Promise<RemoteResult<CreatorStudioSession>>
     'eleckoiCreatorStudioSessions/delete': (sessionId: string) => Promise<RemoteResult<void>>
     'eleckoiCreatorStudioSessions/deleteMessagesFrom': (sessionId: string, eventSeq: number, role: 'user' | 'assistant') => Promise<RemoteResult<void>>
     'eleckoiCreatorStudioSessions/list': () => Promise<RemoteResult<CreatorStudioSessionSummary[]>>
@@ -470,7 +470,7 @@ export declare const TYPERT_REMOTE: TypertRemoteInfo<{
   readonly 'eleckoiCreatorStudio/create': TypertRemoteMethod<{ readonly 'input': CreateCreatorProjectInput }, CreatorProjectCollection>
   readonly 'eleckoiCreatorStudio/delete': TypertRemoteMethod<{ readonly 'projectId': string }, CreatorProjectCollection>
   readonly 'eleckoiCreatorStudio/list': TypertRemoteMethod<{  }, CreatorProjectCollection>
-  readonly 'eleckoiCreatorStudioSessions/create': TypertRemoteMethod<{ readonly 'characterId': string }, CreatorStudioSession>
+  readonly 'eleckoiCreatorStudioSessions/create': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'workspaceId'?: string }, CreatorStudioSession>
   readonly 'eleckoiCreatorStudioSessions/delete': TypertRemoteMethod<{ readonly 'sessionId': string }, void>
   readonly 'eleckoiCreatorStudioSessions/deleteMessagesFrom': TypertRemoteMethod<{ readonly 'sessionId': string; readonly 'eventSeq': number; readonly 'role': 'user' | 'assistant' }, void>
   readonly 'eleckoiCreatorStudioSessions/list': TypertRemoteMethod<{  }, CreatorStudioSessionSummary[]>

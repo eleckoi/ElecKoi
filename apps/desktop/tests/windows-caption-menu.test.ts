@@ -4,12 +4,40 @@ import { DESKTOP_SHELL_IPC } from '@shared/contracts/desktopShell'
 const ipc = vi.hoisted(() => ({ invoke: vi.fn() }))
 vi.mock('electron', () => ({ ipcRenderer: ipc }))
 import { installWindowsMenu } from '../src/preload/windowsMenu'
+import { installWindowsAppearance } from '../src/preload/windowsAppearance'
 
 let menu: ReturnType<typeof installWindowsMenu> | undefined
 afterEach(() => {
   menu?.dispose(); menu = undefined
   document.body.replaceChildren()
+  document.documentElement.removeAttribute('data-native-window-controls')
+  document.documentElement.style.removeProperty('--window-caption-height')
+  document.documentElement.style.removeProperty('--dsh-windows-titlebar-height')
+  vi.restoreAllMocks()
   vi.clearAllMocks()
+})
+
+it('uses the native 40px caption and publishes theme colors only while mounted', async () => {
+  const send = vi.fn()
+  Object.assign(ipc, { send })
+  const context = { clearRect: vi.fn(), fillRect: vi.fn(), fillStyle: '',
+    getImageData: () => ({ data: [17, 17, 17, 255] }) }
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D)
+  const stop = installWindowsAppearance()
+  expect(document.documentElement.hasAttribute('data-native-window-controls')).toBe(true)
+  expect(document.documentElement.style.getPropertyValue('--window-caption-height')).toBe('40px')
+  expect(document.documentElement.style.getPropertyValue('--dsh-windows-titlebar-height')).toBe('40px')
+  expect(send).toHaveBeenLastCalledWith('eleckoi:dsh-native-theme', null, 'rgba(17, 17, 17, 1)', 'rgba(17, 17, 17, 1)')
+  document.documentElement.setAttribute('data-ds-theme-source', 'dark')
+  await Promise.resolve()
+  expect(send).toHaveBeenLastCalledWith('eleckoi:dsh-native-theme', 'dark', 'rgba(17, 17, 17, 1)', 'rgba(17, 17, 17, 1)')
+  stop()
+  const calls = send.mock.calls.length
+  document.documentElement.setAttribute('data-ds-theme-source', 'light')
+  await Promise.resolve()
+  expect(send).toHaveBeenCalledTimes(calls)
+  expect(document.body.querySelector('span')).toBeNull()
+  document.documentElement.removeAttribute('data-ds-theme-source')
 })
 
 it('keeps the editor selection when pointer or keyboard opens a native menu and releases the open state', async () => {

@@ -60,5 +60,7 @@ patchedDependencies:
   '@deepseek-ai/dsh-tools@0.2.1-rc.5': patches/@deepseek-ai__dsh-tools@0.2.1-rc.5.patch
   # RETIRE WHEN: official generator handles this product TypeScript declaration graph.
   '@deepseek-ai/dsh-typert-generator@0.2.1-rc.5': patches/@deepseek-ai__dsh-typert-generator@0.2.1-rc.5.patch
+  # RETIRE WHEN: the official desktop Web entry preserves thrown object fields, original stacks and nested causes before its string-only boot failure bridge.
+  '@deepseek-ai/dsh-web-frontend@0.2.1-rc.5': patches/@deepseek-ai__dsh-web-frontend@0.2.1-rc.5.patch
   # RETIRE WHEN: official provider serializers expose topP across supported protocols.
   '@earendil-works/pi-ai@1.1.0': patches/@earendil-works__pi-ai@1.1.0.patch

@@ -10,8 +10,10 @@ export function DshEntryActionsMenu({ region, renderActions, className, showLabe
     'aria-expanded': open, 'data-plugin-entry-more': region, onClick: () => setOpen(value => !value) };
   return <Menu open={open} onClose={() => setOpen(false)} portal compact autoFocus
     className={css.anchor}
-    anchor={sidebar ? <button {...props} className={className}>
-      <IconAppsAddOutlineRegular size={24} />{showLabel ? <span className="rail-navigation-label">更多</span> : null}
+    anchor={sidebar ? <button {...props} className={`${className || ''}${open ? ' active' : ''}`}>
+      <span className="rail-icon-layer base"><IconAppsAddOutlineRegular size={24} /></span>
+      <span className="rail-icon-layer active-fill" aria-hidden="true"><IconAppsAddOutlineRegular size={24} /></span>
+      {showLabel ? <span className="rail-navigation-label">更多</span> : null}
     </button> : <Button {...props} size="sm" className={css.viewsMore}><IconEllipsisOutlineRegular size={13} /></Button>}>
     {open ? renderActions(() => setOpen(false)) : null}
   </Menu>;

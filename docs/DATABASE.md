@@ -8,8 +8,10 @@
 - 数据库文件：Electron `userData/eleckoi-common.sqlite3`，路径由桌面壳作为 Host 启动参数传入。
 - SQLite 打开、迁移、恢复和所有 Repository 写入均位于 `packages/host/product-data/src`。Electron Main、Client 和 Renderer 不打开数据库。
 - 公共 SQL：`apps/desktop/resources/database/eleckoi-common-schema-v1.sql`。
-- 当前 `PRAGMA user_version`：`13`。
+- 当前 `PRAGMA user_version`：`14`。
 - 当前结构：49 张业务表、2 个视图；数据库物理结构版本只使用 SQLite `PRAGMA user_version`。
+
+角色自定义聊天背景的保留配置存放在现有 `character_text_contents` 的 `chat-background-custom` 内容中，保存图片引用、透明度、模糊与遮罩。`characters.chatBackground` 继续表示当前生效的模式或图片；切到纯色、立绘或共享背景不会丢弃自定义配置。图片只使用原角色的 `chat-background` 媒体槽，不复制另一份文件；更换图片在事务提交后清理旧文件，失败回退，删除角色按原外键及媒体归属清理。已有自定义背景在读取／下一次保存时兼容，不增加物理结构或迁移。角色卡导入导出仍不携带本地背景偏好。
 
 应用版本与 schema 之间没有代码关联：`CURRENT_SCHEMA_VERSION` 变了必须同时提升 `package.json` 的 `version`，否则同一版本号会发出两份不同的库结构——装过新库的用户回退到旧包时，旧程序会拒绝启动（`eleckoi/db/schema-mismatch`）。发版前按实际打出去的 schema 核对一次版本号（PR 模板里有这条勾选）。
 
@@ -111,6 +113,9 @@ ElecKoi 当前 49 张产品表需要关系、外键、排序、搜索、跨表�
 | [旧默认模型路由](../packages/client/features/dsh-client-roleplay/src/host/model-selection-migration.mjs) | 停止支持 v0.2.1 及更早版本直升，且支持的 profile 恢复入口不再携带旧路由 | 迁移函数、辅助函数、启动调用和旧路由用例；当前请求快照改为直接解析正式选择，保留每轮冻结与恢复后的模型刷新 |
 | [旧实体化预设 ID](../packages/client/features/dsh-client-roleplay/src/host/agent-preset-bridge.mjs) | 支持恢复的 Session、快照、导入及历史回退入口均不会再选中实体化预设 ID，且对应旧版本直升已退役 | `migrateStoredPreset`、`legacyPresetId`、启动扫描、准备及关闭写入句柄后的转换调用和专用用例；保留当前预设注册、重组和恢复服务 |
 | [创作工作室旧散列预设 ID](../packages/client/features/dsh-client-creator-studio/src/host/runtime.mjs) | 停止支持会产生旧散列 ID 的版本直升，且受支持的恢复、导入及历史回退入口均不会再选中 `eleckoi-creator-<64位散列>` | `migrateStoredPreset`、`legacyPresetId`、启动扫描、打开与编辑回退的转换调用、旧生成文件清理及专用迁移用例；保留当前选择读取、固定 `eleckoi-creator-active` 注册、全局预设重组及正常新旧会话回归 |
+| [生成预设的旧插件标识](../packages/client/features/dsh-client-roleplay/src/host/preset-definition.mjs) | 全部受支持的生成预设已重新生成并使用当前包名，旧标识恢复回归确认不再需要 `eleckoi:agent-preset/*` 转换 | `resolveRuntimePlugin` 中的旧标识转换分支及专用旧标识用例；保留当前包名、嵌套组合遍历、语言资源及正常加载校验 |
+| [旧预设的工具结果中段裁剪插件](../packages/client/features/dsh-client-roleplay/src/host/preset-definition.mjs) | 全部受支持的持久运行预设已重新生成且不含旧裁剪插件，旧会话升级恢复回归证明无需过滤仍能正常加载 | `currentPlugins` 中针对旧裁剪插件的过滤、`retiredPruner`、`retiredPrunerUrl` 及专用用例；另一项旧插件过滤仍保留时继续保留共用函数和调用，正常摘要压缩保留 |
+| [旧预设挂载的图像生成处理器](../packages/client/features/dsh-client-roleplay/src/host/preset-definition.mjs) | 全部受支持的 Session 预设已重新生成且不含原预设级图像处理器 | `oldImage` 判断、对应过滤及专用用例；工具结果裁剪过滤仍需要时保留 `currentPlugins` 和调用，两项均退役后再一起移除共用过滤函数与调用 |
 | [profile 内置 bundle 登记](../apps/desktop-host/src/desktopPluginBundles.ts)、[Tavily 首次选择](../apps/desktop-host/src/desktopPluginHost.ts) | 支持的升级和 profile 恢复入口分别已完成 `bundles-v5`、`tavily-bundle-v1` 登记 | 各自的一次性函数、调用及旧 profile 用例；保留新 profile 初始化和用户启停选择 |
 | [请求上下文记录修复](../packages/host/runtime/src/sessionRequestContextRepair.ts) | 对应旧版本直升已退役，且支持的 Session 恢复和导入入口已有转换缺失可忽略标记的能力 | 修复模块、启动扫描、导出与专用用例；旧事件保留，新预览不落盘，见 [ADR 0029](adr/0029-ephemeral-request-context-preview.md) |
 | [旧聊天独立输入补回](../packages/host/runtime/src/sessionHistoryRecovery.ts) | 对应旧聊天直升已退役，且支持的恢复和导入入口已把缺失输入写为正式 Session 消息 | 补回模块、归档读取、启动调用、导出与专用用例；保留逐会话错误隔离、投影重放、数据库状态历史和正常重新生成 |
@@ -124,19 +129,26 @@ ElecKoi 当前 49 张产品表需要关系、外键、排序、搜索、跨表�
 
 创作工作室旧散列预设整理在 Host 启动发现旧生成目录时执行；打开或编辑回退到旧预设选择的会话也调用同一转换。通过官方 Session Persistence 追加当前预设选择，保留原 Session ID、消息、标题和编辑目标；确认转换成功后，只删除对应的生成 `preset.json` 与空目录。第一轮删除或重新生成可能回退掉全部事件，只允许使用本次编辑前已校验的工作室状态补回标记，并在恢复 Agent 前持久追加当前预设选择；普通打开与启动转换仍要求存在工作室标记，不依据旧预设名称猜测编辑目标。没有产品数据库结构变更，不删除用户创作预设或聊天。历史回退仍可能重新暴露旧选择，因此本机完成一次整理不能单独作为移除代码的依据；本次补回随同表中该转换入口一起退役。
 
+生成预设中的旧 `eleckoi:agent-preset/*` 标识由 [preset-definition.mjs](../packages/client/features/dsh-client-roleplay/src/host/preset-definition.mjs) 在内存中转换为当前包名，不修改产品数据库或历史声明。全部受支持生成文件重新生成、旧标识恢复回归确认不再需要转换后，删除该分支及对应旧标识用例；当前包名及语言资源校验继续保留。
+
 ## 删除与文件
 
 - 删除角色时级联删除其产品关系和聊天索引。
 - 删除聊天或清空记录时，产品索引与对应 DSH Session 使用同一聊天标识处理，不创建分叉会话。
+- 工作室的工作区会话删除通过现有 Host 编辑服务处理：一并删除关联子会话、日志及投影目录、运行快照与工具结果，解除官方工作区成员、置顶和归档记录；共享图片仍有其他引用时保留，项目目录文件不删除。清理失败保留日志供重试，并向调用方报告失败。
 - 媒体文件由 Host 的 `LocalMediaStore` 写入；数据库只保存稳定媒体引用。Electron 的媒体协议只负责只读响应。
 - 不再使用数据库清理任务表。DSH Session 文件生命周期交给正式 Session API，产品媒体删除由拥有该文件的 Host 操作在业务事务边界内执行。
 
 ## 验证
 
 - `pnpm check:database-schema`：49 张公共表、2 个视图与生成文件一致。
-- `pnpm test`：覆盖 v1 至 v13 迁移、未发布开发库整理、失败回滚、外键、重启持久化、角色与媒体、设定、变量、正则、预设、脚本库、聊天索引和 Remote 写入。
-- `pnpm rebuild:electron && pnpm check:electron-sqlite`：使用 Electron 的真实原生 SQLite ABI 创建公共结构，核对 49 张业务表、2 个视图、`user_version = 13`、冗余列缺失、外键和完整性。
+- `pnpm test`：覆盖 v1 至 v14 迁移、未发布开发库整理、失败回滚、外键、重启持久化、角色与媒体、设定、变量、正则、预设、脚本库、聊天索引和 Remote 写入。
+- `pnpm rebuild:electron && pnpm check:electron-sqlite`：使用 Electron 的真实原生 SQLite ABI 创建公共结构，核对 49 张业务表、2 个视图、`user_version = 14`、冗余列缺失、外键和完整性。
 
 架构决策见 [ADR 0018](adr/0018-dsh-host-owns-product-data.md)。
 
 数据库 v12→v13 删除独立显示模板表及其编辑器版本，并将角色多开场白提取为独立存储；正则与脚本版本逐行保留。旧模板不转换为正则，运行时不提供旧配置读写入口。历史升级步骤保留以支持受支持数据库连续升级。
+
+## v13 到 v14：默认创作能力
+
+`0014CreatorWorkspace` 在同一事务中为仍使用原始单一创作工具组的默认创作预设及其对应保存版本补齐创造模式所需的开发工具组。只更新未修改的默认创作指引；自定义预设、修改过的指引、全局选择和已有会话不改。物理表结构保持 49 表、2 视图，版本提升用于一次性数据转换。停止支持 v13 及更早数据库直接升级后，才能连同登记和回归删除该迁移；运行时仅维护当前配置。

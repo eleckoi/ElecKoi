@@ -16,7 +16,6 @@ import { useRightbarLayout } from "./shell/hooks/useRightbarLayout.js";
 import { useSidePanelLayout } from "./shell/hooks/useSidePanelLayout.js";
 import { useColumnTransition } from "./shell/hooks/useColumnTransition.js";
 import { AppUpdateController, useAppUpdates } from "../../modules/updates/index.js";
-import { openCreatorStudioWindow } from "../../modules/creatorStudio/index.js";
 import { MainPageContext } from "./MainPageContext.jsx";
 
 const emptySidebarSnapshot = { shown: false };
@@ -34,11 +33,11 @@ class MainPageErrorBoundary extends Component {
   }
 }
 
-export function MainWindow({ conversations, characters, characterConfiguration, models, persona, presets, settingsSections = [], navigation, rightbar, renderSettingsSection, renderUserProfileEditor, renderCharacterPageSection, renderConversationList, renderPresetEditorSection, renderRoleplay }) {
+export function MainWindow({ conversations, characters, characterConfiguration, models, persona, presets, creatorStudio, renderCreatorStudioConversation, settingsSections = [], navigation, rightbar, renderSettingsSection, renderUserProfileEditor, renderCharacterPageSection, renderConversationList, renderPresetEditorSection, renderRoleplay }) {
   const chat = useChatClient({ conversations, characters, models, persona, navigation });
   const appearance = useWindowAppearance({ notify: chat.notify });
   const sidePanelLayout = useSidePanelLayout();
-  const nativeConversation = chat.activeSection === "conversation";
+  const nativeConversation = ["conversation", "creatorStudio"].includes(chat.activeSection);
   const sidebarModel = navigation?.sidebar ?? emptySidebar;
   const sidebar = useSyncExternalStore(sidebarModel.subscribe, sidebarModel.getSnapshot);
   const rightbarLayout = useRightbarLayout({
@@ -69,7 +68,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
 
   useEffect(() => {
     const action = event => {
-      if (event.detail === 'creatorStudio') openCreatorStudioWindow();
+      if (event.detail === 'creatorStudio') navigation.selectPanel('creatorStudio');
       if (event.detail === 'community') setCommunityOpen(true);
     };
     window.addEventListener('eleckoi:shell-action', action);
@@ -129,7 +128,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
   function renderWindowLayout({ sidePanel, mainPanel, overlays = null }) {
     const renderSidebarContent = (renderSidebarSlot, workspaceSidebar) => <SidebarContent
           desktopMenu
-          activeSection={chat.activeSection}
+          activeSection={communityOpen ? "community" : chat.activeSection}
           navigationItems={navigation?.items}
           renderEntryActions={navigation?.hasSidebarEntryActions && renderSidebarSlot
             ? onDismiss => navigation.renderSidebarEntryActions(renderSidebarSlot, onDismiss) : undefined}
@@ -137,7 +136,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
           profileActive={chat.activeSection === "settings" && settingsPage === "profile"}
           onSectionChange={changeActiveSection}
           onNavigationAction={(id) => {
-            if (id === "creatorStudio") return openCreatorStudioWindow();
+            if (id === "creatorStudio") return changeActiveSection("creatorStudio");
             if (id === "community") setCommunityOpen(true);
           }}
           persona={chat.persona}
@@ -165,7 +164,6 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
           <TitleBar
             splitSurface
             desktopMenu={nativeConversation ? !sidebar.shown : sidePanelLayout.sidePanelCollapsed || isPluginPanel}
-            sidebarFirst={nativeConversation}
             showWindowControls={false}
             sidePanelCollapsed={nativeConversation ? !sidebar.shown : sidePanelLayout.sidePanelCollapsed && !isPluginPanel}
             onToggleSidePanel={nativeConversation ? navigation.toggleSidebar : sidePanelLayout.expandSidePanel}
@@ -182,6 +180,8 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
     appearance,
     appUpdates,
     conversations,
+    creatorStudio,
+    renderCreatorStudioConversation,
     characters,
     characterConfiguration,
     models,

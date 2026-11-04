@@ -1,7 +1,7 @@
 .creator-studio-entry-options { display: grid; grid-template-columns: repeat(2, minmax(240px, 1fr)); gap: 24px; width: min(720px, 100%); }
 .creator-studio-entry-options .creator-studio-development-card { max-width: none; min-height: 200px; align-content: center; padding: 32px; }
 .creator-studio-entry-options .is-developer .creator-studio-development-enter { background: transparent; border-color: var(--studio-border-strong); color: var(--studio-muted); }
-.creator-simple-shell { --creator-simple-sidebar-width: 274px; display: grid; grid-template-rows: 52px minmax(0, 1fr); width: 100%; height: 100%; min-width: 0; min-height: 0; color: var(--text); background: var(--chat); overflow: hidden; }
+.creator-simple-shell { --creator-simple-sidebar-width: 274px; display: grid; grid-template-rows: var(--window-caption-height, 40px) minmax(0, 1fr); width: 100%; height: 100%; min-width: 0; min-height: 0; color: var(--text); background: var(--chat); overflow: hidden; }
 .creator-simple-titlebar { display: flex; align-items: center; min-width: 0; background: var(--list); -webkit-app-region: drag; }
 .creator-simple-titlebar-sidebar { display: flex; align-items: center; gap: 9px; flex: none; width: var(--creator-simple-sidebar-width); padding: 0 8px 0 12px; }
 .creator-simple-titlebar-sidebar > button { display: grid; flex: none; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); -webkit-app-region: no-drag; }
@@ -10,7 +10,7 @@
 .creator-simple-titlebar-sidebar > strong { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; font-weight: 600; }
 .creator-simple-titlebar-space { flex: 1; align-self: stretch; }
 .creator-simple-workspace { display: grid; grid-template-columns: var(--creator-simple-sidebar-width) minmax(0, 1fr) minmax(0, var(--rightbar-track-width, 0px)); min-height: 0; background: var(--list); }
-.creator-simple-shell { --side-panel-width: var(--creator-simple-sidebar-width); --window-caption-height: 52px; }
+.creator-simple-shell { --side-panel-width: var(--creator-simple-sidebar-width); }
 .creator-simple-shell.is-sidebar-collapsed .creator-simple-workspace { grid-template-columns: minmax(0, 1fr) minmax(0, var(--rightbar-track-width, 0px)); }
 .creator-simple-rightbar { position: relative; z-index: 10; min-width: 0; min-height: 0; background: var(--chat); overflow: visible; }
 .creator-simple-sidebar { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; min-height: 0; background: var(--list); }
@@ -66,8 +66,9 @@
 .creator-simple-transcript { flex: none; min-height: 0; }
 .creator-simple-transcript.is-panel-view { flex: 1; display: flex; min-height: 0; overflow: hidden; }
 .creator-simple-transcript.is-panel-view > [data-slot] { flex: 1; min-width: 0; min-height: 0; }
-.creator-simple-composer { margin-top: auto; }
-.creator-simple-composer [data-slot="eleckoi.creator-studio.input.permission"] > * { display: none; }
+/* Official dock margins use this gap to stay centered and meet the input card. */
+.creator-simple-composer { --dsh-composer-stack-gap: 6px; row-gap: var(--dsh-composer-stack-gap); margin-top: auto; }
+.creator-main-content { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .creator-simple-dialog, .creator-simple-character-dialog, .creator-simple-message-dialog { width: min(480px, calc(100vw - 48px)); }
 .creator-simple-dialog input { width: 100%; min-height: 36px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--field-bg); }
 .creator-simple-character-groups { display: flex; flex-wrap: wrap; gap: 6px; margin: 14px 0 8px; }

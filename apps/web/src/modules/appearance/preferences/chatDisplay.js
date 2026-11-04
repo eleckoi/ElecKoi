@@ -1,4 +1,27 @@
-import { DEFAULT_CHAT_DISPLAY_PREFERENCES, DEFAULT_CHAT_TEXT_COLORS } from "@shared/contracts/settings/schemas";
+import { DEFAULT_CHAT_DISPLAY_PREFERENCES, DEFAULT_CHAT_TEXT_COLORS, DEFAULT_ROLEPLAY_STYLE } from "@shared/contracts/settings/schemas";
+
+export function resolveRoleplayStyle(preferences) {
+  return { ...DEFAULT_ROLEPLAY_STYLE, ...preferences?.roleplay_style };
+}
+
+export function roleplayStyleDefaultTint(kind, dark) {
+  return kind === 'backdrop' ? (dark ? '#1b1f27' : '#f9fafc') : (dark ? '#12171f' : '#ffffff');
+}
+
+export function roleplayStyleCssVariables(style) {
+  const value = { ...DEFAULT_ROLEPLAY_STYLE, ...style };
+  const themeTint = kind => `light-dark(${roleplayStyleDefaultTint(kind, false)}, ${roleplayStyleDefaultTint(kind, true)})`;
+  return {
+    '--rp-backdrop-blur': `${value.backdrop_blur}px`,
+    '--rp-backdrop-tint': value.backdrop_tint || themeTint('backdrop'),
+    '--rp-backdrop-opacity': `${value.backdrop_opacity}%`,
+    '--rp-bubble-blur': `${value.bubble_blur}px`,
+    '--rp-user-tint': value.user_bubble_tint || themeTint('bubble'),
+    '--rp-assistant-tint': value.assistant_bubble_tint || themeTint('bubble'),
+    '--rp-user-opacity': `${value.user_bubble_opacity}%`,
+    '--rp-assistant-opacity': `${value.assistant_bubble_opacity}%`,
+  };
+}
 
 const previousAgentDefaults = {
   assistant_bubble_enabled: false,
@@ -38,9 +61,13 @@ export function resolveChatDisplayProfile(preferences) {
   const savedProfile = preferences?.profiles?.[layout] || preferences?.profiles?.roleplay;
   const agentUsesPreviousDefaults = layout === "agent" && savedProfile
     && Object.entries(previousAgentDefaults).every(([key, value]) => savedProfile[key] === value);
+  const roleplayUsesPreviousDefaults = layout === 'roleplay' && savedProfile
+    && Object.entries(DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles.roleplay)
+      .every(([key, value]) => key === 'bubble_corner_radius' ? [10, 12].includes(savedProfile[key])
+        : savedProfile[key] === (key === 'turn_spacing' ? 10 : value));
   return {
     layout,
-    profile: agentUsesPreviousDefaults ? DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles.agent : savedProfile,
+    profile: agentUsesPreviousDefaults || roleplayUsesPreviousDefaults ? DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles[layout] : savedProfile,
   };
 }
 

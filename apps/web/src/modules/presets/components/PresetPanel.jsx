@@ -6,6 +6,8 @@ import { CharacterManagerIcon, ChevronRightIcon, ImportIcon, PlusIcon, TrashIcon
 import { Avatar } from '../../../ui/ui/Avatar.jsx';
 import { SidebarSectionHeader } from '../../../ui/ui/SidebarSectionHeader.jsx';
 import { useSidebarListScroll } from '../../../ui/hooks/useSidebarListScroll.js';
+import { SidebarScrollArea } from '../../../ui/ui/SidebarScrollArea.jsx';
+import { useSidebarGroupCollapse } from '../../../ui/hooks/useSidebarGroupCollapse.js';
 import { UnsavedChangesDialog } from '../../../ui/ui/UnsavedChangesDialog.jsx';
 import { useEditorPresentation, useEditorSubpage } from '../../../ui/ui/EditorPresentationContext.jsx';
 import defaultPresetAvatar from '../../../assets/eleckoi-app-icon.png';
@@ -165,6 +167,7 @@ export function PresetListPanel() {
     {},
     catalog ? sections.map((section) => section.id) : undefined,
   );
+  const keepCollapsedHeading = useSidebarGroupCollapse(collapsed);
 
   useEffect(() => {
     function closeCreateMenu(event) {
@@ -257,7 +260,8 @@ export function PresetListPanel() {
   function renderGroup(section) {
     const isCollapsed = Boolean(collapsed[section.id]);
     return <section className="character-group-block preset-list-group" key={section.id}>
-      <button type="button" className="character-group-row preset-group-heading" aria-expanded={!isCollapsed} onClick={() => {
+      <button type="button" className="character-group-row preset-group-heading" aria-expanded={!isCollapsed} onClick={(event) => {
+        if (!isCollapsed) keepCollapsedHeading(event.currentTarget);
         setSelectedGroup(section.id);
         setCollapsed((current) => ({ ...current, [section.id]: !current[section.id] }));
       }}>
@@ -294,10 +298,10 @@ export function PresetListPanel() {
     <input ref={importInputRef} type="file" accept="image/png,application/json,.png,.json" hidden onChange={handleImport} />
     <button type="button" className="character-manager-entry preset-manager-entry" onClick={openPresetManagerWindow}><CharacterManagerIcon /><span>预设管理器</span></button>
     <PresetPurposeSwitch value={purpose} onChange={value => { setPurpose(value); setSelectedGroup(ALL_PRESETS); setKeyword(''); }} />
-    <div ref={scrollRef} className="character-list-scroll preset-list-scroll">
+    <SidebarScrollArea ref={scrollRef} className="character-list-scroll preset-list-scroll">
       {collapseStateReady ? sections.map(renderGroup) : null}
       {error || importError ? <p className="preset-list-state is-error">{error || importError}</p> : null}
-    </div>
+    </SidebarScrollArea>
     {context.menu ? <PresetContextMenu menu={context.menu} onClose={context.close} actions={presetListContextActions(
       context.menu.target,
       catalog.activePresetIds[purpose],

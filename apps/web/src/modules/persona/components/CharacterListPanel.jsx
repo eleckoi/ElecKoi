@@ -8,6 +8,7 @@ import { DeleteCharacterDialog } from "./DeleteCharacterDialog.jsx";
 import { ALL_CHARACTERS, characterGroup, characterName } from "./characterUtils.js";
 import { SidebarSectionHeader } from "../../../ui/ui/SidebarSectionHeader.jsx";
 import { useSidebarListScroll } from "../../../ui/hooks/useSidebarListScroll.js";
+import { SidebarScrollArea } from "../../../ui/ui/SidebarScrollArea.jsx";
 import { LIST_COLLAPSE_AREAS, usePersistentCollapseState } from "../../settings/index.js";
 import { openCharacterManagerWindow } from "../window/openCharacterManagerWindow.js";
 
@@ -215,7 +216,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
         </button>
       </div>
 
-      <div ref={scrollRef} className="character-list-scroll">
+      <SidebarScrollArea ref={scrollRef} className="character-list-scroll">
         {listTab === "characters" && collapseStateReady ? (
           <CharacterGroupList
             groups={groups}
@@ -247,7 +248,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
             <span>群聊角色和多人对话以后放在这里。</span>
           </div>
         ) : null}
-      </div>
+      </SidebarScrollArea>
 
       {groupMenu ? (
         <div className="character-group-context-menu" style={{ left: `${groupMenu.x}px`, top: `${groupMenu.y}px` }} onPointerDown={(event) => event.stopPropagation()}>

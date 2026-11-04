@@ -62,6 +62,7 @@ export function PluginNavIcon() {
 export function CreatorStudioNavIcon({ size = 24 } = {}) {
   return (
     <svg {...navSvg(size)} className="creator-studio-nav" viewBox="0 0 24 24" aria-hidden="true">
+      <rect className="nav-fill" opacity="0" x="2.5" y="4" width="19" height="16" rx="4.75" />
       <rect x="2.5" y="4" width="19" height="16" rx="4.75" />
       <path
         className="creator-studio-star"
@@ -76,6 +77,12 @@ export function CreatorStudioNavIcon({ size = 24 } = {}) {
 export function CommunityNavIcon({ size = 24 } = {}) {
   return (
     <svg {...navSvg(size)} className="community-nav-group" viewBox="0 0 24 24" aria-hidden="true">
+      <g className="nav-fill" opacity="0">
+        <circle cx="9" cy="8" r="3.15" />
+        <path d="M3.4 19.4c.55-3.72 2.42-5.58 5.6-5.58s5.05 1.86 5.6 5.58Z" />
+        <path d="M14.6 5.45a3 3 0 0 1 0 5.1Z" />
+        <path d="M16.15 13.7c2.55.42 4 2.32 4.45 5.7h-3.7c-.15-2.35-.5-4.25-1.45-5.7Z" />
+      </g>
       <circle cx="9" cy="8" r="3.15" />
       <path d="M3.4 19.4c.55-3.72 2.42-5.58 5.6-5.58s5.05 1.86 5.6 5.58" />
       <path d="M14.6 5.45a3 3 0 0 1 0 5.1" />

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { applyPluginListWheel, PluginListPanel } from '../../src/app/windows/shell/components/PluginCenter.jsx'
 
 vi.stubGlobal('React', React)
+vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 
 afterEach(() => {

@@ -14,6 +14,7 @@ import {
   GLOBAL_CHAT_BACKGROUND,
   characterArtwork,
   chatWallpaperMode,
+  customChatBackgroundFromCharacter,
   fileToDataUrl,
   normalizeGlobalChatWallpaper,
   normalizeNewCharacterBackground,
@@ -121,6 +122,7 @@ export function ChatBackgroundModal({
   const fileRef = useRef(null);
   const [mode, setMode] = useState("character");
   const [customImage, setCustomImage] = useState("");
+  const [customTuning, setCustomTuning] = useState(CHAT_WALLPAPER_DEFAULTS);
   const [globalDraft, setGlobalDraft] = useState(() => normalizeGlobalChatWallpaper(globalWallpaper));
   const [defaultBackground, setDefaultBackground] = useState(() => normalizeNewCharacterBackground(newCharacterBackground));
   const [opacity, setOpacity] = useState(72);
@@ -134,7 +136,9 @@ export function ChatBackgroundModal({
     if (!open) return;
     const background = character?.chatBackground || "";
     setMode(chatWallpaperMode(background));
-    setCustomImage(background && !background.startsWith("eleckoi://") ? background : "");
+    const custom = customChatBackgroundFromCharacter(character);
+    setCustomImage(custom.image);
+    setCustomTuning({ opacity: custom.opacity, blur: custom.blur, scrim: custom.scrim });
     setGlobalDraft(normalizeGlobalChatWallpaper(globalWallpaper));
     setDefaultBackground(normalizeNewCharacterBackground(newCharacterBackground));
     setOpacity(clampPercent(Number(character?.chatBackgroundOpacity ?? CHAT_WALLPAPER_DEFAULTS.opacity) * 100, 72));
@@ -162,24 +166,27 @@ export function ChatBackgroundModal({
         ? globalDraft.image
         : "";
   const selectedImage = mode === "global" ? globalDraft.image : customImage;
-  const activeOpacity = mode === "global" ? clampPercent(globalDraft.opacity * 100, 72) : opacity;
-  const activeBlur = mode === "global" ? Math.round(globalDraft.blur) : blur;
-  const activeScrim = mode === "global" ? clampPercent(globalDraft.scrim * 100, 50) : scrim;
+  const activeOpacity = mode === "global" ? clampPercent(globalDraft.opacity * 100, 72) : mode === 'custom' ? clampPercent(customTuning.opacity * 100, 72) : opacity;
+  const activeBlur = mode === "global" ? Math.round(globalDraft.blur) : mode === 'custom' ? customTuning.blur : blur;
+  const activeScrim = mode === "global" ? clampPercent(globalDraft.scrim * 100, 50) : mode === 'custom' ? clampPercent(customTuning.scrim * 100, 50) : scrim;
 
   if (!open) return null;
 
   function setActiveOpacity(value) {
     if (mode === "global") setGlobalDraft((current) => ({ ...current, opacity: value / 100 }));
+    else if (mode === 'custom') setCustomTuning(current => ({ ...current, opacity: value / 100 }));
     else setOpacity(value);
   }
 
   function setActiveBlur(value) {
     if (mode === "global") setGlobalDraft((current) => ({ ...current, blur: value }));
+    else if (mode === 'custom') setCustomTuning(current => ({ ...current, blur: value }));
     else setBlur(value);
   }
 
   function setActiveScrim(value) {
     if (mode === "global") setGlobalDraft((current) => ({ ...current, scrim: value / 100 }));
+    else if (mode === 'custom') setCustomTuning(current => ({ ...current, scrim: value / 100 }));
     else setScrim(value);
   }
 
@@ -225,6 +232,7 @@ export function ChatBackgroundModal({
       chatBackgroundOpacity: activeOpacity / 100,
       chatBackgroundBlur: activeBlur,
       chatBackgroundScrim: activeScrim / 100,
+      chatBackgroundCustom: { ...customTuning, image: customImage },
     };
     try {
       setBusy(true);

@@ -14,7 +14,7 @@ it('keeps the official composer centered while all draft attachments scroll with
     const sources = await Promise.all(['conversation', 'attachment'].map(async name => {
       const source = await readFile(require.resolve(`@deepseek-ai/dsh-client-ui-${name}/client`), 'utf8');
       if (source.split('return module.exports;').length !== 2) throw new Error('Locked composer factory changed');
-      const exposed = name === 'conversation' ? 'InputBar, DraftEditorRuntime, registerPlainText: O$1' : 'ComposerAttachments';
+      const exposed = name === 'conversation' ? 'InputBar, QueueDock, DraftEditorRuntime, registerPlainText: O$1' : 'ComposerAttachments';
       return `let ${name};{const captureModule=value=>{${name}=value;};${source.replace('window.__ModuleLoader__.load(', 'captureModule(').replace('return module.exports;', `return {${exposed}};`)}\n}`;
     }));
     await build({ entryPoints: ['apps/web/tests/browser/composer-attachments.fixture.jsx'], outfile: resolve(directory, 'fixture.js'), bundle: true,
@@ -31,7 +31,7 @@ it('keeps the official composer centered while all draft attachments scroll with
           const modules={react:React,'react/jsx-runtime':jsxRuntime,'react-dom':ReactDOM,zod,'@deepseek-ai/cordis':Cordis,
             '@deepseek-ai/dsh-client-store':store,'@deepseek-ai/dsh-client-ui-slots':slots,'@deepseek-ai/dsh-client-ui-primitives':primitives};
           const load=name=>{if(!(name in modules))throw new Error(name);return modules[name]};
-          export const {InputBar,DraftEditorRuntime,registerPlainText}=conversation.factory(load);
+          export const {InputBar,QueueDock,DraftEditorRuntime,registerPlainText}=conversation.factory(load);
           export const {ComposerAttachments}=attachment.factory(load);
         ` }));
       } }],
@@ -41,11 +41,23 @@ it('keeps the official composer centered while all draft attachments scroll with
     await writeFile(htmlPath, '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="fixture.css"><style>html,body,#root,main{height:100%;margin:0;min-width:0}*{box-sizing:border-box}.chat-panel{height:100%}</style></head><body><div id="root"></div><script src="fixture.js"></script></body></html>');
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
     await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/composer-attachments.probe.cjs'), htmlPath, reportPath], { env, timeout: 90000, windowsHide: true });
-    const { attachments: reports } = JSON.parse(await readFile(reportPath, 'utf8')); expect(reports).toHaveLength(80);
+    const { attachments: reports, queues } = JSON.parse(await readFile(reportPath, 'utf8')); expect(reports).toHaveLength(80);
+    expect(queues).toHaveLength(24);
     const evidence = resolve('output/playwright/composer-attachments'); await mkdir(evidence, { recursive: true });
     await copyFile(reportPath, resolve(evidence, 'report.json'));
     for (const surface of ['roleplay', 'studio']) for (const width of [390, 1440]) await copyFile(resolve(directory, `${surface}-${width}.png`), resolve(evidence, `${surface}-${width}.png`));
     await copyFile(resolve(directory, 'official-upload.png'), resolve(evidence, 'official-upload.png'));
+    for (const theme of ['light', 'dark']) await copyFile(resolve(directory, `studio-queue-${theme}.png`), resolve(evidence, `studio-queue-${theme}.png`));
+    for (const row of queues) {
+      const detail = JSON.stringify(row);
+      expect(row.queue.x + row.queue.width / 2, detail).toBeCloseTo(row.card.x + row.card.width / 2, 0);
+      expect(row.panel.x, detail).toBeGreaterThanOrEqual(row.card.x);
+      expect(row.panel.right, detail).toBeLessThanOrEqual(row.card.right);
+      expect(row.panel.bottom - row.card.y, detail).toBeCloseTo(3, 0);
+      expect(row.pageWidth, detail).toBeLessThanOrEqual(row.width);
+      expect(row.draft, detail).toBe('合成草稿');
+      expect(row.actionPresent, detail).toBe(true);
+    }
     for (const report of reports) {
       const detail = JSON.stringify(report), baseline = reports.find(item => item.surface === report.surface && item.width === report.width && item.theme === report.theme && item.count === 0);
       expect(report.card.x, detail).toBeCloseTo(baseline.card.x, 0);

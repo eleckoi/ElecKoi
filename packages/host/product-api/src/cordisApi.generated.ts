@@ -838,9 +838,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '工作室会话目录。',
       },
       {
-        signature: '@Remote create(characterId: string): Promise<CreatorStudioSession>',
+        signature: '@Remote create(characterId: string, workspaceId?: string): Promise<CreatorStudioSession>',
         description: '使用当前全局创作预设创建工作室会话。',
-        parameters: [{ name: 'characterId', description: '编辑目标角色编号；空字符串表示尚未选择。' }],
+        parameters: [{ name: 'characterId', description: '编辑目标角色编号；空字符串表示尚未选择。' }, { name: 'workspaceId', description: '官方工作区编号；省略时沿用默认工作目录。' }],
         returns: '创建的会话及其编辑目标。',
       },
       {
@@ -1212,7 +1212,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CharacterRecord',
-    declaration: 'export interface CharacterRecord {\n    id: string;\n    name?: string;\n    avatar?: string;\n    group?: string;\n    groupName?: string;\n    groupViewOrder?: number;\n    folder?: string;\n    frontendBeautyEnabled?: boolean | number;\n    profileAge?: string;\n    profileSex?: string;\n    profileHeight?: string;\n    profileBirthday?: string;\n    profileLike?: string;\n    showOpening?: boolean | number;\n    chatBackground?: string;\n    chatBackgroundOpacity?: number;\n    chatBackgroundBlur?: number;\n    chatBackgroundScrim?: number;\n    primaryOpening?: string;\n    persona?: CharacterPersona;\n}',
+    declaration: 'export interface CharacterRecord {\n    id: string;\n    name?: string;\n    avatar?: string;\n    group?: string;\n    groupName?: string;\n    groupViewOrder?: number;\n    folder?: string;\n    frontendBeautyEnabled?: boolean | number;\n    profileAge?: string;\n    profileSex?: string;\n    profileHeight?: string;\n    profileBirthday?: string;\n    profileLike?: string;\n    showOpening?: boolean | number;\n    chatBackground?: string;\n    chatBackgroundOpacity?: number;\n    chatBackgroundBlur?: number;\n    chatBackgroundScrim?: number;\n    chatBackgroundCustom?: {\n        image: string;\n        opacity: number;\n        blur: number;\n        scrim: number;\n    };\n    primaryOpening?: string;\n    persona?: CharacterPersona;\n}',
   },
   {
     name: 'ConversationChange',

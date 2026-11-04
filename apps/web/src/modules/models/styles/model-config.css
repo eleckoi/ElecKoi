@@ -2,6 +2,7 @@
   position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -107,19 +108,20 @@
 
 .model-config-list {
   align-self: stretch;
-  display: grid;
-  align-content: start;
-  gap: 10px;
   min-height: 0;
   height: 100%;
   max-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 8px 0 18px;
-  scrollbar-color: var(--dsw-alias-scrollbar-bg-l2, color-mix(in srgb, var(--muted) 42%, transparent)) transparent;
-  scrollbar-gutter: auto;
-  scrollbar-width: thin;
+  padding: 0 0 18px;
+}
+
+.model-config-list > .sidebar-scroll-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 10px;
 }
 
 .model-group-block {
@@ -127,11 +129,20 @@
   gap: 1px;
 }
 
+.model-group-block:first-child {
+  margin-top: 8px;
+}
+
 .model-group-block.future {
   opacity: 1;
 }
 
 .model-group-row {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  align-self: start;
+  background: var(--list);
   --model-list-item-inset: 0px;
   display: flex;
   align-items: center;
@@ -140,14 +151,14 @@
   min-height: 36px;
   margin: 0 var(--model-list-item-inset);
   padding: 0 8px;
-  border-radius: 8px;
+  border-radius: 0;
   color: #161616;
   font-size: 13px;
   text-align: left;
 }
 
 button.model-group-row:hover {
-  background: var(--active);
+  background: var(--dsw-alias-interactive-bg-hover-solid, var(--control-bg-hover));
 }
 
 .model-group-row span {
@@ -182,7 +193,7 @@ button.model-group-row:hover {
   width: 18px;
   height: 18px;
   flex: none;
-  color: #333;
+  color: var(--muted);
   transition: transform 0.14s ease;
 }
 
@@ -339,23 +350,15 @@ button.model-group-row:hover {
   scrollbar-width: thin;
 }
 
-.model-config-list::-webkit-scrollbar,
 .model-config-detail::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-.model-config-list::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.model-config-list::-webkit-scrollbar-track,
 .model-config-detail::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.model-config-list::-webkit-scrollbar-thumb,
 .model-config-detail::-webkit-scrollbar-thumb {
   min-height: 44px;
   border: 3px solid transparent;
@@ -364,23 +367,16 @@ button.model-group-row:hover {
   background-clip: content-box;
 }
 
-.model-config-list:hover::-webkit-scrollbar-thumb,
-.model-config-list:focus-within::-webkit-scrollbar-thumb,
 .model-config-detail:hover::-webkit-scrollbar-thumb,
 .model-config-detail:focus-within::-webkit-scrollbar-thumb {
   background-color: color-mix(in srgb, var(--muted) 55%, transparent);
 }
 
-.model-config-list::-webkit-scrollbar-thumb:hover,
-.model-config-list::-webkit-scrollbar-thumb:active,
 .model-config-detail::-webkit-scrollbar-thumb:hover,
 .model-config-detail::-webkit-scrollbar-thumb:active {
   background-color: var(--muted);
 }
 
-.model-config-list::-webkit-scrollbar-button,
-.model-config-list::-webkit-scrollbar-button:single-button,
-.model-config-list::-webkit-scrollbar-corner,
 .model-config-detail::-webkit-scrollbar-button,
 .model-config-detail::-webkit-scrollbar-button:single-button,
 .model-config-detail::-webkit-scrollbar-corner {

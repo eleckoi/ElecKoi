@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 
@@ -13,17 +12,17 @@ const PRODUCT_PLUGIN_FILES = new Map([
   ['roleplay-plan-tool', 'roleplay-plan-tool.mjs']
 ])
 
-const productSpecifier = (id) => `eleckoi:agent-preset/${id}`
+const productSpecifier = (id) => `@eleckoi/dsh-client-roleplay/host/${PRODUCT_PLUGIN_FILES.get(id)}`
 const retiredPruner = '@deepseek-ai/dsh-compaction-tool-result-pruner'
 const retiredPrunerUrl = pathToFileURL(resolveRuntimeModule(retiredPruner)).href
 
 export const durableProductPluginSpecifier = productSpecifier
 
-export function runtimePresetDefinition(definition, templatePath) {
+export function runtimePresetDefinition(definition) {
   return {
     ...definition,
     plugins: Array.isArray(definition.plugins)
-      ? currentPlugins(definition.plugins).map((plugin) => resolveRuntimePlugin(plugin, templatePath))
+      ? currentPlugins(definition.plugins).map(resolveRuntimePlugin)
       : definition.plugins
   }
 }
@@ -42,25 +41,20 @@ export function readRuntimePresetDefinition(path, id, templatePath, requiredProd
       parsed.plugins.push({ id: pluginId, name: productSpecifier(pluginId) })
     }
   }
-  return runtimePresetDefinition(parsed, templatePath)
+  return runtimePresetDefinition(parsed)
 }
 
-function resolveRuntimePlugin(plugin, templatePath) {
+function resolveRuntimePlugin(plugin) {
   if (!plugin || typeof plugin !== 'object' || Array.isArray(plugin)) return plugin
-  const productFile = PRODUCT_PLUGIN_FILES.get(plugin.id)
   let name = plugin.name
-  if (typeof name === 'string' && (name.startsWith('@deepseek-ai/') || name.startsWith('@eleckoi/'))) {
-    name = pathToFileURL(resolveRuntimeModule(name)).href
-
-  } else if (productFile && name === productSpecifier(plugin.id)) {
-    if (!templatePath) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `ElecKoi Agent preset ${plugin.id} is missing its runtime template path`, { what: '预设的运行时模板路径' })
-    name = pathToFileURL(join(dirname(templatePath), '..', productFile)).href
-  }
+  // RETIRE WHEN: supported generated presets have all been regenerated with
+  // package identities. Remove this old symbolic-name conversion and its test.
+  if (PRODUCT_PLUGIN_FILES.has(plugin.id) && name === `eleckoi:agent-preset/${plugin.id}`) name = productSpecifier(plugin.id)
   return {
     ...plugin,
     name,
     ...(Array.isArray(plugin.config)
-      ? { config: currentPlugins(plugin.config).map((item) => resolveRuntimePlugin(item, templatePath)) }
+      ? { config: currentPlugins(plugin.config).map(resolveRuntimePlugin) }
       : {})
   }
 }
@@ -73,6 +67,6 @@ function currentPlugins(plugins) {
   // RETIRE WHEN: supported Session presets have been regenerated without the
   // former preset-mounted image handler. Remove this filter with its regression.
   const oldImage = plugin => plugin?.id === 'image-generation-tools' &&
-    [productSpecifier('image-generation-tools'), new URL('./image-generation-tools.mjs', import.meta.url).href].includes(plugin.name)
+    ['eleckoi:agent-preset/image-generation-tools', new URL('./image-generation-tools.mjs', import.meta.url).href].includes(plugin.name)
   return plugins.filter(plugin => !oldImage(plugin) && plugin?.name !== retiredPruner && plugin?.name !== retiredPrunerUrl)
 }

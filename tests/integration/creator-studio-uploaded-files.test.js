@@ -83,6 +83,7 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
   await ctx.plugin(Loader)
   ctx.loader.builtins.group = Group
   await ctx.plugin(AgentPresetRegistry, { default: 'synthetic-unused-preset' })
+  await ctx.agentPresets.register({ id: 'cordis', name: 'Synthetic baseline', plugins: [] })
   await ctx.plugin(RemoteAccessService)
   await ctx.plugin(SessionController, { nativeOpen: false })
   const expectedContent = '合成上传内容：synthetic-file-marker'
@@ -186,7 +187,7 @@ describe('Creator studio uploaded-file composition', { timeout: 30_000 }, () => 
     expect(f.requests.at(-1).tools.map(tool => tool.name)).toContain('eleckoi_call_capability')
     expect(JSON.stringify(f.requests.at(-1).messages)).not.toContain(marker)
     await f.service.create()
-    expect((await f.ctx.agentPresets.compositionInventory()).map(preset => preset.id)).toEqual([CREATOR_RUNTIME_PRESET_ID])
+    expect((await f.ctx.agentPresets.compositionInventory()).map(preset => preset.id)).toEqual(['cordis', CREATOR_RUNTIME_PRESET_ID])
     expect(readdirSync(join(f.root, 'presets', 'creator-studio'))).toEqual([CREATOR_RUNTIME_PRESET_ID])
     const id = first.sessionId, before = agent.session.snapshotEvents()
     await f.ctx.sessions.flush(agent.session)
@@ -212,7 +213,7 @@ describe('Creator studio uploaded-file composition', { timeout: 30_000 }, () => 
       ])
       expect(existsSync(join(f.root, 'presets', 'creator-studio', original.presetId))).toBe(false)
     }
-    expect((await f.ctx.agentPresets.compositionInventory()).map(preset => preset.id)).toEqual([CREATOR_RUNTIME_PRESET_ID])
+    expect((await f.ctx.agentPresets.compositionInventory()).map(preset => preset.id)).toEqual(['cordis', CREATOR_RUNTIME_PRESET_ID])
     await f.ctx.sessionPersistence.flush()
     const reopened = await f.restart()
     for (const original of f.legacySessions) {
@@ -256,6 +257,42 @@ describe('Creator studio uploaded-file composition', { timeout: 30_000 }, () => 
     expect(f.requests[2].tools.map(tool => tool.name)).not.toContain('eleckoi_list_toolsets')
     expect(JSON.stringify(f.requests[2].messages)).toContain('SYNTHETIC_QUEUED_PRESET')
     expect(agent.session.snapshotEvents().filter(event => event.type === 'turn/end').map(event => event.data.reason.kind)).toEqual(['completed', 'completed'])
+  })
+
+  it('moves a queued instruction into the running Studio turn without waiting for its active request to finish', async () => {
+    let started, release
+    const firstRequest = new Promise(resolve => { started = resolve })
+    const resume = new Promise(resolve => { release = resolve })
+    const f = await fixture(undefined, { stream: async function* (_request, step) {
+      if (step === 1) { started(); await resume }
+      yield { type: 'block-start', index: 0, blockType: 'text' }
+      yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Synthetic completed step' } }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    } })
+    const { agent } = await f.ctx.sessionController.resolveAgent(f.opened.sessionId)
+    const prompt = text => f.ctx.sessionController.prompt({ sessionId: agent.id, requestId: randomUUID(), mode: 'queue',
+      content: [{ type: 'text', text }] }, new AbortController().signal)
+    await prompt('Synthetic running task')
+    await firstRequest
+    try {
+      await prompt('Synthetic later queued turn')
+      await prompt('Synthetic inserted instruction')
+      const inserted = agent.inbox.nextTurn[1]
+      await f.ctx.sessionController.updateQueue({ sessionId: agent.id, itemId: inserted.id, action: { kind: 'steer' } })
+      expect(agent.status).toBe('running')
+      expect(f.requests).toHaveLength(1)
+      expect(agent.inbox.nextStep.map(message => message.id)).toEqual([inserted.id])
+      expect(agent.inbox.nextTurn.map(message => message.content[0].text)).toEqual(['Synthetic later queued turn'])
+    } finally { release() }
+    await agent.whenIdle()
+    expect(f.requests).toHaveLength(3)
+    expect(JSON.stringify(f.requests[1].messages)).toContain('Synthetic inserted instruction')
+    expect(JSON.stringify(f.requests[1].messages)).not.toContain('Synthetic later queued turn')
+    const inputs = agent.session.snapshotEvents().filter(event => event.type === 'user/message' && event.data.source.kind === 'user')
+    expect(inputs.map(event => event.data.content[0].text)).toEqual(['Synthetic running task', 'Synthetic inserted instruction', 'Synthetic later queued turn'])
+    expect(agent.session.snapshotEvents().filter(event => event.type === 'turn/start')).toHaveLength(2)
+    expect(agent.inbox.nextStep).toHaveLength(0)
+    expect(agent.inbox.nextTurn).toHaveLength(0)
   })
 
   it('recovers a complete large upload through its original reader under the formal spill policy', async () => {

@@ -19,6 +19,7 @@ import { migration0010 } from './migrations/0010ScriptLibraries'
 import { migration0011, schemaV10PresetStateSql } from './migrations/0011PresetPurposes'
 import { displayTemplatesSql, migration0012 } from './migrations/0012EditorConfiguration'
 import { migration0013 } from './migrations/0013RemoveDisplayTemplates'
+import { migration0014 } from './migrations/0014CreatorWorkspace'
 import { legacySettingSnapshotsSql } from './migrations/conversationStateStorage'
 import { addRegexLibraryEnablement } from './migrations/regexLibraryEnablement'
 import { commonSchemaSql } from './migrations/commonSchemaSql'
@@ -29,9 +30,9 @@ const PRE_RELEASE_V2_SCHEMA_VERSION = 2
 const PRE_RELEASE_V2_BASELINES = [BASELINE_ID, 'eleckoi-common-v1-2026-09-14-runtime-clean'] as const
 // RETIRE WHEN: 只有正式停止支持某个旧 schema 及更早版本直接升级后，才能删除从该版本
 // 出发的步骤，并同步删除 import、登记和 tests/database.test.ts 中对应旧库 fixture。
-// 当前仍支持 v1 连续升级至 v13；已升级的本机数据库不能证明其他旧安装已完成迁移。
+// 当前仍支持 v1 连续升级至 v14；已升级的本机数据库不能证明其他旧安装已完成迁移。
 // 剩余受支持版本必须仍有连续原子迁移链，当前 SQL、版本常量和完整性检查始终保留。
-const migrations = [migration0002, migration0003, migration0004, migration0005, migration0006, migration0007, migration0008, migration0009, migration0010, migration0011, migration0012, migration0013] as const
+const migrations = [migration0002, migration0003, migration0004, migration0005, migration0006, migration0007, migration0008, migration0009, migration0010, migration0011, migration0012, migration0013, migration0014] as const
 // RETIRE WHEN: 停止支持 v12 及更早结构和已登记的旧开发结构直接升级后，连同两个校验器的 beforeV13 分支删除。
 const schemaV13Tables = new Set(['character_openings', 'global_setting_libraries', 'global_setting_library_state'])
 const unreleasedGenerationTableSql = 'CREATE TABLE IF NOT EXISTS `conversation_generation_results` (`operationId` TEXT NOT NULL, `conversationId` TEXT NOT NULL, `resultJson` TEXT NOT NULL, PRIMARY KEY(`operationId`), FOREIGN KEY(`conversationId`) REFERENCES `chat_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )'
@@ -225,7 +226,7 @@ export function installSchema(database: Database.Database): void {
       throw new DesktopError(ELECKOI_FAILURE_CODES.dbSchemaMismatch, `数据库版本 v${version} 高于当前程序支持的 v${CURRENT_SCHEMA_VERSION}，请升级 ElecKoi 后再打开，拒绝修改数据。`, { what: '数据库版本', expected: `不高于 v${CURRENT_SCHEMA_VERSION}` })
     }
     if (version < CURRENT_SCHEMA_VERSION) {
-      if (version >= 6 && version < 13) {
+      if (version >= 6 && version < CURRENT_SCHEMA_VERSION) {
         normalizePreReleaseV6(database, version)
         validateTableInventory(database, false, version < 10, version < 12, version < 12, version < 12, false, version === 12)
         validateSchema(database, version < 8 ? schemaV7ChatSessionsSql : undefined, false, version < 9, version < 10, version < 11, version < 12, version < 12, version < 12, false, version === 12)

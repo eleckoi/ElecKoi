@@ -1,0 +1,73 @@
+.creator-studio-hero-headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 10px;
+  padding: 0 24px;
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+}
+
+.creator-studio-hero-mascot {
+  display: block;
+  flex: none;
+  width: 48px;
+  height: 44px;
+  object-fit: contain;
+  /* The selected artwork has a straight lower crop; hide exterior generation debris. */
+  clip-path: inset(0 0 4%);
+  user-select: none;
+}
+
+.creator-studio-hero-selectors {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  min-width: 0;
+  margin-top: 4px;
+  padding: 0 16px 0 20px;
+}
+
+.creator-studio-hero-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: min(100%, 360px);
+  min-height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+.creator-studio-hero-choice > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.creator-studio-hero-choice > svg { flex: none; }
+.creator-studio-hero-choice:not(:disabled):hover,
+.creator-studio-hero-choice[aria-expanded=true] { background: var(--dsw-alias-interactive-bg-hover); }
+
+.creator-simple-conversation[data-phase=hero] .creator-simple-conversation-scroll { justify-content: safe center; }
+.creator-simple-conversation[data-phase=hero] .creator-simple-composer {
+  --dsh-composer-stack-gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsh-composer-stack-gap);
+  flex: none;
+  align-self: center;
+  width: min(calc(var(--dsh-composer-card-max-width) + 2 * var(--dsh-composer-side-clearance)), 100%);
+  margin: 0;
+  padding-bottom: 32px;
+  background: transparent;
+}
+
+.creator-studio-hero-corner { position: absolute; z-index: 1; top: 12px; right: 16px; }

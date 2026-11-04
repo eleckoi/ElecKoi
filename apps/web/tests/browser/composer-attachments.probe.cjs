@@ -13,7 +13,7 @@ app.whenReady().then(async () => {
   const settle = () => new Promise(resolve => setTimeout(resolve, 25));
   const capture = async name => {
     await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
-    const bounds = await evaluate(`(()=>{const r=document.querySelector('[data-composer-card]').getBoundingClientRect();return {x:Math.max(0,Math.floor(r.x)-8),y:Math.max(0,Math.floor(r.y)-8),width:Math.min(innerWidth-Math.max(0,Math.floor(r.x)-8),Math.ceil(r.width)+16),height:Math.min(innerHeight-Math.max(0,Math.floor(r.y)-8),Math.ceil(r.height)+16)}})()`);
+    const bounds = await evaluate(`(()=>{const r=document.querySelector('[data-composer-card]').getBoundingClientRect(),q=document.querySelector('[data-queue-dock]')?.getBoundingClientRect(),y=Math.max(0,Math.floor(q?.top??r.y)-8);return {x:Math.max(0,Math.floor(r.x)-8),y,width:Math.min(innerWidth-Math.max(0,Math.floor(r.x)-8),Math.ceil(r.width)+16),height:Math.min(innerHeight-y,Math.ceil(r.bottom)-y+8)}})()`);
     writeFileSync(join(dirname(reportPath), name), (await win.webContents.capturePage(bounds)).toPNG());
   };
   const wait = async source => {
@@ -21,7 +21,7 @@ app.whenReady().then(async () => {
     throw new Error(`Timed out: ${source}`);
   };
   try {
-    const reports = [];
+    const reports = [], queues = [];
     for (const surface of ['roleplay', 'studio']) for (const width of [320, 390, 768, 1440]) {
       win.setContentSize(width, 900);
       const url = pathToFileURL(htmlPath); url.search = `surface=${surface}&mobile=${width < 768}`;
@@ -43,6 +43,24 @@ app.whenReady().then(async () => {
         if (!lastVisible) throw new Error('Last attachment cannot be reached');
         await evaluate(`document.querySelector('[role="group"]').lastElementChild.querySelector('button[aria-label^="file.remove"]').click()`);
         await wait(`document.querySelector('[role="group"]').children.length===19`);
+        if (surface === 'studio') {
+          await evaluate('window.composerFixture.setCount(0)');
+          for (const count of [1, 3, 8]) {
+            await evaluate(`window.composerFixture.setQueueCount(${count})`);
+            await wait('!!document.querySelector("[data-queue-dock]")');
+            if (count > 1) {
+              await wait('!!document.querySelector("[data-queue-dock] button[aria-expanded]")');
+              await evaluate(`(()=>{const button=document.querySelector('[data-queue-dock] button[aria-expanded]');if(button.getAttribute('aria-expanded')==='false')button.click()})()`);
+            }
+            await wait(`document.querySelectorAll('[data-queue-dock] li').length===${count}`);
+            await settle();
+            const state = await evaluate(`(()=>{const rect=node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,right:r.right,bottom:r.bottom}},q=document.querySelector('[data-queue-dock]');return {queue:rect(q),panel:rect(q.firstElementChild),card:rect(document.querySelector('[data-composer-card]')),pageWidth:document.documentElement.scrollWidth,draft:document.querySelector('[data-composer-input]').textContent,actionPresent:['queue.edit','queue.remove','queue.steer'].every(name=>!!q.querySelector('button[aria-label="'+name+'"]'))}})()`);
+            queues.push({ width, theme, count, ...state });
+            if (width === 1440 && count === 8) await capture(`studio-queue-${theme}.png`);
+          }
+          await evaluate('window.composerFixture.setQueueCount(0)');
+          await wait('!document.querySelector("[data-queue-dock]")');
+        }
       }
     }
     win.setContentSize(390, 200);
@@ -52,6 +70,6 @@ app.whenReady().then(async () => {
     await wait(`document.querySelector('[role="group"]')?.children.length===2`);
     await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
     writeFileSync(join(dirname(reportPath), 'official-upload.png'), (await win.webContents.capturePage({ x: 0, y: 0, width: 390, height: 90 })).toPNG());
-    writeFileSync(reportPath, JSON.stringify({ attachments: reports }, null, 2)); win.destroy(); app.exit(0);
+    writeFileSync(reportPath, JSON.stringify({ attachments: reports, queues }, null, 2)); win.destroy(); app.exit(0);
   } catch (cause) { console.error(cause); win.destroy(); app.exit(1); }
 });

@@ -24,17 +24,19 @@ function fixture(platform = 'desktop') {
   const conversations = source({ status: 'ready', items: [{ id: 'conversation', runtimeSessionId: 'role' }] })
   const registry = source({ phase: 'ready', items: [{ workspaceId: 'workspace', sessionIds: ['role', 'native'] }],
     pinnedSessionIds: ['role', 'native'], archivedSessionIds: ['studio', 'loose'] })
+  const studio = { open: vi.fn(async () => {}), startWorkspace: vi.fn(async () => {}) }
   const uiWorkspace = { openSession: vi.fn(), startSession: vi.fn() }
-  const layout = { selectPanel: vi.fn() }
+  const layout = { selectPanel: vi.fn(), panelInfo: source<{ activePanelId: string | null; windowPanelId?: string }>({ activePanelId: null }) }
   const face = { requestSessionRename: vi.fn(), unarchiveSession: vi.fn() }
   const entries: any[] = []
   const slots: any = {
     provideRoot: () => () => {}, spec: () => undefined, subscribe: () => () => {},
     register: (options: any, component: any) => { const entry = { options, component }; entries.push(entry); return () => entries.splice(entries.indexOf(entry), 1) },
     inject: (_name: string, register: any) => { const disposers = register(); if (typeof disposers !== 'function') Array.from(disposers) },
+    entries: (name: string) => entries.filter(entry => entry.options.name === name),
     entriesOfSlot: (name: string) => name === 'sidebar.workspaces' ? [{ inject: () => face }] : entries.filter(entry => entry.options.name === name),
   }
-  const services: any = { sessions: { list: sessions, search: sessions.search }, workspaces: { list: registry }, eleckoiConversations: conversations, uiWorkspace }
+  const services: any = { sessions: { list: sessions, search: sessions.search }, workspaces: { list: registry }, eleckoiConversations: conversations, uiWorkspace, eleckoiCreatorStudio: { sessions: studio } }
   const context: any = { slots, layout, get: (name: string) => services[name], inject: () => {},
     reflect: { provide: () => () => {} }, extend: (values: any) => ({ ...context, ...values }),
     plugin: (plugin: any) => { plugin.apply(context); return { dispose: () => {} } },
@@ -61,18 +63,18 @@ function fixture(platform = 'desktop') {
     })
     return body.props.renderSlot('sidebar.workspaces', { wide: true })
   }
-  return { sessions, conversations, registry, uiWorkspace, layout, face, hooks, render }
+  return { sessions, conversations, registry, uiWorkspace, studio, layout, face, hooks, render }
 }
 
 describe.each(['desktop', 'android'])('%s plugin Workspace Session ownership', platform => {
   it('excludes product Sessions and their descendants from grouped and ungrouped metadata without changing the shared catalogs', () => {
     const f = fixture(platform), originalList = f.sessions.getSnapshot(), originalRegistry = f.registry.getSnapshot()
     const list = f.hooks.eleckoiWorkspaceSessions.getSnapshot()
-    expect(list.ids).toEqual(['native', 'loose'])
-    expect(Object.keys(list.byId)).toEqual(['native', 'loose'])
+    expect(list.ids).toEqual(['studio', 'new-studio', 'native', 'loose'])
+    expect(Object.keys(list.byId)).toEqual(['studio', 'new-studio', 'native', 'loose'])
     expect(f.hooks.eleckoiWorkspaceSessions.getSnapshot()).toBe(list)
     expect(f.hooks.eleckoiWorkspaceRegistry.getSnapshot()).toMatchObject({ items: [{ sessionIds: ['native'] }],
-      pinnedSessionIds: ['native'], archivedSessionIds: ['loose'] })
+      pinnedSessionIds: ['native'], archivedSessionIds: ['studio', 'loose'] })
     expect(f.sessions.getSnapshot()).toBe(originalList)
     expect(f.registry.getSnapshot()).toBe(originalRegistry)
     expect(f.conversations.getSnapshot().items).toHaveLength(1)
@@ -85,7 +87,7 @@ describe.each(['desktop', 'android'])('%s plugin Workspace Session ownership', p
     f.conversations.publish({ status: 'ready', items: [{ id: 'conversation', runtimeSessionId: 'role' }] })
     const previous = f.sessions.getSnapshot()
     f.sessions.publish({ ...previous, byId: { ...previous.byId, unknown: { ...previous.byId.unknown!, projectionValues: { agentPreset: 'cordis' } } } })
-    expect(source.getSnapshot().ids).toEqual(['native', 'loose', 'unknown'])
+    expect(source.getSnapshot().ids).toEqual(['studio', 'new-studio', 'native', 'loose', 'unknown'])
     expect(listener).toHaveBeenCalledTimes(3)
     stop()
     f.conversations.publish({ ...f.conversations.getSnapshot() })
@@ -94,9 +96,9 @@ describe.each(['desktop', 'android'])('%s plugin Workspace Session ownership', p
 
   it('filters content search and blocks stale product-row operations while preserving normal workspace actions', async () => {
     const f = fixture(platform), owner = f.render(), signal = new AbortController().signal
-    expect(await owner.searchSessions('shared', signal)).toEqual({ items: [{ sessionId: 'native', snippet: 'shared search text' }], hasMore: true })
+    expect(await owner.searchSessions('shared', signal)).toEqual({ items: [{ sessionId: 'studio', snippet: 'shared search text' }, { sessionId: 'native', snippet: 'shared search text' }], hasMore: true })
     expect(f.sessions.search).toHaveBeenCalledWith('shared', signal)
-    for (const id of ['role', 'studio', 'child', 'unknown']) {
+    for (const id of ['role', 'child', 'unknown']) {
       expect(() => owner.open(id)).toThrow()
       expect(() => owner.requestSessionRename(id, 'changed')).toThrow()
       expect(() => owner.unarchiveSession(id)).toThrow()
@@ -109,7 +111,11 @@ describe.each(['desktop', 'android'])('%s plugin Workspace Session ownership', p
     expect(f.face.requestSessionRename).toHaveBeenCalledWith('native', 'changed')
     expect(f.face.unarchiveSession).toHaveBeenCalledWith('loose')
     owner.startSession('workspace')
-    expect(f.uiWorkspace.startSession).toHaveBeenCalledWith('workspace', { agentPreset: 'cordis' })
+    expect(f.studio.startWorkspace).toHaveBeenCalledWith('workspace', undefined)
+    owner.open('studio')
+    await Promise.resolve()
+    expect(f.studio.open).toHaveBeenCalledWith('studio')
+    expect(f.layout.selectPanel).toHaveBeenCalledWith('creatorStudio')
   })
 
   it('leaves an already open product Session out of the programming surface', () => {
@@ -120,6 +126,13 @@ describe.each(['desktop', 'android'])('%s plugin Workspace Session ownership', p
     f.layout.selectPanel.mockClear()
     const next = f.sessions.getSnapshot()
     f.sessions.publish({ ...next, byId: { ...next.byId, native: { ...next.byId.native!, retainedBy: { mainView: 1 } } } })
+    f.render()
+    expect(f.layout.selectPanel).not.toHaveBeenCalled()
+  })
+  it('lets Studio replace the previous roleplay foreground while its Session is loading', () => {
+    const f = fixture(platform), list = f.sessions.getSnapshot()
+    f.sessions.publish({ ...list, byId: { ...list.byId, role: { ...list.byId.role!, retainedBy: { mainView: 1 } } } })
+    f.layout.panelInfo.publish({ activePanelId: 'creatorStudio' })
     f.render()
     expect(f.layout.selectPanel).not.toHaveBeenCalled()
   })

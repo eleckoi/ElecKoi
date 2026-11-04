@@ -2512,10 +2512,11 @@ export class ElecKoiCreatorStudioSessionsApi extends TypertRemoteService {
   /**
    * 使用当前全局创作预设创建工作室会话。
    * @param characterId - 编辑目标角色编号；空字符串表示尚未选择。
+   * @param workspaceId - 官方工作区编号；省略时沿用默认工作目录。
    * @returns 创建的会话及其编辑目标。
    */
   @Remote
-  create(characterId: string): Promise<CreatorStudioSession> { return this.runtime.create(characterId) }
+  create(characterId: string, workspaceId?: string): Promise<CreatorStudioSession> { return this.runtime.create(characterId, workspaceId) }
   /**
    * 恢复一个已有工作室会话。
    * @param sessionId - 正式 DSH 会话编号。

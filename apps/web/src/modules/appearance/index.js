@@ -12,6 +12,9 @@ export {
 } from "./preferences/sidebarCharacterArtwork.js";
 export {
   chatDisplayCssVariables,
+  resolveRoleplayStyle,
+  roleplayStyleCssVariables,
+  roleplayStyleDefaultTint,
   chatTextColorCssVariables,
   messageFloorNumber,
   resolveChatAvatar,
@@ -25,6 +28,7 @@ export {
   DEFAULT_NEW_CHARACTER_BACKGROUND,
   GLOBAL_CHAT_BACKGROUND,
   chatWallpaperMode,
+  customChatBackgroundFromCharacter,
   characterArtwork,
   fileToDataUrl,
   normalizeGlobalChatWallpaper,

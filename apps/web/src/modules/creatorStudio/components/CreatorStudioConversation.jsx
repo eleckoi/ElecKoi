@@ -6,11 +6,13 @@ import { ModelPicker } from '../../models/index.js';
 import { openPresetManagerWindow } from '../../presets/index.js';
 import { DshEntryActionsMenu } from '../../../ui/ui/DshEntryActionsMenu.jsx';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
+import { CreatorStudioHero } from './CreatorStudioHero.jsx';
 
 /** Desktop assembly of the shared Studio Session with native views and resident input. */
 export function CreatorStudioConversation({ model, editing = false, creating = false, models, presetCatalog, title, onCreate, onSelectCharacter, onError,
-  sessionId, useSession, useInput, useSessionStatus, useProjection, useInspectCall, useConversationViews, useEntryPins, useEntryActions, setPinned, useStore, actions, openView, selectView, renderHeaderSlot, renderSlot, renderSlotChain }) {
+  sessionId, useSession, useInput, useWorkspaces, useSessionStatus, useProjection, useInspectCall, useConversationViews, useEntryPins, useEntryActions, setPinned, useStore, actions, openView, selectView, renderHeaderSlot, renderSlot, renderSlotChain }) {
   const session = useSession(value => value), input = useInput(value => value);
+  const hero = session.blank;
   const pendingInteraction = useSessionStatus(value => value.get(sessionId)?.pendingInteraction);
   const projectedModel = useProjection('modelSelection'), projectedTitle = useProjection('title');
   const inspectCall = useInspectCall(value => value), activeView = useStore(value => value.view);
@@ -54,10 +56,10 @@ export function CreatorStudioConversation({ model, editing = false, creating = f
     renderModelLabel={owner => renderSlot('eleckoi.creator-studio.model.label', owner, { fallback: owner.model.name }) ?? owner.model.name}
     onSaveModelConfig={config => models.save(config)}
     onLoadModels={config => models.discover(config)} onNotify={notify} onSelect={selection => model.selectModel({ provider: selection.configId, model: selection.model })} />;
-  const resident = renderSlot('eleckoi.creator-studio.composer.bar', { variant: 'composer', placeholder: '输入消息', leadingAccessory: menu, modelAccessory: modelPicker });
+  const resident = renderSlot('eleckoi.creator-studio.composer.bar', { variant: hero ? 'hero' : 'composer', placeholder: hero ? '发消息或创建任务，/ 调用指令，@ 文件或对话' : '输入消息', leadingAccessory: menu, modelAccessory: modelPicker });
   const inputSeat = renderSlotChain('eleckoi.creator-studio.composer', { sessionId, session, pendingInteraction }, { fallback: resident, overlay: true });
-  return <div className="creator-simple-conversation">
-    <header className="creator-simple-chat-header">
+  return <div className="creator-simple-conversation" data-phase={hero ? 'hero' : 'active'}>
+    {hero ? <div className="creator-studio-hero-corner">{renderHeaderSlot('eleckoi.creator-studio.session.header.corner', {})}</div> : <header className="creator-simple-chat-header">
       <div className="creator-simple-chat-heading"><h1 title={projectedTitle || title}>{projectedTitle || title}</h1>
         {renderHeaderSlot('eleckoi.creator-studio.session.header.actions', {})}
         <div className="creator-simple-header-actions">
@@ -74,10 +76,11 @@ export function CreatorStudioConversation({ model, editing = false, creating = f
           onOpen: selectView, onPinnedChange: setPinned, onDismiss
         })} /> : null}
       </div>
-    </header>
+    </header>}
     <div ref={body} className="creator-simple-conversation-scroll" data-conversation-scroll="true">
-      <div className={`creator-simple-transcript${active?.id !== 'chat' ? ' is-panel-view' : ''}${active?.id === 'trajectory' ? ' is-trajectory' : ''}`}>{active && renderSlot('eleckoi.creator-studio.view', owner, { only: active.id })}</div>
+      {!hero && <div className={`creator-simple-transcript${active?.id !== 'chat' ? ' is-panel-view' : ''}${active?.id === 'trajectory' ? ' is-trajectory' : ''}`}>{active && renderSlot('eleckoi.creator-studio.view', owner, { only: active.id })}</div>}
       <div ref={composer} className="chat-composer-region creator-simple-composer" data-composer-seat="true" inert={editing ? true : undefined} aria-busy={editing || undefined}>
+        {hero && <CreatorStudioHero model={model} sessionId={sessionId} presetCatalog={presetCatalog} useWorkspaces={useWorkspaces} renderSlot={renderSlot} onError={onError} />}
         {renderSlot('eleckoi.creator-studio.input.dock', { session, input })}{inputSeat}
       </div>
     </div>

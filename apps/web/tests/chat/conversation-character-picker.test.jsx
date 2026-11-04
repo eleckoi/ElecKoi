@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ConversationList } from '../../src/modules/chat/components/ConversationList.jsx'
 
 vi.stubGlobal('React', React)
+vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} })
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 
 afterEach(() => {

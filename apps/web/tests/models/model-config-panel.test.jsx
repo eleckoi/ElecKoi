@@ -7,6 +7,7 @@ import { initialConfigForProvider, modelParameterState } from '../../src/modules
 
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
 vi.stubGlobal('React', React);
+vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
 vi.mock('../../src/modules/settings/index.js', () => ({
   LIST_COLLAPSE_AREAS: { models: 'models' },
   usePersistentCollapseState: (_area, initial) => [...React.useState(initial), true],

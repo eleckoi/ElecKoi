@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
@@ -140,7 +140,7 @@ describe('DSH Agent preset durability', () => {
     expect(pluginById(definition.plugins, 'agent-instructions')?.name)
       .toBe('@deepseek-ai/dsh-agent-instructions')
     expect(pluginById(definition.plugins, 'variable-tools')?.name)
-      .toBe('eleckoi:agent-preset/variable-tools')
+      .toBe('@eleckoi/dsh-client-roleplay/host/variable-tools.mjs')
     expect(pluginById(definition.plugins, 'tool-subagent')?.config).toMatchObject({
       provider: 'spawn',
       backgroundMode: 'one-shot',
@@ -200,7 +200,7 @@ describe('DSH Agent preset durability', () => {
     expect(readFileSync(path, 'utf8')).toBe(original)
   })
 
-  it('resolves current runtime paths in memory without rewriting the durable definition', async () => {
+  it('keeps package identities and locale resources available without rewriting existing declarations', async () => {
     const directory = temporaryDirectory()
     const presetRoot = join(directory, 'generated-presets')
     const snapshotRoot = join(directory, 'session-snapshots')
@@ -254,8 +254,12 @@ describe('DSH Agent preset durability', () => {
     const runtime = registered[0]
     for (const pluginId of ['agent-instructions', 'variable-tools', 'compaction-basic']) {
       const name = pluginById(runtime.plugins, pluginId)?.name
-      expect(name).toMatch(/^file:/)
-      expect(existsSync(fileURLToPath(name))).toBe(true)
+      expect(name).toMatch(/^@(deepseek-ai|eleckoi)\//)
+      const resolve = createRequire(import.meta.url).resolve
+      expect(existsSync(resolve(name))).toBe(true)
+      const locale = JSON.parse(readFileSync(resolve(`${name}/locale/zh.json`), 'utf8'))
+      expect(locale.meta.title).toBeTruthy()
+      expect(locale.meta.title).not.toContain('file:')
     }
     await dispose()
   })

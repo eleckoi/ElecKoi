@@ -66,6 +66,21 @@ async function selectAvatar() {
 }
 
 describe('Android settings presentation with shared PC contracts', () => {
+  it('opens shared roleplay style controls and retains independent tints across returning to the page', async () => {
+    await mount('chat');
+    expect([...container.querySelectorAll('.mobile-settings-row')].findIndex(n=>n.textContent.includes('布局独有风格')))
+      .toBeGreaterThan([...container.querySelectorAll('.mobile-settings-row')].findIndex(n=>n.textContent.includes('富消息')));
+    await click('布局独有风格无气泡');
+    expect(view.settingsPage).toBe('chat:style');
+    expect(container.querySelector('[aria-label="对话底板"]').checked).toBe(false);
+    await act(async () => container.querySelector('[aria-label="消息气泡"]').click());
+    await input(container.querySelector('[aria-label="用户气泡色调"]'), '#987654');
+    expect(view.appearance.chatDisplay.roleplay_style).toMatchObject({ bubbles_enabled: true, user_bubble_tint: '#987654', assistant_bubble_tint: null });
+    await click('返回'); await click('布局独有风格有气泡');
+    expect(container.querySelector('[aria-label="用户气泡色调"]').value).toBe('#987654');
+    await click('恢复用户气泡色调默认值');
+    expect(view.appearance.chatDisplay.roleplay_style.user_bubble_tint).toBeNull();
+  });
   it('does not interpret Android battery exemption as a vendor unrestricted battery policy', async () => {
     window.ElecKoiPlatform = { backgroundRun: {
       status: vi.fn().mockResolvedValue({ batteryExempt: true, backgroundRestricted: false, enhancedEnabled: false, overlayAllowed: false }),

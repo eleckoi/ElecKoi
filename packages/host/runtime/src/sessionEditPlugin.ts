@@ -10,16 +10,21 @@ import { removeSessionSnapshot } from '@eleckoi/dsh-client-roleplay/host/session
 import type { GeneratedImageFrame } from '@eleckoi/dsh-product-data'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { importDshTranscript, type TranscriptMessage } from './sessionTranscriptImport'
-import { readDshSessionLog, removeDshSessionTree, readDshTrajectory, type DshTrajectoryReadOptions } from './trajectory'
+import { readDshSessionLog, readDshSessionTreeIds, removeDshSessionTree, readDshTrajectory, type DshTrajectoryReadOptions } from './trajectory'
 import { refreshSessionProjections, type SessionProjectionRefreshContext } from './sessionProjectionRefresh'
-import { generatedImageReferences, deleteRemovedGeneratedImages, type GeneratedImageCleanupContext } from './generatedImageCleanup'
+import { generatedImageReferences, imageAttachmentReferences, deleteRemovedGeneratedImages, type GeneratedImageCleanupContext } from './generatedImageCleanup'
 import { ELECKOI_FAILURE_CODES, productFailure } from '@eleckoi/dsh-product-api'
 
 export const name = 'eleckoi-session-edit'
-export const inject = ['eleckoiSessionHandles', 'sessionPersistence', 'sessionProjections', 'sessionProjectionCache', 'attachments', 'sessions', 'eleckoiProductData']
+export const inject = ['eleckoiSessionHandles', 'sessionPersistence', 'sessionProjections', 'sessionProjectionCache', 'attachments', 'sessions', 'eleckoiProductData', 'workspaceRegistry']
 
 export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageCleanupContext & {
   eleckoiSessionHandles: { withClosed<T>(sessionId: string, action: () => T | Promise<T>): Promise<T> }
+  workspaceRegistry: {
+    list(): Array<{ detachSession(id: SessionId): Promise<void> }>
+    unpinSession(id: SessionId): Promise<void>
+    unarchiveSession(id: SessionId): Promise<void>
+  }
   sessionPersistence: { open(sessionId: SessionId, access: 'write'): Promise<{ close(): Promise<void> }> }
   get(key: 'spillStore'): { removeSessionResults?(sessionIds: string[]): Promise<void> } | undefined
   logger: { error(message: string): void }
@@ -112,25 +117,28 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
     },
     async deleteSession(sessionId: string): Promise<void> {
       await ctx.eleckoiSessionHandles.withClosed(sessionId, async () => {
-        const images = generatedImageReferences(readDshSessionLog(sessionRoot, sessionId)?.events || [])
-        const deletedSessionIds = removeDshSessionTree(sessionRoot, sessionId)
-        try {
-          for (const id of deletedSessionIds) removeSessionSnapshot(process.env.ELECKOI_SESSION_SNAPSHOT_ROOT, id)
-        } catch (error) {
-          ctx.logger.error(`会话 ${sessionId} 已删除，但运行配置清理失败。${String(error)}`)
-        }
-        try {
+        const ids = readDshSessionTreeIds(sessionRoot, sessionId)
+        const closeChildren = async (index: number): Promise<void> => {
+          if (index < ids.length) {
+            const id = ids[index]!
+            if (id !== sessionId) return ctx.eleckoiSessionHandles.withClosed(id, () => closeChildren(index + 1))
+            return closeChildren(index + 1)
+          }
           const store = ctx.get('spillStore')
           if (!store?.removeSessionResults) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, '当前 Host 未提供工具结果删除服务。', { what: '工具结果删除服务' })
-          await store.removeSessionResults(deletedSessionIds)
-        } catch (error) {
-          ctx.logger.error(`会话 ${sessionId} 已删除，但工具结果清理失败；继续完成删除，残留文件由过期清理回收。${String(error)}`)
+          const images = new Map(ids.flatMap(id => [...imageAttachmentReferences(readDshSessionLog(sessionRoot, id)?.events ?? [])]))
+          // Keep the logs and their ownership available if a cleanup fails; retry is idempotent.
+          await store.removeSessionResults(ids)
+          for (const id of ids) {
+            removeSessionSnapshot(process.env.ELECKOI_SESSION_SNAPSHOT_ROOT, id)
+            for (const workspace of ctx.workspaceRegistry.list()) await workspace.detachSession(SessionId(id))
+            await ctx.workspaceRegistry.unpinSession(SessionId(id))
+            await ctx.workspaceRegistry.unarchiveSession(SessionId(id))
+          }
+          await deleteRemovedGeneratedImages(ctx, images, ids)
+          removeDshSessionTree(sessionRoot, sessionId)
         }
-        try {
-          await deleteRemovedGeneratedImages(ctx, images, sessionId)
-        } catch (error) {
-          ctx.logger.error(`会话 ${sessionId} 已删除，但生成图片清理失败；继续完成删除。${String(error)}`)
-        }
+        await closeChildren(0)
       })
     },
     async discardGeneratedImages(images: NonNullable<GeneratedImageFrame['attachment']>[]): Promise<void> {

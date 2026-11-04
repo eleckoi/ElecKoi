@@ -1,3 +1,4 @@
+// NODE STUDIO: retained node/project development surface for future main-window integration.
 import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 import { useNodesState } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";

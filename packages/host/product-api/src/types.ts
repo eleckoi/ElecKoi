@@ -402,6 +402,7 @@ export interface CharacterRecord {
   chatBackgroundOpacity?: number
   chatBackgroundBlur?: number
   chatBackgroundScrim?: number
+  chatBackgroundCustom?: { image: string; opacity: number; blur: number; scrim: number }
   primaryOpening?: string
   persona?: CharacterPersona
 }
@@ -1049,7 +1050,7 @@ export interface CreatorStudioMessage { eventSeq: number; role: 'user' | 'assist
 export interface CreatorStudioSessionSummary extends CreatorStudioSession { title: string; updatedAt: number; pinned: boolean; pinIndex: number }
 export interface CreatorStudioRuntime {
   list(): Promise<CreatorStudioSessionSummary[]>
-  create(characterId: string): Promise<CreatorStudioSession>
+  create(characterId: string, workspaceId?: string): Promise<CreatorStudioSession>
   open(sessionId: string): Promise<CreatorStudioSession>
   selectCharacter(sessionId: string, characterId: string): Promise<CreatorStudioSession>
   rename(sessionId: string, title: string): Promise<void>

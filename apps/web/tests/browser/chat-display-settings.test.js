@@ -48,7 +48,7 @@ it('preserves precise adjustments and resets while laying out visual settings in
         expect(thumbnail.width / thumbnail.height, detail).toBeLessThan(1.8);
       }
       expect(layout.fakeStats).toBe(false);
-      expect(layout.samples).toHaveLength(6);
+      expect(layout.samples).toHaveLength(7);
       expect(layout.samples.every(sample => sample.children || sample.content)).toBe(true);
       for (const surface of layout.surfaces) {
         expect(surface.header, detail).toBe('rgba(0, 0, 0, 0)');

@@ -3,8 +3,10 @@ import type { CreatorProjectCollection, CreateCreatorProjectInput } from '@eleck
 import type { CreatorStudioSession, CreatorStudioSessionSummary, CreatorStudioMessage, ConversationModelSelection } from '@eleckoi/dsh-product-api/types'
 import type { ComponentType } from 'react'
 import type { ModelLabelOwner } from '@deepseek-ai/dsh-client-ui-model-selection/client'
+import type { EmptyWorkspaceOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 
 declare module '@deepseek-ai/dsh-api-session-controller/client' {
   interface SessionReferenceSourceMap { eleckoiCreatorStudio: unknown }
@@ -22,7 +24,8 @@ export interface CreatorStudioSessions {
   getSnapshot(): CreatorStudioConversationSnapshot
   subscribe(listener: () => void): () => void
   refresh(): Promise<CreatorStudioSessionSummary[]>
-  create(characterId?: string): Promise<CreatorStudioSession | undefined>
+  create(characterId?: string, workspaceId?: string): Promise<CreatorStudioSession | undefined>
+  startWorkspace(workspaceId?: string, options?: { prompt?: string; whenDraftExists?: 'append' | 'keep' | 'replace' }): Promise<void>
   open(sessionId: string): Promise<CreatorStudioSession | undefined>
   restoreRecent(): Promise<CreatorStudioSession | undefined>
   rename(sessionId: string, title: string): Promise<void>
@@ -39,6 +42,7 @@ export interface CreatorStudioSessions {
 }
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
+    'eleckoi.creator-studio.hero.workspace': { kind: 'single'; scope: 'root'; owner: EmptyWorkspaceOwnerProps }
     'eleckoi.creator-studio.model.label': { kind: 'single'; scope: 'session'; inline: true; owner: ModelLabelOwner }
     'eleckoi.creator-studio.conversation': { kind: 'single'; scope: 'root'; owner: { reference: SessionReference; component: ComponentType<any>; props: Record<string, unknown> } }
     'eleckoi.creator-studio.session': { kind: 'single'; scope: 'session'; owner: { component: ComponentType<any>; props: Record<string, unknown> } }

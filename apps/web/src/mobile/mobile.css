@@ -68,7 +68,7 @@
 .mobile-workspace-controls > button:active { background: var(--dsw-alias-interactive-bg-hover); border-radius: 8px; }
 .mobile-root-page, .mobile-conversation-page { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .mobile-conversation-page.has-chat-wallpaper { position: relative; isolation: isolate; }
-.mobile-conversation-page.has-chat-wallpaper > .chat-shell-backdrop { inset: 0; }
+.mobile-conversation-page.has-chat-wallpaper > .chat-shell-backdrop { inset: 68px 0 0; }
 .mobile-conversation-page.has-chat-wallpaper .chat-panel { z-index: 1; background: transparent; }
 .mobile-header { position: relative; display: flex; align-items: center; flex: none; height: var(--mobile-header-height); padding: 0 9px 0 8px; background: var(--mobile-header-bg); }
 .mobile-header > button, .mobile-header-actions > button { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; flex: none; padding: 0; border: 0; background: transparent; }
@@ -98,7 +98,7 @@
 .mobile-drawer .rail-expanded-header > button { display: grid; place-items: center; width: 40px; min-height: 40px; margin-left: auto; padding: 0; border: 0; border-radius: 10px; background: transparent; flex: none; }
 .mobile-drawer .rail-nav-group { display: flex; flex-direction: column; gap: 4px; }
 .mobile-drawer .rail-nav-button { display: flex; align-items: center; width: 100%; height: 48px; min-height: 48px; padding: 0 12px 0 50px; border: 0; background: transparent; text-align: left; }
-.mobile-drawer .rail-nav-button[data-plugin-entry-more] { gap: 14px; padding: 0 12px; }
+.mobile-drawer .rail-nav-button[data-plugin-entry-more] { padding: 0 12px 0 50px; }
 .mobile-drawer .rail-icon-layer { left: 12px; right: auto; width: 24px; }
 .mobile-drawer .rail-navigation-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
 .mobile-drawer .rail-bottom-zone { align-items: stretch; justify-items: stretch; gap: 4px; padding-top: 8px; }
@@ -323,7 +323,7 @@
 .mobile-conversation-page [data-composer-card] > div > div:has(> .composer-more-anchor) > button,
 .mobile-conversation-page .roleplay-menu-trigger { width: 36px; height: 36px; min-height: 36px; padding: 0; border: 3px solid transparent; background-clip: padding-box; }
 .mobile-conversation-page .roleplay-menu-trigger svg { width: 17px; height: 17px; }
-.mobile-conversation-page :is([data-slot="eleckoi.roleplay.conversation.input.permission"], [data-slot="eleckoi.creator-studio.input.permission"]) > * { display: none; }
+.mobile-conversation-page [data-slot="eleckoi.roleplay.conversation.input.permission"] > * { display: none; }
 .mobile-conversation-page [data-composer-card] > div > div:has(.chat-model-picker),
 .mobile-conversation-page [data-composer-card] > div > div > div:has(> .chat-model-picker):not([hidden]) { display: contents; }
 .mobile-conversation-page [data-composer-card] > div > div:has(.chat-model-picker) > div:has(> :is([data-slot="eleckoi.roleplay.conversation.input.activity"], [data-slot="eleckoi.creator-studio.input.activity"])) { order: 1; }

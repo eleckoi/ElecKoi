@@ -20,7 +20,11 @@
       "types": "./src/projections.d.ts"
     },
     "./package.json": "./package.json",
-    "./locale/*.json": "./locale/*.json"
+    "./locale/*.json": "./locale/*.json",
+    "./host/uploaded-file-tools.mjs/locale/*.json": "./locale/host/uploaded-file-tools/*.json",
+    "./host/variable-tools.mjs/locale/*.json": "./locale/host/variable-tools/*.json",
+    "./host/setting-library-tools.mjs/locale/*.json": "./locale/host/setting-library-tools/*.json",
+    "./host/roleplay-plan-tool.mjs/locale/*.json": "./locale/host/roleplay-plan-tool/*.json"
   },
   "dsh": {
     "bundle": {
@@ -47,6 +51,8 @@
     "@deepseek-ai/dsh-session-projection": "0.2.1-rc.5",
     "@deepseek-ai/dsh-session-projection-cache": "0.2.1-rc.5",
     "@deepseek-ai/dsh-spill-local": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.5",
+    "@eleckoi/dsh-product-api": "workspace:*",
     "@eleckoi/dsh-product-data": "workspace:*",
     "yaml": "2.9.0",
     "zod": "4.1.11"

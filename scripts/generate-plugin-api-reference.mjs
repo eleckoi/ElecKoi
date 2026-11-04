@@ -231,6 +231,8 @@ async function checkClientImplementation(root, row, members) {
   const document = { createElement: () => ({}), head: { appendChild: script => queueMicrotask(() => script.onload()) } }
   const window = { document, __ELECKOI_HTML_RESOURCES__: { baseUrl: assetsBaseUrl }, location: { href: assetsBaseUrl }, __ModuleLoader__: { load: entry => { plugin = entry.factory(name => {
     if (name === 'react') return react
+    // UI entries are registered but never rendered by the service contract probe.
+    if (name === '@deepseek-ai/dsh-client-ui-primitives') return { MenuItemButton: () => null, IconTrashOutlineRegular: () => null, Modal: () => null, Button: () => null }
     // 边界⑥ 的信封拆解：探针只要求「插件能装配起来、把内部服务暴露出来」，不会走进失败分支，
     // 所以这里给一个同形状的最小桩；真实实现与它的用例在 packages/host/product-api。
     if (name === '@eleckoi/dsh-product-api') return {

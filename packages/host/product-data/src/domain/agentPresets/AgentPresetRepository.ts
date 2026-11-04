@@ -6,6 +6,7 @@ import { and, asc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import {
   AGENT_TOOL_GROUPS,
+  CREATOR_AGENT_TOOL_GROUP_IDS,
   DEFAULT_AGENT_TOOL_GROUP_IDS,
   agentToolGroups
 } from '@product-data/domain/agentTools'
@@ -1050,7 +1051,7 @@ function emptyPreset(id: string, name: string, versionId: string, libraryGroupId
     entries: prompts.entries,
     groups: [],
     promptPositions: prompts.promptPositions,
-    toolGroups: purpose === 'creator' ? agentToolGroups(new Set(['builtin:creator'])).map(group => ({ ...group, included: group.id === 'builtin:creator' })) : agentToolGroups(),
+    toolGroups: purpose === 'creator' ? agentToolGroups(CREATOR_AGENT_TOOL_GROUP_IDS) : agentToolGroups(),
     roleplayPlan: defaultRoleplayPlanSettings(),
     regexRules: [],
     expandedGroupIds: []
@@ -1058,7 +1059,7 @@ function emptyPreset(id: string, name: string, versionId: string, libraryGroupId
 }
 
 function defaultContents(purpose: AgentPresetPurpose): Array<[string, string]> {
-  const enabledIds = purpose === 'creator' ? ['builtin:creator'] : [...DEFAULT_AGENT_TOOL_GROUP_IDS]
+  const enabledIds = purpose === 'creator' ? [...CREATOR_AGENT_TOOL_GROUP_IDS] : [...DEFAULT_AGENT_TOOL_GROUP_IDS]
   return [
     [CONTENT_USAGE_INSTRUCTIONS, ''],
     [CONTENT_TIMELINE, '[]'],

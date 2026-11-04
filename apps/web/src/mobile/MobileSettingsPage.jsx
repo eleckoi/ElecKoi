@@ -6,6 +6,7 @@ import { Avatar } from '../ui/ui/Avatar.jsx';
 import { TunerSliderRow } from '../ui/ui/TunerSliderRow.jsx';
 import { UnsavedChangesDialog } from '../ui/ui/UnsavedChangesDialog.jsx';
 import { ChatDisplayPreview, UserProfileSettings } from '../modules/settings/components/SettingsPanel.jsx';
+import { RoleplayStyleControls } from '../modules/settings/components/ChatDisplaySettings.jsx';
 import { AboutSettings } from '../modules/settings/components/AboutSettings.jsx';
 import { chatDisplaySettings, chatDisplayTuners, chatLayouts, avatarShapes, textColorOptions, richMessageFloorTuner, richMessageLimitDescription } from '../modules/settings/model/chatDisplaySettings.js';
 import { MobileHeader, useMobileBack, useMobileScroll } from './MobileChrome.jsx';
@@ -79,7 +80,7 @@ function ProfileAvatars({ owner, children }) {
 
 const detailTitles = {
   'chat:layout': '对话布局', 'chat:avatar': '头像与名字', 'chat:text': '正文文字',
-  'chat:spacing': '间距与留白', 'chat:colors': '文本颜色', 'chat:bubble': '气泡样式',
+  'chat:spacing': '间距与留白', 'chat:colors': '文本颜色', 'chat:bubble': '布局独有风格', 'chat:style': '布局独有风格',
   'chat:rich': '富消息',
 };
 /** 设置项已从设置列表消失时的失败（码给用户话，这里只写开发者诊断）。 */
@@ -214,7 +215,8 @@ export function MobileSettingsPage() {
         <SettingsRow icon={ArrowsOutLineVertical} label="间距与留白" value={`${profile.reply_spacing} / ${profile.turn_spacing}`} onClick={() => open('chat:spacing')} />
         <SettingsRow icon={Palette} label="文本颜色" onClick={() => open('chat:colors')} />
         <SettingsRow icon={ChatCircleDots} label="富消息" onClick={() => open('chat:rich')} />
-        {layout === 'agent' && <SettingsRow icon={ChatCircleDots} label="气泡样式" onClick={() => open('chat:bubble')} />}
+        {layout === 'roleplay' && <SettingsRow icon={ChatCircleDots} label="布局独有风格" value={model.roleplayStyle.bubbles_enabled ? '有气泡' : '无气泡'} onClick={() => open('chat:style')} />}
+        {layout === 'agent' && <SettingsRow icon={ChatCircleDots} label="布局独有风格" onClick={() => open('chat:bubble')} />}
       </SettingsGroup>
       <SettingsGroup><SettingsSwitch label="生成统计" checked={preferences.generation_stats_enabled} onChange={value => updatePreferences({ generation_stats_enabled: value })} /></SettingsGroup>
       {layout === 'roleplay' && <SettingsGroup><SettingsSwitch label="聊天时间戳" checked={preferences.roleplay_timestamps_enabled} onChange={value => updatePreferences({ roleplay_timestamps_enabled: value })} />
@@ -244,6 +246,8 @@ export function MobileSettingsPage() {
   } else if (page === 'chat:colors') {
     content = <><SettingsGroup>{textColorOptions.map(option => <label key={option.key} className="mobile-settings-color"><span>{option.label}</span><input type="color" aria-label={option.label} value={preferences.text_colors[option.key]} onChange={event => model.updateTextColor(option.key, event.target.value)} /></label>)}</SettingsGroup>
       <button type="button" className="mobile-settings-reset" onClick={model.resetTextColors}>恢复默认</button></>;
+  } else if (page === 'chat:style' && layout === 'roleplay') {
+    content = <SettingsGroup><div className="chat-display-design ec-style-mobile"><RoleplayStyleControls model={model} /></div></SettingsGroup>;
   } else if (page === 'chat:bubble' && layout === 'agent') {
     content = <SettingsGroup><SettingsSwitch label="角色气泡" checked={profile.assistant_bubble_enabled} onChange={value => updateProfile({ assistant_bubble_enabled: value })} /><div className="mobile-settings-tuners">{tune('bubble_corner_radius')}</div></SettingsGroup>;
   } else if (page === 'notifications' && replyNotifications) {
@@ -261,7 +265,7 @@ export function MobileSettingsPage() {
     <MobileHeader title={title} back={back} />
     <div ref={scroll} className="mobile-settings-scroll" key={page}>
       {content}
-      {['chat:layout', 'chat:avatar', 'chat:text', 'chat:spacing', 'chat:bubble'].includes(page) && <section className="mobile-settings-preview" aria-label="实时预览"><h2>实时预览</h2><ChatDisplayPreview preferences={preferences} persona={chat.persona} /></section>}
+      {['chat:layout', 'chat:avatar', 'chat:text', 'chat:spacing', 'chat:bubble', 'chat:style'].includes(page) && <section className="mobile-settings-preview" aria-label="实时预览"><h2>实时预览</h2><ChatDisplayPreview preferences={preferences} persona={chat.persona} /></section>}
     </div>
   </div>;
 }

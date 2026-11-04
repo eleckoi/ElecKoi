@@ -66,7 +66,7 @@ async function fixture({ legacy = false } = {}) {
     workspaceRegistry: { pinnedSessionIds: [] },
     sessionController: controller, agents: { get: () => agent },
     eleckoiProductData: { readCharacters: () => ({ items: characters }), readAgentPresetCatalog: () => ({ activePresetIds: { creator: preset.id } }), readAgentPreset: () => preset },
-    agentPresets: { register: async () => () => {}, recompose: async () => {} },
+    agentPresets: { readDocument: async () => ({ content: '[]' }), register: async () => () => {}, recompose: async () => {} },
     agentDefaultModel: { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) },
     llm: { resolveModelInfo: async () => ({}) }, settings: { describe: () => [] },
     on: (name, listener) => { listeners.set(name, listener); return () => {} }, get: () => tools,

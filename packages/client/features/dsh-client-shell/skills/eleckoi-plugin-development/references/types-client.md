@@ -423,7 +423,7 @@ export interface CreatorStudioConversationSnapshot {
 }
 ```
 
-源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:13](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L13)
+源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:15](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L15)
 
 ## CreatorStudioSessions
 
@@ -432,7 +432,8 @@ export interface CreatorStudioSessions {
     getSnapshot(): CreatorStudioConversationSnapshot;
     subscribe(listener: () => void): () => void;
     refresh(): Promise<CreatorStudioSessionSummary[]>;
-    create(characterId?: string): Promise<CreatorStudioSession | undefined>;
+    create(characterId?: string, workspaceId?: string): Promise<CreatorStudioSession | undefined>;
+    startWorkspace(workspaceId?: string, options?: { prompt?: string; whenDraftExists?: 'append' | 'keep' | 'replace'; }): Promise<void>;
     open(sessionId: string): Promise<CreatorStudioSession | undefined>;
     restoreRecent(): Promise<CreatorStudioSession | undefined>;
     rename(sessionId: string, title: string): Promise<void>;
@@ -449,7 +450,7 @@ export interface CreatorStudioSessions {
 }
 ```
 
-源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:21](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L21)
+源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:23](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L23)
 
 ## CreatorStudioSnapshot
 
@@ -461,7 +462,7 @@ export interface CreatorStudioSnapshot {
 }
 ```
 
-源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:48](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L48)
+源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:52](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L52)
 
 ## EditorLibraryVersionModel
 

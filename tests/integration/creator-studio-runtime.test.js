@@ -74,6 +74,7 @@ async function fixture(stream, creatorTools = true, { compaction = false, subage
   ctx.loader.builtins['synthetic-compaction'] = BasicCompactionEngine
   ctx.loader.builtins['synthetic-compact-command'] = compactCommand
   await ctx.plugin(AgentPresetRegistry, { default: 'synthetic-studio-preset' })
+  await ctx.agentPresets.register({ id: 'cordis', name: 'Synthetic baseline', plugins: [] })
   const requests = []
   const modelInfo = { synthetic: { reasoning: { efforts: [{ id: 'high', name: '合成高档位' }] }, defaultMaxTokens: 1024, context: { contextWindow: 1_000_000 } } }
   class Adapter extends LlmAdapter {
@@ -551,7 +552,7 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     let service
     const dispose = await installCreatorStudioRuntime({
       agents: f.ctx.agents, eleckoiProductData: f.ctx.eleckoiProductData,
-      agentPresets: { register: async () => () => {}, recompose: async () => {} },
+      agentPresets: { readDocument: async () => ({ content: '[]' }), register: async () => () => {}, recompose: async () => {} },
       agentDefaultModel: { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) },
       llm: f.ctx.llm, settings: f.ctx.settings, sessionProjections: f.ctx.sessionProjections,
       on: f.ctx.on.bind(f.ctx), get: f.ctx.get.bind(f.ctx),

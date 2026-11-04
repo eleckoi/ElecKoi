@@ -4,6 +4,7 @@ import type { DesktopHostFailureNotice } from '@shared/contracts/errors/ipc'
 import type { UpdateInstallResult, UpdateStatus } from '@shared/contracts/updates/schemas'
 import { hasDesktopIpcFailureMarker, unwrapDesktopIpcResult } from '@shared/foundation/ipcFailure'
 import { installWindowsMenu } from './windowsMenu'
+import { installWindowsAppearance } from './windowsAppearance'
 
 /**
  * 边界⑤ preload 侧的**薄适配器**：调一次请求/响应通道。
@@ -97,9 +98,10 @@ if (documentLocation?.protocol === 'dsh-app:' && documentLocation.hostname === '
   if (process.platform === 'win32') {
     const installMenu = (): void => {
       const menu = installWindowsMenu()
+      const disposeAppearance = installWindowsAppearance()
       const language = new MutationObserver(() => menu.update())
       language.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
-      window.addEventListener('pagehide', () => { language.disconnect(); menu.dispose() }, { once: true })
+      window.addEventListener('pagehide', () => { language.disconnect(); menu.dispose(); disposeAppearance() }, { once: true })
     }
     if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', installMenu, { once: true })
     else installMenu()

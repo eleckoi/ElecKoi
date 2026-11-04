@@ -11,7 +11,7 @@ it('bridges the official view roster, header, plugin children and composer witho
   let registration: any
   runInNewContext(source, { window: { __ModuleLoader__: { load(value: unknown) { registration = value } } } })
   const effects: Array<() => () => void> = [], cleanups: Array<() => void> = []
-  const React = { createElement: (type: unknown, props: unknown, ...children: unknown[]) => ({ type, props, children }), useLayoutEffect: (effect: () => () => void) => effects.push(effect) }
+  const React = { lazy: () => () => null, createElement: (type: unknown, props: unknown, ...children: unknown[]) => ({ type, props, children }), useLayoutEffect: (effect: () => () => void) => effects.push(effect) }
   const slots: any = new SlotCore()
   slots.inject = (name: string, install: () => () => void) => {
     let dispose: (() => void) | undefined
@@ -26,7 +26,7 @@ it('bridges the official view roster, header, plugin children and composer witho
     'conversation.composer.bar': { kind: 'single', scope: 'session-maybe' },
   } }, () => null)
   const release = vi.fn(), retain = vi.fn(() => ({ release }))
-  registration.factory(() => React).apply({ remote: {}, sessions: { retain }, slots, provide() {}, effect() {} })
+  registration.factory(() => React).apply({ remote: {}, sessions: { retain }, get: () => ({ openSession: retain }), slots, provide() {}, effect() {} })
   const store = () => null, inject = () => ({ hooks: {} })
   const register = (options: any, component: any = () => null) => { const dispose = slots.register(options, component); cleanups.push(dispose); return dispose }
   register({ name: 'conversation.session', store, inject, children: { 'conversation.view': { kind: 'list', scope: 'session' } } })
@@ -66,8 +66,8 @@ it('bridges the official view roster, header, plugin children and composer witho
   const conversation = entry('eleckoi.creator-studio.conversation')
   conversation.component({ reference: { sessionId: 'synthetic-visible-studio' }, SessionProvider: 'Provider', renderSlot: () => null })
   const unmount = effects[0]!()
-  expect(retain).toHaveBeenCalledWith('synthetic-visible-studio', { source: 'mainView' })
-  unmount(); expect(release).toHaveBeenCalledOnce()
+  expect(retain).toHaveBeenCalledWith('synthetic-visible-studio')
+  expect(unmount).toBeUndefined(); expect(release).not.toHaveBeenCalled()
   removeView(); removeAction(); await settle()
   expect(slots.entriesOfSlot('eleckoi.creator-studio.view')).toHaveLength(0)
   expect(slots.spec('eleckoi.creator-studio.synthetic-gallery.actions')).toBeUndefined()
@@ -75,7 +75,7 @@ it('bridges the official view roster, header, plugin children and composer witho
   root()
 })
 
-function studioSessions(items: Array<{ sessionId: string; title: string; pinned: boolean }>) {
+function studioSessions(items: Array<{ sessionId: string; title: string; pinned: boolean }>, workspaceItems: any[] = []) {
   let registration: any
   const services = new Map<string, any>()
   const releases: string[] = []
@@ -84,21 +84,83 @@ function studioSessions(items: Array<{ sessionId: string; title: string; pinned:
     list: vi.fn(async () => ({ ok: true, value: items.map(item => ({ ...active(item.sessionId), ...item })) })),
     open: vi.fn(async (id: string) => ({ ok: true, value: active(id) })),
     create: vi.fn(async () => ({ ok: true, value: active('synthetic-new-session') })),
+    delete: vi.fn(async (_id: string) => ({ ok: true, value: undefined })),
     regenerate: vi.fn(async (_id: string) => ({ ok: true, value: undefined })),
     deleteMessagesFrom: vi.fn(async (_id: string, _seq: number, _role: string) => ({ ok: true, value: undefined })),
   }
   const selectModel = vi.fn(async (selection: { sessionId: string; provider: string; model: string }) => ({ ok: true, value: { selected: selection } }))
+  const draft = vi.fn(() => 'accepted')
+  const inputState = { draft: '', attachmentIds: [] as string[] }
+  const list = { ids: items.map(item => item.sessionId), byId: Object.fromEntries(items.map(item => [item.sessionId, { ...item, blank: true, updatedAt: 1 }])) }
   runInNewContext(source, { AbortController, AbortSignal, window: { __ModuleLoader__: { load(value: unknown) { registration = value } } } })
   dshClientPlugin(registration).apply({
     remote: { eleckoiCreatorStudioSessions: remote, session: { selectModel } },
-    sessions: { refresh: async () => {}, retain: (id: string) => ({ ready: Promise.resolve(), release: () => releases.push(id) }) },
+    sessions: { list: { getSnapshot: () => list }, binding: (sessionId: string) => ({ sessionId }), scope: () => ({}), refresh: async () => {}, retain: (id: string) => ({ ready: Promise.resolve(), release: () => releases.push(id) }) },
+    workspaces: { list: { getSnapshot: () => ({ items: workspaceItems }) }, initializeDefault: async () => undefined },
+    get: () => ({ input: { requestDraftInitialization: draft, for: () => ({ state: { getSnapshot: () => inputState } }) } }),
     provide: (name: string, value: unknown) => services.set(name, value),
     effect: () => {},
   })
-  return { model: services.get('eleckoiCreatorStudio').sessions, remote, releases, selectModel }
+  return { model: services.get('eleckoiCreatorStudio').sessions, remote, releases, selectModel, draft, inputState }
 }
 
 describe('Studio Session binding and restoration', () => {
+  it('keeps the active reference when deletion fails and releases it only after successful deletion', async () => {
+    const f = studioSessions([{ sessionId: 'synthetic-current', title: 'Synthetic creation', pinned: false }])
+    await f.model.open('synthetic-current')
+    f.remote.delete.mockRejectedValueOnce(new Error('Synthetic cleanup blocked'))
+    await expect(f.model.delete('synthetic-current')).rejects.toThrow('Synthetic cleanup blocked')
+    expect(f.model.getSnapshot().active?.sessionId).toBe('synthetic-current')
+    expect(f.releases).toEqual([])
+    f.remote.list.mockResolvedValueOnce({ ok: true, value: [] })
+    await f.model.delete('synthetic-current')
+    expect(f.model.getSnapshot().active).toBeNull()
+    expect(f.releases).toEqual(['synthetic-current'])
+  })
+  it('creates in the explicitly chosen workspace and otherwise inherits the active workspace', async () => {
+    const f = studioSessions([{ sessionId: 'synthetic-current', title: 'Synthetic creation', pinned: false }], [
+      { workspaceId: 'synthetic-a', sessionIds: ['synthetic-current'], createdAt: '2026-01-01' },
+      { workspaceId: 'synthetic-b', sessionIds: [], createdAt: '2026-01-02' },
+    ])
+    await f.model.open('synthetic-current')
+    await f.model.create('synthetic-character')
+    expect(f.remote.create).toHaveBeenLastCalledWith('synthetic-character', 'synthetic-a')
+    await f.model.create('', 'synthetic-b')
+    expect(f.remote.create).toHaveBeenLastCalledWith('', 'synthetic-b')
+  })
+  it('prepares plugin text through the official draft API without creating or submitting another blank', async () => {
+    const f = studioSessions([{ sessionId: 'synthetic-current', title: 'Synthetic creation', pinned: false }])
+    await f.model.open('synthetic-current')
+    await f.model.startWorkspace(undefined, { prompt: 'Synthetic plugin task', whenDraftExists: 'append' })
+    expect(f.remote.create).not.toHaveBeenCalled()
+    expect(f.draft).toHaveBeenCalledWith({ sessionId: 'synthetic-current' }, { prompt: 'Synthetic plugin task', whenDraftExists: 'append' })
+  })
+  it('reuses the current blank in its workspace when New Session is requested again', async () => {
+    const f = studioSessions([{ sessionId: 'synthetic-current', title: 'Synthetic creation', pinned: false }], [
+      { workspaceId: 'synthetic-workspace', sessionIds: ['synthetic-current'], createdAt: '2026-01-01' },
+    ])
+    await f.model.open('synthetic-current')
+    await f.model.create()
+    expect(f.remote.create).not.toHaveBeenCalled()
+    expect(f.model.getSnapshot().active.sessionId).toBe('synthetic-current')
+  })
+  it('retains a blank draft owner while changing workspace and releases it after restoring or disposing', async () => {
+    const f = studioSessions([{ sessionId: 'synthetic-current', title: 'Synthetic creation', pinned: false }], [
+      { workspaceId: 'synthetic-a', sessionIds: ['synthetic-current'], createdAt: '2026-01-01' },
+      { workspaceId: 'synthetic-b', sessionIds: [], createdAt: '2026-01-02' },
+    ])
+    await f.model.open('synthetic-current')
+    f.inputState.draft = 'Synthetic draft'
+    f.inputState.attachmentIds = ['synthetic-file']
+    await f.model.startWorkspace('synthetic-b')
+    expect(f.releases).not.toContain('synthetic-current')
+    expect(f.inputState.attachmentIds).toEqual(['synthetic-file'])
+    await f.model.startWorkspace('synthetic-a')
+    expect(f.model.getSnapshot().active.sessionId).toBe('synthetic-current')
+    expect(f.releases.filter(id => id === 'synthetic-current')).toHaveLength(1)
+    f.model.dispose()
+    expect(f.releases.filter(id => id === 'synthetic-current')).toHaveLength(2)
+  })
   it('refreshes the exact active Session target after a creation tool and ignores a late previous binding', async () => {
     const f = studioSessions([{ sessionId: 'synthetic-studio-a', title: '合成工作室甲', pinned: false }])
     await f.model.open('synthetic-studio-a')
