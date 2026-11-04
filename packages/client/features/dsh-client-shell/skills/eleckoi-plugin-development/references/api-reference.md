@@ -6,7 +6,7 @@
 
 本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.1-rc.5`，提交 `b830ec950faba0a46dda564be3e2d854afed94f1`。
 
-当前共 **17 个 bundle、111 个开发接口**：67 个界面插槽、21 个服务、0 个事件、2 个贡献点、21 个 Remote 合同。
+当前共 **17 个 bundle、108 个开发接口**：60 个界面插槽、21 个服务、0 个事件、6 个贡献点、21 个 Remote 合同。
 
 接口标题和说明用于插件中心展示；真实调用合同以对应类型导出和实现为准。完整参数、返回值和数据字段见 [Client 参考](api-client.md)、[Host 参考](api-host.md) 与 [Remote 调用声明](api-remote.md)。使用方法见 [界面插槽](ui-slots.md)、[服务接口](services.md) 与 [能力贡献](contributions.md)。
 
@@ -23,7 +23,7 @@
 | `@eleckoi/dsh-client-persona` | 1 | 1 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-presets` | 7 | 1 | 0 | 0 | 0 | 8 |
 | `@eleckoi/dsh-client-web-search` | 0 | 1 | 0 | 0 | 0 | 1 |
-| `@eleckoi/dsh-client-shell` | 17 | 1 | 0 | 0 | 0 | 18 |
+| `@eleckoi/dsh-client-shell` | 10 | 1 | 0 | 4 | 0 | 15 |
 | `@eleckoi/dsh-client-roleplay` | 29 | 1 | 0 | 0 | 0 | 30 |
 | `@eleckoi/dsh-auto-illustration` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-author` | 0 | 2 | 0 | 0 | 0 | 2 |
@@ -158,13 +158,10 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `eleckoi.shell.window` | 窗口呈现 | 界面插槽 | 提供 | `replace` | `root` | 按运行平台装配窗口页面，保留共享 Client 业务服务和导航合同。 | — |
 | `layout` | 桌面布局服务 | 服务 | 提供 | `call` | `client` | 切换主面板并控制桌面导航和侧栏。 | `selectPanel`、`beginNavigation`、`toggleSidebar`、`openRightbar`、`closeRightbar` |
-| `sidebar.brand.mark` | 品牌图标 | 界面插槽 | 提供 | `replace` | `root` | 提供侧边栏品牌图标。 | — |
-| `sidebar.brand.name` | 品牌名称 | 界面插槽 | 提供 | `replace` | `root` | 提供侧边栏品牌名称。 | — |
-| `sidebar.toggle.badge` | 侧栏收起按钮内容 | 界面插槽 | 提供 | `replace` | `root` | 提供侧栏收起按钮附加内容。 | — |
-| `sidebar.panellist` | 导航入口 | 界面插槽 | 提供 | `append` | `root` | 向侧边栏增加主导航入口。 | — |
-| `sidebar.workspaces` | 工作区入口 | 界面插槽 | 提供 | `replace` | `root` | 提供侧边栏工作区入口。 | — |
-| `sidebar.settings` | 设置入口 | 界面插槽 | 提供 | `replace` | `root` | 提供侧边栏设置入口。 | — |
-| `sidebar.footer.action` | 侧栏底部操作 | 界面插槽 | 提供 | `append` | `root` | 向侧边栏底部增加操作。 | — |
+| `sidebar.brand.mark` | 品牌图标 | 贡献点 | 接入 | `replace` | `root` | 向官方侧边栏提供品牌图标。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
+| `sidebar.brand.name` | 品牌名称 | 贡献点 | 接入 | `replace` | `root` | 向官方侧边栏提供品牌名称。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
+| `sidebar.panellist` | 导航入口 | 贡献点 | 接入 | `append` | `root` | 向侧边栏增加主导航入口。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
+| `sidebar.panellist.actions` | 更多菜单工作区入口 | 贡献点 | 接入 | `append` | `root` | 向官方更多菜单增加进入工作区界面的操作。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
 | `sidebar` | 侧边栏 | 界面插槽 | 提供 | `replace` | `root` | 替换桌面侧边栏。 | — |
 | `main` | 主面板 | 界面插槽 | 提供 | `register` | `root` | 按面板键注册桌面主页面。 | — |
 | `rightbar` | 右侧面板 | 界面插槽 | 提供 | `replace` | `root` | 提供桌面右侧面板。 | — |

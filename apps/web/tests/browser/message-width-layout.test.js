@@ -11,7 +11,7 @@ const { build } = createRequire(require.resolve('vite/package.json'))('esbuild')
 it('bounds Markdown to its reading column and scrolls wide tables within it on PC and mobile', async () => {
   const directory = await mkdtemp(resolve(tmpdir(), 'eleckoi-message-layout-'));
   try {
-    await build({ entryPoints: ['apps/web/tests/browser/message-layout.fixture.jsx'], outfile: resolve(directory, 'fixture.js'), bundle: true, format: 'iife', jsx: 'automatic', alias: { '@shared': resolve('packages/shared/src') }, loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file', '.png': 'file' }, logLevel: 'silent' });
+    await build({ entryPoints: ['apps/web/tests/browser/message-layout.fixture.jsx'], outfile: resolve(directory, 'fixture.js'), bundle: true, format: 'iife', jsx: 'automatic', alias: { '@shared': resolve('packages/shared/src') }, loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file', '.png': 'file', '.svg': 'dataurl' }, logLevel: 'silent' });
     const htmlPath = resolve(directory, 'fixture.html'), reportPath = resolve(directory, 'report.json');
     await writeFile(htmlPath, '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="fixture.css"><style>#eleckoi-root{--chat-reading-width:680px;--dsw-font-markdown-base:16px/1.5 sans-serif}.chat-panel{height:100%}</style></head><body><div id="eleckoi-root"></div><script src="fixture.js"></script></body></html>');
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;

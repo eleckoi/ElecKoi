@@ -14,7 +14,7 @@ it('commits every rich card without scrolling on first entry and after changing 
   try {
     await build({ entryPoints: ['apps/web/tests/browser/rich-message-settling.fixture.jsx'], outfile: resolve(directory, 'fixture.js'),
       bundle: true, format: 'iife', alias: { '@shared': resolve('packages/shared/src') },
-      loader: { '.png': 'file', '.woff2': 'file', '.woff': 'file', '.ttf': 'file' }, logLevel: 'silent' });
+      loader: { '.png': 'file', '.woff2': 'file', '.woff': 'file', '.ttf': 'file', '.svg': 'dataurl' }, logLevel: 'silent' });
     for (const file of [...BROWSER_LIBRARY_SCRIPTS, ...BROWSER_LIBRARY_STYLES]) {
       const destination = resolve(directory, 'libraries', file);
       await mkdir(dirname(destination), { recursive: true });
