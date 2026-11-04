@@ -6,12 +6,13 @@ import { MobileAddCircleIcon, MobileBackIcon, MobileSidebarIcon } from './Mobile
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
 import { FailureAlert } from '../ui/ui/FailureAlert.jsx';
 
-export function MobileHeader({ title, back, onSearch, onAdd, addLabel = '新增', children }) {
+export function MobileHeader({ title, back, leading, onSearch, onAdd, addLabel = '新增', children }) {
   const view = useMainPageView();
   return <header className="mobile-header">
     <button type="button" aria-label={back ? '返回' : '打开侧边栏'} disabled={view.routeBusy} onClick={back || view.openDrawer}>
       {back ? <MobileBackIcon /> : <MobileSidebarIcon />}
     </button>
+    {leading}
     <h1>{title}</h1>
     <div className="mobile-header-actions">
       {onSearch && <button type="button" aria-label={`搜索${title}`} onClick={onSearch}><DshSearchIcon size={21} /></button>}

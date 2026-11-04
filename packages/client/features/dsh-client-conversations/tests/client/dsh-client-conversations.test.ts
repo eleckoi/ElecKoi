@@ -482,23 +482,39 @@ describe('DSH ElecKoi conversation client model', () => {
     } finally { mounted.dispose() }
   })
 
-  it('admits a formally identified Studio Session without preparing a roleplay chat', async () => {
+  it('leaves native coding and Studio Sessions on their official send path while a roleplay chat is selected', async () => {
     const mounted = mountCatalog(async () => ({ ok: true, data: [] }))
     const catalog = mounted.catalog as any
     await settle()
-    let studio: unknown = { presetId: 'synthetic-creator-preset', characterId: 'synthetic-character' }
-    catalog.sessions = { binding: (id: string) => id === 'synthetic-studio-session'
-      ? { session: { projections: { faceOf: (key: string) => {
-        expect(key).toBe('eleckoiCreatorStudio')
-        return { getSnapshot: () => studio }
-      } } } } : undefined }
+    catalog.snapshot = { ...catalog.snapshot, items: [{ id: 'roleplay-chat', runtimeSessionId: 'roleplay-session' }] }
+    catalog.detailsSnapshot = { ...catalog.detailsSnapshot, id: 'roleplay-chat' }
+    const prepare = vi.fn()
+    catalog.remote.eleckoiConversations.preparePrompt = prepare
     try {
-      await expect(catalog.prepareNativeInput({ sessionId: 'synthetic-studio-session', text: 'Synthetic edit' })).resolves.toEqual({ kind: 'success' })
-      studio = null
-      await expect(catalog.prepareNativeInput({ sessionId: 'synthetic-studio-session', text: 'Synthetic edit' })).resolves.toEqual({ kind: 'error', text: '当前聊天与输入框会话不一致。' })
-      const signal = AbortSignal.abort()
-      studio = { presetId: 'synthetic-creator-preset', characterId: '' }
-      await expect(catalog.prepareNativeInput({ sessionId: 'synthetic-studio-session', signal })).rejects.toMatchObject({ name: 'AbortError' })
+      for (const sessionId of ['synthetic-coding-session', 'synthetic-studio-session']) {
+        await expect(catalog.prepareNativeInput({ sessionId, text: 'Synthetic edit' })).resolves.toEqual({ kind: 'success' })
+        await expect(catalog.prepareNativeInput({ sessionId, signal: AbortSignal.abort() })).rejects.toMatchObject({ name: 'AbortError' })
+      }
+      expect(prepare).not.toHaveBeenCalled()
+    } finally { mounted.dispose() }
+  })
+  it('still prepares the exact owned roleplay Session and rejects a stale roleplay composer', async () => {
+    const mounted = mountCatalog(async () => ({ ok: true, data: [] }))
+    const catalog = mounted.catalog as any
+    await settle()
+    catalog.snapshot = { ...catalog.snapshot, items: [
+      { id: 'current-chat', runtimeSessionId: 'current-session' },
+      { id: 'previous-chat', runtimeSessionId: 'previous-session' },
+    ] }
+    catalog.detailsSnapshot = { ...catalog.detailsSnapshot, id: 'current-chat' }
+    const prepare = vi.fn(async () => ({ ok: true, value: undefined }))
+    catalog.remote.eleckoiConversations.preparePrompt = prepare
+    catalog.bindOfficialSession = vi.fn()
+    try {
+      await expect(catalog.prepareNativeInput({ sessionId: 'previous-session', text: 'Stale draft' })).resolves.toEqual({ kind: 'error', text: '当前聊天与输入框会话不一致。' })
+      expect(prepare).not.toHaveBeenCalled()
+      await expect(catalog.prepareNativeInput({ sessionId: 'current-session', text: 'Current draft' })).resolves.toEqual({ kind: 'success' })
+      expect(prepare).toHaveBeenCalledExactlyOnceWith('current-chat', 'Current draft', undefined)
     } finally { mounted.dispose() }
   })
   it.each(['complete', 'error', 'cancelled'])('does not revive the retired compaction-only AI row during regeneration (%s)', async outcome => {

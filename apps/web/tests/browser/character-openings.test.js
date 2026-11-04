@@ -14,7 +14,7 @@ it('keeps the standalone opening editor usable across themes, short windows and 
   try {
     await build({ entryPoints: ['apps/web/tests/browser/character-openings.fixture.jsx'], outfile: resolve(directory, 'fixture.js'), bundle: true,
       format: 'iife', jsx: 'automatic', alias: { '@shared': resolve('packages/shared/src') },
-      loader: { '.png': 'dataurl', '.woff2': 'file', '.woff': 'file', '.ttf': 'file' }, logLevel: 'silent' });
+      loader: { '.png': 'dataurl', '.svg': 'dataurl', '.woff2': 'file', '.woff': 'file', '.ttf': 'file' }, logLevel: 'silent' });
     const htmlPath = resolve(directory, 'fixture.html'), reportPath = resolve(directory, 'report.json');
     await writeFile(resolve(directory, 'theme.css'), browserThemeCss());
     await writeFile(htmlPath, '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="fixture.css"></head><body><div id="root" style="height:100vh"></div><script src="fixture.js"></script></body></html>');
@@ -22,7 +22,7 @@ it('keeps the standalone opening editor usable across themes, short windows and 
     await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/character-openings.probe.cjs'), htmlPath, reportPath], { env, timeout: 45000, windowsHide: true });
     const reports = JSON.parse(await readFile(reportPath, 'utf8'));
     expect(reports).toHaveLength(8);
-    for (const { width, height, layout, backupButtons, settingsSeparated, binding, noOpeningVersions } of reports) {
+    for (const { width, height, layout, backupButtons, settingsSeparated, binding, noOpeningVersions, referenceSearchAppearance } of reports) {
       expect(layout.navigation.slice(0, 3)).toEqual(['基础资料', '开场白', '设定库']);
       expect(layout.horizontalOverflow).toBe(false);
       for (const button of [...layout.iconButtons, ...backupButtons]) {
@@ -30,7 +30,11 @@ it('keeps the standalone opening editor usable across themes, short windows and 
         expect(button.right).toBeLessThanOrEqual(layout.panel.right);
         if (width < 700) expect(button.width).toBe(32);
       }
-      expect(layout.toggle.height, JSON.stringify(layout)).toBe(16);
+      expect(layout.switchPresent).toBe(false);
+      expect(layout.search.width).toBeGreaterThan(0);
+      expect(layout.search.x).toBeGreaterThanOrEqual(layout.panel.x);
+      expect(layout.search.right).toBeLessThanOrEqual(layout.controls[0].x);
+      expect(layout.searchAppearance).toEqual(referenceSearchAppearance);
       expect(layout.panel.bottom).toBeLessThanOrEqual(height);
       expect(layout.panel.right).toBeLessThanOrEqual(width);
       for (const control of layout.controls) { expect(control.x).toBeGreaterThanOrEqual(layout.panel.x); expect(control.right).toBeLessThanOrEqual(layout.panel.right); }
@@ -40,8 +44,6 @@ it('keeps the standalone opening editor usable across themes, short windows and 
       if (width>640) {
         expect(layout.controls.map(control=>control.height)).toEqual([36,36]);
         expect(layout.controls[1].x).toBeGreaterThan(layout.controls[0].x);
-        expect(layout.enabled.x).toBeGreaterThan(layout.controls[1].x);
-        expect(layout.enabled.right-layout.controls[0].x).toBeLessThan(320);
         expect(layout.controls[0].y).toBe(layout.controls[1].y);
       }
       expect(settingsSeparated).toBe(true);

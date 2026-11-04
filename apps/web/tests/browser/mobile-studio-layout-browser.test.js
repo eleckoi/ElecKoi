@@ -39,6 +39,14 @@ it('matches the roleplay header height and gives the official Studio trajectory 
       expect(report.header.height + report.tabs.height, evidence).toBe(report.reference.height); expect(report.titleSize, evidence).toBe('14px');
       expect(report.tabs.y, evidence).toBe(report.header.bottom); expect(report.body.y, evidence).toBe(report.tabs.bottom);
       expect(report.actions.every(action => action.height === 40 && action.width === 36), evidence).toBe(true);
+      expect(report.actionLabels, evidence).toEqual(['返回', '工作室侧边栏', '新建工作室对话', '打开右侧边栏']);
+      expect(report.preset.y, evidence).toBeGreaterThanOrEqual(report.header.y);
+      expect(report.preset.bottom, evidence).toBeLessThanOrEqual(report.header.bottom);
+      expect(report.preset.width, evidence).toBeGreaterThan(0);
+      expect(report.corner.x, evidence).toBeGreaterThanOrEqual(report.preset.right);
+      expect(report.more.x, evidence).toBeGreaterThanOrEqual(report.tabs.right);
+      expect(report.more.bottom, evidence).toBeLessThanOrEqual(report.tabs.bottom);
+      expect(report.utilities, evidence).toBe(false);
       expect(report.tabButtons.every(button => button.height === 28), evidence).toBe(true);
       expect(report.bodyWidth, evidence).toBeLessThanOrEqual(report.body.width); expect(report.dialog, evidence).toBe(false);
       expect(report.composer.bottom, evidence).toBeLessThanOrEqual(report.height); expect(report.composer.y, evidence).toBeGreaterThanOrEqual(report.body.bottom);

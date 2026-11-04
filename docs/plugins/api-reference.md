@@ -300,6 +300,7 @@ Android 组合清单为 `apps/android-host/src/androidPluginBundleManifest.json`
 | --- | --- | --- | --- | --- |
 | `@eleckoi/dsh-client-mobile` | `eleckoi.shell.window` | 界面插槽 | 接入 | `@eleckoi/dsh-client-shell` |
 | `@eleckoi/dsh-client-mobile` | `main` | 界面插槽 | 接入 | `@eleckoi/dsh-client-shell` |
+| `@eleckoi/dsh-client-mobile` | `conversation.header.leading` | 界面插槽 | 接入 | `@deepseek-ai/dsh-client-ui-conversation` |
 
 ## 完整性规则
 
@@ -307,4 +308,3 @@ Android 组合清单为 `apps/android-host/src/androidPluginBundleManifest.json`
 - 接口 ID 在整个桌面组合内必须唯一。
 - manifest 变化后必须运行 `pnpm generate:plugin-docs` 更新本表。
 - `pnpm check:plugin-docs` 与 `pnpm build` 会拒绝过期或不完整的总表。
-

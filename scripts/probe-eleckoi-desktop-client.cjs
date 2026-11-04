@@ -30,9 +30,11 @@ let window
 let failed = false
 let modelServer
 let modelRequests = 0
+let workspaceIsolationSetup = false
 let updateProbe
 const modelBodies = []
 const nativeAuthorMode = process.argv.includes('--native-author')
+const pluginCreationMode = process.argv.includes('--plugin-creation-check')
 const chatOnlyMode = process.argv.includes('--chat-only')
 const processDialogMode = process.argv.includes('--process-dialog-check')
 const roleplayToolMode = process.argv.includes('--roleplay-tools-check')
@@ -43,13 +45,32 @@ async function main() {
   const { OPTIONAL_BUNDLES, initProfile, PROFILE_TEMPLATES, readProfileManifest, writeProfileBundles } = await import('@deepseek-ai/dsh-app-boot')
   await app.whenReady()
   modelServer = createServer((_request, response) => {
-    if (nativeAuthorMode || roleplayToolMode) {
+    if (nativeAuthorMode || roleplayToolMode || pluginCreationMode) {
       let body = ''
       _request.setEncoding('utf8')
       _request.on('data', chunk => { body += chunk })
       _request.on('end', () => { modelBodies.push(JSON.parse(body)) })
     }
     modelRequests += 1
+    if (pluginCreationMode && !workspaceIsolationSetup && modelRequests <= 3) {
+      const calls = [
+        ['skill', { name: 'eleckoi-plugin-development' }],
+        ['skill', { name: 'cordis-plugin-development' }],
+        ['read', { file_path: join(dirname(require.resolve('@eleckoi/dsh-client-shell/package.json')), 'skills/eleckoi-plugin-development/references/services.md') }],
+      ]
+      const [name, args] = calls[modelRequests - 1]
+      const item = { id: `plugin-call-${modelRequests}`, type: 'function_call', call_id: `plugin-call-${modelRequests}`, name, arguments: JSON.stringify(args) }
+      response.writeHead(200, { 'content-type': 'text/event-stream' })
+      const events = [
+        { type: 'response.created', response: { id: `plugin-${modelRequests}`, model: 'example-model', status: 'in_progress', output: [] } },
+        { type: 'response.output_item.added', output_index: 0, item: { ...item, arguments: '' } },
+        { type: 'response.function_call_arguments.delta', output_index: 0, item_id: item.id, delta: item.arguments },
+        { type: 'response.output_item.done', output_index: 0, item },
+        { type: 'response.completed', response: { id: `plugin-${modelRequests}`, model: 'example-model', status: 'completed', output: [item], usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } } },
+      ]
+      response.end(events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join(''))
+      return
+    }
     if (roleplayToolMode && modelRequests === 1) {
       response.writeHead(200, { 'content-type': 'text/event-stream' })
       const output = toolScenario.calls
@@ -84,7 +105,7 @@ async function main() {
       response.end(events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join(''))
       return
     }
-    if (nativeAuthorMode || subagentNavigationMode || modelRequests > 1) {
+    if (workspaceIsolationSetup || nativeAuthorMode || subagentNavigationMode || modelRequests > 1) {
       response.writeHead(200, { 'content-type': 'text/event-stream' })
       let text = nativeAuthorMode ? 'Synthetic native reply' : modelRequests === 2 ? 'Synthetic recovered reply' : `Synthetic regenerated reply ${modelRequests}`
       if (chatOnlyMode && process.argv.includes('--handoff-check')) {
@@ -113,7 +134,7 @@ async function main() {
   })
   await new Promise(resolve => modelServer.listen(0, '127.0.0.1', resolve))
   const endpoint = `http://127.0.0.1:${modelServer.address().port}/v1`
-  if (nativeAuthorMode || chatOnlyMode) {
+  if (nativeAuthorMode || chatOnlyMode || pluginCreationMode) {
     const profile = join(root, 'home', 'profiles', 'desktop')
     initProfile(profile, [...PROFILE_TEMPLATES.web.bundles, ...ELECKOI_DESKTOP_BUNDLES])
     registerDesktopBundles(profile)
@@ -124,6 +145,7 @@ async function main() {
       { id: 'llm-pi-ai', config: { providers: { 'synthetic-native': { api: 'openai-responses', baseURL: endpoint,
         apiKeyEnv: 'ELECKOI_SYNTHETIC_PROBE_KEY', models: [{ id: 'example-model', contextWindow: 65536, maxTokens: 8192 }] } } } },
       { id: 'agent-default-model', config: { provider: 'synthetic-native', model: 'example-model' } },
+      ...(pluginCreationMode ? [{ id: 'session-query-sqlite', config: { path: ':memory:', openAt: 'first-search' } }] : []),
     ]))
     process.env.ELECKOI_SYNTHETIC_PROBE_KEY = 'synthetic-probe-key'
   }
@@ -190,9 +212,41 @@ async function main() {
     await window.loadURL('dsh-app://app/?view=creator-studio')
     await waitFor(`Boolean(document.querySelector('.creator-studio-development-enter'))`, 'Creator Studio entry did not render')
     await window.webContents.executeJavaScript(`document.querySelector('.creator-studio-development-enter').click()`)
+    await waitFor(`Boolean(document.querySelector('.creator-simple-chat-header [role="tab"]'))`, 'Studio view row did not render')
+    const tabFrames = []
+    for (const theme of ['light', 'dark']) for (const width of [1440, 900, 700]) {
+      nativeTheme.themeSource = theme
+      window.setSize(width, 900)
+      // Offscreen capture must wait for the resized native surface to commit.
+      await new Promise(resolve => setTimeout(resolve, 250))
+      await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+      const measurements = await window.webContents.executeJavaScript(`(() => {
+        const row = document.querySelector('.creator-simple-view-row');
+        const list = row.querySelector('[role="tablist"]');
+        const tabs = Array.from(list.querySelectorAll('[role="tab"]'));
+        const more = row.querySelector('[data-plugin-entry-more="conversation"]');
+        return { rowHeight: row.getBoundingClientRect().height, tabGap: getComputedStyle(list).gap,
+          moreHeight: more?.getBoundingClientRect().height, moreInsideList: list.contains(more),
+          tabs: tabs.map(tab => { const style = getComputedStyle(tab); return { label: tab.textContent,
+            fontSize: style.fontSize, lineHeight: style.lineHeight, fontWeight: style.fontWeight,
+            height: tab.getBoundingClientRect().height, underlineHeight: getComputedStyle(tab, '::after').height }; }),
+          overflow: document.documentElement.scrollWidth > innerWidth };
+      })()`)
+      if (measurements.rowHeight !== 25 || measurements.tabGap !== '32px' || measurements.moreHeight !== 22
+        || measurements.moreInsideList || measurements.overflow || measurements.tabs.some(tab => tab.fontSize !== '13px'
+          || tab.lineHeight !== '16px' || tab.fontWeight !== '500' || tab.height !== 25 || tab.underlineHeight !== '2px')) {
+        throw new Error('Studio view row differs from locked official measurements: ' + JSON.stringify({ theme, width, measurements }))
+      }
+      tabFrames.push({ theme, width, ...measurements })
+      if (process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT) writeFileSync(process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT.replace(/\.png$/, `-studio-${theme}-${width}.png`), (await window.webContents.capturePage()).toPNG())
+    }
+    nativeTheme.themeSource = 'light'
+    window.setSize(1440, 1000)
+    await new Promise(resolve => setTimeout(resolve, 250))
+    await window.webContents.executeJavaScript(`document.querySelector('.creator-simple-sidebar-toggle[aria-expanded="false"]')?.click()`)
     let previousSession
     for (let index = 0; index < 4; index += 1) {
-      await waitFor(`Boolean(document.querySelector('[data-sidebar-right-expand]')) && Boolean(document.querySelector('[data-sidebar-right-panel]')) && !document.querySelector('.creator-simple-new')?.disabled`, 'Studio sidebar did not bind a conversation')
+      await waitFor(`Boolean(document.querySelector('[data-sidebar-right-expand]')) && Boolean(document.querySelector('[data-sidebar-right-panel]')) && Boolean(document.querySelector('.creator-simple-new')) && !document.querySelector('.creator-simple-new').disabled`, 'Studio sidebar did not bind a conversation')
       const sessionId = await window.webContents.executeJavaScript(`document.querySelector('[data-sidebar-right-panel]').dataset.sidebarRightSession`)
       if (sessionId === previousSession) throw new Error('Studio did not switch the right sidebar Session')
       await window.webContents.executeJavaScript(`document.querySelector('[data-sidebar-right-expand]').click()`)
@@ -213,7 +267,7 @@ async function main() {
     await waitFor(`Boolean(document.querySelector('.creator-simple-conversation [data-composer-input]'))`, 'Studio did not return to its conversation after browsing plugins')
     const failures = errors.filter(error => /Sidebar Session|Slot entry crashed|TypeError/.test(error))
     if (failures.length) throw new Error('Studio right sidebar lifecycle failed: ' + failures.join('\n'))
-    process.stdout.write('Creator Studio right sidebar opened and closed across four new conversations; its official plugin menu opened and returned.\n')
+    process.stdout.write('Creator Studio tabs match locked official sizes: ' + JSON.stringify(tabFrames) + '\nCreator Studio right sidebar opened and closed across four new conversations; its official plugin menu opened and returned.\n')
     return
   }
   await waitFor(`document.querySelector('.side-panel-brand .eleckoi-wordmark')`, 'ElecKoi shell did not render')
@@ -256,6 +310,13 @@ async function main() {
   if (nativeAuthorMode) {
     const { runNativeAuthorScenario } = require('./probe-eleckoi-native-author-scenario.cjs')
     await runNativeAuthorScenario({ window, ready, cookie, waitFor, requests: () => modelRequests, modelBodies, errors, productDataRoot: root })
+    return
+  }
+  if (pluginCreationMode) {
+    const { runPluginCreationScenario } = require('./probe-plugin-creation-scenario.cjs')
+    await runPluginCreationScenario({ window, nativeTheme, hostOptions, remoteCall, waitFor,
+      requests: () => modelRequests, modelBodies, errors,
+      isolationSetup: active => { workspaceIsolationSetup = active; if (!active) { modelRequests = 0; modelBodies.length = 0 } } })
     return
   }
   const checkOptionalPluginCards = async (expectedEnabled = false) => {
@@ -517,7 +578,7 @@ async function main() {
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       return { before, withoutMenu, background: getComputedStyle(document.querySelector('.chat-panel')).backgroundColor,
         iconWidth: menu.querySelector('svg').getBoundingClientRect().width,
-        sidebarIconWidth: document.querySelector('[data-plugin-entry-more="sidebar"] svg').getBoundingClientRect().width };
+        sidebarIconWidth: document.querySelector('.official-sidebar-column button[aria-label="更多"] svg').getBoundingClientRect().width };
       })()`)
       const menuSelector = '[data-plugin-entry-more="conversation"]'
       for (const [selector, box] of Object.entries(geometry.before)) {
@@ -527,7 +588,7 @@ async function main() {
           throw new Error('Plugin menu displaced the existing header: ' + JSON.stringify({ theme, width, selector, box, original }))
         }
       }
-      if (geometry.before[menuSelector].height !== 22 || geometry.before[menuSelector].width !== 22 || geometry.iconWidth !== 13 || geometry.sidebarIconWidth !== 25) {
+      if (geometry.before[menuSelector].height !== 22 || geometry.before[menuSelector].width !== 22 || geometry.iconWidth !== 13 || geometry.sidebarIconWidth !== 18) {
         throw new Error('Plugin menu does not match the official control dimensions: ' + JSON.stringify(geometry))
       }
       results.push({ theme, width, background: geometry.background, titleInset: geometry.before['.chat-header h1'].top - geometry.before['.chat-header'].top,
@@ -553,13 +614,13 @@ async function main() {
       await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="消息"]').click()`)
       await waitFor(`Boolean(document.querySelector('[data-composer-input]'))`, 'Conversation did not restore after browsing plugins')
     }
-    await checkMenu('[data-plugin-entry-more="sidebar"]')
+    await checkMenu('.official-sidebar-column button[aria-label="更多"]')
     await checkMenu('[data-plugin-entry-more="conversation"]')
     await window.webContents.executeJavaScript(`document.querySelector('[data-sidebar-right-expand]').click()`)
     await checkMenu('[data-sidebar-right-guide] button[aria-label="更多工具"]')
     mkdirSync(hostOptions.workspaceRoot, { recursive: true })
     await remoteCall('workspace/create', { request: { path: hostOptions.workspaceRoot } })
-    await window.webContents.executeJavaScript(`document.querySelector('[data-plugin-entry-more="sidebar"]').click()`)
+    await window.webContents.executeJavaScript(`document.querySelector('.official-sidebar-column button[aria-label="更多"]').click()`)
     await waitFor(`Array.from(document.querySelectorAll('[role="menuitem"]')).some(button => button.innerText.includes('创建你的插件'))`, 'Plugin creation action did not render')
     await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('[role="menuitem"]')).find(button => button.innerText.includes('创建你的插件')).click()`)
     await waitFor(`Array.from(document.querySelectorAll('[data-composer-input]')).some(input => input.textContent.includes('创建一个带左侧栏入口的 DSH 插件。'))`, 'Official plugin creation did not initialize the Creator draft')

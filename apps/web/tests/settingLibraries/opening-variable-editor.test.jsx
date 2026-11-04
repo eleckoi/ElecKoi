@@ -43,14 +43,14 @@ describe('opening configuration editor', () => {
       await act(async () => view.container.querySelector('button[aria-label="新建开场白"]').click());
       const select = view.container.querySelector('select');
       await act(async () => { select.value = 'synthetic-variable-version'; select.dispatchEvent(new Event('change', { bubbles: true })); });
-      await act(async () => view.container.querySelector('[role="switch"]').click());
+      expect(view.container.querySelector('[role="switch"]')).toBeNull();
       model.save.mockRejectedValueOnce(new Error('合成保存失败'));
       await act(async () => expect(controller.current.save()).resolves.toBe(false));
       expect(view.container.querySelectorAll('.setting-library-opening-item')).toHaveLength(2);
       expect(stored).toEqual(openingBefore);
       await act(async () => expect(controller.current.save()).resolves.toBe(true));
       const savedOpening = structuredClone(stored);
-      expect(savedOpening.enabled).toBe(false);
+      expect(savedOpening.enabled).toBe(true);
       expect(savedOpening.openingMessages[1].variableVersionId).toBe('synthetic-variable-version');
       expect(settings.entries.find(entry => entry.id === setting.id)).toEqual({ ...setting, updatedAt: expect.any(String) });
       await act(async () => view.root.render(<SettingLibraryPanel characterId="synthetic-character" settingLibraries={settingsModel} />));
@@ -60,10 +60,54 @@ describe('opening configuration editor', () => {
       expect(view.container.querySelectorAll('.setting-library-opening-item')).toHaveLength(2);
       await act(async () => view.container.querySelectorAll('.setting-library-opening-toggle')[1].click());
       expect(view.container.querySelector('select').value).toBe('synthetic-variable-version');
-      await act(async () => view.container.querySelector('[role="switch"]').click());
+      await act(async () => view.container.querySelector('button[aria-label="新建开场白"]').click());
       await act(async () => controller.current.discard());
-      expect(view.container.querySelector('[role="switch"]').getAttribute('aria-checked')).toBe('false');
+      expect(view.container.querySelectorAll('.setting-library-opening-item')).toHaveLength(2);
       expect(stored).toEqual(savedOpening);
+    } finally { await view.dispose(); }
+  });
+
+  it('searches titles and body without editing the library, preserves source ordering and reveals new openings', async () => {
+    let stored = { ...createCharacterOpenings('synthetic-search-character'), enabled: false,
+      defaultOpeningMessageId: 'primary', openingMessages: [
+        { id: 'primary', title: '合成主开场', content: '主正文', initialVariableStateJson: '' },
+        { id: 'middle', title: 'Synthetic SECOND', content: '正文中的末尾关键词', variableVersionId: 'version-a', initialVariableStateJson: '{}' },
+        { id: 'last', title: '合成末条', content: '合成其他正文', initialVariableStateJson: '' },
+      ] };
+    const original = structuredClone(stored), controller = createRef(), dirtyChanged = vi.fn();
+    const model = { getSnapshot: () => ({ status: 'ready', value: stored }), subscribe: () => () => {}, read: async () => stored,
+      save: vi.fn(async (_id, value) => { stored = structuredClone(value); return stored; }) };
+    const view = await render(<CharacterOpeningsPanel ref={controller} characterId={stored.characterId} openings={model} onDirtyChange={dirtyChanged} />);
+    const search = view.container.querySelector('input[aria-label="搜索开场白"]');
+    const fill = async value => act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(search, value);
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    try {
+      expect(view.container.querySelector('[role="switch"]')).toBeNull();
+      await fill(' second ');
+      expect([...view.container.querySelectorAll('.setting-library-opening-toggle strong')].map(node => node.textContent)).toEqual(['Synthetic SECOND']);
+      expect(view.container.querySelector('[aria-label="上移"]').disabled).toBe(true);
+      expect(view.container.querySelector('[aria-label="下移"]').disabled).toBe(false);
+      await fill('末尾关键词');
+      expect(view.container.querySelectorAll('.setting-library-opening-item')).toHaveLength(1);
+      await fill('没有这个内容');
+      expect(view.container.querySelector('[role="status"]').textContent).toBe('没有匹配的开场白');
+      expect(model.save).not.toHaveBeenCalled();
+      expect(dirtyChanged.mock.calls.every(([dirty]) => !dirty)).toBe(true);
+      expect(stored).toEqual(original);
+      await fill('');
+      expect(view.container.querySelectorAll('.setting-library-opening-item')).toHaveLength(3);
+      expect(view.container.querySelector('.setting-library-opening-item.is-expanded strong').textContent).toBe('合成主开场');
+      await fill('没有这个内容');
+      await act(async () => view.container.querySelector('[aria-label="新建开场白"]').click());
+      expect(search.value).toBe('');
+      expect(view.container.querySelectorAll('.setting-library-opening-item')).toHaveLength(4);
+      expect(view.container.querySelector('.setting-library-opening-item.is-expanded strong').textContent).toBe('未命名开场白');
+      await act(async () => controller.current.save());
+      expect(stored.defaultOpeningMessageId).toBe('primary');
+      expect(stored.openingMessages.slice(0, 3)).toEqual(original.openingMessages);
+      expect(stored.openingMessages).toHaveLength(4);
     } finally { await view.dispose(); }
   });
 

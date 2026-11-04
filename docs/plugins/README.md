@@ -4,12 +4,14 @@ ElecKoi 使用 DSH 官方 bundle、Cordis 生命周期和 Web Client Slots 作�
 
 本文档对应以下固定基准：
 
-- ElecKoi Desktop：`0.2.9`
+- ElecKoi Desktop：`0.2.17`
 - DSH：`0.2.1-rc.5`
 - DSH 提交：`b830ec950faba0a46dda564be3e2d854afed94f1`
 - 插件接口与数量：[自动生成的开发接口总表](api-reference.md)
 
 ## 从哪里开始
+
+PC 用户可以从左侧「更多 → 创建你的插件」进入官方创造模式。它内置官方开发技能与模板，并能按需读取 ElecKoi 的补充技能和公开开发文档；流程和资料归属见 [从创建插件开始](create-plugin.md)。
 
 1. 按 [快速入门](quick-start.md) 创建一个可安装的最小 bundle。
 2. 先阅读 [架构与边界](architecture.md)，确定代码应运行在 Host 还是 Web Client。
@@ -24,6 +26,7 @@ ElecKoi 使用 DSH 官方 bundle、Cordis 生命周期和 Web Client Slots 作�
 
 | 文档 | 解决的问题 |
 | --- | --- |
+| [从创建插件开始](create-plugin.md) | 官方创造模式、内置技能、ElecKoi 补充资料与会话边界 |
 | [快速入门](quick-start.md) | 如何创建、安装并运行第一个插件 |
 | [架构与边界](architecture.md) | bundle、Host、Client、Slot、Service 和 Contribution 的关系 |
 | [DSH 与 Cordis 合规基准](upstream-compliance.md) | Cordis 入门、完整教程、DSH 开发指南和架构说明的要求与迁移差异 |

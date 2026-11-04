@@ -12,6 +12,8 @@
 
 升级时先锁定同一上游发布批次的提交、包和构建产物，再把上述引用与本仓库的依赖一起更新。不同版本的官方文件不能混作一次架构依据。
 
+产品组合在官方 `system-prompt` 配置中显式设置 `includeHarnessIdentity: false`，关闭上游默认开启的固定 Harness 身份介绍；部署 `personaPrefix` 默认留空，不再声明模型名为 ElecKoi。桌面 Agent 组合与 SDK 兼容组合保持一致，SDK 仍接受明确的 `DSH_SYSTEM_PROMPT` 自定义值。该调整仅使用官方配置项，保留各工具、功能插件和预设自己的提示词注册，不修改 DSH 源码或增加依赖补丁。
+
 ## 工作区目录
 
 应用入口位于 `apps/desktop`、`apps/desktop-host`、`apps/web`；公共合同位于 `packages/shared`，现有产品功能插件位于 `packages/client/features`，Host 数据与运行包位于 `packages/host`，Windows 原生源码位于 `native/windows-frame`。后续 Android 工程进入 `apps/android`，使用独立的平台构建和本地数据。目录决策见 [ADR 0028](adr/0028-multi-application-workspace.md) 和 [ADR 0030](adr/0030-package-responsibility-groups.md)。
@@ -62,11 +64,21 @@ Windows 更新控制和 Electron HTTP 空闲超时采用同一锁定提交的官
 
 启动导航由 ElecKoi 的角色聊天和创作工作室负责。共用的 `dsh-client-ui-workspace` 锁定补丁移除启动监听及自动工作区选择、创建与恢复流程，保留官方界面依赖的 `uiWorkspace` 服务、显式会话操作和卸载时的引用释放。PC 与 Android 使用同一补丁，Android 归档直接携带该依赖，不再单独改写导航脚本；升级 DSH 时须回归空数据启动、已有列表更新、显式打开会话和服务卸载。
 
+PC 原左侧图标导航在所有页面及侧栏收起时始终保留。插件创造所在的官方 Workspace 会话只切换图标栏右侧的二级侧栏，新会话与工作区／会话浏览由官方组件提供，主导航列表、更多及设置不重复渲染到该侧栏。Host 继续停用默认 `ui-sidebar` 自动挂载；Web Client 加载其公开 `/client` 产物，由产品壳沿公开 `apply` 与 Slots 注册合同装配，在同一个 `sidebar` 所有者下持续渲染固定导航与当前二级侧栏，保留官方注入、语言与卸载生命周期，不重复声明同名子插槽。品牌、产品入口和独立窗口动作沿公开插槽与 Client 导航接入。Android 的产品主抽屉保留原布局，工作区顶栏列表开关单独打开官方工作区浏览；两种内容沿同一 sidebar 所有者装配，工作区复用 PC 的专用会话过滤。发送前置准备按角色聊天目录中的 `runtimeSessionId` 判断归属，不拦截其他 Workspace Session。官方创造模式的技能和模板保持原样，`@eleckoi/dsh-runtime` 通过独立的官方文件技能 provider 提供 `eleckoi-plugin-development` 及由正式插件文档生成的随包参考，具体见 [从创建插件开始](plugins/create-plugin.md)。
+
+插件工作区的浏览范围只在该侧栏的公开组件参数中投影：按角色目录的正式 runtimeSessionId、工作室投影、已注册的产品专用预设和正式父子关系排除角色／工作室及其后代，不改写官方全局 Session 或 Workspace Controller。归属未就绪的行不先暴露；分组、未分组、平铺、搜索、打开、改名和恢复使用同一可见范围，已有专用会话误入原生页面时返回产品入口。新建编程会话显式选择 cordis，避免复用产品专用空会话。派生对象只含当前列表元数据，随快照替换和组件卸载释放，不缓存正文或落盘。正文检索仍按部署的官方开关执行，本轮不启用正式索引；隔离验证临时启用内存索引覆盖正文结果过滤。
+
 创作工作室只注册固定的 `eleckoi-creator-active` 运行预设，内容来自产品当前全局创作预设。新旧会话都在下一轮开始时通过官方预设组合接口更新提示词、工具权限与模型相关配置；已开始的工具轮次保持完整，排队的新轮次使用最新配置。全局切换不创建另一份运行配置，也不更换聊天或 Session ID。`dsh-client-creator-studio/src/host/runtime.mjs` 在启动时通过官方 Session Persistence 为旧散列预设会话追加当前预设选择，成功后移除对应生成的 `preset.json` 及空目录；打开或编辑回退到旧选择的会话时执行同一转换。原历史事件、标题与编辑目标保留，不改变数据库结构。受支持的升级、恢复、导入及历史回退来源均不会再选中旧散列预设 ID 后，按入口 `RETIRE WHEN` 注释一并移除转换、旧标识判断及目录清理；具体范围登记在 [升级代码的清理条件](DATABASE.md#升级代码的清理条件)。
 
 角色聊天的 Session 引用由 `eleckoiConversations` 在发布已加载消息前准备完成；角色页面通过 `getSessionReference` 直接进入该就绪绑定的官方 Session 作用域，不再次等待异步打开。界面另外持有一份官方显示引用，在切换聊天及同一聊天回退、重新生成的绑定交接期间保留已有界面和输入框，待就绪绑定提交后释放旧引用；退出聊天或卸载页面也释放其引用。Host 删除当前角色或对话并清空目录选择后，页面同步清空本地选择、正文与草稿并关闭所属前端，作废未完成的打开操作；加载中和读取失败仍保留有效的当前选择。回退与重新生成保持原有聊天和 Session ID。模型重试沿正式 `model-retry` 节点的轮次、尝试编号和状态进入 AI 消息的处理过程，正文列表只保留最终失败等必要状态。
 
 右侧栏按官方 `AppFrame` 的归属常驻外壳，独立于主页面的键、错误边界及 Suspense；插件页与聊天往返不重建 `rightbar` 根。各 Session 的右侧栏引用、保留标签和释放继续由官方 `SidebarSessionViews` 管理，不能把右侧栏放进页面加载占位或错误回退中，也不能绕过其引用归属校验。
+
+工作区侧栏在挂载期间启用官方 `data-windows-titlebar`，卸载时恢复原有标记；在品牌行上方留出桌面 caption，沿官方 Windows 侧栏样式把开关放入首行，应用／编辑使用现有单一菜单座位。固定控件的包含块是第二列，不占用产品导航栏；折叠时菜单转回主区 caption 且保持开关在前。品牌与新会话由官方侧栏继续呈现。普通产品页面仍按既有顺序将应用／编辑置于侧栏按钮左边。
+
+工作室保留自身标题与官方动态视图目录，视图栏容器按锁定 `ConversationRoot.module.css` 的公开呈现校准：13px／16px 文字、25px 标签、32px 间距、2px 底线和独立的 22px 更多按钮。没有引入官方私有组件或改写依赖，手机视图装配保持原样。
+
+PC 工作区与角色聊天共用官方 Workspace 导航拥有的唯一前台 `mainView`。角色正文就绪后通过公开 `uiWorkspace.openSession` 接续该身份，自己的保留引用使用 `eleckoiRoleplayView`；产品壳按角色目录中的正式 `runtimeSessionId` 选择角色页面。不能让已离开的工作区和当前角色正文同时各持一个 `mainView`：官方 UI Session 会保持原先仍被保留的前台，导致角色页的展开按钮与右侧栏指向不同会话。此处只接续界面导航，不修改 Session 历史或 Workspace 成员。Android 沿用现有挂载方式。
 
 角色聊天的过程弹窗复用原 Session 的官方 keyed Chat 渲染器，以 `TurnProcessSpec` 的最终正文边界区分过程与答案，再通过 Portal 放入产品 `MenuSurface`；最后正文仅在主聊天显示。最终节点的 reasoning／response 分区按官方标识分别处理，response 位置不再重绘思考；不按文本去重。节点的 Hook Context、第三方工具子 Slots、文件操作与授权图片读取保持原归属，子 Slots 使用独立命名空间避免重复声明。工具卡的「查看」关闭弹窗并透传原 Session 的 inspectCall，以原生 callId 定位官方轨迹及调用检查器；不另设 JSON 弹窗。主会话不再订阅、复制和拼接子会话正文，子会话读取只由官方顶部目录及侧栏管理。轻量单行状态仍由产品展示投影提供；聊天日志、模型请求、结束通知和子任务等待策略保持原样。
 

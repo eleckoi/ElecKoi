@@ -1,5 +1,6 @@
 import React, { useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
+import { Button, IconAgentPresetOutlineRegular, IconPanelLeftOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import { TrajectoryView, trajectoryZh } from 'official-trajectory-fixture';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { MobileCreatorStudioPage } from '../../src/mobile/MobileCreatorStudioPage.jsx';
@@ -30,7 +31,12 @@ const view = { creatorStudio: { sessions: model }, models: { subscribe: () => ()
     useSession={select => select(session)} useInput={select => select({})} useSessionStatus={select => select(new Map())}
     useProjection={() => null} useInspectCall={select => select({})} useStore={select => select(useSyncExternalStore(subscribeStore, readStore))}
     useConversationViews={select => select([{ id: 'chat', label: '对话' }, { id: 'trajectory', label: '轨迹' }])}
-    selectView={id => openView(id)} renderHeaderSlot={() => null}
+    useEntryPins={select => select([])} useEntryActions={select => select(true)} setPinned={() => {}}
+    selectView={id => openView(id)} renderHeaderSlot={name => name.endsWith('.corner')
+      ? <span data-slot={name}><Button size="sm" data-sidebar-right-expand="" aria-label="打开右侧边栏"><IconPanelLeftOutlineRegular size={18} style={{ transform: 'rotate(180deg)' }} /></Button></span>
+      : name.endsWith('.views.actions') ? <><button role="menuitem">浏览更多插件</button><button role="menuitem">创建你的插件</button></>
+      : name.endsWith('.actions') ? <span data-slot={name}><Button size="sm"><IconAgentPresetOutlineRegular size={14} /><span>默认创作预设</span></Button></span>
+      : name.endsWith('.utilities') ? <Button size="sm" aria-label="下载 Session 日志">日志</Button> : null}
     openView={openView} actions={{ completeViewRequest }} renderSlotChain={(_name, _owner, options) => options.fallback}
     renderSlot={(name, owner, options) => name === 'eleckoi.creator-studio.view' ? <div data-slot={name} data-view={options.only}>
       {options.only === 'trajectory' ? <TrajectoryView {...trajectoryProps} viewRequest={owner.viewRequest} completeViewRequest={owner.completeViewRequest} />

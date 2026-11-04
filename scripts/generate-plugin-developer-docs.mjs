@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { generatePluginApiReference } from './generate-plugin-api-reference.mjs'
@@ -126,7 +126,7 @@ lines.push('', '## 完整性规则', '',
   '- manifest 变化后必须运行 `pnpm generate:plugin-docs` 更新本表。',
   '- `pnpm check:plugin-docs` 与 `pnpm build` 会拒绝过期或不完整的总表。', '')
 
-const generated = `${lines.join('\n')}\n`
+const generated = `${lines.join('\n').trimEnd()}\n`
 const reference = await generatePluginApiReference(root, { check: checkOnly })
 if (checkOnly) {
   let current = ''
@@ -143,6 +143,27 @@ if (checkOnly) {
   await writeFile(outputPath, generated, 'utf8')
   console.log(`Generated ${slash(relative(root, outputPath))}: ${bundles.length} bundles, ${rows.length} interfaces.`)
 }
+
+const references = join(root, 'packages/client/features/dsh-client-shell/skills/eleckoi-plugin-development/references')
+const pluginDocs = join(root, 'docs/plugins')
+const documents = (await readdir(pluginDocs)).filter(file => file.endsWith('.md')).sort()
+if (!checkOnly) await mkdir(references, { recursive: true })
+for (const file of documents) {
+  const source = await readFile(join(pluginDocs, file), 'utf8')
+  const expected = `<!-- Generated from docs/plugins/${file}; run pnpm generate:plugin-docs. -->\n\n${source}`
+  if (checkOnly) {
+    const current = await readFile(join(references, file), 'utf8').catch(error => {
+      if (error.code !== 'ENOENT') throw error
+      return ''
+    })
+    if (current !== expected) throw new Error(`随包插件开发文档 ${file} 已过期，请运行 pnpm generate:plugin-docs`)
+  } else {
+    await writeFile(join(references, file), expected, 'utf8')
+  }
+}
+const extras = (await readdir(references)).filter(file => !documents.includes(file))
+if (extras.length) throw new Error(`随包插件开发文档包含无来源的旧文件：${extras.join(', ')}`)
+console.log(`Bundled ElecKoi plugin development references are current: ${documents.length} documents.`)
 
 function escapeCell(value) {
   return String(value).replaceAll('|', '\\|').replaceAll('\n', '<br>')

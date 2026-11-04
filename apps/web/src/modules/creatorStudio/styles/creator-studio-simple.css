@@ -54,10 +54,14 @@
 .creator-simple-chat-header { flex: none; padding: 12px 16px 0 24px; border-bottom: 1px solid var(--line); }
 .creator-simple-chat-heading { display: flex; align-items: center; gap: 18px; min-height: 30px; min-width: 0; }
 .creator-simple-chat-heading h1 { font-size: 15px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; max-width: 50%; }
-.creator-simple-chat-header [role=tablist] { display: flex; align-items: flex-start; gap: 28px; margin-top: 10px; overflow-x: auto; }
-.creator-simple-chat-header [role=tab] { flex: none; }
-.creator-simple-chat-header [role=tab] { min-height: 32px; padding: 0 0 9px; border: 0; border-bottom: 2px solid transparent; color: var(--muted); background: transparent; }
-.creator-simple-chat-header [role=tab][aria-selected=true] { border-bottom-color: var(--blue); color: var(--blue); }
+/* Match the locked DSH ConversationRoot tab row, including its separate More seat. */
+.creator-simple-view-row { position: relative; z-index: 1; display: flex; align-items: flex-start; flex-wrap: wrap; gap: 16px 20px; width: 100%; min-width: 0; box-sizing: border-box; margin-top: 10px; padding-left: 8px; }
+.creator-simple-chat-header [role=tablist] { display: flex; flex-wrap: wrap; gap: 32px; min-width: 0; min-height: 25px; }
+.creator-simple-chat-header [role=tab] { position: relative; flex: none; min-height: 25px; padding: 0 0 9px; border: 0; color: var(--dsw-alias-label-tertiary); background: transparent; font-size: 13px; line-height: 16px; font-weight: 500; cursor: pointer; }
+.creator-simple-chat-header [role=tab]::after { content: ''; position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; border-radius: 2px; background: transparent; }
+.creator-simple-chat-header [role=tab][aria-selected=true] { color: var(--dsw-alias-state-business-primary); }
+.creator-simple-chat-header [role=tab][aria-selected=true]::after { background: var(--dsw-alias-state-business-primary); }
+.creator-simple-view-label { display: block; max-width: 88px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .creator-simple-conversation-scroll { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: auto; }
 .creator-simple-transcript { flex: none; min-height: 0; }
 .creator-simple-transcript.is-panel-view { flex: 1; display: flex; min-height: 0; overflow: hidden; }

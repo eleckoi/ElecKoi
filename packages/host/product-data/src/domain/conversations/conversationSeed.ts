@@ -29,7 +29,7 @@ export function resolveConversationSeed(
 ): ConversationSeed {
   const config = variables.get(characterId, database)
   const entry = openings.get(characterId, database)
-  const messages = entry.enabled ? entry.openingMessages : []
+  const messages = entry.openingMessages.filter(message => message.content.trim())
   const opening = messages.find(candidate => candidate.id === entry.defaultOpeningMessageId)
 
   const openingOptions = messages.map((candidate) => {

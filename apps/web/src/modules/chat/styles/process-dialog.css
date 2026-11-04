@@ -40,7 +40,7 @@
 }
 html[data-eleckoi-mobile="true"] .roleplay-process-backdrop { padding: 0; align-items: flex-end; }
 html[data-eleckoi-mobile="true"] .roleplay-process-backdrop::before { animation: mobile-sheet-scrim-in 160ms linear; }
-html[data-eleckoi-mobile="true"] .roleplay-process-dialog { width: 100%; height: 89dvh; border-radius: 22px 22px 0 0; border-bottom: 0; padding-bottom: env(safe-area-inset-bottom, 0px); animation: mobile-sheet-in 220ms cubic-bezier(.4, 0, .2, 1); }
+html[data-eleckoi-mobile="true"] .roleplay-process-dialog { width: 100%; height: 89dvh; border-radius: 22px 22px 0 0; border-bottom: 0; padding-bottom: env(safe-area-inset-bottom, 0px); box-shadow: 0 -4px 12px #00000014; will-change: transform; animation: mobile-sheet-in 220ms cubic-bezier(.4, 0, .2, 1); }
 html[data-eleckoi-mobile="true"] .roleplay-process-header { height: 65px; padding: 0 14px 0 20px; }
 html[data-eleckoi-mobile="true"] .roleplay-process-header > div { gap: 12px; }
 html[data-eleckoi-mobile="true"] .roleplay-process-close { width: 44px; height: 44px; }

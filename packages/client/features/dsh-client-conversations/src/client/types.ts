@@ -265,7 +265,7 @@ export interface ElecKoiConversations {
    */
   uploadFile(conversationId: string, file: File, options?: { signal?: AbortSignal; onProgress?: (progress: FileUploadProgress) => void }): Promise<ConversationUploadedFile>
   /**
-   * 准备官方输入框即将提交的文本，校验当前聊天与 Session 一致。
+   * 仅为角色聊天目录拥有的 Session 准备文本并校验当前聊天；其他 Session 沿官方发送流程。
    * @param input - 本次创建、提交或重新生成所需数据。
    * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
    */

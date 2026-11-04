@@ -1,4 +1,4 @@
-import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ChatBackgroundModal, ChatWallpaperLayer, HistoryModal } from "../../modules/chat/index.js";
 import { resolveChatWallpaper } from "../../modules/appearance/index.js";
 import { useChatClient } from "../hooks/useChatClient.js";
@@ -19,6 +19,9 @@ import { AppUpdateController, useAppUpdates } from "../../modules/updates/index.
 import { openCreatorStudioWindow } from "../../modules/creatorStudio/index.js";
 import { MainPageContext } from "./MainPageContext.jsx";
 
+const emptySidebarSnapshot = { shown: false };
+const emptySidebar = { subscribe: () => () => {}, getSnapshot: () => emptySidebarSnapshot };
+
 class MainPageErrorBoundary extends Component {
   state = { error: null };
 
@@ -35,17 +38,21 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
   const chat = useChatClient({ conversations, characters, models, persona, navigation });
   const appearance = useWindowAppearance({ notify: chat.notify });
   const sidePanelLayout = useSidePanelLayout();
+  const nativeConversation = chat.activeSection === "conversation";
+  const sidebarModel = navigation?.sidebar ?? emptySidebar;
+  const sidebar = useSyncExternalStore(sidebarModel.subscribe, sidebarModel.getSnapshot);
   const rightbarLayout = useRightbarLayout({
     model: rightbar,
     shellRef: sidePanelLayout.shellRef,
-    sidePanelCollapsed: sidePanelLayout.sidePanelCollapsed,
-    collapseSidePanel: sidePanelLayout.collapseSidePanel,
+    sidePanelCollapsed: nativeConversation ? !sidebar.shown : sidePanelLayout.sidePanelCollapsed,
+    collapseSidePanel: nativeConversation ? navigation.closeSidebar : sidePanelLayout.collapseSidePanel,
   });
   const appUpdates = useAppUpdates();
+  const nativeSidebarWidth = sidebar.shown ? 280 : 0;
   const isPluginPanel = Boolean(navigation && !navigation.productPanelIds?.includes(chat.activeSection) && chat.activeSection !== "plugins");
   const columnAnimating = useColumnTransition({
     shellRef: sidePanelLayout.shellRef,
-    sidebarCollapsed: sidePanelLayout.sidePanelCollapsed || isPluginPanel,
+    sidebarCollapsed: nativeConversation ? !sidebar.shown : sidePanelLayout.sidePanelCollapsed || isPluginPanel,
     rightbarTrack: rightbarLayout.track,
     viewportWidth: sidePanelLayout.viewportWidth,
   });
@@ -58,6 +65,15 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
 
   useEffect(() => {
     document.title = "ElecKoi";
+  }, []);
+
+  useEffect(() => {
+    const action = event => {
+      if (event.detail === 'creatorStudio') openCreatorStudioWindow();
+      if (event.detail === 'community') setCommunityOpen(true);
+    };
+    window.addEventListener('eleckoi:shell-action', action);
+    return () => window.removeEventListener('eleckoi:shell-action', action);
   }, []);
 
   useEffect(() => {
@@ -111,7 +127,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
   }
 
   function renderWindowLayout({ sidePanel, mainPanel, overlays = null }) {
-    const renderSidebarContent = (renderSidebarSlot) => <SidebarContent
+    const renderSidebarContent = (renderSidebarSlot, workspaceSidebar) => <SidebarContent
           desktopMenu
           activeSection={chat.activeSection}
           navigationItems={navigation?.items}
@@ -137,18 +153,22 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
         onCollapse={sidePanelLayout.collapseSidePanel}
         hasFooterActions={navigation?.hasSidebarFooterActions}
         sidePanel={sidePanel}
+        workspaceSidebar={workspaceSidebar}
+        workspaceCollapsed={!sidebar.shown}
       />;
     return (
       <>
-        {navigation?.renderSidebar ? navigation.renderSidebar(renderSidebarContent) : renderSidebarContent(null)}
+        {navigation?.renderSidebar ? navigation.renderSidebar(renderSidebarContent,
+          { workspace: nativeConversation, collapsed: !sidebar.shown, width: 280 }) : renderSidebarContent(null)}
 
         <section className="main-panel-shell" aria-label="主功能界面">
           <TitleBar
             splitSurface
-            desktopMenu={sidePanelLayout.sidePanelCollapsed || isPluginPanel}
+            desktopMenu={nativeConversation ? !sidebar.shown : sidePanelLayout.sidePanelCollapsed || isPluginPanel}
+            sidebarFirst={nativeConversation}
             showWindowControls={false}
-            sidePanelCollapsed={sidePanelLayout.sidePanelCollapsed && !isPluginPanel}
-            onToggleSidePanel={sidePanelLayout.expandSidePanel}
+            sidePanelCollapsed={nativeConversation ? !sidebar.shown : sidePanelLayout.sidePanelCollapsed && !isPluginPanel}
+            onToggleSidePanel={nativeConversation ? navigation.toggleSidebar : sidePanelLayout.expandSidePanel}
           />
           <div className="main-panel-content">{mainPanel}</div>
         </section>
@@ -212,9 +232,10 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
   return (
     <main
       ref={sidePanelLayout.shellRef}
-      className={`qq-shell main-window-shell section-${isPluginPanel ? "plugin" : chat.activeSection}${showChatWallpaper ? " has-chat-wallpaper" : ""}${sidePanelLayout.sidePanelCollapsed || isPluginPanel ? " side-panel-collapsed" : ""}`}
+      className={`qq-shell main-window-shell section-${isPluginPanel ? "plugin" : chat.activeSection}${nativeConversation ? " has-native-workspace-sidebar" : ""}${showChatWallpaper ? " has-chat-wallpaper" : ""}${(nativeConversation ? !sidebar.shown : sidePanelLayout.sidePanelCollapsed || isPluginPanel) ? " side-panel-collapsed" : ""}`}
       style={{
         ...(isPluginPanel ? { ...sidePanelLayout.shellStyle, "--side-panel-width": "0px" } : sidePanelLayout.shellStyle),
+        ...(nativeConversation ? { "--side-panel-width": `${nativeSidebarWidth}px` } : {}),
         ...rightbarLayout.shellStyle,
       }}
       data-side-panel-dragging={sidePanelLayout.sidePanelDragging || undefined}

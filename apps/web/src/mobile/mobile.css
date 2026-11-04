@@ -30,7 +30,7 @@
 .mobile-shell[data-mobile-panel="settings"] { --mobile-header-bg: var(--rail); }
 .mobile-shell[data-mobile-rightbar="true"] { --mobile-system-bar-bg: var(--surface-raised); }
 .mobile-shell[data-drawer-present="true"] { --mobile-system-bar-bg: var(--rail); }
-.mobile-shell button:not(:where(.trajectory-host button, [data-plugin-panel] button, [data-slot="conversation.input.attachments"] button, [data-slot="eleckoi.roleplay.conversation.input.attachments"] button)) { min-height: 48px; cursor: pointer; }
+.mobile-shell button:not(:where(.mobile-workspace-page button, .mobile-workspace-drawer button, .trajectory-host button, [data-plugin-panel] button, [data-slot="conversation.input.attachments"] button, [data-slot="eleckoi.roleplay.conversation.input.attachments"] button)) { min-height: 48px; cursor: pointer; }
 :where(.mobile-shell button:not(.trajectory-host button, [data-plugin-panel] button)) { font: inherit; color: inherit; }
 .mobile-shell button:disabled { cursor: default; opacity: .5; }
 .mobile-shell button:focus-visible { outline: 2px solid color-mix(in srgb, var(--text) 38%, transparent); outline-offset: 2px; }
@@ -61,6 +61,11 @@
 .mobile-shell[data-drawer-moving="true"] :is(.mobile-front-shadow, .mobile-drawer-scrim) { will-change: opacity; }
 .mobile-shell button.mobile-drawer-dismiss { position: absolute; inset: 0; z-index: 40; width: 100%; height: 100%; padding: 0; border: 0; border-radius: inherit; background: transparent; }
 .mobile-page-seat { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.mobile-workspace-page > [data-slot] { flex: 1; min-width: 0; min-height: 0; }
+.mobile-workspace-page [data-window-drag] { padding-left: 4px; padding-right: 20px; }
+.mobile-workspace-controls { display: flex; align-items: center; gap: 4px; margin-right: 8px; }
+.mobile-workspace-controls > button { display: grid; place-items: center; width: 32px; height: 32px; min-height: 32px; flex: none; padding: 0; border: 0; background: transparent; color: var(--dsw-alias-label-primary); }
+.mobile-workspace-controls > button:active { background: var(--dsw-alias-interactive-bg-hover); border-radius: 8px; }
 .mobile-root-page, .mobile-conversation-page { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .mobile-conversation-page.has-chat-wallpaper { position: relative; isolation: isolate; }
 .mobile-conversation-page.has-chat-wallpaper > .chat-shell-backdrop { inset: 0; }
@@ -93,6 +98,7 @@
 .mobile-drawer .rail-expanded-header > button { display: grid; place-items: center; width: 40px; min-height: 40px; margin-left: auto; padding: 0; border: 0; border-radius: 10px; background: transparent; flex: none; }
 .mobile-drawer .rail-nav-group { display: flex; flex-direction: column; gap: 4px; }
 .mobile-drawer .rail-nav-button { display: flex; align-items: center; width: 100%; height: 48px; min-height: 48px; padding: 0 12px 0 50px; border: 0; background: transparent; text-align: left; }
+.mobile-drawer .rail-nav-button[data-plugin-entry-more] { gap: 14px; padding: 0 12px; }
 .mobile-drawer .rail-icon-layer { left: 12px; right: auto; width: 24px; }
 .mobile-drawer .rail-navigation-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
 .mobile-drawer .rail-bottom-zone { align-items: stretch; justify-items: stretch; gap: 4px; padding-top: 8px; }
@@ -225,7 +231,6 @@
 .mobile-conversation-page .chat-header h1 { flex: 1; font-size: 14px; line-height: 20px; }
 .mobile-conversation-page .chat-header-actions { top: 0; gap: 0; }
 .mobile-conversation-page .chat-header-new { display: grid; }
-.mobile-conversation-page .composer-new-chat-item { display: none !important; }
 .mobile-conversation-page .chat-header-actions :is(.chat-header-action, [data-sidebar-right-expand]) { width: 36px; min-width: 36px; height: 40px; min-height: 40px; }
 .mobile-conversation-page .chat-header-actions svg { width: 18px; height: 18px; }
 .mobile-conversation-page .chat-header-tabs { gap: 16px; margin: 0; padding: 0 8px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }

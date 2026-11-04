@@ -63,6 +63,14 @@ describe("right sidebar shell layout", () => {
     );
   });
 
+  it("places the Workspace caption toggle before its menus without changing the product caption order", () => {
+    const options = { splitSurface: true, desktopMenu: true, sidePanelCollapsed: true, onToggleSidePanel: () => {} };
+    const workspace = renderToStaticMarkup(<TitleBar {...options} sidebarFirst />);
+    const product = renderToStaticMarkup(<TitleBar {...options} />);
+    expect(workspace.indexOf('aria-label="展开侧边栏"')).toBeLessThan(workspace.indexOf('data-desktop-menu-seat'));
+    expect(product.indexOf('data-desktop-menu-seat')).toBeLessThan(product.indexOf('aria-label="展开侧边栏"'));
+  });
+
   it("uses the collapsed left-sidebar width immediately on narrow windows", () => {
     expect(rightbarLayoutSource).toContain(
       "sidePanelCollapsed || geometry.viewportWidth < SIDEBAR_AUTO_COLLAPSE",

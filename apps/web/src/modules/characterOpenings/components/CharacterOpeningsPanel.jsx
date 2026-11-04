@@ -6,8 +6,7 @@ import { deleteOpening } from '../model/openingEditing.js';
 import { useCharacterConfigurationDraft } from '../../../ui/hooks/useCharacterConfigurationDraft.js';
 import { resolveFailure } from '../../../utils/failureText.js';
 import { Plus } from '../../../ui/icons/interfaceIcons.jsx';
-import '../../../ui/ui/editor-collection-controls.css';
-import '../../../ui/ui/editor-collection-material.css';
+import { EditorCollectionToolbar } from '../../../ui/ui/EditorCollectionControls.jsx';
 
 export const CharacterOpeningsPanel = forwardRef(function CharacterOpeningsPanel({ characterId, openings, variables, onDirtyChange }, ref) {
   const { library, persisted, dirty, saving, error, saveNotice, changeLibrary, save, discard } = useCharacterConfigurationDraft({
@@ -15,11 +14,12 @@ export const CharacterOpeningsPanel = forwardRef(function CharacterOpeningsPanel
   });
   const [variableSnapshot, setVariableSnapshot] = useState({ value: null, error: '' });
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [query, setQuery] = useState('');
   const openingEditorRef = useRef(null);
   const entry = library;
 
   useImperativeHandle(ref, () => ({ save, discard }), [library, persisted, saving]);
-  useEffect(() => setDeleteTarget(null), [characterId]);
+  useEffect(() => { setDeleteTarget(null); setQuery(''); }, [characterId]);
   useEffect(() => {
     let active = true;
     setVariableSnapshot({ value: null, error: '' });
@@ -41,22 +41,12 @@ export const CharacterOpeningsPanel = forwardRef(function CharacterOpeningsPanel
 
   return (
     <section className="character-openings-panel" aria-label="开场白">
-      <header className="character-openings-toolbar editor-collection-toolbar" aria-label="开场白操作">
-        <div className="character-openings-actions editor-collection-actions">
-          <Button data-dsh-control variant="primary" type="button" className="editor-collection-action" aria-label="新建开场白" disabled={!entry || saving}
-            onClick={() => openingEditorRef.current?.createBackup()}><Plus size={16} aria-hidden="true" />新建</Button>
-          <SaveControl dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} />
-          {entry && <label className="character-openings-enabled">
-            <span>启用</span>
-            <button type="button" className="setting-library-tree-switch" role="switch" aria-label="启用开场白"
-              aria-checked={entry.enabled} disabled={saving} onClick={() => updateEntry({ ...entry, enabled: !entry.enabled })}>
-              <span aria-hidden="true" />
-            </button>
-          </label>}
-        </div>
-      </header>
+      <EditorCollectionToolbar className="character-openings-toolbar" query={query} onQueryChange={setQuery} placeholder="搜索开场白"
+        beforeSave={<Button data-dsh-control variant="primary" type="button" className="editor-collection-action" aria-label="新建开场白" disabled={!entry || saving}
+          onClick={() => { setQuery(''); openingEditorRef.current?.createBackup(); }}><Plus size={16} aria-hidden="true" />新建</Button>}
+        save={<SaveControl dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} />} />
       <div className="character-openings-content">
-        {entry ? <OpeningEditor ref={openingEditorRef} key={characterId} entry={entry}
+        {entry ? <OpeningEditor ref={openingEditorRef} key={characterId} entry={entry} query={query}
           variableVersions={variableSnapshot.value?.versions || []} variableVersionsError={variableSnapshot.error}
           onChange={updateEntry} onRequestDelete={message => setDeleteTarget({ messageId: message.id,
             title: `删除“${message.title || '未命名开场白'}”？`, message: '这条开场白会在保存后移除。' })} />

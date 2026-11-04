@@ -245,7 +245,7 @@ window.__ModuleLoader__.load({
         .then(module => ({ default: module.NavigationIcon })))
       ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
         name: 'sidebar.panellist', id: 'presets', order: -20, label: '预设', registrant: '@eleckoi/dsh-client-presets'
-      }, () => React.createElement(NavigationIcon)))
+      }, ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(NavigationIcon, { size }))))
       ctx.effect(() => {
         catalog.start()
         const stopReset = ctx.on('connection/reset', () => {

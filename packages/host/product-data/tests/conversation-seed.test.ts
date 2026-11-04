@@ -31,7 +31,8 @@ describe('conversation opening seed', () => {
   })
 
   it('does not fall back to the obsolete persona opening field', () => {
-    const openings = { get: () => ({ entries: [] }) }
+    const openings = { get: () => ({ enabled: true, defaultOpeningMessageId: 'primary',
+      openingMessages: [{ id: 'primary', title: '', content: '', initialVariableStateJson: '' }] }) }
     const variables = { get: () => ({ activeVersionId: 'version-a', initialStateJson: '{}', versions: [{ id: 'version-a', initialStateJson: '{}' }] }) }
 
     expect(resolveConversationSeed(
@@ -40,5 +41,25 @@ describe('conversation opening seed', () => {
       openings as never,
       variables as never
     )).toEqual({ variableVersionId: 'version-a', initialVariableStateJson: '{}', openingText: '', openingOptions: [], selectedOpeningId: '' })
+  })
+
+  it.each([true, false])('leaves empty and whitespace-only openings absent regardless of the saved enabled field (%s)', enabled => {
+    const openings = { get: () => ({ enabled, defaultOpeningMessageId: 'primary', openingMessages: [
+      { id: 'primary', title: '合成空开场', content: ' \n\t ', variableVersionId: 'missing-unused-version', initialVariableStateJson: '' },
+      { id: 'backup', title: '合成空备用', content: '', initialVariableStateJson: '' },
+    ] }) };
+    const variables = { get: () => ({ activeVersionId: 'version-a', initialStateJson: '{}', versions: [{ id: 'version-a', initialStateJson: '{}' }] }) };
+    expect(resolveConversationSeed('card-a', {} as never, openings as never, variables as never))
+      .toEqual({ variableVersionId: 'version-a', initialVariableStateJson: '{}', openingText: '', openingOptions: [], selectedOpeningId: '' });
+  })
+
+  it('uses nonempty openings without an enable gate and excludes blank backup choices', () => {
+    const openings = { get: () => ({ enabled: false, defaultOpeningMessageId: 'primary', openingMessages: [
+      { id: 'primary', title: '合成主开场', content: '  合成正文  ', initialVariableStateJson: '{"score":1}' },
+      { id: 'backup', title: '合成空备用', content: '\n ', initialVariableStateJson: '' },
+    ] }) };
+    const variables = { get: () => ({ activeVersionId: 'version-a', initialStateJson: '{}', versions: [{ id: 'version-a', initialStateJson: '{}' }] }) };
+    expect(resolveConversationSeed('card-a', {} as never, openings as never, variables as never))
+      .toMatchObject({ openingText: '合成正文', selectedOpeningId: 'primary', initialVariableStateJson: '{"score":1}', openingOptions: [{ id: 'primary' }] });
   })
 })

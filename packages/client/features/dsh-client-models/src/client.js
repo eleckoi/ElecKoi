@@ -400,7 +400,7 @@ window.__ModuleLoader__.load({
         .then(module => ({ default: module.NavigationIcon })))
       ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
         name: 'sidebar.panellist', id: 'model', order: 30, label: '模型配置', registrant: '@eleckoi/dsh-client-models'
-      }, () => React.createElement(NavigationIcon)))
+      }, ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(NavigationIcon, { size }))))
       ctx.effect(() => {
         catalog.start()
         const stopReset = ctx.on('connection/reset', () => { catalog.builtinModels.clear(); void catalog.refresh().catch(failureAlreadyPublished) })

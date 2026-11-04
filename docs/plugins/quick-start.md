@@ -49,7 +49,7 @@ example-eleckoi-plugin/
     "developerInterfaces": []
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "4.0.4",
+    "@deepseek-ai/cordis": "4.0.5",
     "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.5",
     "@eleckoi/dsh-client-characters": "0.1.0",
     "react": "19.2.8"

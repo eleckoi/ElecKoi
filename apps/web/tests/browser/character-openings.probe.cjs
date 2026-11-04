@@ -35,9 +35,9 @@ app.whenReady().then(async () => {
         const sample=color=>{const ctx=new OffscreenCanvas(1,1).getContext('2d');ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data]};
         const measure=node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height}};
         const panelRect=measure(panel);return {panel:panelRect,scrolls:content.scrollHeight>content.clientHeight,
-          toggle:measure(panel.querySelector('[role=switch]')), toggleMinHeight:getComputedStyle(panel.querySelector('[role=switch]')).minHeight,
+          switchPresent:!!panel.querySelector('[role=switch]'), search:measure(panel.querySelector('.editor-collection-search')),
+          searchAppearance:(()=>{const s=getComputedStyle(panel.querySelector('.editor-collection-search'));return {height:s.height,background:s.backgroundColor,border:s.borderTopColor,radius:s.borderRadius}})(),
           horizontalOverflow:panel.scrollWidth>panel.clientWidth,toolbar:measure(panel.firstElementChild),
-          enabled:measure(panel.querySelector('.character-openings-enabled')),
           title:measure(panel.querySelector('.setting-library-opening-toggle strong')),
           card:measure(panel.querySelector('.setting-library-opening-item')),
           material:(()=>{const card=panel.querySelector('.setting-library-opening-item'),material=getComputedStyle(card.firstElementChild),reference=document.createElement('div');reference.style.cssText='background:var(--dsw-menu-surface-fill);backdrop-filter:var(--dsw-menu-backdrop-filter)';card.append(reference);const official=getComputedStyle(reference),value={fill:material.backgroundColor,filter:material.backdropFilter,officialFill:official.backgroundColor,officialFilter:official.backdropFilter};reference.remove();return value})(),
@@ -82,12 +82,13 @@ app.whenReady().then(async () => {
       await evaluate(`document.querySelector('button[aria-label="设定库"]').click()`);
       await wait('Boolean(document.querySelector(".setting-library-layout"))');
       const settingsSeparated = await evaluate(`!document.querySelector('.setting-library-opening-item')&&!document.querySelector('[role=tree]').textContent.includes('开场白')`);
+      const referenceSearchAppearance = await evaluate(`(()=>{const s=getComputedStyle(document.querySelector('.editor-collection-search'));return {height:s.height,background:s.backgroundColor,border:s.borderTopColor,radius:s.borderRadius}})()`);
       await evaluate(`document.querySelector('button[aria-label="开场白"]').click()`);
       await wait('document.querySelectorAll(".setting-library-opening-item").length===2');
       await evaluate(`document.querySelectorAll('.setting-library-opening-toggle')[1].click()`);
       const binding = await evaluate(`document.querySelector('.setting-library-opening-fields select').value`);
       const noOpeningVersions = await evaluate(`!document.querySelector('select[aria-label="开场白版本"]')`);
-      reports.push({ theme, width, height, layout, backupButtons, settingsSeparated, binding, noOpeningVersions });
+      reports.push({ theme, width, height, layout, backupButtons, settingsSeparated, binding, noOpeningVersions, referenceSearchAppearance });
     }
     writeFileSync(reportPath, JSON.stringify(reports)); app.exit(0);
   } catch (error) {

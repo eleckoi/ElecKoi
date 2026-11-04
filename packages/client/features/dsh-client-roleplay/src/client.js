@@ -139,7 +139,7 @@ window.__ModuleLoader__.load({
       })
     }
 
-    function RoleplayView({ matched, conversations, sessions, SessionProvider, renderSlot }) {
+    function RoleplayView({ matched, conversations, sessions, openMainSession, SessionProvider, renderSlot }) {
       const runtimeSessionId = matched.props.runtimeSessionId
       React.useSyncExternalStore(conversations.subscribeDetails, conversations.getDetailsSnapshot)
       const retained = React.useRef(null)
@@ -155,10 +155,13 @@ window.__ModuleLoader__.load({
         if (!ready) return
         const previous = retained.current
         if (previous && previous.reference.binding === ready.binding) return
+        // Desktop Workspace navigation owns the single foreground mainView.
+        // A second mainView leaves uiSession following the previous Workspace.
+        openMainSession?.(ready.sessionId)
         retained.current = { conversationId: matched.props.conversationId,
-          reference: sessions.retain(ready.sessionId, { source: 'mainView' }) }
+          reference: sessions.retain(ready.sessionId, { source: openMainSession ? 'eleckoiRoleplayView' : 'mainView' }) }
         previous?.reference.release()
-      }, [ready, sessions, matched.props.conversationId])
+      }, [ready, sessions, openMainSession, matched.props.conversationId])
       React.useLayoutEffect(() => () => { retained.current?.reference.release(); retained.current = null }, [])
       // A same-chat rewind retires the catalog binding before its successor is
       // ready. Keep the displayed scope until the ready replacement commits.
@@ -180,7 +183,8 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots', 'sessions', 'eleckoiConversations'],
+      inject: ['slots', 'sessions', 'eleckoiConversations',
+        ...(globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android' ? [] : ['uiWorkspace'])],
       apply(ctx) {
         const retainedStatsKeys = new Set(['sessionStats', 'tokenUsage', 'contextPressure', 'contextBreakdown'])
         function useDisplayStats(ownerProps) {
@@ -351,7 +355,9 @@ window.__ModuleLoader__.load({
           children: {
             'eleckoi.roleplay.session': { kind: 'single', scope: 'session' }
           },
-          inject: () => ({ conversations: ctx.eleckoiConversations, sessions: ctx.sessions }),
+          inject: () => ({ conversations: ctx.eleckoiConversations, sessions: ctx.sessions,
+            openMainSession: globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android' ? undefined
+              : id => ctx.get('uiWorkspace').openSession(id) }),
           select: owner => owner?.component ? owner : null
         }, RoleplayView))
         ctx.slots.inject('eleckoi.roleplay.session', () => ctx.slots.register({

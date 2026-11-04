@@ -41,7 +41,7 @@ function binding(sessionValue, targetValue) {
 }
 
 describe('DSH child Session process projection', () => {
-  it('places child reasoning, tools and final reply under the parent subagent call', async () => {
+  it('keeps child Session retention and body projection under the official child viewer', async () => {
     const parentNodes = new Map([
       ['user', { kind: 'user', data: { seq: 1, time: 1, content: [{ type: 'text', text: '委派任务' }] } }],
       ['subagent', { kind: 'tool-call', data: { turn: 1, root: {
@@ -72,8 +72,7 @@ describe('DSH child Session process projection', () => {
     ])
     const parentTarget = target(parentNodes)
     const childTarget = target(childNodes)
-    // Reopened Sessions can expose the durable child catalog through the list
-    // snapshot before the retained Session projection face hydrates.
+    // The published child catalog remains available to official navigation.
     const parentSession = session()
     const childSession = session()
     const parentBinding = binding(parentSession, parentTarget)
@@ -127,11 +126,10 @@ describe('DSH child Session process projection', () => {
       await catalog.open('chat-1')
       await settle()
       await settle()
-      expect(sessions.retain).toHaveBeenCalledTimes(2)
+      expect(sessions.retain).toHaveBeenCalledExactlyOnceWith('parent-1', { source: 'eleckoiConversations' })
       const runningProcess = catalog.getDetailsSnapshot().details.messages.find(message => message.role === 'assistant').process
-      expect(runningProcess.filter(item => item.toolName === 'assistant_narrative').map(item => item.summary))
-        .toEqual(['我先搜索新闻来源。', '我再核对这些来源。'])
-      expect(runningProcess.filter(item => item.toolName === 'assistant_final')).toHaveLength(0)
+      expect(runningProcess.some(item => item.toolName === 'subagent')).toBe(true)
+      expect(JSON.stringify(runningProcess)).not.toContain('child-stage-1')
 
       childNodes.set('stage-2', { kind: 'assistant-step', data: { seq: 4, messageId: 'child-stage-2', turn: 1, step: 2, status: 'settled', time: 21,
         blocks: [{ kind: 'text', text: '我再核对这些来源。' }, { kind: 'tool-call' }] } })
@@ -145,25 +143,13 @@ describe('DSH child Session process projection', () => {
       await settle()
 
       const process = catalog.getDetailsSnapshot().details.messages.find(message => message.role === 'assistant').process
-      const root = process.find(item => item.id === 'delegate-1')
-      expect(root).toMatchObject({ kind: 'subagent', toolName: 'subagent' })
-      expect(process).toEqual(expect.arrayContaining([
-        expect.objectContaining({ kind: 'reasoning', detail: '先查找可靠来源。', parentId: 'delegate-1' }),
-        expect.objectContaining({ toolName: 'assistant_narrative', summary: '我先搜索新闻来源。', parentId: 'delegate-1' }),
-        expect.objectContaining({ toolName: 'web_search', detail: '找到 3 条结果', parentId: 'delegate-1' }),
-        expect.objectContaining({ toolName: 'assistant_narrative', summary: '我再核对这些来源。', parentId: 'delegate-1' }),
-        expect.objectContaining({ toolName: 'web_fetch', detail: '已核对来源', parentId: 'delegate-1' }),
-        expect.objectContaining({ toolName: 'assistant_final', summary: '这是子 Agent 的最终回复。', parentId: 'delegate-1' }),
-      ]))
-      expect(process.filter(item => item.toolName === 'assistant_narrative').map(item => item.summary))
-        .toEqual(['我先搜索新闻来源。', '我再核对这些来源。'])
-      expect(process.filter(item => item.toolName === 'assistant_final')).toHaveLength(1)
-      expect(sessions.retain).toHaveBeenCalledWith({
-        parentSessionId: 'parent-1', childSessionId: 'child-1', mode: 'one-shot',
-      }, { source: 'eleckoiConversations' })
+      expect(process).toBe(runningProcess)
+      expect(JSON.stringify(process)).not.toContain('这是子 Agent 的最终回复。')
+      expect(sessions.retain).toHaveBeenCalledTimes(1)
     } finally {
       dispose()
     }
-    expect(releaseChild).toHaveBeenCalledTimes(1)
+    expect(releaseParent).toHaveBeenCalledTimes(1)
+    expect(releaseChild).not.toHaveBeenCalled()
   })
 })

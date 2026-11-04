@@ -135,6 +135,7 @@
 /* 紧凑列表保留触屏操作空间，颜色和控件外观由官方组件负责。 */
 .editor-sidebar-layout.is-page-layout .editor-collection-toolbar,
 .mobile-preset-editor .preset-tools-toolbar.editor-collection-toolbar,
+.mobile-character-editor .character-openings-toolbar.editor-collection-toolbar,
 .mobile-character-editor :is(.dynamic-settings-list-toolbar, .dynamic-settings-tree-toolbar).editor-collection-toolbar {
   display: flex;
   align-items: center;

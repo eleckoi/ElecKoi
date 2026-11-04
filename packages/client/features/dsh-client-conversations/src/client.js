@@ -1940,8 +1940,10 @@ window.__ModuleLoader__.load({
           error.name = 'AbortError'
           throw error
         }
-        const studio = this.sessions?.binding(input?.sessionId)?.session.projections?.faceOf('eleckoiCreatorStudio')?.getSnapshot()
-        if (studio) return { kind: 'success' }
+        // Only the product catalog establishes ownership of a roleplay Session.
+        // Native Workspace Sessions keep their own preparation and send lifecycle.
+        const owned = this.snapshot.items.some(item => item.runtimeSessionId === input?.sessionId)
+        if (!owned) return { kind: 'success' }
         const conversationId = this.detailsSnapshot.id
         if (!conversationId || this.runtimeSessionId(conversationId) !== input?.sessionId) {
           return { kind: 'error', text: '当前聊天与输入框会话不一致。' }
@@ -2438,7 +2440,7 @@ window.__ModuleLoader__.load({
         .then(module => ({ default: module.NavigationIcon })))
       ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
         name: 'sidebar.panellist', id: 'messages', order: -40, label: '消息', registrant: '@eleckoi/dsh-client-conversations'
-      }, () => React.createElement(NavigationIcon)))
+      }, ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(NavigationIcon, { size }))))
       ctx.effect(() => {
         catalog.start()
         const stopReset = ctx.on('connection/reset', () => catalog.restoreConnection())

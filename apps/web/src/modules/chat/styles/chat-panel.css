@@ -2664,17 +2664,9 @@ button.chat-file-card:hover { border-color: var(--blue); }
   outline-offset: 2px;
 }
 
-.composer-new-chat-item {
-  display: none !important;
-}
-
 @media (max-width: 680px) {
   .chat-header-new {
     display: none;
-  }
-
-  .composer-new-chat-item {
-    display: grid !important;
   }
 }
 

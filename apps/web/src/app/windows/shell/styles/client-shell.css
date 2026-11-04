@@ -240,3 +240,29 @@
   min-width: 0;
   min-height: 0;
 }
+
+.native-workspace-sidebar {
+  --dsh-windows-titlebar-height: var(--window-caption-height, 40px);
+  display: grid;
+  grid-template-rows: var(--window-caption-height, 40px) minmax(0, 1fr);
+  grid-column: 2;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  /* Keep the official fixed caption controls relative to this second column. */
+  contain: layout paint;
+}
+
+.native-workspace-caption {
+  display: flex;
+  align-items: center;
+  padding-left: 48px;
+  -webkit-app-region: drag;
+}
+
+.native-workspace-body {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}

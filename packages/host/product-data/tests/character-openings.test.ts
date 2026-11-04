@@ -11,6 +11,7 @@ import { SettingLibraryRepository } from '../src/domain/settingLibraries/Setting
 import { emptyEntry } from '../src/domain/settingLibraries/settingLibraryNormalization'
 import { VariableConfigRepository } from '../src/domain/variables/VariableConfigRepository'
 import { resolveConversationSeed } from '../src/domain/conversations/conversationSeed'
+import { ConversationRepository } from '../src/domain/conversations/ConversationRepository'
 import { legacyOpeningSchemaSql } from './helpers/legacyOpeningStorage'
 import { restoreEditorSchemaV12 } from './helpers/editorSchemaV12'
 import { installSchema } from '../src/storage/sqlite/installSchema'
@@ -51,6 +52,21 @@ it('keeps openings independent through setting version changes, deletion, variab
   expect(f.openings.get(characterId)).toEqual(before)
   f.characters.delete([characterId])
   expect(f.db.native.prepare('SELECT * FROM character_openings').all()).toEqual([])
+}, 30_000)
+
+it('creates no opening message for blank content and uses filled content without the former enable gate', () => {
+  const f = fixture(), characterId = 'synthetic-character';
+  const repository = new ConversationRepository(f.db, (id, db) => resolveConversationSeed(id, db, f.openings, f.variables));
+  const original = f.openings.get(characterId), primary = original.openingMessages[0]!;
+  f.openings.save(characterId, { ...original, enabled: true, openingMessages: [{ ...primary, content: ' \n\t ' }] });
+  const blank = repository.create({ metadata: { characterId } }).conversation.id;
+  expect(repository.openingText(blank)).toBe('');
+  const emptyTurns = f.db.native.prepare('SELECT * FROM agent_turns WHERE conversationId = ?').all(blank);
+  expect(emptyTurns).toEqual([]);
+  f.openings.save(characterId, { ...original, enabled: false, openingMessages: [{ ...primary, content: '合成开场正文' }] });
+  const filled = repository.create({ metadata: { characterId } }).conversation.id;
+  expect(repository.openingText(filled)).toBe('合成开场正文');
+  expect(repository.openingText(blank)).toBe('');
 }, 30_000)
 
 it('collects every legacy opening into one list and retains all settings and the default opening', () => {

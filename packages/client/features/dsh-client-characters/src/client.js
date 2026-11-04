@@ -184,7 +184,7 @@ window.__ModuleLoader__.load({
         .then(module => ({ default: module.NavigationIcon })))
       ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
         name: 'sidebar.panellist', id: 'character', order: -30, label: '角色列表', registrant: '@eleckoi/dsh-client-characters'
-      }, () => React.createElement(NavigationIcon)))
+      }, ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(NavigationIcon, { size }))))
       ctx.effect(() => {
         catalog.start()
         const stopReset = ctx.on('connection/reset', () => { void catalog.refresh().catch(failureAlreadyPublished) })

@@ -3,7 +3,8 @@ import { Check, Plus, UserCircle, PushPin } from '@phosphor-icons/react';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
 import { Avatar } from '../ui/ui/Avatar.jsx';
 import { characterAvatar, characterName } from '../utils/characterDisplay.js';
-import { DshPanelLeftIcon, DshNewChatIcon, DshEllipsisIcon, DshEditIcon, DshTrashIcon, DshSearchIcon } from '../ui/icons/dshComposerIcons.jsx';
+import { IconFlatListOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
+import { DshNewChatIcon, DshEllipsisIcon, DshEditIcon, DshTrashIcon, DshSearchIcon } from '../ui/icons/dshComposerIcons.jsx';
 import { MobileDialog, MobileHeader, MobileSearch, useMobileBack } from './MobileChrome.jsx';
 import { FailureAlert } from '../ui/ui/FailureAlert.jsx';
 import { MobileCreatorStudioConversation } from './MobileCreatorStudioConversation.jsx';
@@ -18,6 +19,8 @@ export function MobileCreatorStudioPage() {
   const [picker, setPicker] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [headerTarget, setHeaderTarget] = useState(null);
+  const [cornerTarget, setCornerTarget] = useState(null);
   const initialized = useRef(false);
   const mountVersion = useRef(0);
   const target = characters.collection.items.find(item => item.id === state.active?.characterId);
@@ -47,14 +50,15 @@ export function MobileCreatorStudioPage() {
     if (await perform(() => model.create(target?.id || ''))) setDrawer(false);
   }
   return <div className="mobile-root-page mobile-creator-studio-page">
-    <MobileHeader title="AI 创作工作室" back={() => view.goBack()}>
-      <button type="button" aria-label="工作室侧边栏" aria-expanded={drawer} onClick={() => { setDrawer(true); void perform(() => model.refresh()); }}><DshPanelLeftIcon size={22} /></button>
+    <MobileHeader title={<><span className="creator-studio-heading-title">AI 创作工作室</span><span className="creator-studio-heading-preset" ref={setHeaderTarget} /></>} back={() => view.goBack()}
+      leading={<button type="button" aria-label="工作室侧边栏" aria-expanded={drawer} onClick={() => { setDrawer(true); void perform(() => model.refresh()); }}><IconFlatListOutlineRegular size={20} /></button>}>
       <button type="button" aria-label="新建工作室对话" disabled={busy} onClick={() => void create()}><DshNewChatIcon size={22} /></button>
+      <span className="creator-studio-heading-corner" ref={setCornerTarget} />
     </MobileHeader>
     <FailureAlert failure={error || state.error} className="creator-studio-error" />
     <section className="creator-studio-conversation" aria-label="工作室对话">
       {state.reference ? view.renderCreatorStudioConversation({ reference: state.reference, component: MobileCreatorStudioConversation,
-        props: { model, editing: state.editingSessionId === state.active?.sessionId, onCreate: create, onSelectCharacter: () => setPicker(true), onError: setError } }) :
+        props: { model, headerTarget, cornerTarget, editing: state.editingSessionId === state.active?.sessionId, onCreate: create, onSelectCharacter: () => setPicker(true), onError: setError } }) :
         <div className="creator-studio-start">{busy || state.status === 'loading' ? <span className="creator-studio-spinner" role="status" aria-label="加载对话" /> :
           <button type="button" onClick={() => void perform(() => model.restoreRecent())}>重试</button>}</div>}
     </section>

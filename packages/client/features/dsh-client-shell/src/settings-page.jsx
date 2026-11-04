@@ -1,6 +1,13 @@
+import '@deepseek-ai/dsh-client-ui-sidebar/client';
 import { SettingsPanel } from "../../../../../apps/web/src/modules/settings/index.js";
 import { useMainPageView } from "../../../../../apps/web/src/app/windows/MainPageContext.jsx";
+import logoIcon from "../../../../../apps/web/src/assets/eleckoi-app-icon.png";
+export { ElecKoiWordmark as SidebarBrandName } from "../../../../../apps/web/src/ui/icons/ElecKoiWordmark.jsx";
 export { CreatorStudioNavIcon as CreatorStudioNavigationIcon, CommunityNavIcon as CommunityNavigationIcon } from "../../../../../apps/web/src/ui/icons/navIcons.jsx";
+
+export function SidebarBrandMark({ size = 24 }) {
+  return <img src={logoIcon} width={size} height={size} alt="" draggable="false" />;
+}
 
 export function SettingsPage() {
   const view = useMainPageView();

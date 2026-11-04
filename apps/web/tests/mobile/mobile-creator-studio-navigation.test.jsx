@@ -44,12 +44,18 @@ describe('Android AI creator studio navigation', () => {
     await f.click('选择角色 合成角色');
     expect(f.node.querySelector('.creator-studio-character-picker')).not.toBeNull();
   });
-  it('restores recent history and places the shared new-chat control immediately after the sidebar control', async () => {
+  it('restores history with its list toggle after Back and new-chat in the trailing actions', async () => {
     const f = await mount();
     expect(f.model.restoreRecent).toHaveBeenCalledOnce();
     expect(f.node.textContent).not.toContain('正在打开');
     const actions = [...f.node.querySelectorAll('.mobile-header-actions button')].map(button => button.getAttribute('aria-label'));
-    expect(actions).toEqual(['工作室侧边栏', '新建工作室对话']);
+    expect(actions).toEqual(['新建工作室对话']);
+    expect([...f.node.querySelectorAll('.mobile-header > button')].map(button => button.getAttribute('aria-label'))).toEqual(['返回', '工作室侧边栏']);
+    expect(f.node.querySelector('.creator-studio-heading-preset')).toBeTruthy();
+    expect(f.node.querySelector('.mobile-header-actions').lastElementChild.className).toBe('creator-studio-heading-corner');
+    const headerProps = f.view.renderCreatorStudioConversation.mock.calls.at(-1)[0].props;
+    expect(headerProps.headerTarget).toBe(f.node.querySelector('.creator-studio-heading-preset'));
+    expect(headerProps.cornerTarget).toBe(f.node.querySelector('.creator-studio-heading-corner'));
     await f.click('新建工作室对话');
     expect(f.model.create).toHaveBeenCalledWith('');
     expect(f.view.renderCreatorStudioConversation.mock.calls[0][0].component.name).toBe('MobileCreatorStudioConversation');

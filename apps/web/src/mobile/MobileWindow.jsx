@@ -26,6 +26,7 @@ export function MobileWindow(props) {
   const appearance = useWindowAppearance({ notify: chat.notify });
   const appUpdates = useAppUpdates();
   const [settingsPage, setSettingsPage] = useState('home');
+  const [drawerKind, setDrawerKind] = useState('main');
   const [backgroundOpen, setBackgroundOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchHistory, setSearchHistory] = useState([]);
@@ -193,7 +194,8 @@ export function MobileWindow(props) {
     }),
     replaceRoute: next => { if (!conversationBusyRef.current) guarded(() => setRoutes(current => [...current.slice(0, -1), { ...current.at(-1), ...next }])); },
     pushRoute: next => { if (!conversationBusyRef.current) guarded(() => setRoutes(current => [...current, { panel: selectedPanel, ...next }])); },
-    openDrawer: () => { if (!conversationBusyRef.current) navigation.toggleSidebar(); },
+    openDrawer: () => { if (!conversationBusyRef.current) { setDrawerKind('main'); navigation.toggleSidebar(); } },
+    openWorkspaceDrawer: () => { if (!conversationBusyRef.current) { setDrawerKind('workspace'); navigation.toggleSidebar(); } },
     selectConversation: id => openConversation({ sessionId: id }, () => chat.loadChat(id)),
     openCharacterConversation: id => openConversation({ characterId: id }, () => chat.openCharacterChat(id)),
     openCharacterSection: () => selectPanel('character'),
@@ -206,6 +208,8 @@ export function MobileWindow(props) {
   const renderSidebarContent = renderSidebarSlot => <SidebarContent expanded compactAccount
     activeSection={selectedPanel}
     navigationItems={navigation.items.filter(item => !ROOT_TABS.some(([id]) => id === item.id))}
+    renderEntryActions={navigation.hasSidebarEntryActions && renderSidebarSlot
+      ? onDismiss => navigation.renderSidebarEntryActions(renderSidebarSlot, onDismiss) : undefined}
     renderSidebarSlot={renderSidebarSlot} hasFooterActions={navigation.hasSidebarFooterActions}
     profileActive={selectedPanel === 'settings' && settingsPage === 'profile'}
     onSectionChange={navigation.selectPanel} onNavigationAction={navigation.selectPanel} persona={chat.persona}
@@ -217,8 +221,8 @@ export function MobileWindow(props) {
       <div className="mobile-front-surface">
       <div className="mobile-front-shadow" aria-hidden="true" />
       <div className="mobile-front-content">
-      <section ref={pageRef} className="mobile-page-seat" inert={drawerPresent || searchOpen ? true : undefined} aria-hidden={searchOpen || undefined}>
-        {!isProductPage && <MobileHeader title={selectedPanel === 'conversation' ? '对话' : selectedPanel === 'settings' ? '设置' : navigation.items.find(item => item.id === selectedPanel)?.label || selectedPanel} back={routes.length > 1 ? back : undefined} />}
+      <section ref={pageRef} className={`mobile-page-seat${selectedPanel === 'conversation' ? ' mobile-workspace-page' : ''}`} inert={drawerPresent || searchOpen ? true : undefined} aria-hidden={searchOpen || undefined}>
+        {!isProductPage && selectedPanel !== 'conversation' && <MobileHeader title={selectedPanel === 'settings' ? '设置' : navigation.items.find(item => item.id === selectedPanel)?.label || selectedPanel} back={routes.length > 1 ? back : undefined} />}
         <Suspense fallback={<p className="mobile-state" role="status">正在加载…</p>}>{navigation.renderPanel(selectedPanel)}</Suspense>
       </section>
       {isRootTab && <nav className="mobile-bottom-nav" aria-label="主导航" inert={drawerPresent || searchOpen ? true : undefined} aria-hidden={searchOpen || undefined} style={searchOpen ? { visibility: 'hidden' } : undefined}>
@@ -237,13 +241,15 @@ export function MobileWindow(props) {
       </div>
       </div>
       {drawerPresent && <div className="mobile-drawer-overlay">
-        <aside className="mobile-drawer" ref={drawerRef} role="dialog" aria-label="侧边导航" aria-modal="true" data-mobile-back-owner="drawer" inert={!drawerState.shown ? true : undefined} onKeyDown={event => {
+        <aside className={`mobile-drawer${drawerKind === 'workspace' ? ' mobile-workspace-drawer' : ''}`} ref={drawerRef} role="dialog" aria-label={drawerKind === 'workspace' ? '工作区会话管理' : '侧边导航'} aria-modal="true" data-mobile-back-owner="drawer" inert={!drawerState.shown ? true : undefined} onKeyDown={event => {
           if (event.key !== 'Tab') return;
           const items = [...drawerRef.current.querySelectorAll('button:not(:disabled),a[href],[tabindex="0"]')];
           if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1)?.focus(); }
           else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0]?.focus(); }
         }}>
-          <Suspense fallback={<p className="mobile-state">正在加载…</p>}>{navigation.renderSidebar(renderSidebarContent, { collapsed: false, width: Math.min(326, viewportWidth * .8) })}</Suspense>
+          <Suspense fallback={<p className="mobile-state">正在加载…</p>}>{navigation.renderSidebar(drawerKind === 'workspace'
+            ? (_renderSidebarSlot, workspaceSidebar) => workspaceSidebar : renderSidebarContent,
+          { workspace: drawerKind === 'workspace', collapsed: false, width: Math.min(326, viewportWidth * .8) })}</Suspense>
         </aside>
         <div className="mobile-drawer-scrim" aria-hidden="true" />
       </div>}

@@ -11,10 +11,13 @@ import {
 import { MarkdownTextareaField } from "../../settingLibraries/index.js";
 import { FailureAlert } from "../../../ui/ui/FailureAlert.jsx";
 
-export const OpeningEditor = forwardRef(function OpeningEditor({ entry, variableVersions = [], variableVersionsError = '', onChange, onRequestDelete }, ref) {
+export const OpeningEditor = forwardRef(function OpeningEditor({ entry, query = '', variableVersions = [], variableVersionsError = '', onChange, onRequestDelete }, ref) {
   const messages = useMemo(() => primaryFirstOpeningMessages(entry), [entry]);
   const primary = messages[0];
   const backups = messages.slice(1);
+  const keyword = query.trim().toLocaleLowerCase();
+  const matches = message => !keyword || `${message.title}\n${message.content}`.toLocaleLowerCase().includes(keyword);
+  const visibleBackups = backups.map((message, index) => ({ message, index })).filter(({ message }) => matches(message));
   const [expandedId, setExpandedId] = useState(primary.id);
 
   useEffect(() => {
@@ -85,9 +88,10 @@ export const OpeningEditor = forwardRef(function OpeningEditor({ entry, variable
   return (
     <div className="setting-library-opening-editor">
       <div className="setting-library-opening-list">
-        {renderMessage(primary, 0, true)}
-        {backups.length ? <div className="setting-library-opening-group-label">备用开场白 <span>{backups.length}</span></div> : null}
-        {backups.map((message, index) => renderMessage(message, index + 1, false))}
+        {matches(primary) && renderMessage(primary, 0, true)}
+        {visibleBackups.length ? <div className="setting-library-opening-group-label">备用开场白 <span>{visibleBackups.length}</span></div> : null}
+        {visibleBackups.map(({ message, index }) => renderMessage(message, index + 1, false))}
+        {!matches(primary) && !visibleBackups.length && <p className="setting-library-empty" role="status">没有匹配的开场白</p>}
       </div>
     </div>
   );

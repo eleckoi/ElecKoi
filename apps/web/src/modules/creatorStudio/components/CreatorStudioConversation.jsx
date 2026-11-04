@@ -66,8 +66,9 @@ export function CreatorStudioConversation({ model, editing = false, creating = f
           {renderHeaderSlot('eleckoi.creator-studio.session.header.corner', {})}
         </div>
       </div>
-      <div role="tablist" aria-label="工作室视图" data-conversation-tabs="">{tabs.filter(tab => !unpinned.includes(tab.id)).map(({ id, label }) => <button type="button" role="tab" key={id}
-        aria-selected={active?.id === id} onClick={() => selectView(id)}>{label}</button>)}
+      <div className="creator-simple-view-row">
+        <div role="tablist" aria-label="工作室视图" data-conversation-tabs="">{tabs.filter(tab => !unpinned.includes(tab.id)).map(({ id, label }) => <button type="button" role="tab" key={id}
+          aria-selected={active?.id === id} onClick={() => selectView(id)}><span className="creator-simple-view-label">{label}</span></button>)}</div>
         {hasEntryActions ? <DshEntryActionsMenu region="conversation" renderActions={onDismiss => renderHeaderSlot('eleckoi.creator-studio.session.header.views.actions', {
           entries: tabs.filter(tab => unpinned.includes(tab.id)).map(tab => ({ id: tab.id, label: tab.label, pinned: false, active: tab.id === active?.id })),
           onOpen: selectView, onPinnedChange: setPinned, onDismiss

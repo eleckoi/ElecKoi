@@ -19,6 +19,17 @@ export async function dshBundleAssets(directory) {
   for (const locale of locales) {
     if (locale.isFile() && locale.name.endsWith('.json')) files.push(`locale/${locale.name}`)
   }
+  async function skills(path = 'skills') {
+    let entries
+    try { entries = await readdir(join(directory, path), { withFileTypes: true }) }
+    catch (error) { if (error.code !== 'ENOENT') throw error; return }
+    for (const entry of entries) {
+      const child = `${path}/${entry.name}`
+      if (entry.isDirectory()) await skills(child)
+      else if (entry.isFile()) files.push(child)
+    }
+  }
+  await skills()
   for (const file of files) await access(join(directory, file))
   return files
 }

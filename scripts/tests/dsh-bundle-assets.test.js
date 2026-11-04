@@ -43,4 +43,18 @@ describe('packaged bundle assets', () => {
       await expect(dshBundleAssets(source)).rejects.toMatchObject({ code: 'ENOENT' })
     })
   })
+
+  it('rejects a package that includes its skill but omits the nested development references', async () => {
+    await fixture(async (source, packaged) => {
+      for (const directory of [source, packaged]) {
+        await mkdir(join(directory, 'skills/development/references'), { recursive: true })
+        await writeFile(join(directory, 'skills/development/SKILL.md'), '# Development')
+      }
+      await writeFile(join(source, 'skills/development/references/api.md'), '# API')
+      const assets = await dshBundleAssets(source)
+      await expect(verifyDshBundleAssets(packaged, assets)).rejects.toMatchObject({ code: 'ENOENT' })
+      await writeFile(join(packaged, 'skills/development/references/api.md'), '# API')
+      await expect(verifyDshBundleAssets(packaged, assets)).resolves.toBeUndefined()
+    })
+  })
 })
