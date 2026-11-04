@@ -3,6 +3,7 @@ import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { generatePluginApiReference } from './generate-plugin-api-reference.mjs'
 import { readWorkspacePackages } from './workspace-packages.mjs'
+import { normalizeLineEndings } from './lib/normalize-line-endings.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const outputPath = join(root, 'docs', 'plugins', 'api-reference.md')
@@ -135,7 +136,7 @@ if (checkOnly) {
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error
   }
-  if (current !== generated) {
+  if (normalizeLineEndings(current) !== generated) {
     throw new Error('插件开发接口文档已过期，请运行 pnpm generate:plugin-docs')
   }
   console.log(`Plugin developer API documentation is current: ${bundles.length} bundles, ${rows.length} interfaces, ${reference.remoteMethods} Remote methods.`)
@@ -149,14 +150,14 @@ const pluginDocs = join(root, 'docs/plugins')
 const documents = (await readdir(pluginDocs)).filter(file => file.endsWith('.md')).sort()
 if (!checkOnly) await mkdir(references, { recursive: true })
 for (const file of documents) {
-  const source = await readFile(join(pluginDocs, file), 'utf8')
+  const source = normalizeLineEndings(await readFile(join(pluginDocs, file), 'utf8'))
   const expected = `<!-- Generated from docs/plugins/${file}; run pnpm generate:plugin-docs. -->\n\n${source}`
   if (checkOnly) {
     const current = await readFile(join(references, file), 'utf8').catch(error => {
       if (error.code !== 'ENOENT') throw error
       return ''
     })
-    if (current !== expected) throw new Error(`随包插件开发文档 ${file} 已过期，请运行 pnpm generate:plugin-docs`)
+    if (normalizeLineEndings(current) !== expected) throw new Error(`随包插件开发文档 ${file} 已过期，请运行 pnpm generate:plugin-docs`)
   } else {
     await writeFile(join(references, file), expected, 'utf8')
   }

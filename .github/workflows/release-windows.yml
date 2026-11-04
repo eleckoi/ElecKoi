@@ -116,6 +116,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ inputs.tag }}
           REPLACE_WINDOWS_ASSETS: ${{ inputs.replace_windows_assets }}
+          SOURCE_REF: ${{ inputs.source_ref }}
         run: |
           $assets = @(
             (Get-ChildItem release -File -Filter '*-setup.exe').FullName
@@ -146,7 +147,16 @@ jobs:
           }
           $releaseOptions = @('--verify-tag', '--title', "ElecKoi $env:RELEASE_TAG")
           $releaseNotes = "docs/releases/$env:RELEASE_TAG.md"
-          if (Test-Path -LiteralPath $releaseNotes) { $releaseOptions += @('--notes-file', $releaseNotes) }
+          if (Test-Path -LiteralPath $releaseNotes) {
+            if ($env:SOURCE_REF) {
+              $source = git rev-parse HEAD
+              $notice = "[本次 PC 构建源码](https://github.com/$env:GITHUB_REPOSITORY/commit/$source)。"
+              $verifiedNotes = Join-Path $env:RUNNER_TEMP 'verified-release-notes.md'
+              "$notice`n`n$(Get-Content -LiteralPath $releaseNotes -Raw)" | Set-Content -LiteralPath $verifiedNotes -Encoding utf8
+              $releaseNotes = $verifiedNotes
+            }
+            $releaseOptions += @('--notes-file', $releaseNotes)
+          }
           else { $releaseOptions += '--generate-notes' }
           if ('${{ inputs.prerelease }}' -eq 'true') { $releaseOptions += '--prerelease' }
           gh release create $env:RELEASE_TAG @assets @releaseOptions

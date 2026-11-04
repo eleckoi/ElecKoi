@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import vm from 'node:vm'
 import { createRequire } from 'node:module'
 import { readWorkspacePackages } from './workspace-packages.mjs'
+import { normalizeLineEndings } from './lib/normalize-line-endings.mjs'
 import {
   WorkspaceAnalyzer, CordisCatalogProjector, TypeGraphRenderer,
   FaceModelEmitter, renderPageRegion
@@ -173,7 +174,7 @@ export async function generatePluginApiReference(root, { check = false } = {}) {
     const absolute = resolve(root, path)
     if (check) {
       const current = await readFile(absolute, 'utf8').catch(error => { if (error.code === 'ENOENT') return ''; throw error })
-      if (current !== generated) stale.push(path)
+      if (normalizeLineEndings(current) !== generated) stale.push(path)
     } else await writeFile(absolute, generated, 'utf8')
   }
   if (stale.length) throw new Error(`完整插件 API 参考已过期，请运行 pnpm generate:plugin-docs：\n${stale.join('\n')}`)
