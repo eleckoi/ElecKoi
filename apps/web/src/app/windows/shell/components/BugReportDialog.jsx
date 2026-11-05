@@ -33,6 +33,9 @@ const CRASH_LOG_TAIL_NOTICE = "这次是异常结束（可能是崩溃），已�
 /** 失败时落草稿成功，才追加这句（Android 没有草稿持久化，桥会诚实回 undefined）。 */
 const DRAFT_SAVED_SUFFIX = "报告已保存草稿，下次启动可以重发。";
 
+/** 表单打开成功只说明系统接住了调用：这份留成草稿，等用户确认提交后自己丢弃（决定 14）。 */
+const FORM_DRAFT_KEPT_SUFFIX = "这份报告已留成草稿：确认提交后点「丢弃」。";
+
 /** 邮件客户端被系统接住了。剪贴板那一步成没成，另按 `copied` 说（决定 13）。 */
 const MAIL_OPENED_NOTICE = "已打开邮件客户端，检查后发送即可。";
 const MAIL_OPENED_COPY_NOTICE = "已打开邮件客户端，检查后发送即可；全文也已在剪贴板里。";
@@ -199,6 +202,8 @@ export function BugReportDialog({ open, onClose, onNotify }) {
   const [notice, setNotice] = useState("");
   // 最多问一次的那批草稿（决定 14）；按份数说话，每次处理最新一份（主进程新到旧给）。
   const [pendingDrafts, setPendingDrafts] = useState([]);
+  // 这份草稿就是刚才点「提交到飞书」留下的（不是上次启动剩下的），块里的说法要跟着变。
+  const [draftKept, setDraftKept] = useState(false);
 
   // 是否发起过投递：只有发起过，关闭时才值得再存一次草稿。
   const attemptedRef = useRef(false);
@@ -305,13 +310,16 @@ export function BugReportDialog({ open, onClose, onNotify }) {
   /** 重新拉一次草稿列表：处理掉一份之后，块按剩余份数更新或消失。 */
   const refreshDrafts = useCallback(async () => {
     const bridge = bugReportBridge();
-    if (typeof bridge?.drafts !== "function") return;
+    if (typeof bridge?.drafts !== "function") return [];
     try {
       const result = await bridge.drafts();
-      setPendingDrafts(Array.isArray(result?.drafts) ? result.drafts : []);
+      const list = Array.isArray(result?.drafts) ? result.drafts : [];
+      setPendingDrafts(list);
+      return list;
     } catch {
       // 列表问不到就保留已知的那份：块可能多留一会儿，但不能把对话框变成错误页。
       bestEffort();
+      return [];
     }
   }, []);
 
@@ -388,7 +396,7 @@ export function BugReportDialog({ open, onClose, onNotify }) {
   }
 
   function sendDirectly() {
-    return deliver(null, async (fresh) => {
+    return deliver("relay", async (fresh) => {
       const noteText = stateRef.current.notes.trim();
       const result = await bridgeOrFail().send({
         includeLogTail: stateRef.current.includeLogTail,
@@ -407,8 +415,13 @@ export function BugReportDialog({ open, onClose, onNotify }) {
         throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, "表单端点没有配置完整。", { field: "form" });
       }
       await bridgeOrFail().open({ kind: "form", url: built.url });
-      // 打开成功只说明系统接住了调用（决定 13）：说清这次发的是全文还是摘要，以及复制成没成。
-      setNotice(formNotice(built, copied));
+      // 打开成功只说明系统接住了调用（决定 13 / 14）：把这份留成草稿，等用户确认提交后自己丢弃。
+      // 留不下来（Android 没有草稿）就什么都不说，不给一个点不动的「丢弃」。
+      const saved = await saveDraftQuietly();
+      const kept = saved ? (await refreshDrafts()).length > 0 : false;
+      if (kept) setDraftKept(true);
+      const base = formNotice(built, copied);
+      setNotice(kept ? `${base}${FORM_DRAFT_KEPT_SUFFIX}` : base);
     });
   }
 
@@ -494,6 +507,7 @@ export function BugReportDialog({ open, onClose, onNotify }) {
     try {
       await bridgeOrFail().discardDraft(draft.key);
       setPendingDrafts((current) => current.filter((item) => item.key !== draft.key));
+      setDraftKept(false);
       await refreshDrafts();
       setNotice("已丢弃那份草稿。");
     } catch (cause) {
@@ -521,6 +535,7 @@ export function BugReportDialog({ open, onClose, onNotify }) {
   const mailto = useMemo(() => mailtoFor(report, delivery), [report, delivery]);
   const formFailure = channelFailures.get("form");
   const mailFailure = channelFailures.get("mail");
+  const relayFailure = channelFailures.get("relay");
   const hasChannel = preview !== null && hasBugReportChannel(delivery);
 
   /**
@@ -530,7 +545,7 @@ export function BugReportDialog({ open, onClose, onNotify }) {
   const channelActions = [];
   if (formUrl) channelActions.push({ key: "form", label: "提交到飞书", failure: formFailure, onClick: sendToForm });
   if (mailto) channelActions.push({ key: "mail", label: mailButtonLabel(delivery), failure: mailFailure, onClick: sendByMail });
-  if (delivery?.relay) channelActions.push({ key: "relay", label: "直接发送", failure: undefined, onClick: sendDirectly });
+  if (delivery?.relay) channelActions.push({ key: "relay", label: "直接发送", failure: relayFailure, onClick: sendDirectly });
   const healthyActions = channelActions.filter((action) => action.failure === undefined);
   const failedActions = channelActions.filter((action) => action.failure !== undefined);
   const primaryKey = healthyActions[0]?.key ?? "copy";
@@ -566,9 +581,11 @@ export function BugReportDialog({ open, onClose, onNotify }) {
           {pendingDrafts.length ? (
             <section className="bug-report-draft" aria-label="上次没发出去的报告">
               <p>
-                {pendingDrafts.length > 1
-                  ? `上次有 ${pendingDrafts.length} 份没送出去的报告，先送出最新一份吗？`
-                  : `上次有 ${pendingDrafts.length} 份没送出去的报告，要现在送出去吗？`}
+                {draftKept
+                  ? "这份报告还留在草稿里：确认提交后点「丢弃」。"
+                  : pendingDrafts.length > 1
+                    ? `上次有 ${pendingDrafts.length} 份没送出去的报告，先送出最新一份吗？`
+                    : `上次有 ${pendingDrafts.length} 份没送出去的报告，要现在送出去吗？`}
               </p>
               <div className="bug-report-draft-actions">
                 {/* 预览没到就没有 delivery，重发会静默跳过表单通道；先禁用。 */}

@@ -91,8 +91,8 @@ describe('签名与主题', () => {
 
   it('没有失败行时用兜底码（原生崩溃可能没来得及写失败行）', () => {
     const report = reportOf({ failures: [] })
-    expect(bugReportSignature(report)).toBe('eleckoi/unknown@v0.2.14:windows')
-    expect(bugReportSubject(report)).toContain('eleckoi/unknown')
+    expect(bugReportSignature(report)).toBe('none@v0.2.14:windows')
+    expect(bugReportSubject(report)).toContain('none')
   })
 
   it('同一码在不同版本 / 平台上签名不同', () => {

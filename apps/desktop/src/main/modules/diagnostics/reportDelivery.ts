@@ -9,10 +9,7 @@
  * `node` 环境里就能测。分开之后，插件只做接线。
  */
 import type { BugReportEnvironment, BugReportPlatform } from '@shared/contracts/bugReport/report'
-import type {
-  BugReportDeliveryConfig,
-  BugReportRelayConfig
-} from '@shared/contracts/bugReport/delivery'
+import type { BugReportRelayConfig } from '@shared/contracts/bugReport/delivery'
 import { isBugReportRelayProvider } from '@shared/contracts/bugReport/delivery'
 
 /** 收件邮箱的环境变量名（发布配置注入）。 */
@@ -44,27 +41,6 @@ export const BUG_REPORT_RELAY_TIMEOUT_MS = 15000
 
 /** 收集时最多回看多少行日志：够覆盖一次崩溃的现场，又不至于把整天的日志读进内存。 */
 export const BUG_REPORT_LOG_SCAN_LINES = 2000
-
-/**
- * 读投递配置。
- *
- * @param environment - 环境变量（用例传固定值）。
- * @returns 两个通道；空字符串表示未配置。
- */
-export function readBugReportDelivery(
-  environment: NodeJS.ProcessEnv = process.env
-): BugReportDeliveryConfig {
-  const mailboxName = textOf(environment, BUG_REPORT_MAILBOX_NAME_ENV)
-  const subscribeUrl = textOf(environment, BUG_REPORT_SUBSCRIBE_URL_ENV)
-  const relay = readRelay(environment)
-  return {
-    mailbox: textOf(environment, BUG_REPORT_MAILBOX_ENV),
-    repository: textOf(environment, BUG_REPORT_REPOSITORY_ENV),
-    ...(mailboxName === '' ? {} : { mailboxName }),
-    ...(subscribeUrl === '' ? {} : { subscribeUrl }),
-    ...(relay === undefined ? {} : { relay })
-  }
-}
 
 /**
  * 读代发配置。服务名不认识、端点为空都按「没配」处理——宁可少一个按钮，也不要发出一个必然失败的请求。

@@ -16,6 +16,7 @@ import type { BugReportTargetKind } from '@shared/contracts/bugReport/delivery'
 import type { EleckoiShellOpenFailedDetails } from '@shared/contracts/errors/details'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
+import { errorTextOf } from './failureText'
 
 /**
  * 渲染层请求打开的表单地址是不是配置里那一个端点。
@@ -50,7 +51,3 @@ export function bugReportOpenFailure(kind: BugReportTargetKind, error: unknown):
     `打开外部程序失败：${errorTextOf(error)}`, details)
 }
 
-/** 抛出值的诊断原文；非 `Error` 的抛出也要有话说。 */
-function errorTextOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}

@@ -1,7 +1,7 @@
 /**
  * 报告 → GitHub issue。正文、隐藏签名块与一条预填链接。
  *
- * 判据（[ADR 0041](../../../../../docs/adr/0041-bug-report-by-mail.md) 决定 4）：issue 通道进
+ * 判据（[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md) 决定 4）：issue 通道进
  * **收件箱仓库**，由那里的 workflow 按签名折叠，主仓库的 issue 列表不涨。折叠要知道「这是哪条
  * 签名」，所以正文第一行埋一行渲染时不可见的注释块；它既是 workflow 的输入，也是这份契约与
  * workflow 之间唯一的耦合点。
@@ -14,7 +14,7 @@
  * 3. **长度按编码后算。** 中文经 `encodeURIComponent` 一个字符变 9 个，守卫看最终 URL 长度。
  * 4. **装不下就摘要。** 与邮件通道同一个取舍：宁可多一步粘贴，也不发半份日志。
  */
-import type { BugReport, BugReportPlatform } from './report'
+import { BUG_REPORT_NO_FAILURE_CODE, type BugReport, type BugReportPlatform } from './report'
 import {
   BUG_REPORT_LOG_TAIL_MAX_LINES,
   BUG_REPORT_SCHEMA_VERSION,
@@ -87,7 +87,7 @@ export function bugReportSignatureRecord(report: BugReport): BugReportSignatureR
   return {
     schemaVersion: BUG_REPORT_SCHEMA_VERSION,
     signature: bugReportSignature(report),
-    code: report.failures[0]?.code ?? 'eleckoi/unknown',
+    code: report.failures[0]?.code ?? BUG_REPORT_NO_FAILURE_CODE,
     version: bugReportVersionToken(report.environment.appVersion),
     platform: report.environment.platform
   }

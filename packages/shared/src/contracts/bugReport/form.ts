@@ -246,7 +246,13 @@ function fitBody(text: string, mark: string, budget: number): string {
   return encodeURIComponent(mark).length <= budget ? mark : ''
 }
 
-function isHttpUrl(value: string): boolean {
+/**
+ * 能交给系统浏览器 / 外部程序打开的地址。
+ *
+ * @param value - 待判定的字符串。
+ * @returns 是不是 http(s) 地址。
+ */
+export function isHttpUrl(value: string): boolean {
   return /^https?:\/\/\S/i.test(value)
 }
 

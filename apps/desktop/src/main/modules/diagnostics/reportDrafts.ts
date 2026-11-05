@@ -30,6 +30,7 @@ import { bugReportSignature, type BugReport } from '@shared/contracts/bugReport/
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import { parseJsonObject } from '@shared/foundation/json'
+import { errorTextOf } from './failureText'
 
 /** 草稿保留多少天（决定 14）。 */
 export const BUG_REPORT_DRAFT_RETENTION_DAYS = 30
@@ -103,7 +104,7 @@ export function savePendingDraft(input: {
     writeDraftAtomically(path, `${JSON.stringify(draft, null, 2)}\n`)
   } catch (error) {
     throw new DesktopError(ELECKOI_FAILURE_CODES.ioFailed,
-      `写入报告草稿失败：${errorTextOf(error)}`, { operation: '写入报告草稿', path })
+      `写入报告草稿失败：${errorTextOf(error)}`, { operation: 'write', path })
   }
   pruneAfterSave(input.directory, key, bugReportSignature(input.report))
   return { key, savedAt }
@@ -273,7 +274,3 @@ function removeQuietly(path: string): void {
   }
 }
 
-/** 抛出值的诊断原文；非 `Error` 的抛出也要有话说。 */
-function errorTextOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}

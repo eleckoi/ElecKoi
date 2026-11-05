@@ -1,7 +1,7 @@
 /**
  * Bug 报告的形状——桌面端与 Android 端共用的一份导出物。
  *
- * 判据（[ADR 0041](../../../../../docs/adr/0041-bug-report-by-mail.md)）：用户点一次「报告问题」，
+ * 判据（[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md)）：用户点一次「报告问题」，
  * 生成的东西要能独立看懂——版本、平台、上次会话是不是异常结束、出现过哪些失败码、尾巴上的日志。
  * 维护者不回问就知道「这是哪个版本的哪条失败」。
  *
@@ -20,8 +20,13 @@ export const BUG_REPORT_SCHEMA_VERSION = 1
 /** 主题行前缀。邮箱侧折叠规则与维护者搜索都认这一个词。 */
 export const BUG_REPORT_SUBJECT_PREFIX = '[ElecKoi]'
 
-/** 一次报告里没有任何失败行时，签名用的兜底码（崩溃本身可能没来得及写失败行）。 */
-export const BUG_REPORT_UNKNOWN_CODE = 'eleckoi/unknown'
+/**
+ * 一次报告里没有任何失败行时的占位（崩溃本身可能没来得及写失败行）。
+ *
+ * 刻意**不**写成 `eleckoi/…` 的形状：它不是失败码，只是主题行里的占位符——写成码的形状会被当成
+ * 一条真的失败去定位，而码表里根本没有它（[ADR 0040](../../../../../docs/adr/0040-error-contract.md)）。
+ */
+export const BUG_REPORT_NO_FAILURE_CODE = 'none'
 
 /** 报告里最多保留几条失败（同一个码只算一条）。 */
 export const BUG_REPORT_MAX_FAILURES = 20
@@ -95,10 +100,10 @@ export function bugReportVersionToken(appVersion: string): string {
  * 去重键：同一签名的报告在邮箱侧折叠成一条。
  *
  * @param report - 报告。
- * @returns `<失败码>@<版本>:<平台>`；没有失败码时用 {@link BUG_REPORT_UNKNOWN_CODE}。
+ * @returns `<失败码>@<版本>:<平台>`；没有失败码时用 {@link BUG_REPORT_NO_FAILURE_CODE}。
  */
 export function bugReportSignature(report: BugReport): string {
-  const code = report.failures[0]?.code ?? BUG_REPORT_UNKNOWN_CODE
+  const code = report.failures[0]?.code ?? BUG_REPORT_NO_FAILURE_CODE
   return `${code}@${bugReportVersionToken(report.environment.appVersion)}:${report.environment.platform}`
 }
 
@@ -112,7 +117,7 @@ export function bugReportSignature(report: BugReport): string {
  * @returns 主题行。
  */
 export function bugReportSubject(report: BugReport): string {
-  const code = report.failures[0]?.code ?? BUG_REPORT_UNKNOWN_CODE
+  const code = report.failures[0]?.code ?? BUG_REPORT_NO_FAILURE_CODE
   const version = bugReportVersionToken(report.environment.appVersion)
   return `${BUG_REPORT_SUBJECT_PREFIX} ${code} @ ${version} ${report.environment.platform}`
 }

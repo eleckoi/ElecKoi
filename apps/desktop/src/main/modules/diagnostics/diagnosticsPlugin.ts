@@ -49,6 +49,7 @@ import { logAction } from '@main/platform/logging/logActions'
 import { buildBugReport } from './bugReportCollection'
 import { readReportConfig } from './bundledReportConfig'
 import { bugReportOpenFailure, isConfiguredFormTarget } from './reportOpen'
+import { errorTextOf } from './failureText'
 import {
   discardPendingDraft,
   listPendingDrafts,
@@ -134,7 +135,7 @@ export const diagnosticsPlugin = {
           writeFileSync(target, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
         } catch (error) {
           throw new DesktopError(ELECKOI_FAILURE_CODES.ioFailed,
-            `写入报告文件失败：${errorTextOf(error)}`, { operation: '写入报告文件', path: target })
+            `写入报告文件失败：${errorTextOf(error)}`, { operation: 'write', path: target })
         }
         logAction(appLog, LOG_ACTIONS.bugReportExport, 'success')
         return { saved: true, path: target } satisfies BugReportExportResult
@@ -352,7 +353,7 @@ async function postOnce(url: string, body: Readonly<Record<string, unknown>>): P
     return { ok: true, text: await response.text() }
   } catch (error) {
     throw new DesktopError(ELECKOI_FAILURE_CODES.netOperationFailed,
-      `报告代发服务不可达：${errorTextOf(error)}`, { operation: '发送报告', what: '报告代发服务' })
+      `报告代发服务不可达：${errorTextOf(error)}`, { operation: 'request', what: '报告代发服务' })
   } finally {
     clearTimeout(timer)
   }
@@ -361,13 +362,10 @@ async function postOnce(url: string, body: Readonly<Record<string, unknown>>): P
 /** 服务返回非 2xx 时的契约错误：带上状态码，重试用尽时也用它。 */
 function relayStatusFailure(status: number): DesktopError {
   return new DesktopError(ELECKOI_FAILURE_CODES.netOperationFailed,
-    `报告代发服务返回 ${status}。`, { operation: '发送报告', what: '报告代发服务' })
+    `报告代发服务返回 ${status}。`, { operation: 'request', what: '报告代发服务' })
 }
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-function errorTextOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}

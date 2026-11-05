@@ -34,8 +34,9 @@ import {
   desktopReportEnvironment,
   desktopReportPlatform,
   exportFileName,
-  readBugReportDelivery
+  readBugReportRelay
 } from '../src/main/modules/diagnostics/reportDelivery'
+import { parseBugReportConfig } from '../src/main/modules/diagnostics/reportConfig'
 
 const GENERATED_AT = new Date('2026-10-27T12:00:00.000Z')
 const ENVIRONMENT: BugReportEnvironment = {
@@ -260,52 +261,52 @@ describe('失败收集与报告', () => {
 
 describe('投递配置', () => {
   it('只从环境变量读，空值表示未配置', () => {
-    expect(readBugReportDelivery({})).toEqual({ mailbox: '', repository: '' })
-    expect(readBugReportDelivery({
+    expect(parseBugReportConfig({ fileText: undefined, environment: {} })).toEqual({ mailbox: '', repository: '' })
+    expect(parseBugReportConfig({ fileText: undefined, environment: {
       [BUG_REPORT_MAILBOX_ENV]: '  bugs@eleckoi.test  ',
       [BUG_REPORT_REPOSITORY_ENV]: ' KuramiWan/eleckoi-reports '
-    })).toEqual({ mailbox: 'bugs@eleckoi.test', repository: 'KuramiWan/eleckoi-reports' })
+    } })).toEqual({ mailbox: 'bugs@eleckoi.test', repository: 'KuramiWan/eleckoi-reports' })
   })
 
   it('列表名与订阅地址只在配了的时候出现', () => {
-    const plain = readBugReportDelivery({ [BUG_REPORT_MAILBOX_ENV]: 'reports@eleckoi.test' })
+    const plain = parseBugReportConfig({ fileText: undefined, environment: { [BUG_REPORT_MAILBOX_ENV]: 'reports@eleckoi.test' } })
     expect(plain).toEqual({ mailbox: 'reports@eleckoi.test', repository: '' })
     expect(plain.mailboxName).toBeUndefined()
 
-    const listed = readBugReportDelivery({
+    const listed = parseBugReportConfig({ fileText: undefined, environment: {
       [BUG_REPORT_MAILBOX_ENV]: 'reports@eleckoi.test',
       [BUG_REPORT_MAILBOX_NAME_ENV]: ' ElecKoi 报告列表 ',
       [BUG_REPORT_SUBSCRIBE_URL_ENV]: ' https://groups.example/eleckoi '
-    })
+    } })
     expect(listed.mailboxName).toBe('ElecKoi 报告列表')
     expect(listed.subscribeUrl).toBe('https://groups.example/eleckoi')
   })
 
   it('代发通道只在服务名与端点都合法时出现', () => {
-    expect(readBugReportDelivery({}).relay).toBeUndefined()
-    expect(readBugReportDelivery({
+    expect(readBugReportRelay({})).toBeUndefined()
+    expect(readBugReportRelay({
       [BUG_REPORT_RELAY_PROVIDER_ENV]: 'unknown-service',
       [BUG_REPORT_RELAY_ENDPOINT_ENV]: 'https://example.test/send'
-    }).relay).toBeUndefined()
-    expect(readBugReportDelivery({
+    })).toBeUndefined()
+    expect(readBugReportRelay({
       [BUG_REPORT_RELAY_PROVIDER_ENV]: 'web3forms'
-    }).relay).toBeUndefined()
+    })).toBeUndefined()
 
-    const worker = readBugReportDelivery({
+    const worker = readBugReportRelay({
       [BUG_REPORT_RELAY_PROVIDER_ENV]: 'eleckoi-relay',
       [BUG_REPORT_RELAY_ENDPOINT_ENV]: 'https://eleckoi-relay.example.workers.dev/report'
-    }).relay
+    })
     expect(worker).toEqual({
       provider: 'eleckoi-relay',
       endpoint: 'https://eleckoi-relay.example.workers.dev/report',
       accessKey: ''
     })
 
-    const relay = readBugReportDelivery({
+    const relay = readBugReportRelay({
       [BUG_REPORT_RELAY_PROVIDER_ENV]: 'web3forms',
       [BUG_REPORT_RELAY_ENDPOINT_ENV]: 'https://api.web3forms.com/submit',
       [BUG_REPORT_RELAY_KEY_ENV]: ' pub-key '
-    }).relay
+    })
     expect(relay).toEqual({
       provider: 'web3forms',
       endpoint: 'https://api.web3forms.com/submit',

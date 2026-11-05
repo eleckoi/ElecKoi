@@ -23,6 +23,15 @@ const ANDROID_FAILURE_KINDS = new Set([
 ]);
 
 /**
+ * 报告侧的日志标签前缀。Java 运行诊断的事件种类**不在**失败契约码表里（那张表在
+ * `packages/shared/src/contracts/errors/codes.ts`，给抛出的失败用），所以用固定前缀把来源分开，
+ * 不让报告里的行看起来像契约码。种类限定在 {@link ANDROID_FAILURE_KINDS} 里，其余折成
+ * {@link ANDROID_GENERIC_FAILURE}——否则任意 `kind` 都会长出一个新"码"。
+ */
+const ANDROID_FAILURE_CODE_PREFIX = "eleckoi/android/";
+const ANDROID_GENERIC_FAILURE = "runtime-event";
+
+/**
  * Android 诊断事件 → 报告能消化的日志行。
  *
  * 失败记录改写成契约里的 `{ phase: 'failure', code, msg }`，`buildBugReport` 就按同一套折叠
@@ -55,7 +64,7 @@ export function androidReportLines(events) {
         : kind || "Android 运行诊断失败";
     lines.push(JSON.stringify({
       phase: "failure",
-      code: `eleckoi/android/${kind || "error"}`,
+      code: `${ANDROID_FAILURE_CODE_PREFIX}${ANDROID_FAILURE_KINDS.has(kind) ? kind : ANDROID_GENERIC_FAILURE}`,
       msg: message,
       details: { what: kind || "android" },
     }));

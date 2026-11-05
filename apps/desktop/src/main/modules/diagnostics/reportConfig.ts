@@ -17,7 +17,7 @@
 import { isRecord, parseJsonObject } from '@shared/foundation/json'
 import type { BugReportDeliveryConfig } from '@shared/contracts/bugReport/delivery'
 import type { BugReportFormConfig } from '@shared/contracts/bugReport/form'
-import { isBugReportFormConfig } from '@shared/contracts/bugReport/form'
+import { isBugReportFormConfig, isHttpUrl } from '@shared/contracts/bugReport/form'
 import {
   BUG_REPORT_MAILBOX_ENV,
   BUG_REPORT_MAILBOX_NAME_ENV,
@@ -134,9 +134,4 @@ function optionalOverride(
 /** 一个字符串配置项的取值；不是字符串就取空（= 没配）。 */
 function textOf(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
-}
-
-/** 能交给系统浏览器打开的地址。与契约 `form.ts` 的同名判断一致（那里不导出）。 */
-function isHttpUrl(value: string): boolean {
-  return /^https?:\/\/\S/i.test(value)
 }

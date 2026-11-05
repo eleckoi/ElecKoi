@@ -15,7 +15,6 @@ export {
   desktopReportEnvironment,
   desktopReportPlatform,
   exportFileName,
-  readBugReportDelivery,
   type DesktopEnvironmentInput
 } from './reportDelivery'
 export { readBundledReportConfigText, readReportConfig } from './bundledReportConfig'

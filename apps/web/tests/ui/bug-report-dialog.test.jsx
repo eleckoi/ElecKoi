@@ -75,7 +75,7 @@ function draftOf(key, savedAt = "2026-10-29T08:00:00.000Z", report = buildReport
  * 桌面桥的桩：剪贴板与 open 的调用记在同一条时间线上，用例据此断言顺序。
  * 草稿列表与丢弃是**有状态**的：主进程删掉一份之后，下一次 `drafts()` 就该少一条。
  */
-function installBridge({ report = buildReport(), delivery = DELIVERY, drafts = [], openImpl } = {}) {
+function installBridge({ report = buildReport(), delivery = DELIVERY, drafts = [], openImpl, persistDrafts = false } = {}) {
   const order = [];
   const draftList = [...drafts];
   const writeText = vi.fn(async () => {
@@ -91,7 +91,12 @@ function installBridge({ report = buildReport(), delivery = DELIVERY, drafts = [
       if (openImpl) await openImpl(target);
     }),
     send: vi.fn(async () => ({ sent: true })),
-    saveDraft: vi.fn(async () => ({ key: "draft-synthetic", savedAt: "2026-10-29T08:00:00.000Z" })),
+    saveDraft: vi.fn(async () => {
+      // `persistDrafts` 让桩像主进程那样真的把草稿留在列表里（新到旧），用来测「打开后保留草稿」。
+      const draft = draftOf(`draft-synthetic-${draftList.length + 1}`);
+      if (persistDrafts) draftList.unshift(draft);
+      return { key: draft.key, savedAt: draft.savedAt };
+    }),
     drafts: vi.fn(async () => ({ drafts: [...draftList] })),
     discardDraft: vi.fn(async (key) => {
       const index = draftList.findIndex((draft) => draft.key === key);
@@ -312,6 +317,43 @@ describe("投递动作：先复制，再打开", () => {
 
     expect(bugReport.open).toHaveBeenCalledTimes(1);
     expect(bugReport.open.mock.calls[0][0]).toMatchObject({ kind: "form" });
+  });
+
+  it("打开成功不等于提交成功：留成草稿，等用户确认后自己丢弃（决定 14）", async () => {
+    const { bugReport } = installBridge({ persistDrafts: true });
+    await mountDialog();
+
+    await act(async () => {
+      buttonByText("提交到飞书").click();
+    });
+
+    expect(bugReport.saveDraft).toHaveBeenCalledTimes(1);
+    expect(noticeText()).toContain("已留成草稿");
+    expect(bodyText()).toContain("这份报告还留在草稿里");
+    expect(bodyText()).toContain("确认提交后点「丢弃」");
+  });
+
+  it("「直接发送」失败也进会话内降级，不再占着主位（决定 11）", async () => {
+    const delivery = {
+      ...DELIVERY,
+      relay: { provider: "eleckoi-relay", endpoint: "https://relay.example/report", accessKey: "" },
+    };
+    const { bugReport } = installBridge({ delivery });
+    bugReport.send.mockRejectedValueOnce(
+      new DesktopError("eleckoi/net/operation-failed", "报告代发服务不可达", {
+        operation: "request",
+        what: "报告代发服务",
+      }),
+    );
+    await mountDialog();
+
+    expect(actionLabels()[0]).toBe("提交到飞书");
+    await act(async () => {
+      buttonByText("直接发送").click();
+    });
+
+    expect(actionLabels().indexOf("直接发送")).toBeGreaterThan(actionLabels().indexOf("导出文件"));
+    expect(buttonByText("直接发送").className).not.toContain("is-primary");
   });
 
   it("降级后重试成功，通道回到主位", async () => {
