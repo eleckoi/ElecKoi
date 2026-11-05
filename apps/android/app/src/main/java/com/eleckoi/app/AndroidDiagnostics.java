@@ -8,7 +8,9 @@ import org.json.JSONObject;
 import java.io.File;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
@@ -116,21 +118,43 @@ final class AndroidDiagnostics {
             catch (Exception failure) { main.post(() -> failed.accept("诊断导出失败：" + RuntimeDiagnostics.clean(failure.toString(), 512))); }
         });
     }
-    /** 读最近事件，判定上一次会话有没有配对的结束标记。 */
+    /** 上一次会话的判定结果：启动时刻与是否配对结束。 */
+    static final class PreviousSession {
+        final long startMillis;
+        final boolean ended;
+        PreviousSession(long startMillis, boolean ended) { this.startMillis = startMillis; this.ended = ended; }
+    }
     private void classify(List<String> events) {
-        JSONObject lastStart = null; String lastId = "";
+        PreviousSession previous = classifySessions(events);
+        previousStartMillis = previous.startMillis;
+        previousEnded = previous.ended;
+    }
+    /**
+     * 读最近事件，找「最近一次没有配对 ended 的会话」——只看最后一次启动会把隔两次启动的崩溃证据
+     * 自愈掉（ADR 0041 决定 15：有 start 没 end 就是崩溃或强杀，中间又正常启动过一次也不算洗清）。
+     */
+    static PreviousSession classifySessions(List<String> events) {
+        List<String> startedIds = new ArrayList<>();
+        List<Long> startedAt = new ArrayList<>();
+        Set<String> endedIds = new HashSet<>();
         for (String line : events) {
             try {
                 JSONObject record = new JSONObject(line);
                 if (!"session".equals(record.optString("kind"))) continue;
-                if ("started".equals(record.optString("stage"))) {
-                    lastStart = record; lastId = record.optString("id"); previousEnded = false;
-                } else if ("ended".equals(record.optString("stage")) && lastId.equals(record.optString("id"))) {
-                    previousEnded = true;
+                String stage = record.optString("stage");
+                if ("started".equals(stage)) {
+                    startedIds.add(record.optString("id"));
+                    startedAt.add(record.optLong("firstAt", 0L));
+                } else if ("ended".equals(stage)) {
+                    endedIds.add(record.optString("id"));
                 }
             } catch (Exception ignored) { }
         }
-        if (lastStart != null) previousStartMillis = lastStart.optLong("firstAt", 0L);
+        for (int index = startedIds.size() - 1; index >= 0; index--) {
+            if (endedIds.contains(startedIds.get(index))) continue;
+            return new PreviousSession(startedAt.get(index), false);
+        }
+        return new PreviousSession(startedAt.isEmpty() ? 0L : startedAt.get(startedAt.size() - 1), true);
     }
     /** 正常退出时补一个结束标记；强杀 / 崩溃时这一行不会出现。 */
     void sessionEnd() {

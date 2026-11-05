@@ -20,6 +20,13 @@ public class RuntimeDiagnosticsTest {
         assertTrue(report.contains("synthetic failure")); assertTrue(report.contains("RuntimeDiagnosticsTest.java"));
         assertTrue(report.contains("\"count\":100")); assertTrue(report.contains("client-ready"));
     }
+    @Test public void keepsTheHeapLimitOfMemoryRecords() throws Exception {
+        File directory = temporary.newFolder(); RuntimeDiagnostics store = new RuntimeDiagnostics(directory);
+        store.record(new RuntimeDiagnostics.Record().with("kind", "memory").with("heapBytes", 1L).with("heapMaxBytes", 2L));
+        store.flush();
+        String line = new RuntimeDiagnostics(directory).recent(10).get(0);
+        assertTrue(line.contains("\"heapMaxBytes\":2"));
+    }
     @Test public void boundsMemoryDiskAndExportOverManyRequestsWithoutProductPayloads() throws Exception {
         File directory=temporary.newFolder(); RuntimeDiagnostics store=new RuntimeDiagnostics(directory,16_000);
         for(int round=0;round<60;round++) {

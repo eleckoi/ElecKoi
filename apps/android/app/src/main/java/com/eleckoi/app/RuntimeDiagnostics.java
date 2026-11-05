@@ -13,7 +13,7 @@ final class RuntimeDiagnostics {
     static final int SEGMENT_BYTES = 1_000_000, SEGMENTS = 4, REPORT_BYTES = 500_000;
     private static final int MAX_PENDING = 128, MAX_PENDING_BYTES = 256_000;
     private static final Set<String> TEXT = new HashSet<>(Arrays.asList("kind", "stage", "id", "command", "name", "message", "stack", "source", "level", "phase", "variant", "version", "browser", "model", "manufacturer", "system", "abi"));
-    private static final Set<String> NUMBERS = new HashSet<>(Arrays.asList("line", "column", "elapsedMs", "delayMs", "pageMs", "pending", "heapBytes", "pssKb", "availableBytes", "versionCode", "sdk", "pid", "hostPid", "occurrences"));
+    private static final Set<String> NUMBERS = new HashSet<>(Arrays.asList("line", "column", "elapsedMs", "delayMs", "pageMs", "pending", "heapBytes", "heapMaxBytes", "pssKb", "availableBytes", "versionCode", "sdk", "pid", "hostPid", "occurrences"));
     private static final Set<String> FLAGS = new HashSet<>(Arrays.asList("visible", "connected", "success", "lowMemory"));
     private static final Pattern SECRET = Pattern.compile("(?i)(authorization|api[_-]?key|access[_-]?token|refresh[_-]?token|password|cookie|secret)([\\\"']?\\s*[:=]\\s*[\\\"']?)[^\\s,;\\\"']+");
     private static final Pattern BEARER = Pattern.compile("(?i)\\bBearer\\s+[A-Za-z0-9._~+/-]+=*");
