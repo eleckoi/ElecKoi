@@ -220,7 +220,7 @@ commitImport(token: string): Promise<CharacterImportResult>
 discardImport(token: string): Promise<void>
 
 /**
- * 逐个下载角色卡，分别报告成功和失败。
+ * 逐个保存角色卡，分别报告成功、取消和失败；Android 等待系统保存完成。
  * @param characterIds - 角色编号列表。
  * @param format - 支持的导出格式。
  * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。

@@ -249,7 +249,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'exportCharacters(characterIds: string[], format: CharacterExportFormat): Promise<CharacterDownloadResult>',
-        description: '逐个下载角色卡，分别报告成功和失败。',
+        description: '逐个保存角色卡，分别报告成功、取消和失败；Android 等待系统保存完成。',
         parameters: [{ name: 'characterIds', description: '角色编号列表。' }, { name: 'format', description: '支持的导出格式。' }],
         returns: '操作结果，字段见返回类型；异步失败会拒绝 Promise。',
       },
@@ -1212,7 +1212,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CharacterDownloadResult',
-    declaration: 'export interface CharacterDownloadResult {\n    canceled: false;\n    directory: string;\n    written: {\n        characterId: string;\n        fileName: string;\n    }[];\n    failures: {\n        characterId: string;\n        message: string;\n    }[];\n}',
+    declaration: 'export interface CharacterDownloadResult {\n    canceled: boolean;\n    directory: string;\n    written: {\n        characterId: string;\n        fileName: string;\n    }[];\n    failures: {\n        characterId: string;\n        message: string;\n    }[];\n}',
   },
   {
     name: 'ClientDisplayPreferencesSnapshot',

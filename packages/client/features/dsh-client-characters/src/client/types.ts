@@ -2,7 +2,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { CharacterCollection, CharacterRecord, CharacterGroupAssignment, CharacterImportSource, CharacterImportFile, CharacterImportPreview, CharacterImportResult, CharacterExportFormat } from '@eleckoi/dsh-product-api/types'
 
 export interface CharacterCatalogSnapshot { status: 'loading' | 'ready' | 'error'; collection: CharacterCollection; error: string }
-export interface CharacterDownloadResult { canceled: false; directory: string; written: { characterId: string; fileName: string }[]; failures: { characterId: string; message: string }[] }
+export interface CharacterDownloadResult { canceled: boolean; directory: string; written: { characterId: string; fileName: string }[]; failures: { characterId: string; message: string }[] }
 
 /** 管理角色、分组、角色卡导入和浏览器下载。 */
 export interface ElecKoiCharacters {
@@ -79,7 +79,7 @@ export interface ElecKoiCharacters {
    */
   discardImport(token: string): Promise<void>
   /**
-   * 逐个下载角色卡，分别报告成功和失败。
+   * 逐个保存角色卡，分别报告成功、取消和失败；Android 等待系统保存完成。
    * @param characterIds - 角色编号列表。
    * @param format - 支持的导出格式。
    * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。

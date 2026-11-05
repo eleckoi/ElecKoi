@@ -20,7 +20,7 @@ export interface CharacterCatalogSnapshot {
 
 ```ts
 export interface CharacterDownloadResult {
-    canceled: false;
+    canceled: boolean;
     directory: string;
     written: { characterId: string; fileName: string; }[];
     failures: { characterId: string; message: string; }[];

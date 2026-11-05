@@ -1,7 +1,7 @@
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle } from '@phosphor-icons/react';
+import { CheckCircle, Copy } from '@phosphor-icons/react';
 import { Avatar } from '../ui/ui/Avatar.jsx';
 import { MobileOverflowIcon, MobilePictureFrameIcon } from './MobileIcons.jsx';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
@@ -49,8 +49,27 @@ export function MobileCharactersPage() {
     if (!selectedIds.length || busy) return;
     await run(async () => {
       if (selection === 'delete') await chat.deleteCharacterIds(selectedIds);
-      else {
+      else if (selection === 'duplicate') {
+        const failures = [];
+        let copied = 0;
+        for (const id of selectedIds) {
+          try { await characters.duplicate(id); copied += 1; }
+          catch (cause) { failures.push({ id, cause }); }
+        }
+        if (copied) chat.notify('info', `已复制 ${copied} 张角色卡`);
+        if (failures.length) {
+          setSelectedIds(failures.map(item => item.id));
+          throw failures[0].cause;
+        }
+      } else {
         const result = await characters.exportCharacters(selectedIds, format);
+        if (result.canceled) {
+          const writtenIds = new Set(result.written.map(item => item.characterId));
+          setSelectedIds(current => current.filter(id => !writtenIds.has(id)));
+          if (result.written.length) chat.notify('info', `已导出 ${result.written.length} 张角色卡`);
+          if (result.failures.length) throw new DesktopError(ELECKOI_FAILURE_CODES.internal, result.failures.map(item => item.message).join('\n'), { what: '批量角色卡导出' });
+          return;
+        }
         if (result.failures.length) {
           setSelectedIds(result.failures.map(item => item.characterId));
           throw new DesktopError(ELECKOI_FAILURE_CODES.internal, result.failures.map(item => item.message).join('\n'), { what: '批量角色卡导出' });
@@ -88,7 +107,7 @@ export function MobileCharactersPage() {
       setSelectedIds(ids);
     }}>
       {selection === 'export' && <select aria-label="导出格式" value={format} disabled={busy} onChange={event => setFormat(event.target.value)}><option value="png">PNG</option><option value="json">JSON</option></select>}
-      <button type="button" className={selection === 'delete' ? 'is-destructive' : 'is-confirm'} disabled={busy || !selectedIds.length} onClick={() => selection === 'delete' ? setDeleteOpen(true) : finishSelection()}>{selection === 'delete' ? '删除' : '导出'}</button>
+      <button type="button" className={selection === 'delete' ? 'is-destructive' : 'is-confirm'} disabled={busy || !selectedIds.length} onClick={() => selection === 'delete' ? setDeleteOpen(true) : finishSelection()}>{selection === 'delete' ? '删除' : selection === 'duplicate' ? '复制' : '导出'}</button>
     </MobileSelectionHeader>}
     <CharacterGrid characters={visible} persona={chat.persona} selectedIds={selectedIds} selection={selection} filters={<div className="mobile-group-tabs" role="group" aria-label="角色分组"><button type="button" aria-pressed={!group} onClick={() => setGroup('')}>全部{!group && <span>{chat.characters.items.length}</span>}</button>
       {groups.map(name => <button type="button" key={name} aria-pressed={group === name} onClick={() => setGroup(name)}>{name}{group === name && <span>{chat.characters.items.filter(item => characterGroup(item) === name).length}</span>}</button>)}
@@ -103,6 +122,7 @@ export function MobileCharactersPage() {
     {menu && <MobileActionMenu title="角色操作" anchor={menu} onClose={() => setMenu(null)} busy={busy} actions={[
       { label: '新建角色', icon: <MobileLibraryIcon name="character" />, action: create },
       { label: '分组管理', icon: <MobileLibraryIcon name="gear" />, divider: true, action: () => { setMenu(null); view.pushRoute({ kind: 'character-groups' }); } },
+      { label: '复制角色卡', icon: <Copy size={21} />, action: () => { setMenu(null); setSelection('duplicate'); setSelectedIds([]); setError(''); } },
       { label: '导入角色卡', icon: <MobileLibraryIcon name="import" />, action: () => { setMenu(null); setImportOpen(true); } },
       ...['export', 'delete'].map(mode => ({ label: mode === 'export' ? '导出角色卡' : '删除角色卡', icon: <MobileLibraryIcon name={mode === 'export' ? 'export' : 'trash'} />, destructive: mode === 'delete', divider: mode === 'delete', action: () => { setMenu(null); setSelection(mode); setSelectedIds([]); setError(''); } })),
     ]} />}
