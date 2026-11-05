@@ -83,4 +83,17 @@ describe('Android 报告事实门面', () => {
     expect(diagnostics).toContain('.put("shareUrl", formUrl)')
     expect(diagnostics).toContain('.put("delivery", delivery)')
   })
+
+  // 换 Base 时最要紧的一步是「两处一起改」：Android 编在 strings.xml 里，桌面在
+  // apps/desktop/resources/bug-report.json 里。漏一处就是两个平台往两张表发，
+  // 而两边都不会报错——所以在这里把它们钉死。
+  it('两个平台内置的表单端点与题目名一致', () => {
+    const desktop = JSON.parse(readFileSync(new URL('../../desktop/resources/bug-report.json', import.meta.url), 'utf8'))
+    const androidUrl = strings.match(/bug_report_form_url"[^>]*>([^<]+)</)?.[1]
+    expect(androidUrl).toBe(desktop.form.shareUrl)
+    for (const [key, name] of Object.entries(desktop.form.fields)) {
+      expect(strings).toContain(`>${name}<`)
+      expect(key).toBeTruthy()
+    }
+  })
 })
