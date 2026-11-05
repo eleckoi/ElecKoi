@@ -1,7 +1,7 @@
 /**
  * 报告 → GitHub issue。正文、隐藏签名块与一条预填链接。
  *
- * 判据（[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md) 决定 4）：issue 通道进
+ * 判据（[ADR 0042](../../../../../docs/adr/0042-bug-report-delivery.md) 决定 4）：issue 通道进
  * **收件箱仓库**，由那里的 workflow 按签名折叠，主仓库的 issue 列表不涨。折叠要知道「这是哪条
  * 签名」，所以正文第一行埋一行渲染时不可见的注释块；它既是 workflow 的输入，也是这份契约与
  * workflow 之间唯一的耦合点。

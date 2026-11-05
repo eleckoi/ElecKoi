@@ -63,6 +63,12 @@ describe("right sidebar shell layout", () => {
     );
   });
 
+  it("places the sidebar toggle before its menus on the collapsed caption", () => {
+    const options = { splitSurface: true, desktopMenu: true, sidePanelCollapsed: true, onToggleSidePanel: () => {} };
+    const product = renderToStaticMarkup(<TitleBar {...options} />);
+    expect(product.indexOf('aria-label="展开侧边栏"')).toBeLessThan(product.indexOf('data-desktop-menu-seat'));
+  });
+
   it("uses the collapsed left-sidebar width immediately on narrow windows", () => {
     expect(rightbarLayoutSource).toContain(
       "sidePanelCollapsed || geometry.viewportWidth < SIDEBAR_AUTO_COLLAPSE",

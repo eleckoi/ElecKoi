@@ -30,8 +30,8 @@ android {
         applicationId = "com.eleckoi.app"
         minSdk = 27
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.2.15"
+        versionCode = 14
+        versionName = "0.2.19"
         ndk { abiFilters += "arm64-v8a" }
     }
     flavorDimensions += "browser"
@@ -74,10 +74,23 @@ android {
 }
 dependencies {
     implementation("androidx.core:core:1.13.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     "standardImplementation"("androidx.webkit:webkit:1.12.1")
     "compatImplementation"("${gecko["group"]}:${gecko["artifact"]}:${gecko["version"]}")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+}
+
+tasks.register("writeReplyMonitorProbeClasspath") {
+    group = "verification"
+    description = "Prepares the native Java listener for the isolated Android Host integration probe."
+    dependsOn("compileStandardDebugUnitTestJavaWithJavac")
+    doLast {
+        val compile = tasks.named<org.gradle.api.tasks.compile.JavaCompile>("compileStandardDebugUnitTestJavaWithJavac").get()
+        val entries = compile.classpath.files.filter { it.name != "android.jar" && it.name != "core-lambda-stubs.jar" } + compile.destinationDirectory.get().asFile
+        layout.buildDirectory.file("reply-monitor-classpath.txt").get().asFile.writeText(entries.joinToString(File.pathSeparator) { it.absolutePath })
+    }
 }
 
 val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {

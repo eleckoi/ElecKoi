@@ -31,7 +31,7 @@ export class ConversationRepository {
     private readonly resolveSeed?: (
       characterId: string,
       db: ElecKoiDatabase
-    ) => string | ConversationSeed
+    ) => ConversationSeed
   ) {}
 
   ensure(): Conversation { return this.list()[0]?.conversation ?? this.create({}).conversation }
@@ -46,16 +46,11 @@ export class ConversationRepository {
         characterAvatar: input.metadata?.characterAvatar ?? '', characterPersona: input.metadata?.characterPersona ?? {}
       }
       const card = metadata.characterId ? requireCharacter(database, metadata.characterId) : undefined
-      const resolvedSeed = card && this.resolveSeed
+      const seed: ConversationSeed = card && this.resolveSeed
         ? this.resolveSeed(card.id, database)
-        : '{}'
-      const seed: ConversationSeed = typeof resolvedSeed === 'string'
-        ? { initialVariableStateJson: resolvedSeed, openingText: '', openingOptions: [], selectedOpeningId: '' }
-        : resolvedSeed
+        : { initialVariableStateJson: '{}', openingText: '', openingOptions: [], selectedOpeningId: '' }
       const variableStateJson = seed.initialVariableStateJson || '{}'
-      const activeConfig = card ? this.store.native.prepare('SELECT activeVersionId FROM variable_configs WHERE characterId=?')
-        .get(card.id) as { activeVersionId: string } | undefined : undefined
-      const variableVersionId = seed.variableVersionId || (card ? activeConfig?.activeVersionId || 'variable-config-default' : '')
+      const variableVersionId = seed.variableVersionId || ''
       database.insert(chatSessions).values({
         id, title: input.title?.trim() || '新对话', characterId: metadata.characterId,
         characterName: card?.name ?? metadata.characterName, characterAvatar: card?.avatar ?? metadata.characterAvatar,
@@ -273,10 +268,9 @@ export class ConversationRepository {
       const payload = JSON.parse(row.payloadJson || '{}') as { options?: OpeningMessageOption[]; selectedId?: string }
       const option = payload.options?.find((candidate) => candidate.id === openingId)
       if (!option) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, '找不到这条开场白。', { what: '开场白' })
-      const binding = database.select().from(agentConversations).where(eq(agentConversations.id, conversationId)).get()!
-      const versionId = option.variableVersionId || binding.variableVersionId
+      const versionId = option.variableVersionId || ''
       const characterId = this.getCharacterBinding(conversationId, database).characterId
-      if (characterId && !this.store.native.prepare('SELECT 1 FROM variable_config_versions WHERE characterId=? AND versionId=?')
+      if (characterId && versionId && !this.store.native.prepare('SELECT 1 FROM variable_config_versions WHERE characterId=? AND versionId=?')
         .get(characterId, versionId) && !(versionId === 'variable-config-default'
           && !this.store.native.prepare('SELECT 1 FROM variable_configs WHERE characterId=?').get(characterId))) {
         throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, '开场白绑定的变量版本不存在。', { what: '变量版本' })

@@ -26,6 +26,11 @@ ElecKoi aims to build a continuously improving creative flywheel: turn the commu
 ## App Screenshots
 
 <p align="center">
+  <img src="docs/screenshots/eleckoi-windows-game-character-card.png" alt="Game character card" width="960">
+  <br><sub>Game character card</sub>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/eleckoi-windows-conversation.png" alt="ElecKoi for Windows character conversation screen" width="960">
   <br><sub>ElecKoi for Windows character conversation screen</sub>
 </p>

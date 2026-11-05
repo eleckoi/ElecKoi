@@ -4,12 +4,14 @@ ElecKoi 使用 DSH 官方 bundle、Cordis 生命周期和 Web Client Slots 作�
 
 本文档对应以下固定基准：
 
-- ElecKoi Desktop：`0.2.9`
-- DSH：`0.2.1-rc.3`
-- DSH 提交：`1f81c047fc48fa190a683e469daa699857e9afe8`
+- ElecKoi Desktop：`0.2.17`
+- DSH：`0.2.1-rc.5`
+- DSH 提交：`b830ec950faba0a46dda564be3e2d854afed94f1`
 - 插件接口与数量：[自动生成的开发接口总表](api-reference.md)
 
 ## 从哪里开始
+
+PC 用户可以从左侧「更多 → 创建你的插件」进入官方创造模式。它内置官方开发技能与模板，并能按需读取 ElecKoi 的补充技能和公开开发文档；流程和资料归属见 [从创建插件开始](create-plugin.md)。
 
 1. 按 [快速入门](quick-start.md) 创建一个可安装的最小 bundle。
 2. 先阅读 [架构与边界](architecture.md)，确定代码应运行在 Host 还是 Web Client。
@@ -18,11 +20,13 @@ ElecKoi 使用 DSH 官方 bundle、Cordis 生命周期和 Web Client Slots 作�
 5. 需要跨 Host/Client 调用时查 [DSH Remote](remote.md)。
 6. 需要向 DSH 能力注册实现时查 [能力贡献](contributions.md)。
 7. 发布前按 [生命周期、数据与安全](lifecycle-and-data.md) 和 [测试与验收](testing.md) 检查。
+8. 为可分享预设提供工具时，参见 [预设工具引用](preset-tools.md)。
 
 ## 文档索引
 
 | 文档 | 解决的问题 |
 | --- | --- |
+| [从创建插件开始](create-plugin.md) | 官方创造模式、内置技能、ElecKoi 补充资料与会话边界 |
 | [快速入门](quick-start.md) | 如何创建、安装并运行第一个插件 |
 | [架构与边界](architecture.md) | bundle、Host、Client、Slot、Service 和 Contribution 的关系 |
 | [DSH 与 Cordis 合规基准](upstream-compliance.md) | Cordis 入门、完整教程、DSH 开发指南和架构说明的要求与迁移差异 |
@@ -36,6 +40,7 @@ ElecKoi 使用 DSH 官方 bundle、Cordis 生命周期和 Web Client Slots 作�
 | [Remote 完整声明](api-remote.md) | 官方生成的全部跨端调用声明 |
 | [Client 数据类型](types-client.md) / [Host 数据类型](types-host.md) | 方法引用的完整数据结构 |
 | [DSH Remote](remote.md) | 如何声明、生成、装配和调用类型化 Host API |
+| [角色自动配图](auto-illustration.md) | 独立功能插件、预设配图配置与旧工具配置转换 |
 | [能力贡献](contributions.md) | 如何为已有能力注册 provider，以及 `provides` 与 `contributes` 的区别 |
 | [生命周期、数据与安全](lifecycle-and-data.md) | 启停、卸载、存储、权限、失败隔离和桌面边界 |
 | [测试与验收](testing.md) | 本地安装探针、源码检查和发布前清单 |

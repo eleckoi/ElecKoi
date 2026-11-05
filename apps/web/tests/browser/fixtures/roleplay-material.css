@@ -1,0 +1,10 @@
+.design-app{height:calc(100dvh - 48px)!important;position:relative}
+.design-scene{position:relative;flex:1;min-height:0;display:flex;justify-content:center;padding:20px 28px 18px;background-size:cover;background-position:center;overflow:hidden;isolation:isolate}
+.design-scene-tint{position:absolute;inset:0;z-index:-1;background:rgb(244 246 249 / .16)}
+.design-reading-deck{--deck-fill:rgb(249 250 252 / .65);--message-fill:rgb(255 255 255 / .48);--user-fill:var(--message-fill);position:relative;display:flex;flex-direction:column;flex:1;min-width:0;max-width:1100px;min-height:0;overflow:hidden;border:0;border-radius:16px;background:var(--deck-fill);backdrop-filter:blur(20px) saturate(.88);-webkit-backdrop-filter:blur(20px) saturate(.88);color:var(--text);box-shadow:0 12px 48px rgb(22 31 44 / .06)}
+.design-app[data-fit=flush] .design-scene{padding-block:0}
+.design-app[data-fit=flush] .design-reading-deck{border-radius:0;box-shadow:none}
+.design-app[data-bubbles=true] .message-roleplay{background:var(--message-fill)}
+.design-app[data-bubbles=true] .message-roleplay.mine{background:var(--user-fill)}
+:root[data-theme=dark] .design-reading-deck{--deck-fill:rgb(27 31 39 / .65);--message-fill:rgb(18 23 31 / .48);--user-fill:var(--message-fill)}
+:root[data-theme=dark] .design-scene-tint{background:rgb(10 16 22 / .25)}

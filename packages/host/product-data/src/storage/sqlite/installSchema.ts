@@ -19,6 +19,8 @@ import { migration0010 } from './migrations/0010ScriptLibraries'
 import { migration0011, schemaV10PresetStateSql } from './migrations/0011PresetPurposes'
 import { displayTemplatesSql, migration0012 } from './migrations/0012EditorConfiguration'
 import { migration0013 } from './migrations/0013RemoveDisplayTemplates'
+import { migration0014 } from './migrations/0014CreatorWorkspace'
+import { migration0015 } from './migrations/0015OpeningVariableState'
 import { legacySettingSnapshotsSql } from './migrations/conversationStateStorage'
 import { addRegexLibraryEnablement } from './migrations/regexLibraryEnablement'
 import { commonSchemaSql } from './migrations/commonSchemaSql'
@@ -29,9 +31,9 @@ const PRE_RELEASE_V2_SCHEMA_VERSION = 2
 const PRE_RELEASE_V2_BASELINES = [BASELINE_ID, 'eleckoi-common-v1-2026-09-14-runtime-clean'] as const
 // RETIRE WHEN: 只有正式停止支持某个旧 schema 及更早版本直接升级后，才能删除从该版本
 // 出发的步骤，并同步删除 import、登记和 tests/database.test.ts 中对应旧库 fixture。
-// 当前仍支持 v1 连续升级至 v13；已升级的本机数据库不能证明其他旧安装已完成迁移。
+// 当前仍支持 v1 连续升级至 v15；已升级的本机数据库不能证明其他旧安装已完成迁移。
 // 剩余受支持版本必须仍有连续原子迁移链，当前 SQL、版本常量和完整性检查始终保留。
-const migrations = [migration0002, migration0003, migration0004, migration0005, migration0006, migration0007, migration0008, migration0009, migration0010, migration0011, migration0012, migration0013] as const
+const migrations = [migration0002, migration0003, migration0004, migration0005, migration0006, migration0007, migration0008, migration0009, migration0010, migration0011, migration0012, migration0013, migration0014, migration0015] as const
 // RETIRE WHEN: 停止支持 v12 及更早结构和已登记的旧开发结构直接升级后，连同两个校验器的 beforeV13 分支删除。
 const schemaV13Tables = new Set(['character_openings', 'global_setting_libraries', 'global_setting_library_state'])
 const unreleasedGenerationTableSql = 'CREATE TABLE IF NOT EXISTS `conversation_generation_results` (`operationId` TEXT NOT NULL, `conversationId` TEXT NOT NULL, `resultJson` TEXT NOT NULL, PRIMARY KEY(`operationId`), FOREIGN KEY(`conversationId`) REFERENCES `chat_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )'
@@ -218,8 +220,14 @@ export function installSchema(database: Database.Database): void {
       }).immediate()
       version = 12
     }
+    // 数据库比当前程序新：可能是装过更新版本后又回退，或同一版本号下构建过更高 schema。
+    // 这里必须与"迁移没跑完"分开报，否则诊断句会把排查引向迁移链，而真实原因是程序旧。
+    // 放在开发库整理之后：v12/v13/v14 那几段是未发布基线的有意整理入口，不能当成超前库。
+    if (version > CURRENT_SCHEMA_VERSION) {
+      throw new DesktopError(ELECKOI_FAILURE_CODES.dbSchemaMismatch, `数据库版本 v${version} 高于当前程序支持的 v${CURRENT_SCHEMA_VERSION}，请升级 ElecKoi 后再打开，拒绝修改数据。`, { what: '数据库版本', expected: `不高于 v${CURRENT_SCHEMA_VERSION}` })
+    }
     if (version < CURRENT_SCHEMA_VERSION) {
-      if (version >= 6 && version < 13) {
+      if (version >= 6 && version < CURRENT_SCHEMA_VERSION) {
         normalizePreReleaseV6(database, version)
         validateTableInventory(database, false, version < 10, version < 12, version < 12, version < 12, false, version === 12)
         validateSchema(database, version < 8 ? schemaV7ChatSessionsSql : undefined, false, version < 9, version < 10, version < 11, version < 12, version < 12, version < 12, false, version === 12)
@@ -233,7 +241,7 @@ export function installSchema(database: Database.Database): void {
       }
     }
     if (database.pragma('user_version', { simple: true }) !== CURRENT_SCHEMA_VERSION) {
-      throw new DesktopError(ELECKOI_FAILURE_CODES.dbSchemaMismatch, `数据库迁移未到达当前版本 ${CURRENT_SCHEMA_VERSION}。`, { what: '数据库迁移结果', expected: `v${CURRENT_SCHEMA_VERSION}` })
+      throw new DesktopError(ELECKOI_FAILURE_CODES.dbSchemaMismatch, `数据库迁移未到达当前版本 ${CURRENT_SCHEMA_VERSION}：迁移链从 v${version} 出发没有走到终点。`, { what: '数据库迁移结果', expected: `v${CURRENT_SCHEMA_VERSION}` })
     }
     validateTableInventory(database)
     validateSchema(database)

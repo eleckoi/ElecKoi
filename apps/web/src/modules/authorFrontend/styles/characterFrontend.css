@@ -1,7 +1,4 @@
 .character-frontend-editor{display:flex;flex:1;min-width:0;min-height:420px;height:100%;color-scheme:inherit}
-.character-frontend-project{display:flex;flex-direction:column;min-width:0;min-height:360px;height:100%;width:100%}
-.character-frontend-project>header{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px;padding:2px 8px;border-bottom:1px solid var(--line-strong)}
-.character-frontend-project>header>span{min-width:0;overflow-wrap:anywhere;color:var(--danger,#b83f3f);font-size:13px}
-.character-frontend-project>header>button{display:grid;place-items:center;flex:none;width:32px;height:32px;padding:0;border:0;border-radius:6px;color:var(--muted);background:transparent;cursor:pointer}
-.character-frontend-project>header>button:hover{background:var(--surface-subtle)}
-.character-frontend-project>.advanced-frontend-region{flex:1;min-height:320px}
+.character-frontend-project{display:flex;flex:1;flex-direction:column;min-width:0;min-height:0;height:100%;width:100%}
+.character-frontend-error{padding:8px 12px;overflow-wrap:anywhere;color:var(--danger,#b83f3f);font-size:13px}
+.character-frontend-project>.advanced-frontend-region{flex:1;min-height:0}

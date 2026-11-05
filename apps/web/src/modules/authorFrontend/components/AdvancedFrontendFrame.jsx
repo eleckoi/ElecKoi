@@ -115,9 +115,9 @@ function LegacyProjectFrame({ project, runtime, authorRuntime, request, content,
       });
     } catch (failure) { report(failure); page.__ElecKoiCompleteSharedDocument(failure); }
   };
-  return <div className="advanced-frontend-region" style={autoHeight ? { minHeight: slotHeight, width: '100%', flex: 'none' } : fullHeight ? { height: '100%' } : undefined}>
+  return <div className="advanced-frontend-region" style={{ position: 'relative', minWidth: 0, minHeight: 0, flex: 1, display: 'flex', ...(autoHeight ? { minHeight: slotHeight, width: '100%', flex: 'none' } : fullHeight ? { height: '100%' } : {}) }}>
     {error ? <div className="frontend-state" role="alert">HTML 前端加载失败：{error}</div>
       : source ? <iframe key={channel} ref={frame} name={channel} title={project.name} srcDoc={source} onLoad={() => { currentDocument.current = frame.current?.contentWindow; syncContext(); mountCompatibility(); }}
-        allow="fullscreen; autoplay; clipboard-read; clipboard-write" /> : <div className="frontend-state" role="status">正在加载 HTML 前端…</div>}
+        allow="fullscreen; autoplay; clipboard-read; clipboard-write" style={{ width: '100%', height: '100%', border: 0, position: 'absolute', inset: 0, background: 'transparent', ...(autoHeight ? { height: slotHeight, flex: 'none' } : {}) }} /> : <div className="frontend-state" role="status">正在加载 HTML 前端…</div>}
   </div>;
 }

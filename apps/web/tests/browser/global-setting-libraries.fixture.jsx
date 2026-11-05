@@ -2,10 +2,13 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { SettingLibraryPanel } from '../../src/modules/settingLibraries/components/SettingLibraryPanel.jsx';
 import { createEntryDraft, createGroupDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
+import { EditorPresentationContext } from '../../src/ui/ui/EditorPresentationContext.jsx';
 import '../../src/app/windows/styles/tokens.css';
 import '../../src/app/windows/styles/base.css';
 import '../../src/modules/settingLibraries/styles/setting-library.css';
 import '../../src/ui/styles/editor-sidebar.css';
+import '../../src/mobile/mobile.css';
+import '../../src/mobile/mobile-character-editor.css';
 
 const entry = (id, title, content, strategy = 'normal') => ({ ...createEntryDraft('', 1, []), id, title, content, enabled: true, agentReadStrategy: strategy });
 const roleEntry = entry('synthetic-role-entry', '角色背景', '合成角色背景正文');
@@ -21,4 +24,7 @@ const model = { getSnapshot: () => ({ status: 'ready', value: role }), subscribe
   save: async (_id, value) => { role = value; return role; }, saveViewState: async () => [], listCharacters: async () => ({ items: [] }) };
 const globalModel = { getSnapshot: () => ({ status: 'ready', value: globals }), subscribe: () => () => {}, read: async () => globals,
   save: async value => { globals = { ...value, revision: value.revision + 1 }; return globals; } };
-createRoot(document.getElementById('root')).render(<SettingLibraryPanel characterId="synthetic-role" settingLibraries={model} globalSettingLibraries={globalModel} />);
+const compact = new URLSearchParams(window.location.search).get('mobile') === 'true';
+document.documentElement.dataset.eleckoiMobile = String(compact);
+const panel = <EditorPresentationContext.Provider value={{ compact }}><SettingLibraryPanel characterId="synthetic-role" settingLibraries={model} globalSettingLibraries={globalModel} /></EditorPresentationContext.Provider>;
+createRoot(document.getElementById('root')).render(compact ? <div className="mobile-shell"><div className="mobile-character-editor" style={{ marginLeft: 76, height: '100vh' }}>{panel}</div></div> : panel);

@@ -126,7 +126,7 @@ export interface AuthorSettingLibraryEntry {
   kind: 'normal' | 'opening' | 'history_compaction' | 'hidden_tool_timeline'
   groupId: string
   content: string
-  openingMessages: Array<{ id: string; title: string; content: string; variableVersionId?: string; initialVariableStateJson: string }>
+  openingMessages: Array<{ id: string; title: string; content: string; variableVersionId?: string }>
   defaultOpeningMessageId: string
   agentSelectionHint: string
   agentReadStrategy: 'required' | 'keyword' | 'normal'

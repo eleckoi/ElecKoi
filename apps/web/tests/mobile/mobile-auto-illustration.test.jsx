@@ -1,11 +1,10 @@
+import { AutoIllustrationPage } from '../../../../packages/client/features/dsh-auto-illustration/src/page.jsx';
 // @vitest-environment jsdom
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
-import { AutoIllustrationSettings } from '../../src/modules/agentTools/components/AutoIllustrationSettings.jsx';
-import { AgentToolsDialog } from '../../src/modules/chat/components/AgentToolsDialog.jsx';
-import { setAutoIllustrationModel } from '../../src/modules/chat/api/agentToolsApi.js';
+import { AutoIllustrationSettings } from '../../src/modules/autoIllustration/components/AutoIllustrationSettings.jsx';
 
 let host, root, handlers;
 const find = text => [...document.querySelectorAll('button')].find(button => button.textContent === text || button.getAttribute('aria-label') === text);
@@ -73,15 +72,15 @@ describe('Android preset automatic illustration', () => {
     expect(select).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the drawing settings on an installed tool and preserves other preset bindings', async () => {
-    const preset = { id: 'preset-a', toolGroups: [{ id: 'builtin:auto-illustration', name: '角色自动配图', included: true, enabled: true, members: [{ name: 'generate_image' }], source: 'built_in' }],
-      roleplayPlan: { steps: [] }, regexRules: [], toolModelConfigIds: { 'builtin:auto-illustration': 'NAI-A', 'builtin:creator': 'other' } };
-    const presets = { refresh: vi.fn(async () => ({ activePresetIds: { roleplay: 'preset-a', creator: 'synthetic-creator' } })), read: vi.fn(async () => preset), save: vi.fn(async value => value) };
-    await render(<AgentToolsDialog presetCatalog={presets} onClose={() => {}} />, catalog([config('NAI-A')]));
-    await click(find('角色自动配图'));
-    expect(document.querySelector('.auto-illustration-model').textContent).toContain('NAI-A');
-    await setAutoIllustrationModel(presets, 'preset-a', 'NAI-B');
-    expect(presets.read).toHaveBeenLastCalledWith('preset-a');
-    expect(presets.save).toHaveBeenCalledWith(expect.objectContaining({ toolModelConfigIds: { 'builtin:auto-illustration': 'NAI-B', 'builtin:creator': 'other' } }), []);
+  it('saves plugin configuration without adding a preset tool or changing other model bindings', async () => {
+    const models = catalog([config('NAI-A'), config('NAI-B')]);
+    const current = { id: 'preset-a', name: '合成预设', autoIllustration: { enabled: true, modelConfigId: 'NAI-A' }, toolModelConfigIds: { other: 'text-model' }, toolGroups: [], regexRules: [] };
+    const presets = { refresh: vi.fn(async () => ({ presets: [{ id: current.id, name: current.name, purpose: 'roleplay' }], activePresetIds: { roleplay: current.id } })), read: vi.fn(async () => current), save: vi.fn(async value => value) };
+    await render(<AutoIllustrationPage presetCatalog={presets} modelCatalog={models} />, models);
+    await click(document.querySelector('.auto-illustration-model'));
+    await click([...document.querySelectorAll('.mobile-config-choice strong')].find(item => item.textContent === 'NAI-B').closest('button'));
+    await click(find('保存'));
+    expect(presets.save).toHaveBeenCalledWith(expect.objectContaining({ autoIllustration: { enabled: true, modelConfigId: 'NAI-B' }, toolModelConfigIds: { other: 'text-model' }, toolGroups: [] }), []);
+    expect(document.querySelector('.auto-illustration-model').textContent).toContain('NAI-B');
   });
 });

@@ -9,7 +9,7 @@ vi.stubGlobal('React', React);
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
-async function renderPanel() {
+async function renderPanel(prepare = value => value) {
   const empty = { objects: [], variables: [] };
   const version = {
     id: 'version-a', name: '配置 A', initialStateJson: '{}', schemaCode: '',
@@ -17,7 +17,7 @@ async function renderPanel() {
     variables: [{ ...createVariableDraft(empty), id: 'variable-a', title: 'count', type: 'number', defaultValue: '1' }],
     expandedObjectIds: [], createdAt: '', updatedAt: '',
   };
-  const config = { ...version, characterId: 'synthetic-character', activeVersionId: version.id, versions: [version] };
+  const config = prepare({ ...version, characterId: 'synthetic-character', activeVersionId: version.id, versions: [version] });
   const model = {
     getSnapshot: () => ({ status: 'ready', value: config }), subscribe: () => () => {}, read: async () => config,
     save: vi.fn(async (_id, value) => value), saveViewState: vi.fn().mockResolvedValue(undefined),
@@ -40,6 +40,32 @@ async function close(container) {
 }
 
 describe('variable sidebar integration', () => {
+  it('saves the same new static default shown in preview when another group contains dynamic keys', async () => {
+    const view = await renderPanel(config => {
+      const dynamic = { ...config.objects[0], id: 'members', name: 'members', dynamicKey: true };
+      const version = { ...config.versions[0],
+        objects: [...config.objects, dynamic],
+        variables: [{ ...config.variables[0], title: 'date', type: 'string', defaultValue: '第一日' }],
+        initialStateJson: '{"date":"第一日","状态组":{},"members":{"alpha":{"energy":8,"note":null}}}',
+      };
+      return { ...config, ...version, versions: [version] };
+    });
+    try {
+      await select(view.container, 'date');
+      const input = [...view.container.querySelectorAll('.variable-field')].find(item => item.firstChild.textContent === '默认值').querySelector('input');
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '第一天');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await select(view.container, '变量运行配置');
+      expect(JSON.parse(view.container.querySelector('.variable-code-area').value).date).toBe('第一天');
+      await act(async () => [...view.container.querySelectorAll('button')].find(item => item.textContent === '保存').click());
+      const saved = view.model.save.mock.lastCall[1];
+      expect(JSON.parse(saved.initialStateJson)).toEqual({ date: '第一天', 状态组: {}, members: { alpha: { energy: 8, note: null } } });
+      expect(saved.versions[0].initialStateJson).toBe(saved.initialStateJson);
+    } finally { await view.dispose(); }
+  });
+
   it('opens only the menu on right-click and preserves the edited group when deleting another variable', async () => {
     const view = await renderPanel();
     const row = text => [...view.container.querySelectorAll('[role="treeitem"]')].find(item => item.textContent.includes(text));

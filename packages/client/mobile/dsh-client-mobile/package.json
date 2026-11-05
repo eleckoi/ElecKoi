@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Android 专用页面与导航装配。",
-  "engines": { "dsh": "0.2.1-rc.3" },
+  "engines": { "dsh": "0.2.1-rc.5" },
   "exports": { ".": "./src/index.js", "./client": { "types": "./src/client/types.ts", "default": "./src/client.js" }, "./package.json": "./package.json", "./locale/*.json": "./locale/*.json" },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
@@ -12,6 +12,7 @@
   },
   "eleckoi": { "developerInterfaces": [
     { "id": "eleckoi.shell.window", "kind": "ui-slot", "title": "Android 窗口", "description": "装配移动窗口和独立页面导航。", "mode": "replace", "scope": "root", "relation": "contributes", "owner": "@eleckoi/dsh-client-shell" },
-    { "id": "main", "kind": "ui-slot", "title": "Android 主页面", "description": "按正式面板键提供消息、角色、预设与模型页。", "mode": "register", "scope": "root", "relation": "contributes", "owner": "@eleckoi/dsh-client-shell" }
+    { "id": "main", "kind": "ui-slot", "title": "Android 主页面", "description": "按正式面板键提供消息、角色、预设与模型页。", "mode": "register", "scope": "root", "relation": "contributes", "owner": "@eleckoi/dsh-client-shell" },
+    { "id": "conversation.header.leading", "kind": "ui-slot", "title": "Android 工作区导航", "description": "在原生工作区标题栏提供返回和侧栏入口。", "mode": "replace", "scope": "root", "relation": "contributes", "owner": "@deepseek-ai/dsh-client-ui-conversation" }
   ] }
 }

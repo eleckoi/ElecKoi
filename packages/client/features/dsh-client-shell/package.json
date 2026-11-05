@@ -38,7 +38,7 @@
   },
   "description": "提供主窗口、导航、设置和插件中心。",
   "engines": {
-    "dsh": "0.2.1-rc.3"
+    "dsh": "0.2.1-rc.5"
   },
   "eleckoi": {
     "developerInterfaces": [
@@ -69,66 +69,43 @@
       },
       {
         "id": "sidebar.brand.mark",
-        "kind": "ui-slot",
+        "kind": "contribution",
         "title": "品牌图标",
-        "description": "提供侧边栏品牌图标。",
+        "description": "向官方侧边栏提供品牌图标。",
         "mode": "replace",
         "scope": "root",
-        "relation": "provides"
+        "relation": "contributes",
+        "owner": "@deepseek-ai/dsh-client-ui-sidebar"
       },
       {
         "id": "sidebar.brand.name",
-        "kind": "ui-slot",
+        "kind": "contribution",
         "title": "品牌名称",
-        "description": "提供侧边栏品牌名称。",
+        "description": "向官方侧边栏提供品牌名称。",
         "mode": "replace",
         "scope": "root",
-        "relation": "provides"
-      },
-      {
-        "id": "sidebar.toggle.badge",
-        "kind": "ui-slot",
-        "title": "侧栏收起按钮内容",
-        "description": "提供侧栏收起按钮附加内容。",
-        "mode": "replace",
-        "scope": "root",
-        "relation": "provides"
+        "relation": "contributes",
+        "owner": "@deepseek-ai/dsh-client-ui-sidebar"
       },
       {
         "id": "sidebar.panellist",
-        "kind": "ui-slot",
+        "kind": "contribution",
         "title": "导航入口",
         "description": "向侧边栏增加主导航入口。",
         "mode": "append",
         "scope": "root",
-        "relation": "provides"
+        "relation": "contributes",
+        "owner": "@deepseek-ai/dsh-client-ui-sidebar"
       },
       {
-        "id": "sidebar.workspaces",
-        "kind": "ui-slot",
-        "title": "工作区入口",
-        "description": "提供侧边栏工作区入口。",
-        "mode": "replace",
-        "scope": "root",
-        "relation": "provides"
-      },
-      {
-        "id": "sidebar.settings",
-        "kind": "ui-slot",
-        "title": "设置入口",
-        "description": "提供侧边栏设置入口。",
-        "mode": "replace",
-        "scope": "root",
-        "relation": "provides"
-      },
-      {
-        "id": "sidebar.footer.action",
-        "kind": "ui-slot",
-        "title": "侧栏底部操作",
-        "description": "向侧边栏底部增加操作。",
+        "id": "sidebar.panellist.actions",
+        "kind": "contribution",
+        "title": "更多菜单工作区入口",
+        "description": "向官方更多菜单增加进入工作区界面的操作。",
         "mode": "append",
         "scope": "root",
-        "relation": "provides"
+        "relation": "contributes",
+        "owner": "@deepseek-ai/dsh-client-ui-sidebar"
       },
       {
         "id": "sidebar",
@@ -215,7 +192,7 @@
   },
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.5",
-    "@deepseek-ai/dsh-client-ui-layout": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-client-ui-sidebar": "0.2.1-rc.3"
+    "@deepseek-ai/dsh-client-ui-layout": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-sidebar": "0.2.1-rc.5"
   }
 }

@@ -26,8 +26,9 @@
     };
     const methods = ['clientReady', 'clientFailed', 'tts', 'readTtsAudio', 'releaseTtsAudio', 'saveText',
       'beginFile', 'writeFile', 'finishFile', 'abortFile', 'reportError', 'openExternal',
-      'notificationSettings', 'updateStatus', 'checkUpdates', 'downloadUpdate', 'appearance', 'version',
-      'bugReportFacts'];
+      'notificationSettings', 'replyNotificationStatus', 'setReplyNotifications', 'backgroundRunStatus',
+      'setEnhancedBackground', 'backgroundRunSettings', 'updateStatus', 'checkUpdates', 'downloadUpdate',
+      'appearance', 'version', 'bugReportFacts'];
     window.ElecKoiAndroid = Object.fromEntries(methods.map(method => [method, (...args) => {
       const reply = window.ElecKoiAndroidTransport.invoke(method, JSON.stringify(args));
       return reply && typeof reply.then === 'function' ? reply.then(decode) : decode(reply);
@@ -117,6 +118,16 @@
       facts: () => Promise.resolve(ElecKoiAndroid.bugReportFacts()).then(text => JSON.parse(text)),
     },
     notificationSettings: () => ElecKoiAndroid.notificationSettings(),
+    replyNotifications: {
+      status: async () => JSON.parse(await ElecKoiAndroid.replyNotificationStatus()),
+      setEnabled: async enabled => JSON.parse(await ElecKoiAndroid.setReplyNotifications(enabled)),
+      settings: () => ElecKoiAndroid.notificationSettings(),
+    },
+    backgroundRun: {
+      status: async () => JSON.parse(await ElecKoiAndroid.backgroundRunStatus()),
+      setEnhanced: async enabled => JSON.parse(await ElecKoiAndroid.setEnhancedBackground(enabled)),
+      settings: destination => ElecKoiAndroid.backgroundRunSettings(destination),
+    },
     updates: {
       status: async () => JSON.parse(await ElecKoiAndroid.updateStatus()),
       check: () => request(id => ElecKoiAndroid.checkUpdates(id)).then(reply => reply.result),

@@ -84,7 +84,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '操作结果，结构见返回类型；失败抛出错误。',
       },
       {
-        signature: '@Remote read(presetId: string): AgentPreset',
+        signature: '@Remote read(presetId: string): Promise<AgentPreset>',
         description: '读取完整保存数据。',
         parameters: [{ name: 'presetId', description: '预设编号。' }],
         returns: '操作结果，结构见返回类型；失败抛出错误。',
@@ -96,19 +96,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '按指定顺序返回保存后的条目；一项失败则整组不保存。',
       },
       {
-        signature: '@Remote save(preset: AgentPreset, expectedRegexRules: RegexRule[]): AgentPreset',
+        signature: '@Remote save(preset: AgentPreset, expectedRegexRules: RegexRule[]): Promise<AgentPreset>',
         description: '保存完整数据并通知相关页面刷新。',
         parameters: [{ name: 'preset', description: '完整预设数据。' }, { name: 'expectedRegexRules', description: '要求仍有效的正则配置。' }],
         returns: '操作结果，结构见返回类型；失败抛出错误。',
       },
       {
-        signature: '@Remote create(name: string, libraryGroupId: string, purpose: AgentPresetPurpose): AgentPreset',
+        signature: '@Remote create(name: string, libraryGroupId: string, purpose: AgentPresetPurpose): Promise<AgentPreset>',
         description: '创建预设并返回完整预设数据。',
         parameters: [{ name: 'name', description: '保存的名称或附件文件名。' }, { name: 'libraryGroupId', description: '预设分组编号。' }, { name: 'purpose', description: '角色扮演或创作预设分类。' }],
         returns: '操作结果，结构见返回类型；失败抛出错误。',
       },
       {
-        signature: '@Remote import(source: AgentPresetImportSource, document: AgentPresetImportDocument, purpose: AgentPresetPurpose): AgentPresetImportResult',
+        signature: '@Remote async import(source: AgentPresetImportSource, document: AgentPresetImportDocument, purpose: AgentPresetPurpose): Promise<AgentPresetImportResult>',
         description: '导入文件并保存完整数据。',
         parameters: [{ name: 'source', description: '支持的导入格式。' }, { name: 'document', description: '待导入文件内容。' }, { name: 'purpose', description: '目标预设分类。' }],
         returns: '操作结果，结构见返回类型；失败抛出错误。',
@@ -307,6 +307,25 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: '用聊天绑定的初始变量发起一次原生修改，仍等待作者规则完成。',
         parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'signal', description: '取消处理；取消后不保存候选数据。' }],
         returns: '已接受并保存的变量对象 JSON 文本。',
+      },
+    ],
+  },
+  {
+    key: 'eleckoiAutoIllustration',
+    summary: '独立自动配图插件提供的本轮提示词与已有分镜重画能力。',
+    description: '独立自动配图插件提供的本轮提示词与已有分镜重画能力。',
+    methods: [
+      {
+        signature: 'instructions(snapshot: IllustrationSessionConfiguration): string',
+        description: '取得根角色会话本轮启用的配图指令。',
+        parameters: [{ name: 'snapshot', description: '已准备好的当前会话配置。' }],
+        returns: '本轮指令；停用或未绑定模型时为空。',
+      },
+      {
+        signature: 'regenerateImage(sessionId: string, batchId: string, frameId: number, snapshot: IllustrationSessionConfiguration, signal: AbortSignal): Promise<{ error?: string }>',
+        description: '通过当前插件绑定的模型重画已有分镜，保留其他图片与正文。',
+        parameters: [{ name: 'sessionId', description: '角色会话编号。' }, { name: 'batchId', description: '原配图批次编号。' }, { name: 'frameId', description: '原分镜编号。' }, { name: 'snapshot', description: '当前会话的自动配图配置。' }, { name: 'signal', description: '调用取消信号。' }],
+        returns: '重画的错误状态；完整图片结果通过原会话事件发布。',
       },
     ],
   },
@@ -819,9 +838,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '工作室会话目录。',
       },
       {
-        signature: '@Remote create(characterId: string): Promise<CreatorStudioSession>',
+        signature: '@Remote create(characterId: string, workspaceId?: string): Promise<CreatorStudioSession>',
         description: '使用当前全局创作预设创建工作室会话。',
-        parameters: [{ name: 'characterId', description: '编辑目标角色编号；空字符串表示尚未选择。' }],
+        parameters: [{ name: 'characterId', description: '编辑目标角色编号；空字符串表示尚未选择。' }, { name: 'workspaceId', description: '官方工作区编号；省略时沿用默认工作目录。' }],
         returns: '创建的会话及其编辑目标。',
       },
       {
@@ -1069,7 +1088,7 @@ export const EVENT_API: readonly EventApiEntry[] = [
 export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AgentPreset',
-    declaration: 'export interface AgentPreset {\n    id: string;\n    purpose: AgentPresetPurpose;\n    name: string;\n    modelFamily: AgentPresetModelFamily;\n    modelTags: AgentPresetModelTag[];\n    libraryGroupId: string;\n    activeVersionId: string;\n    activeVersionNumber: number;\n    profile: AgentPresetProfile;\n    entries: SettingLibraryEntry[];\n    groups: SettingLibraryGroup[];\n    promptPositions: SettingLibraryPromptPosition[];\n    toolGroups: AgentToolGroup[];\n    subagentModelSelection?: {\n        configId: string;\n        model: string;\n    };\n    toolModelConfigIds?: Record<string, string>;\n    roleplayPlan: {\n        steps: string[];\n    };\n    regexRules: RegexRule[];\n    expandedGroupIds: string[];\n}',
+    declaration: 'export interface AgentPreset {\n    id: string;\n    purpose: AgentPresetPurpose;\n    name: string;\n    modelFamily: AgentPresetModelFamily;\n    modelTags: AgentPresetModelTag[];\n    libraryGroupId: string;\n    activeVersionId: string;\n    activeVersionNumber: number;\n    profile: AgentPresetProfile;\n    entries: SettingLibraryEntry[];\n    groups: SettingLibraryGroup[];\n    promptPositions: SettingLibraryPromptPosition[];\n    toolGroups: AgentToolGroup[];\n    extraToolGroups?: AgentToolGroup[];\n    subagentModelSelection?: {\n        configId: string;\n        model: string;\n    };\n    toolModelConfigIds?: Record<string, string>;\n    autoIllustration?: {\n        enabled: boolean;\n        modelConfigId: string;\n    };\n    roleplayPlan: {\n        steps: string[];\n    };\n    regexRules: RegexRule[];\n    expandedGroupIds: string[];\n}',
   },
   {
     name: 'AgentPresetCatalog',
@@ -1125,7 +1144,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AgentToolGroup',
-    declaration: 'export interface AgentToolGroup {\n    id: string;\n    name: string;\n    description: string;\n    source: \'built_in\' | \'mcp\' | \'extension\';\n    members: AgentToolMember[];\n    enabled: boolean;\n    included: boolean;\n}',
+    declaration: 'export interface AgentToolGroup {\n    id: string;\n    name: string;\n    description: string;\n    source: \'built_in\' | \'mcp\' | \'extension\';\n    members: AgentToolMember[];\n    enabled: boolean;\n    included: boolean;\n    available?: boolean;\n    plugin?: {\n        id: string;\n        name: string;\n    };\n}',
   },
   {
     name: 'AgentToolMember',
@@ -1181,7 +1200,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CharacterOpeningMessage',
-    declaration: 'export interface CharacterOpeningMessage {\n    id: string;\n    title: string;\n    content: string;\n    variableVersionId?: string | undefined;\n    initialVariableStateJson: string;\n}',
+    declaration: 'export interface CharacterOpeningMessage {\n    id: string;\n    title: string;\n    content: string;\n    variableVersionId?: string | undefined;\n}',
   },
   {
     name: 'CharacterOpenings',
@@ -1193,7 +1212,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CharacterRecord',
-    declaration: 'export interface CharacterRecord {\n    id: string;\n    name?: string;\n    avatar?: string;\n    group?: string;\n    groupName?: string;\n    groupViewOrder?: number;\n    folder?: string;\n    frontendBeautyEnabled?: boolean | number;\n    profileAge?: string;\n    profileSex?: string;\n    profileHeight?: string;\n    profileBirthday?: string;\n    profileLike?: string;\n    showOpening?: boolean | number;\n    chatBackground?: string;\n    chatBackgroundOpacity?: number;\n    chatBackgroundBlur?: number;\n    chatBackgroundScrim?: number;\n    primaryOpening?: string;\n    persona?: CharacterPersona;\n}',
+    declaration: 'export interface CharacterRecord {\n    id: string;\n    name?: string;\n    avatar?: string;\n    group?: string;\n    groupName?: string;\n    groupViewOrder?: number;\n    folder?: string;\n    frontendBeautyEnabled?: boolean | number;\n    profileAge?: string;\n    profileSex?: string;\n    profileHeight?: string;\n    profileBirthday?: string;\n    profileLike?: string;\n    showOpening?: boolean | number;\n    chatBackground?: string;\n    chatBackgroundOpacity?: number;\n    chatBackgroundBlur?: number;\n    chatBackgroundScrim?: number;\n    chatBackgroundCustom?: {\n        image: string;\n        opacity: number;\n        blur: number;\n        scrim: number;\n    };\n    primaryOpening?: string;\n    persona?: CharacterPersona;\n}',
   },
   {
     name: 'ConversationChange',
@@ -1376,6 +1395,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface GlobalSettingLibraryCollection {\n    revision: number;\n    libraries: GlobalSettingLibrary[];\n}',
   },
   {
+    name: 'IllustrationSessionConfiguration',
+    declaration: 'export interface IllustrationSessionConfiguration {\n    autoIllustration?: {\n        enabled: boolean;\n        modelConfigId: string;\n    };\n    inheritedFromSessionId?: string;\n}',
+  },
+  {
     name: 'ModelDiscoveryInput',
     declaration: 'export interface ModelDiscoveryInput {\n    builtinProvider?: string;\n    configId: string;\n    baseURL: string;\n    api: string;\n    apiKey?: string;\n    headers?: Record<string, string>;\n}',
   },
@@ -1525,7 +1548,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SettingLibraryOpeningMessage',
-    declaration: 'export interface SettingLibraryOpeningMessage {\n    id: string;\n    title: string;\n    content: string;\n    variableVersionId?: string;\n    initialVariableStateJson: string;\n}',
+    declaration: 'export interface SettingLibraryOpeningMessage {\n    id: string;\n    title: string;\n    content: string;\n    variableVersionId?: string;\n}',
   },
   {
     name: 'SettingLibraryPosition',

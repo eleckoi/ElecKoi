@@ -9,6 +9,8 @@ import {
 import { ChevronRightIcon } from "../../../../ui/icons/index.jsx";
 import { SidebarSectionHeader } from "../../../../ui/ui/SidebarSectionHeader.jsx";
 import { useSidebarListScroll } from "../../../../ui/hooks/useSidebarListScroll.js";
+import { SidebarScrollArea } from "../../../../ui/ui/SidebarScrollArea.jsx";
+import { useSidebarGroupCollapse } from "../../../../ui/hooks/useSidebarGroupCollapse.js";
 import { LIST_COLLAPSE_AREAS, usePersistentCollapseState } from "../../../../modules/settings/index.js";
 import "../styles/plugin-center.css";
 
@@ -49,6 +51,7 @@ export function PluginListPanel({ onNotify }) {
   const [selectedId, setSelectedId] = useState("");
   const [error, setError] = useState("");
   const scrollRef = useSidebarListScroll();
+  const keepCollapsedHeading = useSidebarGroupCollapse(collapsed);
 
   useEffect(() => {
     const receive = (event) => {
@@ -85,12 +88,15 @@ export function PluginListPanel({ onNotify }) {
   return <aside className="character-list-panel plugin-list-panel" aria-label="插件列表">
     <SidebarSectionHeader title="插件" value={keyword} onValueChange={setKeyword} placeholder="搜索插件名称"
       createLabel="添加插件" onCreate={add} />
-    <div ref={scrollRef} className="character-list-scroll preset-list-scroll">
+    <SidebarScrollArea ref={scrollRef} className="character-list-scroll preset-list-scroll">
       {collapseStateReady ? GROUPS.map((group) => {
         const items = filtered.filter((entry) => entry.group === group.id);
         const isCollapsed = Boolean(collapsed[group.id]);
         return <section className="character-group-block preset-list-group" key={group.id}>
-          <button type="button" className="character-group-row preset-group-heading" aria-expanded={!isCollapsed} onClick={() => setCollapsed((current) => ({ ...current, [group.id]: !current[group.id] }))}>
+          <button type="button" className="character-group-row preset-group-heading" aria-expanded={!isCollapsed} onClick={(event) => {
+            if (!isCollapsed) keepCollapsedHeading(event.currentTarget);
+            setCollapsed((current) => ({ ...current, [group.id]: !current[group.id] }));
+          }}>
             <span><span className={`character-group-toggle${isCollapsed ? " collapsed" : ""}`}><ChevronRightIcon /></span>{group.label}</span>
             <em>{items.length}</em>
           </button>
@@ -103,7 +109,7 @@ export function PluginListPanel({ onNotify }) {
         </section>;
       }) : null}
       {error ? <p className="preset-list-state is-error">{error}</p> : null}
-    </div>
+    </SidebarScrollArea>
   </aside>;
 }
 

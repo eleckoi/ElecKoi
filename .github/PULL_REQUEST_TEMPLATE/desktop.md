@@ -18,6 +18,7 @@
 ### Data and compatibility（数据与兼容）
 
 - [ ] Schema 改动附带新的向前迁移，没有重写已发布迁移
+- [ ] 改了 `CURRENT_SCHEMA_VERSION` 就同时提升了应用版本号（同一版本号不能对应两份 schema）
 - [ ] 没有把会话、消息、角色或模型配置写入 localStorage
 - [ ] 旧数据、取消、失败或异常退出路径已考虑
 

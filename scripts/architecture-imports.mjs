@@ -1,4 +1,7 @@
-const publicRendererPackages = new Set(['@deepseek-ai/dsh-client-ui-primitives'])
+const publicRendererPackages = new Set([
+  '@deepseek-ai/dsh-client-ui-primitives',
+  '@deepseek-ai/dsh-api-workspace-controller/default-workspace',
+])
 
 /** Read module identities, including re-exports and literal runtime imports. */
 export function moduleImports(content) {

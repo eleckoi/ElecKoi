@@ -6,7 +6,7 @@ import java.util.List;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
-/** 上次会话判定（ADR 0041 决定 15）：找「最近一次没有配对 ended 的会话」，不是「最近一次会话」。 */
+/** 上次会话判定（ADR 0042 决定 15）：找「最近一次没有配对 ended 的会话」，不是「最近一次会话」。 */
 public class AndroidDiagnosticsSessionTest {
     private static String started(String id, long firstAt) {
         return "{\"kind\":\"session\",\"stage\":\"started\",\"id\":\"" + id + "\",\"firstAt\":" + firstAt + "}";

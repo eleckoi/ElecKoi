@@ -2,7 +2,7 @@
 
 # Host 完整服务参考
 
-DSH 基准：`0.2.1-rc.3`，提交 `1f81c047fc48fa190a683e469daa699857e9afe8`。
+DSH 基准：`0.2.1-rc.5`，提交 `b830ec950faba0a46dda564be3e2d854afed94f1`。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
@@ -30,7 +30,7 @@ DSH 基准：`0.2.1-rc.3`，提交 `1f81c047fc48fa190a683e469daa699857e9afe8`。
  * @param presetId - 预设编号。
  * @returns 操作结果，结构见返回类型；失败抛出错误。
  */
-@Remote read(presetId: string): AgentPreset
+@Remote read(presetId: string): Promise<AgentPreset>
 
 /**
  * 按明确编号原子修改预设原稿的条目及当前版本，不创建聊天私有开关。
@@ -47,7 +47,7 @@ DSH 基准：`0.2.1-rc.3`，提交 `1f81c047fc48fa190a683e469daa699857e9afe8`。
  * @param expectedRegexRules - 要求仍有效的正则配置。
  * @returns 操作结果，结构见返回类型；失败抛出错误。
  */
-@Remote save(preset: AgentPreset, expectedRegexRules: RegexRule[]): AgentPreset
+@Remote save(preset: AgentPreset, expectedRegexRules: RegexRule[]): Promise<AgentPreset>
 
 /**
  * 创建预设并返回完整预设数据。
@@ -56,7 +56,7 @@ DSH 基准：`0.2.1-rc.3`，提交 `1f81c047fc48fa190a683e469daa699857e9afe8`。
  * @param purpose - 角色扮演或创作预设分类。
  * @returns 操作结果，结构见返回类型；失败抛出错误。
  */
-@Remote create(name: string, libraryGroupId: string, purpose: AgentPresetPurpose): AgentPreset
+@Remote create(name: string, libraryGroupId: string, purpose: AgentPresetPurpose): Promise<AgentPreset>
 
 /**
  * 导入文件并保存完整数据。
@@ -65,7 +65,7 @@ DSH 基准：`0.2.1-rc.3`，提交 `1f81c047fc48fa190a683e469daa699857e9afe8`。
  * @param purpose - 目标预设分类。
  * @returns 操作结果，结构见返回类型；失败抛出错误。
  */
-@Remote import(source: AgentPresetImportSource, document: AgentPresetImportDocument, purpose: AgentPresetPurpose): AgentPresetImportResult
+@Remote async import(source: AgentPresetImportSource, document: AgentPresetImportDocument, purpose: AgentPresetPurpose): Promise<AgentPresetImportResult>
 
 /**
  * 返回导出文件名、格式和文件内容。
@@ -345,6 +345,36 @@ Native author variables share the Agent candidate processor and product reposito
 Types: [VariableConfig](types-host.md#variableconfig)
 
 Source: [`packages/host/product-api/src/author-variables.ts`](../../packages/host/product-api/src/author-variables.ts)
+
+<a id="ctxeleckoiautoillustration--eleckoiautoillustration"></a>
+
+### `ctx.eleckoiAutoIllustration` — `ElecKoiAutoIllustration`
+
+独立自动配图插件提供的本轮提示词与已有分镜重画能力。
+
+```ts cordis-catalog
+/**
+ * 取得根角色会话本轮启用的配图指令。
+ * @param snapshot - 已准备好的当前会话配置。
+ * @returns 本轮指令；停用或未绑定模型时为空。
+ */
+instructions(snapshot: IllustrationSessionConfiguration): string
+
+/**
+ * 通过当前插件绑定的模型重画已有分镜，保留其他图片与正文。
+ * @param sessionId - 角色会话编号。
+ * @param batchId - 原配图批次编号。
+ * @param frameId - 原分镜编号。
+ * @param snapshot - 当前会话的自动配图配置。
+ * @param signal - 调用取消信号。
+ * @returns 重画的错误状态；完整图片结果通过原会话事件发布。
+ */
+regenerateImage(sessionId: string, batchId: string, frameId: number, snapshot: IllustrationSessionConfiguration, signal: AbortSignal): Promise<{ error?: string }>
+```
+
+Types: [IllustrationSessionConfiguration](types-host.md#illustrationsessionconfiguration)
+
+Source: [`packages/client/features/dsh-auto-illustration/src/index.d.ts`](../../packages/client/features/dsh-auto-illustration/src/index.d.ts)
 
 <a id="ctxeleckoicharacterconfigurationapi--eleckoicharacterconfigurationapi"></a>
 
@@ -1031,9 +1061,10 @@ AI 创作工作室的 DSH 会话与永久编辑目标。
 /**
  * 使用当前全局创作预设创建工作室会话。
  * @param characterId - 编辑目标角色编号；空字符串表示尚未选择。
+ * @param workspaceId - 官方工作区编号；省略时沿用默认工作目录。
  * @returns 创建的会话及其编辑目标。
  */
-@Remote create(characterId: string): Promise<CreatorStudioSession>
+@Remote create(characterId: string, workspaceId?: string): Promise<CreatorStudioSession>
 
 /**
  * 恢复一个已有工作室会话。

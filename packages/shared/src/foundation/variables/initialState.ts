@@ -4,6 +4,32 @@ import { ELECKOI_FAILURE_CODES } from '../../contracts/errors/codes.js'
 import { DesktopError } from '../DesktopError.js'
 
 type JsonObject = Record<string, unknown>
+type PreservedInitialState = { initialStateJson: string; objects?: VariableObjectConfig[] }
+
+function objectJson(value: string): JsonObject {
+  try {
+    const parsed: unknown = JSON.parse(value)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as JsonObject : {}
+  } catch { return {} }
+}
+
+function stateAtObject(state: JsonObject, object: VariableObjectConfig, byId: Map<string, VariableObjectConfig>): unknown {
+  const path: string[] = []
+  const visited = new Set<string>()
+  let current: VariableObjectConfig | undefined = object
+  while (current) {
+    if (visited.has(current.id)) return undefined
+    visited.add(current.id)
+    path.unshift(current.name.trim())
+    current = byId.get(current.parentId)
+  }
+  let value: unknown = state
+  for (const name of path) {
+    if (!value || typeof value !== 'object' || !Object.hasOwn(value, name)) return undefined
+    value = (value as JsonObject)[name]
+  }
+  return value
+}
 
 function ordered<T extends { treeViewOrder: number; order: number }>(items: T[]): T[] {
   return [...items].sort((left, right) => (
@@ -44,13 +70,16 @@ function variableDefaultValue(variable: VariableItemConfig): unknown {
 export function buildVariableState(
   objects: VariableObjectConfig[],
   variables: VariableItemConfig[],
-  options: { parentId?: string; enabledOnly?: boolean; includeDynamicTemplate?: boolean } = {}
+  options: { parentId?: string; enabledOnly?: boolean; includeDynamicTemplate?: boolean; preserved?: PreservedInitialState } = {}
 ): JsonObject {
   const parentId = options.parentId ?? ''
   const enabledOnly = options.enabledOnly ?? true
   const includeDynamicTemplate = options.includeDynamicTemplate ?? false
   const userObjects = objects.filter((item) => item.id !== VARIABLE_INITIALIZATION_OBJECT_ID)
   const byId = new Map(userObjects.map((item) => [item.id, item]))
+  const preservedState = objectJson(options.preserved?.initialStateJson ?? '{}')
+  const previousById = new Map((options.preserved?.objects ?? userObjects)
+    .filter(item => item.id !== VARIABLE_INITIALIZATION_OBJECT_ID).map(item => [item.id, item]))
   const childrenByParent = new Map<string, VariableObjectConfig[]>()
   const variablesByParent = new Map<string, VariableItemConfig[]>()
 
@@ -80,10 +109,18 @@ export function buildVariableState(
 
   const fill = (target: JsonObject, currentParentId: string): void => {
     for (const child of ordered(childrenByParent.get(currentParentId) ?? [])) {
-      if (child.dynamicKey && !includeDynamicTemplate) continue
       if (enabledOnly && !objectEnabled(child.id)) continue
       const plainName = child.name.trim()
       if (!plainName) continue
+      if (child.dynamicKey && !includeDynamicTemplate) {
+        // Dynamic templates describe entries, not their concrete keys or authored values.
+        // Preserve only that dictionary; static siblings must follow their edited defaults.
+        const previous = previousById.get(child.id)
+        const value = stateAtObject(preservedState, child, byId)
+          ?? (previous ? stateAtObject(preservedState, previous, previousById) : undefined)
+        if (value !== undefined) target[plainName] = value
+        continue
+      }
       const name = child.dynamicKey && includeDynamicTemplate ? `<${plainName}>` : plainName
       const childState: JsonObject = {}
       fill(childState, child.id)
@@ -101,8 +138,8 @@ export function buildVariableState(
   return result
 }
 
-export function generatedInitialStateJson(objects: VariableObjectConfig[], variables: VariableItemConfig[]): string {
-  return JSON.stringify(buildVariableState(objects, variables), null, 2)
+export function generatedInitialStateJson(objects: VariableObjectConfig[], variables: VariableItemConfig[], preserved?: PreservedInitialState): string {
+  return JSON.stringify(buildVariableState(objects, variables, preserved ? { preserved } : {}), null, 2)
 }
 
 export function generatedInitialStatePreviewJson(objects: VariableObjectConfig[], variables: VariableItemConfig[]): string {

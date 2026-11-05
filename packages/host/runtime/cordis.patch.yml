@@ -1,3 +1,10 @@
 - insert:
     - id: eleckoi-session-edit
       name: '@eleckoi/dsh-runtime/session-edit-plugin'
+    - id: eleckoi-plugin-development-skills
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: eleckoi-plugin-development
+        includeDefaultRoots: false
+        watch: false
+        bundledSkillDir: !!js process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:path').dirname(process.getBuiltinModule('node:module').createRequire(baseUrl).resolve('@eleckoi/dsh-client-shell/package.json')), 'skills')

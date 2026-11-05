@@ -172,7 +172,10 @@ document.querySelector('#confirm').onclick=async()=>{try{
       || accepted.result.context.scope !== 'current-character' || accepted.result.context.surface !== 'character-frontend'
       || accepted.result.context.characterId !== 'synthetic-character' || accepted.result.context.conversationId !== 'synthetic-chat') throw new Error(JSON.stringify(accepted));
     await page.screenshot({ path: `output/playwright/native-character-chat-${viewport.width}.png` });
+    if (await page.getByRole('button', { name: '恢复默认对话界面' }).count()) throw new Error('Chat must not reserve a restore toolbar');
+    await page.getByRole('button', { name: 'Show editor' }).click();
     await page.getByRole('button', { name: '恢复默认对话界面' }).click();
+    await page.getByRole('button', { name: 'Show chat' }).click();
     await page.getByText('Default transcript', { exact: true }).waitFor();
     const withdrawn = await page.evaluate(async () => { try { await window.oldSyntheticRoleApi.variables.getState(); } catch (error) { return error.code; } });
     if (withdrawn !== 'FRAME_CLOSED') throw new Error(`Role page remained active: ${withdrawn}`);

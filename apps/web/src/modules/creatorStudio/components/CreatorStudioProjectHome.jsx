@@ -1,3 +1,4 @@
+// NODE STUDIO: retained node/project development surface for future main-window integration.
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
 import { useEffect, useMemo, useRef, useState } from "react";

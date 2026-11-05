@@ -23,7 +23,12 @@
 
 电子爱想建立一个持续进化的创作飞轮：把社区积累的角色设计知识、模板和方法变成 Agent 可以检索和复用的能力。知识越丰富，Agent 越会创作；创作出的作品与经验，又能继续推动整个社区向前发展。
 
-## 应用截图
+## 应用截图展示
+
+<p align="center">
+  <img src="docs/screenshots/eleckoi-windows-game-character-card.png" alt="游戏角色卡" width="960">
+  <br><sub>游戏角色卡</sub>
+</p>
 
 <p align="center">
   <img src="docs/screenshots/eleckoi-windows-conversation.png" alt="电子爱 Windows 版角色对话界面" width="960">

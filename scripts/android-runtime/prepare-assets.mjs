@@ -20,5 +20,5 @@ run('python', ['scripts/android-runtime/verify-hardlink-free.py', '--source', `$
 const manifest = JSON.parse(readFileSync(resolve(repo, 'apps/android-host/package.json'), 'utf8'))
 run(process.execPath, ['scripts/android-runtime/assemble-assets.mjs', '--rootfs', `${build}/archives/rootfs.tar.gz`,
   '--node', `${build}/archives/node.tar.gz`, '--git', `${build}/archives/git.tar.gz`, '--app', `${build}/archives/app.tar.gz`,
-  '--version', `${manifest.version}-android-dev-dsh-0.2.1-rc.3`, '--output', `${build}/assets`])
+  '--version', `${manifest.version}-android-dev-dsh-0.2.1-rc.5`, '--output', `${build}/assets`])
 run(process.execPath, ['scripts/android-runtime/check-runtime.mjs'])

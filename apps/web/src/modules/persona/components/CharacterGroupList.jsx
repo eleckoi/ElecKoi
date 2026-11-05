@@ -1,3 +1,4 @@
+import { useSidebarGroupCollapse } from '../../../ui/hooks/useSidebarGroupCollapse.js';
 import { ChevronRightIcon } from "../../../ui/icons/index.jsx";
 import { CharacterContactRow } from "./CharacterContactRow.jsx";
 import { ALL_CHARACTERS, characterGroup } from "./characterUtils.js";
@@ -21,6 +22,7 @@ export function CharacterGroupList({
   onDragEnd,
   onGroupContextMenu,
 }) {
+  const keepCollapsedHeading = useSidebarGroupCollapse(collapsedGroups);
   return [ALL_CHARACTERS, ...groups].map((group) => {
     const isAllCharacters = group === ALL_CHARACTERS;
     const collapsed = Boolean(collapsedGroups[group]);
@@ -35,8 +37,10 @@ export function CharacterGroupList({
             dragOverGroup === group && draggingGroup !== group ? "drag-over" : ""
           }`}
           type="button"
+          aria-expanded={!collapsed}
           draggable={!isAllCharacters}
-          onClick={() => {
+          onClick={(event) => {
+            if (!collapsed) keepCollapsedHeading(event.currentTarget);
             onSelectGroup?.(group);
             onToggleGroup(group);
           }}

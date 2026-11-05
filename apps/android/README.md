@@ -4,7 +4,7 @@
 
 ## 所有权
 
-- `apps/android`：浏览器接入、前台服务、本地运行时生命周期、系统文件选择与导出、TTS、通知和本地媒体协议的 Android 载体。`src/main` 共用平台操作，`src/standard` 与 `src/compat` 分别映射内核 API；不复制前端或 Host 业务代码。
+- `apps/android`：浏览器接入、本地 Host 服务与运行时生命周期、系统文件选择与导出、TTS、通知和本地媒体协议的 Android 载体。`src/main` 共用平台操作，`src/standard` 与 `src/compat` 分别映射内核 API；不复制前端或 Host 业务代码。
 - `apps/android-host`：独立 Node 组合根，装配同一锁定版本的 DSH Web profile 与当前产品 Host/Client bundle。
 - `packages/host` 与 `packages/client/features`：现有产品合同、业务与持久化。共享 Client 页面的资源地址改为使用 Host 注入的真实来源；产品业务与数据实现保持原状。
 - `packages/client/mobile` 与 `apps/web/src/mobile`：移动窗口、官方侧边抽屉、独立详情导航及窄屏呈现。
@@ -18,6 +18,25 @@ Android 使用 `noBackupFilesDir/unified-runtime` 内的独立数据库、Sessio
 两版的 HTML 下拉选择共用 `NativeChoiceDialog` 原生列表、取消按钮及页面明确传入的明暗主题。兼容版通过 `PromptDelegate.onChoicePrompt` 传入 Gecko 正式选项 ID，并遵守其更新与撤销回调；未实现此回调时 GeckoView 会直接取消请求。标准版在受管页面中将选择操作交给原生列表，以每个实际 `option` 元素的稳定 ID 回传选择，保留禁用项、分组和多选；确认后只在实际选中项变化时产生网页 `input/change` 事件，取消与返回不改变选择。选项更新和控件移除按当前 DOM 处理。这是 Android 浏览器界面的接入，不承担 Host 业务调用，也不更换标准版的系统 WebView。
 
 ## 准备与构建
+
+两种浏览器变体共用本地 Host 服务与 CPU 唤醒锁，不启动常驻前台服务或发布运行状态通知。系统访问状态继续进入平台诊断，网络断开或访问被限制不重启 Host、不取消会话或重新提交消息；网络切换忽略旧连接的延迟回调。Activity 恢复时重新读取系统设置，聊天连接继续沿用锁定 DSH 的恢复机制。
+
+源码编译和单元回归不代表后台真机验收。切到其他应用、锁屏、系统省电及系统清理须分别核对；系统强行停止进程后的任务中断不能按普通退后台处理。
+
+设置 → 应用 → 后台运行只保留电池优化豁免、悬浮窗保活开关和悬浮窗权限。未豁免时可以申请，已豁免后显示静态状态，不再打开全机管理列表；不从豁免标记推断厂商省电策略。悬浮窗沿用既有开关值与权限：开启并授权后，应用退到后台或锁屏时挂载透明、不可触摸的小型窗口，回到前台或停止服务后移除；不依赖生成开始或结束。开关立即保存，系统权限始终由用户授权。未开启或未授权时不承诺持续后台运行；厂商冻结策略仍须真机验证。
+
+回复完成通知由原生服务读取认证的官方 Remote 事件与 Session control/follow/page 接口，独立于 WebView。生成中状态直接使用官方 `api-session/status` 和 Session 列表的 `running` 字段；会话释放时取消旧日志订阅，重建后读取新日志，不把重新生成复用的记录编号当作旧完成结果。官方状态转为空闲后，只提醒已成功结束且有正文的轮次。后台或锁屏时显示角色头像、名字和完整文本；前台使用、取消、失败和启动前旧历史不提醒。设置 → 应用 → 回复完成通知可关闭提醒或打开系统通知设置。
+
+只有回复完成通知参与消息分组，摘要显示最新回复；没有后台服务通知参与分组。通知是否展开以及系统的进一步聚合由 Android 管理。
+
+原生与真实 Host 的通知接入回归可在标准开发测试类编译后运行：
+
+```powershell
+& apps/android/gradlew.bat -p apps/android :app:writeReplyMonitorProbeClasspath --console=plain --no-daemon --max-workers=2
+node scripts/android-runtime/probe-reply-notifications.mjs apps/android/app/build/reply-monitor-classpath.txt
+```
+
+先完成 `pnpm build:android-host`，并设置 `JAVA_HOME`。若本机 SQLite 绑定当前 Electron ABI，使用该 Electron 的 Node 模式执行同一个脚本，不重建或替换用户正在使用的绑定。此探针只使用临时 Host、合成提供方和临时数据，不连接手机或真实模型；它检验公开协议与 Java 监听，不能代替安卓通知栏和系统后台行为验收。
 
 本机需要锁定工作区依赖、Python 3、Java 17 和 Android SDK 37.2；应用 targetSdk 仍为 35。Gradle Wrapper 已固定版本。兼容版依赖锁定在 `geckoview.lock.json`：Mozilla stable ARM64 AAR `158.0.20261007201254`，构建前核对完整 SHA-256，打包后逐项核对原生库摘要。标准包不包含该内核。
 
@@ -69,8 +88,8 @@ Windows-only Release 不触发 Android 更新。标准版按唯一 `android-upda
   "platform": "android",
   "variant": "standard",
   "applicationId": "com.eleckoi.app",
-  "versionCode": 10,
-  "versionName": "0.2.15",
+  "versionCode": 12,
+  "versionName": "0.2.17",
   "apkAsset": "app-standard-release.apk",
   "sha256": "<实际 APK 的 64 位小写 SHA-256>"
 }

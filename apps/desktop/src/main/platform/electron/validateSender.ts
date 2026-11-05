@@ -45,6 +45,10 @@ export function isDshChildUrl(url: string): boolean {
       const key = view === 'chat' ? 'chat' : 'character'
       return candidate.searchParams.size === 2 && Boolean(candidate.searchParams.get(key))
     }
+    if (view === 'preset-manager' && candidate.searchParams.has('purpose')) {
+      return candidate.searchParams.size === 2
+        && ['creator', 'roleplay'].includes(candidate.searchParams.get('purpose') ?? '')
+    }
     return (view === 'creator-studio' || view === 'character-manager' || view === 'preset-manager')
       && candidate.searchParams.size === 1
   } catch {

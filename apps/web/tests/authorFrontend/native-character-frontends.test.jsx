@@ -9,7 +9,7 @@ import { CharacterFrontendView } from '../../src/modules/authorFrontend/componen
 import { characterFrontendEntry } from '../../src/modules/authorFrontend/model/characterFrontend.js';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { MessagesPage } from '../../../../packages/client/features/dsh-client-conversations/src/page.jsx';
-import { ImportIcon, ExportIcon } from '../../src/ui/icons/openSourceIcons.jsx';
+import { ExportIcon } from '../../src/ui/icons/openSourceIcons.jsx';
 
 const characterId = 'synthetic-character';
 const html = '<!doctype html><meta name="eleckoi-author-api" content="0.1.0"><button>Confirm</button>';
@@ -29,6 +29,8 @@ const click = async (label, scope = shadow()) => {
 };
 beforeEach(() => {
   vi.stubGlobal('React', React); vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  const height = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight').get;
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function () { return this.classList.contains('cf-directory') ? 480 : height.call(this); });
   files = new Map([['pages/main.html', html]]); watchers = new Set(); stopWatch = vi.fn(); stopPage = vi.fn(); dirty = vi.fn();
   state = { scope: 'character', characterId, projects: [sample()], selectedProjectId: null, activeBindings: [], messageRendererEnabled: true, revision: 1 };
   const owner = input => { expect(input).toEqual({ scope: 'character', characterId }); };
@@ -62,125 +64,123 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
-describe('character frontend file management', () => {
-  const rightClick = async element => act(() => element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, composed: true, clientX: 100, clientY: 100 })));
+describe('character frontend package browser', () => {
   const menuAction = async label => {
-    const menu = shadow().querySelector('[role="menu"]');
-    expect(menu).toBeTruthy();
-    await act(() => [...menu.querySelectorAll('button')].find(button => button.textContent === label).click());
+    await click('前端包更多操作');
+    const menu = document.querySelector('[role="menu"]');
+    expect(menu).toBeTruthy(); await click(label, menu);
   };
-  it('uses the established downward import and upward export icons', async () => {
-    await render(<CharacterFrontendPanel characterId={characterId} />);
-    for (const [label, Icon] of [['导入', ImportIcon], ['导出项目', ExportIcon]]) {
-      const expected = document.createElement('div'); expected.innerHTML = renderToStaticMarkup(<Icon size={17} />);
-      expect(shadow().querySelector(`[aria-label="${label}"] svg`).innerHTML).toBe(expected.querySelector('svg').innerHTML);
-    }
+  const choosePackage = async label => {
+    await click('切换前端包'); await click(label, document.querySelector('[role="menu"]'));
+  };
+  it('browses nested package files without editing, copy controls or redundant status labels', async () => {
+    const controller = createRef(); state.selectedProjectId = state.projects[0].id;
+    await render(<CharacterFrontendPanel ref={controller} characterId={characterId} onDirtyChange={dirty} />);
+    expect(shadow().textContent).toContain(html);
+    expect(shadow().querySelector('textarea,[contenteditable=true]')).toBeNull();
+    expect(shadow().textContent).not.toMatch(/只读|使用中|新建|添加资源|保存文件|复制/);
+    expect(shadow().querySelectorAll('input[type=file]')).toHaveLength(1);
+    expect(dirty).toHaveBeenLastCalledWith(false); expect(controller.current.save()).toBe(true);
+    await click('assets'); await click('synthetic.bin');
+    expect(shadow().querySelector('.cf-file-title').textContent).toContain('assets/synthetic.bin');
+    expect(service.projects.writeFile).not.toHaveBeenCalled();
+    await click('eleckoi.frontend.json');
+    expect(shadow().querySelector('.cf-source').textContent).toContain('manifestVersion');
+    expect(service.projects.readFile).not.toHaveBeenCalledWith(expect.anything(), expect.anything(), {path:'eleckoi.frontend.json'});
   });
-  it('keeps project commands inside the shadow menu and deletes the clicked project without clearing another project editor', async () => {
-    vi.useFakeTimers();
-    state.projects.push({ ...sample(), id: 'synthetic-other-project', name: 'Synthetic other project' });
-    service.projects.delete = vi.fn(async (input, id) => { ownerCheck(input); state.projects = state.projects.filter(project => project.id !== id); state.revision++; watchers.forEach(listener => listener(value())); return { ok: true, value: value() }; });
-    function ownerCheck(input) { expect(input).toEqual({ scope: 'character', characterId }); }
-    await render(<CharacterFrontendPanel characterId={characterId} />); await click('pages/main.html');
-    const editor = shadow().querySelector('textarea');
-    const target = [...shadow().querySelectorAll('[aria-label="前端项目"] button')].find(button => button.textContent === 'Synthetic other project');
-    await rightClick(target);
-    expect(document.querySelector('[role="menu"][aria-label="项目操作"]')).toBeNull();
-    expect(shadow().activeElement.textContent).toBe('编辑');
-    await act(() => shadow().querySelector('[role="menu"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
-    expect(shadow().activeElement).toBe(target); expect(shadow().querySelector('[role="menu"]')).toBeNull();
-    await rightClick(target); await menuAction('删除');
-    expect(shadow().querySelector('[role="dialog"]').textContent).toContain('Synthetic other project');
-    await click('删除', shadow().querySelector('[role="dialog"]'));
-    await act(async () => { await vi.advanceTimersByTimeAsync(180); });
-    expect(service.projects.delete).toHaveBeenCalledWith({ scope: 'character', characterId }, 'synthetic-other-project');
-    expect(shadow().querySelector('textarea')).toBe(editor); expect(editor.value).toBe(html);
-  });
-  it('deletes and replaces the clicked file rather than the open editor file, and protects the manifest', async () => {
-    vi.useFakeTimers();
-    service.projects.replaceFiles = vi.fn(async (input, id, options) => {
-      expect(input).toEqual({ scope: 'character', characterId }); expect(id).toBe('synthetic-role-project');
-      for (const path of options.deletePaths || []) state.projects[0].files = state.projects[0].files.filter(file => file !== path);
-      state.revision++; watchers.forEach(listener => listener(value())); return { ok: true, value: value() };
-    });
-    await render(<CharacterFrontendPanel characterId={characterId} />); await click('pages/main.html');
-    const editor = shadow().querySelector('textarea');
-    await rightClick(shadow().querySelector('[title="assets/synthetic.bin"]')); await menuAction('替换文件');
-    const input = shadow().querySelectorAll('input[type="file"]')[1];
-    Object.defineProperty(input, 'files', { value: [{ name: 'synthetic-replacement.bin', arrayBuffer: async () => Uint8Array.of(1, 2, 3).buffer }] });
-    await act(() => input.dispatchEvent(new Event('change', { bubbles: true })));
-    expect(service.projects.replaceFiles).toHaveBeenLastCalledWith({ scope: 'character', characterId }, 'synthetic-role-project',
-      { files: [{ path: 'assets/synthetic.bin', content: 'AQID', encoding: 'base64' }] });
-    expect(shadow().querySelector('textarea')).toBe(editor);
-    await rightClick(shadow().querySelector('[title="eleckoi.frontend.json"]'));
-    expect([...shadow().querySelectorAll('[role="menuitem"]')].map(button => button.textContent)).toEqual(['编辑']);
-    await act(() => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true })));
-    expect(shadow().querySelector('[role="menu"]')).toBeNull();
-    await rightClick(shadow().querySelector('[title="assets/synthetic.bin"]')); await menuAction('删除文件');
-    await click('删除', shadow().querySelector('[role="dialog"]')); await act(async () => { await vi.advanceTimersByTimeAsync(180); });
-    expect(service.projects.replaceFiles).toHaveBeenLastCalledWith({ scope: 'character', characterId }, 'synthetic-role-project', { files: [], deletePaths: ['assets/synthetic.bin'] });
-    expect(shadow().querySelector('textarea')).toBe(editor); expect(editor.value).toBe(html);
-  });
-  it('creates and selects a role-owned native project without enabling an application replacement', async () => {
-    await render(<CharacterFrontendPanel characterId={characterId} />);
-    await click('新建');
-    expect(state.selectedProjectId).toBeNull();
-    await click('启用');
-    expect(service.projects.importProject).toHaveBeenCalledWith({ scope: 'character', characterId }, expect.objectContaining({
-      select: false,
-      manifest: { manifestVersion: 1, sdkVersion: '0.1.0', scope: 'character', entryFile: 'index.html', bindings: [{ target: 'root', view: 'chat', entryFile: 'index.html' }] },
-    }));
-    expect(service.projects.importProject.mock.calls[0][1].files[0].content).toContain('eleckoi-author-api');
-    expect(service.projects.select).toHaveBeenCalledWith({ scope: 'character', characterId }, 'synthetic-new-project');
-    expect(state.selectedProjectId).toBe('synthetic-new-project');
-  });
-  it('imports a role page without replacing the project already in use', async () => {
+  it('imports a complete role page without replacing the package already in use', async () => {
     state.selectedProjectId = 'synthetic-role-project';
     await render(<CharacterFrontendPanel characterId={characterId} />);
     const input = shadow().querySelector('input[accept=".html,.htm,.zip"]');
     const bytes = new TextEncoder().encode(html);
     Object.defineProperty(input, 'files', { value: [{ name: 'synthetic-page.html', arrayBuffer: async () => bytes.buffer }] });
     await act(() => input.dispatchEvent(new Event('change', { bubbles: true })));
-    expect(service.projects.importProject).toHaveBeenCalledWith({ scope: 'character', characterId }, expect.objectContaining({ select: false }));
+    expect(service.projects.importProject).toHaveBeenCalledWith({ scope: 'character', characterId }, expect.objectContaining({
+      select:false, filename:'synthetic-page.html', data:btoa(html),
+      manifest:{manifestVersion:1,sdkVersion:'0.1.0',scope:'character',entryFile:'index.html',bindings:[{target:'root',view:'chat',entryFile:'index.html'}]},
+    }));
     expect(state.selectedProjectId).toBe('synthetic-role-project');
     expect(service.projects.select).not.toHaveBeenCalled();
+    expect(shadow().querySelector('[aria-label="切换前端包"]').textContent).toBe('synthetic-page');
+    await click('使用此前端');
+    expect(service.projects.select).toHaveBeenCalledWith({scope:'character',characterId},'synthetic-new-project');
   });
-  it('retains a failed file edit, reports dirty state, and saves through the editor controller on retry', async () => {
-    const controller = createRef(); await render(<CharacterFrontendPanel ref={controller} characterId={characterId} onDirtyChange={dirty} />);
-    await click('pages/main.html'); const editor = shadow().querySelector('textarea');
-    await act(() => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(editor, `${html}\n<p>Synthetic edit</p>`); editor.dispatchEvent(new Event('input', { bubbles: true })); });
-    expect(dirty).toHaveBeenLastCalledWith(true);
-    service.projects.writeFile.mockResolvedValueOnce({ ok: false, error: { code: 'SYNTHETIC_WRITE_FAILED', message: 'Synthetic write failure' } });
-    let saved; await act(async () => { saved = await controller.current.save(); });
-    expect(saved).toBe(false); expect(shadow().textContent).toContain('Synthetic write failure');
-    expect(editor.value).toContain('Synthetic edit'); expect(dirty).toHaveBeenLastCalledWith(true);
-    await act(async () => { saved = await controller.current.save(); });
-    expect(saved).toBe(true); expect(files.get('pages/main.html')).toContain('Synthetic edit'); expect(dirty).toHaveBeenLastCalledWith(false);
-  });
-  it('previews a saved entry using the role SDK, then returns to the file editor and releases the page', async () => {
-    await render(<CharacterFrontendPanel characterId={characterId} />); await click('预览');
-    const frame = shadow().querySelector('iframe'); await act(() => frame.dispatchEvent(new Event('load')));
-    expect(runtime.mountProjectDocument).toHaveBeenCalledWith(frame.contentWindow, { scope: 'character', characterId,
-      projectId: 'synthetic-role-project', entryFile: 'pages/main.html', view: 'chat' });
-    expect(service.projects.readFile).toHaveBeenCalledWith({ scope: 'character', characterId }, 'synthetic-role-project', { path: 'pages/main.html' });
-    await click('返回文件'); expect(stopPage).toHaveBeenCalledOnce(); expect(shadow().querySelector('iframe')).toBeNull();
-    expect(shadow().querySelector('[aria-label="角色前端工作台"]')).toBeTruthy();
-  });
-  it('retains the explicitly chosen project and file across preview instead of selecting the first project on return', async () => {
-    state.projects.push({ ...sample(), id: 'synthetic-other-project', name: 'Synthetic other project' });
+  it('imports a ZIP as a package without imposing an HTML manifest or exposing file upload controls', async () => {
     await render(<CharacterFrontendPanel characterId={characterId} />);
-    await click('Synthetic other project'); await click('pages/main.html');
-    const editor = shadow().querySelector('textarea');
-    await click('预览'); await click('返回文件'); await click('启用');
-    expect(service.projects.select).toHaveBeenCalledWith({ scope: 'character', characterId }, 'synthetic-other-project');
-    expect(shadow().querySelector('textarea')).toBe(editor);
-    expect(shadow().querySelector('textarea').value).toBe(html);
+    const input=shadow().querySelector('input[type=file]');
+    Object.defineProperty(input,'files',{value:[{name:'synthetic-package.zip',arrayBuffer:async()=>Uint8Array.of(1,2,3).buffer}]});
+    await act(()=>input.dispatchEvent(new Event('change',{bubbles:true})));
+    expect(service.projects.importProject).toHaveBeenCalledWith({scope:'character',characterId},{select:false,filename:'synthetic-package.zip',name:'synthetic-package',data:'AQID'});
+    expect(shadow().querySelectorAll('input[type=file]')).toHaveLength(1);
+  });
+  it('exports the browsed package using the upward export icon and preserves the active selection', async () => {
+    state.projects.push({...sample(),id:'synthetic-other-project',name:'Synthetic other project'});
+    state.selectedProjectId=state.projects[0].id;
+    service.projects.exportProject=vi.fn(async(input,id)=>({ok:true,value:{filename:id+'.zip',data:'AQID'}}));
+    const saveBytes=vi.fn(); vi.stubGlobal('ElecKoiPlatform',{saveBytes});
+    await render(<CharacterFrontendPanel characterId={characterId}/>);
+    await choosePackage('Synthetic other project');
+    await click('前端包更多操作');
+    const menu=document.querySelector('[role=menu]');
+    const expected=document.createElement('div'); expected.innerHTML=renderToStaticMarkup(<ExportIcon size={16}/>);
+    const button=[...menu.querySelectorAll('button')].find(button=>button.textContent==='导出前端包');
+    expect(button.querySelector('svg').innerHTML).toBe(expected.querySelector('svg').innerHTML);
+    await act(()=>button.click());
+    expect(service.projects.exportProject).toHaveBeenCalledWith({scope:'character',characterId},'synthetic-other-project');
+    expect(saveBytes).toHaveBeenCalledWith('synthetic-other-project.zip',Uint8Array.of(1,2,3),'application/zip');
+    expect(state.selectedProjectId).toBe('synthetic-role-project');
+  });
+  it('renames and removes the chosen package, using a confirmation and keeping the other package', async () => {
+    vi.useFakeTimers();
+    state.projects.push({...sample(),id:'synthetic-other-project',name:'Synthetic other project'});
+    service.projects.updateProject=vi.fn(async(input,id,patch)=>{Object.assign(state.projects.find(p=>p.id===id),patch);state.revision++;watchers.forEach(fn=>fn(value()));return {ok:true,value:value()};});
+    service.projects.delete=vi.fn(async(input,id)=>{state.projects=state.projects.filter(p=>p.id!==id);state.revision++;watchers.forEach(fn=>fn(value()));return {ok:true,value:value()};});
+    await render(<CharacterFrontendPanel characterId={characterId}/>);
+    await choosePackage('Synthetic other project'); await menuAction('重命名');
+    const input=shadow().querySelector('[role=dialog] input');
+    await act(()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Synthetic renamed');input.dispatchEvent(new Event('input',{bubbles:true}));});
+    await click('保存',shadow().querySelector('[role=dialog]')); await act(async()=>vi.advanceTimersByTimeAsync(180));
+    expect(service.projects.updateProject).toHaveBeenCalledWith({scope:'character',characterId},'synthetic-other-project',{name:'Synthetic renamed'});
+    await menuAction('移除前端包'); expect(service.projects.delete).not.toHaveBeenCalled();
+    await click('移除',shadow().querySelector('[role=dialog]')); await act(async()=>vi.advanceTimersByTimeAsync(180));
+    expect(service.projects.delete).toHaveBeenCalledWith({scope:'character',characterId},'synthetic-other-project');
+    expect(state.projects.map(p=>p.id)).toEqual(['synthetic-role-project']);
+  });
+  it('retains the chosen package and file across preview, and releases the actual preview on return', async () => {
+    state.projects.push({...sample(),id:'synthetic-other-project',name:'Synthetic other project'});
+    await render(<CharacterFrontendPanel characterId={characterId}/>);
+    await choosePackage('Synthetic other project'); await click('main.html'); await click('预览');
+    const frame=shadow().querySelector('iframe'); expect(frame).toBeTruthy();
+    await act(()=>frame.dispatchEvent(new Event('load')));
+    expect(runtime.mountProjectDocument).toHaveBeenCalledWith(frame.contentWindow, expect.objectContaining({projectId:'synthetic-other-project',characterId,view:'chat'}));
+    await click('文件'); expect(stopPage).toHaveBeenCalledOnce();
+    expect(shadow().querySelector('.cf-file-title').textContent).toContain('pages/main.html');
+    expect(shadow().querySelector('[aria-label="切换前端包"]').textContent).toBe('Synthetic other project');
+    expect(shadow().querySelector('iframe')).toBeNull();
+  });
+  it('restores the default chat without removing imported packages', async () => {
+    state.selectedProjectId=state.projects[0].id;
+    await render(<CharacterFrontendPanel characterId={characterId}/>); await menuAction('使用默认界面');
+    expect(service.projects.restoreDefault).toHaveBeenCalledWith({scope:'character',characterId});
+    expect(state.selectedProjectId).toBeNull(); expect(state.projects).toHaveLength(1); expect(files.get('pages/main.html')).toBe(html);
+  });
+  it('ignores late file reads after switching packages and releases the old owner on character changes', async () => {
+    let finish;
+    service.projects.readFile.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+    state.projects.push({...sample(),id:'synthetic-other-project',name:'Synthetic other project'});
+    await render(<CharacterFrontendPanel characterId={characterId}/>); await choosePackage('Synthetic other project');
+    await act(()=>finish({ok:true,value:{content:'obsolete package source'}}));
+    expect(shadow().textContent).not.toContain('obsolete package source'); expect(shadow().textContent).toContain(html);
+    await render(<CharacterFrontendPanel characterId="synthetic-next-character"/>);
+    expect(stopWatch).toHaveBeenCalled(); expect(shadow().textContent).not.toContain(html);
+    expect(shadow().querySelectorAll('[aria-label="导入前端包"]')).toHaveLength(1);
+    expect(shadow().querySelector('[aria-label="切换前端包"]')).toBeNull();
   });
 });
 
 describe('native role chat project', () => {
   const view = (id = characterId, conversationId = 'synthetic-chat') => <CharacterFrontendView characterId={id} conversationId={conversationId} fallback={<div>Default transcript</div>} />;
-  it('uses only the explicit selection, restores the default without deleting source and releases the old chat page', async () => {
+  it('uses only the explicit selection and releases the page when the owner deselects the project', async () => {
     await render(view()); expect(container.textContent).toBe('Default transcript'); expect(service.projects.readFile).not.toHaveBeenCalled();
     await act(() => { state.selectedProjectId = 'synthetic-role-project'; state.revision++; watchers.forEach(listener => listener(value())); });
     const first = container.querySelector('iframe'); await act(() => first.dispatchEvent(new Event('load')));
@@ -189,7 +189,7 @@ describe('native role chat project', () => {
     await render(view(characterId, 'synthetic-next-chat'));
     const second = container.querySelector('iframe'); await act(() => second.dispatchEvent(new Event('load')));
     expect(second).not.toBe(first); expect(stopPage).toHaveBeenCalledOnce();
-    await click('恢复默认对话界面', container);
+    await act(() => service.projects.restoreDefault({ scope: 'character', characterId }));
     expect(container.textContent).toBe('Default transcript'); expect(state.projects).toHaveLength(1); expect(files.get('pages/main.html')).toBe(html);
     expect(stopPage).toHaveBeenCalledTimes(2);
   });

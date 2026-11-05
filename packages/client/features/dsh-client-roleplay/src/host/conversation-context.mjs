@@ -6,7 +6,6 @@ import { createHash } from 'node:crypto'
 import { readSessionSnapshot } from './session-snapshot.mjs'
 import { requiredSettingCache } from './required-setting-cache.mjs'
 import { INPUT_CONTINUATIONS_PROJECTION } from './input-continuations-projection.mjs'
-import { illustrationInstructions, prepareIllustration } from './generated-image-result.mjs'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 
 export const name = 'eleckoi-conversation-context'
@@ -32,9 +31,9 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
     const surface = session.deriveMessages()
     const currentUser = surface.findLast(isDirectUserMessage)
     const prompt = snapshot.conversationContext.currentPromptText
-    const illustration = prepareIllustration(settings, snapshot)
+    const illustration = agentCtx.get('eleckoiAutoIllustration')?.instructions(snapshot) ?? ''
     const transform = {
-      instructions: sessionInstructions(snapshot, illustration ? illustrationInstructions(illustration.settings) : '') || null,
+      instructions: sessionInstructions(snapshot, illustration) || null,
       currentPromptText: typeof prompt === 'string' && prompt !== messageText(currentUser)
         ? prompt : null
     }

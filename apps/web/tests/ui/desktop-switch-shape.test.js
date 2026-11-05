@@ -23,7 +23,6 @@ const controls = [
   ['preset regex', 'modules/presets/styles/preset-panel.css', '.preset-regex-enabled', '.preset-regex-enabled i'],
   ['preset tools', 'modules/presets/styles/preset-panel.css', '.preset-tool-toggle', '.preset-tool-toggle i'],
   ['chat tools', 'modules/chat/styles/chat-panel.css', '.agent-tool-switch', '.agent-tool-switch span'],
-  ['settings', 'modules/settings/styles/settings-panel.css', '.chat-setting-toggle > i', '.chat-setting-toggle > i::after'],
 ];
 
 describe('desktop switch shape', () => {

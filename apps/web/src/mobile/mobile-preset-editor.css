@@ -31,9 +31,6 @@
 .mobile-preset-editor :is(.setting-library-toolbar, .preset-subtoolbar) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; min-height: 64px; padding: 8px 16px; border: 0; }
 .mobile-preset-editor .setting-library-toolbar { grid-template-columns: minmax(0, 1fr); }
 .mobile-preset-editor .preset-subtoolbar:not(.preset-tools-toolbar) { grid-template-columns: minmax(0, 1fr); }
-.mobile-preset-editor :is(.setting-library-search, .preset-subtoolbar label) { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; height: 44px; padding: 0 13px; border: 0; border-radius: 999px; background: var(--surface-muted); }
-.mobile-preset-editor :is(.setting-library-search, .preset-subtoolbar label) > svg { flex: none; width: 18px; height: 18px; color: var(--muted); }
-.mobile-preset-editor :is(.setting-library-search, .preset-subtoolbar label) input { width: 100%; min-width: 0; height: 44px; padding: 0; border: 0; background: transparent; outline: 0; font: inherit; font-size: 15px; line-height: 22px; }
 .mobile-preset-editor :is(.setting-library-tree, .preset-regex-list) { width: 100%; margin: 0; padding: 4px 12px 16px; overflow-y: auto; }
 .mobile-preset-editor .setting-library-tree-row-content { width: 100%; max-width: 100%; }
 .mobile-preset-editor .preset-regex-row { grid-template-columns: minmax(0, 1fr) 48px; gap: 4px; width: 100%; min-height: 54px; height: auto; padding: 0 4px 0 10px; }
@@ -62,10 +59,6 @@
 .mobile-preset-editor .preset-tool-icon svg { width: 21px; height: 21px; }
 .mobile-preset-editor .preset-tool-summary strong { font-size: 15px; font-weight: 550; line-height: 22px; overflow-wrap: anywhere; }
 .mobile-preset-editor .preset-tool-summary small { font-size: 12px; line-height: 18px; }
-.mobile-preset-editor .preset-tools-add-button { height: 48px; padding: 0 8px; gap: 4px; background: transparent; color: var(--blue); font-size: 14px; }
-.mobile-preset-editor .preset-tools-add-popover { left: auto; right: 0; top: 52px; width: min(288px, calc(100vw - 32px)); background: var(--surface-raised); backdrop-filter: none; }
-.mobile-preset-editor .preset-tools-add-popover > button { min-height: 60px; }
-.mobile-preset-editor .preset-tools-add-popover strong { font-size: 14px; }
 :is(.mobile-preset-editor, .mobile-preset-tool-config) :is(.preset-tool-toggle, .preset-regex-enabled) { width: 48px; height: 48px; min-height: 48px; padding: 0; border: 0; border-radius: 12px; background: transparent; }
 :is(.mobile-preset-editor, .mobile-preset-tool-config) :is(.preset-tool-toggle, .preset-regex-enabled)::before { content: ''; position: absolute; top: 11px; left: 2px; width: 44px; height: 26px; border-radius: 999px; corner-shape: round; background: color-mix(in srgb, var(--muted) 30%, var(--surface-raised)); transition: background-color 160ms ease; }
 :is(.mobile-preset-editor, .mobile-preset-tool-config) :is(.preset-tool-toggle, .preset-regex-enabled) i { position: absolute; top: 14px; left: 5px; width: 20px; height: 20px; border-radius: 50%; corner-shape: round; background: var(--dsw-static-neutral-00, #fff); transform: none; transition: transform 160ms ease; }

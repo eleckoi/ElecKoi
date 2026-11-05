@@ -1,11 +1,13 @@
 # Unified diff context lines intentionally begin with a space followed by the
 # target file's indentation; do not report those nested patches as whitespace errors.
-patches/*.patch -whitespace
+patches/*.patch text eol=lf -whitespace
 native/android-runtime/patches/*.patch text eol=lf -whitespace
 apps/android/app/src/main/assets/licenses/*.patch text eol=lf -whitespace
 apps/android/app/src/main/assets/licenses/git-tools/*.copyright -text -whitespace
 apps/web/public/licenses/fonts/lxgw-975yuan-OFL.txt -whitespace
 docs/plugins/api-reference.md text eol=lf
+docs/plugins/*.md text eol=lf
+packages/client/features/dsh-client-shell/skills/eleckoi-plugin-development/references/*.md text eol=lf
 docs/plugins/api-host.md text eol=lf
 docs/plugins/types-host.md text eol=lf
 docs/plugins/api-client.md text eol=lf

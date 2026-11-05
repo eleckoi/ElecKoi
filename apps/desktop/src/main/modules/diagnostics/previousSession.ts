@@ -1,7 +1,7 @@
 /**
  * 上一次会话有没有正常结束——从日志里读，不新建状态。
  *
- * 判据（[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md) 决定 15）：`AppLog` 每次运行写
+ * 判据（[ADR 0042](../../../../../docs/adr/0042-bug-report-delivery.md) 决定 15）：`AppLog` 每次运行写
  * 一对会话标记（`session.started` / `session.ended`，带同一个 `sessionId`），"有 start 没 end"就是
  * 崩溃或强杀。"上一次会话"取**最近一次没有配对 `ended` 的会话**——不能只看最后一次：崩溃之后再正常
  * 退出几次，异常结论不该被冲成"正常结束"（User Story 12）。

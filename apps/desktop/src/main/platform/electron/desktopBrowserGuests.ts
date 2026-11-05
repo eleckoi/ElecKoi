@@ -24,6 +24,11 @@ export class DesktopBrowserGuests {
 
   constructor(private readonly hostUrl: () => string | undefined) {}
 
+  focusedContents(owner: WebContents): WebContents | undefined {
+    return [...this.leases.values()].find(lease => lease.owner === owner
+      && lease.guest !== undefined && !lease.guest.isDestroyed() && lease.guest.isFocused())?.guest
+  }
+
   acquire(owner: WebContents, workspace: unknown): DesktopBrowserReservation {
     if (typeof workspace !== 'string' || workspace.length === 0 || workspace.length > 4096) {
       throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, '桌面浏览器需要有效的工作区存储标识。', { field: 'workspace' })

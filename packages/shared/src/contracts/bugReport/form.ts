@@ -1,7 +1,7 @@
 /**
  * 报告 → 飞书表单的预填链接。把一份 `BugReport` 变成浏览器打开就已填好的表单页。
  *
- * 判据（[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md) 决定 12）：投递不需要账号、
+ * 判据（[ADR 0042](../../../../../docs/adr/0042-bug-report-delivery.md) 决定 12）：投递不需要账号、
  * 不需要收件服务器，用户点开链接、看一眼前文、按一次「Submit Anonymously」。所以这里只拼字符串，
  * 不发请求、不读配置、不推导链接——分享链接由维护者从飞书界面复制，客户端只往后追加参数。
  *
@@ -16,7 +16,7 @@
  * 4. **正文只有一份实现。** 全文与摘要都复用 `mailto.ts` 的格式化器，表单、邮件、复制发出去的
  *    是同一份内容。
  * 5. **降级原因是枚举，不是句子。** `reasons` 回的是 {@link BugReportFormDegradation}，中文说明由
- *    渲染层写（ADR 0041「与已有记录的关系」：报告里的字段是数据，不是句子）。正文里的截断标注、
+ *    渲染层写（ADR 0042「与已有记录的关系」：报告里的字段是数据，不是句子）。正文里的截断标注、
  *    `file` 题目值与失败码列表属于**报告字段数据**，和 `mailto.ts` 的正文一样留在契约里。
  */
 import { formatBugReportBody, formatBugReportSummary } from './mailto'
@@ -43,7 +43,7 @@ const HARD_TRUNCATED_MARK = '（已截断）'
 
 /**
  * 一次表单投递的降级原因。界面据此写句子；契约不拼用户文案
- * （[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md)「与已有记录的关系」：报告里的字段是
+ * （[ADR 0042](../../../../../docs/adr/0042-bug-report-delivery.md)「与已有记录的关系」：报告里的字段是
  * 数据，不是句子；界面上的说明由渲染层写）。
  *
  * 三档与 {@link BugReportFormUrl} 的标记一一对应：截日志尾、只带摘要、摘要也硬截。

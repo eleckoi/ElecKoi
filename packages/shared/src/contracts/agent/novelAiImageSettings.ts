@@ -1,7 +1,6 @@
 import { z } from 'zod'
 
 export const NOVELAI_IMAGE_PROVIDER = 'novelai_image'
-export const AUTO_ILLUSTRATION_TOOL_GROUP = 'builtin:auto-illustration'
 export const NOVELAI_SAMPLERS = [
   { id: 'k_dpmpp_2m', label: 'DPM++ 2M' },
   { id: 'k_euler_ancestral', label: 'Euler Ancestral' },
@@ -23,7 +22,7 @@ Write prompt as concise English visual tags and short tag phrases separated by c
 
 Write negative_prompt as comma-separated English tags for relevant defects and unwanted elements, including low quality, bad anatomy, bad hands, extra or missing limbs and digits, duplicate subjects, malformed interaction, text, subtitles, speech bubbles, signatures, logos and watermarks.
 
-Fill prompt and negative_prompt inside each frame of the native generate_image tool arguments. Keep the required frame count and order, and set after_paragraph to the corresponding final-body paragraph position, starting at 0.`
+Fill prompt and negative_prompt inside each frame of the declared image text instruction. Keep the required frame count and order, and set after_paragraph to the corresponding final-body paragraph position, starting at 0.`
 
 export const novelAiImageSettingsSchema = z.object({
   width: z.number().int().positive().default(832),

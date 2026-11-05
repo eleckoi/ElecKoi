@@ -5,6 +5,7 @@ import { ALL_CHARACTERS, characterAvatar, characterCover, characterGroup, charac
 import { SidebarCharacterArtwork } from "../../../ui/ui/SidebarCharacterArtwork.jsx";
 import { formatDate } from "../../../utils/format.js";
 import { SidebarSectionHeader } from "../../../ui/ui/SidebarSectionHeader.jsx";
+import { SidebarScrollArea } from "../../../ui/ui/SidebarScrollArea.jsx";
 
 export function ConversationList({
   keyword,
@@ -186,7 +187,7 @@ export function ConversationList({
         document.body,
       ) : null}
 
-      <div className="conversation-scroll">
+      <SidebarScrollArea className="conversation-scroll">
         {sessions.map((item, index) => {
           const pinned = pinnedIds.includes(item.id);
           const nextPinned = pinnedIds.includes(sessions[index + 1]?.id);
@@ -216,7 +217,7 @@ export function ConversationList({
             </button>
           );
         })}
-      </div>
+      </SidebarScrollArea>
 
       {menu && typeof document !== "undefined" ? createPortal(
         <div

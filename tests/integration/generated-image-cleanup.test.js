@@ -44,6 +44,7 @@ async function fixture() {
   await ctx.plugin(ToolResultStore, { root: join(root, 'tool-results') });
   ctx.provide('eleckoiSessionHandles', { withClosed: async (_id, action) => action() });
   ctx.provide('sessionProjectionCache', { write: async () => {} });
+  ctx.provide('workspaceRegistry', { list: () => [], unpinSession: async () => {}, unarchiveSession: async () => {} });
   ctx.sessionProjections.register(illustrationProjection);
   await ctx.plugin(sessionEditPlugin);
   const save = async (size = 1) => {
@@ -137,24 +138,38 @@ describe('generated image deletion in existing Host operations', { timeout: 3000
     expect(existsSync(f.ctx.attachments.imageHostPath(second))).toBe(false);
     expect((await f.ctx.attachments.readImage(retained)).data.byteLength).toBeGreaterThan(0);
   });
-  it.each(['chat', 'character'])('still deletes the %s and its log when result and generated-image cleanup fail', async kind => {
+  it.each(['chat', 'character'])('keeps the %s available for retry when complete result cleanup fails', async kind => {
     const f = await fixture();
     f.ctx.eleckoiProductData.createCharacter({ id: 'synthetic-card', name: '合成角色' });
     const chat = await f.create(await f.save(), 'synthetic-card'), result = await f.saveResult(chat.id);
     const failure = new Error('合成文件占用');
-    vi.spyOn(f.ctx.spillStore, 'removeSessionResults').mockRejectedValue(failure);
-    vi.spyOn(f.ctx.attachments, 'imageHostPath').mockImplementation(() => { throw new Error('合成图片占用'); });
-    const warnings = [];
-    f.ctx.logger.exporter({ export: message => { if (message.type === 'error') warnings.push(message.args.join(' ')); } });
-    if (kind === 'chat') await ElecKoiConversationsApi.prototype.delete.call(f.api, chat.id);
-    else await ElecKoiCharactersApi.prototype.delete.call({ productData: f.ctx.eleckoiProductData, ownerContext: f.owner, publishChange() {} }, ['synthetic-card']);
+    const remove = vi.spyOn(f.ctx.spillStore, 'removeSessionResults').mockRejectedValue(failure);
+    const operation = () => kind === 'chat' ? ElecKoiConversationsApi.prototype.delete.call(f.api, chat.id)
+      : ElecKoiCharactersApi.prototype.delete.call({ productData: f.ctx.eleckoiProductData, ownerContext: f.owner, publishChange() {} }, ['synthetic-card']);
+    await expect(operation()).rejects.toThrow('合成文件占用');
+    expect(f.ctx.eleckoiProductData.readConversationCatalog().map(item => item.id)).toEqual([chat.id]);
+    expect(readDshSessionLog(f.sessions, chat.id)).toBeDefined();
+    expect(existsSync(result.locator)).toBe(true);
+    remove.mockRestore();
+    await operation();
     expect(f.ctx.eleckoiProductData.readConversationCatalog()).toEqual([]);
     expect(readDshSessionLog(f.sessions, chat.id)).toBeUndefined();
-    expect(existsSync(result.locator)).toBe(true);
-    expect(warnings).toEqual([expect.stringContaining('工具结果清理失败'), expect.stringContaining('生成图片清理失败')]);
-    expect(warnings[0]).toContain('合成文件占用');
-    expect(warnings[1]).toContain('合成图片占用');
+    expect(existsSync(result.locator)).toBe(false);
     if (kind === 'character') expect(f.ctx.eleckoiProductData.readCharacters().items).toEqual([]);
+  });
+  it('cleans child-only images and input images while preserving images shared by another Session', async () => {
+    const f = await fixture(), shared = await f.save(), childImage = await f.save(2), inputImage = await f.save(3);
+    const chat = await f.create(shared), other = await f.create(shared);
+    const child = Session.create(SessionId('synthetic-image-child'), [], { ...Session.create(SessionId('synthetic-image-child')).header, parentSession: chat.session.id });
+    f.turn(child, childImage, 1);
+    child.append('user/message', createUserMessage({ source: { kind: 'user' }, content: [{ type: 'image', attachment: inputImage }] }), { surfaceOp: 'append' });
+    await f.persist(child);
+    await ElecKoiConversationsApi.prototype.delete.call(f.api, chat.id);
+    expect(readDshSessionLog(f.sessions, child.id)).toBeUndefined();
+    expect(existsSync(f.ctx.attachments.imageHostPath(childImage))).toBe(false);
+    expect(existsSync(f.ctx.attachments.imageHostPath(inputImage))).toBe(false);
+    expect(existsSync(f.ctx.attachments.imageHostPath(shared))).toBe(true);
+    expect(readDshSessionLog(f.sessions, other.id)).toBeDefined();
   });
   it('removes descendant results and also handles a result whose Session log is already absent', async () => {
     const f = await fixture(), chat = await f.create(await f.save());

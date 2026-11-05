@@ -6,6 +6,7 @@ import { SidebarSectionHeader } from '../../src/ui/ui/SidebarSectionHeader.jsx';
 import { PresetProvider, PresetListPanel } from '../../src/modules/presets/components/PresetPanel.jsx';
 
 vi.stubGlobal('React', React);
+vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
 const roots = [];
 afterEach(async () => {

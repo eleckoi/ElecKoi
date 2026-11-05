@@ -157,12 +157,10 @@ export class ConversationArchiveRepository {
           }
           if (table === 'agent_conversations') {
             if (row.variableVersionId === undefined) {
-              const config = this.store.native.prepare('SELECT activeVersionId FROM variable_configs WHERE characterId=?')
-                .get(characterId) as { activeVersionId: string } | undefined
-              row.variableVersionId = config?.activeVersionId || 'variable-config-default'
+              row.variableVersionId = ''
             }
-            if (typeof row.variableVersionId !== 'string' || !row.variableVersionId
-              || (!this.store.native.prepare('SELECT 1 FROM variable_config_versions WHERE characterId=? AND versionId=?')
+            if (typeof row.variableVersionId !== 'string'
+              || (row.variableVersionId && !this.store.native.prepare('SELECT 1 FROM variable_config_versions WHERE characterId=? AND versionId=?')
                 .get(characterId, row.variableVersionId) && !(row.variableVersionId === 'variable-config-default'
                   && !this.store.native.prepare('SELECT 1 FROM variable_configs WHERE characterId=?').get(characterId)))) {
               throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, '聊天记录绑定的变量版本不存在，请先恢复对应变量配置。', { what: '聊天记录绑定的变量版本' })

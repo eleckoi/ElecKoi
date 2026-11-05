@@ -26,17 +26,19 @@ export const ELECKOI_DESKTOP_BUNDLES = [
 
 /**
  * Register shipped bundles once while retaining the profile's existing selections.
- * TODO(迁移清理)：受支持的升级及 profile 恢复入口都已完成 bundles-v8 登记后，
+ * TODO(迁移清理)：受支持的升级及 profile 恢复入口都已完成 bundles-v9 登记后，
  * 删除本函数、Host 调用、专用 import 和旧 profile 迁移用例。保留
  * ELECKOI_DESKTOP_BUNDLES 与新 profile 的 initProfile 初始化及正常启停测试。
  */
 export function registerDesktopBundles(profile: string): void {
-  const marker = join(profile, '.eleckoi-desktop-bundles-v8')
+  // RETIRE WHEN: supported profiles have registered bundles-v9. Remove the
+  // registration marker and upgrade branches together; retain normal toggles.
+  const marker = join(profile, '.eleckoi-desktop-bundles-v9')
   if (existsSync(marker)) return
   const manifest = readProfileManifest('dsh', profile)
   const selected = manifest.dsh?.profile?.bundles ?? []
   const resources = replaceHtmlResourceBundles(selected)
-  const bundles = existsSync(join(profile, '.eleckoi-desktop-bundles-v7'))
+  const bundles = (existsSync(join(profile, '.eleckoi-desktop-bundles-v8')) || existsSync(join(profile, '.eleckoi-desktop-bundles-v7')))
     ? resources
     : [...new Set([...resources, ...ELECKOI_DESKTOP_BUNDLES])]
   writeProfileBundles(profile, manifest, bundles)

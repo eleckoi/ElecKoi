@@ -30,36 +30,99 @@ let window
 let failed = false
 let modelServer
 let modelRequests = 0
+let workspaceIsolationSetup = false
 let updateProbe
 const modelBodies = []
 const nativeAuthorMode = process.argv.includes('--native-author')
+const pluginCreationMode = process.argv.includes('--plugin-creation-check')
 const chatOnlyMode = process.argv.includes('--chat-only')
+const processDialogMode = process.argv.includes('--process-dialog-check')
+const roleplayToolMode = process.argv.includes('--roleplay-tools-check')
+const toolScenario = roleplayToolMode ? require('./probe-roleplay-tool-results.cjs') : null
+const subagentNavigationMode = processDialogMode || process.argv.includes('--subagent-navigation-check')
 async function main() {
   const { DshDesktopPluginHost, resolveDshWebFrontendDirectory, ELECKOI_DESKTOP_BUNDLES, registerDesktopBundles } = await import('@eleckoi/desktop-host')
   const { OPTIONAL_BUNDLES, initProfile, PROFILE_TEMPLATES, readProfileManifest, writeProfileBundles } = await import('@deepseek-ai/dsh-app-boot')
   await app.whenReady()
   modelServer = createServer((_request, response) => {
-    if (nativeAuthorMode) {
+    if (nativeAuthorMode || roleplayToolMode || pluginCreationMode) {
       let body = ''
       _request.setEncoding('utf8')
       _request.on('data', chunk => { body += chunk })
       _request.on('end', () => { modelBodies.push(JSON.parse(body)) })
     }
     modelRequests += 1
-    if (nativeAuthorMode || modelRequests > 1) {
+    if (pluginCreationMode && !workspaceIsolationSetup && modelRequests <= 3) {
+      const calls = [
+        ['skill', { name: 'eleckoi-plugin-development' }],
+        ['skill', { name: 'cordis-plugin-development' }],
+        ['read', { file_path: join(dirname(require.resolve('@eleckoi/dsh-client-shell/package.json')), 'skills/eleckoi-plugin-development/references/services.md') }],
+      ]
+      const [name, args] = calls[modelRequests - 1]
+      const item = { id: `plugin-call-${modelRequests}`, type: 'function_call', call_id: `plugin-call-${modelRequests}`, name, arguments: JSON.stringify(args) }
+      response.writeHead(200, { 'content-type': 'text/event-stream' })
+      const events = [
+        { type: 'response.created', response: { id: `plugin-${modelRequests}`, model: 'example-model', status: 'in_progress', output: [] } },
+        { type: 'response.output_item.added', output_index: 0, item: { ...item, arguments: '' } },
+        { type: 'response.function_call_arguments.delta', output_index: 0, item_id: item.id, delta: item.arguments },
+        { type: 'response.output_item.done', output_index: 0, item },
+        { type: 'response.completed', response: { id: `plugin-${modelRequests}`, model: 'example-model', status: 'completed', output: [item], usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } } },
+      ]
+      response.end(events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join(''))
+      return
+    }
+    if (roleplayToolMode && modelRequests === 1) {
+      response.writeHead(200, { 'content-type': 'text/event-stream' })
+      const output = toolScenario.calls
+      const events = [{ type: 'response.created', response: { id: 'tool-probe', model: 'example-model', status: 'in_progress', output: [] } }]
+      output.forEach((item, index) => events.push(
+        { type: 'response.output_item.added', output_index: index, item: { ...item, arguments: '' } },
+        { type: 'response.function_call_arguments.delta', output_index: index, item_id: item.id, delta: item.arguments },
+        { type: 'response.output_item.done', output_index: index, item }))
+      events.push({ type: 'response.completed', response: { id: 'tool-probe', model: 'example-model', status: 'completed', output, usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } } })
+      response.end(events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join(''))
+      return
+    }
+    if (subagentNavigationMode && modelRequests === 1) {
+      response.writeHead(200, { 'content-type': 'text/event-stream' })
+      const item = { id: 'synthetic-delegation', type: 'function_call', call_id: 'synthetic-delegation', name: 'subagent',
+        arguments: JSON.stringify({ description: 'Synthetic child task', prompt: 'Return a synthetic greeting.' }) }
+      const toolIndex = processDialogMode ? 1 : 0
+      const reasoning = { id: 'synthetic-reasoning', type: 'reasoning', summary: [{ type: 'summary_text', text: 'Synthetic delegation reasoning.' }] }
+      const events = [
+        { type: 'response.created', response: { id: 'synthetic-response', model: 'example-model', status: 'in_progress', output: [] } },
+        ...(processDialogMode ? [
+          { type: 'response.output_item.added', output_index: 0, item: { ...reasoning, summary: [] } },
+          { type: 'response.reasoning_summary_part.added', output_index: 0, item_id: reasoning.id, summary_index: 0, part: { type: 'summary_text', text: '' } },
+          { type: 'response.reasoning_summary_text.delta', output_index: 0, item_id: reasoning.id, summary_index: 0, delta: reasoning.summary[0].text },
+          { type: 'response.output_item.done', output_index: 0, item: reasoning },
+        ] : []),
+        { type: 'response.output_item.added', output_index: toolIndex, item: { ...item, arguments: '' } },
+        { type: 'response.function_call_arguments.delta', output_index: toolIndex, item_id: item.id, delta: item.arguments },
+        { type: 'response.output_item.done', output_index: toolIndex, item },
+        { type: 'response.completed', response: { id: 'synthetic-response', model: 'example-model', status: 'completed', output: [...(processDialogMode ? [reasoning] : []), item], usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } } },
+      ]
+      response.end(events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join(''))
+      return
+    }
+    if (workspaceIsolationSetup || nativeAuthorMode || subagentNavigationMode || modelRequests > 1) {
       response.writeHead(200, { 'content-type': 'text/event-stream' })
       let text = nativeAuthorMode ? 'Synthetic native reply' : modelRequests === 2 ? 'Synthetic recovered reply' : `Synthetic regenerated reply ${modelRequests}`
       if (chatOnlyMode && process.argv.includes('--handoff-check')) {
         text += '\n\n```html\n<!doctype html><html><body style="margin:0"><section style="height:240px;background:#123456;color:white">Synthetic rich card</section></body></html>\n```'
       }
       const item = { id: 'synthetic-message', type: 'message', role: 'assistant', content: [] }
+      const finalReasoning = { id: 'synthetic-final-reasoning', type: 'reasoning', summary: [{ type: 'summary_text', text: 'Synthetic final reasoning.' }] }
+      const messageIndex = processDialogMode ? 1 : 0
       const events = [
         { type: 'response.created', response: { id: 'synthetic-response', model: 'example-model', status: 'in_progress', output: [] } },
-        { type: 'response.output_item.added', output_index: 0, item },
-        { type: 'response.content_part.added', output_index: 0, content_index: 0, item_id: item.id, part: { type: 'output_text', text: '', annotations: [] } },
-        { type: 'response.output_text.delta', output_index: 0, content_index: 0, item_id: item.id, delta: text },
+        ...(processDialogMode ? [{ type: 'response.output_item.added', output_index: 0, item: finalReasoning },
+          { type: 'response.output_item.done', output_index: 0, item: finalReasoning }] : []),
+        { type: 'response.output_item.added', output_index: messageIndex, item },
+        { type: 'response.content_part.added', output_index: messageIndex, content_index: 0, item_id: item.id, part: { type: 'output_text', text: '', annotations: [] } },
+        { type: 'response.output_text.delta', output_index: messageIndex, content_index: 0, item_id: item.id, delta: text },
         { type: 'response.completed', response: { id: 'synthetic-response', model: 'example-model', status: 'completed',
-          output: [{ ...item, status: 'completed', content: [{ type: 'output_text', text, annotations: [] }] }], usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } } },
+          output: [...(processDialogMode ? [finalReasoning] : []), { ...item, status: 'completed', content: [{ type: 'output_text', text, annotations: [] }] }], usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } } },
       ]
       const payload = events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join('')
       if (modelRequests > 2) setTimeout(() => response.end(payload), 600)
@@ -71,7 +134,7 @@ async function main() {
   })
   await new Promise(resolve => modelServer.listen(0, '127.0.0.1', resolve))
   const endpoint = `http://127.0.0.1:${modelServer.address().port}/v1`
-  if (nativeAuthorMode || chatOnlyMode) {
+  if (nativeAuthorMode || chatOnlyMode || pluginCreationMode) {
     const profile = join(root, 'home', 'profiles', 'desktop')
     initProfile(profile, [...PROFILE_TEMPLATES.web.bundles, ...ELECKOI_DESKTOP_BUNDLES])
     registerDesktopBundles(profile)
@@ -82,6 +145,7 @@ async function main() {
       { id: 'llm-pi-ai', config: { providers: { 'synthetic-native': { api: 'openai-responses', baseURL: endpoint,
         apiKeyEnv: 'ELECKOI_SYNTHETIC_PROBE_KEY', models: [{ id: 'example-model', contextWindow: 65536, maxTokens: 8192 }] } } } },
       { id: 'agent-default-model', config: { provider: 'synthetic-native', model: 'example-model' } },
+      ...(pluginCreationMode ? [{ id: 'session-query-sqlite', config: { path: ':memory:', openAt: 'first-search' } }] : []),
     ]))
     process.env.ELECKOI_SYNTHETIC_PROBE_KEY = 'synthetic-probe-key'
   }
@@ -148,9 +212,41 @@ async function main() {
     await window.loadURL('dsh-app://app/?view=creator-studio')
     await waitFor(`Boolean(document.querySelector('.creator-studio-development-enter'))`, 'Creator Studio entry did not render')
     await window.webContents.executeJavaScript(`document.querySelector('.creator-studio-development-enter').click()`)
+    await waitFor(`Boolean(document.querySelector('.creator-simple-chat-header [role="tab"]'))`, 'Studio view row did not render')
+    const tabFrames = []
+    for (const theme of ['light', 'dark']) for (const width of [1440, 900, 700]) {
+      nativeTheme.themeSource = theme
+      window.setSize(width, 900)
+      // Offscreen capture must wait for the resized native surface to commit.
+      await new Promise(resolve => setTimeout(resolve, 250))
+      await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+      const measurements = await window.webContents.executeJavaScript(`(() => {
+        const row = document.querySelector('.creator-simple-view-row');
+        const list = row.querySelector('[role="tablist"]');
+        const tabs = Array.from(list.querySelectorAll('[role="tab"]'));
+        const more = row.querySelector('[data-plugin-entry-more="conversation"]');
+        return { rowHeight: row.getBoundingClientRect().height, tabGap: getComputedStyle(list).gap,
+          moreHeight: more?.getBoundingClientRect().height, moreInsideList: list.contains(more),
+          tabs: tabs.map(tab => { const style = getComputedStyle(tab); return { label: tab.textContent,
+            fontSize: style.fontSize, lineHeight: style.lineHeight, fontWeight: style.fontWeight,
+            height: tab.getBoundingClientRect().height, underlineHeight: getComputedStyle(tab, '::after').height }; }),
+          overflow: document.documentElement.scrollWidth > innerWidth };
+      })()`)
+      if (measurements.rowHeight !== 25 || measurements.tabGap !== '32px' || measurements.moreHeight !== 22
+        || measurements.moreInsideList || measurements.overflow || measurements.tabs.some(tab => tab.fontSize !== '13px'
+          || tab.lineHeight !== '16px' || tab.fontWeight !== '500' || tab.height !== 25 || tab.underlineHeight !== '2px')) {
+        throw new Error('Studio view row differs from locked official measurements: ' + JSON.stringify({ theme, width, measurements }))
+      }
+      tabFrames.push({ theme, width, ...measurements })
+      if (process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT) writeFileSync(process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT.replace(/\.png$/, `-studio-${theme}-${width}.png`), (await window.webContents.capturePage()).toPNG())
+    }
+    nativeTheme.themeSource = 'light'
+    window.setSize(1440, 1000)
+    await new Promise(resolve => setTimeout(resolve, 250))
+    await window.webContents.executeJavaScript(`document.querySelector('.creator-simple-sidebar-toggle[aria-expanded="false"]')?.click()`)
     let previousSession
     for (let index = 0; index < 4; index += 1) {
-      await waitFor(`Boolean(document.querySelector('[data-sidebar-right-expand]')) && Boolean(document.querySelector('[data-sidebar-right-panel]')) && !document.querySelector('.creator-simple-new')?.disabled`, 'Studio sidebar did not bind a conversation')
+      await waitFor(`Boolean(document.querySelector('[data-sidebar-right-expand]')) && Boolean(document.querySelector('[data-sidebar-right-panel]')) && Boolean(document.querySelector('.creator-simple-new')) && !document.querySelector('.creator-simple-new').disabled`, 'Studio sidebar did not bind a conversation')
       const sessionId = await window.webContents.executeJavaScript(`document.querySelector('[data-sidebar-right-panel]').dataset.sidebarRightSession`)
       if (sessionId === previousSession) throw new Error('Studio did not switch the right sidebar Session')
       await window.webContents.executeJavaScript(`document.querySelector('[data-sidebar-right-expand]').click()`)
@@ -171,7 +267,7 @@ async function main() {
     await waitFor(`Boolean(document.querySelector('.creator-simple-conversation [data-composer-input]'))`, 'Studio did not return to its conversation after browsing plugins')
     const failures = errors.filter(error => /Sidebar Session|Slot entry crashed|TypeError/.test(error))
     if (failures.length) throw new Error('Studio right sidebar lifecycle failed: ' + failures.join('\n'))
-    process.stdout.write('Creator Studio right sidebar opened and closed across four new conversations; its official plugin menu opened and returned.\n')
+    process.stdout.write('Creator Studio tabs match locked official sizes: ' + JSON.stringify(tabFrames) + '\nCreator Studio right sidebar opened and closed across four new conversations; its official plugin menu opened and returned.\n')
     return
   }
   await waitFor(`document.querySelector('.side-panel-brand .eleckoi-wordmark')`, 'ElecKoi shell did not render')
@@ -214,6 +310,13 @@ async function main() {
   if (nativeAuthorMode) {
     const { runNativeAuthorScenario } = require('./probe-eleckoi-native-author-scenario.cjs')
     await runNativeAuthorScenario({ window, ready, cookie, waitFor, requests: () => modelRequests, modelBodies, errors, productDataRoot: root })
+    return
+  }
+  if (pluginCreationMode) {
+    const { runPluginCreationScenario } = require('./probe-plugin-creation-scenario.cjs')
+    await runPluginCreationScenario({ window, nativeTheme, hostOptions, remoteCall, waitFor,
+      requests: () => modelRequests, modelBodies, errors,
+      isolationSetup: active => { workspaceIsolationSetup = active; if (!active) { modelRequests = 0; modelBodies.length = 0 } } })
     return
   }
   const checkOptionalPluginCards = async (expectedEnabled = false) => {
@@ -341,6 +444,7 @@ async function main() {
   if (!provider) throw new Error('Synthetic model profile is missing')
   const characterId = 'synthetic-chat-character'
   if (chatOnlyMode) await remoteCall('eleckoiCharacters/create', { character: { id: characterId, name: 'Synthetic character' } })
+  if (roleplayToolMode) await toolScenario.configure(remoteCall, characterId)
   const created = await remoteCall('eleckoiConversations/create', { input: { title: 'Example chat',
     ...(chatOnlyMode ? { metadata: { characterId } } : {}) } })
   await remoteCall('eleckoiConversationModels/select', { conversationId: created.conversation.id,
@@ -350,6 +454,106 @@ async function main() {
   await waitFor(`Array.from(document.querySelectorAll('.conversation-main b')).some(node => node.innerText === ${JSON.stringify(conversationLabel)})`, 'Synthetic conversation did not appear')
   await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.conversation-main b')).find(node => node.innerText === ${JSON.stringify(conversationLabel)}).click()`)
   await waitFor(`document.querySelector('[data-composer-input][contenteditable="true"]') !== null`, 'Synthetic conversation did not open')
+  if (roleplayToolMode) {
+    await toolScenario.run({ window, waitFor, nativeTheme, modelBodies, remoteCall, conversationId: created.conversation.id })
+    return
+  }
+  if (subagentNavigationMode) {
+    const catalog = await remoteCall('eleckoiAgentPresets/catalog', {})
+    const preset = await remoteCall('eleckoiAgentPresets/read', { presetId: catalog.activePresetIds.roleplay })
+    await remoteCall('eleckoiAgentPresets/save', { preset: { ...preset, toolGroups: preset.toolGroups.map(group => group.id === 'builtin:collaboration' ? { ...group, included: true, enabled: true } : group) }, expectedRegexRules: preset.regexRules })
+    await window.webContents.executeJavaScript(`document.querySelector('[data-composer-input]').focus()`)
+    await window.webContents.insertText('Synthetic delegation navigation')
+    await waitFor(`document.querySelector('button[aria-label="发送消息"]')?.disabled === false`, 'Delegation input did not enable')
+    await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="发送消息"]').click()`)
+    await waitFor(`Boolean(document.querySelector('.chat-header-title-cluster button[aria-haspopup="tree"]'))`, 'Roleplay subagent catalog did not render')
+    if (await window.webContents.executeJavaScript(`Boolean(document.querySelector('.chat-header-preset'))`)) throw new Error('Product preset label remained alongside the official header actions')
+    await window.webContents.executeJavaScript(`document.querySelector('.chat-header-title-cluster button[aria-haspopup="tree"]').click()`)
+    await waitFor(`Boolean(document.querySelector('[role="treeitem"]'))`, 'Subagent catalog did not open')
+    await window.webContents.executeJavaScript(`window.__eleckoiProbeRoleplayPanel = document.querySelector('.chat-panel')`)
+    await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+    if (process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT) writeFileSync(process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT, (await window.webContents.capturePage()).toPNG())
+    await window.webContents.executeJavaScript(`document.querySelector('[role="treeitem"]').click()`)
+    await waitFor(`Boolean(document.querySelector('[data-sidebar-right-open] [data-sidebar-chat]'))`, 'Subagent navigation did not open the official child sidebar')
+    if (!await window.webContents.executeJavaScript(`document.querySelector('.chat-panel') === window.__eleckoiProbeRoleplayPanel && Boolean(document.querySelector('.chat-panel button[aria-label="对话操作"]'))`)) throw new Error('Opening a child replaced the roleplay conversation')
+    await window.webContents.executeJavaScript(`document.querySelector('[data-sidebar-right-toggle]').click()`)
+    await waitFor(`!document.querySelector('[data-sidebar-right-open]') && document.querySelector('.chat-panel') === window.__eleckoiProbeRoleplayPanel`, 'Closing the child sidebar did not preserve the parent conversation')
+    const settleDeadline = Date.now() + 35_000
+    let listed
+    do {
+      listed = await remoteCall('session/list', { _request: {} })
+      if (!listed.items.some(item => item.running)) break
+      if (Date.now() >= settleDeadline) throw new Error('Delegated Sessions did not settle before shutdown')
+      await new Promise(resolve => setTimeout(resolve, 150))
+    } while (true)
+    if (listed.items.filter(item => item.origin === 'subagent').length !== 1) throw new Error('Delegation navigation created an unexpected number of children')
+    const syntheticReplies = `Array.from(document.querySelectorAll('.chat-panel .message.theirs')).filter(message => message.innerText.includes('Synthetic'))`
+    await waitFor(`${syntheticReplies}.length === 1 && !document.querySelector('.chat-panel button[aria-label="停止生成"]')`, 'Delegation did not settle to one visible parent answer')
+    if (processDialogMode) {
+      await window.webContents.executeJavaScript(`document.querySelector('.chat-panel .message.theirs button[aria-label="更多"]').click()`)
+      await waitFor(`Boolean(document.querySelector('.chat-panel .message.theirs button[aria-label="查看过程"]'))`, 'Process history action did not open')
+      await window.webContents.executeJavaScript(`document.querySelector('.chat-panel .message.theirs button[aria-label="查看过程"]').click()`)
+      await waitFor(`Boolean(document.querySelector('.roleplay-process-content [data-process-node-kind="tool-call"] [data-disclosure-row]'))`, 'Official tool renderer did not mount inside the process dialog')
+      await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.roleplay-process-content [aria-expanded="false"]')).forEach(button => button.click())`)
+      await waitFor(`Array.from(document.querySelectorAll('.roleplay-process-content button')).some(button => button.textContent.includes('查看'))`, 'Official tool inspect control did not render')
+      await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.roleplay-process-content button')).find(button => button.textContent.includes('查看')).click()`)
+      await waitFor(`!document.querySelector('.roleplay-process-dialog') && document.querySelector('.chat-header-tabs [aria-selected="true"]').textContent === '轨迹'`, 'Call inspection did not open the official trajectory')
+      await waitFor(`Boolean(document.querySelector('[data-inspector-split]')) || document.querySelector('.chat-panel').innerText.includes('Schema')`, 'Native trajectory call inspector did not open')
+      if (!await window.webContents.executeJavaScript(`document.querySelector('.chat-panel') === window.__eleckoiProbeRoleplayPanel`)) throw new Error('Tool inspection replaced the parent panel')
+      await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.chat-header-tabs [role="tab"]')).find(button => button.textContent === '对话').click()`)
+      await waitFor(`Boolean(document.querySelector('.chat-panel .message.theirs button[aria-label="更多"]'))`, 'Returning from trajectory did not restore the roleplay chat')
+      await window.webContents.executeJavaScript(`document.querySelector('.chat-panel .message.theirs button[aria-label="更多"]').click()`)
+      await waitFor(`Boolean(document.querySelector('.chat-panel .message.theirs button[aria-label="查看过程"]'))`, 'Process action did not reopen')
+      await window.webContents.executeJavaScript(`document.querySelector('.chat-panel .message.theirs button[aria-label="查看过程"]').click()`)
+      await waitFor(`Boolean(document.querySelector('.roleplay-process-content [data-variant="think"]'))`, 'Native reasoning renderer did not mount')
+      const finalThoughts = await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.roleplay-process-content [data-variant="think"]')).filter(row => row.textContent.includes('Synthetic final reasoning.')).map(row => { const node = row.closest('[data-process-node-key]'); return { key: node.dataset.processNodeKey, part: node.dataset.processPart }; })`)
+      if (finalThoughts.length === 0 || new Set(finalThoughts.map(row => row.key)).size !== finalThoughts.length) throw new Error('Final reasoning rendered more than once: ' + JSON.stringify(finalThoughts))
+      await window.webContents.executeJavaScript(`document.querySelector('.roleplay-process-content [data-variant="think"] [aria-expanded="true"]')?.click()`)
+      const results = []
+      for (const theme of ['light', 'dark']) {
+        nativeTheme.themeSource = theme
+        await new Promise(resolve => setTimeout(resolve, 150))
+        results.push(await window.webContents.executeJavaScript(`(() => {
+          const dialog = document.querySelector('.roleplay-process-dialog'), content = document.querySelector('.roleplay-process-scroll');
+          return { width: dialog.getBoundingClientRect().width, overflow: content.scrollWidth > content.clientWidth + 1,
+            nodes: Array.from(document.querySelectorAll('[data-process-node-key]')).map(node => node.dataset.processNodeKind),
+            bulb: (() => { const leading = document.querySelector('.roleplay-process-content [data-variant="think"] [data-disclosure-row] > :first-child');
+              const style = getComputedStyle(leading, '::after'); return { width: style.width, mask: style.maskImage }; })() };
+        })()`))
+        if (process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT) writeFileSync(process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT.replace(/\.png$/, '-process-' + theme + '.png'), (await window.webContents.capturePage()).toPNG())
+      }
+      if (results.some(result => result.overflow || result.width > 821 || result.bulb.width !== '14px' || result.bulb.mask === 'none')) throw new Error('Process dialog geometry failed: ' + JSON.stringify(results))
+      window.setSize(390, 844)
+      await window.webContents.executeJavaScript(`document.documentElement.dataset.eleckoiMobile = 'true'`)
+      await new Promise(resolve => setTimeout(resolve, 300))
+      await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+      const mobile = await window.webContents.executeJavaScript(`(() => {
+        const dialog = document.querySelector('.roleplay-process-dialog'), scroll = dialog.querySelector('.roleplay-process-scroll');
+        return { width: dialog.getBoundingClientRect().width, viewport: innerWidth,
+          close: dialog.querySelector('.roleplay-process-close').getBoundingClientRect().width, overflow: scroll.scrollWidth > scroll.clientWidth + 1 };
+      })()`)
+      if (mobile.width > mobile.viewport || mobile.close < 44 || mobile.overflow) throw new Error('Mobile process geometry failed: ' + JSON.stringify(mobile))
+      if (process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT) writeFileSync(process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT.replace(/\.png$/, '-process-mobile.png'), (await window.webContents.capturePage()).toPNG())
+      await window.webContents.executeJavaScript(`delete document.documentElement.dataset.eleckoiMobile`)
+      window.setSize(1440, 1000)
+      await window.webContents.executeJavaScript(`document.querySelector('[aria-label="关闭处理过程"]').click()`)
+      await waitFor(`!document.querySelector('.roleplay-process-dialog') && Boolean(document.querySelector('[data-composer-input]'))`, 'Closing the process dialog removed the composer')
+      process.stdout.write('Official trajectory call navigation and single final reasoning passed: ' + JSON.stringify(results) + '\n')
+    }
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const previousRequests = modelRequests
+      await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="扮演菜单"]').click()`)
+      await waitFor(`Array.from(document.querySelectorAll('.composer-more-menu button')).some(button => button.innerText.trim() === '重新生成' && !button.disabled)`, 'Delegated reply regeneration did not enable')
+      await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.composer-more-menu button')).find(button => button.innerText.trim() === '重新生成').click()`)
+      await waitFor(`${syntheticReplies}.length === 1 && ${syntheticReplies}[0].innerText.includes('Synthetic regenerated reply ${previousRequests + 1}') && !document.querySelector('.chat-panel button[aria-label="停止生成"]')`, 'Delegated reply regeneration did not settle to one answer')
+      if (modelRequests !== previousRequests + 1) throw new Error('Regeneration submitted an extra model request')
+    }
+    const regenerated = await remoteCall('eleckoiConversations/details', { conversationId: created.conversation.id })
+    if (regenerated.runtimeSessionId !== created.runtimeSessionId) throw new Error('Delegated reply regeneration changed the main Session')
+    if (errors.length) throw new Error(errors.join('\n'))
+    process.stdout.write('Roleplay preserved its parent panel while opening the official child sidebar, settled to one answer and regenerated twice in the same Session.\n')
+    return
+  }
   if (process.argv.includes('--header-layout-check')) {
     const results = []
     for (const theme of ['light', 'dark']) for (const width of [1440, 900]) {
@@ -362,7 +566,7 @@ async function main() {
           const node = document.querySelector(selector), box = node.getBoundingClientRect(), css = getComputedStyle(node);
           return { top: box.top, bottom: box.bottom, width: box.width, height: box.height, paddingTop: css.paddingTop, gridRows: css.gridTemplateRows };
         };
-        return Object.fromEntries(['.chat-header', '.chat-header-title-row', '.chat-header h1', '.chat-header-preset', '.chat-header-actions', '.chat-header-tabs', '.chat-header-tabs [role="tab"]', '[data-plugin-entry-more="conversation"]'].map(selector => [selector, rect(selector)]));
+        return Object.fromEntries(['.chat-header', '.chat-header-title-row', '.chat-header h1', '.chat-header-title-cluster', '.chat-header-actions', '.chat-header-tabs', '.chat-header-tabs [role="tab"]', '[data-plugin-entry-more="conversation"]'].map(selector => [selector, rect(selector)]));
       };
       const menu = document.querySelector('[data-plugin-entry-more="conversation"]');
       const host = menu.parentElement;
@@ -374,7 +578,7 @@ async function main() {
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
       return { before, withoutMenu, background: getComputedStyle(document.querySelector('.chat-panel')).backgroundColor,
         iconWidth: menu.querySelector('svg').getBoundingClientRect().width,
-        sidebarIconWidth: document.querySelector('[data-plugin-entry-more="sidebar"] svg').getBoundingClientRect().width };
+        sidebarIconWidth: document.querySelector('.official-sidebar-column button[aria-label="更多"] svg').getBoundingClientRect().width };
       })()`)
       const menuSelector = '[data-plugin-entry-more="conversation"]'
       for (const [selector, box] of Object.entries(geometry.before)) {
@@ -384,7 +588,7 @@ async function main() {
           throw new Error('Plugin menu displaced the existing header: ' + JSON.stringify({ theme, width, selector, box, original }))
         }
       }
-      if (geometry.before[menuSelector].height !== 22 || geometry.before[menuSelector].width !== 22 || geometry.iconWidth !== 13 || geometry.sidebarIconWidth !== 25) {
+      if (geometry.before[menuSelector].height !== 22 || geometry.before[menuSelector].width !== 22 || geometry.iconWidth !== 13 || geometry.sidebarIconWidth !== 18) {
         throw new Error('Plugin menu does not match the official control dimensions: ' + JSON.stringify(geometry))
       }
       results.push({ theme, width, background: geometry.background, titleInset: geometry.before['.chat-header h1'].top - geometry.before['.chat-header'].top,
@@ -410,13 +614,13 @@ async function main() {
       await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="消息"]').click()`)
       await waitFor(`Boolean(document.querySelector('[data-composer-input]'))`, 'Conversation did not restore after browsing plugins')
     }
-    await checkMenu('[data-plugin-entry-more="sidebar"]')
+    await checkMenu('.official-sidebar-column button[aria-label="更多"]')
     await checkMenu('[data-plugin-entry-more="conversation"]')
     await window.webContents.executeJavaScript(`document.querySelector('[data-sidebar-right-expand]').click()`)
     await checkMenu('[data-sidebar-right-guide] button[aria-label="更多工具"]')
     mkdirSync(hostOptions.workspaceRoot, { recursive: true })
     await remoteCall('workspace/create', { request: { path: hostOptions.workspaceRoot } })
-    await window.webContents.executeJavaScript(`document.querySelector('[data-plugin-entry-more="sidebar"]').click()`)
+    await window.webContents.executeJavaScript(`document.querySelector('.official-sidebar-column button[aria-label="更多"]').click()`)
     await waitFor(`Array.from(document.querySelectorAll('[role="menuitem"]')).some(button => button.innerText.includes('创建你的插件'))`, 'Plugin creation action did not render')
     await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('[role="menuitem"]')).find(button => button.innerText.includes('创建你的插件')).click()`)
     await waitFor(`Array.from(document.querySelectorAll('[data-composer-input]')).some(input => input.textContent.includes('创建一个带左侧栏入口的 DSH 插件。'))`, 'Official plugin creation did not initialize the Creator draft')
@@ -439,7 +643,7 @@ async function main() {
     }
     await openTools()
     const choices = await window.webContents.executeJavaScript(`({search:[...document.querySelectorAll('[aria-label="搜索方式"] strong')].map(node => node.innerText),buttons:document.querySelectorAll('.web-search-config button').length,fetch:document.querySelectorAll('[aria-label="网页抓取方式"]').length,inputs:document.querySelectorAll('.web-search-config input').length})`)
-    if (JSON.stringify(choices) !== JSON.stringify({ search: ['DeepSeek', 'Tavily'], buttons: 2, fetch: 0, inputs: 0 })) throw new Error('Web settings must have only two provider cards: ' + JSON.stringify(choices))
+    if (JSON.stringify(choices) !== JSON.stringify({ search: ['DeepSeek', 'Tavily'], buttons: 3, fetch: 0, inputs: 0 })) throw new Error('Web settings must have two provider cards and a separate configuration button: ' + JSON.stringify(choices))
     if (process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT) {
       await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
       writeFileSync(process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT, (await window.webContents.capturePage()).toPNG())
@@ -449,7 +653,9 @@ async function main() {
     if (await remoteCall('eleckoiWebSearch/selection', {}) !== 'tavily') throw new Error('Tavily selection did not save')
     const openDeepSeek = async () => {
       await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.web-search-mode button')).find(button => button.querySelector('strong')?.innerText === 'DeepSeek').click()`)
-      await waitFor(`Boolean(document.querySelector('[data-plugin-item-detail="web-search"]')) && !document.querySelector('.agent-tools-content')`, 'DeepSeek card did not directly open official settings and close the tool dialog')
+      await waitFor(`document.querySelector('[aria-label="搜索方式"] button[aria-pressed="true"] strong')?.innerText === 'DeepSeek' && document.querySelector('.web-search-config')?.getAttribute('aria-busy') === 'false'`, 'DeepSeek selection did not save in the tool dialog')
+      await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.web-search-config button')).find(button => button.innerText === '前往官方插件配置').click()`)
+      await waitFor(`Boolean(document.querySelector('[data-plugin-item-detail="web-search"]')) && !document.querySelector('.agent-tools-content')`, 'Configuration button did not open official settings and close the tool dialog')
     }
     const saveOfficial = async () => {
       await waitFor(`Array.from(document.querySelectorAll('[data-plugin-item-detail="web-search"] button')).some(button => button.innerText === '保存' && !button.disabled)`, 'Official web settings did not become editable')
@@ -463,7 +669,7 @@ async function main() {
       await waitFor(`document.querySelector('[aria-label="搜索方式"] button[aria-pressed="true"] strong')?.innerText === 'DeepSeek'`, 'Tool dialog did not reflect the official saved settings')
     }
     await openDeepSeek()
-    if (await remoteCall('eleckoiWebSearch/selection', {}) !== 'tavily') throw new Error('Opening DeepSeek settings unexpectedly changed the saved provider')
+    if (await remoteCall('eleckoiWebSearch/selection', {}) !== 'provider_native') throw new Error('Selecting DeepSeek did not persist Messages search before configuration')
     await window.webContents.executeJavaScript(`document.querySelector('[data-plugin-item-detail="web-search"] [role="switch"]').click()`)
     await saveOfficial()
     if (await remoteCall('eleckoiWebSearch/selection', {}) !== 'deepseek_search_api' || await remoteCall('eleckoiWebSearch/fetchSelection', {}) !== 'deepseek_fetch_api') throw new Error('Official Search API selection did not save')
@@ -474,7 +680,7 @@ async function main() {
     if (await remoteCall('eleckoiWebSearch/selection', {}) !== 'provider_native' || await remoteCall('eleckoiWebSearch/fetchSelection', {}) !== 'http') throw new Error('Official Messages selection did not save')
     await returnToTools()
     if (errors.length) throw new Error(errors.join('\n'))
-    process.stdout.write('Web tool showed only DeepSeek/Tavily cards, opened official settings directly from DeepSeek, and reflected both official search modes after saving.\n')
+    process.stdout.write('Web tool persisted DeepSeek Messages selection independently from configuration navigation and reflected both official search modes after saving.\n')
     return
   }
   const checkRightbar = async label => {

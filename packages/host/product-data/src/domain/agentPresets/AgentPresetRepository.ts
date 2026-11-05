@@ -1,9 +1,12 @@
+import { autoIllustrationSchema } from '@shared/contracts/presets/autoIllustration'
+import { upgradeAutoIllustrationConfiguration } from './autoIllustrationUpgrade'
 import { createHash, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import {
   AGENT_TOOL_GROUPS,
+  CREATOR_AGENT_TOOL_GROUP_IDS,
   DEFAULT_AGENT_TOOL_GROUP_IDS,
   agentToolGroups
 } from '@product-data/domain/agentTools'
@@ -24,7 +27,7 @@ import {
   agentPresetVersionGroups,
   agentPresetVersions
 } from '@product-data/storage/sqlite/schema/common'
-import type { AgentToolGroup } from '@shared/contracts/agent/tools'
+import { pluginToolGroupSchema, portablePluginToolGroups, type AgentToolGroup } from '@shared/contracts/agent/tools'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import { regexRuleSchema } from '@shared/contracts/regex/schemas'
@@ -101,14 +104,16 @@ const CONTENT_USAGE_INSTRUCTIONS = 'usage_instructions'
 const CONTENT_PROMPT_POSITIONS = 'prompt_positions'
 const CONTENT_REGEX_RULES = 'regex_rules'
 const CONTENT_TOOL_CONFIGURATION = 'tool_configuration'
-const TOOL_CONFIGURATION_VERSION = 5
+const TOOL_CONFIGURATION_VERSION = 6
 const toolConfigurationSchema = z.object({
-  version: z.union([z.literal(4), z.literal(TOOL_CONFIGURATION_VERSION)]),
+  version: z.literal(TOOL_CONFIGURATION_VERSION),
   includedGroupIds: z.array(z.string()),
   enabledGroupIds: z.array(z.string()),
+  pluginToolGroups: z.array(pluginToolGroupSchema).default([]),
   roleplayPlan: roleplayPlanSettingsSchema,
   subagentModelSelection: z.object({ configId: z.string(), model: z.string() }).default({ configId: '', model: '' }),
-  toolModelConfigIds: z.record(z.string(), z.string()).default({})
+  toolModelConfigIds: z.record(z.string(), z.string()).default({}),
+  autoIllustration: autoIllustrationSchema.default({ enabled: false, modelConfigId: '' })
 })
 
 export class AgentPresetRepository {
@@ -165,8 +170,26 @@ export class AgentPresetRepository {
         db.insert(agentPresetState).values({ purpose, activePresetId: id }).onConflictDoNothing().run()
       }
     })
+    this.upgradeIllustrationConfiguration()
     this.ensureRequiredEntries()
     this.initialized = true
+  }
+
+  // RETIRE WHEN: all supported stored presets and versions use configuration v6.
+  // Remove this startup conversion together with the v4/v5 import conversion.
+  private upgradeIllustrationConfiguration(): void {
+    this.store.withWriteTx(db => {
+      for (const table of [agentPresetContents, agentPresetVersionContents] as const) {
+        for (const row of db.select().from(table).where(eq(table.kind, CONTENT_TOOL_CONFIGURATION)).all()) {
+          const value = JSON.parse(row.content)
+          if (value.version !== 4 && value.version !== 5) continue
+          const content = JSON.stringify(toolConfigurationSchema.parse(upgradeAutoIllustrationConfiguration(value)))
+          const conditions = [eq(table.presetId, row.presetId), eq(table.kind, row.kind)]
+          if (table === agentPresetVersionContents && 'versionId' in row) conditions.push(eq(agentPresetVersionContents.versionId, row.versionId as string))
+          db.update(table).set({ content }).where(and(...conditions)).run()
+        }
+      }
+    })
   }
 
   catalog(): AgentPresetCatalog {
@@ -260,6 +283,7 @@ export class AgentPresetRepository {
       toolGroups: toolConfiguration.toolGroups,
       subagentModelSelection: toolConfiguration.subagentModelSelection,
       toolModelConfigIds: toolConfiguration.toolModelConfigIds,
+      autoIllustration: toolConfiguration.autoIllustration,
       roleplayPlan: toolConfiguration.roleplayPlan,
       regexRules: parseList(contents.get(CONTENT_REGEX_RULES) ?? '[]', regexRuleSchema, '预设正则'),
       expandedGroupIds: parseStrings(row.expandedGroupIdsJson, '预设展开状态')
@@ -467,6 +491,7 @@ export class AgentPresetRepository {
         toolGroups: activeVersion.toolGroups,
         ...(activeVersion.subagentModelSelection ? { subagentModelSelection: activeVersion.subagentModelSelection } : {}),
         ...(activeVersion.toolModelConfigIds ? { toolModelConfigIds: activeVersion.toolModelConfigIds } : {}),
+        ...(activeVersion.autoIllustration ? { autoIllustration: activeVersion.autoIllustration } : {}),
         roleplayPlan: activeVersion.roleplayPlan,
         regexRules: activeVersion.regexRules,
         expandedGroupIds: activeVersion.expandedGroupIds
@@ -802,6 +827,7 @@ export class AgentPresetRepository {
           toolGroups: toolConfiguration.toolGroups,
           subagentModelSelection: toolConfiguration.subagentModelSelection,
           toolModelConfigIds: toolConfiguration.toolModelConfigIds,
+          autoIllustration: toolConfiguration.autoIllustration,
           roleplayPlan: toolConfiguration.roleplayPlan,
           regexRules: parseList(contents.get(CONTENT_REGEX_RULES) ?? '[]', regexRuleSchema, '预设版本正则'),
           expandedGroupIds: parseStrings(version.expandedGroupIdsJson, '预设版本展开状态')
@@ -814,15 +840,17 @@ export class AgentPresetRepository {
     roleplayPlan: AgentPreset['roleplayPlan']
     subagentModelSelection: NonNullable<AgentPreset['subagentModelSelection']>
     toolModelConfigIds: NonNullable<AgentPreset['toolModelConfigIds']>
+    autoIllustration: NonNullable<AgentPreset['autoIllustration']>
   } {
     if (!raw) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '预设缺少工具配置。', { what: '预设工具配置' })
     try {
       const value = toolConfigurationSchema.parse(JSON.parse(raw))
       return {
-        toolGroups: presetToolGroups(new Set(value.includedGroupIds), new Set(value.enabledGroupIds)),
+        toolGroups: [...presetToolGroups(new Set(value.includedGroupIds), new Set(value.enabledGroupIds)), ...portablePluginToolGroups(value.pluginToolGroups)],
         roleplayPlan: value.roleplayPlan,
         subagentModelSelection: value.subagentModelSelection,
-        toolModelConfigIds: value.toolModelConfigIds
+        toolModelConfigIds: value.toolModelConfigIds,
+        autoIllustration: value.autoIllustration
       }
     } catch (error) {
       throw new DesktopError(ELECKOI_FAILURE_CODES.storageCorrupt, '预设工具配置已损坏。', { what: '预设工具配置' })
@@ -840,6 +868,7 @@ function transferContentFromPreset(preset: AgentPreset): AgentPresetTransferCont
     toolGroups: preset.toolGroups,
     ...(preset.subagentModelSelection ? { subagentModelSelection: preset.subagentModelSelection } : {}),
     ...(preset.toolModelConfigIds ? { toolModelConfigIds: preset.toolModelConfigIds } : {}),
+    ...(preset.autoIllustration ? { autoIllustration: preset.autoIllustration } : {}),
     roleplayPlan: preset.roleplayPlan,
     regexRules: preset.regexRules,
     expandedGroupIds: preset.expandedGroupIds
@@ -889,14 +918,15 @@ function rebaseTransferContent(
       createdAt: timestamp,
       updatedAt: timestamp
     })),
-    toolGroups: agentToolGroups(enabledIds).map((group) => ({
+    toolGroups: [...agentToolGroups(enabledIds).map((group) => ({
       ...group,
       included: includedIds.has(group.id),
       enabled: includedIds.has(group.id) && enabledIds.has(group.id)
-    })),
+    })), ...portablePluginToolGroups(content.toolGroups)],
     roleplayPlan: content.roleplayPlan,
     ...(content.subagentModelSelection ? { subagentModelSelection: content.subagentModelSelection } : {}),
     ...(content.toolModelConfigIds ? { toolModelConfigIds: content.toolModelConfigIds } : {}),
+    ...(content.autoIllustration ? { autoIllustration: content.autoIllustration } : {}),
     regexRules: content.regexRules.map((rule, index) => ({
       ...rule,
       id: preserveIdentities ? rule.id : `${presetId}-${scope}-regex-${index + 1}`,
@@ -924,6 +954,7 @@ function presetWithTransferContent(base: AgentPreset, content: AgentPresetTransf
     toolGroups: content.toolGroups,
     ...(content.subagentModelSelection ? { subagentModelSelection: content.subagentModelSelection } : {}),
     ...(content.toolModelConfigIds ? { toolModelConfigIds: content.toolModelConfigIds } : {}),
+    ...(content.autoIllustration ? { autoIllustration: content.autoIllustration } : {}),
     roleplayPlan: content.roleplayPlan,
     regexRules: content.regexRules,
     expandedGroupIds: content.expandedGroupIds
@@ -992,13 +1023,14 @@ function normalizePreset(input: AgentPreset): AgentPreset {
     })),
     groups: input.groups.map((group, index) => settingLibraryGroupSchema.parse({ ...group, order: index + 1 })),
     promptPositions: prompts.promptPositions.map((position, index) => settingLibraryPromptPositionSchema.parse({ ...position, order: index + 1 })),
-    toolGroups: input.toolGroups.filter((group) => validToolIds.has(group.id)).map((group) => ({
+    toolGroups: input.toolGroups.map(group => validToolIds.has(group.id) ? group : pluginToolGroupSchema.parse(group)).map(({ available: _available, ...group }) => ({
       ...group,
       included: group.included
     })),
     roleplayPlan: roleplayPlanSettingsSchema.parse(input.roleplayPlan),
     ...(input.subagentModelSelection ? { subagentModelSelection: input.subagentModelSelection } : {}),
     ...(input.toolModelConfigIds ? { toolModelConfigIds: input.toolModelConfigIds } : {}),
+    ...(input.autoIllustration ? { autoIllustration: input.autoIllustration } : {}),
     regexRules: input.regexRules.map((rule, index) => regexRuleSchema.parse({ ...rule, order: index })),
     expandedGroupIds: [...new Set(input.expandedGroupIds)].filter((id) => validGroupIds.has(id))
   })
@@ -1019,7 +1051,7 @@ function emptyPreset(id: string, name: string, versionId: string, libraryGroupId
     entries: prompts.entries,
     groups: [],
     promptPositions: prompts.promptPositions,
-    toolGroups: purpose === 'creator' ? agentToolGroups(new Set(['builtin:creator'])).map(group => ({ ...group, included: group.id === 'builtin:creator' })) : agentToolGroups(),
+    toolGroups: purpose === 'creator' ? agentToolGroups(CREATOR_AGENT_TOOL_GROUP_IDS) : agentToolGroups(),
     roleplayPlan: defaultRoleplayPlanSettings(),
     regexRules: [],
     expandedGroupIds: []
@@ -1027,7 +1059,7 @@ function emptyPreset(id: string, name: string, versionId: string, libraryGroupId
 }
 
 function defaultContents(purpose: AgentPresetPurpose): Array<[string, string]> {
-  const enabledIds = purpose === 'creator' ? ['builtin:creator'] : [...DEFAULT_AGENT_TOOL_GROUP_IDS]
+  const enabledIds = purpose === 'creator' ? [...CREATOR_AGENT_TOOL_GROUP_IDS] : [...DEFAULT_AGENT_TOOL_GROUP_IDS]
   return [
     [CONTENT_USAGE_INSTRUCTIONS, ''],
     [CONTENT_TIMELINE, '[]'],
@@ -1052,9 +1084,11 @@ function contentRows(preset: AgentPreset): Array<[string, string]> {
       version: TOOL_CONFIGURATION_VERSION,
       includedGroupIds: preset.toolGroups.filter((group) => group.included).map((group) => group.id),
       enabledGroupIds: preset.toolGroups.filter((group) => group.enabled).map((group) => group.id),
+      pluginToolGroups: portablePluginToolGroups(preset.toolGroups),
       roleplayPlan: preset.roleplayPlan,
       subagentModelSelection: preset.subagentModelSelection ?? { configId: '', model: '' },
-      toolModelConfigIds: preset.toolModelConfigIds ?? {}
+      toolModelConfigIds: preset.toolModelConfigIds ?? {},
+      autoIllustration: preset.autoIllustration ?? { enabled: false, modelConfigId: '' }
     })]
   ]
 }

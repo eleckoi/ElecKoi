@@ -6,27 +6,12 @@ const tasks = vi.hoisted(() => []);
 vi.mock('../../src/modules/regex/runtime/runRegexEjs.js', () => ({ runRegexEjs: (input, options) => new Promise(resolve => tasks.push({ input, options, resolve })) }));
 import { useRegexEjsDisplay } from '../../src/modules/regex/useRegexEjsDisplay.js';
 import { RegexRuleInspector } from '../../src/modules/regex/components/RegexRuleInspector.jsx';
-import { AgentProcessDialog } from '../../src/modules/chat/components/AgentProcessDialog.jsx';
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
 vi.stubGlobal('React', React);
 const message = { id: 'synthetic-message', conversationId: 'synthetic-chat', role: 'assistant', status: 'complete', content: 'Narrative', variableStateJson: '{"score":12}' };
 function Probe({ message, content }) { const result = useRegexEjsDisplay(message, content); return <output data-pending={result.pending}>{result.content}|{result.error}</output>; }
 
 describe('regex EJS display lifecycle', () => {
-  it('also evaluates reasoning display replacements using the owning message snapshot', async () => {
-    tasks.length = 0;
-    const node = document.createElement('div'), root = createRoot(node); document.body.append(node);
-    try {
-      const process = [{ id: 'synthetic-thought', kind: 'reasoning', toolName: 'reasoning', status: 'complete', detail: 'Original thought',
-        displayDetail: '<!-- eleckoi:regex-ejs:start --><%= getvar("score") %><!-- eleckoi:regex-ejs:end -->' }];
-      await act(() => root.render(<AgentProcessDialog message={{ ...message, process }} onClose={() => {}} />));
-      await act(() => document.querySelector('.agent-process-group').click());
-      expect(tasks[0].input.variables).toEqual({ score: 12 });
-      expect(tasks[0].input.rawContent).toBe('Original thought');
-      await act(() => tasks[0].resolve({ content: '12' }));
-      expect(document.querySelector('.agent-process-reasoning-body p').textContent).toBe('12');
-    } finally { await act(() => root.unmount()); node.remove(); }
-  });
   it('only renders complete regex output, releases pending work and refuses old message results', async () => {
     tasks.length = 0;
     const node = document.createElement('div'), root = createRoot(node); document.body.append(node);

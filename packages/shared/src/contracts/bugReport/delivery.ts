@@ -1,7 +1,7 @@
 /**
  * 报告投递的线上形状——渲染层与主进程之间那一层。
  *
- * 判据（[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md)）：主进程负责收集与脱敏，
+ * 判据（[ADR 0042](../../../../../docs/adr/0042-bug-report-delivery.md)）：主进程负责收集与脱敏，
  * 渲染层负责展示与选择通道。所以过边界的只有这几样东西：**已脱敏的报告**、**通道配置**、**用户的
  * 选择**，以及失败时落盘的**草稿**（决定 14：失败不丢，也不偷偷重发）。
  *
@@ -18,7 +18,7 @@ import { isBugReport, type BugReport } from './report'
 /**
  * 代发通道能用的托管服务。
  *
- * `eleckoi-relay` 是自有的 Cloudflare Worker 中转（[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md) 决定 10）：
+ * `eleckoi-relay` 是自有的 Cloudflare Worker 中转（[ADR 0042](../../../../../docs/adr/0042-bug-report-delivery.md) 决定 10）：
  * 客户端只认一个端点，后面接 issue 与邮件摘要都是服务端的事。前两个是「客户端公开标识」那一类的
  * 托管表单服务，`eleckoi-relay` 的入口不需要密钥——防线在服务端的限流与结构校验。
  */
@@ -31,7 +31,7 @@ export type BugReportRelayProvider = (typeof BUG_REPORT_RELAY_PROVIDERS)[number]
  * 代发通道：由第三方托管服务把报告变成一封邮件。
  *
  * 它解决的是 `mailto:` 最弱的一环——Windows 上没配默认邮件客户端时，`mailto:` 点了没反应。
- * 代价写在 ADR 0041：报告经第三方中转，公开标识可被提取，免费额度有限。
+ * 代价写在 ADR 0042：报告经第三方中转，公开标识可被提取，免费额度有限。
  */
 export interface BugReportRelayConfig {
   readonly provider: BugReportRelayProvider
@@ -107,7 +107,7 @@ export interface BugReportExportResult {
 
 /**
  * 落草稿的请求：发送失败或用户中途关闭时，主进程把已脱敏的报告存进
- * `userData/bug-reports/pending/`（[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md) 决定 14）。
+ * `userData/bug-reports/pending/`（[ADR 0042](../../../../../docs/adr/0042-bug-report-delivery.md) 决定 14）。
  */
 export interface BugReportDraftSaveRequest {
   readonly includeLogTail: boolean

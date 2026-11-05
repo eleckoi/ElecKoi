@@ -3,49 +3,6 @@
   margin-inline-end: calc(min(var(--editor-sidebar-width), calc(100% - var(--editor-sidebar-gap))) + 6px);
 }
 
-/* 共用工具栏只改变控件外观，保留工具栏布局与内容分割线。 */
-.editor-sidebar-layout .editor-collection-toolbar,
-.character-openings-toolbar.editor-collection-toolbar,
-.mobile-preset-editor .preset-tools-toolbar.editor-collection-toolbar,
-.mobile-character-editor :is(.dynamic-settings-list-toolbar, .dynamic-settings-tree-toolbar).editor-collection-toolbar {
-  --text: #242a32;
-  --muted: #5e6978;
-  --soft-text: #697586;
-  --active: #e1e6ee;
-  --blue: #4176eb;
-  --editor-collection-toolbar-fill: #f1f3f6;
-  --editor-collection-toolbar-hover: #e6e9ef;
-  --editor-collection-icon: var(--dsw-alias-label-secondary, #81858c);
-  color: var(--text);
-  font: 14px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif;
-
-  & .editor-collection-search {
-    height: 36px;
-    padding: 0 12px;
-    gap: 8px;
-    border: 0;
-    border-radius: 8px;
-    color: #747b86;
-    background: var(--editor-collection-toolbar-fill);
-  }
-  & .editor-collection-search:focus-within { outline: 2px solid var(--blue); outline-offset: 2px; }
-  & .editor-collection-search input { font-size: 14px; }
-  & .editor-collection-action {
-    height: 36px;
-    padding: 0 14px;
-    gap: 6px;
-    border: 0;
-    border-radius: 8px;
-    color: var(--text);
-    background: var(--editor-collection-toolbar-fill);
-    font: inherit;
-  }
-  & .editor-collection-action svg { color: var(--editor-collection-icon); }
-  & .editor-collection-action:hover:not(:disabled) { background: var(--editor-collection-toolbar-hover); }
-  & .editor-collection-action[aria-pressed="true"] { background: var(--active); }
-  & .setting-library-save-button { height: 36px; border-radius: 8px; }
-}
-
 /* 脚本与正则使用连续面板，分区标题位于面板外。 */
 .editor-sidebar-layout .editor-collection-continuous {
   --editor-collection-entry: #ffffff;
@@ -158,17 +115,6 @@
   }
 }
 
-:root[data-theme="dark"] .editor-sidebar-layout .editor-collection-toolbar,
-:root[data-theme="dark"] .character-openings-toolbar.editor-collection-toolbar,
-:root[data-theme="dark"] .mobile-preset-editor .preset-tools-toolbar.editor-collection-toolbar,
-:root[data-theme="dark"] .mobile-character-editor :is(.dynamic-settings-list-toolbar, .dynamic-settings-tree-toolbar).editor-collection-toolbar {
-  --text: #e5e8ef;
-  --muted: #b2bdcd;
-  --soft-text: #a1adbf;
-  --active: #424f63;
-  --editor-collection-toolbar-fill: #252a33;
-  --editor-collection-toolbar-hover: #353e4d;
-}
 :root[data-theme="dark"] .editor-sidebar-layout .editor-collection-continuous {
   --editor-collection-entry: #252a33;
   --editor-collection-outline: #39424f;
@@ -186,22 +132,24 @@
   --editor-collection-hover: #303744;
 }
 
-/* 紧凑列表沿用同一材质，控件与条目保留触屏操作空间。 */
+/* 紧凑列表保留触屏操作空间，颜色和控件外观由官方组件负责。 */
 .editor-sidebar-layout.is-page-layout .editor-collection-toolbar,
 .mobile-preset-editor .preset-tools-toolbar.editor-collection-toolbar,
+.mobile-character-editor .character-openings-toolbar.editor-collection-toolbar,
 .mobile-character-editor :is(.dynamic-settings-list-toolbar, .dynamic-settings-tree-toolbar).editor-collection-toolbar {
   display: flex;
   align-items: center;
+  min-width: 0;
   height: auto;
   padding: 12px;
   gap: 8px;
   flex-wrap: nowrap;
   border-bottom: 1px solid var(--line-strong);
   font-family: inherit;
-  & .editor-collection-search { flex: 1; width: 0; min-width: 0; height: 48px; padding-inline: 8px; gap: 6px; }
+  & .editor-collection-search { flex: 1 1 0; width: auto; min-width: 0; height: 48px; }
   & .editor-collection-search > svg { flex: none; }
   & .editor-collection-actions { flex: none; flex-wrap: nowrap; gap: 4px; }
-  & .editor-collection-action { height: 48px; min-height: 48px; min-width: 44px; padding-inline: 6px; gap: 4px; font-size: 12px; white-space: nowrap; }
+  & .editor-collection-action { min-height: 48px; min-width: 44px; padding-inline: 6px; gap: 4px; font-size: 12px; white-space: nowrap; }
 }
 .editor-sidebar-layout.is-page-layout .editor-collection-continuous {
   & :is(.editor-collection-directory, .regex-list-scroll) { padding: 12px 12px 24px; font-family: inherit; }

@@ -29,23 +29,36 @@
 
 .side-panel-shell {
   grid-column: 2;
+  grid-template-rows: var(--window-caption-height, 40px) 46px minmax(0, 1fr);
   background: var(--list);
   z-index: 3;
 }
 
 .side-panel-shell.has-footer-actions {
+  grid-template-rows: var(--window-caption-height, 40px) 46px minmax(0, 1fr) auto;
+}
+
+.section-settings .side-panel-shell {
+  grid-template-rows: var(--window-caption-height, 40px) minmax(0, 1fr);
+}
+
+.section-settings .side-panel-shell.has-footer-actions {
   grid-template-rows: var(--window-caption-height, 40px) minmax(0, 1fr) auto;
+}
+
+.section-settings .side-panel-brand {
+  display: none;
 }
 
 .side-panel-header {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   width: var(--side-panel-content-width);
   min-width: var(--side-panel-content-width);
   height: var(--window-caption-height, 40px);
-  padding: 0 8px 0 10px;
+  padding: 0 12px;
   background: var(--list);
   -webkit-app-region: drag;
 }
@@ -53,11 +66,16 @@
 .side-panel-brand {
   display: flex;
   align-items: center;
+  box-sizing: border-box;
+  width: var(--side-panel-content-width);
   min-width: 0;
-  height: 100%;
+  height: 40px;
+  margin-top: 6px;
+  padding: 0 16px;
   color: var(--title-fg);
   white-space: nowrap;
   overflow: hidden;
+  -webkit-app-region: drag;
 }
 
 .side-panel-brand strong {
@@ -72,29 +90,31 @@
   flex: none;
 }
 
-.side-panel-brand > .eleckoi-wordmark {
+.side-panel-brand .eleckoi-wordmark {
   flex-shrink: 1;
   min-width: 0;
+  height: auto;
+  transform: translateY(1px);
 }
 
 .side-panel-collapse-button {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   flex: none;
   padding: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--dsw-radius-sm, 6px);
   background: transparent;
-  color: var(--title-fg);
+  color: var(--dsw-alias-label-secondary, var(--title-fg));
   cursor: pointer;
   transition: background 120ms ease, box-shadow 120ms ease;
   -webkit-app-region: no-drag;
 }
 
 .side-panel-collapse-button:hover {
-  background: color-mix(in srgb, var(--title-fg) 9%, transparent);
+  background: var(--dsw-alias-interactive-bg-hover, var(--active));
 }
 
 .side-panel-collapse-button:focus-visible {
@@ -116,6 +136,10 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+}
+
+.side-panel-content .sidebar-section-header {
+  margin-top: 8px;
 }
 
 .side-panel-shell.collapsed {
@@ -238,4 +262,44 @@
 .chat-window-body .chat-panel {
   min-width: 0;
   min-height: 0;
+}
+
+.native-workspace-sidebar {
+  --dsh-windows-titlebar-height: var(--window-caption-height, 40px);
+  position: relative;
+  display: grid;
+  grid-template-rows: var(--window-caption-height, 40px) minmax(0, 1fr);
+  grid-column: 2;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: visible;
+  z-index: 3;
+}
+
+.native-workspace-caption {
+  display: flex;
+  align-items: center;
+  padding-left: 48px;
+  -webkit-app-region: drag;
+}
+
+.native-workspace-body {
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+}
+
+/* Anchor the caption toggle without rebasing fixed workspace overlays. */
+.native-workspace-body > :first-child > [data-window-drag]:first-child > button:last-of-type {
+  position: absolute;
+}
+
+.side-panel-collapsed .native-workspace-sidebar {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.native-workspace-body [aria-label="新建会话"] > [aria-hidden="true"]:has(.eleckoi-wordmark) {
+  gap: 0;
 }

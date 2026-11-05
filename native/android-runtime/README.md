@@ -12,7 +12,7 @@
 
 产品数据、Session、媒体、home 与 workspace 始终位于同一组应用持久目录。安装预算与健康检查后的旧安装清理继续由 `RuntimeInstaller` 管理，数据目录不属于清理范围。实际启动、DNS/HTTPS、SQLite、子进程输出与错误、空环境 Node 子进程、控制描述符、取消进程树及终端空闲/忙碌、前台信号、关闭均通过实际应用进程验证。
 
-Android 沙箱拒绝 JSONL Session 的硬链接发布。`session-publication-lock.json` 固定当前 DSH 0.2.1-rc.3 的官方包版本、原文件哈希和两处独占发布调用；仅在 Android 归档中改为 `android-file-publication.mjs` 调用原生 `renameat2(RENAME_NOREPLACE)`。临时文件同步、目标碰撞拒绝、目录同步、失败传播和事件格式沿用官方流程。归档校验核对补丁与辅助模块的完整字节，工作区共享包和桌面产物不应用该补丁。当前 `worker.cjs` 的入口只校验文件，保持官方字节。附件适配的版本、来源与同批 DSH 一致，文件原摘要及既有替换调用未变。行为依据见 [锁定 JSONL 实现](https://github.com/deepseek-ai/deepseek-harness/blob/1f81c047fc48fa190a683e469daa699857e9afe8/packages/session/session-persistence-jsonl/src/index.ts) 与 [Linux renameat2 合同](https://man7.org/linux/man-pages/man2/rename.2.html)。
+Android 沙箱拒绝 JSONL Session 的硬链接发布。`session-publication-lock.json` 固定当前 DSH 0.2.1-rc.5 的官方包版本、原文件哈希和两处独占发布调用；仅在 Android 归档中改为 `android-file-publication.mjs` 调用原生 `renameat2(RENAME_NOREPLACE)`。临时文件同步、目标碰撞拒绝、目录同步、失败传播和事件格式沿用官方流程。归档校验核对补丁与辅助模块的完整字节，工作区共享包和桌面产物不应用该补丁。当前 `worker.cjs` 的入口只校验文件，保持官方字节。附件适配的版本、来源与同批 DSH 一致，文件原摘要及既有替换调用未变。行为依据见 [锁定 JSONL 实现](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/packages/session/session-persistence-jsonl/src/index.ts) 与 [Linux renameat2 合同](https://man7.org/linux/man-pages/man2/rename.2.html)。
 
 RETIRE WHEN: 锁定 DSH 的 JSONL 与附件实现已通过 Android 应用沙箱中的独占发布、目标冲突、失败恢复和持久化验收，且不再需要硬链接替换及应用目录边界适配时，删除对应版本锁与归档替换；只有两者均不再引用后才删除共用的 `android-file-publication.mjs` 和原生发布入口。此适配不迁移用户数据库或会话格式。
 

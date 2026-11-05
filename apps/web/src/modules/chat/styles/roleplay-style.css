@@ -1,0 +1,63 @@
+/* One continuous, borderless reading surface; the official scroll owner stays full width. */
+.chat-panel[data-roleplay-backdrop] .chat-conversation-body::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  left: 50%;
+  width: min(calc(var(--dsh-chat-user-width, 900px) + 200px), calc(var(--chat-reading-width) + 2 * var(--chat-roleplay-side-rail) + 40px), calc(100% - 16px));
+  transform: translateX(-50%);
+  z-index: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--rp-backdrop-tint) var(--rp-backdrop-opacity), transparent);
+  backdrop-filter: blur(var(--rp-backdrop-blur)) saturate(.88);
+  -webkit-backdrop-filter: blur(var(--rp-backdrop-blur)) saturate(.88);
+}
+
+.chat-panel[data-roleplay-backdrop] .message-area { z-index: 1; }
+
+/* The message-flow row owns spacing. A second article margin doubles the gap. */
+.chat-panel:is([data-roleplay-backdrop], [data-roleplay-bubbles]) .message-flow-row .message-roleplay { margin-bottom: 0; }
+
+:is(.chat-panel, .chat-display-preview):is([data-roleplay-backdrop], [data-roleplay-bubbles]) .message-roleplay {
+  padding-block: 14px;
+  --bubble-fg-shadow: transparent;
+}
+/* The leading column includes the floor label even when the reply is one line. */
+:is(.chat-panel, .chat-display-preview):is([data-roleplay-backdrop], [data-roleplay-bubbles]) .message-roleplay:has(> .message-floor) {
+  min-height: calc(var(--chat-roleplay-leading-stack-height) + 28px);
+}
+:is(.chat-panel, .chat-display-preview):is([data-roleplay-backdrop], [data-roleplay-bubbles]) .message-roleplay.has-opening-pager {
+  min-height: calc(var(--chat-roleplay-leading-stack-height) + 90px);
+}
+
+:is(.chat-panel, .chat-display-preview)[data-roleplay-bubbles] .message-roleplay { isolation: isolate; }
+:is(.chat-panel, .chat-display-preview)[data-roleplay-bubbles] .message-roleplay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: var(--chat-bubble-radius, 10px);
+  pointer-events: none;
+  background: color-mix(in srgb, var(--rp-assistant-tint) var(--rp-assistant-opacity), transparent);
+  backdrop-filter: blur(var(--rp-bubble-blur));
+  -webkit-backdrop-filter: blur(var(--rp-bubble-blur));
+}
+:is(.chat-panel, .chat-display-preview)[data-roleplay-bubbles] .message-roleplay.mine::before {
+  background: color-mix(in srgb, var(--rp-user-tint) var(--rp-user-opacity), transparent);
+}
+
+.chat-display-preview:is([data-roleplay-backdrop], [data-roleplay-bubbles]) { background-size: cover; background-position: center; }
+.chat-display-preview[data-roleplay-backdrop] > .message-area {
+  background: color-mix(in srgb, var(--rp-backdrop-tint) var(--rp-backdrop-opacity), transparent);
+  backdrop-filter: blur(var(--rp-backdrop-blur)) saturate(.88);
+  -webkit-backdrop-filter: blur(var(--rp-backdrop-blur)) saturate(.88);
+}
+.mobile-conversation-page .chat-panel[data-roleplay-backdrop] { --chat-scroll-horizontal-padding: 16px; }
+
+@container chat-panel (min-width: 600px) {
+  .chat-panel[data-roleplay-backdrop] .message-roleplay {
+    max-width: calc(var(--dsh-chat-user-width, 900px) + 160px);
+    grid-template-columns: calc(var(--chat-avatar-width, 65px) + var(--chat-avatar-gap, 10px) + 21px) minmax(0, 1fr) 64px;
+  }
+  .chat-panel[data-roleplay-backdrop] .message-roleplay > :is(.avatar, .message-floor) { margin-left: 14px; }
+}

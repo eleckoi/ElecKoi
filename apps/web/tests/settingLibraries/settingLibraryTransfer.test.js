@@ -23,7 +23,7 @@ function entry(id, title, groupId = "", order = 1) {
 }
 
 function fixed(id, kind, title) {
-  return { ...entry(id, title), kind, openingMessages: kind === "opening" ? [{ id: "opening", title: "默认开场", content: "", initialVariableStateJson: "" }] : [], defaultOpeningMessageId: kind === "opening" ? "opening" : "" };
+  return { ...entry(id, title), kind, openingMessages: kind === "opening" ? [{ id: "opening", title: "默认开场", content: "" }] : [], defaultOpeningMessageId: kind === "opening" ? "opening" : "" };
 }
 
 function version(id, name, entries, groups = []) {
@@ -41,6 +41,15 @@ function library() {
 }
 
 describe("setting-library versions and transfer", () => {
+  it('uses file names only when the imported worldbook has no embedded book name', () => {
+    const entries = { 0: { uid: 0, key: ['合成关键词'], comment: '合成条目', content: '合成正文' } };
+    const parse = book => parseSettingLibraryFile(JSON.stringify(book), 'sillytavern', '合成文件名.JSON');
+    expect(parse({ entries }).name).toBe('合成文件名');
+    expect(parse({ entries }).groups[0].name).toBe('合成文件名');
+    expect(parse({ entries, originalData: { name: '合成卡内书名', entries: [] } }).name).toBe('合成卡内书名');
+    expect(parse({ entries, name: '合成书内名称' }).name).toBe('合成书内名称');
+    expect(parse({ character_book: { name: '合成角色世界书', entries: Object.values(entries) } }).name).toBe('合成角色世界书');
+  });
   it("maps SillyTavern world book scan depth onto the keyword scan window", () => {
     const depthOf = (book, title) => parseSettingLibraryFile(JSON.stringify(book), "sillytavern")
       .entries.find((item) => item.title === title)?.keywordScanDepth;
@@ -105,7 +114,7 @@ describe("setting-library versions and transfer", () => {
     legacy.entries.push({ id: 'fixed-opening-assistant', kind: 'opening', content: '合成旧版完整正文', enabled: false });
     const parsed = parseSettingLibraryFile(JSON.stringify(legacy), 'eleckoi');
     expect(parsed.openingImport).toEqual({ enabled: false, defaultOpeningMessageId: 'opening-default', openingMessages: [
-      { id: 'opening-default', title: '默认开场', content: '合成旧版完整正文', initialVariableStateJson: '' },
+      { id: 'opening-default', title: '默认开场', content: '合成旧版完整正文' },
     ] });
     expect(parsed.entries.every(entry => entry.kind !== 'opening')).toBe(true);
   });
@@ -156,7 +165,7 @@ describe("setting-library versions and transfer", () => {
         variable_version_id: 'synthetic-legacy-version', initial_variable_state: '{"score":7}' }],
       default_opening_message_id: 'legacy-opening' }, ...exported.entries] };
     const imported = importLibraryAsVersion(source, parseSettingLibraryFile(JSON.stringify(legacy), 'eleckoi'));
-    expect(imported.openingImports).toMatchObject([{ id: 'legacy-opening', content: '合成旧开场正文', variableVersionId: 'synthetic-legacy-version', initialVariableStateJson: '{"score":7}' }]);
+    expect(imported.openingImports).toMatchObject([{ id: 'legacy-opening', content: '合成旧开场正文', variableVersionId: 'synthetic-legacy-version' }]);
     expect(imported.entries.every(entry => entry.kind !== 'opening')).toBe(true);
     expect(imported.entries).toHaveLength(10002);
   });

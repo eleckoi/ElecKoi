@@ -19,7 +19,7 @@ import { ElecKoiConversationLifecycle } from '../../packages/host/product-api/sr
 import { ConversationChangeFeed, CharacterConfigurationChangeFeed } from '../../packages/host/product-api/src/index'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SqliteDatabase } from '../../packages/host/product-data/src/storage/sqlite/SqliteDatabase'
 import { ConversationRepository } from '../../packages/host/product-data/src/domain/conversations/ConversationRepository'
@@ -40,7 +40,7 @@ async function fixture({ stream } = {}) {
   const path = join(root, 'product.sqlite3')
   for (const [key, value] of Object.entries({ ELECKOI_DATABASE_PATH: path, ELECKOI_MEDIA_ROOT: root,
     ELECKOI_WORKSPACE_ROOT: root, ELECKOI_SESSION_SNAPSHOT_ROOT: root, ELECKOI_PRESET_ROOT: root,
-    ELECKOI_PRESET_TEMPLATE_PATH: root, ELECKOI_SESSION_BRIDGE_ROOT: root,
+    ELECKOI_PRESET_TEMPLATE_PATH: resolve('apps/desktop/resources/dsh/agent-preset-template/agent.cordis.yml'), ELECKOI_SESSION_BRIDGE_ROOT: root,
     DSH_SESSION_ROOT: join(root, 'sessions') })) {
     const previous = process.env[key]; process.env[key] = value
     cleanups.push(() => { if (previous === undefined) delete process.env[key]; else process.env[key] = previous })
@@ -66,12 +66,13 @@ async function fixture({ stream } = {}) {
   await ctx.plugin(ElecKoiConversationLifecycle)
   const changes = []
   await ctx.plugin({ name: 'synthetic-roleplay-services',
-    provide: ['sessionController', 'agentDefaultModel', 'agentPresets', 'settings',
+    provide: ['sessionController', 'agentDefaultModel', 'agentPresets', 'settings', 'workspaceRegistry',
       'eleckoiConversationChanges', 'eleckoiCharacterConfigurationChanges'], apply(owner) {
     owner.provide('sessionController', {})
     owner.provide('agentDefaultModel', { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) })
     owner.provide('agentPresets', { register: async () => async () => {} })
     owner.provide('settings', { describe: () => [] })
+    owner.provide('workspaceRegistry', { list: () => [], unpinSession: async () => {}, unarchiveSession: async () => {} })
     const feed = new ConversationChangeFeed()
     const publish = feed.publish.bind(feed)
     feed.publish = change => { changes.push(change); publish(change) }
@@ -108,7 +109,7 @@ async function fixture({ stream } = {}) {
   await editor
   await vi.waitFor(() => {
     expect(ctx.get('eleckoiSessionEditor')).toBeDefined()
-    expect(ctx.get('eleckoiImageGeneration')).toBeDefined()
+    expect(ctx.get('eleckoiAutoIllustration')).toBeUndefined()
     expect(ctx.get('eleckoiRoleplaySessions')).toBeDefined()
   })
   const handle = await ctx.agents.create({ sessionId: SessionId(conversationId), agentOptions: { provider: 'synthetic', model: 'synthetic' } })

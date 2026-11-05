@@ -1,4 +1,4 @@
-import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ChatBackgroundModal, ChatWallpaperLayer, HistoryModal } from "../../modules/chat/index.js";
 import { resolveChatWallpaper } from "../../modules/appearance/index.js";
 import { useChatClient } from "../hooks/useChatClient.js";
@@ -19,11 +19,13 @@ import { useRightbarLayout } from "./shell/hooks/useRightbarLayout.js";
 import { useSidePanelLayout } from "./shell/hooks/useSidePanelLayout.js";
 import { useColumnTransition } from "./shell/hooks/useColumnTransition.js";
 import { AppUpdateController, useAppUpdates } from "../../modules/updates/index.js";
-import { openCreatorStudioWindow } from "../../modules/creatorStudio/index.js";
 import { MainPageContext } from "./MainPageContext.jsx";
 
+const emptySidebarSnapshot = { shown: false };
+const emptySidebar = { subscribe: () => () => {}, getSnapshot: () => emptySidebarSnapshot };
+
 /**
- * 「上次没送出去的报告」只提示一次（ADR 0041 决定 14：不偷偷重发，也不反复打扰）。
+ * 「上次没送出去的报告」只提示一次（ADR 0042 决定 14：不偷偷重发，也不反复打扰）。
  * 提示按份数说话；模块级标记：窗口重新挂载也算同一次运行。
  */
 let bugReportDraftPrompted = false;
@@ -40,21 +42,25 @@ class MainPageErrorBoundary extends Component {
   }
 }
 
-export function MainWindow({ conversations, characters, characterConfiguration, models, persona, presets, settingsSections = [], navigation, rightbar, renderSettingsSection, renderUserProfileEditor, renderCharacterPageSection, renderConversationList, renderPresetEditorSection, renderRoleplay }) {
+export function MainWindow({ conversations, characters, characterConfiguration, models, persona, presets, creatorStudio, renderCreatorStudioConversation, settingsSections = [], navigation, rightbar, renderSettingsSection, renderUserProfileEditor, renderCharacterPageSection, renderConversationList, renderPresetEditorSection, renderRoleplay }) {
   const chat = useChatClient({ conversations, characters, models, persona, navigation });
   const appearance = useWindowAppearance({ notify: chat.notify });
   const sidePanelLayout = useSidePanelLayout();
+  const nativeConversation = ["conversation", "creatorStudio"].includes(chat.activeSection);
+  const sidebarModel = navigation?.sidebar ?? emptySidebar;
+  const sidebar = useSyncExternalStore(sidebarModel.subscribe, sidebarModel.getSnapshot);
   const rightbarLayout = useRightbarLayout({
     model: rightbar,
     shellRef: sidePanelLayout.shellRef,
-    sidePanelCollapsed: sidePanelLayout.sidePanelCollapsed,
-    collapseSidePanel: sidePanelLayout.collapseSidePanel,
+    sidePanelCollapsed: nativeConversation ? !sidebar.shown : sidePanelLayout.sidePanelCollapsed,
+    collapseSidePanel: nativeConversation ? navigation.closeSidebar : sidePanelLayout.collapseSidePanel,
   });
   const appUpdates = useAppUpdates();
+  const nativeSidebarWidth = sidebar.shown ? 280 : 0;
   const isPluginPanel = Boolean(navigation && !navigation.productPanelIds?.includes(chat.activeSection) && chat.activeSection !== "plugins");
   const columnAnimating = useColumnTransition({
     shellRef: sidePanelLayout.shellRef,
-    sidebarCollapsed: sidePanelLayout.sidePanelCollapsed || isPluginPanel,
+    sidebarCollapsed: nativeConversation ? !sidebar.shown : sidePanelLayout.sidePanelCollapsed || isPluginPanel,
     rightbarTrack: rightbarLayout.track,
     viewportWidth: sidePanelLayout.viewportWidth,
   });
@@ -68,6 +74,15 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
 
   useEffect(() => {
     document.title = "ElecKoi";
+  }, []);
+
+  useEffect(() => {
+    const action = event => {
+      if (event.detail === 'creatorStudio') navigation.selectPanel('creatorStudio');
+      if (event.detail === 'community') setCommunityOpen(true);
+    };
+    window.addEventListener('eleckoi:shell-action', action);
+    return () => window.removeEventListener('eleckoi:shell-action', action);
   }, []);
 
   useEffect(() => {
@@ -85,7 +100,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
     chat.notify("error", resolved.text, resolved);
   }), [chat.notify]);
 
-  // 上次没发出去的报告：每次运行最多提示一次，送不送由用户点（ADR 0041 决定 14）。
+  // 上次没发出去的报告：每次运行最多提示一次，送不送由用户点（ADR 0042 决定 14）。
   // 只查一次、不轮询、不重发——草稿的处置全在「报告问题」对话框里。提示按份数说话。
   useEffect(() => {
     if (bugReportDraftPrompted || !isBugReportAvailable()) return;
@@ -114,6 +129,14 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
     chat.setActiveSection(section);
   }, [chat]);
 
+  useEffect(() => window.dshDesktop?.menu?.subscribe((command) => {
+    if (command === 'about') { setSettingsPage('about'); changeActiveSection('settings'); }
+    if (command === 'check-updates') void appUpdates.check().catch((cause) => {
+      const failure = resolveFailure(cause, { fallback: '检查更新失败。' });
+      chat.notify('error', failure.text, failure);
+    });
+  }), [changeActiveSection, appUpdates.check, chat.notify]);
+
   const chatWallpaper = useMemo(() => resolveChatWallpaper({
     character: chat.chatBackgroundCharacter,
     persona: chat.chatPersona,
@@ -130,8 +153,9 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
   }
 
   function renderWindowLayout({ sidePanel, mainPanel, overlays = null }) {
-    const renderSidebarContent = (renderSidebarSlot) => <SidebarContent
-          activeSection={chat.activeSection}
+    const renderSidebarContent = (renderSidebarSlot, workspaceSidebar) => <SidebarContent
+          desktopMenu
+          activeSection={communityOpen ? "community" : chat.activeSection}
           navigationItems={navigation?.items}
           renderEntryActions={navigation?.hasSidebarEntryActions && renderSidebarSlot
             ? onDismiss => navigation.renderSidebarEntryActions(renderSidebarSlot, onDismiss) : undefined}
@@ -139,7 +163,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
           profileActive={chat.activeSection === "settings" && settingsPage === "profile"}
           onSectionChange={changeActiveSection}
           onNavigationAction={(id) => {
-            if (id === "creatorStudio") return openCreatorStudioWindow();
+            if (id === "creatorStudio") return changeActiveSection("creatorStudio");
             if (id === "community") setCommunityOpen(true);
           }}
           persona={chat.persona}
@@ -155,17 +179,21 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
         onCollapse={sidePanelLayout.collapseSidePanel}
         hasFooterActions={navigation?.hasSidebarFooterActions}
         sidePanel={sidePanel}
+        workspaceSidebar={workspaceSidebar}
+        workspaceCollapsed={!sidebar.shown}
       />;
     return (
       <>
-        {navigation?.renderSidebar ? navigation.renderSidebar(renderSidebarContent) : renderSidebarContent(null)}
+        {navigation?.renderSidebar ? navigation.renderSidebar(renderSidebarContent,
+          { workspace: nativeConversation, collapsed: !sidebar.shown, width: 280 }) : renderSidebarContent(null)}
 
         <section className="main-panel-shell" aria-label="主功能界面">
           <TitleBar
             splitSurface
+            desktopMenu={nativeConversation ? !sidebar.shown : sidePanelLayout.sidePanelCollapsed || isPluginPanel}
             showWindowControls={false}
-            sidePanelCollapsed={sidePanelLayout.sidePanelCollapsed && !isPluginPanel}
-            onToggleSidePanel={sidePanelLayout.expandSidePanel}
+            sidePanelCollapsed={nativeConversation ? !sidebar.shown : sidePanelLayout.sidePanelCollapsed && !isPluginPanel}
+            onToggleSidePanel={nativeConversation ? navigation.toggleSidebar : sidePanelLayout.expandSidePanel}
           />
           <div className="main-panel-content">{mainPanel}</div>
         </section>
@@ -179,6 +207,8 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
     appearance,
     appUpdates,
     conversations,
+    creatorStudio,
+    renderCreatorStudioConversation,
     characters,
     characterConfiguration,
     models,
@@ -229,9 +259,10 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
   return (
     <main
       ref={sidePanelLayout.shellRef}
-      className={`qq-shell main-window-shell section-${isPluginPanel ? "plugin" : chat.activeSection}${showChatWallpaper ? " has-chat-wallpaper" : ""}${sidePanelLayout.sidePanelCollapsed || isPluginPanel ? " side-panel-collapsed" : ""}`}
+      className={`qq-shell main-window-shell section-${isPluginPanel ? "plugin" : chat.activeSection}${nativeConversation ? " has-native-workspace-sidebar" : ""}${showChatWallpaper ? " has-chat-wallpaper" : ""}${(nativeConversation ? !sidebar.shown : sidePanelLayout.sidePanelCollapsed || isPluginPanel) ? " side-panel-collapsed" : ""}`}
       style={{
         ...(isPluginPanel ? { ...sidePanelLayout.shellStyle, "--side-panel-width": "0px" } : sidePanelLayout.shellStyle),
+        ...(nativeConversation ? { "--side-panel-width": `${nativeSidebarWidth}px` } : {}),
         ...rightbarLayout.shellStyle,
       }}
       data-side-panel-dragging={sidePanelLayout.sidePanelDragging || undefined}

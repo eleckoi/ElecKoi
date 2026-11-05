@@ -157,7 +157,6 @@ function openingMessageFromJson(value) {
     id: text(value.id) || createId("opening"),
     title: text(value.title),
     content: text(value.content),
-    initialVariableStateJson: text(value.initial_variable_state),
     ...(typeof value.variable_version_id === "string" ? { variableVersionId: value.variable_version_id } : {}),
   };
 }
@@ -235,7 +234,7 @@ function parseElecKoiExport(source) {
   if (openings.length > 1) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '设定库文件包含多个开场白容器。', { what: '设定库文件的开场白' });
   const opening = openings[0];
   const openingMessages = opening?.openingMessages.length ? opening.openingMessages : [{
-    id: 'opening-default', title: '默认开场', content: opening?.content || '', initialVariableStateJson: '',
+    id: 'opening-default', title: '默认开场', content: opening?.content || '',
   }];
   return {
     ...(opening ? { openingImport: { enabled: opening.enabled, openingMessages,
@@ -297,11 +296,12 @@ function hasDynamicGetwi(content) {
   return false;
 }
 
-function parseSillyTavernExport(source) {
+function parseSillyTavernExport(source, fileName) {
   const book = source?.data?.character_book || source?.character_book || source;
   const rawEntries = worldBookEntries(book);
   if (!rawEntries.length) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, "这个文件里没有可导入的酒馆世界书条目。", { what: "酒馆世界书条目", path: "entries" });
-  const name = text(source.name) || text(source?.originalData?.name) || text(book?.name) || "酒馆世界书";
+  const name = text(source.name).trim() || text(source?.originalData?.name).trim() || text(book?.name).trim()
+    || text(fileName).replace(/\.json$/i, '').trim() || "酒馆世界书";
   const groupId = createId("tavern-world-book");
   const timestamp = new Date().toISOString();
   const used = new Set();
@@ -380,7 +380,7 @@ function parseSillyTavernExport(source) {
   };
 }
 
-export function parseSettingLibraryFile(json, expected = "auto") {
+export function parseSettingLibraryFile(json, expected = "auto", fileName = "") {
   let source;
   try {
     source = JSON.parse(json);
@@ -391,7 +391,7 @@ export function parseSettingLibraryFile(json, expected = "auto") {
   const isSillyTavern = !source.format && Boolean(source.entries || source.character_book || source?.data?.character_book);
   if (expected === "eleckoi" && isSillyTavern) throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, "请选择 ElecKoi 导出的设定库文件。", { what: "选中的设定库文件", expected: "ElecKoi 导出的设定库文件" });
   if (expected === "sillytavern" && !isSillyTavern) throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, "请选择 SillyTavern 世界书 JSON。", { what: "选中的设定库文件", expected: "SillyTavern 世界书 JSON" });
-  return isSillyTavern ? parseSillyTavernExport(source) : parseElecKoiExport(source);
+  return isSillyTavern ? parseSillyTavernExport(source, fileName) : parseElecKoiExport(source);
 }
 
 function entryToJson(entry) {
@@ -400,7 +400,6 @@ function entryToJson(entry) {
     group_id: entry.groupId, content: entry.content,
     opening_messages: entry.openingMessages.map((message) => ({
       id: message.id, title: message.title, content: message.content,
-      initial_variable_state: message.initialVariableStateJson,
       ...(typeof message.variableVersionId === "string" ? { variable_version_id: message.variableVersionId } : {}),
     })),
     default_opening_message_id: entry.defaultOpeningMessageId,

@@ -23,12 +23,12 @@ export function generatedImageReferences(events: readonly SessionEvent[]): Map<s
 }
 
 /** Read declared image carriers, including history that remains in the log. */
-export function referencedImageIds(events: readonly SessionEvent[]): Set<string> {
-  const ids = new Set<string>()
+export function imageAttachmentReferences(events: readonly SessionEvent[]): Map<string, ImageAttachmentRef> {
+  const refs = new Map<string, ImageAttachmentRef>()
   const illustrationBatches = new Map<string, SessionEvent<'eleckoi/illustration'>['data']>()
   const content = (blocks: unknown) => {
     if (!Array.isArray(blocks)) return
-    for (const block of blocks) if (block?.type === 'image' && typeof block.attachment?.attachmentId === 'string') ids.add(block.attachment.attachmentId)
+    for (const block of blocks) if (block?.type === 'image' && /^sha256:[a-f0-9]{64}$/.test(block.attachment?.attachmentId)) refs.set(block.attachment.attachmentId, block.attachment)
   }
   for (const event of events) {
     if (event.type === 'eleckoi/illustration') {
@@ -47,9 +47,11 @@ export function referencedImageIds(events: readonly SessionEvent[]): Set<string>
         break
     }
   }
-  for (const batch of illustrationBatches.values()) for (const frame of batch.frames) if (frame.attachment) ids.add(frame.attachment.attachmentId)
-  return ids
+  for (const batch of illustrationBatches.values()) for (const frame of batch.frames) if (frame.attachment) refs.set(frame.attachment.attachmentId, frame.attachment)
+  return refs
 }
+
+export function referencedImageIds(events: readonly SessionEvent[]): Set<string> { return new Set(imageAttachmentReferences(events).keys()) }
 
 export interface GeneratedImageCleanupContext {
   attachments: { root?: string; imageHostPath(ref: ImageAttachmentRef): string }
@@ -62,12 +64,14 @@ export interface GeneratedImageCleanupContext {
 }
 
 /** Delete only removed generated objects after a successful record edit. */
-export async function deleteRemovedGeneratedImages(ctx: GeneratedImageCleanupContext, candidates: Map<string, ImageAttachmentRef>, deletedSessionId?: string): Promise<void> {
+export async function deleteRemovedGeneratedImages(ctx: GeneratedImageCleanupContext, candidates: Map<string, ImageAttachmentRef>, deletedSessionId?: string | readonly string[]): Promise<void> {
   if (!candidates.size) return
   const retained = new Set<string>()
-  const live = ctx.sessions.list()
+  const deleted = new Set(typeof deletedSessionId === 'string' ? [deletedSessionId] : deletedSessionId)
+  const live = ctx.sessions.list().filter(session => !deleted.has(session.id))
   const liveIds = new Set(live.map(session => session.id))
   for (const stored of await ctx.sessionPersistence.list()) {
+    if (deleted.has(stored.header.id)) continue
     // The current writer's Session includes updates still being persisted.
     if (liveIds.has(stored.header.id)) continue
     const handle = await ctx.sessionPersistence.open(SessionId(stored.header.id), 'read')
@@ -76,7 +80,7 @@ export async function deleteRemovedGeneratedImages(ctx: GeneratedImageCleanupCon
   }
   for (const session of live) for (const id of referencedImageIds(session.snapshotEvents())) retained.add(id)
   for (const ref of ctx.eleckoiProductData.listInputImageReferences()) {
-    if (!deletedSessionId || ctx.eleckoiProductData.runtimeSessionId(ref.conversationId) !== deletedSessionId) retained.add(ref.attachmentId)
+    if (!deleted.has(ctx.eleckoiProductData.runtimeSessionId(ref.conversationId))) retained.add(ref.attachmentId)
   }
   if (!ctx.attachments.root) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '生成图片清理需要本地附件存储。', { what: '配置本地附件存储' })
   const root = resolve(ctx.attachments.root)

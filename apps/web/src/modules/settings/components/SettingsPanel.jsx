@@ -1,344 +1,64 @@
 import { useEffect, useState } from "react";
-import {
-  ArrowsOutLineVertical,
-  ChartBar,
-  ChatCenteredText,
-  ChatCircleDots,
-  Eye,
-  Info,
-  Palette,
-  SlidersHorizontal,
-  TextT,
-  UserCircle,
-} from "../../../ui/icons/interfaceIcons.jsx";
-import { DEFAULT_CHAT_TEXT_COLORS } from "@shared/contracts/settings/schemas";
-import { BotIcon, PaletteIcon, PencilIcon, ProfileIcon } from "../../../ui/icons/index.jsx";
+import { ChatText, Info, SlidersHorizontal, Swatches } from "../../../ui/icons/interfaceIcons.jsx";
+import { ProfileIcon } from "../../../ui/icons/index.jsx";
 import { avatarSetFromPersona, AvatarManagerEditor } from "../../../ui/ui/AvatarSlotsEditor.jsx";
-import { Avatar } from "../../../ui/ui/Avatar.jsx";
-import { TunerSliderRow } from "../../../ui/ui/TunerSliderRow.jsx";
-import { MessageBubble } from "../../../ui/messages/MessageBubble.jsx";
+import { ProfileSettingsView } from './ProfileSettingsView.jsx';
+import { ProfileAvatarDialog } from './ProfileAvatarDialog.jsx';
+import { ThemeSettings } from './ThemeSettings.jsx';
+import { ChatDisplaySettings } from "./ChatDisplaySettings.jsx";
+export { ChatDisplayPreview } from "./ChatDisplaySettings.jsx";
 import { AboutSettings } from "./AboutSettings.jsx";
-import { chatDisplaySettings, chatDisplayTuners, chatLayouts, avatarShapes, reasoningDisplayModes, textColorOptions, richMessageFloorTuner, richMessageLimitDescription } from "../model/chatDisplaySettings.js";
-import {
-  chatDisplayCssVariables,
-  chatTextColorCssVariables,
-  resolveChatAvatar,
-  resolveChatAvatarShape,
-  resolveChatDisplayProfile,
-} from "../../appearance/index.js";
 import { LOG_ACTIONS, runLoggedAction } from "../../../utils/logAction.js";
+import { useProfileAutosave } from '../model/useProfileAutosave.js';
 
 const pages = [
   { id: "profile", label: "用户资料", icon: ProfileIcon },
-  { id: "theme", label: "主题风格", icon: PaletteIcon },
-  { id: "chat", label: "聊天显示", icon: BotIcon },
+  { id: "theme", label: "主题风格", icon: Swatches },
+  { id: "chat", label: "聊天显示", icon: ChatText },
   { id: "about", label: "关于 ElecKoi", icon: Info },
 ];
 
-const appearanceModes = [
-  { id: "light", label: "浅色", description: "始终使用明亮界面" },
-  { id: "dark", label: "深色", description: "始终使用深色界面" },
-  { id: "system", label: "跟随系统", description: "随 Windows 外观自动切换" },
-];
-
-const sidebarArtworkModes = [
-  { id: "cover", label: "封面立绘" },
-  { id: "avatar", label: "头像" },
-];
-
-export function ChatDisplayPreview({ preferences, persona }) {
-  const { layout, profile } = resolveChatDisplayProfile(preferences);
-  const avatarShape = resolveChatAvatarShape(layout, profile.avatar_shape);
-  const style = {
-    ...chatDisplayCssVariables(layout, profile),
-    ...chatTextColorCssVariables(preferences.text_colors),
-  };
-  const userAvatar = resolveChatAvatar(persona, "user", avatarShape);
-  const assistantAvatar = resolveChatAvatar(persona, "assistant", avatarShape);
-  const previewTime = new Date().toISOString();
-
-  return (
-    <div className={`chat-display-preview${profile.assistant_bubble_enabled ? " assistant-bubble-enabled" : ""}`} style={style}>
-      <div className={`message-area layout-${layout}`}>
-        <MessageBubble
-          message={{ id: "preview-user", role: "user", content: "今晚从这里继续。", status: "complete", created_at: previewTime }}
-          avatar={userAvatar}
-          avatarShape={avatarShape}
-          name={persona?.user_name || "你"}
-          layoutMode={layout}
-          floorNumber={0}
-          showRoleplayTimestamp={preferences.roleplay_timestamps_enabled}
-          showRoleplayFloor={preferences.roleplay_message_floors_enabled}
-          spacingAfter={layout === "agent" ? profile.reply_spacing : profile.turn_spacing}
-        />
-        <MessageBubble
-          message={{ id: "preview-assistant", role: "assistant", content: "夜色在窗外缓缓流淌，远处的灯火像落在城市里的星海。\n\n我们从这里继续。", status: "complete", created_at: previewTime }}
-          avatar={assistantAvatar}
-          avatarShape={avatarShape}
-          name={persona?.assistant_name || "AI"}
-          layoutMode={layout}
-          floorNumber={1}
-          showRoleplayTimestamp={preferences.roleplay_timestamps_enabled}
-          showRoleplayFloor={preferences.roleplay_message_floors_enabled}
-          spacingAfter={0}
-        />
-      </div>
-      <div className="chat-display-preview-composer">输入消息</div>
-    </div>
-  );
-}
-
-function ChatDisplaySettings({
-  persona,
-  chatDisplay,
-  onChatDisplayChange,
-}) {
-  const { preferences, layout, profile, defaults, selectLayout, updateProfile, updatePreferences, resetProfile, updateTextColor } = chatDisplaySettings(chatDisplay, onChatDisplayChange);
-
-  const slider = (label, key) => (
-    <TunerSliderRow
-      label={label}
-      value={profile[key]}
-      min={chatDisplayTuners[key].min}
-      max={chatDisplayTuners[key].max}
-      step={chatDisplayTuners[key].step}
-      suffix={chatDisplayTuners[key].suffix ?? "px"}
-      defaultValue={defaults[key]}
-      onChange={(value) => updateProfile({ [key]: value })}
-    />
-  );
-
-  return (
-    <div className="chat-display-settings-page">
-      <div className="chat-display-controls">
-        <header className="app-settings-heading chat-display-heading">
-          <h1>聊天显示</h1>
-          <button type="button" className="chat-display-reset" onClick={resetProfile}>恢复当前布局</button>
-        </header>
-
-        <section className="chat-settings-group chat-display-section">
-          <div className="setting-row-copy setting-row-title"><ChatCenteredText /><strong>对话布局</strong></div>
-          <div className="layout-choice-grid" role="radiogroup" aria-label="对话布局">
-            {chatLayouts.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                role="radio"
-                disabled={item.disabled}
-                aria-checked={layout === item.id}
-                className={layout === item.id ? "active" : ""}
-                onClick={() => selectLayout(item.id)}
-              >
-                <span className={`layout-choice-preview ${item.id}`}><i /><b /><em /></span>
-                <strong>{item.label}</strong>
-                {item.disabled ? <small>开发中</small> : null}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <div className="chat-settings-inline-grid">
-          <section className="chat-settings-group reasoning-display-card">
-            <div className="setting-row-copy setting-row-title"><SlidersHorizontal /><strong>思维链显示</strong></div>
-            <div className="appearance-mode-control reasoning-display-control" role="radiogroup" aria-label="思维链显示">
-              {reasoningDisplayModes.map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={preferences.reasoning_display_mode === mode.id}
-                  className={preferences.reasoning_display_mode === mode.id ? "active" : ""}
-                  onClick={() => onChatDisplayChange({ ...preferences, reasoning_display_mode: mode.id })}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        <section className="chat-settings-group chat-compact-setting-card">
-          <div className="setting-row-copy setting-row-title"><ChartBar /><strong>生成统计</strong></div>
-          <div className="appearance-mode-control compact-setting-control" role="radiogroup" aria-label="生成统计">
-            <button
-              type="button"
-              role="radio"
-              aria-checked={preferences.generation_stats_enabled}
-              className={preferences.generation_stats_enabled ? "active" : ""}
-              onClick={() => onChatDisplayChange({ ...preferences, generation_stats_enabled: true })}
-            >显示</button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={!preferences.generation_stats_enabled}
-              className={!preferences.generation_stats_enabled ? "active" : ""}
-              onClick={() => onChatDisplayChange({ ...preferences, generation_stats_enabled: false })}
-            >隐藏</button>
-          </div>
-        </section>
-
-        {layout === "roleplay" ? <section className="chat-settings-group chat-display-section">
-          <div className="setting-row-copy setting-row-title"><ChatCircleDots /><strong>消息信息</strong></div>
-          <div className="chat-roleplay-message-options">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={preferences.roleplay_timestamps_enabled}
-              className={`chat-setting-toggle${preferences.roleplay_timestamps_enabled ? " active" : ""}`}
-              onClick={() => onChatDisplayChange({ ...preferences, roleplay_timestamps_enabled: !preferences.roleplay_timestamps_enabled })}
-            ><span>聊天时间戳</span><i /></button>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={preferences.roleplay_message_floors_enabled}
-              className={`chat-setting-toggle${preferences.roleplay_message_floors_enabled ? " active" : ""}`}
-              onClick={() => onChatDisplayChange({ ...preferences, roleplay_message_floors_enabled: !preferences.roleplay_message_floors_enabled })}
-            ><span>显示消息楼层</span><i /></button>
-          </div>
-        </section> : null}
-
-        <section className="chat-settings-group chat-display-section">
-          <div className="setting-row-copy setting-row-title"><ChatCircleDots /><strong>富消息</strong></div>
-          <button type="button" role="switch" aria-checked={preferences.rich_message_limit_enabled}
-            className={`chat-setting-toggle${preferences.rich_message_limit_enabled ? " active" : ""}`}
-            onClick={() => updatePreferences({ rich_message_limit_enabled: !preferences.rich_message_limit_enabled })}>
-            <span>限制富消息运行楼层</span><i aria-hidden="true" />
-          </button>
-          {preferences.rich_message_limit_enabled && <div className="chat-display-tuners">
-            <TunerSliderRow {...richMessageFloorTuner} value={preferences.rich_message_floor_limit}
-              onChange={value => updatePreferences({ rich_message_floor_limit: Math.round(value) })} />
-          </div>}
-          <p className="chat-rich-message-note">{richMessageLimitDescription}</p>
-        </section>
-
-        <section className="chat-settings-group chat-display-section chat-text-colors-section">
-          <div className="setting-row-copy setting-row-title">
-            <Palette />
-            <strong>文本颜色</strong>
-            <button
-              type="button"
-              className="chat-text-colors-reset"
-              onClick={() => onChatDisplayChange({ ...preferences, text_colors: { ...DEFAULT_CHAT_TEXT_COLORS } })}
-            >恢复默认</button>
-          </div>
-          <div className="chat-text-color-grid">
-            {textColorOptions.map((option) => {
-              const value = preferences.text_colors?.[option.key] || DEFAULT_CHAT_TEXT_COLORS[option.key];
-              return (
-                <label key={option.key} className="chat-text-color-field">
-                  <input
-                    type="color"
-                    value={value}
-                    onChange={(event) => updateTextColor(option.key, event.target.value)}
-                    aria-label={option.label}
-                  />
-                  <span>{option.label}</span>
-                  <code>{value.toUpperCase()}</code>
-                </label>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="chat-settings-group chat-display-section">
-          <div className="setting-row-copy setting-row-title"><UserCircle /><strong>{layout === "social" ? "头像与气泡" : "头像与名字"}</strong></div>
-          <div className="chat-avatar-shape-control" role="radiogroup" aria-label="头像形状">
-            {avatarShapes.map((shape) => {
-              const disabled = shape.id === "portrait" && layout !== "roleplay";
-              return (
-                <button
-                  key={shape.id}
-                  type="button"
-                  role="radio"
-                  disabled={disabled}
-                  aria-checked={profile.avatar_shape === shape.id}
-                  className={profile.avatar_shape === shape.id ? "active" : ""}
-                  onClick={() => updateProfile({ avatar_shape: shape.id })}
-                >
-                  <i className={`chat-avatar-shape-sample ${shape.id}`} />
-                  {shape.label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="chat-display-tuners">
-            {slider("头像大小", "avatar_size")}
-            {layout !== "social" ? slider("名字大小", "name_font_size") : null}
-            {slider(layout === "social" ? "头像与气泡间距" : "头像与名字间距", "name_avatar_spacing")}
-          </div>
-        </section>
-
-        <section className="chat-settings-group chat-display-section">
-          <div className="setting-row-copy setting-row-title"><TextT /><strong>正文文字</strong></div>
-          <div className="chat-display-tuners">
-            {slider("字号", "message_font_size")}
-            {slider("字重", "message_font_weight")}
-            {slider("行距", "line_height_multiplier")}
-            {slider("字距", "letter_spacing")}
-            {slider("段距", "paragraph_spacing")}
-          </div>
-        </section>
-
-        <section className="chat-settings-group chat-display-section">
-          <div className="setting-row-copy setting-row-title"><ArrowsOutLineVertical /><strong>间距与留白</strong></div>
-          <div className="chat-display-tuners">
-            {layout !== "social" ? slider("回复间距", "reply_spacing") : null}
-            {slider(layout === "agent" ? "轮次间距" : "消息间距", "turn_spacing")}
-          </div>
-        </section>
-
-        {layout !== "roleplay" ? (
-          <section className="chat-settings-group chat-display-section">
-            <div className="setting-row-copy setting-row-title"><ChatCircleDots /><strong>气泡样式</strong></div>
-            {layout === "agent" ? (
-              <button
-                type="button"
-                role="switch"
-                aria-checked={profile.assistant_bubble_enabled}
-                className={`chat-setting-toggle${profile.assistant_bubble_enabled ? " active" : ""}`}
-                onClick={() => updateProfile({ assistant_bubble_enabled: !profile.assistant_bubble_enabled })}
-              >
-                <span>角色气泡</span><i />
-              </button>
-            ) : null}
-            <div className="chat-display-tuners">
-              {slider("圆角", "bubble_corner_radius")}
-            </div>
-          </section>
-        ) : null}
-      </div>
-
-      <aside className="chat-display-preview-column" aria-label="实时预览">
-        <header><strong><Eye />实时预览</strong><span>{chatLayouts.find((item) => item.id === layout)?.label}</span></header>
-        <ChatDisplayPreview preferences={preferences} persona={persona} />
-      </aside>
-    </div>
-  );
-}
-
-export function UserProfileSettings({ persona, onUpdateUserProfile, renderUserProfileEditor, renderProfile, renderAvatarManager }) {
+export function UserProfileSettings({ persona, onUpdateUserProfile, renderUserProfileEditor, renderProfile, renderAvatarManager, autoSave = false }) {
   const displayName = persona?.user_name || "你";
   const [name, setName] = useState(displayName);
   const [avatars, setAvatars] = useState(() => avatarSetFromPersona(persona, "user"));
-  const [editingAvatars, setEditingAvatars] = useState(false);
+  const [editingAvatars, setEditingAvatars] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const savedAvatars = avatarSetFromPersona(persona, "user");
   const dirty = name !== displayName || Object.keys(savedAvatars).some(kind => avatars[kind] !== savedAvatars[kind]);
+  const autosave = useProfileAutosave({ enabled: autoSave, profile: { name, avatars },
+    persist: persistProfile,
+    onSaved: saved => {
+      setName(saved.user_name || '你');
+      setAvatars(avatarSetFromPersona(saved, 'user'));
+      setMessage('');
+    },
+    onError: error => setMessage(error?.message || '保存失败，请稍后再试。'),
+  });
 
   useEffect(() => {
+    if (autoSave && autosave.hasPendingChanges()) return;
     setName(persona?.user_name || "你");
     setAvatars(avatarSetFromPersona(persona, "user"));
-  }, [persona?.user_avatar, persona?.user_name, persona?.user_portrait, persona?.user_square]);
+  }, [persona?.user_avatar, persona?.user_name, persona?.user_portrait, persona?.user_square, autoSave, autosave.hasPendingChanges]);
+
+  function persistProfile(candidate) {
+    const nextName = candidate.name?.trim() || '你';
+    const nextAvatars = candidate.avatars || avatars;
+    return runLoggedAction(LOG_ACTIONS.settingsSave, () => onUpdateUserProfile({ name: nextName, avatars: nextAvatars }));
+  }
 
   async function commitProfile(candidate = { name, avatars }) {
+    if (autoSave) {
+      setMessage('');
+      autosave.stage(candidate, { delay: 0 });
+      return autosave.flush();
+    }
     setSaving(true);
     setMessage("");
     try {
-      const nextName = candidate.name?.trim() || "你";
-      const nextAvatars = candidate.avatars || avatars;
-      // 关键路径日志：设置页「保存」。保存失败以前只在页面上留一句话，日志里查不到。
-      const saved = await runLoggedAction(LOG_ACTIONS.settingsSave, () => onUpdateUserProfile({ name: nextName, avatars: nextAvatars }));
+      const saved = await persistProfile(candidate);
       setName(saved.user_name || "你");
       setAvatars(avatarSetFromPersona(saved, "user"));
       setMessage("已保存");
@@ -359,46 +79,27 @@ export function UserProfileSettings({ persona, onUpdateUserProfile, renderUserPr
   function changeAvatars(nextAvatars) {
     setMessage("");
     setAvatars(nextAvatars);
+    autosave.stage({ avatars: nextAvatars }, { delay: 0 });
   }
 
-  if (editingAvatars) {
+  if (editingAvatars && renderAvatarManager) {
     const editor = (
       <AvatarManagerEditor
         value={avatars}
         name={name || displayName}
         saving={saving}
-        onBack={() => setEditingAvatars(false)}
+        onBack={() => setEditingAvatars(null)}
         onChange={changeAvatars}
       />
     );
-    return renderAvatarManager?.({ onBack: () => setEditingAvatars(false), saving }, editor) ?? editor;
+    return renderAvatarManager({ onBack: () => setEditingAvatars(null), saving }, editor);
   }
 
   const fallback = (
-    <form className="profile-settings-page" onSubmit={saveProfile}>
-      <header className="app-settings-heading">
-        <h1>用户资料</h1>
-      </header>
-      <div className="profile-settings-body">
-        <div className="profile-settings-avatar-control">
-          <button className="profile-settings-avatar-button" type="button" title="管理头像" onClick={() => setEditingAvatars(true)}>
-            <Avatar src={avatars.circle} name={name || displayName} />
-            <span><PencilIcon /></span>
-          </button>
-          <button className="settings-secondary-button" type="button" onClick={() => setEditingAvatars(true)}>管理头像</button>
-        </div>
-        <div className="profile-settings-fields">
-          <label className="profile-settings-name">
-            <span>名字</span>
-            <input value={name} onChange={(event) => setName(event.target.value)} />
-          </label>
-          <div className="profile-settings-actions">
-            {message ? <span className={message === "已保存" ? "success" : "error"}>{message}</span> : null}
-            <button className="settings-primary-button" type="submit" disabled={saving}>{saving ? "正在保存" : "保存"}</button>
-          </div>
-        </div>
-      </div>
-    </form>
+    <ProfileSettingsView name={name} avatars={avatars} saving={autoSave ? autosave.saving : saving} message={message}
+      onSave={saveProfile} onManageAvatars={setEditingAvatars}
+      onRetry={() => autosave.flush()} onNameBlur={() => autoSave && autosave.flush()}
+      onNameChange={(next, composing = false) => { setName(next); setMessage(''); autosave.stage({ name: next }, { composing }); }} />
   );
   const owner = {
     persona,
@@ -410,12 +111,17 @@ export function UserProfileSettings({ persona, onUpdateUserProfile, renderUserPr
       setMessage("");
       if (Object.hasOwn(patch, "name")) setName(patch.name ?? "");
       if (patch.avatars) setAvatars(patch.avatars);
+      autosave.stage(patch);
     },
     onSave: commitProfile,
-    onManageAvatars: () => setEditingAvatars(true),
+    onManageAvatars: () => setEditingAvatars('circle'),
   };
   const presentation = renderProfile?.(owner) ?? fallback;
-  return renderUserProfileEditor?.(owner, presentation) ?? presentation;
+  return <>{renderUserProfileEditor?.(owner, presentation) ?? presentation}
+    {editingAvatars && <ProfileAvatarDialog avatars={avatars} name={name || displayName} saving={saving}
+      saveError={autoSave ? message : ''} onRetry={() => autosave.flush()}
+      initialSlot={editingAvatars} onChange={changeAvatars} onClose={() => setEditingAvatars(null)} />}
+  </>;
 }
 
 export function SettingsPanel({
@@ -465,7 +171,7 @@ export function SettingsPanel({
   const mainPanel = (
     <section className="app-settings-content">
       {page === "profile" ? (
-        <UserProfileSettings persona={persona} onUpdateUserProfile={onUpdateUserProfile} renderUserProfileEditor={renderUserProfileEditor} />
+        <UserProfileSettings autoSave persona={persona} onUpdateUserProfile={onUpdateUserProfile} renderUserProfileEditor={renderUserProfileEditor} />
       ) : page === "chat" ? (
         <ChatDisplaySettings
           persona={persona}
@@ -479,57 +185,8 @@ export function SettingsPanel({
           {renderSettingsSection?.(requestedPluginSection, onClosePluginSection)}
         </div>
       ) : page === "theme" ? (
-        <>
-          <header className="app-settings-heading">
-            <h1>主题风格</h1>
-          </header>
-          <div className="app-settings-card appearance-mode-card">
-            <div className="setting-row-copy">
-              <strong>外观模式</strong>
-            </div>
-            <div className="appearance-mode-control" role="radiogroup" aria-label="外观模式">
-              {appearanceModes.map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={appearanceMode === mode.id}
-                  className={appearanceMode === mode.id ? "active" : ""}
-                  title={mode.description}
-                  onClick={() => onAppearanceModeChange(mode.id)}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="app-settings-card sidebar-artwork-card">
-            <div className="setting-row-copy">
-              <strong>侧栏角色图</strong>
-            </div>
-            <div className="appearance-mode-control sidebar-artwork-control" role="radiogroup" aria-label="侧栏角色图">
-              {sidebarArtworkModes.map((mode) => (
-                <button
-                  key={mode.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={sidebarCharacterArtwork === mode.id}
-                  className={sidebarCharacterArtwork === mode.id ? "active" : ""}
-                  onClick={() => onSidebarCharacterArtworkChange(mode.id)}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="app-settings-card theme-setting-card">
-            <div className="theme-setting-icon"><PaletteIcon /></div>
-            <div className="setting-row-copy">
-              <strong>超级调色盘</strong>
-            </div>
-            <button className="settings-secondary-button" type="button" disabled title="超级调色盘正在开发中">开发中</button>
-          </div>
-        </>
+        <ThemeSettings persona={persona} appearanceMode={appearanceMode} onAppearanceModeChange={onAppearanceModeChange}
+          sidebarCharacterArtwork={sidebarCharacterArtwork} onSidebarCharacterArtworkChange={onSidebarCharacterArtworkChange} />
       ) : null}
     </section>
   );

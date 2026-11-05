@@ -250,8 +250,8 @@ export function readDshSessionLog(
   }
 }
 
-/** Removes one stored Session and every persisted subagent descended from it. */
-export function removeDshSessionTree(sessionLogRoot: string, runtimeThreadId: string): string[] {
+/** Resolve the complete stored tree before any cleanup removes its ownership records. */
+export function readDshSessionTreeIds(sessionLogRoot: string, runtimeThreadId: string): string[] {
   if (!runtimeThreadId) return []
   if (!existsSync(sessionLogRoot)) return [runtimeThreadId]
   const root = realpathSync(sessionLogRoot)
@@ -266,7 +266,16 @@ export function removeDshSessionTree(sessionLogRoot: string, runtimeThreadId: st
       changed = true
     }
   }
-  for (const item of stored) {
+  return [...discarded]
+}
+
+/** Removes one stored Session and every persisted child descended from it. */
+export function removeDshSessionTree(sessionLogRoot: string, runtimeThreadId: string): string[] {
+  const discarded = new Set(readDshSessionTreeIds(sessionLogRoot, runtimeThreadId))
+  if (!existsSync(sessionLogRoot)) return [...discarded]
+  const stored = storedSessionDirectories(realpathSync(sessionLogRoot))
+  // Leave the root available for retry until every child has been removed.
+  for (const item of [...stored.filter(item => item.id !== runtimeThreadId), ...stored.filter(item => item.id === runtimeThreadId)]) {
     if (!discarded.has(item.id)) continue
     rmSync(item.directory, { recursive: true, force: true })
     sessionLogCache.delete(`${sessionLogRoot}\u0000${item.id}`)

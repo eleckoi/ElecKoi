@@ -8,15 +8,36 @@ export function apply(ctx) {
   return undefined
 }
 
-export function applyDisabledPolicy(agentCtx, disabledGroupIds = []) {
+export function applyDisabledPolicy(agentCtx, disabledGroupIds = [], registryTools) {
   activeRestrictions.get(agentCtx)?.()
   activeRestrictions.delete(agentCtx)
   const disabled = new Set(disabledGroupIds)
   if (disabled.size === 0) return
-  const deniedNames = agentCtx.tools.schemas()
+  const initialNames = agentCtx.tools.schemas()
     .filter((declaration) => !isEssential(declaration) && disabled.has(classify(declaration)))
     .map((declaration) => declaration.name)
-  if (deniedNames.length > 0) activeRestrictions.set(agentCtx, agentCtx.tools.restrict({ deny: deniedNames }))
+  const globalNames = new Set(registryTools?.schemas().map(declaration => declaration.name) ?? initialNames)
+  const scopedNames = initialNames.filter(toolName => !globalNames.has(toolName))
+  const releaseScoped = scopedNames.length ? agentCtx.tools.restrict({ deny: scopedNames }) : undefined
+  let release, currentKey = '', updating = false
+  const refresh = () => {
+    if (updating) return
+    const declarations = registryTools?.schemas()
+    const names = declarations ? declarations
+      .filter(declaration => !isEssential(declaration) && disabled.has(classify(declaration)))
+      .map(declaration => declaration.name) : initialNames
+    const key = JSON.stringify([...names].sort())
+    if (key === currentKey) return
+    currentKey = key
+    updating = true
+    try {
+      release?.()
+      release = names.length ? agentCtx.tools.restrict({ deny: names }) : undefined
+    } finally { updating = false }
+  }
+  refresh()
+  const stop = registryTools ? agentCtx.on('tools/change', refresh) : undefined
+  activeRestrictions.set(agentCtx, () => { stop?.(); release?.(); releaseScoped?.() })
 }
 
 export function filterDeclarations(tools, disabledGroupIds) {
@@ -46,12 +67,34 @@ export function classify(declaration) {
   if (MCP_RESOURCE_TOOLS.has(toolName)) return 'builtin:mcp-resources'
   if (PLUGIN_DISCOVERY_TOOLS.has(toolName)) return 'builtin:plugin-discovery'
   if (COLLABORATION_TOOLS.has(toolName)) return 'builtin:collaboration'
-  return undefined
+  return toolName ? `plugin-tool:${toolName}` : undefined
+}
+
+/** Registry metadata is runtime-only; the preset stores portable tool references. */
+export function withPluginTools(preset, declarations, plugins = new Map()) {
+  const referencedNames = new Set(preset.toolGroups.filter(group => group.included).flatMap(group => group.members.map(member => member.name)))
+  const registered = new Map(declarations
+    .filter(declaration => !isEssential(declaration) && classify(declaration)?.startsWith('plugin-tool:'))
+    .map(declaration => [classify(declaration), declaration]))
+  const groups = preset.toolGroups.map(group => {
+    if (!group.id.startsWith('plugin-tool:')) return group
+    const plugin = plugins.get(group.members[0]?.name)
+    return { ...group, available: registered.has(group.id), ...(plugin ? { plugin } : {}) }
+  })
+  const extraToolGroups = []
+  for (const [id, declaration] of registered) if (!referencedNames.has(declaration.name)) extraToolGroups.push({
+    id, name: declaration.name, description: declaration.description || '', source: 'extension',
+    members: [{ name: declaration.name, description: declaration.description || '' }],
+    included: false, enabled: true, available: true,
+    ...(plugins.has(declaration.name) ? { plugin: plugins.get(declaration.name) } : {})
+  })
+  return { ...preset, toolGroups: groups, extraToolGroups }
 }
 
 function isEssential(declaration) {
   const toolName = declarationName(declaration)
   return toolName === 'eleckoi_capability_probe'
+    || toolName === 'run_code'
     || toolName === 'eleckoi_read_uploaded_file'
     || toolName.startsWith('eleckoi_internal_')
 }

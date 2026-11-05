@@ -26,7 +26,7 @@ function loadIsolatedInstallation({ omitBase = false } = {}) {
   const root = { ...hostManifest, dependencies: { ...hostManifest.dependencies } }
   if (omitBase) delete root.dependencies[bundles[0]]
   writeFileSync(join(directory, 'package.json'), JSON.stringify(root))
-  const record = (name, suffix) => ({ name, version: '0.2.1-rc.3', directory: `node_modules/.eleckoi-packages/${suffix}`, dependencies: [] })
+  const record = (name, suffix) => ({ name, version: '0.2.1-rc.5', directory: `node_modules/.eleckoi-packages/${suffix}`, dependencies: [] })
   const ownedBase = record(bundles[0], 'base-owned')
   const otherBase = record(bundles[0], 'base-other-peer-context')
   const web = record(bundles[1], 'web-owned')

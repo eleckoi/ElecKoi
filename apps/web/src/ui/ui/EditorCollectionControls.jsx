@@ -1,30 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Menu, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Input, Menu, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { Copy, ListChecks, MagnifyingGlass, NotePencil, Plus, SlidersHorizontal, Trash } from '../icons/interfaceIcons.jsx';
 import { useEditorPresentation } from './EditorPresentationContext.jsx';
 import './editor-collection-controls.css';
 import './editor-collection-material.css';
+import '../styles/dsh-editor-controls.css';
 
 export function EditorCollectionSurface({ children, grouped = false }) {
   return <div className={`editor-collection-surface${grouped ? ' is-grouped' : ''}`}>{children}</div>;
 }
 
-export function EditorCollectionToolbar({ query, onQueryChange, placeholder, createItems = [], onManage,
-  selection, disabled = false, beforeSave, save, children }) {
+export function EditorCollectionToolbar({ query, onQueryChange, placeholder, createItems = [], onManage, manageLabel = '管理',
+  selection, disabled = false, beforeSave, save, children, className = '' }) {
   const [createOpen, setCreateOpen] = useState(false);
   const { compact } = useEditorPresentation();
   const items = createItems.map((item, index) => ({ ...item, id: item.id ?? String(index), icon: item.Icon ? <item.Icon size={16} /> : undefined }));
-  return <header className="editor-collection-toolbar" onMouseDown={event => event.stopPropagation()}>
-    <label className="editor-collection-search"><MagnifyingGlass size={16} aria-hidden="true" />
-      <input value={query} onChange={event => onQueryChange(event.target.value)} placeholder={placeholder} aria-label={placeholder} />
-    </label>
+  return <header className={`editor-collection-toolbar ${className}`} onMouseDown={event => event.stopPropagation()}>
+    <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
+      value={query} onChange={event => onQueryChange(event.target.value)} placeholder={placeholder} aria-label={placeholder} />
     <div className="editor-collection-actions">
-      {!compact && <Menu open={createOpen} portal dense anchor={<Button className="editor-collection-action" variant="outline" icon={<Plus size={16} />} disabled={disabled || selection?.active}
+      {!compact && items.length > 0 && <Menu open={createOpen} portal dense anchor={<Button data-dsh-control className="editor-collection-action" variant="primary" icon={<Plus size={16} />} disabled={disabled || selection?.active}
         aria-label="新建" aria-haspopup="menu" aria-expanded={createOpen} onClick={() => setCreateOpen(value => !value)}>新建</Button>}
         items={items} onClose={() => setCreateOpen(false)} onSelect={id => { setCreateOpen(false); items.find(item => item.id === id)?.run?.(); }} />}
-      {selection && <Button className="editor-collection-action" variant="outline" icon={<ListChecks size={16} />} disabled={disabled}
+      {selection && <Button data-dsh-control className="editor-collection-action" variant="outline" icon={<ListChecks size={16} />} disabled={disabled}
         aria-label={selection.active ? '完成' : '多选'} aria-pressed={selection.active} onClick={selection.toggle}>{selection.active ? '完成' : '多选'}</Button>}
-      {onManage && <Button className="editor-collection-action" variant="outline" icon={<SlidersHorizontal size={16} />} aria-label="管理" disabled={disabled || selection?.active} onClick={onManage}>管理</Button>}
+      {onManage && <Button data-dsh-control className="editor-collection-action" variant="outline" icon={<SlidersHorizontal size={16} />} aria-label={manageLabel} aria-haspopup="dialog" disabled={disabled || selection?.active} onClick={onManage}>{manageLabel}</Button>}
       {beforeSave}
       {save}
       {children}
@@ -61,8 +61,8 @@ export function EditorSelectionBar({ selection, visibleIds, disabled, onCopy, on
     <label><input ref={allRef} type="checkbox" checked={visibleIds.length > 0 && count === visibleIds.length} disabled={disabled || !visibleIds.length}
       onChange={event => { const next = new Set(selection.selected); visibleIds.forEach(id => event.target.checked ? next.add(id) : next.delete(id)); selection.set(next); }} />全选</label>
     <span role="status">已选 {selection.selected.size} 项</span>
-    <div><Button variant="outline" icon={<Copy size={16} />} disabled={disabled || !selection.selected.size} onClick={onCopy}>复制</Button>
-      {children}<Button variant="outline" className="is-danger" icon={<Trash size={16} />} disabled={disabled || !selection.selected.size} onClick={onDelete}>删除</Button></div>
+    <div><Button data-dsh-control variant="outline" icon={<Copy size={16} />} disabled={disabled || !selection.selected.size} onClick={onCopy}>复制</Button>
+      {children}<Button data-dsh-control variant="outline" className="is-danger" icon={<Trash size={16} />} disabled={disabled || !selection.selected.size} onClick={onDelete}>删除</Button></div>
   </div>;
 }
 
@@ -72,7 +72,7 @@ export function EditorManagementModal({ title, onClose, children, footer, classN
 }
 
 export function EditorManagementAction({ label, Icon, danger, disabled, onClick }) {
-  return <Button variant="ghost" className={`editor-management-action${danger ? ' is-danger' : ''}`}
+  return <Button data-dsh-control variant="ghost" className={`editor-management-action${danger ? ' is-danger' : ''}`}
     icon={Icon ? <Icon size={18} /> : undefined} disabled={disabled} onClick={onClick}>{label}</Button>;
 }
 

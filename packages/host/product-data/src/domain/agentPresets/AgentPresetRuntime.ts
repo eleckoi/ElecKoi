@@ -34,7 +34,7 @@ export function projectAgentPresetRuntimeContext(
 }
 
 export function disabledAgentPresetToolGroupIds(preset: AgentPreset): string[] {
-  const disabled = preset.toolGroups.filter((group) => !group.enabled).map((group) => group.id)
+  const disabled = preset.toolGroups.filter((group) => !group.enabled || (group.source === 'extension' && !group.included)).map((group) => group.id)
   return [...new Set(disabled)]
 }
 
@@ -45,6 +45,7 @@ export function projectAgentPresetRuntimeSelection(preset: AgentPreset): {
   roleplayPlan: AgentPreset['roleplayPlan']
   subagentModelSelection?: AgentPreset['subagentModelSelection']
   toolModelConfigIds?: AgentPreset['toolModelConfigIds']
+  autoIllustration?: AgentPreset['autoIllustration']
   historyCompactionInstructions?: string
 } {
   const revision = createHash('sha256').update(JSON.stringify({
@@ -56,6 +57,7 @@ export function projectAgentPresetRuntimeSelection(preset: AgentPreset): {
     toolGroups: preset.toolGroups,
     subagentModelSelection: preset.subagentModelSelection,
     toolModelConfigIds: preset.toolModelConfigIds,
+    autoIllustration: preset.autoIllustration,
     roleplayPlan: preset.roleplayPlan,
     regexRules: preset.regexRules
   })).digest('hex').slice(0, 12)
@@ -67,6 +69,7 @@ export function projectAgentPresetRuntimeSelection(preset: AgentPreset): {
     roleplayPlan: preset.roleplayPlan,
     ...(preset.subagentModelSelection ? { subagentModelSelection: preset.subagentModelSelection } : {}),
     ...(preset.toolModelConfigIds ? { toolModelConfigIds: preset.toolModelConfigIds } : {}),
+    ...(preset.autoIllustration ? { autoIllustration: preset.autoIllustration } : {}),
     ...(historyCompactionInstructions ? { historyCompactionInstructions } : {})
   }
 }

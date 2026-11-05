@@ -1,16 +1,17 @@
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CaretRight, MagnifyingGlass, MinusCircle, Plus, X } from '../../../ui/icons/interfaceIcons.jsx';
+import { CaretRight, MinusCircle, X } from '../../../ui/icons/interfaceIcons.jsx';
 import { normalizeRoleplayPlanDraft } from '@shared/contracts/presets/roleplayPlan';
 import { AgentToolGroupIcon } from '../../../ui/icons/index.jsx';
-import { AutoIllustrationSettings, RoleplayPlanEditor, SubagentSettingsLink, WebSearchSettings } from '../../agentTools/index.js';
+import { RoleplayPlanEditor, SubagentSettingsLink, WebSearchSettings, pluginToolSections } from '../../agentTools/index.js';
 import { PresetContextMenu, usePresetContextMenu } from './PresetContextMenu.jsx';
 import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
 import { MobileConversationOverlay } from '../../../mobile/MobileConversationOverlay.jsx';
+import { PresetPluginToolsDialog } from './PresetPluginToolsDialog.jsx';
+import { PresetToolManagerDialog } from './PresetToolManagerDialog.jsx';
+import { EditorCollectionToolbar } from '../../../ui/ui/EditorCollectionControls.jsx';
 import '../../../mobile/mobile-preset-editor.css';
-
-const TOOL_SOURCES = [{ id: 'built_in', label: '预设自带' }, { id: 'mcp', label: 'MCP' }, { id: 'extension', label: '扩展' }];
 
 export function PresetToolsEditor({
   preset,
@@ -23,14 +24,25 @@ export function PresetToolsEditor({
   const { compact } = useEditorPresentation();
   const [query, setQuery] = useState('');
   const [configGroupId, setConfigGroupId] = useState('');
-  const [addOpen, setAddOpen] = useState(false);
+  const [pluginId, setPluginId] = useState('');
+  const [managerOpen, setManagerOpen] = useState(false);
   const context = usePresetContextMenu();
   const selectedGroups = useMemo(() => preset.toolGroups.filter((group) => group.included), [preset.toolGroups]);
-  const availableGroups = useMemo(() => preset.toolGroups.filter((group) => !group.included), [preset.toolGroups]);
-  const visibleGroups = useMemo(() => {
+  const extraGroups = useMemo(() => {
+    const names = new Set(selectedGroups.flatMap(group => group.members.map(member => member.name)));
+    return (preset.extraToolGroups || []).filter(group => !group.members.some(member => names.has(member.name)));
+  }, [preset.extraToolGroups, selectedGroups]);
+  const sections = useMemo(() => pluginToolSections(preset.toolGroups, extraGroups), [preset.toolGroups, extraGroups]);
+  const plugin = [...sections.preset, ...sections.extra].find(group => group.id === pluginId && group.isPlugin);
+  const toolSources = [
+    { id: 'built_in', name: '内置工具', tools: preset.toolGroups.filter(group => group.source === 'built_in') },
+    ...preset.toolGroups.filter(group => group.source === 'mcp').map(group => ({ id: group.id, name: group.name, tools: [group] })),
+    ...[...sections.preset, ...sections.extra].filter(group => group.isPlugin),
+  ].filter(source => source.tools.length);
+  const matches = group => {
     const key = query.trim().toLocaleLowerCase();
-    return selectedGroups.filter((group) => !key || `${group.name} ${group.description} ${group.members.map((member) => member.name).join(' ')}`.toLocaleLowerCase().includes(key));
-  }, [query, selectedGroups]);
+    return !key || `${group.name} ${group.description} ${group.members.map(member => member.name).join(' ')} ${group.tools?.map(tool => `${tool.name} ${tool.description}`).join(' ') || ''}`.toLocaleLowerCase().includes(key);
+  };
 
   function updateGroup(groupId, patch) {
     onChange({
@@ -39,14 +51,36 @@ export function PresetToolsEditor({
     });
   }
 
-  function addGroup(groupId) {
-    updateGroup(groupId, { included: true, enabled: true });
-    setAddOpen(false);
-    setQuery('');
+  function applyMembership(changes) {
+    const edits = new Map(changes.map(change => [change.tool.id, change]));
+    const currentGroups = new Map(preset.toolGroups.map(group => [group.id, group]));
+    const groups = preset.toolGroups.flatMap(group => {
+      const change = edits.get(group.id);
+      if (!change) return [group];
+      if (change.included) return [{ ...group, included: true, enabled: change.tool.enabled }];
+      return group.source === 'extension' ? [] : [{ ...group, included: false, enabled: false }];
+    });
+    const ids = new Set(groups.map(group => group.id));
+    const extras = new Map(extraGroups.map(group => [group.id, group]));
+    for (const { tool, included } of changes) {
+      if (included) {
+        if (!ids.has(tool.id)) { groups.push({ ...tool, included: true }); ids.add(tool.id); }
+        extras.delete(tool.id);
+      } else if (tool.source === 'extension') {
+        const current = currentGroups.get(tool.id) || tool;
+        if (current.available === true) extras.set(tool.id, { ...current, included: false, enabled: true });
+      }
+    }
+    onChange({ ...preset, toolGroups: groups, extraToolGroups: [...extras.values()] });
   }
 
   const menuGroup = context.menu?.target;
-  const configGroup = selectedGroups.find((group) => group.id === configGroupId);
+  const configGroup = selectedGroups.find((group) => group.id === configGroupId) || extraGroups.find(group => group.id === configGroupId);
+  const configIsExtra = extraGroups.some(group => group.id === configGroupId);
+
+  function removeGroup(group) {
+    applyMembership([{ tool: group, included: false }]);
+  }
 
   function closeConfig() {
     if (configGroupId === 'builtin:roleplay-workflow') {
@@ -59,67 +93,56 @@ export function PresetToolsEditor({
   }
 
   return (
-    <section className="preset-tools-editor" aria-label="工具" onMouseDown={() => setAddOpen(false)}>
-      <div className={`preset-subtoolbar preset-tools-toolbar${compact ? ' editor-collection-toolbar' : ''}`} onMouseDown={(event) => event.stopPropagation()}>
-        <label className={compact ? 'editor-collection-search' : undefined}>
-          <MagnifyingGlass size={15} aria-hidden="true" />
-          <input value={query} placeholder="搜索工具" aria-label="搜索工具" onChange={(event) => setQuery(event.target.value)} />
-        </label>
-        <div className="preset-tools-add-wrap">
-          <button type="button" className={`preset-tools-add-button${compact ? ' editor-collection-action' : ''}`} aria-expanded={addOpen} onClick={() => setAddOpen((value) => !value)}>
-            <Plus size={16} aria-hidden="true" />添加
-          </button>
-          {addOpen ? <div className="preset-tools-add-popover" role="menu" aria-label="添加工具组">
-            {availableGroups.map((group) => <button type="button" role="menuitem" key={group.id} onClick={() => addGroup(group.id)}>
-              <span className="preset-tool-icon"><AgentToolGroupIcon groupId={group.id} size={16} /></span>
-              <span><strong>{group.name}</strong><small>{group.members.length} 个工具</small></span>
-              <Plus size={15} aria-hidden="true" />
-            </button>)}
-            {!availableGroups.length ? <p>没有可添加的工具组</p> : null}
-          </div> : null}
-        </div>
-        {saveAction}
-      </div>
+    <section className="preset-tools-editor" aria-label="工具">
+      <EditorCollectionToolbar className="preset-tools-toolbar" query={query} onQueryChange={setQuery} placeholder="搜索工具"
+        onManage={() => { setPluginId(''); setManagerOpen(true); }} manageLabel="管理预设工具" disabled={savePromptOpen} save={saveAction} />
 
-      <div className="preset-tools-list" tabIndex={0} aria-label="当前预设工具列表" onContextMenu={(event) => { setAddOpen(false); context.open(event); }}>
-        {(compact ? TOOL_SOURCES : [{ id: 'all', label: '预设自带' }]).map(source => {
-          const groups = compact ? visibleGroups.filter(group => group.source === source.id) : visibleGroups;
-          return groups.length ? <div className="preset-tools-source" key={source.id}>
-            <div className="preset-tools-section-heading"><strong>{source.label}</strong></div>
-            {groups.map((group) => <section className={`preset-tool-row${group.enabled ? '' : ' is-disabled'}`} key={group.id} onContextMenu={(event) => { setAddOpen(false); context.open(event, group); }}>
-              <button type="button" className="preset-tool-summary" aria-haspopup="dialog" onClick={() => setConfigGroupId(group.id)}>
+      <div className="preset-tools-list" tabIndex={0} aria-label="当前预设工具列表" onContextMenu={(event) => { setManagerOpen(false); context.open(event); }}>
+        {[{ id: 'preset', label: '预设工具', groups: sections.preset.filter(matches) }, { id: 'extra', label: '额外工具', groups: sections.extra.filter(matches) }].map(section => {
+          const extra = section.id === 'extra';
+          const groups = section.groups;
+          return groups.length ? <div className="preset-tools-source" key={section.id}>
+            <div className="preset-tools-section-heading"><strong>{section.label}</strong></div>
+            {groups.map((group) => <section className={`preset-tool-row${group.isPlugin ? ' is-plugin' : ''}${extra ? ' is-extra' : ''}${group.enabled ? '' : ' is-disabled'}`} key={group.id} onContextMenu={(event) => { setManagerOpen(false); if (!group.isPlugin) context.open(event, group); else event.preventDefault(); }}>
+              <button type="button" className="preset-tool-summary" aria-haspopup="dialog" onClick={() => { setManagerOpen(false); if (group.isPlugin) setPluginId(group.id); else setConfigGroupId(group.id); }}>
                 <span className="preset-tool-icon"><AgentToolGroupIcon groupId={group.id} size={17} /></span>
-                <span><strong>{group.name}</strong><small>{group.description}</small></span>
-                <span className="preset-tool-count">{group.members.length}</span>
+                <span><strong>{group.name}</strong><small>{group.available === false ? '缺少插件或工具未加载' : group.description}</small></span>
+                <span className="preset-tool-count" title={group.isPlugin ? `${group.includedCount} 项已加入预设，共 ${group.tools.length} 个工具` : undefined}>{group.isPlugin && group.included ? `${group.includedCount}/${group.tools.length}` : group.members.length}</span>
                 <CaretRight size={15} aria-hidden="true" />
               </button>
-              <button
+              {group.isPlugin ? null : <button
                 type="button"
                 className="preset-tool-toggle"
                 role="switch"
                 aria-checked={group.enabled}
                 aria-label={`${group.enabled ? '关闭' : '开启'}${group.name}`}
                 onClick={() => updateGroup(group.id, { enabled: !group.enabled })}
-              ><i /></button>
+              ><i /></button>}
             </section>)}
           </div> : null;
         })}
-        {!visibleGroups.length ? <p className="setting-library-empty">{query ? '没有匹配的工具' : '还没有添加工具'}</p> : null}
+        {!sections.preset.some(matches) && !sections.extra.some(matches) ? <p className="setting-library-empty">{query ? '没有匹配的工具' : '还没有添加工具'}</p> : null}
       </div>
 
+      {managerOpen ? <PresetToolManagerDialog sources={toolSources} includedIds={new Set(selectedGroups.map(group => group.id))} compact={compact} closeBlocked={savePromptOpen}
+        onClose={() => setManagerOpen(false)} onMembershipChange={(tool, included) => applyMembership([{ tool, included }])} /> : null}
+
+      {plugin ? <PresetPluginToolsDialog plugin={plugin} compact={compact} nested={Boolean(configGroupId)} closeBlocked={savePromptOpen}
+        onClose={() => setPluginId('')} onOpenTool={setConfigGroupId} /> : null}
+
       {context.menu && menuGroup ? <PresetContextMenu menu={context.menu} onClose={context.close} actions={[
-        { label: '从预设移除', icon: MinusCircle, run: () => updateGroup(menuGroup.id, { included: false, enabled: false }) },
+        { label: '从预设移除', icon: MinusCircle, run: () => removeGroup(menuGroup) },
       ]} /> : null}
       {configGroup ? <PresetToolConfigDialog
         compact={compact}
         group={configGroup}
+        extra={configIsExtra}
         roleplayPlan={preset.roleplayPlan}
-        imageConfigId={preset.toolModelConfigIds?.['builtin:auto-illustration'] || ''}
-        onImageConfigChange={configId => onChange({ ...preset, toolModelConfigIds: { ...preset.toolModelConfigIds, 'builtin:auto-illustration': configId } })}
         closeBlocked={savePromptOpen}
         onClose={closeConfig}
         onEnabledChange={(enabled) => updateGroup(configGroup.id, { enabled })}
-        onRemove={() => { updateGroup(configGroup.id, { included: false, enabled: false }); setConfigGroupId(''); }}
+        onNameChange={(name) => updateGroup(configGroup.id, { name })}
+        onRemove={() => { removeGroup(configGroup); setConfigGroupId(''); }}
         onNotify={onNotify}
         onBeforeOpenSubagentSettings={onBeforeOpenSubagentSettings}
         onRoleplayPlanChange={(roleplayPlan) => onChange({ ...preset, roleplayPlan })}
@@ -131,12 +154,12 @@ export function PresetToolsEditor({
 function PresetToolConfigDialog({
   compact,
   group,
+  extra = false,
   roleplayPlan,
-  imageConfigId,
-  onImageConfigChange,
   closeBlocked,
   onClose,
   onEnabledChange,
+  onNameChange,
   onRemove,
   onNotify,
   onBeforeOpenSubagentSettings,
@@ -152,7 +175,7 @@ function PresetToolConfigDialog({
   }, [compact, closeBlocked, onClose]);
 
   const body = <div className="preset-tool-config-body">
-    <section className="preset-tool-config-card preset-tool-config-switch-row">
+    {!extra && <section className="preset-tool-config-card preset-tool-config-switch-row">
       <strong>启用此工具组</strong>
       <button
         type="button"
@@ -162,9 +185,10 @@ function PresetToolConfigDialog({
         aria-label={`${group.enabled ? '关闭' : '开启'}${group.name}`}
         onClick={() => onEnabledChange(!group.enabled)}
       ><i /></button>
-    </section>
+    </section>}
+    {group.available === false ? <p className="preset-tool-config-description">缺少插件或工具未加载，仍可正常聊天。</p> : null}
+    {!extra && group.source === 'extension' ? <label className="preset-tool-config-name">显示名称<input aria-label="工具显示名称" value={group.name} onChange={event => onNameChange(event.target.value)} /></label> : null}
     {group.description ? <p className="preset-tool-config-description">{group.description}</p> : null}
-    {group.id === 'builtin:auto-illustration' && <AutoIllustrationSettings configId={imageConfigId} onSelect={onImageConfigChange} />}
     {group.id === 'builtin:collaboration' ? <SubagentSettingsLink
       onBeforeOpen={onBeforeOpenSubagentSettings}
       onOpen={onClose}
@@ -186,13 +210,13 @@ function PresetToolConfigDialog({
         <h3>来源</h3>
         <section className="preset-tool-config-card preset-tool-config-source">
           <span className="preset-tool-icon"><AgentToolGroupIcon groupId={group.id} size={17} /></span>
-          <span>{group.source === 'built_in' ? 'ElecKoi 内置' : group.source === 'mcp' ? 'MCP 服务器' : '扩展'}</span>
+          <span>{group.source === 'built_in' ? 'ElecKoi 内置' : group.source === 'mcp' ? 'MCP 服务器' : group.plugin?.name || '插件来源未声明'}</span>
         </section>
       </>}
     </>}
-    {compact && <button type="button" className="mobile-preset-tool-remove" onClick={onRemove}><MinusCircle size={18} />从预设移除</button>}
+    {!extra && <button type="button" className="mobile-preset-tool-remove" onClick={onRemove}><MinusCircle size={18} />从预设移除</button>}
   </div>;
-  if (compact) return <MobileConversationOverlay title={`${group.name}配置`} kind="page" className="mobile-preset-tool-config" busy={closeBlocked} onClose={onClose}>{body}</MobileConversationOverlay>;
+  if (compact) return <MobileConversationOverlay title={extra ? group.name : `${group.name}配置`} kind="page" className="mobile-preset-tool-config" busy={closeBlocked} onClose={onClose}>{body}</MobileConversationOverlay>;
   return createPortal(<SystemBarOverlay className="preset-tool-config-backdrop" role="presentation" onMouseDown={onClose}>
     <section className="preset-tool-config-dialog" role="dialog" aria-modal="true" aria-label={`${group.name}配置`} onMouseDown={(event) => event.stopPropagation()}>
       <header>

@@ -35,7 +35,7 @@
   --studio-canvas-node-shadow: 0 0 0 1px rgba(255, 255, 255, 0.68), 0 16px 34px rgba(32, 45, 52, 0.045), 0 3px 8px rgba(32, 45, 52, 0.02), inset 0 1px 0 #ffffff;
   --studio-canvas-node-selected-border: rgba(255, 255, 255, 0.98);
   --studio-canvas-node-selected-shadow: 0 0 0 1px rgba(255, 255, 255, 0.74), 0 18px 38px rgba(32, 45, 52, 0.06), 0 3px 9px rgba(32, 45, 52, 0.025), inset 0 1px 0 #ffffff;
-  grid-template-rows: 52px minmax(0, 1fr);
+  grid-template-rows: var(--window-caption-height, 40px) minmax(0, 1fr);
   width: 100vw;
   height: 100vh;
   overflow: hidden;
@@ -1457,7 +1457,7 @@
 
 .creator-studio-development-shell {
   display: grid;
-  grid-template-rows: 52px minmax(0, 1fr);
+  grid-template-rows: var(--window-caption-height, 40px) minmax(0, 1fr);
   width: 100vw;
   height: 100vh;
   overflow: hidden;

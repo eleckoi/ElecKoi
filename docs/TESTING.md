@@ -58,6 +58,6 @@ Vitest 默认最多两个工作进程，并保留文件隔离。一次只运行�
 
 目录整理先核对发现清单，再运行对应检查；删除测试与移动文件分开审查。无需新增调度框架、重复验证数据库或长期兼容旧测试路径。
 
-联网设置收拢使用 `pnpm exec electron scripts/probe-eleckoi-desktop-client.cjs --chat-only --web-search-check`，在隔离 Host 和实际客户端中核对只有 DeepSeek／Tavily 两张卡片、Tavily 配置和保存，以及点击 DeepSeek 卡片直达官方页面并关闭工具弹窗。`deepseek-web-profile.test.js` 继续覆盖角色、工作室及配置重开，旧选择退役按启动前流程检查；测试使用合成响应，不产生真实 API 费用。
+联网设置使用 `pnpm exec electron scripts/probe-eleckoi-desktop-client.cjs --chat-only --web-search-check`，在隔离 Host 和实际客户端中核对 DeepSeek／Tavily 两张选择卡片、Tavily 配置和保存，以及从 Tavily 选择 DeepSeek 保存为 Messages、独立配置按钮直达官方页面并关闭工具弹窗。`web-search.test.js` 覆盖独立跳转、离开提醒、只读和保存失败、现有 Search API 选择保留及深浅宽窄布局；`deepseek-web-profile.test.js` 继续覆盖角色、工作室及配置冷重开，旧选择退役按启动前流程检查。测试使用合成响应，不产生真实 API 费用。
 
 聊天标题与更多菜单布局使用实际桌面探针的 `--chat-only --header-layout-check --rc3-check`：在深浅主题、1440／900 宽度分别比较菜单显示与隐藏时标题、预设、右侧操作和标签栏的几何，确认官方视图菜单为 22px／13px，侧栏图标沿用现有 25px 导航样式，并继续覆盖官方插件菜单跳转与未发送草稿。该检查能检出将 40px 标题操作样式用于视图栏菜单后导致标题整体上移的问题。

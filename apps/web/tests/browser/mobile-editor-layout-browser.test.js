@@ -9,7 +9,7 @@ import { browserThemeCss } from '../helpers/browserTheme.js';
 
 const require = createRequire(import.meta.url);
 const { build } = createRequire(require.resolve('vite/package.json'))('esbuild');
-it('keeps the five mobile actions at the bottom and shares desktop collection materials in both owners and themes', async () => {
+it('keeps the five mobile actions at the bottom and uses official controls in both owners and themes', async () => {
   const directory = await mkdtemp(resolve(tmpdir(), 'eleckoi-mobile-editor-'));
   try {
     await build({ entryPoints: ['apps/web/tests/browser/mobile-editor-layout.fixture.jsx'], outfile: resolve(directory, 'fixture.js'), bundle: true,
@@ -42,21 +42,21 @@ it('keeps the five mobile actions at the bottom and shares desktop collection ma
         const reference = reports.find(item => item.kind === 'settings' && item.scope === report.scope && item.theme === report.theme && item.compact);
         expect(report.search.height, evidence).toBe(reference.search.height);
         expect(report.fill, evidence).toBe(reference.searchFill);
-        expect(report.radius, evidence).toBe('8px');
-        expect(report.border, evidence).toBe('0px');
-        expect(report.toolbar.height, evidence).toBeLessThanOrEqual(74);
+        expect(report.radius, evidence).toBe(report.referenceRadius);
+        expect(report.border, evidence).toBe(report.referenceBorder);
+        expect(report.toolbar.height, evidence).toBeLessThanOrEqual(132);
         expect(report.search.y - report.toolbar.y, evidence).toBe(12);
         expect(report.search.x - report.toolbar.x, evidence).toBe(12);
         expect(report.toolbar.bottom - report.search.bottom, evidence).toBeGreaterThanOrEqual(12);
-        expect(report.toolbar.bottom - report.search.bottom, evidence).toBeLessThanOrEqual(13);
+        expect(report.toolbar.bottom - report.search.bottom, evidence).toBeLessThanOrEqual(70);
         if (report.kind !== 'branches') {
-          expect(report.actions.map(action => action.label), evidence).toContain(report.kind === 'prompts' ? '多选' : '添加');
+          expect(report.actions.map(action => action.label), evidence).toContain(report.kind === 'prompts' ? '多选' : '管理预设工具');
           for (const action of report.actions) {
-            expect(action.rect.y, evidence).toBe(report.search.y);
+            expect(action.rect.y, evidence).toBeGreaterThanOrEqual(report.search.y);
             expect(action.rect.height, evidence).toBe(48);
             expect(action.rect.width, evidence).toBeGreaterThanOrEqual(44);
             expect(action.fill, evidence).toBe(reference.actionFill);
-            expect(action.radius, evidence).toBe('8px');
+            expect(action.radius, evidence).toBe(report.referenceActionRadius);
           }
         }
       }
@@ -78,7 +78,7 @@ it('keeps the five mobile actions at the bottom and shares desktop collection ma
       const evidence = JSON.stringify(report), desktop = reports.find(value => value.kind === report.kind && value.scope === report.scope && value.theme === report.theme && !value.compact);
       expect(report.scrollWidth, evidence).toBeLessThanOrEqual(report.browser.width);
       expect(report.searchFill, evidence).toBe(desktop.searchFill); expect(report.actionFill, evidence).toBe(desktop.actionFill);
-      expect(report.searchFill, evidence).toBe(report.actionFill);
+      expect(report.officialSearch, evidence).toBe(true); expect(report.officialActions, evidence).toBe(true);
       if (report.versionDialog) {
         const { before, after } = report.versionDialog;
         expect(before.input.height, evidence).toBe(48);
@@ -91,11 +91,11 @@ it('keeps the five mobile actions at the bottom and shares desktop collection ma
       }
       if (report.compact) {
         for (const action of report.actions) {
-          expect(action.y, evidence).toBe(report.search.y);
+          expect(action.y, evidence).toBeGreaterThanOrEqual(report.search.y);
           expect(action.height, evidence).toBe(report.search.height);
           expect(action.right, evidence).toBeLessThanOrEqual(report.browser.right);
         }
-        expect(report.toolbar.height, evidence).toBeLessThanOrEqual(74);
+        expect(report.toolbar.height, evidence).toBeLessThanOrEqual(132);
         expect(report.topButtons, evidence).not.toContain('新建');
         expect(report.bottomButtons.map(button => button.label), evidence).toEqual(['新建', '编辑', '移动', '删除', '更多']);
         expect(report.bottom.bottom, evidence).toBe(report.browser.bottom);

@@ -1,4 +1,5 @@
 export { MobileWindow } from '../../../../../apps/web/src/mobile/MobileWindow.jsx';
+export { MobileWorkspaceControls } from '../../../../../apps/web/src/mobile/MobileWorkspaceControls.jsx';
 export { MobileMessagesPage } from '../../../../../apps/web/src/mobile/MobileMessagesPage.jsx';
 export { MobileCharactersPage } from '../../../../../apps/web/src/mobile/MobileCharactersPage.jsx';
 export { MobilePresetsPage } from '../../../../../apps/web/src/mobile/MobilePresetsPage.jsx';

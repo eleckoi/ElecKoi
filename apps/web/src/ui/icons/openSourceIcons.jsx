@@ -2,7 +2,6 @@ import {
   ArrowClockwise,
   ArrowCounterClockwise,
   Browsers,
-  ChatText,
   DownloadSimple,
   GearSix,
   ImageSquare,
@@ -18,6 +17,7 @@ import {
   UserCircleGear,
   UploadSimple,
 } from "./interfaceIcons.jsx";
+import { IconQueueOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 
 function phosphor(Icon, { size = 24, weight = "regular", ...props } = {}) {
   return <Icon size={size} weight={weight} aria-hidden="true" {...props} />;
@@ -36,7 +36,7 @@ export function RotateLeftIcon(props) { return phosphor(ArrowCounterClockwise, p
 export function RotateRightIcon(props) { return phosphor(ArrowClockwise, props); }
 export function CharacterManagerIcon(props) { return phosphor(UserCircleGear, props); }
 export function DefaultCharacterAvatarIcon(props) { return phosphor(UserCircle, { size: 64, ...props }); }
-export function ChatHistoryIcon(props) { return phosphor(ChatText, props); }
+export function ChatHistoryIcon({ size = 24, className }) { return <IconQueueOutlineRegular size={size} className={className} />; }
 export function ImportIcon(props) { return phosphor(DownloadSimple, { size: 16, ...props }); }
 export function ExportIcon(props) { return phosphor(UploadSimple, { size: 16, ...props }); }
 function historyFileIcon(paths, props = {}) {

@@ -1,0 +1,411 @@
+diff --git a/lib/client.js b/lib/client.js
+index 3ddb504c..322eabdf 100644
+--- a/lib/client.js
++++ b/lib/client.js
+@@ -239,7 +239,7 @@ window.__ModuleLoader__.load({
+ 				"data-index": index,
+ 				type: "button",
+ 				className: classes.join(" "),
+-				"aria-label": t(item.anchor.kind === "loaded" ? "chat.turnNavigation.jump" : "chat.turnNavigation.jumpLoad", { turn: item.turn }),
++				"aria-label": t(item.anchor.kind === "loaded" ? "chat.turnNavigation.jump" : "chat.turnNavigation.jumpLoad", { turn: item.labelTurn ?? item.turn }),
+ 				"aria-current": active ? "true" : void 0,
+ 				"aria-busy": busy ? "true" : void 0,
+ 				"aria-describedby": previewId,
+@@ -464,7 +464,7 @@ window.__ModuleLoader__.load({
+ 						style: { "--turn-preview-center": `${String(previewPosition.start + previewPosition.size / 2 - scrollTop)}px` },
+ 						children: [(0, react_jsx_runtime.jsx)("div", {
+ 							className: TurnNavigator_module_css_default.previewPrompt,
+-							children: preview.prompt || t("chat.turnNavigation.turn", { turn: preview.turn })
++							children: preview.prompt || t("chat.turnNavigation.turn", { turn: preview.labelTurn ?? preview.turn })
+ 						}), preview.response !== "" && (0, react_jsx_runtime.jsx)("div", {
+ 							className: TurnNavigator_module_css_default.previewResponse,
+ 							children: preview.response
+@@ -2078,7 +2078,7 @@ window.__ModuleLoader__.load({
+ 				const elements = this.elements;
+ 				if (elements === null) return null;
+ 				const viewport = elements.scroller.getBoundingClientRect();
+-				const rows = (elements.column.querySelector(":scope > [data-slot=\"conversation.chat.flow\"]") ?? elements.column).children;
++				const rows = ([...elements.column.children].find((row) => row.getAttribute("data-slot") === (elements.column.dataset.chatFlowSlot ?? "conversation.chat.flow")) ?? elements.column).children;
+ 				let low = 0;
+ 				let high = rows.length;
+ 				while (low < high) {
+@@ -2223,7 +2223,7 @@ window.__ModuleLoader__.load({
+ 				const first = this.turns[0];
+ 				if (elements === null || metrics === null || first === void 0) return null;
+ 				const line = elements.scroller.getBoundingClientRect().top + Math.min(96, metrics.height * .2);
+-				const rows = (elements.column.querySelector(":scope > [data-slot=\"conversation.chat.flow\"]") ?? elements.column).children;
++				const rows = ([...elements.column.children].find((row) => row.getAttribute("data-slot") === (elements.column.dataset.chatFlowSlot ?? "conversation.chat.flow")) ?? elements.column).children;
+ 				let low = 0;
+ 				let high = rows.length;
+ 				let reading = first.turn;
+@@ -2741,7 +2741,7 @@ window.__ModuleLoader__.load({
+ 		* The chat view slot entry: pure component over the composed props; each
+ 		* ordered business Node crosses the keyed renderer seat.
+ 		*/
+-		function ChatView({ useSession, useChat, useConversation, useSessions, renderSlot, sessionId, openFile, openExternalLink, loadOlder, loadThrough, loadImage, inspectCall, chatScroll, forkAt, fileMentions, usePresentation, useProjection, t }) {
++		function ChatView({ flowSlotName = "conversation.chat.flow", useSession, useChat, useConversation, useSessions, renderSlot, runningStatusTarget, presentTurnNavigation, followTailRequestId, sessionId, openFile, openExternalLink, loadOlder, loadThrough, loadImage, inspectCall, chatScroll, forkAt, fileMentions, usePresentation, useProjection, t }) {
+ 			const order = useChat((s) => s.order);
+ 			const groupedEntries = useConversation((snapshot) => snapshot.views.grouped("chat")?.entries);
+ 			const entries = (0, react.useMemo)(() => groupedEntries ?? order.map((key) => ({
+@@ -2863,14 +2863,25 @@ window.__ModuleLoader__.load({
+ 				loadedTurns: turnNavigationItems,
+ 				transcriptView
+ 			});
++			const turnNavigation = (0, react.useMemo)(() => {
++				const navigation = { items: railItems, activeTurn: scroll.activeTurn, busyTurn: scroll.busyTurn };
++				return presentTurnNavigation ? presentTurnNavigation(navigation) : navigation;
++			}, [railItems, scroll.activeTurn, scroll.busyTurn, presentTurnNavigation]);
++			const followedRequest = (0, react.useRef)(void 0);
++			(0, react.useLayoutEffect)(() => {
++				if (openState !== "open" || followTailRequestId === void 0 || followedRequest.current === followTailRequestId) return;
++				followedRequest.current = followTailRequestId;
++				scroll.returnToBottom();
++			}, [openState, followTailRequestId, scroll.returnToBottom]);
+ 			const flowContext = (0, react.useMemo)(() => ({ motion: scroll.motion }), [scroll.motion]);
+ 			return (0, react_jsx_runtime.jsxs)("div", {
+ 				className: ChatView_module_css_default.frame,
++				"data-chat-view": "",
+ 				children: [
+ 					scroll.initialized && (0, react_jsx_runtime.jsx)(TurnNavigator, {
+-						items: railItems,
+-						activeTurn: scroll.activeTurn,
+-						busyTurn: scroll.busyTurn,
++						items: turnNavigation.items,
++						activeTurn: turnNavigation.activeTurn,
++						busyTurn: turnNavigation.busyTurn,
+ 						onNavigate: scroll.navigateToTurn,
+ 						t
+ 					}),
+@@ -2880,16 +2891,16 @@ window.__ModuleLoader__.load({
+ 						children: (0, react_jsx_runtime.jsxs)("div", {
+ 							ref: scroll.listRef,
+ 							className: ChatView_module_css_default.scroll,
++ "data-chat-scroll": "",
+ 							children: [(0, react_jsx_runtime.jsxs)("div", {
+ 								ref: scroll.columnRef,
+ 								className: ChatView_module_css_default.column,
++ "data-chat-column": "",
++ "data-chat-flow-slot": flowSlotName,
+ 								"data-chat-flow": "",
+ 								"data-chat-motion": deferCompletedTurns && scroll.initialized && (running || motionTail || pendingInputs.length > 0) ? "" : void 0,
+ 								children: [
+-									openState === "loading" && (0, react_jsx_runtime.jsx)("div", {
+-										className: ChatView_module_css_default.hint,
+-										children: t("chat.loadingHistory")
+-									}),
++
+ 									openState === "error" && openError !== null && (0, react_jsx_runtime.jsx)("div", {
+ 										className: ChatView_module_css_default.openError,
+ 										children: t("chat.loadError", {
+@@ -2911,6 +2922,7 @@ window.__ModuleLoader__.load({
+ 										openExternalLink,
+ 										fileImages,
+ 										children: renderSlot("conversation.chat.flow", {
++ runningStatusTarget,
+ 											entries,
+ 											pendingInputs,
+ 											lastInputTurn,
+@@ -2933,6 +2945,7 @@ window.__ModuleLoader__.load({
+ 					}),
+ 					!scroll.followingTail && (0, react_jsx_runtime.jsx)("div", {
+ 						className: ChatView_module_css_default.toBottomSlot,
++ "data-chat-to-bottom": "",
+ 						children: (0, react_jsx_runtime.jsx)("button", {
+ 							type: "button",
+ 							className: ChatView_module_css_default.toBottom,
+@@ -5639,7 +5652,7 @@ window.__ModuleLoader__.load({
+ 		//#region lib/types/client/chat/ChatFlow.js
+ 		/** Ordered Chat rows, local echoes, and running status share the flow slot's parent. */
+ 		/** Render the flow without adding a DOM parent or changing keyed row positions. */
+-		const ChatFlow = (0, react.memo)(function ChatFlow({ entries, pendingInputs, lastInputTurn, deferCollapse, useSession, useChat, useChatNode, useChatNodeBottom, useChatNodeProcess, useChatGroup, usePresentation, useStore, actions, renderSlot, renderFactorySlot, t, useGroupAction, useGroupHeaderAction, cwd, openFile, inspectCall, forkAt, loadImage, fileMentions }) {
++		const ChatFlow = (0, react.memo)(function ChatFlow({ runningStatusTarget, entries, pendingInputs, lastInputTurn, deferCollapse, useSession, useChat, useChatNode, useChatNodeBottom, useChatNodeProcess, useChatGroup, usePresentation, useStore, actions, renderSlot, renderFactorySlot, t, useGroupAction, useGroupHeaderAction, cwd, openFile, inspectCall, forkAt, loadImage, fileMentions }) {
+ 			const nodeStore = useChat((snapshot) => snapshot.nodes);
+ 			const running = useSession((snapshot) => snapshot.running);
+ 			const runningStartTime = useChatNode(useChat((snapshot) => snapshot.navigation.items().at(-1)?.anchorKey) ?? "", (node) => {
+@@ -5683,7 +5696,7 @@ window.__ModuleLoader__.load({
+ 					default: return assertNever(entry);
+ 				}
+ 			});
+-			const pendingRows = pendingInputs.map((item) => "requestId" in item ? (0, react_jsx_runtime.jsx)(PendingSubmissionBubble, {
++			const pendingRows = pendingInputs.map((item) => (0, react_jsx_runtime.jsx)(react.Fragment, { children: renderSlot("conversation.chat.pending-input", { input: item }, { fallback: "requestId" in item ? (0, react_jsx_runtime.jsx)(PendingSubmissionBubble, {
+ 				submission: item,
+ 				loadImage,
+ 				renderFactorySlot,
+@@ -5693,7 +5706,7 @@ window.__ModuleLoader__.load({
+ 				loadImage,
+ 				renderFactorySlot,
+ 				t
+-			}, item.id));
++			}, item.id) }) }, "requestId" in item ? item.requestId : item.id));
+ 			const tail = entries.at(-1);
+ 			const node = tail?.kind === "node" ? nodeStore.get(tail.key) : void 0;
+ 			if (node?.kind === "turn-process" && node.location.kind === "turn" && node.location.turn.status === "open" && node.location.turn.turn !== lastInputTurn) {
+@@ -5701,12 +5714,11 @@ window.__ModuleLoader__.load({
+ 				if (index !== -1) rows.splice(rows.length - 1, 0, ...pendingRows.splice(index, 1));
+ 			}
+ 			return [
++ (0, react_jsx_runtime.jsx)(react.Fragment, { children: renderSlot("conversation.chat.before", {}) }, "before"),
+ 				...rows,
+ 				...pendingRows,
+-				...running ? [(0, react_jsx_runtime.jsx)(RunningStatus, {
+-					startTime: runningStartTime,
+-					t
+-				}, "running")] : []
++				...running && runningStatusTarget === void 0 ? [(0, react_jsx_runtime.jsx)(RunningStatus, { startTime: runningStartTime, t }, "running")] : [],
++ ...running && runningStatusTarget ? [(0, react_dom.createPortal)((0, react_jsx_runtime.jsx)(RunningStatus, { startTime: runningStartTime, t }), runningStatusTarget, "running")] : []
+ 			];
+ 		});
+ 		//#endregion
+@@ -5850,6 +5862,7 @@ window.__ModuleLoader__.load({
+ 			"message.context.recall.truncated": "已截断",
+ 			"message.compaction": "上下文已压缩",
+ 			"message.compaction.running": "正在压缩…",
++			"message.compaction.interrupted": "压缩已中断",
+ 			"message.compaction.completed": "已压缩 {items} 条历史记录（约 {tokens} tokens）",
+ 			"message.compaction.expand": "点击查看压缩摘要",
+ 			"message.compaction.unavailable": "压缩摘要不可用",
+@@ -6044,6 +6057,7 @@ window.__ModuleLoader__.load({
+ 			"message.context.recall.truncated": "truncated",
+ 			"message.compaction": "Context compacted",
+ 			"message.compaction.running": "Compacting context…",
++			"message.compaction.interrupted": "Context compaction interrupted",
+ 			"message.compaction.completed": "Compacted {items} history items (~{tokens} tokens)",
+ 			"message.compaction.expand": "View compaction summary",
+ 			"message.compaction.unavailable": "Compaction summary unavailable",
+@@ -6511,7 +6525,15 @@ window.__ModuleLoader__.load({
+ 		//#endregion
+ 		//#region lib/types/client/chat/CompactionCommandCard.js
+ 		/** Render one manual compaction lifecycle without duplicating its checkpoint marker. */
+-		function CompactionCommandCard({ node, compaction, t }) {
++		function CompactionCommandCard({ node, compaction, interrupted, t }) {
++            if (interrupted && node.outcome === null) return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
++                (0, react_jsx_runtime.jsx)(GenericCommandCard, {
++                    node: { ...node, outcome: { kind: "error", text: t("message.compaction.interrupted") } }, t
++                }),
++                compaction === void 0 ? null : (0, react_jsx_runtime.jsx)(CompactionItem, {
++                    node: compaction, title: t("message.compaction.commandTitle"), t
++                })
++            ] });
+ 			if (compaction !== void 0) return (0, react_jsx_runtime.jsx)(CompactionItem, {
+ 				node: compaction,
+ 				title: t("message.compaction.commandTitle"),
+@@ -6552,6 +6574,7 @@ window.__ModuleLoader__.load({
+ 				className: ChatView_module_css_default.callRow,
+ 				children: (0, react_jsx_runtime.jsx)(CompactionCommandCard, {
+ 					node: data.command,
++					interrupted: data.interrupted,
+ 					...data.compaction === null ? {} : { compaction: data.compaction },
+ 					t
+ 				})
+@@ -9335,7 +9358,46 @@ window.__ModuleLoader__.load({
+ 		function partialContributionChanged(previous, next) {
+ 			return previous?.partial?.blocks !== next.partial?.blocks || previous?.partial?.turn !== next.partial?.turn || previous?.partial?.step !== next.partial?.step || ((previous?.partial ?? null) !== null || next.partial !== null) && previous?.anchorSeq !== next.anchorSeq;
+ 		}
+-		/** Incremental keyed Chat builder registered under the `chat` target. */
++		/** Formal seed boundaries retire only unfinished compactions in the restored prefix. */
++        var CompactionRecoveryProjector = class {
++            boundarySeq = -1;
++            pending = new Map();
++            replace(nodes) {
++                this.boundarySeq = -1;
++                this.pending.clear();
++                this.readBoundaries(nodes);
++                return nodes.map(node => this.project(node));
++            }
++            apply(upserts) {
++                const previousBoundary = this.boundarySeq;
++                this.readBoundaries(upserts);
++                const projected = upserts.map(node => this.project(node));
++                if (this.boundarySeq !== previousBoundary) {
++                    for (const node of this.pending.values()) {
++                        if (node.data.command.seq < this.boundarySeq) projected.push(this.project(node));
++                    }
++                }
++                return projected;
++            }
++            readBoundaries(nodes) {
++                for (const node of nodes) {
++                    if (node.kind === "compaction-session-end") this.boundarySeq = Math.max(this.boundarySeq, node.data.seq);
++                }
++            }
++            project(node) {
++                if (node.kind !== "manual-compaction" || node.data.command.outcome !== null) {
++                    this.pending.delete(node.key);
++                    return node;
++                }
++                if (node.data.command.seq >= this.boundarySeq) {
++                    this.pending.set(node.key, node);
++                    return node;
++                }
++                this.pending.delete(node.key);
++                return { ...node, data: { ...node.data, interrupted: true } };
++            }
++        };
++        /** Incremental keyed Chat builder registered under the `chat` target. */
+ 		var ChatSnapshotBuilder = class {
+ 			store = new MutableChatNodeStore();
+ 			locations = new MutableChatLocationIndex();
+@@ -9343,6 +9405,7 @@ window.__ModuleLoader__.load({
+ 			legacy = new LegacySliceBuilder();
+ 			referenceLabels = new ReferenceLabelProjector();
+ 			skillNames = new SkillNameProjector();
++			compactionRecovery = new CompactionRecoveryProjector();
+ 			order = EMPTY_KEYS;
+ 			latestGroupInput;
+ 			readGroupNode = (key) => this.store.get(key);
+@@ -9366,7 +9429,7 @@ window.__ModuleLoader__.load({
+ 				};
+ 			}
+ 			replace(input) {
+-				const nodes = this.skillNames.replace(this.referenceLabels.replace(input.nodes));
++				const nodes = this.compactionRecovery.replace(this.skillNames.replace(this.referenceLabels.replace(input.nodes)));
+ 				this.store.replace(nodes);
+ 				this.order = orderedVisibleChatNodes(nodes).map((node) => node.key);
+ 				this.locations.rebuild(this.order, this.store);
+@@ -9385,7 +9448,7 @@ window.__ModuleLoader__.load({
+ 				return this.snapshot(input.timeline, this.legacy.replace(nodes, input.timeline));
+ 			}
+ 			apply(input) {
+-				const upserts = this.skillNames.apply(this.referenceLabels.apply(input.upserts, this.store), this.store);
++				const upserts = this.compactionRecovery.apply(this.skillNames.apply(this.referenceLabels.apply(input.upserts, this.store), this.store));
+ 				const processTurns = /* @__PURE__ */ new Set();
+ 				let structural = false;
+ 				const contentOnly = [];
+@@ -9686,9 +9749,18 @@ window.__ModuleLoader__.load({
+ 		* Register the command lifecycle business contribution.
+ 		* @param ctx - owning UI Conversation context.
+ 		*/
+-		function registerCommandConversationNode(ctx) {
+-			ctx.uiConversation.events.register(commandDefinition);
+-		}
++		const compactionSessionEndDefinition = {
++            kind: "compaction-session-end", target: "chat",
++            match: event => event.type === "session/end-seed" ? { id: String(event.seq), role: "start" } : null,
++            start: (_context, match) => ({ seq: match.event.seq }),
++            update: context => context.state,
++            buildViewNode: context => context.state === void 0 ? null
++                : chatNode(context, "compaction-session-end", context.state.seq, context.state, { visibility: "hidden" })
++        };
++        function registerCommandConversationNode(ctx) {
++            ctx.uiConversation.events.register(commandDefinition);
++            ctx.uiConversation.events.register(compactionSessionEndDefinition);
++        }
+ 		//#endregion
+ 		//#region lib/types/client/conversation-nodes/compaction.js
+ 		function fallbackState$3(context) {
+@@ -13242,7 +13314,7 @@ window.__ModuleLoader__.load({
+ 				name: "conversation.chat.flow",
+ 				locale: NS,
+ 				store: chatStore,
+-				children: { "conversation.chat.node": {
++				children: { "conversation.chat.before": { kind: "single", scope: "session" }, "conversation.chat.pending-input": { kind: "single", scope: "session" }, "conversation.chat.node": {
+ 					kind: "keyed",
+ 					scope: "session",
+ 					inject: CHAT_NODE_INJECT
+diff --git a/lib/types/client/chat/CompactionCommandCard.d.ts b/lib/types/client/chat/CompactionCommandCard.d.ts
+index b10ef6b8..0e9c4e41 100644
+--- a/lib/types/client/chat/CompactionCommandCard.d.ts
++++ b/lib/types/client/chat/CompactionCommandCard.d.ts
+@@ -1,8 +1,9 @@
+ import type { ChatViewSlotProps, CommandRowOwnerProps } from '../contract/slots.ts';
+ interface CompactionCommandCardProps extends CommandRowOwnerProps {
+     t: ChatViewSlotProps['t'];
++    interrupted?: boolean;
+ }
+ /** Render one manual compaction lifecycle without duplicating its checkpoint marker. */
+-export declare function CompactionCommandCard({ node, compaction, t }: CompactionCommandCardProps): import("react").JSX.Element;
++export declare function CompactionCommandCard({ node, compaction, interrupted, t }: CompactionCommandCardProps): import("react").JSX.Element;
+ export {};
+ //# sourceMappingURL=CompactionCommandCard.d.ts.map
+\ No newline at end of file
+diff --git a/lib/types/client/contract/chat-nodes.d.ts b/lib/types/client/contract/chat-nodes.d.ts
+index b8d23ec7..80474fbf 100644
+--- a/lib/types/client/contract/chat-nodes.d.ts
++++ b/lib/types/client/contract/chat-nodes.d.ts
+@@ -48,6 +48,8 @@ export interface ToolChatData {
+ export interface ManualCompactionChatData {
+     readonly command: CommandNode;
+     readonly compaction: CompactionSummaryNode | null;
++    /** Unfinished command belongs to the prefix closed by a Session seed boundary. */
++    readonly interrupted?: true;
+ }
+ /** One durable retry chain rendered as a single row. */
+ export interface RetryChatData {
+diff --git a/lib/types/client/contract/slots.d.ts b/lib/types/client/contract/slots.d.ts
+index 9fb92fa0..3989d129 100644
+--- a/lib/types/client/contract/slots.d.ts
++++ b/lib/types/client/contract/slots.d.ts
+@@ -281,15 +281,17 @@ export interface ChatViewInjected {
+ export type ChatFlowDataInjected = Pick<ChatViewInjected, 'hooks' | 'keyedHooks'>;
+ /** Ordered rows and reconciled local echoes rendered inside one Chat viewport. */
+ export interface ChatFlowOwnerProps extends Pick<ChatNodeOwnerProps, 'cwd' | 'openFile' | 'inspectCall' | 'forkAt' | 'loadImage' | 'fileMentions'> {
++    readonly runningStatusTarget?: Element | null;
+     readonly entries: readonly RenderEntry[];
+     readonly pendingInputs: readonly (PendingSubmission | InboxState['next-step'][number])[];
+     readonly lastInputTurn: number | undefined;
+     readonly deferCollapse: boolean;
+ }
+ /** Full props of the Chat-owned flow renderer. */
+-export type ChatFlowSlotProps = PropsRuntime<'conversation.chat.flow'> & PropsRenderSlots<'conversation.chat.node'> & PropsRenderFactories & PropsStore<ChatStore> & InjectFace<ChatFlowDataInjected> & PropsLocale<'chat'>;
++export type ChatFlowSlotProps = PropsRuntime<'conversation.chat.flow'> & PropsRenderSlots<'conversation.chat.node' | 'conversation.chat.before' | 'conversation.chat.pending-input'> & PropsRenderFactories & PropsStore<ChatStore> & InjectFace<ChatFlowDataInjected> & PropsLocale<'chat'>;
+ /** Full Chat view props. */
+-export type ChatViewSlotProps = PropsRuntime<'conversation.view'> & PropsRenderSlots<'conversation.chat.flow'> & PropsStore<ChatStore> & InjectFace<ChatViewInjected> & PropsLocale<'chat'>;
++export type ChatViewSlotProps = PropsRuntime<'conversation.view'> & PropsRenderSlots<'conversation.chat.flow'> & PropsStore<ChatStore> & InjectFace<ChatViewInjected> & PropsLocale<'chat'> & { flowSlotName?: string; runningStatusTarget?: Element | null; presentTurnNavigation?: (navigation: ChatTurnNavigationPresentation) => ChatTurnNavigationPresentation; followTailRequestId?: string | number };
++export interface ChatTurnNavigationPresentation { readonly items: readonly (import('../chat/turn-rail-items.js').TurnRailItem & { readonly labelTurn?: number })[]; readonly activeTurn: number | null; readonly busyTurn: number | null; }
+ /** Full props shared by the user and output image entries. */
+ export type MessageImagesProps = PropsRuntime<'conversation.chat.user.images' | 'conversation.chat.message.images'> & PropsRenderFactories;
+ declare module '@deepseek-ai/dsh-client-ui-slots' {
+@@ -322,6 +324,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
+         };
+     }
+     interface SlotMap {
++ 'conversation.chat.before': { kind: 'single'; scope: 'session'; owner: Record<string, never> };
++ 'conversation.chat.pending-input': { kind: 'single'; scope: 'session'; owner: { input: PendingSubmission | InboxState['next-step'][number] } };
+         /** Ordered Chat rows and local echoes with viewport-bound visibility hooks. */
+         'conversation.chat.flow': {
+             kind: 'single';
+diff --git a/lib/types/client/conversation-nodes/chat-snapshot-builder.d.ts b/lib/types/client/conversation-nodes/chat-snapshot-builder.d.ts
+index 9a24b9d2..b501231f 100644
+--- a/lib/types/client/conversation-nodes/chat-snapshot-builder.d.ts
++++ b/lib/types/client/conversation-nodes/chat-snapshot-builder.d.ts
+@@ -71,6 +71,7 @@ export declare class ChatSnapshotBuilder implements ConversationViewBuilder<Chat
+     private readonly legacy;
+     private readonly referenceLabels;
+     private readonly skillNames;
++    private readonly compactionRecovery;
+     private order;
+     private latestGroupInput;
+     private readonly readGroupNode;
+diff --git a/lib/types/client/conversation-nodes/command.d.ts b/lib/types/client/conversation-nodes/command.d.ts
+index 11b14857..57530322 100644
+--- a/lib/types/client/conversation-nodes/command.d.ts
++++ b/lib/types/client/conversation-nodes/command.d.ts
+@@ -6,6 +6,8 @@ declare module '../contract/chat-nodes.ts' {
+         command: CommandNode;
+         /** Manual compact command combined with its compaction transaction. */
+         'manual-compaction': ManualCompactionChatData;
++        /** Hidden Session restore boundary for manual-compaction recovery. */
++        'compaction-session-end': { readonly seq: number };
+     }
+ }
+ type CommandId = CommandNode['commandId'];
+diff --git a/lib/types/client/locale.d.ts b/lib/types/client/locale.d.ts
+index 8e08a188..1fa6bda1 100644
+--- a/lib/types/client/locale.d.ts
++++ b/lib/types/client/locale.d.ts
+@@ -137,6 +137,7 @@ export declare const zh: {
+     'message.context.recall.truncated': string;
+     'message.compaction': string;
+     'message.compaction.running': string;
++    'message.compaction.interrupted': string;
+     'message.compaction.completed': string;
+     'message.compaction.expand': string;
+     'message.compaction.unavailable': string;
+@@ -333,6 +334,7 @@ export declare const en: {
+     'message.context.recall.truncated': string;
+     'message.compaction': string;
+     'message.compaction.running': string;
++    'message.compaction.interrupted': string;
+     'message.compaction.completed': string;
+     'message.compaction.expand': string;
+     'message.compaction.unavailable': string;

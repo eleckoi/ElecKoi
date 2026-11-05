@@ -77,4 +77,23 @@ describe('Renderer trust boundary', () => {
     expect(fromFrame).toBeInstanceOf(DesktopError)
     expect((fromFrame as DesktopError).code).toBe(ELECKOI_FAILURE_CODES.senderUntrusted)
   })
+
+  it.each(['creator', 'roleplay'])('opens and boots the preset manager for the %s category', purpose => {
+    const url = `dsh-app://app/?view=preset-manager&purpose=${purpose}`
+    const sender = { getURL: () => url } as WebContents
+    expect(isDshChildUrl(url)).toBe(true)
+    expect(() => assertTrustedDshClientFrame(sender, url, true, [sender])).not.toThrow()
+    expect(isDshChildUrl('dsh-app://app/?view=preset-manager')).toBe(true)
+  })
+
+  it.each([
+    'view=preset-manager&purpose=unknown',
+    'view=preset-manager&purpose=',
+    'view=preset-manager&purpose=creator&purpose=roleplay',
+    'view=preset-manager&purpose=creator&extra=1',
+    'view=creator-studio&purpose=creator',
+    'view=character-manager&purpose=roleplay',
+  ])('rejects unexpected child route parameters: %s', query => {
+    expect(isDshChildUrl(`dsh-app://app/?${query}`)).toBe(false)
+  })
 })

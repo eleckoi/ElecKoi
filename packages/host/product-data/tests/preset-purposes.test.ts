@@ -19,6 +19,28 @@ function open(path?: string) {
 }
 
 describe('preset purposes', () => {
+  it('upgrades the original default Creator capabilities from v13 while retaining custom presets and global selection', () => {
+    const f = open(), seeded = f.repository.active('creator')
+    const custom = f.repository.create('Synthetic custom creation', '', 'creator')
+    f.repository.save({ ...custom, entries: custom.entries.map(entry => entry.kind === 'normal' ? { ...entry, content: 'Synthetic retained author instructions' } : entry) })
+    f.repository.setActive(custom.id)
+    for (const table of ['agent_preset_contents', 'agent_preset_version_contents']) {
+      const rows = f.store.native.prepare(`SELECT rowid, content FROM ${table} WHERE presetId = ? AND kind = 'tool_configuration'`).all(seeded.id) as { rowid: number; content: string }[]
+      for (const row of rows) {
+        const value = JSON.parse(row.content)
+        value.includedGroupIds = ['builtin:creator']; value.enabledGroupIds = ['builtin:creator']
+        f.store.native.prepare(`UPDATE ${table} SET content = ? WHERE rowid = ?`).run(JSON.stringify(value), row.rowid)
+      }
+    }
+    const before = f.repository.get(custom.id)
+    f.store.native.pragma('user_version = 13'); f.store.close()
+    const next = open(f.path)
+    expect(next.repository.active('creator')).toEqual(before)
+    expect(next.repository.get(seeded.id).toolGroups.filter(group => group.included && group.enabled).map(group => group.id)).toContain('builtin:workspace')
+    expect(next.store.native.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
+    expect(next.store.native.pragma('foreign_key_check')).toEqual([])
+    expect(next.store.native.pragma('integrity_check', { simple: true })).toBe('ok')
+  })
   it('keeps defaults, groups and global selections independent', () => {
     const { repository } = open()
     const original = repository.active()
@@ -26,7 +48,7 @@ describe('preset purposes', () => {
     expect(creator.purpose).toBe('creator')
     expect(creator.entries.map(item => item.kind)).toEqual(['history_compaction', 'normal'])
     expect(creator.entries[0]).toMatchObject({ content: DEFAULT_CREATOR_HISTORY_COMPACTION_CONTENT, enabled: true, triggerMode: null, position: null })
-    expect(creator.toolGroups.filter(item => item.included || item.enabled).map(item => item.id)).toEqual(['builtin:creator'])
+    expect(creator.toolGroups.filter(item => item.included || item.enabled).map(item => item.id)).toEqual(['builtin:workflow', 'builtin:creator', 'builtin:collaboration', 'builtin:plugin-discovery', 'builtin:workspace', 'builtin:web'])
     const roleGroup = repository.createGroup('合成分组').groups.find(item => item.purpose === 'roleplay')!
     const creationGroup = repository.createGroup('合成分组', 'creator').groups.find(item => item.purpose === 'creator')!
     expect(creationGroup.name).toBe(roleGroup.name)

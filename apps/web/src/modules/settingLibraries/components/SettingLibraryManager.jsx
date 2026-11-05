@@ -29,7 +29,7 @@ function Modal({ title, children, actions, onClose }) {
 
 function ImportTypeDialog({ onCancel, onPick }) {
   return (
-    <Modal title="导入设定库" onClose={onCancel} actions={<Button variant="outline" onClick={onCancel}>取消</Button>}>
+    <Modal title="导入设定库" onClose={onCancel} actions={<Button data-dsh-control variant="outline" onClick={onCancel}>取消</Button>}>
       <div className="setting-library-manager-choice-list">
         <button type="button" onClick={() => onPick("eleckoi")}><ImportIcon size={20} /><span><strong>ElecKoi 设定库</strong><small>导入 ElecKoi 导出的 JSON</small></span><CaretRight size={16} /></button>
         <button type="button" onClick={() => onPick("sillytavern")}><ImportIcon size={20} /><span><strong>酒馆世界书</strong><small>导入 SillyTavern 世界书 JSON</small></span><CaretRight size={16} /></button>
@@ -43,7 +43,7 @@ function MergeConfirmDialog({ sourceName, version, plan, onCancel, onMerge }) {
     <Modal
       title={`并入 ${plan.entryCount} 条设定？`}
       onClose={onCancel}
-      actions={<><Button variant="outline" onClick={onCancel}>返回检查</Button><Button variant="primary" onClick={onMerge}>并入设定</Button></>}
+      actions={<><Button data-dsh-control variant="outline" onClick={onCancel}>返回检查</Button><Button data-dsh-control variant="primary" onClick={onMerge}>并入设定</Button></>}
     >
       <p className="setting-library-manager-confirm-copy">来源：{sourceName} · {versionLabel(version)}</p>
       <dl className="setting-library-merge-summary">
@@ -181,7 +181,7 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
     const action = fileActionRef.current;
     if (!file || !action) return;
     try {
-      const parsed = parseSettingLibraryFile(await file.text(), action.expected || "auto");
+      const parsed = parseSettingLibraryFile(await file.text(), action.expected || "auto", file.name);
       if (action.type === "import") {
         onChange(importLibraryAsVersion(current, parsed));
         setDialog("");
@@ -276,7 +276,7 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
             <option value="">根目录</option>
             {flattenGroups(current.groups).map((group) => <option key={group.id} value={group.id}>{`${"　".repeat(group.depth)}${group.name}`}</option>)}
           </select></label>
-          <button type="button" className="setting-library-merge-button" disabled={!checkedIds.size} onClick={prepareMerge}>检查并入结果</button>
+          <Button data-dsh-control variant="outline" type="button" className="setting-library-merge-button" disabled={!checkedIds.size} onClick={prepareMerge}>检查并入结果</Button>
         </div>
       ) : null}</EditorManagementModal>}
         {dialog === "import" ? <ImportTypeDialog onCancel={() => setDialog("")} onPick={(expected) => requestFile({ type: "import", expected })} /> : null}

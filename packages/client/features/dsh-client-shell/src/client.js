@@ -10,15 +10,19 @@ window.__ModuleLoader__.load({
       StateDot,
       Switch
     } = primitives
-    const { productFailure, ELECKOI_FAILURE_CODES } = require('@eleckoi/dsh-product-api')
+    const { productFailure, ELECKOI_FAILURE_CODES, unwrapOrFail, failureAlreadyPublished } = require('@eleckoi/dsh-product-api')
     const SettingsPage = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
       .then(module => ({ default: module.SettingsPage })))
     const CreatorStudioNavigationIcon = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
       .then(module => ({ default: module.CreatorStudioNavigationIcon })))
     const CommunityNavigationIcon = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
       .then(module => ({ default: module.CommunityNavigationIcon })))
+    const SidebarBrandMark = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
+      .then(module => ({ default: module.SidebarBrandMark })))
+    const SidebarBrandName = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
+      .then(module => ({ default: module.SidebarBrandName })))
     const nativeSettingsSections = new Set(['account', 'general', 'models', 'agent-presets'])
-    const shellActions = new Set(['creatorStudio', 'community'])
+    const shellActions = new Set(['community'])
     const builtInBundles = [
       "@eleckoi/dsh-client-characters",
       "@eleckoi/dsh-client-character-configuration",
@@ -31,6 +35,7 @@ window.__ModuleLoader__.load({
       "@eleckoi/dsh-client-web-search",
       "@eleckoi/dsh-client-shell",
       "@eleckoi/dsh-client-roleplay",
+      "@eleckoi/dsh-auto-illustration",
       "@eleckoi/dsh-client-author",
       "@eleckoi/dsh-client-html-resources",
       "@eleckoi/dsh-product-api",
@@ -114,8 +119,136 @@ window.__ModuleLoader__.load({
         }, section !== tab.value ? null : React.createElement('ul', { className: 'eleckoi-plugin-component-list' }, tab.value === 'components' ? components : interfaces)))
       )
     }
-    function ElecKoiSidebar({ renderContent, renderSlot }) {
-      return renderContent(renderSlot)
+    function createWorkspaceVisibility(ctx) {
+      const sessions = ctx.get('sessions')
+      const workspaces = ctx.get('workspaces')
+      const conversations = ctx.get('eleckoiConversations')
+      const emptyList = { ids: [], byId: {}, projectionsBySession: {}, phase: 'pending' }
+      const emptyRegistry = { items: [], pinnedSessionIds: [], archivedSessionIds: [], phase: 'pending' }
+      let previousList, previousRegistry, previousCatalog, snapshot
+      const getSnapshot = () => {
+        const list = sessions?.list.getSnapshot() ?? emptyList
+        const registry = workspaces?.list.getSnapshot() ?? emptyRegistry
+        const catalog = conversations?.getSnapshot()
+        if (snapshot && list === previousList && registry === previousRegistry && catalog === previousCatalog) return snapshot
+        previousList = list; previousRegistry = registry; previousCatalog = catalog
+        const protectedIds = new Set((catalog?.items ?? []).map(item => item.runtimeSessionId).filter(Boolean))
+        const children = new Map()
+        const known = new Set()
+        for (const [id, row] of Object.entries(list.byId)) {
+          const values = row.projectionValues ?? list.projectionsBySession[id]?.values
+          if (values !== undefined) known.add(id)
+          if (values?.agentPreset === 'eleckoi-active') protectedIds.add(id)
+          if (row.parentId) {
+            if (!children.has(row.parentId)) children.set(row.parentId, [])
+            children.get(row.parentId).push(id)
+          }
+        }
+        const pending = [...protectedIds]
+        for (let index = 0; index < pending.length; index++) for (const child of children.get(pending[index]) ?? []) {
+          if (!protectedIds.has(child)) { protectedIds.add(child); pending.push(child) }
+        }
+        // Until ownership arrives, no unknown Session becomes an editable row.
+        const ready = catalog?.status === 'ready' && list.phase === 'ready'
+        const visible = id => ready && known.has(id) && !protectedIds.has(id)
+        const byId = Object.fromEntries(Object.entries(list.byId).filter(([id]) => visible(id)))
+        snapshot = {
+          protectedIds,
+          sessions: { ...list, phase: ready ? list.phase : 'pending', ids: list.ids.filter(visible), byId,
+            projectionsBySession: Object.fromEntries(Object.entries(list.projectionsBySession).filter(([id]) => visible(id))) },
+          workspaces: { ...registry, items: registry.items.map(item => ({ ...item, sessionIds: item.sessionIds.filter(visible) })),
+            pinnedSessionIds: registry.pinnedSessionIds.filter(visible), archivedSessionIds: registry.archivedSessionIds.filter(visible) }
+        }
+        return snapshot
+      }
+      const subscribe = listener => {
+        const stops = [sessions?.list.subscribe(listener), workspaces?.list.subscribe(listener), conversations?.subscribe(listener)]
+        return () => { for (const stop of stops) stop?.() }
+      }
+      const assertVisible = id => {
+        if (!Object.hasOwn(getSnapshot().sessions.byId, id)) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition,
+          '该会话不能从插件工作区操作。', { what: '从所属的角色扮演或创作工作室管理会话' })
+      }
+      return {
+        getSnapshot,
+        sessions: { subscribe, getSnapshot: () => getSnapshot().sessions },
+        workspaces: { subscribe, getSnapshot: () => getSnapshot().workspaces },
+        assertVisible,
+        open: id => {
+          assertVisible(id)
+          const row = sessions.list.getSnapshot().byId[id]
+          const values = row.projectionValues ?? sessions.list.getSnapshot().projectionsBySession[id]?.values
+          if (values?.eleckoiCreatorStudio || values?.agentPreset === 'eleckoi-creator-active') {
+            void ctx.get('eleckoiCreatorStudio').sessions.open(id).then(() => ctx.layout.selectPanel('creatorStudio')).catch(failureAlreadyPublished)
+          } else ctx.get('uiWorkspace').openSession(id)
+        },
+        startSession: (workspaceId, options) => {
+          void ctx.get('eleckoiCreatorStudio').sessions.startWorkspace(workspaceId, options).then(() => ctx.layout.selectPanel('creatorStudio')).catch(failureAlreadyPublished)
+        },
+        searchSessions: async (query, signal) => {
+          const result = unwrapOrFail(await sessions.search(query, signal), '工作区搜索失败。')
+          const visible = getSnapshot().sessions.byId
+          return { ...result, items: result.items.filter(item => Object.hasOwn(visible, item.sessionId)) }
+        }
+      }
+    }
+    function mountWorkspaceSidebar(ctx, officialSidebar) {
+      const slots = ctx.slots
+      const visibility = createWorkspaceVisibility(ctx)
+      const emptyPanels = []
+      const noPanels = () => emptyPanels
+      const noEntryActions = () => false
+      // Adapt the public plugin registration, retaining its child-slot ownership,
+      // injected hooks and lifecycle. Only the native workspace uses its shell.
+      const scopedSlots = new Proxy(slots, {
+        get(target, name) {
+          if (name === 'register') return (options, Component) => target.register(options.name === 'sidebar' ? {
+            ...options,
+            inject: (...args) => {
+              const face = options.inject?.(...args) ?? {}
+              return { ...face, hooks: { ...face.hooks, eleckoiWorkspaceSessions: visibility.sessions, eleckoiWorkspaceRegistry: visibility.workspaces } }
+            }
+          } : options, options.name === 'sidebar' ? props => {
+              const scopedSessions = props.useEleckoiWorkspaceSessions?.(value => value)
+              const panel = ctx.layout.panelInfo?.getSnapshot()
+              const openingStudio = panel?.activePanelId === 'creatorStudio' || panel?.windowPanelId === 'creatorStudio'
+              const protectedCurrent = props.useSessions?.(value => {
+                const current = Object.values(value.byId).filter(row => (row.retainedBy?.mainView ?? 0) > 0)
+                const protectedIds = visibility.getSnapshot().protectedIds
+                return props.workspace && !openingStudio && current.length > 0 && current.every(row => protectedIds.has(row.id))
+              })
+              React.useEffect(() => { if (protectedCurrent) ctx.layout.selectPanel('messages') }, [protectedCurrent, scopedSessions])
+              const productSlot = (key, owner, renderOptions) => {
+                // Preserve the former product fallback priority for these seats.
+                const entry = slots.entriesOfSlot(key)[0]
+                if (owner && Object.hasOwn(owner, 'content') && (entry?.options.priority ?? 0) >= -100) return owner.content
+                return props.renderSlot(key, owner, renderOptions)
+              }
+              const workspaceSidebar = props.workspace ? React.createElement(Component, {
+                ...props,
+                usePanels: noPanels,
+                useEntryActions: noEntryActions,
+                startSession: visibility.startSession,
+                renderSlot: (key, owner, renderOptions) => key === 'sidebar.settings'
+                  ? null : key === 'sidebar.brand.mark' && globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind !== 'android'
+                    ? React.createElement(React.Fragment) : key === 'sidebar.workspaces' ? (() => {
+                    const face = slots.entriesOfSlot(key)[0]?.inject?.()
+                    return props.renderSlot(key, { ...owner,
+                      useSessions: props.useEleckoiWorkspaceSessions,
+                      useWorkspaces: props.useEleckoiWorkspaceRegistry,
+                      searchSessions: visibility.searchSessions, open: visibility.open, startSession: visibility.startSession,
+                      requestSessionRename: (id, title) => { visibility.assertVisible(id); face.requestSessionRename(id, title) },
+                      unarchiveSession: id => { visibility.assertVisible(id); return face.unarchiveSession(id) }
+                    }, renderOptions)
+                  })() : props.renderSlot(key, owner, renderOptions)
+              }) : null
+              return props.renderContent(productSlot, workspaceSidebar)
+            } : Component)
+          const value = Reflect.get(target, name)
+          return typeof value === 'function' ? value.bind(target) : value
+        }
+      })
+      officialSidebar.apply(ctx.extend({ slots: scopedSlots }))
     }
     function ElecKoiRoot({ layout, slots, subscribeSlots, frontendConnection, locale, theme, subscribeTheme, conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, webSearch, displayPreferences, sidebarRight, renderSlot, renderSlotChain }) {
       const [ProductApp, setProductApp] = React.useState(null)
@@ -205,10 +338,12 @@ window.__ModuleLoader__.load({
         const eleckoiPackages = new Map([
           ['@deepseek-ai/dsh-agent-loop', 'DSH 已有输入生成适配'],
           ['@deepseek-ai/dsh-client-ui-chat', 'DSH 官方聊天视图适配'],
+          ['@deepseek-ai/dsh-web-frontend', 'DSH 网页错误传递适配'],
           ['@deepseek-ai/dsh-client-ui-trajectory', 'DSH 轨迹请求身份适配'],
           ['@deepseek-ai/dsh-client-ui-plugin-manager', 'DSH 插件页面适配'],
           ['@deepseek-ai/dsh-client-ui-conversation', 'DSH 会话输入框适配'],
           ['@deepseek-ai/dsh-client-ui-workspace', 'DSH 启动导航适配'],
+          ['@deepseek-ai/dsh-tools', 'DSH 工具注册来源适配'],
           ['@deepseek-ai/dsh-plugin-manager', 'DSH 插件管理适配'],
           ['@deepseek-ai/dsh-llm', 'DSH 模型运行适配'],
           ['@deepseek-ai/dsh-llm-pi-ai', 'DSH 通用模型适配'],
@@ -335,6 +470,7 @@ window.__ModuleLoader__.load({
           primitives
         }
         const ready = () => {
+          if (!globalThis.__ELECKOI_DSH_SIDEBAR_READY__) return
           if (typeof globalThis.__ELECKOI_DSH_APP__ === 'function') {
             setProductApp(() => globalThis.__ELECKOI_DSH_APP__)
             setLoadError('')
@@ -343,6 +479,13 @@ window.__ModuleLoader__.load({
         const failed = event => setLoadError(event.detail || 'ElecKoi 客户端启动失败。')
         window.addEventListener('eleckoi:dsh-app-ready', ready)
         window.addEventListener('eleckoi:dsh-app-failed', failed)
+        let disposed = false
+        import(new URL('eleckoi-page-settings.js', new URL(assets.script, location.href)).href).then(() => {
+            if (disposed) return
+            globalThis.__ELECKOI_DSH_SIDEBAR_READY__ = true
+            window.dispatchEvent(new Event('eleckoi:dsh-sidebar-ready'))
+            ready()
+          }).catch(error => { if (!disposed) setLoadError(error instanceof Error ? error.message : String(error)) })
         const style = typeof assets.style === 'string' && !document.querySelector('link[data-eleckoi-styles]')
           ? document.createElement('link') : null
         if (style) {
@@ -361,6 +504,7 @@ window.__ModuleLoader__.load({
           document.head.append(script)
         }
         return () => {
+          disposed = true
           window.removeEventListener('eleckoi:dsh-app-ready', ready)
           window.removeEventListener('eleckoi:dsh-app-failed', failed)
         }
@@ -460,6 +604,7 @@ window.__ModuleLoader__.load({
         }
       }, 'eleckoi: optional native frontend projects'))
       {
+        const mobile = globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android'
         let panelSnapshot = { activePanelId: null }
         let rightbarSnapshot = {
           shown: false,
@@ -517,19 +662,34 @@ window.__ModuleLoader__.load({
             return () => { if (panelGuard === guard) panelGuard = null }
           },
           selectPanel: id => {
+            if (id === null || id === 'conversation') {
+              const foreground = Object.values(ctx.get('sessions')?.list.getSnapshot().byId ?? {}).filter(row => (row.retainedBy?.mainView ?? 0) > 0)
+              if (foreground.length === 1) {
+                const row = foreground[0]
+                const values = row.projectionValues ?? ctx.get('sessions').list.getSnapshot().projectionsBySession[row.id]?.values
+                if (values?.eleckoiCreatorStudio || values?.agentPreset === 'eleckoi-creator-active') id = 'creatorStudio'
+              }
+            }
+            if (!mobile && shellActions.has(id)) {
+              window.dispatchEvent(new CustomEvent('eleckoi:shell-action', { detail: id }))
+              return
+            }
             if (id !== null && !ctx.slots.entriesOfSlot('main').some(entry => entry.options.key === id)) {
               throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `layout.selectPanel: main panel "${id}" is not registered`, { what: '主面板' })
             }
-            const mobile = globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android'
-            const panelId = mobile && (id === null || id === 'conversation' || id === 'creatorStudio') ? null
-              : id === null ? 'conversation' : id === 'messages' ? null : id
-            const windowPanelId = mobile ? id ?? 'conversation' : undefined
-            if (panelSnapshot.activePanelId === panelId && panelSnapshot.windowPanelId === windowPanelId) { showSidebar(false); return }
+            const requestedWorkspace = id === null || id === 'conversation'
+            const currentSessionId = !mobile && requestedWorkspace ? ctx.get('uiSession')?.adapter.current.getSnapshot().key : undefined
+            const roleplayMain = currentSessionId && ctx.get('eleckoiConversations')?.getSnapshot().items
+              .some(item => item.runtimeSessionId === currentSessionId)
+            const workspace = id === 'creatorStudio' || requestedWorkspace && !roleplayMain
+            const panelId = requestedWorkspace || id === 'messages' || mobile && id === 'creatorStudio' ? null : id
+            const windowPanelId = mobile ? id ?? 'conversation' : requestedWorkspace && workspace ? 'conversation' : undefined
+            if (panelSnapshot.activePanelId === panelId && panelSnapshot.windowPanelId === windowPanelId) { if (mobile) showSidebar(false); return }
             const commit = () => {
               navigation.abort()
               navigation = new AbortController()
-              panelSnapshot = { activePanelId: panelId, ...(mobile ? { windowPanelId } : {}) }
-              showSidebar(false)
+              panelSnapshot = { activePanelId: panelId, ...(windowPanelId ? { windowPanelId } : {}) }
+              showSidebar(!mobile && workspace)
               for (const listener of listeners) listener()
             }
             if (panelGuard) panelGuard(commit)
@@ -627,29 +787,61 @@ window.__ModuleLoader__.load({
         ctx.effect(() => disposeRoot, 'eleckoi client root and layout')
       }
 
-      ctx.slots.inject('sidebar', () => ctx.slots.register({
-        name: 'sidebar',
-        priority: 100,
-        registrant: '@eleckoi/dsh-client-shell',
-        children: {
-          'sidebar.brand.mark': { kind: 'single', scope: 'root' },
-          'sidebar.brand.name': { kind: 'single', scope: 'root' },
-          'sidebar.toggle.badge': { kind: 'single', scope: 'root' },
-          'sidebar.panellist': { kind: 'list', scope: 'root' },
-          'sidebar.panellist.actions': { kind: 'list', scope: 'root' },
-          'sidebar.workspaces': { kind: 'single', scope: 'root' },
-          'sidebar.settings': { kind: 'single', scope: 'root' },
-          'sidebar.footer.action': { kind: 'list', scope: 'root' }
-        }
-      }, ElecKoiSidebar))
-      for (const name of ['sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.workspaces', 'sidebar.settings']) {
-        ctx.slots.inject(name, () => ctx.slots.register({ name, priority: -100, registrant: '@eleckoi/dsh-client-shell' },
-          ({ content }) => content))
+      for (const region of ['sidebar.panellist.actions', 'conversation.session.header.views.actions', 'sidebar.right.tab.guide.actions']) {
+        ctx.slots.inject(region, () => {
+          let current, dispose, stopped = false
+          const sync = () => {
+            const source = ctx.slots.entries(region).find(entry => entry.options.id === 'entry-customization' && entry.registrant !== '@eleckoi/dsh-client-shell')
+            if (stopped || source === current) return
+            current = source
+            dispose?.()
+            if (!source) { dispose = undefined; return }
+            dispose = ctx.slots.register({ ...source.options, name: region, locale: source.locale, priority: -100, registrant: '@eleckoi/dsh-client-shell',
+              inject: (...args) => ({ ...source.inject?.(...args), createPlugin: () => {
+                const area = region.startsWith('conversation') ? 'conversation' : region.startsWith('sidebar.right') ? 'rightbar' : 'sidebar'
+                const prompt = ctx.locale.bind('entryCustomization')(`createPrompt.${area}`)
+                void ctx.get('eleckoiCreatorStudio').sessions.startWorkspace(undefined, { prompt, whenDraftExists: 'append' })
+                  .then(() => ctx.layout.selectPanel('creatorStudio')).catch(failureAlreadyPublished)
+              } }) }, source.component)
+          }
+          const stop = ctx.slots.subscribe(region, sync)
+          sync()
+          return () => { stopped = true; stop(); dispose?.() }
+        })
       }
+      ctx.effect(() => {
+          let mounted = false
+          const mount = () => {
+            if (mounted) return
+            mounted = true
+            const officialSidebar = require('@deepseek-ai/dsh-client-ui-sidebar')
+            ctx.plugin({
+              inject: officialSidebar.inject,
+              apply: scope => mountWorkspaceSidebar(scope, officialSidebar)
+            })
+          }
+          if (globalThis.__ELECKOI_DSH_SIDEBAR_READY__) mount()
+          window.addEventListener('eleckoi:dsh-sidebar-ready', mount)
+          return () => window.removeEventListener('eleckoi:dsh-sidebar-ready', mount)
+      }, 'eleckoi: native workspace sidebar library')
+      ctx.slots.inject('sidebar.brand.mark', () => ctx.slots.register({ name: 'sidebar.brand.mark', priority: -100 },
+          ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(SidebarBrandMark, { size }))))
+        ctx.slots.inject('sidebar.brand.name', () => ctx.slots.register({ name: 'sidebar.brand.name', priority: -100 },
+          () => React.createElement(React.Suspense, { fallback: null }, React.createElement(SidebarBrandName))))
 
       ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'settings', registrant: '@eleckoi/dsh-client-shell' },
         () => React.createElement(SettingsPage)))
-      ctx.slots.inject('plugins.bundle.config', () => builtInBundles.map(packageName => ctx.slots.register({
+      ctx.slots.inject('sidebar.panellist', () => [
+        ctx.slots.register({
+          name: 'sidebar.panellist', id: 'creatorStudio', order: 10,
+          label: 'AI创作工作室', registrant: '@eleckoi/dsh-client-shell'
+        }, ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(CreatorStudioNavigationIcon, { size }))),
+        ctx.slots.register({
+          name: 'sidebar.panellist', id: 'community', order: 20,
+          label: '社区', registrant: '@eleckoi/dsh-client-shell'
+        }, ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(CommunityNavigationIcon, { size })))
+      ])
+      ctx.slots.inject('plugins.bundle.config', () => builtInBundles.filter(name => name !== '@eleckoi/dsh-auto-illustration').map(packageName => ctx.slots.register({
         name: 'plugins.bundle.config', key: packageName, registrant: '@eleckoi/dsh-client-shell'
       }, () => {
         const entry = ctx.slots.entriesOfSlot('main').find(candidate => candidate.options.key === 'plugins')
@@ -657,17 +849,6 @@ window.__ModuleLoader__.load({
         return face ? React.createElement(BuiltInPluginContents, { key: packageName, packageName, face })
           : React.createElement('p', { role: 'status' }, '插件管理器尚未就绪。')
       })))
-      ctx.slots.inject('sidebar.panellist', () => [
-        ctx.slots.register({
-          name: 'sidebar.panellist', id: 'creatorStudio', order: 10,
-          label: 'AI创作工作室', registrant: '@eleckoi/dsh-client-shell'
-        }, () => React.createElement(CreatorStudioNavigationIcon)),
-        ctx.slots.register({
-          name: 'sidebar.panellist', id: 'community', order: 20,
-          label: '社区', registrant: '@eleckoi/dsh-client-shell'
-        }, () => React.createElement(CommunityNavigationIcon))
-      ])
-
       ctx.effect(() => {
         const fontSizeVariables = {
           text: '--dsh-content-font-size',

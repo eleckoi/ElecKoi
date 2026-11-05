@@ -4,7 +4,8 @@
 
 - id: system-prompt
   config:
-    personaPrefix: !!js process.env.DSH_SYSTEM_PROMPT ?? 'You are ElecKoi.'
+    includeHarnessIdentity: false
+    personaPrefix: !!js process.env.DSH_SYSTEM_PROMPT ?? ''
     personaSuffix: ''
 
 - id: spill-local
@@ -40,7 +41,7 @@
 
 - id: approval
   config:
-    policy: never
+    policy: ask
 
 - id: permission
   config:
@@ -51,13 +52,10 @@
       workspace-write:
         sandbox: workspace-write
         approval: ask
-      eleckoi-workspace:
-        sandbox: workspace-write
-        approval: never
       danger-full-access:
         sandbox: danger-full-access
         approval: never
-    defaultPreset: eleckoi-workspace
+    defaultPreset: workspace-write
 
 - id: web
   config:

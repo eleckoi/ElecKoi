@@ -5,6 +5,29 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { runInNewContext } from 'node:vm';
 import { expect, it, vi } from 'vitest';
+import { ChatPanel } from '../../src/modules/chat/components/ChatPanel.jsx';
+
+it('renders the supplied Session header action next to the roleplay title and keeps its navigation', async () => {
+  vi.stubGlobal('React', React);
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+  const node = document.createElement('div'); document.body.append(node);
+  const root = createRoot(node), openChild = vi.fn(), refresh = vi.fn(async () => ({ presets: [] }));
+  const dshConversation = { activeView: 'chat', tabs: [{ id: 'chat', label: '对话' }], renderView: () => null,
+    renderHeaderActions: () => <><span data-official-preset="">合成正式预设</span><button aria-label="合成子智能体入口" onClick={openChild}>1 个子智能体</button></> };
+  try {
+    await act(async () => root.render(<ChatPanel hasActiveChat hasCharacters currentTitle="合成角色" conversationId="synthetic-parent"
+      persona={{}} messages={[]} input="" modelConfigs={[]} scrollRef={{ current: null }} dshConversation={dshConversation}
+      presetCatalog={{ refresh }} />));
+    const action = node.querySelector('.chat-header-title-cluster [aria-label="合成子智能体入口"]');
+    expect(action).toBeTruthy();
+    expect(node.querySelectorAll('[data-official-preset]')).toHaveLength(1);
+    expect(node.querySelector('.chat-header-preset')).toBeNull();
+    expect(refresh).not.toHaveBeenCalled();
+    await act(async () => action.click());
+    expect(openChild).toHaveBeenCalledOnce();
+  } finally { await act(async () => root.unmount()); node.remove(); vi.unstubAllGlobals(); }
+});
 
 it.each([
   { name: 'conversation switching', switching: true, ids: ['synthetic-first', 'synthetic-other', 'synthetic-first'] },

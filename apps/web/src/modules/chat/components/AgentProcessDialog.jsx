@@ -1,42 +1,18 @@
-import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { OfficialMarkdown } from '../../../ui/messages/OfficialMarkdown.jsx';
-import { DshCloseIcon } from '../../../ui/icons/dshComposerIcons.jsx';
-import { MessageChevronLeftIcon, MessageChevronRightIcon } from '../../../ui/icons/elecKoiMessageIcons.jsx';
-import { isSubagentItem, processBlocks, processItemDetails, subagentDetailPresentation } from '../model/agentProcessDetails.js';
-import { processArgumentSummary } from '../model/agentProcessArguments.js';
-import { delegatedProcessItems } from '../model/agentProcessHierarchy.js';
-import { AgentProcessIcon } from './AgentProcessIcon.jsx';
+import { IconCloseOutlineRegular, MenuSurface } from '@deepseek-ai/dsh-client-ui-primitives';
+import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 import { useBottomSheetDismiss } from '../../../ui/hooks/useBottomSheetDismiss.js';
 import { isProcessTimingRunning, processDurationText } from '../model/agentProcessTiming.js';
-import { useRegexEjsDisplay } from '../../regex/index.js';
+import '../styles/process-dialog.css';
 
-const ProcessMessageContext = createContext(null);
-
-export function AgentProcessDialog({ message, reasoningDisplayMode = 'collapsed', onClose }) {
-  const { overlayRef, sheetRef: dialogRef, closing, dismiss } = useBottomSheetDismiss(onClose);
-  const [selectedGroupId, setSelectedGroupId] = useState('');
-  const [selectedItemPath, setSelectedItemPath] = useState([]);
-  const scrollPositionsRef = useRef(new Map());
-  const items = message?.process || [];
-  const blocks = useMemo(() => processBlocks(items), [items]);
-  const selectedGroup = useMemo(
-    () => blocks.find((block) => block.type === 'operations' && block.id === selectedGroupId),
-    [blocks, selectedGroupId],
-  );
-  const selectedItemId = selectedItemPath.at(-1) || '';
-  const selectedItem = useMemo(() => items.find((item) => item.id === selectedItemId), [items, selectedItemId]);
-  const selectedDelegatedItems = useMemo(
-    () => delegatedProcessItems(items, selectedItemId),
-    [items, selectedItemId],
-  );
+/** Product container; process rows retain their original Session Slot ownership. */
+export function AgentProcessDialog({ message, onClose, onContentTarget }) {
+  const { overlayRef, sheetRef, closing, dismiss } = useBottomSheetDismiss(onClose);
   const [now, setNow] = useState(Date.now);
   const timingRunning = isProcessTimingRunning(message);
+  const running = message?.pending === true || message?.status === 'streaming' || message?.status === 'running';
   const duration = processDurationText(message, now);
-  const hasFinal = message?.status === 'complete' && Boolean(message?.content?.trim());
-  const imagePrompts = items.filter(item => item.kind === 'action' && item.toolName === 'generate_image' && item.arguments);
-  const showingDetails = Boolean(selectedGroup || selectedItem);
 
   useEffect(() => {
     if (!timingRunning) return undefined;
@@ -46,434 +22,36 @@ export function AgentProcessDialog({ message, reasoningDisplayMode = 'collapsed'
   }, [timingRunning, message?.processTiming?.startedAtMillis]);
 
   useLayoutEffect(() => {
-    if (document.documentElement.dataset.eleckoiMobile !== 'true') return undefined;
     const previous = document.activeElement;
-    dialogRef.current?.focus({ preventScroll: true });
+    sheetRef.current?.focus({ preventScroll: true });
     return () => { if (previous?.isConnected) previous.focus({ preventScroll: true }); };
   }, []);
 
   useEffect(() => {
-    const closeOnEscape = (event) => {
-      if (event.key !== 'Escape') return;
-      if (closing) return;
-      if (selectedItemId) setSelectedItemPath((current) => current.slice(0, -1));
-      else if (selectedGroupId) setSelectedGroupId('');
-      else dismiss();
+    const onEscape = event => {
+      if (event.key !== 'Escape' || event.defaultPrevented || closing) return;
+      const dialog = event.target instanceof Element ? event.target.closest('[role="dialog"]') : null;
+      if (dialog && dialog !== sheetRef.current) return;
+      event.preventDefault();
+      dismiss();
     };
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [closing, dismiss, selectedGroupId, selectedItemId]);
+    window.addEventListener('keydown', onEscape);
+    return () => window.removeEventListener('keydown', onEscape);
+  }, [closing, dismiss]);
 
-  const goBack = () => {
-    if (selectedItemId) setSelectedItemPath((current) => current.slice(0, -1));
-    else setSelectedGroupId('');
-  };
-
-  const selectOverviewBlock = (block) => {
-    const directItem = block.items.length === 1 && block.items[0]?.kind === 'compaction'
-      ? block.items[0]
-      : null;
-    if (directItem) {
-      setSelectedGroupId('');
-      setSelectedItemPath([directItem.id]);
-      return;
-    }
-    setSelectedItemPath([]);
-    setSelectedGroupId(block.id);
-  };
-
-  return createPortal(<ProcessMessageContext.Provider value={message}><SystemBarOverlay ref={overlayRef} className="agent-process-backdrop" data-sheet-closing={closing || undefined} role="presentation" onMouseDown={dismiss}>
-    <section ref={dialogRef} className="agent-process-dialog" tabIndex={-1} role="dialog" aria-modal="true" aria-label={showingDetails ? '详情' : '处理过程'} onMouseDown={(event) => event.stopPropagation()}>
-      <header>
-        {showingDetails ? <button type="button" className="agent-process-back" onClick={goBack} aria-label="返回">{isMobilePresentation() ? <AgentProcessIcon name="arrow-back" size={24} /> : <MessageChevronLeftIcon />}</button> : <span />}
-        <h2>{showingDetails ? '详情' : `处理过程${duration ? ` · ${duration}` : ''}`}</h2>
-        <button type="button" className="agent-process-close" onClick={dismiss} aria-label="关闭">{isMobilePresentation() ? <AgentProcessIcon name="close" size={24} /> : <DshCloseIcon />}</button>
+  return createPortal(<SystemBarOverlay ref={overlayRef} className="roleplay-process-backdrop" maskPseudo="::before"
+    systemBarSurfaceRef={sheetRef} data-sheet-closing={closing || undefined} role="presentation"
+    onMouseDown={dismiss}>
+    <MenuSurface ref={sheetRef} className="roleplay-process-dialog" role="dialog" aria-modal="true"
+      aria-label="处理过程" tabIndex={-1} onMouseDown={event => event.stopPropagation()}>
+      <header className="roleplay-process-header">
+        <div><h2>处理过程</h2><span>{running ? '进行中' : message?.status === 'error' ? '处理失败'
+          : message?.status === 'cancelled' ? '已停止' : '已完成'}{duration ? <><i />{duration}</> : null}</span></div>
+        <button type="button" className="roleplay-process-close" onClick={dismiss} aria-label="关闭处理过程">
+          <IconCloseOutlineRegular size={20} />
+        </button>
       </header>
-      {selectedItem
-        ? <ProcessDetail
-          item={selectedItem}
-          details={detailPresentation(selectedItem)}
-          delegatedItems={selectedDelegatedItems}
-          reasoningDisplayMode={reasoningDisplayMode}
-          scrollKey={`item:${selectedItemPath.join('/')}`}
-          scrollPositions={scrollPositionsRef.current}
-          onSelectItem={(id) => setSelectedItemPath((current) => [...current, id])}
-        />
-        : selectedGroup
-          ? <ProcessGroupDetail
-            group={selectedGroup}
-            reasoningDisplayMode={reasoningDisplayMode}
-            scrollPositions={scrollPositionsRef.current}
-            onSelectItem={(id) => setSelectedItemPath([id])}
-          />
-          : <ProcessOverview
-            blocks={blocks}
-            hasFinal={hasFinal}
-            imagePrompts={imagePrompts}
-            scrollPositions={scrollPositionsRef.current}
-            onSelectBlock={selectOverviewBlock}
-          />}
-    </section>
-  </SystemBarOverlay></ProcessMessageContext.Provider>, document.body);
+      <div className="roleplay-process-scroll"><div className="roleplay-process-content" ref={onContentTarget} /></div>
+    </MenuSurface>
+  </SystemBarOverlay>, document.body);
 }
-
-function ProcessOverview({ blocks, hasFinal, imagePrompts, scrollPositions, onSelectBlock }) {
-  return <ProcessScrollPane className="agent-process-groups" scrollKey="overview" scrollPositions={scrollPositions}>
-    <div className="agent-process-timeline">{blocks.map((block) => {
-      if (block.type === 'narrative') return <p className="agent-process-phase" key={block.id}>{block.text}</p>;
-      return <button type="button" className="agent-process-item agent-process-group" key={block.id} onClick={() => onSelectBlock(block)}>
-        <span className={`agent-process-glyph status-${block.presentation.status}`}>
-          <AgentProcessIcon name={block.presentation.icon} size={block.presentation.icon === 'reasoning' ? 27 : 22} animated={block.presentation.status === 'running'} />
-        </span>
-        <span className="agent-process-label">
-          <span className="agent-process-title-line"><strong>{block.presentation.title}</strong></span>
-        </span>
-        {block.presentation.status === 'running' ? <i className="agent-process-spinner" /> : <ProcessChevron size={16} />}
-      </button>;
-    })}</div>
-    {hasFinal || imagePrompts.length ? <div className="agent-process-protocol">
-      <span className="agent-process-glyph"><AgentProcessIcon name="check" size={22} /></span>
-      <div className="agent-process-protocol-content">
-        <h3>输出协议</h3>
-        {imagePrompts.map(item => <section key={item.id}>
-          <div><code>&lt;ACTION_CALL name="generate_image"&gt;</code></div>
-          <DetailBlock label="生图提示词" value={pretty(item.arguments)} />
-        </section>)}
-        {hasFinal ? <div><code>&lt;FINAL&gt;</code><span>已识别</span></div> : null}
-      </div>
-    </div> : null}
-  </ProcessScrollPane>;
-}
-
-function ProcessGroupDetail({ group, reasoningDisplayMode, scrollPositions, onSelectItem }) {
-  return <ProcessScrollPane
-    className="agent-process-list agent-process-detail-timeline"
-    scrollKey={`group:${group.id}`}
-    scrollPositions={scrollPositions}
-  >
-    {group.items.map((item) => {
-      if (item.kind === 'reasoning' || item.toolName === 'reasoning') {
-        const text = reasoningDisplayText(item);
-        return <ProcessTimelineNode key={item.id} bodyRail><ReasoningOverview block={{ item, text }} displayMode={reasoningDisplayMode} /></ProcessTimelineNode>;
-      }
-      const details = detailPresentation(item);
-      return <ProcessTimelineNode key={item.id}><OperationRow item={item} details={details} onClick={() => onSelectItem(item.id)} /></ProcessTimelineNode>;
-    })}
-  </ProcessScrollPane>;
-}
-
-function ProcessTimelineNode({ bodyRail = false, children }) {
-  return isMobilePresentation()
-    ? <div className={`agent-process-timeline-node${bodyRail ? ' has-body-rail' : ''}`}>{children}</div>
-    : children;
-}
-
-function ProcessScrollPane({ className, scrollKey, scrollPositions, children }) {
-  const elementRef = useRef(null);
-
-  useLayoutEffect(() => {
-    const element = elementRef.current;
-    if (!element) return undefined;
-    element.scrollTop = scrollPositions.get(scrollKey) || 0;
-    return () => {
-      scrollPositions.set(scrollKey, element.scrollTop);
-    };
-  }, [scrollKey, scrollPositions]);
-
-  return <div
-    ref={elementRef}
-    className={className}
-    onScroll={(event) => scrollPositions.set(scrollKey, event.currentTarget.scrollTop)}
-  >{children}</div>;
-}
-
-function OperationRow({ item, details, onClick }) {
-  const content = <>
-    <span className={`agent-process-glyph status-${item.status}`}><AgentProcessIcon name={details.icon} size={22} /></span>
-    <span className="agent-process-label">
-      <span className="agent-process-title-line">
-        <strong>{details.title}</strong>
-        {details.target ? <small>{details.target}</small> : null}
-      </span>
-    </span>
-    {item.status === 'running' ? <i className="agent-process-spinner" /> : onClick ? <ProcessChevron size={17} /> : <span />}
-  </>;
-  return onClick
-    ? <button type="button" className="agent-process-item" onClick={onClick}>{content}</button>
-    : <div className="agent-process-item">{content}</div>;
-}
-
-function reasoningDisplayText(item) {
-  if (item.status !== 'running' && typeof item.displayDetail === 'string') return item.displayDetail;
-  return typeof item.detail === 'string' && item.detail.trim() ? item.detail : item.summary || '';
-}
-
-function ReasoningOverview({ block, displayMode }) {
-  const message = useContext(ProcessMessageContext);
-  const rendered = useRegexEjsDisplay({ ...message, role: 'assistant', content: block.item.detail || block.item.summary || '',
-    pending: block.item.status === 'running', status: block.item.status === 'running' ? 'streaming' : 'complete' }, block.text);
-  const text = rendered.content;
-  const [visibleLines, setVisibleLines] = useState(8);
-  const [hasHiddenLines, setHasHiddenLines] = useState(false);
-  const textRef = useRef(null);
-  const expandAll = displayMode === 'expanded';
-
-  useLayoutEffect(() => {
-    const element = textRef.current;
-    if (!element || expandAll) {
-      setHasHiddenLines(false);
-      return;
-    }
-    setHasHiddenLines(element.scrollHeight > element.clientHeight + 1);
-  }, [text, expandAll, visibleLines]);
-
-  return <section className="agent-process-reasoning">
-    <div className="agent-process-reasoning-title">
-      <span className={`agent-process-glyph status-${block.item.status}`}>
-        <AgentProcessIcon name="reasoning" size={27} animated={block.item.status === 'running'} />
-      </span>
-      <strong>{block.item.status === 'running' ? '正在思考' : '思考过程'}</strong>
-    </div>
-    {text ? <div className="agent-process-reasoning-body">
-      <p
-        ref={textRef}
-        className={expandAll ? '' : 'is-clamped'}
-        style={expandAll ? undefined : { '--reasoning-visible-lines': visibleLines }}
-      >{text.trim()}</p>
-      {!expandAll && (hasHiddenLines || visibleLines > 8) ? <div className="agent-process-reasoning-actions">
-        {hasHiddenLines ? <button type="button" onClick={() => setVisibleLines((lines) => lines + 10)}>展示更多…</button> : null}
-        {visibleLines > 8 ? <button type="button" className="secondary" onClick={() => setVisibleLines(8)}>收起</button> : null}
-      </div> : null}
-    </div> : null}
-    {rendered.error ? <pre className="script-execution-error" role="alert">{rendered.error}</pre> : null}
-  </section>;
-}
-
-function ProcessDetail({ item, details, delegatedItems, reasoningDisplayMode, scrollKey, scrollPositions, onSelectItem }) {
-  if (isSubagentItem(item)) {
-    return <SubagentProcessDetail
-      item={item}
-      details={details}
-      delegatedItems={delegatedItems}
-      reasoningDisplayMode={reasoningDisplayMode}
-      scrollKey={scrollKey}
-      scrollPositions={scrollPositions}
-      onSelectItem={onSelectItem}
-    />;
-  }
-  const rawResult = details.result || parseValue(item.summary) || item.summary || item.detail;
-  const argumentSummary = isMobilePresentation() ? processArgumentSummary(item.toolName, item.arguments) : null;
-  return <ProcessScrollPane className="agent-process-detail" scrollKey={scrollKey} scrollPositions={scrollPositions}>
-    <div className="agent-process-detail-intro">
-      <div><h3>{details.title}</h3>{details.target || isMobilePresentation() ? <p className="target">{details.target || item.toolName}</p> : null}</div>
-      <span className={`agent-process-status status-${item.status}`}>{details.statusLabel}</span>
-    </div>
-    {item.arguments ? argumentSummary
-      ? <DetailTextBlock label="调用参数" value={argumentSummary} />
-      : <DetailBlock label="调用参数" value={pretty(item.arguments)} /> : null}
-    {details.specialized ? <SpecializedResult result={details.specialized} /> : rawResult ? <DetailBlock label="结果" value={pretty(rawResult)} /> : null}
-    {details.specialized && rawResult ? <RawResult value={rawResult} /> : null}
-    {item.detail && !details.specialized && item.detail !== item.summary && !sameJson(item.detail, rawResult)
-      ? <DetailBlock label="事件详情" value={pretty(item.detail)} /> : null}
-    {delegatedItems.length ? <DelegatedTimeline
-      parentId={item.id}
-      items={delegatedItems}
-      reasoningDisplayMode={reasoningDisplayMode}
-      onSelectItem={onSelectItem}
-    /> : null}
-  </ProcessScrollPane>;
-}
-
-function SubagentProcessDetail({ item, details, delegatedItems, reasoningDisplayMode, scrollKey, scrollPositions, onSelectItem }) {
-  const presentation = subagentDetailPresentation(item, delegatedItems);
-  const hasProjectedReply = delegatedItems.some((child) => child?.toolName === 'assistant_final' && child?.parentId === item.id);
-  const visibleDelegatedItems = presentation.reply && !hasProjectedReply
-    ? [...delegatedItems, {
-        id: `subagent-result:${item.id}`,
-        parentId: item.id,
-        kind: 'narrative',
-        toolName: 'assistant_final',
-        status: item.status,
-        summary: presentation.reply,
-        detail: presentation.reply,
-        startedAtMillis: item.completedAtMillis || item.startedAtMillis || 0,
-        completedAtMillis: item.completedAtMillis || 0,
-      }]
-    : delegatedItems;
-  return <ProcessScrollPane className="agent-process-detail agent-process-subagent-detail" scrollKey={scrollKey} scrollPositions={scrollPositions}>
-    <div className="agent-process-detail-intro">
-      <div><h3>{details.title}</h3>{presentation.description ? <p className="target">{presentation.description}</p> : null}</div>
-      <span className={`agent-process-status status-${item.status}`}>{details.statusLabel}</span>
-    </div>
-    {presentation.prompt ? <DetailTextBlock label="委派指令" value={presentation.prompt} /> : null}
-    <DetailTextBlock label="使用模型" value={presentation.model} />
-    {visibleDelegatedItems.length
-      ? <DelegatedTimeline parentId={item.id} items={visibleDelegatedItems} reasoningDisplayMode={reasoningDisplayMode} onSelectItem={onSelectItem} />
-      : item.status === 'running' ? <p className="agent-process-waiting">正在启动子 Agent…</p> : null}
-    {presentation.returnResult
-      ? <DetailTextBlock label={item.status === 'error' ? '失败原因' : '返回结果'} value={presentation.returnResult} />
-      : null}
-  </ProcessScrollPane>;
-}
-
-function DelegatedTimeline({ parentId, items, reasoningDisplayMode, onSelectItem }) {
-  const reply = items.findLast((item) => item?.toolName === 'assistant_final' && item?.parentId === parentId);
-  const blocks = processBlocks(items.filter((item) => item?.toolName !== 'assistant_final'));
-  return <section className="agent-process-delegated">
-    <h4>子 Agent 思考与完整回复</h4>
-    <div className="agent-process-detail-timeline">{blocks.flatMap((block) => {
-      if (block.type === 'narrative') return [<p className="agent-process-phase" key={block.id}>{block.text}</p>];
-      return block.items.map((item) => item.kind === 'reasoning' || item.toolName === 'reasoning'
-        ? <ProcessTimelineNode key={item.id} bodyRail><ReasoningOverview block={{ item, text: reasoningDisplayText(item) }} displayMode={reasoningDisplayMode} /></ProcessTimelineNode>
-        : <ProcessTimelineNode key={item.id}><OperationRow item={item} details={detailPresentation(item)} onClick={() => onSelectItem(item.id)} /></ProcessTimelineNode>);
-    })}
-      {reply?.summary || reply?.detail ? <ChildAgentReply item={reply} /> : null}
-    </div>
-  </section>;
-}
-
-function ChildAgentReply({ item }) {
-  return <div className="agent-process-child-reply">
-    <div className="agent-process-child-reply-title">
-      <span className={`agent-process-glyph status-${item.status}`}><AgentProcessIcon name="groups" size={20} /></span>
-      <strong>{item.status === 'running' ? '子 Agent 正在回复' : '子 Agent 回复'}</strong>
-    </div>
-    <div className="agent-process-child-reply-content markdown-message">
-      <OfficialMarkdown content={item.summary || item.detail} streaming={item.status === 'running'} />
-    </div>
-  </div>;
-}
-
-function SpecializedResult({ result }) {
-  if (result.type === 'glob') return <GlobResult result={result} />;
-  if (result.type === 'settings') return <SettingEntries entries={result.entries} />;
-  if (result.type === 'variables') return <VariableEntries entries={result.entries} />;
-  if (result.type === 'operations') return <OperationEntries result={result} />;
-  if (result.type === 'plan') return <PlanEntries steps={result.steps} />;
-  return null;
-}
-
-function GlobResult({ result }) {
-  const displayed = unique([...result.required, ...result.paths]);
-  const detailsByPath = new Map(result.pathDetails.map((entry) => [entry?.path, entry]));
-  const requiredByPath = new Map(result.requiredEntries.map((entry) => [entry?.path || entry, entry]));
-  const requiredPaths = new Set(result.required);
-  const fixedRequired = result.settingLibrary ? result.required.filter((path) =>
-    (requiredByPath.get(path) || detailsByPath.get(path))?.read_strategy === 'required') : [];
-  const turnRequired = result.settingLibrary ? result.required.length - fixedRequired.length : 0;
-  return <section className="agent-process-result-section agent-process-glob-result">
-    <h4>结果</h4>
-    <div className="agent-process-result-meta">
-      <strong>{result.required.length ? `返回目录 · ${displayed.length} 项` : `匹配结果 · ${result.paths.length} 项`}</strong>
-      {result.omitted ? <span>另有 {result.omitted} 项未显示</span> : null}
-      <p><b>匹配 {result.paths.length}</b>{result.settingLibrary ? <>
-        {fixedRequired.length ? <em> · 固定必读 {fixedRequired.length}</em> : null}
-        {turnRequired ? <em className="is-conditional"> · 本轮须读 {turnRequired}</em> : null}
-      </> : result.required.length ? <em> · 必读 {result.required.length}</em> : null}</p>
-      <p>范围：{result.scope}{result.pattern ? ` · 路径模式：${result.pattern}` : ''}</p>
-    </div>
-    <div className="agent-process-result-list">
-      {displayed.length ? displayed.map((path) => {
-        const metadata = detailsByPath.get(path) || requiredByPath.get(path) || {};
-        const strategy = metadata.read_strategy || metadata.read_mode || metadata.readStrategy;
-        const requirement = result.settingLibrary && requiredPaths.has(path)
-          ? strategy === 'required' ? 'fixed' : 'turn' : '';
-        return <div className="agent-process-result-row" key={path}>
-          <AgentProcessIcon name="description" size={19} />
-          <span><strong>{displayName(path)}</strong>{parentPath(path) ? <small>{parentPath(path)}</small> : null}</span>
-          {requirement ? <em className={requirement === 'fixed' ? 'strategy-required' : 'strategy-keyword'}>{requirement === 'fixed' ? '固定必读' : '本轮须读'}</em>
-            : strategy ? <em className={`strategy-${strategy}`}>{strategyLabel(strategy)}</em> : null}
-        </div>;
-      }) : <p className="agent-process-empty">没有匹配路径</p>}
-    </div>
-  </section>;
-}
-
-function SettingEntries({ entries }) {
-  return <section className="agent-process-result-section">
-    <h4>{entries.length === 1 ? '设定正文' : `设定正文 · ${entries.length} 个条目`}</h4>
-    <div className="agent-process-cards">{entries.map((entry, index) => <SettingCard entry={entry} key={entry.path || `${entry.title}-${index}`} />)}</div>
-  </section>;
-}
-
-function SettingCard({ entry }) {
-  const [expanded, setExpanded] = useState(false);
-  return <article className={`agent-process-card agent-process-setting-card${entry.references.length ? ' has-references' : ''}${expanded ? ' is-expanded' : ''}`}>
-    <div className="agent-process-card-body">
-      <div className="agent-process-card-title"><strong>{entry.title}</strong>{entry.truncated ? <em className="is-error">已截断</em> : null}{entry.readStrategy ? <em className={`strategy-${entry.readStrategy}`}>{strategyLabel(entry.readStrategy)}</em> : null}</div>
-      <p className="agent-process-card-path">{entry.groupPath || parentPath(entry.path) || '根目录'}</p>
-      {entry.references.length ? <p className="agent-process-card-note is-keyword">本回合引用：{entry.references.map((reference) => reference?.title).filter(Boolean).join('、')}</p> : null}
-      {entry.selectionHint ? <p className="agent-process-card-note">作者注释：{entry.selectionHint}</p> : null}
-      <div className={`agent-process-card-content${expanded ? '' : ' is-clamped'}`}>{expanded && isMobilePresentation() && entry.content
-        ? <OfficialMarkdown content={entry.content} /> : entry.content || '没有正文内容'}</div>
-    </div>
-    <ExpandAction expanded={expanded} collapsedLabel="展开正文" expandedLabel="收起正文" onClick={() => setExpanded((value) => !value)} />
-  </article>;
-}
-
-function VariableEntries({ entries }) {
-  return <section className="agent-process-result-section">
-    <h4>{entries.length === 1 ? '变量' : `变量 · ${entries.length} 个`}</h4>
-    <div className="agent-process-cards">{entries.map((entry, index) => <VariableCard entry={entry} key={entry.path || index} />)}</div>
-  </section>;
-}
-
-function VariableCard({ entry }) {
-  const [expanded, setExpanded] = useState(false);
-  return <article className={`agent-process-card agent-process-variable-card${expanded ? ' is-expanded' : ''}`}>
-    <div className="agent-process-card-body">
-      <div className="agent-process-card-title"><strong>{displayName(entry.path) || '未命名变量'}</strong>{entry.type ? <em>{entry.type}</em> : null}</div>
-      <p className="agent-process-card-path">{entry.path}</p>
-      <ValueField label="当前值" value={entry.current || '未返回'} />
-      {expanded && entry.defaultValue ? <ValueField label="默认值" value={entry.defaultValue} /> : null}
-      {expanded && entry.description ? <ValueField label="说明" value={entry.description} /> : null}
-      {expanded && entry.updateRule ? <ValueField label="更新规则" value={entry.updateRule} /> : null}
-    </div>
-    <ExpandAction expanded={expanded} collapsedLabel="展开字段" expandedLabel="收起字段" onClick={() => setExpanded((value) => !value)} />
-  </article>;
-}
-
-function ValueField({ label, value }) { return <div className="agent-process-value"><small>{label}</small><p>{value}</p></div>; }
-
-function OperationEntries({ result }) {
-  return <section className="agent-process-result-section">
-    <h4>{result.operations.length === 1 ? '变更' : `变更 · ${result.operations.length} 项`}</h4>
-    <div className="agent-process-result-list">{result.operations.map((entry, index) => <div className="agent-process-result-row" key={`${entry.path}-${index}`}>
-      <AgentProcessIcon name="edit" size={19} />
-      <span><strong>{entry.path}</strong>{entry.detail ? <small>{entry.detail}</small> : null}</span>
-      <em>{operationLabel(entry.op)}</em>
-    </div>)}</div>
-  </section>;
-}
-
-function PlanEntries({ steps }) {
-  return <section className="agent-process-result-section">
-    <h4>任务计划 · {steps.length} 项</h4>
-    <div className="agent-process-result-list">{steps.map((step, index) => <div className="agent-process-result-row" key={`${step.title}-${index}`}>
-      <AgentProcessIcon name={step.status === 'complete' || step.status === 'completed' ? 'check' : 'list'} size={19} />
-      <span><strong>{step.title}</strong></span>
-      {step.status ? <em>{statusLabel(step.status)}</em> : null}
-    </div>)}</div>
-  </section>;
-}
-
-function ExpandAction({ expanded, collapsedLabel, expandedLabel, onClick }) {
-  return <button type="button" className="agent-process-expand" onClick={onClick}>{expanded ? expandedLabel : collapsedLabel}<ProcessChevron /></button>;
-}
-
-function ProcessChevron({ size = 18 }) { return isMobilePresentation() ? <AgentProcessIcon name="chevron-right" size={size} /> : <MessageChevronRightIcon size={17} />; }
-
-function RawResult({ value }) { return <details className="agent-process-raw"><summary>原始结果</summary><pre>{pretty(value)}</pre></details>; }
-function DetailBlock({ label, value }) { return <section><h4>{label}</h4><pre>{value}</pre></section>; }
-function DetailTextBlock({ label, value }) { return <section className="agent-process-text-block"><h4>{label}</h4><p>{value}</p></section>; }
-function parseValue(value) { if (value && typeof value === 'object') return value; try { return JSON.parse(value); } catch { return value; } }
-function pretty(value) { const parsed = parseValue(value); return typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2); }
-function sameJson(left, right) { try { return JSON.stringify(parseValue(left)) === JSON.stringify(parseValue(right)); } catch { return left === right; } }
-function unique(values) { return [...new Set(values.filter(Boolean))]; }
-function displayName(path) { return typeof path === 'string' ? path.split('/').filter(Boolean).pop() || path : ''; }
-function parentPath(path) { const clean = typeof path === 'string' ? path.replace(/^\/+|\/+$/g, '') : ''; return clean.includes('/') ? clean.slice(0, clean.lastIndexOf('/')) : ''; }
-function strategyLabel(value) { return value === 'required' ? '必读' : value === 'normal' || value === 'on_demand' ? '选读' : value === 'keyword' ? '关键词' : value; }
-function operationLabel(value) { return ({ replace: '替换', add: '新增', remove: '删除', delta: '增减', write_file: '写入', edit_file: '编辑', move_file: '移动', delete_file: '删除' })[value] || value; }
-function statusLabel(value) { return ({ pending: '待处理', in_progress: '进行中', complete: '已完成', completed: '已完成', failed: '失败' })[value] || value; }
-function isMobilePresentation() { return document.documentElement.dataset.eleckoiMobile === 'true'; }
-function detailPresentation(item) { return processItemDetails(item, { mobile: isMobilePresentation() }); }

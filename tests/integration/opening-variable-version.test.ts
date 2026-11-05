@@ -57,8 +57,8 @@ function fixture() {
   variables.save('synthetic-character', { ...blank, ...a, activeVersionId: a.id, versions: [a, b] })
   const openings = new CharacterOpeningRepository(database)
   openings.save('synthetic-character', { ...openings.get('synthetic-character'), openingMessages: [
-    { id: 'opening-a', title: '开场 A', content: '合成开场 A', variableVersionId: a.id, initialVariableStateJson: '' },
-    { id: 'opening-b', title: '开场 B', content: '合成开场 B', variableVersionId: b.id, initialVariableStateJson: '' },
+    { id: 'opening-a', title: '开场 A', content: '合成开场 A', variableVersionId: a.id },
+    { id: 'opening-b', title: '开场 B', content: '合成开场 B', variableVersionId: b.id },
   ], defaultOpeningMessageId: 'opening-a' })
   const conversations = new ConversationRepository(database, (characterId, db) => resolveConversationSeed(characterId, db, new CharacterOpeningRepository(database), variables))
   const states = new VariableStateRepository(database, variables)
@@ -66,6 +66,64 @@ function fixture() {
 }
 
 describe('opening variable version bindings', () => {
+  it('uses edited static defaults in new chats while preserving populated dynamic groups and existing chats', () => {
+    const f = fixture(), characterId = 'synthetic-character'
+    const base = f.variables.get(characterId)
+    const original = base.versions[0]!
+    const version: VariableConfigVersion = {
+      ...original, schemaCode: '',
+      objects: [...original.objects, { ...original.objects[1]!, id: 'members', name: 'members', dynamicKey: true, parentId: '' }],
+      variables: [...original.variables, { ...original.variables[0]!, id: 'date', title: 'date', type: 'string', defaultValue: '第一日' }],
+      initialStateJson: JSON.stringify({ status: { energy: 2, date: '第一日' }, members: { alpha: { energy: 8, note: null } } }),
+    }
+    f.variables.save(characterId, { ...base, ...version, activeVersionId: version.id, versions: [version, base.versions[1]!] })
+    const oldChat = f.conversations.create({ metadata: { characterId } }).conversation.id
+    const oldState = f.states.viewerStates(oldChat)
+    const loaded = f.variables.get(characterId)
+    const edited = { ...loaded, variables: loaded.variables.map(item => item.id === 'date' ? { ...item, defaultValue: '第一天' } : item) }
+    const saved = f.variables.save(characterId, edited)
+    f.database.close(); f.database.open()
+    const newChat = f.conversations.create({ metadata: { characterId } }).conversation.id
+    expect(JSON.parse(saved.initialStateJson)).toEqual({ status: { energy: 2, date: '第一天' }, members: { alpha: { energy: 8, note: null } } })
+    expect(f.variables.forConversation(newChat, characterId)!.activeVersionId).toBe(version.id)
+    expect(JSON.parse(f.states.viewerStates(newChat).currentStateJson)).toEqual(JSON.parse(saved.initialStateJson))
+    expect(JSON.parse(f.states.runtimeContext(newChat, { characterId })!.stateJson).status.date).toBe('第一天')
+    expect(f.states.viewerStates(oldChat)).toEqual(oldState)
+    expect(f.variables.get(characterId).versions.map(item => item.id)).toEqual(['variant-a', 'variant-b'])
+  }, 20_000)
+
+  it('keeps unbound openings inactive through creation, switching, editor changes and disk reopen', () => {
+    const f = fixture(), characterId = 'synthetic-character'
+    const value = f.openings.get(characterId)
+    const unbound = { id: 'unbound-opening', title: '合成未绑定开场', content: '合成未绑定正文',
+      variableVersionId: '' }
+    f.openings.save(characterId, { ...value, openingMessages: [...value.openingMessages, unbound], defaultOpeningMessageId: unbound.id })
+    const chat = f.conversations.create({ metadata: { characterId } }).conversation.id
+    const binding = () => f.database.native.prepare('SELECT variableVersionId FROM agent_conversations WHERE id=?').get(chat)
+    expect(binding()).toEqual({ variableVersionId: '' })
+    expect(f.variables.forConversation(chat, characterId)).toBeNull()
+    expect(f.states.runtimeContext(chat, { characterId })).toBeUndefined()
+    expect(JSON.parse(f.states.viewerStates(chat).initialStateJson)).toEqual({})
+    f.conversations.selectOpening(chat, 'opening-b')
+    expect(binding()).toEqual({ variableVersionId: 'variant-b' })
+    expect(JSON.parse(f.states.runtimeContext(chat, { characterId })!.stateJson)).toEqual({ status: { energy: 20 } })
+    f.conversations.selectOpening(chat, unbound.id)
+    expect(binding()).toEqual({ variableVersionId: '' })
+    expect(f.states.runtimeContext(chat, { characterId })).toBeUndefined()
+    expect(JSON.parse(f.states.viewerStates(chat).currentStateJson)).toEqual({})
+    const config = f.variables.get(characterId)
+    f.variables.save(characterId, { ...config, ...config.versions[1]!, activeVersionId: 'variant-b' })
+    f.database.close(); f.database.open()
+    expect(binding()).toEqual({ variableVersionId: '' })
+    expect(f.variables.forConversation(chat, characterId)).toBeNull()
+    expect(f.states.runtimeContext(chat, { characterId })).toBeUndefined()
+    const second = f.conversations.create({ metadata: { characterId } }).conversation.id
+    expect(f.variables.forConversation(second, characterId)).toBeNull()
+    f.openings.save(characterId, { ...value, openingMessages: value.openingMessages.map(message => ({ ...message, content: '' })) })
+    const blank = f.conversations.create({ metadata: { characterId } }).conversation.id
+    expect(f.variables.forConversation(blank, characterId)).toBeNull()
+    expect(f.conversations.openingText(blank)).toBe('')
+  }, 20_000)
   it('loads the complete selected configuration and keeps it across active-version changes and reopening', async () => {
     const f = fixture()
     const id = f.conversations.create({ metadata: { characterId: 'synthetic-character' } }).conversation.id
@@ -105,7 +163,7 @@ describe('opening variable version bindings', () => {
     expect(JSON.parse(context().stateJson)).toEqual({ status: { energy: 50 } })
     expect(context().schemaCode).toContain('.max(100)')
     f.conversations.updateOpening(id, '修改合成开场')
-    expect(f.variables.forConversation(id, 'synthetic-character').activeVersionId).toBe('variant-b')
+    expect(f.variables.forConversation(id, 'synthetic-character')!.activeVersionId).toBe('variant-b')
   }, 20000)
 
   it('round-trips bindings and refuses missing versions or deletion of referenced versions atomically', () => {
@@ -121,7 +179,7 @@ describe('opening variable version bindings', () => {
     expect(() => f.openings.save('synthetic-character', { ...openings, openingMessages: openings.openingMessages.map(opening => ({ ...opening, variableVersionId: 'missing-version' })) })).toThrow('变量版本不存在')
     const id = f.conversations.create({ metadata: { characterId: 'synthetic-character' } }).conversation.id
     expect(() => f.variables.save('synthetic-character', { ...config, ...config.versions[1]!, activeVersionId: 'variant-b', versions: [config.versions[1]!] })).toThrow('聊天使用')
-    expect(f.variables.forConversation(id, 'synthetic-character').activeVersionId).toBe('variant-a')
+    expect(f.variables.forConversation(id, 'synthetic-character')!.activeVersionId).toBe('variant-a')
     expect(f.variables.get('synthetic-character').versions).toHaveLength(2)
   }, 20000)
 
@@ -140,7 +198,7 @@ describe('opening variable version bindings', () => {
     f.database.open()
     expect(f.database.native.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
     expect(f.variables.get('synthetic-character').activeVersionId).toBe('variant-b')
-    expect(f.variables.forConversation(id, 'synthetic-character').activeVersionId).toBe('variant-a')
+    expect(f.variables.forConversation(id, 'synthetic-character')!.activeVersionId).toBe('variant-a')
     expect(f.states.viewerStates(id)).toEqual(before)
     expect(f.database.native.pragma('foreign_key_check')).toEqual([])
     expect(f.database.native.pragma('integrity_check', { simple: true })).toBe('ok')
@@ -159,7 +217,7 @@ describe('opening variable version bindings', () => {
     expect(f.database.native.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
     const config = f.variables.get('synthetic-character')
     f.variables.save('synthetic-character', { ...config, ...config.versions[1]!, activeVersionId: 'variant-b' })
-    expect(f.variables.forConversation(id, 'synthetic-character').activeVersionId).toBe('variant-a')
+    expect(f.variables.forConversation(id, 'synthetic-character')!.activeVersionId).toBe('variant-a')
     expect(f.states.viewerStates(id)).toMatchObject({ currentStateJson: '{\n  "status": {\n    "energy": 7\n  }\n}' })
     expect(f.database.native.pragma('foreign_key_check')).toEqual([])
     expect(f.database.native.pragma('integrity_check', { simple: true })).toBe('ok')

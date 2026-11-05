@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatView, chatFixture, userNode, turnNode, ManualCompactionNodeView } from '../helpers/officialChatView.jsx'
 import { MessageList } from '../helpers/officialMarkdown.jsx'
 import { selectRoleplayChatSeat, selectRoleplayPendingInput } from '../../src/modules/chat/model/chatViewSeats.js'
-import { AgentProcessDialog } from '../../src/modules/chat/components/AgentProcessDialog.jsx'
 import { officialChatFixture } from '../../../../tests/helpers/officialTrajectory.js'
 import { interruptedTurnClosers } from '@deepseek-ai/dsh-session'
 import * as libraries from '@eleckoi/dsh-client-html-resources/browser-libraries'
@@ -176,7 +175,7 @@ describe('official ChatView with roleplay presentation', () => {
     } finally { await view.close() }
   })
 
-  it.each(['roleplay', 'agent'])('opens live automatic compaction in the existing processing panel (%s)', async layoutMode => {
+  it.each(['roleplay', 'agent'])('opens the live process owner and keeps compaction status in the main row (%s)', async layoutMode => {
     const view = mountChat()
     view.rowProps.layoutMode = layoutMode
     let selectedMessage
@@ -187,27 +186,18 @@ describe('official ChatView with roleplay presentation', () => {
     const message = { id: 'synthetic-live', runtimeSessionId: 'session-render',
       renderKey: 'dsh-reply-session-render-2', dshTurn: 2, role: 'assistant',
       pending: true, status: 'streaming', content: '', process: [compaction] }
-    const host = document.createElement('div')
-    document.body.append(host)
-    const dialog = createRoot(host)
     try {
       await view.render([message], { order: [control.key], nodes: new Map([[control.key, control]]) })
       const button = view.scroller.querySelector('[aria-label="查看处理过程：正在自动压缩"]')
       expect(button).not.toBeNull()
       await act(async () => button.click())
       expect(selectedMessage.process).toEqual([compaction])
-      await act(async () => dialog.render(<AgentProcessDialog message={selectedMessage} onClose={() => {}} />))
-      expect(document.querySelector('[role="dialog"]').textContent).toContain('正在自动压缩')
       const completed = { ...message, process: [{ ...compaction, status: 'complete', completedAtMillis: 1200,
         detail: 'Synthetic compacted summary' }] }
       await view.render([completed])
-      await act(async () => dialog.render(<AgentProcessDialog message={completed} onClose={() => {}} />))
       expect(view.scroller.textContent).toContain('上下文已自动压缩')
-      expect(document.querySelector('[role="dialog"]').textContent).toContain('上下文已自动压缩')
-      expect(document.querySelector('[role="dialog"]').textContent).not.toContain('正在自动压缩')
-      await act(async () => document.querySelector('.agent-process-group').click())
-      expect(document.querySelector('[role="dialog"]').textContent).toContain('Synthetic compacted summary')
-    } finally { await act(async () => dialog.unmount()); await view.close() }
+      expect(view.scroller.textContent).not.toContain('正在自动压缩')
+    } finally { await view.close() }
   })
   it('does not render a separate automatic compression checkpoint after the AI row', () => {
     expect(selectRoleplayChatSeat([], 'session-render', {
@@ -218,9 +208,6 @@ describe('official ChatView with roleplay presentation', () => {
     const view = mountChat()
     let selectedMessage
     view.rowProps.onOpenProcess = message => { selectedMessage = message }
-    const host = document.createElement('div')
-    document.body.append(host)
-    const dialog = createRoot(host)
     const tool = { key: 'synthetic-tool', kind: 'tool-call', anchorSeq: 3,
       location: { kind: 'step', turn: { turn: 1 } }, data: { root: { kind: 'tool-result', callId: 'synthetic-call' } } }
     const notice = { key: 'synthetic-notice', kind: noticeKind, anchorSeq: 4,
@@ -242,11 +229,8 @@ describe('official ChatView with roleplay presentation', () => {
       expect(button).not.toBeNull()
       await act(async () => button.click())
       expect(selectedMessage.process).toEqual(process)
-      await act(async () => dialog.render(<AgentProcessDialog message={selectedMessage} onClose={() => {}} />))
-      await act(async () => document.querySelector('.agent-process-group').click())
-      expect(document.querySelector('[role="dialog"]').textContent).toContain('查找设定文件失败')
-      expect(document.querySelector('[role="dialog"]').textContent).toContain(label)
-    } finally { await act(async () => dialog.unmount()); await view.close() }
+      expect(selectedMessage.process.at(-1).toolName).toBe(noticeKind === 'turn-error' ? 'turn_error' : 'turn_max_tokens')
+    } finally { await view.close() }
   })
   it('retains the official compression progress and failure node in roleplay', async () => {
     const node = { key: 'compact-command', kind: 'manual-compaction', anchorSeq: 12,

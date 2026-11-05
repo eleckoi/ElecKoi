@@ -1,27 +1,32 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { Context } from '@deepseek-ai/cordis'
+import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
 import { readDshSessionLog, rewindDshSession } from '@eleckoi/dsh-runtime'
 import { installCreatorStudioRuntime } from '../../src/host/runtime.mjs'
 import { CREATOR_STUDIO_EVENT } from '../../src/host/projection.mjs'
 
 const cleanups = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
-async function fixture() {
+async function fixture({ legacy = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-studio-edit-'))
   cleanups.push(() => { const child = relative(tmpdir(), root); if (!child || child.startsWith('..') || isAbsolute(child)) throw new Error('Unexpected cleanup path'); rmSync(root, { recursive: true, force: true }) })
   for (const [name, value] of Object.entries({ ELECKOI_PRESET_TEMPLATE_PATH: join(root, 'template'), ELECKOI_PRESET_ROOT: join(root, 'presets'), ELECKOI_WORKSPACE_ROOT: root })) {
     const previous = process.env[name]; process.env[name] = value
     cleanups.push(() => { if (previous === undefined) delete process.env[name]; else process.env[name] = previous })
   }
+  writeFileSync(join(root, 'template'), '- id: synthetic\n  name: synthetic\n' + ['variables', 'setting-library', 'web', 'workspace', 'collaboration', 'roleplay-workflow', 'workflow'].map(id => `# ELECKOI:${id}:BEGIN\n# ELECKOI:${id}:END\n`).join(''))
+  const tools = { schemas: () => [] }
+  const makeAgent = session => ({ session, ctx: { tools, on: () => () => {} }, status: 'idle', followup: vi.fn(), runMaintenance: action => action(new AbortController().signal) })
+  const preset = { id: 'synthetic-creator', purpose: 'creator', name: 'Synthetic creator', activeVersionId: 'v1', roleplayPlan: { steps: [] },
+    toolGroups: ['variables', 'setting-library', 'roleplay-workflow'].map(id => ({ id: `builtin:${id}`, included: false, enabled: false })) }
   const id = 'synthetic-studio-edit'
-  const directory = join(root, 'logs', 'synthetic-project', 'synthetic-session'); mkdirSync(directory, { recursive: true })
-  const path = join(directory, `session.v${sessionFormatCatalog.currentVersion}.jsonl`)
-  const session = Session.create(SessionId(id))
+  const runtimePreset = legacy ? `eleckoi-creator-${'a'.repeat(64)}` : 'synthetic-runtime-preset'
+  const session = Session.create(SessionId(id), [], { ...Session.create(SessionId(id)).header, cwd: root, agentPreset: runtimePreset })
   const initial = { presetId: 'synthetic-creator', characterId: 'synthetic-initial' }
   const selected = { ...initial, characterId: 'synthetic-selected' }
   const characters = [{ id: initial.characterId }, { id: selected.characterId }]
@@ -34,26 +39,37 @@ async function fixture() {
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
   session.append(CREATOR_STUDIO_EVENT, selected, { ignorable: true })
   session.append('session/title', { title: '合成自定义名称', messageSeqs: [], source: { kind: 'user' } })
-  const save = value => writeFileSync(path, [sessionFormatCatalog.encodeCurrentHeader({ ...value.header, delegationDepth: 0 }, value.inheritedEventCount),
-    ...value.snapshotEvents().map(event => sessionFormatCatalog.encodeCurrentEvent(event))].map(row => JSON.stringify(row)).join('\n') + '\n')
-  save(session)
-  let agent = { session, status: 'idle', followup: vi.fn() }, service
-  const meta = { cwd: root, agentPreset: 'synthetic-runtime-preset' }
+  if (legacy) session.append('agent-preset/selected', { agentPreset: 'eleckoi-creator-active' })
+  const persistence = new Context()
+  cleanups.push(() => persistence.fiber.dispose())
+  await persistence.plugin(JsonlSessionPersistence, { root: join(root, 'logs'), compression: 'none' })
+  const writer = await persistence.sessionPersistence.create(session.header)
+  try { await writer.append(session.snapshotEvents()); await writer.flush() } finally { await writer.close() }
+  let agent = makeAgent(session), service
+  const listeners = new Map()
+  const meta = { cwd: root, agentPreset: runtimePreset }
   const controller = {
+    list: vi.fn(async () => ({ items: [] })),
     inspect: vi.fn(async () => ({ meta, events: agent?.session.snapshotEvents() ?? readDshSessionLog(join(root, 'logs'), id).events })),
     create: vi.fn(),
     resolveAgent: vi.fn(async sessionId => {
       expect(sessionId).toBe(id)
       if (agent) return { agent }
       const log = readDshSessionLog(join(root, 'logs'), id)
-      agent = { session: Session.create(SessionId(id), log.events, log.header, log.inheritedEventCount), status: 'idle', followup: vi.fn() }
+      agent = makeAgent(Session.create(SessionId(id), log.events, log.header, log.inheritedEventCount))
       return { agent }
     }),
     rename: vi.fn(async ({ title }) => agent.session.append('session/title', { title, messageSeqs: [], source: { kind: 'user' } })),
   }
   const dispose = await installCreatorStudioRuntime({
+    sessionPersistence: persistence.sessionPersistence,
+    workspaceRegistry: { pinnedSessionIds: [] },
     sessionController: controller, agents: { get: () => agent },
-    eleckoiProductData: { readCharacters: () => ({ items: characters }) },
+    eleckoiProductData: { readCharacters: () => ({ items: characters }), readAgentPresetCatalog: () => ({ activePresetIds: { creator: preset.id } }), readAgentPreset: () => preset },
+    agentPresets: { readDocument: async () => ({ content: '[]' }), register: async () => () => {}, recompose: async () => {} },
+    agentDefaultModel: { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) },
+    llm: { resolveModelInfo: async () => ({}) }, settings: { describe: () => [] },
+    on: (name, listener) => { listeners.set(name, listener); return () => {} }, get: () => tools,
     eleckoiSessionEditor: {
       transaction: async (_id, action) => action(),
       rewind: async (_id, turn, seq, retain) => { agent = undefined; return rewindDshSession(join(root, 'logs'), id, turn, seq, retain) },
@@ -61,10 +77,20 @@ async function fixture() {
     provide: (_name, value) => { service = value },
   })
   cleanups.push(dispose)
-  return { id, input, inputEvent, selected, characters, controller, service, current: () => agent }
+  return { id, input, inputEvent, selected, characters, controller, service, listeners, current: () => agent }
 }
 
 describe('Studio message edits retain independent conversation preferences', { timeout: 30_000 }, () => {
+  it('keeps child Sessions out of Studio history and preserves their composition at the request boundary', async () => {
+    const f = await fixture()
+    const item = { sessionId: 'synthetic-root', projections: { values: { eleckoiCreatorStudio: f.selected } } }
+    f.controller.list.mockResolvedValue({ items: [item, { ...item, sessionId: 'synthetic-child', origin: 'subagent' }] })
+    expect((await f.service.list()).map(item => item.sessionId)).toEqual(['synthetic-root'])
+    const next = vi.fn(async () => 'synthetic-child-prompt')
+    const child = { session: { header: { origin: 'subagent' } } }
+    await expect(f.listeners.get('system-prompt/assemble')({}, { agent: child }, next)).resolves.toBe('synthetic-child-prompt')
+    expect(next).toHaveBeenCalledOnce()
+  })
   it('opens the same conversation after deleting its selected character and allows selecting another target', async () => {
     const f = await fixture()
     f.characters.splice(f.characters.findIndex(item => item.id === f.selected.characterId), 1)
@@ -81,8 +107,8 @@ describe('Studio message edits retain independent conversation preferences', { t
     expect(f.current().session.snapshotEvents().filter(event => event.type === 'user/message')).toHaveLength(1)
   })
 
-  it.each(['delete', 'regenerate'])('keeps the current character and user title after %s removes later events', async operation => {
-    const f = await fixture()
+  it.each([['delete', false], ['regenerate', false], ['delete', true], ['regenerate', true]])('keeps the current character and user title after %s removes later events (historical header: %s)', async (operation, legacy) => {
+    const f = await fixture({ legacy })
     if (operation === 'delete') await f.service.deleteMessagesFrom(f.id, f.inputEvent.seq, 'user')
     else await f.service.regenerate(f.id)
     const events = f.current().session.snapshotEvents()
@@ -93,5 +119,6 @@ describe('Studio message edits retain independent conversation preferences', { t
     const inputs = events.filter(event => event.type === 'user/message')
     expect(inputs).toHaveLength(0)
     if (operation === 'regenerate') expect(f.current().followup).toHaveBeenCalledWith(f.input)
+    if (legacy) expect(events.findLast(event => event.type === 'agent-preset/selected').data.agentPreset).toBe('eleckoi-creator-active')
   })
 })

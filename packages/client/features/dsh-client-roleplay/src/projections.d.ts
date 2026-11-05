@@ -15,6 +15,7 @@ export interface RoleplayRequestContextItem {
 export interface RoleplayInputContinuation {
   turn: number
   inputMessageId: string
+  kind?: 'subagent'
   inputEventSeq: number
 }
 

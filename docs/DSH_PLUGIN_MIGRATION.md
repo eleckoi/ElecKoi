@@ -1,6 +1,6 @@
 # ElecKoi 插件归属与接入清单
 
-本清单对照仓库锁定的 DSH `0.2.1-rc.3`（`1f81c047fc48fa190a683e469daa699857e9afe8`）。架构基准见 [DSH 桌面架构](DSH_DESKTOP_ARCHITECTURE.md)，当前跨端与数据边界决策见 [ADR 0017](adr/0017-dsh-remote-replaces-desktop-gateway.md)。
+本清单对照仓库锁定的 DSH `0.2.1-rc.5`（`b830ec950faba0a46dda564be3e2d854afed94f1`）。架构基准见 [DSH 桌面架构](DSH_DESKTOP_ARCHITECTURE.md)，当前跨端与数据边界决策见 [ADR 0017](adr/0017-dsh-remote-replaces-desktop-gateway.md)。
 
 ## 只有一个对外插件系统
 

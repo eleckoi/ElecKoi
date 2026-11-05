@@ -92,7 +92,7 @@ function PreviewButton({ className, src, name, label, disabled = false, onClick 
   );
 }
 
-export function AvatarManagerEditor({ value, name, saving = false, onBack, onChange }) {
+export function AvatarManagerEditor({ value, name, saving = false, onBack, onChange, renderPresentation }) {
   const inputRef = useRef(null);
   const [avatars, setAvatars] = useState(() => ({ circle: "", square: "", portrait: "", ...(value || {}) }));
   const [sourceFile, setSourceFile] = useState(null);
@@ -168,6 +168,26 @@ export function AvatarManagerEditor({ value, name, saving = false, onBack, onCha
     }
   }
 
+  const mediaControls = <>
+    <input ref={inputRef} className="avatar-manager-file-input" type="file"
+      accept="image/png,image/jpeg,image/webp,image/gif" onChange={receiveImage} />
+    <AvatarCropModal
+      file={cropRequest?.file || null}
+      title={cropRequest?.kind === "portrait" ? "调整矩形头像" : "调整圆形与方形头像"}
+      cropWidth={cropRequest?.kind === "portrait" ? 210 : 250}
+      cropHeight={cropRequest?.kind === "portrait" ? 280 : 250}
+      cropRadius={cropRequest?.kind === "portrait" ? "12px" : "8px"}
+      showCircleGuide={cropRequest?.kind === "shared"}
+      outputShape={cropRequest?.kind === "portrait" ? "portrait" : "square"}
+      outputWidth={cropRequest?.kind === "portrait" ? PORTRAIT_OUTPUT_WIDTH : SQUARE_OUTPUT_WIDTH}
+      onCancel={() => setCropRequest(null)} onSave={saveCrop}
+    />
+  </>;
+  if (renderPresentation) return <>
+    {renderPresentation({ avatars, busy, error, chooseImage, openCrop, cropping: Boolean(cropRequest) })}
+    {mediaControls}
+  </>;
+
   return (
     <section className="profile-avatar-manager-page" aria-busy={busy || undefined}>
       <header className="avatar-manager-header">
@@ -224,26 +244,7 @@ export function AvatarManagerEditor({ value, name, saving = false, onBack, onCha
 
       {error ? <p className="avatar-manager-error" role="alert">{error}</p> : null}
 
-      <input
-        ref={inputRef}
-        className="avatar-manager-file-input"
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
-        onChange={receiveImage}
-      />
-
-      <AvatarCropModal
-        file={cropRequest?.file || null}
-        title={cropRequest?.kind === "portrait" ? "调整矩形头像" : "调整圆形与方形头像"}
-        cropWidth={cropRequest?.kind === "portrait" ? 210 : 250}
-        cropHeight={cropRequest?.kind === "portrait" ? 280 : 250}
-        cropRadius={cropRequest?.kind === "portrait" ? "12px" : "8px"}
-        showCircleGuide={cropRequest?.kind === "shared"}
-        outputShape={cropRequest?.kind === "portrait" ? "portrait" : "square"}
-        outputWidth={cropRequest?.kind === "portrait" ? PORTRAIT_OUTPUT_WIDTH : SQUARE_OUTPUT_WIDTH}
-        onCancel={() => setCropRequest(null)}
-        onSave={saveCrop}
-      />
+      {mediaControls}
     </section>
   );
 }

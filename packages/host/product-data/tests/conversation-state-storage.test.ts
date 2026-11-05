@@ -1,3 +1,4 @@
+import { CURRENT_SCHEMA_VERSION } from '../src/storage/sqlite/schemaVersion'
 import { createCharacterOpenings } from '../../../shared/src/contracts/characterOpenings/schemas'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -79,7 +80,7 @@ describe('conversation state database', () => {
     f.db.native.pragma(`user_version=${version}`)
     installSchema(f.db.native)
     f.db.close(); f.db.open()
-    expect(f.db.native.pragma('user_version', { simple: true })).toBe(13)
+    expect(f.db.native.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
     expect(f.db.native.prepare('SELECT targetsJson FROM global_regex_rules').get()).toEqual({ targetsJson: '["AiOutput"]' })
     expect(f.history.read(f.id, f.id, 1, 'before')).toEqual(state(1))
     expect(f.history.read(f.id, f.id, 1, 'after')).toEqual(state(2, setting('accepted-task')))

@@ -88,6 +88,7 @@
 .mobile-character-editor :is(.setting-library-create-button, .variable-create-button, .regex-create-button, .setting-library-manage-button, .variable-manage-button, .regex-manage-button) { justify-content: center; height: 44px; min-height: 44px; min-width: 48px; padding: 0 4px; gap: 2px; white-space: nowrap; font-size: 12px; }
 .mobile-character-editor :is(.setting-library-toolbar, .variable-toolbar, .regex-toolbar) .setting-library-save-control { grid-column: 1 / -1; }
 .mobile-character-editor .setting-library-save-button { display: none; }
+.mobile-character-editor .setting-library-opening-tools > button { flex: 0 0 32px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; padding: 0; }
 .mobile-character-editor .setting-library-save-control:not(:has(.setting-library-save-feedback)) { display: none; }
 .mobile-character-editor :is(.setting-library-tree, .variable-tree, .regex-list-scroll) { width: 100%; margin: 0; padding: 8px; }
 :is(.mobile-character-editor, .mobile-preset-editor) :is(.setting-library-tree-row, .variable-tree-row, .regex-rule-row) { width: 100%; max-width: 100%; min-height: 48px; }

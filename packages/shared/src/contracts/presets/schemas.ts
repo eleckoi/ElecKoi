@@ -6,6 +6,7 @@ import {
   settingLibraryGroupSchema,
   settingLibraryPromptPositionSchema
 } from '../settingLibrary/schemas'
+import { autoIllustrationSchema } from './autoIllustration'
 import { roleplayPlanSettingsSchema } from './roleplayPlan'
 
 export const agentPresetPurposeSchema = z.enum(['roleplay', 'creator'])
@@ -86,6 +87,7 @@ export const agentPresetSchema = z.object({
   toolGroups: z.array(agentToolGroupSchema),
   subagentModelSelection: z.object({ configId: z.string(), model: z.string() }).optional(),
   toolModelConfigIds: z.record(z.string(), z.string()).optional(),
+  autoIllustration: autoIllustrationSchema.optional(),
   roleplayPlan: roleplayPlanSettingsSchema,
   regexRules: z.array(regexRuleSchema),
   expandedGroupIds: z.array(z.string())

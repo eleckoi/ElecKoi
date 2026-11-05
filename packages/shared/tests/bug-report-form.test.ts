@@ -1,5 +1,5 @@
 /**
- * Bug 报告 → 飞书表单预填链接（ADR 0041 决定 12）。
+ * Bug 报告 → 飞书表单预填链接（ADR 0042 决定 12）。
  *
  * 设计判据：「用户点一次表单按钮，浏览器里已经填好报告，只差按一次提交」。
  * 这里只断言外部可观察行为：生成的 URL、返回值里的降级标记。
@@ -31,7 +31,7 @@ import {
 
 const SHARE_URL = 'https://example.feishu.cn/share/base/form/shrcAbCdEf'
 
-/** 发布配置里的题目名（ADR 0041 决定 12：一旦发布不可改）。 */
+/** 发布配置里的题目名（ADR 0042 决定 12：一旦发布不可改）。 */
 const FIELDS = {
   body: 'report_body',
   meta: 'report_meta',

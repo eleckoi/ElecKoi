@@ -1,3 +1,5 @@
+import { and, eq } from 'drizzle-orm'
+import { agentPresetContents, agentPresetVersionContents } from '../src/storage/sqlite/schema/common'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -39,6 +41,75 @@ function importDocument(value: unknown, displayName = 'preset.json') {
 }
 
 describe('agent preset repository', () => {
+  it('moves legacy illustration bindings out of tools in current data, versions and portable presets', () => {
+    const repository = harness()
+    const preset = repository.get(repository.catalog().activePresetIds.roleplay)
+    const database = databases[0]!
+    const legacy = { version: 5, includedGroupIds: ['builtin:variables', 'builtin:auto-illustration'],
+      enabledGroupIds: ['builtin:auto-illustration'], roleplayPlan: preset.roleplayPlan,
+      toolModelConfigIds: { 'builtin:auto-illustration': 'synthetic-image-model' } }
+    database.withWriteTx(db => {
+      db.update(agentPresetContents).set({ content: JSON.stringify(legacy) })
+        .where(and(eq(agentPresetContents.presetId, preset.id), eq(agentPresetContents.kind, 'tool_configuration'))).run()
+      db.update(agentPresetVersionContents).set({ content: JSON.stringify({ ...legacy, version: 4, enabledGroupIds: [] }) })
+        .where(eq(agentPresetVersionContents.kind, 'tool_configuration')).run()
+    })
+    database.close(); database.open()
+    const reopened = new AgentPresetRepository(database)
+    const migrated = reopened.get(preset.id)
+    expect(migrated.autoIllustration).toEqual({ enabled: true, modelConfigId: 'synthetic-image-model' })
+    expect(migrated.toolModelConfigIds).toEqual({})
+    expect(migrated.toolGroups.some(group => group.id === 'builtin:auto-illustration')).toBe(false)
+    expect(reopened.runtimeSelection().autoIllustration).toEqual(migrated.autoIllustration)
+    database.withWriteTx(db => {
+      const archived = JSON.parse(db.select().from(agentPresetVersionContents).where(and(eq(agentPresetVersionContents.presetId, preset.id), eq(agentPresetVersionContents.kind, 'tool_configuration'))).get()!.content)
+      expect(archived.autoIllustration).toEqual({ enabled: false, modelConfigId: 'synthetic-image-model' })
+    })
+    reopened.save(migrated)
+    const exported = reopened.export(preset.id, 'json')
+    const payload = JSON.parse(Buffer.from(exported.base64, 'base64').toString('utf8'))
+    expect(JSON.stringify(payload)).not.toContain('builtin:auto-illustration')
+    expect(JSON.stringify(payload)).toContain('@eleckoi/dsh-auto-illustration')
+    const imported = reopened.import({ displayName: exported.fileName, mimeType: exported.mimeType, base64: exported.base64 }, 'eleckoi').preset
+    expect(imported.autoIllustration).toEqual(migrated.autoIllustration)
+    for (const content of [payload.preset, ...payload.preset.versions]) {
+      delete content.plugin_configuration
+      content.tool_configuration.included_group_ids.push('builtin:auto-illustration')
+      content.tool_configuration.enabled_group_ids.push('builtin:auto-illustration')
+      content.tool_configuration.tool_model_config_ids = { 'builtin:auto-illustration': 'synthetic-imported-model' }
+    }
+    const legacyImport = reopened.import(importDocument(payload), 'eleckoi').preset
+    expect(legacyImport.autoIllustration).toEqual({ enabled: true, modelConfigId: 'synthetic-imported-model' })
+    expect(legacyImport.toolGroups.some(group => group.id === 'builtin:auto-illustration')).toBe(false)
+    database.withWriteTx(db => {
+      const stored = JSON.parse(db.select().from(agentPresetContents).where(and(eq(agentPresetContents.presetId, preset.id), eq(agentPresetContents.kind, 'tool_configuration'))).get()!.content)
+      expect(stored.version).toBe(6)
+    })
+  })
+
+  it('preserves plugin tool choices through save, reopen, versions and portable JSON without installing plugins', () => {
+    const repository = harness()
+    const original = repository.active()
+    const plugin = { id: 'plugin-tool:synthetic_dice', name: '作者命名的骰子', description: '请安装作者提供的插件', source: 'extension' as const,
+      members: [{ name: 'synthetic_dice', description: '掷骰子' }], plugin: { id: 'bundle:synthetic-dice', name: '合成骰子插件' }, included: true, enabled: false, available: false }
+    const saved = repository.save({ ...original, toolGroups: [...original.toolGroups, plugin] })
+    const { available: _available, ...portable } = plugin
+    expect(saved.toolGroups.find(group => group.id === plugin.id)).toEqual(portable)
+    const activeDatabase = databases.at(-1)!
+    activeDatabase.close(); activeDatabase.open()
+    const reopened = new AgentPresetRepository(activeDatabase)
+    expect(reopened.get(saved.id).toolGroups.find(group => group.id === plugin.id)).toEqual(portable)
+    const exported = reopened.export(saved.id, 'json')
+    const document = { displayName: exported.fileName, mimeType: exported.mimeType, base64: exported.base64 }
+    const payload = Buffer.from(exported.base64, 'base64').toString('utf8')
+    expect(payload).toContain('synthetic_dice')
+    expect(payload).not.toContain('"available"')
+    const imported = reopened.import(document, 'eleckoi').preset
+    expect(imported.toolGroups.find(group => group.id === plugin.id)).toEqual(portable)
+    const enabled = reopened.save({ ...imported, toolGroups: imported.toolGroups.map(group => group.id === plugin.id ? { ...group, enabled: true } : group) })
+    expect(enabled.toolGroups.find(group => group.id === plugin.id)?.enabled).toBe(true)
+    expect(reopened.runtimeSelection()).toBeTruthy()
+  })
   it.each([101, 1001, 10001])('preserves %i prompts, long tasks and update records through save and database reopen', count => {
     const repository = harness()
     repository.ensureInitialized()

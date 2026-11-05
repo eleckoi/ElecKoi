@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { moduleImports, isDshRuntimeImport, isForbiddenRendererDshImport } from '../architecture-imports.mjs'
 
 describe('Official Renderer package boundary', () => {
@@ -20,6 +22,22 @@ describe('Official Renderer package boundary', () => {
     expect(isForbiddenRendererDshImport('@deepseek-ai/cordis')).toBe(true)
     expect(isDshRuntimeImport('@eleckoi/dsh-runtime/session')).toBe(true)
     expect(isDshRuntimeImport('@eleckoi/desktop-host')).toBe(true)
+  })
+  it('admits only the public dependency-free workspace naming fold, keeping its Host package blocked', async () => {
+    const specifier = '@deepseek-ai/dsh-api-workspace-controller/default-workspace'
+    const require = createRequire(import.meta.url)
+    const source = readFileSync(require.resolve(specifier), 'utf8')
+    expect(moduleImports(source)).toEqual([])
+    const { workspaceDisplayTitle, DEFAULT_WORKSPACE_DIRECTORY } = await import(specifier)
+    expect(workspaceDisplayTitle(DEFAULT_WORKSPACE_DIRECTORY, '默认工作区')).toBe('默认工作区')
+    expect(workspaceDisplayTitle('合成工作区', '默认工作区')).toBe('合成工作区')
+    expect(isForbiddenRendererDshImport(specifier)).toBe(false)
+    expect(isDshRuntimeImport(specifier)).toBe(false)
+    for (const blocked of ['@deepseek-ai/dsh-api-workspace-controller', '@deepseek-ai/dsh-api-workspace-controller/client',
+      '@deepseek-ai/dsh-api-workspace-controller/src/default-workspace', '@deepseek-ai/dsh-api-workspace-controller/default-workspace-other']) {
+      expect(isForbiddenRendererDshImport(blocked)).toBe(true)
+      expect(isDshRuntimeImport(blocked)).toBe(true)
+    }
   })
   it('also detects side-effect imports, type imports, re-exports and literal dynamic loading', () => {
     expect(moduleImports(`

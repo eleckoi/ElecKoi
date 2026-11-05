@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "upstream": {
     "repository": "https://github.com/deepseek-ai/deepseek-harness.git",
-    "commit": "1f81c047fc48fa190a683e469daa699857e9afe8",
-    "version": "0.2.1-rc.3"
+    "commit": "b830ec950faba0a46dda564be3e2d854afed94f1",
+    "version": "0.2.1-rc.5"
   },
   "transport": "authenticated-web-host",
   "entrypoint": "@deepseek-ai/dsh/package.json",
@@ -25,6 +25,7 @@
       "@eleckoi/dsh-client-web-search",
       "@eleckoi/dsh-client-shell",
       "@eleckoi/dsh-client-roleplay",
+      "@eleckoi/dsh-auto-illustration",
       "@eleckoi/dsh-client-author",
       "@eleckoi/dsh-client-html-resources",
       "@eleckoi/dsh-product-api",

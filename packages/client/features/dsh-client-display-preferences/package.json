@@ -25,7 +25,7 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/dsh-settings": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-settings": "0.2.1-rc.5",
     "@deepseek-ai/schemastery": "3.18.5",
     "@eleckoi/dsh-product-api": "workspace:*",
     "@eleckoi/dsh-product-data": "workspace:*",
@@ -33,7 +33,7 @@
   },
   "description": "通过 DSH Settings 保存 ElecKoi 的显示偏好。",
   "engines": {
-    "dsh": "0.2.1-rc.3"
+    "dsh": "0.2.1-rc.5"
   },
   "eleckoi": {
     "developerInterfaces": [

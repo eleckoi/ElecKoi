@@ -1,6 +1,7 @@
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
+import { OfficialMarkdown } from '../../../ui/messages/OfficialMarkdown.jsx';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { resolveFailure } from "../../../utils/failureText.js";
@@ -151,9 +152,9 @@ function UpdateDialog({ status, actionError, onClose, onDownload, onInstall }) {
           <a className="app-update-release-link" href={releaseUrl} target="_blank" rel="noopener noreferrer">前往下载</a>
         </header>
         <section className="app-update-notes-section" aria-label="本次更新" tabIndex={0}>
-          <p className="app-update-notes">
-            {status.releaseNotes || status.releaseName || "包含稳定性改进和问题修复。"}
-          </p>
+          <div className="app-update-notes">
+            <OfficialMarkdown content={status.releaseNotes || status.releaseName || "包含稳定性改进和问题修复。"} />
+          </div>
         </section>
 
         <footer className="app-update-footer">

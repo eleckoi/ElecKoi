@@ -49,6 +49,19 @@ function clientHarness() {
 }
 
 describe('DSH display preferences', () => {
+  it('saves and reloads independent roleplay surface settings through the existing Remote', async () => {
+    const { model, remote, cleanup } = clientHarness()
+    const roleplay_style = { backdrop_enabled: true, backdrop_blur: 32, backdrop_tint: null,
+      bubbles_enabled: true, user_bubble_tint: '#987654', assistant_bubble_tint: '#123456',
+      user_bubble_opacity: 35, assistant_bubble_opacity: 65 }
+    try {
+      await model.refresh()
+      await model.setChatDisplay({ layout: 'roleplay', roleplay_style })
+      await model.refresh()
+      expect(remote.eleckoiDisplayPreferences.setChatDisplay).toHaveBeenCalledWith({ layout: 'roleplay', roleplay_style }, 2)
+      expect(model.getSnapshot().chatDisplay.roleplay_style).toEqual(roleplay_style)
+    } finally { cleanup() }
+  })
   it('saves and reloads rich message limits through the existing preference Remote', async () => {
     const { model, remote, cleanup } = clientHarness()
     try {

@@ -21,8 +21,8 @@ function openingEntry() {
     id: 'built-in-roleplay-history-compaction',
     content: '主开场',
     openingMessages: [
-      { id: 'backup', title: '备用', content: '备用开场', initialVariableStateJson: '' },
-      { id: 'primary', title: '主开场', content: '主开场', initialVariableStateJson: '' }
+      { id: 'backup', title: '备用', content: '备用开场' },
+      { id: 'primary', title: '主开场', content: '主开场' }
     ],
     defaultOpeningMessageId: 'primary'
   }

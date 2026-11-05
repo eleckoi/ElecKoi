@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { OfficialMarkdown } from "./OfficialMarkdown.jsx";
 import { Avatar } from "../ui/Avatar.jsx";
 import { AvatarPreviewDialog } from "./AvatarPreviewDialog.jsx";
-import { AgentHistoryIcon, AgentPencilIcon, AgentSpeakerIcon, CopyIcon, HistoryIcon, MessageChevronRightIcon, MessagePencilIcon, MoreDotsIcon, RefreshMessageIcon, SpeakerIcon } from "../icons/elecKoiMessageIcons.jsx";
+import { ViewProcessIcon, AgentPencilIcon, CopyIcon, MessageChevronRightIcon, MessagePencilIcon, MoreDotsIcon, RefreshMessageIcon } from "../icons/elecKoiMessageIcons.jsx";
 import { AgentProcessStatus } from "../../modules/chat/components/AgentProcessStatus.jsx";
 import { ChatImageGallery } from "./ChatImageGallery.jsx";
 import { generatedImageSegments } from './generatedImagePresentation.js';
@@ -225,12 +225,6 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [jumpOpen]);
 
-  function speak() {
-    if (!displayContent || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(displayContent));
-  }
-
   async function saveEdit() {
     if (!editingEnabled) return;
     const next = draft.trim();
@@ -299,11 +293,10 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
     <div className="message-tools-leading">
       {pluginActions}
       {toolbar.presentedExpanded ? <div className="message-tools-expanded">
-        {!isUser && message.process?.length ? <button type="button" onClick={openProcess} aria-label="查看过程" title="查看过程"><HistoryIcon /></button> : null}
+        {!isUser && message.process?.length ? <button type="button" onClick={openProcess} aria-label="查看过程" title="查看过程"><ViewProcessIcon /></button> : null}
         {!isUser ? <TurnUsage usage={message.turnUsage} compact /> : null}
-        <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || '')} aria-label="复制" title="复制"><CopyIcon /></button>
-        {!isUser && message.id !== 'opening' ? <button type="button" onClick={() => onRegenerate?.(message)} aria-label="重新生成" title="重新生成"><RefreshMessageIcon /></button> : null}
-        <button type="button" onClick={speak} aria-label="朗读" title="朗读"><SpeakerIcon /></button>
+        <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || '')} aria-label="复制" title="复制"><CopyIcon emphasized={layoutMode === 'roleplay'} /></button>
+        {!isUser && message.id !== 'opening' ? <button type="button" onClick={() => onRegenerate?.(message)} aria-label="重新生成" title="重新生成"><RefreshMessageIcon emphasized={layoutMode === 'roleplay'} /></button> : null}
       </div> : null}
       {!mobileRoleplay || !toolbar.presentedExpanded ? <button type="button" onClick={() => setExpanded((value) => !value)} aria-label="更多" aria-expanded={expanded} title="更多"><MoreDotsIcon /></button> : null}
     </div>
@@ -368,8 +361,7 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
             {openingPager}
             <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || "")} aria-label="复制" title="复制" disabled={!displayContent}><CopyIcon /></button>
             {message.id !== "opening" ? <button type="button" onClick={() => onRegenerate?.(message)} aria-label="重新生成" title="重新生成" disabled={!onRegenerate}><RefreshMessageIcon /></button> : null}
-            {message.process?.length ? <button type="button" onClick={openProcess} aria-label="查看过程" title="查看过程"><AgentHistoryIcon /></button> : null}
-            <button type="button" onClick={speak} aria-label="朗读" title="朗读" disabled={!displayContent}><AgentSpeakerIcon /></button>
+            {message.process?.length ? <button type="button" onClick={openProcess} aria-label="查看过程" title="查看过程"><ViewProcessIcon /></button> : null}
             <TurnUsage usage={message.turnUsage} compact />
             <button type="button" onClick={() => setEditing(true)} aria-label="编辑" title="编辑" disabled={!editingEnabled}><AgentPencilIcon /></button>
           </div>

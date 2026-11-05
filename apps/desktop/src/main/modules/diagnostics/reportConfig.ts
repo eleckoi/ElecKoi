@@ -1,7 +1,7 @@
 /**
  * 内置投递配置的**纯**解析器——不 import `electron`，所以用例能直接跑。
  *
- * 判据（[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md) 决定 12 / 16）：普通用户装的
+ * 判据（[ADR 0042](../../../../../docs/adr/0042-bug-report-delivery.md) 决定 12 / 16）：普通用户装的
  * 是安装包，环境变量那条路等于没有。所以投递配置随应用打包（{@link BUG_REPORT_CONFIG_FILE_NAME}），
  * 环境变量逐项覆盖；文件缺失、JSON 坏、字段形状不对一律按「未配置」处理，**永不抛**。
  *
@@ -78,7 +78,7 @@ export function parseBugReportConfig(input: BugReportConfigInput): BugReportDeli
  * 配置解析的全部结果：投递配置 + 远程配置要用的两样东西。
  *
  * `configUrl` 与 `formHosts` **只从内置文件与环境变量来**——远程配置改不了自己的地址，也扩不了
- * 允许的表单主机（ADR 0041 决定 16 修订）。
+ * 允许的表单主机（ADR 0042 决定 16 修订）。
  *
  * @param input - 文件原文与环境变量。
  * @returns 投递配置、远程配置地址、允许的表单主机后缀。**永不抛。**

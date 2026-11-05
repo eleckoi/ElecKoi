@@ -1,5 +1,8 @@
 import { CharacterOpeningRepository } from '../src/domain/characterOpenings'
+import { resolveConversationSeed } from '../src/domain/conversations/conversationSeed'
 import { restoreEditorSchemaV12 } from './helpers/editorSchemaV12'
+import { DesktopError } from '@shared/foundation/DesktopError'
+import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative } from 'node:path'
@@ -432,6 +435,31 @@ describe('shared SQLite baseline', () => {
       expect(schemaObjects(database)).toEqual(before)
       expect(database.prepare('SELECT historyUserMessageCount,title FROM chat_sessions').get())
         .toEqual({ historyUserMessageCount: 1, title: '合成聊天' })
+    } finally { database.close() }
+  })
+
+  // 用户装上更新版本又回退时，库的 user_version 会高于 CURRENT_SCHEMA_VERSION。这类库不能被
+  // 迁移链当成"没跑完"（旧实现的诊断句正是这么误导的），也不能被改动一个字节。
+  it.each([CURRENT_SCHEMA_VERSION + 1, CURRENT_SCHEMA_VERSION + 2])('refuses a v%s database from a newer build without changing its data', (newerVersion) => {
+    const database = new Database(':memory:')
+    try {
+      database.exec(commonSchemaSql.replace(/PRAGMA user_version = \d+;/, `PRAGMA user_version = ${newerVersion};`))
+      database.prepare("INSERT INTO user_profile VALUES ('synthetic-user','合成用户','','','','')").run()
+      const before = schemaObjects(database)
+      const records = productRecords(database)
+      let failure: unknown
+      try { installSchema(database) } catch (error) { failure = error }
+      expect(failure).toBeInstanceOf(DesktopError)
+      expect((failure as DesktopError).code).toBe(ELECKOI_FAILURE_CODES.dbSchemaMismatch)
+      // 诊断句必须指向"程序旧"，不能再说成迁移链没走完。
+      expect((failure as Error).message).toContain(`v${newerVersion}`)
+      expect((failure as Error).message).toContain('高于当前程序支持的')
+      expect((failure as DesktopError).details).toMatchObject({ what: '数据库版本', expected: `不高于 v${CURRENT_SCHEMA_VERSION}` })
+      expect(database.pragma('user_version', { simple: true })).toBe(newerVersion)
+      expect(schemaObjects(database)).toEqual(before)
+      expect(productRecords(database)).toEqual(records)
+      expect(database.pragma('foreign_key_check')).toEqual([])
+      expect(database.pragma('integrity_check', { simple: true })).toBe('ok')
     } finally { database.close() }
   })
 
@@ -1248,8 +1276,8 @@ describe('shared SQLite baseline', () => {
     const opening = {
       ...new CharacterOpeningRepository(database).get('card-a'),
       openingMessages: [
-        { id: 'opening-main', title: '初次见面', content: '主开场', initialVariableStateJson: '{"好感":0}' },
-        { id: 'opening-backup', title: '再次见面', content: '备用开场', initialVariableStateJson: '{"好感":10}' }
+        { id: 'opening-main', title: '初次见面', content: '主开场' },
+        { id: 'opening-backup', title: '再次见面', content: '备用开场' }
       ],
       defaultOpeningMessageId: 'opening-main'
     }
@@ -1426,7 +1454,7 @@ describe('shared SQLite baseline', () => {
     expect(settingLibraries.get('card-a').entries.find((candidate) => candidate.id === entry.id)?.content).toBe('母设定')
   })
 
-  it('persists complete variable versions and seeds new character conversations from the active state', () => {
+  it('persists complete variable versions and seeds new character conversations from the explicitly bound version', () => {
     const { characters, database } = harness()
     characters.replaceAll({ active_character_id: 'card-a', groups: [], items: [card()] })
     const repository = new VariableConfigRepository(database)
@@ -1457,7 +1485,10 @@ describe('shared SQLite baseline', () => {
     expect(database.native.prepare('SELECT COUNT(*) AS count FROM variable_config_objects WHERE characterId = ?').get('card-a')).toEqual({ count: 2 })
     expect(database.native.prepare('SELECT COUNT(*) AS count FROM variable_config_variables WHERE characterId = ?').get('card-a')).toEqual({ count: 1 })
 
-    const conversations = new ConversationRepository(database, (characterId, db) => repository.initialState(characterId, db))
+    const openings = new CharacterOpeningRepository(database)
+    const opening = openings.get('card-a')
+    openings.save('card-a', { ...opening, openingMessages: opening.openingMessages.map(item => ({ ...item, content: '合成开场', variableVersionId: saved.activeVersionId })) })
+    const conversations = new ConversationRepository(database, (characterId, db) => resolveConversationSeed(characterId, db, openings, repository))
     const conversationId = conversations.create({ metadata: { characterId: 'card-a' } }).conversation.id
     expect(database.native.prepare('SELECT kind,stateJson FROM chat_session_variable_states WHERE sessionId = ? ORDER BY kind').all(conversationId)).toEqual([
       { kind: 'current', stateJson: saved.initialStateJson },

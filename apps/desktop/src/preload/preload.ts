@@ -15,6 +15,8 @@ import type {
   BugReportSendResult
 } from '@shared/contracts/bugReport/delivery'
 import { hasDesktopIpcFailureMarker, unwrapDesktopIpcResult } from '@shared/foundation/ipcFailure'
+import { installWindowsMenu } from './windowsMenu'
+import { installWindowsAppearance } from './windowsAppearance'
 
 /**
  * 边界⑤ preload 侧的**薄适配器**：调一次请求/响应通道。
@@ -80,6 +82,15 @@ function createDesktopProductApi(): DshDesktopProductApi {
       maximizeToggle: () => invokeOrFail<void>(DESKTOP_SHELL_IPC.windowControl, 'maximize'),
       close: () => invokeOrFail<void>(DESKTOP_SHELL_IPC.windowControl, 'close')
     },
+    menu: {
+      subscribe(listener) {
+        const handle = (_event: Electron.IpcRendererEvent, command: unknown): void => {
+          if (command === 'about' || command === 'check-updates') listener(command)
+        }
+        ipcRenderer.on(DESKTOP_SHELL_IPC.menuCommand, handle)
+        return () => ipcRenderer.off(DESKTOP_SHELL_IPC.menuCommand, handle)
+      }
+    },
     host: {
       subscribeFailure(listener) {
         // 主进程送的是**失败对象**（边界⑤ 的线上形状），不是拼好的句子。
@@ -111,6 +122,17 @@ function createDesktopProductApi(): DshDesktopProductApi {
 
 const documentLocation = (globalThis as unknown as { location?: { protocol: string; hostname: string } }).location
 if (documentLocation?.protocol === 'dsh-app:' && documentLocation.hostname === 'app' && process.isMainFrame) {
+  if (process.platform === 'win32') {
+    const installMenu = (): void => {
+      const menu = installWindowsMenu()
+      const disposeAppearance = installWindowsAppearance()
+      const language = new MutationObserver(() => menu.update())
+      language.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
+      window.addEventListener('pagehide', () => { language.disconnect(); menu.dispose(); disposeAppearance() }, { once: true })
+    }
+    if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', installMenu, { once: true })
+    else installMenu()
+  }
   type BootNode = {
     nextElementSibling: BootNode | null
     textContent: string | null

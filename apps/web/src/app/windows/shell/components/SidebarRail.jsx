@@ -6,7 +6,7 @@ import { DshPanelLeftIcon } from "../../../../ui/icons/dshComposerIcons.jsx";
 import { ElecKoiWordmark } from "../../../../ui/icons/ElecKoiWordmark.jsx";
 import { DshEntryActionsMenu } from '../../../../ui/ui/DshEntryActionsMenu.jsx';
 
-function RailIconButton({ label, active, onClick, icon, productIcon, expanded }) {
+function RailIconButton({ id, label, active, action, onClick, icon, productIcon, expanded }) {
   function handleClick() {
     Promise.resolve(onClick?.()).catch((error) => {
       console.error(`Rail action failed: ${label}`, error);
@@ -18,8 +18,10 @@ function RailIconButton({ label, active, onClick, icon, productIcon, expanded })
       className={`rail-nav-button is-${productIcon ? "product" : "plugin"}-icon ${active ? "active" : ""}`}
       type="button"
       title={label}
+      data-navigation-id={id}
       aria-label={label}
-      aria-current={active ? "page" : undefined}
+      aria-current={!action && active ? "page" : undefined}
+      aria-expanded={action ? active : undefined}
       onClick={handleClick}
     >
       <span className="rail-icon-layer base">
@@ -63,7 +65,8 @@ function RailSettingsButton({ active, onOpenSettings, expanded }) {
       aria-current={active ? "page" : undefined}
       onClick={onOpenSettings}
     >
-      <SettingsIcon weight="light" />
+      <span className="rail-icon-layer base"><SettingsIcon /></span>
+      <span className="rail-icon-layer active-fill" aria-hidden="true"><SettingsIcon /></span>
       {expanded && <span>设置</span>}
     </button>
   );
@@ -77,10 +80,12 @@ export function SidebarRail({ activeSection, navigationItems = [], renderEntryAc
   const renderItem = ({ id, label, action, productIcon }) => (
     <RailIconButton
       key={id}
+      id={id}
       label={label}
-      active={!action && activeSection === id}
+      active={activeSection === id}
+      action={action}
       onClick={() => action ? onNavigationAction?.(id) : onSectionChange(id)}
-      icon={renderSidebarSlot?.("sidebar.panellist", { size: 24, active: !action && activeSection === id }, { only: id }) || <PluginNavIcon />}
+      icon={renderSidebarSlot?.("sidebar.panellist", { size: 24, active: activeSection === id }, { only: id }) || <PluginNavIcon />}
       productIcon={productIcon}
       expanded={expanded}
     />

@@ -29,8 +29,24 @@
 }
 
 .qq-shell.main-window-shell .chat-shell-backdrop {
-  top: 40px;
-  border-radius: var(--main-panel-corner-radius) 0 0 0;
+  top: calc(var(--window-caption-height, 40px) + var(--chat-header-height, 76px));
+}
+
+.qq-chat-window-shell .chat-shell-backdrop {
+  top: calc(var(--window-caption-height, 40px) + var(--chat-header-height, 76px));
+}
+
+/* Artwork starts below the view tabs; the title and tabs retain the app surface. */
+:is(.qq-shell, .mobile-conversation-page).has-chat-wallpaper .chat-header { background: var(--chat); }
+
+/* The approved material replaces untouched legacy wallpaper washes. Authored
+   wallpaper adjustments still apply, and toggling the deck restores the old view. */
+:is(.qq-shell, .mobile-conversation-page).has-chat-wallpaper:has(.chat-panel[data-roleplay-backdrop]) .chat-shell-backdrop img {
+  opacity: var(--roleplay-wallpaper-opacity);
+  filter: blur(var(--roleplay-wallpaper-blur));
+}
+:is(.qq-shell, .mobile-conversation-page).has-chat-wallpaper:has(.chat-panel[data-roleplay-backdrop]) .chat-shell-backdrop > i {
+  background: var(--roleplay-wallpaper-wash);
 }
 
 .qq-shell.has-chat-wallpaper > .main-panel-shell,
@@ -51,7 +67,7 @@
 }
 
 .qq-chat-window-shell.has-chat-wallpaper .client-titlebar {
-  background: transparent;
+  background: var(--list);
 }
 
 :is(.qq-shell, .mobile-conversation-page).has-chat-wallpaper {

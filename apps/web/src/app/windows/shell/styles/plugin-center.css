@@ -32,8 +32,11 @@
   overflow: hidden;
 }
 
-.plugin-list-panel > .character-list-scroll {
+.plugin-list-panel > .sidebar-scroll-area {
   grid-row: 2;
+}
+
+.plugin-list-panel .character-list-scroll {
   align-self: stretch;
   height: 100%;
   max-height: 100%;
@@ -41,30 +44,6 @@
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-color: var(--dsw-alias-scrollbar-bg-l2, color-mix(in srgb, var(--muted) 42%, transparent)) transparent;
-  scrollbar-gutter: auto;
-  scrollbar-width: thin;
-}
-
-.plugin-list-panel > .character-list-scroll::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.plugin-list-panel > .character-list-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.plugin-list-panel > .character-list-scroll::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: var(--dsw-alias-scrollbar-bg-l2, color-mix(in srgb, var(--muted) 42%, transparent));
-  background-clip: content-box;
-}
-
-.plugin-list-panel > .character-list-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--dsw-alias-scrollbar-hover-l2, color-mix(in srgb, var(--muted) 64%, transparent));
-  background-clip: content-box;
 }
 
 .plugin-list-panel .plugin-list-row {

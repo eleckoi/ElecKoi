@@ -22,6 +22,10 @@ import { inputContinuationsProjection } from '../../../dsh-client-roleplay/src/h
 import { turnOutcomesProjection } from '../../../dsh-client-roleplay/src/host/turn-outcomes-projection.mjs'
 // @ts-expect-error The Renderer seat adapter does not publish declarations.
 import { selectRoleplayChatSeat } from '../../../../../../apps/web/src/modules/chat/model/chatViewSeats.js'
+// @ts-expect-error The Renderer adapter is JavaScript.
+import { findRegenerateBranchUserIndex } from '../../../../../../apps/web/src/modules/chat/model/chatRegeneration.js'
+// @ts-expect-error The Renderer adapter is JavaScript.
+import { adaptTrajectorySnapshot } from '../../../../../../apps/web/src/modules/chat/model/trajectorySnapshotAdapter.js'
 
 const source = readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8')
 const settle = () => new Promise<void>(resolve => setImmediate(resolve))
@@ -401,6 +405,52 @@ describe('DSH ElecKoi conversation client model', () => {
     } finally { mounted.dispose() }
   })
 
+  it('recovers the human input for historic child wakes without retiring the original answer or skipping round labels', async () => {
+    const mounted = mountCatalog(async () => ({ ok: true, data: [] }))
+    const catalog = mounted.catalog as any
+    const fixture = officialChatFixture()
+    const event = (type: string, seq: number, data: any, surfaceOp?: unknown) => ({ type, seq, time: seq * 10, data,
+      ...(surfaceOp === undefined ? {} : { surfaceOp }) })
+    const message = (id: string, role: string, text: string, source: any) => ({ id, role, source, content: [{ type: 'text', text }] })
+    const answer = (turn: number, step: number, seq: number, text: string) => event('assistant/message', seq, { turn, step, stream: [],
+      message: message(`reply-${seq}`, 'assistant', `<FINAL>${text}</FINAL>`, { provider: 'synthetic', model: 'synthetic' }) }, 'append')
+    const values = [event('turn/start', 1, { turn: 5 }), event('step/start', 2, { turn: 5, step: 1 }),
+      event('user/message', 3, message('human-input', 'user', 'Synthetic delegation', { kind: 'user' }), 'append'),
+      event('subagent/catalog', 3.5, { version: 0, childId: 'child', childCreatedAt: 35, mode: 'continuable', label: 'Synthetic task' }),
+      answer(5, 1, 4, 'Synthetic dispatch reply'), event('step/end', 5, { turn: 5, step: 1 }),
+      event('turn/end', 6, { turn: 5, reason: { kind: 'completed' } }), event('turn/start', 7, { turn: 6 }),
+      event('step/start', 8, { turn: 6, step: 1 }),
+      event('user/message', 9, message('child-result', 'user', 'Synthetic child result',
+        { kind: 'agent-message', form: 'relay', senderSessionId: 'child' }), 'append'),
+      answer(6, 1, 10, 'Synthetic delivered result'), event('step/end', 11, { turn: 6, step: 1 }),
+      event('step/start', 12, { turn: 6, step: 2 }),
+      event('user/message', 13, message('child-notice', 'user', 'Synthetic child closing result',
+        { kind: 'subagent-settled', form: 'notice', summary: 'Child finished', senderSessionId: 'child' }), 'append'),
+      answer(6, 2, 14, 'Synthetic closing reply'), event('step/end', 15, { turn: 6, step: 2 }),
+      event('turn/end', 16, { turn: 6, reason: { kind: 'completed' } }),
+    ]
+    const identities = inputContinuationsProjection.wire.view(values.reduce(inputContinuationsProjection.apply, inputContinuationsProjection.init()))
+    const chat = fixture.replace(values)
+    try {
+      await settle()
+      catalog.detailsSnapshot = { id: 'synthetic-chat', status: 'ready', runtimeSessionId: 'synthetic-session', error: '',
+        details: { conversation: { id: 'synthetic-chat' }, metadata: {}, messages: [], hasMore: false } }
+      catalog.sessionReference = { sessionId: 'synthetic-session', binding: {
+        eventSource: { getSnapshot: () => ({ entries: values.map(event => ({ type: 'event', event })) }) }, session: {
+          getSnapshot: () => ({ running: false }), projections: {
+        faceOf: (key: string) => key === 'eleckoiInputContinuations' ? { getSnapshot: () => identities } : undefined
+      } } } }
+      catalog.acceptOfficialSession('synthetic-chat', 'synthetic-session', { getSnapshot: () => ({ running: false }) }, { getSnapshot: () => chat })
+      const messages = catalog.getDetailsSnapshot().details.messages
+      expect(messages.map((item: any) => item.content)).toEqual(['Synthetic delegation', '<FINAL>Synthetic dispatch reply</FINAL>', '<FINAL>Synthetic closing reply</FINAL>'])
+      expect(messages.at(-1)).toMatchObject({ dshTurn: 6, inputEventSeq: 3 })
+      expect(findRegenerateBranchUserIndex(messages, messages.at(-1).id)).toBe(0)
+      const trajectory = adaptTrajectorySnapshot({ eventNodes: [], requests: [] }, undefined, identities)
+      expect([...trajectory.turnLabels]).toEqual([[5, 1], [6, 1]])
+      expect(trajectory.inputTurns.get(3)).toBe(5)
+    } finally { catalog.sessionReference = undefined; mounted.dispose() }
+  })
+
   it('reuses settled nested dispatch results when only their parent call or sibling changes', async () => {
     const mounted = mountCatalog(async () => ({ ok: true, data: [] }))
     const catalog = mounted.catalog as any
@@ -432,23 +482,39 @@ describe('DSH ElecKoi conversation client model', () => {
     } finally { mounted.dispose() }
   })
 
-  it('admits a formally identified Studio Session without preparing a roleplay chat', async () => {
+  it('leaves native coding and Studio Sessions on their official send path while a roleplay chat is selected', async () => {
     const mounted = mountCatalog(async () => ({ ok: true, data: [] }))
     const catalog = mounted.catalog as any
     await settle()
-    let studio: unknown = { presetId: 'synthetic-creator-preset', characterId: 'synthetic-character' }
-    catalog.sessions = { binding: (id: string) => id === 'synthetic-studio-session'
-      ? { session: { projections: { faceOf: (key: string) => {
-        expect(key).toBe('eleckoiCreatorStudio')
-        return { getSnapshot: () => studio }
-      } } } } : undefined }
+    catalog.snapshot = { ...catalog.snapshot, items: [{ id: 'roleplay-chat', runtimeSessionId: 'roleplay-session' }] }
+    catalog.detailsSnapshot = { ...catalog.detailsSnapshot, id: 'roleplay-chat' }
+    const prepare = vi.fn()
+    catalog.remote.eleckoiConversations.preparePrompt = prepare
     try {
-      await expect(catalog.prepareNativeInput({ sessionId: 'synthetic-studio-session', text: 'Synthetic edit' })).resolves.toEqual({ kind: 'success' })
-      studio = null
-      await expect(catalog.prepareNativeInput({ sessionId: 'synthetic-studio-session', text: 'Synthetic edit' })).resolves.toEqual({ kind: 'error', text: '当前聊天与输入框会话不一致。' })
-      const signal = AbortSignal.abort()
-      studio = { presetId: 'synthetic-creator-preset', characterId: '' }
-      await expect(catalog.prepareNativeInput({ sessionId: 'synthetic-studio-session', signal })).rejects.toMatchObject({ name: 'AbortError' })
+      for (const sessionId of ['synthetic-coding-session', 'synthetic-studio-session']) {
+        await expect(catalog.prepareNativeInput({ sessionId, text: 'Synthetic edit' })).resolves.toEqual({ kind: 'success' })
+        await expect(catalog.prepareNativeInput({ sessionId, signal: AbortSignal.abort() })).rejects.toMatchObject({ name: 'AbortError' })
+      }
+      expect(prepare).not.toHaveBeenCalled()
+    } finally { mounted.dispose() }
+  })
+  it('still prepares the exact owned roleplay Session and rejects a stale roleplay composer', async () => {
+    const mounted = mountCatalog(async () => ({ ok: true, data: [] }))
+    const catalog = mounted.catalog as any
+    await settle()
+    catalog.snapshot = { ...catalog.snapshot, items: [
+      { id: 'current-chat', runtimeSessionId: 'current-session' },
+      { id: 'previous-chat', runtimeSessionId: 'previous-session' },
+    ] }
+    catalog.detailsSnapshot = { ...catalog.detailsSnapshot, id: 'current-chat' }
+    const prepare = vi.fn(async () => ({ ok: true, value: undefined }))
+    catalog.remote.eleckoiConversations.preparePrompt = prepare
+    catalog.bindOfficialSession = vi.fn()
+    try {
+      await expect(catalog.prepareNativeInput({ sessionId: 'previous-session', text: 'Stale draft' })).resolves.toEqual({ kind: 'error', text: '当前聊天与输入框会话不一致。' })
+      expect(prepare).not.toHaveBeenCalled()
+      await expect(catalog.prepareNativeInput({ sessionId: 'current-session', text: 'Current draft' })).resolves.toEqual({ kind: 'success' })
+      expect(prepare).toHaveBeenCalledExactlyOnceWith('current-chat', 'Current draft', undefined)
     } finally { mounted.dispose() }
   })
   it.each(['complete', 'error', 'cancelled'])('does not revive the retired compaction-only AI row during regeneration (%s)', async outcome => {

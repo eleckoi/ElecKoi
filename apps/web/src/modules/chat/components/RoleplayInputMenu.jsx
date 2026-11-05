@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { MenuSurface } from '@deepseek-ai/dsh-client-ui-primitives';
 import { DshNewChatIcon, DshRefreshIcon } from "../../../ui/icons/dshComposerIcons.jsx";
 import { ChatHistoryIcon, MenuIcon, PlugIcon } from "../../../ui/icons/openSourceIcons.jsx";
 import { TrashIcon } from "../../../ui/icons/index.jsx";
@@ -66,7 +67,7 @@ export function RoleplayInputMenu({
         <MenuIcon size={17} weight="bold" />
       </button>
       {open ? (
-        <div className="composer-more-menu" data-menu-material="translucent" role="menu" aria-label={menuLabel}>
+        <MenuSurface className="composer-more-menu" role="menu" aria-label={menuLabel}>
           {creator && <button type="button" role="menuitem" onClick={() => run(onSelectCharacter)}><UserCircle size={18} /><span>选择角色</span></button>}
           {!creator &&
           <button type="button" role="menuitem" onClick={() => run(onOpenHistory)}>
@@ -96,7 +97,7 @@ export function RoleplayInputMenu({
             onClick={() => run(() => onRegenerate?.({ targetMessageId: regenerateTargetMessageId }))}>
             <DshRefreshIcon size={18} /><span>重新生成</span>
           </button>
-        </div>
+        </MenuSurface>
       ) : null}
       {scriptsOpen ? <ScriptButtonsDialog buttons={scriptButtons} ready={scriptsReady} onRun={onRunScriptButton}
         onClose={() => setScriptsOpen(false)} /> : null}

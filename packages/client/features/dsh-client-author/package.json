@@ -20,7 +20,7 @@
   },
   "scripts": { "build": "tsc -b tsconfig.client.json && tsdown" },
   "devDependencies": { "tsdown": "0.16.6", "typescript": "5.9.3" },
-  "engines": { "dsh": "0.2.1-rc.3" },
+  "engines": { "dsh": "0.2.1-rc.5" },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },
     "client": { "platform": "web", "inject": ["@eleckoi/dsh-product-api", "@eleckoi/dsh-client-conversations", "@eleckoi/dsh-client-character-configuration", "@eleckoi/dsh-client-models"] }

@@ -251,9 +251,13 @@ describe('native frontend Remote and resources', () => {
 
   it('serves actual bytes through the official WebServer without compatibility and removes the route on plugin disposal', async () => {
     const f = await nativeHost(), id = project(f, app)
+    f.repository.writeFile(app, id, { path: 'Build/player.wasm', encoding: 'base64', content: Buffer.from([0, 97, 115, 109, 1, 0, 0, 0]).toString('base64') })
     await f.ctx.plugin(WebServer, { host: '127.0.0.1', port: 0 })
     const plugin = f.ctx.plugin(eleckoiFrontendAssetsPlugin); await plugin
     const base = `http://127.0.0.1:${f.ctx.webServer.port}/eleckoi/frontends/${id}`
+    const wasm = await fetch(`${base}/Build/player.wasm`)
+    expect(wasm.headers.get('content-type')).toBe('application/wasm')
+    expect(await WebAssembly.compileStreaming(wasm)).toBeInstanceOf(WebAssembly.Module)
     const bytes = await fetch(`${base}/assets/value.bin`)
     expect(bytes.status).toBe(200)
     expect(Buffer.from(await bytes.arrayBuffer())).toEqual(Buffer.from([0, 128, 255, 13]))

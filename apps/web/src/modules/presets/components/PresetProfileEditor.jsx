@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useRef, useState } from 'react';
 import { ArrowLeft, Camera } from '@phosphor-icons/react';
 import { Avatar } from '../../../ui/ui/Avatar.jsx';
@@ -64,8 +65,8 @@ export function PresetProfileEditor({ preset, dirty, saving, error, onChange, on
         <label><span>模型标签</span><input value={modelTagText} placeholder="用逗号分隔" onChange={(event) => updateModelTags(event.target.value)} /></label>
         {error || imageError ? <p className="preset-profile-editor-error">{error || imageError}</p> : null}
         <div className="preset-profile-editor-actions">
-          <button type="submit" className="is-primary" disabled={!dirty || saving}>{saving ? '保存中…' : '保存'}</button>
-          <button type="button" onClick={onCancel}>取消</button>
+          <Button data-dsh-control variant="primary" type="submit" className="is-primary" disabled={!dirty || saving}>{saving ? '保存中…' : '保存'}</Button>
+          <Button data-dsh-control variant="outline" type="button" onClick={onCancel}>取消</Button>
         </div>
       </form>
 

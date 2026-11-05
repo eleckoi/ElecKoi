@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { Trash, X } from "../../../ui/icons/interfaceIcons.jsx";
 import { DshFolderClosedIcon } from "../../../ui/icons/dshTreeIcons.jsx";
 import { FIXED_ENTRY_IDS } from "../model/settingLibraryEditing.js";
@@ -95,7 +96,7 @@ export function SettingLibraryInspector({
         {selected.kind === "group" ? (
           <div className="setting-library-group-editor">
             <label><span>文件夹名称</span><input ref={nameInputRef} value={selected.value.name} onChange={(event) => onUpdateGroup({ name: event.target.value })} /></label>
-            <button type="button" className="setting-library-delete-link" onClick={onDeleteGroup}><Trash size={15} />删除文件夹</button>
+            <Button data-dsh-control variant="outline" type="button" className="setting-library-delete-link" onClick={onDeleteGroup}><Trash size={15} />删除文件夹</Button>
           </div>
         ) : (
           <EntryEditor

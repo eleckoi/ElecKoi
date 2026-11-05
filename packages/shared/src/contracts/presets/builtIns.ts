@@ -6,12 +6,6 @@ export const HIDDEN_TOOL_TIMELINE_PROMPT_POSITION_ID = 'hidden-tool-timeline'
 export const HISTORY_COMPACTION_ENTRY_ID = 'built-in-roleplay-history-compaction'
 export const HISTORY_COMPACTION_ENTRY_TITLE = '自动压缩摘要模板'
 
-export const NOVELAI_ILLUSTRATION_ENTRY_ID = 'built-in-novelai-illustration'
-export const DEFAULT_NOVELAI_ILLUSTRATION_CONTENT = `启用角色自动配图并绑定 NovelAI 图片模型后，使用原生 generate_image 为本轮剧情配图；工具不可用时继续正文，不得假装生成。
-根据已确定的剧情选择有区别的可见画面，按工具声明的数量组织 frames；每帧使用唯一正整数 id、prompt、negative_prompt 和 after_paragraph，指明在本轮最终正文对应段落之后插图。
-NovelAI prompt 使用逗号分隔的英文 tag，描述人物外貌、表情动作、构图视角、环境与光照；negative_prompt 描述要避免的视觉元素。不虚构未来剧情，不重复工具已添加的角色外貌与风格前缀。
-先调用工具，再按真实返回结果在正文对应位置插入 [[IMAGE:id]]。不得编造图片地址或声称失败帧已成功；部分失败保留成功帧并如实说明失败，用户可在消息中重画。未经用户要求不得自动反复重试。`
-
 export const DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT = `<roleplay_output_protocol>
 tool_phase:
   setting_library:
@@ -80,17 +74,6 @@ export function withRequiredCreatorPresetEntries(entries: SettingLibraryEntry[])
   ]
 }
 
-export function withDefaultNovelAIIllustration(entries: SettingLibraryEntry[]): SettingLibraryEntry[] {
-  if (entries.some((entry) => entry.id === NOVELAI_ILLUSTRATION_ENTRY_ID)) return entries
-  const illustration = {
-    ...entryDefaults(NOVELAI_ILLUSTRATION_ENTRY_ID, 'NovelAI 剧情配图'),
-    iconId: 'image', content: DEFAULT_NOVELAI_ILLUSTRATION_CONTENT, enabled: false,
-    triggerMode: 'always' as const, position: 'instructions' as const,
-    treeViewOrder: Number.MIN_SAFE_INTEGER + 2
-  }
-  return [...entries, illustration]
-}
-
 export function withRequiredAgentPresetPromptPositions(
   positions: SettingLibraryPromptPosition[]
 ): SettingLibraryPromptPosition[] {
@@ -131,10 +114,12 @@ export function normalizeAgentPresetPrompts(
   return { entries: normalizedEntries, promptPositions }
 }
 
+export const DEFAULT_CREATOR_INSTRUCTIONS = '你是 ElecKoi 的 AI 创作工作室，帮助用户创作角色卡、修改角色资料和开发 ElecKoi 插件。使用当前工作区保存和验证代码，插件开发先读取官方技能与 ElecKoi 开发参考。角色创作通过创作能力工具维护：先使用 eleckoi_list_toolsets 查看能力，再使用 eleckoi_describe_toolset 获取准确参数，最后通过 eleckoi_call_capability 执行操作。修改已有角色前选择编辑目标；新建角色可使用当前可用的创作能力创建并设为编辑目标；开发插件不要求选择角色。读取现有内容后再修改，保留仍有效的数据。编辑目标不是你要扮演的角色，回复采用普通对话。'
+
 export function defaultCreatorPresetEntries(): SettingLibraryEntry[] {
   return withRequiredCreatorPresetEntries([{
     ...entryDefaults('creator-studio-instructions', '创作指引'),
-      content: '你是 ElecKoi 的 AI 创作工作室。通过创作能力工具直接维护用户选择的角色资料、设定库、变量与正则。先使用 eleckoi_list_toolsets 查看能力，再使用 eleckoi_describe_toolset 获取准确参数，最后通过 eleckoi_call_capability 执行操作。读取现有内容后再修改，保留仍有效的数据。没有选择角色时先请用户选择角色。创作目标是编辑对象，不是你要扮演的角色。回复采用普通对话，不输出角色扮演正文边界。',
+      content: DEFAULT_CREATOR_INSTRUCTIONS,
     triggerMode: 'always', position: 'instructions', agentReadStrategy: 'required'
   }])
 }

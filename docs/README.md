@@ -54,6 +54,10 @@
 
 - [测试与日常验证](TESTING.md)：测试分组、并发、目录归属及扩大验证的条件。
 
+- [v0.2.19 发布说明](releases/v0.2.19.md)
+- [v0.2.18 发布说明](releases/v0.2.18.md)
+- [v0.2.17 发布说明](releases/v0.2.17.md)
+- [v0.2.16 发布说明](releases/v0.2.16.md)
 - [v0.2.14 发布说明](releases/v0.2.14.md)
 - [v0.2.13 发布说明](releases/v0.2.13.md)
 - [v0.2.12 发布说明](releases/v0.2.12.md)

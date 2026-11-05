@@ -1,7 +1,9 @@
 import { clientBundlePath } from '../support/client-bundle.js'
 import RemoteAccessService from '@deepseek-ai/dsh-api-remote-access'
 import { ownerPeer } from '../support/owner-peer.js'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { isAbsolute, join, relative } from 'node:path'
 import { createRequire } from 'node:module'
 import { runInNewContext } from 'node:vm'
 import * as Cordis from '@deepseek-ai/cordis'
@@ -14,6 +16,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 // @ts-expect-error The browser test runtime does not publish declarations.
 import { JSDOM } from 'jsdom'
 import { ElecKoiAuthorVariablesApi, ElecKoiVariableProcessing } from '@eleckoi/dsh-product-api'
+import productDataPlugin from '@eleckoi/dsh-product-data'
 import { installTavernFrontend } from '@eleckoi/tavern-frontend'
 
 const cleanups: Array<() => Promise<void>> = []
@@ -21,15 +24,17 @@ afterEach(async () => { for (const close of cleanups.splice(0)) await close() })
 const signal = () => new AbortController().signal
 const require = createRequire(import.meta.url)
 
-async function runtime() {
+async function runtime(persisted?: { conversationId(): string }) {
   const ctx = new Cordis.Context()
+  if (persisted) await ctx.plugin(productDataPlugin)
+  const conversationId = persisted?.conversationId ?? (() => 'synthetic-chat')
   let current = '{"value":2,"nested":{"kept":true}}', initial = '{"value":1}', schemaCode = ''
   const save = vi.fn((_id: string, json: string) => { current = json; return json })
   const listeners = new Set<(event: unknown) => void>()
   const publish = vi.fn(change => {
     if (change.kind === 'messages') for (const listener of listeners) listener(change)
   })
-  const data = {
+  const data = persisted ? ctx.eleckoiProductData : {
     readAuthorConversationState(id: string) {
       if (id !== 'synthetic-chat') throw new Error('Synthetic conversation not found')
       return { currentVariableStateJson: current, initialVariableStateJson: initial, variableConfig: schemaCode ? { schemaCode } : null }
@@ -40,7 +45,7 @@ async function runtime() {
   const registry = ctx.plugin(TypertRegistry)
   await registry
   const unregister = ctx.typert.register(TYPERT as TypertContribution)
-  ctx.provide('eleckoiProductData', data as any)
+  if (!persisted) ctx.provide('eleckoiProductData', data as any)
   ctx.provide('eleckoiVariableProcessing', processor)
   ctx.provide('eleckoiConversationChanges', { publish } as any)
   await ctx.plugin(RemoteAccessService)
@@ -51,11 +56,16 @@ async function runtime() {
     namespace: 'eleckoiAuthorVariables', method, args, signal: requestSignal,
   })
   const client = new Cordis.Context()
-  cleanups.push(async () => {
+  let closed = false
+  const close = async () => {
+    if (closed) return
+    closed = true
     page.window.dispatchEvent(new page.window.Event('pagehide'))
     await client.fiber.dispose(); page.window.close()
     processor.close(); await variables.dispose(); await gateway.dispose(); unregister(); await registry.dispose()
-  })
+    await ctx.fiber.dispose()
+  }
+  cleanups.push(close)
   await client.plugin(TypertRegistry)
   const call = vi.fn(async (_base: string, endpoint: string, payload: { args: Record<string, unknown> }, requestSignal: AbortSignal) => {
       const [namespace, method] = endpoint.split('/')
@@ -82,9 +92,9 @@ async function runtime() {
     throw new Error(`Unexpected native Client dependency: ${name}`)
   }))
   await client.remote.$mount(TYPERT_REMOTE)
-  const bindings = createAuthorVariableBindings(client.remote.eleckoiAuthorVariables, () => 'synthetic-chat')
+  const bindings = createAuthorVariableBindings(client.remote.eleckoiAuthorVariables, conversationId)
   const browserMethods: Record<string, () => unknown> = {
-    'context.current': () => ({ surface: 'message-renderer', scope: 'current-character', conversationId: 'synthetic-chat', messageId: 'synthetic-message' }),
+    'context.current': () => ({ surface: 'message-renderer', scope: 'current-character', conversationId: conversationId(), messageId: 'synthetic-message' }),
     'app.getCapabilities': () => [...Object.keys(bindings), ...Object.keys(browserMethods)].map(method => ({ method })),
     'events.list': () => ({ items: ['messages.changed'] }),
   }
@@ -100,7 +110,7 @@ async function runtime() {
       listeners.add(listener); return () => listeners.delete(listener)
     },
   })
-  return { ctx, client, bindings, call, processor, api, invoke, save, publish, window: page.window,
+  return { ctx, client, bindings, call, processor, api, invoke, save, publish, close, window: page.window,
     get state() { return JSON.parse(current) },
     set current(value: string) { current = value },
     set initial(value: string) { initial = value },
@@ -109,6 +119,73 @@ async function runtime() {
 }
 
 describe('native author variable Remote', () => {
+  it('keeps player form values inside their chat across new chats, resets and a complete Host reopen', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'eleckoi-player-form-'))
+    const environment = {
+      ELECKOI_DATABASE_PATH: join(directory, 'product.sqlite3'),
+      ELECKOI_MEDIA_ROOT: join(directory, 'media'),
+      ELECKOI_WORKSPACE_ROOT: directory,
+    }
+    const previous = Object.fromEntries(Object.keys(environment).map(key => [key, process.env[key]]))
+    Object.assign(process.env, environment)
+    try {
+      let selected = ''
+      const r = await runtime({ conversationId: () => selected })
+      const data = r.ctx.eleckoiProductData, characterId = 'synthetic-form-character'
+      data.createCharacter({ id: characterId, name: 'Synthetic form character' })
+      const base = data.readVariableConfig(characterId), source = base.versions[0]!
+      const group = (id: string, dynamicKey = false) => ({ id, name: id, parentId: '', enabled: true,
+        dynamicKey, description: '', updateRule: '', order: 1, treeViewOrder: 1, createdAt: '', updatedAt: '' })
+      const variable = (id: string, objectId: string, defaultValue: string) => ({ id, title: id, objectId,
+        enabled: true, type: 'string' as const, defaultValue, description: '', updateRule: '', readMode: 'on_demand' as const,
+        order: 1, treeViewOrder: 1, createdAt: '', updatedAt: '' })
+      const version = { ...source, schemaCode: '', objects: [group('world'), group('player'), group('members', true)],
+        variables: [variable('date', 'world', '第一天'), variable('name', 'player', ''), variable('profession', 'player', '')],
+        initialStateJson: '{"world":{"date":"第一天"},"player":{"name":"","profession":""},"members":{}}' }
+      const saved = data.saveVariableConfig(characterId, { ...base, ...version, versions: [version] })
+      const opening = data.readCharacterOpenings(characterId)
+      data.saveCharacterOpenings(characterId, { ...opening, openingMessages: [{ id: 'synthetic-opening', title: 'Synthetic opening',
+        content: 'Synthetic start', variableVersionId: version.id }], defaultOpeningMessageId: 'synthetic-opening' })
+      const defaults = JSON.parse(saved.initialStateJson)
+      const first = data.createConversation({ metadata: { characterId } }).conversation.id
+      selected = first
+      const filled = { world: { date: '第三天' }, player: { name: 'Synthetic player A', profession: 'Synthetic profession A' },
+        members: { alpha: { score: 8 } } }
+      expect(await r.api.variables.merge(filled)).toEqual(filled)
+      const second = data.createConversation({ metadata: { characterId } }).conversation.id
+      expect(second).not.toBe(first)
+      selected = second
+      expect(await r.api.variables.getState()).toEqual(defaults)
+      const secondFilled = { ...defaults, player: { name: 'Synthetic player B', profession: 'Synthetic profession B' } }
+      expect(await r.api.variables.setState(secondFilled)).toEqual(secondFilled)
+      selected = first
+      expect(await r.api.variables.getState()).toEqual(filled)
+      expect(data.readVariableConfig(characterId)).toEqual(saved)
+      expect(JSON.parse(data.readAuthorConversationState(first).initialVariableStateJson)).toEqual(defaults)
+      await r.close()
+      const reopened = await runtime({ conversationId: () => selected })
+      expect(await reopened.api.variables.getState()).toEqual(filled)
+      selected = second
+      expect(await reopened.api.variables.getState()).toEqual(secondFilled)
+      expect(await reopened.api.variables.reset()).toEqual(defaults)
+      selected = first
+      expect(await reopened.api.variables.getState()).toEqual(filled)
+      const fresh = reopened.ctx.eleckoiProductData.createConversation({ metadata: { characterId } }).conversation.id
+      selected = fresh
+      expect(await reopened.api.variables.getState()).toEqual(defaults)
+      expect(reopened.ctx.eleckoiProductData.readVariableConfig(characterId)).toEqual(saved)
+    } finally {
+      cleanups.push(async () => {
+        for (const [key, value] of Object.entries(previous)) {
+          if (value === undefined) delete process.env[key]; else process.env[key] = value
+        }
+        const child = relative(tmpdir(), directory)
+        if (!child || child.startsWith('..') || isAbsolute(child)) throw new Error('Unexpected fixture cleanup path')
+        rmSync(directory, { recursive: true, force: true })
+      })
+    }
+  }, 60_000)
+
   it('projects all native entries through the generated Remote and notifies only accepted saves', async () => {
     const r = await runtime(), count = 10001
     const records = Object.fromEntries(Array.from({ length: count }, (_, index) => [`synthetic-${index}`, {

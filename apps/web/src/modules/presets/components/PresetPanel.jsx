@@ -6,6 +6,8 @@ import { CharacterManagerIcon, ChevronRightIcon, ImportIcon, PlusIcon, TrashIcon
 import { Avatar } from '../../../ui/ui/Avatar.jsx';
 import { SidebarSectionHeader } from '../../../ui/ui/SidebarSectionHeader.jsx';
 import { useSidebarListScroll } from '../../../ui/hooks/useSidebarListScroll.js';
+import { SidebarScrollArea } from '../../../ui/ui/SidebarScrollArea.jsx';
+import { useSidebarGroupCollapse } from '../../../ui/hooks/useSidebarGroupCollapse.js';
 import { UnsavedChangesDialog } from '../../../ui/ui/UnsavedChangesDialog.jsx';
 import { useEditorPresentation, useEditorSubpage } from '../../../ui/ui/EditorPresentationContext.jsx';
 import defaultPresetAvatar from '../../../assets/eleckoi-app-icon.png';
@@ -58,6 +60,20 @@ export function buildPresetListSections(groups, presets) {
 
 export function shouldShowPresetCatalogLoading(catalog, error) {
   return !catalog && !error;
+}
+
+export function reconcilePresetToolRefresh(draft, previous, incoming) {
+  const ids = new Set(previous.toolGroups.map(group => group.id));
+  const content = ({ extraToolGroups, ...preset }) => JSON.stringify({ ...preset, toolGroups: preset.toolGroups.map(({ available, plugin, ...group }) => group) });
+  const comparable = { ...incoming, toolGroups: incoming.toolGroups.filter(group => ids.has(group.id) || group.source !== 'extension') };
+  if (content(comparable) !== content(previous)) return null;
+  const latest = new Map([...incoming.toolGroups, ...(incoming.extraToolGroups || [])].map(group => [group.id, group]));
+  const referencedNames = new Set(draft.toolGroups.filter(group => group.included).flatMap(group => group.members.map(member => member.name)));
+  return { ...draft, toolGroups: [
+    ...draft.toolGroups.map(group => latest.has(group.id) ? { ...group, available: latest.get(group.id).available, ...(latest.get(group.id).plugin ? { plugin: latest.get(group.id).plugin } : {}) } : group),
+    ...incoming.toolGroups.filter(group => !ids.has(group.id)),
+  ], extraToolGroups: [...latest.values()].filter(group => group.source === 'extension' && group.available === true
+    && !group.members.some(member => referencedNames.has(member.name))).map(group => ({ ...group, included: false, enabled: true })) };
 }
 
 export function PresetProvider({ children, catalogModel, navigationGuardRef: externalNavigationGuardRef }) {
@@ -151,6 +167,7 @@ export function PresetListPanel() {
     {},
     catalog ? sections.map((section) => section.id) : undefined,
   );
+  const keepCollapsedHeading = useSidebarGroupCollapse(collapsed);
 
   useEffect(() => {
     function closeCreateMenu(event) {
@@ -243,7 +260,8 @@ export function PresetListPanel() {
   function renderGroup(section) {
     const isCollapsed = Boolean(collapsed[section.id]);
     return <section className="character-group-block preset-list-group" key={section.id}>
-      <button type="button" className="character-group-row preset-group-heading" aria-expanded={!isCollapsed} onClick={() => {
+      <button type="button" className="character-group-row preset-group-heading" aria-expanded={!isCollapsed} onClick={(event) => {
+        if (!isCollapsed) keepCollapsedHeading(event.currentTarget);
         setSelectedGroup(section.id);
         setCollapsed((current) => ({ ...current, [section.id]: !current[section.id] }));
       }}>
@@ -280,10 +298,10 @@ export function PresetListPanel() {
     <input ref={importInputRef} type="file" accept="image/png,application/json,.png,.json" hidden onChange={handleImport} />
     <button type="button" className="character-manager-entry preset-manager-entry" onClick={openPresetManagerWindow}><CharacterManagerIcon /><span>预设管理器</span></button>
     <PresetPurposeSwitch value={purpose} onChange={value => { setPurpose(value); setSelectedGroup(ALL_PRESETS); setKeyword(''); }} />
-    <div ref={scrollRef} className="character-list-scroll preset-list-scroll">
+    <SidebarScrollArea ref={scrollRef} className="character-list-scroll preset-list-scroll">
       {collapseStateReady ? sections.map(renderGroup) : null}
       {error || importError ? <p className="preset-list-state is-error">{error || importError}</p> : null}
-    </div>
+    </SidebarScrollArea>
     {context.menu ? <PresetContextMenu menu={context.menu} onClose={context.close} actions={presetListContextActions(
       context.menu.target,
       catalog.activePresetIds[purpose],
@@ -387,6 +405,12 @@ export function PresetWorkspace({
     const applyLatest = (loaded) => {
         if (!active || savingRef.current) return;
         if (presetDirtyRef.current) {
+          const refreshed = reconcilePresetToolRefresh(preset, persisted, loaded);
+          if (refreshed) {
+            setPreset(refreshed);
+            setPersisted(loaded);
+            return;
+          }
           if (JSON.stringify(loaded) !== JSON.stringify(persisted)) {
             pendingLatestRef.current = loaded;
             externalChangeRef.current = true;
@@ -405,7 +429,7 @@ export function PresetWorkspace({
       if (snapshot.status === 'ready') applyLatest(snapshot.preset);
       else if (snapshot.status === 'error') setError(snapshot.error);
     });
-  }, [catalogModel, selectedPresetId, persisted]);
+  }, [catalogModel, selectedPresetId, persisted, preset]);
 
   useEffect(() => {
     function saveShortcut(event) {

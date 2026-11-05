@@ -27,27 +27,25 @@ export function resolveConversationSeed(
   openings: ConversationOpeningReader,
   variables: ConversationVariableConfigReader
 ): ConversationSeed {
-  const config = variables.get(characterId, database)
   const entry = openings.get(characterId, database)
-  const messages = entry.enabled ? entry.openingMessages : []
+  const messages = entry.openingMessages.filter(message => message.content.trim())
   const opening = messages.find(candidate => candidate.id === entry.defaultOpeningMessageId)
 
+  const config = messages.some(candidate => candidate.variableVersionId) ? variables.get(characterId, database) : undefined
   const openingOptions = messages.map((candidate) => {
-    const versionId = candidate.variableVersionId || config.activeVersionId
-    const version = config.versions.find((item) => item.id === versionId)
-    if (!version) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, `开场白“${candidate.title || '未命名开场白'}”绑定的变量版本不存在。`, { what: '变量版本' })
+    const versionId = candidate.variableVersionId || ''
+    const version = versionId ? config?.versions.find((item) => item.id === versionId) : undefined
+    if (versionId && !version) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, `开场白“${candidate.title || '未命名开场白'}”绑定的变量版本不存在。`, { what: '变量版本' })
     return {
       id: candidate.id, title: candidate.title, content: candidate.content,
       variableVersionId: versionId,
-      initialVariableStateJson: candidate.variableVersionId
-        ? version.initialStateJson
-        : candidate.initialVariableStateJson.trim() || version.initialStateJson
+      initialVariableStateJson: version?.initialStateJson || '{}'
     }
   })
   const selected = openingOptions.find((candidate) => candidate.id === opening?.id)
   return {
-    variableVersionId: selected?.variableVersionId || config.activeVersionId,
-    initialVariableStateJson: selected?.initialVariableStateJson || config.initialStateJson,
+    variableVersionId: selected?.variableVersionId || '',
+    initialVariableStateJson: selected?.initialVariableStateJson || '{}',
     openingText: opening?.content.trim() || '',
     openingOptions,
     selectedOpeningId: opening?.id ?? ''

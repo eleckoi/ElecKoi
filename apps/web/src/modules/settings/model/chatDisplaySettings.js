@@ -1,5 +1,5 @@
 import { DEFAULT_CHAT_DISPLAY_PREFERENCES, DEFAULT_CHAT_TEXT_COLORS, RICH_MESSAGE_FLOOR_RANGE } from '@shared/contracts/settings/schemas';
-import { resolveChatDisplayProfile } from '../../appearance/index.js';
+import { resolveChatDisplayProfile, resolveRoleplayStyle } from '../../appearance/index.js';
 
 export const chatLayouts = [
   { id: 'roleplay', label: '角色扮演', disabled: false },
@@ -10,10 +10,6 @@ export const avatarShapes = [
   { id: 'circle', label: '圆形' },
   { id: 'rounded_square', label: '圆角正方形' },
   { id: 'portrait', label: '圆角矩形' },
-];
-export const reasoningDisplayModes = [
-  { id: 'collapsed', label: '适当收起' },
-  { id: 'expanded', label: '全量展开' },
 ];
 export const textColorOptions = [
   { key: 'italics', label: '斜体文本' },
@@ -43,18 +39,22 @@ export function chatDisplaySettings(chatDisplay, onChange) {
   const preferences = chatDisplay || DEFAULT_CHAT_DISPLAY_PREFERENCES;
   const { layout, profile } = resolveChatDisplayProfile(preferences);
   const defaults = DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles[layout];
+  const roleplayStyle = resolveRoleplayStyle(preferences);
   const updateProfile = patch => onChange({ ...preferences, profiles: {
     ...preferences.profiles, [layout]: { ...profile, ...patch },
   } });
   return {
-    preferences, layout, profile, defaults,
+    preferences, layout, profile, defaults, roleplayStyle,
+    updateRoleplayStyle: patch => onChange({ ...preferences, roleplay_style: { ...roleplayStyle, ...patch } }),
     selectLayout(next) {
       if (!chatLayouts.some(item => item.id === next && !item.disabled)) return;
       onChange({ ...preferences, layout: next });
     },
     updateProfile,
     updatePreferences: patch => onChange({ ...preferences, ...patch }),
-    resetProfile: () => onChange({ ...preferences, profiles: { ...preferences.profiles, [layout]: { ...defaults } } }),
+    resetProfile: () => onChange({ ...preferences,
+      ...(layout === 'roleplay' ? { roleplay_style: { ...DEFAULT_CHAT_DISPLAY_PREFERENCES.roleplay_style } } : {}),
+      profiles: { ...preferences.profiles, [layout]: { ...defaults } } }),
     updateTextColor: (key, value) => onChange({ ...preferences, text_colors: { ...preferences.text_colors, [key]: value } }),
     resetTextColors: () => onChange({ ...preferences, text_colors: { ...DEFAULT_CHAT_TEXT_COLORS } }),
   };

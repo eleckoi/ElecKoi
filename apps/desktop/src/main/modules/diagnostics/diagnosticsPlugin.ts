@@ -1,5 +1,5 @@
 /**
- * Bug 报告的主进程侧：收集、导出、打开投递通道、存草稿（[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md)）。
+ * Bug 报告的主进程侧：收集、导出、打开投递通道、存草稿（[ADR 0042](../../../../../docs/adr/0042-bug-report-delivery.md)）。
  *
  * 判据：渲染层只做展示与选择，报告一律在主进程生成——日志在它手里，脱敏也在它手里。所以这里
  * 只有四件事：
@@ -75,7 +75,7 @@ export const diagnosticsPlugin = {
     // 投递配置每次现读：远程配置（可选）刷新完，下一次预览就该用新的。
     const deliveryOf = (): ReturnType<typeof readReportConfig> => readReportConfig(process.env, userData)
     const draftDirectory = pendingDraftDirectory(userData)
-    // 远程配置只在配了 `configUrl` 时才联网；失败静默，报告功能不依赖网络（ADR 0041 决定 16 修订）。
+    // 远程配置只在配了 `configUrl` 时才联网；失败静默，报告功能不依赖网络（ADR 0042 决定 16 修订）。
     void refreshRemoteReportConfig({ userData }).catch(bestEffort)
 
     const assertSender = (event: Electron.IpcMainInvokeEvent): void => assertTrustedDshClientFrame(

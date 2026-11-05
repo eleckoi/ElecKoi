@@ -5,7 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useMainPageView } from '../../src/app/windows/MainPageContext.jsx';
 import { useMobileScroll } from '../../src/mobile/MobileChrome.jsx';
 import { MobileWindow } from '../../src/mobile/MobileWindow.jsx';
+import { MobileWorkspaceControls } from '../../src/mobile/MobileWorkspaceControls.jsx';
 import { UnsavedChangesDialog } from '../../src/ui/ui/UnsavedChangesDialog.jsx';
+import { OfficialMarkdownProvider } from '../../src/ui/messages/OfficialMarkdown.jsx';
 
 const fixture = vi.hoisted(() => ({ chat: null, dialog: false, onCancel: null, updates: null }));
 vi.mock('../../src/app/hooks/useChatClient.js', () => ({ useChatClient: () => fixture.chat }));
@@ -35,9 +37,9 @@ function ListPage({ panel }) {
 }
 function Harness() {
   const panel = useSyncExternalStore(listener => { listeners.add(listener); return () => listeners.delete(listener); }, () => selected);
-  return <><MobileWindow {...catalogs} navigation={{ ...navigation, selectedPanelId: panel }} rightbar={rightbar} />
+  return <OfficialMarkdownProvider component={({ text }) => <span>{text}</span>}><MobileWindow {...catalogs} navigation={{ ...navigation, selectedPanelId: panel }} rightbar={rightbar} />
     <UnsavedChangesDialog open={fixture.dialog} title="保存编辑" description="是否保存？" onCancel={fixture.onCancel} />
-  </>;
+  </OfficialMarkdownProvider>;
 }
 async function mount() {
   const node = document.createElement('div'); document.body.append(node); root = createRoot(node);
@@ -72,6 +74,35 @@ afterEach(async () => {
   else delete HTMLElement.prototype.animate;
 });
 describe('Android independent conversation navigation', () => {
+  it('opens the Workspace through More and keeps navigation in the native header without a duplicate title', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    let shown = false;
+    const subscribers = new Set();
+    let sidebar = { shown };
+    const show = value => { shown = value; sidebar = { shown }; subscribers.forEach(listener => listener()); };
+    navigation.sidebar = { subscribe: listener => { subscribers.add(listener); return () => subscribers.delete(listener); }, getSnapshot: () => sidebar };
+    navigation.toggleSidebar = () => show(!shown);
+    navigation.closeSidebar = () => show(false);
+    navigation.renderSidebar = (render, owner) => render((_name, value) => value?.content,
+      owner.workspace ? <section aria-label="工作区列表"><button onClick={() => show(false)}>收起工作区</button><span>默认工作区</span><span>未分组</span></section> : null);
+    navigation.hasSidebarEntryActions = true;
+    navigation.renderSidebarEntryActions = (_render, dismiss) => <button role="menuitem" onClick={() => { dismiss(); navigation.selectPanel('conversation'); show(false); }}>进入工作区界面</button>;
+    navigation.renderPanel = panel => panel === 'conversation'
+      ? <div data-phase="active"><header data-window-drag=""><MobileWorkspaceControls /><h2>合成工作区会话</h2></header><textarea aria-label="工作区草稿" /></div> : <Page panel={panel} />;
+    await mount(); await click('侧边栏'); await click('更多插件'); await click('进入工作区界面');
+    expect(document.querySelector('.mobile-workspace-page')).toBeTruthy();
+    expect(document.querySelector('.mobile-workspace-page > .mobile-header')).toBeNull();
+    expect(document.querySelector('.mobile-workspace-controls').closest('[data-window-drag]')).toBeTruthy();
+    await click('打开工作区侧边栏');
+    const drawer = document.querySelector('[aria-label="工作区会话管理"]');
+    expect(drawer.textContent).toContain('默认工作区');
+    expect(drawer.textContent).toContain('未分组');
+    expect(drawer.querySelector('.side-rail')).toBeNull();
+    expect(drawer.querySelector('[aria-label="更多插件"]')).toBeNull();
+    await click('收起工作区'); await click('返回');
+    expect(document.querySelector('[data-list="messages"]')).toBeTruthy();
+    expect(fixture.chat.loadChat).not.toHaveBeenCalled();
+  });
   it('shows an automatic update from the mobile root and opens the Android download action', async () => {
     vi.stubGlobal('__ELECKOI_CLIENT_PLATFORM__', { kind: 'android' });
     await mount();

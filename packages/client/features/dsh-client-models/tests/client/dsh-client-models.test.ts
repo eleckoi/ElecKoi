@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
 import { describe, expect, it, vi } from 'vitest'
 import { dshClientPlugin } from '../../../../../../tests/helpers/dshClientPlugin'
+import type { ModelDiscoveryResult } from '@eleckoi/dsh-product-api/types'
 
 const source = readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8')
 const settle = () => new Promise<void>(resolve => setImmediate(resolve))
@@ -46,7 +47,7 @@ describe('DSH ElecKoi model catalog', () => {
           ...(rows.some(row => row.ns === 'llm-deepseek') ? [{ provider: 'deepseek-official', settingsNs: 'llm-deepseek', settingsPath: [] }] : []),
         ] }),
       },
-      eleckoiModels: { discoverModels: vi.fn(async () => ({ ok: true, value: [{ id: 'example-model' }] })),
+      eleckoiModels: { discoverModels: vi.fn(async (): Promise<{ ok: true; value: ModelDiscoveryResult[] }> => ({ ok: true, value: [{ id: 'example-model' }] })),
         revealApiKey: vi.fn(async () => ({ ok: true, value: 'synthetic-stored-value' })) },
       credentials: {
         describe: async (refs: string[]) => ({ ok: true, value: Object.fromEntries(refs.map(ref => [ref, { configured: keys.has(ref) }])) }),
@@ -103,6 +104,9 @@ describe('DSH ElecKoi model catalog', () => {
     expect(remote.eleckoiModels.discoverModels).toHaveBeenCalledWith(expect.objectContaining({ configId: draft.id, api: 'openai-completions' }))
     const discovered = await catalog.discover({ ...saved, model_options: [{ ...saved.model_options[0], topP: 0.99 }] })
     expect(discovered[0]).toMatchObject({ topP: 0.99, temperature: 0.6, contextWindowTokens: 65536 })
+    remote.eleckoiModels.discoverModels.mockResolvedValueOnce({ ok: true, value: [{ id: 'example-model', name: 'Current catalog name' }] })
+    const renamed = await catalog.discover({ ...saved, model_options: [{ ...saved.model_options[0], name: 'Old catalog name', topP: 0.99 }] })
+    expect(renamed[0]).toMatchObject({ id: 'example-model', name: 'Current catalog name', topP: 0.99, temperature: 0.6, contextWindowTokens: 65536 })
     const cleared = await catalog.save({ ...saved, api_key: '', model: '', model_options: [], clearConfiguration: true })
     expect(cleared).toMatchObject({ id: draft.id, credentialConfigured: false, model_options: [] })
     expect(catalog.getSnapshot().configs).toEqual([])

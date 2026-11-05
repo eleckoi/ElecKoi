@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useId, useImperativeHandle, useRef, useState } from 'react';
 import { CaretRight, CaretUp, NotePencil, Plus } from '../../../ui/icons/interfaceIcons.jsx';
 import { TrashIcon } from '../../../ui/icons/index.jsx';
@@ -21,8 +22,8 @@ export function PresetContentComposer({ draft, formRef, saving, error, onChange,
       <div className="preset-content-composer-footer">
         <span className="preset-content-error" role={error ? 'alert' : undefined}>{error}</span>
         <div className="preset-content-actions">
-          <button type="button" className="preset-content-button" onClick={onCancel}>取消</button>
-          <button type="submit" className="preset-content-button is-primary">{saving ? '保存中…' : timeline ? '保存更新' : '保存'}</button>
+          <Button data-dsh-control variant="outline" type="button" className="preset-content-button" onClick={onCancel}>取消</Button>
+          <Button data-dsh-control variant="primary" type="submit" className="preset-content-button is-primary">{saving ? '保存中…' : timeline ? '保存更新' : '保存'}</Button>
         </div>
       </div>
     </fieldset>
@@ -114,14 +115,14 @@ export function PresetIntroductionEditor({ preset, editorRef, saving, error, onC
     <section className="preset-content-section preset-usage-section" aria-label="使用说明">
       <div className="preset-content-section-heading">
         <h2>使用说明</h2>
-        {draft?.kind !== 'usage' ? <button ref={usageEditRef} type="button" className="preset-content-button is-section-action" disabled={saving} onClick={() => openDraft(createUsageDraft(profile))}>编辑</button> : null}
+        {draft?.kind !== 'usage' ? <Button data-dsh-control variant="outline" ref={usageEditRef} type="button" className="preset-content-button is-section-action" disabled={saving} onClick={() => openDraft(createUsageDraft(profile))}>编辑</Button> : null}
       </div>
       {draft?.kind === 'usage' ? composer : <div className="preset-usage-reading-surface">
         <p className={`preset-usage-copy${profile.usageInstructions ? '' : ' is-empty'}`}>{profile.usageInstructions || '暂无使用说明'}</p>
       </div>}
     </section>
     <section className="preset-content-section preset-updates" aria-label="更新记录">
-      <div className="preset-content-section-heading"><h2>更新记录</h2><button ref={addRef} type="button" className="preset-content-button is-section-action" disabled={saving || Boolean(draft?.isNew)} onClick={() => openDraft(createTimelineDraft())}><Plus size={15} />添加更新</button></div>
+      <div className="preset-content-section-heading"><h2>更新记录</h2><Button data-dsh-control variant="outline" ref={addRef} type="button" className="preset-content-button is-section-action" disabled={saving || Boolean(draft?.isNew)} onClick={() => openDraft(createTimelineDraft())}><Plus size={15} />添加更新</Button></div>
       <ol id={timelineId} className="preset-update-list" aria-label="更新时间线，最新记录在前">
         {draft?.kind === 'timeline' && draft.isNew ? <li className="preset-update-step is-editing"><i className="preset-update-node" aria-hidden="true" />{composer}</li> : null}
         {records.map((item, index) => <li className={`preset-update-step${index === 0 ? ' is-latest' : ''}${draft?.kind === 'timeline' && draft.value.id === item.id ? ' is-editing' : ''}`} key={item.id}>
@@ -174,7 +175,7 @@ export function PresetIntroductionEditor({ preset, editorRef, saving, error, onC
     />
     {deleting ? <ContentDialog title="删除这条更新？" busy={saving} onClose={() => { setDeleting(null); onClearError(); }}>
       {error ? <p className="preset-content-error" role="alert">{error}</p> : null}
-      <div className="preset-content-actions"><button type="button" className="preset-content-button" disabled={saving} onClick={() => { setDeleting(null); onClearError(); }}>取消</button><button type="button" className="preset-content-button is-danger" disabled={saving} onClick={async () => { if (await onSaveProfile({ timeline: profile.timeline.filter((item) => item.id !== deleting.id) })) { setDeleting(null); setNotice('已删除更新'); } }}>删除</button></div>
+      <div className="preset-content-actions"><Button data-dsh-control variant="outline" type="button" className="preset-content-button" disabled={saving} onClick={() => { setDeleting(null); onClearError(); }}>取消</Button><Button data-dsh-control variant="outline" type="button" className="preset-content-button is-danger" disabled={saving} onClick={async () => { if (await onSaveProfile({ timeline: profile.timeline.filter((item) => item.id !== deleting.id) })) { setDeleting(null); setNotice('已删除更新'); } }}>删除</Button></div>
     </ContentDialog> : null}
   </div>;
 }

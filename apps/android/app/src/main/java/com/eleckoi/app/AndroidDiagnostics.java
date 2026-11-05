@@ -19,7 +19,7 @@ import java.util.function.Consumer;
  * Low-frequency sampling and off-main-thread diagnostic storage/export.
  *
  * 两个变体都启用（ADR 0031，2026-11-05 修订）：以前只有兼容版启动采集，报告功能因此把标准版
- * 排除在外（ADR 0041 决定 8）。现在标准版与兼容版记录同一套事实——会话标记、页面异常、
+ * 排除在外（ADR 0042 决定 8）。现在标准版与兼容版记录同一套事实——会话标记、页面异常、
  * 返回阶段、卡死看门狗、内存记录——报告在两版同形。代价只在窗口可见时付出（`visible`），
  * 存储仍受 RuntimeDiagnostics 的四段轮转上限约束。
  *
@@ -131,7 +131,7 @@ final class AndroidDiagnostics {
     }
     /**
      * 读最近事件，找「最近一次没有配对 ended 的会话」——只看最后一次启动会把隔两次启动的崩溃证据
-     * 自愈掉（ADR 0041 决定 15：有 start 没 end 就是崩溃或强杀，中间又正常启动过一次也不算洗清）。
+     * 自愈掉（ADR 0042 决定 15：有 start 没 end 就是崩溃或强杀，中间又正常启动过一次也不算洗清）。
      */
     static PreviousSession classifySessions(List<String> events) {
         List<String> startedIds = new ArrayList<>();

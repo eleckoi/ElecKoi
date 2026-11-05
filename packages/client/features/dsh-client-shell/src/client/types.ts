@@ -14,7 +14,7 @@ export interface ElecKoiWindowNavigation {
   readonly sidebar: HostObservable<{ shown: boolean }>
   selectPanel(id: string): void
   renderPanel(id: string): ReactNode
-  renderSidebar(renderContent?: (renderSlot: unknown) => ReactNode, owner?: { collapsed?: boolean; width?: number }): ReactNode
+  renderSidebar(renderContent: (renderSlot: unknown, workspaceSidebar?: ReactNode) => ReactNode, owner?: { workspace?: boolean; collapsed?: boolean; width?: number }): ReactNode
   toggleSidebar(): void
   closeSidebar(): void
   setPanelGuard(guard: (commit: () => void) => void): () => void

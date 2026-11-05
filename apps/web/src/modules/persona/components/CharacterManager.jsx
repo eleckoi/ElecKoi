@@ -1,6 +1,7 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useMemo, useState } from "react";
 import { CopyIcon, ExportIcon, ImportIcon, PencilIcon, PlusIcon, TrashIcon } from "../../../ui/icons/index.jsx";
-import { DshSearchField } from "../../../ui/ui/DshSearchField.jsx";
+import { Input, IconSearchOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import { FailureAlert } from "../../../ui/ui/FailureAlert.jsx";
 import { GroupAssignmentMenu } from "../../../ui/ui/GroupAssignmentMenu.jsx";
 import { openCharacterEditorWindow } from "../window/openCharacterEditorWindow.js";
@@ -313,10 +314,10 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
             </button>
           ))}
         </div>
-        <button className="character-add-group-button" type="button" onClick={() => openGroupDialog("add")}>
+        <Button data-dsh-control variant="outline" className="character-add-group-button" type="button" onClick={() => openGroupDialog("add")}>
           <PlusIcon />
           添加分组
-        </button>
+        </Button>
       </aside>
 
       <section className="character-manager-main">
@@ -344,27 +345,27 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
                   </button>
                 </div>
               </div>
-              <DshSearchField
+              <Input data-dsh-control type="search" icon={<IconSearchOutlineRegular />}
                 className="character-manager-search"
                 value={keyword}
-                onValueChange={setKeyword}
+                onChange={event => setKeyword(event.target.value)}
                 placeholder="搜索角色…"
-                ariaLabel="搜索角色"
+                aria-label="搜索角色"
               />
               <div className="character-manager-selection-actions">
-                <button type="button" disabled={exporting || allVisibleSelected} onClick={selectAllVisible}>
+                <Button data-dsh-control variant="outline" type="button" disabled={exporting || allVisibleSelected} onClick={selectAllVisible}>
                   全选当前列表
-                </button>
-                <button type="button" disabled={exporting || !selectedIds.length} onClick={clearSelection}>清空</button>
-                <button type="button" disabled={exporting} onClick={cancelExport}>{exportNotice ? "完成" : "取消"}</button>
-                <button
+                </Button>
+                <Button data-dsh-control variant="outline" type="button" disabled={exporting || !selectedIds.length} onClick={clearSelection}>清空</Button>
+                <Button data-dsh-control variant="outline" type="button" disabled={exporting} onClick={cancelExport}>{exportNotice ? "完成" : "取消"}</Button>
+                <Button data-dsh-control variant="primary"
                   className="character-manager-confirm-export"
                   type="button"
                   disabled={!selectedIds.length || exporting}
                   onClick={confirmExport}
                 >
                   {exporting ? "导出中…" : `导出 ${selectedIds.length} 张`}
-                </button>
+                </Button>
               </div>
               <p className="character-manager-selection-targets" title={exportTargetsText}>
                 <span>{exportTargetsLine}</span>
@@ -374,27 +375,27 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
           ) : (
             <>
               <h2>角色卡管理器</h2>
-              <DshSearchField
+              <Input data-dsh-control type="search" icon={<IconSearchOutlineRegular />}
                 className="character-manager-search"
                 value={keyword}
-                onValueChange={setKeyword}
+                onChange={event => setKeyword(event.target.value)}
                 placeholder="搜索角色…"
-                ariaLabel="搜索角色"
+                aria-label="搜索角色"
               />
               {deleteMode ? (
                 <>
-                  <button className="character-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={confirmDelete}>
+                  <Button data-dsh-control variant="primary" className="character-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={confirmDelete}>
                     确认{selectedIds.length ? ` ${selectedIds.length}` : ""}
-                  </button>
-                  <button type="button" onClick={cancelDeleteMode}>取消</button>
+                  </Button>
+                  <Button data-dsh-control variant="outline" type="button" onClick={cancelDeleteMode}>取消</Button>
                 </>
               ) : (
                 <>
-                  <button type="button" onClick={() => setImportOpen(true)}><ImportIcon />导入角色</button>
-                  <button type="button" disabled={!characters.items?.length} onClick={startExport}>
+                  <Button data-dsh-control variant="outline" type="button" onClick={() => setImportOpen(true)}><ImportIcon />导入角色</Button>
+                  <Button data-dsh-control variant="outline" type="button" disabled={!characters.items?.length} onClick={startExport}>
                     <ExportIcon />导出角色
-                  </button>
-                  <button type="button" disabled={!characters.items?.length} onClick={() => setDeleteMode(true)}><TrashIcon />删除</button>
+                  </Button>
+                  <Button data-dsh-control variant="outline" type="button" disabled={!characters.items?.length} onClick={() => setDeleteMode(true)}><TrashIcon />删除</Button>
                 </>
               )}
             </>

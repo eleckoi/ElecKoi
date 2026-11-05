@@ -56,8 +56,7 @@ export function readEntry(payloadJson: string): SettingLibraryEntry {
       id: string(message.id),
       title: string(message.title),
       content: string(message.content),
-      variableVersionId: string(message.variable_version_id),
-      initialVariableStateJson: string(message.initial_variable_state)
+      variableVersionId: string(message.variable_version_id)
     })),
     defaultOpeningMessageId: string(value.default_opening_message_id),
     agentSelectionHint: string(value.agent_selection_hint),
@@ -98,8 +97,7 @@ export function writeEntry(entry: SettingLibraryEntry): string {
       id: message.id,
       title: message.title,
       content: message.content,
-      variable_version_id: message.variableVersionId || '',
-      initial_variable_state: message.initialVariableStateJson
+      variable_version_id: message.variableVersionId || ''
     })),
     default_opening_message_id: entry.defaultOpeningMessageId,
     agent_selection_hint: entry.agentSelectionHint,

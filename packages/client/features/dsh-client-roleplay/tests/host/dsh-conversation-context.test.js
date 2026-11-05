@@ -202,6 +202,7 @@ describe('DSH conversation context', () => {
     const listeners = new Map()
     const streamed = vi.fn((options) => options)
     const agentCtx = {
+      get(name) { return this[name] },
       systemPrompt: { section: vi.fn(() => vi.fn()) },
       sessions: { get: vi.fn(() => session) },
       sessionProjections: { stateOf: () => ({ inputs: [{ messageId: nativeMessages.findLast(item => item.source.kind === 'user').id }] }) },

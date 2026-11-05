@@ -1,0 +1,61 @@
+{
+  "name": "@eleckoi/dsh-auto-illustration",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "通过回复中的分镜指令自动生成剧情配图，不向 Agent 注册工具。",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./client": "./src/client.js",
+    "./host/*": "./src/host/*",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-plugin-manager",
+        "@eleckoi/dsh-client-models",
+        "@eleckoi/dsh-client-presets"
+      ]
+    }
+  },
+  "engines": {
+    "dsh": "0.2.1-rc.5"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-credentials": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-llm": "0.2.1-rc.5",
+    "@eleckoi/dsh-product-data": "workspace:*",
+    "@eleckoi/dsh-product-api": "workspace:*",
+    "zod": "4.1.11",
+    "@eleckoi/dsh-client-roleplay": "workspace:*",
+    "@eleckoi/dsh-client-models": "workspace:*",
+    "@eleckoi/dsh-client-presets": "workspace:*"
+  },
+  "eleckoi": {
+    "developerInterfaces": [
+      {
+        "id": "eleckoiAutoIllustration",
+        "kind": "service",
+        "title": "角色自动配图",
+        "description": "由独立插件贡献配图提示词并处理分镜生成与重画，不注册 AI 工具。",
+        "mode": "call",
+        "scope": "host",
+        "relation": "provides",
+        "members": [
+          "instructions",
+          "regenerateImage"
+        ]
+      }
+    ]
+  },
+  "types": "./src/index.d.ts"
+}

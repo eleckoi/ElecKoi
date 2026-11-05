@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "upstreamCommit": "1f81c047fc48fa190a683e469daa699857e9afe8",
+  "upstreamCommit": "b830ec950faba0a46dda564be3e2d854afed94f1",
   "package": "@deepseek-ai/dsh-attachment-local",
-  "version": "0.2.1-rc.3",
+  "version": "0.2.1-rc.5",
   "file": "lib/index.js",
   "sourceSha256": "cd39685581b4573a453c6126f8ce73da0bf1257c378827ebb431d6d4064f7662",
   "helpers": ["android-file-publication.mjs", "android-attachment-storage.mjs"],

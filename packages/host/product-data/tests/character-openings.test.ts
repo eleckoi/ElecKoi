@@ -11,9 +11,10 @@ import { SettingLibraryRepository } from '../src/domain/settingLibraries/Setting
 import { emptyEntry } from '../src/domain/settingLibraries/settingLibraryNormalization'
 import { VariableConfigRepository } from '../src/domain/variables/VariableConfigRepository'
 import { resolveConversationSeed } from '../src/domain/conversations/conversationSeed'
+import { ConversationRepository } from '../src/domain/conversations/ConversationRepository'
 import { legacyOpeningSchemaSql } from './helpers/legacyOpeningStorage'
 import { restoreEditorSchemaV12 } from './helpers/editorSchemaV12'
-import { installSchema } from '../src/storage/sqlite/installSchema'
+import { CURRENT_SCHEMA_VERSION, installSchema } from '../src/storage/sqlite/installSchema'
 
 const cleanups: Array<() => void> = []
 afterEach(() => cleanups.splice(0).reverse().forEach(cleanup => cleanup()))
@@ -31,7 +32,7 @@ it('keeps openings independent through setting version changes, deletion, variab
   const original = f.openings.get(characterId)
   const content = '合成长开场正文。'.repeat(20_001)
   const messages = [{ ...original.openingMessages[0]!, content, variableVersionId: f.variables.get(characterId).activeVersionId },
-    { id: 'synthetic-backup', title: '合成备用开场', content: '合成备用正文', initialVariableStateJson: '{"score":9}' }]
+    { id: 'synthetic-backup', title: '合成备用开场', content: '合成备用正文' }]
   const saved = f.openings.save(characterId, { ...original, openingMessages: messages })
   const library = f.settings.get(characterId)
   expect(library.entries).toEqual([])
@@ -39,7 +40,7 @@ it('keeps openings independent through setting version changes, deletion, variab
   f.settings.save(characterId, { ...library, ...version, activeVersionId: version.id, versions: [version] })
   expect(f.openings.get(characterId)).toEqual(saved)
   expect(resolveConversationSeed(characterId, f.db.db, f.openings, f.variables)).toMatchObject({ openingText: content, selectedOpeningId: messages[0]!.id,
-    openingOptions: [{ content, variableVersionId: f.variables.get(characterId).activeVersionId }, { id: 'synthetic-backup', initialVariableStateJson: '{"score":9}' }] })
+    openingOptions: [{ content, variableVersionId: f.variables.get(characterId).activeVersionId }, { id: 'synthetic-backup', variableVersionId: '', initialVariableStateJson: '{}' }] })
   expect(Object.keys(saved).sort()).toEqual(['characterId', 'defaultOpeningMessageId', 'enabled', 'openingMessages'])
   expect(f.settings.get(characterId).activeVersionId).toBe(version.id)
   f.settings.save(characterId, { ...f.settings.get(characterId), entries: [] })
@@ -51,6 +52,21 @@ it('keeps openings independent through setting version changes, deletion, variab
   expect(f.openings.get(characterId)).toEqual(before)
   f.characters.delete([characterId])
   expect(f.db.native.prepare('SELECT * FROM character_openings').all()).toEqual([])
+}, 30_000)
+
+it('creates no opening message for blank content and uses filled content without the former enable gate', () => {
+  const f = fixture(), characterId = 'synthetic-character';
+  const repository = new ConversationRepository(f.db, (id, db) => resolveConversationSeed(id, db, f.openings, f.variables));
+  const original = f.openings.get(characterId), primary = original.openingMessages[0]!;
+  f.openings.save(characterId, { ...original, enabled: true, openingMessages: [{ ...primary, content: ' \n\t ' }] });
+  const blank = repository.create({ metadata: { characterId } }).conversation.id;
+  expect(repository.openingText(blank)).toBe('');
+  const emptyTurns = f.db.native.prepare('SELECT * FROM agent_turns WHERE conversationId = ?').all(blank);
+  expect(emptyTurns).toEqual([]);
+  f.openings.save(characterId, { ...original, enabled: false, openingMessages: [{ ...primary, content: '合成开场正文' }] });
+  const filled = repository.create({ metadata: { characterId } }).conversation.id;
+  expect(repository.openingText(filled)).toBe('合成开场正文');
+  expect(repository.openingText(blank)).toBe('');
 }, 30_000)
 
 it('collects every legacy opening into one list and retains all settings and the default opening', () => {
@@ -86,7 +102,7 @@ it('collects every legacy opening into one list and retains all settings and the
   expect(separated.openingMessages.filter((message: any) => message.content === '合成开场1')).toHaveLength(1)
   expect(new Set(separated.openingMessages.map((message: any) => message.id)).size).toBe(5)
   installSchema(database)
-  expect(database.pragma('user_version', { simple: true })).toBe(13)
+  expect(database.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
   const value = JSON.parse((database.prepare('SELECT configurationJson FROM character_openings').get() as { configurationJson: string }).configurationJson)
   expect(value.defaultOpeningMessageId).toBe('opening-1')
   expect(value.openingMessages[0]).toMatchObject({ id: 'opening-1', content: '合成开场1', variableVersionId: 'synthetic-variable' })

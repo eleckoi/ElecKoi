@@ -1,7 +1,25 @@
+import { useLayoutEffect, useState } from 'react';
 import { SidebarRail } from './SidebarRail.jsx';
 import { SidePanelShell } from './SidePanelShell.jsx';
 
-export function SidebarContent({ expanded = false, collapsed, onCollapse, sidePanel, hasFooterActions, renderSidebarSlot, ...railProps }) {
+function WorkspaceSidebarSurface({ collapsed, children }) {
+  const [ready, setReady] = useState(false);
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const hadTitlebar = root.hasAttribute('data-windows-titlebar');
+    root.setAttribute('data-windows-titlebar', '');
+    setReady(true);
+    return () => { if (!hadTitlebar) root.removeAttribute('data-windows-titlebar'); };
+  }, []);
+  return <div className="native-workspace-sidebar">
+    <header className="native-workspace-caption" data-tauri-drag-region>
+      {!collapsed ? <span className="desktop-menu-seat" data-desktop-menu-seat /> : null}
+    </header>
+    <div className="native-workspace-body">{ready ? children : null}</div>
+  </div>;
+}
+
+export function SidebarContent({ expanded = false, collapsed, onCollapse, sidePanel, workspaceSidebar, workspaceCollapsed = false, hasFooterActions, renderSidebarSlot, desktopMenu = false, ...railProps }) {
   const footerActions = hasFooterActions ? renderSidebarSlot?.('sidebar.footer.action', { wide: true }) : null;
   const rail = <SidebarRail {...railProps} expanded={expanded} onCollapse={onCollapse}
     renderSidebarSlot={renderSidebarSlot} footerActions={expanded ? footerActions : null} />;
@@ -11,8 +29,8 @@ export function SidebarContent({ expanded = false, collapsed, onCollapse, sidePa
       <div className="navigation-rail-title" data-tauri-drag-region />
       {rail}
     </section>
-    <SidePanelShell collapsed={collapsed} onCollapse={onCollapse} renderSidebarSlot={renderSidebarSlot} footerActions={footerActions}>
+    {workspaceSidebar ? <WorkspaceSidebarSurface collapsed={workspaceCollapsed}>{workspaceSidebar}</WorkspaceSidebarSurface> : <SidePanelShell collapsed={collapsed} onCollapse={onCollapse} renderSidebarSlot={renderSidebarSlot} footerActions={footerActions} desktopMenu={desktopMenu}>
       {renderSidebarSlot?.('sidebar.workspaces', { wide: true, content: sidePanel }) || sidePanel}
-    </SidePanelShell>
+    </SidePanelShell>}
   </>;
 }

@@ -9,6 +9,7 @@ function stopDrag(event) {
 
 export function WindowControls({ onClose }) {
   if (globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === "android") return null;
+  if (typeof document !== "undefined" && document.documentElement.hasAttribute("data-native-window-controls")) return null;
   return (
     <div className="window-controls">
       <button className="window-control-button minimize" type="button" title="最小化" onPointerDown={stopDrag} onClick={() => appWindow.minimize()}>
@@ -41,23 +42,24 @@ export function TitleBar({
   sidePanelCollapsed = false,
   onToggleSidePanel,
   onClose,
+  desktopMenu = false,
 }) {
+  const sidePanelToggle = sidePanelCollapsed && onToggleSidePanel ? <button
+    className="side-panel-expand-button"
+    type="button"
+    aria-label="展开侧边栏"
+    title="展开侧边栏"
+    aria-expanded="false"
+    onPointerDown={stopDrag}
+    onClick={onToggleSidePanel}
+  ><DshPanelLeftIcon size={16} /></button> : null;
   if (splitSurface) {
     return (
       <header className="client-titlebar split-surface" data-tauri-drag-region>
-        {sidePanelCollapsed && onToggleSidePanel ? (
-          <button
-            className="side-panel-expand-button"
-            type="button"
-            aria-label="展开侧边栏"
-            title="展开侧边栏"
-            aria-expanded="false"
-            onPointerDown={stopDrag}
-            onClick={onToggleSidePanel}
-          >
-            <DshPanelLeftIcon size={16} />
-          </button>
-        ) : null}
+        {desktopMenu || (sidePanelCollapsed && onToggleSidePanel) ? <div className={desktopMenu ? 'title-caption-actions' : undefined}>
+          {sidePanelToggle}
+          {desktopMenu ? <span className="desktop-menu-seat" data-desktop-menu-seat /> : null}
+        </div> : null}
         <div className="title-spacer" data-tauri-drag-region>
           {projectTitle ? (
             <div className="title-project-tab">

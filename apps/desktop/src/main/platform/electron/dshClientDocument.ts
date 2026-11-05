@@ -122,14 +122,15 @@ export async function forwardDshClientRequest(request: Request, host: string, co
   const headers = new Headers(request.headers)
   for (const name of ['host', 'origin', 'cookie', 'sec-fetch-site']) headers.delete(name)
   headers.set('cookie', cookie)
-  const response = await fetch(target, {
+  const init: RequestInit & { duplex: 'half' } = {
     method: request.method,
     headers,
     body: request.body,
     signal: request.signal,
     duplex: 'half',
     redirect: 'manual'
-  })
+  }
+  const response = await fetch(target, init)
   const outgoing = new Headers(response.headers)
   for (const name of withheldHeaders) outgoing.delete(name)
   if (source.pathname.startsWith('/plugins/')) outgoing.set('cache-control', 'no-store')

@@ -34,23 +34,23 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/dsh-attachment": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-api-session-controller": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-client-file-upload": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-client-ui-chat": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-settings": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-session-stats": "0.2.1-rc.3",
-    "@deepseek-ai/dsh-token-meter": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-attachment": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-api-session-controller": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-file-upload": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-chat": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-settings": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-session-stats": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-token-meter": "0.2.1-rc.5",
     "@deepseek-ai/schemastery": "3.18.5",
     "@eleckoi/dsh-client-character-configuration": "workspace:*",
     "@eleckoi/dsh-product-api": "workspace:*",
     "@deepseek-ai/cordis": "4.0.5",
-    "@deepseek-ai/dsh-client-ui-trajectory": "0.2.1-rc.3"
+    "@deepseek-ai/dsh-client-ui-trajectory": "0.2.1-rc.5"
   },
   "description": "管理聊天列表、历史消息和当前聊天状态。",
   "engines": {
-    "dsh": "0.2.1-rc.3"
+    "dsh": "0.2.1-rc.5"
   },
   "eleckoi": {
     "developerInterfaces": [

@@ -8,7 +8,7 @@ export function decodeLegacySettingOpening(entry: Record<string, unknown> | unde
     openingMessages: Array.isArray(messages) && messages.length ? messages.map(value => {
       const message = value as Record<string, unknown>
       return { id: message.id, title: message.title, content: message.content,
-        ...(message.variable_version_id === undefined ? {} : { variableVersionId: message.variable_version_id }), initialVariableStateJson: message.initial_variable_state }
+        ...(message.variable_version_id === undefined ? {} : { variableVersionId: message.variable_version_id }) }
     }) : [{ ...fallback.openingMessages[0]!, content: entry.content }],
     defaultOpeningMessageId: Array.isArray(messages) && messages.length ? entry.default_opening_message_id : fallback.defaultOpeningMessageId })
 }

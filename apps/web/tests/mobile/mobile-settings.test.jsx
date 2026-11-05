@@ -45,7 +45,7 @@ async function click(label) {
 async function input(node, value) {
   await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(node, value); node.dispatchEvent(new Event('input', { bubbles: true })); });
 }
-afterEach(async () => { if (root) await act(async () => root.unmount()); document.body.replaceChildren(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(async () => { if (root) await act(async () => root.unmount()); document.body.replaceChildren(); delete window.ElecKoiPlatform; vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 async function selectAvatar() {
   const BrowserURL = globalThis.URL;
@@ -66,6 +66,72 @@ async function selectAvatar() {
 }
 
 describe('Android settings presentation with shared PC contracts', () => {
+  it('opens shared roleplay style controls and retains independent tints across returning to the page', async () => {
+    await mount('chat');
+    expect([...container.querySelectorAll('.mobile-settings-row')].findIndex(n=>n.textContent.includes('布局独有风格')))
+      .toBeGreaterThan([...container.querySelectorAll('.mobile-settings-row')].findIndex(n=>n.textContent.includes('富消息')));
+    await click('布局独有风格无气泡');
+    expect(view.settingsPage).toBe('chat:style');
+    expect(container.querySelector('[aria-label="对话底板"]').checked).toBe(false);
+    await act(async () => container.querySelector('[aria-label="消息气泡"]').click());
+    await input(container.querySelector('[aria-label="用户气泡色调"]'), '#987654');
+    expect(view.appearance.chatDisplay.roleplay_style).toMatchObject({ bubbles_enabled: true, user_bubble_tint: '#987654', assistant_bubble_tint: null });
+    await click('返回'); await click('布局独有风格有气泡');
+    expect(container.querySelector('[aria-label="用户气泡色调"]').value).toBe('#987654');
+    await click('恢复用户气泡色调默认值');
+    expect(view.appearance.chatDisplay.roleplay_style.user_bubble_tint).toBeNull();
+  });
+  it('does not interpret Android battery exemption as a vendor unrestricted battery policy', async () => {
+    window.ElecKoiPlatform = { backgroundRun: {
+      status: vi.fn().mockResolvedValue({ batteryExempt: true, backgroundRestricted: false, enhancedEnabled: false, overlayAllowed: false }),
+      setEnhanced: vi.fn(), settings: vi.fn(),
+    } };
+    await mount(); await click('后台运行');
+    expect(container.textContent).toContain('电池优化豁免已豁免');
+    expect([...container.querySelectorAll('button')].some(button => button.textContent.includes('电池优化豁免'))).toBe(false);
+    expect(container.textContent).not.toContain('应用省电策略');
+    expect(container.querySelector('.mobile-settings-note')).toBeNull();
+    expect(container.textContent).not.toContain('已放行');
+    expect(container.textContent).not.toContain('未限制');
+  });
+  it('exposes battery and overlay settings without granting permissions or forcing protection on', async () => {
+    window.ElecKoiPlatform = { backgroundRun: {
+      status: vi.fn().mockResolvedValue({ batteryExempt: false, backgroundRestricted: false, enhancedEnabled: false, overlayAllowed: false }),
+      setEnhanced: vi.fn().mockImplementation(async enhancedEnabled => ({ batteryExempt: false, backgroundRestricted: false, enhancedEnabled, overlayAllowed: false })),
+      settings: vi.fn(),
+    } };
+    await mount(); await click('后台运行');
+    expect(container.querySelector('[role="switch"]').getAttribute('aria-checked')).toBe('false');
+    await click('电池优化豁免未豁免');
+    expect(window.ElecKoiPlatform.backgroundRun.settings).toHaveBeenLastCalledWith('battery');
+    expect(container.textContent).not.toContain('已放行');
+    expect(container.textContent).not.toContain('未限制');
+    await click('悬浮窗保活');
+    expect(window.ElecKoiPlatform.backgroundRun.setEnhanced).toHaveBeenCalledWith(true);
+    expect(container.textContent).toContain('悬浮窗权限未授权');
+    await click('悬浮窗权限未授权');
+    expect(window.ElecKoiPlatform.backgroundRun.settings).toHaveBeenLastCalledWith('overlay');
+    await click('悬浮窗保活');
+    expect(window.ElecKoiPlatform.backgroundRun.setEnhanced).toHaveBeenLastCalledWith(false);
+  });
+  it('places native reply notifications below plugins and saves directly without an outer save', async () => {
+    window.ElecKoiPlatform = { replyNotifications: {
+      status: vi.fn().mockResolvedValue({ enabled: true, allowed: false }),
+      setEnabled: vi.fn().mockImplementation(async enabled => ({ enabled, allowed: false })), settings: vi.fn(),
+    } };
+    await mount();
+    const application = [...container.querySelectorAll('.mobile-settings-group')].find(group => group.textContent.includes('扩展甲'));
+    expect(application.textContent.indexOf('回复完成通知')).toBeGreaterThan(application.textContent.indexOf('扩展乙'));
+    await click('回复完成通知');
+    expect(container.querySelector('[role="switch"]').getAttribute('aria-checked')).toBe('true');
+    await click('回复完成通知');
+    expect(window.ElecKoiPlatform.replyNotifications.setEnabled).toHaveBeenCalledWith(false);
+    expect(container.querySelector('[role="switch"]').getAttribute('aria-checked')).toBe('false');
+    await click('系统通知权限未开启');
+    expect(window.ElecKoiPlatform.replyNotifications.settings).toHaveBeenCalledOnce();
+    expect(container.textContent).not.toContain('悬浮窗保活');
+    expect([...container.querySelectorAll('button')].some(button => button.textContent==='保存')).toBe(false);
+  });
   it('edits rich message limits on their own screen and retains the count when switched off', async () => {
     await mount('chat');
     await click('富消息');
@@ -103,6 +169,8 @@ describe('Android settings presentation with shared PC contracts', () => {
     expect([...container.querySelectorAll('[role="radio"]')].map(item => item.textContent)).toEqual(['浅色', '深色']);
     await click('返回'); expect(view.settingsPage).toBe('home');
     await click('聊天显示');
+    expect(container.textContent).not.toMatch(/思维链|适当收起|全量展开/);
+    expect(container.textContent).toContain('生成统计');
     expect(container.querySelectorAll('.tuner-slider-row')).toHaveLength(0);
     await click('正文文字15 · 400');
     expect(container.querySelectorAll('.tuner-slider-row')).toHaveLength(5);

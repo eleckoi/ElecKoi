@@ -44,6 +44,8 @@ export const DESKTOP_SHELL_IPC = {
   updatesChanged: 'dsh-desktop:updates-changed',
   hostFailure: 'dsh-desktop:host-failure',
   windowControl: 'dsh-desktop:window-control',
+  windowsMenu: 'dsh-desktop:windows-menu',
+  menuCommand: 'dsh-desktop:menu-command',
   browserAcquire: 'dsh-desktop:browser-acquire',
   browserRelease: 'dsh-desktop:browser-release',
   browserOpenRequested: 'dsh-desktop:browser-open-requested',
@@ -72,8 +74,11 @@ export interface DshDesktopProductApi {
     maximizeToggle(): Promise<void>
     close(): Promise<void>
   }
+  readonly menu?: {
+    subscribe(listener: (command: 'about' | 'check-updates') => void): () => void
+  }
   /**
-   * Bug 报告的三步（ADR 0041）：预览已脱敏的报告、导出到文件、打开一条投递通道。
+   * Bug 报告的三步（ADR 0042）：预览已脱敏的报告、导出到文件、打开一条投递通道。
    *
    * 报告只在主进程生成；渲染层拿到的是脱敏后的副本，导出时主进程重新收集，不回写渲染层的版本。
    * 地址（邮箱 / 仓库）来自发布配置，经 `preview` 一起给渲染层，为空表示该通道不可用。
@@ -85,7 +90,7 @@ export interface DshDesktopProductApi {
     /** 经托管代发服务直接寄出；没配代发通道时拒绝。 */
     send(request: BugReportSendRequest): Promise<BugReportSendResult>
     /**
-     * 把已脱敏的报告存成一份草稿（ADR 0041 决定 14：失败不丢）。写不进去时拒绝。
+     * 把已脱敏的报告存成一份草稿（ADR 0042 决定 14：失败不丢）。写不进去时拒绝。
      */
     saveDraft(request: BugReportDraftSaveRequest): Promise<BugReportDraftSaved>
     /** 列出现有待重发的草稿（新到旧）；坏文件跳过，永不拒绝。 */

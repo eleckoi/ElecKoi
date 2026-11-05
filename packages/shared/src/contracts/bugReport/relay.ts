@@ -1,7 +1,7 @@
 /**
  * 报告 → 代发服务的请求体。
  *
- * 判据（[ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md)）：`mailto:` 在没配默认
+ * 判据（[ADR 0042](../../../../../docs/adr/0042-bug-report-delivery.md)）：`mailto:` 在没配默认
  * 邮件客户端的机器上点了没反应，所以给邮件通道加一条「由托管服务代发」的路。这里只拼请求，不发请求
  * ——发请求要网络与超时，那是主进程的事。
  *
@@ -119,7 +119,7 @@ export function fromNameOf(relay: BugReportRelayConfig): string {
 /**
  * 这个 HTTP 状态码值不值得在同一次用户动作里重试一次：只有 429 与 5xx。
  *
- * 判据是 [ADR 0041](../../../../../docs/adr/0041-bug-report-delivery.md) 决定 14：限流与临时性服务端错误
+ * 判据是 [ADR 0042](../../../../../docs/adr/0042-bug-report-delivery.md) 决定 14：限流与临时性服务端错误
  * 再试一次可能就好了；其它 4xx 是「请求本身不对」，重试只会再错一次。网络层失败（连不上、DNS、TLS）
  * 不在这个函数里——那种情况由调用方直接降级，连不上再试还是连不上。
  *

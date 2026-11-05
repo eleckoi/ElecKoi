@@ -6,10 +6,12 @@ afterEach(() => {
 });
 
 describe("Creator studio window launcher", () => {
-  it("opens or focuses the creator studio without navigating the current window", () => {
+  it("selects the resident creator studio without opening or navigating a window", () => {
     const open = vi.fn(() => null);
     const assign = vi.fn();
+    const dispatchEvent = vi.fn();
     vi.stubGlobal("window", {
+      dispatchEvent,
       location: {
         href: "http://127.0.0.1:5173/?view=chat&chat=conversation-1",
         assign,
@@ -19,12 +21,9 @@ describe("Creator studio window launcher", () => {
 
     openCreatorStudioWindow();
 
-    expect(open).toHaveBeenCalledOnce();
-    expect(open).toHaveBeenCalledWith(
-      "http://127.0.0.1:5173/?view=creator-studio",
-      "creator-studio",
-      "width=1536,height=1070",
-    );
+    expect(dispatchEvent).toHaveBeenCalledOnce();
+    expect(dispatchEvent.mock.calls[0][0]).toMatchObject({ type: 'eleckoi:shell-action', detail: 'creatorStudio' });
+    expect(open).not.toHaveBeenCalled();
     expect(assign).not.toHaveBeenCalled();
   });
 });

@@ -421,7 +421,7 @@ export interface CreatorStudioConversationSnapshot {
 }
 ```
 
-源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:12](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L12)
+源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:15](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L15)
 
 ## CreatorStudioSessions
 
@@ -430,7 +430,8 @@ export interface CreatorStudioSessions {
     getSnapshot(): CreatorStudioConversationSnapshot;
     subscribe(listener: () => void): () => void;
     refresh(): Promise<CreatorStudioSessionSummary[]>;
-    create(characterId?: string): Promise<CreatorStudioSession | undefined>;
+    create(characterId?: string, workspaceId?: string): Promise<CreatorStudioSession | undefined>;
+    startWorkspace(workspaceId?: string, options?: { prompt?: string; whenDraftExists?: 'append' | 'keep' | 'replace'; }): Promise<void>;
     open(sessionId: string): Promise<CreatorStudioSession | undefined>;
     restoreRecent(): Promise<CreatorStudioSession | undefined>;
     rename(sessionId: string, title: string): Promise<void>;
@@ -447,7 +448,7 @@ export interface CreatorStudioSessions {
 }
 ```
 
-源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:20](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L20)
+源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:23](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L23)
 
 ## CreatorStudioSnapshot
 
@@ -459,7 +460,7 @@ export interface CreatorStudioSnapshot {
 }
 ```
 
-源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:46](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L46)
+源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:52](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L52)
 
 ## EditorLibraryVersionModel
 
@@ -628,6 +629,6 @@ export interface WebSearchSnapshot {
 
 官方类型从其对应的 DSH 公开包入口导入；平台类型使用 TypeScript 标准库。
 
-[锁定版本的官方接口目录](https://github.com/deepseek-ai/deepseek-harness/blob/1f81c047fc48fa190a683e469daa699857e9afe8/docs/subsystems/README.zh.md)
+[锁定版本的官方接口目录](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/docs/subsystems/README.zh.md)
 
 `GenerateOptions`、`RemoteStream`、`Session`

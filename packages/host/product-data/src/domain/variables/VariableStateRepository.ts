@@ -37,6 +37,7 @@ export class VariableStateRepository {
     if (!context.characterId) return undefined
 
     const config = this.configs.forConversation(conversationId, context.characterId)
+    if (!config) return undefined
     const hasVariables = config.schemaCode.trim().length > 0
       || config.variables.length > 0
       || config.objects.some((item) => item.id !== VARIABLE_INITIALIZATION_OBJECT_ID)
@@ -69,7 +70,7 @@ export class VariableStateRepository {
   replaceAuthored(conversationId: string, characterId: string, stateJson: string): string {
     return this.store.withWriteTx(db => {
       const value = JSON.parse(normalizedObjectJson(stateJson)) as Record<string, unknown>
-      const code = characterId ? this.configs.forConversation(conversationId, characterId).schemaCode : ''
+      const code = characterId ? this.configs.forConversation(conversationId, characterId)?.schemaCode || '' : ''
       const next = code.trim() ? loadVariableSchema(code).parse(value) : value
       return this.replaceCurrent(conversationId, JSON.stringify(next), db)
     })

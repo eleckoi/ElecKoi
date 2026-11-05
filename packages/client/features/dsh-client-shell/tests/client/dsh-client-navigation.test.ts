@@ -16,9 +16,22 @@ const uiPrimitives = {
 }
 
 describe('ElecKoi DSH client navigation', () => {
-  it.each(['desktop', 'android'])('lets %s feature plugins register formal pages and navigation entries', (platform) => {
+  it.each(['desktop', 'android'])('lets %s feature plugins register formal pages and navigation entries', async (platform) => {
     let root: any
+    const OfficialSidebar = () => null
+    const officialSidebar = {
+      inject: [],
+      apply: (scope: any) => scope.slots.inject('sidebar', () =>
+        scope.slots.register({ name: 'sidebar' }, OfficialSidebar)),
+    }
     const entries: Array<{ options: any; component: any; dispose: () => void }> = []
+    const startSession = vi.fn()
+    let currentSessionId: string | undefined
+    const services: Record<string, any> = {
+      uiWorkspace: { startSession },
+      uiSession: { adapter: { current: { getSnapshot: () => ({ key: currentSessionId }) } } },
+      eleckoiConversations: { getSnapshot: () => ({ items: [{ runtimeSessionId: 'roleplay-session' }] }) },
+    }
     const slots = {
       provideRoot: () => () => {},
       register: (options: any, component: any) => {
@@ -32,6 +45,7 @@ describe('ElecKoi DSH client navigation', () => {
         if (typeof result === 'function') return
         for (const _dispose of result) { /* Cordis owns each disposer. */ }
       },
+      entries: (name: string) => entries.filter(entry => entry.options.name === name),
       entriesOfSlot: (name: string) => entries.filter(entry => entry.options.name === name),
       spec: () => undefined,
       subscribe: () => () => {},
@@ -41,29 +55,39 @@ describe('ElecKoi DSH client navigation', () => {
       const source = readFileSync(new URL(`../../../${packageName}/src/client.js`, import.meta.url), 'utf8')
       runInNewContext(source, {
         __ELECKOI_CLIENT_PLATFORM__: { kind: platform },
-        window: { __ModuleLoader__: { load: (value: any) => { registration = value } } },
+        __ELECKOI_DSH_APP__: () => null,
+        __ELECKOI_DSH_SIDEBAR_READY__: true,
+        window: { __ModuleLoader__: { load: (value: any) => { registration = value } },
+          addEventListener: () => {}, removeEventListener: () => {} },
         AbortController,
       })
       const plugin = registration.factory((name: string) => {
         if (name === 'react') return {
           Suspense: 'Suspense',
+          useEffect: () => {},
           lazy: (load: any) => ({ load }),
           createElement: (component: any, props: any, ...children: any[]) => ({ component, props, children })
         }
         if (name === 'react-dom') return {}
         if (name === '@deepseek-ai/dsh-client-ui-primitives') return uiPrimitives
+        if (name === '@deepseek-ai/dsh-client-ui-sidebar') return officialSidebar
         return dshClientRequire(name)
       })
       let effectCount = 0
-      plugin.apply({
+      const context: any = {
         slots,
         inject: () => {},
         provide: () => {},
-        get: () => undefined,
+        get: (name: string) => services[name],
+        plugin: (child: any) => { child.apply(context); return { dispose: async () => {} } },
+        extend: (values: any) => ({ ...context, ...values }),
         remote: { eleckoiAgentPresets: {} },
-        reflect: { provide: () => () => {} },
-        effect: (run: () => void) => { if (packageName === 'dsh-client-shell' && effectCount++ === 0) run() },
-      })
+        reflect: { provide: (name: string, value: unknown) => { services[name] = value; context[name] = value; return () => {} } },
+        effect: (run: () => void, label: string) => {
+          if (packageName === 'dsh-client-shell' && (effectCount++ === 0 || label === 'eleckoi: native workspace sidebar library')) run()
+        },
+      }
+      plugin.apply(context)
     }
 
     expect(root.children['sidebar.panellist']).toBeUndefined()
@@ -82,25 +106,67 @@ describe('ElecKoi DSH client navigation', () => {
     }
 
     const layout = root.inject().layout
+    expect(slots.entriesOfSlot('sidebar.panellist.actions').some(entry => entry.options.id === 'eleckoi-workspace')).toBe(false)
     slots.register({ name: 'main', key: 'extension-page' }, () => null)
     layout.selectPanel('extension-page')
     expect(layout.panelInfo.getSnapshot().activePanelId).toBe('extension-page')
     layout.selectPanel('messages')
-    expect(layout.panelInfo.getSnapshot().activePanelId).toBeNull()
+    expect(layout.panelInfo.getSnapshot().activePanelId).toBe(null)
     if (platform === 'android') {
       expect(layout.panelInfo.getSnapshot().windowPanelId).toBe('messages')
       slots.register({ name: 'main', key: 'creatorStudio' }, () => null)
       layout.selectPanel('creatorStudio')
       expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: null, windowPanelId: 'creatorStudio' })
       expect(slots.entriesOfSlot('sidebar')).toHaveLength(1)
-      expect(slots.entriesOfSlot('sidebar')[0]?.options.registrant).toBe('@eleckoi/dsh-client-shell')
+      const sidebar = slots.entriesOfSlot('sidebar')[0]!
+      const workspace = sidebar.component({ workspace: true, renderContent: (_render: any, workspace: any) => workspace,
+        collapsed: false, width: 288, renderSlot: vi.fn() })
+      expect(workspace).toMatchObject({ component: OfficialSidebar, props: { collapsed: false, width: 288 } })
+      expect(workspace.props.usePanels()).toEqual([])
+      expect(workspace.props.useEntryActions()).toBe(false)
       layout.selectPanel(null)
       expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: null, windowPanelId: 'conversation' })
     } else {
       layout.selectPanel(null)
-      expect(layout.panelInfo.getSnapshot().activePanelId).toBe('conversation')
+      expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: null, windowPanelId: 'conversation' })
+      const sidebar = slots.entriesOfSlot('sidebar')[0]!
+      expect(sidebar).toBeTruthy()
+      const renderNativeSlot = vi.fn()
+      expect(sidebar.component({ renderContent: (render: any) => render('sidebar.workspaces', { content: 'original product list' }),
+        renderSlot: renderNativeSlot })).toBe('original product list')
+      expect(renderNativeSlot).not.toHaveBeenCalled()
+      const renderContent = vi.fn((_render: any, workspace: any) => workspace)
+      const workspace = sidebar.component({ workspace: true, renderContent, collapsed: false, width: 280, renderSlot: renderNativeSlot })
+      expect(renderContent).toHaveBeenCalledOnce()
+      expect(workspace).toMatchObject({
+        component: OfficialSidebar, props: { collapsed: false, width: 280 },
+      })
+      expect(workspace.props.usePanels()).toEqual([])
+      expect(workspace.props.useEntryActions()).toBe(false)
+      workspace.props.renderSlot('sidebar.settings', {})
+      expect(renderNativeSlot).not.toHaveBeenCalled()
+      workspace.props.renderSlot('sidebar.workspaces', { wide: true })
+      expect(renderNativeSlot).toHaveBeenCalledWith('sidebar.workspaces', expect.objectContaining({ wide: true,
+        open: expect.any(Function), searchSessions: expect.any(Function) }), undefined)
+      expect(slots.entriesOfSlot('sidebar.panellist').some(entry => entry.options.id === 'community')).toBe(true)
+      expect(layout.sidebarInfo.getSnapshot()).toEqual({ shown: true })
+      layout.toggleSidebar()
+      expect(layout.sidebarInfo.getSnapshot()).toEqual({ shown: false })
+      layout.toggleSidebar()
       layout.selectPanel('messages')
-      expect(layout.panelInfo.getSnapshot().activePanelId).toBeNull()
+      await new Promise(resolve => setImmediate(resolve))
+      expect(layout.panelInfo.getSnapshot().activePanelId).toBe(null)
+      expect(slots.entriesOfSlot('sidebar')).toHaveLength(1)
+      expect(slots.entriesOfSlot('sidebar')[0]).toBe(sidebar)
+      expect(slots.entriesOfSlot('sidebar.panellist').filter(entry => entry.options.id === 'community')).toHaveLength(1)
+      currentSessionId = 'roleplay-session'
+      layout.selectPanel(null)
+      expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: null })
+      expect(layout.sidebarInfo.getSnapshot().shown).toBe(false)
+      currentSessionId = 'workspace-session'
+      layout.selectPanel(null)
+      expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: null, windowPanelId: 'conversation' })
+      expect(layout.sidebarInfo.getSnapshot().shown).toBe(true)
     }
     layout.openRightbar(true, false)
     expect(layout.rightbarInfo.getSnapshot()).toMatchObject({
@@ -113,12 +179,10 @@ describe('ElecKoi DSH client navigation', () => {
     expect(() => layout.selectPanel('missing-page')).toThrow('not registered')
   })
 
-  it('owns the official sidebar contract and renders its footer without a second slot', () => {
+  it('keeps the mobile sidebar contract and renders its footer without a second slot', () => {
     let registration: any
     let rootComponent: any
     let rootOptions: any
-    let sidebarComponent: any
-    let sidebarOptions: any
     const slotCalls: Array<{ name: string; owner: any }> = []
     const footerEntries = [{ options: { name: 'sidebar.footer.action', id: 'example' } }]
     const settingsEntries = [
@@ -128,17 +192,14 @@ describe('ElecKoi DSH client navigation', () => {
     const slots = {
       subscribe: () => () => {},
       getVersion: () => 1,
-      entriesOfSlot: (name: string) => name === 'sidebar.footer.action' ? footerEntries
+      entries: () => [],
+    entriesOfSlot: (name: string) => name === 'sidebar.footer.action' ? footerEntries
         : name === 'settings.section' ? settingsEntries : [],
       provideRoot: () => () => {},
       register: (options: any, component: any) => {
         if (options.name === 'root') {
           rootComponent = component
           rootOptions = options
-        }
-        if (options.name === 'sidebar') {
-          sidebarComponent = component
-          sidebarOptions = options
         }
         return () => {}
       },
@@ -158,6 +219,7 @@ describe('ElecKoi DSH client navigation', () => {
     }
     const source = readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8')
     runInNewContext(source, {
+      __ELECKOI_CLIENT_PLATFORM__: { kind: 'android' },
       window: { __ModuleLoader__: { load: (value: any) => { registration = value } } },
       AbortController,
     })
@@ -198,8 +260,6 @@ describe('ElecKoi DSH client navigation', () => {
 
     expect(rootOptions.children.sidebar).toEqual({ kind: 'single', scope: 'root' })
     expect(render().markdownComponent).toBe(uiPrimitives.MarkdownText)
-    expect(sidebarOptions.children['sidebar.panellist']).toEqual({ kind: 'list', scope: 'root' })
-    expect(sidebarOptions.children['sidebar.footer.action']).toEqual({ kind: 'list', scope: 'root' })
     expect(render().navigation.hasSidebarFooterActions).toBe(true)
     expect(render().navigation.selectedPanelId).toBe('messages')
     expect(render({ activePanelId: null, windowPanelId: 'conversation' }).navigation.selectedPanelId).toBe('conversation')
@@ -209,15 +269,6 @@ describe('ElecKoi DSH client navigation', () => {
     const content = (renderSidebarSlot: any) => renderSidebarSlot('sidebar.footer.action', { wide: true })
     expect(render().navigation.renderSidebar(content)).toEqual({ slot: 'sidebar' })
     expect(slotCalls.some(call => call.name === 'sidebar' && call.owner.renderContent === content)).toBe(true)
-    const childCalls: Array<{ name: string; owner: any }> = []
-    expect(sidebarComponent({
-      renderContent: content,
-      renderSlot: (name: string, owner: any) => {
-        childCalls.push({ name, owner })
-        return { slot: name }
-      },
-    })).toEqual({ slot: 'sidebar.footer.action' })
-    expect(childCalls).toEqual([{ name: 'sidebar.footer.action', owner: { wide: true } }])
     expect(rootOptions.children['eleckoi.sidebar.footer.action']).toBeUndefined()
     expect(render().settingsSections).toEqual([
       { id: 'plugins', order: 15, label: '内置插件' },

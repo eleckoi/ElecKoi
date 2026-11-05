@@ -72,7 +72,7 @@ function convertSillyTavernCard(root: JsonObject): DecodedCharacterCard {
   let variableConversion: MvuVariableConversion
   try { variableConversion = convertMvuVariables(extensions, worldBook, openings) }
   catch (error) {
-    variableConversion = { openingStates: [], openingVersionIds: [], consumedEntries: new Set(),
+    variableConversion = { openingVersionIds: [], consumedEntries: new Set(),
       warnings: [`变量配置未导入，原始初始化内容保留在设定和开场白中：${error instanceof Error ? error.message : String(error)}`] }
   }
   const settingLibrary = convertedSettingLibrary(name, cleanString(data.description), worldBook, variableConversion.consumedEntries)
@@ -98,7 +98,7 @@ function convertSillyTavernCard(root: JsonObject): DecodedCharacterCard {
   if (openings.length) {
     openingConfig.openingMessages = openings.map((content, index) => ({ id: `tavern-opening-${index + 1}`,
       title: index === 0 ? '默认开场' : `备用开场 ${index}`, content,
-      variableVersionId: variableConversion.openingVersionIds[index] ?? '', initialVariableStateJson: variableConversion.openingStates[index] ?? '' }))
+      variableVersionId: variableConversion.openingVersionIds[index] ?? '' }))
     openingConfig.defaultOpeningMessageId = openingConfig.openingMessages[0]!.id
   }
   result.openings = characterOpeningsSchema.parse(openingConfig)

@@ -1,3 +1,4 @@
+import { CURRENT_SCHEMA_VERSION } from '../src/storage/sqlite/schemaVersion'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -34,7 +35,7 @@ it('consolidates editor storage and command-target removal in v11 to v12 while p
       .run('synthetic-preset', 'synthetic-version', 1, 'Synthetic version', 1, '[]')
     db.pragma('foreign_keys = ON')
     installSchema(db)
-    expect(db.pragma('user_version', { simple: true })).toBe(13)
+    expect(db.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
     const global = db.prepare('SELECT targetsJson,enabled,pattern,replacement FROM global_regex_rules').get() as Record<string, unknown>
     expect(global).toEqual({ targetsJson: '[]', enabled: 0, pattern: 'SYNTHETIC', replacement: 'CHANGED' })
     for (const table of ['agent_preset_contents', 'agent_preset_version_contents']) {

@@ -39,12 +39,18 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   await call('eleckoiAgentPresets/save', { preset: { ...preset, entries: [...preset.entries, ...presetOptions] }, expectedRegexRules: [] })
   await call('eleckoiAgentPresets/setActive', { presetId: preset.id })
   const config = await call('eleckoiCharacterConfiguration/readVariableConfig', { characterId })
-  const fields = { initialStateJson: '{"value":1}',
+  const fields = { initialStateJson: '{"value":1}', variables: [{ id: 'synthetic-value', title: 'value', objectId: '',
+    enabled: true, type: 'number', defaultValue: '1', description: '', updateRule: '', readMode: 'on_demand',
+    order: 1, treeViewOrder: 1, createdAt: '', updatedAt: '' }],
     schemaCode: 'z.looseObject({value:z.number().min(0)}).transform(state=>({...state,value:state.value+1}))' }
   const versions = config.versions.filter(version => version.id === config.activeVersionId)
   assert.equal(versions.length, 1)
   Object.assign(config, fields); Object.assign(versions[0], fields)
   await call('eleckoiCharacterConfiguration/saveVariableConfig', { characterId, config })
+  const openings = await call('eleckoiCharacterConfiguration/readCharacterOpenings', { characterId })
+  await call('eleckoiCharacterConfiguration/saveCharacterOpenings', { characterId, value: { ...openings,
+    defaultOpeningMessageId: 'synthetic-native-opening', openingMessages: [{ id: 'synthetic-native-opening',
+      title: 'Synthetic native opening', content: 'Synthetic opening', variableVersionId: config.activeVersionId }] } })
   const owners = [['global', ''], ['preset', preset.id], ['character', characterId]]
   const scriptPanel = { id: 'synthetic-settings', title: 'Synthetic script settings', html: '<!doctype html><html><head><meta name="eleckoi-author-api" content="0.1.0"></head><body><label>Multiplier <input id="multiplier" type="number"></label><button id="save-settings">Save</button><output id="settings-status"></output><script type="module" src="../panel.js"></script></body></html>' }
   for (const [scope, ownerId] of owners) {
@@ -98,16 +104,28 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   await waitFor(`document.querySelector('#character-editor-navigation button[aria-label="前端"]')`, 'Character configuration frontend entry did not render')
   await window.webContents.executeJavaScript(`document.querySelector('#character-editor-navigation button[aria-label="前端"]').click()`)
   const workbench = `document.querySelector('.character-frontend-editor')?.shadowRoot`
-  await waitFor(`${workbench}?.querySelector('[aria-label="角色前端工作台"]')`, 'Native role workspace did not render')
-  const click = async label => window.webContents.executeJavaScript(`(() => {
-    const root=${workbench};const button=[...root.querySelectorAll('button')].find(node=>node.getAttribute('aria-label')===${JSON.stringify(label)});
-    if(!button||button.disabled)throw new Error('Missing enabled role command: '+${JSON.stringify(label)});button.click();
+  await waitFor(`${workbench}?.querySelector('[aria-label="角色前端包"] input[type="file"]')`, 'Native role package browser did not render')
+  const { createRequire } = require('node:module')
+  const { zipSync } = createRequire(require.resolve('@eleckoi/dsh-product-data'))('fflate')
+  const files = {
+    'eleckoi.frontend.json': Buffer.from(JSON.stringify({ manifestVersion: 1, sdkVersion: '0.1.0', scope: 'character', entryFile: 'index.html',
+      bindings: [{ target: 'root', view: 'chat', entryFile: 'index.html' }] })),
+    'index.html': Buffer.from(html), 'page.js': Buffer.from(program),
+    'page.css': Buffer.from('body{font:15px system-ui;margin:16px;color:rgb(32,32,32);background:white}label,output{display:block;margin:12px 0}output{overflow-wrap:anywhere}input,button{padding:8px;max-width:100%;box-sizing:border-box}'),
+    'pixel.png': Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6n8AAAAASUVORK5CYII=', 'base64'),
+  }
+  const archive = Buffer.from(zipSync(files)).toString('base64')
+  await window.webContents.executeJavaScript(`(() => {
+    const input=${workbench}.querySelector('input[type="file"]'),transfer=new DataTransfer();
+    transfer.items.add(new File([Uint8Array.from(atob(${JSON.stringify(archive)}),value=>value.charCodeAt(0))],'synthetic-native.zip',{type:'application/zip'}));
+    input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));
   })()`)
-  await click('新建')
-  await waitFor(`${workbench}?.querySelector('button[aria-label="启用"]:not(:disabled)')`, 'Role project was not created')
+  await waitFor(`${workbench}?.querySelector('.cf-source')?.textContent.includes('eleckoi-author-api')`, 'Imported role entry file did not render')
   const workspace = await call('eleckoiAuthorFrontends/workspace', { owner })
   assert.equal(workspace.projects.length, 1); assert.equal(workspace.selectedProjectId, null)
   const projectId = workspace.projects[0].id
+  assert.deepEqual(workspace.projects[0].files.slice().sort(), Object.keys(files).sort())
+  assert.equal(await window.webContents.executeJavaScript(`Boolean(${workbench}.querySelector('textarea'))`), false)
   const captureEditor = async path => {
     await window.webContents.executeJavaScript('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())))')
     const image = await new Promise((resolve, reject) => {
@@ -117,21 +135,10 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
     })
     writeFileSync(path, image.toPNG())
   }
-  assert.equal(await window.webContents.executeJavaScript(`getComputedStyle(${workbench}.querySelector('.af-explorer')).backgroundColor`), 'rgb(255, 255, 255)')
-  await window.webContents.executeJavaScript(`(() => {
-    const button=[...${workbench}.querySelectorAll('[aria-label="项目文件"] button')].find(node=>node.title==='index.html');
-    const bounds=button.getBoundingClientRect();button.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,composed:true,clientX:bounds.left+40,clientY:bounds.top+16}));
-  })()`)
-  await waitFor(`${workbench}.querySelector('[role="menu"][aria-label="文件操作"]')`, 'Frontend file context menu did not open')
-  assert.equal(await window.webContents.executeJavaScript(`(() => {
-    const menu=${workbench}.querySelector('[role="menu"]'),bounds=menu.getBoundingClientRect();
-    return ${workbench}.activeElement.textContent==='编辑'&&bounds.left>=0&&bounds.right<=innerWidth&&bounds.bottom<=innerHeight;
-  })()`), true)
-  const frontendShot = join(tmpdir(), 'eleckoi-frontend-editor-menu.png')
+  await window.webContents.executeJavaScript(`${workbench}.querySelector('[aria-label="包内文件"] button[title="page.js"]').click()`)
+  await waitFor(`${workbench}.querySelector('.cf-source')?.textContent.includes('Synthetic accepted')`, 'Imported script file did not render')
+  const frontendShot = join(tmpdir(), 'eleckoi-frontend-package-files.png')
   await captureEditor(frontendShot)
-  assert.equal(await window.webContents.executeJavaScript(`Boolean(${workbench}.querySelector('[role="menu"]'))`), true)
-  await window.webContents.executeJavaScript(`${workbench}.querySelector('[role="menu"] button').click()`)
-  await waitFor(`${workbench}.querySelector('textarea')`, 'Frontend context edit command did not open the file')
   await window.webContents.executeJavaScript(`document.querySelector('#character-editor-navigation button[aria-label="脚本"]').click()`)
   await waitFor(`document.querySelector('[aria-label="角色脚本"] .script-list-row')`, 'Script editor directory did not load')
   await window.webContents.executeJavaScript(`(() => {
@@ -158,26 +165,14 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   await waitFor(`innerWidth>=1400`, 'Desktop editor viewport did not return')
   process.stdout.write(`Native editor screenshots: ${frontendShot}, ${scriptEditorShot}\n`)
   await window.webContents.executeJavaScript(`document.querySelector('#character-editor-navigation button[aria-label="前端"]').click()`)
-  await waitFor(`${workbench}?.querySelector('[aria-label="角色前端工作台"]')`, 'Frontend editor did not return')
-  await window.webContents.executeJavaScript(`(() => {
-    const root=${workbench};const button=[...root.querySelectorAll('button')].find(node=>node.textContent.trim()==='index.html');
-    if(!button)throw new Error('Native entry file is missing');button.click();
-  })()`)
-  await waitFor(`${workbench}?.querySelector('textarea')?.value.includes('eleckoi-author-api')`, 'Native role file did not load')
-  await window.webContents.executeJavaScript(`(() => {
-    const input=${workbench}.querySelector('textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(input,${JSON.stringify(html)});
-    input.dispatchEvent(new Event('input',{bubbles:true}));
-  })()`)
-  await click('保存')
-  await waitFor(`${workbench}?.textContent.includes('已保存')`, 'Role frontend save did not finish')
+  await waitFor(`${workbench}?.querySelector('[aria-label="包内文件"] button[title="index.html"]')`, 'Frontend package directory did not reload')
+  await window.webContents.executeJavaScript(`${workbench}.querySelector('[aria-label="包内文件"] button[title="index.html"]').click()`)
+  await waitFor(`${workbench}?.querySelector('.cf-source')?.textContent.includes('eleckoi-author-api')`, 'Native role entry file did not reload')
   assert.equal((await call('eleckoiAuthorFrontends/readFile', { owner, projectId, input: { path: 'index.html' } })).content, html)
-  await call('eleckoiAuthorFrontends/replaceFiles', { owner, projectId, input: { files: [
-    { path: 'page.js', content: program },
-    { path: 'page.css', content: 'body{font:15px system-ui;margin:16px;color:rgb(32,32,32);background:white}label,output{display:block;margin:12px 0}output{overflow-wrap:anywhere}input,button{padding:8px;max-width:100%;box-sizing:border-box}' },
-    { path: 'pixel.png', encoding: 'base64', content: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j6n8AAAAASUVORK5CYII=' },
-  ] } })
-  await click('启用')
-  await waitFor(`${workbench}?.querySelector('button[aria-label="启用"]')?.getAttribute('aria-pressed')==='true'`, 'Role frontend did not enable')
+  assert.equal((await call('eleckoiAuthorFrontends/readFile', { owner, projectId, input: { path: 'page.js' } })).content, program)
+  await window.webContents.executeJavaScript(`${workbench}.querySelector('.cf-use').click()`)
+  await waitFor(`!${workbench}?.querySelector('.cf-use')`, 'Role frontend did not enable')
+  assert.equal((await call('eleckoiAuthorFrontends/workspace', { owner })).selectedProjectId, projectId)
   await window.loadURL('dsh-app://app/')
   await waitFor(`document.querySelector('button[aria-label="消息"]')`, 'Main chat navigation did not render')
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="消息"]').click()`)
@@ -517,5 +512,5 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   assert(!exampleRequest.includes(examplePreset.entries.find(entry => entry.id === 'example-brief').content))
   assert.deepEqual(errors, [])
   process.stdout.write('Published native author example files import and run in the built desktop: bound alternate opening, relative helper module, async derivation, settings panel, rejection/retry, explicit role frontend, imported preset entry switches, global composer command and direct generation passed.\n')
-  process.stdout.write('Built ElecKoi desktop runs without compatibility bundles: role configuration file creation/save/enable, module/style/image assets, three script scopes and chat menu buttons, native author settings modal with relative assets, live persisted script settings without restart, character and preset original switches in the actual model request, single Zod and async rules, rejection/retry, real composer read/write/clear/submit and direct generation, scope disable, page/script cleanup and role deletion with scoped frontend resource removal passed.\n')
+  process.stdout.write('Built ElecKoi desktop runs without compatibility bundles: role frontend ZIP import/browse/use, module/style/image assets, three script scopes and chat menu buttons, native author settings modal with relative assets, live persisted script settings without restart, character and preset original switches in the actual model request, single Zod and async rules, rejection/retry, real composer read/write/clear/submit and direct generation, scope disable, page/script cleanup and role deletion with scoped frontend resource removal passed.\n')
 }

@@ -2,7 +2,7 @@
 
 # Client 完整服务参考
 
-DSH 基准：`0.2.1-rc.3`，提交 `1f81c047fc48fa190a683e469daa699857e9afe8`。
+DSH 基准：`0.2.1-rc.5`，提交 `b830ec950faba0a46dda564be3e2d854afed94f1`。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
@@ -448,7 +448,7 @@ closeTimeline(id: string): void
 uploadFile(conversationId: string, file: File, options?: { signal?: AbortSignal; onProgress?: (progress: FileUploadProgress) => void }): Promise<ConversationUploadedFile>
 
 /**
- * 准备官方输入框即将提交的文本，校验当前聊天与 Session 一致。
+ * 仅为角色聊天目录拥有的 Session 准备文本并校验当前聊天；其他 Session 沿官方发送流程。
  * @param input - 本次创建、提交或重新生成所需数据。
  * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
  */
@@ -1416,4 +1416,4 @@ Source: [`packages/client/features/dsh-client-web-search/src/client/types.ts`](.
 
 ## 官方布局服务
 
-`ctx.layout` 直接复用 [官方 ILayout 合同](https://github.com/deepseek-ai/deepseek-harness/blob/1f81c047fc48fa190a683e469daa699857e9afe8/packages/client/ui-layout/src/client/service.ts)，类型从 `@eleckoi/dsh-client-shell/client` 或 `@deepseek-ai/dsh-client-ui-layout/client` 导入。官方 Client 的 `Service` Inspect provider 已提供 `api({ key: "layout" })`，无需重复注册。桌面当前的 `toggleSidebar` 为空操作。
+`ctx.layout` 直接复用 [官方 ILayout 合同](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/packages/client/ui-layout/src/client/service.ts)，类型从 `@eleckoi/dsh-client-shell/client` 或 `@deepseek-ai/dsh-client-ui-layout/client` 导入。官方 Client 的 `Service` Inspect provider 已提供 `api({ key: "layout" })`，无需重复注册。桌面当前的 `toggleSidebar` 为空操作。

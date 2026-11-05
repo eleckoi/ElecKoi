@@ -14,15 +14,6 @@ import { generatedInitialStateJson } from '@shared/foundation/variables/initialS
 
 const valueTypes = new Set(['', 'number', 'string', 'boolean', 'object', 'array', 'null'])
 
-function validObjectJson(value: string): boolean {
-  try {
-    const parsed: unknown = JSON.parse(value)
-    return !!parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-  } catch {
-    return false
-  }
-}
-
 function stableTimestamp<T extends { createdAt: string; updatedAt: string }>(
   candidate: T,
   previous: T | undefined,
@@ -115,11 +106,10 @@ export function normalizeVariableVersion(
     order: item.order > 0 ? item.order : index + 1,
     treeViewOrder: Math.max(0, item.treeViewOrder)
   }, previousVariables.get(item.id), now))
-  const generatedState = generatedInitialStateJson(normalizedObjects, normalizedVariables)
-  const hasDynamicObject = userObjects.some((item) => item.dynamicKey)
-  const initialStateJson = hasDynamicObject && validObjectJson(version.initialStateJson)
-    ? JSON.stringify(JSON.parse(version.initialStateJson), null, 2)
-    : generatedState
+  const initialStateJson = generatedInitialStateJson(normalizedObjects, normalizedVariables, {
+    initialStateJson: version.initialStateJson,
+    objects: previous?.objects ?? version.objects
+  })
   const normalized: VariableConfigVersion = {
     ...version,
     name: version.name.trim(),

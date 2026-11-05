@@ -62,6 +62,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
     private int appearanceForeground = Color.rgb(22, 22, 22);
     private int appearanceBorder = Color.rgb(184, 184, 184);
     private AlertDialog diagnosticsDialog;
+    private TextView backgroundStatusText;
     private Consumer<Uri[]> fileChoice;
     private PendingSave pendingSave;
     private String platformSource;
@@ -74,6 +75,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
     private final ServiceConnection connection = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name, IBinder binder) {
             runtime = ((HostRuntimeService.LocalBinder) binder).service(); runtime.observe(MainActivity.this);
+            refreshBackgroundSettings();
         }
         @Override public void onServiceDisconnected(ComponentName name) { runtime = null; showFailure("Host 服务连接断开"); }
     };
@@ -202,6 +204,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         page.addView(runtimePanel, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP));
         setContentView(page);
         if(getIntent().getBooleanExtra("eleckoi.diagnostics",false)) ui.post(this::showDiagnostics);
+        if(BackgroundRunSettings.OPEN.equals(getIntent().getAction())) ui.post(this::showBackgroundSettings);
         page.requestApplyInsets();
         // UI development uses the same Android WebView and platform bridge,
         // connected to a local shared Host via adb reverse. It does not claim
@@ -324,7 +327,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
     private void startRuntime(String action) {
         Intent intent = new Intent(this, HostRuntimeService.class).setAction(action)
             .putExtra("eleckoi.profileStartup", getIntent().getBooleanExtra("eleckoi.profileStartup", false));
-        startForegroundService(intent);
+        startService(intent);
         if (!bound) { bound = bindService(intent, connection, BIND_AUTO_CREATE); }
     }
     private void retryStartup() {
@@ -471,10 +474,44 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         TextView title = new TextView(this); title.setText("运行诊断"); title.setTextSize(17);
         title.setTypeface(null, android.graphics.Typeface.BOLD); title.setPadding(dp(16), dp(16), dp(16), dp(8));
         diagnosticsDialog = new AlertDialog.Builder(this).setCustomTitle(title).setView(content)
-            .setPositiveButton("关闭", null).setNeutralButton("停止 Host", (dialog, which) -> startRuntime(HostRuntimeService.STOP)).create();
+            .setPositiveButton("关闭", null).setNeutralButton("停止 Host", (dialog, which) -> startRuntime(HostRuntimeService.STOP))
+            .setNegativeButton("后台运行", (dialog, which) -> ui.post(this::showBackgroundSettings)).create();
         diagnosticsDialog.setOnShowListener(dialog -> themeDiagnosticsDialog());
         diagnosticsDialog.setOnDismissListener(dialog -> diagnosticsDialog = null);
         diagnosticsDialog.show();
+    }
+    private void showBackgroundSettings() {
+        if (diagnosticsDialog != null) return;
+        ScrollView scrolling = new ScrollView(this);
+        backgroundStatusText = new TextView(this);
+        backgroundStatusText.setTextSize(14); backgroundStatusText.setLineSpacing(dp(4), 1f);
+        backgroundStatusText.setPadding(dp(20), dp(12), dp(20), dp(12));
+        scrolling.addView(backgroundStatusText);
+        TextView title = new TextView(this); title.setText("后台运行"); title.setTextSize(17);
+        title.setTypeface(null, android.graphics.Typeface.BOLD); title.setPadding(dp(20), dp(18), dp(20), dp(8));
+        diagnosticsDialog = new AlertDialog.Builder(this).setCustomTitle(title).setView(scrolling)
+            .setPositiveButton("电池优化", null).setNeutralButton("应用设置", null).setNegativeButton("关闭", null).create();
+        diagnosticsDialog.setOnShowListener(dialog -> {
+            themeDiagnosticsDialog();
+            diagnosticsDialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> openBackgroundControl(true));
+            diagnosticsDialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(view -> openBackgroundControl(false));
+        });
+        diagnosticsDialog.setOnDismissListener(dialog -> { diagnosticsDialog = null; backgroundStatusText = null; });
+        refreshBackgroundSettings(); diagnosticsDialog.show();
+    }
+    private void refreshBackgroundSettings() {
+        if (runtime != null) runtime.refreshBackgroundStatus();
+        if (backgroundStatusText != null) backgroundStatusText.setText(
+            (runtime == null ? BackgroundRunSettings.description(this) : runtime.backgroundStatus())
+            + "\n\n后台对话需要系统允许本应用持续运行和联网。请在电池优化中允许后台运行；"
+            + "如果设备另外提供后台耗电、自启动或清理管理，可在应用设置中调整。"
+            + "\n\n系统强行停止应用会中断当前任务。返回应用后请先检查任务状态，再决定是否重试。");
+    }
+    private void openBackgroundControl(boolean battery) {
+        try { startActivity(battery ? BackgroundRunSettings.battery(this) : BackgroundRunSettings.application(this)); }
+        catch (ActivityNotFoundException | SecurityException error) {
+            Toast.makeText(this, "无法打开系统设置：" + error.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
     private RuntimeDiagnostics.Record diagnosticMetadata() {
         RuntimeDiagnostics.Record result=diagnostics.environment();
@@ -505,6 +542,10 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent); setIntent(intent);
         if(intent.getBooleanExtra("eleckoi.diagnostics",false)) showDiagnostics();
+        if(BackgroundRunSettings.OPEN.equals(intent.getAction())) {
+            if (diagnosticsDialog != null) diagnosticsDialog.dismiss();
+            showBackgroundSettings();
+        }
     }
     private void notificationSettings() { startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())); }
     private boolean sameHost(String url) {
@@ -648,6 +689,26 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
                 case "openExternal": openExternal(a.getString(0)); return null;
                 case "bugReportFacts": return diagnostics.bugReportFacts();
                 case "notificationSettings": notificationSettings(); return null;
+                case "replyNotificationStatus": return ReplyNotifications.status(MainActivity.this);
+                case "setReplyNotifications": return ReplyNotifications.setEnabled(MainActivity.this,a.getBoolean(0));
+                case "backgroundRunStatus": return BackgroundRunProtection.status(MainActivity.this);
+                case "setEnhancedBackground":
+                    BackgroundRunProtection.setEnabled(MainActivity.this,a.getBoolean(0));
+                    if (runtime!=null) runtime.refreshBackgroundStatus();
+                    return BackgroundRunProtection.status(MainActivity.this);
+                case "backgroundRunSettings":
+                    String destination=a.getString(0);
+                    Intent settings;
+                    switch (destination) {
+                        case "battery": settings=BackgroundRunSettings.battery(MainActivity.this); break;
+                        case "application": settings=BackgroundRunSettings.application(MainActivity.this); break;
+                        case "overlay": settings=BackgroundRunProtection.overlaySettings(MainActivity.this); break;
+                        default: throw new IllegalArgumentException("Unsupported background setting");
+                    }
+                    runOnUiThread(() -> {
+                        try { startActivity(settings); }
+                        catch (RuntimeException error) { showFailure("无法打开系统后台设置，请在手机设置中手动查看本应用权限。"); }
+                    }); return null;
                 case "updateStatus": return updateStatus();
                 case "checkUpdates": checkUpdates(a.getString(0)); return null;
                 case "downloadUpdate": downloadUpdate(a.getString(0)); return null;
@@ -767,7 +828,11 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         startupProgressBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(appearanceBorder));
         themeDiagnosticsDialog();
     }
-    @Override protected void onResume() { super.onResume(); diagnostics.visible(true); web.onResume(); startupMascot.setActive(true); }
+    @Override protected void onResume() {
+        super.onResume(); diagnostics.visible(true); web.onResume(); startupMascot.setActive(true);
+        ReplyNotificationGroup.refresh(this);
+        refreshBackgroundSettings();
+    }
     @Override protected void onPause() {
         diagnostics.visible(false); diagnostics.flushSoon();
         startupMascot.setActive(false);

@@ -30,8 +30,7 @@ export const settingLibraryOpeningMessageSchema = z.object({
   id: z.string().min(1),
   title: z.string(),
   content: z.string(),
-  variableVersionId: z.string().optional(),
-  initialVariableStateJson: z.string()
+  variableVersionId: z.string().optional()
 })
 
 export const settingLibraryEntrySchema = z.object({

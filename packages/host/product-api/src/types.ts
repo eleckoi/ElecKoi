@@ -402,6 +402,7 @@ export interface CharacterRecord {
   chatBackgroundOpacity?: number
   chatBackgroundBlur?: number
   chatBackgroundScrim?: number
+  chatBackgroundCustom?: { image: string; opacity: number; blur: number; scrim: number }
   primaryOpening?: string
   persona?: CharacterPersona
 }
@@ -490,7 +491,6 @@ export interface CharacterOpeningMessage {
   title: string
   content: string
   variableVersionId?: string | undefined
-  initialVariableStateJson: string
 }
 export interface CharacterOpenings {
   characterId: string
@@ -504,7 +504,6 @@ export interface SettingLibraryOpeningMessage {
   title: string
   content: string
   variableVersionId?: string
-  initialVariableStateJson: string
 }
 
 export interface SettingLibraryEntry {
@@ -806,6 +805,8 @@ export interface AgentToolGroup {
   members: AgentToolMember[]
   enabled: boolean
   included: boolean
+  available?: boolean
+  plugin?: { id: string; name: string }
 }
 
 export interface AgentPreset {
@@ -822,8 +823,11 @@ export interface AgentPreset {
   groups: SettingLibraryGroup[]
   promptPositions: SettingLibraryPromptPosition[]
   toolGroups: AgentToolGroup[]
+  /** Runtime-only tools provided by the player's plugins, outside the preset. */
+  extraToolGroups?: AgentToolGroup[]
   subagentModelSelection?: { configId: string; model: string }
   toolModelConfigIds?: Record<string, string>
+  autoIllustration?: { enabled: boolean; modelConfigId: string }
   roleplayPlan: { steps: string[] }
   regexRules: RegexRule[]
   expandedGroupIds: string[]
@@ -887,6 +891,7 @@ export interface ConversationRuntimePreparation {
     roleplayPlan: { steps: string[] }
     subagentModelSelection?: { configId: string; model: string }
     toolModelConfigIds?: Record<string, string>
+    autoIllustration?: { enabled: boolean; modelConfigId: string }
     historyCompactionInstructions?: string
   }
   settingLibraryBaseline?: {
@@ -1043,7 +1048,7 @@ export interface CreatorStudioMessage { eventSeq: number; role: 'user' | 'assist
 export interface CreatorStudioSessionSummary extends CreatorStudioSession { title: string; updatedAt: number; pinned: boolean; pinIndex: number }
 export interface CreatorStudioRuntime {
   list(): Promise<CreatorStudioSessionSummary[]>
-  create(characterId: string): Promise<CreatorStudioSession>
+  create(characterId: string, workspaceId?: string): Promise<CreatorStudioSession>
   open(sessionId: string): Promise<CreatorStudioSession>
   selectCharacter(sessionId: string, characterId: string): Promise<CreatorStudioSession>
   rename(sessionId: string, title: string): Promise<void>

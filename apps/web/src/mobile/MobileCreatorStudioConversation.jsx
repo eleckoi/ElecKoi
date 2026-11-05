@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
 import { RoleplayInputMenu } from '../modules/chat/components/RoleplayInputMenu.jsx';
 import { ModelPicker } from '../modules/models/index.js';
 import { AgentToolsDialog } from '../modules/chat/components/AgentToolsDialog.jsx';
 import { MobileConversationPage } from './MobileConversationPage.jsx';
 import { MobileDialog } from './MobileChrome.jsx';
+import { DshEntryActionsMenu } from '../ui/ui/DshEntryActionsMenu.jsx';
 
 /** Official Chat keeps its native tool cards; the resident mobile composer owns input and stats. */
-export function MobileCreatorStudioConversation({ model, editing = false, onCreate, onSelectCharacter, onError,
-  sessionId, useSession, useInput, useSessionStatus, useProjection, useInspectCall, useConversationViews, useStore, actions, openView, selectView, renderHeaderSlot, renderSlot, renderSlotChain }) {
+export function MobileCreatorStudioConversation({ model, headerTarget, cornerTarget, editing = false, onCreate, onSelectCharacter, onError,
+  sessionId, useSession, useInput, useSessionStatus, useProjection, useInspectCall, useConversationViews, useEntryPins, useEntryActions, setPinned, useStore, actions, openView, selectView, renderHeaderSlot, renderSlot, renderSlotChain }) {
   const view = useMainPageView();
   const session = useSession(snapshot => snapshot);
   const input = useInput(snapshot => snapshot);
@@ -17,6 +19,7 @@ export function MobileCreatorStudioConversation({ model, editing = false, onCrea
   const inspectCall = useInspectCall(value => value);
   const activeView = useStore(value => value.view);
   const tabs = useConversationViews(value => value);
+  const unpinned = useEntryPins(value => value), hasEntryActions = useEntryActions(value => value);
   const active = tabs.find(tab => tab.id === activeView) ?? tabs.find(tab => tab.id === 'chat') ?? tabs[0];
   const viewRequest = useStore(value => value.viewRequest ?? null);
   const viewOwner = { inspectCall, viewRequest, openView, completeViewRequest: actions.completeViewRequest };
@@ -62,17 +65,18 @@ export function MobileCreatorStudioConversation({ model, editing = false, onCrea
     sessionId, session, pendingInteraction,
   }, { fallback: resident, overlay: true });
   return <MobileConversationPage>
+    {headerTarget && createPortal(renderHeaderSlot('eleckoi.creator-studio.session.header.actions', {}), headerTarget)}
+    {cornerTarget && createPortal(renderHeaderSlot('eleckoi.creator-studio.session.header.corner', {}), cornerTarget)}
     <div className="creator-studio-session-body">
       <div className="creator-studio-view-header">
       <div className="chat-header-tabs creator-studio-view-tabs" role="tablist" aria-label="工作室视图" data-conversation-tabs="">
-        {tabs.map(({ id, label }) => <button type="button" role="tab" key={id}
+        {tabs.filter(tab => !unpinned.includes(tab.id)).map(({ id, label }) => <button type="button" role="tab" key={id}
           aria-selected={active?.id === id} onClick={() => selectView(id)}>{label}</button>)}
       </div>
-      <div className="creator-studio-header-actions">
-        {renderHeaderSlot('eleckoi.creator-studio.session.header.actions', {})}
-        {renderHeaderSlot('eleckoi.creator-studio.session.header.utilities', {})}
-        {renderHeaderSlot('eleckoi.creator-studio.session.header.corner', {})}
-      </div>
+      {hasEntryActions ? <DshEntryActionsMenu region="conversation" renderActions={onDismiss => renderHeaderSlot('eleckoi.creator-studio.session.header.views.actions', {
+        entries: tabs.filter(tab => unpinned.includes(tab.id)).map(tab => ({ id: tab.id, label: tab.label, pinned: false, active: tab.id === active?.id })),
+        onOpen: selectView, onPinnedChange: setPinned, onDismiss,
+      })} /> : null}
       </div>
       <div className={`creator-studio-chat-scroll${active?.id !== 'chat' ? ' creator-studio-panel-view' : ''}${active?.id === 'trajectory' ? ' creator-studio-trajectory trajectory-host' : ''}`} data-conversation-scroll={active?.id === 'chat' ? 'true' : undefined}>
         {active && renderSlot('eleckoi.creator-studio.view', viewOwner, { only: active.id })}

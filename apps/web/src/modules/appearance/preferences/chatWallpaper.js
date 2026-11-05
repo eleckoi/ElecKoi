@@ -4,6 +4,7 @@ import {
   GLOBAL_CHAT_BACKGROUND,
   DEFAULT_NEW_CHARACTER_BACKGROUND,
   normalizeNewCharacterBackground,
+  CHAT_WALLPAPER_DEFAULTS,
 } from "@shared/contracts/characters/chatBackground";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
@@ -14,13 +15,9 @@ export {
   GLOBAL_CHAT_BACKGROUND,
   DEFAULT_NEW_CHARACTER_BACKGROUND,
   normalizeNewCharacterBackground,
+  CHAT_WALLPAPER_DEFAULTS,
 };
-
-export const CHAT_WALLPAPER_DEFAULTS = Object.freeze({
-  opacity: 0.72,
-  blur: 2,
-  scrim: 0.5,
-});
+export { customChatBackgroundFromCharacter } from '@shared/contracts/characters/chatBackground';
 
 const clamp = (value, minimum, maximum) => Math.min(Math.max(value, minimum), maximum);
 

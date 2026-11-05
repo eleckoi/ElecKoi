@@ -9,9 +9,7 @@ export async function resolvePresetModelBindings(ctx, preset, mainModel, disable
     : structuredClone(mainModel)
   const toolModels = {}
   for (const [toolId, configId] of Object.entries(preset.toolModelConfigIds || {})) {
-    // Image provider metadata belongs to the image service; asking the text
-    // LLM registry to resolve an image model incorrectly rejects valid routes.
-    if (configId && !disabled.has(toolId) && toolId !== 'builtin:auto-illustration') toolModels[toolId] = await resolvePresetModelConfig(ctx, configId)
+    if (configId && !disabled.has(toolId)) toolModels[toolId] = await resolvePresetModelConfig(ctx, configId)
   }
   return { subagentModel, toolModels, subagentModelSelection: configured ?? { configId: '', model: '' }, toolModelConfigIds: structuredClone(preset.toolModelConfigIds || {}) }
 }

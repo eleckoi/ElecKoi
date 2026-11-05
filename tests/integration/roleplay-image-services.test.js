@@ -1,13 +1,16 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
+import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { Context } from '@deepseek-ai/cordis';
 import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session';
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection';
+import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl';
 import LocalAttachmentStore from '@deepseek-ai/dsh-attachment-local';
 import { createAssistantMessage } from '@deepseek-ai/dsh-llm';
 import { afterEach, expect, it, vi } from 'vitest';
+import * as illustration from '../../packages/client/features/dsh-auto-illustration/src/index.js';
 import * as roleplay from '../../packages/client/features/dsh-client-roleplay/src/index.js';
 import { findGeneratedImage } from '../../packages/client/features/dsh-client-roleplay/src/host/generated-image-result.mjs';
 import { ElecKoiConversationsApi } from '@eleckoi/dsh-product-api';
@@ -27,6 +30,7 @@ it('binds the real roleplay image APIs after editor readiness and reads, repaint
   try {
     for (const name of ['ELECKOI_PRESET_TEMPLATE_PATH', 'ELECKOI_SESSION_BRIDGE_ROOT', 'ELECKOI_WORKSPACE_ROOT', 'ELECKOI_SESSION_SNAPSHOT_ROOT', 'ELECKOI_PRESET_ROOT']) vi.stubEnv(name, join(root, name));
     for (const plugin of [SessionStore, SessionProjectionRegistry]) await ctx.plugin(plugin);
+    await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' });
     await ctx.plugin(LocalAttachmentStore, { dshHome: root });
     const ref = await ctx.attachments.saveImage({ data: png, mediaType: 'image/png' });
     const canonical = await ctx.attachments.readImage(ref);
@@ -42,7 +46,7 @@ it('binds the real roleplay image APIs after editor readiness and reads, repaint
       agentDefaultModel: { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) },
       llm: { resolveModelInfo: async () => ({}) },
       settings: { describe: () => [{ ns: 'eleckoi-client-models', value: { entries: { 'image-a': entry } } }] },
-      eleckoiProductData: { runtimeSessionId: () => session.id, prepareConversationRuntime: () => ({ runtimeSessionId: session.id, agentPreset: { toolModelConfigIds: { 'builtin:auto-illustration': 'image-a' } } }) },
+      eleckoiProductData: { runtimeSessionId: () => session.id, prepareConversationRuntime: () => ({ runtimeSessionId: session.id, agentPreset: { autoIllustration: { enabled: true, modelConfigId: 'image-a' } } }) },
       sessionController: { inspect: async () => ({ events: session.snapshotEvents() }), resolveAgent: async () => ({ agent: { status: 'idle' } }) },
       eleckoiConversationLifecycle: { drain: async () => {}, exclusive: async (_id, action) => action() },
       eleckoiConversationChanges: { publish() {} }, eleckoiCharacterConfigurationChanges: { publish() {} },
@@ -65,6 +69,8 @@ it('binds the real roleplay image APIs after editor readiness and reads, repaint
     const api = { ownerContext: ctx, changeFeed: { publish() {} } }, signal = new AbortController().signal;
     const read = attachment => ElecKoiConversationsApi.prototype.readGeneratedImage.call(api, 'synthetic-chat', batchId, 1, attachment.attachmentId, signal);
     expect(Buffer.from((await read(ref)).data, 'base64')).toEqual(Buffer.from(canonical.data));
+    await expect(ElecKoiConversationsApi.prototype.regenerateImage.call(api, 'synthetic-chat', batchId, 1, signal)).rejects.toMatchObject({ message: expect.stringContaining('插件未启用') });
+    const illustrationFork = await ctx.plugin(illustration);
     await ElecKoiConversationsApi.prototype.regenerateImage.call(api, 'synthetic-chat', batchId, 1, signal);
     expect(edit).toHaveBeenCalledOnce();
     expect(requests).toHaveLength(1);
@@ -72,6 +78,9 @@ it('binds the real roleplay image APIs after editor readiness and reads, repaint
     const next = findGeneratedImage(session.snapshotEvents(), batchId, 1).frame;
     expect(next.status).toBe('ready');
     expect(Buffer.from((await read(next.attachment)).data, 'base64')).toEqual(Buffer.from(canonical.data));
+    await illustrationFork.dispose();
+    expect(Buffer.from((await read(next.attachment)).data, 'base64')).toEqual(Buffer.from(canonical.data));
+    await expect(ElecKoiConversationsApi.prototype.regenerateImage.call(api, 'synthetic-chat', batchId, 1, signal)).rejects.toMatchObject({ message: expect.stringContaining('插件未启用') });
     await expect(ElecKoiConversationsApi.prototype.readGeneratedImage.call(api, 'synthetic-chat', 'unknown-batch', 1, ref.attachmentId, signal)).rejects.toThrow('当前聊天记录');
     session.append('eleckoi/illustration', { batchId, turn: 1, step: 1, status: 'failed', frames: [{ id: 1, status: 'failed', error: '合成取消' }] }, { ignorable: true });
     await expect(read(ref)).rejects.toThrow('当前聊天记录');
@@ -81,6 +90,6 @@ it('binds the real roleplay image APIs after editor readiness and reads, repaint
   } finally {
     await ctx.fiber.dispose();
     server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
-    rmSync(root, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true });
   }
 }, 30000);

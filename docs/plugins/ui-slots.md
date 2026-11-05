@@ -180,6 +180,8 @@ type CardProps = PropsRuntime<'eleckoi.character.editor.card'>
 
 官方 `conversation.*` 插槽贡献会投影到对应产品位置，保留注册优先级、注入与卸载行为。同一贡献只注册一处。输入框下方只保留 `conversation.composer.dock` 对应的一套入口，官方默认 `stats` 不投影；产品统计与其他插件内容共用下方区域。
 
+模型名称扩展沿官方 `conversation.input.model.label` 投影到 `eleckoi.roleplay.conversation.input.model.label` 与 `eleckoi.creator-studio.model.label`。两者共用官方 `ModelLabelOwner`，只传提供商身份、模型目录项、显示位置和选中状态；模型入口、参数页当前模型与选项行共同调用。贡献只显示非交互的名称与标签，选择、搜索、图标和保存仍由模型选择器负责。停用或卸载标签插件后恢复目录名称，不保留另一个硬编码角标实现。
+
 ## 冲突与优先级
 
 - `single` 和 `keyed` 的同一 cell 会按优先级选出有效项；崩溃项可让位给下一项。

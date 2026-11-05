@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives';
 import { Code, Copy, FileText, LinkSimple, ListChecks, MagnifyingGlass, PencilSimple, Plus } from '../../../ui/icons/interfaceIcons.jsx';
 import { isHiddenToolTimelineEntry } from '@shared/contracts/presets/builtIns';
 import { TrashIcon } from '../../../ui/icons/index.jsx';
@@ -304,20 +304,18 @@ export function PresetPromptEditor({ preset, onChange, saveAction }) {
       inspector={inspector} inspectorTitle={selected?.kind === 'group' ? '文件夹' : selectedValue?.title || '提示词'} onCloseInspector={closeEditor}>
       <div className="setting-library-browser editor-collection-browser">
         <div className="setting-library-toolbar editor-collection-toolbar" onMouseDown={(event) => event.stopPropagation()}>
-          <label className="setting-library-search editor-collection-search">
-            <MagnifyingGlass size={15} aria-hidden="true" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索提示词" aria-label="搜索提示词" />
-          </label>
+          <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
+            value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索提示词" aria-label="搜索提示词" />
           <div className="editor-collection-actions">
           {!compact && <div className="setting-library-add-wrap">
-            <button type="button" className="setting-library-create-button editor-collection-action" disabled={multi.active} aria-expanded={addOpen} onClick={() => setAddOpen((value) => !value)}><Plus size={16} />新建</button>
+            <Button data-dsh-control type="button" className="editor-collection-action" variant="primary" disabled={multi.active} aria-expanded={addOpen} onClick={() => setAddOpen((value) => !value)}><Plus size={16} />新建</Button>
             {addOpen ? <div className="setting-library-popover" role="menu">
               <button type="button" role="menuitem" onClick={() => createNode('group')}><CreateFolderIcon size={16} />文件夹</button>
               <button type="button" role="menuitem" onClick={() => createNode('entry')}><CreateEntryIcon size={16} />提示词</button>
               <button type="button" role="menuitem" onClick={() => createNode('reference')}><CreateReferenceIcon size={16} />EJS引用设定</button>
             </div> : null}
           </div>}
-          <Button className="editor-collection-action" variant="outline" icon={<ListChecks size={16} />}
+          <Button data-dsh-control className="editor-collection-action" variant="outline" icon={<ListChecks size={16} />}
             aria-label={multi.active ? '完成' : '多选'} aria-pressed={multi.active} onClick={toggleMultiSelect}>{multi.active ? '完成' : '多选'}</Button>
           {saveAction}
           </div>

@@ -6,6 +6,8 @@ import { ConversationWidthControls } from "./ConversationWidthControls.tsx";
 import conversationWidthCss from "./ConversationWidthControls.module.css";
 import { PinnedAvatar } from "./PinnedAvatar.jsx";
 import { AgentProcessDialog } from "./AgentProcessDialog.jsx";
+import { OfficialProcessNode } from "./OfficialProcessNode.jsx";
+import { officialProcessPart, officialProcessTurn } from '../model/officialProcessNodes.js';
 import { VariableViewerDialog } from "./VariableViewerDialog.jsx";
 import { RequestPreviewDialog } from "./RequestPreviewDialog.jsx";
 import { AgentToolsDialog } from "./AgentToolsDialog.jsx";
@@ -13,11 +15,13 @@ import { NativeScriptPanel } from "../../scripts/index.js";
 import { MessageBubble } from "../../../ui/messages/MessageBubble.jsx";
 import { ConfirmationDialog } from "../../../ui/ui/ConfirmationDialog.jsx";
 import logoIcon from "../../../assets/eleckoi-app-icon.png";
-import { DshAgentPresetIcon, DshNewChatIcon } from "../../../ui/icons/dshComposerIcons.jsx";
+import { DshNewChatIcon } from "../../../ui/icons/dshComposerIcons.jsx";
 import { SlidersHorizontal } from "../../../ui/icons/interfaceIcons.jsx";
 import { lazy, memo, Suspense, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   chatDisplayCssVariables,
+  resolveRoleplayStyle,
+  roleplayStyleCssVariables,
   chatTextColorCssVariables,
   messageFloorNumber,
   resolveChatAvatar,
@@ -31,6 +35,7 @@ import { MainPageContext } from '../../../app/windows/MainPageContext.jsx';
 import { DshEntryActionsMenu } from '../../../ui/ui/DshEntryActionsMenu.jsx';
 import { CharacterFrontendView, RichMessageRenderProvider } from '../../authorFrontend/index.js';
 import { DEFAULT_CHAT_DISPLAY_PREFERENCES, RICH_MESSAGE_FLOOR_RANGE } from '@shared/contracts/settings/schemas';
+import '../styles/roleplay-style.css';
 
 const noAuthorSubscription = () => () => {};
 const noAuthorRuntime = () => null;
@@ -98,6 +103,9 @@ export function ChatPanel({
 }) {
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [processMessage, setProcessMessage] = useState(null);
+  const [processTarget, setProcessTarget] = useState(null);
+  const closeProcess = useCallback(() => setProcessMessage(null), []);
+  useEffect(() => { closeProcess(); }, [conversationId, runtimeSessionId, closeProcess]);
   const [fallbackView, setFallbackView] = useState("chat");
   const activeView = dshConversation ? dshConversation.activeView : fallbackView;
   const viewTabs = dshConversation?.tabs ?? [{ id: "chat", label: "对话" }, { id: "trajectory", label: "轨迹" }];
@@ -108,7 +116,6 @@ export function ChatPanel({
     if (dshConversation) dshConversation.selectView(id);
     else setFallbackView(id);
   };
-  const [activePresetName, setActivePresetName] = useState("");
   const [trajectoryRevision, setTrajectoryRevision] = useState(0);
   const [variablesOpen, setVariablesOpen] = useState(false);
   const [requestPreviewOpen, setRequestPreviewOpen] = useState(false);
@@ -206,6 +213,8 @@ export function ChatPanel({
   const displayedMessages = useMemo(() => messages.filter((item) => !(
     item.role === "assistant" && !item.pending && !String(item.content || "").trim() && !(item.process || []).length
   )), [messages]);
+  const answersByTurn = useMemo(() => new Map(displayedMessages.filter(message => message.role === 'assistant')
+    .map(message => [message.dshTurn, message])), [displayedMessages]);
   const regenerateFrom = useCallback(async (message) => {
     const result = await onRegenerate?.(message);
     if (result !== false) setTrajectoryRevision((revision) => revision + 1);
@@ -218,24 +227,6 @@ export function ChatPanel({
   useEffect(() => {
     setFallbackView("chat");
   }, [conversationId]);
-
-  useEffect(() => {
-    let active = true;
-    const load = () => presetCatalog.refresh()
-      .then((catalog) => {
-        if (!active) return;
-        setActivePresetName(catalog.presets.find((preset) => preset.id === catalog.activePresetIds.roleplay)?.name || "");
-      })
-      .catch(() => {
-        if (active) setActivePresetName("");
-      });
-    void load();
-    window.addEventListener("focus", load);
-    return () => {
-      active = false;
-      window.removeEventListener("focus", load);
-    };
-  }, [conversationId, presetCatalog]);
 
   useEffect(() => {
     setDeleteMode(false);
@@ -317,9 +308,11 @@ export function ChatPanel({
   }
 
   const { layout: layoutMode, profile } = resolveChatDisplayProfile(chatDisplay);
+  const roleplayStyle = resolveRoleplayStyle(chatDisplay);
   const avatarShape = resolveChatAvatarShape(layoutMode, profile?.avatar_shape || "portrait");
   const displayStyle = {
     ...chatDisplayCssVariables(layoutMode, profile),
+    ...(layoutMode === 'roleplay' ? roleplayStyleCssVariables(roleplayStyle) : {}),
     ...chatTextColorCssVariables(chatDisplay?.text_colors),
   };
   const userAvatar = resolveChatAvatar(persona, "user", avatarShape);
@@ -385,6 +378,7 @@ export function ChatPanel({
     regenerateTargetMessageId={regenerateTargetMessageId}
   />;
   const roleplayModel = <ChatModelPicker
+    renderModelLabel={owner => renderRoleplaySlot?.('eleckoi.roleplay.conversation.input.model.label', owner, { fallback: owner.model.name }) ?? owner.model.name}
     configs={modelConfigs}
     selectedConfigId={selectedModelConfigId}
     selectedModel={selectedModel}
@@ -437,10 +431,20 @@ export function ChatPanel({
     before: opening,
     runningStatusTarget,
     followTailRequestId: scrollRequest?.source === "regeneration" ? scrollRequest.revision : undefined,
-    renderChatNode: ({ node }) => {
+    renderChatNode: (owner, renderOfficial, renderIndex) => {
+      const { node } = owner;
       const seat = selectRoleplayChatSeat(displayedMessages, runtimeSessionId, node);
       if (seat && !seat.item.conversationId) seat.item = { ...seat.item, conversationId };
-      return seat === undefined ? undefined : seat ? <MessageList {...rowProps} seat={seat} officialNode /> : null;
+      const turn = officialProcessTurn(owner);
+      const answer = answersByTurn.get(turn);
+      const part = officialProcessPart(owner, answer);
+      const row = seat === undefined ? undefined : seat ? <MessageList {...rowProps} seat={seat} officialNode /> : null;
+      if (processTarget && processMessage?.runtimeSessionId === runtimeSessionId
+        && processMessage.dshTurn === turn && part && renderOfficial) {
+        return <>{row}<OfficialProcessNode target={processTarget} owner={owner} renderOfficial={renderOfficial}
+          part={part} index={renderIndex} onInspect={closeProcess} /></>;
+      }
+      return part ? row ?? null : row;
     },
     renderPendingInput: ({ input: pendingInput }) => {
       const seat = selectRoleplayPendingInput(displayedMessages, runtimeSessionId, pendingInput);
@@ -457,6 +461,8 @@ export function ChatPanel({
     <section
       ref={chatPanelRef}
       className={`chat-panel layout-${layoutMode} view-${activeView}${profile?.assistant_bubble_enabled ? " assistant-bubble-enabled" : ""}${deleteMode ? " message-delete-mode" : ""}`}
+      data-roleplay-backdrop={layoutMode === 'roleplay' && activeView === 'chat' && roleplayStyle.backdrop_enabled || undefined}
+      data-roleplay-bubbles={layoutMode === 'roleplay' && activeView === 'chat' && roleplayStyle.bubbles_enabled || undefined}
       style={displayStyle}
     >
       <header className="chat-header">
@@ -464,10 +470,7 @@ export function ChatPanel({
           {headerLeading}
           <div className="chat-header-title-cluster">
             <h1>{currentTitle}</h1>
-            {activePresetName ? <span className="chat-header-preset" title={activePresetName}>
-              <DshAgentPresetIcon size={14} className="chat-header-preset-icon" />
-              <span>{activePresetName}</span>
-            </span> : null}
+            {dshConversation?.renderHeaderActions?.()}
           </div>
           <div className="chat-header-actions" ref={headerMenuRef}>
             <button className="chat-header-action" type="button" aria-label="对话操作" title="对话操作" aria-haspopup="menu" aria-expanded={headerMenuOpen} onClick={() => setHeaderMenuOpen((value) => !value)}>
@@ -560,8 +563,8 @@ export function ChatPanel({
             item.id === processMessage.id
             || item.renderKey === (processMessage.renderKey || processMessage.id)
           )) || processMessage}
-          reasoningDisplayMode={chatDisplay?.reasoning_display_mode || "collapsed"}
-          onClose={() => setProcessMessage(null)}
+          onContentTarget={setProcessTarget}
+          onClose={closeProcess}
         />
       ) : null}
       {variablesOpen ? <VariableViewerDialog conversationId={conversationId} conversationModel={conversationModel} onClose={() => setVariablesOpen(false)} onNotify={onNotify} /> : null}

@@ -23,7 +23,8 @@ const dependencies = {
 function load(file, react = React) {
   let registration;
   runInNewContext(readFileSync(file, 'utf8'), {
-    window: { __ModuleLoader__: { load: value => { registration = value; } } },
+    window: { __ModuleLoader__: { load: value => { registration = value; } },
+      addEventListener: window.addEventListener.bind(window), removeEventListener: window.removeEventListener.bind(window) },
     AbortController, document, getComputedStyle,
   });
   return registration.factory(name => {

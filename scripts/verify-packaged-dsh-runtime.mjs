@@ -117,7 +117,7 @@ const probe = `
     }
     process.stdout.write('Packaged ElecKoi DSH renderer assets are present.\\n')
     const runtimeUrl = pathToFileURL(join(appAsar, 'node_modules', '@eleckoi', 'desktop-host', 'dist', 'index.mjs')).href
-    const { DshDesktopPluginHost } = await import(runtimeUrl)
+    const { DshDesktopPluginHost, ELECKOI_DESKTOP_RECOVERY_BUNDLES } = await import(runtimeUrl)
     const packageManagerPath = join(unpacked, 'resources', 'dsh', 'pnpm', 'bin', 'pnpm.mjs')
     const nodeBinPath = join(unpacked, 'resources', 'dsh', 'node-bin')
     await access(packageManagerPath)
@@ -136,9 +136,14 @@ const probe = `
     try {
       const ready = await pluginHost.start()
       const desktopProfile = JSON.parse(await readFile(join(pluginRoot, 'home', 'profiles', 'desktop', 'package.json'), 'utf8'))
-      for (const name of desktopManifest.desktopProfile.bundles) {
+      for (const name of ELECKOI_DESKTOP_RECOVERY_BUNDLES) {
         if (!desktopProfile.dsh?.profile?.bundles?.includes(name)) {
           throw new Error('Packaged DSH profile did not register ' + name)
+        }
+      }
+      for (const name of desktopManifest.desktopProfile.bundles) {
+        if (!ELECKOI_DESKTOP_RECOVERY_BUNDLES.includes(name) && desktopProfile.dsh?.profile?.bundles?.includes(name)) {
+          throw new Error('Packaged DSH profile enabled an optional bundle by default: ' + name)
         }
       }
       if (!desktopProfile.dsh?.profile?.bundles?.includes('@eleckoi/dsh-web-search-tavily')) {

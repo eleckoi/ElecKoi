@@ -1,5 +1,8 @@
+import { autoIllustrationSchema, AUTO_ILLUSTRATION_PLUGIN } from '@shared/contracts/presets/autoIllustration'
+import { upgradeAutoIllustrationConfiguration } from './autoIllustrationUpgrade'
 import { randomUUID } from 'node:crypto'
 import { agentToolGroups } from '@product-data/domain/agentTools'
+import { pluginToolGroupSchema, portablePluginToolGroups } from '@shared/contracts/agent/tools'
 import { isPng, readPngText, writePngTextOnly } from '@product-data/storage/media/PngTextChunkCodec'
 import { decodeRegexDocuments } from '@shared/foundation/regexRuleTransfer'
 import { normalizeAgentPresetPrompts } from '@shared/contracts/presets/builtIns'
@@ -64,6 +67,7 @@ export interface AgentPresetTransferContent {
   toolGroups: AgentPreset['toolGroups']
   subagentModelSelection?: AgentPreset['subagentModelSelection']
   toolModelConfigIds?: AgentPreset['toolModelConfigIds']
+  autoIllustration?: AgentPreset['autoIllustration']
   roleplayPlan: AgentPreset['roleplayPlan']
   regexRules: AgentPreset['regexRules']
   expandedGroupIds: AgentPreset['expandedGroupIds']
@@ -106,6 +110,7 @@ export function encodeElecKoiAgentPreset(preset: AgentPreset, options: AgentPres
     toolGroups: preset.toolGroups,
     ...(preset.subagentModelSelection ? { subagentModelSelection: preset.subagentModelSelection } : {}),
     ...(preset.toolModelConfigIds ? { toolModelConfigIds: preset.toolModelConfigIds } : {}),
+    ...(preset.autoIllustration ? { autoIllustration: preset.autoIllustration } : {}),
     roleplayPlan: preset.roleplayPlan,
     regexRules: preset.regexRules,
     expandedGroupIds: preset.expandedGroupIds
@@ -228,6 +233,7 @@ function decodeElecKoi(document: AgentPresetImportDocument, bytes: Uint8Array, p
       toolGroups: content.toolGroups,
       ...(content.subagentModelSelection ? { subagentModelSelection: content.subagentModelSelection } : {}),
       ...(content.toolModelConfigIds ? { toolModelConfigIds: content.toolModelConfigIds } : {}),
+      ...(content.autoIllustration ? { autoIllustration: content.autoIllustration } : {}),
       roleplayPlan: content.roleplayPlan,
       regexRules: content.regexRules,
       expandedGroupIds: content.expandedGroupIds
@@ -311,6 +317,7 @@ function decodeSillyTavern(document: AgentPresetImportDocument, root: JsonObject
 
 function contentToPortable(content: AgentPresetTransferContent): JsonObject {
   return {
+    plugin_configuration: { [AUTO_ILLUSTRATION_PLUGIN]: content.autoIllustration ?? { enabled: false, modelConfigId: '' } },
     entries: content.entries.map(entryToPortable),
     groups: content.groups.map((group) => ({
       id: group.id, name: group.name, parent_id: group.parentId, order: group.order,
@@ -330,6 +337,7 @@ function contentToPortable(content: AgentPresetTransferContent): JsonObject {
     tool_configuration: {
       included_group_ids: content.toolGroups.filter((group) => group.included).map((group) => group.id),
       enabled_group_ids: content.toolGroups.filter((group) => group.included && group.enabled).map((group) => group.id),
+      ...(content.toolGroups.some(group => group.source === 'extension') ? { plugin_tools: portablePluginToolGroups(content.toolGroups) } : {}),
       ...(content.subagentModelSelection?.configId || content.subagentModelSelection?.model ? { subagent_model_selection: content.subagentModelSelection } : {}),
       ...(content.toolModelConfigIds && Object.keys(content.toolModelConfigIds).length ? { tool_model_config_ids: content.toolModelConfigIds } : {})
     },
@@ -358,13 +366,15 @@ function contentFromPortable(
   const toolConfiguration = objectValue(value.tool_configuration)
   const includedGroupIds = new Set(stringList(toolConfiguration?.included_group_ids))
   const enabledGroupIds = new Set(stringList(toolConfiguration?.enabled_group_ids))
-  const toolGroups = toolConfiguration
+  const builtInToolGroups = toolConfiguration
     ? agentToolGroups(enabledGroupIds).map((group) => ({
       ...group,
       included: includedGroupIds.has(group.id),
       enabled: includedGroupIds.has(group.id) && enabledGroupIds.has(group.id)
     }))
     : agentToolGroups()
+  const pluginTools = pluginToolGroupSchema.array().parse(toolConfiguration?.plugin_tools ?? [])
+  const toolGroups = [...builtInToolGroups, ...portablePluginToolGroups(pluginTools)]
   return {
     usageInstructions: stringValue(profile?.usage_instructions),
     timeline: timelineFromPortable(profile?.timeline),
@@ -374,7 +384,7 @@ function contentFromPortable(
     promptPositions,
     toolGroups,
     ...(toolConfiguration?.subagent_model_selection ? { subagentModelSelection: toolConfiguration.subagent_model_selection as AgentPreset['subagentModelSelection'] } : {}),
-    ...(toolConfiguration?.tool_model_config_ids ? { toolModelConfigIds: toolConfiguration.tool_model_config_ids as AgentPreset['toolModelConfigIds'] } : {}),
+    ...illustrationFromPortable(value, toolConfiguration),
     roleplayPlan: roleplayPlan.success ? roleplayPlan.data : defaultRoleplayPlanSettings(),
     regexRules,
     expandedGroupIds: stringList(value.expanded_group_ids)
@@ -413,7 +423,6 @@ function entryFromPortable(value: JsonObject, index: number, timestamp: string):
     openingMessages: objectList(value.opening_messages).map((message, messageIndex) => ({
       id: stringValue(message.id) || `opening-${index + 1}-${messageIndex + 1}`,
       title: stringValue(message.title), content: stringValue(message.content),
-      initialVariableStateJson: stringValue(message.initial_variable_state)
     })),
     defaultOpeningMessageId: stringValue(value.default_opening_message_id),
     agentSelectionHint: stringValue(value.agent_selection_hint),
@@ -440,7 +449,6 @@ function entryToPortable(entry: SettingLibraryEntry): JsonObject {
     content: entry.content,
     opening_messages: entry.openingMessages.map((message) => ({
       id: message.id, title: message.title, content: message.content,
-      initial_variable_state: message.initialVariableStateJson
     })),
     default_opening_message_id: entry.defaultOpeningMessageId,
     agent_selection_hint: entry.agentSelectionHint, agent_read_strategy: entry.agentReadStrategy,
@@ -560,4 +568,19 @@ function uniqueTitle(requested: string, used: Set<string>): string {
 
 function suggestedName(displayName: string): string {
   return displayName.replace(/\.(json|png)$/i, '').trim() || '导入预设'
+}
+
+// RETIRE WHEN: supported imported presets no longer contain tool-owned image
+// settings. Remove the legacy branch and its shared upgrade helper together.
+function illustrationFromPortable(value: JsonObject, tools: JsonObject | undefined) {
+  const plugins = value.plugin_configuration as JsonObject | undefined
+  if (plugins?.[AUTO_ILLUSTRATION_PLUGIN]) return {
+    autoIllustration: autoIllustrationSchema.parse(plugins[AUTO_ILLUSTRATION_PLUGIN]),
+    toolModelConfigIds: (tools?.tool_model_config_ids ?? {}) as Record<string, string>
+  }
+  const upgraded = upgradeAutoIllustrationConfiguration({
+    includedGroupIds: stringList(tools?.included_group_ids), enabledGroupIds: stringList(tools?.enabled_group_ids),
+    toolModelConfigIds: tools?.tool_model_config_ids
+  })
+  return { autoIllustration: upgraded.autoIllustration, toolModelConfigIds: upgraded.toolModelConfigIds }
 }

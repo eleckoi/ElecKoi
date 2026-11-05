@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { closestCenter, DndContext, DragOverlay, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -133,7 +134,7 @@ function PositionNameDialog({ draft, existing, onChange, onCancel, onSave }) {
       <h3 id="position-dialog-title">{existing ? '重命名位置' : '新建位置'}</h3>
       <label><span>名称</span><input ref={inputRef} value={draft.name} placeholder="例如：世界状态" aria-invalid={error ? true : undefined} onChange={(event) => { onChange({ ...draft, name: event.target.value }); setError(null); }} /></label>
       <FailureAlert failure={error} />
-      <footer><button type="button" className="setting-position-button" onClick={onCancel}>取消</button><button type="submit" className="setting-position-button is-primary">保存</button></footer>
+      <footer><Button data-dsh-control variant="outline" type="button" className="setting-position-button" onClick={onCancel}>取消</Button><Button data-dsh-control variant="primary" type="submit" className="setting-position-button is-primary">保存</Button></footer>
     </form>
   </div>;
 }
@@ -147,7 +148,7 @@ function DeletePositionDialog({ position, affected, onCancel, onConfirm }) {
     <section className="setting-position-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-position-title">
       <h3 id="delete-position-title">删除“{position.name}”？</h3>
       {affected ? <p>{affected} 条提示词会回到相邻的固定位置，正文不会删除。</p> : null}
-      <footer><button type="button" className="setting-position-button" onClick={onCancel}>取消</button><button type="button" className="setting-position-button is-danger" onClick={onConfirm}>删除</button></footer>
+      <footer><Button data-dsh-control variant="outline" type="button" className="setting-position-button" onClick={onCancel}>取消</Button><Button data-dsh-control variant="outline" type="button" className="setting-position-button is-danger" onClick={onConfirm}>删除</Button></footer>
     </section>
   </div>;
 }
@@ -238,7 +239,7 @@ export function CustomPositionManager({ entry, positions, entries, onChange, onB
     {!compact && <header className="setting-position-manager-header">
       <button type="button" className="setting-position-back" aria-label="返回插入配置" title="返回" onClick={onBack}><ArrowLeft size={18} /></button>
       <h2>自定义位置</h2>
-      <button ref={addRef} type="button" className="setting-position-button" onClick={() => edit()}><Plus size={16} />新建</button>
+      <Button data-dsh-control variant="outline" ref={addRef} type="button" className="setting-position-button" onClick={() => edit()}><Plus size={16} />新建</Button>
     </header>}
 
     <DndContext

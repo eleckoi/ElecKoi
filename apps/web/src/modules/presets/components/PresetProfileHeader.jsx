@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { CheckCircle, NotePencil } from '../../../ui/icons/interfaceIcons.jsx';
 import { Avatar } from '../../../ui/ui/Avatar.jsx';
 import defaultPresetAvatar from '../../../assets/eleckoi-app-icon.png';
@@ -16,7 +17,7 @@ export function PresetProfileHeader({ preset, active, onActivate, onEdit, showAc
         {(active || showActivate) && <div className="preset-profile-hero-actions">
           {active
             ? <span className="preset-profile-active"><CheckCircle size={16} weight="fill" aria-hidden="true" />使用中</span>
-            : <button type="button" className="preset-profile-use" onClick={onActivate}><CheckCircle size={16} aria-hidden="true" />使用此预设</button>}
+            : <Button data-dsh-control variant="primary" type="button" className="preset-profile-use" onClick={onActivate}><CheckCircle size={16} aria-hidden="true" />使用此预设</Button>}
         </div>}
       </div>
       <div className="preset-profile-hero-meta">

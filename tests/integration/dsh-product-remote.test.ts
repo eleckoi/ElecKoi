@@ -10,10 +10,14 @@ import Database from 'better-sqlite3'
 import { Context } from '@deepseek-ai/cordis'
 import TypertGatewayService from '@deepseek-ai/dsh-api-gateway'
 import TypertRegistry, { type TypertContribution } from '@deepseek-ai/dsh-typert-registry'
+import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
+import ToolRuntime, { defineTool } from '@deepseek-ai/dsh-tools'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RequestPreviewStore } from '../../packages/client/features/dsh-client-roleplay/src/host/request-preview.mjs'
 import ElecKoiSystemApi, {
   type AgentPresetCatalog,
+  type AgentPreset,
+  type AgentPresetExportResult,
   CharacterConfigurationChangeFeed,
   ElecKoiCharacterConfigurationApi,
   ConversationChangeFeed,
@@ -1014,6 +1018,42 @@ describe('ElecKoi DSH Remote contract', () => {
       }) as AgentPresetCatalog
       expect(presetCatalog.activePresetIds.roleplay).toBeTruthy()
       expect(presetCatalog.presets).toContainEqual(expect.objectContaining({ id: presetCatalog.activePresetIds.roleplay }))
+
+      await ctx.plugin(SystemPrompt)
+      await ctx.plugin(ToolRuntime)
+      const toolPlugin = await ctx.plugin({ name: '合成骰子插件', inject: ['tools'], apply(owner) {
+        owner.tools.register(defineTool({ name: 'synthetic_portable_dice', description: 'Synthetic plugin dice', parameters: {},
+          output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }, execute: async () => '6' }))
+      } })
+      const readPreset = (presetId: string) => ctx.typertGateway.invoke({ peer: ownerPeer(ctx), namespace: 'eleckoiAgentPresets',
+        method: 'read', args: { presetId } }) as Promise<AgentPreset>
+      const withPlugin = await readPreset(presetCatalog.activePresetIds.roleplay)
+      const extraTool = withPlugin.extraToolGroups!.find(group => group.id === 'plugin-tool:synthetic_portable_dice')!
+      expect(extraTool).toMatchObject({ available: true, included: false })
+      expect(extraTool.plugin?.name).toBe('合成骰子插件')
+      expect(withPlugin.toolGroups.some(group => group.id === extraTool.id)).toBe(false)
+      const directExport = await ctx.typertGateway.invoke({ peer: ownerPeer(ctx), namespace: 'eleckoiAgentPresets', method: 'export',
+        args: { presetId: withPlugin.id, format: 'json' } }) as AgentPresetExportResult
+      expect(Buffer.from(directExport.base64, 'base64').toString('utf8')).not.toContain('synthetic_portable_dice')
+      const savedPreset = await ctx.typertGateway.invoke({ peer: ownerPeer(ctx), namespace: 'eleckoiAgentPresets', method: 'save', args: {
+        preset: { ...withPlugin, autoIllustration: { enabled: true, modelConfigId: 'synthetic-image-route' }, toolGroups: [...withPlugin.toolGroups, { ...extraTool, included: true, name: '作者骰子', enabled: false }] }, expectedRegexRules: withPlugin.regexRules,
+      } }) as AgentPreset
+      expect(savedPreset.toolGroups.find(group => group.id === 'plugin-tool:synthetic_portable_dice')).toMatchObject({ name: '作者骰子', enabled: false })
+      expect(savedPreset.extraToolGroups?.some(group => group.id === extraTool.id)).toBe(false)
+      expect(savedPreset.autoIllustration).toEqual({ enabled: true, modelConfigId: 'synthetic-image-route' })
+      expect((await readPreset(savedPreset.id)).autoIllustration).toEqual(savedPreset.autoIllustration)
+      expect(savedPreset.toolGroups.some(group => group.id === 'builtin:auto-illustration')).toBe(false)
+      const portablePreset = await ctx.typertGateway.invoke({ peer: ownerPeer(ctx), namespace: 'eleckoiAgentPresets', method: 'export',
+        args: { presetId: withPlugin.id, format: 'json' } }) as AgentPresetExportResult
+      expect(Buffer.from(portablePreset.base64, 'base64').toString('utf8')).not.toContain('"available"')
+      expect(Buffer.from(portablePreset.base64, 'base64').toString('utf8')).not.toContain('extraToolGroups')
+      await toolPlugin.dispose()
+      const missingPreset = await readPreset(withPlugin.id)
+      expect(missingPreset.toolGroups.find(group => group.id === 'plugin-tool:synthetic_portable_dice')).toMatchObject({ available: false, name: '作者骰子', enabled: false })
+      const importedPreset = await ctx.typertGateway.invoke({ peer: ownerPeer(ctx), namespace: 'eleckoiAgentPresets', method: 'import',
+        args: { source: 'eleckoi', purpose: 'roleplay', document: { displayName: portablePreset.fileName, mimeType: portablePreset.mimeType, base64: portablePreset.base64 } } }) as { preset: AgentPreset }
+      expect(importedPreset.preset.toolGroups.find(group => group.id === 'plugin-tool:synthetic_portable_dice')).toMatchObject({ available: false, name: '作者骰子', enabled: false })
+      expect(importedPreset.preset.toolGroups.find(group => group.id === extraTool.id)?.plugin?.name).toBe('合成骰子插件')
 
       expect(await ctx.typertGateway.invoke({ peer: ownerPeer(ctx),
         namespace: 'eleckoiCreatorStudio',

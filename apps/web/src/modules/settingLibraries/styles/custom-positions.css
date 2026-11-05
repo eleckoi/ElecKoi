@@ -4,8 +4,7 @@
 .setting-position-manager-header { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 4px 12px; }
 .setting-position-manager-header h2 { flex: 1; margin: 0; font-size: 17px; font-weight: 600; }
 .setting-position-back { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--text); }
-.setting-position-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 6px 14px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--surface-raised); font-size: 13px; }
-.setting-position-button.is-primary { border-color: transparent; color: var(--on-accent); background: var(--blue); }
+.setting-position-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; }
 .setting-position-manager .is-danger { color: #cf3737; }
 
 .setting-position-guide { min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 8px 8px 32px 4px; }
@@ -54,8 +53,7 @@
 .setting-position-manager button:hover { background: var(--active); }
 .setting-position-manager .setting-position-drag-handle:hover,
 .setting-position-manager .setting-position-guide-main:hover { color: var(--text); background: transparent; }
-.setting-position-button.is-primary:hover { background: var(--blue-hover); }
-.setting-library-placement-heading .setting-library-position-manage { display: inline-flex; align-items: center; gap: 6px; height: 30px; margin: 0; padding: 0 9px; border: 1px solid var(--line-strong); border-radius: 7px; color: var(--text); background: var(--surface-raised); font-size: 12px; font-weight: 400; }
+.setting-library-placement-heading .setting-library-position-manage { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
 .setting-position-guide::-webkit-scrollbar { width: 8px; }
 .setting-position-guide::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; corner-shape: round; background: color-mix(in srgb, var(--muted) 42%, transparent); background-clip: content-box; }
 .setting-position-guide::-webkit-scrollbar-button { display: none; width: 0; height: 0; }

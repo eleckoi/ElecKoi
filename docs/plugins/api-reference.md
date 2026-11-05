@@ -2,9 +2,9 @@
 
 # ElecKoi 插件开发接口总表
 
-本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.1-rc.3`，提交 `1f81c047fc48fa190a683e469daa699857e9afe8`。
+本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.1-rc.5`，提交 `b830ec950faba0a46dda564be3e2d854afed94f1`。
 
-当前共 **16 个 bundle、108 个开发接口**：65 个界面插槽、20 个服务、0 个事件、2 个贡献点、21 个 Remote 合同。
+当前共 **17 个 bundle、108 个开发接口**：60 个界面插槽、21 个服务、0 个事件、6 个贡献点、21 个 Remote 合同。
 
 接口标题和说明用于插件中心展示；真实调用合同以对应类型导出和实现为准。完整参数、返回值和数据字段见 [Client 参考](api-client.md)、[Host 参考](api-host.md) 与 [Remote 调用声明](api-remote.md)。使用方法见 [界面插槽](ui-slots.md)、[服务接口](services.md) 与 [能力贡献](contributions.md)。
 
@@ -15,14 +15,15 @@
 | `@eleckoi/dsh-client-characters` | 11 | 1 | 0 | 0 | 0 | 12 |
 | `@eleckoi/dsh-client-character-configuration` | 0 | 6 | 0 | 0 | 0 | 6 |
 | `@eleckoi/dsh-client-conversations` | 1 | 1 | 0 | 0 | 0 | 2 |
-| `@eleckoi/dsh-client-creator-studio` | 0 | 1 | 0 | 0 | 0 | 1 |
+| `@eleckoi/dsh-client-creator-studio` | 1 | 1 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-display-preferences` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-models` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-persona` | 1 | 1 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-presets` | 7 | 1 | 0 | 0 | 0 | 8 |
 | `@eleckoi/dsh-client-web-search` | 0 | 1 | 0 | 0 | 0 | 1 |
-| `@eleckoi/dsh-client-shell` | 17 | 1 | 0 | 0 | 0 | 18 |
-| `@eleckoi/dsh-client-roleplay` | 28 | 1 | 0 | 0 | 0 | 29 |
+| `@eleckoi/dsh-client-shell` | 10 | 1 | 0 | 4 | 0 | 15 |
+| `@eleckoi/dsh-client-roleplay` | 29 | 1 | 0 | 0 | 0 | 30 |
+| `@eleckoi/dsh-auto-illustration` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-author` | 0 | 2 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-html-resources` | 0 | 1 | 0 | 1 | 0 | 2 |
 | `@eleckoi/dsh-product-api` | 0 | 0 | 0 | 0 | 21 | 21 |
@@ -85,6 +86,7 @@
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `eleckoiCreatorStudio` | 创作项目服务 | 服务 | 提供 | `call` | `client` | 读取、创建、删除创作项目并订阅项目列表变化。 | `getSnapshot`、`subscribe`、`refresh`、`create`、`delete`、`selectDirectory` |
+| `eleckoi.creator-studio.model.label` | 创作工作室模型标签 | 界面插槽 | 提供 | `replace` | `session` | 在工作室模型入口、当前模型及选项中复用官方模型名称与标签扩展。 | — |
 
 ## `@eleckoi/dsh-client-display-preferences`
 
@@ -154,13 +156,10 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `eleckoi.shell.window` | 窗口呈现 | 界面插槽 | 提供 | `replace` | `root` | 按运行平台装配窗口页面，保留共享 Client 业务服务和导航合同。 | — |
 | `layout` | 桌面布局服务 | 服务 | 提供 | `call` | `client` | 切换主面板并控制桌面导航和侧栏。 | `selectPanel`、`beginNavigation`、`toggleSidebar`、`openRightbar`、`closeRightbar` |
-| `sidebar.brand.mark` | 品牌图标 | 界面插槽 | 提供 | `replace` | `root` | 提供侧边栏品牌图标。 | — |
-| `sidebar.brand.name` | 品牌名称 | 界面插槽 | 提供 | `replace` | `root` | 提供侧边栏品牌名称。 | — |
-| `sidebar.toggle.badge` | 侧栏收起按钮内容 | 界面插槽 | 提供 | `replace` | `root` | 提供侧栏收起按钮附加内容。 | — |
-| `sidebar.panellist` | 导航入口 | 界面插槽 | 提供 | `append` | `root` | 向侧边栏增加主导航入口。 | — |
-| `sidebar.workspaces` | 工作区入口 | 界面插槽 | 提供 | `replace` | `root` | 提供侧边栏工作区入口。 | — |
-| `sidebar.settings` | 设置入口 | 界面插槽 | 提供 | `replace` | `root` | 提供侧边栏设置入口。 | — |
-| `sidebar.footer.action` | 侧栏底部操作 | 界面插槽 | 提供 | `append` | `root` | 向侧边栏底部增加操作。 | — |
+| `sidebar.brand.mark` | 品牌图标 | 贡献点 | 接入 | `replace` | `root` | 向官方侧边栏提供品牌图标。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
+| `sidebar.brand.name` | 品牌名称 | 贡献点 | 接入 | `replace` | `root` | 向官方侧边栏提供品牌名称。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
+| `sidebar.panellist` | 导航入口 | 贡献点 | 接入 | `append` | `root` | 向侧边栏增加主导航入口。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
+| `sidebar.panellist.actions` | 更多菜单工作区入口 | 贡献点 | 接入 | `append` | `root` | 向官方更多菜单增加进入工作区界面的操作。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
 | `sidebar` | 侧边栏 | 界面插槽 | 提供 | `replace` | `root` | 替换桌面侧边栏。 | — |
 | `main` | 主面板 | 界面插槽 | 提供 | `register` | `root` | 按面板键注册桌面主页面。 | — |
 | `rightbar` | 右侧面板 | 界面插槽 | 提供 | `replace` | `root` | 提供桌面右侧面板。 | — |
@@ -198,6 +197,7 @@
 | `eleckoi.roleplay.conversation.input.permission` | 权限控件 | 界面插槽 | 提供 | `replace` | `session` | 替换输入框中的权限控件。 | — |
 | `eleckoi.roleplay.conversation.input.plan` | 计划控件 | 界面插槽 | 提供 | `replace` | `session` | 替换输入框中的计划模式控件。 | — |
 | `eleckoi.roleplay.conversation.input.model` | 输入框皮肤模型位 | 界面插槽 | 提供 | `replace` | `session` | 供输入框皮肤调用的模型控件位置；默认输入框使用 ElecKoi 模型选择器。 | — |
+| `eleckoi.roleplay.conversation.input.model.label` | 模型名称与标签 | 界面插槽 | 提供 | `replace` | `session` | 在模型入口、当前模型及选项中复用官方模型名称扩展，只显示名称与标签。 | — |
 | `eleckoi.roleplay.conversation.input.activity` | 输入框活动区 | 界面插槽 | 提供 | `replace` | `session` | 替换输入框右侧活动区，展开时占用工具栏空间。 | — |
 | `eleckoi.roleplay.conversation.composer.dock` | 输入框下方 | 界面插槽 | 提供 | `append` | `session` | 在输入框下方的产品统计区域追加内容；默认官方统计不重复显示。 | — |
 | `eleckoi.roleplay.conversation.approval.detail` | 审批详情 | 界面插槽 | 提供 | `replace` | `session` | 在输入区被审批组件接管时替换审批详情。 | — |
@@ -208,6 +208,16 @@
 | `eleckoiRequestPreviews` | 运行期间请求预览 | 服务 | 提供 | `call` | `host` | 在实际发送位置捕获请求，运行期间共用未变化的消息内容；不写入日志、数据库或投影缓存。 | `capture`、`list`、`read`、`stream`、`forget`、`close` |
 | `eleckoi.roleplay.chat.flow` | 角色聊天正文流程 | 界面插槽 | 提供 | `replace` | `session` | 角色聊天正文流程，复用官方会话渲染入口。 | — |
 | `eleckoi.roleplay.chat.user.images` | 角色聊天用户图片 | 界面插槽 | 提供 | `replace` | `session` | 角色聊天用户图片，复用官方会话渲染入口。 | — |
+
+## `@eleckoi/dsh-auto-illustration`
+
+通过回复中的分镜指令自动生成剧情配图，不向 Agent 注册工具。
+
+来源：`packages/client/features/dsh-auto-illustration/package.json`
+
+| ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `eleckoiAutoIllustration` | 角色自动配图 | 服务 | 提供 | `call` | `host` | 由独立插件贡献配图提示词并处理分镜生成与重画，不注册 AI 工具。 | `instructions`、`regenerateImage` |
 
 ## `@eleckoi/dsh-client-author`
 
@@ -287,6 +297,7 @@ Android 组合清单为 `apps/android-host/src/androidPluginBundleManifest.json`
 | --- | --- | --- | --- | --- |
 | `@eleckoi/dsh-client-mobile` | `eleckoi.shell.window` | 界面插槽 | 接入 | `@eleckoi/dsh-client-shell` |
 | `@eleckoi/dsh-client-mobile` | `main` | 界面插槽 | 接入 | `@eleckoi/dsh-client-shell` |
+| `@eleckoi/dsh-client-mobile` | `conversation.header.leading` | 界面插槽 | 接入 | `@deepseek-ai/dsh-client-ui-conversation` |
 
 ## 完整性规则
 
@@ -294,4 +305,3 @@ Android 组合清单为 `apps/android-host/src/androidPluginBundleManifest.json`
 - 接口 ID 在整个桌面组合内必须唯一。
 - manifest 变化后必须运行 `pnpm generate:plugin-docs` 更新本表。
 - `pnpm check:plugin-docs` 与 `pnpm build` 会拒绝过期或不完整的总表。
-

@@ -91,16 +91,7 @@
 .preset-content-composer-footer { display: flex; align-items: flex-end; justify-content: flex-end; gap: 16px; min-height: 34px; }
 .preset-content-error { flex: 1; margin: 0; color: #c93737; font-size: 12px; line-height: 1.5; }
 .preset-content-actions { display: flex; flex: none; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.preset-content-button {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 6px 18px;
-  border: 1px solid transparent; border-radius: 10px; background: var(--surface-subtle);
-  color: var(--text); font: inherit; font-size: 13px; line-height: 20px; font-weight: 500; cursor: pointer;
-}
-.preset-content-button.is-section-action { background: var(--surface-raised); border-color: var(--line-strong); }
-.preset-content-button.is-primary { background: var(--blue); color: var(--on-accent); font-weight: 600; }
-.preset-content-button.is-danger { background: #c93737; color: #fff; }
-.preset-content-button:disabled { opacity: .5; cursor: default; }
-.preset-usage-content button:focus-visible, .preset-update-record:focus-visible, .preset-content-dialog button:focus-visible,
+.preset-usage-content button:not([data-dsh-control]):focus-visible, .preset-update-record:focus-visible, .preset-content-dialog button:not([data-dsh-control]):focus-visible,
 .preset-content-composer input:focus-visible, .preset-content-composer textarea:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
 .preset-content-dialog {
   box-sizing: border-box; width: min(400px, calc(100vw - 48px)); padding: 24px; border: 1px solid var(--line-strong);
@@ -115,16 +106,13 @@
 @media (hover: hover) and (pointer: fine) {
   .preset-update-action:hover:not(:disabled) { background: var(--control-bg-hover); color: var(--text); }
   .preset-update-action.is-delete:hover:not(:disabled) { background: color-mix(in srgb, var(--dsw-text-error, var(--danger, #c93737)) 9%, transparent); color: var(--dsw-text-error, var(--danger, #c93737)); }
-  .preset-content-button:hover:not(:disabled) { background: var(--control-bg-hover); }
-  .preset-content-button.is-primary:hover:not(:disabled) { background: var(--blue-hover); }
-  .preset-content-button.is-danger:hover:not(:disabled) { background: #ae2929; }
   .preset-updates-expand:hover:not(:disabled) { background: var(--preset-reading-surface); }
 }
 .preset-update-action:active:not(:disabled) { background: var(--control-bg-hover); }
 @media (pointer: coarse) {
   .preset-update-action { width: 44px; height: 44px; min-height: 44px; }
 }
-.preset-content-button:active:not(:disabled), .preset-updates-expand:active:not(:disabled) { transform: translateY(1px); }
+.preset-updates-expand:active:not(:disabled) { transform: translateY(1px); }
 @media (max-width: 900px) {
   .preset-usage-content { width: calc(100% - 48px); margin-left: 24px; padding-top: 24px; }
 }

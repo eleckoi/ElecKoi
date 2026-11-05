@@ -50,6 +50,14 @@ it('keeps mobile capability controls compact in the configuration page and actua
           expect(button.x + button.width, evidence).toBeLessThanOrEqual(report.reasoning.x + report.reasoning.width);
         }
       } else {
+        expect(report.save.expected.background, evidence).not.toBe('rgba(0, 0, 0, 0)');
+        expect(report.save.disabled.disabled, evidence).toBe(true);
+        expect(report.save.disabled.background, evidence).toBe(report.save.expected.background);
+        expect(report.save.disabled.color, evidence).toBe(report.save.expected.color);
+        expect(Number(report.save.disabled.opacity), evidence).toBeLessThan(1);
+        expect(report.save.enabled.background, evidence).toBe(report.save.expected.background);
+        expect(report.save.enabled.color, evidence).toBe(report.save.expected.color);
+        expect(report.save.enabled.opacity, evidence).toBe('1');
         expect(report.parameterHeadingVisible, evidence).toBe(false);
         expect(report.capabilities.height, evidence).toBeLessThanOrEqual(96);
       }

@@ -12,8 +12,8 @@ export const creatorToolsets = [
   { id: 'character', title: '角色资料', description: '新建空角色，读取和修改当前工作室编辑目标的资料与独立开场白。',
     guide: ['可以调用 character.create 提供 name 和可选 group，从零创建空角色并设为当前工作室编辑目标，不要求先选择角色；已有编辑目标时调用新建，也不会修改原角色。',
       '读取和修改已有资料仍要求当前工作室明确选择角色，先读后改；不能按目录顺序或名称猜测编辑对象。character.update 的 group 是所属角色分组名称，空字符串表示未分组；修改它只调整当前角色归属，保留其他角色和资料。角色是编辑对象，不是工作室要扮演的身份。',
-      '开场白在角色编辑器的独立页面维护，通过 character.read_openings 读取、character.save_openings 保存。保存参数为 enabled、openingMessages、defaultOpeningMessageId；openingMessages 是全部不同开场白的列表，每项包含 id、title、content、可选 variableVersionId 和 initialVariableStateJson，主开场由 defaultOpeningMessageId 指定。保留未修改的其他开场白和字段。开场白没有命名版本，不传 versions 或 activeVersionId，也不传由工作室选择确定的 characterId。',
-      '每条开场白可以分别绑定变量版本，准确编号从 variables.list 的 versions 读取。清空 variableVersionId 可取消绑定，initialVariableStateJson 保存初始变量 JSON；修改开场白不修改设定库，切换设定库版本不改变开场白。'] },
+      '开场白在角色编辑器的独立页面维护，通过 character.read_openings 读取、character.save_openings 保存。保存参数为 enabled、openingMessages、defaultOpeningMessageId；enabled 是保留字段，不控制显示，主开场白正文留空时新对话不显示开场白，有正文才显示。openingMessages 是全部不同开场白的列表，每项包含 id、title、content 和可选 variableVersionId，主开场由 defaultOpeningMessageId 指定。保留未修改的其他开场白和字段。开场白没有命名版本，不传 versions 或 activeVersionId，也不传由工作室选择确定的 characterId。',
+      '每条开场白可以分别绑定变量版本，准确编号从 variables.list 的 versions 读取。开局只加载所选开场白明确绑定的变量版本，初始值来自该版本。清空 variableVersionId 可取消绑定；未绑定不启用变量配置，不自动采用变量编辑器当前版本，也不填写开场白独立初值。修改开场白不修改设定库，切换设定库版本不改变开场白。'] },
   { id: 'settings', title: '设定库', description: '维护当前角色的文字设定、选读 EJS 控制器、EJS 引用文字和文件夹。',
     guide: [
       '读取策略只有必读和选读。agentReadStrategy="required" 是必读；"normal" 是选读并关闭关键词匹配；"keyword" 是选读并开启关键词匹配，与编辑器的关键词命中开关相同，不是第三个读取档位。只填写 keywords 不会开启匹配；开启时把 agentReadStrategy 设为 keyword，关闭时设为 normal，保留原关键词和其他条件。',

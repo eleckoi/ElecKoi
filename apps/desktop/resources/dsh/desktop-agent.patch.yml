@@ -1,7 +1,8 @@
 # The desktop Web Host owns ElecKoi's Agent Sessions and browser plugins.
 - id: system-prompt
   config:
-    personaPrefix: You are ElecKoi.
+    includeHarnessIdentity: false
+    personaPrefix: ''
     personaSuffix: ''
 
 - id: attachment-local
@@ -34,7 +35,7 @@
 
 - id: approval
   config:
-    policy: never
+    policy: ask
 
 - id: permission
   config:
@@ -45,13 +46,10 @@
       workspace-write:
         sandbox: workspace-write
         approval: ask
-      eleckoi-workspace:
-        sandbox: workspace-write
-        approval: never
       danger-full-access:
         sandbox: danger-full-access
         approval: never
-    defaultPreset: eleckoi-workspace
+    defaultPreset: workspace-write
 
 - id: agent-preset-registry
   config:

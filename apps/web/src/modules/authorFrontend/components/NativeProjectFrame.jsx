@@ -62,9 +62,9 @@ export function NativeProjectFrame({ content, project, entryFile, revision, cont
     return () => { window.removeEventListener('message', receive); resize?.disconnect(); close(); };
   }, [channel, source, runtime, autoHeight]);
   useEffect(sync, [JSON.stringify(context ?? null)]);
-  return <div className="advanced-frontend-region" style={autoHeight ? { minHeight: height, width: '100%', flex: 'none' } : fullHeight ? { height: '100%' } : undefined}>
+  return <div className="advanced-frontend-region" style={{ position: 'relative', minWidth: 0, minHeight: 0, flex: 1, display: 'flex', ...(autoHeight ? { minHeight: height, width: '100%', flex: 'none' } : fullHeight ? { height: '100%' } : {}) }}>
     {error || !runtime ? <div className="frontend-state" role="alert">HTML 前端加载失败：{error || '原生作者插件未启用'}</div>
-      : <iframe key={channel} ref={frame} name={channel} title={project.name} srcDoc={source} onLoad={load} style={autoHeight ? { height, flex: 'none' } : undefined}
+      : <iframe key={channel} ref={frame} name={channel} title={project.name} srcDoc={source} onLoad={load} style={{ width: '100%', height: '100%', border: 0, position: 'absolute', inset: 0, background: 'transparent', ...(autoHeight ? { height: height, flex: 'none' } : {}) }}
         allow="fullscreen; autoplay; clipboard-read; clipboard-write" />}
   </div>;
 }

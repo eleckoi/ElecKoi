@@ -27,7 +27,7 @@
   },
   "description": "通过 DSH Settings、Credentials 和 Remote 管理模型配置并提供模型选择。",
   "engines": {
-    "dsh": "0.2.1-rc.3"
+    "dsh": "0.2.1-rc.5"
   },
   "eleckoi": {
     "developerInterfaces": [
@@ -53,9 +53,9 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "3.18.5",
-    "@deepseek-ai/dsh-api-remotes": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-api-remotes": "0.2.1-rc.5",
     "@eleckoi/dsh-product-api": "workspace:*",
-    "@deepseek-ai/dsh-settings": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-settings": "0.2.1-rc.5",
     "@deepseek-ai/cordis": "4.0.5"
   }
 }
