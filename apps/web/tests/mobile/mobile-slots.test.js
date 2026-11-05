@@ -47,6 +47,8 @@ describe('Android composition with the shared PC sidebar and locked DSH slots', 
       await ctx.plugin({ name: 'synthetic-studio-root', apply(owner) {
         new renderer.SlotRegistry(owner);
         owner.reflect.provide('sessions', {});
+        owner.reflect.provide('workspaces', {});
+        owner.reflect.provide('uiSession', {});
         owner.reflect.provide('remote', { eleckoiCreatorStudio: {
           list: async () => ({ ok: true, value: { items: [] } }),
           changes: async function* () {},
@@ -55,7 +57,7 @@ describe('Android composition with the shared PC sidebar and locked DSH slots', 
           'eleckoi.creator-studio.conversation': { kind: 'single', scope: 'root' },
         } }, () => null);
       } });
-      await ctx.plugin({ name: 'synthetic-studio-client', inject: ['slots', 'remote', 'sessions'], apply: studio.apply });
+      await ctx.plugin({ name: 'synthetic-studio-client', inject: ['slots', 'remote', 'sessions', 'workspaces'], apply: studio.apply });
       await ctx.plugin({ name: 'synthetic-official-conversation', inject: ['slots'], apply(owner) {
         owner.slots.registerFactory({ name: 'conversation.content', scope: 'session-maybe', children: {
           'conversation.session': { kind: 'single', scope: 'session' },

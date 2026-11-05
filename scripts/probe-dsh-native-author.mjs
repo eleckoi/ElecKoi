@@ -74,11 +74,17 @@ try {
   const config = await first.call('eleckoiCharacterConfiguration/readVariableConfig', { characterId })
   const active = config.versions.filter(version => version.id === config.activeVersionId)
   assert.equal(active.length, 1)
-  const fields = { initialStateJson: '{"value":1}',
+  const fields = { initialStateJson: '{"value":1}', variables: [{ id: 'synthetic-value', title: 'value', objectId: '',
+    enabled: true, type: 'number', defaultValue: '1', description: '', updateRule: '', readMode: 'on_demand',
+    order: 1, treeViewOrder: 1, createdAt: '', updatedAt: '' }],
     schemaCode: 'z.looseObject({value:z.number().min(0)}).transform(state=>({...state,value:state.value+1,derived:state.value*2}))' }
   Object.assign(config, fields)
   Object.assign(active[0], fields)
   await first.call('eleckoiCharacterConfiguration/saveVariableConfig', { characterId, config })
+  const openings = await first.call('eleckoiCharacterConfiguration/readCharacterOpenings', { characterId })
+  await first.call('eleckoiCharacterConfiguration/saveCharacterOpenings', { characterId, value: { ...openings,
+    defaultOpeningMessageId: 'synthetic-native-opening', openingMessages: [{ id: 'synthetic-native-opening',
+      title: 'Synthetic native opening', content: 'Synthetic opening', variableVersionId: config.activeVersionId }] } })
   const chat = await first.call('eleckoiConversations/create', {
     input: { title: 'Synthetic native chat', metadata: { characterId } },
   })

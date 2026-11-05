@@ -105,6 +105,7 @@ describe('DSH subagent runtime context inheritance', () => {
         process.env.DSH_SESSION_ROOT = directory
         const removeResults = vi.fn(async () => {})
         ctx.provide('spillStore', { removeSessionResults: removeResults })
+        ctx.provide('workspaceRegistry', { list: () => [], unpinSession: async () => {}, unarchiveSession: async () => {} })
         applySessionEdit(ctx)
         await ctx.eleckoiSessionEditor.deleteSession(rootId)
         expect(removeResults.mock.calls[0][0].sort()).toEqual([rootId, child.id].sort())

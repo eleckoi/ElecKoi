@@ -66,12 +66,13 @@ async function fixture({ stream } = {}) {
   await ctx.plugin(ElecKoiConversationLifecycle)
   const changes = []
   await ctx.plugin({ name: 'synthetic-roleplay-services',
-    provide: ['sessionController', 'agentDefaultModel', 'agentPresets', 'settings',
+    provide: ['sessionController', 'agentDefaultModel', 'agentPresets', 'settings', 'workspaceRegistry',
       'eleckoiConversationChanges', 'eleckoiCharacterConfigurationChanges'], apply(owner) {
     owner.provide('sessionController', {})
     owner.provide('agentDefaultModel', { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) })
     owner.provide('agentPresets', { register: async () => async () => {} })
     owner.provide('settings', { describe: () => [] })
+    owner.provide('workspaceRegistry', { list: () => [], unpinSession: async () => {}, unarchiveSession: async () => {} })
     const feed = new ConversationChangeFeed()
     const publish = feed.publish.bind(feed)
     feed.publish = change => { changes.push(change); publish(change) }

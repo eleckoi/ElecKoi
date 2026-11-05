@@ -125,12 +125,11 @@ describe('Shipped Host tool-result composition', () => {
     const seeded = data.saveCharacterOpenings(characterId, { ...data.readCharacterOpenings(characterId), enabled: true, defaultOpeningMessageId: 'synthetic-opening-5000',
       openingMessages: Array.from({ length: 10_001 }, (_, index) => ({ id: `synthetic-opening-${index}`, title: `合成开场-${index}`,
         content: `他在开场-${index}。${indexes.includes(index) ? '合成长正文他𠮷'.repeat(20_001) : ''}末尾他-${index}`,
-        variableVersionId: config.activeVersionId, initialVariableStateJson: JSON.stringify({ synthetic: index }) })),
+        variableVersionId: config.activeVersionId })),
     })
     const opening = seeded, desired = opening.openingMessages.map((message, index) => ({ ...message,
       content: message.content.replaceAll('他', '她'),
       variableVersionId: index === 5_000 ? '' : indexes.includes(index) ? variableVersionId : message.variableVersionId,
-      initialVariableStateJson: index === 5_000 ? '{"synthetic":33}' : message.initialVariableStateJson,
     }))
     const studio = await ctx.eleckoiCreatorStudioRuntime.create(characterId)
     const agent = (await ctx.sessionController.resolveAgent(studio.sessionId)).agent
@@ -262,11 +261,14 @@ describe('Shipped Host tool-result composition', () => {
         ] }] })
     const config = data.readVariableConfig(character.id)
     const variables = Array.from({ length: count }, (_, index) => ({ id: `synthetic-variable-${index}`, title: `合成变量-${String(index).padStart(5, '0')}`,
-      objectId: '', enabled: true, type: 'string', defaultValue: JSON.stringify(`合成变量正文-${index}`),
+      objectId: '', enabled: true, type: 'string', defaultValue: `合成变量正文-${index}`,
       description: `合成说明-${index}`, updateRule: `合成更新规则-${index}`, readMode: 'required',
       order: index + 1, treeViewOrder: index, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' }))
     data.saveVariableConfig(character.id, { ...config, variables,
       initialStateJson: JSON.stringify(Object.fromEntries(variables.map((variable, index) => [variable.title, `合成变量正文-${index}`]))) })
+    data.saveCharacterOpenings(character.id, { ...data.readCharacterOpenings(character.id),
+      defaultOpeningMessageId: 'synthetic-bound-opening', openingMessages: [{ id: 'synthetic-bound-opening',
+        title: '合成绑定开场', content: '合成变量开场', variableVersionId: config.activeVersionId }] })
     const copy = data.duplicateCharacter(character.id)
     expect(copy.collection.items).toHaveLength(2)
     character = copy.collection.items.find(item => item.id === copy.characterId)

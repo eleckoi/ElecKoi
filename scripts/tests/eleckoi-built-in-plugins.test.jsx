@@ -64,6 +64,8 @@ function inventory(face) {
         reflect: { provide: () => () => {} },
         slots: {
             provideRoot: () => () => {},
+            subscribe: () => () => {},
+            entries: () => [],
             entriesOfSlot: () => [{ options: { key: 'plugins' }, inject: () => face }],
             inject: (_name, factory) => factory(),
             register: (options, component) => { entries.push({ options, component }); return () => { }; },
@@ -238,7 +240,7 @@ describe('ElecKoi built-in bundle details', () => {
             }, resolveText: (value) => value.zh,
         };
         const slots = {
-            provideRoot: () => () => { }, subscribe: () => () => { }, getVersion: () => 1,
+            provideRoot: () => () => { }, subscribe: () => () => { }, getVersion: () => 1, entries: () => [],
             entriesOfSlot: (name) => name === 'main' ? [{ options: { key: 'plugins' }, inject: () => face }] : [],
             inject: (_name, register) => register(),
             register: (options, component) => { if (options.name === 'root')

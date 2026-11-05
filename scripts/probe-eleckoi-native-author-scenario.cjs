@@ -39,12 +39,18 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   await call('eleckoiAgentPresets/save', { preset: { ...preset, entries: [...preset.entries, ...presetOptions] }, expectedRegexRules: [] })
   await call('eleckoiAgentPresets/setActive', { presetId: preset.id })
   const config = await call('eleckoiCharacterConfiguration/readVariableConfig', { characterId })
-  const fields = { initialStateJson: '{"value":1}',
+  const fields = { initialStateJson: '{"value":1}', variables: [{ id: 'synthetic-value', title: 'value', objectId: '',
+    enabled: true, type: 'number', defaultValue: '1', description: '', updateRule: '', readMode: 'on_demand',
+    order: 1, treeViewOrder: 1, createdAt: '', updatedAt: '' }],
     schemaCode: 'z.looseObject({value:z.number().min(0)}).transform(state=>({...state,value:state.value+1}))' }
   const versions = config.versions.filter(version => version.id === config.activeVersionId)
   assert.equal(versions.length, 1)
   Object.assign(config, fields); Object.assign(versions[0], fields)
   await call('eleckoiCharacterConfiguration/saveVariableConfig', { characterId, config })
+  const openings = await call('eleckoiCharacterConfiguration/readCharacterOpenings', { characterId })
+  await call('eleckoiCharacterConfiguration/saveCharacterOpenings', { characterId, value: { ...openings,
+    defaultOpeningMessageId: 'synthetic-native-opening', openingMessages: [{ id: 'synthetic-native-opening',
+      title: 'Synthetic native opening', content: 'Synthetic opening', variableVersionId: config.activeVersionId }] } })
   const owners = [['global', ''], ['preset', preset.id], ['character', characterId]]
   const scriptPanel = { id: 'synthetic-settings', title: 'Synthetic script settings', html: '<!doctype html><html><head><meta name="eleckoi-author-api" content="0.1.0"></head><body><label>Multiplier <input id="multiplier" type="number"></label><button id="save-settings">Save</button><output id="settings-status"></output><script type="module" src="../panel.js"></script></body></html>' }
   for (const [scope, ownerId] of owners) {

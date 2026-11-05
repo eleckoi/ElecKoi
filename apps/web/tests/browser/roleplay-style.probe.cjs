@@ -1,6 +1,6 @@
 const { app, BrowserWindow } = require('electron');
 const { writeFileSync, mkdirSync, readFileSync } = require('node:fs');
-const { join, dirname, resolve } = require('node:path');
+const { join, dirname } = require('node:path');
 const [html, report, screenshots] = process.argv.slice(2);
 app.setPath('userData', join(dirname(html), 'profile'));
 app.commandLine.appendSwitch('force-device-scale-factor', '1');
@@ -55,7 +55,7 @@ app.whenReady().then(async () => {
     // This catches stacked wallpaper washes that computed deck colors alone miss.
     win.setContentSize(1760, 1090);
     await run('roleplayStyleFixture.setMobileChat(false)'); await settle();
-    const approvedCss = readFileSync(resolve('docs/design/roleplay-backdrop/prototype.css'), 'utf8');
+    const approvedCss = readFileSync(join(__dirname, 'fixtures/roleplay-material.css'), 'utf8');
     const materials = [];
     const pixel = async point => {
       const bytes = (await win.webContents.capturePage({ x: Math.round(point.x), y: Math.round(point.y), width: 1, height: 1 })).toBitmap();
