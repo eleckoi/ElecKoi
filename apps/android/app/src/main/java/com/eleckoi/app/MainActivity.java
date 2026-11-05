@@ -454,7 +454,6 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         status.setText(clientStartupDiagnostics.failure(error)); runtimePanel.setVisibility(View.VISIBLE);
     }); }
     private void showDiagnostics() {
-        if(!diagnostics.enabled()) { showHostDiagnostics(); return; }
         if(diagnosticsDialog!=null) return;
         ScrollView scrolling = new ScrollView(this); TextView text = new TextView(this); text.setTextIsSelectable(true);
         text.setTextSize(13); text.setLineSpacing(dp(3), 1f); text.setPadding(dp(16), dp(12), dp(16), dp(12));
@@ -476,20 +475,6 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         diagnosticsDialog.setOnShowListener(dialog -> themeDiagnosticsDialog());
         diagnosticsDialog.setOnDismissListener(dialog -> diagnosticsDialog = null);
         diagnosticsDialog.show();
-    }
-    private void showHostDiagnostics() {
-        if(diagnosticsDialog!=null) return;
-        HostRuntimeService.Snapshot value=runtime==null?null:runtime.snapshot();
-        ScrollView scrolling=new ScrollView(this); TextView text=new TextView(this); text.setTextIsSelectable(true);
-        text.setTextSize(13); text.setLineSpacing(dp(3),1f); text.setPadding(dp(16),dp(12),dp(16),dp(12));
-        text.setText(value==null?status.getText():(clientStartupFailure.isEmpty()?clientStartupDiagnostics.details():status.getText())
-            +"\n\n"+value.phase+"\n"+value.message+"\n\n"+value.diagnostic); scrolling.addView(text);
-        TextView title=new TextView(this); title.setText("本地 Host 运行详情"); title.setTextSize(17);
-        title.setTypeface(null,android.graphics.Typeface.BOLD); title.setPadding(dp(16),dp(16),dp(16),dp(8));
-        diagnosticsDialog=new AlertDialog.Builder(this).setCustomTitle(title).setView(scrolling)
-            .setPositiveButton("关闭",null).setNeutralButton("停止 Host",(dialog,which)->startRuntime(HostRuntimeService.STOP)).create();
-        diagnosticsDialog.setOnShowListener(dialog->themeDiagnosticsDialog());
-        diagnosticsDialog.setOnDismissListener(dialog->diagnosticsDialog=null); diagnosticsDialog.show();
     }
     private RuntimeDiagnostics.Record diagnosticMetadata() {
         RuntimeDiagnostics.Record result=diagnostics.environment();

@@ -13,10 +13,16 @@ import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
-/** Low-frequency sampling and off-main-thread diagnostic storage/export. */
+/**
+ * Low-frequency sampling and off-main-thread diagnostic storage/export.
+ *
+ * 两个变体都启用（ADR 0031，2026-11-05 修订）：以前只有兼容版启动采集，报告功能因此把标准版
+ * 排除在外（ADR 0041 决定 8）。现在标准版与兼容版记录同一套事实——会话标记、页面异常、
+ * 返回阶段、卡死看门狗、内存记录——报告在两版同形。代价只在窗口可见时付出（`visible`），
+ * 存储仍受 RuntimeDiagnostics 的四段轮转上限约束。
+ */
 final class AndroidDiagnostics {
     private final Context context;
-    private final boolean enabled="compat".equals(BuildConfig.BROWSER_VARIANT);
     private final RuntimeDiagnostics store;
     private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -33,7 +39,6 @@ final class AndroidDiagnostics {
     AndroidDiagnostics(Context context) {
         this.context = context;
         store = new RuntimeDiagnostics(new File(context.getFilesDir(), "runtime-diagnostics"));
-        if(!enabled) return;
         // 先把上一次会话的尾巴读出来，再写本次标记——顺序反了就永远读到「自己」。
         classify(store.recent(REPORT_EVENTS * 2));
         record(new RuntimeDiagnostics.Record().with("kind", "session").with("stage", "started").with("id", sessionId));
@@ -48,10 +53,9 @@ final class AndroidDiagnostics {
         });
         record(environment().with("kind", "process-start"));
     }
-    boolean enabled() { return enabled; }
-    void record(JSONObject event) { if(enabled) store.record(event); }
+    void record(JSONObject event) { store.record(event); }
     void event(String kind, String stage) { record(new RuntimeDiagnostics.Record().with("kind", kind).with("stage", stage)); }
-    void visible(boolean value) { if(!enabled) return; visible = value; event("activity", value ? "resume" : "pause"); }
+    void visible(boolean value) { visible = value; event("activity", value ? "resume" : "pause"); }
     private void sample() {
         if (!visible) { pendingBeat = 0; return; }
         long now = SystemClock.elapsedRealtime();
@@ -111,7 +115,7 @@ final class AndroidDiagnostics {
     }
     /** 正常退出时补一个结束标记；强杀 / 崩溃时这一行不会出现。 */
     void sessionEnd() {
-        if (!enabled || sessionEnded) return;
+        if (sessionEnded) return;
         sessionEnded = true;
         record(new RuntimeDiagnostics.Record().with("kind", "session").with("stage", "ended").with("id", sessionId));
         try { store.flush(); } catch (Exception ignored) { }
@@ -120,10 +124,9 @@ final class AndroidDiagnostics {
      * Bug 报告要的原始事实：环境、上次会话、最近事件、投递配置。
      *
      * 只给数据，不拼报告——脱敏、折叠与正文都在共享契约（TS）里，一份实现。
-     * 诊断没开启的变体返回 {@code {"available":false}}，界面据此不显示入口。
+     * 读不到时返回 {@code {"available":false}}（桥据此不显示入口）。
      */
     String bugReportFacts() {
-        if (!enabled) return "{\"available\":false}";
         try {
             JSONArray events = new JSONArray();
             for (String line : store.recent(REPORT_EVENTS)) events.put(line);
@@ -158,5 +161,5 @@ final class AndroidDiagnostics {
                 .toString();
         } catch (Exception failure) { return "{\"available\":false}"; }
     }
-    void flushSoon() { if(enabled && flushQueued.compareAndSet(false,true)) worker.execute(()->{ try { store.flush(); } finally { flushQueued.set(false); } }); }
+    void flushSoon() { if(flushQueued.compareAndSet(false,true)) worker.execute(()->{ try { store.flush(); } finally { flushQueued.set(false); } }); }
 }
