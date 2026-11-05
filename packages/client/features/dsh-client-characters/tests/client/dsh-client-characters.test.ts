@@ -73,6 +73,9 @@ describe('DSH ElecKoi character client model', () => {
     return { catalog, remoteExport, document, blobs, anchors, timers, revoke }
   }
 
+  // 这条用例真的搬 10001 条、每条 60 字符的数据走一遍导出：造 JSON、base64 解码、再把
+  // ArrayBuffer 逐字节比回来。Windows 上跑不完默认的 5 秒（CI 实测超时），所以显式给足时间；
+  // 断言一条没放宽。
   it.each(['png', 'json'])('hands the actual %s bytes and filename to the desktop browser download', async format => {
     const test = exportCatalog()
     const bytes = format === 'png' ? Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 255, 0, 128])
@@ -92,7 +95,7 @@ describe('DSH ElecKoi character client model', () => {
     expect(test.revoke).not.toHaveBeenCalled()
     test.timers.forEach(callback => callback())
     expect(test.revoke).toHaveBeenCalledWith('blob:synthetic/1')
-  })
+  }, 30000)
 
   it('waits for Android native saving before starting another card or reporting success', async () => {
     let finish!: (result: unknown) => void

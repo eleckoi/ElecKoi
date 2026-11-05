@@ -557,8 +557,15 @@
 .setting-library-inspector-header button,
 .setting-library-opening-tools button {
   display: grid;
+  /* 官方 Button 自带 `padding: 0 14px` 和描边，光给 28px 宽会被内边距撑成 30×28，
+     图标按钮就不再是方的；这里把盒子明确钉住。 */
+  box-sizing: border-box;
+  flex: none;
   width: 28px;
   height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
   place-items: center;
   color: var(--dsw-alias-label-tertiary, var(--soft-text));
   border-radius: 6px;
