@@ -5,27 +5,27 @@
   "packages": [
     {
       "name": "ca-certificates",
-      "version": "20260601~24.04.1",
+      "version": "20260816ubuntu0.24.04.1",
       "architecture": "all",
-      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/c/ca-certificates/ca-certificates_20260601~24.04.1_all.deb",
-      "file": "ca-certificates_20260601~24.04.1_all.deb",
-      "sha256": "6bac2a01979e210d9eac1d4d56747ec709ea60654744d66705dc3c36e7629e50"
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/c/ca-certificates/ca-certificates_20260816ubuntu0.24.04.1_all.deb",
+      "file": "ca-certificates_20260816ubuntu0.24.04.1_all.deb",
+      "sha256": "8a0a754aaafed72cc8efb8c1731808133284a84fbfc76a4fcc73fce9e01b4187"
     },
     {
       "name": "git",
-      "version": "1:2.43.0-1ubuntu7.3",
+      "version": "1:2.43.0-1ubuntu7.4",
       "architecture": "arm64",
-      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/g/git/git_2.43.0-1ubuntu7.3_arm64.deb",
-      "file": "git_2.43.0-1ubuntu7.3_arm64.deb",
-      "sha256": "db7f9a9a06a5dd6d6d5bd4bc3b14a2a0f0aaf0cc48f6e096e7ba3f4db63503ee"
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/g/git/git_2.43.0-1ubuntu7.4_arm64.deb",
+      "file": "git_2.43.0-1ubuntu7.4_arm64.deb",
+      "sha256": "b46ef5ad7292f8ae69a7ec18c05e5b40f6c1fca837df2ce4b05b05bd46c9dc2b"
     },
     {
       "name": "git-man",
-      "version": "1:2.43.0-1ubuntu7.3",
+      "version": "1:2.43.0-1ubuntu7.4",
       "architecture": "all",
-      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/g/git/git-man_2.43.0-1ubuntu7.3_all.deb",
-      "file": "git-man_2.43.0-1ubuntu7.3_all.deb",
-      "sha256": "5701f931ed2cd30644700b0fc1cda7c2214f93a63ef84c0c80e43ce40d2cf1d2"
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/g/git/git-man_2.43.0-1ubuntu7.4_all.deb",
+      "file": "git-man_2.43.0-1ubuntu7.4_all.deb",
+      "sha256": "77f57651734edc24b5a9e7863bc261bf302060ac3c12bbb08a459966ea4d30a6"
     },
     {
       "name": "libbrotli1",
@@ -53,11 +53,11 @@
     },
     {
       "name": "libcurl3t64-gnutls",
-      "version": "8.5.0-2ubuntu10.15",
+      "version": "8.5.0-2ubuntu10.16",
       "architecture": "arm64",
-      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/c/curl/libcurl3t64-gnutls_8.5.0-2ubuntu10.15_arm64.deb",
-      "file": "libcurl3t64-gnutls_8.5.0-2ubuntu10.15_arm64.deb",
-      "sha256": "e5c4b45db8d0545e115119a5296b81f87c3f8f353c7976cd2f257d39d69ef68c"
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/c/curl/libcurl3t64-gnutls_8.5.0-2ubuntu10.16_arm64.deb",
+      "file": "libcurl3t64-gnutls_8.5.0-2ubuntu10.16_arm64.deb",
+      "sha256": "057490ffc9901df7fe09913e381442fc7615bb972a1dc4198e38bcf840447e77"
     },
     {
       "name": "libedit2",
@@ -213,11 +213,11 @@
     },
     {
       "name": "openssh-client",
-      "version": "1:9.6p1-3ubuntu13.19",
+      "version": "1:9.6p1-3ubuntu13.20",
       "architecture": "arm64",
-      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/o/openssh/openssh-client_9.6p1-3ubuntu13.19_arm64.deb",
-      "file": "openssh-client_9.6p1-3ubuntu13.19_arm64.deb",
-      "sha256": "86e6f8b847293b7e9d8895f5fc698b72dea1cf58ecc9312e588b64cf73e6f247"
+      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/o/openssh/openssh-client_9.6p1-3ubuntu13.20_arm64.deb",
+      "file": "openssh-client_9.6p1-3ubuntu13.20_arm64.deb",
+      "sha256": "dd4d13da0e74697b4827073e1f2769ea7ca6031add96220111f2d1d955b06a0d"
     },
     {
       "name": "openssl",
