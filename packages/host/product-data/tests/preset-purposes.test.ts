@@ -19,6 +19,8 @@ function open(path?: string) {
 }
 
 describe('preset purposes', () => {
+  // 这条用例真的开两次 SQLite、跑完整迁移链（v13 → 当前版本）再逐表校验完整性。
+  // 本地 0.4s，Windows CI 的慢盘会在默认 5s 上偶发超时——给足时间，断言不动。
   it('upgrades the original default Creator capabilities from v13 while retaining custom presets and global selection', () => {
     const f = open(), seeded = f.repository.active('creator')
     const custom = f.repository.create('Synthetic custom creation', '', 'creator')
@@ -40,7 +42,7 @@ describe('preset purposes', () => {
     expect(next.store.native.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
     expect(next.store.native.pragma('foreign_key_check')).toEqual([])
     expect(next.store.native.pragma('integrity_check', { simple: true })).toBe('ok')
-  })
+  }, 30000)
   it('keeps defaults, groups and global selections independent', () => {
     const { repository } = open()
     const original = repository.active()
