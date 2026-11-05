@@ -20,6 +20,9 @@ import java.util.function.Consumer;
  * 排除在外（ADR 0041 决定 8）。现在标准版与兼容版记录同一套事实——会话标记、页面异常、
  * 返回阶段、卡死看门狗、内存记录——报告在两版同形。代价只在窗口可见时付出（`visible`），
  * 存储仍受 RuntimeDiagnostics 的四段轮转上限约束。
+ *
+ * 内存采样 2026-11-05 再收窄：每秒一次的卡死看门狗照旧，但 `memory()` 只在系统报告内存吃紧、
+ * 堆逼近上限或较上次落盘明显增长时写一条——日志本身就是主要证据，每分钟一条内存快照只会撑长报告。
  */
 final class AndroidDiagnostics {
     private final Context context;
@@ -32,6 +35,11 @@ final class AndroidDiagnostics {
     private final java.util.concurrent.atomic.AtomicBoolean flushQueued=new java.util.concurrent.atomic.AtomicBoolean();
     /** Bug 报告一次带多少条最近事件。 */
     private static final int REPORT_EVENTS = 200;
+    /** 内存什么时候值得落盘：堆逼近上限，或较上次落盘涨了这么多。 */
+    private static final int HEAP_PRESSURE_PERCENT = 80;
+    private static final long HEAP_GROWTH_BYTES = 32L * 1024 * 1024;
+    private boolean memoryBaselineSet;
+    private long lastHeapBytes;
     private final String sessionId = UUID.randomUUID().toString();
     private volatile long previousStartMillis;
     private volatile boolean previousEnded = true;
@@ -76,8 +84,19 @@ final class AndroidDiagnostics {
         ActivityManager.MemoryInfo memory = new ActivityManager.MemoryInfo();
         ((ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryInfo(memory);
         Runtime runtime = Runtime.getRuntime();
-        record(new RuntimeDiagnostics.Record().with("kind", "memory").with("heapBytes", runtime.totalMemory() - runtime.freeMemory())
+        long heapBytes = runtime.totalMemory() - runtime.freeMemory();
+        long maxBytes = runtime.maxMemory();
+        if (!memoryBaselineSet) { memoryBaselineSet = true; lastHeapBytes = heapBytes; return; } // 首个采样只立增长基线，不落盘
+        if (!memoryWorthRecording(memory.lowMemory, heapBytes, maxBytes, lastHeapBytes)) return;
+        lastHeapBytes = heapBytes;
+        record(new RuntimeDiagnostics.Record().with("kind", "memory").with("heapBytes", heapBytes).with("heapMaxBytes", maxBytes)
             .with("pssKb", Debug.getPss()).with("availableBytes", memory.availMem).with("lowMemory", memory.lowMemory));
+    }
+    /** 落盘判定单独成纯函数：本类构造要真 Context，JVM 单测只能覆盖这里。 */
+    static boolean memoryWorthRecording(boolean lowMemory, long heapBytes, long maxBytes, long previousHeapBytes) {
+        if (lowMemory) return true;
+        if (maxBytes > 0 && heapBytes * 100 >= maxBytes * HEAP_PRESSURE_PERCENT) return true;
+        return previousHeapBytes > 0 && heapBytes - previousHeapBytes >= HEAP_GROWTH_BYTES;
     }
     RuntimeDiagnostics.Record environment() {
         return new RuntimeDiagnostics.Record().with("variant", BuildConfig.BROWSER_VARIANT).with("version", BuildConfig.VERSION_NAME).with("versionCode", BuildConfig.VERSION_CODE)
