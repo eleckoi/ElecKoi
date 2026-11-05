@@ -555,83 +555,93 @@ export function BugReportDialog({ open, onClose, onNotify }) {
         <h2 id={titleId}>报告问题</h2>
         <p id={descriptionId}>报告里只有版本、失败和你要带上的日志尾；发送前可以自己删改。</p>
 
-        {pendingDrafts.length ? (
-          <section className="bug-report-draft" aria-label="上次没发出去的报告">
-            <p>
-              {pendingDrafts.length > 1
-                ? `上次有 ${pendingDrafts.length} 份没送出去的报告，先送出最新一份吗？`
-                : `上次有 ${pendingDrafts.length} 份没送出去的报告，要现在送出去吗？`}
-            </p>
-            <div className="bug-report-draft-actions">
-              {/* 预览没到就没有 delivery，重发会静默跳过表单通道；先禁用。 */}
-              <button type="button" disabled={busy || preview === null} onClick={resendDraft}>重新送出</button>
-              <button type="button" disabled={busy} onClick={discardDraft}>丢弃</button>
-            </div>
-          </section>
-        ) : null}
+        {/*
+          正文区单独滚动：对话框有 max-height，长失败诊断 + 展开的全文很容易超出一屏。
+          以前没有这个容器，`.bug-report-failures` 被 flex 压扁后它的 <ul> 会盖到下面的
+          复选框和备注框上（2026-11-05 Windows 验收实测）。提示与按钮留在滚动区外，
+          这样失败/成功反馈永远可见。
+        */}
+        <div className="bug-report-body">
 
-        {report ? (
-          <>
-            <dl className="bug-report-summary">
-              <div>
-                <dt>版本</dt>
-                <dd>{report.environment.appVersion} · {PLATFORM_LABELS[report.environment.platform] || report.environment.platform} · {report.environment.arch}</dd>
+          {pendingDrafts.length ? (
+            <section className="bug-report-draft" aria-label="上次没发出去的报告">
+              <p>
+                {pendingDrafts.length > 1
+                  ? `上次有 ${pendingDrafts.length} 份没送出去的报告，先送出最新一份吗？`
+                  : `上次有 ${pendingDrafts.length} 份没送出去的报告，要现在送出去吗？`}
+              </p>
+              <div className="bug-report-draft-actions">
+                {/* 预览没到就没有 delivery，重发会静默跳过表单通道；先禁用。 */}
+                <button type="button" disabled={busy || preview === null} onClick={resendDraft}>重新送出</button>
+                <button type="button" disabled={busy} onClick={discardDraft}>丢弃</button>
               </div>
-              <div>
-                <dt>上次会话</dt>
-                <dd className={report.session.ended ? "" : "is-warning"}>
-                  {report.session.ended ? "正常结束" : "异常结束（可能是崩溃）"}
-                </dd>
-              </div>
-            </dl>
-
-            <section className="bug-report-failures" aria-label="失败">
-              <h3>失败（{report.failures.length}）</h3>
-              {report.failures.length ? (
-                <ul>
-                  {report.failures.map((failure) => (
-                    <li key={failure.code}>
-                      <code>{failure.code}</code>
-                      <span>{failure.message}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>没有记录到失败行。</p>
-              )}
             </section>
+          ) : null}
 
-            <label className="bug-report-toggle">
-              <input type="checkbox" checked={includeLogTail} disabled={busy} onChange={toggleLogTail} />
-              <span>附带最近的日志尾（已脱敏）</span>
-            </label>
+          {report ? (
+            <>
+              <dl className="bug-report-summary">
+                <div>
+                  <dt>版本</dt>
+                  <dd>{report.environment.appVersion} · {PLATFORM_LABELS[report.environment.platform] || report.environment.platform} · {report.environment.arch}</dd>
+                </div>
+                <div>
+                  <dt>上次会话</dt>
+                  <dd className={report.session.ended ? "" : "is-warning"}>
+                    {report.session.ended ? "正常结束" : "异常结束（可能是崩溃）"}
+                  </dd>
+                </div>
+              </dl>
 
-            {report.session.ended === false && includeLogTail ? (
-              <p className="bug-report-hint">{CRASH_LOG_TAIL_NOTICE}</p>
-            ) : null}
+              <section className="bug-report-failures" aria-label="失败">
+                <h3>失败（{report.failures.length}）</h3>
+                {report.failures.length ? (
+                  <ul>
+                    {report.failures.map((failure) => (
+                      <li key={failure.code}>
+                        <code>{failure.code}</code>
+                        <span>{failure.message}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>没有记录到失败行。</p>
+                )}
+              </section>
 
-            <label className="bug-report-notes">
-              <span>补充说明（可选）</span>
-              <textarea
-                rows={3}
-                maxLength={2000}
-                value={notes}
-                disabled={busy}
-                placeholder="当时在做什么？点了什么之后出现的？"
-                onChange={(event) => setNotes(event.target.value)}
-              />
-            </label>
-          </>
-        ) : (
-          <p className="bug-report-loading" role="status">{error ? "报告没准备好。" : "正在收集…"}</p>
-        )}
+              <label className="bug-report-toggle">
+                <input type="checkbox" checked={includeLogTail} disabled={busy} onChange={toggleLogTail} />
+                <span>附带最近的日志尾（已脱敏）</span>
+              </label>
 
-        {report ? (
-          <details className="bug-report-preview">
-            <summary>查看将要发送的全文</summary>
-            <pre>{formatBugReportBody(report, letterOf(delivery))}</pre>
-          </details>
-        ) : null}
+              {report.session.ended === false && includeLogTail ? (
+                <p className="bug-report-hint">{CRASH_LOG_TAIL_NOTICE}</p>
+              ) : null}
+
+              <label className="bug-report-notes">
+                <span>补充说明（可选）</span>
+                <textarea
+                  rows={3}
+                  maxLength={2000}
+                  value={notes}
+                  disabled={busy}
+                  placeholder="当时在做什么？点了什么之后出现的？"
+                  onChange={(event) => setNotes(event.target.value)}
+                />
+              </label>
+            </>
+          ) : (
+            <p className="bug-report-loading" role="status">{error ? "报告没准备好。" : "正在收集…"}</p>
+          )}
+
+          {report ? (
+            <details className="bug-report-preview">
+              <summary>查看将要发送的全文</summary>
+              <pre>{formatBugReportBody(report, letterOf(delivery))}</pre>
+            </details>
+          ) : null}
+
+        </div>
 
         {error ? <p className="bug-report-error" role="alert">{error}</p> : null}
         {notice ? <p className="bug-report-notice" role="status">{notice}</p> : null}

@@ -17,11 +17,36 @@
   width: min(560px, calc(100vw - 48px));
   max-height: min(82vh, 720px);
   padding: 26px 24px 20px;
+  overflow: hidden;
   color: var(--text);
   background: var(--chat);
   border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
   border-radius: 16px;
   box-shadow: 0 18px 48px rgb(0 0 0 / 18%);
+}
+
+/*
+ * 正文区单独滚动。
+ *
+ * 对话框有 max-height，而内容会超出：一条失败诊断就可能好几行（原生模块 ABI 报错那种），
+ * 再加上展开的全文预览。以前没有这层容器，`.bug-report-failures` 作为 flex 子项被压扁
+ * （它带着 `min-height: 0`），它的 <ul> 不跟着缩，于是直接盖在下面的日志尾复选框与备注框上
+ * （2026-11-05 Windows 实机验收看到）。修法有两半：这里给正文一个滚动容器，下面
+ * `.bug-report-body > *` 一律 `flex: none`，让子项保持自然高度、由容器滚动，而不是被压缩。
+ * 提示与按钮留在容器外，失败/成功反馈始终可见。
+ */
+.bug-report-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 2px;
+  padding-right: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.bug-report-body > * {
+  flex: none;
 }
 
 .bug-report-close {
@@ -95,7 +120,6 @@
 }
 
 .bug-report-failures {
-  min-height: 0;
   margin-top: 14px;
 }
 
@@ -108,10 +132,8 @@
 }
 
 .bug-report-failures ul {
-  max-height: 168px;
   margin: 0;
   padding: 0;
-  overflow-y: auto;
   list-style: none;
 }
 
