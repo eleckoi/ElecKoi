@@ -781,7 +781,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         public void appearance(String mode, String surface) { runOnUiThread(() -> applyAppearance("dark".equals(mode), surface)); }
         public String version() { return "1"; }
     }
-    @Override public boolean onCreateOptionsMenu(Menu menu) { menu.add("Host 运行详情").setOnMenuItemClickListener(item -> { showDiagnostics(); return true; }); return true; }
+    @Override public boolean onCreateOptionsMenu(Menu menu) { menu.add("运行诊断").setOnMenuItemClickListener(item -> { showDiagnostics(); return true; }); return true; }
     @Override public void onBackPressed() {
         if (web == null || clientReadyUrl.isEmpty()) { super.onBackPressed(); return; }
         browserCommand("back", new JSONObject(), consumed -> {
