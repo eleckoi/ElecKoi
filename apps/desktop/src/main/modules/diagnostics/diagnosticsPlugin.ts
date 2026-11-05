@@ -47,7 +47,8 @@ import { assertTrustedDshClientFrame } from '@main/platform/electron/validateSen
 import { handleDesktopIpcCall } from '@main/platform/electron/desktopIpcHandler'
 import { logAction } from '@main/platform/logging/logActions'
 import { buildBugReport } from './bugReportCollection'
-import { readReportConfig } from './bundledReportConfig'
+import { readReportConfig, refreshRemoteReportConfig } from './bundledReportConfig'
+import { bestEffort } from '@shared/foundation/swallowedFailure'
 import { bugReportOpenFailure, isConfiguredFormTarget } from './reportOpen'
 import { errorTextOf } from './failureText'
 import {
@@ -71,8 +72,11 @@ export const diagnosticsPlugin = {
     const appLog = ctx.appLog
     const userData = ctx.appPaths.userData
     const windows = ctx.electronWindows
-    const delivery = readReportConfig()
+    // 投递配置每次现读：远程配置（可选）刷新完，下一次预览就该用新的。
+    const deliveryOf = (): ReturnType<typeof readReportConfig> => readReportConfig(process.env, userData)
     const draftDirectory = pendingDraftDirectory(userData)
+    // 远程配置只在配了 `configUrl` 时才联网；失败静默，报告功能不依赖网络（ADR 0041 决定 16 修订）。
+    void refreshRemoteReportConfig({ userData }).catch(bestEffort)
 
     const assertSender = (event: Electron.IpcMainInvokeEvent): void => assertTrustedDshClientFrame(
       event.sender,
@@ -108,7 +112,7 @@ export const diagnosticsPlugin = {
       const parsed = previewRequestOf(request)
       logAction(appLog, LOG_ACTIONS.bugReportPreview, 'start')
       try {
-        const preview: BugReportPreview = { report: collect(parsed), delivery }
+        const preview: BugReportPreview = { report: collect(parsed), delivery: deliveryOf() }
         logAction(appLog, LOG_ACTIONS.bugReportPreview, 'success')
         return preview
       } catch (error) {
@@ -155,7 +159,7 @@ export const diagnosticsPlugin = {
       }
       // 形状校验只说明「是个 http(s) 地址」；表单通道还要是配置里那一个端点，否则主进程的
       // `openExternal` 就成了「渲染层想开什么就开什么」。
-      if (target.kind === 'form' && !isConfiguredFormTarget(target.url, delivery.form?.shareUrl)) {
+      if (target.kind === 'form' && !isConfiguredFormTarget(target.url, deliveryOf().form?.shareUrl)) {
         throw new DesktopError(ELECKOI_FAILURE_CODES.contractInvalidRequest,
           '报告投递地址不合合同：表单通道只允许打开配置里的表单端点。', {
             issues: [{
@@ -179,6 +183,7 @@ export const diagnosticsPlugin = {
     handleDesktopIpcCall(DESKTOP_SHELL_IPC.bugReportSend, async (event, request) => {
       assertSender(event)
       const parsed = previewRequestOf(request)
+      const delivery = deliveryOf()
       const relay = delivery.relay
       if (relay === undefined) {
         throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady,

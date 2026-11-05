@@ -11,5 +11,9 @@
   "mailbox": "",
   "mailboxName": "",
   "subscribeUrl": "",
-  "repository": ""
+  "repository": "",
+  "formHosts": [
+    "feishu.cn"
+  ],
+  "configUrl": ""
 }

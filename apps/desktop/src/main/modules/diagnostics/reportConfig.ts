@@ -25,6 +25,7 @@ import {
   BUG_REPORT_SUBSCRIBE_URL_ENV,
   readBugReportRelay
 } from './reportDelivery'
+import { BUG_REPORT_CONFIG_URL_ENV, DEFAULT_FORM_HOSTS } from './remoteReportConfig'
 
 /** 随应用打包的配置文件名（`apps/desktop/resources/` 下；`electron-builder.yml` 的 `resources/**` 通配自动进 asar）。 */
 export const BUG_REPORT_CONFIG_FILE_NAME = 'bug-report.json'
@@ -52,6 +53,15 @@ export interface BugReportConfigInput {
   readonly environment: Readonly<Record<string, string | undefined>>
 }
 
+/** 配置解析的全部结果：投递配置 + 远程配置要用的两样东西。 */
+export interface BugReportConfigSources {
+  readonly delivery: BugReportDeliveryConfig
+  /** 远程配置地址；没配或不是 https 就是 `undefined`。 */
+  readonly configUrl: string | undefined
+  /** 允许的表单分享链接主机后缀（远程配置不能扩权，见 `remoteReportConfig.ts`）。 */
+  readonly formHosts: readonly string[]
+}
+
 /**
  * 解析内置配置 + 环境变量覆盖，得到投递配置。
  *
@@ -61,8 +71,33 @@ export interface BugReportConfigInput {
  * @returns 投递配置；空字符串表示该通道未配置。
  */
 export function parseBugReportConfig(input: BugReportConfigInput): BugReportDeliveryConfig {
+  return parseBugReportConfigSources(input).delivery
+}
+
+/**
+ * 配置解析的全部结果：投递配置 + 远程配置要用的两样东西。
+ *
+ * `configUrl` 与 `formHosts` **只从内置文件与环境变量来**——远程配置改不了自己的地址，也扩不了
+ * 允许的表单主机（ADR 0041 决定 16 修订）。
+ *
+ * @param input - 文件原文与环境变量。
+ * @returns 投递配置、远程配置地址、允许的表单主机后缀。**永不抛。**
+ */
+export function parseBugReportConfigSources(input: BugReportConfigInput): BugReportConfigSources {
   const file = input.fileText === undefined ? {} : parseJsonObject(input.fileText)
   const environment = input.environment
+  return {
+    delivery: deliveryOf(file, environment),
+    configUrl: configUrlOf(file.configUrl, environment),
+    formHosts: formHostsOf(file.formHosts)
+  }
+}
+
+/** 解析内置配置 + 环境变量覆盖，得到投递配置（不含远程配置那两样）。 */
+function deliveryOf(
+  file: Readonly<Record<string, unknown>>,
+  environment: Readonly<Record<string, string | undefined>>
+): BugReportDeliveryConfig {
   const form = formOf(file.form, environment)
   const relay = readBugReportRelay(environment)
   const mailboxName = override(environment, BUG_REPORT_MAILBOX_NAME_ENV, file.mailboxName)
@@ -105,6 +140,29 @@ function formOf(
   if (!isBugReportFormConfig(candidate)) return undefined
   if (!isHttpUrl(candidate.shareUrl)) return undefined
   return candidate
+}
+
+/**
+ * 远程配置地址：只接受 https；空串（或不是 https）一律当「没配」。
+ *
+ * 这里刻意不做「远程配置自己改地址」：下一次拉哪个地址只由内置文件与环境变量决定。
+ */
+function configUrlOf(
+  fileValue: unknown,
+  environment: Readonly<Record<string, string | undefined>>
+): string | undefined {
+  const value = override(environment, BUG_REPORT_CONFIG_URL_ENV, fileValue)
+  return /^https:\/\/\S/i.test(value) ? value : undefined
+}
+
+/** 允许的表单主机后缀；没配或全空就用默认值（`feishu.cn`）。 */
+function formHostsOf(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) return DEFAULT_FORM_HOSTS
+  const hosts = value
+    .filter((item): item is string => typeof item === 'string')
+    .map(item => item.trim().toLowerCase())
+    .filter(item => item !== '')
+  return hosts.length === 0 ? DEFAULT_FORM_HOSTS : hosts
 }
 
 /**

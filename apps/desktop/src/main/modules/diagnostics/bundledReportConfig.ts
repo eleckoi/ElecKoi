@@ -17,7 +17,18 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { app } from 'electron'
 import type { BugReportDeliveryConfig } from '@shared/contracts/bugReport/delivery'
-import { BUG_REPORT_CONFIG_FILE_NAME, parseBugReportConfig } from './reportConfig'
+import {
+  BUG_REPORT_CONFIG_FILE_NAME,
+  parseBugReportConfigSources,
+  type BugReportConfigSources
+} from './reportConfig'
+import {
+  BUG_REPORT_REMOTE_CONFIG_REFRESH_MS,
+  fetchRemoteForm,
+  readCachedRemoteForm,
+  withPreferredForm,
+  writeCachedRemoteForm
+} from './remoteReportConfig'
 
 /**
  * 读内置配置文件的原文。
@@ -39,9 +50,61 @@ export function readBundledReportConfigText(): string | undefined {
  * @returns 投递配置。**永不抛**：配置坏了就按「未配置」降级。
  */
 export function readReportConfig(
-  environment: NodeJS.ProcessEnv = process.env
+  environment: NodeJS.ProcessEnv = process.env,
+  userData: string = app.getPath('userData')
 ): BugReportDeliveryConfig {
-  return parseBugReportConfig({ fileText: readBundledReportConfigText(), environment })
+  const sources = readSources(environment)
+  const cached = readCachedRemoteForm(remoteConfigDirectory(userData), sources.formHosts)
+  return withPreferredForm(sources.delivery, cached?.form, sources.formHosts)
+}
+
+/**
+ * 后台刷新一次远程配置（可选通道，ADR 0041 决定 16 修订）。
+ *
+ * 同一进程里同时只跑一次；缓存还新鲜就跳过；任何失败都静默——**报告功能不依赖网络**。
+ *
+ * @param options - 环境变量、应用数据目录与当前时刻（用例传固定值）。
+ * @returns 刷新结束的 Promise；没配 `configUrl` 时立即结束。
+ */
+export function refreshRemoteReportConfig(
+  options: {
+    readonly environment?: NodeJS.ProcessEnv
+    readonly userData?: string
+    readonly now?: Date
+  } = {}
+): Promise<void> {
+  if (inFlight !== undefined) return inFlight
+  inFlight = refreshNow(options).finally(() => {
+    inFlight = undefined
+  })
+  return inFlight
+}
+
+let inFlight: Promise<void> | undefined
+
+async function refreshNow(options: {
+  readonly environment?: NodeJS.ProcessEnv
+  readonly userData?: string
+  readonly now?: Date
+}): Promise<void> {
+  const sources = readSources(options.environment ?? process.env)
+  if (sources.configUrl === undefined) return
+  const directory = remoteConfigDirectory(options.userData ?? app.getPath('userData'))
+  const now = options.now ?? new Date()
+  const cached = readCachedRemoteForm(directory, sources.formHosts)
+  if (cached !== undefined && now.getTime() - Date.parse(cached.fetchedAt) < BUG_REPORT_REMOTE_CONFIG_REFRESH_MS) return
+  const remote = await fetchRemoteForm(sources.configUrl, sources.formHosts)
+  if (remote !== undefined) writeCachedRemoteForm(directory, remote, now)
+}
+
+/** 内置文件 + 环境变量 → 投递配置与远程配置要的两样东西。 */
+function readSources(environment: NodeJS.ProcessEnv): BugReportConfigSources {
+  return parseBugReportConfigSources({ fileText: readBundledReportConfigText(), environment })
+}
+
+/** 远程配置缓存与草稿放在同一个应用私有目录下。 */
+function remoteConfigDirectory(userData: string): string {
+  return join(userData, 'bug-reports')
 }
 
 /** 候选路径，按优先级。 */
