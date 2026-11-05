@@ -8,12 +8,14 @@
 - 数据库文件：Electron `userData/eleckoi-common.sqlite3`，路径由桌面壳作为 Host 启动参数传入。
 - SQLite 打开、迁移、恢复和所有 Repository 写入均位于 `packages/host/product-data/src`。Electron Main、Client 和 Renderer 不打开数据库。
 - 公共 SQL：`apps/desktop/resources/database/eleckoi-common-schema-v1.sql`。
-- 当前 `PRAGMA user_version`：`14`。
+- 当前 `PRAGMA user_version`：`15`。
 - 当前结构：49 张业务表、2 个视图；数据库物理结构版本只使用 SQLite `PRAGMA user_version`。
 
 角色自定义聊天背景的保留配置存放在现有 `character_text_contents` 的 `chat-background-custom` 内容中，保存图片引用、透明度、模糊与遮罩。`characters.chatBackground` 继续表示当前生效的模式或图片；切到纯色、立绘或共享背景不会丢弃自定义配置。图片只使用原角色的 `chat-background` 媒体槽，不复制另一份文件；更换图片在事务提交后清理旧文件，失败回退，删除角色按原外键及媒体归属清理。已有自定义背景在读取／下一次保存时兼容，不增加物理结构或迁移。角色卡导入导出仍不携带本地背景偏好。
 
 应用版本与 schema 之间没有代码关联：`CURRENT_SCHEMA_VERSION` 变了必须同时提升 `package.json` 的 `version`，否则同一版本号会发出两份不同的库结构——装过新库的用户回退到旧包时，旧程序会拒绝启动（`eleckoi/db/schema-mismatch`）。发版前按实际打出去的 schema 核对一次版本号（PR 模板里有这条勾选）。
+
+本轮按用户明确要求继续使用未发布的应用版本 `0.2.19`，其最终数据库基线为 v15；未发布 v14 开发库通过 v14→v15 原子升级。
 
 `pnpm db:generate` 从固定 SQL 生成内嵌迁移 SQL与 Drizzle 查询映射；`pnpm check:database-schema` 校验生成内容。SQL 是公共结构权威，Drizzle 映射不反向生成迁移。
 
@@ -21,7 +23,7 @@
 
 推理正则的显示结果只保存在 Client/Host 显示投影中，原始思考文本仍来自 Session。提示词规则仅处理本轮后续模型请求中的推理文本副本，旧轮次保持用户输入与角色最终正文。无选定目标的旧规则不自动归入 AI 回复；携带不透明模型回放数据的推理不能改写后沿用回放信息，实际发生替换时明确失败，显示正则仍可使用。
 
-本批未发布改动统一并入 v12→v13：角色的多开场白迁到 `character_openings`，每个角色只有一份开场白列表、默认开场白编号和整体启停。每条开场白保存标题、正文、变量绑定及初始变量，不存在独立开场白版本。当前默认开场白保持，原设定库各快照中的不同开场白并入同一列表；同编号但正文或绑定不同的条目分配新编号完整保留。迁移后删除设定库中的开场白内容及关联、`character_text_contents` 中的旧开场正文和 `characters.showOpening` 冗余列。聊天中已选开场白、聊天变量和 Session 日志不修改。
+本批未发布改动统一并入 v12→v13：角色的多开场白迁到 `character_openings`，每个角色只有一份开场白列表、默认开场白编号和整体启停。每条开场白保存标题、正文和变量绑定，不存在独立开场白版本。当前默认开场白保持，原设定库各快照中的不同开场白并入同一列表；同编号但正文或绑定不同的条目分配新编号完整保留。迁移后删除设定库中的开场白内容及关联、`character_text_contents` 中的旧开场正文和 `characters.showOpening` 冗余列。聊天中已选开场白、聊天变量和 Session 日志不修改。
 
 开场白提取由 [`characterOpenings.ts`](../packages/host/product-data/src/storage/sqlite/migrations/characterOpenings.ts) 在 v12→v13 的同一事务执行，不增加 v14 迁移支线。只有正式停止支持 v12 及更早数据库直接升级后，才可连同 0013 调用和旧库回归删除；单台设备完成整理不构成清理条件。开发库直接整理到此 v13 基线，正常运行只维护当前多开场白列表结构。
 
@@ -102,10 +104,17 @@ ElecKoi 当前 49 张产品表需要关系、外键、排序、搜索、跨表�
 
 ## 升级代码的清理条件
 
+新聊天仅通过所选开场白明确保存的变量版本编号加载配置。未绑定或无有效开场白时，聊天的 `variableVersionId` 为空、开局变量状态为 `{}`，运行配置为 `null`；变量编辑器的当前选择不参与默认推断。切换开场白沿同一规则更新本次开局，聊天导入保留空绑定。已有聊天的已保存绑定、状态与历史不回写。旧原稿字段和不一致初值通过下述 v14→v15 迁移一次性修正。
+
+变量版本中的定义默认值与 `initialStateJson` 在保存时由共享生成器同步。普通变量和静态分组按当前定义重建，只有动态键分组保留原快照中的具体条目及数据；不得因存在任意动态分组而保留整份旧初值。分组改名或移动通过原分组 ID 找回动态数据，停用及删除分组不带入新初值。导入时已求值的动态数据保留，现有聊天的初始、当前及轮次状态不随作者修改回写。
+
+当前开场白合同、存储写入和导出不含独立初值字段。v14→v15 在升级事务中移除旧字段；文件导入只解析当前定义的字段，忽略其他字段，不设该字段的兼容运行分支。聊天历史中的已解析开局状态继续用于重开和历史恢复，与已退役的角色原稿字段不同。
+
 转换入口旁以 `RETIRE WHEN:` 明确退役条件，较早入口仍有 `TODO(迁移清理)` 标记；下面按实际数据分别核对。客户端发布了新版本、某台机器已升级或本机扫描没有命中，都不能证明其他受支持的旧安装、未打开的聊天及备份已完成转换。当前没有宣布新的最低升级版本，以下入口均保留。
 
 | 入口 | 何时可以清理 | 必须一起处理的范围 |
 | --- | --- | --- |
+| [v14→v15 开场白及变量初值升级](../packages/host/product-data/src/storage/sqlite/migrations/0015OpeningVariableState.ts) | 停止支持 v14 及更早数据库直接升级，剩余支持版本仍有连续迁移链 | 删除 0015、登记及 v14 升级／回滚回归；保留当前无独立初值的合同、共享初值生成器及聊天历史状态 |
 | [SQLite v1 → v8 迁移链](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 正式停止支持某步骤起点及更早 schema 直接升级；剩余受支持版本仍有连续原子链 | 对应 `0002` 至 `0008` 步骤、旧表定义、import、登记与旧库 fixture；保留当前 SQL、版本常量及完整性校验 |
 | [开发 v2、v6 同版本整理](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 分别停止支持对应开发基线直接升级 | 对应整理函数、专用入口和 fixture；v2 共享整理函数仍被 `0002` 使用时继续保留 |
 | [模型设置 schema v0/v1 → v2](../packages/client/features/dsh-client-models/src/index.js) | 支持的升级和 profile 恢复入口均已保存至少 schema v2 的设置 | 旧 schema 转换、专用常量与用例；函数和启动调用须等两段整理均退役，保留当前设置合同和插件装配 |
@@ -142,8 +151,8 @@ ElecKoi 当前 49 张产品表需要关系、外键、排序、搜索、跨表�
 ## 验证
 
 - `pnpm check:database-schema`：49 张公共表、2 个视图与生成文件一致。
-- `pnpm test`：覆盖 v1 至 v14 迁移、未发布开发库整理、失败回滚、外键、重启持久化、角色与媒体、设定、变量、正则、预设、脚本库、聊天索引和 Remote 写入。
-- `pnpm rebuild:electron && pnpm check:electron-sqlite`：使用 Electron 的真实原生 SQLite ABI 创建公共结构，核对 49 张业务表、2 个视图、`user_version = 14`、冗余列缺失、外键和完整性。
+- `pnpm test`：覆盖 v1 至 v15 迁移、未发布开发库整理、失败回滚、外键、重启持久化、角色与媒体、设定、变量、正则、预设、脚本库、聊天索引和 Remote 写入。
+- `pnpm rebuild:electron && pnpm check:electron-sqlite`：使用 Electron 的真实原生 SQLite ABI 创建公共结构，核对 49 张业务表、2 个视图、`user_version = 15`、冗余列缺失、外键和完整性。
 
 架构决策见 [ADR 0018](adr/0018-dsh-host-owns-product-data.md)。
 
@@ -152,3 +161,7 @@ ElecKoi 当前 49 张产品表需要关系、外键、排序、搜索、跨表�
 ## v13 到 v14：默认创作能力
 
 `0014CreatorWorkspace` 在同一事务中为仍使用原始单一创作工具组的默认创作预设及其对应保存版本补齐创造模式所需的开发工具组。只更新未修改的默认创作指引；自定义预设、修改过的指引、全局选择和已有会话不改。物理表结构保持 49 表、2 视图，版本提升用于一次性数据转换。停止支持 v13 及更早数据库直接升级后，才能连同登记和回归删除该迁移；运行时仅维护当前配置。
+
+## v14 到 v15：开场白与变量初值
+
+[`0015OpeningVariableState`](../packages/host/product-data/src/storage/sqlite/migrations/0015OpeningVariableState.ts) 仅在升级事务执行一次：移除角色开场白及设定／预设原稿中已退役的独立初值字段；根据保存的变量定义重建各版本静态初值，同时保留动态字典的具体条目，修复“默认值已改、开局仍读旧值”的存量配置。变量版本编号、开场白绑定、其他原稿和现有聊天的绑定、初始／当前／轮次状态不重写。失败整步回滚，重启不会重复整理；表数与视图数保持不变。该步骤保留用于受支持旧数据库的连续升级，不属于正常读写的兼容分支。

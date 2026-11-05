@@ -1,8 +1,15 @@
 import { ipcRenderer } from 'electron'
+import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
+import { DesktopError } from '@shared/foundation/DesktopError'
 import { WINDOWS_TITLEBAR_HEIGHT } from '../windowsLayout'
 
 /** Keep the native Windows caption in the document's current palette. */
 export function installWindowsAppearance(): () => void {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 1
+  const context = canvas.getContext('2d', { willReadFrequently: true })
+  if (context === null) throw new DesktopError(ELECKOI_FAILURE_CODES.internal,
+    'Desktop caption requires a 2D canvas context', { what: '窗口标题栏的 2D 绘图环境' })
   const root = document.documentElement
   root.setAttribute('data-native-window-controls', '')
   root.style.setProperty('--window-caption-height', `${WINDOWS_TITLEBAR_HEIGHT}px`)
@@ -10,10 +17,6 @@ export function installWindowsAppearance(): () => void {
   const probe = document.createElement('span')
   probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;background-color:var(--list,var(--dsw-specific-sidebar-fill));color:var(--title-fg,var(--dsw-alias-label-primary))'
   document.body.append(probe)
-  const canvas = document.createElement('canvas')
-  canvas.width = canvas.height = 1
-  const context = canvas.getContext('2d', { willReadFrequently: true })
-  if (context === null) throw new Error('Desktop caption requires a 2D canvas context')
   const nativeColor = (color: string): string => {
     context.clearRect(0, 0, 1, 1)
     context.fillStyle = color

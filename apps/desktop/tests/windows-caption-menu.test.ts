@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
 import { DESKTOP_SHELL_IPC } from '@shared/contracts/desktopShell'
+import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 const ipc = vi.hoisted(() => ({ invoke: vi.fn() }))
 vi.mock('electron', () => ({ ipcRenderer: ipc }))
 import { installWindowsMenu } from '../src/preload/windowsMenu'
@@ -15,6 +16,20 @@ afterEach(() => {
   document.documentElement.style.removeProperty('--dsh-windows-titlebar-height')
   vi.restoreAllMocks()
   vi.clearAllMocks()
+})
+
+it('reports an unavailable canvas with a product code before mounting caption elements', () => {
+  const send = vi.fn()
+  Object.assign(ipc, { send })
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+  let failure: unknown
+  try { installWindowsAppearance() } catch (error) { failure = error }
+  expect(failure).toMatchObject({ name: 'DesktopError', code: ELECKOI_FAILURE_CODES.internal,
+    message: 'Desktop caption requires a 2D canvas context', details: { what: '窗口标题栏的 2D 绘图环境' } })
+  expect(document.body.children).toHaveLength(0)
+  expect(document.documentElement.hasAttribute('data-native-window-controls')).toBe(false)
+  expect(document.documentElement.style.getPropertyValue('--window-caption-height')).toBe('')
+  expect(send).not.toHaveBeenCalled()
 })
 
 it('uses the native 40px caption and publishes theme colors only while mounted', async () => {

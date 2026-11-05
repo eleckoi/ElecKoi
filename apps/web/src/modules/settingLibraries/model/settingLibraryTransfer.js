@@ -157,7 +157,6 @@ function openingMessageFromJson(value) {
     id: text(value.id) || createId("opening"),
     title: text(value.title),
     content: text(value.content),
-    initialVariableStateJson: text(value.initial_variable_state),
     ...(typeof value.variable_version_id === "string" ? { variableVersionId: value.variable_version_id } : {}),
   };
 }
@@ -235,7 +234,7 @@ function parseElecKoiExport(source) {
   if (openings.length > 1) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '设定库文件包含多个开场白容器。', { what: '设定库文件的开场白' });
   const opening = openings[0];
   const openingMessages = opening?.openingMessages.length ? opening.openingMessages : [{
-    id: 'opening-default', title: '默认开场', content: opening?.content || '', initialVariableStateJson: '',
+    id: 'opening-default', title: '默认开场', content: opening?.content || '',
   }];
   return {
     ...(opening ? { openingImport: { enabled: opening.enabled, openingMessages,
@@ -401,7 +400,6 @@ function entryToJson(entry) {
     group_id: entry.groupId, content: entry.content,
     opening_messages: entry.openingMessages.map((message) => ({
       id: message.id, title: message.title, content: message.content,
-      initial_variable_state: message.initialVariableStateJson,
       ...(typeof message.variableVersionId === "string" ? { variable_version_id: message.variableVersionId } : {}),
     })),
     default_opening_message_id: entry.defaultOpeningMessageId,

@@ -4,6 +4,7 @@ import { load, dump } from 'js-yaml'
 import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
 import { describe, expect, it } from 'vitest'
 import { creatorComposition } from '../../src/host/composition.mjs'
+import { ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 
 const require = createRequire(import.meta.url)
 const patch = load(readFileSync(require.resolve('@deepseek-ai/dsh-web-app/presets/cordis.patch.yml'), 'utf8'), { schema: entryListSchema })
@@ -17,6 +18,18 @@ const product = [
 ]
 
 describe('Creator composition', () => {
+  it.each(['', 'plugins: {}'])('reports an invalid declared plugin list with a product code', content => {
+    let failure
+    try { creatorComposition({ content }, product, []) } catch (error) { failure = error }
+    expect(failure).toMatchObject({ code: ELECKOI_FAILURE_CODES.dataShapeInvalid,
+      message: 'Creator preset must declare a plugin list', details: { what: '创作预设的插件列表' } })
+  })
+  it.each(['compaction', 'agent-instructions'])('identifies the missing required product plugin %s', id => {
+    let failure
+    try { creatorComposition(document, product.filter(plugin => plugin.id !== id), []) } catch (error) { failure = error }
+    expect(failure).toMatchObject({ code: ELECKOI_FAILURE_CODES.lookupNotFound,
+      message: `Creator product composition is missing ${id}`, details: { what: `创作预设必需插件 ${id}` } })
+  })
   it('retains the locked Creator development and skill capabilities beside product authoring', () => {
     const plugins = creatorComposition(document, product, [])
     const ids = plugins.map(row => row.id)

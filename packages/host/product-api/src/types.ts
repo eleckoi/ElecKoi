@@ -491,7 +491,6 @@ export interface CharacterOpeningMessage {
   title: string
   content: string
   variableVersionId?: string | undefined
-  initialVariableStateJson: string
 }
 export interface CharacterOpenings {
   characterId: string
@@ -505,7 +504,6 @@ export interface SettingLibraryOpeningMessage {
   title: string
   content: string
   variableVersionId?: string
-  initialVariableStateJson: string
 }
 
 export interface SettingLibraryEntry {

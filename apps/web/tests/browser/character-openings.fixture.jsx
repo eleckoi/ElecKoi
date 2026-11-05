@@ -15,7 +15,7 @@ import '../../src/mobile/mobile-character-editor.css';
 
 const character = { id: 'synthetic-character', name: '合成角色', persona: {} };
 const opening = { ...createEntryDraft('', 0, []), id: 'fixed-opening-assistant', kind: 'opening', title: '开场白', enabled: true,
-  defaultOpeningMessageId: 'synthetic-opening', openingMessages: [{ id: 'synthetic-opening', title: '合成主开场白', content: '合成开场正文。'.repeat(200), initialVariableStateJson: '' }] };
+  defaultOpeningMessageId: 'synthetic-opening', openingMessages: [{ id: 'synthetic-opening', title: '合成主开场白', content: '合成开场正文。'.repeat(200) }] };
 const version = { id: 'synthetic-version', name: '合成版本', entries: [{ ...createEntryDraft('', 1, []), id: 'synthetic-setting', title: '合成设定' }], groups: [], promptPositions: [], expandedGroupIds: [], listAllExpanded: false };
 let stored = { ...version, characterId: character.id, activeVersionId: version.id, versions: [version] };
 const settings = { getSnapshot: () => ({ status: 'ready', value: stored }), subscribe: () => () => {}, read: async () => stored,

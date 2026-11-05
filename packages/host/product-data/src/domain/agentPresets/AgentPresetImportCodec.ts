@@ -423,7 +423,6 @@ function entryFromPortable(value: JsonObject, index: number, timestamp: string):
     openingMessages: objectList(value.opening_messages).map((message, messageIndex) => ({
       id: stringValue(message.id) || `opening-${index + 1}-${messageIndex + 1}`,
       title: stringValue(message.title), content: stringValue(message.content),
-      initialVariableStateJson: stringValue(message.initial_variable_state)
     })),
     defaultOpeningMessageId: stringValue(value.default_opening_message_id),
     agentSelectionHint: stringValue(value.agent_selection_hint),
@@ -450,7 +449,6 @@ function entryToPortable(entry: SettingLibraryEntry): JsonObject {
     content: entry.content,
     opening_messages: entry.openingMessages.map((message) => ({
       id: message.id, title: message.title, content: message.content,
-      initial_variable_state: message.initialVariableStateJson
     })),
     default_opening_message_id: entry.defaultOpeningMessageId,
     agent_selection_hint: entry.agentSelectionHint, agent_read_strategy: entry.agentReadStrategy,

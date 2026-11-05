@@ -88,7 +88,7 @@ describe('native author developer documentation and examples', () => {
     const conversations = new ConversationRepository(database, (id, db) => resolveConversationSeed(id, db, new CharacterOpeningRepository(database), configs))
     const exampleChat = conversations.create({ metadata: { characterId } }).conversation.id
     conversations.selectOpening(exampleChat, 'example-advanced')
-    expect(configs.forConversation(exampleChat, characterId).activeVersionId).toBe('example-advanced-variables')
+    expect(configs.forConversation(exampleChat, characterId)!.activeVersionId).toBe('example-advanced-variables')
     expect(JSON.parse(new VariableStateRepository(database, configs).viewerStates(exampleChat).currentStateJson)).toEqual({ score: 10, total: 20, level: 2 })
     expect(opening.openingMessages.every(item => item.content === read('frontend.html'))).toBe(true)
     const imported = presets.import(document('example.preset.json'), 'eleckoi').preset

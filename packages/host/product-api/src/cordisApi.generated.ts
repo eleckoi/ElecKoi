@@ -1200,7 +1200,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CharacterOpeningMessage',
-    declaration: 'export interface CharacterOpeningMessage {\n    id: string;\n    title: string;\n    content: string;\n    variableVersionId?: string | undefined;\n    initialVariableStateJson: string;\n}',
+    declaration: 'export interface CharacterOpeningMessage {\n    id: string;\n    title: string;\n    content: string;\n    variableVersionId?: string | undefined;\n}',
   },
   {
     name: 'CharacterOpenings',
@@ -1548,7 +1548,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SettingLibraryOpeningMessage',
-    declaration: 'export interface SettingLibraryOpeningMessage {\n    id: string;\n    title: string;\n    content: string;\n    variableVersionId?: string;\n    initialVariableStateJson: string;\n}',
+    declaration: 'export interface SettingLibraryOpeningMessage {\n    id: string;\n    title: string;\n    content: string;\n    variableVersionId?: string;\n}',
   },
   {
     name: 'SettingLibraryPosition',

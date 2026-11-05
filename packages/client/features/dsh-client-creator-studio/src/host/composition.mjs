@@ -1,10 +1,12 @@
 import { load } from 'js-yaml'
 import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
+import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 
 /** Assemble the declared Creator composition with product data access and policies. */
 export function creatorComposition(document, product, disabledIds) {
   const declared = load(document.content, { schema: entryListSchema })
-  if (!Array.isArray(declared)) throw new Error('Creator preset must declare a plugin list')
+  if (!Array.isArray(declared)) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid,
+    'Creator preset must declare a plugin list', { what: '创作预设的插件列表' })
   const disabled = new Set(disabledIds)
   const additions = new Map(product.map(plugin => [plugin.id, plugin]))
   const groups = new Map([
@@ -22,7 +24,8 @@ export function creatorComposition(document, product, disabledIds) {
     if (disabled.has(groups.get(plugin.id))) return []
     if (plugin.id === 'compaction' || plugin.id === 'agent-instructions') {
       const replacement = additions.get(plugin.id)
-      if (!replacement) throw new Error(`Creator product composition is missing ${plugin.id}`)
+      if (!replacement) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound,
+        `Creator product composition is missing ${plugin.id}`, { what: `创作预设必需插件 ${plugin.id}` })
       return [replacement]
     }
     return [{ ...plugin, ...(Array.isArray(plugin.config) ? { config: visit(plugin.config) } : {}) }]

@@ -1764,7 +1764,6 @@ export interface AuthorSettingLibraryEntry {
         title: string;
         content: string;
         variableVersionId?: string;
-        initialVariableStateJson: string;
     }>;
     defaultOpeningMessageId: string;
     agentSelectionHint: string;

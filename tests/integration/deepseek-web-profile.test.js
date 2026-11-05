@@ -180,6 +180,30 @@ it.each(['desktop', 'android'])('%s keeps Studio commands available after failed
   expect(await restarted.ctx.eleckoiCreatorStudioRuntime.list()).toEqual([])
 }, 60_000)
 
+it('desktop persists Messages selection from Tavily with the new API off after restart', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'eleckoi-web-messages-selection-'))
+  cleanups.push(async () => {
+    const child = relative(tmpdir(), root)
+    if (!child || child.startsWith('..') || isAbsolute(child)) throw new Error('Unexpected cleanup target')
+    await rm(root, { recursive: true, force: true, maxRetries: 3 })
+  })
+  const f = await start('desktop', root)
+  const api = f.ctx.eleckoiWebSearchApi
+  expect(api.selection()).toBe('provider_native')
+  expect(api.fetchSelection()).toBe('http')
+  const apiConfig = f.ctx.settings.describe().find(item => item.ns === 'web-deepseek-api').value
+  await api.select('tavily')
+  expect(api.selection()).toBe('tavily')
+  await api.select('provider_native')
+  expect(api.selection()).toBe('provider_native')
+  expect(api.fetchSelection()).toBe('http')
+  await f.close()
+  const reopened = await start('desktop', root)
+  expect(reopened.ctx.eleckoiWebSearchApi.selection()).toBe('provider_native')
+  expect(reopened.ctx.eleckoiWebSearchApi.fetchSelection()).toBe('http')
+  expect(reopened.ctx.settings.describe().find(item => item.ns === 'web-deepseek-api').value).toEqual(apiConfig)
+}, 60_000)
+
 it.each(['desktop', 'android'])('%s loads both APIs through the shipped bundles, saves settings and executes in roleplay and studio', async platform => {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-web-profile-'))
   cleanups.push(async () => { const child = relative(tmpdir(), root); if (!child || child.startsWith('..') || isAbsolute(child)) throw new Error('Unexpected cleanup target'); await rm(root, { recursive: true, force: true }) })

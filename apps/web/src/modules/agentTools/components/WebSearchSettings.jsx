@@ -96,7 +96,17 @@ export function WebSearchSettings({ onBeforeOpenPluginSettings, onOpenPluginSett
     <fieldset className="web-search-config-fieldset">
       <legend>搜索方式</legend>
       <div className="web-search-mode" role="group" aria-label="搜索方式">
-        <button type="button" disabled={Boolean(busy)} aria-pressed={settings.mode === 'provider_native' || settings.mode === 'deepseek_search_api'} onClick={() => {
+        <button type="button" disabled={!settings.writable || Boolean(busy)} aria-pressed={settings.mode === 'provider_native' || settings.mode === 'deepseek_search_api'} onClick={() => {
+          if (settings.mode === 'tavily') void update({ mode: 'provider_native' });
+        }}>
+          <strong>DeepSeek</strong><span>{settings.mode === 'deepseek_search_api' ? 'Web 搜索 API' : 'Messages 搜索'}</span>
+        </button>
+        <button type="button" disabled={!settings.writable || !settings.tavilyAvailable || Boolean(busy)} aria-pressed={settings.mode === 'tavily'} onClick={() => update({ mode: 'tavily' })}>
+          <strong>Tavily</strong><span>{settings.apiKeyConfigured ? '已配置' : '需要 API Key'}</span>
+        </button>
+      </div>
+      {settings.mode !== 'tavily' ? <div className="web-search-key-actions">
+        <button type="button" disabled={Boolean(busy)} onClick={() => {
           if (onBeforeOpenPluginSettings?.() === false) return;
           try {
             model.openPluginSettings();
@@ -104,13 +114,8 @@ export function WebSearchSettings({ onBeforeOpenPluginSettings, onOpenPluginSett
           } catch (cause) {
             setError(messageOf(cause, '网页搜索插件设置暂时无法打开'));
           }
-        }}>
-          <strong>DeepSeek</strong><span>前往官方插件配置</span>
-        </button>
-        <button type="button" disabled={!settings.writable || !settings.tavilyAvailable || Boolean(busy)} aria-pressed={settings.mode === 'tavily'} onClick={() => update({ mode: 'tavily' })}>
-          <strong>Tavily</strong><span>{settings.apiKeyConfigured ? '已配置' : '需要 API Key'}</span>
-        </button>
-      </div>
+        }}>前往官方插件配置</button>
+      </div> : null}
     </fieldset>
 
     {settings.mode === 'tavily' ? <fieldset className="web-search-config-fieldset">

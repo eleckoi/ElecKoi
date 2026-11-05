@@ -10,12 +10,14 @@ function harness() {
   let registration: any
   let model: any
   let cleanup = () => {}
+  let selection = 'tavily'
+  let fetchSelection = 'http'
   const remote = {
     eleckoiWebSearch: {
-      selection: vi.fn(() => ok('tavily')),
-      fetchSelection: vi.fn(() => ok('http')),
-      selectFetch: vi.fn(() => ok('deepseek_fetch_api')),
-      select: vi.fn(() => ok('provider_native')),
+      selection: vi.fn(() => ok(selection)),
+      fetchSelection: vi.fn(() => ok(fetchSelection)),
+      selectFetch: vi.fn((value: string) => { fetchSelection = value; return ok(value) }),
+      select: vi.fn((value: string) => { selection = value; return ok(value) }),
       testTavily: vi.fn(() => ok({ ok: true, used: 0, limit: 100, plan: 'Test' }))
     },
     settings: {
@@ -64,8 +66,24 @@ describe('DSH web search Client model', () => {
       expect(remote.eleckoiWebSearch.select).toHaveBeenCalledWith('deepseek_search_api')
       expect(remote.eleckoiWebSearch.selectFetch).toHaveBeenCalledWith('deepseek_fetch_api')
       expect(model.getSnapshot().officialDeepSeekAvailable).toBe(true)
+      expect(model.getSnapshot()).toMatchObject({ mode: 'deepseek_search_api', fetchMode: 'deepseek_fetch_api' })
       expect(remote.settings.mutate).not.toHaveBeenCalled()
       expect(remote.credentials.set).not.toHaveBeenCalled()
+    } finally { cleanup() }
+  })
+  it('keeps Messages search selected after refreshing without enabling the new API or navigating', async () => {
+    const { remote, model, layout, cleanup } = harness()
+    try {
+      await model.refresh()
+      expect(model.getSnapshot().mode).toBe('tavily')
+      await model.update({ mode: 'provider_native' })
+      await model.refresh()
+      expect(model.getSnapshot()).toMatchObject({ mode: 'provider_native', fetchMode: 'http' })
+      expect(remote.eleckoiWebSearch.select).toHaveBeenCalledExactlyOnceWith('provider_native')
+      expect(remote.eleckoiWebSearch.selectFetch).not.toHaveBeenCalled()
+      expect(remote.settings.mutate).not.toHaveBeenCalled()
+      expect(remote.credentials.set).not.toHaveBeenCalled()
+      expect(layout.selectPanel).not.toHaveBeenCalled()
     } finally { cleanup() }
   })
   it('opens the exact official configuration item in the installed tab', async () => {

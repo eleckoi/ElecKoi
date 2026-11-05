@@ -643,7 +643,7 @@ async function main() {
     }
     await openTools()
     const choices = await window.webContents.executeJavaScript(`({search:[...document.querySelectorAll('[aria-label="搜索方式"] strong')].map(node => node.innerText),buttons:document.querySelectorAll('.web-search-config button').length,fetch:document.querySelectorAll('[aria-label="网页抓取方式"]').length,inputs:document.querySelectorAll('.web-search-config input').length})`)
-    if (JSON.stringify(choices) !== JSON.stringify({ search: ['DeepSeek', 'Tavily'], buttons: 2, fetch: 0, inputs: 0 })) throw new Error('Web settings must have only two provider cards: ' + JSON.stringify(choices))
+    if (JSON.stringify(choices) !== JSON.stringify({ search: ['DeepSeek', 'Tavily'], buttons: 3, fetch: 0, inputs: 0 })) throw new Error('Web settings must have two provider cards and a separate configuration button: ' + JSON.stringify(choices))
     if (process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT) {
       await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
       writeFileSync(process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT, (await window.webContents.capturePage()).toPNG())
@@ -653,7 +653,9 @@ async function main() {
     if (await remoteCall('eleckoiWebSearch/selection', {}) !== 'tavily') throw new Error('Tavily selection did not save')
     const openDeepSeek = async () => {
       await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.web-search-mode button')).find(button => button.querySelector('strong')?.innerText === 'DeepSeek').click()`)
-      await waitFor(`Boolean(document.querySelector('[data-plugin-item-detail="web-search"]')) && !document.querySelector('.agent-tools-content')`, 'DeepSeek card did not directly open official settings and close the tool dialog')
+      await waitFor(`document.querySelector('[aria-label="搜索方式"] button[aria-pressed="true"] strong')?.innerText === 'DeepSeek' && document.querySelector('.web-search-config')?.getAttribute('aria-busy') === 'false'`, 'DeepSeek selection did not save in the tool dialog')
+      await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.web-search-config button')).find(button => button.innerText === '前往官方插件配置').click()`)
+      await waitFor(`Boolean(document.querySelector('[data-plugin-item-detail="web-search"]')) && !document.querySelector('.agent-tools-content')`, 'Configuration button did not open official settings and close the tool dialog')
     }
     const saveOfficial = async () => {
       await waitFor(`Array.from(document.querySelectorAll('[data-plugin-item-detail="web-search"] button')).some(button => button.innerText === '保存' && !button.disabled)`, 'Official web settings did not become editable')
@@ -667,7 +669,7 @@ async function main() {
       await waitFor(`document.querySelector('[aria-label="搜索方式"] button[aria-pressed="true"] strong')?.innerText === 'DeepSeek'`, 'Tool dialog did not reflect the official saved settings')
     }
     await openDeepSeek()
-    if (await remoteCall('eleckoiWebSearch/selection', {}) !== 'tavily') throw new Error('Opening DeepSeek settings unexpectedly changed the saved provider')
+    if (await remoteCall('eleckoiWebSearch/selection', {}) !== 'provider_native') throw new Error('Selecting DeepSeek did not persist Messages search before configuration')
     await window.webContents.executeJavaScript(`document.querySelector('[data-plugin-item-detail="web-search"] [role="switch"]').click()`)
     await saveOfficial()
     if (await remoteCall('eleckoiWebSearch/selection', {}) !== 'deepseek_search_api' || await remoteCall('eleckoiWebSearch/fetchSelection', {}) !== 'deepseek_fetch_api') throw new Error('Official Search API selection did not save')
@@ -678,7 +680,7 @@ async function main() {
     if (await remoteCall('eleckoiWebSearch/selection', {}) !== 'provider_native' || await remoteCall('eleckoiWebSearch/fetchSelection', {}) !== 'http') throw new Error('Official Messages selection did not save')
     await returnToTools()
     if (errors.length) throw new Error(errors.join('\n'))
-    process.stdout.write('Web tool showed only DeepSeek/Tavily cards, opened official settings directly from DeepSeek, and reflected both official search modes after saving.\n')
+    process.stdout.write('Web tool persisted DeepSeek Messages selection independently from configuration navigation and reflected both official search modes after saving.\n')
     return
   }
   const checkRightbar = async label => {

@@ -56,5 +56,7 @@ it('imports a conversation with its message structure under new IDs', () => {
   expect(response.turnId).toBe(turn.id)
   expect(response.speakerId).not.toBe('speaker-b')
   expect(response.runtimeThreadId).toBe('new-runtime')
+  expect(db.native.prepare('SELECT variableVersionId FROM agent_conversations WHERE id=?').get(source)).toEqual({ variableVersionId: '' })
+  expect(db.native.prepare('SELECT variableVersionId FROM agent_conversations WHERE id=?').get(imported)).toEqual({ variableVersionId: '' })
   expect(db.native.prepare('PRAGMA foreign_key_check').all()).toEqual([])
 })

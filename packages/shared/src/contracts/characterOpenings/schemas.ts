@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const characterOpeningMessageSchema = z.object({
   id: z.string().min(1), title: z.string(), content: z.string(),
-  variableVersionId: z.string().optional(), initialVariableStateJson: z.string()
+  variableVersionId: z.string().optional()
 }).strict()
 
 export const characterOpeningsSchema = z.object({
@@ -23,6 +23,6 @@ export type CharacterOpenings = z.output<typeof characterOpeningsSchema>
 
 export function createCharacterOpenings(characterId: string, content = '', enabled = true): CharacterOpenings {
   return { characterId, enabled,
-    openingMessages: [{ id: 'opening-default', title: '默认开场', content, initialVariableStateJson: '' }],
+    openingMessages: [{ id: 'opening-default', title: '默认开场', content }],
     defaultOpeningMessageId: 'opening-default' }
 }

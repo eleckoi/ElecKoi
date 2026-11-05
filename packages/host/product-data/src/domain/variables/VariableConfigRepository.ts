@@ -94,13 +94,10 @@ export class VariableConfigRepository {
     return variableConfigSchema.parse(activeVariableConfig(characterId, active, versions))
   }
 
-  initialState(characterId: string, db: ElecKoiDatabase = this.store.db): string {
-    return this.get(characterId, db).initialStateJson
-  }
-
-  forConversation(conversationId: string, characterId: string): VariableConfig {
+  forConversation(conversationId: string, characterId: string): VariableConfig | null {
     const binding = readConversationVariableBinding(conversationId, this.store.db)
     if (binding.characterId !== characterId) throw new DesktopError(ELECKOI_FAILURE_CODES.stateMismatch, '变量配置与聊天所属角色不匹配。', { what: '变量配置与聊天所属角色' })
+    if (!binding.versionId) return null
     const config = this.get(characterId)
     const version = config.versions.find((item) => item.id === binding.versionId)
     if (!version) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, '聊天绑定的变量版本不存在，请恢复对应变量版本。', { what: '聊天绑定的变量版本' })

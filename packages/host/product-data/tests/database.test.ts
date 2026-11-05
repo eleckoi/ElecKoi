@@ -1,4 +1,5 @@
 import { CharacterOpeningRepository } from '../src/domain/characterOpenings'
+import { resolveConversationSeed } from '../src/domain/conversations/conversationSeed'
 import { restoreEditorSchemaV12 } from './helpers/editorSchemaV12'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
@@ -1275,8 +1276,8 @@ describe('shared SQLite baseline', () => {
     const opening = {
       ...new CharacterOpeningRepository(database).get('card-a'),
       openingMessages: [
-        { id: 'opening-main', title: '初次见面', content: '主开场', initialVariableStateJson: '{"好感":0}' },
-        { id: 'opening-backup', title: '再次见面', content: '备用开场', initialVariableStateJson: '{"好感":10}' }
+        { id: 'opening-main', title: '初次见面', content: '主开场' },
+        { id: 'opening-backup', title: '再次见面', content: '备用开场' }
       ],
       defaultOpeningMessageId: 'opening-main'
     }
@@ -1453,7 +1454,7 @@ describe('shared SQLite baseline', () => {
     expect(settingLibraries.get('card-a').entries.find((candidate) => candidate.id === entry.id)?.content).toBe('母设定')
   })
 
-  it('persists complete variable versions and seeds new character conversations from the active state', () => {
+  it('persists complete variable versions and seeds new character conversations from the explicitly bound version', () => {
     const { characters, database } = harness()
     characters.replaceAll({ active_character_id: 'card-a', groups: [], items: [card()] })
     const repository = new VariableConfigRepository(database)
@@ -1484,7 +1485,10 @@ describe('shared SQLite baseline', () => {
     expect(database.native.prepare('SELECT COUNT(*) AS count FROM variable_config_objects WHERE characterId = ?').get('card-a')).toEqual({ count: 2 })
     expect(database.native.prepare('SELECT COUNT(*) AS count FROM variable_config_variables WHERE characterId = ?').get('card-a')).toEqual({ count: 1 })
 
-    const conversations = new ConversationRepository(database, (characterId, db) => repository.initialState(characterId, db))
+    const openings = new CharacterOpeningRepository(database)
+    const opening = openings.get('card-a')
+    openings.save('card-a', { ...opening, openingMessages: opening.openingMessages.map(item => ({ ...item, content: '合成开场', variableVersionId: saved.activeVersionId })) })
+    const conversations = new ConversationRepository(database, (characterId, db) => resolveConversationSeed(characterId, db, openings, repository))
     const conversationId = conversations.create({ metadata: { characterId: 'card-a' } }).conversation.id
     expect(database.native.prepare('SELECT kind,stateJson FROM chat_session_variable_states WHERE sessionId = ? ORDER BY kind').all(conversationId)).toEqual([
       { kind: 'current', stateJson: saved.initialStateJson },

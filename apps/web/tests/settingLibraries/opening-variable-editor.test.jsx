@@ -70,9 +70,9 @@ describe('opening configuration editor', () => {
   it('searches titles and body without editing the library, preserves source ordering and reveals new openings', async () => {
     let stored = { ...createCharacterOpenings('synthetic-search-character'), enabled: false,
       defaultOpeningMessageId: 'primary', openingMessages: [
-        { id: 'primary', title: '合成主开场', content: '主正文', initialVariableStateJson: '' },
-        { id: 'middle', title: 'Synthetic SECOND', content: '正文中的末尾关键词', variableVersionId: 'version-a', initialVariableStateJson: '{}' },
-        { id: 'last', title: '合成末条', content: '合成其他正文', initialVariableStateJson: '' },
+        { id: 'primary', title: '合成主开场', content: '主正文' },
+        { id: 'middle', title: 'Synthetic SECOND', content: '正文中的末尾关键词', variableVersionId: 'version-a' },
+        { id: 'last', title: '合成末条', content: '合成其他正文' },
       ] };
     const original = structuredClone(stored), controller = createRef(), dirtyChanged = vi.fn();
     const model = { getSnapshot: () => ({ status: 'ready', value: stored }), subscribe: () => () => {}, read: async () => stored,
@@ -115,8 +115,8 @@ describe('opening configuration editor', () => {
     const changed = vi.fn();
     function Harness() {
       const [entry, setEntry] = useState({ defaultOpeningMessageId: 'opening-a', openingMessages: [
-        { id: 'opening-a', title: '开场 A', content: '', variableVersionId: 'version-a', initialVariableStateJson: '' },
-        { id: 'opening-b', title: '开场 B', content: '', variableVersionId: '', initialVariableStateJson: '{"seed":1}' },
+        { id: 'opening-a', title: '开场 A', content: '', variableVersionId: 'version-a' },
+        { id: 'opening-b', title: '开场 B', content: '', variableVersionId: '' },
       ] });
       return <OpeningEditor entry={entry} variableVersions={[{ id: 'version-a', name: '配置 A' }, { id: 'version-b', name: '配置 B' }]}
         onChange={(next) => { changed(next); setEntry(next); }} onRequestDelete={() => {}} />;
@@ -124,22 +124,24 @@ describe('opening configuration editor', () => {
     const view = await render(<Harness />);
     try {
       expect(view.container.querySelector('select').value).toBe('version-a');
-      expect([...view.container.querySelector('select').options].filter((option) => !option.disabled).map((option) => option.value)).toEqual(['version-a', 'version-b']);
+      expect([...view.container.querySelector('select').options].filter((option) => !option.disabled).map((option) => option.value)).toEqual(['', 'version-a', 'version-b']);
       await act(async () => [...view.container.querySelectorAll('.setting-library-opening-toggle')][1].click());
       const select = view.container.querySelector('select');
       await act(async () => { select.value = 'version-b'; select.dispatchEvent(new Event('change', { bubbles: true })); });
       expect(changed.mock.lastCall[0].openingMessages).toMatchObject([
-        { variableVersionId: 'version-a' }, { variableVersionId: 'version-b', initialVariableStateJson: '' },
+        { variableVersionId: 'version-a' }, { variableVersionId: 'version-b' },
       ]);
       await act(async () => view.container.querySelector('.setting-library-opening-item.is-expanded [aria-label="复制开场白"]').click());
       expect(changed.mock.lastCall[0].openingMessages.at(-1).variableVersionId).toBe('version-b');
+      await act(async () => { const current = view.container.querySelector('select'); current.value = ''; current.dispatchEvent(new Event('change', { bubbles: true })); });
+      expect(changed.mock.lastCall[0].openingMessages.at(-1).variableVersionId).toBe('');
     } finally { await view.dispose(); }
   });
 
   it('shows an unbound opening without inventing a version or changing its initial data', async () => {
     const changed = vi.fn();
     const entry = { defaultOpeningMessageId: 'opening-a', openingMessages: [
-      { id: 'opening-a', title: '开场 A', content: '', variableVersionId: '', initialVariableStateJson: '{"seed":1}' },
+      { id: 'opening-a', title: '开场 A', content: '', variableVersionId: '' },
     ] };
     const view = await render(<OpeningEditor entry={entry}
       variableVersions={[{ id: 'version-b', name: '配置 B' }, { id: 'version-a', name: '配置 A' }]}
@@ -147,32 +149,33 @@ describe('opening configuration editor', () => {
     try {
       const select = view.container.querySelector('select');
       expect(select.value).toBe('');
-      expect(select.selectedOptions[0].textContent).toBe('请选择变量版本');
-      expect(select.selectedOptions[0].disabled).toBe(true);
-      expect(select.selectedOptions[0].hidden).toBe(true);
+      expect(select.selectedOptions[0].textContent).toBe('不绑定变量');
+      expect(select.selectedOptions[0].disabled).toBe(false);
       expect([...select.options].filter((option) => !option.disabled).map((option) => [option.value, option.textContent]))
-        .toEqual([['version-b', '配置 B'], ['version-a', '配置 A']]);
+        .toEqual([['', '不绑定变量'], ['version-b', '配置 B'], ['version-a', '配置 A']]);
       expect(view.container.textContent).not.toContain('当前变量版本');
       expect(changed).not.toHaveBeenCalled();
       await act(async () => { select.value = 'version-a'; select.dispatchEvent(new Event('change', { bubbles: true })); });
-      expect(changed.mock.lastCall[0].openingMessages[0]).toMatchObject({ variableVersionId: 'version-a', initialVariableStateJson: '' });
+      expect(changed.mock.lastCall[0].openingMessages[0]).toMatchObject({ variableVersionId: 'version-a' });
     } finally { await view.dispose(); }
   });
 
   it('keeps a missing binding visible and preserves data when no versions are available', async () => {
     const changed = vi.fn();
     const entry = { defaultOpeningMessageId: 'opening-a', openingMessages: [
-      { id: 'opening-a', title: '开场 A', content: '', variableVersionId: 'missing-version', initialVariableStateJson: '{"seed":1}' },
+      { id: 'opening-a', title: '开场 A', content: '', variableVersionId: 'missing-version' },
     ] };
     const view = await render(<OpeningEditor entry={entry} variableVersions={[]}
       onChange={changed} onRequestDelete={() => {}} />);
     try {
       const select = view.container.querySelector('select');
-      expect(select.disabled).toBe(true);
+      expect(select.disabled).toBe(false);
       expect(select.value).toBe('missing-version');
       expect(select.selectedOptions[0].textContent).toBe('版本不存在');
-      expect([...select.options].filter((option) => !option.disabled)).toEqual([]);
+      expect([...select.options].filter((option) => !option.disabled).map(option => option.value)).toEqual(['']);
       expect(changed).not.toHaveBeenCalled();
+      await act(async () => { select.value = ''; select.dispatchEvent(new Event('change', { bubbles: true })); });
+      expect(changed.mock.lastCall[0].openingMessages[0].variableVersionId).toBe('');
     } finally { await view.dispose(); }
   });
 

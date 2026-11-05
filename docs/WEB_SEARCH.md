@@ -4,9 +4,9 @@ PC 与 Android 共用联网工具源码。预设的「联网搜索」工具组�
 
 ## 配置入口
 
-工具弹窗只保留 DeepSeek 和 Tavily 两张卡片。点击 DeepSeek 卡片直接打开官方「插件 → 网页搜索」页面并关闭原弹窗；预设有未保存修改时先使用现有离开提醒。点击 Tavily 选择该提供器并展开原有密钥、连接测试和返回条数配置。
+工具弹窗保留 DeepSeek 和 Tavily 两张选择卡片。默认使用 DeepSeek Messages 搜索；从 Tavily 点击 DeepSeek 会立即保存该选择，不跳转、不要求开启新版 API。已经使用 DeepSeek Search API 时再次点击同一卡片保留当前模式。点击 Tavily 选择该提供器并展开原有密钥、连接测试和返回条数配置；用户明确保存的选择不会被默认值覆盖。
 
-工具弹窗不再列出模型原生、Search、HTTP、Fetch 等细分选项，也没有单独的「配置 DeepSeek」按钮。官方 Messages 与 Search API 的选择、网页抓取方式和参数均在官方页面管理。
+选中 DeepSeek 后，独立的「前往官方插件配置」按钮打开官方「插件 → 网页搜索」页面并关闭原弹窗；预设有未保存修改时使用现有离开提醒，单纯切换搜索方式不触发离开提醒。工具弹窗不列出模型原生、Search、HTTP、Fetch 等细分选项。官方 Messages 与 Search API 的切换、网页抓取方式和参数仍在官方页面管理，不重复维护配置表单。
 
 Tavily 返回条数可以直接输入，使用官方 API 的 0–20 范围，默认 5；不再仅提供 3、5、8 三档。该范围来自 [Tavily Search 合同](https://docs.tavily.com/documentation/api-reference/endpoint/search)，不同于本地创作内容的数量限制。
 

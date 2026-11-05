@@ -112,7 +112,7 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
     setConfig((current) => {
       const candidate = typeof nextOrUpdater === "function" ? nextOrUpdater(current) : nextOrUpdater;
       const shaped = ensureInitializationObject(candidate);
-      const next = generateState ? withGeneratedInitialState(shaped) : shaped;
+      const next = generateState ? withGeneratedInitialState(shaped, current) : shaped;
       configRef.current = next;
       return next;
     });

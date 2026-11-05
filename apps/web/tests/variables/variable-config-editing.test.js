@@ -107,8 +107,8 @@ describe("variable configuration editing", () => {
       initialStateJson: '{"角色":{"测试角色":{"好感度":8}}}',
       objects: source.objects.map((item) => item.id === "status" ? { ...item, name: "角色", dynamicKey: true } : item),
     };
-    expect(withGeneratedInitialState(dynamic).initialStateJson).toBe(dynamic.initialStateJson);
-    expect(syncActiveVersion(dynamic).initialStateJson).toBe(dynamic.initialStateJson);
+    expect(JSON.parse(withGeneratedInitialState(dynamic).initialStateJson)).toEqual(JSON.parse(dynamic.initialStateJson));
+    expect(JSON.parse(syncActiveVersion(dynamic).initialStateJson)).toEqual(JSON.parse(dynamic.initialStateJson));
   });
 
   it("projects a disabled object to all descendants", () => {

@@ -107,11 +107,11 @@ describe('MVU imported state persistence', () => {
       .toMatchObject({ status: 'validation_error', state_unchanged: true })
     expect(contexts.get(conversationId).variables.state).toEqual(accepted)
     f.states.replaceCurrent(conversationId, JSON.stringify(accepted))
-    const selectedVersionId = f.variables.forConversation(conversationId, f.characterId).activeVersionId
+    const selectedVersionId = f.variables.forConversation(conversationId, f.characterId)!.activeVersionId
     f.database.close()
     f.database.open()
     expect(JSON.parse(f.states.runtimeContext(conversationId, { characterId: f.characterId })!.stateJson)).toEqual(accepted)
-    expect(f.variables.forConversation(conversationId, f.characterId).activeVersionId).toBe(selectedVersionId)
+    expect(f.variables.forConversation(conversationId, f.characterId)!.activeVersionId).toBe(selectedVersionId)
     const restored = decodeVariableConfigSnapshot(encodeVariableConfigSnapshot(f.variables.get(f.characterId)), f.characterId)
     expect(restored.versions.map(version => JSON.parse(version.initialStateJson))).toEqual(imported.versions.map(version => JSON.parse(version.initialStateJson)))
     expect(restored.versions.map(version => version.schemaCode)).toEqual(imported.versions.map(version => version.schemaCode))

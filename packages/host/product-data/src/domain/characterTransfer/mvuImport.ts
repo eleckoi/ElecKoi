@@ -17,7 +17,6 @@ type JsonObject = Record<string, unknown>
 export interface MvuVariableConversion {
   config?: VariableConfig
   warnings: string[]
-  openingStates: string[]
   openingVersionIds: string[]
   consumedEntries: Set<JsonObject>
 }
@@ -43,7 +42,7 @@ export function convertMvuVariables(
     }
   }
   const recognized = schema || consumedEntries.size || openings.some(opening => /<(?:initvar|json_?patch)(?:\s|>)/i.test(opening))
-  if (!recognized) return { warnings, openingStates: [], openingVersionIds: [], consumedEntries }
+  if (!recognized) return { warnings, openingVersionIds: [], consumedEntries }
   const states = (openings.length ? openings : ['']).map((opening, index) => {
     try {
       const inline = taggedBlocks(opening, 'initvar')
@@ -84,7 +83,6 @@ export function convertMvuVariables(
     config: { characterId: 'pending-character', name: active.name, initialStateJson: active.initialStateJson,
       schemaCode: active.schemaCode, objects: active.objects, variables: active.variables,
       expandedObjectIds: active.expandedObjectIds, activeVersionId: active.id, versions },
-    openingStates: states.map(state => JSON.stringify(state, null, 2)),
     openingVersionIds: openings.length ? openingVersionIds : [], consumedEntries
   }
 }

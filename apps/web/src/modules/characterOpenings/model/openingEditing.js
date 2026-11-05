@@ -1,7 +1,7 @@
 export function primaryFirstOpeningMessages(entry) {
   const messages = entry.openingMessages?.length
     ? entry.openingMessages
-    : [{ id: "opening-default", title: "默认开场", content: entry.content || "", initialVariableStateJson: "" }];
+    : [{ id: "opening-default", title: "默认开场", content: entry.content || "" }];
   const primary = messages.find((message) => message.id === entry.defaultOpeningMessageId) || messages[0];
   return [primary, ...messages.filter((message) => message.id !== primary.id)];
 }
@@ -17,7 +17,7 @@ function withOpeningMessages(entry, messages, defaultMessageId) {
 
 export function createBackupOpening(entry) {
   const messages = primaryFirstOpeningMessages(entry);
-  const next = { id: `opening-${crypto.randomUUID()}`, title: "", content: "", initialVariableStateJson: "" };
+  const next = { id: `opening-${crypto.randomUUID()}`, title: "", content: "" };
   return { entry: withOpeningMessages(entry, [...messages, next], messages[0].id), createdId: next.id };
 }
 

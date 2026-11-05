@@ -56,9 +56,9 @@ PC 空会话显示居中的新会话首页，共用原来的官方输入框与�
 
 关闭关键词匹配时将该字段设回 `normal`，关键词内容和其他条件保留。批量修改同步当前设定版本，任一编号、格式或保存失败整批回滚。
 
-主开场白和备用开场白也通过 `settings.read/update/update_many` 编辑。先用 `settings.list` 获取 `kind="opening"` 的准确条目编号；单独修改 `content` 会更新当前主开场正文。`openingMessages` 接收完整列表，可以新增、修改、删除、调整顺序，并修改每项的标题、正文、`variableVersionId` 变量版本绑定及 `initialVariableStateJson` 初始变量；未要求修改的项目和字段应保留。`defaultOpeningMessageId` 指定主开场，删除原主开场时必须同时给出有效的新编号。
+主开场白和备用开场白通过 `character.read_openings` 读取、`character.save_openings` 保存。`openingMessages` 接收完整列表，可以新增、修改、删除、调整顺序，并修改每项的标题、正文与 `variableVersionId` 变量版本绑定；未要求修改的项目和字段应保留。`defaultOpeningMessageId` 指定主开场，删除原主开场时必须同时给出有效的新编号。
 
-变量绑定可以改为当前角色已有的准确变量版本编号，也可以填空字符串取消绑定。`variables.list` 返回 `activeVersionId` 和各版本的 `id/name`，用于查询可选绑定。绑定时新对话使用所绑定版本的初始变量；未绑定时使用开场初始变量，留空则使用当前变量版本。修改原稿不会重写已有对话中的开场与变量。固定开场容器沿用角色编辑器的分类和显示配置，清空正文使用空字符串。
+变量绑定可以改为当前角色已有的准确变量版本编号，也可以填空字符串取消绑定。`variables.list` 返回各版本的 `id/name`，用于查询可选绑定；其 `activeVersionId` 只表示变量编辑器当前选择。新对话只加载所选开场白明确绑定的变量版本及其初值；未绑定或没有有效开场白时不启用变量配置，不自动选择版本。切换至未绑定开场白同时清空本次开局的变量绑定和初值。创作工具不提供开场白独立初值字段。修改原稿不会重写已有对话中的开场与变量。清空开场正文使用空字符串。
 
 | 用途 | `dynamicMode` | `contentMode` | 限制 |
 | --- | --- | --- | --- |

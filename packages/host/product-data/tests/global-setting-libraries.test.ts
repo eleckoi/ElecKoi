@@ -1,3 +1,4 @@
+import { CURRENT_SCHEMA_VERSION } from '../src/storage/sqlite/schemaVersion'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -50,7 +51,7 @@ it.each([101, 1001, 10001])('preserves all %i global entries, long content, fina
   f.roles.save(role.characterId, { ...role, entries: [emptyEntry('role-only')] })
   expect(f.globals.get()).toEqual(renamed)
   f.db.close(); f.db.open(); expect(f.globals.get()).toEqual(renamed)
-  expect(f.db.native.pragma('user_version', { simple: true })).toBe(13)
+  expect(f.db.native.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
   expect(f.db.native.pragma('foreign_key_check')).toEqual([])
   expect(f.db.native.pragma('integrity_check', { simple: true })).toBe('ok')
 }, 120000)

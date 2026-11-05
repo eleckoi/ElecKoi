@@ -183,6 +183,6 @@ CREATE TABLE IF NOT EXISTS `global_setting_libraries` (`id` TEXT NOT NULL, `sort
 
 CREATE TABLE IF NOT EXISTS `global_setting_library_state` (`id` INTEGER NOT NULL, `revision` INTEGER NOT NULL, PRIMARY KEY(`id`), CHECK (`id` = 1 AND `revision` >= 0));
 
-PRAGMA user_version = 14;
+PRAGMA user_version = 15;
 
 COMMIT;

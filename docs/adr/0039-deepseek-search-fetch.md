@@ -6,13 +6,13 @@
 
 ## 当前决定（2026-10-19）
 
-DeepSeek 使用锁定 DSH 0.2.1-rc.5（`b830ec950faba0a46dda564be3e2d854afed94f1`）的官方 Messages、Search 与 Fetch，HTTP 抓取也沿用官方实现。工具弹窗只保留 DeepSeek 与 Tavily 两张卡片，点击 DeepSeek 卡片通过 Slots 中正式 `plugins` 面板的导航 store 打开精确的 `web-search` 配置项；密钥、基础地址和官方参数只有这一个表单。Tavily 的扩展和配置保留。
+DeepSeek 使用锁定 DSH 0.2.1-rc.5（`b830ec950faba0a46dda564be3e2d854afed94f1`）的官方 Messages、Search 与 Fetch，HTTP 抓取也沿用官方实现。工具弹窗保留 DeepSeek 与 Tavily 两张选择卡片。2026-11-05 修正交互：从 Tavily 选择 DeepSeek 直接保存为默认的 Messages 搜索，已选官方 Search API 则保留该模式；独立的「前往官方插件配置」按钮才通过 Slots 中正式 `plugins` 面板的导航 store 打开精确的 `web-search` 配置项。密钥、基础地址和官方参数只有这一个表单；Tavily 的扩展和配置保留。
 
 删除 `@eleckoi/dsh-web-deepseek`、其装配依赖、Remote 测试入口和客户端重复表单，同时退役未知状态的 Web 类型及工具展示补丁。官方 Search 不提供旧扩展的正文／地域行为，官方 Fetch 成功解析映射为 200；这些行为按用户选择接受，不能继续声称保留旧扩展的结果合同。已有的工具完整输出补丁保留，退役条件为上游正式支持提供器自主条数和完整抓取输出。
 
 旧 profile 仅在 Loader 挂载前，把 `web` 条目中明确的 `eleckoi-deepseek-api` 搜索／抓取值改为对应官方编号，使用官方原子写入和 profile 文件锁；不在插件初始化期间重入 Loader 编辑。官方参数、Tavily／HTTP 选择、凭据与未使用的旧参数保留。删除条件记录在共用 profile 函数内。
 
-验收包括共用 Host 正式 profile 的角色／工作室官方工具执行、50 条来源、配置重开和旧选择退役，及工具弹窗仅两个入口、DeepSeek 卡片直接跳转、Tavily 保留、宽窄窗口和深浅主题。源码与桌面验收不代表手机新包交付。
+验收包括共用 Host 正式 profile 的角色／工作室官方工具执行、50 条来源、配置重开和旧选择退役，以及两张选择卡片、DeepSeek Messages 从 Tavily 切换后冷重开保持、独立配置按钮与离开提醒、保存失败保留原选择、Tavily 配置、宽窄窗口和深浅主题。源码与桌面验收不代表手机新包交付。
 
 ## 历史决定（2026-10-17，已由当前决定取代）
 

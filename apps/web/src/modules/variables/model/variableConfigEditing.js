@@ -168,19 +168,19 @@ export function moveVariableNode(config, moved, destinationParentId, destination
   destination.splice(Math.max(0, Math.min(destination.length, destinationIndex)), 0, { ...moved, treeViewOrder: 0, order: source.order });
   next = reorderParent(next, destinationParentId, destination);
   if (sourceParentId !== destinationParentId) next = reorderParent(next, sourceParentId);
-  return withGeneratedInitialState(next);
+  return withGeneratedInitialState(next, config);
 }
 
 export function deleteVariableNode(config, target) {
   if (!target?.id || target.id === VARIABLE_INITIALIZATION_OBJECT_ID) return config;
-  if (target.kind === "variable") return withGeneratedInitialState({ ...config, variables: config.variables.filter((item) => item.id !== target.id) });
+  if (target.kind === "variable") return withGeneratedInitialState({ ...config, variables: config.variables.filter((item) => item.id !== target.id) }, config);
   const removed = descendantsOf(config, target.id);
   return withGeneratedInitialState({
     ...config,
     objects: config.objects.filter((item) => !removed.has(item.id)),
     variables: config.variables.filter((item) => !removed.has(item.objectId)),
     expandedObjectIds: config.expandedObjectIds.filter((id) => !removed.has(id)),
-  });
+  }, config);
 }
 
 export function copyVariableNode(config, target, destinationParentId) {
@@ -276,7 +276,7 @@ export function replaceObjectContentsFromJson(config, objectId, sourceText) {
     }
   };
   append(parsed, objectId, "");
-  return withGeneratedInitialState({ ...config, objects, variables, expandedObjectIds: config.expandedObjectIds.filter((id) => !removedObjects.has(id)) });
+  return withGeneratedInitialState({ ...config, objects, variables, expandedObjectIds: config.expandedObjectIds.filter((id) => !removedObjects.has(id)) }, config);
 }
 
 export function convertVariableToObject(config, variableId) {
@@ -291,11 +291,10 @@ export function convertVariableToObject(config, variableId) {
   return { config: withGeneratedInitialState({ ...config, objects: [...config.objects, object], variables: config.variables.filter((item) => item.id !== variableId) }), key: nodeKey("object", object.id) };
 }
 
-export function withGeneratedInitialState(config) {
-  if (config.objects.some((item) => item.id !== VARIABLE_INITIALIZATION_OBJECT_ID && item.dynamicKey)) {
-    return config;
-  }
-  return { ...config, initialStateJson: generatedInitialStateJson(config.objects, config.variables) };
+export function withGeneratedInitialState(config, previous = config.versions?.find(item => item.id === config.activeVersionId)) {
+  return { ...config, initialStateJson: generatedInitialStateJson(config.objects, config.variables, {
+    initialStateJson: config.initialStateJson, objects: previous?.objects || config.objects,
+  }) };
 }
 
 export function activateVariableVersion(config, version, versions) {
@@ -313,9 +312,7 @@ export function activateVariableVersion(config, version, versions) {
 }
 
 export function syncActiveVersion(config) {
-  const initialStateJson = config.objects.some((item) => item.id !== VARIABLE_INITIALIZATION_OBJECT_ID && item.dynamicKey)
-    ? config.initialStateJson
-    : generatedInitialStateJson(config.objects, config.variables);
+  const { initialStateJson } = withGeneratedInitialState(config);
   const active = {
     ...(config.versions.find((item) => item.id === config.activeVersionId) || { id: config.activeVersionId || DEFAULT_VARIABLE_CONFIG_VERSION_ID, createdAt: now(), updatedAt: now() }),
     name: config.name,
