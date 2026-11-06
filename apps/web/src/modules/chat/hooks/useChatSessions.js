@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -50,6 +51,7 @@ const EMPTY_CHAT = { details: EMPTY_DETAILS, stream: EMPTY_STREAM };
 const getEmptyChat = () => EMPTY_CHAT;
 
 export function useChatSessions({ conversations, persona, characters, modelConfigs, language, setStatus, setActiveSectionState, notify }) {
+  const tUi = useProductTranslation();
   const catalog = useSyncExternalStore(
     conversations?.subscribe || subscribeEmptyCatalog,
     conversations?.getSnapshot || getEmptyCatalog,
@@ -165,7 +167,7 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
       active_conversation_id: sessionId,
       preferred_sessions: Object.fromEntries(preferredSessionByCharacterRef.current),
     }).catch((error) => {
-      notifyRef.current?.("error", getErrorMessage(error, "保存当前聊天记录失败"));
+      notifyRef.current?.("error", getErrorMessage(error, tUi("保存当前聊天记录失败")));
     });
   }, [conversations, selectionReady, selectionRevision, sessionId]);
 
@@ -238,7 +240,7 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
           }
         }
       } catch (error) {
-        notifyRef.current?.("error", getErrorMessage(error, "读取当前聊天记录失败"));
+        notifyRef.current?.("error", getErrorMessage(error, tUi("读取当前聊天记录失败")));
       }
     }
     const data = await readSessions();
@@ -257,7 +259,7 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
     } catch (error) {
       setSessionId("");
       setMessagesWithScroll([], "auto");
-      notifyRef.current?.("error", getErrorMessage(error, "恢复当前聊天记录失败"));
+      notifyRef.current?.("error", getErrorMessage(error, tUi("恢复当前聊天记录失败")));
     } finally {
       setSelectionReady(true);
     }
@@ -315,7 +317,7 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
     }
     const characterData = normalizeChatCharacter(role);
     const characterId = characterData.character_id;
-    const characterName = characterData.assistant_name || characterData.character_name || "未命名角色";
+    const characterName = characterData.assistant_name || characterData.character_name || tUi("未命名角色");
     if (!characterId) return;
     const selectionGeneration = ++loadGenerationRef.current;
     setIsSwitchingChat(true);
@@ -345,7 +347,7 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
       await refreshSessionsOnly();
       setActiveSectionState("messages");
     } catch (error) {
-      const message = getErrorMessage(error, "添加对话失败");
+      const message = getErrorMessage(error, tUi("添加对话失败"));
       setStatus(message);
       notifyRef.current?.("error", message);
     } finally {
@@ -376,7 +378,7 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
     discardInputFiles();
     const creationGeneration = ++loadGenerationRef.current;
     setIsSwitchingChat(true);
-    const characterName = chatCharacter.assistant_name || chatCharacter.character_name || "新对话";
+    const characterName = chatCharacter.assistant_name || chatCharacter.character_name || tUi("新对话");
     try {
       const created = await createChatSession(characterName, chatCharacter, { model: conversations });
       if (creationGeneration !== loadGenerationRef.current) return;
@@ -393,7 +395,7 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
       setStatus("新会话");
       setActiveSectionState("messages");
     } catch (error) {
-      const message = getErrorMessage(error, "新建会话失败");
+      const message = getErrorMessage(error, tUi("新建会话失败"));
       setStatus(message);
       notifyRef.current?.("error", message);
     } finally {
@@ -472,12 +474,12 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
       const latestCharacter = characterLookup.get(targetCharacterId);
       const replacementCharacter = latestCharacter || normalizeChatCharacter({
         character_id: targetCharacterId,
-        character_name: target?.character_name || chatCharacter.character_name || chatCharacter.assistant_name || "新对话",
+        character_name: target?.character_name || chatCharacter.character_name || chatCharacter.assistant_name || tUi("新对话"),
         character_avatar: target?.character_avatar || chatCharacter.character_avatar || chatCharacter.assistant_avatar || "",
         assistant_name: target?.character_name || chatCharacter.assistant_name || chatCharacter.character_name || "新对话",
         assistant_avatar: target?.character_avatar || chatCharacter.assistant_avatar || chatCharacter.character_avatar || "",
       });
-      const characterName = replacementCharacter.assistant_name || replacementCharacter.character_name || "新对话";
+      const characterName = replacementCharacter.assistant_name || replacementCharacter.character_name || tUi("新对话");
       const created = await createChatSession(characterName, replacementCharacter, { model: conversations });
       rememberPreferredSession(targetCharacterId, created.chat.id);
       setSessionId(created.chat.id);
@@ -524,7 +526,7 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
       void conversations.cancelStream(streamSnapshot.runId).then((cancelled) => {
         if (!cancelled) setStatus("这次回复已结束");
       }).catch((error) => {
-        const message = getErrorMessage(error, "停止生成失败");
+        const message = getErrorMessage(error, tUi("停止生成失败"));
         setStatus(message);
         notify?.("error", message);
       });
@@ -579,13 +581,13 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
   async function regenerateReply(options = {}) {
     if (!sessionId || chatBusy) return;
     if (!modelConfig?.id || !modelConfig.model?.trim()) {
-      const message = "未配置可用的对话模型，请先前往“模型配置”添加模型和 API 密钥。";
+      const message = tUi("未配置可用的对话模型，请先前往“模型配置”添加模型和 API 密钥。");
       setStatus(message);
       notifyRef.current?.("error", message);
       return;
     }
     if (!conversations) {
-      const message = "DSH 聊天服务尚未就绪";
+      const message = tUi("DSH 聊天服务尚未就绪");
       setStatus(message);
       notifyRef.current?.("error", message);
       return;
@@ -648,7 +650,7 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
       setStatus("回复完成");
     } catch (error) {
       if (requestRef.current === activeRequest && !isAbortError(error)) {
-        const message = getErrorMessage(error, "重新生成失败");
+        const message = getErrorMessage(error, tUi("重新生成失败"));
         setIsSending(false);
         setStatus(message);
         notify?.("error", message);

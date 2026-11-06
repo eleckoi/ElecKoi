@@ -164,8 +164,6 @@ async function main() {
   host = new DshDesktopPluginHost(hostOptions)
   let ready = await host.start()
   let cookie = await document.authenticateDshClientHost(ready.url)
-  const renderer = resolve('apps/web/dist')
-  const assets = await document.resolveElecKoiClientAssets(renderer)
   protocol.handle('dsh-app', async request => {
     const url = new URL(request.url)
     if (url.hostname === 'shell') {
@@ -175,12 +173,10 @@ async function main() {
       if (!Object.hasOwn(types, name)) return new Response(null, { status: 404 })
       return new Response(readFileSync(resolve('apps/desktop/resources/shell', name)), { headers: { 'content-type': types[name] } })
     }
-    if (url.pathname.startsWith('/eleckoi/assets/')) return document.serveElecKoiClientAsset(request, renderer)
     if (document.isDshClientAsset(url.pathname)) return document.serveDshClientAsset(request, resolveDshWebFrontendDirectory())
     return document.forwardDshClientRequest(request, ready.url, cookie)
   })
-  ipcMain.handle('eleckoi:dsh-client-boot', () => ({ injections: [...ready.injections,
-    { kind: 'global', name: '__ELECKOI_CLIENT_ASSETS__', value: assets }], streamBaseUrl: new URL(ready.url).origin }))
+  ipcMain.handle('eleckoi:dsh-client-boot', () => ({ injections: ready.injections, streamBaseUrl: new URL(ready.url).origin }))
   ipcMain.handle('eleckoi:dsh-client-boot-failed', (_event, error) => errors.push(error))
   if (process.argv.includes('--updates-check')) {
     updateProbe = require('./probe-eleckoi-updates-scenario.cjs').createUpdateProbe({ ipcMain, getWindow: () => window, overlays: updateOverlays })

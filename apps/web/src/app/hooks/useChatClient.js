@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -7,6 +8,7 @@ import { usePersonaCharacters } from "../../modules/persona/index.js";
 import { failureAlreadyPublished } from "../../utils/swallowedFailure.js";
 
 export function useChatClient({ conversations, characters: characterCatalog, models: modelCatalog, persona: personaModel, navigation } = {}) {
+  const tUi = useProductTranslation();
   const [localActiveSection, setLocalActiveSection] = useState("messages");
   const activeSection = navigation ? navigation.selectedPanelId || "messages" : localActiveSection;
   const setActiveSectionState = useCallback((section) => {
@@ -14,7 +16,7 @@ export function useChatClient({ conversations, characters: characterCatalog, mod
     else setLocalActiveSection(section);
   }, [navigation]);
   const [meta, setMeta] = useState(null);
-  const [status, setStatus] = useState("就绪");
+  const [status, setStatus] = useState(tUi("就绪"));
   const [notice, setNotice] = useState(null);
 
   // `failure` 是可选的结构化失败（`resolveFailure` 的产物）：错误对话框要显示码与详情，

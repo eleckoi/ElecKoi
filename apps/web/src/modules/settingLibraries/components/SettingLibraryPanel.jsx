@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { forwardRef, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { EditorScopeTabs } from '../../../ui/ui/EditorScopeTabs.jsx';
 import {
@@ -56,6 +57,7 @@ function nodeIcon(entry) {
 }
 
 export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ characterId, settingLibraries, globalSettingLibraries, onDirtyChange }, ref) {
+  const tUi = useProductTranslation();
   const { compact } = useEditorPresentation();
   const scopePanelId = useId();
   const [scope, setScope] = useState('character');
@@ -166,7 +168,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
   function pasteSelection() {
     const parentId = parentForNewNode();
     if (!clipboard || !canTransferSettingNode(libraryRef.current, clipboard.target, parentId)) {
-      setError('不能粘贴到此文件夹，请选择其他位置。');
+      setError(tUi("不能粘贴到此文件夹，请选择其他位置。"));
       return;
     }
     if (clipboard.mode === 'cut') {
@@ -259,10 +261,10 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
       kind,
       id,
       libraryId,
-      title: kind === "group" ? `删除“${name}”？` : isReference ? "删除这条 EJS引用设定？" : `删除“${name || "未命名设定"}”？`,
+      title: kind === "group" ? tUi("删除“{value0}”？", {value0: name}) : isReference ? tUi("删除这条 EJS引用设定？") : tUi("删除“{value0}”？", {value0: name || tUi("未命名设定")}),
       message: kind === "group"
-        ? "文件夹内的设定也会一起删除。"
-        : isReference ? `使用它的控制器将无法再通过 getwi 读取“${name || "未命名 EJS引用设定"}”。` : "此操作会在保存后生效。",
+        ? tUi("文件夹内的设定也会一起删除。")
+        : isReference ? tUi("使用它的控制器将无法再通过 getwi 读取“{value0}”。", {value0: name || "未命名 EJS引用设定"}) : tUi("此操作会在保存后生效。"),
     });
     setContextMenu(null);
   }
@@ -294,7 +296,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
     if (!source || PINNED_ENTRY_IDS.has(id)) return;
     const timestamp = new Date().toISOString();
     const names = new Set(targetLibrary.entries.filter((entry) => entry.groupId === source.groupId).map((entry) => entry.title));
-    const title = uniqueName(source.title ? `${source.title} 副本` : "新建设定", names);
+    const title = uniqueName(source.title ? tUi("{value0} 副本", {value0: source.title}) : tUi("新建设定"), names);
     const entry = {
       ...source,
       id: createId("setting"),
@@ -405,13 +407,13 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
     }, current));
     multi.clear();
   }
-  function askDeleteBatch() { setDeleteTarget({ kind: 'batch', ids: selectedTreeRootIds(nodes, multi.selected), title: `删除选中的 ${multi.selected.size} 项？`, message: '所选文件夹及其内容会在保存后删除。' }); }
-  const createItems = [{ label: '文件夹', Icon: CreateFolderIcon, run: () => requestAddNode('group') },
-    { label: '设定', Icon: CreateEntryIcon, run: () => requestAddNode('entry') },
-    { label: 'EJS引用设定', Icon: CreateReferenceIcon, run: () => requestAddNode('reference') }];
+  function askDeleteBatch() { setDeleteTarget({ kind: 'batch', ids: selectedTreeRootIds(nodes, multi.selected), title: tUi("删除选中的 {value0} 项？", {value0: multi.selected.size}), message: tUi("所选文件夹及其内容会在保存后删除。") }); }
+  const createItems = [{ label: tUi("文件夹"), Icon: CreateFolderIcon, run: () => requestAddNode('group') },
+    { label: tUi("设定"), Icon: CreateEntryIcon, run: () => requestAddNode('entry') },
+    { label: tUi("EJS引用设定"), Icon: CreateReferenceIcon, run: () => requestAddNode('reference') }];
   const inspector = !multi.active && selected.value && (!compact || editing) ? (
     <div className="setting-library-editor" key={JSON.stringify([scope, activeLibraryId])}>
-    {globals.available ? <div className="setting-library-owner-path">{scope === 'global' ? '全局设定库' : '角色设定库'} / {library.name}</div> : null}
+    {globals.available ? <div className="setting-library-owner-path">{scope === 'global' ? tUi("全局设定库") : tUi("角色设定库")} / {library.name}</div> : null}
     <SettingLibraryInspector
       selected={selected}
       library={library}
@@ -433,21 +435,21 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
     <EditorSidebarLayout
       className={`setting-library-layout${multi.active ? ' is-multiselect' : ''}`}
       inspector={inspector}
-      inspectorTitle={selected.kind === 'group' ? '编辑文件夹' : selected.value?.title || '编辑设定'}
+      inspectorTitle={selected.kind === 'group' ? tUi("编辑文件夹") : selected.value?.title || tUi("编辑设定")}
       onCloseInspector={requestCloseInspector}
       feedback={<SaveControl dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} />}
-      aria-label="设定库"
+      aria-label={tUi("设定库")}
       onMouseDown={() => setMenuOpen(false)}
     >
       <div className="setting-library-browser editor-collection-browser">
-        <EditorCollectionToolbar query={query} onQueryChange={setQuery} placeholder={scope === 'global' ? '搜索全局设定库' : '搜索设定'} selection={{ ...multi, toggle: () => { multi.toggle(); selectNode(''); setEditing(false); setContextMenu(null); } }} disabled={saving || !library}
+        <EditorCollectionToolbar query={query} onQueryChange={setQuery} placeholder={scope === 'global' ? tUi("搜索全局设定库") : tUi("搜索设定")} selection={{ ...multi, toggle: () => { multi.toggle(); selectNode(''); setEditing(false); setContextMenu(null); } }} disabled={saving || !library}
           createItems={createItems}
           onManage={scope === 'character' ? () => setManagerOpen(true) : undefined}
           beforeSave={scope === 'global' ? <GlobalSettingLibraryImport state={globals} settingLibraries={settingLibraries} disabled={saving} /> : null}
           save={<SaveControl dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} />} />
         <EditorSelectionBar selection={multi} visibleIds={visibleTreeSelectionIds(nodes, selectionQuery)} disabled={saving} onCopy={copySelected} onDelete={askDeleteBatch} />
 
-        <div id={scopePanelId} role={globals.available ? 'tabpanel' : undefined} aria-label={scope === 'character' ? '角色设定库' : '全局设定库'} className="setting-library-tree editor-sidebar-directory"
+        <div id={scopePanelId} role={globals.available ? 'tabpanel' : undefined} aria-label={scope === 'character' ? tUi("角色设定库") : tUi("全局设定库")} className="setting-library-tree editor-sidebar-directory"
           onMouseDown={scope === 'character' ? handleTreeMouseDown : undefined} onContextMenu={scope === 'character' ? openTreeContextMenu : undefined}>
         {globals.available ? <EditorScopeTabs value={scope} panelId={scopePanelId} onChange={next => {
           setScope(next); setSelectedKey(''); globals.clear(); setEditing(false); setContextMenu(null);
@@ -472,21 +474,21 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
               onSelectedIdChange={key => { if (multi.active) { if (selectableTreeIds(nodes).includes(key)) multi.check(key, !multi.selected.has(key)); } else selectNode(key); }}
               onExpandedIdsChange={handleExpandedKeysChange}
               onMove={handleMove}
-              ariaLabel="设定文件夹树"
+              ariaLabel={tUi("设定文件夹树")}
             />
           </SettingTreeActionsContext.Provider>
-          {!library ? <p className="setting-library-loading" role={error ? 'alert' : 'status'}>{error || '正在读取…'}</p> : !searchHasResults ? <p className="setting-library-empty">没有匹配的设定</p> : null}
+          {!library ? <p className="setting-library-loading" role={error ? 'alert' : 'status'}>{error || tUi("正在读取…")}</p> : !searchHasResults ? <p className="setting-library-empty">{tUi("没有匹配的设定")}</p> : null}
           </div>
           </>}
         </div>
-        {compact && library && !multi.active && <MobileEditorActions label="设定操作" selectionId={selectedKey} busy={saving} createItems={createItems}
+        {compact && library && !multi.active && <MobileEditorActions label={tUi("设定操作")} selectionId={selectedKey} busy={saving} createItems={createItems}
           canEdit={Boolean(selected.value)} canModify={Boolean(selected.value) && !PINNED_ENTRY_IDS.has(selected.value.id)}
           clipboard={clipboard} canPaste={Boolean(clipboard && canTransferSettingNode(library, clipboard.target, parentForNewNode()))}
           onEdit={() => openEditor()} onMove={() => startTransfer('cut')} onPaste={pasteSelection} onCancel={() => setClipboard(null)}
           onDelete={() => askDelete(selected.kind, selected.value.id)}
           moreItems={selected.value && !PINNED_ENTRY_IDS.has(selected.value.id) ? [
-            { label: '复制', Icon: Copy, run: () => startTransfer('copy') },
-            { label: '重命名', Icon: PencilSimple, run: () => { openEditor(); requestAnimationFrame(() => nameInputRef.current?.select()); } },
+            { label: tUi("复制"), Icon: Copy, run: () => startTransfer('copy') },
+            { label: tUi("重命名"), Icon: PencilSimple, run: () => { openEditor(); requestAnimationFrame(() => nameInputRef.current?.select()); } },
           ] : []} />}
       </div>
 
@@ -501,19 +503,19 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
         />
       ) : null}
 
-      {contextMenu ? <EditorContextMenu menu={contextMenu} label="设定操作" onClose={() => setContextMenu(null)} actions={[
+      {contextMenu ? <EditorContextMenu menu={contextMenu} label={tUi("设定操作")} onClose={() => setContextMenu(null)} actions={[
         ...(['background', 'group'].includes(contextMenu.kind) ? [
-          { label: '新建文件夹', icon: CreateFolderIcon, run: () => requestAddNode('group', contextMenu.parentId, contextMenu.libraryId) },
-          { label: '新建设定', icon: CreateEntryIcon, run: () => requestAddNode('entry', contextMenu.parentId, contextMenu.libraryId) },
-          { label: '新建 EJS引用设定', icon: CreateReferenceIcon, run: () => requestAddNode('reference', contextMenu.parentId, contextMenu.libraryId) },
+          { label: tUi("新建文件夹"), icon: CreateFolderIcon, run: () => requestAddNode('group', contextMenu.parentId, contextMenu.libraryId) },
+          { label: tUi("新建设定"), icon: CreateEntryIcon, run: () => requestAddNode('entry', contextMenu.parentId, contextMenu.libraryId) },
+          { label: tUi("新建 EJS引用设定"), icon: CreateReferenceIcon, run: () => requestAddNode('reference', contextMenu.parentId, contextMenu.libraryId) },
         ] : []),
-        ...(contextMenu.kind === 'entry' ? [{ label: '复制', icon: Copy, run: () => duplicateEntry(contextMenu.id, contextMenu.libraryId) }] : []),
+        ...(contextMenu.kind === 'entry' ? [{ label: tUi("复制"), icon: Copy, run: () => duplicateEntry(contextMenu.id, contextMenu.libraryId) }] : []),
         ...(contextMenu.kind !== 'background' ? [
-          { label: '重命名', icon: PencilSimple, run: () => { selectTarget(nodeKey(contextMenu.kind, contextMenu.id), contextMenu.libraryId); openEditor(nodeKey(contextMenu.kind, contextMenu.id)); requestAnimationFrame(() => nameInputRef.current?.select()); } },
-          { label: '删除', icon: Trash, danger: true, run: () => askDelete(contextMenu.kind, contextMenu.id, contextMenu.libraryId) },
+          { label: tUi("重命名"), icon: PencilSimple, run: () => { selectTarget(nodeKey(contextMenu.kind, contextMenu.id), contextMenu.libraryId); openEditor(nodeKey(contextMenu.kind, contextMenu.id)); requestAnimationFrame(() => nameInputRef.current?.select()); } },
+          { label: tUi("删除"), icon: Trash, danger: true, run: () => askDelete(contextMenu.kind, contextMenu.id, contextMenu.libraryId) },
         ] : []),
       ].map(action => ({ ...action, disabled: saving }))} /> : null}
-      <ConfirmationDialog target={deleteTarget} confirmLabel="删除" tone="destructive" onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
+      <ConfirmationDialog target={deleteTarget} confirmLabel={tUi("删除")} tone="destructive" onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
     </EditorSidebarLayout>
   );
 });

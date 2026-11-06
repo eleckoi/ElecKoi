@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronRightIcon, TrashIcon } from "../../../ui/icons/index.jsx";
@@ -19,18 +21,19 @@ export function ModelProviderSidebar({
   onRequestDelete,
   builtinProviders = [],
 }) {
+  const tUi = useProductTranslation();
   const [query, setQuery] = useState("");
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [providerMenu, setProviderMenu] = useState(null);
   const createMenuRef = useRef(null);
   const keepCollapsedHeading = useSidebarGroupCollapse(collapsedGroups, '.model-config-list');
   const visibleItems = useMemo(() => filterProviderItems(providerItems, query), [providerItems, query]);
-  const visibleGroups = useMemo(() => modelProviderSections
+  const visibleGroups = useMemo(() => localizeUiCopy(modelProviderSections, tUi)
     .map((section) => ({ ...section, items: visibleItems.filter((item) => item.section === section.id) }))
-    .filter((section) => section.items.length), [visibleItems]);
-  const createGroups = useMemo(() => modelProviderSections
+    .filter((section) => section.items.length), [visibleItems, tUi]);
+  const createGroups = useMemo(() => localizeUiCopy(modelProviderSections, tUi)
     .map((section) => ({ ...section, items: createProviderItems.filter((item) => item.section === section.id) }))
-    .filter((section) => section.items.length), [createProviderItems]);
+    .filter((section) => section.items.length), [createProviderItems, tUi]);
 
   useEffect(() => {
     if (!createMenuOpen) return undefined;
@@ -68,21 +71,21 @@ export function ModelProviderSidebar({
   return (
     <aside className="model-config-sidebar">
       <div className="model-sidebar-tools" ref={createMenuRef}>
-        <SidebarSectionHeader title="模型" value={query} onValueChange={setQuery}
-          placeholder="搜索模型配置名称" searchLabel="搜索模型配置" createLabel="新建模型配置"
+        <SidebarSectionHeader title={tUi("模型")} value={query} onValueChange={setQuery}
+          placeholder={tUi("搜索模型配置名称")} searchLabel={tUi("搜索模型配置")} createLabel={tUi("新建模型配置")}
           createExpanded={createMenuOpen} onCreatePointerDown={(event) => event.stopPropagation()}
           onCreate={(event) => { event.stopPropagation(); setCreateMenuOpen((current) => !current); }}
           onSearchFocus={() => setCreateMenuOpen(false)} />
         {createMenuOpen ? (
-          <div className="model-provider-create-menu" role="menu" aria-label="新建模型配置">
+          <div className="model-provider-create-menu" role="menu" aria-label={tUi("新建模型配置")}>
             <button type="button" role="menuitem" onClick={() => { setCreateMenuOpen(false); onCreate('custom'); }}>
               <ProviderLogo provider={createProviderItems.find(item => item.id === 'custom')} className="model-create-provider-icon" />
-              <b>自定义提供商</b>
+              <b>{tUi("自定义提供商")}</b>
             </button>
             <div className="model-provider-create-group">
-              <span>内置提供商</span>
-              <select aria-label="从 DSH 目录选择" value="" onChange={event => { if (event.target.value) { onCreate(event.target.value); setCreateMenuOpen(false); } }}>
-                <option value="" disabled>从 DSH 目录选择</option>
+              <span>{tUi("内置提供商")}</span>
+              <select aria-label={tUi("从 DSH 目录选择")} value="" onChange={event => { if (event.target.value) { onCreate(event.target.value); setCreateMenuOpen(false); } }}>
+                <option value="" disabled>{tUi("从 DSH 目录选择")}</option>
                 {builtinProviderItems(builtinProviders).map(route => <option key={route.provider} value={route.provider}>{route.displayName || route.provider}</option>)}
               </select>
             </div>
@@ -158,7 +161,7 @@ export function ModelProviderSidebar({
             </div>
           );
         }) : null}
-        {collapseStateReady && !visibleGroups.length ? <p className="model-provider-empty">没有匹配的模型配置</p> : null}
+        {collapseStateReady && !visibleGroups.length ? <p className="model-provider-empty">{tUi("没有匹配的模型配置")}</p> : null}
       </SidebarScrollArea>
       {providerMenu ? (
         <ModelProviderContextMenu
@@ -176,6 +179,7 @@ export function ModelProviderSidebar({
 }
 
 function ModelProviderContextMenu({ menu, onClose, onDelete }) {
+  const tUi = useProductTranslation();
   const menuRef = useRef(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -210,7 +214,7 @@ function ModelProviderContextMenu({ menu, onClose, onDelete }) {
       ref={menuRef}
       className="model-provider-context-menu"
       role="menu"
-      aria-label={`${menu.provider.label}的操作`}
+      aria-label={tUi("{value0}的操作", {value0: menu.provider.label})}
       style={{ left: `${menu.x}px`, top: `${menu.y}px` }}
       onContextMenu={(event) => event.preventDefault()}
       onPointerDown={(event) => event.stopPropagation()}
@@ -224,7 +228,7 @@ function ModelProviderContextMenu({ menu, onClose, onDelete }) {
     >
       <button type="button" role="menuitem" onClick={onDelete}>
         <TrashIcon aria-hidden="true" />
-        <span>删除配置</span>
+        <span>{tUi("删除配置")}</span>
       </button>
     </div>,
     document.body,

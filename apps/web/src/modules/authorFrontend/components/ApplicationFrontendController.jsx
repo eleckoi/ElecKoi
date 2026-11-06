@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Code, ArrowCounterClockwise, X } from '@phosphor-icons/react';
@@ -17,6 +18,7 @@ const resolvedTheme = () => ['light', 'dark'].includes(document.documentElement.
 
 /** Stays inside the original DSH root while its selected UI subtree changes. */
 export function ApplicationFrontendController({ slots, subscribeSlots, navigation, children }) {
+  const tUi = useProductTranslation();
   const workspaceState = useApplicationFrontendWorkspace();
   const { workspace, error, loaded, request } = workspaceState;
   const { runtime } = useHtmlResources();
@@ -41,8 +43,8 @@ export function ApplicationFrontendController({ slots, subscribeSlots, navigatio
   }, [slots, subscribeSlots]);
   const selection = useMemo(() => {
     try { return { bindings: validateFrontendBindings(project, targets, view), error: '' }; }
-    catch (reason) { return { bindings: [], error: resolveFailure(reason, { fallback: '前端绑定校验失败' }).text }; }
-  }, [project, targets, view]);
+    catch (reason) { return { bindings: [], error: resolveFailure(reason, { fallback: tUi("前端绑定校验失败") }).text }; }
+  }, [project, targets, view, tUi]);
   useEffect(() => { setFailure(''); }, [selectedId, workspace.revision]);
   useEffect(() => {
     if (!project || !slots || selection.error) return;
@@ -50,14 +52,14 @@ export function ApplicationFrontendController({ slots, subscribeSlots, navigatio
       return installFrontendBindings(slots, selection.bindings, (binding, owner) => <AdvancedFrontendFrame
         project={project} runtime={runtime} request={request} entryFile={binding.entryFile} revision={workspace.revision}
         context={{ binding, view, owner: ownerContext(owner), preview: previewing }} onError={setFailure} />);
-    } catch (reason) { setFailure(`${project.name}: ${resolveFailure(reason, { fallback: '前端页面加载失败' }).text}`); }
+    } catch (reason) { setFailure(`${project.name}: ${resolveFailure(reason, { fallback: tUi("前端页面加载失败") }).text}`); }
   }, [project, slots, runtime, selection, request, workspace.revision, view, previewing]);
   useEffect(() => {
     if (!project || selection.error) return;
     const links = (project.manifest?.globalStyles || []).map(path => {
       const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = frontendAssetUrl(project, path, workspace.revision);
       link.dataset.eleckoiApplicationStyle = project.id;
-      link.onerror = () => setFailure(`${project.name} · ${path}: 全局样式加载失败`);
+      link.onerror = () => setFailure(tUi("{value0} · {value1}: 全局样式加载失败", {value0: project.name, value1: path}));
       document.head.append(link); return link;
     });
     return () => links.forEach(link => link.remove());
@@ -77,7 +79,7 @@ export function ApplicationFrontendController({ slots, subscribeSlots, navigatio
     return () => { theme.disconnect(); host.remove(); window.removeEventListener('eleckoi:frontend-workbench', show); window.removeEventListener('keydown', shortcut, true); };
   }, []);
   useEffect(() => open ? registerOverlayBack(() => { setOpen(false); return true; }, window, 1000) : undefined, [open]);
-  const restore = async () => { try { await request('frontends.restoreDefault'); setPreviewing(false); setFailure(''); } catch (reason) { setFailure(resolveFailure(reason, { fallback: '恢复默认前端失败' }).text); } };
+  const restore = async () => { try { await request('frontends.restoreDefault'); setPreviewing(false); setFailure(''); } catch (reason) { setFailure(resolveFailure(reason, { fallback: tUi("恢复默认前端失败") }).text); } };
   const root = selection.bindings.find(binding => binding.target === 'root');
   const problem = error || selection.error || failure;
   const pageIds = selection.bindings.filter(binding => binding.target === 'page' || binding.slot === 'main').map(binding => binding.pageId || binding.entryKey);
@@ -86,12 +88,12 @@ export function ApplicationFrontendController({ slots, subscribeSlots, navigatio
     {root && loaded && !problem ? <AdvancedFrontendFrame project={project} runtime={runtime} request={request} entryFile={root.entryFile} revision={workspace.revision} context={{ binding: root, view, preview: previewing }} onError={setFailure} />
       : children({ ...navigation, frontendPageIds: pageIds })}
   </div>{seat && createPortal(<><style>{workbenchStyles}</style><div className="af-host">
-    {(project || problem || previewing) && <div className="af-recovery-edge" aria-label="应用前端控制">
-      <button className="af-recovery-toggle" aria-label="前端快捷操作" title="应用前端控制" aria-expanded={recoveryOpen} onClick={() => setRecoveryOpen(!recoveryOpen)}><Code size={20} /></button>
+    {(project || problem || previewing) && <div className="af-recovery-edge" aria-label={tUi("应用前端控制")}>
+      <button className="af-recovery-toggle" aria-label={tUi("前端快捷操作")} title={tUi("应用前端控制")} aria-expanded={recoveryOpen} onClick={() => setRecoveryOpen(!recoveryOpen)}><Code size={20} /></button>
       {recoveryOpen && <div className="af-recovery">
-      {previewing && <button onClick={() => { setPreviewing(false); setOpen(true); }}><X size={15} />退出预览</button>}
-      {(project || problem) && <button onClick={restore}><ArrowCounterClockwise size={15} />恢复默认</button>}
-      <button title="应用前端 · Ctrl+Shift+F" aria-label="应用前端工作台" onClick={() => { setOpen(true); setRecoveryOpen(false); }}><Code size={18} />工作台</button>
+      {previewing && <button onClick={() => { setPreviewing(false); setOpen(true); }}><X size={15} />{tUi("退出预览")}</button>}
+      {(project || problem) && <button onClick={restore}><ArrowCounterClockwise size={15} />{tUi("恢复默认")}</button>}
+      <button title={tUi("应用前端 · Ctrl+Shift+F")} aria-label={tUi("应用前端工作台")} onClick={() => { setOpen(true); setRecoveryOpen(false); }}><Code size={18} />{tUi("工作台")}</button>
     </div>}</div>}
     {open && <FrontendWorkbench {...workspaceState} targets={targets} onClose={() => setOpen(false)} onRestore={restore}
       onPreview={id => { setPreviewId(id); setPreviewing(true); setOpen(false); }} />}

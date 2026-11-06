@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 import { assetSrc } from '../../../app/services/assets.js';
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -61,6 +63,7 @@ function previewText(message, fallback) {
 }
 
 function ChatBackgroundPreview({ image, opacity, blur, scrim, persona, messages, chatDisplay }) {
+  const tUi = useProductTranslation();
   const { layout, profile } = resolveChatDisplayProfile(chatDisplay);
   const avatarShape = resolveChatAvatarShape(layout, profile?.avatar_shape || "portrait");
   const userMessage = [...(messages || [])].reverse().find((item) => item?.role === "user");
@@ -68,15 +71,15 @@ function ChatBackgroundPreview({ image, opacity, blur, scrim, persona, messages,
   const rows = [
     {
       role: "user",
-      name: persona?.user_name || "你",
+      name: persona?.user_name || tUi("你"),
       avatar: resolveChatAvatar(persona, "user", avatarShape),
-      text: previewText(userMessage, "今天想从哪里开始？"),
+      text: previewText(userMessage, tUi("今天想从哪里开始？")),
     },
     {
       role: "assistant",
-      name: persona?.assistant_name || "角色",
+      name: persona?.assistant_name || tUi("角色"),
       avatar: resolveChatAvatar(persona, "assistant", avatarShape),
-      text: previewText(assistantMessage, "从你最在意的那件事开始。"),
+      text: previewText(assistantMessage, tUi("从你最在意的那件事开始。")),
     },
   ];
 
@@ -89,7 +92,7 @@ function ChatBackgroundPreview({ image, opacity, blur, scrim, persona, messages,
     >
       {image ? <img className="chat-background-preview-image" src={assetSrc(image)} alt="" draggable="false" style={{ opacity: opacity / 100, filter: `blur(${blur}px)` }} /> : null}
       <i className="chat-background-preview-scrim" style={{ opacity: image ? scrim / 100 : 0 }} />
-      <div className="chat-background-preview-messages" aria-label={`${LAYOUT_NAMES[layout] || "聊天"}布局预览`}>
+      <div className="chat-background-preview-messages" aria-label={tUi("{value0}布局预览", {value0: localizeUiCopy(LAYOUT_NAMES, tUi)[layout] || tUi("聊天")})}>
         {rows.map((row) => (
           <div className={`chat-background-preview-message ${row.role}`} key={row.role}>
             <Avatar className="chat-background-preview-avatar" src={row.avatar} name={row.name} />
@@ -118,6 +121,7 @@ export function ChatBackgroundModal({
   onSaveNewCharacterBackground,
   onNotify,
 }) {
+  const tUi = useProductTranslation();
   const dialogRef = useRef(null);
   const fileRef = useRef(null);
   const [mode, setMode] = useState("character");
@@ -195,7 +199,7 @@ export function ChatBackgroundModal({
     event.target.value = "";
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      onNotify?.("error", "请选择图片文件。");
+      onNotify?.("error", tUi("请选择图片文件。"));
       return;
     }
     setCropTarget(mode === "global" ? "global" : "custom");
@@ -212,7 +216,7 @@ export function ChatBackgroundModal({
         setCustomImage(image);
       }
     } catch (error) {
-      onNotify?.("error", error?.message || "图片读取失败。");
+      onNotify?.("error", error?.message || tUi("图片读取失败。"));
     } finally {
       setBusy(false);
       setCropFile(null);
@@ -241,10 +245,10 @@ export function ChatBackgroundModal({
       }
       if (mode === "global") await onSaveGlobal?.(globalDraft);
       await onSaveCharacter?.(values);
-      onNotify?.("success", "聊天背景已保存。");
+      onNotify?.("success", tUi("聊天背景已保存。"));
       onClose?.();
     } catch (error) {
-      onNotify?.("error", error?.message || "聊天背景保存失败。");
+      onNotify?.("error", error?.message || tUi("聊天背景保存失败。"));
     } finally {
       setBusy(false);
     }
@@ -263,17 +267,17 @@ export function ChatBackgroundModal({
       >
         <header>
           <div>
-            <strong id="chat-background-title">聊天背景</strong>
-            <span>{character?.name || persona?.assistant_name || "当前角色"}</span>
+            <strong id="chat-background-title">{tUi("聊天背景")}</strong>
+            <span>{character?.name || persona?.assistant_name || tUi("当前角色")}</span>
           </div>
-          <button type="button" aria-label="关闭" title="关闭" onClick={onClose}><DshCloseIcon /></button>
+          <button type="button" aria-label={tUi("关闭")} title={tUi("关闭")} onClick={onClose}><DshCloseIcon /></button>
         </header>
 
         <div className="chat-background-body">
           <section className="chat-background-source">
-            <h3>当前角色</h3>
-            <div className="chat-background-modes" role="radiogroup" aria-label="当前角色背景来源">
-              {MODES.map(([value, label]) => {
+            <h3>{tUi("当前角色")}</h3>
+            <div className="chat-background-modes" role="radiogroup" aria-label={tUi("当前角色背景来源")}>
+              {localizeUiCopy(MODES, tUi).map(([value, label]) => {
                 const selected = mode === value;
                 return (
                   <button key={value} type="button" role="radio" aria-checked={selected} className={selected ? "active" : ""} onClick={() => setMode(value)}>
@@ -287,8 +291,8 @@ export function ChatBackgroundModal({
 
           <section className="chat-background-preview-panel">
             <div className="chat-background-section-heading">
-              <h3>预览</h3>
-              <span>{LAYOUT_NAMES[resolveChatDisplayProfile(chatDisplay).layout] || "聊天布局"}</span>
+              <h3>{tUi("预览")}</h3>
+              <span>{localizeUiCopy(LAYOUT_NAMES, tUi)[resolveChatDisplayProfile(chatDisplay).layout] || tUi("聊天布局")}</span>
             </div>
             <ChatBackgroundPreview
               image={previewImage}
@@ -305,13 +309,13 @@ export function ChatBackgroundModal({
                 {mode === "custom" || mode === "global" ? (
                   <button className="chat-background-upload" type="button" disabled={busy} onClick={() => fileRef.current?.click()}>
                     <PictureFrameIcon size={17} />
-                    {busy ? "正在读取…" : selectedImage ? "更换图片" : "选择图片"}
+                    {busy ? tUi("正在读取…") : selectedImage ? tUi("更换图片") : tUi("选择图片")}
                   </button>
                 ) : null}
                 <div className="chat-background-sliders">
-                  <TunerSliderRow label="背景透明度" value={activeOpacity} min={12} max={100} suffix="%" defaultValue={72} onChange={setActiveOpacity} />
-                  <TunerSliderRow label="背景模糊" value={activeBlur} min={0} max={24} suffix="px" defaultValue={2} onChange={setActiveBlur} />
-                  <TunerSliderRow label="阅读遮罩" value={activeScrim} min={0} max={100} suffix="%" defaultValue={50} onChange={setActiveScrim} />
+                  <TunerSliderRow label={tUi("背景透明度")} value={activeOpacity} min={12} max={100} suffix="%" defaultValue={72} onChange={setActiveOpacity} />
+                  <TunerSliderRow label={tUi("背景模糊")} value={activeBlur} min={0} max={24} suffix="px" defaultValue={2} onChange={setActiveBlur} />
+                  <TunerSliderRow label={tUi("阅读遮罩")} value={activeScrim} min={0} max={100} suffix="%" defaultValue={50} onChange={setActiveScrim} />
                 </div>
               </div>
             ) : null}
@@ -320,25 +324,25 @@ export function ChatBackgroundModal({
 
         <section className="chat-background-import-default" aria-labelledby="chat-background-import-title">
           <div>
-            <h3 id="chat-background-import-title">新角色默认背景</h3>
-            <span>应用于之后新建或导入的角色，可随时单独覆盖</span>
+            <h3 id="chat-background-import-title">{tUi("新角色默认背景")}</h3>
+            <span>{tUi("应用于之后新建或导入的角色，可随时单独覆盖")}</span>
           </div>
-          <div className="chat-background-segmented" role="radiogroup" aria-label="新角色默认背景">
-            <button type="button" role="radio" aria-checked={defaultBackground === "app"} className={defaultBackground === "app" ? "active" : ""} onClick={() => setDefaultBackground("app")}>纯色背景</button>
-            <button type="button" role="radio" aria-checked={defaultBackground === "character"} className={defaultBackground === "character" ? "active" : ""} onClick={() => setDefaultBackground("character")}>角色立绘</button>
+          <div className="chat-background-segmented" role="radiogroup" aria-label={tUi("新角色默认背景")}>
+            <button type="button" role="radio" aria-checked={defaultBackground === "app"} className={defaultBackground === "app" ? "active" : ""} onClick={() => setDefaultBackground("app")}>{tUi("纯色背景")}</button>
+            <button type="button" role="radio" aria-checked={defaultBackground === "character"} className={defaultBackground === "character" ? "active" : ""} onClick={() => setDefaultBackground("character")}>{tUi("角色立绘")}</button>
           </div>
         </section>
 
         <footer>
-          <button type="button" onClick={onClose}>取消</button>
-          <button className="primary" type="button" disabled={busy} onClick={save}>保存</button>
+          <button type="button" onClick={onClose}>{tUi("取消")}</button>
+          <button className="primary" type="button" disabled={busy} onClick={save}>{tUi("保存")}</button>
         </footer>
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={chooseImage} />
       </section>
     </SystemBarOverlay>
     <AvatarCropModal
       file={cropFile}
-      title="裁剪聊天背景"
+      title={tUi("裁剪聊天背景")}
       cropWidth={400}
       cropHeight={225}
       cropRadius="12px"

@@ -347,7 +347,7 @@ window.__ModuleLoader__.load({
             if (wasActive && !conversations.getSnapshot().active) void conversations.restoreRecent().catch(failureAlreadyPublished)
           } catch (reason) { setError(reason?.message || String(reason)); setBusy(false) }
         }
-        return React.createElement(Modal, { open: true, title: '删除会话', closeLabel: '关闭', onClose: close,
+        return React.createElement(Modal, { open: true, title: () => ctx.locale.bind('eleckoi.ui')("删除会话"), closeLabel: '关闭', onClose: close,
           description: `确定删除“${request.displayTitle || '新会话'}”及其关联子会话吗？聊天记录和会话附件将被永久删除，工作区中的项目文件保留。`,
           footer: React.createElement(React.Fragment, null,
             React.createElement(Button, { variant: 'outline', disabled: busy, onClick: close }, '取消'),
@@ -435,6 +435,6 @@ window.__ModuleLoader__.load({
       }, 'eleckoi: creator studio projects')
     }
 
-    return { inject: ['remote', 'remote.eleckoiCreatorStudio', 'remote.eleckoiCreatorStudioSessions', 'remote.eleckoiConversationModels', 'remote.session', 'remote.directoryPicker', 'sessions', 'workspaces', 'slots', 'uiSession'], apply }
+    return { inject: ['locale', 'remote', 'remote.eleckoiCreatorStudio', 'remote.eleckoiCreatorStudioSessions', 'remote.eleckoiConversationModels', 'remote.session', 'remote.directoryPicker', 'sessions', 'workspaces', 'slots', 'uiSession'], apply }
   }
 })

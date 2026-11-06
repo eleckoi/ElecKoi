@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 // NODE STUDIO: retained node/project development surface for future main-window integration.
 import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 import { useNodesState } from "@xyflow/react";
@@ -50,6 +52,7 @@ export function CreatorStudioCanvas({
   viewport: controlledViewport,
   onViewportChange,
 }) {
+  const tUi = useProductTranslation();
   const [{ past, present: nodes, future }, dispatchNodes] = useReducer(canvasHistoryReducer, INITIAL_HISTORY);
   const [flowNodes, setFlowNodes, onFlowNodesChange] = useNodesState([]);
   const [edges, setEdges] = useState([]);
@@ -130,7 +133,7 @@ export function CreatorStudioCanvas({
     const rect = viewportRef.current?.getBoundingClientRect();
     const viewportWidth = rect?.width || 1000;
     const viewportHeight = rect?.height || 700;
-    const meta = NODE_TYPE_BY_ID[nodeType] || NODE_TYPE_BY_ID.text;
+    const meta = localizeUiCopy(NODE_TYPE_BY_ID, tUi)[nodeType] || localizeUiCopy(NODE_TYPE_BY_ID, tUi).text;
     const size = NODE_SIZE[nodeType] || NODE_SIZE.default;
     const pendingConnection = pendingConnectionRef.current;
     const point = pendingConnection?.anchor || anchor || { x: viewportWidth / 2, y: viewportHeight / 2 };
@@ -516,7 +519,7 @@ export function CreatorStudioCanvas({
     nodeDragStartRef.current = null;
   }, [commitNodeMove, moveNode]);
 
-  return <section className={`creator-studio-canvas${assetLibraryOpen ? " has-assets" : ""}${assistantOpen ? " has-assistant" : ""}`} aria-label={`${project.name}项目画布`}>
+  return <section className={`creator-studio-canvas${assetLibraryOpen ? " has-assets" : ""}${assistantOpen ? " has-assistant" : ""}`} aria-label={tUi("{value0}项目画布", {value0: project.name})}>
     <div
       className={`creator-canvas-viewport${isPanning ? " is-panning" : ""}`}
       ref={viewportRef}

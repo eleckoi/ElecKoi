@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { useContext, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from '@phosphor-icons/react';
@@ -25,6 +26,7 @@ export function MobileConversationOverlay({
   footer,
   children,
 }) {
+  const tUi = useProductTranslation();
   const view = useContext(MainPageContext);
   const { overlayRef, sheetRef, closing, dismiss } = useBottomSheetDismiss(onClose);
   const actions = useRef(null);
@@ -106,7 +108,7 @@ export function MobileConversationOverlay({
         {kind === 'sheet' && <div className="mobile-sheet-handle" aria-hidden="true" />}
         <header className={`mobile-overlay-header${onBack || kind === 'page' ? ' has-back' : ''}`}>
           {(onBack || kind === 'page') && (
-            <button type="button" aria-label="返回" disabled={busy || closing} onClick={back}>
+            <button type="button" aria-label={tUi("返回")} disabled={busy || closing} onClick={back}>
               <MobileBackIcon />
             </button>
           )}
@@ -114,7 +116,7 @@ export function MobileConversationOverlay({
             <h2>{title}</h2>
             {subtitle && <p>{subtitle}</p>}
           </div>
-          <button type="button" aria-label="关闭" disabled={busy || closing} onClick={requestClose}>
+          <button type="button" aria-label={tUi("关闭")} disabled={busy || closing} onClick={requestClose}>
             <X size={24} />
           </button>
         </header>

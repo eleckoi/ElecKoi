@@ -1,34 +1,22 @@
 import { createServer, type RequestListener } from 'node:http'
 import { createRequire } from 'node:module'
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { dirname, join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   authenticateDshClientHost,
   forwardDshClientRequest,
-  resolveElecKoiClientAssets,
-  serveElecKoiClientAsset,
   serveDshClientAsset
 } from '../src/main/platform/electron/dshClientDocument'
 
 const require = createRequire(import.meta.url)
 const frontendDirectory = join(dirname(require.resolve('@deepseek-ai/dsh-web-frontend/package.json')), 'dist')
 const servers: Array<ReturnType<typeof createServer>> = []
-const temporaryDirectories: string[] = []
 
 afterEach(async () => {
   await Promise.all(servers.splice(0).map(server => new Promise<void>((resolve, reject) => {
     server.close(error => error === undefined ? resolve() : reject(error))
     server.closeAllConnections()
   })))
-  await Promise.all(temporaryDirectories.splice(0).map(async directory => {
-    const pathFromTemp = relative(resolve(tmpdir()), resolve(directory))
-    if (pathFromTemp === '' || pathFromTemp === '..' || pathFromTemp.startsWith('..' + sep)) {
-      throw new Error('Temporary test path escaped the temp directory')
-    }
-    await rm(directory, { recursive: true, force: true })
-  }))
 })
 
 async function listen(handler: RequestListener): Promise<string> {
@@ -41,29 +29,6 @@ async function listen(handler: RequestListener): Promise<string> {
 }
 
 describe('DSH client document transport', () => {
-  it('resolves and serves the ElecKoi client bundle inside the DSH document', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'eleckoi-dsh-client-'))
-    temporaryDirectories.push(root)
-    await mkdir(join(root, 'assets'), { recursive: true })
-    await writeFile(join(root, 'dsh.html'), '<link rel="stylesheet" href="./assets/product.css"><script src="./assets/product.js"></script>')
-    await writeFile(join(root, 'assets/product.css'), '.product { color: red }')
-    await writeFile(join(root, 'assets/product.js'), 'globalThis.productLoaded = true')
-
-    expect(await resolveElecKoiClientAssets(root)).toEqual({
-      script: 'dsh-app://app/eleckoi/assets/product.js',
-      style: 'dsh-app://app/eleckoi/assets/product.css'
-    })
-    const script = await serveElecKoiClientAsset(new Request('dsh-app://app/eleckoi/assets/product.js'), root)
-    expect(script.status).toBe(200)
-    expect(script.headers.get('content-type')).toBe('text/javascript; charset=utf-8')
-    expect(await script.text()).toBe('globalThis.productLoaded = true')
-    const style = await serveElecKoiClientAsset(new Request('dsh-app://app/eleckoi/assets/product.css'), root)
-    expect(style.status).toBe(200)
-    expect(await style.text()).toBe('.product { color: red }')
-    expect((await serveElecKoiClientAsset(new Request('dsh-app://app/eleckoi/assets/%2e%2e/package.json'), root)).status).not.toBe(200)
-    expect((await serveElecKoiClientAsset(new Request('dsh-app://app/eleckoi/assets/product.js', { method: 'POST' }), root)).status).toBe(405)
-  })
-
   it('serves the pinned frontend with a boot gate and rejects traversal', async () => {
     const page = await serveDshClientAsset(new Request('dsh-app://app/'), frontendDirectory)
     expect(page.status).toBe(200)

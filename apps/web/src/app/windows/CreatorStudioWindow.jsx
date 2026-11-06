@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../i18n/ProductLocaleContext.jsx";
 // NODE STUDIO: retained project/canvas development entry; future integration starts here.
 // Production creation is assembled in dsh-client-creator-studio/page.jsx in the main window.
 import { useEffect, useId, useState } from "react";
@@ -17,24 +18,25 @@ import { WindowControls } from "./shell/components/TitleBar.jsx";
 import { bestEffort } from "../../utils/swallowedFailure.js";
 
 function CreatorStudioDevelopmentNotice({ onSimple, onDeveloper }) {
-  return <main className="qq-shell creator-studio-shell creator-studio-development-shell" aria-label="AI创作工作室">
+  const tUi = useProductTranslation();
+  return <main className="qq-shell creator-studio-shell creator-studio-development-shell" aria-label={tUi("AI创作工作室")}>
     <header className="creator-studio-development-header" data-tauri-drag-region>
       <div className="creator-studio-development-brand" data-tauri-drag-region>
         <img src={logoIcon} alt="" draggable="false" />
-        <strong>AI创作工作室</strong>
+        <strong>{tUi("AI创作工作室")}</strong>
       </div>
       <div data-tauri-drag-region />
       <WindowControls />
     </header>
-    <section className="creator-studio-development-content" aria-label="工作室入口">
+    <section className="creator-studio-development-content" aria-label={tUi("工作室入口")}>
       <div className="creator-studio-entry-options">
         <div className="creator-studio-development-card">
-          <h1>简易版</h1>
-          <button className="creator-studio-development-enter" type="button" onClick={onSimple}>进入简易版</button>
+          <h1>{tUi("简易版")}</h1>
+          <button className="creator-studio-development-enter" type="button" onClick={onSimple}>{tUi("进入简易版")}</button>
         </div>
         <div className="creator-studio-development-card is-developer">
-          <h1>开发者专用</h1><p>勿进</p>
-          <button className="creator-studio-development-enter" type="button" onClick={onDeveloper}>进入开发版</button>
+          <h1>{tUi("开发者专用")}</h1><p>{tUi("勿进")}</p>
+          <button className="creator-studio-development-enter" type="button" onClick={onDeveloper}>{tUi("进入开发版")}</button>
         </div>
       </div>
     </section>
@@ -42,6 +44,7 @@ function CreatorStudioDevelopmentNotice({ onSimple, onDeveloper }) {
 }
 
 export function CreatorStudioWindow({ characterCatalog, projectCatalog, models, presetCatalog, renderCreatorStudioConversation, rightbar, navigation }) {
+  const tUi = useProductTranslation();
   const [mode, setMode] = useState('entry');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeProject, setActiveProject] = useState(null);
@@ -53,9 +56,9 @@ export function CreatorStudioWindow({ characterCatalog, projectCatalog, models, 
 
   useEffect(() => {
     applyAppearanceTheme(null);
-    document.title = "AI创作工作室 - ElecKoi";
+    document.title = tUi("AI创作工作室 - ElecKoi");
     showCurrentWindow().catch(bestEffort);
-  }, []);
+  }, [tUi]);
 
   const nativePanelId = ['plugins', 'conversation'].includes(navigation?.selectedPanelId) ? navigation.selectedPanelId : null;
   if (mode === 'entry') return <CreatorStudioDevelopmentNotice onSimple={() => setMode('simple')} onDeveloper={() => setMode('developer')} />;
@@ -91,27 +94,27 @@ export function CreatorStudioWindow({ characterCatalog, projectCatalog, models, 
       {activeProject ? <>
         <CanvasDotGrid id={`${titlebarGridId}-titlebar`} viewport={titlebarGridViewport} className="is-titlebar" />
         <div className="creator-studio-canvas-titlebar" data-tauri-drag-region>
-        <button className="creator-studio-canvas-back" type="button" aria-label="返回创作项目" title="返回创作项目" onClick={closeProject}>
+        <button className="creator-studio-canvas-back" type="button" aria-label={tUi("返回创作项目")} title={tUi("返回创作项目")} onClick={closeProject}>
           <ArrowLeft size={17} weight="bold" aria-hidden="true" />
         </button>
         <img src={logoIcon} alt="" draggable="false" />
-        <span className="creator-studio-canvas-brand">AI创作工作室</span>
+        <span className="creator-studio-canvas-brand">{tUi("AI创作工作室")}</span>
         <span className="creator-studio-canvas-titlebar-divider" aria-hidden="true" />
         <strong title={activeProject.name}>{activeProject.name}</strong>
         <span className={`creator-studio-canvas-save-state${canvasDirty ? " is-dirty" : ""}`}>
-          <CheckCircle size={14} weight="fill" aria-hidden="true" />{canvasDirty ? "未保存" : "已保存"}
+          <CheckCircle size={14} weight="fill" aria-hidden="true" />{canvasDirty ? tUi("未保存") : tUi("已保存")}
         </span>
         </div>
       </> : <div className="creator-studio-shell-brand-area" data-tauri-drag-region>
           <div className="creator-studio-shell-identity" data-tauri-drag-region>
             <img src={logoIcon} alt="" draggable="false" />
-            <strong>AI创作工作室</strong>
+            <strong>{tUi("AI创作工作室")}</strong>
           </div>
           <button
             className="creator-studio-sidebar-toggle"
             type="button"
-            aria-label={sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}
-            title={sidebarCollapsed ? "展开侧边栏" : "收起侧边栏"}
+            aria-label={sidebarCollapsed ? tUi("展开侧边栏") : tUi("收起侧边栏")}
+            title={sidebarCollapsed ? tUi("展开侧边栏") : tUi("收起侧边栏")}
             aria-expanded={!sidebarCollapsed}
             onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
           >
@@ -125,11 +128,10 @@ export function CreatorStudioWindow({ characterCatalog, projectCatalog, models, 
         aria-pressed={assistantOpen}
         onClick={() => setAssistantOpen((open) => !open)}
       >
-        <Sparkle size={15} weight="fill" aria-hidden="true" />AI助手
-      </button> : null}
+        <Sparkle size={15} weight="fill" aria-hidden="true" />{tUi("AI助手")}</button> : null}
       <WindowControls />
     </header>
-    <section className={`creator-studio-shell-workspace${sidebarCollapsed && !activeProject ? " is-sidebar-collapsed" : ""}${activeProject ? " is-canvas-mode" : ""}`} aria-label="AI创作工作室工作区">
+    <section className={`creator-studio-shell-workspace${sidebarCollapsed && !activeProject ? " is-sidebar-collapsed" : ""}${activeProject ? " is-canvas-mode" : ""}`} aria-label={tUi("AI创作工作室工作区")}>
       {activeProject ? <CreatorStudioCanvas
         project={activeProject}
         assistantOpen={assistantOpen}

@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { DisclosureRow, IconChevronLeftOutlineRegular,
@@ -13,27 +14,29 @@ export function renderRoleplayToolCall(owner, renderNative) {
 }
 
 function RoleplayToolCall({ block, phase, callId, toolName, definition, useDisclosure, inspect, renderNative }) {
+  const tUi = useProductTranslation();
   const { expanded, toggle } = useDisclosure();
-  const result = useMemo(() => roleplayToolResult(definition, block), [definition, block]);
+  const result = useMemo(() => roleplayToolResult(definition, block, tUi), [definition, block, tUi]);
   const args = useMemo(() => parseToolJson(block.call?.argsRaw), [block.call?.argsRaw]);
   if (phase === 'result' && !result) return renderNative();
   const reading = definition.operation === 'read';
   const Icon = reading ? ReadSettingIcon : SearchSettingIcon;
   const running = phase !== 'result';
-  const title = `${running ? '正在' : '已'}${definition.label}`;
+  const title = `${running ? tUi("正在") : tUi("已")}${tUi(definition.label)}`;
   const target = args?.pattern || args?.path;
   return <div className="roleplay-tool-call" data-roleplay-tool={definition.domain} data-roleplay-tool-name={toolName} data-tool-call-id={callId}>
     <DisclosureRow icon={<Icon size={14} />} title={title} open={expanded} expandable={Boolean(result)}
       onToggle={toggle} running={running} expandOnRowClick
       collapsedContent={<span className="roleplay-tool-summary">{target ? <> · <span title={target}>{target}</span></> : null}
-        {result ? <> · {result.entries.length} 项</> : null}</span>}>
+        {result ? <> · {result.entries.length}{tUi(" 项")}</> : null}</span>}>
       {result && expanded ? <ToolResultBrowser result={result} callId={callId} /> : null}
     </DisclosureRow>
-    {expanded && inspect ? <button type="button" className="roleplay-tool-inspect" onClick={inspect}><IconCodeOutlineRegular size={13} />查看</button> : null}
+    {expanded && inspect ? <button type="button" className="roleplay-tool-inspect" onClick={inspect}><IconCodeOutlineRegular size={13} />{tUi("查看")}</button> : null}
   </div>;
 }
 
 function ToolResultBrowser({ result, callId }) {
+  const tUi = useProductTranslation();
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const [selection, setSelection] = useState(null);
@@ -60,31 +63,31 @@ function ToolResultBrowser({ result, callId }) {
   };
   return <div className="roleplay-result-browser" data-reading={reading || undefined} data-result-count={result.entries.length}>
     <div className="roleplay-result-toolbar"><label htmlFor={id}><IconSearchOutlineRegular size={14} /><input id={id} type="search"
-      value={query} placeholder="在本次结果中查找" aria-label="在本次结果中查找" onChange={event => { setQuery(event.target.value); setActiveIndex(0); if (scrollRef.current) scrollRef.current.scrollTop = 0; }} /></label>
-      <span aria-live="polite">{deferredQuery.trim() ? `${entries.length} / ` : ''}{result.entries.length} 项</span></div>
-    {result.operation !== 'read' ? <div className="roleplay-result-summary" aria-label="本次结果分类统计">
-      <span data-reading-kind="matched">匹配 {result.counts.matched}</span>
-      {result.counts.fixed ? <span data-reading-kind="fixed">固定必读 {result.counts.fixed}</span> : null}
-      {result.counts.turn ? <span data-reading-kind="turn">本轮须读 {result.counts.turn}</span> : null}
-      {result.counts.required ? <span data-reading-kind="required">必读 {result.counts.required}</span> : null}
+      value={query} placeholder={tUi("在本次结果中查找")} aria-label={tUi("在本次结果中查找")} onChange={event => { setQuery(event.target.value); setActiveIndex(0); if (scrollRef.current) scrollRef.current.scrollTop = 0; }} /></label>
+      <span aria-live="polite">{deferredQuery.trim() ? `${entries.length} / ` : ''}{result.entries.length}{tUi(" 项")}</span></div>
+    {result.operation !== 'read' ? <div className="roleplay-result-summary" aria-label={tUi("本次结果分类统计")}>
+      <span data-reading-kind="matched">{tUi("匹配 ")}{result.counts.matched}</span>
+      {result.counts.fixed ? <span data-reading-kind="fixed">{tUi("固定必读 ")}{result.counts.fixed}</span> : null}
+      {result.counts.turn ? <span data-reading-kind="turn">{tUi("本轮须读 ")}{result.counts.turn}</span> : null}
+      {result.counts.required ? <span data-reading-kind="required">{tUi("必读 ")}{result.counts.required}</span> : null}
     </div> : null}
     <div className="roleplay-result-columns">
-      <div className="roleplay-result-directory" ref={scrollRef} onKeyDown={move} role="region" aria-label="本次调用结果目录">
+      <div className="roleplay-result-directory" ref={scrollRef} onKeyDown={move} role="region" aria-label={tUi("本次调用结果目录")}>
         <div className="roleplay-result-space" style={{ height: virtualizer.getTotalSize() }}>
           {items.map(item => { const entry = entries[item.index]; return <button key={entry.key} type="button"
             data-result-index={item.index} className="roleplay-result-row" aria-current={selected?.key === entry.key || undefined}
             style={{ height: item.size, transform: `translateY(${item.start}px)` }} onClick={() => choose(entry, item.index)}>
             <span><strong title={entry.title}>{entry.title}</strong><small title={entry.path}>{entry.path}</small></span>
-            {entry.source?.content_delivery === 'error' ? <em className="is-error">失败</em> : <ResultReadingBadge entry={entry} domain={result.domain} />}
+            {entry.source?.content_delivery === 'error' ? <em className="is-error">{tUi("失败")}</em> : <ResultReadingBadge entry={entry} domain={result.domain} />}
           </button>; })}
         </div>
-        {!entries.length ? <div className="roleplay-result-empty">{query ? '没有匹配条目' : '本次没有返回条目'}</div> : null}
+        {!entries.length ? <div className="roleplay-result-empty">{query ? tUi("没有匹配条目") : tUi("本次没有返回条目")}</div> : null}
       </div>
       <div className="roleplay-result-detail">
-        <button type="button" className="roleplay-result-back" onClick={() => setReading(false)}><IconChevronLeftOutlineRegular size={14} />返回目录</button>
-        {selected ? <ToolResultDetail key={`${callId}:${selected.key}`} entry={selected} result={result} /> : <div className="roleplay-result-empty">没有可显示的条目</div>}
+        <button type="button" className="roleplay-result-back" onClick={() => setReading(false)}><IconChevronLeftOutlineRegular size={14} />{tUi("返回目录")}</button>
+        {selected ? <ToolResultDetail key={`${callId}:${selected.key}`} entry={selected} result={result} /> : <div className="roleplay-result-empty">{tUi("没有可显示的条目")}</div>}
       </div>
     </div>
-    {result.payload.truncated === true || result.payload.omitted > 0 ? <div className="roleplay-result-notice">工具本次返回了部分结果{result.payload.omitted > 0 ? `，省略 ${result.payload.omitted} 项` : ''}。</div> : null}
+    {result.payload.truncated === true || result.payload.omitted > 0 ? <div className="roleplay-result-notice">{tUi("工具本次返回了部分结果")}{result.payload.omitted > 0 ? tUi("，省略 {value0} 项", {value0: result.payload.omitted}) : ''}。</div> : null}
   </div>;
 }

@@ -26,6 +26,14 @@ async function mount() {
   await act(async () => root.render(<Shell />));
 }
 describe('Android Web Client platform admission', () => {
+  it('mounts in a browser without desktop or Android native bridges', async () => {
+    vi.stubGlobal('__ELECKOI_CLIENT_PLATFORM__', undefined);
+    vi.stubGlobal('dshDesktop', undefined);
+    vi.stubGlobal('ElecKoiPlatform', undefined);
+    await mount();
+    expect(document.body.textContent).toContain('页面已挂载');
+    expect(document.querySelector('.window-controls')).toBeNull();
+  });
   it('mounts without an Electron facade and attaches Android checks when the platform bridge becomes ready', async () => {
     vi.stubGlobal('__ELECKOI_CLIENT_PLATFORM__', { kind: 'android', version: '0.2.8' });
     vi.stubGlobal('dshDesktop', undefined);

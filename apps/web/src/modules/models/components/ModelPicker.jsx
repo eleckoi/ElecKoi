@@ -1,3 +1,5 @@
+import { sourceText } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -20,8 +22,8 @@ import {
   DshSearchIcon,
 } from "../../../ui/icons/dshComposerIcons.jsx";
 
-function configName(config) {
-  return String(config?.name || config?.provider || "").trim() || "未命名";
+function configName(config, tUi = sourceText) {
+  return String(config?.name || config?.provider || "").trim() || tUi("未命名");
 }
 
 function modelItems(config, modelOptionsByKey) {
@@ -57,7 +59,7 @@ export function ModelPicker({
   selectedConfigId,
   selectedModel,
   modelOptionsByKey,
-  title = "选择模型",
+  title: titleSource,
   allowFollowMain = false,
   elevated = false,
   renderTrigger,
@@ -67,6 +69,8 @@ export function ModelPicker({
   onSaveModelConfig,
   onNotify,
 }) {
+  const tUi = useProductTranslation();
+  const title = titleSource === undefined ? tUi("选择模型") : titleSource;
   const mobile = isMobilePresentation();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState("models");
@@ -118,9 +122,9 @@ export function ModelPicker({
   const visibleGroups = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     return activeConfigs.map(config => ({ config, models: modelItems(config, open ? {} : modelOptionsByKey).filter(model =>
-      !needle || `${configName(config)} ${config.provider || ''} ${model.name} ${model.id}`.toLocaleLowerCase().includes(needle))
+      !needle || `${configName(config, tUi)} ${config.provider || ''} ${model.name} ${model.id}`.toLocaleLowerCase().includes(needle))
     })).filter(group => group.models.length);
-  }, [activeConfigs, modelOptionsByKey, open, query]);
+  }, [activeConfigs, modelOptionsByKey, open, query, tUi]);
   const selectedModelId = followingMain
     ? ""
     : String(draftSelection.model || configDefaultModel(draftSelectedConfig, modelOptionsByKey)).trim();
@@ -209,7 +213,7 @@ export function ModelPicker({
     setFocusedConfigId(config.id);
     setQuery("");
     if (!modelId) {
-      onNotify?.("error", "这个提供商当前没有可用模型");
+      onNotify?.("error", tUi("这个提供商当前没有可用模型"));
       return;
     }
     chooseModel(config, modelId);
@@ -238,7 +242,7 @@ export function ModelPicker({
       }
       if (failures.length) throw new AggregateError(failures, failures.map(error => error.message || '读取模型失败').join('；'));
     } catch (error) {
-      onNotify?.("error", error.message || "刷新模型目录失败");
+      onNotify?.("error", error.message || tUi("刷新模型目录失败"));
     } finally {
       setLoadingConfigId("");
     }
@@ -262,10 +266,10 @@ export function ModelPicker({
       setLeaveDialogOpen(false);
       generationRef.current += 1;
       setOpen(false);
-      onNotify?.("success", "模型选择已保存，将从下一次请求生效。");
+      onNotify?.("success", tUi("模型选择已保存，将从下一次请求生效。"));
       return true;
     } catch (error) {
-      const message = error.message || "保存模型选择失败";
+      const message = error.message || tUi("保存模型选择失败");
       setLeaveError(message);
       onNotify?.("error", message);
       return false;
@@ -276,9 +280,9 @@ export function ModelPicker({
 
   const triggerModelId = (selectedConfig ? selectedModel : '') || committedConfig?.model || '';
   const triggerModel = modelItems(committedConfig, modelOptionsByKey).find(model => model.id === triggerModelId);
-  const triggerLabel = triggerModel?.name || triggerModelId || '选择模型';
+  const triggerLabel = triggerModel?.name || triggerModelId || tUi("选择模型");
   const label = (config, model, placement, selected = false) => renderModelLabel?.({
-    provider: { id: config.id, name: configName(config) }, model: { ...model, name: model.name || model.id }, placement, selected,
+    provider: { id: config.id, name: configName(config, tUi) }, model: { ...model, name: model.name || model.id }, placement, selected,
   }) ?? model.name ?? model.id;
   const selectedOption = parameterState.activeModelOption;
   const triggerEfforts = triggerModel?.reasoningEfforts;
@@ -292,18 +296,18 @@ export function ModelPicker({
     <button
       className={`chat-model-trigger ${open ? "active" : ""}`}
       type="button"
-      title="选择模型"
+      title={tUi("选择模型")}
       aria-haspopup="dialog"
       aria-expanded={open}
       onClick={openPicker}
     >
       <ModelIdentityIcon
-        modelName={triggerLabel === "选择模型" ? "" : triggerLabel}
+        modelName={triggerModelId ? triggerLabel : ""}
         providerId={committedConfig?.provider}
         className="chat-model-trigger-icon"
       />
       <span className="chat-model-trigger-label">{committedConfig && triggerModel ? label(committedConfig, triggerModel, 'trigger', true) : triggerLabel}</span>
-      {triggerEffort && triggerEfforts && Object.hasOwn(triggerEfforts, triggerEffort) ? <span className="chat-model-trigger-effort">{reasoningEffortLabel(triggerEffort)}</span> : null}
+      {triggerEffort && triggerEfforts && Object.hasOwn(triggerEfforts, triggerEffort) ? <span className="chat-model-trigger-effort">{reasoningEffortLabel(triggerEffort, tUi)}</span> : null}
       <DshChevronDownIcon />
     </button>
   );
@@ -319,37 +323,37 @@ export function ModelPicker({
         onOpenConfig={config => { setFocusedConfigId(config.id); setQuery(''); }} onFollowMain={followMainModel} onRefresh={refreshModels}
         onSave={saveChanges} onClose={discardAndClosePicker} beforeClose={() => { if (hasChanges) { requestClosePicker(); return false; } return true; }} selectionIndicator={ModelSelectionIndicator}
       /> : open ? createPortal(
-          <MenuSurface ref={panelRef} tabIndex={-1} className={`chat-model-panel is-compact${tab === 'parameters' ? ' is-parameters' : ''}${elevated ? ' is-elevated' : ''}`} role="dialog" aria-modal="false" aria-label={title === '选择模型' ? '模型配置' : title} aria-busy={saving}
+          <MenuSurface ref={panelRef} tabIndex={-1} className={`chat-model-panel is-compact${tab === 'parameters' ? ' is-parameters' : ''}${elevated ? ' is-elevated' : ''}`} role="dialog" aria-modal="false" aria-label={titleSource === undefined ? tUi("模型配置") : title} aria-busy={saving}
             style={position || { visibility: 'hidden', left: 0, top: 0 }}>
             <header>
-              <h2>{title === '选择模型' ? '模型配置' : title}</h2>
-              <button type="button" className="chat-model-close" aria-label="关闭" disabled={saving} onClick={requestClosePicker}>
+              <h2>{titleSource === undefined ? tUi("模型配置") : title}</h2>
+              <button type="button" className="chat-model-close" aria-label={tUi("关闭")} disabled={saving} onClick={requestClosePicker}>
                 <DshCloseIcon size={16} />
               </button>
             </header>
 
             <div className="chat-model-content">
-            {onSaveModelConfig ? <div className="chat-model-tabs" role="tablist" aria-label="模型设置">
-              <button type="button" role="tab" aria-selected={tab === "models"} onClick={() => setTab("models")}>模型</button>
-              <button type="button" role="tab" aria-selected={tab === "parameters"} onClick={() => setTab("parameters")}>参数</button>
+            {onSaveModelConfig ? <div className="chat-model-tabs" role="tablist" aria-label={tUi("模型设置")}>
+              <button type="button" role="tab" aria-selected={tab === "models"} onClick={() => setTab("models")}>{tUi("模型")}</button>
+              <button type="button" role="tab" aria-selected={tab === "parameters"} onClick={() => setTab("parameters")}>{tUi("参数")}</button>
             </div> : null}
             {tab === "parameters" ? <div className="chat-model-parameters">
-              <div className="chat-model-current">{draftSelectedConfig && selectedModelId ? label(draftSelectedConfig, selectedOption || { id: selectedModelId, name: selectedModelId }, 'menu', true) : '请先选择模型'}</div>
+              <div className="chat-model-current">{draftSelectedConfig && selectedModelId ? label(draftSelectedConfig, selectedOption || { id: selectedModelId, name: selectedModelId }, 'menu', true) : tUi("请先选择模型")}</div>
               <ModelParametersSection form={parameterForm} {...parameterState} modelCapabilities={modelCapabilities} onChange={updateParameters} picker />
             </div> : <div className="chat-model-browser">
               <div className="chat-model-list-tools">
-                <label><DshSearchIcon size={16} /><input type="search" aria-label="搜索模型或提供商" value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索模型或提供商" /></label>
-                <button type="button" aria-label="刷新模型" title="刷新模型" disabled={!activeConfigs.length || Boolean(loadingConfigId) || saving} onClick={refreshModels}><DshRefreshIcon size={16} /></button>
+                <label><DshSearchIcon size={16} /><input type="search" aria-label={tUi("搜索模型或提供商")} value={query} onChange={event => setQuery(event.target.value)} placeholder={tUi("搜索模型或提供商")} /></label>
+                <button type="button" aria-label={tUi("刷新模型")} title={tUi("刷新模型")} disabled={!activeConfigs.length || Boolean(loadingConfigId) || saving} onClick={refreshModels}><DshRefreshIcon size={16} /></button>
               </div>
               <div className="chat-model-list">
                 {allowFollowMain ? <section className="chat-model-provider-group chat-model-follow-group">
-                  <button type="button" className={`chat-model-row${followingMain ? ' active' : ''}`} aria-pressed={followingMain} disabled={saving} onClick={followMainModel}><span className="chat-model-name">跟随主模型</span>{followingMain ? <IconCheckOutlineRegular size={16} /> : null}</button>
+                  <button type="button" className={`chat-model-row${followingMain ? ' active' : ''}`} aria-pressed={followingMain} disabled={saving} onClick={followMainModel}><span className="chat-model-name">{tUi("跟随主模型")}</span>{followingMain ? <IconCheckOutlineRegular size={16} /> : null}</button>
                 </section> : null}
                 {visibleGroups.map(({ config, models }) => (
                   <section className="chat-model-provider-group" key={config.id}>
                     <h3>
-                      <ProviderLogo provider={configProviderMeta(config)} className="chat-model-provider-icon" />
-                      {configName(config)}
+                      <ProviderLogo provider={configProviderMeta(config, undefined, tUi)} className="chat-model-provider-icon" />
+                      {configName(config, tUi)}
                     </h3>
                     {models.map(model => {
                       const selected = draftSelectedConfig?.id === config.id && selectedModelId === model.id;
@@ -360,15 +364,15 @@ export function ModelPicker({
                     })}
                   </section>
                 ))}
-                {!visibleGroups.length ? <p className="chat-model-empty">{query ? '没有匹配模型' : activeConfigs.length ? '当前提供商没有可用模型' : '请先在 DSH 模型设置中配置模型'}</p> : null}
+                {!visibleGroups.length ? <p className="chat-model-empty">{query ? tUi("没有匹配模型") : activeConfigs.length ? tUi("当前提供商没有可用模型") : tUi("请先在 DSH 模型设置中配置模型")}</p> : null}
               </div>
             </div>}
             </div>
 
             <footer className="chat-model-actions">
-              <button type="button" className="chat-model-cancel" disabled={saving} onClick={requestClosePicker}>取消</button>
+              <button type="button" className="chat-model-cancel" disabled={saving} onClick={requestClosePicker}>{tUi("取消")}</button>
               <button type="button" className="chat-model-save" disabled={!hasChanges || saving} onClick={saveChanges}>
-                {saving ? "保存中…" : "保存"}
+                {saving ? tUi("保存中…") : tUi("保存")}
               </button>
             </footer>
           </MenuSurface>,
@@ -376,8 +380,8 @@ export function ModelPicker({
       ) : null}
       <UnsavedChangesDialog
         open={leaveDialogOpen}
-        title="保存修改？"
-        description="离开前是否保存模型选择和参数修改？"
+        title={tUi("保存修改？")}
+        description={tUi("离开前是否保存模型选择和参数修改？")}
         error={leaveError}
         saving={saving}
         onCancel={() => {

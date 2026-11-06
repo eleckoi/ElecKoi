@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Check, MagnifyingGlass, Plus, CaretDown } from '../../../ui/icons/interfaceIcons.jsx';
 import { Avatar } from '../../../ui/ui/Avatar.jsx';
 import appIcon from '../../../assets/eleckoi-app-icon.png';
@@ -9,13 +11,14 @@ function MiniAppContents() {
     <span className="sd-mini-thread"><i /><i /><b /><i /><span /></span></>;
 }
 export function ThemeSettings({ persona, appearanceMode = 'system', onAppearanceModeChange, sidebarCharacterArtwork = 'cover', onSidebarCharacterArtworkChange }) {
-  const name = persona?.assistant_name || '示例角色';
+  const tUi = useProductTranslation();
+  const name = persona?.assistant_name || tUi("示例角色");
   const source = persona?.assistant_avatar || appIcon;
   return <div className="settings-design sd-theme-page">
-    <header className="app-settings-heading"><h1>主题风格</h1></header>
-    <section className="sd-section" aria-label="外观模式"><h2>外观模式</h2>
-      <div className="sd-appearance-choices" role="radiogroup" aria-label="外观模式">
-        {modes.map(mode => <button type="button" className="sd-visual-choice" role="radio" key={mode.id}
+    <header className="app-settings-heading"><h1>{tUi("主题风格")}</h1></header>
+    <section className="sd-section" aria-label={tUi("外观模式")}><h2>{tUi("外观模式")}</h2>
+      <div className="sd-appearance-choices" role="radiogroup" aria-label={tUi("外观模式")}>
+        {localizeUiCopy(modes, tUi).map(mode => <button type="button" className="sd-visual-choice" role="radio" key={mode.id}
           aria-checked={appearanceMode === mode.id} onClick={() => onAppearanceModeChange(mode.id)}>
           <span className={`sd-mini-app sd-mini-${mode.id}`} aria-hidden="true"><MiniAppContents />
             {mode.id === 'system' && <span className="sd-system-dark"><MiniAppContents /></span>}
@@ -24,9 +27,9 @@ export function ThemeSettings({ persona, appearanceMode = 'system', onAppearance
         </button>)}
       </div>
     </section>
-    <section className="sd-section" aria-label="侧栏角色图"><h2>侧栏角色图</h2>
-      <div className="sd-artwork-choices" role="radiogroup" aria-label="侧栏角色图">
-        {[{ id: 'cover', label: '封面立绘' }, { id: 'avatar', label: '头像' }].map(mode => <button type="button" key={mode.id}
+    <section className="sd-section" aria-label={tUi("侧栏角色图")}><h2>{tUi("侧栏角色图")}</h2>
+      <div className="sd-artwork-choices" role="radiogroup" aria-label={tUi("侧栏角色图")}>
+        {[{ id: 'cover', label: tUi("封面立绘") }, { id: 'avatar', label: tUi("头像") }].map(mode => <button type="button" key={mode.id}
           className="sd-visual-choice" role="radio" aria-checked={sidebarCharacterArtwork === mode.id} onClick={() => onSidebarCharacterArtworkChange(mode.id)}>
           <span className="sd-sidebar-demo" aria-hidden="true">
             <span className="sd-demo-toolbar"><MagnifyingGlass /><span /><Plus /></span>
@@ -39,11 +42,11 @@ export function ThemeSettings({ persona, appearanceMode = 'system', onAppearance
         </button>)}
       </div>
     </section>
-    <section className="sd-section sd-color-section" aria-label="界面配色">
-      <header className="sd-section-heading"><h2>界面配色</h2><span>开发中</span></header>
+    <section className="sd-section sd-color-section" aria-label={tUi("界面配色")}>
+      <header className="sd-section-heading"><h2>{tUi("界面配色")}</h2><span>{tUi("开发中")}</span></header>
       <div className="sd-visual-choice sd-color-choice" aria-disabled="true">
         <span className="sd-mini-app" aria-hidden="true"><MiniAppContents /></span>
-        <span className="sd-color-caption"><span>默认</span><span className="sd-color-samples" aria-hidden="true"><i /><i /><i /></span></span>
+        <span className="sd-color-caption"><span>{tUi("默认")}</span><span className="sd-color-samples" aria-hidden="true"><i /><i /><i /></span></span>
       </div>
     </section>
   </div>;

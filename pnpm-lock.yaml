@@ -2845,6 +2845,9 @@ importers:
       '@eleckoi/dsh-web-search-tavily':
         specifier: workspace:*
         version: link:../../packages/host/web-search-tavily
+      '@eleckoi/web-client':
+        specifier: workspace:*
+        version: link:../web
       yaml:
         specifier: 2.9.0
         version: 2.9.0

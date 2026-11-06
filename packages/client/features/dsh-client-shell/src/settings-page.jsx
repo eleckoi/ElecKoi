@@ -11,7 +11,7 @@ export function SidebarBrandMark({ size = 24 }) {
 
 export function SettingsPage() {
   const view = useMainPageView();
-  const { chat, appearance, appUpdates, settingsSections, renderSettingsSection, renderUserProfileEditor, settingsPage, setSettingsPage, changeActiveSection, renderLayout } = view;
+  const { chat, appearance, appUpdates, settingsSections, renderSettingsSection, renderLanguageSettings, renderUserProfileEditor, settingsPage, setSettingsPage, changeActiveSection, renderLayout } = view;
   return <SettingsPanel
     activePage={settingsPage}
     onPageChange={setSettingsPage}
@@ -27,6 +27,7 @@ export function SettingsPage() {
     appUpdates={appUpdates}
     settingsSections={settingsSections}
     renderSettingsSection={renderSettingsSection}
+    renderLanguageSettings={renderLanguageSettings}
     onClosePluginSection={() => changeActiveSection("messages")}
     renderLayout={renderLayout}
   />;

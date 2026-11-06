@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { useContext, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -11,6 +12,7 @@ const noRuntime = () => null;
 
 /** The injected native service owns SDK calls; React owns the document's DOM lifetime. */
 export function NativeMessageFrame({ message, document, rootIndex = 0, onSettled, onHeight, initialHeight }) {
+  const tUi = useProductTranslation();
   const view = useContext(MainPageContext);
   const connection = view?.characterConfiguration?.scriptRuntimeConnection;
   const runtime = useSyncExternalStore(connection?.subscribe || noSubscription, connection?.getSnapshot || noRuntime, noRuntime);
@@ -54,7 +56,7 @@ export function NativeMessageFrame({ message, document, rootIndex = 0, onSettled
     return () => { window.removeEventListener('message', receive); release.current?.(); release.current = null; };
   }, [channel, runtime]);
   useLayoutEffect(() => {
-    if (!runtime || error) settled.current?.({ status: 'error', error: error || '原生作者插件未启用' });
+    if (!runtime || error) settled.current?.({ status: 'error', error: error || tUi("原生作者插件未启用") });
   }, [runtime, error]);
   const loaded = () => {
     const target = frame.current?.contentWindow;
@@ -69,12 +71,12 @@ export function NativeMessageFrame({ message, document, rootIndex = 0, onSettled
     } catch (failure) {
       release.current?.(); release.current = null;
       complete?.(undefined, failure);
-      setError(resolveFailure(failure, { fallback: '原生作者页面加载失败' }).text);
+      setError(resolveFailure(failure, { fallback: tUi("原生作者页面加载失败") }).text);
     }
   };
-  if (!runtime) return <div className="rich-message-error" role="alert">原生作者插件未启用</div>;
-  if (error) return <div className="rich-message-error" role="alert">互动消息加载失败：{error}</div>;
-  return <><iframe key={channel} ref={frame} name={channel} className="rich-message-frame" title="互动消息内容"
+  if (!runtime) return <div className="rich-message-error" role="alert">{tUi("原生作者插件未启用")}</div>;
+  if (error) return <div className="rich-message-error" role="alert">{tUi("互动消息加载失败：")}{error}</div>;
+  return <><iframe key={channel} ref={frame} name={channel} className="rich-message-frame" title={tUi("互动消息内容")}
     allow="fullscreen; autoplay; clipboard-read; clipboard-write" loading="eager" srcDoc={source}
     onLoad={loaded} style={{ height: height === null ? initialHeight ?? (globalThis.CSS?.supports?.('height', '100dvh') ? '100dvh' : '100vh') : `${height}px` }} />
     <FrontendDiagnostics messages={diagnostics} /></>;

@@ -1,8 +1,10 @@
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, Clipboard, List, PencilSimple, Plus, Trash, X } from '../icons/interfaceIcons.jsx';
 
 export function MobileEditorActions({ label, selectionId, canEdit, canModify, clipboard, canPaste = true, busy = false,
   onEdit, onMove, onPaste, onCancel, onDelete, createItems, moreItems, moveItems }) {
+  const tUi = useProductTranslation();
   const [menu, setMenu] = useState('');
   const barRef = useRef(null);
   useEffect(() => { setMenu(''); }, [selectionId, clipboard]);
@@ -27,12 +29,12 @@ export function MobileEditorActions({ label, selectionId, canEdit, canModify, cl
         onClick={() => { setMenu(''); run(); }}>{Icon && <Icon size={18} aria-hidden="true" />}{title}</button>)}
     </div>}
     <div role="toolbar" aria-label={label}>
-      {createItems?.length > 0 && action('新建', Plus, createItems.some(item => !item.disabled), null, false, 'create')}
-      {action(clipboard ? '粘贴' : '编辑', clipboard ? Clipboard : PencilSimple, clipboard ? canPaste : canEdit, clipboard ? onPaste : onEdit)}
-      {action(clipboard ? '取消' : '移动', clipboard ? X : ArrowRight, Boolean(clipboard) || canModify,
+      {createItems?.length > 0 && action(tUi("新建"), Plus, createItems.some(item => !item.disabled), null, false, 'create')}
+      {action(clipboard ? tUi("粘贴") : tUi("编辑"), clipboard ? Clipboard : PencilSimple, clipboard ? canPaste : canEdit, clipboard ? onPaste : onEdit)}
+      {action(clipboard ? tUi("取消") : tUi("移动"), clipboard ? X : ArrowRight, Boolean(clipboard) || canModify,
         clipboard ? onCancel : onMove, false, !clipboard && moveItems ? 'move' : '')}
-      {action('删除', Trash, canModify && !clipboard, onDelete, true)}
-      {action('更多', List, Boolean(selectionId) && !clipboard && Boolean(moreItems?.length), null, false, 'more')}
+      {action(tUi("删除"), Trash, canModify && !clipboard, onDelete, true)}
+      {action(tUi("更多"), List, Boolean(selectionId) && !clipboard && Boolean(moreItems?.length), null, false, 'more')}
     </div>
   </div>;
 }

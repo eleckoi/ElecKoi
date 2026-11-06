@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PencilIcon, PlusIcon, CharacterManagerIcon, ImportIcon, TrashIcon } from "../../../ui/icons/index.jsx";
@@ -13,6 +14,7 @@ import { LIST_COLLAPSE_AREAS, usePersistentCollapseState } from "../../settings/
 import { openCharacterManagerWindow } from "../window/openCharacterManagerWindow.js";
 
 export function CharacterListPanel({ characters, activeCharacterId, artworkMode, onSelectCharacter, onOpenCharacterChat, onSaveCharacterGroups, onImportPreparedCharacters, onPrepareCharacterImports, onDiscardCharacterImports, onCreateCharacter, onDeleteCharacters }) {
+  const tUi = useProductTranslation();
   const [keyword, setKeyword] = useState("");
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -117,7 +119,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
       await onDeleteCharacters([pendingDelete.character.id]);
       setPendingDelete(null);
     } catch (error) {
-      setDeleteError(error ?? "删除失败，请重试。");
+      setDeleteError(error ?? tUi("删除失败，请重试。"));
     } finally {
       setDeletingCharacter(false);
     }
@@ -189,31 +191,29 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
 
   return (
     <aside className="character-list-panel">
-      <SidebarSectionHeader title="角色" value={keyword} onValueChange={setKeyword}
-        placeholder="搜索角色名称" createLabel="新建角色"
+      <SidebarSectionHeader title={tUi("角色")} value={keyword} onValueChange={setKeyword}
+        placeholder={tUi("搜索角色名称")} createLabel={tUi("新建角色")}
         createExpanded={createMenuOpen} onCreatePointerDown={(event) => event.stopPropagation()}
         onCreate={(event) => { event.stopPropagation(); setCreateMenuOpen((current) => !current); }}
         onSearchFocus={() => setCreateMenuOpen(false)} />
 
       {createMenuOpen ? (
         <div className="character-create-menu" onPointerDown={(event) => event.stopPropagation()}>
-          <button type="button" onClick={createInSelectedGroup}><CharacterManagerIcon /><span>新建角色</span></button>
-          <button type="button" onClick={openImportDialog}><ImportIcon /><span>导入角色卡</span></button>
+          <button type="button" onClick={createInSelectedGroup}><CharacterManagerIcon /><span>{tUi("新建角色")}</span></button>
+          <button type="button" onClick={openImportDialog}><ImportIcon /><span>{tUi("导入角色卡")}</span></button>
         </div>
       ) : null}
 
       <button className="character-manager-entry" type="button" onClick={openCharacterManagerWindow}>
         <CharacterManagerIcon />
-        <span>角色卡管理器</span>
+        <span>{tUi("角色卡管理器")}</span>
       </button>
 
-      <div className="character-list-tabs" role="tablist" aria-label="角色与群聊">
+      <div className="character-list-tabs" role="tablist" aria-label={tUi("角色与群聊")}>
         <button className={listTab === "characters" ? "active" : ""} type="button" onClick={() => setListTab("characters")}>
-          角色
-        </button>
+          {tUi("角色")}</button>
         <button className={listTab === "groups" ? "active" : ""} type="button" onClick={() => setListTab("groups")}>
-          群聊
-        </button>
+          {tUi("群聊")}</button>
       </div>
 
       <SidebarScrollArea ref={scrollRef} className="character-list-scroll">
@@ -244,8 +244,8 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
           />
         ) : listTab === "groups" ? (
           <div className="character-empty-groups">
-            <strong>暂无群聊</strong>
-            <span>群聊角色和多人对话以后放在这里。</span>
+            <strong>{tUi("暂无群聊")}</strong>
+            <span>{tUi("群聊角色和多人对话以后放在这里。")}</span>
           </div>
         ) : null}
       </SidebarScrollArea>
@@ -254,15 +254,15 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
         <div className="character-group-context-menu" style={{ left: `${groupMenu.x}px`, top: `${groupMenu.y}px` }} onPointerDown={(event) => event.stopPropagation()}>
           <button type="button" onClick={openAddGroupDialog}>
             <PlusIcon />
-            <span>添加分组</span>
+            <span>{tUi("添加分组")}</span>
           </button>
           <button type="button" onClick={() => openRenameGroupDialog(groupMenu.group)}>
             <PencilIcon />
-            <span>重命名该组</span>
+            <span>{tUi("重命名该组")}</span>
           </button>
           <button type="button" onClick={() => deleteGroup(groupMenu.group)}>
             <TrashIcon />
-            <span>删除分组</span>
+            <span>{tUi("删除分组")}</span>
           </button>
         </div>
       ) : null}
@@ -281,13 +281,13 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
           ref={characterMenuRef}
           className="character-context-menu"
           role="menu"
-          aria-label={`${characterName(characterMenu.character)}的操作`}
+          aria-label={tUi("{value0}的操作", {value0: characterName(characterMenu.character, tUi)})}
           style={{ left: `${characterMenu.x}px`, top: `${characterMenu.y}px` }}
           onPointerDown={(event) => event.stopPropagation()}
         >
           <button type="button" role="menuitem" className="is-danger" onClick={requestDeleteCharacter}>
             <TrashIcon />
-            <span>删除角色</span>
+            <span>{tUi("删除角色")}</span>
           </button>
         </div>,
         document.body,
@@ -295,7 +295,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
 
       {pendingDelete ? (
         <DeleteCharacterDialog
-          character={{ ...pendingDelete.character, name: characterName(pendingDelete.character) }}
+          character={{ ...pendingDelete.character, name: characterName(pendingDelete.character, tUi) }}
           deleting={deletingCharacter}
           error={deleteError}
           returnFocus={pendingDelete.returnFocus}
@@ -306,7 +306,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
 
       {groupDialogOpen ? (
         <AddGroupDialog
-          title={groupDialogMode === "rename" ? "重命名该组" : "添加分组"}
+          title={groupDialogMode === "rename" ? tUi("重命名该组") : tUi("添加分组")}
           value={newGroupName}
           onChange={setNewGroupName}
           onConfirm={saveGroupDialog}

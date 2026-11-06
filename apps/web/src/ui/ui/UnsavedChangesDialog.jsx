@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { SystemBarOverlay } from './SystemBarOverlay.jsx';
 import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -8,13 +9,17 @@ export function UnsavedChangesDialog({
   description,
   error = "",
   saving = false,
-  saveLabel = "保存",
-  discardLabel = "不保存",
-  cancelLabel = "取消",
+  saveLabel: saveLabelSource,
+  discardLabel: discardLabelSource,
+  cancelLabel: cancelLabelSource,
   onCancel,
   onDiscard,
   onSave,
 }) {
+  const tUi = useProductTranslation();
+  const saveLabel = saveLabelSource === undefined ? tUi("保存") : saveLabelSource;
+  const discardLabel = discardLabelSource === undefined ? tUi("不保存") : discardLabelSource;
+  const cancelLabel = cancelLabelSource === undefined ? tUi("取消") : cancelLabelSource;
   const titleId = useId();
   const descriptionId = useId();
   const errorId = useId();
@@ -81,7 +86,7 @@ export function UnsavedChangesDialog({
         {error ? <p id={errorId} className="unsaved-changes-error" role="alert">{error}</p> : null}
         <div className="unsaved-changes-actions">
           <button type="button" className="is-primary" disabled={saving} onClick={onSave}>
-            {saving ? "保存中" : saveLabel}
+            {saving ? tUi("保存中") : saveLabel}
           </button>
           <button type="button" disabled={saving} onClick={onDiscard}>{discardLabel}</button>
           <button ref={cancelRef} type="button" disabled={saving} onClick={onCancel}>{cancelLabel}</button>

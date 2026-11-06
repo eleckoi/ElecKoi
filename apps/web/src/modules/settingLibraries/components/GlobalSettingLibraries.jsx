@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useMemo, useRef, useState } from 'react';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
@@ -20,6 +21,7 @@ const unavailable = { getSnapshot: () => ({ status: 'ready', value: empty }), re
   save: async () => { throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, '全局设定库服务不可用。', { what: '全局设定库服务' }); }, subscribe: () => () => {} };
 
 export function useGlobalSettingLibraries(model, onSelect) {
+  const tUi = useProductTranslation();
   const [selection, setSelection] = useState(null);
   const [expanded, setExpanded] = useState(new Set());
   const [expandedGroups, setExpandedGroups] = useState({});
@@ -28,7 +30,7 @@ export function useGlobalSettingLibraries(model, onSelect) {
     return { getSnapshot: () => service.getSnapshot(), read: () => service.read(), save: (_key, value) => service.save(value),
       subscribe: listener => service.subscribe((_kind, _address, snapshot) => listener('configuration', 'global', snapshot)) };
   }, [model]);
-  const draft = useCharacterConfigurationDraft({ characterId: 'global', configuration: adapter, label: '全局设定库', saveShortcut: false,
+  const draft = useCharacterConfigurationDraft({ characterId: 'global', configuration: adapter, label: tUi("全局设定库"), saveShortcut: false,
     rebaseAfterSave: (current, saved) => ({ ...current, revision: saved.revision }) });
   const library = draft.library?.libraries.find(item => item.id === selection?.libraryId);
   const activeLibraryRef = useRef(library);
@@ -66,6 +68,7 @@ export function useGlobalSettingLibraries(model, onSelect) {
 
 /** Creates global libraries from existing resources. Contents use the shared setting editor. */
 export function GlobalSettingLibraryImport({ state, settingLibraries, disabled }) {
+  const tUi = useProductTranslation();
   const input = useRef(null), request = useRef(0);
   const [menu, setMenu] = useState(false), [dialog, setDialog] = useState(false);
   const [characters, setCharacters] = useState([]), [source, setSource] = useState(null), [characterId, setCharacterId] = useState('');
@@ -77,7 +80,7 @@ export function GlobalSettingLibraryImport({ state, settingLibraries, disabled }
     try {
       const catalog = await settingLibraries.listCharacters();
       if (generation === request.current) setCharacters(catalog.items);
-    } catch (cause) { if (generation === request.current) setError(resolveFailure(cause, { fallback: '读取角色列表失败' }).text); }
+    } catch (cause) { if (generation === request.current) setError(resolveFailure(cause, { fallback: tUi("读取角色列表失败") }).text); }
     finally { if (generation === request.current) setBusy(false); }
   }
   async function chooseCharacter(id) {
@@ -89,7 +92,7 @@ export function GlobalSettingLibraryImport({ state, settingLibraries, disabled }
       const library = await settingLibraries.readUntracked(id);
       if (!library.versions.some(version => version.id === library.activeVersionId)) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, '来源角色的当前设定库版本不存在。', { what: '来源角色的当前设定库版本' });
       if (generation === request.current) { setSource(library); setVersionId(library.activeVersionId); }
-    } catch (cause) { if (generation === request.current) setError(resolveFailure(cause, { fallback: '读取来源设定库失败' }).text); }
+    } catch (cause) { if (generation === request.current) setError(resolveFailure(cause, { fallback: tUi("读取来源设定库失败") }).text); }
     finally { if (generation === request.current) setBusy(false); }
   }
   async function importFile(event) {
@@ -98,29 +101,29 @@ export function GlobalSettingLibraryImport({ state, settingLibraries, disabled }
     try {
       const parsed = parseSettingLibraryFile(await file.text(), 'auto', file.name);
       state.importLibrary({ ...parsed, name: parsed.name || file.name.replace(/\.json$/i, '') });
-    } catch (cause) { state.setError(resolveFailure(cause, { fallback: '导入全局设定库失败' }).text); }
+    } catch (cause) { state.setError(resolveFailure(cause, { fallback: tUi("导入全局设定库失败") }).text); }
   }
   const version = source?.versions.find(item => item.id === versionId);
   return <>
     <Menu open={menu} portal dense anchor={<Button className="editor-collection-action" variant="outline" icon={<ImportIcon size={16} />}
-      disabled={disabled || !state.libraryRef.current} aria-label="导入全局设定库" onClick={() => setMenu(value => !value)}>导入</Button>}
-      items={[{ id: 'character', label: '从角色设定库' }, { id: 'file', label: '从本地文件' }]}
+      disabled={disabled || !state.libraryRef.current} aria-label={tUi("导入全局设定库")} onClick={() => setMenu(value => !value)}>{tUi("导入")}</Button>}
+      items={[{ id: 'character', label: tUi("从角色设定库") }, { id: 'file', label: tUi("从本地文件") }]}
       onClose={() => setMenu(false)} onSelect={id => { setMenu(false); if (id === 'character') void openCharacters(); else input.current?.click(); }} />
-    <input ref={input} type="file" accept=".json,application/json" hidden aria-label="全局设定库文件" onChange={importFile} />
-    {dialog ? <EditorManagementModal title="导入角色设定库" onClose={close} className="global-library-import-dialog"
-      footer={<><Button variant="outline" onClick={close}>取消</Button><Button disabled={busy || !version} onClick={() => {
+    <input ref={input} type="file" accept=".json,application/json" hidden aria-label={tUi("全局设定库文件")} onChange={importFile} />
+    {dialog ? <EditorManagementModal title={tUi("导入角色设定库")} onClose={close} className="global-library-import-dialog"
+      footer={<><Button variant="outline" onClick={close}>{tUi("取消")}</Button><Button disabled={busy || !version} onClick={() => {
         const character = characters.find(item => item.id === characterId);
-        state.importLibrary({ ...version, name: `${character.name || '未命名角色'} · ${version.name || '设定库'}` }); close();
-      }}>导入</Button></>}>
+        state.importLibrary({ ...version, name: `${character.name || tUi("未命名角色")} · ${version.name || tUi("设定库")}` }); close();
+      }}>{tUi("导入")}</Button></>}>
       <div className="global-library-import-fields">
-        <label><span>来源角色</span><select value={characterId} disabled={busy} onChange={event => void chooseCharacter(event.target.value)}>
-          <option value="">选择角色</option>{characters.map(item => <option key={item.id} value={item.id}>{item.name || '未命名角色'}</option>)}
+        <label><span>{tUi("来源角色")}</span><select value={characterId} disabled={busy} onChange={event => void chooseCharacter(event.target.value)}>
+          <option value="">{tUi("选择角色")}</option>{characters.map(item => <option key={item.id} value={item.id}>{item.name || tUi("未命名角色")}</option>)}
         </select></label>
-        {source ? <label><span>来源版本</span><select value={versionId} onChange={event => setVersionId(event.target.value)}>
-          {source.versions.map(item => <option key={item.id} value={item.id}>{item.name || '未命名版本'}</option>)}
+        {source ? <label><span>{tUi("来源版本")}</span><select value={versionId} onChange={event => setVersionId(event.target.value)}>
+          {source.versions.map(item => <option key={item.id} value={item.id}>{item.name || tUi("未命名版本")}</option>)}
         </select></label> : null}
-        {version ? <p>{version.entries.filter(item => item.kind === 'normal').length} 条设定</p> : null}
-        {busy ? <p role="status">正在读取…</p> : error ? <p role="alert">{error}</p> : characters.length === 0 ? <p>暂无可导入的角色设定库</p> : null}
+        {version ? <p>{version.entries.filter(item => item.kind === 'normal').length}{tUi(" 条设定")}</p> : null}
+        {busy ? <p role="status">{tUi("正在读取…")}</p> : error ? <p role="alert">{error}</p> : characters.length === 0 ? <p>{tUi("暂无可导入的角色设定库")}</p> : null}
       </div>
     </EditorManagementModal> : null}
   </>;
@@ -133,14 +136,15 @@ function scopeTreeNodes(nodes, prefix) {
 }
 
 export function GlobalSettingLibrariesDirectory({ state, query, disabled, editor }) {
+  const tUi = useProductTranslation();
   const [deleting, setDeleting] = useState(null);
   const [renaming, setRenaming] = useState(null);
   if (!state.available) return null;
   const libraries = state.libraryRef.current?.libraries;
   const visible = libraries?.filter(library => !query.trim() || library.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) || hasSearchResults(library, query));
-  return <section className="global-setting-libraries" aria-label="全局设定库" onMouseDown={event => event.stopPropagation()} onContextMenu={event => { event.preventDefault(); event.stopPropagation(); }}>
-    {!libraries ? <p role={state.error ? 'alert' : 'status'} className="global-setting-library-empty">{state.error || '正在读取…'}</p> : null}
-    {libraries?.length === 0 ? <p className="global-setting-library-empty">暂无全局设定库，导入后可在这里启用。</p> : visible?.length === 0 ? <p className="global-setting-library-empty">没有匹配的设定库</p> : null}
+  return <section className="global-setting-libraries" aria-label={tUi("全局设定库")} onMouseDown={event => event.stopPropagation()} onContextMenu={event => { event.preventDefault(); event.stopPropagation(); }}>
+    {!libraries ? <p role={state.error ? 'alert' : 'status'} className="global-setting-library-empty">{state.error || tUi("正在读取…")}</p> : null}
+    {libraries?.length === 0 ? <p className="global-setting-library-empty">{tUi("暂无全局设定库，导入后可在这里启用。")}</p> : visible?.length === 0 ? <p className="global-setting-library-empty">{tUi("没有匹配的设定库")}</p> : null}
     {visible?.map(library => {
       const open = state.expanded.has(library.id) || Boolean(query.trim());
       const selected = state.selection?.libraryId === library.id;
@@ -158,16 +162,16 @@ export function GlobalSettingLibrariesDirectory({ state, query, disabled, editor
       const toggle = () => state.setExpanded(current => { const next = new Set(current); next.has(library.id) ? next.delete(library.id) : next.add(library.id); return next; });
       return <MenuSurface key={library.id} className={`global-setting-library${selected ? ' is-current' : ''}${library.enabled === false ? ' is-disabled' : ''}`}>
         <div className="global-setting-library-header">
-          <button type="button" className="global-setting-library-expand" aria-label={`${open ? '折叠' : '展开'}${library.name}`} aria-expanded={open} onClick={toggle}><CaretRight size={13} /></button>
+          <button type="button" className="global-setting-library-expand" aria-label={`${open ? tUi("折叠") : tUi("展开")}${library.name}`} aria-expanded={open} onClick={toggle}><CaretRight size={13} /></button>
           <button type="button" className="global-setting-library-name" title={library.name} onClick={() => { choose(''); toggle(); }}><BookOpen size={17} /><span>{library.name}</span></button>
           <span className="setting-library-tree-count">{library.entries.length}</span>
           <div className="global-setting-library-actions">
-          <button type="button" className="setting-library-tree-switch" role="switch" aria-checked={library.enabled} aria-label={`${library.enabled ? '停用' : '启用'}全局库${library.name}`} disabled={disabled}
+          <button type="button" className="setting-library-tree-switch" role="switch" aria-checked={library.enabled} aria-label={tUi("{value0}全局库{value1}", {value0: library.enabled ? tUi("停用") : tUi("启用"), value1: library.name})} disabled={disabled}
             onClick={() => state.setEnabled(library.id, !library.enabled)}><span aria-hidden="true" /></button>
-          <button type="button" className="global-setting-library-action global-setting-library-rename" aria-label={`重命名全局库${library.name}`} title="重命名" disabled={disabled}
+          <button type="button" className="global-setting-library-action global-setting-library-rename" aria-label={tUi("重命名全局库{value0}", {value0: library.name})} title={tUi("重命名")} disabled={disabled}
             onClick={() => setRenaming({ id: library.id, name: library.name })}><PencilSimple size={15} /></button>
-          <button type="button" className="global-setting-library-action global-setting-library-delete" aria-label={`删除全局库${library.name}`} title="删除" disabled={disabled}
-            onClick={() => setDeleting({ id: library.id, title: `删除“${library.name}”？`, message: '此库将在保存后删除，并对所有角色停止生效。来源角色和本地文件不会改动。' })}><Trash size={15} /></button>
+          <button type="button" className="global-setting-library-action global-setting-library-delete" aria-label={tUi("删除全局库{value0}", {value0: library.name})} title={tUi("删除")} disabled={disabled}
+            onClick={() => setDeleting({ id: library.id, title: tUi("删除“{value0}”？", {value0: library.name}), message: tUi("此库将在保存后删除，并对所有角色停止生效。来源角色和本地文件不会改动。") })}><Trash size={15} /></button>
           </div>
         </div>
         {open ? <div className="global-setting-library-entries" onContextMenu={event => editor.openTreeContextMenu(event, library)}><SettingTreeActionsContext.Provider value={actions}>
@@ -180,14 +184,14 @@ export function GlobalSettingLibrariesDirectory({ state, query, disabled, editor
             onMove={drop => { const dragId = unscoped(drop.dragId), parentId = drop.parentId ? unscoped(drop.parentId) : '', expandParentId = drop.expandParentId ? unscoped(drop.expandParentId) : '';
               if (dragId === null || parentId === null || expandParentId === null) return;
               editor.moveLibrary(library.id, { ...drop, dragId, parentId, expandParentId }); }}
-            ariaLabel={`${library.name}设定树`} />
-        </SettingTreeActionsContext.Provider>{!library.entries.length && !library.groups.length ? <p className="global-setting-library-empty">暂无设定</p> : null}</div> : null}
+            ariaLabel={tUi("{value0}设定树", {value0: library.name})} />
+        </SettingTreeActionsContext.Provider>{!library.entries.length && !library.groups.length ? <p className="global-setting-library-empty">{tUi("暂无设定")}</p> : null}</div> : null}
       </MenuSurface>;
     })}
-    {renaming ? <VersionNameDialog key={renaming.id} title="重命名全局设定库" nameLabel="设定库名称" confirmLabel="完成"
+    {renaming ? <VersionNameDialog key={renaming.id} title={tUi("重命名全局设定库")} nameLabel={tUi("设定库名称")} confirmLabel={tUi("完成")}
       initialName={renaming.name} versions={[]} onCancel={() => setRenaming(null)} onCreate={name => {
         state.updateLibrary(renaming.id, current => ({ ...current, name })); setRenaming(null);
       }} /> : null}
-    <ConfirmationDialog target={deleting} confirmLabel="删除" tone="destructive" onCancel={() => setDeleting(null)} onConfirm={() => { state.remove(deleting.id); setDeleting(null); }} />
+    <ConfirmationDialog target={deleting} confirmLabel={tUi("删除")} tone="destructive" onCancel={() => setDeleting(null)} onConfirm={() => { state.remove(deleting.id); setDeleting(null); }} />
   </section>;
 }

@@ -1,15 +1,17 @@
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { useRef, useState } from 'react';
 import { EditorVersionManager } from './EditorVersionManager.jsx';
 import { resolveFailure } from '../../utils/failureText.js';
 
 export function EditorLibraryVersionManager({ title, versions, ownerScope, initialScope = ownerScope, ownerLabel, onClose, busy, extraActions = [] }) {
+  const tUi = useProductTranslation();
   const [scope, setScope] = useState(initialScope), [error, setError] = useState('');
   const input = useRef(null);
   const current = versions.current(scope);
-  const run = operation => { try { setError(''); operation(); } catch (cause) { setError(resolveFailure(cause, { fallback: '版本操作失败' }).text); } };
+  const run = operation => { try { setError(''); operation(); } catch (cause) { setError(resolveFailure(cause, { fallback: tUi("版本操作失败") }).text); } };
   if (!current) return null;
   return <EditorVersionManager title={title} versions={current.versions} activeVersionId={current.activeVersionId}
-    scopes={[{ id: ownerScope, label: ownerLabel }, { id: 'global', label: '全局' }]} scope={scope} onScopeChange={setScope}
+    scopes={[{ id: ownerScope, label: ownerLabel }, { id: 'global', label: tUi("全局") }]} scope={scope} onScopeChange={setScope}
     onSelect={id => run(() => versions.select(scope, id))} onCopy={name => run(() => versions.create(scope, name, true))}
     onCreate={name => run(() => versions.create(scope, name))} onRename={name => run(() => versions.rename(scope, name))}
     onDelete={() => run(() => versions.remove(scope))} onClose={onClose} busy={busy}
@@ -21,7 +23,7 @@ export function EditorLibraryVersionManager({ title, versions, ownerScope, initi
     })}>
     <input ref={input} type="file" accept="application/json,.json" hidden onChange={async event => {
       const file = event.target.files?.[0]; event.target.value = ''; if (!file) return;
-      try { const json = await file.text(); run(() => versions.importVersion(scope, json)); } catch (cause) { setError(resolveFailure(cause, { fallback: '导入版本失败' }).text); }
+      try { const json = await file.text(); run(() => versions.importVersion(scope, json)); } catch (cause) { setError(resolveFailure(cause, { fallback: tUi("导入版本失败") }).text); }
     }} />
   </EditorVersionManager>;
 }

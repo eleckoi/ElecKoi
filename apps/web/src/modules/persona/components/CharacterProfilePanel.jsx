@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRightIcon, NewChatIcon, PencilIcon } from "../../../ui/icons/index.jsx";
 import logoIcon from "../../../assets/eleckoi-app-icon.png";
@@ -19,7 +20,8 @@ function wrappedDistance(index, selectedIndex, total) {
 }
 
 function CharacterDeckCard({ character, offset, selected, onSelect }) {
-  const name = characterName(character);
+  const tUi = useProductTranslation();
+  const name = characterName(character, tUi);
   const cover = assetSrc(characterCover(character));
   const [coverFailed, setCoverFailed] = useState(false);
 
@@ -35,7 +37,7 @@ function CharacterDeckCard({ character, offset, selected, onSelect }) {
         "--deck-offset": offset,
         "--deck-distance": Math.abs(offset),
       }}
-      aria-label={`查看${name}`}
+      aria-label={tUi("查看{value0}", {value0: name})}
       aria-pressed={selected}
       tabIndex={Math.abs(offset) <= 2 ? 0 : -1}
       onMouseDown={preventPointerFocus}
@@ -53,11 +55,12 @@ function CharacterDeckCard({ character, offset, selected, onSelect }) {
 }
 
 function CharacterPortrait({ character }) {
+  const tUi = useProductTranslation();
   const cover = assetSrc(characterCover(character));
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [cover]);
   return <div className="character-profile-portrait">
-    {cover && !failed ? <img src={cover} alt={`${characterName(character)}立绘`} onError={() => setFailed(true)} /> : <span>{characterName(character).slice(0, 1)}</span>}
+    {cover && !failed ? <img src={cover} alt={tUi("{value0}立绘", {value0: characterName(character, tUi)})} onError={() => setFailed(true)} /> : <span>{characterName(character, tUi).slice(0, 1)}</span>}
   </div>;
 }
 
@@ -70,6 +73,7 @@ export function CharacterProfilePanel({
   onCreateFirstCharacter,
   presentation = 'deck',
 }) {
+  const tUi = useProductTranslation();
   const items = characters?.items || [];
   const requestedIndex = Math.max(0, items.findIndex((item) => item.id === selectedCharacterId));
   const requestedCharacter = items[requestedIndex] || null;
@@ -141,18 +145,18 @@ export function CharacterProfilePanel({
 
   if (!selectedCharacter) {
     return (
-      <section className="character-profile-panel character-profile-empty" aria-label="角色简介">
+      <section className="character-profile-panel character-profile-empty" aria-label={tUi("角色简介")}>
         <div className="chat-empty-guide">
           <img src={logoIcon} alt="" draggable="false" />
-          <strong>还没有角色</strong>
-          <span>先创建一个角色，再开始第一段对话。</span>
-          <button type="button" onMouseDown={preventPointerFocus} onClick={onCreateFirstCharacter}>新建角色</button>
+          <strong>{tUi("还没有角色")}</strong>
+          <span>{tUi("先创建一个角色，再开始第一段对话。")}</span>
+          <button type="button" onMouseDown={preventPointerFocus} onClick={onCreateFirstCharacter}>{tUi("新建角色")}</button>
         </div>
       </section>
     );
   }
 
-  const name = characterName(selectedCharacter);
+  const name = characterName(selectedCharacter, tUi);
   const introduction = String(
     selectedCharacter.description
       || selectedCharacter.profileDescription
@@ -161,23 +165,23 @@ export function CharacterProfilePanel({
   ).trim();
 
   const copy = <div className={`character-profile-copy${!single && remoteSwitching ? ' is-remote-switching' : ''}`}>
-    <h1>{name}</h1><p className={introduction ? '' : 'is-empty'}>{introduction || '暂无简介'}</p>
+    <h1>{name}</h1><p className={introduction ? '' : 'is-empty'}>{introduction || tUi("暂无简介")}</p>
   </div>;
   const actions = <div className="character-profile-actions">
-    <button type="button" className="character-profile-action is-primary" onMouseDown={preventPointerFocus} onClick={() => onStartConversation(selectedCharacter.id)}><NewChatIcon />开始对话</button>
-    <button type="button" className="character-profile-action is-secondary" onMouseDown={preventPointerFocus} onClick={() => onEditCharacter(selectedCharacter.id)}><PencilIcon />编辑角色</button>
+    <button type="button" className="character-profile-action is-primary" onMouseDown={preventPointerFocus} onClick={() => onStartConversation(selectedCharacter.id)}><NewChatIcon />{tUi("开始对话")}</button>
+    <button type="button" className="character-profile-action is-secondary" onMouseDown={preventPointerFocus} onClick={() => onEditCharacter(selectedCharacter.id)}><PencilIcon />{tUi("编辑角色")}</button>
   </div>;
 
-  if (single) return <section className="character-profile-panel is-single-portrait" aria-label={`${name}的角色简介`}>
+  if (single) return <section className="character-profile-panel is-single-portrait" aria-label={tUi("{value0}的角色简介", {value0: name})}>
     <div className="character-profile-scroll"><CharacterPortrait character={selectedCharacter} />{copy}</div>
     {actions}
   </section>;
 
   return (
-    <section className="character-profile-panel" aria-label={`${name}的角色简介`} aria-busy={remoteSwitching || undefined}>
+    <section className="character-profile-panel" aria-label={tUi("{value0}的角色简介", {value0: name})} aria-busy={remoteSwitching || undefined}>
       <div
         className={`character-deck${remoteSwitching ? " is-remote-switching" : ""}`}
-        aria-label="角色卡切换"
+        aria-label={tUi("角色卡切换")}
       >
         {visibleCards.map(({ character, offset }) => (
           <CharacterDeckCard
@@ -191,10 +195,10 @@ export function CharacterProfilePanel({
 
         {items.length > 1 ? (
           <>
-            <button type="button" className="character-deck-arrow is-previous" aria-label="上一个角色" onMouseDown={preventPointerFocus} onClick={() => moveSelection(-1)}>
+            <button type="button" className="character-deck-arrow is-previous" aria-label={tUi("上一个角色")} onMouseDown={preventPointerFocus} onClick={() => moveSelection(-1)}>
               <ChevronRightIcon />
             </button>
-            <button type="button" className="character-deck-arrow is-next" aria-label="下一个角色" onMouseDown={preventPointerFocus} onClick={() => moveSelection(1)}>
+            <button type="button" className="character-deck-arrow is-next" aria-label={tUi("下一个角色")} onMouseDown={preventPointerFocus} onClick={() => moveSelection(1)}>
               <ChevronRightIcon />
             </button>
           </>

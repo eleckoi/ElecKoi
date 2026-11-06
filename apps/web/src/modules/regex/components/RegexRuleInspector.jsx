@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
@@ -18,6 +20,7 @@ function Switch({ checked, onChange, label }) {
 }
 
 export function RegexRuleInspector({ scope, rule, scopes = REGEX_SCOPES, scopeLocked = false, onChange, onMoveScope, onClose, onDuplicate, onDelete, onTest }) {
+  const tUi = useProductTranslation();
   const [testInput, setTestInput] = useState("");
   const [testTarget, setTestTarget] = useState('AiOutput');
   const [testSurface, setTestSurface] = useState('Display');
@@ -50,7 +53,7 @@ export function RegexRuleInspector({ scope, rule, scopes = REGEX_SCOPES, scopeLo
       setTestOutput(result.output);
       setTestError(result.validationMessage || "");
     } catch (error) {
-      if (!controller.signal.aborted) setTestError(error?.message || "测试失败");
+      if (!controller.signal.aborted) setTestError(error?.message || tUi("测试失败"));
     } finally {
       if (testRequest.current === controller) setTesting(false);
     }
@@ -70,33 +73,33 @@ export function RegexRuleInspector({ scope, rule, scopes = REGEX_SCOPES, scopeLo
   }
 
   return (
-    <aside className="regex-inspector" aria-label="正则详情">
+    <aside className="regex-inspector" aria-label={tUi("正则详情")}>
       <header className="regex-inspector-header">
-        <strong>{rule.name.trim() || "未命名规则"}</strong>
-        <button type="button" aria-label="关闭详情" onClick={onClose}><X size={18} /></button>
+        <strong>{rule.name.trim() || tUi("未命名规则")}</strong>
+        <button type="button" aria-label={tUi("关闭详情")} onClick={onClose}><X size={18} /></button>
       </header>
       <div className="regex-inspector-scroll">
         <label className="regex-field">
-          <span>名称</span>
+          <span>{tUi("名称")}</span>
           <input value={rule.name} onChange={(event) => onChange({ name: event.target.value })} />
         </label>
         {!scopeLocked ? <label className="regex-field">
-          <span>分类</span>
+          <span>{tUi("分类")}</span>
           <select value={scope} onChange={(event) => onMoveScope(event.target.value)}>
             {scopes.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
         </label> : null}
         <label className="regex-field">
-          <span>匹配表达式</span>
+          <span>{tUi("匹配表达式")}</span>
           <textarea className="is-code" value={rule.pattern} spellCheck="false" placeholder="/pattern/g" onChange={(event) => onChange({ pattern: event.target.value })} />
         </label>
-        <MarkdownTextareaField label="替换为" value={rule.replacement} preview={false} code
-          placeholder="文字、HTML 或 EJS" onChange={replacement => onChange({ replacement })} />
+        <MarkdownTextareaField label={tUi("替换为")} value={rule.replacement} preview={false} code
+          placeholder={tUi("文字、HTML 或 EJS")} onChange={replacement => onChange({ replacement })} />
 
         <fieldset className="regex-targets">
-          <legend>应用于</legend>
+          <legend>{tUi("应用于")}</legend>
           <div>
-            {REGEX_TARGETS.map((target) => (
+            {localizeUiCopy(REGEX_TARGETS, tUi).map((target) => (
               <label key={target.id}>
                 <input type="checkbox" checked={rule.targets.includes(target.id)} onChange={() => toggleTarget(target.id)} />
                 <span>{target.label}</span>
@@ -106,31 +109,31 @@ export function RegexRuleInspector({ scope, rule, scopes = REGEX_SCOPES, scopeLo
         </fieldset>
 
         <div className="regex-behavior">
-          <Switch checked={rule.displayOnly} label="仅修改显示内容" onChange={(checked) => onChange({ displayOnly: checked })} />
-          <Switch checked={rule.promptOnly} label="仅修改提示词内容" onChange={(checked) => onChange({ promptOnly: checked })} />
-          <Switch checked={rule.runOnEdit} label="编辑测试时自动运行" onChange={(checked) => onChange({ runOnEdit: checked })} />
+          <Switch checked={rule.displayOnly} label={tUi("仅修改显示内容")} onChange={(checked) => onChange({ displayOnly: checked })} />
+          <Switch checked={rule.promptOnly} label={tUi("仅修改提示词内容")} onChange={(checked) => onChange({ promptOnly: checked })} />
+          <Switch checked={rule.runOnEdit} label={tUi("编辑测试时自动运行")} onChange={(checked) => onChange({ runOnEdit: checked })} />
         </div>
 
-        <section className="regex-test" aria-label="测试正则">
+        <section className="regex-test" aria-label={tUi("测试正则")}>
           <div className="regex-test-heading">
-            <strong>测试</strong>
-            <Button data-dsh-control variant="primary" type="button" onClick={runTest} disabled={testing}><Play size={14} weight="fill" />{testing ? "运行中…" : "运行"}</Button>
+            <strong>{tUi("测试")}</strong>
+            <Button data-dsh-control variant="primary" type="button" onClick={runTest} disabled={testing}><Play size={14} weight="fill" />{testing ? tUi("运行中…") : tUi("运行")}</Button>
           </div>
-          <label className="regex-field"><span>测试对象</span><select value={testTarget} onChange={event => setTestTarget(event.target.value)}>
-            {REGEX_TARGETS.map(target => <option key={target.id} value={target.id}>{target.label}</option>)}
+          <label className="regex-field"><span>{tUi("测试对象")}</span><select value={testTarget} onChange={event => setTestTarget(event.target.value)}>
+            {localizeUiCopy(REGEX_TARGETS, tUi).map(target => <option key={target.id} value={target.id}>{target.label}</option>)}
           </select></label>
-          <label className="regex-field"><span>测试范围</span><select value={testSurface} onChange={event => setTestSurface(event.target.value)}>
-            <option value="Display">显示内容</option><option value="Prompt">提示词内容</option><option value="Stored">保存内容</option>
+          <label className="regex-field"><span>{tUi("测试范围")}</span><select value={testSurface} onChange={event => setTestSurface(event.target.value)}>
+            <option value="Display">{tUi("显示内容")}</option><option value="Prompt">{tUi("提示词内容")}</option><option value="Stored">{tUi("保存内容")}</option>
           </select></label>
-          <label className="regex-field"><span>输入</span><textarea value={testInput} onChange={(event) => setTestInput(event.target.value)} /></label>
-          <label className="regex-field"><span>测试变量 JSON</span><textarea className="is-code" spellCheck="false" value={testVariables} onChange={event => setTestVariables(event.target.value)} /></label>
-          <label className="regex-field"><span>结果</span><textarea value={testOutput} readOnly /></label>
+          <label className="regex-field"><span>{tUi("输入")}</span><textarea value={testInput} onChange={(event) => setTestInput(event.target.value)} /></label>
+          <label className="regex-field"><span>{tUi("测试变量 JSON")}</span><textarea className="is-code" spellCheck="false" value={testVariables} onChange={event => setTestVariables(event.target.value)} /></label>
+          <label className="regex-field"><span>{tUi("结果")}</span><textarea value={testOutput} readOnly /></label>
           {testError ? <p className="regex-test-error" role="alert">{testError}</p> : null}
         </section>
       </div>
       <footer className="regex-inspector-footer">
-        <Button data-dsh-control variant="outline" type="button" onClick={onDuplicate}><Copy size={15} />复制规则</Button>
-        <Button data-dsh-control variant="outline" type="button" className="is-destructive" onClick={onDelete}><Trash size={15} />删除规则</Button>
+        <Button data-dsh-control variant="outline" type="button" onClick={onDuplicate}><Copy size={15} />{tUi("复制规则")}</Button>
+        <Button data-dsh-control variant="outline" type="button" className="is-destructive" onClick={onDelete}><Trash size={15} />{tUi("删除规则")}</Button>
       </footer>
     </aside>
   );

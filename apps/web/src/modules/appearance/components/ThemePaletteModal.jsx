@@ -1,9 +1,11 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 import { useRef, useState } from "react";
 import { PaletteIcon, PictureFrameIcon, RestoreDefaultIcon, XIcon } from "../../../ui/icons/index.jsx";
 import { createAppearanceThemeFromFile } from "../theme/appearanceTheme.js";
 
 export function ThemePaletteModal({ open, theme, onClose, onApply, onReset, onNotify }) {
+  const tUi = useProductTranslation();
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -13,7 +15,7 @@ export function ThemePaletteModal({ open, theme, onClose, onApply, onReset, onNo
   async function handleFile(file) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      onNotify?.("error", "请选择图片文件。");
+      onNotify?.("error", tUi("请选择图片文件。"));
       return;
     }
 
@@ -21,9 +23,9 @@ export function ThemePaletteModal({ open, theme, onClose, onApply, onReset, onNo
       setBusy(true);
       const nextTheme = await createAppearanceThemeFromFile(file);
       await onApply(nextTheme);
-      onNotify?.("success", "调色盘已应用。");
+      onNotify?.("success", tUi("调色盘已应用。"));
     } catch (error) {
-      onNotify?.("error", error?.message || "调色失败，请换张图片试试。");
+      onNotify?.("error", error?.message || tUi("调色失败，请换张图片试试。"));
     } finally {
       setBusy(false);
       setDragging(false);
@@ -49,15 +51,15 @@ export function ThemePaletteModal({ open, theme, onClose, onApply, onReset, onNo
         className="theme-modal"
         role="dialog"
         aria-modal="true"
-        aria-label="超级调色盘"
+        aria-label={tUi("超级调色盘")}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="theme-modal-titlebar">
           <div>
             <PaletteIcon />
-            <strong>超级调色盘</strong>
+            <strong>{tUi("超级调色盘")}</strong>
           </div>
-          <button type="button" title="关闭" aria-label="关闭" onClick={onClose}>
+          <button type="button" title={tUi("关闭")} aria-label={tUi("关闭")} onClick={onClose}>
             <XIcon />
           </button>
         </header>
@@ -88,14 +90,14 @@ export function ThemePaletteModal({ open, theme, onClose, onApply, onReset, onNo
               </div>
             </div>
 
-            <div className="theme-control-column" aria-label="调色盘操作">
+            <div className="theme-control-column" aria-label={tUi("调色盘操作")}>
               <button className="theme-control-button restore" type="button" onClick={onReset}>
                 <RestoreDefaultIcon />
-                <span>恢复默认</span>
+                <span>{tUi("恢复默认")}</span>
               </button>
-              <button className="theme-control-button" type="button" title={hasTheme ? "重新选择取色图片" : "上传取色图片"} aria-label={hasTheme ? "重新选择取色图片" : "上传取色图片"} onClick={() => inputRef.current?.click()}>
+              <button className="theme-control-button" type="button" title={hasTheme ? tUi("重新选择取色图片") : tUi("上传取色图片")} aria-label={hasTheme ? tUi("重新选择取色图片") : tUi("上传取色图片")} onClick={() => inputRef.current?.click()}>
                 {busy ? <span className="theme-upload-spinner" /> : <PictureFrameIcon />}
-                <span>{hasTheme ? "重新取色" : "上传取色图片"}</span>
+                <span>{hasTheme ? tUi("重新取色") : tUi("上传取色图片")}</span>
               </button>
             </div>
             <input ref={inputRef} className="theme-file-input" type="file" accept="image/*" onChange={pickFile} />

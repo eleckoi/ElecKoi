@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { useRef, useState } from "react";
@@ -84,8 +85,9 @@ export function avatarSetFromPersona(persona, owner = "assistant") {
 }
 
 function PreviewButton({ className, src, name, label, disabled = false, onClick }) {
+  const tUi = useProductTranslation();
   return (
-    <button type="button" className={`avatar-manager-preview-button ${className}`} aria-label={`更换${label}`} disabled={disabled} onClick={onClick}>
+    <button type="button" className={`avatar-manager-preview-button ${className}`} aria-label={tUi("更换{value0}", {value0: label})} disabled={disabled} onClick={onClick}>
       <Avatar src={src} name={name} className="avatar-manager-result-avatar" />
       <span>{label}</span>
     </button>
@@ -93,6 +95,7 @@ function PreviewButton({ className, src, name, label, disabled = false, onClick 
 }
 
 export function AvatarManagerEditor({ value, name, saving = false, onBack, onChange, renderPresentation }) {
+  const tUi = useProductTranslation();
   const inputRef = useRef(null);
   const [avatars, setAvatars] = useState(() => ({ circle: "", square: "", portrait: "", ...(value || {}) }));
   const [sourceFile, setSourceFile] = useState(null);
@@ -126,7 +129,7 @@ export function AvatarManagerEditor({ value, name, saving = false, onBack, onCha
       await updateAvatars(nextAvatars);
       setSourceFile(file);
     } catch (nextError) {
-      setError(resolveFailure(nextError, { fallback: "图片处理失败，请稍后重试。" }).text);
+      setError(resolveFailure(nextError, { fallback: tUi("图片处理失败，请稍后重试。") }).text);
     } finally {
       setReading(false);
     }
@@ -146,7 +149,7 @@ export function AvatarManagerEditor({ value, name, saving = false, onBack, onCha
       const file = sourceFile || await sourceToFile(existing, kind === "portrait" ? "rectangle-avatar.png" : "square-avatar.png");
       setCropRequest({ kind, file });
     } catch (nextError) {
-      setError(resolveFailure(nextError, { fallback: "头像图片读取失败" }).text);
+      setError(resolveFailure(nextError, { fallback: tUi("头像图片读取失败") }).text);
     } finally {
       setPreparing(false);
     }
@@ -163,7 +166,7 @@ export function AvatarManagerEditor({ value, name, saving = false, onBack, onCha
       await updateAvatars(nextAvatars);
       setCropRequest(null);
     } catch (nextError) {
-      setError(resolveFailure(nextError, { fallback: "头像保存失败，请稍后重试。" }).text);
+      setError(resolveFailure(nextError, { fallback: tUi("头像保存失败，请稍后重试。") }).text);
       throw nextError;
     }
   }
@@ -173,7 +176,7 @@ export function AvatarManagerEditor({ value, name, saving = false, onBack, onCha
       accept="image/png,image/jpeg,image/webp,image/gif" onChange={receiveImage} />
     <AvatarCropModal
       file={cropRequest?.file || null}
-      title={cropRequest?.kind === "portrait" ? "调整矩形头像" : "调整圆形与方形头像"}
+      title={cropRequest?.kind === "portrait" ? tUi("调整矩形头像") : tUi("调整圆形与方形头像")}
       cropWidth={cropRequest?.kind === "portrait" ? 210 : 250}
       cropHeight={cropRequest?.kind === "portrait" ? 280 : 250}
       cropRadius={cropRequest?.kind === "portrait" ? "12px" : "8px"}
@@ -194,23 +197,23 @@ export function AvatarManagerEditor({ value, name, saving = false, onBack, onCha
         <div className="avatar-manager-heading">
           <button type="button" className="avatar-manager-back" onClick={onBack}>
             <ArrowLeft aria-hidden="true" />
-            <span>返回用户资料</span>
+            <span>{tUi("返回用户资料")}</span>
           </button>
-          <h1>头像管理</h1>
+          <h1>{tUi("头像管理")}</h1>
         </div>
       </header>
 
       <div className="avatar-manager-results">
         <section className="avatar-manager-result-group is-portrait" aria-labelledby="rectangle-avatar-heading">
           <header>
-            <h2 id="rectangle-avatar-heading">矩形头像</h2>
-            <button type="button" disabled={busy} onClick={() => openCrop("portrait")}>调整裁剪</button>
+            <h2 id="rectangle-avatar-heading">{tUi("矩形头像")}</h2>
+            <button type="button" disabled={busy} onClick={() => openCrop("portrait")}>{tUi("调整裁剪")}</button>
           </header>
           <PreviewButton
             className="is-portrait"
             src={avatars.portrait}
             name={name}
-            label="矩形头像"
+            label={tUi("矩形头像")}
             disabled={busy}
             onClick={chooseImage}
           />
@@ -218,15 +221,15 @@ export function AvatarManagerEditor({ value, name, saving = false, onBack, onCha
 
         <section className="avatar-manager-result-group is-shared" aria-labelledby="shared-avatar-heading">
           <header>
-            <h2 id="shared-avatar-heading">圆形与方形</h2>
-            <button type="button" disabled={busy} onClick={() => openCrop("shared")}>调整裁剪</button>
+            <h2 id="shared-avatar-heading">{tUi("圆形与方形")}</h2>
+            <button type="button" disabled={busy} onClick={() => openCrop("shared")}>{tUi("调整裁剪")}</button>
           </header>
           <div className="avatar-manager-shared-previews">
             <PreviewButton
               className="is-circle"
               src={avatars.circle || avatars.square}
               name={name}
-              label="圆形头像"
+              label={tUi("圆形头像")}
               disabled={busy}
               onClick={chooseImage}
             />
@@ -234,7 +237,7 @@ export function AvatarManagerEditor({ value, name, saving = false, onBack, onCha
               className="is-square"
               src={avatars.square || avatars.circle}
               name={name}
-              label="方形头像"
+              label={tUi("方形头像")}
               disabled={busy}
               onClick={chooseImage}
             />

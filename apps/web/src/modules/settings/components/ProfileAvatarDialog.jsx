@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MenuSurface, SegmentedTabs } from '@deepseek-ai/dsh-client-ui-primitives';
@@ -9,6 +11,7 @@ import '../styles/settings-design.css';
 const slots = [{ value: 'circle', label: '圆形' }, { value: 'square', label: '正方形' }, { value: 'portrait', label: '竖图' }];
 
 function AvatarDialogSurface({ controls, name, initialSlot, onClose, saveError, onRetry }) {
+  const tUi = useProductTranslation();
   const { avatars, busy, error, cropping, chooseImage, openCrop } = controls;
   const [slot, setSlot] = useState(initialSlot);
   const id = useId(), dialog = useRef(null), closeButton = useRef(null);
@@ -36,26 +39,26 @@ function AvatarDialogSurface({ controls, name, initialSlot, onClose, saveError, 
     document.addEventListener('keydown', keydown);
     return () => document.removeEventListener('keydown', keydown);
   }, [cropping]);
-  const label = slots.find(item => item.value === slot).label;
+  const label = localizeUiCopy(slots, tUi).find(item => item.value === slot).label;
   return <div className="profile-avatar-dialog-overlay" onMouseDown={event => {
     if (event.target === event.currentTarget && !busy && !cropping) onClose();
   }}>
     <MenuSurface ref={dialog} className="settings-design profile-avatar-dialog" role="dialog" aria-modal="true"
       aria-labelledby={`${id}-title`} aria-busy={busy || undefined}>
-      <header><h2 id={`${id}-title`}>管理头像</h2><button ref={closeButton} type="button" className="sd-close"
-        aria-label="关闭头像管理" disabled={busy} onClick={onClose}><X aria-hidden="true" /></button></header>
-      <SegmentedTabs className="sd-avatar-tabs" label="头像类型" value={slot} onChange={setSlot}
-        items={slots.map(item => ({ ...item, id: `${id}-${item.value}`, panelId: `${id}-preview` }))} />
+      <header><h2 id={`${id}-title`}>{tUi("管理头像")}</h2><button ref={closeButton} type="button" className="sd-close"
+        aria-label={tUi("关闭头像管理")} disabled={busy} onClick={onClose}><X aria-hidden="true" /></button></header>
+      <SegmentedTabs className="sd-avatar-tabs" label={tUi("头像类型")} value={slot} onChange={setSlot}
+        items={localizeUiCopy(slots, tUi).map(item => ({ ...item, id: `${id}-${item.value}`, panelId: `${id}-preview` }))} />
       <div id={`${id}-preview`} role="tabpanel" aria-labelledby={`${id}-${slot}`}>
-        <button type="button" className={`sd-avatar-replace sd-avatar-${slot}`} aria-label={`更换${label}头像`}
+        <button type="button" className={`sd-avatar-replace sd-avatar-${slot}`} aria-label={tUi("更换{value0}头像", {value0: label})}
           disabled={busy} onClick={chooseImage}>
           <Avatar src={avatars[slot] || (slot === 'circle' ? avatars.square : slot === 'square' ? avatars.circle : '')} name={name} />
         </button>
         <button type="button" className="sd-crop-action" disabled={busy}
-          onClick={() => openCrop(slot === 'portrait' ? 'portrait' : 'shared')}>调整裁剪</button>
+          onClick={() => openCrop(slot === 'portrait' ? 'portrait' : 'shared')}>{tUi("调整裁剪")}</button>
       </div>
       {error && <p className="sd-error" role="alert">{error}</p>}
-      {saveError && <p className="sd-error" role="alert">{saveError} <button type="button" onClick={onRetry}>重试</button></p>}
+      {saveError && <p className="sd-error" role="alert">{saveError} <button type="button" onClick={onRetry}>{tUi("重试")}</button></p>}
     </MenuSurface>
   </div>;
 }

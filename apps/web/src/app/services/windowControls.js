@@ -29,14 +29,14 @@ export async function showCurrentWindow() {
 
 export const appWindow = {
   async minimize() {
-    await window.dshDesktop.windowControls?.minimize();
+    await window.dshDesktop?.windowControls?.minimize();
   },
 
   async maximizeToggle() {
-    await window.dshDesktop.windowControls?.maximizeToggle();
+    await window.dshDesktop?.windowControls?.maximizeToggle();
   },
 
   async close() {
-    await window.dshDesktop.windowControls?.close();
+    await window.dshDesktop?.windowControls?.close();
   },
 };

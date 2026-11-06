@@ -1,9 +1,11 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Button, FileTypeIcon, IconFolderOpenRegular, IconFolderCloseRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 
 /** Package-relative entries stay independent of Session workspace paths and permissions. */
 export function FrontendPackageDirectory({ files, path, onSelect }) {
+  const tUi = useProductTranslation();
   const [expanded, setExpanded] = useState(() => new Set(path?.split('/').slice(0, -1).map((_, index, parts) => parts.slice(0, index + 1).join('/'))));
   const scroll = useRef(null);
   const tree = useMemo(() => {
@@ -30,7 +32,7 @@ export function FrontendPackageDirectory({ files, path, onSelect }) {
   }, [tree, expanded]);
   const virtualizer = useVirtualizer({ count: rows.length, getScrollElement: () => scroll.current, estimateSize: () => 32,
     initialRect: { width: 242, height: 480 }, overscan: 4, getItemKey: index => rows[index].key });
-  return <nav ref={scroll} className="cf-directory" aria-label="包内文件">
+  return <nav ref={scroll} className="cf-directory" aria-label={tUi("包内文件")}>
     <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>{virtualizer.getVirtualItems().map(virtual => {
       const item = rows[virtual.index], open = expanded.has(item.key);
       const Folder = open ? IconFolderOpenRegular : IconFolderCloseRegular;

@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
@@ -14,6 +16,7 @@ const SOURCES = [
 ];
 
 export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscard }) {
+  const tUi = useProductTranslation();
   const inputRef = useRef(null);
   const sourceRef = useRef("");
   const [preview, setPreview] = useState(null);
@@ -64,7 +67,7 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
       setFiles(selected);
       setPreview(next);
     } catch (caught) {
-      setError(resolveFailure(caught, { fallback: "角色卡无法读取" }).text);
+      setError(resolveFailure(caught, { fallback: tUi("角色卡无法读取") }).text);
     } finally {
       setPreparing(false);
     }
@@ -78,7 +81,7 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
       await onImported(preview.token);
       onClose();
     } catch (caught) {
-      setError(resolveFailure(caught, { fallback: "导入失败" }).text);
+      setError(resolveFailure(caught, { fallback: tUi("导入失败") }).text);
     } finally {
       setImporting(false);
     }
@@ -90,8 +93,8 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
     <SystemBarOverlay className="character-import-overlay" onMouseDown={() => !preparing && !importing && close()}>
       <section className="character-import-dialog" role="dialog" aria-modal="true" aria-labelledby="character-import-title" onMouseDown={(event) => event.stopPropagation()}>
         <header>
-          <h2 id="character-import-title">{preview ? "导入角色卡" : "选择导入来源"}</h2>
-          <button type="button" aria-label="关闭" onClick={close} disabled={preparing || importing}><XIcon /></button>
+          <h2 id="character-import-title">{preview ? tUi("导入角色卡") : tUi("选择导入来源")}</h2>
+          <button type="button" aria-label={tUi("关闭")} onClick={close} disabled={preparing || importing}><XIcon /></button>
         </header>
 
         {preview ? (
@@ -114,7 +117,7 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
           </div>
         ) : (
           <div className="character-import-source-list">
-            {SOURCES.map((source) => (
+            {localizeUiCopy(SOURCES, tUi).map((source) => (
               <button type="button" key={source.id} onClick={() => chooseSource(source.id)} disabled={preparing}>
                 <ImportIcon size={22} />
                 <span><strong>{source.title}</strong><small>{source.detail}</small></span>
@@ -127,13 +130,13 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
         {error ? <p className="character-import-error" role="alert">{error}</p> : null}
         {preview ? (
           <footer>
-            <Button data-dsh-control variant="outline" type="button" onClick={close} disabled={importing}>取消</Button>
+            <Button data-dsh-control variant="outline" type="button" onClick={close} disabled={importing}>{tUi("取消")}</Button>
             <Button data-dsh-control variant="primary" className="primary" type="button" onClick={confirmImport} disabled={!importableCount || importing}>
-              {importing ? "导入中…" : `导入${importableCount ? ` ${importableCount}` : ""}`}
+              {importing ? tUi("导入中…") : tUi("导入{value0}", {value0: importableCount ? ` ${importableCount}` : ""})}
             </Button>
           </footer>
         ) : null}
-        {preparing ? <div className="character-import-busy">正在读取角色卡…</div> : null}
+        {preparing ? <div className="character-import-busy">{tUi("正在读取角色卡…")}</div> : null}
         <input ref={inputRef} type="file" accept="image/png,application/json,.png,.json" multiple hidden onChange={onFilesPicked} />
       </section>
     </SystemBarOverlay>

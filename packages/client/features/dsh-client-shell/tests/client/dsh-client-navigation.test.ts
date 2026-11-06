@@ -184,9 +184,10 @@ describe('ElecKoi DSH client navigation', () => {
     let registration: any
     let rootComponent: any
     let rootOptions: any
-    const slotCalls: Array<{ name: string; owner: any }> = []
+    const slotCalls: Array<{ name: string; owner: any; filter?: any }> = []
     const footerEntries = [{ options: { name: 'sidebar.footer.action', id: 'example' } }]
     const settingsEntries = [
+      { options: { name: 'settings.section', id: 'general', order: 0, label: '通用设置' } },
       { options: { name: 'settings.section', id: 'plugins', order: 15, label: '内置插件' } },
       { options: { name: 'settings.section', id: 'web-search', order: 20, label: '网页搜索' } },
     ]
@@ -250,9 +251,9 @@ describe('ElecKoi DSH client navigation', () => {
         slots,
         sidebarRight,
         locale: { bind: () => (key: string) => key, subscribe: () => () => {}, getSnapshot: () => ({ revision: 0 }) },
-        renderSlot: (name: string, owner: any) => {
+        renderSlot: (name: string, owner: any, filter?: any) => {
           if (!rootOptions.children[name]) throw new Error(`root cannot render ${name}`)
-          slotCalls.push({ name, owner })
+          slotCalls.push({ name, owner, filter })
           return { slot: name }
         },
       })
@@ -272,9 +273,12 @@ describe('ElecKoi DSH client navigation', () => {
     expect(slotCalls.some(call => call.name === 'sidebar' && call.owner.renderContent === content)).toBe(true)
     expect(rootOptions.children['eleckoi.sidebar.footer.action']).toBeUndefined()
     expect(render().settingsSections).toEqual([
-      { id: 'language', label: 'language.title', order: -100 },
       { id: 'plugins', order: 15, label: '内置插件' },
       { id: 'web-search', order: 20, label: '网页搜索' },
     ])
+    expect(render().renderLanguageSettings()).toEqual({ slot: 'settings.section' })
+    expect(slotCalls.at(-1)).toEqual({ name: 'settings.section', owner: { itemId: 'language' }, filter: { only: 'general' } })
+    render().renderSettingsSection({ id: 'plugins' }, undefined)
+    expect(slotCalls.at(-1)).toEqual({ name: 'settings.section', owner: { close: undefined }, filter: { only: 'plugins' } })
   })
 })

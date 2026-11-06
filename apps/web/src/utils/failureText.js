@@ -71,6 +71,14 @@ export function failureMessage(failure, fallback = "") {
   return resolveFailure(failure, { fallback }).text;
 }
 
+/** Render known product failures in the active locale; diagnostics and detail values remain intact. */
+export function localizeFailure(failure, translate) {
+  if (!failure) return failure;
+  const describe = FAILURE_TEXTS[failure.code];
+  return { ...failure, text: describe ? describe(failure.details || {}, translate)
+    : typeof failure.text === 'string' ? translate(failure.text) : failure.text };
+}
+
 /**
  * 码 → 默认通道。
  * @param code - 契约码。

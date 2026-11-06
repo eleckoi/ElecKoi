@@ -54,7 +54,7 @@ function buildReport({ ended = true, logTail, notes, failures } = {}) {
   return report;
 }
 
-/** 01 号票的表单配置形状（题目名是发布契约，用例照抄一份）。 */
+/** 问题报告表单配置；题目名属于发布契约。 */
 const FORM = {
   shareUrl: "https://example.feishu.cn/share/base/form/shrcSyntheticForm",
   fields: { body: "report_body", meta: "report_meta", code: "report_code", file: "report_file" },

@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { useMemo, useRef, useState } from 'react';
 import { ModelIdentityIcon } from '../modules/models/components/ModelIdentityIcon.jsx';
 import { ModelParametersSection } from '../modules/models/components/ModelParametersSection.jsx';
@@ -39,6 +40,7 @@ export function MobileChatModelPicker({
   beforeClose,
   selectionIndicator: SelectionIndicator,
 }) {
+  const tUi = useProductTranslation();
   const [page, setPage] = useState('configs');
   const [direction, setDirection] = useState('forward');
   const positions = useRef(new Map()).current;
@@ -65,21 +67,20 @@ export function MobileChatModelPicker({
   const footer = ({ dismiss }) => (
     <>
       <button type="button" className="mobile-overlay-secondary" disabled={saving} onClick={dismiss}>
-        取消
-      </button>
+        {tUi("取消")}</button>
       <button
         type="button"
         className="mobile-overlay-primary chat-model-save"
         disabled={!hasChanges || saving}
         onClick={onSave}
       >
-        {saving ? '保存中…' : '保存'}
+        {saving ? tUi("保存中…") : tUi("保存")}
       </button>
     </>
   );
   return (
     <MobileConversationOverlay
-      title={page === 'models' && tab === 'models' ? focusedConfig?.name || '模型' : title}
+      title={page === 'models' && tab === 'models' ? focusedConfig?.name || tUi("模型") : title}
       elevated={elevated}
       subtitle={selectedModelId || undefined}
       className="mobile-chat-models mobile-model-editor mobile-root-page"
@@ -90,7 +91,7 @@ export function MobileChatModelPicker({
       footer={footer}
     >
       {canEditParameters && (
-        <div className="mobile-overlay-tabs" role="tablist" aria-label="模型设置">
+        <div className="mobile-overlay-tabs" role="tablist" aria-label={tUi("模型设置")}>
           <button
             type="button"
             role="tab"
@@ -100,8 +101,7 @@ export function MobileChatModelPicker({
               setTab('models');
             }}
           >
-            模型
-          </button>
+            {tUi("模型")}</button>
           <button
             type="button"
             role="tab"
@@ -111,8 +111,7 @@ export function MobileChatModelPicker({
               setTab('parameters');
             }}
           >
-            参数
-          </button>
+            {tUi("参数")}</button>
         </div>
       )}
       <MobileOverlayScroll
@@ -149,8 +148,8 @@ export function MobileChatModelPicker({
                 >
                   <SelectionIndicator selected={followingMain} />
                   <span>
-                    <strong>跟随主模型</strong>
-                    <small>使用当前对话选择的模型</small>
+                    <strong>{tUi("跟随主模型")}</strong>
+                    <small>{tUi("使用当前对话选择的模型")}</small>
                   </span>
                 </button>
               </div>
@@ -159,7 +158,7 @@ export function MobileChatModelPicker({
               <section className="mobile-provider-choices" key={provider}>
                 <h3>
                   <ModelIdentityIcon modelName="" providerId={provider} />
-                  {catalogItem(provider).label}
+                  {catalogItem(provider, tUi).label}
                 </h3>
                 <div className="mobile-choice-group">
                   {items.map((config) => (
@@ -167,7 +166,7 @@ export function MobileChatModelPicker({
                       <button
                         type="button"
                         className="mobile-choice-check"
-                        aria-label={`使用 ${config.name || '未命名'}`}
+                        aria-label={tUi("使用 {value0}", {value0: config.name || tUi("未命名")})}
                         aria-pressed={selectedConfig?.id === config.id}
                         onClick={() => onChooseConfig(config)}
                       >
@@ -176,7 +175,7 @@ export function MobileChatModelPicker({
                       <button
                         type="button"
                         className="mobile-choice-open"
-                        aria-label={`查看 ${config.name || '未命名'} 的模型`}
+                        aria-label={tUi("查看 {value0} 的模型", {value0: config.name || tUi("未命名")})}
                         onClick={() => {
                           onOpenConfig(config);
                           setDirection('forward');
@@ -184,8 +183,8 @@ export function MobileChatModelPicker({
                         }}
                       >
                         <span>
-                          <strong>{config.name || '未命名'}</strong>
-                          <small>{config.model || '未选择模型'}</small>
+                          <strong>{config.name || tUi("未命名")}</strong>
+                          <small>{config.model || tUi("未选择模型")}</small>
                         </span>
                         <MobileChevronRightIcon />
                       </button>
@@ -194,7 +193,7 @@ export function MobileChatModelPicker({
                 </div>
               </section>
             ))}
-            {!configs.length && <p className="mobile-overlay-empty">请先在模型设置中配置模型</p>}
+            {!configs.length && <p className="mobile-overlay-empty">{tUi("请先在模型设置中配置模型")}</p>}
           </>
         ) : (
           <>
@@ -203,8 +202,8 @@ export function MobileChatModelPicker({
                 <DshSearchIcon size={20} />
                 <input
                   type="search"
-                  aria-label="搜索模型"
-                  placeholder="搜索模型"
+                  aria-label={tUi("搜索模型")}
+                  placeholder={tUi("搜索模型")}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                 />
@@ -212,7 +211,7 @@ export function MobileChatModelPicker({
               <button
                 className="mobile-overlay-icon"
                 type="button"
-                aria-label="刷新模型"
+                aria-label={tUi("刷新模型")}
                 disabled={loading || !focusedConfig}
                 onClick={onRefresh}
               >
@@ -236,7 +235,7 @@ export function MobileChatModelPicker({
               })}
             </div>
             {!visibleModels.length && (
-              <p className="mobile-overlay-empty">{query ? '没有匹配模型' : '当前提供商没有可用模型'}</p>
+              <p className="mobile-overlay-empty">{query ? tUi("没有匹配模型") : tUi("当前提供商没有可用模型")}</p>
             )}
           </>
         )}

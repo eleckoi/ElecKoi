@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -14,6 +15,7 @@ export function usePresetContextMenu() {
 }
 
 export function PresetContextMenu({ menu, actions, onClose }) {
+  const tUi = useProductTranslation();
   const ref = useRef(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -36,7 +38,7 @@ export function PresetContextMenu({ menu, actions, onClose }) {
       window.removeEventListener('scroll', outside, true);
     };
   }, []);
-  return createPortal(<div ref={ref} className="setting-library-context-menu preset-context-menu" role="menu" aria-label="管理条目" style={{ left: menu.x, top: menu.y }}
+  return createPortal(<div ref={ref} className="setting-library-context-menu preset-context-menu" role="menu" aria-label={tUi("管理条目")} style={{ left: menu.x, top: menu.y }}
     onContextMenu={(event) => event.preventDefault()}
     onMouseDown={(event) => event.stopPropagation()}
     onKeyDown={(event) => {

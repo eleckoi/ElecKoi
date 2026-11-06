@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -9,6 +10,7 @@ import '../styles/native-script-ui.css';
 
 /** The modal owns DOM lifetime; the injected Client service owns the exact script identity. */
 export function NativeScriptPanel({ runtime, panel }) {
+  const tUi = useProductTranslation();
   const dialog = useRef(null), frame = useRef(null), release = useRef(null);
   const [error, setError] = useState(''), [ready, setReady] = useState(false), [reload, setReload] = useState(0);
   const channel = useMemo(() => crypto.randomUUID(), [panel.key, reload]);
@@ -45,15 +47,15 @@ export function NativeScriptPanel({ runtime, panel }) {
     } catch (failure) {
       release.current?.(); release.current = null;
       complete?.(undefined, failure);
-      setError(resolveFailure(failure, { fallback: '作者面板加载失败' }).text);
+      setError(resolveFailure(failure, { fallback: tUi("作者面板加载失败") }).text);
     }
   };
   return createPortal(<dialog ref={dialog} className="native-script-dialog" aria-label={panel.title}
     onCancel={event => { event.preventDefault(); close(); }} onClick={event => { if (event.target === dialog.current) close(); }}>
     <div className="native-script-dialog-layout">
       <header><h2>{panel.title}</h2>
-        <button type="button" title="重新加载" aria-label="重新加载作者面板" onClick={() => setReload(value => value + 1)}><ArrowClockwise /></button>
-        <button type="button" title="关闭" aria-label="关闭作者面板" onClick={close}><X /></button>
+        <button type="button" title={tUi("重新加载")} aria-label={tUi("重新加载作者面板")} onClick={() => setReload(value => value + 1)}><ArrowClockwise /></button>
+        <button type="button" title={tUi("关闭")} aria-label={tUi("关闭作者面板")} onClick={close}><X /></button>
       </header>
       {error ? <p className="native-script-panel-error" role="alert">{error}</p> : <iframe key={channel} ref={frame}
         title={panel.title} name={channel} srcDoc={source} onLoad={loaded} aria-busy={!ready}

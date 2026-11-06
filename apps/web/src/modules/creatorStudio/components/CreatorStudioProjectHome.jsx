@@ -1,3 +1,7 @@
+import { productLocaleTag } from '../../../app/i18n/productCopy.js';
+import { sourceText } from "../../../app/i18n/productCopy.js";
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 // NODE STUDIO: retained node/project development surface for future main-window integration.
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
@@ -61,10 +65,10 @@ function EmptyProjectArtwork() {
   </div>;
 }
 
-function formatProjectTime(value) {
+function formatProjectTime(value, tUi = sourceText) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat(productLocaleTag(tUi), {
     year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
   }).format(date).replaceAll("/", "-");
 }
@@ -75,23 +79,25 @@ function ProjectPreview({ project }) {
 }
 
 function ProjectDeleteConfirm({ project, busy, error, onCancel, onConfirm }) {
+  const tUi = useProductTranslation();
   return <div className="creator-studio-delete-confirm" role="dialog" aria-modal="false" aria-labelledby={`delete-project-${project.id}`} onClick={(event) => event.stopPropagation()}>
-    <strong id={`delete-project-${project.id}`}>删除项目</strong>
-    <p>“{project.name}”及其中的本地文件会被永久删除，此操作不可撤销。</p>
+    <strong id={`delete-project-${project.id}`}>{tUi("删除项目")}</strong>
+    <p>“{project.name}{tUi("”及其中的本地文件会被永久删除，此操作不可撤销。")}</p>
     <FailureAlert failure={error} className="creator-studio-delete-error" />
     <div>
-      <button type="button" onClick={onCancel} disabled={busy}>取消</button>
-      <button className="is-danger" type="button" onClick={onConfirm} disabled={busy}>{busy ? "删除中…" : "确认删除"}</button>
+      <button type="button" onClick={onCancel} disabled={busy}>{tUi("取消")}</button>
+      <button className="is-danger" type="button" onClick={onConfirm} disabled={busy}>{busy ? tUi("删除中…") : tUi("确认删除")}</button>
     </div>
   </div>;
 }
 
 export function ProjectCollection({ projects, viewMode, pendingDeletionId, deletingProjectId, deleteError, onOpenProject, onRequestDelete, onCancelDelete, onConfirmDelete }) {
+  const tUi = useProductTranslation();
   if (projects.length === 0) {
     return <div className="creator-studio-project-empty">
       <EmptyProjectArtwork />
-      <h2>还没有创作项目</h2>
-      <p>新建项目后会显示在这里。</p>
+      <h2>{tUi("还没有创作项目")}</h2>
+      <p>{tUi("新建项目后会显示在这里。")}</p>
     </div>;
   }
 
@@ -104,7 +110,7 @@ export function ProjectCollection({ projects, viewMode, pendingDeletionId, delet
         <button
           className="creator-studio-project-open-surface"
           type="button"
-          aria-label={`进入项目 ${project.name}`}
+          aria-label={tUi("进入项目 {value0}", {value0: project.name})}
           disabled={pendingDeletionId === project.id}
           onClick={() => onOpenProject(project)}
         />
@@ -113,15 +119,15 @@ export function ProjectCollection({ projects, viewMode, pendingDeletionId, delet
           <h2>{project.name}</h2>
           <div className="creator-studio-grid-overlay">
             <div className="creator-studio-card-actions">
-              <button className="is-delete" type="button" onClick={(event) => { event.stopPropagation(); onRequestDelete(project); }} title="删除项目" aria-label={`删除项目 ${project.name}`}>
+              <button className="is-delete" type="button" onClick={(event) => { event.stopPropagation(); onRequestDelete(project); }} title={tUi("删除项目")} aria-label={tUi("删除项目 {value0}", {value0: project.name})}>
                 <TrashIcon size={16} />
               </button>
-              <button type="button" onClick={(event) => { event.stopPropagation(); onOpenProject(project); }} title="当前页查看" aria-label={`在当前页查看 ${project.name}`}>
+              <button type="button" onClick={(event) => { event.stopPropagation(); onOpenProject(project); }} title={tUi("当前页查看")} aria-label={tUi("在当前页查看 {value0}", {value0: project.name})}>
                 <ArrowSquareOut size={17} weight="bold" aria-hidden="true" />
               </button>
             </div>
           </div>
-          <div className="creator-studio-grid-overlay-meta"><span>角色项目</span><time>{formatProjectTime(project.updatedAt)}</time></div>
+          <div className="creator-studio-grid-overlay-meta"><span>{tUi("角色项目")}</span><time>{formatProjectTime(project.updatedAt, tUi)}</time></div>
         </div>
         {pendingDeletionId === project.id ? <ProjectDeleteConfirm
           project={project}
@@ -142,7 +148,7 @@ export function ProjectCollection({ projects, viewMode, pendingDeletionId, delet
       <button
         className="creator-studio-project-open-surface"
         type="button"
-        aria-label={`进入项目 ${project.name}`}
+        aria-label={tUi("进入项目 {value0}", {value0: project.name})}
         disabled={pendingDeletionId === project.id}
         onClick={() => onOpenProject(project)}
       />
@@ -150,14 +156,14 @@ export function ProjectCollection({ projects, viewMode, pendingDeletionId, delet
         <div className="creator-studio-list-meta">
           <span className="creator-studio-list-meta-icon"><IdentificationCard size={17} weight="duotone" aria-hidden="true" /></span>
           <span>
-            <strong>角色项目</strong>
-            <time><CalendarBlank size={14} aria-hidden="true" />{formatProjectTime(project.updatedAt)}</time>
+            <strong>{tUi("角色项目")}</strong>
+            <time><CalendarBlank size={14} aria-hidden="true" />{formatProjectTime(project.updatedAt, tUi)}</time>
           </span>
         </div>
         <div className="creator-studio-list-actions">
-          <button className="is-delete" type="button" onClick={(event) => { event.stopPropagation(); onRequestDelete(project); }} title="删除项目" aria-label={`删除项目 ${project.name}`}><TrashIcon size={16} /></button>
+          <button className="is-delete" type="button" onClick={(event) => { event.stopPropagation(); onRequestDelete(project); }} title={tUi("删除项目")} aria-label={tUi("删除项目 {value0}", {value0: project.name})}><TrashIcon size={16} /></button>
           <button type="button" onClick={(event) => { event.stopPropagation(); onOpenProject(project); }}>
-            当前页查看<DshChevronRightIcon size={13} aria-hidden="true" />
+            {tUi("当前页查看")}<DshChevronRightIcon size={13} aria-hidden="true" />
           </button>
           {pendingDeletionId === project.id ? <ProjectDeleteConfirm
             project={project}
@@ -179,6 +185,7 @@ export function ProjectCollection({ projects, viewMode, pendingDeletionId, delet
 }
 
 export function CreatorStudioPagination({ pageSize, currentPage, totalPages, onPageSizeChange, onPageChange }) {
+  const tUi = useProductTranslation();
   const [pageSizeOpen, setPageSizeOpen] = useState(false);
   const [pageDraft, setPageDraft] = useState(String(currentPage));
   const rootRef = useRef(null);
@@ -228,15 +235,15 @@ export function CreatorStudioPagination({ pageSize, currentPage, totalPages, onP
     optionRefs.current[nextIndex]?.focus();
   };
 
-  return <nav className="creator-studio-pagination" aria-label="项目分页">
+  return <nav className="creator-studio-pagination" aria-label={tUi("项目分页")}>
     <div className="creator-studio-page-size-control">
-      <span>每页显示</span>
+      <span>{tUi("每页显示")}</span>
       <div className="creator-studio-page-size" ref={rootRef}>
         <button
           className="creator-studio-page-size-trigger"
           type="button"
           ref={triggerRef}
-          aria-label="每页显示条数"
+          aria-label={tUi("每页显示条数")}
           aria-haspopup="listbox"
           aria-expanded={pageSizeOpen}
           aria-controls="creator-studio-page-size-options"
@@ -253,7 +260,7 @@ export function CreatorStudioPagination({ pageSize, currentPage, totalPages, onP
           className="creator-studio-page-size-options"
           id="creator-studio-page-size-options"
           role="listbox"
-          aria-label="每页显示条数"
+          aria-label={tUi("每页显示条数")}
           onKeyDown={focusAdjacentOption}
         >
           {PAGE_SIZE_OPTIONS.map((size, index) => <button
@@ -273,20 +280,19 @@ export function CreatorStudioPagination({ pageSize, currentPage, totalPages, onP
           </button>)}
         </div> : null}
       </div>
-      <span>条</span>
+      <span>{tUi("条")}</span>
     </div>
 
     <div className="creator-studio-page-actions">
       <button type="button" disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)}>
-        <DshChevronRightIcon className="is-previous" size={12} />上一页
-      </button>
+        <DshChevronRightIcon className="is-previous" size={12} />{tUi("上一页")}</button>
       <label className="creator-studio-page-jump">
-        <span>第</span>
+        <span>{tUi("第")}</span>
         <input
           type="text"
           inputMode="numeric"
-          aria-label="页码"
-          title="点击输入页码，回车确认"
+          aria-label={tUi("页码")}
+          title={tUi("点击输入页码，回车确认")}
           value={pageDraft}
           onChange={(event) => setPageDraft(event.target.value.replace(/\D/g, ""))}
           onBlur={commitPageDraft}
@@ -300,16 +306,17 @@ export function CreatorStudioPagination({ pageSize, currentPage, totalPages, onP
             }
           }}
         />
-        <span>页</span>
+        <span>{tUi("页")}</span>
       </label>
       <button type="button" disabled={currentPage >= totalPages} onClick={() => onPageChange(currentPage + 1)}>
-        下一页<DshChevronRightIcon size={12} />
+        {tUi("下一页")}<DshChevronRightIcon size={12} />
       </button>
     </div>
   </nav>;
 }
 
 function CreateProjectDialog({ characters, projectCatalog, onClose, onCreated }) {
+  const tUi = useProductTranslation();
   const [mode, setMode] = useState("blank");
   const [name, setName] = useState("");
   const [parentDirectory, setParentDirectory] = useState("");
@@ -337,7 +344,7 @@ function CreateProjectDialog({ characters, projectCatalog, onClose, onCreated })
       const directory = await projectCatalog.selectDirectory(request.signal);
       if (directory && !request.signal.aborted) setParentDirectory(directory);
     } catch (requestError) {
-      if (!request.signal.aborted) setError(requestError ?? "无法选择保存位置。");
+      if (!request.signal.aborted) setError(requestError ?? tUi("无法选择保存位置。"));
     } finally {
       if (directoryRequestRef.current === request) directoryRequestRef.current = null;
     }
@@ -346,9 +353,9 @@ function CreateProjectDialog({ characters, projectCatalog, onClose, onCreated })
   const submit = async (event) => {
     event.preventDefault();
     setError(null);
-    if (!name.trim()) { setError("请输入项目名称。"); nameRef.current?.focus(); return; }
-    if (!parentDirectory) { setError("请选择项目保存位置。"); return; }
-    if (mode === "existing" && !sourceCharacterId) { setError("请选择要修改的角色。"); return; }
+    if (!name.trim()) { setError(tUi("请输入项目名称。")); nameRef.current?.focus(); return; }
+    if (!parentDirectory) { setError(tUi("请选择项目保存位置。")); return; }
+    if (mode === "existing" && !sourceCharacterId) { setError(tUi("请选择要修改的角色。")); return; }
     setBusy(true);
     try {
       const collection = await projectCatalog.create({
@@ -357,7 +364,7 @@ function CreateProjectDialog({ characters, projectCatalog, onClose, onCreated })
       });
       onCreated(collection.items);
     } catch (requestError) {
-      setError(requestError ?? "项目创建失败。");
+      setError(requestError ?? tUi("项目创建失败。"));
     } finally {
       setBusy(false);
     }
@@ -368,12 +375,12 @@ function CreateProjectDialog({ characters, projectCatalog, onClose, onCreated })
   }}>
     <section className="creator-studio-create-dialog" role="dialog" aria-modal="true" aria-labelledby="creator-studio-create-title">
       <header>
-        <h2 id="creator-studio-create-title">新建项目</h2>
-        <button type="button" onClick={onClose} disabled={busy} aria-label="关闭新建项目窗口"><X size={18} aria-hidden="true" /></button>
+        <h2 id="creator-studio-create-title">{tUi("新建项目")}</h2>
+        <button type="button" onClick={onClose} disabled={busy} aria-label={tUi("关闭新建项目窗口")}><X size={18} aria-hidden="true" /></button>
       </header>
       <form onSubmit={submit}>
-        <div className="creator-studio-create-options" role="group" aria-label="创建方式">
-          {CREATE_OPTIONS.map(({ id, title, description, Icon }) => <button
+        <div className="creator-studio-create-options" role="group" aria-label={tUi("创建方式")}>
+          {localizeUiCopy(CREATE_OPTIONS, tUi).map(({ id, title, description, Icon }) => <button
             className={mode === id ? "is-selected" : ""} type="button" aria-pressed={mode === id} key={id} onClick={() => setMode(id)}
           >
             <span className="creator-studio-create-option-icon"><Icon size={21} weight="duotone" aria-hidden="true" /></span>
@@ -382,30 +389,30 @@ function CreateProjectDialog({ characters, projectCatalog, onClose, onCreated })
         </div>
 
         <label className="creator-studio-form-field">
-          <span>项目名称</span>
-          <input ref={nameRef} value={name} onChange={(event) => setName(event.target.value)} placeholder="未命名项目" />
+          <span>{tUi("项目名称")}</span>
+          <input ref={nameRef} value={name} onChange={(event) => setName(event.target.value)} placeholder={tUi("未命名项目")} />
         </label>
 
         {mode === "existing" ? <label className="creator-studio-form-field">
-          <span>选择角色</span>
+          <span>{tUi("选择角色")}</span>
           <select value={sourceCharacterId} onChange={(event) => setSourceCharacterId(event.target.value)}>
-            <option value="">请选择角色</option>
-            {characters.map((character) => <option value={character.id} key={character.id}>{character.name || "未命名角色"}</option>)}
+            <option value="">{tUi("请选择角色")}</option>
+            {characters.map((character) => <option value={character.id} key={character.id}>{character.name || tUi("未命名角色")}</option>)}
           </select>
         </label> : null}
 
         <div className="creator-studio-form-field">
-          <span>保存位置</span>
+          <span>{tUi("保存位置")}</span>
           <div className="creator-studio-directory-field">
-            <input value={parentDirectory} readOnly placeholder="选择本地文件夹" aria-label="项目保存位置" />
-            <button type="button" onClick={chooseDirectory}>选择文件夹</button>
+            <input value={parentDirectory} readOnly placeholder={tUi("选择本地文件夹")} aria-label={tUi("项目保存位置")} />
+            <button type="button" onClick={chooseDirectory}>{tUi("选择文件夹")}</button>
           </div>
         </div>
 
         <FailureAlert failure={error} className="creator-studio-form-error" />
         <footer>
-          <button type="button" onClick={onClose} disabled={busy}>取消</button>
-          <button className="is-primary" type="submit" disabled={busy}>{busy ? "创建中…" : "创建项目"}</button>
+          <button type="button" onClick={onClose} disabled={busy}>{tUi("取消")}</button>
+          <button className="is-primary" type="submit" disabled={busy}>{busy ? tUi("创建中…") : tUi("创建项目")}</button>
         </footer>
       </form>
     </section>
@@ -413,18 +420,20 @@ function CreateProjectDialog({ characters, projectCatalog, onClose, onCreated })
 }
 
 function LibraryPage({ page }) {
+  const tUi = useProductTranslation();
   const isAssets = page === "assets";
   const Icon = isAssets ? CreatorStudioAssetsIcon : CreatorStudioSkillsIcon;
   return <div className="creator-studio-home-inner">
-    <div className="creator-studio-home-heading"><h1>{isAssets ? "资产" : "技能"}</h1></div>
+    <div className="creator-studio-home-heading"><h1>{isAssets ? tUi("资产") : tUi("技能")}</h1></div>
     <section className="creator-studio-library-empty">
       <Icon size={28} />
-      <h2>{isAssets ? "暂无资产" : "暂无可用技能"}</h2>
+      <h2>{isAssets ? tUi("暂无资产") : tUi("暂无可用技能")}</h2>
     </section>
   </div>;
 }
 
 export function CreatorStudioProjectHome({ sidebarCollapsed = false, characterCatalog, projectCatalog, onOpenProject = () => {} }) {
+  const tUi = useProductTranslation();
   const [activePage, setActivePage] = useState("projects");
   const [viewMode, setViewMode] = useState("grid");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -502,7 +511,7 @@ export function CreatorStudioProjectHome({ sidebarCollapsed = false, characterCa
       await projectCatalog.delete(project.id);
       setPendingDeletionId("");
     } catch (requestError) {
-      setDeleteError(requestError ?? "无法删除项目。");
+      setDeleteError(requestError ?? tUi("无法删除项目。"));
     } finally {
       setDeletingProjectId("");
     }
@@ -518,9 +527,9 @@ export function CreatorStudioProjectHome({ sidebarCollapsed = false, characterCa
   };
 
   return <div className={`creator-studio-layout${sidebarCollapsed ? " is-sidebar-collapsed" : ""}`}>
-    <aside className="creator-studio-sidebar" aria-label="工作室侧边栏">
-      <nav className="creator-studio-sidebar-nav" aria-label="工作室导航">
-        {NAV_ITEMS.map(({ id, title, Icon }) => <button
+    <aside className="creator-studio-sidebar" aria-label={tUi("工作室侧边栏")}>
+      <nav className="creator-studio-sidebar-nav" aria-label={tUi("工作室导航")}>
+        {localizeUiCopy(NAV_ITEMS, tUi).map(({ id, title, Icon }) => <button
           className={activePage === id ? "is-active" : ""}
           type="button" aria-current={activePage === id ? "page" : undefined} aria-label={title} title={title} key={id} onClick={() => setActivePage(id)}
         >
@@ -532,24 +541,24 @@ export function CreatorStudioProjectHome({ sidebarCollapsed = false, characterCa
     <div className="creator-studio-home">
       {activePage === "projects" ? <div className="creator-studio-home-inner">
         <div className="creator-studio-home-heading">
-          <h1>创作项目</h1>
-          <button className="creator-studio-new-project-button" type="button" onClick={() => setCreateDialogOpen(true)}><DshPlusIcon size={16} />新建项目</button>
+          <h1>{tUi("创作项目")}</h1>
+          <button className="creator-studio-new-project-button" type="button" onClick={() => setCreateDialogOpen(true)}><DshPlusIcon size={16} />{tUi("新建项目")}</button>
         </div>
         <div className="creator-studio-project-toolbar">
           <label className="creator-studio-project-search">
             <MagnifyingGlass size={18} aria-hidden="true" />
-            <input type="search" placeholder="搜索项目" aria-label="搜索项目" value={query} onChange={(event) => {
+            <input type="search" placeholder={tUi("搜索项目")} aria-label={tUi("搜索项目")} value={query} onChange={(event) => {
               setQuery(event.target.value);
               setCurrentPage(1);
             }} />
           </label>
-          <div className="creator-studio-view-switch" role="group" aria-label="项目布局">
-            <button className={viewMode === "list" ? "is-active" : ""} type="button" aria-label="列表视图" aria-pressed={viewMode === "list"} title="列表视图" onClick={() => setViewMode("list")}><ListBullets size={18} weight="bold" aria-hidden="true" /></button>
-            <button className={viewMode === "grid" ? "is-active" : ""} type="button" aria-label="网格视图" aria-pressed={viewMode === "grid"} title="网格视图" onClick={() => setViewMode("grid")}><SquaresFour size={18} weight="fill" aria-hidden="true" /></button>
+          <div className="creator-studio-view-switch" role="group" aria-label={tUi("项目布局")}>
+            <button className={viewMode === "list" ? "is-active" : ""} type="button" aria-label={tUi("列表视图")} aria-pressed={viewMode === "list"} title={tUi("列表视图")} onClick={() => setViewMode("list")}><ListBullets size={18} weight="bold" aria-hidden="true" /></button>
+            <button className={viewMode === "grid" ? "is-active" : ""} type="button" aria-label={tUi("网格视图")} aria-pressed={viewMode === "grid"} title={tUi("网格视图")} onClick={() => setViewMode("grid")}><SquaresFour size={18} weight="fill" aria-hidden="true" /></button>
           </div>
         </div>
-        {projects.length ? <p className="creator-studio-project-count">{filteredProjects.length} 个项目</p> : null}
-        <section className="creator-studio-project-collection" data-view={viewMode} aria-label="项目列表">
+        {projects.length ? <p className="creator-studio-project-count">{filteredProjects.length}{tUi(" 个项目")}</p> : null}
+        <section className="creator-studio-project-collection" data-view={viewMode} aria-label={tUi("项目列表")}>
           <ProjectCollection
             projects={visibleProjects}
             viewMode={viewMode}

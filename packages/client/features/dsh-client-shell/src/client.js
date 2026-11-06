@@ -21,7 +21,7 @@ window.__ModuleLoader__.load({
       .then(module => ({ default: module.SidebarBrandMark })))
     const SidebarBrandName = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
       .then(module => ({ default: module.SidebarBrandName })))
-    const nativeSettingsSections = new Set(['account', 'models', 'agent-presets'])
+    const nativeSettingsSections = new Set(['account', 'models', 'agent-presets', 'general'])
     const shellActions = new Set(['community'])
     const builtInBundles = [
       "@eleckoi/dsh-client-characters",
@@ -49,7 +49,9 @@ window.__ModuleLoader__.load({
     }
     const interfaceModeLabels = { replace: '可替换', append: '可追加', register: '可注册', call: '可调用', listen: '可订阅' }
     const interfaceScopeLabels = { root: '全局', session: '会话', 'session-maybe': '会话可为空', client: '客户端', host: 'Host' }
-    function BuiltInPluginContents({ packageName, face }) {
+    function BuiltInPluginContents({ packageName, face, locale }) {
+      const tUi = locale.bind('eleckoi.ui')
+      React.useSyncExternalStore(listener => locale.subscribe(listener), () => locale.getSnapshot().revision)
       const snapshot = React.useSyncExternalStore(
         listener => face.hooks.pluginManager.subscribe(listener),
         () => face.hooks.pluginManager.getSnapshot()
@@ -57,17 +59,17 @@ window.__ModuleLoader__.load({
       const pkg = snapshot.packages.find(candidate => candidate.name === packageName)
       const [section, setSection] = React.useState('components')
       const prefix = React.useId()
-      if (!pkg) return React.createElement('p', { role: 'status' }, '插件包信息尚未就绪。')
+      if (!pkg) return React.createElement('p', { role: 'status' }, tUi("插件包信息尚未就绪。"))
       const developerInterfaces = pkg.developerInterfaces || []
       const tabs = [
-        { value: 'components', label: `运行组件 ${pkg.rows.length}` },
-        { value: 'interfaces', label: `开发接口 ${developerInterfaces.length}` }
+        { value: 'components', label: tUi("运行组件 {value0}", {value0: pkg.rows.length}) },
+        { value: 'interfaces', label: tUi("开发接口 {value0}", {value0: developerInterfaces.length}) }
       ].map(tab => ({ ...tab, id: `${prefix}-${tab.value}-tab`, panelId: `${prefix}-${tab.value}-panel` }))
       const components = pkg.rows.map(row => {
         const title = row.meta?.title === undefined ? row.rowId : face.resolveText(row.meta.title)
         const description = row.meta?.description === undefined ? '' : face.resolveText(row.meta.description)
         const state = !row.enabled ? 'idle' : row.phase === null ? 'idle' : phaseDots[row.phase]
-        const label = !row.enabled ? '已停用' : row.phase === null ? '未运行' : phaseLabels[row.phase]
+        const label = !row.enabled ? tUi("已停用") : row.phase === null ? tUi("未运行") : tUi(phaseLabels[row.phase])
         const locked = row.entryId === undefined || row.readOnlyReason !== undefined || pkg.readOnlyReason !== undefined
         const busy = snapshot.busy.includes(packageName) || snapshot.busy.includes(`row:${row.entryId}`)
         return React.createElement('li', {
@@ -83,8 +85,8 @@ window.__ModuleLoader__.load({
           ),
           React.createElement('span', { className: 'eleckoi-plugin-component-state' }, React.createElement(StateDot, { state }), label),
           React.createElement(Switch, {
-            checked: row.enabled, label: `启用${title}`, disabled: !pkg.enabled || locked || busy,
-            title: row.readOnlyReason === 'management-required' ? '运行所需的核心组件' : undefined,
+            checked: row.enabled, label: tUi("启用{value0}", {value0: title}), disabled: !pkg.enabled || locked || busy,
+            title: row.readOnlyReason === 'management-required' ? tUi("运行所需的核心组件") : undefined,
             onChange: enabled => face.setRowEnabled(row.entryId, enabled)
           })
         )
@@ -96,23 +98,23 @@ window.__ModuleLoader__.load({
         React.createElement('span', { className: 'eleckoi-plugin-component-icon', 'aria-hidden': 'true' }, React.createElement(PluginArtworkDefault, { size: 28 })),
         React.createElement('div', { className: 'eleckoi-plugin-component-main' },
           React.createElement('div', { className: 'eleckoi-plugin-interface-heading' },
-            React.createElement('strong', null, item.title),
-            React.createElement('span', { className: 'eleckoi-plugin-interface-type' }, interfaceKindLabels[item.kind] || item.kind)
+            React.createElement('strong', null, tUi(item.title)),
+            React.createElement('span', { className: 'eleckoi-plugin-interface-type' }, tUi(interfaceKindLabels[item.kind] || item.kind) || item.kind)
           ),
-          React.createElement('span', null, item.description),
+          React.createElement('span', null, tUi(item.description)),
           React.createElement('code', null, item.id),
           React.createElement('span', { className: 'eleckoi-plugin-interface-meta' }, [
-            interfaceModeLabels[item.mode] || item.mode,
-            interfaceScopeLabels[item.scope] || item.scope
+            tUi(interfaceModeLabels[item.mode] || item.mode) || item.mode,
+            tUi(interfaceScopeLabels[item.scope] || item.scope) || item.scope
           ].join(' · ')),
           item.members?.length ? React.createElement('code', { className: 'eleckoi-plugin-interface-members' }, item.members.join(' · ')) : null,
           item.relation === 'contributes' && item.owner
-            ? React.createElement('span', { className: 'eleckoi-plugin-interface-owner' }, `接入 ${item.owner}`)
+            ? React.createElement('span', { className: 'eleckoi-plugin-interface-owner' }, tUi("接入 {value0}", {value0: item.owner}))
             : null
         )
       ))
       return React.createElement('div', { className: 'eleckoi-plugin-components', 'data-eleckoi-plugin-detail': packageName },
-        React.createElement(SegmentedTabs, { items: tabs, value: section, onChange: setSection, label: '插件详情内容', className: 'eleckoi-plugin-detail-tabs' }),
+        React.createElement(SegmentedTabs, { items: tabs, value: section, onChange: setSection, label: tUi("插件详情内容"), className: 'eleckoi-plugin-detail-tabs' }),
         tabs.map(tab => React.createElement('div', {
           key: tab.value, id: tab.panelId, role: 'tabpanel', 'aria-labelledby': tab.id, tabIndex: 0,
           hidden: section !== tab.value, 'data-plugin-section': tab.value
@@ -251,6 +253,7 @@ window.__ModuleLoader__.load({
       officialSidebar.apply(ctx.extend({ slots: scopedSlots }))
     }
     function ElecKoiRoot({ layout, slots, subscribeSlots, frontendConnection, locale, theme, subscribeTheme, conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, webSearch, displayPreferences, sidebarRight, renderSlot, renderSlotChain }) {
+      const tUi = locale.bind('eleckoi.ui')
       const [ProductApp, setProductApp] = React.useState(null)
       const [loadError, setLoadError] = React.useState('')
       const settingsVersion = React.useSyncExternalStore(
@@ -285,7 +288,6 @@ window.__ModuleLoader__.load({
           order: entry.options.order || 0,
           label: typeof entry.options.label === 'function' ? entry.options.label() : entry.options.label || ''
         }))
-        sections.push({ id: 'language', order: -100, label: locale.bind('settings.locale')('language.title') })
         return sections.sort((a, b) => a.order - b.order)
       }, [slots, settingsVersion, localeRevision])
       const navigationItems = React.useMemo(() => {
@@ -337,28 +339,28 @@ window.__ModuleLoader__.load({
           '@deepseek-ai/dsh-sdk-app', '@deepseek-ai/dsh-acp-app', '@deepseek-ai/dsh-sdk-minimal',
         ])
         const eleckoiPackages = new Map([
-          ['@deepseek-ai/dsh-agent-loop', 'DSH 已有输入生成适配'],
-          ['@deepseek-ai/dsh-client-ui-chat', 'DSH 官方聊天视图适配'],
-          ['@deepseek-ai/dsh-client-ui-settings-general', 'DSH 导航更新入口适配'],
-          ['@deepseek-ai/dsh-web-frontend', 'DSH 网页错误传递适配'],
-          ['@deepseek-ai/dsh-client-ui-trajectory', 'DSH 轨迹请求身份适配'],
-          ['@deepseek-ai/dsh-client-ui-plugin-manager', 'DSH 插件页面适配'],
-          ['@deepseek-ai/dsh-client-ui-conversation', 'DSH 会话输入框适配'],
-          ['@deepseek-ai/dsh-client-ui-workspace', 'DSH 启动导航适配'],
-          ['@deepseek-ai/dsh-tools', 'DSH 工具注册来源适配'],
-          ['@deepseek-ai/dsh-plugin-manager', 'DSH 插件管理适配'],
-          ['@deepseek-ai/dsh-llm', 'DSH 模型运行适配'],
-          ['@deepseek-ai/dsh-llm-pi-ai', 'DSH 通用模型适配'],
-          ['@deepseek-ai/dsh-llm-deepseek', 'DSH DeepSeek 模型适配'],
-          ['@deepseek-ai/dsh-api-session-controller', 'DSH 会话控制适配'],
-          ['@deepseek-ai/dsh-session', 'DSH 会话记录适配'],
-          ['@deepseek-ai/dsh-session-format-v3-to-v4', 'DSH 旧会话迁移适配'],
-          ['@deepseek-ai/dsh-session-persistence-jsonl', 'DSH 会话存储适配'],
-          ['@deepseek-ai/dsh-spill-policy', 'DSH 工具结果续读适配'],
-          ['@deepseek-ai/dsh-web', 'DSH 联网提供器适配'],
-          ['@deepseek-ai/dsh-tool-web', 'DSH 联网工具适配'],
-          ['@deepseek-ai/dsh-sdk-jsonrpc-server', 'DSH 桌面通信适配'],
-          ['@earendil-works/pi-ai', '模型协议适配']
+          ['@deepseek-ai/dsh-agent-loop', () => tUi("DSH 已有输入生成适配")],
+          ['@deepseek-ai/dsh-client-ui-chat', () => tUi("DSH 官方聊天视图适配")],
+          ['@deepseek-ai/dsh-client-ui-settings-general', () => tUi("DSH 导航更新入口适配")],
+          ['@deepseek-ai/dsh-web-frontend', () => tUi("DSH 网页错误传递适配")],
+          ['@deepseek-ai/dsh-client-ui-trajectory', () => tUi("DSH 轨迹请求身份适配")],
+          ['@deepseek-ai/dsh-client-ui-plugin-manager', () => tUi("DSH 插件页面适配")],
+          ['@deepseek-ai/dsh-client-ui-conversation', () => tUi("DSH 会话输入框适配")],
+          ['@deepseek-ai/dsh-client-ui-workspace', () => tUi("DSH 启动导航适配")],
+          ['@deepseek-ai/dsh-tools', () => tUi("DSH 工具注册来源适配")],
+          ['@deepseek-ai/dsh-plugin-manager', () => tUi("DSH 插件管理适配")],
+          ['@deepseek-ai/dsh-llm', () => tUi("DSH 模型运行适配")],
+          ['@deepseek-ai/dsh-llm-pi-ai', () => tUi("DSH 通用模型适配")],
+          ['@deepseek-ai/dsh-llm-deepseek', () => tUi("DSH DeepSeek 模型适配")],
+          ['@deepseek-ai/dsh-api-session-controller', () => tUi("DSH 会话控制适配")],
+          ['@deepseek-ai/dsh-session', () => tUi("DSH 会话记录适配")],
+          ['@deepseek-ai/dsh-session-format-v3-to-v4', () => tUi("DSH 旧会话迁移适配")],
+          ['@deepseek-ai/dsh-session-persistence-jsonl', () => tUi("DSH 会话存储适配")],
+          ['@deepseek-ai/dsh-spill-policy', () => tUi("DSH 工具结果续读适配")],
+          ['@deepseek-ai/dsh-web', () => tUi("DSH 联网提供器适配")],
+          ['@deepseek-ai/dsh-tool-web', () => tUi("DSH 联网工具适配")],
+          ['@deepseek-ai/dsh-sdk-jsonrpc-server', () => tUi("DSH 桌面通信适配")],
+          ['@earendil-works/pi-ai', () => tUi("模型协议适配")]
         ])
         let entry = null
         let face = null
@@ -373,7 +375,7 @@ window.__ModuleLoader__.load({
           const toPackage = pkg => ({
             id: pkg.name,
             kind: 'package',
-            name: eleckoiPackages.get(pkg.name)
+            name: eleckoiPackages.get(pkg.name)?.()
               || (pkg.meta?.title === undefined ? pkg.name : face.resolveText(pkg.meta.title) || pkg.name),
             icon: pkg.meta?.icon || '',
             group: builtInBundles.includes(pkg.name) || eleckoiPackages.has(pkg.name) ? 'eleckoi'
@@ -446,9 +448,11 @@ window.__ModuleLoader__.load({
         window.addEventListener('eleckoi:dsh-plugins:select', select)
         window.addEventListener('eleckoi:dsh-plugins:add', add)
         const stopSlots = slots.subscribe('main', bind)
+        const stopLocale = locale.subscribe(publish)
         bind()
         return () => {
           stopSlots()
+          stopLocale()
           stopManager()
           stopLedger()
           stopNavigation()
@@ -461,7 +465,7 @@ window.__ModuleLoader__.load({
       React.useEffect(() => {
         const assets = globalThis.__ELECKOI_CLIENT_ASSETS__
         if (!assets || typeof assets.script !== 'string') {
-          setLoadError('ElecKoi 客户端资源未准备好。')
+          setLoadError(tUi("ElecKoi 客户端资源未准备好。"))
           return
         }
         globalThis.__ELECKOI_DSH_PLATFORM__ = {
@@ -478,7 +482,7 @@ window.__ModuleLoader__.load({
             setLoadError('')
           }
         }
-        const failed = event => setLoadError(event.detail || 'ElecKoi 客户端启动失败。')
+        const failed = event => setLoadError(event.detail || tUi("ElecKoi 客户端启动失败。"))
         window.addEventListener('eleckoi:dsh-app-ready', ready)
         window.addEventListener('eleckoi:dsh-app-failed', failed)
         let disposed = false
@@ -502,7 +506,7 @@ window.__ModuleLoader__.load({
           script.dataset.eleckoiScript = ''
           script.type = 'module'
           script.src = assets.script
-          script.onerror = () => setLoadError('ElecKoi 客户端脚本加载失败。')
+          script.onerror = () => setLoadError(tUi("ElecKoi 客户端脚本加载失败。"))
           document.head.append(script)
         }
         return () => {
@@ -517,7 +521,7 @@ window.__ModuleLoader__.load({
           id: 'eleckoi-root',
           style: { position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'auto' }
         }, ProductApp ? React.createElement(ProductApp, {
-          markdownComponent: MarkdownText,
+          markdownComponent: MarkdownText, locale,
           slots, subscribeSlots, frontendConnection,
           conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, webSearch, displayPreferences, appearance, settingsSections, rightbar,
           navigation: {
@@ -546,9 +550,8 @@ window.__ModuleLoader__.load({
             setPanelGuard: guard => layout.setPanelGuard(guard)
           },
           renderWindow: (owner, fallback) => renderSlotChain('eleckoi.shell.window', { ...owner, fallback }, { fallback }),
-          renderSettingsSection: (section, close) => section.id === 'language'
-            ? renderSlot('settings.section', { itemId: 'language' }, { only: 'general' })
-            : renderSlot('settings.section', { close }, { only: section.id }),
+          renderLanguageSettings: () => renderSlot('settings.section', { itemId: 'language' }, { only: 'general' }),
+          renderSettingsSection: (section, close) => renderSlot('settings.section', { close }, { only: section.id }),
           renderUserProfileEditor: (owner, fallback) => renderSlotChain('eleckoi.persona.editor', { ...owner, fallback }, { fallback }),
           renderCharacterPageSection: (section, owner, fallback) => renderSlotChain(`eleckoi.character.page.${section}`, { ...owner, fallback }, { fallback }),
           renderCharacterEditorSection: (section, owner, fallback) => renderSlotChain(`eleckoi.character.editor.${section}`, { ...owner, fallback }, { fallback }),
@@ -560,9 +563,9 @@ window.__ModuleLoader__.load({
           renderRoleplay: owner => renderSlotChain('eleckoi.roleplay', owner, {
             fallback: React.createElement('section', {
               className: 'chat-panel chat-panel-empty-state',
-              'aria-label': '角色聊天插件未启用'
+              'aria-label': tUi("角色聊天插件未启用")
             }, React.createElement('div', { className: 'chat-empty-guide' },
-              React.createElement('strong', null, '角色聊天插件未启用')))
+              React.createElement('strong', null, tUi("角色聊天插件未启用"))))
           })
         }) : loadError),
         React.createElement('div', {
@@ -837,11 +840,11 @@ window.__ModuleLoader__.load({
       ctx.slots.inject('sidebar.panellist', () => [
         ctx.slots.register({
           name: 'sidebar.panellist', id: 'creatorStudio', order: 10,
-          label: 'AI创作工作室', registrant: '@eleckoi/dsh-client-shell'
+          label: () => ctx.locale.bind('eleckoi.ui')("AI创作工作室"), registrant: '@eleckoi/dsh-client-shell'
         }, ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(CreatorStudioNavigationIcon, { size }))),
         ctx.slots.register({
           name: 'sidebar.panellist', id: 'community', order: 20,
-          label: '社区', registrant: '@eleckoi/dsh-client-shell'
+          label: () => ctx.locale.bind('eleckoi.ui')("社区"), registrant: '@eleckoi/dsh-client-shell'
         }, ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(CommunityNavigationIcon, { size })))
       ])
       ctx.slots.inject('plugins.bundle.config', () => builtInBundles.filter(name => name !== '@eleckoi/dsh-auto-illustration').map(packageName => ctx.slots.register({
@@ -849,7 +852,7 @@ window.__ModuleLoader__.load({
       }, () => {
         const entry = ctx.slots.entriesOfSlot('main').find(candidate => candidate.options.key === 'plugins')
         const face = entry?.inject?.()
-        return face ? React.createElement(BuiltInPluginContents, { key: packageName, packageName, face })
+        return face ? React.createElement(BuiltInPluginContents, { key: packageName, packageName, face, locale: ctx.locale })
           : React.createElement('p', { role: 'status' }, '插件管理器尚未就绪。')
       })))
       ctx.effect(() => {

@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
@@ -13,6 +14,7 @@ export function AppUpdateController({ updates }) {
 }
 
 function AndroidAppUpdateController({ updates }) {
+  const tUi = useProductTranslation();
   const status = updates?.status ?? null;
   const android = globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android';
   const [dismissedKey, setDismissedKey] = useState("");
@@ -44,7 +46,7 @@ function AndroidAppUpdateController({ updates }) {
       if (status?.failedOperation === 'check') await updates?.check?.();
       else await updates?.download?.();
     } catch (error) {
-      setActionError(resolveFailure(error, { fallback: "下载更新失败，请稍后重试。" }).text);
+      setActionError(resolveFailure(error, { fallback: tUi("下载更新失败，请稍后重试。") }).text);
     }
   }, [updates, status?.failedOperation]);
 
@@ -55,12 +57,12 @@ function AndroidAppUpdateController({ updates }) {
       if (!result) throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, "更新服务暂时不可用。", { what: "更新服务" });
       if (!result.accepted) {
         setActionError(result.reason === "agent_running"
-          ? "当前仍有回复正在生成，请停止生成后再重启更新。"
-          : "更新尚未下载完成，请稍后再试。"
+          ? tUi("当前仍有回复正在生成，请停止生成后再重启更新。")
+          : tUi("更新尚未下载完成，请稍后再试。")
         );
       }
     } catch (error) {
-      setActionError(resolveFailure(error, { fallback: "无法启动安装，请稍后重试。" }).text);
+      setActionError(resolveFailure(error, { fallback: tUi("无法启动安装，请稍后重试。") }).text);
     }
   }, [updates]);
 
@@ -77,6 +79,7 @@ function AndroidAppUpdateController({ updates }) {
 }
 
 function UpdateDialog({ status, actionError, onClose, onDownload, onInstall }) {
+  const tUi = useProductTranslation();
   const android = globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android';
   const titleId = useId();
   const descriptionId = useId();
@@ -92,17 +95,17 @@ function UpdateDialog({ status, actionError, onClose, onDownload, onInstall }) {
   const failed = status.phase === "error";
   const retryInstall = failed && status.failedOperation === 'install';
   const progressPercent = Math.round(status.progress?.percent ?? 0);
-  const title = installing ? "正在更新" : verifying ? "正在校验" : downloading ? "正在下载" : failed ? "更新失败" : "版本就绪";
+  const title = installing ? tUi("正在更新") : verifying ? tUi("正在校验") : downloading ? tUi("正在下载") : failed ? tUi("更新失败") : tUi("版本就绪");
   const releaseUrl = android ? status.releaseUrl : `https://github.com/eleckoi/ElecKoi/releases/tag/${encodeURIComponent(`v${status.availableVersion}`)}`;
   const description = useMemo(() => {
-    if (installing) return "正在重启并安装更新…";
-    if (ready) return "更新已下载，重启后即可完成安装。";
-    if (verifying) return "正在校验下载内容，请稍候。";
-    if (downloading) return status.message || `正在后台下载更新${progressPercent > 0 ? ` · ${progressPercent}%` : "…"}`;
-    if (failed) return status.message || "更新失败，请稍后重试。";
-    if (android) return "前往下载 APK，下载后由系统确认安装。";
-    return "新版本已准备好，下载期间仍可继续使用 ElecKoi。";
-  }, [android, downloading, failed, installing, progressPercent, ready, verifying, status.message]);
+    if (installing) return tUi("正在重启并安装更新…");
+    if (ready) return tUi("更新已下载，重启后即可完成安装。");
+    if (verifying) return tUi("正在校验下载内容，请稍候。");
+    if (downloading) return status.message || tUi("正在后台下载更新{value0}", {value0: progressPercent > 0 ? ` · ${progressPercent}%` : "…"});
+    if (failed) return status.message || tUi("更新失败，请稍后重试。");
+    if (android) return tUi("前往下载 APK，下载后由系统确认安装。");
+    return tUi("新版本已准备好，下载期间仍可继续使用 ElecKoi。");
+  }, [android, downloading, failed, installing, progressPercent, ready, verifying, status.message, tUi]);
 
   useEffect(() => {
     const previousFocus = document.activeElement;
@@ -153,17 +156,17 @@ function UpdateDialog({ status, actionError, onClose, onDownload, onInstall }) {
       >
         <header className="app-update-heading">
           <h2 id={titleId}>v{status.availableVersion} {title}</h2>
-          <a className="app-update-release-link" href={releaseUrl} target="_blank" rel="noopener noreferrer">前往下载</a>
+          <a className="app-update-release-link" href={releaseUrl} target="_blank" rel="noopener noreferrer">{tUi("前往下载")}</a>
         </header>
-        <section className="app-update-notes-section" aria-label="本次更新" tabIndex={0}>
+        <section className="app-update-notes-section" aria-label={tUi("本次更新")} tabIndex={0}>
           <div className="app-update-notes">
-            <OfficialMarkdown content={status.releaseNotes || status.releaseName || "包含稳定性改进和问题修复。"} />
+            <OfficialMarkdown content={status.releaseNotes || status.releaseName || tUi("包含稳定性改进和问题修复。")} />
           </div>
         </section>
 
         <footer className="app-update-footer">
           {busy ? <div className="app-update-download-progress">
-            <div className="app-update-progress" role="progressbar" aria-label="更新下载进度"
+            <div className="app-update-progress" role="progressbar" aria-label={tUi("更新下载进度")}
               aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
               <i style={{ width: `${progressPercent}%` }} />
             </div>
@@ -171,13 +174,13 @@ function UpdateDialog({ status, actionError, onClose, onDownload, onInstall }) {
           </div> : null}
           <p id={descriptionId} className="app-update-status" role={failed ? "alert" : "status"}>{description}</p>
           <span>
-            当前版本 v{status.currentVersion}
-            {status.downloadSizeBytes ? ` · 约 ${formatBytes(status.downloadSizeBytes)}` : ""}
+            {tUi("当前版本 v")}{status.currentVersion}
+            {status.downloadSizeBytes ? tUi(" · 约 {value0}", {value0: formatBytes(status.downloadSizeBytes)}) : ""}
           </span>
           {actionError ? <p className="app-update-error" role="alert">{actionError}</p> : null}
           <div className="app-update-actions">
             <button ref={secondaryRef} type="button" disabled={installing} onClick={onClose}>
-              {busy ? "隐藏" : ready ? "稍后重启" : "稍后"}
+              {busy ? tUi("隐藏") : ready ? tUi("稍后重启") : tUi("稍后")}
             </button>
             <button
               type="button"
@@ -186,16 +189,16 @@ function UpdateDialog({ status, actionError, onClose, onDownload, onInstall }) {
               onClick={ready || retryInstall ? onInstall : onDownload}
             >
               {installing
-                ? "正在重启"
+                ? tUi("正在重启")
                 : verifying
-                  ? "正在校验"
+                  ? tUi("正在校验")
                 : downloading
-                  ? `下载中 ${progressPercent}%`
+                  ? tUi("下载中 {value0}%", {value0: progressPercent})
                   : ready
-                    ? "重启并更新"
+                    ? tUi("重启并更新")
                     : failed
-                      ? retryInstall ? "重试安装" : status.failedOperation === 'check' ? "重新检查" : "重新下载"
-                      : android ? "前往下载" : "下载更新"}
+                      ? retryInstall ? tUi("重试安装") : status.failedOperation === 'check' ? tUi("重新检查") : tUi("重新下载")
+                      : android ? tUi("前往下载") : tUi("下载更新")}
             </button>
           </div>
         </footer>

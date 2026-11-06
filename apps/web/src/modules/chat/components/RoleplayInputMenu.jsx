@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useRef, useState } from "react";
 import { MenuSurface } from '@deepseek-ai/dsh-client-ui-primitives';
 import { DshNewChatIcon, DshRefreshIcon } from "../../../ui/icons/dshComposerIcons.jsx";
@@ -25,8 +26,9 @@ export function RoleplayInputMenu({
   purpose = 'roleplay',
   onSelectCharacter,
 }) {
+  const tUi = useProductTranslation();
   const creator = purpose === 'creator';
-  const menuLabel = creator ? '工作室菜单' : '扮演菜单';
+  const menuLabel = creator ? tUi("工作室菜单") : tUi("扮演菜单");
   const [open, setOpen] = useState(false);
   const [scriptsOpen, setScriptsOpen] = useState(false);
   const rootRef = useRef(null);
@@ -58,7 +60,7 @@ export function RoleplayInputMenu({
       <button
         className={`roleplay-menu-trigger composer-more-trigger ${open ? "active" : ""}`}
         type="button"
-        aria-label={open ? `收起${menuLabel}` : menuLabel}
+        aria-label={open ? tUi("收起{value0}", {value0: menuLabel}) : menuLabel}
         aria-haspopup="menu"
         aria-expanded={open}
         title={menuLabel}
@@ -68,34 +70,34 @@ export function RoleplayInputMenu({
       </button>
       {open ? (
         <MenuSurface className="composer-more-menu" role="menu" aria-label={menuLabel}>
-          {creator && <button type="button" role="menuitem" onClick={() => run(onSelectCharacter)}><UserCircle size={18} /><span>选择角色</span></button>}
+          {creator && <button type="button" role="menuitem" onClick={() => run(onSelectCharacter)}><UserCircle size={18} /><span>{tUi("选择角色")}</span></button>}
           {!creator &&
           <button type="button" role="menuitem" onClick={() => run(onOpenHistory)}>
-            <ChatHistoryIcon size={18} /><span>聊天记录</span>
+            <ChatHistoryIcon size={18} /><span>{tUi("聊天记录")}</span>
           </button>}
           <button type="button" role="menuitem" onClick={() => run(onOpenTools)}>
-            <PlugIcon size={18} /><span>工具</span>
+            <PlugIcon size={18} /><span>{tUi("工具")}</span>
           </button>
           {!creator && <button type="button" role="menuitem" aria-haspopup="dialog" onClick={() => run(() => setScriptsOpen(true))}>
-            <Code size={18} /><span>脚本</span>
+            <Code size={18} /><span>{tUi("脚本")}</span>
           </button>}
           {onOpenRequestPreview && <button type="button" role="menuitem" onClick={() => run(onOpenRequestPreview)}>
-            <TextAlignLeft size={18} weight="regular" /><span>请求上下文预览</span>
+            <TextAlignLeft size={18} weight="regular" /><span>{tUi("请求上下文预览")}</span>
           </button>}
           {!creator && <button type="button" role="menuitem" onClick={() => run(onOpenVariables)}>
-            <Database size={18} weight="regular" /><span>变量查看器</span>
+            <Database size={18} weight="regular" /><span>{tUi("变量查看器")}</span>
           </button>}
           <button className="composer-new-chat-item" type="button" role="menuitem" onClick={() => run(onCreateChat)}>
-            <DshNewChatIcon size={18} /><span>新建对话</span>
+            <DshNewChatIcon size={18} /><span>{tUi("新建对话")}</span>
           </button>
           <button type="button" role="menuitem" disabled={isSending || !canDeleteMessages}
             onClick={() => run(onEnterDeleteMode)}>
-            <TrashIcon size={18} /><span>删除消息</span>
+            <TrashIcon size={18} /><span>{tUi("删除消息")}</span>
           </button>
           <i aria-hidden="true" />
           <button type="button" role="menuitem" disabled={!regenerateTargetMessageId || isSending}
             onClick={() => run(() => onRegenerate?.({ targetMessageId: regenerateTargetMessageId }))}>
-            <DshRefreshIcon size={18} /><span>重新生成</span>
+            <DshRefreshIcon size={18} /><span>{tUi("重新生成")}</span>
           </button>
         </MenuSurface>
       ) : null}

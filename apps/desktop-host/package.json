@@ -27,6 +27,7 @@
     "build": "tsdown"
   },
   "dependencies": {
+    "@eleckoi/web-client": "workspace:*",
     "@deepseek-ai/cordis": "4.1.0",
     "@deepseek-ai/dsh-launch-environment": "0.2.2-rc.1",
     "@deepseek-ai/dsh-llm-pi-ai": "0.2.2-rc.1",

@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Check, UserCircle } from '@phosphor-icons/react';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
@@ -11,6 +12,7 @@ import { MobileCreatorStudioConversation } from './MobileCreatorStudioConversati
 import './mobile-creator-studio.css';
 
 export function MobileCreatorStudioPage() {
+  const tUi = useProductTranslation();
   const view = useMainPageView();
   const model = view.creatorStudio.sessions;
   const state = useSyncExternalStore(model.subscribe, model.getSnapshot);
@@ -49,38 +51,39 @@ export function MobileCreatorStudioPage() {
     if (await perform(() => model.create(target?.id || ''))) view.navigation.closeSidebar();
   }
   return <div className="mobile-root-page mobile-creator-studio-page">
-    <MobileHeader title={<><span className="creator-studio-heading-title">AI 创作工作室</span><span className="creator-studio-heading-preset" ref={setHeaderTarget} /></>} back={() => view.goBack()}
-      leading={<button type="button" aria-label="工作室侧边栏" aria-expanded={drawer} onClick={view.openWorkspaceDrawer}><IconFlatListOutlineRegular size={20} /></button>}>
-      <button type="button" aria-label="新建工作室对话" disabled={busy} onClick={() => void create()}><DshNewChatIcon size={22} /></button>
+    <MobileHeader title={<><span className="creator-studio-heading-title">{tUi("AI 创作工作室")}</span><span className="creator-studio-heading-preset" ref={setHeaderTarget} /></>} back={() => view.goBack()}
+      leading={<button type="button" aria-label={tUi("工作室侧边栏")} aria-expanded={drawer} onClick={view.openWorkspaceDrawer}><IconFlatListOutlineRegular size={20} /></button>}>
+      <button type="button" aria-label={tUi("新建工作室对话")} disabled={busy} onClick={() => void create()}><DshNewChatIcon size={22} /></button>
       <span className="creator-studio-heading-corner" ref={setCornerTarget} />
     </MobileHeader>
     <FailureAlert failure={error || state.error} className="creator-studio-error" />
-    <section className="creator-studio-conversation" aria-label="工作室对话">
+    <section className="creator-studio-conversation" aria-label={tUi("工作室对话")}>
       {state.reference ? view.renderCreatorStudioConversation({ reference: state.reference, component: MobileCreatorStudioConversation,
         props: { model, headerTarget, cornerTarget, editing: state.editingSessionId === state.active?.sessionId, onCreate: create, onSelectCharacter: () => setPicker(true), onError: setError } }) :
-        <div className="creator-studio-start">{busy || state.status === 'loading' ? <span className="creator-studio-spinner" role="status" aria-label="加载对话" /> :
-          <button type="button" onClick={() => void perform(() => model.restoreRecent())}>重试</button>}</div>}
+        <div className="creator-studio-start">{busy || state.status === 'loading' ? <span className="creator-studio-spinner" role="status" aria-label={tUi("加载对话")} /> :
+          <button type="button" onClick={() => void perform(() => model.restoreRecent())}>{tUi("重试")}</button>}</div>}
     </section>
     {picker && <CreatorStudioCharacterPicker characters={characters} selectedId={target?.id || ''} busy={busy} error={error} onSelect={choose} onClose={() => setPicker(false)} />}
   </div>;
 }
 
 export function CreatorStudioCharacterPicker({ characters, selectedId, busy, error, onSelect, onClose }) {
+  const tUi = useProductTranslation();
   const [query, setQuery] = useState('');
   const [group, setGroup] = useState('');
   const items = characters.collection.items.filter(item => (!group || item.group === group) && String(item.name || '').toLocaleLowerCase().includes(query.toLocaleLowerCase()));
-  return <MobileDialog title="选择角色" className="creator-studio-character-picker" busy={busy} onClose={onClose}>
-    <MobileSearch value={query} onChange={setQuery} label="搜索角色" />
-    {characters.collection.groups.length > 0 && <div className="creator-studio-character-groups" role="group" aria-label="角色分组">
-      {['', ...characters.collection.groups].map(id => <button type="button" key={id} aria-pressed={id === group} onClick={() => setGroup(id)}>{id || '全部角色'}</button>)}
+  return <MobileDialog title={tUi("选择角色")} className="creator-studio-character-picker" busy={busy} onClose={onClose}>
+    <MobileSearch value={query} onChange={setQuery} label={tUi("搜索角色")} />
+    {characters.collection.groups.length > 0 && <div className="creator-studio-character-groups" role="group" aria-label={tUi("角色分组")}>
+      {['', ...characters.collection.groups].map(id => <button type="button" key={id} aria-pressed={id === group} onClick={() => setGroup(id)}>{id || tUi("全部角色")}</button>)}
     </div>}
     <FailureAlert failure={error || characters.error} />
-    <div className="creator-studio-character-list" role="group" aria-label="角色">
-      <button type="button" aria-pressed={!selectedId} disabled={busy} onClick={() => onSelect('')}><span>不选择角色</span>{!selectedId && <Check size={20} />}</button>
+    <div className="creator-studio-character-list" role="group" aria-label={tUi("角色")}>
+      <button type="button" aria-pressed={!selectedId} disabled={busy} onClick={() => onSelect('')}><span>{tUi("不选择角色")}</span>{!selectedId && <Check size={20} />}</button>
       {items.map(item => <button type="button" key={item.id} aria-pressed={item.id === selectedId} disabled={busy} onClick={() => onSelect(item.id)}>
         <Avatar as="span" src={item.avatar} name={item.name} /><span>{item.name}</span>{item.id === selectedId && <Check size={20} />}
       </button>)}
-      {!items.length && <p className="mobile-state">{characters.status === 'loading' ? '正在加载…' : '没有匹配的角色'}</p>}
+      {!items.length && <p className="mobile-state">{characters.status === 'loading' ? tUi("正在加载…") : tUi("没有匹配的角色")}</p>}
     </div>
   </MobileDialog>;
 }

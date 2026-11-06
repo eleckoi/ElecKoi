@@ -399,7 +399,7 @@ window.__ModuleLoader__.load({
       const NavigationIcon = React.lazy(() => import(new URL('eleckoi-page-model.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
         .then(module => ({ default: module.NavigationIcon })))
       ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
-        name: 'sidebar.panellist', id: 'model', order: 30, label: '模型配置', registrant: '@eleckoi/dsh-client-models'
+        name: 'sidebar.panellist', id: 'model', order: 30, label: () => ctx.locale.bind('eleckoi.ui')("模型配置"), registrant: '@eleckoi/dsh-client-models'
       }, ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(NavigationIcon, { size }))))
       ctx.effect(() => {
         catalog.start()
@@ -411,6 +411,6 @@ window.__ModuleLoader__.load({
       }, 'eleckoi: model catalog')
     }
 
-    return { inject: ['slots', 'remote', 'remote.session', 'remote.settings', 'remote.llm', 'remote.credentials', 'remote.eleckoiModels'], apply }
+    return { inject: ['locale', 'slots', 'remote', 'remote.session', 'remote.settings', 'remote.llm', 'remote.credentials', 'remote.eleckoiModels'], apply }
   }
 })

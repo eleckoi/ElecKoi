@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../app/i18n/productCopy.js";
+import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { StarFour } from '@phosphor-icons/react';
 import { MainPageContext } from '../app/windows/MainPageContext.jsx';
@@ -21,6 +23,7 @@ const subscribeEmpty = () => () => {};
 const getEmptyRightbar = () => EMPTY_RIGHTBAR;
 
 export function MobileWindow(props) {
+  const tUi = useProductTranslation();
   const { navigation } = props;
   const chat = useChatClient(props);
   const appearance = useWindowAppearance({ notify: chat.notify });
@@ -109,7 +112,7 @@ export function MobileWindow(props) {
     if (routeRef.current.at(-1).panel === selectedPanel) return;
     if (selectedPanel === 'creatorStudio') setRoutes(current => [...current, { panel: selectedPanel, kind: 'creator-studio' }]);
     else if (selectedPanel === 'conversation') setRoutes(current => [...current, { panel: 'conversation', kind: 'official-conversation' }]);
-    else if (!ROOT_TABS.some(([id]) => id === selectedPanel)) setRoutes(current => [...current, { panel: selectedPanel, kind: 'root' }]);
+    else if (!localizeUiCopy(ROOT_TABS, tUi).some(([id]) => id === selectedPanel)) setRoutes(current => [...current, { panel: selectedPanel, kind: 'root' }]);
     else setRoutes([{ panel: selectedPanel, kind: 'root' }]);
   }, [selectedPanel]);
   useEffect(() => {
@@ -149,7 +152,7 @@ export function MobileWindow(props) {
       ? chat.sessionId === target.sessionId
       : chat.chatCharacter.character_id === target.characterId);
     if (matches) setRoutes([...source, { panel: 'messages', kind: 'conversation' }]);
-    else setFailure(chat.notice?.type === 'error' ? chat.notice.failure || chat.notice.message : chat.status && chat.status !== '就绪' ? chat.status : '对话未能打开，请重试');
+    else setFailure(chat.notice?.type === 'error' ? chat.notice.failure || chat.notice.message : chat.status && chat.status !== '就绪' ? chat.status : tUi("对话未能打开，请重试"));
     setPendingConversation(null);
     conversationBusyRef.current = false;
     setRouteBusy(false);
@@ -166,7 +169,7 @@ export function MobileWindow(props) {
       finally { skipPanelGuard.current = false; }
       return;
     }
-    if (chat.isSending) { setFailure('正在生成，请先停止或等待完成'); return; }
+    if (chat.isSending) { setFailure(tUi("正在生成，请先停止或等待完成")); return; }
     conversationBusyRef.current = true;
     setRouteBusy(true);
     setPendingConversation({ target, source, complete: false });
@@ -203,11 +206,11 @@ export function MobileWindow(props) {
     openChatBackground: () => setBackgroundOpen(true),
     renderLayout: ({ mainPanel, overlays }) => <>{mainPanel}{overlays}</>,
   };
-  const isRootTab = effectiveRoute.kind === 'root' && ROOT_TABS.some(([id]) => id === selectedPanel);
+  const isRootTab = effectiveRoute.kind === 'root' && localizeUiCopy(ROOT_TABS, tUi).some(([id]) => id === selectedPanel);
   const isProductPage = ['messages', 'character', 'presets', 'model', 'creatorStudio', 'community', 'settings'].includes(selectedPanel);
   const renderSidebarContent = renderSidebarSlot => <SidebarContent expanded compactAccount
     activeSection={selectedPanel}
-    navigationItems={navigation.items.filter(item => !ROOT_TABS.some(([id]) => id === item.id))}
+    navigationItems={navigation.items.filter(item => !localizeUiCopy(ROOT_TABS, tUi).some(([id]) => id === item.id))}
     renderEntryActions={navigation.hasSidebarEntryActions && renderSidebarSlot
       ? onDismiss => navigation.renderSidebarEntryActions(renderSidebarSlot, onDismiss) : undefined}
     renderSidebarSlot={renderSidebarSlot} hasFooterActions={navigation.hasSidebarFooterActions}
@@ -222,11 +225,11 @@ export function MobileWindow(props) {
       <div className="mobile-front-shadow" aria-hidden="true" />
       <div className="mobile-front-content">
       <section ref={pageRef} className={`mobile-page-seat${selectedPanel === 'conversation' ? ' mobile-workspace-page' : ''}`} inert={drawerPresent || searchOpen ? true : undefined} aria-hidden={searchOpen || undefined}>
-        {!isProductPage && selectedPanel !== 'conversation' && <MobileHeader title={selectedPanel === 'settings' ? '设置' : navigation.items.find(item => item.id === selectedPanel)?.label || selectedPanel} back={routes.length > 1 ? back : undefined} />}
-        <Suspense fallback={<p className="mobile-state" role="status">正在加载…</p>}>{navigation.renderPanel(selectedPanel)}</Suspense>
+        {!isProductPage && selectedPanel !== 'conversation' && <MobileHeader title={selectedPanel === 'settings' ? tUi("设置") : navigation.items.find(item => item.id === selectedPanel)?.label || selectedPanel} back={routes.length > 1 ? back : undefined} />}
+        <Suspense fallback={<p className="mobile-state" role="status">{tUi("正在加载…")}</p>}>{navigation.renderPanel(selectedPanel)}</Suspense>
       </section>
-      {isRootTab && <nav className="mobile-bottom-nav" aria-label="主导航" inert={drawerPresent || searchOpen ? true : undefined} aria-hidden={searchOpen || undefined} style={searchOpen ? { visibility: 'hidden' } : undefined}>
-        {ROOT_TABS.map(([id, label]) => <button key={id} type="button" aria-label={label} disabled={routeBusy} aria-current={selectedPanel === id ? 'page' : undefined} className={id === 'creatorStudio' ? 'mobile-create-tab' : ''} onClick={() => selectPanel(id)}>
+      {isRootTab && <nav className="mobile-bottom-nav" aria-label={tUi("主导航")} inert={drawerPresent || searchOpen ? true : undefined} aria-hidden={searchOpen || undefined} style={searchOpen ? { visibility: 'hidden' } : undefined}>
+        {localizeUiCopy(ROOT_TABS, tUi).map(([id, label]) => <button key={id} type="button" aria-label={label} disabled={routeBusy} aria-current={selectedPanel === id ? 'page' : undefined} className={id === 'creatorStudio' ? 'mobile-create-tab' : ''} onClick={() => selectPanel(id)}>
           {id === 'creatorStudio' ? <span className="mobile-create-mark"><StarFour size={15} weight="fill" /></span> : <span>{label}</span>}
         </button>)}
       </nav>}
@@ -237,17 +240,17 @@ export function MobileWindow(props) {
         onCommit={term => { if (term) setSearchHistory(current => [term, ...current.filter(item => item !== term)].slice(0, 10)); }}
         onForget={term => setSearchHistory(current => current.filter(item => item !== term))}
         onClear={() => setSearchHistory([])} onClose={action => { setSearchOpen(false); action?.(); }} />}
-      {drawerPresent && <button type="button" className="mobile-drawer-dismiss" aria-label="关闭侧边栏" tabIndex={-1} onClick={navigation.closeSidebar} />}
+      {drawerPresent && <button type="button" className="mobile-drawer-dismiss" aria-label={tUi("关闭侧边栏")} tabIndex={-1} onClick={navigation.closeSidebar} />}
       </div>
       </div>
       {drawerPresent && <div className="mobile-drawer-overlay">
-        <aside className={`mobile-drawer${drawerKind === 'workspace' ? ' mobile-workspace-drawer' : ''}`} ref={drawerRef} role="dialog" aria-label={drawerKind === 'workspace' ? '工作区会话管理' : '侧边导航'} aria-modal="true" data-mobile-back-owner="drawer" inert={!drawerState.shown ? true : undefined} onKeyDown={event => {
+        <aside className={`mobile-drawer${drawerKind === 'workspace' ? ' mobile-workspace-drawer' : ''}`} ref={drawerRef} role="dialog" aria-label={drawerKind === 'workspace' ? tUi("工作区会话管理") : tUi("侧边导航")} aria-modal="true" data-mobile-back-owner="drawer" inert={!drawerState.shown ? true : undefined} onKeyDown={event => {
           if (event.key !== 'Tab') return;
           const items = [...drawerRef.current.querySelectorAll('button:not(:disabled),a[href],[tabindex="0"]')];
           if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1)?.focus(); }
           else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0]?.focus(); }
         }}>
-          <Suspense fallback={<p className="mobile-state">正在加载…</p>}>{navigation.renderSidebar(drawerKind === 'workspace'
+          <Suspense fallback={<p className="mobile-state">{tUi("正在加载…")}</p>}>{navigation.renderSidebar(drawerKind === 'workspace'
             ? (_renderSidebarSlot, workspaceSidebar) => workspaceSidebar : renderSidebarContent,
           { workspace: drawerKind === 'workspace', collapsed: false, width: Math.min(326, viewportWidth * .8) })}</Suspense>
         </aside>
@@ -260,7 +263,7 @@ export function MobileWindow(props) {
       <ChatBackgroundModal open={backgroundOpen} character={chat.chatBackgroundCharacter} persona={chat.chatPersona} messages={chat.messages} chatDisplay={appearance.chatDisplay}
         globalWallpaper={appearance.globalChatWallpaper} newCharacterBackground={appearance.newCharacterBackground} onClose={() => setBackgroundOpen(false)} onSaveCharacter={chat.updateChatBackground}
         onSaveGlobal={appearance.saveGlobalChatWallpaper} onSaveNewCharacterBackground={appearance.saveNewCharacterBackground} onNotify={chat.notify} />
-      {failure && <MobileDialog title="打开失败" onClose={() => setFailure(null)}><FailureAlert failure={failure} /></MobileDialog>}
+      {failure && <MobileDialog title={tUi("打开失败")} onClose={() => setFailure(null)}><FailureAlert failure={failure} /></MobileDialog>}
     </main>
   </MainPageContext.Provider>;
 }

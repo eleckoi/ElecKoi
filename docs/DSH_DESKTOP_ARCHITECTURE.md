@@ -20,6 +20,8 @@
 
 ## 要达到的结构
 
+ElecKoi 的产品网页资源由受管 Host 在 `/eleckoi/assets/` 提供，资源地址经官方 `webserver/index-inject` 进入页面。桌面窗口与浏览器消费同一份注入和构建产物，Electron 只沿既有可信转发访问 Host，不再单独注入产品资源或直接读取这些文件。Android 使用同一资源装配，另外保留自己的 WebView 启动与平台信息。浏览器入口沿用官方网页壳、认证和 Remote；第三方远程插件代理 Host 即可取得产品资源，不另建远程通信协议。
+
 1. Electron 负责官方桌面客户端所需的窗口、可信来源、受限 preload、本机资源、启动、恢复和更新；不另外发明一套与 DSH Web 应用竞争的客户端框架。
 2. DSH 运行时通过官方 profile、bundle 和 patch 层装配。Agent、Session、模型、工具和官方插件由同版本 DSH Host 的正式能力负责。ElecKoi 的扩展优先作为独立的 DSH Host/Agent 插件进入该插件树。
 3. 主界面使用官方 Web Client 的模块加载、Cordis 生命周期、Remote、Client model、Slots 和 Renderer。ElecKoi 的页面与角色聊天通过公开的客户端插件合同贡献；第三方插件在其声明的正式扩展位上生效。
@@ -136,7 +138,7 @@ PC 工作区与角色聊天共用官方 Workspace 导航拥有的唯一前台 `m
 
 共享依赖、运行清单、Host／Client／SDK 和 Session 格式锁定官方 `0.2.2-rc.1`、提交 `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`，Cordis `4.1.0`、pi-ai `1.3.0`、Electron `44.7.0`，Windows 构建器 `26.17.0`。内置及可选插件清单使用 `dsh-official-bundles`；新增可选组合随运行环境携带，启用状态遵循官方默认和用户已保存选择。工作区、定时任务及其官方界面随同版本正式 profile 装配。定时任务入口只保留在创作工作区侧边栏的官方面板列表，使用官方图标和文字；打开任务页仍保留工作区侧栏。插件和更多继续位于最左导航，不重复出现在工作区侧栏。创作预设保留官方 schedule_create、schedule_list、schedule_view、schedule_edit 工具，统一归入既有任务与工作流能力组，关闭该组时一并停用；角色对话不装配这组创作任务工具。
 
-语言入口位于产品设置，通过 `settings.general.item` 中官方 `language` 项渲染原 LanguageRow。八种内置语言、语言包登记、回退链、Host `locale.preference` 保存和重新连接同步均由官方 LocaleRuntime 负责，没有产品自建语言存储。桌面通过官方 `__DSH_LOCALE__` 合同读取同一 Host 偏好，并把最后确认的语言留在官方壳缓存，用于 Host 不可用时的原生提示。标题栏菜单及更新文案使用同批次的八语词典；ElecKoi 自有业务文案和作者内容保留。
+语言入口位于产品设置的「聊天显示」内，使用翻译图标，通过 `settings.general.item` 中官方 `language` 项渲染原 LanguageRow，不单列语言分类。产品设置隐藏官方 `general` 分类，保留内置插件及其他扩展设置。官方正文、代码和终端各有独立字体与字号；正文设置也用于会话，不能概括成只影响其他界面。聊天显示偏好覆盖局部普通正文字号与行距，官方主题仍提供字体继承、Markdown 标题／代码等对应样式；隐藏入口不重置已保存配置。八种内置语言、语言包登记、回退链、Host `locale.preference` 保存和重新连接同步均由官方 LocaleRuntime 负责，没有产品自建语言存储。桌面通过官方 `__DSH_LOCALE__` 合同读取同一 Host 偏好，并把最后确认的语言留在官方壳缓存，用于 Host 不可用时的原生提示。标题栏菜单及更新文案使用同批次的八语词典；ElecKoi 自有页面、菜单、提示、静态配置说明与共享手机界面通过 `eleckoi.ui` 命名空间接入同一八语言运行时；切换时保留组件、编辑草稿与当前会话。角色、预设和模型配置的自定义名称、聊天正文、作者内容及错误诊断保持原值。界面选项按显式的源码配置表翻译，日期使用同一语言的区域标记，不通过扫描或替换 DOM 实现。维护约定和回归入口见 [产品界面语言](../apps/web/src/app/i18n/README.md)。
 
 导航栏的更新入口位于用户头像上方，通过窄 `sidebar.update` 槽位复用官方 `DesktopUpdateIndicator` 和同一 `DesktopUpdateSource`。无更新时隐藏；可用更新、下载进度、校验、就绪和失败状态、图标与提示均由官方组件负责。窄导航仅调整座位尺寸并隐藏文字，完整可访问名称和提示保持。更新确认使用官方独立 `WebContentsView` 文档及受限响应桥，取代桌面产品 React 更新弹窗；Android 保留其独立的 APK 下载流程。
 

@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
@@ -76,6 +77,7 @@ function LocalImageUpload({ className, label, crop, disabled = false, onSelect, 
 }
 
 export function CharacterBasicInfoPanel({ character, dirty, saving, error, saveNotice, onChange, onCancel, onSave }) {
+  const tUi = useProductTranslation();
   const persona = character?.persona || {};
   const name = persona.assistant_name || character?.name || "";
   const avatar = persona.assistant_avatar || character?.avatar || "";
@@ -95,20 +97,20 @@ export function CharacterBasicInfoPanel({ character, dirty, saving, error, saveN
 
   let status = null;
   if (error) status = { kind: "error", label: error, Icon: WarningCircle };
-  else if (saving) status = { kind: "saving", label: "正在保存…", Icon: CircleNotch };
-  else if (dirty) status = { kind: "dirty", label: "有未保存的更改" };
-  else if (saveNotice === "saved") status = { kind: "saved", label: "已保存", Icon: CheckCircle };
-  else if (saveNotice === "discarded") status = { kind: "discarded", label: "已放弃更改", Icon: CheckCircle };
+  else if (saving) status = { kind: "saving", label: tUi("正在保存…"), Icon: CircleNotch };
+  else if (dirty) status = { kind: "dirty", label: tUi("有未保存的更改") };
+  else if (saveNotice === "saved") status = { kind: "saved", label: tUi("已保存"), Icon: CheckCircle };
+  else if (saveNotice === "discarded") status = { kind: "discarded", label: tUi("已放弃更改"), Icon: CheckCircle };
 
   return (
-    <section className="character-basic-content" aria-label="基础资料">
+    <section className="character-basic-content" aria-label={tUi("基础资料")}>
       <div className="character-basic-sheet">
         <div className="character-basic-avatar-cell">
           <LocalImageUpload
             className="character-basic-avatar-upload"
-            label="选择头像"
+            label={tUi("选择头像")}
             crop={{
-              title: "调整圆形与方形头像",
+              title: tUi("调整圆形与方形头像"),
               width: 250,
               height: 250,
               radius: "8px",
@@ -121,7 +123,7 @@ export function CharacterBasicInfoPanel({ character, dirty, saving, error, saveN
           >
             <span className="character-basic-avatar-trigger">
               <Avatar
-                alt="角色头像"
+                alt={tUi("角色头像")}
                 shape="circle"
                 src={assetSrc(avatar)}
                 className="character-basic-avatar"
@@ -136,7 +138,7 @@ export function CharacterBasicInfoPanel({ character, dirty, saving, error, saveN
         </div>
 
         <label className="character-basic-field character-basic-name-field">
-          <span id="character-name-label">角色名字</span>
+          <span id="character-name-label">{tUi("角色名字")}</span>
           <Input
             aria-labelledby="character-name-label"
             value={name}
@@ -148,12 +150,12 @@ export function CharacterBasicInfoPanel({ character, dirty, saving, error, saveN
         </label>
 
         <div className="character-basic-field character-basic-cover-field">
-          <span id="character-cover-label">封面立绘</span>
+          <span id="character-cover-label">{tUi("封面立绘")}</span>
           <LocalImageUpload
             className="character-basic-cover-upload"
-            label="选择封面立绘"
+            label={tUi("选择封面立绘")}
             crop={{
-              title: "裁剪封面立绘",
+              title: tUi("裁剪封面立绘"),
               width: 210,
               height: 280,
               radius: "12px",
@@ -165,24 +167,24 @@ export function CharacterBasicInfoPanel({ character, dirty, saving, error, saveN
           >
             <span className="character-basic-cover-trigger" aria-labelledby="character-cover-label">
               {cover ? (
-                <img src={assetSrc(cover)} alt="封面立绘" />
+                <img src={assetSrc(cover)} alt={tUi("封面立绘")} />
               ) : (
                 <ImageSquare size={34} weight="thin" aria-hidden="true" />
               )}
               <span className="character-basic-cover-action" aria-hidden="true">
                 <Camera size={17} weight="fill" />
-                <span>点击上传图片</span>
+                <span>{tUi("点击上传图片")}</span>
               </span>
             </span>
           </LocalImageUpload>
         </div>
 
         <label className="character-basic-field character-basic-intro-field">
-          <span id="character-profile-label">简介</span>
+          <span id="character-profile-label">{tUi("简介")}</span>
           <TextArea
             aria-labelledby="character-profile-label"
             value={profile}
-            placeholder="请输入内容..."
+            placeholder={tUi("请输入内容...")}
             resize="none"
             showCounter
             disabled={saving}
@@ -201,17 +203,17 @@ export function CharacterBasicInfoPanel({ character, dirty, saving, error, saveN
           {status?.label || ""}
         </span>
         {dirty ? (
-          <Button data-dsh-control variant="outline" type="button" title="放弃所有未保存的更改" disabled={saving} onClick={onCancel}>放弃更改</Button>
+          <Button data-dsh-control variant="outline" type="button" title={tUi("放弃所有未保存的更改")} disabled={saving} onClick={onCancel}>{tUi("放弃更改")}</Button>
         ) : null}
         <Button data-dsh-control variant="primary"
           type="button"
           className="is-primary"
-          title="保存（Ctrl/Command + S）"
+          title={tUi("保存（Ctrl/Command + S）")}
           aria-keyshortcuts="Control+S Meta+S"
           disabled={!dirty || saving}
           onClick={() => onSave()}
         >
-          {saving ? "保存中…" : "保存更改"}
+          {saving ? tUi("保存中…") : tUi("保存更改")}
         </Button>
       </footer>
     </section>

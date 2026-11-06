@@ -34,44 +34,6 @@ const withheldHeaders = [
 
 export const DSH_CLIENT_ORIGIN = 'dsh-app://app'
 
-export interface ElecKoiClientAssets {
-  script: string
-  style?: string
-}
-
-export async function resolveElecKoiClientAssets(rendererDirectory: string): Promise<ElecKoiClientAssets> {
-  const html = await readFile(resolve(rendererDirectory, 'dsh.html'), 'utf8')
-  const script = html.match(/<script\b[^>]*\bsrc="\.\/assets\/([^"]+\.js)"/i)?.[1]
-  const style = html.match(/<link\b[^>]*\bhref="\.\/assets\/([^"]+\.css)"/i)?.[1]
-  if (script === undefined || style === undefined) {
-    throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, 'ElecKoi Renderer 构建资源不完整。', { what: 'ElecKoi Renderer 构建资源' })
-  }
-  return {
-    script: `${DSH_CLIENT_ORIGIN}/eleckoi/assets/${script}`,
-    style: `${DSH_CLIENT_ORIGIN}/eleckoi/assets/${style}`
-  }
-}
-
-export async function serveElecKoiClientAsset(request: Request, rendererDirectory: string): Promise<Response> {
-  if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405 })
-  let pathname: string
-  try { pathname = decodeURIComponent(new URL(request.url).pathname) }
-  catch { return new Response(null, { status: 400 }) }
-  if (!pathname.startsWith('/eleckoi/assets/')) return new Response(null, { status: 404 })
-  const root = resolve(rendererDirectory, 'assets')
-  const target = resolve(root, '.' + pathname.slice('/eleckoi/assets'.length))
-  if (!target.startsWith(root + sep)) return new Response(null, { status: 403 })
-  let body: Buffer
-  try { body = await readFile(target) }
-  catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return new Response(null, { status: 404 })
-    throw error
-  }
-  return new Response(request.method === 'HEAD' ? null : new Uint8Array(body), {
-    headers: { 'content-type': mimeTypes[extname(target)] ?? 'application/octet-stream' }
-  })
-}
-
 export function isDshClientAsset(pathname: string): boolean {
   return pathname === '/' || pathname === '/index.html' || pathname.startsWith('/assets/')
     || pathname === '/favicon.svg' || pathname === '/favicon-dark.svg'

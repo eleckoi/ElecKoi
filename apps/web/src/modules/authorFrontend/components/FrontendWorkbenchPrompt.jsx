@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useRef, useState } from 'react';
 import { Check, X } from '@phosphor-icons/react';
@@ -5,6 +6,7 @@ import { registerOverlayBack } from '../../../ui/hooks/overlayBack.js';
 
 /** In-document inputs work in Electron and WebView without browser dialog support. */
 export function FrontendWorkbenchPrompt({ question, onResolve }) {
+  const tUi = useProductTranslation();
   const [value, setValue] = useState(question.initialValue ?? ''), [closing, setClosing] = useState(false);
   const form = useRef(null), timer = useRef(null), completed = useRef(false);
   const inputMode = question.initialValue !== undefined;
@@ -35,8 +37,8 @@ export function FrontendWorkbenchPrompt({ question, onResolve }) {
       <strong>{question.title}</strong>
       {inputMode ? <label>{question.label || question.title}<input aria-label={question.label || question.title} value={value} disabled={closing} onChange={event => setValue(event.target.value)} /></label>
         : <p>{question.message}</p>}
-      <div className="af-prompt-actions"><Button data-dsh-control variant="outline" data-cancel type="button" disabled={closing} onClick={() => finish(null)}><X size={16} />取消</Button>
-        <Button data-dsh-control variant="primary" type="submit" className={question.danger ? 'danger' : 'primary'} disabled={closing || (inputMode && !value.trim())}><Check size={16} />{question.confirmLabel || '确定'}</Button></div>
+      <div className="af-prompt-actions"><Button data-dsh-control variant="outline" data-cancel type="button" disabled={closing} onClick={() => finish(null)}><X size={16} />{tUi("取消")}</Button>
+        <Button data-dsh-control variant="primary" type="submit" className={question.danger ? 'danger' : 'primary'} disabled={closing || (inputMode && !value.trim())}><Check size={16} />{question.confirmLabel || tUi("确定")}</Button></div>
     </form>
   </div>;
 }

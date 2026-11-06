@@ -1,3 +1,6 @@
+import { sourceText } from "../../../app/i18n/productCopy.js";
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -41,16 +44,16 @@ const EMPTY_PRESET_CATALOG = { status: 'loading', catalog: null, error: '' };
 const subscribeEmptyCatalog = () => () => {};
 const getEmptyCatalog = () => EMPTY_PRESET_CATALOG;
 
-export function presetListContextActions(preset, activePresetId, onActivate, onDelete) {
+export function presetListContextActions(preset, activePresetId, onActivate, onDelete, tUi = sourceText) {
   return [
-    ...(preset.id !== activePresetId ? [{ label: '使用此预设', icon: CheckCircle, run: onActivate }] : []),
-    ...(!isDefaultPreset(preset.id) ? [{ label: '删除预设', icon: TrashIcon, danger: true, run: onDelete }] : []),
+    ...(preset.id !== activePresetId ? [{ label: tUi("使用此预设"), icon: CheckCircle, run: onActivate }] : []),
+    ...(!isDefaultPreset(preset.id) ? [{ label: tUi("删除预设"), icon: TrashIcon, danger: true, run: onDelete }] : []),
   ];
 }
 
-export function buildPresetListSections(groups, presets) {
+export function buildPresetListSections(groups, presets, tUi = sourceText) {
   return [
-    { id: ALL_PRESETS, name: ALL_PRESETS, presets },
+    { id: ALL_PRESETS, name: tUi(ALL_PRESETS), presets },
     ...groups.map((group) => ({
       ...group,
       presets: presets.filter((preset) => preset.libraryGroupId === group.id),
@@ -77,6 +80,7 @@ export function reconcilePresetToolRefresh(draft, previous, incoming) {
 }
 
 export function PresetProvider({ children, catalogModel, navigationGuardRef: externalNavigationGuardRef }) {
+  const tUi = useProductTranslation();
   const snapshot = useSyncExternalStore(
     catalogModel?.subscribe || subscribeEmptyCatalog,
     catalogModel?.getSnapshot || getEmptyCatalog,
@@ -118,7 +122,7 @@ export function PresetProvider({ children, catalogModel, navigationGuardRef: ext
       setError('');
       return next;
     } catch (cause) {
-      setError(resolveFailure(cause, { fallback: '读取预设失败' }).text);
+      setError(resolveFailure(cause, { fallback: tUi("读取预设失败") }).text);
       return null;
     }
   }
@@ -143,6 +147,7 @@ export function usePresets() {
 }
 
 export function PresetListPanel() {
+  const tUi = useProductTranslation();
   const scrollRef = useSidebarListScroll();
   const { purposeCatalog: catalog, purpose, setPurpose, catalogModel, setCatalog, selectedPresetId, setSelectedPresetId, navigationGuard, refresh, error, setError } = usePresets();
   const [keyword, setKeyword] = useState('');
@@ -161,7 +166,7 @@ export function PresetListPanel() {
     const key = keyword.trim().toLocaleLowerCase();
     return presets.filter((preset) => !key || `${preset.name} ${preset.profile.authorName} ${preset.profile.usageInstructions}`.toLocaleLowerCase().includes(key));
   }, [keyword, presets]);
-  const sections = useMemo(() => buildPresetListSections(groups, filtered), [filtered, groups]);
+  const sections = useMemo(() => buildPresetListSections(groups, filtered, tUi), [filtered, groups, tUi]);
   const [collapsed, setCollapsed, collapseStateReady] = usePersistentCollapseState(
     LIST_COLLAPSE_AREAS.presets,
     {},
@@ -232,7 +237,7 @@ export function PresetListPanel() {
         setSelectedGroup(ALL_PRESETS);
         await refresh(result.preset.id);
       } catch (cause) {
-        setImportError(resolveFailure(cause, { fallback: '导入预设失败' }).text);
+        setImportError(resolveFailure(cause, { fallback: tUi("导入预设失败") }).text);
       } finally {
         setImporting(false);
       }
@@ -244,7 +249,7 @@ export function PresetListPanel() {
       try {
         setCatalog(await catalogModel.setActive(preset.id));
         setError('');
-      } catch (cause) { setError(resolveFailure(cause, { fallback: '启用预设失败' }).text); }
+      } catch (cause) { setError(resolveFailure(cause, { fallback: tUi("启用预设失败") }).text); }
     });
   }
 
@@ -253,7 +258,7 @@ export function PresetListPanel() {
       try {
         await catalogModel.delete(preset.id);
         await refresh();
-      } catch (cause) { setError(resolveFailure(cause, { fallback: '删除预设失败' }).text); }
+      } catch (cause) { setError(resolveFailure(cause, { fallback: tUi("删除预设失败") }).text); }
     });
   }
 
@@ -286,17 +291,17 @@ export function PresetListPanel() {
     </section>;
   }
 
-  return <aside className="character-list-panel preset-list-panel" aria-label="预设列表" aria-busy={shouldShowPresetCatalogLoading(catalog, error) || undefined}>
-    <SidebarSectionHeader title="预设" value={keyword} onValueChange={setKeyword} placeholder="搜索预设名称"
-      createLabel="新建预设" createExpanded={createOpen}
+  return <aside className="character-list-panel preset-list-panel" aria-label={tUi("预设列表")} aria-busy={shouldShowPresetCatalogLoading(catalog, error) || undefined}>
+    <SidebarSectionHeader title={tUi("预设")} value={keyword} onValueChange={setKeyword} placeholder={tUi("搜索预设名称")}
+      createLabel={tUi("新建预设")} createExpanded={createOpen}
       onCreatePointerDown={(event) => event.stopPropagation()}
       onCreate={(event) => { event.stopPropagation(); setCreateOpen((value) => !value); }} onSearchFocus={() => setCreateOpen(false)} />
     {createOpen ? <div className="character-create-menu preset-create-menu" onPointerDown={(event) => event.stopPropagation()}>
-      <button type="button" onClick={addPreset}><PlusIcon /><span>新建预设</span></button>
-      <button type="button" disabled={importing} onClick={beginImport}><ImportIcon /><span>导入预设</span></button>
+      <button type="button" onClick={addPreset}><PlusIcon /><span>{tUi("新建预设")}</span></button>
+      <button type="button" disabled={importing} onClick={beginImport}><ImportIcon /><span>{tUi("导入预设")}</span></button>
     </div> : null}
     <input ref={importInputRef} type="file" accept="image/png,application/json,.png,.json" hidden onChange={handleImport} />
-    <button type="button" className="character-manager-entry preset-manager-entry" onClick={openPresetManagerWindow}><CharacterManagerIcon /><span>预设管理器</span></button>
+    <button type="button" className="character-manager-entry preset-manager-entry" onClick={openPresetManagerWindow}><CharacterManagerIcon /><span>{tUi("预设管理器")}</span></button>
     <PresetPurposeSwitch value={purpose} onChange={value => { setPurpose(value); setSelectedGroup(ALL_PRESETS); setKeyword(''); }} />
     <SidebarScrollArea ref={scrollRef} className="character-list-scroll preset-list-scroll">
       {collapseStateReady ? sections.map(renderGroup) : null}
@@ -306,17 +311,18 @@ export function PresetListPanel() {
       context.menu.target,
       catalog.activePresetIds[purpose],
       () => activateFromList(context.menu.target),
-      () => removeFromList(context.menu.target),
+      () => removeFromList(context.menu.target), tUi
     )} /> : null}
     {importDialogOpen ? <PresetImportDialog onSelect={chooseImportSource} onClose={() => setImportDialogOpen(false)} /> : null}
   </aside>;
 }
 
 export function PresetListRow({ preset, selected, active, onClick, onContextMenu }) {
+  const tUi = useProductTranslation();
   return <button type="button" className={`character-contact-row preset-list-row${selected ? ' active' : ''}`} onClick={onClick} onContextMenu={onContextMenu}>
     <Avatar src={preset.profile.authorAvatarPath || defaultPresetAvatar} name={preset.name} className="preset-list-avatar" />
     <span className="character-contact-copy"><strong>{preset.name}</strong></span>
-    {active ? <span className="preset-list-status">使用中</span> : null}
+    {active ? <span className="preset-list-status">{tUi("使用中")}</span> : null}
   </button>;
 }
 
@@ -329,6 +335,7 @@ export function PresetWorkspace({
   renderEditorSection,
   renderHeader,
 }) {
+  const tUi = useProductTranslation();
   const { compact } = useEditorPresentation();
   const { catalog, catalogModel, selectedPresetId, setCatalog, navigationGuard, refresh, error: catalogError } = usePresets();
   const [preset, setPreset] = useState(null);
@@ -358,7 +365,7 @@ export function PresetWorkspace({
   dirtyRef.current = dirty;
   requestedTabRef.current = requestedTab;
   requestedTabHandledRef.current = onRequestedTabHandled;
-  useEditorSubpage(profileEditing, '编辑预设资料', () => navigate(() => setProfileEditing(false)));
+  useEditorSubpage(profileEditing, tUi("编辑预设资料"), () => navigate(() => setProfileEditing(false)));
 
   function navigate(action) {
     if (savingRef.current) return;
@@ -395,7 +402,7 @@ export function PresetWorkspace({
       setTab(initialTab);
       if (requestedTabRef.current) requestedTabHandledRef.current?.();
       setProfileEditing(false);
-    }).catch((cause) => active && setError(resolveFailure(cause, { fallback: '读取预设失败' }).text)).finally(() => active && setLoading(false));
+    }).catch((cause) => active && setError(resolveFailure(cause, { fallback: tUi("读取预设失败") }).text)).finally(() => active && setLoading(false));
     return () => { active = false; };
   }, [catalogModel, selectedPresetId]);
 
@@ -414,7 +421,7 @@ export function PresetWorkspace({
           if (JSON.stringify(loaded) !== JSON.stringify(persisted)) {
             pendingLatestRef.current = loaded;
             externalChangeRef.current = true;
-            setError('当前预设已在其他窗口更新，请放弃未保存修改后重新打开。');
+            setError(tUi("当前预设已在其他窗口更新，请放弃未保存修改后重新打开。"));
           }
           return;
         }
@@ -471,7 +478,7 @@ export function PresetWorkspace({
     }
     if (!candidate || savingRef.current) return false;
     if (externalChangeRef.current) {
-      setError('当前预设已在其他窗口更新，请放弃未保存修改后重新打开。');
+      setError(tUi("当前预设已在其他窗口更新，请放弃未保存修改后重新打开。"));
       return false;
     }
     savingRef.current = true;
@@ -486,12 +493,12 @@ export function PresetWorkspace({
       setPreset(saved);
       setPersisted(saved);
       await refresh(saved.id);
-      if (compact) onNotify?.('success', '预设已保存');
+      if (compact) onNotify?.('success', tUi("预设已保存"));
       logAction(LOG_ACTIONS.presetSave, 'success');
       return true;
     } catch (cause) {
       logAction(LOG_ACTIONS.presetSave, 'failure', cause);
-      setError(resolveFailure(cause, { fallback: '保存预设失败' }).text);
+      setError(resolveFailure(cause, { fallback: tUi("保存预设失败") }).text);
       return false;
     } finally {
       savingRef.current = false;
@@ -520,7 +527,7 @@ export function PresetWorkspace({
   const editorError = selectionMismatch ? '' : error;
   const header = renderHeader?.({ tab, profileEditing, dirty: !editorUnavailable && dirty, saving, error, active, onActivate: preset && !editorUnavailable ? () => navigate(activate) : undefined, onSave: () => save() });
   if (!preset && !error && !catalogError) return <>{header}<section className="preset-workspace" aria-busy="true" /></>;
-  if (!preset) return <>{header}<section className="preset-workspace"><p className="preset-workspace-state is-error">{error || catalogError || '没有可编辑的预设'}</p></section></>;
+  if (!preset) return <>{header}<section className="preset-workspace"><p className="preset-workspace-state is-error">{error || catalogError || tUi("没有可编辑的预设")}</p></section></>;
   const readError = selectionMismatch && error ? <p className="preset-workspace-state is-error" role="alert">{error}</p> : null;
 
   const tabCounts = {
@@ -531,10 +538,10 @@ export function PresetWorkspace({
   const saveAction = compact ? null : <SaveControl dirty={dirty} error={editorError} saving={saving} onSave={() => void save()} />;
   const leaveDialog = <UnsavedChangesDialog
     open={Boolean(pendingAction)}
-    title="保存修改？"
+    title={tUi("保存修改？")}
     description={pendingAction?.reminderOnly
-      ? '前往插件设置前是否先保存当前预设的修改？'
-      : '离开前是否保存当前预设的修改？'}
+      ? tUi("前往插件设置前是否先保存当前预设的修改？")
+      : tUi("离开前是否保存当前预设的修改？")}
     saving={saving}
     onCancel={() => setPendingAction(null)}
     onDiscard={() => {
@@ -570,7 +577,7 @@ export function PresetWorkspace({
   };
 
   if (profileEditing) {
-    const profileEditor = <section className="preset-profile-edit-workspace" aria-label="编辑预设资料" aria-busy={loading || undefined} inert={editorUnavailable}>
+    const profileEditor = <section className="preset-profile-edit-workspace" aria-label={tUi("编辑预设资料")} aria-busy={loading || undefined} inert={editorUnavailable}>
       <PresetProfileEditor
         preset={preset}
         dirty={dirty}
@@ -619,10 +626,10 @@ export function PresetWorkspace({
   return <>
     {header}
     {readError}
-    <section className="preset-workspace" aria-label="预设编辑器" aria-busy={loading || undefined} inert={editorUnavailable}>
+    <section className="preset-workspace" aria-label={tUi("预设编辑器")} aria-busy={loading || undefined} inert={editorUnavailable}>
       <PresetProfileHeader preset={preset} active={active} showActivate={!compact || !renderHeader} onActivate={() => navigate(activate)} onEdit={() => navigate(() => setProfileEditing(true))} />
-      <nav className="preset-workspace-tabs" aria-label="预设编辑区域">
-        <div className="preset-workspace-tab-list">{TABS.map((item) => <button type="button" key={item.id} aria-current={tab === item.id ? 'page' : undefined} onClick={() => { if (tab !== item.id) navigate(() => setTab(item.id)); }}><span>{item.label}</span>{tabCounts[item.id] !== undefined ? <em>{tabCounts[item.id]}</em> : null}</button>)}</div>
+      <nav className="preset-workspace-tabs" aria-label={tUi("预设编辑区域")}>
+        <div className="preset-workspace-tab-list">{localizeUiCopy(TABS, tUi).map((item) => <button type="button" key={item.id} aria-current={tab === item.id ? 'page' : undefined} onClick={() => { if (tab !== item.id) navigate(() => setTab(item.id)); }}><span>{item.label}</span>{tabCounts[item.id] !== undefined ? <em>{tabCounts[item.id]}</em> : null}</button>)}</div>
       </nav>
       <div className={`preset-workspace-body is-${tab}`}>
         {renderedTabEditor}

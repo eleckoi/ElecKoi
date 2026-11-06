@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   dragAndDropFeature,
@@ -53,6 +54,7 @@ export function HeadlessTree({
   touchReorder = false,
   dragEnabled = true,
 }) {
+  const tUi = useProductTranslation();
   const nestedDropRef = useRef(null);
   const [nestedDrop, setNestedDrop] = useState(null);
   const expandedSignature = expandedIds.join("\u0000");
@@ -70,7 +72,8 @@ export function HeadlessTree({
       getItem: (id) => id === HEADLESS_TREE_ROOT_ID ? ROOT_DATA : index.items.get(id) || { ...ROOT_DATA, id },
       getChildren: (id) => index.children.get(id) || [],
     },
-    getItemName: (item) => item.getItemData().label || "未命名条目",
+    getItemName: (item) => item.getItemData().nodeKind === 'root'
+      ? tUi(item.getItemData().label) : item.getItemData().label || tUi("未命名条目"),
     isItemFolder: (item) => ["group", "object", "root"].includes(item.getItemData().nodeKind),
     indent,
     canReorder: true,

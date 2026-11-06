@@ -1,12 +1,15 @@
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { SystemBarOverlay } from './SystemBarOverlay.jsx';
 import React, { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CopyIcon, XIcon } from "../icons/index.jsx";
-import { failureDetailLines, formatFailureDetails } from "../../utils/failureText.js";
+import { failureDetailLines, formatFailureDetails, localizeFailure } from "../../utils/failureText.js";
 
 export function AppErrorDialog({ notice, onDismiss }) {
+  const tUi = useProductTranslation();
+  const message = (notice?.failure ? localizeFailure(notice.failure, tUi).text : null) ?? tUi(notice?.message || '');
   const titleId = useId();
   const detailId = useId();
   const statusId = useId();
@@ -71,7 +74,7 @@ export function AppErrorDialog({ notice, onDismiss }) {
 
   function copyPayload() {
     const failure = notice.failure;
-    const lines = [notice.message];
+    const lines = [message];
     if (failure?.code) lines.push(`错误码：${failure.code}`);
     const details = formatFailureDetails(failure?.details);
     if (details) lines.push(details);
@@ -79,11 +82,11 @@ export function AppErrorDialog({ notice, onDismiss }) {
     return lines.join("\n");
   }
 
-  const copyLabel = copyState === "copied" ? "已复制" : copyState === "failed" ? "重试复制" : "复制错误";
+  const copyLabel = copyState === "copied" ? tUi("已复制") : copyState === "failed" ? tUi("重试复制") : tUi("复制错误");
   const statusText = copyState === "copied"
-    ? "错误内容已复制"
+    ? tUi("错误内容已复制")
     : copyState === "failed"
-      ? "复制失败，请手动选择错误内容"
+      ? tUi("复制失败，请手动选择错误内容")
       : "";
 
   const dialog = (
@@ -98,17 +101,17 @@ export function AppErrorDialog({ notice, onDismiss }) {
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="app-error-header">
-          <h2 id={titleId}>运行错误</h2>
-          <button type="button" className="app-error-close" aria-label="关闭错误详情" onClick={onDismiss}>
+          <h2 id={titleId}>{tUi("运行错误")}</h2>
+          <button type="button" className="app-error-close" aria-label={tUi("关闭错误详情")} onClick={onDismiss}>
             <XIcon size={18} />
           </button>
         </header>
-        <pre id={detailId} className="app-error-detail" tabIndex={0}>{notice.message}</pre>
+        <pre id={detailId} className="app-error-detail" tabIndex={0}>{message}</pre>
         {notice.failure && (notice.failure.code || failureDetailLines(notice.failure.details).length > 0) ? (
           <dl className="app-error-failure">
             {notice.failure.code ? (
               <>
-                <dt>错误码</dt>
+                <dt>{tUi("错误码")}</dt>
                 <dd>{notice.failure.code}</dd>
               </>
             ) : null}
@@ -125,7 +128,7 @@ export function AppErrorDialog({ notice, onDismiss }) {
             {statusText}
           </span>
           <div className="app-error-actions">
-            <button type="button" onClick={onDismiss}>关闭</button>
+            <button type="button" onClick={onDismiss}>{tUi("关闭")}</button>
             <button ref={copyRef} type="button" className="is-primary" onClick={copyError}>
               <CopyIcon size={15} />
               <span>{copyLabel}</span>

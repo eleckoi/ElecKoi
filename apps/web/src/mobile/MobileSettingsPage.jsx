@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../app/i18n/productCopy.js";
+import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { MobileSaveFeedback } from './MobileSaveFeedback.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
@@ -6,7 +8,7 @@ import { Avatar } from '../ui/ui/Avatar.jsx';
 import { TunerSliderRow } from '../ui/ui/TunerSliderRow.jsx';
 import { UnsavedChangesDialog } from '../ui/ui/UnsavedChangesDialog.jsx';
 import { ChatDisplayPreview, UserProfileSettings } from '../modules/settings/components/SettingsPanel.jsx';
-import { RoleplayStyleControls } from '../modules/settings/components/ChatDisplaySettings.jsx';
+import { LanguageSettings, RoleplayStyleControls } from '../modules/settings/components/ChatDisplaySettings.jsx';
 import { AboutSettings } from '../modules/settings/components/AboutSettings.jsx';
 import { chatDisplaySettings, chatDisplayTuners, chatLayouts, avatarShapes, textColorOptions, richMessageFloorTuner, richMessageLimitDescription } from '../modules/settings/model/chatDisplaySettings.js';
 import { MobileHeader, useMobileBack, useMobileScroll } from './MobileChrome.jsx';
@@ -44,6 +46,7 @@ function SettingsChoices({ label, options, value, onChange }) {
 }
 
 function ProfileEditor({ owner, onBack }) {
+  const tUi = useProductTranslation();
   const view = useMainPageView();
   const [pending, setPending] = useState(null);
   const current = useRef();
@@ -60,22 +63,23 @@ function ProfileEditor({ owner, onBack }) {
   }, [view.guardRef]);
   useMobileBack(() => { navigate(onBack); return true; });
   return <>
-    <MobileHeader title="编辑资料" back={() => navigate(onBack)}><MobileSaveFeedback error={owner.message === '已保存' ? '' : owner.message} notice={owner.message === '已保存' ? 'saved' : ''} onNotify={view.chat.notify} successMessage="用户资料已保存" /><button type="button" className="mobile-settings-save" disabled={owner.saving} onClick={() => owner.onSave()}>保存</button></MobileHeader>
+    <MobileHeader title={tUi("编辑资料")} back={() => navigate(onBack)}><MobileSaveFeedback error={owner.message === "saved" ? '' : owner.message} notice={owner.message === "saved" ? 'saved' : ''} onNotify={view.chat.notify} successMessage={tUi("用户资料已保存")} /><button type="button" className="mobile-settings-save" disabled={owner.saving} onClick={() => owner.onSave()}>{tUi("保存")}</button></MobileHeader>
     <div className="mobile-settings-scroll mobile-profile-editor">
-      <button type="button" className="mobile-profile-avatar" aria-label="管理头像" disabled={owner.saving} onClick={owner.onManageAvatars}>
-        <Avatar src={owner.profile.avatars.circle} name={owner.profile.name || '你'} />
+      <button type="button" className="mobile-profile-avatar" aria-label={tUi("管理头像")} disabled={owner.saving} onClick={owner.onManageAvatars}>
+        <Avatar src={owner.profile.avatars.circle} name={owner.profile.name || tUi("你")} />
       </button>
-      <div className="mobile-settings-card mobile-settings-field"><label><span>名字</span><input aria-label="名字" disabled={owner.saving} value={owner.profile.name} onChange={event => owner.onChange({ name: event.target.value })} /></label></div>
+      <div className="mobile-settings-card mobile-settings-field"><label><span>{tUi("名字")}</span><input aria-label={tUi("名字")} disabled={owner.saving} value={owner.profile.name} onChange={event => owner.onChange({ name: event.target.value })} /></label></div>
     </div>
-    <UnsavedChangesDialog open={Boolean(pending)} title="保存用户资料？" description="用户资料尚未保存。" saving={owner.saving} error={owner.message === '已保存' ? '' : owner.message}
+    <UnsavedChangesDialog open={Boolean(pending)} title={tUi("保存用户资料？")} description={tUi("用户资料尚未保存。")} saving={owner.saving} error={owner.message === "saved" ? '' : owner.message}
       onCancel={() => setPending(null)} onDiscard={() => { const action = pending; setPending(null); action?.(); }}
       onSave={async () => { if (await owner.onSave()) { const action = pending; setPending(null); action?.(); } }} />
   </>;
 }
 
 function ProfileAvatars({ owner, children }) {
+  const tUi = useProductTranslation();
   useMobileBack(() => { if (!owner.saving) owner.onBack(); return true; });
-  return <><MobileHeader title="头像管理" back={() => { if (!owner.saving) owner.onBack(); }} /><div className="mobile-settings-scroll mobile-profile-avatars">{children}</div></>;
+  return <><MobileHeader title={tUi("头像管理")} back={() => { if (!owner.saving) owner.onBack(); }} /><div className="mobile-settings-scroll mobile-profile-avatars">{children}</div></>;
 }
 
 const detailTitles = {
@@ -94,6 +98,7 @@ const themeChoices = [{ id: 'light', label: '浅色' }, { id: 'dark', label: '�
 const artworkChoices = [{ id: 'cover', label: '封面立绘' }, { id: 'avatar', label: '头像' }];
 
 function ReplyNotificationSettings({ platform }) {
+  const tUi = useProductTranslation();
   const [status, setStatus] = useState(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -101,7 +106,7 @@ function ReplyNotificationSettings({ platform }) {
     let active = true;
     const refresh = () => platform.status().then(value => {
       if (active) { setStatus(value); setError(''); }
-    }).catch(() => { if (active) setError('通知设置读取失败，请返回后重试。'); });
+    }).catch(() => { if (active) setError(tUi("通知设置读取失败，请返回后重试。")); });
     refresh();
     window.addEventListener('focus', refresh);
     const visible = () => { if (!document.hidden) refresh(); };
@@ -112,20 +117,21 @@ function ReplyNotificationSettings({ platform }) {
     if (saving) return;
     setSaving(true);
     try { setStatus(await platform.setEnabled(enabled)); setError(''); }
-    catch { setError('通知设置保存失败，请重试。'); }
+    catch { setError(tUi("通知设置保存失败，请重试。")); }
     finally { setSaving(false); }
   }
   return <>
     {status && <SettingsGroup>
-      <SettingsSwitch label="回复完成通知" checked={status.enabled} disabled={saving} onChange={change} />
-      <SettingsRow icon={ChatCircleDots} label="系统通知权限" value={status.allowed ? '已开启' : '未开启'} onClick={() => platform.settings()} />
+      <SettingsSwitch label={tUi("回复完成通知")} checked={status.enabled} disabled={saving} onChange={change} />
+      <SettingsRow icon={ChatCircleDots} label={tUi("系统通知权限")} value={status.allowed ? tUi("已开启") : tUi("未开启")} onClick={() => platform.settings()} />
     </SettingsGroup>}
-    <p className="mobile-settings-note">应用在后台时，回复完成会显示角色头像和回复内容。通知声音由系统设置控制。</p>
+    <p className="mobile-settings-note">{tUi("应用在后台时，回复完成会显示角色头像和回复内容。通知声音由系统设置控制。")}</p>
     {error && <p className="mobile-settings-error" role="alert">{error}</p>}
   </>;
 }
 
 function BackgroundRunPreferences({ platform }) {
+  const tUi = useProductTranslation();
   const [status, setStatus] = useState(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -133,7 +139,7 @@ function BackgroundRunPreferences({ platform }) {
     let active = true;
     const refresh = () => platform.status().then(value => {
       if (active) { setStatus(value); setError(''); }
-    }).catch(() => { if (active) setError('后台运行设置读取失败，请返回后重试。'); });
+    }).catch(() => { if (active) setError(tUi("后台运行设置读取失败，请返回后重试。")); });
     refresh(); window.addEventListener('focus', refresh);
     const visible = () => { if (!document.hidden) refresh(); };
     document.addEventListener('visibilitychange', visible);
@@ -143,17 +149,17 @@ function BackgroundRunPreferences({ platform }) {
     if (saving) return;
     setSaving(true);
     try { setStatus(await platform.setEnhanced(enabled)); setError(''); }
-    catch { setError('后台运行设置保存失败，请重试。'); }
+    catch { setError(tUi("后台运行设置保存失败，请重试。")); }
     finally { setSaving(false); }
   }
   return <>
     {status && <>
-      <SettingsGroup title="省电设置">
-        <SettingsRow icon={BatteryFull} label="电池优化豁免" value={status.batteryExempt ? '已豁免' : '未豁免'} onClick={status.batteryExempt ? undefined : () => platform.settings('battery')} />
+      <SettingsGroup title={tUi("省电设置")}>
+        <SettingsRow icon={BatteryFull} label={tUi("电池优化豁免")} value={status.batteryExempt ? tUi("已豁免") : tUi("未豁免")} onClick={status.batteryExempt ? undefined : () => platform.settings('battery')} />
       </SettingsGroup>
       <SettingsGroup>
-        <SettingsSwitch label="悬浮窗保活" checked={status.enhancedEnabled} disabled={saving} onChange={change} />
-        <SettingsRow icon={SlidersHorizontal} label="悬浮窗权限" value={status.overlayAllowed ? '已授权' : '未授权'} onClick={() => platform.settings('overlay')} />
+        <SettingsSwitch label={tUi("悬浮窗保活")} checked={status.enhancedEnabled} disabled={saving} onChange={change} />
+        <SettingsRow icon={SlidersHorizontal} label={tUi("悬浮窗权限")} value={status.overlayAllowed ? tUi("已授权") : tUi("未授权")} onClick={() => platform.settings('overlay')} />
       </SettingsGroup>
     </>}
     {error && <p className="mobile-settings-error" role="alert">{error}</p>}
@@ -161,6 +167,7 @@ function BackgroundRunPreferences({ platform }) {
 }
 
 export function MobileSettingsPage() {
+  const tUi = useProductTranslation();
   const view = useMainPageView();
   const { appearance, chat, settingsPage: page, setSettingsPage: open, settingsSections = [] } = view;
   const model = chatDisplaySettings(appearance.chatDisplay, appearance.changeChatDisplay);
@@ -177,79 +184,80 @@ export function MobileSettingsPage() {
   }
   useMobileBack(back, page !== 'home');
   const tune = (key, label) => {
-    const config = chatDisplayTuners[key];
+    const config = localizeUiCopy(chatDisplayTuners, tUi)[key];
     return <TunerSliderRow key={key} {...config} label={label || config.label} suffix={config.suffix || ''}
       value={profile[key]} defaultValue={defaults[key]} onChange={value => updateProfile({ [key]: value })} />;
   };
-  const title = page === 'home' ? '设置' : page === 'theme' ? '主题风格' : page === 'artwork' ? '列表角色图' : page === 'chat' ? '聊天显示' : page === 'about' ? '关于 ElecKoi' : page === 'notifications' ? '回复完成通知' : page === 'background' ? '后台运行' : plugin?.label || detailTitles[page] || '设置';
+  const title = page === 'home' ? tUi("设置") : page === 'theme' ? tUi("主题风格") : page === 'artwork' ? tUi("列表角色图") : page === 'chat' ? tUi("聊天显示") : page === 'about' ? tUi("关于 ElecKoi") : page === 'notifications' ? tUi("回复完成通知") : page === 'background' ? tUi("后台运行") : plugin?.label || localizeUiCopy(detailTitles, tUi)[page] || tUi("设置");
   let content;
   if (page === 'home') {
     content = <>
-      <SettingsGroup title="个性化">
-        <SettingsRow icon={UserCircle} label="用户资料" onClick={() => open('profile')} />
-        <SettingsRow icon={Palette} label="主题风格" value={themeChoices.find(item => item.id === appearance.appearanceMode)?.label || (appearance.appearanceMode === 'system' ? '跟随系统' : '')} onClick={() => open('theme')} />
-        <SettingsRow icon={ChatCircleDots} label="聊天显示" onClick={() => open('chat')} />
-        <SettingsRow icon={Image} label="列表角色图" value={artworkChoices.find(item => item.id === appearance.sidebarCharacterArtwork)?.label} onClick={() => open('artwork')} />
+      <SettingsGroup title={tUi("个性化")}>
+        <SettingsRow icon={UserCircle} label={tUi("用户资料")} onClick={() => open('profile')} />
+        <SettingsRow icon={Palette} label={tUi("主题风格")} value={localizeUiCopy(themeChoices, tUi).find(item => item.id === appearance.appearanceMode)?.label || (appearance.appearanceMode === 'system' ? tUi("跟随系统") : '')} onClick={() => open('theme')} />
+        <SettingsRow icon={ChatCircleDots} label={tUi("聊天显示")} onClick={() => open('chat')} />
+        <SettingsRow icon={Image} label={tUi("列表角色图")} value={localizeUiCopy(artworkChoices, tUi).find(item => item.id === appearance.sidebarCharacterArtwork)?.label} onClick={() => open('artwork')} />
       </SettingsGroup>
-      {(settingsSections.length > 0 || replyNotifications || backgroundRun) && <SettingsGroup title="应用">
+      {(settingsSections.length > 0 || replyNotifications || backgroundRun) && <SettingsGroup title={tUi("应用")}>
         {settingsSections.map(section => <SettingsRow key={section.id} icon={SlidersHorizontal} label={section.label} onClick={() => open(`dsh:${section.id}`)} />)}
-        {replyNotifications && <SettingsRow icon={ChatCircleDots} label="回复完成通知" onClick={() => open('notifications')} />}
-        {backgroundRun && <SettingsRow icon={Cpu} label="后台运行" onClick={() => open('background')} />}
+        {replyNotifications && <SettingsRow icon={ChatCircleDots} label={tUi("回复完成通知")} onClick={() => open('notifications')} />}
+        {backgroundRun && <SettingsRow icon={Cpu} label={tUi("后台运行")} onClick={() => open('background')} />}
       </SettingsGroup>}
-      <SettingsGroup title="关于"><SettingsRow icon={Info} label="关于 ElecKoi" onClick={() => open('about')} /></SettingsGroup>
+      <SettingsGroup title={tUi("关于")}><SettingsRow icon={Info} label={tUi("关于 ElecKoi")} onClick={() => open('about')} /></SettingsGroup>
     </>;
   } else if (page === 'profile') {
     return <div className="mobile-settings-page"><UserProfileSettings persona={chat.persona} onUpdateUserProfile={chat.updateUserProfile} renderUserProfileEditor={view.renderUserProfileEditor}
       renderProfile={owner => <ProfileEditor owner={owner} onBack={back} />}
       renderAvatarManager={(owner, editor) => <ProfileAvatars owner={owner}>{editor}</ProfileAvatars>} /></div>;
   } else if (page === 'theme' || page === 'artwork') {
-    content = <SettingsGroup><SettingsChoices label={title} options={page === 'theme' ? themeChoices : artworkChoices}
+    content = <SettingsGroup><SettingsChoices label={title} options={page === 'theme' ? localizeUiCopy(themeChoices, tUi) : localizeUiCopy(artworkChoices, tUi)}
       value={page === 'theme' ? appearance.appearanceMode : appearance.sidebarCharacterArtwork}
       onChange={page === 'theme' ? appearance.changeAppearanceMode : appearance.changeSidebarCharacterArtwork} /></SettingsGroup>;
   } else if (page === 'chat') {
     content = <>
       <SettingsGroup>
-        <SettingsRow icon={ChatCenteredText} label="对话布局" value={chatLayouts.find(item => item.id === layout)?.label} onClick={() => open('chat:layout')} />
-        <SettingsRow icon={UserCircle} label="头像与名字" value={`${avatarShapes.find(item => item.id === profile.avatar_shape)?.label || ''} · ${profile.avatar_size}`} onClick={() => open('chat:avatar')} />
-        <SettingsRow icon={TextT} label="正文文字" value={`${profile.message_font_size} · ${profile.message_font_weight}`} onClick={() => open('chat:text')} />
-        <SettingsRow icon={ArrowsOutLineVertical} label="间距与留白" value={`${profile.reply_spacing} / ${profile.turn_spacing}`} onClick={() => open('chat:spacing')} />
-        <SettingsRow icon={Palette} label="文本颜色" onClick={() => open('chat:colors')} />
-        <SettingsRow icon={ChatCircleDots} label="富消息" onClick={() => open('chat:rich')} />
-        {layout === 'roleplay' && <SettingsRow icon={ChatCircleDots} label="布局独有风格" value={model.roleplayStyle.bubbles_enabled ? '有气泡' : '无气泡'} onClick={() => open('chat:style')} />}
-        {layout === 'agent' && <SettingsRow icon={ChatCircleDots} label="布局独有风格" onClick={() => open('chat:bubble')} />}
+        <SettingsRow icon={ChatCenteredText} label={tUi("对话布局")} value={localizeUiCopy(chatLayouts, tUi).find(item => item.id === layout)?.label} onClick={() => open('chat:layout')} />
+        <SettingsRow icon={UserCircle} label={tUi("头像与名字")} value={`${localizeUiCopy(avatarShapes, tUi).find(item => item.id === profile.avatar_shape)?.label || ''} · ${profile.avatar_size}`} onClick={() => open('chat:avatar')} />
+        <SettingsRow icon={TextT} label={tUi("正文文字")} value={`${profile.message_font_size} · ${profile.message_font_weight}`} onClick={() => open('chat:text')} />
+        <SettingsRow icon={ArrowsOutLineVertical} label={tUi("间距与留白")} value={`${profile.reply_spacing} / ${profile.turn_spacing}`} onClick={() => open('chat:spacing')} />
+        <SettingsRow icon={Palette} label={tUi("文本颜色")} onClick={() => open('chat:colors')} />
+        <SettingsRow icon={ChatCircleDots} label={tUi("富消息")} onClick={() => open('chat:rich')} />
+        {layout === 'roleplay' && <SettingsRow icon={ChatCircleDots} label={tUi("布局独有风格")} value={model.roleplayStyle.bubbles_enabled ? tUi("有气泡") : tUi("无气泡")} onClick={() => open('chat:style')} />}
+        {layout === 'agent' && <SettingsRow icon={ChatCircleDots} label={tUi("布局独有风格")} onClick={() => open('chat:bubble')} />}
       </SettingsGroup>
-      <SettingsGroup><SettingsSwitch label="生成统计" checked={preferences.generation_stats_enabled} onChange={value => updatePreferences({ generation_stats_enabled: value })} /></SettingsGroup>
-      {layout === 'roleplay' && <SettingsGroup><SettingsSwitch label="聊天时间戳" checked={preferences.roleplay_timestamps_enabled} onChange={value => updatePreferences({ roleplay_timestamps_enabled: value })} />
-        <SettingsSwitch label="显示消息楼层" checked={preferences.roleplay_message_floors_enabled} onChange={value => updatePreferences({ roleplay_message_floors_enabled: value })} /></SettingsGroup>}
-      <button type="button" className="mobile-settings-reset" onClick={model.resetProfile}>恢复当前布局</button>
+      <SettingsGroup><SettingsSwitch label={tUi("生成统计")} checked={preferences.generation_stats_enabled} onChange={value => updatePreferences({ generation_stats_enabled: value })} /></SettingsGroup>
+      {layout === 'roleplay' && <SettingsGroup><SettingsSwitch label={tUi("聊天时间戳")} checked={preferences.roleplay_timestamps_enabled} onChange={value => updatePreferences({ roleplay_timestamps_enabled: value })} />
+        <SettingsSwitch label={tUi("显示消息楼层")} checked={preferences.roleplay_message_floors_enabled} onChange={value => updatePreferences({ roleplay_message_floors_enabled: value })} /></SettingsGroup>}
+      {view.renderLanguageSettings && <SettingsGroup><LanguageSettings renderLanguageSettings={view.renderLanguageSettings} /></SettingsGroup>}
+      <button type="button" className="mobile-settings-reset" onClick={model.resetProfile}>{tUi("恢复当前布局")}</button>
     </>;
   } else if (page === 'chat:layout') {
-    content = <SettingsGroup><SettingsChoices label={title} options={chatLayouts.filter(item => !item.disabled)} value={layout} onChange={model.selectLayout} /></SettingsGroup>;
+    content = <SettingsGroup><SettingsChoices label={title} options={localizeUiCopy(chatLayouts, tUi).filter(item => !item.disabled)} value={layout} onChange={model.selectLayout} /></SettingsGroup>;
   } else if (page === 'chat:avatar') {
-    content = <><SettingsGroup title="头像形状"><SettingsChoices label="头像形状" options={avatarShapes.map(shape => ({ ...shape, shape: true, disabled: shape.id === 'portrait' && layout !== 'roleplay' }))} value={profile.avatar_shape} onChange={value => updateProfile({ avatar_shape: value })} /></SettingsGroup>
+    content = <><SettingsGroup title={tUi("头像形状")}><SettingsChoices label={tUi("头像形状")} options={localizeUiCopy(avatarShapes, tUi).map(shape => ({ ...shape, shape: true, disabled: shape.id === 'portrait' && layout !== 'roleplay' }))} value={profile.avatar_shape} onChange={value => updateProfile({ avatar_shape: value })} /></SettingsGroup>
       <SettingsGroup><div className="mobile-settings-tuners">{tune('avatar_size')}{tune('name_font_size')}{tune('name_avatar_spacing')}</div></SettingsGroup></>;
   } else if (page === 'chat:text') {
     content = <SettingsGroup><div className="mobile-settings-tuners">{['message_font_size', 'message_font_weight', 'line_height_multiplier', 'letter_spacing', 'paragraph_spacing'].map(key => tune(key))}</div></SettingsGroup>;
   } else if (page === 'chat:spacing') {
-    content = <SettingsGroup><div className="mobile-settings-tuners">{tune('reply_spacing')}{tune('turn_spacing', layout === 'agent' ? '轮次间距' : '消息间距')}</div></SettingsGroup>;
+    content = <SettingsGroup><div className="mobile-settings-tuners">{tune('reply_spacing')}{tune('turn_spacing', layout === 'agent' ? tUi("轮次间距") : tUi("消息间距"))}</div></SettingsGroup>;
   } else if (page === 'chat:rich') {
     content = <>
-      <SettingsGroup><SettingsSwitch label="限制富消息运行楼层" checked={preferences.rich_message_limit_enabled}
+      <SettingsGroup><SettingsSwitch label={tUi("限制富消息运行楼层")} checked={preferences.rich_message_limit_enabled}
         onChange={value => updatePreferences({ rich_message_limit_enabled: value })} />
         {preferences.rich_message_limit_enabled && <div className="mobile-settings-tuners">
-          <TunerSliderRow {...richMessageFloorTuner} value={preferences.rich_message_floor_limit}
+          <TunerSliderRow {...localizeUiCopy(richMessageFloorTuner, tUi)} value={preferences.rich_message_floor_limit}
             onChange={value => updatePreferences({ rich_message_floor_limit: Math.round(value) })} />
         </div>}
       </SettingsGroup>
-      <p className="mobile-settings-note">{richMessageLimitDescription}</p>
+      <p className="mobile-settings-note">{localizeUiCopy(richMessageLimitDescription, tUi)}</p>
     </>;
   } else if (page === 'chat:colors') {
-    content = <><SettingsGroup>{textColorOptions.map(option => <label key={option.key} className="mobile-settings-color"><span>{option.label}</span><input type="color" aria-label={option.label} value={preferences.text_colors[option.key]} onChange={event => model.updateTextColor(option.key, event.target.value)} /></label>)}</SettingsGroup>
-      <button type="button" className="mobile-settings-reset" onClick={model.resetTextColors}>恢复默认</button></>;
+    content = <><SettingsGroup>{localizeUiCopy(textColorOptions, tUi).map(option => <label key={option.key} className="mobile-settings-color"><span>{option.label}</span><input type="color" aria-label={option.label} value={preferences.text_colors[option.key]} onChange={event => model.updateTextColor(option.key, event.target.value)} /></label>)}</SettingsGroup>
+      <button type="button" className="mobile-settings-reset" onClick={model.resetTextColors}>{tUi("恢复默认")}</button></>;
   } else if (page === 'chat:style' && layout === 'roleplay') {
     content = <SettingsGroup><div className="chat-display-design ec-style-mobile"><RoleplayStyleControls model={model} /></div></SettingsGroup>;
   } else if (page === 'chat:bubble' && layout === 'agent') {
-    content = <SettingsGroup><SettingsSwitch label="角色气泡" checked={profile.assistant_bubble_enabled} onChange={value => updateProfile({ assistant_bubble_enabled: value })} /><div className="mobile-settings-tuners">{tune('bubble_corner_radius')}</div></SettingsGroup>;
+    content = <SettingsGroup><SettingsSwitch label={tUi("角色气泡")} checked={profile.assistant_bubble_enabled} onChange={value => updateProfile({ assistant_bubble_enabled: value })} /><div className="mobile-settings-tuners">{tune('bubble_corner_radius')}</div></SettingsGroup>;
   } else if (page === 'notifications' && replyNotifications) {
     content = <ReplyNotificationSettings platform={replyNotifications} />;
   } else if (page === 'background' && backgroundRun) {
@@ -265,7 +273,7 @@ export function MobileSettingsPage() {
     <MobileHeader title={title} back={back} />
     <div ref={scroll} className="mobile-settings-scroll" key={page}>
       {content}
-      {['chat:layout', 'chat:avatar', 'chat:text', 'chat:spacing', 'chat:bubble', 'chat:style'].includes(page) && <section className="mobile-settings-preview" aria-label="实时预览"><h2>实时预览</h2><ChatDisplayPreview preferences={preferences} persona={chat.persona} /></section>}
+      {['chat:layout', 'chat:avatar', 'chat:text', 'chat:spacing', 'chat:bubble', 'chat:style'].includes(page) && <section className="mobile-settings-preview" aria-label={tUi("实时预览")}><h2>{tUi("实时预览")}</h2><ChatDisplayPreview preferences={preferences} persona={chat.persona} /></section>}
     </div>
   </div>;
 }

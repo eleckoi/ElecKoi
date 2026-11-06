@@ -2439,7 +2439,7 @@ window.__ModuleLoader__.load({
       const NavigationIcon = React.lazy(() => import(new URL('eleckoi-page-messages.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
         .then(module => ({ default: module.NavigationIcon })))
       ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
-        name: 'sidebar.panellist', id: 'messages', order: -40, label: '消息', registrant: '@eleckoi/dsh-client-conversations'
+        name: 'sidebar.panellist', id: 'messages', order: -40, label: () => ctx.locale.bind('eleckoi.ui')("消息"), registrant: '@eleckoi/dsh-client-conversations'
       }, ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(NavigationIcon, { size }))))
       ctx.effect(() => {
         catalog.start()
@@ -2451,6 +2451,6 @@ window.__ModuleLoader__.load({
       }, 'eleckoi: conversation catalog')
     }
 
-    return { inject: ['slots', 'sessions', 'uiConversation', 'conversation', 'fileUpload', 'eleckoiRegexRules', 'remote', 'remote.settings', 'remote.session', 'remote.eleckoiConversationModels', 'remote.eleckoiConversations'], apply }
+    return { inject: ['locale', 'slots', 'sessions', 'uiConversation', 'conversation', 'fileUpload', 'eleckoiRegexRules', 'remote', 'remote.settings', 'remote.session', 'remote.eleckoiConversationModels', 'remote.eleckoiConversations'], apply }
   }
 })

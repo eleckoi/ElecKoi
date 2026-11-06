@@ -1,3 +1,6 @@
+import { productLocaleTag } from '../../../app/i18n/productCopy.js';
+import { sourceText } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -13,21 +16,22 @@ const EMPTY_SNAPSHOT = Object.freeze({ status: "loading", ui: Object.freeze({}) 
 const EMPTY_SUBSCRIBE = () => () => {};
 const GET_EMPTY_SNAPSHOT = () => EMPTY_SNAPSHOT;
 
-function dateTitle(value) {
-  if (!value) return "未知日期";
+function dateTitle(value, tUi = sourceText) {
+  if (!value) return tUi("未知日期");
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "未知日期";
-  return date.toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).replaceAll("/", "/");
+  if (Number.isNaN(date.getTime())) return tUi("未知日期");
+  return date.toLocaleDateString(productLocaleTag(tUi), { year: "numeric", month: "2-digit", day: "2-digit" }).replaceAll("/", "/");
 }
 
-function timeTitle(value) {
+function timeTitle(value, tUi = sourceText) {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return date.toLocaleTimeString(productLocaleTag(tUi), { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 export function HistoryModal({ open, sessions, sessionId, chatCharacter, conversationModel, onClose, onLoadChat, onDeleteChat, onHistoryPolicyChange }) {
+  const tUi = useProductTranslation();
   const mobile = isMobilePresentation();
   const preferences = useDshDisplayPreferences();
   const preferenceSnapshot = useSyncExternalStore(
@@ -62,7 +66,7 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
     const filtered = (sessions || [])
       .filter((item) => item.character_id && item.character_id === currentCharacterId)
       .filter((item) => {
-        const text = `${item.character_name || ""} ${item.title || ""} ${item.summary || ""} ${item.id || ""} ${dateTitle(item.updated_at)}`.toLowerCase();
+        const text = `${item.character_name || ""} ${item.title || ""} ${item.summary || ""} ${item.id || ""} ${dateTitle(item.updated_at, tUi)}`.toLowerCase();
         return !key || text.includes(key);
       })
       .sort((a, b) => {
@@ -73,12 +77,12 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
     const visible = saveMode === "recent10" ? filtered.slice(0, 10) : filtered;
     const groups = new Map();
     for (const item of visible) {
-      const date = dateTitle(item.updated_at);
+      const date = dateTitle(item.updated_at, tUi);
       if (!groups.has(date)) groups.set(date, []);
       groups.get(date).push(item);
     }
     return [...groups.entries()];
-  }, [currentCharacterId, sessions, keyword, sessionId, saveMode]);
+  }, [currentCharacterId, sessions, keyword, sessionId, saveMode, tUi]);
 
   async function chooseSaveMode(mode) {
     if (mode === saveMode) return;
@@ -120,7 +124,7 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (error) {
-      setTransferError(error ?? "导出聊天记录失败。");
+      setTransferError(error ?? tUi("导出聊天记录失败。"));
     } finally {
       setTransferring(false);
     }
@@ -132,7 +136,7 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
     if (!file || transferring) return;
     setTransferError(null);
     if (!currentCharacterId) {
-      setTransferError("请先选择角色，再导入聊天记录。");
+      setTransferError(tUi("请先选择角色，再导入聊天记录。"));
       return;
     }
     setTransferring(true);
@@ -142,7 +146,7 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
       await onLoadChat?.(conversationId);
       onClose?.();
     } catch (error) {
-      setTransferError(error ?? "导入聊天记录失败。");
+      setTransferError(error ?? tUi("导入聊天记录失败。"));
     } finally {
       setTransferring(false);
     }
@@ -168,14 +172,14 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
           className="history-search"
           value={keyword}
           onValueChange={setKeyword}
-          placeholder="搜索历史对话…"
-          ariaLabel="搜索历史对话"
+          placeholder={tUi("搜索历史对话…")}
+          ariaLabel={tUi("搜索历史对话")}
           autoFocus={!mobile}
         />
 
         <div className="history-toolbar">
-          <div className="history-retention" role="radiogroup" aria-label="当前策略">
-            {!mobile && <b>当前策略</b>}
+          <div className="history-retention" role="radiogroup" aria-label={tUi("当前策略")}>
+            {!mobile && <b>{tUi("当前策略")}</b>}
             <button
               className={saveMode === "all" ? "active" : ""}
               type="button"
@@ -184,7 +188,7 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
               onClick={() => chooseSaveMode("all")}
             >
               <span />
-              {mobile ? '保留全部' : '保留全部记录'}
+              {mobile ? tUi("保留全部") : tUi("保留全部记录")}
             </button>
             <button
               className={saveMode === "recent10" ? "active" : ""}
@@ -194,14 +198,14 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
               onClick={() => chooseSaveMode("recent10")}
             >
               <span />
-              {mobile ? '最新10条' : '仅保留最新10条'}
+              {mobile ? tUi("最新10条") : tUi("仅保留最新10条")}
             </button>
           </div>
-          <div className="history-actions" aria-label="历史对话操作">
+          <div className="history-actions" aria-label={tUi("历史对话操作")}>
             <input ref={importInput} type="file" accept=".json,.jsonl,application/json" hidden onChange={importHistory} />
-            <button type="button" title="导入聊天记录" aria-label="导入聊天记录" disabled={transferring} onClick={() => importInput.current?.click()}>
+            <button type="button" title={tUi("导入聊天记录")} aria-label={tUi("导入聊天记录")} disabled={transferring} onClick={() => importInput.current?.click()}>
               <HistoryImportIcon />
-              {mobile && <span>导入记录</span>}
+              {mobile && <span>{tUi("导入记录")}</span>}
             </button>
           </div>
         </div>
@@ -211,8 +215,8 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
         <div className="history-list">
           {!filteredGroups.length ? (
             <div className="history-empty">
-              <strong>暂无历史对话</strong>
-              <span>当前角色还没有本地保存的对话。</span>
+              <strong>{tUi("暂无历史对话")}</strong>
+              <span>{tUi("当前角色还没有本地保存的对话。")}</span>
             </div>
           ) : null}
           {filteredGroups.map(([date, items]) => (
@@ -220,7 +224,7 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
               <h3>{date}</h3>
               {items.map((item) => {
                 const active = item.id === sessionId;
-                const itemCharacterName = item.character_name || characterName || "角色";
+                const itemCharacterName = item.character_name || characterName || tUi("角色");
                 const itemCharacterAvatar = item.character_avatar || "";
                 return (
                   <div className={`history-item ${active ? "active" : ""}`} key={item.id}>
@@ -235,16 +239,16 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
                       <Avatar src={itemCharacterAvatar} name={itemCharacterName} />
                       <div>
                         <p>
-                          <b>{active ? "当前" : itemCharacterName}</b>
-                          <time>{timeTitle(item.updated_at)}</time>
+                          <b>{active ? tUi("当前") : itemCharacterName}</b>
+                          <time>{timeTitle(item.updated_at, tUi)}</time>
                         </p>
-                        <span>{item.summary || item.title || "新对话"}</span>
+                        <span>{item.summary || item.title || tUi("新对话")}</span>
                       </div>
                     </button>
-                    <button className="history-item-export" type="button" title="导出这条记录" aria-label="导出这条记录" disabled={transferring} onClick={() => exportHistory(item)}>
+                    <button className="history-item-export" type="button" title={tUi("导出这条记录")} aria-label={tUi("导出这条记录")} disabled={transferring} onClick={() => exportHistory(item)}>
                       <HistoryExportIcon />
                     </button>
-                    <button className="history-item-delete" type="button" title="删除这条记录" aria-label="删除这条记录" onClick={() => requestDeleteChat(item)}>
+                    <button className="history-item-delete" type="button" title={tUi("删除这条记录")} aria-label={tUi("删除这条记录")} onClick={() => requestDeleteChat(item)}>
                       <TrashIcon />
                     </button>
                   </div>
@@ -256,30 +260,29 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
 
         {confirmAction ? (
           <div className="history-confirm-backdrop" onMouseDown={() => setConfirmAction(null)}>
-            <section ref={confirmRef} className="history-confirm" role="alertdialog" aria-modal="true" aria-label={confirmAction.type === 'policy' ? '切换保留策略' : '删除历史对话'} onMouseDown={(event) => event.stopPropagation()}>
-              <strong>{confirmAction.type === "policy" ? "切换保留策略" : "删除历史对话"}</strong>
+            <section ref={confirmRef} className="history-confirm" role="alertdialog" aria-modal="true" aria-label={confirmAction.type === 'policy' ? tUi("切换保留策略") : tUi("删除历史对话")} onMouseDown={(event) => event.stopPropagation()}>
+              <strong>{confirmAction.type === "policy" ? tUi("切换保留策略") : tUi("删除历史对话")}</strong>
               <span>
                 {confirmAction.type === "policy"
-                  ? "仅保留最新 10 条会删除更早的历史记录，删除后无法恢复。"
-                  : "这条历史记录会被删除，删除后无法恢复。"}
+                  ? tUi("仅保留最新 10 条会删除更早的历史记录，删除后无法恢复。")
+                  : tUi("这条历史记录会被删除，删除后无法恢复。")}
               </span>
               <div>
                 <button type="button" onClick={() => setConfirmAction(null)}>
-                  取消
-                </button>
+                  {tUi("取消")}</button>
                 <button className="danger" type="button" onClick={confirmPendingAction}>
-                  {confirmAction.type === "policy" ? "确认切换" : "确认删除"}
+                  {confirmAction.type === "policy" ? tUi("确认切换") : tUi("确认删除")}
                 </button>
               </div>
             </section>
           </div>
         ) : null}
   </>;
-  if (mobile) return <MobileConversationOverlay title={characterName || '聊天记录'} subtitle={characterName ? '聊天记录' : undefined} className="mobile-history"
+  if (mobile) return <MobileConversationOverlay title={characterName || tUi("聊天记录")} subtitle={characterName ? tUi("聊天记录") : undefined} className="mobile-history"
     onClose={onClose} onBack={confirmAction ? () => setConfirmAction(null) : undefined} beforeClose={() => { if (confirmAction) { setConfirmAction(null); return false; } return true; }}>{body}</MobileConversationOverlay>;
   return createPortal(<SystemBarOverlay className="history-overlay" onMouseDown={onClose}>
     <section className="history-window" onMouseDown={event => event.stopPropagation()}>
-      <header className="history-titlebar"><strong>{characterName}</strong><button type="button" onClick={onClose} title="关闭"><XIcon /></button></header>
+      <header className="history-titlebar"><strong>{characterName}</strong><button type="button" onClick={onClose} title={tUi("关闭")}><XIcon /></button></header>
       {body}
     </section>
   </SystemBarOverlay>, document.body);

@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowsInSimple, ArrowsOutSimple, DotsSixVertical, X } from "../../../ui/icons/interfaceIcons.jsx";
 import { assetSrc } from "../../../app/services/assets.js";
@@ -50,6 +51,7 @@ function resizedFrame(start, edge, deltaX, deltaY, container) {
 }
 
 export function PinnedAvatar({ src, name, containerRef, onClose }) {
+  const tUi = useProductTranslation();
   const [failed, setFailed] = useState(false);
   const [frame, setFrame] = useState({ x: EDGE, y: TOP, width: COMPACT_WIDTH });
   const movedRef = useRef(false);
@@ -130,13 +132,13 @@ export function PinnedAvatar({ src, name, containerRef, onClose }) {
   return <aside
     className="pinned-avatar"
     style={{ left: frame.x, top: frame.y, width: frame.width }}
-    aria-label={`已固定的${name || "角色"}头像`}
+    aria-label={tUi("已固定的{value0}头像", {value0: name || tUi("角色")})}
   >
     <div
       className="pinned-avatar-bar"
       tabIndex={0}
       role="group"
-      aria-label="拖动头像，或用方向键移动"
+      aria-label={tUi("拖动头像，或用方向键移动")}
       onPointerDown={startDrag}
       onPointerMove={movePointer}
       onPointerUp={() => { dragRef.current = null; }}
@@ -144,12 +146,12 @@ export function PinnedAvatar({ src, name, containerRef, onClose }) {
       onKeyDown={moveWithKeyboard}
     >
       <DotsSixVertical size={15} aria-hidden="true" />
-      <span title={name}>{name || "角色"}</span>
-      <button type="button" title={isLarge ? "缩小头像" : canEnlarge ? "放大头像" : "窗口空间不足"} aria-label={isLarge ? "缩小头像" : "放大头像"} disabled={!isLarge && !canEnlarge} onClick={toggleSize}>{isLarge ? <ArrowsInSimple size={15} /> : <ArrowsOutSimple size={15} />}</button>
-      <button type="button" title="取消固定" aria-label="取消固定头像" onClick={onClose}><X size={15} /></button>
+      <span title={name}>{name || tUi("角色")}</span>
+      <button type="button" title={isLarge ? tUi("缩小头像") : canEnlarge ? tUi("放大头像") : tUi("窗口空间不足")} aria-label={isLarge ? tUi("缩小头像") : tUi("放大头像")} disabled={!isLarge && !canEnlarge} onClick={toggleSize}>{isLarge ? <ArrowsInSimple size={15} /> : <ArrowsOutSimple size={15} />}</button>
+      <button type="button" title={tUi("取消固定")} aria-label={tUi("取消固定头像")} onClick={onClose}><X size={15} /></button>
     </div>
-    {failed ? <div className="pinned-avatar-error">头像无法加载</div>
-      : <img src={assetSrc(src)} alt={`${name || "角色"}的头像`} onError={() => setFailed(true)} draggable="false" />}
+    {failed ? <div className="pinned-avatar-error">{tUi("头像无法加载")}</div>
+      : <img src={assetSrc(src)} alt={tUi("{value0}的头像", {value0: name || tUi("角色")})} onError={() => setFailed(true)} draggable="false" />}
     {RESIZE_EDGES.map((edge) => <div
       key={edge}
       className={`pinned-avatar-resize pinned-avatar-resize-${edge}`}

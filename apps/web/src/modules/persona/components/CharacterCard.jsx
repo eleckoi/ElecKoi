@@ -1,10 +1,13 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { characterCover, characterName } from "./characterUtils.js";
 import { assetSrc } from "../../../app/services/assets.js";
 import { Avatar } from "../../../ui/ui/Avatar.jsx";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-export function CharacterCard({ character, active, artworkAspectRatio = 0.76, authorName = "用户", authorAvatar = "", selectable = false, selected = false, onClick, onDoubleClick, onContextMenu }) {
-  const name = characterName(character);
+export function CharacterCard({ character, active, artworkAspectRatio = 0.76, authorName: authorNameSource, authorAvatar = "", selectable = false, selected = false, onClick, onDoubleClick, onContextMenu }) {
+  const tUi = useProductTranslation();
+  const authorName = authorNameSource === undefined ? tUi("用户") : authorNameSource;
+  const name = characterName(character, tUi);
   const cover = characterCover(character);
   const resolvedCover = assetSrc(cover);
   const [coverFailed, setCoverFailed] = useState(false);
@@ -45,7 +48,7 @@ export function CharacterCard({ character, active, artworkAspectRatio = 0.76, au
       onDoubleClick={onDoubleClick ? () => onDoubleClick(character.id) : undefined}
       onContextMenu={onContextMenu ? (event) => onContextMenu(event, character) : undefined}
       aria-pressed={selectable ? selected : undefined}
-      title={onDoubleClick ? "双击编辑角色" : undefined}
+      title={onDoubleClick ? tUi("双击编辑角色") : undefined}
     >
       {selectable ? <span className="character-card-check" aria-hidden="true" /> : null}
       <div className={`character-card-cover ${hasCover ? "has-image" : "is-fallback"}`}>

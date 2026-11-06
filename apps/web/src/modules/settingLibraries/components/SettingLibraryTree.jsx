@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { createContext, useContext } from "react";
 import { ChatCircleDots, Code, LinkSimple } from "../../../ui/icons/interfaceIcons.jsx";
 import { DshFolderClosedIcon, DshFolderOpenIcon, DshTriangleRightIcon } from "../../../ui/icons/dshTreeIcons.jsx";
@@ -15,6 +16,7 @@ function entryIcon(data) {
 }
 
 export function SettingTreeNode({ item, data, itemProps, style, level, isSelected, isExpanded, isDropTarget, isDragging }) {
+  const tUi = useProductTranslation();
   const actions = useContext(SettingTreeActionsContext);
   const Icon = entryIcon(data);
 
@@ -38,7 +40,7 @@ export function SettingTreeNode({ item, data, itemProps, style, level, isSelecte
           <button
             type="button"
             className="setting-library-tree-expander"
-            aria-label={isExpanded ? "折叠文件夹" : "展开文件夹"}
+            aria-label={isExpanded ? tUi("折叠文件夹") : tUi("展开文件夹")}
             aria-expanded={isExpanded}
             onDoubleClick={event => event.stopPropagation()}
             onClick={(event) => {
@@ -63,7 +65,7 @@ export function SettingTreeNode({ item, data, itemProps, style, level, isSelecte
             role="switch"
             aria-checked={data.enabled}
             disabled={actions?.saving}
-            aria-label={`${data.enabled ? "停用" : "启用"}${data.label}`}
+            aria-label={`${data.enabled ? tUi("停用") : tUi("启用")}${data.label}`}
             onDoubleClick={event => event.stopPropagation()}
             onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => {

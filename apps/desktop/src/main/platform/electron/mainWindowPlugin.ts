@@ -1,5 +1,4 @@
-import { dirname, join } from 'node:path'
-import { createRequire } from 'node:module'
+import { join } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { app, BrowserWindow, ipcMain, nativeTheme, net, protocol, screen, session, shell, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from 'electron'
 import { windowsAppUserModelId } from './windowsAppIdentity'
@@ -9,7 +8,7 @@ import { ElectronWindowHost } from './ElectronWindowHost'
 import { installTextContextMenu } from './textContextMenu'
 import { installWindowsNativeFrame } from './windowsNativeFrame'
 import { DesktopBrowserGuests } from './desktopBrowserGuests'
-import { authenticateDshClientHost, DSH_CLIENT_ORIGIN, forwardDshClientRequest, isDshClientAsset, resolveElecKoiClientAssets, serveDshClientAsset, serveElecKoiClientAsset } from './dshClientDocument'
+import { authenticateDshClientHost, DSH_CLIENT_ORIGIN, forwardDshClientRequest, isDshClientAsset, serveDshClientAsset } from './dshClientDocument'
 import { DESKTOP_SHELL_IPC } from '@shared/contracts/desktopShell'
 import { LOG_ACTIONS } from '@shared/contracts/logActions'
 import { foldFailure } from '@shared/foundation/failure'
@@ -137,8 +136,6 @@ export const mainWindowPlugin = {
         configureWindowNavigation(appLog, windows, window, true)
       }
     })
-    const rendererDirectory = join(dirname(createRequire(import.meta.url).resolve('@eleckoi/web-client/package.json')), 'dist')
-    const clientAssets = await resolveElecKoiClientAssets(rendererDirectory)
     protocol.handle('dsh-app', async (request) => {
       const url = new URL(request.url)
       if (url.hostname === 'shell') {
@@ -149,7 +146,6 @@ export const mainWindowPlugin = {
         return new Response(await readFile(appPaths.resolveResource('shell', name)), { headers: { 'content-type': types[name]! } })
       }
       if (url.hostname !== 'app') return new Response(null, { status: 404 })
-      if (url.pathname.startsWith('/eleckoi/assets/')) return serveElecKoiClientAsset(request, rendererDirectory)
       if (isDshClientAsset(url.pathname)) return serveDshClientAsset(request, pluginHost.frontendDirectory())
       const ready = pluginHostReady
       if (ready === undefined) return new Response(null, { status: 503 })
@@ -176,10 +172,7 @@ export const mainWindowPlugin = {
         throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, 'DSH 插件宿主尚未启动。', { what: 'DSH 插件宿主' })
       }
       return {
-        injections: [
-          ...ready.injections,
-          { kind: 'global', name: '__ELECKOI_CLIENT_ASSETS__', value: clientAssets }
-        ],
+        injections: ready.injections,
         streamBaseUrl: new URL(ready.url).origin
       }
     })

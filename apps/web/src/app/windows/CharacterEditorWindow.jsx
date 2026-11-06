@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../i18n/productCopy.js";
+import { useProductTranslation } from "../i18n/ProductLocaleContext.jsx";
 import { CharacterOpeningsPanel } from "../../modules/characterOpenings/index.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -61,6 +63,7 @@ function editableCharacterSnapshot(character) {
 }
 
 export function CharacterEditorWindow({ characterCatalog, characterConfiguration, renderCharacterEditorSection, embeddedCharacterId, navigationGuardRef, renderHeader, onClose, compact = false, registerBackHandler }) {
+  const tUi = useProductTranslation();
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const characterId = embeddedCharacterId ?? params.get("character") ?? "";
   const [character, setCharacter] = useState(null);
@@ -159,7 +162,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
         setCharacter(found);
         setPersistedCharacter(found);
       })
-      .catch((error) => { if (active) setSaveError(resolveFailure(error, { fallback: "读取角色卡失败" }).text); })
+      .catch((error) => { if (active) setSaveError(resolveFailure(error, { fallback: tUi("读取角色卡失败") }).text); })
       .finally(() => {
         if (active) setLoaded(true);
       });
@@ -194,7 +197,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
   async function saveBasicInfo(candidate = character) {
     if (!candidate || !collectionRef.current || saving) return false;
 
-    const normalizedName = (candidate.persona?.assistant_name || candidate.name || "").trim() || "未命名角色";
+    const normalizedName = (candidate.persona?.assistant_name || candidate.name || "").trim() || tUi("未命名角色");
     const submittedCharacter = {
       ...candidate,
       name: normalizedName,
@@ -215,7 +218,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
       setBasicSaveNotice("saved");
       return true;
     } catch (error) {
-      setSaveError(resolveFailure(error, { fallback: "保存失败" }).text);
+      setSaveError(resolveFailure(error, { fallback: tUi("保存失败") }).text);
       return false;
     } finally {
       setSaving(false);
@@ -324,7 +327,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
     if (await saveCurrentDraft()) completePendingAction(action);
   }
 
-  const activeLabel = EDITOR_SECTIONS.find((section) => section.id === activeSection)?.label || "基础资料";
+  const activeLabel = localizeUiCopy(EDITOR_SECTIONS, tUi).find((section) => section.id === activeSection)?.label || tUi("基础资料");
   useEffect(() => {
     if (!navigationGuardRef) return;
     navigationGuardRef.current = run => {
@@ -335,8 +338,8 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
   }, [dirty, navigationGuardRef]);
 
   useEffect(() => {
-    document.title = character ? `${characterName(character)} - 角色编辑器 - ElecKoi` : "角色编辑器 - ElecKoi";
-  }, [character]);
+    document.title = character ? tUi("{value0} - 角色编辑器 - ElecKoi", {value0: characterName(character, tUi)}) : tUi("角色编辑器 - ElecKoi");
+  }, [character, tUi]);
 
   useEffect(() => {
     function handleBeforeUnload(event) {
@@ -459,8 +462,8 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
             {compact ? <strong>ElecKoi</strong> : <ElecKoiWordmark />}
           </div>
         </header>
-        <nav id="character-editor-navigation" className="character-editor-navigation" aria-label="角色编辑器功能">
-          {EDITOR_SECTIONS.map(({ id, label, Icon }) => (
+        <nav id="character-editor-navigation" className="character-editor-navigation" aria-label={tUi("角色编辑器功能")}>
+          {localizeUiCopy(EDITOR_SECTIONS, tUi).map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
@@ -474,7 +477,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
           ))}
         </nav>
         {compact && <button type="button" className="character-editor-sidebar-toggle"
-          aria-label={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'} aria-expanded={!sidebarCollapsed}
+          aria-label={sidebarCollapsed ? tUi("展开侧边栏") : tUi("收起侧边栏")} aria-expanded={!sidebarCollapsed}
           aria-controls="character-editor-navigation" disabled={sidebarPreference.busy} onClick={sidebarPreference.toggle}>
           {sidebarCollapsed ? <CaretRight size={20} aria-hidden="true" /> : <CaretLeft size={20} aria-hidden="true" />}
         </button>}
@@ -482,7 +485,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
           className={`character-editor-sidebar-resizer${sidebarResize ? " is-resizing" : ""}`}
           role="separator"
           aria-orientation="vertical"
-          aria-label="调整侧边栏宽度"
+          aria-label={tUi("调整侧边栏宽度")}
           aria-valuemin={CHARACTER_EDITOR_SIDEBAR_MIN_WIDTH}
           aria-valuemax={CHARACTER_EDITOR_SIDEBAR_MAX_WIDTH}
           aria-valuenow={sidebarWidth}
@@ -510,14 +513,14 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
           ref={workspaceRef}
         >
           {loaded && !character
-            ? <p className="character-editor-missing" role={saveError ? 'alert' : undefined}>{saveError || '角色不存在'}</p>
+            ? <p className="character-editor-missing" role={saveError ? 'alert' : undefined}>{saveError || tUi("角色不存在")}</p>
             : editorContent || <h1 id="character-editor-section-title">{activeLabel}</h1>}
         </section>
       </section>
       <UnsavedChangesDialog
         open={Boolean(pendingAction)}
-        title="保存修改？"
-        description="离开前是否保存当前角色的修改？"
+        title={tUi("保存修改？")}
+        description={tUi("离开前是否保存当前角色的修改？")}
         saving={saving}
         onCancel={() => setPendingAction(null)}
         onDiscard={discardAndContinue}

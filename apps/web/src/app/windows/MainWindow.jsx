@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../i18n/ProductLocaleContext.jsx";
 import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ChatBackgroundModal, ChatWallpaperLayer, HistoryModal } from "../../modules/chat/index.js";
 import { resolveChatWallpaper } from "../../modules/appearance/index.js";
@@ -42,7 +43,8 @@ class MainPageErrorBoundary extends Component {
   }
 }
 
-export function MainWindow({ conversations, characters, characterConfiguration, models, persona, presets, creatorStudio, renderCreatorStudioConversation, settingsSections = [], navigation, rightbar, renderSettingsSection, renderUserProfileEditor, renderCharacterPageSection, renderConversationList, renderPresetEditorSection, renderRoleplay }) {
+export function MainWindow({ conversations, characters, characterConfiguration, models, persona, presets, creatorStudio, renderCreatorStudioConversation, settingsSections = [], navigation, rightbar, renderSettingsSection, renderLanguageSettings, renderUserProfileEditor, renderCharacterPageSection, renderConversationList, renderPresetEditorSection, renderRoleplay }) {
+  const tUi = useProductTranslation();
   const chat = useChatClient({ conversations, characters, models, persona, navigation });
   const appearance = useWindowAppearance({ notify: chat.notify });
   const sidePanelLayout = useSidePanelLayout();
@@ -87,9 +89,9 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
 
   useEffect(() => {
     if (globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === "android") return undefined;
-    return window.dshDesktop.host?.subscribeFailure((notice) => {
+    return window.dshDesktop?.host?.subscribeFailure((notice) => {
       // 宿主送的是失败对象（边界⑤），用户可见文案只在这里产生一次。
-      const resolved = resolveFailure(notice, { fallback: "插件服务意外退出，请重新打开插件中心。" });
+      const resolved = resolveFailure(notice, { fallback: tUi("插件服务意外退出，请重新打开插件中心。") });
       chat.notify("error", resolved.text, resolved);
     });
   }, [chat.notify]);
@@ -111,7 +113,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
       .then((result) => {
         const count = Array.isArray(result?.drafts) ? result.drafts.length : 0;
         if (count === 0) return;
-        chat.notify("info", `上次有 ${count} 份没送出去的报告，打开「报告问题」可以重发。`);
+        chat.notify("info", tUi("上次有 {value0} 份没送出去的报告，打开「报告问题」可以重发。", {value0: count}));
       })
       // 草稿列表问不到不是用户能处理的事：不提示，等下次启动再问。
       .catch(bestEffort);
@@ -132,7 +134,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
   useEffect(() => window.dshDesktop?.menu?.subscribe((command) => {
     if (command === 'about') { setSettingsPage('about'); changeActiveSection('settings'); }
     if (command === 'check-updates') void appUpdates.check().catch((cause) => {
-      const failure = resolveFailure(cause, { fallback: '检查更新失败。' });
+      const failure = resolveFailure(cause, { fallback: tUi("检查更新失败。") });
       chat.notify('error', failure.text, failure);
     });
   }), [changeActiveSection, appUpdates.check, chat.notify]);
@@ -187,7 +189,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
         {navigation?.renderSidebar ? navigation.renderSidebar(renderSidebarContent,
           { workspace: nativeConversation, collapsed: !sidebar.shown, width: 280 }) : renderSidebarContent(null)}
 
-        <section className="main-panel-shell" aria-label="主功能界面">
+        <section className="main-panel-shell" aria-label={tUi("主功能界面")}>
           <TitleBar
             splitSurface
             desktopMenu={nativeConversation ? !sidebar.shown : sidePanelLayout.sidePanelCollapsed || isPluginPanel}
@@ -215,6 +217,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
     presets,
     settingsSections,
     renderSettingsSection,
+    renderLanguageSettings,
     renderUserProfileEditor,
     renderCharacterPageSection,
     renderConversationList,
@@ -253,7 +256,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
   } else {
     windowLayout = renderWindowLayout({
       sidePanel: null,
-      mainPanel: <div className="chat-empty-guide" role="alert">客户端插件未加载。</div>,
+      mainPanel: <div className="chat-empty-guide" role="alert">{tUi("客户端插件未加载。")}</div>,
     });
   }
   return (
@@ -279,7 +282,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
             sidePanel: null,
             // 页面级失败也走唯一解析点：用户句按码给，码与参数化详情一起可见。
             // 直接显示 `error.message` 会把开发者诊断丢给用户，还把码丢掉。
-            mainPanel: <FailureAlert failure={error} context="页面加载失败" className="chat-empty-guide" />,
+            mainPanel: <FailureAlert failure={error} context={tUi("页面加载失败")} className="chat-empty-guide" />,
           })}
         >
           <Suspense fallback={renderWindowLayout({ sidePanel: null, mainPanel: null })}>

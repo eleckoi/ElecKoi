@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useMemo, useState } from "react";
 import { CopyIcon, ExportIcon, ImportIcon, PencilIcon, PlusIcon, TrashIcon } from "../../../ui/icons/index.jsx";
@@ -17,6 +18,7 @@ export function characterArtworkAspectRatio(index) {
 }
 
 export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCharacters, onImportCharacters, onPrepareImports, onDiscardImports, onExportCharacters, onDuplicateCharacter }) {
+  const tUi = useProductTranslation();
   const [selectedGroup, setSelectedGroup] = useState(ALL_CHARACTERS);
   const [keyword, setKeyword] = useState("");
   const [deleteMode, setDeleteMode] = useState(false);
@@ -44,20 +46,20 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
     const key = keyword.trim().toLocaleLowerCase();
     return (characters.items || []).filter((character) => {
       const inGroup = selectedGroup === ALL_CHARACTERS || characterGroup(character) === selectedGroup;
-      const matches = !key || `${characterName(character)} ${characterGroup(character)}`.toLocaleLowerCase().includes(key);
+      const matches = !key || `${characterName(character, tUi)} ${characterGroup(character)}`.toLocaleLowerCase().includes(key);
       return inGroup && matches;
     });
-  }, [characters, keyword, selectedGroup]);
+  }, [characters, keyword, selectedGroup, tUi]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectionMode = deleteMode || Boolean(exportFormat);
   // 导出目标的名字取自完整角色列表（而不是当前可见列表），
   // 这样即使目标被搜索/分组隐藏，选择条也仍然点名它，不会静默导出看不见的卡。
   const exportTargetNames = useMemo(() => {
-    const names = new Map((characters.items || []).map((character) => [character.id, characterName(character)]));
+    const names = new Map((characters.items || []).map((character) => [character.id, characterName(character, tUi)]));
     return selectedIds.map((characterId) => names.get(characterId) || characterId);
-  }, [characters, selectedIds]);
+  }, [characters, selectedIds, tUi]);
   const exportTargetsText = exportTargetNames.join("、");
-  const exportTargetsLine = exportTargetNames.length ? `将导出：${exportTargetsText}` : "";
+  const exportTargetsLine = exportTargetNames.length ? tUi("将导出：{value0}", {value0: exportTargetsText}) : "";
   const allVisibleSelected = Boolean(visibleCharacters.length)
     && visibleCharacters.every((character) => selectedSet.has(character.id));
 
@@ -144,7 +146,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
       await onSaveGroups(groups, [{ characterId: character.id, group }]);
       setCardGroupMenu(null);
     } catch (cause) {
-      setError(cause ?? "移动角色卡失败，请重试。");
+      setError(cause ?? tUi("移动角色卡失败，请重试。"));
     }
   }
 
@@ -154,7 +156,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
     setError(null);
     setDuplicatingIds(current => [...current, characterId]);
     try { await onDuplicateCharacter(characterId); }
-    catch (cause) { setError(cause ?? '复制角色卡失败，请重试。'); }
+    catch (cause) { setError(cause ?? tUi("复制角色卡失败，请重试。")); }
     finally { setDuplicatingIds(current => current.filter(id => id !== characterId)); }
   }
 
@@ -179,7 +181,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
       setGroupDialog(null);
       setGroupDraft("");
     } catch (cause) {
-      setError(cause ?? "保存分组失败，请重试。");
+      setError(cause ?? tUi("保存分组失败，请重试。"));
     }
   }
 
@@ -195,7 +197,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
       await onSaveGroups(remaining, assignments);
       setSelectedGroup(ALL_CHARACTERS);
     } catch (cause) {
-      setError(cause ?? "删除分组失败，请重试。");
+      setError(cause ?? tUi("删除分组失败，请重试。"));
     }
   }
 
@@ -257,7 +259,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
       if (result?.canceled) {
         const writtenIds = new Set(written.map(item => item.characterId));
         setSelectedIds(current => current.filter(id => !writtenIds.has(id)));
-        if (written.length) setExportNotice(`已导出 ${written.length} 张 · ${exportFormat.toUpperCase()} → ${result.directory}`);
+        if (written.length) setExportNotice(tUi("已导出 {value0} 张 · {value1} → {value2}", {value0: written.length, value1: exportFormat.toUpperCase(), value2: result.directory}));
         if (failures.length) setError(failures[0].message);
         return;
       }
@@ -265,13 +267,13 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
         // 只留下失败的：成功的移出勾选，重试时不会把同一张卡导出两遍。
         const failed = new Set(failures.map((failure) => failure.characterId));
         setSelectedIds((current) => current.filter((characterId) => failed.has(characterId)));
-        setError(`${failures[0].message}（已导出 ${written.length} 张，其余已从勾选中移除）`);
+        setError(tUi("{value0}（已导出 {value1} 张，其余已从勾选中移除）", {value0: failures[0].message, value1: written.length}));
         return;
       }
       // 成功后保留勾选与模式：用户可以直接换成另一种格式再导一次。
-      setExportNotice(`已导出 ${written.length} 张 · ${exportFormat.toUpperCase()} → ${result?.directory || ""}`);
+      setExportNotice(tUi("已导出 {value0} 张 · {value1} → {value2}", {value0: written.length, value1: exportFormat.toUpperCase(), value2: result?.directory || ""}));
     } catch (cause) {
-      setError(cause ?? "导出失败，请重试。");
+      setError(cause ?? tUi("导出失败，请重试。"));
     } finally {
       setExporting(false);
     }
@@ -284,22 +286,22 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
       await onDeleteCharacters(selectedIds);
       cancelDeleteMode();
     } catch (cause) {
-      setError(cause ?? "删除失败，请重试。");
+      setError(cause ?? tUi("删除失败，请重试。"));
     }
   }
 
   return (
-    <section className="character-manager-window" aria-label="角色卡管理器">
+    <section className="character-manager-window" aria-label={tUi("角色卡管理器")}>
       <aside className="character-manager-groups" onContextMenu={(event) => openGroupMenu(event)}>
         <button
           className={`character-manager-group ${selectedGroup === ALL_CHARACTERS ? "active" : ""}`}
           type="button"
           onClick={() => setSelectedGroup(ALL_CHARACTERS)}
         >
-          <span>{ALL_CHARACTERS}</span>
+          <span>{tUi(ALL_CHARACTERS)}</span>
           <em>{characters.items?.length || 0}</em>
         </button>
-        <small>分组</small>
+        <small>{tUi("分组")}</small>
         <div className="character-manager-group-list">
           {groups.map((group) => (
             <button
@@ -316,17 +318,16 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
         </div>
         <Button data-dsh-control variant="outline" className="character-add-group-button" type="button" onClick={() => openGroupDialog("add")}>
           <PlusIcon />
-          添加分组
-        </Button>
+          {tUi("添加分组")}</Button>
       </aside>
 
       <section className="character-manager-main">
         <header className="character-manager-titlebar">
           {exportFormat ? (
-            <section className="character-manager-selection-bar" aria-label="导出选择">
+            <section className="character-manager-selection-bar" aria-label={tUi("导出选择")}>
               <div className="character-manager-selection-summary">
-                <span className="character-manager-selection-count">已选 {selectedIds.length} 张</span>
-                <div className="character-manager-format-switch" role="group" aria-label="导出格式">
+                <span className="character-manager-selection-count">{tUi("已选 ")}{selectedIds.length}{tUi(" 张")}</span>
+                <div className="character-manager-format-switch" role="group" aria-label={tUi("导出格式")}>
                   <button
                     type="button"
                     aria-pressed={exportFormat === "png"}
@@ -349,22 +350,21 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
                 className="character-manager-search"
                 value={keyword}
                 onChange={event => setKeyword(event.target.value)}
-                placeholder="搜索角色…"
-                aria-label="搜索角色"
+                placeholder={tUi("搜索角色…")}
+                aria-label={tUi("搜索角色")}
               />
               <div className="character-manager-selection-actions">
                 <Button data-dsh-control variant="outline" type="button" disabled={exporting || allVisibleSelected} onClick={selectAllVisible}>
-                  全选当前列表
-                </Button>
-                <Button data-dsh-control variant="outline" type="button" disabled={exporting || !selectedIds.length} onClick={clearSelection}>清空</Button>
-                <Button data-dsh-control variant="outline" type="button" disabled={exporting} onClick={cancelExport}>{exportNotice ? "完成" : "取消"}</Button>
+                  {tUi("全选当前列表")}</Button>
+                <Button data-dsh-control variant="outline" type="button" disabled={exporting || !selectedIds.length} onClick={clearSelection}>{tUi("清空")}</Button>
+                <Button data-dsh-control variant="outline" type="button" disabled={exporting} onClick={cancelExport}>{exportNotice ? tUi("完成") : tUi("取消")}</Button>
                 <Button data-dsh-control variant="primary"
                   className="character-manager-confirm-export"
                   type="button"
                   disabled={!selectedIds.length || exporting}
                   onClick={confirmExport}
                 >
-                  {exporting ? "导出中…" : `导出 ${selectedIds.length} 张`}
+                  {exporting ? tUi("导出中…") : tUi("导出 {value0} 张", {value0: selectedIds.length})}
                 </Button>
               </div>
               <p className="character-manager-selection-targets" title={exportTargetsText}>
@@ -374,28 +374,27 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
             </section>
           ) : (
             <>
-              <h2>角色卡管理器</h2>
+              <h2>{tUi("角色卡管理器")}</h2>
               <Input data-dsh-control type="search" icon={<IconSearchOutlineRegular />}
                 className="character-manager-search"
                 value={keyword}
                 onChange={event => setKeyword(event.target.value)}
-                placeholder="搜索角色…"
-                aria-label="搜索角色"
+                placeholder={tUi("搜索角色…")}
+                aria-label={tUi("搜索角色")}
               />
               {deleteMode ? (
                 <>
                   <Button data-dsh-control variant="primary" className="character-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={confirmDelete}>
-                    确认{selectedIds.length ? ` ${selectedIds.length}` : ""}
+                    {tUi("确认")}{selectedIds.length ? ` ${selectedIds.length}` : ""}
                   </Button>
-                  <Button data-dsh-control variant="outline" type="button" onClick={cancelDeleteMode}>取消</Button>
+                  <Button data-dsh-control variant="outline" type="button" onClick={cancelDeleteMode}>{tUi("取消")}</Button>
                 </>
               ) : (
                 <>
-                  <Button data-dsh-control variant="outline" type="button" onClick={() => setImportOpen(true)}><ImportIcon />导入角色</Button>
+                  <Button data-dsh-control variant="outline" type="button" onClick={() => setImportOpen(true)}><ImportIcon />{tUi("导入角色")}</Button>
                   <Button data-dsh-control variant="outline" type="button" disabled={!characters.items?.length} onClick={startExport}>
-                    <ExportIcon />导出角色
-                  </Button>
-                  <Button data-dsh-control variant="outline" type="button" disabled={!characters.items?.length} onClick={() => setDeleteMode(true)}><TrashIcon />删除</Button>
+                    <ExportIcon />{tUi("导出角色")}</Button>
+                  <Button data-dsh-control variant="outline" type="button" disabled={!characters.items?.length} onClick={() => setDeleteMode(true)}><TrashIcon />{tUi("删除")}</Button>
                 </>
               )}
             </>
@@ -411,7 +410,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
                   key={character.id}
                   character={character}
                   artworkAspectRatio={characterArtworkAspectRatio(index)}
-                  authorName={persona?.user_name || "用户"}
+                  authorName={persona?.user_name || tUi("用户")}
                   authorAvatar={persona?.user_avatar || ""}
                   selectable={selectionMode}
                   selected={selectedSet.has(character.id)}
@@ -420,17 +419,17 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
                 />
               ))}
             </div>
-          ) : <p className="character-manager-empty">这个分组里还没有角色卡。</p>}
+          ) : <p className="character-manager-empty">{tUi("这个分组里还没有角色卡。")}</p>}
         </div>
       </section>
 
       {groupMenu ? (
         <div className="character-group-context-menu" style={{ left: `${groupMenu.x}px`, top: `${groupMenu.y}px` }} onPointerDown={(event) => event.stopPropagation()}>
-          <button type="button" onClick={() => openGroupDialog("add")}><PlusIcon /><span>添加分组</span></button>
+          <button type="button" onClick={() => openGroupDialog("add")}><PlusIcon /><span>{tUi("添加分组")}</span></button>
           {groupMenu.group ? (
             <>
-              <button type="button" onClick={() => openGroupDialog("rename", groupMenu.group)}><PencilIcon /><span>重命名该组</span></button>
-              <button type="button" onClick={() => deleteGroup(groupMenu.group)}><TrashIcon /><span>删除分组</span></button>
+              <button type="button" onClick={() => openGroupDialog("rename", groupMenu.group)}><PencilIcon /><span>{tUi("重命名该组")}</span></button>
+              <button type="button" onClick={() => deleteGroup(groupMenu.group)}><TrashIcon /><span>{tUi("删除分组")}</span></button>
             </>
           ) : null}
         </div>
@@ -440,20 +439,20 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
         <GroupAssignmentMenu
           x={cardGroupMenu.x}
           y={cardGroupMenu.y}
-          label={`${characterName(cardGroupMenu.character)}的操作`}
+          label={tUi("{value0}的操作", {value0: characterName(cardGroupMenu.character, tUi)})}
           currentGroupId={characterGroup(cardGroupMenu.character)}
           groups={groups.map((group) => ({ id: group, name: group }))}
           onMove={moveCharacterToGroup}
           actions={[
-            { label: '编辑角色卡', icon: PencilIcon, run: () => { setCardGroupMenu(null); openCharacterEditorWindow(cardGroupMenu.character.id); } },
-            { label: '复制角色卡', icon: CopyIcon, disabled: duplicatingIds.includes(cardGroupMenu.character.id), run: () => void duplicateCharacter(cardGroupMenu.character.id) },
+            { label: tUi("编辑角色卡"), icon: PencilIcon, run: () => { setCardGroupMenu(null); openCharacterEditorWindow(cardGroupMenu.character.id); } },
+            { label: tUi("复制角色卡"), icon: CopyIcon, disabled: duplicatingIds.includes(cardGroupMenu.character.id), run: () => void duplicateCharacter(cardGroupMenu.character.id) },
           ]}
         />
       ) : null}
 
       {groupDialog ? (
         <AddGroupDialog
-          title={groupDialog.mode === "rename" ? "重命名该组" : "添加分组"}
+          title={groupDialog.mode === "rename" ? tUi("重命名该组") : tUi("添加分组")}
           value={groupDraft}
           onChange={setGroupDraft}
           onConfirm={saveGroup}

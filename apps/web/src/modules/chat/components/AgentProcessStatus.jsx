@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useRef, useState } from 'react';
 import {
   IconAgentPresetOutlineRegular, IconApiOutlineRegular, IconBrowseOutlineRegular, IconChevronDownOutlineRegular,
@@ -13,6 +14,7 @@ const icons = { thinking: ThoughtBulbIcon, read: ReadSettingIcon,
   list: IconPlanOutlineRegular, question: IconQuestionOutlineRegular, description: IconBrowseOutlineRegular };
 
 export function AgentProcessStatus({ presentation, onClick }) {
+  const tUi = useProductTranslation();
   const [displayed, setDisplayed] = useState(presentation);
   const displayedAt = useRef(Date.now());
   useEffect(() => {
@@ -26,7 +28,7 @@ export function AgentProcessStatus({ presentation, onClick }) {
   const current = presentation.running ? displayed : presentation;
   const Icon = icons[current.icon] || IconSparkleRegular;
   const title = current.target ? `${current.title} · ${current.target}` : current.title;
-  return <button type="button" className="agent-process-inline" onClick={onClick} aria-label={`查看处理过程：${current.title}`}>
+  return <button type="button" className="agent-process-inline" onClick={onClick} aria-label={tUi("查看处理过程：{value0}", {value0: current.title})}>
     <span className="agent-process-inline-leading" aria-hidden="true">
       <Icon className="agent-process-inline-icon" size={14} />
       <IconChevronDownOutlineRegular className="agent-process-inline-chevron" size={14} />

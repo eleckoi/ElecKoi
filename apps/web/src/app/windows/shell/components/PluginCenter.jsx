@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../i18n/productCopy.js";
+import { useProductTranslation } from "../../../i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useState } from "react";
 import {
   PluginArtworkDefault,
@@ -41,6 +43,7 @@ function PluginIcon({ item }) {
 export { applySidebarListWheel as applyPluginListWheel } from "../../../../ui/hooks/useSidebarListScroll.js";
 
 export function PluginListPanel({ onNotify }) {
+  const tUi = useProductTranslation();
   const [entries, setEntries] = useState([]);
   const [keyword, setKeyword] = useState("");
   const [collapsed, setCollapsed, collapseStateReady] = usePersistentCollapseState(
@@ -57,7 +60,7 @@ export function PluginListPanel({ onNotify }) {
     const receive = (event) => {
       setEntries(event.detail?.entries || []);
       setSelectedId(event.detail?.selected || "");
-      setError(event.detail?.status === "error" ? "插件列表加载失败" : "");
+      setError(event.detail?.status === "error" ? tUi("插件列表加载失败") : "");
     };
     window.addEventListener("eleckoi:dsh-plugins:state", receive);
     window.dispatchEvent(new Event("eleckoi:dsh-plugins:request"));
@@ -75,21 +78,21 @@ export function PluginListPanel({ onNotify }) {
     const result = { id: item.id, kind: item.kind, opened: false, error: null };
     window.dispatchEvent(new CustomEvent("eleckoi:dsh-plugins:select", { detail: result }));
     if (result.opened) setSelectedId(`${item.kind}:${item.id}`);
-    else onNotify("error", result.error || "插件详情暂时无法打开");
+    else onNotify("error", result.error || tUi("插件详情暂时无法打开"));
   }
 
   function add() {
     const result = { opened: false, error: null };
     window.dispatchEvent(new CustomEvent("eleckoi:dsh-plugins:add", { detail: result }));
     if (result.opened) setSelectedId("");
-    else onNotify("error", result.error || "添加插件入口暂时无法打开");
+    else onNotify("error", result.error || tUi("添加插件入口暂时无法打开"));
   }
 
-  return <aside className="character-list-panel plugin-list-panel" aria-label="插件列表">
-    <SidebarSectionHeader title="插件" value={keyword} onValueChange={setKeyword} placeholder="搜索插件名称"
-      createLabel="添加插件" onCreate={add} />
+  return <aside className="character-list-panel plugin-list-panel" aria-label={tUi("插件列表")}>
+    <SidebarSectionHeader title={tUi("插件")} value={keyword} onValueChange={setKeyword} placeholder={tUi("搜索插件名称")}
+      createLabel={tUi("添加插件")} onCreate={add} />
     <SidebarScrollArea ref={scrollRef} className="character-list-scroll preset-list-scroll">
-      {collapseStateReady ? GROUPS.map((group) => {
+      {collapseStateReady ? localizeUiCopy(GROUPS, tUi).map((group) => {
         const items = filtered.filter((entry) => entry.group === group.id);
         const isCollapsed = Boolean(collapsed[group.id]);
         return <section className="character-group-block preset-list-group" key={group.id}>
@@ -114,5 +117,6 @@ export function PluginListPanel({ onNotify }) {
 }
 
 export function PluginCenterSurface({ children }) {
-  return <div className="plugin-center-surface" data-eleckoi-plugin-panel aria-label="插件中心">{children}</div>;
+  const tUi = useProductTranslation();
+  return <div className="plugin-center-surface" data-eleckoi-plugin-panel aria-label={tUi("插件中心")}>{children}</div>;
 }

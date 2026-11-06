@@ -244,7 +244,7 @@ window.__ModuleLoader__.load({
       const NavigationIcon = React.lazy(() => import(new URL('eleckoi-page-presets.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
         .then(module => ({ default: module.NavigationIcon })))
       ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
-        name: 'sidebar.panellist', id: 'presets', order: -20, label: '预设', registrant: '@eleckoi/dsh-client-presets'
+        name: 'sidebar.panellist', id: 'presets', order: -20, label: () => ctx.locale.bind('eleckoi.ui')("预设"), registrant: '@eleckoi/dsh-client-presets'
       }, ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(NavigationIcon, { size }))))
       ctx.effect(() => {
         catalog.start()
@@ -260,7 +260,7 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots', 'remote', 'remote.eleckoiAgentPresets', 'remote.eleckoiCharacterConfiguration'],
+      inject: ['locale', 'slots', 'remote', 'remote.eleckoiAgentPresets', 'remote.eleckoiCharacterConfiguration'],
       apply
     }
   }

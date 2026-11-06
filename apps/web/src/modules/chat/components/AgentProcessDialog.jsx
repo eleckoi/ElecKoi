@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { IconCloseOutlineRegular, MenuSurface } from '@deepseek-ai/dsh-client-ui-primitives';
@@ -8,11 +9,12 @@ import '../styles/process-dialog.css';
 
 /** Product container; process rows retain their original Session Slot ownership. */
 export function AgentProcessDialog({ message, onClose, onContentTarget }) {
+  const tUi = useProductTranslation();
   const { overlayRef, sheetRef, closing, dismiss } = useBottomSheetDismiss(onClose);
   const [now, setNow] = useState(Date.now);
   const timingRunning = isProcessTimingRunning(message);
   const running = message?.pending === true || message?.status === 'streaming' || message?.status === 'running';
-  const duration = processDurationText(message, now);
+  const duration = processDurationText(message, now, tUi);
 
   useEffect(() => {
     if (!timingRunning) return undefined;
@@ -43,11 +45,11 @@ export function AgentProcessDialog({ message, onClose, onContentTarget }) {
     systemBarSurfaceRef={sheetRef} data-sheet-closing={closing || undefined} role="presentation"
     onMouseDown={dismiss}>
     <MenuSurface ref={sheetRef} className="roleplay-process-dialog" role="dialog" aria-modal="true"
-      aria-label="处理过程" tabIndex={-1} onMouseDown={event => event.stopPropagation()}>
+      aria-label={tUi("处理过程")} tabIndex={-1} onMouseDown={event => event.stopPropagation()}>
       <header className="roleplay-process-header">
-        <div><h2>处理过程</h2><span>{running ? '进行中' : message?.status === 'error' ? '处理失败'
-          : message?.status === 'cancelled' ? '已停止' : '已完成'}{duration ? <><i />{duration}</> : null}</span></div>
-        <button type="button" className="roleplay-process-close" onClick={dismiss} aria-label="关闭处理过程">
+        <div><h2>{tUi("处理过程")}</h2><span>{running ? tUi("进行中") : message?.status === 'error' ? tUi("处理失败")
+          : message?.status === 'cancelled' ? tUi("已停止") : tUi("已完成")}{duration ? <><i />{duration}</> : null}</span></div>
+        <button type="button" className="roleplay-process-close" onClick={dismiss} aria-label={tUi("关闭处理过程")}>
           <IconCloseOutlineRegular size={20} />
         </button>
       </header>

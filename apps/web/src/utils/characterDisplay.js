@@ -1,7 +1,8 @@
+import { sourceText } from "../app/i18n/productCopy.js";
 export const ALL_CHARACTERS = "全部角色";
 
-export function characterName(character) {
-  return character?.persona?.assistant_name || character?.name || "未命名角色";
+export function characterName(character, tUi = sourceText) {
+  return character?.persona?.assistant_name || character?.name || tUi("未命名角色");
 }
 
 export function characterAvatar(character) {

@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { SystemBarOverlay } from '../ui/ui/SystemBarOverlay.jsx';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { X } from '@phosphor-icons/react';
@@ -6,16 +7,18 @@ import { MobileAddCircleIcon, MobileBackIcon, MobileSidebarIcon } from './Mobile
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
 import { FailureAlert } from '../ui/ui/FailureAlert.jsx';
 
-export function MobileHeader({ title, back, leading, onSearch, onAdd, addLabel = '新增', children }) {
+export function MobileHeader({ title, back, leading, onSearch, onAdd, addLabel: addLabelSource, children }) {
+  const tUi = useProductTranslation();
+  const addLabel = addLabelSource === undefined ? tUi("新增") : addLabelSource;
   const view = useMainPageView();
   return <header className="mobile-header">
-    <button type="button" aria-label={back ? '返回' : '打开侧边栏'} disabled={view.routeBusy} onClick={back || view.openDrawer}>
+    <button type="button" aria-label={back ? tUi("返回") : tUi("打开侧边栏")} disabled={view.routeBusy} onClick={back || view.openDrawer}>
       {back ? <MobileBackIcon /> : <MobileSidebarIcon />}
     </button>
     {leading}
     <h1>{title}</h1>
     <div className="mobile-header-actions">
-      {onSearch && <button type="button" aria-label={`搜索${title}`} onClick={onSearch}><DshSearchIcon size={21} /></button>}
+      {onSearch && <button type="button" aria-label={tUi("搜索{value0}", {value0: title})} onClick={onSearch}><DshSearchIcon size={21} /></button>}
       {onAdd && <button type="button" aria-label={addLabel} onClick={onAdd}><MobileAddCircleIcon /></button>}
       {children}
     </div>
@@ -36,6 +39,7 @@ export function useMobileBack(action, enabled = true) {
 }
 
 export function MobileDialog({ title, children, onClose, busy = false, className = '', systemBarSurface = false }) {
+  const tUi = useProductTranslation();
   const ref = useRef(null);
   useMobileBack(() => { if (!busy) onClose(); return true; });
   useEffect(() => {
@@ -52,7 +56,7 @@ export function MobileDialog({ title, children, onClose, busy = false, className
   }
   return <SystemBarOverlay className={`mobile-dialog-overlay ${className}`} systemBarSurfaceRef={systemBarSurface ? ref : undefined} onClick={() => !busy && onClose()}>
     <section ref={ref} className="mobile-dialog" role="dialog" aria-modal="true" data-mobile-back-owner="dialog" aria-label={title} onKeyDown={trap} onClick={event => event.stopPropagation()}>
-      <header><h2>{title}</h2><button type="button" aria-label="关闭" disabled={busy} onClick={onClose}><X size={22} /></button></header>
+      <header><h2>{title}</h2><button type="button" aria-label={tUi("关闭")} disabled={busy} onClick={onClose}><X size={22} /></button></header>
       {children}
     </section>
   </SystemBarOverlay>;
@@ -71,7 +75,8 @@ export function useMobileScroll(key, enabled = true) {
 }
 
 export function MobileState({ error, loading, empty, onRetry }) {
+  const tUi = useProductTranslation();
   if (error) return <FailureAlert failure={error} onRetry={onRetry} />;
-  if (loading) return <p className="mobile-state" role="status">正在加载…</p>;
+  if (loading) return <p className="mobile-state" role="status">{tUi("正在加载…")}</p>;
   return empty ? <p className="mobile-state">{empty}</p> : null;
 }

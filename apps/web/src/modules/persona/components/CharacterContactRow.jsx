@@ -1,8 +1,10 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { characterAvatar, characterCover, characterName } from "./characterUtils.js";
 import { SidebarCharacterArtwork } from "../../../ui/ui/SidebarCharacterArtwork.jsx";
 
 export function CharacterContactRow({ character, active, artworkMode, onClick, onDoubleClick, onContextMenu }) {
-  const name = characterName(character);
+  const tUi = useProductTranslation();
+  const name = characterName(character, tUi);
   const avatar = characterAvatar(character);
   const resolvedArtworkMode = artworkMode === "avatar" ? "avatar" : "cover";
 

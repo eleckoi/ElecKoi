@@ -1,3 +1,4 @@
+import { sourceText } from "../../../app/i18n/productCopy.js";
 const labels = {
   off: "关闭",
   minimal: "极低",
@@ -10,14 +11,14 @@ const labels = {
 
 export const reasoningEffortIds = Object.freeze(Object.keys(labels));
 
-export function reasoningEffortLabel(effort) {
-  return labels[effort] || effort;
+export function reasoningEffortLabel(effort, tUi = sourceText) {
+  return labels[effort] ? tUi(labels[effort]) : effort;
 }
 
-export function reasoningOptions(efforts, defaultLabel = "跟随提供方默认") {
-  if (!efforts?.length) return [{ id: "", label: "未声明推理能力" }];
+export function reasoningOptions(efforts, defaultLabel = "跟随提供方默认", tUi = sourceText) {
+  if (!efforts?.length) return [{ id: "", label: tUi("未声明推理能力") }];
   return [
-    { id: "", label: defaultLabel },
-    ...efforts.map((id) => ({ id, label: reasoningEffortLabel(id) })),
+    { id: "", label: tUi(defaultLabel) },
+    ...efforts.map((id) => ({ id, label: reasoningEffortLabel(id, tUi) })),
   ];
 }

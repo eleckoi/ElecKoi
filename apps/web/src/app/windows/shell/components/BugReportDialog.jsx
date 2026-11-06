@@ -1,3 +1,5 @@
+import { sourceText } from "../../../i18n/productCopy.js";
+import { useProductTranslation } from "../../../i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { buildBugReportFormUrl, isBugReportFormConfig } from "@shared/contracts/bugReport/form";
@@ -141,35 +143,35 @@ function mailtoFor(report, delivery) {
 }
 
 /** 邮件按钮的文案：目的地有显示名就用它。 */
-function mailButtonLabel(delivery) {
-  return delivery?.mailboxName ? `发送到 ${delivery.mailboxName}` : "用邮件发送";
+function mailButtonLabel(delivery, tUi = sourceText) {
+  return delivery?.mailboxName ? tUi("发送到 {value0}", {value0: delivery.mailboxName}) : tUi("用邮件发送");
 }
 
 /** 复制那一步的实话：只有真的写进剪贴板才说"已复制"（决定 13）。 */
-function copyStateText(copied) {
-  return copied ? "全文已复制到剪贴板。" : COPY_FAILED_NOTICE;
+function copyStateText(copied, tUi = sourceText) {
+  return copied ? tUi("全文已复制到剪贴板。") : tUi(COPY_FAILED_NOTICE);
 }
 
 /** 表单通道的 notice：先说这次发的是全文还是摘要（以及复制成没成），再逐条补降级原因。 */
-function formNotice(built, copied) {
+function formNotice(built, copied, tUi = sourceText) {
   const sentences = [];
   const add = (sentence) => {
     if (!sentences.includes(sentence)) sentences.push(sentence);
   };
   add(built.summarized
-    ? `报告较长，这次只带摘要；${copyStateText(copied)}`
-    : `已在浏览器打开填好的表单，检查后提交即可；${copyStateText(copied)}`);
+    ? tUi("报告较长，这次只带摘要；{value0}", {value0: copyStateText(copied, tUi)})
+    : tUi("已在浏览器打开填好的表单，检查后提交即可；{value0}", {value0: copyStateText(copied, tUi)}));
   for (const reason of built.reasons) {
     const sentence = FORM_REASON_TEXTS[reason];
-    if (sentence) add(sentence);
+    if (sentence) add(tUi(sentence));
   }
   return sentences.join("");
 }
 
 /** 降级通道旁边的原因句：哪条通道、刚才为什么没成（句子自含"没能打开…"，不再加二次前缀）。 */
-function failureHintText(channel, cause) {
-  const reason = resolveFailure(cause, { fallback: "外部程序没有打开。" });
-  return `${CHANNEL_LABELS[channel] || channel}：${reason.text}`;
+function failureHintText(channel, cause, tUi = sourceText) {
+  const reason = resolveFailure(cause, { fallback: tUi("外部程序没有打开。") });
+  return `${tUi(CHANNEL_LABELS[channel] || channel)}：${reason.text}`;
 }
 
 /**
@@ -181,6 +183,7 @@ function failureHintText(channel, cause) {
  * `bugReportBridge.js` 用共享契约拼。
  */
 export function BugReportDialog({ open, onClose, onNotify }) {
+  const tUi = useProductTranslation();
   const titleId = useId();
   const descriptionId = useId();
   const failureHintId = useId();
@@ -283,10 +286,10 @@ export function BugReportDialog({ open, onClose, onNotify }) {
         setIncludeLogTail(true);
         collect({ logTail: true, noteText: "" })
           .then((withLogTail) => { if (active) setPreview(withLogTail); })
-          .catch((cause) => { if (active) setError(resolveFailure(cause, { fallback: "无法生成报告。" }).text); });
+          .catch((cause) => { if (active) setError(resolveFailure(cause, { fallback: tUi("无法生成报告。") }).text); });
       })
       .catch((cause) => {
-        if (active) setError(resolveFailure(cause, { fallback: "无法生成报告。" }).text);
+        if (active) setError(resolveFailure(cause, { fallback: tUi("无法生成报告。") }).text);
       });
     return () => { active = false; };
   }, [open, collect]);
@@ -343,11 +346,11 @@ export function BugReportDialog({ open, onClose, onNotify }) {
   /** 投递失败：显示原因、记下通道失败、尽力落草稿，并按剪贴板那一步的真实结果说下一步。 */
   const failDelivery = useCallback(async (channel, cause, copied) => {
     const saved = await saveDraftQuietly();
-    const resolved = resolveFailure(cause, { fallback: "报告没能发出去。" });
-    setError(saved ? `${resolved.text}${DRAFT_SAVED_SUFFIX}` : resolved.text);
+    const resolved = resolveFailure(cause, { fallback: tUi("报告没能发出去。") });
+    setError(saved ? `${resolved.text}${tUi(DRAFT_SAVED_SUFFIX)}` : resolved.text);
     if (channel) {
       markChannelFailed(channel, cause);
-      setNotice(copied ? COPY_READY_NOTICE : COPY_FAILED_NOTICE);
+      setNotice(copied ? tUi(COPY_READY_NOTICE) : tUi(COPY_FAILED_NOTICE));
     }
   }, [saveDraftQuietly]);
 
@@ -365,7 +368,7 @@ export function BugReportDialog({ open, onClose, onNotify }) {
       fresh = await collect();
       setPreview(fresh);
     } catch (cause) {
-      setError(resolveFailure(cause, { fallback: "报告没能发出去。" }).text);
+      setError(resolveFailure(cause, { fallback: tUi("报告没能发出去。") }).text);
       setBusy(false);
       return;
     }
@@ -389,7 +392,7 @@ export function BugReportDialog({ open, onClose, onNotify }) {
     try {
       setPreview(await collect({ logTail: next }));
     } catch (cause) {
-      setError(resolveFailure(cause, { fallback: "无法生成报告。" }).text);
+      setError(resolveFailure(cause, { fallback: tUi("无法生成报告。") }).text);
     } finally {
       setBusy(false);
     }
@@ -402,9 +405,9 @@ export function BugReportDialog({ open, onClose, onNotify }) {
         includeLogTail: stateRef.current.includeLogTail,
         ...(noteText === "" ? {} : { notes: noteText }),
       });
-      const where = fresh.delivery.mailboxName ? `到 ${fresh.delivery.mailboxName}` : "";
-      const receipt = result?.receipt ? `（回执 ${result.receipt}）` : "";
-      setNotice(`报告已发送${where}${receipt}，谢谢！`);
+      const where = fresh.delivery.mailboxName ? tUi("到 {value0}", {value0: fresh.delivery.mailboxName}) : "";
+      const receipt = result?.receipt ? tUi("（回执 {value0}）", {value0: result.receipt}) : "";
+      setNotice(tUi("报告已发送{value0}{value1}，谢谢！", {value0: where, value1: receipt}));
     });
   }
 
@@ -420,8 +423,8 @@ export function BugReportDialog({ open, onClose, onNotify }) {
       const saved = await saveDraftQuietly();
       const kept = saved ? (await refreshDrafts()).length > 0 : false;
       if (kept) setDraftKept(true);
-      const base = formNotice(built, copied);
-      setNotice(kept ? `${base}${FORM_DRAFT_KEPT_SUFFIX}` : base);
+      const base = formNotice(built, copied, tUi);
+      setNotice(kept ? `${base}${tUi(FORM_DRAFT_KEPT_SUFFIX)}` : base);
     });
   }
 
@@ -432,15 +435,15 @@ export function BugReportDialog({ open, onClose, onNotify }) {
         throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, `收件地址不合法：${fresh.delivery.mailbox}`, { field: "mailbox" });
       }
       await bridgeOrFail().open({ kind: "mail", url: mailto.url });
-      setNotice(copied ? MAIL_OPENED_COPY_NOTICE : MAIL_OPENED_NOTICE);
+      setNotice(copied ? tUi(MAIL_OPENED_COPY_NOTICE) : tUi(MAIL_OPENED_NOTICE));
     });
   }
 
   function copyReport() {
     return deliver(null, async (_fresh, copied) => {
       setNotice(copied
-        ? COPY_READY_NOTICE
-        : "剪贴板没有写成。可以改用「导出文件」，再自己发给作者。");
+        ? tUi(COPY_READY_NOTICE)
+        : tUi("剪贴板没有写成。可以改用「导出文件」，再自己发给作者。"));
     });
   }
 
@@ -452,9 +455,9 @@ export function BugReportDialog({ open, onClose, onNotify }) {
     return bridgeOrFail()
       .export(trimmed === "" ? {} : { notes: trimmed })
       .then((result) => {
-        if (result.saved) setNotice(`已导出到 ${result.path}`);
+        if (result.saved) setNotice(tUi("已导出到 {value0}", {value0: result.path}));
       })
-      .catch((cause) => setError(resolveFailure(cause, { fallback: "导出失败。" }).text))
+      .catch((cause) => setError(resolveFailure(cause, { fallback: tUi("导出失败。") }).text))
       .finally(() => setBusy(false));
   }
 
@@ -478,16 +481,16 @@ export function BugReportDialog({ open, onClose, onNotify }) {
       copied = await copyReportText(draft.report, delivery);
       if (!built && !copied) {
         // 既没有表单可走、正文又没复制出去：这份草稿不能删，否则用户手里什么都没了。
-        setNotice("没能复制那份草稿，可以先用「导出文件」把它存下来。");
+        setNotice(tUi("没能复制那份草稿，可以先用「导出文件」把它存下来。"));
         return;
       }
       if (built) {
         await bridge.open({ kind: "form", url: built.url });
         setNotice(copied
-          ? "表单已在浏览器打开；确认提交后再点「丢弃」。"
-          : "表单已在浏览器打开；复制没成功，可以点「复制报告」重试。确认提交后再点「丢弃」。");
+          ? tUi("表单已在浏览器打开；确认提交后再点「丢弃」。")
+          : tUi("表单已在浏览器打开；复制没成功，可以点「复制报告」重试。确认提交后再点「丢弃」。"));
       } else {
-        setNotice("全文已复制到剪贴板；确认发出后再点「丢弃」。");
+        setNotice(tUi("全文已复制到剪贴板；确认发出后再点「丢弃」。"));
       }
       await refreshDrafts();
     } catch (cause) {
@@ -509,9 +512,9 @@ export function BugReportDialog({ open, onClose, onNotify }) {
       setPendingDrafts((current) => current.filter((item) => item.key !== draft.key));
       setDraftKept(false);
       await refreshDrafts();
-      setNotice("已丢弃那份草稿。");
+      setNotice(tUi("已丢弃那份草稿。"));
     } catch (cause) {
-      setError(resolveFailure(cause, { fallback: "草稿没能删掉。" }).text);
+      setError(resolveFailure(cause, { fallback: tUi("草稿没能删掉。") }).text);
     } finally {
       setBusy(false);
     }
@@ -543,9 +546,9 @@ export function BugReportDialog({ open, onClose, onNotify }) {
    * 第一个没降级的通道（表单 > 邮件 > 代发 > 复制）。
    */
   const channelActions = [];
-  if (formUrl) channelActions.push({ key: "form", label: "提交到飞书", failure: formFailure, onClick: sendToForm });
-  if (mailto) channelActions.push({ key: "mail", label: mailButtonLabel(delivery), failure: mailFailure, onClick: sendByMail });
-  if (delivery?.relay) channelActions.push({ key: "relay", label: "直接发送", failure: relayFailure, onClick: sendDirectly });
+  if (formUrl) channelActions.push({ key: "form", label: tUi("提交到飞书"), failure: formFailure, onClick: sendToForm });
+  if (mailto) channelActions.push({ key: "mail", label: mailButtonLabel(delivery, tUi), failure: mailFailure, onClick: sendByMail });
+  if (delivery?.relay) channelActions.push({ key: "relay", label: tUi("直接发送"), failure: relayFailure, onClick: sendDirectly });
   const healthyActions = channelActions.filter((action) => action.failure === undefined);
   const failedActions = channelActions.filter((action) => action.failure !== undefined);
   const primaryKey = healthyActions[0]?.key ?? "copy";
@@ -564,11 +567,11 @@ export function BugReportDialog({ open, onClose, onNotify }) {
         aria-busy={busy || undefined}
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <button className="bug-report-close" type="button" aria-label="关闭报告" title="关闭" onClick={close}>
+        <button className="bug-report-close" type="button" aria-label={tUi("关闭报告")} title={tUi("关闭")} onClick={close}>
           <XIcon />
         </button>
-        <h2 id={titleId}>报告问题</h2>
-        <p id={descriptionId}>报告里只有版本、失败和你要带上的日志尾；发送前可以自己删改。</p>
+        <h2 id={titleId}>{tUi("报告问题")}</h2>
+        <p id={descriptionId}>{tUi("报告里只有版本、失败和你要带上的日志尾；发送前可以自己删改。")}</p>
 
         {/*
           正文区单独滚动：对话框有 max-height，长失败诊断 + 展开的全文很容易超出一屏。
@@ -579,18 +582,18 @@ export function BugReportDialog({ open, onClose, onNotify }) {
         <div className="bug-report-body">
 
           {pendingDrafts.length ? (
-            <section className="bug-report-draft" aria-label="上次没发出去的报告">
+            <section className="bug-report-draft" aria-label={tUi("上次没发出去的报告")}>
               <p>
                 {draftKept
-                  ? "这份报告还留在草稿里：确认提交后点「丢弃」。"
+                  ? tUi("这份报告还留在草稿里：确认提交后点「丢弃」。")
                   : pendingDrafts.length > 1
-                    ? `上次有 ${pendingDrafts.length} 份没送出去的报告，先送出最新一份吗？`
-                    : `上次有 ${pendingDrafts.length} 份没送出去的报告，要现在送出去吗？`}
+                    ? tUi("上次有 {value0} 份没送出去的报告，先送出最新一份吗？", {value0: pendingDrafts.length})
+                    : tUi("上次有 {value0} 份没送出去的报告，要现在送出去吗？", {value0: pendingDrafts.length})}
               </p>
               <div className="bug-report-draft-actions">
                 {/* 预览没到就没有 delivery，重发会静默跳过表单通道；先禁用。 */}
-                <button type="button" disabled={busy || preview === null} onClick={resendDraft}>重新送出</button>
-                <button type="button" disabled={busy} onClick={discardDraft}>丢弃</button>
+                <button type="button" disabled={busy || preview === null} onClick={resendDraft}>{tUi("重新送出")}</button>
+                <button type="button" disabled={busy} onClick={discardDraft}>{tUi("丢弃")}</button>
               </div>
             </section>
           ) : null}
@@ -599,19 +602,19 @@ export function BugReportDialog({ open, onClose, onNotify }) {
             <>
               <dl className="bug-report-summary">
                 <div>
-                  <dt>版本</dt>
+                  <dt>{tUi("版本")}</dt>
                   <dd>{report.environment.appVersion} · {PLATFORM_LABELS[report.environment.platform] || report.environment.platform} · {report.environment.arch}</dd>
                 </div>
                 <div>
-                  <dt>上次会话</dt>
+                  <dt>{tUi("上次会话")}</dt>
                   <dd className={report.session.ended ? "" : "is-warning"}>
-                    {report.session.ended ? "正常结束" : "异常结束（可能是崩溃）"}
+                    {report.session.ended ? tUi("正常结束") : tUi("异常结束（可能是崩溃）")}
                   </dd>
                 </div>
               </dl>
 
-              <section className="bug-report-failures" aria-label="失败">
-                <h3>失败（{report.failures.length}）</h3>
+              <section className="bug-report-failures" aria-label={tUi("失败")}>
+                <h3>{tUi("失败（")}{report.failures.length}）</h3>
                 {report.failures.length ? (
                   <ul>
                     {report.failures.map((failure) => (
@@ -622,38 +625,38 @@ export function BugReportDialog({ open, onClose, onNotify }) {
                     ))}
                   </ul>
                 ) : (
-                  <p>没有记录到失败行。</p>
+                  <p>{tUi("没有记录到失败行。")}</p>
                 )}
               </section>
 
               <label className="bug-report-toggle">
                 <input type="checkbox" checked={includeLogTail} disabled={busy} onChange={toggleLogTail} />
-                <span>附带最近的日志尾（已脱敏）</span>
+                <span>{tUi("附带最近的日志尾（已脱敏）")}</span>
               </label>
 
               {report.session.ended === false && includeLogTail ? (
-                <p className="bug-report-hint">{CRASH_LOG_TAIL_NOTICE}</p>
+                <p className="bug-report-hint">{tUi(CRASH_LOG_TAIL_NOTICE)}</p>
               ) : null}
 
               <label className="bug-report-notes">
-                <span>补充说明（可选）</span>
+                <span>{tUi("补充说明（可选）")}</span>
                 <textarea
                   rows={3}
                   maxLength={2000}
                   value={notes}
                   disabled={busy}
-                  placeholder="当时在做什么？点了什么之后出现的？"
+                  placeholder={tUi("当时在做什么？点了什么之后出现的？")}
                   onChange={(event) => setNotes(event.target.value)}
                 />
               </label>
             </>
           ) : (
-            <p className="bug-report-loading" role="status">{error ? "报告没准备好。" : "正在收集…"}</p>
+            <p className="bug-report-loading" role="status">{error ? tUi("报告没准备好。") : tUi("正在收集…")}</p>
           )}
 
           {report ? (
             <details className="bug-report-preview">
-              <summary>查看将要发送的全文</summary>
+              <summary>{tUi("查看将要发送的全文")}</summary>
               <pre>{formatBugReportBody(report, letterOf(delivery))}</pre>
             </details>
           ) : null}
@@ -662,10 +665,10 @@ export function BugReportDialog({ open, onClose, onNotify }) {
 
         {error ? <p className="bug-report-error" role="alert">{error}</p> : null}
         {notice ? <p className="bug-report-notice" role="status">{notice}</p> : null}
-        {report && !hasChannel ? <p className="bug-report-hint">{NO_CHANNEL_HINT}</p> : null}
+        {report && !hasChannel ? <p className="bug-report-hint">{tUi(NO_CHANNEL_HINT)}</p> : null}
         {failedActions.length ? (
           <p className="bug-report-hint" id={failureHintId}>
-            {failedActions.map((action) => failureHintText(action.key, action.failure)).join(" ")}
+            {failedActions.map((action) => failureHintText(action.key, action.failure, tUi)).join(" ")}
           </p>
         ) : null}
 
@@ -691,13 +694,13 @@ export function BugReportDialog({ open, onClose, onNotify }) {
               onClick={copyReport}
             >
               <CopyIcon />
-              <span>复制报告</span>
+              <span>{tUi("复制报告")}</span>
             </button>
           ) : null}
           {report ? (
             <button type="button" disabled={busy} onClick={exportReport}>
               <DownloadIcon />
-              <span>导出文件</span>
+              <span>{tUi("导出文件")}</span>
             </button>
           ) : null}
           {failedActions.map((action) => (
@@ -706,13 +709,13 @@ export function BugReportDialog({ open, onClose, onNotify }) {
               type="button"
               disabled={busy}
               aria-describedby={failureHintId}
-              title={failureHintText(action.key, action.failure)}
+              title={failureHintText(action.key, action.failure, tUi)}
               onClick={action.onClick}
             >
               {action.label}
             </button>
           ))}
-          <button type="button" onClick={close}>关闭</button>
+          <button type="button" onClick={close}>{tUi("关闭")}</button>
         </div>
       </section>
     </SystemBarOverlay>

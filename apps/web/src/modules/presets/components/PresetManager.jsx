@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -12,6 +13,7 @@ import { resolveFailure } from '../../../utils/failureText.js';
 const ALL_PRESETS = '全部预设';
 
 export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange, selectedGroup, selectedPresetId, onSelectGroup, onSelectPreset, onRefresh, onImport, onExport, importing, importError }) {
+  const tUi = useProductTranslation();
   const [groupDraft, setGroupDraft] = useState('');
   const [editingGroupId, setEditingGroupId] = useState('');
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
@@ -110,7 +112,7 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
       setPresetGroupMenu(null);
       await onRefresh(preset.id);
     } catch (cause) {
-      setError(resolveFailure(cause, { fallback: '移动预设失败' }).text);
+      setError(resolveFailure(cause, { fallback: tUi("移动预设失败") }).text);
     }
   }
 
@@ -121,7 +123,7 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
       setGroupDraft('');
       setGroupDialogOpen(false);
       await onRefresh();
-    } catch (cause) { setError(resolveFailure(cause, { fallback: '新建分组失败' }).text); }
+    } catch (cause) { setError(resolveFailure(cause, { fallback: tUi("新建分组失败") }).text); }
   }
 
   async function renameGroup() {
@@ -132,7 +134,7 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
       setEditingGroupId('');
       setGroupDialogOpen(false);
       await onRefresh();
-    } catch (cause) { setError(resolveFailure(cause, { fallback: '重命名失败' }).text); }
+    } catch (cause) { setError(resolveFailure(cause, { fallback: tUi("重命名失败") }).text); }
   }
 
   async function removeGroup(group = selectedGroupRecord) {
@@ -142,7 +144,7 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
       onSelectGroup(ALL_PRESETS);
       setGroupMenu(null);
       await onRefresh();
-    } catch (cause) { setError(resolveFailure(cause, { fallback: '删除分组失败' }).text); }
+    } catch (cause) { setError(resolveFailure(cause, { fallback: tUi("删除分组失败") }).text); }
   }
 
   function togglePreset(id) {
@@ -160,7 +162,7 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
       for (const id of selectedIds) await catalogModel.delete(id);
       cancelDeleteMode();
       await onRefresh();
-    } catch (cause) { setError(resolveFailure(cause, { fallback: '删除预设失败' }).text); }
+    } catch (cause) { setError(resolveFailure(cause, { fallback: tUi("删除预设失败") }).text); }
   }
 
   async function exportPreset(format) {
@@ -171,38 +173,38 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
       await onExport(format);
       setExportOpen(false);
     } catch (cause) {
-      setExportError(resolveFailure(cause, { fallback: '导出预设失败' }).text);
+      setExportError(resolveFailure(cause, { fallback: tUi("导出预设失败") }).text);
     } finally {
       setExporting(false);
     }
   }
 
-  return <section className="preset-manager-window" aria-label="预设管理器">
+  return <section className="preset-manager-window" aria-label={tUi("预设管理器")}>
       <aside className="preset-manager-groups" onContextMenu={(event) => openGroupMenu(event)}>
         {onPurposeChange && <PresetPurposeSwitch value={purpose} disabled={importing} onChange={onPurposeChange} />}
-        <button type="button" className={selectedGroup === ALL_PRESETS ? 'active' : ''} onClick={() => onSelectGroup(ALL_PRESETS)} onContextMenu={(event) => openGroupMenu(event, null)}><span>{ALL_PRESETS}</span><em>{catalog.presets.length}</em></button>
-        <small>分组</small>
+        <button type="button" className={selectedGroup === ALL_PRESETS ? 'active' : ''} onClick={() => onSelectGroup(ALL_PRESETS)} onContextMenu={(event) => openGroupMenu(event, null)}><span>{tUi(ALL_PRESETS)}</span><em>{catalog.presets.length}</em></button>
+        <small>{tUi("分组")}</small>
         <div>{catalog.groups.map((group) => <button type="button" className={selectedGroup === group.id ? 'active' : ''} key={group.id} onClick={() => onSelectGroup(group.id)} onContextMenu={(event) => openGroupMenu(event, group)}><span>{group.name}</span><em>{catalog.presets.filter((preset) => preset.libraryGroupId === group.id).length}</em></button>)}</div>
-        <Button data-dsh-control variant="outline" className="preset-manager-add-group" type="button" onClick={() => openGroupDialog()}><PlusIcon /><span>添加分组</span></Button>
+        <Button data-dsh-control variant="outline" className="preset-manager-add-group" type="button" onClick={() => openGroupDialog()}><PlusIcon /><span>{tUi("添加分组")}</span></Button>
       </aside>
       <div className="preset-manager-main">
         <header className="preset-manager-titlebar">
-          <h2>预设管理器</h2>
-          <Input data-dsh-control className="preset-manager-search" type="search" icon={<IconSearchOutlineRegular />} value={keyword} onChange={event => setKeyword(event.target.value)} placeholder="搜索预设…" aria-label="搜索预设" />
+          <h2>{tUi("预设管理器")}</h2>
+          <Input data-dsh-control className="preset-manager-search" type="search" icon={<IconSearchOutlineRegular />} value={keyword} onChange={event => setKeyword(event.target.value)} placeholder={tUi("搜索预设…")} aria-label={tUi("搜索预设")} />
           {!deleteMode ? <>
-            <Button data-dsh-control variant="outline" type="button" disabled={importing} onClick={onImport}><ImportIcon /><span>导入预设</span></Button>
+            <Button data-dsh-control variant="outline" type="button" disabled={importing} onClick={onImport}><ImportIcon /><span>{tUi("导入预设")}</span></Button>
             <div className="preset-manager-export" ref={exportControlRef}>
-              <Button data-dsh-control variant="outline" type="button" disabled={!selectedPresetId} aria-haspopup="menu" aria-expanded={exportOpen} onClick={() => { setExportError(''); setExportOpen((current) => !current); }}><ExportIcon /><span>导出预设</span></Button>
-              {exportOpen ? <div className="preset-manager-export-menu" ref={exportMenuRef} role="menu" aria-label="选择预设格式">
-                <button type="button" role="menuitem" disabled={exporting} onClick={() => void exportPreset('png')}>PNG 预设卡</button>
-                <button type="button" role="menuitem" disabled={exporting} onClick={() => void exportPreset('json')}>JSON 预设</button>
+              <Button data-dsh-control variant="outline" type="button" disabled={!selectedPresetId} aria-haspopup="menu" aria-expanded={exportOpen} onClick={() => { setExportError(''); setExportOpen((current) => !current); }}><ExportIcon /><span>{tUi("导出预设")}</span></Button>
+              {exportOpen ? <div className="preset-manager-export-menu" ref={exportMenuRef} role="menu" aria-label={tUi("选择预设格式")}>
+                <button type="button" role="menuitem" disabled={exporting} onClick={() => void exportPreset('png')}>{tUi("PNG 预设卡")}</button>
+                <button type="button" role="menuitem" disabled={exporting} onClick={() => void exportPreset('json')}>{tUi("JSON 预设")}</button>
                 {exportError ? <span role="alert">{exportError}</span> : null}
               </div> : null}
             </div>
-            <Button data-dsh-control variant="outline" type="button" onClick={() => setDeleteMode(true)}><TrashIcon /><span>删除</span></Button>
+            <Button data-dsh-control variant="outline" type="button" onClick={() => setDeleteMode(true)}><TrashIcon /><span>{tUi("删除")}</span></Button>
           </> : <>
-            <Button data-dsh-control variant="primary" className="preset-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={() => void removeSelectedPresets()}>确认{selectedIds.length ? ` ${selectedIds.length}` : ''}</Button>
-            <Button data-dsh-control variant="outline" type="button" onClick={cancelDeleteMode}>取消</Button>
+            <Button data-dsh-control variant="primary" className="preset-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={() => void removeSelectedPresets()}>{tUi("确认")}{selectedIds.length ? ` ${selectedIds.length}` : ''}</Button>
+            <Button data-dsh-control variant="outline" type="button" onClick={cancelDeleteMode}>{tUi("取消")}</Button>
           </>}
         </header>
         {error || importError ? <p className="preset-manager-error">{error || importError}</p> : null}
@@ -213,28 +215,28 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
             <button type="button" className="preset-manager-card-open" aria-pressed={deleteMode && removable ? selected : undefined} onClick={() => deleteMode ? (removable && togglePreset(preset.id)) : onSelectPreset(preset.id)} onContextMenu={deleteMode ? undefined : (event) => openPresetGroupMenu(event, preset)}>
               {deleteMode && removable ? <span className="preset-manager-card-check" aria-hidden="true" /> : null}
               <Avatar src={preset.profile.authorAvatarPath || defaultPresetAvatar} name={preset.name} className="preset-manager-avatar" />
-              <strong>{preset.name}</strong><small>{preset.profile.authorName || '未填写作者'}</small>
+              <strong>{preset.name}</strong><small>{preset.profile.authorName || tUi("未填写作者")}</small>
             </button>
           </article>;
         })}</div>
       </div>
-      {groupMenu ? <div className="preset-manager-group-menu" role="menu" aria-label={groupMenu.group ? `${groupMenu.group.name}的操作` : '分组操作'} style={{ left: `${groupMenu.x}px`, top: `${groupMenu.y}px` }} onPointerDown={(event) => event.stopPropagation()}>
-        <button type="button" role="menuitem" onClick={() => openGroupDialog()}><PlusIcon /><span>添加分组</span></button>
+      {groupMenu ? <div className="preset-manager-group-menu" role="menu" aria-label={groupMenu.group ? tUi("{value0}的操作", {value0: groupMenu.group.name}) : tUi("分组操作")} style={{ left: `${groupMenu.x}px`, top: `${groupMenu.y}px` }} onPointerDown={(event) => event.stopPropagation()}>
+        <button type="button" role="menuitem" onClick={() => openGroupDialog()}><PlusIcon /><span>{tUi("添加分组")}</span></button>
         {groupMenu.group ? <>
-          <button type="button" role="menuitem" onClick={() => openGroupDialog(groupMenu.group)}><PencilIcon /><span>重命名该组</span></button>
-          <button type="button" role="menuitem" onClick={() => void removeGroup(groupMenu.group)}><TrashIcon /><span>删除分组</span></button>
+          <button type="button" role="menuitem" onClick={() => openGroupDialog(groupMenu.group)}><PencilIcon /><span>{tUi("重命名该组")}</span></button>
+          <button type="button" role="menuitem" onClick={() => void removeGroup(groupMenu.group)}><TrashIcon /><span>{tUi("删除分组")}</span></button>
         </> : null}
       </div> : null}
       {presetGroupMenu ? <GroupAssignmentMenu
         x={presetGroupMenu.x}
         y={presetGroupMenu.y}
-        label={`移动${presetGroupMenu.preset.name}到分组`}
+        label={tUi("移动{value0}到分组", {value0: presetGroupMenu.preset.name})}
         currentGroupId={presetGroupMenu.preset.libraryGroupId || ''}
         groups={catalog.groups}
         onMove={movePresetToGroup}
       /> : null}
       {groupDialogOpen ? <PresetGroupDialog
-        title={editingGroupId ? '重命名该组' : '添加分组'}
+        title={editingGroupId ? tUi("重命名该组") : tUi("添加分组")}
         value={groupDraft}
         onChange={setGroupDraft}
         onConfirm={() => void (editingGroupId ? renameGroup() : addGroup())}
@@ -244,13 +246,14 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
 }
 
 function PresetGroupDialog({ title, value, onChange, onConfirm, onCancel }) {
+  const tUi = useProductTranslation();
   return <SystemBarOverlay className="preset-group-dialog-backdrop">
     <form className="preset-group-dialog" role="dialog" aria-modal="true" aria-label={title} onSubmit={(event) => { event.preventDefault(); onConfirm(); }}>
       <h3>{title}</h3>
-      <input value={value} onChange={(event) => onChange(event.target.value)} placeholder="填写分组" autoFocus />
+      <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={tUi("填写分组")} autoFocus />
       <div>
-        <Button data-dsh-control variant="primary" className="preset-group-dialog-confirm" type="submit" disabled={!value.trim()}>确定</Button>
-        <Button data-dsh-control variant="outline" type="button" onClick={onCancel}>取消</Button>
+        <Button data-dsh-control variant="primary" className="preset-group-dialog-confirm" type="submit" disabled={!value.trim()}>{tUi("确定")}</Button>
+        <Button data-dsh-control variant="outline" type="button" onClick={onCancel}>{tUi("取消")}</Button>
       </div>
     </form>
   </SystemBarOverlay>;

@@ -1,3 +1,4 @@
+import { useProductTranslation } from '../../../../../apps/web/src/app/i18n/ProductLocaleContext.jsx';
 import { useEffect, useState } from 'react'
 import { Switch } from '@deepseek-ai/dsh-client-ui-primitives'
 import { AutoIllustrationSettings } from '../../../../../apps/web/src/modules/autoIllustration/index.js'
@@ -8,6 +9,7 @@ import './page.css'
 const failureShownInPage = () => {}
 
 export function AutoIllustrationPage({ presetCatalog, modelCatalog }) {
+  const tUi = useProductTranslation();
   const [presets, setPresets] = useState([])
   const [id, setId] = useState('')
   const [preset, setPreset] = useState(null)
@@ -42,20 +44,20 @@ export function AutoIllustrationPage({ presetCatalog, modelCatalog }) {
     } catch (error) { setFailure(error); throw error }
     finally { setSaving(false) }
   }
-  return <section className="auto-illustration-plugin" aria-label="自动配图配置" aria-busy={saving}>
-    <label className="auto-illustration-preset">预设<select value={id} disabled={saving} onChange={event => setId(event.target.value)}>
+  return <section className="auto-illustration-plugin" aria-label={tUi("自动配图配置")} aria-busy={saving}>
+    <label className="auto-illustration-preset">{tUi("预设")}<select value={id} disabled={saving} onChange={event => setId(event.target.value)}>
       {presets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
     </select></label>
     <FailureAlert failure={failure} />
     {preset ? <>
-      <div className="auto-illustration-enabled"><span>为此预设自动配图</span>
-        <Switch label="为此预设自动配图" checked={preset.autoIllustration?.enabled === true} disabled={saving}
+      <div className="auto-illustration-enabled"><span>{tUi("为此预设自动配图")}</span>
+        <Switch label={tUi("为此预设自动配图")} checked={preset.autoIllustration?.enabled === true} disabled={saving}
           onChange={enabled => { void update({ enabled }).catch(failureShownInPage) }} />
       </div>
       <fieldset disabled={saving} className="auto-illustration-fields">
         <AutoIllustrationSettings modelCatalog={modelCatalog} configId={preset.autoIllustration?.modelConfigId || ''}
           onSelect={modelConfigId => update({ modelConfigId })} />
       </fieldset>
-    </> : !failure && <p role="status">正在读取配图配置…</p>}
+    </> : !failure && <p role="status">{tUi("正在读取配图配置…")}</p>}
   </section>
 }

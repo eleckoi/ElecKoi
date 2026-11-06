@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { Trash, X } from "../../../ui/icons/interfaceIcons.jsx";
 import { DshFolderClosedIcon } from "../../../ui/icons/dshTreeIcons.jsx";
@@ -19,6 +20,7 @@ function EntryEditor({
   onRequestDeleteOpening,
   onPromptPositionsChange,
 }) {
+  const tUi = useProductTranslation();
   const isReference = entry.dynamicMode === "ejs_reference";
   const isFixed = FIXED_ENTRY_IDS.has(entry.id);
   if (!isReference && !isFixed) {
@@ -41,14 +43,14 @@ function EntryEditor({
     <div className="setting-library-entry-editor">
       {isReference ? (
         <label className="setting-library-title-field">
-          <span>EJS引用名称</span>
-          <input ref={nameInputRef} value={entry.title} placeholder="供 getwi 按名称读取" onChange={(event) => onChange({ ...entry, title: event.target.value })} />
+          <span>{tUi("EJS引用名称")}</span>
+          <input ref={nameInputRef} value={entry.title} placeholder={tUi("供 getwi 按名称读取")} onChange={(event) => onChange({ ...entry, title: event.target.value })} />
         </label>
       ) : null}
       <MarkdownTextareaField
-        label={isReference ? "EJS引用正文" : fixedEntryContentLabel(entry)}
+        label={isReference ? tUi("EJS引用正文") : fixedEntryContentLabel(entry)}
         value={entry.content}
-        placeholder={isReference ? "填写供 EJS 控制器读取的内容" : fixedEntryContentPlaceholder(entry)}
+        placeholder={isReference ? tUi("填写供 EJS 控制器读取的内容") : fixedEntryContentPlaceholder(entry)}
         onChange={(content) => onChange({ ...entry, content })}
       />
     </div>
@@ -80,23 +82,24 @@ export function SettingLibraryInspector({
   onPromptPositionsChange,
   allowCustomPromptPositions = false,
 }) {
+  const tUi = useProductTranslation();
   if (!selected.value) return null;
   return (
-    <aside className="setting-library-inspector" aria-label="设定编辑器">
+    <aside className="setting-library-inspector" aria-label={tUi("设定编辑器")}>
       <header className="setting-library-inspector-header">
         <div>
           {selected.kind === "entry" && !FIXED_ENTRY_IDS.has(selected.value.id) && selected.value.contentMode !== "ejs" && selected.value.dynamicMode !== "ejs_reference"
             ? <SettingEntryGlyph iconId={selected.value.iconId} size={19} aria-hidden="true" />
             : selected.kind === "group" ? <DshFolderClosedIcon size={19} aria-hidden="true" /> : <SelectedIcon size={19} aria-hidden="true" />}
-          <strong>{selected.kind === "group" ? "文件夹" : selected.value.dynamicMode === "ejs_reference" ? "EJS引用设定" : selected.value.title}</strong>
+          <strong>{selected.kind === "group" ? tUi("文件夹") : selected.value.dynamicMode === "ejs_reference" ? tUi("EJS引用设定") : selected.value.title}</strong>
         </div>
-        <button type="button" aria-label="关闭编辑器" onClick={onClose}><X size={17} /></button>
+        <button type="button" aria-label={tUi("关闭编辑器")} onClick={onClose}><X size={17} /></button>
       </header>
       <div className="setting-library-inspector-body">
         {selected.kind === "group" ? (
           <div className="setting-library-group-editor">
-            <label><span>文件夹名称</span><input ref={nameInputRef} value={selected.value.name} onChange={(event) => onUpdateGroup({ name: event.target.value })} /></label>
-            <Button data-dsh-control variant="outline" type="button" className="setting-library-delete-link" onClick={onDeleteGroup}><Trash size={15} />删除文件夹</Button>
+            <label><span>{tUi("文件夹名称")}</span><input ref={nameInputRef} value={selected.value.name} onChange={(event) => onUpdateGroup({ name: event.target.value })} /></label>
+            <Button data-dsh-control variant="outline" type="button" className="setting-library-delete-link" onClick={onDeleteGroup}><Trash size={15} />{tUi("删除文件夹")}</Button>
           </div>
         ) : (
           <EntryEditor

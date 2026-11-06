@@ -90,8 +90,9 @@ describe("AI creator studio surface", () => {
       onCancelDelete: () => {},
       onConfirmDelete: () => {},
     };
-    const html = renderToStaticMarkup(<ProjectCollection {...collectionProps} />);
-    const collection = ProjectCollection(collectionProps);
+    let collection;
+    function InspectCollection() { collection = ProjectCollection(collectionProps); return collection; }
+    const html = renderToStaticMarkup(<InspectCollection />);
     const projectCard = collection.props.children[0];
     projectCard.props.children[0].props.onClick();
 

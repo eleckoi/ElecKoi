@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useState } from "react";
 import { ChatText, Info, SlidersHorizontal, Swatches } from "../../../ui/icons/interfaceIcons.jsx";
 import { ProfileIcon } from "../../../ui/icons/index.jsx";
@@ -19,7 +21,8 @@ const pages = [
 ];
 
 export function UserProfileSettings({ persona, onUpdateUserProfile, renderUserProfileEditor, renderProfile, renderAvatarManager, autoSave = false }) {
-  const displayName = persona?.user_name || "你";
+  const tUi = useProductTranslation();
+  const displayName = persona?.user_name || tUi("你");
   const [name, setName] = useState(displayName);
   const [avatars, setAvatars] = useState(() => avatarSetFromPersona(persona, "user"));
   const [editingAvatars, setEditingAvatars] = useState(null);
@@ -34,7 +37,7 @@ export function UserProfileSettings({ persona, onUpdateUserProfile, renderUserPr
       setAvatars(avatarSetFromPersona(saved, 'user'));
       setMessage('');
     },
-    onError: error => setMessage(error?.message || '保存失败，请稍后再试。'),
+    onError: error => setMessage(error?.message || tUi("保存失败，请稍后再试。")),
   });
 
   useEffect(() => {
@@ -44,7 +47,7 @@ export function UserProfileSettings({ persona, onUpdateUserProfile, renderUserPr
   }, [persona?.user_avatar, persona?.user_name, persona?.user_portrait, persona?.user_square, autoSave, autosave.hasPendingChanges]);
 
   function persistProfile(candidate) {
-    const nextName = candidate.name?.trim() || '你';
+    const nextName = candidate.name?.trim() || tUi("你");
     const nextAvatars = candidate.avatars || avatars;
     return runLoggedAction(LOG_ACTIONS.settingsSave, () => onUpdateUserProfile({ name: nextName, avatars: nextAvatars }));
   }
@@ -61,10 +64,10 @@ export function UserProfileSettings({ persona, onUpdateUserProfile, renderUserPr
       const saved = await persistProfile(candidate);
       setName(saved.user_name || "你");
       setAvatars(avatarSetFromPersona(saved, "user"));
-      setMessage("已保存");
+      setMessage("saved");
       return true;
     } catch (error) {
-      setMessage(error?.message || "保存失败，请稍后再试。");
+      setMessage(error?.message || tUi("保存失败，请稍后再试。"));
       return false;
     } finally {
       setSaving(false);
@@ -139,22 +142,24 @@ export function SettingsPanel({
   appUpdates,
   settingsSections = [],
   renderSettingsSection,
+  renderLanguageSettings,
   onClosePluginSection,
   renderLayout,
 }) {
+  const tUi = useProductTranslation();
   const requestedPluginSection = activePage.startsWith("dsh:")
     ? settingsSections.find((section) => `dsh:${section.id}` === activePage) || settingsSections[0]
     : null;
   const page = requestedPluginSection ? `dsh:${requestedPluginSection.id}` : activePage;
   const navigationPages = [
-    ...pages,
+    ...localizeUiCopy(pages, tUi),
     ...settingsSections.map((section) => ({ id: `dsh:${section.id}`, label: section.label, icon: SlidersHorizontal })),
   ];
 
   const sidePanel = (
     <aside className="app-settings-sidebar">
-      <header><h2>设置</h2></header>
-      <nav aria-label="设置分类">
+      <header><h2>{tUi("设置")}</h2></header>
+      <nav aria-label={tUi("设置分类")}>
         {navigationPages.map((item) => {
           const Icon = item.icon;
           return (
@@ -174,6 +179,7 @@ export function SettingsPanel({
         <UserProfileSettings autoSave persona={persona} onUpdateUserProfile={onUpdateUserProfile} renderUserProfileEditor={renderUserProfileEditor} />
       ) : page === "chat" ? (
         <ChatDisplaySettings
+          renderLanguageSettings={renderLanguageSettings}
           persona={persona}
           chatDisplay={chatDisplay}
           onChatDisplayChange={onChatDisplayChange}

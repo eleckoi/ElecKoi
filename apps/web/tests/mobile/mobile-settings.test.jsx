@@ -23,6 +23,7 @@ async function mount(initialPage = 'home') {
     const [persona, setPersona] = useState({ user_name: '合成用户', user_avatar: '', user_square: '', user_portrait: '' });
     view = {
       settingsPage: page, setSettingsPage: open, settingsSections: sections, renderSettingsSection: renderSection,
+      renderLanguageSettings: () => <button aria-haspopup="menu">官方语言选项</button>,
       appearance: { chatDisplay: preferences, changeChatDisplay: next => { update(next); setPreferences(next); }, appearanceMode: 'light', sidebarCharacterArtwork: 'cover', changeAppearanceMode: vi.fn(), changeSidebarCharacterArtwork: vi.fn() },
       chat: { persona, notify: notification, updateUserProfile: async next => {
         const saved = await save(next) || { ...persona, user_name: next.name, user_avatar: next.avatars.circle,
@@ -66,6 +67,18 @@ async function selectAvatar() {
 }
 
 describe('Android settings presentation with shared PC contracts', () => {
+  it('keeps the official language control in chat display and leaves application settings to extensions', async () => {
+    await mount();
+    expect(container.querySelector('[aria-label="界面语言"]')).toBeNull();
+    expect(container.textContent).not.toContain('官方语言选项');
+    await click('聊天显示');
+    const row = container.querySelector('[aria-label="界面语言"]');
+    expect(row?.querySelector('svg[aria-hidden="true"]')).toBeTruthy();
+    expect(row?.textContent).toBe('官方语言选项');
+    expect(container.textContent).toContain('正文文字');
+    expect(renderSection).not.toHaveBeenCalled();
+  });
+
   it('opens shared roleplay style controls and retains independent tints across returning to the page', async () => {
     await mount('chat');
     expect([...container.querySelectorAll('.mobile-settings-row')].findIndex(n=>n.textContent.includes('布局独有风格')))

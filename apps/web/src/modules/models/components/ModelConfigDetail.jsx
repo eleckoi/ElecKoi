@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ModelBasicConfigSection } from "./ModelBasicConfigSection.jsx";
 import { ModelImageParametersSection } from "./ModelImageParametersSection.jsx";
 import { ModelNetworkSection } from "./ModelNetworkSection.jsx";
@@ -20,18 +21,18 @@ export function ModelConfigDetail({
   parameterEditor,
   networkEditor,
 }) {
+  const tUi = useProductTranslation();
   return (
     <section className="model-config-detail">
       <div className="model-detail-body">
         {showHeader && <header className="model-detail-header">
-          <h2>模型配置</h2>
+          <h2>{tUi("模型配置")}</h2>
           <div className="model-save-actions">
-            <button type="button" className="model-icon-button danger" aria-label="删除配置" title="删除配置" disabled={deleting} onClick={onDelete}><TrashIcon /></button>
+            <button type="button" className="model-icon-button danger" aria-label={tUi("删除配置")} title={tUi("删除配置")} disabled={deleting} onClick={onDelete}><TrashIcon /></button>
             <button className="model-cancel-button" type="button" disabled={!hasUnsavedChanges || saving} onClick={onCancel}>
-              取消
-            </button>
+              {tUi("取消")}</button>
             <button type="button" disabled={!hasUnsavedChanges || saving || saveBlockedByParameters} onClick={onSave}>
-              {saving ? "保存中..." : "保存配置"}
+              {saving ? tUi("保存中...") : tUi("保存配置")}
             </button>
           </div>
         </header>}

@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -69,15 +71,17 @@ function PositionTrack({ topConnected, bottomConnected }) {
 }
 
 function PositionDragPreview({ position, selected }) {
+  const tUi = useProductTranslation();
   return <div className={'setting-position-guide-row is-custom is-overlay' + (selected ? ' is-selected' : '')} aria-hidden="true">
     <span />
     <span className="setting-position-drag-handle"><DotsSixVertical size={20} /></span>
-    <span className="setting-position-guide-main"><strong>{position.name || '未命名位置'}</strong>{selected ? <span>当前</span> : null}</span>
+    <span className="setting-position-guide-main"><strong>{position.name || tUi("未命名位置")}</strong>{selected ? <span>{tUi("当前")}</span> : null}</span>
     <span className="setting-position-overlay-more"><DotsThree size={20} /></span>
   </div>;
 }
 
 function SortablePositionRow({ row, index, total, selected, reducedMotion, menuOpen, onSelect, onOpenMenu, onMoveByKeyboard }) {
+  const tUi = useProductTranslation();
   const custom = row.type === 'custom';
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: row.key,
@@ -92,7 +96,7 @@ function SortablePositionRow({ row, index, total, selected, reducedMotion, menuO
   const track = <PositionTrack topConnected={index > 0} bottomConnected={index < total - 1} />;
   if (!custom) return <div {...rowProps} className={'setting-position-guide-row is-fixed is-' + row.type}>
     {track}
-    <span className="setting-position-fixed-card"><FixedPositionIcon id={row.key.split(':').pop()} /><strong>{row.label}</strong></span>
+    <span className="setting-position-fixed-card"><FixedPositionIcon id={row.key.split(':').pop()} /><strong>{tUi(row.label)}</strong></span>
   </div>;
 
   return <article {...rowProps} className={'setting-position-guide-row is-custom' + (selected ? ' is-selected' : '') + (isDragging ? ' is-dragging' : '')}>
@@ -103,8 +107,8 @@ function SortablePositionRow({ row, index, total, selected, reducedMotion, menuO
       className="setting-position-drag-handle"
       {...attributes}
       {...listeners}
-      aria-label={'拖动排序：' + row.position.name}
-      title="拖动排序"
+      aria-label={tUi("拖动排序：") + row.position.name}
+      title={tUi("拖动排序")}
       onKeyDown={(event) => {
         if (event.altKey && ['ArrowUp', 'ArrowDown'].includes(event.key)) {
           event.preventDefault();
@@ -112,13 +116,14 @@ function SortablePositionRow({ row, index, total, selected, reducedMotion, menuO
         } else listeners?.onKeyDown?.(event);
       }}
     ><DotsSixVertical size={20} /></button>
-    <button type="button" className="setting-position-guide-main" onClick={onSelect}><strong>{row.position.name || '未命名位置'}</strong>{selected ? <span>当前</span> : null}</button>
-    <button type="button" className="setting-position-more" aria-label={'管理位置：' + row.position.name}
-      title="管理位置" aria-haspopup="menu" aria-expanded={menuOpen} onClick={onOpenMenu}><DotsThree size={20} weight="bold" /></button>
+    <button type="button" className="setting-position-guide-main" onClick={onSelect}><strong>{row.position.name || tUi("未命名位置")}</strong>{selected ? <span>{tUi("当前")}</span> : null}</button>
+    <button type="button" className="setting-position-more" aria-label={tUi("管理位置：") + row.position.name}
+      title={tUi("管理位置")} aria-haspopup="menu" aria-expanded={menuOpen} onClick={onOpenMenu}><DotsThree size={20} weight="bold" /></button>
   </article>;
 }
 
 function PositionNameDialog({ draft, existing, onChange, onCancel, onSave }) {
+  const tUi = useProductTranslation();
   const inputRef = useRef(null);
   const [error, setError] = useState(null);
   useEffect(() => { inputRef.current?.focus(); inputRef.current?.select(); }, []);
@@ -131,29 +136,31 @@ function PositionNameDialog({ draft, existing, onChange, onCancel, onSave }) {
       event.preventDefault();
       try { onSave(); } catch (cause) { setError(cause); inputRef.current?.focus(); }
     }}>
-      <h3 id="position-dialog-title">{existing ? '重命名位置' : '新建位置'}</h3>
-      <label><span>名称</span><input ref={inputRef} value={draft.name} placeholder="例如：世界状态" aria-invalid={error ? true : undefined} onChange={(event) => { onChange({ ...draft, name: event.target.value }); setError(null); }} /></label>
+      <h3 id="position-dialog-title">{existing ? tUi("重命名位置") : tUi("新建位置")}</h3>
+      <label><span>{tUi("名称")}</span><input ref={inputRef} value={draft.name} placeholder={tUi("例如：世界状态")} aria-invalid={error ? true : undefined} onChange={(event) => { onChange({ ...draft, name: event.target.value }); setError(null); }} /></label>
       <FailureAlert failure={error} />
-      <footer><Button data-dsh-control variant="outline" type="button" className="setting-position-button" onClick={onCancel}>取消</Button><Button data-dsh-control variant="primary" type="submit" className="setting-position-button is-primary">保存</Button></footer>
+      <footer><Button data-dsh-control variant="outline" type="button" className="setting-position-button" onClick={onCancel}>{tUi("取消")}</Button><Button data-dsh-control variant="primary" type="submit" className="setting-position-button is-primary">{tUi("保存")}</Button></footer>
     </form>
   </div>;
 }
 
 function DeletePositionDialog({ position, affected, onCancel, onConfirm }) {
+  const tUi = useProductTranslation();
   return <div className="setting-position-dialog-backdrop" role="presentation" onKeyDown={(event) => {
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onCancel(); }
   }} onMouseDown={(event) => {
     if (event.target === event.currentTarget) onCancel();
   }}>
     <section className="setting-position-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-position-title">
-      <h3 id="delete-position-title">删除“{position.name}”？</h3>
-      {affected ? <p>{affected} 条提示词会回到相邻的固定位置，正文不会删除。</p> : null}
-      <footer><Button data-dsh-control variant="outline" type="button" className="setting-position-button" onClick={onCancel}>取消</Button><Button data-dsh-control variant="outline" type="button" className="setting-position-button is-danger" onClick={onConfirm}>删除</Button></footer>
+      <h3 id="delete-position-title">{tUi("删除“")}{position.name}”？</h3>
+      {affected ? <p>{affected}{tUi(" 条提示词会回到相邻的固定位置，正文不会删除。")}</p> : null}
+      <footer><Button data-dsh-control variant="outline" type="button" className="setting-position-button" onClick={onCancel}>{tUi("取消")}</Button><Button data-dsh-control variant="outline" type="button" className="setting-position-button is-danger" onClick={onConfirm}>{tUi("删除")}</Button></footer>
     </section>
   </div>;
 }
 
 export function CustomPositionManager({ entry, positions, entries, onChange, onBack }) {
+  const tUi = useProductTranslation();
   const { compact } = useEditorPresentation();
   const pageRef = useRef(null);
   useEffect(() => { if (compact) pageRef.current?.focus({ preventScroll: true }); }, [compact]);
@@ -172,16 +179,16 @@ export function CustomPositionManager({ entry, positions, entries, onChange, onB
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const announcements = {
-    onDragStart: ({ active }) => `开始移动${rows.find((row) => row.key === active.id)?.position?.name || ''}。`,
+    onDragStart: ({ active }) => tUi("开始移动{value0}。", {value0: rows.find((row) => row.key === active.id)?.position?.name || ''}),
     onDragOver: ({ active, over }) => {
       if (!over || over.id === active.id) return;
       const fromIndex = rowKeys.indexOf(active.id);
       const targetIndex = rowKeys.indexOf(over.id);
       const target = rows[targetIndex];
-      return `移到${target?.position?.name || target?.label || ''}${fromIndex < targetIndex ? '之后' : '之前'}。`;
+      return tUi("移到{value0}{value1}。", {value0: target?.position?.name || target?.label || '', value1: fromIndex < targetIndex ? tUi("之后") : tUi("之前")});
     },
-    onDragEnd: ({ over }) => over ? '位置排序已确认。' : '未放入位置列表，保留原来的顺序。',
-    onDragCancel: () => '已取消移动，保留原来的顺序。',
+    onDragEnd: ({ over }) => over ? tUi("位置排序已确认。") : tUi("未放入位置列表，保留原来的顺序。"),
+    onDragCancel: () => tUi("已取消移动，保留原来的顺序。"),
   };
 
   const edit = useCallback((position = null) => {
@@ -189,8 +196,8 @@ export function CustomPositionManager({ entry, positions, entries, onChange, onB
     setDraft(createPositionDraft(positions, position, currentAnchor));
     setDeleting(null);
   }, [positions, entry?.promptPositionId, entry?.position]);
-  const headerActions = useMemo(() => <button ref={addRef} type="button" onClick={() => edit()}>新建</button>, [edit]);
-  useEditorSubpage(true, '自定义位置', onBack, headerActions);
+  const headerActions = useMemo(() => <button ref={addRef} type="button" onClick={() => edit()}>{tUi("新建")}</button>, [edit, tUi]);
+  useEditorSubpage(true, tUi("自定义位置"), onBack, headerActions);
 
   function saveDraft() {
     const exists = positions.some((position) => position.id === draft.id);
@@ -233,13 +240,13 @@ export function CustomPositionManager({ entry, positions, entries, onChange, onB
     {activeRow?.type === 'custom' ? <PositionDragPreview position={activeRow.position} selected={entry?.promptPositionId === activeRow.position.id} /> : null}
   </DragOverlay>;
 
-  return <section ref={pageRef} tabIndex={compact ? -1 : undefined} className="setting-position-manager" aria-label="自定义位置" onKeyDown={(event) => {
+  return <section ref={pageRef} tabIndex={compact ? -1 : undefined} className="setting-position-manager" aria-label={tUi("自定义位置")} onKeyDown={(event) => {
     if (event.key === 'Escape' && !draft && !deleting && !activeKey) { event.preventDefault(); onBack(); }
   }}>
     {!compact && <header className="setting-position-manager-header">
-      <button type="button" className="setting-position-back" aria-label="返回插入配置" title="返回" onClick={onBack}><ArrowLeft size={18} /></button>
-      <h2>自定义位置</h2>
-      <Button data-dsh-control variant="outline" ref={addRef} type="button" className="setting-position-button" onClick={() => edit()}><Plus size={16} />新建</Button>
+      <button type="button" className="setting-position-back" aria-label={tUi("返回插入配置")} title={tUi("返回")} onClick={onBack}><ArrowLeft size={18} /></button>
+      <h2>{tUi("自定义位置")}</h2>
+      <Button data-dsh-control variant="outline" ref={addRef} type="button" className="setting-position-button" onClick={() => edit()}><Plus size={16} />{tUi("新建")}</Button>
     </header>}
 
     <DndContext
@@ -247,12 +254,12 @@ export function CustomPositionManager({ entry, positions, entries, onChange, onB
       collisionDetection={detectPositionCollision}
       modifiers={DRAG_MODIFIERS}
       autoScroll={{ canScroll: (element) => element === guideRef.current, threshold: { x: 0, y: 0.12 }, acceleration: 6, interval: 10 }}
-      accessibility={{ screenReaderInstructions: DRAG_INSTRUCTIONS, announcements }}
+      accessibility={{ screenReaderInstructions: localizeUiCopy(DRAG_INSTRUCTIONS, tUi), announcements }}
       onDragStart={({ active }) => { context.close(); setActiveKey(active.id); }}
       onDragEnd={finishDrag}
       onDragCancel={() => setActiveKey('')}
     >
-      <div ref={guideRef} className={'setting-position-guide' + (activeKey ? ' is-sorting' : '')} aria-label="位置顺序">
+      <div ref={guideRef} className={'setting-position-guide' + (activeKey ? ' is-sorting' : '')} aria-label={tUi("位置顺序")}>
         <SortableContext items={rowKeys} strategy={verticalListSortingStrategy}>
           {rows.map((row, index) => <SortablePositionRow
             key={row.key}
@@ -274,9 +281,9 @@ export function CustomPositionManager({ entry, positions, entries, onChange, onB
       {typeof document === 'undefined' ? overlay : createPortal(overlay, document.getElementById('eleckoi-root') || document.body)}
     </DndContext>
 
-    {context.menu ? <EditorContextMenu menu={context.menu} label="位置操作" onClose={context.close} actions={[
-      { label: '重命名', icon: NotePencil, run: () => edit(context.menu.target) },
-      { label: '删除', icon: Trash, danger: true, run: () => setDeleting(context.menu.target) },
+    {context.menu ? <EditorContextMenu menu={context.menu} label={tUi("位置操作")} onClose={context.close} actions={[
+      { label: tUi("重命名"), icon: NotePencil, run: () => edit(context.menu.target) },
+      { label: tUi("删除"), icon: Trash, danger: true, run: () => setDeleting(context.menu.target) },
     ]} /> : null}
 
     {draft ? <PositionNameDialog draft={draft} existing={positions.some((position) => position.id === draft.id)} onChange={setDraft} onCancel={() => setDraft(null)} onSave={saveDraft} /> : null}

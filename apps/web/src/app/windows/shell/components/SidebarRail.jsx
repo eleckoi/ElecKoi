@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../i18n/ProductLocaleContext.jsx";
 import { Suspense } from "react";
 import { PluginNavIcon, SettingsIcon } from "../../../../ui/icons/index.jsx";
 import { Avatar } from "../../../../ui/ui/Avatar.jsx";
@@ -37,7 +38,8 @@ function RailIconButton({ id, label, active, action, onClick, icon, productIcon,
 }
 
 function RailProfileButton({ persona, active, onOpenProfile, expanded }) {
-  const displayName = persona?.user_name || "你";
+  const tUi = useProductTranslation();
+  const displayName = persona?.user_name || tUi("你");
   const avatar = persona?.user_avatar || "";
 
   return (
@@ -45,8 +47,8 @@ function RailProfileButton({ persona, active, onOpenProfile, expanded }) {
       <button
         className={`rail-user-trigger ${active ? "active" : ""}`}
         type="button"
-        title="用户资料"
-        aria-label="打开用户资料设置"
+        title={tUi("用户资料")}
+        aria-label={tUi("打开用户资料设置")}
         onClick={onOpenProfile}
       >
         <Avatar src={avatar} name={displayName} className="rail-user-avatar" />
@@ -57,23 +59,25 @@ function RailProfileButton({ persona, active, onOpenProfile, expanded }) {
 }
 
 function RailSettingsButton({ active, onOpenSettings, expanded }) {
+  const tUi = useProductTranslation();
   return (
     <button
       className={`rail-settings-trigger ${active ? "active" : ""}`}
       type="button"
-      title="设置"
-      aria-label={expanded ? "设置" : "打开设置"}
+      title={tUi("设置")}
+      aria-label={expanded ? tUi("设置") : tUi("打开设置")}
       aria-current={active ? "page" : undefined}
       onClick={onOpenSettings}
     >
       <span className="rail-icon-layer base"><SettingsIcon /></span>
       <span className="rail-icon-layer active-fill" aria-hidden="true"><NavigationFill glyph="settings-outline" /></span>
-      {expanded && <span>设置</span>}
+      {expanded && <span>{tUi("设置")}</span>}
     </button>
   );
 }
 
 export function SidebarRail({ activeSection, navigationItems = [], renderEntryActions, renderSidebarSlot, profileActive, onSectionChange, onNavigationAction, persona, onOpenProfile, onOpenSettings, expanded = false, compactAccount = false, onCollapse, footerActions }) {
+  const tUi = useProductTranslation();
   const brand = <span className="rail-brand-seat" aria-hidden="true">
     {renderSidebarSlot?.("sidebar.brand.mark", { size: 30, content: <img src={logoIcon} alt="" draggable="false" /> }) || <img src={logoIcon} alt="" draggable="false" />}
     {renderSidebarSlot?.("sidebar.toggle.badge", {})}
@@ -97,11 +101,11 @@ export function SidebarRail({ activeSection, navigationItems = [], renderEntryAc
     content: <RailSettingsButton active={activeSection === "settings" && !profileActive} onOpenSettings={onOpenSettings} expanded={expanded && !compactAccount} />,
   }) || <RailSettingsButton active={activeSection === "settings" && !profileActive} onOpenSettings={onOpenSettings} expanded={expanded && !compactAccount} />;
   return (
-    <aside className={`qq-rail${expanded ? " expanded" : ""}`} aria-label="侧边功能栏">
+    <aside className={`qq-rail${expanded ? " expanded" : ""}`} aria-label={tUi("侧边功能栏")}>
       {expanded && <header className="rail-expanded-header">
         {brand}
         {renderSidebarSlot?.("sidebar.brand.name", { content: <ElecKoiWordmark /> }) || <ElecKoiWordmark />}
-        <button type="button" aria-label="收起侧边栏" onClick={onCollapse}><DshPanelLeftIcon size={20} /></button>
+        <button type="button" aria-label={tUi("收起侧边栏")} onClick={onCollapse}><DshPanelLeftIcon size={20} /></button>
       </header>}
       {!expanded && brand}
       <div className="rail-nav-group">
@@ -109,7 +113,7 @@ export function SidebarRail({ activeSection, navigationItems = [], renderEntryAc
         {renderEntryActions ? <DshEntryActionsMenu region="sidebar" className="rail-nav-button is-plugin-icon" showLabel={expanded} renderActions={renderEntryActions} /> : null}
       </div>
       <div className="rail-bottom-zone">
-        {footerActions && <div className="rail-footer-actions" aria-label="侧边栏插件操作">{footerActions}</div>}
+        {footerActions && <div className="rail-footer-actions" aria-label={tUi("侧边栏插件操作")}>{footerActions}</div>}
         <div className="rail-desktop-update">{renderSidebarSlot?.('sidebar.update', {})}</div>
         {compactAccount ? <div className="rail-account-row">{profile}<div className="rail-settings-seat">{settings}</div></div> : <>{profile}{settings}</>}
       </div>

@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -29,6 +30,7 @@ const EMPTY_SUBSCRIBE = () => () => {};
 const GET_EMPTY_DISPLAY_PREFERENCES = () => EMPTY_DISPLAY_PREFERENCES;
 
 export function useWindowAppearance({ notify = () => {} } = {}) {
+  const tUi = useProductTranslation();
   const appearance = useDshAppearance();
   const displayPreferences = useDshDisplayPreferences();
   const displaySnapshot = useSyncExternalStore(
@@ -83,7 +85,7 @@ export function useWindowAppearance({ notify = () => {} } = {}) {
       if (!appearance) throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, "DSH 主题服务尚未就绪。", { what: "主题服务" });
       appearance.theme.setTheme(normalizeAppearanceMode(mode));
     } catch (error) {
-      notify("error", resolveFailure(error, { fallback: "外观模式切换失败。" }).text);
+      notify("error", resolveFailure(error, { fallback: tUi("外观模式切换失败。") }).text);
     }
   }
 
@@ -108,7 +110,7 @@ export function useWindowAppearance({ notify = () => {} } = {}) {
         if (chatDisplayVersionRef.current !== version) return;
         chatDisplayDirtyRef.current = false;
         setChatDisplay(confirmedChatDisplayRef.current);
-        notify("error", resolveFailure(error, { fallback: "聊天显示设置保存失败。" }).text);
+        notify("error", resolveFailure(error, { fallback: tUi("聊天显示设置保存失败。") }).text);
       }
     }, 250);
   }
@@ -122,7 +124,7 @@ export function useWindowAppearance({ notify = () => {} } = {}) {
       await displayPreferences.updateUi({ sidebar_character_artwork: nextMode });
     } catch (error) {
       setSidebarCharacterArtwork(previousMode);
-      notify("error", resolveFailure(error, { fallback: "侧栏角色图设置保存失败。" }).text);
+      notify("error", resolveFailure(error, { fallback: tUi("侧栏角色图设置保存失败。") }).text);
     }
   }
 

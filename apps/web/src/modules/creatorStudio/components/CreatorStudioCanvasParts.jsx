@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 // NODE STUDIO: retained node/project development surface for future main-window integration.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Handle, NodeResizer, Position } from "@xyflow/react";
@@ -58,74 +60,78 @@ export function CanvasIconButton({ label, children, className = "", ...props }) 
 }
 
 export function CanvasViewportTools({ assetLibraryOpen, viewport, onOpenAssets, onReset, onZoom }) {
-  return <div className={`creator-canvas-utility-dock${assetLibraryOpen ? " is-assets-open" : ""}`} role="toolbar" aria-label="画布视图工具">
+  const tUi = useProductTranslation();
+  return <div className={`creator-canvas-utility-dock${assetLibraryOpen ? " is-assets-open" : ""}`} role="toolbar" aria-label={tUi("画布视图工具")}>
     {!assetLibraryOpen ? <>
-      <button className="creator-canvas-assets-trigger" type="button" onClick={onOpenAssets}><SidebarSimple size={16} aria-hidden="true" />资产库</button>
+      <button className="creator-canvas-assets-trigger" type="button" onClick={onOpenAssets}><SidebarSimple size={16} aria-hidden="true" />{tUi("资产库")}</button>
       <span className="creator-canvas-utility-divider" aria-hidden="true" />
     </> : null}
-    <CanvasIconButton label="重置画布位置" onClick={onReset}><ArrowCounterClockwise size={16} /></CanvasIconButton>
-    <CanvasIconButton label="缩小画布" onClick={() => onZoom(-0.1)} disabled={viewport.zoom <= 0.35}><Minus size={16} /></CanvasIconButton>
-    <button className="creator-canvas-zoom-value" type="button" onClick={onReset} title="直接滚动鼠标滚轮缩放画布">{Math.round(viewport.zoom * 100)}%</button>
-    <CanvasIconButton label="放大画布" onClick={() => onZoom(0.1)} disabled={viewport.zoom >= 2}><Plus size={16} /></CanvasIconButton>
+    <CanvasIconButton label={tUi("重置画布位置")} onClick={onReset}><ArrowCounterClockwise size={16} /></CanvasIconButton>
+    <CanvasIconButton label={tUi("缩小画布")} onClick={() => onZoom(-0.1)} disabled={viewport.zoom <= 0.35}><Minus size={16} /></CanvasIconButton>
+    <button className="creator-canvas-zoom-value" type="button" onClick={onReset} title={tUi("直接滚动鼠标滚轮缩放画布")}>{Math.round(viewport.zoom * 100)}%</button>
+    <CanvasIconButton label={tUi("放大画布")} onClick={() => onZoom(0.1)} disabled={viewport.zoom >= 2}><Plus size={16} /></CanvasIconButton>
   </div>;
 }
 
 export function CanvasCreationDock({ menuOpen, onToggleMenu, onCreate }) {
-  return <div className="creator-canvas-dock" role="toolbar" aria-label="添加画布内容">
-    <CanvasIconButton label={menuOpen ? "关闭添加菜单" : "添加创作对象"} className={menuOpen ? "is-active" : ""} aria-controls="creator-canvas-add-menu" aria-expanded={menuOpen} onClick={onToggleMenu}>
+  const tUi = useProductTranslation();
+  return <div className="creator-canvas-dock" role="toolbar" aria-label={tUi("添加画布内容")}>
+    <CanvasIconButton label={menuOpen ? tUi("关闭添加菜单") : tUi("添加创作对象")} className={menuOpen ? "is-active" : ""} aria-controls="creator-canvas-add-menu" aria-expanded={menuOpen} onClick={onToggleMenu}>
       <span className="creator-canvas-dock-swap" aria-hidden="true"><Plus size={20} /></span>
     </CanvasIconButton>
-    <CanvasIconButton label="添加文本" onClick={() => onCreate("text")}><FileText size={18} /></CanvasIconButton>
-    <CanvasIconButton label="添加图片" onClick={() => onCreate("image")}><ImageSquare size={18} /></CanvasIconButton>
-    <CanvasIconButton label="添加音频" onClick={() => onCreate("audio")}><Waveform size={18} /></CanvasIconButton>
-    <CanvasIconButton label="添加视频" onClick={() => onCreate("video")}><VideoCamera size={18} /></CanvasIconButton>
+    <CanvasIconButton label={tUi("添加文本")} onClick={() => onCreate("text")}><FileText size={18} /></CanvasIconButton>
+    <CanvasIconButton label={tUi("添加图片")} onClick={() => onCreate("image")}><ImageSquare size={18} /></CanvasIconButton>
+    <CanvasIconButton label={tUi("添加音频")} onClick={() => onCreate("audio")}><Waveform size={18} /></CanvasIconButton>
+    <CanvasIconButton label={tUi("添加视频")} onClick={() => onCreate("video")}><VideoCamera size={18} /></CanvasIconButton>
   </div>;
 }
 
 export function CanvasQuickCreate({ onCreate }) {
-  return <section className="creator-canvas-quick-create" aria-label="快速添加创作对象">
+  const tUi = useProductTranslation();
+  return <section className="creator-canvas-quick-create" aria-label={tUi("快速添加创作对象")}>
     <div className="creator-canvas-quick-grid">
-      {CANVAS_NODE_TYPES.map(({ type, label, Icon }) => <button
+      {localizeUiCopy(CANVAS_NODE_TYPES, tUi).map(({ type, label, Icon }) => <button
         type="button"
         key={type}
-        aria-label={`快速添加${label}节点`}
+        aria-label={tUi("快速添加{value0}节点", {value0: label})}
         onClick={() => onCreate(type)}
       >
         <span><Icon size={20} weight="regular" aria-hidden="true" /></span>
         <strong>{label}</strong>
       </button>)}
     </div>
-    <p><CursorClick size={14} aria-hidden="true" />点击快速添加</p>
+    <p><CursorClick size={14} aria-hidden="true" />{tUi("点击快速添加")}</p>
   </section>;
 }
 
 function NodeOperationComposer({ node, meta, prompt, onPromptChange, onOpenAssets, onSendPrompt }) {
+  const tUi = useProductTranslation();
   const submitPrompt = (event) => {
     event.preventDefault();
     if (prompt.trim()) onSendPrompt(prompt.trim());
   };
 
-  return <form className="creator-canvas-node-composer nodrag nowheel" aria-label={`${node.title}节点AI操作输入`} onSubmit={submitPrompt}>
+  return <form className="creator-canvas-node-composer nodrag nowheel" aria-label={tUi("{value0}节点AI操作输入", {value0: node.title})} onSubmit={submitPrompt}>
     <textarea
       value={prompt}
       onChange={(event) => onPromptChange(event.target.value)}
       onPointerDown={(event) => event.stopPropagation()}
-      placeholder={`描述要让 AI 如何处理这份${meta.label}，支持 @ 引用项目素材`}
-      aria-label={`${meta.label}AI操作描述`}
+      placeholder={tUi("描述要让 AI 如何处理这份{value0}，支持 @ 引用项目素材", {value0: meta.label})}
+      aria-label={tUi("{value0}AI操作描述", {value0: meta.label})}
     />
     <footer>
       <div>
-        <CanvasIconButton label="引用项目素材" type="button" onClick={onOpenAssets}><Paperclip size={18} /></CanvasIconButton>
+        <CanvasIconButton label={tUi("引用项目素材")} type="button" onClick={onOpenAssets}><Paperclip size={18} /></CanvasIconButton>
         <span>{meta.label}</span>
       </div>
-      <button type="submit" className="creator-canvas-node-submit" disabled={!prompt.trim()} aria-label="交给AI创作助手">
-        <Sparkle size={15} weight="fill" aria-hidden="true" />交给 AI 助手
-      </button>
+      <button type="submit" className="creator-canvas-node-submit" disabled={!prompt.trim()} aria-label={tUi("交给AI创作助手")}>
+        <Sparkle size={15} weight="fill" aria-hidden="true" />{tUi("交给 AI 助手")}</button>
     </footer>
   </form>;
 }
 
 function TextNodeBody({ node, selected, dragging, onNodeChange }) {
+  const tUi = useProductTranslation();
   const [editing, setEditing] = useState(false);
   const content = node.content || "";
 
@@ -148,14 +154,14 @@ function TextNodeBody({ node, selected, dragging, onNodeChange }) {
       onKeyDown={(event) => {
         if (event.key === "Escape") event.currentTarget.blur();
       }}
-      placeholder="在这里写下内容…"
-      aria-label="文本内容"
+      placeholder={tUi("在这里写下内容…")}
+      aria-label={tUi("文本内容")}
       spellCheck="false"
       autoFocus
     /> : <div
       className={`creator-canvas-text-preview nowheel${content ? "" : " is-empty"}`}
       role="textbox"
-      aria-label="文本内容"
+      aria-label={tUi("文本内容")}
       aria-readonly="true"
       tabIndex={0}
       onClick={selected ? beginEditing : undefined}
@@ -163,11 +169,12 @@ function TextNodeBody({ node, selected, dragging, onNodeChange }) {
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === "F2") beginEditing(event);
       }}
-    >{content || "在这里写下内容…"}</div>}
+    >{content || tUi("在这里写下内容…")}</div>}
   </div>;
 }
 
 function MediaNodeBody({ node, meta, onNodeChange, onOpenAssets }) {
+  const tUi = useProductTranslation();
   const inputRef = useRef(null);
   const Icon = meta.Icon;
   const accept = `${node.type}/*`;
@@ -196,18 +203,19 @@ function MediaNodeBody({ node, meta, onNodeChange, onOpenAssets }) {
     {preview || <div className="creator-canvas-media-empty">
       {node.type === "video" ? <PlayCircle size={42} weight="thin" aria-hidden="true" /> : <Icon size={42} weight="thin" aria-hidden="true" />}
       <div>
-        <button className="nodrag" type="button" onClick={() => inputRef.current?.click()}><UploadSimple size={16} aria-hidden="true" />上传</button>
-        <button className="nodrag" type="button" onClick={onOpenAssets}><FolderOpen size={16} aria-hidden="true" />资产库</button>
+        <button className="nodrag" type="button" onClick={() => inputRef.current?.click()}><UploadSimple size={16} aria-hidden="true" />{tUi("上传")}</button>
+        <button className="nodrag" type="button" onClick={onOpenAssets}><FolderOpen size={16} aria-hidden="true" />{tUi("资产库")}</button>
       </div>
     </div>}
     {node.assetUrl ? <footer className="creator-canvas-media-footer">
       <span title={node.assetName}>{node.assetName}</span>
-      <button className="nodrag" type="button" onClick={() => inputRef.current?.click()}>替换</button>
+      <button className="nodrag" type="button" onClick={() => inputRef.current?.click()}>{tUi("替换")}</button>
     </footer> : null}
   </div>;
 }
 
 function NodeSelectionToolbar({ nodeType, onOpenAssistant, onCreateRelated, onRemove }) {
+  const tUi = useProductTranslation();
   const relatedTypes = {
     text: ["image", "audio"],
     image: ["video", "text"],
@@ -215,16 +223,16 @@ function NodeSelectionToolbar({ nodeType, onOpenAssistant, onCreateRelated, onRe
     video: ["image", "audio"],
   }[nodeType] || ["text", "image"];
 
-  return <div className="creator-canvas-selection-toolbar nodrag nowheel" role="toolbar" aria-label="节点操作">
-    <button type="button" onClick={() => onOpenAssistant()}><Sparkle size={16} weight="fill" aria-hidden="true" />AI 辅助</button>
+  return <div className="creator-canvas-selection-toolbar nodrag nowheel" role="toolbar" aria-label={tUi("节点操作")}>
+    <button type="button" onClick={() => onOpenAssistant()}><Sparkle size={16} weight="fill" aria-hidden="true" />{tUi("AI 辅助")}</button>
     {relatedTypes.map((type) => {
-      const meta = NODE_TYPE_BY_ID[type];
+      const meta = localizeUiCopy(NODE_TYPE_BY_ID, tUi)[type];
       const Icon = meta.Icon;
       return <button type="button" key={type} onClick={() => onCreateRelated(type)}>
-        <Icon size={16} aria-hidden="true" />添加{meta.label}
+        <Icon size={16} aria-hidden="true" />{tUi("添加")}{meta.label}
       </button>;
     })}
-    <CanvasIconButton label="删除画布节点" onClick={onRemove}><Trash size={17} /></CanvasIconButton>
+    <CanvasIconButton label={tUi("删除画布节点")} onClick={onRemove}><Trash size={17} /></CanvasIconButton>
   </div>;
 }
 
@@ -238,6 +246,7 @@ export function getMagneticHandleOffset(pointerX, pointerY, centerX, centerY, ma
 }
 
 function CanvasConnectionHandle({ node, side, active, target, onOpenMenu }) {
+  const tUi = useProductTranslation();
   const handleRef = useRef(null);
   const pointerRef = useRef(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -264,7 +273,7 @@ function CanvasConnectionHandle({ node, side, active, target, onOpenMenu }) {
     className={`creator-canvas-node-port is-${side}${active ? " is-active" : ""}${target ? " is-target" : ""}`}
     data-creator-port-node={node.id}
     data-creator-port-side={side}
-    aria-label={`从${node.title}${side === "left" ? "左" : "右"}侧连接节点`}
+    aria-label={tUi("从{value0}{value1}侧连接节点", {value0: node.title, value1: side === "left" ? tUi("左") : tUi("右")})}
     onPointerDown={(event) => {
       pointerRef.current = { x: event.clientX, y: event.clientY, moved: false };
     }}
@@ -292,6 +301,7 @@ export function CanvasNode({
   selected,
   dragging,
 }) {
+  const tUi = useProductTranslation();
   const [pointerResting, setPointerResting] = useState(false);
   const wasDraggingRef = useRef(false);
   const {
@@ -307,7 +317,7 @@ export function CanvasNode({
     onNodeChange,
     onResizeEnd,
   } = data;
-  const meta = NODE_TYPE_BY_ID[node.type] || NODE_TYPE_BY_ID.text;
+  const meta = localizeUiCopy(NODE_TYPE_BY_ID, tUi)[node.type] || localizeUiCopy(NODE_TYPE_BY_ID, tUi).text;
   const minSize = NODE_MIN_SIZE[node.type] || NODE_MIN_SIZE.default;
   const Icon = meta.Icon;
   const isCatchTarget = connection.targetNodeId === node.id;
@@ -330,7 +340,7 @@ export function CanvasNode({
       "--catch-rotate-x": `${catchY * -1.8}deg`,
       "--catch-rotate-y": `${catchX * 3.1}deg`,
     }}
-    aria-label={`${meta.label}节点`}
+    aria-label={tUi("{value0}节点", {value0: meta.label})}
     onPointerEnter={() => setPointerResting(true)}
     onPointerLeave={() => setPointerResting(false)}
   >
@@ -383,6 +393,7 @@ export function CanvasNode({
 }
 
 export function CanvasAssetLibrary({ nodes, onClose, onSelectNode }) {
+  const tUi = useProductTranslation();
   const [query, setQuery] = useState("");
   const visibleNodes = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
@@ -390,22 +401,22 @@ export function CanvasAssetLibrary({ nodes, onClose, onSelectNode }) {
     return nodes.filter((node) => node.title.toLocaleLowerCase().includes(normalized));
   }, [nodes, query]);
 
-  return <aside className="creator-canvas-assets" aria-label="项目资产库">
+  return <aside className="creator-canvas-assets" aria-label={tUi("项目资产库")}>
     <header>
-      <h2>资产库</h2>
-      <CanvasIconButton label="收起资产库" onClick={onClose}><X size={17} /></CanvasIconButton>
+      <h2>{tUi("资产库")}</h2>
+      <CanvasIconButton label={tUi("收起资产库")} onClick={onClose}><X size={17} /></CanvasIconButton>
     </header>
-    <div className="creator-canvas-asset-tabs" role="tablist" aria-label="资产来源">
-      <button className="is-active" type="button" role="tab" aria-selected="true">画布对象</button>
-      <button type="button" role="tab" aria-selected="false">项目资产</button>
+    <div className="creator-canvas-asset-tabs" role="tablist" aria-label={tUi("资产来源")}>
+      <button className="is-active" type="button" role="tab" aria-selected="true">{tUi("画布对象")}</button>
+      <button type="button" role="tab" aria-selected="false">{tUi("项目资产")}</button>
     </div>
     <label className="creator-canvas-asset-search">
       <MagnifyingGlass size={16} aria-hidden="true" />
-      <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索资产" aria-label="搜索资产" />
+      <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tUi("搜索资产")} aria-label={tUi("搜索资产")} />
     </label>
     <div className="creator-canvas-asset-list">
       {visibleNodes.map((node) => {
-        const meta = NODE_TYPE_BY_ID[node.type] || NODE_TYPE_BY_ID.text;
+        const meta = localizeUiCopy(NODE_TYPE_BY_ID, tUi)[node.type] || localizeUiCopy(NODE_TYPE_BY_ID, tUi).text;
         const Icon = meta.Icon;
         return <button type="button" key={node.id} onClick={() => onSelectNode(node.id)}>
           <span><Icon size={18} weight="duotone" aria-hidden="true" /></span>
@@ -415,47 +426,48 @@ export function CanvasAssetLibrary({ nodes, onClose, onSelectNode }) {
       })}
       {!visibleNodes.length ? <div className="creator-canvas-asset-empty">
         <FolderOpen size={24} aria-hidden="true" />
-        <span>暂无画布对象</span>
+        <span>{tUi("暂无画布对象")}</span>
       </div> : null}
     </div>
     <footer className="creator-canvas-assets-footer">
       <button type="button" onClick={onClose}>
         <SidebarSimple size={16} aria-hidden="true" />
-        收起资产库
-      </button>
+        {tUi("收起资产库")}</button>
     </footer>
   </aside>;
 }
 
 export function CanvasAssistant({ value, onChange, onClose }) {
-  return <aside className="creator-canvas-assistant" aria-label="AI创作助手">
+  const tUi = useProductTranslation();
+  return <aside className="creator-canvas-assistant" aria-label={tUi("AI创作助手")}>
     <header>
-      <span><Sparkle size={15} weight="fill" aria-hidden="true" />AI创作助手</span>
+      <span><Sparkle size={15} weight="fill" aria-hidden="true" />{tUi("AI创作助手")}</span>
       <div>
-        <CanvasIconButton label="对话历史"><ClockCounterClockwise size={17} /></CanvasIconButton>
-        <CanvasIconButton label="关闭AI创作助手" onClick={onClose}><X size={17} /></CanvasIconButton>
+        <CanvasIconButton label={tUi("对话历史")}><ClockCounterClockwise size={17} /></CanvasIconButton>
+        <CanvasIconButton label={tUi("关闭AI创作助手")} onClick={onClose}><X size={17} /></CanvasIconButton>
       </div>
     </header>
     <div className="creator-canvas-assistant-empty">
       <span><Sparkle size={21} weight="duotone" aria-hidden="true" /></span>
-      <strong>从项目里的任何对象开始</strong>
+      <strong>{tUi("从项目里的任何对象开始")}</strong>
     </div>
     <div className="creator-canvas-assistant-composer">
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="描述要创作或修改的内容，支持 @ 引用"
-        aria-label="与AI创作助手对话"
+        placeholder={tUi("描述要创作或修改的内容，支持 @ 引用")}
+        aria-label={tUi("与AI创作助手对话")}
       />
       <footer>
-        <CanvasIconButton label="添加附件"><Paperclip size={18} /></CanvasIconButton>
-        <CanvasIconButton label="发送消息" className="is-send" disabled={!value.trim()}><PaperPlaneRight size={17} weight="fill" /></CanvasIconButton>
+        <CanvasIconButton label={tUi("添加附件")}><Paperclip size={18} /></CanvasIconButton>
+        <CanvasIconButton label={tUi("发送消息")} className="is-send" disabled={!value.trim()}><PaperPlaneRight size={17} weight="fill" /></CanvasIconButton>
       </footer>
     </div>
   </aside>;
 }
 
 export function CanvasAddMenu({ id, state, onCreate }) {
+  const tUi = useProductTranslation();
   const isOpen = state.open;
   const isFloating = state.source !== "dock";
   const isConnection = state.source === "connection";
@@ -463,15 +475,15 @@ export function CanvasAddMenu({ id, state, onCreate }) {
     id={id}
     className={`creator-canvas-add-menu${isOpen ? " is-open" : ""}${isFloating ? " is-context" : ""}${isConnection ? " is-connection" : ""}`}
     role="menu"
-    aria-label="添加创作对象"
+    aria-label={tUi("添加创作对象")}
     aria-hidden={!isOpen}
     inert={isOpen ? undefined : true}
     style={isFloating ? { "--add-menu-x": `${state.x}px`, "--add-menu-y": `${state.y}px` } : undefined}
     onPointerDown={(event) => event.stopPropagation()}
   >
-    <div className="creator-canvas-add-menu-title">添加节点</div>
+    <div className="creator-canvas-add-menu-title">{tUi("添加节点")}</div>
     <div className="creator-canvas-add-menu-list">
-      {CANVAS_NODE_TYPES.map(({ type, label, subtitle, Icon }, index) => <button
+      {localizeUiCopy(CANVAS_NODE_TYPES, tUi).map(({ type, label, subtitle, Icon }, index) => <button
         type="button"
         role="menuitem"
         key={type}
@@ -490,25 +502,26 @@ export function CanvasAddMenu({ id, state, onCreate }) {
 }
 
 export function CanvasContextMenu({ state, canUndo, canRedo, hasSelectedNode, onOpenAssets, onOpenAddMenu, onUndo, onRedo, onReset, onRemove }) {
+  const tUi = useProductTranslation();
   const isOpen = state.open;
   return <div
     className={`creator-canvas-context-menu${isOpen ? " is-open" : ""}`}
     role="menu"
-    aria-label="画布右键菜单"
+    aria-label={tUi("画布右键菜单")}
     aria-hidden={!isOpen}
     inert={isOpen ? undefined : true}
     style={{ "--context-menu-x": `${state.x}px`, "--context-menu-y": `${state.y}px` }}
     onPointerDown={(event) => event.stopPropagation()}
   >
-    <button type="button" role="menuitem" tabIndex={isOpen ? 0 : -1} onClick={onOpenAssets}><span>打开资产库</span></button>
-    <button type="button" role="menuitem" tabIndex={isOpen ? 0 : -1} onClick={onOpenAddMenu}><span>添加节点</span><CaretRight size={16} aria-hidden="true" /></button>
+    <button type="button" role="menuitem" tabIndex={isOpen ? 0 : -1} onClick={onOpenAssets}><span>{tUi("打开资产库")}</span></button>
+    <button type="button" role="menuitem" tabIndex={isOpen ? 0 : -1} onClick={onOpenAddMenu}><span>{tUi("添加节点")}</span><CaretRight size={16} aria-hidden="true" /></button>
     <div className="creator-canvas-context-separator" role="separator" />
-    <button type="button" role="menuitem" tabIndex={isOpen ? 0 : -1} disabled={!canUndo} onClick={onUndo}><span>撤销</span><kbd>Ctrl+Z</kbd></button>
-    <button type="button" role="menuitem" tabIndex={isOpen ? 0 : -1} disabled={!canRedo} onClick={onRedo}><span>重做</span><kbd>Ctrl+Y</kbd></button>
-    <button type="button" role="menuitem" tabIndex={isOpen ? 0 : -1} onClick={onReset}><span>重置视图</span><kbd>Ctrl+0</kbd></button>
+    <button type="button" role="menuitem" tabIndex={isOpen ? 0 : -1} disabled={!canUndo} onClick={onUndo}><span>{tUi("撤销")}</span><kbd>Ctrl+Z</kbd></button>
+    <button type="button" role="menuitem" tabIndex={isOpen ? 0 : -1} disabled={!canRedo} onClick={onRedo}><span>{tUi("重做")}</span><kbd>Ctrl+Y</kbd></button>
+    <button type="button" role="menuitem" tabIndex={isOpen ? 0 : -1} onClick={onReset}><span>{tUi("重置视图")}</span><kbd>Ctrl+0</kbd></button>
     {hasSelectedNode ? <>
       <div className="creator-canvas-context-separator" role="separator" />
-      <button className="is-danger" type="button" role="menuitem" tabIndex={isOpen ? 0 : -1} onClick={onRemove}><span>删除节点</span><Trash size={16} aria-hidden="true" /></button>
+      <button className="is-danger" type="button" role="menuitem" tabIndex={isOpen ? 0 : -1} onClick={onRemove}><span>{tUi("删除节点")}</span><Trash size={16} aria-hidden="true" /></button>
     </> : null}
   </div>;
 }

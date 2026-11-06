@@ -1,3 +1,6 @@
+import { productLocaleTag } from '../../app/i18n/productCopy.js';
+import { sourceText } from "../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { SystemBarOverlay } from '../ui/SystemBarOverlay.jsx';
 import { useRegexEjsDisplay } from '../../modules/regex/index.js';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -22,14 +25,19 @@ import { prepareMarkdownTextTones, registerMarkdownTextToneHighlights } from "./
 import { useMessageToolbarMotion } from "../hooks/useMessageToolbarMotion.js";
 
 const OPENING_SWIPE_DURATION = 125;
-const timestampFormatter = new Intl.DateTimeFormat("zh-CN", {
-  year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
-});
+const timestampFormatters = new Map();
+const timestampFormatter = tUi => {
+  const locale = productLocaleTag(tUi);
+  if (!timestampFormatters.has(locale)) timestampFormatters.set(locale, new Intl.DateTimeFormat(locale, {
+    year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+  }));
+  return timestampFormatters.get(locale);
+};
 
-function formatMessageTimestamp(value) {
+function formatMessageTimestamp(value, tUi = sourceText) {
   if (!value) return "";
   const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? timestampFormatter.format(date) : "";
+  return Number.isFinite(date.getTime()) ? timestampFormatter(tUi).format(date) : "";
 }
 
 function nextPaint() {
@@ -127,13 +135,14 @@ function SettledRichPresentation({ message, presentation, renderMarkdown, fallba
 }
 
 function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode = "roleplay", avatarShape = "portrait", spacingAfter, floorNumber, showRoleplayTimestamp = true, showRoleplayFloor = true, isLatestAssistant = true, onOpenProcess, onPinAvatar, onSelectOpening, onEdit, onRegenerate, onRegenerateImage, onOpenFile, pluginActions, pluginAfter, renderMessageContent, loadImage }) {
+  const tUi = useProductTranslation();
   const { role, content, pending = false } = message;
   const renderedDisplay = useRegexEjsDisplay(message, message.displayContent ?? content ?? '');
   const displayContent = renderedDisplay.content;
   const isUser = role === "user";
   const editableContent = !isUser && message.generatedImageAttachments?.length ? message.displayContent ?? content : content;
   const roleplayTimestamp = layoutMode === "roleplay" && showRoleplayTimestamp
-    ? formatMessageTimestamp(message.created_at ?? message.createdAt)
+    ? formatMessageTimestamp(message.created_at ?? message.createdAt, tUi)
     : "";
   const roleplayFloor = layoutMode === "roleplay" && showRoleplayFloor
     && Number.isSafeInteger(floorNumber) && floorNumber >= 0;
@@ -163,11 +172,11 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
   const selectedIndex = Math.max(0, options.findIndex((option) => option.id === message.selectedOpeningId));
   const pagerSelectedIndex = Math.max(0, options.findIndex((option) => option.id === pagerOpeningId));
   const liveProcess = shouldShowInlineAgentProcess(message, displayContent)
-    ? liveProcessPresentation(message.process)
+    ? liveProcessPresentation(message.process, tUi)
     : null;
   const terminalItem = !isUser && !pending && message.process?.findLast(item =>
     item.toolName === 'turn_error' || item.toolName === 'turn_max_tokens');
-  const terminalProcess = terminalItem ? { ...processItemPresentation(terminalItem), running: false } : null;
+  const terminalProcess = terminalItem ? { ...processItemPresentation(terminalItem, tUi), running: false } : null;
   const markdownTonePresentation = useMemo(
     () => prepareMarkdownTextTones(displayContent || ""),
     [displayContent],
@@ -284,23 +293,23 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
     closePageJump(false);
     void selectOpeningAt(requestedIndex);
   }
-  const openingPager = showOpeningPager ? <div className="opening-pager" aria-label="切换开场白" aria-busy={openingSwitching || undefined}>
-    <button type="button" className="opening-pager-prev" disabled={!openingEnabled || openingSwitching || pagerSelectedIndex <= 0} onClick={() => { void selectOpeningAt(selectedIndex - 1); }} aria-label="上一条开场白"><FontAwesomeIcon icon={faChevronLeft} /></button>
-    <button type="button" className="opening-pager-next" disabled={!openingEnabled || openingSwitching || pagerSelectedIndex >= options.length - 1} onClick={() => { void selectOpeningAt(selectedIndex + 1); }} aria-label="下一条开场白"><FontAwesomeIcon icon={faChevronRight} /></button>
-    <button ref={jumpTriggerRef} type="button" className="opening-pager-index" disabled={!openingEnabled || openingSwitching} onClick={() => { setPageInput(String(pagerSelectedIndex + 1)); setJumpOpen(true); }} aria-label={`第 ${pagerSelectedIndex + 1} 条，共 ${options.length} 条开场白，点击跳转`}>{pagerSelectedIndex + 1}/{options.length}</button>
+  const openingPager = showOpeningPager ? <div className="opening-pager" aria-label={tUi("切换开场白")} aria-busy={openingSwitching || undefined}>
+    <button type="button" className="opening-pager-prev" disabled={!openingEnabled || openingSwitching || pagerSelectedIndex <= 0} onClick={() => { void selectOpeningAt(selectedIndex - 1); }} aria-label={tUi("上一条开场白")}><FontAwesomeIcon icon={faChevronLeft} /></button>
+    <button type="button" className="opening-pager-next" disabled={!openingEnabled || openingSwitching || pagerSelectedIndex >= options.length - 1} onClick={() => { void selectOpeningAt(selectedIndex + 1); }} aria-label={tUi("下一条开场白")}><FontAwesomeIcon icon={faChevronRight} /></button>
+    <button ref={jumpTriggerRef} type="button" className="opening-pager-index" disabled={!openingEnabled || openingSwitching} onClick={() => { setPageInput(String(pagerSelectedIndex + 1)); setJumpOpen(true); }} aria-label={tUi("第 {value0} 条，共 {value1} 条开场白，点击跳转", {value0: pagerSelectedIndex + 1, value1: options.length})}>{pagerSelectedIndex + 1}/{options.length}</button>
   </div> : null;
   const messageTools = !pending && layoutMode !== "agent" ? <div className={`message-tools${toolbar.presentedExpanded ? ' expanded' : ''}${toolbar.swapping ? ' swapping' : ''}`} ref={toolsRef}>
     <div className="message-tools-leading">
       {pluginActions}
       {toolbar.presentedExpanded ? <div className="message-tools-expanded">
-        {!isUser && message.process?.length ? <button type="button" onClick={openProcess} aria-label="查看过程" title="查看过程"><ViewProcessIcon /></button> : null}
+        {!isUser && message.process?.length ? <button type="button" onClick={openProcess} aria-label={tUi("查看过程")} title={tUi("查看过程")}><ViewProcessIcon /></button> : null}
         {!isUser ? <TurnUsage usage={message.turnUsage} compact /> : null}
-        <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || '')} aria-label="复制" title="复制"><CopyIcon emphasized={layoutMode === 'roleplay'} /></button>
-        {!isUser && message.id !== 'opening' ? <button type="button" onClick={() => onRegenerate?.(message)} aria-label="重新生成" title="重新生成"><RefreshMessageIcon emphasized={layoutMode === 'roleplay'} /></button> : null}
+        <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || '')} aria-label={tUi("复制")} title={tUi("复制")}><CopyIcon emphasized={layoutMode === 'roleplay'} /></button>
+        {!isUser && message.id !== 'opening' ? <button type="button" onClick={() => onRegenerate?.(message)} aria-label={tUi("重新生成")} title={tUi("重新生成")}><RefreshMessageIcon emphasized={layoutMode === 'roleplay'} /></button> : null}
       </div> : null}
-      {!mobileRoleplay || !toolbar.presentedExpanded ? <button type="button" onClick={() => setExpanded((value) => !value)} aria-label="更多" aria-expanded={expanded} title="更多"><MoreDotsIcon /></button> : null}
+      {!mobileRoleplay || !toolbar.presentedExpanded ? <button type="button" onClick={() => setExpanded((value) => !value)} aria-label={tUi("更多")} aria-expanded={expanded} title={tUi("更多")}><MoreDotsIcon /></button> : null}
     </div>
-    <button type="button" onClick={() => setEditing(true)} aria-label="编辑" title="编辑" disabled={!editingEnabled}><MessagePencilIcon /></button>
+    <button type="button" onClick={() => setEditing(true)} aria-label={tUi("编辑")} title={tUi("编辑")} disabled={!editingEnabled}><MessagePencilIcon /></button>
   </div> : null;
   return (
     <article
@@ -309,15 +318,15 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
       style={Number.isFinite(spacingAfter) ? { marginBottom: `${spacingAfter}px` } : undefined}
     >
       {avatar
-        ? <Avatar as="button" type="button" src={avatar} name={name} className="avatar-preview-trigger" onClick={() => setAvatarPreviewOpen(true)} aria-label={`放大${name || (isUser ? "你" : "助手")}的头像`} title="放大头像" />
+        ? <Avatar as="button" type="button" src={avatar} name={name} className="avatar-preview-trigger" onClick={() => setAvatarPreviewOpen(true)} aria-label={tUi("放大{value0}的头像", {value0: name || (isUser ? tUi("你") : tUi("助手"))})} title={tUi("放大头像")} />
         : <Avatar src={avatar} name={name} />}
-      {roleplayFloor ? <span className="message-floor" aria-label={`消息楼层 ${floorNumber}`}>#{floorNumber}</span> : null}
+      {roleplayFloor ? <span className="message-floor" aria-label={tUi("消息楼层 {value0}", {value0: floorNumber})}>#{floorNumber}</span> : null}
       <div className="message-content">
         <div className="message-heading">
           {layoutMode === "roleplay" ? <div className="message-author-line">
-            <header className="message-author">{name || (isUser ? "你" : "助手")}</header>
+            <header className="message-author">{name || (isUser ? tUi("你") : tUi("助手"))}</header>
             {roleplayTimestamp ? <time className="message-timestamp" dateTime={message.created_at ?? message.createdAt}>{roleplayTimestamp}</time> : null}
-          </div> : <header className="message-author">{name || (isUser ? "你" : "助手")}</header>}
+          </div> : <header className="message-author">{name || (isUser ? tUi("你") : tUi("助手"))}</header>}
           {layoutMode !== "roleplay" ? messageTools : null}
         </div>
         {isUser ? <ChatImageGallery images={message.inputImageAttachments || []} conversationId={message.conversationId} agentMessage={layoutMode === "agent"} loadImage={loadImage} /> : null}
@@ -337,8 +346,8 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
             }
           }}
           autoFocus={typeof document === "undefined" || document.documentElement.dataset.eleckoiMobile !== "true"}
-          aria-label="编辑消息"
-        /><div><button type="button" onClick={() => { setDraft(editableContent || ''); setEditing(false); }}>取消</button><button type="button" className="primary" onClick={saveEdit}>保存</button></div></div> : liveProcess ? <AgentProcessStatus presentation={liveProcess} onClick={openProcess} /> : displayContent ? <div ref={markdownRef} className="bubble markdown-message">
+          aria-label={tUi("编辑消息")}
+        /><div><button type="button" onClick={() => { setDraft(editableContent || ''); setEditing(false); }}>{tUi("取消")}</button><button type="button" className="primary" onClick={saveEdit}>{tUi("保存")}</button></div></div> : liveProcess ? <AgentProcessStatus presentation={liveProcess} onClick={openProcess} /> : displayContent ? <div ref={markdownRef} className="bubble markdown-message">
           {!isUser && message.generatedImageAttachments?.length ? generatedImageSegments(markdownTonePresentation.markdown, message.generatedImageAttachments, pending).map((segment, index) => segment.type === 'images'
             ? <ChatImageGallery key={`images-${index}`} images={segment.images} conversationId={message.conversationId} agentMessage={layoutMode === 'agent'} loadImage={loadImage} onRegenerateImage={onRegenerateImage} />
             : <MessagePresentation key={`text-${index}`} message={message} content={segment.content} streaming={pending || renderedDisplay.pending} renderMessageContent={renderMessageContent} />) : <MessagePresentation
@@ -352,18 +361,18 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
         {!isUser && !pending && !displayContent && !editing ? <ChatImageGallery images={message.generatedImageAttachments || []} conversationId={message.conversationId} agentMessage={layoutMode === "agent"} loadImage={loadImage} onRegenerateImage={onRegenerateImage} /> : null}
         {renderedDisplay.error ? <pre className="script-execution-error" role="alert">{renderedDisplay.error}</pre> : null}
         {pluginAfter}
-        {layoutMode === "agent" && isUser && !pending && !editing ? <div className="agent-user-actions" aria-label="用户消息操作">
-          <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || "")} aria-label="复制" title="复制" disabled={!displayContent}><CopyIcon /></button>
-          <button type="button" onClick={() => setEditing(true)} aria-label="编辑" title="编辑" disabled={!editingEnabled}><AgentPencilIcon /></button>
+        {layoutMode === "agent" && isUser && !pending && !editing ? <div className="agent-user-actions" aria-label={tUi("用户消息操作")}>
+          <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || "")} aria-label={tUi("复制")} title={tUi("复制")} disabled={!displayContent}><CopyIcon /></button>
+          <button type="button" onClick={() => setEditing(true)} aria-label={tUi("编辑")} title={tUi("编辑")} disabled={!editingEnabled}><AgentPencilIcon /></button>
         </div> : null}
-        {layoutMode === "agent" && !isUser && !pending && !editing ? <div className="agent-message-footer" aria-label="消息操作">
+        {layoutMode === "agent" && !isUser && !pending && !editing ? <div className="agent-message-footer" aria-label={tUi("消息操作")}>
           <div className="agent-message-footer-leading">
             {openingPager}
-            <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || "")} aria-label="复制" title="复制" disabled={!displayContent}><CopyIcon /></button>
-            {message.id !== "opening" ? <button type="button" onClick={() => onRegenerate?.(message)} aria-label="重新生成" title="重新生成" disabled={!onRegenerate}><RefreshMessageIcon /></button> : null}
-            {message.process?.length ? <button type="button" onClick={openProcess} aria-label="查看过程" title="查看过程"><ViewProcessIcon /></button> : null}
+            <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || "")} aria-label={tUi("复制")} title={tUi("复制")} disabled={!displayContent}><CopyIcon /></button>
+            {message.id !== "opening" ? <button type="button" onClick={() => onRegenerate?.(message)} aria-label={tUi("重新生成")} title={tUi("重新生成")} disabled={!onRegenerate}><RefreshMessageIcon /></button> : null}
+            {message.process?.length ? <button type="button" onClick={openProcess} aria-label={tUi("查看过程")} title={tUi("查看过程")}><ViewProcessIcon /></button> : null}
             <TurnUsage usage={message.turnUsage} compact />
-            <button type="button" onClick={() => setEditing(true)} aria-label="编辑" title="编辑" disabled={!editingEnabled}><AgentPencilIcon /></button>
+            <button type="button" onClick={() => setEditing(true)} aria-label={tUi("编辑")} title={tUi("编辑")} disabled={!editingEnabled}><AgentPencilIcon /></button>
           </div>
         </div> : null}
       </div>
@@ -373,10 +382,10 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
       {jumpOpen && typeof document !== "undefined" ? createPortal(
         <SystemBarOverlay className="opening-jump-backdrop" onPointerDown={() => closePageJump()}>
           <form ref={jumpDialogRef} className="opening-jump-dialog" role="dialog" aria-modal="true" aria-labelledby="opening-jump-title" onPointerDown={(event) => event.stopPropagation()} onSubmit={submitPageJump}>
-            <h2 id="opening-jump-title">跳转开场白</h2>
-            <label>页码（1–{options.length}）<input type="number" min="1" max={options.length} step="1" value={pageInput} onChange={(event) => setPageInput(event.target.value.replace(/\D/g, ''))} inputMode="numeric" autoFocus aria-invalid={Boolean(pageInput) && !requestedPageValid} aria-describedby={pageInput && !requestedPageValid ? "opening-jump-error" : undefined} /></label>
-            {pageInput && !requestedPageValid ? <small id="opening-jump-error">请输入 1 到 {options.length}</small> : null}
-            <div><button type="button" onClick={() => closePageJump()}>取消</button><button type="submit" className="primary" disabled={!openingEnabled || !requestedPageValid}>跳转</button></div>
+            <h2 id="opening-jump-title">{tUi("跳转开场白")}</h2>
+            <label>{tUi("页码（1–")}{options.length}）<input type="number" min="1" max={options.length} step="1" value={pageInput} onChange={(event) => setPageInput(event.target.value.replace(/\D/g, ''))} inputMode="numeric" autoFocus aria-invalid={Boolean(pageInput) && !requestedPageValid} aria-describedby={pageInput && !requestedPageValid ? "opening-jump-error" : undefined} /></label>
+            {pageInput && !requestedPageValid ? <small id="opening-jump-error">{tUi("请输入 1 到 ")}{options.length}</small> : null}
+            <div><button type="button" onClick={() => closePageJump()}>{tUi("取消")}</button><button type="submit" className="primary" disabled={!openingEnabled || !requestedPageValid}>{tUi("跳转")}</button></div>
           </form>
         </SystemBarOverlay>,
         document.body,

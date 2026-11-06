@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { saveSettingLibraryFile } from '../model/settingLibraryFileSave.js';
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { EditorManagementModal } from '../../../ui/ui/EditorCollectionControls.jsx';
@@ -28,30 +29,32 @@ function Modal({ title, children, actions, onClose }) {
 }
 
 function ImportTypeDialog({ onCancel, onPick }) {
+  const tUi = useProductTranslation();
   return (
-    <Modal title="导入设定库" onClose={onCancel} actions={<Button data-dsh-control variant="outline" onClick={onCancel}>取消</Button>}>
+    <Modal title={tUi("导入设定库")} onClose={onCancel} actions={<Button data-dsh-control variant="outline" onClick={onCancel}>{tUi("取消")}</Button>}>
       <div className="setting-library-manager-choice-list">
-        <button type="button" onClick={() => onPick("eleckoi")}><ImportIcon size={20} /><span><strong>ElecKoi 设定库</strong><small>导入 ElecKoi 导出的 JSON</small></span><CaretRight size={16} /></button>
-        <button type="button" onClick={() => onPick("sillytavern")}><ImportIcon size={20} /><span><strong>酒馆世界书</strong><small>导入 SillyTavern 世界书 JSON</small></span><CaretRight size={16} /></button>
+        <button type="button" onClick={() => onPick("eleckoi")}><ImportIcon size={20} /><span><strong>{tUi("ElecKoi 设定库")}</strong><small>{tUi("导入 ElecKoi 导出的 JSON")}</small></span><CaretRight size={16} /></button>
+        <button type="button" onClick={() => onPick("sillytavern")}><ImportIcon size={20} /><span><strong>{tUi("酒馆世界书")}</strong><small>{tUi("导入 SillyTavern 世界书 JSON")}</small></span><CaretRight size={16} /></button>
       </div>
     </Modal>
   );
 }
 
 function MergeConfirmDialog({ sourceName, version, plan, onCancel, onMerge }) {
+  const tUi = useProductTranslation();
   return (
     <Modal
-      title={`并入 ${plan.entryCount} 条设定？`}
+      title={tUi("并入 {value0} 条设定？", {value0: plan.entryCount})}
       onClose={onCancel}
-      actions={<><Button data-dsh-control variant="outline" onClick={onCancel}>返回检查</Button><Button data-dsh-control variant="primary" onClick={onMerge}>并入设定</Button></>}
+      actions={<><Button data-dsh-control variant="outline" onClick={onCancel}>{tUi("返回检查")}</Button><Button data-dsh-control variant="primary" onClick={onMerge}>{tUi("并入设定")}</Button></>}
     >
-      <p className="setting-library-manager-confirm-copy">来源：{sourceName} · {versionLabel(version)}</p>
+      <p className="setting-library-manager-confirm-copy">{tUi("来源：")}{sourceName} · {versionLabel(version)}</p>
       <dl className="setting-library-merge-summary">
-        <div><dt>设定</dt><dd>{plan.entryCount}</dd></div>
-        <div><dt>新建文件夹</dt><dd>{plan.newFolderCount}</dd></div>
-        <div><dt>复用文件夹</dt><dd>{plan.mergedFolderCount}</dd></div>
-        <div><dt>重命名</dt><dd>{plan.renamedEntryCount}</dd></div>
-        <div><dt>顺序调整</dt><dd>{plan.reorderedEntryCount}</dd></div>
+        <div><dt>{tUi("设定")}</dt><dd>{plan.entryCount}</dd></div>
+        <div><dt>{tUi("新建文件夹")}</dt><dd>{plan.newFolderCount}</dd></div>
+        <div><dt>{tUi("复用文件夹")}</dt><dd>{plan.mergedFolderCount}</dd></div>
+        <div><dt>{tUi("重命名")}</dt><dd>{plan.renamedEntryCount}</dd></div>
+        <div><dt>{tUi("顺序调整")}</dt><dd>{plan.reorderedEntryCount}</dd></div>
       </dl>
     </Modal>
   );
@@ -118,6 +121,7 @@ function flattenGroups(groups) {
 
 
 export function SettingLibraryManager({ characterId, settingLibraries, library, onChange, onClose, onError }) {
+  const tUi = useProductTranslation();
   const [page, setPage] = useState("home");
   const [dialog, setDialog] = useState("");
   const [notice, setNotice] = useState("");
@@ -157,7 +161,7 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
         { id: "__self__", name: `${character?.name || character?.persona?.assistant_name || "当前角色"} · 其他版本`, versions: ownVersions },
         ...others.filter(Boolean),
       ]);
-    }).catch((cause) => alive && onError(resolveFailure(cause, { fallback: "读取导入来源失败" }).text)).finally(() => alive && setLoadingSources(false));
+    }).catch((cause) => alive && onError(resolveFailure(cause, { fallback: tUi("读取导入来源失败") }).text)).finally(() => alive && setLoadingSources(false));
     return () => { alive = false; };
   }, [page, characterId, settingLibraries]);
 
@@ -185,12 +189,12 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
       if (action.type === "import") {
         onChange(importLibraryAsVersion(current, parsed));
         setDialog("");
-        setNotice(`已导入“${versionLabel(parsed)}”，保存后生效`);
+        setNotice(tUi("已导入“{value0}”，保存后生效", {value0: versionLabel(parsed)}));
       } else {
         openSource({ id: "__file__", name: parsed.name || file.name, versions: [parsed] });
       }
     } catch (cause) {
-      onError(resolveFailure(cause, { fallback: "设定库文件读取失败" }).text);
+      onError(resolveFailure(cause, { fallback: tUi("设定库文件读取失败") }).text);
     } finally {
       fileActionRef.current = null;
     }
@@ -214,73 +218,73 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
       onError("");
       const safeName = (current.name.trim() || "setting-library").replace(/[\\/:*?"<>|]/g, "-");
       await saveSettingLibraryFile(serializeSettingLibrary({ ...current, versions: [activeVersion] }), `${safeName}.json`);
-      setNotice("设定库已导出");
+      setNotice(tUi("设定库已导出"));
     } catch (cause) {
-      if (cause?.name !== "AbortError") onError(resolveFailure(cause, { fallback: "导出设定库失败" }).text);
+      if (cause?.name !== "AbortError") onError(resolveFailure(cause, { fallback: tUi("导出设定库失败") }).text);
     }
   }
 
-  const title = page === "home" ? "设定库管理" : page === "sources" ? "并入设定库" : source?.name || "选择设定";
+  const title = page === "home" ? tUi("设定库管理") : page === "sources" ? tUi("并入设定库") : source?.name || tUi("选择设定");
 
   return (
     <>
         <input ref={fileInputRef} className="setting-library-file-input" type="file" accept=".json,application/json" onChange={handleFile} />
-      {page === "home" ? <EditorVersionManager title="角色设定库版本管理" versions={current.versions} activeVersionId={current.activeVersionId}
+      {page === "home" ? <EditorVersionManager title={tUi("角色设定库版本管理")} versions={current.versions} activeVersionId={current.activeVersionId}
         onClose={onClose} notice={notice} onSelect={id => onChange(switchLibraryVersion(current, id))}
         onCopy={name => onChange(createLibraryVersion(current, name, current.activeVersionId))}
         onCreate={name => onChange(createLibraryVersion(current, name, ''))}
         onRename={name => onChange(renameActiveVersion(current, name))} onDelete={() => onChange(deleteActiveLibraryVersion(current))}
         onImport={() => setDialog('import')} onExport={exportLibrary}
-        extraActions={[{ label: '并入设定库', Icon: ArrowsMerge, onClick: () => setPage('sources') }]} /> :
+        extraActions={[{ label: tUi("并入设定库"), Icon: ArrowsMerge, onClick: () => setPage('sources') }]} /> :
         <EditorManagementModal title={title} onClose={() => { setPage(page === 'picker' ? 'sources' : 'home'); setSource(null); }}>
         {page === "sources" ? (
         <div className="setting-library-manager-body setting-library-sources-body">
-          <p className="setting-library-manager-hint">只读取来源，不会改动其他角色。</p>
+          <p className="setting-library-manager-hint">{tUi("只读取来源，不会改动其他角色。")}</p>
           <section className="setting-library-manager-card setting-library-sources-list">
             <div className="setting-library-manager-rows">
               {sources.map((item) => (
                 <button type="button" className="setting-library-manager-row" key={item.id} disabled={!item.versions.some((version) => version.entries.some((entry) => !PINNED_ENTRY_IDS.has(entry.id)))} onClick={() => openSource(item)}>
-                  <UserCircle size={19} /><strong>{item.name}</strong><small>{item.versions.length} 个版本</small><CaretRight size={15} />
+                  <UserCircle size={19} /><strong>{item.name}</strong><small>{item.versions.length}{tUi(" 个版本")}</small><CaretRight size={15} />
                 </button>
               ))}
-              {loadingSources ? <div className="setting-library-manager-loading">正在读取其他角色…</div> : null}
+              {loadingSources ? <div className="setting-library-manager-loading">{tUi("正在读取其他角色…")}</div> : null}
             </div>
           </section>
           <section className="setting-library-manager-card">
-            <button type="button" className="setting-library-manager-row" onClick={() => requestFile({ type: "merge", expected: "auto" })}><FileText size={18} /><strong>从本地文件</strong><CaretRight size={15} /></button>
+            <button type="button" className="setting-library-manager-row" onClick={() => requestFile({ type: "merge", expected: "auto" })}><FileText size={18} /><strong>{tUi("从本地文件")}</strong><CaretRight size={15} /></button>
           </section>
         </div>
       ) : pickedVersion ? (
         <div className="setting-library-manager-body setting-library-picker-body">
           {source.versions.length > 1 ? (
-            <label className="setting-library-manager-field"><span>来源版本</span><select value={pickedVersion.id} onChange={(event) => { setVersionId(event.target.value); setCheckedIds(new Set()); }}>
+            <label className="setting-library-manager-field"><span>{tUi("来源版本")}</span><select value={pickedVersion.id} onChange={(event) => { setVersionId(event.target.value); setCheckedIds(new Set()); }}>
               {source.versions.map((version) => <option key={version.id} value={version.id}>{versionLabel(version)}</option>)}
             </select></label>
           ) : null}
           <div className="setting-library-picker-toolbar">
-            <strong>选择要并入的设定</strong>
-            <button type="button" onClick={() => toggleEntries(selectableEntries.map((entry) => entry.id), checkedIds.size !== selectableEntries.length)}>{checkedIds.size === selectableEntries.length ? "清空" : "全选"}</button>
+            <strong>{tUi("选择要并入的设定")}</strong>
+            <button type="button" onClick={() => toggleEntries(selectableEntries.map((entry) => entry.id), checkedIds.size !== selectableEntries.length)}>{checkedIds.size === selectableEntries.length ? tUi("清空") : tUi("全选")}</button>
           </div>
           <section className="setting-library-manager-card setting-library-picker-list">
-            {!rows.length ? <p>这个版本没有可并入的设定。</p> : rows.map((row) => {
+            {!rows.length ? <p>{tUi("这个版本没有可并入的设定。")}</p> : rows.map((row) => {
               if (row.kind === "entry") {
                 const checked = checkedIds.has(row.value.id);
-                return <div className="setting-library-picker-row" style={{ paddingLeft: 14 + row.depth * 18 }} key={`entry:${row.value.id}`}><TriCheckbox checked={checked} label={row.value.title} onChange={() => toggleEntries([row.value.id], !checked)} /><FileText size={16} /><span>{row.value.title || "未命名设定"}</span></div>;
+                return <div className="setting-library-picker-row" style={{ paddingLeft: 14 + row.depth * 18 }} key={`entry:${row.value.id}`}><TriCheckbox checked={checked} label={row.value.title} onChange={() => toggleEntries([row.value.id], !checked)} /><FileText size={16} /><span>{row.value.title || tUi("未命名设定")}</span></div>;
               }
               const ids = entryIdsUnder(pickedVersion.groups, pickedVersion.entries, row.value.id);
               const selectedCount = ids.filter((id) => checkedIds.has(id)).length;
               return <div className="setting-library-picker-row is-folder" style={{ paddingLeft: 14 + row.depth * 18 }} key={`group:${row.value.id}`}><TriCheckbox checked={Boolean(ids.length) && selectedCount === ids.length} mixed={selectedCount > 0 && selectedCount < ids.length} label={row.value.name} onChange={() => toggleEntries(ids, selectedCount !== ids.length)} /><FolderOpen size={16} /><strong>{row.value.name}</strong><small>{ids.length}</small></div>;
             })}
           </section>
-          <label className="setting-library-manager-field"><span>并入位置</span><select value={destinationGroupId} onChange={(event) => setDestinationGroupId(event.target.value)}>
-            <option value="">根目录</option>
+          <label className="setting-library-manager-field"><span>{tUi("并入位置")}</span><select value={destinationGroupId} onChange={(event) => setDestinationGroupId(event.target.value)}>
+            <option value="">{tUi("根目录")}</option>
             {flattenGroups(current.groups).map((group) => <option key={group.id} value={group.id}>{`${"　".repeat(group.depth)}${group.name}`}</option>)}
           </select></label>
-          <Button data-dsh-control variant="outline" type="button" className="setting-library-merge-button" disabled={!checkedIds.size} onClick={prepareMerge}>检查并入结果</Button>
+          <Button data-dsh-control variant="outline" type="button" className="setting-library-merge-button" disabled={!checkedIds.size} onClick={prepareMerge}>{tUi("检查并入结果")}</Button>
         </div>
       ) : null}</EditorManagementModal>}
         {dialog === "import" ? <ImportTypeDialog onCancel={() => setDialog("")} onPick={(expected) => requestFile({ type: "import", expected })} /> : null}
-        {mergePreview && pickedVersion ? <MergeConfirmDialog sourceName={source.name} version={pickedVersion} plan={mergePreview.plan} onCancel={() => setMergePreview(null)} onMerge={() => { onChange(mergePreview.library); setMergePreview(null); setCheckedIds(new Set()); setPage("home"); setNotice(`已并入 ${mergePreview.plan.entryCount} 条设定，保存后生效`); }} /> : null}
+        {mergePreview && pickedVersion ? <MergeConfirmDialog sourceName={source.name} version={pickedVersion} plan={mergePreview.plan} onCancel={() => setMergePreview(null)} onMerge={() => { onChange(mergePreview.library); setMergePreview(null); setCheckedIds(new Set()); setPage("home"); setNotice(tUi("已并入 {value0} 条设定，保存后生效", {value0: mergePreview.plan.entryCount})); }} /> : null}
     </>
   );
 }

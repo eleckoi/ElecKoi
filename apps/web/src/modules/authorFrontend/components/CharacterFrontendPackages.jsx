@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button, CodeBlock, FileTypeIcon, Menu, PathLabel, SegmentedTabs, languageForPath,
   IconBrowseOutlineRegular, IconChevronDownOutlineRegular, IconChevronLeftOutlineRegular,
@@ -24,6 +25,7 @@ const encode = bytes => {
 };
 
 export function CharacterFrontendPackages({ characterId, workspace, status, request, error: serviceError }) {
+  const tUi = useProductTranslation();
   const surface = useRef(null), importInput = useRef(null), resolver = useRef(null), alive = useRef(true), working = useRef(false);
   const [selection, setSelection] = useState(null), [view, setView] = useState('files');
   const [menu, setMenu] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
@@ -45,7 +47,7 @@ export function CharacterFrontendPackages({ characterId, workspace, status, requ
     if (working.current) return;
     working.current = true; setBusy(true); setError('');
     try { return await action(); }
-    catch (reason) { if (alive.current) setError(resolveFailure(reason, { fallback: '前端包操作失败，请重试。' }).text); }
+    catch (reason) { if (alive.current) setError(resolveFailure(reason, { fallback: tUi("前端包操作失败，请重试。") }).text); }
     finally { working.current = false; if (alive.current) setBusy(false); }
   };
   const ask = options => new Promise(resolve => { resolver.current = resolve; setQuestion(options); });
@@ -83,45 +85,45 @@ export function CharacterFrontendPackages({ characterId, workspace, status, requ
     if (commandId === 'export') return exportProject(target);
     if (commandId === 'default') return run(() => request('frontends.restoreDefault'));
     if (commandId === 'rename') {
-      const name = await ask({ title: '重命名前端包', label: '名称', initialValue: target.name, confirmLabel: '保存' });
+      const name = await ask({ title: tUi("重命名前端包"), label: tUi("名称"), initialValue: target.name, confirmLabel: tUi("保存") });
       if (name && alive.current) await run(() => request('frontends.updateProject', { projectId: target.id, patch: { name } }));
     }
-    if (commandId === 'delete' && await ask({ title: '移除前端包？', message: `“${target.name}”及其全部文件`, confirmLabel: '移除', danger: true }) && alive.current) {
+    if (commandId === 'delete' && await ask({ title: tUi("移除前端包？"), message: tUi("“{value0}”及其全部文件", {value0: target.name}), confirmLabel: tUi("移除"), danger: true }) && alive.current) {
       await run(() => request('frontends.delete', { projectId: target.id }));
     }
   };
   const tabs = ['preview', 'files'].map((value, index) => ({ value, id: `${id}-${value}`, panelId: `${id}-body`,
-    label: <span className="cf-tab-label">{index ? <FileTypeIcon kind="other" size={15} /> : <IconBrowseOutlineRegular size={15} />}<span>{index ? '文件' : '预览'}</span></span> }));
-  return <section ref={surface} className="cf-packages" aria-label="角色前端包" data-dsh-control aria-busy={busy}>
+    label: <span className="cf-tab-label">{index ? <FileTypeIcon kind="other" size={15} /> : <IconBrowseOutlineRegular size={15} />}<span>{index ? tUi("文件") : tUi("预览")}</span></span> }));
+  return <section ref={surface} className="cf-packages" aria-label={tUi("角色前端包")} data-dsh-control aria-busy={busy}>
     <header className="cf-toolbar">
       {project && <Menu open={menu === 'packages'} onClose={() => setMenu(null)} selectedId={project.id} className="cf-package-menu" portal
-        anchor={<Button data-dsh-control size="sm" variant="ghost" className="cf-selector" aria-label="切换前端包" disabled={busy} onClick={() => setMenu(menu === 'packages' ? null : 'packages')}>
+        anchor={<Button data-dsh-control size="sm" variant="ghost" className="cf-selector" aria-label={tUi("切换前端包")} disabled={busy} onClick={() => setMenu(menu === 'packages' ? null : 'packages')}>
           <FileTypeIcon kind="folder" size={20} /><span>{project.name}</span><IconChevronDownOutlineRegular size={14} /></Button>}
         items={workspace.projects.map(item => ({ id: item.id, label: item.name, icon: <FileTypeIcon kind="folder" size={17} /> }))}
         onSelect={next => chooseProject(workspace.projects.find(item => item.id === next))} />}
       {project && project.id !== workspace.selectedProjectId && <Button data-dsh-control size="sm" variant="primary" disabled={busy}
-        className="cf-use" onClick={() => run(() => request('frontends.select', { projectId: project.id }))}>使用此前端</Button>}
+        className="cf-use" onClick={() => run(() => request('frontends.select', { projectId: project.id }))}>{tUi("使用此前端")}</Button>}
       <div className="cf-spacer" />
-      {project && <SegmentedTabs className="cf-tabs" items={tabs} value={view} label="前端查看方式" onChange={next => { setView(next); setReading(false); }} />}
-      <Button data-dsh-control size="sm" variant={project ? 'outline' : 'primary'} aria-label="导入前端包" disabled={busy || status === 'loading' || status === 'unavailable'}
-        icon={<IconFolderCloseRegular size={16} />} onClick={() => importInput.current.click()}><span className="cf-import-label">导入前端包</span><span className="cf-import-short">导入</span></Button>
+      {project && <SegmentedTabs className="cf-tabs" items={tabs} value={view} label={tUi("前端查看方式")} onChange={next => { setView(next); setReading(false); }} />}
+      <Button data-dsh-control size="sm" variant={project ? 'outline' : 'primary'} aria-label={tUi("导入前端包")} disabled={busy || status === 'loading' || status === 'unavailable'}
+        icon={<IconFolderCloseRegular size={16} />} onClick={() => importInput.current.click()}><span className="cf-import-label">{tUi("导入前端包")}</span><span className="cf-import-short">{tUi("导入")}</span></Button>
       {project && <Menu open={menu === 'more'} onClose={() => setMenu(null)} portal align="end"
-        anchor={<Button data-dsh-control size="sm" variant="ghost" disabled={busy} aria-label="前端包更多操作" onClick={() => setMenu(menu === 'more' ? null : 'more')}><IconEllipsisOutlineRegular size={18} /></Button>}
-        items={[...(project.id !== workspace.selectedProjectId ? [{ id: 'use', label: '使用此前端', icon: <IconBrowseOutlineRegular size={16} /> }] : []),
-          { id: 'rename', label: '重命名', icon: <IconEditOutlineRegular size={16} /> },
-          { id: 'export', label: '导出前端包', icon: <ExportIcon size={16} /> },
-          { id: 'default', label: '使用默认界面', disabled: !workspace.selectedProjectId, icon: <IconRefreshOutlineRegular size={16} /> },
-          { type: 'separator', id: 'remove-group' }, { id: 'delete', label: '移除前端包', danger: true, icon: <IconTrashOutlineRegular size={16} /> }]}
+        anchor={<Button data-dsh-control size="sm" variant="ghost" disabled={busy} aria-label={tUi("前端包更多操作")} onClick={() => setMenu(menu === 'more' ? null : 'more')}><IconEllipsisOutlineRegular size={18} /></Button>}
+        items={[...(project.id !== workspace.selectedProjectId ? [{ id: 'use', label: tUi("使用此前端"), icon: <IconBrowseOutlineRegular size={16} /> }] : []),
+          { id: 'rename', label: tUi("重命名"), icon: <IconEditOutlineRegular size={16} /> },
+          { id: 'export', label: tUi("导出前端包"), icon: <ExportIcon size={16} /> },
+          { id: 'default', label: tUi("使用默认界面"), disabled: !workspace.selectedProjectId, icon: <IconRefreshOutlineRegular size={16} /> },
+          { type: 'separator', id: 'remove-group' }, { id: 'delete', label: tUi("移除前端包"), danger: true, icon: <IconTrashOutlineRegular size={16} /> }]}
         onSelect={command} />}
     </header>
     {(error || serviceError) && <div className="cf-error" role="alert">{error || serviceError}</div>}
-    {status === 'unavailable' ? <div className="cf-empty" role="alert">原生前端插件未启用</div>
-      : status === 'loading' ? <div className="cf-empty" role="status">正在读取前端包…</div>
-      : !project ? <div className="cf-empty"><FileTypeIcon kind="folder" size={44} /><h2>导入你的角色前端</h2><p>支持 HTML、ZIP</p></div>
+    {status === 'unavailable' ? <div className="cf-empty" role="alert">{tUi("原生前端插件未启用")}</div>
+      : status === 'loading' ? <div className="cf-empty" role="status">{tUi("正在读取前端包…")}</div>
+      : !project ? <div className="cf-empty"><FileTypeIcon kind="folder" size={44} /><h2>{tUi("导入你的角色前端")}</h2><p>{tUi("支持 HTML、ZIP")}</p></div>
       : <div id={`${id}-body`} className={`cf-body cf-view-${view}`} data-reading={reading || undefined} role="tabpanel" aria-labelledby={`${id}-${view}`}>
         <div className="cf-files" hidden={view !== 'files'}>
           <FrontendPackageDirectory key={project.id} files={project.files} path={path} onSelect={next => { setSelection({ projectId: project.id, path: next }); setReading(true); }} />
-          <div className="cf-document"><div className="cf-file-title"><Button data-dsh-control size="sm" variant="ghost" className="cf-file-back" aria-label="返回文件目录" onClick={() => setReading(false)}><IconChevronLeftOutlineRegular size={16} /></Button>
+          <div className="cf-document"><div className="cf-file-title"><Button data-dsh-control size="sm" variant="ghost" className="cf-file-back" aria-label={tUi("返回文件目录")} onClick={() => setReading(false)}><IconChevronLeftOutlineRegular size={16} /></Button>
             <FileTypeIcon path={path || manifestPath} size={16} /><PathLabel path={path || ''} /></div>
             <PackageDocument key={project.id} project={project} path={path} request={request} visible={view === 'files'} />
           </div>
@@ -134,6 +136,7 @@ export function CharacterFrontendPackages({ characterId, workspace, status, requ
 }
 
 function PackageDocument({ project, path, request, visible }) {
+  const tUi = useProductTranslation();
   const surface = useRef(null);
   const [loaded, setLoaded] = useState(null);
   useShadowControlStyles(surface);
@@ -145,22 +148,23 @@ function PackageDocument({ project, path, request, visible }) {
     const read = path === manifestPath ? Promise.resolve({ content: JSON.stringify(project.manifest, null, 2) })
       : request('frontends.readFile', { projectId: project.id, path });
     void read.then(result => { if (current) setLoaded({ ...identity, content: result.content }); }, reason => {
-      if (current) setLoaded({ ...identity, error: resolveFailure(reason, { fallback: '读取文件失败' }).text });
+      if (current) setLoaded({ ...identity, error: resolveFailure(reason, { fallback: tUi("读取文件失败") }).text });
     });
     return () => { current = false; };
   }, [visible, path, project.id, project.manifest, revision, request]);
-  if (!path) return <div className="cf-empty">选择文件</div>;
+  if (!path) return <div className="cf-empty">{tUi("选择文件")}</div>;
   if (imageFile(path)) return <div className="cf-image"><img key={`${path}:${revision}`} src={frontendAssetUrl(project, path, revision)} alt={path} /></div>;
   if (!textual(path)) return <div className="cf-empty"><FileTypeIcon path={path} size={40} /><span>{path.split('/').at(-1)}</span></div>;
-  if (!loaded || loaded.path !== path || loaded.revision !== revision) return <div className="cf-empty" role="status">正在读取…</div>;
+  if (!loaded || loaded.path !== path || loaded.revision !== revision) return <div className="cf-empty" role="status">{tUi("正在读取…")}</div>;
   if (loaded.error) return <div className="cf-error" role="alert">{loaded.error}</div>;
-  return <div ref={surface} className="cf-source"><CodeBlock code={loaded.content || ''} lang={languageForPath(path)} lineNumbers showHeader={false} copyLabel="复制" copiedLabel="已复制" /></div>;
+  return <div ref={surface} className="cf-source"><CodeBlock code={loaded.content || ''} lang={languageForPath(path)} lineNumbers showHeader={false} copyLabel={tUi("复制")} copiedLabel={tUi("已复制")} /></div>;
 }
 
 function PackagePreview({ project, characterId, request, revision }) {
+  const tUi = useProductTranslation();
   let entry, error;
   try { entry = characterFrontendEntry(project, characterId); }
-  catch (reason) { error = resolveFailure(reason, { fallback: '预览前端包失败' }).text; }
+  catch (reason) { error = resolveFailure(reason, { fallback: tUi("预览前端包失败") }).text; }
   return error ? <div className="cf-error" role="alert">{error}</div> : <div className="cf-preview"><AdvancedFrontendFrame nativeOnly project={project} request={request}
     entryFile={entry} revision={revision} context={{ view: 'chat', preview: true, binding: { target: 'root' }, owner: { characterId } }} /></div>;
 }

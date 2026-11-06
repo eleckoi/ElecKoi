@@ -1,17 +1,19 @@
 const { app, BrowserWindow, nativeTheme, protocol, session, ipcMain } = require('electron')
 const { spawn } = require('node:child_process')
-const { mkdtempSync, writeFileSync } = require('node:fs')
-const { tmpdir } = require('node:os')
+const { cpSync, existsSync, mkdtempSync, readFileSync, writeFileSync } = require('node:fs')
+const { networkInterfaces, tmpdir } = require('node:os')
+const { createServer } = require('node:net')
 const { dirname, join, resolve } = require('node:path')
 
 const Module = require('node:module')
-const { transformSync } = Module.createRequire(require.resolve('vite'))('esbuild')
+const { buildSync } = Module.createRequire(require.resolve('vite'))('esbuild')
 const documentPath = resolve('apps/desktop/src/main/platform/electron/dshClientDocument.ts')
 const documentModule = new Module(documentPath, module)
 documentModule.paths = module.paths
-documentModule._compile(transformSync(require('node:fs').readFileSync(documentPath, 'utf8'), {
-  loader: 'ts', format: 'cjs', target: 'es2024'
-}).code, documentPath)
+documentModule._compile(buildSync({
+  entryPoints: [documentPath], bundle: true, write: false, platform: 'node', format: 'cjs',
+  alias: { '@shared': resolve('packages/shared/src') }
+}).outputFiles[0].text, documentPath)
 const document = documentModule.exports
 protocol.registerSchemesAsPrivileged([{ scheme: 'dsh-app', privileges: {
   standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true
@@ -23,15 +25,32 @@ app.on('window-all-closed', () => {})
 let failed = false
 let host
 let window
+let protocolRegistered = false
 const diagnostics = []
 
 async function main() {
-  const { DshDesktopPluginHost, resolveDshWebFrontendDirectory } = await import('@eleckoi/desktop-host')
+  const { DshDesktopPluginHost, resolveDshWebFrontendDirectory, ELECKOI_DESKTOP_BUNDLES } = await import('@eleckoi/desktop-host')
   const packageManager = {
     entryPath: join(dirname(require.resolve('pnpm')), 'bin', 'pnpm.mjs'),
     nodeBinPath: join(__dirname, '..', 'apps', 'desktop', 'resources', 'dsh', 'node-bin')
   }
   await app.whenReady()
+  let remotePort
+  if (process.env.ELECKOI_POCKET_PROBE_PACKAGE) {
+    const { initProfile } = await import('@deepseek-ai/dsh-app-boot')
+    const { PROFILE_TEMPLATES } = await import('@deepseek-ai/dsh-official-bundles')
+    const profile = join(root, 'home', 'profiles', 'desktop')
+    const packageDirectory = resolve(process.env.ELECKOI_POCKET_PROBE_PACKAGE)
+    const metadata = JSON.parse(readFileSync(join(packageDirectory, 'package.json'), 'utf8'))
+    if (metadata.name !== 'dsh-pocket') throw new Error('Unexpected remote plugin package')
+    initProfile(profile, [...PROFILE_TEMPLATES.web.bundles, ...ELECKOI_DESKTOP_BUNDLES, metadata.name])
+    cpSync(dirname(packageDirectory), join(profile, 'node_modules'), { recursive: true })
+    const reservation = createServer()
+    await new Promise(resolve => reservation.listen(0, '127.0.0.1', resolve))
+    remotePort = reservation.address().port
+    await new Promise(resolve => reservation.close(resolve))
+    writeFileSync(join(profile, 'cordis.patch.yml'), JSON.stringify([{ id: 'dsh-pocket', config: { port: remotePort } }]))
+  }
   if (process.env.ELECKOI_PLUGIN_CLIENT_THEME === 'dark') nativeTheme.themeSource = 'dark'
   host = new DshDesktopPluginHost({
     runtimeDataRoot: root,
@@ -45,17 +64,24 @@ async function main() {
     onDiagnostic: message => diagnostics.push(`host:${message}`)
   })
   const ready = await host.start()
+  let browserUrl = ready.url
+  if (remotePort) {
+    const address = Object.values(networkInterfaces()).flat().find(row => row.family === 'IPv4' && !row.internal && /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(row.address))?.address
+    if (!address) throw new Error('The remote plugin probe needs a local network interface')
+    const firstVisit = await fetch(`http://${address}:${remotePort}/?token=synthetic-invalid`)
+    await firstVisit.body?.cancel()
+    const lanToken = join(root, 'home', 'dsh-pocket', 'token-lan')
+    const token = readFileSync(existsSync(lanToken) ? lanToken : join(root, 'home', 'dsh-pocket', 'token'), 'utf8').trim()
+    browserUrl = `http://${address}:${remotePort}/?token=${encodeURIComponent(token)}`
+  }
   const cookie = await document.authenticateDshClientHost(ready.url)
-  const renderer = resolve('apps/web/dist')
-  const assets = await document.resolveElecKoiClientAssets(renderer)
   protocol.handle('dsh-app', async request => {
     const url = new URL(request.url)
-    if (url.pathname.startsWith('/eleckoi/assets/')) return document.serveElecKoiClientAsset(request, renderer)
     if (document.isDshClientAsset(url.pathname)) return document.serveDshClientAsset(request, resolveDshWebFrontendDirectory())
     return document.forwardDshClientRequest(request, ready.url, cookie)
   })
-  ipcMain.handle('eleckoi:dsh-client-boot', () => ({ injections: [...ready.injections,
-    { kind: 'global', name: '__ELECKOI_CLIENT_ASSETS__', value: assets }], streamBaseUrl: new URL(ready.url).origin }))
+  protocolRegistered = true
+  ipcMain.handle('eleckoi:dsh-client-boot', () => ({ injections: ready.injections, streamBaseUrl: new URL(ready.url).origin }))
   ipcMain.handle('eleckoi:dsh-client-boot-failed', (_event, error) => diagnostics.push(error))
   ipcMain.handle('dsh-desktop:updates-status', () => ({ phase: 'disabled', currentVersion: app.getVersion(), availableVersion: null, releaseName: null, releaseNotes: null, releaseDate: null, downloadSizeBytes: null, progress: null, message: null }))
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['ws://127.0.0.1/*'] }, (details, callback) => {
@@ -66,7 +92,7 @@ async function main() {
     width: 1280,
     height: 850,
     show: false,
-    webPreferences: { preload: resolve('apps/desktop/out/preload/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, offscreen: true, backgroundThrottling: false }
+    webPreferences: { ...(process.argv.includes('--browser') ? {} : { preload: resolve('apps/desktop/out/preload/preload.cjs') }), contextIsolation: true, nodeIntegration: false, sandbox: true, offscreen: true, backgroundThrottling: false }
   })
   window.webContents.on('console-message', details => {
     diagnostics.push(`console:${details.level}:${details.message}`)
@@ -74,7 +100,13 @@ async function main() {
   window.webContents.on('did-fail-load', (_event, code, description, url) => {
     diagnostics.push(`load:${code}:${description}:${url}`)
   })
-  await window.loadURL('dsh-app://app/')
+  let loadTimeout
+  try {
+    await Promise.race([
+      window.loadURL(process.argv.includes('--browser') ? browserUrl : 'dsh-app://app/'),
+      new Promise((_, reject) => { loadTimeout = setTimeout(() => reject(new Error('Client navigation timed out:\n' + diagnostics.slice(-30).join('\n'))), 40_000) })
+    ])
+  } finally { clearTimeout(loadTimeout) }
   const deadline = Date.now() + 30_000
   let navigationReady = false
   while (Date.now() < deadline) {
@@ -85,6 +117,12 @@ async function main() {
   if (!navigationReady) {
     const body = await window.webContents.executeJavaScript('document.body.innerText')
     throw new Error(`DSH client did not show plugin navigation: ${body.slice(0, 1000)}\n${diagnostics.slice(-100).join('\n')}`)
+  }
+  if (process.argv.includes('--browser')) {
+    const inputs = await window.webContents.executeJavaScript(`({ assets: globalThis.__ELECKOI_CLIENT_ASSETS__, preload: typeof globalThis.dshDesktopBoot })`)
+    if (!inputs.assets?.script?.startsWith('/eleckoi/assets/') || inputs.preload !== 'undefined') {
+      throw new Error('Browser product boot depends on desktop inputs: ' + JSON.stringify(inputs))
+    }
   }
   await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('button')).find(button => button.getAttribute('aria-label') === '插件' || button.getAttribute('aria-label') === 'Plugins')?.click()`)
   let pluginPage = ''
@@ -107,6 +145,41 @@ async function main() {
       await new Promise(resolve => setTimeout(resolve, 100))
     }
     throw new Error(message)
+  }
+  if (process.argv.includes('--browser')) {
+    const frames = []
+    await waitFor(`Boolean(document.querySelector('[data-plugin-panel] [data-plugin-package]'))`, 'Browser plugin inventory did not finish loading')
+    const remoteStatus = await window.webContents.executeJavaScript(`(async () => {
+      const method = 'eleckoiSystem/status'
+      const response = await fetch('/api/' + method, { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ type: 'client-request', rpcId: 'synthetic-browser-check', method, payload: { args: {} } }) })
+      const body = await response.json()
+      if (!response.ok || body.result?.ok === false) throw new Error('Browser Remote call failed')
+      return body.result.value ?? body.result
+    })()`)
+    if (remoteStatus.architecture !== 'dsh-remote') throw new Error('Browser did not reach the product Host')
+    for (const width of [1280, 800, 390]) {
+      window.setContentSize(width, 850)
+      await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+      if (width === 390) {
+        await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.side-panel-collapse-button, [data-sidebar-toggle]')).find(button => button.getBoundingClientRect().width > 0 && !button.closest('[inert]'))?.click()`)
+        await waitFor(`document.querySelector('[data-plugin-panel]')?.getBoundingClientRect().width > 250`, 'Narrow browser sidebar did not close')
+      }
+      await waitFor(`Boolean(document.querySelector('[data-plugin-panel]'))`, 'Browser plugin page did not render')
+      const frame = await window.webContents.executeJavaScript(`({ width: innerWidth, product: typeof globalThis.__ELECKOI_DSH_APP__, nativeControls: document.querySelectorAll('.window-controls').length, preload: typeof globalThis.dshDesktopBoot, overflow: document.documentElement.scrollWidth > innerWidth })`)
+      if (Math.abs(frame.width - width) > 1 || frame.product !== 'function' || frame.nativeControls || frame.preload !== 'undefined') {
+        throw new Error('Unexpected browser frame: ' + JSON.stringify(frame))
+      }
+      frames.push(frame)
+      if (process.env.ELECKOI_BROWSER_PROBE_REPORT) writeFileSync(`${process.env.ELECKOI_BROWSER_PROBE_REPORT}-${width}.png`, (await window.webContents.capturePage()).toPNG())
+    }
+    await window.loadURL(new URL('/', browserUrl).href)
+    await waitFor(`Boolean(document.querySelector('button[aria-label="插件"], button[aria-label="Plugins"]'))`, 'Browser cold navigation did not restore product UI')
+    const unexpectedErrors = diagnostics.filter(message => message.startsWith('console:error:') || message.startsWith('load:'))
+    if (unexpectedErrors.length) throw new Error(unexpectedErrors.join('\n'))
+    if (process.env.ELECKOI_BROWSER_PROBE_REPORT) writeFileSync(process.env.ELECKOI_BROWSER_PROBE_REPORT + '.json', JSON.stringify({ remotePlugin: Boolean(remotePort), frames, remoteStatus, reopened: true, errors: unexpectedErrors }, null, 2))
+    process.stdout.write((remotePort ? 'Remote plugin proxy' : 'HTTP browser') + ' without preload rendered product navigation and the official plugin center, then reopened successfully: ' + JSON.stringify(frames) + '\n')
+    return
   }
   const pluginList = `Boolean(document.querySelector('[data-plugin-group="extensions"]'))`
   const backSelector = '[data-plugin-panel] header button[aria-label="返回插件"], [data-plugin-panel] header button[aria-label="Back to plugins"]'
@@ -308,7 +381,7 @@ main().catch(error => {
     if (window && !window.isDestroyed()) await window.loadURL('about:blank')
     window?.destroy()
     await host?.close()
-    protocol.unhandle('dsh-app')
+    if (protocolRegistered) protocol.unhandle('dsh-app')
   } finally {
     const cleaner = spawn(process.execPath, ['-e', `(${cleanupAfterExit.toString()})()`, String(process.pid), root], {
       env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, detached: true, windowsHide: true, stdio: 'ignore'

@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { DEFAULT_INSPECTOR_WIDTH, inspectorWidthBounds } from '../hooks/editorSidebarSizing.js';
 import { useInspectorPresence } from '../hooks/useInspectorPresence.js';
@@ -8,6 +9,7 @@ export function EditorSidebarLayout({
   as: Element = 'section', className = '', paneClassName = '', overlay = true,
   inspector, inspectorTitle, inspectorActions, onCloseInspector, feedback, children, preferredWidth, onWidthChange, ...props
 }) {
+  const tUi = useProductTranslation();
   const layoutRef = useRef(null);
   const pageRef = useRef(null);
   const [localWidth, setLocalWidth] = useState(DEFAULT_INSPECTOR_WIDTH);
@@ -97,7 +99,7 @@ export function EditorSidebarLayout({
         <div className={`editor-sidebar-pane ${paneClassName}${overlay ? ' is-overlay' : ''}${presence.closing ? ' is-closing' : ''}`}
           inert={presence.closing} onAnimationEnd={presence.onAnimationEnd}>
           <div className="editor-sidebar-resizer" role="separator" aria-orientation="vertical" tabIndex={0}
-            aria-label="调整编辑器宽度" aria-valuemin={min} aria-valuemax={max} aria-valuenow={Math.round(width)}
+            aria-label={tUi("调整编辑器宽度")} aria-valuemin={min} aria-valuemax={max} aria-valuenow={Math.round(width)}
             onPointerDown={(event) => {
               if (event.button !== 0) return;
               event.preventDefault();

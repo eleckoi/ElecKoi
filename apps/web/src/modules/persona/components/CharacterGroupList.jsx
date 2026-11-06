@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useSidebarGroupCollapse } from '../../../ui/hooks/useSidebarGroupCollapse.js';
 import { ChevronRightIcon } from "../../../ui/icons/index.jsx";
 import { CharacterContactRow } from "./CharacterContactRow.jsx";
@@ -22,6 +23,7 @@ export function CharacterGroupList({
   onDragEnd,
   onGroupContextMenu,
 }) {
+  const tUi = useProductTranslation();
   const keepCollapsedHeading = useSidebarGroupCollapse(collapsedGroups);
   return [ALL_CHARACTERS, ...groups].map((group) => {
     const isAllCharacters = group === ALL_CHARACTERS;
@@ -70,10 +72,10 @@ export function CharacterGroupList({
           onDragEnd={onDragEnd}
         >
           <span>
-            <span className={`character-group-toggle ${collapsed ? "collapsed" : ""}`} title={collapsed ? "展开分组" : "收起分组"}>
+            <span className={`character-group-toggle ${collapsed ? "collapsed" : ""}`} title={collapsed ? tUi("展开分组") : tUi("收起分组")}>
               <ChevronRightIcon />
             </span>
-            {group}
+            {isAllCharacters ? tUi(ALL_CHARACTERS) : group}
           </span>
           <em>{groupCharacters.length}</em>
         </button>

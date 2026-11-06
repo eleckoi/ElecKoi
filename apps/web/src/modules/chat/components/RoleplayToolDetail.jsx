@@ -1,8 +1,10 @@
+import { sourceText } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { resultReadingBadge, resultTextSegments, resultValueText } from '../model/roleplayToolResults.js';
 
-function detailParts(entry, result) {
+function detailParts(entry, result, tUi = sourceText) {
   const data = entry.source;
   const parts = [{ kind: 'header' }];
   const append = (text, kind = 'text', label = '') => {
@@ -13,7 +15,7 @@ function detailParts(entry, result) {
       `${label}：${value.kind === 'text_page' ? `本次返回 ${value.returned_chars} / ${value.total_chars} 字符` : `本次返回 ${value.returned} / ${value.total} 项`}${value.has_more ? ' · 尚有未返回内容' : ''}`, 'note');
     append(resultValueText(value), 'field', label);
   };
-  if (entry.requiredOnly) append(`${resultReadingBadge(entry, result.domain)?.label || '必读'}，位于本次搜索范围之外。`, 'note');
+  if (entry.requiredOnly) append(`${resultReadingBadge(entry, result.domain, tUi)?.label || '必读'}，位于本次搜索范围之外。`, 'note');
   if (data?.selection_hint) append(data.selection_hint, 'note');
   if (data?.resolved_references?.length) append(`本回合引用：${data.resolved_references.map(item => item.title).join('、')}`, 'note');
   if (data?.error) append(typeof data.error.message === 'string' ? data.error.message : resultValueText(data.error), 'error');
@@ -37,8 +39,9 @@ function detailParts(entry, result) {
 }
 
 export function ToolResultDetail({ entry, result }) {
+  const tUi = useProductTranslation();
   const scrollRef = useRef(null);
-  const parts = useMemo(() => detailParts(entry, result), [entry, result]);
+  const parts = useMemo(() => detailParts(entry, result, tUi), [entry, result, tUi]);
   const estimateSize = useCallback(index => {
     const part = parts[index];
     if (part.kind === 'header') return 62;
@@ -56,7 +59,7 @@ export function ToolResultDetail({ entry, result }) {
     if (element) observer.observe(element);
     return () => observer.disconnect();
   }, [virtualizer]);
-  return <div className="roleplay-result-detail-scroll" ref={scrollRef} role="region" aria-label="选中条目详情">
+  return <div className="roleplay-result-detail-scroll" ref={scrollRef} role="region" aria-label={tUi("选中条目详情")}>
     <div className="roleplay-result-detail-space" style={{ height: virtualizer.getTotalSize() }} data-detail-part-count={parts.length}>
       {virtualizer.getVirtualItems().map(item => {
         const part = parts[item.index];
@@ -73,14 +76,16 @@ export function ToolResultDetail({ entry, result }) {
 }
 
 function DetailHeader({ entry, result }) {
+  const tUi = useProductTranslation();
   const data = entry.source;
   return <div className="roleplay-result-card">
     <header><strong>{entry.title}</strong>{result.domain === 'variables' && data?.type ? <span>{data.type}</span> : null}<ResultReadingBadge entry={entry} domain={result.domain} /></header>
-    <p className="roleplay-result-path">{data?.group_path === '' ? '根目录' : data?.group_path ?? entry.path}</p>
+    <p className="roleplay-result-path">{data?.group_path === '' ? tUi("根目录") : data?.group_path ?? entry.path}</p>
   </div>;
 }
 
 export function ResultReadingBadge({ entry, domain }) {
-  const badge = resultReadingBadge(entry, domain);
+  const tUi = useProductTranslation();
+  const badge = resultReadingBadge(entry, domain, tUi);
   return badge ? <span className="roleplay-reading-badge" data-reading-kind={badge.kind}>{badge.label}</span> : null;
 }

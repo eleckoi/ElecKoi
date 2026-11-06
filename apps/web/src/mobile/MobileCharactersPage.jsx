@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { useEffect, useMemo, useState } from 'react';
@@ -21,6 +22,7 @@ import { MobileSaveFeedback } from './MobileSaveFeedback.jsx';
 import './mobile-character-editor.css';
 
 export function MobileCharactersPage() {
+  const tUi = useProductTranslation();
   const view = useMainPageView();
   const { chat, characters, route } = view;
   const [group, setGroup] = useState('');
@@ -56,7 +58,7 @@ export function MobileCharactersPage() {
           try { await characters.duplicate(id); copied += 1; }
           catch (cause) { failures.push({ id, cause }); }
         }
-        if (copied) chat.notify('info', `已复制 ${copied} 张角色卡`);
+        if (copied) chat.notify('info', tUi("已复制 {value0} 张角色卡", {value0: copied}));
         if (failures.length) {
           setSelectedIds(failures.map(item => item.id));
           throw failures[0].cause;
@@ -66,7 +68,7 @@ export function MobileCharactersPage() {
         if (result.canceled) {
           const writtenIds = new Set(result.written.map(item => item.characterId));
           setSelectedIds(current => current.filter(id => !writtenIds.has(id)));
-          if (result.written.length) chat.notify('info', `已导出 ${result.written.length} 张角色卡`);
+          if (result.written.length) chat.notify('info', tUi("已导出 {value0} 张角色卡", {value0: result.written.length}));
           if (result.failures.length) throw new DesktopError(ELECKOI_FAILURE_CODES.internal, result.failures.map(item => item.message).join('\n'), { what: '批量角色卡导出' });
           return;
         }
@@ -74,7 +76,7 @@ export function MobileCharactersPage() {
           setSelectedIds(result.failures.map(item => item.characterId));
           throw new DesktopError(ELECKOI_FAILURE_CODES.internal, result.failures.map(item => item.message).join('\n'), { what: '批量角色卡导出' });
         }
-        chat.notify('info', `已导出 ${result.written.length} 张角色卡`);
+        chat.notify('info', tUi("已导出 {value0} 张角色卡", {value0: result.written.length}));
       }
       setSelection(''); setSelectedIds([]);
       setDeleteOpen(false);
@@ -84,7 +86,7 @@ export function MobileCharactersPage() {
     <CharacterEditorWindow embeddedCharacterId={route.characterId} characterCatalog={characters} characterConfiguration={view.characterConfiguration}
       compact registerBackHandler={view.registerBackHandler}
       navigationGuardRef={view.guardRef} renderCharacterEditorSection={view.renderCharacterEditorSection}
-      renderHeader={({ saving, dirty, save, subpage, feedback }) => <MobileHeader title={subpage?.title || '编辑角色'} back={subpage?.back || view.goBack}>{subpage?.actions}<MobileSaveFeedback {...feedback} onNotify={chat.notify} successMessage="角色配置已保存" />{!subpage && <button type="button" disabled={saving || !dirty} onClick={save}>保存</button>}</MobileHeader>} />
+      renderHeader={({ saving, dirty, save, subpage, feedback }) => <MobileHeader title={subpage?.title || tUi("编辑角色")} back={subpage?.back || view.goBack}>{subpage?.actions}<MobileSaveFeedback {...feedback} onNotify={chat.notify} successMessage={tUi("角色配置已保存")} />{!subpage && <button type="button" disabled={saving || !dirty} onClick={save}>{tUi("保存")}</button>}</MobileHeader>} />
   </div>;
   if (route.kind === 'character-groups') return <MobileCharacterGroups groups={groups} characters={chat.characters.items} persona={chat.persona} onSave={chat.saveCharacterGroups} onClose={view.goBack} renderGrid={props => <CharacterGrid {...props} scrollKey="character-group-picker" />} />;
   if (route.kind === 'character-profile') {
@@ -94,22 +96,22 @@ export function MobileCharactersPage() {
       onStartConversation: id => { if (!view.routeBusy) view.openCharacterConversation(id); },
       onEditCharacter: openEditor, onCreateFirstCharacter: create };
     const fallback = <CharacterProfilePanel {...owner} presentation="single" />;
-    return <div className="mobile-root-page"><MobileHeader title="角色" back={view.goBack} />{character ? <div className="mobile-character-profile">
+    return <div className="mobile-root-page"><MobileHeader title={tUi("角色")} back={view.goBack} />{character ? <div className="mobile-character-profile">
       {view.renderCharacterPageSection?.('profile', owner, fallback) ?? fallback}
-    </div> : <MobileState empty="角色不存在" />}</div>;
+    </div> : <MobileState empty={tUi("角色不存在")} />}</div>;
   }
   return <div className="mobile-root-page">
-    <MobileHeader title="角色" onSearch={view.openSearch}>
-      <button type="button" aria-label="角色操作" aria-haspopup="menu" aria-expanded={Boolean(menu)} disabled={busy || Boolean(selection)} onClick={event => setMenu(event.currentTarget)}><MobileOverflowIcon /></button>
+    <MobileHeader title={tUi("角色")} onSearch={view.openSearch}>
+      <button type="button" aria-label={tUi("角色操作")} aria-haspopup="menu" aria-expanded={Boolean(menu)} disabled={busy || Boolean(selection)} onClick={event => setMenu(event.currentTarget)}><MobileOverflowIcon /></button>
     </MobileHeader>
-    {selection && <MobileSelectionHeader title="选择角色" summary={`${selectedIds.length} 张`} busy={busy} onCancel={cancelSelection} onAll={() => {
+    {selection && <MobileSelectionHeader title={tUi("选择角色")} summary={tUi("{value0} 张", {value0: selectedIds.length})} busy={busy} onCancel={cancelSelection} onAll={() => {
       const ids = [...new Set([...selectedIds, ...visible.map(item => item.id)])];
       setSelectedIds(ids);
     }}>
-      {selection === 'export' && <select aria-label="导出格式" value={format} disabled={busy} onChange={event => setFormat(event.target.value)}><option value="png">PNG</option><option value="json">JSON</option></select>}
-      <button type="button" className={selection === 'delete' ? 'is-destructive' : 'is-confirm'} disabled={busy || !selectedIds.length} onClick={() => selection === 'delete' ? setDeleteOpen(true) : finishSelection()}>{selection === 'delete' ? '删除' : selection === 'duplicate' ? '复制' : '导出'}</button>
+      {selection === 'export' && <select aria-label={tUi("导出格式")} value={format} disabled={busy} onChange={event => setFormat(event.target.value)}><option value="png">PNG</option><option value="json">JSON</option></select>}
+      <button type="button" className={selection === 'delete' ? 'is-destructive' : 'is-confirm'} disabled={busy || !selectedIds.length} onClick={() => selection === 'delete' ? setDeleteOpen(true) : finishSelection()}>{selection === 'delete' ? tUi("删除") : selection === 'duplicate' ? tUi("复制") : tUi("导出")}</button>
     </MobileSelectionHeader>}
-    <CharacterGrid characters={visible} persona={chat.persona} selectedIds={selectedIds} selection={selection} filters={<div className="mobile-group-tabs" role="group" aria-label="角色分组"><button type="button" aria-pressed={!group} onClick={() => setGroup('')}>全部{!group && <span>{chat.characters.items.length}</span>}</button>
+    <CharacterGrid characters={visible} persona={chat.persona} selectedIds={selectedIds} selection={selection} filters={<div className="mobile-group-tabs" role="group" aria-label={tUi("角色分组")}><button type="button" aria-pressed={!group} onClick={() => setGroup('')}>{tUi("全部")}{!group && <span>{chat.characters.items.length}</span>}</button>
       {groups.map(name => <button type="button" key={name} aria-pressed={group === name} onClick={() => setGroup(name)}>{name}{group === name && <span>{chat.characters.items.filter(item => characterGroup(item) === name).length}</span>}</button>)}
     </div>} onClick={item => {
       if (!selection) { chat.selectCharacter(item.id); view.pushRoute({ kind: 'character-profile', characterId: item.id }); return; }
@@ -118,31 +120,33 @@ export function MobileCharactersPage() {
       else setSelectedIds([...selectedIds, item.id]);
     }} />
     {error && <p className="mobile-inline-error" role="alert">{error}</p>}
-    {deleteOpen && <MobileConfirm title="删除角色？" onClose={() => setDeleteOpen(false)} busy={busy} onConfirm={finishSelection} error={error}>确认删除已选的 {selectedIds.length} 张角色卡？</MobileConfirm>}
-    {menu && <MobileActionMenu title="角色操作" anchor={menu} onClose={() => setMenu(null)} busy={busy} actions={[
-      { label: '新建角色', icon: <MobileLibraryIcon name="character" />, action: create },
-      { label: '分组管理', icon: <MobileLibraryIcon name="gear" />, divider: true, action: () => { setMenu(null); view.pushRoute({ kind: 'character-groups' }); } },
-      { label: '复制角色卡', icon: <Copy size={21} />, action: () => { setMenu(null); setSelection('duplicate'); setSelectedIds([]); setError(''); } },
-      { label: '导入角色卡', icon: <MobileLibraryIcon name="import" />, action: () => { setMenu(null); setImportOpen(true); } },
-      ...['export', 'delete'].map(mode => ({ label: mode === 'export' ? '导出角色卡' : '删除角色卡', icon: <MobileLibraryIcon name={mode === 'export' ? 'export' : 'trash'} />, destructive: mode === 'delete', divider: mode === 'delete', action: () => { setMenu(null); setSelection(mode); setSelectedIds([]); setError(''); } })),
+    {deleteOpen && <MobileConfirm title={tUi("删除角色？")} onClose={() => setDeleteOpen(false)} busy={busy} onConfirm={finishSelection} error={error}>{tUi("确认删除已选的 ")}{selectedIds.length}{tUi(" 张角色卡？")}</MobileConfirm>}
+    {menu && <MobileActionMenu title={tUi("角色操作")} anchor={menu} onClose={() => setMenu(null)} busy={busy} actions={[
+      { label: tUi("新建角色"), icon: <MobileLibraryIcon name="character" />, action: create },
+      { label: tUi("分组管理"), icon: <MobileLibraryIcon name="gear" />, divider: true, action: () => { setMenu(null); view.pushRoute({ kind: 'character-groups' }); } },
+      { label: tUi("复制角色卡"), icon: <Copy size={21} />, action: () => { setMenu(null); setSelection('duplicate'); setSelectedIds([]); setError(''); } },
+      { label: tUi("导入角色卡"), icon: <MobileLibraryIcon name="import" />, action: () => { setMenu(null); setImportOpen(true); } },
+      ...['export', 'delete'].map(mode => ({ label: mode === 'export' ? tUi("导出角色卡") : tUi("删除角色卡"), icon: <MobileLibraryIcon name={mode === 'export' ? 'export' : 'trash'} />, destructive: mode === 'delete', divider: mode === 'delete', action: () => { setMenu(null); setSelection(mode); setSelectedIds([]); setError(''); } })),
     ]} />}
     {importOpen && <CharacterImportDialog onClose={() => setImportOpen(false)} onPrepare={chat.prepareCharacterImports} onDiscard={chat.discardCharacterImports} onImported={chat.importPreparedCharacters} />}
   </div>;
 }
 
 function CharacterCover({ character }) {
+  const tUi = useProductTranslation();
   const source = assetSrc(characterCover(character));
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [source]);
   return source && !failed ? <img className="mobile-character-cover" src={source} alt="" loading="lazy" onError={() => setFailed(true)} />
-    : <span className="mobile-cover-empty"><MobilePictureFrameIcon />暂无封面</span>;
+    : <span className="mobile-cover-empty"><MobilePictureFrameIcon />{tUi("暂无封面")}</span>;
 }
 export function CharacterGrid({ characters, persona, selection, selectedIds, onClick, filters, scrollKey = 'characters' }) {
+  const tUi = useProductTranslation();
   const ref = useMobileScroll(scrollKey);
-  const author = persona?.user_name || '用户';
-  return <div className={`mobile-scroll mobile-character-list${characters.length ? '' : ' is-empty'}`} ref={ref}>{filters}<MobileWaterfall>{characters.map((character, index) => <button type="button" key={character.id} aria-label={characterName(character)} className="mobile-character-card" style={{ '--mobile-cover-ratio': [0.76, 0.68, 0.84, 0.72][index % 4] }} onClick={() => onClick(character)} aria-pressed={selection ? selectedIds.includes(character.id) : undefined}>
-    <CharacterCover character={character} /><strong>{characterName(character)}</strong>
+  const author = persona?.user_name || tUi("用户");
+  return <div className={`mobile-scroll mobile-character-list${characters.length ? '' : ' is-empty'}`} ref={ref}>{filters}<MobileWaterfall>{characters.map((character, index) => <button type="button" key={character.id} aria-label={characterName(character, tUi)} className="mobile-character-card" style={{ '--mobile-cover-ratio': [0.76, 0.68, 0.84, 0.72][index % 4] }} onClick={() => onClick(character)} aria-pressed={selection ? selectedIds.includes(character.id) : undefined}>
+    <CharacterCover character={character} /><strong>{characterName(character, tUi)}</strong>
     <span className="mobile-character-author"><Avatar as="span" name={author} src={persona?.user_avatar} /><span>{author}</span></span>
     {selection && <CheckCircle className="mobile-card-check" size={23} weight={selectedIds.includes(character.id) ? 'fill' : 'regular'} />}
-  </button>)}</MobileWaterfall>{!characters.length && <MobileState empty="暂无角色" />}</div>;
+  </button>)}</MobileWaterfall>{!characters.length && <MobileState empty={tUi("暂无角色")} />}</div>;
 }

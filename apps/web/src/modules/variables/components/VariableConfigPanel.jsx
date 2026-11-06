@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Copy, MagnifyingGlass, PencilSimple, Plus, Scissors, SlidersHorizontal, Trash } from "../../../ui/icons/interfaceIcons.jsx";
 import { ConfirmationDialog, SaveControl } from "../../settingLibraries/index.js";
@@ -40,6 +41,7 @@ function destinationParent(config, selected) {
 }
 
 export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ characterId, variables, onDirtyChange }, ref) {
+  const tUi = useProductTranslation();
   const { compact } = useEditorPresentation();
   const [config, setConfig] = useState(null);
   const [persisted, setPersisted] = useState(null);
@@ -101,7 +103,7 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
     const cached = variables.getSnapshot(characterId);
     if (cached.status === "ready") adopt(cached.value);
     void variables.read(characterId).catch((cause) => {
-      if (active) setError(resolveFailure(cause, { fallback: "读取变量配置失败" }).text);
+      if (active) setError(resolveFailure(cause, { fallback: tUi("读取变量配置失败") }).text);
     });
     return () => { active = false; stop(); };
   }, [characterId, variables]);
@@ -134,7 +136,7 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
         setNotice("saved");
         return true;
       } catch (cause) {
-        setError(resolveFailure(cause, { fallback: "保存变量配置失败" }).text);
+        setError(resolveFailure(cause, { fallback: tUi("保存变量配置失败") }).text);
         return false;
       } finally {
         setSaving(false);
@@ -274,7 +276,7 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
     const item = target.kind === "object" ? configRef.current.objects.find((entry) => entry.id === target.id) : configRef.current.variables.find((entry) => entry.id === target.id);
     if (!item || target.id === VARIABLE_INITIALIZATION_OBJECT_ID) return;
     const label = target.kind === "object" ? item.name : item.title;
-    setDeleteTarget({ ...target, title: `删除“${label || "未命名条目"}”？`, message: target.kind === "object" ? "变量组内的子变量组和变量也会一起删除，保存后生效。" : "变量会在保存后删除。" });
+    setDeleteTarget({ ...target, title: tUi("删除“{value0}”？", {value0: label || tUi("未命名条目")}), message: target.kind === "object" ? tUi("变量组内的子变量组和变量也会一起删除，保存后生效。") : tUi("变量会在保存后删除。") });
     setContextMenu(null);
   }
 
@@ -303,7 +305,7 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
     const clipboard = clipboardRef.current;
     if (!clipboard) return;
     if (!canTransferVariableNode(configRef.current, clipboard.target, parentId)) {
-      setError('不能粘贴到此变量组，请选择其他位置。'); return;
+      setError(tUi("不能粘贴到此变量组，请选择其他位置。")); return;
     }
     if (clipboard.mode === "cut") {
       changeConfig((current) => moveVariableNode(current, clipboard.target, parentId, Number.MAX_SAFE_INTEGER), false);
@@ -361,11 +363,11 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [dirty, saving, selectedKey, config]);
 
-  const createItems = [{ label: '变量组', Icon: VariableGroupIcon, run: () => addNode('object') },
-    { label: '变量', Icon: VariableEntryIcon, run: () => addNode('variable') }];
+  const createItems = [{ label: tUi("变量组"), Icon: VariableGroupIcon, run: () => addNode('object') },
+    { label: tUi("变量"), Icon: VariableEntryIcon, run: () => addNode('variable') }];
   return (
-    <EditorSidebarLayout className={`variable-layout${multi.active ? ' is-multiselect' : ''}`} aria-label="变量配置"
-      inspectorTitle={selected.value?.id === VARIABLE_INITIALIZATION_OBJECT_ID ? '变量运行配置' : selected.kind === 'object' ? '编辑变量组' : '编辑变量'}
+    <EditorSidebarLayout className={`variable-layout${multi.active ? ' is-multiselect' : ''}`} aria-label={tUi("变量配置")}
+      inspectorTitle={selected.value?.id === VARIABLE_INITIALIZATION_OBJECT_ID ? tUi("变量运行配置") : selected.kind === 'object' ? tUi("编辑变量组") : tUi("编辑变量")}
       onCloseInspector={closeInspector}
       feedback={<SaveControl dirty={dirty} error={error} notice={notice} saving={saving} onSave={save} />}
       onMouseDown={() => setAddOpen(false)}
@@ -381,12 +383,12 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
         />
       ) : null}>
       <div className="variable-browser editor-collection-browser">
-        <EditorCollectionToolbar query={query} onQueryChange={setQuery} placeholder="搜索变量" disabled={saving || !config}
+        <EditorCollectionToolbar query={query} onQueryChange={setQuery} placeholder={tUi("搜索变量")} disabled={saving || !config}
           selection={{ ...multi, toggle: () => { multi.toggle(); selectNode(''); setEditing(false); setContextMenu(null); } }}
           createItems={createItems}
           onManage={() => setManagerOpen(true)} save={<SaveControl dirty={dirty} error={error} notice={notice} saving={saving} onSave={save} />} />
         <EditorSelectionBar selection={multi} visibleIds={visibleTreeSelectionIds(nodes, query)} disabled={saving} onCopy={copySelected}
-          onDelete={() => setDeleteTarget({ kind: 'batch', ids: selectedTreeRootIds(nodes, multi.selected), title: `删除选中的 ${multi.selected.size} 项？`, message: '所选变量组及其内容会在保存后删除。' })} />
+          onDelete={() => setDeleteTarget({ kind: 'batch', ids: selectedTreeRootIds(nodes, multi.selected), title: tUi("删除选中的 {value0} 项？", {value0: multi.selected.size}), message: tUi("所选变量组及其内容会在保存后删除。") })} />
         <div className="variable-tree editor-sidebar-directory" onContextMenu={openBackgroundMenu} onMouseDown={(event) => { if (event.button === 0 && !event.target.closest('[role="treeitem"]')) selectNode(''); }}>
           <VariableTreeActionsContext.Provider value={{ openContextMenu, toggleNode, selection: multi, saving, openEditor: compact && !multi.active ? openEditor : undefined }}>
             <VariableConfigTree
@@ -402,16 +404,16 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
               onMove={handleMove}
             />
           </VariableTreeActionsContext.Provider>
-          {!config ? <p className="variable-loading" role={error ? 'alert' : 'status'}>{error || '正在读取…'}</p> : !searchHasResults ? <p className="variable-empty">没有匹配的变量</p> : null}
+          {!config ? <p className="variable-loading" role={error ? 'alert' : 'status'}>{error || tUi("正在读取…")}</p> : !searchHasResults ? <p className="variable-empty">{tUi("没有匹配的变量")}</p> : null}
         </div>
-        {compact && config && !multi.active && <MobileEditorActions label="变量操作" selectionId={selectedKey} busy={saving} createItems={createItems}
+        {compact && config && !multi.active && <MobileEditorActions label={tUi("变量操作")} selectionId={selectedKey} busy={saving} createItems={createItems}
           canEdit={Boolean(selected.value)} canModify={Boolean(selected.value) && selected.value.id !== VARIABLE_INITIALIZATION_OBJECT_ID}
           clipboard={clipboard} canPaste={Boolean(clipboard && canTransferVariableNode(config, clipboard.target, parentForNewNode()))}
           onEdit={openEditor} onMove={() => copyOrCut('cut', parseNodeKey(selectedKey))}
           onPaste={() => paste(parentForNewNode())} onCancel={clearClipboard} onDelete={() => askDelete(parseNodeKey(selectedKey))}
           moreItems={selected.value && selected.value.id !== VARIABLE_INITIALIZATION_OBJECT_ID ? [
-            { label: '复制', Icon: Copy, run: () => copyOrCut('copy', parseNodeKey(selectedKey)) },
-            { label: '重命名', Icon: PencilSimple, run: () => { openEditor(); requestAnimationFrame(() => nameInputRef.current?.select()); } },
+            { label: tUi("复制"), Icon: Copy, run: () => copyOrCut('copy', parseNodeKey(selectedKey)) },
+            { label: tUi("重命名"), Icon: PencilSimple, run: () => { openEditor(); requestAnimationFrame(() => nameInputRef.current?.select()); } },
           ] : []} />}
       </div>
 
@@ -419,20 +421,20 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
         <VariableConfigManager config={config} onChange={applyManagerChange} onClose={() => setManagerOpen(false)} onError={setError} />
       ) : null}
 
-      {contextMenu ? <EditorContextMenu menu={contextMenu} label="变量操作" onClose={() => setContextMenu(null)} actions={[
+      {contextMenu ? <EditorContextMenu menu={contextMenu} label={tUi("变量操作")} onClose={() => setContextMenu(null)} actions={[
         ...(['background', 'object'].includes(contextMenu.kind) ? [
-          { label: '新建变量组', icon: VariableGroupIcon, run: () => addNode('object', contextMenu.parentId) },
-          { label: '新建变量', icon: VariableEntryIcon, run: () => addNode('variable', contextMenu.parentId) },
-          ...(clipboardRef.current ? [{ label: '粘贴', icon: Copy, run: () => paste(contextMenu.parentId) }] : []),
+          { label: tUi("新建变量组"), icon: VariableGroupIcon, run: () => addNode('object', contextMenu.parentId) },
+          { label: tUi("新建变量"), icon: VariableEntryIcon, run: () => addNode('variable', contextMenu.parentId) },
+          ...(clipboardRef.current ? [{ label: tUi("粘贴"), icon: Copy, run: () => paste(contextMenu.parentId) }] : []),
         ] : []),
         ...(contextMenu.kind !== 'background' ? [
-          { label: '复制', icon: Copy, run: () => copyOrCut('copy', { kind: contextMenu.kind, id: contextMenu.id }) },
-          { label: '剪切', icon: Scissors, run: () => copyOrCut('cut', { kind: contextMenu.kind, id: contextMenu.id }) },
-          { label: '重命名', icon: PencilSimple, run: () => { openEditor(nodeKey(contextMenu.kind, contextMenu.id)); requestAnimationFrame(() => nameInputRef.current?.select()); } },
-          { label: '删除', icon: Trash, danger: true, run: () => askDelete({ kind: contextMenu.kind, id: contextMenu.id }) },
+          { label: tUi("复制"), icon: Copy, run: () => copyOrCut('copy', { kind: contextMenu.kind, id: contextMenu.id }) },
+          { label: tUi("剪切"), icon: Scissors, run: () => copyOrCut('cut', { kind: contextMenu.kind, id: contextMenu.id }) },
+          { label: tUi("重命名"), icon: PencilSimple, run: () => { openEditor(nodeKey(contextMenu.kind, contextMenu.id)); requestAnimationFrame(() => nameInputRef.current?.select()); } },
+          { label: tUi("删除"), icon: Trash, danger: true, run: () => askDelete({ kind: contextMenu.kind, id: contextMenu.id }) },
         ] : []),
       ].map(action => ({ ...action, disabled: saving }))} /> : null}
-      <ConfirmationDialog target={deleteTarget} confirmLabel="删除" tone="destructive" onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
+      <ConfirmationDialog target={deleteTarget} confirmLabel={tUi("删除")} tone="destructive" onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
     </EditorSidebarLayout>
   );
 });

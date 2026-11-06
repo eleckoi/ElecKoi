@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../i18n/ProductLocaleContext.jsx";
 import { useCallback, useEffect, useState } from "react";
 import { applyAppearanceTheme } from "../../modules/appearance/index.js";
 import {
@@ -21,6 +22,7 @@ function normalizeCharacters(collection) {
 }
 
 export function CharacterManagerWindow({ characterCatalog, personaModel, renderCharacterManager }) {
+  const tUi = useProductTranslation();
   const [characters, setCharacters] = useState(EMPTY_CHARACTERS);
   const [persona, setPersona] = useState(EMPTY_PERSONA);
   const [loaded, setLoaded] = useState(false);
@@ -33,7 +35,7 @@ export function CharacterManagerWindow({ characterCatalog, personaModel, renderC
       setPersona(nextPersona || EMPTY_PERSONA);
       setLoadError(null);
     } catch (cause) {
-      setLoadError(cause ?? "读取角色卡失败。");
+      setLoadError(cause ?? tUi("读取角色卡失败。"));
     } finally {
       setLoaded(true);
     }
@@ -41,7 +43,7 @@ export function CharacterManagerWindow({ characterCatalog, personaModel, renderC
 
   useEffect(() => {
     applyAppearanceTheme(null);
-    document.title = "角色卡管理器 - ElecKoi";
+    document.title = tUi("角色卡管理器 - ElecKoi");
     showCurrentWindow().catch(bestEffort);
     const updateCharacters = () => {
       const snapshot = characterCatalog.getSnapshot();
@@ -62,7 +64,7 @@ export function CharacterManagerWindow({ characterCatalog, personaModel, renderC
     updatePersona();
     void refresh();
     return () => { stopCharacters(); stopPersona(); };
-  }, [characterCatalog, personaModel, refresh]);
+  }, [characterCatalog, personaModel, refresh, tUi]);
 
   async function persistGroups(groups, assignments = []) {
     const saved = await characterCatalog.saveGroups(groups, assignments);
@@ -116,7 +118,7 @@ export function CharacterManagerWindow({ characterCatalog, personaModel, renderC
     <main className="qq-shell management-window-shell">
       <TitleBar splitSurface />
       <section className="management-window-content">
-        {!loaded ? <p className="management-window-state">正在读取…</p> : loadError ? (
+        {!loaded ? <p className="management-window-state">{tUi("正在读取…")}</p> : loadError ? (
           <FailureAlert failure={loadError}
             className="management-window-state is-error" onRetry={() => void refresh()} />
         ) : (

@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { DshNewChatIcon } from '../../../ui/icons/dshComposerIcons.jsx';
@@ -11,6 +12,7 @@ import { CreatorStudioHero } from './CreatorStudioHero.jsx';
 /** Desktop assembly of the shared Studio Session with native views and resident input. */
 export function CreatorStudioConversation({ model, editing = false, creating = false, models, presetCatalog, title, onCreate, onSelectCharacter, onError,
   sessionId, useSession, useInput, useWorkspaces, useSessionStatus, useProjection, useInspectCall, useConversationViews, useEntryPins, useEntryActions, setPinned, useStore, actions, openView, selectView, renderHeaderSlot, renderSlot, renderSlotChain }) {
+  const tUi = useProductTranslation();
   const session = useSession(value => value), input = useInput(value => value);
   const hero = session.blank;
   const pendingInteraction = useSessionStatus(value => value.get(sessionId)?.pendingInteraction);
@@ -56,7 +58,7 @@ export function CreatorStudioConversation({ model, editing = false, creating = f
     renderModelLabel={owner => renderSlot('eleckoi.creator-studio.model.label', owner, { fallback: owner.model.name }) ?? owner.model.name}
     onSaveModelConfig={config => models.save(config)}
     onLoadModels={config => models.discover(config)} onNotify={notify} onSelect={selection => model.selectModel({ provider: selection.configId, model: selection.model })} />;
-  const resident = renderSlot('eleckoi.creator-studio.composer.bar', { variant: hero ? 'hero' : 'composer', placeholder: hero ? '发消息或创建任务，/ 调用指令，@ 文件或对话' : '输入消息', leadingAccessory: menu, modelAccessory: modelPicker });
+  const resident = renderSlot('eleckoi.creator-studio.composer.bar', { variant: hero ? 'hero' : 'composer', placeholder: hero ? tUi("发消息或创建任务，/ 调用指令，@ 文件或对话") : tUi("输入消息"), leadingAccessory: menu, modelAccessory: modelPicker });
   const inputSeat = renderSlotChain('eleckoi.creator-studio.composer', { sessionId, session, pendingInteraction }, { fallback: resident, overlay: true });
   return <div className="creator-simple-conversation" data-phase={hero ? 'hero' : 'active'}>
     {hero ? <div className="creator-studio-hero-corner">{renderHeaderSlot('eleckoi.creator-studio.session.header.corner', {})}</div> : <header className="creator-simple-chat-header">
@@ -64,12 +66,12 @@ export function CreatorStudioConversation({ model, editing = false, creating = f
         {renderHeaderSlot('eleckoi.creator-studio.session.header.actions', {})}
         <div className="creator-simple-header-actions">
           {renderHeaderSlot('eleckoi.creator-studio.session.header.utilities', {})}
-          <button type="button" aria-label="新建工作室对话" title="新建对话" disabled={creating} onClick={onCreate}><DshNewChatIcon size={20} /></button>
+          <button type="button" aria-label={tUi("新建工作室对话")} title={tUi("新建对话")} disabled={creating} onClick={onCreate}><DshNewChatIcon size={20} /></button>
           {renderHeaderSlot('eleckoi.creator-studio.session.header.corner', {})}
         </div>
       </div>
       <div className="creator-simple-view-row">
-        <div role="tablist" aria-label="工作室视图" data-conversation-tabs="">{tabs.filter(tab => !unpinned.includes(tab.id)).map(({ id, label }) => <button type="button" role="tab" key={id}
+        <div role="tablist" aria-label={tUi("工作室视图")} data-conversation-tabs="">{tabs.filter(tab => !unpinned.includes(tab.id)).map(({ id, label }) => <button type="button" role="tab" key={id}
           aria-selected={active?.id === id} onClick={() => selectView(id)}><span className="creator-simple-view-label">{label}</span></button>)}</div>
         {hasEntryActions ? <DshEntryActionsMenu region="conversation" renderActions={onDismiss => renderHeaderSlot('eleckoi.creator-studio.session.header.views.actions', {
           entries: tabs.filter(tab => unpinned.includes(tab.id)).map(tab => ({ id: tab.id, label: tab.label, pinned: false, active: tab.id === active?.id })),
@@ -85,12 +87,12 @@ export function CreatorStudioConversation({ model, editing = false, creating = f
       </div>
     </div>
     {tools && <AgentToolsDialog purpose="creator" presetCatalog={presetCatalog} onNotify={notify} onClose={() => setTools(false)} onManage={() => openPresetManagerWindow('creator')} />}
-    <Modal open={!!messages} title="删除消息" closeLabel="关闭" onClose={() => !deleting && setMessages(null)} className="creator-simple-message-dialog"
-      footer={<button type="button" disabled={!selectedMessage || deleting} onClick={removeMessages}>删除</button>}>
+    <Modal open={!!messages} title={tUi("删除消息")} closeLabel={tUi("关闭")} onClose={() => !deleting && setMessages(null)} className="creator-simple-message-dialog"
+      footer={<button type="button" disabled={!selectedMessage || deleting} onClick={removeMessages}>{tUi("删除")}</button>}>
       <FailureAlert failure={deleteError} className="creator-simple-error" />
       <div className="creator-simple-message-list">{messages?.filter(message => message.text.trim()).map(message => <label key={message.eventSeq}>
         <input type="radio" name="creator-message-delete" checked={selectedMessage?.eventSeq === message.eventSeq} onChange={() => setSelectedMessage(message)} /><span>{message.text}</span>
-      </label>)}</div><p>删除选中的消息及之后的内容</p>
+      </label>)}</div><p>{tUi("删除选中的消息及之后的内容")}</p>
     </Modal>
   </div>;
 }

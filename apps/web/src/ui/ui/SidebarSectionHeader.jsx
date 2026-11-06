@@ -1,12 +1,15 @@
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { forwardRef, useRef } from "react";
 import { Button, Input, IconCloseFillRegular, IconSearchOutlineRegular } from "@deepseek-ai/dsh-client-ui-primitives";
 import { SidebarCreateButton } from "./SidebarCreateButton.jsx";
 import "../styles/sidebar-section-header.css";
 
 export const SidebarSectionHeader = forwardRef(function SidebarSectionHeader({
-  title, value, onValueChange, placeholder, searchLabel = `搜索${title}`,
+  title, value, onValueChange, placeholder, searchLabel: searchLabelSource,
   createLabel, createExpanded, onCreate, onCreatePointerDown, onSearchFocus,
 }, ref) {
+  const tUi = useProductTranslation();
+  const searchLabel = searchLabelSource === undefined ? tUi("搜索{value0}", {value0: title}) : searchLabelSource;
   const searchInput = useRef(null);
 
   function clearSearch() {
@@ -21,7 +24,7 @@ export const SidebarSectionHeader = forwardRef(function SidebarSectionHeader({
           value={value} onChange={(event) => onValueChange(event.target.value)}
           placeholder={placeholder} aria-label={searchLabel} onFocus={onSearchFocus}
           onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); clearSearch(); } }} />
-        <Button data-dsh-control type="button" variant="ghost" size="sm" className="sidebar-section-search-clear" aria-label="清空搜索"
+        <Button data-dsh-control type="button" variant="ghost" size="sm" className="sidebar-section-search-clear" aria-label={tUi("清空搜索")}
           onClick={(event) => { event.stopPropagation(); clearSearch(); }}><IconCloseFillRegular size={14} /></Button>
       </div>
       <SidebarCreateButton title={createLabel} expanded={createExpanded}

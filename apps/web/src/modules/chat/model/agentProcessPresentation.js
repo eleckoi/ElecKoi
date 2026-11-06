@@ -1,3 +1,4 @@
+import { sourceText } from "../../../app/i18n/productCopy.js";
 import { rootProcessItems } from './agentProcessHierarchy.js';
 
 const settingMutations = new Set([
@@ -15,14 +16,14 @@ const actions = {
   update_plan: '更新任务计划', update_roleplay_plan: '更新角色扮演计划', todo_write: '更新任务计划',
 };
 
-export function processItemPresentation(item) {
+export function processItemPresentation(item, tUi = sourceText) {
   if (item.toolName === 'turn_error' || item.toolName === 'turn_max_tokens') {
-    return { title: item.toolName === 'turn_error' ? '生成失败' : '输出达到模型长度上限', target: '', icon: 'description' };
+    return { title: item.toolName === 'turn_error' ? tUi("生成失败") : tUi("输出达到模型长度上限"), target: '', icon: 'description' };
   }
   if (item.toolName === 'model_retry') return { title: item.summary, target: '', icon: 'description' };
   if (item.kind === 'reasoning' || item.toolName === 'reasoning') {
     return {
-      title: item.status === 'running' ? '正在思考' : item.status === 'error' ? '思考中断' : '思考过程',
+      title: item.status === 'running' ? tUi("正在思考") : item.status === 'error' ? tUi("思考中断") : tUi("思考过程"),
       target: '',
       icon: 'reasoning',
     };
@@ -31,31 +32,31 @@ export function processItemPresentation(item) {
     return { title: item.summary || item.detail || '', target: '', icon: 'description' };
   }
   if (item.toolName === 'approval') {
-    const title = item.status === 'running' ? '等待授权'
-      : item.status === 'complete' ? '已授权一次'
-        : item.status === 'cancelled' ? '授权已取消' : '已安全拒绝高风险操作';
+    const title = item.status === 'running' ? tUi("等待授权")
+      : item.status === 'complete' ? tUi("已授权一次")
+        : item.status === 'cancelled' ? tUi("授权已取消") : tUi("已安全拒绝高风险操作");
     return { title, target: targetOf(item), icon: 'wrench' };
   }
   if (item.kind === 'subagent' || item.toolName === 'subagent' || item.toolName === 'subagent_fork') {
     const target = [targetOf(item), item.delegatedModel].filter(Boolean).join(' · ');
-    return { title: stateTitle(item, '子 Agent 正在处理', '子 Agent 已完成', '子 Agent 运行失败'), target, icon: 'groups' };
+    return { title: stateTitle(item, tUi("子 Agent 正在处理"), tUi("子 Agent 已完成"), tUi("子 Agent 运行失败"), tUi), target, icon: 'groups' };
   }
-  if (item.kind === 'compaction') return { title: stateTitle(item, '正在自动压缩', '上下文已自动压缩', '自动压缩失败'), target: targetOf(item), icon: 'description' };
-  const action = settingMutations.has(item.toolName) ? '修改对话设定' : actions[item.toolName];
+  if (item.kind === 'compaction') return { title: stateTitle(item, tUi("正在自动压缩"), tUi("上下文已自动压缩"), tUi("自动压缩失败"), tUi), target: targetOf(item), icon: 'description' };
+  const action = settingMutations.has(item.toolName) ? tUi("修改对话设定") : tUi(actions[item.toolName] || "");
   if (settingMutations.has(item.toolName) && item.status === 'complete') {
     const result = object(item.summary);
     if (result.status && result.status !== 'ok') {
-      return { title: `${action}失败`, target: targetOf(item), icon: 'edit' };
+      return { title: tUi("{value0}失败", {value0: action}), target: targetOf(item), icon: 'edit' };
     }
-    if (result.changed === false) return { title: '设定未变化', target: targetOf(item), icon: 'edit' };
+    if (result.changed === false) return { title: tUi("设定未变化"), target: targetOf(item), icon: 'edit' };
   }
   const title = action
-    ? item.status === 'running' ? `正在${action}` : item.status === 'error' ? `${action}失败` : item.status === 'cancelled' ? `${action}已取消` : `已${action}`
-    : genericTitle(item);
+    ? item.status === 'running' ? tUi("正在{value0}", {value0: action}) : item.status === 'error' ? tUi("{value0}失败", {value0: action}) : item.status === 'cancelled' ? tUi("{value0}已取消", {value0: action}) : tUi("已{value0}", {value0: action})
+    : genericTitle(item, tUi);
   return { title, target: targetOf(item), icon: iconOf(item) };
 }
 
-export function liveProcessPresentation(items) {
+export function liveProcessPresentation(items, tUi = sourceText) {
   const roots = rootProcessItems(items || []).filter(Boolean);
   if (!roots.length) return null;
   let active;
@@ -64,17 +65,17 @@ export function liveProcessPresentation(items) {
     if (!active || (item.startedAtMillis ?? 0) >= (active.startedAtMillis ?? 0)) active = item;
   }
   if (active) {
-    const presentation = processItemPresentation(active);
+    const presentation = processItemPresentation(active, tUi);
     const native = liveToolActivities[active.toolName];
-    return { ...presentation, ...(native ? { title: native[0], icon: native[1] } : {}),
+    return { ...presentation, ...(native ? { title: tUi(native[0]), icon: native[1] } : {}),
       target: liveToolDetail(active), running: true };
   }
   const latest = roots.at(-1);
-  if (latest.kind === 'compaction') return { ...processItemPresentation(latest), running: latest.status === 'running' };
+  if (latest.kind === 'compaction') return { ...processItemPresentation(latest, tUi), running: latest.status === 'running' };
   const reasoning = roots.findLast(item => item.status === 'running'
     && (item.kind === 'reasoning' || item.toolName === 'reasoning') && (item.detail || item.summary)?.trim());
   const paragraph = (reasoning?.detail || reasoning?.summary || '').split(/\r?\n[\t ]*\r?\n/).findLast(text => text.trim());
-  return { title: '正在分析请求', icon: 'thinking', target: liveDetail((paragraph || '').replaceAll('**', '')), running: true };
+  return { title: tUi("正在分析请求"), icon: 'thinking', target: liveDetail((paragraph || '').replaceAll('**', '')), running: true };
 }
 
 const liveToolActivities = {
@@ -115,12 +116,12 @@ export function shouldShowInlineAgentProcess(message, displayedContent) {
     && !String(displayedContent || '').trim();
 }
 
-function stateTitle(item, running, complete, failed) {
-  return item.status === 'running' ? running : item.status === 'error' ? failed : item.status === 'cancelled' ? '已取消' : complete;
+function stateTitle(item, running, complete, failed, tUi = sourceText) {
+  return item.status === 'running' ? running : item.status === 'error' ? failed : item.status === 'cancelled' ? tUi("已取消") : complete;
 }
-function genericTitle(item) {
-  const name = item.toolName || '工具';
-  return item.status === 'running' ? `正在运行 ${name}` : item.status === 'error' ? `${name} 运行失败` : item.status === 'cancelled' ? `${name} 已取消` : `已运行 ${name}`;
+function genericTitle(item, tUi = sourceText) {
+  const name = item.toolName || tUi("工具");
+  return item.status === 'running' ? tUi("正在运行 {value0}", {value0: name}) : item.status === 'error' ? tUi("{value0} 运行失败", {value0: name}) : item.status === 'cancelled' ? tUi("{value0} 已取消", {value0: name}) : tUi("已运行 {value0}", {value0: name});
 }
 function targetOf(item) {
   const args = object(item.arguments);

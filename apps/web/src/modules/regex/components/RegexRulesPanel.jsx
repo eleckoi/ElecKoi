@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { forwardRef, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
@@ -31,13 +33,14 @@ import '../styles/regex-rules.css';
 import '../styles/regex-manager.css';
 
 export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId, presetId, regexRules, onDirtyChange, manageSaveShortcut = true }, ref) {
+  const tUi = useProductTranslation();
   const { compact } = useEditorPresentation();
   const context = useEditorContextMenu();
   const ownerScope = presetId === undefined ? 'character' : 'preset', ownerId = presetId ?? characterId;
   const [activeScope, setActiveScope] = useState(ownerScope), scopePanelId = useId();
   useEffect(() => setActiveScope(ownerScope), [ownerScope, ownerId]);
   const editor = useMemo(() => regexRules.editor(ownerScope, ownerId), [regexRules, ownerScope, ownerId]);
-  const scopes = useMemo(() => REGEX_SCOPES.filter(scope => scope.id === 'Global' || scope.id === (ownerScope === 'preset' ? 'AgentPreset' : 'Character')), [ownerScope]);
+  const scopes = useMemo(() => localizeUiCopy(REGEX_SCOPES, tUi).filter(scope => scope.id === 'Global' || scope.id === (ownerScope === 'preset' ? 'AgentPreset' : 'Character')), [ownerScope, tUi]);
   const visibleScopes = scopes.filter(scope => scope.id === (activeScope === 'global' ? 'Global' : ownerScope === 'preset' ? 'AgentPreset' : 'Character'));
   const [collection, setCollection] = useState(null);
   const [persisted, setPersisted] = useState(null);
@@ -103,7 +106,7 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
           || baseline.ownerRevision !== loaded.ownerRevision;
         if (changed) {
           pendingLatestRef.current = loaded;
-          setError("正则配置已更新；请放弃本页未保存修改后载入最新内容。");
+          setError(tUi("正则配置已更新；请放弃本页未保存修改后载入最新内容。"));
         }
         return;
       }
@@ -121,11 +124,11 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
     const stopListening = editor.subscribe((snapshot) => {
       if (!active) return;
       if (snapshot.status === "ready") acceptLatest(snapshot.value, !collectionRef.current);
-      if (snapshot.status === "error") setError(snapshot.error || "同步正则配置失败");
+      if (snapshot.status === "error") setError(snapshot.error || tUi("同步正则配置失败"));
     });
     const cached = editor.getSnapshot();
     if (cached.status === "ready") acceptLatest(cached.value, true);
-    void editor.read().catch((cause) => active && setError(resolveFailure(cause, { fallback: "读取正则配置失败" }).text));
+    void editor.read().catch((cause) => active && setError(resolveFailure(cause, { fallback: tUi("读取正则配置失败") }).text));
     return () => {
       active = false;
       stopListening();
@@ -163,7 +166,7 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
         setNotice("saved");
         return true;
       } catch (cause) {
-        setError(resolveFailure(cause, { fallback: "保存正则配置失败" }).text);
+        setError(resolveFailure(cause, { fallback: tUi("保存正则配置失败") }).text);
         return false;
       } finally {
         savingRef.current = false;
@@ -228,7 +231,7 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
 
   function askDeleteSelected() {
     if (!selected) return;
-    setDeleteTarget({ id: selected.rule.id, title: `删除“${selected.rule.name || "未命名规则"}”？`, message: "规则会在保存后删除。" });
+    setDeleteTarget({ id: selected.rule.id, title: tUi("删除“{value0}”？", {value0: selected.rule.name || tUi("未命名规则")}), message: tUi("规则会在保存后删除。") });
   }
 
   function confirmDeleteSelected() {
@@ -240,16 +243,16 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
 
   function ruleActions(rule, scopeId) {
     return [
-      { label: '重命名', Icon: NotePencil, run: () => { setSelectedId(rule.id); setEditing(true); } },
-      { label: '复制', Icon: Copy, run: () => changeCollection(current => duplicateRegexRules(current, [rule.id])) },
-      { label: rule.enabled ? '停用' : '启用', Icon: Power, run: () => changeCollection(current => updateRegexRule(current, scopeId, rule.id, { enabled: !rule.enabled })) },
-      { label: '删除', Icon: Trash, danger: true, run: () => setDeleteTarget({ id: rule.id, title: `删除“${rule.name}”？`, message: '规则会在保存后删除。' }) },
+      { label: tUi("重命名"), Icon: NotePencil, run: () => { setSelectedId(rule.id); setEditing(true); } },
+      { label: tUi("复制"), Icon: Copy, run: () => changeCollection(current => duplicateRegexRules(current, [rule.id])) },
+      { label: rule.enabled ? tUi("停用") : tUi("启用"), Icon: Power, run: () => changeCollection(current => updateRegexRule(current, scopeId, rule.id, { enabled: !rule.enabled })) },
+      { label: tUi("删除"), Icon: Trash, danger: true, run: () => setDeleteTarget({ id: rule.id, title: tUi("删除“{value0}”？", {value0: rule.name}), message: tUi("规则会在保存后删除。") }) },
     ];
   }
   const contextRule = context.menu?.target.ruleId && rulesForScope(collection, context.menu.target.scopeId).find(rule => rule.id === context.menu.target.ruleId);
   const menuActions = context.menu?.target.ruleId ? contextRule ? ruleActions(contextRule, context.menu.target.scopeId) : []
     : visibleScopes.filter(scope => !context.menu?.target.scopeId || scope.id === context.menu.target.scopeId)
-      .map(scope => ({ label: `新建${scope.label}`, Icon: Plus, run: () => addRule(scope.id) }));
+      .map(scope => ({ label: tUi("新建{value0}", {value0: scope.label}), Icon: Plus, run: () => addRule(scope.id) }));
   function openContext(event, target) {
     event.preventDefault(); event.stopPropagation();
     if (!multi.active) context.open(event, target);
@@ -257,8 +260,8 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
 
   const createItems = visibleScopes.map(scope => ({ label: scope.label, disabled: saving || !libraryVersions.ready, run: () => addRule(scope.id) }));
   return (
-    <EditorSidebarLayout className={`regex-layout${multi.active ? ' is-multiselect' : ''}`} aria-label="正则配置" onMouseDown={() => setAddOpen(false)}
-      inspectorTitle={selected?.rule.name || '编辑正则'} onCloseInspector={closeEditor}
+    <EditorSidebarLayout className={`regex-layout${multi.active ? ' is-multiselect' : ''}`} aria-label={tUi("正则配置")} onMouseDown={() => setAddOpen(false)}
+      inspectorTitle={selected?.rule.name || tUi("编辑正则")} onCloseInspector={closeEditor}
       feedback={<SaveControl dirty={dirty} error={error || libraryVersions.error} notice={notice} saving={saving} onSave={save} />}
       inspector={!multi.active && selected && (!compact || editing) ? (
         <RegexRuleInspector
@@ -274,17 +277,17 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
         />
       ) : null}>
       <div className="regex-browser editor-collection-browser editor-collection-material editor-collection-continuous">
-        <EditorCollectionToolbar query={query} onQueryChange={setQuery} placeholder="搜索正则" disabled={saving || !collection || !libraryVersions.ready}
+        <EditorCollectionToolbar query={query} onQueryChange={setQuery} placeholder={tUi("搜索正则")} disabled={saving || !collection || !libraryVersions.ready}
           selection={{ ...multi, toggle: () => { multi.toggle(); setSelectedId(''); setEditing(false); } }} createItems={createItems}
           onManage={() => setManagerOpen(true)} save={<SaveControl dirty={dirty} error={error || libraryVersions.error} notice={notice} saving={saving} onSave={save} />} />
         <EditorSelectionBar selection={multi} visibleIds={visibleIds} disabled={saving} onCopy={() => { changeCollection(current => duplicateRegexRules(current, [...multi.selected])); multi.clear(); }}
-          onDelete={() => setDeleteTarget({ ids: [...multi.selected], title: `删除选中的 ${multi.selected.size} 条正则？`, message: '规则会在保存后删除。' })} />
-        <div id={scopePanelId} role="tabpanel" aria-label={activeScope === 'global' ? '全局正则' : '角色正则'} className="regex-list-scroll editor-sidebar-directory" onContextMenu={event => openContext(event, {})} onMouseDown={(event) => { if (event.button === 0 && !event.target.closest(".regex-rule-row")) setSelectedId(""); }}>
-        <EditorScopeTabs value={activeScope} ownerValue={ownerScope} ownerLabel={ownerScope === 'preset' ? '预设' : '角色'} panelId={scopePanelId} onChange={next => {
+          onDelete={() => setDeleteTarget({ ids: [...multi.selected], title: tUi("删除选中的 {value0} 条正则？", {value0: multi.selected.size}), message: tUi("规则会在保存后删除。") })} />
+        <div id={scopePanelId} role="tabpanel" aria-label={activeScope === 'global' ? tUi("全局正则") : tUi("角色正则")} className="regex-list-scroll editor-sidebar-directory" onContextMenu={event => openContext(event, {})} onMouseDown={(event) => { if (event.button === 0 && !event.target.closest(".regex-rule-row")) setSelectedId(""); }}>
+        <EditorScopeTabs value={activeScope} ownerValue={ownerScope} ownerLabel={ownerScope === 'preset' ? tUi("预设") : tUi("角色")} panelId={scopePanelId} onChange={next => {
           setActiveScope(next); setSelectedId(''); setEditing(false); setDraggedId(''); context.close(); if (multi.active) multi.toggle();
         }} />
           <EditorCollectionSurface grouped>
-          {!collection && <p className="regex-loading" role={error ? 'alert' : 'status'}>{error || '正在读取…'}</p>}
+          {!collection && <p className="regex-loading" role={error ? 'alert' : 'status'}>{error || tUi("正在读取…")}</p>}
           {collection && <RegexRuleList
             scopes={visibleScopes}
             collection={collection}
@@ -305,12 +308,12 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
           />}
           </EditorCollectionSurface>
         </div>
-        {compact && collection && !multi.active && <MobileEditorActions label="正则操作" selectionId={selectedId} busy={saving} createItems={createItems} canEdit={Boolean(selected)} canModify={Boolean(selected)}
+        {compact && collection && !multi.active && <MobileEditorActions label={tUi("正则操作")} selectionId={selectedId} busy={saving} createItems={createItems} canEdit={Boolean(selected)} canModify={Boolean(selected)}
           onEdit={() => setEditing(true)} onDelete={askDeleteSelected}
           moveItems={scopes.map(scope => ({ label: scope.label, disabled: scope.id === selected?.scope, run: () => moveSelectedScope(scope.id) }))}
           moreItems={[
-            { label: '复制', Icon: Copy, run: () => changeCollection(current => duplicateRegexRules(current, [selected.rule.id])) },
-            { label: '重命名', Icon: NotePencil, run: () => setEditing(true) },
+            { label: tUi("复制"), Icon: Copy, run: () => changeCollection(current => duplicateRegexRules(current, [selected.rule.id])) },
+            { label: tUi("重命名"), Icon: NotePencil, run: () => setEditing(true) },
           ]} />}
       </div>
 
@@ -323,9 +326,9 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
           onClose={() => setManagerOpen(false)}
         />
       ) : null}
-      {context.menu && menuActions.length > 0 && <EditorContextMenu menu={context.menu} label="正则操作" onClose={context.close}
+      {context.menu && menuActions.length > 0 && <EditorContextMenu menu={context.menu} label={tUi("正则操作")} onClose={context.close}
         actions={menuActions.map(({ Icon, ...action }) => ({ ...action, icon: Icon, disabled: saving || !collection || !libraryVersions.ready }))} />}
-      <ConfirmationDialog target={deleteTarget} confirmLabel="删除" tone="destructive" onCancel={() => setDeleteTarget(null)} onConfirm={confirmDeleteSelected} />
+      <ConfirmationDialog target={deleteTarget} confirmLabel={tUi("删除")} tone="destructive" onCancel={() => setDeleteTarget(null)} onConfirm={confirmDeleteSelected} />
     </EditorSidebarLayout>
   );
 });

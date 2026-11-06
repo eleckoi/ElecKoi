@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { SystemBarOverlay } from './SystemBarOverlay.jsx';
 import React, { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -6,13 +7,16 @@ export function ConfirmationDialog({
   open,
   title,
   description,
-  confirmLabel = "确定",
-  cancelLabel = "取消",
+  confirmLabel: confirmLabelSource,
+  cancelLabel: cancelLabelSource,
   destructive = false,
   busy = false,
   onCancel,
   onConfirm,
 }) {
+  const tUi = useProductTranslation();
+  const confirmLabel = confirmLabelSource === undefined ? tUi("确定") : confirmLabelSource;
+  const cancelLabel = cancelLabelSource === undefined ? tUi("取消") : cancelLabelSource;
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef(null);
@@ -83,7 +87,7 @@ export function ConfirmationDialog({
             disabled={busy}
             onClick={onConfirm}
           >
-            {busy ? "处理中" : confirmLabel}
+            {busy ? tUi("处理中") : confirmLabel}
           </button>
         </div>
       </section>

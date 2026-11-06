@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../i18n/ProductLocaleContext.jsx";
 import { useLayoutEffect, useState } from 'react';
 import { SidebarRail } from './SidebarRail.jsx';
 import { SidePanelShell } from './SidePanelShell.jsx';
@@ -20,12 +21,13 @@ function WorkspaceSidebarSurface({ collapsed, children }) {
 }
 
 export function SidebarContent({ expanded = false, collapsed, onCollapse, sidePanel, workspaceSidebar, workspaceCollapsed = false, hasFooterActions, renderSidebarSlot, desktopMenu = false, ...railProps }) {
+  const tUi = useProductTranslation();
   const footerActions = hasFooterActions ? renderSidebarSlot?.('sidebar.footer.action', { wide: true }) : null;
   const rail = <SidebarRail {...railProps} expanded={expanded} onCollapse={onCollapse}
     renderSidebarSlot={renderSidebarSlot} footerActions={expanded ? footerActions : null} />;
   if (expanded) return rail;
   return <>
-    <section className="navigation-rail-shell" aria-label="功能导航栏">
+    <section className="navigation-rail-shell" aria-label={tUi("功能导航栏")}>
       <div className="navigation-rail-title" data-tauri-drag-region />
       {rail}
     </section>

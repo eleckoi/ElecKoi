@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
@@ -11,6 +12,7 @@ import { DshEntryActionsMenu } from '../ui/ui/DshEntryActionsMenu.jsx';
 /** Official Chat keeps its native tool cards; the resident mobile composer owns input and stats. */
 export function MobileCreatorStudioConversation({ model, headerTarget, cornerTarget, editing = false, onCreate, onSelectCharacter, onError,
   sessionId, useSession, useInput, useSessionStatus, useProjection, useInspectCall, useConversationViews, useEntryPins, useEntryActions, setPinned, useStore, actions, openView, selectView, renderHeaderSlot, renderSlot, renderSlotChain }) {
+  const tUi = useProductTranslation();
   const view = useMainPageView();
   const session = useSession(snapshot => snapshot);
   const input = useInput(snapshot => snapshot);
@@ -59,7 +61,7 @@ export function MobileCreatorStudioConversation({ model, headerTarget, cornerTar
     selectedModel={selected?.model} onLoadModels={config => view.models.discover(config)} onNotify={notify}
     onSelect={selection => model.selectModel({ provider: selection.configId, model: selection.model })} />;
   const resident = renderSlot('eleckoi.creator-studio.composer.bar', {
-    variant: 'composer', placeholder: '输入消息', submitOnEnter: false, leadingAccessory: menu, modelAccessory: picker,
+    variant: 'composer', placeholder: tUi("输入消息"), submitOnEnter: false, leadingAccessory: menu, modelAccessory: picker,
   });
   const composer = renderSlotChain('eleckoi.creator-studio.composer', {
     sessionId, session, pendingInteraction,
@@ -69,7 +71,7 @@ export function MobileCreatorStudioConversation({ model, headerTarget, cornerTar
     {cornerTarget && createPortal(renderHeaderSlot('eleckoi.creator-studio.session.header.corner', {}), cornerTarget)}
     <div className="creator-studio-session-body">
       <div className="creator-studio-view-header">
-      <div className="chat-header-tabs creator-studio-view-tabs" role="tablist" aria-label="工作室视图" data-conversation-tabs="">
+      <div className="chat-header-tabs creator-studio-view-tabs" role="tablist" aria-label={tUi("工作室视图")} data-conversation-tabs="">
         {tabs.filter(tab => !unpinned.includes(tab.id)).map(({ id, label }) => <button type="button" role="tab" key={id}
           aria-selected={active?.id === id} onClick={() => selectView(id)}>{label}</button>)}
       </div>
@@ -88,16 +90,16 @@ export function MobileCreatorStudioConversation({ model, headerTarget, cornerTar
     </div>
     {tools && <AgentToolsDialog purpose="creator" presetCatalog={view.presets} onNotify={notify}
       onClose={() => setTools(false)} onManage={view.openPresetTools} />}
-    {messages && <MobileDialog title="删除消息" busy={deleting} onClose={() => setMessages(null)} className="creator-studio-message-picker creator-studio-confirmation">
+    {messages && <MobileDialog title={tUi("删除消息")} busy={deleting} onClose={() => setMessages(null)} className="creator-studio-message-picker creator-studio-confirmation">
       <div className="creator-studio-message-list">
         {messages.map(message => <label key={message.eventSeq}><input type="radio" name="studio-delete-from"
           checked={deleteFrom?.eventSeq === message.eventSeq} onChange={() => setDeleteFrom(message)} />
           <span>{message.text}</span></label>)}
       </div>
-      <p>删除选中的消息及之后的内容</p>
+      <p>{tUi("删除选中的消息及之后的内容")}</p>
       <div className="confirmation-actions">
-        <button type="button" disabled={deleting} onClick={() => setMessages(null)}>取消</button>
-        <button type="button" className="is-destructive" disabled={!deleteFrom || deleting} onClick={removeMessages}>{deleting ? '删除中…' : '删除'}</button>
+        <button type="button" disabled={deleting} onClick={() => setMessages(null)}>{tUi("取消")}</button>
+        <button type="button" className="is-destructive" disabled={!deleteFrom || deleting} onClick={removeMessages}>{deleting ? tUi("删除中…") : tUi("删除")}</button>
       </div>
     </MobileDialog>}
   </MobileConversationPage>;

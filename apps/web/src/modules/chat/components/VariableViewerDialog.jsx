@@ -1,3 +1,6 @@
+import { productLocaleTag } from '../../../app/i18n/productCopy.js';
+import { sourceText } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -9,6 +12,7 @@ const subscribeEmptyTimeline = () => () => {};
 const getEmptyTimeline = () => EMPTY_TIMELINE;
 
 export function VariableViewerDialog({ conversationId, conversationModel, onClose, onNotify }) {
+  const tUi = useProductTranslation();
   const mobile = isMobilePresentation();
   const [showDetails, setShowDetails] = useState(false);
   const snapshotBack = useRef(null);
@@ -22,12 +26,12 @@ export function VariableViewerDialog({ conversationId, conversationModel, onClos
 
   useEffect(() => {
     if (!conversationModel) {
-      onNotify?.("error", "DSH 聊天服务尚未就绪");
+      onNotify?.("error", tUi("DSH 聊天服务尚未就绪"));
       return undefined;
     }
     let active = true;
     conversationModel.openTimeline(conversationId).catch((cause) => {
-      if (active) onNotify?.("error", cause?.message || "变量时间线读取失败");
+      if (active) onNotify?.("error", cause?.message || tUi("变量时间线读取失败"));
     });
     return () => {
       active = false;
@@ -73,7 +77,7 @@ export function VariableViewerDialog({ conversationId, conversationModel, onClos
   const selectedFloor = visibleTimeline?.floors.find((floor) => floor.id === selectedId) || null;
   const latestId = visibleTimeline?.floors.at(-1)?.id || "";
 
-  if (mobile) return <MobileConversationOverlay kind="page" title="变量查看器" className="mobile-variable-viewer" onClose={onClose}
+  if (mobile) return <MobileConversationOverlay kind="page" title={tUi("变量查看器")} className="mobile-variable-viewer" onClose={onClose}
     onBack={showDetails ? () => { if (!snapshotBack.current?.()) setShowDetails(false); } : undefined}>
     <div className="variable-viewer-body" data-page-direction={showDetails ? 'forward' : 'back'}>
       <div className="mobile-variable-timeline" hidden={showDetails}><TimelinePane timeline={visibleTimeline} loading={visibleLoading} error={visibleError} selectedId={selectedId} onSelect={id => { setSelectedId(id); setShowDetails(true); }} /></div>
@@ -93,8 +97,8 @@ export function VariableViewerDialog({ conversationId, conversationModel, onClos
       >
         <header className="variable-viewer-header">
           <span className="variable-viewer-heading-icon" aria-hidden="true"><Database weight="fill" /></span>
-          <h2 id="variable-viewer-title">变量查看器</h2>
-          <button ref={closeRef} type="button" onClick={onClose} aria-label="关闭变量查看器"><X /></button>
+          <h2 id="variable-viewer-title">{tUi("变量查看器")}</h2>
+          <button ref={closeRef} type="button" onClick={onClose} aria-label={tUi("关闭变量查看器")}><X /></button>
         </header>
         <div className="variable-viewer-body">
           <TimelinePane
@@ -113,16 +117,17 @@ export function VariableViewerDialog({ conversationId, conversationModel, onClos
 }
 
 function TimelinePane({ timeline, loading, error, selectedId, onSelect }) {
+  const tUi = useProductTranslation();
   const floors = [...(timeline?.floors || [])].reverse();
-  return <aside className="variable-timeline" aria-label="状态时间线">
+  return <aside className="variable-timeline" aria-label={tUi("状态时间线")}>
     <div className="variable-timeline-title">
-      <strong>状态时间线</strong>
-      {timeline ? <span>{timeline.current.valueCount} 个变量</span> : null}
+      <strong>{tUi("状态时间线")}</strong>
+      {timeline ? <span>{timeline.current.valueCount}{tUi(" 个变量")}</span> : null}
     </div>
     <div className="variable-floor-list">
-      {loading ? <p className="variable-viewer-empty">正在整理楼层变量</p> : null}
+      {loading ? <p className="variable-viewer-empty">{tUi("正在整理楼层变量")}</p> : null}
       {!loading && error ? <p className="variable-viewer-empty is-error">{error}</p> : null}
-      {!loading && !error && !floors.length ? <p className="variable-viewer-empty">还没有可查看的助手楼层</p> : null}
+      {!loading && !error && !floors.length ? <p className="variable-viewer-empty">{tUi("还没有可查看的助手楼层")}</p> : null}
       {floors.map((floor, index) => <button
         key={floor.id}
         type="button"
@@ -134,12 +139,12 @@ function TimelinePane({ timeline, loading, error, selectedId, onSelect }) {
         <span className="variable-floor-copy">
           <span className="variable-floor-heading">
             <strong>{floor.label}</strong>
-            {index === 0 ? <em>最新变量</em> : null}
+            {index === 0 ? <em>{tUi("最新变量")}</em> : null}
           </span>
           {floor.messagePreview ? <small>{floor.messagePreview}</small> : null}
           <span className="variable-floor-meta">
-            {floor.state?.errorMessage || (floor.id === "opening" ? "初始状态" : `${floor.changedValueCount} 处变化`)}
-            {floor.createdAt ? ` · ${formatTimestamp(floor.createdAt)}` : ""}
+            {floor.state?.errorMessage || (floor.id === "opening" ? tUi("初始状态") : tUi("{value0} 处变化", {value0: floor.changedValueCount}))}
+            {floor.createdAt ? ` · ${formatTimestamp(floor.createdAt, tUi)}` : ""}
           </span>
         </span>
         <CaretRight className="variable-floor-caret" aria-hidden="true" />
@@ -149,6 +154,7 @@ function TimelinePane({ timeline, loading, error, selectedId, onSelect }) {
 }
 
 function SnapshotPane({ timeline, floor, latestId, loading, error, mobile = false, onBackRef }) {
+  const tUi = useProductTranslation();
   const [viewMode, setViewMode] = useState("changes");
   const [expandedPaths, setExpandedPaths] = useState(() => new Set());
   const [focusStack, setFocusStack] = useState([]);
@@ -169,7 +175,7 @@ function SnapshotPane({ timeline, floor, latestId, loading, error, mobile = fals
   if (loading || error) return <main className="variable-snapshot variable-snapshot-placeholder" />;
   if (!floor || !document) return <main className="variable-snapshot variable-snapshot-placeholder">
     <Database size={28} weight="duotone" aria-hidden="true" />
-    <p>从时间线选择一个助手楼层</p>
+    <p>{tUi("从时间线选择一个助手楼层")}</p>
   </main>;
 
   const focus = focusStack.at(-1) || null;
@@ -193,16 +199,16 @@ function SnapshotPane({ timeline, floor, latestId, loading, error, mobile = fals
     <div className="variable-snapshot-heading">
       <div>
         <span className="variable-snapshot-titleline">
-          {focus && !mobile ? <button type="button" onClick={() => setFocusStack((stack) => stack.slice(0, -1))} aria-label="返回上一级变量"><ArrowLeft /></button> : null}
+          {focus && !mobile ? <button type="button" onClick={() => setFocusStack((stack) => stack.slice(0, -1))} aria-label={tUi("返回上一级变量")}><ArrowLeft /></button> : null}
           <h3>{focus?.name || floor.label}</h3>
         </span>
         {focus ? <p>{focus.breadcrumb.join(" / ")}</p> : floor.messagePreview ? <p>{floor.messagePreview}</p> : null}
       </div>
-      <span>{document.valueCount} 个变量{isOpening ? "" : ` · ${floor.changedValueCount} 处变化`}</span>
+      <span>{document.valueCount}{tUi(" 个变量")}{isOpening ? "" : tUi(" · {value0} 处变化", {value0: floor.changedValueCount})}</span>
     </div>
-    {!focus && !isOpening ? <div className="variable-view-switch" role="tablist" aria-label="变量显示范围">
-      <button type="button" role="tab" aria-selected={viewMode === "changes"} onClick={() => setViewMode("changes")}>本轮变化</button>
-      <button type="button" role="tab" aria-selected={viewMode === "all"} onClick={() => setViewMode("all")}>全部变量</button>
+    {!focus && !isOpening ? <div className="variable-view-switch" role="tablist" aria-label={tUi("变量显示范围")}>
+      <button type="button" role="tab" aria-selected={viewMode === "changes"} onClick={() => setViewMode("changes")}>{tUi("本轮变化")}</button>
+      <button type="button" role="tab" aria-selected={viewMode === "all"} onClick={() => setViewMode("all")}>{tUi("全部变量")}</button>
     </div> : null}
     <TreeScroll key={mobile ? scrollKey : undefined} className="variable-viewer-tree-scroll" {...scrollProps}>
       {document.errorMessage ? <section className="variable-raw-state">
@@ -222,7 +228,7 @@ function SnapshotPane({ timeline, floor, latestId, loading, error, mobile = fals
         onFocus={(entry) => setFocusStack((stack) => [...stack, entry])}
       /> : null}
       {!document.errorMessage && root && !hasVisibleEntries(root, focus?.path || "", changedPaths, visibleChanges)
-        ? <p className="variable-viewer-empty">{visibleChanges ? "本轮没有可显示的新值" : "这一份快照没有变量"}</p>
+        ? <p className="variable-viewer-empty">{visibleChanges ? tUi("本轮没有可显示的新值") : tUi("这一份快照没有变量")}</p>
         : null}
     </TreeScroll>
   </main>;
@@ -292,8 +298,8 @@ function displayValue(value) {
   return String(value);
 }
 
-function formatTimestamp(value) {
+function formatTimestamp(value, tUi = sourceText) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
+  return new Intl.DateTimeFormat(productLocaleTag(tUi), { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
 }

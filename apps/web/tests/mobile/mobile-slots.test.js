@@ -1,3 +1,4 @@
+import { officialLocale } from '../../../../tests/helpers/officialLocale.js';
 // @vitest-environment jsdom
 import * as React from 'react';
 import * as ReactDom from 'react-dom';
@@ -49,6 +50,7 @@ describe('Android composition with the shared PC sidebar and locked DSH slots', 
         owner.reflect.provide('sessions', {});
         owner.reflect.provide('workspaces', {});
         owner.reflect.provide('uiSession', {});
+        owner.reflect.provide('locale', officialLocale());
         owner.reflect.provide('remote', { eleckoiCreatorStudio: {
           list: async () => ({ ok: true, value: { items: [] } }),
           changes: async function* () {},
@@ -87,7 +89,7 @@ describe('Android composition with the shared PC sidebar and locked DSH slots', 
     try {
       await ctx.plugin({ name: 'synthetic-root', apply(owner) {
         new renderer.SlotRegistry(owner);
-        owner.reflect.provide('locale', { register: () => () => {}, subscribe: () => () => {} });
+        owner.reflect.provide('locale', officialLocale());
         owner.reflect.provide('theme', { getTheme: () => ({ active: { colorScheme: 'light', tokens: {} }, fontSizes: { text: 15, code: 14, terminal: 13 }, fontFamilies: { text: '', code: '', terminal: '' } }) });
         owner.reflect.provide('uiWorkspace', {});
         owner.reflect.provide('shortcuts', {});

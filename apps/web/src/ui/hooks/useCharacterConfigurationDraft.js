@@ -1,7 +1,9 @@
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { resolveFailure } from '../../utils/failureText.js';
 
 export function useCharacterConfigurationDraft({ characterId, configuration, onDirtyChange, label = '设定库', onAdopt, prepareSave, rebaseAfterSave, saveShortcut = true }) {
+  const tUi = useProductTranslation();
   const [library, setLibrary] = useState(null);
   const [persisted, setPersisted] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -43,7 +45,7 @@ export function useCharacterConfigurationDraft({ characterId, configuration, onD
     const cached = configuration.getSnapshot(characterId);
     if (cached.status === 'ready') adopt(cached.value);
     void configuration.read(characterId).catch(cause => {
-      if (active) setError(resolveFailure(cause, { fallback: `读取${label}失败` }).text);
+      if (active) setError(resolveFailure(cause, { fallback: tUi("读取{value0}失败", {value0: label}) }).text);
     });
     return () => { active = false; stop(); };
   }, [characterId, configuration, label]);
@@ -88,7 +90,7 @@ export function useCharacterConfigurationDraft({ characterId, configuration, onD
         }
         return true;
       } catch (cause) {
-        setError(resolveFailure(cause, { fallback: `保存${label}失败` }).text);
+        setError(resolveFailure(cause, { fallback: tUi("保存{value0}失败", {value0: label}) }).text);
         return false;
       } finally {
         setSaving(false);

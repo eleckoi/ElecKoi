@@ -1,9 +1,10 @@
-import { delimiter } from 'node:path'
+import { delimiter, dirname, join } from 'node:path'
+import { createRequire } from 'node:module'
 import { loadLayeredEnv, loadProfileDirectory, reportSkippedBundles } from '@deepseek-ai/dsh-app-boot'
 import { runProfile } from '@deepseek-ai/dsh/profile-boot'
 import { retireDeepSeekExtensionSelection } from '@eleckoi/dsh-client-web-search/profile'
 import { ELECKOI_INSTALL_ANCHOR } from './desktopPluginBundles'
-import { repairRequestContextLogs, recoverStartupSessions } from '@eleckoi/dsh-runtime'
+import { installWebClientAssets, repairRequestContextLogs, recoverStartupSessions } from '@eleckoi/dsh-runtime'
 import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-jobs'
 import { Peer } from '@deepseek-ai/dsh-client-connection'
@@ -62,7 +63,15 @@ async function main(): Promise<void> {
     if (process.connected) process.disconnect()
     if (running !== undefined) process.exit()
   })()
-  const { ctx } = await application
+  const running = await application
+  const { ctx } = running
+  const rendererDirectory = join(dirname(createRequire(import.meta.url).resolve('@eleckoi/web-client/package.json')), 'dist')
+  try { await installWebClientAssets(ctx, rendererDirectory) }
+  catch (error) {
+    try { await running.shutdown.shutdown(1) }
+    catch (cleanupError) { throw new AggregateError([error, cleanupError], 'ElecKoi client assets and Host shutdown failed') }
+    throw error
+  }
   const updateTasks = installUpdateTaskControl(ctx)
   const startupPeer = new Peer(ctx.root, { principal: { kind: 'owner' } })
   const remoteStatus = await ctx.typertGateway.invoke({

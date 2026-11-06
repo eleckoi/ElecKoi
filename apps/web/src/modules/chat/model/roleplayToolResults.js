@@ -1,3 +1,4 @@
+import { sourceText } from "../../../app/i18n/productCopy.js";
 const definitions = Object.freeze({
   eleckoi_glob_setting_files: { domain: 'settings', operation: 'glob', label: '查找设定文件' },
   eleckoi_grep_setting_files: { domain: 'settings', operation: 'grep', label: '搜索设定内容' },
@@ -15,7 +16,7 @@ export function parseToolJson(value) {
 }
 
 /** Keep every returned path and matching line; input records remain unchanged. */
-export function roleplayToolResult(definition, block) {
+export function roleplayToolResult(definition, block, tUi = sourceText) {
   if (!definition || block?.kind !== 'tool-result' || block.isError) return undefined;
   if (!block.content?.length || block.content.some(part => part.type !== 'text')) return undefined;
   const payload = parseToolJson(block.content.map(part => part.text).join(''));
@@ -52,20 +53,20 @@ export function roleplayToolResult(definition, block) {
   const counts = { matched: 0, fixed: 0, turn: 0, required: 0 };
   for (const entry of values) {
     if (!entry.requiredOnly) counts.matched += 1;
-    const kind = resultReadingBadge(entry, domain)?.kind;
+    const kind = resultReadingBadge(entry, domain, tUi)?.kind;
     if (kind && Object.hasOwn(counts, kind)) counts[kind] += 1;
   }
   return { entries: values, payload, domain, operation, counts };
 }
 
-export function resultReadingBadge(entry, domain) {
+export function resultReadingBadge(entry, domain, tUi = sourceText) {
   if (domain === 'settings') {
     const strategy = entry.source?.read_strategy;
-    if (strategy === 'required') return { kind: 'fixed', label: '固定必读' };
-    if (entry.required) return { kind: 'turn', label: '本轮须读' };
-    if (strategy === 'keyword') return { kind: 'keyword', label: '关键词' };
-    if (strategy === 'normal') return { kind: 'optional', label: '选读' };
-  } else if (entry.required) return { kind: 'required', label: '必读' };
+    if (strategy === 'required') return { kind: 'fixed', label: tUi("固定必读") };
+    if (entry.required) return { kind: 'turn', label: tUi("本轮须读") };
+    if (strategy === 'keyword') return { kind: 'keyword', label: tUi("关键词") };
+    if (strategy === 'normal') return { kind: 'optional', label: tUi("选读") };
+  } else if (entry.required) return { kind: 'required', label: tUi("必读") };
   return undefined;
 }
 

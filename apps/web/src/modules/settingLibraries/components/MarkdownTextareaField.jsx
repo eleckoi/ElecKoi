@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -5,6 +6,7 @@ import { OfficialMarkdown } from "../../../ui/messages/OfficialMarkdown.jsx";
 import { CornersIn, CornersOut, Eye, PencilSimple } from "../../../ui/icons/interfaceIcons.jsx";
 
 export function MarkdownTextareaField({ label, value, placeholder, onChange, preview = true, labelAction = null, disabled = false, code = false, textareaClassName = '' }) {
+  const tUi = useProductTranslation();
   const inputId = useId();
   const editorRef = useRef(null);
   const [immersive, setImmersive] = useState(false);
@@ -43,18 +45,18 @@ export function MarkdownTextareaField({ label, value, placeholder, onChange, pre
         <strong id={`${inputId}-title`}>{label}</strong>
         <div className="immersive-markdown-actions">
           {preview ? (
-            <div className="immersive-markdown-tabs" role="tablist" aria-label="编辑模式">
-              <button type="button" role="tab" aria-selected={mode === "edit"} onClick={() => setMode("edit")}><PencilSimple size={15} />编辑</button>
-              <button type="button" role="tab" aria-selected={mode === "preview"} onClick={() => setMode("preview")}><Eye size={15} />预览</button>
+            <div className="immersive-markdown-tabs" role="tablist" aria-label={tUi("编辑模式")}>
+              <button type="button" role="tab" aria-selected={mode === "edit"} onClick={() => setMode("edit")}><PencilSimple size={15} />{tUi("编辑")}</button>
+              <button type="button" role="tab" aria-selected={mode === "preview"} onClick={() => setMode("preview")}><Eye size={15} />{tUi("预览")}</button>
             </div>
           ) : null}
-          <Button data-dsh-control variant="outline" type="button" className="immersive-markdown-exit" onClick={() => setImmersive(false)}><CornersIn size={15} />退出沉浸</Button>
+          <Button data-dsh-control variant="outline" type="button" className="immersive-markdown-exit" onClick={() => setImmersive(false)}><CornersIn size={15} />{tUi("退出沉浸")}</Button>
         </div>
       </header>
       <div className="immersive-markdown-body">
         {mode === "preview" && preview ? (
           <article className="immersive-markdown-preview">
-            {value.trim() ? <OfficialMarkdown content={value} /> : <p className="is-empty">暂无内容</p>}
+            {value.trim() ? <OfficialMarkdown content={value} /> : <p className="is-empty">{tUi("暂无内容")}</p>}
           </article>
         ) : (
           <textarea
@@ -79,7 +81,7 @@ export function MarkdownTextareaField({ label, value, placeholder, onChange, pre
         <div className="setting-library-content-heading">
           <label htmlFor={inputId}>{label}</label>
           <div className="setting-library-content-actions">
-            <button type="button" disabled={disabled} onClick={() => setImmersive(true)}><CornersOut size={14} />沉浸编辑</button>
+            <button type="button" disabled={disabled} onClick={() => setImmersive(true)}><CornersOut size={14} />{tUi("沉浸编辑")}</button>
             {labelAction}
           </div>
         </div>

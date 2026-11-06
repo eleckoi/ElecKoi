@@ -1,6 +1,8 @@
+import { useProductTranslation } from "../../../i18n/ProductLocaleContext.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export function SidePanelResizeHandle({ onStart, onDrag, onEnd }) {
+  const tUi = useProductTranslation();
   const [dragging, setDragging] = useState(false);
   const originRef = useRef(0);
   const latestRef = useRef(0);
@@ -65,7 +67,7 @@ export function SidePanelResizeHandle({ onStart, onDrag, onEnd }) {
     <div
       className="side-panel-resizer"
       role="separator"
-      aria-label="调整侧边栏宽度"
+      aria-label={tUi("调整侧边栏宽度")}
       aria-orientation="vertical"
       data-dragging={dragging || undefined}
       onPointerDown={handlePointerDown}

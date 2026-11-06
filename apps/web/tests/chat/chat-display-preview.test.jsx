@@ -22,6 +22,37 @@ afterEach(() => {
 });
 
 describe("chat display preview", () => {
+  it('places the provided locale control inside chat display without adding a language navigation page', () => {
+    let changeLocale;
+    function Harness() {
+      const [page, setPage] = useState('chat');
+      const [language, setLanguage] = useState('中文');
+      changeLocale = () => setLanguage('日本語');
+      return <WithOfficialMarkdown><SettingsPanel activePage={page} onPageChange={setPage}
+        chatDisplay={DEFAULT_CHAT_DISPLAY_PREFERENCES} onChatDisplayChange={() => {}}
+        settingsSections={[{ id: 'plugins', label: '内置插件' }]}
+        renderLanguageSettings={() => <button aria-haspopup="menu" onClick={changeLocale}>{language}</button>}
+        renderSettingsSection={() => <p>插件设置</p>}
+        renderLayout={({ sidePanel, mainPanel }) => <>{sidePanel}{mainPanel}</>} /></WithOfficialMarkdown>;
+    }
+    renderToMarkup(<Harness />);
+    const section = document.querySelector('.chat-display-settings-page [aria-label="界面语言"]');
+    const group = section.closest('[data-group="language"]');
+    expect(group?.querySelector('summary svg[aria-hidden="true"]')).toBeTruthy();
+    expect([...document.querySelectorAll('.ec-settings-list [data-group]')].at(-1)).toBe(group);
+    expect(group.closest('.ec-group-material')).toBeTruthy();
+    expect(group.open).toBe(false);
+    act(() => group.querySelector('summary').click());
+    expect(group.open).toBe(true);
+    act(() => section.querySelector('button').click());
+    expect(section.textContent).toBe('日本語');
+    const labels = [...document.querySelectorAll('[aria-label="设置分类"] button')].map(node => node.textContent);
+    expect(labels).toEqual(['用户资料', '主题风格', '聊天显示', '关于 ElecKoi', '内置插件']);
+    act(() => [...document.querySelectorAll('[aria-label="设置分类"] button')].find(node => node.textContent === '内置插件').click());
+    expect(document.querySelector('.app-settings-content').textContent).toBe('插件设置');
+    expect(document.querySelector('[aria-label="界面语言"]')).toBeNull();
+  });
+
   it('updates the formal layout style, preview, individual resets, and layout isolation', () => {
     let preferences;
     function Harness() {

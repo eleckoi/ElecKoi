@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { SystemBarOverlay } from './SystemBarOverlay.jsx';
@@ -22,7 +23,7 @@ function fileBaseName(file) {
 
 export function AvatarCropModal({
   file,
-  title = "编辑图片",
+  title: titleSource,
   cropWidth = DEFAULT_CROP_WIDTH,
   cropHeight = DEFAULT_CROP_HEIGHT,
   cropRadius = "999px",
@@ -32,6 +33,8 @@ export function AvatarCropModal({
   onCancel,
   onSave,
 }) {
+  const tUi = useProductTranslation();
+  const title = titleSource === undefined ? tUi("编辑图片") : titleSource;
   const windowRef = useRef(null);
   const closeRef = useRef(null);
   const cancelRef = useRef(onCancel);
@@ -227,7 +230,7 @@ export function AvatarCropModal({
       const croppedFile = new File([blob], `${fileBaseName(file)}-cropped.png`, { type: "image/png" });
       await onSave?.(croppedFile, file);
     } catch (nextError) {
-      setError(resolveFailure(nextError, { fallback: "图片保存失败，请稍后重试。" }).text);
+      setError(resolveFailure(nextError, { fallback: tUi("图片保存失败，请稍后重试。") }).text);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -249,7 +252,7 @@ export function AvatarCropModal({
       if (event.target === event.currentTarget && !saving) onCancel?.();
     }}>
       <div ref={windowRef} className="avatar-crop-window">
-        <button ref={closeRef} className="avatar-crop-close" type="button" title="关闭" aria-label="关闭" disabled={saving} onClick={onCancel}>
+        <button ref={closeRef} className="avatar-crop-close" type="button" title={tUi("关闭")} aria-label={tUi("关闭")} disabled={saving} onClick={onCancel}>
           <XIcon />
         </button>
         <h2>{title}</h2>
@@ -291,24 +294,23 @@ export function AvatarCropModal({
         </div>
 
         <div className="avatar-crop-controls">
-          <button type="button" title="向左旋转 90°" aria-label="向左旋转 90°" onClick={() => rotateBy(-90)}>
+          <button type="button" title={tUi("向左旋转 90°")} aria-label={tUi("向左旋转 90°")} onClick={() => rotateBy(-90)}>
             <RotateLeftIcon />
           </button>
-          <input className="avatar-crop-zoom" aria-label="缩放图片" type="range" min="1" max="3" step="0.01" value={zoom} onChange={handleZoomChange} />
-          <button type="button" title="向右旋转 90°" aria-label="向右旋转 90°" onClick={() => rotateBy(90)}>
+          <input className="avatar-crop-zoom" aria-label={tUi("缩放图片")} type="range" min="1" max="3" step="0.01" value={zoom} onChange={handleZoomChange} />
+          <button type="button" title={tUi("向右旋转 90°")} aria-label={tUi("向右旋转 90°")} onClick={() => rotateBy(90)}>
             <RotateRightIcon />
           </button>
         </div>
         <p className={error ? "avatar-crop-error" : "avatar-crop-hint"} role={error ? "alert" : undefined}>
-          {error || "拖动图片调整位置，滚轮可缩放"}
+          {error || tUi("拖动图片调整位置，滚轮可缩放")}
         </p>
 
         <div className="avatar-crop-actions">
           <button type="button" className="avatar-crop-cancel" disabled={saving} onClick={onCancel}>
-            取消
-          </button>
+            {tUi("取消")}</button>
           <button type="button" className="avatar-crop-save" onClick={saveCrop} disabled={saving || !naturalSize.width}>
-            {saving ? "保存中" : "保存"}
+            {saving ? tUi("保存中") : tUi("保存")}
           </button>
         </div>
       </div>

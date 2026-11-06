@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { ArrowLeft, Check, ListChecks, PushPin, UserCircle, X } from '@phosphor-icons/react';
@@ -24,6 +25,7 @@ function conversationGroups(items) {
 }
 
 export function CreatorStudioSimplePage({ characterCatalog, model, models, presetCatalog, renderConversation, rightbar, onBack, nativePanel, onReturnToConversation }) {
+  const tUi = useProductTranslation();
   const state = useSyncExternalStore(model.subscribe, model.getSnapshot);
   const characters = useSyncExternalStore(characterCatalog.subscribe, characterCatalog.getSnapshot);
   const [collapsed, setCollapsed] = useState(false), [query, setQuery] = useState('');
@@ -88,51 +90,51 @@ export function CreatorStudioSimplePage({ characterCatalog, model, models, prese
     style={rightbarLayout.shellStyle} data-rightbar-dragging={rightbarLayout.dragging || undefined}>
     <header className="creator-simple-titlebar" data-tauri-drag-region>
       <div className="creator-simple-titlebar-sidebar" data-tauri-drag-region>
-        <button type="button" aria-label={nativePanel ? '返回工作室对话' : '返回工作室入口'} title={nativePanel ? '返回工作室对话' : '返回工作室入口'} onClick={nativePanel ? onReturnToConversation : onBack}><ArrowLeft size={18} /></button>
-        <img src={logoIcon} alt="" draggable="false" /><strong>AI 创作工作室</strong>
-        <button type="button" className="creator-simple-sidebar-toggle" aria-label={collapsed ? '展开对话列表' : '收起对话列表'} title={collapsed ? '展开对话列表' : '收起对话列表'}
+        <button type="button" aria-label={nativePanel ? tUi("返回工作室对话") : tUi("返回工作室入口")} title={nativePanel ? tUi("返回工作室对话") : tUi("返回工作室入口")} onClick={nativePanel ? onReturnToConversation : onBack}><ArrowLeft size={18} /></button>
+        <img src={logoIcon} alt="" draggable="false" /><strong>{tUi("AI 创作工作室")}</strong>
+        <button type="button" className="creator-simple-sidebar-toggle" aria-label={collapsed ? tUi("展开对话列表") : tUi("收起对话列表")} title={collapsed ? tUi("展开对话列表") : tUi("收起对话列表")}
           aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}><DshPanelLeftIcon size={19} /></button>
       </div>
       <div className="creator-simple-titlebar-space" data-tauri-drag-region /><WindowControls />
     </header>
     <section className="creator-simple-workspace">
-      {!collapsed && <aside className="creator-simple-sidebar" aria-label="工作室对话列表">
-        <button type="button" className="creator-simple-new" disabled={busy} onClick={create}><DshNewChatIcon size={18} />新对话</button>
+      {!collapsed && <aside className="creator-simple-sidebar" aria-label={tUi("工作室对话列表")}>
+        <button type="button" className="creator-simple-new" disabled={busy} onClick={create}><DshNewChatIcon size={18} />{tUi("新对话")}</button>
         <button type="button" className="creator-simple-character" disabled={busy || !state.active} onClick={() => setPicker(true)}>
-          {target ? <Avatar as="span" src={characterAvatar(target)} name={characterName(target)} /> : <UserCircle size={20} />}<span>{target ? characterName(target) : '选择角色'}</span>
+          {target ? <Avatar as="span" src={characterAvatar(target)} name={characterName(target, tUi)} /> : <UserCircle size={20} />}<span>{target ? characterName(target, tUi) : tUi("选择角色")}</span>
         </button>
-        <DshSearchField value={query} onValueChange={setQuery} placeholder="搜索对话内容…" ariaLabel="搜索工作室对话" />
+        <DshSearchField value={query} onValueChange={setQuery} placeholder={tUi("搜索对话内容…")} ariaLabel={tUi("搜索工作室对话")} />
         <FailureAlert failure={searchError} className="creator-simple-error" />
         <nav className="creator-simple-history">{groups.map(([label, items], index) => <section key={label}>
-          <div className="creator-simple-group-heading"><h3>{label}</h3>{index === 0 && <button type="button" aria-label={selecting ? '退出对话管理' : '管理对话'} disabled={busy}
+          <div className="creator-simple-group-heading"><h3>{label}</h3>{index === 0 && <button type="button" aria-label={selecting ? tUi("退出对话管理") : tUi("管理对话")} disabled={busy}
             onClick={() => { if (selecting) stopSelecting(); else { setSelecting(true); setMenuId(''); } }}>{selecting ? <X size={18} /> : <ListChecks size={18} />}</button>}</div>
           {items.map(item => <div key={item.sessionId} className={`creator-simple-history-row${item.sessionId === state.active?.sessionId ? ' is-current' : ''}`}>
           {selecting ? <label className="creator-simple-history-selection"><input type="checkbox" disabled={busy} checked={selected.has(item.sessionId)} onChange={() => toggle(item.sessionId)} /><span>{item.title}</span></label> : <><button type="button" className="creator-simple-history-title" disabled={busy} title={item.title} aria-current={item.sessionId === state.active?.sessionId ? 'page' : undefined}
             onClick={() => void perform(() => model.open(item.sessionId))}>{item.title}</button>
           <div className="creator-simple-history-menu" ref={menuId === item.sessionId ? menuRoot : undefined}>
-            <button type="button" aria-label={`管理 ${item.title}`} aria-expanded={menuId === item.sessionId} onClick={() => setMenuId(menuId === item.sessionId ? '' : item.sessionId)}><DshEllipsisIcon size={18} /></button>
+            <button type="button" aria-label={tUi("管理 {value0}", {value0: item.title})} aria-expanded={menuId === item.sessionId} onClick={() => setMenuId(menuId === item.sessionId ? '' : item.sessionId)}><DshEllipsisIcon size={18} /></button>
             {menuId === item.sessionId && <div role="menu">
-              <button type="button" role="menuitem" onClick={() => { setRenaming(item); setName(item.title); setMenuId(''); }}><DshEditIcon size={16} />重命名</button>
-              <button type="button" role="menuitem" onClick={() => { setMenuId(''); void perform(() => model.pin(item.sessionId, !item.pinned)); }}><PushPin size={16} />{item.pinned ? '取消置顶' : '置顶'}</button>
-              <button type="button" role="menuitem" onClick={() => { setDeleting([item]); setMenuId(''); }}><DshTrashIcon size={16} />删除对话</button>
+              <button type="button" role="menuitem" onClick={() => { setRenaming(item); setName(item.title); setMenuId(''); }}><DshEditIcon size={16} />{tUi("重命名")}</button>
+              <button type="button" role="menuitem" onClick={() => { setMenuId(''); void perform(() => model.pin(item.sessionId, !item.pinned)); }}><PushPin size={16} />{item.pinned ? tUi("取消置顶") : tUi("置顶")}</button>
+              <button type="button" role="menuitem" onClick={() => { setDeleting([item]); setMenuId(''); }}><DshTrashIcon size={16} />{tUi("删除对话")}</button>
             </div>}
           </div></>}
         </div>)}</section>)}
-          {query.trim() && matches && !groups.length && <p className="creator-simple-history-state">没有匹配的对话</p>}
-          {matches?.hasMore && <p className="creator-simple-history-state">结果较多，请缩小搜索范围</p>}
+          {query.trim() && matches && !groups.length && <p className="creator-simple-history-state">{tUi("没有匹配的对话")}</p>}
+          {matches?.hasMore && <p className="creator-simple-history-state">{tUi("结果较多，请缩小搜索范围")}</p>}
         </nav>
         {selecting && <footer className="creator-simple-selection-footer">
-          <button type="button" disabled={busy || !selected.size} onClick={pinSelected}><PushPin size={17} />{unpinSelected ? '取消置顶' : '置顶'}</button>
-          <button type="button" disabled={busy || !selected.size} onClick={() => setDeleting(state.items.filter(item => selected.has(item.sessionId)))}><DshTrashIcon size={17} />删除</button>
+          <button type="button" disabled={busy || !selected.size} onClick={pinSelected}><PushPin size={17} />{unpinSelected ? tUi("取消置顶") : tUi("置顶")}</button>
+          <button type="button" disabled={busy || !selected.size} onClick={() => setDeleting(state.items.filter(item => selected.has(item.sessionId)))}><DshTrashIcon size={17} />{tUi("删除")}</button>
         </footer>}
       </aside>}
-      <section className="creator-simple-content" aria-label="工作室对话">
+      <section className="creator-simple-content" aria-label={tUi("工作室对话")}>
         {nativePanel ? nativePanel : <>
         <FailureAlert failure={error || state.error} className="creator-simple-error" />
         {state.reference ? renderConversation({ reference: state.reference, component: CreatorStudioConversation,
-          props: { model, models, presetCatalog, creating: busy, editing: state.editingSessionId === state.active?.sessionId, title: active?.title || '新对话',
+          props: { model, models, presetCatalog, creating: busy, editing: state.editingSessionId === state.active?.sessionId, title: active?.title || tUi("新对话"),
             onCreate: create, onSelectCharacter: () => setPicker(true), onError: setError } }) : <div className="creator-simple-loading">
-          {busy || state.status === 'loading' ? <span role="status">加载对话…</span> : <button type="button" onClick={() => void perform(() => model.restoreRecent())}>重试</button>}
+          {busy || state.status === 'loading' ? <span role="status">{tUi("加载对话…")}</span> : <button type="button" onClick={() => void perform(() => model.restoreRecent())}>{tUi("重试")}</button>}
         </div>}
         </>}
       </section>
@@ -143,28 +145,29 @@ export function CreatorStudioSimplePage({ characterCatalog, model, models, prese
     {rightbarLayout.showResizeHandle && rightbarLayout.resizeHandle}
     {picker && <CreatorStudioCharacterDialog collection={characters.collection} selectedId={target?.id || ''} busy={busy}
       error={error || characters.error} onSelect={choose} onClose={() => setPicker(false)} />}
-    <Modal open={!!renaming} title="重命名对话" closeLabel="关闭" onClose={() => !busy && setRenaming(null)} className="creator-simple-dialog"
-      footer={<button type="button" disabled={busy || !name.trim()} onClick={() => void perform(() => model.rename(renaming.sessionId, name.trim())).then(success => success && setRenaming(null))}>保存</button>}>
-      <FailureAlert failure={error} /><input data-modal-autofocus aria-label="对话名称" value={name} onChange={event => setName(event.target.value)} />
+    <Modal open={!!renaming} title={tUi("重命名对话")} closeLabel={tUi("关闭")} onClose={() => !busy && setRenaming(null)} className="creator-simple-dialog"
+      footer={<button type="button" disabled={busy || !name.trim()} onClick={() => void perform(() => model.rename(renaming.sessionId, name.trim())).then(success => success && setRenaming(null))}>{tUi("保存")}</button>}>
+      <FailureAlert failure={error} /><input data-modal-autofocus aria-label={tUi("对话名称")} value={name} onChange={event => setName(event.target.value)} />
     </Modal>
-    <Modal open={!!deleting} title="删除对话" closeLabel="关闭" onClose={() => !busy && setDeleting(null)} className="creator-simple-dialog"
-      footer={<button type="button" disabled={busy} onClick={remove}>删除</button>}>
-      <FailureAlert failure={error} /><p>{deleting?.length === 1 ? `删除“${deleting[0].title}”？` : `删除选中的 ${deleting?.length || 0} 个对话？`}</p>
+    <Modal open={!!deleting} title={tUi("删除对话")} closeLabel={tUi("关闭")} onClose={() => !busy && setDeleting(null)} className="creator-simple-dialog"
+      footer={<button type="button" disabled={busy} onClick={remove}>{tUi("删除")}</button>}>
+      <FailureAlert failure={error} /><p>{deleting?.length === 1 ? tUi("删除“{value0}”？", {value0: deleting[0].title}) : tUi("删除选中的 {value0} 个对话？", {value0: deleting?.length || 0})}</p>
     </Modal>
   </main>;
 }
 
 export function CreatorStudioCharacterDialog({ collection, selectedId, busy, error, onSelect, onClose }) {
+  const tUi = useProductTranslation();
   const [query, setQuery] = useState(''), [group, setGroup] = useState('');
-  const items = collection.items.filter(item => (!group || characterGroup(item) === group) && characterName(item).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
-  return <Modal open title="选择角色" closeLabel="关闭" onClose={() => !busy && onClose()} className="creator-simple-character-dialog">
-    <DshSearchField value={query} onValueChange={setQuery} placeholder="搜索角色…" ariaLabel="搜索角色" />
-    {!!collection.groups.length && <div className="creator-simple-character-groups">{['', ...collection.groups].map(id => <button type="button" key={id} aria-pressed={group === id} onClick={() => setGroup(id)}>{id || '全部角色'}</button>)}</div>}
+  const items = collection.items.filter(item => (!group || characterGroup(item) === group) && characterName(item, tUi).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  return <Modal open title={tUi("选择角色")} closeLabel={tUi("关闭")} onClose={() => !busy && onClose()} className="creator-simple-character-dialog">
+    <DshSearchField value={query} onValueChange={setQuery} placeholder={tUi("搜索角色…")} ariaLabel={tUi("搜索角色")} />
+    {!!collection.groups.length && <div className="creator-simple-character-groups">{['', ...collection.groups].map(id => <button type="button" key={id} aria-pressed={group === id} onClick={() => setGroup(id)}>{id || tUi("全部角色")}</button>)}</div>}
     <FailureAlert failure={error} className="creator-simple-error" />
     <div className="creator-simple-character-list">
-      <button type="button" disabled={busy} aria-pressed={!selectedId} onClick={() => onSelect('')}><UserCircle size={36} /><span>不选择角色</span>{!selectedId && <Check size={18} />}</button>
-      {items.map(item => <button type="button" key={item.id} disabled={busy} aria-label={`选择角色 ${characterName(item)}`} aria-pressed={selectedId === item.id} onClick={() => onSelect(item.id)}>
-        <Avatar as="span" src={characterAvatar(item)} name={characterName(item)} /><span>{characterName(item)}</span>{selectedId === item.id && <Check size={18} />}
+      <button type="button" disabled={busy} aria-pressed={!selectedId} onClick={() => onSelect('')}><UserCircle size={36} /><span>{tUi("不选择角色")}</span>{!selectedId && <Check size={18} />}</button>
+      {items.map(item => <button type="button" key={item.id} disabled={busy} aria-label={tUi("选择角色 {value0}", {value0: characterName(item, tUi)})} aria-pressed={selectedId === item.id} onClick={() => onSelect(item.id)}>
+        <Avatar as="span" src={characterAvatar(item)} name={characterName(item, tUi)} /><span>{characterName(item, tUi)}</span>{selectedId === item.id && <Check size={18} />}
       </button>)}
     </div>
   </Modal>;

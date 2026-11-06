@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { useState } from 'react';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
 export { MobileCreatorStudioPage as MobileCreatorPage } from './MobileCreatorStudioPage.jsx';
@@ -7,11 +8,12 @@ import { isBugReportAvailable } from '../app/windows/shell/components/bugReportB
 import { MobileHeader } from './MobileChrome.jsx';
 
 export function MobileCommunityPage() {
+  const tUi = useProductTranslation();
   const view = useMainPageView();
   const [reportOpen, setReportOpen] = useState(false);
   return (
     <div className="mobile-root-page">
-      <MobileHeader title="社区" />
+      <MobileHeader title={tUi("社区")} />
       <CommunityDialog
         open={!reportOpen}
         onClose={() => view.selectPanel('messages')}

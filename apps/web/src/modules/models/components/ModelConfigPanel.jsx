@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
@@ -41,6 +43,7 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
   showHeader = true,
   navigationGuardRef,
 }, ref) {
+  const tUi = useProductTranslation();
   const [form, setForm] = useState(config);
   const [draftConfigs, setDraftConfigs] = useState([]);
   const draftBaselines = useRef(new Map());
@@ -48,7 +51,7 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
   const [collapsedGroups, setCollapsedGroups, collapseStateReady] = usePersistentCollapseState(
     LIST_COLLAPSE_AREAS.models,
     { general: false },
-    modelProviderSections.map((section) => section.id),
+    localizeUiCopy(modelProviderSections, tUi).map((section) => section.id),
   );
   const [deleting, setDeleting] = useState(false);
   const [loadingModels, setLoadingModels] = useState(false);
@@ -124,10 +127,10 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
     isDirtyRef.current = isDirty;
   }, [isDirty]);
 
-  const activeProvider = configProviderMeta(form, providers);
+  const activeProvider = configProviderMeta(form, providers, tUi);
   const activeProviderId = normalizeProviderId(form.provider);
   const isImageProvider = activeProvider.section === "image";
-  const createProviderItems = useMemo(() => addableProviderItems(providers), [providers]);
+  const createProviderItems = useMemo(() => addableProviderItems(providers, tUi), [providers, tUi]);
   const configItems = useMemo(() => normalizedConfigs(configs), [configs]);
   const allConfigs = useMemo(() => {
     const items = [...configItems, ...draftConfigs.filter(draft => !configItems.some(item => item.id === draft.id))];
@@ -137,7 +140,7 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
     else if (form.id) items.push(form);
     return items;
   }, [configItems, draftConfigs, form]);
-  const providerItems = useMemo(() => configurationItems(allConfigs, providers), [allConfigs, providers]);
+  const providerItems = useMemo(() => configurationItems(allConfigs, providers, tUi), [allConfigs, providers, tUi]);
 
   useEffect(() => {
     const current = formRef.current || {};
@@ -162,7 +165,7 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
     () => modelParameterState(form, activeProviderId),
     [activeProviderId, form],
   );
-  const imageParameterError = useMemo(() => isImageProvider ? imageSettingsError(form) : "", [form, isImageProvider]);
+  const imageParameterError = useMemo(() => isImageProvider ? tUi(imageSettingsError(form)) : "", [form, isImageProvider, tUi]);
   const modelCapabilities = useModelCapabilities(form, form.model);
   const providerIdError = !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(form.id || '')
     || Boolean(form.draftKey && configItems.some(item => item.id === form.id));
@@ -274,13 +277,13 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
     setIsDirty(true);
     formRef.current = next;
     setForm(next);
-    showNotice("success", `已删除模型 ${id}`);
+    showNotice("success", tUi("已删除模型 {value0}", {value0: id}));
   }
 
   function addManualModel() {
     const id = manualModelName.trim();
     if (!id) {
-      showNotice("error", "请填写完整模型名");
+      showNotice("error", tUi("请填写完整模型名"));
       return;
     }
     if ((form.model_options || []).some((item) => item.id === id)) {
@@ -288,7 +291,7 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
       return;
     }
     selectModel(id);
-    showNotice("success", `已添加并选中 ${id}`);
+    showNotice("success", tUi("已添加并选中 {value0}", {value0: id}));
   }
 
   function updateHeader(previousName, nextName, value) {
@@ -302,11 +305,11 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
   function addHeader() {
     const name = draftHeader.name.trim();
     if (!name) {
-      showNotice("error", "请填写请求头名称");
+      showNotice("error", tUi("请填写请求头名称"));
       return;
     }
     if (!/^[A-Za-z0-9!#$%&'*+._`|~^-]+$/.test(name)) {
-      showNotice("error", "请求头名称包含无效字符");
+      showNotice("error", tUi("请求头名称包含无效字符"));
       return;
     }
     updateField("custom_headers", { ...(formRef.current.custom_headers || {}), [name]: draftHeader.value });
@@ -336,7 +339,7 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
     const providerId = normalizeProviderId(current.provider);
     const persisted = configItems.find((item) => item.id === current.id)
       || draftBaselines.current.get(current.draftKey)
-      || initialConfigForProvider(providerId);
+      || initialConfigForProvider(providerId, undefined, tUi);
     formRef.current = persisted;
     isDirtyRef.current = false;
     setForm(persisted);
@@ -356,7 +359,7 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
   async function saveCurrentConfig() {
     if (!onSave || saving) return false;
     if (saveBlockedByParameters) {
-      showNotice("error", providerIdError ? "Provider ID 需唯一，并以小写字母开头，使用小写字母、数字和连字符。" : "请修正模型参数或输入能力后再保存。");
+      showNotice("error", providerIdError ? tUi("Provider ID 需唯一，并以小写字母开头，使用小写字母、数字和连字符。") : tUi("请修正模型参数或输入能力后再保存。"));
       return false;
     }
     const snapshot = formRef.current;
@@ -372,10 +375,10 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
       isDirtyRef.current = false;
       setForm(saved);
       setIsDirty(false);
-      showNotice("success", "模型配置已保存");
+      showNotice("success", tUi("模型配置已保存"));
       return true;
     } catch (error) {
-      showNotice("error", error.message || "模型配置保存失败");
+      showNotice("error", error.message || tUi("模型配置保存失败"));
       return false;
     } finally {
       setSaving(false);
@@ -416,7 +419,7 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
     const existing = route && allConfigs.find(item => item.id === route.provider);
     if (existing) { selectConfigId(existing.id); return; }
     requestDraftReplacement(() => {
-      const draft = initialConfigForProvider(providerId, providers);
+      const draft = initialConfigForProvider(providerId, providers, tUi);
       draft.draftKey = draft.id;
       draftBaselines.current.set(draft.draftKey, draft);
       setDraftConfigs(items => [...items, draft]);
@@ -444,7 +447,7 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
       setDraftConfigs(items => items.filter(item => item.draftKey !== target.draftKey));
       draftBaselines.current.delete(target.draftKey);
       if (formRef.current.id === target.id) {
-        const next = nextSaved || allConfigs.find(item => item.id !== target.id) || initialConfigForProvider('custom');
+        const next = nextSaved || allConfigs.find(item => item.id !== target.id) || initialConfigForProvider('custom', undefined, tUi);
         formRef.current = next;
         isDirtyRef.current = false;
         setForm(next);
@@ -452,7 +455,7 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
       }
       setConfirmDeleteConfig(false);
       setDeleteTargetConfig(null);
-      showNotice('success', target.id === 'deepseek-official' ? '内置 DeepSeek 配置已清空' : '当前配置已删除');
+      showNotice('success', target.id === 'deepseek-official' ? tUi("内置 DeepSeek 配置已清空") : tUi("当前配置已删除"));
     } catch (error) {
       setDeleteError(error);
     } finally { setDeleting(false); }
@@ -469,7 +472,7 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
       const discovered = await onFetchModels(fetchConfig);
       if (formRef.current !== fetchConfig) return;
       if (!discovered.length) {
-        showNotice("error", "未读取到模型，当前配置已保留。");
+        showNotice("error", tUi("未读取到模型，当前配置已保留。"));
         return;
       }
       const ids = new Set(discovered.map((item) => item.id));
@@ -490,14 +493,14 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
         showNotice(
           "success",
           previousModel === nextModel
-            ? `已读取 ${models.length} 个模型，保留当前模型 ${nextModel}`
-            : `已读取 ${models.length} 个模型，已选择 ${nextModel}`,
+            ? tUi("已读取 {value0} 个模型，保留当前模型 {value1}", {value0: models.length, value1: nextModel})
+            : tUi("已读取 {value0} 个模型，已选择 {value1}", {value0: models.length, value1: nextModel}),
         );
       } else {
-        showNotice("success", `已读取 ${models.length} 个模型`);
+        showNotice("success", tUi("已读取 {value0} 个模型", {value0: models.length}));
       }
     } catch (error) {
-      showNotice("error", error.message || "读取模型失败");
+      showNotice("error", error.message || tUi("读取模型失败"));
     } finally {
       loadingModelsRef.current = false;
       setLoadingModels(false);
@@ -567,8 +570,8 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
     <>
       <UnsavedChangesDialog
         open={unsavedDialogOpen}
-        title="保存修改？"
-        description="离开前是否保存当前模型配置的修改？"
+        title={tUi("保存修改？")}
+        description={tUi("离开前是否保存当前模型配置的修改？")}
         saving={saving}
         onCancel={cancelDraftReplacement}
         onSave={saveDraftAndContinue}

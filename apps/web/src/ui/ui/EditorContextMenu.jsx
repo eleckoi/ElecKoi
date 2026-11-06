@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import styles from '../styles/editor-context-menu.css?inline';
@@ -13,7 +14,9 @@ export function useEditorContextMenu() {
   } };
 }
 
-export function EditorContextMenu({ menu, actions, onClose, label = '编辑操作' }) {
+export function EditorContextMenu({ menu, actions, onClose, label: labelSource }) {
+  const tUi = useProductTranslation();
+  const label = labelSource === undefined ? tUi("编辑操作") : labelSource;
   const ref = useRef(null), closeRef = useRef(onClose);
   closeRef.current = onClose;
   const root = menu.trigger.getRootNode();

@@ -1,6 +1,9 @@
+import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useRef } from 'react';
 
-export function MobileSaveFeedback({ error, notice, onNotify, successMessage = '已保存' }) {
+export function MobileSaveFeedback({ error, notice, onNotify, successMessage: successMessageSource }) {
+  const tUi = useProductTranslation();
+  const successMessage = successMessageSource === undefined ? tUi("已保存") : successMessageSource;
   const notifyRef = useRef(onNotify);
   const previous = useRef(null);
   notifyRef.current = onNotify;

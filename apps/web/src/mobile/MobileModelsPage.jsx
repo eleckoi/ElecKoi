@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../app/i18n/productCopy.js";
+import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
 import { ModelConfigPanel } from '../modules/models/components/ModelConfigPanel.jsx';
@@ -10,6 +12,7 @@ import { MobileModelConfigDetail, MobileProviderLogo } from './MobileModelConfig
 import './mobile-models.css';
 
 export function MobileModelsPage() {
+  const tUi = useProductTranslation();
   const view = useMainPageView();
   const { models, chat, route } = view;
   const snapshot = useSyncExternalStore(models.subscribe, models.getSnapshot);
@@ -23,7 +26,7 @@ export function MobileModelsPage() {
     const route = snapshot.providers?.find(item => item.provider === providerId);
     const existing = route && snapshot.configs.find(item => item.id === route.provider);
     if (existing) { openConfig(existing); return; }
-    const draft = initialConfigForProvider(providerId, snapshot.providers);
+    const draft = initialConfigForProvider(providerId, snapshot.providers, tUi);
     view.pushRoute({ kind: 'model-editor', draft: { ...draft, draftKey: draft.id } });
   }
   if (route.kind === 'model-editor') {
@@ -35,17 +38,17 @@ export function MobileModelsPage() {
         onFetchModels={draft => models.discover(draft)}
         onNotify={chat.notify} renderLayout={view.renderLayout} showHeader={false}
         renderDetail={detail => <MobileModelConfigDetail {...detail} />}
-        renderEditor={(editor, detail) => <><MobileHeader title="模型配置" back={view.goBack}>
-          <button type="button" className="mobile-model-save" disabled={!editor.canSave} aria-busy={editor.saving || undefined} onClick={editor.onSave}>保存</button>
-        </MobileHeader>{detail}</>} /> : <><MobileHeader title="模型配置" back={view.goBack} /><MobileState error={snapshot.error || '模型配置已不存在，请返回模型列表'} /></>}
+        renderEditor={(editor, detail) => <><MobileHeader title={tUi("模型配置")} back={view.goBack}>
+          <button type="button" className="mobile-model-save" disabled={!editor.canSave} aria-busy={editor.saving || undefined} onClick={editor.onSave}>{tUi("保存")}</button>
+        </MobileHeader>{detail}</>} /> : <><MobileHeader title={tUi("模型配置")} back={view.goBack} /><MobileState error={snapshot.error || tUi("模型配置已不存在，请返回模型列表")} /></>}
     </div>;
   }
-  const configurations = configurationItems(snapshot.configs, snapshot.providers);
-  const createProviders = addableProviderItems(snapshot.providers);
+  const configurations = configurationItems(snapshot.configs, snapshot.providers, tUi);
+  const createProviders = addableProviderItems(snapshot.providers, tUi);
   const builtinProviders = builtinProviderItems(snapshot.providers);
-  return <div className="mobile-root-page"><MobileHeader title="模型" onSearch={view.openSearch} onAdd={() => setPicker(true)} addLabel="新建模型配置" />
+  return <div className="mobile-root-page"><MobileHeader title={tUi("模型")} onSearch={view.openSearch} onAdd={() => setPicker(true)} addLabel={tUi("新建模型配置")} />
     <div className="mobile-scroll mobile-model-list" ref={ref}>
-      {modelProviderSections.map(section => {
+      {localizeUiCopy(modelProviderSections, tUi).map(section => {
         const sectionConfigs = configurations.filter(item => item.section === section.id);
         if (!sectionConfigs.length) return null;
         const collapsed = Boolean(collapsedSections[section.id]);
@@ -57,17 +60,17 @@ export function MobileModelsPage() {
         </button>)}
       </div></section>;
       })}
-      <MobileState error={snapshot.error} loading={snapshot.status === 'loading'} empty={!snapshot.configs.length && snapshot.status === 'ready' ? '暂无模型配置' : ''} onRetry={() => models.refresh().catch(error => chat.notify('error', resolveFailure(error, { fallback: '刷新模型配置失败' }).text))} />
+      <MobileState error={snapshot.error} loading={snapshot.status === 'loading'} empty={!snapshot.configs.length && snapshot.status === 'ready' ? tUi("暂无模型配置") : ''} onRetry={() => models.refresh().catch(error => chat.notify('error', resolveFailure(error, { fallback: tUi("刷新模型配置失败") }).text))} />
     </div>
-    {picker && <MobileDialog title="新建模型配置" onClose={() => setPicker(false)}><div className="mobile-picker-list mobile-model-create-list">
-      {createProviders.filter(provider => provider.id === 'custom').map(provider => <button type="button" key={provider.id} onClick={() => create(provider.id)}><MobileProviderLogo provider={provider} /><span>{provider.label}</span><MobileChevronRightIcon /></button>)}
-      <div className="mobile-model-create-group"><label htmlFor="mobile-builtin-provider">内置提供商</label>
-        <select id="mobile-builtin-provider" aria-label="从 DSH 目录选择" value="" disabled={!builtinProviders.length} onChange={event => { if (event.target.value) create(event.target.value); }}>
-          <option value="" disabled>从 DSH 目录选择</option>
+    {picker && <MobileDialog title={tUi("新建模型配置")} onClose={() => setPicker(false)}><div className="mobile-picker-list mobile-model-create-list">
+      {createProviders.filter(provider => provider.id === 'custom').map(provider => <button type="button" key={provider.id} onClick={() => create(provider.id, tUi)}><MobileProviderLogo provider={provider} /><span>{provider.label}</span><MobileChevronRightIcon /></button>)}
+      <div className="mobile-model-create-group"><label htmlFor="mobile-builtin-provider">{tUi("内置提供商")}</label>
+        <select id="mobile-builtin-provider" aria-label={tUi("从 DSH 目录选择")} value="" disabled={!builtinProviders.length} onChange={event => { if (event.target.value) create(event.target.value, tUi); }}>
+          <option value="" disabled>{tUi("从 DSH 目录选择")}</option>
           {builtinProviders.map(route => <option key={route.provider} value={route.provider}>{route.displayName || route.provider}</option>)}
         </select>
       </div>
-      <div className="mobile-model-create-group"><span>绘画模型</span>{createProviders.filter(provider => provider.section === 'image').map(provider => <button type="button" key={provider.id} onClick={() => create(provider.id)}><MobileProviderLogo provider={provider} /><span>{provider.label}</span><MobileChevronRightIcon /></button>)}</div>
+      <div className="mobile-model-create-group"><span>{tUi("绘画模型")}</span>{createProviders.filter(provider => provider.section === 'image').map(provider => <button type="button" key={provider.id} onClick={() => create(provider.id, tUi)}><MobileProviderLogo provider={provider} /><span>{provider.label}</span><MobileChevronRightIcon /></button>)}</div>
     </div></MobileDialog>}
   </div>;
 }

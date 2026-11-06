@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../i18n/ProductLocaleContext.jsx";
 import logoIcon from "../../../../assets/eleckoi-app-icon.png";
 import { DshPanelLeftIcon } from "../../../../ui/icons/dshComposerIcons.jsx";
 import { ElecKoiWordmark } from "../../../../ui/icons/ElecKoiWordmark.jsx";
@@ -8,20 +9,22 @@ function stopDrag(event) {
 }
 
 export function WindowControls({ onClose }) {
+  const tUi = useProductTranslation();
   if (globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === "android") return null;
+  if (!globalThis.window?.dshDesktop?.windowControls) return null;
   if (typeof document !== "undefined" && document.documentElement.hasAttribute("data-native-window-controls")) return null;
   return (
     <div className="window-controls">
-      <button className="window-control-button minimize" type="button" title="最小化" onPointerDown={stopDrag} onClick={() => appWindow.minimize()}>
+      <button className="window-control-button minimize" type="button" title={tUi("最小化")} onPointerDown={stopDrag} onClick={() => appWindow.minimize()}>
         <span />
       </button>
-      <button className="window-control-button maximize" type="button" title="最大化" onPointerDown={stopDrag} onClick={() => appWindow.maximizeToggle()}>
+      <button className="window-control-button maximize" type="button" title={tUi("最大化")} onPointerDown={stopDrag} onClick={() => appWindow.maximizeToggle()}>
         <span />
       </button>
       <button
         className="window-control-button close"
         type="button"
-        title="关闭"
+        title={tUi("关闭")}
         onPointerDown={stopDrag}
         onClick={() => {
           if (onClose) onClose();
@@ -44,11 +47,12 @@ export function TitleBar({
   onClose,
   desktopMenu = false,
 }) {
+  const tUi = useProductTranslation();
   const sidePanelToggle = sidePanelCollapsed && onToggleSidePanel ? <button
     className="side-panel-expand-button"
     type="button"
-    aria-label="展开侧边栏"
-    title="展开侧边栏"
+    aria-label={tUi("展开侧边栏")}
+    title={tUi("展开侧边栏")}
     aria-expanded="false"
     onPointerDown={stopDrag}
     onClick={onToggleSidePanel}

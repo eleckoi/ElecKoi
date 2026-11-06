@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../i18n/ProductLocaleContext.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { applyAppearanceTheme } from "../../modules/appearance/index.js";
 import {
@@ -14,6 +15,7 @@ import { FailureAlert } from "../../ui/ui/FailureAlert.jsx";
 const ALL_PRESETS = "全部预设";
 
 export function PresetManagerWindow({ presetCatalog, renderPresetManager }) {
+  const tUi = useProductTranslation();
   const [catalog, setCatalog] = useState(null);
   const [purpose, setPurpose] = useState(() => new URLSearchParams(window.location.search).get('purpose') === 'creator' ? 'creator' : 'roleplay');
   const [selectedGroup, setSelectedGroup] = useState(ALL_PRESETS);
@@ -40,14 +42,14 @@ export function PresetManagerWindow({ presetCatalog, renderPresetManager }) {
     try {
       return acceptCatalog(await presetCatalog.refresh(), preferredId);
     } catch (cause) {
-      setLoadError(cause ?? "读取预设失败。");
+      setLoadError(cause ?? tUi("读取预设失败。"));
       return null;
     }
   }, [acceptCatalog, presetCatalog]);
 
   useEffect(() => {
     applyAppearanceTheme(null);
-    document.title = "预设管理器 - ElecKoi";
+    document.title = tUi("预设管理器 - ElecKoi");
     showCurrentWindow().catch(bestEffort);
     const update = () => {
       const snapshot = presetCatalog.getSnapshot();
@@ -58,7 +60,7 @@ export function PresetManagerWindow({ presetCatalog, renderPresetManager }) {
     update();
     void refresh();
     return stop;
-  }, [acceptCatalog, presetCatalog, refresh]);
+  }, [acceptCatalog, presetCatalog, refresh, tUi]);
 
   function beginImport() {
     setImportError("");
@@ -90,7 +92,7 @@ export function PresetManagerWindow({ presetCatalog, renderPresetManager }) {
       setSelectedGroup(ALL_PRESETS);
       await refresh(result.preset.id);
     } catch (cause) {
-      setImportError(cause instanceof Error ? cause.message : "导入预设失败。");
+      setImportError(cause instanceof Error ? cause.message : tUi("导入预设失败。"));
     } finally {
       setImporting(false);
     }
@@ -138,7 +140,7 @@ export function PresetManagerWindow({ presetCatalog, renderPresetManager }) {
     <main className="qq-shell management-window-shell preset-manager-shell">
       <TitleBar splitSurface />
       <section className="management-window-content">
-        {!catalog && !loadError ? <p className="management-window-state">正在读取…</p> : loadError ? (
+        {!catalog && !loadError ? <p className="management-window-state">{tUi("正在读取…")}</p> : loadError ? (
           <FailureAlert failure={loadError}
             className="management-window-state is-error" onRetry={() => void refresh()} />
         ) : (

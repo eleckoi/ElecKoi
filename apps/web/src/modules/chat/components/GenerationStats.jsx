@@ -1,3 +1,5 @@
+import { sourceText } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { IconDatabaseOutlineRegular, IconGaugeOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -17,13 +19,14 @@ const GENERATION_LINE_FIELDS = [
 ];
 
 export function GenerationStatsLine({ stats }) {
+  const tUi = useProductTranslation();
   const [openPill, setOpenPill] = useState(null);
   const timeRef = useRef(null);
   const usageRef = useRef(null);
   const panelRef = useRef(null);
   const position = usePopupPosition(openPill, openPill === "time" ? timeRef : usageRef, 340);
   const sessionStats = stats?.sessionStats ?? stats;
-  const timeRows = useMemo(() => sessionTimeRows(sessionStats), [sessionStats]);
+  const timeRows = useMemo(() => sessionTimeRows(sessionStats, tUi), [sessionStats, tUi]);
   const usage = stats?.tokenUsage;
   const totalTokens = billedInputTokens(usage) + (usage?.outputTokens || 0);
   const hasTime = sessionStats?.steps > 0;
@@ -55,9 +58,9 @@ export function GenerationStatsLine({ stats }) {
   const speed = sessionStats?.decodeMs > 0
     ? `${formatThroughput(sessionStats.decodeTokens / (sessionStats.decodeMs / 1000))} tok/s`
     : null;
-  const timeLabel = `${sessionStats?.turns || 0} 轮 ${sessionStats?.steps || 0} 步${speed ? ` · ${speed}` : ""}`;
-  const usageLabel = `${formatTokens(totalTokens)} tok${cacheHit !== null ? ` · 缓存命中 ${cacheHit}%` : ""}`;
-  const panelTitle = openPill === "time" ? "会话统计" : "Token 用量";
+  const timeLabel = tUi("{value0} 轮 {value1} 步{value2}", {value0: sessionStats?.turns || 0, value1: sessionStats?.steps || 0, value2: speed ? ` · ${speed}` : ""});
+  const usageLabel = `${formatTokens(totalTokens)} tok${cacheHit !== null ? tUi(" · 缓存命中 {value0}%", {value0: cacheHit}) : ""}`;
+  const panelTitle = openPill === "time" ? tUi("会话统计") : tUi("Token 用量");
   return (
     <div className="generation-stats-line">
       {hasTime ? <span className="generation-stat-anchor" ref={timeRef}>
@@ -78,7 +81,7 @@ export function GenerationStatsLine({ stats }) {
             {openPill === "usage" ? <strong>{formatExactTokens(totalTokens)} tok</strong> : null}
           </div>
           <dl className="generation-stat-details">
-            {(openPill === "time" ? timeRows : sessionUsageRows(usage)).map(({ label, value }) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+            {(openPill === "time" ? timeRows : sessionUsageRows(usage, tUi)).map(({ label, value }) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
           </dl>
         </div>, document.body) : null}
     </div>
@@ -119,25 +122,25 @@ function usePopupPosition(open, anchorRef, width) {
   return position;
 }
 
-export function sessionTimeRows(stats) {
+export function sessionTimeRows(stats, tUi = sourceText) {
   if (!stats) return [];
   const rows = [];
-  if (stats.llmMs > 0) rows.push({ label: "模型用时", value: formatDuration(stats.llmMs) });
-  if (stats.toolMs > 0) rows.push({ label: "工具调用用时", value: formatDuration(stats.toolMs) });
-  if (stats.ttftSteps > 0) rows.push({ label: "首 token 平均（TTFT）", value: formatDuration(stats.ttftMs / stats.ttftSteps) });
-  if (stats.decodeMs > 0) rows.push({ label: "输出速度（TPS）", value: `${formatThroughput(stats.decodeTokens / (stats.decodeMs / 1000))} tok/s` });
+  if (stats.llmMs > 0) rows.push({ label: tUi("模型用时"), value: formatDuration(stats.llmMs, tUi) });
+  if (stats.toolMs > 0) rows.push({ label: tUi("工具调用用时"), value: formatDuration(stats.toolMs, tUi) });
+  if (stats.ttftSteps > 0) rows.push({ label: tUi("首 token 平均（TTFT）"), value: formatDuration(stats.ttftMs / stats.ttftSteps, tUi) });
+  if (stats.decodeMs > 0) rows.push({ label: tUi("输出速度（TPS）"), value: `${formatThroughput(stats.decodeTokens / (stats.decodeMs / 1000))} tok/s` });
   return rows;
 }
 
-export function sessionUsageRows(usage) {
+export function sessionUsageRows(usage, tUi = sourceText) {
   if (!usage) return [];
   const rows = [];
   const cacheHit = cacheHitPercent(usage);
-  if (cacheHit !== null) rows.push({ label: "缓存命中", value: `${cacheHit}%` });
-  rows.push({ label: "未缓存输入", value: `${formatExactTokens(usage.uncachedInputTokens)} tok` });
-  rows.push({ label: "缓存读取", value: `${formatExactTokens(usage.cacheReadTokens)} tok` });
-  if (usage.cacheWriteTokens > 0) rows.push({ label: "缓存写入", value: `${formatExactTokens(usage.cacheWriteTokens)} tok` });
-  rows.push({ label: "输出", value: `${formatExactTokens(usage.outputTokens)} tok` });
+  if (cacheHit !== null) rows.push({ label: tUi("缓存命中"), value: `${cacheHit}%` });
+  rows.push({ label: tUi("未缓存输入"), value: `${formatExactTokens(usage.uncachedInputTokens)} tok` });
+  rows.push({ label: tUi("缓存读取"), value: `${formatExactTokens(usage.cacheReadTokens)} tok` });
+  if (usage.cacheWriteTokens > 0) rows.push({ label: tUi("缓存写入"), value: `${formatExactTokens(usage.cacheWriteTokens)} tok` });
+  rows.push({ label: tUi("输出"), value: `${formatExactTokens(usage.outputTokens)} tok` });
   return rows;
 }
 
@@ -146,6 +149,7 @@ function formatExactTokens(value) {
 }
 
 export function ContextMeter({ stats }) {
+  const tUi = useProductTranslation();
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const panelRef = useRef(null);
@@ -181,8 +185,8 @@ export function ContextMeter({ stats }) {
       <button
         type="button"
         className="context-meter-trigger"
-        aria-label={`上下文已用 ${context.percentLabel}%`}
-        title={`上下文已用 ${context.percentLabel}%`}
+        aria-label={tUi("上下文已用 {value0}%", {value0: context.percentLabel})}
+        title={tUi("上下文已用 {value0}%", {value0: context.percentLabel})}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
@@ -201,9 +205,9 @@ export function ContextMeter({ stats }) {
         <span>{context.percentLabel}%</span>
       </button>
       {open && typeof document !== "undefined" ? createPortal(
-        <div ref={panelRef} className="context-meter-panel" role="dialog" aria-label="上下文已用" style={position || { visibility: "hidden" }}>
+        <div ref={panelRef} className="context-meter-panel" role="dialog" aria-label={tUi("上下文已用")} style={position || { visibility: "hidden" }}>
           <div className="context-meter-heading">
-            <span>上下文已用 <strong>{context.percentLabel}%</strong></span>
+            <span>{tUi("上下文已用 ")}<strong>{context.percentLabel}%</strong></span>
             <b>{`~${formatTokens(context.usedTokens)} / ${formatTokens(context.contextWindow)}`}</b>
           </div>
           <div className="context-meter-bar" aria-hidden="true">
@@ -337,11 +341,11 @@ export function formatTokens(value) {
   return `${scaled(value / 1_000_000)}M`;
 }
 
-export function formatDuration(milliseconds) {
+export function formatDuration(milliseconds, tUi = sourceText) {
   const seconds = milliseconds / 1000;
-  if (seconds < 60) return `${seconds > 0 ? Math.max(0.1, Math.round(seconds * 10) / 10) : 0}秒`;
+  if (seconds < 60) return tUi("{value0}秒", {value0: seconds > 0 ? Math.max(0.1, Math.round(seconds * 10) / 10) : 0});
   const whole = Math.round(seconds);
-  return `${Math.floor(whole / 60)}分${whole % 60}秒`;
+  return tUi("{value0}分{value1}秒", {value0: Math.floor(whole / 60), value1: whole % 60});
 }
 
 function formatThroughput(value) {

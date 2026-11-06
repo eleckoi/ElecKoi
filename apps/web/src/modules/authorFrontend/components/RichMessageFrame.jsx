@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useContext, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { mountFrontendCompatibility } from '@eleckoi/tavern-frontend';
 import { MainPageContext } from '../../../app/windows/MainPageContext.jsx';
@@ -17,6 +18,7 @@ function createChannel() {
 }
 
 export function RichMessageFrame(props) {
+  const tUi = useProductTranslation();
   const permission = useRichMessageRenderPermission(props.message.id);
   const declaration = useMemo(() => readAuthorDocumentDeclaration(props.document.source), [props.document.source]);
   const identity = useMemo(() => ({}), [props.message.conversationId, props.message.id, props.document.source, props.rootIndex]);
@@ -28,21 +30,22 @@ export function RichMessageFrame(props) {
     if (declaration.kind === 'unsupported') settled.current?.({ status: 'error', error: declaration.error });
     else if (!permission.active) settled.current?.({ status: 'deferred' });
   }, [declaration, permission.active, identity]);
-  if (declaration.kind === 'unsupported') return <div className="rich-message-error" role="alert">互动消息加载失败：{declaration.error}</div>;
+  if (declaration.kind === 'unsupported') return <div className="rich-message-error" role="alert">{tUi("互动消息加载失败：")}{declaration.error}</div>;
   const onHeight = value => setMeasurement(current => current?.identity === identity && current.height === value
     ? current : { identity, height: value });
   return <div className={`rich-message-container${permission.managed ? ' is-managed' : ''}`}>
     {permission.active ? <>
       {declaration.kind === 'native' ? <NativeMessageFrame {...props} onHeight={onHeight} initialHeight={height} />
         : <SharedMessageFrame {...props} onHeight={onHeight} initialHeight={height} />}
-      {permission.manual && (props.rootIndex ?? 0) === 0 && <button type="button" className="rich-message-stop" onClick={permission.stop}>停止此楼层富消息</button>}
+      {permission.manual && (props.rootIndex ?? 0) === 0 && <button type="button" className="rich-message-stop" onClick={permission.stop}>{tUi("停止此楼层富消息")}</button>}
     </> : <div className="rich-message-placeholder" style={height == null ? undefined : { minHeight: height }}>
-      <button type="button" className="rich-message-load" onClick={permission.load}>加载此楼层富消息</button>
+      <button type="button" className="rich-message-load" onClick={permission.load}>{tUi("加载此楼层富消息")}</button>
     </div>}
   </div>;
 }
 
 function SharedMessageFrame({ message, document, rootIndex = 0, onSettled, onHeight, initialHeight }) {
+  const tUi = useProductTranslation();
   const { runtime, state } = useHtmlResources();
   const view = useContext(MainPageContext);
   const connection = view?.characterConfiguration?.scriptRuntimeConnection;
@@ -124,9 +127,9 @@ function SharedMessageFrame({ message, document, rootIndex = 0, onSettled, onHei
       });
     } catch (failure) { report(failure); page.__ElecKoiCompleteSharedDocument(failure); }
   };
-  if (error || state.status === 'error') return <div className="rich-message-error" role="alert">互动消息加载失败：{error || state.error}</div>;
-  if (!source) return <div className="rich-message-loading" role="status">正在加载互动消息…</div>;
-  return <><iframe key={channel} ref={frameRef} name={channel} className="rich-message-frame" title="互动消息内容"
+  if (error || state.status === 'error') return <div className="rich-message-error" role="alert">{tUi("互动消息加载失败：")}{error || state.error}</div>;
+  if (!source) return <div className="rich-message-loading" role="status">{tUi("正在加载互动消息…")}</div>;
+  return <><iframe key={channel} ref={frameRef} name={channel} className="rich-message-frame" title={tUi("互动消息内容")}
     allow="fullscreen; autoplay; clipboard-read; clipboard-write" loading="eager" srcDoc={source} onLoad={loaded}
     style={{ height: height === null ? initialHeight ?? (globalThis.CSS?.supports?.('height', '100dvh') ? '100dvh' : '100vh') : `${height}px` }} />
     <FrontendDiagnostics messages={diagnostics} /></>;

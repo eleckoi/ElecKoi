@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { FileCode } from "../../../ui/icons/interfaceIcons.jsx";
 import { EditorLibraryGroup } from '../../../ui/ui/EditorLibraryGroup.jsx';
 import { REGEX_SCOPES, rulesForScope } from "../model/regexRulesEditing.js";
@@ -31,6 +32,7 @@ export function RegexRuleList({
   onContextMenu,
   busy,
 }) {
+  const tUi = useProductTranslation();
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const touch = useTouchReorder({ enabled: touchReorder && dragEnabled && !normalizedQuery, onSelect,
     onMove: ({ dragId, parentId, destinationIndex }) => onMove(parentId, dragId, destinationIndex) });
@@ -49,7 +51,7 @@ export function RegexRuleList({
         return (
           <EditorLibraryGroup className="regex-rule-group" key={scope.id} title={scope.label}
             onContextMenu={event => onContextMenu?.(event, { scopeId: scope.id })}
-            actions={!selection?.active && onToggleScope && <RuleSwitch checked={scopeEnabled} label={`启用${scope.label}`} disabled={busy} onChange={enabled => onToggleScope(scope.id, enabled)} />}>
+            actions={!selection?.active && onToggleScope && <RuleSwitch checked={scopeEnabled} label={tUi("启用{value0}", {value0: scope.label})} disabled={busy} onChange={enabled => onToggleScope(scope.id, enabled)} />}>
                 {visibleRules.map((rule) => (
                   <div
                     key={rule.id}
@@ -66,12 +68,12 @@ export function RegexRuleList({
                       onMove(scope.id, draggedId, targetIndex);
                     }}
                   >
-                    <EditorSelectionCheckbox selection={selection} id={rule.id} label={rule.name || '未命名规则'} disabled={busy} />
+                    <EditorSelectionCheckbox selection={selection} id={rule.id} label={rule.name || tUi("未命名规则")} disabled={busy} />
                     <div
                       className="regex-rule-main"
                       draggable={dragEnabled && !query}
                       tabIndex={0}
-                      aria-label={`${rule.name || "未命名规则"}，拖动排序`}
+                      aria-label={tUi("{value0}，拖动排序", {value0: rule.name || tUi("未命名规则")})}
                       onDragStart={(event) => {
                         event.dataTransfer.effectAllowed = "move";
                         event.dataTransfer.setData("text/plain", rule.id);
@@ -88,12 +90,12 @@ export function RegexRuleList({
                       }}
                     >
                       <FileCode size={18} aria-hidden="true" />
-                      <span>{rule.name.trim() || "未命名规则"}</span>
+                      <span>{rule.name.trim() || tUi("未命名规则")}</span>
                     </div>
-                    {!selection?.active && <RuleSwitch checked={rule.enabled} disabled={busy} label={`${rule.name || "未命名规则"}启用状态`} onChange={(enabled) => onToggleRule(scope.id, rule.id, enabled)} />}
+                    {!selection?.active && <RuleSwitch checked={rule.enabled} disabled={busy} label={tUi("{value0}启用状态", {value0: rule.name || tUi("未命名规则")})} onChange={(enabled) => onToggleRule(scope.id, rule.id, enabled)} />}
                   </div>
                 ))}
-                {visibleRules.length === 0 ? <p className="editor-library-empty">{normalizedQuery ? "没有匹配的规则" : "暂无规则"}</p> : null}
+                {visibleRules.length === 0 ? <p className="editor-library-empty">{normalizedQuery ? tUi("没有匹配的规则") : tUi("暂无规则")}</p> : null}
           </EditorLibraryGroup>
         );
       })}

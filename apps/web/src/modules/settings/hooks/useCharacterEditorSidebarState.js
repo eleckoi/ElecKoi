@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useState, useSyncExternalStore } from 'react';
 import { useDshDisplayPreferences } from '../model/DisplayPreferencesContext.jsx';
 import { resolveFailure } from '../../../utils/failureText.js';
@@ -7,6 +8,7 @@ const EMPTY_SUBSCRIBE = () => () => {};
 const GET_EMPTY_SNAPSHOT = () => EMPTY_SNAPSHOT;
 
 export function useCharacterEditorSidebarState() {
+  const tUi = useProductTranslation();
   const preferences = useDshDisplayPreferences();
   const snapshot = useSyncExternalStore(
     preferences?.subscribe || EMPTY_SUBSCRIBE,
@@ -31,7 +33,7 @@ export function useCharacterEditorSidebarState() {
     try {
       await preferences.updateUi({ character_editor_sidebar_collapsed: next });
     } catch (failure) {
-      setError(resolveFailure(failure, { fallback: '保存侧边栏状态失败' }).text);
+      setError(resolveFailure(failure, { fallback: tUi("保存侧边栏状态失败") }).text);
     } finally {
       setPendingCollapsed(null);
       setSaving(false);

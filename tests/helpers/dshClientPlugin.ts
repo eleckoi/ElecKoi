@@ -52,6 +52,7 @@ export function dshClientPlugin(registration: { factory: (...args: any[]) => any
   return {
     apply: (context: Record<string, unknown>) => plugin.apply({
       slots: { inject: () => {} },
+      locale: { bind: () => (key: string) => key },
       ...context,
     }),
   }

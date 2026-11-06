@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { createContext, useContext } from "react";
 import { BracketsCurly, Empty, HashStraight, ListBullets, ListDashes, TextT, ToggleRight, TreeStructure } from "@phosphor-icons/react";
 import { DshTriangleRightIcon } from "../../../ui/icons/dshTreeIcons.jsx";
@@ -27,6 +28,7 @@ export function VariableEntryIcon({ type = "", size = 17, className = "" }) {
 }
 
 export function VariableTreeNode({ item, data, itemProps, style, level, isSelected, isExpanded, isDropTarget, isDragging }) {
+  const tUi = useProductTranslation();
   const actions = useContext(VariableTreeActionsContext);
 
   return (
@@ -46,7 +48,7 @@ export function VariableTreeNode({ item, data, itemProps, style, level, isSelect
       <EditorSelectionCheckbox selection={actions?.selection} id={data.id} label={data.label} disabled={actions?.saving || data.fixed} />
       <span className="variable-tree-chevron">
         {data.nodeKind === "object" && !data.fixed ? (
-          <button type="button" className="variable-tree-expander" aria-label={isExpanded ? "折叠变量组" : "展开变量组"} aria-expanded={isExpanded} onDoubleClick={event => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); if (item.isExpanded()) item.collapse(); else item.expand(); }}>
+          <button type="button" className="variable-tree-expander" aria-label={isExpanded ? tUi("折叠变量组") : tUi("展开变量组")} aria-expanded={isExpanded} onDoubleClick={event => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); if (item.isExpanded()) item.collapse(); else item.expand(); }}>
             <DshTriangleRightIcon className={isExpanded ? "is-expanded" : ""} />
           </button>
         ) : null}
@@ -55,15 +57,16 @@ export function VariableTreeNode({ item, data, itemProps, style, level, isSelect
         ? <VariableGroupIcon initialization={data.fixed} className="variable-tree-icon" />
         : <VariableEntryIcon type={data.valueType} className="variable-tree-icon" />}
       <span className="variable-tree-label">{data.dynamicKey ? `<${data.label}>` : data.label}</span>
-      {data.readMode === "required" ? <span className="variable-tree-required" title="必读">必读</span> : null}
+      {data.readMode === "required" ? <span className="variable-tree-required" title={tUi("必读")}>{tUi("必读")}</span> : null}
       {!data.fixed && !actions?.selection?.active ? (
-        <button type="button" className="variable-tree-switch" role="switch" aria-checked={data.enabled} aria-label={`${data.ownEnabled ? "停用" : "启用"}${data.label}`} disabled={!data.ancestorEnabled} onDoubleClick={event => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); actions.toggleNode(data); }}><span aria-hidden="true" /></button>
+        <button type="button" className="variable-tree-switch" role="switch" aria-checked={data.enabled} aria-label={`${data.ownEnabled ? tUi("停用") : tUi("启用")}${data.label}`} disabled={!data.ancestorEnabled} onDoubleClick={event => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); actions.toggleNode(data); }}><span aria-hidden="true" /></button>
       ) : null}
     </div>
   );
 }
 
 export function VariableConfigTree({ nodes, query, selectedId, expandedIds, onSelectedIdChange, onExpandedIdsChange, onMove, touchReorder, dragEnabled }) {
+  const tUi = useProductTranslation();
   return <HeadlessTree
     nodes={nodes}
     touchReorder={touchReorder}
@@ -71,7 +74,7 @@ export function VariableConfigTree({ nodes, query, selectedId, expandedIds, onSe
     query={query}
     selectedId={selectedId}
     expandedIds={expandedIds}
-    ariaLabel="变量配置树"
+    ariaLabel={tUi("变量配置树")}
     dragLineClassName="variable-tree-drop-cursor"
     onSelectedIdChange={onSelectedIdChange}
     onExpandedIdsChange={onExpandedIdsChange}

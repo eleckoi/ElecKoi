@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -11,6 +12,7 @@ import { mountFrontendCompatibility } from '@eleckoi/tavern-frontend';
 
 /** Document metadata selects a runtime; undeclared source is never rewritten as native. */
 export function AdvancedFrontendFrame(props) {
+  const tUi = useProductTranslation();
   const { project, request, entryFile = project.entryFile, revision, onError, nativeOnly = false } = props;
   const { authorRuntime } = useNativeFrontendServices();
   const identity = useMemo(() => ({}), [request, project.id, project.updatedAt, entryFile, revision, nativeOnly]);
@@ -24,11 +26,11 @@ export function AdvancedFrontendFrame(props) {
       if (declaration.kind === 'unsupported') throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, declaration.error, { what: '原生作者 SDK 声明' });
       if (nativeOnly && declaration.kind !== 'native') throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '页面缺少 eleckoi-author-api 原生 SDK 声明', { what: '页面里的原生作者 SDK 声明', path: entryFile });
       setLoaded({ identity, document: { content: result.content, declaration } });
-    }).catch(reason => { if (active) { const message = `${project.name} · ${entryFile}: ${resolveFailure(reason, { fallback: '前端页面加载失败' }).text}`; setLoaded({ identity, error: message }); report.current?.(message); } });
+    }).catch(reason => { if (active) { const message = `${project.name} · ${entryFile}: ${resolveFailure(reason, { fallback: tUi("前端页面加载失败") }).text}`; setLoaded({ identity, error: message }); report.current?.(message); } });
     return () => { active = false; };
   }, [request, project.id, project.updatedAt, entryFile, revision, identity, nativeOnly]);
-  if (loaded?.identity !== identity) return <div className="frontend-state" role="status">正在加载 HTML 前端…</div>;
-  if (loaded.error) return <div className="frontend-state" role="alert">HTML 前端加载失败：{loaded.error}</div>;
+  if (loaded?.identity !== identity) return <div className="frontend-state" role="status">{tUi("正在加载 HTML 前端…")}</div>;
+  if (loaded.error) return <div className="frontend-state" role="alert">{tUi("HTML 前端加载失败：")}{loaded.error}</div>;
   const document = loaded.document;
   if (document.declaration.kind === 'native') return <NativeProjectFrame {...props} entryFile={entryFile} content={document.content} runtime={authorRuntime} />;
   return <LegacyProjectFrame {...props} authorRuntime={authorRuntime} entryFile={entryFile} content={document.content} />;
@@ -36,6 +38,7 @@ export function AdvancedFrontendFrame(props) {
 
 /** Project identity owns the document; message updates never replace its DOM. */
 function LegacyProjectFrame({ project, runtime, authorRuntime, request, content, entryFile = project.entryFile, revision, context, onError }) {
+  const tUi = useProductTranslation();
   const releaseCompatibility = useRef(null), mountedCompatibility = useRef(null);
   const frame = useRef(null), [source, setSource] = useState(''), [error, setError] = useState('');
   const [slotHeight, setSlotHeight] = useState(180), currentDocument = useRef(null);
@@ -71,7 +74,7 @@ function LegacyProjectFrame({ project, runtime, authorRuntime, request, content,
       currentDocument.current = null;
     };
     const fail = failure => {
-      const message = `${project.name} · ${entryFile}: ${resolveFailure(failure, { fallback: '前端页面加载失败' }).text}`;
+      const message = `${project.name} · ${entryFile}: ${resolveFailure(failure, { fallback: tUi("前端页面加载失败") }).text}`;
       if (mounted) { setError(message); errorRef.current?.(message); }
     };
     setError(''); setSource('');
@@ -116,8 +119,8 @@ function LegacyProjectFrame({ project, runtime, authorRuntime, request, content,
     } catch (failure) { report(failure); page.__ElecKoiCompleteSharedDocument(failure); }
   };
   return <div className="advanced-frontend-region" style={{ position: 'relative', minWidth: 0, minHeight: 0, flex: 1, display: 'flex', ...(autoHeight ? { minHeight: slotHeight, width: '100%', flex: 'none' } : fullHeight ? { height: '100%' } : {}) }}>
-    {error ? <div className="frontend-state" role="alert">HTML 前端加载失败：{error}</div>
+    {error ? <div className="frontend-state" role="alert">{tUi("HTML 前端加载失败：")}{error}</div>
       : source ? <iframe key={channel} ref={frame} name={channel} title={project.name} srcDoc={source} onLoad={() => { currentDocument.current = frame.current?.contentWindow; syncContext(); mountCompatibility(); }}
-        allow="fullscreen; autoplay; clipboard-read; clipboard-write" style={{ width: '100%', height: '100%', border: 0, position: 'absolute', inset: 0, background: 'transparent', ...(autoHeight ? { height: slotHeight, flex: 'none' } : {}) }} /> : <div className="frontend-state" role="status">正在加载 HTML 前端…</div>}
+        allow="fullscreen; autoplay; clipboard-read; clipboard-write" style={{ width: '100%', height: '100%', border: 0, position: 'absolute', inset: 0, background: 'transparent', ...(autoHeight ? { height: slotHeight, flex: 'none' } : {}) }} /> : <div className="frontend-state" role="status">{tUi("正在加载 HTML 前端…")}</div>}
   </div>;
 }

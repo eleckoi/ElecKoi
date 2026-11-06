@@ -1,9 +1,11 @@
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { useLayoutEffect, useRef } from "react";
 import { CheckIcon } from "../icons/index.jsx";
 import { DshFolderClosedIcon } from "../icons/dshTreeIcons.jsx";
 import { MinusIcon } from "../icons/openSourceIcons.jsx";
 
 export function GroupAssignmentMenu({ x, y, label, currentGroupId = "", groups, onMove, actions = [] }) {
+  const tUi = useProductTranslation();
   const menuRef = useRef(null);
   useLayoutEffect(() => {
     const menu = menuRef.current, bounds = menu.getBoundingClientRect();
@@ -38,16 +40,16 @@ export function GroupAssignmentMenu({ x, y, label, currentGroupId = "", groups, 
       onContextMenu={(event) => event.preventDefault()}
       onKeyDown={moveFocus}
     >
-      {actions.length ? <div className="group-assignment-menu-actions" role="group" aria-label="角色卡操作">
+      {actions.length ? <div className="group-assignment-menu-actions" role="group" aria-label={tUi("角色卡操作")}>
         {actions.map(({ label: text, icon: Icon, disabled, run }) => <button key={text} type="button" role="menuitem" disabled={disabled} onClick={run}>
           <Icon /><span>{text}</span>
         </button>)}
       </div> : null}
       <button type="button" role="menuitem" disabled={!currentGroupId} onClick={() => void onMove("")}>
         {currentGroupId ? <MinusIcon /> : <CheckIcon />}
-        <span>{currentGroupId ? "移出分组" : "未分组"}</span>
+        <span>{currentGroupId ? tUi("移出分组") : tUi("未分组")}</span>
       </button>
-      {groups.length ? <div className="group-assignment-menu-targets" role="group" aria-label="目标分组">
+      {groups.length ? <div className="group-assignment-menu-targets" role="group" aria-label={tUi("目标分组")}>
         {groups.map((group) => {
           const current = group.id === currentGroupId;
           return (

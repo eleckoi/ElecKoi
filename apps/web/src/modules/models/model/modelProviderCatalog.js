@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { sourceText } from "../../../app/i18n/productCopy.js";
 import customIcon from "../../../assets/eleckoi-app-icon.png";
 import deepseekIcon from "../../../assets/model-icons/deepseek.svg";
 import novelAiIcon from "../../../assets/model-icons/novelai.svg";
@@ -88,16 +90,16 @@ export function normalizeProviderId(providerId) {
   return normalized || "custom";
 }
 
-export function catalogItem(providerId) {
+export function catalogItem(providerId, tUi = sourceText) {
   const id = normalizeProviderId(providerId);
-  return providerCatalog.find((item) => item.id === id) || providerCatalog[0];
+  return localizeUiCopy(providerCatalog.find((item) => item.id === id) || providerCatalog[0], tUi);
 }
 
-export function addableProviderItems(providers) {
+export function addableProviderItems(providers, tUi = sourceText) {
   const backendById = new Map((providers || []).map((item) => [normalizeProviderId(item.id), item]));
   return providerCatalog
     .filter((item) => item.id === 'custom' || item.section === 'image')
-    .map((item) => withProviderSearchText(item, [], backendById));
+    .map((item) => withProviderSearchText(localizeUiCopy(item, tUi), [], backendById));
 }
 
 export function builtinProviderItems(providers = []) {
@@ -110,8 +112,8 @@ export function filterProviderItems(items, keyword) {
   return items.filter((item) => item.searchText.includes(query));
 }
 
-export function isImageProviderId(providerId) {
-  return catalogItem(providerId).section === "image";
+export function isImageProviderId(providerId, tUi = sourceText) {
+  return catalogItem(providerId, tUi).section === "image";
 }
 
 function withProviderSearchText(item, configs, backendById) {
@@ -128,9 +130,9 @@ function withProviderSearchText(item, configs, backendById) {
   };
 }
 
-export function blankConfigForProvider(providerId, name = "") {
+export function blankConfigForProvider(providerId, name = "", tUi = sourceText) {
   const provider = normalizeProviderId(providerId);
-  const meta = catalogItem(provider);
+  const meta = catalogItem(provider, tUi);
   return {
     id: "",
     name,
@@ -152,22 +154,22 @@ export function modelOptionsKey(config) {
   return String(config?.id || config?.provider || '').trim();
 }
 
-export function configProviderMeta(config, providers = []) {
-  if (isImageProviderId(config?.provider) || config?.provider === 'deepseek') return catalogItem(config.provider);
+export function configProviderMeta(config, providers = [], tUi = sourceText) {
+  if (isImageProviderId(config?.provider, tUi) || config?.provider === 'deepseek') return catalogItem(config.provider, tUi);
   const route = providers.find(item => item.provider === config?.id)
     ?? (config?.builtin ? { provider: config.id, displayName: config.name || config.id } : undefined);
   if (config?.builtin && route) {
-    return { ...catalogItem('custom'), id: route.provider, label: route.displayName || route.provider,
-      badge: '内置提供商', summary: '',
+    return { ...catalogItem('custom', tUi), id: route.provider, label: route.displayName || route.provider,
+      badge: tUi("内置提供商"), summary: '',
       icon: route.provider === 'openai' ? openAiIcon : route.provider === 'deepseek' ? deepseekIcon : undefined,
       initials: (route.displayName || route.provider).slice(0, 2).toUpperCase() };
   }
-  return catalogItem('custom');
+  return catalogItem('custom', tUi);
 }
 
-export function configurationItems(configs, providers = []) {
+export function configurationItems(configs, providers = [], tUi = sourceText) {
   return configs.map(config => {
-    const meta = configProviderMeta(config, providers);
+    const meta = configProviderMeta(config, providers, tUi);
     const label = config.name?.trim() || meta.label;
     return { ...meta, id: config.id, config, label, summary: config.id, fixed: false, searchText: [label, config.id, config.model].join(' ').toLocaleLowerCase() };
   });

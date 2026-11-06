@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { RoleplayInputMenu } from "./RoleplayInputMenu.jsx";
@@ -101,6 +102,7 @@ export function ChatPanel({
   isSwitchingChat = false,
   conversationTransitionRevision = 0,
 }) {
+  const tUi = useProductTranslation();
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [processMessage, setProcessMessage] = useState(null);
   const [processTarget, setProcessTarget] = useState(null);
@@ -108,7 +110,7 @@ export function ChatPanel({
   useEffect(() => { closeProcess(); }, [conversationId, runtimeSessionId, closeProcess]);
   const [fallbackView, setFallbackView] = useState("chat");
   const activeView = dshConversation ? dshConversation.activeView : fallbackView;
-  const viewTabs = dshConversation?.tabs ?? [{ id: "chat", label: "对话" }, { id: "trajectory", label: "轨迹" }];
+  const viewTabs = dshConversation?.tabs ?? [{ id: "chat", label: tUi("对话") }, { id: "trajectory", label: tUi("轨迹") }];
   const selectView = (id) => {
     setHeaderMenuOpen(false);
     setDeleteMode(false);
@@ -287,19 +289,19 @@ export function ChatPanel({
 
   if (!hasActiveChat) {
     return (
-      <section className="chat-panel chat-panel-empty-state" aria-label="未选择聊天">
+      <section className="chat-panel chat-panel-empty-state" aria-label={tUi("未选择聊天")}>
         <div className="chat-empty-guide">
           <img src={logoIcon} alt="" draggable="false" />
           {hasCharacters ? (
             <>
-              <strong>选择一个角色开始聊天</strong>
-              <span>从左侧角色列表中打开一个角色后，这里会显示对话内容。</span>
+              <strong>{tUi("选择一个角色开始聊天")}</strong>
+              <span>{tUi("从左侧角色列表中打开一个角色后，这里会显示对话内容。")}</span>
             </>
           ) : (
             <>
-              <strong>还没有聊天角色</strong>
-              <span>先创建一个角色，再开始第一段对话。</span>
-              <button type="button" onClick={onGoCharacterSettings}>去创建角色</button>
+              <strong>{tUi("还没有聊天角色")}</strong>
+              <span>{tUi("先创建一个角色，再开始第一段对话。")}</span>
+              <button type="button" onClick={onGoCharacterSettings}>{tUi("去创建角色")}</button>
             </>
           )}
         </div>
@@ -394,7 +396,7 @@ export function ChatPanel({
     "eleckoi.roleplay.conversation.composer.bar",
     {
       variant: "composer",
-      placeholder: "输入消息",
+      placeholder: tUi("输入消息"),
       submitOnEnter,
       leadingAccessory: roleplayMenu,
       modelAccessory: roleplayModel,
@@ -473,10 +475,10 @@ export function ChatPanel({
             {dshConversation?.renderHeaderActions?.()}
           </div>
           <div className="chat-header-actions" ref={headerMenuRef}>
-            <button className="chat-header-action" type="button" aria-label="对话操作" title="对话操作" aria-haspopup="menu" aria-expanded={headerMenuOpen} onClick={() => setHeaderMenuOpen((value) => !value)}>
+            <button className="chat-header-action" type="button" aria-label={tUi("对话操作")} title={tUi("对话操作")} aria-haspopup="menu" aria-expanded={headerMenuOpen} onClick={() => setHeaderMenuOpen((value) => !value)}>
               <SlidersHorizontal size={20} weight="bold" />
             </button>
-            <button className="chat-header-action chat-header-new" type="button" aria-label="新建对话" title="新建对话" onClick={onCreateChat}>
+            <button className="chat-header-action chat-header-new" type="button" aria-label={tUi("新建对话")} title={tUi("新建对话")} onClick={onCreateChat}>
               <DshNewChatIcon size={20} />
             </button>
             {renderRoleplaySlot?.("eleckoi.roleplay.conversation.header.corner", {})}
@@ -491,13 +493,12 @@ export function ChatPanel({
                   role="menuitem"
                   onClick={openChatBackground}
                 >
-                  自定义背景
-                </button>
+                  {tUi("自定义背景")}</button>
               </div>
             ) : null}
           </div>
         </div>
-        <div className="chat-header-tabs" role="tablist" aria-label="对话视图" data-conversation-tabs="">
+        <div className="chat-header-tabs" role="tablist" aria-label={tUi("对话视图")} data-conversation-tabs="">
           {viewTabs.map((view) => <button key={view.id} type="button" role="tab" aria-selected={activeView === view.id} onClick={() => selectView(view.id)}>{view.label}</button>)}
           {dshConversation?.renderEntryActions ? <DshEntryActionsMenu region="conversation" renderActions={dshConversation.renderEntryActions} /> : null}
         </div>
@@ -515,7 +516,7 @@ export function ChatPanel({
               enabled={chatDisplay?.rich_message_limit_enabled ?? DEFAULT_CHAT_DISPLAY_PREFERENCES.rich_message_limit_enabled}
               floorLimit={chatDisplay?.rich_message_floor_limit ?? RICH_MESSAGE_FLOOR_RANGE.defaultValue}>
               {chatContent}
-            </RichMessageRenderProvider> : activeView === "trajectory" ? <Suspense fallback={<div className="trajectory-state">正在加载轨迹...</div>}>
+            </RichMessageRenderProvider> : activeView === "trajectory" ? <Suspense fallback={<div className="trajectory-state">{tUi("正在加载轨迹...")}</div>}>
               <TrajectoryView
                 key={`${conversationId}:${trajectoryRevision}`}
                 conversationId={conversationId}
@@ -529,16 +530,16 @@ export function ChatPanel({
 
           <div className="chat-composer-region" ref={composerRegionRef} data-composer-seat="" inert={isSwitchingChat || undefined}>
             {deleteMode ? (
-              <div className="chat-message-delete-bar" aria-label="删除消息">
+              <div className="chat-message-delete-bar" aria-label={tUi("删除消息")}>
                 <button
                   className="delete-confirm"
                   type="button"
                   disabled={!deleteFromMessageId || deletingMessages}
                   onClick={() => setDeleteConfirmationOpen(true)}
                 >
-                  {deletingMessages ? "删除中" : "删除"}
+                  {deletingMessages ? tUi("删除中") : tUi("删除")}
                 </button>
-                <button type="button" disabled={deletingMessages} onClick={cancelDeleteMode}>取消</button>
+                <button type="button" disabled={deletingMessages} onClick={cancelDeleteMode}>{tUi("取消")}</button>
               </div>
             ) : (
               <>
@@ -579,9 +580,9 @@ export function ChatPanel({
       /> : null}
       <ConfirmationDialog
         open={deleteConfirmationOpen}
-        title="删除这些消息？"
-        description={`将删除选中消息及其后的全部内容，共 ${selectedDeleteCount} 条。相关变量、设定状态、工具调用和媒体记录也会一起回退或清理。`}
-        confirmLabel="删除消息"
+        title={tUi("删除这些消息？")}
+        description={tUi("将删除选中消息及其后的全部内容，共 {value0} 条。相关变量、设定状态、工具调用和媒体记录也会一起回退或清理。", {value0: selectedDeleteCount})}
+        confirmLabel={tUi("删除消息")}
         destructive
         busy={deletingMessages}
         onCancel={() => setDeleteConfirmationOpen(false)}
@@ -733,6 +734,7 @@ const MessageRow = memo(function MessageRow({
   onRegenerateImage,
   onOpenFile,
 }) {
+  const tUi = useProductTranslation();
   const pluginScopeActive = !deleteMode && item.runtimeSessionId === runtimeSessionId;
   const pluginMessage = pluginScopeActive && renderRoleplaySlot && !item.pending;
   const pluginActions = pluginMessage && item.role === "assistant" && item.dshMessageId
@@ -787,7 +789,7 @@ const MessageRow = memo(function MessageRow({
             type="checkbox"
             checked={selectedForDelete}
             disabled={item.id === "opening" || !canMutate}
-            aria-label={`从这条消息开始删除${selectedForDelete ? "，已选中" : ""}`}
+            aria-label={tUi("从这条消息开始删除{value0}", {value0: selectedForDelete ? tUi("，已选中") : ""})}
             onChange={() => onSelectDeleteFrom(item.id)}
           />
           {bubble}

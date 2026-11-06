@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useCallback, useMemo } from "react";
 import { TrajectoryView as ProductTrajectoryView, zh } from "@eleckoi/dsh-client-trajectory/client";
 import { adaptTrajectorySnapshot } from "../model/trajectorySnapshotAdapter.js";
@@ -5,7 +6,8 @@ import { adaptTrajectorySnapshot } from "../model/trajectorySnapshotAdapter.js";
 const noop = () => {};
 
 export function TrajectoryView({ renderSlot, viewOwner }) {
-  return <section className="trajectory-host" aria-label="轨迹">
+  const tUi = useProductTranslation();
+  return <section className="trajectory-host" aria-label={tUi("轨迹")}>
     {renderSlot?.("eleckoi.roleplay.trajectory", {
       component: SessionTrajectoryView,
       inspectCall: undefined,

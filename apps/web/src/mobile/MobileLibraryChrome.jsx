@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { SystemBarOverlay } from '../ui/ui/SystemBarOverlay.jsx';
@@ -8,6 +9,7 @@ import { resolveFailure } from '../utils/failureText.js';
 import './mobile-library.css';
 
 export function useMobileOperation() {
+  const tUi = useProductTranslation();
   const pending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -15,7 +17,7 @@ export function useMobileOperation() {
     if (pending.current) return false;
     pending.current = true; setBusy(true); setError('');
     try { await action(); return true; }
-    catch (cause) { setError(resolveFailure(cause, { fallback: '操作失败，请重试。' }).text); return false; }
+    catch (cause) { setError(resolveFailure(cause, { fallback: tUi("操作失败，请重试。") }).text); return false; }
     finally { pending.current = false; setBusy(false); }
   }
   return { busy, error, setError, run };
@@ -68,27 +70,31 @@ export function MobileActionMenu({ title, anchor, onClose, actions, busy = false
   </LibraryOverlay>;
 }
 
-export function MobileConfirm({ title, children, confirmText = '删除', destructive = true, onClose, onConfirm, busy = false, error }) {
+export function MobileConfirm({ title, children, confirmText: confirmTextSource, destructive = true, onClose, onConfirm, busy = false, error }) {
+  const tUi = useProductTranslation();
+  const confirmText = confirmTextSource === undefined ? tUi("删除") : confirmTextSource;
   return <LibraryOverlay title={title} onClose={onClose} busy={busy} className="mobile-library-dialog">
     <h2>{title}</h2>{children && <div className="mobile-library-dialog-copy">{children}</div>}
     {error && <p role="alert">{error}</p>}
-    <div className="mobile-library-dialog-actions"><button type="button" disabled={busy} onClick={onClose}>取消</button><button type="button" className={destructive ? 'is-destructive' : 'is-confirm'} disabled={busy} onClick={onConfirm}>{busy ? '处理中…' : confirmText}</button></div>
+    <div className="mobile-library-dialog-actions"><button type="button" disabled={busy} onClick={onClose}>{tUi("取消")}</button><button type="button" className={destructive ? 'is-destructive' : 'is-confirm'} disabled={busy} onClick={onConfirm}>{busy ? tUi("处理中…") : confirmText}</button></div>
   </LibraryOverlay>;
 }
 
 export function MobileNameDialog({ title, initialName = '', onClose, onSave }) {
+  const tUi = useProductTranslation();
   const [name, setName] = useState(initialName);
   const { busy, error, run } = useMobileOperation();
-  return <MobileConfirm title={title} onClose={onClose} busy={busy} error={error} confirmText="保存" destructive={false} onConfirm={() => run(async () => { if (!name.trim()) throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, '请输入名称', { field: '名称' }); await onSave(name.trim()); onClose(); })}>
-    <input className="mobile-library-name" aria-label="名称" value={name} disabled={busy} onChange={event => setName(event.target.value)} />
+  return <MobileConfirm title={title} onClose={onClose} busy={busy} error={error} confirmText={tUi("保存")} destructive={false} onConfirm={() => run(async () => { if (!name.trim()) throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, tUi("请输入名称"), { field: tUi("名称") }); await onSave(name.trim()); onClose(); })}>
+    <input className="mobile-library-name" aria-label={tUi("名称")} value={name} disabled={busy} onChange={event => setName(event.target.value)} />
   </MobileConfirm>;
 }
 
 export function MobileSelectionHeader({ title, busy, onAll, onCancel, summary, children }) {
+  const tUi = useProductTranslation();
   return <div className={`mobile-library-selection-header${children ? ' has-actions' : ''}`}>
     <strong>{title}{summary != null && <span className="mobile-selection-summary" role="status">{summary}</span>}</strong>
-    <button type="button" disabled={busy} onClick={onAll}>全选</button>
-    <button type="button" className="mobile-selection-cancel" disabled={busy} onClick={onCancel}>取消</button>
+    <button type="button" disabled={busy} onClick={onAll}>{tUi("全选")}</button>
+    <button type="button" className="mobile-selection-cancel" disabled={busy} onClick={onCancel}>{tUi("取消")}</button>
     {children && <div className="mobile-library-selection-actions">{children}</div>}
   </div>;
 }

@@ -1,9 +1,11 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNativeFrontendServices } from './NativeFrontendContext.jsx';
 import { requestNativeFrontend } from '../model/nativeFrontendRequest.js';
 import { resolveFailure } from '../../../utils/failureText.js';
 
 export function useNativeFrontendWorkspace(scope, characterId) {
+  const tUi = useProductTranslation();
   const { service, authorRuntime } = useNativeFrontendServices();
   const owner = useMemo(() => scope === 'application' ? { scope } : { scope, characterId }, [scope, characterId]);
   const empty = useMemo(() => ({ ...owner, projects: [], selectedProjectId: null, activeBindings: [], messageRendererEnabled: true, revision: 0 }), [owner]);
@@ -31,7 +33,7 @@ export function useNativeFrontendWorkspace(scope, characterId) {
     identity.current = { owner, service };
     setSnapshot({ owner, service, workspace: empty, error: '', loaded: false });
     if (!service || scope === 'character' && !characterId) return;
-    const fail = reason => { if (mounted && accepts()) setSnapshot(current => ({ ...current, error: resolveFailure(reason, { fallback: '读取前端项目失败' }).text })); };
+    const fail = reason => { if (mounted && accepts()) setSnapshot(current => ({ ...current, error: resolveFailure(reason, { fallback: tUi("读取前端项目失败") }).text })); };
     const close = () => { mounted = false; if (accepts()) identity.current = null; };
     try { const stop = service.watch(owner, workspace => { if (mounted) publish(workspace); }, fail); return () => { close(); stop(); }; }
     catch (reason) { fail(reason); }

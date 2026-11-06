@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useId, useRef, useState } from "react";
@@ -5,7 +6,10 @@ import { CheckCircle, CircleNotch, FloppyDisk, WarningCircle } from "@phosphor-i
 import { useEditorPresentation, useEditorSaveFeedback } from '../../../ui/ui/EditorPresentationContext.jsx';
 import { AppErrorDialog } from '../../../ui/ui/AppErrorDialog.jsx';
 
-export function ConfirmationDialog({ target, cancelLabel = "取消", confirmLabel = "确定", tone = "primary", onCancel, onConfirm }) {
+export function ConfirmationDialog({ target, cancelLabel: cancelLabelSource, confirmLabel: confirmLabelSource, tone = "primary", onCancel, onConfirm }) {
+  const tUi = useProductTranslation();
+  const cancelLabel = cancelLabelSource === undefined ? tUi("取消") : cancelLabelSource;
+  const confirmLabel = confirmLabelSource === undefined ? tUi("确定") : confirmLabelSource;
   const titleId = useId();
   const messageId = useId();
   const dialogRef = useRef(null);
@@ -56,6 +60,7 @@ export function ConfirmationDialog({ target, cancelLabel = "取消", confirmLabe
 }
 
 export function SaveControl({ dirty, error, notice, saving, onSave }) {
+  const tUi = useProductTranslation();
   const { compact } = useEditorPresentation();
   const inHeader = useEditorSaveFeedback(error, notice);
   const [errorOpen, setErrorOpen] = useState(false);
@@ -66,18 +71,18 @@ export function SaveControl({ dirty, error, notice, saving, onSave }) {
       <Button data-dsh-control variant="primary"
         type="button"
         className={`setting-library-save-button${saving ? " is-saving" : ""}`}
-        title="保存（Ctrl/Command + S）"
+        title={tUi("保存（Ctrl/Command + S）")}
         aria-keyshortcuts="Control+S Meta+S"
         disabled={!dirty || saving}
         onClick={onSave}
       >
         {saving ? <CircleNotch size={16} aria-hidden="true" /> : <FloppyDisk size={16} aria-hidden="true" />}
-        {saving ? "保存中…" : "保存"}
+        {saving ? tUi("保存中…") : tUi("保存")}
       </Button>
       {error ? <span className="setting-library-save-feedback is-error" role="alert" title={error}>
-        {compact ? <><WarningCircle size={14} />{error}</> : <button type="button" className="setting-library-error-detail-button" aria-label="查看保存错误" onClick={() => setErrorOpen(true)}><WarningCircle size={14} />保存失败</button>}
+        {compact ? <><WarningCircle size={14} />{error}</> : <button type="button" className="setting-library-error-detail-button" aria-label={tUi("查看保存错误")} onClick={() => setErrorOpen(true)}><WarningCircle size={14} />{tUi("保存失败")}</button>}
       </span> : null}
-      {!error && notice === "saved" ? <span className="setting-library-save-feedback is-saved" role="status"><CheckCircle size={14} />已保存</span> : null}
+      {!error && notice === "saved" ? <span className="setting-library-save-feedback is-saved" role="status"><CheckCircle size={14} />{tUi("已保存")}</span> : null}
       {error && errorOpen ? <AppErrorDialog notice={{ id: error, message: error }} onDismiss={() => setErrorOpen(false)} /> : null}
     </div>
   );

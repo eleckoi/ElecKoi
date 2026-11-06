@@ -183,7 +183,7 @@ window.__ModuleLoader__.load({
       const NavigationIcon = React.lazy(() => import(new URL('eleckoi-page-character.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
         .then(module => ({ default: module.NavigationIcon })))
       ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
-        name: 'sidebar.panellist', id: 'character', order: -30, label: '角色列表', registrant: '@eleckoi/dsh-client-characters'
+        name: 'sidebar.panellist', id: 'character', order: -30, label: () => ctx.locale.bind('eleckoi.ui')("角色列表"), registrant: '@eleckoi/dsh-client-characters'
       }, ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(NavigationIcon, { size }))))
       ctx.effect(() => {
         catalog.start()
@@ -195,7 +195,7 @@ window.__ModuleLoader__.load({
       }, 'eleckoi: character catalog')
     }
 
-    return { inject: ['slots', 'remote', 'remote.eleckoiCharacters'], apply }
+    return { inject: ['locale', 'slots', 'remote', 'remote.eleckoiCharacters'], apply }
   }
 })
 

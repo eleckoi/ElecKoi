@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useRef, useState } from 'react';
 import { ArrowLeft, Camera } from '@phosphor-icons/react';
@@ -15,6 +16,7 @@ function readImage(file) {
 }
 
 export function PresetProfileEditor({ preset, dirty, saving, error, onChange, onCancel, onSave }) {
+  const tUi = useProductTranslation();
   const inputRef = useRef(null);
   const [cropFile, setCropFile] = useState(null);
   const [imageError, setImageError] = useState('');
@@ -55,34 +57,34 @@ export function PresetProfileEditor({ preset, dirty, saving, error, onChange, on
 
   return <div className="preset-profile-editor-page">
     <header>
-      <button type="button" aria-label="返回预设资料" onClick={onCancel}><ArrowLeft size={19} /></button>
-      <h1>编辑预设资料</h1>
+      <button type="button" aria-label={tUi("返回预设资料")} onClick={onCancel}><ArrowLeft size={19} /></button>
+      <h1>{tUi("编辑预设资料")}</h1>
     </header>
     <div className="preset-profile-editor-layout">
       <form onSubmit={(event) => { event.preventDefault(); if (dirty && !saving) void onSave(); }}>
-        <label><span>名称</span><input value={preset.name} onChange={(event) => onChange({ ...preset, name: event.target.value })} /></label>
-        <label><span>作者</span><input value={profile.authorName} placeholder="未填写作者" onChange={(event) => updateProfile({ authorName: event.target.value })} /></label>
-        <label><span>模型标签</span><input value={modelTagText} placeholder="用逗号分隔" onChange={(event) => updateModelTags(event.target.value)} /></label>
+        <label><span>{tUi("名称")}</span><input value={preset.name} onChange={(event) => onChange({ ...preset, name: event.target.value })} /></label>
+        <label><span>{tUi("作者")}</span><input value={profile.authorName} placeholder={tUi("未填写作者")} onChange={(event) => updateProfile({ authorName: event.target.value })} /></label>
+        <label><span>{tUi("模型标签")}</span><input value={modelTagText} placeholder={tUi("用逗号分隔")} onChange={(event) => updateModelTags(event.target.value)} /></label>
         {error || imageError ? <p className="preset-profile-editor-error">{error || imageError}</p> : null}
         <div className="preset-profile-editor-actions">
-          <Button data-dsh-control variant="primary" type="submit" className="is-primary" disabled={!dirty || saving}>{saving ? '保存中…' : '保存'}</Button>
-          <Button data-dsh-control variant="outline" type="button" onClick={onCancel}>取消</Button>
+          <Button data-dsh-control variant="primary" type="submit" className="is-primary" disabled={!dirty || saving}>{saving ? tUi("保存中…") : tUi("保存")}</Button>
+          <Button data-dsh-control variant="outline" type="button" onClick={onCancel}>{tUi("取消")}</Button>
         </div>
       </form>
 
       <div className="preset-profile-editor-avatar">
-        <button type="button" aria-label="修改作者头像" onClick={() => inputRef.current?.click()}>
+        <button type="button" aria-label={tUi("修改作者头像")} onClick={() => inputRef.current?.click()}>
           <Avatar src={profile.authorAvatarPath || defaultPresetAvatar} name={profile.authorName || preset.name} />
           <span aria-hidden="true"><Camera size={18} weight="fill" /></span>
         </button>
-        <small>作者头像</small>
+        <small>{tUi("作者头像")}</small>
         <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={receiveFile} />
       </div>
     </div>
 
     <AvatarCropModal
       file={cropFile}
-      title="裁剪作者头像"
+      title={tUi("裁剪作者头像")}
       cropWidth={250}
       cropHeight={250}
       cropRadius="18px"

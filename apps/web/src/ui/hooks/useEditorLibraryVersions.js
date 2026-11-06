@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { useEffect, useRef, useState } from 'react';
@@ -8,6 +9,7 @@ const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 /** Version drafts share the editor's save and discard boundary. */
 export function useEditorLibraryVersions({ kind, scope, ownerId, service, capture, apply, editorDirty }) {
+  const tUi = useProductTranslation();
   const [drafts, setDrafts] = useState({}), [baselines, setBaselines] = useState({}), [error, setError] = useState('');
   const refs = useRef({ drafts: {}, baselines: {}, generation: 0, request: 0, pending: null });
   const callbacks = useRef({ capture, apply, editorDirty });
@@ -42,19 +44,19 @@ export function useEditorLibraryVersions({ kind, scope, ownerId, service, captur
         } catch { return true; }
       });
       if (conflicting) {
-        refs.current.pending = next; setError('配置版本已在其他窗口更新，请退出并放弃未保存修改后重新载入。'); return;
+        refs.current.pending = next; setError(tUi("配置版本已在其他窗口更新，请退出并放弃未保存修改后重新载入。")); return;
       }
       if (changed) {
         refs.current.drafts = next; refs.current.baselines = next;
         setDrafts(next); setBaselines(next); setError('');
       }
-    }).catch(cause => { if (generation === refs.current.generation) setError(resolveFailure(cause, { fallback: '读取配置版本失败' }).text); });
+    }).catch(cause => { if (generation === refs.current.generation) setError(resolveFailure(cause, { fallback: tUi("读取配置版本失败") }).text); });
   }
   useEffect(() => {
     ++refs.current.generation;
     refs.current.drafts = {}; refs.current.baselines = {}; refs.current.pending = null;
     setDrafts({}); setBaselines({}); setError('');
-    if (!service) { setError('配置版本服务尚未就绪。'); return; }
+    if (!service) { setError(tUi("配置版本服务尚未就绪。")); return; }
     void reload();
     const stop = service.subscribe(() => void reload());
     return () => { refs.current.generation++; stop(); };
@@ -132,7 +134,7 @@ export function useEditorLibraryVersions({ kind, scope, ownerId, service, captur
     const content = decodeEditorVersionContent(kind, document.content);
     if ('enabled' in content) content.enabled = false;
     const names = new Set(refs.current.drafts[targetScope].versions.map(version => version.name));
-    const base = document.name.trim() || '导入版本';
+    const base = document.name.trim() || tUi("导入版本");
     let name = base, suffix = 1;
     while (names.has(name)) name = `${base} ${++suffix}`;
     create(targetScope, name, false, content);

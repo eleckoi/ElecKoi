@@ -1,9 +1,11 @@
+import { useProductTranslation } from '../../../../../apps/web/src/app/i18n/ProductLocaleContext.jsx';
 import { useRef, useSyncExternalStore } from "react";
 import { ModelConfigPanel, initialConfigForProvider } from "../../../../../apps/web/src/modules/models/index.js";
 import { useMainPageView } from "../../../../../apps/web/src/app/windows/MainPageContext.jsx";
 export { ModelNavIcon as NavigationIcon } from "../../../../../apps/web/src/ui/icons/navIcons.jsx";
 
 export function ModelPage() {
+  const tUi = useProductTranslation();
   const view = useMainPageView();
   const { chat, models, modelNavigationGuardRef, renderLayout } = view;
   const snapshot = useSyncExternalStore(models.subscribe, models.getSnapshot);
@@ -15,7 +17,7 @@ export function ModelPage() {
   if (!initialConfig.current && snapshot.status === "ready") initialConfig.current = snapshot.configs[0] || fallbackConfig.current;
   if (!initialConfig.current) return renderLayout({
     sidePanel: null,
-    mainPanel: <div role={snapshot.status === "error" ? "alert" : "status"}>{snapshot.error || "正在加载模型配置…"}</div>,
+    mainPanel: <div role={snapshot.status === "error" ? "alert" : "status"}>{snapshot.error || tUi("正在加载模型配置…")}</div>,
   });
   const config = initialConfig.current || fallbackConfig.current;
   return <ModelConfigPanel

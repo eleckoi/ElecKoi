@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TitleBar } from "../../src/app/windows/shell/components/TitleBar.jsx";
 
 globalThis.React = React;
@@ -40,6 +40,14 @@ const desktopShellSource = readFileSync(
 );
 
 describe("right sidebar shell layout", () => {
+  beforeEach(() => vi.stubGlobal('window', { dshDesktop: { windowControls: {} } }));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('omits native controls when rendered without a desktop bridge', () => {
+    vi.stubGlobal('window', undefined);
+    expect(renderToStaticMarkup(<TitleBar splitSurface />)).not.toContain('window-controls');
+  });
+
   it("keeps the window controls outside the shrinking main-panel titlebar", () => {
     const embedded = renderToStaticMarkup(<TitleBar splitSurface />);
     const detached = renderToStaticMarkup(<TitleBar splitSurface showWindowControls={false} />);

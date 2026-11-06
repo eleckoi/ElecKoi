@@ -1,3 +1,5 @@
+import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 export const PRESET_PURPOSES = [
   { id: 'roleplay', label: '角色扮演预设' },
   { id: 'creator', label: '创作预设' },
@@ -8,8 +10,9 @@ export function isDefaultPreset(id) {
 }
 
 export function PresetPurposeSwitch({ value, onChange, disabled = false }) {
-  return <div className="preset-purpose-switch" role="group" aria-label="预设分类">
-    {PRESET_PURPOSES.map(item => <button type="button" key={item.id} aria-pressed={value === item.id}
+  const tUi = useProductTranslation();
+  return <div className="preset-purpose-switch" role="group" aria-label={tUi("预设分类")}>
+    {localizeUiCopy(PRESET_PURPOSES, tUi).map(item => <button type="button" key={item.id} aria-pressed={value === item.id}
       disabled={disabled} onClick={() => onChange(item.id)}>{item.label}</button>)}
   </div>;
 }

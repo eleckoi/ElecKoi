@@ -1,3 +1,4 @@
+import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -7,6 +8,7 @@ import { resolveFailure } from '../../../utils/failureText.js';
 
 /** Native project documents contain only their own assets and the native SDK bootstrap. */
 export function NativeProjectFrame({ content, project, entryFile, revision, context, runtime, onError }) {
+  const tUi = useProductTranslation();
   const frame = useRef(null), release = useRef(null), mountedPage = useRef(null);
   const currentContext = useRef(context), report = useRef(onError);
   currentContext.current = context; report.current = onError;
@@ -27,7 +29,7 @@ export function NativeProjectFrame({ content, project, entryFile, revision, cont
   }, [content, channel, autoHeight, project.id, project.manifest, entryFile, revision]);
   const close = () => { release.current?.(); release.current = null; mountedPage.current = null; };
   const fail = reason => {
-    close(); const message = `${project.name} · ${entryFile}: ${resolveFailure(reason, { fallback: '原生前端页面加载失败' }).text}`;
+    close(); const message = `${project.name} · ${entryFile}: ${resolveFailure(reason, { fallback: tUi("原生前端页面加载失败") }).text}`;
     setError(message); report.current?.(message);
   };
   const sync = () => {
@@ -63,7 +65,7 @@ export function NativeProjectFrame({ content, project, entryFile, revision, cont
   }, [channel, source, runtime, autoHeight]);
   useEffect(sync, [JSON.stringify(context ?? null)]);
   return <div className="advanced-frontend-region" style={{ position: 'relative', minWidth: 0, minHeight: 0, flex: 1, display: 'flex', ...(autoHeight ? { minHeight: height, width: '100%', flex: 'none' } : fullHeight ? { height: '100%' } : {}) }}>
-    {error || !runtime ? <div className="frontend-state" role="alert">HTML 前端加载失败：{error || '原生作者插件未启用'}</div>
+    {error || !runtime ? <div className="frontend-state" role="alert">{tUi("HTML 前端加载失败：")}{error || tUi("原生作者插件未启用")}</div>
       : <iframe key={channel} ref={frame} name={channel} title={project.name} srcDoc={source} onLoad={load} style={{ width: '100%', height: '100%', border: 0, position: 'absolute', inset: 0, background: 'transparent', ...(autoHeight ? { height: height, flex: 'none' } : {}) }}
         allow="fullscreen; autoplay; clipboard-read; clipboard-write" />}
   </div>;

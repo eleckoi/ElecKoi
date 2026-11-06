@@ -19,3 +19,4 @@ export type {
   DshRequestContextRole
 } from './requestContext'
 export { recoverStartupSessions } from './sessionStartupRecovery'
+export { installWebClientAssets } from './webClientAssets'

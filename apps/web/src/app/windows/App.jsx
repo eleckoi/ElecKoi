@@ -9,9 +9,10 @@ import { AppearanceProvider } from "../../modules/appearance/index.js";
 import { DisplayPreferencesProvider } from "../../modules/settings/index.js";
 import { OfficialMarkdownProvider } from "../../ui/messages/OfficialMarkdown.jsx";
 import { ApplicationFrontendController, NativeFrontendProvider } from "../../modules/authorFrontend/index.js";
+import { ProductLocaleProvider } from '../i18n/ProductLocaleContext.jsx';
 
 export default function App(props = {}) {
-  return <OfficialMarkdownProvider component={props.markdownComponent}>
+  return <ProductLocaleProvider locale={props.locale}><OfficialMarkdownProvider component={props.markdownComponent}>
     <AppearanceProvider model={props.appearance}>
     <DisplayPreferencesProvider model={props.displayPreferences}>
       <WebSearchProvider model={props.webSearch}>
@@ -23,11 +24,11 @@ export default function App(props = {}) {
       </WebSearchProvider>
     </DisplayPreferencesProvider>
     </AppearanceProvider>
-  </OfficialMarkdownProvider>;
+  </OfficialMarkdownProvider></ProductLocaleProvider>;
 }
 
 function AppContent({ renderWindow, ...windowProps } = {}) {
-  const { conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, settingsSections, navigation, rightbar, renderSettingsSection, renderUserProfileEditor, renderCharacterPageSection, renderCharacterEditorSection, renderCharacterManager, renderConversationList, renderPresetEditorSection, renderPresetManager, renderRoleplay } = windowProps;
+  const { conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, settingsSections, navigation, rightbar, renderSettingsSection, renderLanguageSettings, renderUserProfileEditor, renderCharacterPageSection, renderCharacterEditorSection, renderCharacterManager, renderConversationList, renderPresetEditorSection, renderPresetManager, renderRoleplay } = windowProps;
   const params = new URLSearchParams(window.location.search);
   if (params.get("view") === "chat") {
     return <ChatWindow conversations={conversations} characters={characters} characterConfiguration={characterConfiguration}
@@ -50,7 +51,7 @@ function AppContent({ renderWindow, ...windowProps } = {}) {
 
   const fallback = <MainWindow conversations={conversations} characters={characters} characterConfiguration={characterConfiguration} models={models} persona={persona} presets={presets}
     creatorStudio={creatorStudio} renderCreatorStudioConversation={windowProps.renderCreatorStudioConversation}
-    settingsSections={settingsSections} navigation={navigation} rightbar={rightbar} renderSettingsSection={renderSettingsSection}
+    settingsSections={settingsSections} navigation={navigation} rightbar={rightbar} renderSettingsSection={renderSettingsSection} renderLanguageSettings={renderLanguageSettings}
     renderUserProfileEditor={renderUserProfileEditor} renderCharacterPageSection={renderCharacterPageSection}
     renderConversationList={renderConversationList} renderPresetEditorSection={renderPresetEditorSection}
     renderRoleplay={renderRoleplay} />;

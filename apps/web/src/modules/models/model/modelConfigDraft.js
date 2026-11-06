@@ -1,21 +1,22 @@
+import { sourceText } from "../../../app/i18n/productCopy.js";
 import { blankConfigForProvider, normalizeProviderId } from "./modelProviderCatalog.js";
 import { novelAiImageSettingsError } from '@shared/contracts/agent/novelAiImageSettings';
 
-export function initialConfigForProvider(providerId, providers = []) {
+export function initialConfigForProvider(providerId, providers = [], tUi = sourceText) {
   const route = providers.find(item => item.provider === providerId);
   if (route) {
-    return { ...initialConfigForProvider(route.provider === 'deepseek-official' ? 'deepseek' : 'custom'),
+    return { ...initialConfigForProvider(route.provider === 'deepseek-official' ? 'deepseek' : 'custom', undefined, tUi),
       id: route.provider, name: route.displayName || route.provider, builtin: true,
       useBuiltinModels: route.provider !== 'deepseek-official', settingsNs: route.settingsNs,
       settingsPath: route.settingsPath, api_format: route.provider === 'deepseek-official' ? 'deepseek_messages' : 'catalog' };
   }
   const provider = normalizeProviderId(providerId);
   if (provider === "deepseek") {
-    return { ...blankConfigForProvider(provider), id: "deepseek-official" };
+    return { ...blankConfigForProvider(provider, undefined, tUi), id: "deepseek-official" };
   }
   const randomId = window.crypto?.randomUUID?.().replace(/-/g, "").slice(0, 12)
     || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
-  return { ...blankConfigForProvider(provider), id: `config-${randomId}` };
+  return { ...blankConfigForProvider(provider, undefined, tUi), id: `config-${randomId}` };
 }
 
 export function normalizedConfigs(configs) {
