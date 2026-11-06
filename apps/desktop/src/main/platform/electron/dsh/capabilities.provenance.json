@@ -1,0 +1,168 @@
+{
+  "repository": "https://github.com/deepseek-ai/deepseek-harness",
+  "commit": "66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db",
+  "license": "MIT",
+  "licenseFile": "apps/desktop/resources/licenses/dsh-desktop-MIT.txt",
+  "files": [
+    {
+      "path": "apps/desktop/src/main/platform/electron/dsh/file-actions.ts",
+      "source": "apps/desktop/src/file-actions.ts",
+      "sha256": "ab0e0de2a6fc302cf14df9ff4da8ee9dad3f17f1974cde940eadd8c64f0b466f",
+      "localSha256": "0a928142a8b41e12552712e86d65550b349a02f66c4e7a61da1224adee2e24a0",
+      "changes": [
+        "Relative TypeScript import suffixes use .js for the local compiler.",
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/platform/electron/dsh/file-drag.ts",
+      "source": "apps/desktop/src/file-drag.ts",
+      "sha256": "29dbfe679cfe3893fd19112929419cc71f44b7ae1edd58ea82cc926f208404e0",
+      "localSha256": "51d211edaa4b4e48449c5a9d7597a7cacf17392c56fdb24205be8405db5c74d8",
+      "changes": [
+        "Relative TypeScript import suffixes use .js for the local compiler.",
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/platform/electron/dsh/file-drag-files.ts",
+      "source": "apps/desktop/src/file-drag-files.ts",
+      "sha256": "b7d7ec1b06bbca5dc1d96fc23d0c051be53ec941e33de4d1b09651146ea8560a",
+      "localSha256": "b7d7ec1b06bbca5dc1d96fc23d0c051be53ec941e33de4d1b09651146ea8560a",
+      "changes": [
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/platform/electron/dsh/device-info.ts",
+      "source": "apps/desktop/src/device-info.ts",
+      "sha256": "a20eeaae86615d956dcb35425151dec4605769f6fa47eebc007b4ac1e67dedc5",
+      "localSha256": "a20eeaae86615d956dcb35425151dec4605769f6fa47eebc007b4ac1e67dedc5",
+      "changes": [
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/platform/electron/dsh/keyboard.ts",
+      "source": "apps/desktop/src/keyboard.ts",
+      "sha256": "7cf07391d8998813ea894d0e5d2f47053f5cc13dc9f48f257856cd19143b6728",
+      "localSha256": "59342afd305b1983c8a36e42729b1221413eb63a77c8b1fdce52b637afb6dc17",
+      "changes": [
+        "Relative TypeScript import suffixes use .js for the local compiler.",
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/platform/electron/dsh/keybindings.ts",
+      "source": "apps/desktop/src/keybindings.ts",
+      "sha256": "44b1d0c19a430acaf5b6d19b10d6e4db0eda450ecc333731d82cebb87a6e403f",
+      "localSha256": "44b1d0c19a430acaf5b6d19b10d6e4db0eda450ecc333731d82cebb87a6e403f",
+      "changes": [
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+      ]
+    },
+    {
+      "path": "packages/shared/src/contracts/desktopNative.ts",
+      "source": "apps/desktop/src/ipc.ts",
+      "sha256": "3db50752d9824ed4c9bfab2cfd8bf55da342b33ef8218c509cd0f2928a84875a",
+      "localSha256": "9674dbf5342c232649e3ff88d6b1865306acf7eb1e15699461640438daf9a463",
+      "changes": [
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter.",
+        "Removed the surplus trailing blank line; contract declarations and runtime behavior are unchanged."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/platform/electron/dsh/duration-env.ts",
+      "source": "apps/desktop/src/duration-env.ts",
+      "sha256": "f230ed09a0094871e30d3eac559b9674fc122b01539348b661df4b3dd1b534aa",
+      "localSha256": "f230ed09a0094871e30d3eac559b9674fc122b01539348b661df4b3dd1b534aa",
+      "changes": [
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/platform/electron/dsh/microphone-permissions.ts",
+      "source": "apps/desktop/src/microphone-permissions.ts",
+      "sha256": "551537a5a6645a569604196a7d325ef7544911af9d4d3b0d79eaa4918cedee29",
+      "localSha256": "551537a5a6645a569604196a7d325ef7544911af9d4d3b0d79eaa4918cedee29",
+      "changes": [
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/platform/electron/dsh/directory-picker.ts",
+      "source": "apps/desktop/src/directory-picker.ts",
+      "sha256": "1874f5fb229dce75ad6d7c39e0443f6141e95c8b753318e90b516ae2ce5be458",
+      "localSha256": "4b8177a53855549c147308a109de46c4950fdbaac62212d1f051305af25c6607",
+      "changes": [
+        "Relative TypeScript import suffixes use .js for the local compiler.",
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/platform/electron/dsh/welcome-backend.ts",
+      "source": "apps/desktop/src/welcome-backend.ts",
+      "sha256": "83861a2c4cdd35f067c9b916b3f56cb08374a4e180609b2dd243464aa5cb896a",
+      "localSha256": "4b5d5098fc0858cf39c7e0bcd8114abf8f9266728904b21014bcffec3562a82d",
+      "changes": [
+        "Relative TypeScript import suffixes use .js for the local compiler.",
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/platform/electron/dsh/account-backend.ts",
+      "source": "apps/desktop/src/account-backend.ts",
+      "sha256": "951d52ffc2189b907c044a15efe26ca0600f8467b193c90aef7e40dcf404bc61",
+      "localSha256": "951d52ffc2189b907c044a15efe26ca0600f8467b193c90aef7e40dcf404bc61",
+      "changes": [
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+      ]
+    },
+    {
+      "path": "apps/desktop-host/src/fileDrag.ts",
+      "source": "apps/desktop-host/src/file-drag.ts",
+      "sha256": "a86f218dcefc371b4b4ff248011143fda456144606c8e9cf68aa24ebb37a9497",
+      "localSha256": "a86f218dcefc371b4b4ff248011143fda456144606c8e9cf68aa24ebb37a9497",
+      "changes": [
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/main/platform/electron/dsh/sender.ts",
+      "source": "apps/desktop/src/ipc.ts",
+      "sha256": "3db50752d9824ed4c9bfab2cfd8bf55da342b33ef8218c509cd0f2928a84875a",
+      "localSha256": "1f24e5a4a5139bdd32f47666866ea3392f130d4aa94a41bb21a3a082d81a7ac6",
+      "changes": [
+        "Only the native sender assertion remains in Main; native channel constants and pure types are shared."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/preload/nativeCapabilities.ts",
+      "source": "apps/desktop/src/preload-app.ts",
+      "sha256": "380c42eb4a0db2684f122af98064f318e2a02bac0f1e9f1a5208ccf81345382a",
+      "localSha256": "923430a288ba8672926529000faaef670d5dd6ff4dc1c1946cc8044bda7b7551",
+      "changes": [
+        "Only native actions are extracted; channel and bridge declarations use the shared contract."
+      ]
+    },
+    {
+      "path": "apps/desktop/src/preload/updateDialog.ts",
+      "source": "apps/desktop/src/preload-update-dialog.ts",
+      "sha256": "caafba7a9fcb47e7ec4369b6ffbd6c6d4a372055519f69af412b4ea68f53bcc6",
+      "localSha256": "a301f21be2f22c0971ec8f3d41d69bf42c87f9d1700717e00e3cc9a94a4ab00b",
+      "changes": [
+        "The response-only bridge imports the shared dialog contract."
+      ]
+    },
+    {
+      "path": "packages/shared/src/contracts/desktopUpdateDialog.ts",
+      "source": "apps/desktop/src/update-dialog.ts",
+      "sha256": "57e0ad6493130838e80f970bba9d79542af73a13705e92b045bd173d46c77a9f",
+      "localSha256": "62478ee951c16bbefe30c26b64edc34de85898d5e078ca7fa0fbd929c31ceb8a",
+      "changes": [
+        "Only pure dialog channel constants and renderer-facing types are shared.",
+        "Removed the surplus trailing blank line; contract declarations and runtime behavior are unchanged."
+      ]
+    }
+  ]
+}

@@ -2,10 +2,10 @@ import type { AppUpdater, ProgressInfo, UpdateInfo } from 'electron-updater'
 import type { Logger } from 'pino'
 import type { UpdateInstallResult, UpdateStatus } from '@shared/contracts/updates/schemas'
 import { DesktopUpdateCoordinator } from './dsh/update-coordinator'
-import type { DesktopUpdateState } from './dsh/ipc'
+import type { DesktopUpdateState } from '@shared/contracts/desktopNative'
+import { DesktopUpdateSchedule, resolveDesktopUpdateScheduleConfig } from './dsh/update-schedule'
+import { presentDesktopUpdate } from './dsh/update-presentation'
 
-const INITIAL_CHECK_DELAY_MS = 15_000
-const RECHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000
 
 export interface UpdateServiceOptions {
   updater: AppUpdater
@@ -16,6 +16,7 @@ export interface UpdateServiceOptions {
   releaseInstall: () => Promise<void>
   publish: (status: UpdateStatus) => void
   logger: Pick<Logger, 'info' | 'warn' | 'error'>
+  open?: (language: string, manual: boolean) => Promise<void>
 }
 
 /** Maps desktop update state to the existing product UI and Host admission boundary. */
@@ -30,6 +31,7 @@ export class UpdateService {
   private releaseOperation: Promise<void> = Promise.resolve()
   private initialCheckTimer: NodeJS.Timeout | undefined
   private recheckTimer: NodeJS.Timeout | undefined
+  private schedule: DesktopUpdateSchedule | undefined
 
   constructor(private readonly options: UpdateServiceOptions) {
     this.state = emptyStatus(options.enabled ? 'idle' : 'disabled', options.currentVersion,
@@ -55,6 +57,7 @@ export class UpdateService {
     options.updater.autoRunAppAfterInstall = true
     options.updater.fullChangelog = false
     options.updater.disableWebInstaller = true
+    this.schedule = new DesktopUpdateSchedule(this.coordinator, resolveDesktopUpdateScheduleConfig(process.env))
   }
 
   start(): void {
@@ -63,22 +66,25 @@ export class UpdateService {
     if (!this.coordinator) return
     this.options.updater.on('update-available', this.captureInfo)
     this.options.updater.prependListener('download-progress', this.captureProgress)
-    this.initialCheckTimer = setTimeout(() => { void this.check(false) }, INITIAL_CHECK_DELAY_MS)
-    this.initialCheckTimer.unref()
-    this.recheckTimer = setInterval(() => { void this.check(false) }, RECHECK_INTERVAL_MS)
-    this.recheckTimer.unref()
+    void this.check(false).catch(error => {
+      if (this.started) this.options.logger.warn({ err: error }, 'ElecKoi 桌面更新检查失败')
+    })
   }
 
   status(): UpdateStatus { return this.state }
+
+  nativeStatus(): DesktopUpdateState { return this.coordinator?.state ?? { phase: 'idle' } }
+
+  async open(language: string, manual = false): Promise<UpdateStatus> {
+    if (this.started && this.coordinator) await this.options.open?.(language, manual)
+    return this.state
+  }
 
   async check(manual = true): Promise<UpdateStatus> {
     if (!this.started || !this.coordinator) return this.state
     if (['downloading', 'verifying', 'ready', 'installing'].includes(this.state.phase)) return this.state
     this.manualCheck ||= manual
-    if (manual && this.state.phase !== 'checking') {
-      this.publish({ ...this.state, phase: 'checking', failedOperation: undefined, message: '正在检查更新…' })
-    }
-    const result = await this.coordinator.check(manual)
+    const result = await this.schedule!.check(manual)
     if (result.phase === 'error' && !manual && this.started) {
       this.options.logger.warn({ err: new Error(result.message) }, 'ElecKoi 桌面更新检查失败')
     }
@@ -113,6 +119,7 @@ export class UpdateService {
     this.options.updater.off('update-available', this.captureInfo)
     this.options.updater.off('download-progress', this.captureProgress)
     this.coordinator?.dispose()
+    this.schedule?.dispose()
   }
 
   private readonly captureInfo = (info: UpdateInfo): void => { this.info = info }
@@ -144,7 +151,7 @@ export class UpdateService {
       this.options.logger.warn({ err: new Error(next.message) }, 'ElecKoi 桌面更新失败')
       if (next.failedOperation === 'install') void this.unlockInstall()
     }
-    this.publish(status)
+    this.publish(status, next)
   }
 
   private unlockInstall(): Promise<void> {
@@ -156,9 +163,9 @@ export class UpdateService {
     return this.releaseOperation
   }
 
-  private publish(status: UpdateStatus): void {
+  private publish(status: UpdateStatus, native: DesktopUpdateState): void {
     this.state = status
-    this.options.publish(status)
+    this.options.publish({ ...status, ...presentDesktopUpdate(native) })
   }
 }
 

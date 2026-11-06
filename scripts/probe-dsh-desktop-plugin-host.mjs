@@ -2,7 +2,8 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import Module, { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve, sep } from 'node:path'
-import { initProfile, PROFILE_TEMPLATES, readProfileManifest, writeProfileBundles } from '@deepseek-ai/dsh-app-boot'
+import { initProfile, readProfileManifest, writeProfileBundles } from '@deepseek-ai/dsh-app-boot'
+import { PROFILE_TEMPLATES } from '@deepseek-ai/dsh-official-bundles'
 import { DshDesktopPluginHost, ELECKOI_DESKTOP_BUNDLES } from '@eleckoi/desktop-host'
 import { readDshSessionLog } from '@eleckoi/dsh-runtime'
 
@@ -202,7 +203,7 @@ try {
     })
     deletionCases.push({ id, conversationId: chat.conversation.id, sessionId: chat.runtimeSessionId })
   }
-  await host.close()
+  await host.close(true)
   for (const item of deletionCases) {
     if (!readDshSessionLog(join(root, 'sessions'), item.sessionId)) {
       throw new Error('Synthetic character chat was not persisted before deletion')

@@ -209,6 +209,9 @@ export function projectRequestMessages(messages, plan = []) {
   ]
 }
 
+// RETIRE WHEN: supported upgrade, restore and import logs no longer contain
+// eleckoi-request-projection messages. Remove this predicate and its filtering
+// calls in context and request preparation with legacy-only tests; retain current projection.
 export function isProjectionEnvelope(message) {
   return message?.role === 'user'
     && message?.source?.kind === `plugin:${projectionPlugin}`

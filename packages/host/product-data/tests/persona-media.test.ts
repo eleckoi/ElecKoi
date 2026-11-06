@@ -6,7 +6,7 @@ import { ConversationRepository } from '../src/domain/conversations/Conversation
 import { CharacterRepository } from '../src/domain/personas/CharacterRepository'
 import { PersonaRepository } from '../src/domain/personas/PersonaRepository'
 import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
-import { SqliteDatabase } from '../src/storage/sqlite/SqliteDatabase'
+import { SqliteDatabase } from '../../../../tests/helpers/SqliteDatabase'
 
 const directories: string[] = []
 const databases: SqliteDatabase[] = []

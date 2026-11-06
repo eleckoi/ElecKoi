@@ -46,7 +46,7 @@ import type { BugReport } from '@shared/contracts/bugReport/report'
 import { assertTrustedDshClientFrame } from '@main/platform/electron/validateSender'
 import { handleDesktopIpcCall } from '@main/platform/electron/desktopIpcHandler'
 import { logAction } from '@main/platform/logging/logActions'
-import { buildBugReport } from './bugReportCollection'
+import { buildBugReport } from '@shared/foundation/bugReport'
 import { readReportConfig, refreshRemoteReportConfig } from './bundledReportConfig'
 import { bestEffort } from '@shared/foundation/swallowedFailure'
 import { bugReportOpenFailure, isConfiguredFormTarget } from './reportOpen'
@@ -373,4 +373,3 @@ function relayStatusFailure(status: number): DesktopError {
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
-

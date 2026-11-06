@@ -136,6 +136,24 @@
   transition: background-color 0.14s ease, color 0.14s ease, transform 0.14s ease;
 }
 
+.rail-desktop-update:empty { display: none; }
+.rail-desktop-update { display: grid; place-items: center; }
+.qq-rail:not(.expanded) .rail-desktop-update button {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  grid-template-columns: 24px;
+  place-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+}
+.qq-rail:not(.expanded) .rail-desktop-update button:hover { background: var(--rail-hover-bg); }
+.qq-rail:not(.expanded) .rail-desktop-update button > span:first-child,
+.qq-rail:not(.expanded) .rail-desktop-update svg { width: 24px; height: 24px; }
+.qq-rail:not(.expanded) .rail-desktop-update button > span:last-child { display: none; }
+
 .rail-settings-trigger:not(.active):hover,
 .rail-settings-trigger:not(.active):focus-visible {
   background: var(--rail-hover-bg);

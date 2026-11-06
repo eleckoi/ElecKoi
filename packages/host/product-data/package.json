@@ -47,7 +47,7 @@
     "@babel/parser": "7.29.8",
     "@babel/traverse": "7.29.8",
     "@eleckoi/compatibility-mvu": "workspace:*",
-    "@deepseek-ai/cordis": "4.0.5",
+    "@deepseek-ai/cordis": "4.1.0",
     "better-sqlite3": "12.11.1",
     "drizzle-orm": "0.44.5",
     "fast-json-patch": "3.1.1",
@@ -67,6 +67,6 @@
   },
   "description": "ElecKoi 产品数据的 DSH Host Cordis 服务。",
   "engines": {
-    "dsh": "0.2.1-rc.5"
+    "dsh": "0.2.2-rc.1"
   }
 }

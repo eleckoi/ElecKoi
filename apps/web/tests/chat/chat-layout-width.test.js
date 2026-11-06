@@ -80,9 +80,10 @@ describe('chat layout width alignment', () => {
 
   it('keeps the transcript tail clearance at the pinned ChatView value for every layout', () => {
     const section = chatClient.split('/ChatView.module.css.mjs')[1]?.split('//#endregion')[0];
-    const literal = section?.match(/const css\$\d+ = ("(?:[^"\\]|\\.)*");/)?.[1];
-    expect(literal).toBeTruthy();
-    const officialStyles = JSON.parse(literal);
+    const expression = section?.match(/const css\$\d+ = (.+);/)?.[1];
+    expect(expression).toBeTruthy();
+    // New bundles interpolate asset URLs inside CSS; static fragments retain the spacing rules.
+    const officialStyles = [...expression.matchAll(/"(?:[^"\\]|\\.)*"/g)].map(match => JSON.parse(match[0])).join('');
     const officialPadding = officialStyles.match(/\.[\w]+_scroll\{[^}]*padding:(\d+px)\s/)[1];
     const productPadding = chatStyles.match(/\.message-area \[data-chat-scroll\]\s*\{[^}]*padding:\s*28px var\(--chat-scroll-horizontal-padding\) (\d+px);/)[1];
     expect(productPadding).toBe(officialPadding);

@@ -28,11 +28,11 @@
     }
   },
   "engines": {
-    "dsh": "0.2.1-rc.5"
+    "dsh": "0.2.2-rc.1"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-credentials": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-llm": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-credentials": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.1",
     "@eleckoi/dsh-product-data": "workspace:*",
     "@eleckoi/dsh-product-api": "workspace:*",
     "zod": "4.1.11",

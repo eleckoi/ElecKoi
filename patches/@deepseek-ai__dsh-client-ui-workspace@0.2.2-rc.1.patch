@@ -1,0 +1,119 @@
+diff --git a/lib/client.js b/lib/client.js
+--- a/lib/client.js
++++ b/lib/client.js
+@@ -1385,16 +1385,12 @@
+ 				this.sessions = sessions;
+ 				this.view = view;
+ 				this.notify = notify;
+-				ctx.effect(() => {
+-					const stop = this.watchNavigation();
+-					return () => {
+-						stop();
+-						this.lifetime.abort();
+-						const reference = this.mainReference;
+-						this.mainReference = void 0;
+-						reference?.release();
+-					};
+-				}, "ui-workspace: Workspace navigation policy");
++				ctx.effect(() => () => {
++					this.lifetime.abort();
++					const reference = this.mainReference;
++					this.mainReference = void 0;
++					reference?.release();
++				}, "ui-workspace: navigation lifetime");
+ 			}
+ 			connectWorkspace(workspaceId, options = {}) {
+ 				return this.connectBlank(workspaceId, options);
+@@ -1579,77 +1575,6 @@
+ 				/* v8 ignore next -- this plugin injects remoteAccess, so the service is active while uiWorkspace is reachable. */
+ 				if (access === void 0) throw new Error("ui-workspace: whenAccess requires the remoteAccess service");
+ 				return access.whenResourceAccess("workspace", workspaceId, action, callback);
+-			}
+-			watchNavigation() {
+-				let initial = "waiting";
+-				const reconcile = () => {
+-					if (this.lifetime.signal.aborted) return;
+-					if (this.clearArchivedCurrent()) return;
+-					if (initial !== "waiting" || this.restorationNavigation?.aborted === true) return;
+-					const workspace = this.workspaces.list.getSnapshot();
+-					const sessions = this.sessions.list.getSnapshot();
+-					if (workspace.phase !== "ready" || sessions.phase !== "ready") return;
+-					if (this.mainReference !== void 0) {
+-						initial = "done";
+-						return;
+-					}
+-					initial = "connecting";
+-					this.restoreSelection(workspace, sessions).then(() => {
+-						initial = "done";
+-					}, (reason) => {
+-						if (this.lifetime.signal.aborted) return;
+-						initial = "waiting";
+-						console.warn("initial Session restoration failed:", reason);
+-					});
+-				};
+-				const disposeWorkspaces = this.workspaces.list.subscribe(reconcile);
+-				const disposeSessions = this.sessions.list.subscribe(reconcile);
+-				reconcile();
+-				return () => {
+-					this.lifetime.abort();
+-					disposeSessions();
+-					disposeWorkspaces();
+-				};
+-			}
+-			async restoreSelection(workspaces, sessions) {
+-				const saved = this.selection.getSnapshot();
+-				if (saved.subagentAddress !== void 0) {
+-					this.replaceMain(saved.subagentAddress, this.lifetime.signal, "preserve");
+-					return;
+-				}
+-				const summary = saved.sessionId === void 0 ? void 0 : sessions.byId[saved.sessionId];
+-				const workspace = summary === void 0 ? void 0 : workspaces.items.find((item) => item.sessionIds.includes(summary.id));
+-				if (summary !== void 0 && (!summary.blank || workspace === void 0)) {
+-					this.replaceMain(summary.id, this.lifetime.signal, "preserve");
+-					return;
+-				}
+-				const navigation = AbortSignal.any([this.ctx.layout.beginNavigation(), this.lifetime.signal]);
+-				this.restorationNavigation = navigation;
+-				let sessionId;
+-				if (summary !== void 0 && workspace !== void 0 && summary.cwd === workspace.path && !workspaces.archivedSessionIds.includes(summary.id)) sessionId = await this.restoreBlank(workspace.workspaceId, summary.id);
+-				let target = workspace?.workspaceId ?? recentWorkspace(workspaces.items, sessions.byId);
+-				if (target === void 0 && workspaces.items.length === 0 && sessions.ids.length === 0) {
+-					const prepared = await this.initializeDefaultWorkspace(navigation);
+-					if (navigation.aborted) return;
+-					target = prepared?.workspaceId;
+-				}
+-				if (sessionId === void 0 && target !== void 0) sessionId = await this.connectWorkspace(target);
+-				if (sessionId !== void 0 && !navigation.aborted) this.replaceMain(sessionId, navigation, "preserve");
+-			}
+-			async initializeDefaultWorkspace(signal) {
+-				try {
+-					return await this.workspaces.initializeDefault(signal);
+-				} catch (_error) {
+-					if (!signal.aborted) this.notify({ kind: "defaultWorkspaceFailed" });
+-					return;
+-				}
+-			}
+-			/** @returns true when an archived current selection was cleared. */
+-			clearArchivedCurrent() {
+-				const current = this.mainReference?.sessionId;
+-				if (current === void 0 || !this.workspaces.list.getSnapshot().archivedSessionIds.includes(current)) return false;
+-				this.clearMain();
+-				return true;
+ 			}
+ 			clearMain() {
+ 				const previous = this.mainReference;
+diff --git a/lib/types/client/navigation.d.ts b/lib/types/client/navigation.d.ts
+--- a/lib/types/client/navigation.d.ts
++++ b/lib/types/client/navigation.d.ts
+@@ -188,11 +188,6 @@
+     listDirectory(path?: string, signal?: AbortSignal): Promise<DirectoryListing>;
+     createDirectory(path: string, name: string): Promise<string>;
+     whenAccess(workspaceId: WorkspaceId, action: RemoteEndpoint, callback: () => AccessEffect): () => void;
+-    private watchNavigation;
+-    private restoreSelection;
+-    private initializeDefaultWorkspace;
+-    /** @returns true when an archived current selection was cleared. */
+-    private clearArchivedCurrent;
+     private clearMain;
+     private replaceMain;
+ }

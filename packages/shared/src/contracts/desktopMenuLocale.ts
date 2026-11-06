@@ -1,7 +1,7 @@
-/** Caption-menu copy shared by the desktop main and preload entry points. */
+/** Caption-menu translations extracted from the pinned official Desktop locale. */
 const en = {
   application: 'Application',
-  aboutMenu: 'About DeepSeek Harness',
+  aboutMenu: 'About ElecKoi',
   edit: 'Edit',
   menuBar: 'Application menu',
   delete: 'Delete',
@@ -18,7 +18,7 @@ const en = {
 } as const
 const zh = {
   application: '应用',
-  aboutMenu: '关于 DeepSeek Harness',
+  aboutMenu: '关于 ElecKoi',
   edit: '编辑',
   menuBar: '应用菜单',
   delete: '删除',
@@ -33,8 +33,114 @@ const zh = {
   reloadPageMenu: '刷新页面',
   restartAppHostMenu: '重启应用与 Host',
 } as const
+const ja = {
+  application: 'アプリケーション',
+  aboutMenu: 'ElecKoi について',
+  edit: '編集',
+  menuBar: 'アプリケーションメニュー',
+  delete: '削除',
+  undo: '元に戻す',
+  redo: 'やり直す',
+  cut: '切り取り',
+  copy: 'コピー',
+  paste: '貼り付け',
+  selectAll: 'すべて選択',
+  exitApplication: '終了',
+  checkUpdatesMenu: 'アップデートを確認…',
+  reloadPageMenu: 'ページを再読み込み',
+  restartAppHostMenu: 'アプリとホストを再起動',
+} as const
+const es = {
+  application: 'Solicitud',
+  aboutMenu: 'Acerca de ElecKoi',
+  edit: 'Editar',
+  menuBar: 'Menú de aplicaciones',
+  delete: 'Eliminar',
+  undo: 'Deshacer',
+  redo: 'Rehacer',
+  cut: 'cortar',
+  copy: 'Copiar',
+  paste: 'Pegar',
+  selectAll: 'Seleccionar todo',
+  exitApplication: 'Salir',
+  checkUpdatesMenu: 'Buscar actualizaciones...',
+  reloadPageMenu: 'Recargar página',
+  restartAppHostMenu: 'Reiniciar la aplicación y el host',
+} as const
+const fr = {
+  application: 'Application',
+  aboutMenu: 'À propos de ElecKoi',
+  edit: 'Modifier',
+  menuBar: 'Menu des applications',
+  delete: 'Supprimer',
+  undo: 'Annuler',
+  redo: 'Refaire',
+  cut: 'Couper',
+  copy: 'Copier',
+  paste: 'Coller',
+  selectAll: 'Sélectionner tout',
+  exitApplication: 'Quitter',
+  checkUpdatesMenu: 'Vérifiez les mises à jour…',
+  reloadPageMenu: 'Recharger la page',
+  restartAppHostMenu: "Redémarrez l'application et l'hôte",
+} as const
+const de = {
+  application: 'Anwendung',
+  aboutMenu: 'Über ElecKoi',
+  edit: 'Bearbeiten',
+  menuBar: 'Anwendungsmenü',
+  delete: 'Löschen',
+  undo: 'Rückgängig machen',
+  redo: 'Wiederholen',
+  cut: 'Ausschneiden',
+  copy: 'Kopieren',
+  paste: 'Einfügen',
+  selectAll: 'Alles auswählen',
+  exitApplication: 'Beenden',
+  checkUpdatesMenu: 'Nach Updates suchen…',
+  reloadPageMenu: 'Seite neu laden',
+  restartAppHostMenu: 'Anwendung und Host neu starten',
+} as const
+const ru = {
+  application: 'Приложение',
+  aboutMenu: 'О ElecKoi',
+  edit: 'Редактировать',
+  menuBar: 'Меню приложения',
+  delete: 'Удалить',
+  undo: 'Отменить',
+  redo: 'Повторить',
+  cut: 'Вырезать',
+  copy: 'Копировать',
+  paste: 'Вставить',
+  selectAll: 'Выбрать все',
+  exitApplication: 'Выход',
+  checkUpdatesMenu: 'Проверить наличие обновлений…',
+  reloadPageMenu: 'Обновить страницу',
+  restartAppHostMenu: 'Перезапустите приложение и хост.',
+} as const
+const pt = {
+  application: 'Aplicativo',
+  aboutMenu: 'Sobre ElecKoi',
+  edit: 'Editar',
+  menuBar: 'Menu de aplicativos',
+  delete: 'Excluir',
+  undo: 'Desfazer',
+  redo: 'Refazer',
+  cut: 'Cortar',
+  copy: 'Copiar',
+  paste: 'Colar',
+  selectAll: 'Selecionar tudo',
+  exitApplication: 'Sair',
+  checkUpdatesMenu: 'Verifique se há atualizações…',
+  reloadPageMenu: 'Recarregar página',
+  restartAppHostMenu: 'Reinicie o aplicativo e o host',
+} as const
+const dictionaries = { en, zh, ja, es, fr, de, ru, pt }
 export function resolveDesktopLocale(locale: string) {
-  return locale.toLowerCase().startsWith('zh')
-    ? { id: 'zh-CN', messages: zh }
-    : { id: 'en', messages: en }
+  const primary = locale.toLowerCase().split('-')[0]
+  if (primary !== undefined && Object.hasOwn(dictionaries, primary)) {
+    const id = primary as keyof typeof dictionaries
+    return { id: id === 'zh' ? 'zh-CN' : id, messages: dictionaries[id] }
+  }
+  return { id: 'en', messages: en }
 }

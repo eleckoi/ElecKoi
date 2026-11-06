@@ -24,7 +24,7 @@ export async function migrateModelSettings(settings) {
   const piAi = descriptors.find(row => row.ns === PI_AI_NAMESPACE)
   const entries = modelSettings?.value?.entries ?? {}
 
-  // TODO(未来废弃)：此段仅用于历史 schema v0/v1 设置；所有受支持的升级、profile 恢复入口均已保存至少 schema v2
+  // RETIRE WHEN: 此段仅用于历史 schema v0/v1 设置；所有受支持的升级、profile 恢复入口均已保存至少 schema v2
   // 后，删除此 schema v0/v1 转换、仅供其使用的常量及迁移测试。
   // 本段和下方子 Agent 整理均退役后才移除 apply 中的迁移调用；保留当前设置合同及装配。
   if (modelSettings && (modelSettings.value?.schemaVersion ?? 0) < MODEL_SETTINGS_SCHEMA_VERSION) {
@@ -57,7 +57,7 @@ export async function migrateModelSettings(settings) {
     await settings.mutate(SETTINGS_NAMESPACE, ops, modelSettings.revision)
   }
 
-  // TODO(未来废弃)：停止支持 v0.2.3 之前的版本直升，并确认受支持的 profile 恢复
+  // RETIRE WHEN: 停止支持 v0.2.3 之前的版本直升，并确认受支持的 profile 恢复
   // 入口不再携带该子 Agent 占位路由后，删除此段、OBSOLETE_SUBAGENT_PROVIDERS、
   // 仅供此段使用的命名空间常量及对应测试。它与上面的模型设置 schema 转换独立核对。
   const subagent = descriptors.find(row => row.ns === SUBAGENT_MODEL_NAMESPACE)

@@ -18,7 +18,7 @@ import { installRoleplaySubagentTurn } from './subagent-turn.mjs'
 
 export const name = 'eleckoi-agent-preset-bridge'
 const legacyPresetId = id => /^agent-preset-[a-z0-9-]+-[0-9a-f]{16}$/.test(id ?? '')
-export const inject = ['agents', 'agentPresets', 'agentDefaultModel', 'llm', 'settings', 'sessionController', 'sessionPersistence', 'sessions', 'eleckoiConversationLifecycle']
+export const inject = ['agents', 'agentPresets', 'agentDefaultModel', 'llm', 'settings', 'sessionController', 'sessionQuery', 'sessionPersistence', 'sessions', 'eleckoiConversationLifecycle']
 
 export async function apply(ctx) {
   const runtimeContexts = new RuntimeContexts()

@@ -59,6 +59,7 @@ window.__ModuleLoader__.load({
     const bridgedChatChildren = Object.freeze({
       'conversation.chat.node': 'eleckoi.roleplay.chat.node',
       'conversation.chat.flow': 'eleckoi.roleplay.chat.flow',
+      'conversation.chat.text-interaction': 'eleckoi.roleplay.chat.text-interaction',
       'conversation.chat.user.images': 'eleckoi.roleplay.chat.user.images',
       'conversation.chat.message.images': 'eleckoi.roleplay.chat.images',
       'conversation.chat.before': 'eleckoi.roleplay.chat.before',
@@ -428,6 +429,7 @@ window.__ModuleLoader__.load({
           bridgeChildren: true, childNamespace: 'eleckoi.roleplay.chat.node'
         })
         projectConversationSeat('conversation.chat.flow', 'eleckoi.roleplay.chat.flow')
+        projectConversationSeat('conversation.chat.text-interaction', 'eleckoi.roleplay.chat.text-interaction')
         projectConversationSeat('conversation.chat.user.images', 'eleckoi.roleplay.chat.user.images')
         projectConversationSeat('conversation.chat.message.images', 'eleckoi.roleplay.chat.images')
         projectConversationSeat('conversation.chat.before', 'eleckoi.roleplay.chat.before')

@@ -1,0 +1,124 @@
+diff --git a/lib/client.js b/lib/client.js
+--- a/lib/client.js
++++ b/lib/client.js
+@@ -2564,6 +2564,15 @@
+ 			/** Rebuild an opened history source after address replacement.
+ 			*  Invalidates any in-flight open first; projection state belongs to the independently
+ 			*  reconnecting control stream and remains untouched. */
++			async reloadHistory() {
++				this.removed = false;
++				this.promptError = null;
++				this.lastAgentError = null;
++				this.running = false;
++				this.projections.clear();
++				await this.resync();
++				await this.open();
++			}
+ 			async resync() {
+ 				if (this.openState === "cold") return;
+ 				this.openGeneration++;
+@@ -3534,7 +3543,10 @@
+ 				if (durableSubagent) this.sessions.get(sessionId)?.handleRunning(false);
+ 				else this.sessions.get(sessionId)?.handleRemoved();
+ 				const catalog = this.projectionStores.get(sessionId)?.values().subagentCatalog;
+-				if (!durableSubagent && (catalog === void 0 || catalog.length === 0)) this.projectionStores.delete(sessionId);
++				if (!durableSubagent && (catalog === void 0 || catalog.length === 0)) {
++					if (this.sessions.has(sessionId)) this.projectionStores.get(sessionId)?.clear();
++					else this.projectionStores.delete(sessionId);
++				}
+ 				this.pruneEngagement(sessionId, this.retainedIds(this.summaries));
+ 				this.projectionInflight.get(sessionId)?.controller.abort();
+ 				this.projectionInflight.delete(sessionId);
+@@ -3919,6 +3931,10 @@
+ 			* Refresh the real Session baseline, reusing an in-flight pull.
+ 			* @returns completion of the current or newly started baseline pull.
+ 			*/
++			async reloadHistory(sessionId) {
++				await this.manager.get(sessionId).reloadHistory();
++				await this.manager.refreshList();
++			}
+ 			refresh() {
+ 				return this.manager.refreshList();
+ 			}
+diff --git a/lib/types/client/contract/sessions.d.ts b/lib/types/client/contract/sessions.d.ts
+--- a/lib/types/client/contract/sessions.d.ts
++++ b/lib/types/client/contract/sessions.d.ts
+@@ -101,6 +101,8 @@
+      * Refresh the Host-authoritative Session list.
+      * @returns completion of the current or newly started Session-list refresh.
+      */
++    /** Reload a rewritten log in every retained view without changing Session identity. */
++    reloadHistory(sessionId: SessionId): Promise<void>;
+     refresh(): Promise<void>;
+     /**
+      * Search the Host's visible message-content index. Results stay
+diff --git a/lib/types/client/sessions/manager.js b/lib/types/client/sessions/manager.js
+--- a/lib/types/client/sessions/manager.js
++++ b/lib/types/client/sessions/manager.js
+@@ -629,7 +629,8 @@
+             this.sessions.get(sessionId)?.handleRemoved();
+         const catalog = this.projectionStores.get(sessionId)?.values().subagentCatalog;
+         if (!durableSubagent && (catalog === undefined || catalog.length === 0)) {
+-            this.projectionStores.delete(sessionId);
++            if (this.sessions.has(sessionId)) this.projectionStores.get(sessionId)?.clear();
++            else this.projectionStores.delete(sessionId);
+         }
+         this.pruneEngagement(sessionId, this.retainedIds(this.summaries));
+         this.projectionInflight.get(sessionId)?.controller.abort();
+diff --git a/lib/types/client/sessions/service.d.ts b/lib/types/client/sessions/service.d.ts
+--- a/lib/types/client/sessions/service.d.ts
++++ b/lib/types/client/sessions/service.d.ts
+@@ -132,6 +132,8 @@
+      * Refresh the real Session baseline, reusing an in-flight pull.
+      * @returns completion of the current or newly started baseline pull.
+      */
++    /** Reload a rewritten log in every retained view without changing Session identity. */
++    reloadHistory(sessionId: SessionId): Promise<void>;
+     refresh(): Promise<void>;
+     /**
+      * Search the Host's visible message-content index. Results stay
+diff --git a/lib/types/client/sessions/service.js b/lib/types/client/sessions/service.js
+--- a/lib/types/client/sessions/service.js
++++ b/lib/types/client/sessions/service.js
+@@ -250,6 +250,10 @@
+      * Refresh the real Session baseline, reusing an in-flight pull.
+      * @returns completion of the current or newly started baseline pull.
+      */
++    async reloadHistory(sessionId) {
++        await this.manager.get(sessionId).reloadHistory();
++        await this.manager.refreshList();
++    }
+     refresh() {
+         return this.manager.refreshList();
+     }
+diff --git a/lib/types/client/sessions/session.d.ts b/lib/types/client/sessions/session.d.ts
+--- a/lib/types/client/sessions/session.d.ts
++++ b/lib/types/client/sessions/session.d.ts
+@@ -214,6 +214,8 @@
+     /** Rebuild an opened history source after address replacement.
+      *  Invalidates any in-flight open first; projection state belongs to the independently
+      *  reconnecting control stream and remains untouched. */
++    /** Reload a rewritten log and reset the retired Host generation. */
++    reloadHistory(): Promise<void>;
+     resync(): Promise<void>;
+     /**
+      * uSES subscription entry.
+diff --git a/lib/types/client/sessions/session.js b/lib/types/client/sessions/session.js
+--- a/lib/types/client/sessions/session.js
++++ b/lib/types/client/sessions/session.js
+@@ -420,6 +420,15 @@
+     /** Rebuild an opened history source after address replacement.
+      *  Invalidates any in-flight open first; projection state belongs to the independently
+      *  reconnecting control stream and remains untouched. */
++    async reloadHistory() {
++        this.removed = false;
++        this.promptError = null;
++        this.lastAgentError = null;
++        this.running = false;
++        this.projections.clear();
++        await this.resync();
++        await this.open();
++    }
+     async resync() {
+         if (this.openState === 'cold')
+             return; // never opened: no window to rebuild (doOpen flips to 'loading' synchronously, so cold implies no in-flight open)

@@ -14,7 +14,7 @@ import { ConversationRepository } from '../../packages/host/product-data/src/dom
 import { resolveConversationSeed } from '../../packages/host/product-data/src/domain/conversations/conversationSeed'
 import { RegexRuleRepository } from '../../packages/host/product-data/src/domain/regexRules/RegexRuleRepository'
 import { AgentPresetRepository } from '../../packages/host/product-data/src/domain/agentPresets'
-import { SqliteDatabase } from '../../packages/host/product-data/src/storage/sqlite/SqliteDatabase'
+import { SqliteDatabase } from '../helpers/SqliteDatabase'
 import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
 import { createScriptLibraryRepository } from '../../packages/host/product-data/tests/helpers/scriptLibraryOwners'
 // @ts-expect-error The setting-library editor transfer model is JavaScript.

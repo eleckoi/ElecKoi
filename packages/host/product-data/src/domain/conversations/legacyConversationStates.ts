@@ -10,7 +10,11 @@ function stringCell(row: Row, key: string, allowEmpty = false): string {
   return value
 }
 
-/** 只转换旧账本明确保存的值；未记录的设定或轮次保持缺失。 */
+/**
+ * 只转换旧账本明确保存的值；未记录的设定或轮次保持缺失。
+ * RETIRE WHEN: 停止支持 v11 及更早数据库及含旧状态表的开发库升级，且停止导入聊天归档 v1。
+ * 删除本转换、0012 的旧表转换调用、归档 v1 分支和专用回归；保留当前状态存储与归档 v2。
+ */
 export function legacyConversationStates(tables: Record<string, Row[]>): Row[] {
   const conversationRows = (tables.agent_conversations ?? []).map(row => ({ ...row,
     id: stringCell(row, 'id'), runtimeThreadId: stringCell(row, 'runtimeThreadId', true) }))

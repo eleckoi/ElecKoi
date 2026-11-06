@@ -9,7 +9,7 @@ import { RegexRuleRepository } from '../src/domain/regexRules/RegexRuleRepositor
 import { AgentPresetRepository } from '../src/domain/agentPresets'
 import { SettingLibraryRepository } from '../src/domain/settingLibraries/SettingLibraryRepository'
 import { VariableConfigRepository } from '../src/domain/variables/VariableConfigRepository'
-import { SqliteDatabase } from '../src/storage/sqlite/SqliteDatabase'
+import { SqliteDatabase } from '../../../../tests/helpers/SqliteDatabase'
 import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
 import { readPngText, writePngText } from '../src/storage/media/PngTextChunkCodec'
 import { decodeCharacterCard } from '../src/domain/characterTransfer/characterCardFormats'

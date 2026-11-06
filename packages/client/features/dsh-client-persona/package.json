@@ -28,7 +28,7 @@
   },
   "description": "管理用户名称、头像和角色扮演身份。",
   "engines": {
-    "dsh": "0.2.1-rc.5"
+    "dsh": "0.2.2-rc.1"
   },
   "eleckoi": {
     "developerInterfaces": [
@@ -59,7 +59,7 @@
     ]
   },
   "dependencies": {
-    "@deepseek-ai/cordis": "4.0.5",
+    "@deepseek-ai/cordis": "4.1.0",
     "@eleckoi/dsh-product-api": "workspace:*"
   }
 }

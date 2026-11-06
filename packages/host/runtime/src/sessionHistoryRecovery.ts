@@ -19,7 +19,7 @@ export interface HistoryRecoveryArchive {
 
 /**
  * Recover only ledger-backed, unanswered inputs preceding the first native turn.
- * TODO(迁移清理)：停止支持缺少独立历史输入的旧聊天直升，且受支持的恢复、导入入口
+ * RETIRE WHEN: 停止支持缺少独立历史输入的旧聊天直升，且受支持的恢复、导入入口
  * 已把这些输入持久写为正式 Session 消息后，删除本文件、启动恢复调用、index 导出
  * 和专用历史补回用例。保留当前请求投影、检查点和正常重新生成路径。
  * HISTORY_RESTORED_EVENT 的统计读取仍服务已迁移日志；未转换这些持久标记前不能

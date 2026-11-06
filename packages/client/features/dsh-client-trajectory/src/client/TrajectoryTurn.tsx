@@ -8,7 +8,7 @@ import css from './TrajectoryTurn.module.css'
 export interface TrajectoryTurnProps {
   /** 1-based turn index for the sticky header. */
   turn: number
-  /** Message / Step headers and TrajectoryCell rows. */
+  /** Message / Step headers and trajectory records. */
   children?: ReactNode
   /** Trajectory locale seat. */
   t: TrajectoryTranslate

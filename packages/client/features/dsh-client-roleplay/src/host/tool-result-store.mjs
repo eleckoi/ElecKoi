@@ -113,17 +113,8 @@ export default class ToolResultStore extends LocalSpillStore {
       return callId === ownership.source.callId
         && content.some(block => block.type === 'text' && forms.some(form => block.text.includes(form)))
     })
-    if (!inherited) return false
-    const visited = new Set([session.id])
-    let parent = session.header.parentSession
-    while (parent && !visited.has(parent)) {
-      signal.throwIfAborted()
-      if (parent === ownership.sessionId) return true
-      visited.add(parent)
-      const header = this.ctx.get('sessions')?.get(parent)?.header ?? (await this.ctx.sessionQuery.readSession(parent)).session
-      parent = header.parentSession
-    }
-    return false
+    signal.throwIfAborted()
+    return inherited
   }
 }
 

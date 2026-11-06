@@ -5,6 +5,8 @@ import { parseChatImport } from './chatImport.js'
 import { productFailure } from './productFailure.js'
 import { ELECKOI_FAILURE_CODES } from './errorCodes.generated.js'
 import { registerHostApiInspect } from './hostInspect.js'
+import { readSessionInspection } from './sessionInspection.js'
+export { readSessionInspection } from './sessionInspection.js'
 import { randomUUID } from 'node:crypto'
 import { RemoteChangeFeed } from './remote-change-feed.js'
 import { ElecKoiAuthorFrontendsApi, eleckoiFrontendAssetsPlugin } from './author-frontends.js'
@@ -432,7 +434,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
   static inject = [
     'typert',
     'agents',
-    'sessionController',
+    'sessionController', 'sessionQuery',
     'sessionPersistence',
     'eleckoiProductData',
     'eleckoiVariableProcessing',
@@ -597,7 +599,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
   @Remote
   async variableTimeline(conversationId: string): Promise<VariableViewerTimeline> {
     const runtimeSessionId = this.productData.runtimeSessionId(conversationId)
-    const inspection = await this.ownerContext.sessionController.inspect(runtimeSessionId as SessionId)
+    const inspection = await readSessionInspection(this.ownerContext, runtimeSessionId as SessionId)
     const variableStateByTurn = this.ownerContext.eleckoiRoleplaySessions.variableStatesByTurn(conversationId)
     const historical = this.productData.readRuntimeVariableHistory(conversationId, runtimeSessionId)
     const historicalByTurn = new Map<number, typeof historical>()
@@ -657,7 +659,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
         throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '请先等待当前回复结束，再导出聊天记录。', { what: '等待当前回复结束' })
       }
       try {
-        const inspection = await this.ownerContext.sessionController.inspect(runtimeSessionId as SessionId)
+        const inspection = await readSessionInspection(this.ownerContext, runtimeSessionId as SessionId)
         sessionLogs.push({
           header: inspection.meta,
           inheritedEventCount: inspection.inheritedEventCount,
@@ -776,7 +778,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
     signal: AbortSignal
   ): Promise<void> {
     const runtimeSessionId = this.productData.runtimeSessionId(conversationId)
-    const inspection = await this.ownerContext.sessionController.inspect(runtimeSessionId as SessionId, signal)
+    const inspection = await readSessionInspection(this.ownerContext, runtimeSessionId as SessionId, signal)
     if (!sessionContainsFile(inspection.events, attachmentId, name)) {
       throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '文件不在当前聊天记录中。', { what: '当前聊天记录中的文件' })
     }
@@ -849,7 +851,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
       if (opening) this.productData.updateConversationOpening(created.conversation.id, opening.content ?? '')
       return created.conversation.id
     }
-    const source = this.productData.runtimeSessionId(conversationId), inspection = await this.ownerContext.sessionController.inspect(source as SessionId)
+    const source = this.productData.runtimeSessionId(conversationId), inspection = await readSessionInspection(this.ownerContext, source as SessionId)
     const targetIndex = inspection.events.findIndex(event => Number(event.seq) === atSeq)
     if (targetIndex < 0) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `Branch event does not exist: ${atSeq}`, { what: '分支边界的聊天消息' })
     const sourceTurn = sessionMessageTurn(inspection.events, targetIndex), target = inspection.events[targetIndex]!
@@ -935,7 +937,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
   ): Promise<ConversationDetailsMetadata> {
     const runtimeSessionId = this.productData.runtimeSessionId(conversationId)
     await requireSessionMessage(
-      await this.ownerContext.sessionController.inspect(runtimeSessionId as SessionId),
+      await readSessionInspection(this.ownerContext, runtimeSessionId as SessionId),
       eventSeq,
       role
     )
@@ -964,7 +966,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
     return this.ownerContext.eleckoiConversationLifecycle.exclusive(conversationId, async () => {
       const runtimeSessionId = this.productData.runtimeSessionId(conversationId)
       await this.ownerContext.eleckoiRoleplaySessions.prepareSessionAccess(conversationId)
-      const inspection = await this.ownerContext.sessionController.inspect(runtimeSessionId as SessionId)
+      const inspection = await readSessionInspection(this.ownerContext, runtimeSessionId as SessionId)
       const target = requireSessionMessage(inspection, eventSeq, role)
       const fromTurn = sessionMessageTurn(inspection.events, target.index)
       const visible = visibleSessionMessages(inspection.events)
@@ -986,7 +988,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
             runtimeSessionId, fromTurn, retainedSeq === undefined ? eventSeq : Number(retainedSeq), retainedSeq !== undefined
           )
           if (rewound === undefined) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, '当前 DSH Session 不能安全回退。', { what: '当前 DSH 会话的回退状态' })
-          const retained = await this.ownerContext.sessionController.inspect(runtimeSessionId as SessionId)
+          const retained = await readSessionInspection(this.ownerContext, runtimeSessionId as SessionId)
           restoreRuntime.apply(retainedInputMessageIds(retained.events))
         })
       } catch (error) { restoreRuntime.rollback(); throw error }
@@ -1024,7 +1026,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
       if (!requestId.trim()) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '重新生成请求缺少有效标识。', { what: '重新生成请求标识' })
       const runtimeSessionId = this.productData.runtimeSessionId(conversationId)
       await this.ownerContext.eleckoiRoleplaySessions.prepareSessionAccess(conversationId)
-      const inspection = await this.ownerContext.sessionController.inspect(runtimeSessionId as SessionId)
+      const inspection = await readSessionInspection(this.ownerContext, runtimeSessionId as SessionId)
       const target = requireSessionMessage(inspection, eventSeq, 'user')
       const fromTurn = sessionMessageTurn(inspection.events, target.index)
       const inputMessageId = String(jsonRecord(target.event.data).id ?? '')
@@ -1045,7 +1047,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
           }
           const rewound = await this.ownerContext.eleckoiSessionEditor.rewind(runtimeSessionId, fromTurn, eventSeq, true)
           if (rewound === undefined) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, '当前 DSH Session 不能安全回退。', { what: '当前 DSH 会话的回退状态' })
-          const retained = await this.ownerContext.sessionController.inspect(runtimeSessionId as SessionId)
+          const retained = await readSessionInspection(this.ownerContext, runtimeSessionId as SessionId)
           restoreRuntime.apply(retainedInputMessageIds(retained.events))
           await this.ownerContext.eleckoiRoleplaySessions.preparePrompt(conversationId, promptText, undefined, inputMessageId)
         })
@@ -1110,7 +1112,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
 
   private async changeOpening(conversationId: string, mutate: () => ConversationDetailsMetadata): Promise<ConversationDetailsMetadata> {
     const sessionId = this.productData.runtimeSessionId(conversationId) as SessionId
-    const inspection = await this.ownerContext.sessionController.inspect(sessionId)
+    const inspection = await readSessionInspection(this.ownerContext, sessionId)
     // Cold reads must also account for accepted input still waiting in the inbox.
     const projections = await this.ownerContext.sessionController.projections({ sessionId }, new AbortController().signal)
     if (!projections) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, '无法读取聊天状态，不能修改开场白。', { what: '聊天状态投影' })

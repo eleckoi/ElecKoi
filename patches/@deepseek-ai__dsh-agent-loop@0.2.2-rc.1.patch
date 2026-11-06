@@ -1,0 +1,87 @@
+diff --git a/lib/index.js b/lib/index.js
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -533,6 +533,8 @@
+ 	systemPrompt;
+ 	/** Identities fully frozen by this loop; weak references do not retain replaced history. */
+ 	frozenMessages = /* @__PURE__ */ new WeakSet();
++	/** One explicitly selected durable input for the next first step. */
++	existingInput;
+ 	constructor(loopCtx, id, options, session, projections, lastTurn) {
+ 		this.loopCtx = loopCtx;
+ 		this.id = id;
+@@ -570,6 +572,18 @@
+ 	followup(input) {
+ 		this.send(input, "next-turn", true);
+ 	}
++	continueFromInput(messageId) {
++		if (this.phase.kind !== "idle" || this.inbox.hasPending) throw new Error(`agent "${this.id}" must be idle with an empty inbox`);
++		const messages = this.session.deriveMessages();
++		const matches = messages.filter(message => message.id === messageId);
++		if (matches.length !== 1 || matches[0].role !== "user" || matches[0].source?.kind !== "user") throw new Error("Existing direct user input not found");
++		const input = matches[0];
++		if (messages.slice(messages.indexOf(input) + 1).some(message => message.role === "assistant" || message.source?.kind === "user")) throw new Error("Session output must be rewound before continuing an existing input");
++		const turn = this.phase.lastTurn + 1;
++		this.existingInput = input;
++		this.wakeDriver();
++		return turn;
++	}
+ 	steer(input) {
+ 		this.send(input, "next-step", true);
+ 	}
+@@ -652,6 +666,7 @@
+ 		try {
+ 			while (await this.turn());
+ 		} catch (_error) {} finally {
++			this.existingInput = void 0;
+ 			/* v8 ignore next -- kick owns a running phase until this driver boundary */
+ 			if (this.phase.kind === "running") {
+ 				const { turn, wakeRequested } = this.phase;
+@@ -667,7 +682,12 @@
+ 		/* v8 ignore next -- private callers establish the running phase before proposing a step */
+ 		if (this.phase.kind !== "running") throw new Error(`agent "${this.id}": pre-step outside running phase`);
+ 		const signal = this.phase.abort.signal;
++		await this.dispatch.serial("agent/prepare-step", { ...position, signal });
++		signal.throwIfAborted();
++		const existingInput = target === "next-turn" ? this.existingInput : void 0;
++		this.existingInput = void 0;
+ 		const claimed = this.inbox.claim(target, position.turn);
++		if (existingInput !== void 0) claimed.unshift(existingInput);
+ 		const selection = this.model.current();
+ 		if (selection === void 0) throw new Error(`agent "${this.id}" has no provider/model: set AgentOptions.provider and AgentOptions.model or record a model selection`);
+ 		const toolSet = await this.loopCtx.tools.resolve({
+@@ -700,8 +720,13 @@
+ 				toolSet.dispose();
+ 				return decision;
+ 			}
++			if (existingInput !== void 0) {
++				const selected = decision.messages.filter(message => message.id === existingInput.id);
++				if (selected.length !== 1 || JSON.stringify(selected[0]) !== JSON.stringify(existingInput)) throw new Error("Pre-step must preserve the selected durable user input");
++			}
+ 			return {
+ 				...decision,
++				existingInputId: existingInput?.id,
+ 				assembly,
+ 				selection,
+ 				toolSet
+@@ -862,7 +887,7 @@
+ 					this.session.append("user/message", context, { surfaceOp: "append" });
+ 					contextAdmitted = true;
+ 				}
+-			} else this.session.append("user/message", message, { surfaceOp: "append" });
++			} else if (message.id !== decision.existingInputId) this.session.append("user/message", message, { surfaceOp: "append" });
+ 			if (context !== void 0 && !contextAdmitted) this.session.append("user/message", context, { surfaceOp: "append" });
+ 			firstAttempt = false;
+ 			const request = this.buildRequest(config, preparedCall, assembly.tools, {
+diff --git a/lib/types/agent.d.ts b/lib/types/agent.d.ts
+--- a/lib/types/agent.d.ts
++++ b/lib/types/agent.d.ts
+@@ -48,6 +48,8 @@
+     private setPhase;
+     send(message: UserMessage, target: InboxTarget, wakeup: boolean): void;
+     followup(input: UserMessage): void;
++    /** Continue the official loop from an existing direct input without appending it again. */
++    continueFromInput(messageId: string): number;
+     steer(input: UserMessage): void;
+     inject(input: UserMessage): void;
+     cancel(cause: AgentCancelCause, options?: CancelOptions): void;

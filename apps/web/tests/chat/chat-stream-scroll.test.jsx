@@ -328,7 +328,7 @@ describe('official ChatView with roleplay presentation', () => {
       expect(runningSeat.textContent).toContain('chat.deepDivingFor')
       const timer = runningSeat.textContent
       await act(async () => {
-        fixture.update({ session: { ...fixture.state.session, running: false } })
+        fixture.update({ session: { ...fixture.state.session, running: false }, nodes: new Map([[input.key, input], ['control-2', turnNode('control-2', 2, 'closed')]]) })
       })
       expect(runningSeat.textContent).toBe('')
       await publish(3)

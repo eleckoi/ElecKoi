@@ -710,6 +710,10 @@ export class AgentPresetRepository {
     return projectAgentPresetRuntimeSelection(this.active())
   }
 
+  // RETIRE WHEN: all supported stored presets, saved versions and restored backups
+  // already contain the current required prompt entries and positions. Remove this
+  // startup scan, its call and startup-only regressions; keep normalization on reads,
+  // saves and imports, and the current required-entry definitions.
   private ensureRequiredEntries(): void {
     const presets = this.store.db.select({ id: agentPresets.id, versionId: agentPresets.activeVersionId, purpose: agentPresets.purpose }).from(agentPresets).all()
     this.store.withWriteTx((db) => {

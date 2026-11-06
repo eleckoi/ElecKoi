@@ -10,14 +10,14 @@ import { turnOutcomesProjection } from './turn-outcomes-projection.mjs'
 import { inputContinuationsProjection } from './input-continuations-projection.mjs'
 import { currentRequestSnapshot } from './model-selection-migration.mjs'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
+import { readSessionInspection, productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 import { projectRequestInput, requestProjectionSnapshot, sessionInstructions, visibleDialogueHistory } from './conversation-context.mjs'
 
 export { requestSnapshot } from './model-selection-migration.mjs'
 
 export const ACTIVE_RUNTIME_PRESET_ID = 'eleckoi-active'
 
-export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
+export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
   if (!process.env.ELECKOI_PRESET_TEMPLATE_PATH
     || !process.env.ELECKOI_SESSION_BRIDGE_ROOT
     || !process.env.ELECKOI_WORKSPACE_ROOT
@@ -37,9 +37,9 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
     catch (error) { ctx.logger?.warn(`分支设定刷新通知失败：${String(error)}`) }
   }
   const workspaceRoot = requiredEnv('ELECKOI_WORKSPACE_ROOT')
-  const disposeHistoryStats = ctx.sessionProjections.register(historyStatsProjection)
-  const disposeTurnOutcomes = ctx.sessionProjections.register(turnOutcomesProjection)
-  const disposeInputContinuations = ctx.sessionProjections.register(inputContinuationsProjection)
+  const historyStats = await ctx.sessionProjections.register(historyStatsProjection)
+  const turnOutcomes = await ctx.sessionProjections.register(turnOutcomesProjection)
+  const inputContinuations = await ctx.sessionProjections.register(inputContinuationsProjection)
   const generationOptions = new Map()
 
   const prepareCurrentPreset = async (conversationId, text, creating = false) => {
@@ -102,6 +102,8 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       historyCompactionInstructions: runtime.agentPreset.historyCompactionInstructions ?? ''
     })
     if (!creating) await presetRegistrar.selectForSession(runtime.runtimeSessionId)
+    const agent = ctx.agents.get(runtime.runtimeSessionId)
+    if (agent) agent.model.select(mainModel)
     signal?.throwIfAborted()
     if (operationId) ctx.eleckoiConversationLifecycle.begin({
       operationId, conversationId, runtimeSessionId: runtime.runtimeSessionId, turn: nextTurn
@@ -114,7 +116,7 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
     configuration(sessionId) { return readOptionalSnapshot(snapshotRoot, sessionId) },
     async readGeneratedImage(conversationId, batchId, frameId, attachmentId, signal) {
       const runtimeSessionId = ctx.eleckoiProductData.runtimeSessionId(conversationId)
-      const inspection = await ctx.sessionController.inspect(runtimeSessionId, signal)
+      const inspection = await readSessionInspection(ctx, runtimeSessionId, signal)
       // Ordered updates replace the declared batch state, including cancellation.
       let current
       for (const event of inspection.events) if (event.type === 'eleckoi/illustration' && event.data.batchId === batchId) current = event.data
@@ -310,11 +312,16 @@ export function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       }
     }
   })
-  return () => { disposeCommit(); disposeHistoryStats(); disposeTurnOutcomes(); disposeInputContinuations() }
+  return async () => {
+    disposeCommit()
+    await inputContinuations.dispose()
+    await turnOutcomes.dispose()
+    await historyStats.dispose()
+  }
 }
 
 async function nextSessionTurn(ctx, sessionId) {
-  const inspection = await ctx.sessionController.inspect(sessionId)
+  const inspection = await readSessionInspection(ctx, sessionId)
   const lastTurn = inspection.events.reduce((latest, event) => (
     event?.type === 'turn/start' && Number.isSafeInteger(event.data?.turn)
       ? Math.max(latest, event.data.turn)

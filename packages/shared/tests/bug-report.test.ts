@@ -12,6 +12,7 @@
  *    日志内容提前闭合。
  */
 import { describe, expect, it } from 'vitest'
+import { buildBugReport } from '../src/foundation/bugReport'
 import {
   BUG_REPORT_LOG_TAIL_MAX_LINES,
   BUG_REPORT_MAX_FAILURES,
@@ -155,6 +156,30 @@ describe('形状校验', () => {
 })
 
 describe('脱敏', () => {
+  it('递归处理真实日志中的嵌套详情与数组，并按凭据键脱敏而不修改输入', () => {
+    const details = {
+      issues: [{ path: '/home/alice/private/file.json', context: { authorization: 'Bearer synthetic-private-token' } }],
+      request: { api_key: 'synthetic-private-key', labels: ['alice@example.com', { password: 'synthetic-password' }] },
+      count: 3,
+      enabled: false,
+      absent: null
+    }
+    const input = JSON.stringify({ phase: 'failure', code: 'eleckoi/contract/invalid-request', msg: 'validation failed', details })
+    const report = buildBugReport({ lines: [input], environment: BASE_REPORT.environment,
+      session: BASE_REPORT.session, includeLogTail: false })
+    expect(report.failures[0]?.details).toEqual({
+      issues: [{ path: `${REDACTED_HOME}/private/file.json`, context: { authorization: REDACTED_SECRET } }],
+      request: { api_key: REDACTED_SECRET, labels: [REDACTED_EMAIL, { password: REDACTED_SECRET }] },
+      count: 3,
+      enabled: false,
+      absent: null
+    })
+    const direct = redactBugReport(reportOf({ failures: [{ code: 'eleckoi/contract/invalid-request', message: 'validation failed', details }] }))
+    expect(direct.failures[0]?.details).toEqual(report.failures[0]?.details)
+    expect(JSON.stringify(details)).toContain('synthetic-private-token')
+    expect(details.issues[0]?.path).toBe('/home/alice/private/file.json')
+  })
+
   it('显式路径优先于通用形态', () => {
     const text = redactReportText('C:\\Users\\alice\\AppData\\Roaming\\ElecKoi\\logs\\x.log', {
       home: 'C:\\Users\\alice',

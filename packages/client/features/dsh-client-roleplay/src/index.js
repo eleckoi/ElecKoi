@@ -20,6 +20,7 @@ export const inject = [
   'llm',
   'settings',
   'sessionController',
+  'sessionQuery',
   'sessionPersistence',
   'sessions',
   'eleckoiConversationLifecycle',
@@ -33,8 +34,8 @@ export async function apply(ctx) {
   const previews = new RequestPreviewStore()
   ctx.provide('eleckoiRequestPreviews', previews)
   ctx.effect(() => () => previews.close())
-  ctx.sessionProjections.register(conversationPreviewProjection)
-  ctx.sessionProjections.register(illustrationProjection)
+  await ctx.sessionProjections.register(conversationPreviewProjection)
+  await ctx.sessionProjections.register(illustrationProjection)
   ctx.inject(['sessionProjectionCache', 'storageDomain'], retireRequestContextCache)
   return applyBridge(ctx)
 }

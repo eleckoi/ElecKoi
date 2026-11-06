@@ -275,8 +275,7 @@ export const eleckoiScriptAssetsPlugin = {
         response.end(request.method === 'HEAD' ? undefined : bytes)
       } catch (error) {
         const code = (error as { code?: string }).code
-        // 冲突要同时认契约码（领域转换后的正解）与上游 legacy 码（本轮不清）。
-        const conflict = code === ELECKOI_FAILURE_CODES.conflictStaleRevision || code === 'CONFLICT'
+        const conflict = code === ELECKOI_FAILURE_CODES.conflictStaleRevision
         const status = error instanceof URIError ? 400 : conflict ? 409 : code === 'ENOENT' ? 404 : 500
         response.writeHead(status, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' })
         response.end(request.method === 'HEAD' ? undefined : error instanceof Error ? error.message : String(error))

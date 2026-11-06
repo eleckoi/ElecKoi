@@ -3,7 +3,8 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { runInNewContext } from 'node:vm'
 import { tmpdir } from 'node:os'
 import { basename, delimiter, dirname, join, resolve, sep } from 'node:path'
-import { initProfile, loadLayeredEnv, loadProfileDirectory, PROFILE_TEMPLATES } from '@deepseek-ai/dsh-app-boot'
+import { initProfile, loadLayeredEnv, loadProfileDirectory } from '@deepseek-ai/dsh-app-boot'
+import { PROFILE_TEMPLATES } from '@deepseek-ai/dsh-official-bundles'
 import { INSTALL_ANCHOR, runProfile } from '@deepseek-ai/dsh/profile-boot'
 import { SlotCore } from '@deepseek-ai/dsh-client-ui-slots'
 
@@ -149,7 +150,7 @@ try {
   if (!requestedSpec && installed.meta?.title?.zh !== 'ElecKoi 接入验证') {
     throw new Error(`Installed bundle is missing Chinese metadata: ${JSON.stringify(installed.meta)}`)
   }
-  const injections = running.ctx.webServer.collectIndexInjections()
+  const injections = running.ctx.webServer.collectIndexInjections(ctx.connection.browserPeer)
   if (!JSON.stringify(injections).includes(result.bundle)) {
     throw new Error(`Installed client module ${result.bundle} is missing from the DSH boot table`)
   }

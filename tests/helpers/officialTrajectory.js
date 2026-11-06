@@ -10,6 +10,7 @@ import * as store from '@deepseek-ai/dsh-client-store'
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 import * as slots from '@deepseek-ai/dsh-client-ui-slots'
 import * as cordis from '@deepseek-ai/cordis'
+import { withDshAssets } from './clientModuleRequire.js'
 
 const modules = { zod, '@tanstack/react-virtual': reactVirtual,
   react: React, 'react/jsx-runtime': jsxRuntime, 'react-dom': ReactDOM,
@@ -29,10 +30,10 @@ function loadClient(name, exposed = '') {
     window: { __ModuleLoader__: { load: value => { registration = value } } },
     console, setTimeout, clearTimeout, setInterval, clearInterval,
   })
-  return registration.factory(name => {
+  return registration.factory(withDshAssets(name => {
     if (!(name in modules)) throw new Error(`Unexpected Client dependency: ${name}`)
     return modules[name]
-  })
+  }))
 }
 
 const conversation = loadClient('dsh-client-ui-conversation', ', ConversationNodeAssembler, ConversationEventRegistry, inspectSystemPrompt, inspectRequestPrompt, ContextMeter')

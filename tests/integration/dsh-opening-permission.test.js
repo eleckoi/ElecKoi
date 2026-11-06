@@ -1,3 +1,5 @@
+import { queryFromInspection } from '../helpers/session-query.js'
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -11,7 +13,7 @@ import { ElecKoiConversationsApi, ConversationChangeFeed, ElecKoiVariableProcess
 import { ElecKoiConversationLifecycle } from '../../packages/host/product-api/src/conversationLifecycle'
 import { RequestPreviewStore } from '../../packages/client/features/dsh-client-roleplay/src/host/request-preview.mjs'
 import { TYPERT } from '@eleckoi/dsh-product-api/typert'
-import { SqliteDatabase } from '../../packages/host/product-data/src/storage/sqlite/SqliteDatabase'
+import { SqliteDatabase } from '../helpers/SqliteDatabase'
 import { ConversationRepository } from '../../packages/host/product-data/src/domain/conversations/ConversationRepository'
 import { MessageRepository } from '../../packages/host/product-data/src/domain/conversations/MessageRepository'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -43,7 +45,7 @@ async function fixture() {
 
   const ctx = new Context()
   cleanups.push(() => ctx.fiber.dispose())
-  for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry, TypertRegistry]) {
+  for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry, TypertRegistry]) {
     await ctx.plugin(plugin)
   }
   ctx.typert.register(TYPERT)
@@ -66,6 +68,7 @@ async function fixture() {
     projections: vi.fn(async () => ctx.sessionProjections.snapshot(session)),
   }
   ctx.provide('sessionController', controller)
+  ctx.provide('sessionQuery', queryFromInspection(id => controller.inspect(id)))
   ctx.provide('sessionPersistence', {})
   ctx.provide('eleckoiProductData', { runtimeSessionId: () => conversation.id,
     selectConversationOpening: select, updateConversationOpening: update })

@@ -1,0 +1,22 @@
+diff --git a/lib/index.js b/lib/index.js
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -1734,6 +1734,7 @@
+ 		...effort === "off" ? {} : { output_config: { effort } },
+ 		...system.length === 0 ? {} : { system },
+ 		...options.temperature === void 0 ? {} : { temperature: options.temperature },
++		...options.topP === void 0 ? {} : { top_p: options.topP },
+ 		...options.stop === void 0 ? {} : { stop_sequences: options.stop },
+ 		...options.tools === void 0 ? {} : { tools: options.tools.map((tool) => ({
+ 			name: tool.name,
+diff --git a/lib/types/wire-types.d.ts b/lib/types/wire-types.d.ts
+--- a/lib/types/wire-types.d.ts
++++ b/lib/types/wire-types.d.ts
+@@ -60,6 +60,7 @@
+         effort: 'low' | 'high' | 'max';
+     };
+     temperature?: number;
++    top_p?: number;
+     stop_sequences?: string[];
+     tools?: {
+         name: string;

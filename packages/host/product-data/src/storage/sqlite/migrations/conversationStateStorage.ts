@@ -5,6 +5,9 @@ export const conversationStatesSql = "CREATE TABLE IF NOT EXISTS `conversation_s
 export const conversationStatesIndexSql = 'CREATE INDEX IF NOT EXISTS `index_conversation_state_snapshots_session_turn` ON `conversation_state_snapshots` (`conversationId`, `runtimeSessionId`, `turn`, `phase`)'
 export const legacySettingSnapshotsSql = 'CREATE TABLE IF NOT EXISTS `agent_setting_snapshots` (`conversationId` TEXT NOT NULL, `ownerType` TEXT NOT NULL, `ownerId` TEXT NOT NULL, `stateJson` TEXT NOT NULL, PRIMARY KEY(`ownerType`, `ownerId`), FOREIGN KEY(`conversationId`) REFERENCES `agent_conversations`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )'
 
+// RETIRE WHEN: the 0012 migration and development repair no longer accept old
+// conversation state tables. Remove this helper and their imports; keep the
+// shared legacyConversationStates decoder while archive-v1 imports still need it.
 export function migrateConversationStateStorage(database: Database.Database): void {
   database.exec(conversationStatesSql); database.exec(conversationStatesIndexSql)
   const columns = database.pragma('table_info(agent_responses)') as Array<{ name: string }>

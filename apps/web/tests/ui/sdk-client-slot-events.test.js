@@ -51,6 +51,7 @@ it('passes the public SlotRegistry event subscription to the SDK application con
     await ctx.plugin({ name: 'synthetic-sdk-client-root', apply(owner) {
       new renderer.SlotRegistry(owner);
       owner.reflect.provide('locale', {
+        bind: () => key => key,
         subscribe: () => () => {}, getSnapshot: () => ({ revision: 0 }),
       });
       owner.reflect.provide('theme', {

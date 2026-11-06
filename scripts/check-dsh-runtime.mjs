@@ -3,7 +3,7 @@ import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parse as parseYaml } from 'yaml'
-import { OPTIONAL_BUNDLES } from '@deepseek-ai/dsh-app-boot'
+import { OPTIONAL_BUNDLES } from '@deepseek-ai/dsh-official-bundles'
 import { dshBundleAssets } from './dsh-bundle-assets.mjs'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')

@@ -1,6 +1,7 @@
 import { BrowserWindow, type BrowserWindowConstructorOptions } from 'electron'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
+import { DesktopUpdateOverlays } from '@main/platform/electron/dsh/update-overlay'
 
 export interface WindowBlueprint {
   singleton: boolean
@@ -12,6 +13,15 @@ export interface WindowBlueprint {
 }
 
 export class ElectronWindowHost {
+  readonly updateOverlays = new DesktopUpdateOverlays()
+  constructor(private readonly restartHostOperation?: () => Promise<void>, private readonly stopTransfersOperation?: () => Promise<void>) {}
+
+  async stopFileTransfers(): Promise<void> { await this.stopTransfersOperation?.() }
+
+  async restartHost(): Promise<void> {
+    if (!this.restartHostOperation) throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, 'Host 恢复服务尚未就绪。', { what: 'Host 恢复服务' })
+    await this.restartHostOperation()
+  }
   private readonly blueprints = new Map<string, WindowBlueprint>()
   private readonly liveWindows = new Map<string, Set<BrowserWindow>>()
   private readonly keyedWindows = new Map<string, BrowserWindow>()

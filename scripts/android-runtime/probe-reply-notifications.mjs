@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { basename, join, resolve, sep } from 'node:path';
 import { createInterface } from 'node:readline';
 import { once } from 'node:events';
-import { initProfile, PROFILE_TEMPLATES } from '@deepseek-ai/dsh-app-boot';
+import { initProfile } from '@deepseek-ai/dsh-app-boot'
+import { PROFILE_TEMPLATES } from '@deepseek-ai/dsh-official-bundles';
 import { ELECKOI_ANDROID_BUNDLES } from '../../apps/android-host/dist/index.mjs';
 
 // This probe uses an isolated Host and a synthetic provider, never the connected phone or real credentials.

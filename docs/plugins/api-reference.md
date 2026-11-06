@@ -2,9 +2,9 @@
 
 # ElecKoi 插件开发接口总表
 
-本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.1-rc.5`，提交 `b830ec950faba0a46dda564be3e2d854afed94f1`。
+本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.2-rc.1`，提交 `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`。
 
-当前共 **17 个 bundle、108 个开发接口**：60 个界面插槽、21 个服务、0 个事件、6 个贡献点、21 个 Remote 合同。
+当前共 **17 个 bundle、107 个开发接口**：59 个界面插槽、21 个服务、0 个事件、6 个贡献点、21 个 Remote 合同。
 
 接口标题和说明用于插件中心展示；真实调用合同以对应类型导出和实现为准。完整参数、返回值和数据字段见 [Client 参考](api-client.md)、[Host 参考](api-host.md) 与 [Remote 调用声明](api-remote.md)。使用方法见 [界面插槽](ui-slots.md)、[服务接口](services.md) 与 [能力贡献](contributions.md)。
 
@@ -21,7 +21,7 @@
 | `@eleckoi/dsh-client-persona` | 1 | 1 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-presets` | 7 | 1 | 0 | 0 | 0 | 8 |
 | `@eleckoi/dsh-client-web-search` | 0 | 1 | 0 | 0 | 0 | 1 |
-| `@eleckoi/dsh-client-shell` | 10 | 1 | 0 | 4 | 0 | 15 |
+| `@eleckoi/dsh-client-shell` | 9 | 1 | 0 | 4 | 0 | 14 |
 | `@eleckoi/dsh-client-roleplay` | 29 | 1 | 0 | 0 | 0 | 30 |
 | `@eleckoi/dsh-auto-illustration` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-author` | 0 | 2 | 0 | 0 | 0 | 2 |
@@ -166,7 +166,6 @@
 | `shell.overlay` | 全局浮层 | 界面插槽 | 提供 | `append` | `root` | 在桌面界面上方增加浮层。 | — |
 | `shell.leading` | 窗口前置区域 | 界面插槽 | 提供 | `replace` | `root` | 提供桌面窗口前置内容。 | — |
 | `settings.section` | 设置分区 | 界面插槽 | 提供 | `append` | `root` | 向设置页增加分区。 | — |
-| `settings.general.item` | 通用设置项 | 界面插槽 | 提供 | `append` | `root` | 向通用设置增加设置项。 | — |
 | `eleckoi.roleplay` | 角色聊天页面 | 界面插槽 | 提供 | `replace` | `root` | 包装或替换角色聊天页面。 | — |
 | `eleckoi.creator-studio.conversation` | AI 创作工作室对话 | 界面插槽 | 提供 | `replace` | `root` | 以独立工作室会话呈现官方对话和工具流程。 | — |
 

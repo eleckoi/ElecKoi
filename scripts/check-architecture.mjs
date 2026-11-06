@@ -1,11 +1,28 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { dirname, extname, join, relative, resolve, sep } from 'node:path'
 import { isDshRuntimeImport, isForbiddenRendererDshImport, moduleImports } from './architecture-imports.mjs'
+import { createHash } from 'node:crypto'
 
 const root = resolve(import.meta.dirname, '..')
 const failures = []
 const reviewNotices = []
 const sourceExtensions = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs'])
+const nativeSourceManifest = JSON.parse(readFileSync(join(root, 'apps/desktop/src/main/platform/electron/dsh/capabilities.provenance.json'), 'utf8'))
+const nativeSources = new Set(nativeSourceManifest.files.map(file => resolve(root, file.path)))
+for (const file of nativeSourceManifest.files) {
+  const contents = readFileSync(resolve(root, file.path), 'utf8').replaceAll('\r\n', '\n')
+  if (createHash('sha256').update(contents).digest('hex') !== file.localSha256) {
+    failures.push(`原生桌面来源记录与实现不一致：${file.path}`)
+  }
+}
+const pureDesktopProtocols = new Set([
+  '@deepseek-ai/dsh-client-shortcuts/protocol', '@deepseek-ai/dsh-client-ui-file-actions/types',
+  '@deepseek-ai/dsh-client-ui-sidebar-browser/types', '@deepseek-ai/dsh-util-file-drag'
+])
+function withoutDesktopTypeImports(content) {
+  return content.replace(/^import\s+type\s+[^;]*?\s+from\s+['"]([^'"]+)['"];?\s*$/gm,
+    (declaration, name) => pureDesktopProtocols.has(name) ? '' : declaration)
+}
 
 function sourceFiles(path) {
   const absolute = join(root, path)
@@ -33,7 +50,7 @@ function assertClosedSet(path, allowedDirectories, allowedFiles) {
 
 function forbidImports(path, patterns, description) {
   for (const file of sourceFiles(path)) {
-    const content = readFileSync(file, 'utf8')
+    const content = withoutDesktopTypeImports(readFileSync(file, 'utf8'))
     if (patterns.some((pattern) => pattern.test(content))) {
       failures.push(`${relative(root, file)} ${description}`)
     }
@@ -60,7 +77,7 @@ assertClosedSet('packages/shared/src', new Set(['contracts', 'foundation']), new
 assertClosedSet('packages', new Set(['client', 'host', 'shared', 'sdk', 'compatibility', 'examples']), new Set(['README.md']))
 assertClosedSet('packages/client', new Set(['features', 'mobile']), new Set())
 assertClosedSet('packages/host', new Set(['product-api', 'product-data', 'runtime', 'web-search-tavily', 'web-deepseek']), new Set())
-assertClosedSet('apps/desktop/src/preload', new Set(), new Set(['preload.ts', 'windowsMenu.ts', 'windowsAppearance.ts']))
+assertClosedSet('apps/desktop/src/preload', new Set(), new Set(['preload.ts', 'windowsMenu.ts', 'windowsAppearance.ts', 'nativeCapabilities.ts', 'updateDialog.ts']))
 assertClosedSet(
   'apps/web/src',
   new Set(['app', 'assets', 'mobile', 'modules', 'ui', 'utils']),
@@ -353,7 +370,8 @@ for (const file of productSources) {
 const dshHostComposition = join(root, 'apps/desktop/src/main/host/dshHostPlugin.ts')
 for (const file of productSources) {
   const content = readFileSync(file, 'utf8')
-  if (moduleImports(content, file).some(isDshRuntimeImport) && file !== dshHostComposition) {
+  if (moduleImports(withoutDesktopTypeImports(content), file).some(isDshRuntimeImport)
+    && file !== dshHostComposition && !nativeSources.has(file)) {
     failures.push(`${relative(root, file)} 绕过了 Desktop Host 组合根；产品侧不得直接依赖 DSH Runtime。`)
   }
 }

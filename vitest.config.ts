@@ -1,6 +1,5 @@
 import { resolve } from 'node:path'
 import { configDefaults, defineConfig } from 'vitest/config'
-import { authorVendorPlugin } from './scripts/vite-author-vendor-plugin'
 // @ts-expect-error The Node test runner shares this JavaScript suite declaration.
 import { testSuites } from './scripts/test-suites.mjs'
 
@@ -26,7 +25,6 @@ export default defineConfig({
       '@eleckoi/dsh-runtime': resolve('packages/host/runtime/src/index.ts')
     }
   },
-  plugins: [authorVendorPlugin(resolve('.'))],
   test: {
     maxWorkers: 2,
     projects: Object.entries(testSuites).map(([name, suite]: [string, any]) => ({

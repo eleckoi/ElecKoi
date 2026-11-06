@@ -5,9 +5,9 @@ import { join } from 'node:path'
 import { app } from 'electron'
 import electronUpdater, { type AppUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater'
 import { gt, valid } from 'semver'
-import type { DesktopUpdateState } from './ipc.js'
+import type { DesktopUpdateState } from '@shared/contracts/desktopNative'
 import { DesktopUpdateHttpExecutor } from './update-http-executor.js'
-import { DesktopUpdatePreparationError } from './update-error.js'
+import { DesktopUpdatePreparationError } from '../../../platform/electron/dsh/update-error.js'
 
 const { autoUpdater } = electronUpdater
 

@@ -1,3 +1,4 @@
+import { queryFromInspection } from '../../../../../../tests/helpers/session-query.js'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { Context } from '@deepseek-ai/cordis'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -64,6 +65,7 @@ async function fixture({ legacy = false } = {}) {
   const dispose = await installCreatorStudioRuntime({
     sessionPersistence: persistence.sessionPersistence,
     workspaceRegistry: { pinnedSessionIds: [] },
+    sessionQuery: queryFromInspection(id => controller.inspect(id)),
     sessionController: controller, agents: { get: () => agent },
     eleckoiProductData: { readCharacters: () => ({ items: characters }), readAgentPresetCatalog: () => ({ activePresetIds: { creator: preset.id } }), readAgentPreset: () => preset },
     agentPresets: { readDocument: async () => ({ content: '[]' }), register: async () => () => {}, recompose: async () => {} },
@@ -88,7 +90,7 @@ describe('Studio message edits retain independent conversation preferences', { t
     expect((await f.service.list()).map(item => item.sessionId)).toEqual(['synthetic-root'])
     const next = vi.fn(async () => 'synthetic-child-prompt')
     const child = { session: { header: { origin: 'subagent' } } }
-    await expect(f.listeners.get('system-prompt/assemble')({}, { agent: child }, next)).resolves.toBe('synthetic-child-prompt')
+    await expect(Promise.resolve(f.listeners.get('agent/prepare-step')({ agent: child })).then(next)).resolves.toBe('synthetic-child-prompt')
     expect(next).toHaveBeenCalledOnce()
   })
   it('opens the same conversation after deleting its selected character and allows selecting another target', async () => {

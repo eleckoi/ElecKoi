@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { AgentPresetRepository } from '../src/domain/agentPresets'
 import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
 import { readPngText } from '@eleckoi/dsh-product-data/media'
-import { SqliteDatabase } from '../src/storage/sqlite/SqliteDatabase'
+import { SqliteDatabase } from '../../../../tests/helpers/SqliteDatabase'
 import { agentPresetSchema } from '../../../shared/src/contracts/presets/schemas'
 import { emptyEntry } from '../src/domain/settingLibraries/index'
 

@@ -1,3 +1,4 @@
+import { queryFromInspection } from '../helpers/session-query.js'
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -45,7 +46,7 @@ async function fixture() {
   ctx.provide('eleckoiSessionHandles', { withClosed: async (_id, action) => action() });
   ctx.provide('sessionProjectionCache', { write: async () => {} });
   ctx.provide('workspaceRegistry', { list: () => [], unpinSession: async () => {}, unarchiveSession: async () => {} });
-  ctx.sessionProjections.register(illustrationProjection);
+  await ctx.sessionProjections.register(illustrationProjection);
   await ctx.plugin(sessionEditPlugin);
   const save = async (size = 1) => {
     const sharp = createRequire(createRequire(import.meta.url).resolve('@deepseek-ai/dsh-attachment-local'))('sharp');
@@ -81,6 +82,7 @@ async function fixture() {
     eleckoiConversationChanges: { publish() {} },
     eleckoiCharacterConfigurationChanges: { publish() {} }
   };
+  owner.sessionQuery = queryFromInspection(id => owner.sessionController.inspect(id));
   const api = { productData: ctx.eleckoiProductData, ownerContext: owner, changeFeed: { publish() {} }, pendingRegenerations: new Map() };
   const create = async (ref, characterId) => {
     const id = ctx.eleckoiProductData.createConversation({ metadata: characterId ? { characterId } : {} }).conversation.id;
@@ -174,8 +176,8 @@ describe('generated image deletion in existing Host operations', { timeout: 3000
   it('removes descendant results and also handles a result whose Session log is already absent', async () => {
     const f = await fixture(), chat = await f.create(await f.save());
     const leave = f.ctx.sessions.enter(chat.session);
-    const child = f.ctx.sessions.fork(chat.session, undefined, SessionId('synthetic-child'));
-    const grandchild = f.ctx.sessions.fork(child, undefined, SessionId('synthetic-grandchild'));
+    const child = f.ctx.sessions.create(SessionId('synthetic-child'), { meta: { parentSession: chat.session.id, origin: 'subagent' } });
+    const grandchild = f.ctx.sessions.create(SessionId('synthetic-grandchild'), { meta: { parentSession: child.id, origin: 'subagent' } });
     await f.persist(child); await f.persist(grandchild);
     leave();
     const results = await Promise.all([child.id, grandchild.id, 'synthetic-missing-log'].map(id => f.saveResult(id)));

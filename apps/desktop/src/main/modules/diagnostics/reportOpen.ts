@@ -50,4 +50,3 @@ export function bugReportOpenFailure(kind: BugReportTargetKind, error: unknown):
   return new DesktopError(ELECKOI_FAILURE_CODES.shellOpenFailed,
     `打开外部程序失败：${errorTextOf(error)}`, details)
 }
-

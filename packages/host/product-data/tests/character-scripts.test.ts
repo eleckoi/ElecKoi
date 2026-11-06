@@ -8,7 +8,7 @@ import { SettingLibraryRepository } from '../src/domain/settingLibraries'
 import { VariableConfigRepository } from '../src/domain/variables/VariableConfigRepository'
 import { RegexRuleRepository } from '../src/domain/regexRules/RegexRuleRepository'
 import { AgentPresetRepository } from '../src/domain/agentPresets'
-import { SqliteDatabase } from '../src/storage/sqlite/SqliteDatabase'
+import { SqliteDatabase } from '../../../../tests/helpers/SqliteDatabase'
 import { createScriptLibraryRepository } from './helpers/scriptLibraryOwners'
 import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
 

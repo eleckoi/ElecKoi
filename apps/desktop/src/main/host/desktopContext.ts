@@ -12,8 +12,9 @@ declare module '@deepseek-ai/cordis' {
       start(): Promise<{ url: string; injections: readonly unknown[] }>
       frontendDirectory(): string
       updateTasks(action: 'inspect' | 'lock' | 'unlock'): Promise<boolean>
+      resolveDragResource(address: string, signal: AbortSignal): Promise<{ path: string; sha256: string; size: number } | null>
       onFailure(listener: (error: Error) => void): () => void
-      close(): Promise<void>
+      close(requireClean?: boolean): Promise<void>
       disableUserPlugins(): Promise<string | undefined>
     }
     electronWindows: ElectronWindowHost

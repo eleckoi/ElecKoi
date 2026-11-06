@@ -1,3 +1,5 @@
+import { executeToolCall } from '../../../../../../tests/helpers/tool-call.js'
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
@@ -12,6 +14,7 @@ describe('DSH character tool policy', () => {
     try {
       await ctx.plugin(SystemPrompt)
       await ctx.plugin(ToolRuntime)
+      await ctx.plugin(NativeToolExecutor);
       await ctx.inject(['tools'], async owner => {
         const output = { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }
         const register = pluginCtx => pluginCtx.tools.register(defineTool({ name: 'synthetic_owned', description: 'owned', parameters: {}, output, execute: async () => 'ok' }))
@@ -41,6 +44,9 @@ describe('DSH character tool policy', () => {
     expect(filterDeclarations([{ name: 'working_directory' }], ['builtin:workspace'])).toEqual([])
     expect(classify({ type: 'function', function: { name: 'skill' } })).toBe('builtin:workflow')
     expect(classify({ type: 'function', function: { name: 'workflow' } })).toBe('builtin:workflow')
+    const scheduled = ['schedule_create', 'schedule_list', 'schedule_view', 'schedule_edit'].map(name => ({ type: 'function', name }))
+    expect(scheduled.map(classify)).toEqual(Array(4).fill('builtin:workflow'))
+    expect(filterDeclarations(scheduled, ['builtin:workflow'])).toEqual([])
     expect(classify({ type: 'function', function: { name: 'subagent_fork' } })).toBe('builtin:collaboration')
     expect(classify({ type: 'function', function: { name: 'send_message' } })).toBe('builtin:collaboration')
     expect(classify({ type: 'namespace', name: 'collaboration', tools: [] })).toBe('builtin:collaboration')
@@ -86,6 +92,7 @@ describe('DSH character tool policy', () => {
     try {
       await ctx.plugin(SystemPrompt)
       await ctx.plugin(ToolRuntime)
+      await ctx.plugin(NativeToolExecutor);
       await ctx.inject(['tools'], async owner => {
         const output = { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }
         owner.tools.register(defineTool({ name: 'synthetic_available', description: 'Available tool', parameters: {}, output, execute: () => 'still works' }))
@@ -94,7 +101,7 @@ describe('DSH character tool policy', () => {
         try {
           applyDisabledPolicy(agent.ctx, ['plugin-tool:synthetic_missing', 'plugin-tool:synthetic_disabled'], owner.tools)
           expect(owner.tools.schemas(agent).map(tool => tool.name)).toEqual(['synthetic_available'])
-          const result = await owner.tools.execute({ agent, callId: 'synthetic-available-call', name: 'synthetic_available', arguments: {}, signal: new AbortController().signal })
+          const result = await executeToolCall(owner.tools, { agent, callId: 'synthetic-available-call', name: 'synthetic_available', arguments: {}, signal: new AbortController().signal })
           expect(result.isError).toBe(false)
           expect(result.content[0].text).toBe('still works')
           for (let index = 0; index < 2; index++) {
@@ -115,6 +122,7 @@ describe('DSH character tool policy', () => {
     try {
       await ctx.plugin(SystemPrompt)
       await ctx.plugin(ToolRuntime)
+      await ctx.plugin(NativeToolExecutor);
       await ctx.inject(['tools'], async owner => {
         const output = { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }
         const plugin = await owner.plugin({ inject: ['tools'], apply(pluginCtx) {
@@ -133,11 +141,11 @@ describe('DSH character tool policy', () => {
           expect(owner.tools.schemas(agent).map(tool => tool.name)).toEqual([
             'generate_image', 'generate_images', 'edit_image', 'synthetic_extension_tool'
           ])
-          const result = await owner.tools.execute({ agent, callId: 'synthetic-plugin-call', name: 'generate_image',
+          const result = await executeToolCall(owner.tools, { agent, callId: 'synthetic-plugin-call', name: 'generate_image',
             arguments: {}, signal: new AbortController().signal })
           expect(result.isError).toBe(false)
           expect(result.content).toEqual([{ type: 'text', text: 'synthetic plugin result' }])
-          const blocked = await owner.tools.execute({ agent, callId: 'synthetic-workspace-call', name: 'read',
+          const blocked = await executeToolCall(owner.tools, { agent, callId: 'synthetic-workspace-call', name: 'read',
             arguments: {}, signal: new AbortController().signal })
           expect(blocked.isError).toBe(true)
           await plugin.dispose()

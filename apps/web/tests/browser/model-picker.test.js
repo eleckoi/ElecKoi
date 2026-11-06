@@ -29,7 +29,7 @@ it('anchors the compact model editor in both themes and preserves its single sav
       expect(layout.backdrops).toBe(0);expect(layout.radius).toBe('18px');
       expect(layout.surface,detail).toBe('rgba(0, 0, 0, 0)');
       expect(layout.material,detail).toBe('translucent');
-      expect(layout.materialFill,detail).toBe(layout.theme==='light'?'rgba(248, 249, 250, 0.58)':'rgba(67, 69, 74, 0.45)');
+      expect(layout.materialFill,detail).toBe(layout.theme==='light'?'rgba(252, 253, 254, 0.7)':'rgba(48, 49, 54, 0.64)');
       expect(layout.materialFilter,detail).not.toBe('none');
       expect(layout.scrollWidth,detail).toBe('5px');expect(layout.scrollRadius,detail).toBe('999px');expect(layout.standardScrollWidth,detail).toBe('auto');
       expect(layout.duplicateCapabilityTitle).toBe(false);

@@ -33,7 +33,7 @@ function Fixture() {
   if (query.has('official')) return <ComposerAttachments attachments={attachments} uploads={uploads} t={translate}
     canAcceptDrop={false} onAddFiles={() => {}} onRetryFile={() => {}} onRemoveAttachment={id => setAttachments(items => items.filter(item => item.id !== id))} />;
   const bar = <div data-slot={studio ? 'eleckoi.creator-studio.composer.bar' : 'eleckoi.roleplay.conversation.composer.bar'}>
-    <InputBar useSession={hook({ running: false })} useInput={hook(input)} useNotices={hook(null)}
+    <InputBar useSession={hook({ running: false })} useAccess={() => true} useInput={hook(input)} useNotices={hook(null)}
       useBusyEnter={hook('queue')} useStopShortcut={hook([])} useMenuLauncher={hook(null)}
       useFileUploads={hook(uploads)} useLexicon={hook([])} useProjection={() => undefined}
       inputActions={{}} keyboard={keyboard} t={translate} sessionId="synthetic-session" variant="composer"

@@ -273,4 +273,3 @@ function removeQuietly(path: string): void {
     return
   }
 }
-

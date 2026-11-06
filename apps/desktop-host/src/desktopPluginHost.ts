@@ -3,12 +3,14 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
-import { initProfile, OPTIONAL_BUNDLES, PROFILE_TEMPLATES, readProfileManifest, sanitizeProfile, writeProfileBundles } from '@deepseek-ai/dsh-app-boot'
+import { initProfile, readProfileManifest, sanitizeProfile, writeProfileBundles } from '@deepseek-ai/dsh-app-boot'
+import { OPTIONAL_BUNDLES, PROFILE_TEMPLATES } from '@deepseek-ai/dsh-official-bundles'
 import { ELECKOI_DESKTOP_BUNDLES, registerDesktopBundles } from './desktopPluginBundles'
 import { ELECKOI_FAILURE_CODES, isEleckoiFailureCode } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import { isChildFatalFrame, pluginHostFailureOf } from './childHostFailure'
 import type { ChildHostMessage, ParentHostMessage } from './hostSessionProtocol'
+import type { LocalDragResource } from './fileDrag'
 
 const require = createRequire(import.meta.url)
 const runtimeRequire = createRequire(require.resolve('@eleckoi/desktop-host'))
@@ -22,7 +24,7 @@ export const ELECKOI_DESKTOP_RECOVERY_BUNDLES = Object.freeze([
 ])
 
 /**
- * TODO(迁移清理)：受支持的升级及 profile 恢复入口都已完成 tavily-bundle-v1 登记后，
+ * RETIRE WHEN: 受支持的升级及 profile 恢复入口都已完成 tavily-bundle-v1 登记后，
  * 删除本函数、start 调用及对应旧 profile 用例。保留新 profile 的 Tavily 默认选择，
  * 以及通过正式 profile 保存用户启停选择的正常流程；不要删除现有用户配置或标记文件。
  */
@@ -64,6 +66,12 @@ function isChildMessage(value: unknown): value is ChildHostMessage {
   const message = value as Record<string, unknown>
   if (message.type === 'ready') return typeof message.url === 'string' && Array.isArray(message.injections)
   if (message.type === 'fatal') return isChildFatalFrame(message)
+  if (message.type === 'file-drag-resource') {
+    const resource = message.resource as Record<string, unknown> | null
+    return Number.isSafeInteger(message.requestId) && (message.error === undefined || typeof message.error === 'string')
+      && (resource === null || typeof resource === 'object' && resource !== undefined && typeof resource.path === 'string'
+        && typeof resource.sha256 === 'string' && /^[0-9a-f]{64}$/.test(resource.sha256) && Number.isSafeInteger(resource.size))
+  }
   if (message.type === 'update-tasks-complete') return typeof message.id === 'string'
     && typeof message.active === 'boolean'
     && (message.message === undefined || typeof message.message === 'string')
@@ -82,6 +90,9 @@ export class DshDesktopPluginHost {
   private stopping = false
   private closeTask: Promise<void> | undefined
   private readonly controls = new Map<string, PendingControl>()
+  private readonly cleanlyStopped = new WeakSet<ChildProcess>()
+  private nextDragId = 1
+  private readonly dragControls = new Map<number, { resolve(value: LocalDragResource | null): void; reject(error: Error): void }>()
 
   constructor(private readonly options: DshDesktopPluginHostOptions) {
     if (typeof options.productDatabasePath !== 'string' || options.productDatabasePath.trim().length === 0) {
@@ -93,6 +104,7 @@ export class DshDesktopPluginHost {
   }
 
   start(environment: DshDesktopPluginHostEnvironment = {}): Promise<DshDesktopPluginHostReady> {
+    if (this.stopping && this.child === undefined) { this.stopping = false; this.closeTask = undefined }
     if (this.readyTask !== undefined) return this.readyTask
     if (this.stopping) return Promise.reject(new DesktopError(ELECKOI_FAILURE_CODES.lifecycleDisposed, 'DSH 插件宿主正在停止。', { what: 'DSH 插件宿主' }))
     const home = join(this.options.runtimeDataRoot, 'home')
@@ -114,8 +126,6 @@ export class DshDesktopPluginHost {
       '- id: ui-layout',
       '  disabled: true',
       '- id: ui-sidebar',
-      '  disabled: true',
-      '- id: ui-settings-general',
       '  disabled: true',
       '- id: ui-settings-models',
       '  disabled: true',
@@ -182,6 +192,12 @@ export class DshDesktopPluginHost {
           return
         }
         if (value.type === 'fatal') fail(pluginHostFailureOf(value))
+        if (value.type === 'shutdown-complete') this.cleanlyStopped.add(child)
+        if (value.type === 'file-drag-resource') {
+          const pending = this.dragControls.get(value.requestId)
+          if (value.error) pending?.reject(new DesktopError(ELECKOI_FAILURE_CODES.ioFailed, value.error, { operation: '文件拖出授权' }))
+          else pending?.resolve(value.resource)
+        }
         if (value.type === 'update-tasks-complete') {
           const pending = this.controls.get(value.id)
           if (pending !== undefined) {
@@ -233,6 +249,30 @@ export class DshDesktopPluginHost {
   }
 
   /** Recovery owns shutdown before changing the official profile's enabled bundles. */
+  async resolveDragResource(address: string, signal: AbortSignal): Promise<LocalDragResource | null> {
+    const child = this.child
+    if (!child?.connected || this.stopping) throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleDisposed, '文件拖出 Host 不可用。', { what: '文件拖出 Host' })
+    signal.throwIfAborted()
+    const requestId = this.nextDragId++
+    const abort = (): void => {
+      if (child.connected) child.send({ type: 'file-drag-cancel', requestId } satisfies ParentHostMessage, error => {
+        if (error) this.options.onDiagnostic?.(`File drag cancellation failed: ${error.message}`)
+      })
+      this.dragControls.get(requestId)?.reject(signal.reason instanceof Error ? signal.reason
+        : new DesktopError(ELECKOI_FAILURE_CODES.timeoutExpired, '文件拖出授权超时。', { what: '文件拖出授权' }))
+    }
+    const deadline = setTimeout(abort, 12_000)
+    signal.addEventListener('abort', abort, { once: true })
+    try {
+      return await new Promise<LocalDragResource | null>((resolve, reject) => {
+        this.dragControls.set(requestId, { resolve, reject })
+        child.send({ type: 'file-drag-resource', requestId, address } satisfies ParentHostMessage, error => {
+          if (error) reject(error)
+        })
+      })
+    } finally { clearTimeout(deadline); signal.removeEventListener('abort', abort); this.dragControls.delete(requestId) }
+  }
+
   async disableUserPlugins(): Promise<string | undefined> {
     await this.close()
     const profile = join(this.options.runtimeDataRoot, 'home', 'profiles', 'desktop')
@@ -242,10 +282,17 @@ export class DshDesktopPluginHost {
     ])
   }
 
-  close(): Promise<void> {
-    return this.closeTask ??= this.stopChild().catch(error => {
+  close(requireClean = false): Promise<void> {
+    const child = this.child
+    const task = this.closeTask ??= this.stopChild().catch(error => {
       this.closeTask = undefined
       throw error
+    })
+    if (!requireClean) return task
+    return task.then(() => {
+      if (child && (!this.cleanlyStopped.has(child) || child.exitCode !== 0)) {
+        throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleDisposed, 'Host 未确认完成清理，更新安装已停止。', { what: '等待 Host 完成清理后重试更新' })
+      }
     })
   }
 
@@ -283,6 +330,8 @@ export class DshDesktopPluginHost {
   }
 
   private rejectControls(error: Error): void {
+    for (const pending of this.dragControls.values()) pending.reject(error)
+    this.dragControls.clear()
     for (const pending of this.controls.values()) {
       clearTimeout(pending.timer)
       pending.reject(error)

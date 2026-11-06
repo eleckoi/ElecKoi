@@ -15,7 +15,12 @@ export function useAppUpdates() {
       phase: nextStatus?.phase,
     }));
   }, []);
-  const showDialog = useCallback(() => requestDialog(status), [requestDialog, status]);
+  const showDialog = useCallback(() => {
+    if (android) requestDialog(status);
+    else void updateService(false)?.open(document.documentElement.lang, false).catch(cause => {
+      setError(resolveFailure(cause, { fallback: "更新服务暂时不可用。" }).text);
+    });
+  }, [android, requestDialog, status]);
 
   useEffect(() => {
     let active = true;
@@ -63,7 +68,7 @@ export function useAppUpdates() {
     const nextStatus = await requestStatus(() => {
       const updates = updateService(android);
       if (!updates) throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, "更新服务暂时不可用。", { what: "更新服务" });
-      return updates.check();
+      return android ? updates.check() : updates.open(document.documentElement.lang, true);
     });
     requestDialog(nextStatus);
     return nextStatus;

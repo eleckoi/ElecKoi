@@ -125,7 +125,7 @@ describe('ElecKoi built-in bundle details', () => {
             '@deepseek-ai/dsh-client-ui-primitives': primitives, '@deepseek-ai/dsh-client-ui-slots': Slots,
             '@deepseek-ai/dsh-client-store': Store };
         plugin.factory(name => dependencies[name]).apply({
-            effect: () => {}, locale: { bind: () => () => '', resolveText: value => value },
+            remoteAccess: { whenAccess: (_name, run) => { for (const _dispose of run()) {} } }, remote: { $on: () => () => {} }, on: () => () => {}, layout: { panelInfo: { subscribe: () => () => {}, getSnapshot: () => ({ activePanelId: 'plugins' }) } }, reflect: { provide: () => () => {} }, provide: () => {}, effect: () => {}, locale: { bind: () => () => '', resolveText: value => value },
             configForms: { describe: () => ({}) },
             slots: { inject: (_name, register) => { const result = register(); if (result?.next) result.next(); },
                 register: (options, component) => { if (options.name === 'main') { page = component; initialState = options.inject().hooks.pluginManager.getSnapshot(); } return () => {}; } },
@@ -139,7 +139,7 @@ describe('ElecKoi built-in bundle details', () => {
             t: (key, values) => key === 'enableToggle' ? `启用 ${values.name}` : key,
             ensure: () => {}, renderSlot: () => null, resolveText: value => value,
             useConfigurations: select => select({}), configForm: () => {},
-            usePluginTabs: select => select([]),
+            useBundleDetails: select => select({ entries: {} }), useLocale: select => select({ active: 'zh' }), loadDetail: () => {}, retryDetail: () => {}, usePluginTabs: select => select([]),
             usePluginManager: select => select(state), useConfigLedger: select => select({ items: [], bundles: new Set(), rows: new Set() }),
             useStore: select => select({ view, tab: 'installed' }), actions: { setTab() {}, setView: next => { view = next; render(); } },
             setEnabled: (id, enabled) => { expect(id).toBe(name); state = { ...state, packages: [{ ...state.packages[0], enabled }] }; render(); },
@@ -165,7 +165,7 @@ describe('ElecKoi built-in bundle details', () => {
             '@deepseek-ai/dsh-client-ui-primitives': primitives, '@deepseek-ai/dsh-client-ui-slots': Slots,
             '@deepseek-ai/dsh-client-store': Store };
         plugin.factory(name => dependencies[name]).apply({
-            effect: () => {}, locale: { bind: () => () => '', resolveText: value => value }, configForms: { describe: () => ({}) },
+            remoteAccess: { whenAccess: (_name, run) => { for (const _dispose of run()) {} } }, remote: { $on: () => () => {} }, on: () => () => {}, layout: { panelInfo: { subscribe: () => () => {}, getSnapshot: () => ({ activePanelId: 'plugins' }) } }, reflect: { provide: () => () => {} }, provide: () => {}, effect: () => {}, locale: { bind: () => () => '', resolveText: value => value }, configForms: { describe: () => ({}) },
             slots: { inject: (_name, register) => { const result = register(); if (result?.next) result.next(); },
                 register: (options, component) => { if (options.name === 'main') { page = component; initialState = options.inject().hooks.pluginManager.getSnapshot(); } return () => {}; } },
         });
@@ -185,7 +185,7 @@ describe('ElecKoi built-in bundle details', () => {
         const root = createRoot(node);
         const render = () => root.render(React.createElement(page, {
             t: key => key, ensure: () => {}, renderSlot: () => null, resolveText: value => value,
-            useConfigurations: select => select({}), configForm: () => {}, usePluginTabs: select => select([]),
+            useConfigurations: select => select({}), configForm: () => {}, useBundleDetails: select => select({ entries: {} }), useLocale: select => select({ active: 'zh' }), loadDetail: () => {}, retryDetail: () => {}, usePluginTabs: select => select([]),
             usePluginManager: select => select(state),
             useConfigLedger: select => select({ items: [], bundles: new Set(), rows: new Set(bundles.map(name => `${name}#synthetic-row`)) }),
             useStore: select => select({ view, tab: 'installed' }), actions: { setTab() {}, setView: next => { view = next; render(); } },
@@ -273,7 +273,7 @@ describe('ElecKoi built-in bundle details', () => {
                     setViewportWidth: () => { },
                     setRightbar: () => { },
                 },
-                locale: observable({ revision: 0 }),
+                locale: { ...observable({ revision: 0 }), bind: () => key => key },
                 renderSlot: () => null,
             });
             let published;
@@ -407,11 +407,11 @@ describe('ElecKoi built-in bundle details', () => {
         for (const spec of Object.keys(workspace.patchedDependencies)) {
             const split = spec.lastIndexOf('@');
             const packageName = split > 0 ? spec.slice(0, split) : spec;
-            if (packageName === '@deepseek-ai/dsh-typert-generator')
+            if (packageName === '@deepseek-ai/dsh-typert-generator' || packageName === 'app-builder-lib')
                 continue;
             expect(source, spec).toContain("['" + packageName + "',");
         }
-        expect(workspace.patchedDependencies['@deepseek-ai/dsh-typert-generator@0.2.1-rc.5'])
-            .toBe('patches/@deepseek-ai__dsh-typert-generator@0.2.1-rc.5.patch');
+        expect(workspace.patchedDependencies['@deepseek-ai/dsh-typert-generator@0.2.2-rc.1'])
+            .toBe('patches/@deepseek-ai__dsh-typert-generator@0.2.2-rc.1.patch');
     });
 });

@@ -38,7 +38,7 @@ const DEFAULT_ROLEPLAY_PLAN_STEPS = [
 ]
 
 /**
- * TODO(迁移清理)：停止支持 schema v1 直接升级后，移除此步骤、installSchema 登记
+ * RETIRE WHEN: 停止支持 schema v1 直接升级后，移除此步骤、installSchema 登记
  * 和对应 v1 fixture。本文件的整理函数也供开发 v2 入口使用；在该入口退役前保留。
  */
 export const migration0002 = {

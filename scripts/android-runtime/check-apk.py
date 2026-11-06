@@ -16,7 +16,21 @@ parser = argparse.ArgumentParser()
 parser.add_argument("apk", type=Path)
 parser.add_argument("--aapt2", type=Path)
 parser.add_argument("--variant", choices=["standard", "compat"], required=True)
+parser.add_argument("--release", action="store_true", help="Require verified v1, v2 and v3 release signatures")
 args = parser.parse_args()
+
+
+def verify_release_signatures(apk, apksigner):
+    # Force the verifier to inspect v1 too; the manifest's API 27 minimum would
+    # otherwise let it skip v1 even when the signature files are present.
+    result = subprocess.run([str(apksigner), "verify", "--verbose", "--min-sdk-version", "23", str(apk)],
+                            capture_output=True, text=True)
+    if result.returncode:
+        raise ValueError(f"Release APK signature verification failed: {result.stderr.strip() or result.stdout.strip()}")
+    verified = set(re.findall(r"^Verified using (v[123]) scheme \([^\n]*\): true$", result.stdout, re.M))
+    missing = sorted({"v1", "v2", "v3"} - verified)
+    if missing:
+        raise ValueError(f"Release APK is missing verified signature schemes: {', '.join(missing)}")
 
 
 def resource_file_path(table, name):
@@ -47,6 +61,8 @@ if aapt2 is None:
         aapt2 = selected / ("aapt2.exe" if os.name == "nt" else "aapt2")
 if aapt2 is None:
     raise ValueError("Set ANDROID_HOME or pass --aapt2 to inspect the APK resource table")
+if args.release:
+    verify_release_signatures(args.apk, Path(aapt2).with_name("apksigner.bat" if os.name == "nt" else "apksigner"))
 resources = subprocess.run([str(aapt2), "dump", "resources", str(args.apk)], check=True, capture_output=True, text=True).stdout
 icon_path = resource_file_path(resources, "drawable/eleckoi_app_icon")
 execution = json.loads((repo / "apps/android/app/src/main/assets/licenses/glibc/execution-provenance.json").read_text(encoding="utf-8"))

@@ -16,7 +16,7 @@ Tavily 返回条数可以直接输入，使用官方 API 的 0–20 范围，默
 
 ## 实现与结果
 
-DeepSeek Search、Fetch、Messages 和 HTTP 抓取均使用 DSH 0.2.1-rc.5 的官方提供器。Search 按官方合同投影来源；Fetch 返回官方 Markdown，成功解析按上游合同映射为 200。HTTP 抓取由当前 Host 所在设备访问目标网站，显示实际收到的状态。
+DeepSeek Search、Fetch、Messages 和 HTTP 抓取均使用 DSH 0.2.2-rc.1 的官方提供器。Search 按官方合同投影来源；Fetch 返回官方 Markdown，成功解析按上游合同映射为 200。HTTP 抓取由当前 Host 所在设备访问目标网站，显示实际收到的状态。
 
 旧「DeepSeek 完整搜索／完整抓取」扩展、正文和地域表单及未知源站状态补丁已移除。启动前仅将 profile 内明确保存的 `eleckoi-deepseek-api` 选择改为对应官方提供器；已有官方参数与凭据引用不变，旧凭据不被删除。新旧密钥不互相覆盖；未配置官方密钥时在官方页面填写。
 

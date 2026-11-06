@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSy
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SqliteDatabase } from '../src/storage/sqlite/SqliteDatabase'
+import { SqliteDatabase } from '../../../../tests/helpers/SqliteDatabase'
 import { createScriptLibraryRepository } from './helpers/scriptLibraryOwners'
 import { CharacterRepository } from '../src/domain/personas/CharacterRepository'
 import { AgentPresetRepository } from '../src/domain/agentPresets'

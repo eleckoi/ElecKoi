@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3'
 import { normalizeSettingEntryFormat } from './settingEntryFormat'
 
 /**
- * TODO(迁移清理)：停止支持所有低于 schema v4 的数据库直接升级后，移除此步骤、
+ * RETIRE WHEN: 停止支持所有低于 schema v4 的数据库直接升级后，移除此步骤、
  * installSchema 登记、installAgentMetadataTables、settingEntryFormat 和对应旧库 fixture。
  * 当前库由公共 SQL 创建同一结构；仍支持旧库时必须保留开场白与设定状态的转换。
  */

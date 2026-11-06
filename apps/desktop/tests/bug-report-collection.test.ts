@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BUG_REPORT_LOG_TAIL_MAX_LINES, type BugReportEnvironment } from '@shared/contracts/bugReport/report'
-import { buildBugReport, collectReportFailures } from '../src/main/modules/diagnostics/bugReportCollection'
+import { buildBugReport, collectReportFailures } from '@shared/foundation/bugReport'
 import {
   parseSessionEvents,
   previousSessionOf,

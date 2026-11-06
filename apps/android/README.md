@@ -74,6 +74,8 @@ Host 或客户端插件启动失败时，原生错误页面提供「停用用户
 
 Release 构建复用环境变量或 Gradle 用户属性中的 `ELECKOI_RELEASE_STORE_FILE`、`ELECKOI_RELEASE_STORE_PASSWORD`、`ELECKOI_RELEASE_KEY_ALIAS`、`ELECKOI_RELEASE_KEY_PASSWORD`。密钥保存在仓库外；缺少参数或密钥文件时构建明确失败，不生成未签名发布包。运行 `:app:assembleStandardRelease :app:assembleCompatRelease` 后，APK 和更新描述分别位于 `app/build/outputs/apk/standard/release/` 与 `app/build/outputs/apk/compat/release/`，该目录由 Git 忽略。
 
+两版 Release 使用同一正式证书，显式同时生成 V1、V2、V3 签名，兼容仍依赖 V1 签名文件的安装器。构建后的 APK 检查会实际验证三种签名，任一种缺失或校验失败都阻止生成更新描述；不会只凭签名配置判断产物合格。手动检查 Release APK 时，为 `check-apk.py` 添加 `--release`。
+
 运行 `node scripts/android-runtime/archive-release.mjs` 会核对两版实际 APK 的版本、变体、摘要和更新描述，归档到 `build/releases/android-<版本>-dual/`；文件名分别带 `standard` 和 `compat`。归档时同步更新描述中的 `apkAsset`，不能只改 APK 文件名后直接上传旧描述。该命令不发布到 GitHub。
 
 ## 更新检查

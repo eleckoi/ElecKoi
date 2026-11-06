@@ -7,6 +7,7 @@ import { repairRequestContextLogs, recoverStartupSessions } from '@eleckoi/dsh-r
 import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-jobs'
 import { Peer } from '@deepseek-ai/dsh-client-connection'
+import { localDragResource } from './fileDrag'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@eleckoi/dsh-product-api'
 import { foldFailure } from '@shared/foundation/failure'
@@ -50,11 +51,16 @@ async function main(): Promise<void> {
     }
   })
   let stopping: Promise<void> | undefined
+  const dragReads = new Map<number, AbortController>()
+  const dragTasks = new Set<Promise<void>>()
   const stop = (): Promise<void> => stopping ??= (async () => {
+    for (const abort of dragReads.values()) abort.abort()
+    await Promise.allSettled(dragTasks)
     const running = await application.catch(() => undefined)
     await running?.shutdown.shutdown(0)
     await send({ type: 'shutdown-complete' })
-    if (process.connected) process.disconnect?.()
+    if (process.connected) process.disconnect()
+    if (running !== undefined) process.exit()
   })()
   const { ctx } = await application
   const updateTasks = installUpdateTaskControl(ctx)
@@ -82,6 +88,24 @@ async function main(): Promise<void> {
   process.on('message', (value: unknown) => {
     if (typeof value !== 'object' || value === null || !('type' in value)) return
     const message = value as ParentHostMessage
+    if (message.type === 'file-drag-cancel') { dragReads.get(message.requestId)?.abort(); return }
+    if (message.type === 'file-drag-resource') {
+      const abort = new AbortController()
+      dragReads.set(message.requestId, abort)
+      const task = (async () => {
+        try {
+          if (stopping) throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleDisposed, '文件拖出服务正在停止。', { what: '文件拖出服务' })
+          const resource = await localDragResource(ctx, message.address, abort.signal)
+          await send({ type: 'file-drag-resource', requestId: message.requestId, resource })
+        } catch (error) {
+          if (!abort.signal.aborted) console.error(error)
+          await send({ type: 'file-drag-resource', requestId: message.requestId, resource: null, error: 'File drag resource unavailable' })
+        } finally { dragReads.delete(message.requestId) }
+      })().catch(error => { console.error(error) })
+      dragTasks.add(task)
+      void task.finally(() => { dragTasks.delete(task) })
+      return
+    }
     if (message.type === 'shutdown') {
       void stop()
       return
@@ -95,7 +119,7 @@ async function main(): Promise<void> {
   })
   process.once('disconnect', () => { void stop() })
   const url = ctx.connection.authenticatedUrl(`http://127.0.0.1:${String(ctx.webServer.port)}`)
-  await send({ type: 'ready', url, injections: ctx.webServer.collectIndexInjections() })
+  await send({ type: 'ready', url, injections: ctx.webServer.collectIndexInjections(ctx.connection.browserPeer) })
 }
 
 function installUpdateTaskControl(

@@ -94,7 +94,7 @@ jobs:
         env:
           CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-        run: pnpm exec electron-builder --projectDir apps/desktop --win --x64 --dir --publish never
+        run: pnpm exec electron-builder --projectDir apps/desktop --config electron-builder.config.mjs --win --x64 --dir --publish never
 
       - name: Verify packaged DSH runtime
         run: pnpm verify:packaged-dsh
@@ -103,7 +103,7 @@ jobs:
         env:
           CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-        run: pnpm exec electron-builder --projectDir apps/desktop --win --x64 --prepackaged ../../release/win-unpacked --publish never
+        run: pnpm exec electron-builder --projectDir apps/desktop --config electron-builder.config.mjs --win --x64 --prepackaged ../../release/win-unpacked --publish never
 
       - name: Verify installed startup in a Low-integrity directory
         run: |

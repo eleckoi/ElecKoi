@@ -26,7 +26,7 @@ function loadIsolatedInstallation({ omitBase = false } = {}) {
   const root = { ...hostManifest, dependencies: { ...hostManifest.dependencies } }
   if (omitBase) delete root.dependencies[bundles[0]]
   writeFileSync(join(directory, 'package.json'), JSON.stringify(root))
-  const record = (name, suffix) => ({ name, version: '0.2.1-rc.5', directory: `node_modules/.eleckoi-packages/${suffix}`, dependencies: [] })
+  const record = (name, suffix) => ({ name, version: '0.2.2-rc.1', directory: `node_modules/.eleckoi-packages/${suffix}`, dependencies: [] })
   const ownedBase = record(bundles[0], 'base-owned')
   const otherBase = record(bundles[0], 'base-other-peer-context')
   const web = record(bundles[1], 'web-owned')
@@ -44,7 +44,8 @@ function loadIsolatedInstallation({ omitBase = false } = {}) {
     ownedBase, otherBase, web
   ] })
   const script = `
-    import { initProfile, loadProfileDirectory, PROFILE_TEMPLATES } from ${JSON.stringify(officialLoader)};
+    import { initProfile, loadProfileDirectory } from ${JSON.stringify(officialLoader)};
+    const { PROFILE_TEMPLATES } = await import(${JSON.stringify(pathToFileURL(hostRequire.resolve('@deepseek-ai/dsh-official-bundles')).href)});
     const directory = ${JSON.stringify(directory)};
     const profileDirectory = directory + '/profile';
     initProfile(profileDirectory, PROFILE_TEMPLATES.web.bundles);

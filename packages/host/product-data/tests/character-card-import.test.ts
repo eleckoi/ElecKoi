@@ -9,7 +9,7 @@ import { RegexRuleRepository } from '../src/domain/regexRules/RegexRuleRepositor
 import { AgentPresetRepository } from '../src/domain/agentPresets'
 import { SettingLibraryRepository } from '../src/domain/settingLibraries/SettingLibraryRepository'
 import { VariableConfigRepository } from '../src/domain/variables/VariableConfigRepository'
-import { SqliteDatabase } from '../src/storage/sqlite/SqliteDatabase'
+import { SqliteDatabase } from '../../../../tests/helpers/SqliteDatabase'
 import { APP_DEFAULT_CHAT_BACKGROUND } from '../../../shared/src/contracts/characters/chatBackground'
 import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
 import { decodeSettingLibrarySnapshot } from '../src/domain/characterTransfer/portableSnapshots'

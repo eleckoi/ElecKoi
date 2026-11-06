@@ -38,7 +38,7 @@
   },
   "description": "提供主窗口、导航、设置和插件中心。",
   "engines": {
-    "dsh": "0.2.1-rc.5"
+    "dsh": "0.2.2-rc.1"
   },
   "eleckoi": {
     "developerInterfaces": [
@@ -162,15 +162,6 @@
         "relation": "provides"
       },
       {
-        "id": "settings.general.item",
-        "kind": "ui-slot",
-        "title": "通用设置项",
-        "description": "向通用设置增加设置项。",
-        "mode": "append",
-        "scope": "root",
-        "relation": "provides"
-      },
-      {
         "id": "eleckoi.roleplay",
         "kind": "ui-slot",
         "title": "角色聊天页面",
@@ -191,8 +182,8 @@
     ]
   },
   "dependencies": {
-    "@deepseek-ai/cordis": "4.0.5",
-    "@deepseek-ai/dsh-client-ui-layout": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-sidebar": "0.2.1-rc.5"
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/dsh-client-ui-layout": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-sidebar": "0.2.2-rc.1"
   }
 }

@@ -43,8 +43,8 @@
     "build": "node scripts/clean.mjs && tsc -b tsconfig.host.json --force && tsc -b tsconfig.client.json && node scripts/build.mjs"
   },
   "dependencies": {
-    "@deepseek-ai/cordis": "4.0.5",
-    "@deepseek-ai/dsh-host-webserver": "0.2.1-rc.5"
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/dsh-host-webserver": "0.2.2-rc.1"
   },
   "devDependencies": {
     "@types/node": "26.3.0",
@@ -52,7 +52,7 @@
     "typescript": "7.0.2"
   },
   "engines": {
-    "dsh": "0.2.1-rc.5"
+    "dsh": "0.2.2-rc.1"
   },
   "dsh": {
     "bundle": {

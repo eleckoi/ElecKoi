@@ -17,10 +17,11 @@ export function creatorComposition(document, product, disabledIds) {
     ['tool-subagent-list-agents', 'builtin:collaboration'], ['tool-subagent', 'builtin:collaboration'],
     ['tool-subagent-fork', 'builtin:collaboration'], ['workflow-ptc', 'builtin:workflow'],
     ['tool-workflow', 'builtin:workflow'], ['tool-todo', 'builtin:workflow'],
-    ['tool-jobs', 'builtin:workflow'], ['command-goal', 'builtin:workflow'], ['tool-goal', 'builtin:workflow'],
+    ['tool-jobs', 'builtin:workflow'], ['tool-schedule', 'builtin:workflow'],
+    ['command-goal', 'builtin:workflow'], ['tool-goal', 'builtin:workflow'],
   ])
   const visit = plugins => plugins.flatMap(plugin => {
-    if (plugin.id === 'persona' || plugin.id === 'tool-schedule') return []
+    if (plugin.id === 'persona') return []
     if (disabled.has(groups.get(plugin.id))) return []
     if (plugin.id === 'compaction' || plugin.id === 'agent-instructions') {
       const replacement = additions.get(plugin.id)

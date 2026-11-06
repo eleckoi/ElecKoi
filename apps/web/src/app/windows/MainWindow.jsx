@@ -46,7 +46,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
   const chat = useChatClient({ conversations, characters, models, persona, navigation });
   const appearance = useWindowAppearance({ notify: chat.notify });
   const sidePanelLayout = useSidePanelLayout();
-  const nativeConversation = ["conversation", "creatorStudio"].includes(chat.activeSection);
+  const nativeConversation = ["conversation", "creatorStudio", "schedules"].includes(chat.activeSection);
   const sidebarModel = navigation?.sidebar ?? emptySidebar;
   const sidebar = useSyncExternalStore(sidebarModel.subscribe, sidebarModel.getSnapshot);
   const rightbarLayout = useRightbarLayout({

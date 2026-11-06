@@ -12,9 +12,13 @@ import type {
   BugReportSendResult
 } from './bugReport/delivery'
 import type { UpdateInstallResult, UpdateStatus } from './updates/schemas'
+import type { DesktopFileActions } from '@deepseek-ai/dsh-client-ui-file-actions/types'
+import type { DesktopFileDrag } from '@deepseek-ai/dsh-util-file-drag'
+import type { DesktopKeyboardApi, DesktopShortcutsApi } from '@deepseek-ai/dsh-client-shortcuts/protocol'
+import type { DesktopBrowserLeaseId as OfficialBrowserLeaseId } from '@deepseek-ai/dsh-client-ui-sidebar-browser/types'
 
 /** Main-issued identity for one Electron browser guest reservation. */
-export type DesktopBrowserLeaseId = string & { readonly __desktopBrowserLeaseId: unique symbol }
+export type DesktopBrowserLeaseId = OfficialBrowserLeaseId
 
 /** Main-approved storage partition for one browser guest. */
 export interface DesktopBrowserReservation {
@@ -38,6 +42,7 @@ export interface DesktopBrowserBridge {
 /** Private IPC channels owned by the Electron desktop shell. */
 export const DESKTOP_SHELL_IPC = {
   updatesStatus: 'dsh-desktop:updates-status',
+  updatesOpen: 'dsh-desktop:updates-open',
   updatesCheck: 'dsh-desktop:updates-check',
   updatesDownload: 'dsh-desktop:updates-download',
   updatesInstall: 'dsh-desktop:updates-install',
@@ -60,9 +65,15 @@ export const DESKTOP_SHELL_IPC = {
 
 /** Narrow desktop-only capabilities exposed by the preload script. */
 export interface DshDesktopProductApi {
+  readonly fileActions: DesktopFileActions
+  readonly fileDrag: DesktopFileDrag
+  readonly keyboard: DesktopKeyboardApi
+  readonly shortcuts: DesktopShortcutsApi
+  deviceInfo(): Promise<string>
   readonly protocolVersion: 1
   readonly browser: DesktopBrowserBridge
   readonly updates?: {
+    open(language?: string, manual?: boolean): Promise<UpdateStatus>
     status(): Promise<UpdateStatus>
     check(): Promise<UpdateStatus>
     download(): Promise<UpdateStatus>
@@ -89,9 +100,7 @@ export interface DshDesktopProductApi {
     open(target: BugReportExternalTarget): Promise<void>
     /** 经托管代发服务直接寄出；没配代发通道时拒绝。 */
     send(request: BugReportSendRequest): Promise<BugReportSendResult>
-    /**
-     * 把已脱敏的报告存成一份草稿（ADR 0042 决定 14：失败不丢）。写不进去时拒绝。
-     */
+    /** 把已脱敏的报告存成一份草稿（ADR 0042 决定 14：失败不丢）。写不进去时拒绝。 */
     saveDraft(request: BugReportDraftSaveRequest): Promise<BugReportDraftSaved>
     /** 列出现有待重发的草稿（新到旧）；坏文件跳过，永不拒绝。 */
     drafts(): Promise<BugReportPendingDrafts>

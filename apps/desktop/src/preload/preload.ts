@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { DESKTOP_SHELL_IPC, type DesktopBrowserBridge, type DesktopBrowserLeaseId, type DesktopBrowserReservation, type DshDesktopProductApi } from '@shared/contracts/desktopShell'
 import type { DesktopHostFailureNotice } from '@shared/contracts/errors/ipc'
 import type { UpdateInstallResult, UpdateStatus } from '@shared/contracts/updates/schemas'
@@ -17,6 +17,8 @@ import type {
 import { hasDesktopIpcFailureMarker, unwrapDesktopIpcResult } from '@shared/foundation/ipcFailure'
 import { installWindowsMenu } from './windowsMenu'
 import { installWindowsAppearance } from './windowsAppearance'
+import { createNativeDesktopCapabilities } from './nativeCapabilities'
+import { DESKTOP_IPC } from '@shared/contracts/desktopNative'
 
 /**
  * 边界⑤ preload 侧的**薄适配器**：调一次请求/响应通道。
@@ -64,9 +66,11 @@ function createDesktopBrowserBridge(): DesktopBrowserBridge {
 
 function createDesktopProductApi(): DshDesktopProductApi {
   return {
+    ...createNativeDesktopCapabilities(),
     protocolVersion: 1,
     browser: createDesktopBrowserBridge(),
     updates: {
+      open: (language = document.documentElement.lang, manual = false) => invokeOrFail<UpdateStatus>(DESKTOP_SHELL_IPC.updatesOpen, language, manual),
       status: () => invokeOrFail<UpdateStatus>(DESKTOP_SHELL_IPC.updatesStatus),
       check: () => invokeOrFail<UpdateStatus>(DESKTOP_SHELL_IPC.updatesCheck),
       download: () => invokeOrFail<UpdateStatus>(DESKTOP_SHELL_IPC.updatesDownload),
@@ -122,6 +126,12 @@ function createDesktopProductApi(): DshDesktopProductApi {
 
 const documentLocation = (globalThis as unknown as { location?: { protocol: string; hostname: string } }).location
 if (documentLocation?.protocol === 'dsh-app:' && documentLocation.hostname === 'app' && process.isMainFrame) {
+  contextBridge.exposeInMainWorld('__DSH_DIRECTORY_PICKER__', { pick: () => ipcRenderer.invoke(DESKTOP_IPC.directoryPick) })
+  contextBridge.exposeInMainWorld('__DSH_HOST_PATHS__', { pathFor: (file: File) => webUtils.getPathForFile(file) })
+  contextBridge.exposeInMainWorld('__DSH_LOCALE__', {
+    read: () => ipcRenderer.invoke(DESKTOP_IPC.localeBootstrap),
+    onChange: (locale: string) => { ipcRenderer.send(DESKTOP_IPC.localeChanged, locale) }
+  })
   if (process.platform === 'win32') {
     const installMenu = (): void => {
       const menu = installWindowsMenu()

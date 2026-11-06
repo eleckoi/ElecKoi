@@ -187,7 +187,6 @@ describe('desktop updater', () => {
     await expect(service.install()).resolves.toEqual({ accepted: true, reason: null })
     expect(service.status().phase).toBe('installing')
     expect(published.map((status) => status.phase)).toEqual([
-      'checking',
       'available',
       'downloading',
       'downloading',

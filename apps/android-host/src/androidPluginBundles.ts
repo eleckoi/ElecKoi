@@ -15,7 +15,12 @@ const frontendUpgrades = [
   { marker: '.eleckoi-android-frontend-bundles-v2', bundles: ['@eleckoi/dsh-client-author'] }
 ] as const
 
-/** Register the shipped frontend upgrade once; later bundle selections remain user-owned. */
+/**
+ * Register the shipped frontend upgrade once; later bundle selections remain user-owned.
+ * RETIRE WHEN: all supported upgrade and profile-restore sources have completed
+ * frontend-bundles-v2 and v3. Remove this function, frontendUpgrades, its startup
+ * call and upgrade-only tests; keep new-profile initialization and mobile enforcement.
+ */
 export function registerAndroidFrontendBundles(profileDirectory: string): void {
   const resourceMarker = join(profileDirectory, '.eleckoi-android-frontend-bundles-v3')
   if (!existsSync(resourceMarker)) {

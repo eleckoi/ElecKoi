@@ -9,6 +9,10 @@ import { resolveFailure } from "../../../utils/failureText.js";
 const VISIBLE_PHASES = new Set(["available", "downloading", "verifying", "ready", "installing", "error"]);
 
 export function AppUpdateController({ updates }) {
+  return globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android' ? <AndroidAppUpdateController updates={updates} /> : null;
+}
+
+function AndroidAppUpdateController({ updates }) {
   const status = updates?.status ?? null;
   const android = globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android';
   const [dismissedKey, setDismissedKey] = useState("");

@@ -35,6 +35,8 @@ const messages = [{ id: 'synthetic-reply', role: 'assistant', runtimeSessionId: 
 const rowProps = { messages, runtimeSessionId: 'synthetic-scroll-session', layoutMode, profile: {},
   avatarShape: 'portrait', assistantName: '合成角色', showRoleplayTimestamp: false, showRoleplayFloor: false };
 const props = {
+  useContextMenu: () => ({ getTriggerProps: () => ({}) }), useConnectionState: select => select('connected'),
+  useInteractionIds: select => select(empty), dispatchInteraction: async () => {},
   sessionId: 'synthetic-scroll-session',
   useSession: select => select(session),
   useChat: select => select({ ...useSyncExternalStore(subscribe, snapshot), navigation: { items: () => empty } }),

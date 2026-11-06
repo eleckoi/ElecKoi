@@ -1,0 +1,263 @@
+diff --git a/lib/client.js b/lib/client.js
+index 84c06034..8fc72476 100644
+--- a/lib/client.js
++++ b/lib/client.js
+@@ -29,6 +29,34 @@ window.__ModuleLoader__.load({
+ 		* The optional bundles the plugin manager's main and More lists rank first, in this order. {@link MORE_BUNDLES}, not
+ 		* this list, decides whether a bundle appears on the main list.
+ 		*/
++		/** Product bundle identities declared by the shipped profile. */
++		const ELECKOI_BUNDLES = new Set([
++			"@eleckoi/dsh-client-characters",
++			"@eleckoi/dsh-client-character-configuration",
++			"@eleckoi/dsh-client-conversations",
++			"@eleckoi/dsh-client-creator-studio",
++			"@eleckoi/dsh-client-display-preferences",
++			"@eleckoi/dsh-client-models",
++			"@eleckoi/dsh-client-persona",
++			"@eleckoi/dsh-client-presets",
++			"@eleckoi/dsh-client-web-search",
++			"@eleckoi/dsh-client-shell",
++			"@eleckoi/dsh-client-roleplay",
++			"@eleckoi/dsh-auto-illustration",
++			"@eleckoi/dsh-client-author",
++			"@eleckoi/dsh-client-html-resources",
++			"@eleckoi/dsh-product-api",
++			"@eleckoi/dsh-runtime",
++			"@eleckoi/dsh-web-search-tavily"
++		]);
++		/** Only these five entries stay on the main list; every product bundle remains in More. */
++		const ELECKOI_FEATURED_BUNDLES = [
++			"@eleckoi/dsh-client-characters",
++			"@eleckoi/dsh-client-presets",
++			"@eleckoi/dsh-client-creator-studio",
++			"@eleckoi/dsh-client-models",
++			"@eleckoi/dsh-client-web-search"
++		];
+ 		const EXTENSION_BUNDLES = [
+ 			"@deepseek-ai/dsh-experimental-agent-team-profile",
+ 			"@deepseek-ai/dsh-experimental-voice-input-bundle",
+@@ -161,6 +189,7 @@ window.__ModuleLoader__.load({
+ 			bundlesTitle: "已安装插件",
+ 			basicTitle: "内置插件配置",
+ 			extensionsTitle: "实验性插件",
++			eleckoiTitle: "ElecKoi 插件",
+ 			moreTitle: "实验性插件",
+ 			moreAction: "更多",
+ 			tabsLabel: "插件视图",
+@@ -455,6 +484,7 @@ window.__ModuleLoader__.load({
+ 			bundlesTitle: "Installed plugins",
+ 			basicTitle: "Built-in plugin settings",
+ 			extensionsTitle: "Experimental plugins",
++			eleckoiTitle: "ElecKoi plugins",
+ 			moreTitle: "Experimental plugins",
+ 			moreAction: "More",
+ 			tabsLabel: "Plugin views",
+@@ -2998,6 +3028,7 @@ window.__ModuleLoader__.load({
+ 				...bundle.source === void 0 ? {} : { source: bundle.source },
+ 				...bundle.description === void 0 ? {} : { description: bundle.description },
+ 				...bundle.meta === void 0 ? {} : { meta: bundle.meta },
++				...bundle.developerInterfaces === void 0 ? {} : { developerInterfaces: bundle.developerInterfaces },
+ 				...bundle.readOnlyReason === void 0 ? {} : { readOnlyReason: bundle.readOnlyReason },
+ 				...bundle.error === void 0 ? {} : { error: bundle.error }
+ 			};
+@@ -5883,7 +5914,7 @@ window.__ModuleLoader__.load({
+ 		* configuration the bundle registered for itself; its rows with their switches
+ 		* and configure controls; and where it comes from.
+ 		*/
+-		function PackageDetail({ pkg, t, resolveText, busy, rowBusy, configured, configure, renderSlot, inMore, versions, detail, onBack, onSetEnabled, onUninstall, onUpdate, onSetRowEnabled, onEnsureVersions, onCheckVersions, onUpdateVersion }) {
++		function PackageDetail({ pkg, t, resolveText, busy, rowBusy, configured, configure, renderSlot, inMore, inEleckoi, versions, detail, onBack, onSetEnabled, onUninstall, onUpdate, onSetRowEnabled, onEnsureVersions, onCheckVersions, onUpdateVersion }) {
+ 			const { title, description, beta } = packageText(pkg, resolveText);
+ 			const newer = versionUpdate(versions);
+ 			const status = packageStatus(pkg);
+@@ -5896,8 +5927,8 @@ window.__ModuleLoader__.load({
+ 				"data-plugin-detail": pkg.name,
+ 				children: [
+ 					(0, react_jsx_runtime.jsx)(DetailTop, {
+-						crumbLabel: inMore ? t("backToPackage", { name: t("moreTitle") }) : t("backToList"),
+-						crumbText: t(inMore ? "moreTitle" : "crumbRoot"),
++						crumbLabel: inEleckoi || inMore ? t("backToPackage", { name: t(inEleckoi ? "eleckoiTitle" : "moreTitle") }) : t("backToList"),
++						crumbText: t(inEleckoi ? "eleckoiTitle" : inMore ? "moreTitle" : "crumbRoot"),
+ 						onBack,
+ 						icon: (0, react_jsx_runtime.jsx)(PackageArtwork, { src: pkg.meta?.icon }, pkg.meta?.icon),
+ 						actions: (0, react_jsx_runtime.jsxs)("div", {
+@@ -6963,8 +6994,10 @@ window.__ModuleLoader__.load({
+ 				};
+ 			}, [highlight, clearHighlight]);
+ 			const noticeLine = state.notice === null || state.notice.kind === "refresh-failed" ? null : noticeText(state.notice, t);
+-			const listed = state.packages.filter((pkg) => !HIDDEN_BUNDLES.has(pkg.name) && (pkg.listedByDefault !== false || pkg.enabled || pkg.installed || rowsRunning(pkg)) && (pkg.installed || pkg.official || pkg.error !== void 0));
+-			const mine = listed.filter((pkg) => !pkg.official);
++			const listed = state.packages.filter((pkg) => !HIDDEN_BUNDLES.has(pkg.name) && (pkg.listedByDefault !== false || pkg.enabled || pkg.installed || rowsRunning(pkg)) && (pkg.installed || pkg.official || ELECKOI_BUNDLES.has(pkg.name) || pkg.error !== void 0));
++			const eleckoi = listed.filter((pkg) => ELECKOI_BUNDLES.has(pkg.name));
++			const featured = ELECKOI_FEATURED_BUNDLES.flatMap((name) => eleckoi.filter((pkg) => pkg.name === name));
++			const mine = listed.filter((pkg) => !pkg.official && !ELECKOI_BUNDLES.has(pkg.name));
+ 			const official = listed.filter((pkg) => pkg.official);
+ 			const ordered = orderOptionalBundles(official);
+ 			const pinned = new Set(official.filter(pinnedToMainList).map((pkg) => pkg.name));
+@@ -6978,13 +7011,16 @@ window.__ModuleLoader__.load({
+ 			const onInstalled = tab === INSTALLED_TAB;
+ 			const showsCards = !onInstalled || openPkg === void 0 && openItem === void 0;
+ 			const detailFromMore = (view.kind === "package" || view.kind === "row") && (view.from === "more" || openPkg !== void 0 && MORE_BUNDLES.includes(view.name) && !pinned.has(view.name));
+-			const showsMoreList = onInstalled && showsCards && (view.kind === "more" || detailFromMore);
++			const detailFromEleckoi = (view.kind === "package" || view.kind === "row") && (view.from === "eleckoi-more" || view.from === void 0 && ELECKOI_BUNDLES.has(view.name) && !ELECKOI_FEATURED_BUNDLES.includes(view.name));
++			const showsEleckoiList = onInstalled && showsCards && (view.kind === "eleckoi-more" || detailFromEleckoi);
++			const showsMoreList = onInstalled && showsCards && (view.kind === "more" || detailFromMore) || showsEleckoiList;
+ 			const showsMainList = showsCards && !showsMoreList;
+ 			const installedCards = onInstalled && showsCards;
+ 			const openPkgInMore = openPkg !== void 0 && openPkg.official && detailFromMore;
++			const openPkgInEleckoi = openPkg !== void 0 && detailFromEleckoi;
+ 			const returnTab = view.kind === "package" || view.kind === "row" ? view.returnTab : void 0;
+ 			const backToMore = openPkgInMore && returnTab === void 0;
+-			const pkgOrigin = returnTab !== void 0 ? { returnTab } : backToMore ? { from: "more" } : {};
++			const pkgOrigin = returnTab !== void 0 ? { returnTab } : openPkgInEleckoi ? { from: "eleckoi-more" } : backToMore ? { from: "more" } : {};
+ 			const installedPanel = tabs.length === 0 || showsMoreList ? {} : {
+ 				role: "tabpanel",
+ 				id: `${tabsId}-${INSTALLED_TAB}-panel`,
+@@ -7025,7 +7061,7 @@ window.__ModuleLoader__.load({
+ 					setView({
+ 						kind: "package",
+ 						name: pkg.name,
+-						...showsMoreList ? { from: "more" } : {}
++						...showsEleckoiList ? { from: "eleckoi-more" } : showsMoreList ? { from: "more" } : {}
+ 					});
+ 				},
+ 				onSetEnabled: (enabled) => {
+@@ -7044,7 +7080,7 @@ window.__ModuleLoader__.load({
+ 				}
+ 			}, `item:${item.id}`));
+ 			const renderGroup = (id, heading, cards) => {
+-				const offersMore = id === "extensions" && more.length > 0;
++				const offersMore = id === "extensions" && more.length > 0 || id === "eleckoi" && eleckoi.length > featured.length;
+ 				if (cards.length === 0 && !offersMore) return null;
+ 				return (0, react_jsx_runtime.jsxs)("section", {
+ 					className: PluginManagerPage_module_css_default.group,
+@@ -7059,7 +7095,7 @@ window.__ModuleLoader__.load({
+ 							size: "sm",
+ 							className: PluginManagerPage_module_css_default.groupMore,
+ 							onClick: () => {
+-								setView({ kind: "more" });
++								setView({ kind: id === "eleckoi" ? "eleckoi-more" : "more" });
+ 							},
+ 							children: [t("moreAction"), (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, {
+ 								size: 14,
+@@ -7093,7 +7129,7 @@ window.__ModuleLoader__.load({
+ 							})
+ 						}), (0, react_jsx_runtime.jsx)("h1", {
+ 							className: PluginManagerPage_module_css_default.pageTitle,
+-							children: t("moreTitle")
++							children: t(showsEleckoiList ? "eleckoiTitle" : "moreTitle")
+ 						})]
+ 					}) : null,
+ 					(0, react_jsx_runtime.jsxs)("div", {
+@@ -7298,6 +7334,7 @@ window.__ModuleLoader__.load({
+ 								configure: configure(openPkg),
+ 								renderSlot,
+ 								inMore: backToMore,
++								inEleckoi: openPkgInEleckoi,
+ 								detail: (0, react_jsx_runtime.jsx)(BundleDetailSection, {
+ 									name: openPkg.name,
+ 									version: openPkg.version,
+@@ -7311,7 +7348,7 @@ window.__ModuleLoader__.load({
+ 								}),
+ 								onBack: () => {
+ 									if (returnTab !== void 0) setTab(returnTab);
+-									setView({ kind: backToMore ? "more" : "list" });
++									setView({ kind: returnTab === void 0 && openPkgInEleckoi ? "eleckoi-more" : backToMore ? "more" : "list" });
+ 								},
+ 								onSetEnabled: (enabled) => {
+ 									setBundleEnabled(openPkg.name, enabled);
+@@ -7341,7 +7378,7 @@ window.__ModuleLoader__.load({
+ 									setView({ kind: "list" });
+ 								}
+ 							}) : null,
+-							loaded && installedCards ? basicCards.length === 0 && official.length === 0 && mine.length === 0 && state.status !== "error" ? (0, react_jsx_runtime.jsx)("div", {
++							loaded && installedCards ? basicCards.length === 0 && official.length === 0 && eleckoi.length === 0 && mine.length === 0 && state.status !== "error" ? (0, react_jsx_runtime.jsx)("div", {
+ 								className: PluginManagerPage_module_css_default.installedPanel,
+ 								...installedPanel,
+ 								children: (0, react_jsx_runtime.jsx)("p", {
+@@ -7354,14 +7391,15 @@ window.__ModuleLoader__.load({
+ 								children: [showsMoreList ? (0, react_jsx_runtime.jsx)("section", {
+ 									className: PluginManagerPage_module_css_default.group,
+ 									"data-plugin-scope": "global",
+-									"data-plugin-group": "more",
++									"data-plugin-group": showsEleckoiList ? "eleckoi-more" : "more",
+ 									children: (0, react_jsx_runtime.jsx)("ul", {
+ 										className: PluginManagerPage_module_css_default.cards,
+-										children: more.map(packageCard)
++										children: (showsEleckoiList ? eleckoi : more).map(packageCard)
+ 									})
+ 								}) : (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+ 									renderGroup("basic", t("basicTitle"), basicCards),
+ 									renderGroup("extensions", t("extensionsTitle"), extensions.map(packageCard)),
++									renderGroup("eleckoi", t("eleckoiTitle"), featured.map(packageCard)),
+ 									renderGroup("bundles", t("bundlesTitle"), mine.map(packageCard))
+ 								] }), state.status === "error" && !refreshing ? (0, react_jsx_runtime.jsxs)("div", {
+ 									className: PluginManagerPage_module_css_default.failure,
+@@ -7387,7 +7425,7 @@ window.__ModuleLoader__.load({
+ 									setView({
+ 										kind: "package",
+ 										name: activated.name,
+-										...showsMoreList ? { from: "more" } : {}
++										...showsEleckoiList ? { from: "eleckoi-more" } : showsMoreList ? { from: "more" } : {}
+ 									});
+ 								}
+ 							}, { entryKey: activated.name }) : null
+diff --git a/lib/types/client/locales.d.ts b/lib/types/client/locales.d.ts
+index 856925ca..f786ba54 100644
+--- a/lib/types/client/locales.d.ts
++++ b/lib/types/client/locales.d.ts
+@@ -31,6 +31,7 @@ export declare const zh: {
+     bundlesTitle: string;
+     basicTitle: string;
+     extensionsTitle: string;
++    eleckoiTitle: string;
+     moreTitle: string;
+     moreAction: string;
+     tabsLabel: string;
+@@ -327,6 +328,7 @@ export declare const en: {
+     bundlesTitle: string;
+     basicTitle: string;
+     extensionsTitle: string;
++    eleckoiTitle: string;
+     moreTitle: string;
+     moreAction: string;
+     tabsLabel: string;
+diff --git a/lib/types/client/manager-store.d.ts b/lib/types/client/manager-store.d.ts
+index 582c0861..09a4e7fd 100644
+--- a/lib/types/client/manager-store.d.ts
++++ b/lib/types/client/manager-store.d.ts
+@@ -72,6 +72,7 @@ export interface PackageRow {
+ }
+ /** One bundle as the page shows it: the Host's bundle joined with the entries its rows run as. */
+ export interface PackageView {
++    readonly developerInterfaces?: BundleInfo['developerInterfaces'];
+     readonly name: string;
+     /** Official catalog identity is independent of installation and selection. */
+     readonly official: boolean;
+diff --git a/lib/types/client/navigation-store.d.ts b/lib/types/client/navigation-store.d.ts
+index 9206726b..157b340b 100644
+--- a/lib/types/client/navigation-store.d.ts
++++ b/lib/types/client/navigation-store.d.ts
+@@ -8,10 +8,12 @@ type View = {
+     readonly kind: 'list';
+ } | {
+     readonly kind: 'more';
++} | {
++    readonly kind: 'eleckoi-more';
+ } | {
+     readonly kind: 'package';
+     readonly name: string;
+-    readonly from?: 'more';
++    readonly from?: 'more' | 'eleckoi-more';
+     readonly returnTab?: string;
+ } | {
+     readonly kind: 'item';
+@@ -20,7 +22,7 @@ type View = {
+     readonly kind: 'row';
+     readonly name: string;
+     readonly rowId: string;
+-    readonly from?: 'more';
++    readonly from?: 'more' | 'eleckoi-more';
+     readonly returnTab?: string;
+ };
+ /** `installed` is the page's own tab; any other value is the id of a `plugins.tab` entry. */

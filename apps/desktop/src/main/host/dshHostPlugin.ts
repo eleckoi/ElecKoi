@@ -78,7 +78,8 @@ export const dshHostPlugin = {
       },
       frontendDirectory: resolveDshWebFrontendDirectory,
       updateTasks: (action) => host.updateTasks(action),
-      close: () => host.close(),
+      resolveDragResource: (address, signal) => host.resolveDragResource(address, signal),
+      close: (requireClean) => host.close(requireClean),
       disableUserPlugins: () => host.disableUserPlugins(),
       onFailure(listener) {
         failureListeners.add(listener)

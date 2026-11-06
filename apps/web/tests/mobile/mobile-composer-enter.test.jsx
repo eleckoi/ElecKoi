@@ -15,7 +15,7 @@ const client = readFileSync(resolve('node_modules/@deepseek-ai/dsh-client-ui-con
 const start = client.indexOf('factory: (require) => {') + 'factory: (require) => {'.length;
 const end = client.lastIndexOf('return module.exports;');
 if (start < 25 || end < start) throw new Error('Locked conversation module factory changed');
-const primitives = new Proxy({}, { get: (_target, key) => key === 'Tooltip' ? ({ children }) => children : () => null });
+const primitives = new Proxy({}, { get: (_target, key) => ['Tooltip', 'HoverCardGroup'].includes(key) ? ({ children }) => children : () => null });
 const dependencies = { zod, react: React, 'react/jsx-runtime': jsxRuntime, 'react-dom': ReactDOM,
   '@deepseek-ai/cordis': Cordis, '@deepseek-ai/dsh-client-ui-primitives': primitives,
   '@deepseek-ai/dsh-client-store': {}, '@deepseek-ai/dsh-client-ui-slots': {} };
@@ -48,7 +48,7 @@ async function composer(submitOnEnter, running = false) {
   await act(async () => root.render(<InputBar useSession={hook({ running })} useInput={hook(input)}
     useNotices={hook(null)} useBusyEnter={hook('queue')} useStopShortcut={hook([])}
     useMenuLauncher={hook(null)} useFileUploads={hook({})} useLexicon={hook([])}
-    useProjection={() => undefined} inputActions={{}} keyboard={keyboard} t={key => key}
+    useProjection={() => undefined} useAccess={() => true} inputActions={{}} keyboard={keyboard} t={key => key}
     renderSlot={() => null} sessionId="synthetic-session" variant="composer" dockAccessory={[]}
     submitOnEnter={submitOnEnter} />));
   await act(async () => runtime.setDraft('第一行'));

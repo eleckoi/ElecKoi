@@ -63,6 +63,7 @@ import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createHash } from 'node:crypto'
 
 /** 扫哪些目录（仓库相对路径前缀）。 */
 const SCAN_ROOTS = [
@@ -281,11 +282,29 @@ function matchInCode(pattern, line, positions) {
  * @returns {string[]} 仓库相对路径。
  */
 function scanFiles() {
-  const listed = execFileSync('git', ['ls-files'], { encoding: 'utf8' }).split('\n').filter(Boolean)
+  const nativeSources = new Set()
+  const repository = resolve(fileURLToPath(new URL('..', import.meta.url)))
+  for (const manifestPath of [
+    'apps/desktop/src/main/platform/electron/dsh/capabilities.provenance.json',
+    'apps/desktop/src/main/modules/updates/dsh/provenance.json'
+  ]) {
+    const manifestDirectory = resolve(repository, manifestPath, '..')
+    const manifest = JSON.parse(readFileSync(resolve(repository, manifestPath), 'utf8'))
+    for (const source of manifest.files) {
+      const path = manifestPath.endsWith('capabilities.provenance.json')
+        ? resolve(repository, source.path) : resolve(manifestDirectory, source.path)
+      const contents = readFileSync(path, 'utf8').replaceAll('\r\n', '\n')
+      if (createHash('sha256').update(contents).digest('hex') !== source.localSha256) {
+        throw new Error(`DSH native source differs from provenance: ${source.path}`)
+      }
+      nativeSources.add(path)
+    }
+  }
+  const listed = [...new Set(execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { encoding: 'utf8' }).split('\n').filter(Boolean))]
   return listed.filter((file) => {
     if (!SOURCE_EXTENSIONS.some((extension) => file.endsWith(extension))) return false
     if (!SCAN_ROOTS.some((root) => file.startsWith(root))) return false
-    return !EXCLUDED.some((part) => file.includes(part))
+    return !nativeSources.has(resolve(repository, file)) && !EXCLUDED.some((part) => file.includes(part))
   })
 }
 

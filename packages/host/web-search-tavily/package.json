@@ -4,7 +4,7 @@
   "description": "ElecKoi Tavily search provider for the DSH web capability",
   "private": true,
   "engines": {
-    "dsh": "0.2.1-rc.5"
+    "dsh": "0.2.2-rc.1"
   },
   "type": "module",
   "main": "./src/index.js",
@@ -19,9 +19,9 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/dsh-credentials": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-web": "0.2.1-rc.5",
-    "@deepseek-ai/schemastery": "3.18.5"
+    "@deepseek-ai/dsh-credentials": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-web": "0.2.2-rc.1",
+    "@deepseek-ai/schemastery": "3.19.0"
   },
   "eleckoi": {
     "developerInterfaces": [

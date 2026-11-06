@@ -3,7 +3,7 @@ import { existsSync, lstatSync, mkdirSync, readdirSync, rmdirSync, unlinkSync } 
 import { join } from 'node:path'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { materializeAgentPreset, readRuntimePresetDefinition, currentRequestSnapshot, applyDisabledPolicy } from '@eleckoi/dsh-client-roleplay'
-import { requireSessionMessage, sessionMessageText, sessionMessageTurn, productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
+import { readSessionInspection, requireSessionMessage, sessionMessageText, sessionMessageTurn, productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 import { CREATOR_STUDIO_EVENT, creatorStudioProjection, creatorStudioStateSchema, resolveCreatorStudioSelection } from './projection.mjs'
 import { creatorComposition } from './composition.mjs'
 
@@ -48,7 +48,7 @@ export async function installCreatorStudioRuntime(ctx) {
       const dispose = await ctx.agentPresets.register(readRuntimePresetDefinition(join(root, generated.id, 'preset.json'), generated.id, template, ['uploaded-file-tools']))
       registration = { revision: generated.revision, model, dispose }
     }
-    return { ...generated, preset, disabledGroupIds }
+    return { ...generated, preset, disabledGroupIds, model }
   }
   // Inventory needs no model credentials. Each real turn resolves the selected
   // model before installing its model-dependent compaction configuration.
@@ -93,6 +93,7 @@ export async function installCreatorStudioRuntime(ctx) {
     }
   }
   const bindCurrent = async (agent, state, prepared) => {
+    if (prepared.model.provider && prepared.model.model) agent.model.select(prepared.model)
     const changed = bindings.get(agent) !== prepared.revision
     if (changed) {
       await ctx.agentPresets.recompose(agent.ctx, CREATOR_RUNTIME_PRESET_ID)
@@ -106,36 +107,29 @@ export async function installCreatorStudioRuntime(ctx) {
     if (state.presetId !== next.presetId) agent.session.append(CREATOR_STUDIO_EVENT, next, { ignorable: true })
     return { changed, state: next }
   }
-  const stopAssembly = ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
-    const assembled = await next(), agent = context.agent
-    if (!agent || agent.session.header.origin === 'subagent') return assembled
+  const stopPreparation = ctx.on('agent/prepare-step', async ({ agent, turn, signal }) => {
+    if (agent.session.header.origin === 'subagent') return
     const state = ctx.sessionProjections.stateOf(agent.session, creatorStudioProjection.key)
-    if (!state) return assembled
-    const boundary = ctx.sessionProjections.stateOf(agent.session, 'turnBoundary')
-    const turn = boundary?.openTurnStartSeq
-    if (turn == null || preparedTurns.get(agent) === turn) return assembled
-    context.signal?.throwIfAborted()
-    const { changed } = await serialized(async () => {
+    if (!state || preparedTurns.get(agent) === turn) return
+    signal.throwIfAborted()
+    await serialized(async () => {
       const prepared = await prepareDefinition(await currentRequestSnapshot(ctx))
-      context.signal?.throwIfAborted()
+      signal.throwIfAborted()
       return bindCurrent(agent, state, prepared)
     })
     preparedTurns.set(agent, turn)
-    // Providers were collected before this waterfall. Reassemble once after a
-    // scope change so the first request already contains the current tool set.
-    return changed ? agent.ctx.systemPrompt.assemble(context) : assembled
   }, { prepend: true })
   const requireCharacter = characterId => {
     if (characterId && !ctx.eleckoiProductData.readCharacters().items.some(item => item.id === characterId)) throw productFailure(ELECKOI_FAILURE_CODES.characterNotFound, '找不到所选角色。', { what: '角色' })
   }
   const readState = async sessionId => {
-    const inspection = await ctx.sessionController.inspect(sessionId)
+    const inspection = await readSessionInspection(ctx, sessionId)
     const event = inspection.events.findLast(item => item.type === CREATOR_STUDIO_EVENT)
     if (!event) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '这不是 AI 创作工作室会话。', { what: 'AI 创作工作室会话' })
     return { inspection, state: resolveCreatorStudioSelection(creatorStudioStateSchema.parse(event.data), ctx.eleckoiProductData.readCharacters().items) }
   }
   const reopenAfterMessageEdit = async (sessionId, inspection, state) => {
-    const rewound = await ctx.sessionController.inspect(sessionId)
+    const rewound = await readSessionInspection(ctx, sessionId)
     if (legacyPresetId(selectedPreset(rewound))) await migrateStoredPreset(sessionId, state)
     const resolved = await ctx.sessionController.resolveAgent(sessionId)
     if ('error' in resolved) throw resolved.error
@@ -182,6 +176,7 @@ export async function installCreatorStudioRuntime(ctx) {
         const agent = ctx.agents.get(sessionId)
         if (!agent) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, 'AI 创作工作室 Agent 未完成创建。', { what: 'AI 创作工作室 Agent' })
         bindings.set(agent, prepared.revision)
+        agent.model.select(prepared.model)
         agent.session.append(CREATOR_STUDIO_EVENT, { presetId: prepared.preset.id, characterId }, { ignorable: true })
         return { sessionId: String(sessionId), presetId: prepared.preset.id, characterId }
       })
@@ -222,7 +217,7 @@ export async function installCreatorStudioRuntime(ctx) {
         for (const item of items) if (protectedIds.has(item.parentSessionId) && !protectedIds.has(item.sessionId)) { protectedIds.add(item.sessionId); changed = true }
       }
       if (protectedIds.has(sessionId)) throw productFailure(ELECKOI_FAILURE_CODES.securityDenied, '角色对话请从消息列表删除。', { what: '角色对话', guard: '角色对话归属' })
-      await ctx.sessionController.inspect(sessionId)
+      await readSessionInspection(ctx, sessionId)
       await ctx.eleckoiSessionEditor.deleteSession(sessionId)
     },
     async messages(sessionId) {
@@ -274,7 +269,7 @@ export async function installCreatorStudioRuntime(ctx) {
   }
   ctx.provide('eleckoiCreatorStudioRuntime', service)
   return async () => {
-    stopAssembly()
+    stopPreparation()
     await queue
     await registration?.dispose()
   }

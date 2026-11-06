@@ -5,6 +5,8 @@ import { DesktopError } from '@shared/foundation/DesktopError'
 export const regexLibrariesSql = "CREATE TABLE IF NOT EXISTS `regex_libraries` (`scope` TEXT NOT NULL, `ownerId` TEXT NOT NULL, `characterId` TEXT, `presetId` TEXT, `enabled` INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(`scope`, `ownerId`), FOREIGN KEY(`characterId`) REFERENCES `characters`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`presetId`) REFERENCES `agent_presets`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , CHECK (`enabled` IN (0, 1)), CHECK ((`scope` = 'global' AND `ownerId` = '' AND `characterId` IS NULL AND `presetId` IS NULL) OR (`scope` = 'character' AND `characterId` IS NOT NULL AND `ownerId` = `characterId` AND `ownerId` <> '' AND `presetId` IS NULL) OR (`scope` = 'preset' AND `presetId` IS NOT NULL AND `ownerId` = `presetId` AND `ownerId` <> '' AND `characterId` IS NULL)))"
 
 /** 未设置整体开关的旧库保持启用，条目自身启停不变。 */
+// RETIRE WHEN: both 0012 and the development-v12 repair no longer need this
+// conversion. Remove this helper and their imports together; keep current regex enablement.
 export function addRegexLibraryEnablement(database: Database.Database): void {
   database.exec(regexLibrariesSql)
   const rows = database.prepare("SELECT rowid,stateJson FROM editor_library_versions WHERE kind='regex'").all() as Array<{ rowid: number; stateJson: string }>

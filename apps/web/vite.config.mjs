@@ -4,7 +4,6 @@ import { createRequire } from 'node:module'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { authorVendorPlugin } from '../../scripts/vite-author-vendor-plugin.ts'
 import { dshClientPages } from '../../scripts/dsh-client-pages.mjs'
 
 const webRoot = import.meta.dirname
@@ -68,7 +67,7 @@ export default defineConfig({
       '@shared': resolve(workspaceRoot, 'packages/shared/src')
     }
   },
-  plugins: [dshPlatformReact(), authorVendorPlugin(workspaceRoot), react(), tailwindcss()],
+  plugins: [dshPlatformReact(), react(), tailwindcss()],
   build: {
     outDir: resolve(webRoot, 'dist'),
     emptyOutDir: true,

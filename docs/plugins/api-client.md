@@ -2,7 +2,7 @@
 
 # Client 完整服务参考
 
-DSH 基准：`0.2.1-rc.5`，提交 `b830ec950faba0a46dda564be3e2d854afed94f1`。
+DSH 基准：`0.2.2-rc.1`，提交 `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
@@ -1416,4 +1416,4 @@ Source: [`packages/client/features/dsh-client-web-search/src/client/types.ts`](.
 
 ## 官方布局服务
 
-`ctx.layout` 直接复用 [官方 ILayout 合同](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/packages/client/ui-layout/src/client/service.ts)，类型从 `@eleckoi/dsh-client-shell/client` 或 `@deepseek-ai/dsh-client-ui-layout/client` 导入。官方 Client 的 `Service` Inspect provider 已提供 `api({ key: "layout" })`，无需重复注册。桌面当前的 `toggleSidebar` 为空操作。
+`ctx.layout` 直接复用 [官方 ILayout 合同](https://github.com/deepseek-ai/deepseek-harness/blob/66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db/packages/client/ui-layout/src/client/service.ts)，类型从 `@eleckoi/dsh-client-shell/client` 或 `@deepseek-ai/dsh-client-ui-layout/client` 导入。官方 Client 的 `Service` Inspect provider 已提供 `api({ key: "layout" })`，无需重复注册。桌面当前的 `toggleSidebar` 为空操作。

@@ -13,6 +13,7 @@ function AppUpdateController(props) {
 }
 beforeEach(() => {
   vi.stubGlobal('React', React)
+  vi.stubGlobal('__ELECKOI_CLIENT_PLATFORM__', { kind: 'android' })
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
   vi.stubGlobal('requestAnimationFrame', callback => setTimeout(callback, 0))
   vi.stubGlobal('cancelAnimationFrame', clearTimeout)
@@ -41,7 +42,7 @@ function connectUpdateService(status) {
   return { service, publish(next) { status = next; listener?.(next) } }
 }
 
-it.each(['desktop', 'android'])('reopens a dismissed version on %s from About and after another manual check without reopening on background notifications', async platform => {
+it.each(['android'])('reopens a dismissed version on %s from About and after another manual check without reopening on background notifications', async platform => {
   vi.stubGlobal('__ELECKOI_CLIENT_PLATFORM__', { kind: platform })
   const available = { phase: 'available', currentVersion: '0.2.12', availableVersion: '0.2.13' }
   const bridge = connectUpdateService({ phase: 'idle', currentVersion: '0.2.12' })
@@ -68,7 +69,7 @@ it.each(['desktop', 'android'])('reopens a dismissed version on %s from About an
   expect(document.querySelector('[role="dialog"]')).not.toBeNull()
 })
 
-it.each(['desktop', 'android'].flatMap(platform => ['downloading', 'verifying', 'ready', 'error'].map(phase => [platform, phase])))('reopens hidden %s %s controls from About without starting another update operation', async (platform, phase) => {
+it.each(['android'].flatMap(platform => ['downloading', 'verifying', 'ready', 'error'].map(phase => [platform, phase])))('reopens hidden %s %s controls from About without starting another update operation', async (platform, phase) => {
   vi.stubGlobal('__ELECKOI_CLIENT_PLATFORM__', { kind: platform })
   const { service } = connectUpdateService({ phase, currentVersion: '0.2.12', availableVersion: '0.2.13', failedOperation: phase === 'error' ? 'download' : undefined })
   await act(async () => root.render(<UpdateSettings />))
@@ -96,50 +97,44 @@ it('uses the declared Android release and download action without desktop instal
   expect(document.querySelector('[role="dialog"]')).toBeNull();
 })
 
-it('keeps complete notes and update controls through download and install without stealing reading focus', async () => {
+it('keeps complete Android notes and reading focus during download, then hides on request', async () => {
   const releaseNotes = Array.from({ length: 100 }, (_, index) => `合成更新条目 ${index}`).join('\n')
-  const updates = { status: { phase: 'available', availableVersion: '0.2.8', currentVersion: '0.2.7', releaseNotes },
-    download: vi.fn(), install: vi.fn(async () => ({ accepted: true })) }
-  const render = async () => { await act(async () => root.render(<AppUpdateController updates={updates} />)) }
+  const updates = { status: { phase: 'available', availableVersion: '0.2.8', currentVersion: '0.2.7',
+    releaseUrl: 'https://github.com/eleckoi/ElecKoi/releases/tag/v0.2.8', releaseNotes }, download: vi.fn() }
+  const render = async () => act(async () => root.render(<AppUpdateController updates={updates} />))
   await render()
   await new Promise(resolve => setTimeout(resolve, 5))
   const notes = document.querySelector('.app-update-notes-section')
   expect(notes.textContent.trim().replace(/\s+/g, ' ')).toBe(releaseNotes.replace(/\s+/g, ' '))
-  expect(notes.tabIndex).toBe(0)
-  expect(document.querySelector('a').href).toBe('https://github.com/eleckoi/ElecKoi/releases/tag/v0.2.8')
   await act(async () => document.querySelector('.is-primary').click())
   expect(updates.download).toHaveBeenCalledOnce()
   notes.focus()
   updates.status = { ...updates.status, phase: 'downloading', progress: { percent: 46 } }
   await render()
-  await new Promise(resolve => setTimeout(resolve, 5))
   expect(document.activeElement).toBe(notes)
   expect(document.querySelector('[role="progressbar"]').getAttribute('aria-valuenow')).toBe('46')
-  expect(document.querySelector('.is-primary').disabled).toBe(true)
-  updates.status = { ...updates.status, phase: 'verifying', progress: { percent: 100 } }
-  await render()
-  expect(document.querySelector('.is-primary').textContent).toBe('正在校验')
-  expect(document.querySelector('.is-primary').disabled).toBe(true)
-  expect(document.activeElement).toBe(notes)
-  updates.status = { ...updates.status, phase: 'ready' }
-  await render()
-  await act(async () => document.querySelector('.is-primary').click())
-  expect(updates.install).toHaveBeenCalledOnce()
-  const link = document.querySelector('a')
-  link.focus()
-  await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, cancelable: true })))
-  expect(document.activeElement).toBe(document.querySelector('.is-primary'))
   await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })))
   expect(document.querySelector('[role="dialog"]')).toBeNull()
 })
 
+it.each(['available', 'downloading', 'verifying', 'ready', 'error'])('delegates desktop %s to the native update document without a product modal', async phase => {
+  vi.stubGlobal('__ELECKOI_CLIENT_PLATFORM__', { kind: 'desktop' })
+  const bridge = connectUpdateService({ phase, currentVersion: '0.2.12', availableVersion: '0.2.13' })
+  bridge.service.open = vi.fn(async () => bridge.service.status())
+  await act(async () => root.render(<UpdateSettings />))
+  await act(async () => document.querySelector('.about-update-button').click())
+  expect(bridge.service.open).toHaveBeenCalledOnce()
+  expect(document.querySelector('[role="dialog"]')).toBeNull()
+  expect(bridge.service.download).not.toHaveBeenCalled()
+  expect(bridge.service.install).not.toHaveBeenCalled()
+})
+
 it.each([
   ['check', '重新检查', 'check'],
-  ['download', '重新下载', 'download'],
-  ['install', '重试安装', 'install']
+  ['download', '重新下载', 'download']
 ])('retries the failed %s stage without repeating another stage', async (failedOperation, label, action) => {
   const updates = {
-    status: { phase: 'error', failedOperation, availableVersion: '1.0.1', currentVersion: '1.0.0', message: '合成更新错误' },
+    status: { phase: 'error', failedOperation, manualCheck: true, availableVersion: '1.0.1', currentVersion: '1.0.0', message: '合成更新错误' },
     check: vi.fn(), download: vi.fn(), install: vi.fn(async () => ({ accepted: true }))
   }
   await act(async () => root.render(<AppUpdateController updates={updates} />))
@@ -151,7 +146,7 @@ it.each([
   }
 })
 
-it.each(['desktop', 'android'])('renders complete release Markdown and keeps both platform download links on %s', async platform => {
+it.each(['android'])('renders complete release Markdown and keeps both platform download links on %s', async platform => {
   vi.stubGlobal('__ELECKOI_CLIENT_PLATFORM__', { kind: platform })
   const updates = { status: {
     phase: 'available', currentVersion: '1.0.0', availableVersion: '1.0.1',

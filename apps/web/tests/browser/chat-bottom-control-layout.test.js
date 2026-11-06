@@ -28,7 +28,7 @@ it('keeps official chat controls and extension content on their shared layout tr
             .replace('return module.exports;', 'return { ...module.exports, ChatView, ChatFlow };')}
           const modules = { '@tanstack/react-virtual': virtual, react: React, 'react/jsx-runtime': jsxRuntime, 'react-dom': ReactDOM,
             '@deepseek-ai/dsh-client-store': store, '@deepseek-ai/dsh-client-ui-primitives': primitives };
-          const { ChatView: OfficialChatView, ChatFlow } = registration.factory(name => { if (!(name in modules)) throw new Error(name); return modules[name]; });
+          const { ChatView: OfficialChatView, ChatFlow } = registration.factory(Object.assign(name => { if (!(name in modules)) throw new Error(name); return modules[name]; }, { asset: name => name }));
           export function ChatView(props) {
             return React.createElement(OfficialChatView, { ...props, renderSlot: (name, owner, options) => {
               if (name !== 'conversation.chat.flow') return props.renderSlot(name, owner, options);

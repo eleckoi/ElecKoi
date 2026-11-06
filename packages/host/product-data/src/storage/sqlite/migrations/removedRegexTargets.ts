@@ -2,6 +2,9 @@ import type Database from 'better-sqlite3'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 
+// RETIRE WHEN: the 0012 upgrade and development repairs no longer accept stored
+// SlashCommand regex targets. Remove this module, migration import and dedicated
+// fixtures together; retain the current supported target validation.
 function cleanRule(input: unknown): { value: unknown; changed: boolean } {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '旧正则规则格式无效。', { what: '旧正则规则' })
   const rule = input as Record<string, unknown>

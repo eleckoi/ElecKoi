@@ -1,3 +1,4 @@
+import { queryFromInspection } from '../helpers/session-query.js'
 import { createCharacterOpenings } from '../../packages/shared/src/contracts/characterOpenings/schemas'
 import { emptyEntry } from '../../packages/host/product-data/src/domain/settingLibraries'
 import { characterOpenings } from '@product-data/storage/sqlite/schema/common'
@@ -32,7 +33,7 @@ import { TYPERT_REMOTE } from '@eleckoi/dsh-product-api/remote'
 import { TYPERT } from '@eleckoi/dsh-product-api/typert'
 import productDataPlugin from '@eleckoi/dsh-product-data'
 import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
-import { SqliteDatabase } from '@product-data/storage/sqlite/SqliteDatabase'
+import { SqliteDatabase } from '../helpers/SqliteDatabase'
 import { agentBranches, agentConversations, characters, chatSessionCharacterSnapshots, chatSessions } from '@product-data/storage/sqlite/schema/common'
 
 const previousDatabasePath = process.env.ELECKOI_DATABASE_PATH
@@ -493,8 +494,9 @@ describe('ElecKoi DSH Remote contract', () => {
       unregister = ctx.typert.register(TYPERT as TypertContribution)
       await ctx.plugin({
         name: 'test-session-controller',
-        provide: 'sessionController',
+        provide: ['sessionController', 'sessionQuery'],
         apply(owner) {
+          owner.provide('sessionQuery', queryFromInspection((id: string) => (owner as any).sessionController.inspect(id)))
           owner.provide('sessionController', {
             inspect: async (sessionId: string) => ({
               meta: {

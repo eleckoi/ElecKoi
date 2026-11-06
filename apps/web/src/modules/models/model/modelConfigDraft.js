@@ -54,7 +54,7 @@ export function removeUserAddedModel(form, modelId, visibleOptions = []) {
 
 export function modelParameterState(form, activeProviderId) {
   const activeModelOption = (form.model_options || []).find((item) => item.id === form.model) || null;
-  const automaticContextWindow = activeModelOption?.contextWindowTokens || 262_144;
+  const automaticContextWindow = activeModelOption?.contextWindowTokens || 1_000_000;
   const effectiveContextWindow = activeModelOption?.contextWindowTokens || automaticContextWindow;
   const declaresReasoning = activeProviderId === 'custom' && (!form.builtin || activeModelOption?.capabilitiesOverride === true);
   const reasoningProfileError = declaresReasoning && activeModelOption?.reasoningEfforts

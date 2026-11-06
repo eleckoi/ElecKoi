@@ -37,8 +37,11 @@ export type ChildHostMessage =
     }
   | { type: 'shutdown-complete' }
   | { type: 'update-tasks-complete'; id: string; active: boolean; message?: string }
+  | { type: 'file-drag-resource'; requestId: number; resource: { path: string; sha256: string; size: number } | null; error?: string }
 
 /** 父进程 → 子进程。 */
 export type ParentHostMessage =
   | { type: 'update-tasks'; id: string; action: 'inspect' | 'lock' | 'unlock' }
   | { type: 'shutdown' }
+  | { type: 'file-drag-resource'; requestId: number; address: string }
+  | { type: 'file-drag-cancel'; requestId: number }

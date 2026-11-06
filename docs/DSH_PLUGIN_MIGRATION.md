@@ -1,12 +1,12 @@
 # ElecKoi 插件归属与接入清单
 
-本清单对照仓库锁定的 DSH `0.2.1-rc.5`（`b830ec950faba0a46dda564be3e2d854afed94f1`）。架构基准见 [DSH 桌面架构](DSH_DESKTOP_ARCHITECTURE.md)，当前跨端与数据边界决策见 [ADR 0017](adr/0017-dsh-remote-replaces-desktop-gateway.md)。
+本清单对照仓库锁定的 DSH `0.2.2-rc.1`（`66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`）。架构基准见 [DSH 桌面架构](DSH_DESKTOP_ARCHITECTURE.md)，当前跨端与数据边界决策见 [ADR 0017](adr/0017-dsh-remote-replaces-desktop-gateway.md)。
 
 ## 只有一个对外插件系统
 
 面向用户和第三方开发者的安装、启用、停用、卸载与重启恢复统一使用 DSH 官方 profile、bundle、插件管理器和 Web Client 插件机制。ElecKoi 不再提供第二个插件商店、第二种安装包或另一套外部插件生命周期。
 
-`apps/desktop/src/main/host/DesktopHost.ts` 中的 Cordis 装配只负责桌面壳、受管 DSH Host 进程、资源协议、窗口和更新，不是供用户安装扩展的插件系统。产品数据库与 Repository 在受管 DSH Host 的 `@eleckoi/dsh-product-data` 插件中运行。第三方扩展不能直接访问 SQLite、Electron 或内部服务；它通过 DSH Remote、Cordis 服务与 Client Slots 获得受控入口。
+`apps/desktop/src/main/host/DesktopHost.ts` 中的 Cordis 装配只负责桌面壳、受管 DSH Host 进程、资源协议、窗口、更新和本机诊断报告，不是供用户安装扩展的插件系统。产品数据库与 Repository 在受管 DSH Host 的 `@eleckoi/dsh-product-data` 插件中运行。第三方扩展不能直接访问 SQLite、Electron 或内部服务；它通过 DSH Remote、Cordis 服务与 Client Slots 获得受控入口。
 
 ## 插件中心如何显示
 
@@ -30,7 +30,7 @@ DSH 设置中的官方“内置插件”页继续保留一份完整运行清单�
 
 ## 当前内置插件
 
-同一锁定版本的官方可选 bundle 由桌面 Host 安装依赖直接携带，按当前 `OPTIONAL_BUNDLES` 合同显示在插件页，初始不选入 profile。启停继续通过官方插件管理器保存和装配。自动化任务已不属于官方可选 bundle，产品组合另按用户要求停用 schedule 与 ui-schedule，不提供自动化入口或任务触发。
+同一锁定版本的官方可选 bundle 由桌面 Host 安装依赖直接携带，按当前 `OPTIONAL_BUNDLES` 合同显示在插件页，初始不选入 profile。启停继续通过官方插件管理器保存和装配。自动化任务沿当前官方组合装配 `schedule` 与 `ui-schedule`，入口只放在创作工作区侧栏，插件与更多继续位于最左导航。创作预设的任务工具随既有任务与工作流分组启停，不另设第二套任务实现。
 
 | 中文名称 | 实际插件包 | 职责 |
 | --- | --- | --- |

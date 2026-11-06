@@ -2143,130 +2143,6 @@
   opacity: 0.42;
 }
 
-.chat-waiting-reply {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  box-sizing: border-box;
-  width: calc(100% - 40px);
-  max-width: var(--chat-reading-width);
-  min-width: 0;
-  margin: 0 auto 8px;
-  padding-inline-start: 20px;
-  color: var(--dsw-alias-label-deep-diving, var(--blue));
-  font-size: 12px;
-  line-height: 22px;
-}
-
-.chat-panel.layout-roleplay .chat-waiting-reply {
-  width: min(calc(var(--chat-reading-width) + 2 * var(--chat-roleplay-side-rail)), calc(100% - 2 * var(--chat-scroll-horizontal-padding)));
-  max-width: none;
-  padding-inline-start: calc(var(--chat-roleplay-side-rail) + 20px);
-  padding-inline-end: var(--chat-roleplay-side-rail);
-}
-
-.chat-waiting-announcement {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.chat-waiting-content {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
-  gap: 6px;
-}
-
-.chat-waiting-shimmer {
-  position: relative;
-  display: inline-grid;
-  min-width: 0;
-  color: inherit;
-  font-variant-numeric: tabular-nums;
-}
-
-.chat-waiting-shimmer-text {
-  grid-area: 1 / 1;
-}
-
-.chat-waiting-shimmer-decoration {
-  position: absolute;
-  inset: 0;
-  overflow: clip;
-  pointer-events: none;
-  user-select: none;
-}
-
-.chat-waiting-shimmer-sweep {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  color: var(--dsw-alias-label-deep-diving-shimmer, color-mix(in srgb, var(--blue) 45%, white));
-  mask-image: linear-gradient(105deg, transparent 0%, black 40% 60%, transparent 100%);
-  transform: translateX(-100%);
-  animation: chat-waiting-shimmer-sweep 1.5s 0.3s steps(48, end) infinite;
-}
-
-.chat-waiting-shimmer-highlight {
-  display: block;
-  width: 100%;
-  height: 100%;
-  transform: translateX(100%);
-  animation: chat-waiting-shimmer-highlight 1.5s 0.3s steps(48, end) infinite;
-}
-
-@keyframes chat-waiting-shimmer-sweep {
-  0% { transform: translateX(-100%); }
-  66.6667%, 100% { transform: translateX(100%); }
-}
-
-@keyframes chat-waiting-shimmer-highlight {
-  0% { transform: translateX(100%); }
-  66.6667%, 100% { transform: translateX(-100%); }
-}
-
-.chat-running-icon {
-  position: relative;
-  display: inline-flex;
-  flex: none;
-  width: 14px;
-  height: 14px;
-  contain: strict;
-  overflow: hidden;
-}
-
-.chat-running-whale-animated {
-  display: none;
-  position: absolute;
-  inset: 0;
-}
-
-.chat-running-whale-still { display: initial; }
-
-@supports (mask-mode: alpha) and (mask-image: url('')) {
-  @media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
-    .chat-running-whale-animated {
-      display: block;
-      background: currentColor;
-      mask: url('../assets/running-whale@2x.png') center / 100% 100% no-repeat;
-      mask-mode: alpha;
-      will-change: transform;
-    }
-
-    .chat-running-whale-still { display: none; }
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .chat-waiting-shimmer-decoration { display: none; }
-  .chat-waiting-shimmer-sweep,
-  .chat-waiting-shimmer-highlight { animation: none; }
-}
-
 .composer-card {
   --dsw-elevation-stroke-color: var(--dsw-alias-border-l2);
   position: relative;
@@ -2477,52 +2353,8 @@ button.chat-file-card:hover { border-color: var(--blue); }
 
 @keyframes chat-image-loading { to { transform: rotate(360deg); } }
 
-.chat-image-drop-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--dsw-alias-bg-mask-drop, color-mix(in srgb, var(--chat) 80%, transparent));
-  color: var(--text);
-  pointer-events: none;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  animation: chat-file-drop-fade-in 160ms ease-out;
-}
-
-.chat-image-drop-overlay-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0 40px;
-  margin-top: -3%;
-  text-align: center;
-}
-
-.chat-image-drop-illustration {
-  width: 115px;
-  height: 84px;
-}
-
-.chat-image-drop-title {
-  margin-top: 16px;
-  font-size: 20px;
-  line-height: 28px;
-}
-
-.chat-image-drop-description {
-  margin-top: 16px;
-  color: var(--muted);
-  font-size: 14px;
-}
-
-@keyframes chat-file-drop-fade-in { from { opacity: 0; } to { opacity: 1; } }
-
 @media (prefers-reduced-motion: reduce) {
   .chat-image-item > span { animation: none; }
-  .chat-image-drop-overlay { animation: none; }
 }
 
 @container chat-panel (max-width: 720px) {
@@ -2572,10 +2404,6 @@ button.chat-file-card:hover { border-color: var(--blue); }
     padding-right: 56px;
   }
 
-  .chat-panel.layout-roleplay .chat-waiting-reply {
-    width: calc(100% - 40px);
-    padding-inline: 20px 0;
-  }
 }
 
 .composer-more-anchor {

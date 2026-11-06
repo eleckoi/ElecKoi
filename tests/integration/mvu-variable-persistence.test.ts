@@ -15,7 +15,7 @@ import { VariableConfigRepository } from '../../packages/host/product-data/src/d
 import { VariableStateRepository } from '../../packages/host/product-data/src/domain/variables/VariableStateRepository'
 import { AgentPresetRepository } from '../../packages/host/product-data/src/domain/agentPresets'
 import { RegexRuleRepository } from '../../packages/host/product-data/src/domain/regexRules/RegexRuleRepository'
-import { SqliteDatabase } from '../../packages/host/product-data/src/storage/sqlite/SqliteDatabase'
+import { SqliteDatabase } from '../helpers/SqliteDatabase'
 import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
 // @ts-expect-error Tool runtime has no TypeScript declaration.
 import { apply as applyVariableTools } from '../../apps/desktop/resources/dsh/variable-tools.mjs'

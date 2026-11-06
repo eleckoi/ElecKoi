@@ -19,11 +19,12 @@
     {
       "path": "packages/shared/src/contracts/desktopMenuLocale.ts",
       "source": "apps/desktop/src/locale.ts",
-      "sha256": "8426a3943be0dfe81d0f0ecef1d9fe3cc03dc6cd79d3b8177a316f12ac09b242",
-      "localSha256": "a34fd957c48d24f32fe03f0829681e500935773a3dac509fb7ac8f54f0887630",
+      "sha256": "7f1681964498d06fb8d58474721f69efba4932fffad9fd61c08dc52337de854a",
+      "localSha256": "22a8b8c765d22b30bd5e5c65b2a1802bc3b8b347eaa7d18ef7d94ac6d39eb78c",
       "changes": [
-        "Only the caption-menu dictionary entries and locale resolver are retained for sharing across the main/preload boundary."
-      ]
+        "Only caption-menu dictionary keys and the official eight-language resolver are retained; product name is ElecKoi."
+      ],
+      "commit": "66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db"
     },
     {
       "path": "apps/desktop/src/main/platform/electron/desktopCaptionMenu.ts",

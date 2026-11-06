@@ -8,7 +8,7 @@ export const schemaV7ChatSessionsSql = 'CREATE TABLE IF NOT EXISTS `chat_session
  * DSH Session owns the user-input history. Remove the unused product counter
  * without rebuilding conversations or changing any retained relationships.
  *
- * TODO(迁移清理)：停止支持所有低于 schema v8 的数据库直接升级后，移除此步骤、
+ * RETIRE WHEN: 停止支持所有低于 schema v8 的数据库直接升级后，移除此步骤、
  * 旧表定义、installSchema 登记及对应旧库 fixture。当前运行时不读写被删除的列。
  */
 export const migration0008 = {

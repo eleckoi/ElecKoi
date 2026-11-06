@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { createServer } from 'node:http'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -45,7 +46,7 @@ describe('model request parameters', () => {
       synthetic: { parameters: { 'synthetic-model': { autoCompactTokenLimit: limit } } },
     } } }] })
     try {
-      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry, TokenMeter]) {
+      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry, TokenMeter]) {
         await ctx.plugin(plugin)
       }
       await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' })

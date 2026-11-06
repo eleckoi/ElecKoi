@@ -35,7 +35,7 @@ describe('Creator composition', () => {
     const ids = plugins.map(row => row.id)
     for (const id of ['tool-cordis', 'tool-plugin-manager', 'tool-plugin-market', 'tool-fs', 'tool-fs-search', 'tool-pwsh', 'tool-bash', 'skill-filesystem', 'tool-skill', 'present', 'creator-studio-agent', 'uploaded-file-tools']) expect(ids).toContain(id)
     expect(ids).not.toContain('persona')
-    expect(ids).not.toContain('tool-schedule')
+    expect(ids).toContain('tool-schedule')
     expect(plugins.find(row => row.id === 'skill-filesystem')).toEqual(official.find(row => row.id === 'skill-filesystem'))
     expect(plugins.find(row => row.id === 'tool-pwsh').disabled).toEqual(official.find(row => row.id === 'tool-pwsh').disabled)
     expect(plugins.find(row => row.id === 'compaction')).toEqual(product[0])
@@ -44,7 +44,7 @@ describe('Creator composition', () => {
   it('honors independently disabled groups without removing plugin development or creator instructions', () => {
     const plugins = creatorComposition(document, product, ['builtin:workspace', 'builtin:collaboration', 'builtin:workflow', 'builtin:web'])
     const flattened = plugins.flatMap(row => [row.id, ...(Array.isArray(row.config) ? row.config.map(child => child.id) : [])])
-    for (const id of ['tool-fs', 'tool-pwsh', 'tool-bash', 'tool-subagent', 'workflow-ptc', 'tool-web']) expect(flattened).not.toContain(id)
+    for (const id of ['tool-fs', 'tool-pwsh', 'tool-bash', 'tool-subagent', 'workflow-ptc', 'tool-web', 'tool-schedule']) expect(flattened).not.toContain(id)
     expect(flattened).toContain('tool-cordis')
     expect(flattened).toContain('creator-studio-agent')
   })

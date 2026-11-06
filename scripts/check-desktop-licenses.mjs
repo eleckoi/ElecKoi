@@ -67,3 +67,16 @@ for (const file of provenance.files) {
     throw new Error(`DSH Desktop 更新模块与锁定来源记录不一致：${file.path}`)
   }
 }
+
+for (const manifestPath of [
+  'apps/desktop/src/main/platform/electron/dsh/provenance.json',
+  'apps/desktop/src/main/platform/electron/dsh/capabilities.provenance.json',
+  'apps/desktop/installer/provenance.json'
+]) {
+  const manifest = JSON.parse(await readFile(resolve(root, manifestPath), 'utf8'))
+  for (const file of manifest.files) {
+    if (digest(await readFile(resolve(root, file.path), 'utf8')) !== file.localSha256) {
+      throw new Error(`DSH Desktop 来源记录与实现不一致：${file.path}`)
+    }
+  }
+}

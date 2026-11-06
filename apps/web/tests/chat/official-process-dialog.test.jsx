@@ -20,7 +20,7 @@ const owner = (key, step, anchorSeq, text, reasoning = '') => ({
 function useDisclosure() { const [expanded, setExpanded] = useState(false); return { expanded, setExpanded, toggle: () => setExpanded(value => !value) }; }
 function NativeAssistant({ owner, ...overrides }) {
   return <OfficialAssistantNodeView {...owner} {...overrides} useDisclosure={useDisclosure}
-    useGroupAction={() => useRef(null)} useTurnData={() => undefined} t={t}
+    useContextMenu={() => ({ open: false })} useGroupAction={() => useRef(null)} useTurnData={() => undefined} t={t}
     usePresentation={select => select({ reasoning: 'collapsed', settledReasoningPreview: true })}
     renderSlot={(_name, body) => <OfficialReasoningContent {...body} t={t} />} />;
 }

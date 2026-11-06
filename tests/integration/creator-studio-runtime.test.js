@@ -1,7 +1,9 @@
+import { executeToolCall } from '../helpers/tool-call.js'
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { Context } from '@deepseek-ai/cordis'
 import Loader, { Group } from '@deepseek-ai/cordis-plugin-loader'
 import AgentPresetRegistry from '@deepseek-ai/dsh-agent-preset-registry'
-import AgentRegistry, { installModelSelection } from '@deepseek-ai/dsh-agent'
+import AgentRegistry from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import SubagentRuntime from '@deepseek-ai/dsh-subagent'
 import * as SpawnSubagent from '@deepseek-ai/dsh-subagent-spawn-in-process'
@@ -47,11 +49,11 @@ async function fixture(stream, creatorTools = true, { compaction = false, subage
     synthetic: { parameters: modelParameters }
   } } }] })
   cleanups.push(() => ctx.fiber.dispose())
-  for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry, Commands, TokenMeter]) await ctx.plugin(plugin)
+  for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry, Commands, TokenMeter]) await ctx.plugin(plugin)
   await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' })
+  await ctx.plugin(SessionQuery)
   await ctx.plugin(AgentLoop, { agents: [] })
   if (subagents) {
-    await ctx.plugin(SessionQuery)
     ctx.provide('workingDirectory', {
       get: session => session.header.cwd ?? root,
       ensure: async agent => agent.session.header.cwd ?? root,
@@ -67,7 +69,7 @@ async function fixture(stream, creatorTools = true, { compaction = false, subage
     owner.provide('eleckoiCharacterConfigurationChanges', configuration); owner.provide('eleckoiProductRecordChanges', records)
     owner.on('dispose', () => { configuration.close(); records.close() })
   } })
-  ctx.sessionProjections.register(creatorStudioProjection)
+  await ctx.sessionProjections.register(creatorStudioProjection)
   await ctx.plugin(Loader)
   ctx.loader.builtins.group = Group
   ctx.loader.builtins['synthetic-studio-agent'] = studioAgent
@@ -92,7 +94,10 @@ async function fixture(stream, creatorTools = true, { compaction = false, subage
     ] }] : []),
     { id: 'creator', name: 'cordis:synthetic-studio-agent', config },
   ] })
-  const setup = async owner => { await ctx.agentPresets.mount(owner, 'synthetic-studio-preset') }
+  const setup = async owner => {
+    await ctx.agentPresets.mount(owner, 'synthetic-studio-preset')
+    owner.on('agent/prepare-step', ({ agent }) => { const selected = agent.model.current() ?? agentOptions; agent.model.select({ ...selected, reasoningEffort: modelParameters[selected.model]?.reasoningEffort }) })
+  }
   let handle = await ctx.agents.create({ sessionId: SessionId('synthetic-studio-session'), meta: { agentPreset: 'synthetic-studio-preset' }, agentOptions, setup })
   handle.agent.session.append(CREATOR_STUDIO_EVENT, { presetId: config.presetId, characterId: character.id }, { ignorable: true })
   cleanups.push(() => handle.dispose())
@@ -153,7 +158,7 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     const before = f.ctx.eleckoiProductData.readRegexRules(f.character.id)
     const rule = { id: 'synthetic-test-rule', name: 'Synthetic regex EJS', pattern: 'TOKEN', replacement: '<%= await Promise.resolve(getvar("score") * 2) %>',
       targets: ['AiOutput'], enabled: true, displayOnly: true, promptOnly: false, runOnEdit: false, order: 0 }
-    const result = await f.handle.agent.ctx.tools.execute({ callId: 'synthetic-regex-test', name: 'eleckoi_call_capability',
+    const result = await executeToolCall(f.handle.agent.ctx.tools, { callId: 'synthetic-regex-test', name: 'eleckoi_call_capability',
       arguments: { capability_id: 'regex.test', arguments: { text: 'TOKEN', rule, target: 'AiOutput', surface: 'Display', variables: { score: 12 } } },
       agent: f.handle.agent, signal: new AbortController().signal })
     expect(result.isError, JSON.stringify(result)).not.toBe(true)
@@ -267,8 +272,9 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     const preset = f.ctx.eleckoiProductData.readAgentPreset('agent-preset-creator')
     const template = preset.entries.find(entry => entry.kind === 'history_compaction')
     f.ctx.eleckoiProductData.updateAgentPresetEntries(preset.id, [{ id: template.id, changes: { content: 'Synthetic custom compaction instructions.' } }])
+    f.modelParameters.synthetic = { reasoningEffort: 'high' }
     const selection = { current: { provider: 'synthetic', model: 'synthetic', reasoningEffort: 'high' } }
-    cleanups.push(installModelSelection(f.handle.agent.ctx, selection))
+    f.handle.agent.model.select(selection.current)
     f.handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Synthetic history. '.repeat(100) }], source: { kind: 'user' } }))
     await f.handle.agent.whenIdle()
     expect(f.requests[0].reasoningEffort).toBe('high')
@@ -312,7 +318,7 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
   })
   it('discovers and executes keyword batches and group edits through the actual scoped DSH tool dispatcher', async () => {
     const f = await fixture(async function* () { yield* text('Synthetic completion') })
-    const execute = (name, args) => f.handle.agent.ctx.tools.execute({ callId: 'synthetic-authoring-fix', name, arguments: args, agent: f.handle.agent, signal: new AbortController().signal })
+    const execute = (name, args) => executeToolCall(f.handle.agent.ctx.tools, { callId: 'synthetic-authoring-fix', name, arguments: args, agent: f.handle.agent, signal: new AbortController().signal })
     const value = async (capability_id, args) => {
       const result = await execute('eleckoi_call_capability', { capability_id, arguments: args })
       expect(result.isError, JSON.stringify(result)).not.toBe(true)
@@ -343,7 +349,7 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     const data = f.ctx.eleckoiProductData, presetId = data.readAgentPresetCatalog().activePresetIds.roleplay
     f.handle.agent.session.append(CREATOR_STUDIO_EVENT, { presetId: 'agent-preset-creator', characterId: '' }, { ignorable: true })
     const records = vi.spyOn(f.ctx.eleckoiProductRecordChanges, 'publish')
-    const execute = args => f.handle.agent.ctx.tools.execute({ callId: 'synthetic-explicit-scope', name: 'eleckoi_call_capability', arguments: args, agent: f.handle.agent, signal: new AbortController().signal })
+    const execute = args => executeToolCall(f.handle.agent.ctx.tools, { callId: 'synthetic-explicit-scope', name: 'eleckoi_call_capability', arguments: args, agent: f.handle.agent, signal: new AbortController().signal })
     const value = async (capability_id, args) => {
       const result = await execute({ capability_id, arguments: args })
       expect(result.isError, JSON.stringify(result)).not.toBe(true)
@@ -419,7 +425,7 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     expect(f.ctx.sessionProjections.stateOf(peer.agent.session, creatorStudioProjection.key)).toEqual(binding)
     expect(JSON.stringify(f.requests[1].messages)).toContain(created.id)
     expect(f.handle.agent.session.snapshotEvents().filter(event => event.type === 'tool/result').every(event => !event.data.isError)).toBe(true)
-    const peerCreated = await peer.agent.ctx.tools.execute({ callId: 'synthetic-peer-create', name: 'eleckoi_call_capability',
+    const peerCreated = await executeToolCall(peer.agent.ctx.tools, { callId: 'synthetic-peer-create', name: 'eleckoi_call_capability',
       arguments: { capability_id: 'character.create', arguments: { name: '合成另一工作室新角色' } }, agent: peer.agent, signal: new AbortController().signal })
     expect(peerCreated.isError).not.toBe(true)
     const peerState = f.ctx.sessionProjections.stateOf(peer.agent.session, creatorStudioProjection.key)
@@ -433,7 +439,8 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     const f = await fixture(async function* () { yield* text('合成回复') })
     f.modelParameters.synthetic = { temperature: 0.4, topP: 0.9, reasoningEffort: 'high' }
     const selection = { current: { provider: 'synthetic', model: 'synthetic' }, assembled: undefined }
-    const disposeSelection = installModelSelection(f.handle.agent.ctx, selection)
+    f.handle.agent.model.select(selection.current)
+    const disposeSelection = () => {}
     cleanups.push(disposeSelection)
     const roleplay = await f.ctx.agents.create({ sessionId: SessionId('synthetic-parameter-roleplay'),
       agentOptions: { provider: 'synthetic', model: 'synthetic' }, setup(owner) {
@@ -450,6 +457,7 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     f.modelParameters['synthetic-peer'] = { temperature: 0.2, topP: 0.8 }
     f.modelInfo['synthetic-peer'] = { defaultMaxTokens: 512 }
     selection.current = { provider: 'synthetic', model: 'synthetic-peer' }
+    f.handle.agent.model.select(selection.current)
     await send(f.handle)
     expect(f.requests.at(-1)).toMatchObject({ model: 'synthetic-peer', temperature: 0.2, topP: 0.8, maxTokens: 512 })
     expect(f.requests.at(-1).reasoningEffort).toBeUndefined()
@@ -551,7 +559,7 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     cleanups.push(() => { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value } })
     let service
     const dispose = await installCreatorStudioRuntime({
-      agents: f.ctx.agents, eleckoiProductData: f.ctx.eleckoiProductData,
+      sessionQuery: f.ctx.sessionQuery, agents: f.ctx.agents, eleckoiProductData: f.ctx.eleckoiProductData,
       agentPresets: { readDocument: async () => ({ content: '[]' }), register: async () => () => {}, recompose: async () => {} },
       agentDefaultModel: { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) },
       llm: f.ctx.llm, settings: f.ctx.settings, sessionProjections: f.ctx.sessionProjections,
@@ -644,8 +652,8 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
   })
   it('diagnoses missing targets and invalid operations without writing another character', async () => {
     const f = await fixture(async function* () { yield* text('合成回复') })
-    const execute = args => f.handle.agent.ctx.tools.execute({ callId: 'synthetic-direct', name: 'eleckoi_call_capability', arguments: args, agent: f.handle.agent, signal: new AbortController().signal })
-    const describe = await f.handle.agent.ctx.tools.execute({ callId: 'synthetic-guide', name: 'eleckoi_describe_toolset', arguments: { toolset_id: 'scripts', operation_ids: ['scripts.create'], include_schema: true }, agent: f.handle.agent, signal: new AbortController().signal })
+    const execute = args => executeToolCall(f.handle.agent.ctx.tools, { callId: 'synthetic-direct', name: 'eleckoi_call_capability', arguments: args, agent: f.handle.agent, signal: new AbortController().signal })
+    const describe = await executeToolCall(f.handle.agent.ctx.tools, { callId: 'synthetic-guide', name: 'eleckoi_describe_toolset', arguments: { toolset_id: 'scripts', operation_ids: ['scripts.create'], include_schema: true }, agent: f.handle.agent, signal: new AbortController().signal })
     expect(describe.isError, JSON.stringify(describe)).not.toBe(true)
     expect(JSON.stringify(describe)).toContain('api.ui.registerButton')
     expect(JSON.stringify(describe)).toContain('expectedRevision')
@@ -689,7 +697,7 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     expect(f.handle.agent.session.deriveMessages().slice(0, before.length)).toEqual(before)
     expect(JSON.stringify(f.requests.at(-1).messages)).toContain('当前编辑目标：未选择角色')
     expect(f.handle.agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
-    const execute = args => f.handle.agent.ctx.tools.execute({ callId: 'synthetic-deleted-target', name: 'eleckoi_call_capability',
+    const execute = args => executeToolCall(f.handle.agent.ctx.tools, { callId: 'synthetic-deleted-target', name: 'eleckoi_call_capability',
       arguments: args, agent: f.handle.agent, signal: new AbortController().signal })
     const missing = await execute({ capability_id: 'character.read', arguments: {} })
     expect(missing.isError).toBe(true)

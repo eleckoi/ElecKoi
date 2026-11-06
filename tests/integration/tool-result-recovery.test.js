@@ -1,3 +1,5 @@
+import { executeToolCall } from '../helpers/tool-call.js'
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { runtimeContextsFor } from '../helpers/runtime-contexts.js'
 import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import WorkingDirectory from '@deepseek-ai/dsh-working-directory'
@@ -24,7 +26,8 @@ import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, relative } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { composeEntries, initProfile, loadLayeredEnv, loadOverlayPatches, loadProfileDirectory, PROFILE_TEMPLATES } from '@deepseek-ai/dsh-app-boot'
+import { composeEntries, initProfile, loadLayeredEnv, loadOverlayPatches, loadProfileDirectory } from '@deepseek-ai/dsh-app-boot'
+import { PROFILE_TEMPLATES } from '@deepseek-ai/dsh-official-bundles'
 import { runProfile } from '@deepseek-ai/dsh/profile-boot'
 import { ELECKOI_DESKTOP_BUNDLES, ELECKOI_INSTALL_ANCHOR } from '../../apps/desktop-host/src/desktopPluginBundles'
 import { preparePluginHost } from '../../apps/android-host/src/pluginHostConfiguration'
@@ -44,7 +47,7 @@ async function fixture({ root, sessionId = 'result-owner', stream } = {}) {
   const ctx = new Context(), requests = []
   cleanups.push(() => ctx.fiber.dispose())
   ctx.provide('sessionQuery', { readSession: vi.fn() })
-  for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, Tools, AgentRegistry, TokenMeter]) await ctx.plugin(plugin)
+  for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, Tools, NativeToolExecutor, AgentRegistry, TokenMeter]) await ctx.plugin(plugin)
   await ctx.plugin(LocalFileSystem, { cwd: root })
   await ctx.plugin(WorkingDirectory, { defaultDirectory: root })
   await ctx.plugin(ToolResultStore, { root, cleanupPeriodDays: 0 })
@@ -134,7 +137,7 @@ describe('Shipped Host tool-result composition', () => {
     const studio = await ctx.eleckoiCreatorStudioRuntime.create(characterId)
     const agent = (await ctx.sessionController.resolveAgent(studio.sessionId)).agent
     const discover = async (name, args) => {
-      const result = await agent.ctx.tools.execute({ callId: `synthetic-discovery-${name}-${args.toolset_id ?? 'catalog'}`, name, arguments: args,
+      const result = await executeToolCall(agent.ctx.tools, { callId: `synthetic-discovery-${name}-${args.toolset_id ?? 'catalog'}`, name, arguments: args,
         agent, signal: new AbortController().signal })
       expect(result.isError, JSON.stringify(result)).not.toBe(true)
       return JSON.parse(result.content[0].text)
@@ -212,7 +215,7 @@ describe('Shipped Host tool-result composition', () => {
     await reopened.ctx.eleckoiCreatorStudioRuntime.open(studio.sessionId)
     expect(JSON.stringify(reopened.ctx.eleckoiProductData.readCharacterOpenings(characterId)) === JSON.stringify(saved)).toBe(true)
     const restored = (await reopened.ctx.sessionController.resolveAgent(studio.sessionId)).agent
-    const result = await restored.ctx.tools.execute({ callId: 'synthetic-opening-restored-receipt', name: 'eleckoi_call_capability',
+    const result = await executeToolCall(restored.ctx.tools, { callId: 'synthetic-opening-restored-receipt', name: 'eleckoi_call_capability',
       arguments: { result: { file_path: spills[1].ref.locator, limit: Buffer.byteLength(spills[1].original) } }, agent: restored, signal: new AbortController().signal })
     expect(result.isError).not.toBe(true)
     expect(JSON.parse(result.content[0].text).content === spills[1].original).toBe(true)
@@ -277,7 +280,7 @@ describe('Shipped Host tool-result composition', () => {
     const chat = await ctx.eleckoiConversationsApi.create({ metadata: { characterId: character.id } })
     const roleplayId = await ctx.eleckoiRoleplaySessions.preparePrompt(chat.conversation.id, '合成大量条目续读')
     const roleplay = (await ctx.sessionController.resolveAgent(roleplayId)).agent
-    const globalCatalog = await roleplay.ctx.tools.execute({ callId: 'synthetic-global-catalog', name: 'eleckoi_glob_setting_files',
+    const globalCatalog = await executeToolCall(roleplay.ctx.tools, { callId: 'synthetic-global-catalog', name: 'eleckoi_glob_setting_files',
       arguments: { path: '全局设定库/合成触发规则' }, agent: roleplay, signal: new AbortController().signal })
     expect(globalCatalog.isError).not.toBe(true)
     expect(JSON.parse(globalCatalog.content[0].text).required_entries.map(item => item.title)).toContain('合成全局关键词')
@@ -363,7 +366,7 @@ describe('Shipped Host tool-result composition', () => {
     await restarted.ctx.eleckoiCreatorStudioRuntime.open(studio.sessionId)
     for (const receipt of receipts) {
       const { agent } = await restarted.ctx.sessionController.resolveAgent(receipt.sessionId)
-      const result = await agent.ctx.tools.execute({ callId: 'synthetic-restored-reader', name: receipt.reader,
+      const result = await executeToolCall(agent.ctx.tools, { callId: 'synthetic-restored-reader', name: receipt.reader,
         arguments: { result: { file_path: receipt.file_path, query: receipt.query } }, agent, signal: new AbortController().signal })
       expect(result.isError).not.toBe(true)
       const page = JSON.parse(result.content[0].text)
@@ -539,7 +542,7 @@ describe('Complete tool-result access', { timeout: 30_000 }, () => {
     const f = await fixture(), reader = RESULT_READERS[domain], body = '合成关键词𠮷😀'.repeat(1_501)
     const ref = await f.ctx.spillStore.saveText({ owner: { sessionId: f.handle.agent.session.id },
       source: { kind: 'tool', toolName: reader, callId: 'synthetic-owned-result', label: 'result' }, suggestedName: 'result.txt', content: body })
-    const run = args => f.handle.agent.ctx.tools.execute({ callId: 'synthetic-read-own-result', name: reader, arguments: args, ...f.exec })
+    const run = args => executeToolCall(f.handle.agent.ctx.tools, { callId: 'synthetic-read-own-result', name: reader, arguments: args, ...f.exec })
     const page = await run({ result: { file_path: ref.locator, query: '合成关键词𠮷😀', limit: 1_501 } })
     expect(page.isError).not.toBe(true)
     expect(page.value.matches).toHaveLength(1_501)
@@ -602,7 +605,7 @@ describe('Complete tool-result access', { timeout: 30_000 }, () => {
     const original = `${'合成😀'.repeat(30_000)}最后关键词`
     const ref = await f.save(original)
     const save = vi.spyOn(f.ctx.spillStore, 'saveText')
-    const result = await f.handle.agent.ctx.tools.execute({ callId: 'read-complete-result', name: RESULT_READER,
+    const result = await executeToolCall(f.handle.agent.ctx.tools, { callId: 'read-complete-result', name: RESULT_READER,
       arguments: { result: { file_path: ref.locator, limit: Buffer.byteLength(original) } }, ...f.exec })
     expect(result.isError).not.toBe(true)
     expect(result.value.content).toBe(original)
@@ -634,8 +637,9 @@ describe('Complete tool-result access', { timeout: 30_000 }, () => {
       }
     }
     await f.ctx.plugin(SyntheticRuntime)
-    const stop = f.handle.agent.ctx.tools.presentAs('ptc')
-    cleanups.push(stop)
+    const PtcExecutor = await import('@deepseek-ai/dsh-tool-executor-ptc')
+    const executor = await f.handle.agent.ctx.plugin(PtcExecutor)
+    cleanups.push(() => executor.dispose())
     f.handle.agent.ctx.tools.register(defineTool({ name: 'eleckoi_glob_setting_files', description: '合成程序数据源', parameters: {},
       output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }, execute: () => original }))
     const save = vi.spyOn(f.ctx.spillStore, 'saveText').mockImplementation(async input => {

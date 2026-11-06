@@ -41,7 +41,7 @@ function Fixture() {
   const t = key => dictionary[key] || key;
   const workspaceSidebar = <SidebarRoot collapsed={collapsed} width={280} startSession={noop} toggleSidebar={() => setCollapsed(value => !value)}
     selectPanel={noop} setPinned={noop} trackEntryClick={noop} usePanels={select => select([])} useEntryPins={select => select([])}
-    useEntryActions={select => select(false)} useShortcuts={select => select([])} usePanelInfo={select => select({ activePanelId: null })} t={t}
+    useRemoteAccess={() => true} useEntryActions={select => select(false)} useShortcuts={select => select([])} usePanelInfo={select => select({ activePanelId: null })} t={t}
     renderSlot={(name, _owner, options) => name === 'sidebar.brand.mark' ? null : name === 'sidebar.brand.name' ? <ElecKoiWordmark /> : name === 'sidebar.workspaces' ? <Workspaces /> : options?.fallback} />;
   return <main className={`qq-shell main-window-shell${collapsed ? ' side-panel-collapsed' : ''}`} style={{ '--side-panel-width': collapsed ? '0px' : '280px', '--rightbar-track-width': '0px' }}>
     <SidebarContent navigationItems={[]} workspaceSidebar={workspaceSidebar} workspaceCollapsed={collapsed} />

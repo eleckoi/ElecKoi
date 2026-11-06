@@ -172,6 +172,8 @@ function decodeElecKoi(document: AgentPresetImportDocument, bytes: Uint8Array, p
     json = new TextDecoder().decode(bytes)
   }
   const root = parseRoot(json, 'ElecKoi 预设')
+  // RETIRE WHEN: 停止导入 ElecKoi 预设 v1 后，删除版本白名单中的 1，并要求所有导入
+  // 文件校验 purpose；连同 v1 专用回归清理，保留当前 v2 与仍受支持的外部预设格式。
   if (root.format !== ELECKOI_FORMAT || ![1, ELECKOI_FORMAT_VERSION].includes(integerValue(root.version, -1))) {
     throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, '这不是当前版本的 ElecKoi 预设文件。', { what: 'ElecKoi 预设文件版本', expected: String(ELECKOI_FORMAT_VERSION) })
   }

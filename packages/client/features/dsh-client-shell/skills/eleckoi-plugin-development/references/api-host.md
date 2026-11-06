@@ -4,7 +4,7 @@
 
 # Host 完整服务参考
 
-DSH 基准：`0.2.1-rc.5`，提交 `b830ec950faba0a46dda564be3e2d854afed94f1`。
+DSH 基准：`0.2.2-rc.1`，提交 `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 

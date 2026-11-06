@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { runtimeContextsFor } from '../../../../../../tests/helpers/runtime-contexts.js'
 import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
@@ -110,9 +111,9 @@ describe('NAI preset illustration', () => {
       }
     }
     try {
-      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry]) await ctx.plugin(plugin);
-      ctx.sessionProjections.register(inputContinuationsProjection);
-      ctx.sessionProjections.register(illustrationProjection);
+      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry]) await ctx.plugin(plugin);
+      await ctx.sessionProjections.register(inputContinuationsProjection);
+      await ctx.sessionProjections.register(illustrationProjection);
       ctx.provide('eleckoiSessionEditor', { discardGeneratedImages: async () => {} });
       ctx.systemPrompt.section({ name: 'synthetic-complete', order: 0, text: '合成完整提示词', complete: true });
       await ctx.plugin(AgentLoop, { agents: [] }); await ctx.plugin(LocalAttachmentStore, { dshHome: dir });

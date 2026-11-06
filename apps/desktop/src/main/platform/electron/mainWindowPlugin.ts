@@ -1,6 +1,7 @@
 import { dirname, join } from 'node:path'
 import { createRequire } from 'node:module'
-import { app, BrowserWindow, ipcMain, nativeTheme, protocol, screen, session, shell, type BrowserWindowConstructorOptions } from 'electron'
+import { readFile } from 'node:fs/promises'
+import { app, BrowserWindow, ipcMain, nativeTheme, net, protocol, screen, session, shell, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from 'electron'
 import { windowsAppUserModelId } from './windowsAppIdentity'
 import type { Context, Plugin } from '@deepseek-ai/cordis'
 import { assertTrustedDshClientFrame, isAllowedExternalUrl, isAppRendererUrl, isDshAppUrl, isDshChildUrl } from './validateSender'
@@ -19,6 +20,16 @@ import { logAction, relayRendererActionLog } from '@main/platform/logging/logAct
 import { handleDesktopIpcCall } from './desktopIpcHandler'
 import { createDesktopCaptionMenu } from './desktopCaptionMenu'
 import { WINDOWS_TITLEBAR_HEIGHT } from '../../../windowsLayout'
+import { installFileActions } from './dsh/file-actions'
+import { installDesktopFileDrag } from './dsh/file-drag'
+import { installDesktopShortcuts } from './dsh/keyboard'
+import { installMicrophonePermissions } from './dsh/microphone-permissions'
+import { installDesktopDirectoryPicker } from './dsh/directory-picker'
+import { readDeviceInfo } from './dsh/device-info'
+import { connectDesktopWelcome } from './dsh/welcome-backend'
+import { DESKTOP_IPC } from '@shared/contracts/desktopNative'
+import { writeDesktopLocaleCache } from '@main/platform/electron/dsh/locale-cache'
+import { resolveDesktopStartupLocale } from '@main/platform/electron/dsh/locale'
 
 export const mainWindowPlugin = {
   name: 'eleckoi-main-window',
@@ -30,7 +41,15 @@ export const mainWindowPlugin = {
     const pluginHost = ctx.pluginHost
     nativeTheme.themeSource = 'system'
 
-    const windows = new ElectronWindowHost()
+    const windows = new ElectronWindowHost(async () => {
+      pluginHostReady = undefined
+      const restarted = await runPluginHostStart()
+      pluginHostReady = { ...restarted, cookie: await authenticateDshClientHost(restarted.url) }
+      if (fileDragStopped) { disposeFileDrag = startFileDrag(); fileDragStopped = false }
+      for (const window of windows.all()) window.webContents.reload()
+    }, async () => {
+      if (!fileDragStopped) { await disposeFileDrag(); fileDragStopped = true }
+    })
     ctx.provide('electronWindows', windows)
     let mainWindow: BrowserWindow | undefined
     if (process.platform === 'win32') {
@@ -39,6 +58,35 @@ export const mainWindowPlugin = {
     }
     let pluginHostReady: { url: string; injections: readonly unknown[]; cookie: string } | undefined
     const browserGuests = new DesktopBrowserGuests(() => pluginHostReady?.url)
+    const assertNativeOwner = (event: IpcMainInvokeEvent): BrowserWindow => {
+      const owner = windows.all().find(window => window.webContents === event.sender)
+      if (!owner || event.senderFrame !== owner.webContents.mainFrame || !event.senderFrame.url.startsWith(`${DSH_CLIENT_ORIGIN}/`)) {
+        throw new DesktopError(ELECKOI_FAILURE_CODES.senderUntrusted, '拒绝非受管应用页面的桌面操作。', { what: '桌面操作', guard: 'managed-application-frame' })
+      }
+      return owner
+    }
+    const shortcuts = installDesktopShortcuts(() => mainWindow, appPaths.userData,
+      process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux',
+      () => {}, window => windows.updateOverlays.input(window))
+    installFileActions(assertNativeOwner, () => pluginHostReady?.url)
+    const startFileDrag = () => installDesktopFileDrag(assertNativeOwner, (address, signal) => pluginHost.resolveDragResource(address, signal))
+    let disposeFileDrag = startFileDrag()
+    let fileDragStopped = false
+    installDesktopDirectoryPicker(() => mainWindow)
+    installMicrophonePermissions(session.defaultSession, () => mainWindow?.webContents)
+    ipcMain.handle(DESKTOP_IPC.deviceInfo, event => { assertNativeOwner(event); return readDeviceInfo() })
+    ipcMain.handle(DESKTOP_IPC.localeBootstrap, async event => {
+      assertNativeOwner(event)
+      const ready = pluginHostReady
+      if (!ready) throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, '语言服务尚未就绪。', { what: '语言服务' })
+      const backend = await connectDesktopWelcome(ready.url, (url, init) => net.fetch(url, init))
+      return { languages: app.getPreferredSystemLanguages(), preference: await backend.readLocalePreference() }
+    })
+    const localeChanged = (event: Electron.IpcMainEvent, language: unknown): void => {
+      if (event.sender !== mainWindow?.webContents || event.senderFrame !== mainWindow.webContents.mainFrame || typeof language !== 'string') return
+      writeDesktopLocaleCache(appPaths.userData, resolveDesktopStartupLocale(language, app.getPreferredSystemLanguages()).id)
+    }
+    ipcMain.on(DESKTOP_IPC.localeChanged, localeChanged)
 
     windows.define('main', {
       singleton: true,
@@ -48,7 +96,8 @@ export const mainWindowPlugin = {
       afterCreate: (window) => {
         mainWindow = window
         window.once('closed', () => { if (mainWindow === window) mainWindow = undefined })
-        browserGuests.bind(window)
+        shortcuts.attach(window)
+        browserGuests.bind(window, (guest, lease) => shortcuts.attachGuest(window, guest, lease))
         configureMainWindow(appPaths, appLog, windows, window)
         window.webContents.on('render-process-gone', (_event, details) => {
           if (details.reason !== 'clean-exit') {
@@ -92,6 +141,13 @@ export const mainWindowPlugin = {
     const clientAssets = await resolveElecKoiClientAssets(rendererDirectory)
     protocol.handle('dsh-app', async (request) => {
       const url = new URL(request.url)
+      if (url.hostname === 'shell') {
+        const name = url.pathname.slice(1)
+        const types: Record<string, string> = { 'update-dialog.html': 'text/html', 'update-dialog.js': 'text/javascript',
+          'update-dialog.css': 'text/css', 'design-platform.css': 'text/css', 'shell-theme.js': 'text/javascript', 'update-close.svg': 'image/svg+xml' }
+        if (!Object.hasOwn(types, name)) return new Response(null, { status: 404 })
+        return new Response(await readFile(appPaths.resolveResource('shell', name)), { headers: { 'content-type': types[name]! } })
+      }
       if (url.hostname !== 'app') return new Response(null, { status: 404 })
       if (url.pathname.startsWith('/eleckoi/assets/')) return serveElecKoiClientAsset(request, rendererDirectory)
       if (isDshClientAsset(url.pathname)) return serveDshClientAsset(request, pluginHost.frontendDirectory())
@@ -240,7 +296,14 @@ export const mainWindowPlugin = {
     const ready = await runPluginHostStart()
     pluginHostReady = { ...ready, cookie: await authenticateDshClientHost(ready.url) }
     await windows.open('main')
-    return () => {
+    return async () => {
+      await disposeFileDrag()
+      shortcuts.dispose()
+      for (const channel of [DESKTOP_IPC.fileSave, DESKTOP_IPC.clipboardImageRead, DESKTOP_IPC.directoryPick,
+        DESKTOP_IPC.deviceInfo, DESKTOP_IPC.localeBootstrap]) ipcMain.removeHandler(channel)
+      ipcMain.removeListener(DESKTOP_IPC.localeChanged, localeChanged)
+      session.defaultSession.setPermissionRequestHandler(null)
+      session.defaultSession.setPermissionCheckHandler(null)
       if (process.platform === 'win32') ipcMain.removeHandler(DESKTOP_SHELL_IPC.windowsMenu)
       ipcMain.removeHandler(DESKTOP_SHELL_IPC.windowControl)
       ipcMain.removeHandler(DESKTOP_SHELL_IPC.browserAcquire)

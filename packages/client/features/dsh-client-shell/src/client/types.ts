@@ -29,6 +29,7 @@ export interface ElecKoiWindowOwner {
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
+    'sidebar.update': { kind: 'single'; scope: 'root'; owner: Record<string, never> }
     'eleckoi.shell.window': { kind: 'chain'; scope: 'root'; owner: ElecKoiWindowOwner }
   }
 }

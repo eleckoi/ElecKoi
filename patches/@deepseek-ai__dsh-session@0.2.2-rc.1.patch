@@ -1,0 +1,34 @@
+diff --git a/lib/index.js b/lib/index.js
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -1525,6 +1525,7 @@
+ 		this.publicationEntry();
+ 		const surfaceOpts = opts[0];
+ 		const surfaceMetadata = {
++			...surfaceOpts?.ignorable === void 0 ? {} : { ignorable: surfaceOpts.ignorable },
+ 			...surfaceOpts?.sourceEventSeqs === void 0 ? {} : { sourceEventSeqs: surfaceOpts.sourceEventSeqs },
+ 			...surfaceOpts?.surfaceOp === void 0 ? {} : { surfaceOp: surfaceOpts.surfaceOp }
+ 		};
+diff --git a/lib/types/index.d.ts b/lib/types/index.d.ts
+--- a/lib/types/index.d.ts
++++ b/lib/types/index.d.ts
+@@ -283,7 +283,7 @@
+      *   append reentered while this acceptance/publication boundary is open also
+      *   rejects before the log changes.
+      */
+-    append<T extends SessionEventType>(type: T, data: SessionEventMap[T], ...opts: T extends SurfaceEventType ? [opts: SurfaceIntent<T>] : []): SessionEvent<T>;
++    append<T extends SessionEventType>(type: T, data: SessionEventMap[T], ...opts: T extends SurfaceEventType ? [opts: SurfaceIntent<T> & { ignorable?: true }] : [opts?: { ignorable: true }]): SessionEvent<T>;
+     /**
+      * Require announced membership for store-owned Sessions and refuse reentrant publication.
+      * @returns the current store attachment, or undefined for an independent Session.
+diff --git a/lib/types/index.js b/lib/types/index.js
+--- a/lib/types/index.js
++++ b/lib/types/index.js
+@@ -646,6 +646,7 @@
+         this.publicationEntry();
+         const surfaceOpts = opts[0];
+         const surfaceMetadata = {
++            ...surfaceOpts?.ignorable === undefined ? {} : { ignorable: surfaceOpts.ignorable },
+             ...surfaceOpts?.sourceEventSeqs === undefined ? {} : { sourceEventSeqs: surfaceOpts.sourceEventSeqs },
+             ...surfaceOpts?.surfaceOp === undefined ? {} : { surfaceOp: surfaceOpts.surfaceOp },
+         };

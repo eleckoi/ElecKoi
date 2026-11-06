@@ -120,9 +120,9 @@ describe('ElecKoi DSH client navigation', () => {
       expect(slots.entriesOfSlot('sidebar')).toHaveLength(1)
       const sidebar = slots.entriesOfSlot('sidebar')[0]!
       const workspace = sidebar.component({ workspace: true, renderContent: (_render: any, workspace: any) => workspace,
-        collapsed: false, width: 288, renderSlot: vi.fn() })
+        usePanels: (select: any) => select([{ id: 'schedules' }, { id: 'plugins' }]), collapsed: false, width: 288, renderSlot: vi.fn() })
       expect(workspace).toMatchObject({ component: OfficialSidebar, props: { collapsed: false, width: 288 } })
-      expect(workspace.props.usePanels()).toEqual([])
+      expect(workspace.props.usePanels((rows: any) => rows)).toEqual([{ id: 'schedules' }])
       expect(workspace.props.useEntryActions()).toBe(false)
       layout.selectPanel(null)
       expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: null, windowPanelId: 'conversation' })
@@ -131,17 +131,18 @@ describe('ElecKoi DSH client navigation', () => {
       expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: null, windowPanelId: 'conversation' })
       const sidebar = slots.entriesOfSlot('sidebar')[0]!
       expect(sidebar).toBeTruthy()
+      expect(sidebar.options.children['sidebar.update']).toMatchObject({ kind: 'single', scope: 'root' })
       const renderNativeSlot = vi.fn()
       expect(sidebar.component({ renderContent: (render: any) => render('sidebar.workspaces', { content: 'original product list' }),
         renderSlot: renderNativeSlot })).toBe('original product list')
       expect(renderNativeSlot).not.toHaveBeenCalled()
       const renderContent = vi.fn((_render: any, workspace: any) => workspace)
-      const workspace = sidebar.component({ workspace: true, renderContent, collapsed: false, width: 280, renderSlot: renderNativeSlot })
+      const workspace = sidebar.component({ workspace: true, renderContent, usePanels: (select: any) => select([{ id: 'schedules' }, { id: 'plugins' }]), collapsed: false, width: 280, renderSlot: renderNativeSlot })
       expect(renderContent).toHaveBeenCalledOnce()
       expect(workspace).toMatchObject({
         component: OfficialSidebar, props: { collapsed: false, width: 280 },
       })
-      expect(workspace.props.usePanels()).toEqual([])
+      expect(workspace.props.usePanels((rows: any) => rows)).toEqual([{ id: 'schedules' }])
       expect(workspace.props.useEntryActions()).toBe(false)
       workspace.props.renderSlot('sidebar.settings', {})
       expect(renderNativeSlot).not.toHaveBeenCalled()
@@ -248,7 +249,7 @@ describe('ElecKoi DSH client navigation', () => {
         },
         slots,
         sidebarRight,
-        locale: { subscribe: () => () => {}, getSnapshot: () => ({ revision: 0 }) },
+        locale: { bind: () => (key: string) => key, subscribe: () => () => {}, getSnapshot: () => ({ revision: 0 }) },
         renderSlot: (name: string, owner: any) => {
           if (!rootOptions.children[name]) throw new Error(`root cannot render ${name}`)
           slotCalls.push({ name, owner })
@@ -271,6 +272,7 @@ describe('ElecKoi DSH client navigation', () => {
     expect(slotCalls.some(call => call.name === 'sidebar' && call.owner.renderContent === content)).toBe(true)
     expect(rootOptions.children['eleckoi.sidebar.footer.action']).toBeUndefined()
     expect(render().settingsSections).toEqual([
+      { id: 'language', label: 'language.title', order: -100 },
       { id: 'plugins', order: 15, label: '内置插件' },
       { id: 'web-search', order: 20, label: '网页搜索' },
     ])

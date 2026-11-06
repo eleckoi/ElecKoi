@@ -14,10 +14,6 @@ files:
   - package.json
 
 extraResources:
-  - from: ../../LICENSE
-    to: licenses/ElecKoi-LICENSE.txt
-  - from: ../../NOTICE
-    to: licenses/ElecKoi-NOTICE.txt
   - from: resources/native
     to: native
   - from: node_modules/pnpm
@@ -48,9 +44,14 @@ win:
   artifactName: ${productName}-${version}-${arch}-setup.${ext}
 
 nsis:
-  include: scripts/windows-installation.nsh
+  include: scripts/installer.nsh
   oneClick: false
-  allowToChangeInstallationDirectory: true
+  allowToChangeInstallationDirectory: false
+  perMachine: false
+  allowElevation: false
+  installerLanguages: [en_US, zh_CN, ja_JP, es_ES, fr_FR, de_DE, ru_RU, pt_BR]
+  installerSidebar: resources/installer/ui/uninstaller-sidebar.bmp
+  uninstallerSidebar: resources/installer/ui/uninstaller-sidebar.bmp
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: ElecKoi

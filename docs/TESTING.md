@@ -33,7 +33,9 @@ Vitest 默认最多两个工作进程，并保留文件隔离。一次只运行�
 
 自动依赖筛选不能替代调用链判断：动态插件组合、读取的资源文件和子进程入口不一定出现在静态导入图中。
 
-更新界面改动还需在桌面运行包及 Web Client 构建就绪后运行 `pnpm exec electron scripts/probe-eleckoi-desktop-client.cjs --updates-check`。该场景使用隔离数据目录、正式更新控制器、Preload 和构建后的完整界面，覆盖发现版本、关闭重开、隐藏下载后查看进度、校验、就绪及安装确认；只在更新网络与安装执行边界使用合成实现，不下载或执行安装器。组件回归同时覆盖 PC 与 Android 的共用页面，以及后台通知不重新打开已关闭弹窗的行为。
+更新界面改动还需在桌面运行包及 Web Client 构建就绪后运行 `pnpm exec electron scripts/probe-eleckoi-desktop-client.cjs --updates-check`。该场景使用隔离数据目录、正式更新控制器、Preload 和构建后的完整界面，覆盖官方八语言切换与 Host 重开保留、头像上方的更新入口、下载进度、官方独立更新文档、取消和活跃任务安装确认；只在更新网络与安装执行边界使用合成实现，不下载或执行安装器。Android 更新组件另按其 APK 流程回归。
+
+工作区定时任务入口使用同一探针的 `--workspace-schedule-check`，核对仅在工作区侧栏显示官方图标与文字、任务页保留侧栏、插件与更多仍在最左导航，并覆盖六组深浅主题及窗口宽度。`deepseek-web-profile.test.js` 在隔离正式 profile 中通过官方创作工具创建、暂停任务并重开核对；任务位于测试临时目录，不影响用户任务。
 
 右侧栏生命周期改动使用同一探针的 `--chat-only --rightbar-check --handoff-check`：核对首次打开、插件页往返、冷启动、连续重新生成及聊天切换后的正式右侧栏开合，并检查引用归属错误。`--studio-rightbar-check` 单独覆盖创作工作室连续新建对话后的开合。两种场景都使用隔离数据，不操作用户聊天。
 

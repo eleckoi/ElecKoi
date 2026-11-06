@@ -60,8 +60,13 @@ describe('ElecKoi roleplay client contribution', () => {
     } }, () => null)
     await Promise.resolve()
     const releaseChat = slots.register({ name: 'conversation.view', id: 'chat', order: 0, label: () => '对话', children: {
-      'conversation.chat.flow': { kind: 'single', scope: 'session' }
+      'conversation.chat.flow': { kind: 'single', scope: 'session' },
+      'conversation.chat.text-interaction': { kind: 'keyed', scope: 'session' }
     } }, () => null)
+    const releaseTextInteraction = slots.register({ name: 'conversation.chat.text-interaction', key: 'synthetic-text' }, () => null)
+    await Promise.resolve()
+    expect(slots.entriesOfSlot('eleckoi.roleplay.chat.text-interaction').map((entry: any) => entry.options.key)).toEqual(['synthetic-text'])
+    releaseTextInteraction()
     const releaseFlow = slots.register({ name: 'conversation.chat.flow', children: {
       'conversation.chat.before': { kind: 'single', scope: 'session' },
       'conversation.chat.pending-input': { kind: 'single', scope: 'session' },

@@ -35,7 +35,7 @@ const HIDDEN_TIMELINE_ENTRY_KIND = 'hidden_tool_timeline'
 const HIDDEN_TIMELINE_POSITION_ID = 'hidden-tool-timeline'
 
 /**
- * TODO(迁移清理)：停止支持所有低于 schema v3 的数据库直接升级后，移除此步骤、
+ * RETIRE WHEN: 停止支持所有低于 schema v3 的数据库直接升级后，移除此步骤、
  * installSchema 登记和对应旧库 fixture；只完成某次 v2 升级不能删除该步骤。
  */
 export const migration0003 = {

@@ -70,6 +70,8 @@ export class ConversationArchiveRepository {
       throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, '不支持此聊天记录文件。', { what: '聊天记录文件的格式或版本' })
     }
     const tables = {} as Record<Table, Row[]>
+    // RETIRE WHEN: 停止导入聊天归档 v1 后，删除此转换、版本白名单中的 1、下方 v1
+    // 设定状态分支及专用归档回归；legacyConversationStates 仍有数据库调用时继续保留。
     if (archive.version === 1) {
       const previous = Object.fromEntries([...TABLES.filter(table => table !== 'conversation_state_snapshots'), 'agent_setting_snapshots']
         .map(table => [table, rows((archive.tables as Record<string, unknown>)[table])]))

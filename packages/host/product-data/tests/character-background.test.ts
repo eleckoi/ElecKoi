@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, relative, isAbsolute } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
 import { CharacterRepository } from '../src/domain/personas/CharacterRepository'
-import { SqliteDatabase } from '../src/storage/sqlite/SqliteDatabase'
+import { SqliteDatabase } from '../../../../tests/helpers/SqliteDatabase'
 import { LocalMediaStore } from '../src/storage/media/LocalMediaStore'
 import { APP_DEFAULT_CHAT_BACKGROUND, GLOBAL_CHAT_BACKGROUND, type CustomChatBackground } from '@shared/contracts/characters/chatBackground'
 

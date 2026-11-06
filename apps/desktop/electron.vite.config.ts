@@ -2,7 +2,6 @@ import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { authorVendorPlugin } from '../../scripts/vite-author-vendor-plugin'
 
 const desktopRoot = import.meta.dirname
 const workspaceRoot = resolve(desktopRoot, '../..')
@@ -19,7 +18,7 @@ export default defineConfig({
   },
   preload: {
     build: {
-      lib: { entry: resolve(desktopRoot, 'src/preload/preload.ts') },
+      lib: { entry: { preload: resolve(desktopRoot, 'src/preload/preload.ts'), 'preload-update-dialog': resolve(desktopRoot, 'src/preload/updateDialog.ts') } },
       rollupOptions: { output: { format: 'cjs', entryFileNames: '[name].cjs' } }
     },
     resolve: { alias: { '@shared': sharedRoot } },
@@ -33,6 +32,6 @@ export default defineConfig({
     },
     server: { cors: { origin: 'dsh-app://app' }, fs: { allow: [workspaceRoot] } },
     resolve: { alias: { '@renderer': resolve(webRoot, 'src'), '@shared': sharedRoot } },
-    plugins: [authorVendorPlugin(workspaceRoot), react(), tailwindcss()]
+    plugins: [react(), tailwindcss()]
   }
 })

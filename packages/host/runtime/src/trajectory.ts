@@ -13,6 +13,9 @@ import { historicalChildCatalogSource } from '@deepseek-ai/dsh-session-format-v3
 import { ELECKOI_FAILURE_CODES, productFailure } from '@eleckoi/dsh-product-api'
 import { finalReplyText } from '@shared/foundation/finalReply'
 
+// RETIRE WHEN: supported stored and imported logs no longer contain this retired
+// plugin's envelopes. Remove the identity, its request-row filters and dedicated
+// legacy fixtures together; keep current trajectory projection and format decoding.
 const REQUEST_PROJECTION_PLUGIN = 'eleckoi-request-projection'
 
 export type DshTrajectoryRecordKind =
@@ -162,7 +165,13 @@ export function readDshTrajectory(
   }
 }
 
-/** Decode a stored Session through the locked DSH format catalog. */
+/**
+ * Decode a stored Session through the locked DSH format catalog.
+ * RETIRE WHEN: supported Session upgrade, archive and inspection inputs are all
+ * readable by the current catalog without historical conversion or child facts.
+ * Remove historical branches, collectHistoricalChildren and dedicated legacy tests;
+ * retain current decoding, filesystem validation, recoverable tails and bounded caching.
+ */
 export function readDshSessionLog(
   sessionLogRoot: string,
   runtimeThreadId: string

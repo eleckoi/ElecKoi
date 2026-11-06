@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { runtimeContextsFor } from '../../../../../../tests/helpers/runtime-contexts.js';
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -275,7 +276,7 @@ describe("DSH character variable tools", () => {
       }
     }
     try {
-      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry]) await ctx.plugin(plugin);
+      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry]) await ctx.plugin(plugin);
       await ctx.plugin(AgentLoop, { agents: [] });
       ctx.llm.registerAdapter(["synthetic"], new Adapter());
       ctx.provide("eleckoiVariableProcessing", runtime.processing);

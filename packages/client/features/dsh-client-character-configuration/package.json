@@ -25,7 +25,7 @@
   },
   "description": "读取、保存并更新设定库、变量、正则和分支设定。",
   "engines": {
-    "dsh": "0.2.1-rc.5"
+    "dsh": "0.2.2-rc.1"
   },
   "eleckoi": {
     "developerInterfaces": [
@@ -140,7 +140,7 @@
     ]
   },
   "dependencies": {
-    "@deepseek-ai/cordis": "4.0.5",
+    "@deepseek-ai/cordis": "4.1.0",
     "@eleckoi/dsh-product-api": "workspace:*"
   }
 }

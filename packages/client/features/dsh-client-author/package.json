@@ -5,7 +5,10 @@
   "type": "module",
   "exports": {
     ".": "./src/index.js",
-    "./client": { "types": "./lib/types/client.d.ts", "default": "./lib/client.js" },
+    "./client": {
+      "types": "./lib/types/client.d.ts",
+      "default": "./lib/client.js"
+    },
     "./runtime": "./lib/types/runtime.js",
     "./audio": "./lib/types/audio.js",
     "./frontends": "./lib/types/frontends.js",
@@ -18,23 +21,65 @@
     "@eleckoi/dsh-client-models": "workspace:*",
     "@eleckoi/dsh-client-character-configuration": "workspace:*"
   },
-  "scripts": { "build": "tsc -b tsconfig.client.json && tsdown" },
-  "devDependencies": { "tsdown": "0.16.6", "typescript": "5.9.3" },
-  "engines": { "dsh": "0.2.1-rc.5" },
+  "scripts": {
+    "build": "tsc -b tsconfig.client.json && tsdown"
+  },
+  "devDependencies": {
+    "tsdown": "0.16.6",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "dsh": "0.2.2-rc.1"
+  },
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
-    "client": { "platform": "web", "inject": ["@eleckoi/dsh-product-api", "@eleckoi/dsh-client-conversations", "@eleckoi/dsh-client-character-configuration", "@eleckoi/dsh-client-models"] }
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@eleckoi/dsh-product-api",
+        "@eleckoi/dsh-client-conversations",
+        "@eleckoi/dsh-client-character-configuration",
+        "@eleckoi/dsh-client-models"
+      ]
+    }
   },
   "eleckoi": {
-    "developerInterfaces": [{
-      "id": "eleckoiAuthorRuntime", "kind": "service", "title": "原生作者运行环境",
-      "description": "启动正式脚本库中的原生程序，处理变量规则并绑定当前聊天的作者页面与输入框。",
-      "mode": "call", "scope": "client", "relation": "provides",
-      "members": ["getSnapshot", "subscribe", "getUiSnapshot", "subscribeUi", "invokeButton", "dismissPanel", "mountScriptPanelDocument", "registerChatUi", "mountDocument", "mountProjectDocument"]
-    }, {
-      "id": "eleckoiFrontendProjects", "kind": "service", "title": "原生前端项目",
-      "description": "通过正式 Remote 管理应用和角色文件项目，按明确归属订阅最新工作区。",
-      "mode": "call", "scope": "client", "relation": "provides", "members": ["watch"]
-    }]
+    "developerInterfaces": [
+      {
+        "id": "eleckoiAuthorRuntime",
+        "kind": "service",
+        "title": "原生作者运行环境",
+        "description": "启动正式脚本库中的原生程序，处理变量规则并绑定当前聊天的作者页面与输入框。",
+        "mode": "call",
+        "scope": "client",
+        "relation": "provides",
+        "members": [
+          "getSnapshot",
+          "subscribe",
+          "getUiSnapshot",
+          "subscribeUi",
+          "invokeButton",
+          "dismissPanel",
+          "mountScriptPanelDocument",
+          "registerChatUi",
+          "mountDocument",
+          "mountProjectDocument"
+        ]
+      },
+      {
+        "id": "eleckoiFrontendProjects",
+        "kind": "service",
+        "title": "原生前端项目",
+        "description": "通过正式 Remote 管理应用和角色文件项目，按明确归属订阅最新工作区。",
+        "mode": "call",
+        "scope": "client",
+        "relation": "provides",
+        "members": [
+          "watch"
+        ]
+      }
+    ]
   }
 }

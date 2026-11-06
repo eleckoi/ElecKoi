@@ -1,11 +1,13 @@
+import { readSessionInspection } from '@eleckoi/dsh-product-api'
+import { executeToolCall } from '../helpers/tool-call.js'
 import { retireDeepSeekExtensionSelection } from '@eleckoi/dsh-client-web-search/profile'
-import Hmr from '@deepseek-ai/cordis-plugin-hmr'
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve, relative, isAbsolute } from 'node:path'
 import { afterEach, expect, it, vi } from 'vitest'
-import { initProfile, loadLayeredEnv, loadProfileDirectory, PROFILE_TEMPLATES } from '@deepseek-ai/dsh-app-boot'
+import { initProfile, loadLayeredEnv, loadProfileDirectory } from '@deepseek-ai/dsh-app-boot'
+import { PROFILE_TEMPLATES } from '@deepseek-ai/dsh-official-bundles'
 import { runProfile } from '@deepseek-ai/dsh/profile-boot'
 import { LlmAdapter, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
@@ -14,7 +16,7 @@ import { preparePluginHost } from '../../apps/android-host/src/pluginHostConfigu
 import { ELECKOI_INSTALL_ANCHOR as ANDROID_INSTALL_ANCHOR } from '../../apps/android-host/src/androidPluginBundles'
 
 const cleanups = []
-afterEach(async () => { vi.unstubAllGlobals(); for (const stop of cleanups.splice(0).reverse()) await stop() })
+afterEach(async () => { vi.unstubAllGlobals(); for (const stop of cleanups.splice(0).reverse()) await stop() }, 30000)
 
 it('deletes workspace Session trees, durable membership and results, and keeps unrelated files across restart', async () => {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-workspace-delete-'))
@@ -49,7 +51,7 @@ it('deletes workspace Session trees, durable membership and results, and keeps u
   for (const id of ids) {
     expect(ctx.agents.get(id)).toBeUndefined()
     expect((await ctx.sessionController.list({})).items.some(item => item.sessionId === id)).toBe(false)
-    await expect(ctx.sessionController.inspect(id)).rejects.toBeDefined()
+    await expect(readSessionInspection(ctx, id)).rejects.toBeDefined()
   }
   for (const file of [...snapshots, ...results.flatMap(result => [result.locator, `${result.locator}.owner.json`])]) expect(existsSync(file)).toBe(false)
   expect(readFileSync(projectFile, 'utf8')).toBe('Synthetic workspace file')
@@ -91,13 +93,17 @@ async function start(platform, root, legacySelection = false) {
   ]))
   const running = await runProfile({ environment: loadLayeredEnv('dsh'), profile: platform, resolvedProfile: { profile, installAnchor },
     patchFiles: platform === 'android' ? prepared.patchFiles : [overlay, paths.agentPatchPath], args: ['--no-open', '--port', '0'] })
-  expect(running.ctx.get('schedule')).toBeUndefined()
-  expect(running.ctx.configEditor.entries().find(entry => entry.options.id === 'ui-schedule')?.options.disabled).toBe(true)
-  // The in-process fixture may close immediately after reopening. Wait for the
-  // official watcher initialization before requesting its teardown.
-  await Promise.all([...running.ctx.registry.get(Hmr)?.fibers ?? []].map(fiber => fiber.await()))
+  expect(running.ctx.get('schedule') !== undefined).toBe(true)
+  expect(running.ctx.configEditor.entries().find(entry => entry.options.id === 'ui-schedule')?.options.disabled).not.toBe(true)
+  await running.ctx.loader.await()
   let closing
-  const close = () => closing ??= running.ctx.fiber.dispose()
+  const close = () => {
+    if (closing) return closing
+    // Keep the in-process teardown in the same queue as profile reloads.
+    const hmr = running.ctx.get('hmr')
+    closing = hmr ? hmr.runExclusive(() => running.ctx.fiber.dispose()) : Promise.resolve(running.ctx.fiber.dispose())
+    return closing
+  }
   cleanups.push(close)
   return { ...running, profileDirectory, close }
 }
@@ -216,6 +222,7 @@ it.each(['desktop', 'android'])('%s loads both APIs through the shipped bundles,
   await expect(api.select('deepseek_api')).rejects.toThrow('不支持的联网搜索方式')
   await expect(api.selectFetch('deepseek_api')).rejects.toThrow('不支持的网页抓取方式')
   const credentials = vi.spyOn(ctx.credentials, 'resolve').mockResolvedValue({ value: 'synthetic-live-profile', source: 'test' })
+  const credentialPresence = vi.spyOn(ctx.credentials, 'describe').mockResolvedValue({ configured: true })
   class Adapter extends LlmAdapter {
     async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 1000000 }, defaultMaxTokens: 8192 } }
     async *stream() { yield { type: 'text', text: '合成响应' } }
@@ -243,28 +250,52 @@ it.each(['desktop', 'android'])('%s loads both APIs through the shipped bundles,
   await ctx.settings.mutate(officialNamespace.ns, [{ op: 'set', path: ['count'], value: 50 }], officialNamespace.revision)
   await api.select('deepseek_search_api'); await api.selectFetch('deepseek_fetch_api')
   expect(api.selection()).toBe('deepseek_search_api'); expect(api.fetchSelection()).toBe('deepseek_fetch_api')
+  let scheduledTaskId
   for (const agent of [roleplay, creator]) {
-    for (const name of ['schedule_create', 'schedule_list', 'schedule_update', 'schedule_delete']) expect(agent.ctx.tools.get(name, agent)).toBeUndefined()
-    const search = await agent.ctx.tools.execute({ callId: 'synthetic-official-search', name: 'web_search', arguments: { queries: ['合成官方搜索'] }, agent, signal: new AbortController().signal })
-    expect(search.isError).not.toBe(true)
+    // Direct fixture batches capture a route without starting a model step.
+    agent.model.select({ provider: 'synthetic-web-profile', model: 'synthetic-web-profile' })
+    expect(await ctx.web.searchReady('synthetic-web-profile')).toBe(true)
+    expect(agent.ctx.tools.get('web_search', agent)).toBeDefined()
+    for (const name of ['schedule_create', 'schedule_list', 'schedule_view', 'schedule_edit']) {
+      if (agent === creator) expect(agent.ctx.tools.get(name, agent)).toBeDefined()
+      else expect(agent.ctx.tools.get(name, agent)).toBeUndefined()
+    }
+    const search = await executeToolCall(agent.ctx.tools, { callId: 'synthetic-official-search', name: 'web_search', arguments: { queries: ['合成官方搜索'] }, agent, signal: new AbortController().signal })
+    expect(search.isError, JSON.stringify(search)).not.toBe(true)
     const resultCount = agent === roleplay ? 50 : 8
     expect(JSON.stringify(search.content)).toContain(`https://example.com/${resultCount - 1}`)
     expect(JSON.stringify(search.content)).not.toContain(`https://example.com/${resultCount}"`)
-    const fetched = await agent.ctx.tools.execute({ callId: 'synthetic-official-fetch', name: 'web_fetch', arguments: { url: 'https://example.com' }, agent, signal: new AbortController().signal })
+    const fetched = await executeToolCall(agent.ctx.tools, { callId: 'synthetic-official-fetch', name: 'web_fetch', arguments: { url: 'https://example.com' }, agent, signal: new AbortController().signal })
     expect(fetched.isError).not.toBe(true)
     expect(JSON.stringify(fetched.content)).toContain('合成抓取完整正文末尾')
+    if (agent === creator) {
+      const call = (name, args) => executeToolCall(agent.ctx.tools, { callId: `synthetic-${name}`, name,
+        arguments: args, agent, signal: new AbortController().signal })
+      const scheduledAt = new Date(Date.now() + 3_600_000).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
+      const created = await call('schedule_create', { title: '合成创作任务', prompt: 'Synthetic scheduled instruction',
+        rrule: `DTSTART:${scheduledAt}\nRRULE:FREQ=DAILY;COUNT=1`, target: 'this_session' })
+      expect(created.isError, JSON.stringify(created)).not.toBe(true)
+      const task = (await ctx.schedule.list({})).items.find(item => item.title === '合成创作任务')
+      expect(task).toMatchObject({ status: 'active', target: { kind: 'session', sessionId: creator.id } })
+      scheduledTaskId = task.id
+      const paused = await call('schedule_edit', { id: task.id, action: 'update', active: false })
+      expect(paused.isError, JSON.stringify(paused)).not.toBe(true)
+    }
   }
   expect(calls).toHaveLength(4)
   expect(calls.every(call => call.authorization === 'Bearer synthetic-live-profile')).toBe(true)
   expect(calls.filter(call => call.url.endsWith('/search')).map(call => call.input.count)).toEqual([50, 8])
   expect(calls.filter(call => call.url.endsWith('/search')).every(call => call.input.need_content === false)).toBe(true)
   credentials.mockRestore()
+  credentialPresence.mockRestore()
   vi.unstubAllGlobals()
   await f.close()
   const reopened = await start(platform, root)
   expect(reopened.ctx.eleckoiWebSearchApi.selection()).toBe('deepseek_search_api')
   expect(reopened.ctx.eleckoiWebSearchApi.fetchSelection()).toBe('deepseek_fetch_api')
   expect(reopened.ctx.settings.describe().find(item => item.ns === 'web-deepseek-api').value).toMatchObject({ count: 50 })
+  expect((await reopened.ctx.schedule.list({})).items.find(item => item.id === scheduledTaskId)).toMatchObject({
+    title: '合成创作任务', status: 'paused', prompt: 'Synthetic scheduled instruction' })
 }, 30000)
 
 it.each(['desktop', 'android'])('%s retires saved extension selections and preserves official settings after restart', async platform => {

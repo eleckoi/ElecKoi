@@ -29,7 +29,7 @@ export * from '@phosphor-icons/react';
 
 // Preserve caller sizing while sharing the official regular artwork and currentColor.
 function interfaceIcon(Icon) {
-  return function InterfaceIcon({ size = '1em', className }) {
+  return function InterfaceIcon({ size = 16, className }) {
     return <Icon size={size} className={className} />;
   };
 }

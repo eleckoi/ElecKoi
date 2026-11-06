@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,7 +23,7 @@ describe('DSH request configuration', () => {
     const calls = [];
     const agents = [];
     try {
-      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry, TokenMeter]) {
+      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry, TokenMeter]) {
         await ctx.plugin(plugin);
       }
       await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' });
@@ -99,8 +100,11 @@ describe('DSH request configuration', () => {
       }));
       expect(registrations.find(({ name }) => name === 'agent/request')?.options)
         .toEqual({ prepend: true });
+      const select = vi.fn();
+      await listeners.get('agent/prepare-step')({ agent: { model: { select } } });
+      expect(select).toHaveBeenCalledWith(expect.objectContaining({ provider: 'current-provider-route', reasoningEffort: 'high' }));
       const resolved = await listeners.get('agent/request')({}, async () => ({
-        provider: 'legacy-provider-label', model: 'synthetic-model', reasoningEffort: 'low',
+        ...select.mock.calls[0][0],
         temperature: 0.1, topP: 0.2, maxTokens: 1_000, purpose: 'agent',
       }));
 
@@ -113,7 +117,7 @@ describe('DSH request configuration', () => {
     }
   });
 
-  it('wins after the official Session selection restores a legacy request header', async () => {
+  it('preserves the route already fixed for the prepared official request', async () => {
     const root = mkdtempSync(join(tmpdir(), 'eleckoi-request-waterfall-'));
     try {
       writeFileSync(join(root, 'session-a.json'), JSON.stringify({
@@ -140,7 +144,7 @@ describe('DSH request configuration', () => {
         : listeners[index]({}, () => dispatch(index + 1));
 
       await expect(dispatch(0)).resolves.toMatchObject({
-        provider: 'current-provider-route',
+        provider: 'deepseek-default',
         model: 'synthetic-model',
       });
     } finally {

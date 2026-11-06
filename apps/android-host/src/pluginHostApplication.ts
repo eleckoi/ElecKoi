@@ -100,7 +100,7 @@ export async function startPluginHostApplication(options: PluginHostApplicationO
     } }), 'eleckoi: authenticated runtime health')
     let closing: Promise<void> | undefined
     return {
-      ready: { url, healthUrl, injections: ctx.webServer.collectIndexInjections() },
+      ready: { url, healthUrl, injections: ctx.webServer.collectIndexInjections(ctx.connection.browserPeer) },
       control: message => updateTasks(message.action),
       close: () => closing ??= running.shutdown.shutdown(0)
     }

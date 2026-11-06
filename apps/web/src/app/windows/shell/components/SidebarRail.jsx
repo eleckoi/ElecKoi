@@ -5,6 +5,7 @@ import logoIcon from "../../../../assets/eleckoi-app-icon.png";
 import { DshPanelLeftIcon } from "../../../../ui/icons/dshComposerIcons.jsx";
 import { ElecKoiWordmark } from "../../../../ui/icons/ElecKoiWordmark.jsx";
 import { DshEntryActionsMenu } from '../../../../ui/ui/DshEntryActionsMenu.jsx';
+import { NavigationFill } from '../../../../ui/icons/navigationFill.jsx';
 
 function RailIconButton({ id, label, active, action, onClick, icon, productIcon, expanded }) {
   function handleClick() {
@@ -66,7 +67,7 @@ function RailSettingsButton({ active, onOpenSettings, expanded }) {
       onClick={onOpenSettings}
     >
       <span className="rail-icon-layer base"><SettingsIcon /></span>
-      <span className="rail-icon-layer active-fill" aria-hidden="true"><SettingsIcon /></span>
+      <span className="rail-icon-layer active-fill" aria-hidden="true"><NavigationFill glyph="settings-outline" /></span>
       {expanded && <span>设置</span>}
     </button>
   );
@@ -109,6 +110,7 @@ export function SidebarRail({ activeSection, navigationItems = [], renderEntryAc
       </div>
       <div className="rail-bottom-zone">
         {footerActions && <div className="rail-footer-actions" aria-label="侧边栏插件操作">{footerActions}</div>}
+        <div className="rail-desktop-update">{renderSidebarSlot?.('sidebar.update', {})}</div>
         {compactAccount ? <div className="rail-account-row">{profile}<div className="rail-settings-seat">{settings}</div></div> : <>{profile}{settings}</>}
       </div>
     </aside>

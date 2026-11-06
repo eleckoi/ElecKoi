@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 import { existsSync } from 'node:fs'
-import { OPTIONAL_BUNDLES, PROFILE_TEMPLATES, readProfileManifest, sanitizeProfile } from '@deepseek-ai/dsh-app-boot'
+import { readProfileManifest, sanitizeProfile } from '@deepseek-ai/dsh-app-boot'
+import { OPTIONAL_BUNDLES, PROFILE_TEMPLATES } from '@deepseek-ai/dsh-official-bundles'
 import { ELECKOI_ANDROID_BUNDLES } from './androidPluginBundles'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'

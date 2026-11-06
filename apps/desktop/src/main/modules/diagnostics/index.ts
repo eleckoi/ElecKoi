@@ -1,5 +1,5 @@
 export { diagnosticsPlugin } from './diagnosticsPlugin'
-export { buildBugReport, collectReportFailures, type BugReportCollection } from './bugReportCollection'
+export { buildBugReport, collectReportFailures, type BugReportCollection } from '@shared/foundation/bugReport'
 export {
   BUG_REPORT_SESSION_SCAN_FILES,
   parseSessionEvents,

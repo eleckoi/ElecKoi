@@ -100,8 +100,6 @@ export interface TrajectoryCellProps extends HTMLAttributes<HTMLDivElement> {
   output?: number
   /** Message-only reasoning token count. */
   think?: number
-  /** Whether the legacy standalone cell renders its selection treatment. */
-  selected?: boolean
 }
 
 /**

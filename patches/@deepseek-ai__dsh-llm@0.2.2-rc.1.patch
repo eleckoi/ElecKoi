@@ -1,0 +1,35 @@
+diff --git a/lib/index.js b/lib/index.js
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -365,7 +365,7 @@
+ * @returns whether every field (including the `stop` list, element-wise) matches.
+ */
+ function callConfigEquals(a, b) {
+-	if (a.provider !== b.provider || a.model !== b.model || a.reasoningEffort !== b.reasoningEffort || a.temperature !== b.temperature || a.maxTokens !== b.maxTokens) return false;
++	if (a.provider !== b.provider || a.model !== b.model || a.reasoningEffort !== b.reasoningEffort || a.temperature !== b.temperature || a.topP !== b.topP || a.maxTokens !== b.maxTokens) return false;
+ 	if (a.stop === void 0 || b.stop === void 0) return a.stop === b.stop;
+ 	return a.stop.length === b.stop.length && a.stop.every((s, i) => s === b.stop?.[i]);
+ }
+diff --git a/lib/types/call-config.d.ts b/lib/types/call-config.d.ts
+--- a/lib/types/call-config.d.ts
++++ b/lib/types/call-config.d.ts
+@@ -11,6 +11,7 @@
+ export interface LlmCallControls {
+     reasoningEffort?: ReasoningEffortId;
+     temperature?: number;
++    topP?: number;
+     maxTokens?: number;
+     stop?: string[];
+ }
+diff --git a/lib/types/types.d.ts b/lib/types/types.d.ts
+--- a/lib/types/types.d.ts
++++ b/lib/types/types.d.ts
+@@ -558,6 +558,8 @@
+     /** Session-folded tool history used for route projection; omission sends complete declarations without tool updates. */
+     toolHistory?: ToolHistory;
+     temperature?: number;
++    /** Nucleus sampling probability. Omitted values are left to the provider. */
++    topP?: number;
+     maxTokens?: number;
+     /**
+      * Stop sequences: generation halts as soon as the model produces any one of

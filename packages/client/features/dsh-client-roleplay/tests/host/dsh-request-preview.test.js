@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { runtimeContextsFor } from '../../../../../../tests/helpers/runtime-contexts.js'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -42,8 +43,8 @@ describe('actual request previews retained only by the running Host', { timeout:
     write('合成指令一', '合成处理后的输入一')
     const ctx = new Context()
     cleanups.push(() => ctx.fiber.dispose())
-    for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry]) await ctx.plugin(plugin)
-    ctx.sessionProjections.register(inputContinuationsProjection)
+    for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry]) await ctx.plugin(plugin)
+    await ctx.sessionProjections.register(inputContinuationsProjection)
     await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' })
     await ctx.plugin(AgentLoop, { agents: [] })
     const previews = store()

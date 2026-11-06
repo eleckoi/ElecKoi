@@ -21,7 +21,7 @@ window.__ModuleLoader__.load({
       .then(module => ({ default: module.SidebarBrandMark })))
     const SidebarBrandName = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
       .then(module => ({ default: module.SidebarBrandName })))
-    const nativeSettingsSections = new Set(['account', 'general', 'models', 'agent-presets'])
+    const nativeSettingsSections = new Set(['account', 'models', 'agent-presets'])
     const shellActions = new Set(['community'])
     const builtInBundles = [
       "@eleckoi/dsh-client-characters",
@@ -195,8 +195,7 @@ window.__ModuleLoader__.load({
     function mountWorkspaceSidebar(ctx, officialSidebar) {
       const slots = ctx.slots
       const visibility = createWorkspaceVisibility(ctx)
-      const emptyPanels = []
-      const noPanels = () => emptyPanels
+      const workspacePanel = id => id === 'schedules'
       const noEntryActions = () => false
       // Adapt the public plugin registration, retaining its child-slot ownership,
       // injected hooks and lifecycle. Only the native workspace uses its shell.
@@ -204,6 +203,7 @@ window.__ModuleLoader__.load({
         get(target, name) {
           if (name === 'register') return (options, Component) => target.register(options.name === 'sidebar' ? {
             ...options,
+            children: { ...options.children, 'sidebar.update': { kind: 'single', scope: 'root' } },
             inject: (...args) => {
               const face = options.inject?.(...args) ?? {}
               return { ...face, hooks: { ...face.hooks, eleckoiWorkspaceSessions: visibility.sessions, eleckoiWorkspaceRegistry: visibility.workspaces } }
@@ -211,7 +211,7 @@ window.__ModuleLoader__.load({
           } : options, options.name === 'sidebar' ? props => {
               const scopedSessions = props.useEleckoiWorkspaceSessions?.(value => value)
               const panel = ctx.layout.panelInfo?.getSnapshot()
-              const openingStudio = panel?.activePanelId === 'creatorStudio' || panel?.windowPanelId === 'creatorStudio'
+              const openingStudio = ['creatorStudio', 'schedules'].includes(panel?.activePanelId) || panel?.windowPanelId === 'creatorStudio'
               const protectedCurrent = props.useSessions?.(value => {
                 const current = Object.values(value.byId).filter(row => (row.retainedBy?.mainView ?? 0) > 0)
                 const protectedIds = visibility.getSnapshot().protectedIds
@@ -226,7 +226,7 @@ window.__ModuleLoader__.load({
               }
               const workspaceSidebar = props.workspace ? React.createElement(Component, {
                 ...props,
-                usePanels: noPanels,
+                usePanels: select => props.usePanels(rows => select(rows.filter(item => workspacePanel(item.id)))),
                 useEntryActions: noEntryActions,
                 startSession: visibility.startSession,
                 renderSlot: (key, owner, renderOptions) => key === 'sidebar.settings'
@@ -285,12 +285,13 @@ window.__ModuleLoader__.load({
           order: entry.options.order || 0,
           label: typeof entry.options.label === 'function' ? entry.options.label() : entry.options.label || ''
         }))
+        sections.push({ id: 'language', order: -100, label: locale.bind('settings.locale')('language.title') })
         return sections.sort((a, b) => a.order - b.order)
       }, [slots, settingsVersion, localeRevision])
       const navigationItems = React.useMemo(() => {
         const panels = new Set(slots.entriesOfSlot('main').map(entry => entry.options.key))
         return slots.entriesOfSlot('sidebar.panellist')
-          .filter(entry => panels.has(entry.options.id) || shellActions.has(entry.options.id))
+          .filter(entry => entry.options.id !== 'schedules' && (panels.has(entry.options.id) || shellActions.has(entry.options.id)))
           .map(entry => ({
             id: entry.options.id,
             order: entry.options.order || 0,
@@ -338,6 +339,7 @@ window.__ModuleLoader__.load({
         const eleckoiPackages = new Map([
           ['@deepseek-ai/dsh-agent-loop', 'DSH 已有输入生成适配'],
           ['@deepseek-ai/dsh-client-ui-chat', 'DSH 官方聊天视图适配'],
+          ['@deepseek-ai/dsh-client-ui-settings-general', 'DSH 导航更新入口适配'],
           ['@deepseek-ai/dsh-web-frontend', 'DSH 网页错误传递适配'],
           ['@deepseek-ai/dsh-client-ui-trajectory', 'DSH 轨迹请求身份适配'],
           ['@deepseek-ai/dsh-client-ui-plugin-manager', 'DSH 插件页面适配'],
@@ -544,7 +546,9 @@ window.__ModuleLoader__.load({
             setPanelGuard: guard => layout.setPanelGuard(guard)
           },
           renderWindow: (owner, fallback) => renderSlotChain('eleckoi.shell.window', { ...owner, fallback }, { fallback }),
-          renderSettingsSection: (section, close) => renderSlot('settings.section', { close }, { only: section.id }),
+          renderSettingsSection: (section, close) => section.id === 'language'
+            ? renderSlot('settings.section', { itemId: 'language' }, { only: 'general' })
+            : renderSlot('settings.section', { close }, { only: section.id }),
           renderUserProfileEditor: (owner, fallback) => renderSlotChain('eleckoi.persona.editor', { ...owner, fallback }, { fallback }),
           renderCharacterPageSection: (section, owner, fallback) => renderSlotChain(`eleckoi.character.page.${section}`, { ...owner, fallback }, { fallback }),
           renderCharacterEditorSection: (section, owner, fallback) => renderSlotChain(`eleckoi.character.editor.${section}`, { ...owner, fallback }, { fallback }),
@@ -681,7 +685,7 @@ window.__ModuleLoader__.load({
             const currentSessionId = !mobile && requestedWorkspace ? ctx.get('uiSession')?.adapter.current.getSnapshot().key : undefined
             const roleplayMain = currentSessionId && ctx.get('eleckoiConversations')?.getSnapshot().items
               .some(item => item.runtimeSessionId === currentSessionId)
-            const workspace = id === 'creatorStudio' || requestedWorkspace && !roleplayMain
+            const workspace = id === 'creatorStudio' || id === 'schedules' || requestedWorkspace && !roleplayMain
             const panelId = requestedWorkspace || id === 'messages' || mobile && id === 'creatorStudio' ? null : id
             const windowPanelId = mobile ? id ?? 'conversation' : requestedWorkspace && workspace ? 'conversation' : undefined
             if (panelSnapshot.activePanelId === panelId && panelSnapshot.windowPanelId === windowPanelId) { if (mobile) showSidebar(false); return }
@@ -740,7 +744,6 @@ window.__ModuleLoader__.load({
             'shell.overlay': { kind: 'list', scope: 'root' },
             'shell.leading': { kind: 'single', scope: 'root' },
             'settings.section': { kind: 'list', scope: 'root' },
-            'settings.general.item': { kind: 'list', scope: 'root' },
             'eleckoi.shell.window': { kind: 'chain', scope: 'root' },
             'eleckoi.persona.editor': { kind: 'chain', scope: 'root' },
             'eleckoi.character.page.list': { kind: 'chain', scope: 'root' },

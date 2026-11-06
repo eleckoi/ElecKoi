@@ -14,7 +14,7 @@ import { readDshSessionLog } from './trajectory'
 
 /**
  * Repair only the missing optional-event marker on validated request annotations.
- * TODO(迁移清理)：停止支持产生未标记记录的旧版本直升，且仍受支持的 Session 恢复、
+ * RETIRE WHEN: 停止支持产生未标记记录的旧版本直升，且仍受支持的 Session 恢复、
  * 导入入口已能先转换该形态后，删除本文件、Host 启动扫描、index 导出和专用修复用例。
  * 历史 request-context Schema 仅用于恢复校验；新请求预览只保留在运行期内存。
  */

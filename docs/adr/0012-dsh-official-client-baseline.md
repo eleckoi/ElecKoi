@@ -27,3 +27,9 @@ ElecKoi 最初没有可参照的 DSH 官方桌面客户端，因此建立了自�
 具体基准、现状差异和实施顺序见 [DSH 官方客户端架构基准](../DSH_DESKTOP_ARCHITECTURE.md)。先校正文档与校验，再逐项审查上游扩展点和产品数据迁移；每一步都以实际 DSH Host、客户端和插件行为验证，完成前不得声称整体架构已经与官方一致。
 
 面向第三方的公开插件合同见 [插件开发文档](../plugins/README.md)；当前跨端调用与产品数据所有权分别由 [ADR 0017](0017-dsh-remote-replaces-desktop-gateway.md) 和 [ADR 0018](0018-dsh-host-owns-product-data.md) 规定。[ADR 0013](0013-dsh-plugin-platform-and-product-data.md) 仅保留历史决策。
+
+## 0.2.2-rc.1 原生桌面装配
+
+官方桌面源码按职责进入 Electron 平台适配与更新模块；没有另建跨端业务桥。官方 native 通道和 Renderer 所需类型集中在 Shared Contract，Shared 仅允许对精确公开 protocol/types 入口使用 `import type`；预加载只依赖 Electron、纯合同及同目录适配。平台层不反向依赖更新业务模块。
+
+校验器核对 native provenance 中逐文件摘要，只有这些已核对源码可在 Electron 边界依赖官方 native 辅助包；其他 Main／Shared／Renderer 的 Host/SDK 禁止边界保持。自定义页面继续通过正式 Client 和 Remote 访问产品数据。更新文档、文件拖出和键盘等入口由 Main 验证受管窗口与 frame，权限与 Host 授权沿官方同版本实现。

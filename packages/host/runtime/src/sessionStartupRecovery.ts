@@ -6,7 +6,8 @@ import { refreshSessionProjections, type SessionProjectionRefreshContext } from 
 
 /**
  * A stored conversation failure must not prevent the desktop Host from becoming ready.
- * TODO(迁移清理)：recoverSessionHistory 退役时同步移除归档读取及该恢复调用。
+ * RETIRE WHEN: 停止支持缺少独立输入的旧聊天升级，且受支持恢复、导入入口均已补回正式输入后，
+ * 随 recoverSessionHistory 一起移除归档读取及该恢复调用和专用旧日志回归。
  * 官方格式升级、投影重放、句柄关闭与逐会话错误隔离仍保障正常启动，不能整段删掉。
  */
 export async function recoverStartupSessions(ctx: Context, root: string): Promise<void> {

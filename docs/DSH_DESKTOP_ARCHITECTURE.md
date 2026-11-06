@@ -4,11 +4,11 @@
 
 ## 权威来源
 
-当前仓库锁定 `deepseek-ai/deepseek-harness` `0.2.1-rc.5`，提交 `b830ec950faba0a46dda564be3e2d854afed94f1`。核对架构和行为时使用这个**精确提交**的官方源码，而不是浮动的 `master`、旧版文档或 ElecKoi 的临时实现：
+当前仓库锁定 `deepseek-ai/deepseek-harness` `0.2.2-rc.1`，提交 `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`。核对架构和行为时使用这个**精确提交**的官方源码，而不是浮动的 `master`、旧版文档或 ElecKoi 的临时实现：
 
-- [DSH 架构](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/docs/architecture.zh.md)：Cordis、profile、bundle 与插件树。
-- [Web Client 架构](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/docs/subsystems/web-client.zh.md)：Host、Remote、Client model、Slots 与 React。
-- [官方 Desktop](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/apps/desktop/README.zh.md)：Electron 壳、受管 profile、Web Host、客户端资源及插件管理。
+- [DSH 架构](https://github.com/deepseek-ai/deepseek-harness/blob/66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db/docs/architecture.zh.md)：Cordis、profile、bundle 与插件树。
+- [Web Client 架构](https://github.com/deepseek-ai/deepseek-harness/blob/66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db/docs/subsystems/web-client.zh.md)：Host、Remote、Client model、Slots 与 React。
+- [官方 Desktop](https://github.com/deepseek-ai/deepseek-harness/blob/66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db/apps/desktop/README.zh.md)：Electron 壳、受管 profile、Web Host、客户端资源及插件管理。
 
 升级时先锁定同一上游发布批次的提交、包和构建产物，再把上述引用与本仓库的依赖一起更新。不同版本的官方文件不能混作一次架构依据。
 
@@ -30,7 +30,7 @@
 
 工作室首页的默认工作区标题使用官方公开 `@deepseek-ai/dsh-api-workspace-controller/default-workspace` 命名纯函数。该子路径没有运行依赖，不启动或访问 Workspace Controller；Renderer 导入分类只接纳这个精确公开入口，Host 包、Client Controller 及内部路径仍受原边界约束。
 
-聊天记录入口使用官方 `IconQueueOutlineRegular`，两种消息布局的「查看过程」使用同一线框眼睛，思考的弹窗行与外部动态状态栏共用同一小灯泡资源。复制、重新生成与三个点保持原有颜色和视觉大小；两种布局不提供朗读按钮。Windows 标题区域的「应用／编辑」使用同提交 `preload-menu.ts` 的按钮、ShadowRoot、选区恢复与键盘行为，挂载到侧栏按钮左侧的标题栏座位。原生弹出菜单沿用官方坐标缩放和编辑按键流程，调用来源限制为主窗口的可信顶层页面；编辑键只发给该窗口或它持有的已聚焦浏览器。关于和检查更新接回已有产品界面，退出沿用桌面生命周期。该通道仅承担桌面壳职责，不引入产品数据桥或第二套更新服务；来源、机械抽取及产品接入差异记录在 `apps/desktop/src/main/platform/electron/dsh/provenance.json`，现有 DSH Desktop MIT 许可随包保留。
+聊天记录入口使用官方 `IconQueueOutlineRegular`，两种消息布局的「查看过程」使用同一线框眼睛，思考的弹窗行与外部动态状态栏共用同一小灯泡资源。复制、重新生成与三个点保持原有颜色和视觉大小；两种布局不提供朗读按钮。Windows 标题区域的「应用／编辑」使用同提交 `preload-menu.ts` 的按钮、ShadowRoot、选区恢复与键盘行为，挂载到侧栏按钮左侧的标题栏座位。原生弹出菜单沿用官方坐标缩放和编辑按键流程，调用来源限制为主窗口的可信顶层页面；编辑键只发给该窗口或它持有的已聚焦浏览器。关于接回产品页面，检查更新打开官方独立更新文档，退出沿用桌面生命周期。该通道仅承担桌面壳职责，不引入产品数据桥或第二套更新服务；来源、机械抽取及产品接入差异记录在 `apps/desktop/src/main/platform/electron/dsh/provenance.json`，现有 DSH Desktop MIT 许可随包保留。
 
 角色卡编辑器与预设的搜索框、操作按钮直接使用锁定版本 UI Primitives 的 `Input`、`Button`，边框、圆角及交互状态由组件原样式负责。按产品蓝白主题，编辑器和相关弹窗只将官方主按钮填充、悬停和前景三个主题变量映射为官方 DeepSeek 500、600 与白色；搜索框、次级按钮继续使用官方主题，侧边栏新增图标按钮保留原有外观与尺寸。其他产品样式只保留布局与移动触摸空间。前端编辑工作台位于 ShadowRoot，按实际组件类名复用当前文档已加载的组件规则，主题变量从编辑器继承；控件集合不变时不重复读取样式表，卸载时移除该根的样式节点，不另写一份按钮样式。
 
@@ -40,11 +40,11 @@
 
 PC 原生错误对话框与 Android 原生错误页面提供用户插件恢复入口，独立于无法启动的客户端插件树。壳先停止受管 Host，再调用同版本官方 `sanitizeProfile` 备份当前 profile 的 `cordis.patch.yml`，按各应用的内置组合清单恢复启动，并保留当前启用的官方 `OPTIONAL_BUNDLES`；用户安装的包和产品数据保留。客户端加载失败、Host 失败都必须到达这个原生入口，不能只写日志或要求进入尚未启动的插件中心。
 
-桌面 Web 启动错误在进入官方 `dshDesktopBoot.failed(string)` 前保留原始说明、调用栈、错误码、自有详情、`cause` 与 `AggregateError.errors`。锁定 rc.5 的原入口只传 `Error.message`，对普通对象执行 `String(reason)`，会使详情变成 `[object Object]`；同版 `dsh-web-frontend` 的受管补丁只修正这一转换，不增加桥接方法或改变启动、恢复与插件启停语义。标准错误、跨窗口错误及 DOMException 保留已有的原始调用位置，缺少调用栈时不补造；重复／循环引用通过路径引用表示，诊断正文不截断。补丁在官方入口完整保留这些诊断后退役；升级须以实际发布的前端运行普通对象、标准错误与嵌套失败回归，不能仅验证格式化辅助函数。
+桌面 Web 启动错误在进入官方 `dshDesktopBoot.failed(string)` 前保留原始说明、调用栈、错误码、自有详情、`cause` 与 `AggregateError.errors`。锁定 0.2.2-rc.1 的原入口只传 `Error.message`，对普通对象执行 `String(reason)`，会使详情变成 `[object Object]`；同版 `dsh-web-frontend` 的受管补丁只修正这一转换，不增加桥接方法或改变启动、恢复与插件启停语义。标准错误、跨窗口错误及 DOMException 保留已有的原始调用位置，缺少调用栈时不补造；重复／循环引用通过路径引用表示，诊断正文不截断。补丁在官方入口完整保留这些诊断后退役；升级须以实际发布的前端运行普通对象、标准错误与嵌套失败回归，不能仅验证格式化辅助函数。
 
 Windows 安装器在应用启动前通过独立原生检查恢复随包可执行映像的正常完整性级别，覆盖主程序、锁定 Electron 运行库、卸载与更新辅助程序。检查器从安装器临时目录运行，只处理安装目录内明确列出的文件，拒绝链接文件与链接资源目录；不重设目录访问控制、不修改上级目录或用户数据，也不关闭浏览器沙箱。写入完整性标记所需的临时权限必须恢复，失败阻断安装完成。此修复不改变 DSH 的工作区授权语义，也不能阻止其他程序在安装后再次改写文件安全属性。
 
-Windows 更新控制和 Electron HTTP 空闲超时采用同一锁定提交的官方 Desktop 实现，位于 `apps/desktop/src/main/modules/updates/dsh`；来源、精确提交和机械导入路径变更记录在该目录的 `provenance.json`，MIT 许可证随桌面资源分发。`UpdateService` 只连接现有更新界面、稳定版渠道与 Host 任务锁，GitHub API Provider 只负责本产品发布及附件定位，不另写下载或安装算法。先创建控制器，再配置发布源，确保元数据、增量和完整下载共用官方 HTTP 执行器。下载校验完成才发布就绪状态，用户确认后才交给 NSIS 安装；安装失败保留已下载文件并释放 Host 任务锁。正常退出不自动安装。升级 DSH 时一起核对这些源码、依赖、来源记录及真实 Electron 网络回归。
+Windows 更新控制和 Electron HTTP 空闲超时采用同一锁定提交的官方 Desktop 实现，位于 `apps/desktop/src/main/modules/updates/dsh`；来源、精确提交和机械导入路径变更记录在该目录的 `provenance.json`，MIT 许可证随桌面资源分发。`UpdateService` 连接官方更新协调器、周期检查、稳定版渠道与 Host 任务锁，`DesktopUpdatePrompts` 将官方确认流程装配到 ElecKoi 窗口，GitHub API Provider 只负责本产品发布及附件定位，不另写下载或安装算法。先创建控制器，再配置发布源，确保元数据、增量和完整下载共用官方 HTTP 执行器。下载校验完成才发布就绪状态，用户确认后才交给 NSIS 安装；安装前确认活跃任务、阻止新请求并等待受管 Host 清理及正常退出；失败保留已下载文件并恢复 Host 与页面。正常退出不自动安装。升级 DSH 时一起核对这些源码、依赖、来源记录及真实 Electron 网络回归。
 
 ## 当前代码与目标的差距
 
@@ -55,7 +55,7 @@ Windows 更新控制和 Electron HTTP 空闲超时采用同一锁定提交的官
 | `apps/desktop-host` 启动同一个 DSH Web Host，并经官方 SessionController 驱动角色会话 | 已采用官方运行路径 | 按精确版本验证会话和插件生命周期 |
 | `@eleckoi/dsh-product-data` 在 DSH Host 打开产品数据库、执行迁移并持有全部领域 Repository | 产品 Client 调用全部使用生成的 Typert Remote；数据库唯一写入权、迁移链与媒体写入均已移交 Host | 保持 Host 单一所有权，禁止把 Repository、迁移或第二套跨端业务协议放回 Main |
 | `@eleckoi/dsh-client-*` 在官方 Web Client 运行代内贡献界面和受控产品接入点 | 已使用官方 Client model、Slots、Renderer 与 Session 作用域 | 按公开类型和安装探针持续验证第三方插件行为 |
-| `patches/` 对锁定官方包进行最小适配；预设桥接通过官方 `agent/created` 生命周期装配顶层 Session 作用域，并以 `agent/request` waterfall 覆盖当前全局模型；子 Agent 模型只由 DSH 官方子智能体设置决定；Session 信息性记录补丁见 ADR 0019 | 与上游实现紧耦合，补丁清单以 `pnpm-workspace.yaml` 为准 | 对照同版本公开扩展点；可替代则迁移，不能替代则记录例外和升级测试 |
+| `patches/` 对锁定官方包进行最小适配；预设桥接通过官方 `agent/created` 生命周期装配顶层 Session 作用域，在模型与工具捕获前准备本轮预设，调用公开 `agent.model.select()` 固定当前全局模型；`agent/request` 仅调整输出控制；子 Agent 模型只由 DSH 官方子智能体设置决定；Session 信息性记录补丁见 ADR 0019 | 与上游实现紧耦合，补丁清单以 `pnpm-workspace.yaml` 为准 | 对照同版本公开扩展点；可替代则迁移，不能替代则记录例外和升级测试 |
 | Runtime Manifest 已将桌面对话主路径标为 Web Host，并区分旧 SDK 兼容组合 | 事实源已校正；仍不能仅凭静态检查认定全体产品插件迁移完成 | 用实际桌面 Host 探针和插件安装探针继续验收 |
 
 聊天正文以 DSH Session 日志为持久来源；SQLite 只保存仍属于 ElecKoi 的关系型产品数据。已经废弃的模型、搜索配置和运行流水表只在版本化迁移中删除，不再有运行时读写路径。
@@ -113,7 +113,7 @@ PC 工作区与角色聊天共用官方 Workspace 导航拥有的唯一前台 `m
 数据位置由它的权威所有者决定，不以“统一放数据库”为目标：
 
 - DSH 已有正式领域使用 DSH 自己的持久化合同：模型配置使用 settings/profile，密钥使用 `ctx.credentials`，聊天正文使用 Session 日志，bundle 选择使用 profile。
-- DSH 的 [`dsh-storage-sqlite`](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/packages/storage/storage-sqlite/README.zh.md) 是 Host 侧的文档型 KV 后端：每个键保存一行 JSON，配合 `ctx.storageDomain` 提供 schema 校验、持久写入和进程内变更事件。简单、独立且按键读写的新增 Host 状态应优先评估这套正式合同。
+- DSH 的 [`dsh-storage-sqlite`](https://github.com/deepseek-ai/deepseek-harness/blob/66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db/packages/storage/storage-sqlite/README.zh.md) 是 Host 侧的文档型 KV 后端：每个键保存一行 JSON，配合 `ctx.storageDomain` 提供 schema 校验、持久写入和进程内变更事件。简单、独立且按键读写的新增 Host 状态应优先评估这套正式合同。
 - ElecKoi 的角色关系、聊天索引等关系型产品数据，在领域迁入 DSH Host 后由 Host Repository 独占 SQLite 写入；Client 和 Electron Main 不直接写。
 - 创作项目、导出文件和其他以目录为产品形态的数据保存在用户选择的文件目录；Host 只维护对应文件索引，不复制进 SQLite。
 - 页面加载状态、当前选择和生成中的临时状态留在 Client 内存，除非存在明确的重启恢复需求。
@@ -132,7 +132,26 @@ PC 工作区与角色聊天共用官方 Workspace 导航拥有的唯一前台 `m
 
 当前 `pnpm check:architecture` 检查目录、进程边界，并阻止已删除的 Desktop Gateway 业务桥回流；它仍不能代替真实 Host、Session 与插件生命周期验收。旧的 [桌面架构说明](history/ARCHITECTURE.md) 和私有知识库中的《ElecKoi Desktop 架构最终总纲》仅作历史索引。
 
-## 0.2.1-rc.5 对齐
+## 0.2.2-rc.1 当前批次
+
+共享依赖、运行清单、Host／Client／SDK 和 Session 格式锁定官方 `0.2.2-rc.1`、提交 `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`，Cordis `4.1.0`、pi-ai `1.3.0`、Electron `44.7.0`，Windows 构建器 `26.17.0`。内置及可选插件清单使用 `dsh-official-bundles`；新增可选组合随运行环境携带，启用状态遵循官方默认和用户已保存选择。工作区、定时任务及其官方界面随同版本正式 profile 装配。定时任务入口只保留在创作工作区侧边栏的官方面板列表，使用官方图标和文字；打开任务页仍保留工作区侧栏。插件和更多继续位于最左导航，不重复出现在工作区侧栏。创作预设保留官方 schedule_create、schedule_list、schedule_view、schedule_edit 工具，统一归入既有任务与工作流能力组，关闭该组时一并停用；角色对话不装配这组创作任务工具。
+
+语言入口位于产品设置，通过 `settings.general.item` 中官方 `language` 项渲染原 LanguageRow。八种内置语言、语言包登记、回退链、Host `locale.preference` 保存和重新连接同步均由官方 LocaleRuntime 负责，没有产品自建语言存储。桌面通过官方 `__DSH_LOCALE__` 合同读取同一 Host 偏好，并把最后确认的语言留在官方壳缓存，用于 Host 不可用时的原生提示。标题栏菜单及更新文案使用同批次的八语词典；ElecKoi 自有业务文案和作者内容保留。
+
+导航栏的更新入口位于用户头像上方，通过窄 `sidebar.update` 槽位复用官方 `DesktopUpdateIndicator` 和同一 `DesktopUpdateSource`。无更新时隐藏；可用更新、下载进度、校验、就绪和失败状态、图标与提示均由官方组件负责。窄导航仅调整座位尺寸并隐藏文字，完整可访问名称和提示保持。更新确认使用官方独立 `WebContentsView` 文档及受限响应桥，取代桌面产品 React 更新弹窗；Android 保留其独立的 APK 下载流程。
+
+桌面采用同版本的原生快捷键及设备本地偏好、目录选择、文件保存与剪贴板图片、文件拖出、系统信息和麦克风权限处理。相关代码按职责置于 Electron 平台适配目录，纯 native 协议位于 Shared Contract；预加载只转发受限操作。文件拖出由 Host 在当前 Session 的正式文件系统和沙箱策略下授权，原生绝对路径不交给 Renderer。Host 停止先取消并等待这些读写，再执行官方 Shutdown；只有清理完成并正常退出才允许更新安装。产品数据库、会话和媒体仍由 DSH Host 所有。
+
+Windows 安装器采用官方自定义界面、八语资源、进度、目录暂存／切换／回滚和卸载辅助源码。ElecKoi 只替换品牌、保留既有安装完整性修复及卸载不删产品数据的约定；来源与差异记录于 `apps/desktop/installer/provenance.json`。安装器界面资源构建不打包安装文件；正式打包与覆盖安装检查仅在 GitHub Windows Release 链执行。
+
+未知自定义模型的容量和图片卸载遵循新版官方默认：上下文 1,000,000、最大输出容量 128,000，pi-ai 每请求 50 张图片、按 10 张批次卸载最早图片并保留官方持久占位；显式模型能力和用户配置继续由上游解析。工具结果续读依据实际继承切面中的调用 ID 和结果文件引用授权，不再要求普通分叉保留父会话元数据；无继承结果的会话仍拒绝读取。没有增加产品数据库迁移。Android 只对齐共享源码和锁，不生成运行资源或 APK，既有 V1／V2／V3 签名修复保持。
+
+`pnpm-workspace.yaml` 为所有保留补丁的精确清单及退役条件。新版没有公开“本轮准备后再捕获模型和工具”的异步钩子，现有保留输入补丁增加串行 `agent/prepare-step`，仅供本轮产品预设装配及公开模型选择；官方提供等价时机并通过同会话重组、重新生成与工具回归后删除该钩子。设置补丁暴露原更新组件座位，并允许语言入口筛选官方通用设置中的原语言行，不另建语言状态；官方提供等价的可复用更新入口和独立语言入口后删除。其余旧会话、续读及采样参数补丁仍按各自已记录条件保留；不以此次升级重写正式记录。
+
+本批次验证：首轮全仓 368 个文件、2619 项回归的 35 个失败文件及后续失败已修正并分批复核，最后五文件 71 项通过；完整源码构建及门禁、实际 Electron SQLite／Host／Client／作者与重新生成、清理完成后正常退出、八语言和更新流程、六组深浅宽窄任务侧栏通过。任务创建、暂停和 Host 重开保留在临时 profile 中验证；测试结束通过官方 HMR 队列串行释放，没有增加 HMR 依赖补丁。报告位于 `build/dsh-0.2.2-rc.1-upgrade/verified.json`。未打包或执行安装器，未在 macOS 设备验证，未操作正式数据、Android 设备、公开工作树或提交发布。
+
+## 0.2.1-rc.5 对齐记录
+
 
 共用 Host、Web Client、SDK、Session format、LLM 适配器、插件组合和运行清单统一锁定到 DSH `0.2.1-rc.5`，提交 `b830ec950faba0a46dda564be3e2d854afed94f1`。Cordis 4.0.5、pi-ai 1.1.0 和 Electron 44.7.0 与该批次的官方依赖合同一致，保持精确锁定。19 个 DSH 补丁按新版实际发布包重新生成，退役条件仍在 `pnpm-workspace.yaml` 各入口维护；没有新增产品数据迁移。
 

@@ -32,6 +32,10 @@ let modelServer
 let modelRequests = 0
 let workspaceIsolationSetup = false
 let updateProbe
+let disposeNative
+const { loadNativeModule, installProbeDesktopNative } = require('./probe-desktop-native.cjs')
+const { DesktopUpdateOverlays } = loadNativeModule('apps/desktop/src/main/platform/electron/dsh/update-overlay.ts')
+const updateOverlays = new DesktopUpdateOverlays()
 const modelBodies = []
 const nativeAuthorMode = process.argv.includes('--native-author')
 const pluginCreationMode = process.argv.includes('--plugin-creation-check')
@@ -42,7 +46,8 @@ const toolScenario = roleplayToolMode ? require('./probe-roleplay-tool-results.c
 const subagentNavigationMode = processDialogMode || process.argv.includes('--subagent-navigation-check')
 async function main() {
   const { DshDesktopPluginHost, resolveDshWebFrontendDirectory, ELECKOI_DESKTOP_BUNDLES, registerDesktopBundles } = await import('@eleckoi/desktop-host')
-  const { OPTIONAL_BUNDLES, initProfile, PROFILE_TEMPLATES, readProfileManifest, writeProfileBundles } = await import('@deepseek-ai/dsh-app-boot')
+  const { initProfile, readProfileManifest, writeProfileBundles } = await import('@deepseek-ai/dsh-app-boot')
+  const { OPTIONAL_BUNDLES, PROFILE_TEMPLATES } = await import('@deepseek-ai/dsh-official-bundles')
   await app.whenReady()
   modelServer = createServer((_request, response) => {
     if (nativeAuthorMode || roleplayToolMode || pluginCreationMode) {
@@ -163,6 +168,13 @@ async function main() {
   const assets = await document.resolveElecKoiClientAssets(renderer)
   protocol.handle('dsh-app', async request => {
     const url = new URL(request.url)
+    if (url.hostname === 'shell') {
+      const types = { 'update-dialog.html': 'text/html', 'update-dialog.js': 'text/javascript', 'update-dialog.css': 'text/css',
+        'design-platform.css': 'text/css', 'shell-theme.js': 'text/javascript', 'update-close.svg': 'image/svg+xml' }
+      const name = url.pathname.slice(1)
+      if (!Object.hasOwn(types, name)) return new Response(null, { status: 404 })
+      return new Response(readFileSync(resolve('apps/desktop/resources/shell', name)), { headers: { 'content-type': types[name] } })
+    }
     if (url.pathname.startsWith('/eleckoi/assets/')) return document.serveElecKoiClientAsset(request, renderer)
     if (document.isDshClientAsset(url.pathname)) return document.serveDshClientAsset(request, resolveDshWebFrontendDirectory())
     return document.forwardDshClientRequest(request, ready.url, cookie)
@@ -171,9 +183,9 @@ async function main() {
     { kind: 'global', name: '__ELECKOI_CLIENT_ASSETS__', value: assets }], streamBaseUrl: new URL(ready.url).origin }))
   ipcMain.handle('eleckoi:dsh-client-boot-failed', (_event, error) => errors.push(error))
   if (process.argv.includes('--updates-check')) {
-    updateProbe = require('./probe-eleckoi-updates-scenario.cjs').createUpdateProbe({ ipcMain, getWindow: () => window })
+    updateProbe = require('./probe-eleckoi-updates-scenario.cjs').createUpdateProbe({ ipcMain, getWindow: () => window, overlays: updateOverlays })
   } else {
-    ipcMain.handle('dsh-desktop:updates-status', () => ({ phase: 'disabled', currentVersion: app.getVersion(), availableVersion: null, releaseName: null, releaseNotes: null, releaseDate: null, downloadSizeBytes: null, progress: null, message: null }))
+    ipcMain.handle('dsh-desktop:updates-status', () => ({ phase: 'idle', currentVersion: app.getVersion(), availableVersion: null, releaseName: null, releaseNotes: null, releaseDate: null, downloadSizeBytes: null, progress: null, message: null }))
   }
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['ws://127.0.0.1/*'] }, (details, callback) => {
     const headers = Object.fromEntries(Object.entries(details.requestHeaders).map(([key, value]) => [key.toLowerCase(), value]))
@@ -181,6 +193,7 @@ async function main() {
   })
   window = new BrowserWindow({ show: false, width: 1440, height: 1000,
     webPreferences: { preload: resolve('apps/desktop/out/preload/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, offscreen: true, backgroundThrottling: false } })
+  disposeNative = installProbeDesktopNative({ window, root, getReady: () => ready, host, overlays: updateOverlays })
   window.webContents.on('console-message', ({ level, message }) => {
     if (level === 'error' || message.includes('initial Session restoration failed:')) errors.push(message)
   })
@@ -271,8 +284,37 @@ async function main() {
     return
   }
   await waitFor(`document.querySelector('.side-panel-brand .eleckoi-wordmark')`, 'ElecKoi shell did not render')
+  if (process.argv.includes('--workspace-schedule-check')) {
+    const run = source => window.webContents.executeJavaScript(source)
+    if (await run(`!!document.querySelector('.navigation-rail-shell [data-navigation-id="schedules"]')`)) throw new Error('Scheduled tasks remain in the global navigation')
+    await run(`document.querySelector('[data-navigation-id="creatorStudio"]').click()`)
+    await waitFor(`!!document.querySelector('.native-workspace-sidebar button[aria-label="自动化任务"]')`, 'Official scheduled tasks missing from workspace sidebar')
+    await run(`document.querySelector('.native-workspace-sidebar button[aria-label="自动化任务"]').click()`)
+    await waitFor(`!!document.querySelector('.native-workspace-sidebar button[aria-label="自动化任务"][aria-current="page"]')`, 'Task selection did not stay in the workspace sidebar')
+    await waitFor(`document.querySelector('.main-panel-content')?.textContent.includes('自动化任务')`, 'Official task manager did not render')
+    if (!await run(`!!document.querySelector('.navigation-rail-shell [data-navigation-id="plugins"]') && !!document.querySelector('.navigation-rail-shell [data-plugin-entry-more="sidebar"]')`)) throw new Error('Plugins or More moved out of global navigation')
+    if (await run(`!!document.querySelector('.native-workspace-sidebar button[aria-label="插件"], .native-workspace-sidebar button[aria-label="更多"]')`)) throw new Error('Plugins or More duplicated into the workspace sidebar')
+    for (const theme of ['light', 'dark']) for (const width of [1440, 900, 700]) {
+      nativeTheme.themeSource = theme
+      window.setSize(width, 900)
+      await run('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+      await run('Promise.allSettled(document.getAnimations().filter(animation=>animation.effect?.getComputedTiming().iterations!==Infinity).map(animation=>animation.finished))')
+      const state = await run(`(()=>{const s=document.querySelector('.native-workspace-sidebar'),b=s.querySelector('button[aria-label="自动化任务"]'),label=b.lastElementChild;return {width:s.getBoundingClientRect().width,inside:s.contains(b),label:label.textContent,opacity:Number(getComputedStyle(label).opacity),global:!!document.querySelector('.navigation-rail-shell [data-navigation-id="schedules"]'),overflow:document.documentElement.scrollWidth>innerWidth}})()`)
+      if (state.width < 250 || !state.inside || state.label !== '自动化任务' || state.opacity < .99 || state.global || state.overflow) throw new Error('Workspace task placement failed: ' + JSON.stringify({ theme, width, ...state }))
+      if (process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT && width === 1440) writeFileSync(process.env.ELECKOI_CLIENT_PROBE_SCREENSHOT.replace('.png', `-${theme}.png`), (await window.webContents.capturePage()).toPNG())
+    }
+    if (errors.length) throw new Error(errors.join('\n'))
+    process.stdout.write('Official scheduled tasks appear only in the workspace sidebar; task manager selection, retained workspace sidebar and six light/dark widths passed.\n')
+    return
+  }
   if (updateProbe) {
-    await updateProbe.run({ window, waitFor, errors })
+    await updateProbe.run({ window, waitFor, errors, restart: async () => {
+      await window.loadURL('about:blank')
+      await host.close()
+      ready = await host.start()
+      cookie = await document.authenticateDshClientHost(ready.url)
+      await window.loadURL('dsh-app://app/')
+    } })
     return
   }
   const remoteCall = async (method, args) => {
@@ -844,6 +886,7 @@ async function main() {
 main().catch(error => { process.stderr.write(`${error.stack || error}\n`); failed = true }).finally(async () => {
   try {
     updateProbe?.dispose()
+    await disposeNative?.()
     if (window && !window.isDestroyed()) await window.loadURL('about:blank')
     window?.destroy()
     await host?.close()

@@ -1,7 +1,8 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join, resolve, sep } from 'node:path'
-import { initProfile, loadLayeredEnv, loadProfileDirectory, PROFILE_TEMPLATES, readProfileManifest } from '@deepseek-ai/dsh-app-boot'
+import { initProfile, loadLayeredEnv, loadProfileDirectory, readProfileManifest } from '@deepseek-ai/dsh-app-boot'
+import { PROFILE_TEMPLATES } from '@deepseek-ai/dsh-official-bundles'
 import { INSTALL_ANCHOR, runProfile } from '@deepseek-ai/dsh/profile-boot'
 
 const bundleName = '@eleckoi/dsh-web-search-tavily'

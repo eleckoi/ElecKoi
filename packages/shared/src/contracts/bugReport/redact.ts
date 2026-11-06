@@ -57,6 +57,9 @@ const EMAIL_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
 const SECRET_PARAM_PATTERN =
   /((?:api[_-]?key|access[_-]?token|refresh[_-]?token|auth[_-]?token|token|secret|password|passwd|authorization)\s*["']?\s*[:=]\s*)(["']?)((?:Bearer|Basic)\s+)?([^\s"'&,;}\]]+)/gi
 
+/** JSON 详情已将键和值分开；识别凭据键时不能依赖文本里的 `key=value` 形态。 */
+const SECRET_DETAIL_KEY_PATTERN = /^(?:api[_-]?key|access[_-]?token|refresh[_-]?token|auth[_-]?token|token|secret|password|passwd|authorization)$/i
+
 /** 用户名短于这个长度就不做全局替换：单字符会误伤正文。 */
 const MIN_USER_NAME_LENGTH = 2
 
@@ -133,14 +136,19 @@ function redactDetails(
   details: Readonly<Record<string, unknown>>,
   options: BugReportRedactionOptions
 ): Record<string, unknown> {
-  const result: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(details)) {
-    if (typeof value === 'string') result[key] = redactReportText(value, options)
-    else if (Array.isArray(value)) {
-      result[key] = value.map((item) => (typeof item === 'string' ? redactReportText(item, options) : item))
-    } else result[key] = value
-  }
-  return result
+  return Object.fromEntries(Object.entries(details).map(([key, value]) => [key,
+    typeof value === 'string' && SECRET_DETAIL_KEY_PATTERN.test(key)
+      ? REDACTED_SECRET
+      : redactDetailValue(value, options)
+  ]))
+}
+
+/** 日志详情来自 JSON；保留对象／数组形状，递归处理每个字符串，不改变数字、布尔或 null。 */
+function redactDetailValue(value: unknown, options: BugReportRedactionOptions): unknown {
+  if (typeof value === 'string') return redactReportText(value, options)
+  if (Array.isArray(value)) return value.map(item => redactDetailValue(item, options))
+  if (typeof value === 'object' && value !== null) return redactDetails(value as Record<string, unknown>, options)
+  return value
 }
 
 /** 用户名：显式给的优先，否则取家目录末段。太短的一律不抹。 */

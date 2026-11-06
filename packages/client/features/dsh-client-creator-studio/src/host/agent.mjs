@@ -88,12 +88,11 @@ export function apply(ctx, config) {
     if (!owns(agent)) return request
     const info = await ctx.llm.resolveModelInfo(request.provider, request.model, signal)
     const parameters = requestSnapshot(ctx, request, info)
-    const { temperature: _temperature, topP: _topP, maxTokens: _maxTokens, reasoningEffort: _reasoningEffort, ...rest } = request
+    const { temperature: _temperature, topP: _topP, maxTokens: _maxTokens, ...rest } = request
     return { ...rest,
       ...(parameters.temperature === undefined ? {} : { temperature: parameters.temperature }),
       ...(parameters.topP === undefined ? {} : { topP: parameters.topP }),
-      ...(parameters.maxTokens === undefined ? {} : { maxTokens: parameters.maxTokens }),
-      ...(parameters.reasoningEffort === undefined ? {} : { reasoningEffort: parameters.reasoningEffort }) }
+      ...(parameters.maxTokens === undefined ? {} : { maxTokens: parameters.maxTokens }) }
   }, { prepend: true }))
   disposers.push(ctx.on('llm/stream', (options, next) => {
     if (projected.has(options) || (options.purpose !== 'compaction' && !isAgentLoopRequest(options))) return next()

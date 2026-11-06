@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -32,7 +33,7 @@ afterEach(async () => {
 async function fixture({ persistenceRoot, appendInput = true } = {}) {
   const ctx = new Context()
   contexts.push(ctx)
-  for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry]) {
+  for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry]) {
     await ctx.plugin(plugin)
   }
   if (persistenceRoot) await ctx.plugin(JsonlSessionPersistence, { root: persistenceRoot, compression: 'none' })

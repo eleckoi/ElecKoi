@@ -7,6 +7,7 @@ import * as jsxRuntime from 'react/jsx-runtime'
 import * as ReactDOM from 'react-dom'
 import * as store from '@deepseek-ai/dsh-client-store'
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
+import { withDshAssets } from '../../../../tests/helpers/clientModuleRequire.js'
 
 // Execute the installed, pinned Client bundle. Only the test loader exposes
 // private components; production obtains ChatView from its public slot entry.
@@ -38,10 +39,10 @@ const modules = { '@tanstack/react-virtual': reactVirtual,
   '@deepseek-ai/dsh-client-store': store,
   '@deepseek-ai/dsh-client-ui-primitives': primitives,
 }
-const { RawChatView, ChatFlow, ChatReading, ChatViewport, ScrollFollow, TurnNavigator, mergeTurnRailItems, ActivityPill, ManualCompactionNodeView } = registration.factory(name => {
+const { RawChatView, ChatFlow, ChatReading, ChatViewport, ScrollFollow, TurnNavigator, mergeTurnRailItems, ActivityPill, ManualCompactionNodeView } = registration.factory(withDshAssets(name => {
   if (!(name in modules)) throw new Error(`Unexpected Chat Client dependency: ${name}`)
   return modules[name]
-})
+}))
 
 export { ChatReading, ChatViewport, ScrollFollow, TurnNavigator, mergeTurnRailItems, ActivityPill, ManualCompactionNodeView }
 export function ChatView(props) {
@@ -66,6 +67,11 @@ export function chatFixture(sessionId = 'session-test') {
   let saved = null
   const props = {
     sessionId,
+    useContextMenu: () => ({ getTriggerProps: () => ({}) }),
+    resolveFilePath: path => path,
+    useConnectionState: select => select('connected'),
+    useInteractionIds: select => select(empty),
+    dispatchInteraction: async () => {},
     useSession: select => select(useStateSnapshot().session),
     useChat: select => {
       const value = useStateSnapshot()

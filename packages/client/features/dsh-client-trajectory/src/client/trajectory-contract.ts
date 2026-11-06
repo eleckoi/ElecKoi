@@ -14,7 +14,7 @@ export interface TrajectoryRequestHeaderState {
   readonly location: ConversationLocation
 }
 
-/** One independently assembled contribution to the legacy Trajectory ledger. */
+/** One independently assembled contribution to the Trajectory target. */
 export type TrajectoryContribution =
   | { readonly kind: 'system-prompt'; readonly prompt: SystemPromptNode }
   | {

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { INPUT_CONTINUATION_EVENT } from './input-continuations-projection.mjs'
 
-// TODO(迁移清理)：停止历史补回的写入后，已迁移日志仍含此标记；只有受支持的旧日志
+// RETIRE WHEN: 停止历史补回的写入后，已迁移日志仍含此标记；只有受支持的旧日志
 // 已完成等价统计转换并能正确重放时，才能删除该标记分支、专用状态及旧日志用例。
 // INPUT_CONTINUATION_EVENT 仍用于当前已有输入续接，必须保留其统计与投影登记。
 export const HISTORY_RESTORED_EVENT = 'eleckoi/history-restored'

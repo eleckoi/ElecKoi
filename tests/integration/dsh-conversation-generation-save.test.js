@@ -1,3 +1,5 @@
+import SessionQuery from '@deepseek-ai/dsh-session-query'
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { runtimeContextsFor } from '../helpers/runtime-contexts.js'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
@@ -21,7 +23,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SqliteDatabase } from '../../packages/host/product-data/src/storage/sqlite/SqliteDatabase'
+import { SqliteDatabase } from '../helpers/SqliteDatabase'
 import { ConversationRepository } from '../../packages/host/product-data/src/domain/conversations/ConversationRepository'
 import { VariableStateRepository } from '../../packages/host/product-data/src/domain/variables/VariableStateRepository'
 import { VariableConfigRepository } from '../../packages/host/product-data/src/domain/variables/VariableConfigRepository'
@@ -51,7 +53,7 @@ async function fixture({ stream } = {}) {
   initial.close()
   const ctx = new Context()
   cleanups.push(() => ctx.fiber.dispose())
-  for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry]) await ctx.plugin(plugin)
+  for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry]) await ctx.plugin(plugin)
   await ctx.plugin(Storage)
   for (const [plugin, config] of [[StorageJson, { root: join(root, 'storage') }], [StorageDomain, { backend: 'json' }]]) {
     const { name, inject, apply, Config } = plugin
@@ -61,6 +63,7 @@ async function fixture({ stream } = {}) {
   await ctx.plugin(LocalAttachmentStore, { dshHome: root })
   await ctx.plugin(LocalCredentialProvider, { dshHome: root, path: join(root, '.credentials.yaml'), watch: false })
   await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' })
+  await ctx.plugin(SessionQuery)
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(productDataPlugin)
   await ctx.plugin(ElecKoiConversationLifecycle)

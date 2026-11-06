@@ -1,0 +1,36 @@
+diff --git a/lib/index.js b/lib/index.js
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -440,6 +440,7 @@
+ 		if (name === "run_code") throw new Error(`tool name "${RUN_CODE_NAME}" is reserved for the PTC mode presentation transport and cannot be registered or shadowed`);
+ 		return this.layers.effect(this.ctx, (layer) => layer.tools.insert(name, {
+ 			definition,
++			owner: this.ctx,
+ 			when: options.when
+ 		}), { label: "tools.register()" });
+ 	}
+@@ -518,6 +519,12 @@
+ 	*/
+ 	get(name, scope, toolSet) {
+ 		return toolSet === void 0 ? this.view(scope).visible.get(name) : toolSet.view(scope).get(name);
++	}
++	/** Return the exact visible registration owner, including step admission when supplied. */
++	registrant(name, scope, toolSet) {
++		const definition = this.get(name, scope, toolSet);
++		const registration = this.view(scope).registrations.get(name);
++		return definition !== void 0 && registration?.definition === definition ? registration.owner : void 0;
+ 	}
+ 	/**
+ 	* Resolve the definition a call may execute. With a step's admitted set, the
+diff --git a/lib/types/index.d.ts b/lib/types/index.d.ts
+--- a/lib/types/index.d.ts
++++ b/lib/types/index.d.ts
+@@ -76,6 +76,8 @@
+      * @returns the definition the scope resolves, or undefined when none is visible.
+      */
+     get(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): ToolDefinition | undefined;
++    /** Return the exact visible registration context, respecting scope and optional step admission. */
++    registrant(name: string, scope?: ScopeKey, toolSet?: ResolvedToolSet): Context | undefined;
+     /**
+      * Resolve the definition a call may execute. With a step's admitted set, the
+      * set decides; without one, conditional registrations are unavailable.

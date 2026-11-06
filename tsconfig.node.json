@@ -3,9 +3,9 @@
     "composite": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "target": "ES2023",
+    "target": "ES2024",
     "lib": [
-      "ES2023"
+      "ES2024"
     ],
     "types": [
       "node"

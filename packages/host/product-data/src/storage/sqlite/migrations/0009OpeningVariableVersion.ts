@@ -4,7 +4,7 @@ export const schemaV8AgentConversationsSql = "CREATE TABLE IF NOT EXISTS `agent_
 
 /**
  * 为已有聊天固定升级时使用的变量版本，不改动初始值、当前值和消息。
- * TODO(迁移清理)：正式停止支持 schema v8 及更早版本直接升级后，删除此步骤、
+ * RETIRE WHEN: 正式停止支持 schema v8 及更早版本直接升级后，删除此步骤、
  * 旧表定义、installSchema 登记与对应旧库 fixture；保留当前结构与完整性校验。
  */
 export const migration0009 = {

@@ -6,7 +6,7 @@ import { Session, SessionId } from '@deepseek-ai/dsh-session';
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog';
 import { readDshSessionLog } from '@eleckoi/dsh-runtime';
 import { importDshTranscript } from '../../packages/host/runtime/src/sessionTranscriptImport';
-import { SqliteDatabase } from '../../packages/host/product-data/src/storage/sqlite/SqliteDatabase';
+import { SqliteDatabase } from '../helpers/SqliteDatabase';
 import { ConversationRepository } from '../../packages/host/product-data/src/domain/conversations/ConversationRepository';
 
 const roots = [];

@@ -1,6 +1,34 @@
 import { spawnSync } from 'node:child_process';
 import { expect, it } from 'vitest';
 
+it('rejects v2-only and invalid release signatures and explicitly verifies the v1 signature', () => {
+  const result = spawnSync('python', ['-c', String.raw`
+import ast,re,subprocess
+from pathlib import Path
+from unittest.mock import patch
+tree=ast.parse(Path('scripts/android-runtime/check-apk.py').read_text())
+function=next(node for node in tree.body if isinstance(node,ast.FunctionDef) and node.name=='verify_release_signatures')
+scope={'re':re,'subprocess':subprocess}
+exec(compile(ast.Module(body=[function],type_ignores=[]),'signature-checker','exec'),scope)
+def output(schemes):
+    return '\n'.join('Verified using '+scheme+' scheme (APK signing): '+str(scheme in schemes).lower() for scheme in ['v1','v2','v3'])+'\n'
+with patch.object(subprocess,'run') as run:
+    run.return_value=subprocess.CompletedProcess([],0,output({'v1','v2','v3'}),'')
+    scope['verify_release_signatures']('synthetic.apk','apksigner')
+    assert run.call_args.args[0]==['apksigner','verify','--verbose','--min-sdk-version','23','synthetic.apk']
+    for status,stdout,stderr in [(0,output({'v2'}),''),(0,output({'v1','v2'})+'Verified using v3.1 scheme (APK signing): true\n',''),(1,output({'v1','v2','v3'}),'APK content digest did not verify')]:
+        run.return_value=subprocess.CompletedProcess([],status,stdout,stderr)
+        try:
+            scope['verify_release_signatures']('synthetic.apk','apksigner')
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('Incomplete or invalid release signatures accepted')
+`], { encoding: 'utf8', windowsHide: true, timeout: 30_000 });
+  expect(result.error).toBeUndefined();
+  expect(result.status, result.stderr || result.stdout).toBe(0);
+});
+
 it('checks official resource identities and preserves visible pixels after release PNG optimization', () => {
   const result = spawnSync('python', ['-c', String.raw`
 import ast,re

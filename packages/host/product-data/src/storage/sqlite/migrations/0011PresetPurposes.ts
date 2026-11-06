@@ -2,6 +2,8 @@ import type Database from 'better-sqlite3'
 
 export const schemaV10PresetStateSql = 'CREATE TABLE IF NOT EXISTS `agent_preset_state` (`singletonId` INTEGER NOT NULL, `activePresetId` TEXT NOT NULL, PRIMARY KEY(`singletonId`))'
 
+// RETIRE WHEN: v10 and earlier database upgrades are no longer supported. Remove
+// this step, its old-state SQL, registration and upgrade-only tests together.
 export const migration0011 = {
   fromVersion: 10,
   toVersion: 11,

@@ -26,7 +26,7 @@ export const ELECKOI_DESKTOP_BUNDLES = [
 
 /**
  * Register shipped bundles once while retaining the profile's existing selections.
- * TODO(迁移清理)：受支持的升级及 profile 恢复入口都已完成 bundles-v9 登记后，
+ * RETIRE WHEN: 受支持的升级及 profile 恢复入口都已完成 bundles-v9 登记后，
  * 删除本函数、Host 调用、专用 import 和旧 profile 迁移用例。保留
  * ELECKOI_DESKTOP_BUNDLES 与新 profile 的 initProfile 初始化及正常启停测试。
  */

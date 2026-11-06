@@ -10,9 +10,10 @@ export const AGENT_TOOL_GROUPS: ReadonlyArray<Omit<AgentToolGroup, 'enabled' | '
   group('builtin:mcp-resources', 'MCP 资源读取', '列出并读取 MCP 服务器提供的资源和资源模板', [
     'list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource'
   ]),
-  group('builtin:workflow', '任务与工作流', '维护任务、目标和后台作业，并编排大规模子代理工作流', [
+  group('builtin:workflow', '任务与工作流', '维护任务、定时任务、目标和后台作业，并编排大规模子代理工作流', [
     'todo_write', 'get_goal', 'create_goal', 'update_goal',
-    'job_output', 'job_list', 'job_kill', 'skill', 'workflow'
+    'job_output', 'job_list', 'job_kill', 'skill', 'workflow',
+    'schedule_create', 'schedule_list', 'schedule_view', 'schedule_edit'
   ]),
   group('builtin:creator', '创作能力', '按需发现并调用角色资料、设定库与变量的创作能力', [
     'eleckoi_list_toolsets', 'eleckoi_describe_toolset', 'eleckoi_call_capability'

@@ -1,3 +1,4 @@
+import { queryFromInspection } from '../helpers/session-query.js'
 import { mkdtempSync } from 'node:fs';
 import { rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -52,6 +53,7 @@ it('binds the real roleplay image APIs after editor readiness and reads, repaint
       eleckoiConversationChanges: { publish() {} }, eleckoiCharacterConfigurationChanges: { publish() {} },
       credentials: { resolve: async () => ({ value: 'synthetic-token' }) }
     };
+    services.sessionQuery = queryFromInspection(id => services.sessionController.inspect(id));
     for (const [name, value] of Object.entries(services)) ctx.provide(name, value);
     const edit = vi.fn(async (_session, batch, frame, generate) => {
       const current = findGeneratedImage(session.snapshotEvents(), batch, frame);

@@ -53,6 +53,10 @@ android {
     } }
     signingConfigs {
         create("release") {
+            // Some installer frontends still require the JAR signature files.
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
             if (releaseSigningConfigured) {
                 storeFile = file(checkNotNull(releaseSigningValues["ELECKOI_RELEASE_STORE_FILE"]))
                 storePassword = checkNotNull(releaseSigningValues["ELECKOI_RELEASE_STORE_PASSWORD"])
@@ -184,6 +188,7 @@ afterEvaluate {
                 val apk = directory.resolve(output).canonicalFile
                 check(apk.parentFile == directory && apk.isFile && apk.extension == "apk") { "Invalid APK output file" }
                 commandLine("python", rootProject.file("../../scripts/android-runtime/check-apk.py"), apk, "--variant", flavor)
+                if (buildType == "Release") args("--release")
             }
         }
         if (buildType == "Release") {

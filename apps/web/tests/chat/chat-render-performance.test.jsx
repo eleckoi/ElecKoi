@@ -1,11 +1,7 @@
 // @vitest-environment jsdom
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { RunningWhaleTail } from '../../src/modules/chat/components/RunningWhaleTail.jsx'
 import { MessageBubble, MessageList } from '../helpers/officialMarkdown.jsx'
 
 vi.stubGlobal('React', React)
@@ -292,14 +288,5 @@ describe('chat rendering performance', () => {
     }
   })
 
-  it('uses the DSH APNG whale with an accessible static fallback', () => {
-    const html = renderToStaticMarkup(<RunningWhaleTail />)
-    const image = readFileSync(resolve('apps/web/src/modules/chat/assets/running-whale@2x.png'))
-    expect(html).toContain('chat-running-whale-animated')
-    expect(html).toContain('chat-running-whale-still')
-    expect(html).not.toContain('<animate')
-    expect(image.subarray(1, 4).toString()).toBe('PNG')
-    expect(image.includes(Buffer.from('acTL'))).toBe(true)
-    expect(image.includes(Buffer.from('fcTL'))).toBe(true)
-  })
+
 })

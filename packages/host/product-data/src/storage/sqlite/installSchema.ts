@@ -174,6 +174,8 @@ export function installSchema(database: Database.Database): void {
   if (tables.length > 0) {
     let version = database.pragma('user_version', { simple: true }) as number
     // 未发布 v12 中补齐正则整体启停，先精确校验原结构再原子整理。
+    // RETIRE WHEN: 停止支持缺少 regex_libraries 的开发 v12 结构后，删除此分支及专用回归；
+    // addRegexLibraryEnablement 仍被正式 0012 迁移调用时继续保留。
     if (version === 12 && !hasTable(database, 'regex_libraries') && hasTable(database, 'conversation_state_snapshots')) {
       validateTableInventory(database, false, false, false, false, false, true, true)
       validateSchema(database, undefined, false, false, false, false, false, false, false, true, true)
@@ -202,6 +204,8 @@ export function installSchema(database: Database.Database): void {
       version = 12
     }
     // 未发布的 v9/v10 开发库只在结构完整匹配时整理，保留变量版本及全部有效数据。
+    // RETIRE WHEN: 停止支持含 conversation_generation_results 的开发 v9/v10 结构后，
+    // 删除此分支、unreleasedGenerationTableSql、仅供其使用的校验参数及专用回归；保留正式迁移链。
     if ((version === 9 || version === 10) && hasTable(database, 'conversation_generation_results')) {
       validateTableInventory(database, true, true, true, true, true)
       validateSchema(database, undefined, true, version === 9, true, true, true, true, true)
@@ -261,6 +265,10 @@ export function installSchema(database: Database.Database): void {
   }).immediate()
 }
 
+// RETIRE WHEN: all supported released and development databases reach both regex
+// optionsJson columns through their remaining upgrade paths. Remove this repair,
+// its startup call, the matching missing-column validation branch and dedicated tests;
+// retain current schema columns and normal rule parsing and storage.
 function normalizeRegexOptions(database: Database.Database): void {
   database.transaction(() => {
     for (const name of ['global_regex_rules', 'character_regex_rules']) {

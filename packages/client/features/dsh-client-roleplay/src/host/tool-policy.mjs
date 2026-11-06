@@ -121,7 +121,8 @@ const WORKSPACE_TOOLS = new Set([
 ])
 const WORKFLOW_TOOLS = new Set([
   'todo_write', 'get_goal', 'create_goal', 'update_goal',
-  'job_output', 'job_list', 'job_kill', 'skill', 'workflow'
+  'job_output', 'job_list', 'job_kill', 'skill', 'workflow',
+  'schedule_create', 'schedule_list', 'schedule_view', 'schedule_edit'
 ])
 const ROLEPLAY_TOOLS = new Set(['update_roleplay_plan'])
 const MCP_RESOURCE_TOOLS = new Set(['list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource'])

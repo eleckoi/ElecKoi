@@ -1,16 +1,34 @@
 {
   "schemaVersion": 1,
-  "upstreamCommit": "b830ec950faba0a46dda564be3e2d854afed94f1",
+  "upstreamCommit": "66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db",
   "package": "@deepseek-ai/dsh-attachment-local",
-  "version": "0.2.1-rc.5",
+  "version": "0.2.2-rc.1",
   "file": "lib/index.js",
-  "sourceSha256": "cd39685581b4573a453c6126f8ce73da0bf1257c378827ebb431d6d4064f7662",
-  "helpers": ["android-file-publication.mjs", "android-attachment-storage.mjs"],
-  "helperDependency": { "name": "koffi", "version": "3.1.1" },
+  "sourceSha256": "ff717f87226b59d6224aff67796b43d5fd72b98d0e74fa91a952affaf3285f9d",
+  "helpers": [
+    "android-file-publication.mjs",
+    "android-attachment-storage.mjs"
+  ],
+  "helperDependency": {
+    "name": "koffi",
+    "version": "3.1.1"
+  },
   "replacements": [
-    { "before": "await ensureDurableDirectory(home, parse(home).root);", "after": "await ensureDurableDirectory(home, androidAttachmentBoundary(home));" },
-    { "before": "await link(staged.path, target);", "after": "await publishAndroidFile(staged.path, target);" },
-    { "before": "await unlink(staged.path);", "after": "await removeTemporary(staged.path);" },
-    { "before": "await link(source, target);", "after": "await publishAndroidAlias(source, target);" }
+    {
+      "before": "await ensureDurableDirectory(home, parse(home).root);",
+      "after": "await ensureDurableDirectory(home, androidAttachmentBoundary(home));"
+    },
+    {
+      "before": "await link(staged.path, target);",
+      "after": "await publishAndroidFile(staged.path, target);"
+    },
+    {
+      "before": "await unlink(staged.path);",
+      "after": "await removeTemporary(staged.path);"
+    },
+    {
+      "before": "await link(source, target);",
+      "after": "await publishAndroidAlias(source, target);"
+    }
   ]
 }

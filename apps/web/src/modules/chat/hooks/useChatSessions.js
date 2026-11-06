@@ -36,7 +36,7 @@ import { useConversationListPreferences } from "./useConversationListPreferences
 import { useActiveChatModel } from "./useActiveChatModel.js";
 import { useConversationMessages } from "./useConversationMessages.js";
 import { useChatHistoryPaging } from "./useChatHistoryPaging.js";
-import { useAuthorFrontendActions } from "./useAuthorFrontendActions.js";
+import { useExternalChatRuns } from "./useExternalChatRuns.js";
 import { useChatInputImages } from "./useChatInputImages.js";
 import { getErrorMessage, isAbortError, runChatMessageSend, stopChatMessageSend, throwIfAborted } from "./chatMessageSend.js";
 import { failureAlreadyPublished } from "../../../utils/swallowedFailure.js";
@@ -46,48 +46,18 @@ const EMPTY_DETAILS = { id: "", status: "idle", details: null, error: "" };
 const EMPTY_STREAM = { id: "", status: "idle", content: "", process: [] };
 const subscribeEmptyCatalog = () => () => {};
 const getEmptyCatalog = () => EMPTY_CATALOG;
-
-function getLegacyChatSnapshot(conversations) {
-  return {
-    details: conversations?.getDetailsSnapshot?.() || EMPTY_DETAILS,
-    stream: conversations?.getStreamSnapshot?.() || EMPTY_STREAM,
-  };
-}
-
-function createLegacyChatSubscription(conversations) {
-  let snapshot = getLegacyChatSnapshot(conversations);
-  const getSnapshot = () => {
-    const next = getLegacyChatSnapshot(conversations);
-    if (next.details === snapshot.details && next.stream === snapshot.stream) return snapshot;
-    snapshot = next;
-    return snapshot;
-  };
-  const subscribe = (listener) => {
-    const update = () => {
-      getSnapshot();
-      listener();
-    };
-    const stops = [
-      conversations?.subscribeDetails?.(update),
-      conversations?.subscribeStream?.(update),
-    ].filter(Boolean);
-    return () => stops.forEach((stop) => stop());
-  };
-  return { subscribe, getSnapshot };
-}
+const EMPTY_CHAT = { details: EMPTY_DETAILS, stream: EMPTY_STREAM };
+const getEmptyChat = () => EMPTY_CHAT;
 
 export function useChatSessions({ conversations, persona, characters, modelConfigs, language, setStatus, setActiveSectionState, notify }) {
   const catalog = useSyncExternalStore(
     conversations?.subscribe || subscribeEmptyCatalog,
     conversations?.getSnapshot || getEmptyCatalog,
   );
-  const chatSubscription = useMemo(() => conversations?.subscribeChat && conversations?.getChatSnapshot
-    ? { subscribe: conversations.subscribeChat, getSnapshot: conversations.getChatSnapshot }
-    : createLegacyChatSubscription(conversations), [conversations]);
   const chatSnapshot = useSyncExternalStore(
-    chatSubscription.subscribe,
-    chatSubscription.getSnapshot,
-    chatSubscription.getSnapshot,
+    conversations ? conversations.subscribeChat : subscribeEmptyCatalog,
+    conversations ? conversations.getChatSnapshot : getEmptyChat,
+    conversations ? conversations.getChatSnapshot : getEmptyChat,
   );
   const detailsSnapshot = chatSnapshot.details || EMPTY_DETAILS;
   const streamSnapshot = chatSnapshot.stream || EMPTY_STREAM;
@@ -730,10 +700,8 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
     });
   }, [chatCharacter.character_id, characterLookup]);
 
-  useAuthorFrontendActions({ sessionId, setIsSending, setStatus, reconcileChatMessages,
-    replaceChatMessages, conversations,
-    setChatCharacter, normalizeLatestChatCharacter, refreshSessionsOnly, requestScrollToEnd, loadChat,
-    input, inputImages, setInput, sendMessage, requestRef });
+  useExternalChatRuns({ sessionId, conversations, requestRef, setIsSending, setStatus,
+    reconcileChatMessages, setChatCharacter, normalizeLatestChatCharacter, refreshSessionsOnly });
 
   return {
     sessions: displaySessions,

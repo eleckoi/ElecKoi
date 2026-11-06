@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3'
 
 /**
- * TODO(迁移清理)：停止支持所有低于 schema v5 的数据库直接升级后，移除此步骤、
+ * RETIRE WHEN: 停止支持所有低于 schema v5 的数据库直接升级后，移除此步骤、
  * installSchema 登记和旧消息高度表 fixture；当前新库仍按公共 SQL 创建。
  */
 export const migration0005 = {

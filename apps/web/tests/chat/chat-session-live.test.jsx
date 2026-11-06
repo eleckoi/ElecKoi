@@ -179,6 +179,9 @@ describe('DSH chat live rendering', () => {
     let catalog = { status: 'ready', items: [conversation], error: '' }
     let details = { id, status: 'ready', details: makeDetails([]), error: '' }
     let stream = { id, status: 'idle', content: '', process: [] }
+    let chatSnapshot = { details, stream }
+    const chatListeners = new Set()
+    const publishChat = () => { chatSnapshot = { details, stream }; for (const listener of chatListeners) listener() }
     const catalogListeners = new Set()
     const detailsListeners = new Set()
     const streamListeners = new Set()
@@ -186,11 +189,13 @@ describe('DSH chat live rendering', () => {
     const emitDetails = (messages) => {
       details = { ...details, details: makeDetails(messages) }
       for (const listener of detailsListeners) listener()
+      publishChat()
     }
     const emitStream = (content, status = 'running', process = []) => {
       stream = { id, status, content, process, runId: 'session-1', messageId: 'live-1',
         renderKey: `dsh-reply-session-1-${executionTurn}` }
       for (const listener of streamListeners) listener()
+      publishChat()
       if (status === 'running' && (content || process.length)) {
         const previous = details.details.messages.filter(message =>
           !(message.role === 'assistant' && message.status === 'streaming'))
@@ -203,6 +208,7 @@ describe('DSH chat live rendering', () => {
     let finishRegenerate
     const model = {
       getSnapshot: () => catalog, subscribe: subscribe(catalogListeners),
+      getChatSnapshot: () => chatSnapshot, subscribeChat: subscribe(chatListeners),
       getDetailsSnapshot: () => details, subscribeDetails: subscribe(detailsListeners),
       getStreamSnapshot: () => stream, subscribeStream: subscribe(streamListeners),
       readModelSelection: async () => ({ provider: 'test-provider', model: 'test-model' }),
@@ -340,6 +346,9 @@ describe('DSH chat live rendering', () => {
       runtimeSessionId: 'session-stop-send', messages, hasMore: false, beforeSequence: null })
     let details = { id, status: 'ready', details: makeDetails([]), error: '' }
     let stream = { id, status: 'idle', content: '', process: [] }
+    let chatSnapshot = { details, stream }
+    const chatListeners = new Set()
+    const publishChat = () => { chatSnapshot = { details, stream }; for (const listener of chatListeners) listener() }
     const detailsListeners = new Set()
     const streamListeners = new Set()
     const subscribe = listeners => listener => { listeners.add(listener); return () => listeners.delete(listener) }
@@ -348,6 +357,7 @@ describe('DSH chat live rendering', () => {
     const model = {
       getSnapshot: () => catalog,
       subscribe: () => () => {},
+      getChatSnapshot: () => chatSnapshot, subscribeChat: subscribe(chatListeners),
       getDetailsSnapshot: () => details,
       subscribeDetails: subscribe(detailsListeners),
       getStreamSnapshot: () => stream,
@@ -378,6 +388,7 @@ describe('DSH chat live rendering', () => {
       await act(async () => {
         details = { ...details, details: makeDetails([makeMessage('user-1', 'user', '第一条', 1)]) }
         for (const listener of detailsListeners) listener()
+        publishChat()
       })
 
       await act(async () => chat.stopSend())
@@ -401,10 +412,12 @@ describe('DSH chat live rendering', () => {
           makeMessage('user-2', 'user', '第二条', 5),
         ]) }
         for (const listener of detailsListeners) listener()
+        publishChat()
         stream = { id, status: 'running', runId: 'session-stop-send', requestId: 'request-2',
           messageId: 'live-2', renderKey: 'dsh-reply-session-stop-send-2', dshTurn: 2,
           content: '', process: [], sequence: 1, error: '' }
         for (const listener of streamListeners) listener()
+        publishChat()
       })
       expect([...container.querySelectorAll('[data-role="user"]')].map(node => node.textContent))
         .toEqual(['第一条', '第二条'])
@@ -418,6 +431,7 @@ describe('DSH chat live rendering', () => {
         details = { ...details, details: finalDetails }
         stream = { ...stream, status: 'idle', messageId: '', content: '', process: [] }
         for (const listener of streamListeners) listener()
+        publishChat()
         requests[1].resolve({ details: finalDetails, cancelled: false })
         await secondRun
       })

@@ -6,12 +6,16 @@ const COMPACTION_GUARD = '你当前只执行内部历史压缩。只返回非空
 /**
  * Installs a request configuration on one Agent scope. The top-level turn
  * preparation freezes the global selection into the product snapshot; every
- * model step then reads that frozen value through DSH's official
+ * model step keeps the selected route and reads output controls through DSH's
  * agent/request waterfall. Persisted DSH request headers are history, not the
  * authority for a new turn.
  */
 export function installRequestConfig(agentCtx, snapshotRoot, sourceSessionId) {
   const reroutedCompactions = new WeakSet()
+  const disposeSelection = agentCtx.on('agent/prepare-step', ({ agent }) => {
+    const model = readSessionSnapshot(snapshotRoot, sourceSessionId).model
+    if (model?.provider && model?.model) agent.model.select(model)
+  })
   const disposeAssembly = agentCtx.on('system-prompt/assemble', async (_assembly, _context, next) => {
     const snapshot = readSessionSnapshot(snapshotRoot, sourceSessionId)
     const model = snapshot.model
@@ -31,9 +35,6 @@ export function installRequestConfig(agentCtx, snapshotRoot, sourceSessionId) {
     const model = structuredClone(snapshot.model)
     if (!model?.provider || !model?.model) return inherited
     const {
-      provider: _provider,
-      model: _model,
-      reasoningEffort: _reasoningEffort,
       temperature: _temperature,
       topP: _topP,
       maxTokens: _maxTokens,
@@ -41,9 +42,6 @@ export function installRequestConfig(agentCtx, snapshotRoot, sourceSessionId) {
     } = inherited
     return {
       ...rest,
-      provider: model.provider,
-      model: model.model,
-      ...(model.reasoningEffort === undefined ? {} : { reasoningEffort: model.reasoningEffort }),
       ...(model.temperature === undefined ? {} : { temperature: model.temperature }),
       ...(model.topP === undefined ? {} : { topP: model.topP }),
       ...(model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens })
@@ -64,6 +62,7 @@ export function installRequestConfig(agentCtx, snapshotRoot, sourceSessionId) {
     return agentCtx.llm.stream(projected)
   })
   return () => {
+    disposeSelection()
     disposeCompaction()
     disposeRequest()
     disposeAssembly()

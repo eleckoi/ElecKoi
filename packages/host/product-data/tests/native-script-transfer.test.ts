@@ -10,7 +10,7 @@ import { RegexRuleRepository } from '../src/domain/regexRules/RegexRuleRepositor
 import { AgentPresetRepository } from '../src/domain/agentPresets'
 import { ScriptLibraryRepository } from '../src/domain/scripts'
 import { createScriptLibraryRepository } from './helpers/scriptLibraryOwners'
-import { SqliteDatabase } from '../src/storage/sqlite/SqliteDatabase'
+import { SqliteDatabase } from '../../../../tests/helpers/SqliteDatabase'
 import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
 
 const fixtures: Array<{ database: SqliteDatabase; directory: string }> = []

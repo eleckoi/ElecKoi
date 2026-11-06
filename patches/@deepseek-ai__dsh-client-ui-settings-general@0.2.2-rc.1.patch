@@ -1,0 +1,57 @@
+diff --git a/lib/client.js b/lib/client.js
+index 205a37c6..913f9d53 100644
+--- a/lib/client.js
++++ b/lib/client.js
+@@ -636,10 +636,10 @@ window.__ModuleLoader__.load({
+ 		* @param props - composed slot props (contract/slots.ts).
+ 		* @returns the section element tree.
+ 		*/
+-		function GeneralSection({ renderSlot }) {
++		function GeneralSection({ renderSlot, itemId }) {
+ 			return (0, react_jsx_runtime.jsx)("div", {
+ 				className: GeneralSection_module_css_default.section,
+-				children: renderSlot("settings.general.item", {})
++				children: renderSlot("settings.general.item", {}, itemId === undefined ? undefined : { only: itemId })
+ 			});
+ 		}
+ 		//#endregion
+@@ -1388,6 +1388,15 @@ window.__ModuleLoader__.load({
+ 			const connection = ctx.get("connection");
+ 			const carrier = globalThis.dshDesktop;
+ 			const desktopUpdate = new DesktopUpdateSource(carrier?.protocolVersion === 1 ? carrier.updates : void 0);
++			ctx.slots.inject("sidebar.update", () => ctx.slots.register({
++				name: "sidebar.update", locale: NS,
++				inject: () => ({ hooks: { desktopUpdate: desktopUpdate.store } })
++			}, function SidebarUpdate({ useDesktopUpdate, t }) {
++				const view = useDesktopUpdate(value => value);
++				return (0, react_jsx_runtime.jsx)(DesktopUpdateIndicator, {
++					wide: true, hidden: false, t, view, onOpen: () => desktopUpdate.open()
++				});
++			}));
+ 			ctx.effect(() => () => {
+ 				desktopUpdate.dispose();
+ 			}, "ui-settings-general: desktop update carrier");
+@@ -1473,6 +1482,7 @@ window.__ModuleLoader__.load({
+ 					...shellHandle,
+ 					create: () => shellInstance
+ 				};
++				const embeddedSettings = ctx.slots.spec("settings.section") !== undefined;
+ 				const disposeCommand = ctx.shortcuts.register({
+ 					id: "settings.open",
+ 					label: () => t("shortcut.open"),
+@@ -1513,12 +1523,14 @@ window.__ModuleLoader__.load({
+ 						return {
+ 							status: "handled",
+ 							run: () => {
+-								if (modal === "settings") (0, _deepseek_ai_dsh_client_ui_primitives.closeTopModal)(document);
++								if (embeddedSettings) ctx.get("layout").selectPanel("settings");
++								else if (modal === "settings") (0, _deepseek_ai_dsh_client_ui_primitives.closeTopModal)(document);
+ 								else shellInstance.actions.open();
+ 							}
+ 						};
+ 					}
+ 				});
++				if (embeddedSettings) return disposeCommand;
+ 				const disposeSlot = ctx.slots.register({
+ 					name: "sidebar.settings",
+ 					locale: NS,

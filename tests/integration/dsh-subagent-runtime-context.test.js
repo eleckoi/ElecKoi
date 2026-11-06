@@ -1,3 +1,4 @@
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { runtimeContextsFor } from '../helpers/runtime-contexts.js'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -50,7 +51,7 @@ describe('DSH subagent runtime context inheritance', () => {
     const counts = new Map(), requests = []
     const rootId = SessionId('synthetic-roleplay-parent')
     try {
-      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry]) await ctx.plugin(plugin)
+      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry]) await ctx.plugin(plugin)
       const directory = mkdtempSync(join(tmpdir(), 'eleckoi-subagent-turn-'))
       directories.push(directory)
       await ctx.plugin(JsonlSessionPersistence, { root: directory, compression: 'none' })
@@ -98,6 +99,7 @@ describe('DSH subagent runtime context inheritance', () => {
         // Older Sessions can already be idle while a child is still running.
         await root.agent.whenIdle()
         const child = ctx.agents.list().find(agent => agent.session.header.origin === 'subagent')
+        await ctx.sessionPersistence.flush()
         expect(readDshSessionLog(directory, child.id)).toBeDefined()
         const snapshots = process.env.ELECKOI_SESSION_SNAPSHOT_ROOT
         mkdirSync(snapshots, { recursive: true })
@@ -135,7 +137,7 @@ describe('DSH subagent runtime context inheritance', () => {
         expect(sources).toEqual(expect.arrayContaining(['user', 'agent-message', 'subagent-settled']))
         const final = requests.filter(request => request.sessionId === rootId).at(-1)
         expect(JSON.stringify(final.messages)).toContain('Synthetic delivered result')
-        expect(JSON.stringify(final.messages)).toContain('Synthetic child closing result')
+        expect(JSON.stringify(final.messages)).toContain('its closing message is omitted')
       }
       expect(ctx.agents.list().filter(agent => agent.session.header.origin === 'subagent')).toHaveLength(0)
       await root.dispose()
@@ -254,6 +256,7 @@ describe('DSH subagent runtime context inheritance', () => {
 
   it('tracks handles through the concrete Cordis service for every caller context', async () => {
     const ctx = new Context()
+    await ctx.plugin(SessionProjectionRegistry)
     const registry = ctx.plugin(AgentRegistry)
     await registry
     const createHandle = vi.fn(async (_ownerCtx, options) => ({

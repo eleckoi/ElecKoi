@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { SqliteDatabase } from "../../packages/host/product-data/src/storage/sqlite/SqliteDatabase";
+import { SqliteDatabase } from "../helpers/SqliteDatabase";
 import { AgentPresetRepository } from "../../packages/host/product-data/src/domain/agentPresets";
 import { CharacterRepository } from "../../packages/host/product-data/src/domain/personas/CharacterRepository";
 import { ConversationRepository } from "../../packages/host/product-data/src/domain/conversations/ConversationRepository";

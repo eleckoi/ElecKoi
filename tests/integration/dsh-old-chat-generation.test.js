@@ -1,3 +1,5 @@
+import { queryFromInspection } from '../helpers/session-query.js'
+import { readSessionInspection } from '@eleckoi/dsh-product-api'
 import { runtimeContextsFor } from '../helpers/runtime-contexts.js'
 import RemoteAccessService from '@deepseek-ai/dsh-api-remote-access'
 import { ownerPeer } from '../support/owner-peer.js'
@@ -20,7 +22,7 @@ import { ConversationChangeFeed, ElecKoiConversationsApi, ElecKoiVariableProcess
 import { ElecKoiConversationLifecycle } from '../../packages/host/product-api/src/conversationLifecycle'
 import { TYPERT } from '@eleckoi/dsh-product-api/typert'
 import { RequestPreviewStore } from '../../packages/client/features/dsh-client-roleplay/src/host/request-preview.mjs'
-import { SqliteDatabase } from '../../packages/host/product-data/src/storage/sqlite/SqliteDatabase'
+import { SqliteDatabase } from '../helpers/SqliteDatabase'
 import { CharacterRepository } from '../../packages/host/product-data/src/domain/personas/CharacterRepository'
 import { ConversationRepository } from '../../packages/host/product-data/src/domain/conversations/ConversationRepository'
 import { emptyEntry } from '../../packages/host/product-data/src/domain/settingLibraries/settingLibraryNormalization'
@@ -127,7 +129,7 @@ async function fixture(withOpening = true, { failPreparation = false,
   const createAgent = current => {
     const scope = new Context()
     cleanups.push(() => scope.fiber.dispose())
-    return { id: SessionId(conversationId), ctx: scope, session: current, status: 'idle',
+    return { id: SessionId(conversationId), ctx: scope, session: current, status: 'idle', model: { select() {} },
       continueFromInput: id => {
         const input = current.deriveMessages().find(message => message.id === id)
         if (!input) throw new Error('Selected input is not retained')
@@ -162,7 +164,7 @@ async function fixture(withOpening = true, { failPreparation = false,
         maxMessageImageBytes: 4000000, maxImagePixels: 1000000, maxImageDimension: 1000, mediaTypes: ['image/png'] } })
       owner.provide('fileUploads', { registerAgentResolver: () => () => {} })
       owner.provide('fs', {})
-      owner.provide('sessionQuery', {})
+      owner.provide('sessionQuery', queryFromInspection(async id => { const log = readDshSessionLog(sessionRoot, id); if (!log) throw new Error('Missing synthetic Session'); return { meta: log.header, events: log.events, inheritedEventCount: log.inheritedEventCount } }))
       owner.provide('workspaceRegistry', {})
       owner.provide('sessionProjectionCache', { write: async () => {} })
       owner.provide('credentials', { resolve: async () => ({ value: 'synthetic-key', source: 'test' }) })
@@ -191,10 +193,11 @@ async function fixture(withOpening = true, { failPreparation = false,
   await ctx.plugin(TypertRegistry)
   await ctx.plugin(RemoteAccessService)
   await ctx.plugin(SessionController, {})
+  await ctx.plugin(TypertGatewayService)
   await ctx.plugin(sessionEditPlugin)
   let preparationCount = 0
   ctx.provide('eleckoiRuntimeContexts', runtimeContextsFor(conversationId))
-  cleanups.push(installRoleplaySessionRuntime(ctx, {
+  cleanups.push(await installRoleplaySessionRuntime(ctx, {
     registerForSession: async () => undefined,
     prepareForSession: async () => undefined,
     selectForSession: async () => {
@@ -202,7 +205,6 @@ async function fixture(withOpening = true, { failPreparation = false,
     }
   }))
   cleanups.push(ctx.typert.register(TYPERT))
-  await ctx.plugin(TypertGatewayService)
   const previews = new RequestPreviewStore()
   ctx.provide('eleckoiRequestPreviews', previews)
   cleanups.push(() => previews.close())
@@ -290,10 +292,10 @@ describe('old chat request preparation', { timeout: 30_000 }, () => {
     const snapshot = data.exportConversationArchive(f.conversationId)
     const forkId = 'synthetic-state-fork', forkSession = 'synthetic-fork-session'
     data.importConversationArchive(snapshot, 'synthetic-character', new Map([[f.conversationId, forkSession]]), forkId)
-    const sourceInspection = await f.ctx.sessionController.inspect(f.conversationId)
-    const originalInspect = f.ctx.sessionController.inspect.bind(f.ctx.sessionController)
-    f.ctx.sessionController.inspect = async id => id === forkSession
-      ? { ...sourceInspection, meta: { ...sourceInspection.meta, id: forkSession } } : originalInspect(id)
+    const sourceInspection = await readSessionInspection(f.ctx, f.conversationId)
+    const originalObserve = f.ctx.sessionQuery.observeSession.bind(f.ctx.sessionQuery)
+    f.ctx.sessionQuery.observeSession = async id => id === forkSession
+      ? queryFromInspection(async () => ({ ...sourceInspection, meta: { ...sourceInspection.meta, id: forkSession } })).observeSession(id) : originalObserve(id)
     await f.ctx.eleckoiRoleplaySessions.adoptFork(forkId, f.conversationId, 1, true)
     expect(JSON.parse(data.snapshotConversationRuntime(forkId).variableStateJson)).toEqual({ score: 2 })
     expect(JSON.parse(data.runtimeStateAt(forkId, forkSession, 1, 'before').variableStateJson)).toEqual({ score: 1 })

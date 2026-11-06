@@ -38,20 +38,20 @@
     }
   },
   "dependencies": {
-    "@deepseek-ai/dsh-agent-default-model": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-api-session-controller": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-chat": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-conversation": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-model-selection": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-tool": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-credentials": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-llm": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-scope": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-session": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-session-projection": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-session-projection-cache": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-spill-local": "0.2.1-rc.5",
-    "@deepseek-ai/dsh-tools": "0.2.1-rc.5",
+    "@deepseek-ai/dsh-agent-default-model": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-api-session-controller": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-chat": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-model-selection": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-tool": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-credentials": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-scope": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-session": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-session-projection": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-session-projection-cache": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-spill-local": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.1",
     "@eleckoi/dsh-product-api": "workspace:*",
     "@eleckoi/dsh-product-data": "workspace:*",
     "yaml": "2.9.0",
@@ -59,7 +59,7 @@
   },
   "description": "提供角色聊天界面，并将角色配置接入 DSH 对话运行。",
   "engines": {
-    "dsh": "0.2.1-rc.5"
+    "dsh": "0.2.2-rc.1"
   },
   "eleckoi": {
     "developerInterfaces": [

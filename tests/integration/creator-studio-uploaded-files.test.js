@@ -1,3 +1,6 @@
+import { readSessionInspection } from '@eleckoi/dsh-product-api'
+import TypertGateway from '@deepseek-ai/dsh-api-gateway'
+import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import WorkingDirectory from '@deepseek-ai/dsh-working-directory'
 import RemoteAccessService from '@deepseek-ai/dsh-api-remote-access'
 import { Context } from '@deepseek-ai/cordis'
@@ -6,7 +9,7 @@ import Loader, { Group } from '@deepseek-ai/cordis-plugin-loader'
 import AgentPresetRegistry from '@deepseek-ai/dsh-agent-preset-registry'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
+import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SessionQuery from '@deepseek-ai/dsh-session-query-sqlite'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -66,7 +69,7 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
   ctx.provide('agentDefaultModel', { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) })
   ctx.provide('workspaceRegistry', { pinnedSessionIds: [], archivedSessionIds: [] })
   ctx.provide('connection', { fetch: { register: () => () => {} } })
-  for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, AgentRegistry, Commands, TypertRegistry, TokenMeter]) await ctx.plugin(plugin)
+  for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry, Commands, TypertRegistry, TokenMeter]) await ctx.plugin(plugin)
   await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' })
   await ctx.plugin(SessionQuery, { path: join(root, 'query.sqlite') })
   await ctx.plugin(LocalAttachmentStore, { dshHome: root })
@@ -79,11 +82,12 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
   await ctx.plugin(productDataPlugin)
   ctx.provide('eleckoiCharacterConfigurationChanges', new CharacterConfigurationChangeFeed())
   ctx.provide('eleckoiProductRecordChanges', new ProductRecordChangeFeed())
-  ctx.sessionProjections.register(creatorStudioProjection)
+  await ctx.sessionProjections.register(creatorStudioProjection)
   await ctx.plugin(Loader)
   ctx.loader.builtins.group = Group
   await ctx.plugin(AgentPresetRegistry, { default: 'synthetic-unused-preset' })
   await ctx.agentPresets.register({ id: 'cordis', name: 'Synthetic baseline', plugins: [] })
+  await ctx.plugin(TypertGateway)
   await ctx.plugin(RemoteAccessService)
   await ctx.plugin(SessionController, { nativeOpen: false })
   const expectedContent = '合成上传内容：synthetic-file-marker'
@@ -118,7 +122,8 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
       materializeAgentPreset(join(root, 'presets', 'creator-studio'), template, { ...preset, versionId: preset.activeVersionId },
         { disabledGroupIds: preset.toolGroups.filter(group => !group.included || !group.enabled).map(group => group.id) }, {},
         { id, plugins: [{ id: 'creator-studio-agent', name: '@eleckoi/dsh-client-creator-studio/agent', config: { presetId: preset.id, creatorTools: true } }] })
-      const session = ctx.sessions.prepare(SessionId(`synthetic-legacy-studio-${index}`), { meta: { cwd: root, agentPreset: id } })
+      const prepared = ctx.sessions.prepare(SessionId(`synthetic-legacy-studio-${index}`), { meta: { cwd: root, agentPreset: id } })
+      const session = Session.create(prepared.id, [], prepared.header)
       session.append(CREATOR_STUDIO_EVENT, { presetId: preset.id, characterId: '' }, { ignorable: true })
       session.append('turn/start', { turn: 1 })
       session.append('step/start', { turn: 1, step: 1 })
@@ -133,7 +138,7 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
     }
   }
   const runtimePlugin = { name: 'synthetic-studio-file-runtime',
-    inject: ['agents', 'agentPresets', 'agentDefaultModel', 'llm', 'settings', 'sessionController', 'sessionPersistence', 'sessionProjections', 'eleckoiProductData', 'workspaceRegistry'],
+    inject: ['agents', 'agentPresets', 'agentDefaultModel', 'llm', 'settings', 'sessionController', 'sessionQuery', 'sessionPersistence', 'sessionProjections', 'eleckoiProductData', 'workspaceRegistry'],
     apply: installCreatorStudioRuntime }
   await ctx.plugin(runtimePlugin)
   const service = ctx.eleckoiCreatorStudioRuntime
@@ -470,7 +475,7 @@ describe('Creator studio uploaded-file composition', { timeout: 30_000 }, () => 
   it('restores the required reader when an existing generated studio preset omitted it', async () => {
     const f = await fixture()
     const { agent } = await f.sendFile(f.opened.sessionId)
-    const presetId = (await f.ctx.sessionController.inspect(agent.id)).meta.agentPreset
+    const presetId = (await readSessionInspection(f.ctx, agent.id)).meta.agentPreset
     const path = join(f.root, 'presets', 'creator-studio', presetId, 'preset.json')
     const definition = JSON.parse(readFileSync(path, 'utf8'))
     definition.plugins = definition.plugins.filter(plugin => plugin.id !== 'uploaded-file-tools')

@@ -168,7 +168,7 @@ describe('WebView boot API compatibility', () => {
     await ctx.plugin(WebServer, { host: '127.0.0.1', port: 0 })
     await installWebClientAssets(ctx, directory)
     const html = '<!doctype html><html><head><script>globalThis.headDeferred = Promise.withResolvers()</script></head><body><script>__DSH_BOOT_READY__.promise.then(() => { const signal = AbortSignal.any([]); signal.throwIfAborted(); headDeferred.resolve(signal); globalThis.clientStarted = true })</script></body></html>'
-    const rows = ctx.webServer.collectIndexInjections()
+    const rows = ctx.webServer.collectIndexInjections(await import('../../../tests/support/owner-peer.js').then(({ ownerPeer }) => ownerPeer(ctx)))
     const withoutCompatibility = renderIndexInjections(html, rows.filter(row => row.kind !== 'script'))
     const negative = oldWebView(withoutCompatibility, 'dangerously')
     await new Promise(resolve => setTimeout(resolve, 0))
