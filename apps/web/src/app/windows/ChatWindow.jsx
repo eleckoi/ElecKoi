@@ -3,6 +3,8 @@ import { ChatBackgroundModal, ChatWallpaperLayer, HistoryModal } from "../../mod
 import { RoleplayPanel } from "./RoleplayPanel.jsx";
 import { resolveChatWallpaper } from "../../modules/appearance/index.js";
 import { AppToast } from "../../ui/ui/AppToast.jsx";
+import { BugReportDialog } from "./shell/components/BugReportDialog.jsx";
+import { useReportProblem } from "./shell/hooks/useReportProblem.js";
 import { showCurrentWindow } from "../services/windowControls.js";
 import { useChatClient } from "../hooks/useChatClient.js";
 import { useWindowAppearance } from "../hooks/useWindowAppearance.js";
@@ -19,6 +21,8 @@ export function ChatWindow({ conversations, characters, characterConfiguration, 
   const chat = useChatClient({ conversations, characters, models, persona });
   const appearance = useWindowAppearance({ notify: chat.notify });
   const [chatBackgroundOpen, setChatBackgroundOpen] = useState(false);
+  // 独立聊天窗口里的错误同样要能一键报告（ADR 0042 决定 17）：报告对话框挂在这个窗口里。
+  const reportProblem = useReportProblem({ onDismissNotice: chat.dismissNotice });
 
   useEffect(() => {
     showCurrentWindow().catch(bestEffort);
@@ -126,7 +130,17 @@ export function ChatWindow({ conversations, characters, characterConfiguration, 
         onSaveNewCharacterBackground={appearance.saveNewCharacterBackground}
         onNotify={chat.notify}
       />
-      <AppToast notice={chat.notice} onDismiss={chat.dismissNotice} />
+      <AppToast
+        notice={chat.notice}
+        onDismiss={chat.dismissNotice}
+        onReportProblem={reportProblem.available ? reportProblem.openReport : undefined}
+      />
+      <BugReportDialog
+        open={reportProblem.dialogProps.open}
+        onClose={reportProblem.dialogProps.onClose}
+        initialNotes={reportProblem.dialogProps.initialNotes}
+        onNotify={chat.notify}
+      />
     </main>
   </MainPageContext.Provider>;
 }

@@ -12,6 +12,8 @@ import { ChatBackgroundModal, HistoryModal } from '../modules/chat/index.js';
 import { AppUpdateController, useAppUpdates } from '../modules/updates/index.js';
 import { MobileDialog, MobileHeader } from './MobileChrome.jsx';
 import { SidebarContent } from '../app/windows/shell/components/SidebarContent.jsx';
+import { BugReportDialog } from '../app/windows/shell/components/BugReportDialog.jsx';
+import { useReportProblem } from '../app/windows/shell/hooks/useReportProblem.js';
 import { useMobileDrawerMotion } from './useMobileDrawerMotion.js';
 import { MobileHomeSearch } from './MobileHomeSearch.jsx';
 import { usePageFade } from '../ui/hooks/usePageFade.js';
@@ -40,6 +42,9 @@ export function MobileWindow(props) {
   const [pendingConversation, setPendingConversation] = useState(null);
   const conversationBusyRef = useRef(false);
   const [failure, setFailure] = useState(null);
+  // 安卓没有独立窗口，错误对话框出现在任意页面上，所以报告对话框挂在窗口这一层（ADR 0042 决定 17）。
+  // 社区页自己那份对话框保留不动：它只属于那一个页面。
+  const reportProblem = useReportProblem({ onDismissNotice: chat.dismissNotice });
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
   const drawerState = useSyncExternalStore(navigation.sidebar.subscribe, navigation.sidebar.getSnapshot);
   const { surface: drawerSurface, moving: drawerMoving, present: drawerPresent } = useMobileDrawerMotion(drawerState.shown, viewportWidth);
@@ -256,7 +261,17 @@ export function MobileWindow(props) {
         </aside>
         <div className="mobile-drawer-scrim" aria-hidden="true" />
       </div>}
-      <AppToast notice={chat.notice} onDismiss={chat.dismissNotice} />
+      <AppToast
+        notice={chat.notice}
+        onDismiss={chat.dismissNotice}
+        onReportProblem={reportProblem.available ? reportProblem.openReport : undefined}
+      />
+      <BugReportDialog
+        open={reportProblem.dialogProps.open}
+        onClose={reportProblem.dialogProps.onClose}
+        initialNotes={reportProblem.dialogProps.initialNotes}
+        onNotify={chat.notify}
+      />
       <AppUpdateController updates={appUpdates} />
       <HistoryModal open={chat.historyOpen} sessions={chat.sessions} sessionId={chat.sessionId} chatCharacter={chat.chatCharacter} conversationModel={props.conversations}
         onClose={chat.closeHistory} onLoadChat={chat.loadChat} onDeleteChat={chat.removeHistoryChat} onHistoryPolicyChange={() => chat.refreshSessionsOnly({ keepSection: true })} />

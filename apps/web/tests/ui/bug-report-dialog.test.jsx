@@ -407,6 +407,36 @@ describe("会话内降级跨「关掉再打开」", () => {
   });
 });
 
+describe("从「运行错误」进来时带上那个码", () => {
+  it("补充说明预填错误码，首批预览就带着它（决定 17）", async () => {
+    const { bugReport } = installBridge();
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await act(async () => {
+      root.render(<BugReportDialog
+        open
+        onClose={() => {}}
+        onNotify={() => {}}
+        initialNotes="看到「运行错误」：eleckoi/io/failed"
+      />);
+    });
+    await act(async () => {});
+
+    // 输入框里看得见的备注，全文预览（也就是要发出去的东西）里也得有。
+    expect(document.querySelector(".bug-report-notes textarea").value).toBe("看到「运行错误」：eleckoi/io/failed");
+    expect(bugReport.preview.mock.calls[0][0].notes).toBe("看到「运行错误」：eleckoi/io/failed");
+  });
+
+  it("没有初值时补充说明是空的，预览不带 notes（社区入口那条路）", async () => {
+    const { bugReport } = installBridge();
+    await mountDialog();
+
+    expect(document.querySelector(".bug-report-notes textarea").value).toBe("");
+    expect(bugReport.preview.mock.calls[0][0].notes).toBeUndefined();
+  });
+});
+
 describe("崩溃证据默认带上", () => {
   it("上次异常结束：默认勾上日志尾并写明是默认带的", async () => {
     const { bugReport } = installBridge({ report: buildReport({ ended: false }) });
