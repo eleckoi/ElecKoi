@@ -27,6 +27,9 @@ export const REDACTED_USER_NAME = '<user>'
 /** 邮箱占位符。 */
 export const REDACTED_EMAIL = '<email>'
 
+/** 电话号码占位符。 */
+export const REDACTED_PHONE = '<phone>'
+
 /** 凭据占位符。 */
 export const REDACTED_SECRET = '<redacted>'
 
@@ -52,6 +55,9 @@ const ANDROID_SANDBOX_PATTERN = /(?<![\w.-])\/data\/(?:data|user\/\d+)\/[A-Za-z0
 /** 邮箱。 */
 const EMAIL_PATTERN = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
 
+/** 大陆手机号，包含常见国家码和分段写法；不截取更长数字或字母标识中的片段。 */
+const MAINLAND_MOBILE_PATTERN = /(?<![A-Za-z0-9_])(?:\+?86[ -]?)?1[3-9]\d[ -]?\d{4}[ -]?\d{4}(?![A-Za-z0-9_])/g
+
 /** `token=…` / `api_key: "…"` / `"token":"…"` / `Authorization: Bearer …` 这类参数。键名后面可能还有
  * 一个 JSON 的闭合引号，所以 `[:=]` 前允许一个可选的引号。 */
 const SECRET_PARAM_PATTERN =
@@ -59,6 +65,12 @@ const SECRET_PARAM_PATTERN =
 
 /** JSON 详情已将键和值分开；识别凭据键时不能依赖文本里的 `key=value` 形态。 */
 const SECRET_DETAIL_KEY_PATTERN = /^(?:api[_-]?key|access[_-]?token|refresh[_-]?token|auth[_-]?token|token|secret|password|passwd|authorization)$/i
+
+/** 明确的电话字段不猜号码地区，也处理以数字存储的电话。 */
+const PHONE_DETAIL_KEY_PATTERN = /^(?:phone|phone[_-]?number|mobile|mobile[_-]?number|tel|telephone|手机号|手机号码|联系电话)$/i
+
+/** 原始日志尾中的电话键值同样脱敏，避免只处理解析后的失败详情。 */
+const PHONE_PARAM_PATTERN = /((?<![A-Za-z0-9_])(?:phone|phone[_-]?number|mobile|mobile[_-]?number|tel|telephone|手机号|手机号码|联系电话)\s*["']?\s*[:=]\s*)(["']?)(?:\+|\()?\d[\d ().-]*\d/gi
 
 /** 用户名短于这个长度就不做全局替换：单字符会误伤正文。 */
 const MIN_USER_NAME_LENGTH = 2
@@ -86,6 +98,8 @@ export function redactReportText(text: string, options: BugReportRedactionOption
     .replace(POSIX_HOME_PATTERN, REDACTED_HOME)
     .replace(ANDROID_SANDBOX_PATTERN, REDACTED_USER_DATA)
     .replace(EMAIL_PATTERN, REDACTED_EMAIL)
+    .replace(PHONE_PARAM_PATTERN, (_match, key: string, quote: string) => `${key}${quote}${REDACTED_PHONE}`)
+    .replace(MAINLAND_MOBILE_PATTERN, REDACTED_PHONE)
     .replace(SECRET_PARAM_PATTERN, (_match, key: string, quote: string, scheme: string | undefined) => {
       return `${key}${quote}${scheme ?? ''}${REDACTED_SECRET}`
     })
@@ -99,7 +113,7 @@ export function redactReportText(text: string, options: BugReportRedactionOption
 /**
  * 整份报告脱敏：失败说明、详情里的字符串、日志尾、备注都过一遍。
  *
- * `code` 与 `details` 非字符串的值原样保留——码是枚举，数字/布尔没有身份信息。
+ * `code` 与普通数字/布尔原样保留；明确的电话字段即使存成数字也脱敏。
  *
  * @param report - 报告。
  * @param options - 本机路径与用户名。
@@ -139,7 +153,9 @@ function redactDetails(
   return Object.fromEntries(Object.entries(details).map(([key, value]) => [key,
     typeof value === 'string' && SECRET_DETAIL_KEY_PATTERN.test(key)
       ? REDACTED_SECRET
-      : redactDetailValue(value, options)
+      : (typeof value === 'string' || typeof value === 'number') && PHONE_DETAIL_KEY_PATTERN.test(key)
+        ? REDACTED_PHONE
+        : redactDetailValue(value, options)
   ]))
 }
 

@@ -46,6 +46,7 @@ import type { BugReportRelayConfig } from '../src/contracts/bugReport/delivery'
 import {
   REDACTED_EMAIL,
   REDACTED_HOME,
+  REDACTED_PHONE,
   REDACTED_SECRET,
   REDACTED_USER_DATA,
   REDACTED_USER_NAME,
@@ -214,6 +215,29 @@ describe('脱敏', () => {
     expect(redactReportText('camera 坏了，cam 的目录没了', { userName: 'cam' })).toBe(
       `camera 坏了，${REDACTED_USER_NAME} 的目录没了`
     )
+  })
+
+  it('大陆手机号及常见分段写法脱敏，不截取时间戳或标识中的数字', () => {
+    for (const phone of ['13800138000', '+8613800138000', '+86 138 0013 8000', '138-0013-8000']) {
+      expect(redactReportText(`联系${phone}，请回电`)).toBe(`联系${REDACTED_PHONE}，请回电`)
+    }
+    const diagnostic = 'timestamp=1380013800000 model=abc13800138000 build=13800138000beta count=12345'
+    expect(redactReportText(diagnostic)).toBe(diagnostic)
+  })
+
+  it('电话在失败详情、日志及补充说明中都脱敏，明确电话字段也覆盖数字和其他地区', () => {
+    const details = { contacts: [{ phone: 13800138000, mobile_number: '+1 (202) 555-0123' }], count: 13800138000 }
+    const report = buildBugReport({
+      lines: [JSON.stringify({ phase: 'failure', code: 'eleckoi/io/failed', msg: '联系13800138000', details })],
+      environment: BASE_REPORT.environment, session: BASE_REPORT.session, includeLogTail: true,
+      notes: '回电 +86 138 0013 8000'
+    })
+    expect(report.failures[0]?.message).toBe(`联系${REDACTED_PHONE}`)
+    expect(report.failures[0]?.details).toEqual({ contacts: [{ phone: REDACTED_PHONE, mobile_number: REDACTED_PHONE }], count: 13800138000 })
+    expect(report.logTail).not.toContain('联系13800138000')
+    expect(report.logTail).not.toContain('+1 (202) 555-0123')
+    expect(report.notes).toBe(`回电 ${REDACTED_PHONE}`)
+    expect(details.contacts[0]?.phone).toBe(13800138000)
   })
 
   it('没给用户名时从家目录末段推导', () => {

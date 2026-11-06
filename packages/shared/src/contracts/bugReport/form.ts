@@ -53,7 +53,7 @@ export type BugReportFormDegradation = 'log-tail-truncated' | 'summarized' | 'ha
 /**
  * 表单题目名映射。题目名是发布契约：维护者改题目名 = 客户端必须跟着发版。
  *
- * 每个键是一个**角色**，值是那个角色在表单里的**题目名**（或字段 id）——正文与元信息等文本一律由
+ * 每个键是一个**角色**，值是那个角色在表单里的**题目名**——正文与元信息等文本一律由
  * 报告重新拼，不从配置读，所以同一份配置能复用于每份报告。
  */
 export interface BugReportFormFields {

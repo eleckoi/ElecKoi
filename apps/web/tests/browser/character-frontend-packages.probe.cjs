@@ -24,6 +24,8 @@ app.whenReady().then(async()=>{
           tabHeight:r(tabs).height,importHeight:r(root.querySelector('[aria-label="导入前端包"]')).height,
           indicatorDrift:Math.abs(indicator.y+indicator.height/2-tab.y-tab.height/2),labelDrift:Math.abs(label.y+label.height/2-tab.y-tab.height/2),
           divider:parseFloat(getComputedStyle(bar).borderBottomWidth)>0,join:Math.abs(body.top-r(bar).bottom)<1,rendered:root.querySelectorAll('.cf-directory-row').length,
+          toolbarIcons:[...bar.querySelectorAll('svg[data-icon]')].map(icon=>{const bounds=icon.getBBox();return{id:icon.dataset.icon,painted:bounds.width>0&&bounds.height>0,resolved:!!root.getElementById(icon.dataset.icon)};}),
+          sprites:root.querySelectorAll('svg[data-eleckoi-shadow-icon-sprite]').length,
           copy:!!root.querySelector('[aria-label="复制"],textarea,[contenteditable=true]'),redundant:/只读|使用中/.test(root.textContent)};
       })()`));
       if(process.env.ELECKOI_PACKAGE_SCREENSHOT&&width===1440&&active){
@@ -31,6 +33,7 @@ app.whenReady().then(async()=>{
         const bounds=await run(`(()=>{const r=packageSeat.querySelector('.cf-tabs').getBoundingClientRect();return{x:Math.floor(r.x)-6,y:Math.floor(r.y)-6,width:Math.ceil(innerWidth-r.x)-2,height:Math.ceil(r.height)+12}})()`);
         writeFileSync(process.env.ELECKOI_PACKAGE_SCREENSHOT.replace('.png','-toolbar-'+theme+'.png'),(await win.webContents.capturePage(bounds)).toPNG());
       }
+      if(layouts.at(-1).toolbarIcons.some(icon=>!icon.resolved||!icon.painted))throw Error('Toolbar icons are not rendered: '+JSON.stringify(layouts.at(-1)));
     }
     await run(`packageSeat.querySelector('.cf-directory').scrollTop=100000`);
     await wait(`!!packageSeat.querySelector('[title="scripts/item-1199.js"]')`);
@@ -42,9 +45,20 @@ app.whenReady().then(async()=>{
     await wait(`getComputedStyle(packageSeat.querySelector('.cf-directory')).display!=='none'`);
     await run(`packageSeat.querySelector('[aria-label="前端包更多操作"]').click()`);await wait(`!!document.querySelector('[role=menu]')`);
     const menu=await run(`document.querySelector('[role=menu]').getBoundingClientRect().right<=innerWidth`);
+    const originalIconHeight=await run(`packageSeat.querySelector('[aria-label="前端包更多操作"] svg').getBBox().height`);
+    const themedIcon=await run(`(()=>{const symbol=document.getElementById('dsw-icon-ellipsis-outline-regular');const shape=document.createElementNS('http://www.w3.org/2000/svg','rect');shape.setAttribute('x','2');shape.setAttribute('y','2');shape.setAttribute('width','12');shape.setAttribute('height','12');symbol.replaceChildren(shape);return symbol.outerHTML;})()`);
+    await wait(`packageSeat.getElementById('dsw-icon-ellipsis-outline-regular')?.outerHTML===${JSON.stringify(themedIcon)}`);
+    await paint();
+    const themeUpdate=await run(`(()=>{const box=packageSeat.querySelector('[aria-label="前端包更多操作"] svg').getBBox();return box.width>0&&box.height>${originalIconHeight};})()`);
+    await run(`window.previousPackageSeat=packageSeat;const sprite=document.querySelector('[data-dsh-icon-sprite]');window.replacementSprite=sprite.cloneNode(true);sprite.remove()`);
+    await wait(`!packageSeat.querySelector('svg[data-eleckoi-shadow-icon-sprite] symbol')`);
+    await run(`document.body.prepend(window.replacementSprite)`);
+    await wait(`packageSeat.getElementById('dsw-icon-ellipsis-outline-regular')?.outerHTML===${JSON.stringify(themedIcon)}`);
+    const sourceRemount=true;
     await run(`window.renderPackages(false,true)`);await paint();
     const emptyImports=await run(`packageSeat.querySelectorAll('[aria-label="导入前端包"]').length`);
+    const spriteCleanup=await run(`!window.previousPackageSeat.querySelector('svg[data-eleckoi-shadow-icon-sprite]')`);
     if(errors.length)throw Error(errors.join('\n'));
-    writeFileSync(report,JSON.stringify({layouts,lastFile,mobileReading,menu,emptyImports}));win.destroy();app.exit(0);
+    writeFileSync(report,JSON.stringify({layouts,lastFile,mobileReading,menu,emptyImports,themeUpdate,sourceRemount,spriteCleanup}));win.destroy();app.exit(0);
   }catch(error){console.error(error);win.destroy();app.exit(1);}
 });

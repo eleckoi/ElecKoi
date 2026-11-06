@@ -282,10 +282,10 @@ describe('仓库里那份内置配置', () => {
 
     expect(config.form?.shareUrl).toContain('/share/base/form/')
     expect(config.form?.fields).toEqual({
-      body: 'report_body',
-      meta: 'report_meta',
-      code: 'report_code',
-      file: 'report_file'
+      body: '报告内容',
+      meta: '版本与设备信息',
+      code: '错误代码',
+      file: '附件（选填）'
     })
   })
 })

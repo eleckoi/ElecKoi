@@ -417,7 +417,7 @@ function configureWindowsAppDetails(appPaths: Context['appPaths'], window: Brows
 }
 
 function initialWindowSize(): { width: number; height: number } {
-  return fitWindowSize(1760, 1090)
+  return { width: 1480, height: 970 }
 }
 
 function initialChildWindowSize(payload?: unknown): { width: number; height: number } {

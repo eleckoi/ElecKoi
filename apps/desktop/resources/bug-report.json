@@ -1,11 +1,11 @@
 {
   "form": {
-    "shareUrl": "https://axdf0mvt1ng.feishu.cn/share/base/form/shrcnS4SMQzG3Bs4ReqtlR1Xcud",
+    "shareUrl": "https://icnhqa31jmpu.feishu.cn/share/base/form/shrcnTVcCOAWeJGqYv7mBaWCgrg",
     "fields": {
-      "body": "report_body",
-      "meta": "report_meta",
-      "code": "report_code",
-      "file": "report_file"
+      "body": "报告内容",
+      "meta": "版本与设备信息",
+      "code": "错误代码",
+      "file": "附件（选填）"
     }
   },
   "mailbox": "",
@@ -13,7 +13,7 @@
   "subscribeUrl": "",
   "repository": "",
   "formHosts": [
-    "feishu.cn"
+    "icnhqa31jmpu.feishu.cn"
   ],
   "configUrl": ""
 }

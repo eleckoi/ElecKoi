@@ -28,13 +28,13 @@ it('slides sidebar tracks natively and keeps interruption, resizing and reduced 
       expect(mid.curve).toBe('cubic-bezier(0.4, 0, 0.2, 1)');
       expect(mid.animations).toEqual([{property:'grid-template-columns',duration:300}]);
       expect(mid.width).toBeGreaterThan(0);
-      expect(mid.width).toBeLessThan(328);
-      expect(mid.contentWidth).toBeCloseTo(328,1);
+      expect(mid.width).toBeLessThan(280);
+      expect(mid.contentWidth).toBeCloseTo(280,1);
     }
     expect(report.reversed.width).toBeGreaterThan(report.collapseMid.width);
-    expect(report.reversed.width).toBeLessThan(328);
+    expect(report.reversed.width).toBeLessThan(280);
     for (const end of [report.expanded,report.reopened]) {
-      expect(end.width).toBeCloseTo(328,1);
+      expect(end.width).toBeCloseTo(280,1);
       expect(end.animating).toBe(false);
     }
     expect(report.collapsed.width).toBe(0);

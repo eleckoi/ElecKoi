@@ -33,8 +33,12 @@ it('keeps native controls aligned, separates file panes, and virtualizes large p
       expect(row.divider,detail).toBe(true);expect(row.join,detail).toBe(true);
       expect(row.rendered,detail).toBeLessThan(80);expect(row.rendered,detail).toBeGreaterThan(0);
       expect(row.copy,detail).toBe(false);expect(row.redundant,detail).toBe(false);
+      expect(row.sprites,detail).toBe(1);
+      expect(row.toolbarIcons.map(icon=>icon.id),detail).toEqual(expect.arrayContaining(['dsw-icon-browse-outline-regular','dsw-icon-folder-close-regular','dsw-icon-ellipsis-outline-regular']));
+      expect(row.toolbarIcons.every(icon=>icon.resolved&&icon.painted),detail).toBe(true);
     }
     expect(result.mobileReading).toBe(true);expect(result.lastFile).toBe(true);expect(result.menu).toBe(true);expect(result.emptyImports).toBe(1);
+    expect(result.themeUpdate).toBe(true);expect(result.sourceRemount).toBe(true);expect(result.spriteCleanup).toBe(true);
   }finally{
     const path=relative(tmpdir(),directory);if(!path||path.startsWith('..')||isAbsolute(path))throw Error('Unexpected fixture path');
     await rm(directory,{recursive:true,force:true,maxRetries:3});

@@ -3,7 +3,25 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { CharacterFrontendPanel } from '../../src/modules/authorFrontend/components/CharacterFrontendPanel.jsx';
 import { NativeFrontendProvider } from '../../src/modules/authorFrontend/hooks/NativeFrontendContext.jsx';
+import { ICON_SYMBOLS } from '@deepseek-ai/dsh-client-ui-primitives';
 import '../../src/ui/styles/dsh-editor-controls.css';
+
+const svgNamespace = 'http://www.w3.org/2000/svg';
+const sprite = document.createElementNS(svgNamespace, 'svg');
+sprite.setAttribute('data-dsh-icon-sprite', '');
+sprite.setAttribute('aria-hidden', 'true');
+sprite.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
+for (const [id, markup] of Object.entries(ICON_SYMBOLS)) {
+  const artwork = new DOMParser().parseFromString(markup, 'image/svg+xml').documentElement;
+  const symbol = document.createElementNS(svgNamespace, 'symbol');
+  for (const { name, value } of artwork.attributes) {
+    if (!['width', 'height', 'xmlns', 'class', 'aria-hidden'].includes(name)) symbol.setAttribute(name, value);
+  }
+  symbol.id = id;
+  symbol.append(...[...artwork.childNodes].map(node => document.importNode(node, true)));
+  sprite.append(symbol);
+}
+document.body.prepend(sprite);
 
 const characterId = 'synthetic-layout-character';
 const source = '<!doctype html><meta name="eleckoi-author-api" content="0.1.0"><style>body{margin:0}</style><p>Synthetic package preview</p>';
