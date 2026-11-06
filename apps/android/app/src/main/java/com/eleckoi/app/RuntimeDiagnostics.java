@@ -13,7 +13,7 @@ final class RuntimeDiagnostics {
     static final int SEGMENT_BYTES = 1_000_000, SEGMENTS = 4, REPORT_BYTES = 500_000;
     private static final int MAX_PENDING = 128, MAX_PENDING_BYTES = 256_000;
     private static final Set<String> TEXT = new HashSet<>(Arrays.asList("kind", "stage", "id", "command", "name", "message", "stack", "source", "level", "phase", "variant", "version", "browser", "model", "manufacturer", "system", "abi"));
-    private static final Set<String> NUMBERS = new HashSet<>(Arrays.asList("line", "column", "elapsedMs", "delayMs", "pageMs", "pending", "heapBytes", "pssKb", "availableBytes", "versionCode", "sdk", "pid", "hostPid", "occurrences"));
+    private static final Set<String> NUMBERS = new HashSet<>(Arrays.asList("line", "column", "elapsedMs", "delayMs", "pageMs", "pending", "heapBytes", "heapMaxBytes", "pssKb", "availableBytes", "versionCode", "sdk", "pid", "hostPid", "occurrences"));
     private static final Set<String> FLAGS = new HashSet<>(Arrays.asList("visible", "connected", "success", "lowMemory"));
     private static final Pattern SECRET = Pattern.compile("(?i)(authorization|api[_-]?key|access[_-]?token|refresh[_-]?token|password|cookie|secret)([\\\"']?\\s*[:=]\\s*[\\\"']?)[^\\s,;\\\"']+");
     private static final Pattern BEARER = Pattern.compile("(?i)\\bBearer\\s+[A-Za-z0-9._~+/-]+=*");
@@ -115,6 +115,26 @@ final class RuntimeDiagnostics {
         ByteArrayOutputStream output = new ByteArrayOutputStream(); output.write(header.getBytes(StandardCharsets.UTF_8));
         for (byte[] chunk : chunks) output.write(chunk);
         return output.toString(StandardCharsets.UTF_8.name());
+    }
+    /** 最近若干行事件（旧到新，已过白名单与 clean）。给 Bug 报告读，不改存储。 */
+    synchronized List<String> recent(int limit) {
+        flush();
+        int maximum = Math.max(1, Math.min(limit, 2000));
+        List<String> lines = new ArrayList<>();
+        int budget = REPORT_BYTES;
+        for (int index = SEGMENTS - 1; index >= 0 && budget > 0; index--) {
+            File path = segment(index); if (!path.isFile()) continue;
+            try {
+                byte[] bytes = Files.readAllBytes(path.toPath());
+                boolean partial = bytes.length > budget;
+                if (partial) bytes = Arrays.copyOfRange(bytes, bytes.length - budget, bytes.length);
+                budget -= bytes.length;
+                String text = new String(bytes, StandardCharsets.UTF_8);
+                if (partial) { int firstBreak = text.indexOf('\n'); text = firstBreak < 0 ? "" : text.substring(firstBreak + 1); }
+                for (String line : text.split("\n")) if (!line.trim().isEmpty()) lines.add(line);
+            } catch (IOException failure) { storageError = clean(failure.toString(), 512); }
+        }
+        return lines.size() <= maximum ? lines : new ArrayList<>(lines.subList(lines.size() - maximum, lines.size()));
     }
     File export(JSONObject environment) throws IOException {
         String text = report(environment, REPORT_BYTES);

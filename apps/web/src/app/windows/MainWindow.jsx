@@ -7,8 +7,11 @@ import { AppToast } from "../../ui/ui/AppToast.jsx";
 import { FailureAlert } from "../../ui/ui/FailureAlert.jsx";
 import { subscribeAppFailure } from "../../utils/appFailureOutlet.js";
 import { resolveFailure } from "../../utils/failureText.js";
+import { bestEffort } from "../../utils/swallowedFailure.js";
 import { SidebarContent } from "./shell/components/SidebarContent.jsx";
 import { CommunityDialog } from "./shell/components/CommunityDialog.jsx";
+import { BugReportDialog } from "./shell/components/BugReportDialog.jsx";
+import { bugReportBridge, isBugReportAvailable } from "./shell/components/bugReportBridge.js";
 import { PluginCenterSurface, PluginListPanel } from "./shell/components/PluginCenter.jsx";
 import { SidePanelResizeHandle } from "./shell/components/SidePanelResizeHandle.jsx";
 import { TitleBar, WindowControls } from "./shell/components/TitleBar.jsx";
@@ -20,6 +23,12 @@ import { MainPageContext } from "./MainPageContext.jsx";
 
 const emptySidebarSnapshot = { shown: false };
 const emptySidebar = { subscribe: () => () => {}, getSnapshot: () => emptySidebarSnapshot };
+
+/**
+ * 「上次没送出去的报告」只提示一次（ADR 0042 决定 14：不偷偷重发，也不反复打扰）。
+ * 提示按份数说话；模块级标记：窗口重新挂载也算同一次运行。
+ */
+let bugReportDraftPrompted = false;
 
 class MainPageErrorBoundary extends Component {
   state = { error: null };
@@ -57,6 +66,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
   });
   const [chatBackgroundOpen, setChatBackgroundOpen] = useState(false);
   const [communityOpen, setCommunityOpen] = useState(false);
+  const [bugReportOpen, setBugReportOpen] = useState(false);
   const [settingsPage, setSettingsPage] = useState("chat");
   const [presetRequestedTab, setPresetRequestedTab] = useState("");
   const presetNavigationGuardRef = useRef(null);
@@ -89,6 +99,23 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
   useEffect(() => subscribeAppFailure((resolved) => {
     chat.notify("error", resolved.text, resolved);
   }), [chat.notify]);
+
+  // 上次没发出去的报告：每次运行最多提示一次，送不送由用户点（ADR 0042 决定 14）。
+  // 只查一次、不轮询、不重发——草稿的处置全在「报告问题」对话框里。提示按份数说话。
+  useEffect(() => {
+    if (bugReportDraftPrompted || !isBugReportAvailable()) return;
+    const bridge = bugReportBridge();
+    if (typeof bridge?.drafts !== "function") return;
+    bugReportDraftPrompted = true;
+    bridge.drafts()
+      .then((result) => {
+        const count = Array.isArray(result?.drafts) ? result.drafts.length : 0;
+        if (count === 0) return;
+        chat.notify("info", `上次有 ${count} 份没送出去的报告，打开「报告问题」可以重发。`);
+      })
+      // 草稿列表问不到不是用户能处理的事：不提示，等下次启动再问。
+      .catch(bestEffort);
+  }, []);
 
   const changeActiveSection = useCallback((section) => {
     if (chat.activeSection === "model" && section !== "model" && modelNavigationGuardRef.current) {
@@ -306,6 +333,15 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
       <CommunityDialog
         open={communityOpen}
         onClose={() => setCommunityOpen(false)}
+        onNotify={chat.notify}
+        onReportProblem={isBugReportAvailable() ? () => {
+          setCommunityOpen(false);
+          setBugReportOpen(true);
+        } : undefined}
+      />
+      <BugReportDialog
+        open={bugReportOpen}
+        onClose={() => setBugReportOpen(false)}
         onNotify={chat.notify}
       />
       <AppToast notice={chat.notice} onDismiss={chat.dismissNotice} />

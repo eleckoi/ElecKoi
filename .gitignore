@@ -3,6 +3,9 @@ pc开发知识库/
 knowledge-base-private/
 .obsidian/
 
+# Local spec / issue 草稿（见 docs/agents/issue-tracker.md）
+.scratch/
+
 # Local secrets
 .env
 .env.*

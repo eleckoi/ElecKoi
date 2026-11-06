@@ -26,7 +26,9 @@
     };
     const methods = ['clientReady', 'clientFailed', 'tts', 'readTtsAudio', 'releaseTtsAudio', 'saveText',
       'beginFile', 'writeFile', 'finishFile', 'abortFile', 'reportError', 'openExternal',
-      'notificationSettings', 'replyNotificationStatus', 'setReplyNotifications', 'backgroundRunStatus', 'setEnhancedBackground', 'backgroundRunSettings', 'updateStatus', 'checkUpdates', 'downloadUpdate', 'appearance', 'version'];
+      'notificationSettings', 'replyNotificationStatus', 'setReplyNotifications', 'backgroundRunStatus',
+      'setEnhancedBackground', 'backgroundRunSettings', 'updateStatus', 'checkUpdates', 'downloadUpdate',
+      'appearance', 'version', 'bugReportFacts'];
     window.ElecKoiAndroid = Object.fromEntries(methods.map(method => [method, (...args) => {
       const reply = window.ElecKoiAndroidTransport.invoke(method, JSON.stringify(args));
       return reply && typeof reply.then === 'function' ? reply.then(decode) : decode(reply);
@@ -110,6 +112,11 @@
       return saveBlob(name, await response.blob(), mime);
     },
     openExternal: url => ElecKoiAndroid.openExternal(url),
+    bugReport: {
+      // 只给原始事实（环境 / 上次会话 / 最近事件）。报告在渲染层用共享契约拼，
+      // 脱敏与折叠只有一份实现。
+      facts: () => Promise.resolve(ElecKoiAndroid.bugReportFacts()).then(text => JSON.parse(text)),
+    },
     notificationSettings: () => ElecKoiAndroid.notificationSettings(),
     replyNotifications: {
       status: async () => JSON.parse(await ElecKoiAndroid.replyNotificationStatus()),

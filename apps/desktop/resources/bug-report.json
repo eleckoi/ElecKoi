@@ -1,0 +1,19 @@
+{
+  "form": {
+    "shareUrl": "https://axdf0mvt1ng.feishu.cn/share/base/form/shrcnS4SMQzG3Bs4ReqtlR1Xcud",
+    "fields": {
+      "body": "report_body",
+      "meta": "report_meta",
+      "code": "report_code",
+      "file": "report_file"
+    }
+  },
+  "mailbox": "",
+  "mailboxName": "",
+  "subscribeUrl": "",
+  "repository": "",
+  "formHosts": [
+    "feishu.cn"
+  ],
+  "configUrl": ""
+}

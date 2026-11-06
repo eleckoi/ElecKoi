@@ -41,6 +41,17 @@ export const IO_OPERATION_TEXTS = {
 };
 
 /**
+ * `eleckoi/shell/open-failed` 的判别值 → 用户能懂的程序名。其余取值走通用说法。
+ *
+ * `details.what` 这里是 `mail` / `form` 这样的**判别值**，不是名词短语，所以必须映射成中文，
+ * 不能原样拼进句子（与 `IO_OPERATION_TEXTS` 同一个理由）。
+ */
+const SHELL_OPEN_PROGRAM_TEXTS = {
+  mail: "邮件客户端",
+  form: "浏览器",
+};
+
+/**
  * 码 → 用户可见说法。键用 `ELECKOI_FAILURE_CODES` 的常量（**不是**重写的字面量：
  * 码字符串只有契约那一份真相）。兜底码不在表里，它走"开发者诊断"那条分支。
  *
@@ -119,6 +130,13 @@ export const FAILURE_TEXTS = {
   [ELECKOI_FAILURE_CODES.netOperationFailed]: (details) => {
     const what = detailString(details.what);
     return what ? `网络请求失败：${what}。` : "网络请求失败，请检查网络连接后重试。";
+  },
+  // 投递动作先写剪贴板再打开外部程序，但**剪贴板也可能失败**（ADR 0042 决定 13）。这条码只说
+  // 程序没打开、下一步可以点「复制报告」；"全文已复制"成不成是运行期事实，由对话框按 `copied`
+  // 另说——静态句子宣称一件没发生的事，比少说一句更糟。
+  [ELECKOI_FAILURE_CODES.shellOpenFailed]: (details) => {
+    const program = SHELL_OPEN_PROGRAM_TEXTS[detailString(details.what)] || "外部程序";
+    return `没能打开${program}。可以点「复制报告」，把全文粘到任意地方发给作者。`;
   },
   [ELECKOI_FAILURE_CODES.timeoutExpired]: (details) => {
     const what = detailString(details.what);

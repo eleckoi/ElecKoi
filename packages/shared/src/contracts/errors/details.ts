@@ -14,7 +14,8 @@
  *    所以详情里不放 `undefined`、函数、`Date`、类实例、循环引用。
  *
  * **`what` 不是标识符。** 多数码写名词短语（会被拼进用户句，如「找不到{what}。」），
- * `state/precondition` 例外，写用户该先做的**动作**（模板是「请先${what}。」）；
+ * 两个例外：`state/precondition` 写用户该先做的**动作**（模板是「请先${what}。」），
+ * `shell/open-failed` 写闭集**判别值**（`mail` / `form`，由渲染层映射成中文，不拼进句子）；
  * 具体的 id / 路径放开发者诊断 `message` 里，不进详情。
  *
  * 参数名闭集：`field` / `issues` / `path` / `operation` / `guard` / `what` / `expected` / `actual`。
@@ -144,6 +145,17 @@ export interface EleckoiNetOperationFailedDetails {
   readonly what: string
 }
 
+/**
+ * `eleckoi/shell/open-failed` 的详情：要打开的是哪一类外部程序。
+ *
+ * `what` 是**判别值**，不是名词短语：用户句由渲染层按它映射（`mail` → 「邮件客户端」、
+ * `form` → 「浏览器」），不会被拼进句子。
+ */
+export interface EleckoiShellOpenFailedDetails {
+  /** `mail` = 邮件客户端，`form` = 浏览器。 */
+  readonly what?: 'mail' | 'form'
+}
+
 /** 超时的详情：`what` 是等的是什么（名词短语，如 `DSH 插件宿主启动`）。 */
 export interface EleckoiTimeoutExpiredDetails {
   readonly what: string
@@ -209,6 +221,7 @@ export interface EleckoiFailureDetailsMap {
   [ELECKOI_FAILURE_CODES.pluginLoadFailed]: EleckoiPluginLoadFailedDetails
   [ELECKOI_FAILURE_CODES.ioFailed]: EleckoiIoFailedDetails
   [ELECKOI_FAILURE_CODES.netOperationFailed]: EleckoiNetOperationFailedDetails
+  [ELECKOI_FAILURE_CODES.shellOpenFailed]: EleckoiShellOpenFailedDetails
   [ELECKOI_FAILURE_CODES.timeoutExpired]: EleckoiTimeoutExpiredDetails
   [ELECKOI_FAILURE_CODES.storageCorrupt]: EleckoiStorageCorruptDetails
   [ELECKOI_FAILURE_CODES.dbSchemaMismatch]: EleckoiDbSchemaMismatchDetails
@@ -265,6 +278,7 @@ export const ELECKOI_FAILURE_DETAIL_PARAMS: Readonly<
   [ELECKOI_FAILURE_CODES.pluginLoadFailed]: ['what', 'path'],
   [ELECKOI_FAILURE_CODES.ioFailed]: ['operation', 'path'],
   [ELECKOI_FAILURE_CODES.netOperationFailed]: ['operation', 'what'],
+  [ELECKOI_FAILURE_CODES.shellOpenFailed]: ['what'],
   [ELECKOI_FAILURE_CODES.timeoutExpired]: ['what'],
   [ELECKOI_FAILURE_CODES.storageCorrupt]: ['what'],
   [ELECKOI_FAILURE_CODES.dbSchemaMismatch]: ['what', 'expected'],

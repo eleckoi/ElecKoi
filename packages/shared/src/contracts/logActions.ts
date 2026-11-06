@@ -35,7 +35,15 @@ export const LOG_ACTIONS = {
   /** 启动 DSH 插件宿主。 */
   pluginHostStart: 'plugin-host.start',
   /** 检查桌面更新。 */
-  updateCheck: 'update.check'
+  updateCheck: 'update.check',
+  /** 收集 Bug 报告（预览；用户打开报告对话框时一次）。 */
+  bugReportPreview: 'bug-report.preview',
+  /** 导出 Bug 报告到文件。 */
+  bugReportExport: 'bug-report.export',
+  /** 打开报告的一条投递通道（邮件 / issue）。 */
+  bugReportOpen: 'bug-report.open',
+  /** 经托管服务代发报告。 */
+  bugReportSend: 'bug-report.send'
 } as const
 
 /** 动作键的联合类型：调用点写错一个字母就是类型错误，而不是一条查不到的日志。 */

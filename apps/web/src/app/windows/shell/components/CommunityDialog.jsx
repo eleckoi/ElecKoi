@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { CopyIcon, XIcon } from "../../../../ui/icons/index.jsx";
 import { ELECKOI_QQ_GROUP_NUMBER } from "@shared/foundation/community";
 
-export function CommunityDialog({ open, onClose, onNotify }) {
+export function CommunityDialog({ open, onClose, onNotify, onReportProblem }) {
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef(null);
@@ -94,6 +94,11 @@ export function CommunityDialog({ open, onClose, onNotify }) {
           <strong>{ELECKOI_QQ_GROUP_NUMBER}</strong>
         </div>
         <div className="community-dialog-actions">
+          {onReportProblem ? (
+            <button type="button" onClick={() => onReportProblem()}>
+              <span>报告问题</span>
+            </button>
+          ) : null}
           <button ref={primaryButtonRef} type="button" className="is-primary" onClick={() => copyGroupNumber()}>
             <CopyIcon />
             <span>复制群号</span>

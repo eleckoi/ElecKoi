@@ -457,7 +457,6 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         status.setText(clientStartupDiagnostics.failure(error)); runtimePanel.setVisibility(View.VISIBLE);
     }); }
     private void showDiagnostics() {
-        if(!diagnostics.enabled()) { showHostDiagnostics(); return; }
         if(diagnosticsDialog!=null) return;
         ScrollView scrolling = new ScrollView(this); TextView text = new TextView(this); text.setTextIsSelectable(true);
         text.setTextSize(13); text.setLineSpacing(dp(3), 1f); text.setPadding(dp(16), dp(12), dp(16), dp(12));
@@ -480,21 +479,6 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         diagnosticsDialog.setOnShowListener(dialog -> themeDiagnosticsDialog());
         diagnosticsDialog.setOnDismissListener(dialog -> diagnosticsDialog = null);
         diagnosticsDialog.show();
-    }
-    private void showHostDiagnostics() {
-        if(diagnosticsDialog!=null) return;
-        HostRuntimeService.Snapshot value=runtime==null?null:runtime.snapshot();
-        ScrollView scrolling=new ScrollView(this); TextView text=new TextView(this); text.setTextIsSelectable(true);
-        text.setTextSize(13); text.setLineSpacing(dp(3),1f); text.setPadding(dp(16),dp(12),dp(16),dp(12));
-        text.setText(value==null?status.getText():(clientStartupFailure.isEmpty()?clientStartupDiagnostics.details():status.getText())
-            +"\n\n"+value.phase+"\n"+value.message+"\n\n"+value.diagnostic); scrolling.addView(text);
-        TextView title=new TextView(this); title.setText("本地 Host 运行详情"); title.setTextSize(17);
-        title.setTypeface(null,android.graphics.Typeface.BOLD); title.setPadding(dp(16),dp(16),dp(16),dp(8));
-        diagnosticsDialog=new AlertDialog.Builder(this).setCustomTitle(title).setView(scrolling)
-            .setPositiveButton("关闭",null).setNeutralButton("停止 Host",(dialog,which)->startRuntime(HostRuntimeService.STOP))
-            .setNegativeButton("后台运行", (dialog, which) -> ui.post(this::showBackgroundSettings)).create();
-        diagnosticsDialog.setOnShowListener(dialog->themeDiagnosticsDialog());
-        diagnosticsDialog.setOnDismissListener(dialog->diagnosticsDialog=null); diagnosticsDialog.show();
     }
     private void showBackgroundSettings() {
         if (diagnosticsDialog != null) return;
@@ -703,6 +687,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
                 case "abortFile": return abortFile(a.getString(0));
                 case "reportError": reportError(a.getString(0)); return null;
                 case "openExternal": openExternal(a.getString(0)); return null;
+                case "bugReportFacts": return diagnostics.bugReportFacts();
                 case "notificationSettings": notificationSettings(); return null;
                 case "replyNotificationStatus": return ReplyNotifications.status(MainActivity.this);
                 case "setReplyNotifications": return ReplyNotifications.setEnabled(MainActivity.this,a.getBoolean(0));
@@ -796,7 +781,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         public void appearance(String mode, String surface) { runOnUiThread(() -> applyAppearance("dark".equals(mode), surface)); }
         public String version() { return "1"; }
     }
-    @Override public boolean onCreateOptionsMenu(Menu menu) { menu.add("Host 运行详情").setOnMenuItemClickListener(item -> { showDiagnostics(); return true; }); return true; }
+    @Override public boolean onCreateOptionsMenu(Menu menu) { menu.add("运行诊断").setOnMenuItemClickListener(item -> { showDiagnostics(); return true; }); return true; }
     @Override public void onBackPressed() {
         if (web == null || clientReadyUrl.isEmpty()) { super.onBackPressed(); return; }
         browserCommand("back", new JSONObject(), consumed -> {
@@ -855,6 +840,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         web.onPause(); super.onPause();
     }
     @Override protected void onDestroy() {
+        if (isFinishing()) diagnostics.sessionEnd();
         updates.removeObserver(updateListener);
         pageLoadGeneration++;
         hideStartupProgress();

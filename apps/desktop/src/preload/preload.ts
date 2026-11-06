@@ -2,6 +2,18 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { DESKTOP_SHELL_IPC, type DesktopBrowserBridge, type DesktopBrowserLeaseId, type DesktopBrowserReservation, type DshDesktopProductApi } from '@shared/contracts/desktopShell'
 import type { DesktopHostFailureNotice } from '@shared/contracts/errors/ipc'
 import type { UpdateInstallResult, UpdateStatus } from '@shared/contracts/updates/schemas'
+import type {
+  BugReportDraftSaveRequest,
+  BugReportDraftSaved,
+  BugReportExportRequest,
+  BugReportExportResult,
+  BugReportExternalTarget,
+  BugReportPendingDrafts,
+  BugReportPreview,
+  BugReportPreviewRequest,
+  BugReportSendRequest,
+  BugReportSendResult
+} from '@shared/contracts/bugReport/delivery'
 import { hasDesktopIpcFailureMarker, unwrapDesktopIpcResult } from '@shared/foundation/ipcFailure'
 import { installWindowsMenu } from './windowsMenu'
 import { installWindowsAppearance } from './windowsAppearance'
@@ -89,6 +101,21 @@ function createDesktopProductApi(): DshDesktopProductApi {
         ipcRenderer.on(DESKTOP_SHELL_IPC.hostFailure, handle)
         return () => ipcRenderer.off(DESKTOP_SHELL_IPC.hostFailure, handle)
       }
+    },
+    bugReport: {
+      preview: (request: BugReportPreviewRequest) =>
+        invokeOrFail<BugReportPreview>(DESKTOP_SHELL_IPC.bugReportPreview, request),
+      export: (request: BugReportExportRequest) =>
+        invokeOrFail<BugReportExportResult>(DESKTOP_SHELL_IPC.bugReportExport, request),
+      open: (target: BugReportExternalTarget) =>
+        invokeOrFail<void>(DESKTOP_SHELL_IPC.bugReportOpen, target),
+      send: (request: BugReportSendRequest) =>
+        invokeOrFail<BugReportSendResult>(DESKTOP_SHELL_IPC.bugReportSend, request),
+      saveDraft: (request: BugReportDraftSaveRequest) =>
+        invokeOrFail<BugReportDraftSaved>(DESKTOP_SHELL_IPC.bugReportSaveDraft, request),
+      drafts: () => invokeOrFail<BugReportPendingDrafts>(DESKTOP_SHELL_IPC.bugReportDrafts),
+      discardDraft: (key: string) =>
+        invokeOrFail<void>(DESKTOP_SHELL_IPC.bugReportDiscardDraft, key)
     }
   }
 }

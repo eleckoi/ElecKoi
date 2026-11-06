@@ -43,8 +43,13 @@ app.whenReady().then(async()=>{
     window.setContentSize(1000,800);await settle();
     await run(`document.querySelector('.chat-model-trigger').click()`);await settle();
     await run(`document.querySelectorAll('.chat-model-row')[1].click();document.querySelectorAll('.chat-model-tabs button')[1].click()`);await settle();
-    await run(`(()=>{const input=document.querySelector('[data-parameter="temperature"] input');input.focus();input.select();})()`);
-    await window.webContents.insertText('0.72');await settle();
+    // `insertText` 走键盘输入那条路，窗口不是焦点窗口时（`show:false` 在 Windows 上就是）
+    // 没有接收者，文字进不去，温度读回来是 undefined。按 settings-companion.probe.cjs 的做法
+    // 直接设值再派发 input 事件：不依赖窗口焦点，两个平台一致。
+    await run(`(()=>{const input=document.querySelector('[data-parameter="temperature"] input');
+      const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
+      input.focus();input.select();setter.call(input,'0.72');
+      input.dispatchEvent(new Event('input',{bubbles:true}));})()`);await settle();
     await run(`document.querySelector('.chat-model-close').click()`);await settle();
     const guarded=await run(`!!document.querySelector('[role="alertdialog"]')`);
     await run(`[...document.querySelectorAll('[role="alertdialog"] button')].find(button=>button.textContent==='取消').click()`);await settle();

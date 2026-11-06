@@ -4,4 +4,11 @@
     <string name="runtime_starting">正在启动…</string>
     <string name="runtime_page_loading">正在加载界面…</string>
     <string name="app_name">ElecKoi</string>
+    <!-- Bug 报告的飞书表单配置（ADR 0042 决定 12）：是发布配置不是 UI 文案，所以不翻译。
+         换表单时与桌面 apps/desktop/resources/bug-report.json 一起改，见 docs/bug-report-endpoint.md。 -->
+    <string name="bug_report_form_url" translatable="false">https://axdf0mvt1ng.feishu.cn/share/base/form/shrcnS4SMQzG3Bs4ReqtlR1Xcud</string>
+    <string name="bug_report_form_field_body" translatable="false">report_body</string>
+    <string name="bug_report_form_field_meta" translatable="false">report_meta</string>
+    <string name="bug_report_form_field_code" translatable="false">report_code</string>
+    <string name="bug_report_form_field_file" translatable="false">report_file</string>
 </resources>

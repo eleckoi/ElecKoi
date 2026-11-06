@@ -10,6 +10,7 @@
 @import "../shell/styles/client-shell.css";
 @import "../shell/styles/sidebar-rail.css";
 @import "../shell/styles/community-dialog.css";
+@import "../shell/styles/bug-report-dialog.css";
 @import "../../../modules/chat/styles/conversation-list.css";
 @import "../../../modules/persona/styles/character-list.css";
 @import "../../../modules/persona/styles/character-manager.css";

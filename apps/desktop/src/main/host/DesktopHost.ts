@@ -4,6 +4,7 @@ import type { AppPaths } from '@main/platform/filesystem/AppPaths'
 import { mainWindowPlugin } from '@main/platform/electron/mainWindowPlugin'
 import { mediaProtocolPlugin } from '@main/platform/electron/mediaProtocol'
 import { updatesPlugin } from '@main/modules/updates'
+import { diagnosticsPlugin } from '@main/modules/diagnostics'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import { platformPlugin } from './plugins'
@@ -33,6 +34,7 @@ export class DesktopHost {
     await this.root.plugin(mediaProtocolPlugin)
     await this.root.plugin(mainWindowPlugin)
     await this.root.plugin(updatesPlugin)
+    await this.root.plugin(diagnosticsPlugin)
     this.interactiveMounted = true
   }
 
