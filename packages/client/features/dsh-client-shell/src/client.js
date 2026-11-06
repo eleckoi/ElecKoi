@@ -551,6 +551,7 @@ window.__ModuleLoader__.load({
           },
           renderWindow: (owner, fallback) => renderSlotChain('eleckoi.shell.window', { ...owner, fallback }, { fallback }),
           renderLanguageSettings: () => renderSlot('settings.section', { itemId: 'language' }, { only: 'general' }),
+          renderTypographySettings: () => renderSlot('settings.section', { itemId: 'font-size' }, { only: 'general' }),
           renderSettingsSection: (section, close) => renderSlot('settings.section', { close }, { only: section.id }),
           renderUserProfileEditor: (owner, fallback) => renderSlotChain('eleckoi.persona.editor', { ...owner, fallback }, { fallback }),
           renderCharacterPageSection: (section, owner, fallback) => renderSlotChain(`eleckoi.character.page.${section}`, { ...owner, fallback }, { fallback }),

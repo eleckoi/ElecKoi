@@ -149,6 +149,13 @@ export async function installCreatorStudioRuntime(ctx) {
     if (selection && JSON.stringify(selection) !== JSON.stringify(currentSelection)) {
       await ctx.sessionController.selectModel({ sessionId, ...selection })
     }
+    // These are conversation preferences, independent of the deleted turn.
+    // Replay only the already validated pre-edit facts through the Session log.
+    for (const type of ['permission/preset', 'sandbox/mode', 'approval/policy']) {
+      const previous = inspection.events.findLast(event => event.type === type)
+      const current = agent.session.snapshotEvents().findLast(event => event.type === type)
+      if (previous && JSON.stringify(previous.data) !== JSON.stringify(current?.data)) agent.session.append(type, previous.data)
+    }
     await serialized(async () => bindCurrent(agent, state, await prepareDefinition()))
   }
   const service = {
@@ -232,12 +239,10 @@ export async function installCreatorStudioRuntime(ctx) {
     },
     async deleteMessagesFrom(sessionId, eventSeq, role) {
       const { inspection, state } = await readState(sessionId)
-      const target = requireSessionMessage(inspection, eventSeq, role)
-      const turn = sessionMessageTurn(inspection.events, target.index)
+      requireSessionMessage(inspection, eventSeq, role)
       if (ctx.agents.get(sessionId)?.status === 'running') throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '请先停止生成再删除消息。', { what: '停止生成' })
       await ctx.eleckoiSessionEditor.transaction(sessionId, async () => {
-        const changed = await ctx.eleckoiSessionEditor.rewind(sessionId, turn, eventSeq, false)
-        if (changed === undefined) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '当前消息不能安全删除。', { what: '换一条可以安全删除的消息' })
+        await ctx.eleckoiSessionEditor.deleteMessagesFrom(sessionId, eventSeq, role)
         await reopenAfterMessageEdit(sessionId, inspection, state)
       })
     },

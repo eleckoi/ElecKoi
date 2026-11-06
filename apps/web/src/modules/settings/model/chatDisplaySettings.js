@@ -24,8 +24,6 @@ export const chatDisplayTuners = {
   avatar_size: { label: '头像大小', min: 24, max: 96, step: 0.5, precision: 1 },
   name_font_size: { label: '名字大小', min: 10, max: 18, step: 0.5, precision: 1 },
   name_avatar_spacing: { label: '头像与名字间距', min: 0, max: 20, step: 1, precision: 0 },
-  message_font_size: { label: '字号', min: 9, max: 20, step: 0.5, precision: 1 },
-  message_font_weight: { label: '字重', min: 100, max: 600, step: 100, precision: 0, suffix: '' },
   line_height_multiplier: { label: '行距', min: 0.8, max: 1.6, step: 0.05, precision: 2, suffix: '×' },
   letter_spacing: { label: '字距', min: -1, max: 4, step: 0.5, precision: 1 },
   paragraph_spacing: { label: '段距', min: 0, max: 24, step: 1, precision: 0 },

@@ -417,6 +417,7 @@
         "relation": "provides",
         "members": [
           "editMessage",
+          "deleteMessagesFrom",
           "rewind",
           "importTranscript"
         ]

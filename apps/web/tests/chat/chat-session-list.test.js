@@ -18,6 +18,20 @@ function session(id, characterId, updatedAt) {
 }
 
 describe("conversation list entries", () => {
+  it("moves the latest chat below pinned entries while retaining the chosen pin order", () => {
+    const allSessions = [
+      session("pin-a", "character-pin-a", "2026-11-01T01:00:00Z"),
+      session("chat-a", "character-a", "2026-11-05T03:00:00Z"),
+      session("chat-b", "character-b", "2026-11-05T02:00:00Z"),
+      session("pin-b", "character-pin-b", "2026-11-01T02:00:00Z"),
+    ];
+    const pins = ["pin-b", "pin-a"];
+    expect(sortSessionsByPinned(allSessions, pins).map(item => item.id)).toEqual(["pin-b", "pin-a", "chat-a", "chat-b"]);
+    const next = allSessions.map(item => item.id === "chat-b" ? { ...item, updated_at: "2026-11-06T03:00:00Z" } : item);
+    expect(sortSessionsByPinned(next, pins).map(item => item.id)).toEqual(["pin-b", "pin-a", "chat-b", "chat-a"]);
+    expect(allSessions[2].updated_at).toBe("2026-11-05T02:00:00Z");
+  });
+
   it("prefers the chosen history over the newest record when reentering a character", () => {
     const allSessions = [
       session("newest-a", "character-a", "2026-09-19T03:00:00Z"),

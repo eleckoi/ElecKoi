@@ -64,19 +64,19 @@ app.whenReady().then(async () => {
       await run(`(()=>{const input=document.querySelector('[aria-label="${label}滑杆"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'${value}');input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
       await settle();
     };
-    await setRange('字重', 600);
+    await setRange('行距', 1.3);
     await setRange('字距', 3);
     await setRange('头像大小', 80);
-    const modified = await run(`({preferences:structuredClone(window.chatSettingsFixture.preferences),weight:getComputedStyle(document.querySelector('.ec-type-sample')).fontWeight,letter:getComputedStyle(document.querySelector('.ec-type-sample')).letterSpacing})`);
+    const modified = await run(`({preferences:structuredClone(window.chatSettingsFixture.preferences),weight:getComputedStyle(document.querySelector('.chat-display-preview .bubble')).fontWeight,letter:getComputedStyle(document.querySelector('.chat-display-preview .bubble')).letterSpacing})`);
     await run(`document.querySelector('[aria-label="恢复字距默认值"]').click()`); await settle();
     const singleReset = await run('structuredClone(window.chatSettingsFixture.preferences)');
     await run(`document.querySelector('[aria-label="生成统计"]').click()`); await settle();
     await run(`document.querySelector('[aria-label="恢复头像大小默认值"]').click()`); await settle();
-    await run(`document.querySelector('[aria-label="恢复字重默认值"]').click()`); await settle();
+    await run(`document.querySelector('[aria-label="恢复行距默认值"]').click()`); await settle();
     const reset = await run('structuredClone(window.chatSettingsFixture.preferences)');
     await run(`document.querySelector('.ec-layout-choice[role=radio]:nth-child(2)').click()`); await settle();
     const agent = await run(`({preferences:structuredClone(window.chatSettingsFixture.preferences),portraitDisabled:document.querySelector('.ec-avatar-options button:last-child').disabled,bubble:!!document.querySelector('[data-group="bubble"]'),timestamps:!!document.querySelector('[aria-label="聊天时间戳"]')})`);
-    await setRange('字号', 18);
+    await setRange('行距', 1.2);
     await run(`document.querySelector('.ec-layout-choice[role=radio]:first-child').click()`); await settle();
     const switchedBack = await run('structuredClone(window.chatSettingsFixture.preferences)');
     // Numeric entry uses the real browser's input events and can be edited precisely.

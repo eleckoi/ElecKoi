@@ -4,7 +4,7 @@ import { readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { SessionWriteLease } from '@deepseek-ai/dsh-session-persistence-jsonl'
-import { editDshSessionMessage, readEditableDshSessionLog, rewriteDshSessionEvents } from './sessionMessageEdit'
+import { deleteDshSessionMessagesFrom, editDshSessionMessage, readEditableDshSessionLog, rewriteDshSessionEvents } from './sessionMessageEdit'
 import { findGeneratedImage } from '@eleckoi/dsh-client-roleplay/host/generated-image-result.mjs'
 import { removeSessionSnapshot } from '@eleckoi/dsh-client-roleplay/host/session-snapshot.mjs'
 import type { GeneratedImageFrame } from '@eleckoi/dsh-product-data'
@@ -61,6 +61,19 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
         try {
           editDshSessionMessage(sessionRoot, sessionId, eventSeq, role, content)
           await refreshSessionProjections(ctx, sessionId)
+        } finally { await lease.release() }
+      })
+    },
+    async deleteMessagesFrom(sessionId: string, eventSeq: number, role: 'user' | 'assistant'): Promise<void> {
+      await ctx.eleckoiSessionHandles.withClosed(sessionId, async () => {
+        const probe = await ctx.sessionPersistence.open(SessionId(sessionId), 'write')
+        await probe.close()
+        const log = readEditableDshSessionLog(sessionRoot, sessionId)
+        const lease = await SessionWriteLease.acquire(dirname(log.path), SessionId(sessionId))
+        try {
+          deleteDshSessionMessagesFrom(sessionRoot, sessionId, eventSeq, role)
+          await refreshSessionProjections(ctx, sessionId)
+          if (!transactions.has(sessionId)) await deleteRemovedGeneratedImages(ctx, generatedImageReferences(log.events))
         } finally { await lease.release() }
       })
     },

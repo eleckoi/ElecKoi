@@ -1,6 +1,21 @@
 import { z } from 'zod'
 
 const schema = z.string().max(480)
+const activitySchema = z.number().int().nonnegative()
+
+/** A single replayable timestamp covers new input and regeneration without copying message history. */
+export const conversationActivityProjection = {
+  key: 'eleckoiConversationActivity',
+  stateVersion: 1,
+  stateSchema: activitySchema,
+  init: () => 0,
+  apply(state, event) {
+    return event.type === 'turn/start'
+      || (event.type === 'user/message' && event.data.source?.kind === 'user')
+      ? Math.max(state, event.time) : state
+  },
+  wire: { viewSchema: activitySchema, view: state => state }
+}
 
 /** The official projection cache owns the bounded catalog preview across restarts and rewinds. */
 export const conversationPreviewProjection = {

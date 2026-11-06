@@ -1,6 +1,6 @@
 export { projectDshTrajectory, readDshSessionLog, readDshTrajectory, removeDshSessionTree } from './trajectory'
 export { rewindDshSession } from './sessionRewind'
-export { editDshSessionMessage } from './sessionMessageEdit'
+export { editDshSessionMessage, deleteDshSessionMessagesFrom } from './sessionMessageEdit'
 export { repairRequestContextLog, repairRequestContextLogs } from './sessionRequestContextRepair'
 export { recoverSessionHistory } from './sessionHistoryRecovery'
 export type {

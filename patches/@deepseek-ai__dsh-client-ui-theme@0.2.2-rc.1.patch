@@ -1,0 +1,45 @@
+diff --git a/lib/client.js b/lib/client.js
+index f46e0baf7c8e9165b72b5a486874767428c9b581..7829844babcf3346e166b6f343f38e99830a9b46 100644
+--- a/lib/client.js
++++ b/lib/client.js
+@@ -1309,18 +1309,17 @@ window.__ModuleLoader__.load({
+ 		//#region lib/types/client/FontSettingsGroup.js
+ 		/**
+ 		* Font settings registered into the General section item slot: the text
+-		* font-size row, whose disclosure button expands a region holding the font
+-		* row for each role and the code and terminal size rows. The region starts
+-		* collapsed on every mount.
++		* font-size row and every role's font and size controls. The product settings
++		* card owns disclosure, so this group has no second collapse control.
+ 		*/
+ 		/**
+-		* Render the text font-size row and its expandable font settings.
++		* Render all font settings together inside the product's expandable card.
+ 		* @param props - composed slot props.
+-		* @returns the text size row and, when expanded, the font rows.
++		* @returns the text size row and every font row.
+ 		*/
+ 		function FontSettingsGroup({ setFontFamily, setFontSize, ...shared }) {
+-			const [open, setOpen] = (0, react.useState)(false);
+-			const regionId = (0, react.useId)();
++			// RETIRE WHEN: upstream supports an always-expanded font settings group;
++			// remove this presentation patch and its registration, retaining the native rows.
+ 			const family = (role) => (0, react_jsx_runtime.jsx)(FontFamilyRow, {
+ 				...shared,
+ 				role,
+@@ -1338,14 +1337,7 @@ window.__ModuleLoader__.load({
+ 			});
+ 			return (0, react_jsx_runtime.jsxs)("div", {
+ 				className: FontSettingsGroup_module_css_default.group,
+-				children: [size("text", {
+-					open,
+-					controls: regionId,
+-					onToggle: () => {
+-						setOpen((value) => !value);
+-					}
+-				}), open && (0, react_jsx_runtime.jsxs)("div", {
+-					id: regionId,
++				children: [size("text"), (0, react_jsx_runtime.jsxs)("div", {
+ 					children: [
+ 						family("text"),
+ 						family("code"),

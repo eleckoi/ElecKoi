@@ -7,7 +7,7 @@ import { isAbsolute, join, relative } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { readDshSessionLog, rewindDshSession } from '@eleckoi/dsh-runtime'
+import { deleteDshSessionMessagesFrom, readDshSessionLog, rewindDshSession } from '@eleckoi/dsh-runtime'
 import { installCreatorStudioRuntime } from '../../src/host/runtime.mjs'
 import { CREATOR_STUDIO_EVENT } from '../../src/host/projection.mjs'
 
@@ -40,6 +40,12 @@ async function fixture({ legacy = false } = {}) {
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
   session.append(CREATOR_STUDIO_EVENT, selected, { ignorable: true })
   session.append('session/title', { title: '合成自定义名称', messageSeqs: [], source: { kind: 'user' } })
+  const permissions = [
+    ['permission/preset', { preset: 'read-only' }],
+    ['sandbox/mode', { mode: 'read-only' }],
+    ['approval/policy', { policy: 'never' }],
+  ]
+  for (const [type, data] of permissions) session.append(type, data)
   if (legacy) session.append('agent-preset/selected', { agentPreset: 'eleckoi-creator-active' })
   const persistence = new Context()
   cleanups.push(() => persistence.fiber.dispose())
@@ -75,11 +81,12 @@ async function fixture({ legacy = false } = {}) {
     eleckoiSessionEditor: {
       transaction: async (_id, action) => action(),
       rewind: async (_id, turn, seq, retain) => { agent = undefined; return rewindDshSession(join(root, 'logs'), id, turn, seq, retain) },
+      deleteMessagesFrom: async (_id, seq, role) => { agent = undefined; deleteDshSessionMessagesFrom(join(root, 'logs'), id, seq, role) },
     },
     provide: (_name, value) => { service = value },
   })
   cleanups.push(dispose)
-  return { id, input, inputEvent, selected, characters, controller, service, listeners, current: () => agent }
+  return { id, input, inputEvent, selected, characters, controller, service, listeners, permissions, current: () => agent }
 }
 
 describe('Studio message edits retain independent conversation preferences', { timeout: 30_000 }, () => {
@@ -118,6 +125,7 @@ describe('Studio message edits retain independent conversation preferences', { t
     expect(events.findLast(event => event.type === CREATOR_STUDIO_EVENT).data).toEqual(f.selected)
     expect(events.findLast(event => event.type === 'session/title').data).toMatchObject({ title: '合成自定义名称', source: { kind: 'user' } })
     expect(f.controller.rename).toHaveBeenCalledWith({ sessionId: f.id, title: '合成自定义名称' })
+    for (const [type, data] of f.permissions) expect(events.findLast(event => event.type === type)?.data).toEqual(data)
     const inputs = events.filter(event => event.type === 'user/message')
     expect(inputs).toHaveLength(0)
     if (operation === 'regenerate') expect(f.current().followup).toHaveBeenCalledWith(f.input)

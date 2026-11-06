@@ -130,7 +130,7 @@ async function main() {
           output: [...(processDialogMode ? [finalReasoning] : []), { ...item, status: 'completed', content: [{ type: 'output_text', text, annotations: [] }] }], usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } } },
       ]
       const payload = events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join('')
-      if (modelRequests > 2) setTimeout(() => response.end(payload), 600)
+      if (modelRequests > 2) setTimeout(() => response.end(payload), process.argv.includes('--conversation-order-check') ? 1500 : 600)
       else response.end(payload)
       return
     }
@@ -492,6 +492,90 @@ async function main() {
   await waitFor(`Array.from(document.querySelectorAll('.conversation-main b')).some(node => node.innerText === ${JSON.stringify(conversationLabel)})`, 'Synthetic conversation did not appear')
   await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.conversation-main b')).find(node => node.innerText === ${JSON.stringify(conversationLabel)}).click()`)
   await waitFor(`document.querySelector('[data-composer-input][contenteditable="true"]') !== null`, 'Synthetic conversation did not open')
+  if (process.argv.includes('--conversation-order-check')) {
+    const directory = resolve('build/conversation-order-check')
+    mkdirSync(directory, { recursive: true })
+    const secondName = 'Synthetic recent character', pinnedName = 'Synthetic pinned character'
+    const add = async (id, name) => {
+      await remoteCall('eleckoiCharacters/create', { character: { id, name } })
+      const value = await remoteCall('eleckoiConversations/create', { input: { title: name, metadata: { characterId: id } } })
+      await remoteCall('eleckoiConversationModels/select', { conversationId: value.conversation.id, selection: { provider, model: 'example-model' } })
+      return value
+    }
+    const second = await add('synthetic-recent-character', secondName)
+    const pinned = await add('synthetic-pinned-character', pinnedName)
+    const labels = `Array.from(document.querySelectorAll('.conversation-main b')).map(node => node.innerText)`
+    const expectOrder = async names => {
+      await waitFor(`JSON.stringify(${labels}) === ${JSON.stringify(JSON.stringify(names))}`, 'Conversation activity order did not update')
+    }
+    await waitFor(`${labels}.includes(${JSON.stringify(pinnedName)})`, 'Pinned fixture did not appear')
+    await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.conversation-main b')).find(node => node.innerText === ${JSON.stringify(pinnedName)}).closest('button').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 160, clientY: 240 }))`)
+    await waitFor(`Boolean(document.querySelector('.conversation-context-menu'))`, 'Conversation menu did not open')
+    await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.conversation-context-menu button')).find(node => node.innerText.trim() === '置顶').click()`)
+    await expectOrder([pinnedName, secondName, conversationLabel])
+    const send = async text => {
+      await window.webContents.executeJavaScript(`document.querySelector('[data-composer-input]').focus()`)
+      await window.webContents.insertText(text)
+      await waitFor(`document.querySelector('button[aria-label="发送消息"]')?.disabled === false`, 'Activity input did not enable')
+      await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="发送消息"]').click()`)
+    }
+    await send('Synthetic activity input')
+    await expectOrder([pinnedName, conversationLabel, secondName])
+    await waitFor(`Boolean(document.querySelector('button[aria-label="查看处理过程：生成失败"]')) && !document.querySelector('button[aria-label="停止生成"]')`, 'Failed input did not settle')
+    await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('button')).find(button => button.innerText.trim() === '关闭')?.click()`)
+    await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.conversation-main b')).find(node => node.innerText === ${JSON.stringify(secondName)}).click()`)
+    await waitFor(`document.querySelector('.chat-title')?.innerText.includes(${JSON.stringify(secondName)}) || document.querySelector('.chat-panel')?.innerText.includes(${JSON.stringify(secondName)})`, 'Second conversation did not open')
+    await expectOrder([pinnedName, conversationLabel, secondName])
+    await send('Synthetic newer activity input')
+    await expectOrder([pinnedName, secondName, conversationLabel])
+    await waitFor(`document.body.innerText.includes('Synthetic recovered reply') && !document.querySelector('button[aria-label="停止生成"]')`, 'Second activity did not complete')
+    const beforeRegeneration = await remoteCall('eleckoiConversations/list', {})
+    await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.conversation-main b')).find(node => node.innerText === ${JSON.stringify(conversationLabel)}).click()`)
+    await waitFor(`document.querySelector('.chat-panel')?.innerText.includes(${JSON.stringify(conversationLabel)})`, 'Original conversation did not reopen')
+    await expectOrder([pinnedName, secondName, conversationLabel])
+    let previousActivity = beforeRegeneration.find(item => item.id === created.conversation.id).updatedAt
+    for (let attempt = 3; attempt <= 4; attempt++) {
+      await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="扮演菜单"]').click()`)
+      await waitFor(`Array.from(document.querySelectorAll('.composer-more-menu button')).some(button => button.innerText.trim() === '重新生成' && !button.disabled)`, 'Activity regeneration did not enable')
+      await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.composer-more-menu button')).find(button => button.innerText.trim() === '重新生成').click()`)
+      await expectOrder([pinnedName, conversationLabel, secondName])
+      await waitFor(`Boolean(document.querySelector('button[aria-label="停止生成"]'))`, 'Regeneration did not begin')
+      if (await window.webContents.executeJavaScript(`document.body.innerText.includes('Synthetic regenerated reply ${attempt}')`)) throw new Error('Activity advanced only after the regenerated reply')
+      const running = await remoteCall('eleckoiConversations/list', {})
+      const activity = running.find(item => item.id === created.conversation.id).updatedAt
+      if (activity <= previousActivity) throw new Error('Regeneration did not advance the durable activity time')
+      previousActivity = activity
+      await waitFor(`document.body.innerText.includes('Synthetic regenerated reply ${attempt}') && !document.querySelector('button[aria-label="停止生成"]')`, 'Activity regeneration did not settle')
+    }
+    const regenerated = await remoteCall('eleckoiConversations/details', { conversationId: created.conversation.id })
+    const archive = JSON.parse(await remoteCall('eleckoiConversations/exportArchive', { conversationId: created.conversation.id }))
+    const inputs = archive.sessionLogs.flatMap(log => log.events.filter(event => event.type === 'user/message' && event.data.source.kind === 'user'))
+    if (regenerated.runtimeSessionId !== created.runtimeSessionId || inputs.length !== 1) throw new Error('Activity tracking changed Session identity or duplicated the retained input')
+    const before = await remoteCall('eleckoiConversations/list', {})
+    for (const theme of ['light', 'dark']) {
+      nativeTheme.themeSource = theme
+      await window.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)
+      writeFileSync(join(directory, `${theme}.png`), (await window.webContents.capturePage()).toPNG())
+    }
+    await window.loadURL('about:blank')
+    await host.close()
+    host = new DshDesktopPluginHost(hostOptions)
+    ready = await host.start()
+    cookie = await document.authenticateDshClientHost(ready.url)
+    await window.loadURL('dsh-app://app/')
+    await expectOrder([pinnedName, conversationLabel, secondName])
+    const after = await remoteCall('eleckoiConversations/list', {})
+    for (const value of [created, second, pinned]) {
+      const id = value.conversation.id
+      if (before.find(item => item.id === id)?.updatedAt !== after.find(item => item.id === id)?.updatedAt) throw new Error('Cold restart changed the conversation activity time')
+    }
+    if (modelRequests !== 4) throw new Error('Conversation ordering triggered an extra model request')
+    writeFileSync(join(directory, 'desktop-verified.json'), JSON.stringify({ passed: true, latestBelowPinned: true, openingDoesNotReorder: true,
+      failedInputAdvancesActivity: true, regenerationAdvancesBeforeReply: true, repeatedRegenerationAdvancesTime: true,
+      originalSessionAndInputPreserved: true, coldRestartPreservesOrderAndTimes: true, modelRequests, beforeRegeneration, before, after, diagnostics: errors }, null, 2))
+    process.stdout.write('Send and repeated regeneration advanced activity below pinned entries before replies, preserved the input and Session, and survived a full Host restart.\n')
+    return
+  }
   if (roleplayToolMode) {
     await toolScenario.run({ window, waitFor, nativeTheme, modelBodies, remoteCall, conversationId: created.conversation.id })
     return

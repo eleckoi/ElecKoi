@@ -43,7 +43,7 @@ class MainPageErrorBoundary extends Component {
   }
 }
 
-export function MainWindow({ conversations, characters, characterConfiguration, models, persona, presets, creatorStudio, renderCreatorStudioConversation, settingsSections = [], navigation, rightbar, renderSettingsSection, renderLanguageSettings, renderUserProfileEditor, renderCharacterPageSection, renderConversationList, renderPresetEditorSection, renderRoleplay }) {
+export function MainWindow({ conversations, characters, characterConfiguration, models, persona, presets, creatorStudio, renderCreatorStudioConversation, settingsSections = [], navigation, rightbar, renderSettingsSection, renderLanguageSettings, renderTypographySettings, renderUserProfileEditor, renderCharacterPageSection, renderConversationList, renderPresetEditorSection, renderRoleplay }) {
   const tUi = useProductTranslation();
   const chat = useChatClient({ conversations, characters, models, persona, navigation });
   const appearance = useWindowAppearance({ notify: chat.notify });
@@ -218,6 +218,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
     settingsSections,
     renderSettingsSection,
     renderLanguageSettings,
+    renderTypographySettings,
     renderUserProfileEditor,
     renderCharacterPageSection,
     renderConversationList,

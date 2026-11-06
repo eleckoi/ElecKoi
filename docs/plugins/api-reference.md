@@ -276,7 +276,7 @@ ElecKoi 产品能力的 DSH Host Remote 接口。
 
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `eleckoiSessionEditor` | 消息编辑服务 | 服务 | 提供 | `call` | `host` | 通过正式 DSH 会话日志修改消息并回退轮次。 | `editMessage`、`rewind`、`importTranscript` |
+| `eleckoiSessionEditor` | 消息编辑服务 | 服务 | 提供 | `call` | `host` | 通过正式 DSH 会话日志修改消息并回退轮次。 | `editMessage`、`deleteMessagesFrom`、`rewind`、`importTranscript` |
 
 ## `@eleckoi/dsh-web-search-tavily`
 

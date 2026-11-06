@@ -17,8 +17,9 @@ export interface CreatorStudioConversationSnapshot {
   active: CreatorStudioSession | null
   reference: SessionReference | null
   items: CreatorStudioSessionSummary[]
-  error: string
+  error: unknown
   editingSessionId: string
+  retainedStats: { sessionId: string; values: Readonly<Record<string, unknown>> } | null
 }
 export interface CreatorStudioSessions {
   getSnapshot(): CreatorStudioConversationSnapshot

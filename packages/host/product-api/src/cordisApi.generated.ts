@@ -1021,6 +1021,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '消息修改和投影刷新完成。',
       },
       {
+        signature: 'deleteMessagesFrom(sessionId: string, eventSeq: number, role: \'user\' | \'assistant\'): Promise<void>',
+        description: '删除指定消息及之后的事件，保留其前的完整历史并闭合开放轮次。',
+        parameters: [{ name: 'sessionId', description: '官方 Session 编号。' }, { name: 'eventSeq', description: '首条需要删除的消息事件序号。' }, { name: 'role', description: '消息角色。' }],
+        returns: '删除和官方投影刷新完成。',
+      },
+      {
         signature: 'rewind(sessionId: string, fromTurn: number, fromEventSeq?: number, retainInput?: boolean): Promise<number | undefined>',
         description: '从指定轮次和可选事件位置回退，并刷新官方投影。',
         parameters: [{ name: 'sessionId', description: '官方 Session 编号。' }, { name: 'fromTurn', description: '首个需要撤销的轮次。' }, { name: 'fromEventSeq', description: '可选消息事件边界。' }, { name: 'retainInput', description: '保留该边界的直接用户事件并闭合其开放轮次。' }],

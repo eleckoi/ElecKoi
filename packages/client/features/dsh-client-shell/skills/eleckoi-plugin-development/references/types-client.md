@@ -418,8 +418,9 @@ export interface CreatorStudioConversationSnapshot {
     active: CreatorStudioSession | null;
     reference: SessionReference | null;
     items: CreatorStudioSessionSummary[];
-    error: string;
+    error: unknown;
     editingSessionId: string;
+    retainedStats: { sessionId: string; values: Readonly<Record<string, unknown>>; } | null;
 }
 ```
 
@@ -450,7 +451,7 @@ export interface CreatorStudioSessions {
 }
 ```
 
-源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:23](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L23)
+源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:24](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L24)
 
 ## CreatorStudioSnapshot
 
@@ -462,7 +463,7 @@ export interface CreatorStudioSnapshot {
 }
 ```
 
-源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:52](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L52)
+源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:53](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L53)
 
 ## EditorLibraryVersionModel
 

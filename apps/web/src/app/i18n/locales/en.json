@@ -3036,5 +3036,7 @@
   "展示角色列表和资料，提供角色操作入口。": "Display the character list and information, and provide access to character operations.",
   " · 缓存命中 {value0}%": " · Cache hit {value0}%",
   " · 显示{value0}": " · Display{value0}",
-  " · 角色气泡已开启": " ·The character bubble is opened"
+  " · 角色气泡已开启": " ·The character bubble is opened",
+  "字号与字体": "Font sizes and fonts",
+  "正文、代码与终端的字体和字号": "Fonts and sizes for text, code, and terminals"
 }

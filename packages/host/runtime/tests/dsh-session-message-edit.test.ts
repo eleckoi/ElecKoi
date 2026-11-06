@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { createAssistantMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
-import { editDshSessionMessage, readDshSessionLog } from '@eleckoi/dsh-runtime'
+import { deleteDshSessionMessagesFrom, editDshSessionMessage, readDshSessionLog } from '@eleckoi/dsh-runtime'
 
 const roots: string[] = []
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }) })
@@ -48,7 +48,24 @@ function fixture() {
   return { root, path, userEvent, assistantEvent }
 }
 
-describe('DSH message edit', () => {
+describe('DSH message edit', { timeout: 30_000 }, () => {
+  it.each([0, 1])('deletes assistant reply %s and its suffix while keeping its user input and earlier answers', answerIndex => {
+    const { root } = fixture()
+    const original = readDshSessionLog(root, 'session-edit')!
+    const target = original.events.filter(event => event.type === 'assistant/message')[answerIndex]!
+    const index = original.events.findIndex(event => event.seq === target.seq)
+    deleteDshSessionMessagesFrom(root, 'session-edit', target.seq, 'assistant')
+    const log = readDshSessionLog(root, 'session-edit')!
+    expect(log.events.slice(0, index)).toEqual(original.events.slice(0, index))
+    expect(log.events.filter(event => event.type === 'user/message')).toHaveLength(answerIndex + 1)
+    expect(log.events.filter(event => event.type === 'assistant/message')).toHaveLength(answerIndex)
+    const resumed = Session.create(SessionId('session-edit'),
+      log.events as Parameters<typeof Session.create>[1],
+      log.header as unknown as Parameters<typeof Session.create>[2],
+      log.inheritedEventCount as Parameters<typeof Session.create>[3])
+    expect(resumed.deriveMessages().at(-1)?.role).toBe('user')
+    expect(log.events.at(-1)).toMatchObject({ type: 'turn/end', data: { turn: answerIndex + 1, reason: { kind: 'aborted', reason: { kind: 'user' } } } })
+  })
   it('edits only the selected assistant message without changing the user input or turn count', () => {
     const { root, assistantEvent } = fixture()
     editDshSessionMessage(root, 'session-edit', assistantEvent.seq, 'assistant', '改过的回复')

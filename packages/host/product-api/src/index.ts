@@ -507,12 +507,17 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
   async list(signal: AbortSignal): Promise<ConversationSummary[]> {
     const records = this.productData.readConversationCatalog()
     const listed = await this.ownerContext.sessionController.list({}, signal)
-    const previews = new Map(listed.items.map(item => [
-      String(item.sessionId), item.projections?.values.eleckoiConversationPreview
-    ]))
-    return records.map(summary => ({
-      ...summary, preview: previews.get(summary.runtimeSessionId) || summary.preview
-    }))
+    const sessions = new Map(listed.items.map(item => [String(item.sessionId), item]))
+    return records.map(summary => {
+      const session = sessions.get(summary.runtimeSessionId)
+      const updatedAt = Math.max(session?.updatedAt ?? 0, session?.projections?.values.eleckoiConversationActivity ?? 0)
+      return {
+        ...summary,
+        updatedAt: updatedAt > Date.parse(summary.updatedAt)
+          ? new Date(updatedAt).toISOString() : summary.updatedAt,
+        preview: session?.projections?.values.eleckoiConversationPreview || summary.preview
+      }
+    }).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
   }
 
   /**

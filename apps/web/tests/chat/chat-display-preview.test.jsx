@@ -22,6 +22,19 @@ afterEach(() => {
 });
 
 describe("chat display preview", () => {
+  it('embeds the official typography controls and puts line and letter spacing in the spacing card', () => {
+    const official = () => <div data-official-typography><input aria-label="正文字体" defaultValue="" /></div>;
+    renderToMarkup(<WithOfficialMarkdown><SettingsPanel activePage="chat" chatDisplay={DEFAULT_CHAT_DISPLAY_PREFERENCES}
+      onChatDisplayChange={() => {}} renderTypographySettings={official} renderLayout={({ mainPanel }) => mainPanel} /></WithOfficialMarkdown>);
+    const typography = document.querySelector('[data-group="typography"]'), spacing = document.querySelector('[data-group="spacing"]');
+    expect(typography.querySelector('summary').textContent).toContain('字号与字体');
+    expect(typography.querySelector('[data-official-typography]')).not.toBeNull();
+    expect(typography.querySelector('[type="range"]')).toBeNull();
+    expect(spacing.querySelector('[aria-label="行距数值"]')).not.toBeNull();
+    expect(spacing.querySelector('[aria-label="字距数值"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="字重数值"]')).toBeNull();
+    expect(document.querySelector('[aria-label="字号数值"]')).toBeNull();
+  });
   it('places the provided locale control inside chat display without adding a language navigation page', () => {
     let changeLocale;
     function Harness() {

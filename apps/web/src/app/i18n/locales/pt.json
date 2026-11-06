@@ -3036,5 +3036,7 @@
   "展示角色列表和资料，提供角色操作入口。": "Exibe a lista e informações de caracteres e fornece acesso às operações de caracteres.",
   " · 缓存命中 {value0}%": " · Cache atingido {value0}%",
   " · 显示{value0}": " · Tela{value0}",
-  " · 角色气泡已开启": " · O balão do personagem é aberto"
+  " · 角色气泡已开启": " · O balão do personagem é aberto",
+  "字号与字体": "Tamanhos e fontes",
+  "正文、代码与终端的字体和字号": "Fontes e tamanhos para texto, código e terminais"
 }

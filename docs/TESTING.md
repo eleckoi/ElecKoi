@@ -41,6 +41,8 @@ Vitest 默认最多两个工作进程，并保留文件隔离。一次只运行�
 
 ## 文件归属
 
+消息列表最近聊天排序使用实际桌面探针的 `--chat-only --conversation-order-check`：在隔离 Host 与实际客户端中创建三条合成角色聊天并置顶其中一条，验证发送后立即排在置顶下方、失败输入仍更新活动时间、仅打开历史不改变顺序，以及连续重新生成在回复前更新时间并上移。正式归档核对原 Session 和唯一用户输入保持，完整关闭并重开 Host 后顺序与时间保持。角色 Host 的官方数值投影只折叠用户输入与轮次开始时间，重复生成保持单个标量，不额外写入事件或复制消息。模型使用本地合成响应，不操作用户聊天。
+
 - 各包的 `tests/` 跟随包的业务责任；Client 功能包用 `tests/client/` 与 `tests/host/` 区分运行环境。
 - `apps/web/tests/` 按功能和 `mobile/` 组织共用网页测试；`browser/` 保存需要真实浏览器的用例及对应 fixture。
 - `apps/desktop/tests/`、`apps/desktop-host/tests/`、`apps/android/tests/` 和 `apps/android-host/tests/` 只测试各自入口或接入能力。

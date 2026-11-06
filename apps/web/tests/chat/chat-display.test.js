@@ -76,21 +76,17 @@ describe("chat display preferences", () => {
       name_avatar_spacing: 10,
       reply_spacing: 4,
       turn_spacing: 12,
-      message_font_size: 15,
-      message_font_weight: 400,
       paragraph_spacing: 10,
     });
     expect(DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles.agent).toMatchObject({
       avatar_size: 48,
       name_font_size: 16,
-      message_font_size: 16,
       reply_spacing: 15,
       turn_spacing: 15,
     });
     expect(DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles.social).toMatchObject({
       assistant_bubble_enabled: true,
       avatar_size: 40,
-      message_font_size: 16,
       turn_spacing: 16,
     });
   });
@@ -102,9 +98,9 @@ describe("chat display preferences", () => {
     expect(layout).toBe("roleplay");
     expect(css["--chat-avatar-width"]).toBe("65px");
     expect(Number.parseFloat(css["--chat-avatar-height"])).toBeCloseTo(86.667, 3);
-    expect(css["--chat-font-size"]).toBe("15px");
-    expect(css["--chat-font-weight"]).toBe(400);
-    expect(Number.parseFloat(css["--chat-line-height"])).toBeCloseTo(23, 5);
+    expect(css["--chat-font-size"]).toBe("var(--dsh-content-font-size, 14px)");
+    expect(css).not.toHaveProperty("--chat-font-weight");
+    expect(css["--chat-line-height"]).toBe("calc((24px + var(--dsh-content-font-delta, 0px)) * 1)");
     expect(css["--chat-reply-gap"]).toBe("4px");
     expect(css["--chat-turn-gap"]).toBe("12px");
   });
@@ -121,14 +117,16 @@ describe("chat display preferences", () => {
     expect(resolveChatDisplayProfile(saved).profile.turn_spacing).toBe(10);
   });
 
-  it("allows lighter message weights below normal text", () => {
+  it("uses the official typography even when a saved profile contains retired font overrides", () => {
     const preferences = structuredClone(DEFAULT_CHAT_DISPLAY_PREFERENCES);
-    preferences.profiles.roleplay.message_font_weight = 100;
-    const parsed = chatDisplayPreferencesSchema.parse(preferences);
-    const { layout, profile } = resolveChatDisplayProfile(parsed);
-
-    expect(profile.message_font_weight).toBe(100);
-    expect(chatDisplayCssVariables(layout, profile)["--chat-font-weight"]).toBe(100);
+    Object.assign(preferences.profiles.roleplay, { message_font_size: 20, message_font_weight: 100 });
+    const normalized = normalizeChatDisplaySettings(preferences);
+    const { layout, profile } = resolveChatDisplayProfile(normalized);
+    const css = chatDisplayCssVariables(layout, profile);
+    expect(css['--chat-font-size']).toBe('var(--dsh-content-font-size, 14px)');
+    expect(css).not.toHaveProperty('--chat-font-weight');
+    expect(css['--dsw-font-markdown-base']).not.toContain('100');
+    expect(normalized.profiles.roleplay.avatar_size).toBe(preferences.profiles.roleplay.avatar_size);
   });
 
   it("uses portrait assets only in roleplay and falls back safely", () => {
@@ -156,11 +154,11 @@ describe("chat display preferences", () => {
     });
   });
 
-  it("defaults older saved chat profiles to normal text weight", () => {
-    const saved = structuredClone(DEFAULT_CHAT_DISPLAY_PREFERENCES);
-    for (const profile of Object.values(saved.profiles)) delete profile.message_font_weight;
-    const parsed = chatDisplayPreferencesSchema.parse(saved);
-    expect(Object.values(parsed.profiles).map((profile) => profile.message_font_weight)).toEqual([400, 400, 400]);
+  it("keeps the display contract free of independent font sizes and weights", () => {
+    for (const profile of Object.values(chatDisplayPreferencesSchema.parse(DEFAULT_CHAT_DISPLAY_PREFERENCES).profiles)) {
+      expect(profile).not.toHaveProperty('message_font_size');
+      expect(profile).not.toHaveProperty('message_font_weight');
+    }
   });
 
   it("keeps message floors stable across paged history and pending replies", () => {
@@ -175,7 +173,6 @@ describe("chat display preferences", () => {
       ...DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles.agent,
       avatar_size: 34.5,
       name_font_size: 13,
-      message_font_size: 14,
       line_height_multiplier: 1,
     };
     const preferences = {
@@ -186,7 +183,6 @@ describe("chat display preferences", () => {
     expect(resolveChatDisplayProfile(preferences).profile).toBe(DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles.agent);
     const customized = { ...preferences, profiles: { ...preferences.profiles, agent: { ...previousAgentProfile, avatar_size: 52 } } };
     expect(resolveChatDisplayProfile(customized).profile.avatar_size).toBe(52);
-    expect(resolveChatDisplayProfile(customized).profile.message_font_size).toBe(14);
   });
 
   it("uses dedicated markup colors while main text follows the app theme", () => {

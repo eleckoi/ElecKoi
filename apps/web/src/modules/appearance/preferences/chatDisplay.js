@@ -33,7 +33,6 @@ const previousAgentDefaults = {
   horizontal_padding: 16,
   reply_spacing: 15,
   turn_spacing: 15,
-  message_font_size: 14,
   line_height_multiplier: 1,
   letter_spacing: 0,
   paragraph_spacing: 6,
@@ -81,11 +80,9 @@ export function chatDisplayCssVariables(layout, profile) {
     : avatarShape === "rounded_square"
       ? avatarWidth * 0.28
       : avatarWidth * 0.14;
-  const fontSize = clamp(profile.message_font_size, 9, 20);
   const nameSize = clamp(profile.name_font_size, 10, 18);
-  const baseLineHeightRatio = layout === "roleplay" ? 23 / 15 : 1.4;
-  const fontWeight = clamp(profile.message_font_weight ?? 400, 100, 600);
-  const lineHeight = fontSize * baseLineHeightRatio * clamp(profile.line_height_multiplier, 0.8, 1.6);
+  const fontSize = 'var(--dsh-content-font-size, 14px)';
+  const lineHeight = `calc((24px + var(--dsh-content-font-delta, 0px)) * ${clamp(profile.line_height_multiplier, 0.8, 1.6)})`;
 
   return {
     "--chat-avatar-width": `${avatarWidth}px`,
@@ -95,10 +92,9 @@ export function chatDisplayCssVariables(layout, profile) {
     "--chat-horizontal-padding": `${clamp(profile.horizontal_padding, 0, 32)}px`,
     "--chat-reply-gap": `${clamp(profile.reply_spacing, 0, 32)}px`,
     "--chat-turn-gap": `${clamp(profile.turn_spacing, 0, 32)}px`,
-    "--chat-font-size": `${fontSize}px`,
-    "--chat-font-weight": fontWeight,
-    "--chat-line-height": `${lineHeight}px`,
-    "--dsw-font-markdown-base": `${fontWeight} ${fontSize}px/${lineHeight}px var(--dsw-font-family)`,
+    "--chat-font-size": fontSize,
+    "--chat-line-height": lineHeight,
+    "--dsw-font-markdown-base": `${fontSize}/${lineHeight} var(--dsw-font-family)`,
     "--chat-letter-spacing": `${clamp(profile.letter_spacing, -1, 4)}px`,
     "--chat-paragraph-gap": `${clamp(profile.paragraph_spacing, 0, 24)}px`,
     "--chat-name-size": `${nameSize}px`,

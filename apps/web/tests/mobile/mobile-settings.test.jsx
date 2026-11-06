@@ -23,6 +23,7 @@ async function mount(initialPage = 'home') {
     const [persona, setPersona] = useState({ user_name: '合成用户', user_avatar: '', user_square: '', user_portrait: '' });
     view = {
       settingsPage: page, setSettingsPage: open, settingsSections: sections, renderSettingsSection: renderSection,
+      renderTypographySettings: () => <div data-official-typography>官方字体设置</div>,
       renderLanguageSettings: () => <button aria-haspopup="menu">官方语言选项</button>,
       appearance: { chatDisplay: preferences, changeChatDisplay: next => { update(next); setPreferences(next); }, appearanceMode: 'light', sidebarCharacterArtwork: 'cover', changeAppearanceMode: vi.fn(), changeSidebarCharacterArtwork: vi.fn() },
       chat: { persona, notify: notification, updateUserProfile: async next => {
@@ -75,7 +76,7 @@ describe('Android settings presentation with shared PC contracts', () => {
     const row = container.querySelector('[aria-label="界面语言"]');
     expect(row?.querySelector('svg[aria-hidden="true"]')).toBeTruthy();
     expect(row?.textContent).toBe('官方语言选项');
-    expect(container.textContent).toContain('正文文字');
+    expect(container.textContent).toContain('字号与字体');
     expect(renderSection).not.toHaveBeenCalled();
   });
 
@@ -185,23 +186,24 @@ describe('Android settings presentation with shared PC contracts', () => {
     expect(container.textContent).not.toMatch(/思维链|适当收起|全量展开/);
     expect(container.textContent).toContain('生成统计');
     expect(container.querySelectorAll('.tuner-slider-row')).toHaveLength(0);
-    await click('正文文字15 · 400');
-    expect(container.querySelectorAll('.tuner-slider-row')).toHaveLength(5);
+    await click('字号与字体');
+    expect(container.querySelector('[data-official-typography]')).not.toBeNull();
+    expect(container.querySelectorAll('.tuner-slider-row')).toHaveLength(0);
     await click('返回'); expect(view.settingsPage).toBe('chat');
   });
-  it('uses the PC field bounds, updates weight, and retains other layouts and preferences', async () => {
-    await mount('chat:text');
-    for (const key of ['message_font_size', 'message_font_weight', 'line_height_multiplier', 'letter_spacing', 'paragraph_spacing']) {
+  it('uses the PC spacing bounds and keeps typography in its official settings', async () => {
+    await mount('chat:spacing');
+    for (const key of ['line_height_multiplier', 'letter_spacing', 'paragraph_spacing']) {
       const config = chatDisplayTuners[key];
       const range = container.querySelector(`[aria-label="${config.label}滑杆"]`);
       expect([range.min, range.max, range.step]).toEqual([String(config.min), String(config.max), String(config.step)]);
     }
     const before = structuredClone(view.appearance.chatDisplay);
-    await click('字重增加');
-    expect(update.mock.lastCall[0].profiles.roleplay.message_font_weight).toBe(500);
+    await click('行距增加');
+    expect(update.mock.lastCall[0].profiles.roleplay.line_height_multiplier).toBe(1.05);
     expect(update.mock.lastCall[0].profiles.agent).toEqual(before.profiles.agent);
     expect(update.mock.lastCall[0].reasoning_display_mode).toBe(before.reasoning_display_mode);
-    await click('恢复字重默认值'); expect(update.mock.lastCall[0].profiles.roleplay.message_font_weight).toBe(400);
+    await click('恢复行距默认值'); expect(update.mock.lastCall[0].profiles.roleplay.line_height_multiplier).toBe(1);
     expect(container.querySelector('[aria-label="行距数值"]').value).toBe('1.00');
   });
   it('keeps plugin ownership and close semantics, with exact IDs after an extension unloads', async () => {

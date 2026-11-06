@@ -6,7 +6,7 @@ import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-agent'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
-import { editDshSessionMessage, readDshSessionLog, rewindDshSession } from '@eleckoi/dsh-runtime'
+import { deleteDshSessionMessagesFrom, editDshSessionMessage, readDshSessionLog, rewindDshSession } from '@eleckoi/dsh-runtime'
 
 const temporaryDirectories: string[] = []
 
@@ -53,7 +53,20 @@ function fixture(queuedPrompts = false, trailingPrompt = false) {
   return { root, path }
 }
 
-describe('DSH Session physical rewind', () => {
+describe('DSH Session physical rewind', { timeout: 30_000 }, () => {
+  it.each([1, 2, 3])('deletes a message in turn %s while keeping every earlier event and closing its prefix', turn => {
+    const { root } = fixture()
+    const before = readDshSessionLog(root, 'session-a')!
+    const target = before.events.filter(event => event.type === 'user/message')[turn - 1]!
+    const index = before.events.findIndex(event => event.seq === target.seq)
+    deleteDshSessionMessagesFrom(root, 'session-a', target.seq, 'user')
+    const after = readDshSessionLog(root, 'session-a')!
+    expect(after.events.slice(0, index)).toEqual(before.events.slice(0, index))
+    expect(after.events.filter(event => event.type === 'user/message')).toHaveLength(turn - 1)
+    expect(after.events.at(-1)).toMatchObject({ type: 'turn/end', data: { turn } })
+    expect(() => deleteDshSessionMessagesFrom(root, 'session-a', target.seq, 'assistant')).toThrow('找不到要删除的消息')
+    expect(readDshSessionLog(root, 'session-a')!.events).toEqual(after.events)
+  })
   it('retains the exact edited input event across repeated regeneration rewinds', () => {
     const { root } = fixture()
     const original = readDshSessionLog(root, 'session-a')!.events.find(event => event.seq === 7)!

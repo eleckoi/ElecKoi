@@ -79,8 +79,6 @@ export const chatLayoutProfileSchema = z.object({
   horizontal_padding: z.number().min(0).max(32),
   reply_spacing: z.number().min(0).max(32),
   turn_spacing: z.number().min(0).max(32),
-  message_font_size: z.number().min(9).max(20),
-  message_font_weight: z.number().min(100).max(600).default(400),
   line_height_multiplier: z.number().min(0.8).max(1.6),
   letter_spacing: z.number().min(-1).max(4),
   paragraph_spacing: z.number().min(0).max(24)
@@ -133,8 +131,6 @@ export const DEFAULT_CHAT_DISPLAY_PREFERENCES: ChatDisplayPreferences = {
       horizontal_padding: 10,
       reply_spacing: 16,
       turn_spacing: 16,
-      message_font_size: 16,
-      message_font_weight: 400,
       line_height_multiplier: 1,
       letter_spacing: 0,
       paragraph_spacing: 6
@@ -149,8 +145,6 @@ export const DEFAULT_CHAT_DISPLAY_PREFERENCES: ChatDisplayPreferences = {
       horizontal_padding: 16,
       reply_spacing: 15,
       turn_spacing: 15,
-      message_font_size: 16,
-      message_font_weight: 400,
       line_height_multiplier: 1.1,
       letter_spacing: 0,
       paragraph_spacing: 6
@@ -165,8 +159,6 @@ export const DEFAULT_CHAT_DISPLAY_PREFERENCES: ChatDisplayPreferences = {
       horizontal_padding: 10,
       reply_spacing: 4,
       turn_spacing: 12,
-      message_font_size: 15,
-      message_font_weight: 400,
       line_height_multiplier: 1,
       letter_spacing: 0,
       paragraph_spacing: 10

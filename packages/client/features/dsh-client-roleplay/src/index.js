@@ -1,6 +1,6 @@
 import { apply as applyBridge } from './host/agent-preset-bridge.mjs'
 import { RequestPreviewStore } from './host/request-preview.mjs'
-import { conversationPreviewProjection } from './host/conversation-preview.mjs'
+import { conversationActivityProjection, conversationPreviewProjection } from './host/conversation-preview.mjs'
 import { retireRequestContextCache } from './host/request-cache-retirement.mjs'
 import { migrateLegacyGlobalModelSelection } from './host/model-selection-migration.mjs'
 import { illustrationProjection } from './host/illustration-projection.mjs'
@@ -35,6 +35,7 @@ export async function apply(ctx) {
   ctx.provide('eleckoiRequestPreviews', previews)
   ctx.effect(() => () => previews.close())
   await ctx.sessionProjections.register(conversationPreviewProjection)
+  await ctx.sessionProjections.register(conversationActivityProjection)
   await ctx.sessionProjections.register(illustrationProjection)
   ctx.inject(['sessionProjectionCache', 'storageDomain'], retireRequestContextCache)
   return applyBridge(ctx)

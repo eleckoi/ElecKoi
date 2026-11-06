@@ -17,8 +17,11 @@
   width: 48px;
   height: 44px;
   object-fit: contain;
-  /* The selected artwork has a straight lower crop; hide exterior generation debris. */
-  clip-path: inset(0 0 4%);
+  mask-image:
+    linear-gradient(to right, transparent, #000 8%, #000 92%, transparent),
+    linear-gradient(to bottom, #000 84%, transparent),
+    radial-gradient(ellipse 135% 145% at left top, #000 80%, transparent);
+  mask-composite: intersect;
   user-select: none;
 }
 

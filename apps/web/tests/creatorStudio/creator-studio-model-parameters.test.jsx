@@ -69,6 +69,37 @@ it('offers the parameter tab in the separate desktop window without a main-page 
   expect(f.models.save).not.toHaveBeenCalled();
   expect(f.model.selectModel).not.toHaveBeenCalled();
 });
+it.each(['complete', 'failure', 'settled-empty'])('keeps a reopened conversation layout through the temporary empty rewrite before %s', async outcome => {
+  const f = fixture();
+  f.session.blank = false;
+  let variant;
+  f.props.renderSlot = (name, owner) => {
+    if (name !== 'eleckoi.creator-studio.composer.bar') return null;
+    variant = owner.variant;
+    return <textarea aria-label="合成输入框" defaultValue="未发送的合成草稿" />;
+  };
+  await act(async () => root.render(<CreatorStudioConversation {...f.props} />));
+  const input = container.querySelector('textarea'), header = container.querySelector('.creator-simple-chat-header');
+  expect(container.querySelector('[data-phase=active]')).not.toBeNull();
+  // A reopened Session has no local promptAttempted guard: the rewound Host
+  // can legitimately publish a blank baseline before the new turn starts.
+  f.props.editing = true;
+  f.session.blank = true;
+  await act(async () => root.render(<CreatorStudioConversation {...f.props} />));
+  expect(container.querySelector('[data-phase=hero]')).toBeNull();
+  expect(container.querySelector('.creator-studio-hero-headline')).toBeNull();
+  expect(container.querySelector('.creator-simple-chat-header')).toBe(header);
+  expect(variant).toBe('composer');
+  expect(container.querySelector('textarea')).toBe(input);
+  expect(input.value).toBe('未发送的合成草稿');
+  f.props.editing = false;
+  f.session.blank = outcome === 'settled-empty';
+  f.session.running = outcome === 'complete';
+  await act(async () => root.render(<CreatorStudioConversation {...f.props} />));
+  expect(container.querySelector('[data-phase=hero]') !== null).toBe(outcome === 'settled-empty');
+  expect(container.querySelector('textarea')).toBe(input);
+  expect(input.value).toBe('未发送的合成草稿');
+});
 it('retains the parameter draft and Studio selection when saving fails', async () => {
   const f = fixture(); f.models.save.mockRejectedValueOnce(new Error('合成保存失败'));
   await act(async () => root.render(<CreatorStudioConversation {...f.props} />));

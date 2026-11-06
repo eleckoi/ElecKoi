@@ -2,7 +2,7 @@ import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.js
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { IconAgentPresetOutlineRegular, IconChevronDownOutlineRegular, IconFolderCloseRegular, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
 import { workspaceDisplayTitle } from '@deepseek-ai/dsh-api-workspace-controller/default-workspace';
-import whaleMaidHeart from '../../../assets/creator-studio/whale-maid-heart.png';
+import whaleMaidSleeping from '../../../assets/creator-studio/whale-maid-sleeping.png';
 import '../styles/creator-studio-hero.css';
 
 const empty = { catalog: null }, subscribeEmpty = () => () => {}, readEmpty = () => empty;
@@ -21,7 +21,7 @@ export function CreatorStudioHero({ model, sessionId, presetCatalog, useWorkspac
     try { await presetCatalog.setActive(id); } catch (error) { onError(error); } finally { setChanging(false); }
   }
   return <>
-    <div className="creator-studio-hero-headline"><img className="creator-studio-hero-mascot" src={whaleMaidHeart} width={48} height={44} alt="" draggable={false} /><span>{tUi("人，你会想念我吗？")}</span></div>
+    <div className="creator-studio-hero-headline"><img className="creator-studio-hero-mascot" src={whaleMaidSleeping} width={48} height={44} alt="" draggable={false} /><span>{tUi("人，你会想念我吗？")}</span></div>
     <div className="creator-studio-hero-selectors">
       <button ref={anchorRef} type="button" className="creator-studio-hero-choice" aria-label={tUi("选择工作区")} aria-haspopup="menu" aria-expanded={open}
         onClick={() => setOpen(value => !value)}>

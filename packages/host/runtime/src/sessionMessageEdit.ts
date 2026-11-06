@@ -4,9 +4,26 @@ import { basename } from 'node:path'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
 import { ELECKOI_FAILURE_CODES, productFailure } from '@eleckoi/dsh-product-api'
 import { readDshSessionLog } from './trajectory'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
+import { interruptedTurnClosers, type SessionEvent } from '@deepseek-ai/dsh-session'
 
 type MessageRole = 'user' | 'assistant'
+
+/** Delete the selected message and its suffix, preserving the exact earlier history. */
+export function deleteDshSessionMessagesFrom(
+  sessionRoot: string, sessionId: string, eventSeq: number, role: MessageRole
+): void {
+  if (!Number.isSafeInteger(eventSeq) || eventSeq < 0) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '消息删除参数不正确。', { field: '消息删除参数' })
+  const log = readEditableDshSessionLog(sessionRoot, sessionId)
+  const index = log.events.findIndex(event => event.seq === eventSeq
+    && event.type === (role === 'user' ? 'user/message' : 'assistant/message') && event.surfaceOp === 'append')
+  if (index < 0) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '找不到要删除的消息；原聊天记录未修改。', { what: '要删除的消息' })
+  const events = log.events.slice(0, index)
+  // This is an explicit user edit, not recovery from a crashed Host.
+  events.push(...interruptedTurnClosers(events).map(event => event.type === 'turn/end'
+    ? { ...event, data: { ...event.data, reason: { kind: 'aborted', reason: { kind: 'user' } } } } as SessionEvent
+    : event))
+  rewriteDshSessionEvents(sessionRoot, log, events)
+}
 
 /** Edit the selected persisted message while preserving every other Session event. */
 export function editDshSessionMessage(

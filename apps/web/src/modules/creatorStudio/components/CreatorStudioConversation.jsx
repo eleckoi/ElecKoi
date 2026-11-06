@@ -14,7 +14,9 @@ export function CreatorStudioConversation({ model, editing = false, creating = f
   sessionId, useSession, useInput, useWorkspaces, useSessionStatus, useProjection, useInspectCall, useConversationViews, useEntryPins, useEntryActions, setPinned, useStore, actions, openView, selectView, renderHeaderSlot, renderSlot, renderSlotChain }) {
   const tUi = useProductTranslation();
   const session = useSession(value => value), input = useInput(value => value);
-  const hero = session.blank;
+  // A log rewrite can publish an empty baseline before its replacement turn.
+  // Only settle into the new-chat layout after the message operation finishes.
+  const hero = session.blank && !editing;
   const pendingInteraction = useSessionStatus(value => value.get(sessionId)?.pendingInteraction);
   const projectedModel = useProjection('modelSelection'), projectedTitle = useProjection('title');
   const inspectCall = useInspectCall(value => value), activeView = useStore(value => value.view);

@@ -4,6 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react')
     // 边界⑥ 的信封拆解只有一份实现（@eleckoi/dsh-product-api 的 client 面）。
     const { unwrapOrFail, failureAlreadyPublished, productFailure, ELECKOI_FAILURE_CODES } = require('@eleckoi/dsh-product-api')
+    const retainedStatsKeys = ['sessionStats', 'tokenUsage', 'contextPressure', 'contextBreakdown']
     /** Own one independent official Client Session reference for the Studio surface. */
     class CreatorStudioSessions {
       constructor(remote, sessions, workspaces, getConversation) {
@@ -11,17 +12,63 @@ window.__ModuleLoader__.load({
         this.sessions = sessions
         this.workspaces = workspaces
         this.getConversation = getConversation
-        this.snapshot = { status: 'idle', active: null, reference: null, items: [], error: '', editingSessionId: '' }
+        this.snapshot = { status: 'idle', active: null, reference: null, items: [], error: '', editingSessionId: '', retainedStats: null }
         this.listeners = new Set()
         this.generation = 0
         this.reference = null
         this.disposed = false
         this.draftReferences = new Map()
         this.messageMutation = false
+        this.stopStatsRetention = null
       }
       getSnapshot = () => this.snapshot
       subscribe = listener => { this.listeners.add(listener); return () => this.listeners.delete(listener) }
       publish(patch) { if (!this.disposed) { this.snapshot = { ...this.snapshot, ...patch }; for (const listener of this.listeners) listener() } }
+      retainRegenerationStats(sessionId) {
+        this.stopStatsRetention?.()
+        const session = this.reference.binding.session
+        const faces = retainedStatsKeys.map(key => [key, session.projections.faceOf(key)])
+        const retained = { sessionId, values: Object.fromEntries(faces.map(([key, face]) => [key, face.getSnapshot()])) }
+        let armed = false, baselineSteps = 0, stopped = false, settling = false
+        const stops = []
+        const release = () => {
+          if (stopped) return
+          stopped = true
+          for (const stop of stops) stop()
+          if (this.stopStatsRetention === release) this.stopStatsRetention = null
+          if (this.snapshot.retainedStats === retained) this.publish({ retainedStats: null })
+        }
+        const settle = async () => {
+          settling = true
+          try {
+            // Running status and projections use independent official streams.
+            // A stopped status alone cannot prove the new totals have arrived.
+            const result = await this.remote.session.projections({ sessionId })
+            if (stopped) return
+            const value = unwrapOrFail(result, '创作工作室操作失败。')
+            if (value?.kind !== 'sequenced') throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '工作室会话缺少当前统计投影。', { what: '当前工作室会话统计投影' })
+            if ((value.values.sessionStats?.steps ?? 0) <= baselineSteps) release()
+            else check()
+          } catch (error) {
+            if (stopped) return
+            release()
+            this.publish({ error })
+          }
+        }
+        const check = () => {
+          if (!armed || stopped) return
+          if ((faces[0][1].getSnapshot()?.steps ?? 0) > baselineSteps) release()
+          else if (!session.getSnapshot().running && !settling) void settle()
+        }
+        stops.push(session.subscribe(check), faces[0][1].subscribe(check))
+        this.stopStatsRetention = release
+        this.publish({ retainedStats: retained })
+        return { release, arm: () => {
+          baselineSteps = faces[0][1].getSnapshot()?.steps ?? 0
+          armed = true
+          check()
+        } }
+      }
       async call(method, ...args) {
         const result = await this.remote.eleckoiCreatorStudioSessions[method](...args)
         return unwrapOrFail(result, 'AI 创作工作室操作失败。')
@@ -49,6 +96,7 @@ window.__ModuleLoader__.load({
           reference = this.sessions.retain(active.sessionId, { source: 'eleckoiCreatorStudio' })
           await reference.ready
           if (this.disposed || generation !== this.generation) { reference.release(); return }
+          this.stopStatsRetention?.()
           const previous = this.reference
           const previousId = this.snapshot.active?.sessionId
           this.reference = reference
@@ -154,18 +202,25 @@ window.__ModuleLoader__.load({
         const active = this.snapshot.active
         if (!active) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '工作室对话尚未打开。', { what: '打开工作室对话' })
         if (this.messageMutation) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '请等待当前消息操作完成。', { what: '等待当前消息操作完成' })
+        const stats = method === 'regenerate' ? this.retainRegenerationStats(active.sessionId) : null
+        let retaining = false
         this.messageMutation = true
-        this.publish({ editingSessionId: active.sessionId })
+        this.publish({ editingSessionId: active.sessionId, error: '' })
         const generation = this.generation
         try {
           let failure
           try { await this.call(method, active.sessionId, ...args) } catch (error) { failure = error }
           if (this.disposed || generation !== this.generation) { if (failure) throw failure; return }
-          this.release()
-          try { await this.open(active.sessionId) }
+          // Other official views also retain this generation. Releasing our
+          // reference cannot reset their journal cursor or removed flag, and
+          // would unmount the resident input. Reload the shared history in place.
+          try { await this.sessions.reloadHistory(active.sessionId); await this.refresh() }
           catch (error) { if (failure) throw new AggregateError([failure, error], `${failure.message}；恢复对话失败：${error.message}`); throw error }
           if (failure) throw failure
+          stats?.arm()
+          retaining = true
         } finally {
+          if (!retaining) stats?.release()
           this.messageMutation = false
           if (this.snapshot.editingSessionId === active.sessionId) this.publish({ editingSessionId: '' })
         }
@@ -180,6 +235,7 @@ window.__ModuleLoader__.load({
         return selected
       }
       release() {
+        this.stopStatsRetention?.()
         ++this.generation
         const previous = this.reference
         if (this.draftReferences.get(this.snapshot.active?.sessionId) === previous) this.draftReferences.delete(this.snapshot.active.sessionId)
@@ -363,6 +419,18 @@ window.__ModuleLoader__.load({
       ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'creatorStudio', priority: 0,
         registrant: '@eleckoi/dsh-client-creator-studio' }, () => React.createElement(Page)))
       const studioSeat = name => name.startsWith('eleckoi.creator-studio.') ? name : `eleckoi.creator-studio.${name.replace(/^conversation\./, '')}`
+      function useDisplayStats(owner) {
+        const { retainedStats } = React.useSyncExternalStore(conversations.subscribe, conversations.getSnapshot)
+        const stats = retainedStats?.sessionId === owner.sessionId ? retainedStats.values : null
+        return (key, selector, equal) => {
+          const value = owner.useProjection(key, selector, equal)
+          const selected = React.useRef({ value, key })
+          const next = stats && retainedStatsKeys.includes(key)
+            ? typeof selector === 'function' ? selector(stats[key]) : stats[key] : value
+          if (selected.current.key !== key || !(equal || Object.is)(selected.current.value, next)) selected.current = { value: next, key }
+          return selected.current.value
+        }
+      }
       const projected = new Set()
       function projectSeat(source, target, entryId, override) {
         if (projected.has(target)) return
@@ -385,10 +453,14 @@ window.__ModuleLoader__.load({
                 for (const name of Object.keys(entry.children)) projectSeat(name, studioSeat(name))
               }
               if (override?.children) options.children = { ...options.children, ...override.children }
-              entries.set(entry, ctx.slots.register(options, ({ renderBridgeSlot, ...props }) => React.createElement(override?.component || entry.component, {
-                ...props, renderSlot: (name, owner, renderOptions) => (renderBridgeSlot || props.renderSlot)(studioSeat(name), owner, renderOptions),
-                ...(props.renderSlotChain ? { renderSlotChain: (name, owner, renderOptions) => props.renderSlotChain(studioSeat(name), owner, renderOptions) } : {}),
-              })))
+              entries.set(entry, ctx.slots.register(options, ({ renderBridgeSlot, ...props }) => {
+                const useProjection = source === 'conversation.composer.bar' || source === 'conversation.composer.dock'
+                  ? useDisplayStats(props) : props.useProjection
+                return React.createElement(override?.component || entry.component, {
+                  ...props, useProjection, renderSlot: (name, owner, renderOptions) => (renderBridgeSlot || props.renderSlot)(studioSeat(name), owner, renderOptions),
+                  ...(props.renderSlotChain ? { renderSlotChain: (name, owner, renderOptions) => props.renderSlotChain(studioSeat(name), owner, renderOptions) } : {}),
+                })
+              }))
             }
           }
           const unsubscribe = ctx.slots.subscribe(source, sync)

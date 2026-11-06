@@ -75,10 +75,16 @@ it('bridges the official view roster, header, plugin children and composer witho
   root()
 })
 
+function observable<T>(value: T) {
+  const listeners = new Set<() => void>()
+  return { getSnapshot: () => value, subscribe: (listener: () => void) => { listeners.add(listener); return () => listeners.delete(listener) },
+    set(next: T) { value = next; for (const listener of listeners) listener() }, listeners }
+}
 function studioSessions(items: Array<{ sessionId: string; title: string; pinned: boolean }>, workspaceItems: any[] = []) {
   let registration: any
   const services = new Map<string, any>()
   const releases: string[] = []
+  const reloadHistory = vi.fn(async (_id: string) => {})
   const active = (sessionId: string) => ({ sessionId, presetId: 'synthetic-creator-preset', characterId: '' })
   const remote = {
     list: vi.fn(async () => ({ ok: true, value: items.map(item => ({ ...active(item.sessionId), ...item })) })),
@@ -91,20 +97,89 @@ function studioSessions(items: Array<{ sessionId: string; title: string; pinned:
   const selectModel = vi.fn(async (selection: { sessionId: string; provider: string; model: string }) => ({ ok: true, value: { selected: selection } }))
   const draft = vi.fn(() => 'accepted')
   const inputState = { draft: '', attachmentIds: [] as string[] }
+  const sessionState = observable({ running: false })
+  const faces = new Map(['sessionStats', 'tokenUsage', 'contextPressure', 'contextBreakdown'].map(key => [key, observable<any>(undefined)]))
+  const session = { ...sessionState, projections: { faceOf: (key: string) => faces.get(key)! } }
+  const readProjections = vi.fn(async () => ({ ok: true, value: { kind: 'sequenced', values: Object.fromEntries([...faces].map(([key, face]) => [key, face.getSnapshot()])) } }))
   const list = { ids: items.map(item => item.sessionId), byId: Object.fromEntries(items.map(item => [item.sessionId, { ...item, blank: true, updatedAt: 1 }])) }
   runInNewContext(source, { AbortController, AbortSignal, window: { __ModuleLoader__: { load(value: unknown) { registration = value } } } })
   dshClientPlugin(registration).apply({
-    remote: { eleckoiCreatorStudioSessions: remote, session: { selectModel } },
-    sessions: { list: { getSnapshot: () => list }, binding: (sessionId: string) => ({ sessionId }), scope: () => ({}), refresh: async () => {}, retain: (id: string) => ({ ready: Promise.resolve(), release: () => releases.push(id) }) },
+    remote: { eleckoiCreatorStudioSessions: remote, session: { selectModel, projections: readProjections } },
+    sessions: { list: { getSnapshot: () => list }, binding: (sessionId: string) => ({ sessionId }), scope: () => ({}), refresh: async () => {}, reloadHistory, retain: (id: string) => ({ binding: { sessionId: id, session }, ready: Promise.resolve(), release: () => releases.push(id) }) },
     workspaces: { list: { getSnapshot: () => ({ items: workspaceItems }) }, initializeDefault: async () => undefined },
     get: () => ({ input: { requestDraftInitialization: draft, for: () => ({ state: { getSnapshot: () => inputState } }) } }),
     provide: (name: string, value: unknown) => services.set(name, value),
     effect: () => {},
   })
-  return { model: services.get('eleckoiCreatorStudio').sessions, remote, releases, selectModel, draft, inputState }
+  return { model: services.get('eleckoiCreatorStudio').sessions, remote, releases, reloadHistory, selectModel, draft, inputState, faces, readProjections,
+    setRunning: (running: boolean) => sessionState.set({ running }), updateStats: (values: Record<string, unknown>) => { for (const [key, value] of Object.entries(values)) faces.get(key)!.set(value) } }
 }
 
 describe('Studio Session binding and restoration', () => {
+  it('retains confirmed statistics across rewind and streaming, then hands off to the new settled step', async () => {
+    const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
+    const previous = { sessionStats: { turns: 1, steps: 1 }, tokenUsage: { outputTokens: 120 }, contextPressure: { pressureTokens: 300, contextWindow: 1000 }, contextBreakdown: { messageTokens: 300 } }
+    f.updateStats(previous)
+    await f.model.open('synthetic-session')
+    f.remote.regenerate.mockImplementationOnce(async () => {
+      f.updateStats({ sessionStats: { turns: 0, steps: 0 }, tokenUsage: { outputTokens: 0 }, contextPressure: {}, contextBreakdown: {} })
+      f.setRunning(true)
+      return { ok: true, value: undefined }
+    })
+    await f.model.regenerate()
+    expect(f.model.getSnapshot().retainedStats).toEqual({ sessionId: 'synthetic-session', values: previous })
+    f.updateStats({ contextPressure: { pressureTokens: 500, contextWindow: 1000 } })
+    expect(f.model.getSnapshot().retainedStats.values).toEqual(previous)
+    f.updateStats({ tokenUsage: { outputTokens: 200 }, sessionStats: { turns: 1, steps: 1 } })
+    expect(f.model.getSnapshot().retainedStats).toBeNull()
+    expect(f.faces.get('sessionStats')!.listeners.size).toBe(0)
+  })
+  it('waits for the settled projection when the stopped status arrives first', async () => {
+    const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
+    f.updateStats({ sessionStats: { turns: 1, steps: 1 } })
+    await f.model.open('synthetic-session')
+    f.remote.regenerate.mockImplementationOnce(async () => {
+      f.updateStats({ sessionStats: { turns: 0, steps: 0 } }); f.setRunning(true)
+      return { ok: true, value: undefined }
+    })
+    await f.model.regenerate()
+    f.readProjections.mockResolvedValueOnce({ ok: true, value: { kind: 'sequenced', values: { sessionStats: { turns: 1, steps: 1 } } } })
+    f.setRunning(false)
+    await settle()
+    expect(f.model.getSnapshot().retainedStats.values.sessionStats).toEqual({ turns: 1, steps: 1 })
+    f.updateStats({ sessionStats: { turns: 1, steps: 1 } })
+    expect(f.model.getSnapshot().retainedStats).toBeNull()
+  })
+  it('reports a failed settlement read with its original error and releases its subscriptions', async () => {
+    const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
+    await f.model.open('synthetic-session')
+    f.setRunning(true)
+    await f.model.regenerate()
+    const failure = new Error('synthetic-projection-failure')
+    f.readProjections.mockRejectedValueOnce(failure)
+    f.setRunning(false)
+    await settle()
+    expect(f.model.getSnapshot().error).toBe(failure)
+    expect(f.model.getSnapshot().retainedStats).toBeNull()
+    expect(f.faces.get('sessionStats')!.listeners.size).toBe(0)
+    await f.model.regenerate()
+    expect(f.model.getSnapshot().error).toBe('')
+  })
+  it.each(['failure', 'stop', 'switch', 'dispose'])('releases held statistics on %s without carrying them into another conversation', async mode => {
+    const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
+    f.updateStats({ sessionStats: { turns: 2, steps: 3 } })
+    await f.model.open('synthetic-session')
+    f.setRunning(true)
+    if (mode === 'failure') f.remote.regenerate.mockRejectedValueOnce(new Error('synthetic-failure'))
+    if (mode === 'failure') await expect(f.model.regenerate()).rejects.toThrow('synthetic-failure')
+    else await f.model.regenerate()
+    if (mode === 'stop') f.setRunning(false)
+    if (mode === 'switch') await f.model.open('synthetic-other-session')
+    if (mode === 'dispose') f.model.dispose()
+    await settle()
+    expect(f.model.getSnapshot().retainedStats).toBeNull()
+    expect(f.faces.get('sessionStats')!.listeners.size).toBe(0)
+  })
   it('keeps the active reference when deletion fails and releases it only after successful deletion', async () => {
     const f = studioSessions([{ sessionId: 'synthetic-current', title: 'Synthetic creation', pinned: false }])
     await f.model.open('synthetic-current')
@@ -208,17 +283,20 @@ describe('Studio Session binding and restoration', () => {
     await expect(failed.model.restoreRecent()).rejects.toThrow('synthetic-list-failure')
     expect(failed.remote.create).not.toHaveBeenCalled()
   })
-  it('releases and reacquires the same Session after regeneration, including failure', async () => {
+  it('reloads the retained Session after a rewrite or rollback without releasing the visible conversation', async () => {
     const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
     await f.model.open('synthetic-session')
     await f.model.regenerate()
     expect(f.remote.regenerate).toHaveBeenCalledWith('synthetic-session')
-    expect(f.releases).toEqual(['synthetic-session'])
+    expect(f.releases).toEqual([])
+    expect(f.reloadHistory).toHaveBeenCalledWith('synthetic-session')
     f.remote.deleteMessagesFrom.mockRejectedValueOnce(new Error('synthetic-delete-failure'))
     await expect(f.model.deleteMessagesFrom(17, 'assistant')).rejects.toThrow('synthetic-delete-failure')
     expect(f.remote.deleteMessagesFrom).toHaveBeenCalledWith('synthetic-session', 17, 'assistant')
     expect(f.model.getSnapshot().active.sessionId).toBe('synthetic-session')
     expect(f.model.getSnapshot().reference).not.toBeNull()
+    expect(f.reloadHistory).toHaveBeenCalledTimes(2)
+    expect(f.remote.open).toHaveBeenCalledTimes(1)
   })
   it('keeps the visible Session while the Host rewinds and restores it', async () => {
     const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
@@ -234,9 +312,26 @@ describe('Studio Session binding and restoration', () => {
     expect(f.model.getSnapshot().editingSessionId).toBe('synthetic-session')
     await expect(f.model.regenerate()).rejects.toThrow('等待')
     complete(); await pending
-    expect(f.model.getSnapshot().reference).not.toBe(reference)
+    expect(f.model.getSnapshot().reference).toBe(reference)
+    expect(f.reloadHistory).toHaveBeenCalledWith('synthetic-session')
+    expect(f.releases).toEqual([])
     expect(f.model.getSnapshot().active.sessionId).toBe('synthetic-session')
     expect(f.model.getSnapshot().editingSessionId).toBe('')
+  })
+  it('keeps both failures and unlocks the resident conversation when rollback reload also fails', async () => {
+    const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
+    await f.model.open('synthetic-session')
+    const reference = f.model.getSnapshot().reference
+    const mutationFailure = new Error('synthetic-rewind-failure'), reloadFailure = new Error('synthetic-reload-failure')
+    f.remote.regenerate.mockRejectedValueOnce(mutationFailure)
+    f.reloadHistory.mockRejectedValueOnce(reloadFailure)
+    const failure = await f.model.regenerate().catch((error: AggregateError) => error)
+    expect(failure.errors).toEqual([mutationFailure, reloadFailure])
+    expect(f.model.getSnapshot().reference).toBe(reference)
+    expect(f.model.getSnapshot().editingSessionId).toBe('')
+    await f.model.regenerate()
+    expect(f.reloadHistory).toHaveBeenCalledTimes(2)
+    expect(f.releases).toEqual([])
   })
 })
 

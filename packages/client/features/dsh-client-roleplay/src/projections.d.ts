@@ -56,6 +56,7 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
   interface SessionProjectionMap {
     eleckoiIllustrations: import('@deepseek-ai/dsh-session').SessionEventMap['eleckoi/illustration'][]
     eleckoiConversationPreview: string
+    eleckoiConversationActivity: number
     eleckoiHistoryStatsAdjustment: { steps: number; turns: number }
     eleckoiTurnOutcomes: { abortedTurns: number[] }
     eleckoiInputContinuations: RoleplayInputContinuations

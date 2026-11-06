@@ -47,7 +47,8 @@ describe('product surfaces using the official eight-language runtime', () => {
     expect(host.querySelector('h1').textContent).toBe(titles[locales.indexOf(language)]);
     const t = locale.bind('eleckoi.ui');
     expect(category.textContent).toContain(t('用户资料'));
-    expect(host.querySelector('[data-group="typography"] summary').textContent).toContain(t('正文文字'));
+    expect(host.querySelector('[data-group="typography"] summary').textContent).toContain(t('字号与字体'));
+    expect(host.querySelector('[data-group="typography"] summary').textContent).toContain(t('正文、代码与终端的字体和字号'));
     expect(host.querySelector('[data-group="language"]')).toBe([...host.querySelectorAll('.ec-group')].at(-1));
     expect(host.querySelector('[data-group="language"] summary').textContent).toContain(locale.getSnapshot().locales.find(row => row.id === language).label);
     expect(page.textContent).toContain('角色名保持中文');
@@ -82,7 +83,7 @@ describe('product surfaces using the official eight-language runtime', () => {
     act(() => locale.setLocale(language));
     const t = locale.bind('eleckoi.ui');
     expect(host.textContent).toContain(t('聊天显示'));
-    expect(host.textContent).toContain(t('正文文字'));
+    expect(host.textContent).toContain(t('字号与字体'));
     expect(host.textContent).toContain(t('富消息'));
     expect(host.querySelector('.mobile-settings-group:last-of-type .settings-language-row').getAttribute('aria-label')).toBe(t('界面语言'));
   });

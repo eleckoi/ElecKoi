@@ -527,9 +527,9 @@
   backdrop-filter: blur(18px) saturate(1.1);
   color: var(--bubble-fg);
   text-shadow: 0 1px 1px var(--bubble-fg-shadow);
-  font-size: var(--chat-font-size, 16px);
-  font-weight: var(--chat-font-weight, 400);
-  line-height: var(--chat-line-height, 22.4px);
+  font-size: var(--chat-font-size, var(--dsh-content-font-size, 14px));
+  font-weight: 400;
+  line-height: var(--chat-line-height, calc(24px + var(--dsh-content-font-delta, 0px)));
   letter-spacing: var(--chat-letter-spacing, 0);
   overflow-wrap: anywhere;
 }
@@ -1594,9 +1594,9 @@
   background: transparent;
   box-shadow: none;
   backdrop-filter: none;
-  font-size: var(--chat-font-size, 15px);
-  font-weight: var(--chat-font-weight, 400);
-  line-height: var(--chat-line-height, 23px);
+  font-size: var(--chat-font-size, var(--dsh-content-font-size, 14px));
+  font-weight: 400;
+  line-height: var(--chat-line-height, calc(24px + var(--dsh-content-font-delta, 0px)));
   letter-spacing: var(--chat-letter-spacing, 0);
 }
 
@@ -1680,10 +1680,7 @@
   border-radius: 12px;
   background: var(--markdown-code-block-bg);
   color: var(--markdown-code-block-fg);
-  font-family: "Noto Sans Mono", "Courier New", Consolas, monospace;
-  font-size: var(--chat-font-size, 15px);
-  font-weight: 500;
-  line-height: var(--chat-font-size, 15px);
+  font: var(--dsw-font-markdown-code-block);
   white-space: pre-wrap;
 }
 
@@ -1724,8 +1721,7 @@
   border-radius: 5px;
   background: rgba(0, 0, 0, 0.07);
   color: inherit;
-  font-family: "Noto Sans Mono", "Courier New", Consolas, monospace;
-  font-size: 0.92em;
+  font: var(--dsw-font-markdown-code);
 }
 
 .markdown-message pre code {

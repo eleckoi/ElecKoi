@@ -3036,5 +3036,7 @@
   "展示角色列表和资料，提供角色操作入口。": "Zeigt die Zeichenliste und Informationen an und ermöglicht den Zugriff auf Zeichenoperationen.",
   " · 缓存命中 {value0}%": " · Cache-Treffer {value0} %",
   " · 显示{value0}": " · Anzeige{value0}",
-  " · 角色气泡已开启": " · Die Zeichenblase wird geöffnet"
+  " · 角色气泡已开启": " · Die Zeichenblase wird geöffnet",
+  "字号与字体": "Schriftgrößen und Schriftarten",
+  "正文、代码与终端的字体和字号": "Schriftarten und Größen für Text, Code und Terminals"
 }

@@ -143,6 +143,7 @@ export function SettingsPanel({
   settingsSections = [],
   renderSettingsSection,
   renderLanguageSettings,
+  renderTypographySettings,
   onClosePluginSection,
   renderLayout,
 }) {
@@ -180,6 +181,7 @@ export function SettingsPanel({
       ) : page === "chat" ? (
         <ChatDisplaySettings
           renderLanguageSettings={renderLanguageSettings}
+          renderTypographySettings={renderTypographySettings}
           persona={persona}
           chatDisplay={chatDisplay}
           onChatDisplayChange={onChatDisplayChange}

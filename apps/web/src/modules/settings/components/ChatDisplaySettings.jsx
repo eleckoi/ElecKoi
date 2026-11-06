@@ -144,9 +144,10 @@ export function ChatDisplayPreview({ preferences, persona, compact = false }) {
   if (compact) {
     const scale = .94;
     for (const key of ['--chat-avatar-width', '--chat-avatar-height', '--chat-avatar-radius']) style[key] = `${parseFloat(style[key]) * .62}px`;
-    for (const key of ['--chat-font-size', '--chat-line-height', '--chat-letter-spacing', '--chat-paragraph-gap']) style[key] = `${parseFloat(style[key]) * scale}px`;
+    for (const key of ['--chat-font-size', '--chat-line-height']) style[key] = `calc(${style[key]} * ${scale})`;
+    for (const key of ['--chat-letter-spacing', '--chat-paragraph-gap']) style[key] = `${parseFloat(style[key]) * scale}px`;
     style['--chat-name-size'] = `${profile.name_font_size * .87}px`;
-    style['--dsw-font-markdown-base'] = `${profile.message_font_weight} ${style['--chat-font-size']}/${style['--chat-line-height']} var(--dsw-font-family)`;
+    style['--dsw-font-markdown-base'] = `${style['--chat-font-size']}/${style['--chat-line-height']} var(--dsw-font-family)`;
   }
   const userAvatar = resolveChatAvatar(persona, 'user', avatarShape);
   const assistantAvatar = resolveChatAvatar(persona, 'assistant', avatarShape);
@@ -180,7 +181,7 @@ export function LanguageSettings({ renderLanguageSettings }) {
   </section>;
 }
 
-export function ChatDisplaySettings({ persona, chatDisplay, onChatDisplayChange, renderLanguageSettings }) {
+export function ChatDisplaySettings({ persona, chatDisplay, onChatDisplayChange, renderLanguageSettings, renderTypographySettings }) {
   const tUi = useProductTranslation();
   const languageName = useProductLanguageName();
   const model = chatDisplaySettings(chatDisplay, onChatDisplayChange);
@@ -231,16 +232,15 @@ export function ChatDisplaySettings({ persona, chatDisplay, onChatDisplayChange,
               </div>
               {tune('avatar_size')}{layout !== 'social' && tune('name_font_size')}{tune('name_avatar_spacing', layout === 'social' ? tUi("头像与气泡间距") : tUi("头像与名字间距"))}
             </DisplayGroup>
-            <DisplayGroup id="typography" icon={TextT} title={tUi("正文文字")}
-              description={tUi("{value0} px · 字重 {value1} · 行距 {value2}", {value0: profile.message_font_size, value1: profile.message_font_weight, value2: profile.line_height_multiplier})}
+            <DisplayGroup id="typography" icon={TextT} title={tUi("字号与字体")}
+              description={tUi("正文、代码与终端的字体和字号")}
               preview={<span className="ec-aa">Aa<span>{tUi("字")}</span></span>}>
-              <p className="ec-type-sample" style={{ fontSize: profile.message_font_size, fontWeight: profile.message_font_weight, lineHeight: 1.6 * profile.line_height_multiplier, letterSpacing: profile.letter_spacing }}>{tUi("夜色在窗外缓缓流淌。")}</p>
-              {tune('message_font_size')}{tune('message_font_weight')}{tune('line_height_multiplier')}{tune('letter_spacing')}
+              <div className="settings-typography-control">{renderTypographySettings?.()}</div>
             </DisplayGroup>
             <DisplayGroup id="spacing" icon={ArrowsOutLineVertical} title={tUi("间距与留白")}
               description={tUi("段距 {value0} · 回复 {value1} · {value2} {value3}", {value0: profile.paragraph_spacing, value1: profile.reply_spacing, value2: layout === 'agent' ? tUi("轮次") : tUi("消息"), value3: profile.turn_spacing})}
               preview={<span className="ec-spacing-glyph"><span /><span /><span /><span /></span>}>
-              {tune('paragraph_spacing')}{layout !== 'social' && tune('reply_spacing')}{tune('turn_spacing', layout === 'agent' ? tUi("轮次间距") : tUi("消息间距"))}
+              {tune('line_height_multiplier')}{tune('letter_spacing')}{tune('paragraph_spacing')}{layout !== 'social' && tune('reply_spacing')}{tune('turn_spacing', layout === 'agent' ? tUi("轮次间距") : tUi("消息间距"))}
             </DisplayGroup>
             <DisplayGroup id="colors" icon={Palette} title={tUi("文字配色")} description={tUi("斜体、下划线与引号内文本")}
               preview={<span className="ec-palette-samples">{localizeUiCopy(textColorOptions, tUi).map(option => <span key={option.key} style={{ background: colors[option.key] }} />)}</span>}>

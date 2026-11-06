@@ -22,6 +22,14 @@ export interface ElecKoiSessionEditor {
    */
   editMessage(sessionId: string, eventSeq: number, role: 'user' | 'assistant', content: string): Promise<void>
   /**
+   * 删除指定消息及之后的事件，保留其前的完整历史并闭合开放轮次。
+   * @param sessionId - 官方 Session 编号。
+   * @param eventSeq - 首条需要删除的消息事件序号。
+   * @param role - 消息角色。
+   * @returns 删除和官方投影刷新完成。
+   */
+  deleteMessagesFrom(sessionId: string, eventSeq: number, role: 'user' | 'assistant'): Promise<void>
+  /**
    * 从指定轮次和可选事件位置回退，并刷新官方投影。
    * @param sessionId - 官方 Session 编号。
    * @param fromTurn - 首个需要撤销的轮次。

@@ -699,6 +699,7 @@ window.__ModuleLoader__.load({
         this.changeFeedAbort = null
         this.changeFeed = null
         this.stopEvents = () => {}
+        this.stopSessionList = () => {}
         this.stopRegexRules = () => {}
         this.displayProjectionSignature = null
         this.displayProjectionGeneration = 0
@@ -1183,6 +1184,15 @@ window.__ModuleLoader__.load({
       }
 
       start() {
+        if (this.sessions?.list?.subscribe) {
+          this.stopSessionList = this.sessions.list.subscribe(() => {
+            if (this.disposed) return
+            const items = this.withSessionActivity(this.snapshot.items)
+            if (items.some((item, index) => item !== this.snapshot.items[index])) {
+              this.publish({ ...this.snapshot, items })
+            }
+          })
+        }
         const controller = new AbortController()
         this.changeFeedAbort = controller
         const remoteStream = typeof this.remote?.$stream === 'function'
@@ -1284,17 +1294,29 @@ window.__ModuleLoader__.load({
         if (this.detailsSnapshot.id) void this.bindOfficialSession(this.detailsSnapshot.id).catch(failureAlreadyPublished)
       }
 
+      withSessionActivity(items) {
+        const byId = this.sessions?.list?.getSnapshot().byId
+        if (!byId) return items
+        return items.map(item => {
+          const session = byId[item.runtimeSessionId]
+          const updatedAt = Math.max(session?.updatedAt ?? 0, session?.projectionValues?.eleckoiConversationActivity ?? 0)
+          return updatedAt > Date.parse(item.updatedAt)
+            ? { ...item, updatedAt: new Date(updatedAt).toISOString() } : item
+        })
+      }
+
       async refresh() {
         if (this.disposed) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleDisposed, 'ElecKoi 会话目录已关闭。', { what: 'ElecKoi 会话目录' })
         const generation = ++this.generation
         try {
-          const items = this.unwrap(
+          const result = this.unwrap(
             await this.remote.eleckoiConversations.list(),
             '读取会话列表失败。'
           )
-          if (!Array.isArray(items) || items.some(item => !item || typeof item.id !== 'string')) {
+          if (!Array.isArray(result) || result.some(item => !item || typeof item.id !== 'string')) {
             throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '会话目录返回的数据格式不正确。', { what: '会话目录' })
           }
+          const items = this.withSessionActivity(result)
           if (!this.disposed && generation === this.generation) {
             this.publish({ status: 'ready', items, error: '' })
             if (this.detailsSnapshot.id) void this.bindOfficialSession(this.detailsSnapshot.id).catch(failureAlreadyPublished)
@@ -2416,6 +2438,7 @@ window.__ModuleLoader__.load({
         this.publishStats('', null)
         this.cancelStreamFrame()
         this.stopEvents()
+        this.stopSessionList()
         this.stopRegexRules()
         this.changeFeed = null
         this.changeFeedAbort = null

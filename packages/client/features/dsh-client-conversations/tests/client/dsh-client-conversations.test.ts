@@ -131,6 +131,7 @@ function mountCatalog(
     requestAnimationFrame?: (callback: () => void) => number
     cancelAnimationFrame?: (id: number) => void
     json?: Pick<JSON, 'parse' | 'stringify'>
+    sessions?: { list: { getSnapshot: () => { byId: Record<string, { updatedAt: number; projectionValues?: { eleckoiConversationActivity: number } }> }; subscribe: (listener: () => void) => () => void } }
   } = {}
 ) {
   let registration: { id: string; factory: () => { apply: (ctx: unknown) => void } } | undefined
@@ -161,6 +162,7 @@ function mountCatalog(
   expect(registration?.id).toBe('@eleckoi/dsh-client-conversations')
   dshClientPlugin(registration!).apply({
     remote: conversationRemote(read, changes),
+    sessions: runtime.sessions,
     conversation: runtime.conversation,
     provide: (name: string, value: typeof catalog) => {
       expect(name).toBe('eleckoiConversations')
@@ -179,6 +181,39 @@ function mountCatalog(
 }
 
 describe('DSH ElecKoi conversation client model', () => {
+  it.each(['send', 'regenerate'])('publishes %s activity without reopening a chat or fetching the catalog, and releases the subscription', async mode => {
+    const records = [
+      { id: 'chat-a', runtimeSessionId: 'runtime-a', updatedAt: '2026-11-01T10:00:00.000Z' },
+      { id: 'chat-b', runtimeSessionId: 'runtime-b', updatedAt: '2026-11-01T09:00:00.000Z' },
+    ]
+    let byId: Record<string, { updatedAt: number; projectionValues?: { eleckoiConversationActivity: number } }> = {
+      'runtime-a': { updatedAt: Date.parse(records[0]!.updatedAt) }, 'runtime-b': { updatedAt: Date.parse(records[1]!.updatedAt) } }
+    const listeners = new Set<() => void>()
+    const read = vi.fn(async () => ({ ok: true, data: records }))
+    const r = mountCatalog(read, { sessions: { list: { getSnapshot: () => ({ byId }),
+      subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener) } } } } })
+    const catalog = r.catalog as any
+    try {
+      await settle()
+      const changed = vi.fn(), stop = catalog.subscribe(changed)
+      const activity = Date.parse('2026-11-06T10:00:00.000Z')
+      byId = { ...byId, 'runtime-b': mode === 'send' ? { updatedAt: activity }
+        : { updatedAt: Date.parse(records[1]!.updatedAt), projectionValues: { eleckoiConversationActivity: activity } } }
+      for (const listener of listeners) listener()
+      expect(catalog.getSnapshot().items.find((item: any) => item.id === 'chat-b').updatedAt).toBe(new Date(activity).toISOString())
+      expect(changed).toHaveBeenCalledOnce()
+      for (const listener of listeners) listener()
+      expect(changed).toHaveBeenCalledOnce()
+      expect(read).toHaveBeenCalledOnce()
+      expect(catalog.getDetailsSnapshot().id).toBe('')
+      await catalog.refresh()
+      expect(catalog.getSnapshot().items.find((item: any) => item.id === 'chat-b').updatedAt).toBe(new Date(activity).toISOString())
+      expect(records[1]!.updatedAt).toBe('2026-11-01T09:00:00.000Z')
+      stop()
+    } finally { r.dispose() }
+    expect(listeners.size).toBe(0)
+  })
+
   it('exposes only the ready current Session without transferring its release ownership', async () => {
     const mounted = mountCatalog(async () => ({ ok: true, data: [] }))
     const catalog = mounted.catalog as any

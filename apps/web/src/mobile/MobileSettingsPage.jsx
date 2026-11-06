@@ -83,7 +83,7 @@ function ProfileAvatars({ owner, children }) {
 }
 
 const detailTitles = {
-  'chat:layout': '对话布局', 'chat:avatar': '头像与名字', 'chat:text': '正文文字',
+  'chat:layout': '对话布局', 'chat:avatar': '头像与名字', 'chat:text': '字号与字体',
   'chat:spacing': '间距与留白', 'chat:colors': '文本颜色', 'chat:bubble': '布局独有风格', 'chat:style': '布局独有风格',
   'chat:rich': '富消息',
 };
@@ -218,7 +218,7 @@ export function MobileSettingsPage() {
       <SettingsGroup>
         <SettingsRow icon={ChatCenteredText} label={tUi("对话布局")} value={localizeUiCopy(chatLayouts, tUi).find(item => item.id === layout)?.label} onClick={() => open('chat:layout')} />
         <SettingsRow icon={UserCircle} label={tUi("头像与名字")} value={`${localizeUiCopy(avatarShapes, tUi).find(item => item.id === profile.avatar_shape)?.label || ''} · ${profile.avatar_size}`} onClick={() => open('chat:avatar')} />
-        <SettingsRow icon={TextT} label={tUi("正文文字")} value={`${profile.message_font_size} · ${profile.message_font_weight}`} onClick={() => open('chat:text')} />
+        <SettingsRow icon={TextT} label={tUi("字号与字体")} onClick={() => open('chat:text')} />
         <SettingsRow icon={ArrowsOutLineVertical} label={tUi("间距与留白")} value={`${profile.reply_spacing} / ${profile.turn_spacing}`} onClick={() => open('chat:spacing')} />
         <SettingsRow icon={Palette} label={tUi("文本颜色")} onClick={() => open('chat:colors')} />
         <SettingsRow icon={ChatCircleDots} label={tUi("富消息")} onClick={() => open('chat:rich')} />
@@ -237,9 +237,9 @@ export function MobileSettingsPage() {
     content = <><SettingsGroup title={tUi("头像形状")}><SettingsChoices label={tUi("头像形状")} options={localizeUiCopy(avatarShapes, tUi).map(shape => ({ ...shape, shape: true, disabled: shape.id === 'portrait' && layout !== 'roleplay' }))} value={profile.avatar_shape} onChange={value => updateProfile({ avatar_shape: value })} /></SettingsGroup>
       <SettingsGroup><div className="mobile-settings-tuners">{tune('avatar_size')}{tune('name_font_size')}{tune('name_avatar_spacing')}</div></SettingsGroup></>;
   } else if (page === 'chat:text') {
-    content = <SettingsGroup><div className="mobile-settings-tuners">{['message_font_size', 'message_font_weight', 'line_height_multiplier', 'letter_spacing', 'paragraph_spacing'].map(key => tune(key))}</div></SettingsGroup>;
+    content = <SettingsGroup><div className="settings-typography-control">{view.renderTypographySettings?.()}</div></SettingsGroup>;
   } else if (page === 'chat:spacing') {
-    content = <SettingsGroup><div className="mobile-settings-tuners">{tune('reply_spacing')}{tune('turn_spacing', layout === 'agent' ? tUi("轮次间距") : tUi("消息间距"))}</div></SettingsGroup>;
+    content = <SettingsGroup><div className="mobile-settings-tuners">{tune('line_height_multiplier')}{tune('letter_spacing')}{tune('paragraph_spacing')}{tune('reply_spacing')}{tune('turn_spacing', layout === 'agent' ? tUi("轮次间距") : tUi("消息间距"))}</div></SettingsGroup>;
   } else if (page === 'chat:rich') {
     content = <>
       <SettingsGroup><SettingsSwitch label={tUi("限制富消息运行楼层")} checked={preferences.rich_message_limit_enabled}

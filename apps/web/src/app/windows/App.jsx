@@ -28,7 +28,7 @@ export default function App(props = {}) {
 }
 
 function AppContent({ renderWindow, ...windowProps } = {}) {
-  const { conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, settingsSections, navigation, rightbar, renderSettingsSection, renderLanguageSettings, renderUserProfileEditor, renderCharacterPageSection, renderCharacterEditorSection, renderCharacterManager, renderConversationList, renderPresetEditorSection, renderPresetManager, renderRoleplay } = windowProps;
+  const { conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, settingsSections, navigation, rightbar, renderSettingsSection, renderLanguageSettings, renderTypographySettings, renderUserProfileEditor, renderCharacterPageSection, renderCharacterEditorSection, renderCharacterManager, renderConversationList, renderPresetEditorSection, renderPresetManager, renderRoleplay } = windowProps;
   const params = new URLSearchParams(window.location.search);
   if (params.get("view") === "chat") {
     return <ChatWindow conversations={conversations} characters={characters} characterConfiguration={characterConfiguration}
@@ -52,6 +52,7 @@ function AppContent({ renderWindow, ...windowProps } = {}) {
   const fallback = <MainWindow conversations={conversations} characters={characters} characterConfiguration={characterConfiguration} models={models} persona={persona} presets={presets}
     creatorStudio={creatorStudio} renderCreatorStudioConversation={windowProps.renderCreatorStudioConversation}
     settingsSections={settingsSections} navigation={navigation} rightbar={rightbar} renderSettingsSection={renderSettingsSection} renderLanguageSettings={renderLanguageSettings}
+    renderTypographySettings={renderTypographySettings}
     renderUserProfileEditor={renderUserProfileEditor} renderCharacterPageSection={renderCharacterPageSection}
     renderConversationList={renderConversationList} renderPresetEditorSection={renderPresetEditorSection}
     renderRoleplay={renderRoleplay} />;

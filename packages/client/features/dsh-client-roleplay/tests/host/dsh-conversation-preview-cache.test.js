@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
-import { SessionId, SessionStore } from '@deepseek-ai/dsh-session'
+import { Session, SessionId, SessionStore } from '@deepseek-ai/dsh-session'
 import { SessionProjectionRegistry } from '@deepseek-ai/dsh-session-projection'
 import Storage from '@deepseek-ai/dsh-storage'
 import * as StorageJson from '@deepseek-ai/dsh-storage-json'
@@ -11,20 +11,50 @@ import SessionProjectionCache, { projectionCacheDomainSpec } from '@deepseek-ai/
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { retireRequestContextCache } from '../../src/host/request-cache-retirement.mjs'
 import { ElecKoiConversationsApi } from '../../../../../host/product-api/lib/types/index.js'
+import { conversationActivityProjection } from '../../src/host/conversation-preview.mjs'
 const cleanups = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
 describe('bounded conversation catalog and retired request caches', () => {
+  it('advances at regeneration start before any reply and replays one bounded activity value across repeated attempts', async () => {
+    const ctx = new Context(), clock = vi.spyOn(Date, 'now')
+    try {
+      const registry = new SessionProjectionRegistry(ctx)
+      await registry.register(conversationActivityProjection)
+      const session = Session.create(SessionId('synthetic-activity'))
+      const start = Date.parse('2026-11-06T10:00:00.000Z')
+      for (let turn = 1; turn <= 50; turn++) {
+        clock.mockReturnValue(start + turn * 1000)
+        session.append('turn/start', { turn })
+        expect(registry.snapshot(session).values.eleckoiConversationActivity).toBe(start + turn * 1000)
+        clock.mockReturnValue(start + turn * 1000 + 100)
+        session.append('turn/end', { turn, reason: { kind: 'completed' } })
+      }
+      const final = registry.snapshot(session).values.eleckoiConversationActivity
+      expect(final).toBe(start + 50000)
+      const replay = Session.create(session.id, session.snapshotEvents(), session.header)
+      expect(registry.snapshot(replay).values.eleckoiConversationActivity).toBe(final)
+      expect(JSON.stringify(final).length).toBe(JSON.stringify(start + 1000).length)
+    } finally { clock.mockRestore(); await ctx.fiber.dispose() }
+  })
+
   it('refreshes the catalog through one official list and never inspects each Session', async () => {
     const inspect = vi.fn(() => { throw new Error('不得读取正文') })
-    const list = vi.fn(async () => ({ items: [{ sessionId: 'session-0', projections: { values: { eleckoiConversationPreview: '合成最新消息' } } }] }))
-    const records = Array.from({ length: 50 }, (_, i) => ({ id: String(i), runtimeSessionId: `session-${i}`, preview: '合成开场' }))
+    const lastPromptAt = Date.parse('2026-11-06T10:00:00.000Z'), regeneratedAt = lastPromptAt + 2000
+    const list = vi.fn(async () => ({ items: [{ sessionId: 'session-0', updatedAt: lastPromptAt,
+      projections: { values: { eleckoiConversationPreview: '合成最新消息', eleckoiConversationActivity: regeneratedAt } } },
+      { sessionId: 'session-49', updatedAt: lastPromptAt + 1000 }] }))
+    const records = Array.from({ length: 50 }, (_, i) => ({ id: String(i), runtimeSessionId: `session-${i}`, preview: '合成开场', updatedAt: '2026-11-01T00:00:00.000Z' }))
     const items = await ElecKoiConversationsApi.prototype.list.call({
       productData: { readConversationCatalog: () => records }, ownerContext: { sessionController: { inspect, list } }
     }, new AbortController().signal)
     expect(list).toHaveBeenCalledOnce()
     expect(inspect).not.toHaveBeenCalled()
+    expect(items.slice(0, 2).map(item => item.id)).toEqual(['0', '49'])
     expect(items[0].preview).toBe('合成最新消息')
-    expect(items[1].preview).toBe('合成开场')
+    expect(items[0].updatedAt).toBe(new Date(regeneratedAt).toISOString())
+    expect(items[2].preview).toBe('合成开场')
+    expect(items[2].updatedAt).toBe(records[1].updatedAt)
+    expect(records[0].updatedAt).toBe('2026-11-01T00:00:00.000Z')
   })
 
   it('removes old derived request cache rows through the official atomic update while retaining unrelated metadata', async () => {

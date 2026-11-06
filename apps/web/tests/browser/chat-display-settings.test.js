@@ -88,17 +88,17 @@ it('preserves precise adjustments and resets while laying out visual settings in
       expect(stroke.right).toBeLessThanOrEqual(247);
       expect(Math.abs(stroke.left-stroke.right)).toBeLessThanOrEqual(2);
     }
-    expect(result.modified.preferences.profiles.roleplay.message_font_weight).toBe(600);
+    expect(result.modified.preferences.profiles.roleplay.line_height_multiplier).toBe(1.3);
     expect(result.modified.preferences.profiles.roleplay.letter_spacing).toBe(3);
-    expect(result.modified.weight).toBe('600');
-    expect(result.modified.letter).toBe('3px');
+    expect(result.modified.weight).toBe('400');
+    expect(result.modified.letter).toBe('2.82px');
     expect(result.singleReset.profiles.roleplay.letter_spacing).toBe(result.before.profiles.roleplay.letter_spacing);
-    expect(result.singleReset.profiles.roleplay.message_font_weight).toBe(600);
+    expect(result.singleReset.profiles.roleplay.line_height_multiplier).toBe(1.3);
     expect(result.reset.profiles.roleplay).toEqual(result.before.profiles.roleplay);
     expect(result.reset.profiles.agent).toEqual(result.before.profiles.agent);
     expect(result.reset.generation_stats_enabled).toBe(false);
     expect(result.agent).toMatchObject({ portraitDisabled: true, bubble: true, timestamps: false, preferences: { layout: 'agent' } });
-    expect(result.switchedBack.profiles.agent.message_font_size).toBe(18);
+    expect(result.switchedBack.profiles.agent.line_height_multiplier).toBe(1.2);
     expect(result.switchedBack.profiles.roleplay).toEqual(result.before.profiles.roleplay);
     expect(result.numeric.profiles.roleplay.letter_spacing).toBe(-.5);
     expect(result.colored.text_colors.italics).toBe('#336699');
