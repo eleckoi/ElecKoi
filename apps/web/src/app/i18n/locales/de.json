@@ -3038,5 +3038,6 @@
   " · 显示{value0}": " · Anzeige{value0}",
   " · 角色气泡已开启": " · Die Zeichenblase wird geöffnet",
   "字号与字体": "Schriftgrößen und Schriftarten",
-  "正文、代码与终端的字体和字号": "Schriftarten und Größen für Text, Code und Terminals"
+  "正文、代码与终端的字体和字号": "Schriftarten und Größen für Text, Code und Terminals",
+  "看到「运行错误」：{code}": "Ein Laufzeitfehler ist aufgetreten: {code}"
 }

@@ -3038,5 +3038,6 @@
   " · 显示{value0}": " · Mostrar{value0}",
   " · 角色气泡已开启": " · Se abre la burbuja de caracteres",
   "字号与字体": "Tamaños y fuentes",
-  "正文、代码与终端的字体和字号": "Fuentes y tamaños para texto, código y terminales"
+  "正文、代码与终端的字体和字号": "Fuentes y tamaños para texto, código y terminales",
+  "看到「运行错误」：{code}": "Se produjo un error de ejecución: {code}"
 }

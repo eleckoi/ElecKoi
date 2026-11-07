@@ -13,6 +13,7 @@ import { SidebarContent } from "./shell/components/SidebarContent.jsx";
 import { CommunityDialog } from "./shell/components/CommunityDialog.jsx";
 import { BugReportDialog } from "./shell/components/BugReportDialog.jsx";
 import { bugReportBridge, isBugReportAvailable } from "./shell/components/bugReportBridge.js";
+import { useReportProblem } from "./shell/hooks/useReportProblem.js";
 import { PluginCenterSurface, PluginListPanel } from "./shell/components/PluginCenter.jsx";
 import { SidePanelResizeHandle } from "./shell/components/SidePanelResizeHandle.jsx";
 import { TitleBar, WindowControls } from "./shell/components/TitleBar.jsx";
@@ -68,7 +69,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
   });
   const [chatBackgroundOpen, setChatBackgroundOpen] = useState(false);
   const [communityOpen, setCommunityOpen] = useState(false);
-  const [bugReportOpen, setBugReportOpen] = useState(false);
+  const reportProblem = useReportProblem({ onDismissNotice: chat.dismissNotice });
   const [settingsPage, setSettingsPage] = useState("chat");
   const [presetRequestedTab, setPresetRequestedTab] = useState("");
   const presetNavigationGuardRef = useRef(null);
@@ -338,17 +339,23 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
         open={communityOpen}
         onClose={() => setCommunityOpen(false)}
         onNotify={chat.notify}
-        onReportProblem={isBugReportAvailable() ? () => {
+        onReportProblem={reportProblem.available ? () => {
           setCommunityOpen(false);
-          setBugReportOpen(true);
+          reportProblem.openReport();
         } : undefined}
       />
       <BugReportDialog
-        open={bugReportOpen}
-        onClose={() => setBugReportOpen(false)}
+        open={reportProblem.dialogProps.open}
+        onClose={reportProblem.dialogProps.onClose}
+        initialNotes={reportProblem.dialogProps.initialNotes}
         onNotify={chat.notify}
       />
-      <AppToast notice={chat.notice} onDismiss={chat.dismissNotice} />
+      {/* 出错的那一刻也能报告（决定 17）：没有报告服务时不传，按钮不渲染。 */}
+      <AppToast
+        notice={chat.notice}
+        onDismiss={chat.dismissNotice}
+        onReportProblem={reportProblem.available ? reportProblem.openReport : undefined}
+      />
       <AppUpdateController updates={appUpdates} />
     </main>
   );

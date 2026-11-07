@@ -3038,5 +3038,6 @@
   " · 显示{value0}": " · Tela{value0}",
   " · 角色气泡已开启": " · O balão do personagem é aberto",
   "字号与字体": "Tamanhos e fontes",
-  "正文、代码与终端的字体和字号": "Fontes e tamanhos para texto, código e terminais"
+  "正文、代码与终端的字体和字号": "Fontes e tamanhos para texto, código e terminais",
+  "看到「运行错误」：{code}": "Ocorreu um erro de execução: {code}"
 }

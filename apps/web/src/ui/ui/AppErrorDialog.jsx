@@ -7,7 +7,15 @@ import { createPortal } from "react-dom";
 import { CopyIcon, XIcon } from "../icons/index.jsx";
 import { failureDetailLines, formatFailureDetails, localizeFailure } from "../../utils/failureText.js";
 
-export function AppErrorDialog({ notice, onDismiss }) {
+/**
+ * 窗口级错误对话框。
+ *
+ * `onReportProblem` 是「报告问题」的出口（ADR 0042 决定 17）：出错的那一刻是用户最想报告的时候，
+ * 所以这里给一个入口。**不传就不渲染**——窗口里没有报告服务时，多一个点下去必然失败的按钮比
+ * 少一个入口更糟（与 `CommunityDialog` 同一条规矩）。点击时把失败对象交给调用方，
+ * 由它关掉这条错误、打开报告对话框。
+ */
+export function AppErrorDialog({ notice, onDismiss, onReportProblem }) {
   const tUi = useProductTranslation();
   const message = (notice?.failure ? localizeFailure(notice.failure, tUi).text : null) ?? tUi(notice?.message || '');
   const titleId = useId();
@@ -129,6 +137,11 @@ export function AppErrorDialog({ notice, onDismiss }) {
           </span>
           <div className="app-error-actions">
             <button type="button" onClick={onDismiss}>{tUi("关闭")}</button>
+            {onReportProblem ? (
+              <button type="button" onClick={() => onReportProblem(notice.failure)}>
+                <span>{tUi("报告问题")}</span>
+              </button>
+            ) : null}
             <button ref={copyRef} type="button" className="is-primary" onClick={copyError}>
               <CopyIcon size={15} />
               <span>{copyLabel}</span>

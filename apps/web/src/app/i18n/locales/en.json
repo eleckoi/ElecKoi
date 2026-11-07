@@ -3038,5 +3038,6 @@
   " · 显示{value0}": " · Display{value0}",
   " · 角色气泡已开启": " ·The character bubble is opened",
   "字号与字体": "Font sizes and fonts",
-  "正文、代码与终端的字体和字号": "Fonts and sizes for text, code, and terminals"
+  "正文、代码与终端的字体和字号": "Fonts and sizes for text, code, and terminals",
+  "看到「运行错误」：{code}": "Encountered a runtime error: {code}"
 }

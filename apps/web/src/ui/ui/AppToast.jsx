@@ -1,10 +1,10 @@
 import React from "react";
 import { AppErrorDialog } from "./AppErrorDialog.jsx";
 
-export function AppToast({ notice, onDismiss }) {
+export function AppToast({ notice, onDismiss, onReportProblem }) {
   if (!notice?.message) return null;
   if (notice.type === "error") {
-    return <AppErrorDialog notice={notice} onDismiss={onDismiss} />;
+    return <AppErrorDialog notice={notice} onDismiss={onDismiss} onReportProblem={onReportProblem} />;
   }
 
   return (

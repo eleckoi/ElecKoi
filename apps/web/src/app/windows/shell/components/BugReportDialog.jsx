@@ -177,12 +177,15 @@ function failureHintText(channel, cause, tUi = sourceText) {
 /**
  * 报告问题对话框：展示主进程收集好的报告，让用户选一条投递通道。
  *
- * 判据（ADR 0042 决定 11 / 13 / 14 / 15）：用户发出去的东西必须是他看过的。所以这里做四件事——
+ * 判据（ADR 0042 决定 11 / 13 / 14 / 15 / 17）：用户发出去的东西必须是他看过的。所以这里做四件事——
  * 把报告摆出来、让用户勾选与补一句话、按「最可能成功」排通道并逐条投递、把每一次失败落成草稿。
  * 桌面端的报告与脱敏在 Electron 主进程完成；Android 的运行诊断只给原始事实，报告由
  * `bugReportBridge.js` 用共享契约拼。
+ *
+ * `initialNotes` 是「补充说明」的初值：从「运行错误」点进来时由 `useReportProblem` 预填刚才那个
+ * 错误码（决定 17）。它只是输入框的初值，用户可以改也可以删；每次打开都重新取。
  */
-export function BugReportDialog({ open, onClose, onNotify }) {
+export function BugReportDialog({ open, onClose, onNotify, initialNotes = "" }) {
   const tUi = useProductTranslation();
   const titleId = useId();
   const descriptionId = useId();
@@ -266,17 +269,23 @@ export function BugReportDialog({ open, onClose, onNotify }) {
     });
   }, []);
 
+  // 初值走 ref：`initialNotes` 只在打开那一刻取一次，打开期间重渲染不该把用户改过的备注冲掉。
+  const initialNotesRef = useRef(initialNotes);
+  initialNotesRef.current = initialNotes;
+
   useEffect(() => {
     if (!open) return undefined;
     let active = true;
+    const openingNotes = initialNotesRef.current;
     setError("");
     setNotice("");
-    setNotes("");
+    setNotes(openingNotes);
     setIncludeLogTail(false);
     setPreview(null);
     attemptedRef.current = false;
     crashHandledRef.current = false;
-    collect({ logTail: false, noteText: "" })
+    // 首批预览就带上初值：输入框里看得见的备注，全文预览里也要看得见。
+    collect({ logTail: false, noteText: openingNotes })
       .then((nextPreview) => {
         if (!active) return;
         setPreview(nextPreview);
@@ -284,7 +293,7 @@ export function BugReportDialog({ open, onClose, onNotify }) {
         if (nextPreview.report.session.ended !== false || crashHandledRef.current) return;
         crashHandledRef.current = true;
         setIncludeLogTail(true);
-        collect({ logTail: true, noteText: "" })
+        collect({ logTail: true, noteText: openingNotes })
           .then((withLogTail) => { if (active) setPreview(withLogTail); })
           .catch((cause) => { if (active) setError(resolveFailure(cause, { fallback: tUi("无法生成报告。") }).text); });
       })
