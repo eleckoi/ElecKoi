@@ -74,13 +74,19 @@ export function AvatarActionsMenu({ anchor, onClose, onView, onEdit, canView = t
       <defs>
         <clipPath id={`${id}-clip`}><path d={path} /></clipPath>
         <filter id={`${id}-shadow`} x="-50%" y="-50%" width="200%" height="220%">
-          <feDropShadow dx="0" dy="8" stdDeviation="7" floodOpacity=".1" result="ambient" />
-          <feDropShadow in="ambient" dx="0" dy="2" stdDeviation="2.5" floodOpacity=".04" result="shadow" />
-          <feComposite in="shadow" in2="SourceGraphic" operator="out" />
+          {/* Blur alpha only: retaining SourceGraphic here would leave a dark
+              antialiased rim when the interior is subtracted from the shadow. */}
+          <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="near-blur" />
+          <feOffset in="near-blur" dy="3" result="near-offset" />
+          <feComponentTransfer in="near-offset" result="near-shadow"><feFuncA type="linear" slope=".04" /></feComponentTransfer>
+          <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="far-blur" />
+          <feComponentTransfer in="far-blur" result="far-shadow"><feFuncA type="linear" slope=".05" /></feComponentTransfer>
+          <feMerge result="shadow"><feMergeNode in="far-shadow" /><feMergeNode in="near-shadow" /></feMerge>
+          <feComposite in="shadow" in2="SourceAlpha" operator="out" />
         </filter>
       </defs>
       <path d={path} fill="black" filter={`url(#${id}-shadow)`} />
-      <path d={path} fill="none" stroke="var(--dsw-alias-border-l1)" strokeWidth=".75" />
+      <path d={path} fill="none" stroke="var(--dsw-alias-border-l1)" strokeWidth=".5" />
     </svg>
     <MenuSurface ref={menuRef} className="avatar-actions-menu" role="menu" aria-label={tUi('角色快捷入口')}
       style={{ '--avatar-actions-clip': `url(#${id}-clip)` }}>

@@ -51,6 +51,7 @@
     "@deepseek-ai/dsh-session-projection": "0.2.2-rc.1",
     "@deepseek-ai/dsh-session-projection-cache": "0.2.2-rc.1",
     "@deepseek-ai/dsh-spill-local": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-system-prompt": "0.2.2-rc.1",
     "@deepseek-ai/dsh-tools": "0.2.2-rc.1",
     "@eleckoi/dsh-product-api": "workspace:*",
     "@eleckoi/dsh-product-data": "workspace:*",

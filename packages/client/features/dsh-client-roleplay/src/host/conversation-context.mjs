@@ -22,6 +22,19 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
     const conversationContext = runtimeContexts.get(sourceSessionId).conversationContext
     return { ...snapshot, conversationContext }
   }
+  // Contribute before the official loop records system/message, so trajectory
+  // and dispatch share the same prompt and changes use native prompt versioning.
+  const disposeInstructions = agentCtx.on('system-prompt/assemble', async (_assembly, context, next) => {
+    const assembly = await next()
+    if (context.agent?.id !== sourceSessionId) return assembly
+    const snapshot = context.eleckoiConversationSnapshot ?? read()
+    const illustration = agentCtx.get('eleckoiAutoIllustration')?.instructions(snapshot) ?? ''
+    const instructions = sessionInstructions(snapshot, illustration)
+    return !instructions ? assembly : {
+      ...assembly,
+      sections: [{ name: 'eleckoi:session-instructions', text: instructions, interpolate: false }, ...assembly.sections]
+    }
+  })
   const disposeRequestProjection = agentCtx.on('llm/stream', (options, next) => {
     if (!isAgentLoopRequest(options) || options.sessionId !== sourceSessionId) return next()
     const session = agentCtx.sessions.get(options.sessionId)
@@ -31,9 +44,7 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
     const surface = session.deriveMessages()
     const currentUser = surface.findLast(isDirectUserMessage)
     const prompt = snapshot.conversationContext.currentPromptText
-    const illustration = agentCtx.get('eleckoiAutoIllustration')?.instructions(snapshot) ?? ''
     const transform = {
-      instructions: sessionInstructions(snapshot, illustration) || null,
       currentPromptText: typeof prompt === 'string' && prompt !== messageText(currentUser)
         ? prompt : null
     }
@@ -63,7 +74,7 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
       yield* agentCtx.llm.stream({ ...options, messages: rendered })
     })()
   })
-  return () => { disposeRequestProjection(); disposeStep() }
+  return () => { disposeRequestProjection(); disposeInstructions(); disposeStep() }
 }
 
 /** Assemble the actual request from the official surface and this turn's active settings. */
@@ -71,7 +82,7 @@ export function projectRequestInput(surface, snapshot, transform) {
   const messages = projectRequestMessages(
     projectCurrentUserPrompt(projectProductHistory(surface, snapshot), transform), snapshot.plan
   )
-  return projectRequestReasoning(appendRequestInstructions(messages, transform.instructions), snapshot.reasoningPromptRules, snapshot.reasoningPromptMacros)
+  return projectRequestReasoning(prependRequestInstructions(messages, transform.instructions), snapshot.reasoningPromptRules, snapshot.reasoningPromptMacros)
 }
 
 /** Apply prompt rules to the active turn without mutating Session blocks or opaque adapter replay data. */
@@ -113,17 +124,17 @@ export function extendNativeRequestInput(surface, plan = [], instructions) {
       if (index === currentUserIndex) messages.push(...messagesForAnchor(plan, 'insert_point_4'))
     }
   }
-  return appendRequestInstructions(messages, instructions)
+  return prependRequestInstructions(messages, instructions)
 }
 
-function appendRequestInstructions(messages, instructions) {
+function prependRequestInstructions(messages, instructions) {
   if (instructions) {
-      const systemIndex = messages.findLastIndex((message) => message?.role === 'system')
+      const systemIndex = messages.findIndex((message) => message?.role === 'system')
       if (systemIndex >= 0) {
         const system = messages[systemIndex]
         messages[systemIndex] = freezeMessage({
           ...system,
-          content: [...system.content, { type: 'text', text: `\n\n${instructions}` }]
+          content: [{ type: 'text', text: `${instructions}\n\n` }, ...system.content]
         })
       } else {
         const id = `eleckoi-system-${createHash('sha256').update(instructions).digest('hex')}`

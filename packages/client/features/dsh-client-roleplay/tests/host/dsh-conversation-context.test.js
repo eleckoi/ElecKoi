@@ -85,14 +85,14 @@ describe('DSH conversation context', () => {
     ])
   })
 
-  it('registers only the live request middleware without adding persistent setup messages', () => {
+  it('registers prompt assembly and live request middleware without adding setup messages', () => {
     const release = vi.fn()
     const agentCtx = { on: vi.fn(() => release) }
     const dispose = installConversationContext(agentCtx, 'unused-root', 'synthetic-session', { capture: vi.fn() })
     expect(agentCtx.on).toHaveBeenCalledWith('llm/stream', expect.any(Function))
     expect(agentCtx.on).toHaveBeenCalledWith('session/event', expect.any(Function))
     dispose()
-    expect(release).toHaveBeenCalledTimes(2)
+    expect(release).toHaveBeenCalledTimes(3)
   })
   it('replaces provider-native history before the current input', () => {
     const native = [

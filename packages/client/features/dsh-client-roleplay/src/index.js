@@ -13,6 +13,7 @@ export { applyDisabledPolicy } from './host/tool-policy.mjs'
 export { projectCompactionRequest } from './host/request-config.mjs'
 export { projectRequestInput, extendNativeRequestInput, requestProjectionSnapshot, sessionInstructions } from './host/conversation-context.mjs'
 export const inject = [
+  'systemPrompt',
   'agents',
   'agentPresets',
   'agentDefaultModel',

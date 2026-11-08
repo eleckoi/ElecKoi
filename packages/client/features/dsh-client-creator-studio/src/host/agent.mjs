@@ -94,11 +94,25 @@ export function apply(ctx, config) {
       ...(parameters.topP === undefined ? {} : { topP: parameters.topP }),
       ...(parameters.maxTokens === undefined ? {} : { maxTokens: parameters.maxTokens }) }
   }, { prepend: true }))
+  const instructionsFor = (state, context) => {
+    const target = state.characterId ? ctx.eleckoiProductData.readCharacters().items.find(item => item.id === state.characterId) : undefined
+    const missingTarget = config.creatorTools ? '未选择角色。可调用 character.create 新建空角色并作为当前工作室编辑目标；修改已有角色时请用户从菜单选择角色。' : '未选择角色。'
+    return [sessionInstructions({ conversationContext: context }), config.creatorTools ? creatorAuthoringInstructions : '', `当前编辑目标：${target ? JSON.stringify({ id: target.id, name: target.name }) : missingTarget}`].filter(Boolean).join('\n\n')
+  }
+  disposers.push(ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
+    const assembly = await next()
+    if (!owns(context.agent)) return assembly
+    const state = readState(context.agent)
+    const { settingLibrary } = ctx.eleckoiProductData.creatorPresetRuntime(config.presetId)
+    return { ...assembly, sections: [
+      { name: 'eleckoi:session-instructions', text: instructionsFor(state, { settingLibrary }), interpolate: false },
+      ...assembly.sections
+    ] }
+  }))
   disposers.push(ctx.on('llm/stream', (options, next) => {
     if (projected.has(options) || (options.purpose !== 'compaction' && !isAgentLoopRequest(options))) return next()
     const agent = ctx.agents.get(options.sessionId)
     if (!owns(agent)) return next()
-    const state = readState(agent)
     const { settingLibrary, historyCompactionInstructions } = ctx.eleckoiProductData.creatorPresetRuntime(config.presetId)
     if (options.purpose === 'compaction') {
       // DSH compaction bypasses agent/request. Inherit effort only from the same
@@ -112,10 +126,7 @@ export function apply(ctx, config) {
       return ctx.llm.stream(request)
     }
     const context = { settingLibrary }
-    const target = state.characterId ? ctx.eleckoiProductData.readCharacters().items.find(item => item.id === state.characterId) : undefined
-    const missingTarget = config.creatorTools ? '未选择角色。可调用 character.create 新建空角色并作为当前工作室编辑目标；修改已有角色时请用户从菜单选择角色。' : '未选择角色。'
-    const instructions = [sessionInstructions({ conversationContext: context }), config.creatorTools ? creatorAuthoringInstructions : '', `当前编辑目标：${target ? JSON.stringify({ id: target.id, name: target.name }) : missingTarget}`].filter(Boolean).join('\n\n')
-    const messages = extendNativeRequestInput(options.messages, requestProjectionSnapshot(context).plan, instructions)
+    const messages = extendNativeRequestInput(options.messages, requestProjectionSnapshot(context).plan)
     const request = { ...options, messages }
     projected.add(request)
     return ctx.llm.stream(request)

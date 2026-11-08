@@ -116,6 +116,24 @@ async function* text(text) {
 }
 
 describe('AI creator studio official Agent integration', { timeout: 30_000 }, () => {
+  it('places standing preset instructions first in dispatch and native trajectory across edits and reopen', async () => {
+    const f = await fixture(async function* () { yield* text('Synthetic completion') })
+    const preset = f.ctx.eleckoiProductData.readAgentPreset('agent-preset-creator')
+    const entry = preset.entries.find(entry => entry.position === 'instructions' && entry.triggerMode === 'always')
+    expect(entry).toBeDefined()
+    const system = messages => messages.filter(message => message.role === 'system').flatMap(message => message.content).filter(block => block.type === 'text').map(block => block.text).join('\n\n')
+    for (const [index, value] of ['Synthetic custom {{literal}} first', 'Synthetic changed first'].entries()) {
+      f.ctx.eleckoiProductData.updateAgentPresetEntries(preset.id, [{ id: entry.id, changes: { enabled: true, content: value } }])
+      if (index) await f.reopen()
+      f.handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Synthetic input' }], source: { kind: 'user' } }))
+      await f.handle.agent.whenIdle()
+      const actual = system(f.requests.at(-1).messages)
+      expect(actual.startsWith(value + '\n\n')).toBe(true)
+      expect(actual.split(value)).toHaveLength(2)
+      const event = f.handle.agent.session.snapshotEvents().findLast(event => event.type === 'system/message')
+      expect(system([event.data.message])).toBe(actual)
+    }
+  })
   it.each(['spawn', 'fork'])('runs a first-turn %s child with its Studio binding and selected model', async provider => {
     const f = await fixture(async function* (options, step) {
       if (options.model === 'synthetic') { yield* text('合成父会话收尾'); return }
@@ -694,7 +712,9 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     await send('Synthetic input after deleting the editing target')
     expect(f.handle.agent.session.id).toBe('synthetic-studio-session')
     expect(f.requests).toHaveLength(2)
-    expect(f.handle.agent.session.deriveMessages().slice(0, before.length)).toEqual(before)
+    const dialogue = messages => messages.filter(message => message.role !== 'system')
+    expect(dialogue(f.handle.agent.session.deriveMessages()).slice(0, dialogue(before).length)).toEqual(dialogue(before))
+    expect(f.handle.agent.session.deriveMessages().find(message => message.role === 'system').content).toEqual(f.requests.at(-1).messages.find(message => message.role === 'system').content)
     expect(JSON.stringify(f.requests.at(-1).messages)).toContain('当前编辑目标：未选择角色')
     expect(f.handle.agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
     const execute = args => executeToolCall(f.handle.agent.ctx.tools, { callId: 'synthetic-deleted-target', name: 'eleckoi_call_capability',

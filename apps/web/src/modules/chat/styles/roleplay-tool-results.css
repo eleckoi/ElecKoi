@@ -24,7 +24,8 @@ body[data-ds-dark-theme] .roleplay-tool-call, :root[data-theme="dark"] .roleplay
 .roleplay-result-row em { font-size: 11px; flex: none; color: var(--dsw-alias-link); font-style: normal; }
 .roleplay-result-row > .roleplay-reading-badge { flex: none; font-size: 11px; }
 .roleplay-result-detail { display: flex; flex-direction: column; min-width: 0; height: 288px; overflow: hidden; }
-.roleplay-result-detail-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+/* Preserve text width while virtual content moves across the overflow threshold. */
+.roleplay-result-detail-scroll { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; overscroll-behavior: contain; }
 .roleplay-result-detail-space { position: relative; margin: 14px 16px; }
 .roleplay-result-part { position: absolute; top: 0; left: 0; width: 100%; overflow-wrap: anywhere; }
 .roleplay-result-part[data-detail-kind="header"] { padding-bottom: 12px; }

@@ -9,9 +9,10 @@ import { durableProductPluginSpecifier } from './preset-definition.mjs'
 import { turnOutcomesProjection } from './turn-outcomes-projection.mjs'
 import { inputContinuationsProjection } from './input-continuations-projection.mjs'
 import { currentRequestSnapshot } from './model-selection-migration.mjs'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
+import { createSystemMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { readSessionInspection, productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
-import { projectRequestInput, requestProjectionSnapshot, sessionInstructions, visibleDialogueHistory } from './conversation-context.mjs'
+import { projectRequestInput, requestProjectionSnapshot, visibleDialogueHistory } from './conversation-context.mjs'
 
 export { requestSnapshot } from './model-selection-migration.mjs'
 
@@ -192,8 +193,14 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
         surface = surface.slice(0, index + 1)
       } else surface = [...surface, createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })]
       const conversationContext = runtime.conversationContext
+      const assembly = await ctx.systemPrompt.assemble({
+        agent: resolved.agent, scope: resolved.agent,
+        eleckoiConversationSnapshot: { ...runtime, model, conversationContext }
+      })
+      const system = renderPrompt(assembly)
+      surface = surface.filter(message => message.role !== 'system')
+      if (system) surface.unshift(createSystemMessage(system, 'system-prompt'))
       const messages = projectRequestInput(surface, requestProjectionSnapshot(conversationContext), {
-        instructions: sessionInstructions({ model, conversationContext }) || null,
         currentPromptText: conversationContext.currentPromptText ?? text
       })
       return { model, messages: await renderRequestEjs(messages, { conversationId, variables: runtime.variableContext ? JSON.parse(runtime.variableContext.stateJson) : null }), dryRun: true }

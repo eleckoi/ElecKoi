@@ -115,7 +115,7 @@ describe('NAI preset illustration', () => {
       await ctx.sessionProjections.register(inputContinuationsProjection);
       await ctx.sessionProjections.register(illustrationProjection);
       ctx.provide('eleckoiSessionEditor', { discardGeneratedImages: async () => {} });
-      ctx.systemPrompt.section({ name: 'synthetic-complete', order: 0, text: '合成完整提示词', complete: true });
+      ctx.systemPrompt.section({ name: 'synthetic-base', order: 0, text: '合成基础提示词' });
       await ctx.plugin(AgentLoop, { agents: [] }); await ctx.plugin(LocalAttachmentStore, { dshHome: dir });
       ctx.provide('credentials', { resolve: vi.fn(async () => ({ value: 'synthetic-token' })) });
       await ctx.plugin({ name: 'synthetic-settings', apply(settingsCtx) {
@@ -178,7 +178,8 @@ describe('NAI preset illustration', () => {
       expect(requests).toHaveLength(1); expect(remote.requests).toHaveLength(1);
       expect(bodyStreamed).toBe(true);
       expect(previews.map(request => request.messages)).toEqual(requests.map(request => request.messages));
-      expect(JSON.stringify(events.filter(event => event.type !== 'request/header'))).not.toContain('当前角色对话已启用每轮自动配图');
+      expect(JSON.stringify(events.filter(event => event.type === 'system/message'))).toContain('当前角色对话已启用每轮自动配图');
+      expect(JSON.stringify(events.filter(event => !['request/header', 'system/message'].includes(event.type)))).not.toContain('当前角色对话已启用每轮自动配图');
       expect(remote.requests[0]).toMatchObject({ url: '/ai/generate-image', headers: { authorization: 'Bearer synthetic-token', accept: 'application/json' }, body: { input: 'synthetic prefix, synthetic scene', model: 'nai-diffusion-4-5-full', parameters: { width: 832, height: 1216, steps: 28, scale: 5, sampler: 'k_euler_ancestral', negative_prompt: 'synthetic avoid, synthetic negative', seed: 42, n_samples: 1 } } });
       if (order === 'text-first') await imageFork.dispose();
       else writeSessionSnapshot(snapshotRoot, sessionId, { ...snapshot, autoIllustration: { ...snapshot.autoIllustration, enabled: false } });

@@ -41,6 +41,7 @@
     "@eleckoi/dsh-client-presets": "workspace:*",
     "@eleckoi/dsh-client-web-search": "workspace:*",
     "@eleckoi/dsh-client-roleplay": "workspace:*",
+    "@eleckoi/dsh-auto-illustration": "workspace:*",
     "@eleckoi/dsh-client-shell": "workspace:*",
     "@eleckoi/dsh-client-author": "workspace:*",
     "@eleckoi/dsh-client-html-resources": "workspace:*",

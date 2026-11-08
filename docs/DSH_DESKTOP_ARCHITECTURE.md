@@ -14,6 +14,10 @@
 
 产品组合在官方 `system-prompt` 配置中显式设置 `includeHarnessIdentity: false`，关闭上游默认开启的固定 Harness 身份介绍；部署 `personaPrefix` 默认留空，不再声明模型名为 ElecKoi。桌面 Agent 组合与 SDK 兼容组合保持一致，SDK 仍接受明确的 `DSH_SYSTEM_PROMPT` 自定义值。该调整仅使用官方配置项，保留各工具、功能插件和预设自己的提示词注册，不修改 DSH 源码或增加依赖补丁。
 
+预设的常驻系统指令通过官方 `system-prompt/assemble` 进入 `sections` 首位，使用 `interpolate: false` 保留产品已经处理的文字和字面量模板标记；角色聊天与创作工作室都在官方循环记录 `system/message` 前完成组装。官方工具与环境说明随后保留。不得在 `llm/stream` 再重复追加常驻系统指令，否则实际请求与轨迹的初始／更新系统提示词会分离。请求预览重新组装当前系统提示词，不将历史系统提示词与当前预设再次拼接，也不改写旧轨迹。
+
+提示词来源需区分文字所有者与组合启用者：`web_search`／`web_fetch` 的外部内容说明来自官方 `dsh-tool-web`；文件交付与路径链接说明来自官方 `dsh-deliverable-file-references`；DSH 源码目录、Web GUI 和 HMR 说明来自官方 `dsh-harness-dev-context`。后两者由官方 Web App 组合登记，联网工具由产品预设能力组装配。产品自己的预设常驻正文、角色指令、自动配图协议和工作室编辑目标由对应产品插件贡献。更改顺序不删除这些官方说明，也不表示它们的全部环境描述都适用于每个平台。
+
 ## 工作区目录
 
 应用入口位于 `apps/desktop`、`apps/desktop-host`、`apps/web`；公共合同位于 `packages/shared`，现有产品功能插件位于 `packages/client/features`，Host 数据与运行包位于 `packages/host`，Windows 原生源码位于 `native/windows-frame`。后续 Android 工程进入 `apps/android`，使用独立的平台构建和本地数据。目录决策见 [ADR 0028](adr/0028-multi-application-workspace.md) 和 [ADR 0030](adr/0030-package-responsibility-groups.md)。

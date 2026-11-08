@@ -3,16 +3,17 @@ import { runInNewContext } from 'node:vm';
 import { createAssistantMessage } from '@deepseek-ai/dsh-llm';
 import { describe, it, expect } from 'vitest';
 import { officialChatFixture } from '../../../../../../tests/helpers/officialTrajectory.js';
+import { dshClientRequire } from '../../../../../../tests/helpers/dshClientPlugin';
 import { illustrationProjection } from '../../src/host/illustration-projection.mjs';
 
 const source = readFileSync(new URL('../../../dsh-client-conversations/src/client.js', import.meta.url), 'utf8');
-const boundary = "return { inject: ['slots', 'sessions'";
+const boundary = 'return { inject:';
 if (source.split(boundary).length !== 2) throw new Error('Unexpected conversation Client export boundary');
 let registration;
-runInNewContext(source.replace(boundary, "return { officialMessages, officialProcess, inject: ['slots', 'sessions'"), {
+runInNewContext(source.replace(boundary, 'return { officialMessages, officialProcess, inject:'), {
   window: { __ModuleLoader__: { load: value => { registration = value; } } },
 });
-const client = registration.factory(() => ({ lazy: () => () => null }));
+const client = registration.factory(dshClientRequire);
 const attachment = { attachmentId: `sha256:${'a'.repeat(64)}`, bytes: 32, width: 1, height: 1, mediaType: 'image/png', name: 'synthetic.png' };
 const event = (type, seq, data, intent = {}) => ({ type, seq, time: seq * 100, data, ...intent });
 function fixture(status = 'ready', image = attachment) {

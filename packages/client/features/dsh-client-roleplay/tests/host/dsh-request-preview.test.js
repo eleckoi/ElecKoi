@@ -1,3 +1,4 @@
+import { officialTrajectoryFixture } from '../../../../../../tests/helpers/officialTrajectory.js'
 import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { runtimeContextsFor } from '../../../../../../tests/helpers/runtime-contexts.js'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
@@ -37,7 +38,7 @@ describe('actual request previews retained only by the running Host', { timeout:
     const contexts = runtimeContextsFor('synthetic-loop')
     const sessionId = SessionId('synthetic-loop')
     const write = (instruction, prompt) => {
-      contexts.get(sessionId).conversationContext = { historyMode: 'prefix', history: [{ role: 'assistant', content: '合成开场' }], currentPromptText: prompt }
+      contexts.get(sessionId).conversationContext = { historyMode: 'prefix', history: [{ role: 'assistant', content: '合成开场' }], currentPromptText: prompt, settingLibrary: { entries: [{ id: 'synthetic-standing', title: '合成常驻', enabled: true, triggerMode: 'always', position: 'instructions', content: '合成常驻 {{literal}}', order: 0 }] } }
       writeFileSync(join(root, `${sessionId}.json`), JSON.stringify({ model: { systemPrompt: instruction } }))
     }
     write('合成指令一', '合成处理后的输入一')
@@ -72,7 +73,18 @@ describe('actual request previews retained only by the running Host', { timeout:
     const catalog = previews.list(sessionId)
     expect(catalog.map(({ round, request }) => [round, request])).toEqual([[1, 1], [2, 1]])
     for (const [index, request] of catalog.entries()) expect(previews.read(sessionId, request.id).items).toEqual(requestContextItems(dispatched[index]))
+    const systemText = messages => messages.filter(message => message.role === 'system').flatMap(message => message.content).filter(block => block.type === 'text').map(block => block.text).join('\n\n')
+    expect(systemText(dispatched[0])).toMatch(/^合成指令一\n\n/)
+    expect(systemText(dispatched[1])).toMatch(/^合成指令二\n\n/)
+    expect(systemText(dispatched[1]).match(/合成指令二/g)).toHaveLength(1)
     const events = handle.agent.session.snapshotEvents()
+    const trajectory = officialTrajectoryFixture().replace(events)
+    expect(trajectory.requests[0].prompt.system).toBe(systemText(dispatched[0]))
+    expect(trajectory.requests.at(-1).prompt.system).toBe(systemText(dispatched[1]))
+    expect(systemText(dispatched[0])).toContain('合成指令一\n\n合成常驻 {{literal}}\n\nYou are')
+    const systemEvents = events.filter(event => event.type === 'system/message')
+    expect(systemEvents.some(event => systemText([event.data.message]).startsWith('合成指令一\n\n'))).toBe(true)
+    expect(systemEvents.some(event => systemText([event.data.message]).startsWith('合成指令二\n\n'))).toBe(true)
     expect(events.some(event => event.type.startsWith('eleckoi/request-'))).toBe(false)
     expect(events.some(event => event.type === 'user/message' && event.data.source.kind === 'plugin:eleckoi-request-projection')).toBe(false)
     expect(JSON.stringify(ctx.sessionProjections.snapshot(handle.agent.session))).not.toContain('合成指令二')
@@ -91,6 +103,8 @@ describe('actual request previews retained only by the running Host', { timeout:
     expect(previews.list(sessionId).map(({ round, request }) => [round, request])).toEqual([[1, 1], [2, 1], [2, 2]])
     expect(previews.read(sessionId, previews.list(sessionId).at(-1).id).items).toEqual(requestContextItems(dispatched.at(-1)))
     expect(JSON.stringify(dispatched.at(-1))).toContain('合成编辑后的历史输入')
+    expect(systemText(dispatched.at(-1))).toMatch(/^合成重新生成指令\n\n/)
+    expect(systemText(dispatched.at(-1)).match(/合成常驻/g)).toHaveLength(1)
     const stored = readDshSessionLog(sessionRoot, sessionId)
     expect(stored.header.id).toBe(sessionId)
     expect(stored.events.filter(event => event.type === 'user/message' && event.data.id === inputs[1].data.id)).toHaveLength(1)

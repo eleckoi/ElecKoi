@@ -125,6 +125,26 @@ function run(f) {
 }
 
 describe('official Session and product save boundary', { timeout: 30_000 }, () => {
+  it('reassembles a preview with current standing instructions without duplicating the saved system prompt', async () => {
+    const f = await fixture()
+    const saved = readSessionSnapshot(f.root, f.conversationId)
+    writeSessionSnapshot(f.root, f.conversationId, { ...saved, model: { ...saved.model, systemPrompt: 'Synthetic old instructions' } })
+    run(f)
+    await f.handle.agent.whenIdle()
+    await f.ctx.eleckoiConversationLifecycle.wait(f.conversationId, f.input.operationId)
+    f.ctx.sessionController.resolveAgent = async () => ({ agent: f.handle.agent })
+    vi.spyOn(f.ctx.eleckoiProductData, 'prepareConversationRuntime').mockReturnValue({
+      runtimeSessionId: f.conversationId,
+      conversationContext: { historyMode: 'prefix', history: [], settingLibrary: { entries: [{ id: 'synthetic-standing', enabled: true,
+        triggerMode: 'always', position: 'instructions', content: 'Synthetic current {{literal}} instructions' }] } }
+    })
+    const seq = f.handle.agent.session.seq
+    const preview = await f.ctx.eleckoiRoleplaySessions.previewPrompt(f.conversationId, 'Synthetic preview input')
+    const system = preview.messages.find(message => message.role === 'system').content.map(block => block.text).join('')
+    expect(system).toBe('Synthetic current {{literal}} instructions\n\nYou are an AI agent powered by DeepSeek Harness.')
+    expect(JSON.stringify(preview.messages)).not.toContain('Synthetic old instructions')
+    expect(f.handle.agent.session.seq).toBe(seq)
+  })
   it.each([
     ['send', 'text'], ['send', 'reasoning'], ['regeneration', 'text'], ['regeneration', 'reasoning'],
   ])('settles an interrupted %s with only %s before the next input without replaying it', async (mode, interruptedType) => {
