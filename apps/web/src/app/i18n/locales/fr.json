@@ -3039,5 +3039,9 @@
   " · 角色气泡已开启": " · La bulle de personnage est ouverte",
   "字号与字体": "Tailles et polices",
   "正文、代码与终端的字体和字号": "Polices et tailles du texte, du code et des terminaux",
-  "看到「运行错误」：{code}": "Une erreur d’exécution s’est produite : {code}"
+  "看到「运行错误」：{code}": "Une erreur d’exécution s’est produite : {code}",
+  "查看头像": "Voir l’avatar",
+  "角色卡编辑": "Modifier la fiche du personnage",
+  "角色快捷入口": "Raccourcis du personnage",
+  "{name}的快捷入口": "Raccourcis de {name}"
 }

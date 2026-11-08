@@ -3039,5 +3039,9 @@
   " · 角色气泡已开启": " · Se abre la burbuja de caracteres",
   "字号与字体": "Tamaños y fuentes",
   "正文、代码与终端的字体和字号": "Fuentes y tamaños para texto, código y terminales",
-  "看到「运行错误」：{code}": "Se produjo un error de ejecución: {code}"
+  "看到「运行错误」：{code}": "Se produjo un error de ejecución: {code}",
+  "查看头像": "Ver avatar",
+  "角色卡编辑": "Editar tarjeta de personaje",
+  "角色快捷入口": "Accesos del personaje",
+  "{name}的快捷入口": "Accesos de {name}"
 }

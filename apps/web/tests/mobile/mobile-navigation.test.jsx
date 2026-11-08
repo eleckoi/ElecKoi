@@ -26,7 +26,8 @@ function emit() { listeners.forEach(listener => listener()); }
 function Page({ panel }) {
   const view = useMainPageView();
   if (view.route.kind === 'model-editor') return <><p data-model-config={view.route.configId}>模型编辑</p><button onClick={view.goBack}>返回</button></>;
-  if (view.route.kind === 'conversation') return <><p data-chat={view.chat.sessionId}>独立对话</p><button onClick={view.goBack}>返回</button></>;
+  if (view.route.kind === 'conversation') return <><p data-chat={view.chat.sessionId}>独立对话</p><button onClick={() => view.openCharacterEditor(view.chat.chatCharacter.character_id)}>编辑当前角色</button><button onClick={view.goBack}>返回</button></>;
+  if (view.route.kind === 'character-editor') return <><p data-character-editor={view.route.characterId}>角色编辑</p><button onClick={view.goBack}>返回</button></>;
   if (view.route.kind === 'character-profile') return <><p>角色资料</p><button onClick={() => view.openCharacterConversation('character-b')}>开始对话</button><button onClick={view.goBack}>返回</button></>;
   return <ListPage panel={panel} />;
 }
@@ -74,6 +75,17 @@ afterEach(async () => {
   else delete HTMLElement.prototype.animate;
 });
 describe('Android independent conversation navigation', () => {
+  it('opens the current conversation character editor and returns to that conversation', async () => {
+    await mount();
+    await click('打开会话乙');
+    await click('编辑当前角色');
+    expect(selected).toBe('character');
+    expect(document.querySelector('[data-character-editor]').dataset.characterEditor).toBe('character-b');
+    await click('返回');
+    expect(selected).toBe('messages');
+    expect(document.querySelector('[data-chat]').dataset.chat).toBe('chat-b');
+    expect(fixture.chat.loadChat).toHaveBeenCalledTimes(1);
+  });
   it('opens the Workspace through More and keeps navigation in the native header without a duplicate title', async () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true }));
     let shown = false;

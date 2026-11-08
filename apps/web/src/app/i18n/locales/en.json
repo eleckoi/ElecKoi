@@ -3039,5 +3039,9 @@
   " · 角色气泡已开启": " ·The character bubble is opened",
   "字号与字体": "Font sizes and fonts",
   "正文、代码与终端的字体和字号": "Fonts and sizes for text, code, and terminals",
-  "看到「运行错误」：{code}": "Encountered a runtime error: {code}"
+  "看到「运行错误」：{code}": "Encountered a runtime error: {code}",
+  "查看头像": "View avatar",
+  "角色卡编辑": "Edit character card",
+  "角色快捷入口": "Character shortcuts",
+  "{name}的快捷入口": "Shortcuts for {name}"
 }

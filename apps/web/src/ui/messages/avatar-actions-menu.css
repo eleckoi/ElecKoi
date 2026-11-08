@@ -1,0 +1,47 @@
+.avatar-actions-popup {
+  position: fixed;
+  z-index: 1100;
+  width: 120px;
+  max-height: var(--dsh-anchored-max-height);
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--dsw-font-family);
+}
+
+.avatar-actions-outline {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.avatar-actions-menu {
+  border-radius: 0;
+  padding: 6px 6px 6px 14px;
+  box-sizing: border-box;
+}
+
+.avatar-actions-menu > [aria-hidden='true'] {
+  clip-path: var(--avatar-actions-clip);
+}
+
+.avatar-actions-menu [role='menuitem'] {
+  min-height: 56px;
+  padding: 8px 4px;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.avatar-actions-menu [role='menuitem'] > span { flex: none; }
+.avatar-actions-menu [role='menuitem'] > span:last-child {
+  flex: 0 1 auto;
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.message > .avatar-preview-trigger[aria-haspopup='menu'] { cursor: pointer; }

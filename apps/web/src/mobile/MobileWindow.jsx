@@ -207,6 +207,16 @@ export function MobileWindow(props) {
     selectConversation: id => openConversation({ sessionId: id }, () => chat.loadChat(id)),
     openCharacterConversation: id => openConversation({ characterId: id }, () => chat.openCharacterChat(id)),
     openCharacterSection: () => selectPanel('character'),
+    openCharacterEditor: characterId => {
+      if (conversationBusyRef.current) return;
+      guarded(() => {
+        skipPanelGuard.current = true;
+        try {
+          navigation.selectPanel('character');
+          setRoutes(current => [...current, { panel: 'character', kind: 'character-editor', characterId }]);
+        } finally { skipPanelGuard.current = false; }
+      });
+    },
     openPresetTools: () => selectPanel('presets'),
     openChatBackground: () => setBackgroundOpen(true),
     renderLayout: ({ mainPanel, overlays }) => <>{mainPanel}{overlays}</>,

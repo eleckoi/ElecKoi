@@ -12,7 +12,11 @@ export function SidebarCreateButton({ title, expanded, onClick, onPointerDown })
       onPointerDown={onPointerDown}
       onClick={onClick}
     >
-      <DshPlusIcon size={16} />
+      {/* Share the button's viewport so fractional zoom cannot snap the icon's
+          smaller canvas independently of its surrounding border. */}
+      <svg className="sidebar-create-icon" width="30" height="30" viewBox="0 0 30 30" aria-hidden="true" focusable="false">
+        <g transform="translate(7 7)"><DshPlusIcon size={16} /></g>
+      </svg>
     </button></Tooltip>
   );
 }

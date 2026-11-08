@@ -4,6 +4,8 @@ import { PluginListPanel } from '../../src/app/windows/shell/components/PluginCe
 import { PresetProvider, PresetListPanel } from '../../src/modules/presets/components/PresetPanel.jsx';
 import { ModelProviderSidebar } from '../../src/modules/models/components/ModelProviderSidebar.jsx';
 import { ConversationList } from '../../src/modules/chat/components/ConversationList.jsx';
+import { CharacterListPanel } from '../../src/modules/persona/components/CharacterListPanel.jsx';
+import { ICON_SYMBOLS } from '@deepseek-ai/dsh-client-ui-primitives';
 import { DisplayPreferencesProvider } from '../../src/modules/settings/model/DisplayPreferencesContext.jsx';
 import '../../src/app/windows/styles/tokens.css';
 import '../../src/app/windows/styles/dsh-theme-bridge.css';
@@ -14,6 +16,22 @@ import '../../src/modules/presets/styles/preset-panel.css';
 import '../../src/modules/models/styles/model-config.css';
 import '../../src/modules/chat/styles/conversation-list.css';
 import '../../src/app/windows/styles/dark-theme.css';
+
+const svgNamespace = 'http://www.w3.org/2000/svg';
+const sprite = document.createElementNS(svgNamespace, 'svg');
+sprite.setAttribute('aria-hidden', 'true');
+sprite.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
+for (const [id, markup] of Object.entries(ICON_SYMBOLS)) {
+  const artwork = new DOMParser().parseFromString(markup, 'image/svg+xml').documentElement;
+  const symbol = document.createElementNS(svgNamespace, 'symbol');
+  for (const { name, value } of artwork.attributes) {
+    if (!['width', 'height', 'xmlns', 'class', 'aria-hidden'].includes(name)) symbol.setAttribute(name, value);
+  }
+  symbol.id = id;
+  symbol.append(...[...artwork.childNodes].map(node => document.importNode(node, true)));
+  sprite.append(symbol);
+}
+document.body.prepend(sprite);
 
 const kind = new URLSearchParams(location.search).get('kind');
 const noop = () => {};
@@ -45,5 +63,5 @@ function Messages() {
 }
 createRoot(document.querySelector('#root')).render(<DisplayPreferencesProvider model={preferences}>
   {kind === 'plugins' ? <PluginListPanel onNotify={noop} /> : kind === 'presets' ? <PresetProvider catalogModel={catalogModel}><PresetListPanel /></PresetProvider>
-    : kind === 'models' ? <Models /> : <Messages />}
+    : kind === 'models' ? <Models /> : kind === 'characters' ? <CharacterListPanel characters={{ items, groups: [] }} artworkMode="avatar" /> : <Messages />}
 </DisplayPreferencesProvider>);

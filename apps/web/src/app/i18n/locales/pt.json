@@ -3039,5 +3039,9 @@
   " · 角色气泡已开启": " · O balão do personagem é aberto",
   "字号与字体": "Tamanhos e fontes",
   "正文、代码与终端的字体和字号": "Fontes e tamanhos para texto, código e terminais",
-  "看到「运行错误」：{code}": "Ocorreu um erro de execução: {code}"
+  "看到「运行错误」：{code}": "Ocorreu um erro de execução: {code}",
+  "查看头像": "Ver avatar",
+  "角色卡编辑": "Editar cartão de personagem",
+  "角色快捷入口": "Atalhos do personagem",
+  "{name}的快捷入口": "Atalhos de {name}"
 }

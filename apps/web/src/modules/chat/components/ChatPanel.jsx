@@ -13,6 +13,7 @@ import { VariableViewerDialog } from "./VariableViewerDialog.jsx";
 import { RequestPreviewDialog } from "./RequestPreviewDialog.jsx";
 import { AgentToolsDialog } from "./AgentToolsDialog.jsx";
 import { NativeScriptPanel } from "../../scripts/index.js";
+import { openCharacterEditorWindow } from '../../persona/index.js';
 import { MessageBubble } from "../../../ui/messages/MessageBubble.jsx";
 import { ConfirmationDialog } from "../../../ui/ui/ConfirmationDialog.jsx";
 import logoIcon from "../../../assets/eleckoi-app-icon.png";
@@ -144,6 +145,8 @@ export function ChatPanel({
   const composerRegionRef = useRef(null);
   const headerMenuRef = useRef(null);
   const pageView = useContext(MainPageContext);
+  const openCharacterEditor = pageView?.openCharacterEditor || openCharacterEditorWindow;
+  const editChatCharacter = useCallback(() => openCharacterEditor(characterId), [openCharacterEditor, characterId]);
   const authorConnection = pageView?.characterConfiguration?.scriptRuntimeConnection;
   const nativeAuthorRuntime = useSyncExternalStore(authorConnection?.subscribe || noAuthorSubscription,
     authorConnection?.getSnapshot || noAuthorRuntime, noAuthorRuntime);
@@ -418,6 +421,7 @@ export function ChatPanel({
     userPinImage: persona.user_portrait || persona.user_square || userAvatar,
     assistantPinImage: persona.assistant_cover || persona.assistant_square || assistantAvatar,
     onPinAvatar: setPinnedAvatar, userName: persona.user_name, assistantName: persona.assistant_name,
+    onEditCharacter: characterId ? editChatCharacter : undefined,
     showRoleplayTimestamp: chatDisplay?.roleplay_timestamps_enabled !== false,
     showRoleplayFloor: chatDisplay?.roleplay_message_floors_enabled !== false,
     onOpenProcess: setProcessMessage, onEditMessage,
@@ -607,6 +611,7 @@ export function MessageList({
   userPinImage,
   assistantPinImage,
   onPinAvatar,
+  onEditCharacter,
   userName,
   assistantName,
   showRoleplayTimestamp,
@@ -684,6 +689,7 @@ export function MessageList({
           showRoleplayFloor={showRoleplayFloor}
           onOpenProcess={onOpenProcess}
           onPinAvatar={onPinAvatar}
+          onEditCharacter={onEditCharacter}
           onEditMessage={onEditMessage}
           onEditOpening={onEditOpening}
           onSelectOpening={onSelectOpening}
@@ -722,6 +728,7 @@ const MessageRow = memo(function MessageRow({
   showRoleplayFloor,
   onOpenProcess,
   onPinAvatar,
+  onEditCharacter,
   onEditMessage,
   onEditOpening,
   onSelectOpening,
@@ -763,6 +770,7 @@ const MessageRow = memo(function MessageRow({
     showRoleplayFloor={showRoleplayFloor}
     onOpenProcess={onOpenProcess}
     onPinAvatar={onPinAvatar}
+    onEditCharacter={deleteMode ? undefined : onEditCharacter}
     onEdit={deleteMode || !canMutate ? undefined : item.id === "opening" ? onEditOpening : onEditMessage}
     onSelectOpening={deleteMode || !canMutate ? undefined : onSelectOpening}
     onRegenerate={deleteMode || !canMutate ? undefined : onRegenerate}

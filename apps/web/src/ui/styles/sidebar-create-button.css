@@ -1,6 +1,7 @@
 .sidebar-create-button {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: none;
   width: 30px;
   height: 30px;
@@ -31,4 +32,11 @@
 .sidebar-create-button svg {
   width: 16px;
   height: 16px;
+}
+
+.sidebar-create-button > .sidebar-create-icon {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  pointer-events: none;
 }

@@ -10,6 +10,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { OfficialMarkdown } from "./OfficialMarkdown.jsx";
 import { Avatar } from "../ui/Avatar.jsx";
 import { AvatarPreviewDialog } from "./AvatarPreviewDialog.jsx";
+import { AvatarActionsMenu } from "./AvatarActionsMenu.jsx";
 import { ViewProcessIcon, AgentPencilIcon, CopyIcon, MessageChevronRightIcon, MessagePencilIcon, MoreDotsIcon, RefreshMessageIcon } from "../icons/elecKoiMessageIcons.jsx";
 import { AgentProcessStatus } from "../../modules/chat/components/AgentProcessStatus.jsx";
 import { ChatImageGallery } from "./ChatImageGallery.jsx";
@@ -134,7 +135,7 @@ function SettledRichPresentation({ message, presentation, renderMarkdown, fallba
     })}</div>;
 }
 
-function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode = "roleplay", avatarShape = "portrait", spacingAfter, floorNumber, showRoleplayTimestamp = true, showRoleplayFloor = true, isLatestAssistant = true, onOpenProcess, onPinAvatar, onSelectOpening, onEdit, onRegenerate, onRegenerateImage, onOpenFile, pluginActions, pluginAfter, renderMessageContent, loadImage }) {
+function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode = "roleplay", avatarShape = "portrait", spacingAfter, floorNumber, showRoleplayTimestamp = true, showRoleplayFloor = true, isLatestAssistant = true, onOpenProcess, onPinAvatar, onEditCharacter, onSelectOpening, onEdit, onRegenerate, onRegenerateImage, onOpenFile, pluginActions, pluginAfter, renderMessageContent, loadImage }) {
   const tUi = useProductTranslation();
   const { role, content, pending = false } = message;
   const renderedDisplay = useRegexEjsDisplay(message, message.displayContent ?? content ?? '');
@@ -151,6 +152,8 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
   const [draft, setDraft] = useState(editableContent || "");
   const [jumpOpen, setJumpOpen] = useState(false);
   const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false);
+  const [avatarMenuAnchor, setAvatarMenuAnchor] = useState(null);
+  const avatarMenuEnabled = layoutMode === 'roleplay' && !isUser && Boolean(onEditCharacter);
   const [pageInput, setPageInput] = useState("");
   const [openingSwitching, setOpeningSwitching] = useState(false);
   const [pagerOpeningId, setPagerOpeningId] = useState(message.selectedOpeningId);
@@ -187,6 +190,7 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
   const requestedPageValid = requestedIndex >= 0 && requestedIndex < options.length;
 
   useEffect(() => setDraft(editableContent || ""), [editableContent]);
+  useEffect(() => { setAvatarMenuAnchor(null); setAvatarPreviewOpen(false); }, [message.conversationId, message.id]);
   useEffect(() => {
     if (!openingEnabled) setJumpOpen(false);
     if (!editingEnabled) setEditing(false);
@@ -317,8 +321,12 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
       className={`message ${isUser ? "mine" : "theirs"} message-${layoutMode} avatar-shape-${avatarShape}${toolbar.reserved ? " mobile-tools-reserved" : ""}${showOpeningPager ? " has-opening-pager" : ""}${layoutMode === "agent" && !isUser && isLatestAssistant ? " is-latest-assistant" : ""}`}
       style={Number.isFinite(spacingAfter) ? { marginBottom: `${spacingAfter}px` } : undefined}
     >
-      {avatar
-        ? <Avatar as="button" type="button" src={avatar} name={name} className="avatar-preview-trigger" onClick={() => setAvatarPreviewOpen(true)} aria-label={tUi("放大{value0}的头像", {value0: name || (isUser ? tUi("你") : tUi("助手"))})} title={tUi("放大头像")} />
+      {avatar || avatarMenuEnabled
+        ? <Avatar as="button" type="button" src={avatar} name={name} className="avatar-preview-trigger"
+          onClick={event => { const trigger = event.currentTarget; avatarMenuEnabled ? setAvatarMenuAnchor(current => current ? null : trigger) : setAvatarPreviewOpen(true); }}
+          aria-haspopup={avatarMenuEnabled ? 'menu' : undefined} aria-expanded={avatarMenuEnabled ? Boolean(avatarMenuAnchor) : undefined}
+          aria-label={avatarMenuEnabled ? tUi("{name}的快捷入口", { name: name || tUi("角色") }) : tUi("放大{value0}的头像", {value0: name || (isUser ? tUi("你") : tUi("助手"))})}
+          title={avatarMenuEnabled ? tUi("角色快捷入口") : tUi("放大头像")} />
         : <Avatar src={avatar} name={name} />}
       {roleplayFloor ? <span className="message-floor" aria-label={tUi("消息楼层 {value0}", {value0: floorNumber})}>#{floorNumber}</span> : null}
       <div className="message-content">
@@ -378,6 +386,8 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
       </div>
       {layoutMode === "roleplay" ? messageTools : null}
       {layoutMode !== "agent" ? openingPager : null}
+      {avatarMenuAnchor && avatarMenuEnabled ? <AvatarActionsMenu anchor={avatarMenuAnchor} canView={Boolean(avatar)}
+        onClose={() => setAvatarMenuAnchor(null)} onView={() => setAvatarPreviewOpen(true)} onEdit={onEditCharacter} /> : null}
       {avatarPreviewOpen && avatar ? <AvatarPreviewDialog src={avatar} name={name} onClose={() => setAvatarPreviewOpen(false)} onPin={onPinAvatar ? () => { onPinAvatar({ src: pinSrc || avatar, name }); setAvatarPreviewOpen(false); } : undefined} /> : null}
       {jumpOpen && typeof document !== "undefined" ? createPortal(
         <SystemBarOverlay className="opening-jump-backdrop" onPointerDown={() => closePageJump()}>
