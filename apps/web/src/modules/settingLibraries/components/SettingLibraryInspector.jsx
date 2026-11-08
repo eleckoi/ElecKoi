@@ -13,6 +13,7 @@ function EntryEditor({
   entries,
   promptPositions,
   allowCustomPromptPositions,
+  creatorPreset,
   nameInputRef,
   onChange,
   onEntriesChange,
@@ -30,6 +31,7 @@ function EntryEditor({
         entries={entries}
         promptPositions={promptPositions}
         allowCustomPromptPositions={allowCustomPromptPositions}
+        creatorPreset={creatorPreset}
         nameInputRef={nameInputRef}
         onChange={onChange}
         onEntriesChange={onEntriesChange}
@@ -81,6 +83,7 @@ export function SettingLibraryInspector({
   onRequestDeleteOpening,
   onPromptPositionsChange,
   allowCustomPromptPositions = false,
+  creatorPreset = false,
 }) {
   const tUi = useProductTranslation();
   if (!selected.value) return null;
@@ -109,6 +112,7 @@ export function SettingLibraryInspector({
             entries={library.entries}
             promptPositions={library.promptPositions}
             allowCustomPromptPositions={allowCustomPromptPositions}
+            creatorPreset={creatorPreset}
             nameInputRef={nameInputRef}
             onChange={onUpdateEntry}
             onEntriesChange={onEntriesChange}

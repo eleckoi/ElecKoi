@@ -1,5 +1,10 @@
 import { executeToolCall } from '../helpers/tool-call.js'
 import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
+import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
+import WorkingDirectory from '@deepseek-ai/dsh-working-directory'
+import * as spillPolicy from '@deepseek-ai/dsh-spill-policy'
+import ToolResultStore from '../../packages/client/features/dsh-client-roleplay/src/host/tool-result-store.mjs'
+import { RESULT_READERS } from '../../packages/client/features/dsh-client-roleplay/src/host/tool-result-access.mjs'
 import { Context } from '@deepseek-ai/cordis'
 import Loader, { Group } from '@deepseek-ai/cordis-plugin-loader'
 import AgentPresetRegistry from '@deepseek-ai/dsh-agent-preset-registry'
@@ -35,7 +40,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const cleanups = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
-async function fixture(stream, creatorTools = true, { compaction = false, subagents = false } = {}) {
+async function fixture(stream, creatorTools = true, { compaction = false, subagents = false, spill = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-studio-'))
   cleanups.push(() => { const child = relative(tmpdir(), root); if (!child || child.startsWith('..') || isAbsolute(child)) throw new Error('Unexpected cleanup path'); rmSync(root, { recursive: true, force: true }) })
   for (const [key, value] of Object.entries({ ELECKOI_DATABASE_PATH: join(root, 'product.sqlite'), ELECKOI_MEDIA_ROOT: join(root, 'media') })) {
@@ -52,6 +57,12 @@ async function fixture(stream, creatorTools = true, { compaction = false, subage
   for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry, Commands, TokenMeter]) await ctx.plugin(plugin)
   await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' })
   await ctx.plugin(SessionQuery)
+  if (spill) {
+    await ctx.plugin(LocalFileSystem, { cwd: root })
+    await ctx.plugin(WorkingDirectory, { defaultDirectory: root })
+    await ctx.plugin(ToolResultStore, { root: join(root, 'tool-results'), cleanupPeriodDays: 0 })
+    await ctx.plugin(spillPolicy, { maxInlineTokens: 12_500, pagedTools: Object.values(RESULT_READERS) })
+  }
   await ctx.plugin(AgentLoop, { agents: [] })
   if (subagents) {
     ctx.provide('workingDirectory', {
@@ -116,6 +127,148 @@ async function* text(text) {
 }
 
 describe('AI creator studio official Agent integration', { timeout: 30_000 }, () => {
+  it('discovers a partial setting edit and replaces one chapter through the native model loop without resending the full body', async () => {
+    const prefix = 'Synthetic act one stays intact.\r\n'.repeat(1000), suffix = '\r\nSynthetic act five stays intact.'.repeat(1000)
+    const old_string = '第四幕：旧情节𠮷', new_string = '第四幕：新情节 $& $1 $$ 𠮷'
+    const entryId = 'synthetic-partial-story'
+    const f = await fixture(async function* (request, step) {
+      const result = step > 1 ? JSON.parse(request.messages.findLast(message => message.role === 'tool').content[0].text) : undefined
+      let name = 'eleckoi_call_capability', args
+      if (step === 1) {
+        name = 'eleckoi_describe_toolset'
+        args = { toolset_id: 'settings', operation_ids: ['settings.read', 'settings.edit'], include_schema: true }
+      } else if (step === 2) {
+        const edit = result.operations.find(operation => operation.id === 'settings.edit')
+        expect(edit.inputSchema.required).toEqual(['id', 'old_string', 'new_string'])
+        expect(edit.inputSchema.additionalProperties).toBe(false)
+        expect(result.toolset.guide.join('\n')).toContain('无需重传整条正文')
+        args = { capability_id: 'settings.read', arguments: { id: entryId } }
+      } else if (step === 3) {
+        expect(result.value.content).toBe(prefix + old_string + suffix)
+        args = { capability_id: 'settings.edit', arguments: { id: entryId, old_string, new_string } }
+        expect(JSON.stringify(args).length).toBeLessThan(300)
+      } else {
+        expect(result.value).toEqual({ id: entryId, changed: true, replacements: 1 })
+        expect(JSON.stringify(result).length).toBeLessThan(200)
+        yield* text('Synthetic partial edit completed'); return
+      }
+      yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+      yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: `synthetic-partial-edit-${step}`, name, arguments: JSON.stringify(args) } }
+      yield { type: 'finish', reason: { kind: 'tool-calls' } }
+    })
+    const data = f.ctx.eleckoiProductData, library = data.readSettingLibrary(f.character.id)
+    data.saveSettingLibrary(f.character.id, { ...library, entries: [...library.entries, { ...emptyEntry(entryId), title: 'Synthetic long story', content: prefix + old_string + suffix }] })
+    f.handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Only replace act four and keep every other character' }], source: { kind: 'user' } }))
+    await f.handle.agent.whenIdle()
+    expect(f.handle.agent.session.snapshotEvents().filter(event => event.type === 'turn/end').at(-1).data.reason).toEqual({ kind: 'completed' })
+    expect(f.requests).toHaveLength(4)
+    expect(data.readSettingLibrary(f.character.id).entries.find(entry => entry.id === entryId).content).toBe(prefix + new_string + suffix)
+    await f.reopen()
+    expect(data.readSettingLibrary(f.character.id).entries.find(entry => entry.id === entryId).content).toBe(prefix + new_string + suffix)
+  })
+  it.each(['glob', 'grep', 'read'])('continues every byte of overflowing preset %s results through the existing creator reader', async operation => {
+    const spills = [], marker = operation === 'read' ? '末尾𠮷' : 'Volume 1000'
+    let complete = '', pages = 0, searched = false
+    const f = await fixture(async function* (request, step) {
+      const locator = spills[0]?.ref.locator
+      let args
+      if (step === 1) args = { capability_id: `presetPrompts.${operation}`, arguments: operation === 'read' ? { paths: ['Long'] } : operation === 'grep' ? { pattern: 'Synthetic tail' } : {} }
+      else if (step === 2) {
+        expect(request.messages.findLast(message => message.role === 'tool').content[0].text).toContain(locator)
+        args = { result: { file_path: locator, offset: 0, limit: 32_771 } }
+      } else {
+        const page = JSON.parse(request.messages.findLast(message => message.role === 'tool').content[0].text)
+        expect(page.kind).toBe('tool_result_page')
+        if (page.matches) {
+          expect(page.matches.some(hit => hit.text.includes(marker))).toBe(true)
+          searched = true
+        } else {
+          complete += page.content; pages++
+          if (page.next_offset !== null) args = { result: { file_path: locator, offset: page.next_offset, limit: 32_771 } }
+          else {
+            expect(complete).toBe(spills[0].original)
+            const value = JSON.parse(complete).value
+            if (operation === 'read') expect(value.files[0].content.endsWith(marker)).toBe(true)
+            else expect((value.files ?? value.matches).at(-1).path).toBe(marker)
+            args = { result: { file_path: locator, query: marker } }
+          }
+        }
+      }
+      if (!args) { yield* text('Synthetic continuation completed'); return }
+      yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+      yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: `synthetic-prompt-page-${step}`, name: 'eleckoi_call_capability', arguments: JSON.stringify(args) } }
+      yield { type: 'finish', reason: { kind: 'tool-calls' } }
+    }, true, { spill: true })
+    const data = f.ctx.eleckoiProductData, preset = data.readAgentPreset('agent-preset-creator')
+    const entries = operation === 'read'
+      ? [{ ...emptyEntry('synthetic-long'), title: 'Long', content: '开始|' + '合成大正文𠮷'.repeat(12_000) + marker, triggerMode: 'agent_tool' }]
+      : Array.from({ length: 1001 }, (_, index) => ({ ...emptyEntry(`synthetic-page-${index}`), title: `Volume ${index}`, content: `Synthetic tail ${index}`, triggerMode: 'agent_tool' }))
+    data.saveAgentPreset({ ...preset, entries: [...preset.entries, ...entries] })
+    f.handle.agent.session.append(CREATOR_STUDIO_EVENT, { presetId: preset.id, characterId: '' }, { ignorable: true })
+    const saveText = f.ctx.spillStore.saveText.bind(f.ctx.spillStore)
+    const save = vi.spyOn(f.ctx.spillStore, 'saveText').mockImplementation(async input => {
+      const ref = await saveText(input); spills.push({ ref, original: input.content }); return ref
+    })
+    cleanups.push(() => save.mockRestore())
+    f.handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Synthetic read and continue all preset prompts' }], source: { kind: 'user' } }))
+    await f.handle.agent.whenIdle()
+    expect(f.handle.agent.session.snapshotEvents().filter(event => event.type === 'turn/end').at(-1).data.reason).toEqual({ kind: 'completed' })
+    expect(save).toHaveBeenCalledTimes(1)
+    expect(pages).toBeGreaterThan(1)
+    expect(searched).toBe(true)
+    await f.reopen()
+    const resumed = await executeToolCall(f.handle.agent.ctx.tools, { callId: 'synthetic-resumed-prompt-result', name: 'eleckoi_call_capability', arguments: { result: { file_path: spills[0].ref.locator, query: marker } }, agent: f.handle.agent, signal: new AbortController().signal })
+    expect(resumed.isError, JSON.stringify(resumed)).not.toBe(true)
+    expect(JSON.parse(resumed.content[0].text).matches.some(hit => hit.text.includes(marker))).toBe(true)
+  })
+  it('reads its own virtual preset prompts through creator capabilities without a character or roleplay tools', async () => {
+    const optional = 'Synthetic optional text. <% literal template markers %>\n' + 'Long optional body\n'.repeat(2500)
+    const f = await fixture(async function* (_request, count) {
+      if (count === 1) {
+        yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+        yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: 'synthetic-preset-read', name: 'eleckoi_call_capability', arguments: JSON.stringify({ capability_id: 'presetPrompts.read', arguments: { paths: ['Synthetic directory/Required', 'Synthetic directory/Optional'] } }) } }
+        yield { type: 'finish', reason: { kind: 'tool-calls' } }
+      } else yield* text('Synthetic completed reading')
+    })
+    const data = f.ctx.eleckoiProductData, preset = data.readAgentPreset('agent-preset-creator')
+    const group = { id: 'synthetic-prompt-dir', name: 'Synthetic directory', parentId: '', order: 1, treeViewOrder: 1, createdAt: 'synthetic', updatedAt: 'synthetic' }
+    data.saveAgentPreset({ ...preset, groups: [group], entries: [...preset.entries,
+      { ...emptyEntry('synthetic-required'), title: 'Required', content: 'Synthetic required body', groupId: group.id, triggerMode: 'agent_tool', agentReadStrategy: 'required' },
+      { ...emptyEntry('synthetic-optional'), title: 'Optional', content: optional, groupId: group.id, triggerMode: 'agent_tool', agentSelectionHint: 'Synthetic discovery hint' },
+      { ...emptyEntry('synthetic-disabled'), title: 'Disabled', content: 'Must stay hidden', triggerMode: 'agent_tool', enabled: false },
+      ...Array.from({ length: 1001 }, (_, index) => ({ ...emptyEntry(`synthetic-volume-${index}`), title: `Volume ${index}`, content: `Synthetic tail ${index}`, groupId: group.id, triggerMode: 'agent_tool' })),
+    ] })
+    f.handle.agent.session.append(CREATOR_STUDIO_EVENT, { presetId: preset.id, characterId: '' }, { ignorable: true })
+    const execute = (capability_id, args) => executeToolCall(f.handle.agent.ctx.tools, { callId: `synthetic-${capability_id}`, name: 'eleckoi_call_capability', arguments: { capability_id, arguments: args }, agent: f.handle.agent, signal: new AbortController().signal })
+    const readValue = result => { expect(result.isError, JSON.stringify(result)).not.toBe(true); return JSON.parse(result.content.find(item => item.type === 'text').text).value }
+    const catalog = readValue(await execute('presetPrompts.glob', { pattern: 'no-match' }))
+    expect(catalog.files).toEqual([]); expect(catalog.required_entries.map(item => item.path)).toEqual(['Synthetic directory/Required'])
+    const hint = readValue(await execute('presetPrompts.grep', { pattern: 'discovery hint', path: group.name }))
+    expect(hint.matches.map(item => item.path)).toEqual(['Synthetic directory/Optional'])
+    expect(readValue(await execute('presetPrompts.glob', {})).files).toHaveLength(1003)
+    expect(readValue(await execute('presetPrompts.grep', { pattern: '^Synthetic tail 1000$' })).matches.map(item => item.path)).toEqual(['Synthetic directory/Volume 1000'])
+    const before = data.readAgentPreset(preset.id)
+    for (const args of [{ paths: ['../outside'] }, { paths: ['Disabled'] }, { paths: ['Synthetic directory/Optional'], presetId: 'other' }]) expect((await execute('presetPrompts.read', args)).isError).toBe(true)
+    f.handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Read the current preset prompts' }], source: { kind: 'user' } }))
+    await f.handle.agent.whenIdle()
+    const serialized = JSON.stringify(f.requests[0].messages)
+    expect(serialized).toContain('Synthetic required body'); expect(serialized).not.toContain('Synthetic optional text.')
+    expect(f.requests[0].tools.map(item => item.name).sort()).toEqual(['eleckoi_call_capability', 'eleckoi_describe_toolset', 'eleckoi_list_toolsets'])
+    const event = f.handle.agent.session.snapshotEvents().find(event => event.type === 'tool/result' && event.data.callId === 'synthetic-preset-read')
+    const body = JSON.stringify(event?.data ?? f.requests[1].messages.filter(message => message.role === 'tool'))
+    expect(body).toContain('cached_reference'); expect(body).toContain('已读取'); expect(body).not.toContain('Synthetic required body')
+    expect(body).toContain('literal template markers'); expect(body).toContain('Long optional body')
+    expect(JSON.stringify(f.requests[1].messages)).toContain('literal template markers')
+    expect(data.readAgentPreset(preset.id)).toEqual(before)
+    await f.reopen()
+    f.handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Read again after reopen' }], source: { kind: 'user' } }))
+    await f.handle.agent.whenIdle()
+    expect(readValue(await execute('presetPrompts.read', { paths: ['Synthetic directory/Required'] })).files[0].content_delivery).toBe('cached_reference')
+    data.saveAgentPreset({ ...before, entries: before.entries.map(item => item.id === 'synthetic-required' ? { ...item, content: 'Changed since assembly' } : item) })
+    await f.ctx.systemPrompt.assemble({ agent: f.handle.agent, scope: f.handle.agent })
+    const fresh = readValue(await execute('presetPrompts.read', { paths: ['Synthetic directory/Required'] })).files[0]
+    expect(fresh).toMatchObject({ content_delivery: 'tool_result', content: 'Changed since assembly' })
+  })
   it('places standing preset instructions first in dispatch and native trajectory across edits and reopen', async () => {
     const f = await fixture(async function* () { yield* text('Synthetic completion') })
     const preset = f.ctx.eleckoiProductData.readAgentPreset('agent-preset-creator')
@@ -518,6 +671,10 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
       } else yield* text('合成回复')
     })
     const preset = f.ctx.eleckoiProductData.createAgentPreset('合成另一创作预设', '', 'creator')
+    const primaryPreset = f.ctx.eleckoiProductData.readAgentPreset('agent-preset-creator')
+    for (const [item, content] of [[primaryPreset, 'Synthetic primary-only prompt'], [preset, 'Synthetic peer-only prompt']]) {
+      f.ctx.eleckoiProductData.saveAgentPreset({ ...item, entries: [...item.entries, { ...emptyEntry(`synthetic-own-${item.id}`), title: 'Own prompt', content, triggerMode: 'agent_tool' }] })
+    }
     const target = f.ctx.eleckoiProductData.createCharacter({ id: 'synthetic-peer-character', name: '合成另一编辑目标' }).items.find(item => item.id === 'synthetic-peer-character')
     await f.ctx.agentPresets.register({ id: 'synthetic-peer-preset', plugins: [{ id: 'creator', name: 'cordis:synthetic-studio-agent', config: { presetId: preset.id, creatorTools: true } }] })
     const peer = await f.ctx.agents.create({ sessionId: SessionId('synthetic-peer-session'), meta: { agentPreset: 'synthetic-peer-preset' },
@@ -538,11 +695,19 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
       expect(JSON.stringify(result.data)).not.toContain(other.name)
       expect(agent.session.snapshotEvents().filter(event => event.type === 'turn/end').at(-1).data.reason).toEqual({ kind: 'completed' })
     }
+    const readOwnPrompt = async handle => {
+      const result = await executeToolCall(handle.agent.ctx.tools, { callId: `synthetic-own-${handle.agent.id}`, name: 'eleckoi_call_capability', arguments: { capability_id: 'presetPrompts.read', arguments: { paths: ['Own prompt'] } }, agent: handle.agent, signal: new AbortController().signal })
+      expect(result.isError, JSON.stringify(result)).not.toBe(true)
+      return JSON.parse(result.content.find(item => item.type === 'text').text).value.files[0].content
+    }
+    expect(await readOwnPrompt(f.handle)).toBe('Synthetic primary-only prompt')
+    expect(await readOwnPrompt(peer)).toBe('Synthetic peer-only prompt')
     await f.reopen()
     f.handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: '合成恢复后输入' }], source: { kind: 'user' } }))
     await f.handle.agent.whenIdle()
     expect(JSON.stringify(f.requests.at(-1).messages)).toContain(f.character.name)
     expect(JSON.stringify(f.requests.at(-1).messages)).not.toContain(target.name)
+    expect(await readOwnPrompt(f.handle)).toBe('Synthetic primary-only prompt')
   })
   it('reports invalid bindings in its own studio scope without failing roleplay requests', async () => {
     const f = await fixture(async function* () { yield* text('合成回复') })

@@ -6,9 +6,13 @@ import { DisclosureRow, IconChevronLeftOutlineRegular,
 import { ReadSettingIcon, SearchSettingIcon } from '../../../ui/icons/elecKoiMessageIcons.jsx';
 import { parseToolJson, resultMatchesQuery, roleplayToolDefinition, roleplayToolResult } from '../model/roleplayToolResults.js';
 import { ResultReadingBadge, ToolResultDetail } from './RoleplayToolDetail.jsx';
+import { roleplayMutationDefinition } from '../model/roleplayToolMutations.js';
+import { RoleplayMutationCall } from './RoleplayMutationCall.jsx';
 import '../styles/roleplay-tool-results.css';
 
 export function renderRoleplayToolCall(owner, renderNative) {
+  const mutation = roleplayMutationDefinition(owner.toolName);
+  if (mutation) return <RoleplayMutationCall {...owner} definition={mutation} renderNative={renderNative} />;
   const definition = roleplayToolDefinition(owner.toolName);
   return definition ? <RoleplayToolCall {...owner} definition={definition} renderNative={renderNative} /> : undefined;
 }

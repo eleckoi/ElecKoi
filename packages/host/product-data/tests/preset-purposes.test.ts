@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { SqliteDatabase } from '../../../../tests/helpers/SqliteDatabase'
 import { AgentPresetRepository } from '../src/domain/agentPresets'
 import { CURRENT_SCHEMA_VERSION } from '../src/storage/sqlite/schemaVersion'
+import { installSchema } from '../src/storage/sqlite/installSchema'
+import { emptyEntry } from '../src/domain/settingLibraries/settingLibraryNormalization'
 import { schemaV10Sql } from './helpers/presetSchemaV10'
 import { DEFAULT_CREATOR_HISTORY_COMPACTION_CONTENT, HISTORY_COMPACTION_ENTRY_ID } from '../../../shared/src/contracts/presets/builtIns'
 
@@ -19,6 +21,80 @@ function open(path?: string) {
 }
 
 describe('preset purposes', () => {
+  it('upgrades v15 creator prompts and every saved version once while preserving roleplay and directory identities', () => {
+    const f = open(), creator = f.repository.active('creator'), role = f.repository.active('roleplay')
+    const entries = [
+      { ...emptyEntry('synthetic-keyword'), title: 'Synthetic optional', groupId: 'synthetic-group', content: 'Retained optional text', triggerMode: 'agent_tool', agentReadStrategy: 'keyword', keywords: ['synthetic'], conditionKeywords: ['condition'], keywordCondition: 'all', keywordScanDepth: 8 },
+      { ...emptyEntry('synthetic-ejs'), title: 'Synthetic template', content: '<% throw new Error("must not run") %>', triggerMode: 'agent_tool', contentMode: 'ejs' },
+      { ...emptyEntry('synthetic-reference'), title: 'Synthetic reference', content: 'Retained reference text', dynamicMode: 'ejs_reference', triggerMode: 'agent_tool' },
+      { ...emptyEntry('synthetic-required'), title: 'Synthetic required', content: 'Retained required text', triggerMode: 'agent_tool', agentReadStrategy: 'required' },
+      { ...emptyEntry('synthetic-standing'), title: 'Synthetic standing', content: 'Retained standing text', triggerMode: 'always', position: 'instructions' },
+    ]
+    const group = { id: 'synthetic-group', name: 'Synthetic directory', parentId: '', order: 1, treeViewOrder: 2, createdAt: 'synthetic', updatedAt: 'synthetic' }
+    f.store.native.prepare('INSERT INTO agent_preset_groups VALUES (?,?,?,?)').run(creator.id, group.id, 0, JSON.stringify(group))
+    f.store.native.prepare('INSERT INTO agent_preset_versions VALUES (?,?,?,?,?,?)').run(creator.id, 'synthetic-history', 2, 'Synthetic history', 123, '[]')
+    for (const preset of [creator, role]) for (const entry of entries) {
+      f.store.native.prepare('INSERT INTO agent_preset_entries VALUES (?,?,?,?)').run(preset.id, entry.id, 9, JSON.stringify(entry))
+      for (const versionId of [preset.activeVersionId, ...(preset === creator ? ['synthetic-history'] : [])]) {
+        f.store.native.prepare('INSERT INTO agent_preset_version_entries VALUES (?,?,?,?,?)').run(preset.id, versionId, entry.id, 9, JSON.stringify(entry))
+      }
+    }
+    const roleBefore = f.store.native.prepare('SELECT * FROM agent_preset_entries WHERE presetId=?').all(role.id)
+    f.store.native.pragma('user_version = 15'); f.store.close()
+    const next = open(f.path)
+    const current = next.repository.get(creator.id)
+    expect(current.groups).toContainEqual(group)
+    expect(current.entries.find(entry => entry.id === 'synthetic-keyword')).toMatchObject({ content: entries[0]!.content, enabled: true, agentReadStrategy: 'normal', keywords: [], conditionKeywords: [], keywordScanDepth: 1, groupId: group.id })
+    for (const id of ['synthetic-ejs', 'synthetic-reference']) expect(current.entries.find(entry => entry.id === id)).toMatchObject({ content: entries.find(entry => entry.id === id)!.content, enabled: false, contentMode: 'plain_text', dynamicMode: 'standard' })
+    expect(current.entries.find(entry => entry.id === 'synthetic-required')).toMatchObject({ enabled: true, agentReadStrategy: 'required' })
+    expect(current.entries.find(entry => entry.id === 'synthetic-standing')).toMatchObject({ enabled: true, triggerMode: 'always', position: 'instructions' })
+    const snapshots = next.store.native.prepare('SELECT versionId, payloadJson FROM agent_preset_version_entries WHERE presetId=? AND entryId=?').all(creator.id, 'synthetic-ejs') as { versionId: string; payloadJson: string }[]
+    expect(snapshots.map(row => row.versionId).sort()).toEqual([creator.activeVersionId, 'synthetic-history'].sort())
+    expect(snapshots.every(row => JSON.parse(row.payloadJson).enabled === false && JSON.parse(row.payloadJson).content === entries[1]!.content)).toBe(true)
+    expect(next.store.native.prepare('SELECT * FROM agent_preset_entries WHERE presetId=?').all(role.id)).toEqual(roleBefore)
+    expect(next.store.native.pragma('user_version', { simple: true })).toBe(16)
+    expect(next.store.native.pragma('foreign_key_check')).toEqual([])
+    expect(next.store.native.pragma('integrity_check', { simple: true })).toBe('ok')
+    const before = next.store.native.prepare('SELECT * FROM agent_preset_entries').all()
+    installSchema(next.store.native)
+    expect(next.store.native.prepare('SELECT * FROM agent_preset_entries').all()).toEqual(before)
+  }, 30_000)
+
+  it('rolls back the whole v15 conversion if a saved creator version is malformed', () => {
+    const f = open(), creator = f.repository.active('creator')
+    const entry = { ...emptyEntry('synthetic-valid-old'), agentReadStrategy: 'keyword', keywords: ['retained'] }
+    f.store.native.prepare('INSERT INTO agent_preset_entries VALUES (?,?,?,?)').run(creator.id, entry.id, 9, JSON.stringify(entry))
+    f.store.native.prepare('INSERT INTO agent_preset_version_entries VALUES (?,?,?,?,?)').run(creator.id, creator.activeVersionId, 'synthetic-invalid', 9, '{}')
+    f.store.native.pragma('user_version = 15')
+    const before = f.store.native.prepare('SELECT * FROM agent_preset_entries').all()
+    expect(() => installSchema(f.store.native)).toThrow()
+    expect(f.store.native.pragma('user_version', { simple: true })).toBe(15)
+    expect(f.store.native.prepare('SELECT * FROM agent_preset_entries').all()).toEqual(before)
+  }, 30_000)
+
+  it('converts old creator file versions, rejects unsupported current saves/imports, and preserves roleplay EJS', () => {
+    const { repository } = open(), creator = repository.active('creator')
+    const entry = creator.entries.find(entry => entry.kind === 'normal')!
+    expect(() => repository.save({ ...creator, entries: creator.entries.map(item => item.id === entry.id ? { ...item, agentReadStrategy: 'keyword' } : item) })).toThrow()
+    expect(() => repository.updateEntries(creator.id, [{ id: entry.id, changes: { contentMode: 'ejs' } }])).toThrow()
+    expect(repository.get(creator.id)).toEqual(creator)
+    const portable = JSON.parse(Buffer.from(repository.export(creator.id, 'json').base64, 'base64').toString('utf8'))
+    const ejs = { ...portable.preset.entries.find((item: any) => item.kind === 'normal'), content: '<%= synthetic %>', content_mode: 'ejs', trigger_mode: 'agent_tool' }
+    const keyword = { ...ejs, id: 'synthetic-optional-import', content: 'Retained optional', content_mode: 'plain_text', agent_read_strategy: 'keyword', keywords: ['synthetic'] }
+    portable.preset.entries = [ejs, keyword]
+    for (const version of portable.preset.versions) version.entries = [ejs, keyword]
+    const document = () => ({ displayName: 'synthetic-preset.json', mimeType: 'application/json', base64: Buffer.from(JSON.stringify(portable)).toString('base64') })
+    expect(portable.version).toBe(3)
+    expect(() => repository.import(document(), 'eleckoi', 'creator')).toThrow()
+    portable.version = 2
+    const imported = repository.import(document(), 'eleckoi', 'creator').preset
+    expect(imported.entries.find(item => item.id === ejs.id)).toMatchObject({ enabled: false, content: ejs.content, contentMode: 'plain_text' })
+    expect(imported.entries.find(item => item.id === keyword.id)).toMatchObject({ enabled: true, agentReadStrategy: 'normal', keywords: [] })
+    const roundtrip = JSON.parse(Buffer.from(repository.export(imported.id, 'json').base64, 'base64').toString('utf8'))
+    expect(roundtrip.preset.versions.every((version: any) => version.entries.find((item: any) => item.id === ejs.id).enabled === false)).toBe(true)
+    portable.preset.purpose = 'roleplay'
+    expect(repository.import(document(), 'eleckoi', 'roleplay').preset.entries.find(item => item.id === ejs.id)).toMatchObject({ enabled: true, contentMode: 'ejs', content: ejs.content })
+  })
   // 这条用例真的开两次 SQLite、跑完整迁移链（v13 → 当前版本）再逐表校验完整性。
   // 本地 0.4s，Windows CI 的慢盘会在默认 5s 上偶发超时——给足时间，断言不动。
   it('upgrades the original default Creator capabilities from v13 while retaining custom presets and global selection', () => {

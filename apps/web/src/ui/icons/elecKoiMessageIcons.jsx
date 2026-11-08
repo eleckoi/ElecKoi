@@ -39,7 +39,6 @@ export function ViewProcessIcon({ size = 19, className }) {
 export function ReadSettingIcon({ size = 14, className }) {
   return <StrokeIcon size={size} className={className} strokeWidth={1.5} paths={[
     'M12 6C9.4 4.1 5.9 3.5 2.5 4.5V20c3.5-1 6.6-.4 9.5 1.5 2.9-1.9 6-2.5 9.5-1.5V4.5C18 3.5 14.6 4.1 12 6Zm0 0v15.5',
-    'M17 2.5v7l2-1 2 1v-7',
   ]} />;
 }
 export const CopyIcon = ({ size = 16, className, emphasized = false }) => {

@@ -25,7 +25,7 @@ const settingChanges = settingLibraryEntryChangesSchema.safeExtend({
   agentReadStrategy: settingLibraryAgentReadStrategySchema.describe('required=必读；normal=选读且关闭关键词匹配；keyword=选读且开启关键词匹配，与界面中的关键词命中开关对应，不是第三个读取档位。').optional(),
   dynamicMode: z.enum(['standard', 'ejs_reference']).describe('standard=普通设定或 EJS 控制器；ejs_reference=仅供 getwi 读取的文字。').optional(),
   contentMode: z.enum(['plain_text', 'ejs']).describe('plain_text=文字；ejs=执行模板，只允许 agent_tool 的选读普通设定。').optional(),
-  content: z.string().describe('文字正文或 EJS 模板源码，由 contentMode 决定。').optional(),
+  content: z.string().describe('完整文字正文或 EJS 模板源码，由 contentMode 决定；只替换其中一段时使用 settings.edit，无需重传全文。').optional(),
 })
 const nativeRuntime = z.object({ kind: z.literal('eleckoi-module'), apiVersion: z.literal(1) }).strict()
 const scriptFields = z.object({ name: z.string(), content: z.string(), info: z.string(), enabled: z.boolean(), data: z.record(z.string(), z.json()), button: scriptSchema.shape.button })
@@ -124,6 +124,20 @@ export function creatorCapabilities(data: Context['eleckoiProductData']): Creato
   operation('settings', 'update', '修改设定条目', 'write', settingUpdate, (characterId, input) => updateSettings(characterId, [input]))
   operation('settings', 'update_many', '在同一事务批量修改设定、启停或关键词匹配', 'write',
     z.object({ updates: z.array(settingUpdate).min(1) }).strict(), (characterId, input) => updateSettings(characterId, input.updates))
+  operation('settings', 'edit', '精确替换设定正文片段，保留其余内容', 'write', z.object({
+    id,
+    old_string: z.string().min(1).describe('要替换的准确原文；包含必要上下文以唯一定位，不做正则或模板展开。'),
+    new_string: z.string().describe('替换文本，按字面量写入；空字符串表示删除该片段。'),
+    replace_all: z.boolean().optional().describe('默认 false，仅允许原文唯一匹配；明确要替换全部匹配时设为 true。'),
+  }).strict(), (characterId, input) => {
+    if (input.old_string === input.new_string) throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, '原文和替换文本不能相同。', { field: 'new_string' })
+    const entry = find(data.readSettingLibrary(characterId).entries, input.id)
+    const parts = entry.content.split(input.old_string), replacements = parts.length - 1
+    if (!replacements) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, '正文中找不到 old_string，请重新读取并提供准确原文。', { what: '要替换的原文片段' })
+    if (replacements > 1 && input.replace_all !== true) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupDuplicate, 'old_string 出现多次，请补充上下文使原文唯一；明确替换全部时才使用 replace_all。', { what: '要替换的原文片段' })
+    data.updateSettingLibraryEntries(characterId, [{ id: entry.id, changes: { content: parts.join(input.new_string) } }])
+    return { id: entry.id, changed: true, replacements }
+  })
   operation('settings', 'remove', '删除设定条目', 'write', entity, (characterId, input) => {
     const library = data.readSettingLibrary(characterId)
     find(library.entries, input.id)

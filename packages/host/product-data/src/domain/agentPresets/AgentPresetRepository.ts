@@ -1,4 +1,5 @@
 import { autoIllustrationSchema } from '@shared/contracts/presets/autoIllustration'
+import { creatorPresetEntrySchema } from '@shared/contracts/presets/creatorPrompts'
 import { upgradeAutoIllustrationConfiguration } from './autoIllustrationUpgrade'
 import { createHash, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
@@ -365,6 +366,7 @@ export class AgentPresetRepository {
       const groups = new Set(current.groups.map(group => group.id))
       const positions = new Set(current.promptPositions.map(position => position.id))
       for (const entry of next.changed) {
+        if (current.purpose === 'creator') creatorPresetEntrySchema.parse(entry)
         if (entry.groupId && !groups.has(entry.groupId)) throw new DesktopError(
           ELECKOI_FAILURE_CODES.lookupNotFound,
           `条目所在的文件夹不存在：${entry.groupId}`,

@@ -28,6 +28,51 @@ async function fixture() {
 }
 
 describe('Creator authoring matches the native setting, schema, script and regex contracts', { timeout: 30_000 }, () => {
+  it('replaces one chapter literally while retaining surrounding text, metadata, other entries and inactive versions across reopen', async () => {
+    const f = await fixture()
+    const prefix = '第一幕：原样保留𠮷。\r\n'.repeat(2000), suffix = '\r\n第五幕：仍然保留𠮷。'.repeat(2000)
+    const old_string = '第四幕\r\n旧段落：$& 与 $1 按文字处理。', new_string = '第四幕\r\n新段落：$& $$ $1 𠮷。'
+    const entry = f.call('settings.create', { title: 'Synthetic long story', content: prefix + old_string + suffix, agentReadStrategy: 'keyword', keywords: ['retained'], enabled: false })
+    f.call('settings.create', { title: 'Synthetic untouched', content: 'Other entry remains unchanged' })
+    const library = f.data.readSettingLibrary(f.characterId)
+    f.data.saveSettingLibrary(f.characterId, { ...library, versions: [...library.versions, { ...library.versions[0]!, id: 'synthetic-inactive-version', name: 'Synthetic untouched version' }] })
+    const before = f.data.readSettingLibrary(f.characterId), other = f.data.saveSettingLibrary('synthetic-other-character', f.data.readSettingLibrary('synthetic-other-character'))
+    expect(f.call('settings.edit', { id: entry.id, old_string, new_string })).toEqual({ id: entry.id, changed: true, replacements: 1 })
+    const saved = f.data.readSettingLibrary(f.characterId), edited = saved.entries.find(item => item.id === entry.id)!
+    expect(edited).toEqual({ ...before.entries.find(item => item.id === entry.id), content: prefix + new_string + suffix, updatedAt: edited.updatedAt })
+    expect(saved.entries.filter(item => item.id !== entry.id)).toEqual(before.entries.filter(item => item.id !== entry.id))
+    expect(saved.groups).toEqual(before.groups); expect(saved.promptPositions).toEqual(before.promptPositions)
+    expect(saved.versions.find(version => version.id === 'synthetic-inactive-version')).toEqual(before.versions.find(version => version.id === 'synthetic-inactive-version'))
+    expect(saved.versions.find(version => version.id === saved.activeVersionId)!.entries.find(item => item.id === entry.id)!.content).toBe(edited.content)
+    expect(f.data.readSettingLibrary('synthetic-other-character')).toEqual(other)
+    await f.ctx.fiber.dispose()
+    const reopened = new Context(); cleanups.push(() => reopened.fiber.dispose()); await reopened.plugin(productDataPlugin)
+    expect(reopened.eleckoiProductData.readSettingLibrary(f.characterId)).toEqual(saved)
+  })
+  it('rejects missing, ambiguous, empty and unchanged source fragments without writing', async () => {
+    const f = await fixture(), entry = f.call('settings.create', { title: 'Synthetic repeated text', content: '相同片段\n中间\n相同片段' })
+    const before = f.data.readSettingLibrary(f.characterId), update = vi.spyOn(f.data, 'updateSettingLibraryEntries')
+    cleanups.push(() => update.mockRestore())
+    for (const input of [
+      { id: entry.id, old_string: '不存在的原文', new_string: '替换' },
+      { id: entry.id, old_string: '相同片段', new_string: '替换' },
+      { id: entry.id, old_string: '', new_string: '替换' },
+      { id: entry.id, old_string: '中间', new_string: '中间' },
+      { id: 'synthetic-missing', old_string: '中间', new_string: '替换' },
+      { id: entry.id, old_string: '中间', new_string: '替换', characterId: 'synthetic-other-character' },
+    ]) {
+      expect(() => f.call('settings.edit', input)).toThrow()
+      expect(f.data.readSettingLibrary(f.characterId)).toEqual(before)
+    }
+    expect(update).not.toHaveBeenCalled()
+  })
+  it('supports explicit replacement of every match and deletion without expanding replacement markers', async () => {
+    const f = await fixture(), entry = f.call('settings.create', { title: 'Synthetic literal edit', content: '旧文字 / 旧文字 / 旧文字' })
+    expect(f.call('settings.edit', { id: entry.id, old_string: '旧文字', new_string: '$& $1 $$', replace_all: true })).toMatchObject({ replacements: 3 })
+    expect(f.call('settings.read', { id: entry.id }).content).toBe('$& $1 $$ / $& $1 $$ / $& $1 $$')
+    expect(f.call('settings.edit', { id: entry.id, old_string: '$& $1 $$', new_string: '', replace_all: true })).toMatchObject({ replacements: 3 })
+    expect(f.call('settings.read', { id: entry.id }).content).toBe(' /  / ')
+  })
   it.each(['versions', 'activeVersionId', 'characterId'])('rejects unsupported opening field %s before saving', async field => {
     const f = await fixture(), before = f.data.readCharacterOpenings(f.characterId)
     const save = vi.spyOn(f.data, 'saveCharacterOpenings')

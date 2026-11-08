@@ -24,6 +24,7 @@ export const creatorToolsets = [
       '代码与设定文字可混写，也可分离：分离时先创建 dynamicMode="ejs_reference"、contentMode="plain_text" 的文字条目，再在 EJS 控制器里用 <%- await getwi("文件夹/引用标题") %> 输出它。getwi 只读取已启用的 EJS 引用正文，不执行引用里的模板标记；引用不单独进入 AI 选读目录。',
       'getwi 按准确引用标题或完整设定路径匹配；标题重复时用完整路径。不可引用另一个普通/EJS 控制器，也不要用 EJS 标准 include() 代替本产品的 getwi。',
       '本组只编辑当前角色的设定条目和文件夹。独立开场白通过 character.read_openings、character.save_openings 管理，设定库版本不改变开场白。',
+      '只修改正文中的一段时，先 read 确认准确原文，再优先 settings.edit({id,old_string,new_string})，只提交旧片段与新片段，无需重传整条正文。其余文字、目录、启停和读取配置保留。匹配按字面量进行，不执行正则、EJS 或 $ 替换标记；new_string 为空可删除片段。原文为空、找不到、默认匹配多处或新旧相同时不保存；匹配多处先补充上下文，只有明确替换全部时传 replace_all=true。成功只返回编号、替换次数和修改回执，不能把未读取的长正文凭空重写。settings.update 的 content 仍表示完整正文，update_many 是按条目批量修改，不是正文片段替换。',
       '多条设定使用 settings.update_many({updates:[{id,changes},...]}) 在同一事务提交，例如批量开启时每项 changes={agentReadStrategy:"keyword"}。任一编号、格式或保存失败整批不提交。文件夹通过 create_group/update_group/remove_group 管理；update_group 可改 name、parentId、order、treeViewOrder，编号和条目归属不变；remove_group 会删除该文件夹、其子文件夹和条目，不能用于只改名字。',
     ],
     examples: [
@@ -73,4 +74,4 @@ export const creatorToolsets = [
     examples: [{ title: '把标签显示为静态 HTML', rule: { name: '展示数值', pattern: '/<meter>(\\d+)<\\/meter>/g', replacement: '<div class="meter">数值：$1</div>', targets: ['AiOutput'], displayOnly: true, promptOnly: false }, text: '<meter>25</meter>' }] },
 ] as const
 
-export const creatorAuthoringInstructions = '创作能力采用当前 ElecKoi 模型与作者 SDK。修改某领域前必须用 eleckoi_describe_toolset 读取该领域 guide/examples 和所需操作 inputSchema，按准确字段执行。开场白通过 character.read_openings、character.save_openings 独立维护全部不同开场白。EJS 显示模板写在正则规则的 replacement 中，通过 regex.test 预览。设定读取只区分必读与选读；EJS 控制器执行模板，EJS 引用存放文字。Zod 校验与原生脚本规则分别使用对应入口。本阶段不提供角色前端项目操作。'
+export const creatorAuthoringInstructions = '创作能力采用当前 ElecKoi 模型与作者 SDK。先用 eleckoi_describe_toolset 查看 presetPrompts 能力组，再通过 eleckoi_call_capability 调用 presetPrompts.glob 浏览自己的预设提示词，读取 required_entries，并按目录注释选读相关条目；已知准确路径可直接 presetPrompts.read。修改某领域前必须用 eleckoi_describe_toolset 读取该领域 guide/examples 和所需操作 inputSchema，按准确字段执行。开场白通过 character.read_openings、character.save_openings 独立维护全部不同开场白。EJS 显示模板写在正则规则的 replacement 中，通过 regex.test 预览。角色设定读取只区分必读与选读；角色的 EJS 控制器执行模板，EJS 引用存放文字。Zod 校验与原生脚本规则分别使用对应入口。本阶段不提供角色前端项目操作。'

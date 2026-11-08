@@ -170,3 +170,21 @@ it('partitions long single lines, blank lines and surrogate pairs without droppi
   expect(segments.length).toBeGreaterThan(10);
   expect(segments.some(segment => /[\uD800-\uDBFF]$/.test(segment))).toBe(false);
 });
+
+it.each(['variables', 'settings'])('routes %s modifications through the official disclosure row with readable content and inspect access', async domain => {
+  const toolName = domain === 'variables' ? 'eleckoi_apply_variable_patch' : 'eleckoi_apply_setting_patch';
+  const args = domain === 'variables' ? { operations: [{ op: 'replace', path: '/剧情/共伞', value: true }, { op: 'delta', path: '/关系/好感度', value: 1 }] }
+    : { operation: 'edit_file', path: '场景/雨夜', old_string: '原文保留全部', new_string: '新文保留全部' };
+  const payload = domain === 'variables' ? { status: 'ok', applied_operations: 2, paths: ['/剧情/共伞', '/关系/好感度'] }
+    : { status: 'ok', changed: true, path: '场景/雨夜', replacements: 1 };
+  const inspect = vi.fn();
+  await act(async () => root.render(renderRoleplayToolCall({ toolName, phase: 'result', callId: 'synthetic-mutation', useDisclosure, inspect,
+    block: { ...block(payload), call: { name: toolName, argsRaw: JSON.stringify(args) } } }, native)));
+  expect(host.querySelector('[data-mutation-state="changed"]')).toBeTruthy();
+  expect(host.textContent).not.toContain('Native original tool output');
+  expect(host.querySelector('[data-disclosure-row] svg')).toBeTruthy();
+  await act(async () => host.querySelector('[data-disclosure-row]').click());
+  if (domain === 'variables') { expect(host.textContent).toContain('共伞'); expect(host.textContent).toContain('增加'); }
+  else { expect(host.textContent).toContain('原文保留全部'); expect(host.textContent).toContain('新文保留全部'); }
+  await act(async () => host.querySelector('.roleplay-tool-inspect').click()); expect(inspect).toHaveBeenCalledOnce();
+});

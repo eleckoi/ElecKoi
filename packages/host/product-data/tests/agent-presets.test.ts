@@ -395,7 +395,7 @@ describe('agent preset repository', () => {
     const jsonExport = repository.export(repository.active().id, 'json')
     const json = Buffer.from(jsonExport.base64, 'base64').toString('utf8')
     const root = JSON.parse(json)
-    expect(root).toMatchObject({ format: 'eleckoi.agent-preset', version: 2 })
+    expect(root).toMatchObject({ format: 'eleckoi.agent-preset', version: 3 })
     expect(root.preset.profile.usage_instructions).toBe('选择角色后开始对话。')
     expect(root.preset.profile.author_avatar).toEqual({
       media_type: 'image/png',

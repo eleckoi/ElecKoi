@@ -260,7 +260,7 @@ function KeywordRules({ entry, onChange }) {
   );
 }
 
-function TriggerSection({ entry, onChange }) {
+function TriggerSection({ entry, onChange, creatorPreset }) {
   const tUi = useProductTranslation();
   function setStrategy(agentReadStrategy) {
     if (agentReadStrategy === "normal" && entry.agentReadStrategy === "keyword") return;
@@ -280,12 +280,12 @@ function TriggerSection({ entry, onChange }) {
               <textarea value={entry.agentSelectionHint} placeholder={tUi("写给 AI 看的一句话")} onChange={(event) => onChange({ ...entry, agentSelectionHint: event.target.value })} />
             </label>
           ) : null}
-          {entry.agentReadStrategy !== "required" ? (
+          {!creatorPreset && entry.agentReadStrategy !== "required" ? (
             <section className="setting-library-field-card setting-library-keyword-card">
               <SwitchRow title={tUi("关键词命中")} description={entry.agentReadStrategy === "keyword" ? tUi("命中后列为本轮必读") : tUi("关闭时由 AI 选读")} checked={entry.agentReadStrategy === "keyword"} onChange={(enabled) => onChange({ ...entry, agentReadStrategy: enabled ? "keyword" : "normal" })} />
             </section>
           ) : null}
-          {entry.agentReadStrategy === "keyword" ? <KeywordRules entry={entry} onChange={onChange} /> : null}
+          {!creatorPreset && entry.agentReadStrategy === "keyword" ? <KeywordRules entry={entry} onChange={onChange} /> : null}
         </>
       ) : null}
     </div>
@@ -300,7 +300,7 @@ export function referencedEjsTitles(code) {
   return titles;
 }
 
-function ContentSection({ entry, entries, onChange, onOpenEntry }) {
+function ContentSection({ entry, entries, onChange, onOpenEntry, creatorPreset }) {
   const tUi = useProductTranslation();
   const ejs = entry.triggerMode === "agent_tool" && entry.agentReadStrategy !== "required" && entry.contentMode === "ejs";
   const label = tUi("设定正文");
@@ -317,7 +317,7 @@ function ContentSection({ entry, entries, onChange, onOpenEntry }) {
         placeholder={ejs ? tUi("填写 EJS 模板") : tUi("填写设定正文")}
         preview={!ejs}
         onChange={(content) => onChange({ ...entry, content })}
-        labelAction={entry.triggerMode === "agent_tool" && entry.agentReadStrategy !== "required" ? (
+        labelAction={!creatorPreset && entry.triggerMode === "agent_tool" && entry.agentReadStrategy !== "required" ? (
           <div className="setting-library-content-mode" role="radiogroup" aria-label={tUi("正文格式")}>
             {localizeUiCopy(CONTENT_MODES, tUi).map((mode) => <button key={mode.value} type="button" role="radio" aria-checked={(ejs ? "ejs" : "plain_text") === mode.value}
               onClick={() => onChange({ ...entry, contentMode: mode.value })}>{mode.label}</button>)}
@@ -430,7 +430,7 @@ function InsertSection({ entry, entries, promptPositions, allowCustomPromptPosit
   );
 }
 
-export function SettingLibraryEntryEditor({ entry, entries, promptPositions = [], allowCustomPromptPositions = false, nameInputRef, onChange, onEntriesChange, onOpenEntry, onPromptPositionsChange = () => {} }) {
+export function SettingLibraryEntryEditor({ entry, entries, promptPositions = [], allowCustomPromptPositions = false, creatorPreset = false, nameInputRef, onChange, onEntriesChange, onOpenEntry, onPromptPositionsChange = () => {} }) {
   const tUi = useProductTranslation();
   const [section, setSection] = useState("base");
   const [managingPositions, setManagingPositions] = useState(false);
@@ -472,8 +472,8 @@ export function SettingLibraryEntryEditor({ entry, entries, promptPositions = []
         })}
       </nav>
       {activeSection === "base" ? <BasicSection entry={entry} nameInputRef={nameInputRef} onChange={onChange} /> : null}
-      {activeSection === "trigger" ? <TriggerSection entry={entry} onChange={onChange} /> : null}
-      {activeSection === "content" ? <ContentSection entry={entry} entries={entries} onChange={onChange} onOpenEntry={onOpenEntry} /> : null}
+      {activeSection === "trigger" ? <TriggerSection entry={entry} onChange={onChange} creatorPreset={creatorPreset} /> : null}
+      {activeSection === "content" ? <ContentSection entry={entry} entries={entries} onChange={onChange} onOpenEntry={onOpenEntry} creatorPreset={creatorPreset} /> : null}
       {activeSection === "insert" ? <InsertSection entry={entry} entries={entries} promptPositions={promptPositions} allowCustomPromptPositions={allowCustomPromptPositions} onChange={onChange} onEntriesChange={onEntriesChange} onManagePositions={openPositionManager} /> : null}
     </div>
   );

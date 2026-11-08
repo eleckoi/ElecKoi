@@ -7,6 +7,8 @@ import { isPng, readPngText, writePngTextOnly } from '@product-data/storage/medi
 import { decodeRegexDocuments } from '@shared/foundation/regexRuleTransfer'
 import { normalizeAgentPresetPrompts } from '@shared/contracts/presets/builtIns'
 import { agentPresetPurposeSchema } from '@shared/contracts/presets/schemas'
+import { creatorPresetEntrySchema } from '@shared/contracts/presets/creatorPrompts'
+import { upgradeLegacyCreatorPrompt } from '@shared/foundation/legacyCreatorPrompts'
 import { defaultRoleplayPlanSettings, roleplayPlanSettingsSchema } from '@shared/contracts/presets/roleplayPlan'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
@@ -26,7 +28,7 @@ import type {
 type JsonObject = Record<string, unknown>
 
 const ELECKOI_FORMAT = 'eleckoi.agent-preset'
-const ELECKOI_FORMAT_VERSION = 2
+const ELECKOI_FORMAT_VERSION = 3
 const ELECKOI_PNG_PRESET_KEY = 'eleckoi_agent_preset'
 const SILLY_TAVERN_GLOBAL_PROMPT_ORDER_ID = '100001'
 const SILLY_TAVERN_PROMPT_GROUP_ID = 'tavern-preset-prompts'
@@ -172,14 +174,14 @@ function decodeElecKoi(document: AgentPresetImportDocument, bytes: Uint8Array, p
     json = new TextDecoder().decode(bytes)
   }
   const root = parseRoot(json, 'ElecKoi 预设')
-  // RETIRE WHEN: 停止导入 ElecKoi 预设 v1 后，删除版本白名单中的 1，并要求所有导入
-  // 文件校验 purpose；连同 v1 专用回归清理，保留当前 v2 与仍受支持的外部预设格式。
-  if (root.format !== ELECKOI_FORMAT || ![1, ELECKOI_FORMAT_VERSION].includes(integerValue(root.version, -1))) {
+  // RETIRE WHEN: 停止导入预设 v1 后删除白名单中的 1 和无需 purpose 的分支；
+  // 停止导入 v1/v2 后另删下方创作提示词转换和专用旧文件回归，保留当前 v3。
+  if (root.format !== ELECKOI_FORMAT || ![1, 2, ELECKOI_FORMAT_VERSION].includes(integerValue(root.version, -1))) {
     throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, '这不是当前版本的 ElecKoi 预设文件。', { what: 'ElecKoi 预设文件版本', expected: String(ELECKOI_FORMAT_VERSION) })
   }
   const value = objectValue(root.preset)
   if (!value) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, 'ElecKoi 预设缺少 preset 数据。', { what: 'ElecKoi 预设的 preset 数据', path: 'preset' })
-  if (root.version === 2 && agentPresetPurposeSchema.parse(value.purpose) !== purpose) {
+  if (root.version !== 1 && agentPresetPurposeSchema.parse(value.purpose) !== purpose) {
     throw new DesktopError(ELECKOI_FAILURE_CODES.stateMismatch, '预设文件用途与当前分类不同，请切换到对应的预设分类后导入。', { what: '预设文件的用途' })
   }
   const timestamp = new Date().toISOString()
@@ -199,7 +201,8 @@ function decodeElecKoi(document: AgentPresetImportDocument, bytes: Uint8Array, p
   const authorAvatarMediaType = embeddedAvatar
     ? validateAvatarMediaType(stringValue(embeddedAvatar.media_type))
     : authorAvatarBase64 ? 'image/png' : undefined
-  const content = contentFromPortable(value, profile, document.displayName, timestamp, purpose)
+  const legacyCreator = purpose === 'creator' && root.version !== ELECKOI_FORMAT_VERSION
+  const content = contentFromPortable(value, profile, document.displayName, timestamp, purpose, legacyCreator)
   const activeVersionId = stringValue(value.active_version_id) || 'import:v1'
   const activeVersionNumber = Math.max(1, integerValue(value.active_version_number, 1))
   const versions = objectList(value.versions).map((version, index) => ({
@@ -207,7 +210,7 @@ function decodeElecKoi(document: AgentPresetImportDocument, bytes: Uint8Array, p
     number: Math.max(1, integerValue(version.number, index + 1)),
     name: stringValue(version.name).trim() || stringValue(value.name).trim() || suggestedName(document.displayName),
     createdAtEpochMs: Math.max(0, integerValue(version.created_at_epoch_ms, Date.now())),
-    ...contentFromPortable(version, version, document.displayName, timestamp, purpose)
+    ...contentFromPortable(version, version, document.displayName, timestamp, purpose, legacyCreator)
   }))
   return {
     source: 'eleckoi',
@@ -353,7 +356,8 @@ function contentFromPortable(
   profile: JsonObject | undefined,
   displayName: string,
   timestamp: string,
-  purpose: AgentPresetPurpose
+  purpose: AgentPresetPurpose,
+  legacyCreator = false
 ): AgentPresetTransferContent {
   const groups = objectList(value.groups).map((group, index) => groupFromPortable(group, index, timestamp))
   const promptPositions = objectList(value.prompt_positions)
@@ -381,7 +385,11 @@ function contentFromPortable(
     usageInstructions: stringValue(profile?.usage_instructions),
     timeline: timelineFromPortable(profile?.timeline),
     entries: normalizeAgentPresetPrompts(objectList(value.entries)
-      .map((entry, index) => entryFromPortable(entry, index, timestamp)), promptPositions, purpose).entries,
+      .map((entry, index) => entryFromPortable(entry, index, timestamp))
+      // RETIRE WHEN: 停止导入 ElecKoi 预设 v1/v2 后删除转换分支、参数和专用回归；
+      // 共用转换器还须等待 schema v15 数据库升级退役，当前 creator 校验始终保留。
+      .map(entry => legacyCreator ? upgradeLegacyCreatorPrompt(entry) : entry), promptPositions, purpose).entries
+      .map(entry => purpose === 'creator' ? creatorPresetEntrySchema.parse(entry) : entry),
     groups,
     promptPositions,
     toolGroups,

@@ -348,12 +348,15 @@
 .mobile-conversation-page [data-chat-to-bottom] button { width: 34px; height: 34px; min-width: 34px; min-height: 34px; margin-top: -34px; border-radius: 50%; corner-shape: round; }
 .mobile-shell .app-settings-content { flex: 1; min-width: 0; min-height: 0; margin: 0; overflow: auto; padding: 18px; }
 .mobile-shell[data-mobile-panel="plugins"] { --mobile-content-bg: var(--chat); --mobile-header-bg: var(--chat); }
-.mobile-shell[data-mobile-panel="plugins"] .mobile-page-seat:has([data-plugin-detail], [data-plugin-item-detail], [data-plugin-row-detail]) > .mobile-header { display: none; }
+.mobile-shell[data-mobile-panel="plugins"] .mobile-page-seat:has([data-plugin-detail], [data-plugin-item-detail], [data-plugin-row-detail], [data-plugin-group="more"], [data-plugin-group="eleckoi-more"]) > .mobile-header { display: none; }
 .mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel] { flex: 1; min-width: 0; min-height: 0; gap: 24px; padding: 16px 16px 24px; background: var(--chat); }
 .mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel] > * { min-width: 0; max-width: 100%; }
 .mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel] > header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 8px; padding-top: 0; }
 .mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel] > header > div:first-child { display: contents; }
 .mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel] > header h1 { display: none; }
+.mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel]:has([data-plugin-group="more"], [data-plugin-group="eleckoi-more"]) > header { display: flex; flex-direction: row; justify-content: flex-start; min-height: 60px; gap: 12px; }
+.mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel]:has([data-plugin-group="more"], [data-plugin-group="eleckoi-more"]) > header h1 { display: block; }
+.mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel]:has([data-plugin-group="more"], [data-plugin-group="eleckoi-more"]) > header > button { width: 44px; height: 44px; min-height: 44px; padding: 0; }
 .mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel] > header > div:first-child > div { grid-row: 1; grid-column: 1; margin: 0; }
 .mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel] > header > div:last-child { grid-row: 1; grid-column: 2; gap: 8px; }
 .mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel] > header > div:last-child > button { flex: none; }

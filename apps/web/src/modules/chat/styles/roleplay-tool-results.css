@@ -59,3 +59,24 @@ body[data-ds-dark-theme] .roleplay-tool-call, :root[data-theme="dark"] .roleplay
 html[data-eleckoi-mobile="true"] .roleplay-tool-inspect { min-height: 36px; }
 html[data-eleckoi-mobile="true"] .roleplay-result-toolbar input { font-size: 16px; }
 html[data-eleckoi-mobile="true"] .roleplay-result-back { min-height: 44px; }
+
+.roleplay-mutation-body { margin: 10px 0 4px 22px; border: .5px solid var(--dsw-alias-border-l2); border-radius: 10px; overflow: auto; scrollbar-gutter: stable; overscroll-behavior: contain; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font-size: 13px; }
+.roleplay-mutation-space { position: relative; }
+.roleplay-mutation-part { position: absolute; top: 0; left: 0; width: 100%; box-sizing: border-box; padding: 12px 16px; overflow-wrap: anywhere; }
+.roleplay-mutation-part:not([data-index="0"]) { border-top: .5px solid var(--dsw-alias-border-l2); }
+.roleplay-mutation-part pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 22px; }
+.roleplay-mutation-part small { display: block; color: var(--dsw-alias-label-tertiary); font-size: 11px; }
+.roleplay-mutation-part.is-variable { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.roleplay-mutation-path > span { color: var(--dsw-alias-label-tertiary); }
+.roleplay-mutation-value { display: flex; align-items: baseline; justify-content: flex-end; gap: 8px; }
+.roleplay-mutation-part.is-complex .roleplay-mutation-value { grid-column: 1 / -1; display: block; }
+.roleplay-mutation-part.is-path { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 12px; }
+.roleplay-mutation-part.is-path > small { min-width: 48px; }
+.roleplay-mutation-part.is-removed, .roleplay-mutation-part.is-added { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; }
+.roleplay-mutation-part.is-removed { background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 6%, var(--dsw-alias-bg-layer-1)); }
+.roleplay-mutation-part.is-added { background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 6%, var(--dsw-alias-bg-layer-1)); }
+.roleplay-mutation-part.is-removed .roleplay-mutation-sign, .roleplay-mutation-error-title, .roleplay-mutation-part.is-error { color: var(--dsw-alias-state-error-primary); }
+.roleplay-mutation-part.is-added .roleplay-mutation-sign { color: var(--dsw-alias-state-success-primary); }
+.roleplay-mutation-part.is-note { color: var(--dsw-alias-label-tertiary); background: var(--dsw-alias-interactive-bg-hover); font-size: 12px; }
+.roleplay-mutation-part:is(.is-removed,.is-added,.is-text):not([data-mutation-labeled]) { padding-block: 0; border-top: 0; }
+@container (max-width: 560px) { .roleplay-mutation-body { margin-left: 0; } .roleplay-mutation-part { padding-inline: 12px; } }

@@ -19,6 +19,39 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); document.body.replaceChildren(); vi.unstubAllGlobals(); });
 
+it.each(['creator', 'roleplay'])('keeps familiar prompt controls while limiting creator EJS and keyword options (%s)', async purpose => {
+  function Fixture() {
+    const [preset, setPreset] = useState({ id: 'synthetic-preset', purpose, name: 'Synthetic preset', promptPositions: [], groups: [], expandedGroupIds: [], entries: [
+      { ...createEntryDraft('', 1, []), id: 'synthetic-prompt', title: 'Synthetic prompt', triggerMode: 'agent_tool', agentReadStrategy: 'normal', content: 'Synthetic content' },
+    ] });
+    draft = preset;
+    return <PresetPromptEditor preset={preset} onChange={setPreset} />;
+  }
+  await act(async () => root.render(<Fixture />));
+  await click(button('新建'));
+  expect(Boolean([...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent === 'EJS引用设定'))).toBe(purpose === 'roleplay');
+  await click(document.querySelector('[role="treeitem"]'));
+  const tab = label => [...document.querySelectorAll('.setting-library-entry-tabs button')].find(item => item.textContent.endsWith(label));
+  await click(tab('触发'));
+  expect(button('Agent 读取').getAttribute('aria-checked')).toBe('true');
+  expect(button('提示词常驻')).toBeTruthy();
+  expect(Boolean(document.querySelector('[aria-label="关键词命中"]'))).toBe(purpose === 'roleplay');
+  await click(button('必读')); expect(draft.entries[0].agentReadStrategy).toBe('required');
+  await click(button('选读')); expect(draft.entries[0].agentReadStrategy).toBe('normal');
+  await click(tab('正文'));
+  expect(Boolean(document.querySelector('[aria-label="正文格式"]'))).toBe(purpose === 'roleplay');
+  await click(tab('触发')); await click(button('提示词常驻'));
+  expect(draft.entries[0].triggerMode).toBe('always');
+  expect(document.querySelector('[aria-label="读取策略"]')).toBeNull();
+});
+
+it.each(['creator', 'roleplay'])('limits mobile prompt creation to the preset purpose (%s)', async purpose => {
+  const preset = { id: 'synthetic-mobile-preset', purpose, name: 'Synthetic mobile preset', entries: [], groups: [], promptPositions: [], expandedGroupIds: [] };
+  await act(async () => root.render(<EditorPresentationContext.Provider value={{ compact: true }}><PresetPromptEditor preset={preset} onChange={() => {}} /></EditorPresentationContext.Provider>));
+  await click(button('新建'));
+  expect([...document.querySelectorAll('[role="menuitem"]')].map(item => item.textContent)).toEqual(purpose === 'creator' ? ['文件夹', '提示词'] : ['文件夹', '提示词', 'EJS引用设定']);
+});
+
 it('right-clicks preset prompts without opening or replacing the editor and keeps commands addressed to their own prompt', async () => {
   function Fixture() {
     const [preset, setPreset] = useState({ id: 'synthetic-preset', name: '合成预设', promptPositions: [], groups: [], expandedGroupIds: [], entries: [

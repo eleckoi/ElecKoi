@@ -8,14 +8,18 @@
 - 数据库文件：Electron `userData/eleckoi-common.sqlite3`，路径由桌面壳作为 Host 启动参数传入。
 - SQLite 打开、迁移、恢复和所有 Repository 写入均位于 `packages/host/product-data/src`。Electron Main、Client 和 Renderer 不打开数据库。
 - 公共 SQL：`apps/desktop/resources/database/eleckoi-common-schema-v1.sql`。
-- 当前 `PRAGMA user_version`：`15`。
+- 当前 `PRAGMA user_version`：`16`。
 - 当前结构：49 张业务表、2 个视图；数据库物理结构版本只使用 SQLite `PRAGMA user_version`。
 
 角色自定义聊天背景的保留配置存放在现有 `character_text_contents` 的 `chat-background-custom` 内容中，保存图片引用、透明度、模糊与遮罩。`characters.chatBackground` 继续表示当前生效的模式或图片；切到纯色、立绘或共享背景不会丢弃自定义配置。图片只使用原角色的 `chat-background` 媒体槽，不复制另一份文件；更换图片在事务提交后清理旧文件，失败回退，删除角色按原外键及媒体归属清理。已有自定义背景在读取／下一次保存时兼容，不增加物理结构或迁移。角色卡导入导出仍不携带本地背景偏好。
 
 应用版本与 schema 之间没有代码关联：`CURRENT_SCHEMA_VERSION` 变了必须同时提升 `package.json` 的 `version`，否则同一版本号会发出两份不同的库结构——装过新库的用户回退到旧包时，旧程序会拒绝启动（`eleckoi/db/schema-mismatch`）。发版前按实际打出去的 schema 核对一次版本号（PR 模板里有这条勾选）。
 
-本轮按用户明确要求继续使用未发布的应用版本 `0.2.19`，其最终数据库基线为 v15；未发布 v14 开发库通过 v14→v15 原子升级。
+应用 `0.2.20` 的数据库基线为 v16。v15→v16 只整理创作预设提示词的 JSON 语义，不新增表或视图；旧库沿现有连续链升级，不清库。
+
+创作预设继续使用自有虚拟目录和同一条目存储，仅支持文字正文、提示词常驻及 Agent 读取的必读／选读。v15→v16 在同一事务内转换当前内容和全部保存版本：关键词选读变为普通选读并清除匹配配置；EJS 正文与引用条目保留源码，转成停用的文字条目，用户改成所需文字后再启用。普通文字、必读、常驻正文、编号、标题、目录、排序、时间和版本关系保留。角色扮演预设、角色及全局设定库和聊天 Session 不参与本步骤；任意条目无效则回滚整步，仍保持 v15。
+
+预设导出格式为 `eleckoi.agent-preset` v3。旧 v1/v2 文件中的创作提示词只在导入边界执行同一转换，包含全部保存版本；当前保存、批量修改和 v3 导入直接校验当前格式，禁止重新引入 EJS 或关键词配置。数据库升级与旧文件导入分别登记退役条件，不在正常读取中反复转换。
 
 `pnpm db:generate` 从固定 SQL 生成内嵌迁移 SQL与 Drizzle 查询映射；`pnpm check:database-schema` 校验生成内容。SQL 是公共结构权威，Drizzle 映射不反向生成迁移。
 
@@ -78,6 +82,10 @@ ElecKoi 当前 49 张产品表需要关系、外键、排序、搜索、跨表�
 11. v11：预设和分组保存正式用途，角色扮演与创作分别保存全局选择。现有预设、分组及启用选择归为角色扮演，原编号、内容、历史版本和脚本归属不变；新增默认创作预设，仅启用创作能力。
 
 12. v12：一次增加共享全局、角色与预设的独立 EJS显示模板库、`editor_library_versions`、`regex_libraries` 和 `conversation_state_snapshots`。正则整体启停按归属独立保存；旧库及旧正则命名版本的整体状态默认启用，原条目启停不变，已有未发布 v12 原子补齐。编辑器配置和当前版本原子保存，脚本源码版本仅持有不可变归档摘要引用。聊天变量与设定历史按正式边界统一入库，删除回复里的变量、正则快照列及旧设定历史表。归属和恢复规则见 [ADR 0037](adr/0037-editor-collections-and-versions.md)、[ADR 0038](adr/0038-conversation-runtime-state.md)。本批未发布结构统一收在 v11→v12 单步升级。
+13. v13：提取独立开场白、增加全局设定库并删除独立显示模板，保留有效正文和关联。
+14. v14：补齐默认创作预设的工作区能力，自定义工具选择不变。
+15. v15：移除开场白独立初值，变量初值由正式配置统一生成；已有聊天状态不回写。
+16. v16：创作预设提示词改为文字常驻、必读和选读；转换当前与历史版本，旧 EJS 停用保留正文。
 
 ## 聊天状态与归档
 
@@ -117,7 +125,9 @@ ElecKoi 当前 49 张产品表需要关系、外键、排序、搜索、跨表�
 | 入口 | 何时可以清理 | 必须一起处理的范围 |
 | --- | --- | --- |
 | [v14→v15 开场白及变量初值升级](../packages/host/product-data/src/storage/sqlite/migrations/0015OpeningVariableState.ts) | 停止支持 v14 及更早数据库直接升级，剩余支持版本仍有连续迁移链 | 删除 0015、登记及 v14 升级／回滚回归；保留当前无独立初值的合同、共享初值生成器及聊天历史状态 |
-| [SQLite v1 → v15 迁移链](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 正式停止支持某步骤起点及更早 schema 直接升级；剩余受支持版本仍有连续原子链 | 对应 `0002` 至 `0015` 步骤、旧表定义、import、登记与旧库 fixture；保留当前 SQL、版本常量及完整性校验 |
+| [SQLite v1 → v16 迁移链](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 正式停止支持某步骤起点及更早 schema 直接升级；剩余受支持版本仍有连续原子链 | 对应 `0002` 至 `0016` 步骤、旧表定义、import、登记与旧库 fixture；保留当前 SQL、版本常量及完整性校验 |
+| [v15→v16 创作提示词转换](../packages/host/product-data/src/storage/sqlite/migrations/0016CreatorPrompts.ts) | 正式停止支持 v15 及更早数据库直接升级，剩余支持版本仍有连续原子链 | 删除 0016、installSchema 的 import／登记及 v15 升级／回滚回归；共用旧提示词转换器须等待下行的旧文件导入也退役 |
+| [创作预设 v1/v2 文件提示词转换](../packages/host/product-data/src/domain/agentPresets/AgentPresetImportCodec.ts)、[共用转换器](../packages/shared/src/foundation/legacyCreatorPrompts.ts) | 停止支持 ElecKoi 预设 v1/v2 文件导入；共用转换器还须等待 v15 及更早数据库升级退役 | 删除旧文件版本登记、legacyCreator 参数／转换分支及专用回归；最后一个调用退役后删除共用转换器，保留当前 v3、创作格式校验、普通保存与角色扮演能力 |
 | [开发 v2、v6 同版本整理](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 分别停止支持对应开发基线直接升级 | 对应整理函数、专用入口和 fixture；v2 共享整理函数仍被 `0002` 使用时继续保留 |
 | [模型设置 schema v0/v1 → v2](../packages/client/features/dsh-client-models/src/index.js) | 支持的升级和 profile 恢复入口均已保存至少 schema v2 的设置 | 旧 schema 转换、专用常量与用例；函数和启动调用须等两段整理均退役，保留当前设置合同和插件装配 |
 | [旧子 Agent 占位路由](../packages/client/features/dsh-client-models/src/index.js) | 停止支持 v0.2.3 之前版本直升，且支持的 profile 恢复入口不再携带该路由 | 占位路由过滤、专用常量与用例；与模型设置 schema 转换分别核对 |
@@ -137,7 +147,7 @@ ElecKoi 当前 49 张产品表需要关系、外键、排序、搜索、跨表�
 | [旧开发 v9/v10、v12/v13/v14 整理与正则列补齐](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 分别停止支持带生成结果废表的开发 v9/v10、缺正则整体开关的开发 v12、带旧状态表的开发 v12/v13/v14，以及缺 `optionsJson` 列的结构；各来源独立判断 | 删除对应分支、专用旧 SQL／校验参数和用例。正则列补齐随其启动调用及缺列校验宽容分支一起删除；保留当前 SQL、当前完整性校验和仍受支持的正式升级链 |
 | [v13→v14 默认创作能力补齐](../packages/host/product-data/src/storage/sqlite/migrations/0014CreatorWorkspace.ts) | 正式停止支持 v13 及更早数据库直接升级，剩余支持版本仍有连续迁移链 | 删除 0014、登记与专用旧库回归；保留当前创作工具默认值、自定义预设及全局选择 |
 | [聊天归档 v1 状态转换](../packages/host/product-data/src/domain/conversations/ConversationArchiveRepository.ts)、[共用旧账本解码](../packages/host/product-data/src/domain/conversations/legacyConversationStates.ts) | 归档 v1 导入停止支持后可删归档分支；共用解码器还须等待 v11 及更早数据库及相关开发库升级来源退役 | 删除 v1 白名单、转换及旧设定状态分支和归档专用回归；共用解码器须与 [0012 状态转换](../packages/host/product-data/src/storage/sqlite/migrations/conversationStateStorage.ts) 的最后调用一起清理。当前归档 v2、消息身份和状态存储保留 |
-| [ElecKoi 预设 v1 导入](../packages/host/product-data/src/domain/agentPresets/AgentPresetImportCodec.ts) | 正式停止支持 ElecKoi 预设 v1 文件导入；该条件与模型配置 schema v1、插画配置 v4/v5 相互独立 | 删除白名单中的 v1、无需 `purpose` 的旧文件分支及专用回归；当前 v2 必须校验用途，其他受支持的外部预设格式保留 |
+| [ElecKoi 预设 v1 导入](../packages/host/product-data/src/domain/agentPresets/AgentPresetImportCodec.ts) | 正式停止支持 ElecKoi 预设 v1 文件导入；该条件与模型配置 schema v1、插画配置 v4/v5 相互独立 | 删除白名单中的 v1、无需 `purpose` 的旧文件分支及专用回归；v2/v3 必须校验用途，其他受支持的外部预设格式保留；共用创作转换按上行等待最后调用退役 |
 | [角色卡 v1 开场白提取](../packages/host/product-data/src/domain/characterTransfer/legacyOpeningSnapshot.ts)、[导入调用](../packages/host/product-data/src/domain/characterTransfer/CharacterTransferService.ts)、[共用旧条目解码](../packages/shared/src/foundation/legacySettingOpenings.ts) | 停止导入不含独立开场白的 v1 角色卡；共用条目解码还须等待 schema v12 及更早升级来源退役 | 删除 v1 卡的开场白转换及专用回归；共用解码器和 [0013 开场白提取](../packages/host/product-data/src/storage/sqlite/migrations/characterOpenings.ts) 的最后调用一起清理，保留当前独立开场白配置 |
 | [早期 v2 角色卡开场白版本结构](../packages/shared/src/foundation/characterOpenings.ts)、[导入分支](../packages/host/product-data/src/domain/characterTransfer/CharacterTransferService.ts) | 正式停止支持含开场白 `versions` 的早期未发布 v2 角色卡 | 删除旧结构 schema、`decodeLegacyCharacterOpeningVersions`、导入识别及专用回归；保留当前消息合并与独立开场白列表 |
 | [v3 设定库内嵌开场白导入](../apps/web/src/modules/settingLibraries/model/settingLibraryTransfer.js)、[Client 分流](../packages/client/features/dsh-client-character-configuration/src/client.js)、[Remote](../packages/host/product-api/src/index.ts)、[Host](../packages/host/product-data/src/index.ts) | 正式停止支持含固定开场白条目的 v3 设定库文件导入 | 一起删除旧条目解码、`openingImport`、追加分支、`importSettingLibrary` Remote 和 Host 方法及专用用例；保留普通设定库文件导入及当前独立开场白读写 |

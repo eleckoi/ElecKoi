@@ -8,6 +8,7 @@ import {
 } from '../settingLibrary/schemas'
 import { autoIllustrationSchema } from './autoIllustration'
 import { roleplayPlanSettingsSchema } from './roleplayPlan'
+import { creatorPresetEntrySchema } from './creatorPrompts'
 
 export const agentPresetPurposeSchema = z.enum(['roleplay', 'creator'])
 export type AgentPresetPurpose = z.output<typeof agentPresetPurposeSchema>
@@ -91,6 +92,14 @@ export const agentPresetSchema = z.object({
   roleplayPlan: roleplayPlanSettingsSchema,
   regexRules: z.array(regexRuleSchema),
   expandedGroupIds: z.array(z.string())
+}).superRefine((preset, ctx) => {
+  if (preset.purpose !== 'creator') return
+  preset.entries.forEach((entry, index) => {
+    const result = creatorPresetEntrySchema.safeParse(entry)
+    if (!result.success) for (const issue of result.error.issues) {
+      ctx.addIssue({ ...issue, path: ['entries', index, ...issue.path] })
+    }
+  })
 })
 
 export const agentPresetImportDocumentSchema = z.object({

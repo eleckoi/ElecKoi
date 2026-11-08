@@ -45,6 +45,7 @@ export function shouldConfirmHiddenTimelineDisable(entry, nextEnabled) {
 
 export function PresetPromptEditor({ preset, onChange, saveAction }) {
   const tUi = useProductTranslation();
+  const creatorPreset = preset.purpose === 'creator';
   const { compact } = useEditorPresentation();
   const [query, setQuery] = useState('');
   const [addOpen, setAddOpen] = useState(false);
@@ -86,6 +87,7 @@ export function PresetPromptEditor({ preset, onChange, saveAction }) {
   }, [preset.id]);
 
   function createNode(kind, target = selected) {
+    if (creatorPreset && kind === 'reference') return;
     const parentId = target?.kind === 'group'
       ? target.id
       : target?.kind === 'entry'
@@ -278,6 +280,7 @@ export function PresetPromptEditor({ preset, onChange, saveAction }) {
     selected={{ kind: selected.kind, value: selectedValue }}
     library={library}
     allowCustomPromptPositions
+    creatorPreset={creatorPreset}
     nameInputRef={nameInputRef}
     SelectedIcon={selected.kind === 'group' ? DshFolderClosedIcon : selectedValue.contentMode === 'ejs' ? Code : selectedValue.dynamicMode === 'ejs_reference' ? LinkSimple : FileText}
     onClose={closeEditor}
@@ -295,7 +298,7 @@ export function PresetPromptEditor({ preset, onChange, saveAction }) {
   const menuActions = pinnedMenuTarget ? [] : !menuTarget || menuTarget.kind === 'group' ? [
     { label: tUi("新建文件夹"), icon: CreateFolderIcon, run: () => createNode('group', createTarget) },
     { label: tUi("新建提示词"), icon: CreateEntryIcon, run: () => createNode('entry', createTarget) },
-    { label: tUi("新建 EJS引用设定"), icon: CreateReferenceIcon, run: () => createNode('reference', createTarget) },
+    ...(!creatorPreset ? [{ label: tUi("新建 EJS引用设定"), icon: CreateReferenceIcon, run: () => createNode('reference', createTarget) }] : []),
   ] : [{ label: tUi("复制"), icon: Copy, run: () => duplicateEntry(menuTarget.value) }];
   if (menuTarget && !pinnedMenuTarget) menuActions.push(
     { label: '重命名', icon: PencilSimple, run: () => renameNode(menuTarget) },
@@ -315,7 +318,7 @@ export function PresetPromptEditor({ preset, onChange, saveAction }) {
             {addOpen ? <div className="setting-library-popover" role="menu">
               <button type="button" role="menuitem" onClick={() => createNode('group')}><CreateFolderIcon size={16} />{tUi("文件夹")}</button>
               <button type="button" role="menuitem" onClick={() => createNode('entry')}><CreateEntryIcon size={16} />{tUi("提示词")}</button>
-              <button type="button" role="menuitem" onClick={() => createNode('reference')}><CreateReferenceIcon size={16} />{tUi("EJS引用设定")}</button>
+              {!creatorPreset && <button type="button" role="menuitem" onClick={() => createNode('reference')}><CreateReferenceIcon size={16} />{tUi("EJS引用设定")}</button>}
             </div> : null}
           </div>}
           <Button data-dsh-control className="editor-collection-action" variant="outline" icon={<ListChecks size={16} />}
@@ -366,7 +369,7 @@ export function PresetPromptEditor({ preset, onChange, saveAction }) {
           createItems={[
             { label: tUi("文件夹"), Icon: CreateFolderIcon, run: () => createNode('group') },
             { label: tUi("提示词"), Icon: CreateEntryIcon, run: () => createNode('entry') },
-            { label: tUi("EJS引用设定"), Icon: CreateReferenceIcon, run: () => createNode('reference') },
+            ...(!creatorPreset ? [{ label: tUi("EJS引用设定"), Icon: CreateReferenceIcon, run: () => createNode('reference') }] : []),
           ]}
           moreItems={canModify ? [
             ...(selected.kind === 'entry' ? [{ label: tUi("复制"), Icon: Copy, run: () => duplicateEntry(selectedValue) }] : []),
