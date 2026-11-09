@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { spawn, spawnSync } from 'node:child_process'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { isMediumIntegrity } from '../../../scripts/windows-integrity-label.mjs'
 
 const require = createRequire(import.meta.url)
 const helper = resolve('apps/desktop/resources/installer/eleckoi-installation.exe')
@@ -51,6 +52,23 @@ describe.skipIf(process.platform !== 'win32')('Windows installation integrity', 
       if (!child || child.startsWith('..') || isAbsolute(child)) throw Error('Invalid fixture cleanup path')
       rmSync(root, { recursive: true, force: true })
     }
+  })
+
+  it('recognizes implicit Medium while rejecting Low, unknown and mixed mandatory labels', () => {
+    expect(isMediumIntegrity('S:')).toBe(true)
+    expect(isMediumIntegrity('S:(ML;;NW;;;ME)')).toBe(true)
+    expect(isMediumIntegrity('S:(ML;ID;NW;;;S-1-16-8192)')).toBe(true)
+    for (const label of ['S:(ML;;NW;;;LW)', 'S:(ML;;NW;;;S-1-16-4096)', 'S:(ML;;NW;;;UN)',
+      'S:(ML;;NW;;;UNKNOWN)', 'S:(ML;;NW;;;ME)(ML;;NW;;;LW)']) expect(isMediumIntegrity(label)).toBe(false)
+    const directory = join(root, 'normal staging')
+    mkdirSync(directory)
+    setFullControl(directory)
+    for (const name of ['ElecKoi.exe', ...runtimeLibraries]) writeFileSync(join(directory, name), 'synthetic normal file')
+    const before = readSecurity(join(directory, 'ElecKoi.exe'))
+    expect(isMediumIntegrity(before)).toBe(true)
+    const result = spawnSync(helper, ['--repair', directory], { encoding: 'utf8', windowsHide: true })
+    expect(result.status, result.stdout + result.stderr).toBe(0)
+    expect(readSecurity(join(directory, 'ElecKoi.exe'))).toBe(before)
   })
 
   it('repairs inherited Low labels without changing directory security, file access, owner, contents, or unrelated files', () => {

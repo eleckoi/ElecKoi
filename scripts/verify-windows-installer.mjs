@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { basename, isAbsolute, join, resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { AclWriteGrant, workspaceWriteSid } from '@deepseek-ai/dsh-sandbox-windows-acl'
+import { isMediumIntegrity } from './windows-integrity-label.mjs'
 
 if (process.platform !== 'win32' || process.env.GITHUB_ACTIONS !== 'true' || process.env.RUNNER_ENVIRONMENT !== 'github-hosted') {
   throw Error('Windows installer verification runs only in the GitHub Release workflow.')
@@ -102,7 +103,11 @@ try {
     if (get(join(directory, name), 1, 0x10, null, null, null, null, descriptor) !== 0) throw Error(`Cannot inspect installed ${name}`)
     try {
       if (!text(descriptor[0], 1, 0x10, output, null)) throw Error(`Cannot decode installed ${name}`)
-      try { if (!kof.decode.string16(output[0]).includes('(ML;;NW;;;ME)')) throw Error(`Installed ${name} still has abnormal integrity`) } finally { free(output[0]) }
+      try {
+        const label = kof.decode.string16(output[0])
+        if (!isMediumIntegrity(label)) throw Error(`Installed ${name} still has abnormal integrity: ${label}`)
+        console.log(`Installed ${name} integrity: ${label || '(implicit Medium)'}`)
+      } finally { free(output[0]) }
     } finally { free(descriptor[0]) }
   }
   await startAndClose('first launch')
