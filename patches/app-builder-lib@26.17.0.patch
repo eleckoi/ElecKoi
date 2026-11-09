@@ -1,3 +1,125 @@
+diff --git a/out/node-module-collector/pnpmNodeModulesCollector.js b/out/node-module-collector/pnpmNodeModulesCollector.js
+index 56194e32d222602e78db13793b9d4af568154a1a..82b4fb5721bf15e615fa5b6bddf547b7db2d20b2 100644
+--- a/out/node-module-collector/pnpmNodeModulesCollector.js
++++ b/out/node-module-collector/pnpmNodeModulesCollector.js
+@@ -196,12 +196,19 @@ class PnpmNodeModulesCollector extends nodeModulesCollector_1.NodeModulesCollect
+                 return fromDep;
+             }
+             return this.cache.locatePackageVersion({ pkgName, parentDir: this.rootDir, requiredRange, skipDownwardSearch });
+-        })();
++        })().then(pkg => this.toRealPackage(pkg));
+         if (memoKey != null) {
+             this.locateMemo.set(memoKey, promise);
+         }
+         return promise;
+     }
++  async toRealPackage(pkg) {
++    if (pkg == null) {
++      return null;
++    }
++    const packageDir = await this.cache.realPath[pkg.packageDir];
++    return packageDir === pkg.packageDir ? pkg : { ...pkg, packageDir };
++  }
+     // pnpm 10+ does not automatically preserve transitive optional platform-specific
+     // packages (e.g. sass-embedded-linux-x64) across lock file regeneration. Users
+     // must list them as direct optionalDependencies. Missing ones are emitted as
+@@ -293,30 +300,74 @@ class PnpmNodeModulesCollector extends nodeModulesCollector_1.NodeModulesCollect
+             await this.collectDepsRecursively(root);
+         }
+     }
+-    async collectDepsRecursively(tree) {
+-        const visit = async (key, value) => {
+-            var _a, _b;
+-            if (((_a = value === null || value === void 0 ? void 0 : value.dedupedDependenciesCount) !== null && _a !== void 0 ? _a : 0) > 0) {
+-                return;
+-            }
+-            const id = `${key}@${value.version}`;
+-            // The pnpm list output can include the same `name@version` thousands of times across a
+-            // deep workspace; without this guard we re-resolve and re-recurse each occurrence.
+-            if (this.collectedDeps.has(id)) {
+-                return;
+-            }
+-            this.collectedDeps.add(id);
+-            const pkg = await this.locateFromDepOrRoot(key, value.path, value.version);
+-            this.allDependencies.set(id, { ...value, path: (_b = pkg === null || pkg === void 0 ? void 0 : pkg.packageDir) !== null && _b !== void 0 ? _b : value.path });
+-            await this.collectDepsRecursively(value);
+-        };
+-        for (const [key, value] of Object.entries(tree.dependencies || {})) {
+-            await visit(key, value);
+-        }
+-        for (const [key, value] of Object.entries(tree.optionalDependencies || {})) {
+-            await visit(key, value);
++  async readPackageJsonAt(dir) {
++    const packageJson = await fs.readJson(path.join(dir, "package.json")).catch(() => null);
++    return packageJson ? { packageDir: dir, packageJson } : null;
++  }
++  /**
++   * Visit a single dependency node, adding it and its transitive deps to allDependencies.
++   *
++   * pnpm 10.29.3+ prints a repeated subtree only once; every later occurrence is a childless
++   * `deduped` stub. Stubs must still be registered here: the one full print can sit under a node
++   * this walk skips, e.g. a second peer variant of a package with the same `name@version` (the
++   * guard below), so a package seen only as stubs was dropped from the asar together with its whole
++   * closure (#10253). For a stub (and every dependency discovered beneath one, `fromDisk`), we fall
++   * back to the on-disk package.json to discover transitive deps, resolving each one from the
++   * package's own store directory first (where pnpm placed them).
++   *
++   * Other childless entries keep the tree walk. A `link:` package is also printed without children,
++   * but its declared deps resolve from the link target's own `node_modules` (e.g. a linked
++   * electron-updater checkout's monorepo store), outside the app. Walking them would register those
++   * foreign copies under `name@version`, so the guard below then skips the app's own copy of the same
++   * `name@version` together with its subtree (`jsonfile` vanished from under `fs-extra`).
++   */
++  async visitDep(key, value, fromDisk = false) {
++    var _a, _b, _c, _d;
++    const id = `${key}@${value.version}`;
++    if (this.collectedDeps.has(id)) {
++      return;
++    }
++    this.collectedDeps.add(id);
++    const located = await this.locateFromDepOrRoot(key, value.path, value.version);
++    const resolvedPath = (_a = located == null ? void 0 : located.packageDir) != null ? _a : value.path;
++    this.allDependencies.set(id, { ...value, path: resolvedPath });
++    const pkg = located != null ? located : resolvedPath != null ? await this.readPackageJsonAt(resolvedPath) : null;
++    const hasTreeDeps = Object.keys((_b = value.dependencies) != null ? _b : {}).length > 0 || Object.keys((_c = value.optionalDependencies) != null ? _c : {}).length > 0;
++    const isDedupedStub = ((_d = value.dedupedDependenciesCount) != null ? _d : 0) > 0;
++    if ((isDedupedStub || fromDisk) && !hasTreeDeps && (pkg == null ? void 0 : pkg.packageJson)) {
++      const pkgOptionalDecl = pkg.packageJson.optionalDependencies || {};
++      const pkgDepsDecl = { ...pkg.packageJson.dependencies || {}, ...pkgOptionalDecl };
++      for (const [depName, depRange] of Object.entries(pkgDepsDecl)) {
++        const resolved = await this.locateFromDepOrRoot(depName, pkg.packageDir, typeof depRange === "string" ? depRange : void 0);
++        if (!resolved) {
++          this.logMissingDependency(`${depName}@${depRange}`, pkgOptionalDecl[depName] != null);
++          continue;
+         }
++        await this.visitDep(
++          depName,
++          {
++            from: depName,
++            name: depName,
++            version: resolved.packageJson.version,
++            path: resolved.packageDir,
++            dependencies: {},
++            optionalDependencies: {}
++          },
++          true
++        );
++      }
++    } else {
++      await this.collectDepsRecursively(value);
++    }
++  }
++  async collectDepsRecursively(tree) {
++    for (const [key, value] of Object.entries(tree.dependencies || {})) {
++      await this.visitDep(key, value);
++    }
++    for (const [key, value] of Object.entries(tree.optionalDependencies || {})) {
++      await this.visitDep(key, value);
+     }
++  }
+     getTreeFromWorkspaces(tree, packageName) {
+         // pnpm v10 workspace: app is nested as a dependency of root — handled by base class
+         const result = super.getTreeFromWorkspaces(tree, packageName);
 diff --git a/out/options/macOptions.d.ts b/out/options/macOptions.d.ts
 index e93987d973399b17f3970c858abb49f5e4b193d6..445a73c81e1d7eb61dc318373d2331487934d3f5 100644
 --- a/out/options/macOptions.d.ts

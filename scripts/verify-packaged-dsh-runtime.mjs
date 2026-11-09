@@ -47,7 +47,6 @@ const probe = `
       'jquery',
       'jquery-ui-dist',
       'jquery-ui-touch-punch',
-      'lodash',
       'pixi.js',
       'showdown',
       'toastr',
@@ -64,6 +63,11 @@ const probe = `
       throw new Error('Build-time browser package leaked into app.asar: ' + dependency)
     }
     process.stdout.write('Packaged browser dependency boundary check passed.\\n')
+    // Lodash is also a declared Host dependency; it is not browser-only.
+    const { createRequire } = await import('node:module')
+    const productRequire = createRequire(join(appAsar, 'node_modules', '@eleckoi', 'dsh-product-data', 'package.json'))
+    if (!productRequire.resolve('lodash').startsWith(appAsar)) throw new Error('Host lodash resolved outside the packaged application.')
+    if (productRequire('lodash').cloneDeep({ value: 1 }).value !== 1) throw new Error('Packaged Host lodash did not execute.')
     try {
       await access(join(appAsar, 'node_modules', 'pnpm'))
       throw new Error('pnpm leaked into app.asar; the packaged runtime must use apps/desktop/resources/dsh/pnpm only.')
