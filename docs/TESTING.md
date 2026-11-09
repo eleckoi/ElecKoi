@@ -4,7 +4,7 @@
 
 ## 选择入口
 
-在仓库根目录运行，命令后可附加测试文件或路径，例如 `pnpm test:ui model-picker-selection.test.jsx`。分组和准备要求由 `scripts/test-suites.mjs` 定义，Vitest 与命令包装器共用该定义。
+在仓库根目录运行，命令后可附加测试文件或路径，例如 `pnpm test:ui model-menu.test.jsx`。分组和准备要求由 `scripts/test-suites.mjs` 定义，Vitest 与命令包装器共用该定义。
 
 | 命令 | 覆盖范围 | 额外准备 |
 | --- | --- | --- |

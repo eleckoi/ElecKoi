@@ -2,15 +2,15 @@ import React, { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { MobileModelConfigDetail } from '../../src/mobile/MobileModelConfigDetail.jsx';
-import { MobileChatModelPicker } from '../../src/mobile/MobileChatModelPicker.jsx';
 import { catalogItem } from '../../src/modules/models/model/modelProviderCatalog.js';
 import { modelParameterState } from '../../src/modules/models/model/modelConfigDraft.js';
 import { useModelCapabilities } from '../../src/modules/models/hooks/useModelCapabilities.js';
 import '../../src/app/windows/styles/tokens.css';
 import '../../src/app/windows/styles/base.css';
 import '../../src/mobile/mobile.css';
+import '../../src/mobile/mobile-models.css';
 import '../../src/modules/models/styles/model-config.css';
-import '../../src/modules/models/styles/model-picker.css';
+import '../../src/modules/models/styles/model-menu.css';
 
 const initial = { id: 'synthetic-config', name: '合成配置', provider: 'custom', api_format: 'responses', base_url: '', api_key: '',
   model: 'synthetic-model', model_options: [{ id: 'synthetic-model', isUserAdded: true, inputModalities: ['text', 'image'], supportsImageInput: true,
@@ -35,9 +35,7 @@ function Fixture() {
     <main data-mode={mode} style={{ height: 'calc(100vh - 48px)' }}>
       {mode === 'editor' ? <div className="mobile-shell"><div className="mobile-model-editor mobile-root-page">
         <MobileModelConfigDetail activeProvider={catalogItem('custom')} isImageProvider={false} basicEditor={basicEditor} parameterEditor={parameterEditor} networkEditor={networkEditor} />
-      </div></div> : <MobileChatModelPicker title="选择模型" configs={[form]} selectedConfig={form} selectedModelId={form.model}
-        tab="parameters" setTab={() => {}} saving={false} hasChanges={false} canEditParameters parameterForm={form} parameterState={parameterState}
-        modelCapabilities={modelCapabilities} onParameters={updateOption} onSave={() => {}} onClose={() => setMode('editor')} />}
+      </div></div> : null}
     </main>
   </MainPageContext.Provider>;
 }

@@ -325,6 +325,19 @@ describe('Android independent conversation navigation', () => {
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
     expect(document.body.textContent).toContain('角色资料');
   });
+  it('hands native Back to a focused official menu before returning from its page', async () => {
+    await mount(); await click('角色资料');
+    const menu = document.createElement('div'); menu.dataset.menuMaterial = 'translucent';
+    const control = document.createElement('button'); menu.append(control); document.body.append(menu);
+    control.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); menu.remove(); } });
+    control.focus();
+    const event = new Event('eleckoi:platform-back', { cancelable: true });
+    await act(async () => window.dispatchEvent(event));
+    expect(event.defaultPrevented).toBe(true); expect(menu.isConnected).toBe(false);
+    expect(document.body.textContent).toContain('角色资料');
+    await act(async () => window.dispatchEvent(new Event('eleckoi:platform-back', { cancelable: true })));
+    expect(document.querySelector('[data-list=messages]')).not.toBeNull();
+  });
   it('closes the official rightbar before returning from a conversation', async () => {
     let snapshot = { shown: true };
     const subscribers = new Set();

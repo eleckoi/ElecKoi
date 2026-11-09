@@ -203,7 +203,48 @@ window.__ModuleLoader__.load({
       }
 
       save(config) {
+        return this.saveResolved(() => config)
+      }
+
+      saveModelParameters(configId, modelId, patch) {
+        return this.saveResolved(configs => {
+          const fields = ['contextWindowTokens', 'maxOutputTokens', 'temperature', 'topP', 'autoCompactTokenLimit', 'capabilitiesOverride', 'inputModalities', 'supportsImageInput', 'overrideFields', 'reasoningEfforts', 'reasoningEffort']
+          if (Object.keys(patch).some(key => !fields.includes(key))) throw productFailure(ELECKOI_FAILURE_CODES.modelConfigInvalid, '模型参数超出有效范围。', { field: '模型参数', what: '模型参数' })
+          const config = configs.find(item => item.id === configId)
+          const option = config?.model_options?.find(item => item.id === modelId)
+          if (!option) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '模型配置不存在。', { what: '模型配置' })
+          const next = { ...option, ...patch }
+          const efforts = next.reasoningEfforts
+          const invalidEfforts = efforts !== undefined && efforts !== false && (
+            efforts === null || typeof efforts !== 'object' || Array.isArray(efforts)
+            || !Object.keys(efforts).some(level => level !== 'off')
+            || Object.entries(efforts).some(([level, wire]) => !['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'].includes(level)
+              || (level === 'off' && wire === null ? false : typeof wire !== 'string' || !wire.trim()))
+          )
+          const context = next.contextWindowTokens || next.catalogDefaults?.contextWindowTokens || 1_000_000
+          const invalid = ['contextWindowTokens', 'autoCompactTokenLimit', 'maxOutputTokens'].some(key => next[key] != null && (!Number.isSafeInteger(next[key]) || next[key] < 1))
+            || next.autoCompactTokenLimit > context
+            || next.temperature != null && (!Number.isFinite(next.temperature) || next.temperature < 0)
+            || next.topP != null && (!Number.isFinite(next.topP) || next.topP < 0 || next.topP > 1)
+            || invalidEfforts
+            || next.reasoningEffort != null && (!efforts || !Object.hasOwn(efforts, next.reasoningEffort))
+            || Array.isArray(next.inputModalities) && !next.inputModalities.length
+          if (invalid) throw productFailure(ELECKOI_FAILURE_CODES.modelConfigInvalid, '模型参数超出有效范围。', { field: '模型参数', what: '模型参数' })
+          const overrides = new Set(option.overrideFields || [])
+          for (const [field, key] of [['contextWindowTokens', 'contextWindow'], ['maxOutputTokens', 'maxTokens']]) {
+            if (!Object.hasOwn(patch, field)) continue
+            if (patch[field] == null) { overrides.delete(key); next[field] = option.catalogDefaults?.[field] }
+            else overrides.add(key)
+          }
+          next.overrideFields = [...overrides]
+          return { ...config, model_options: config.model_options.map(item => item.id === modelId ? next : item) }
+        })
+      }
+
+      saveResolved(resolveConfig) {
         return this.enqueue(async () => {
+          if (this.disposed) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleDisposed, 'ElecKoi 模型目录已关闭。', { what: 'ElecKoi 模型目录' })
+          const config = resolveConfig(this.snapshot.configs)
           if (config.builtin && !this.providers.some(route => route.provider === config.id)) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '请选择当前 DSH 内置目录中的提供商。', { what: '选择当前 DSH 内置目录中的提供商' })
           if (!config.id || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(config.id)) throw productFailure(ELECKOI_FAILURE_CODES.modelConfigInvalid, '模型配置编号不正确。', { field: 'id', what: '模型配置编号' })
           for (const model of config.model_options || []) {
@@ -252,7 +293,7 @@ window.__ModuleLoader__.load({
               ...(model.contextWindowTokens == null ? {} : { contextWindow: model.contextWindowTokens }),
               ...(model.maxOutputTokens == null ? {} : { maxTokens: model.maxOutputTokens }),
               [ns === 'llm-deepseek' ? 'inputModalities' : 'input']: model.inputModalities || (model.supportsImageInput ? ['text', 'image'] : ['text']),
-              ...(ns === 'llm-pi-ai' && model.reasoningEfforts ? { reasoningEfforts: model.reasoningEfforts } : {}) }))
+              ...(ns === 'llm-pi-ai' && model.reasoningEfforts !== undefined ? { reasoningEfforts: model.reasoningEfforts } : {}) }))
             const path = ns === 'llm-deepseek' ? [] : ['providers', config.id]
             if (ns === 'llm-deepseek') {
               const ops = [{ op: 'set', path: ['baseURL'], value: config.base_url }, { op: 'set', path: ['models'], value: models }]
@@ -394,6 +435,15 @@ window.__ModuleLoader__.load({
     function apply(ctx) {
       const catalog = new ModelCatalog(ctx.remote)
       ctx.provide('eleckoiModels', catalog)
+      const loadModelPage = () => import(new URL('eleckoi-page-model.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
+      const ModelProviderLabel = React.lazy(() => loadModelPage().then(module => ({ default: module.ModelProviderLabel })))
+      const ModelMenuParameters = React.lazy(() => loadModelPage().then(module => ({ default: module.ModelMenuParameters })))
+      ctx.slots.inject('conversation.input.model.provider.label', () => ctx.slots.register({
+        name: 'conversation.input.model.provider.label', priority: -10, registrant: '@eleckoi/dsh-client-models'
+      }, owner => React.createElement(React.Suspense, { fallback: owner.provider.name }, React.createElement(ModelProviderLabel, { ...owner, catalog }))))
+      ctx.slots.inject('conversation.input.model.parameters', () => ctx.slots.register({
+        name: 'conversation.input.model.parameters', registrant: '@eleckoi/dsh-client-models'
+      }, owner => React.createElement(React.Suspense, { fallback: null }, React.createElement(ModelMenuParameters, { ...owner, catalog }))))
       ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'model', registrant: '@eleckoi/dsh-client-models' },
         () => React.createElement(ModelPage)))
       const NavigationIcon = React.lazy(() => import(new URL('eleckoi-page-model.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)

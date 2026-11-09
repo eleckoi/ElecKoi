@@ -5,7 +5,6 @@ import { useMainPageView } from '../app/windows/MainPageContext.jsx';
 import { Avatar } from '../ui/ui/Avatar.jsx';
 import { characterAvatar, characterName } from '../utils/characterDisplay.js';
 import { IconFlatListOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
-import { DshNewChatIcon } from '../ui/icons/dshComposerIcons.jsx';
 import { MobileDialog, MobileHeader, MobileSearch } from './MobileChrome.jsx';
 import { FailureAlert } from '../ui/ui/FailureAlert.jsx';
 import { MobileCreatorStudioConversation } from './MobileCreatorStudioConversation.jsx';
@@ -53,7 +52,6 @@ export function MobileCreatorStudioPage() {
   return <div className="mobile-root-page mobile-creator-studio-page">
     <MobileHeader title={<><span className="creator-studio-heading-title">{tUi("AI 创作工作室")}</span><span className="creator-studio-heading-preset" ref={setHeaderTarget} /></>} back={() => view.goBack()}
       leading={<button type="button" aria-label={tUi("工作室侧边栏")} aria-expanded={drawer} onClick={view.openWorkspaceDrawer}><IconFlatListOutlineRegular size={20} /></button>}>
-      <button type="button" aria-label={tUi("新建工作室对话")} disabled={busy} onClick={() => void create()}><DshNewChatIcon size={22} /></button>
       <span className="creator-studio-heading-corner" ref={setCornerTarget} />
     </MobileHeader>
     <FailureAlert failure={error || state.error} className="creator-studio-error" />

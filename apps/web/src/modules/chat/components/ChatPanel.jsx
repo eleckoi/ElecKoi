@@ -2,7 +2,6 @@ import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.js
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { RoleplayInputMenu } from "./RoleplayInputMenu.jsx";
-import { ChatModelPicker } from "./ChatModelPicker.jsx";
 import { ConversationWidthControls } from "./ConversationWidthControls.tsx";
 import conversationWidthCss from "./ConversationWidthControls.module.css";
 import { PinnedAvatar } from "./PinnedAvatar.jsx";
@@ -382,16 +381,6 @@ export function ChatPanel({
     onRegenerate={regenerateFrom}
     regenerateTargetMessageId={regenerateTargetMessageId}
   />;
-  const roleplayModel = <ChatModelPicker
-    renderModelLabel={owner => renderRoleplaySlot?.('eleckoi.roleplay.conversation.input.model.label', owner, { fallback: owner.model.name }) ?? owner.model.name}
-    configs={modelConfigs}
-    selectedConfigId={selectedModelConfigId}
-    selectedModel={selectedModel}
-    modelOptionsByKey={modelOptionsByKey}
-    onLoadModels={onLoadModelOptions}
-    onSelect={onSelectModel}
-    onNotify={onNotify}
-  />;
   const roleplayDock = chatDisplay?.generation_stats_enabled === false
     ? renderRoleplaySlot?.("eleckoi.roleplay.conversation.composer.dock", { generationStatsEnabled: false })
     : undefined;
@@ -402,7 +391,6 @@ export function ChatPanel({
       placeholder: tUi("输入消息"),
       submitOnEnter,
       leadingAccessory: roleplayMenu,
-      modelAccessory: roleplayModel,
       dockAccessory: roleplayDock,
       renderBridgeSlot: renderRoleplaySlot,
     },

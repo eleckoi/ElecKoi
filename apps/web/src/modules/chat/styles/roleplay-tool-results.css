@@ -1,6 +1,6 @@
 .roleplay-tool-call { min-width: 0; --roleplay-result-row-height: 48px; --roleplay-result-conditional: #9b6bd6; }
 body[data-ds-dark-theme] .roleplay-tool-call, :root[data-theme="dark"] .roleplay-tool-call { --roleplay-result-conditional: #b79be5; }
-.roleplay-tool-summary { display: flex; gap: 6px; margin-left: 6px; min-width: 0; overflow: hidden; white-space: nowrap; font-size: inherit; }
+.roleplay-tool-summary { display: flex; gap: 6px; margin-left: 6px; min-width: 0; overflow: hidden; white-space: nowrap; font-size: var(--dsh-content-font-size-secondary, 13px); line-height: calc(24px + var(--dsh-content-font-delta, 0px)); }
 .roleplay-tool-summary > span { overflow: hidden; text-overflow: ellipsis; }
 .roleplay-tool-inspect { display: flex; align-items: center; gap: 4px; width: fit-content; min-height: 24px; margin: 8px 0 0 22px; padding: 2px 9px; border: .5px solid var(--dsw-alias-border-l4); border-radius: 999px; background: none; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 12px; cursor: pointer; }
 .roleplay-tool-inspect:hover { background: var(--dsw-alias-interactive-bg-hover); }

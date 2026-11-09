@@ -181,14 +181,10 @@
   background: var(--control-bg);
 }
 
-:root[data-theme="dark"] .composer-add:hover:not(:disabled),
-:root[data-theme="dark"] :is(.chat-model-trigger:hover, .chat-model-trigger.active) {
+:root[data-theme="dark"] .composer-add:hover:not(:disabled) {
   background: var(--control-bg-hover);
 }
 
-:root[data-theme="dark"] .chat-model-trigger {
-  color: var(--muted);
-}
 
 :root[data-theme="dark"] .markdown-message blockquote {
   border-color: var(--line-strong);

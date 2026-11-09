@@ -14,18 +14,21 @@
 .mobile-creator-studio-page > .mobile-header .mobile-header-actions > button > svg { width: 18px; height: 18px; }
 .creator-studio-conversation { flex: 1; min-height: 0; min-width: 0; display: flex; overflow: hidden; }
 .creator-studio-conversation > * { flex: 1; min-width: 0; min-height: 0; }
-.creator-studio-session-body { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+.creator-studio-session-body { --dsh-chat-content-width: 920px; --dsh-composer-card-max-width: 952px; --dsh-composer-side-clearance: 16px; --dsh-composer-dock-inset: 8px; height: 100%; min-height: 0; display: flex; flex-direction: column; }
 .creator-studio-view-header { display: flex; flex: none; min-width: 0; height: 28px; background: var(--mobile-header-bg); }
 .mobile-creator-studio-page .creator-studio-view-tabs { flex: 0 1 auto; min-width: 0; height: 28px; padding: 0 16px; overflow-x: auto; }
 .creator-studio-view-tabs [role=tab] { flex: none; }
 .creator-studio-view-header > div:has(> [data-plugin-entry-more]) { align-self: flex-start; }
 .mobile-creator-studio-page [data-plugin-entry-more="conversation"] { width: 28px; min-width: 28px; height: 28px; min-height: 28px; margin: 0; padding: 0; }
-.creator-studio-chat-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 16px; }
+.creator-studio-chat-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .creator-studio-chat-scroll.creator-studio-panel-view { display: flex; overflow: hidden; padding: 0; }
 .creator-studio-panel-view > [data-slot] { flex: 1; min-width: 0; min-height: 0; }
 .creator-studio-chat-scroll.creator-studio-trajectory { --dsh-composer-height: 0px; display: flex; overflow: hidden; padding: 0; }
 .creator-studio-trajectory > [data-slot], .creator-studio-trajectory > [data-slot] > * { flex: 1; min-width: 0; min-height: 0; }
-.creator-studio-session-body > .chat-composer-region { flex: none; padding: 0 12px; }
+.creator-studio-session-body > .chat-composer-region { flex: none; padding: 0; }
+.creator-studio-session-body[data-phase="hero"] { justify-content: safe center; overflow-y: auto; padding-block: 16px; }
+.creator-studio-session-body[data-phase="hero"] > .creator-studio-chat-scroll { display: none; }
+.creator-studio-session-body[data-phase="hero"] > .chat-composer-region { position: relative; display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 0; padding-bottom: 32px; background: transparent; }
 .creator-studio-conversation .creator-studio-chat-scroll[data-conversation-scroll] [data-chat-to-bottom] { bottom: 8px; }
 .creator-studio-conversation [data-composer-seat] { margin-top: auto; }
 .creator-studio-start { display: grid; place-content: center; }

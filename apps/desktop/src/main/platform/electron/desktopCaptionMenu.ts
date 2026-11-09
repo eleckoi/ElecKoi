@@ -5,6 +5,17 @@ import { resolveDesktopLocale } from '@shared/contracts/desktopMenuLocale'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 
+/** Keep the official Windows developer shortcuts available while the caption menu is closed. */
+export function installDesktopDeveloperShortcuts(): () => void {
+  const previous = Menu.getApplicationMenu()
+  const shortcuts = Menu.buildFromTemplate([
+    { role: 'toggleDevTools', visible: false },
+    { role: 'toggleDevTools', visible: false, accelerator: 'F12' },
+  ])
+  Menu.setApplicationMenu(shortcuts)
+  return () => { if (Menu.getApplicationMenu() === shortcuts) Menu.setApplicationMenu(previous) }
+}
+
 /** Native caption commands retain the focused editor and its own undo history. */
 export function createDesktopCaptionMenu(
   getWindow: () => BrowserWindow | undefined,
@@ -47,6 +58,7 @@ export function createDesktopCaptionMenu(
         { label: messages.reloadPageMenu, role: 'reload' as const },
         { label: messages.restartAppHostMenu, click: () => { app.relaunch(); app.quit() } },
       ] : [],
+      { role: 'toggleDevTools', label: messages.toggleDevToolsMenu, accelerator: 'Ctrl+Shift+I' },
       { type: 'separator' },
       { role: 'quit', label: messages.exitApplication },
     ]

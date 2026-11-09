@@ -99,6 +99,26 @@ export interface ClientModelOption {
 
 源码：[packages/client/features/dsh-client-models/src/client/types.ts:3](../../packages/client/features/dsh-client-models/src/client/types.ts#L3)
 
+## ClientModelParameterPatch
+
+```ts
+export interface ClientModelParameterPatch {
+    contextWindowTokens?: number | null;
+    maxOutputTokens?: number | null;
+    temperature?: number | null;
+    topP?: number | null;
+    autoCompactTokenLimit?: number | null;
+    capabilitiesOverride?: boolean;
+    inputModalities?: readonly ('text' | 'image')[];
+    supportsImageInput?: boolean;
+    overrideFields?: string[];
+    reasoningEfforts?: false | Record<string, string | null>;
+    reasoningEffort?: string | null;
+}
+```
+
+源码：[packages/client/features/dsh-client-models/src/client/types.ts:19](../../packages/client/features/dsh-client-models/src/client/types.ts#L19)
+
 ## ClientModelProvider
 
 ```ts
@@ -502,7 +522,7 @@ export interface ModelCatalogSnapshot {
 }
 ```
 
-源码：[packages/client/features/dsh-client-models/src/client/types.ts:19](../../packages/client/features/dsh-client-models/src/client/types.ts#L19)
+源码：[packages/client/features/dsh-client-models/src/client/types.ts:26](../../packages/client/features/dsh-client-models/src/client/types.ts#L26)
 
 ## NativeAuthorChatHandlers
 

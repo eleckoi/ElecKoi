@@ -184,6 +184,7 @@ it.each(['variables', 'settings'])('routes %s modifications through the official
   expect(host.textContent).not.toContain('Native original tool output');
   expect(host.querySelector('[data-disclosure-row] svg')).toBeTruthy();
   await act(async () => host.querySelector('[data-disclosure-row]').click());
+  await act(async () => new Promise(resolve => requestAnimationFrame(resolve)));
   if (domain === 'variables') { expect(host.textContent).toContain('共伞'); expect(host.textContent).toContain('增加'); }
   else { expect(host.textContent).toContain('原文保留全部'); expect(host.textContent).toContain('新文保留全部'); }
   await act(async () => host.querySelector('.roleplay-tool-inspect').click()); expect(inspect).toHaveBeenCalledOnce();

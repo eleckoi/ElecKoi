@@ -759,6 +759,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '操作结果，字段见返回类型；异步失败会拒绝 Promise。',
       },
       {
+        signature: 'saveModelParameters(configId: string, modelId: string, patch: ClientModelParameterPatch): Promise<ClientModelConfig | undefined>',
+        description: '在写入队列中合并指定模型的参数，不覆盖其他模型或提供商字段。',
+        parameters: [{ name: 'configId', description: '当前提供商配置编号。' }, { name: 'modelId', description: '当前提供商下的准确模型编号。' }, { name: 'patch', description: '本次编辑的模型参数与能力。' }],
+        returns: '更新后的配置；异步失败保留原始错误。',
+      },
+      {
         signature: 'deleteConfig(id: string): Promise<ClientModelConfig | undefined>',
         description: '删除一个配置，返回剩余目录的第一个配置。',
         parameters: [{ name: 'id', description: '要读取或修改的项目编号。' }],
@@ -1225,6 +1231,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ClientModelOption',
     declaration: 'export interface ClientModelOption {\n    id: string;\n    name: string;\n    description?: string;\n    inputModalities?: readonly (\'text\' | \'image\')[];\n    contextWindowTokens?: number;\n    maxOutputTokens?: number;\n    supportsImageInput?: boolean;\n    overrideFields?: string[];\n    capabilitiesOverride?: boolean;\n    catalogDefaults?: ClientModelOption;\n    reasoningEfforts?: false | Record<string, string | null>;\n    reasoningEffort?: string;\n    temperature?: number;\n    topP?: number;\n    autoCompactTokenLimit?: number;\n    isUserAdded?: boolean;\n}',
+  },
+  {
+    name: 'ClientModelParameterPatch',
+    declaration: 'export interface ClientModelParameterPatch {\n    contextWindowTokens?: number | null;\n    maxOutputTokens?: number | null;\n    temperature?: number | null;\n    topP?: number | null;\n    autoCompactTokenLimit?: number | null;\n    capabilitiesOverride?: boolean;\n    inputModalities?: readonly (\'text\' | \'image\')[];\n    supportsImageInput?: boolean;\n    overrideFields?: string[];\n    reasoningEfforts?: false | Record<string, string | null>;\n    reasoningEffort?: string | null;\n}',
   },
   {
     name: 'ClientModelProvider',

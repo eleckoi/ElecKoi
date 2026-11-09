@@ -34,6 +34,8 @@ patchedDependencies:
   '@deepseek-ai/dsh-client-ui-chat@0.2.2-rc.1': patches/@deepseek-ai__dsh-client-ui-chat@0.2.2-rc.1.patch
   # RETIRE WHEN: official composer exposes the product accessory and Enter-key controls.
   '@deepseek-ai/dsh-client-ui-conversation@0.2.2-rc.1': patches/@deepseek-ai__dsh-client-ui-conversation@0.2.2-rc.1.patch
+  # RETIRE WHEN: official model selection exposes provider-heading labels and a root-menu parameter slot with keyboard-safe fields; switch to them and remove this patch, registration and lock entry.
+  '@deepseek-ai/dsh-client-ui-model-selection@0.2.2-rc.1': patches/@deepseek-ai__dsh-client-ui-model-selection@0.2.2-rc.1.patch
   # RETIRE WHEN: upstream supports shipped product groups with featured entries and More navigation, and displays product bundle declarations and developer interface metadata.
   '@deepseek-ai/dsh-client-ui-plugin-manager@0.2.2-rc.1': patches/@deepseek-ai__dsh-client-ui-plugin-manager@0.2.2-rc.1.patch
   # RETIRE WHEN: official theme exposes an always-expanded font settings group; use that option and remove this patch, registration and lock entry.

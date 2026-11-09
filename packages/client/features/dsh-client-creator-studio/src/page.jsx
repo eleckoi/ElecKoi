@@ -4,6 +4,7 @@ import { useMainPageView } from '../../../../../apps/web/src/app/windows/MainPag
 import { CreatorStudioConversation } from '../../../../../apps/web/src/modules/creatorStudio/components/CreatorStudioConversation.jsx';
 import { CreatorStudioCharacterDialog } from '../../../../../apps/web/src/modules/creatorStudio/components/CreatorStudioSimplePage.jsx';
 import { FailureAlert } from '../../../../../apps/web/src/ui/ui/FailureAlert.jsx';
+export { CreatorToolCall } from '../../../../../apps/web/src/modules/creatorStudio/components/CreatorToolCall.jsx';
 
 export function CreatorStudioPage() {
   const tUi = useProductTranslation();

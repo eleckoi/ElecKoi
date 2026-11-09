@@ -11,7 +11,8 @@ const manifest = JSON.parse(readFileSync(anchor, 'utf8'))
 assert.equal(manifest.name, '@eleckoi/android-host')
 const require = createRequire(anchor)
 const { ELECKOI_ANDROID_BUNDLES } = await import(pathToFileURL(require.resolve('@eleckoi/android-host')).href)
-const { initProfile, loadProfileDirectory, PROFILE_TEMPLATES } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-app-boot')).href)
+const { initProfile, loadProfileDirectory } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-app-boot')).href)
+const { PROFILE_TEMPLATES } = await import(pathToFileURL(require.resolve('@deepseek-ai/dsh-official-bundles')).href)
 const bundles = [...PROFILE_TEMPLATES.web.bundles, ...ELECKOI_ANDROID_BUNDLES]
 for (const name of bundles) {
   assert(Object.hasOwn(manifest.dependencies ?? {}, name), `Android Host must declare its selected profile bundle: ${name}`)

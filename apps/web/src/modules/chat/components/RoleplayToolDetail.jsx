@@ -7,22 +7,23 @@ import { resultReadingBadge, resultTextSegments, resultValueText } from '../mode
 function detailParts(entry, result, tUi = sourceText) {
   const data = entry.source;
   const parts = [{ kind: 'header' }];
-  const append = (text, kind = 'text', label = '') => {
-    resultTextSegments(text).forEach((text, index) => parts.push({ kind, text, label: index === 0 ? label : '' }));
+  const append = (text, kind = 'text', label = '', code = false) => {
+    resultTextSegments(text).forEach((text, index) => parts.push({ kind, text, label: index === 0 ? label : '', code }));
   };
-  const field = (label, value) => {
+  const field = (label, value, code = false) => {
     if (value && ['text_page', 'array_page', 'object_page'].includes(value.kind)) append(
       `${label}：${value.kind === 'text_page' ? `本次返回 ${value.returned_chars} / ${value.total_chars} 字符` : `本次返回 ${value.returned} / ${value.total} 项`}${value.has_more ? ' · 尚有未返回内容' : ''}`, 'note');
-    append(resultValueText(value), 'field', label);
+    append(resultValueText(value), 'field', label, code);
   };
   if (entry.requiredOnly) append(`${resultReadingBadge(entry, result.domain, tUi)?.label || '必读'}，位于本次搜索范围之外。`, 'note');
   if (data?.selection_hint) append(data.selection_hint, 'note');
   if (data?.resolved_references?.length) append(`本回合引用：${data.resolved_references.map(item => item.title).join('、')}`, 'note');
   if (data?.error) append(typeof data.error.message === 'string' ? data.error.message : resultValueText(data.error), 'error');
-  if (result.domain === 'settings' && typeof data?.content === 'string') {
+  if (['settings', 'presetPrompts'].includes(result.domain) && typeof data?.content === 'string') {
     if (data.content_delivery === 'cached_reference') append(`缓存引用${data.cached_reference ? ` · ${data.cached_reference}` : ''}`, 'note');
     append(data.content || '正文为空');
   }
+  if (result.domain === 'creator') for (const item of entry.fields || []) field(item.label, item.value, item.code);
   if (result.domain === 'variables' && data) {
     if (Object.hasOwn(data, 'current')) field('当前值', data.current_present === false ? '尚未写入' : data.current);
     if (Object.hasOwn(data, 'default')) field('默认值', data.default);
@@ -66,7 +67,7 @@ export function ToolResultDetail({ entry, result }) {
         return <div key={item.key} data-index={item.index} data-detail-kind={part.kind} ref={virtualizer.measureElement}
           className="roleplay-result-part" style={{ transform: `translateY(${item.start}px)` }}>
           {part.kind === 'header' ? <DetailHeader entry={entry} result={result} />
-            : part.kind === 'field' ? <div className="roleplay-result-field"><span>{part.label}</span><pre>{part.text}</pre></div>
+            : part.kind === 'field' ? <div className={`roleplay-result-field${part.code ? ' is-code' : ''}`}><span>{part.label}</span><pre>{part.text}</pre></div>
               : <pre className={`roleplay-result-text${part.kind === 'note' ? ' is-note' : part.kind === 'error' ? ' is-error' : ''}`}
                 role={part.kind === 'error' ? 'alert' : undefined}>{part.text}</pre>}
         </div>;

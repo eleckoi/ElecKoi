@@ -850,6 +850,15 @@ refresh(): Promise<ClientModelConfig[]>
 save(config: ClientModelConfig): Promise<ClientModelConfig | undefined>
 
 /**
+ * 在写入队列中合并指定模型的参数，不覆盖其他模型或提供商字段。
+ * @param configId - 当前提供商配置编号。
+ * @param modelId - 当前提供商下的准确模型编号。
+ * @param patch - 本次编辑的模型参数与能力。
+ * @returns 更新后的配置；异步失败保留原始错误。
+ */
+saveModelParameters(configId: string, modelId: string, patch: ClientModelParameterPatch): Promise<ClientModelConfig | undefined>
+
+/**
  * 删除一个配置，返回剩余目录的第一个配置。
  * @param id - 要读取或修改的项目编号。
  * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
@@ -871,7 +880,7 @@ discover(config: ClientModelConfig): Promise<ClientModelOption[]>
 revealApiKey(configId: string): Promise<string>
 ```
 
-Types: [ClientModelConfig](types-client.md#clientmodelconfig) · [ClientModelOption](types-client.md#clientmodeloption) · [ModelCatalogSnapshot](types-client.md#modelcatalogsnapshot)
+Types: [ClientModelConfig](types-client.md#clientmodelconfig) · [ClientModelOption](types-client.md#clientmodeloption) · [ClientModelParameterPatch](types-client.md#clientmodelparameterpatch) · [ModelCatalogSnapshot](types-client.md#modelcatalogsnapshot)
 
 Source: [`packages/client/features/dsh-client-models/src/client/types.ts`](../../packages/client/features/dsh-client-models/src/client/types.ts)
 

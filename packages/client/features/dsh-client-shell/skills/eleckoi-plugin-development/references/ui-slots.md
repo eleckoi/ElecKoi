@@ -178,11 +178,13 @@ type CardProps = PropsRuntime<'eleckoi.character.editor.card'>
 
 `RoleplayMessageOwner` 提供 `conversationId`、产品消息 ID、DSH message ID 和角色；正文 owner 另外提供 `content` 与 `streaming`。输入区使用官方 Session 输入服务，不另传产品草稿或 `setInput`。`session-maybe` 表示组件支持没有选中会话的状态，插件必须处理会话相关服务暂不可用的情况。所有会话插槽都随当前 DSH Session 绑定，插件不得把一个 Session 的状态放进无 key 的全局单例。
 
-当前只有一套官方 InputBar。原生“＋”、命令弹层和文件/图片上传由官方组件负责；产品通过 `leadingAccessory`、`modelAccessory`、`dockAccessory` 装配扮演菜单、模型选择器和统计。`composer.bar` 皮肤接收这些参数及 `renderSlot`，可自行安排其位置。默认 InputBar 使用 `modelAccessory`，不会调用 `input.model`；该子插槽仅在皮肤显式调用时生效。审批详情与计划审核操作同样由相应接管组件调用。
+当前只有一套官方 InputBar。原生“＋”、命令弹层和文件/图片上传由官方组件负责；产品通过 `leadingAccessory`、`dockAccessory` 装配扮演菜单和统计，模型选择使用原生 `input.model` 座位。`composer.bar` 皮肤接收这些参数及 `renderSlot`，可自行安排其位置。`modelAccessory` 是可选替换入口，产品会话不再传入独立模型浮层。审批详情与计划审核操作同样由相应接管组件调用。
 
 官方 `conversation.*` 插槽贡献会投影到对应产品位置，保留注册优先级、注入与卸载行为。同一贡献只注册一处。输入框下方只保留 `conversation.composer.dock` 对应的一套入口，官方默认 `stats` 不投影；产品统计与其他插件内容共用下方区域。
 
-模型名称扩展沿官方 `conversation.input.model.label` 投影到 `eleckoi.roleplay.conversation.input.model.label` 与 `eleckoi.creator-studio.model.label`。两者共用官方 `ModelLabelOwner`，只传提供商身份、模型目录项、显示位置和选中状态；模型入口、参数页当前模型与选项行共同调用。贡献只显示非交互的名称与标签，选择、搜索、图标和保存仍由模型选择器负责。停用或卸载标签插件后恢复目录名称，不保留另一个硬编码角标实现。
+模型名称扩展沿官方 `conversation.input.model.label` 投影到 `eleckoi.roleplay.conversation.input.model.label` 与 `eleckoi.creator-studio.model.label`。两者共用官方 `ModelLabelOwner`，只传提供商身份、模型目录项、显示位置和选中状态；模型入口、当前模型与选项行共同调用。模型行保留官方文字标签，第三方插件仍可贡献标签。提供商图标仅经补丁的 `conversation.input.model.provider.label` 放在提供商分组标题旁，准确使用提供商身份，不根据各个模型名称识别品牌。选择、搜索、推理等级和手机收纳由官方模型选择器负责，模型和推理等级选中即生效，不再使用独立保存步骤。停用或卸载标签插件后恢复目录名称。
+
+输入菜单中的参数沿同版模型选择器补丁声明的 `conversation.input.model.parameters` 接入，随原模型座位投影到两种产品会话。参数停止输入 400ms、离开输入框或关闭菜单时通过现有模型目录服务写入；失败保留未写入内容并提供重试。自定义接口可在模型能力中明确声明支持的推理档位，Host 以声明更新官方目录；未声明能力时不虚构推理选项。官方提供对应提供商标题、根菜单扩展点及输入框键盘行为后，按 `pnpm-workspace.yaml` 的退役条件改用该扩展点并删除补丁，不保留两套菜单实现。
 
 ## 冲突与优先级
 

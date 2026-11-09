@@ -20,6 +20,10 @@
 
 提示词来源需区分文字所有者与组合启用者：`web_search`／`web_fetch` 的外部内容说明来自官方 `dsh-tool-web`；文件交付与路径链接说明来自官方 `dsh-deliverable-file-references`；DSH 源码目录、Web GUI 和 HMR 说明来自官方 `dsh-harness-dev-context`。后两者由官方 Web App 组合登记，联网工具由产品预设能力组装配。产品自己的预设常驻正文、角色指令、自动配图协议和工作室编辑目标由对应产品插件贡献。更改顺序不删除这些官方说明，也不表示它们的全部环境描述都适用于每个平台。
 
+创作能力的三种工具通过工作室既有的正式子座位投影接入 `tool.call.toolview`。网页组件按准确工具名及 `capability_id` 显示操作图标、可读结果和逐行替换；目录、正文及修改明细复用共用虚拟列表与官方 DisclosureRow。展示只读取当前调用保存的参数与结果，不按当前产品资料重建旧名称、旧值或执行修改。必读预设提示词保留真实读取回执，结果续读只显示本次片段与偏移；未知结构、溢出引用和附件保留原生展示及查看原始调用入口。无新增 Session 事件、数据库字段、持久缓存或迁移。
+
+创作工作室侧边栏只投影已有 `eleckoiCreatorStudio` 或 `eleckoi-creator-active` 关联的会话及其子会话；角色目录中的会话与后代始终排除。分组、未分组、搜索及行操作使用同一呈现范围，切回原生工作区时使用该页面原有范围。筛选随官方面板和目录订阅更新，不转换会话、重选预设或改写工作区成员。两类产品聊天继续使用同版官方输入框和原有自定义菜单；手机不再通过全局按钮最小高度覆盖官方控件，工作室正文留白只由官方 Chat 提供。模型参数沿官方菜单材质和紧凑字段尺寸展开，面板内滚动保留全部字段。
+
 ## 工作区目录
 
 应用入口位于 `apps/desktop`、`apps/desktop-host`、`apps/web`；公共合同位于 `packages/shared`，现有产品功能插件位于 `packages/client/features`，Host 数据与运行包位于 `packages/host`，Windows 原生源码位于 `native/windows-frame`。后续 Android 工程进入 `apps/android`，使用独立的平台构建和本地数据。目录决策见 [ADR 0028](adr/0028-multi-application-workspace.md) 和 [ADR 0030](adr/0030-package-responsibility-groups.md)。
@@ -36,7 +40,11 @@ ElecKoi 的产品网页资源由受管 Host 在 `/eleckoi/assets/` 提供，资�
 
 产品页面的 Vite 入口共用官方 Web Client 已注册的 React、React DOM 与 UI Primitives 实例，只生成导出绑定，不再次打包基础控件及其 CSS。插件专用样式保留官方的层叠顺序；返回按钮、组合按钮等控件的尺寸与内边距由同版本官方组件及样式决定。
 
+角色聊天与创作工作室使用官方 `conversation.input.model` 组件及其目录、Session 选择、推理等级、键盘和手机收纳，不再通过 `modelAccessory` 装配独立模型浮层。图标只通过锁定版本补丁的提供商分组标题座位贡献，模型行保持官方文字标签，不根据模型名称推断提供商图标；参数经同一补丁声明的根菜单子座位接入，停止输入或离开时通过现有 Settings 服务串行合并当前模型的参数。自定义接口缺少推理能力声明时遵循官方隐藏推理等级的规则，可在参数的模型能力中明确声明档位，保存后由 Host 发布真实推理元数据；不按名称猜测支持档位。未写入草稿仅以目录为弱键在界面内保留，成功后释放，失败保留原错误并允许重试。没有数据库迁移、Session 事件或第二套模型目录；补丁退役条件见 `pnpm-workspace.yaml`。手机系统返回优先让已聚焦官方菜单处理 Escape，再返回所属页面。
+
 工作室首页的默认工作区标题使用官方公开 `@deepseek-ai/dsh-api-workspace-controller/default-workspace` 命名纯函数。该子路径没有运行依赖，不启动或访问 Workspace Controller；Renderer 导入分类只接纳这个精确公开入口，Host 包、Client Controller 及内部路径仍受原边界约束。
+
+Android Host 在已有启动覆盖配置中为官方 `workspace-controller` 指定 `documentsDirectory: workspaceRoot`，使用应用私有运行目录中的工作区根路径。首次默认工作区仍由官方创建为该根下的 `deepseek-harness/default-workspace`，不调用桌面 Linux 的 `xdg-user-dir`。已登记默认工作区继续按官方持久标识恢复，不因新目录配置而重命名、搬迁或重建；目录冲突与写入失败继续沿正式错误返回。这是平台部署配置，不增加目录探测兜底、数据库迁移或依赖补丁。
 
 聊天记录入口使用官方 `IconQueueOutlineRegular`，两种消息布局的「查看过程」使用同一线框眼睛，思考的弹窗行与外部动态状态栏共用同一小灯泡资源。复制、重新生成与三个点保持原有颜色和视觉大小；两种布局不提供朗读按钮。Windows 标题区域的「应用／编辑」使用同提交 `preload-menu.ts` 的按钮、ShadowRoot、选区恢复与键盘行为，挂载到侧栏按钮左侧的标题栏座位。原生弹出菜单沿用官方坐标缩放和编辑按键流程，调用来源限制为主窗口的可信顶层页面；编辑键只发给该窗口或它持有的已聚焦浏览器。关于接回产品页面，检查更新打开官方独立更新文档，退出沿用桌面生命周期。该通道仅承担桌面壳职责，不引入产品数据桥或第二套更新服务；来源、机械抽取及产品接入差异记录在 `apps/desktop/src/main/platform/electron/dsh/provenance.json`，现有 DSH Desktop MIT 许可随包保留。
 

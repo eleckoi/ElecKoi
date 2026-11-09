@@ -80,8 +80,8 @@ window.__ModuleLoader__.load({
     })
     // A projected parent owns separate child declarations; components keep
     // using their declared names and the same list entry identities.
-    const viewSeatName = name => name === 'conversation.view'
-      ? 'eleckoi.roleplay.session.view' : `eleckoi.roleplay.view.${name}`
+    const viewSeatName = name => name.startsWith('conversation.input.model.') ? `eleckoi.roleplay.${name}`
+      : name === 'conversation.view' ? 'eleckoi.roleplay.session.view' : `eleckoi.roleplay.view.${name}`
 
     function RoleplaySessionView({
       matched, sessionId, useSession, useSessionStatus, useInput, renderSlot, renderSlotChain
@@ -379,7 +379,6 @@ window.__ModuleLoader__.load({
             'eleckoi.roleplay.conversation.input.permission': { kind: 'single', scope: 'session' },
             'eleckoi.roleplay.conversation.input.plan': { kind: 'single', scope: 'session' },
             'eleckoi.roleplay.conversation.input.model': { kind: 'single', scope: 'session' },
-            'eleckoi.roleplay.conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
             'eleckoi.roleplay.conversation.input.activity': { kind: 'single', scope: 'session' },
             'eleckoi.roleplay.conversation.composer.dock': { kind: 'list', scope: 'session' },
             'eleckoi.roleplay.conversation.composer': { kind: 'chain', scope: 'session' },
@@ -407,7 +406,6 @@ window.__ModuleLoader__.load({
           winnerOnly: true
         })
         projectConversationSeat('conversation.input.left', 'eleckoi.roleplay.conversation.input.left', { leafOnly: true })
-        projectConversationSeat('conversation.input.model.label', 'eleckoi.roleplay.conversation.input.model.label', { leafOnly: true, winnerOnly: true })
         projectConversationSeat('conversation.input.right', 'eleckoi.roleplay.conversation.input.right', { leafOnly: true })
         projectConversationSeat('conversation.input.overlay', 'eleckoi.roleplay.conversation.input.overlay', { leafOnly: true })
         projectConversationSeat('conversation.input.dock', 'eleckoi.roleplay.conversation.input.dock', {
@@ -417,7 +415,7 @@ window.__ModuleLoader__.load({
         projectConversationSeat('conversation.input.attachments', 'eleckoi.roleplay.conversation.input.attachments', { leafOnly: true })
         projectConversationSeat('conversation.input.permission', 'eleckoi.roleplay.conversation.input.permission', { leafOnly: true })
         projectConversationSeat('conversation.input.plan', 'eleckoi.roleplay.conversation.input.plan', { leafOnly: true })
-        projectConversationSeat('conversation.input.model', 'eleckoi.roleplay.conversation.input.model', { leafOnly: true })
+        projectConversationSeat('conversation.input.model', 'eleckoi.roleplay.conversation.input.model', { winnerOnly: true, bridgeChildren: true })
         projectConversationSeat('conversation.input.activity', 'eleckoi.roleplay.conversation.input.activity', { leafOnly: true })
         projectConversationSeat('conversation.composer.dock', 'eleckoi.roleplay.conversation.composer.dock', { leafOnly: true })
         projectConversationSeat('conversation.approval.detail', 'eleckoi.roleplay.conversation.approval.detail', { leafOnly: true })

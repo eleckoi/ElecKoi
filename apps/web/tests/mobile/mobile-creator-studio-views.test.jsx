@@ -9,7 +9,7 @@ import { CreatorStudioConversation } from '../../src/modules/creatorStudio/compo
 vi.stubGlobal('React', React); vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
 let root, node, header;
 afterEach(async () => { if (root) await act(() => root.unmount()); node?.remove(); header?.remove(); });
-async function mount(initialView = 'chat', Component = MobileCreatorStudioConversation) {
+async function mount(initialView = 'chat', Component = MobileCreatorStudioConversation, blank = false) {
   let store = { view: initialView, viewRequest: null };
   const listeners = new Set(), snapshot = () => store, subscribe = listener => { listeners.add(listener); return () => listeners.delete(listener); };
   const openView = vi.fn((view, focus) => { store = { view, viewRequest: { view, focus } }; listeners.forEach(listener => listener()); });
@@ -18,7 +18,14 @@ async function mount(initialView = 'chat', Component = MobileCreatorStudioConver
   let unpinned = [];
   const pinSnapshot = () => unpinned;
   const tabSnapshot = () => tabs;
-  const model = { readDefaultModel: vi.fn(async () => null), refresh: vi.fn(async () => {}), selectModel: vi.fn(), regenerate: vi.fn() };
+  const model = { readDefaultModel: vi.fn(async () => null), refresh: vi.fn(async () => {}), selectModel: vi.fn(), regenerate: vi.fn(), startWorkspace: vi.fn(async () => {}) };
+  let session = { running: false, blank }, editing = false;
+  const sessionSnapshot = () => session;
+  const presetsSnapshot = { catalog: { activePresetIds: { creator: 'synthetic-creator-a' }, presets: [
+    { id: 'synthetic-creator-a', name: '合成创作甲', purpose: 'creator' }, { id: 'synthetic-creator-b', name: '合成创作乙', purpose: 'creator' },
+    { id: 'synthetic-roleplay', name: '合成扮演', purpose: 'roleplay' },
+  ] } };
+  const presets = { subscribe: () => () => {}, getSnapshot: () => presetsSnapshot, setActive: vi.fn(async () => {}) };
   const models = { subscribe: () => () => {}, getSnapshot: () => modelsSnapshot }, modelsSnapshot = { configs: [] };
   const renderSlot = vi.fn((name, owner, options) => name === 'eleckoi.creator-studio.view'
     ? <div data-slot={name} data-view={options.only}>合成 {options.only}</div>
@@ -31,7 +38,8 @@ async function mount(initialView = 'chat', Component = MobileCreatorStudioConver
     : name.endsWith('.actions') ? <span data-studio-preset="">合成创作预设</span>
     : name.endsWith('.utilities') ? <button>下载 Session 日志</button> : null);
   const props = { sessionId: 'synthetic-studio-session', headerTarget, cornerTarget, model, models, onError: vi.fn(),
-    useSession: select => select({ running: false, blank: false }), useInput: select => select({}), useSessionStatus: select => select(new Map()),
+    useSession: select => select(useSyncExternalStore(subscribe, sessionSnapshot)), useInput: select => select({}), useSessionStatus: select => select(new Map()),
+    useWorkspaces: select => select({ phase: 'ready', items: [{ workspaceId: 'synthetic-workspace', title: '合成工作区', sessionIds: ['synthetic-studio-session'] }] }),
     useProjection: () => null, useInspectCall: select => select(inspectCall), useStore: select => select(useSyncExternalStore(subscribe, snapshot)),
     useConversationViews: select => select(useSyncExternalStore(subscribe, tabSnapshot)),
     useEntryPins: select => select(useSyncExternalStore(subscribe, pinSnapshot)), useEntryActions: select => select(true), setPinned: vi.fn(),
@@ -40,12 +48,40 @@ async function mount(initialView = 'chat', Component = MobileCreatorStudioConver
     renderSlot, renderSlotChain: (_name, _owner, options) => options.fallback };
   node = document.createElement('div'); document.body.append(node); root = createRoot(node);
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
-  await act(() => root.render(<MainPageContext.Provider value={{ models, registerBackHandler: () => () => {} }}><Component {...props} /></MainPageContext.Provider>));
-  return { openView, completeViewRequest, inspectCall, model, renderSlot, renderHeaderSlot, headerTarget, cornerTarget, getStore: snapshot,
+  const render = () => root.render(<MainPageContext.Provider value={{ models, presets, registerBackHandler: () => () => {} }}><Component {...props} editing={editing} /></MainPageContext.Provider>);
+  await act(render);
+  return { openView, completeViewRequest, inspectCall, model, presets, renderSlot, renderHeaderSlot, headerTarget, cornerTarget, getStore: snapshot,
+    setPhase(blank, nextEditing = false) { session = { ...session, blank }; editing = nextEditing; render(); },
     publishTabs(next) { tabs = next; listeners.forEach(listener => listener()); }, getTabs: tabSnapshot,
     unpin(id) { unpinned = [...unpinned, id]; listeners.forEach(listener => listener()); } };
 }
 async function select(label) { await act(() => [...node.querySelectorAll('[role=tab]')].find(button => button.textContent === label).click()); }
+it('shows the mobile welcome design with shared workspace and creator preset actions, preserving the input through the first turn', async () => {
+  const f = await mount('chat', MobileCreatorStudioConversation, true), input = node.querySelector('[data-composer-input]');
+  input.value = '未发送的合成草稿';
+  expect(node.querySelector('.creator-studio-hero-headline').textContent).toBe('人，你会想念我吗？');
+  expect(node.querySelector('.creator-studio-hero-mascot')).not.toBeNull();
+  expect(node.querySelector('[role=tablist]')).toBeNull(); expect(f.headerTarget.textContent).toBe('');
+  expect(node.querySelector('[aria-label="选择工作区"]').textContent).toBe('合成工作区');
+  await act(() => node.querySelector('[aria-label="选择创作预设"]').click());
+  expect(document.body.textContent).not.toContain('合成扮演');
+  await act(() => [...document.querySelectorAll('[role=menuitem]')].find(item => item.textContent.includes('合成创作乙')).click());
+  expect(f.presets.setActive).toHaveBeenCalledWith('synthetic-creator-b');
+  const workspaceOwner = f.renderSlot.mock.calls.filter(([name]) => name === 'eleckoi.creator-studio.hero.workspace').at(-1)[1];
+  await act(() => workspaceOwner.onPick('synthetic-workspace-next'));
+  expect(f.model.startWorkspace).toHaveBeenCalledWith('synthetic-workspace-next');
+  await act(() => f.setPhase(false));
+  expect(node.querySelector('.creator-studio-hero-headline')).toBeNull(); expect(node.querySelector('[role=tablist]')).not.toBeNull();
+  expect(f.headerTarget.textContent).toBe('合成创作预设'); expect(node.querySelector('[data-composer-input]')).toBe(input); expect(input.value).toBe('未发送的合成草稿');
+});
+it.each([false, true])('keeps the mobile conversation docked through a temporary empty regeneration and settles to blank=%s', async finalBlank => {
+  const f = await mount(), input = node.querySelector('[data-composer-input]');
+  await act(() => f.setPhase(true, true));
+  expect(node.querySelector('.creator-studio-hero-headline')).toBeNull(); expect(node.querySelector('[role=tablist]')).not.toBeNull();
+  expect(f.renderSlot.mock.calls.filter(([name]) => name === 'eleckoi.creator-studio.composer.bar').at(-1)[1].variant).toBe('composer');
+  await act(() => f.setPhase(finalBlank));
+  expect(!!node.querySelector('.creator-studio-hero-headline')).toBe(finalBlank); expect(node.querySelector('[data-composer-input]')).toBe(input);
+});
 it('switches the shared Studio view while keeping the same composer and official inspection focus', async () => {
   const f = await mount(), input = node.querySelector('[data-composer-input]'); input.value = '合成草稿';
   expect([...node.querySelectorAll('[role=tab]')].map(button => button.textContent)).toEqual(['对话', '轨迹']);

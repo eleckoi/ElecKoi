@@ -14,6 +14,7 @@ const en = {
   exitApplication: 'Exit',
   checkUpdatesMenu: 'Check for Updates…',
   reloadPageMenu: 'Reload Page',
+  toggleDevToolsMenu: 'Developer tools',
   restartAppHostMenu: 'Restart App and Host',
 } as const
 const zh = {
@@ -31,6 +32,7 @@ const zh = {
   exitApplication: '退出',
   checkUpdatesMenu: '检查更新…',
   reloadPageMenu: '刷新页面',
+  toggleDevToolsMenu: '开发者工具',
   restartAppHostMenu: '重启应用与 Host',
 } as const
 const ja = {
@@ -48,6 +50,7 @@ const ja = {
   exitApplication: '終了',
   checkUpdatesMenu: 'アップデートを確認…',
   reloadPageMenu: 'ページを再読み込み',
+  toggleDevToolsMenu: '開発者ツール',
   restartAppHostMenu: 'アプリとホストを再起動',
 } as const
 const es = {
@@ -65,6 +68,7 @@ const es = {
   exitApplication: 'Salir',
   checkUpdatesMenu: 'Buscar actualizaciones...',
   reloadPageMenu: 'Recargar página',
+  toggleDevToolsMenu: 'Herramientas de desarrollo',
   restartAppHostMenu: 'Reiniciar la aplicación y el host',
 } as const
 const fr = {
@@ -82,6 +86,7 @@ const fr = {
   exitApplication: 'Quitter',
   checkUpdatesMenu: 'Vérifiez les mises à jour…',
   reloadPageMenu: 'Recharger la page',
+  toggleDevToolsMenu: 'Outils de développement',
   restartAppHostMenu: "Redémarrez l'application et l'hôte",
 } as const
 const de = {
@@ -99,6 +104,7 @@ const de = {
   exitApplication: 'Beenden',
   checkUpdatesMenu: 'Nach Updates suchen…',
   reloadPageMenu: 'Seite neu laden',
+  toggleDevToolsMenu: 'Entwicklertools',
   restartAppHostMenu: 'Anwendung und Host neu starten',
 } as const
 const ru = {
@@ -116,6 +122,7 @@ const ru = {
   exitApplication: 'Выход',
   checkUpdatesMenu: 'Проверить наличие обновлений…',
   reloadPageMenu: 'Обновить страницу',
+  toggleDevToolsMenu: 'Инструменты разработчика',
   restartAppHostMenu: 'Перезапустите приложение и хост.',
 } as const
 const pt = {
@@ -133,6 +140,7 @@ const pt = {
   exitApplication: 'Sair',
   checkUpdatesMenu: 'Verifique se há atualizações…',
   reloadPageMenu: 'Recarregar página',
+  toggleDevToolsMenu: 'Ferramentas do desenvolvedor',
   restartAppHostMenu: 'Reinicie o aplicativo e o host',
 } as const
 const dictionaries = { en, zh, ja, es, fr, de, ru, pt }

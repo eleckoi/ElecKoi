@@ -21,7 +21,7 @@ export function RoleplayMutationCall({ definition, block, phase, callId, toolNam
   </div>;
 }
 
-function MutationDetails({ parts }) {
+export function MutationDetails({ parts, label }) {
   const tUi = useProductTranslation();
   const scrollRef = useRef(null);
   const estimateSize = useCallback(index => {
@@ -32,7 +32,7 @@ function MutationDetails({ parts }) {
     return part.kind === 'variable' ? Math.max(50, lines * 22 + 24) : Math.max(40, lines * 22 + (part.label ? 40 : 20));
   }, [parts]);
   const virtualizer = useVirtualizer({ count: parts.length, getScrollElement: () => scrollRef.current,
-    estimateSize, overscan: 3 });
+    estimateSize, overscan: 3, useAnimationFrameWithResizeObserver: true });
   useEffect(() => {
     const element = scrollRef.current;
     let width = element?.clientWidth;
@@ -44,7 +44,7 @@ function MutationDetails({ parts }) {
     return () => observer.disconnect();
   }, [virtualizer]);
   return <div className="roleplay-mutation-body" ref={scrollRef} style={{ height: Math.min(virtualizer.getTotalSize(), 320) }}
-    role="region" aria-label={tUi('本次修改详情')} data-mutation-part-count={parts.length}>
+    role="region" aria-label={label || tUi('本次修改详情')} data-mutation-part-count={parts.length}>
     <div className="roleplay-mutation-space" style={{ height: virtualizer.getTotalSize() }}>
       {virtualizer.getVirtualItems().map(item => {
         const part = parts[item.index];

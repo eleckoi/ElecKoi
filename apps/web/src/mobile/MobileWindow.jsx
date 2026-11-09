@@ -123,6 +123,13 @@ export function MobileWindow(props) {
   useEffect(() => {
     const focusedDialog = () => document.activeElement?.closest('[aria-modal="true"]');
     function onBack(event) {
+      const focused = document.activeElement;
+      if (focused?.closest('[data-menu-material], [aria-haspopup="menu"][aria-expanded="true"]')) {
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        Object.defineProperty(escape, 'eleckoiPlatformBack', { value: true });
+        focused.dispatchEvent(escape);
+        if (escape.defaultPrevented) { event.preventDefault(); return; }
+      }
       const dialog = focusedDialog();
       if (dialog && !dialog.dataset.mobileBackOwner) {
         const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });

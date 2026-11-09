@@ -15,6 +15,7 @@ import * as piAi from '@deepseek-ai/dsh-llm-pi-ai'
 import { discoverDraftModels, readModelApiKey } from '@eleckoi/dsh-product-api'
 import { afterEach, describe, expect, it } from 'vitest'
 import { dshClientPlugin } from '../../../../../../tests/helpers/dshClientPlugin'
+import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 
 const source = readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8')
 const modelSettings = createRequire(import.meta.url)('../../src/index.js')
@@ -108,6 +109,55 @@ const draft = () => ({ id: 'config-synthetic', provider: 'custom', name: '', mod
   custom_headers: { 'x-model-config': 'synthetic-header' } })
 
 describe('model configuration persistence through DSH settings', () => {
+  it('merges concurrent menu edits into the latest model, rejects invalid values without writes, and restores after reopening', async () => {
+    const { ctx, catalog, start } = await fixture()
+    await catalog.save({ ...draft(), model: 'synthetic-main', model_options: [
+      { id: 'synthetic-main', contextWindowTokens: 64000, topP: .8, temperature: .2 },
+      { id: 'synthetic-peer', contextWindowTokens: 32000, temperature: .4 },
+    ] })
+    await Promise.all([
+      catalog.saveModelParameters('config-synthetic', 'synthetic-main', { temperature: .72 }),
+      catalog.saveModelParameters('config-synthetic', 'synthetic-main', { topP: .93 }),
+    ])
+    const saved = catalog.getSnapshot().configs.find((item: any) => item.id === 'config-synthetic')
+    expect(saved.model_options).toMatchObject([
+      { id: 'synthetic-main', temperature: .72, topP: .93, contextWindowTokens: 64000 },
+      { id: 'synthetic-peer', temperature: .4, contextWindowTokens: 32000 },
+    ])
+    expect(saved.custom_headers).toEqual({ 'x-model-config': 'synthetic-header' })
+    const values = () => ctx.settings.describe().map(({ ns, revision, value }) => ({ ns, revision, value }))
+    const before = JSON.stringify(values())
+    for (const patch of [{ topP: 1.2 }, { maxOutputTokens: 0 }, { autoCompactTokenLimit: 64001 }, { inputModalities: [] }, { id: 'other-model' },
+      { reasoningEfforts: {} }, { reasoningEfforts: { off: null } }, { reasoningEfforts: { high: '' } },
+      { reasoningEfforts: { unknown: 'unknown' } }, { reasoningEfforts: { high: null } }, { reasoningEffort: 'high' }]) {
+      await expect(catalog.saveModelParameters('config-synthetic', 'synthetic-main', patch)).rejects.toMatchObject({ code: ELECKOI_FAILURE_CODES.modelConfigInvalid })
+      expect(JSON.stringify(values())).toBe(before)
+    }
+    await ctx.fiber.dispose()
+    const reopened = await start()
+    expect(reopened.catalog.getSnapshot().configs.find((item: any) => item.id === 'config-synthetic').model_options).toMatchObject(saved.model_options)
+  }, 30_000)
+
+  it('publishes explicitly declared reasoning levels for a custom Chat model and restores them after reopening', async () => {
+    const { ctx, catalog, start } = await fixture()
+    await catalog.save({ ...draft(), api_format: 'chat_completions', model: 'synthetic-main', model_options: [
+      { id: 'synthetic-main', contextWindowTokens: 64000, temperature: .2 },
+      { id: 'synthetic-peer', contextWindowTokens: 32000 },
+    ] })
+    expect((await ctx.llm.resolveModelInfo('config-synthetic' as never, 'synthetic-main' as never)).reasoning).toBeUndefined()
+    const saved = await catalog.saveModelParameters('config-synthetic', 'synthetic-main', { reasoningEfforts: { off: null, low: 'low', high: 'high' } })
+    const reasoning = (await ctx.llm.resolveModelInfo('config-synthetic' as never, 'synthetic-main' as never)).reasoning
+    expect(reasoning?.efforts.map(level => level.id)).toEqual(['off', 'low', 'high'])
+    expect(saved.model_options[0]).toMatchObject({ reasoningEfforts: { off: null, low: 'low', high: 'high' }, temperature: .2 })
+    expect((await ctx.llm.resolveModelInfo('config-synthetic' as never, 'synthetic-peer' as never)).reasoning).toBeUndefined()
+    await ctx.fiber.dispose()
+    const reopened = await start()
+    expect((await reopened.ctx.llm.resolveModelInfo('config-synthetic' as never, 'synthetic-main' as never)).reasoning).toEqual(reasoning)
+    await reopened.catalog.saveModelParameters('config-synthetic', 'synthetic-main', { reasoningEfforts: false })
+    expect((await reopened.ctx.llm.resolveModelInfo('config-synthetic' as never, 'synthetic-main' as never)).reasoning).toBeUndefined()
+    expect((reopened.ctx.settings.describe().find(row => row.ns === 'llm-pi-ai')!.value as any).providers['config-synthetic'].models[0].reasoningEfforts).toBe(false)
+  }, 30_000)
+
   it('saves two independent drawing configurations and deletes only the selected credentials', async () => {
     const { ctx, catalog } = await fixture()
     const first = await catalog.save({ ...draft(), id: 'drawing-first', name: 'Drawing One', provider: 'openai_image',

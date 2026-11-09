@@ -35,39 +35,12 @@ function fixture() {
     renderSlotChain: (_name, _owner, options) => options.fallback };
   return { props, models, model, configs, session };
 }
-async function openAndEdit() {
-  await act(async () => container.querySelector('button[title="选择模型"]').click());
-  const dialog = document.querySelector('.chat-model-panel');
-  await act(async () => [...dialog.querySelectorAll('[role="tab"]')].find(button => button.textContent === '参数').click());
-  const field = [...dialog.querySelectorAll('label')].find(label => label.textContent.startsWith('Top P')).querySelector('input');
-  expect(field.value).toBe('0.6');
-  await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, '0.93');
-    field.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-  return dialog;
-}
-it.each([false, true])('saves the current Studio model parameters with an explicit service (mobile assembly: %s)', async mobile => {
-  const f = fixture();
-  const roleplayModels = { save: vi.fn() };
-  const view = { models: mobile ? f.models : roleplayModels };
-  await act(async () => root.render(<MainPageContext.Provider value={view}>
-    {mobile ? <MobileCreatorStudioConversation {...f.props} /> : <CreatorStudioConversation {...f.props} />}
-  </MainPageContext.Provider>));
-  const dialog = await openAndEdit();
-  await act(async () => dialog.querySelector('.chat-model-save').click());
-  expect(f.models.save).toHaveBeenCalledWith(expect.objectContaining({ id: 'synthetic-studio-provider',
-    model_options: [expect.objectContaining({ id: 'synthetic-main', topP: 0.8 }), expect.objectContaining({ id: 'synthetic-peer', topP: 0.93 })] }));
-  expect(roleplayModels.save).not.toHaveBeenCalled();
-  expect(f.model.selectModel).toHaveBeenCalledWith({ provider: 'synthetic-studio-provider', model: 'synthetic-peer' });
-  expect(f.configs[0].model_options[1].topP).toBe(0.6);
-});
-it('offers the parameter tab in the separate desktop window without a main-page context', async () => {
-  const f = fixture();
-  await act(async () => root.render(<CreatorStudioConversation {...f.props} />));
-  await openAndEdit();
-  expect(f.models.save).not.toHaveBeenCalled();
-  expect(f.model.selectModel).not.toHaveBeenCalled();
+it.each([CreatorStudioConversation, MobileCreatorStudioConversation])('uses the native model seat and retains the product menu in %s', async Component => {
+  const f = fixture(); let composer;
+  f.props.renderSlot = (name, owner) => { if(name === 'eleckoi.creator-studio.composer.bar') composer = owner; return null; };
+  await act(async () => root.render(<MainPageContext.Provider value={{ models: f.models }}><Component {...f.props} /></MainPageContext.Provider>));
+  expect(composer.leadingAccessory).toBeTruthy(); expect(composer).not.toHaveProperty('modelAccessory');
+  expect(container.querySelector('[aria-label="新建工作室对话"]')).toBeNull();
 });
 it.each(['complete', 'failure', 'settled-empty'])('keeps a reopened conversation layout through the temporary empty rewrite before %s', async outcome => {
   const f = fixture();
@@ -100,17 +73,6 @@ it.each(['complete', 'failure', 'settled-empty'])('keeps a reopened conversation
   expect(container.querySelector('textarea')).toBe(input);
   expect(input.value).toBe('未发送的合成草稿');
 });
-it('retains the parameter draft and Studio selection when saving fails', async () => {
-  const f = fixture(); f.models.save.mockRejectedValueOnce(new Error('合成保存失败'));
-  await act(async () => root.render(<CreatorStudioConversation {...f.props} />));
-  const dialog = await openAndEdit();
-  await act(async () => dialog.querySelector('.chat-model-save').click());
-  expect(document.querySelector('.chat-model-panel')).not.toBeNull();
-  expect(f.model.selectModel).not.toHaveBeenCalled();
-  expect(f.props.onError).toHaveBeenCalledWith('合成保存失败');
-  expect(f.configs[0].model_options[1].topP).toBe(0.6);
-});
-
 it('shows the blank hero with creator-only global presets and keeps the composer when the first turn starts', async () => {
   const f = fixture();
   const catalog = { activePresetIds: { creator: 'synthetic-creator-a', roleplay: 'synthetic-roleplay' }, presets: [

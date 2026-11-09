@@ -26,15 +26,15 @@
     },
     {
       "path": "native/android-runtime/session-publication-lock.json",
-      "size": 616,
-      "sha256": "d5c587881851947beeb70a1b4efea74b8f5529848411fd2da592c2b03ee89432"
+      "size": 635,
+      "sha256": "5dd73583b7955b4b86de936be25349328754d3cd4b02a98c10785ff9bceaaa8e"
     }
   ],
   "outputs": [
     {
       "path": "apps/android/app/src/main/jniLibs/arm64-v8a/libeleckoi_node.so",
-      "size": 8216,
-      "sha256": "f08f1b66cce938f852373e6b724e767afe38cc7fd20c40532268839c4e51bbe7"
+      "size": 8376,
+      "sha256": "406fdadd7029187d0d110146885d754fbfbf3a80ee371669380f7721543ec676"
     },
     {
       "path": "apps/android/app/src/main/jniLibs/arm64-v8a/libeleckoi_glibc_portable.so",
@@ -53,8 +53,8 @@
     },
     {
       "path": "build/android-runtime/glibc-probe/portable/usr/glibc/lib/libeleckoi_glibc_exec.so",
-      "size": 11408,
-      "sha256": "1392c88b60604217cab846e0e83bb6dbaeeaead170de8884f03a8258b705f99f"
+      "size": 11384,
+      "sha256": "e53364253a5c589f1b338bddf4d5c656fcd8c6a49a4fba20bca2d149fdaf35a1"
     },
     {
       "path": "build/android-runtime/glibc-probe/portable/usr/glibc/lib/libm.so.6",

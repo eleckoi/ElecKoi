@@ -39,7 +39,7 @@ function RoleplayToolCall({ block, phase, callId, toolName, definition, useDiscl
   </div>;
 }
 
-function ToolResultBrowser({ result, callId }) {
+export function ToolResultBrowser({ result, callId }) {
   const tUi = useProductTranslation();
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);

@@ -3,7 +3,6 @@ export { ModelImageParametersSection } from "./components/ModelImageParametersSe
 export { ModelConfigPanel } from "./components/ModelConfigPanel.jsx";
 export { blankConfigForProvider } from "./model/modelProviderCatalog.js";
 export { initialConfigForProvider } from "./model/modelConfigDraft.js";
-export { ModelPicker } from "./components/ModelPicker.jsx";
 export { useModelRuntime } from "./hooks/useModelRuntime.js";
 export {
   getModelMeta,

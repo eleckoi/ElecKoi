@@ -101,6 +101,7 @@ export function preparePluginHost(paths: NodeHostConfiguration): PreparedPluginH
     '- id: agent-preset-registry', '  config:', '    default: standard',
     '- id: session-persistence-jsonl', '  config:', `    root: ${JSON.stringify(sessionRoot)}`, '    compression: none',
     '- id: session-query-sqlite', '  config:', `    path: ${JSON.stringify(join(paths.runtimeDataRoot, 'session-search.sqlite'))}`, '    openAt: first-search',
+    '- id: workspace-controller', '  config:', `    documentsDirectory: ${JSON.stringify(paths.workspaceRoot)}`,
     ...['desktop-product-telemetry', 'product-analytics', 'ui-layout', 'ui-sidebar',
       'ui-settings-general', 'ui-settings-models', 'directory-picker'].flatMap(id => [`- id: ${id}`, '  disabled: true']),
     '- insert:',

@@ -44,20 +44,22 @@ describe('Android AI creator studio navigation', () => {
     await act(async () => props.onSelectCharacter());
     expect(f.node.querySelector('.creator-studio-character-picker')).toBeTruthy();
   });
-  it('keeps history after Back and the new-chat action before the right sidebar', async () => {
+  it('keeps history after Back and creation in the input menu instead of the header', async () => {
     const f = await mount();
     expect(f.model.restoreRecent).toHaveBeenCalledOnce();
     expect([...f.node.querySelectorAll('.mobile-header > button')].map(button => button.getAttribute('aria-label'))).toEqual(['返回', '工作室侧边栏']);
     const props = f.view.renderCreatorStudioConversation.mock.calls.at(-1)[0].props;
     expect(props.headerTarget).toBe(f.node.querySelector('.creator-studio-heading-preset'));
     expect(props.cornerTarget).toBe(f.node.querySelector('.creator-studio-heading-corner'));
-    await f.click('新建工作室对话');
+    await act(async () => f.view.renderCreatorStudioConversation.mock.calls.at(-1)[0].props.onCreate());
+    expect(f.node.querySelector('[aria-label="新建工作室对话"]')).toBeNull();
     expect(f.model.create).toHaveBeenCalledWith('');
   });
   it('keeps conversation creation available after the selected character was deleted', async () => {
     const f = await mount(true, false);
     expect(f.node.textContent).toContain('合成会话内容');
-    await f.click('新建工作室对话');
+    await act(async () => f.view.renderCreatorStudioConversation.mock.calls.at(-1)[0].props.onCreate());
+    expect(f.node.querySelector('[aria-label="新建工作室对话"]')).toBeNull();
     expect(f.model.create).toHaveBeenCalledWith('');
     const props = f.view.renderCreatorStudioConversation.mock.calls.at(-1)[0].props;
     await act(async () => props.onSelectCharacter());

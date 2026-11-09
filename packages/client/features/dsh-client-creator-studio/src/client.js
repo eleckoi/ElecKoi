@@ -414,11 +414,14 @@ window.__ModuleLoader__.load({
         const request = React.useSyncExternalStore(listener => { deleteListeners.add(listener); return () => deleteListeners.delete(listener) }, () => deleteRequest)
         return request ? React.createElement(DeleteSessionForm, { key: request.sessionId, request }) : null
       }))
-      const Page = React.lazy(() => import(new URL('eleckoi-page-creator-studio.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
-        .then(module => ({ default: module.CreatorStudioPage })))
+      const loadPage = () => import(new URL('eleckoi-page-creator-studio.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
+      const Page = React.lazy(() => loadPage().then(module => ({ default: module.CreatorStudioPage })))
+      const CreatorToolCall = React.lazy(() => loadPage().then(module => ({ default: module.CreatorToolCall })))
+      const creatorToolNames = new Set(['eleckoi_list_toolsets', 'eleckoi_describe_toolset', 'eleckoi_call_capability'])
       ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'creatorStudio', priority: 0,
         registrant: '@eleckoi/dsh-client-creator-studio' }, () => React.createElement(Page)))
-      const studioSeat = name => name.startsWith('eleckoi.creator-studio.') ? name : `eleckoi.creator-studio.${name.replace(/^conversation\./, '')}`
+      const studioSeat = name => name === 'conversation.input.model.label' ? 'eleckoi.creator-studio.model.label'
+        : name.startsWith('eleckoi.creator-studio.') ? name : `eleckoi.creator-studio.${name.replace(/^conversation\./, '')}`
       function useDisplayStats(owner) {
         const { retainedStats } = React.useSyncExternalStore(conversations.subscribe, conversations.getSnapshot)
         const stats = retainedStats?.sessionId === owner.sessionId ? retainedStats.values : null
@@ -457,7 +460,13 @@ window.__ModuleLoader__.load({
                 const useProjection = source === 'conversation.composer.bar' || source === 'conversation.composer.dock'
                   ? useDisplayStats(props) : props.useProjection
                 return React.createElement(override?.component || entry.component, {
-                  ...props, useProjection, renderSlot: (name, owner, renderOptions) => (renderBridgeSlot || props.renderSlot)(studioSeat(name), owner, renderOptions),
+                  ...props, useProjection, renderSlot: (name, owner, renderOptions) => {
+                    const renderNative = () => (renderBridgeSlot || props.renderSlot)(studioSeat(name), owner, renderOptions)
+                    if (name === 'tool.call.toolview' && creatorToolNames.has(owner.toolName)) {
+                      return React.createElement(React.Suspense, { fallback: renderNative() }, React.createElement(CreatorToolCall, { ...owner, renderNative }))
+                    }
+                    return renderNative()
+                  },
                   ...(props.renderSlotChain ? { renderSlotChain: (name, owner, renderOptions) => props.renderSlotChain(studioSeat(name), owner, renderOptions) } : {}),
                 })
               }))
@@ -487,7 +496,6 @@ window.__ModuleLoader__.load({
       projectSeat('conversation.session', 'eleckoi.creator-studio.session', undefined, { children: {
         ...Object.fromEntries(Object.entries(composerSeats).map(([name, spec]) => [studioSeat(name), spec])),
         'eleckoi.creator-studio.session.header': { kind: 'single', scope: 'session' },
-        'eleckoi.creator-studio.model.label': { kind: 'single', scope: 'session', inline: true },
       }, component: ({ component, props, ...native }) => native.renderSlot('eleckoi.creator-studio.session.header', { component, props, native }) })
       projectSeat('conversation.session.header', 'eleckoi.creator-studio.session.header', undefined, {
           component: ({ component, props, native, selectView, renderSlot, useEntryPins, useEntryActions, setPinned }) => React.createElement(component, {
@@ -495,7 +503,6 @@ window.__ModuleLoader__.load({
         }),
       })
       for (const name of Object.keys(composerSeats)) projectSeat(name, studioSeat(name))
-      projectSeat('conversation.input.model.label', 'eleckoi.creator-studio.model.label')
       ctx.effect(() => {
         projects.start()
         const stopReset = ctx.on('connection/reset', () => { void projects.refresh().catch(failureAlreadyPublished) })

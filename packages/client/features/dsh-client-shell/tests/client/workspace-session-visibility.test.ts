@@ -67,6 +67,23 @@ function fixture(platform = 'desktop') {
 }
 
 describe.each(['desktop', 'android'])('%s plugin Workspace Session ownership', platform => {
+  it('shows only existing creative conversations in Studio, across workspaces and ungrouped, without modifying any Session', async () => {
+    const f = fixture(platform), list = f.sessions.getSnapshot(), registry = f.registry.getSnapshot()
+    f.layout.panelInfo.publish(platform === 'android' ? { activePanelId: null, windowPanelId: 'creatorStudio' } : { activePanelId: 'creatorStudio' })
+    expect(f.hooks.eleckoiWorkspaceSessions.getSnapshot().ids).toEqual(['studio', 'new-studio'])
+    expect(f.hooks.eleckoiWorkspaceRegistry.getSnapshot().items[0].sessionIds).toEqual([])
+    const owner = f.render()
+    expect(() => owner.open('native')).toThrow()
+    expect(() => owner.open('role')).toThrow()
+    owner.open('studio'); owner.open('new-studio')
+    await Promise.resolve()
+    expect(f.studio.open.mock.calls).toEqual([['studio'], ['new-studio']])
+    expect(f.uiWorkspace.openSession).not.toHaveBeenCalled()
+    expect(f.sessions.getSnapshot()).toBe(list)
+    expect(f.registry.getSnapshot()).toBe(registry)
+    f.layout.panelInfo.publish({ activePanelId: null, windowPanelId: 'conversation' })
+    expect(f.hooks.eleckoiWorkspaceSessions.getSnapshot().ids).toContain('native')
+  })
   it('excludes product Sessions and their descendants from grouped and ungrouped metadata without changing the shared catalogs', () => {
     const f = fixture(platform), originalList = f.sessions.getSnapshot(), originalRegistry = f.registry.getSnapshot()
     const list = f.hooks.eleckoiWorkspaceSessions.getSnapshot()

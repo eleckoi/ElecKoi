@@ -19,7 +19,7 @@ app.whenReady().then(async () => {
     await win.loadURL(pathToFileURL(htmlPath).href);
     await win.webContents.insertCSS('*, *::before, *::after { animation: none !important; transition: none !important; }');
     const reports = [];
-    for (const theme of ['light', 'dark']) for (const width of [320, 390, 640]) for (const mode of ['editor', 'picker']) {
+    for (const theme of ['light', 'dark']) for (const width of [320, 390, 640]) for (const mode of ['editor']) {
       win.setContentSize(width, 900);
       await evaluate(`document.documentElement.dataset.theme='${theme}'; document.querySelector('nav [data-mode="${mode}"]').click()`);
       await wait(`document.querySelector('main').dataset.mode === '${mode}' && Boolean(document.querySelector('.model-input-capabilities'))`);

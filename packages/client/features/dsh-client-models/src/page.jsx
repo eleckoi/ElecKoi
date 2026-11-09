@@ -3,6 +3,7 @@ import { useRef, useSyncExternalStore } from "react";
 import { ModelConfigPanel, initialConfigForProvider } from "../../../../../apps/web/src/modules/models/index.js";
 import { useMainPageView } from "../../../../../apps/web/src/app/windows/MainPageContext.jsx";
 export { ModelNavIcon as NavigationIcon } from "../../../../../apps/web/src/ui/icons/navIcons.jsx";
+export { ModelProviderLabel, ModelMenuParameters } from '../../../../../apps/web/src/modules/models/components/ModelMenuParameters.jsx';
 
 export function ModelPage() {
   const tUi = useProductTranslation();

@@ -1,9 +1,10 @@
 export { ChatBackgroundModal } from "./components/ChatBackgroundModal.jsx";
 export { ChatPanel } from "./components/ChatPanel.jsx";
 export { RoleplayInputMenu } from "./components/RoleplayInputMenu.jsx";
-export { ChatModelPicker } from "./components/ChatModelPicker.jsx";
 export { AgentToolsDialog } from "./components/AgentToolsDialog.jsx";
 export { ChatWallpaperLayer } from "./components/ChatWallpaperLayer.jsx";
 export { ConversationList } from "./components/ConversationList.jsx";
 export { HistoryModal } from "./components/HistoryModal.jsx";
 export { useChatSessions } from "./hooks/useChatSessions.js";
+export { ToolResultBrowser } from './components/RoleplayToolCall.jsx';
+export { MutationDetails } from './components/RoleplayMutationCall.jsx';

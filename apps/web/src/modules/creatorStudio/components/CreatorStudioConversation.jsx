@@ -1,16 +1,14 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
-import { DshNewChatIcon } from '../../../ui/icons/dshComposerIcons.jsx';
 import { RoleplayInputMenu, AgentToolsDialog } from '../../chat/index.js';
-import { ModelPicker } from '../../models/index.js';
 import { openPresetManagerWindow } from '../../presets/index.js';
 import { DshEntryActionsMenu } from '../../../ui/ui/DshEntryActionsMenu.jsx';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
 import { CreatorStudioHero } from './CreatorStudioHero.jsx';
 
 /** Desktop assembly of the shared Studio Session with native views and resident input. */
-export function CreatorStudioConversation({ model, editing = false, creating = false, models, presetCatalog, title, onCreate, onSelectCharacter, onError,
+export function CreatorStudioConversation({ model, editing = false, presetCatalog, title, onCreate, onSelectCharacter, onError,
   sessionId, useSession, useInput, useWorkspaces, useSessionStatus, useProjection, useInspectCall, useConversationViews, useEntryPins, useEntryActions, setPinned, useStore, actions, openView, selectView, renderHeaderSlot, renderSlot, renderSlotChain }) {
   const tUi = useProductTranslation();
   const session = useSession(value => value), input = useInput(value => value);
@@ -18,24 +16,17 @@ export function CreatorStudioConversation({ model, editing = false, creating = f
   // Only settle into the new-chat layout after the message operation finishes.
   const hero = session.blank && !editing;
   const pendingInteraction = useSessionStatus(value => value.get(sessionId)?.pendingInteraction);
-  const projectedModel = useProjection('modelSelection'), projectedTitle = useProjection('title');
+  const projectedTitle = useProjection('title');
   const inspectCall = useInspectCall(value => value), activeView = useStore(value => value.view);
   const tabs = useConversationViews(value => value);
   const unpinned = useEntryPins(value => value), hasEntryActions = useEntryActions(value => value);
   const active = tabs.find(tab => tab.id === activeView) ?? tabs.find(tab => tab.id === 'chat') ?? tabs[0];
   const viewRequest = useStore(value => value.viewRequest ?? null);
   const owner = { inspectCall, viewRequest, openView, completeViewRequest: actions.completeViewRequest };
-  const configs = useSyncExternalStore(models.subscribe, models.getSnapshot);
-  const [defaultModel, setDefaultModel] = useState(null), [tools, setTools] = useState(false);
+  const [tools, setTools] = useState(false);
   const [messages, setMessages] = useState(null), [selectedMessage, setSelectedMessage] = useState(null), [deleting, setDeleting] = useState(false), [deleteError, setDeleteError] = useState(null);
   const body = useRef(null), composer = useRef(null);
   const notify = useCallback((kind, text) => { if (kind === 'error') onError(text); }, [onError]);
-  const selectedModel = projectedModel?.next ?? projectedModel?.lastUsed ?? defaultModel;
-  useEffect(() => {
-    let active = true;
-    model.readDefaultModel().then(value => { if (active) setDefaultModel(value); }).catch(error => { if (active) onError(error); });
-    return () => { active = false; };
-  }, [model, onError]);
   useEffect(() => { if (!session.running) void model.refresh().catch(error => onError(error)); }, [model, session.running, onError]);
   useLayoutEffect(() => {
     if (!body.current || !composer.current) return;
@@ -56,11 +47,7 @@ export function CreatorStudioConversation({ model, editing = false, creating = f
   const menu = <RoleplayInputMenu purpose="creator" isSending={session.running} onCreateChat={onCreate} onSelectCharacter={onSelectCharacter}
     onOpenTools={() => setTools(true)} onEnterDeleteMode={showMessages} canDeleteMessages={!session.blank}
     onRegenerate={regenerate} regenerateTargetMessageId={session.blank ? null : sessionId} />;
-  const modelPicker = <ModelPicker configs={configs.configs} selectedConfigId={selectedModel?.provider} selectedModel={selectedModel?.model}
-    renderModelLabel={owner => renderSlot('eleckoi.creator-studio.model.label', owner, { fallback: owner.model.name }) ?? owner.model.name}
-    onSaveModelConfig={config => models.save(config)}
-    onLoadModels={config => models.discover(config)} onNotify={notify} onSelect={selection => model.selectModel({ provider: selection.configId, model: selection.model })} />;
-  const resident = renderSlot('eleckoi.creator-studio.composer.bar', { variant: hero ? 'hero' : 'composer', placeholder: hero ? tUi("发消息或创建任务，/ 调用指令，@ 文件或对话") : tUi("输入消息"), leadingAccessory: menu, modelAccessory: modelPicker });
+  const resident = renderSlot('eleckoi.creator-studio.composer.bar', { variant: hero ? 'hero' : 'composer', placeholder: hero ? tUi("发消息或创建任务，/ 调用指令，@ 文件或对话") : tUi("输入消息"), leadingAccessory: menu });
   const inputSeat = renderSlotChain('eleckoi.creator-studio.composer', { sessionId, session, pendingInteraction }, { fallback: resident, overlay: true });
   return <div className="creator-simple-conversation" data-phase={hero ? 'hero' : 'active'}>
     {hero ? <div className="creator-studio-hero-corner">{renderHeaderSlot('eleckoi.creator-studio.session.header.corner', {})}</div> : <header className="creator-simple-chat-header">
@@ -68,7 +55,6 @@ export function CreatorStudioConversation({ model, editing = false, creating = f
         {renderHeaderSlot('eleckoi.creator-studio.session.header.actions', {})}
         <div className="creator-simple-header-actions">
           {renderHeaderSlot('eleckoi.creator-studio.session.header.utilities', {})}
-          <button type="button" aria-label={tUi("新建工作室对话")} title={tUi("新建对话")} disabled={creating} onClick={onCreate}><DshNewChatIcon size={20} /></button>
           {renderHeaderSlot('eleckoi.creator-studio.session.header.corner', {})}
         </div>
       </div>

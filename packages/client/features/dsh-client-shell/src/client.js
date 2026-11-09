@@ -127,20 +127,25 @@ window.__ModuleLoader__.load({
       const conversations = ctx.get('eleckoiConversations')
       const emptyList = { ids: [], byId: {}, projectionsBySession: {}, phase: 'pending' }
       const emptyRegistry = { items: [], pinnedSessionIds: [], archivedSessionIds: [], phase: 'pending' }
-      let previousList, previousRegistry, previousCatalog, snapshot
+      let previousList, previousRegistry, previousCatalog, previousStudioOnly, snapshot
       const getSnapshot = () => {
         const list = sessions?.list.getSnapshot() ?? emptyList
         const registry = workspaces?.list.getSnapshot() ?? emptyRegistry
         const catalog = conversations?.getSnapshot()
-        if (snapshot && list === previousList && registry === previousRegistry && catalog === previousCatalog) return snapshot
+        const panel = ctx.layout.panelInfo?.getSnapshot()
+        const studioOnly = panel?.activePanelId === 'creatorStudio' || panel?.windowPanelId === 'creatorStudio'
+        if (snapshot && list === previousList && registry === previousRegistry && catalog === previousCatalog && studioOnly === previousStudioOnly) return snapshot
         previousList = list; previousRegistry = registry; previousCatalog = catalog
+        previousStudioOnly = studioOnly
         const protectedIds = new Set((catalog?.items ?? []).map(item => item.runtimeSessionId).filter(Boolean))
+        const studioIds = new Set()
         const children = new Map()
         const known = new Set()
         for (const [id, row] of Object.entries(list.byId)) {
           const values = row.projectionValues ?? list.projectionsBySession[id]?.values
           if (values !== undefined) known.add(id)
           if (values?.agentPreset === 'eleckoi-active') protectedIds.add(id)
+          if (values?.eleckoiCreatorStudio || values?.agentPreset === 'eleckoi-creator-active') studioIds.add(id)
           if (row.parentId) {
             if (!children.has(row.parentId)) children.set(row.parentId, [])
             children.get(row.parentId).push(id)
@@ -150,9 +155,13 @@ window.__ModuleLoader__.load({
         for (let index = 0; index < pending.length; index++) for (const child of children.get(pending[index]) ?? []) {
           if (!protectedIds.has(child)) { protectedIds.add(child); pending.push(child) }
         }
+        const studioPending = [...studioIds]
+        for (let index = 0; index < studioPending.length; index++) for (const child of children.get(studioPending[index]) ?? []) {
+          if (!studioIds.has(child)) { studioIds.add(child); studioPending.push(child) }
+        }
         // Until ownership arrives, no unknown Session becomes an editable row.
         const ready = catalog?.status === 'ready' && list.phase === 'ready'
-        const visible = id => ready && known.has(id) && !protectedIds.has(id)
+        const visible = id => ready && known.has(id) && !protectedIds.has(id) && (!studioOnly || studioIds.has(id))
         const byId = Object.fromEntries(Object.entries(list.byId).filter(([id]) => visible(id)))
         snapshot = {
           protectedIds,
@@ -164,7 +173,7 @@ window.__ModuleLoader__.load({
         return snapshot
       }
       const subscribe = listener => {
-        const stops = [sessions?.list.subscribe(listener), workspaces?.list.subscribe(listener), conversations?.subscribe(listener)]
+        const stops = [sessions?.list.subscribe(listener), workspaces?.list.subscribe(listener), conversations?.subscribe(listener), ctx.layout.panelInfo?.subscribe(listener)]
         return () => { for (const stop of stops) stop?.() }
       }
       const assertVisible = id => {

@@ -30,7 +30,7 @@
 .mobile-shell[data-mobile-panel="settings"] { --mobile-header-bg: var(--rail); }
 .mobile-shell[data-mobile-rightbar="true"] { --mobile-system-bar-bg: var(--surface-raised); }
 .mobile-shell[data-drawer-present="true"] { --mobile-system-bar-bg: var(--rail); }
-.mobile-shell button:not(:where(.mobile-workspace-page button, .mobile-workspace-drawer button, .trajectory-host button, [data-plugin-panel] button, [data-slot="conversation.input.attachments"] button, [data-slot="eleckoi.roleplay.conversation.input.attachments"] button)) { min-height: 48px; cursor: pointer; }
+:where(.mobile-shell button) { cursor: pointer; }
 :where(.mobile-shell button:not(.trajectory-host button, [data-plugin-panel] button)) { font: inherit; color: inherit; }
 .mobile-shell button:disabled { cursor: default; opacity: .5; }
 .mobile-shell button:focus-visible { outline: 2px solid color-mix(in srgb, var(--text) 38%, transparent); outline-offset: 2px; }
@@ -295,15 +295,8 @@
 .mobile-conversation-page .message-roleplay > .opening-pager .opening-pager-index { justify-items: end; text-align: right; }
 .mobile-conversation-page .chat-composer-region { --dsh-composer-text-max-height: min(160px, 28dvh); grid-template-columns: minmax(0, 1fr); }
 .mobile-conversation-page .chat-composer-region :has(> [data-composer-card]) { min-width: 0; max-width: 100%; }
-.mobile-conversation-page [data-composer-card] { min-width: 0; border-radius: 28px; corner-shape: round; padding-top: 12px; gap: 0; font-size: 17px; line-height: 26px; box-shadow: inset 0 0 0 1px var(--dsw-alias-border-l1), 0 10px 17.6px 6px rgb(0 0 0 / 3.52%), 4px 4px 8.8px -6px rgb(0 0 0 / 1.76%), -4px 4px 7.04px rgb(0 0 0 / 1.76%); }
-.mobile-conversation-page [data-composer-input] { min-height: 38px; padding: 0 16px 12px; font-family: inherit; }
 .mobile-conversation-page :is([data-slot="conversation.input.attachments"], [data-slot="eleckoi.roleplay.conversation.input.attachments"]) > div:has([role="group"]) { padding: 2px 16px 0; margin-bottom: 8px; }
 .mobile-conversation-page :is([data-slot="conversation.input.attachments"], [data-slot="eleckoi.roleplay.conversation.input.attachments"]) [role="group"] button:has(> img) + button { width: 32px; height: 32px; min-height: 32px; top: 0; right: 0; border: 4px solid transparent; background-clip: padding-box; opacity: 1; }
-.mobile-conversation-page [data-composer-placeholder] { left: 16px; right: 16px; }
-.mobile-conversation-page [data-composer-card] > div:has(> div > .composer-more-anchor) { flex-wrap: nowrap; gap: 4px; padding: 6px 12px 10px; }
-.mobile-conversation-page [data-composer-card] > div > div:has(> .composer-more-anchor):not([hidden]),
-.mobile-conversation-page [data-composer-card] > div > div:has(> .composer-more-anchor) > div:not(.composer-more-anchor) { display: contents; }
-.mobile-conversation-page .composer-more-anchor { order: 0; flex: none; position: static; }
 .mobile-conversation-page :is(.composer-more-menu, [data-trigger-menu]) { --dsw-elevation-stroke-color: var(--dsw-alias-border-l1); border: 0; border-radius: var(--dsw-radius-lg); corner-shape: round; box-shadow: var(--dsw-elevation-prominent); padding: 4px; font-size: 13px; line-height: 20px; }
 .mobile-conversation-page .composer-more-menu { left: 0; right: auto; bottom: calc(100% + 4px); width: min(192px, calc(100% - 8px)); max-height: min(400px, 60dvh); overflow-y: auto; isolation: isolate; background: transparent; }
 .mobile-conversation-page :is(.composer-more-menu button, [data-trigger-menu] [role="option"]) { min-height: 40px; padding: 8px; gap: 6px; border-radius: var(--dsw-radius-md); font-family: inherit; font-size: 13px; font-weight: 400; line-height: 20px; color: var(--dsw-alias-label-primary); }
@@ -319,20 +312,6 @@
 .mobile-conversation-page [data-trigger-menu] [class$="_itemDescription"] { grid-column: 2 / -1; grid-row: 2; max-width: none; text-align: left; white-space: normal; overflow-wrap: anywhere; font-size: 11px; line-height: 16px; }
 .mobile-conversation-page [data-trigger-menu] [class$="_trailing"] { grid-column: 4; grid-row: 1; }
 .mobile-conversation-page [data-trigger-menu] nav button { min-height: 28px; font-size: 11px; line-height: 16px; }
-.mobile-conversation-page [data-composer-card] > div > div:has(> .composer-more-anchor) > button { order: 2; margin-left: auto; }
-.mobile-conversation-page [data-composer-card] > div > div:has(> .composer-more-anchor) > button,
-.mobile-conversation-page .roleplay-menu-trigger { width: 36px; height: 36px; min-height: 36px; padding: 0; border: 3px solid transparent; background-clip: padding-box; }
-.mobile-conversation-page .roleplay-menu-trigger svg { width: 17px; height: 17px; }
-.mobile-conversation-page [data-slot="eleckoi.roleplay.conversation.input.permission"] > * { display: none; }
-.mobile-conversation-page [data-composer-card] > div > div:has(.chat-model-picker),
-.mobile-conversation-page [data-composer-card] > div > div > div:has(> .chat-model-picker):not([hidden]) { display: contents; }
-.mobile-conversation-page [data-composer-card] > div > div:has(.chat-model-picker) > div:has(> :is([data-slot="eleckoi.roleplay.conversation.input.activity"], [data-slot="eleckoi.creator-studio.input.activity"])) { order: 1; }
-.mobile-conversation-page [data-composer-card] > div > div:has(.chat-model-picker) > div:has(> :is([data-slot="eleckoi.roleplay.conversation.input.activity"], [data-slot="eleckoi.creator-studio.input.activity"]):empty) { display: none; }
-.mobile-conversation-page [data-composer-card] > div > div:has(.chat-model-picker) > button { order: 3; width: 36px; height: 36px; min-height: 36px; padding: 0; border: 3px solid transparent; background-clip: padding-box; color: var(--dsw-static-neutral-00); transform: none; }
-.mobile-conversation-page .chat-model-picker { order: 1; flex: 1; min-width: 0; }
-.mobile-conversation-page .chat-model-trigger { width: 100%; min-width: 104px; max-width: 128px; height: 36px; min-height: 36px; gap: 5px; padding: 0 8px; border: 2px solid transparent; border-radius: 999px; corner-shape: round; background: var(--dsw-specific-selector); background-clip: padding-box; font-size: 14px; }
-.mobile-conversation-page .chat-model-trigger:is(:hover, .active) { background-color: var(--dsw-alias-interactive-bg-hover-solid); color: var(--dsw-alias-label-primary); }
-.mobile-conversation-page .chat-model-trigger-label { flex: 1; text-align: left; }
 .mobile-conversation-page [data-composer-card] ~ div:last-child { width: 100%; min-width: 0; gap: 6px; padding-top: 0; color: var(--dsw-alias-label-tertiary); }
 .mobile-conversation-page [data-composer-card] ~ div:last-child button { height: 24px; min-height: 24px; font-size: 11px; }
 .mobile-conversation-page [data-composer-stats] { flex: 1; min-width: 0; gap: 6px; font-size: 11px; line-height: 20px; }

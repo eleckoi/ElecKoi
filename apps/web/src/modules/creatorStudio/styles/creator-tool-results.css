@@ -1,0 +1,10 @@
+.creator-tool-call { container-type: inline-size; }
+.creator-tool-error { color: var(--dsw-alias-state-error-primary); }
+.creator-tool-call .roleplay-mutation-part.is-code pre { font: var(--dsw-font-markdown-code-block-small); }
+.creator-tool-call .roleplay-result-field.is-code pre { font: var(--dsw-font-markdown-code-block-small); }
+.creator-tool-call .roleplay-mutation-part.is-path { align-items: start; }
+.creator-tool-call .roleplay-mutation-part.is-path > span { white-space: pre-wrap; overflow-wrap: anywhere; }
+.creator-tool-call .roleplay-result-detail .roleplay-result-field { grid-template-columns: 82px minmax(0, 1fr); }
+@container (max-width: 480px) {
+  .creator-tool-call .roleplay-mutation-body, .creator-tool-call .roleplay-result-browser { margin-left: 0; }
+}

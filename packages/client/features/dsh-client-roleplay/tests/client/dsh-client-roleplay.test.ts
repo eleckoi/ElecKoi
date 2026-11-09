@@ -376,7 +376,6 @@ describe('ElecKoi roleplay client contribution', () => {
         'conversation.input.plan': { kind: 'single', scope: 'session' },
         'conversation.input.right': { kind: 'list', scope: 'session' },
         'conversation.input.model': { kind: 'single', scope: 'session' },
-        'conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
         'conversation.input.activity': { kind: 'single', scope: 'session' },
         'conversation.input.overlay': { kind: 'list', scope: 'session' },
         'conversation.composer.dock': { kind: 'list', scope: 'session' },
@@ -394,6 +393,10 @@ describe('ElecKoi roleplay client contribution', () => {
     }
     plugin.apply({ sessions: {}, slots: clientSlots, eleckoiConversations: conversations })
 
+    slots.register({ name: 'conversation.input.model', children: {
+      'conversation.input.model.label': { kind: 'single', scope: 'session', inline: true },
+      'conversation.input.model.parameters': { kind: 'single', scope: 'session' },
+    } }, () => null)
     const ModelLabel = () => null
     const releaseModelLabel = slots.register({ name: 'conversation.input.model.label', locale: 'model-label' }, ModelLabel)
     await Promise.resolve()

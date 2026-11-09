@@ -2494,52 +2494,6 @@ button.chat-file-card:hover { border-color: var(--blue); }
   }
 }
 
-.chat-model-picker {
-  position: relative;
-  min-width: 0;
-}
-
-.chat-model-trigger {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  max-width: 220px;
-  height: 28px;
-  padding: 0 5px 0 6px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: #4f555e;
-  font-size: 13px;
-  font-weight: 500;
-  transition: background-color 0.1s ease, color 0.1s ease;
-}
-
-.chat-model-trigger:hover,
-.chat-model-trigger.active {
-  background: #f5f6f7;
-  color: #30343a;
-}
-
-.chat-model-trigger-icon {
-  display: block;
-  width: 17px;
-  height: 17px;
-  flex: 0 0 17px;
-  object-fit: contain;
-}
-
-.chat-model-trigger > .chat-model-trigger-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chat-model-trigger svg {
-  flex: none;
-}
-
 .history-overlay {
   position: fixed;
   inset: 0;

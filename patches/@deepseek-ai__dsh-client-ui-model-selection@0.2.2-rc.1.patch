@@ -1,0 +1,78 @@
+diff --git a/lib/client.js b/lib/client.js
+index 1388736456d1f068009852701feffd2d1f3f0157..d8e968c83b2310413fd79c1c477da5c9b64e108e 100644
+--- a/lib/client.js
++++ b/lib/client.js
+@@ -1346,6 +1346,7 @@ window.__ModuleLoader__.load({
+ 					return;
+ 				}
+ 				if (!open) return;
++				if (event.target instanceof Element && event.target.closest("[data-model-parameters-fields]")) return;
+ 				if (pane === "model" && showSearch && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+ 					event.preventDefault();
+ 					if (!busy && visibleModels.length > 0) {
+@@ -1528,7 +1529,7 @@ window.__ModuleLoader__.load({
+ 						"aria-label": t("menu.aria"),
+ 						"aria-busy": state.status === "loading" || busy,
+ 						children: [
+-							pane === "root" && (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [(0, react_jsx_runtime.jsxs)("button", {
++							pane === "root" && (0, react_jsx_runtime.jsxs)("div", { className: clsx(ModelSelect_module_css_default.groups, "scrollable"), children: [(0, react_jsx_runtime.jsxs)("button", {
+ 								ref: itemRef(),
+ 								type: "button",
+ 								role: "menuitem",
+@@ -1566,6 +1567,10 @@ window.__ModuleLoader__.load({
+ 									}),
+ 									(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, { className: ModelSelect_module_css_default.cellChevron })
+ 								]
++							}), currentChoice === void 0 ? null : renderSlot("conversation.input.model.parameters", {
++								provider: currentChoice.group.provider, model: currentChoice.model,
++								itemRef: itemRef(), cellClassName: ModelSelect_module_css_default.cell,
++								labelClassName: ModelSelect_module_css_default.cellLabel, valueClassName: ModelSelect_module_css_default.cellValue
+ 							})] }),
+ 							pane === "model" && (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
+ 								showSearch && (0, react_jsx_runtime.jsxs)("div", {
+@@ -1630,7 +1635,7 @@ window.__ModuleLoader__.load({
+ 									hidden: filteredGroups.length === 0,
+ 									children: filteredGroups.map((group) => {
+ 										return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.MenuGroup, {
+-											label: group.provider.name,
++											label: renderSlot("conversation.input.model.provider.label", { provider: group.provider }, { fallback: group.provider.name }),
+ 											children: group.models.map((model) => {
+ 												const index = modelIndex++;
+ 												const selected = state.current?.provider === group.id && state.current.model === model.id;
+@@ -2068,7 +2073,7 @@ window.__ModuleLoader__.load({
+ 						kind: "single",
+ 						scope: "session",
+ 						inline: true
+-					} },
++					}, "conversation.input.model.parameters": { kind: "single", scope: "session" }, "conversation.input.model.provider.label": { kind: "single", scope: "session", inline: true } },
+ 					inject: (sessionId) => {
+ 						const directory = models.directoryFor(sessionId);
+ 						const available = sessions.subagentAddress(sessionId) === void 0;
+diff --git a/lib/types/client/slots.d.ts b/lib/types/client/slots.d.ts
+index 0ccc4f15fc435803d314717ae9df4f71b53a752c..4550f090bf53f559a141beabef9b667224ee59a8 100644
+--- a/lib/types/client/slots.d.ts
++++ b/lib/types/client/slots.d.ts
+@@ -1,4 +1,5 @@
+ /** Composer model selection injection and inline label extension. */
++import type { Ref } from 'react';
+ import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol';
+ import type { ModelSelection } from '@deepseek-ai/dsh-api-remotes/client';
+ import type { ModelCatalogModel, ModelProviderGroup } from '@deepseek-ai/dsh-api-session-controller/types';
+@@ -17,6 +18,17 @@ export interface ModelLabelOwner {
+ }
+ declare module '@deepseek-ai/dsh-client-ui-slots' {
+     interface SlotMap {
++        /** Inline provider-group heading; model options retain their native labels. */
++        'conversation.input.model.provider.label': {
++            kind: 'single'; scope: 'session'; inline: true;
++            owner: { provider: Pick<ModelProviderGroup, 'id' | 'name'>; };
++        };
++        /** Additional root-menu controls; fields retain native input keyboard behavior. */
++        'conversation.input.model.parameters': {
++            kind: 'single'; scope: 'session';
++            owner: { provider: Pick<ModelProviderGroup, 'id' | 'name'>; model: ModelCatalogModel;
++                itemRef: Ref<HTMLButtonElement>; cellClassName: string; labelClassName: string; valueClassName: string; };
++        };
+         /**
+          * Non-interactive inline model label; selection controls remain owner-managed.
+          * Without a contribution, the badge precedes the catalog name in the trigger

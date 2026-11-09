@@ -44,6 +44,7 @@
           "subscribe",
           "refresh",
           "save",
+          "saveModelParameters",
           "deleteConfig",
           "discover",
           "revealApiKey"

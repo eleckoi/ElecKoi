@@ -106,7 +106,7 @@
 
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `eleckoiModels` | 模型目录服务 | 服务 | 提供 | `call` | `client` | 读取模型目录、管理独立提供商配置和密钥，以及读取模型。 | `getSnapshot`、`subscribe`、`refresh`、`save`、`deleteConfig`、`discover`、`revealApiKey` |
+| `eleckoiModels` | 模型目录服务 | 服务 | 提供 | `call` | `client` | 读取模型目录、管理独立提供商配置和密钥，以及读取模型。 | `getSnapshot`、`subscribe`、`refresh`、`save`、`saveModelParameters`、`deleteConfig`、`discover`、`revealApiKey` |
 
 ## `@eleckoi/dsh-client-persona`
 

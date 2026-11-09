@@ -54,6 +54,18 @@ it('bridges the official view roster, header, plugin children and composer witho
   expect(entry('eleckoi.creator-studio.session.header.corner')).toMatchObject({ store, inject })
   expect(entry('eleckoi.creator-studio.input.right').options.id).toBe('synthetic-image-provider')
   expect(entry('eleckoi.creator-studio.synthetic-gallery.actions').options.id).toBe('synthetic-action')
+  const renderNativeTool = vi.fn((name, owner) => ({ name, owner }))
+  const projectedView = entry('eleckoi.creator-studio.view').component({ renderSlot: renderNativeTool })
+  for (const toolName of ['eleckoi_list_toolsets', 'eleckoi_describe_toolset', 'eleckoi_call_capability']) {
+    const owner = { toolName, callId: `synthetic-${toolName}`, phase: 'result', inspect: vi.fn(), useDisclosure: vi.fn() }
+    const rendered = projectedView.props.renderSlot('tool.call.toolview', owner, { entryKey: toolName })
+    expect(rendered.children[0].props).toMatchObject(owner)
+    expect(rendered.children[0].props.renderNative()).toEqual({ name: 'eleckoi.creator-studio.tool.call.toolview', owner })
+    expect(rendered.children[0].props.inspect).toBe(owner.inspect)
+  }
+  expect(projectedView.props.renderSlot('tool.call.toolview', { toolName: 'read_file' })).toEqual({
+    name: 'eleckoi.creator-studio.tool.call.toolview', owner: { toolName: 'read_file' },
+  })
   const Product = () => null, native = { useConversationViews: () => [], renderSlot: (name: string, owner: unknown) => ({ name, owner }) }
   const session = entry('eleckoi.creator-studio.session').component({ component: Product, props: {}, ...native })
   const headerOwner = session.type(session.props).owner

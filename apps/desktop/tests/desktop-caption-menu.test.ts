@@ -1,12 +1,12 @@
 import type { BrowserWindow, MenuItemConstructorOptions, WebContents } from 'electron'
 import { beforeEach, expect, it, vi } from 'vitest'
 import { DESKTOP_SHELL_IPC } from '@shared/contracts/desktopShell'
-const native = vi.hoisted(() => ({ popup: vi.fn(), buildFromTemplate: vi.fn(), quit: vi.fn() }))
+const native = vi.hoisted(() => ({ popup: vi.fn(), buildFromTemplate: vi.fn(), quit: vi.fn(), getApplicationMenu: vi.fn(), setApplicationMenu: vi.fn() }))
 vi.mock('electron', () => ({
-  Menu: { buildFromTemplate: native.buildFromTemplate },
+  Menu: { buildFromTemplate: native.buildFromTemplate, getApplicationMenu: native.getApplicationMenu, setApplicationMenu: native.setApplicationMenu },
   app: { isPackaged: true, quit: native.quit },
 }))
-import { createDesktopCaptionMenu } from '../src/main/platform/electron/desktopCaptionMenu'
+import { createDesktopCaptionMenu, installDesktopDeveloperShortcuts } from '../src/main/platform/electron/desktopCaptionMenu'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -23,6 +23,21 @@ function fixture() {
   const event = { sender: contents, senderFrame: frame } as unknown as Electron.IpcMainInvokeEvent
   return { contents, window, popup, event, focused }
 }
+it('registers the official hidden developer shortcuts and restores only its own application menu', () => {
+  const previous = {}, installed = { popup: native.popup }
+  native.getApplicationMenu.mockReturnValue(previous)
+  native.buildFromTemplate.mockReturnValue(installed)
+  const stop = installDesktopDeveloperShortcuts()
+  expect(native.buildFromTemplate).toHaveBeenCalledWith([
+    { role: 'toggleDevTools', visible: false }, { role: 'toggleDevTools', visible: false, accelerator: 'F12' },
+  ])
+  expect(native.setApplicationMenu).toHaveBeenCalledWith(installed)
+  native.getApplicationMenu.mockReturnValue(installed); stop()
+  expect(native.setApplicationMenu).toHaveBeenLastCalledWith(previous)
+  native.setApplicationMenu.mockClear()
+  native.getApplicationMenu.mockReturnValue({}); stop()
+  expect(native.setApplicationMenu).not.toHaveBeenCalled()
+})
 it('opens a zoom-correct native menu and routes editing keys into the original editor or owned guest', async () => {
   const f = fixture()
   await f.popup(f.event, 'edit', 30, 40, 'zh-CN')
@@ -48,6 +63,7 @@ it('uses the existing About and update surfaces, and rejects untrusted frames an
   expect(f.contents.send).toHaveBeenLastCalledWith(DESKTOP_SHELL_IPC.menuCommand, 'about')
   ;(items.find(item => item.label === '检查更新…')!.click as () => void)()
   expect(f.contents.send).toHaveBeenLastCalledWith(DESKTOP_SHELL_IPC.menuCommand, 'check-updates')
+  expect(items.find(item => item.label === '开发者工具')).toMatchObject({ role: 'toggleDevTools', accelerator: 'Ctrl+Shift+I' })
   expect(() => f.popup({ ...f.event, senderFrame: { url: 'about:srcdoc' } } as Electron.IpcMainInvokeEvent, 'edit', 0, 0, 'zh-CN')).toThrow()
   expect(() => f.popup(f.event, 'other', 0, 0, 'zh-CN')).toThrow('invalid popup')
   expect(() => f.popup(f.event, 'edit', NaN, 0, 'zh-CN')).toThrow('invalid popup')

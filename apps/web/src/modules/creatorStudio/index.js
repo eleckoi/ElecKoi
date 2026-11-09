@@ -1,5 +1,6 @@
 export { CreatorStudioProjectHome } from "./components/CreatorStudioProjectHome.jsx";
 export { CreatorStudioSimplePage } from "./components/CreatorStudioSimplePage.jsx";
+export { CreatorStudioHero } from "./components/CreatorStudioHero.jsx";
 export {
   CANVAS_DOT_RADIUS,
   CANVAS_GRID_PITCH,

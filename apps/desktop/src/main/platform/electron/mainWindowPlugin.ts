@@ -17,7 +17,7 @@ import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import { logAction, relayRendererActionLog } from '@main/platform/logging/logActions'
 import { handleDesktopIpcCall } from './desktopIpcHandler'
-import { createDesktopCaptionMenu } from './desktopCaptionMenu'
+import { createDesktopCaptionMenu, installDesktopDeveloperShortcuts } from './desktopCaptionMenu'
 import { WINDOWS_TITLEBAR_HEIGHT } from '../../../windowsLayout'
 import { installFileActions } from './dsh/file-actions'
 import { installDesktopFileDrag } from './dsh/file-drag'
@@ -52,6 +52,7 @@ export const mainWindowPlugin = {
     ctx.provide('electronWindows', windows)
     let mainWindow: BrowserWindow | undefined
     if (process.platform === 'win32') {
+      ctx.effect(() => installDesktopDeveloperShortcuts(), 'eleckoi: official Windows developer shortcuts')
       handleDesktopIpcCall(DESKTOP_SHELL_IPC.windowsMenu,
         createDesktopCaptionMenu(() => mainWindow, owner => browserGuests.focusedContents(owner)))
     }

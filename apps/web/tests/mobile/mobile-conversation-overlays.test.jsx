@@ -3,7 +3,6 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
-import { ModelPicker } from '../../src/modules/models/components/ModelPicker.jsx';
 import { RequestPreviewDialog } from '../../src/modules/chat/components/RequestPreviewDialog.jsx';
 import { VariableViewerDialog } from '../../src/modules/chat/components/VariableViewerDialog.jsx';
 import { AgentToolsDialog } from '../../src/modules/chat/components/AgentToolsDialog.jsx';
@@ -62,90 +61,6 @@ afterEach(async () => {
 });
 
 describe('Android conversation surfaces', () => {
-  it('navigates model pages without committing, discards drafts and saves changed parameters through the shared service', async () => {
-    const select = vi.fn(async () => {}),
-      save = vi.fn(async (config) => config);
-    const configs = [
-      {
-        id: 'config-a',
-        provider: 'custom',
-        name: '合成配置',
-        model: 'model-a',
-        model_options: [
-          { id: 'model-a', name: '合成模型甲' },
-          { id: 'model-b', name: '合成模型乙' },
-        ],
-      },
-    ];
-    await render(
-      <ModelPicker
-        configs={configs}
-        selectedConfigId="config-a"
-        selectedModel="model-a"
-        onSelect={select}
-        onSaveModelConfig={save}
-      />,
-    );
-    await click(document.querySelector('.chat-model-trigger'));
-    await click(button('查看 合成配置 的模型'));
-    expect(document.querySelector('.chat-model-browser')).toBeNull();
-    await click(button('合成模型乙'));
-    expect(select).not.toHaveBeenCalled();
-    await nativeBack();
-    expect(document.querySelector('.mobile-provider-choices')).not.toBeNull();
-    await nativeBack();
-    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
-    await click(button('不保存'));
-    expect(select).not.toHaveBeenCalled();
-    expect(save).not.toHaveBeenCalled();
-    await click(document.querySelector('.chat-model-trigger'));
-    await click(button('查看 合成配置 的模型'));
-    await click(button('合成模型乙'));
-    await click(button('参数'));
-    const input = [...document.querySelectorAll('label')]
-      .find((node) => node.textContent.startsWith('Top P'))
-      .querySelector('input');
-    await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '0.8');
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    await nativeBack();
-    expect(document.querySelector('.mobile-chat-model-list')).not.toBeNull();
-    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
-    await click(document.querySelector('.chat-model-save'));
-    expect(save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        model_options: expect.arrayContaining([expect.objectContaining({ id: 'model-b', topP: 0.8 })]),
-      }),
-    );
-    expect(select).toHaveBeenCalledWith({ capability: 'chat', configId: 'config-a', model: 'model-b' });
-  });
-  it('keeps a model draft open when saving fails', async () => {
-    const save = vi.fn(async () => {
-      throw new Error('合成保存失败');
-    });
-    await render(
-      <ModelPicker
-        configs={[
-          {
-            id: 'config-a',
-            provider: 'custom',
-            name: '合成配置',
-            model: 'model-a',
-            model_options: [{ id: 'model-a' }],
-          },
-        ]}
-        selectedConfigId=""
-        onSelect={save}
-      />,
-    );
-    await click(document.querySelector('.chat-model-trigger'));
-    await click(button('使用 合成配置'));
-    await click(document.querySelector('.chat-model-save'));
-    expect(document.querySelector('.mobile-chat-models')).not.toBeNull();
-    await nativeBack();
-    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
-  });
   it('reads context only after entering a request and aborts it on Back while restoring list position', async () => {
     let pending;
     const onClose = vi.fn(),

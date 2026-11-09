@@ -7,7 +7,7 @@
       "name": "ca-certificates",
       "version": "20260816ubuntu0.24.04.1",
       "architecture": "all",
-      "url": "https://ports.ubuntu.com/ubuntu-ports/pool/main/c/ca-certificates/ca-certificates_20260816ubuntu0.24.04.1_all.deb",
+      "url": "https://snapshot.ubuntu.com/ubuntu/20261106T000000Z/pool/main/c/ca-certificates/ca-certificates_20260816ubuntu0.24.04.1_all.deb",
       "file": "ca-certificates_20260816ubuntu0.24.04.1_all.deb",
       "sha256": "8a0a754aaafed72cc8efb8c1731808133284a84fbfc76a4fcc73fce9e01b4187"
     },

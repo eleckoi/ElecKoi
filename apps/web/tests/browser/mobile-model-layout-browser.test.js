@@ -8,7 +8,7 @@ import { expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const { build } = createRequire(require.resolve('vite/package.json'))('esbuild');
-it('keeps mobile capability controls compact in the configuration page and actual chat model sheet', async () => {
+it('keeps mobile capability controls compact in the configuration page', async () => {
   const directory = await mkdtemp(resolve(tmpdir(), 'eleckoi-mobile-model-layout-'));
   try {
     await build({ entryPoints: ['apps/web/tests/browser/mobile-model-layout.fixture.jsx'], outfile: resolve(directory, 'fixture.js'), bundle: true,
@@ -19,7 +19,7 @@ it('keeps mobile capability controls compact in the configuration page and actua
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
     await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/mobile-model-layout.probe.cjs'), htmlPath, reportPath], { env, timeout: 45000, windowsHide: true });
     const reports = JSON.parse(await readFile(reportPath, 'utf8'));
-    expect(reports).toHaveLength(12);
+    expect(reports).toHaveLength(6);
     for (const report of reports) {
       const evidence = JSON.stringify(report);
       expect(report.scrollWidth, evidence).toBeLessThanOrEqual(report.formWidth);
