@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { InputBar, QueueDock, DraftEditorRuntime, registerPlainText, ComposerAttachments } from 'official-composer-fixture';
 import { RoleplayInputMenu } from '../../src/modules/chat/components/RoleplayInputMenu.jsx';
+import { installBrowserIconSprite } from '../helpers/browserIconSprite.js';
 import '../../src/app/windows/styles/tokens.css';
 import '../../src/app/windows/styles/base.css';
 import '../../src/modules/chat/styles/chat-panel.css';
@@ -9,6 +10,7 @@ import '../../src/modules/creatorStudio/styles/creator-studio-simple.css';
 import '../../src/mobile/mobile.css';
 
 const hook = value => select => select(value);
+installBrowserIconSprite();
 const translate = (key, values = {}) => key + (values.name ? ` ${values.name}` : '');
 const runtime = new DraftEditorRuntime(), editor = runtime.editor;
 registerPlainText(editor);
@@ -39,7 +41,9 @@ function Fixture() {
       inputActions={{}} keyboard={keyboard} t={translate} sessionId="synthetic-session" variant="composer"
       submitOnEnter={!mobile} dockAccessory={[]} resolveDraftAttachments={() => attachments}
       removeAttachment={id => setAttachments(items => items.filter(item => item.id !== id))}
-      leadingAccessory={<RoleplayInputMenu purpose={studio ? 'creator' : 'roleplay'} isSending={false} />}
+      leadingAccessory={<RoleplayInputMenu purpose={studio ? 'creator' : 'roleplay'} isSending={false}
+        onOpenRequestPreview={() => {}} onOpenTools={() => { window.composerFixture.toolsOpened = true; }}
+        canDeleteMessages regenerateTargetMessageId="synthetic-reply" />}
       modelAccessory={<button>合成模型</button>}
       renderSlot={(name, owner) => name === 'conversation.input.attachments'
         ? <div data-slot={slot}><ComposerAttachments {...owner} t={translate} /></div> : null} />

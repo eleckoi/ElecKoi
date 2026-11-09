@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, nativeTheme } = require('electron');
 const { writeFileSync } = require('node:fs');
 const { dirname, join } = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -21,13 +21,33 @@ app.whenReady().then(async () => {
     throw new Error(`Timed out: ${source}`);
   };
   try {
-    const reports = [], queues = [];
+    const reports = [], queues = [], menus = [];
     for (const surface of ['roleplay', 'studio']) for (const width of [320, 390, 768, 1440]) {
       win.setContentSize(width, 900);
       const url = pathToFileURL(htmlPath); url.search = `surface=${surface}&mobile=${width < 768}`;
       await win.loadURL(url.href); await wait('!!window.composerFixture && !!document.querySelector("[data-composer-input]")');
       for (const theme of ['light', 'dark']) {
+        nativeTheme.themeSource=theme;
         await evaluate(`document.documentElement.dataset.theme='${theme}';document.body.toggleAttribute('data-ds-dark-theme','${theme}'==='dark')`);
+        await evaluate(`document.querySelector('.composer-more-trigger').click()`);
+        await wait(`!!document.querySelector('.composer-more-menu')`);
+        await evaluate('document.fonts.ready');
+        await settle();
+        const menu = await evaluate(`(()=>{
+          const panel=document.querySelector('.composer-more-menu'), rect=node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}};
+          return {panel:rect(panel),anchor:rect(panel.parentElement),scrollWidth:panel.scrollWidth,clientWidth:panel.clientWidth,
+            buttons:[...panel.querySelectorAll('button')].map(button=>({text:button.textContent,box:rect(button),label:rect(button.querySelector('span'))})),
+            pageWidth:document.documentElement.scrollWidth,draft:document.querySelector('[data-composer-input]').textContent};
+        })()`);
+        menus.push({surface,width,theme,...menu});
+        if(width===390){
+          await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
+          await new Promise(resolve=>setTimeout(resolve,150));
+          writeFileSync(join(dirname(reportPath), surface+'-menu-'+theme+'.png'),(await win.webContents.capturePage()).toPNG());
+        }
+        await evaluate(`[...document.querySelectorAll('.composer-more-menu button')].find(button=>button.textContent==='工具').click()`);
+        await wait(`!document.querySelector('.composer-more-menu')`);
+        menus[menus.length-1].actionRan=await evaluate(`window.composerFixture.toolsOpened===true`);
         for (const count of [0, 1, 6, 7, 20]) {
           await evaluate(`window.composerFixture.setCount(${count})`);
           await wait(`document.querySelectorAll('[role="group"] > div').length===${count}`);
@@ -70,6 +90,6 @@ app.whenReady().then(async () => {
     await wait(`document.querySelector('[role="group"]')?.children.length===2`);
     await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
     writeFileSync(join(dirname(reportPath), 'official-upload.png'), (await win.webContents.capturePage({ x: 0, y: 0, width: 390, height: 90 })).toPNG());
-    writeFileSync(reportPath, JSON.stringify({ attachments: reports, queues }, null, 2)); win.destroy(); app.exit(0);
+    writeFileSync(reportPath, JSON.stringify({ attachments: reports, queues, menus }, null, 2)); win.destroy(); app.exit(0);
   } catch (cause) { console.error(cause); win.destroy(); app.exit(1); }
 });
