@@ -8,7 +8,7 @@ app.setPath('userData', dirname(htmlPath));
 app.disableHardwareAcceleration();
 
 app.whenReady().then(async () => {
-  const win = new BrowserWindow({show:false,webPreferences:{backgroundThrottling:false,sandbox:true,offscreen:true}});
+  const win = new BrowserWindow({show:false,titleBarStyle:'hidden',titleBarOverlay:{height:40},webPreferences:{backgroundThrottling:false,sandbox:true,offscreen:true}});
   const reports = [];
   try {
     for (const theme of ['light', 'dark']) for (const width of [1440, 900, 700]) {
@@ -50,6 +50,7 @@ app.whenReady().then(async () => {
         window.captionMenuHost=document.querySelector('[data-windows-menu]');
         return {viewport:innerWidth,theme:${JSON.stringify(theme)},rightbar:${rightbar},
           markCenter:center(mark),toggleCenter:center(toggle),menuCenter:center(menu),windowCenters,
+          nativeControls:document.documentElement.hasAttribute('data-native-window-controls'),
           navCenters,navStep:Number.parseFloat(getComputedStyle(document.querySelector('.qq-rail')).getPropertyValue('--rail-item-size'))
             + Number.parseFloat(getComputedStyle(document.querySelector('.qq-rail')).getPropertyValue('--rail-item-gap')),
           brandTop:brand.top,brandBottom:brand.bottom,listTop:list.top,menuLeft:menu.left,toggleRight:toggle.right,

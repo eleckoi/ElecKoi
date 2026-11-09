@@ -355,6 +355,8 @@ window.__ModuleLoader__.load({
           ['@deepseek-ai/dsh-client-ui-trajectory', () => tUi("DSH 轨迹请求身份适配")],
           ['@deepseek-ai/dsh-client-ui-plugin-manager', () => tUi("DSH 插件页面适配")],
           ['@deepseek-ai/dsh-client-ui-conversation', () => tUi("DSH 会话输入框适配")],
+          ['@deepseek-ai/dsh-client-ui-model-selection', () => tUi("DSH 模型菜单适配")],
+          ['@deepseek-ai/dsh-client-ui-theme', () => tUi("DSH 字体设置适配")],
           ['@deepseek-ai/dsh-client-ui-workspace', () => tUi("DSH 启动导航适配")],
           ['@deepseek-ai/dsh-tools', () => tUi("DSH 工具注册来源适配")],
           ['@deepseek-ai/dsh-plugin-manager', () => tUi("DSH 插件管理适配")],

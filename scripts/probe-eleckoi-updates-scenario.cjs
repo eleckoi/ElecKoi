@@ -34,13 +34,20 @@ exports.createUpdateProbe = ({ ipcMain, getWindow, overlays }) => {
     async run({ window, waitFor, errors, restart }) {
       const execute = source => window.webContents.executeJavaScript(source)
       const click = selector => execute(`document.querySelector(${JSON.stringify(selector)}).click()`)
+      const languageSelector = '[data-group="language"] [data-slot="settings.general.item"] button[aria-haspopup="menu"]'
+      const openLanguage = async title => {
+        await waitFor(`[...document.querySelectorAll('.app-settings-sidebar button')].some(button=>button.textContent===${JSON.stringify(title)})`, 'Chat display settings entry missing')
+        await execute(`[...document.querySelectorAll('.app-settings-sidebar button')].find(button=>button.textContent===${JSON.stringify(title)}).click()`)
+        await waitFor(`!!document.querySelector('[data-group="language"] summary')`, 'Language group missing')
+        await execute(`(() => { const group=document.querySelector('[data-group="language"]'); if(!group.open) group.querySelector('summary').click() })()`)
+        await waitFor(`!!document.querySelector(${JSON.stringify(languageSelector)})`, 'Official language selector missing')
+      }
       await waitFor(`!!document.querySelector('.rail-settings-trigger')`, 'Settings entry missing')
       await click('.rail-settings-trigger')
       await waitFor(`!!document.querySelector('.app-settings-sidebar')`, 'Settings missing')
-      await execute(`[...document.querySelectorAll('.app-settings-sidebar button')].find(button=>button.textContent==='语言').click()`)
-      await waitFor(`!!document.querySelector('[data-slot="settings.general.item"] button[aria-haspopup="menu"]')`, 'Official language selector missing')
+      await openLanguage('聊天显示')
       for (const [id, label] of [['en','English'],['ja','日本語'],['es','Español'],['fr','Français'],['ru','Русский'],['pt','Português'],['zh','中文'],['de','Deutsch']]) {
-        await click('[data-slot="settings.general.item"] button[aria-haspopup="menu"]')
+        await click(languageSelector)
         await waitFor(`document.querySelectorAll('[role^="menuitem"]').length===8`, 'Official eight-language menu missing')
         await execute(`[...document.querySelectorAll('[role^="menuitem"]')].find(item=>item.textContent.trim()===${JSON.stringify(label)}).click()`)
         await waitFor(`document.documentElement.lang===${JSON.stringify(id === 'zh' ? 'zh-CN' : id)}`, 'Language did not change to ' + id)
@@ -50,9 +57,8 @@ exports.createUpdateProbe = ({ ipcMain, getWindow, overlays }) => {
       await waitFor(`document.documentElement.lang==='de' && !!document.querySelector('.rail-user-trigger')`, 'Saved official language did not survive Host restart')
       await click('.rail-settings-trigger')
       await waitFor(`!!document.querySelector('.app-settings-sidebar')`, 'Settings after Host restart missing')
-      await execute(`[...document.querySelectorAll('.app-settings-sidebar button')].find(button=>button.textContent==='Sprache').click()`)
-      await waitFor(`!!document.querySelector('[data-slot="settings.general.item"] button[aria-haspopup="menu"]')`, 'Restored language selector missing')
-      await click('[data-slot="settings.general.item"] button[aria-haspopup="menu"]')
+      await openLanguage('Chat-Anzeige')
+      await click(languageSelector)
       await waitFor(`document.querySelectorAll('[role^="menuitem"]').length===8`, 'Restored language menu missing')
       await execute(`[...document.querySelectorAll('[role^="menuitem"]')].find(item=>item.textContent.trim()==='中文').click()`)
       await waitFor(`document.documentElement.lang==='zh-CN'`, 'Language could not return to Chinese')

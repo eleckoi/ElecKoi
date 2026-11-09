@@ -16,11 +16,11 @@ it('separates the brand from caption controls and keeps the same menu when colla
     await build({entryPoints:['apps/web/tests/browser/window-caption.fixture.jsx'],outfile:resolve(directory,'fixture.js'),
       bundle:true,format:'iife',jsx:'automatic',alias:{'@shared':resolve('packages/shared/src')},
       loader:{'.woff2':'file','.woff':'file','.ttf':'file','.png':'file'},logLevel:'silent'});
-    await build({stdin:{contents:'import { installWindowsMenu } from "./apps/desktop/src/preload/windowsMenu.ts"; installWindowsMenu();',resolveDir:process.cwd()},
+    await build({stdin:{contents:'import { installWindowsMenu } from "./apps/desktop/src/preload/windowsMenu.ts"; import { installWindowsAppearance } from "./apps/desktop/src/preload/windowsAppearance.ts"; installWindowsMenu(); installWindowsAppearance();',resolveDir:process.cwd()},
       outfile:resolve(directory,'caption-menu.js'),bundle:true,format:'iife',alias:{'@shared':resolve('packages/shared/src')},logLevel:'silent',
       plugins:[{name:'caption-menu-host',setup(builder){
         builder.onResolve({filter:/^electron$/},()=>({path:'electron',namespace:'caption-menu-host'}));
-        builder.onLoad({filter:/.*/,namespace:'caption-menu-host'},()=>({contents:'export const ipcRenderer = { invoke: async () => {} };',loader:'js'}));
+        builder.onLoad({filter:/.*/,namespace:'caption-menu-host'},()=>({contents:'export const ipcRenderer = { invoke: async () => {}, send() {} };',loader:'js'}));
       }}]});
     const htmlPath=resolve(directory,'fixture.html'),reportPath=resolve(directory,'report.json');
     await writeFile(htmlPath,`<!doctype html><html><head><meta charset="utf-8"><style>${browserThemeCss()}</style><link rel="stylesheet" href="fixture.css"></head><body><div id="root"></div><script src="fixture.js"></script><script src="caption-menu.js"></script></body></html>`);
@@ -31,7 +31,8 @@ it('separates the brand from caption controls and keeps the same menu when colla
     expect(reports).toHaveLength(6);
     for (const report of reports) {
       const detail=JSON.stringify(report);
-      expect(report.windowCenters,detail).toHaveLength(3);
+      expect(report.nativeControls,detail).toBe(true);
+      expect(report.windowCenters,detail).toHaveLength(0);
       expect(report.captionHeight,detail).toBe(40);
       for (const center of [report.toggleCenter,report.menuCenter,...report.windowCenters]) {
         expect(Math.abs(center-report.captionHeight/2),detail).toBeLessThan(0.1);

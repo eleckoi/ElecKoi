@@ -59,6 +59,11 @@ function inventory(face) {
         window: { __ModuleLoader__: { load: (value) => { registration = value; } } },
     });
     registration.factory((name) => name === 'react' ? React : primitives).apply({
+        locale: {
+            bind: () => (key, values = {}) => key.replace(/\{([^}]+)\}/g, (_, name) => String(values[name] ?? `{${name}}`)),
+            subscribe: () => () => {},
+            getSnapshot: () => ({ revision: 0 }),
+        },
         inject: () => {},
         effect: () => { },
         reflect: { provide: () => () => {} },

@@ -5,7 +5,7 @@ const { pathToFileURL } = require('node:url')
 const { tmpdir } = require('node:os')
 
 /** Exercises the built desktop Client against its real isolated Host and local model endpoint. */
-exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, requests, modelBodies, errors, productDataRoot }) => {
+exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, requests, modelBodies, errors, productDataRoot, inspectRetiredNavigations }) => {
   process.stdout.write('Native author Client: preparing synthetic role and preset.\n')
   const boot = ready.injections.find(row => row?.kind === 'global' && row.name === '__DSH_BOOT__')
   assert(!boot.value.entries.some(entry => entry.id === '@eleckoi/dsh-client-html-resources'))
@@ -510,6 +510,7 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   const exampleRequest = JSON.stringify(modelBodies.at(-1))
   assert(exampleRequest.includes(examplePreset.entries.find(entry => entry.id === 'example-detailed').content))
   assert(!exampleRequest.includes(examplePreset.entries.find(entry => entry.id === 'example-brief').content))
+  inspectRetiredNavigations()
   assert.deepEqual(errors, [])
   process.stdout.write('Published native author example files import and run in the built desktop: bound alternate opening, relative helper module, async derivation, settings panel, rejection/retry, explicit role frontend, imported preset entry switches, global composer command and direct generation passed.\n')
   process.stdout.write('Built ElecKoi desktop runs without compatibility bundles: role frontend ZIP import/browse/use, module/style/image assets, three script scopes and chat menu buttons, native author settings modal with relative assets, live persisted script settings without restart, character and preset original switches in the actual model request, single Zod and async rules, rejection/retry, real composer read/write/clear/submit and direct generation, scope disable, page/script cleanup and role deletion with scoped frontend resource removal passed.\n')

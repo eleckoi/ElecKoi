@@ -9,6 +9,7 @@ import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session';
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection';
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl';
 import LocalAttachmentStore from '@deepseek-ai/dsh-attachment-local';
+import SystemPrompt from '@deepseek-ai/dsh-system-prompt';
 import { createAssistantMessage } from '@deepseek-ai/dsh-llm';
 import { afterEach, expect, it, vi } from 'vitest';
 import * as illustration from '../../packages/client/features/dsh-auto-illustration/src/index.js';
@@ -30,7 +31,7 @@ it('binds the real roleplay image APIs after editor readiness and reads, repaint
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     for (const name of ['ELECKOI_PRESET_TEMPLATE_PATH', 'ELECKOI_SESSION_BRIDGE_ROOT', 'ELECKOI_WORKSPACE_ROOT', 'ELECKOI_SESSION_SNAPSHOT_ROOT', 'ELECKOI_PRESET_ROOT']) vi.stubEnv(name, join(root, name));
-    for (const plugin of [SessionStore, SessionProjectionRegistry]) await ctx.plugin(plugin);
+    for (const plugin of [SessionStore, SessionProjectionRegistry, SystemPrompt]) await ctx.plugin(plugin);
     await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' });
     await ctx.plugin(LocalAttachmentStore, { dshHome: root });
     const ref = await ctx.attachments.saveImage({ data: png, mediaType: 'image/png' });

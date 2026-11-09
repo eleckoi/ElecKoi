@@ -200,13 +200,19 @@ async function main() {
       throw new Error(`Renderer probe expression failed:\n${source}\n${errors.join('\n')}`, { cause: error })
     }
   }
+  const retiredAuthorNavigations = []
   window.webContents.on('did-fail-load', (_event, code, message, url, isMainFrame, processId, routingId) => {
-    setImmediate(() => {
+    const inspect = () => {
       const frame = webFrameMain.fromId(processId, routingId)
       // Removed authored frames can report their canceled navigation after unmount.
       if (code === -3 && !isMainFrame && url === 'about:srcdoc' && !frame) return
       errors.push(`${code}: ${message}; url=${url}; mainFrame=${isMainFrame}; frame=${JSON.stringify(frame ? { detached: frame.detached, url: frame.url, name: frame.name } : null)}`)
-    })
+    }
+    // Native author scenarios replace and remove srcdoc frames. Electron may
+    // retain the canceled frame until the removal finishes; inspect it after
+    // the scenario's explicit cleanup instead of assuming one turn is enough.
+    if (nativeAuthorMode && code === -3 && !isMainFrame && url === 'about:srcdoc') retiredAuthorNavigations.push(inspect)
+    else setImmediate(inspect)
   })
   await window.loadURL('dsh-app://app/')
   const waitFor = async (expression, label) => {
@@ -347,7 +353,8 @@ async function main() {
   }
   if (nativeAuthorMode) {
     const { runNativeAuthorScenario } = require('./probe-eleckoi-native-author-scenario.cjs')
-    await runNativeAuthorScenario({ window, ready, cookie, waitFor, requests: () => modelRequests, modelBodies, errors, productDataRoot: root })
+    await runNativeAuthorScenario({ window, ready, cookie, waitFor, requests: () => modelRequests, modelBodies, errors, productDataRoot: root,
+      inspectRetiredNavigations: () => { for (const inspect of retiredAuthorNavigations.splice(0)) inspect() } })
     return
   }
   if (pluginCreationMode) {
