@@ -3,7 +3,8 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { OfficialModelMenu, modelMenuText } from '../helpers/officialModelMenu.js';
-import { ModelProviderLabel, ModelMenuParameters } from '../../src/modules/models/components/ModelMenuParameters.jsx';
+import { ModelLabel, ModelProviderLabel, ModelMenuParameters } from '../../src/modules/models/components/ModelMenuParameters.jsx';
+import claudeIcon from '../../src/assets/model-icons/claude.svg';
 let root, host;
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true); vi.stubGlobal('React', React);
@@ -15,22 +16,24 @@ afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi
 const click = async node => { expect(node).toBeTruthy(); await act(async () => node.click()); };
 const button = name => [...document.querySelectorAll('button')].find(node => node.textContent.trim() === name);
 async function edit(name, value) { const input = document.querySelector(`[data-parameter="${name}"] input`); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }); }
-async function fixture({ reasoning = true } = {}) {
-  const config = { id: 'synthetic-config', name: '合成接口', provider: 'custom', model: 'synthetic-a', model_options: [
-    { id: 'synthetic-a', name: '合成模型甲', temperature: .2, topP: .8 }, { id: 'synthetic-b', name: '合成模型乙' }] };
+async function fixture({ reasoning = true, modelId = 'synthetic-a', modelName = '合成模型甲', badge } = {}) {
+  const config = { id: 'synthetic-config', name: '合成接口', provider: 'custom', model: modelId, model_options: [
+    { id: modelId, name: modelName, temperature: .2, topP: .8 }, { id: 'synthetic-b', name: '合成模型乙' }] };
   let configs = { configs: [config] }, snapshot = { current: { provider: config.id, model: config.model }, routable: true, status: 'ready', pending: null, error: null, failures: [],
-    groups: [{ id: config.id, name: config.name, models: config.model_options.map(option => ({ id: option.id, name: option.name, ...(reasoning ? { reasoning: { efforts: [{ id: 'low', name: 'Low' }, { id: 'high', name: 'High' }] } } : {}) })) }] };
+    groups: [{ id: config.id, name: config.name, models: config.model_options.map(option => ({ id: option.id, name: option.name, ...(badge ? { badge } : {}), ...(reasoning ? { reasoning: { efforts: [{ id: 'low', name: 'Low' }, { id: 'high', name: 'High' }] } } : {}) })) }] };
   const listeners = new Set(), notify = () => [...listeners].forEach(listener => listener());
   const catalog = { subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); }, getSnapshot: () => configs, parameterEdits: new Map(),
     saveModelParameters: vi.fn(async (id, model, patch) => { configs = { configs: configs.configs.map(item => ({ ...item, model_options: item.model_options.map(option => option.id === model ? { ...option, ...patch } : option) })) }; notify(); }) };
   const select = vi.fn(async selection => { snapshot = { ...snapshot, current: selection }; notify(); return { ok: true }; });
   await act(async () => root.render(<OfficialModelMenu available locked={false} directory={{ subscribe: catalog.subscribe, getSnapshot: () => snapshot }} load={() => {}} select={select} t={modelMenuText} resolveText={value => value}
-    renderSlot={(name, owner, options) => name.endsWith('.parameters') ? <ModelMenuParameters {...owner} catalog={catalog} /> : name.endsWith('.provider.label') ? <ModelProviderLabel {...owner} catalog={catalog} /> : options?.fallback} />));
+    renderSlot={(name, owner, options) => name === 'conversation.input.model.label' ? <ModelLabel {...owner} catalog={catalog} resolveText={text => typeof text === 'string' ? text : text['zh-CN']} /> : name.endsWith('.parameters') ? <ModelMenuParameters {...owner} catalog={catalog} /> : name.endsWith('.provider.label') ? <ModelProviderLabel {...owner} catalog={catalog} /> : options?.fallback} />));
   await click(host.querySelector('button'));
   return { catalog, select, config };
 }
-it('shows an icon only on the provider heading and selects a native text-only model option immediately', async () => {
+it('shows icons on the external trigger and provider heading while model rows remain text-only', async () => {
   const f = await fixture();
+  expect(host.querySelectorAll('.model-trigger-identity')).toHaveLength(1);
+  expect(document.querySelector('[role=menu] .model-trigger-identity')).toBeNull();
   expect(document.querySelector('.chat-model-save, .chat-model-cancel, .mobile-chat-models')).toBeNull();
   expect(button('参数')).not.toBeNull();
   await click([...document.querySelectorAll('[role=menuitem]')].find(node => node.textContent.startsWith('模型')));
@@ -40,6 +43,14 @@ it('shows an icon only on the provider heading and selects a native text-only mo
   expect(document.querySelector('.model-provider-label').textContent).toBe('合成接口');
   await click(options[1]); expect(f.select).toHaveBeenCalledWith({ provider: 'synthetic-config', model: 'synthetic-b' });
   expect(document.querySelector('[role=menu]')).toBeNull();
+});
+it('uses the selected model ID for its trigger artwork and preserves catalog names and localized badges', async () => {
+  await fixture({ modelId: 'claude-opus-4-6', modelName: '合成显示名称', badge: { text: { 'zh-CN': '合成标签' }, tone: 'neutral' } });
+  const label = host.querySelector('.model-selection-label');
+  expect(label.querySelector('img').getAttribute('src')).toBe(claudeIcon);
+  expect(label.textContent).toBe('合成标签合成显示名称');
+  expect(document.querySelector('[role=menu] .model-selection-label').textContent).toBe('合成显示名称合成标签');
+  expect(document.querySelector('[role=menu] .model-selection-label img')).toBeNull();
 });
 it('keeps reasoning selection on the native menu and never duplicates it in parameter fields', async () => {
   const f = await fixture();
@@ -57,25 +68,67 @@ it('lets a custom model without reasoning metadata explicitly declare offered le
   const high = document.querySelector('button[aria-label="声明支持高档位"]');
   await click(high);
   expect(high.getAttribute('aria-pressed')).toBe('true');
-  await act(async () => { document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
+  expect(f.catalog.saveModelParameters).not.toHaveBeenCalled();
+  await click(button('保存'));
   expect(f.catalog.saveModelParameters).toHaveBeenCalledWith('synthetic-config', 'synthetic-a', { reasoningEfforts: { high: 'high' } });
 });
-it('automatically writes successive changes and flushes the final edit when the menu closes', async () => {
+it('keeps edits local through idle, blur and closing, and saves them together only on Save', async () => {
   const f = await fixture(); await click(button('参数'));
   await edit('top-p', '0.93'); await edit('temperature', '0.7');
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 450)); });
+  const input = document.querySelector('[data-parameter=temperature] input');
+  await act(async () => { input.focus(); button('参数').focus(); });
   expect(f.catalog.saveModelParameters).not.toHaveBeenCalled();
   await act(async () => { document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
+  expect(f.catalog.saveModelParameters).not.toHaveBeenCalled();
+  await click(host.querySelector('button')); await click(button('参数'));
+  expect(document.querySelector('[data-parameter=temperature] input').value).toBe('0.7');
+  await click(button('保存'));
   expect(f.catalog.saveModelParameters).toHaveBeenCalledWith('synthetic-config', 'synthetic-a', { topP: .93, temperature: .7 });
+  expect(f.catalog.saveModelParameters).toHaveBeenCalledTimes(1);
+  expect(button('参数').getAttribute('aria-expanded')).toBe('false');
   expect(f.config.model_options[0]).toMatchObject({ temperature: .2, topP: .8 });
 });
-it('retains a rejected edit across closing and reopening and offers retry without a save step', async () => {
+it('cancels numeric and capability edits without writing and restores saved values on reopening', async () => {
+  const f = await fixture(); await click(button('参数'));
+  await edit('temperature', '0.6');
+  await click(document.querySelector('.chat-model-capabilities summary'));
+  const image = [...document.querySelectorAll('.model-input-capabilities label')].find(node => node.textContent.trim() === '图片').querySelector('input');
+  await click(image); expect(image.checked).toBe(true);
+  await click(button('取消'));
+  expect(document.activeElement).toBe(button('参数'));
+  await click(button('参数'));
+  expect(document.querySelector('[data-parameter=temperature] input').value).toBe('0.2');
+  expect([...document.querySelectorAll('.model-input-capabilities input')][1].checked).toBe(false);
+  expect(button('保存').disabled).toBe(true);
+  expect(f.catalog.saveModelParameters).not.toHaveBeenCalled();
+});
+it('retains a rejected explicit save across closing and reopening and retries from Save', async () => {
   const f = await fixture(); f.catalog.saveModelParameters.mockRejectedValueOnce(Error('合成保存失败'));
   await click(button('参数')); await edit('temperature', '0.65');
-  await act(async () => { await new Promise(resolve => setTimeout(resolve, 420)); });
+  await click(button('保存'));
   expect(document.querySelector('[role=alert]').textContent).toContain('合成保存失败');
   await click(host.querySelector('button')); await click(host.querySelector('button')); await click(button('参数'));
   expect(document.querySelector('[data-parameter=temperature] input').value).toBe('0.65');
-  await click(button('重试')); expect(document.querySelector('.model-menu-error')).toBeNull();
+  expect(f.catalog.saveModelParameters).toHaveBeenCalledTimes(1);
+  await click(button('保存')); expect(document.querySelector('.model-menu-error')).toBeNull();
+  expect(f.catalog.saveModelParameters).toHaveBeenCalledTimes(2);
+});
+it('rejects invalid drafts before saving and prevents duplicate writes while a save is pending', async () => {
+  const f = await fixture(); await click(button('参数'));
+  await edit('top-p', '1.5');
+  expect(button('保存').disabled).toBe(true);
+  await click(button('保存')); expect(f.catalog.saveModelParameters).not.toHaveBeenCalled();
+  await edit('top-p', '0.5');
+  let complete;
+  f.catalog.saveModelParameters.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
+  await click(button('保存'));
+  expect(document.querySelector('[data-parameter=top-p] input').matches(':disabled')).toBe(true);
+  expect(button('取消').matches(':disabled')).toBe(true);
+  await click(button('保存'));
+  expect(f.catalog.saveModelParameters).toHaveBeenCalledTimes(1);
+  await act(async () => complete());
+  expect(button('参数').getAttribute('aria-expanded')).toBe('false');
 });
 it('retains native number-input keyboard behavior and closes the menu with Escape', async () => {
   const f = await fixture(); const parameters = button('参数'); parameters.focus();
@@ -90,5 +143,7 @@ it('retains native number-input keyboard behavior and closes the menu with Escap
   const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
   await act(async () => input.dispatchEvent(escape)); expect(escape.defaultPrevented).toBe(true);
   expect(document.querySelector('[data-model-parameters-fields]')).toBeNull();
-  expect(f.catalog.saveModelParameters).toHaveBeenCalledWith('synthetic-config', 'synthetic-a', { temperature: .64 });
+  expect(f.catalog.saveModelParameters).not.toHaveBeenCalled();
+  await click(host.querySelector('button')); await click(button('参数'));
+  expect(document.querySelector('[data-parameter=temperature] input').value).toBe('0.64');
 });

@@ -7,6 +7,8 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-agent'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
 import { deleteDshSessionMessagesFrom, editDshSessionMessage, readDshSessionLog, rewindDshSession } from '@eleckoi/dsh-runtime'
+// @ts-expect-error The installed browser bundle fixture does not publish declarations.
+import { officialChatFixture } from '../../../../tests/helpers/officialTrajectory.js'
 
 const temporaryDirectories: string[] = []
 
@@ -67,7 +69,7 @@ describe('DSH Session physical rewind', { timeout: 30_000 }, () => {
     expect(() => deleteDshSessionMessagesFrom(root, 'session-a', target.seq, 'assistant')).toThrow('找不到要删除的消息')
     expect(readDshSessionLog(root, 'session-a')!.events).toEqual(after.events)
   })
-  it('retains the exact edited input event across repeated regeneration rewinds', () => {
+  it('retains the exact edited input across repeated user rewinds without recording a process failure', () => {
     const { root } = fixture()
     const original = readDshSessionLog(root, 'session-a')!.events.find(event => event.seq === 7)!
     expect(original.type).toBe('user/message')
@@ -79,7 +81,9 @@ describe('DSH Session physical rewind', { timeout: 30_000 }, () => {
       expect(retained).toHaveLength(1)
       expect(retained[0]).toEqual({ ...original, data: { ...(original.data as Record<string, unknown>),
         content: [{ type: 'text', text: '合成编辑输入' }] } })
-      expect(log.events.at(-1)).toMatchObject({ type: 'turn/end', data: { turn: 2, reason: { kind: 'interrupted' } } })
+      expect(log.events.at(-1)).toMatchObject({ type: 'turn/end', data: { turn: 2, reason: { kind: 'aborted', reason: { kind: 'user' } } } })
+      const chat = officialChatFixture().replace(log.events)
+      expect([...chat.nodes.values()].filter(node => node.kind === 'turn-error')).toEqual([])
       expect(log.events.map(event => event.seq)).toEqual(log.events.map((_, index) => index))
     }
   })

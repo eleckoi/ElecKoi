@@ -1,5 +1,5 @@
 import { useContext, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
-import { IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, Toast, IconWarningOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, Tag, Toast, IconWarningOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import { MainPageContext } from '../../../app/windows/MainPageContext.jsx';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
 import { ModelIdentityIcon } from './ModelIdentityIcon.jsx';
@@ -7,8 +7,21 @@ import { ModelParametersSection } from './ModelParametersSection.jsx';
 import { modelParameterState } from '../model/modelConfigDraft.js';
 import { useModelCapabilities } from '../hooks/useModelCapabilities.js';
 
-// Unwritten editor state follows the catalog lifetime and is released after a successful write.
+// Unsaved drafts follow the catalog lifetime until explicitly saved or cancelled.
 const parameterEdits = new WeakMap();
+
+export function ModelLabel({ provider, model, placement, catalog, resolveText }) {
+  const snapshot = useSyncExternalStore(catalog.subscribe, catalog.getSnapshot);
+  const config = snapshot.configs.find(item => item.id === provider.id);
+  const iconProvider = ['deepseek-account', 'deepseek-official'].includes(provider.id) ? 'deepseek' : config?.builtin ? provider.id : config?.provider || provider.id;
+  const badge = model.badge && <Tag className="model-selection-badge" tone={model.badge.tone}>{resolveText(model.badge.text)}</Tag>;
+  return <span className="model-selection-label">
+    {placement === 'trigger' && <ModelIdentityIcon modelName={model.id} providerId={iconProvider} className="model-trigger-identity" />}
+    {placement === 'trigger' && badge}
+    <span className="model-selection-name">{model.name}</span>
+    {placement !== 'trigger' && badge}
+  </span>;
+}
 
 export function ModelProviderLabel({ provider, catalog }) {
   const snapshot = useSyncExternalStore(catalog.subscribe, catalog.getSnapshot);
@@ -35,28 +48,33 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
   const [open, setOpen] = useState(false), [, refresh] = useState(0), [failure, setFailure] = useState(null);
   const savedEdit = drafts.get(key);
   const edit = useRef(savedEdit || { patch: {}, generation: 0, error: null });
-  const timer = useRef(null), mounted = useRef(true), id = useId();
+  const mounted = useRef(true), id = useId();
   const fieldsRef = useRef(null);
   const focusFields = () => window.requestAnimationFrame(() => fieldsRef.current?.querySelector('input:not([disabled])')?.focus());
   const callbacks = useRef({ catalog, notify: view?.chat?.notify });
   callbacks.current = { catalog, notify: view?.chat?.notify };
   const option = config?.model_options?.find(item => item.id === model.id);
   const form = { ...config, model: model.id, model_options: (config?.model_options || []).map(item => item.id === model.id ? { ...item, ...edit.current.patch } : item) };
-  const state = modelParameterState(form);
+  const state = modelParameterState(form, config?.provider);
   const capabilities = useModelCapabilities(form);
-  async function flush() {
-    clearTimeout(timer.current);
+  function finish() {
+    setOpen(false);
+    fieldsRef.current?.previousElementSibling?.focus();
+  }
+  async function save() {
     const draft = edit.current;
-    if (!Object.keys(draft.patch).length || draft.pending === draft.generation) return;
+    if (!Object.keys(draft.patch).length || draft.pending != null || state.parameterError) return;
     const generation = draft.generation, patch = { ...draft.patch };
     draft.pending = generation;
-    const task = callbacks.current.catalog.saveModelParameters(provider.id, model.id, patch);
+    const task = Promise.resolve().then(() => callbacks.current.catalog.saveModelParameters(provider.id, model.id, patch));
     draft.task = task;
+    refresh(value => value + 1);
     try {
       await task;
       if (draft.generation === generation) {
         draft.patch = {}; draft.error = null;
         drafts.delete(key);
+        if (mounted.current) finish();
       }
     } catch (error) {
       if (draft.generation === generation) draft.error = error;
@@ -71,9 +89,10 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
     mounted.current = true;
     const changed = () => { if (mounted.current) refresh(value => value + 1); };
     edit.current.task?.then(changed, changed);
-    return () => { mounted.current = false; clearTimeout(timer.current); if (!edit.current.error) void flush(); };
+    return () => { mounted.current = false; };
   }, []);
   function change(patch) {
+    if (edit.current.pending != null) return;
     const overrides = new Set(state.activeModelOption?.overrideFields || []);
     for (const [field, key] of [['contextWindowTokens', 'contextWindow'], ['maxOutputTokens', 'maxTokens']]) {
       if (!Object.hasOwn(patch, field)) continue;
@@ -85,7 +104,13 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
     edit.current.error = null;
     drafts.set(key, edit.current);
     setFailure(null); refresh(value => value + 1);
-    clearTimeout(timer.current); timer.current = setTimeout(() => void flush(), 400);
+  }
+  function cancel() {
+    if (edit.current.pending != null) return;
+    edit.current.patch = {}; edit.current.error = null;
+    drafts.delete(key);
+    setFailure(null); refresh(value => value + 1);
+    finish();
   }
   if (!option) return null;
   const error = edit.current.error;
@@ -96,10 +121,15 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
       <span className={labelClassName}>{tUi('参数')}</span><span className={valueClassName} />
       {open ? <IconChevronDownOutlineRegular size={12} /> : <IconChevronRightOutlineRegular size={12} />}
     </button>
-    <div ref={fieldsRef} id={id} className="model-menu-parameters" data-model-parameters-fields="" hidden={!open}
-      onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget) && !edit.current.error) void flush(); }}>
-      <ModelParametersSection form={form} {...state} modelCapabilities={capabilities} picker menu showReasoningProfileEditor onChange={change} />
-      {error && <div className="model-menu-error" role="alert"><span>{error.message}</span><button type="button" onClick={() => void flush()}>{tUi('重试')}</button></div>}
+    <div ref={fieldsRef} id={id} className="model-menu-parameters" data-model-parameters-fields="" hidden={!open}>
+      <fieldset className="model-menu-draft" disabled={edit.current.pending != null}>
+        <ModelParametersSection form={form} {...state} modelCapabilities={capabilities} picker menu showReasoningProfileEditor onChange={change} />
+        {error && <div className="model-menu-error" role="alert">{error.message}</div>}
+        <footer className="model-menu-actions">
+          <Button variant="outline" onClick={cancel}>{tUi('取消')}</Button>
+          <Button variant="primary" disabled={!Object.keys(edit.current.patch).length || state.parameterError} aria-busy={edit.current.pending != null} onClick={() => void save()}>{tUi('保存')}</Button>
+        </footer>
+      </fieldset>
     </div>
     {failure && <Toast text={failure.message} icon={<IconWarningOutlineRegular />} onDone={() => setFailure(null)} />}
   </>;

@@ -182,9 +182,9 @@ type CardProps = PropsRuntime<'eleckoi.character.editor.card'>
 
 官方 `conversation.*` 插槽贡献会投影到对应产品位置，保留注册优先级、注入与卸载行为。同一贡献只注册一处。输入框下方只保留 `conversation.composer.dock` 对应的一套入口，官方默认 `stats` 不投影；产品统计与其他插件内容共用下方区域。
 
-模型名称扩展沿官方 `conversation.input.model.label` 投影到 `eleckoi.roleplay.conversation.input.model.label` 与 `eleckoi.creator-studio.model.label`。两者共用官方 `ModelLabelOwner`，只传提供商身份、模型目录项、显示位置和选中状态；模型入口、当前模型与选项行共同调用。模型行保留官方文字标签，第三方插件仍可贡献标签。提供商图标仅经补丁的 `conversation.input.model.provider.label` 放在提供商分组标题旁，准确使用提供商身份，不根据各个模型名称识别品牌。选择、搜索、推理等级和手机收纳由官方模型选择器负责，模型和推理等级选中即生效，不再使用独立保存步骤。停用或卸载标签插件后恢复目录名称。
+模型名称扩展沿官方 `conversation.input.model.label` 投影到 `eleckoi.roleplay.conversation.input.model.label` 与 `eleckoi.creator-studio.model.label`。两者共用官方 `ModelLabelOwner`，只传提供商身份、模型目录项、显示位置和选中状态；模型入口、当前模型与选项行共同调用。产品只在 `placement: trigger` 的文字入口复用既有模型图标，使用所选模型 ID 和配置身份，不改变路由、能力或提供商分组身份。菜单当前值与选项行不加模型图标，保留目录名称和官方 Tag，第三方标签贡献继续优先于产品默认标签。手机沿官方输入区的文字／图标收纳，文字入口隐藏时其内部模型图标一并隐藏，不增加第二个收纳图标。提供商图标经补丁的 `conversation.input.model.provider.label` 放在分组标题旁，准确使用提供商身份，不根据各个模型名称识别该提供商。选择、搜索、推理等级和手机收纳由官方模型选择器负责，模型和推理等级选中即生效，不再使用独立保存步骤。停用或卸载标签插件后恢复目录名称。
 
-输入菜单中的参数沿同版模型选择器补丁声明的 `conversation.input.model.parameters` 接入，随原模型座位投影到两种产品会话。参数停止输入 400ms、离开输入框或关闭菜单时通过现有模型目录服务写入；失败保留未写入内容并提供重试。自定义接口可在模型能力中明确声明支持的推理档位，Host 以声明更新官方目录；未声明能力时不虚构推理选项。官方提供对应提供商标题、根菜单扩展点及输入框键盘行为后，按 `pnpm-workspace.yaml` 的退役条件改用该扩展点并删除补丁，不保留两套菜单实现。
+输入菜单中的参数沿同版模型选择器补丁声明的 `conversation.input.model.parameters` 接入，随原模型座位投影到两种产品会话。参数编辑仅修改草稿，点击官方「保存」按钮才通过现有模型目录服务写入，「取消」丢弃该模型草稿；停输、失焦和关闭都不写入。直接关闭及保存失败保留未写入内容，失败后可继续编辑或再次保存。自定义接口可在模型能力中明确声明支持的推理档位，Host 以声明更新官方目录；未声明能力时不虚构推理选项。官方提供对应提供商标题、根菜单扩展点及输入框键盘行为后，按 `pnpm-workspace.yaml` 的退役条件改用该扩展点并删除补丁，不保留两套菜单实现。
 
 ## 冲突与优先级
 

@@ -538,12 +538,8 @@ window.__ModuleLoader__.load({
           pending: true
         })
       }
-      projected.sort((left, right) => {
-        const leftSeq = Number.isFinite(left.seq) ? left.seq : Number.MAX_SAFE_INTEGER
-        const rightSeq = Number.isFinite(right.seq) ? right.seq : Number.MAX_SAFE_INTEGER
-        if (leftSeq !== rightSeq) return leftSeq - rightSeq
-        return Number(left.time || 0) - Number(right.time || 0)
-      })
+      // Official node order owns display placement. A process anchor can precede
+      // its admitted input even though the process row renders after that input.
       const product = Array.isArray(details?.messages) ? details.messages : []
       const opening = product.filter(message => message.id === 'opening')
       const candidates = product.filter(message => message.id !== 'opening')
@@ -607,7 +603,7 @@ window.__ModuleLoader__.load({
           } : {}),
           ...(item.nodeKey ? { dshNodeKey: item.nodeKey } : {}),
           // `sequence` is the durable DSH event position. `messageIndex` is only
-          // the current visible list position and must be rebuilt after sorting.
+          // the current visible position in the official display order.
           sequence: item.seq, messageIndex: index,
           role: item.role, content: item.content,
           // Product projection owns an explicit display value, including an

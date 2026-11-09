@@ -436,8 +436,14 @@ window.__ModuleLoader__.load({
       const catalog = new ModelCatalog(ctx.remote)
       ctx.provide('eleckoiModels', catalog)
       const loadModelPage = () => import(new URL('eleckoi-page-model.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
+      const ModelLabel = React.lazy(() => loadModelPage().then(module => ({ default: module.ModelLabel })))
       const ModelProviderLabel = React.lazy(() => loadModelPage().then(module => ({ default: module.ModelProviderLabel })))
       const ModelMenuParameters = React.lazy(() => loadModelPage().then(module => ({ default: module.ModelMenuParameters })))
+      ctx.slots.inject('conversation.input.model.label', () => ctx.slots.register({
+        name: 'conversation.input.model.label', priority: -10, registrant: '@eleckoi/dsh-client-models'
+      }, owner => React.createElement(React.Suspense, { fallback: owner.model.name }, React.createElement(ModelLabel, {
+        ...owner, catalog, resolveText: text => ctx.locale.resolveText(text)
+      }))))
       ctx.slots.inject('conversation.input.model.provider.label', () => ctx.slots.register({
         name: 'conversation.input.model.provider.label', priority: -10, registrant: '@eleckoi/dsh-client-models'
       }, owner => React.createElement(React.Suspense, { fallback: owner.provider.name }, React.createElement(ModelProviderLabel, { ...owner, catalog }))))

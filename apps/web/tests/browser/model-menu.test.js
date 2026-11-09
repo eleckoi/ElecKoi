@@ -21,7 +21,7 @@ it('extends the installed official menu with readable parameters and provider-he
     await promisify(execFile)(require('electron'),[resolve('apps/web/tests/browser/model-menu.probe.cjs'),html,report],{env,windowsHide:true,timeout:45000});
     const result=JSON.parse(await readFile(report,'utf8'));
     const evidence=resolve('build/parameter-tool-font-check');await mkdir(evidence,{recursive:true});
-    for(const file of ['light.png','dark.png','report.json'])await copyFile(resolve(directory,file),resolve(evidence,'menu-'+file));
+    for(const file of ['light.png','dark.png','light-desktop.png','dark-desktop.png','report.json'])await copyFile(resolve(directory,file),resolve(evidence,'menu-'+file));
     expect(result.errors).toEqual([]);expect(result.layouts).toHaveLength(6);
     for(const layout of result.layouts){const detail=JSON.stringify(layout);
       expect(layout.left,detail).toBeGreaterThanOrEqual(11.5);expect(layout.right,detail).toBeLessThanOrEqual(layout.width-11.5);
@@ -33,10 +33,23 @@ it('extends the installed official menu with readable parameters and provider-he
       expect(layout.coarse,detail).toBe(layout.width<768);
       expect(layout.inputFonts,detail).toEqual(Array(5).fill(layout.menuFont));
       expect(layout.fields,detail).toEqual(['temperature','top-p','context','compaction','output']);
-      expect(layout.footer,detail).toBe(false);expect(layout.material,detail).toBe('translucent');expect(layout.icons,detail).toBe(0);
+      expect(layout.footer,detail).toBe(true);expect(layout.material,detail).toBe('translucent');expect(layout.icons,detail).toBe(0);
+      expect(layout.actions.map(action=>action.text),detail).toEqual(['取消','保存']);
+      expect(layout.actions.map(action=>action.height),detail).toEqual([36,36]);
+      expect(layout.actions.every(action=>action.visible),detail).toBe(true);
+      expect(layout.actions[1].background,detail).not.toBe(layout.actions[0].background);
+      expect(layout.writesBeforeSave,detail).toBe(0);
     }
     expect(result.providerIcons).toEqual({headings:1,models:0});
+    expect(result.triggers).toHaveLength(6);
+    for(const trigger of result.triggers){const detail=JSON.stringify(trigger);
+      expect(trigger.icons,detail).toBe(1);expect(trigger.iconWidth,detail).toBe(16);expect(trigger.iconHeight,detail).toBe(16);
+      expect(trigger.buttonHeight,detail).toBe(28);expect(trigger.overflow,detail).toBe(false);
+      if(trigger.width<768)expect(trigger.condensed,detail).toEqual({brandWidth:0,nativeIconWidth:16});
+    }
     expect(result.calls).toContainEqual({selection:{provider:'synthetic-config',model:'synthetic-24'}});
-    expect(result.calls.some(call=>call.parameters?.patch.temperature===.72)).toBe(true);
+    expect(result.calls.filter(call=>call.parameters)).toEqual([{parameters:{provider:'synthetic-config',model:'synthetic-24',patch:{temperature:.72}}}]);
+    expect(result.writesAfterClose).toBe(0);expect(result.restoredDraft).toBe('0.72');expect(result.savedValue).toBe('0.72');
+    expect(result.expandedActionsVisible).toBe(true);
   } finally {const target=relative(tmpdir(),directory);if(!target||target.startsWith('..')||isAbsolute(target))throw Error('Invalid probe cleanup target');await rm(directory,{recursive:true,force:true,maxRetries:3});}
 },60000);

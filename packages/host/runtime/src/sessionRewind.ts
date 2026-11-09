@@ -92,7 +92,10 @@ export function rewindDshSession(
   }
   if (log.events[cut - 1]?.type === HISTORY_RESTORED_EVENT) cut--
   const retained = log.events.slice(0, cut)
-  if (retainInput) retained.push(...interruptedTurnClosers(retained))
+  // This boundary comes from a user edit, rather than a crashed Host.
+  if (retainInput) retained.push(...interruptedTurnClosers(retained).map(event => event.type === 'turn/end'
+    ? { ...event, data: { ...event.data, reason: { kind: 'aborted', reason: { kind: 'user' } } } } as SessionEvent
+    : event))
   if (closePrefixStep) {
     const stepEnd = log.events.find(event => event.type === 'step/end'
       && isRecord(event.data) && event.data.turn === 1 && event.data.step === 1)

@@ -12,6 +12,8 @@ import { useChatSessions } from '../../src/modules/chat/hooks/useChatSessions.js
 import { RoleplayInputMenu } from '../../src/modules/chat/components/RoleplayInputMenu.jsx'
 import { MessageList } from '../helpers/officialMarkdown.jsx'
 import { findLatestRegenerateTargetMessageId } from '../../src/modules/chat/model/chatRegeneration.js'
+import { selectRoleplayChatSeat } from '../../src/modules/chat/model/chatViewSeats.js'
+import { messageFloorNumber } from '../../src/modules/appearance/preferences/chatDisplay.js'
 import source from '../../../../packages/client/features/dsh-client-conversations/src/client.js?raw'
 
 vi.stubGlobal('React', React)
@@ -108,6 +110,7 @@ async function fixture() {
   })
   await model.open('synthetic-chat')
   fixtureApi = { model, dispose: () => dispose(),
+    snapshot: () => chat,
     cancel: () => session.cancel(),
     lastSeq: () => seq,
     setRunning(value) { running = value; session.publish() },
@@ -139,6 +142,49 @@ async function fixture() {
 }
 
 describe('cancelled official Chat projection', () => {
+  it.each(['interrupted', 'aborted', 'error'])('numbers a retained image input before its %s process row in official display order', async reason => {
+    const f = await fixture()
+    const user = (id, content) => ({ id, role: 'user', source: { kind: 'user' }, content })
+    try {
+      f.append('turn/start', { turn: 1 })
+      f.append('step/start', { turn: 1, step: 1 })
+      f.append('user/message', user('synthetic-first-input', [{ type: 'text', text: 'Synthetic first input' }]), { surfaceOp: 'append' })
+      const inputSeq = f.lastSeq()
+      f.append('step/end', { turn: 1, step: 1 })
+      f.append('turn/end', { turn: 1, reason: { kind: 'interrupted' } })
+      f.append('turn/start', { turn: 2 })
+      f.append('eleckoi/input-continuation', { turn: 2, inputMessageId: 'synthetic-first-input', inputEventSeq: inputSeq }, { ignorable: true })
+      f.append('step/start', { turn: 2, step: 1 })
+      f.append('assistant/message', { turn: 2, step: 1, stream: [], message: { id: 'synthetic-first-reply', role: 'assistant',
+        source: { provider: 'synthetic', model: 'synthetic' }, content: [{ type: 'text', text: '<FINAL>Synthetic reply</FINAL>' }] } }, { surfaceOp: 'append' })
+      f.append('step/end', { turn: 2, step: 1 })
+      f.append('turn/end', { turn: 2, reason: { kind: 'completed' } })
+      f.append('turn/start', { turn: 3 })
+      f.append('step/start', { turn: 3, step: 1 })
+      f.append('user/message', user('synthetic-image-input', [
+        { type: 'image', attachment: { attachmentId: 'sha256:synthetic-image', name: 'synthetic.png', mimeType: 'image/png', bytes: 1 } },
+        { type: 'text', text: 'Synthetic retained image input' },
+      ]), { surfaceOp: 'append' })
+      const imageSeq = f.lastSeq()
+      if (reason !== 'interrupted') f.append('llm/retry', { retryId: 'synthetic-retry', turn: 3, step: 1,
+        provider: 'synthetic', mode: 'normal', policyKey: 'synthetic', retry: 1, maxRetries: 2, delayMs: 10,
+        failure: { message: 'Synthetic failure' } })
+      f.append('step/end', { turn: 3, step: 1 })
+      f.append('turn/end', { turn: 3, reason: reason === 'aborted' ? { kind: reason, reason: { kind: 'user' } }
+        : reason === 'error' ? { kind: reason, error: { message: 'Synthetic failure' } } : { kind: reason } })
+      const messages = f.model.getDetailsSnapshot().details.messages
+      const snapshot = f.snapshot()
+      const seats = snapshot.order.map(key => selectRoleplayChatSeat(messages, 'synthetic-session', snapshot.nodes.get(key))).filter(Boolean)
+      expect(seats.map(seat => messageFloorNumber(messages, seat.index))).toEqual([0, 1, 2, 3])
+      expect(seats.map(seat => seat.item.role)).toEqual(['user', 'assistant', 'user', 'assistant'])
+      expect(messages.map(message => message.role)).toEqual(['user', 'assistant', 'user', 'assistant'])
+      expect(messages[2]).toMatchObject({ dshMessageId: 'synthetic-image-input', sessionEventSeq: imageSeq, sequence: imageSeq,
+        inputImageAttachments: [{ attachmentId: 'sha256:synthetic-image' }] })
+      expect(messages[3]).toMatchObject({ renderKey: 'dsh-reply-synthetic-session-3', dshTurn: 3 })
+      if (reason === 'interrupted') expect(messages[3].sequence).toBeLessThan(imageSeq)
+    } finally { f.dispose() }
+  })
+
   it('unlocks the composer after interrupting regeneration in reasoning and deletes that exact reply', async () => {
     const f = await fixture()
     const container = document.createElement('div')
