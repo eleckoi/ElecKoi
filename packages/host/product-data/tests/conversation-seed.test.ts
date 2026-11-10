@@ -21,10 +21,11 @@ describe('conversation opening seed', () => {
     )).toEqual({
       variableVersionId: '',
       initialVariableStateJson: '{}',
+      initialVariableIdentityJson: '{}',
       openingText: '主开场',
       openingOptions: [
-        { id: 'backup', title: '备用', content: '备用开场', variableVersionId: '', initialVariableStateJson: '{}' },
-        { id: 'primary', title: '主开场', content: '主开场', variableVersionId: '', initialVariableStateJson: '{}' },
+        { id: 'backup', title: '备用', content: '备用开场', variableVersionId: '', initialVariableStateJson: '{}', initialVariableIdentityJson: '{}' },
+        { id: 'primary', title: '主开场', content: '主开场', variableVersionId: '', initialVariableStateJson: '{}', initialVariableIdentityJson: '{}' },
       ],
       selectedOpeningId: 'primary',
     })
@@ -40,7 +41,7 @@ describe('conversation opening seed', () => {
       {} as never,
       openings as never,
       variables as never
-    )).toEqual({ variableVersionId: '', initialVariableStateJson: '{}', openingText: '', openingOptions: [], selectedOpeningId: '' })
+    )).toEqual({ variableVersionId: '', initialVariableStateJson: '{}', initialVariableIdentityJson: '{}', openingText: '', openingOptions: [], selectedOpeningId: '' })
   })
 
   it.each([true, false])('leaves empty and whitespace-only openings absent regardless of the saved enabled field (%s)', enabled => {
@@ -50,7 +51,7 @@ describe('conversation opening seed', () => {
     ] }) };
     const variables = { get: () => ({ activeVersionId: 'version-a', initialStateJson: '{}', versions: [{ id: 'version-a', initialStateJson: '{}' }] }) };
     expect(resolveConversationSeed('card-a', {} as never, openings as never, variables as never))
-      .toEqual({ variableVersionId: '', initialVariableStateJson: '{}', openingText: '', openingOptions: [], selectedOpeningId: '' });
+      .toEqual({ variableVersionId: '', initialVariableStateJson: '{}', initialVariableIdentityJson: '{}', openingText: '', openingOptions: [], selectedOpeningId: '' });
   })
 
   it('uses nonempty openings without an enable gate and excludes blank backup choices', () => {

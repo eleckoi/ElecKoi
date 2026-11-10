@@ -127,10 +127,10 @@ describe('native author developer documentation and examples', () => {
     presets.updateEntries(imported.id, [{ id: 'example-brief', changes: { enabled: false } }, { id: 'example-detailed', changes: { enabled: true } }])
     expect(presets.get(otherPreset.id).entries.find(entry => entry.id === 'example-brief')!.enabled).toBe(true)
     const openings = new CharacterOpeningRepository(database)
-    const invalid = structuredClone(openings.get(first))
-    invalid.openingMessages[0]!.variableVersionId = 'synthetic-missing-version'
-    expect(() => openings.save(first, invalid)).toThrow(/绑定的变量版本不存在/)
-    expect(openings.get(first).openingMessages[0]!.variableVersionId).toBe('example-variables')
+    const unlinked = structuredClone(openings.get(first))
+    unlinked.openingMessages[0]!.variableVersionId = 'synthetic-missing-version'
+    openings.save(first, unlinked)
+    expect(openings.get(first).openingMessages[0]!.variableVersionId).toBe('synthetic-missing-version')
     expect(database.native.pragma('foreign_key_check')).toEqual([])
   }, 30000)
 })

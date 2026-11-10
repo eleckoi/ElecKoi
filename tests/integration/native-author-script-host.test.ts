@@ -1,4 +1,5 @@
 import { clientBundlePath } from '../support/client-bundle.js'
+import { createVariableIdentities } from '../../packages/shared/src/foundation/variables/identity'
 import RemoteAccessService from '@deepseek-ai/dsh-api-remote-access'
 import { ownerPeer } from '../support/owner-peer.js'
 import * as Cordis from '@deepseek-ai/cordis'
@@ -48,7 +49,8 @@ function script(extra: Record<string, any> = {}): ScriptItem {
 async function runtime() {
   const ctx = new Context(), libraries = new Map<string, ScriptLibrary>()
   let current = '{"value":1}', schema = '', characterId = 'synthetic-character', presetId = 'synthetic-preset'
-  const publish = vi.fn(), save = vi.fn((_id: string, json: string) => { current = json; return json })
+  let identityJson = JSON.stringify(createVariableIdentities(JSON.parse(current), { versionId: '', objects: [], variables: [] }, 'runtime'))
+  const publish = vi.fn(), save = vi.fn((_id: string, json: string, identities: string) => { current = json; identityJson = identities; return json })
   for (const scope of ['global', 'preset', 'character'] as const) {
     const ownerId = scope === 'character' ? characterId : scope === 'preset' ? presetId : ''
     libraries.set(JSON.stringify([scope, ownerId]), { scope, ownerId, enabled: true, revision: 0, trees: [], variables: {} })
@@ -67,7 +69,7 @@ async function runtime() {
       if (!library) throw new Error('Synthetic library not found')
       return structuredClone(library)
     },
-    readAuthorConversationState: () => ({ currentVariableStateJson: current, initialVariableStateJson: '{"value":1}', variableConfig: schema ? { schemaCode: schema } : null }),
+    readAuthorConversationState: () => ({ currentVariableStateJson: current, variableIdentityJson: identityJson, initialVariableStateJson: '{"value":1}', variableConfig: schema ? { schemaCode: schema } : null }),
     replaceConversationVariableState: save,
   }
   const processor = new ElecKoiVariableProcessing(data as any)

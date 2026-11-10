@@ -62,10 +62,10 @@ it('serves registered modules and relative resources through the actual Host, Re
   expect(imported.defaultOpeningMessageId).toBe(savedOpenings.defaultOpeningMessageId)
   expect(imported.openingMessages.slice(0, -1)).toEqual(savedOpenings.openingMessages)
   expect(imported.openingMessages.at(-1)).toEqual(importedOpening)
-  const invalid = { ...importedOpening, id: 'synthetic-invalid-opening', variableVersionId: 'synthetic-missing-variables' }
-  await expect(invoke('importSettingLibrary', { characterId: 'synthetic-character', library: { ...settingLibrary, name: '合成不应保存' }, openingImports: [invalid] })).rejects.toThrow('变量版本不存在')
+  const unlinked = { ...importedOpening, id: 'synthetic-unlinked-opening', variableVersionId: 'synthetic-missing-variables' }
+  await invoke('importSettingLibrary', { characterId: 'synthetic-character', library: settingLibrary, openingImports: [unlinked] })
   expect((await invoke('readSettingLibrary', { characterId: 'synthetic-character' })).name).toBe(settingLibrary.name)
-  expect(await invoke('readCharacterOpenings', { characterId: 'synthetic-character' })).toEqual(imported)
+  expect(await invoke('readCharacterOpenings', { characterId: 'synthetic-character' })).toEqual({ ...imported, openingMessages: [...imported.openingMessages, unlinked] })
 
   const workspace = () => ctx.typertGateway.invoke({ peer: ownerPeer(ctx), namespace: 'eleckoiCharacterConfiguration', method: 'readScriptWorkspace',
     args: { scope: 'character', ownerId: 'synthetic-character' } }) as Promise<{ path: string; version: string; entries: Array<{ id: string; file: string }> }>

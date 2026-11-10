@@ -148,9 +148,9 @@ describe('productFailure：两边共用的带码失败构造器', () => {
     const known: readonly string[] = PRODUCT_FAILURE_DETAIL_KEYS
     // 契约表里用到的参数，本文件必须全都有——漏一个就意味着那条码的详情在 client 面构造不出来。
     expect([...usedParams].filter((param) => !known.includes(param))).toEqual([])
-    // 反向只需盯住契约文档声明的八项（`actual` 已声明但当前没有码用到，所以不能拿"用到的并集"当等式）。
+    // 反向核对契约声明的参数，包含完整上游错误详情。
     expect([...PRODUCT_FAILURE_DETAIL_KEYS].sort()).toEqual(
-      ['actual', 'expected', 'field', 'guard', 'issues', 'operation', 'path', 'what']
+      ['actual', 'expected', 'field', 'guard', 'issues', 'operation', 'path', 'upstreamDetails', 'what']
     )
   })
 })

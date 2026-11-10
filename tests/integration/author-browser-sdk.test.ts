@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { installElecKoiAuthorApi, runWithAuthorVariableTransaction, type AuthorHostAdapter, type AuthorVariableTransaction } from '@eleckoi/author-sdk/browser'
 import { applyAuthorVariablePatch, mergeAuthorVariableState } from '@eleckoi/author-sdk'
 import { Context } from '@deepseek-ai/cordis'
+import { createVariableIdentities } from '../../packages/shared/src/foundation/variables/identity'
 import { ElecKoiAuthorVariablesApi, ElecKoiVariableProcessing } from '@eleckoi/dsh-product-api'
 
 const pages: any[] = []
@@ -262,8 +263,9 @@ describe('native author browser SDK', () => {
 describe('native author variable patch contract', () => {
   it('uses the declared add/replace/remove operations in the actual Host entry point', async () => {
     let current = { value: 2, items: ['first', 'last'] } as Record<string, unknown>
-    const save = vi.fn(async (_id, json) => { current = JSON.parse(json); return json })
-    const data = { readConversationDetails: () => ({}), readAuthorConversationState: () => ({ currentVariableStateJson: JSON.stringify(current), variableConfig: null }),
+    let identityJson = JSON.stringify(createVariableIdentities(current, { versionId: '', objects: [], variables: [] }, 'runtime'))
+    const save = vi.fn(async (_id, json, identities) => { current = JSON.parse(json); identityJson = identities; return json })
+    const data = { readConversationDetails: () => ({}), readAuthorConversationState: () => ({ currentVariableStateJson: JSON.stringify(current), variableIdentityJson: identityJson, variableConfig: null }),
       replaceConversationVariableState: save }
     const ctx = new Context()
     ctx.provide('eleckoiProductData', data as any)

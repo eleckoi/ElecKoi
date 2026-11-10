@@ -54,14 +54,15 @@ export const PRODUCT_FAILURE_DETAIL_KEYS = [
   'guard',
   'what',
   'expected',
-  'actual'
+  'actual',
+  'upstreamDetails'
 ] as const
 
 /** 详情参数名。 */
 export type ProductFailureDetailKey = (typeof PRODUCT_FAILURE_DETAIL_KEYS)[number]
 
 /**
- * 失败详情：扁平 JSON 对象，键只用闭集里的八个。
+ * 失败详情：JSON 对象，顶层键只用正式参数闭集。
  *
  * `what` 不是标识符：多数码写名词短语（会被拼进用户句「找不到{what}。」），`state/precondition`
  * 例外、写用户该先做的动作（「请先{what}。」）；具体 id / 路径留给 `message`。
@@ -75,6 +76,7 @@ export interface ProductFailureDetails {
   readonly what?: string
   readonly expected?: string
   readonly actual?: string
+  readonly upstreamDetails?: Readonly<Record<string, unknown>>
 }
 
 /**

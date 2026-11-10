@@ -8,6 +8,7 @@ import { SqliteDatabase } from '../../../../tests/helpers/SqliteDatabase'
 import { installSchema } from '../src/storage/sqlite/installSchema'
 import { ConversationRepository } from '../src/domain/conversations/ConversationRepository'
 import { ConversationStateRepository } from '../src/domain/conversations/ConversationStateRepository'
+import { validateRuntimeState } from '../src/domain/conversations/ConversationStateRepository'
 import { ConversationArchiveRepository } from '../src/domain/conversations/ConversationArchiveRepository'
 import { SettingLibraryRepository } from '../src/domain/settingLibraries/SettingLibraryRepository'
 import { VariableConfigRepository } from '../src/domain/variables/VariableConfigRepository'
@@ -32,19 +33,28 @@ function fixture() {
   return { root, db, id, history, variables, settings }
 }
 
+function readState(f: ReturnType<typeof fixture>, ...args: Parameters<ConversationStateRepository['read']>) {
+  const result = f.history.read(...args)
+  expect(typeof result.variableIdentityJson).toBe('string')
+  validateRuntimeState(result)
+  expect(JSON.parse(result.variableIdentityJson!)).toMatchObject({ '/score': { origin: 'runtime', parentId: '' } })
+  const { variableIdentityJson: _identity, ...value } = result
+  return value
+}
+
 describe('conversation state database', () => {
   it('keeps before, completed and current variables distinct and requires explicit rewind to replace completed state', () => {
     const f = fixture()
     f.history.recordTurn(f.id, f.id, 1, 'before', state(1))
     f.history.recordTurn(f.id, f.id, 1, 'after', state(2))
     f.variables.replaceCurrent(f.id, '{"score":99}')
-    expect(f.history.read(f.id, f.id, 1, 'before')).toEqual(state(1))
+    expect(readState(f, f.id, f.id, 1, 'before')).toEqual(state(1))
     expect(f.history.variablesByTurn(f.id, f.id)).toEqual({ 1: '{"score":2}' })
     expect(() => f.history.recordTurn(f.id, f.id, 1, 'after', state(99))).toThrow('不能覆盖')
     expect(() => f.history.read(f.id, f.id, 2, 'before')).toThrow('缺少')
     f.history.trim(f.id, f.id, 1)
     f.history.recordTurn(f.id, f.id, 1, 'after', state(3))
-    expect(f.history.read(f.id, f.id, 1, 'after')).toEqual(state(3))
+    expect(readState(f, f.id, f.id, 1, 'after')).toEqual(state(3))
   })
 
   it('atomically restores variables, conversation settings and all history after a failed rewind', () => {
@@ -82,8 +92,8 @@ describe('conversation state database', () => {
     f.db.close(); f.db.open()
     expect(f.db.native.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
     expect(f.db.native.prepare('SELECT targetsJson FROM global_regex_rules').get()).toEqual({ targetsJson: '["AiOutput"]' })
-    expect(f.history.read(f.id, f.id, 1, 'before')).toEqual(state(1))
-    expect(f.history.read(f.id, f.id, 1, 'after')).toEqual(state(2, setting('accepted-task')))
+    expect(readState(f, f.id, f.id, 1, 'before')).toEqual(state(1))
+    expect(readState(f, f.id, f.id, 1, 'after')).toEqual(state(2, setting('accepted-task')))
     expect((f.db.native.pragma('table_info(agent_responses)') as { name: string }[]).map(row => row.name))
       .not.toEqual(expect.arrayContaining(['variableStateJson', 'storedRegexRulesJson']))
     expect(f.db.native.prepare("SELECT 1 FROM sqlite_master WHERE name='agent_setting_snapshots'").get()).toBeUndefined()
@@ -101,7 +111,7 @@ describe('conversation state database', () => {
     expect(f.history.variableHistory(f.id, f.id)).toHaveLength(0)
     expect(f.db.native.prepare('SELECT COUNT(*) AS n FROM agent_responses').get()).toEqual({ n: 2 })
     expect(() => f.history.read(f.id, f.id, 1, 'after')).toThrow('缺少')
-    expect(f.history.read(f.id, f.id, 1, 'before', 'input')).toEqual(state(1))
+    expect(readState(f, f.id, f.id, 1, 'before', 'input')).toEqual(state(1))
     expect(() => f.history.read(f.id, 'different-session', 1, 'before')).toThrow('缺少')
   })
 
@@ -111,11 +121,11 @@ describe('conversation state database', () => {
     expect(f.history.variablesByTurn(f.id, f.id)).toEqual({})
     expect(() => f.history.read(f.id, f.id, 1, 'after')).toThrow('缺少')
     f.history.recordInput(f.id, f.id, 'unanswered', state(8))
-    expect(f.history.read(f.id, f.id, 4, 'before', 'unanswered')).toEqual(state(8))
+    expect(readState(f, f.id, f.id, 4, 'before', 'unanswered')).toEqual(state(8))
     f.history.recordInput(f.id, f.id, 'removed-input', state(99))
     f.history.trim(f.id, f.id, 1, ['unanswered'])
     expect(f.history.list(f.id).some(row => row.boundaryId === 'removed-input')).toBe(false)
-    expect(f.history.read(f.id, f.id, 4, 'before', 'unanswered')).toEqual(state(8))
+    expect(readState(f, f.id, f.id, 4, 'before', 'unanswered')).toEqual(state(8))
   })
 
   it('rolls back the whole schema conversion when a legacy state is invalid', () => {
@@ -151,8 +161,8 @@ it('exports current settings and every state in one archive and remaps Session i
   const snapshot = archive.parse(JSON.parse(JSON.stringify(archive.export(f.id))))
   expect(archive.requiredRuntimeThreadIds(snapshot)).toEqual([f.id])
   const imported = archive.import(snapshot, 'synthetic-card', new Map([[f.id, 'imported-session']]))
-  expect(f.history.read(imported, 'imported-session', 1, 'after')).toEqual(state(2, setting('accepted-task')))
-  expect(f.history.read(imported, 'imported-session', 1, 'before', 'session-input-id')).toEqual(state(1))
+  expect(readState(f, imported, 'imported-session', 1, 'after')).toEqual(state(2, setting('accepted-task')))
+  expect(readState(f, imported, 'imported-session', 1, 'before', 'session-input-id')).toEqual(state(1))
   expect(f.settings.snapshotConversationRuntimeState(imported)).toBe(setting('current-task'))
   expect(f.db.native.prepare('SELECT COUNT(*) AS n FROM agent_responses WHERE conversationId=?').get(imported)).toEqual({ n: 0 })
 })

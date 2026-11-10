@@ -40,6 +40,7 @@ describe('preset purposes', () => {
       }
     }
     const roleBefore = f.store.native.prepare('SELECT * FROM agent_preset_entries WHERE presetId=?').all(role.id)
+    f.store.native.exec('ALTER TABLE chat_session_variable_states DROP COLUMN identityJson; ALTER TABLE conversation_state_snapshots DROP COLUMN variableIdentityJson')
     f.store.native.pragma('user_version = 15'); f.store.close()
     const next = open(f.path)
     const current = next.repository.get(creator.id)
@@ -52,7 +53,7 @@ describe('preset purposes', () => {
     expect(snapshots.map(row => row.versionId).sort()).toEqual([creator.activeVersionId, 'synthetic-history'].sort())
     expect(snapshots.every(row => JSON.parse(row.payloadJson).enabled === false && JSON.parse(row.payloadJson).content === entries[1]!.content)).toBe(true)
     expect(next.store.native.prepare('SELECT * FROM agent_preset_entries WHERE presetId=?').all(role.id)).toEqual(roleBefore)
-    expect(next.store.native.pragma('user_version', { simple: true })).toBe(16)
+    expect(next.store.native.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
     expect(next.store.native.pragma('foreign_key_check')).toEqual([])
     expect(next.store.native.pragma('integrity_check', { simple: true })).toBe('ok')
     const before = next.store.native.prepare('SELECT * FROM agent_preset_entries').all()
@@ -65,6 +66,7 @@ describe('preset purposes', () => {
     const entry = { ...emptyEntry('synthetic-valid-old'), agentReadStrategy: 'keyword', keywords: ['retained'] }
     f.store.native.prepare('INSERT INTO agent_preset_entries VALUES (?,?,?,?)').run(creator.id, entry.id, 9, JSON.stringify(entry))
     f.store.native.prepare('INSERT INTO agent_preset_version_entries VALUES (?,?,?,?,?)').run(creator.id, creator.activeVersionId, 'synthetic-invalid', 9, '{}')
+    f.store.native.exec('ALTER TABLE chat_session_variable_states DROP COLUMN identityJson; ALTER TABLE conversation_state_snapshots DROP COLUMN variableIdentityJson')
     f.store.native.pragma('user_version = 15')
     const before = f.store.native.prepare('SELECT * FROM agent_preset_entries').all()
     expect(() => installSchema(f.store.native)).toThrow()
@@ -111,6 +113,7 @@ describe('preset purposes', () => {
       }
     }
     const before = f.repository.get(custom.id)
+    f.store.native.exec('ALTER TABLE chat_session_variable_states DROP COLUMN identityJson; ALTER TABLE conversation_state_snapshots DROP COLUMN variableIdentityJson')
     f.store.native.pragma('user_version = 13'); f.store.close()
     const next = open(f.path)
     expect(next.repository.active('creator')).toEqual(before)

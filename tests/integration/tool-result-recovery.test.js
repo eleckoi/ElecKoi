@@ -451,7 +451,7 @@ describe('Complete tool-result access', { timeout: 30_000 }, () => {
       objectId: '', enabled: true, type: 'number', defaultValue: '0', description: `合成说明-${index}`, updateRule: `完整更新规则-${index}`, readMode: 'required' }))
     const state = Object.fromEntries(variables.map(variable => [variable.title, 0]))
     f.ctx.eleckoiRuntimeContexts.set(f.handle.agent.session.id, runtimeContextsFor(f.handle.agent.session.id, {
-      settings: { enabled: true, library, history: [] }, variables: { enabled: true, config: { initialState: state, schemaCode: '', objects: [], variables }, state },
+      settings: { enabled: true, library, history: [] }, variables: { enabled: true, config: { defaultState: state, schemaCode: '', objects: [], variables }, state },
       settingLibraryBaseline: { source: library, projected: library }
     }).get(f.handle.agent.session.id))
     args = toolName.includes('grep') ? { pattern: toolName.endsWith('variables') ? '合成指标' : '合成设定' }
