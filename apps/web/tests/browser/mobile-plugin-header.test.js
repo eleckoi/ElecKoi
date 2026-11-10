@@ -1,5 +1,5 @@
 import {execFile} from 'node:child_process';
-import {mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
+import {copyFile,mkdir,mkdtemp,readFile,rm,writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
@@ -18,7 +18,11 @@ it('keeps the official plugin header compact on mobile through toggles, style re
   await writeFile(html,`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${browserThemeCss()}</style><link rel="stylesheet" href="fixture.css"></head><body><div id="root"></div><script src="fixture.js"></script><script src="official.js"></script></body></html>`);
   const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;
   await promisify(execFile)(require('electron'),[resolve('apps/web/tests/browser/mobile-plugin-header.probe.cjs'),html,report],{env,windowsHide:true,timeout:45000});
-  const result=JSON.parse(await readFile(report,'utf8'));expect(result.errors).toEqual([]);expect(result.rows).toHaveLength(48);
+  const result=JSON.parse(await readFile(report,'utf8'));
+  const evidence=resolve('build/mobile-plugin-scroll-check');await mkdir(evidence,{recursive:true});
+  for(const file of ['report.json','scroll-light-390.png','scroll-dark-390.png'])await copyFile(resolve(directory,file),resolve(evidence,file));
+  expect(result.errors).toEqual([]);expect(result.rows).toHaveLength(48);expect(result.scrolling).toHaveLength(96);
+  for(const row of result.scrolling){const detail=JSON.stringify(row);expect(row.partiallyClipped,detail).toBe(false);expect(row.visible,detail).toBe(row.scrollTop===0)}
   for(const row of result.rows){const detail=JSON.stringify(row);
    if(row.phase==='scrolled'){expect(row.compact,detail).toBe(true);expect(row.introInert,detail).toBe(true);continue}
    expect(row.titleVisible,detail).toBe(false);expect(row.barTop,detail).toBeCloseTo(row.outer,0);

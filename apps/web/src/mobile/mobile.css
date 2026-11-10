@@ -333,6 +333,7 @@
 .mobile-shell[data-mobile-panel="plugins"] [data-plugin-bar] > header { padding-top: 0; align-items: center; gap: 8px; }
 .mobile-shell[data-mobile-panel="plugins"] [data-plugin-header-part="title"] { display: none; }
 .mobile-shell[data-mobile-panel="plugins"] [data-plugin-header-part="intro"] { margin: 0; }
+.mobile-shell[data-mobile-panel="plugins"] [data-plugin-bar][data-scrolled] [data-plugin-header-part="intro"] { visibility: hidden; }
 .mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel]:has([data-plugin-group="more"], [data-plugin-group="eleckoi-more"]) > header { display: flex; flex-direction: row; justify-content: flex-start; min-height: 60px; gap: 12px; }
 .mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel]:has([data-plugin-group="more"], [data-plugin-group="eleckoi-more"]) > header h1 { display: block; }
 .mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel]:has([data-plugin-group="more"], [data-plugin-group="eleckoi-more"]) > header > button { width: 44px; height: 44px; min-height: 44px; padding: 0; }
