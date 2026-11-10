@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { characters, characterOpenings, variableConfigs, variableConfigVersions } from '@product-data/storage/sqlite/schema/common'
+import { characters, characterOpenings } from '@product-data/storage/sqlite/schema/common'
 import type { ElecKoiDatabase, ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
 import { characterOpeningsSchema, type CharacterOpenings } from '@shared/contracts/characterOpenings/schemas'
 import { DesktopError } from '@shared/foundation/DesktopError'
@@ -11,11 +11,6 @@ export function readCharacterOpenings(characterId: string, db: ElecKoiDatabase):
   const parsed = characterOpeningsSchema.parse(JSON.parse(row.configurationJson))
   if (parsed.characterId !== characterId) throw new DesktopError(ELECKOI_FAILURE_CODES.stateMismatch, '开场白配置与角色不匹配。', { what: '角色开场白配置' })
   return parsed
-}
-
-export function openingVariableVersionIds(characterId: string, db: ElecKoiDatabase): string[] {
-  return [...new Set(readCharacterOpenings(characterId, db).openingMessages
-    .map(message => message.variableVersionId || '').filter(Boolean))]
 }
 
 export class CharacterOpeningRepository {
@@ -36,13 +31,6 @@ export class CharacterOpeningRepository {
     this.requireCharacter(characterId, db)
     if (input.characterId !== characterId) throw new DesktopError(ELECKOI_FAILURE_CODES.stateMismatch, '开场白配置与角色不匹配。', { what: '角色开场白配置' })
     const value = characterOpeningsSchema.parse(input)
-    const ids = new Set(db.select({ id: variableConfigVersions.versionId }).from(variableConfigVersions)
-      .where(eq(variableConfigVersions.characterId, characterId)).all().map(row => row.id))
-    if (!db.select().from(variableConfigs).where(eq(variableConfigs.characterId, characterId)).get()) ids.add('variable-config-default')
-    for (const opening of value.openingMessages) {
-      if (opening.variableVersionId && !ids.has(opening.variableVersionId)) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound,
-        `开场白“${opening.title || '未命名开场白'}”绑定的变量版本不存在。`, { what: '开场白绑定的变量版本' })
-    }
     const configurationJson = JSON.stringify(value)
     db.insert(characterOpenings).values({ characterId, configurationJson })
       .onConflictDoUpdate({ target: characterOpenings.characterId, set: { configurationJson } }).run()

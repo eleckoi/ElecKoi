@@ -85,7 +85,7 @@ export function RoleplayInputMenu({
             <TextAlignLeft size={18} weight="regular" /><span>{tUi("请求上下文预览")}</span>
           </button>}
           {!creator && <button type="button" role="menuitem" onClick={() => run(onOpenVariables)}>
-            <Database size={18} weight="regular" /><span>{tUi("变量查看器")}</span>
+            <Database size={18} weight="regular" /><span>{tUi("变量查看与管理")}</span>
           </button>}
           <button className="composer-new-chat-item" type="button" role="menuitem" onClick={() => run(onCreateChat)}>
             <DshNewChatIcon size={18} /><span>{tUi("新建对话")}</span>

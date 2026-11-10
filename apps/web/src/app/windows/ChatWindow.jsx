@@ -5,6 +5,7 @@ import { resolveChatWallpaper } from "../../modules/appearance/index.js";
 import { AppToast } from "../../ui/ui/AppToast.jsx";
 import { BugReportDialog } from "./shell/components/BugReportDialog.jsx";
 import { useReportProblem } from "./shell/hooks/useReportProblem.js";
+import { FailureReportContext } from '../../ui/ui/FailureReportContext.js';
 import { showCurrentWindow } from "../services/windowControls.js";
 import { useChatClient } from "../hooks/useChatClient.js";
 import { useWindowAppearance } from "../hooks/useWindowAppearance.js";
@@ -48,7 +49,7 @@ export function ChatWindow({ conversations, characters, characterConfiguration, 
 
   const pageView = { chat, conversations, characters, characterConfiguration, models, presets };
 
-  return <MainPageContext.Provider value={pageView}>
+  return <FailureReportContext.Provider value={reportProblem.available ? reportProblem.openReport : null}><MainPageContext.Provider value={pageView}>
     <main className={`qq-shell qq-chat-window-shell${showChatWallpaper ? " has-chat-wallpaper" : ""}`} style={CHAT_WINDOW_STYLE}>
       {showChatWallpaper ? <ChatWallpaperLayer wallpaper={chatWallpaper} /> : null}
       <TitleBar />
@@ -142,5 +143,5 @@ export function ChatWindow({ conversations, characters, characterConfiguration, 
         onNotify={chat.notify}
       />
     </main>
-  </MainPageContext.Provider>;
+  </MainPageContext.Provider></FailureReportContext.Provider>;
 }

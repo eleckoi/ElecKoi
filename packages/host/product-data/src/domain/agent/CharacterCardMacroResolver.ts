@@ -15,7 +15,7 @@ export function resolveVariableContextCharacterCardMacros(
   if (!context || !values) return context
   return {
     ...context,
-    initialStateJson: resolveCharacterCardMacrosInJson(context.initialStateJson, values),
+    defaultStateJson: resolveCharacterCardMacrosInJson(context.defaultStateJson, values),
     stateJson: resolveCharacterCardMacrosInJson(context.stateJson, values),
     objects: context.objects.map((item) => ({
       ...item,
@@ -24,6 +24,9 @@ export function resolveVariableContextCharacterCardMacros(
     })),
     variables: context.variables.map((item) => ({
       ...item,
+      defaultValue: item.type === 'object' || item.type === 'array'
+        ? resolveCharacterCardMacrosInJson(item.defaultValue, values)
+        : resolveCharacterCardMacros(item.defaultValue, values),
       description: resolveCharacterCardMacros(item.description, values),
       updateRule: resolveCharacterCardMacros(item.updateRule, values)
     }))

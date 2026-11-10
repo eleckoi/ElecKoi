@@ -2,10 +2,12 @@ import type { ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteData
 import { isDeepStrictEqual } from 'node:util'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
+import { createVariableIdentities, parseVariableIdentities, validateVariableIdentityState } from '@shared/foundation/variables/identity'
 
 export interface ConversationRuntimeState {
   variableStateJson: string
   settingLibraryStateJson: string
+  variableIdentityJson?: string
 }
 
 export interface ConversationStateSnapshot {
@@ -18,12 +20,15 @@ export interface ConversationStateSnapshot {
   turn: number | null
   variableStateJson: string | null
   settingLibraryStateJson: string | null
+  variableIdentityJson?: string
 }
 
 export function validateRuntimeState(state: {
   variableStateJson: string | null
   settingLibraryStateJson: string | null
+  variableIdentityJson?: string
 }): void {
+  if (state.variableIdentityJson !== undefined && state.variableStateJson !== null) validateVariableIdentityState(JSON.parse(state.variableStateJson), parseVariableIdentities(state.variableIdentityJson))
   if (state.variableStateJson !== null) {
     const value: unknown = JSON.parse(state.variableStateJson)
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '历史变量状态必须是 JSON object。', { what: '历史变量状态' })
@@ -65,7 +70,7 @@ export class ConversationStateRepository {
   }
 
   recordTurn(conversationId: string, runtimeSessionId: string, turn: number,
-    phase: 'before' | 'after', state: { variableStateJson: string | null; settingLibraryStateJson: string | null }): void {
+    phase: 'before' | 'after', state: { variableStateJson: string | null; settingLibraryStateJson: string | null; variableIdentityJson?: string }): void {
     if (!runtimeSessionId || !Number.isSafeInteger(turn) || turn < 1) throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, '聊天状态缺少有效的 Session 与轮次。', { field: 'runtimeSessionId' })
     validateRuntimeState(state)
     this.insert({ conversationId, branchId: this.branch(conversationId), runtimeSessionId,
@@ -73,7 +78,7 @@ export class ConversationStateRepository {
   }
 
   recordInput(conversationId: string, runtimeSessionId: string, messageId: string,
-    state: { variableStateJson: string | null; settingLibraryStateJson: string | null }): void {
+    state: { variableStateJson: string | null; settingLibraryStateJson: string | null; variableIdentityJson?: string }): void {
     if (!runtimeSessionId || !messageId) throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, '输入状态缺少正式消息标识。', { field: 'messageId' })
     validateRuntimeState(state)
     this.insert({ conversationId, branchId: this.branch(conversationId), runtimeSessionId,
@@ -81,23 +86,25 @@ export class ConversationStateRepository {
   }
 
   private insert(snapshot: ConversationStateSnapshot): void {
+    snapshot = { ...snapshot, variableIdentityJson: snapshot.variableIdentityJson ?? JSON.stringify(snapshot.variableStateJson === null ? {} : createVariableIdentities(JSON.parse(snapshot.variableStateJson), { versionId: '', objects: [], variables: [] }, 'runtime')) }
     if (snapshot.boundaryType === 'turn' && snapshot.phase === 'after') {
-      const existing = this.store.native.prepare(`SELECT variableStateJson,settingLibraryStateJson FROM conversation_state_snapshots
+      const existing = this.store.native.prepare(`SELECT variableStateJson,settingLibraryStateJson,variableIdentityJson FROM conversation_state_snapshots
         WHERE conversationId=? AND branchId=? AND runtimeSessionId=? AND boundaryType='turn' AND boundaryId=? AND phase='after'`)
         .get(snapshot.conversationId, snapshot.branchId, snapshot.runtimeSessionId, snapshot.boundaryId) as ConversationRuntimeState | undefined
       const parsed = (raw: string | null) => raw === null ? null : JSON.parse(raw)
       if (existing && (!isDeepStrictEqual(parsed(existing.variableStateJson), parsed(snapshot.variableStateJson))
-        || !isDeepStrictEqual(parsed(existing.settingLibraryStateJson), parsed(snapshot.settingLibraryStateJson)))) {
+        || !isDeepStrictEqual(parsed(existing.settingLibraryStateJson), parsed(snapshot.settingLibraryStateJson))
+        || (existing.variableIdentityJson || '{}') !== (snapshot.variableIdentityJson || '{}'))) {
         throw new DesktopError(ELECKOI_FAILURE_CODES.statePrecondition, '已完成轮次的历史状态不能覆盖；重新生成必须先回退该轮次。', { what: '回退这一轮' })
       }
       if (existing) return
     }
     this.store.native.prepare(`INSERT INTO conversation_state_snapshots
-      (conversationId,branchId,runtimeSessionId,boundaryType,boundaryId,phase,turn,variableStateJson,settingLibraryStateJson)
-      VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(conversationId,branchId,runtimeSessionId,boundaryType,boundaryId,phase)
-      DO UPDATE SET turn=excluded.turn,variableStateJson=excluded.variableStateJson,settingLibraryStateJson=excluded.settingLibraryStateJson`)
+      (conversationId,branchId,runtimeSessionId,boundaryType,boundaryId,phase,turn,variableStateJson,settingLibraryStateJson,variableIdentityJson)
+      VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(conversationId,branchId,runtimeSessionId,boundaryType,boundaryId,phase)
+      DO UPDATE SET turn=excluded.turn,variableStateJson=excluded.variableStateJson,settingLibraryStateJson=excluded.settingLibraryStateJson,variableIdentityJson=excluded.variableIdentityJson`)
       .run(snapshot.conversationId, snapshot.branchId, snapshot.runtimeSessionId, snapshot.boundaryType,
-        snapshot.boundaryId, snapshot.phase, snapshot.turn, snapshot.variableStateJson, snapshot.settingLibraryStateJson)
+        snapshot.boundaryId, snapshot.phase, snapshot.turn, snapshot.variableStateJson, snapshot.settingLibraryStateJson, snapshot.variableIdentityJson || '{}')
   }
 
   replace(conversationId: string, snapshots: ConversationStateSnapshot[]): void {
@@ -159,7 +166,7 @@ export class ConversationStateRepository {
       throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, `缺少第 ${turn} 轮${phase === 'before' ? '之前' : '完成后'}的历史运行状态，未修改聊天。`, { what: '这一轮的历史运行状态' })
     }
     validateRuntimeState(state)
-    return { variableStateJson: state.variableStateJson, settingLibraryStateJson: state.settingLibraryStateJson }
+    return { variableStateJson: state.variableStateJson, settingLibraryStateJson: state.settingLibraryStateJson, variableIdentityJson: state.variableIdentityJson || '{}' }
   }
 
   trim(conversationId: string, runtimeSessionId: string, fromTurn: number, retainedInputIds?: readonly string[]): void {

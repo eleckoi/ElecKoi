@@ -66,7 +66,7 @@ function preparedWorkspace() {
     ...prepared.patchFiles.map(file => parse(readFileSync(file, 'utf8')) ?? [])])
   const controllers = entries.filter(entry => entry.id === 'workspace-controller')
   expect(controllers).toHaveLength(1)
-  return { config, controllerConfig: controllers[0]!.config as { documentsDirectory?: string } }
+  return { config, prepared, entries, controllerConfig: controllers[0]!.config as { documentsDirectory?: string } }
 }
 
 async function workspaceHost(storageRoot: string, config: { documentsDirectory?: string }) {
@@ -86,9 +86,43 @@ async function workspaceHost(storageRoot: string, config: { documentsDirectory?:
 }
 
 describe('Android Host resource admission', () => {
+  it('uses the official Standard work details in the Android profile composition', () => {
+    const { entries } = preparedWorkspace()
+    const chat = entries.filter(entry => entry.id === 'ui-chat')
+    expect(chat).toHaveLength(1)
+    expect(chat[0]).toMatchObject({ name: '@deepseek-ai/dsh-client-ui-chat', config: { transcriptView: 'standard' } })
+  })
+
+  it('keeps the official General section active for the mobile language and typography child settings', () => {
+    const { entries } = preparedWorkspace()
+    const section = entries.filter(entry => entry.id === 'ui-settings-general')
+    expect(section).toHaveLength(1)
+    expect(section[0]!.name).toBe('@deepseek-ai/dsh-client-ui-settings-general')
+    expect(section[0]!.disabled).not.toBe(true)
+    for (const id of ['ui-layout', 'ui-sidebar', 'ui-settings-models', 'directory-picker']) {
+      expect(entries.find(entry => entry.id === id)?.disabled).toBe(true)
+    }
+  })
+
   it('starts configuration loading with the shipped manifest and installed DSH batch', () => {
     const path = configuration()
     expect(loadNodeHostConfiguration(path).productDatabasePath).toBe(resolve(path, '../data/product.db'))
+  })
+
+  it('regenerates an older Android overlay without disabling shared settings or rewriting user preferences', () => {
+    const { config, prepared } = preparedWorkspace()
+    writeFileSync(prepared.overlayPath, readFileSync(prepared.overlayPath, 'utf8') + '\n- id: ui-settings-general\n  disabled: true\n')
+    const userPath = join(prepared.profileDirectory, 'cordis.patch.yml')
+    const userPatch = '- id: ui-theme\n  config:\n    fontSize: 18\n    textFontFamily: serif\n- id: locale\n  config:\n    preference: en\n'
+    writeFileSync(userPath, userPatch)
+    const reopened = preparePluginHost(config)
+    const profile = loadProfileDirectory('dsh', reopened.profileDirectory, resolve('apps/android-host/package.json'))
+    const entries = composeEntries([...profile.layers.map(layer => layer.patches), profile.patches,
+      ...reopened.patchFiles.map(file => parse(readFileSync(file, 'utf8')) ?? [])])
+    expect(entries.find(entry => entry.id === 'ui-settings-general')?.disabled).not.toBe(true)
+    expect(entries.find(entry => entry.id === 'ui-theme')?.config).toEqual({ fontSize: 18, textFontFamily: 'serif' })
+    expect(entries.find(entry => entry.id === 'locale')?.config).toMatchObject({ preference: 'en' })
+    expect(readFileSync(userPath, 'utf8')).toBe(userPatch)
   })
 
   it.each([

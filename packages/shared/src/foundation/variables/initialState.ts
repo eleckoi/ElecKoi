@@ -37,7 +37,7 @@ function ordered<T extends { treeViewOrder: number; order: number }>(items: T[])
   ))
 }
 
-function variableDefaultValue(variable: VariableItemConfig): unknown {
+export function variableDefaultValue(variable: VariableItemConfig): unknown {
   switch (variable.type) {
     case 'null':
       return null

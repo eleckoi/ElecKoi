@@ -394,6 +394,8 @@
           "readGeneratedImage",
           "regenerateImage",
           "variableTimeline",
+          "variableConfiguration",
+          "selectVariableVersion",
           "authorState",
           "replaceVariableState",
           "exportArchive",

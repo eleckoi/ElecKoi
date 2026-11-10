@@ -68,15 +68,19 @@ async function selectAvatar() {
 }
 
 describe('Android settings presentation with shared PC contracts', () => {
-  it('keeps the official language control in chat display and leaves application settings to extensions', async () => {
+  it('keeps the official language control on the settings home beside chat display', async () => {
     await mount();
-    expect(container.querySelector('[aria-label="界面语言"]')).toBeNull();
-    expect(container.textContent).not.toContain('官方语言选项');
-    await click('聊天显示');
     const row = container.querySelector('[aria-label="界面语言"]');
     expect(row?.querySelector('svg[aria-hidden="true"]')).toBeTruthy();
     expect(row?.textContent).toBe('官方语言选项');
+    expect(container.querySelector('[data-settings-page="home"]').contains(row)).toBe(true);
+    await click('聊天显示');
+    expect(container.querySelector('[aria-label="界面语言"]')).toBeNull();
+    expect(container.textContent).not.toContain('官方语言选项');
     expect(container.textContent).toContain('字号与字体');
+    expect(container.textContent).not.toContain('恢复当前布局');
+    await click('返回');
+    expect(container.querySelector('[aria-label="界面语言"]')?.textContent).toBe('官方语言选项');
     expect(renderSection).not.toHaveBeenCalled();
   });
 

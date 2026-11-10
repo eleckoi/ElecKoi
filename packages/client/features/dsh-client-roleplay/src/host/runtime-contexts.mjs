@@ -1,10 +1,16 @@
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 import { visibleDialogueHistory } from './conversation-context.mjs'
+import { parseVariableIdentities } from '@eleckoi/dsh-product-data/variables'
 
 /** Host-owned current-turn state. Children share their parent's exact state;
  * replacing a turn does not copy it into snapshots, Session records, or files. */
 export class RuntimeContexts {
   #contexts = new Map()
+  #readVariableConfiguration
+
+  constructor(readVariableConfiguration) {
+    this.#readVariableConfiguration = readVariableConfiguration
+  }
 
   get(sessionId) {
     const state = this.#contexts.get(sessionId)
@@ -14,6 +20,24 @@ export class RuntimeContexts {
   }
 
   has(sessionId) { return this.#contexts.has(sessionId) }
+
+  /** Read configuration from its owner; only candidate values belong to the turn. */
+  readVariables(sessionId) {
+    const runtime = this.get(sessionId)
+    if (!this.#readVariableConfiguration) return runtime.variables
+    const variables = this.#readVariableConfiguration(runtime.conversationId)
+    const value = {
+      enabled: variables !== undefined || Object.keys(runtime.variables.state).length > 0,
+      config: variables === undefined
+        ? { defaultState: {}, schemaCode: '', objects: [], variables: [], versionId: '' }
+        : { defaultState: parsedState(variables.defaultStateJson), schemaCode: variables.schemaCode,
+          objects: variables.objects, variables: variables.variables, versionId: variables.versionId },
+      state: runtime.variables.state,
+      identities: runtime.variables.identities
+    }
+    runtime.variables.enabled = value.enabled
+    return value
+  }
 
   set(sessionId, state) {
     if (state.rootSessionId === sessionId) {
@@ -33,17 +57,20 @@ export class RuntimeContexts {
       conversationContext: { ...context, currentUserInput },
       settingLibraryBaseline: runtime.settingLibraryBaseline,
       generationVariableStateJson,
+      generationVariableIdentityJson: variables?.identityJson,
       settings: {
         enabled: context.settingLibrary !== undefined,
         library: context.settingLibrary ?? null,
         frozenLibrary: context.settingLibrary ?? null,
         history: [...(context.history ?? []), ...history, ...(appendCurrentInput ? [{ role: 'user', content: currentUserInput }] : [])]
       },
-      variables: variables === undefined ? { enabled: false, config: null, state: {} } : {
+      variables: variables === undefined ? { enabled: false, config: null, state: {}, identities: {} } : {
         enabled: true,
-        config: { initialState: parsedState(variables.initialStateJson), schemaCode: variables.schemaCode,
-          objects: variables.objects, variables: variables.variables },
-        state: parsedState(variables.stateJson)
+        config: this.#readVariableConfiguration ? null : {
+          defaultState: parsedState(variables.defaultStateJson), schemaCode: variables.schemaCode,
+          objects: variables.objects, variables: variables.variables, versionId: variables.versionId },
+        state: parsedState(variables.stateJson),
+        identities: parseVariableIdentities(variables.identityJson)
       }
     }
     this.set(sessionId, state)

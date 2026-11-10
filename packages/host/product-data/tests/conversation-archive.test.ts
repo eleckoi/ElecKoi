@@ -58,5 +58,10 @@ it('imports a conversation with its message structure under new IDs', () => {
   expect(response.runtimeThreadId).toBe('new-runtime')
   expect(db.native.prepare('SELECT variableVersionId FROM agent_conversations WHERE id=?').get(source)).toEqual({ variableVersionId: '' })
   expect(db.native.prepare('SELECT variableVersionId FROM agent_conversations WHERE id=?').get(imported)).toEqual({ variableVersionId: '' })
+  const detached = structuredClone(snapshot)
+  detached.tables.agent_conversations[0]!.variableVersionId = 'synthetic-missing-version'
+  const restored = archive.import(detached, 'character-test', new Map([[source, 'synthetic-detached-runtime']]))
+  expect(db.native.prepare('SELECT variableVersionId FROM agent_conversations WHERE id=?').get(restored))
+    .toEqual({ variableVersionId: 'synthetic-missing-version' })
   expect(db.native.prepare('PRAGMA foreign_key_check').all()).toEqual([])
 })

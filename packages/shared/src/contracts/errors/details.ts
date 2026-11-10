@@ -18,8 +18,8 @@
  * `shell/open-failed` 写闭集**判别值**（`mail` / `form`，由渲染层映射成中文，不拼进句子）；
  * 具体的 id / 路径放开发者诊断 `message` 里，不进详情。
  *
- * 参数名闭集：`field` / `issues` / `path` / `operation` / `guard` / `what` / `expected` / `actual`。
- * 不在这八个里的新参数属于契约变更——先改这份文件与 `codes.ts`，再动用例。
+ * 参数名闭集：`field` / `issues` / `path` / `operation` / `guard` / `what` / `expected` / `actual` / `upstreamDetails`。
+ * 新参数属于契约变更——先改这份文件与 ADR，再动用例。
  */
 
 import { ELECKOI_FAILURE_CODES, type EleckoiFailureCode } from './codes.js'
@@ -39,6 +39,8 @@ export interface EleckoiFailureIssue {
 /** 兜底码的详情：`what` 记被折叠掉的原码或短诊断种类。 */
 export interface EleckoiInternalDetails {
   readonly what?: string
+  /** 未映射上游失败携带的原始 JSON 详情；不猜测其中字段的产品语义。 */
+  readonly upstreamDetails?: Readonly<Record<string, unknown>>
 }
 
 /** 合同违例（入参或出参）的详情：codec 给出的逐条 issues。 */
@@ -243,6 +245,7 @@ export type EleckoiFailureDetailParam =
   | 'what'
   | 'expected'
   | 'actual'
+  | 'upstreamDetails'
 
 /**
  * 每条码**实际会带哪些参数**。
@@ -254,7 +257,7 @@ export type EleckoiFailureDetailParam =
 export const ELECKOI_FAILURE_DETAIL_PARAMS: Readonly<
   Record<EleckoiFailureCode, readonly EleckoiFailureDetailParam[]>
 > = {
-  [ELECKOI_FAILURE_CODES.internal]: ['what'],
+  [ELECKOI_FAILURE_CODES.internal]: ['what', 'upstreamDetails'],
   [ELECKOI_FAILURE_CODES.contractInvalidRequest]: ['issues'],
   [ELECKOI_FAILURE_CODES.contractInvalidResponse]: ['issues'],
   [ELECKOI_FAILURE_CODES.dataShapeInvalid]: ['what', 'path'],

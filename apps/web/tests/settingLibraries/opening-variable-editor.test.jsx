@@ -149,10 +149,10 @@ describe('opening configuration editor', () => {
     try {
       const select = view.container.querySelector('select');
       expect(select.value).toBe('');
-      expect(select.selectedOptions[0].textContent).toBe('不绑定变量');
+      expect(select.selectedOptions[0].textContent).toBe('不关联变量');
       expect(select.selectedOptions[0].disabled).toBe(false);
       expect([...select.options].filter((option) => !option.disabled).map((option) => [option.value, option.textContent]))
-        .toEqual([['', '不绑定变量'], ['version-b', '配置 B'], ['version-a', '配置 A']]);
+        .toEqual([['', '不关联变量'], ['version-b', '配置 B'], ['version-a', '配置 A']]);
       expect(view.container.textContent).not.toContain('当前变量版本');
       expect(changed).not.toHaveBeenCalled();
       await act(async () => { select.value = 'version-a'; select.dispatchEvent(new Event('change', { bubbles: true })); });

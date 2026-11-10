@@ -85,7 +85,7 @@ describe('product surfaces using the official eight-language runtime', () => {
     expect(host.textContent).toContain(t('聊天显示'));
     expect(host.textContent).toContain(t('字号与字体'));
     expect(host.textContent).toContain(t('富消息'));
-    expect(host.querySelector('.mobile-settings-group:last-of-type .settings-language-row').getAttribute('aria-label')).toBe(t('界面语言'));
+    expect(host.querySelector('.mobile-settings-switch-row').getAttribute('aria-label')).toBe(t('生成统计'));
   });
 
   it('localizes failure copy and catalog labels without rewriting evidence or custom model names', () => {

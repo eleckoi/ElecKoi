@@ -102,8 +102,9 @@ export function preparePluginHost(paths: NodeHostConfiguration): PreparedPluginH
     '- id: session-persistence-jsonl', '  config:', `    root: ${JSON.stringify(sessionRoot)}`, '    compression: none',
     '- id: session-query-sqlite', '  config:', `    path: ${JSON.stringify(join(paths.runtimeDataRoot, 'session-search.sqlite'))}`, '    openAt: first-search',
     '- id: workspace-controller', '  config:', `    documentsDirectory: ${JSON.stringify(paths.workspaceRoot)}`,
+    // General owns settings.general.item, including the mobile locale and font controls.
     ...['desktop-product-telemetry', 'product-analytics', 'ui-layout', 'ui-sidebar',
-      'ui-settings-general', 'ui-settings-models', 'directory-picker'].flatMap(id => [`- id: ${id}`, '  disabled: true']),
+      'ui-settings-models', 'directory-picker'].flatMap(id => [`- id: ${id}`, '  disabled: true']),
     '- insert:',
     '    - id: eleckoi-android-directory-picker', '      name: "@deepseek-ai/dsh-host-directory-picker-browse"',
     '    - id: eleckoi-android-directory-picker-ui', '      name: "@deepseek-ai/dsh-client-ui-directory-picker-browse"', ''

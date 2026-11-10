@@ -6,7 +6,9 @@ import type { AgentGenerationStats } from './generationStats'
 import type { AgentTrajectorySnapshot } from './trajectory'
 
 export interface AgentVariableRuntimeContext {
-  initialStateJson: string
+  versionId: string
+  identityJson: string
+  defaultStateJson: string
   schemaCode: string
   objects: VariableObjectConfig[]
   variables: VariableItemConfig[]

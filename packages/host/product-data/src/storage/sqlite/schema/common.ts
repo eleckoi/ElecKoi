@@ -23,6 +23,7 @@ export const chatSessionVariableStates = sqliteTable('chat_session_variable_stat
   sessionId: text('sessionId').notNull(),
   kind: text('kind').notNull(),
   stateJson: text('stateJson').notNull(),
+  identityJson: text('identityJson').notNull().default(sql.raw("'{}'")),
 }, (table) => [primaryKey({ columns: [table.sessionId, table.kind] })])
 
 export const characters = sqliteTable('characters', {
@@ -231,6 +232,7 @@ export const conversationStateSnapshots = sqliteTable('conversation_state_snapsh
   turn: integer('turn'),
   variableStateJson: text('variableStateJson'),
   settingLibraryStateJson: text('settingLibraryStateJson'),
+  variableIdentityJson: text('variableIdentityJson').notNull().default(sql.raw("'{}'")),
 }, (table) => [primaryKey({ columns: [table.conversationId, table.branchId, table.runtimeSessionId, table.boundaryType, table.boundaryId, table.phase] })])
 
 export const settingLibraries = sqliteTable('setting_libraries', {

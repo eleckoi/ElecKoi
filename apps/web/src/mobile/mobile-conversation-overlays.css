@@ -124,7 +124,7 @@
 .mobile-agent-tools .roleplay-plan-actions button svg { width: 18px; height: 18px; }
 .mobile-agent-tools .roleplay-plan-list textarea { min-height: 80px; background: var(--surface-raised); font-size: 14px; }
 .mobile-agent-tools .roleplay-plan-list textarea:focus { border-color: var(--line-strong); box-shadow: none; }
-.mobile-request-preview .request-preview-body, .mobile-variable-viewer .variable-viewer-body { display: block; flex: 1; min-height: 0; overflow: hidden; }
+.mobile-request-preview .request-preview-body { display: block; flex: 1; min-height: 0; overflow: hidden; }
 .mobile-request-preview .request-preview-catalog { height: 100%; padding: 14px 18px 32px; border: 0; background: var(--rail); scrollbar-width: none; }
 .mobile-request-preview .request-preview-round h3 { margin: 10px 4px; font-size: 12px; font-weight: 400; }
 .mobile-request-preview .request-preview-round button { position: relative; min-height: 76px; padding: 14px 40px 14px 16px; margin-bottom: 8px; border-radius: 14px; background: var(--surface-raised); }
@@ -140,32 +140,6 @@
 .mobile-request-preview .request-preview-content li header small { flex: 0 0 100%; padding-left: 0; font-size: 11px; }
 .mobile-request-preview .request-preview-content pre { max-height: none; overflow: visible; padding: 12px; border: 0; border-radius: 9px; background: var(--rail); font-size: 13px; line-height: 21px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .mobile-request-preview .request-preview-content li > button { min-height: 48px; width: 100%; }
-.mobile-variable-timeline, .mobile-variable-viewer .variable-timeline { height: 100%; min-height: 0; }
-.mobile-variable-viewer .variable-timeline { grid-template-rows: 44px minmax(0, 1fr); border: 0; background: var(--rail); }
-.mobile-variable-viewer .variable-timeline-title { padding: 0 20px; border: 0; }
-.mobile-variable-viewer .variable-timeline-title strong { font-size: 13px; font-weight: 400; color: var(--muted); }
-.mobile-variable-viewer .variable-floor-list { padding: 6px 18px 36px; scrollbar-width: none; }
-.mobile-variable-viewer .variable-floor { grid-template-columns: minmax(0, 1fr) 20px; min-height: 94px; margin-bottom: 10px; padding: 16px; border-radius: 14px; background: var(--surface-raised); }
-.mobile-variable-viewer .variable-floor.active { background: var(--surface-raised); }
-.mobile-variable-viewer .variable-floor-rail { display: none; }
-.mobile-variable-viewer .variable-floor-heading strong { font-size: 15px; font-weight: 500; }
-.mobile-variable-viewer .variable-floor-heading em { margin-left: auto; padding: 0; border: 0; color: var(--muted); font-size: 11px; font-weight: 400; }
-.mobile-variable-viewer .variable-floor-copy small { font-size: 12px; line-height: 20px; }
-.mobile-variable-viewer .variable-snapshot { display: flex; flex-direction: column; height: 100%; background: var(--rail); }
-.mobile-variable-viewer :is(.variable-snapshot-heading, .variable-view-switch) { flex: none; }
-.mobile-variable-viewer .variable-snapshot-heading { grid-template-columns: minmax(0, 1fr); gap: 6px; min-height: 0; padding: 14px 20px 16px; }
-.mobile-variable-viewer .variable-snapshot-heading > span { justify-self: start; text-align: left; }
-.mobile-variable-viewer .variable-snapshot-heading p { white-space: normal; overflow-wrap: anywhere; font-size: 13px; line-height: 20px; }
-.mobile-variable-viewer .variable-snapshot-titleline > button { width: 48px; height: 48px; margin: -12px 0 -12px -12px; }
-.mobile-variable-viewer .variable-view-switch { height: 48px; margin: 0 18px 14px; border-radius: 11px; }
-.mobile-variable-viewer .variable-view-switch button[aria-selected="true"] { border: 0; }
-.mobile-variable-viewer .variable-viewer-tree-scroll { flex: 1; min-height: 0; padding: 0 18px 36px; scrollbar-width: none; outline: none; }
-.mobile-variable-viewer .variable-viewer-tree-row { grid-template-columns: 20px minmax(0, 1fr); gap: 0 8px; min-height: 56px; margin-bottom: 8px; padding: 12px; border-radius: 12px; background: var(--surface-raised); }
-.mobile-variable-viewer .variable-viewer-tree-row.is-container { grid-template-columns: 20px minmax(0, 1fr); }
-.mobile-variable-viewer .variable-viewer-tree-chevron { width: 20px; height: 28px; }
-.mobile-variable-viewer .variable-viewer-tree-value { grid-column: 2; width: 100%; color: var(--muted); padding: 2px 0; font-size: 13px; line-height: 21px; }
-.mobile-variable-viewer .variable-viewer-tree-node.is-changed > .variable-viewer-tree-row.is-scalar .variable-viewer-tree-value { width: 100%; padding: 2px 0; border-radius: 0; background: transparent; color: var(--text); }
-.mobile-variable-viewer .variable-viewer-tree-value::before { content: none !important; }
 .mobile-conversation-overlay[data-sheet-closing]::before { animation: mobile-sheet-scrim-out 140ms linear forwards; }
 .mobile-conversation-overlay[data-sheet-closing] .mobile-conversation-surface { animation: mobile-sheet-out 180ms cubic-bezier(.4, 0, .2, 1) forwards; pointer-events: none; }
 @keyframes mobile-detail-in { from { transform: translateX(14px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }

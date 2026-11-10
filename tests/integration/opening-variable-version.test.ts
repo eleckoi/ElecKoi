@@ -1,5 +1,6 @@
 import { CharacterOpeningRepository } from '../../packages/host/product-data/src/domain/characterOpenings'
 import { runtimeContextsFor } from '../helpers/runtime-contexts.js'
+import { RuntimeContexts } from '../../packages/client/features/dsh-client-roleplay/src/host/runtime-contexts.mjs'
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,6 +10,7 @@ import { CURRENT_SCHEMA_VERSION } from '../../packages/host/product-data/src/sto
 import { afterEach, describe, expect, it } from 'vitest'
 import { SqliteDatabase } from '../helpers/SqliteDatabase'
 import { ConversationRepository } from '../../packages/host/product-data/src/domain/conversations/ConversationRepository'
+import { ConversationStateRepository } from '../../packages/host/product-data/src/domain/conversations/ConversationStateRepository'
 import { CharacterRepository } from '../../packages/host/product-data/src/domain/personas/CharacterRepository'
 import { SettingLibraryRepository } from '../../packages/host/product-data/src/domain/settingLibraries'
 import { VariableConfigRepository } from '../../packages/host/product-data/src/domain/variables/VariableConfigRepository'
@@ -65,7 +67,236 @@ function fixture() {
   return { database, path, directory, variables, libraries, openings, conversations, states }
 }
 
-describe('opening variable version bindings', () => {
+function liveTools(f: ReturnType<typeof fixture>, id: string) {
+  const contexts = new RuntimeContexts(conversationId => f.states.runtimeContext(conversationId, { characterId: 'synthetic-character' }))
+  contexts.prepare(id, { conversationId: id, conversationContext: { history: [] },
+    variableContext: f.states.runtimeContext(id, { characterId: 'synthetic-character' }) } as never, [], '', f.states.viewerStates(id).currentStateJson)
+  const processing = new ElecKoiVariableProcessing({} as never)
+  const tools = new Map<string, { execute(args: unknown, execution: unknown): Promise<any> }>()
+  applyVariableTools({ eleckoiRuntimeContexts: contexts, eleckoiVariableProcessing: processing,
+    tools: { register(definition: any) { tools.set(definition.name, definition); return () => {} } } })
+  return { contexts, processing, tools, call: (name: string, args: unknown, sessionId = id) => tools.get(name)!.execute(args, { agent: { session: { id: sessionId } } }) }
+}
+
+describe('opening variable version associations', () => {
+  it('associates a previously unassociated chat and switches versions without rewriting values, ownership or history', async () => {
+    const f = fixture(), characterId = 'synthetic-character'
+    f.openings.save(characterId, { ...f.openings.get(characterId), openingMessages: [{ id: 'blank-opening', title: '', content: '', variableVersionId: '' }], defaultOpeningMessageId: 'blank-opening' })
+    const id = f.conversations.create({ metadata: { characterId } }).conversation.id
+    expect(f.states.configuration(id).versionId).toBe('')
+    f.states.replaceCurrent(id, '{"played":{"value":35},"runtime":3}')
+    const before = { ...f.states.viewerStates(id), identities: f.states.identities(id) }
+    const history = new ConversationStateRepository(f.database)
+    history.recordTurn(id, id, 1, 'after', { variableStateJson: before.currentStateJson, variableIdentityJson: before.identities, settingLibraryStateJson: '[]' })
+    const savedHistory = history.list(id)
+    expect(f.states.selectVersion(id, 'variant-b', '').versionId).toBe('variant-b')
+    expect((await liveTools(f, id).call('eleckoi_read_variables', { paths: ['/status/energy'] })).variables[0])
+      .toMatchObject({ default: 20, current_present: false })
+    expect(f.states.configuration(id).versionId).toBe('variant-b')
+    f.states.selectVersion(id, 'variant-a', 'variant-b')
+    expect((await liveTools(f, id).call('eleckoi_read_variables', { paths: ['/status/energy'] })).variables[0].default).toBe(2)
+    f.states.selectVersion(id, '', 'variant-a')
+    expect(f.states.viewerStates(id)).toEqual({ initialStateJson: before.initialStateJson, currentStateJson: before.currentStateJson })
+    expect(f.states.identities(id)).toBe(before.identities)
+    expect(history.list(id)).toEqual(savedHistory)
+    expect(f.variables.get(characterId).activeVersionId).toBe('variant-a')
+    f.states.selectVersion(id, 'variant-b', '')
+    f.database.close(); f.database.open()
+    expect(f.states.configuration(id).versionId).toBe('variant-b')
+  }, 20000)
+
+  it('rejects an unavailable or stale selection atomically and restores authored progress when switching back', async () => {
+    const f = fixture(), characterId = 'synthetic-character'
+    const id = f.conversations.create({ metadata: { characterId } }).conversation.id
+    f.states.replaceCurrent(id, '{"status":{"energy":7}}')
+    const state = f.states.viewerStates(id), identities = f.states.identities(id)
+    expect(() => f.states.selectVersion(id, 'missing-version', 'variant-a')).toThrow('不存在')
+    f.states.selectVersion(id, 'variant-b', 'variant-a')
+    expect(() => f.states.selectVersion(id, '', 'variant-a')).toThrow('已改变')
+    expect((await liveTools(f, id).call('eleckoi_read_variables', { paths: ['/status/energy'] })).variables[0])
+      .toMatchObject({ default: 20, current_present: false })
+    f.states.selectVersion(id, 'variant-a', 'variant-b')
+    expect((await liveTools(f, id).call('eleckoi_read_variables', { paths: ['/status/energy'] })).variables[0].current).toBe(7)
+    expect(f.states.viewerStates(id)).toEqual(state)
+    expect(f.states.identities(id)).toBe(identities)
+  }, 20000)
+
+  it('creates a new same-name definition independently and rewinds both values and ownership', async () => {
+    const f = fixture(), characterId = 'synthetic-character'
+    const id = f.conversations.create({ metadata: { characterId } }).conversation.id
+    f.states.replaceCurrent(id, '{"status":{"energy":7,"dynamic":3}}')
+    const original = { ...f.states.viewerStates(id), identityJson: f.states.identities(id) }
+    const history = new ConversationStateRepository(f.database)
+    history.recordTurn(id, id, 1, 'after', { variableStateJson: original.currentStateJson, variableIdentityJson: original.identityJson, settingLibraryStateJson: '[]' })
+    const config = f.variables.get(characterId)
+    f.variables.save(characterId, { ...config, schemaCode: '', variables: [{ ...config.variables[0]!, id: 'new-energy', type: 'object', defaultValue: '{"value":2}' }] })
+    const live = liveTools(f, id)
+    expect((await live.call('eleckoi_read_variables', { paths: ['/status/energy'] })).variables[0])
+      .toMatchObject({ type: 'object', default: { kind: 'object_page', entries: [{ key: 'value', value: 2 }] }, current_present: false, current: null })
+    expect(await live.call('eleckoi_apply_variable_patch', { operations: [{ op: 'insert', path: '/status/energy', value: { value: 9 } }] })).toMatchObject({ status: 'ok' })
+    const candidate = live.contexts.get(id).variables
+    f.states.replaceCurrent(id, JSON.stringify(candidate.state), f.database.db, JSON.stringify(candidate.identities))
+    expect(candidate.identities['/status/energy']!.definitionId).toBe('new-energy')
+    f.database.close(); f.database.open()
+    expect((await liveTools(f, id).call('eleckoi_read_variables', { paths: ['/status/energy'] })).variables[0].current.entries[0].value).toBe(9)
+    const restored = history.read(id, id, 1, 'after')
+    f.states.replaceCurrent(id, restored.variableStateJson, f.database.db, restored.variableIdentityJson)
+    const afterRewind = liveTools(f, id)
+    expect((await afterRewind.call('eleckoi_read_variables', { paths: ['/status/energy'] })).variables[0].current_present).toBe(false)
+    expect((await afterRewind.call('eleckoi_read_variables', { paths: ['/status/dynamic'] })).variables[0].current).toBe(3)
+    expect(f.states.viewerStates(id).currentStateJson).toBe(original.currentStateJson)
+    expect(f.states.identities(id)).toBe(original.identityJson)
+    f.states.replaceAuthored(id, characterId, '{"status":{"energy":{"value":4},"dynamic":3}}')
+    expect(JSON.parse(f.states.identities(id))['/status/energy'].definitionId).toBe('new-energy')
+    expect((await liveTools(f, id).call('eleckoi_read_variables', { paths: ['/status/energy'] })).variables[0].current.entries[0].value).toBe(4)
+  }, 20000)
+  it('distinguishes authored removals from runtime additions without rewriting saved values or history', async () => {
+    const f = fixture(), characterId = 'synthetic-character'
+    const config = f.variables.get(characterId), a = config.versions[0]!, b = config.versions[1]!
+    const coins = { ...a.variables[0]!, id: 'coins', title: 'coins', type: 'string' as const, defaultValue: '' }
+    f.variables.save(characterId, { ...config, ...a, schemaCode: '', variables: [...a.variables, coins] })
+    const id = f.conversations.create({ metadata: { characterId } }).conversation.id
+    const dynamic = Object.fromEntries(Array.from({ length: 1001 }, (_, index) => [`runtime-${index}`, `dynamic-${index}`]))
+    const raw = JSON.stringify({ status: { energy: 7, coins: 'retired-only-needle', ...dynamic }, runtimeRoot: { note: 'retained' } })
+    f.states.replaceCurrent(id, raw)
+    const before = f.states.viewerStates(id), history = new ConversationStateRepository(f.database)
+    history.recordTurn(id, id, 1, 'after', { variableStateJson: before.currentStateJson, variableIdentityJson: f.states.identities(id), settingLibraryStateJson: '[]' })
+    const oldHistory = history.list(id), live = liveTools(f, id)
+    const saved = f.variables.get(characterId)
+    f.variables.save(characterId, { ...saved, variables: saved.variables.filter(item => item.id !== 'coins') })
+
+    const paths = (await live.call('eleckoi_glob_variables', {})).paths
+    expect(paths).not.toContain('/status/coins')
+    expect(paths).toEqual(expect.arrayContaining(['/status/energy', '/status/runtime-0', '/status/runtime-500', '/status/runtime-1000', '/runtimeRoot/note']))
+    expect((await live.call('eleckoi_grep_variables', { pattern: 'retired-only-needle', output_mode: 'content' })).matches).toEqual([])
+    expect(await live.call('eleckoi_read_variables', { paths: ['/status/coins'] })).toMatchObject({ status: 'not_found' })
+    const parent = (await live.call('eleckoi_read_variables', { paths: ['/status'] })).variables[0].current
+    expect(parent.entries.some((item: any) => item.key === 'coins')).toBe(false)
+    expect(parent.entries).toHaveLength(1002)
+    expect(await live.call('eleckoi_apply_variable_patch', { operations: [{ op: 'insert', path: '/status/newRuntime', value: 12 }] })).toMatchObject({ status: 'ok' })
+    expect((await live.call('eleckoi_read_variables', { paths: ['/status/newRuntime'] })).variables[0].current).toBe(12)
+    expect(f.states.viewerStates(id)).toEqual(before)
+    expect(history.list(id)).toEqual(oldHistory)
+    const edited = f.variables.get(characterId)
+    const exported = decodeVariableConfigSnapshot(encodeVariableConfigSnapshot(edited), characterId)
+    expect(exported.versions.map(item => item.id)).toEqual(edited.versions.map(item => item.id))
+    f.database.close(); f.database.open()
+    const reopened = liveTools(f, id)
+    expect((await reopened.call('eleckoi_glob_variables', {})).paths).not.toContain('/status/coins')
+    expect(f.states.viewerStates(id)).toEqual(before)
+    expect(history.list(id)).toEqual(oldHistory)
+    f.variables.save(characterId, { ...edited, ...b, activeVersionId: b.id })
+    expect((await reopened.call('eleckoi_glob_variables', {})).paths).not.toContain('/status/coins')
+    const restore = f.variables.get(characterId)
+    const source = restore.versions.find(item => item.id === a.id)!
+    f.variables.save(characterId, { ...restore, versions: restore.versions.map(item => item.id === a.id ? { ...source, variables: [...source.variables, coins] } : item) })
+    expect((await reopened.call('eleckoi_read_variables', { paths: ['/status/coins'] })).variables[0].current).toBe('retired-only-needle')
+  }, 20000)
+
+  it.each(['delete', 'disable', 'rename', 'delete-group'] as const)('respects author %s inside dynamic dictionaries while retaining runtime keys and escaped paths', async mode => {
+    const f = fixture(), characterId = 'synthetic-character'
+    const config = f.variables.get(characterId), a = config.versions[0]!
+    const members = { ...a.objects[0]!, id: 'members', name: 'members/~', dynamicKey: true }
+    const secret = { ...a.variables[0]!, id: 'secret', title: 'secret/~', objectId: members.id, type: 'string' as const, defaultValue: 'default-secret' }
+    f.variables.save(characterId, { ...config, ...a, schemaCode: '', objects: [...a.objects, members], variables: [...a.variables, secret] })
+    const id = f.conversations.create({ metadata: { characterId } }).conversation.id
+    f.states.replaceCurrent(id, JSON.stringify({ status: { energy: 7 }, 'members/~': {
+      'entry/~': { 'secret/~': 'retired-dynamic-needle', runtime: 9 }, another: { 'secret/~': 'old', runtime: 10 },
+    }, 'secret/~': 'unrelated-runtime-field' }))
+    const before = f.states.viewerStates(id), live = liveTools(f, id), saved = f.variables.get(characterId)
+    f.variables.save(characterId, { ...saved,
+      objects: mode === 'delete-group' ? saved.objects.filter(item => item.id !== members.id) : saved.objects,
+      variables: mode === 'delete' || mode === 'delete-group' ? saved.variables.filter(item => item.id !== secret.id)
+        : saved.variables.map(item => item.id !== secret.id ? item : { ...item, ...(mode === 'disable' ? { enabled: false } : { title: 'renamed' }) }),
+    })
+    const paths = (await live.call('eleckoi_glob_variables', {})).paths
+    expect(paths).not.toContain('/members~1~0/entry~1~0/secret~1~0')
+    expect(paths).toContain('/secret~1~0')
+    expect(paths.includes('/members~1~0/entry~1~0/runtime')).toBe(mode !== 'delete-group')
+    expect(await live.call('eleckoi_read_variables', { paths: ['/members~1~0/entry~1~0/secret~1~0'] })).toMatchObject({ status: 'not_found' })
+    if (mode !== 'delete-group') {
+      const read = await live.call('eleckoi_read_variables', { paths: ['/members~1~0', '/members~1~0/entry~1~0'] })
+      if (mode === 'rename') expect(read.variables[1].current.entries).toContainEqual(expect.objectContaining({ key: 'renamed', value: 'retired-dynamic-needle' }))
+      else expect(JSON.stringify(read)).not.toContain('retired-dynamic-needle')
+      expect(await live.call('eleckoi_apply_variable_patch', { operations: [{ op: 'insert', path: '/members~1~0/new', value: { runtime: 11 } }] }))
+        .toMatchObject({ status: 'ok' })
+      expect((await live.call('eleckoi_glob_variables', {})).paths).toContain('/members~1~0/new/runtime')
+    }
+    expect(f.states.viewerStates(id)).toEqual(before)
+    f.database.close(); f.database.open()
+    const reopened = liveTools(f, id)
+    expect((await reopened.call('eleckoi_glob_variables', {})).paths).not.toContain('/members~1~0/another/secret~1~0')
+  }, 20000)
+
+  it('reads saved defaults and rules immediately without switching the chat to the editor selection or rewriting history', async () => {
+    const f = fixture(), characterId = 'synthetic-character'
+    const initial = f.variables.get(characterId)
+    f.variables.save(characterId, { ...initial, objects: [...initial.objects, { ...initial.objects.find(item => item.id === 'status')!, id: 'members', name: 'members', dynamicKey: true }] })
+    const id = f.conversations.create({ metadata: { characterId } }).conversation.id
+    f.states.replaceCurrent(id, '{"status":{"energy":7},"members":{"one":{"energy":3}}}')
+    const previousStates = f.states.viewerStates(id)
+    const history = new ConversationStateRepository(f.database)
+    history.recordTurn(id, id, 1, 'before', { variableStateJson: previousStates.initialStateJson, settingLibraryStateJson: '[]' })
+    history.recordTurn(id, id, 1, 'after', { variableStateJson: previousStates.currentStateJson, settingLibraryStateJson: '[]' })
+    const previousHistory = history.list(id)
+    const live = liveTools(f, id)
+    live.contexts.inherit(id, 'synthetic-child')
+    const config = f.variables.get(characterId), a = config.versions[0]!, b = config.versions[1]!
+    const edited = { ...a, schemaCode: 'const Schema = z.object({ status: z.object({ energy: z.number().max(20), bonus: z.number().optional() }), members: z.record(z.string(), z.object({ energy: z.number(), note: z.string().optional() })).optional() })',
+      objects: a.objects,
+      variables: [{ ...a.variables[0]!, defaultValue: '4', description: '最新说明', updateRule: '最新规则' },
+        { ...a.variables[0]!, id: 'bonus', title: 'bonus', defaultValue: '5' },
+        { ...a.variables[0]!, id: 'note', objectId: 'members', title: 'note', type: 'string' as const, defaultValue: '动态字段默认值' }] }
+    f.variables.save(characterId, { ...config, ...b, activeVersionId: b.id, versions: [edited, b] })
+    const result = await live.call('eleckoi_read_variables', { paths: ['/status/energy', '/status/bonus'] }, 'synthetic-child')
+    expect(result).toMatchObject({ status: 'ok', variables: [
+      { path: '/status/energy', current: 7, default: 4, description: '最新说明', update_rule: '最新规则' },
+      { path: '/status/bonus', current: null, default: 5, current_present: false },
+    ] })
+    expect((await live.call('eleckoi_glob_variables', {})).paths).toContain('/status/bonus')
+    expect((await live.call('eleckoi_read_variables', { paths: ['/members/one/note'] })).variables[0])
+      .toMatchObject({ default: '动态字段默认值', current: null, current_present: false })
+    expect(live.contexts.get(id).variables.config).toBeNull()
+    expect(f.states.viewerStates(id)).toEqual(previousStates)
+    expect(history.list(id)).toEqual(previousHistory)
+    expect(await live.call('eleckoi_apply_variable_patch', { operations: [{ op: 'replace', path: '/status/energy', value: 21 }] })).toMatchObject({ status: 'validation_error', state_unchanged: true })
+    expect(await live.call('eleckoi_apply_variable_patch', { operations: [{ op: 'insert', path: '/status/bonus', value: 5 }] })).toMatchObject({ status: 'ok' })
+    expect((await live.call('eleckoi_read_variables', { paths: ['/status/bonus'] }, 'synthetic-child')).variables[0].current).toBe(5)
+    expect(f.states.viewerStates(id)).toEqual(previousStates)
+    f.states.replaceCurrent(id, JSON.stringify(live.contexts.get(id).variables.state))
+    f.database.close(); f.database.open()
+    expect((await liveTools(f, id).call('eleckoi_read_variables', { paths: ['/status/energy', '/status/bonus'] })).variables)
+      .toMatchObject([{ current: 7, default: 4 }, { current: 5, default: 5 }])
+    expect(f.states.viewerStates(id).initialStateJson).toBe(previousStates.initialStateJson)
+    expect(history.list(id)).toEqual(previousHistory)
+    f.states.replaceCurrent(id, history.read(id, id, 1, 'before').variableStateJson)
+    expect((await liveTools(f, id).call('eleckoi_read_variables', { paths: ['/status/energy'] })).variables[0])
+      .toMatchObject({ current: 2, default: 4, update_rule: '最新规则' })
+  }, 20_000)
+
+  it('rejects an in-flight patch if its authoritative configuration changes before acceptance', async () => {
+    const f = fixture(), characterId = 'synthetic-character'
+    const id = f.conversations.create({ metadata: { characterId } }).conversation.id
+    const live = liveTools(f, id)
+    let release!: () => void, entered!: () => void
+    const pending = new Promise<void>(resolve => { release = resolve })
+    const started = new Promise<void>(resolve => { entered = resolve })
+    const unregister = live.processing.register({ open: () => ({ close() {}, async apply(stage, state) {
+      if (stage === 'before') { entered(); await pending }
+      return state
+    } }) })
+    try {
+      const mutation = live.call('eleckoi_apply_variable_patch', { operations: [{ op: 'delta', path: '/status/energy', value: 1 }] })
+      await started
+      const config = f.variables.get(characterId)
+      f.variables.save(characterId, { ...config, variables: config.variables.map(item => ({ ...item, updateRule: '已更新的规则' })) })
+      release()
+      expect(await mutation).toMatchObject({ status: 'state_conflict', state_unchanged: true })
+      expect(live.contexts.get(id).variables.state).toEqual({ status: { energy: 2 } })
+      expect(JSON.parse(f.states.viewerStates(id).currentStateJson)).toEqual({ status: { energy: 2 } })
+    } finally { release(); unregister() }
+  }, 20_000)
+
   it('uses edited static defaults in new chats while preserving populated dynamic groups and existing chats', () => {
     const f = fixture(), characterId = 'synthetic-character'
     const base = f.variables.get(characterId)
@@ -133,7 +364,7 @@ describe('opening variable version bindings', () => {
     expect(context().variables[0]?.updateRule).toBe('rule-variant-a')
 
     f.conversations.selectOpening(id, 'opening-b')
-    expect(JSON.parse(context().initialStateJson)).toEqual({ status: { energy: 20 } })
+    expect(JSON.parse(context().defaultStateJson)).toEqual({ status: { energy: 20 } })
     expect(context().schemaCode).toContain('.max(100)')
     expect(context().objects.find((object) => object.id === 'status')?.updateRule).toBe('variant-b')
     expect(context().variables[0]?.updateRule).toBe('rule-variant-b')
@@ -146,7 +377,7 @@ describe('opening variable version bindings', () => {
     process.env.ELECKOI_SESSION_SNAPSHOT_ROOT = snapshotRoot
     const selected = context()
     const variableState = { enabled: true, config: {
-      initialState: JSON.parse(selected.initialStateJson), schemaCode: selected.schemaCode,
+      defaultState: JSON.parse(selected.defaultStateJson), schemaCode: selected.schemaCode,
       objects: selected.objects, variables: selected.variables,
     }, state: JSON.parse(selected.stateJson) }
     const contexts = runtimeContextsFor(id, { variables: variableState })
@@ -166,7 +397,7 @@ describe('opening variable version bindings', () => {
     expect(f.variables.forConversation(id, 'synthetic-character')!.activeVersionId).toBe('variant-b')
   }, 20000)
 
-  it('round-trips bindings and refuses missing versions or deletion of referenced versions atomically', () => {
+  it('keeps chat progress when an associated version is deleted and restores the association by identity', async () => {
     const f = fixture()
     const library = f.libraries.get('synthetic-character')
     const exported = decodeSettingLibrarySnapshot(encodeSettingLibrarySnapshot(library), 'synthetic-character')
@@ -174,12 +405,25 @@ describe('opening variable version bindings', () => {
     expect(exported.entries).toEqual([])
     expect(JSON.parse(JSON.stringify(f.openings.get('synthetic-character'))).openingMessages.map((opening: any) => opening.variableVersionId)).toEqual(['variant-a', 'variant-b'])
     expect(config.versions.map((version) => version.id)).toEqual(['variant-a', 'variant-b'])
-    expect(() => f.variables.save('synthetic-character', { ...config, versions: config.versions.slice(0, 1) })).toThrow('绑定开场白')
-    const openings = f.openings.get('synthetic-character')
-    expect(() => f.openings.save('synthetic-character', { ...openings, openingMessages: openings.openingMessages.map(opening => ({ ...opening, variableVersionId: 'missing-version' })) })).toThrow('变量版本不存在')
     const id = f.conversations.create({ metadata: { characterId: 'synthetic-character' } }).conversation.id
-    expect(() => f.variables.save('synthetic-character', { ...config, ...config.versions[1]!, activeVersionId: 'variant-b', versions: [config.versions[1]!] })).toThrow('聊天使用')
+    f.states.replaceCurrent(id, '{"status":{"energy":7}}')
+    const before = f.states.viewerStates(id)
+    const live = liveTools(f, id)
+    f.variables.save('synthetic-character', { ...config, ...config.versions[1]!, activeVersionId: 'variant-b', versions: [config.versions[1]!] })
+    expect(f.variables.forConversation(id, 'synthetic-character')).toBeNull()
+    expect(f.states.runtimeContext(id, { characterId: 'synthetic-character' })).toMatchObject({ defaultStateJson: '{}', schemaCode: '', variables: [] })
+    expect(f.states.viewerStates(id)).toEqual(before)
+    expect(await live.call('eleckoi_read_variables', { paths: ['/status/energy'] })).toMatchObject({ status: 'not_found' })
+    const missing = f.conversations.create({ metadata: { characterId: 'synthetic-character' } }).conversation.id
+    expect(f.variables.forConversation(missing, 'synthetic-character')).toBeNull()
+    expect(f.states.runtimeContext(missing, { characterId: 'synthetic-character' })).toBeUndefined()
+    expect(f.conversations.openingText(missing)).toBe('合成开场 A')
+    f.database.close(); f.database.open()
+    expect(f.states.viewerStates(id)).toEqual(before)
+    expect(f.variables.forConversation(id, 'synthetic-character')).toBeNull()
+    f.variables.save('synthetic-character', { ...config, ...config.versions[1]!, activeVersionId: 'variant-b' })
     expect(f.variables.forConversation(id, 'synthetic-character')!.activeVersionId).toBe('variant-a')
+    expect(f.states.viewerStates(id)).toEqual(before)
     expect(f.variables.get('synthetic-character').versions).toHaveLength(2)
   }, 20000)
 

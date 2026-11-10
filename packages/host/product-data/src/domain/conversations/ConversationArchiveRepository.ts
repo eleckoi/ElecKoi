@@ -4,6 +4,8 @@ import { legacyConversationStates } from './legacyConversationStates'
 import { validateRuntimeState } from './ConversationStateRepository'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
+import { createVariableIdentities, parseVariableIdentities } from '@shared/foundation/variables/identity'
+import { legacyVariableIdentityConfig, upgradeLegacyOpeningIdentities } from '@product-data/storage/sqlite/migrations/0017VariableIdentity'
 
 type Cell = string | number | null
 type Row = Record<string, Cell>
@@ -17,7 +19,7 @@ type Table = typeof TABLES[number]
 
 export interface ConversationArchiveSnapshot {
   format: 'eleckoi.desktop-conversation'
-  version: 2
+  version: 3
   characterId: string
   conversationId: string
   settingLibraryStateJson: string | null
@@ -56,14 +58,14 @@ export class ConversationArchiveRepository {
         ? this.store.native.prepare(`SELECT p.* FROM agent_branch_turns p JOIN agent_branches b ON b.id=p.branchId WHERE b.conversationId=? ORDER BY p.branchId,p.sequence`).all(conversationId) as Row[]
         : this.store.native.prepare(`SELECT * FROM ${table} WHERE ${key}=?`).all(conversationId) as Row[]
     }
-    return { format: 'eleckoi.desktop-conversation', version: 2,
+    return { format: 'eleckoi.desktop-conversation', version: 3,
       characterId: session.characterId, conversationId, settingLibraryStateJson: this.settings.read(conversationId), tables }
   }
 
   parse(value: unknown): ConversationArchiveSnapshot {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '聊天记录文件格式不正确。', { what: '聊天记录文件' })
     const archive = value as Partial<Omit<ConversationArchiveSnapshot, 'version'>> & { version?: number }
-    if (archive.format !== 'eleckoi.desktop-conversation' || ![1, 2].includes(archive.version!)
+    if (archive.format !== 'eleckoi.desktop-conversation' || ![1, 2, 3].includes(archive.version!)
       || typeof archive.characterId !== 'string' || !archive.characterId
       || typeof archive.conversationId !== 'string' || !archive.conversationId
       || !archive.tables || typeof archive.tables !== 'object') {
@@ -82,6 +84,20 @@ export class ConversationArchiveRepository {
             : previous[table]!
       }
     } else for (const table of TABLES) tables[table] = rows(archive.tables[table])
+    // RETIRE WHEN: v1/v2 conversation imports retire; remove this conversion and
+    // legacyVariableIdentityConfig once its database migration also retires.
+    if (archive.version! < 3) {
+      const variableVersionId = tables.agent_conversations[0]?.variableVersionId
+      const config = legacyVariableIdentityConfig(this.store.native, '', { characterId: archive.characterId,
+        variableVersionId: typeof variableVersionId === 'string' ? variableVersionId : '' })
+      for (const row of tables.chat_session_variable_states) row.identityJson = JSON.stringify(createVariableIdentities(JSON.parse(String(row.stateJson)), config, 'runtime'))
+      for (const row of tables.conversation_state_snapshots) row.variableIdentityJson = JSON.stringify(row.variableStateJson === null ? {} : createVariableIdentities(JSON.parse(String(row.variableStateJson)), config, 'runtime'))
+      for (const row of tables.agent_openings) row.payloadJson = upgradeLegacyOpeningIdentities(this.store.native, archive.characterId, String(row.payloadJson))
+    }
+    for (const row of tables.chat_session_variable_states) {
+      if (typeof row.identityJson !== 'string') throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '聊天归档缺少变量来源。', { what: '变量来源' })
+      parseVariableIdentities(row.identityJson)
+    }
     if (tables.chat_sessions.length !== 1 || tables.chat_sessions[0]?.id !== archive.conversationId
       || tables.chat_sessions[0]?.characterId !== archive.characterId
       || tables.agent_conversations.length !== 1
@@ -109,9 +125,9 @@ export class ConversationArchiveRepository {
       validateRuntimeState(state as { variableStateJson: string | null; settingLibraryStateJson: string | null })
     }
     const settingLibraryStateJson = archive.version === 1 ? null : archive.settingLibraryStateJson
-    if (archive.version === 2 && typeof settingLibraryStateJson !== 'string') throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '聊天归档缺少当前分支设定状态。', { what: '聊天归档的分支设定状态' })
+    if (archive.version! >= 2 && typeof settingLibraryStateJson !== 'string') throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '聊天归档缺少当前分支设定状态。', { what: '聊天归档的分支设定状态' })
     if (settingLibraryStateJson !== null) validateRuntimeState({ variableStateJson: null, settingLibraryStateJson: settingLibraryStateJson! })
-    return { ...archive, version: 2, settingLibraryStateJson, tables } as ConversationArchiveSnapshot
+    return { ...archive, version: 3, settingLibraryStateJson, tables } as ConversationArchiveSnapshot
   }
 
   runtimeThreadIds(snapshot: ConversationArchiveSnapshot): string[] {
@@ -161,11 +177,8 @@ export class ConversationArchiveRepository {
             if (row.variableVersionId === undefined) {
               row.variableVersionId = ''
             }
-            if (typeof row.variableVersionId !== 'string'
-              || (row.variableVersionId && !this.store.native.prepare('SELECT 1 FROM variable_config_versions WHERE characterId=? AND versionId=?')
-                .get(characterId, row.variableVersionId) && !(row.variableVersionId === 'variable-config-default'
-                  && !this.store.native.prepare('SELECT 1 FROM variable_configs WHERE characterId=?').get(characterId)))) {
-              throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, '聊天记录绑定的变量版本不存在，请先恢复对应变量配置。', { what: '聊天记录绑定的变量版本' })
+            if (typeof row.variableVersionId !== 'string') {
+              throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '聊天记录的变量关联格式不正确。', { what: '聊天记录的变量关联' })
             }
           }
           const keys = Object.keys(row)

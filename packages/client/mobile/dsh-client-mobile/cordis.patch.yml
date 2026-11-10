@@ -1,3 +1,7 @@
+# Match Desktop's Standard work-details default.
+- id: ui-chat
+  config:
+    transcriptView: standard
 - insert:
     - id: eleckoi-client-mobile
       name: '@eleckoi/dsh-client-mobile'

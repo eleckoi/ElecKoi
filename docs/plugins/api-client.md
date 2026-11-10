@@ -432,6 +432,22 @@ pageOlder(expectedId: string, expectedBeforeSequence: number): Promise<Conversat
 openTimeline(id: string): Promise<VariableViewerTimeline | null>
 
 /**
+ * 读取当前会话的关联及可用版本，不改变编辑器选中版本。
+ * @param conversationId - 当前聊天编号。
+ * @returns 当前关联与本角色的可用版本目录。
+ */
+readVariableConfiguration(conversationId: string): Promise<ConversationVariableConfiguration>
+
+/**
+ * 显式切换当前会话的关联，保留值和历史，过期选择由 Host 拒绝。
+ * @param conversationId - 当前聊天编号。
+ * @param versionId - 目标版本编号，空字符串取消关联。
+ * @param expectedVersionId - 界面读取的原关联编号。
+ * @returns 已保存的关联与版本目录。
+ */
+selectVariableVersion(conversationId: string, versionId: string, expectedVersionId: string): Promise<ConversationVariableConfiguration>
+
+/**
  * 关闭指定聊天的变量时间线订阅。
  * @param id - 要打开或读取的聊天编号。
  * @returns 操作完成。

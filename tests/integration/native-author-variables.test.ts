@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 // @ts-expect-error The browser test runtime does not publish declarations.
 import { JSDOM } from 'jsdom'
 import { ElecKoiAuthorVariablesApi, ElecKoiVariableProcessing } from '@eleckoi/dsh-product-api'
+import { createVariableIdentities } from '../../packages/shared/src/foundation/variables/identity'
 import productDataPlugin from '@eleckoi/dsh-product-data'
 import { installTavernFrontend } from '@eleckoi/tavern-frontend'
 
@@ -29,7 +30,8 @@ async function runtime(persisted?: { conversationId(): string }) {
   if (persisted) await ctx.plugin(productDataPlugin)
   const conversationId = persisted?.conversationId ?? (() => 'synthetic-chat')
   let current = '{"value":2,"nested":{"kept":true}}', initial = '{"value":1}', schemaCode = ''
-  const save = vi.fn((_id: string, json: string) => { current = json; return json })
+  let identityJson = JSON.stringify(createVariableIdentities(JSON.parse(current), { versionId: '', objects: [], variables: [] }, 'runtime'))
+  const save = vi.fn((_id: string, json: string, identity?: string) => { current = json; identityJson = identity!; return json })
   const listeners = new Set<(event: unknown) => void>()
   const publish = vi.fn(change => {
     if (change.kind === 'messages') for (const listener of listeners) listener(change)
@@ -37,7 +39,7 @@ async function runtime(persisted?: { conversationId(): string }) {
   const data = persisted ? ctx.eleckoiProductData : {
     readAuthorConversationState(id: string) {
       if (id !== 'synthetic-chat') throw new Error('Synthetic conversation not found')
-      return { currentVariableStateJson: current, initialVariableStateJson: initial, variableConfig: schemaCode ? { schemaCode } : null }
+      return { currentVariableStateJson: current, initialVariableStateJson: initial, variableIdentityJson: identityJson, variableConfig: schemaCode ? { schemaCode } : null }
     },
     replaceConversationVariableState: save,
   }
@@ -112,7 +114,11 @@ async function runtime(persisted?: { conversationId(): string }) {
   })
   return { ctx, client, bindings, call, processor, api, invoke, save, publish, close, window: page.window,
     get state() { return JSON.parse(current) },
-    set current(value: string) { current = value },
+    set current(value: string) {
+      current = value
+      try { identityJson = JSON.stringify(createVariableIdentities(JSON.parse(value), { versionId: '', objects: [], variables: [] }, 'runtime')) }
+      catch { identityJson = '{}' }
+    },
     set initial(value: string) { initial = value },
     set schema(value: string) { schemaCode = value },
   }

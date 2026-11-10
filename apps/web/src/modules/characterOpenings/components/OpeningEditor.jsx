@@ -63,12 +63,12 @@ export const OpeningEditor = forwardRef(function OpeningEditor({ entry, query = 
               <input value={message.title} placeholder={tUi("未命名开场白")} onChange={(event) => onChange(updateOpening(entry, message.id, { title: event.target.value }))} />
             </label>
             <label>
-              <span>{tUi("绑定变量版本")}</span>
+              <span>{tUi("关联变量版本")}</span>
               <select value={message.variableVersionId || ''}
                 onChange={(event) => onChange(updateOpening(entry, message.id, {
                   variableVersionId: event.target.value,
                 }))}>
-                <option value="">{tUi("不绑定变量")}</option>
+                <option value="">{tUi("不关联变量")}</option>
                 {message.variableVersionId && !variableVersions.some((version) => version.id === message.variableVersionId)
                   ? <option value={message.variableVersionId} disabled>{tUi("版本不存在")}</option> : null}
                 {variableVersions.map((version) => <option key={version.id} value={version.id}>{version.name || tUi("未命名版本")}</option>)}

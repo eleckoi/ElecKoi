@@ -25,6 +25,7 @@ export function MobileConversationOverlay({
   busy = false,
   footer,
   children,
+  headerAction,
 }) {
   const tUi = useProductTranslation();
   const view = useContext(MainPageContext);
@@ -116,9 +117,9 @@ export function MobileConversationOverlay({
             <h2>{title}</h2>
             {subtitle && <p>{subtitle}</p>}
           </div>
-          <button type="button" aria-label={tUi("关闭")} disabled={busy || closing} onClick={requestClose}>
+          {headerAction !== undefined ? headerAction : <button type="button" aria-label={tUi("关闭")} disabled={busy || closing} onClick={requestClose}>
             <X size={24} />
-          </button>
+          </button>}
         </header>
         {typeof children === 'function' ? children({ dismiss: requestClose }) : children}
         {footer && (

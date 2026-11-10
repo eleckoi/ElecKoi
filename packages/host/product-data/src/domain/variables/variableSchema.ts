@@ -4,6 +4,8 @@ import lodash from 'lodash'
 import { z } from 'zod'
 import { ELECKOI_FAILURE_CODES, type EleckoiFailureCode } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
+export { variableDefaultValue } from '@shared/foundation/variables/initialState'
+export { createVariableIdentities, parseVariableIdentities, projectVariableState, reconcileVariableState, replaceVariableIdentities } from '@shared/foundation/variables/identity'
 
 export interface VariableSchemaRuntime {
   schema: z.ZodType

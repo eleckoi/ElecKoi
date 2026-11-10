@@ -1,3 +1,5 @@
+/* Keep the native menu material over the same base as its sticky group masks. */
+[data-menu-material]:has(.model-provider-label) { background: var(--dsw-alias-bg-base); }
 .model-provider-label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; vertical-align: middle; }
 .model-provider-label > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .model-provider-label .model-provider-identity { width: 16px; height: 16px; object-fit: contain; flex: none; }

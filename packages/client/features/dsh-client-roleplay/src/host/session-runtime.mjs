@@ -285,12 +285,13 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       ctx.eleckoiConversationLifecycle.track(snapshot.conversationId, snapshot.operationId, async () => {
         try {
           // 下一次准备先等待本次收尾，内存状态仍属于当前轮次。
-          const variableState = snapshot.variablesEnabled && event.data.reason.kind === 'completed'
+          const variableState = event.data.reason.kind === 'completed' && ctx.eleckoiRuntimeContexts.readVariables(session.id).enabled
             ? JSON.stringify(runtimeContext.variables.state) : undefined
           if (!await ctx.sessions.flush(session)) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, 'DSH Session 没有持久保存服务。', { what: 'DSH Session 持久保存服务' })
           if (event.data.reason.kind === 'completed') {
             ctx.eleckoiProductData.completeConversationRuntime(snapshot.conversationId, session.id, turn,
-              variableState, runtimeContext.generationVariableStateJson)
+              variableState, runtimeContext.generationVariableStateJson,
+              variableState === undefined ? undefined : JSON.stringify(runtimeContext.variables.identities), runtimeContext.generationVariableIdentityJson)
           } else if (event.data.reason.kind !== 'aborted') {
             // LLM 的 `LlmFailure` 不是产品失败：折成兜底码 `eleckoi/internal`（与
             // packages/host/product-api/src/client/invalidResponse.ts 的 INTERNAL_FAILURE_CODE 同一个值），

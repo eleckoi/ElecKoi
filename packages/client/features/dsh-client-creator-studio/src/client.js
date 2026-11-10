@@ -109,7 +109,7 @@ window.__ModuleLoader__.load({
           return active
         } catch (error) {
           if (reference !== this.reference) reference?.release()
-          if (generation === this.generation) this.publish({ status: 'error', error: String(error?.message || error) })
+          if (generation === this.generation) this.publish({ status: 'error', error })
           throw error
         }
       }
@@ -321,7 +321,7 @@ window.__ModuleLoader__.load({
           if (!this.disposed && generation === this.generation) {
             this.publish({
               status: 'error', collection: this.snapshot.collection,
-              error: typeof error?.message === 'string' && error.message.trim() ? error.message : String(error)
+              error
             })
           }
           throw error

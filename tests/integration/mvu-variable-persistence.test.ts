@@ -91,7 +91,7 @@ describe('MVU imported state persistence', () => {
     mkdirSync(snapshotRoot)
     process.env.ELECKOI_SESSION_SNAPSHOT_ROOT = snapshotRoot
     const variableState = { enabled: true, config: {
-      initialState: JSON.parse(context.initialStateJson), schemaCode: context.schemaCode,
+      defaultState: JSON.parse(context.defaultStateJson), schemaCode: context.schemaCode,
       objects: context.objects, variables: context.variables,
     }, state: JSON.parse(context.stateJson) }
     const contexts = runtimeContextsFor(conversationId, { variables: variableState })

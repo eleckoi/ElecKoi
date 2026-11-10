@@ -68,6 +68,18 @@ describe('foldFailure：上游 6 个 legacy 码的防御映射', () => {
 })
 
 describe('foldFailure：认不出的码不猜', () => {
+  it.each(['remote', 'product'])('保留 %s 未知码的上游详情，跨序列化边界不再丢失', (kind) => {
+    const originalDetails = { endpoint: 'creatorStudio.open', context: { service: 'synthetic-studio', available: false } }
+    const original = kind === 'remote'
+      ? remoteErrorOf('gateway/service-unavailable', 'active Service "synthetic-studio" is unavailable', originalDetails)
+      : desktopErrorOf('future/unavailable', 'Synthetic service unavailable', originalDetails)
+    const failure = foldFailure(JSON.parse(JSON.stringify(original)))
+    expect(failure.code).toBe(ELECKOI_FAILURE_CODES.internal)
+    expect(failure.message).toBe((original as { message: string }).message)
+    expect(failure.details).toEqual({ what: (original as { code: string }).code, upstreamDetails: originalDetails })
+    expect(foldFailure(remoteErrorOf(failure.code, failure.message, failure.details))).toEqual(failure)
+  })
+
   it('形状对、码不在两张表里 → 兜底 + 原码进 what', () => {
     const failure = foldFailure(desktopErrorOf('eleckoi/unknown/whatever', '谁知道'))
     expect(failure.code).toBe(ELECKOI_FAILURE_CODES.internal)

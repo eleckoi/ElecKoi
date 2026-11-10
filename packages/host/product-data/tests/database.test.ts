@@ -184,7 +184,10 @@ function productRecords(database: Database.Database) {
   return Object.fromEntries(tables.map(({ name }) => [name,
     (database.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all() as Record<string, unknown>[])
       .filter(row => name !== 'character_text_contents' || row.kind !== 'opening')
+      // Compare the pre-upgrade product values; v17 provenance has separate
+      // preservation, ownership and rollback assertions in its migration suite.
       .map((row) => Object.fromEntries(Object.entries(name === 'agent_preset_state' ? { singletonId: 1, activePresetId: row.activePresetId } : row)
+        .filter(([key]) => key !== 'identityJson' && key !== 'variableIdentityJson')
         .filter(([key]) => (name !== 'characters' || key !== 'showOpening') && (name !== 'chat_sessions' || key !== 'historyUserMessageCount')
           && (name !== 'agent_conversations' || key !== 'variableVersionId')
           && (name !== 'agent_responses' || !['variableStateJson', 'storedRegexRulesJson'].includes(key))

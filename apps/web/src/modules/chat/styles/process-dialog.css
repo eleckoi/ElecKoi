@@ -6,7 +6,8 @@
 .roleplay-process-backdrop::before { content: ''; position: absolute; inset: 0; background: #00000029; }
 [data-ds-dark-theme] .roleplay-process-backdrop::before { background: #00000057; }
 .roleplay-process-dialog, .roleplay-process-inspector {
-  --dsw-menu-surface-fill: color-mix(in srgb, var(--dsw-alias-bg-layer-1) 92%, transparent);
+  /* Native process rows and pinned reasoning headers share the conversation base. */
+  --dsw-menu-surface-fill: var(--dsw-alias-bg-base);
   position: relative; display: flex; flex-direction: column; min-height: 0;
   border: .5px solid var(--dsw-alias-border-l4); border-radius: 16px; outline: none;
   box-shadow: 0 32px 80px #0000001c, 0 8px 24px #0000000d, 0 1px 3px #0000000a;

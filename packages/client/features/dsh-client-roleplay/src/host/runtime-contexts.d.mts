@@ -11,6 +11,7 @@ export interface RuntimeContext {
   conversationContext: Partial<Preparation['conversationContext']> & { currentUserInput?: string }
   settingLibraryBaseline?: Preparation['settingLibraryBaseline']
   generationVariableStateJson?: string
+  generationVariableIdentityJson?: string
   settings: {
     enabled: boolean
     library: Preparation['conversationContext']['settingLibrary'] | null
@@ -22,18 +23,22 @@ export interface RuntimeContext {
   variables: {
     enabled: boolean
     config: {
-      initialState: Record<string, unknown>
+      versionId: string
+      defaultState: Record<string, unknown>
       schemaCode: string
       objects: VariableContext['objects']
       variables: VariableContext['variables']
     } | null
     state: Record<string, any>
+    identities: Record<string, { id: string; parentId: string; origin: 'definition' | 'runtime' | 'unresolved'; kind: 'object' | 'variable' | 'entry' | 'value'; definitionId: string; versionId: string }>
   }
 }
 
 /** Current-turn state owned and released by the roleplay Host plugin. */
 export class RuntimeContexts {
+  constructor(readVariableConfiguration?: (conversationId: string) => Preparation['variableContext'])
   get(sessionId: string): RuntimeContext
+  readVariables(sessionId: string): RuntimeContext['variables']
   has(sessionId: string): boolean
   set(sessionId: string, state: RuntimeContext): void
   prepare(sessionId: string, runtime: Preparation, history: Preparation['conversationContext']['history'],

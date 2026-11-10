@@ -54,6 +54,7 @@ export function resolveFailure(failure, options = {}) {
   const channel = upgradeChannel(defaultChannelOf(folded.code), options.upgradeTo);
   return {
     text: userText(failure, folded, fallbackText(options.fallback)),
+    message: folded.message,
     code: folded.code,
     details: folded.details,
     diagnostic: `${RENDERER_FAILURE_LOG_MARKER} ${describeFailure(folded)}`,

@@ -1,5 +1,6 @@
 import { localizeUiCopy } from "../app/i18n/productCopy.js";
 import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
+import { FailureReportContext } from '../ui/ui/FailureReportContext.js';
 import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { StarFour } from '@phosphor-icons/react';
 import { MainPageContext } from '../app/windows/MainPageContext.jsx';
@@ -241,7 +242,7 @@ export function MobileWindow(props) {
     onOpenProfile={() => openSettings('profile')}
     onOpenSettings={() => openSettings('home')}
     onCollapse={navigation.closeSidebar} />;
-  return <MainPageContext.Provider value={view}>
+  return <FailureReportContext.Provider value={reportProblem.available ? reportProblem.openReport : null}><MainPageContext.Provider value={view}>
     <main ref={drawerSurface} className="main-window-shell mobile-shell" data-mobile-route={effectiveRoute.kind} data-mobile-panel={selectedPanel} data-mobile-rightbar={rightbarState.shown} data-drawer-present={drawerPresent} data-drawer-moving={drawerMoving}>
       <div className="mobile-front-surface">
       <div className="mobile-front-shadow" aria-hidden="true" />
@@ -297,5 +298,5 @@ export function MobileWindow(props) {
         onSaveGlobal={appearance.saveGlobalChatWallpaper} onSaveNewCharacterBackground={appearance.saveNewCharacterBackground} onNotify={chat.notify} />
       {failure && <MobileDialog title={tUi("打开失败")} onClose={() => setFailure(null)}><FailureAlert failure={failure} /></MobileDialog>}
     </main>
-  </MainPageContext.Provider>;
+  </MainPageContext.Provider></FailureReportContext.Provider>;
 }

@@ -14,6 +14,7 @@ import { CommunityDialog } from "./shell/components/CommunityDialog.jsx";
 import { BugReportDialog } from "./shell/components/BugReportDialog.jsx";
 import { bugReportBridge, isBugReportAvailable } from "./shell/components/bugReportBridge.js";
 import { useReportProblem } from "./shell/hooks/useReportProblem.js";
+import { FailureReportContext } from '../../ui/ui/FailureReportContext.js';
 import { PluginCenterSurface, PluginListPanel } from "./shell/components/PluginCenter.jsx";
 import { SidePanelResizeHandle } from "./shell/components/SidePanelResizeHandle.jsx";
 import { TitleBar, WindowControls } from "./shell/components/TitleBar.jsx";
@@ -262,6 +263,7 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
     });
   }
   return (
+    <FailureReportContext.Provider value={reportProblem.available ? reportProblem.openReport : null}>
     <main
       ref={sidePanelLayout.shellRef}
       className={`qq-shell main-window-shell section-${isPluginPanel ? "plugin" : chat.activeSection}${nativeConversation ? " has-native-workspace-sidebar" : ""}${showChatWallpaper ? " has-chat-wallpaper" : ""}${(nativeConversation ? !sidebar.shown : sidePanelLayout.sidePanelCollapsed || isPluginPanel) ? " side-panel-collapsed" : ""}`}
@@ -358,5 +360,6 @@ export function MainWindow({ conversations, characters, characterConfiguration, 
       />
       <AppUpdateController updates={appUpdates} />
     </main>
+    </FailureReportContext.Provider>
   );
 }

@@ -105,6 +105,8 @@
           "importArchive",
           "revealFile",
           "selectModel",
+          "readVariableConfiguration",
+          "selectVariableVersion",
           "selectOpening",
           "updateOpening",
           "rememberSession",

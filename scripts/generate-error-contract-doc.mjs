@@ -69,7 +69,8 @@ const PARAM_DESCRIPTIONS = {
   what: '涉及的**东西**（会被拼进用户句，如「角色」「预设分组」）；多数码写名词短语，'
     + '`eleckoi/state/precondition` 例外、写用户该先做的**动作**；不是 id。',
   expected: '当前版本或支持范围要求的形态（如 `schema v3`）。',
-  actual: '实际观察到的形态。'
+  actual: '实际观察到的形态。',
+  upstreamDetails: '未知上游失败携带的原始 JSON 详情，随兜底码保留供显示、复制与报告。'
 }
 
 const isFile = (path) => existsSync(path) && statSync(path).isFile()

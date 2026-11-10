@@ -20,7 +20,7 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
   const read = () => {
     const snapshot = readSessionSnapshot(snapshotRoot, sourceSessionId)
     const conversationContext = runtimeContexts.get(sourceSessionId).conversationContext
-    return { ...snapshot, conversationContext }
+    return { ...snapshot, conversationContext, variablesEnabled: runtimeContexts.readVariables(sourceSessionId).enabled }
   }
   // Contribute before the official loop records system/message, so trajectory
   // and dispatch share the same prompt and changes use native prompt versioning.

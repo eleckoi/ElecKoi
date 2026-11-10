@@ -59,7 +59,7 @@ export class ConversationRepository {
       database.insert(agentConversations).values({ id, activeBranchId: branchId, runtimeThreadId: id, variableVersionId }).run()
       database.insert(agentBranches).values({ id: branchId, conversationId: id }).run()
       database.insert(chatSessionCharacterSnapshots).values({ sessionId: id, personaJson: JSON.stringify(metadata.characterPersona) }).run()
-      seedConversationVariableStates(id, variableStateJson, database)
+      seedConversationVariableStates(id, variableStateJson, database, seed.initialVariableIdentityJson)
       if (seed.openingText) this.insertOpening(database, {
         conversationId: id,
         branchId,
@@ -269,17 +269,11 @@ export class ConversationRepository {
       const option = payload.options?.find((candidate) => candidate.id === openingId)
       if (!option) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, '找不到这条开场白。', { what: '开场白' })
       const versionId = option.variableVersionId || ''
-      const characterId = this.getCharacterBinding(conversationId, database).characterId
-      if (characterId && versionId && !this.store.native.prepare('SELECT 1 FROM variable_config_versions WHERE characterId=? AND versionId=?')
-        .get(characterId, versionId) && !(versionId === 'variable-config-default'
-          && !this.store.native.prepare('SELECT 1 FROM variable_configs WHERE characterId=?').get(characterId))) {
-        throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, '开场白绑定的变量版本不存在。', { what: '变量版本' })
-      }
       database.update(agentConversations).set({ variableVersionId: versionId })
         .where(eq(agentConversations.id, conversationId)).run()
       this.writeOpeningText(conversationId, row.ownerId, option.content, JSON.stringify({ options: payload.options, selectedId: option.id }))
       const stateJson = option.initialVariableStateJson || '{}'
-      seedConversationVariableStates(conversationId, stateJson, database)
+      seedConversationVariableStates(conversationId, stateJson, database, option.initialVariableIdentityJson)
       const now = new Date().toISOString()
       database.update(agentTurns).set({ variableStateJson: stateJson }).where(eq(agentTurns.id, row.ownerId)).run()
       database.update(chatSessions).set({ updatedAt: now }).where(eq(chatSessions.id, conversationId)).run()

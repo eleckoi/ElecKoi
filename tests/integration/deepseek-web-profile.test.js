@@ -18,6 +18,172 @@ import { ELECKOI_INSTALL_ANCHOR as ANDROID_INSTALL_ANCHOR } from '../../apps/and
 const cleanups = []
 afterEach(async () => { vi.unstubAllGlobals(); for (const stop of cleanups.splice(0).reverse()) await stop() }, 30000)
 
+it.each(['desktop', 'android'])('%s keeps associated variable configuration live and continues chatting after it is removed', async platform => {
+  const root = mkdtempSync(join(tmpdir(), 'eleckoi-live-variable-profile-'))
+  cleanups.push(() => rm(root, { recursive: true, force: true, maxRetries: 3 }))
+  let f = await start(platform, root), ctx = f.ctx, holdReply
+  class Adapter extends LlmAdapter {
+    async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 1000000 }, defaultMaxTokens: 8192 } }
+    async listModels(provider) { return [await this.resolveModel(provider, 'synthetic-variable-model')] }
+    async *stream() {
+      if (holdReply) await holdReply
+      yield { type: 'block-start', index: 0, blockType: 'text' }
+      yield { type: 'text-delta', index: 0, text: 'Synthetic continued reply' }
+      yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Synthetic continued reply' } }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    }
+  }
+  const install = () => ctx.llm.registerAdapter(['synthetic-variable-profile'], new Adapter())
+  install()
+  await ctx.agentDefaultModel.saveSelection({ provider: 'synthetic-variable-profile', model: 'synthetic-variable-model' })
+  const data = ctx.eleckoiProductData
+  const character = data.createCharacter({ id: 'synthetic-variable-character', name: '合成变量角色' }).items[0]
+  const blank = data.readVariableConfig(character.id)
+  const variable = { id: 'score', title: 'score', objectId: '', enabled: true, type: 'number', defaultValue: '2',
+    description: '原说明', updateRule: '原规则', readMode: 'required', order: 1, treeViewOrder: 1, createdAt: '', updatedAt: '' }
+  const a = { ...blank.versions[0], id: 'synthetic-a', name: '合成 A', variables: [variable], schemaCode: 'const Schema = z.object({ score: z.number().max(10) })' }
+  const b = { ...a, id: 'synthetic-b', name: '合成 B', variables: [{ ...variable, defaultValue: '100' }], schemaCode: 'const Schema = z.object({ score: z.number().max(200) })' }
+  data.saveVariableConfig(character.id, { ...blank, ...a, activeVersionId: a.id, versions: [a, b] })
+  const openings = data.readCharacterOpenings(character.id)
+  data.saveCharacterOpenings(character.id, { ...openings, openingMessages: openings.openingMessages.map(item => ({ ...item, content: '合成变量开场', variableVersionId: a.id })) })
+  const chat = await ctx.eleckoiConversationsApi.create({ metadata: { characterId: character.id } })
+  let sessionId = await ctx.eleckoiRoleplaySessions.preparePrompt(chat.conversation.id, '合成第一次输入')
+  let agent = (await ctx.sessionController.resolveAgent(sessionId)).agent
+  const call = async (name, args) => {
+    const result = await executeToolCall(agent.ctx.tools, { callId: `synthetic-live-${name}`, name, arguments: args,
+      agent, signal: new AbortController().signal })
+    expect(result.isError, JSON.stringify(result)).not.toBe(true)
+    return JSON.parse(result.content.filter(block => block.type === 'text').map(block => block.text).join(''))
+  }
+  const config = data.readVariableConfig(character.id)
+  data.saveVariableConfig(character.id, { ...config, ...b, activeVersionId: b.id, versions: [
+    { ...a, variables: [{ ...variable, defaultValue: '4', description: '新说明', updateRule: '新规则' }] }, b,
+  ] })
+  expect((await call('eleckoi_read_variables', { paths: ['/score'] })).variables[0])
+    .toMatchObject({ default: 4, current: 2, description: '新说明', update_rule: '新规则' })
+  expect(await call('eleckoi_apply_variable_patch', { operations: [{ op: 'delta', path: '/score', value: 1 }] })).toMatchObject({ status: 'ok' })
+  const send = async text => {
+    agent.followup(createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } }))
+    await agent.whenIdle()
+    expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
+    await ctx.eleckoiConversationLifecycle.drain(chat.conversation.id)
+  }
+  await send('合成第一次输入')
+  expect(JSON.parse(data.readAuthorConversationState(chat.conversation.id).currentVariableStateJson)).toEqual({ score: 3 })
+  let releaseReply
+  holdReply = new Promise(resolve => { releaseReply = resolve })
+  sessionId = await ctx.eleckoiRoleplaySessions.preparePrompt(chat.conversation.id, '合成生成中输入')
+  agent = (await ctx.sessionController.resolveAgent(sessionId)).agent
+  const activeReply = send('合成生成中输入')
+  try {
+    await expect(ctx.eleckoiConversationsApi.selectVariableVersion(chat.conversation.id, b.id, a.id)).rejects.toThrow('等待当前回复结束')
+    expect(ctx.eleckoiConversationsApi.variableConfiguration(chat.conversation.id).versionId).toBe(a.id)
+  } finally { releaseReply(); await activeReply; holdReply = undefined }
+  const lateOpenings = data.readCharacterOpenings(character.id)
+  data.saveCharacterOpenings(character.id, { ...lateOpenings, openingMessages: lateOpenings.openingMessages.map(item => ({ ...item, content: '', variableVersionId: '' })) })
+  const lateChat = await ctx.eleckoiConversationsApi.create({ metadata: { characterId: character.id } })
+  expect(ctx.eleckoiConversationsApi.variableConfiguration(lateChat.conversation.id).versionId).toBe('')
+  await ctx.eleckoiConversationsApi.selectVariableVersion(lateChat.conversation.id, b.id, '')
+  expect(data.readConversationVariableContext(lateChat.conversation.id).versionId).toBe(b.id)
+  expect(JSON.parse(data.readAuthorConversationState(lateChat.conversation.id).currentVariableStateJson)).toEqual({})
+  const preserved = data.readAuthorConversationState(chat.conversation.id)
+  expect(ctx.eleckoiConversationsApi.variableConfiguration(chat.conversation.id).versionId).toBe(a.id)
+  await ctx.eleckoiConversationsApi.selectVariableVersion(chat.conversation.id, b.id, a.id)
+  expect(data.readAuthorConversationState(chat.conversation.id).variableConfig.activeVersionId).toBe(b.id)
+  await expect(ctx.eleckoiConversationsApi.selectVariableVersion(chat.conversation.id, '', a.id)).rejects.toThrow('已改变')
+  await ctx.eleckoiConversationsApi.selectVariableVersion(chat.conversation.id, '', b.id)
+  expect(data.readAuthorConversationState(chat.conversation.id).variableConfig).toBeNull()
+  await ctx.eleckoiConversationsApi.selectVariableVersion(chat.conversation.id, a.id, '')
+  expect(data.readAuthorConversationState(chat.conversation.id).currentVariableStateJson).toBe(preserved.currentVariableStateJson)
+  expect(data.readAuthorConversationState(chat.conversation.id).variableIdentityJson).toBe(preserved.variableIdentityJson)
+  const history = data.captureRuntimeHistory(chat.conversation.id)
+  const initial = data.readAuthorConversationState(chat.conversation.id).initialVariableStateJson
+  const current = data.readVariableConfig(character.id)
+  data.saveVariableConfig(character.id, { ...current, versions: [current.versions.find(item => item.id === b.id)] })
+  sessionId = await ctx.eleckoiRoleplaySessions.preparePrompt(chat.conversation.id, '合成缺失关联输入')
+  agent = (await ctx.sessionController.resolveAgent(sessionId)).agent
+  expect(await call('eleckoi_read_variables', { paths: ['/score'] })).toMatchObject({ status: 'not_found' })
+  await send('合成缺失关联输入')
+  expect(data.readAuthorConversationState(chat.conversation.id).variableConfig).toBeNull()
+  expect(data.captureRuntimeHistory(chat.conversation.id)).toEqual(expect.arrayContaining(history))
+  await f.close()
+  f = await start(platform, root); ctx = f.ctx; install()
+  expect(ctx.eleckoiConversationsApi.variableConfiguration(lateChat.conversation.id).versionId).toBe(b.id)
+  sessionId = await ctx.eleckoiRoleplaySessions.preparePrompt(chat.conversation.id, '合成重开输入')
+  agent = (await ctx.sessionController.resolveAgent(sessionId)).agent
+  await send('合成重开输入')
+  expect(JSON.parse(ctx.eleckoiProductData.readAuthorConversationState(chat.conversation.id).currentVariableStateJson)).toEqual({ score: 3 })
+  expect(ctx.eleckoiProductData.readAuthorConversationState(chat.conversation.id).initialVariableStateJson).toBe(initial)
+}, 120000)
+
+it.each(['desktop', 'android'])('%s keeps authored removals out of actual model tool results while committing runtime additions', async platform => {
+  const root = mkdtempSync(join(tmpdir(), 'eleckoi-variable-removal-profile-'))
+  cleanups.push(() => rm(root, { recursive: true, force: true, maxRetries: 3 }))
+  let f = await start(platform, root), ctx = f.ctx, step = 0
+  class Adapter extends LlmAdapter {
+    async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 1000000 }, defaultMaxTokens: 8192 } }
+    async listModels(provider) { return [await this.resolveModel(provider, 'synthetic-removal-model')] }
+    async *stream(options) {
+      const calls = [
+        ['eleckoi_glob_variables', {}],
+        ['eleckoi_read_variables', { paths: ['/status'] }],
+        ['eleckoi_apply_variable_patch', { operations: [{ op: 'insert', path: '/status/newRuntime', value: 12 }] }],
+      ]
+      const current = step++
+      if (current > 0 && current <= calls.length) {
+        const result = options.messages.findLast(item => item.role === 'tool')
+        const value = JSON.parse(result.content.filter(item => item.type === 'text').map(item => item.text).join(''))
+        expect(JSON.stringify(value)).not.toContain('retired-profile-needle')
+        if (current === 1) {
+          expect(value.paths).not.toContain('/status/coins')
+          expect(value.paths).toContain('/status/runtime')
+        } else if (current === 2) {
+          expect(value.variables[0].current.entries.map(item => item.key)).toEqual(['runtime'])
+        } else expect(value.status).toBe('ok')
+      }
+      if (current < calls.length) {
+        const [name, args] = calls[current], id = `synthetic-removal-${current}`
+        yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+        yield { type: 'tool-call-delta', index: 0, id, name, argumentsDelta: JSON.stringify(args) }
+        yield { type: 'block-end', index: 0, block: { type: 'tool-call', id, name, arguments: JSON.stringify(args) } }
+        yield { type: 'finish', reason: { kind: 'tool-calls' } }
+      } else {
+        yield { type: 'block-start', index: 0, blockType: 'text' }
+        yield { type: 'text-delta', index: 0, text: 'Synthetic updated reply' }
+        yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Synthetic updated reply' } }
+        yield { type: 'finish', reason: { kind: 'stop' } }
+      }
+    }
+  }
+  const install = () => ctx.llm.registerAdapter(['synthetic-removal-profile'], new Adapter())
+  install()
+  await ctx.agentDefaultModel.saveSelection({ provider: 'synthetic-removal-profile', model: 'synthetic-removal-model' })
+  const character = ctx.eleckoiProductData.createCharacter({ id: 'synthetic-removal-character', name: '合成变量角色' }).items[0]
+  const data = ctx.eleckoiProductData, blank = data.readVariableConfig(character.id)
+  const group = { id: 'status', name: 'status', parentId: '', enabled: true, dynamicKey: false, description: '', updateRule: '', order: 1, treeViewOrder: 1, createdAt: '', updatedAt: '' }
+  const coins = { id: 'coins', title: 'coins', objectId: 'status', enabled: true, type: 'string', defaultValue: '', description: '', updateRule: '', readMode: 'on_demand', order: 1, treeViewOrder: 1, createdAt: '', updatedAt: '' }
+  data.saveVariableConfig(character.id, { ...blank, objects: [group], variables: [coins] })
+  const openings = data.readCharacterOpenings(character.id)
+  data.saveCharacterOpenings(character.id, { ...openings, openingMessages: openings.openingMessages.map(item => ({ ...item, content: '合成变量开场', variableVersionId: blank.activeVersionId })) })
+  const chat = await ctx.eleckoiConversationsApi.create({ metadata: { characterId: character.id } })
+  const original = { status: { coins: 'retired-profile-needle', runtime: 9 } }
+  data.replaceConversationVariableState(chat.conversation.id, JSON.stringify(original))
+  const sessionId = await ctx.eleckoiRoleplaySessions.preparePrompt(chat.conversation.id, '合成变量修改输入')
+  const config = data.readVariableConfig(character.id)
+  data.saveVariableConfig(character.id, { ...config, variables: [] })
+  const agent = (await ctx.sessionController.resolveAgent(sessionId)).agent
+  agent.followup(createUserMessage({ content: [{ type: 'text', text: '合成变量修改输入' }], source: { kind: 'user' } }))
+  await agent.whenIdle(); await ctx.eleckoiConversationLifecycle.drain(chat.conversation.id)
+  expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
+  expect(step).toBe(4)
+  expect(JSON.parse(data.readAuthorConversationState(chat.conversation.id).currentVariableStateJson)).toEqual({ status: { ...original.status, newRuntime: 12 } })
+  await f.close(); f = await start(platform, root); ctx = f.ctx; install()
+  const reopenedId = await ctx.eleckoiRoleplaySessions.preparePrompt(chat.conversation.id, '合成重开输入')
+  const reopened = (await ctx.sessionController.resolveAgent(reopenedId)).agent
+  const result = await executeToolCall(reopened.ctx.tools, { callId: 'synthetic-removal-reopened', name: 'eleckoi_glob_variables', arguments: {}, agent: reopened, signal: new AbortController().signal })
+  expect(JSON.parse(result.content.filter(item => item.type === 'text').map(item => item.text).join('')).paths).toEqual(['/status', '/status/newRuntime', '/status/runtime'])
+}, 120000)
+
 it('deletes workspace Session trees, durable membership and results, and keeps unrelated files across restart', async () => {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-workspace-delete-'))
   cleanups.push(() => rm(root, { recursive: true, force: true, maxRetries: 3 }))

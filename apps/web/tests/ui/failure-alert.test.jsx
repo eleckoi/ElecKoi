@@ -20,6 +20,16 @@ function render(props) {
 }
 
 describe('失败面同时给出文案与码', () => {
+  it('网关原始诊断和端点直接可见，通用句不覆盖原始信息', () => {
+    const html = render({ failure: { isDSHRemoteError: true, code: 'gateway/service-unavailable',
+      message: 'active Service "synthetic-studio" is unavailable', details: { endpoint: 'creatorStudio.open' } } });
+    expect(html).toContain(GENERIC_FAILURE_TEXT);
+    expect(html).toContain('gateway/service-unavailable');
+    expect(html).toContain('active Service &quot;synthetic-studio&quot; is unavailable');
+    expect(html).toContain('creatorStudio.open');
+    expect(html).toContain('failure-alert-diagnostic');
+  });
+
   it('用户话与错误码一起出现在同一个 alert 里', () => {
     const html = render({
       failure: new DesktopError(ELECKOI_FAILURE_CODES.ioFailed, '写文件失败：/tmp/卡.json', { operation: 'write', path: '/tmp/卡.json' }),

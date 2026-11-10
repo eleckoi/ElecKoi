@@ -1,5 +1,6 @@
 import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { runtimeContextsFor } from '../helpers/runtime-contexts.js'
+import { createVariableIdentities } from '../../packages/shared/src/foundation/variables/identity'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
@@ -151,7 +152,7 @@ describe('DSH subagent runtime context inheritance', () => {
       { id: 'synthetic-reply', role: 'assistant', content: [{ type: 'text', text: '合成回复' }], source: { kind: 'model' } }]
     const library = { characterId: 'synthetic-character', groups: [], entries: [] }
     const runtime = { conversationId: 'synthetic-chat', conversationContext: { history: [], settingLibrary: library },
-      variableContext: { initialStateJson: '{"score":0}', stateJson: '{"score":7}', schemaCode: '', objects: [], variables: [] } }
+        variableContext: { versionId: 'synthetic-version', identityJson: JSON.stringify(createVariableIdentities({ score: 7 }, { versionId: 'synthetic-version', objects: [], variables: [] }, 'runtime')), defaultStateJson: '{"score":0}', stateJson: '{"score":7}', schemaCode: '', objects: [], variables: [] } }
     const ctx = { eleckoiRuntimeContexts: contexts, eleckoiProductData: {
       prepareConversationRuntime: vi.fn(() => runtime), snapshotConversationRuntime: () => ({ variableStateJson: '{"score":7}' }) } }
     contexts.get(id).variables = { enabled: true, state: { score: 99 } }
@@ -370,6 +371,11 @@ describe('DSH subagent runtime context inheritance', () => {
     const originalCreate = vi.fn()
     const originalResume = vi.fn()
     const ctx = {
+      eleckoiProductData: { readConversationVariableContext() {
+        const value = fixture.contexts.get('root-session').variables
+        return { versionId: value.config.versionId, identityJson: JSON.stringify(value.identities), defaultStateJson: JSON.stringify(value.config.defaultState), stateJson: JSON.stringify(value.state),
+          schemaCode: value.config.schemaCode, objects: value.config.objects, variables: value.config.variables }
+      } },
       get(name) { return this[name] },
       inject: vi.fn(() => ({ dispose: vi.fn() })),
       provide: vi.fn(),
@@ -523,7 +529,7 @@ function runtimeFixture() {
   const variableState = {
     enabled: true,
     config: {
-      initialState: { 状态: { 好感度: 0 } },
+      defaultState: { 状态: { 好感度: 0 } },
       schemaCode: 'const Schema = z.object({ 状态: z.object({ 好感度: z.number() }) })',
       objects: [{
         id: 'status', name: '状态', parentId: '', enabled: true,

@@ -36,9 +36,11 @@
 
 13. **not-found 按域拆码。** `eleckoi/character/not-found`、`eleckoi/creator-project/not-found`、`eleckoi/agent-preset/not-found`。这是形状压过严格必要性的一处：三条码的恢复动作不同（回角色列表 / 刷新项目列表 / 重选预设）；加码是纯增量，改名才是破坏性变更。
 
-14. **码表与详情参数表。** 首批 13 条码推导自旧基线 19 处 `throw new DesktopError` 的真实语义与两个红案例点名的消费点；0.2.13 上按 903 处中文抛出清点扩到 30 条（13 条只盖得住约六成）。每条码在 `ELECKOI_FAILURE_DETAIL_PARAMS` 里必须有一行（漏一条就编译不过）；详情参数名是闭集 `field` / `issues` / `path` / `operation` / `guard` / `what` / `expected` / `actual`；`contract/invalid-request` 与 `contract/invalid-response` 的详情必须是元素带 `path` 与 `message` 的非空数组。码表只收产品失败：`AuthorApiError`（作者脚本 API 的方言）与 legacy 6 码不并入，后者保留为防御映射。
+14. **码表与详情参数表。** 首批 13 条码推导自旧基线 19 处 `throw new DesktopError` 的真实语义与两个红案例点名的消费点；0.2.13 上按 903 处中文抛出清点扩到 30 条（13 条只盖得住约六成）。每条码在 `ELECKOI_FAILURE_DETAIL_PARAMS` 里必须有一行（漏一条就编译不过）；详情参数名是闭集 `field` / `issues` / `path` / `operation` / `guard` / `what` / `expected` / `actual` / `upstreamDetails`（决定 16 增补）；`contract/invalid-request` 与 `contract/invalid-response` 的详情必须是元素带 `path` 与 `message` 的非空数组。码表只收产品失败：`AuthorApiError`（作者脚本 API 的方言）与 legacy 6 码不并入，后者保留为防御映射。
 
 15. **码表是内部枚举，文档是生成产物。** [契约文档](../error-contract.md)由 `generate:error-contract-doc` 从 [码表](../../packages/shared/src/contracts/errors/codes.ts)、[详情表](../../packages/shared/src/contracts/errors/details.ts) 与渲染层文案表生成；手改产物会被 `check:error-contract-doc` 拒绝。客户端 bundle 的码表由 `generate:error-codes` 从码表生成。码表**不做公开契约**：不承诺第三方插件或 Android 按 `code` 实现（本轮实测生产代码里按 `eleckoi/*` 分支的地方是 0 处）；对外表态要单独决定。
+
+16. **折叠不丢上游诊断。**（2026-11-10 追加）未知的产品或 Remote 载体码仍折成 `eleckoi/internal`，`details.what` 继续记录原码；新增参数 `upstreamDetails`，只在载体有非空详情时保留原始 JSON 对象。`message` 保留原文，经渲染解析后在功能内错误条和窗口错误弹窗中直接可见、可选中复制；不把原文翻译成另一种技术含义，也不猜未知码的恢复策略。报告沿现有共享清洗出口处理诊断，不能只带折叠后的码而丢掉上下文。
 
 ## 与已有记录的关系
 

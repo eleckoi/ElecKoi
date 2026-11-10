@@ -46,7 +46,7 @@
 
 ## 3. 详情参数（闭集）
 
-详情只放参数，不放拼好的句子。参数名是**闭集**：不在这 8 个里的新参数属于契约变更。
+详情只放参数，不放拼好的句子。参数名是**闭集**：不在这 9 个里的新参数属于契约变更。
 最初六个（`field` / `issues` / `path` / `operation` / `guard` / `what`）之外，扩表时新增了
 `expected` / `actual`，用来表达「要求什么、实际是什么」。
 
@@ -64,6 +64,7 @@
 | `what` | 涉及的**东西**（会被拼进用户句，如「角色」「预设分组」）；多数码写名词短语，`eleckoi/state/precondition` 例外、写用户该先做的**动作**；不是 id。 | `eleckoi/internal`、`eleckoi/data/shape-invalid`、`eleckoi/data/legacy-mismatch`、`eleckoi/input/unsupported`、`eleckoi/lookup/not-found`、`eleckoi/lookup/duplicate`、`eleckoi/character/not-found`、`eleckoi/creator-project/not-found`、`eleckoi/agent-preset/not-found`、`eleckoi/conflict/stale-revision`、`eleckoi/state/mismatch`、`eleckoi/state/precondition`、`eleckoi/security/denied`、`eleckoi/sender/untrusted`、`eleckoi/lifecycle/not-ready`、`eleckoi/lifecycle/disposed`、`eleckoi/plugin/load-failed`、`eleckoi/net/operation-failed`、`eleckoi/shell/open-failed`、`eleckoi/timeout/expired`、`eleckoi/storage/corrupt`、`eleckoi/db/schema-mismatch`、`eleckoi/model/config-invalid`、`eleckoi/media/invalid`、`eleckoi/ipc/call-failed` |
 | `expected` | 当前版本或支持范围要求的形态（如 `schema v3`）。 | `eleckoi/data/legacy-mismatch`、`eleckoi/input/unsupported`、`eleckoi/db/schema-mismatch` |
 | `actual` | 实际观察到的形态。 | —（当前没有码要求） |
+| `upstreamDetails` | 未知上游失败携带的原始 JSON 详情，随兜底码保留供显示、复制与报告。 | `eleckoi/internal` |
 
 ## 4. 呈现通道：默认由码给，只能上调
 
@@ -85,7 +86,7 @@
 
 | 码 | 语义键 | 详情参数 | 默认通道 | 用户句（无参数时） |
 | --- | --- | --- | --- | --- |
-| `eleckoi/internal` | `internal` | `what` | 功能内（inline） | —（无固定句：带 `details.what` → 通用句；不带 → 开发者诊断。见 §5.1） |
+| `eleckoi/internal` | `internal` | `what`、`upstreamDetails` | 功能内（inline） | —（无固定句：带 `details.what` → 通用句；不带 → 开发者诊断。见 §5.1） |
 | `eleckoi/contract/invalid-request` | `contractInvalidRequest` | `issues` | 功能内（inline） | 请求内容不符合要求，已拒绝。 |
 | `eleckoi/contract/invalid-response` | `contractInvalidResponse` | `issues` | 功能内（inline） | 服务返回的内容不符合要求，已拒绝。 |
 | `eleckoi/data/shape-invalid` | `dataShapeInvalid` | `what`、`path` | 功能内（inline） | 数据格式不符合要求。 |

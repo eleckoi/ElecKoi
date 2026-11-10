@@ -48,8 +48,11 @@ it('keeps openings independent through setting version changes, deletion, variab
   expect(f.openings.get(characterId).openingMessages).toEqual(messages)
   expect(f.settings.get(characterId).entries).toEqual([])
   const before = f.openings.get(characterId)
-  expect(() => f.openings.save(characterId, { ...before, openingMessages: [{ ...messages[0]!, variableVersionId: 'missing-variable-version' }] })).toThrow('变量版本不存在')
-  expect(f.openings.get(characterId)).toEqual(before)
+  const missing = f.openings.save(characterId, { ...before, openingMessages: [{ ...messages[0]!, variableVersionId: 'missing-variable-version' }] })
+  expect(f.openings.get(characterId)).toEqual(missing)
+  expect(resolveConversationSeed(characterId, f.db.db, f.openings, f.variables)).toMatchObject({
+    variableVersionId: 'missing-variable-version', initialVariableStateJson: '{}', openingText: content,
+  })
   f.characters.delete([characterId])
   expect(f.db.native.prepare('SELECT * FROM character_openings').all()).toEqual([])
 }, 30_000)

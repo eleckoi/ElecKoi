@@ -1,5 +1,5 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { describeVariableRuleFailure } from '@eleckoi/dsh-product-data/variables'
+import { describeVariableRuleFailure, variableDefaultValue, projectVariableState, reconcileVariableState, createVariableIdentities } from '@eleckoi/dsh-product-data/variables'
 import { readToolResult, resultReadParameter } from '@eleckoi/dsh-client-roleplay/host/tool-result-access.mjs'
 import {
   ELECKOI_FAILURE_CODES,
@@ -42,7 +42,7 @@ function globTool(ctx) {
     },
     output: outputDefinition(),
     async execute(args, exec) {
-      const bridge = readVariables(ctx, exec)
+      const bridge = visibleVariables(readVariables(ctx, exec))
       if (!bridge.enabled) return {
         status: 'ok', pattern: String(args.pattern || '**').trim() || '**', path: '',
         required_variables: [], paths: [], truncated: false, omitted: 0
@@ -84,7 +84,7 @@ function grepTool(ctx) {
     async execute(args, exec) {
       const pattern = String(args.pattern || '')
       if (!pattern) return failure('invalid_arguments', 'pattern 不能为空。')
-      const bridge = readVariables(ctx, exec)
+      const bridge = visibleVariables(readVariables(ctx, exec))
       if (!bridge.enabled) return {
         status: 'no_matches', pattern, path: '', output_mode: args.output_mode || 'files_with_matches',
         required_variables: [], matches: [], omitted: 0
@@ -145,7 +145,7 @@ function readTool(ctx) {
       if (Object.hasOwn(args, 'result')) return readToolResult(ctx, args, exec, 'variables')
       const paths = [...new Set((args.paths || []).filter((path) => typeof path === 'string' && path.startsWith('/')))]
       if (!paths.length) return failure('invalid_arguments', '至少需要读取一个变量路径。')
-      const bridge = readVariables(ctx, exec)
+      const bridge = visibleVariables(readVariables(ctx, exec))
       if (!bridge.enabled) return { status: 'ok', variables: [] }
       const catalog = variableCatalog(bridge)
       const options = {
@@ -157,7 +157,7 @@ function readTool(ctx) {
       const resolved = paths.map((path) => {
         const entry = catalogEntryForPath(catalog, path)
         const current = valueAtPointer(bridge.state, path)
-        const initial = valueAtPointer(bridge.config.initialState, path)
+        const initial = defaultAtPath(bridge, entry, path)
         return { path, entry, current, initial }
       })
       const missing = resolved.filter((item) => !item.entry || (!item.current.present && !item.initial.present)).map((item) => item.path)
@@ -169,7 +169,7 @@ function readTool(ctx) {
             path,
             ...(entry.path === path ? {} : { configured_path: entry.path }),
             read_mode: entry.readMode,
-            type: inferredType(current.present ? current.value : initial.value),
+            type: entry.path === path && entry.variable ? entry.type : inferredType(current.present ? current.value : initial.value),
             default: pageVariableValue(initial, path, options),
             current: pageVariableValue(current, path, options),
             current_present: current.present,
@@ -210,7 +210,9 @@ function patchTool(ctx) {
     async execute(args, exec) {
       if (!args.operations.length) return failure('invalid_arguments', 'operations 不能为空。')
       const runtime = ctx.eleckoiRuntimeContexts.get(exec?.agent?.session?.id)
-      const bridge = readVariables(ctx, exec)
+      const durable = readVariables(ctx, exec)
+      const bridge = visibleVariables(durable)
+      const configuration = JSON.stringify(durable.config)
       if (!bridge.enabled) return {
         status: 'ok', applied_operations: 0, paths: [], state_unchanged: true
       }
@@ -260,8 +262,12 @@ function patchTool(ctx) {
         }
       }
       exec.signal?.throwIfAborted()
-      if (ctx.eleckoiRuntimeContexts.get(exec?.agent?.session?.id) !== runtime || runtime.variables !== bridge) return { ...failure('state_conflict', '处理期间本轮变量已变化，请重新读取后再试。'), state_unchanged: true }
-      runtime.variables = { ...bridge, state: next }
+      if (ctx.eleckoiRuntimeContexts.get(exec?.agent?.session?.id) !== runtime
+        || runtime.variables.state !== durable.state || runtime.variables.identities !== durable.identities
+        || JSON.stringify(readVariables(ctx, exec).config) !== configuration) return { ...failure('state_conflict', '处理期间变量或配置已变化，请重新读取后再试。'), state_unchanged: true }
+      const accepted = reconcileVariableState(durable.state, durable.identities, bridge.config, next)
+      runtime.variables.state = accepted.state
+      runtime.variables.identities = accepted.identities
       return {
         status: 'ok',
         applied_operations: args.operations.length,
@@ -273,11 +279,11 @@ function patchTool(ctx) {
 }
 
 function readVariables(ctx, exec) {
-  const value = ctx.eleckoiRuntimeContexts.get(exec?.agent?.session?.id).variables
+  const value = ctx.eleckoiRuntimeContexts.readVariables(exec?.agent?.session?.id)
   if (!value || typeof value !== 'object' || Array.isArray(value) || !isObject(value.state)) {
     throw runtimePluginFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, '变量运行时尚未准备好。', { what: '变量运行时' })
   }
-  if (value.enabled && (!isObject(value.config) || !isObject(value.config.initialState))) {
+  if (value.enabled && (!isObject(value.config) || !isObject(value.config.defaultState))) {
     throw runtimePluginFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '变量运行时配置不正确。', { what: '变量运行时配置' })
   }
   return value
@@ -346,6 +352,14 @@ function variableCatalog(bridge) {
   const unique = new Map()
   for (const entry of entries) if (!unique.has(entry.path)) unique.set(entry.path, entry)
   return [...unique.values()].sort((left, right) => Number(right.readMode === 'required') - Number(left.readMode === 'required') || left.path.localeCompare(right.path, 'zh-CN'))
+}
+
+function visibleVariables(bridge) {
+  if (!bridge.enabled) return bridge
+  const defaults = projectVariableState(bridge.config.defaultState,
+    createVariableIdentities(bridge.config.defaultState, bridge.config, 'unresolved'), bridge.config).state
+  return { ...bridge, state: projectVariableState(bridge.state, bridge.identities, bridge.config).state,
+    config: { ...bridge.config, defaultState: defaults } }
 }
 
 function entryFor(path, object, variable, type, objectContainer, allowsDynamicChildren) {
@@ -476,6 +490,12 @@ function catalogEntryForPath(catalog, path) {
   return (authored.length ? authored : candidates).sort((left, right) => right.path.length - left.path.length)[0]
 }
 
+function defaultAtPath(bridge, entry, path) {
+  if (!entry?.variable) return valueAtPointer(bridge.config.defaultState, path)
+  const value = variableDefaultValue(entry.variable)
+  return path === entry.path ? { present: true, value } : valueAtPointer(value, path.slice(entry.path.length))
+}
+
 function pageVariableValue(result, path, options) {
   if (!result.present) return null
   const value = result.value
@@ -494,7 +514,7 @@ function pageVariableValue(result, path, options) {
     }
   }
   const pairs = Array.isArray(value)
-    ? value.map((item, index) => ({ key: index, value: item }))
+    ? Object.entries(value).map(([key, item]) => ({ key: Number(key), value: item }))
     : isObject(value)
       ? Object.entries(value).map(([key, item]) => ({ key, value: item }))
       : null
@@ -534,7 +554,7 @@ function valueAtSegments(root, segments) {
 }
 
 function searchableText(entry, bridge) {
-  const initial = valueAtPointer(bridge.config.initialState, entry.path)
+  const initial = defaultAtPath(bridge, entry, entry.path)
   const current = valueAtPointer(bridge.state, entry.path)
   return ['# ' + entry.path, 'type: ' + entry.type, 'title: ' + entry.title, 'read_mode: ' + entry.readMode,
     'default: ' + JSON.stringify(initial.value), 'current: ' + JSON.stringify(current.value),

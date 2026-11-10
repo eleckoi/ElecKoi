@@ -126,7 +126,7 @@ export function foldFailure(error: unknown): EleckoiFailure {
       return { code: product.code, message: product.message, details: product.details }
     }
     // 形状对但码不在两张表里：不猜，折兜底并把原码记进 details.what。
-    return internalFailure(product.message, product.code)
+    return internalFailure(product.message, product.code, product.details)
   }
 
   const remote = remoteFailureOf(error)
@@ -138,7 +138,7 @@ export function foldFailure(error: unknown): EleckoiFailure {
     // 网关的合同违例载体码（入参 / 出参 codec 失败）：折成 contract/invalid-* 并把 issues 带出去。
     const carried = foldGatewayCarrier(code, message, detailsOf(remote.details))
     if (carried !== undefined) return carried
-    return internalFailure(message, code)
+    return internalFailure(message, code, detailsOf(remote.details))
   }
 
   return internalFailure(failureMessageOf(error), undefined)
@@ -288,11 +288,14 @@ function foldLegacyCode(code: DesktopErrorCode, message: string): EleckoiFailure
   return { code: mapped, message, details: {} }
 }
 
-function internalFailure(message: string, what: string | undefined): EleckoiFailure {
+function internalFailure(message: string, what: string | undefined, upstreamDetails?: EleckoiFailureDetails): EleckoiFailure {
   return {
     code: ELECKOI_FAILURE_CODES.internal,
     message,
-    details: what === undefined ? {} : { what }
+    details: {
+      ...(what === undefined ? {} : { what }),
+      ...(upstreamDetails && Object.keys(upstreamDetails).length ? { upstreamDetails: Object.fromEntries(Object.entries(upstreamDetails)) } : {})
+    }
   }
 }
 

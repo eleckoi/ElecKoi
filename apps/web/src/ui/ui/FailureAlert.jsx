@@ -1,5 +1,6 @@
 import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
-import React, { useEffect } from "react";
+import React, { useContext, useEffect } from "react";
+import { FailureReportContext } from './FailureReportContext.js';
 import { hasAppFailureListener, reportAppFailure } from "../../utils/appFailureOutlet.js";
 import {
   FAILURE_CHANNELS,
@@ -48,6 +49,7 @@ import {
  */
 export function FailureAlert({ failure, context, onRetry, upgradeTo, className = "" }) {
   const tUi = useProductTranslation();
+  const openReport = useContext(FailureReportContext);
   const resolved = localizeFailure(resolveAlertFailure(failure, context, upgradeTo), tUi);
   // 应用级失败交给窗口级出口（对话框），本组件不渲染这一小块；没有出口时才就地渲染。
   const escalated = resolved?.channel === FAILURE_CHANNELS.app && hasAppFailureListener();
@@ -69,11 +71,13 @@ export function FailureAlert({ failure, context, onRetry, upgradeTo, className =
     >
       <div className="failure-alert-head">
         <p className="failure-alert-text">{resolved.text}</p>
+        {openReport ? <button type="button" className="failure-alert-retry" onClick={() => openReport(resolved)}>{tUi("报告问题")}</button> : null}
         {onRetry ? (
           <button type="button" className="failure-alert-retry" onClick={onRetry}>{tUi("重试")}</button>
         ) : null}
       </div>
       <code className="failure-alert-code">{resolved.code}</code>
+      {resolved.message && resolved.message !== resolved.text ? <pre className="failure-alert-diagnostic">{resolved.message}</pre> : null}
       {details.length > 0 ? (
         <dl className="failure-alert-details">
           {details.map(({ label, value }) => (

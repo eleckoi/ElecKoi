@@ -128,6 +128,16 @@ function studioSessions(items: Array<{ sessionId: string; title: string; pinned:
 }
 
 describe('Studio Session binding and restoration', () => {
+  it('keeps the complete Remote failure in the failed session snapshot', async () => {
+    const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
+    const failure = { isDSHRemoteError: true, code: 'gateway/service-unavailable',
+      message: 'active Service "synthetic-studio" is unavailable', details: { endpoint: 'creatorStudio.open' } }
+    f.remote.open.mockRejectedValueOnce(failure)
+    await expect(f.model.open('synthetic-session')).rejects.toBe(failure)
+    expect(f.model.getSnapshot().error).toBe(failure)
+    expect(f.model.getSnapshot().status).toBe('error')
+  })
+
   it('retains confirmed statistics across rewind and streaming, then hands off to the new settled step', async () => {
     const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
     const previous = { sessionStats: { turns: 1, steps: 1 }, tokenUsage: { outputTokens: 120 }, contextPressure: { pressureTokens: 300, contextWindow: 1000 }, contextBreakdown: { messageTokens: 300 } }

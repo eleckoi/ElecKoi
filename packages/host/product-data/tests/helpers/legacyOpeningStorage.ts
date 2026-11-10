@@ -2,6 +2,8 @@ import type Database from 'better-sqlite3'
 import { commonSchemaSql } from '../../src/storage/sqlite/migrations/commonSchemaSql'
 
 export const legacyOpeningSchemaSql = commonSchemaSql
+  .replace(", `identityJson` TEXT NOT NULL DEFAULT '{}'", '')
+  .replace(", `variableIdentityJson` TEXT NOT NULL DEFAULT '{}'", '')
   .replace(/^CREATE TABLE IF NOT EXISTS `character_openings`[^\n]*\n/m, '')
   .replace(/^CREATE TABLE IF NOT EXISTS `global_setting_libraries`[^\n]*\n/m, '')
   .replace(/^CREATE TABLE IF NOT EXISTS `global_setting_library_state`[^\n]*\n/m, '')
@@ -10,6 +12,9 @@ export const legacyOpeningSchemaSql = commonSchemaSql
 
 /** Restore the legacy character opening shape for synthetic historical fixtures. */
 export function restoreLegacyOpeningStorage(database: Database.Database): void {
+  for (const [table, column] of [['chat_session_variable_states', 'identityJson'], ['conversation_state_snapshots', 'variableIdentityJson']]) {
+    if ((database.pragma(`table_info(${table})`) as Array<{ name: string }>).some(item => item.name === column)) database.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`)
+  }
   database.exec('DROP TABLE IF EXISTS global_setting_library_state; DROP TABLE IF EXISTS global_setting_libraries;')
   if (!database.prepare("SELECT 1 FROM sqlite_master WHERE name='character_openings'").get()) return
   const rows = database.prepare('SELECT * FROM characters').all() as Record<string, unknown>[]

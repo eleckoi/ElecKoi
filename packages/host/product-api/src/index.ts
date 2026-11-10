@@ -101,7 +101,8 @@ import type {
   WebSearchMode,
   WebFetchMode,
   VariableConfig,
-  VariableViewerTimeline
+  VariableViewerTimeline,
+  ConversationVariableConfiguration
 } from './types.js'
 import { testTavilyConnection } from './tavily.js'
 import { ElecKoiVariableProcessing } from './variable-processing.js'
@@ -621,6 +622,40 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
       historicalByTurn
     )
     return this.productData.readVariableTimeline(conversationId, sessionMessages)
+  }
+
+  /**
+   * 读取当前会话关联的变量版本及本角色可选版本，不改变编辑器选择。
+   * @param conversationId - ElecKoi 聊天编号。
+   * @returns 当前关联编号与版本目录；已删除的关联编号仍保留。
+   */
+  @Remote
+  variableConfiguration(conversationId: string): ConversationVariableConfiguration {
+    return this.productData.readConversationVariableConfiguration(conversationId)
+  }
+
+  /**
+   * 为当前会话选择变量配置，保留当前值、初始值和历史快照。
+   * @param conversationId - ElecKoi 聊天编号。
+   * @param versionId - 本角色变量版本编号，空字符串表示取消关联。
+   * @param expectedVersionId - 界面读取到的原关联编号，用于拒绝过期操作。
+   * @returns 已保存的关联与版本目录。
+   */
+  @Remote
+  async selectVariableVersion(conversationId: string, versionId: string, expectedVersionId: string): Promise<ConversationVariableConfiguration> {
+    return this.ownerContext.eleckoiConversationLifecycle.exclusive(conversationId, async () => {
+      const sessionId = this.productData.runtimeSessionId(conversationId) as SessionId
+      await this.ownerContext.eleckoiConversationLifecycle.drain(conversationId)
+      const projections = await this.ownerContext.sessionController.projections({ sessionId }, new AbortController().signal)
+      const agent = this.ownerContext.agents.get(sessionId), inbox = projections?.values.inbox
+      if (agent?.status === 'running' || agent?.inbox.nextTurn.length || agent?.inbox.nextStep.length
+        || inbox?.['next-turn'].length || inbox?.['next-step'].length || this.pendingRegenerations.has(conversationId)) {
+        throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '请先等待当前回复结束，再切换变量配置。', { what: '等待当前回复结束' })
+      }
+      const result = this.productData.selectConversationVariableVersion(conversationId, versionId, expectedVersionId)
+      this.changeFeed.publish({ kind: 'catalog', conversationId, reason: 'updated' })
+      return result
+    })
   }
 
   /**

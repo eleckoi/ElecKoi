@@ -259,6 +259,7 @@ export interface ConversationMessageMetadata {
 export interface ConversationRuntimeStateSnapshot {
   variableStateJson: string
   settingLibraryStateJson: string
+  variableIdentityJson?: string
 }
 
 export interface ConversationDetailsMetadata {
@@ -327,12 +328,16 @@ export interface VariableFloorSnapshot {
   changedPaths: string[]
 }
 
+export interface ConversationVariableConfiguration { versionId: string; versions: Array<{ id: string; name: string }> }
+
 export interface VariableViewerTimeline {
+  initial: VariableStateDocument
   current: VariableStateDocument
   floors: VariableFloorSnapshot[]
 }
 
 export interface AuthorConversationState {
+  variableIdentityJson: string
   initialVariableStateJson: string
   currentVariableStateJson: string
   variableConfig: VariableConfig | null
@@ -868,7 +873,9 @@ export interface ConversationRuntimePreparation {
     rules?: RegexRuleCollection
   }
   variableContext?: {
-    initialStateJson: string
+    versionId: string
+    identityJson: string
+    defaultStateJson: string
     schemaCode: string
     objects: VariableObjectConfig[]
     variables: VariableItemConfig[]
@@ -934,8 +941,11 @@ export interface ElecKoiProductDataStore {
     messages: ConversationMessageDisplayInput[]
   ): ConversationMessageDisplayResult[]
   readVariableTimeline(conversationId: string, sessionMessages?: ConversationVariableTimelineMessage[]): VariableViewerTimeline
+  readConversationVariableConfiguration(conversationId: string): ConversationVariableConfiguration
+  selectConversationVariableVersion(conversationId: string, versionId: string, expectedVersionId: string): ConversationVariableConfiguration
   readAuthorConversationState(conversationId: string): AuthorConversationState
-  replaceConversationVariableState(conversationId: string, stateJson: string): string
+  readConversationVariableContext(conversationId: string): ConversationRuntimePreparation['variableContext']
+  replaceConversationVariableState(conversationId: string, stateJson: string, identityJson?: string): string
   updateConversationVariables(conversationId: string, stateJson: string): string
   createConversation(input: ConversationCreateInput): ConversationDetailsMetadata
   renameConversation(conversationId: string, title: string): ConversationDetailsMetadata
@@ -950,7 +960,9 @@ export interface ElecKoiProductDataStore {
     variableStateJson: string | undefined,
     settingLibraryStateJson: string | undefined,
     settingLibraryBaseline: ConversationRuntimePreparation['settingLibraryBaseline'],
-    expectedVariableStateJson?: string
+    expectedVariableStateJson?: string,
+    variableIdentityJson?: string,
+    expectedVariableIdentityJson?: string
   ): void
   snapshotConversationRuntime(conversationId: string): ConversationRuntimeStateSnapshot
   readRuntimeVariableHistory(conversationId: string, runtimeSessionId: string): Array<{
@@ -1028,7 +1040,8 @@ export interface ElecKoiProductDataStore {
 
 export interface ConversationArchiveSnapshot {
   readonly format: 'eleckoi.desktop-conversation'
-  readonly version: 1
+  readonly version: 3
+  readonly settingLibraryStateJson: string | null
   readonly characterId: string
   readonly conversationId: string
   readonly tables: Record<string, Array<Record<string, string | number | null>>>

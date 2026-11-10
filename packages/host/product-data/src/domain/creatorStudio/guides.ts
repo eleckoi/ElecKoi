@@ -13,7 +13,7 @@ export const creatorToolsets = [
     guide: ['可以调用 character.create 提供 name 和可选 group，从零创建空角色并设为当前工作室编辑目标，不要求先选择角色；已有编辑目标时调用新建，也不会修改原角色。',
       '读取和修改已有资料仍要求当前工作室明确选择角色，先读后改；不能按目录顺序或名称猜测编辑对象。character.update 的 group 是所属角色分组名称，空字符串表示未分组；修改它只调整当前角色归属，保留其他角色和资料。角色是编辑对象，不是工作室要扮演的身份。',
       '开场白在角色编辑器的独立页面维护，通过 character.read_openings 读取、character.save_openings 保存。保存参数为 enabled、openingMessages、defaultOpeningMessageId；enabled 是保留字段，不控制显示，主开场白正文留空时新对话不显示开场白，有正文才显示。openingMessages 是全部不同开场白的列表，每项包含 id、title、content 和可选 variableVersionId，主开场由 defaultOpeningMessageId 指定。保留未修改的其他开场白和字段。开场白没有命名版本，不传 versions 或 activeVersionId，也不传由工作室选择确定的 characterId。',
-      '每条开场白可以分别绑定变量版本，准确编号从 variables.list 的 versions 读取。开局只加载所选开场白明确绑定的变量版本，初始值来自该版本。清空 variableVersionId 可取消绑定；未绑定不启用变量配置，不自动采用变量编辑器当前版本，也不填写开场白独立初值。修改开场白不修改设定库，切换设定库版本不改变开场白。'] },
+      '每条开场白可以分别关联变量版本，准确编号从 variables.list 的 versions 读取。开局使用所选开场白关联版本的初始值。清空 variableVersionId 可解除关联；无关联或版本缺失时不自动选择编辑器当前版本，也不填写开场白独立初值。版本缺失不阻断聊天，已存在的变量值和历史保留；恢复相同编号的版本后继续读取该配置。修改开场白不修改设定库，切换设定库版本不改变开场白。'] },
   { id: 'settings', title: '设定库', description: '维护当前角色的文字设定、选读 EJS 控制器、EJS 引用文字和文件夹。',
     guide: [
       '读取策略只有必读和选读。agentReadStrategy="required" 是必读；"normal" 是选读并关闭关键词匹配；"keyword" 是选读并开启关键词匹配，与编辑器的关键词命中开关相同，不是第三个读取档位。只填写 keywords 不会开启匹配；开启时把 agentReadStrategy 设为 keyword，关闭时设为 normal，保留原关键词和其他条件。',
@@ -34,7 +34,7 @@ export const creatorToolsets = [
     ] },
   { id: 'variables', title: '变量库', description: '维护变量结构、默认值和运行配置里的 Zod 校验。',
     guide: [
-      '变量配置是角色原稿，不是当前聊天变量。objects 表示嵌套组，variables 用 objectId 关联组。变量和组的 title/name 决定实际 JSON 键，必须与 EJS 和 Schema 使用的键一致。list 返回 activeVersionId 和 versions 的准确编号、名称，开场白绑定变量版本时从这里查询，不根据名称猜编号。',
+      '变量配置是素材库中的作者配置，编辑器选中版本只决定编辑对象，不切换已有聊天的关联版本。聊天变量工具每次读取关联版本的最新已保存目录、类型、默认值、说明、更新规则和校验；当前值属于聊天，开局值和历史快照不作为实时默认值来源，也不随配置保存重写。objects 表示嵌套组，variables 用 objectId 关联组。变量和组的 title/name 决定实际 JSON 键，必须与 EJS 和 Schema 使用的键一致。list 返回 activeVersionId 和 versions 的准确编号、名称，开场白关联变量版本时从这里查询，不根据名称猜编号。',
       '变量组使用 create_object/update_object/remove_object。update_object 按准确 id 修改 name、parentId、enabled、description 等字段，保留子组和变量；不存在的父级、运行配置父级和循环关系拒绝保存。remove_object 会删除指定组及其子组、变量；固定变量运行配置不能修改或删除，校验源码使用 update_schema。',
       '变量 readMode="required" 是必读，"on_demand" 是选读。defaultValue 是字符串：数字写 "0"，布尔写 "false"，对象/数组写合法 JSON。enabled=false 的项不参与初始状态。',
       'schemaCode 对应变量运行配置的 Zod 校验框。运行时提供 Zod 4.1.11 的全局 z，直接填写 z.object({...}) 表达式，无需 import，也无需酒馆助手的注册函数。多语句可以用 const Schema=... 或 export default ...，最终必须产生当前 Zod Schema。',

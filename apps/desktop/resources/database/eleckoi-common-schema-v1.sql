@@ -11,7 +11,7 @@ CREATE INDEX IF NOT EXISTS `index_chat_sessions_updatedAt` ON `chat_sessions` (`
 
 CREATE TABLE IF NOT EXISTS `chat_session_character_snapshots` (`sessionId` TEXT NOT NULL, `personaJson` TEXT NOT NULL, PRIMARY KEY(`sessionId`), FOREIGN KEY(`sessionId`) REFERENCES `chat_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE );
 
-CREATE TABLE IF NOT EXISTS `chat_session_variable_states` (`sessionId` TEXT NOT NULL, `kind` TEXT NOT NULL, `stateJson` TEXT NOT NULL, PRIMARY KEY(`sessionId`, `kind`), FOREIGN KEY(`sessionId`) REFERENCES `chat_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE );
+CREATE TABLE IF NOT EXISTS `chat_session_variable_states` (`sessionId` TEXT NOT NULL, `kind` TEXT NOT NULL, `stateJson` TEXT NOT NULL, `identityJson` TEXT NOT NULL DEFAULT '{}', PRIMARY KEY(`sessionId`, `kind`), FOREIGN KEY(`sessionId`) REFERENCES `chat_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE );
 
 CREATE TABLE IF NOT EXISTS `characters` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `avatar` TEXT NOT NULL, `squareImage` TEXT NOT NULL, `coverImage` TEXT NOT NULL, `groupName` TEXT NOT NULL, `orderIndex` INTEGER NOT NULL, `groupViewOrder` INTEGER NOT NULL, `folder` TEXT NOT NULL, `frontendBeautyEnabled` INTEGER NOT NULL, `assistantName` TEXT NOT NULL, `assistantAvatar` TEXT NOT NULL, `profileAge` TEXT NOT NULL, `profileSex` TEXT NOT NULL, `profileHeight` TEXT NOT NULL, `profileBirthday` TEXT NOT NULL, `profileLike` TEXT NOT NULL, `chatBackground` TEXT NOT NULL, `chatBackgroundOpacity` REAL NOT NULL, `chatBackgroundBlur` REAL NOT NULL, `chatBackgroundScrim` REAL NOT NULL, PRIMARY KEY(`id`));
 
@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS `agent_openings` (`conversationId` TEXT NOT NULL, `tu
 
 CREATE UNIQUE INDEX IF NOT EXISTS `index_agent_openings_conversationId` ON `agent_openings` (`conversationId`);
 
-CREATE TABLE IF NOT EXISTS `conversation_state_snapshots` (`conversationId` TEXT NOT NULL, `branchId` TEXT NOT NULL, `runtimeSessionId` TEXT NOT NULL, `boundaryType` TEXT NOT NULL, `boundaryId` TEXT NOT NULL, `phase` TEXT NOT NULL, `turn` INTEGER, `variableStateJson` TEXT, `settingLibraryStateJson` TEXT, PRIMARY KEY(`conversationId`, `branchId`, `runtimeSessionId`, `boundaryType`, `boundaryId`, `phase`), FOREIGN KEY(`conversationId`) REFERENCES `agent_conversations`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`branchId`) REFERENCES `agent_branches`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , CHECK (`boundaryType` IN ('turn', 'input', 'reply', 'opening') AND `phase` IN ('before', 'after') AND `boundaryId` <> ''), CHECK (`turn` IS NULL OR `turn` >= 1), CHECK (`boundaryType` <> 'turn' OR (`runtimeSessionId` <> '' AND `turn` IS NOT NULL AND `boundaryId` = CAST(`turn` AS TEXT))), CHECK (`variableStateJson` IS NULL OR (json_valid(`variableStateJson`) AND json_type(`variableStateJson`) = 'object')), CHECK (`settingLibraryStateJson` IS NULL OR (json_valid(`settingLibraryStateJson`) AND json_type(`settingLibraryStateJson`) = 'array')));
+CREATE TABLE IF NOT EXISTS `conversation_state_snapshots` (`conversationId` TEXT NOT NULL, `branchId` TEXT NOT NULL, `runtimeSessionId` TEXT NOT NULL, `boundaryType` TEXT NOT NULL, `boundaryId` TEXT NOT NULL, `phase` TEXT NOT NULL, `turn` INTEGER, `variableStateJson` TEXT, `settingLibraryStateJson` TEXT, `variableIdentityJson` TEXT NOT NULL DEFAULT '{}', PRIMARY KEY(`conversationId`, `branchId`, `runtimeSessionId`, `boundaryType`, `boundaryId`, `phase`), FOREIGN KEY(`conversationId`) REFERENCES `agent_conversations`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`branchId`) REFERENCES `agent_branches`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , CHECK (`boundaryType` IN ('turn', 'input', 'reply', 'opening') AND `phase` IN ('before', 'after') AND `boundaryId` <> ''), CHECK (`turn` IS NULL OR `turn` >= 1), CHECK (`boundaryType` <> 'turn' OR (`runtimeSessionId` <> '' AND `turn` IS NOT NULL AND `boundaryId` = CAST(`turn` AS TEXT))), CHECK (`variableStateJson` IS NULL OR (json_valid(`variableStateJson`) AND json_type(`variableStateJson`) = 'object')), CHECK (`settingLibraryStateJson` IS NULL OR (json_valid(`settingLibraryStateJson`) AND json_type(`settingLibraryStateJson`) = 'array')));
 
 CREATE INDEX IF NOT EXISTS `index_conversation_state_snapshots_session_turn` ON `conversation_state_snapshots` (`conversationId`, `runtimeSessionId`, `turn`, `phase`);
 
@@ -183,6 +183,6 @@ CREATE TABLE IF NOT EXISTS `global_setting_libraries` (`id` TEXT NOT NULL, `sort
 
 CREATE TABLE IF NOT EXISTS `global_setting_library_state` (`id` INTEGER NOT NULL, `revision` INTEGER NOT NULL, PRIMARY KEY(`id`), CHECK (`id` = 1 AND `revision` >= 0));
 
-PRAGMA user_version = 16;
+PRAGMA user_version = 17;
 
 COMMIT;

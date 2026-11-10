@@ -388,6 +388,7 @@ class ProductDataStore {
     this.conversations!.get(conversationId)
     return {
       variableStateJson: this.variableStates!.viewerStates(conversationId).currentStateJson,
+      variableIdentityJson: this.variableStates!.identities(conversationId),
       settingLibraryStateJson: this.settingLibraries!.snapshotConversationRuntimeState(conversationId)
     }
   }
@@ -438,11 +439,11 @@ class ProductDataStore {
   }
 
   completeConversationRuntime(conversationId: string, runtimeSessionId: string, turn: number,
-    variableStateJson: string | undefined, expectedVariableStateJson: string | undefined): void {
+    variableStateJson: string | undefined, expectedVariableStateJson: string | undefined, variableIdentityJson?: string, expectedVariableIdentityJson?: string): void {
     this.databaseRepositories()
     if (this.runtimeSessionId(conversationId) !== runtimeSessionId) throw new DesktopError(ELECKOI_FAILURE_CODES.stateMismatch, '完成状态的 Session 与聊天归属不匹配。', { what: 'Session 与聊天的归属' })
     this.store!.withWriteTx(() => {
-      this.commitConversationRuntime(conversationId, variableStateJson, undefined, undefined, expectedVariableStateJson)
+      this.commitConversationRuntime(conversationId, variableStateJson, undefined, undefined, expectedVariableStateJson, variableIdentityJson, expectedVariableIdentityJson)
       this.conversationStates!.recordTurn(conversationId, runtimeSessionId, turn, 'after', this.snapshotConversationRuntime(conversationId))
     })
   }
@@ -450,6 +451,7 @@ class ProductDataStore {
   validateConversationRuntimeSnapshot(snapshot: {
     variableStateJson: string
     settingLibraryStateJson: string
+    variableIdentityJson?: string
   }): void {
     this.databaseRepositories()
     const variables = JSON.parse(snapshot.variableStateJson)
@@ -462,12 +464,13 @@ class ProductDataStore {
   restoreConversationRuntime(conversationId: string, snapshot: {
     variableStateJson: string
     settingLibraryStateJson: string
+    variableIdentityJson?: string
   }): void {
     this.databaseRepositories()
     this.conversations!.get(conversationId)
     this.validateConversationRuntimeSnapshot(snapshot)
     this.store!.withWriteTx((db) => {
-      this.variableStates!.replaceCurrent(conversationId, snapshot.variableStateJson, db)
+      this.variableStates!.replaceCurrent(conversationId, snapshot.variableStateJson, db, snapshot.variableIdentityJson)
       this.settingLibraries!.restoreConversationRuntimeState(
         conversationId,
         snapshot.settingLibraryStateJson,
@@ -511,29 +514,31 @@ class ProductDataStore {
     this.databaseRepositories()
     const sessionId = this.runtimeSessionId(conversationId)
     this.store!.withWriteTx(() => {
+      const identity = (raw: string | null) => raw === null ? '{}' : this.variableStates!.importedIdentities(conversationId, raw)
+      const writeImported = (raw: string) => this.variableStates!.replaceCurrent(conversationId, raw, this.store!.db, identity(raw))
       this.conversations!.restoreImportedOpening(conversationId, opening)
-      if (opening?.variableStateJson !== undefined) this.variableStates!.replaceCurrent(conversationId, opening.variableStateJson)
+      if (opening?.variableStateJson !== undefined) writeImported(opening.variableStateJson)
       let inputState: string | null = opening?.variableStateJson ?? null
       for (const item of messages) {
         const before = inputState
-        if (item.variableStateJson !== undefined) this.variableStates!.replaceCurrent(conversationId, item.variableStateJson)
+        if (item.variableStateJson !== undefined) writeImported(item.variableStateJson)
         if (item.role === 'user') {
           inputState = item.variableStateJson ?? null
           this.conversationStates!.recordInput(conversationId, sessionId, item.id, {
-            variableStateJson: inputState, settingLibraryStateJson: '[]'
+            variableStateJson: inputState, variableIdentityJson: identity(inputState), settingLibraryStateJson: '[]'
           })
         } else {
           if (!Number.isSafeInteger(item.turn) || item.turn! < 1) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '导入的回复缺少正式 DSH 轮次。', { what: '导入回复的 DSH 轮次' })
           this.conversationStates!.recordTurn(conversationId, sessionId, item.turn!, 'before', {
-            variableStateJson: before, settingLibraryStateJson: '[]'
+            variableStateJson: before, variableIdentityJson: identity(before), settingLibraryStateJson: '[]'
           })
           this.conversationStates!.recordTurn(conversationId, sessionId, item.turn!, 'after', {
-            variableStateJson: item.variableStateJson ?? null, settingLibraryStateJson: '[]'
+            variableStateJson: item.variableStateJson ?? null, variableIdentityJson: identity(item.variableStateJson ?? null), settingLibraryStateJson: '[]'
           })
           inputState = item.variableStateJson ?? null
         }
       }
-      if (currentVariableStateJson !== undefined) this.variableStates!.replaceCurrent(conversationId, currentVariableStateJson)
+      if (currentVariableStateJson !== undefined) writeImported(currentVariableStateJson)
     })
   }
 
@@ -638,6 +643,16 @@ class ProductDataStore {
     return buildVariableViewerTimeline(projected, initialStateJson, currentStateJson)
   }
 
+  readConversationVariableConfiguration(conversationId: string) {
+    this.databaseRepositories()
+    return this.variableStates!.configuration(conversationId)
+  }
+
+  selectConversationVariableVersion(conversationId: string, versionId: string, expectedVersionId: string) {
+    this.databaseRepositories()
+    return this.variableStates!.selectVersion(conversationId, versionId, expectedVersionId)
+  }
+
   readAuthorConversationState(conversationId: string) {
     this.databaseRepositories()
     const metadata = this.conversations!.getMetadata(conversationId)
@@ -647,6 +662,7 @@ class ProductDataStore {
     if (!characterId) {
       return {
         initialVariableStateJson: states.initialStateJson,
+        variableIdentityJson: this.variableStates!.identities(conversationId),
         currentVariableStateJson: states.currentStateJson,
         variableConfig: null,
         settingLibrarySummary: null,
@@ -660,6 +676,7 @@ class ProductDataStore {
     )
     return {
       initialVariableStateJson: states.initialStateJson,
+      variableIdentityJson: this.variableStates!.identities(conversationId),
       currentVariableStateJson: states.currentStateJson,
       variableConfig: this.variables!.forConversation(conversationId, characterId),
       settingLibrarySummary: {
@@ -683,10 +700,10 @@ class ProductDataStore {
     return this.globalSettingLibraries!.save(value)
   }
 
-  replaceConversationVariableState(conversationId: string, stateJson: string): string {
+  replaceConversationVariableState(conversationId: string, stateJson: string, identityJson?: string): string {
     this.databaseRepositories()
     this.conversations!.get(conversationId)
-    return this.variableStates!.replaceCurrent(conversationId, stateJson)
+    return this.variableStates!.replaceCurrent(conversationId, stateJson, this.store!.db, identityJson)
   }
 
   updateConversationVariables(conversationId: string, stateJson: string): string {
@@ -731,6 +748,16 @@ class ProductDataStore {
     this.databaseRepositories()
     this.conversations!.updateOpening(conversationId, content)
     return this.readConversationDetails(conversationId)
+  }
+
+  /** Read the associated configuration at use time without rebuilding other runtime libraries. */
+  readConversationVariableContext(conversationId: string) {
+    this.databaseRepositories()
+    const metadata = this.conversations!.getMetadata(conversationId)
+    return resolveVariableContextCharacterCardMacros(
+      this.variableStates!.runtimeContext(conversationId, { characterId: metadata.characterId }),
+      characterCardMacroValues(metadata, metadata.characterPersona.user_name)
+    )
   }
 
   prepareConversationRuntime(conversationId: string, text: string, options: { preset?: AgentPreset; persona?: Record<string, unknown>; characterId?: string } = {}) {
@@ -828,17 +855,20 @@ class ProductDataStore {
       source: NonNullable<ReturnType<SettingLibraryRepository['runtimeContext']>>
       projected: NonNullable<ReturnType<SettingLibraryRepository['runtimeContext']>>
     } | undefined,
-    expectedVariableStateJson?: string
+    expectedVariableStateJson?: string,
+    variableIdentityJson?: string,
+    expectedVariableIdentityJson?: string
   ): void {
     this.databaseRepositories()
     const characterBinding = this.conversations!.getCharacterBinding(conversationId)
     this.store!.withWriteTx((db) => {
       if (expectedVariableStateJson !== undefined && variableStateJson !== undefined
-        && this.variableStates!.viewerStates(conversationId).currentStateJson !== expectedVariableStateJson) {
+        && (this.variableStates!.viewerStates(conversationId).currentStateJson !== expectedVariableStateJson
+          || (expectedVariableIdentityJson !== undefined && this.variableStates!.identities(conversationId) !== expectedVariableIdentityJson))) {
         throw new DesktopError(ELECKOI_FAILURE_CODES.conflictStaleRevision, '生成期间聊天变量已被其他操作修改，未覆盖当前变量。', { what: '聊天变量' })
       }
       if (variableStateJson !== undefined) {
-        this.variableStates!.replaceCurrent(conversationId, variableStateJson, db)
+        this.variableStates!.replaceCurrent(conversationId, variableStateJson, db, variableIdentityJson)
       }
       if (settingLibraryStateJson !== undefined && settingLibraryBaseline !== undefined) {
         this.settingLibraries!.replaceConversationRuntimeState(

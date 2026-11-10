@@ -560,7 +560,7 @@ export function ChatPanel({
           onClose={closeProcess}
         />
       ) : null}
-      {variablesOpen ? <VariableViewerDialog conversationId={conversationId} conversationModel={conversationModel} onClose={() => setVariablesOpen(false)} onNotify={onNotify} /> : null}
+      {variablesOpen ? <VariableViewerDialog key={conversationId} isSending={isSending} conversationId={conversationId} conversationModel={conversationModel} onClose={() => setVariablesOpen(false)} onNotify={onNotify} /> : null}
       {nativeAuthorUi.panel?.conversationId === conversationId ? <NativeScriptPanel key={nativeAuthorUi.panel.key}
         runtime={nativeAuthorRuntime} panel={nativeAuthorUi.panel} /> : null}
       {requestPreviewOpen ? <RequestPreviewDialog key={conversationId} conversationId={conversationId} conversationModel={conversationModel} onClose={() => setRequestPreviewOpen(false)} /> : null}

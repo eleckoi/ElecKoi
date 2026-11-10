@@ -1354,6 +1354,15 @@ window.__ModuleLoader__.load({
         await Promise.all([this.refresh(), this.sessions.refresh()])
       }
 
+      async readVariableConfiguration(conversationId) {
+        return this.unwrap(await this.remote.eleckoiConversations.variableConfiguration(conversationId), '读取变量配置失败。')
+      }
+
+      async selectVariableVersion(conversationId, versionId, expectedVersionId) {
+        const result = this.unwrap(await this.remote.eleckoiConversations.selectVariableVersion(conversationId, versionId, expectedVersionId), '切换变量配置失败。')
+        return result
+      }
+
       async selectOpening(conversationId, openingId) {
         if (!conversationId || !openingId) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '请选择要切换的开场白。', { what: '选择要切换的开场白' })
         const details = this.assertDetails(this.unwrap(

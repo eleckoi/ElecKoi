@@ -33,7 +33,7 @@ async function tools({ extraCount = 0, mapMarkerCount = 0, configured = true, lo
   const bridge = configured ? {
     enabled: true,
     config: {
-      initialState: {
+      defaultState: {
         状态: { 好感度: 0, 称呼: "陌生人", ...Object.fromEntries(extraNames.map((name) => [name, 0])) },
         ...(mapMarkerCount ? { 地图标记: mapMarkers } : {}),
       },

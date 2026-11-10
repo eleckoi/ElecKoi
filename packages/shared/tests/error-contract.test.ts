@@ -19,7 +19,7 @@ import { ELECKOI_FAILURE_DETAIL_PARAMS } from '../src/contracts/errors/details'
 const ALL_CODES = Object.values(ELECKOI_FAILURE_CODES)
 
 /** 详情参数的闭集（见 `details.ts` 文件头）。新增参数要先改这份列表与文档。 */
-const DETAIL_PARAM_CLOSED_SET = ['field', 'issues', 'path', 'operation', 'guard', 'what', 'expected', 'actual']
+const DETAIL_PARAM_CLOSED_SET = ['field', 'issues', 'path', 'operation', 'guard', 'what', 'expected', 'actual', 'upstreamDetails']
 
 describe('码表', () => {
   it('每条码都符合 eleckoi/<域>/<原因> 的形态', () => {
@@ -94,7 +94,7 @@ describe('详情表与码表一一对应', () => {
     expect(Object.keys(ELECKOI_FAILURE_DETAIL_PARAMS).sort()).toEqual([...ALL_CODES].sort())
   })
 
-  it('详情参数只来自八个参数的闭集', () => {
+  it('详情参数只来自声明的参数闭集', () => {
     for (const [code, params] of Object.entries(ELECKOI_FAILURE_DETAIL_PARAMS)) {
       for (const param of params) {
         expect(DETAIL_PARAM_CLOSED_SET, `${code} 用了 ${param}`).toContain(param)
@@ -102,8 +102,8 @@ describe('详情表与码表一一对应', () => {
     }
   })
 
-  it('兜底码只带 what——它是唯一允许装「原码」这个字符串的入口', () => {
-    expect(ELECKOI_FAILURE_DETAIL_PARAMS[ELECKOI_FAILURE_CODES.internal]).toEqual(['what'])
+  it('兜底码登记原码与上游详情的保留字段', () => {
+    expect(ELECKOI_FAILURE_DETAIL_PARAMS[ELECKOI_FAILURE_CODES.internal]).toEqual(['what', 'upstreamDetails'])
   })
 
   it('合同违例两条码都带 issues（规则 2 的判据）', () => {

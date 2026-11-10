@@ -50,16 +50,16 @@ describe('角色卡宏', () => {
 
   it('解析变量配置中的描述和更新规则', () => {
     const context = {
-      initialStateJson: '{"user":{"name":"{{user}}"}}',
+      defaultStateJson: '{"user":{"name":"{{user}}"}}',
       schemaCode: '',
       stateJson: '{"user":{"name":"{{ USER }}"}}',
       objects: [{ description: '{{char}}状态', updateRule: '{{user}}观察' }],
-      variables: [{ description: '{{user}}好感度', updateRule: '{{char}}改变' }]
+      variables: [{ type: 'string', defaultValue: '{{user}}', description: '{{user}}好感度', updateRule: '{{char}}改变' }]
     } as AgentVariableRuntimeContext
     const resolved = resolveVariableContextCharacterCardMacros(context, values)
     expect(resolved?.objects[0]).toMatchObject({ description: '测试角色状态', updateRule: '用户$1观察' })
-    expect(resolved?.variables[0]).toMatchObject({ description: '用户$1好感度', updateRule: '测试角色改变' })
-    expect(JSON.parse(resolved?.initialStateJson ?? '{}')).toEqual({ user: { name: '用户$1' } })
+    expect(resolved?.variables[0]).toMatchObject({ defaultValue: '用户$1', description: '用户$1好感度', updateRule: '测试角色改变' })
+    expect(JSON.parse(resolved?.defaultStateJson ?? '{}')).toEqual({ user: { name: '用户$1' } })
     expect(JSON.parse(resolved?.stateJson ?? '{}')).toEqual({ user: { name: '用户$1' } })
   })
 

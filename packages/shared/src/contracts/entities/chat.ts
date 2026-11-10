@@ -84,6 +84,7 @@ export interface OpeningMessageOption {
   variableVersionId?: string
   displayContent?: string
   initialVariableStateJson: string
+  initialVariableIdentityJson?: string
 }
 
 export interface Conversation {

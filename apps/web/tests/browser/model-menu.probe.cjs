@@ -38,6 +38,23 @@ app.whenReady().then(async()=>{
   await run(`[...document.querySelectorAll('[role=menuitem]')].find(button=>button.textContent.startsWith('模型')).click()`);await wait();
   const providerIcons = await run(`({headings:document.querySelectorAll('.model-provider-label .model-provider-identity').length,models:document.querySelectorAll('[role=menuitemradio] img,[role=menuitemradio] .model-identity-fallback').length})`);
   writeFileSync(join(dirname(report),'providers.png'),(await win.webContents.capturePage()).toPNG());
+  const materials=[];
+  for(const theme of ['light','dark'])for(const width of [390,1000])for(const backdrop of ['#ffffff','#273244']){
+   win.setContentSize(width,850);
+   await run(`document.documentElement.dataset.theme='${theme}';document.body.toggleAttribute('data-ds-dark-theme','${theme}'==='dark');document.body.style.background='${backdrop}'`);
+   await win.webContents.capturePage();await wait();
+   const viewport=`document.querySelector('[data-menu-group]').parentElement`;
+   for(const scroll of [0,60]){
+    await run(`${viewport}.scrollTop=${scroll}`);await wait();
+    await win.webContents.capturePage();await wait();
+    const layout=await run(`(()=>{const panel=${menu},heading=panel.querySelector('[data-menu-group-heading]'),p=panel.getBoundingClientRect(),h=heading.getBoundingClientRect();return {theme:'${theme}',width:innerWidth,backdrop:'${backdrop}',stuck:heading.hasAttribute('data-stuck'),scroll:${viewport}.scrollTop,position:getComputedStyle(heading).position,heading:{x:Math.floor(h.right-12),y:Math.floor(h.top+h.height/2)},surface:{x:Math.floor(h.right-12),y:Math.floor(p.top+6)}}})()`);
+    const capture=await win.webContents.capturePage(),bitmap=capture.toBitmap(),size=capture.getSize();
+    const scale=size.width/layout.width;
+    const pixel=({x,y})=>{const offset=(Math.floor(y*scale)*size.width+Math.floor(x*scale))*4;return [...bitmap.subarray(offset,offset+3)];};
+    materials.push({...layout,headingPixel:pixel(layout.heading),surfacePixel:pixel(layout.surface)});
+    if(scroll&&width===1000&&backdrop==='#273244')writeFileSync(join(dirname(report),'material-'+theme+'.png'),capture.toPNG());
+   }
+  }
   await run(`document.querySelectorAll('[role=menuitemradio]')[24].click()`);await wait();
   await run(`${trigger}.click()`);await wait();
   await run(`[...document.querySelectorAll('[role=menuitem]')].find(button=>button.textContent==='参数').click()`);await wait();
@@ -52,6 +69,6 @@ app.whenReady().then(async()=>{
   const savedValue=await run(`document.querySelector('[data-parameter=temperature] input').value`);
   await run(`document.querySelector('.chat-model-capabilities summary').click();document.querySelector('.model-menu-actions').scrollIntoView({block:'nearest'})`);await wait();
   const expandedActionsVisible=await run(`(()=>{const panel=document.querySelector('[data-menu-material]').getBoundingClientRect();return [...document.querySelectorAll('.model-menu-actions button')].every(button=>{const box=button.getBoundingClientRect();return box.top>=panel.top&&box.bottom<=panel.bottom})})()`);
-  writeFileSync(report,JSON.stringify({layouts,triggers,providerIcons,errors,writesAfterClose,restoredDraft,savedValue,expandedActionsVisible,calls:await run('window.modelMenuFixture.calls')}));win.destroy();app.exit(0);
+  writeFileSync(report,JSON.stringify({layouts,triggers,providerIcons,materials,errors,writesAfterClose,restoredDraft,savedValue,expandedActionsVisible,calls:await run('window.modelMenuFixture.calls')}));win.destroy();app.exit(0);
  }catch(error){console.error(error);win.destroy();app.exit(1);}
 });

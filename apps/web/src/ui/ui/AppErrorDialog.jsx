@@ -83,6 +83,7 @@ export function AppErrorDialog({ notice, onDismiss, onReportProblem }) {
   function copyPayload() {
     const failure = notice.failure;
     const lines = [message];
+    if (failure?.message && failure.message !== message) lines.push(failure.message);
     if (failure?.code) lines.push(`错误码：${failure.code}`);
     const details = formatFailureDetails(failure?.details);
     if (details) lines.push(details);
@@ -114,7 +115,7 @@ export function AppErrorDialog({ notice, onDismiss, onReportProblem }) {
             <XIcon size={18} />
           </button>
         </header>
-        <pre id={detailId} className="app-error-detail" tabIndex={0}>{message}</pre>
+        <pre id={detailId} className="app-error-detail" tabIndex={0}>{[message, notice.failure?.message !== message ? notice.failure?.message : null].filter(Boolean).join('\n\n')}</pre>
         {notice.failure && (notice.failure.code || failureDetailLines(notice.failure.details).length > 0) ? (
           <dl className="app-error-failure">
             {notice.failure.code ? (

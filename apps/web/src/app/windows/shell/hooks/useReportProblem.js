@@ -17,19 +17,20 @@ import { sourceText } from '../../../i18n/productCopy.js';
 import { isBugReportAvailable } from '../components/bugReportBridge.js';
 
 /**
- * 从错误对话框打开报告时，往「补充说明」里预填的那一行。
+ * 从错误面打开报告时，往「补充说明」里预填当前错误码与完整诊断。
  *
  * 为什么要有它：渲染层失败只以 `eleckoi-renderer-failure` 诊断行进日志尾，**不进**报告里
  * 折叠出的失败列表（那份列表来自主进程 `phase: failure` 的记录）。不预填的话，用户从错误
- * 里点进报告，可能看到「没有记录到失败行」——刚才那个码只有他记得。这句是可删可改的补充说明，
+ * 里点进报告，可能看到「没有记录到失败行」。预填沿用当前失败的诊断原文和详情，是可删可改的补充说明，
  * 不改变报告的字段契约。
  *
  * @param failure - 错误对话框手里的失败对象（可能没有码）。
- * @returns 预填文本；没有码时为空串（不写半句没有信息的话）。
+ * @returns 预填文本；没有码与诊断时为空串。
  */
 export function reportProblemNotes(failure, tUi = sourceText) {
   const code = typeof failure?.code === 'string' ? failure.code.trim() : '';
-  return code === '' ? '' : tUi('看到「运行错误」：{code}', { code });
+  const diagnostic = typeof failure?.diagnostic === 'string' ? failure.diagnostic.trim() : '';
+  return [code === '' ? '' : tUi('看到「运行错误」：{code}', { code }), diagnostic].filter(Boolean).join('\n');
 }
 
 /**
@@ -43,7 +44,7 @@ export function useReportProblem({ onDismissNotice } = {}) {
   const [open, setOpen] = useState(false);
   const [initialNotes, setInitialNotes] = useState('');
 
-  /** 打开报告：社区弹窗不传失败，错误对话框把失败传进来（只取码写进补充说明）。 */
+  /** 社区不传失败；错误面传当前解析结果，首份报告预览即带上诊断。 */
   const openReport = useCallback((failure) => {
     onDismissNotice?.();
     setInitialNotes(reportProblemNotes(failure, tUi));

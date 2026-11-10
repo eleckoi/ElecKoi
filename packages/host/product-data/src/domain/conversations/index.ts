@@ -8,8 +8,9 @@ export { MessageDisplayProjector } from './MessageDisplayProjector'
 export type { MessageDisplayCompatibility } from './MessageDisplayCompatibility'
 export {
   readConversationVariableBinding,
-  conversationVariableVersionIds,
+  selectConversationVariableVersion,
   readConversationVariableStates,
   readCurrentConversationVariableState,
+  readCurrentConversationVariableIdentity,
   writeCurrentConversationVariableState
 } from './ConversationVariableStateStore'

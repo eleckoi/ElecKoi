@@ -100,7 +100,7 @@ export function creatorCapabilities(data: Context['eleckoiProductData']): Creato
     return find(data.readCharacters().items, characterId)
   })
   operation('character', 'read_openings', '读取角色的全部开场白及默认选择', 'read', empty, characterId => data.readCharacterOpenings(characterId))
-  operation('character', 'save_openings', '保存角色独立开场白、备用开场白和变量绑定', 'write',
+  operation('character', 'save_openings', '保存角色独立开场白、备用开场白和变量关联', 'write',
     z.object(characterOpeningsSchema.shape).omit({ characterId: true }).strict(), (characterId, input) => data.saveCharacterOpenings(characterId, { ...input, characterId }))
   operation('settings', 'list', '列出设定条目和文件夹', 'read', empty, characterId => {
     const library = data.readSettingLibrary(characterId)

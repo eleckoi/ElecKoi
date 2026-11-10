@@ -144,5 +144,5 @@ export function buildVariableViewerTimeline(
   }
 
   const currentRaw = currentStateJson.trim() || floors.at(-1)?.state.rawJson.trim() || carriedRaw
-  return { current: parseVariableStateDocument(currentRaw), floors }
+  return { initial: parseVariableStateDocument(initialStateJson), current: parseVariableStateDocument(currentRaw), floors }
 }

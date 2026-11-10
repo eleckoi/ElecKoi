@@ -21,7 +21,7 @@ it('extends the installed official menu with readable parameters and provider-he
     await promisify(execFile)(require('electron'),[resolve('apps/web/tests/browser/model-menu.probe.cjs'),html,report],{env,windowsHide:true,timeout:45000});
     const result=JSON.parse(await readFile(report,'utf8'));
     const evidence=resolve('build/parameter-tool-font-check');await mkdir(evidence,{recursive:true});
-    for(const file of ['light.png','dark.png','light-desktop.png','dark-desktop.png','report.json'])await copyFile(resolve(directory,file),resolve(evidence,'menu-'+file));
+    for(const file of ['light.png','dark.png','light-desktop.png','dark-desktop.png','material-light.png','material-dark.png','report.json'])await copyFile(resolve(directory,file),resolve(evidence,'menu-'+file));
     expect(result.errors).toEqual([]);expect(result.layouts).toHaveLength(6);
     for(const layout of result.layouts){const detail=JSON.stringify(layout);
       expect(layout.left,detail).toBeGreaterThanOrEqual(11.5);expect(layout.right,detail).toBeLessThanOrEqual(layout.width-11.5);
@@ -41,6 +41,12 @@ it('extends the installed official menu with readable parameters and provider-he
       expect(layout.writesBeforeSave,detail).toBe(0);
     }
     expect(result.providerIcons).toEqual({headings:1,models:0});
+    expect(result.materials).toHaveLength(16);
+    for(const material of result.materials){const detail=JSON.stringify(material);
+      expect(material.position,detail).toBe('sticky');
+      expect(material.stuck,detail).toBe(material.scroll>0);
+      expect(Math.max(...material.headingPixel.map((value,index)=>Math.abs(value-material.surfacePixel[index]))),detail).toBeLessThan(12);
+    }
     expect(result.triggers).toHaveLength(6);
     for(const trigger of result.triggers){const detail=JSON.stringify(trigger);
       expect(trigger.icons,detail).toBe(1);expect(trigger.iconWidth,detail).toBe(16);expect(trigger.iconHeight,detail).toBe(16);

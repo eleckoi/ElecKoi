@@ -1,4 +1,4 @@
-import { assertVariableJson, loadVariableSchema } from '@eleckoi/dsh-product-data/variables'
+import { assertVariableJson, loadVariableSchema, parseVariableIdentities, projectVariableState, reconcileVariableState } from '@eleckoi/dsh-product-data/variables'
 import { productFailure } from './productFailure.js'
 import { ELECKOI_FAILURE_CODES } from './errorCodes.generated.js'
 import type { ElecKoiProductDataStore } from './types.js'
@@ -92,15 +92,19 @@ export class ElecKoiVariableProcessing {
 
   async mutate(conversationId: string, apply: (state: VariableObject) => VariableObject, signal?: AbortSignal): Promise<string> {
     const original = this.data.readAuthorConversationState(conversationId)
-    const { state } = await this.process({ conversationId, before: JSON.parse(original.currentVariableStateJson) as VariableObject,
+    const config = { versionId: original.variableConfig?.activeVersionId || '', objects: original.variableConfig?.objects || [], variables: original.variableConfig?.variables || [] }
+    const raw = JSON.parse(original.currentVariableStateJson) as VariableObject, identities = parseVariableIdentities(original.variableIdentityJson)
+    const { state } = await this.process({ conversationId, before: projectVariableState(raw, identities, config).state,
       schemaCode: original.variableConfig?.schemaCode || '', apply, ...(signal ? { signal } : {}) })
     const current = this.data.readAuthorConversationState(conversationId)
     if (current.currentVariableStateJson !== original.currentVariableStateJson
+      || current.variableIdentityJson !== original.variableIdentityJson
       || JSON.stringify(current.variableConfig) !== JSON.stringify(original.variableConfig)) {
       throw productFailure(ELECKOI_FAILURE_CODES.conflictStaleRevision, '处理期间变量或配置已变化，本次修改未保存，请重新读取后再试。', { what: '变量状态或配置' })
     }
     signal?.throwIfAborted()
-    return this.data.replaceConversationVariableState(conversationId, JSON.stringify(state))
+    const accepted = reconcileVariableState(raw, identities, config, state)
+    return this.data.replaceConversationVariableState(conversationId, JSON.stringify(accepted.state), JSON.stringify(accepted.identities))
   }
 
   close(): void {

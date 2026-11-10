@@ -3,6 +3,7 @@ import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import type { ElecKoiDatabase } from '@product-data/storage/sqlite/SqliteDatabase'
 import { agentConversations, chatSessions, chatSessionVariableStates } from '@product-data/storage/sqlite/schema/common'
+import { createVariableIdentities, parseVariableIdentities, validateVariableIdentityState } from '@shared/foundation/variables/identity'
 
 export function readConversationVariableBinding(conversationId: string, db: ElecKoiDatabase): { characterId: string; versionId: string } {
   const binding = db.select({ characterId: chatSessions.characterId, versionId: agentConversations.variableVersionId })
@@ -12,10 +13,12 @@ export function readConversationVariableBinding(conversationId: string, db: Elec
   return binding
 }
 
-export function conversationVariableVersionIds(characterId: string, db: ElecKoiDatabase): string[] {
-  return db.select({ versionId: agentConversations.variableVersionId }).from(agentConversations)
-    .innerJoin(chatSessions, eq(chatSessions.id, agentConversations.id))
-    .where(eq(chatSessions.characterId, characterId)).all().map((row) => row.versionId)
+/** Change only the live association; saved values, identities and historical boundaries stay intact. */
+export function selectConversationVariableVersion(conversationId: string, versionId: string, expectedVersionId: string, db: ElecKoiDatabase): void {
+  const current = readConversationVariableBinding(conversationId, db)
+  if (current.versionId !== expectedVersionId) throw new DesktopError(ELECKOI_FAILURE_CODES.conflictStaleRevision,
+    '当前会话的变量配置已改变，请刷新后重试。', { what: '当前会话的变量配置' })
+  db.update(agentConversations).set({ variableVersionId: versionId }).where(eq(agentConversations.id, conversationId)).run()
 }
 
 function requireConversation(conversationId: string, db: ElecKoiDatabase): void {
@@ -50,29 +53,40 @@ export function readCurrentConversationVariableState(
   return current?.stateJson || '{}'
 }
 
+export function readCurrentConversationVariableIdentity(conversationId: string, db: ElecKoiDatabase): string {
+  requireConversation(conversationId, db)
+  return db.select({ identityJson: chatSessionVariableStates.identityJson }).from(chatSessionVariableStates).where(and(
+    eq(chatSessionVariableStates.sessionId, conversationId), eq(chatSessionVariableStates.kind, 'current')
+  )).get()?.identityJson || '{}'
+}
+
 export function readConversationVariableStates(
   conversationId: string,
   db: ElecKoiDatabase
-): Array<{ kind: string; stateJson: string }> {
+): Array<{ kind: string; stateJson: string; identityJson: string }> {
   requireConversation(conversationId, db)
   return db.select({
     kind: chatSessionVariableStates.kind,
-    stateJson: chatSessionVariableStates.stateJson
+    stateJson: chatSessionVariableStates.stateJson,
+    identityJson: chatSessionVariableStates.identityJson
   }).from(chatSessionVariableStates).where(eq(chatSessionVariableStates.sessionId, conversationId)).all()
 }
 
 export function seedConversationVariableStates(
   conversationId: string,
   stateJson: string,
-  db: ElecKoiDatabase
+  db: ElecKoiDatabase,
+  identityJson?: string
 ): void {
   requireConversation(conversationId, db)
   const value = validatedObjectJson(stateJson)
+  identityJson ??= JSON.stringify(createVariableIdentities(JSON.parse(value), { versionId: '', objects: [], variables: [] }, 'runtime'))
+  validateVariableIdentityState(JSON.parse(value), parseVariableIdentities(identityJson))
   for (const kind of ['initial', 'current'] as const) {
-    db.insert(chatSessionVariableStates).values({ sessionId: conversationId, kind, stateJson: value })
+    db.insert(chatSessionVariableStates).values({ sessionId: conversationId, kind, stateJson: value, identityJson })
       .onConflictDoUpdate({
         target: [chatSessionVariableStates.sessionId, chatSessionVariableStates.kind],
-        set: { stateJson: value }
+        set: { stateJson: value, identityJson }
       }).run()
   }
 }
@@ -80,17 +94,20 @@ export function seedConversationVariableStates(
 export function writeCurrentConversationVariableState(
   conversationId: string,
   stateJson: string,
-  db: ElecKoiDatabase
+  db: ElecKoiDatabase,
+  identityJson = '{}'
 ): string {
   requireConversation(conversationId, db)
   const value = validatedObjectJson(stateJson)
+  validateVariableIdentityState(JSON.parse(value), parseVariableIdentities(identityJson))
   db.insert(chatSessionVariableStates).values({
     sessionId: conversationId,
     kind: 'current',
-    stateJson: value
+    stateJson: value,
+    identityJson
   }).onConflictDoUpdate({
     target: [chatSessionVariableStates.sessionId, chatSessionVariableStates.kind],
-    set: { stateJson: value }
+    set: { stateJson: value, identityJson }
   }).run()
   return value
 }

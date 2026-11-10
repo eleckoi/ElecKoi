@@ -13,8 +13,7 @@ import {
   variableConfigVersionContents,
   variableConfigVersions
 } from '@product-data/storage/sqlite/schema/common'
-import { conversationVariableVersionIds, readConversationVariableBinding } from '@product-data/domain/conversations'
-import { openingVariableVersionIds } from '@product-data/domain/characterOpenings'
+import { readConversationVariableBinding } from '@product-data/domain/conversations'
 import {
   readVariable,
   readVariableObject,
@@ -100,7 +99,7 @@ export class VariableConfigRepository {
     if (!binding.versionId) return null
     const config = this.get(characterId)
     const version = config.versions.find((item) => item.id === binding.versionId)
-    if (!version) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, '聊天绑定的变量版本不存在，请恢复对应变量版本。', { what: '聊天绑定的变量版本' })
+    if (!version) return null
     return activeVariableConfig(characterId, version, config.versions)
   }
 
@@ -115,13 +114,6 @@ export class VariableConfigRepository {
     if (input.characterId !== characterId) throw new DesktopError(ELECKOI_FAILURE_CODES.stateMismatch, '变量配置与角色不匹配。', { what: '变量配置与角色' })
     const previous = this.get(characterId, db)
     const normalized = normalizeVariableConfig(characterId, variableConfigSchema.parse(input), previous)
-    const retained = new Set(normalized.versions.map((version) => version.id))
-    if (conversationVariableVersionIds(characterId, db).some((id) => id && !retained.has(id))) {
-      throw new DesktopError(ELECKOI_FAILURE_CODES.statePrecondition, '这个变量版本正在被聊天使用，不能删除。', { what: '解除聊天对该变量版本的使用' })
-    }
-    if (openingVariableVersionIds(characterId, db).some((id) => !retained.has(id))) {
-      throw new DesktopError(ELECKOI_FAILURE_CODES.statePrecondition, '这个变量版本已绑定开场白，请先解除绑定再删除。', { what: '解除开场白对该变量版本的绑定' })
-    }
     if (persistedContent(previous) !== persistedContent(normalized)) this.persist(db, normalized)
     return normalized
   }
@@ -228,7 +220,7 @@ export class VariableConfigRepository {
     )).run()
     db.insert(variableConfigVersionContents).values([
       { characterId, versionId: version.id, kind: VARIABLE_INITIAL_STATE_CONTENT_KIND, content: version.initialStateJson },
-      { characterId, versionId: version.id, kind: VARIABLE_SCHEMA_CODE_CONTENT_KIND, content: version.schemaCode }
+      { characterId, versionId: version.id, kind: VARIABLE_SCHEMA_CODE_CONTENT_KIND, content: version.schemaCode },
     ]).run()
     // Reuse one statement inside the existing transaction so the library size
     // does not become the number of parameters in a single SQLite statement.

@@ -28,6 +28,16 @@
   gap: 10px;
 }
 
+.failure-alert-diagnostic {
+  min-width: 0;
+  margin: 2px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 12px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace;
+  cursor: text;
+  user-select: text;
+}
+
 .failure-alert-text {
   flex: 1 1 auto;
   min-width: 0;

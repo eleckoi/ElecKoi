@@ -162,8 +162,7 @@ describe('Creator authoring matches the native setting, schema, script and regex
     f.saveOpenings({ openingMessages: [...current.openingMessages, alternate], defaultOpeningMessageId: alternate.id });
     current = f.call('character.read_openings');
     const settings = f.data.readSettingLibrary(f.characterId);
-    for (const changes of [{ openingMessages: [{ ...alternate, variableVersionId: 'synthetic-missing-variable-version' }] },
-      { openingMessages: [alternate, alternate] }, { openingMessages: [] }, { defaultOpeningMessageId: 'synthetic-missing-opening' }]) {
+    for (const changes of [{ openingMessages: [alternate, alternate] }, { openingMessages: [] }, { defaultOpeningMessageId: 'synthetic-missing-opening' }]) {
       expect(() => f.saveOpenings(changes)).toThrow();
       expect(f.call('character.read_openings')).toEqual(current);
       expect(f.data.readSettingLibrary(f.characterId)).toEqual(settings);

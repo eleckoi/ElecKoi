@@ -3,7 +3,7 @@ import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { MobileSaveFeedback } from './MobileSaveFeedback.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
-import { ArrowsOutLineVertical, BatteryFull, ChatCenteredText, ChatCircleDots, Check, Cpu, Image, Info, Palette, SlidersHorizontal, TextT, UserCircle } from '../ui/icons/interfaceIcons.jsx';
+import { ArrowsOutLineVertical, BatteryFull, ChartBar, ChatCenteredText, ChatCircleDots, Check, Clock, Cpu, Image, Info, ListNumbers, Palette, SlidersHorizontal, TextT, UserCircle } from '../ui/icons/interfaceIcons.jsx';
 import { Avatar } from '../ui/ui/Avatar.jsx';
 import { TunerSliderRow } from '../ui/ui/TunerSliderRow.jsx';
 import { UnsavedChangesDialog } from '../ui/ui/UnsavedChangesDialog.jsx';
@@ -30,9 +30,9 @@ function SettingsRow({ icon: Icon, label, value, onClick }) {
   </Row>;
 }
 
-function SettingsSwitch({ label, checked, onChange, disabled = false }) {
-  return <button type="button" className="mobile-settings-switch" role="switch" aria-label={label} aria-checked={checked} disabled={disabled} onClick={() => onChange(!checked)}>
-    <span>{label}</span><i aria-hidden="true" />
+function SettingsSwitch({ icon: Icon, label, checked, onChange, disabled = false }) {
+  return <button type="button" className={`mobile-settings-switch${Icon ? ' mobile-settings-switch-row' : ''}`} role="switch" aria-label={label} aria-checked={checked} disabled={disabled} onClick={() => onChange(!checked)}>
+    {Icon && <Icon size={21} aria-hidden="true" />}<span>{label}</span><i aria-hidden="true" />
   </button>;
 }
 
@@ -197,6 +197,7 @@ export function MobileSettingsPage() {
         <SettingsRow icon={Palette} label={tUi("主题风格")} value={localizeUiCopy(themeChoices, tUi).find(item => item.id === appearance.appearanceMode)?.label || (appearance.appearanceMode === 'system' ? tUi("跟随系统") : '')} onClick={() => open('theme')} />
         <SettingsRow icon={ChatCircleDots} label={tUi("聊天显示")} onClick={() => open('chat')} />
         <SettingsRow icon={Image} label={tUi("列表角色图")} value={localizeUiCopy(artworkChoices, tUi).find(item => item.id === appearance.sidebarCharacterArtwork)?.label} onClick={() => open('artwork')} />
+        {view.renderLanguageSettings && <LanguageSettings renderLanguageSettings={view.renderLanguageSettings} />}
       </SettingsGroup>
       {(settingsSections.length > 0 || replyNotifications || backgroundRun) && <SettingsGroup title={tUi("应用")}>
         {settingsSections.map(section => <SettingsRow key={section.id} icon={SlidersHorizontal} label={section.label} onClick={() => open(`dsh:${section.id}`)} />)}
@@ -224,12 +225,12 @@ export function MobileSettingsPage() {
         <SettingsRow icon={ChatCircleDots} label={tUi("富消息")} onClick={() => open('chat:rich')} />
         {layout === 'roleplay' && <SettingsRow icon={ChatCircleDots} label={tUi("布局独有风格")} value={model.roleplayStyle.bubbles_enabled ? tUi("有气泡") : tUi("无气泡")} onClick={() => open('chat:style')} />}
         {layout === 'agent' && <SettingsRow icon={ChatCircleDots} label={tUi("布局独有风格")} onClick={() => open('chat:bubble')} />}
+        <SettingsSwitch icon={ChartBar} label={tUi("生成统计")} checked={preferences.generation_stats_enabled} onChange={value => updatePreferences({ generation_stats_enabled: value })} />
+        {layout === 'roleplay' && <>
+          <SettingsSwitch icon={Clock} label={tUi("聊天时间戳")} checked={preferences.roleplay_timestamps_enabled} onChange={value => updatePreferences({ roleplay_timestamps_enabled: value })} />
+          <SettingsSwitch icon={ListNumbers} label={tUi("显示消息楼层")} checked={preferences.roleplay_message_floors_enabled} onChange={value => updatePreferences({ roleplay_message_floors_enabled: value })} />
+        </>}
       </SettingsGroup>
-      <SettingsGroup><SettingsSwitch label={tUi("生成统计")} checked={preferences.generation_stats_enabled} onChange={value => updatePreferences({ generation_stats_enabled: value })} /></SettingsGroup>
-      {layout === 'roleplay' && <SettingsGroup><SettingsSwitch label={tUi("聊天时间戳")} checked={preferences.roleplay_timestamps_enabled} onChange={value => updatePreferences({ roleplay_timestamps_enabled: value })} />
-        <SettingsSwitch label={tUi("显示消息楼层")} checked={preferences.roleplay_message_floors_enabled} onChange={value => updatePreferences({ roleplay_message_floors_enabled: value })} /></SettingsGroup>}
-      {view.renderLanguageSettings && <SettingsGroup><LanguageSettings renderLanguageSettings={view.renderLanguageSettings} /></SettingsGroup>}
-      <button type="button" className="mobile-settings-reset" onClick={model.resetProfile}>{tUi("恢复当前布局")}</button>
     </>;
   } else if (page === 'chat:layout') {
     content = <SettingsGroup><SettingsChoices label={title} options={localizeUiCopy(chatLayouts, tUi).filter(item => !item.disabled)} value={layout} onChange={model.selectLayout} /></SettingsGroup>;

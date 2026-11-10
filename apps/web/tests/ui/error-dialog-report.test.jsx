@@ -10,6 +10,11 @@ import React, { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { AppToast } from "../../src/ui/ui/AppToast.jsx";
+import { FailureAlert } from '../../src/ui/ui/FailureAlert.jsx';
+import { FailureReportContext } from '../../src/ui/ui/FailureReportContext.js';
+import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
+import { MobileCreatorStudioPage } from '../../src/mobile/MobileCreatorStudioPage.jsx';
+import { resolveFailure } from '../../src/utils/failureText.js';
 import { reportProblemNotes, useReportProblem } from "../../src/app/windows/shell/hooks/useReportProblem.js";
 import { BugReportDialog } from "../../src/app/windows/shell/components/BugReportDialog.jsx";
 import { ProductLocaleProvider } from "../../src/app/i18n/ProductLocaleContext.jsx";
@@ -28,6 +33,7 @@ const FAILURE = {
 const NOTICE = { id: 7, type: "error", message: FAILURE.text, failure: FAILURE };
 
 let root;
+const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
 
 afterEach(async () => {
   if (root) await act(async () => root.unmount());
@@ -35,6 +41,8 @@ afterEach(async () => {
   document.body.replaceChildren();
   delete window.dshDesktop;
   delete window.ElecKoiPlatform;
+  if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard);
+  else delete navigator.clipboard;
 });
 
 function ReportWindow() {
@@ -46,6 +54,77 @@ function ReportWindow() {
     <BugReportDialog {...report.dialogProps} />
   </>;
 }
+
+function InlineReportWindow({ failure, studio = false }) {
+  const report = useReportProblem();
+  const snapshot = { status: 'error', active: null, reference: null, error: failure };
+  const characters = { collection: { items: [], groups: [] } };
+  const drawer = { shown: false };
+  const subscribe = () => () => {};
+  const model = { subscribe, getSnapshot: () => snapshot, restoreRecent: async () => { throw failure; }, release() {} };
+  const view = { creatorStudio: { sessions: model }, characters: { subscribe, getSnapshot: () => characters },
+    navigation: { sidebar: { subscribe, getSnapshot: () => drawer }, closeSidebar() {} }, goBack() {}, openWorkspaceDrawer() {} };
+  return <FailureReportContext.Provider value={report.available ? report.openReport : null}>
+    {studio ? <MainPageContext.Provider value={view}><MobileCreatorStudioPage /></MainPageContext.Provider> : <FailureAlert failure={failure} />}
+    <BugReportDialog {...report.dialogProps} />
+  </FailureReportContext.Provider>;
+}
+
+describe('inline failure diagnostics and report delivery', () => {
+  const failure = { isDSHRemoteError: true, code: 'gateway/service-unavailable',
+    message: 'active Service "synthetic-studio" is unavailable; api_key=synthetic-credential',
+    details: { endpoint: 'creatorStudio.open', scope: { phase: 'restore' } } };
+
+  it.each([false, true])('carries the original inline failure into Android preview and the form (Studio: %s)', async studio => {
+    const openExternal = vi.fn(), writeText = vi.fn();
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    window.ElecKoiPlatform = { openExternal, bugReport: { facts: vi.fn(async () => ({
+      available: true,
+      environment: { appVersion: '0.2.20', platform: 'android', arch: 'arm64' }, session: { ended: true }, events: [],
+      delivery: { mailbox: '', repository: '', form: { shareUrl: 'https://reports.example.test/share/base/form/synthetic', fields: { body: 'report_body' } } },
+    })) } };
+    await mount(<InlineReportWindow failure={failure} studio={studio} />);
+    const alert = document.querySelector('.failure-alert');
+    expect(alert.textContent).toContain('gateway/service-unavailable');
+    expect(alert.textContent).toContain(failure.message);
+    expect(alert.textContent).toContain('creatorStudio.open');
+    await act(async () => buttonByText('报告问题').click());
+    expect(openExternal).not.toHaveBeenCalled();
+    expect(writeText).not.toHaveBeenCalled();
+    const preview = document.querySelector('.bug-report-preview').textContent;
+    expect(preview).toContain('gateway/service-unavailable');
+    expect(preview).toContain('active Service "synthetic-studio" is unavailable');
+    expect(preview).toContain('creatorStudio.open');
+    expect(preview).not.toContain('synthetic-credential');
+    await act(async () => buttonByText('提交到飞书').click());
+    expect(openExternal).toHaveBeenCalledOnce();
+    const url = decodeURIComponent(openExternal.mock.calls[0][0]);
+    expect(url).toContain('gateway/service-unavailable');
+    expect(url).toContain('creatorStudio.open');
+    expect(url).not.toContain('synthetic-credential');
+    expect(writeText).toHaveBeenCalledOnce();
+    expect(writeText.mock.calls[0][0]).toContain('creatorStudio.open');
+    expect(writeText.mock.calls[0][0]).not.toContain('synthetic-credential');
+  });
+
+  it('keeps inline information visible without displaying an unavailable report button', async () => {
+    await mount(<InlineReportWindow failure={failure} />);
+    expect(buttonByText('报告问题')).toBeUndefined();
+    expect(document.querySelector('.failure-alert').textContent).toContain(failure.message);
+  });
+
+  it('shows and copies the original diagnostic in the window error dialog', async () => {
+    const resolved = resolveFailure(failure), writeText = vi.fn();
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    await mount(<AppToast notice={{ id: 1, type: 'error', message: resolved.text, failure: resolved }} />);
+    expect(document.querySelector('.app-error-dialog').textContent).toContain(failure.message);
+    expect(document.querySelector('.app-error-dialog').textContent).toContain('creatorStudio.open');
+    await act(async () => buttonByText('复制错误').click());
+    expect(writeText.mock.calls[0][0]).toContain(failure.message);
+    expect(writeText.mock.calls[0][0]).toContain('gateway/service-unavailable');
+    expect(writeText.mock.calls[0][0]).toContain('creatorStudio.open');
+  });
+});
 
 describe('window report flow', () => {
   it.each(['zh', 'en', 'ja', 'es', 'fr', 'de', 'ru', 'pt'])('replaces the error with a report and keeps editable notes in %s', async language => {

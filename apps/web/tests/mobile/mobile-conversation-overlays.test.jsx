@@ -92,49 +92,29 @@ describe('Android conversation surfaces', () => {
     await nativeBack();
     expect(onClose).toHaveBeenCalledOnce();
   });
-  it('returns through variable objects, floor detail and the original timeline before closing', async () => {
+  it('returns through nested variables, floor detail and history before closing', async () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(500);
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(390);
     const state = { root: { group: { child: { value: '合成值' } } }, valueCount: 1 };
-    const timeline = {
-      floors: [
-        {
-          id: 'floor-a',
-          label: '第 1 楼',
-          changedPaths: ['/group/child/value'],
-          changedValueCount: 1,
-          state,
-        },
-      ],
-      current: state,
-    };
+    const timeline = { initial: state, current: state, floors: [{ id: 'floor-a', label: '第 1 楼', createdAt: '', messagePreview: '', changedPaths: [], changedValueCount: 0, state }] };
     const snapshot = { id: 'conversation-a', status: 'ready', timeline, error: '' };
-    const service = {
-        subscribeTimeline: () => () => {},
-        getTimelineSnapshot: () => snapshot,
-        openTimeline: vi.fn(async () => timeline),
-        closeTimeline: vi.fn(),
-      },
-      onClose = vi.fn();
-    await render(
-      <VariableViewerDialog conversationId="conversation-a" conversationModel={service} onClose={onClose} />,
-    );
-    const list = document.querySelector('.variable-floor-list');
-    list.scrollTop = 190;
-    expect(document.querySelector('.variable-snapshot')).toBeNull();
-    await click(document.querySelector('.variable-floor'));
-    document.querySelector('.variable-viewer-tree-scroll').scrollTop = 120;
-    await click(document.querySelector('.variable-viewer-tree-row.is-container'));
-    document.querySelector('.variable-viewer-tree-scroll').scrollTop = 70;
-    await click(document.querySelector('.variable-viewer-tree-row.is-container'));
-    expect(document.querySelector('.variable-snapshot-titleline').textContent).toBe('child');
+    const service = { readVariableConfiguration: vi.fn(async () => ({ versionId: '', versions: [] })),
+      subscribeTimeline: () => () => {}, getTimelineSnapshot: () => snapshot,
+      openTimeline: vi.fn(async () => timeline), closeTimeline: vi.fn() };
+    const onClose = vi.fn();
+    await render(<VariableViewerDialog conversationId="conversation-a" conversationModel={service} onClose={onClose} />);
+    await click(button('历史快照'));
+    await click(document.querySelector('.vm-floor'));
+    await click(document.querySelector('.vm-history-filter input'));
+    await click(document.querySelector('.vm-snapshot [data-node-path="/group"]'));
+    await click(document.querySelector('.vm-snapshot [data-node-path="/group/child"]'));
+    expect(document.querySelector('.vm-snapshot [aria-current="location"]').textContent).toBe('child');
     await nativeBack();
-    expect(document.querySelector('.variable-snapshot-titleline').textContent).toBe('group');
-    expect(document.querySelector('.variable-viewer-tree-scroll').scrollTop).toBe(70);
+    expect(document.querySelector('.vm-snapshot [aria-current="location"]').textContent).toBe('group');
     await nativeBack();
-    expect(document.querySelector('.variable-snapshot-titleline').textContent).toBe('第 1 楼');
-    expect(document.querySelector('.variable-viewer-tree-scroll').scrollTop).toBe(120);
+    expect(document.querySelector('.vm-snapshot')).not.toBeNull();
     await nativeBack();
-    expect(document.querySelector('.variable-snapshot')).toBeNull();
-    expect(list.scrollTop).toBe(190);
+    expect(document.querySelector('.vm-snapshot')).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
     await nativeBack();
     expect(onClose).toHaveBeenCalledOnce();

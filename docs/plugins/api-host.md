@@ -858,6 +858,22 @@ Source: [`packages/host/product-api/src/index.ts`](../../packages/host/product-a
 @Remote async variableTimeline(conversationId: string): Promise<VariableViewerTimeline>
 
 /**
+ * 读取当前会话关联的变量版本及本角色可选版本，不改变编辑器选择。
+ * @param conversationId - ElecKoi 聊天编号。
+ * @returns 当前关联编号与版本目录；已删除的关联编号仍保留。
+ */
+@Remote variableConfiguration(conversationId: string): ConversationVariableConfiguration
+
+/**
+ * 为当前会话选择变量配置，保留当前值、初始值和历史快照。
+ * @param conversationId - ElecKoi 聊天编号。
+ * @param versionId - 本角色变量版本编号，空字符串表示取消关联。
+ * @param expectedVersionId - 界面读取到的原关联编号，用于拒绝过期操作。
+ * @returns 已保存的关联与版本目录。
+ */
+@Remote async selectVariableVersion(conversationId: string, versionId: string, expectedVersionId: string): Promise<ConversationVariableConfiguration>
+
+/**
  * 读取当前聊天的有效设定库、变量配置和变量状态。
  * @param conversationId - ElecKoi 聊天编号。
  * @returns 操作结果，结构见返回类型；失败抛出错误。
@@ -1002,7 +1018,7 @@ Source: [`packages/host/product-api/src/index.ts`](../../packages/host/product-a
 @Remote async updateOpening(conversationId: string, content: string): Promise<ConversationDetailsMetadata>
 ```
 
-Types: [AuthorConversationState](types-host.md#authorconversationstate) · [ConversationChange](types-host.md#conversationchange) · [ConversationCreateInput](types-host.md#conversationcreateinput) · [ConversationDetailsMetadata](types-host.md#conversationdetailsmetadata) · [ConversationMessageDisplayInput](types-host.md#conversationmessagedisplayinput) · [ConversationMessageDisplayResult](types-host.md#conversationmessagedisplayresult) · [ConversationRequestPreview](types-host.md#conversationrequestpreview) · [ConversationRequestPreviewSummary](types-host.md#conversationrequestpreviewsummary) · [ConversationSummary](types-host.md#conversationsummary) · [VariableViewerTimeline](types-host.md#variableviewertimeline)
+Types: [AuthorConversationState](types-host.md#authorconversationstate) · [ConversationChange](types-host.md#conversationchange) · [ConversationCreateInput](types-host.md#conversationcreateinput) · [ConversationDetailsMetadata](types-host.md#conversationdetailsmetadata) · [ConversationMessageDisplayInput](types-host.md#conversationmessagedisplayinput) · [ConversationMessageDisplayResult](types-host.md#conversationmessagedisplayresult) · [ConversationRequestPreview](types-host.md#conversationrequestpreview) · [ConversationRequestPreviewSummary](types-host.md#conversationrequestpreviewsummary) · [ConversationSummary](types-host.md#conversationsummary) · [ConversationVariableConfiguration](types-host.md#conversationvariableconfiguration) · [VariableViewerTimeline](types-host.md#variableviewertimeline)
 
 Source: [`packages/host/product-api/src/index.ts`](../../packages/host/product-api/src/index.ts)
 

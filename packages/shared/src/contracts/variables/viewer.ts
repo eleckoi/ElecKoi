@@ -19,6 +19,7 @@ export const variableFloorSnapshotSchema = z.object({
 }).strict()
 
 export const variableViewerTimelineSchema = z.object({
+  initial: variableStateDocumentSchema,
   current: variableStateDocumentSchema,
   floors: z.array(variableFloorSnapshotSchema)
 }).strict()

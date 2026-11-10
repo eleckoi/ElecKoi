@@ -692,6 +692,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '操作结果，结构见返回类型；失败抛出错误。',
       },
       {
+        signature: '@Remote variableConfiguration(conversationId: string): ConversationVariableConfiguration',
+        description: '读取当前会话关联的变量版本及本角色可选版本，不改变编辑器选择。',
+        parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }],
+        returns: '当前关联编号与版本目录；已删除的关联编号仍保留。',
+      },
+      {
+        signature: '@Remote async selectVariableVersion(conversationId: string, versionId: string, expectedVersionId: string): Promise<ConversationVariableConfiguration>',
+        description: '为当前会话选择变量配置，保留当前值、初始值和历史快照。',
+        parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'versionId', description: '本角色变量版本编号，空字符串表示取消关联。' }, { name: 'expectedVersionId', description: '界面读取到的原关联编号，用于拒绝过期操作。' }],
+        returns: '已保存的关联与版本目录。',
+      },
+      {
         signature: '@Remote authorState(conversationId: string): AuthorConversationState',
         description: '读取当前聊天的有效设定库、变量配置和变量状态。',
         parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }],
@@ -1158,7 +1170,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AuthorConversationState',
-    declaration: 'export interface AuthorConversationState {\n    initialVariableStateJson: string;\n    currentVariableStateJson: string;\n    variableConfig: VariableConfig | null;\n    settingLibrarySummary: {\n        characterId: string;\n        name: string;\n        activeVersionId: string;\n        entryCount: number;\n        groupCount: number;\n    } | null;\n    settingLibrary: ConversationRuntimeSettingLibrary | null;\n}',
+    declaration: 'export interface AuthorConversationState {\n    variableIdentityJson: string;\n    initialVariableStateJson: string;\n    currentVariableStateJson: string;\n    variableConfig: VariableConfig | null;\n    settingLibrarySummary: {\n        characterId: string;\n        name: string;\n        activeVersionId: string;\n        entryCount: number;\n        groupCount: number;\n    } | null;\n    settingLibrary: ConversationRuntimeSettingLibrary | null;\n}',
   },
   {
     name: 'AuthorScriptJson',
@@ -1283,6 +1295,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ConversationSummary',
     declaration: 'export interface ConversationSummary extends ConversationRecord {\n    metadata: ConversationMetadata;\n    runtimeSessionId: string;\n}',
+  },
+  {
+    name: 'ConversationVariableConfiguration',
+    declaration: 'export interface ConversationVariableConfiguration {\n    versionId: string;\n    versions: Array<{\n        id: string;\n        name: string;\n    }>;\n}',
   },
   {
     name: 'CreateCreatorProjectInput',
@@ -1602,7 +1618,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'VariableViewerTimeline',
-    declaration: 'export interface VariableViewerTimeline {\n    current: VariableStateDocument;\n    floors: VariableFloorSnapshot[];\n}',
+    declaration: 'export interface VariableViewerTimeline {\n    initial: VariableStateDocument;\n    current: VariableStateDocument;\n    floors: VariableFloorSnapshot[];\n}',
   },
   {
     name: 'WebFetchMode',
