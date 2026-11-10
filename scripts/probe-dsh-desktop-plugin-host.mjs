@@ -131,8 +131,9 @@ try {
   if (!document.includes('<html')) throw new Error('DSH client boot document was not served')
   const schema = productSchema()
   const tableCount = schema.objects.filter(row => row.type === 'table').length
-  if (schema.version !== 16 || tableCount !== 49) {
-    throw new Error(`Product schema contract mismatch: ${tableCount} tables, user_version ${schema.version}; expected 49 tables and user_version 16`)
+  const viewCount = schema.objects.filter(row => row.type === 'view').length
+  if (schema.version !== 17 || tableCount !== 49 || viewCount !== 2) {
+    throw new Error(`Product schema contract mismatch: ${tableCount} tables, ${viewCount} views, user_version ${schema.version}; expected 49 tables, 2 views and user_version 17`)
   }
   await remoteCall(ready, cookie, 'eleckoiCompatibility/capabilities', {}, 404)
   await remoteCall(ready, cookie, 'eleckoiAuthorPlugins/capabilities', {}, 404)
