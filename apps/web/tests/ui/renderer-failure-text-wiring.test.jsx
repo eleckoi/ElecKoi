@@ -42,16 +42,16 @@ function alertText() {
 }
 
 describe("界面显示失败时走按码文案", () => {
-  it("带码失败显示按码句子，而不是开发者诊断", async () => {
+  it("带码失败使用按码摘要，并单独保留原始诊断", async () => {
     const failure = new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, "开发者诊断：找不到 x", { what: "角色卡" });
     await mountCards(() => Promise.reject(failure));
 
     await act(async () => container.querySelector("button.chat-file-card").click());
 
-    // 合并后 ChatFileCards 的失败面是 FailureAlert（wp12）：`role="alert"` 里除了按码句子，
-    // 还会把码与参数化详情逐条展示（这就是它比一行小字多出来的东西），所以断"包含"而不是整段等于。
-    expect(alertText()).toContain("找不到角色卡。");
-    expect(alertText()).not.toContain("开发者诊断");
+    // 按码摘要与完整原始诊断分别显示，诊断不能替代摘要，也不能在接线中丢失。
+    expect(container.querySelector(".failure-alert-text")?.textContent).toBe("找不到角色卡。");
+    expect(container.querySelector(".failure-alert-code")?.textContent).toBe(ELECKOI_FAILURE_CODES.lookupNotFound);
+    expect(container.querySelector(".failure-alert-diagnostic")?.textContent).toBe(failure.message);
   });
 
   it("认不出的失败才回落到这次操作的兜底文案", async () => {
