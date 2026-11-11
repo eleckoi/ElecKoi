@@ -32,6 +32,7 @@ export class UpdateService {
   private initialCheckTimer: NodeJS.Timeout | undefined
   private recheckTimer: NodeJS.Timeout | undefined
   private schedule: DesktopUpdateSchedule | undefined
+  private readonly listeners = new Set<() => void>()
 
   constructor(private readonly options: UpdateServiceOptions) {
     this.state = emptyStatus(options.enabled ? 'idle' : 'disabled', options.currentVersion,
@@ -72,6 +73,12 @@ export class UpdateService {
   }
 
   status(): UpdateStatus { return this.state }
+
+  /** Observe the same main-owned transfer state without starting or joining a transfer. */
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener)
+    return () => { this.listeners.delete(listener) }
+  }
 
   nativeStatus(): DesktopUpdateState { return this.coordinator?.state ?? { phase: 'idle' } }
 
@@ -120,6 +127,7 @@ export class UpdateService {
     this.options.updater.off('download-progress', this.captureProgress)
     this.coordinator?.dispose()
     this.schedule?.dispose()
+    this.listeners.clear()
   }
 
   private readonly captureInfo = (info: UpdateInfo): void => { this.info = info }
@@ -165,6 +173,7 @@ export class UpdateService {
 
   private publish(status: UpdateStatus, native: DesktopUpdateState): void {
     this.state = status
+    for (const listener of this.listeners) listener()
     this.options.publish({ ...status, ...presentDesktopUpdate(native) })
   }
 }

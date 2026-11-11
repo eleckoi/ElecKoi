@@ -33,6 +33,14 @@ export class DesktopUpdateDialog {
   /** Whether a shell prompt is awaiting a response. */
   get isOpen(): boolean { return this.active !== undefined }
 
+  /** Refresh a visible transfer without replacing its choices or interrupting a response. */
+  update(content: Pick<UpdateDialogOptions, 'message' | 'detail'>): void {
+    const active = this.active
+    if (!active || !this.view || this.view.isDestroyed()) return
+    active.view = { ...active.view, message: content.message, detail: content.detail ?? '' }
+    this.view.webContents.send(UPDATE_DIALOG_IPC.changed, active.view)
+  }
+
   /**
    * @param preload - Bundled isolated preload.
    * @param locale - Shell-owned copy or a reader of the current UI language.
@@ -79,7 +87,7 @@ export class DesktopUpdateDialog {
     return new Promise((resolve) => {
       const abort = (): void => { finish(cancelId) }
       const finish = (response: number, retain = false): void => {
-        if (this.active?.view !== view) return
+        if (this.active !== active) return
         this.active = undefined
         options.signal?.removeEventListener('abort', abort)
         if (!retain && !surface.webContents.isDestroyed()) {
@@ -88,7 +96,8 @@ export class DesktopUpdateDialog {
         }
         resolve({ response, checkboxChecked: false })
       }
-      this.active = { view, finish }
+      const active = { view, finish }
+      this.active = active
       options.signal?.addEventListener('abort', abort, { once: true })
       if (existing !== undefined) { surface.webContents.send(UPDATE_DIALOG_IPC.changed, view); return }
       const failed = (): void => { if (this.view === surface) { this.cancel(); this.close() } }

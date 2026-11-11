@@ -27,7 +27,7 @@ patchedDependencies:
     hash: f9ec6057de75743c2cafa2d2d9953dae4ee51deb16335a679c715f7564384cd6
     path: patches/@deepseek-ai__dsh-client-ui-plugin-manager@0.2.2-rc.1.patch
   '@deepseek-ai/dsh-client-ui-settings-general@0.2.2-rc.1':
-    hash: 747151832324f02302883e0c5238c141acf76a02079502f0ccf85d42ab1df7a6
+    hash: 2521a79e3ceb819fd5c25ec13d172c723fc4572da1ed293144a3c0aa9cf499b2
     path: patches/@deepseek-ai__dsh-client-ui-settings-general@0.2.2-rc.1.patch
   '@deepseek-ai/dsh-client-ui-theme@0.2.2-rc.1':
     hash: c2d2ca656f34a526326080f18e3683f39b9baf444e27ccfb7f323c857f7602b9
@@ -348,7 +348,7 @@ importers:
         version: 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-settings-general':
         specifier: 0.2.2-rc.1
-        version: 0.2.2-rc.1(patch_hash=747151832324f02302883e0c5238c141acf76a02079502f0ccf85d42ab1df7a6)(@deepseek-ai/cordis@4.1.0)
+        version: 0.2.2-rc.1(patch_hash=2521a79e3ceb819fd5c25ec13d172c723fc4572da1ed293144a3c0aa9cf499b2)(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-settings-models':
         specifier: 0.2.2-rc.1
         version: 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
@@ -1799,7 +1799,7 @@ importers:
         version: 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-settings-general':
         specifier: 0.2.2-rc.1
-        version: 0.2.2-rc.1(patch_hash=747151832324f02302883e0c5238c141acf76a02079502f0ccf85d42ab1df7a6)(@deepseek-ai/cordis@4.1.0)
+        version: 0.2.2-rc.1(patch_hash=2521a79e3ceb819fd5c25ec13d172c723fc4572da1ed293144a3c0aa9cf499b2)(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-settings-models':
         specifier: 0.2.2-rc.1
         version: 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
@@ -3837,7 +3837,7 @@ importers:
         version: 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-settings-general':
         specifier: 0.2.2-rc.1
-        version: 0.2.2-rc.1(patch_hash=747151832324f02302883e0c5238c141acf76a02079502f0ccf85d42ab1df7a6)(@deepseek-ai/cordis@4.1.0)
+        version: 0.2.2-rc.1(patch_hash=2521a79e3ceb819fd5c25ec13d172c723fc4572da1ed293144a3c0aa9cf499b2)(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-settings-models':
         specifier: 0.2.2-rc.1
         version: 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
@@ -14413,7 +14413,7 @@ snapshots:
     dependencies:
       '@deepseek-ai/cordis': 4.1.0(@deepseek-ai/cordis-plugin-include@1.1.0)(@deepseek-ai/cordis-plugin-loader@1.1.0)
 
-  '@deepseek-ai/dsh-client-ui-settings-general@0.2.2-rc.1(patch_hash=747151832324f02302883e0c5238c141acf76a02079502f0ccf85d42ab1df7a6)(@deepseek-ai/cordis@4.1.0)':
+  '@deepseek-ai/dsh-client-ui-settings-general@0.2.2-rc.1(patch_hash=2521a79e3ceb819fd5c25ec13d172c723fc4572da1ed293144a3c0aa9cf499b2)(@deepseek-ai/cordis@4.1.0)':
     dependencies:
       '@deepseek-ai/cordis': 4.1.0(@deepseek-ai/cordis-plugin-include@1.1.0)(@deepseek-ai/cordis-plugin-loader@1.1.0)
       '@deepseek-ai/schemastery': 3.19.0
@@ -17091,7 +17091,7 @@ snapshots:
       '@deepseek-ai/dsh-client-ui-settings': 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-settings-account': 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-settings-agent-loop': 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
-      '@deepseek-ai/dsh-client-ui-settings-general': 0.2.2-rc.1(patch_hash=747151832324f02302883e0c5238c141acf76a02079502f0ccf85d42ab1df7a6)(@deepseek-ai/cordis@4.1.0)
+      '@deepseek-ai/dsh-client-ui-settings-general': 0.2.2-rc.1(patch_hash=2521a79e3ceb819fd5c25ec13d172c723fc4572da1ed293144a3c0aa9cf499b2)(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-settings-models': 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-settings-plugin-inventory': 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-settings-plugins': 0.2.2-rc.1(@deepseek-ai/cordis@4.1.0)

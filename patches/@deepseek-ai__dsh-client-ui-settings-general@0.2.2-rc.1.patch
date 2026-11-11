@@ -1,8 +1,51 @@
 diff --git a/lib/client.js b/lib/client.js
-index 205a37c6..913f9d53 100644
 --- a/lib/client.js
 +++ b/lib/client.js
-@@ -636,10 +636,10 @@ window.__ModuleLoader__.load({
+@@ -167,7 +167,7 @@
+ 		* @param props - Connection priority, sidebar width, and localized bridge-failure copy.
+ 		* @returns Desktop-only status beside the account button, or nothing in browsers.
+ 		*/
+-		function DesktopUpdateIndicator({ wide, hidden, t, view, onOpen }) {
++		function DesktopUpdateIndicator({ wide, hidden, t, view, onOpen, reopenable = false }) {
+ 			const { presentation: state, failed, opening } = view;
+ 			if (!wide || hidden || !failed && (state === void 0 || state.phase === "idle")) return null;
+ 			const retryLabel = t("desktop.update.retry");
+@@ -178,16 +178,18 @@
+ 			const label = failed ? retryLabel : copy.label;
+ 			const error = failed || state?.phase === "error";
+ 			const busy = opening || state !== void 0 && BUSY_PHASES.has(state.phase);
++			const blocked = reopenable ? opening || state?.phase === "installing" : busy;
+ 			return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.Tooltip, {
+ 				label: failed ? retryLabel : copy.detail,
+-				side: "top",
++				portal: reopenable,
++				side: reopenable ? "right" : "top",
+ 				children: (0, react_jsx_runtime.jsxs)("button", {
+ 					type: "button",
+ 					className: DesktopUpdateIndicator_module_css_default.indicator,
+ 					"aria-label": label,
+-					"aria-disabled": busy,
++					"aria-disabled": blocked,
+ 					onClick: () => {
+-						if (!busy) onOpen();
++						if (!blocked) onOpen();
+ 					},
+ 					children: [(0, react_jsx_runtime.jsx)("span", {
+ 						className: DesktopUpdateIndicator_module_css_default.icon,
+@@ -539,10 +541,10 @@
+ 				});
+ 			}
+ 			/** Invoke one user action; subsequent clicks join the shell-owned operation. */
+-			open() {
++			open(reopenable = false) {
+ 				if (!this.live || this.bridge === void 0) return;
+ 				const state = this.store.getSnapshot();
+-				if (state.opening || state.presentation !== void 0 && [
++				if (state.opening || !reopenable && state.presentation !== void 0 && [
+ 					"checking",
+ 					"downloading",
+ 					"verifying",
+@@ -636,10 +638,10 @@
  		* @param props - composed slot props (contract/slots.ts).
  		* @returns the section element tree.
  		*/
@@ -15,7 +58,7 @@ index 205a37c6..913f9d53 100644
  			});
  		}
  		//#endregion
-@@ -1388,6 +1388,15 @@ window.__ModuleLoader__.load({
+@@ -1388,6 +1390,15 @@
  			const connection = ctx.get("connection");
  			const carrier = globalThis.dshDesktop;
  			const desktopUpdate = new DesktopUpdateSource(carrier?.protocolVersion === 1 ? carrier.updates : void 0);
@@ -25,13 +68,13 @@ index 205a37c6..913f9d53 100644
 +			}, function SidebarUpdate({ useDesktopUpdate, t }) {
 +				const view = useDesktopUpdate(value => value);
 +				return (0, react_jsx_runtime.jsx)(DesktopUpdateIndicator, {
-+					wide: true, hidden: false, t, view, onOpen: () => desktopUpdate.open()
++					wide: true, hidden: false, t, view, reopenable: true, onOpen: () => desktopUpdate.open(true)
 +				});
 +			}));
  			ctx.effect(() => () => {
  				desktopUpdate.dispose();
  			}, "ui-settings-general: desktop update carrier");
-@@ -1473,6 +1482,7 @@ window.__ModuleLoader__.load({
+@@ -1473,6 +1484,7 @@
  					...shellHandle,
  					create: () => shellInstance
  				};
@@ -39,7 +82,7 @@ index 205a37c6..913f9d53 100644
  				const disposeCommand = ctx.shortcuts.register({
  					id: "settings.open",
  					label: () => t("shortcut.open"),
-@@ -1513,12 +1523,14 @@ window.__ModuleLoader__.load({
+@@ -1513,12 +1525,14 @@
  						return {
  							status: "handled",
  							run: () => {

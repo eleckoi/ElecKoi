@@ -25,7 +25,7 @@ patchedDependencies:
   # Backports electron-builder PR #10323 for pnpm deduplicated dependency closures.
   # RETIRE WHEN: the locked builder supports official ULMO and collects deduplicated pnpm production closures; remove the patch, registration and lock hash together.
   app-builder-lib@26.17.0: patches/app-builder-lib@26.17.0.patch
-  # RETIRE WHEN: official settings exposes reusable sidebar update placement and a language-only section sharing its LocaleRuntime.
+    # RETIRE WHEN: official settings exposes reusable, reopenable sidebar updates with portal tooltips and a language-only section sharing its LocaleRuntime.
   '@deepseek-ai/dsh-client-ui-settings-general@0.2.2-rc.1': patches/@deepseek-ai__dsh-client-ui-settings-general@0.2.2-rc.1.patch
   # RETIRE WHEN: upstream can continue the exact durable input and await per-turn preset preparation before model/tool capture.
   '@deepseek-ai/dsh-agent-loop@0.2.2-rc.1': patches/@deepseek-ai__dsh-agent-loop@0.2.2-rc.1.patch

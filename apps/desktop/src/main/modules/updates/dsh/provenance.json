@@ -49,9 +49,10 @@
       "sha256": "57e0ad6493130838e80f970bba9d79542af73a13705e92b045bd173d46c77a9f",
       "changes": [
         "Relative TypeScript import suffixes use .js for the local compiler.",
-        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter.",
+        "Transfer content can refresh without replacing confirmation choices or invalidating an in-flight close response."
       ],
-      "localSha256": "3c2be1dfc353559fa18f5cc0026912e7739c453855a208f8b4cc8f95903317e8"
+      "localSha256": "7ad26d36b3a98911499deb610bd64d79c1848ae6d38addd54fe2a65657f7aeaa"
     },
     {
       "path": "../../../platform/electron/dsh/update-window.ts",

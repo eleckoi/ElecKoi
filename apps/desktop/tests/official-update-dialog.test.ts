@@ -83,6 +83,18 @@ it('accepts only a displayed choice from its isolated shell frame', async () => 
   expect(dialogs!.isOpen).toBe(false)
 })
 
+it('refreshes transfer content while preserving the currently authorized close response', async () => {
+  const f = setup()
+  const pending = f.show(undefined, { message: '正在下载 46%', buttons: ['稍后'], cancelId: 0 })
+  const before = fixture.handlers.get(UPDATE_DIALOG_IPC.status)!({ sender: fixture.views[0]!.webContents,
+    senderFrame: fixture.views[0]!.webContents.mainFrame }) as { revision: number }
+  dialogs!.update({ message: '正在下载 67%', detail: '67 MB / 100 MB' })
+  expect(fixture.views[0]!.webContents.send).toHaveBeenLastCalledWith(UPDATE_DIALOG_IPC.changed,
+    expect.objectContaining({ revision: before.revision, message: '正在下载 67%', detail: '67 MB / 100 MB' }))
+  f.invoke(UPDATE_DIALOG_IPC.respond, 0)
+  expect(await pending).toMatchObject({ response: 0 })
+})
+
 it('attaches within its owner and resizes below the Windows caption without a native child window', async () => {
   const f = setup()
   const pending = f.show()

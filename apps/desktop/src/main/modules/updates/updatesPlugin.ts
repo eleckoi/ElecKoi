@@ -90,6 +90,7 @@ export const updatesPlugin = {
         for (const window of windows.all()) {
           if (!window.isDestroyed()) window.webContents.send(DESKTOP_SHELL_IPC.updatesChanged, status)
         }
+        void prompts.notify(updates).catch(error => appLog.warn({ err: error }, '无法显示桌面更新界面'))
       },
       logger: appLog
     })

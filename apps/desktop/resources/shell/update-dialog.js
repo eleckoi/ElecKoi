@@ -24,7 +24,9 @@ function render(state) {
     document.body.classList.remove('visible')
     return
   }
-  if (view !== undefined && state.revision <= view.revision) return
+  if (view !== undefined && state.revision < view.revision) return
+  const initial = view === undefined
+  const choicesChanged = initial || state.buttons.join('\0') !== view.buttons.join('\0')
   responding = false
   view = state
   document.documentElement.lang = state.locale
@@ -36,9 +38,9 @@ function render(state) {
   document.getElementById('technical-details').hidden = state.technicalDetails === ''
   document.getElementById('technical-details-label').textContent = state.technicalDetailsLabel
   document.getElementById('technical-details-content').textContent = state.technicalDetails
-  document.getElementById('technical-details').open = false
-  document.getElementById('actions').replaceChildren()
-  for (const [index, label] of state.buttons.entries()) {
+  if (initial) document.getElementById('technical-details').open = false
+  if (choicesChanged) document.getElementById('actions').replaceChildren()
+  for (const [index, label] of choicesChanged ? state.buttons.entries() : []) {
     const button = document.createElement('button')
     button.type = 'button'
     button.textContent = label
@@ -47,9 +49,9 @@ function render(state) {
     document.getElementById('actions').append(button)
   }
   document.querySelector('main').hidden = false
-  document.getElementById('dialog').scrollTop = 0
+  if (initial || choicesChanged) document.getElementById('dialog').scrollTop = 0
   document.body.classList.add('visible')
-  document.getElementById('dialog').focus()
+  if (initial || choicesChanged) document.getElementById('dialog').focus()
 }
 let received = false
 const unsubscribe = api.subscribe(state => { received = true; render(state) })
