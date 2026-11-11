@@ -1130,7 +1130,7 @@ button.model-group-row:hover {
   white-space: nowrap;
 }
 
-.model-parameter-grid {
+:where(.model-config-detail) .model-parameter-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   overflow: hidden;
@@ -1139,21 +1139,21 @@ button.model-group-row:hover {
   background: #fff;
 }
 
-.model-parameter-grid > label {
+:where(.model-config-detail) .model-parameter-grid > label {
   min-height: 76px;
   padding: 12px 14px;
   border-bottom: 1px solid #ededed;
 }
 
-.model-parameter-grid > label:nth-child(odd) {
+:where(.model-config-detail) .model-parameter-grid > label:nth-child(odd) {
   border-right: 1px solid #ededed;
 }
 
-.model-parameter-grid > label:last-child {
+:where(.model-config-detail) .model-parameter-grid > label:last-child {
   border-bottom: 0;
 }
 
-.model-parameter-grid label > span {
+:where(.model-config-detail) .model-parameter-grid label > span {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -1162,7 +1162,7 @@ button.model-group-row:hover {
   font-size: 13px;
 }
 
-.model-parameter-grid label > span small {
+:where(.model-config-detail) .model-parameter-grid label > span small {
   overflow: hidden;
   color: #9a9a9a;
   font-size: 11px;
@@ -1171,8 +1171,8 @@ button.model-group-row:hover {
   white-space: nowrap;
 }
 
-.model-parameter-grid input,
-.model-parameter-grid select {
+:where(.model-config-detail) .model-parameter-grid input,
+:where(.model-config-detail) .model-parameter-grid select {
   height: 34px;
   border: 0;
   border-radius: 6px;
@@ -1181,31 +1181,31 @@ button.model-group-row:hover {
   font-size: 13px;
 }
 
-.model-parameter-grid input:disabled,
-.model-parameter-grid select:disabled {
+:where(.model-config-detail) .model-parameter-grid input:disabled,
+:where(.model-config-detail) .model-parameter-grid select:disabled {
   color: #aaa;
   background: #f7f7f7;
 }
 
-.model-capability-toggle input[type="checkbox"] {
+:where(.model-config-detail) .model-capability-toggle input[type="checkbox"] {
   width: 18px;
   height: 18px;
   margin: 0 auto;
   accent-color: var(--blue);
 }
 
-.model-capability-toggle {
+:where(.model-config-detail) .model-capability-toggle {
   grid-template-columns: minmax(0, 1fr) 34px;
   align-items: center;
 }
 
-.model-capability-toggle > span {
+:where(.model-config-detail) .model-capability-toggle > span {
   display: grid !important;
   justify-content: start !important;
   gap: 3px !important;
 }
 
-.model-reasoning-profile {
+:where(.model-config-detail) .model-reasoning-profile {
   grid-column: 2;
   display: block;
   min-width: 0;
@@ -1215,7 +1215,7 @@ button.model-group-row:hover {
   border: 0;
 }
 
-.model-reasoning-profile legend {
+:where(.model-config-detail) .model-reasoning-profile legend {
   display: grid;
   gap: 3px;
   width: 100%;
@@ -1223,25 +1223,25 @@ button.model-group-row:hover {
   padding: 0;
 }
 
-.model-reasoning-profile legend > span {
+:where(.model-config-detail) .model-reasoning-profile legend > span {
   color: #444;
   font-size: 13px;
 }
 
-.model-reasoning-profile legend small {
+:where(.model-config-detail) .model-reasoning-profile legend small {
   color: #9a9a9a;
   font-size: 11px;
   font-weight: 400;
 }
 
-.model-reasoning-efforts {
+:where(.model-config-detail) .model-reasoning-efforts {
   display: flex;
   flex-wrap: nowrap;
   justify-content: flex-start;
   gap: 8px;
 }
 
-.model-reasoning-efforts button {
+:where(.model-config-detail) .model-reasoning-efforts button {
   flex: 0 0 auto;
   min-width: 50px;
   height: 32px;
@@ -1254,24 +1254,24 @@ button.model-group-row:hover {
   white-space: nowrap;
 }
 
-.model-reasoning-efforts button:hover,
-.model-reasoning-efforts button:focus-visible {
+:where(.model-config-detail) .model-reasoning-efforts button:hover,
+:where(.model-config-detail) .model-reasoning-efforts button:focus-visible {
   border-color: color-mix(in srgb, var(--blue) 48%, #e2e2e2);
   color: var(--text);
 }
 
-.model-reasoning-efforts button:focus-visible {
+:where(.model-config-detail) .model-reasoning-efforts button:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--blue) 42%, transparent);
   outline-offset: 2px;
 }
 
-.model-reasoning-efforts button.selected {
+:where(.model-config-detail) .model-reasoning-efforts button.selected {
   border-color: color-mix(in srgb, var(--blue) 48%, transparent);
   background: color-mix(in srgb, var(--blue) 10%, #fff);
   color: var(--blue);
 }
 
-.model-reasoning-profile:disabled {
+:where(.model-config-detail) .model-reasoning-profile:disabled {
   opacity: .55;
 }
 
@@ -1328,18 +1328,18 @@ button.model-group-row:hover {
 }
 
 @container (max-width: 680px) {
-  .model-parameter-grid {
+  :where(.model-config-detail) .model-parameter-grid {
     grid-template-columns: 1fr;
   }
 
-  .model-parameter-grid > label,
-.model-parameter-grid > label:nth-child(odd),
-.model-parameter-grid > label:last-child {
+  :where(.model-config-detail) .model-parameter-grid > label,
+:where(.model-config-detail) .model-parameter-grid > label:nth-child(odd),
+:where(.model-config-detail) .model-parameter-grid > label:last-child {
     border-right: 0;
     border-bottom: 1px solid #ededed;
   }
 
-  .model-parameter-grid > label:last-child {
+  :where(.model-config-detail) .model-parameter-grid > label:last-child {
     border-bottom: 0;
   }
 
@@ -1347,11 +1347,11 @@ button.model-group-row:hover {
     grid-template-columns: 1fr 1fr 36px;
   }
 
-  .model-reasoning-efforts {
+  :where(.model-config-detail) .model-reasoning-efforts {
     flex-wrap: wrap;
   }
 
-  .model-reasoning-profile {
+  :where(.model-config-detail) .model-reasoning-profile {
     grid-column: 1 / -1;
     border-top: 1px solid #ededed;
   }
@@ -1380,19 +1380,19 @@ button.model-group-row:hover {
 
 .model-detail-form .model-directory-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 
-.model-detail-form .model-directory-toggle input, .model-input-capabilities input { width: 16px; height: 16px; margin: 0; accent-color: var(--blue); }
+.model-detail-form .model-directory-toggle input, :where(.model-config-detail) .model-input-capabilities input { width: 16px; height: 16px; margin: 0; accent-color: var(--blue); }
 
-.model-input-capabilities { min-inline-size: 0; min-width: 0; margin: 0; padding: 12px 14px; border: 0; border-right: 1px solid var(--line); }
+:where(.model-config-detail) .model-input-capabilities { min-inline-size: 0; min-width: 0; margin: 0; padding: 12px 14px; border: 0; border-right: 1px solid var(--line); }
 
-.model-input-capabilities legend { padding: 0; color: var(--muted); font-size: 13px; }
+:where(.model-config-detail) .model-input-capabilities legend { padding: 0; color: var(--muted); font-size: 13px; }
 
-.model-input-capabilities > div { display: flex; gap: 18px; margin-top: 8px; }
+:where(.model-config-detail) .model-input-capabilities > div { display: flex; gap: 18px; margin-top: 8px; }
 
-.model-input-capabilities label { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+:where(.model-config-detail) .model-input-capabilities label { display: flex; align-items: center; gap: 7px; font-size: 13px; }
 
-.model-reasoning-profile { grid-column: auto; }
+:where(.model-config-detail) .model-reasoning-profile { grid-column: auto; }
 
-.model-input-capabilities:disabled, .model-reasoning-profile:disabled { opacity: .65; }
+:where(.model-config-detail) .model-input-capabilities:disabled, :where(.model-config-detail) .model-reasoning-profile:disabled { opacity: .65; }
 
 .model-save-actions .model-icon-button { min-width: 42px; padding: 0; background: var(--surface); color: var(--text); border-color: var(--line); }
 .model-picker-control { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -1448,11 +1448,11 @@ button.model-group-row:hover {
 .model-config-detail:not(.mobile-model-config-detail) .model-parameter-grid label > span small { color: var(--model-muted); font-size: 11px; }
 .model-config-detail:not(.mobile-model-config-detail) .model-detail-form .model-parameter-grid :is(input,select) { height: 31px; padding: 0 9px; border: 0; border-radius: 6px; font-size: 12px; background: var(--model-field); }
 .model-config-detail:not(.mobile-model-config-detail) .model-section-heading > span { color: var(--model-muted); font-size: 11px; }
-.model-capabilities { display: grid; gap: 10px; }
-.model-capabilities-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.model-capabilities-heading > span { font-size: 13px; font-weight: 500; }
-.model-capabilities-heading .model-capability-toggle { display: flex; align-items: center; gap: 6px; }
-.model-capabilities-heading .model-capability-toggle input { margin: 0; width: 14px; height: 14px; }
+:where(.model-config-detail) .model-capabilities { display: grid; gap: 10px; }
+:where(.model-config-detail) .model-capabilities-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+:where(.model-config-detail) .model-capabilities-heading > span { font-size: 13px; font-weight: 500; }
+:where(.model-config-detail) .model-capabilities-heading :where(.model-config-detail) .model-capability-toggle { display: flex; align-items: center; gap: 6px; }
+:where(.model-config-detail) .model-capabilities-heading :where(.model-config-detail) .model-capability-toggle input { margin: 0; width: 14px; height: 14px; }
 .model-config-detail:not(.mobile-model-config-detail) :is(.model-input-capabilities, .model-reasoning-profile) { min-width: 0; margin: 0; padding: 0; border: 0; }
 .model-config-detail:not(.mobile-model-config-detail) .model-reasoning-profile legend { float: none; display: block; width: 100%; margin-bottom: 8px; color: var(--model-muted); font-size: 12px; line-height: 24px; }
 .model-config-detail:not(.mobile-model-config-detail) .model-reasoning-profile legend > span { color: inherit; font: inherit; }

@@ -2,8 +2,12 @@ import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { conversationPreviewText } from "../../../ui/messages/conversationPreviewText.js";
 
+const mappedMessages = new WeakMap();
+const EMPTY_ITEMS = Object.freeze([]);
 function mapMessage(message) {
-  return {
+  const previous = mappedMessages.get(message);
+  if (previous) return previous;
+  const mapped = {
     id: message.id,
     renderKey: message.renderKey,
     runtimeSessionId: message.runtimeSessionId || '',
@@ -23,16 +27,18 @@ function mapMessage(message) {
     created_at: message.createdAt,
     status: message.status,
     pending: message.status === "streaming",
-    process: message.process || [],
+    process: message.process || EMPTY_ITEMS,
     processTiming: message.processTiming,
     turnUsage: message.turnUsage,
-    inputImageAttachments: message.inputImageAttachments || [],
-    generatedImageAttachments: message.generatedImageAttachments || [],
-    inputFileAttachments: message.inputFileAttachments || [],
-    openingOptions: message.openingOptions || [],
+    inputImageAttachments: message.inputImageAttachments || EMPTY_ITEMS,
+    generatedImageAttachments: message.generatedImageAttachments || EMPTY_ITEMS,
+    inputFileAttachments: message.inputFileAttachments || EMPTY_ITEMS,
+    openingOptions: message.openingOptions || EMPTY_ITEMS,
     selectedOpeningId: message.selectedOpeningId || '',
     canChangeOpening: message.canChangeOpening === true,
   };
+  mappedMessages.set(message, mapped);
+  return mapped;
 }
 
 function mapConversation(conversation, metadata = conversation.metadata || {}) {

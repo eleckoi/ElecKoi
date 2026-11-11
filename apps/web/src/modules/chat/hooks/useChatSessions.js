@@ -220,7 +220,9 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
       hasMore: chat?.messages_has_more,
       beforeSequence: chat?.messages_before_sequence,
     });
-    setChatCharacter(normalizeLatestChatCharacter(chat));
+    const character = normalizeLatestChatCharacter(chat);
+    setChatCharacter(current => Object.keys(current).length === Object.keys(character).length
+      && Object.keys(character).every(key => current[key] === character[key]) ? current : character);
   }, [chatBusy, conversations, detailsSnapshot.details, sessionId]);
 
   async function readSessions() {

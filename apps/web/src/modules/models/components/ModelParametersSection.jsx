@@ -1,6 +1,6 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Children, Fragment } from 'react';
-import { IconCheckOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, IconCheckOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives';
 import { reasoningEffortIds, reasoningEffortLabel, reasoningOptions } from "../model/modelReasoningOptions.js";
 
 function optionalNumber(value) {
@@ -44,6 +44,7 @@ export function ModelParametersSection({ form, activeModelOption, automaticConte
   const inheritsCapabilities = form.builtin && form.useBuiltinModels !== false && activeModelOption?.capabilitiesOverride !== true;
   const inputModalities = activeModelOption?.inputModalities || (activeModelOption?.supportsImageInput ? ['text', 'image'] : ['text']);
   const Capabilities = picker ? 'details' : Fragment;
+  const EffortButton = menu ? Button : 'button';
 
   function toggleModality(modality, checked) {
     const next = checked ? [...inputModalities.filter(item => item !== modality), modality] : inputModalities.filter(item => item !== modality);
@@ -126,16 +127,17 @@ export function ModelParametersSection({ form, activeModelOption, automaticConte
               {reasoningEffortIds.map((effort) => {
                 const selected = modelCapabilities.reasoningEfforts.includes(effort);
                 return (
-                  <button
+                  <EffortButton
                     key={effort}
                     className={selected ? "selected" : ""}
                     type="button"
+                    {...(menu ? { variant: selected ? 'primary' : 'outline', size: 'sm' } : {})}
                     aria-pressed={selected}
                     aria-label={tUi("{value0}{value1}档位", {value0: selected ? tUi("取消") : tUi("声明支持"), value1: reasoningEffortLabel(effort, tUi)})}
                     onClick={() => toggleReasoningEffort(effort)}
                   >
                     {reasoningEffortLabel(effort, tUi)}
-                  </button>
+                  </EffortButton>
                 );
               })}
             </div>

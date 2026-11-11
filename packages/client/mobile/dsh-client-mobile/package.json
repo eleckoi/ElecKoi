@@ -30,6 +30,16 @@
   "eleckoi": {
     "developerInterfaces": [
       {
+        "id": "plugins.header.leading",
+        "kind": "ui-slot",
+        "title": "Android 插件页返回",
+        "description": "在官方插件标题内增加返回入口，不替换页头或滚动布局。",
+        "mode": "append",
+        "scope": "root",
+        "relation": "contributes",
+        "owner": "@deepseek-ai/dsh-client-ui-plugin-manager"
+      },
+      {
         "id": "eleckoi.shell.window",
         "kind": "ui-slot",
         "title": "Android 窗口",

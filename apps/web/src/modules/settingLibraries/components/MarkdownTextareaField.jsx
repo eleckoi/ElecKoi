@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { OfficialMarkdown } from "../../../ui/messages/OfficialMarkdown.jsx";
 import { CornersIn, CornersOut, Eye, PencilSimple } from "../../../ui/icons/interfaceIcons.jsx";
 
-export function MarkdownTextareaField({ label, value, placeholder, onChange, preview = true, labelAction = null, disabled = false, code = false, textareaClassName = '' }) {
+export function MarkdownTextareaField({ label, value, placeholder, onChange, preview = true, labelAction = null, disabled = false, code = false, textareaClassName = '', toolbarHost = null, immersiveHost = null }) {
   const tUi = useProductTranslation();
   const inputId = useId();
   const editorRef = useRef(null);
@@ -75,15 +75,16 @@ export function MarkdownTextareaField({ label, value, placeholder, onChange, pre
     overlayHost,
   ) : null;
 
+  const immersiveAction = <button type="button" disabled={disabled} onClick={() => setImmersive(true)}><CornersOut size={14} />{tUi('沉浸编辑')}</button>;
+  const fieldActions = <div className="setting-library-content-actions">
+    {immersiveHost ? createPortal(immersiveAction, immersiveHost) : immersiveAction}{labelAction}
+  </div>;
   return (
     <>
       <div className="setting-library-content-field">
         <div className="setting-library-content-heading">
           <label htmlFor={inputId}>{label}</label>
-          <div className="setting-library-content-actions">
-            <button type="button" disabled={disabled} onClick={() => setImmersive(true)}><CornersOut size={14} />{tUi("沉浸编辑")}</button>
-            {labelAction}
-          </div>
+          {toolbarHost ? createPortal(fieldActions, toolbarHost) : fieldActions}
         </div>
         <textarea id={inputId} className={editorClassName} aria-label={label} value={value} placeholder={placeholder} disabled={disabled} spellCheck={false} onChange={(event) => onChange(event.target.value)} />
       </div>

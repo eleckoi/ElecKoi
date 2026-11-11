@@ -137,6 +137,7 @@ describe('Android composition with the shared PC sidebar and locked DSH slots', 
     const windowEntry = contributions.find(entry => entry.options.name === 'eleckoi.shell.window');
     expect(windowEntry.options.select({ fallback: 'desktop' })).toBeNull();
     expect(contributions.find(entry => entry.options.name === 'conversation.header.leading').options.select({})).toBeNull();
+    expect(contributions.find(entry => entry.options.name === 'plugins.header.leading').options.select({})).toBeNull();
   });
   it('registers and releases Android navigation in the public native Conversation header', async () => {
     const ctx = new Cordis.Context();
@@ -145,6 +146,7 @@ describe('Android composition with the shared PC sidebar and locked DSH slots', 
         new renderer.SlotRegistry(owner);
         owner.slots.register({ name: 'root', children: {
           'conversation.header.leading': { kind: 'single', scope: 'root' },
+          'plugins.header.leading': { kind: 'list', scope: 'root' },
           'eleckoi.shell.window': { kind: 'chain', scope: 'root' },
           main: { kind: 'keyed', scope: 'root' },
         } }, () => null);
@@ -153,8 +155,10 @@ describe('Android composition with the shared PC sidebar and locked DSH slots', 
       const entry = ctx.slots.entriesOfSlot('conversation.header.leading')[0];
       expect(entry.registrant).toBe('@eleckoi/dsh-client-mobile');
       expect(entry.select({})).toEqual({});
+      expect(ctx.slots.entriesOfSlot('plugins.header.leading')[0].registrant).toBe('@eleckoi/dsh-client-mobile');
       await mobile.dispose();
       expect(ctx.slots.entriesOfSlot('conversation.header.leading')).toEqual([]);
+      expect(ctx.slots.entriesOfSlot('plugins.header.leading')).toEqual([]);
     } finally { await ctx.fiber.dispose(); }
   });
 });

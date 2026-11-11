@@ -351,8 +351,12 @@ export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ c
     if (!library.enabled || !script.enabled || !parentEnabled) return tUi("已停用");
     const execution = runtimeState.scriptStatuses?.[JSON.stringify([library.scope, library.ownerId, script.id])];
     if (execution?.scope === library.scope && execution.ownerId === library.ownerId && execution.source === script.content) {
+      if (runtimeState.status === 'error') return tUi("运行错误");
+      if (runtimeState.status === 'starting') return tUi("启动中");
+      if (runtimeState.status !== 'ready') return tUi("已启用");
       return { running: tUi("运行中"), starting: tUi("启动中"), error: tUi("运行错误") }[execution.status] || tUi("未启动");
     }
+    if (runtime && (runtimeState.status === 'idle' || runtimeState.status === 'closed')) return tUi("已启用");
     return runtime ? tUi("未启动") : tUi("运行环境未就绪");
   }
   const inspector = !multi.active && selectedLibrary && selectedItem && (!compact || editing) ? <ScriptInspector library={selectedLibrary} item={selectedItem} groupLabel={selectedLabel} nameInputRef={nameInputRef}

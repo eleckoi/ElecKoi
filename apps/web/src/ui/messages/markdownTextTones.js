@@ -6,7 +6,7 @@ const HIGHLIGHT_NAMES = Object.freeze({
   underline: "eleckoi-roleplay-underline",
 });
 const HIGHLIGHT_STYLE_ID = "eleckoi-markdown-text-tone-highlights";
-const highlightOwners = new Map();
+const EMPTY_UNDERLINES = Object.freeze([]);
 
 function ensureHighlightStyles(document) {
   if (document.getElementById(HIGHLIGHT_STYLE_ID)) return;
@@ -103,8 +103,9 @@ function visibleNeedle(markdown) {
 
 export function prepareMarkdownTextTones(markdown) {
   const source = String(markdown || "");
+  if (!/<u\s*>/i.test(source)) return { markdown: source, underlineTexts: EMPTY_UNDERLINES };
   const pairs = underlinePairs(source);
-  if (!pairs.length) return { markdown: source, underlineTexts: [] };
+  if (!pairs.length) return { markdown: source, underlineTexts: EMPTY_UNDERLINES };
 
   const underlineTexts = pairs
     .map((pair) => visibleNeedle(source.slice(pair.openEnd, pair.closeStart)))
@@ -122,7 +123,7 @@ function textNodes(root, includeCode) {
   const walker = root.ownerDocument.createTreeWalker(root, 4);
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     const parent = node.parentElement;
-    if (!parent || parent.closest("button, [aria-hidden='true']")) continue;
+    if (!parent || parent.closest("button, [aria-hidden='true'], [inert]")) continue;
     if (!includeCode && parent.closest("pre, code")) continue;
     nodes.push(node);
   }
@@ -160,7 +161,8 @@ function normalizedText(raw) {
   return { value, offsets };
 }
 
-function underlineRanges(root, needles) {
+function underlineRanges(root, needles, previous = []) {
+  if (!needles.length) return [];
   const nodes = textNodes(root, true);
   const raw = nodes.map((node) => node.data).join("");
   const searchable = normalizedText(raw);
@@ -176,9 +178,13 @@ function underlineRanges(root, needles) {
     const start = pointAt(nodes, rawStart);
     const end = pointAt(nodes, rawEnd);
     if (start && end) {
-      const range = root.ownerDocument.createRange();
-      range.setStart(start.node, start.offset);
-      range.setEnd(end.node, end.offset);
+      let range = previous[ranges.length];
+      if (!range || range.startContainer !== start.node || range.startOffset !== start.offset
+        || range.endContainer !== end.node || range.endOffset !== end.offset) {
+        range = root.ownerDocument.createRange();
+        range.setStart(start.node, start.offset);
+        range.setEnd(end.node, end.offset);
+      }
       ranges.push(range);
     }
     cursor = index + normalizedNeedle.length;
@@ -186,12 +192,12 @@ function underlineRanges(root, needles) {
   return ranges;
 }
 
-function quoteRanges(root) {
+function quoteRanges(node) {
   const ranges = [];
-  for (const node of textNodes(root, false)) {
+  if (node.parentElement && !node.parentElement.closest("button, pre, code, [aria-hidden='true'], [inert]")) {
     DIALOGUE_QUOTE_PATTERN.lastIndex = 0;
     for (const match of node.data.matchAll(DIALOGUE_QUOTE_PATTERN)) {
-      const range = root.ownerDocument.createRange();
+      const range = node.ownerDocument.createRange();
       range.setStart(node, match.index || 0);
       range.setEnd(node, (match.index || 0) + match[0].length);
       ranges.push(range);
@@ -207,33 +213,63 @@ function highlightRuntime(root) {
   return registry && typeof Highlight === "function" ? { registry, Highlight } : null;
 }
 
-function refreshHighlights(root) {
-  const runtime = highlightRuntime(root);
-  if (!runtime) return;
-  for (const [tone, name] of Object.entries(HIGHLIGHT_NAMES)) {
-    const ranges = [...highlightOwners.values()].flatMap((entry) => entry[tone]);
-    if (ranges.length) runtime.registry.set(name, new runtime.Highlight(...ranges));
-    else runtime.registry.delete(name);
-  }
-}
-
 export function registerMarkdownTextToneHighlights(root, underlineTexts) {
   if (!root) return () => {};
   ensureHighlightStyles(root.ownerDocument);
-  const update = () => {
-    highlightOwners.set(root, {
-      quote: quoteRanges(root),
-      underline: underlineRanges(root, underlineTexts),
-    });
-    refreshHighlights(root);
+  const runtime = highlightRuntime(root);
+  if (!runtime) return () => {};
+  const quotes = new Map();
+  let underlines = [], needles = underlineTexts;
+  const replace = (tone, previous, next) => {
+    const name = HIGHLIGHT_NAMES[tone];
+    let highlight = runtime.registry.get(name);
+    if (!highlight && !next.length) return;
+    if (!highlight) {
+      highlight = new runtime.Highlight();highlight.priority = tone === 'underline' ? 1 : 0;
+      runtime.registry.set(name, highlight);
+    }
+    const retained = new Set(next);
+    for (const range of previous) if (!retained.has(range)) highlight.delete(range);
+    for (const range of next) highlight.add(range);
+    if (!highlight.size) runtime.registry.delete(name);
   };
-  update();
-  const observer = new root.ownerDocument.defaultView.MutationObserver(update);
+  const updateQuotes = node => {
+    const previous = quotes.get(node) || [];
+    const next = root.contains(node) ? quoteRanges(node) : [];
+    replace('quote', previous, next);
+    if (next.length) quotes.set(node, next); else quotes.delete(node);
+  };
+  const collect = (node, dirty) => {
+    if (node.nodeType === 3) { dirty.add(node); return; }
+    const walker = root.ownerDocument.createTreeWalker(node, 4);
+    for (let text = walker.nextNode(); text; text = walker.nextNode()) dirty.add(text);
+  };
+  const updateUnderlines = () => {
+    const next = underlineRanges(root, needles, underlines);
+    replace('underline', underlines, next);underlines = next;
+  };
+  const initial = new Set();collect(root, initial);initial.forEach(updateQuotes);updateUnderlines();
+  const observer = new root.ownerDocument.defaultView.MutationObserver(records => {
+    const dirty = new Set();
+    for (const record of records) {
+      if (record.type === 'childList') {
+        record.addedNodes.forEach(node => collect(node, dirty));
+        record.removedNodes.forEach(node => collect(node, dirty));
+      } else collect(record.target, dirty);
+    }
+    dirty.forEach(updateQuotes);
+    if (needles.length || underlines.length) updateUnderlines();
+  });
   observer.observe(root, { childList: true, characterData: true, subtree: true,
     attributes: true, attributeFilter: ['aria-hidden', 'inert'] });
-  return () => {
+  const dispose = () => {
     observer.disconnect();
-    highlightOwners.delete(root);
-    refreshHighlights(root);
+    for (const ranges of quotes.values()) replace('quote', ranges, []);
+    quotes.clear();replace('underline', underlines, []);underlines = [];
   };
+  dispose.update = next => {
+    if (next.length === needles.length && next.every((needle, index) => needle === needles[index])) return;
+    needles = next;updateUnderlines();
+  };
+  return dispose;
 }

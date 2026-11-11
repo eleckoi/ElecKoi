@@ -222,10 +222,13 @@ export class ElecKoiAuthorScriptsApi extends TypertRemoteService {
 
   private rules(): VariableRuleProvider {
     return { open: context => {
-      const catalog = this.read(context.conversationId), channel = this.channels.get(context.conversationId)
+      // Scripts are optional participants, not a prerequisite for variable writes.
+      // With no live program, apply the ordinary patch and Host-owned Schema only.
+      const channel = this.channels.get(context.conversationId)
+      if (!channel) return { apply: async (_stage, state) => state, close() {} }
+      const catalog = this.read(context.conversationId)
       const scriptSettings = catalog.scripts.map(({ key, settings, librarySettings }) => ({ key, settings, librarySettings }))
       const settingsJson = JSON.stringify(scriptSettings)
-      if (catalog.scripts.length && !channel) throw failure('CLIENT_UNAVAILABLE', '启用的原生作者脚本尚未启动，请打开该聊天并查看脚本运行错误。')
       const check = () => {
         context.signal.throwIfAborted()
         const latest = this.read(context.conversationId)
@@ -233,20 +236,19 @@ export class ElecKoiAuthorScriptsApi extends TypertRemoteService {
         if (JSON.stringify(latest.scripts.map(({ key, settings, librarySettings }) => ({ key, settings, librarySettings }))) !== settingsJson) {
           throw failure('SETTINGS_CHANGED', '计算期间脚本设置已变化，本次变量修改未保存，请重试。')
         }
-        if (channel && (channel.version !== catalog.version || this.channels.get(context.conversationId) !== channel)) throw failure('CLIENT_CHANGED', '处理期间作者脚本运行页面已经变化。')
+        if (channel.version !== catalog.version || this.channels.get(context.conversationId) !== channel) throw failure('CLIENT_CHANGED', '处理期间作者脚本运行页面已经变化。')
       }
       check()
       const runId = randomUUID()
       return {
         apply: async (stage, state, before) => {
           check()
-          if (!channel) return state
           const json = await channel.request({ kind: 'process', id: randomUUID(), runId,
             conversationId: context.conversationId, stage, stateJson: JSON.stringify(state), beforeJson: JSON.stringify(before),
             scriptSettings: stage === 'before' ? scriptSettings : null }, context.signal)
           check(); return stateObject(json)
         },
-        close: () => channel?.push({ kind: 'cancel', runId }),
+        close: () => channel.push({ kind: 'cancel', runId }),
       }
     } }
   }

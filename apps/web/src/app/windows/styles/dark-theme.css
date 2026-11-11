@@ -53,7 +53,7 @@
   .model-detail-hero p,
   .model-detail-hero small,
   .model-section-heading > span,
-  .model-parameter-grid label > span small,
+  :where(.model-config-detail) .model-parameter-grid label > span small,
   .model-delete-popover span,
   .model-picker-empty,
   .app-settings-sidebar header span,
@@ -94,7 +94,7 @@
   .model-delete-popover,
   .model-picker-menu,
   .model-manual-add,
-  .model-parameter-grid,
+  :where(.model-config-detail) .model-parameter-grid,
   .model-headers-editor,
   .app-settings-card,
   .avatar-manager-dialog,
@@ -258,31 +258,31 @@
   color: var(--soft-text);
 }
 
-:root[data-theme="dark"] .model-parameter-grid > label,
-:root[data-theme="dark"] .model-parameter-grid > label:nth-child(odd) {
+:root[data-theme="dark"] :where(.model-config-detail) .model-parameter-grid > label,
+:root[data-theme="dark"] :where(.model-config-detail) .model-parameter-grid > label:nth-child(odd) {
   border-color: var(--line);
 }
 
-:root[data-theme="dark"] :is(.model-parameter-grid input, .model-parameter-grid select, .model-header-row input) {
+:root[data-theme="dark"] :is(:where(.model-config-detail) .model-parameter-grid input, :where(.model-config-detail) .model-parameter-grid select, .model-header-row input) {
   background: var(--surface-subtle);
   color: var(--text);
 }
 
-:root[data-theme="dark"] .model-reasoning-profile legend > span {
+:root[data-theme="dark"] :where(.model-config-detail) .model-reasoning-profile legend > span {
   color: var(--text);
 }
 
-:root[data-theme="dark"] .model-reasoning-profile {
+:root[data-theme="dark"] :where(.model-config-detail) .model-reasoning-profile {
   border-top-color: var(--line);
 }
 
-:root[data-theme="dark"] .model-reasoning-efforts button {
+:root[data-theme="dark"] :where(.model-config-detail) .model-reasoning-efforts button {
   border-color: var(--line-strong);
   background: var(--surface-subtle);
   color: var(--muted);
 }
 
-:root[data-theme="dark"] .model-reasoning-efforts button.selected {
+:root[data-theme="dark"] :where(.model-config-detail) .model-reasoning-efforts button.selected {
   border-color: color-mix(in srgb, var(--blue) 56%, var(--line-strong));
   background: color-mix(in srgb, var(--blue) 13%, var(--surface-subtle));
   color: color-mix(in srgb, var(--blue) 82%, white);

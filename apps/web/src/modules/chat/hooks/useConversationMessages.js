@@ -11,17 +11,25 @@ function sameMessageIdentity(current, incoming) {
   if (current.role === 'user' && current.requestId && current.requestId === incoming.requestId) return true;
   if (!current.runtimeSessionId || current.runtimeSessionId !== incoming.runtimeSessionId) return false;
   return Boolean((current.dshMessageId && current.dshMessageId === incoming.dshMessageId)
+    || (current.dshNodeKey && current.dshNodeKey === incoming.dshNodeKey)
     || (current.renderKey && current.renderKey === incoming.renderKey));
 }
 
+const sameRecord = (left, right) => left === right || Boolean(left && right)
+  && Object.keys(left).length === Object.keys(right).length
+  && Object.keys(left).every(key => Object.hasOwn(right, key) && left[key] === right[key]);
+const sameItems = (left, right) => left === right || left.length === right.length && left.every((item, index) => item === right[index]);
+const reconciledMessages = new WeakMap();
+
 function preserveAttachmentRenderKeys(current = [], incoming = []) {
-  return incoming.map((image, index) => {
-    const previous = current.find((candidate) => (
-      candidate?.attachmentId && candidate.attachmentId === image?.attachmentId
-    )) || current[index];
+  const byId = new Map(current.filter(image => image?.attachmentId).map(image => [image.attachmentId, image]));
+  const next = incoming.map((image, index) => {
+    const previous = byId.get(image?.attachmentId) || current[index];
     const renderKey = previous?.renderKey || previous?.localId || previous?.attachmentId;
-    return renderKey ? { ...image, renderKey } : image;
+    const next = renderKey && image.renderKey !== renderKey ? { ...image, renderKey } : image;
+    return sameRecord(previous, next) ? previous : next;
   });
+  return sameItems(current, next) ? current : next;
 }
 
 export function mergeProcessItems(current = [], incoming = []) {
@@ -53,9 +61,10 @@ export function mergeProcessItems(current = [], incoming = []) {
     };
     if (reasoning && (merged.status === 'running' || (merged.detail || merged.summary || '') !== (previous.detail || previous.summary || ''))
       && !Object.hasOwn(item, 'displayDetail')) delete merged.displayDetail;
-    byId.set(item.id, merged);
+    byId.set(item.id, sameRecord(previous, merged) ? previous : merged);
   }
-  return order.map((id) => byId.get(id));
+  const next = order.map((id) => byId.get(id));
+  return sameItems(current, next) ? current : next;
 }
 
 function longerText(left, right) {
@@ -66,20 +75,52 @@ function longerText(left, right) {
 
 export function preserveMessageRenderKeys(currentMessages = [], incomingMessages = [], pendingMessage = null) {
   const current = pendingMessage ? [...currentMessages, pendingMessage] : currentMessages;
-  const matches = new Map();
-
+  const byIdentity = new Map(), claimed = new Set(), matches = new Map();
   incomingMessages.forEach((message, index) => {
-    const existing = current.find((candidate) => ![...matches.values()].includes(candidate)
-      && sameMessageIdentity(candidate, message));
-    if (!existing) return;
-    matches.set(index, existing);
+    const previous = current[index];
+    if (previous && !claimed.has(previous) && (message === previous || reconciledMessages.get(message) === previous)) {
+      matches.set(index, previous);claimed.add(previous);
+    }
+  });
+  const identities = (message, indexing = false) => {
+    const owner = [typeof message.conversationId, message.conversationId, message.role];
+    const session = message.runtimeSessionId;
+    const scopes = indexing ? [session ? ['session', session] : ['unbound'], ['any']]
+      : session ? [['session', session], ['unbound']] : [['any']];
+    const keys = [];
+    for (const scope of scopes) {
+      if (message.id) keys.push(JSON.stringify([...owner, scope, 'id', message.id]));
+      if (message.role === 'user' && message.requestId) keys.push(JSON.stringify([...owner, scope, 'request', message.requestId]));
+    }
+    if (session) for (const field of ['dshMessageId', 'dshNodeKey', 'renderKey']) {
+      if (message[field]) keys.push(JSON.stringify([...owner, ['session', session], field, message[field]]));
+    }
+    return keys;
+  };
+  current.forEach((message, index) => {
+    if (claimed.has(message)) return;
+    for (const key of identities(message, true)) {
+      let bucket = byIdentity.get(key);
+      if (!bucket) { bucket = { indices: [], cursor: 0 }; byIdentity.set(key, bucket); }
+      bucket.indices.push(index);
+    }
   });
 
-  return incomingMessages.map((message, index) => {
-    const previous = matches.get(index);
+  const next = incomingMessages.map((message, position) => {
+    if (matches.has(position)) return matches.get(position);
+    let matched = Number.POSITIVE_INFINITY;
+    for (const key of identities(message)) {
+      const bucket = byIdentity.get(key);
+      while (bucket && bucket.cursor < bucket.indices.length && claimed.has(current[bucket.indices[bucket.cursor]])) bucket.cursor++;
+      const index = bucket?.indices[bucket.cursor];
+      if (index !== undefined && index < matched && sameMessageIdentity(current[index], message)) matched = index;
+    }
+    const previous = current[matched];
     if (!previous) return message;
+    claimed.add(previous);
+    if (previous === message) return previous;
     const renderKey = previous.renderKey || previous.id;
-    return {
+    const merged = {
       ...message,
       ...(renderKey ? { renderKey } : {}),
       process: mergeProcessItems(previous.process || [], message.process || []),
@@ -88,7 +129,11 @@ export function preserveMessageRenderKeys(currentMessages = [], incomingMessages
         message.inputImageAttachments || [],
       ),
     };
+    const result = sameRecord(previous, merged) ? previous : merged;
+    reconciledMessages.set(message, result);
+    return result;
   });
+  return sameItems(currentMessages, next) ? currentMessages : next;
 }
 
 export function preservePendingUser(currentMessages, incomingMessages, pendingUser) {
@@ -124,10 +169,8 @@ export function useConversationMessages() {
     setMessages((current) => nextMessages.length
       ? preserveMessageRenderKeys(current, nextMessages)
       : nextMessages);
-    setHistoryPage({
-      hasMore: Boolean(page.hasMore),
-      beforeSequence: page.beforeSequence ?? null,
-    });
+    setHistoryPage(current => current.hasMore === Boolean(page.hasMore) && current.beforeSequence === (page.beforeSequence ?? null)
+      ? current : { hasMore: Boolean(page.hasMore), beforeSequence: page.beforeSequence ?? null });
     if (behavior) requestScrollToEnd(behavior);
   }
 
@@ -136,10 +179,8 @@ export function useConversationMessages() {
       const merged = preserveMessageRenderKeys(current, nextMessages);
       return preservePendingUser(current, merged, page.preservePendingUser);
     });
-    setHistoryPage({
-      hasMore: Boolean(page.hasMore),
-      beforeSequence: page.beforeSequence ?? null,
-    });
+    setHistoryPage(current => current.hasMore === Boolean(page.hasMore) && current.beforeSequence === (page.beforeSequence ?? null)
+      ? current : { hasMore: Boolean(page.hasMore), beforeSequence: page.beforeSequence ?? null });
   }
 
   function prependMessages(olderMessages, page = {}) {

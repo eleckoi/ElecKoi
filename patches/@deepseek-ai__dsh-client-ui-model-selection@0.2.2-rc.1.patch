@@ -1,8 +1,68 @@
 diff --git a/lib/client.js b/lib/client.js
-index 1388736456d1f068009852701feffd2d1f3f0157..d8e968c83b2310413fd79c1c477da5c9b64e108e 100644
+index 1388736456d1f068009852701feffd2d1f3f0157..92f700025106ad608b758c40182378da028f777e 100644
 --- a/lib/client.js
 +++ b/lib/client.js
-@@ -1346,6 +1346,7 @@ window.__ModuleLoader__.load({
+@@ -1171,6 +1171,15 @@ window.__ModuleLoader__.load({
+ 			const triggerRef = (0, react.useRef)(null);
+ 			const searchRef = (0, react.useRef)(null);
+ 			const menuRef = (0, react.useRef)(null);
++			const leaveGuard = (0, react.useRef)(null);
++			const registerLeaveGuard = (0, react.useCallback)((guard) => {
++				leaveGuard.current = guard;
++				return () => { if (leaveGuard.current === guard) leaveGuard.current = null; };
++			}, []);
++			const requestLeave = (0, react.useCallback)((action) => {
++				if (leaveGuard.current === null) action();
++				else leaveGuard.current(action);
++			}, []);
+ 			const groupsRef = (0, react.useRef)(null);
+ 			const menuPos = (0, _deepseek_ai_dsh_client_ui_primitives.useAnchoredPosition)({
+ 				open: open && available,
+@@ -1240,7 +1249,8 @@ window.__ModuleLoader__.load({
+ 				const closeOutside = (event) => {
+ 					if (rootRef.current?.contains(event.target) === true) return;
+ 					if (menuRef.current?.contains(event.target) === true) return;
+-					setOpen(false);
++					if (event.target instanceof Element && event.target.closest('[aria-modal="true"]')) return;
++					requestLeave(() => setOpen(false));
+ 				};
+ 				document.addEventListener("mousedown", closeOutside);
+ 				return () => {
+@@ -1310,21 +1320,25 @@ window.__ModuleLoader__.load({
+ 				setHighlightedIndex(0);
+ 			};
+ 			const close = (restoreFocus = false) => {
++				requestLeave(() => {
+ 				setOpen(false);
+ 				setPane("root");
+ 				if (restoreFocus) queueMicrotask(() => {
+ 					triggerRef.current?.focus();
+ 				});
++				});
+ 			};
+ 			const closeAfterSelection = () => {
+ 				setSelectionFocus(true);
+ 				close(true);
+ 			};
+ 			const drill = (next) => {
++				requestLeave(() => {
+ 				setQuery("");
+ 				setHighlightedIndex(null);
+ 				paneFocus.current = "drill";
+ 				setPane(next);
++				});
+ 			};
+ 			/** Leave a drilled pane for the root one, handing the keyboard back to its cell. */
+ 			const back = (from) => {
+@@ -1339,6 +1353,7 @@ window.__ModuleLoader__.load({
+ 			};
+ 			const onRootKeyDown = (event) => {
+ 				if (event.nativeEvent.isComposing) return;
++				if (event.target instanceof Element && event.target.closest('[aria-modal="true"]')) return;
+ 				if (event.key === "Escape" && open) {
+ 					event.preventDefault();
+ 					if (pane !== "root" && currentChoice !== void 0) back(pane);
+@@ -1346,6 +1361,7 @@ window.__ModuleLoader__.load({
  					return;
  				}
  				if (!open) return;
@@ -10,7 +70,15 @@ index 1388736456d1f068009852701feffd2d1f3f0157..d8e968c83b2310413fd79c1c477da5c9
  				if (pane === "model" && showSearch && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
  					event.preventDefault();
  					if (!busy && visibleModels.length > 0) {
-@@ -1528,7 +1529,7 @@ window.__ModuleLoader__.load({
+@@ -1391,6 +1407,7 @@ window.__ModuleLoader__.load({
+ 				}
+ 			};
+ 			const onBlur = (event) => {
++				if (event.relatedTarget instanceof Element && event.relatedTarget.closest('[aria-modal="true"]')) return;
+ 				if (event.relatedTarget instanceof Node && (rootRef.current?.contains(event.relatedTarget) === true || menuRef.current?.contains(event.relatedTarget) === true)) return;
+ 				close();
+ 			};
+@@ -1528,7 +1545,7 @@ window.__ModuleLoader__.load({
  						"aria-label": t("menu.aria"),
  						"aria-busy": state.status === "loading" || busy,
  						children: [
@@ -19,18 +87,18 @@ index 1388736456d1f068009852701feffd2d1f3f0157..d8e968c83b2310413fd79c1c477da5c9
  								ref: itemRef(),
  								type: "button",
  								role: "menuitem",
-@@ -1566,6 +1567,10 @@ window.__ModuleLoader__.load({
+@@ -1566,6 +1583,10 @@ window.__ModuleLoader__.load({
  									}),
  									(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutlineRegular, { className: ModelSelect_module_css_default.cellChevron })
  								]
 +							}), currentChoice === void 0 ? null : renderSlot("conversation.input.model.parameters", {
-+								provider: currentChoice.group.provider, model: currentChoice.model,
++								provider: currentChoice.group.provider, model: currentChoice.model, registerLeaveGuard,
 +								itemRef: itemRef(), cellClassName: ModelSelect_module_css_default.cell,
 +								labelClassName: ModelSelect_module_css_default.cellLabel, valueClassName: ModelSelect_module_css_default.cellValue
  							})] }),
  							pane === "model" && (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, { children: [
  								showSearch && (0, react_jsx_runtime.jsxs)("div", {
-@@ -1630,7 +1635,7 @@ window.__ModuleLoader__.load({
+@@ -1630,7 +1651,7 @@ window.__ModuleLoader__.load({
  									hidden: filteredGroups.length === 0,
  									children: filteredGroups.map((group) => {
  										return (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.MenuGroup, {
@@ -39,7 +107,7 @@ index 1388736456d1f068009852701feffd2d1f3f0157..d8e968c83b2310413fd79c1c477da5c9
  											children: group.models.map((model) => {
  												const index = modelIndex++;
  												const selected = state.current?.provider === group.id && state.current.model === model.id;
-@@ -2068,7 +2073,7 @@ window.__ModuleLoader__.load({
+@@ -2068,7 +2089,7 @@ window.__ModuleLoader__.load({
  						kind: "single",
  						scope: "session",
  						inline: true
@@ -49,7 +117,7 @@ index 1388736456d1f068009852701feffd2d1f3f0157..d8e968c83b2310413fd79c1c477da5c9
  						const directory = models.directoryFor(sessionId);
  						const available = sessions.subagentAddress(sessionId) === void 0;
 diff --git a/lib/types/client/slots.d.ts b/lib/types/client/slots.d.ts
-index 0ccc4f15fc435803d314717ae9df4f71b53a752c..4550f090bf53f559a141beabef9b667224ee59a8 100644
+index 0ccc4f15fc435803d314717ae9df4f71b53a752c..5258635488f59b63a563ae0f458c95774631943f 100644
 --- a/lib/types/client/slots.d.ts
 +++ b/lib/types/client/slots.d.ts
 @@ -1,4 +1,5 @@
@@ -58,7 +126,7 @@ index 0ccc4f15fc435803d314717ae9df4f71b53a752c..4550f090bf53f559a141beabef9b6672
  import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol';
  import type { ModelSelection } from '@deepseek-ai/dsh-api-remotes/client';
  import type { ModelCatalogModel, ModelProviderGroup } from '@deepseek-ai/dsh-api-session-controller/types';
-@@ -17,6 +18,17 @@ export interface ModelLabelOwner {
+@@ -17,6 +18,18 @@ export interface ModelLabelOwner {
  }
  declare module '@deepseek-ai/dsh-client-ui-slots' {
      interface SlotMap {
@@ -71,7 +139,8 @@ index 0ccc4f15fc435803d314717ae9df4f71b53a752c..4550f090bf53f559a141beabef9b6672
 +        'conversation.input.model.parameters': {
 +            kind: 'single'; scope: 'session';
 +            owner: { provider: Pick<ModelProviderGroup, 'id' | 'name'>; model: ModelCatalogModel;
-+                itemRef: Ref<HTMLButtonElement>; cellClassName: string; labelClassName: string; valueClassName: string; };
++                itemRef: Ref<HTMLButtonElement>; cellClassName: string; labelClassName: string; valueClassName: string;
++                registerLeaveGuard: (guard: (proceed: () => void) => void) => () => void; };
 +        };
          /**
           * Non-interactive inline model label; selection controls remain owner-managed.

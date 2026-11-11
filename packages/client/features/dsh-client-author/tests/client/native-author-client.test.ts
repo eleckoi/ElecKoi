@@ -1,6 +1,7 @@
 // @ts-expect-error The browser test runtime does not publish declarations.
 import { JSDOM } from 'jsdom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { RemoteStream, RemoteStreamCarrierError } from '@deepseek-ai/dsh-api-gateway/client'
 import { AUTHOR_EVENT_NAMES, type AuthorScriptProgram, type ElecKoiAuthorApi } from '@eleckoi/author-sdk'
 import { NativeAuthorClient } from '@eleckoi/dsh-client-author/runtime'
 import { creatorToolsets } from '../../../../../host/product-data/src/domain/creatorStudio/guides'
@@ -17,10 +18,13 @@ class Feed<T> implements AsyncIterable<T> {
   private readonly queue: T[] = []
   private wake: (() => void) | undefined
   private closed = false
+  private failure: unknown
   constructor(signal?: AbortSignal) { signal?.addEventListener('abort', () => { void this.dispose() }, { once: true }) }
   push(value: T) { this.queue.push(value); this.wake?.(); this.wake = undefined }
+  fail(error: unknown) { this.failure = error; this.wake?.(); this.wake = undefined }
   async *[Symbol.asyncIterator]() {
     while (!this.closed) {
+      if (this.failure) throw this.failure
       if (this.queue.length) yield this.queue.shift()!
       else await new Promise<void>(resolve => { this.wake = resolve })
     }
@@ -107,6 +111,9 @@ function harness(programs: AuthorScriptProgram[] = [], scripts = programs.map(()
     regenerate: vi.fn(async () => ({ cancelled: false, details: selected.details })),
   }
   const remote = {
+    $stream: <T>(options: ConstructorParameters<typeof RemoteStream<T>>[1]) => new RemoteStream<T>({
+      generation: { getSnapshot: () => 'synthetic-generation', subscribe: () => () => {} },
+    } as any, options),
     eleckoiCharacterConfiguration: {
       readSettingLibrary: vi.fn(async (_id: string): Promise<any> => ({ ok: true, value: null })),
       replaceSettingLibraryContent: vi.fn(async (_id: string, _library: any, _signal: AbortSignal): Promise<any> => ({ ok: true, value: null })),
@@ -1090,6 +1097,57 @@ describe('native author Client ownership and interaction', () => {
     r.tasks[0]!.push({ kind: 'ready', version: r.catalog.version })
     await starting
     expect(r.runtime.getSnapshot().status).toBe('ready')
+  })
+
+  it.each(['rules', 'changes'] as const)('recovers the %s carrier without restarting programs or losing the rule channel', async source => {
+    const cleanup = vi.fn(), r = harness([({ api }) => {
+      api.variables.registerRule({ id: 'synthetic-rule', stage: 'before', run(context) { context.state.derived = 7 } })
+      return cleanup
+    }])
+    const changedFeed = new Feed<any>()
+    r.remote.eleckoiConversations.changes = vi.fn(r.remote.eleckoiConversations.changes)
+    await r.runtime.start()
+    vi.mocked(r.remote.eleckoiConversations.changes).mockReturnValue(changedFeed)
+    ;(source === 'rules' ? r.tasks[0]! : r.changes).fail(new RemoteStreamCarrierError('Synthetic carrier disconnected'))
+    await vi.waitFor(() => {
+      expect(source === 'rules' ? r.tasks.length : r.remote.eleckoiConversations.changes.mock.calls.length).toBe(2)
+      expect(r.runtime.getSnapshot().status).toBe('ready')
+    })
+    expect(cleanup).not.toHaveBeenCalled()
+    const feed = r.tasks.at(-1)!
+    feed.push(task('synthetic-reconnected-task', 'synthetic-reconnected-run', 'before'))
+    await vi.waitFor(() => expect(feed.sent).toHaveLength(1))
+    expect(feed.sent[0]).toMatchObject({ ok: true, stateJson: '{"value":1,"derived":7}' })
+    expect(r.report).not.toHaveBeenCalled()
+  })
+
+  it('cancels a disconnected candidate and waits for the replacement Host acknowledgement without replaying it', async () => {
+    let release!: () => void, candidateSignal!: AbortSignal
+    const r = harness([({ api }) => { api.variables.registerRule({ id: 'synthetic-wait', stage: 'before', run: async context => {
+      if (context.state.value === 1) {
+        candidateSignal = context.signal
+        await new Promise<void>(resolve => { release = resolve })
+      }
+      context.state.derived = 8
+    } }) }])
+    await r.runtime.start()
+    const old = r.tasks[0]!
+    old.push(task('synthetic-old-task', 'synthetic-old-run', 'before'))
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'))
+    r.acknowledge = false
+    old.fail(new RemoteStreamCarrierError('Synthetic carrier disconnected during a candidate'))
+    await vi.waitFor(() => expect(r.tasks).toHaveLength(2))
+    expect(candidateSignal.aborted).toBe(true)
+    expect(r.runtime.getSnapshot().status).toBe('starting')
+    release()
+    const replacement = r.tasks[1]!
+    replacement.push({ kind: 'ready', version: r.catalog.version })
+    await vi.waitFor(() => expect(r.runtime.getSnapshot().status).toBe('ready'))
+    replacement.push(task('synthetic-new-task', 'synthetic-new-run', 'before', 2))
+    await vi.waitFor(() => expect(replacement.sent).toHaveLength(1))
+    expect(replacement.sent[0]).toMatchObject({ id: 'synthetic-new-task', ok: true, stateJson: '{"value":2,"derived":8}' })
+    expect(old.sent).toEqual([])
+    expect(r.report).not.toHaveBeenCalled()
   })
 
   it('unloads running programs and buttons when the saved catalog removes disabled libraries and restarts them on re-enable', async () => {

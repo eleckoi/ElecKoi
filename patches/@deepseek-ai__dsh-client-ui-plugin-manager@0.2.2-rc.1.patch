@@ -1,5 +1,5 @@
 diff --git a/lib/client.js b/lib/client.js
-index 84c06034..8fc72476 100644
+index 84c06034b4781cfadb96bd9468007924beddd61e..f1aca9bea9eadcabf583cab438d97ce355ba29c6 100644
 --- a/lib/client.js
 +++ b/lib/client.js
 @@ -29,6 +29,34 @@ window.__ModuleLoader__.load({
@@ -149,6 +149,19 @@ index 84c06034..8fc72476 100644
  						})]
  					}) : null,
  					(0, react_jsx_runtime.jsxs)("div", {
+@@ -7110,10 +7146,10 @@ window.__ModuleLoader__.load({
+ 									children: [
+ 										(0, react_jsx_runtime.jsxs)("div", {
+ 											className: PluginManagerPage_module_css_default.pageHeading,
+-											children: [(0, react_jsx_runtime.jsx)("h1", {
++											children: [(0, react_jsx_runtime.jsxs)("h1", {
+ 												className: PluginManagerPage_module_css_default.pageTitle,
+ 												"data-plugin-header-part": "title",
+-												children: t("title")
++												children: [renderSlot("plugins.header.leading", {}), t("title")]
+ 											}), (0, react_jsx_runtime.jsxs)("div", {
+ 												className: PluginManagerPage_module_css_default.pageIntro,
+ 												"data-plugin-header-part": "intro",
 @@ -7298,6 +7334,7 @@ window.__ModuleLoader__.load({
  								configure: configure(openPkg),
  								renderSlot,
@@ -202,8 +215,104 @@ index 84c06034..8fc72476 100644
  									});
  								}
  							}, { entryKey: activated.name }) : null
+@@ -7484,7 +7522,8 @@ window.__ModuleLoader__.load({
+ 				clone.setAttribute("data-measuring", "");
+ 				clone.setAttribute("aria-hidden", "true");
+ 				clone.inert = true;
+-				clone.style.width = `${bar.getBoundingClientRect().width}px`;
++				// Keep measurements in layout pixels while an ancestor is scaled by mobile navigation.
++				clone.style.width = getComputedStyle(bar).width;
+ 				for (const element of clone.querySelectorAll("[id], [data-plugin-header-part]")) {
+ 					element.removeAttribute("id");
+ 					if (element.hasAttribute("data-plugin-header-part")) element.removeAttribute("style");
+@@ -7492,20 +7531,24 @@ window.__ModuleLoader__.load({
+ 				body.append(clone);
+ 				const snapshot = () => {
+ 					const head = clone.querySelector("header").getBoundingClientRect();
++					const bounds = clone.getBoundingClientRect(), layout = getComputedStyle(clone);
++					const width = parseFloat(layout.width), height = parseFloat(layout.height);
++					const scaleX = width > 0 ? bounds.width / width || 1 : 1;
++					const scaleY = height > 0 ? bounds.height / height || 1 : 1;
+ 					const boxes = /* @__PURE__ */ new Map();
+ 					for (const name of PARTS) {
+ 						const element = clone.querySelector(`[data-plugin-header-part="${name}"]`);
+ 						if (element === null) continue;
+ 						const box = element.getBoundingClientRect();
+ 						boxes.set(name, {
+-							x: box.x - head.x,
+-							y: box.y - head.y,
+-							width: box.width,
+-							height: box.height
++							x: (box.x - head.x) / scaleX,
++							y: (box.y - head.y) / scaleY,
++							width: box.width / scaleX,
++							height: box.height / scaleY
+ 						});
+ 					}
+ 					return {
+-						height: clone.getBoundingClientRect().height,
++						height,
+ 						boxes
+ 					};
+ 				};
+@@ -7566,9 +7609,14 @@ window.__ModuleLoader__.load({
+ 				scroll();
+ 			};
+ 			measure();
+-			const resize = new ResizeObserver(measure);
++				let measureFrame = 0;
++				const scheduleMeasure = () => {
++					if (measureFrame || disposed) return;
++					measureFrame = requestAnimationFrame(() => { measureFrame = 0; measure(); });
++				};
++				const resize = new ResizeObserver(scheduleMeasure);
+ 			resize.observe(body);
+-			const mutation = new MutationObserver(measure);
++				const mutation = new MutationObserver(scheduleMeasure);
+ 			mutation.observe(bar.querySelector("header"), {
+ 				childList: true,
+ 				characterData: true,
+@@ -7577,13 +7625,14 @@ window.__ModuleLoader__.load({
+ 				attributeFilter: ["hidden"]
+ 			});
+ 			body.addEventListener("scroll", scroll, { passive: true });
+-			document.fonts.addEventListener("loadingdone", measure);
++				document.fonts.addEventListener("loadingdone", scheduleMeasure);
+ 			return () => {
+ 				disposed = true;
++					cancelAnimationFrame(measureFrame);
+ 				resize.disconnect();
+ 				mutation.disconnect();
+ 				body.removeEventListener("scroll", scroll);
+-				document.fonts.removeEventListener("loadingdone", measure);
++					document.fonts.removeEventListener("loadingdone", scheduleMeasure);
+ 				body.style.removeProperty("--plugin-header-scroll-padding");
+ 				body.style.removeProperty("--plugin-page-scrollbar-width");
+ 			};
+@@ -7757,6 +7806,7 @@ window.__ModuleLoader__.load({
+ 							createHeaderRef: createPluginHeaderRef
+ 						}),
+ 						children: {
++							"plugins.header.leading": { kind: "list", scope: "root" },
+ 							"plugins.add.actions": {
+ 								kind: "list",
+ 								scope: "root"
+diff --git a/lib/types/client/PluginManagerPage.d.ts b/lib/types/client/PluginManagerPage.d.ts
+index 05a597d4a9952c91bd2c179738b7594e95c3604d..39c4b800b6eaf26f9246e8cc5cdbfc6f0165980c 100644
+--- a/lib/types/client/PluginManagerPage.d.ts
++++ b/lib/types/client/PluginManagerPage.d.ts
+@@ -13,7 +13,7 @@ import type { createNavigationStore } from './navigation-store.ts';
+ import type { PluginHeaderLayoutFace } from './header-scroll.ts';
+ import { type PluginManagerFace } from './manager-store.ts';
+ /** Full component props assembled by the main slot renderer. */
+-export type PluginManagerPageProps = PropsRuntime<'main'> & PropsLocale<'pluginManager'> & PropsRenderSlots<'plugins.item' | 'plugins.bundle.config' | 'plugins.row.config' | 'plugins.bundle.activation' | 'plugins.add.actions' | 'plugins.tab' | 'plugins.detail.actions' | 'plugins.detail.badge' | 'plugins.detail.section'> & InjectFace<PluginManagerFace & PluginHeaderLayoutFace> & PropsStore<ReturnType<typeof createNavigationStore>>;
++export type PluginManagerPageProps = PropsRuntime<'main'> & PropsLocale<'pluginManager'> & PropsRenderSlots<'plugins.header.leading' | 'plugins.item' | 'plugins.bundle.config' | 'plugins.row.config' | 'plugins.bundle.activation' | 'plugins.add.actions' | 'plugins.tab' | 'plugins.detail.actions' | 'plugins.detail.badge' | 'plugins.detail.section'> & InjectFace<PluginManagerFace & PluginHeaderLayoutFace> & PropsStore<ReturnType<typeof createNavigationStore>>;
+ /** Render the plugin manager: the official plugins and installed bundles, their pages, the install dialog, and the confirmation. */
+ export declare function PluginManagerPage(props: PluginManagerPageProps): ReactNode;
+ //# sourceMappingURL=PluginManagerPage.d.ts.map
+\ No newline at end of file
 diff --git a/lib/types/client/locales.d.ts b/lib/types/client/locales.d.ts
-index 856925ca..f786ba54 100644
+index 856925ca171609991857844d0197b18fd49c2602..db4e1eeb29a2b761ee8a403739ddc9b2e6ef03c5 100644
 --- a/lib/types/client/locales.d.ts
 +++ b/lib/types/client/locales.d.ts
 @@ -31,6 +31,7 @@ export declare const zh: {
@@ -223,7 +332,7 @@ index 856925ca..f786ba54 100644
      moreAction: string;
      tabsLabel: string;
 diff --git a/lib/types/client/manager-store.d.ts b/lib/types/client/manager-store.d.ts
-index 582c0861..09a4e7fd 100644
+index 582c086137097d126cda7b300873db5eea1e8c1d..0db92a9fca62d57dad9dfee8271867a67d81643a 100644
 --- a/lib/types/client/manager-store.d.ts
 +++ b/lib/types/client/manager-store.d.ts
 @@ -72,6 +72,7 @@ export interface PackageRow {
@@ -235,7 +344,7 @@ index 582c0861..09a4e7fd 100644
      /** Official catalog identity is independent of installation and selection. */
      readonly official: boolean;
 diff --git a/lib/types/client/navigation-store.d.ts b/lib/types/client/navigation-store.d.ts
-index 9206726b..157b340b 100644
+index 9206726bbf307229de308473cf0e66fb27793acc..648e570d53ced3c6f9748820f27628963fad2b4d 100644
 --- a/lib/types/client/navigation-store.d.ts
 +++ b/lib/types/client/navigation-store.d.ts
 @@ -8,10 +8,12 @@ type View = {
@@ -261,3 +370,16 @@ index 9206726b..157b340b 100644
      readonly returnTab?: string;
  };
  /** `installed` is the page's own tab; any other value is the id of a `plugins.tab` entry. */
+diff --git a/lib/types/client/slot-contract.d.ts b/lib/types/client/slot-contract.d.ts
+index 0b22149d1dc9df152f98560913d5d172a3f79d3b..c456eddb4dced2f5cb583c0e94eb44de08b3e881 100644
+--- a/lib/types/client/slot-contract.d.ts
++++ b/lib/types/client/slot-contract.d.ts
+@@ -109,6 +109,8 @@ export interface PluginAddActionsProps {
+ }
+ declare module '@deepseek-ai/dsh-client-ui-slots' {
+     interface SlotMap {
++        /** Leading navigation inside the measured Plugins title, without replacing the header. */
++        'plugins.header.leading': { kind: 'list'; scope: 'root'; owner: Record<string, never> };
+         /** Additional MenuItemButton rows after installation: 72px high, with a title and a description capped at two lines. */
+         'plugins.add.actions': {
+             kind: 'list';

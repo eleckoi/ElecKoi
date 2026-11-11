@@ -19,6 +19,9 @@ import { AuthorScriptSession, type AuthorScriptProgram, isNativeAuthorScript } f
 import { JSDOM } from 'jsdom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NativeAuthorClient } from '@eleckoi/dsh-client-author/runtime'
+import { runtimeContextsFor } from '../helpers/runtime-contexts.js'
+// @ts-expect-error The production tool entry is JavaScript.
+import { apply as applyVariableTools } from '../../apps/desktop/resources/dsh/variable-tools.mjs'
 
 const { Context } = Cordis
 const require = createRequire(import.meta.url)
@@ -290,11 +293,43 @@ describe('native author script Host', () => {
     await r.set({ value: 3 }); expect(r.state).toEqual({ value: 3, derived: 6 }); expect(r.save).toHaveBeenCalledTimes(1)
   })
 
-  it('does not skip enabled native programs, but accepts schema-only updates when none are enabled', async () => {
+  it('accepts schema-only updates with an enabled panel script even before its Client starts', async () => {
     const r = await runtime(); r.schema = 'z.object({ value: z.number() }).transform(state => ({ ...state, derived: state.value * 2 }))'
     await r.set({ value: 2 }); expect(r.state).toEqual({ value: 2, derived: 4 })
     r.library('character').trees = [script()]
-    await expect(r.set({ value: 3 })).rejects.toMatchObject({ code: 'eleckoi/author-script', details: { reason: 'CLIENT_UNAVAILABLE' } })
+    await r.set({ value: 3 })
+    expect(r.state).toEqual({ value: 3, derived: 6 })
+    expect(r.save).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not inspect or require unavailable script modules for AI and manual variable writes', async () => {
+    const r = await runtime()
+    r.library('character').trees = [script({ content: 'export default () => { throw new Error("Synthetic panel error") }' })]
+    const workspace = vi.spyOn(r.data, 'readScriptWorkspace').mockImplementation(() => { throw new Error('Synthetic module unavailable') })
+    const schemaCode = 'z.looseObject({value:z.number()}).transform(state=>({...state,derived:state.value*2}))'
+    r.schema = schemaCode
+    const contexts = runtimeContextsFor('synthetic-session', { variables: { enabled: true, state: { value: 1 }, config: {
+      objects: [], variables: [], defaultState: {}, schemaCode,
+    } } })
+    const tools = new Map<string, any>()
+    applyVariableTools({ eleckoiRuntimeContexts: contexts, eleckoiVariableProcessing: r.processor,
+      tools: { register(definition: any) { tools.set(definition.name, definition); return () => {} } } })
+    const outcome = await tools.get('eleckoi_apply_variable_patch').execute({ operations: [{ op: 'delta', path: '/value', value: 2 }] },
+      { agent: { session: { id: 'synthetic-session' } }, signal: new AbortController().signal })
+    expect(outcome, JSON.stringify(outcome)).toMatchObject({ status: 'ok', applied_operations: 1 })
+    expect(contexts.get('synthetic-session').variables.state).toEqual({ value: 3, derived: 6 })
+    await r.ctx.typertGateway.invoke({ peer: ownerPeer(r.ctx), namespace: 'eleckoiAuthorVariables', method: 'applyPatch',
+      args: { conversationId: 'synthetic-chat', patchJson: '[{"op":"replace","path":"/value","value":4}]' }, signal: new AbortController().signal })
+    expect(r.state).toEqual({ value: 4, derived: 8 })
+    expect(workspace).not.toHaveBeenCalled()
+  })
+
+  it('allows new SDK writes after the script page has stopped, without requiring it to reconnect', async () => {
+    const r = await runtime(); r.library('character').trees = [script()]
+    const running = await connectPrograms(r, [() => {}])
+    await running.disconnect()
+    await r.set({ value: 5 })
+    expect(r.state).toEqual({ value: 5 })
     expect(r.save).toHaveBeenCalledTimes(1)
   })
 

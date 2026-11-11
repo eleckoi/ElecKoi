@@ -185,6 +185,8 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
     [displayContent],
   );
   const markdownRef = useRef(null);
+  const toneHighlightsRef = useRef(null);
+  const toneHighlightsEnabled = Boolean(displayContent && !editing && !liveProcess);
   const requestedPage = Number(pageInput);
   const requestedIndex = Number.isInteger(requestedPage) ? requestedPage - 1 : -1;
   const requestedPageValid = requestedIndex >= 0 && requestedIndex < options.length;
@@ -199,12 +201,15 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
     if (!openingSwitchingRef.current) setPagerOpeningId(message.selectedOpeningId);
   }, [message.selectedOpeningId]);
   useLayoutEffect(() => {
-    if (!displayContent || editing || liveProcess) return undefined;
-    return registerMarkdownTextToneHighlights(
+    if (!toneHighlightsEnabled) return undefined;
+    const dispose = registerMarkdownTextToneHighlights(
       markdownRef.current,
       markdownTonePresentation.underlineTexts,
     );
-  }, [displayContent, editing, liveProcess, markdownTonePresentation, pending]);
+    toneHighlightsRef.current = dispose;
+    return () => { dispose();toneHighlightsRef.current = null; };
+  }, [toneHighlightsEnabled]);
+  useLayoutEffect(() => { toneHighlightsRef.current?.update?.(markdownTonePresentation.underlineTexts); }, [markdownTonePresentation.underlineTexts]);
   useEffect(() => {
     if (!expanded) return undefined;
     const close = (event) => { if (!toolsRef.current?.contains(event.target)) setExpanded(false); };

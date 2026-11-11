@@ -6,6 +6,7 @@ window.__ModuleLoader__.load({
       .then(module => ({ default: module[component] })))
     const MobileWindow = page('MobileWindow')
     const MobileWorkspaceControls = page('MobileWorkspaceControls')
+    const MobilePluginBack = page('MobilePluginBack')
     const pages = {
       messages: page('MobileMessagesPage'), character: page('MobileCharactersPage'),
       presets: page('MobilePresetsPage'), model: page('MobileModelsPage'),
@@ -13,6 +14,11 @@ window.__ModuleLoader__.load({
       settings: page('MobileSettingsPage')
     }
     function apply(ctx) {
+      ctx.slots.inject('plugins.header.leading', () => ctx.slots.register({
+        name: 'plugins.header.leading', id: 'eleckoi-mobile-back',
+        select: owner => globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android' ? owner : null,
+        registrant: '@eleckoi/dsh-client-mobile'
+      }, () => React.createElement(MobilePluginBack)))
       ctx.slots.inject('conversation.header.leading', () => ctx.slots.register({
         name: 'conversation.header.leading', priority: 100,
         select: owner => globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android' ? owner : null,

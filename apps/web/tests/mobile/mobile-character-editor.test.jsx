@@ -283,7 +283,15 @@ describe('Editor loading toolbar', () => {
     await mount({ ...scenario, setup: () => model }, scenario.compact);
     const input = container.querySelector(`input[aria-label="${scenario.search}"]`);
     expect(input).toBeTruthy();
-    expect(container.querySelector('button[aria-label="管理"]')?.disabled).toBe(true);
+    if (!scenario.compact && scenario.search === '搜索设定') {
+      await click('设定库更多操作');
+      expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理设定库').disabled).toBe(true);
+      await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
+    } else if (!scenario.compact && scenario.search === '搜索变量') {
+        await click('变量目录操作');
+        expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理版本与导入导出').disabled).toBe(true);
+        await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
+      } else expect(container.querySelector('button[aria-label="管理"]')?.disabled).toBe(true);
     await fill(input, '合成');
     if (scenario.outcome === 'error') await act(async () => rejectRead(new Error('合成读取失败')));
     else await act(async () => complete(value));
@@ -292,7 +300,15 @@ describe('Editor loading toolbar', () => {
     expect(container.querySelector('[role=status]')).toBeNull();
     if (scenario.outcome === 'error') {
       expect(container.querySelector('[class$="-loading"][role=alert]').textContent).toContain('合成读取失败');
-      expect(container.querySelector('button[aria-label="管理"]')?.disabled).toBe(true);
+      if (!scenario.compact && scenario.search === '搜索设定') {
+      await click('设定库更多操作');
+      expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理设定库').disabled).toBe(true);
+      await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
+    } else if (!scenario.compact && scenario.search === '搜索变量') {
+        await click('变量目录操作');
+        expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理版本与导入导出').disabled).toBe(true);
+        await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
+      } else expect(container.querySelector('button[aria-label="管理"]')?.disabled).toBe(true);
     }
   });
 });

@@ -15,6 +15,7 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals(); });
 const click = async node => { expect(node).toBeTruthy(); await act(async () => node.click()); };
 const button = name => [...document.querySelectorAll('button')].find(node => node.textContent.trim() === name);
+const confirmationButton = name => [...document.querySelectorAll('[role=alertdialog] button')].find(node => node.textContent.trim() === name);
 async function edit(name, value) { const input = document.querySelector(`[data-parameter="${name}"] input`); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }); }
 async function fixture({ reasoning = true, modelId = 'synthetic-a', modelName = '合成模型甲', badge } = {}) {
   const config = { id: 'synthetic-config', name: '合成接口', provider: 'custom', model: modelId, model_options: [
@@ -72,7 +73,7 @@ it('lets a custom model without reasoning metadata explicitly declare offered le
   await click(button('保存'));
   expect(f.catalog.saveModelParameters).toHaveBeenCalledWith('synthetic-config', 'synthetic-a', { reasoningEfforts: { high: 'high' } });
 });
-it('keeps edits local through idle, blur and closing, and saves them together only on Save', async () => {
+it('keeps edits local through idle and blur, asks before closing, and saves together only on Save', async () => {
   const f = await fixture(); await click(button('参数'));
   await edit('top-p', '0.93'); await edit('temperature', '0.7');
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 450)); });
@@ -81,7 +82,8 @@ it('keeps edits local through idle, blur and closing, and saves them together on
   expect(f.catalog.saveModelParameters).not.toHaveBeenCalled();
   await act(async () => { document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
   expect(f.catalog.saveModelParameters).not.toHaveBeenCalled();
-  await click(host.querySelector('button')); await click(button('参数'));
+  expect(document.querySelector('[role=alertdialog]')).not.toBeNull();
+  await click(confirmationButton('取消'));
   expect(document.querySelector('[data-parameter=temperature] input').value).toBe('0.7');
   await click(button('保存'));
   expect(f.catalog.saveModelParameters).toHaveBeenCalledWith('synthetic-config', 'synthetic-a', { topP: .93, temperature: .7 });
@@ -108,7 +110,9 @@ it('retains a rejected explicit save across closing and reopening and retries fr
   await click(button('参数')); await edit('temperature', '0.65');
   await click(button('保存'));
   expect(document.querySelector('[role=alert]').textContent).toContain('合成保存失败');
-  await click(host.querySelector('button')); await click(host.querySelector('button')); await click(button('参数'));
+  await click(host.querySelector('button'));
+  expect(document.querySelector('[role=alertdialog]')).not.toBeNull();
+  await click(confirmationButton('取消'));
   expect(document.querySelector('[data-parameter=temperature] input').value).toBe('0.65');
   expect(f.catalog.saveModelParameters).toHaveBeenCalledTimes(1);
   await click(button('保存')); expect(document.querySelector('.model-menu-error')).toBeNull();
@@ -119,6 +123,10 @@ it('rejects invalid drafts before saving and prevents duplicate writes while a s
   await edit('top-p', '1.5');
   expect(button('保存').disabled).toBe(true);
   await click(button('保存')); expect(f.catalog.saveModelParameters).not.toHaveBeenCalled();
+  await click(host.querySelector('button'));
+  expect(confirmationButton('保存').disabled).toBe(true);
+  expect(document.querySelector('[role=alertdialog] [role=alert]').textContent).toContain('模型参数超出有效范围');
+  await click(confirmationButton('取消'));
   await edit('top-p', '0.5');
   let complete;
   f.catalog.saveModelParameters.mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
@@ -130,7 +138,7 @@ it('rejects invalid drafts before saving and prevents duplicate writes while a s
   await act(async () => complete());
   expect(button('参数').getAttribute('aria-expanded')).toBe('false');
 });
-it('retains native number-input keyboard behavior and closes the menu with Escape', async () => {
+it('retains native number-input keyboard behavior and confirms Escape before discarding a draft', async () => {
   const f = await fixture(); const parameters = button('参数'); parameters.focus();
   const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
   await act(async () => parameters.dispatchEvent(tab));
@@ -142,8 +150,43 @@ it('retains native number-input keyboard behavior and closes the menu with Escap
   await edit('temperature', '0.64');
   const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
   await act(async () => input.dispatchEvent(escape)); expect(escape.defaultPrevented).toBe(true);
-  expect(document.querySelector('[data-model-parameters-fields]')).toBeNull();
+  expect(document.querySelector('[role=alertdialog]')).not.toBeNull();
   expect(f.catalog.saveModelParameters).not.toHaveBeenCalled();
+  await click(confirmationButton('不保存'));
+  expect(document.querySelector('[data-model-parameters-fields]')).toBeNull();
   await click(host.querySelector('button')); await click(button('参数'));
-  expect(document.querySelector('[data-parameter=temperature] input').value).toBe('0.64');
+  expect(document.querySelector('[data-parameter=temperature] input').value).toBe('0.2');
+});
+
+it.each(['outside', 'trigger', 'parameters', 'model-pane'])('guards capability drafts on %s and discards without altering saved settings', async target => {
+  const f=await fixture();await click(button('参数'));await click(document.querySelector('.chat-model-capabilities summary'));
+  const image=()=>document.querySelectorAll('.model-input-capabilities input')[1];
+  await click(image());expect(image().checked).toBe(true);expect(button('保存').disabled).toBe(false);
+  if(target==='outside')await act(async()=>document.dispatchEvent(new MouseEvent('mousedown',{bubbles:true})));
+  else await click(target==='trigger'?host.querySelector('button'):target==='parameters'?button('参数'):[...document.querySelectorAll('[role=menuitem]')].find(node=>node.textContent.startsWith('模型')));
+  expect(document.querySelector('[role=alertdialog]')).not.toBeNull();expect(f.catalog.saveModelParameters).not.toHaveBeenCalled();
+  await click(confirmationButton('取消'));expect(image().checked).toBe(true);
+  await click(host.querySelector('button'));await click(confirmationButton('不保存'));
+  expect(f.catalog.saveModelParameters).not.toHaveBeenCalled();
+  await click(host.querySelector('button'));await click(button('参数'));expect(image().checked).toBe(false);
+});
+
+it('saves capabilities once from the leave confirmation, and keeps failed saves open for retry', async()=>{
+  const f=await fixture();await click(button('参数'));await click(document.querySelector('.chat-model-capabilities summary'));
+  await click(document.querySelectorAll('.model-input-capabilities input')[1]);
+  await click(button('声明支持高档位')||document.querySelector('[aria-label="声明支持高档位"]'));
+  await click(host.querySelector('button'));
+  f.catalog.saveModelParameters.mockRejectedValueOnce(Error('合成保存失败'));
+  await click(confirmationButton('保存'));expect(document.querySelector('[role=alertdialog]').textContent).toContain('合成保存失败');
+  expect(document.querySelectorAll('.model-input-capabilities input')[1].checked).toBe(true);
+  await click(confirmationButton('保存'));expect(f.catalog.saveModelParameters).toHaveBeenCalledTimes(2);
+  expect(f.catalog.saveModelParameters.mock.calls[1][2]).toEqual({inputModalities:['text','image'],supportsImageInput:true,reasoningEfforts:{high:'high'}});
+  expect(document.querySelector('[role=alertdialog]')).toBeNull();expect(document.querySelector('[role=menu]')).toBeNull();
+});
+
+it('does not ask or save when all capability changes have been reverted',async()=>{
+  const f=await fixture();await click(button('参数'));await click(document.querySelector('.chat-model-capabilities summary'));
+  const image=document.querySelectorAll('.model-input-capabilities input')[1];await click(image);await click(image);
+  expect(button('保存').disabled).toBe(true);await click(host.querySelector('button'));
+  expect(document.querySelector('[role=alertdialog]')).toBeNull();expect(f.catalog.saveModelParameters).not.toHaveBeenCalled();
 });

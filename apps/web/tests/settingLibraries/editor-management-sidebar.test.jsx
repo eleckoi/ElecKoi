@@ -31,7 +31,7 @@ async function fill(element, value) {
 
 const cases = [
   {
-    name: 'setting library', prefix: 'setting-library', inspector: '.setting-library-inspector',
+    name: 'setting library', prefix: 'setting-library', inspector: '.setting-settings-board',
     closeManager: '[aria-label="关闭设定库管理"]', closeInspector: '[aria-label="关闭编辑器"]',
     component() {
       const version = { id: 'version-a', name: '配置 A', groups: [], promptPositions: [], expandedGroupIds: [], listAllExpanded: true,
@@ -41,13 +41,13 @@ const cases = [
     },
     async prepare(container) {
       await act(async () => container.querySelector('[role="treeitem"]').click());
-      const tab = [...container.querySelectorAll('.setting-library-entry-tabs button')].find(item => item.textContent.includes('触发'));
+      const tab = [...container.querySelectorAll('.setting-view-switch [role=tab]')].find(item => item.textContent === '设置');
       await act(async () => tab.click());
-      return () => expect(tab.getAttribute('aria-current')).toBe('step');
+      return () => expect(tab.getAttribute('aria-selected')).toBe('true');
     },
   },
   {
-    name: 'variable configuration', prefix: 'variable', inspector: '.variable-inspector',
+    name: 'variable configuration', prefix: 'variable', inspector: '.vv-writing-board',
     closeManager: '[aria-label="关闭变量配置管理"]', closeInspector: '[aria-label="关闭编辑器"]',
     component() {
       const version = { id: 'version-a', name: '配置 A', initialStateJson: '{}', schemaCode: '', variables: [], expandedObjectIds: [],
@@ -58,9 +58,10 @@ const cases = [
     async prepare(container) {
       const row = [...container.querySelectorAll('[role="treeitem"]')].find(item => item.textContent.includes('合成变量组'));
       await act(async () => row.click());
-      const draft = container.querySelector('.variable-code-area.is-object');
+      await act(async () => [...container.querySelectorAll('[role=tab]')].find(tab => tab.textContent === '对象内容').click());
+      const draft = container.querySelector('[aria-label=对象内容]');
       await fill(draft, '{"pending":');
-      return () => expect(container.querySelector('.variable-code-area.is-object').value).toBe('{"pending":');
+      return () => expect(container.querySelector('[aria-label=对象内容]').value).toBe('{"pending":');
     },
   },
   {
@@ -88,17 +89,24 @@ describe('management dialog and editor sidebar', () => {
     try {
       await act(async () => root.render(scenario.component()));
       const checkDraft = await scenario.prepare(container);
-      const pane = container.querySelector('.editor-sidebar-pane');
+      const paneSelector = scenario.name !== 'regex rules' ? '.setting-document' : '.editor-sidebar-pane';
+      const pane = container.querySelector(paneSelector);
       const inspector = container.querySelector(scenario.inspector);
       inspector.scrollTop = 123;
       vi.useFakeTimers();
 
       for (const closeWithBackdrop of [false, true]) {
-        await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === '管理').click());
+        if (scenario.name === 'setting library') {
+          await act(async () => container.querySelector('[aria-label="设定库更多操作"]').click());
+          await act(async () => [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '管理设定库').click());
+        } else if (scenario.name === 'variable configuration') {
+          await act(async () => container.querySelector('[aria-label=变量目录操作]').click());
+          await act(async () => [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '管理版本与导入导出').click());
+        } else await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === '管理').click());
         expect(document.querySelector('.editor-management-modal')).toBeTruthy();
         expect(pane.classList.contains('is-closing')).toBe(false);
         await act(async () => vi.advanceTimersByTime(250));
-        expect(container.querySelector('.editor-sidebar-pane')).toBe(pane);
+        expect(container.querySelector(paneSelector)).toBe(pane);
         expect(container.querySelector(scenario.inspector)).toBe(inspector);
         checkDraft();
 
@@ -107,12 +115,13 @@ describe('management dialog and editor sidebar', () => {
           else document.querySelector('.editor-management-modal [aria-label="关闭"]').click();
         });
         expect(document.querySelector('.editor-management-modal')).toBeNull();
-        expect(container.querySelector('.editor-sidebar-pane')).toBe(pane);
+        expect(container.querySelector(paneSelector)).toBe(pane);
         expect(container.querySelector(scenario.inspector)).toBe(inspector);
         expect(inspector.scrollTop).toBe(123);
         checkDraft();
       }
 
+      if (scenario.name !== 'regex rules') return;
       await act(async () => container.querySelector(scenario.closeInspector).click());
       await act(async () => vi.advanceTimersByTime(250));
       expect(container.querySelector(scenario.inspector)).toBeNull();

@@ -6,6 +6,7 @@ import { ModelIdentityIcon } from './ModelIdentityIcon.jsx';
 import { ModelParametersSection } from './ModelParametersSection.jsx';
 import { modelParameterState } from '../model/modelConfigDraft.js';
 import { useModelCapabilities } from '../hooks/useModelCapabilities.js';
+import { UnsavedChangesDialog } from '../../../ui/ui/UnsavedChangesDialog.jsx';
 
 // Unsaved drafts follow the catalog lifetime until explicitly saved or cancelled.
 const parameterEdits = new WeakMap();
@@ -37,7 +38,7 @@ export function ModelMenuParameters(props) {
   return <ParameterEditor key={JSON.stringify([props.provider.id, props.model.id])} {...props} />;
 }
 
-function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassName, valueClassName, catalog }) {
+function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassName, valueClassName, registerLeaveGuard, catalog }) {
   const tUi = useProductTranslation();
   const view = useContext(MainPageContext);
   const snapshot = useSyncExternalStore(catalog.subscribe, catalog.getSnapshot);
@@ -46,6 +47,8 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
   if (!parameterEdits.has(catalog)) parameterEdits.set(catalog, new Map());
   const drafts = parameterEdits.get(catalog);
   const [open, setOpen] = useState(false), [, refresh] = useState(0), [failure, setFailure] = useState(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const pendingLeave = useRef(null), leaving = useRef(false);
   const savedEdit = drafts.get(key);
   const edit = useRef(savedEdit || { patch: {}, generation: 0, error: null });
   const mounted = useRef(true), id = useId();
@@ -61,7 +64,7 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
     setOpen(false);
     fieldsRef.current?.previousElementSibling?.focus();
   }
-  async function save() {
+  async function save(proceed) {
     const draft = edit.current;
     if (!Object.keys(draft.patch).length || draft.pending != null || state.parameterError) return;
     const generation = draft.generation, patch = { ...draft.patch };
@@ -74,7 +77,11 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
       if (draft.generation === generation) {
         draft.patch = {}; draft.error = null;
         drafts.delete(key);
-        if (mounted.current) finish();
+        if (mounted.current) {
+          pendingLeave.current = null; leaving.current = false; setConfirmLeave(false);
+          finish();
+          proceed?.();
+        }
       }
     } catch (error) {
       if (draft.generation === generation) draft.error = error;
@@ -91,6 +98,27 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
     edit.current.task?.then(changed, changed);
     return () => { mounted.current = false; };
   }, []);
+  function requestLeave(action) {
+    if (leaving.current || edit.current.pending != null) return;
+    if (!Object.keys(edit.current.patch).length) { action(); return; }
+    leaving.current = true; pendingLeave.current = action; setConfirmLeave(true);
+  }
+  const requestLeaveRef = useRef(requestLeave);
+  requestLeaveRef.current = requestLeave;
+  useEffect(() => registerLeaveGuard?.(action => requestLeaveRef.current(action)), [registerLeaveGuard]);
+  useEffect(() => {
+    if (!open) return;
+    const scroll = fieldsRef.current?.closest('.scrollable');
+    if (!scroll) return;
+    let idle;
+    const show = () => {
+      scroll.setAttribute('data-parameters-scrolling', '');
+      window.clearTimeout(idle);
+      idle = window.setTimeout(() => scroll.removeAttribute('data-parameters-scrolling'), 600);
+    };
+    scroll.addEventListener('scroll', show, { passive: true });
+    return () => { scroll.removeEventListener('scroll', show); window.clearTimeout(idle); scroll.removeAttribute('data-parameters-scrolling'); };
+  }, [open]);
   function change(patch) {
     if (edit.current.pending != null) return;
     const overrides = new Set(state.activeModelOption?.overrideFields || []);
@@ -99,10 +127,16 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
       if (patch[field] == null) overrides.delete(key); else overrides.add(key);
       patch = { ...patch, overrideFields: [...overrides] };
     }
-    edit.current.patch = { ...edit.current.patch, ...patch };
+    const nextPatch = { ...edit.current.patch, ...patch };
+    for (const field of Object.keys(nextPatch)) {
+      const baseline = field === 'inputModalities' ? option?.inputModalities || (option?.supportsImageInput ? ['text', 'image'] : ['text'])
+        : field === 'supportsImageInput' ? option?.supportsImageInput ?? option?.inputModalities?.includes('image') ?? false : option?.[field];
+      if (JSON.stringify(nextPatch[field]) === JSON.stringify(baseline)) delete nextPatch[field];
+    }
+    edit.current.patch = nextPatch;
     edit.current.generation += 1;
     edit.current.error = null;
-    drafts.set(key, edit.current);
+    if (Object.keys(nextPatch).length) drafts.set(key, edit.current); else drafts.delete(key);
     setFailure(null); refresh(value => value + 1);
   }
   function cancel() {
@@ -112,12 +146,17 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
     setFailure(null); refresh(value => value + 1);
     finish();
   }
+  function discardAndLeave() {
+    const action = pendingLeave.current;
+    pendingLeave.current = null; leaving.current = false; setConfirmLeave(false);
+    cancel(); action?.();
+  }
   if (!option) return null;
   const error = edit.current.error;
   return <>
     <button ref={itemRef} type="button" role="menuitem" className={cellClassName} aria-expanded={open} aria-controls={id}
       onKeyDown={event => { if (event.key === 'Tab' && !event.shiftKey) { event.preventDefault(); event.stopPropagation(); setOpen(true); focusFields(); } }}
-      onClick={event => { setOpen(value => !value); if (!open && event.detail === 0) focusFields(); }}>
+      onClick={event => { if (open) requestLeave(finish); else { setOpen(true); if (event.detail === 0) focusFields(); } }}>
       <span className={labelClassName}>{tUi('参数')}</span><span className={valueClassName} />
       {open ? <IconChevronDownOutlineRegular size={12} /> : <IconChevronRightOutlineRegular size={12} />}
     </button>
@@ -131,6 +170,10 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
         </footer>
       </fieldset>
     </div>
+    <UnsavedChangesDialog open={confirmLeave} title={tUi('保存修改？')} description={tUi('离开前是否保存当前模型配置的修改？')}
+      saving={edit.current.pending != null} saveDisabled={Boolean(state.parameterError)} error={error?.message || (state.parameterError ? tUi('模型参数超出有效范围。') : '')}
+      onCancel={() => { pendingLeave.current = null; leaving.current = false; setConfirmLeave(false); focusFields(); }}
+      onDiscard={discardAndLeave} onSave={() => void save(pendingLeave.current)} />
     {failure && <Toast text={failure.message} icon={<IconWarningOutlineRegular />} onDone={() => setFailure(null)} />}
   </>;
 }

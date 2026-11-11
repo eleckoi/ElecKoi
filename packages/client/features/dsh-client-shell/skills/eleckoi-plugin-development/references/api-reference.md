@@ -296,6 +296,7 @@ Android 组合清单为 `apps/android-host/src/androidPluginBundleManifest.json`
 
 | Bundle | ID | 类型 | 关系 | 所属合同 |
 | --- | --- | --- | --- | --- |
+| `@eleckoi/dsh-client-mobile` | `plugins.header.leading` | 界面插槽 | 接入 | `@deepseek-ai/dsh-client-ui-plugin-manager` |
 | `@eleckoi/dsh-client-mobile` | `eleckoi.shell.window` | 界面插槽 | 接入 | `@eleckoi/dsh-client-shell` |
 | `@eleckoi/dsh-client-mobile` | `main` | 界面插槽 | 接入 | `@eleckoi/dsh-client-shell` |
 | `@eleckoi/dsh-client-mobile` | `conversation.header.leading` | 界面插槽 | 接入 | `@deepseek-ai/dsh-client-ui-conversation` |

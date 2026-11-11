@@ -1,5 +1,25 @@
 // Read-only render adapters: DSH owns input admission and echo retirement.
 // This module does not retain transcript or pending-message state.
+const messageIndices = new WeakMap();
+const userSeats = new WeakMap();
+function messageIndex(messages) {
+  let lookup = messageIndices.get(messages);
+  if (lookup) return lookup;
+  lookup = new Map();
+  messages.forEach((message, index) => {
+    for (const [field, value] of [['renderKey', message.renderKey], ['sequence', message.sessionEventSeq], ['request', message.requestId]]) {
+      if (value === undefined || value === '') continue;
+      const key = JSON.stringify([typeof message.runtimeSessionId, message.runtimeSessionId, field, value]);
+      if (!lookup.has(key)) lookup.set(key, index);
+    }
+  });
+  messageIndices.set(messages, lookup);
+  return lookup;
+}
+function indexOf(messages, session, field, value) {
+  if (value === undefined || value === '') return -1;
+  return messageIndex(messages).get(JSON.stringify([typeof session, session, field, value])) ?? -1;
+}
 function inputAttachments(content = []) {
   return {
     inputImageAttachments: content.filter(block => block.type === 'image').map(block => block.attachment),
@@ -12,7 +32,7 @@ export function selectRoleplayChatSeat(messages, runtimeSessionId, node) {
     const turn = node.location?.turn?.turn;
     if (!Number.isSafeInteger(turn)) return null;
     const key = `dsh-reply-${runtimeSessionId}-${turn}`;
-    const index = messages.findIndex(message => message.runtimeSessionId === runtimeSessionId && message.renderKey === key);
+    const index = indexOf(messages, runtimeSessionId, 'renderKey', key);
     return index < 0 ? null : { item: messages[index], index };
   }
   if (node.kind !== 'user' && node.kind !== 'steering') {
@@ -24,10 +44,18 @@ export function selectRoleplayChatSeat(messages, runtimeSessionId, node) {
   }
   const input = node.data;
   const requestId = input.source?.kind === 'user' ? input.source.rpcId : undefined;
-  const index = messages.findIndex(message => message.runtimeSessionId === runtimeSessionId && (
-    message.sessionEventSeq === input.seq || (requestId && message.requestId === requestId)
-  ));
-  if (index >= 0 && !messages[index].pending) return { item: { ...messages[index], renderKey: node.key }, index };
+  const bySequence = indexOf(messages, runtimeSessionId, 'sequence', input.seq);
+  const byRequest = indexOf(messages, runtimeSessionId, 'request', requestId);
+  const index = bySequence < 0 ? byRequest : byRequest < 0 ? bySequence : Math.min(bySequence, byRequest);
+  if (index >= 0 && !messages[index].pending) {
+    const message = messages[index];
+    let previous = userSeats.get(message);
+    if (previous?.key !== node.key) {
+      previous = { key: node.key, item: message.renderKey === node.key ? message : { ...message, renderKey: node.key } };
+      userSeats.set(message, previous);
+    }
+    return { item: previous.item, index };
+  }
   // A formal Node can arrive before product metadata. Metadata must not gate
   // an admitted input's visibility; the official Seat retains its identity.
   return {
@@ -47,8 +75,7 @@ export function selectRoleplayChatSeat(messages, runtimeSessionId, node) {
 
 export function selectRoleplayPendingInput(messages, runtimeSessionId, input) {
   const requestId = 'requestId' in input ? input.requestId : input.source?.rpcId;
-  const index = requestId ? messages.findIndex(message => message.runtimeSessionId === runtimeSessionId
-    && message.requestId === requestId) : -1;
+  const index = indexOf(messages, runtimeSessionId, 'request', requestId);
   if (index >= 0) return { item: { ...messages[index], pending: true }, index };
   const submission = 'requestId' in input;
   return {

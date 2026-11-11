@@ -21,7 +21,7 @@ it('extends the installed official menu with readable parameters and provider-he
     await promisify(execFile)(require('electron'),[resolve('apps/web/tests/browser/model-menu.probe.cjs'),html,report],{env,windowsHide:true,timeout:45000});
     const result=JSON.parse(await readFile(report,'utf8'));
     const evidence=resolve('build/parameter-tool-font-check');await mkdir(evidence,{recursive:true});
-    for(const file of ['light.png','dark.png','light-desktop.png','dark-desktop.png','material-light.png','material-dark.png','report.json'])await copyFile(resolve(directory,file),resolve(evidence,'menu-'+file));
+    for(const file of ['light.png','dark.png','light-desktop.png','dark-desktop.png','material-light.png','material-dark.png','capabilities-light.png','capabilities-dark.png','capabilities-light-desktop.png','capabilities-dark-desktop.png','report.json'])await copyFile(resolve(directory,file),resolve(evidence,'menu-'+file));
     expect(result.errors).toEqual([]);expect(result.layouts).toHaveLength(6);
     for(const layout of result.layouts){const detail=JSON.stringify(layout);
       expect(layout.left,detail).toBeGreaterThanOrEqual(11.5);expect(layout.right,detail).toBeLessThanOrEqual(layout.width-11.5);
@@ -57,5 +57,28 @@ it('extends the installed official menu with readable parameters and provider-he
     expect(result.calls.filter(call=>call.parameters)).toEqual([{parameters:{provider:'synthetic-config',model:'synthetic-24',patch:{temperature:.72}}}]);
     expect(result.writesAfterClose).toBe(0);expect(result.restoredDraft).toBe('0.72');expect(result.savedValue).toBe('0.72');
     expect(result.expandedActionsVisible).toBe(true);
+    expect(result.leaveConfirmation).toBe(true);
+    expect(result.scrollbars).toHaveLength(6);
+    for(const scrollbar of result.scrollbars){const detail=JSON.stringify(scrollbar);
+      expect(scrollbar.after.atEnd,detail).toBe(true);
+      expect(scrollbar.moving.thumb,detail).not.toBe('transparent');
+      if(scrollbar.width<768){
+        expect(scrollbar.idle,detail).toBe('transparent');
+        expect(scrollbar.moving.active,detail).toBe(true);
+        expect(scrollbar.after.thumb,detail).toBe('transparent');
+      }else{
+        expect(scrollbar.idle,detail).not.toBe('transparent');
+        expect(scrollbar.after.thumb,detail).toBe(scrollbar.idle);
+      }
+    }
+    expect(result.capabilities).toHaveLength(6);
+    for(const layout of result.capabilities){const detail=JSON.stringify(layout);
+      expect(Math.abs(layout.legendLeft-layout.fieldsLeft),detail).toBeLessThan(1);
+      expect(layout.scrollWidth,detail).toBeLessThanOrEqual(layout.clientWidth);
+      expect(layout.buttons.map(button=>button.text),detail).toEqual(['关闭','极低','低','中','高','极高','最高']);
+      for(const surface of layout.backgrounds){expect(surface.background,detail).toBe('rgba(0, 0, 0, 0)');expect(surface.shadow,detail).toBe('none');}
+      for(const button of layout.buttons){expect(button.left,detail).toBeGreaterThanOrEqual(layout.panel.left);expect(button.right,detail).toBeLessThanOrEqual(layout.panel.right);expect(button.scrollWidth,detail).toBeLessThanOrEqual(button.clientWidth);}
+      expect(new Set(layout.buttons.map(button=>button.top)).size,detail).toBeGreaterThan(1);
+    }
   } finally {const target=relative(tmpdir(),directory);if(!target||target.startsWith('..')||isAbsolute(target))throw Error('Invalid probe cleanup target');await rm(directory,{recursive:true,force:true,maxRetries:3});}
 },60000);

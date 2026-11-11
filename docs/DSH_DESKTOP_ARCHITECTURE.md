@@ -32,6 +32,8 @@
 
 角色消息与楼层按官方 Chat 节点的显示顺序投影，事件序号继续作为原消息的操作地址。处理过程节点的锚点可能早于其用户输入，不能再按锚点排序后编号。删除回复或重新生成保留输入时，使用官方闭合事件补齐边界，并将结束原因标为 `aborted / user`；`interrupted` 继续表示真实异常中断，保留其错误展示。此处不新增 Session 格式、迁移或历史记录改写。
 
+角色流式消息沿用同版官方不可变 Chat 节点与 keyed renderer。产品映射按原消息对象复用，配对按会话／Session／正式消息或节点身份索引，未变化的消息、处理记录和输入图片保持引用；正文、显示规则、状态、变量、附件等字段实际变化时正常替换。原生输入到持久消息继续按 requestId 交接，不按相同文字猜测身份。行座位按同一不可变消息数组建立一次索引，全部 WeakMap 仅保存挂载数据的派生映射，不写入 Session、数据库或浏览器存储，也不截断历史。一次官方通知中的正文与运行状态沿既有 publishOfficialState 同步发布，完成、取消和失败保持相应终态。正文继续用官方 MarkdownText 的增量段落及原滚动控制；产品引号着色仅更新发生变化的文本节点，下划线复用边界相同的 Range，无下划线时不扫描该层全文，卸载时释放观察器与本消息的高亮。
+
 ## 工作区目录
 
 应用入口位于 `apps/desktop`、`apps/desktop-host`、`apps/web`；公共合同位于 `packages/shared`，现有产品功能插件位于 `packages/client/features`，Host 数据与运行包位于 `packages/host`，Windows 原生源码位于 `native/windows-frame`。后续 Android 工程进入 `apps/android`，使用独立的平台构建和本地数据。目录决策见 [ADR 0028](adr/0028-multi-application-workspace.md) 和 [ADR 0030](adr/0030-package-responsibility-groups.md)。

@@ -20,6 +20,7 @@ import {
   SlidersHorizontal,
   UserCircle,
   UsersThree,
+  WarningCircle,
 } from "../../../ui/icons/interfaceIcons.jsx";
 import { ElecKoiSettingEntryIcon } from "../../../ui/icons/elecKoiPromptIcons.jsx";
 import { MarkdownTextareaField } from "./MarkdownTextareaField.jsx";
@@ -32,6 +33,8 @@ import {
 import { commitKeywordDraft, splitKeywordDraft } from "../model/settingLibraryKeywords.js";
 import { CustomPositionManager, FixedPositionIcon } from './CustomPositionManager.jsx';
 import { fixedPlacementRowSelectable, positionPickerRows } from '../model/customPositions.js';
+import { PropertySegment, PropertySwitch, useSettingWorkspace } from './SettingPropertyFields.jsx';
+import { SettingContentFormatMenu } from './SettingContentFormatMenu.jsx';
 
 const EDITOR_SECTIONS = [
   { id: "base", label: "基础" },
@@ -54,7 +57,7 @@ const CONTENT_MODES = [
   { value: "ejs", label: "EJS" },
 ];
 
-const ICON_OPTIONS = [
+export const ICON_OPTIONS = [
   { id: "", label: "默认", Icon: ElecKoiSettingEntryIcon },
   { id: "character", label: "人物", Icon: UserCircle },
   { id: "world", label: "世界", Icon: BookOpenText },
@@ -80,6 +83,8 @@ export function SettingEntryGlyph({ iconId, size = 17, ...props }) {
 }
 
 function SegmentedField({ label, value, options, onChange }) {
+  const workspace = useSettingWorkspace();
+  if (workspace) return <PropertySegment label={label} value={value} options={options} onChange={onChange} />;
   return (
     <section className="setting-library-field-card">
       <span className="setting-library-field-label">{label}</span>
@@ -153,6 +158,8 @@ function KeywordTagInput({ label, keywords, placeholder, onChange, compact = fal
 }
 
 function SwitchRow({ title, description, checked, onChange }) {
+  const workspace = useSettingWorkspace();
+  if (workspace) return <PropertySwitch title={title} description={description} checked={checked} onChange={onChange} />;
   return (
     <label className="setting-library-rule-row">
       <span><strong>{title}</strong><small>{description}</small></span>
@@ -173,7 +180,7 @@ function NumberField({ label, description, value, min, onChange }) {
   const commit = (next) => onChange(Math.max(min, Number.isFinite(next) ? next : min));
   return (
     <label className="setting-library-number-row">
-      <span><strong>{label}</strong><small>{description}</small></span>
+      <span title={description}><strong>{label}</strong><small>{description}</small></span>
       <span className="setting-library-number-control">
         <button type="button" aria-label={tUi("{value0}减一", {value0: label})} onClick={() => commit(value - 1)}>−</button>
         <input
@@ -213,6 +220,8 @@ function BasicSection({ entry, nameInputRef, onChange }) {
 
 function KeywordRules({ entry, onChange }) {
   const tUi = useProductTranslation();
+  const workspace = useSettingWorkspace();
+  const Disclosure = workspace ? 'details' : Fragment;
   const effectiveCondition = !entry.conditionKeywords.length ? "none" : entry.keywordCondition === "none" ? "any" : entry.keywordCondition;
   return (
     <>
@@ -222,6 +231,8 @@ function KeywordRules({ entry, onChange }) {
         placeholder={tUi("输入后按回车")}
         onChange={(keywords) => onChange({ ...entry, keywords })}
       />
+      <Disclosure {...(workspace ? { className: 'setting-keyword-details' } : {})}>
+      {workspace ? <summary>{tUi('匹配规则')}<CaretRight size={14} /></summary> : null}
       <section className="setting-library-advanced-rules">
         <div className="setting-library-advanced-rules-heading"><strong>{tUi("匹配规则")}</strong></div>
         <div className="setting-library-rule-stack">
@@ -256,12 +267,14 @@ function KeywordRules({ entry, onChange }) {
           <SwitchRow title={tUi("完整词匹配")} description={entry.keywordWholeWord ? tUi("只匹配完整英文单词") : tUi("允许匹配英文单词的一部分")} checked={entry.keywordWholeWord} onChange={(checked) => onChange({ ...entry, keywordWholeWord: checked })} />
         </div>
       </section>
+      </Disclosure>
     </>
   );
 }
 
-function TriggerSection({ entry, onChange, creatorPreset }) {
+export function TriggerSection({ entry, onChange, creatorPreset }) {
   const tUi = useProductTranslation();
+  const workspace = useSettingWorkspace();
   function setStrategy(agentReadStrategy) {
     if (agentReadStrategy === "normal" && entry.agentReadStrategy === "keyword") return;
     onChange({ ...entry, agentReadStrategy,
@@ -275,8 +288,8 @@ function TriggerSection({ entry, onChange, creatorPreset }) {
         <>
           <SegmentedField label={tUi("读取策略")} value={entry.agentReadStrategy === "required" ? "required" : "normal"} options={localizeUiCopy(READ_STRATEGIES, tUi)} onChange={setStrategy} />
           {entry.agentReadStrategy === "normal" && entry.contentMode === "plain_text" ? (
-            <label className="setting-library-field-card setting-library-text-field">
-              <span>{tUi("注释（AI 读目录时靠它判断）")}</span>
+            <label className={`setting-library-field-card setting-library-text-field${workspace ? ' setting-property-row' : ''}`}>
+              <span className={workspace ? 'setting-property-label' : undefined} title={tUi('注释（AI 读目录时靠它判断）')}>{workspace ? tUi('选读说明') : tUi("注释（AI 读目录时靠它判断）")}</span>
               <textarea value={entry.agentSelectionHint} placeholder={tUi("写给 AI 看的一句话")} onChange={(event) => onChange({ ...entry, agentSelectionHint: event.target.value })} />
             </label>
           ) : null}
@@ -285,7 +298,7 @@ function TriggerSection({ entry, onChange, creatorPreset }) {
               <SwitchRow title={tUi("关键词命中")} description={entry.agentReadStrategy === "keyword" ? tUi("命中后列为本轮必读") : tUi("关闭时由 AI 选读")} checked={entry.agentReadStrategy === "keyword"} onChange={(enabled) => onChange({ ...entry, agentReadStrategy: enabled ? "keyword" : "normal" })} />
             </section>
           ) : null}
-          {!creatorPreset && entry.agentReadStrategy === "keyword" ? <KeywordRules entry={entry} onChange={onChange} /> : null}
+          {!creatorPreset && entry.agentReadStrategy === "keyword" ? (workspace ? <div className="setting-keywords-inline"><KeywordRules entry={entry} onChange={onChange} /></div> : <KeywordRules entry={entry} onChange={onChange} />) : null}
         </>
       ) : null}
     </div>
@@ -300,8 +313,9 @@ export function referencedEjsTitles(code) {
   return titles;
 }
 
-function ContentSection({ entry, entries, onChange, onOpenEntry, creatorPreset }) {
+export function ContentSection({ entry, entries, onChange, onOpenEntry, creatorPreset, toolbarHost, immersiveHost }) {
   const tUi = useProductTranslation();
+  const workspace = useSettingWorkspace();
   const ejs = entry.triggerMode === "agent_tool" && entry.agentReadStrategy !== "required" && entry.contentMode === "ejs";
   const label = tUi("设定正文");
   const references = ejs
@@ -312,13 +326,14 @@ function ContentSection({ entry, entries, onChange, onOpenEntry, creatorPreset }
   return (
     <div className={`setting-library-entry-section is-content-section${references.length ? " has-references" : ""}`}>
       <MarkdownTextareaField
+        toolbarHost={toolbarHost} immersiveHost={immersiveHost}
         label={label}
         value={entry.content}
         placeholder={ejs ? tUi("填写 EJS 模板") : tUi("填写设定正文")}
         preview={!ejs}
         onChange={(content) => onChange({ ...entry, content })}
         labelAction={!creatorPreset && entry.triggerMode === "agent_tool" && entry.agentReadStrategy !== "required" ? (
-          <div className="setting-library-content-mode" role="radiogroup" aria-label={tUi("正文格式")}>
+          workspace ? <SettingContentFormatMenu label={tUi('正文格式')} value={ejs ? 'ejs' : 'plain_text'} options={localizeUiCopy(CONTENT_MODES, tUi)} onChange={contentMode => onChange({ ...entry, contentMode })} /> : <div className="setting-library-content-mode" role="radiogroup" aria-label={tUi("正文格式")}>
             {localizeUiCopy(CONTENT_MODES, tUi).map((mode) => <button key={mode.value} type="button" role="radio" aria-checked={(ejs ? "ejs" : "plain_text") === mode.value}
               onClick={() => onChange({ ...entry, contentMode: mode.value })}>{mode.label}</button>)}
           </div>
@@ -343,6 +358,7 @@ function ContentSection({ entry, entries, onChange, onOpenEntry, creatorPreset }
 
 export function VisualPositionPicker({ entry, entries, promptPositions, allowCustomPromptPositions = false, onChange, onEntriesChange, onManagePositions }) {
   const tUi = useProductTranslation();
+  const workspace = useSettingWorkspace();
   const scope = useMemo(() => entry.position ? positionOrderScope(entries, entry.position, entry.promptPositionId) : [], [entries, entry.position, entry.promptPositionId]);
 
   function setOrder(order) {
@@ -352,6 +368,7 @@ export function VisualPositionPicker({ entry, entries, promptPositions, allowCus
   }
 
   const conflict = scope.some((candidate) => candidate.id !== entry.id && candidate.enabled && !FIXED_ENTRY_IDS.has(candidate.id) && candidate.order === entry.order);
+  const conflictMessage = `${tUi('当前位置已存在排序数字 ')}${entry.order}${tUi('，条目已关闭。')}`;
   return (
     <>
       <section className="setting-library-placement-card">
@@ -405,18 +422,25 @@ export function VisualPositionPicker({ entry, entries, promptPositions, allowCus
       )}
 
       <section className="setting-library-order-card">
-        <NumberField label={tUi("位置内部排序")} description={tUi("数字越小越靠前")} value={entry.order} min={1} onChange={setOrder} />
-        {conflict ? <p className="setting-library-order-warning">{tUi("当前位置已存在排序数字 ")}{entry.order}{tUi("，条目已关闭。")}</p> : null}
+        <NumberField label={workspace ? tUi('位置内顺序') : tUi("位置内部排序")} description={tUi("数字越小越靠前")} value={entry.order} min={1} onChange={setOrder} />
+        {conflict ? <p className="setting-library-order-warning" title={conflictMessage}>{workspace ? <>
+          <span className="setting-order-warning-full">{conflictMessage}</span>
+          <span className="setting-order-warning-compact" tabIndex={0} aria-label={conflictMessage}><WarningCircle size={17} aria-hidden="true" /></span>
+        </> : conflictMessage}</p> : null}
         <div className="setting-library-order-preview">
-          <strong>{tUi("当前位置顺序")}</strong>
-          {scope.map((candidate) => <div className={candidate.id === entry.id ? "is-current" : ""} key={candidate.id}><b>{candidate.order}</b><span>{candidate.title || tUi("待命名设定")}</span>{candidate.id === entry.id ? <em>{tUi("当前")}</em> : null}</div>)}
+          <strong>{workspace ? tUi('同位置条目') : tUi("当前位置顺序")}</strong>
+          {workspace ? <ol className="setting-order-items" aria-label={tUi('同位置条目')}>
+            {scope.map((candidate) => <li className={candidate.id === entry.id ? "is-current" : ""} aria-current={candidate.id === entry.id ? 'true' : undefined} key={candidate.id}>
+              <b>{candidate.order}</b><span title={candidate.title || tUi("待命名设定")}>{candidate.title || tUi("待命名设定")}</span>{candidate.id === entry.id ? <em>{tUi("当前")}</em> : null}
+            </li>)}
+          </ol> : scope.map((candidate) => <div className={candidate.id === entry.id ? "is-current" : ""} key={candidate.id}><b>{candidate.order}</b><span>{candidate.title || tUi("待命名设定")}</span>{candidate.id === entry.id ? <em>{tUi("当前")}</em> : null}</div>)}
         </div>
       </section>
     </>
   );
 }
 
-function InsertSection({ entry, entries, promptPositions, allowCustomPromptPositions, onChange, onEntriesChange, onManagePositions }) {
+export function InsertSection({ entry, entries, promptPositions, allowCustomPromptPositions, onChange, onEntriesChange, onManagePositions }) {
   const tUi = useProductTranslation();
   if (entry.triggerMode === "agent_tool") {
     return <p className="setting-library-agent-insert-note">{entry.agentReadStrategy === "required"

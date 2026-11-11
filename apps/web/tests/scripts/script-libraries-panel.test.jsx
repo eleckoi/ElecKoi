@@ -26,7 +26,7 @@ describe('native script library status display', () => {
       status: scope === 'global' ? 'error' : 'running', error: scope === 'global' ? 'Synthetic global startup error' : '',
     }]));
     const listeners = new Set(), connectionListeners = new Set();
-    const snapshot = { scriptStatuses: statuses, error: '' };
+    let snapshot = { status: 'ready', conversationId: 'synthetic-chat', scriptStatuses: statuses, error: '' };
     const runtime = { getSnapshot: () => snapshot,
       subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); } };
     let current = runtime;
@@ -58,6 +58,13 @@ describe('native script library status display', () => {
       expect(group('global').querySelector('.script-state').textContent).toBe('运行错误');
       await switchScope(node, 'character');
       expect(group('character').querySelector('.script-state').textContent).toBe('运行中');
+      await act(() => { snapshot = { ...snapshot, status: 'starting' }; listeners.forEach(listener => listener()); });
+      expect(group('character').querySelector('.script-state').textContent).toBe('启动中');
+      await act(() => { snapshot = { ...snapshot, status: 'error', error: 'Synthetic disconnected channel' }; listeners.forEach(listener => listener()); });
+      expect(group('character').querySelector('.script-state').textContent).toBe('运行错误');
+      await act(() => { snapshot = { ...snapshot, status: 'idle', conversationId: '', scriptStatuses: {}, error: '' }; listeners.forEach(listener => listener()); });
+      expect(group('character').querySelector('.script-state').textContent).toBe('已启用');
+      await act(() => { snapshot = { ...snapshot, status: 'ready', conversationId: 'synthetic-chat', scriptStatuses: statuses }; listeners.forEach(listener => listener()); });
       expect(group('preset')).toBeNull();
       await switchScope(node, 'global');
       await act(async () => group('global').querySelector('.script-list-name').click());

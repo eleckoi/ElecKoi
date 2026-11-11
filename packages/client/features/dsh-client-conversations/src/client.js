@@ -1832,34 +1832,32 @@ window.__ModuleLoader__.load({
           || String(current.content || '').length > 0
           || (Array.isArray(current.process) && current.process.length > 0)
         )
+        const publishState = nextStream => {
+          if (pendingDetails) this.publishOfficialState(pendingDetails.snapshot, pendingDetails.signature, nextStream)
+          else this.publishStream(nextStream)
+        }
         if (cancellationSettling || interruptedTurn) {
-          if (pendingDetails) this.publishDetails(pendingDetails.snapshot, pendingDetails.signature)
           if (!sessionState.running) this.cancelledStreamConversations.delete(id)
           if (current.id === id && current.status === 'running') {
-            this.publishStream({
+            publishState({
               ...current,
               status: 'idle', runId: '', requestId: '', messageId: '', nodeKey: '',
               content: '', process: [], error: ''
             })
-          }
+          } else if (pendingDetails) this.publishDetails(pendingDetails.snapshot, pendingDetails.signature)
         } else if (executionError) {
-          if (pendingDetails) this.publishDetails(pendingDetails.snapshot, pendingDetails.signature)
-          this.publishStream({ ...current, id, runId: runtimeSessionId, status: 'error', error: executionError })
+          publishState({ ...current, id, runId: runtimeSessionId, status: 'error', error: executionError })
         } else if (turnSettled) {
-          const nextStream = { ...current, status: 'idle', error: '' }
-          if (pendingDetails) this.publishOfficialState(pendingDetails.snapshot, pendingDetails.signature, nextStream)
-          else this.publishStream(nextStream)
+          publishState({ ...current, status: 'idle', error: '' })
         } else if (this.cancelledStreamRuns.has(current.runId)
           && current.id === id && current.status === 'running') {
-          if (pendingDetails) this.publishDetails(pendingDetails.snapshot, pendingDetails.signature)
-          this.publishStream({
+          publishState({
             ...current,
             status: 'idle', runId: '', requestId: '', messageId: '', nodeKey: '',
             content: '', process: [], error: ''
           })
         } else if (sessionState.running && Number.isSafeInteger(openTurn)) {
-          if (pendingDetails) this.publishDetails(pendingDetails.snapshot, pendingDetails.signature)
-          const message = details?.messages?.findLast(item => item.role === 'assistant'
+          const message = (pendingDetails?.snapshot.details || details)?.messages?.findLast(item => item.role === 'assistant'
             && item.status === 'streaming' && item.dshTurn === openTurn)
           const process = mergedProcess(message?.process || (sameLiveTurn ? current.process : []), processByTurn.get(openTurn))
           // Activity creates the live row before final text. The body boundary
@@ -1870,7 +1868,7 @@ window.__ModuleLoader__.load({
           const hasLiveMessage = Number.isSafeInteger(openTurn)
             && (projectedReply.started || process.length > 0 || sessionState.running
             || (sameLiveTurn && Boolean(current.messageId)))
-          this.publishStream({
+          publishState({
             id, status: 'running', runId: runtimeSessionId, requestId: '',
             messageId: hasLiveMessage ? runningAssistant?.data?.messageId
               || (sameLiveTurn ? current.messageId : '') : '',
@@ -1886,9 +1884,8 @@ window.__ModuleLoader__.load({
           // waiting for its closing assistant. This is still DSH state, not a
           // renderer placeholder; the next official snapshot atomically
           // replaces it with the durable row.
-          if (pendingDetails) this.publishDetails(pendingDetails.snapshot, pendingDetails.signature)
           const process = mergedProcess([], processByTurn.get(openTurn))
-          this.publishStream({
+          publishState({
             ...current,
             status: 'running',
             content: projectedReply.started ? projectedReply.content : current.content,
@@ -1896,8 +1893,7 @@ window.__ModuleLoader__.load({
             error: '',
           })
         } else if (!sessionState.running && current.id === id && current.status === 'running') {
-          if (pendingDetails) this.publishDetails(pendingDetails.snapshot, pendingDetails.signature)
-          this.publishStream({ ...current, status: 'idle', error: '' })
+          publishState({ ...current, status: 'idle', error: '' })
         } else if (pendingDetails) {
           this.publishDetails(pendingDetails.snapshot, pendingDetails.signature)
         }

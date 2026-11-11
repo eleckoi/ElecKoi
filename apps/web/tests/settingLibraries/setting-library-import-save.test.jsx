@@ -61,7 +61,7 @@ async function chooseWorldbook() {
 describe('worldbook import save workflow', () => {
   it('imports a version and saves complete native entries without deleting the previous version', async () => {
     const originalVersionId = stored.activeVersionId;
-    await click('管理');
+    await click('设定库更多操作'); await click('管理设定库');
     await click('导入为新版本');
     await click('酒馆世界书导入 SillyTavern 世界书 JSON');
     await chooseWorldbook();
@@ -78,7 +78,7 @@ describe('worldbook import save workflow', () => {
 
   it('merges a local worldbook, retains the draft on save failure and exposes the complete error for retry', async () => {
     const originalVersionId = stored.activeVersionId;
-    await click('管理');
+    await click('设定库更多操作'); await click('管理设定库');
     await click('并入设定库');
     await click('从本地文件');
     await chooseWorldbook();

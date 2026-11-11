@@ -2,7 +2,7 @@ import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.js
 import { useMemo, useRef, useState } from 'react';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
-import { BookOpen, CaretRight, PencilSimple, Trash } from '../../../ui/icons/interfaceIcons.jsx';
+import { BookOpen, CaretRight, DotsThree, PencilSimple, Trash } from '../../../ui/icons/interfaceIcons.jsx';
 import { ImportIcon } from '../../../ui/icons/index.jsx';
 import { Button, Menu, MenuSurface } from '@deepseek-ai/dsh-client-ui-primitives';
 import { EditorManagementModal } from '../../../ui/ui/EditorCollectionControls.jsx';
@@ -67,7 +67,7 @@ export function useGlobalSettingLibraries(model, onSelect) {
 }
 
 /** Creates global libraries from existing resources. Contents use the shared setting editor. */
-export function GlobalSettingLibraryImport({ state, settingLibraries, disabled }) {
+export function GlobalSettingLibraryImport({ state, settingLibraries, disabled, renderActions }) {
   const tUi = useProductTranslation();
   const input = useRef(null), request = useRef(0);
   const [menu, setMenu] = useState(false), [dialog, setDialog] = useState(false);
@@ -105,10 +105,13 @@ export function GlobalSettingLibraryImport({ state, settingLibraries, disabled }
   }
   const version = source?.versions.find(item => item.id === versionId);
   return <>
-    <Menu open={menu} portal dense anchor={<Button className="editor-collection-action" variant="outline" icon={<ImportIcon size={16} />}
+    {renderActions ? renderActions([
+      { id: 'import-character', label: tUi('从角色设定库导入'), icon: <ImportIcon size={16} />, disabled: disabled || !state.libraryRef.current, run: () => void openCharacters() },
+      { id: 'import-file', label: tUi('从本地文件导入'), icon: <ImportIcon size={16} />, disabled: disabled || !state.libraryRef.current, run: () => input.current?.click() },
+    ]) : <Menu open={menu} portal dense anchor={<Button className="editor-collection-action" variant="outline" icon={<ImportIcon size={16} />}
       disabled={disabled || !state.libraryRef.current} aria-label={tUi("导入全局设定库")} onClick={() => setMenu(value => !value)}>{tUi("导入")}</Button>}
       items={[{ id: 'character', label: tUi("从角色设定库") }, { id: 'file', label: tUi("从本地文件") }]}
-      onClose={() => setMenu(false)} onSelect={id => { setMenu(false); if (id === 'character') void openCharacters(); else input.current?.click(); }} />
+      onClose={() => setMenu(false)} onSelect={id => { setMenu(false); if (id === 'character') void openCharacters(); else input.current?.click(); }} />}
     <input ref={input} type="file" accept=".json,application/json" hidden aria-label={tUi("全局设定库文件")} onChange={importFile} />
     {dialog ? <EditorManagementModal title={tUi("导入角色设定库")} onClose={close} className="global-library-import-dialog"
       footer={<><Button variant="outline" onClick={close}>{tUi("取消")}</Button><Button disabled={busy || !version} onClick={() => {
@@ -139,6 +142,7 @@ export function GlobalSettingLibrariesDirectory({ state, query, disabled, editor
   const tUi = useProductTranslation();
   const [deleting, setDeleting] = useState(null);
   const [renaming, setRenaming] = useState(null);
+  const [menuId, setMenuId] = useState(null);
   if (!state.available) return null;
   const libraries = state.libraryRef.current?.libraries;
   const visible = libraries?.filter(library => !query.trim() || library.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) || hasSearchResults(library, query));
@@ -164,14 +168,18 @@ export function GlobalSettingLibrariesDirectory({ state, query, disabled, editor
         <div className="global-setting-library-header">
           <button type="button" className="global-setting-library-expand" aria-label={`${open ? tUi("折叠") : tUi("展开")}${library.name}`} aria-expanded={open} onClick={toggle}><CaretRight size={13} /></button>
           <button type="button" className="global-setting-library-name" title={library.name} onClick={() => { choose(''); toggle(); }}><BookOpen size={17} /><span>{library.name}</span></button>
-          <span className="setting-library-tree-count">{library.entries.length}</span>
+          {editor.compact ? <span className="setting-library-tree-count">{library.entries.length}</span> : null}
           <div className="global-setting-library-actions">
           <button type="button" className="setting-library-tree-switch" role="switch" aria-checked={library.enabled} aria-label={tUi("{value0}全局库{value1}", {value0: library.enabled ? tUi("停用") : tUi("启用"), value1: library.name})} disabled={disabled}
             onClick={() => state.setEnabled(library.id, !library.enabled)}><span aria-hidden="true" /></button>
+          {!editor.compact ? <Menu open={menuId === library.id} portal dense onClose={() => setMenuId(null)}
+            anchor={<button type="button" className="global-setting-library-action" aria-label={tUi('管理全局库{value0}', { value0: library.name })} aria-haspopup="menu" aria-expanded={menuId === library.id} disabled={disabled} onClick={() => setMenuId(menuId === library.id ? null : library.id)}><DotsThree size={16} /></button>}
+            items={[{ id: 'rename', label: tUi('重命名'), icon: <PencilSimple size={15} /> }, { id: 'delete', label: tUi('删除'), icon: <Trash size={15} />, danger: true }]}
+            onSelect={id => { setMenuId(null); if (id === 'rename') setRenaming({ id: library.id, name: library.name }); else setDeleting({ id: library.id, title: tUi('删除“{value0}”？', { value0: library.name }), message: tUi('此库将在保存后删除，并对所有角色停止生效。来源角色和本地文件不会改动。') }); }} /> : <>
           <button type="button" className="global-setting-library-action global-setting-library-rename" aria-label={tUi("重命名全局库{value0}", {value0: library.name})} title={tUi("重命名")} disabled={disabled}
             onClick={() => setRenaming({ id: library.id, name: library.name })}><PencilSimple size={15} /></button>
           <button type="button" className="global-setting-library-action global-setting-library-delete" aria-label={tUi("删除全局库{value0}", {value0: library.name})} title={tUi("删除")} disabled={disabled}
-            onClick={() => setDeleting({ id: library.id, title: tUi("删除“{value0}”？", {value0: library.name}), message: tUi("此库将在保存后删除，并对所有角色停止生效。来源角色和本地文件不会改动。") })}><Trash size={15} /></button>
+            onClick={() => setDeleting({ id: library.id, title: tUi("删除“{value0}”？", {value0: library.name}), message: tUi("此库将在保存后删除，并对所有角色停止生效。来源角色和本地文件不会改动。") })}><Trash size={15} /></button></>}
           </div>
         </div>
         {open ? <div className="global-setting-library-entries" onContextMenu={event => editor.openTreeContextMenu(event, library)}><SettingTreeActionsContext.Provider value={actions}>

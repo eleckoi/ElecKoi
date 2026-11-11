@@ -24,8 +24,21 @@
 .model-menu-parameters .model-menu-input small { flex: none; color: var(--dsw-alias-label-tertiary); font-size: 11px; }
 .model-menu-parameters .chat-model-capabilities { margin-top: 14px; }
 .model-menu-parameters .chat-model-capabilities > summary { color: var(--dsw-alias-label-tertiary); font-size: 12px; }
-.model-menu-parameters .model-capabilities { margin-top: 8px; padding: 0; border: 0; }
-.model-menu-parameters .model-input-capabilities { padding: 8px 0 0; border: 0; }
+.model-menu-parameters .model-capabilities { display: grid; gap: 12px; min-width: 0; margin-top: 8px; padding: 0; border: 0; }
+.model-menu-parameters .model-capabilities-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.model-menu-parameters .model-input-capabilities { min-inline-size: 0; min-width: 0; margin: 0; padding: 8px 0 0; border: 0; }
+.model-menu-parameters .model-input-capabilities > div { display: flex; flex-wrap: wrap; gap: 16px; }
+.model-menu-parameters .model-reasoning-profile { min-inline-size: 0; min-width: 0; margin: 0; padding: 0; border: 0; }
+.model-menu-parameters .model-reasoning-profile legend { display: block; float: none; width: 100%; margin: 0 0 8px; padding: 0; color: var(--dsw-alias-label-tertiary); font-size: 12px; }
+.model-menu-parameters .model-reasoning-efforts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; min-width: 0; }
+.model-menu-parameters .model-reasoning-efforts button { width: 100%; min-width: 0; padding-inline: 4px; }
+.model-menu-parameters .model-menu-input input { background: transparent; box-shadow: none; }
+@media (hover: none) and (pointer: coarse) {
+  [data-menu-material]:has(.model-menu-parameters:not([hidden])) .scrollable:not([data-parameters-scrolling]) {
+    --dsh-scrollbar-thumb: transparent;
+    --dsh-scrollbar-thumb-hover: transparent;
+  }
+}
 .model-menu-parameters .chat-model-capability-choice { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
 .model-menu-parameters .chat-model-capability-choice input { width: 16px; height: 16px; accent-color: var(--dsw-alias-state-business-primary); }
 .model-menu-parameters .chat-model-capability-box { display: none; }

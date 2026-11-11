@@ -248,7 +248,7 @@ export function MobileWindow(props) {
       <div className="mobile-front-shadow" aria-hidden="true" />
       <div className="mobile-front-content">
       <section ref={pageRef} className={`mobile-page-seat${selectedPanel === 'conversation' ? ' mobile-workspace-page' : ''}`} inert={drawerPresent || searchOpen ? true : undefined} aria-hidden={searchOpen || undefined}>
-        {!isProductPage && selectedPanel !== 'conversation' && <MobileHeader title={selectedPanel === 'settings' ? tUi("设置") : navigation.items.find(item => item.id === selectedPanel)?.label || selectedPanel} back={routes.length > 1 ? back : undefined} />}
+        {!isProductPage && selectedPanel !== 'conversation' && selectedPanel !== 'plugins' && <MobileHeader title={selectedPanel === 'settings' ? tUi("设置") : navigation.items.find(item => item.id === selectedPanel)?.label || selectedPanel} back={routes.length > 1 ? back : undefined} />}
         <Suspense fallback={<p className="mobile-state" role="status">{tUi("正在加载…")}</p>}>{navigation.renderPanel(selectedPanel)}</Suspense>
       </section>
       {isRootTab && <nav className="mobile-bottom-nav" aria-label={tUi("主导航")} inert={drawerPresent || searchOpen ? true : undefined} aria-hidden={searchOpen || undefined} style={searchOpen ? { visibility: 'hidden' } : undefined}>

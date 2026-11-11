@@ -9,6 +9,7 @@ export function UnsavedChangesDialog({
   description,
   error = "",
   saving = false,
+  saveDisabled = false,
   saveLabel: saveLabelSource,
   discardLabel: discardLabelSource,
   cancelLabel: cancelLabelSource,
@@ -85,7 +86,7 @@ export function UnsavedChangesDialog({
         <p id={descriptionId}>{description}</p>
         {error ? <p id={errorId} className="unsaved-changes-error" role="alert">{error}</p> : null}
         <div className="unsaved-changes-actions">
-          <button type="button" className="is-primary" disabled={saving} onClick={onSave}>
+          <button type="button" className="is-primary" disabled={saving || saveDisabled} onClick={onSave}>
             {saving ? tUi("保存中") : saveLabel}
           </button>
           <button type="button" disabled={saving} onClick={onDiscard}>{discardLabel}</button>

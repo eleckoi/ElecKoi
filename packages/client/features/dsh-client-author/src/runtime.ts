@@ -4,7 +4,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ElecKoiConversations } from '@eleckoi/dsh-client-conversations/client'
 import type { ElecKoiScriptLibraries } from '@eleckoi/dsh-client-character-configuration/client'
 import type { ElecKoiModels } from '@eleckoi/dsh-client-models/client'
-import type { NativeAuthorScriptCatalog, NativeAuthorRuleTask, NativeAuthorScriptIdentity } from '@eleckoi/dsh-product-api/types'
+import type { NativeAuthorScriptCatalog, NativeAuthorScriptIdentity } from '@eleckoi/dsh-product-api/types'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 import type {} from '@eleckoi/dsh-product-api/remote'
 import { createAuthorScriptFrame, type AuthorBrowserWindow } from './frame.js'
@@ -18,6 +18,7 @@ import { NativeAudioRuntime, nativeAudioMethods } from './audio.js'
 import { NativeGenerationEvents } from './generation.js'
 import { NativeScriptUi, type NativeScriptUiOwner } from './script-ui.js'
 import { NativeScriptRequests } from './script-requests.js'
+import { authorRuleStream, type AuthorRuleDelivery } from './rule-stream.js'
 
 // 两个「确实不处理」的具名声明：语义见 packages/shared/src/foundation/swallowedFailure.ts。
 // 本文件是独立 bundle 的源，运行时取不到那个包，所以就地定义（同名同义，空函数）。
@@ -37,7 +38,7 @@ const failureMessage = (error: unknown): string => error instanceof Error
 
 export interface NativeAuthorRuntimeOptions {
   window: AuthorBrowserWindow
-  remote: Pick<Context['remote'], 'eleckoiAuthorScripts' | 'eleckoiAuthorVariables' | 'eleckoiConversations' | 'eleckoiCharacters' | 'eleckoiCharacterConfiguration' | 'eleckoiAgentPresets'>
+  remote: Pick<Context['remote'], '$stream' | 'eleckoiAuthorScripts' | 'eleckoiAuthorVariables' | 'eleckoiConversations' | 'eleckoiCharacters' | 'eleckoiCharacterConfiguration' | 'eleckoiAgentPresets'>
   conversations: ElecKoiConversations
   libraries: ElecKoiScriptLibraries
   models: ElecKoiModels
@@ -58,7 +59,7 @@ export class NativeAuthorClient {
   private readonly generation: NativeGenerationEvents
   private readonly scriptUi: NativeScriptUi
   private readonly scriptRequests = new NativeScriptRequests()
-  private current: { catalog: NativeAuthorScriptCatalog; revision: number; session: AuthorScriptSession; abort: AbortController; stream?: ReturnType<Context['remote']['eleckoiAuthorScripts']['connect']> } | undefined
+  private current: { catalog: NativeAuthorScriptCatalog; revision: number; session: AuthorScriptSession; abort: AbortController; stream?: ReturnType<typeof authorRuleStream> } | undefined
   private queue = Promise.resolve()
   private revision = 0
   private configurationReadRevision = 0
@@ -323,15 +324,17 @@ export class NativeAuthorClient {
         this.publish({ ...this.snapshot, scriptStatuses: { ...this.snapshot.scriptStatuses,
           [status.key]: { ...status, scope: script.scope, ownerId: script.ownerId, source: script.source } } })
       } })
-    const current = { catalog, revision, session, abort: new AbortController(), stream: undefined as ReturnType<Context['remote']['eleckoiAuthorScripts']['connect']> | undefined }
+    const current = { catalog, revision, session, abort: new AbortController(), stream: undefined as ReturnType<typeof authorRuleStream> | undefined }
     this.current = current
     try {
       await session.start()
       if (this.closed || revision !== this.revision || current.abort.signal.aborted) return
-      current.stream = this.options.remote.eleckoiAuthorScripts.connect(catalog.conversationId, catalog.version, current.abort.signal)
+      current.stream = authorRuleStream(this.options.remote, catalog.conversationId, catalog.version, current.abort.signal, () => {
+        if (this.current === current && !current.abort.signal.aborted) this.publish({ ...this.snapshot, status: 'starting', error: '' })
+      })
       const iterator = current.stream[Symbol.asyncIterator]()
       const first = await iterator.next()
-      if (first.done || first.value.kind !== 'ready' || first.value.version !== catalog.version) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, 'Native author stream did not acknowledge its catalog', { what: '原生作者流的目录版本' })
+      if (first.done) return
       if (this.closed || revision !== this.revision) return
       this.publish({ ...this.snapshot, status: 'ready' })
       void this.consume(current, iterator).catch(error => {
@@ -342,29 +345,42 @@ export class NativeAuthorClient {
     }
   }
 
-  private async consume(current: NonNullable<NativeAuthorClient['current']>, iterator: AsyncIterator<NativeAuthorRuleTask>): Promise<void> {
-    while (!current.abort.signal.aborted) {
-      const result = await iterator.next()
-      if (result.done) throw productFailure(ELECKOI_FAILURE_CODES.internal, 'Native author rule stream ended', { what: '原生作者规则流提前结束' })
-      const task = result.value
-      if (task.kind === 'cancel') current.session.cancel(task.runId)
-      else if (task.kind === 'process') {
-        // Delivery stays live while an asynchronous author rule is awaiting work.
-        void (async () => {
-          try {
-            if (task.scriptSettings) {
-              // Settings cannot supersede this snapshot; changed code still needs a reload.
-              this.settingsSnapshotRevision++
-              current.session.updateSettings(task.scriptSettings)
+  private async consume(current: NonNullable<NativeAuthorClient['current']>, iterator: AsyncIterator<AuthorRuleDelivery>): Promise<void> {
+    const runs = new Set<string>()
+    const cancel = () => { for (const id of runs) current.session.cancel(id); runs.clear() }
+    let generationSignal: AbortSignal | undefined
+    try {
+      while (!current.abort.signal.aborted) {
+        const result = await iterator.next()
+        if (result.done) throw productFailure(ELECKOI_FAILURE_CODES.internal, 'Native author rule stream ended', { what: '原生作者规则流提前结束' })
+        const { task, signal, reply } = result.value
+        if (generationSignal !== signal) {
+          generationSignal?.removeEventListener('abort', cancel); cancel()
+          generationSignal = signal; signal.addEventListener('abort', cancel, { once: true })
+        }
+        if (task.kind === 'ready') { this.publish({ ...this.snapshot, status: 'ready', error: '' }); continue }
+        if (task.kind === 'cancel') { current.session.cancel(task.runId); runs.delete(task.runId) }
+        else if (task.kind === 'process') {
+          runs.add(task.runId)
+          // Delivery stays live while an asynchronous author rule is awaiting work.
+          void (async () => {
+            try {
+              if (task.scriptSettings) {
+                // Settings cannot supersede this snapshot; changed code still needs a reload.
+                this.settingsSnapshotRevision++
+                current.session.updateSettings(task.scriptSettings)
+              }
+              const stateJson = await current.session.apply(task.runId, task.stage, task.stateJson, task.beforeJson)
+              if (!signal.aborted && !current.abort.signal.aborted) await reply({ id: task.id, ok: true, stateJson })
+            } catch (error) {
+              if (!signal.aborted && !current.abort.signal.aborted) await reply({ id: task.id, ok: false, message: failureMessage(error) })
+            } finally {
+              if (task.stage === 'afterSchema') runs.delete(task.runId)
             }
-            const stateJson = await current.session.apply(task.runId, task.stage, task.stateJson, task.beforeJson)
-            if (!current.abort.signal.aborted) await current.stream!.send({ id: task.id, ok: true, stateJson })
-          } catch (error) {
-            if (!current.abort.signal.aborted) await current.stream!.send({ id: task.id, ok: false, message: failureMessage(error) })
-          }
-        })().catch(error => { if (!current.abort.signal.aborted) this.fail(error) })
-      } else throw productFailure(ELECKOI_FAILURE_CODES.internal, 'Duplicate native author stream acknowledgement', { what: '重复的原生作者流确认' })
-    }
+          })().catch(error => { if (!signal.aborted && !current.abort.signal.aborted) this.fail(error) })
+        }
+      }
+    } finally { generationSignal?.removeEventListener('abort', cancel); cancel() }
   }
 
   private adapter(conversationId: string, messageId: string,
@@ -459,15 +475,21 @@ export class NativeAuthorClient {
   }
 
   private async consumeChanges(): Promise<void> {
-    const stream = this.options.remote.eleckoiConversations.changes(this.lifetime.signal)
+    const stream = this.options.remote.$stream({ name: 'ElecKoi native author conversation changes',
+      open: signal => this.options.remote.eleckoiConversations.changes(signal),
+      ended: () => new Error('Native author conversation changes stream ended') })
+    const stop = () => { void stream.dispose() }
+    this.lifetime.signal.addEventListener('abort', stop, { once: true })
     try {
-      for await (const change of stream) {
+      for await (const packet of stream) {
+        packet.accept()
+        const change = packet.value
         if (change.kind !== 'messages') continue
         const { conversationId, reason, messageIds } = change
         this.emitAuthorEvent('messages.changed', { conversationId, reason, messageIds })
       }
       if (!this.closed) throw productFailure(ELECKOI_FAILURE_CODES.internal, 'Native author conversation changes stream ended', { what: '聊天变更流提前结束' })
-    } finally { await stream.dispose() }
+    } finally { this.lifetime.signal.removeEventListener('abort', stop); await stream.dispose() }
   }
   private emitAuthorEvent<TName extends AuthorEventName>(event: TName, payload: AuthorEventMap[TName]): void {
     for (const listener of this.events.get(JSON.stringify([payload.conversationId, event])) ?? []) listener(structuredClone(payload))
@@ -498,7 +520,7 @@ export class NativeAuthorClient {
     const current = this.current; this.current = undefined
     if (!current) return
     current.abort.abort(new Error('Native author generation closed'))
-    try { await current.stream?.dispose() } finally { await current.session.close() }
+    try { await current.stream?.return() } finally { await current.session.close() }
   }
   /** @internal */
   async dispose(): Promise<void> {

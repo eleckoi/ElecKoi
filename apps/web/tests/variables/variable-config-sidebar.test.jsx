@@ -36,7 +36,7 @@ async function select(container, title) {
 }
 
 async function close(container) {
-  await act(async () => container.querySelector('[aria-label="关闭编辑器"]').click());
+  await act(async () => container.querySelector('.vv-tree').dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 })));
 }
 
 describe('variable sidebar integration', () => {
@@ -52,13 +52,13 @@ describe('variable sidebar integration', () => {
     });
     try {
       await select(view.container, 'date');
-      const input = [...view.container.querySelectorAll('.variable-field')].find(item => item.firstChild.textContent === '默认值').querySelector('input');
+      const input = view.container.querySelector('[aria-label=默认值]');
       await act(async () => {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '第一天');
         input.dispatchEvent(new Event('input', { bubbles: true }));
       });
       await select(view.container, '变量运行配置');
-      expect(JSON.parse(view.container.querySelector('.variable-code-area').value).date).toBe('第一天');
+      expect(JSON.parse(view.container.querySelector('[aria-label=生成的初始状态]').value).date).toBe('第一天');
       await act(async () => [...view.container.querySelectorAll('button')].find(item => item.textContent === '保存').click());
       const saved = view.model.save.mock.lastCall[1];
       expect(JSON.parse(saved.initialStateJson)).toEqual({ date: '第一天', 状态组: {}, members: { alpha: { energy: 8, note: null } } });
@@ -71,42 +71,42 @@ describe('variable sidebar integration', () => {
     const row = text => [...view.container.querySelectorAll('[role="treeitem"]')].find(item => item.textContent.includes(text));
     const right = async text => act(async () => row(text).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 24, clientY: 24 })));
     try {
-      await right('count'); expect(view.container.querySelector('.variable-inspector')).toBeNull();
+      await right('count'); expect(view.container.querySelector('.vv-properties')).toBeNull();
       await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true })));
       expect(document.querySelector('[role="menu"]')).toBeNull();
       await select(view.container, '状态组');
-      const inspector = view.container.querySelector('.variable-inspector');
-      await right('count'); expect(view.container.querySelector('.variable-inspector')).toBe(inspector);
+      const inspector = view.container.querySelector('.vv-properties');
+      await right('count'); expect(view.container.querySelector('.vv-properties')).toBe(inspector);
       const action = text => [...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent.trim() === text);
       await act(async () => action('删除').click());
       await act(async () => document.querySelector('[role="alertdialog"] .is-destructive').click());
-      expect(view.container.querySelector('.variable-inspector')).toBe(inspector);
+      expect(view.container.querySelector('.vv-properties')).toBe(inspector);
       expect(row('count')).toBeUndefined(); expect(row('状态组')).toBeTruthy();
     } finally { await view.dispose(); }
   });
-  it('uses the shared resizable sidebar for variables, groups and runtime configuration while preserving editing and saving', async () => {
+  it('uses the approved adjustable directory and preserves unified saving with an empty editor', async () => {
     let measuredWidth = 1400;
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({ width: measuredWidth }));
     const view = await renderPanel();
     try {
       await select(view.container, 'count');
-      const layout = view.container.querySelector('.variable-layout');
+      const layout = view.container.querySelector('.variable-workspace');
       const separator = view.container.querySelector('[role="separator"]');
       const width = () => Number(separator.getAttribute('aria-valuenow'));
-      expect(width()).toBe(760);
-      expect(view.container.querySelector('.variable-inspector').parentElement.classList.contains('editor-sidebar-pane')).toBe(true);
+      expect(width()).toBe(480);
+      expect(view.container.querySelector('.vv-properties').parentElement.classList.contains('setting-document')).toBe(true);
       expect(view.container.querySelector('.variable-tree').classList.contains('editor-sidebar-directory')).toBe(true);
-      await act(async () => separator.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })));
-      expect(width()).toBe(784);
-      expect(layout.style.getPropertyValue('--editor-sidebar-width')).toBe('784px');
+      await act(async () => separator.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
+      expect(width()).toBe(496);
+      expect(layout.style.getPropertyValue('--setting-directory-width')).toBe('496px');
       measuredWidth = 640;
       await act(async () => window.dispatchEvent(new Event('resize')));
-      expect(width()).toBe(460);
+      expect(width()).toBe(260);
       measuredWidth = 1400;
       await act(async () => window.dispatchEvent(new Event('resize')));
-      expect(width()).toBe(784);
+      expect(width()).toBe(496);
 
-      const value = [...view.container.querySelectorAll('.variable-field')].find(item => item.firstChild.textContent === '默认值').querySelector('input');
+      const value = view.container.querySelector('[aria-label=默认值]');
       await act(async () => {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(value, '5');
         value.dispatchEvent(new Event('input', { bubbles: true }));
@@ -117,21 +117,19 @@ describe('variable sidebar integration', () => {
       expect(view.model.save.mock.lastCall[1].versions.find(item => item.id === 'version-a').variables[0].defaultValue).toBe('5');
 
       await close(view.container);
-      const closing = view.container.querySelector('.editor-sidebar-pane.is-closing');
-      expect(closing.hasAttribute('inert')).toBe(true);
-      expect(closing.querySelector('.variable-inspector')).toBeTruthy();
-      await act(async () => new Promise(resolve => setTimeout(resolve, 200)));
-      expect(view.container.querySelector('.variable-inspector')).toBeNull();
-      expect(layout.classList.contains('is-inspector-open')).toBe(false);
+      expect(view.container.querySelector('.vv-properties')).toBeNull();
+      expect(view.container.querySelector('.setting-document-empty')).toBeTruthy();
+      expect(view.container.querySelectorAll('.setting-document-save')).toHaveLength(1);
+      expect(layout.querySelector('.setting-directory .setting-document-save')).toBeTruthy();
 
       await select(view.container, '变量运行配置');
-      expect(view.container.querySelector('[role="separator"]').getAttribute('aria-valuenow')).toBe('784');
-      expect(view.container.querySelector('.variable-init-editor')).toBeTruthy();
+      expect(view.container.querySelector('[role="separator"]').getAttribute('aria-valuenow')).toBe('496');
+      expect(view.container.querySelector('[aria-label=生成的初始状态]')).toBeTruthy();
       await close(view.container);
       await select(view.container, '状态组');
       expect(view.container.querySelector('.is-closing')).toBeNull();
-      expect([...view.container.querySelectorAll('.variable-inspector label')].find(label => label.textContent.includes('变量组名称')).querySelector('input').value).toBe('状态组');
-      expect(view.container.querySelector('[role="separator"]').getAttribute('aria-valuenow')).toBe('784');
+      expect(view.container.querySelector('[aria-label=变量组名称]').value).toBe('状态组');
+      expect(view.container.querySelector('[role="separator"]').getAttribute('aria-valuenow')).toBe('496');
     } finally { await view.dispose(); }
   });
 
@@ -141,8 +139,8 @@ describe('variable sidebar integration', () => {
     try {
       await select(view.container, 'count');
       await close(view.container);
-      expect(view.container.querySelector('.variable-inspector')).toBeNull();
-      expect(view.container.querySelector('.variable-layout')).toBeTruthy();
+      expect(view.container.querySelector('.vv-properties')).toBeNull();
+      expect(view.container.querySelector('.variable-workspace')).toBeTruthy();
     } finally { await view.dispose(); }
   });
 });

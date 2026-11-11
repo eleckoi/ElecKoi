@@ -106,6 +106,7 @@
 .mobile-drawer .rail-account-row .rail-profile-zone { flex: 1; min-width: 0; width: auto; }
 .mobile-drawer .rail-settings-seat { display: grid; place-items: center; flex: none; width: 48px; }
 .mobile-drawer .rail-user-trigger, .mobile-drawer .rail-settings-trigger { display: flex; align-items: center; justify-content: flex-start; gap: 14px; width: 100%; max-width: none; height: 48px; max-height: none; padding: 0 12px; border: 0; border-radius: 10px; box-shadow: none; background: transparent; overflow: hidden; }
+.mobile-shell .mobile-drawer .rail-account-row .rail-user-trigger { background: transparent; box-shadow: none; color: var(--text); }
 .mobile-drawer .rail-settings-trigger { justify-content: center; gap: 0; width: 48px; padding: 0; }
 .mobile-drawer .rail-user-trigger .rail-user-avatar { width: 28px; height: 28px; flex: none; }
 .mobile-drawer .rail-user-trigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -328,18 +329,10 @@
 .mobile-conversation-page [data-chat-to-bottom] button { width: 34px; height: 34px; min-width: 34px; min-height: 34px; margin-top: -34px; border-radius: 50%; corner-shape: round; }
 .mobile-shell .app-settings-content { flex: 1; min-width: 0; min-height: 0; margin: 0; overflow: auto; padding: 18px; }
 .mobile-shell[data-mobile-panel="plugins"] { --mobile-content-bg: var(--chat); --mobile-header-bg: var(--chat); }
-.mobile-shell[data-mobile-panel="plugins"] .mobile-page-seat:has([data-plugin-detail], [data-plugin-item-detail], [data-plugin-row-detail], [data-plugin-group="more"], [data-plugin-group="eleckoi-more"]) > .mobile-header { display: none; }
-.mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel] { --plugin-page-inset: 16px; --plugin-page-top-inset: 0px; flex: 1; min-width: 0; min-height: 0; gap: 0; padding: 0 var(--plugin-page-inset); background: var(--chat); }
-.mobile-shell[data-mobile-panel="plugins"] [data-plugin-bar] > header { padding-top: 0; align-items: center; gap: 8px; }
-.mobile-shell[data-mobile-panel="plugins"] [data-plugin-header-part="title"] { display: none; }
-.mobile-shell[data-mobile-panel="plugins"] [data-plugin-header-part="intro"] { margin: 0; }
-.mobile-shell[data-mobile-panel="plugins"] [data-plugin-bar][data-scrolled] [data-plugin-header-part="intro"] { visibility: hidden; }
-.mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel]:has([data-plugin-group="more"], [data-plugin-group="eleckoi-more"]) > header { display: flex; flex-direction: row; justify-content: flex-start; min-height: 60px; gap: 12px; }
-.mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel]:has([data-plugin-group="more"], [data-plugin-group="eleckoi-more"]) > header h1 { display: block; }
-.mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel]:has([data-plugin-group="more"], [data-plugin-group="eleckoi-more"]) > header > button { width: 44px; height: 44px; min-height: 44px; padding: 0; }
-.mobile-shell[data-mobile-panel="plugins"] :is([data-plugin-detail], [data-plugin-item-detail], [data-plugin-row-detail]) > [data-window-drag] { padding-top: 0; }
-.mobile-shell[data-mobile-panel="plugins"] :is([data-plugin-detail], [data-plugin-item-detail], [data-plugin-row-detail]) > [data-window-drag] > button { align-self: flex-start; min-height: 48px; margin: 0; gap: 8px; color: var(--text); font-size: 14px; }
-.mobile-shell[data-mobile-panel="plugins"] :is([data-plugin-detail], [data-plugin-item-detail], [data-plugin-row-detail]) > [data-window-drag] > button svg { width: 24px; height: 24px; flex: none; }
+/* The official page owns its complete header, responsive layout and scroll measurements. */
+.mobile-shell[data-mobile-panel="plugins"] [data-plugin-panel] { flex: 1; min-width: 0; min-height: 0; }
+.mobile-shell [data-plugin-header-part="title"]:has(.mobile-plugin-back) { display: flex; align-items: center; gap: 8px; }
+.mobile-shell .mobile-plugin-back { flex: none; }
 .mobile-creator-page .creator-studio-layout { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
 .mobile-creator-page .creator-studio-sidebar { width: 100%; min-width: 0; height: auto; flex: none; padding: 0 12px; }
 .mobile-creator-page .creator-studio-sidebar-nav { display: flex; flex-direction: row; overflow-x: auto; }

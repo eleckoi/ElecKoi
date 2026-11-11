@@ -856,7 +856,7 @@ async function main() {
   cookie = await document.authenticateDshClientHost(ready.url)
   await window.loadURL('dsh-app://app/')
   await waitFor(`document.body.innerText.includes('Synthetic recovered reply')`, 'Cold restart did not restore the conversation')
-  await waitFor(`document.querySelector('.chat-model-trigger-label')?.innerText === 'example-model'`, 'Cold restart did not restore the model selection')
+  await waitFor(`document.querySelector('.chat-panel .model-selection-name')?.innerText === 'example-model'`, 'Cold restart did not restore the model selection')
   await waitFor(`document.querySelector('[data-composer-dock]') !== null`, 'Cold restart did not restore official composer statistics')
   if (process.argv.includes('--rightbar-check')) await checkRightbar('cold restored conversation')
   const statsTypography = await window.webContents.executeJavaScript(`(() => {

@@ -1,6 +1,6 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { Copy, MagnifyingGlass, PencilSimple, Plus, Scissors, SlidersHorizontal, Trash } from "../../../ui/icons/interfaceIcons.jsx";
+import { Copy, PencilSimple, Scissors, Trash } from "../../../ui/icons/interfaceIcons.jsx";
 import { ConfirmationDialog, SaveControl } from "../../settingLibraries/index.js";
 import { EditorSidebarLayout } from "../../../ui/ui/EditorSidebarLayout.jsx";
 import { EditorContextMenu } from '../../../ui/ui/EditorContextMenu.jsx';
@@ -26,6 +26,8 @@ import {
 } from "../model/variableConfigEditing.js";
 import { hasVariableSearchResults, variableTreeNodes } from "../model/variableConfigTree.js";
 import { VariableConfigInspector } from "./VariableConfigInspector.jsx";
+import { VariableConfigDocument } from './VariableConfigDocument.jsx';
+import { VariableConfigWorkspace } from './VariableConfigWorkspace.jsx';
 import { VariableConfigManager } from "./VariableConfigManager.jsx";
 import { VariableConfigTree, VariableEntryIcon, VariableGroupIcon, VariableTreeActionsContext, VARIABLE_INITIALIZATION_OBJECT_ID } from "./VariableConfigTree.jsx";
 import { reportFailure, resolveFailure } from "../../../utils/failureText.js";
@@ -54,6 +56,7 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
   const [managerOpen, setManagerOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [convertTarget, setConvertTarget] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -86,6 +89,7 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
     setPersisted(null);
     setSelectedKey("");
     setManagerOpen(false);
+    setConvertTarget(null);
     const adopt = (loaded) => {
       if (!active || savePromiseRef.current || (configRef.current && persistedRef.current
         && JSON.stringify(configRef.current) !== JSON.stringify(persistedRef.current))) return;
@@ -326,6 +330,11 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
     setSelectedKey(converted.key);
   }
 
+  function replaceContents(objectId, sourceText) {
+    const next = replaceObjectContentsFromJson(configRef.current, objectId, sourceText);
+    changeConfig(next, false);
+  }
+
   function applyManagerChange(next) {
     changeConfig(next, false);
     const ids = next.expandedObjectIds || [];
@@ -365,31 +374,42 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
 
   const createItems = [{ label: tUi("变量组"), Icon: VariableGroupIcon, run: () => addNode('object') },
     { label: tUi("变量"), Icon: VariableEntryIcon, run: () => addNode('variable') }];
+  const toggleSelection = () => { multi.toggle(); selectNode(''); setEditing(false); setContextMenu(null); };
+  const saveControl = <SaveControl dirty={dirty} error={error} notice={notice} saving={saving} onSave={save} workspace={!compact} title={!compact ? tUi('保存全部变量修改') : undefined} />;
+  const Layout = compact ? EditorSidebarLayout : VariableConfigWorkspace;
   return (
-    <EditorSidebarLayout className={`variable-layout${multi.active ? ' is-multiselect' : ''}`} aria-label={tUi("变量配置")}
+    <Layout className={`variable-layout${multi.active ? ' is-multiselect' : ''}`} aria-label={tUi("变量配置")}
+      {...(!compact ? { config, query, onQueryChange: setQuery, createItems: [...createItems].reverse(), selection: { ...multi, toggle: toggleSelection }, saving, save: saveControl,
+        onManage: () => setManagerOpen(true), onVersionChange: applyManagerChange } : {})}
       inspectorTitle={selected.value?.id === VARIABLE_INITIALIZATION_OBJECT_ID ? tUi("变量运行配置") : selected.kind === 'object' ? tUi("编辑变量组") : tUi("编辑变量")}
       onCloseInspector={closeInspector}
       feedback={<SaveControl dirty={dirty} error={error} notice={notice} saving={saving} onSave={save} />}
       onMouseDown={() => setAddOpen(false)}
-      inspector={!multi.active && selected.value && (!compact || editing) ? (
+      inspector={!multi.active && selected.value && (!compact || editing) ? (!compact ? <VariableConfigDocument key={JSON.stringify([characterId, config.activeVersionId, selectedKey])}
+        config={config} selected={selected} nameInputRef={nameInputRef} dirty={dirty} saving={saving} onChange={changeConfig}
+        onReplaceContents={replaceContents}
+        onConvert={setConvertTarget} onDelete={() => askDelete(parseNodeKey(selectedKey))} onCopy={() => {
+          const target = parseNodeKey(selectedKey), parentId = selected.kind === 'object' ? selected.value.parentId : selected.value.objectId;
+          const copied = copyVariableNode(configRef.current, target, parentId); changeConfig(copied.config, false); selectNode(copied.key);
+        }} /> : (
         <VariableConfigInspector
           config={config}
           selected={selected}
           nameInputRef={nameInputRef}
           onClose={closeInspector}
           onChange={(next) => changeConfig(next)}
-          onReplaceContents={(objectId, sourceText) => changeConfig((current) => replaceObjectContentsFromJson(current, objectId, sourceText), false)}
+          onReplaceContents={replaceContents}
           onConvert={convertToObject}
         />
-      ) : null}>
+      )) : null}>
       <div className="variable-browser editor-collection-browser">
-        <EditorCollectionToolbar query={query} onQueryChange={setQuery} placeholder={tUi("搜索变量")} disabled={saving || !config}
-          selection={{ ...multi, toggle: () => { multi.toggle(); selectNode(''); setEditing(false); setContextMenu(null); } }}
+        {compact && <EditorCollectionToolbar query={query} onQueryChange={setQuery} placeholder={tUi("搜索变量")} disabled={saving || !config}
+          selection={{ ...multi, toggle: toggleSelection }}
           createItems={createItems}
-          onManage={() => setManagerOpen(true)} save={<SaveControl dirty={dirty} error={error} notice={notice} saving={saving} onSave={save} />} />
+          onManage={() => setManagerOpen(true)} save={saveControl} />}
         <EditorSelectionBar selection={multi} visibleIds={visibleTreeSelectionIds(nodes, query)} disabled={saving} onCopy={copySelected}
           onDelete={() => setDeleteTarget({ kind: 'batch', ids: selectedTreeRootIds(nodes, multi.selected), title: tUi("删除选中的 {value0} 项？", {value0: multi.selected.size}), message: tUi("所选变量组及其内容会在保存后删除。") })} />
-        <div className="variable-tree editor-sidebar-directory" onContextMenu={openBackgroundMenu} onMouseDown={(event) => { if (event.button === 0 && !event.target.closest('[role="treeitem"]')) selectNode(''); }}>
+        <div className={`variable-tree editor-sidebar-directory${!compact ? ' vv-tree' : ''}`} onContextMenu={openBackgroundMenu} onMouseDown={(event) => { if (event.button === 0 && !event.target.closest('[role="treeitem"]')) selectNode(''); }}>
           <VariableTreeActionsContext.Provider value={{ openContextMenu, toggleNode, selection: multi, saving, openEditor: compact && !multi.active ? openEditor : undefined }}>
             <VariableConfigTree
               key={characterId}
@@ -435,6 +455,8 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
         ] : []),
       ].map(action => ({ ...action, disabled: saving }))} /> : null}
       <ConfirmationDialog target={deleteTarget} confirmLabel={tUi("删除")} tone="destructive" onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
-    </EditorSidebarLayout>
+      <ConfirmationDialog target={convertTarget ? { title: tUi('转换为变量组？'), message: tUi('变量将变为可以包含子变量的对象，原默认值不会作为子字段保留。') } : null}
+        onCancel={() => setConvertTarget(null)} onConfirm={() => { convertToObject(convertTarget); setConvertTarget(null); }} />
+    </Layout>
   );
 });

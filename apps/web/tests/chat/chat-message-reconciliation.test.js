@@ -1,7 +1,62 @@
 import { describe, expect, it } from 'vitest'
 import { mergeProcessItems, preserveMessageRenderKeys, preservePendingUser } from '../../src/modules/chat/hooks/useConversationMessages.js'
+import { selectRoleplayChatSeat } from '../../src/modules/chat/model/chatViewSeats.js'
+import { mapChatDetails } from '../../src/modules/chat/api/chatApi.js'
 
 describe('chat message reconciliation', () => {
+  it('preserves mapped and official seat objects when only another official message changes', () => {
+    const message = { id: 'user', role: 'user', conversationId: 'chat', runtimeSessionId: 'session', sessionEventSeq: 7, content: 'Synthetic input' };
+    const mapped = mapChatDetails({ conversation: { id: 'chat' }, messages: [message] }).messages;
+    const next = mapChatDetails({ conversation: { id: 'chat' }, messages: [message, { id: 'reply', content: 'Growing' }] }).messages;
+    expect(mapped[0]).toBe(next[0]);
+    const node = { key: 'official-input', kind: 'user', data: { seq: 7, time: 1, content: [] } };
+    const first = selectRoleplayChatSeat(mapped, 'session', node);
+    expect(selectRoleplayChatSeat(next, 'session', node).item).toBe(first.item);
+    expect(selectRoleplayChatSeat(next, 'different-session', node).item).not.toBe(first.item);
+  });
+  it('reuses unchanged history objects and arrays while accepting changes to every message field', () => {
+    const history = Array.from({ length: 500 }, (_, index) => ({
+      id: `message-${index}`, renderKey: `row-${index}`, conversationId: 'synthetic-chat', runtimeSessionId: 'synthetic-session',
+      role: index % 2 ? 'assistant' : 'user', content: `Synthetic history ${index}`, displayContent: `Synthetic history ${index}`,
+      process: [{ id: `process-${index}`, kind: 'tool', status: 'complete', detail: 'Synthetic result' }],
+      inputImageAttachments: [],
+    }));
+    const copies = history.map(message => ({ ...message, process: message.process.map(item => ({ ...item })), inputImageAttachments: [] }));
+    expect(preserveMessageRenderKeys(history, copies)).toBe(history);
+    for (const patch of [{ content: 'Edited' }, { displayContent: '' }, { status: 'cancelled' }, { variableStateJson: '{"synthetic":1}' },
+      { generatedImageAttachments: [{ attachmentId: 'synthetic-image' }] }, { process: [{ ...history[499].process[0], detail: 'Changed' }] }]) {
+      const next = preserveMessageRenderKeys(history, [...copies.slice(0, -1), { ...copies[499], ...patch }]);
+      expect(next.slice(0, -1).every((message, index) => message === history[index])).toBe(true);
+      expect(next[499]).not.toBe(history[499]);expect(next[499]).toMatchObject(patch);
+    }
+    const reordered = preserveMessageRenderKeys(history, [copies[499], copies[1]]);
+    expect(reordered).toEqual([history[499], history[1]]);
+    expect(reordered[0]).toBe(history[499]);expect(reordered[1]).toBe(history[1]);
+  });
+
+  it('looks up stable identities once instead of rescanning the loaded history for every row', () => {
+    let reads = 0;
+    const history = Array.from({ length: 500 }, (_, index) => ({
+      get id() { reads++; return `message-${index}`; }, renderKey: `row-${index}`, role: 'assistant',
+      conversationId: 'synthetic-chat', runtimeSessionId: 'synthetic-session', content: 'Synthetic history', process: [], inputImageAttachments: [],
+    }));
+    const incoming = history.map(message => ({ ...message }));reads = 0;
+    const result = preserveMessageRenderKeys(history, incoming);
+    expect(result.every((message,index) => message === history[index])).toBe(true);
+    expect(reads).toBeLessThan(history.length * 20);
+    reads = 0;
+    const streamed = preserveMessageRenderKeys(result, [...incoming, { id: 'live', role: 'assistant', content: 'Growing reply' }]);
+    expect(streamed.slice(0,-1).every((message,index) => message === history[index])).toBe(true);
+    expect(reads).toBe(0);
+  });
+
+  it('keeps official node identity scoped to its Session and never claims one row twice', () => {
+    const previous = { id: 'live', renderKey: 'row', dshNodeKey: 'official-node', conversationId: 'synthetic-chat', runtimeSessionId: 'session-a', role: 'assistant' };
+    const incoming = { ...previous, id: 'saved', renderKey: undefined };
+    expect(preserveMessageRenderKeys([previous], [incoming])[0].renderKey).toBe('row');
+    expect(preserveMessageRenderKeys([previous], [{ ...incoming, runtimeSessionId: 'session-b' }])[0].renderKey).toBeUndefined();
+    expect(preserveMessageRenderKeys([previous], [incoming, incoming])[1]).toBe(incoming);
+  });
   it.each([
     ['conversation', 'conversation-b', 'session-a'],
     ['runtime Session', 'conversation-a', 'session-b'],

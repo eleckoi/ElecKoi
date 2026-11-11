@@ -207,7 +207,20 @@ describe('opening configuration editor', () => {
     } finally { await view.dispose(); }
   });
 
-  it('clamps the library inspector and its reset to the available pane while retaining its preferred desktop width', async () => {
+  it('opens the new owner’s body when the same workspace is reused for another character', async () => {
+    const libraries = Object.fromEntries(['first', 'second'].map(id => [id, normalizeSettingLibrary(id, { ...normalizeSettingLibrary(id), entries: [{ ...createEntryDraft('', 1, []), id: `entry-${id}`, title: id, content: `body-${id}` }] })]));
+    const model = { getSnapshot: id => ({ status: 'ready', value: libraries[id] }), read: async id => libraries[id], subscribe: () => () => {}, saveViewState: async () => [] };
+    const component = id => <SettingLibraryPanel characterId={id} settingLibraries={model} />;
+    const view = await render(component('first'));
+    try {
+      expect(view.container.querySelector('textarea[aria-label="设定正文"]').value).toBe('body-first');
+      await act(async () => view.root.render(component('second')));
+      expect(view.container.querySelector('input[aria-label="条目标题"]').value).toBe('second');
+      expect(view.container.querySelector('textarea[aria-label="设定正文"]').value).toBe('body-second');
+    } finally { await view.dispose(); }
+  });
+
+  it('clamps the directory to leave room for writing and restores its preferred width', async () => {
     let measuredWidth = 1400;
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => ({ width: measuredWidth }));
     const library = { characterId: 'synthetic-character', name: '', entries: [
@@ -217,19 +230,19 @@ describe('opening configuration editor', () => {
     const view = await render(<SettingLibraryPanel characterId="synthetic-character" settingLibraries={model} />);
     try {
       await act(async () => view.container.querySelector('[role="treeitem"]').click());
-      const separator = view.container.querySelector('[aria-label="调整编辑器宽度"]');
+      const separator = view.container.querySelector('[aria-label="调整目录宽度"]');
       const width = () => Number(separator.getAttribute('aria-valuenow'));
-      expect(width()).toBe(760);
-      measuredWidth = 640;
+      expect(width()).toBe(480);
+      measuredWidth = 760;
       await act(async () => window.dispatchEvent(new Event('resize')));
-      expect(width()).toBe(460);
-      expect(separator.getAttribute('aria-valuemin')).toBe('460');
-      expect(separator.getAttribute('aria-valuemax')).toBe('460');
+      expect(width()).toBe(372);
+      expect(separator.getAttribute('aria-valuemin')).toBe('260');
+      expect(separator.getAttribute('aria-valuemax')).toBe('372');
       await act(async () => separator.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
-      expect(width()).toBe(460);
+      expect(width()).toBe(372);
       measuredWidth = 1400;
       await act(async () => window.dispatchEvent(new Event('resize')));
-      expect(width()).toBe(760);
+      expect(width()).toBe(480);
     } finally { await view.dispose(); }
   });
 })

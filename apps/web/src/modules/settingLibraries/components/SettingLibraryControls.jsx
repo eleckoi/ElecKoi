@@ -59,7 +59,7 @@ export function ConfirmationDialog({ target, cancelLabel: cancelLabelSource, con
   );
 }
 
-export function SaveControl({ dirty, error, notice, saving, onSave }) {
+export function SaveControl({ dirty, error, notice, saving, onSave, workspace = false, title }) {
   const tUi = useProductTranslation();
   const { compact } = useEditorPresentation();
   const inHeader = useEditorSaveFeedback(error, notice);
@@ -68,15 +68,16 @@ export function SaveControl({ dirty, error, notice, saving, onSave }) {
   if (inHeader) return null;
   return (
     <div className="setting-library-save-control">
-      <Button data-dsh-control variant="primary"
+      <Button data-dsh-control variant={workspace && !dirty ? 'outline' : 'primary'}
+        icon={workspace ? saving ? <CircleNotch size={15} aria-hidden="true" /> : <FloppyDisk size={15} aria-hidden="true" /> : undefined}
         type="button"
-        className={`setting-library-save-button${saving ? " is-saving" : ""}`}
-        title={tUi("保存（Ctrl/Command + S）")}
+        className={`setting-library-save-button${workspace ? ' setting-document-save' : ''}${saving ? " is-saving" : ""}`}
+        title={title || (workspace ? tUi('统一保存设定库的全部修改') : tUi("保存（Ctrl/Command + S）"))}
         aria-keyshortcuts="Control+S Meta+S"
         disabled={!dirty || saving}
         onClick={onSave}
       >
-        {saving ? <CircleNotch size={16} aria-hidden="true" /> : <FloppyDisk size={16} aria-hidden="true" />}
+        {!workspace && (saving ? <CircleNotch size={16} aria-hidden="true" /> : <FloppyDisk size={16} aria-hidden="true" />)}
         {saving ? tUi("保存中…") : tUi("保存")}
       </Button>
       {error ? <span className="setting-library-save-feedback is-error" role="alert" title={error}>

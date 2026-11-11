@@ -16,6 +16,7 @@ import type { ElecKoiAuthorApi } from '@eleckoi/author-sdk'
 // @ts-expect-error The installed browser bundle fixture does not publish declarations.
 import { officialChatFixture, officialTrajectoryFixture } from '../../../../../../tests/helpers/officialTrajectory.js'
 import { interruptedTurnClosers } from '@deepseek-ai/dsh-session'
+import { RemoteStream } from '@deepseek-ai/dsh-api-gateway/client'
 // @ts-expect-error The Host projection module does not publish declarations.
 import { inputContinuationsProjection } from '../../../dsh-client-roleplay/src/host/input-continuations-projection.mjs'
 // @ts-expect-error The Host projection module does not publish declarations.
@@ -936,6 +937,9 @@ describe('DSH ElecKoi conversation client model', () => {
     const page = new JSDOM('<!doctype html><body></body>', { url: 'http://localhost/' }), report = vi.fn()
     const runtime = new NativeAuthorClient({ window: page.window, conversations: catalog, models: {} as any,
       libraries: { subscribeChanges: () => () => {} } as any, report, remote: {
+        $stream: <T>(options: ConstructorParameters<typeof RemoteStream<T>>[1]) => new RemoteStream<T>({
+          generation: { getSnapshot: () => 'synthetic-generation', subscribe: () => () => {} },
+        } as any, options),
         eleckoiAuthorScripts: {
           read: async () => ({ ok: true, value: { conversationId: record.id, characterId: record.metadata.characterId, presetId: '', version: 'synthetic-version', scripts: [] } }),
           connect: (_id: string, version: string, signal: AbortSignal) => {
@@ -2015,6 +2019,11 @@ describe('DSH ElecKoi conversation client model', () => {
     targetListener()
     expect(streamPublications).toBe(unchangedStreamPublications)
     const settledDetailsDuringStream = catalog.getDetailsSnapshot()
+    const incrementalPublications: any[] = []
+    const stopIncrementalObserver = catalog.subscribeChat(() => {
+      const snapshot = catalog.getChatSnapshot()
+      incrementalPublications.push({ messages: snapshot.details.details.messages, process: snapshot.stream.process })
+    })
     allLiveNodes.set('assistant-live', {
       ...allLiveNodes.get('assistant-live'),
       data: { ...allLiveNodes.get('assistant-live').data, status: 'settled', blocks: [
@@ -2032,6 +2041,11 @@ describe('DSH ElecKoi conversation client model', () => {
     targetSnapshot = { ...targetSnapshot, order: [...allLiveNodes.keys()] }
     targetListener()
     sessionListener()
+    stopIncrementalObserver()
+    expect(incrementalPublications).toHaveLength(1)
+    expect(incrementalPublications[0].messages.at(-1).process).toEqual(incrementalPublications[0].process)
+    expect(incrementalPublications[0].messages.slice(0, -1)).toEqual(settledDetailsDuringStream.details.messages.slice(0, -1))
+    expect(incrementalPublications[0].messages.slice(0, -1).every((message: any, index: number) => message === settledDetailsDuringStream.details.messages[index])).toBe(true)
     const detailsWithTool = catalog.getDetailsSnapshot()
     expect(detailsWithTool).not.toBe(settledDetailsDuringStream)
     expect(detailsWithTool.details.messages.map((message: any) => message.content)).toContain('official user')

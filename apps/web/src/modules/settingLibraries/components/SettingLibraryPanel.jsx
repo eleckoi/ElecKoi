@@ -17,6 +17,8 @@ import { SettingLibraryManager } from "./SettingLibraryManager.jsx";
 import { GlobalSettingLibrariesDirectory, GlobalSettingLibraryImport, useGlobalSettingLibraries } from './GlobalSettingLibraries.jsx';
 import { ConfirmationDialog, SaveControl } from "./SettingLibraryControls.jsx";
 import { SettingLibraryInspector } from "./SettingLibraryInspector.jsx";
+import { SettingLibraryWorkspace } from './SettingLibraryWorkspace.jsx';
+import { SettingLibraryDocument } from './SettingLibraryDocument.jsx';
 import { SettingLibraryTree, SettingTreeActionsContext } from "./SettingLibraryTree.jsx";
 import { EditorSidebarLayout } from "../../../ui/ui/EditorSidebarLayout.jsx";
 import { EditorContextMenu } from '../../../ui/ui/EditorContextMenu.jsx';
@@ -73,6 +75,8 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
   const nameInputRef = useRef(null);
   const expandedKeysRef = useRef([]);
   const roleExpandedKeysRef = useRef([]);
+  const roleSelectedKey = useRef('');
+  const initializedSelection = useRef('');
   const globals = useGlobalSettingLibraries(globalSettingLibraries, key => { setSelectedKey(key); setEditing(false); setContextMenu(null); });
   const draft = useCharacterConfigurationDraft({ characterId, configuration: settingLibraries, saveShortcut: false,
     onAdopt: loaded => {
@@ -141,8 +145,15 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
   useEffect(() => { setClipboard(null); setDeleteTarget(null); }, [scope, activeLibraryId]);
   useEffect(() => {
     setSelectedKey('');
+    roleSelectedKey.current = '';
     setManagerOpen(false);
   }, [characterId]);
+  useEffect(() => {
+    if (compact || scope !== 'character' || !roleLibrary || roleLibrary.characterId && roleLibrary.characterId !== characterId || initializedSelection.current === characterId) return;
+    initializedSelection.current = characterId;
+    const first = roleLibrary.entries.find(entry => !PINNED_ENTRY_IDS.has(entry.id)) || roleLibrary.entries[0];
+    if (first) setSelectedKey(nodeKey('entry', first.id));
+  }, [compact, scope, characterId, roleLibrary]);
 
   function requestCloseInspector() {
     if (compact) setEditing(false);
@@ -189,7 +200,8 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
     const nextExpanded = nextLibrary.expandedGroupIds.map((id) => nodeKey("group", id));
     roleExpandedKeysRef.current = nextExpanded;
     setRoleExpandedKeys(nextExpanded);
-    setSelectedKey("");
+    const first = nextLibrary.entries.find(entry => !PINNED_ENTRY_IDS.has(entry.id)) || nextLibrary.entries[0];
+    setSelectedKey(!compact && first ? nodeKey('entry', first.id) : '');
   }
 
   useImperativeHandle(ref, () => ({ save, discard }));
@@ -411,7 +423,12 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
   const createItems = [{ label: tUi("文件夹"), Icon: CreateFolderIcon, run: () => requestAddNode('group') },
     { label: tUi("设定"), Icon: CreateEntryIcon, run: () => requestAddNode('entry') },
     { label: tUi("EJS引用设定"), Icon: CreateReferenceIcon, run: () => requestAddNode('reference') }];
-  const inspector = !multi.active && selected.value && (!compact || editing) ? (
+  const saveControl = <SaveControl dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} workspace={!compact} />;
+  const inspector = !multi.active && selected.value && (!compact || editing) ? (!compact ?
+    <SettingLibraryDocument key={JSON.stringify([scope, activeLibraryId, selected.kind, selected.value.id])} selected={selected} library={library} nameInputRef={nameInputRef} SelectedIcon={SelectedIcon}
+      onUpdateGroup={updateGroup} onDeleteGroup={() => askDelete('group', selected.value.id)} onUpdateEntry={entry => updateEntryById(entry.id, entry)}
+      onEntriesChange={entries => changeLibrary(current => ({ ...current, entries }))} onOpenEntry={id => openEditor(nodeKey('entry', id))}
+      dirty={dirty} saving={saving} /> : (
     <div className="setting-library-editor" key={JSON.stringify([scope, activeLibraryId])}>
     {globals.available ? <div className="setting-library-owner-path">{scope === 'global' ? tUi("全局设定库") : tUi("角色设定库")} / {library.name}</div> : null}
     <SettingLibraryInspector
@@ -429,10 +446,22 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
       onPromptPositionsChange={(promptPositions, entries = library.entries) => changeLibrary((current) => ({ ...current, promptPositions, entries }))}
     />
     </div>
-  ) : null;
+  )) : null;
 
-  return (
-    <EditorSidebarLayout
+  function changeScope(next) {
+    if (scope === 'character') roleSelectedKey.current = selectedKey;
+    setScope(next); setSelectedKey(next === 'character' ? roleSelectedKey.current : globals.selection?.key || '');
+    setEditing(false); setContextMenu(null);
+    if (multi.active) multi.toggle();
+  }
+  const toggleSelection = () => { multi.toggle(); setEditing(false); setContextMenu(null); };
+  const Layout = compact ? EditorSidebarLayout : SettingLibraryWorkspace;
+  const layoutProps = { scope, onScopeChange: changeScope, globalAvailable: globals.available, panelId: scopePanelId, query, onQueryChange: setQuery,
+    createItems, selection: { ...multi, toggle: toggleSelection }, saving, library, roleLibrary, onLibraryChange: applyManagerChange, onManage: () => setManagerOpen(true), save: saveControl };
+
+  const renderLayout = importActions => (
+    <Layout
+      {...(!compact ? { ...layoutProps, importActions } : {})}
       className={`setting-library-layout${multi.active ? ' is-multiselect' : ''}`}
       inspector={inspector}
       inspectorTitle={selected.kind === 'group' ? tUi("编辑文件夹") : selected.value?.title || tUi("编辑设定")}
@@ -442,19 +471,18 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
       onMouseDown={() => setMenuOpen(false)}
     >
       <div className="setting-library-browser editor-collection-browser">
-        <EditorCollectionToolbar query={query} onQueryChange={setQuery} placeholder={scope === 'global' ? tUi("搜索全局设定库") : tUi("搜索设定")} selection={{ ...multi, toggle: () => { multi.toggle(); selectNode(''); setEditing(false); setContextMenu(null); } }} disabled={saving || !library}
+        {compact && <EditorCollectionToolbar query={query} onQueryChange={setQuery} placeholder={scope === 'global' ? tUi("搜索全局设定库") : tUi("搜索设定")} selection={{ ...multi, toggle: toggleSelection }} disabled={saving || !library}
           createItems={createItems}
           onManage={scope === 'character' ? () => setManagerOpen(true) : undefined}
           beforeSave={scope === 'global' ? <GlobalSettingLibraryImport state={globals} settingLibraries={settingLibraries} disabled={saving} /> : null}
-          save={<SaveControl dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} />} />
-        <EditorSelectionBar selection={multi} visibleIds={visibleTreeSelectionIds(nodes, selectionQuery)} disabled={saving} onCopy={copySelected} onDelete={askDeleteBatch} />
+          save={saveControl} />}
+        <EditorSelectionBar selection={multi} visibleIds={visibleTreeSelectionIds(nodes, selectionQuery)} disabled={saving} onCopy={copySelected} onDelete={askDeleteBatch}>
+          {!compact && <button type="button" className="setting-selection-done" onClick={toggleSelection}>{tUi('完成')}</button>}
+        </EditorSelectionBar>
 
         <div id={scopePanelId} role={globals.available ? 'tabpanel' : undefined} aria-label={scope === 'character' ? tUi("角色设定库") : tUi("全局设定库")} className="setting-library-tree editor-sidebar-directory"
           onMouseDown={scope === 'character' ? handleTreeMouseDown : undefined} onContextMenu={scope === 'character' ? openTreeContextMenu : undefined}>
-        {globals.available ? <EditorScopeTabs value={scope} panelId={scopePanelId} onChange={next => {
-          setScope(next); setSelectedKey(''); globals.clear(); setEditing(false); setContextMenu(null);
-          if (multi.active) multi.toggle();
-        }} /> : null}
+        {compact && globals.available ? <EditorScopeTabs value={scope} panelId={scopePanelId} onChange={changeScope} /> : null}
           {scope === 'global' ? <GlobalSettingLibrariesDirectory state={globals} query={query} disabled={saving} editor={{ compact, selection: multi, selectedKey, clipboard, openEditor, openContextMenu, openTreeContextMenu,
             moveLibrary: (id, drop) => {
               const moved = parseNodeKey(drop.dragId), parentId = drop.parentId ? parseNodeKey(drop.parentId).id : '';
@@ -516,6 +544,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
         ] : []),
       ].map(action => ({ ...action, disabled: saving }))} /> : null}
       <ConfirmationDialog target={deleteTarget} confirmLabel={tUi("删除")} tone="destructive" onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
-    </EditorSidebarLayout>
+    </Layout>
   );
+  return !compact ? <GlobalSettingLibraryImport state={globals} settingLibraries={settingLibraries} disabled={saving} renderActions={actions => renderLayout(scope === 'global' ? actions : undefined)} /> : renderLayout();
 });

@@ -84,7 +84,7 @@
 .mobile-history .history-confirm { width: 100%; max-width: 360px; padding: 20px; border: 0; border-radius: 18px; background: var(--surface-raised); color: var(--text); }
 .mobile-history .history-confirm > span { color: var(--muted); }
 .mobile-history .history-confirm button { min-height: 48px; background: var(--control-bg); color: var(--text); }
-.mobile-history .history-confirm button.danger { color: var(--dsw-alias-state-error-primary, var(--danger)); }
+:root:not([data-theme="dark"]) .mobile-history .history-confirm button.danger { color: var(--dsw-alias-label-primary-foreground); }
 .mobile-agent-tools .mobile-overlay-scroll { background: var(--rail); }
 .mobile-agent-tools .agent-tools-content { overflow: visible; }
 .mobile-agent-tools .agent-tools-list { height: auto; overflow: visible; padding: 0; }

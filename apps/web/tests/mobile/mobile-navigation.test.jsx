@@ -6,6 +6,7 @@ import { useMainPageView } from '../../src/app/windows/MainPageContext.jsx';
 import { useMobileScroll } from '../../src/mobile/MobileChrome.jsx';
 import { MobileWindow } from '../../src/mobile/MobileWindow.jsx';
 import { MobileWorkspaceControls } from '../../src/mobile/MobileWorkspaceControls.jsx';
+import { MobilePluginBack } from '../../src/mobile/MobilePluginBack.jsx';
 import { UnsavedChangesDialog } from '../../src/ui/ui/UnsavedChangesDialog.jsx';
 import { OfficialMarkdownProvider } from '../../src/ui/messages/OfficialMarkdown.jsx';
 
@@ -312,6 +313,18 @@ describe('Android independent conversation navigation', () => {
     await click('返回');
     expect(document.querySelector('[data-list]').dataset.list).toBe('messages');
     expect(document.querySelector('[data-list]').scrollTop).toBe(180);
+  });
+  it('leaves the plugin page header to the official page and returns with Android Back', async () => {
+    navigation.renderPanel = id => <>{id === 'plugins' && <MobilePluginBack />}<Page panel={id} /></>;
+    await mount();
+    await act(async () => navigation.selectPanel('plugins'));
+    expect(document.querySelector('.mobile-shell').dataset.mobilePanel).toBe('plugins');
+    expect(document.querySelector('.mobile-header')).toBeNull();
+    await click('返回');
+    expect(document.querySelector('[data-list]').dataset.list).toBe('messages');
+    await act(async () => navigation.selectPanel('plugins'));
+    await act(async () => window.dispatchEvent(new Event('eleckoi:platform-back', { cancelable: true })));
+    expect(document.querySelector('[data-list]').dataset.list).toBe('messages');
   });
   it('dismisses the shared unsaved dialog with native Back while preserving the source route', async () => {
     await mount(); await click('角色资料');

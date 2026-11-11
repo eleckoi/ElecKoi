@@ -47,6 +47,31 @@ it('preserves highlights in another message when one message replaces its text a
   await render(null);
   expect(texts('eleckoi-roleplay-quote')).toEqual(['“合成甲”']);
 });
+
+it('reuses completed paragraph ranges while only the streaming tail changes and clears removed text', async () => {
+  const render = content => act(() => root.render(<MessageBubble message={{ id: 'synthetic-stream', role: 'assistant', pending: true, content }} />));
+  await render('“Synthetic history”\n\n“Tail');
+  const previous = [...registry.get('eleckoi-roleplay-quote')][0];
+  const createRange = vi.spyOn(document, 'createRange');
+  await render('“Synthetic history”\n\n“Tail grows”');
+  expect(texts('eleckoi-roleplay-quote')).toEqual(['“Synthetic history”', '“Tail grows”']);
+  expect([...registry.get('eleckoi-roleplay-quote')][0]).toBe(previous);
+  expect(createRange.mock.calls.length).toBeLessThanOrEqual(1);
+  createRange.mockRestore();
+  await render('“Replacement”');
+  expect(texts('eleckoi-roleplay-quote')).toEqual(['“Replacement”']);
+});
+
+it('keeps existing underline ranges through tail growth and removes them when the markup is edited away', async () => {
+  const render = content => act(() => root.render(<MessageBubble message={{ id: 'synthetic-underline-stream', role: 'assistant', pending: true, content }} />));
+  await render('<u>Synthetic emphasis</u>\n\nTail');
+  const previous = [...registry.get('eleckoi-roleplay-underline')][0];
+  await render('<u>Synthetic emphasis</u>\n\nTail grows');
+  expect(texts('eleckoi-roleplay-underline')).toEqual(['Synthetic emphasis']);
+  expect([...registry.get('eleckoi-roleplay-underline')][0]).toBe(previous);
+  await render('Synthetic emphasis\n\nTail grows');
+  expect(registry.has('eleckoi-roleplay-underline')).toBe(false);
+});
 const texts = name => [...(registry.get(name) || [])].map(range => range.toString());
 async function signal(frame, type, payload = {}) {
   const channel = JSON.parse(frame.srcdoc.match(/const channel=("[^"\n]+");/)[1]);
