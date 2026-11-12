@@ -26,6 +26,15 @@ writeFileSync(join(root, 'session-snapshots', 'orphan-session.json'),
 writeFileSync(join(root, 'session-snapshots', 'unused-snapshot.json'), '{')
 const tavilyBundle = '@eleckoi/dsh-web-search-tavily'
 initProfile(profilePath, [...PROFILE_TEMPLATES.web.bundles, '@eleckoi/dsh-client-roleplay'])
+// Cold-selection checks need an available isolated model, not an unconfigured public provider.
+writeFileSync(join(profilePath, 'cordis.patch.yml'), JSON.stringify([
+  { id: 'llm-pi-ai', config: { providers: {
+    'synthetic-probe': { api: 'openai-completions', baseURL: 'http://127.0.0.1:1/v1',
+      apiKeyEnv: 'ELECKOI_SYNTHETIC_PROBE_KEY', models: [{ id: 'example', contextWindow: 65536, maxTokens: 8192 }] },
+  } } },
+  { id: 'agent-default-model', config: { provider: 'synthetic-probe', model: 'example' } },
+]))
+process.env.ELECKOI_SYNTHETIC_PROBE_KEY = 'synthetic-probe-key'
 const hostOptions = {
   runtimeDataRoot: root,
   workspaceRoot: join(root, 'workspace'),
@@ -265,6 +274,7 @@ try {
 } finally {
   await reopened?.close()
   await host.close()
+  delete process.env.ELECKOI_SYNTHETIC_PROBE_KEY
   const absolute = resolve(root)
   if (!absolute.startsWith(resolve(tmpdir()) + sep) || !basename(absolute).startsWith('eleckoi-dsh-desktop-')) {
     throw new Error('Refusing to remove an unexpected probe directory')

@@ -1,6 +1,6 @@
 {
   "name": "eleckoi-workspace",
-  "version": "0.2.21",
+  "version": "0.2.22",
   "description": "ElecKoi multi-application workspace",
   "author": "ElecKoi",
   "private": true,
@@ -12,6 +12,7 @@
     "rebuild:node": "pnpm rebuild better-sqlite3",
     "check:electron-sqlite": "node scripts/check-electron-sqlite.mjs",
     "check:electron-dsh": "node scripts/check-electron-dsh-runtime.mjs",
+    "check:electron-native-author": "electron scripts/probe-eleckoi-desktop-client.cjs --native-author",
     "generate:author-runtime-notices": "node scripts/generate-author-runtime-notices.mjs",
     "check:author-runtime-notices": "node scripts/generate-author-runtime-notices.mjs --check",
     "check:desktop-licenses": "node scripts/check-desktop-licenses.mjs",

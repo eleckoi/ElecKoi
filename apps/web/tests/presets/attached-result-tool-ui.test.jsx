@@ -10,6 +10,16 @@ import { agentToolGroups } from '../../../../packages/host/product-data/src/doma
 
 const groups = [['builtin:setting-library', 4, 'eleckoi_read_setting_files'], ['builtin:variables', 4, 'eleckoi_read_variables'], ['builtin:creator', 3, 'eleckoi_call_capability']];
 
+async function openToolManager() {
+  let button=document.querySelector('.preset-tools-toolbar [aria-label="管理预设工具"]');
+  if (!button) {
+    await act(async () => document.querySelector('.preset-tools-toolbar [aria-label="管理"]').click());
+    button=[...document.querySelectorAll('[role=menuitem]')].find(item=>item.textContent==='管理预设工具');
+  }
+  expect(button).toBeTruthy();
+  await act(async () => button.click());
+}
+
 let root;
 beforeEach(() => {
   vi.stubGlobal('React', React); vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -73,7 +83,7 @@ it.each([false, true])('edits the shared preset draft directly and retains selec
   expect(change).not.toHaveBeenCalled();
   await act(async () => document.querySelector(mobile ? '.mobile-preset-tool-config [aria-label="关闭"]' : '[aria-label="关闭"]').click());
   await act(async () => document.querySelector(mobile ? '.mobile-preset-plugin-tools [aria-label="关闭"]' : '[aria-label="关闭插件工具"]').click());
-  const open = () => act(async () => document.querySelector('.preset-tools-toolbar [aria-label="管理预设工具"]').click());
+  const open = openToolManager;
   const choosePlugin = () => act(async () => {
     if (mobile) {
       const select = document.querySelector('select[aria-label="工具来源"]'); select.value = `plugin:${plugin.id}`;
@@ -122,7 +132,7 @@ it.each([false, true])('preserves configuration and keeps removed missing refere
     </EditorPresentationContext.Provider></MainPageContext.Provider>;
   }
   await act(async () => root.render(<Editor />));
-  await act(async () => document.querySelector('.preset-tools-toolbar [aria-label="管理预设工具"]').click());
+  await openToolManager();
   const source = (id, name) => act(async () => {
     if (mobile) {
       const select = document.querySelector('select[aria-label="工具来源"]'); select.value = id;

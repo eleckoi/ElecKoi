@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { withRegexEditor } from '../helpers/regexEditorModel.js';
 import React, { act } from 'react';
+import { changeEditorText, editorText } from '../helpers/editorText.js';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SettingLibraryPanel } from '../../src/modules/settingLibraries/components/SettingLibraryPanel.jsx';
@@ -22,10 +23,8 @@ function modelFor(value) {
 }
 
 async function fill(element, value) {
-  const prototype = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   await act(async () => {
-    Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, value);
-    element.dispatchEvent(new Event('input', { bubbles: true }));
+    changeEditorText(element, value);
   });
 }
 
@@ -61,21 +60,22 @@ const cases = [
       await act(async () => [...container.querySelectorAll('[role=tab]')].find(tab => tab.textContent === '对象内容').click());
       const draft = container.querySelector('[aria-label=对象内容]');
       await fill(draft, '{"pending":');
-      return () => expect(container.querySelector('[aria-label=对象内容]').value).toBe('{"pending":');
+      return () => expect(editorText(container.querySelector('[aria-label=对象内容]'))).toBe('{"pending":');
     },
   },
   {
-    name: 'regex rules', prefix: 'regex', inspector: '.regex-inspector',
+    name: 'regex rules', prefix: 'regex', inspector: '.rs-test',
     closeManager: '.regex-manager [aria-label="关闭"]', closeInspector: '[aria-label="关闭详情"]',
     component() {
       const collection = createRegexRule({ globalRules: [], agentPresetRules: [], characterRules: [] }, 'Character').collection;
       return <RegexRulesPanel characterId="synthetic-character" regexRules={withRegexEditor(modelFor(collection))} />;
     },
     async prepare(container) {
-      await act(async () => container.querySelector('.regex-rule-row').click());
-      const draft = container.querySelector('.regex-test textarea');
+      await act(async () => container.querySelector('.regex-rule-main').click());
+      await act(async () => [...container.querySelectorAll('.rs-view-tabs [role=tab]')].find(tab=>tab.textContent==='测试').click());
+      const draft = container.querySelector('[aria-label=测试输入]');
       await fill(draft, '合成测试文字');
-      return () => expect(container.querySelector('.regex-test textarea').value).toBe('合成测试文字');
+      return () => expect(editorText(container.querySelector('[aria-label=测试输入]'))).toBe('合成测试文字');
     },
   },
 ];
@@ -89,7 +89,7 @@ describe('management dialog and editor sidebar', () => {
     try {
       await act(async () => root.render(scenario.component()));
       const checkDraft = await scenario.prepare(container);
-      const paneSelector = scenario.name !== 'regex rules' ? '.setting-document' : '.editor-sidebar-pane';
+      const paneSelector = '.setting-document';
       const pane = container.querySelector(paneSelector);
       const inspector = container.querySelector(scenario.inspector);
       inspector.scrollTop = 123;
@@ -102,7 +102,10 @@ describe('management dialog and editor sidebar', () => {
         } else if (scenario.name === 'variable configuration') {
           await act(async () => container.querySelector('[aria-label=变量目录操作]').click());
           await act(async () => [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '管理版本与导入导出').click());
-        } else await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === '管理').click());
+        } else {
+          await act(async () => container.querySelector('[aria-label=正则目录操作]').click());
+          await act(async () => [...document.querySelectorAll('[role=menuitem]')].find(button=>button.textContent==='管理版本与导入导出').click());
+        }
         expect(document.querySelector('.editor-management-modal')).toBeTruthy();
         expect(pane.classList.contains('is-closing')).toBe(false);
         await act(async () => vi.advanceTimersByTime(250));
@@ -121,13 +124,6 @@ describe('management dialog and editor sidebar', () => {
         checkDraft();
       }
 
-      if (scenario.name !== 'regex rules') return;
-      await act(async () => container.querySelector(scenario.closeInspector).click());
-      await act(async () => vi.advanceTimersByTime(250));
-      expect(container.querySelector(scenario.inspector)).toBeNull();
-      await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === '管理').click());
-      await act(async () => document.querySelector('.editor-management-modal [aria-label="关闭"]').click());
-      expect(container.querySelector('.editor-sidebar-pane')).toBeNull();
     } finally {
       await act(async () => root.unmount());
       container.remove();

@@ -24,8 +24,8 @@ function Fixture() {
   }));
   return <EditorPresentationContext.Provider value={{ compact }}>
     <main className={compact ? 'mobile-shell mobile-preset-editor' : 'preset-layout-fixture'}
-      style={{ width: '100%', height: '100%', paddingInlineStart: compact ? 0 : 180 }}>
-      <PresetPromptEditor preset={preset} onChange={setPreset}
+      style={{ width: '100%', height: '100%', paddingInlineStart: compact ? 0 : 40 }}>
+      <PresetPromptEditor workspace preset={preset} onChange={setPreset}
         saveAction={<button type="button" className="setting-library-save-button">保存</button>} />
     </main>
   </EditorPresentationContext.Provider>;

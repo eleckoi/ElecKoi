@@ -40,7 +40,7 @@ window.variableWorkspaceSaved = () => value;
 const model = { getSnapshot: () => ({ status: 'ready', value }), read: async () => value, subscribe: () => () => {}, saveViewState: async () => [],
   save: async (_id, next) => { window.variableWorkspaceCalls++; if (window.variableWorkspaceSaveFails) throw Error('合成保存失败'); value = structuredClone(next); return value; } };
 const q = new URLSearchParams(location.search), theme = q.get('theme') || 'light';
-window.editorViewFor = label => EditorView.findFromDOM(document.querySelector(`[role="textbox"][aria-label="${label}"]`));
+window.editorViewFor = label => EditorView.findFromDOM(typeof label === "string" ? document.querySelector(`[role="textbox"][aria-label="${label}"]`) : label);
 if (q.has('long')) {
   const text = q.get('long') === 'single' ? '超长行内容'.repeat(250000) : Array.from({ length: 100000 }, (_, i) => `${i} 创作内容，保留完整文字。\n`).join('');
   value.variables[0].description = text; value.variables[0].updateRule = text;

@@ -43,7 +43,7 @@ function bridge() {
   return appearances;
 }
 
-const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+const settle = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
 describe('Android appearance adapter for unchanged official modals', () => {
   it('discovers the official body portal, composites a declared product mask and restores colors on closing', async () => {

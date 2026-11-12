@@ -58,9 +58,11 @@ it('keeps the official composer centered while all draft attachments scroll with
       expect(menu.panel.y,detail).toBeGreaterThanOrEqual(0);
       expect(menu.scrollWidth,detail).toBeLessThanOrEqual(menu.clientWidth);
       expect(menu.pageWidth,detail).toBeLessThanOrEqual(menu.width);
-      expect(menu.buttons.length,detail).toBe(menu.surface==='roleplay'?8:6);
+      expect(menu.buttons.length,detail).toBe(menu.surface==='roleplay'?8:7);
       for (const button of menu.buttons) {
-        expect(button.label.width,detail).toBeGreaterThan(100);
+        expect(button.label.width,detail).toBeGreaterThan(0);
+        expect(button.label.x,detail).toBeGreaterThanOrEqual(button.box.x);
+        expect(button.label.right,detail).toBeLessThanOrEqual(button.box.right);
         expect(button.box.height,detail).toBeGreaterThanOrEqual(40);
       }
       expect(menu.draft,detail).toBe('合成草稿');expect(menu.actionRan,detail).toBe(true);

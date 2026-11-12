@@ -49,14 +49,3 @@ if (regeneration.status !== 0) {
   process.exit(regeneration.status ?? 1)
 }
 process.stdout.write(regeneration.stdout)
-
-const clientEnv = { ...process.env }
-delete clientEnv.ELECTRON_RUN_AS_NODE
-const nativeClient = spawnSync(executable, [join(process.cwd(), 'scripts', 'probe-eleckoi-desktop-client.cjs'), '--native-author'], {
-  cwd: process.cwd(), env: clientEnv, encoding: 'utf8', windowsHide: true, timeout: 180_000,
-})
-if (nativeClient.status !== 0) {
-  process.stderr.write(nativeClient.stderr || nativeClient.stdout || 'Electron native author Client check failed.\n')
-  process.exit(nativeClient.status ?? 1)
-}
-process.stdout.write(nativeClient.stdout)

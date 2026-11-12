@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import React, { act } from 'react';
+import { changeEditorText, editorText } from '../helpers/editorText.js';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PresetProvider, PresetWorkspace, usePresets, reconcilePresetToolRefresh } from '../../src/modules/presets/components/PresetPanel.jsx';
@@ -177,16 +178,15 @@ describe('preset workspace loading', () => {
     await mount();
     await finishRead();
     await act(async () => host.querySelector('.preset-usage-section button').click());
-    const input = host.querySelector('textarea');
+    const input = host.querySelector('[role=textbox][aria-label=使用说明]');
     await act(async () => {
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(input, '合成未保存说明');
-      input.dispatchEvent(new Event('input', { bubbles: true }));
+      changeEditorText(input, '合成未保存说明');
     });
     const readCount = model.read.mock.calls.length;
     await switchPurpose('creator');
     expect(model.read).toHaveBeenCalledTimes(readCount);
     expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
-    expect(host.querySelector('textarea').value).toBe('合成未保存说明');
+    expect(editorText(host.querySelector('[role=textbox][aria-label=使用说明]'))).toBe('合成未保存说明');
     await act(async () => [...document.querySelectorAll('[role="alertdialog"] button')].find(button => button.textContent === '不保存').click());
     expect(requests.at(-1).id).toBe(presets[1].id);
     expect(host.querySelector('h1').textContent).toBe(presets[0].name);

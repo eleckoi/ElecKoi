@@ -1,3 +1,4 @@
+import { EditorView } from '@codemirror/view';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { SettingLibraryPanel } from '../../src/modules/settingLibraries/components/SettingLibraryPanel.jsx';
@@ -28,3 +29,5 @@ const compact = new URLSearchParams(window.location.search).get('mobile') === 't
 document.documentElement.dataset.eleckoiMobile = String(compact);
 const panel = <EditorPresentationContext.Provider value={{ compact }}><SettingLibraryPanel characterId="synthetic-role" settingLibraries={model} globalSettingLibraries={globalModel} /></EditorPresentationContext.Provider>;
 createRoot(document.getElementById('root')).render(compact ? <div className="mobile-shell"><div className="mobile-character-editor" style={{ marginLeft: 76, height: '100vh' }}>{panel}</div></div> : panel);
+
+window.editorViewFor = label => EditorView.findFromDOM(document.querySelector(`[role="textbox"][aria-label="${label}"]`));

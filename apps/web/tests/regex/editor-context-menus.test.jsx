@@ -1,4 +1,4 @@
-import { switchIsOn } from '../helpers/editorText.js';
+import { switchIsOn, editorText } from '../helpers/editorText.js';
 // @vitest-environment jsdom
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -123,7 +123,7 @@ describe('editor context menus', () => {
     expect(menuLabels()).toEqual(['编辑', '删除']);
     await action('编辑');
     expect(node.querySelector('[aria-label="更新标题"]').value).toBe('第二条合成更新');
-    expect(node.querySelector('[aria-label="更新内容"]').value).toBe('合成内容二');
+    expect(editorText(node.querySelector('[aria-label="更新内容"]'))).toBe('合成内容二');
     expect(node.querySelector('.preset-update-record').textContent).toContain('第一条合成更新');
   });
   it.each(scenarios.flatMap(scenario => ['character', 'preset'].map(ownerScope => ({ ...scenario, ownerScope }))))('$kind exposes empty-group and background creation with explicit $ownerScope ownership', async scenario => {

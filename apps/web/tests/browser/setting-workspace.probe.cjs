@@ -49,7 +49,7 @@ app.whenReady().then(async () => {
       const controlStyles = await evaluate(`(()=>{const target=document.querySelector('.setting-library-tree-switch'),rules=[];function visit(list){for(const rule of list){if(rule.selectorText&&target.matches(rule.selectorText))rules.push({selector:rule.selectorText,css:rule.style.cssText});if(rule.cssRules)visit(rule.cssRules);}}for(const sheet of document.styleSheets)visit(sheet.cssRules);return {height:target.getBoundingClientRect().height,width:target.getBoundingClientRect().width,rules};})()`);
       writeFileSync(join(evidence,'control-styles.json'),JSON.stringify(controlStyles,null,2));
       check(controlStyles.height===16 && controlStyles.width===28, 'Directory toggle dimensions changed: '+JSON.stringify(controlStyles));
-      check(await evaluate('document.querySelectorAll(".setting-document-save").length===1 && !!document.querySelector(".setting-writing-board textarea")'), 'Missing default body or unified save');
+      check(await evaluate('document.querySelectorAll(".setting-document-save").length===1 && !!document.querySelector(".setting-writing-board .cm-editor")'), 'Missing default body or unified save');
       if(width===1480&&theme==='light')await snap('content-light-1480');
       await select('合成书店'); await settings(); await click('.setting-keyword-details > summary');
       const geometry = await evaluate(`(()=>{ const rect=s=>document.querySelector(s).getBoundingClientRect().toJSON(), style=s=>getComputedStyle(document.querySelector(s));
@@ -98,7 +98,7 @@ app.whenReady().then(async () => {
       await evaluate('(()=>{const board=document.querySelector(".setting-settings-board");board.scrollTop=board.scrollHeight;})()');await settle();await snap('order-light-1480');
       await input('input[aria-label="位置内顺序"]','7');check(await evaluate('!document.querySelector(".setting-library-order-warning")'), 'Order correction failed');actions.order=true;
       await textClick('.setting-scope-switch [role=tab]','全局');await click('.global-setting-library-name');await select('共享条目');
-      await input('.setting-writing-board textarea','合成共享正文已修改');
+      await evaluate(`(()=>{const view=window.editorViewFor('设定正文');view.dispatch({changes:{from:0,to:view.state.doc.length,insert:'合成共享正文已修改'}})})()`);await settle();
       check(await evaluate('window.workspaceCalls.role===0 && window.workspaceCalls.global===0'), 'View changes or edits auto-saved');
       await click('.setting-document-save');check(await evaluate('window.workspaceCalls.role===1 && window.workspaceCalls.global===1 && document.querySelector(".setting-document-save").disabled'), 'Unified save did not cover both scopes');actions.unifiedSave=true;
       await textClick('.setting-scope-switch [role=tab]','角色');

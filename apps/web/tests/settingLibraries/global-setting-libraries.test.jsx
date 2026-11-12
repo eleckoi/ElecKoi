@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import React, { act } from 'react';
+import { changeEditorText, editorText } from '../helpers/editorText.js';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { globalSettingLibraryCollectionSchema } from '../../../../packages/shared/src/contracts/settingLibrary/global';
@@ -47,8 +48,7 @@ async function importFile(text, name = 'synthetic-worldbook.json') {
 async function inputValue(input, value) {
   expect(input).toBeTruthy();
   await act(async () => {
-    Object.getOwnPropertyDescriptor(input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value').set.call(input, value);
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+    changeEditorText(input, value);
   });
 }
 async function selectEntry(title, libraryName = '合成共享库') {
@@ -115,8 +115,8 @@ it('uses the normal editor for imported contents and saves title, trigger, conte
   await inputValue(container.querySelector('.setting-library-keyword-input input'), '合成末尾关键词,');
   await editorStep('正文');
   const text = '首段' + '合成长正文'.repeat(20001) + '末尾合成关键词';
-  const textarea = container.querySelector('textarea[aria-label="设定正文"]');
-  expect(textarea.readOnly).toBe(false); await inputValue(textarea, text);
+  const textarea = container.querySelector('[role="textbox"][aria-label="设定正文"]');
+  expect(textarea.getAttribute('contenteditable')).toBe('true'); await inputValue(textarea, text);
   await editorStep('插入'); expect(container.querySelector('.setting-insert-settings')).toBeNull();
   await click('停用合成编辑标题'); await click('保存');
   const entry = collection.libraries[0].entries[0];
@@ -125,7 +125,7 @@ it('uses the normal editor for imported contents and saves title, trigger, conte
   expect(role).toEqual(originalRole); expect(roles.save).not.toHaveBeenCalled();
   await switchScope('角色'); await click('管理'); expect(document.body.textContent).toContain('角色设定库版本管理');
   await click('关闭'); await switchScope('全局'); await selectEntry('合成编辑标题'); await editorStep('正文');
-  expect(container.querySelector('textarea[aria-label="设定正文"]').value === text).toBe(true);
+  expect(editorText(container.querySelector('[role="textbox"][aria-label="设定正文"]')) === text).toBe(true);
 });
 it('keeps equal source entry IDs in separate global libraries independent through edits, copy and multi-delete', async () => {
   await switchScope('全局');
@@ -151,9 +151,9 @@ it('creates and edits folders and EJS references within an imported library, ret
   await inputValue(container.querySelector('input[aria-label=文件夹名称]'), '合成资料夹');
   await click('新建'); await click('EJS引用设定');
   await inputValue(container.querySelector('input[aria-label="条目标题"]'), '合成引用');
-  await inputValue(container.querySelector('textarea[aria-label="EJS引用正文"]'), '合成引用正文');
+  await inputValue(container.querySelector('[role="textbox"][aria-label="EJS引用正文"]'), '合成引用正文');
   globals.save.mockRejectedValueOnce(new Error('合成保存失败'));
-  await click('保存'); expect(container.querySelector('textarea[aria-label="EJS引用正文"]').value).toBe('合成引用正文');
+  await click('保存'); expect(editorText(container.querySelector('[role="textbox"][aria-label="EJS引用正文"]'))).toBe('合成引用正文');
   expect(collection.libraries[0].groups).toHaveLength(0);
   await click('保存');
   const saved = collection.libraries[0], reference = saved.entries.find(item => item.title === '合成引用');

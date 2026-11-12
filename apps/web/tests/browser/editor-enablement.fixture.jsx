@@ -1,3 +1,4 @@
+import { EditorView } from '@codemirror/view';
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RegexRulesPanel } from '../../src/modules/regex/components/RegexRulesPanel.jsx';
@@ -51,3 +52,5 @@ function Fixture() {
   </>;
 }
 createRoot(document.getElementById('root')).render(<Fixture />);
+
+window.editorViewFor = label => EditorView.findFromDOM(document.querySelector(`[role="textbox"][aria-label="${label}"]`));

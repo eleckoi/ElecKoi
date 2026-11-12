@@ -9,7 +9,7 @@ import { expect, it } from 'vitest';
 const require = createRequire(import.meta.url);
 const { build } = createRequire(require.resolve('vite/package.json'))('esbuild');
 
-it('keeps desktop prompt rows reachable beside the editor through opening, resizing and closing, and preserves the mobile detail page', async () => {
+it('keeps prompt rows reachable beside the current workspace through selection, resizing and clearing', async () => {
   const directory = await mkdtemp(resolve(tmpdir(), 'eleckoi-prompt-layout-'));
   try {
     await build({ entryPoints: ['apps/web/tests/browser/preset-prompt-layout.fixture.jsx'], outfile: resolve(directory, 'fixture.js'), bundle: true,
@@ -19,20 +19,20 @@ it('keeps desktop prompt rows reachable beside the editor through opening, resiz
     await writeFile(htmlPath, '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="fixture.css"></head><body><div id="root"></div><script src="fixture.js"></script></body></html>');
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
     await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/preset-prompt-layout.probe.cjs'), htmlPath, reportPath], { env, timeout: 45000, windowsHide: true });
-    const { reports, mobile } = JSON.parse(await readFile(reportPath, 'utf8'));
+    const { reports } = JSON.parse(await readFile(reportPath, 'utf8'));
     expect(reports).toHaveLength(3);
     for (const report of reports) {
       for (const phase of ['open', 'resized']) {
         const state = report[phase];
         expect(state.rowRight, JSON.stringify(report)).toBeLessThanOrEqual(state.inspectorLeft);
         expect(state.toggleReachable, JSON.stringify(report)).toBe(true);
-        expect(state.inspectorTop, JSON.stringify(report)).toBe(state.toolbarBottom);
+        expect(state.inspectorTop, JSON.stringify(report)).toBe(state.directoryTop);
         expect(state.resizer, JSON.stringify(report)).toBe(true);
       }
-      expect(report.open.treeWidth, JSON.stringify(report)).toBeLessThan(report.closed.treeWidth);
-      expect(report.afterClose.treeWidth).toBe(report.closed.treeWidth);
+      expect(report.resized.treeWidth, JSON.stringify(report)).toBeLessThan(report.open.treeWidth);
+      expect(report.afterClose.treeWidth).toBe(report.resized.treeWidth);
+      expect(report.afterClose.empty).toBe(true);
       expect(report.lastVisible).toBe(true);
     }
-    expect(mobile).toEqual({ listHidden: true, listInert: true, width: 412, left: 0, resizer: false, title: '合成提示词 1', listRestored: true });
   } finally { await rm(directory, { recursive: true, force: true, maxRetries: 3 }); }
 }, 60000);

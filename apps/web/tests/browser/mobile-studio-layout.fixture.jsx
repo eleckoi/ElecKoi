@@ -47,7 +47,7 @@ window.mobileStudioFixture = { setPhase(blank, editing = false) { session = { ..
 const model = { subscribe: subscribeStore, getSnapshot: () => studioSnapshot, restoreRecent: async () => studioSnapshot.active, release() {},
   readDefaultModel: async () => null, refresh: async () => {}, create: async () => {} };
 const drawerSnapshot = { shown: false };
-const presetSnapshot = { catalog: { activePresetIds: { creator: 'synthetic-preset' }, presets: [{ id: 'synthetic-preset', name: '合成创作预设', purpose: 'creator' }] } };
+const presetSnapshot = { catalog: { activePresetIds: { creator: 'synthetic-preset' }, presets: [{ id: 'synthetic-preset', name: '合成创作预设', purpose: 'creator', profile: { authorName: '', authorAvatarPath: '' } }] } };
 const view = { presets: { subscribe: () => () => {}, getSnapshot: () => presetSnapshot, setActive: async () => {} }, navigation: { sidebar: { subscribe: () => () => {}, getSnapshot: () => drawerSnapshot }, closeSidebar() {} }, openWorkspaceDrawer() {}, creatorStudio: { sessions: model }, models: { subscribe: () => () => {}, getSnapshot: () => modelSnapshot },
   characters: { subscribe: () => () => {}, getSnapshot: () => characterSnapshot }, registerBackHandler: () => () => {}, goBack() {},
   renderCreatorStudioConversation: ({ component: Component, props }) => <Component {...props} sessionId={sessionId}

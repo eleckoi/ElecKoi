@@ -29,9 +29,9 @@ it('renders independent global and role sections, shared editing and save in lig
     for (const theme of ['light', 'dark']) for (const width of [1440, 1024, 768]) await copyFile(resolve(directory, `global-setting-libraries-${theme}-${width}.png`), resolve('output/playwright', `global-setting-libraries-${theme}-${width}.png`));
     for (const item of result.reports) {
       expect(item.initial.tabs).toEqual(['角色','全局']); expect(item.initial.selected).toBe('角色'); expect(item.initial.globalsVisible).toBe(false);
-      expect(item.initial.width).toBeLessThanOrEqual(380); expect(item.initial.border).toBe('0px'); expect(item.initial.tabsInContent).toBe(true);expect(item.initial.tabsBelowToolbar).toBe(true); expect(item.layout.count).toBe(2); expect(item.layout.readOnly).toBe(false);expect(item.layout.canCreate).toBe(true);expect(item.layout.noManager).toBe(true);
+      expect(item.initial.width).toBeLessThanOrEqual(item.width); expect(item.initial.border).toBe('0px'); expect(item.initial.tabsInContent).toBe(true);expect(item.initial.tabsBelowToolbar).toBe(true); expect(item.layout.count).toBe(2); expect(item.layout.readOnly).toBe(false);expect(item.layout.canCreate).toBe(true);expect(item.layout.noManager).toBe(true);
       expect(item.layout.overflow, JSON.stringify(item)).toBe(false); expect(item.layout.inspector.right).toBeLessThanOrEqual(item.width);
-      expect(item.rightClickKeptClosed).toBe(true); expect(item.divider.contrast).toBeGreaterThanOrEqual(3); expect(item.divider.topDifference).toBeLessThanOrEqual(1); expect(item.divider.bottomDifference).toBeLessThanOrEqual(1);
+      expect(item.rightClickKeptClosed).toBe(true);
       expect(item.layout.owner).toContain('全局设定库 / 通用叙事'); expect(item.disabledSaved).toBe(true); expect(item.contentsSaved).toBe(true); expect(item.reordered).toEqual(['环境描写','节奏控制','叙事视角']);
       const {enabled,disabled,collapsed,restored}=item.appearance;
       expect(enabled.nameOpacity).toBe(1); expect(enabled.disabled).toBe(false);

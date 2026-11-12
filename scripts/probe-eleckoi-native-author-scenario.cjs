@@ -147,20 +147,23 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   })()`)
   await waitFor(`document.querySelector('[role="menu"][aria-label="脚本操作"]')`, 'Script context menu did not open')
   await window.webContents.executeJavaScript(`document.querySelector('[role="menu"][aria-label="脚本操作"] button').click()`)
-  await waitFor(`document.querySelector('.script-inspector')`, 'Script context edit command did not open the inspector')
-  await waitFor(`document.querySelector('.editor-sidebar-pane').getBoundingClientRect().right<=innerWidth`, 'Script inspector did not finish entering the viewport')
+  await waitFor(`document.querySelector('[aria-label="脚本源码输入区"] .cm-editor')`, 'Script context edit command did not open the writing board')
   const editorBounds = async () => window.webContents.executeJavaScript(`(() => {
-    const toolbar=document.querySelector('.script-libraries-panel .editor-collection-toolbar').getBoundingClientRect(),pane=document.querySelector('.editor-sidebar-pane').getBoundingClientRect();
-    return {belowToolbar:pane.top>=toolbar.bottom-1,toolbarFullWidth:Math.abs(toolbar.right-document.querySelector('.script-libraries-panel').getBoundingClientRect().right)<1,
-      withinViewport:pane.right<=innerWidth&&pane.bottom<=innerHeight,
-      folderControl:Boolean(document.querySelector('.script-inspector .script-identity select'))};
+    const directory=document.querySelector('.rs-workspace .setting-directory').getBoundingClientRect(),pane=document.querySelector('.rs-workspace .setting-document').getBoundingClientRect();
+    return {besideDirectory:pane.left>=directory.right-1,
+      withinViewport:pane.left>=0&&pane.top>=0&&pane.right<=innerWidth&&pane.bottom<=innerHeight,
+      sourceEditor:Boolean(document.querySelector('[aria-label="脚本源码输入区"] .cm-editor'))};
   })()`)
-  assert.deepEqual(await editorBounds(), { belowToolbar: true, toolbarFullWidth: true, withinViewport: true, folderControl: true })
+  assert.deepEqual(await editorBounds(), { besideDirectory: true, withinViewport: true, sourceEditor: true })
+  await window.webContents.executeJavaScript(`[...document.querySelectorAll('.rs-script-tabs [role="tab"]')].find(tab=>tab.textContent.trim()==='设置').click()`)
+  await waitFor(`Boolean(document.querySelector('select[aria-label="脚本文件夹"]'))`, 'Script folder setting did not render')
+  await window.webContents.executeJavaScript(`[...document.querySelectorAll('.rs-script-tabs [role="tab"]')].find(tab=>tab.textContent.trim()==='源码').click()`)
+  await waitFor(`document.querySelector('[aria-label="脚本源码输入区"] .cm-editor')`, 'Script source did not return')
   const scriptEditorShot = join(tmpdir(), 'eleckoi-script-editor-desktop.png')
   await captureEditor(scriptEditorShot)
   window.setContentSize(1024, 800)
-  await waitFor(`innerWidth<=1030&&document.querySelector('.script-inspector').getBoundingClientRect().right<=innerWidth`, 'Script editor did not fit a narrower desktop')
-  assert.deepEqual(await editorBounds(), { belowToolbar: true, toolbarFullWidth: true, withinViewport: true, folderControl: true })
+  await waitFor(`innerWidth<=1030&&document.querySelector('.rs-workspace .setting-document').getBoundingClientRect().right<=innerWidth`, 'Script editor did not fit a narrower desktop')
+  assert.deepEqual(await editorBounds(), { besideDirectory: true, withinViewport: true, sourceEditor: true })
   window.setContentSize(1440, 1000)
   await waitFor(`innerWidth>=1400`, 'Desktop editor viewport did not return')
   process.stdout.write(`Native editor screenshots: ${frontendShot}, ${scriptEditorShot}\n`)
@@ -221,7 +224,7 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   assert.equal(scriptSettings.after.revision, scriptSettings.before.revision + 1)
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="扮演菜单"]').click()`)
   await waitFor(`document.querySelector('.composer-more-menu')`, 'Chat action menu did not open')
-  await window.webContents.executeJavaScript(`[...document.querySelectorAll('.composer-more-menu button')].find(button=>button.textContent==='脚本').click()`)
+  await window.webContents.executeJavaScript(`document.querySelector('.composer-menu-next').click()`)
   await waitFor(`document.querySelectorAll('[aria-label="脚本按钮"] button').length===3`, 'Three scoped script buttons did not render')
   await window.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="脚本按钮"] button')].find(button=>button.title==='Synthetic native script · Synthetic character settings').click()`)
   const settingsPage = `document.querySelector('.native-script-dialog iframe')`
@@ -318,10 +321,10 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   global.enabled = false; await call('eleckoiCharacterConfiguration/saveScriptLibrary', { library: global })
   await waitFor(`document.querySelectorAll('iframe[title="ElecKoi author script"]').length===2`, 'Disabled global script remained running')
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="扮演菜单"]').click()`)
-  await waitFor(`document.querySelector('[role="menu"][aria-label="扮演菜单"]')`, 'Roleplay menu did not open')
-  await window.webContents.executeJavaScript(`[...document.querySelectorAll('[role="menuitem"]')].find(button=>button.textContent.trim()==='脚本').click()`)
+  await waitFor(`Boolean(document.querySelector('.composer-more-menu'))`, 'Roleplay menu did not open')
+  await window.webContents.executeJavaScript(`document.querySelector('.composer-menu-next').click()`)
   await waitFor(`document.querySelectorAll('[aria-label="脚本按钮"] button').length===2`, 'Disabled global script button remained in the dialog')
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="关闭脚本"]').click()`)
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="扮演菜单"]').click()`)
   process.stdout.write('Native author Client: scoped script shutdown and button dialog passed.\n')
   const updated = await window.webContents.executeJavaScript(`${page}.contentWindow.ElecKoi.variables.merge({value:7})`)
   assert.deepEqual(updated, { value: 8, globalVisits: 1, presetVisits: 2, characterVisits: 2, derived: 24 })
@@ -464,10 +467,10 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   const openButtons = async () => {
     await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="扮演菜单"]').click()`)
     await waitFor(`document.querySelector('.composer-more-menu')`, 'Example action menu did not open')
-    await window.webContents.executeJavaScript(`(() => {const button=[...document.querySelectorAll('.composer-more-menu button')].find(button=>button.textContent==='脚本');if(button.getAttribute('aria-expanded')!=='true')button.click()})()`)
+    await window.webContents.executeJavaScript(`document.querySelector('.composer-menu-next').click()`)
     await waitFor(`document.querySelectorAll('[aria-label="脚本按钮"] button').length===3&&[...document.querySelectorAll('[aria-label="脚本按钮"] button')].every(button=>!button.disabled)`, 'Published example buttons did not become ready')
   }
-  const exampleButton = async label => window.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="脚本按钮"] button')].find(button=>button.querySelector('span').textContent===${JSON.stringify(label)}).click()`)
+  const exampleButton = async label => window.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="脚本按钮"] button')].find(button=>button.title.endsWith(' · '+${JSON.stringify(label)})).click()`)
   await openButtons()
   await exampleButton('积分设置')
   await waitFor(`${settingsPage}?.contentDocument.querySelector('#multiplier')?.disabled===false`, 'Published example settings helper file did not boot')
