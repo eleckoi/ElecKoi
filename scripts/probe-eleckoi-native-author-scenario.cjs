@@ -324,7 +324,7 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   await waitFor(`Boolean(document.querySelector('.composer-more-menu'))`, 'Roleplay menu did not open')
   await window.webContents.executeJavaScript(`document.querySelector('.composer-menu-next').click()`)
   await waitFor(`document.querySelectorAll('[aria-label="脚本按钮"] button').length===2`, 'Disabled global script button remained in the dialog')
-  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="扮演菜单"]').click()`)
+  await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="收起扮演菜单"]').click()`)
   process.stdout.write('Native author Client: scoped script shutdown and button dialog passed.\n')
   const updated = await window.webContents.executeJavaScript(`${page}.contentWindow.ElecKoi.variables.merge({value:7})`)
   assert.deepEqual(updated, { value: 8, globalVisits: 1, presetVisits: 2, characterVisits: 2, derived: 24 })
