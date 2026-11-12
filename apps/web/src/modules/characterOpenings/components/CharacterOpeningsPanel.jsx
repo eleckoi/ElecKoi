@@ -2,6 +2,8 @@ import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.js
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { OpeningEditor } from './OpeningEditor.jsx';
+import { OpeningWorkspace } from './OpeningWorkspace.jsx';
+import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
 import { ConfirmationDialog, SaveControl } from '../../settingLibraries/index.js';
 import { deleteOpening } from '../model/openingEditing.js';
 import { useCharacterConfigurationDraft } from '../../../ui/hooks/useCharacterConfigurationDraft.js';
@@ -11,6 +13,7 @@ import { EditorCollectionToolbar } from '../../../ui/ui/EditorCollectionControls
 
 export const CharacterOpeningsPanel = forwardRef(function CharacterOpeningsPanel({ characterId, openings, variables, onDirtyChange }, ref) {
   const tUi = useProductTranslation();
+  const { compact } = useEditorPresentation();
   const { library, persisted, dirty, saving, error, saveNotice, changeLibrary, save, discard } = useCharacterConfigurationDraft({
     characterId, configuration: openings, onDirtyChange, label: tUi("开场白"),
   });
@@ -41,6 +44,21 @@ export const CharacterOpeningsPanel = forwardRef(function CharacterOpeningsPanel
     changeLibrary(next);
   }
 
+  const requestDelete = message => setDeleteTarget({ messageId: message.id,
+    title: tUi("删除“{value0}”？", { value0: message.title || tUi("未命名开场白") }), message: tUi("这条开场白会在保存后移除。") });
+  const confirmation = <ConfirmationDialog target={deleteTarget} confirmLabel={tUi("删除")} tone="destructive"
+    onCancel={() => setDeleteTarget(null)} onConfirm={() => {
+      updateEntry(deleteOpening(entry, deleteTarget.messageId)); setDeleteTarget(null);
+    }} />;
+  if (!compact) return <section className="character-openings-panel is-opening-workspace" aria-label={tUi("开场白")}>
+    {entry ? <OpeningWorkspace ref={openingEditorRef} key={characterId} entry={entry} query={query} onQueryChange={setQuery}
+      variableVersions={variableSnapshot.value?.versions || []} variableVersionsError={variableSnapshot.error}
+      onChange={updateEntry} onRequestDelete={requestDelete} busy={saving} dirty={dirty}
+      save={<SaveControl workspace title={tUi("保存（Ctrl/Command + S）")} dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} />} />
+      : <p className="setting-library-loading" role={error ? 'alert' : 'status'}>{error || tUi("正在读取…")}</p>}
+    {confirmation}
+  </section>;
+
   return (
     <section className="character-openings-panel" aria-label={tUi("开场白")}>
       <EditorCollectionToolbar className="character-openings-toolbar" query={query} onQueryChange={setQuery} placeholder={tUi("搜索开场白")}
@@ -50,15 +68,10 @@ export const CharacterOpeningsPanel = forwardRef(function CharacterOpeningsPanel
       <div className="character-openings-content">
         {entry ? <OpeningEditor ref={openingEditorRef} key={characterId} entry={entry} query={query}
           variableVersions={variableSnapshot.value?.versions || []} variableVersionsError={variableSnapshot.error}
-          onChange={updateEntry} onRequestDelete={message => setDeleteTarget({ messageId: message.id,
-            title: tUi("删除“{value0}”？", {value0: message.title || tUi("未命名开场白")}), message: tUi("这条开场白会在保存后移除。") })} />
+          onChange={updateEntry} onRequestDelete={requestDelete} />
           : <p className="setting-library-loading" role={error || library ? 'alert' : 'status'}>{error || (library ? tUi("开场白数据缺失，无法编辑。") : tUi("正在读取…"))}</p>}
       </div>
-      <ConfirmationDialog target={deleteTarget} confirmLabel={tUi("删除")} tone="destructive"
-        onCancel={() => setDeleteTarget(null)} onConfirm={() => {
-          updateEntry(deleteOpening(entry, deleteTarget.messageId));
-          setDeleteTarget(null);
-        }} />
+      {confirmation}
     </section>
   );
 });

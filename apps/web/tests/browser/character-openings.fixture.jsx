@@ -1,3 +1,6 @@
+import { EditorView } from '@codemirror/view';
+import { installBrowserIconSprite } from '../helpers/browserIconSprite.js';
+import '../../src/app/windows/styles/dsh-theme-bridge.css';
 import { createCharacterOpenings, characterOpeningsSchema } from '../../../../packages/shared/src/contracts/characterOpenings/schemas';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
@@ -13,6 +16,7 @@ import '../../src/ui/styles/editor-sidebar.css';
 import '../../src/mobile/mobile.css';
 import '../../src/mobile/mobile-character-editor.css';
 
+installBrowserIconSprite();
 const character = { id: 'synthetic-character', name: '合成角色', persona: {} };
 const opening = { ...createEntryDraft('', 0, []), id: 'fixed-opening-assistant', kind: 'opening', title: '开场白', enabled: true,
   defaultOpeningMessageId: 'synthetic-opening', openingMessages: [{ id: 'synthetic-opening', title: '合成主开场白', content: '合成开场正文。'.repeat(200) }] };
@@ -22,11 +26,16 @@ const settings = { getSnapshot: () => ({ status: 'ready', value: stored }), subs
   save: async (_id, draft) => { stored = structuredClone(draft); return stored; } };
 let openingStored = characterOpeningsSchema.parse({ ...createCharacterOpenings(character.id), openingMessages: opening.openingMessages, defaultOpeningMessageId: opening.defaultOpeningMessageId });
 const openings = { getSnapshot: () => ({ status: 'ready', value: openingStored }), subscribe: () => () => {}, read: async () => openingStored,
-  save: async (_id, draft) => { openingStored = characterOpeningsSchema.parse(draft); window.syntheticSaveCount++; return openingStored; } };
+  save: async (_id, draft) => { if (window.syntheticSaveFails) throw Error('合成保存失败'); openingStored = characterOpeningsSchema.parse(draft); window.syntheticSaveCount++; return openingStored; } };
 const variables = { getSnapshot: () => ({ status: 'ready', value: { versions: [{ id: 'synthetic-variables', name: '合成变量版本' }] } }),
   subscribe: () => () => {}, read: async () => {} };
 window.syntheticSaveCount = 0;
-const compact = new URLSearchParams(location.search).has('compact');
+window.syntheticSaveFails = false;
+const openingQuery = new URLSearchParams(location.search);
+const compact = openingQuery.has('compact');
+window.editorViewFor = label => EditorView.findFromDOM(document.querySelector(`[role="textbox"][aria-label="${label}"]`));
+window.openingSaved = () => openingStored;
+if (openingQuery.has('long')) openingStored.openingMessages[0].content = openingQuery.get('long') === 'single' ? '长文夹带代码 const x = 1; <div>内容</div>'.repeat(60000) : Array.from({ length: 100000 }, (_, i) => `${i} 创作内容 const x = 1; <div>内容</div>\n`).join('');
 createRoot(document.getElementById('root')).render(<div className={compact ? 'mobile-shell' : ''} style={{ height: '100vh' }}><div className={compact ? 'mobile-character-editor' : ''} style={{ height: '100vh' }}>
   <CharacterEditorWindow compact={compact} embeddedCharacterId={character.id} characterCatalog={{ refresh: async () => ({ items: [character] }) }}
     characterConfiguration={{ settingLibraries: settings, openings, variables }}

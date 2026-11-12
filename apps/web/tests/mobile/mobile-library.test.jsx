@@ -105,7 +105,7 @@ describe('Android character and preset library contracts', () => {
     expect(renderSection.mock.calls[0][0]).toBe('profile');
     await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
     expect(select).not.toHaveBeenCalled();
-    await click('开始对话'); expect(start).toHaveBeenCalledWith('character-a');
+    await click('进入对话'); expect(start).toHaveBeenCalledWith('character-a');
     await click('编辑角色'); expect(view.route).toEqual({ kind: 'character-editor', characterId: 'character-a' });
   });
   it('opens the anchored action menu, restores focus and enters a full-page manager', async () => {

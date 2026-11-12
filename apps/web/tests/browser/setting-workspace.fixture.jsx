@@ -1,3 +1,4 @@
+import { EditorView } from '@codemirror/view';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { CharacterEditorWindow } from '../../src/app/windows/CharacterEditorWindow.jsx';
@@ -31,6 +32,11 @@ const globalModel = { getSnapshot: () => ({ status: 'ready', value: globals }), 
   save: async value => { window.workspaceCalls.global++; globals = structuredClone({ ...value, revision: globals.revision + 1 }); return globals; } };
 window.workspaceSaved = () => ({ role, globals });
 const q = new URLSearchParams(location.search), theme = q.get('theme') || 'light';
+window.editorViewFor = label => EditorView.findFromDOM(document.querySelector(`[role="textbox"][aria-label="${label}"]`));
+if (q.has('long')) {
+  const text = q.get('long') === 'single' ? '超长行内容'.repeat(250000) : Array.from({ length: 100000 }, (_, i) => `${i} 创作内容，保留完整文字。\n`).join('');
+  role.entries[0].content = text; role.versions[0].entries[0].content = text;
+}
 document.documentElement.dataset.theme = theme; document.body.toggleAttribute('data-ds-dark-theme', theme === 'dark'); document.documentElement.style.colorScheme = theme;
 const catalog = { refresh: async () => ({ items: [{ id: 'synthetic-role', name: '合成角色', persona: {} }] }) };
 createRoot(document.getElementById('root')).render(<div id="eleckoi-root"><CharacterEditorWindow

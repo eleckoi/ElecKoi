@@ -723,8 +723,8 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote async importArchive(characterId: string, json: string): Promise<string>',
-        description: '导入归档，创建新的聊天和官方 Session。',
-        parameters: [{ name: 'characterId', description: '角色编号。' }, { name: 'json', description: '完整聊天归档 JSON 文本。' }],
+        description: '将归档导入当前选中的角色，创建新的聊天和官方 Session。',
+        parameters: [{ name: 'characterId', description: '当前选中的目标角色编号，不要求与归档角色编号相同。' }, { name: 'json', description: '完整聊天归档 JSON 文本。' }],
         returns: '操作结果，结构见返回类型；失败抛出错误。',
       },
       {

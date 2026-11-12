@@ -1,3 +1,8 @@
+import { EditorLibraryWorkspace } from '../../../ui/ui/EditorLibraryWorkspace.jsx';
+import { ScriptDocument } from './ScriptDocument.jsx';
+import { ScriptWorkspaceList } from './ScriptWorkspaceList.jsx';
+import '../../settingLibraries/styles/setting-workspace.css';
+import { editorValueEqual } from '../../../ui/utils/editorValueEqual.js';
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
@@ -23,7 +28,7 @@ const noopSubscribe = () => () => {};
 const emptyRuntime = { scriptStatuses: {}, error: '' };
 const emptySnapshot = () => emptyRuntime;
 const noRuntime = () => null;
-const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+const same = editorValueEqual;
 const jsonText = value => JSON.stringify(value, null, 2);
 
 function Switch({ checked, label, disabled, onChange }) {
@@ -402,7 +407,31 @@ export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ c
     { id: 'up', label: tUi("上移"), Icon: ArrowUp, run: () => change(selection.key, library => moveScriptItem(library, selectedItem.id, undefined, -1)) },
     { id: 'down', label: tUi("下移"), Icon: ArrowDown, run: () => change(selection.key, library => moveScriptItem(library, selectedItem.id, undefined, 1)) },
   ];
-  return <EditorSidebarLayout className={`script-libraries-panel${multi.active ? ' is-multiselect' : ''}`} inspector={inspector} inspectorTitle={selectedItem?.name || selectedLabel}
+  const pcInspector = !multi.active && selectedLibrary && selectedItem ? <ScriptDocument key={JSON.stringify([selection.key, versions.current(selectedLibrary.scope)?.activeVersionId, selectedItem.id])}
+    library={selectedLibrary} item={selectedItem} nameInputRef={nameInputRef} busy={saving} dirty={dirty}
+    dataText={buffers[itemBufferKey(selection.key, selectedItem.id, 'data')]} onDataChange={text => changeBuffer(itemBufferKey(selection.key, selectedItem.id, 'data'), text)}
+    status={buffers[itemBufferKey(selection.key, selectedItem.id, 'data')] !== undefined ? tUi('未保存') : status(selectedLibrary, selectedItem, selectedLibrary.trees.find(tree => tree.type === 'folder' && tree.scripts.some(item => item.id === selectedItem.id))?.enabled)}
+    execution={selectedExecution?.scope === selectedLibrary.scope && selectedExecution.ownerId === selectedLibrary.ownerId && selectedExecution.source === selectedItem.content ? selectedExecution : null}
+    onChange={patch => change(selection.key, library => updateScriptItem(library, selection.id, patch))} onMove={folderId => change(selection.key, library => moveScriptItem(library, selection.id, folderId))}
+    onDuplicate={() => duplicate()} onDelete={() => setDeleteTarget({ key: selection.key, id: selectedItem.id, name: selectedItem.name, folder: selectedItem.type === 'folder' })} /> : null;
+  function switchScope(next) { setActiveScope(next); setSelection(null); setEditing(false); setDragged(null); setDropTarget(null); context.close(); if (multi.active) multi.toggle(); }
+  return <>{!compact ? <EditorLibraryWorkspace label={tUi('脚本')} scope={activeScope} ownerScope={ownerScope} onScopeChange={switchScope} config={versions.current(activeScope)}
+    query={query} onQueryChange={setQuery} createItems={visibleGroups.flatMap(group => [{ label: tUi('脚本'), Icon: FileCode, run: () => create(libraryKey(group.scope, group.ownerId), 'script') }, { label: tUi('文件夹'), Icon: FolderSimple, run: () => create(libraryKey(group.scope, group.ownerId), 'folder') }])}
+    selection={{ ...multi, toggle: () => { multi.toggle(); setSelection(null); } }} saving={saving} disabled={!versions.ready || Object.keys(drafts).length !== 2}
+    save={<SaveControl workspace dirty={dirty} saving={saving} error={error || versions.error} notice={notice} onSave={save} title={tUi('统一保存脚本全部修改')} />}
+    onManage={() => setManagerOpen(true)} onVersionChange={id => { try { versions.select(activeScope, id); } catch (cause) { setError(resolveFailure(cause, { fallback: tUi('切换版本失败') }).text); } }} inspector={pcInspector}>
+    <EditorSelectionBar selection={multi} visibleIds={visibleTargets.map(target => target.selectionId)} disabled={saving}
+      onCopy={() => { batchTargets().forEach(target => duplicate({ key: target.key, id: target.item.id })); multi.clear(); }}
+      onDelete={() => setDeleteTarget({ targets: batchTargets().map(target => ({ key: target.key, id: target.item.id })), name: tUi('选中的 {value0} 个项目', { value0: multi.selected.size }), folder: batchTargets().some(target => target.item.type === 'folder') })} />
+    {runtimeState.error && <p className="script-panel-error" role="alert">{runtimeState.error}</p>}
+    <div className="rs-directory-content" onContextMenu={event => openContext(event, {})} onMouseDown={event => { if (event.button === 0 && !multi.active && !event.target.closest('.script-list-row')) setSelection(null); }}>
+      {visibleGroups.map(group => { const key = libraryKey(group.scope, group.ownerId), library = drafts[key]; return library ? <ScriptWorkspaceList key={key} library={library} label={group.label}
+        query={query} selection={selection} multi={multi} collapsed={collapsed} busy={saving} onCollapse={address => setCollapsed(current => { const next = new Set(current); next.has(address) ? next.delete(address) : next.add(address); return next; })}
+        onSelect={target => multi.active ? multi.check(JSON.stringify([target.key, target.id]), !multi.selected.has(JSON.stringify([target.key, target.id]))) : selectItem(target)}
+        onToggle={(key, id, enabled) => change(key, library => updateScriptItem(library, id, { enabled }))} onToggleLibrary={(key, enabled) => change(key, library => setScriptLibraryEnabled(library, enabled))}
+        onContextMenu={openContext} dragProps={dragProps} nameDragProps={nameDragProps} rootDragProps={{ onDragOver: event => dragOver(event, key), onDrop: event => drop(event, key) }} /> : <p key={key} className="rs-directory-empty" role="status">{tUi('正在读取…')}</p>; })}
+    </div>
+  </EditorLibraryWorkspace> : <EditorSidebarLayout className={`script-libraries-panel${multi.active ? ' is-multiselect' : ''}`} inspector={inspector} inspectorTitle={selectedItem?.name || selectedLabel}
     onCloseInspector={closeEditor} preferredWidth={inspectorWidth} onWidthChange={setInspectorWidth}
     feedback={<SaveControl dirty={dirty} saving={saving} error={error || versions.error} notice={notice} onSave={save} />}>
     <div className="script-directory editor-collection-browser editor-collection-material editor-collection-continuous">
@@ -466,11 +495,12 @@ export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ c
           { label: selectedItem.enabled ? tUi("停用") : tUi("启用"), Icon: Power, run: () => change(selection.key, library => updateScriptItem(library, selectedItem.id, { enabled: !selectedItem.enabled })) },
         ] : []} />}
     </div>
+  </EditorSidebarLayout>}
     {managerOpen && versions.ready && <EditorLibraryVersionManager title={tUi("脚本版本管理")} versions={versions} ownerScope={ownerScope} initialScope={activeScope} ownerLabel={presetEditor ? tUi("预设") : tUi("角色卡")} onClose={() => setManagerOpen(false)} busy={saving}
       extraActions={[{ label: tUi("打开源码目录"), Icon: FolderSimple, disabled: Boolean(openingDirectory), onClick: scope => void openDirectory({ scope, ownerId: scope === 'global' ? '' : ownerId }) }]} />}
     {context.menu && menuActions.length > 0 && <EditorContextMenu menu={context.menu}
       actions={menuActions.map(action => ({ ...action, disabled: action.disabled || saving || !versions.ready }))} label={tUi("脚本操作")} onClose={context.close} />}
     <ConfirmationDialog open={Boolean(deleteTarget)} title={tUi("删除“{value0}”？", {value0: deleteTarget?.name || tUi("脚本")})}
       description={deleteTarget?.folder ? tUi("分组及其中的脚本会在保存后删除。") : tUi("脚本会在保存后删除。")} confirmLabel={tUi("删除")} destructive busy={saving} onCancel={() => setDeleteTarget(null)} onConfirm={deleteItem} />
-  </EditorSidebarLayout>;
+  </>;
 });

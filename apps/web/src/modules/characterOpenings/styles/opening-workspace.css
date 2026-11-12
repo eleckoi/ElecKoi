@@ -1,0 +1,25 @@
+.opening-directory-title { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; }
+.opening-directory-list { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: auto; padding-bottom: 16px; }
+.opening-directory-list > [role=list] { display: flex; flex-direction: column; gap: 4px; }
+.opening-list-item { display: flex; align-items: center; flex-shrink: 0; width: 100%; min-height: 40px; gap: 10px; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--text); text-align: left; font: 400 13px/20px var(--dsw-font-family); cursor: pointer; }
+.opening-list-item:hover { background: color-mix(in srgb,var(--active) 66%,transparent); }
+.opening-list-item.is-selected { background: var(--active); }
+.opening-list-item:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.opening-list-main > svg { flex-shrink: 0; color: var(--muted); }
+.opening-list-item.is-selected .opening-list-main > svg { color: var(--blue); }
+.opening-list-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.opening-primary-label { flex-shrink: 0; color: var(--muted); font-size: 12px; }
+.opening-list-empty { display: grid; flex: 1; place-items: center; color: var(--muted); font-size: 13px; }
+.opening-entry-heading { margin-bottom: 16px; }
+.opening-entry-heading h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; color: var(--text); font-size: 18px; line-height: 28px; font-weight: 600; }
+.opening-document-content { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 20px; overflow: auto; }
+.opening-properties { flex-shrink: 0; width: min(100%,640px); }
+.opening-properties .rs-input, .opening-properties select { width: 100%; max-width: 384px; }
+.opening-body-field { display: flex; flex-direction: column; flex: 1 0 250px; min-height: 250px; gap: 8px; }
+.opening-body-label { margin: 0; color: var(--text); font-size: 14px; line-height: 22px; font-weight: 600; }
+.opening-body-field > .opening-writing { min-height: 220px; }
+
+.opening-list-main { display: flex; align-items: center; flex: 1; min-width: 0; gap: 10px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
+.opening-list-main:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; border-radius: 3px; }
+.opening-list-tools { display: flex; align-items: center; flex-shrink: 0; gap: 4px; }
+.opening-list-tools .opening-row-action { width: 26px; min-width: 26px; height: 26px; min-height: 26px; padding: 0; border-radius: 6px; }

@@ -1598,10 +1598,12 @@ window.__ModuleLoader__.load({
         let finish
         const settled = new Promise(resolve => { finish = resolve })
         this.sessionMutations.set(conversationId, settled)
-        this.detailGeneration += 1
-        const reference = this.sessionReference
-        this.sessionReference = null
-        this.releaseOfficialSession()
+        if (this.detailsSnapshot.id === conversationId) this.detailGeneration += 1
+        const reference = this.detailsSnapshot.id === conversationId ? this.sessionReference : null
+        if (reference) {
+          this.sessionReference = null
+          this.releaseOfficialSession()
+        }
         const session = reference?.binding.session
         let stop = () => {}
         let timeout
@@ -1629,7 +1631,7 @@ window.__ModuleLoader__.load({
           clearTimeout(timeout)
           stop()
           reference?.release()
-          this.detailGeneration += 1
+          if (this.detailsSnapshot.id === conversationId) this.detailGeneration += 1
           this.sessionMutations.delete(conversationId)
           finish()
         }
@@ -2002,12 +2004,12 @@ window.__ModuleLoader__.load({
         if (this.activeRequests.has(input.conversationId)) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '当前聊天正在生成。', { what: '等待当前回复生成完成' })
         const request = { requestId: input.requestId, cancelled: false, session: null }
         this.activeRequests.set(input.conversationId, request)
-        this.cancelledStreamRuns.delete(this.streamState.runId)
+        if (this.streamState.id === input.conversationId) this.cancelledStreamRuns.delete(this.streamState.runId)
         this.cancelledStreamConversations.delete(input.conversationId)
         // Hide only the retiring output until the new Session window arrives.
         // The selected durable input is never removed or replaced by an echo.
         this.primeRewindRequest(input, request)
-        this.publishStream({
+        if (this.detailsSnapshot.id === input.conversationId) this.publishStream({
           id: input.conversationId, status: 'idle', runId: '', requestId: input.requestId,
           messageId: '', nodeKey: '', sequence: 0, content: '', process: [], error: ''
         })
@@ -2020,6 +2022,8 @@ window.__ModuleLoader__.load({
           throw error
         } finally {
           if (this.activeRequests.get(input.conversationId) === request) this.activeRequests.delete(input.conversationId)
+          request.reference?.release()
+          request.reference = null
           if (this.detailsSnapshot.id === input.conversationId) {
             const reference = this.sessionReference
             // Releasing a failed/cancelled preparation restores the real
@@ -2036,22 +2040,32 @@ window.__ModuleLoader__.load({
         }
       }
 
+      async retainRequestSession(conversationId, request) {
+        const runtimeSessionId = this.runtimeSessionId(conversationId)
+          || (this.detailsSnapshot.id === conversationId ? this.detailsSnapshot.runtimeSessionId : '')
+        if (!runtimeSessionId) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, '当前聊天缺少 DSH Session。', { what: '当前聊天的 DSH 会话' })
+        // Official Session references are independent of the selected view. A
+        // prompt keeps its own binding through admission, execution and saving.
+        const reference = this.sessions.retain(runtimeSessionId, { source: 'eleckoiConversations.request' })
+        request.reference = reference
+        const binding = await reference.ready
+        request.session = binding.session
+        return binding
+      }
+
       async runOfficialPrompt(input, request) {
         const conversationId = input.conversationId
-        const runtimeSessionId = this.runtimeSessionId(conversationId) || this.detailsSnapshot.runtimeSessionId
+        const runtimeSessionId = this.runtimeSessionId(conversationId)
+          || (this.detailsSnapshot.id === conversationId ? this.detailsSnapshot.runtimeSessionId : '')
         if (!runtimeSessionId) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, '当前聊天缺少 DSH Session。', { what: '当前聊天的 DSH 会话' })
         const prepared = await this.unwrap(
           await this.remote.eleckoiConversations.preparePrompt(conversationId, input.text || '', input.signal),
           '准备 DSH 会话失败。'
         )
-        if (!this.sessionReference || this.sessionReference.sessionId !== runtimeSessionId) {
-          await this.bindOfficialSession(conversationId)
-        }
-        const session = this.sessionReference?.binding.session
-        if (!session) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, '当前聊天的 DSH Session 尚未连接。', { what: '当前聊天的 DSH 会话' })
-        request.session = session
+        const binding = await this.retainRequestSession(conversationId, request)
+        const session = binding.session
         if (request.cancelled || input.signal?.aborted) {
-          return { details: await this.refreshDetails(), cancelled: true }
+          return { details: await this.requestDetails(conversationId), cancelled: true }
         }
         const content = []
         if (typeof input.text === 'string' && input.text.length > 0) content.push({ type: 'text', text: input.text })
@@ -2066,18 +2080,24 @@ window.__ModuleLoader__.load({
         const accepted = await session.prompt(content, input.mode === 'steer' ? 'steer' : 'queue', input.signal, input.requestId)
         unwrapOrFail(accepted, '生成请求失败。')
         if (request.cancelled || input.signal?.aborted) this.unwrap(await session.cancel(), '停止生成失败。')
-        const completed = await waitForOfficialSession(session, this.sessionReference.binding.eventSource, input.requestId)
+        const completed = await waitForOfficialSession(session, binding.eventSource, input.requestId)
         if (prepared.operationId) {
           this.unwrap(await this.remote.eleckoiConversations.waitForGeneration(conversationId, prepared.operationId), '等待聊天保存失败。')
         }
 
-        const details = this.detailsSnapshot.id === conversationId
-          ? await this.refreshDetails()
-          : this.unwrap(await this.remote.eleckoiConversations.details(conversationId, undefined, undefined), '读取会话详情失败。')
+        const details = await this.requestDetails(conversationId)
         return {
           details: this.assertDetails(details, conversationId),
           cancelled: completed.cancelled || request.cancelled
         }
+      }
+
+      async requestDetails(conversationId) {
+        if (this.detailsSnapshot.id === conversationId) {
+          const details = await this.refreshDetails()
+          if (details?.conversation?.id === conversationId) return details
+        }
+        return this.unwrap(await this.remote.eleckoiConversations.details(conversationId, undefined, undefined), '读取会话详情失败。')
       }
 
       async uploadFile(conversationId, file, options = {}) {
@@ -2118,10 +2138,12 @@ window.__ModuleLoader__.load({
         request.regenerationInput = { eventSeq: input.eventSeq, runtimeSessionId: this.runtimeSessionId(input.conversationId) }
         request.statsPending = this.statsSnapshot.id === input.conversationId && Boolean(this.statsSnapshot.stats)
         this.primeRewindRequest(input, request)
-        this.detailGeneration += 1
-        this.displayProjectionGeneration += 1
-        this.displayProjectionSignature = null
-        if (this.detailsSnapshot.id === input.conversationId) this.publishDetails(this.detailsSnapshot)
+        if (this.detailsSnapshot.id === input.conversationId) {
+          this.detailGeneration += 1
+          this.displayProjectionGeneration += 1
+          this.displayProjectionSignature = null
+          this.publishDetails(this.detailsSnapshot)
+        }
         let prepared
         try {
           prepared = await this.mutateSession(input.conversationId, async () => this.unwrap(
@@ -2138,7 +2160,7 @@ window.__ModuleLoader__.load({
           await (async () => {
             await this.sessions.refresh()
             await this.bindOfficialSession(input.conversationId)
-            await this.refreshDetails()
+            if (this.detailsSnapshot.id === input.conversationId) await this.refreshDetails()
           })().catch(bestEffort)
           throw error
         } finally {
@@ -2149,8 +2171,10 @@ window.__ModuleLoader__.load({
         // Rewind invalidates the projection. Request presentation hooks need the
         // fresh retained history before the Agent can begin its next request.
         if (this.detailsSnapshot.id === input.conversationId) await this.refreshDetails()
-        request.statsBaselineSteps = this.latestStatsSnapshot.stats?.sessionStats?.steps ?? 0
-        const session = this.sessionReference?.binding.session
+        request.statsBaselineSteps = this.latestStatsSnapshot.id === input.conversationId
+          ? this.latestStatsSnapshot.stats?.sessionStats?.steps ?? 0 : 0
+        const binding = await this.retainRequestSession(input.conversationId, request)
+        const session = binding.session
         if (!session || prepared.prepared !== true) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, '重新生成请求未完成 DSH Session 回退。', { what: '重新生成的回退状态' })
         request.session = session
         const cancelled = request.cancelled || input.signal?.aborted === true
@@ -2160,16 +2184,16 @@ window.__ModuleLoader__.load({
         )
         if (cancelled) {
           request.regenerationInput = undefined
-          return { details: await this.refreshDetails(), cancelled: true }
+          return { details: await this.requestDetails(input.conversationId), cancelled: true }
         }
         if (accepted.accepted !== true) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, '重新生成请求未被 DSH Session 接受。', { what: '重新生成请求的接受结果' })
         if (!Number.isSafeInteger(accepted.turn) || accepted.turn < 1) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '重新生成请求缺少 DSH 执行轮次。', { what: '重新生成请求的执行轮次' })
         if (request.cancelled || input.signal?.aborted) this.unwrap(await session.cancel(), '停止生成失败。')
-        const completed = await waitForOfficialSession(session, this.sessionReference.binding.eventSource, input.requestId, accepted.turn)
+        const completed = await waitForOfficialSession(session, binding.eventSource, input.requestId, accepted.turn)
         if (prepared.operationId) {
           this.unwrap(await this.remote.eleckoiConversations.waitForGeneration(input.conversationId, prepared.operationId), '等待聊天保存失败。')
         }
-        const details = await this.refreshDetails()
+        const details = await this.requestDetails(input.conversationId)
         return {
           details: this.assertDetails(details, input.conversationId),
           cancelled: completed.cancelled || request.cancelled

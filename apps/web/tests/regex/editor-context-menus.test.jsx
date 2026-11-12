@@ -1,3 +1,4 @@
+import { switchIsOn } from '../helpers/editorText.js';
 // @vitest-environment jsdom
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -16,11 +17,11 @@ let root, node;
 afterEach(async () => { if (root) await act(() => root.unmount()); node?.remove(); root = null; });
 
 const scenarios = [
-  { kind: 'regex', noun: '正则', directory: '.regex-list-scroll', row: '.regex-rule-row', name: '.regex-rule-main', inspector: '.regex-inspector' },
-  { kind: 'scripts', noun: '脚本', directory: '.script-groups', row: '.script-list-row', name: '.script-list-name', inspector: '.script-inspector' },
+  { kind: 'regex', noun: '正则', directory: '.rs-directory-content', row: '.regex-rule-row', name: '.regex-rule-main', inspector: '.setting-document-heading' },
+  { kind: 'scripts', noun: '脚本', directory: '.rs-directory-content', row: '.script-list-row', name: '.script-list-name', inspector: '.setting-document-heading' },
 ];
 const labels = { global: '全局', character: '角色', preset: '预设' };
-const switchScope = async scope => act(() => [...node.querySelectorAll('.editor-scope-tabs [role=tab]')].find(tab => tab.textContent === labels[scope]).click());
+const switchScope = async scope => act(() => [...node.querySelectorAll('.setting-scope-switch [role=tab]')].find(tab => tab.textContent === labels[scope]).click());
 async function mount(scenario, ownerScope = 'character', empty = false, trees, pendingVersions = false) {
   const ownerId = `synthetic-${ownerScope}`;
   const owners = { global: '', [ownerScope]: ownerId };
@@ -52,7 +53,7 @@ async function mount(scenario, ownerScope = 'character', empty = false, trees, p
   node = document.createElement('div'); document.body.append(node); root = createRoot(node);
   const ownerProps = ownerScope === 'preset' ? { presetId: ownerId } : { characterId: ownerId };
   await act(async () => root.render(scenario.kind === 'regex' ? <RegexRulesPanel {...ownerProps} regexRules={service} /> : <ScriptLibrariesPanel {...ownerProps} scriptLibraries={service} />));
-  return { write, group: scope => node.querySelector(`.editor-library-group[aria-label="${labels[scope]}${scenario.noun}"]`) };
+  return { write, group: scope => node.querySelector(`section[aria-label="${labels[scope]}${scenario.noun}"]`) };
 }
 async function rightClick(element) {
   expect(element).toBeTruthy();
@@ -65,7 +66,7 @@ async function action(label) {
   expect(button).toBeTruthy(); expect(button.disabled).toBe(false);
   await act(async () => button.click());
 }
-async function save() { await act(async () => node.querySelector('.editor-collection-toolbar .setting-library-save-button').click()); }
+async function save() { await act(async () => node.querySelector('.setting-directory .setting-library-save-button').click()); }
 
 describe('editor context menus', () => {
   it.each(scenarios.flatMap(scenario => ['character', 'preset'].map(ownerScope => ({ ...scenario, ownerScope }))))('$kind $ownerScope right-clicks keep the editor closed or preserve the current editor', async scenario => {
@@ -85,23 +86,23 @@ describe('editor context menus', () => {
     const { group, write } = await mount(scenario, scenario.ownerScope);
     for (const scope of ['global', scenario.ownerScope]) {
       await switchScope(scope);
-      const headerSwitch = group(scope).querySelector('.editor-library-header input[type="checkbox"]');
+      const headerSwitch = group(scope).querySelector('.rs-library-heading [role="switch"]');
       expect(headerSwitch).toBeTruthy();
       const row = () => group(scope).querySelector(scenario.row);
-      const itemSwitch = () => row().querySelector('input[type="checkbox"]');
+      const itemSwitch = () => row().querySelector('[role="switch"]');
       expect(row().dataset.enabled).toBe('false');
       await act(() => itemSwitch().click());
-      if (!headerSwitch.checked) await act(() => headerSwitch.click());
+      if (!switchIsOn(headerSwitch)) await act(() => headerSwitch.click());
       expect(row().dataset.enabled).toBe('true');
       await save();
       await act(() => headerSwitch.click());
-      expect(itemSwitch().checked).toBe(false);
+      expect(switchIsOn(itemSwitch())).toBe(false);
       expect(row().dataset.enabled).toBe('false');
       await save();
       if (scenario.kind === 'regex') expect(write.mock.lastCall[1][scope === 'global' ? 'globalEnabled' : scope === 'preset' ? 'agentPresetEnabled' : 'characterEnabled']).toBe(false);
       else expect(write.mock.lastCall[0]).toEqual([expect.objectContaining({ scope, enabled: false })]);
       await act(() => headerSwitch.click());
-      expect(itemSwitch().checked).toBe(true);
+      expect(switchIsOn(itemSwitch())).toBe(true);
       expect(row().dataset.enabled).toBe('true');
       await act(() => itemSwitch().click());
       expect(row().dataset.enabled).toBe('false');
@@ -134,7 +135,7 @@ describe('editor context menus', () => {
     expect(available.some(label => label.includes(scenario.ownerScope === 'character' ? '预设' : '角色'))).toBe(false);
     for (const [index, scope] of ['global', scenario.ownerScope].entries()) {
       await switchScope(scope);
-      await rightClick(group(scope).querySelector('.editor-library-heading'));
+      await rightClick(group(scope).querySelector('.rs-library-heading'));
       await action(scenario.kind === 'scripts' ? '新建脚本' : `新建${labels[scope]}${scenario.noun}`);
       expect(group(scope).querySelectorAll(scenario.row)).toHaveLength(1);
       if (index === 0) { await switchScope(scenario.ownerScope); expect(group(scenario.ownerScope).querySelectorAll(scenario.row)).toHaveLength(0); await switchScope(scope); }
@@ -151,9 +152,9 @@ describe('editor context menus', () => {
     await switchScope('global');
     await rightClick(group('global').querySelector(scenario.row));
     await action('启用');
-    expect(group('global').querySelector(scenario.row).querySelector('input[type="checkbox"]').checked).toBe(true);
+    expect(group('global').querySelector(scenario.row).querySelector('[role="switch"]').getAttribute('aria-checked') === 'true').toBe(true);
     await switchScope('character');
-    expect(group('character').querySelector(scenario.row).querySelector('input[type="checkbox"]').checked).toBe(false);
+    expect(group('character').querySelector(scenario.row).querySelector('[role="switch"]').getAttribute('aria-checked') === 'true').toBe(false);
     await switchScope('global');
     await rightClick(group('global').querySelector(scenario.row));
     await action('复制');
@@ -174,7 +175,7 @@ describe('editor context menus', () => {
   it('omits script library variables editing and creates a folder child through right-click', async () => {
     const { write, group } = await mount(scenarios.find(value => value.kind === 'scripts'), 'character', false, { character: [createScriptItem('folder', 'synthetic-folder')] });
     expect(node.querySelector('.editor-row-menu')).toBeNull();
-    await rightClick(group('character').querySelector('.editor-library-heading'));
+    await rightClick(group('character').querySelector('.rs-library-heading'));
     expect(menuLabels()).toEqual(['新建脚本', '新建文件夹']);
     expect(node.querySelector('.script-inspector')).toBeNull();
     await rightClick(group('character').querySelector('.script-list-row'));
@@ -188,7 +189,7 @@ describe('editor context menus', () => {
 
   it.each(scenarios)('$kind disables creation until its version catalog is ready', async scenario => {
     const { write, group } = await mount(scenario, 'character', true, undefined, true);
-    await rightClick(group('character').querySelector('.editor-library-heading'));
+    await rightClick(group('character').querySelector('.rs-library-heading'));
     expect([...menu().querySelectorAll('[role=menuitem]')].every(button => button.disabled)).toBe(true);
     expect(write).not.toHaveBeenCalled();
   });

@@ -383,7 +383,7 @@
   justify-content: flex-end;
   gap: 10px;
   width: min(100%, 946px);
-  margin-top: auto;
+  margin-top: 0;
   padding-top: 24px;
 }
 

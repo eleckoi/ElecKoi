@@ -25,17 +25,19 @@ describe('regex sidebar integration', () => {
     try {
       await act(async () => root.render(<RegexRulesPanel characterId="synthetic-character" regexRules={model} />));
       await act(async () => container.querySelector('.regex-rule-row').click());
-      expect(container.querySelector('[role="separator"]').getAttribute('aria-valuenow')).toBe('760');
-      expect(container.querySelector('.regex-inspector').parentElement.classList.contains('editor-sidebar-pane')).toBe(true);
-      const name = container.querySelector('.regex-inspector input');
+      expect(container.querySelector('[role="separator"]').getAttribute('aria-valuenow')).toBe('480');
+      expect(container.querySelector('.setting-document-heading')).toBeTruthy();
+      expect(container.querySelectorAll('.setting-library-save-button')).toHaveLength(1);
+      const name = container.querySelector('.setting-document-heading input');
       await act(async () => {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(name, '合成规则');
         name.dispatchEvent(new Event('input', { bubbles: true }));
       });
       await act(async () => [...container.querySelectorAll('button')].find(item => item.textContent === '保存').click());
       expect(model.save.mock.lastCall[0].characterRules[0].name).toBe('合成规则');
-      await act(async () => container.querySelector('[aria-label="关闭详情"]').click());
-      expect(container.querySelector('.editor-sidebar-pane.is-closing').hasAttribute('inert')).toBe(true);
+      await act(async () => container.querySelector('.rs-directory-content').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })));
+      expect(container.querySelector('.setting-document-empty')).toBeTruthy();
+      expect(container.querySelector('.setting-directory .setting-library-save-button')).toBeTruthy();
     } finally {
       await act(async () => root.unmount());
       measure.mockRestore();

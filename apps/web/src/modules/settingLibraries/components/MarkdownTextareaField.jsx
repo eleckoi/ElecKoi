@@ -4,9 +4,13 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { OfficialMarkdown } from "../../../ui/messages/OfficialMarkdown.jsx";
 import { CornersIn, CornersOut, Eye, PencilSimple } from "../../../ui/icons/interfaceIcons.jsx";
+import { EditorTextInput } from '../../../ui/ui/EditorTextInput.jsx';
+import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
 
 export function MarkdownTextareaField({ label, value, placeholder, onChange, preview = true, labelAction = null, disabled = false, code = false, textareaClassName = '', toolbarHost = null, immersiveHost = null }) {
   const tUi = useProductTranslation();
+  const { compact } = useEditorPresentation();
+  const virtualized = !compact;
   const inputId = useId();
   const editorRef = useRef(null);
   const [immersive, setImmersive] = useState(false);
@@ -59,7 +63,7 @@ export function MarkdownTextareaField({ label, value, placeholder, onChange, pre
             {value.trim() ? <OfficialMarkdown content={value} /> : <p className="is-empty">{tUi("暂无内容")}</p>}
           </article>
         ) : (
-          <textarea
+          virtualized ? <EditorTextInput ref={editorRef} label={label} className={editorClassName} value={value} placeholder={placeholder} disabled={disabled} code={code} onChange={onChange} /> : <textarea
             ref={editorRef}
             className={editorClassName}
             aria-label={label}
@@ -83,10 +87,10 @@ export function MarkdownTextareaField({ label, value, placeholder, onChange, pre
     <>
       <div className="setting-library-content-field">
         <div className="setting-library-content-heading">
-          <label htmlFor={inputId}>{label}</label>
+          <label htmlFor={inputId} onClick={() => { if (virtualized) editorRef.current?.focus(); }}>{label}</label>
           {toolbarHost ? createPortal(fieldActions, toolbarHost) : fieldActions}
         </div>
-        <textarea id={inputId} className={editorClassName} aria-label={label} value={value} placeholder={placeholder} disabled={disabled} spellCheck={false} onChange={(event) => onChange(event.target.value)} />
+        {virtualized ? !immersive && <EditorTextInput ref={editorRef} id={inputId} label={label} className={editorClassName} value={value} placeholder={placeholder} disabled={disabled} code={code} onChange={onChange} /> : <textarea id={inputId} className={editorClassName} aria-label={label} value={value} placeholder={placeholder} disabled={disabled} spellCheck={false} onChange={(event) => onChange(event.target.value)} />}
       </div>
       {overlay}
     </>

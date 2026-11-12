@@ -1,6 +1,7 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRightIcon, NewChatIcon, PencilIcon } from "../../../ui/icons/index.jsx";
+import { ChevronRightIcon, PencilIcon } from "../../../ui/icons/index.jsx";
+import { ChatCircleDots } from "../../../ui/icons/interfaceIcons.jsx";
 import logoIcon from "../../../assets/eleckoi-app-icon.png";
 import { assetSrc } from "../../../app/services/assets.js";
 import { characterCover, characterName } from "./characterUtils.js";
@@ -168,7 +169,7 @@ export function CharacterProfilePanel({
     <h1>{name}</h1><p className={introduction ? '' : 'is-empty'}>{introduction || tUi("暂无简介")}</p>
   </div>;
   const actions = <div className="character-profile-actions">
-    <button type="button" className="character-profile-action is-primary" onMouseDown={preventPointerFocus} onClick={() => onStartConversation(selectedCharacter.id)}><NewChatIcon />{tUi("开始对话")}</button>
+    <button type="button" className="character-profile-action is-primary" onMouseDown={preventPointerFocus} onClick={() => onStartConversation(selectedCharacter.id)}><ChatCircleDots aria-hidden="true" />{tUi("进入对话")}</button>
     <button type="button" className="character-profile-action is-secondary" onMouseDown={preventPointerFocus} onClick={() => onEditCharacter(selectedCharacter.id)}><PencilIcon />{tUi("编辑角色")}</button>
   </div>;
 

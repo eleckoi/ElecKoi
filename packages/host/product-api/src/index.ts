@@ -6,6 +6,7 @@ import { productFailure } from './productFailure.js'
 import { ELECKOI_FAILURE_CODES } from './errorCodes.generated.js'
 import { registerHostApiInspect } from './hostInspect.js'
 import { readSessionInspection } from './sessionInspection.js'
+import { importedSession, type DshSessionArchive } from './sessionArchive.js'
 export { readSessionInspection } from './sessionInspection.js'
 import { randomUUID } from 'node:crypto'
 import { RemoteChangeFeed } from './remote-change-feed.js'
@@ -723,8 +724,8 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
   }
 
   /**
-   * 导入归档，创建新的聊天和官方 Session。
-   * @param characterId - 角色编号。
+   * 将归档导入当前选中的角色，创建新的聊天和官方 Session。
+   * @param characterId - 当前选中的目标角色编号，不要求与归档角色编号相同。
    * @param json - 完整聊天归档 JSON 文本。
    * @returns 操作结果，结构见返回类型；失败抛出错误。
    */
@@ -759,7 +760,9 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
     if (archive.format !== 'eleckoi.desktop-chat-history' || (archive.version !== 1 && archive.version !== 2)
       || !Array.isArray(archive.sessionLogs)) throw productFailure(ELECKOI_FAILURE_CODES.inputUnsupported, '不支持此聊天记录文件。', { what: '聊天记录文件的格式或版本' })
     const snapshot = this.productData.parseConversationArchive(archive.snapshot)
-    if (snapshot.characterId !== characterId) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, '聊天记录与当前角色不匹配。', { what: '聊天记录与角色' })
+    if (!this.productData.readCharacters().items.some(character => character.id === characterId)) {
+      throw productFailure(ELECKOI_FAILURE_CODES.characterNotFound, '当前角色不存在，无法导入聊天记录。', { what: '当前角色' })
+    }
     const expectedIds = new Set(this.productData.conversationArchiveRuntimeSessionIds(snapshot))
     const logs = parseDshSessionArchives(archive.sessionLogs, expectedIds)
     const archivedIds = new Set(logs.map((item) => item.header.id as string))
@@ -774,23 +777,19 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
       for (const log of logs) {
         const id = ids.get(log.header.id as string)
         if (!id) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '聊天记录缺少 DSH 会话映射。', { what: '聊天记录里的 DSH 会话映射' })
-        const parentSession = log.header.parentSession
-        const header = {
-          ...log.header,
-          id,
-          cwd: process.env.ELECKOI_WORKSPACE_ROOT ?? log.header.cwd,
-          ...(parentSession === undefined ? {} : { parentSession: ids.get(parentSession as string) ?? parentSession })
-        } as SessionHeader
-        const handle = await this.ownerContext.sessionPersistence.create(header, {
-          inheritedEventCount: SessionLogOffset(log.inheritedEventCount)
+        const session = importedSession(log, id, ids, process.env.ELECKOI_WORKSPACE_ROOT)
+        const handle = await this.ownerContext.sessionPersistence.create(session.header, {
+          inheritedEventCount: session.inheritedEventCount
         })
         createdIds.push(id)
         try {
-          if (log.events.length > 0) await handle.append(log.events)
+          await handle.append(session.snapshotEvents())
           await handle.flush()
         } finally {
           await handle.close()
         }
+        const reader = await this.ownerContext.sessionPersistence.open(session.id, 'read')
+        try { await reader.read() } finally { await reader.close() }
       }
       importedId = this.productData.importConversationArchive(snapshot, characterId, ids, conversationId)
       this.changeFeed.publish({ kind: 'catalog', conversationId: importedId, reason: 'created' })
@@ -1172,12 +1171,6 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
     this.changeFeed.publish({ kind: 'messages', conversationId, reason: 'edited', messageIds: ['opening'] })
     return details
   }
-}
-
-interface DshSessionArchive {
-  readonly header: SessionHeader
-  readonly inheritedEventCount: number
-  readonly events: SessionEvent[]
 }
 
 function parseDshSessionArchives(value: unknown[], expectedIds: ReadonlySet<string>): DshSessionArchive[] {

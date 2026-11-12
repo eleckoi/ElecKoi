@@ -31,6 +31,122 @@ import { adaptTrajectorySnapshot } from '../../../../../../apps/web/src/modules/
 const source = readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8')
 const settle = () => new Promise<void>(resolve => setImmediate(resolve))
 
+describe('official request bindings across selected conversations', () => {
+  it.each(['send', 'regenerate'].flatMap(kind => ['prepare', 'admission', 'execution'].flatMap(stage =>
+    ['complete', 'cancelled', 'error'].map(outcome => [kind, stage, outcome]))))('%s keeps its own Session through %s while another generates (%s)', async (kind, stage, outcome) => {
+    const records = ['a', 'b'].map(key => ({ id: `chat-${key}`, runtimeSessionId: `session-${key}`,
+      metadata: { characterId: `character-${key}` } }))
+    const detailsFor = (id: string) => { const record = records.find(record => record.id === id)!;
+      return { conversation: record, runtimeSessionId: record.runtimeSessionId, metadata: record.metadata, messages: [], hasMore: false } }
+    const r = mountCatalog(async (name, input: any) => name === 'query.conversations.list'
+      ? { ok: true, data: records } : { ok: true, data: detailsFor(input.conversationId) }, { allowOtherQueries: true })
+    const catalog = r.catalog as any
+    let releasePrepare!: () => void, releaseAdmission!: () => void
+    const preparation = new Promise<void>(resolve => { releasePrepare = resolve })
+    const admission = new Promise<void>(resolve => { releaseAdmission = resolve })
+    const references: Array<{ id: string; source: string; release: ReturnType<typeof vi.fn> }> = []
+    const states = new Map(records.map(record => {
+      const chatFixture = officialChatFixture(), trajectoryFixture = officialTrajectoryFixture()
+      let chat = chatFixture.replace([]), trajectory = trajectoryFixture.replace([])
+      const listeners = new Set<() => void>(), eventListeners = new Set<() => void>()
+      const targetListeners = new Set<() => void>()
+      const subscribe = (set: Set<() => void>) => (listener: () => void) => { set.add(listener); return () => { set.delete(listener) } }
+      const state: any = { running: false, removed: false, events: [], requestId: '',
+        notify: () => { for (const listener of listeners) listener() },
+        append: (type: string, data: any, surfaceOp?: string) => {
+          const event = { type, data, seq: state.events.length + 1, time: Date.now(), ...(surfaceOp ? { surfaceOp } : {}) }
+          state.events.push({ type: 'event', event }); chat = chatFixture.append(event); trajectory = trajectoryFixture.append(event)
+          for (const listener of [...targetListeners, ...eventListeners]) listener()
+        },
+        begin: (requestId: string) => {
+          state.requestId = requestId; state.running = true; state.notify()
+          state.append('turn/start', { turn: 1 })
+          state.append('user/message', { id: `input-${record.id}`, role: 'user', source: { kind: 'user', rpcId: requestId }, content: [{ type: 'text', text: record.id }] }, 'append')
+          state.append('step/start', { turn: 1, step: 1 })
+        },
+        finish: (result: string) => {
+          state.append('assistant/message', { turn: 1, step: 1, stream: [], message: { id: `reply-${record.id}`, role: 'assistant',
+            source: { provider: 'synthetic', model: 'synthetic' }, content: [{ type: 'text', text: `<FINAL>${record.id}</FINAL>` }] } }, 'append')
+          state.append('step/end', { turn: 1, step: 1 })
+          state.append('turn/end', { turn: 1, reason: result === 'cancelled' ? { kind: 'aborted', reason: 'user' }
+            : result === 'error' ? { kind: 'error', error: { message: `Synthetic failure ${record.id}` } } : { kind: 'completed' } })
+          state.running = false; state.notify()
+        },
+      }
+      state.session = { getSnapshot: () => ({ running: state.running, removed: state.removed }), subscribe: subscribe(listeners),
+        prompt: vi.fn(async (_content: unknown, _mode: string, _signal: unknown, requestId: string) => {
+          state.begin(requestId)
+          if (record.id === 'chat-a' && stage === 'admission') await admission
+          return { ok: true, value: { accepted: true } }
+        }),
+        cancel: vi.fn(async () => { state.finish('cancelled'); return { ok: true, value: { accepted: true } } }),
+      }
+      state.binding = { session: state.session, eventSource: { getSnapshot: () => ({ revision: state.events.length,
+        entries: state.events, hasMore: false, change: { kind: 'replace' } }), subscribe: subscribe(eventListeners) } }
+      state.targets = { chat: { getSnapshot: () => chat, subscribe: subscribe(targetListeners) },
+        trajectory: { getSnapshot: () => trajectory, subscribe: subscribe(targetListeners) } }
+      return [record.runtimeSessionId, state]
+    }))
+    catalog.sessions = { list: { getSnapshot: () => ({ byId: Object.fromEntries(records.map(record => [record.runtimeSessionId, {}])) }) },
+      refresh: async () => {}, reloadHistory: vi.fn(async () => {}), retain: (id: string, options: { source: string }) => {
+        const binding = states.get(id).binding, release = vi.fn()
+        references.push({ id, source: options.source, release }); return { sessionId: id, binding, ready: Promise.resolve(binding), release }
+      } }
+    catalog.uiConversation = { binding: (binding: any) => ({ target: (name: string) => [...states.values()].find(state => state.binding === binding).targets[name] }) }
+    catalog.remote.session = {}
+    catalog.remote.eleckoiConversations.preparePrompt = async (id: string) => {
+      if (id === 'chat-a' && stage === 'prepare') await preparation
+      return { ok: true, value: {} }
+    }
+    catalog.remote.eleckoiConversations.regenerateMessage = async (id: string) => {
+      const state = states.get(id.replace('chat-', 'session-')); state.removed = true; state.notify()
+      if (id === 'chat-a' && stage === 'prepare') await preparation
+      state.removed = false
+      return { ok: true, value: { prepared: true } }
+    }
+    catalog.remote.eleckoiConversations.startRegeneration = async (id: string, requestId: string) => {
+      states.get(id.replace('chat-', 'session-')).begin(requestId)
+      if (id === 'chat-a' && stage === 'admission') await admission
+      return { ok: true, value: { accepted: true, turn: 1 } }
+    }
+    let first: Promise<any> | undefined, second: Promise<any> | undefined
+    try {
+      await settle(); await catalog.open('chat-a')
+      first = (kind === 'send' ? catalog.send({ conversationId: 'chat-a', requestId: 'request-a', text: 'A' })
+        : catalog.regenerate({ conversationId: 'chat-a', requestId: 'request-a', eventSeq: 2 }))
+        .then((value: any) => ({ value }), (error: Error) => ({ error }))
+      await settle()
+      await catalog.open('chat-b')
+      second = catalog.send({ conversationId: 'chat-b', requestId: 'request-b', text: 'B' })
+      await settle(); releasePrepare(); releaseAdmission(); await settle()
+      expect(catalog.activeRequests.size).toBe(2)
+      expect(catalog.getDetailsSnapshot().id).toBe('chat-b')
+      expect(states.get('session-a').requestId).toBe('request-a')
+      expect(states.get('session-b').requestId).toBe('request-b')
+      const requestA = references.find(reference => reference.id === 'session-a' && reference.source.endsWith('.request'))!
+      expect(requestA.release).not.toHaveBeenCalled()
+      states.get('session-a').finish(outcome)
+      const result = await first
+      if (outcome === 'error') expect(result.error.message).toContain('Synthetic failure chat-a')
+      else expect(result.value).toMatchObject({ details: { conversation: { id: 'chat-a' } }, cancelled: outcome === 'cancelled' })
+      expect(requestA.release).toHaveBeenCalledOnce()
+      expect(catalog.getDetailsSnapshot().id).toBe('chat-b')
+      expect(states.get('session-b').running).toBe(true)
+      expect(catalog.activeRequests.size).toBe(1)
+      await catalog.cancelRequest('chat-b', 'request-b'); await second
+      expect(states.get('session-a').session.cancel).not.toHaveBeenCalled()
+      expect(states.get('session-b').session.cancel).toHaveBeenCalledOnce()
+      expect(catalog.activeRequests.size).toBe(0)
+      await catalog.open('chat-a')
+      expect(catalog.getDetailsSnapshot().details.messages.some((message: any) => message.content === 'chat-a')).toBe(true)
+    } finally {
+      releasePrepare(); releaseAdmission()
+      for (const state of states.values()) if (state.running) state.finish('complete')
+      await Promise.allSettled([first, second]); r.dispose()
+    }
+  })
+})
+
 interface Result {
   ok: boolean
   data?: Array<{ id: string }>

@@ -1,3 +1,4 @@
+import { editorValueEqual } from '../utils/editorValueEqual.js';
 import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { resolveFailure } from '../../utils/failureText.js';
@@ -14,7 +15,7 @@ export function useCharacterConfigurationDraft({ characterId, configuration, onD
   const savePromiseRef = useRef(null);
   const callbacks = useRef({ onAdopt, prepareSave, rebaseAfterSave });
   callbacks.current = { onAdopt, prepareSave, rebaseAfterSave };
-  const dirty = useMemo(() => JSON.stringify(library) !== JSON.stringify(persisted), [library, persisted]);
+  const dirty = useMemo(() => !editorValueEqual(library, persisted), [library, persisted]);
 
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
   useEffect(() => {
@@ -32,7 +33,7 @@ export function useCharacterConfigurationDraft({ characterId, configuration, onD
     setPersisted(null);
     const adopt = loaded => {
       if (!active || savePromiseRef.current || (libraryRef.current && persistedRef.current
-        && JSON.stringify(libraryRef.current) !== JSON.stringify(persistedRef.current))) return;
+        && !editorValueEqual(libraryRef.current, persistedRef.current))) return;
       libraryRef.current = loaded;
       persistedRef.current = loaded;
       setLibrary(loaded);
@@ -67,7 +68,7 @@ export function useCharacterConfigurationDraft({ characterId, configuration, onD
       const saved = await inFlight;
       if (savePromiseRef.current === inFlight) savePromiseRef.current = null;
       if (!saved) return false;
-      if (JSON.stringify(libraryRef.current) !== JSON.stringify(persistedRef.current)) return save();
+      if (!editorValueEqual(libraryRef.current, persistedRef.current)) return save();
       return true;
     }
     const task = (async () => {

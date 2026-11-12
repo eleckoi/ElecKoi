@@ -15,6 +15,7 @@ export async function runChatMessageSend(options) {
     setChatCharacter, normalizeLatestChatCharacter, refreshSessionsOnly, setInput, clearInputImages, clearInputFiles,
     setMessages, requestScrollToEnd, reconcileChatMessages,
     notify, restoreChatEntry, conversationModel,
+    isCurrentConversation = () => true,
   } = options;
   event?.preventDefault?.();
   const text = input.trim();
@@ -42,9 +43,9 @@ export async function runChatMessageSend(options) {
   }
 
   const controller = new AbortController();
-  const activeRequest = { controller };
+  const activeRequest = { controller, conversationId: sessionId };
   requestRef.current = activeRequest;
-  setIsSending(true);
+  setIsSending?.(true);
   setStatus(draftImages.length ? "正在处理图片..." : "正在回复...");
   let targetSessionId = sessionId;
   // 关键路径日志：发送是用户最常做、失败时最想看日志的动作。开始一行在这里，
@@ -61,6 +62,7 @@ export async function runChatMessageSend(options) {
       const created = await createChatSession(characterName, chatCharacter, { model: conversationModel });
       throwIfAborted(controller.signal);
       targetSessionId = created.chat.id;
+      activeRequest.conversationId = targetSessionId;
       setSessionId(targetSessionId);
       replaceChatMessages(created.chat, "auto");
       setChatCharacter(normalizeLatestChatCharacter(created.chat));
@@ -112,7 +114,7 @@ export async function runChatMessageSend(options) {
     setSessionId(result.session_id);
     reconcileChatMessages(result.chat);
     setChatCharacter(normalizeLatestChatCharacter(result.chat || {}));
-    await refreshSessionsOnly();
+    await refreshSessionsOnly({ keepSection: true });
     if (requestRef.current !== activeRequest) return { kind: "success" };
     setStatus("回复完成");
     return { kind: "success" };
@@ -123,11 +125,11 @@ export async function runChatMessageSend(options) {
     }
     if (requestRef.current === activeRequest && !isAbortError(error)) {
       const message = getErrorMessage(error, "发送失败");
-      setIsSending(false);
+      setIsSending?.(false);
       setStatus(message);
       notify?.("error", message);
       let reconciled = false;
-      if (targetSessionId) {
+      if (targetSessionId && isCurrentConversation()) {
         try {
           const durable = await getChat(targetSessionId, { model: conversationModel });
           if (requestRef.current === activeRequest) {
@@ -149,7 +151,7 @@ export async function runChatMessageSend(options) {
     if (!sendFailed) logAction(LOG_ACTIONS.messageSend, "success");
     if (requestRef.current === activeRequest) {
       requestRef.current = null;
-      setIsSending(false);
+      setIsSending?.(false);
     }
   }
 }

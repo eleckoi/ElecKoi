@@ -1,3 +1,4 @@
+import { editorText } from '../helpers/editorText.js';
 import { createCharacterOpenings, characterOpeningsSchema } from '../../../../packages/shared/src/contracts/characterOpenings/schemas';
 // @vitest-environment jsdom
 import React, { act, useState, createRef } from 'react';
@@ -39,14 +40,14 @@ describe('opening configuration editor', () => {
     const controller = createRef();
     const view = await render(<CharacterOpeningsPanel ref={controller} characterId="synthetic-character" openings={model} variables={variables} />);
     try {
-      expect(view.container.querySelectorAll('.setting-library-opening-item')).toHaveLength(1);
+      expect(view.container.querySelectorAll('.opening-list-item')).toHaveLength(1);
       await act(async () => view.container.querySelector('button[aria-label="新建开场白"]').click());
       const select = view.container.querySelector('select');
       await act(async () => { select.value = 'synthetic-variable-version'; select.dispatchEvent(new Event('change', { bubbles: true })); });
       expect(view.container.querySelector('[role="switch"]')).toBeNull();
       model.save.mockRejectedValueOnce(new Error('合成保存失败'));
       await act(async () => expect(controller.current.save()).resolves.toBe(false));
-      expect(view.container.querySelectorAll('.setting-library-opening-item')).toHaveLength(2);
+      expect(view.container.querySelectorAll('.opening-list-item')).toHaveLength(2);
       expect(stored).toEqual(openingBefore);
       await act(async () => expect(controller.current.save()).resolves.toBe(true));
       const savedOpening = structuredClone(stored);
@@ -57,12 +58,12 @@ describe('opening configuration editor', () => {
       expect([...view.container.querySelectorAll('[role="treeitem"]')].map(node => node.textContent)).toEqual(['合成设定']);
       expect(view.container.querySelector('.setting-library-opening-editor')).toBeNull();
       await act(async () => view.root.render(<CharacterOpeningsPanel ref={controller} characterId="synthetic-character" openings={model} variables={variables} />));
-      expect(view.container.querySelectorAll('.setting-library-opening-item')).toHaveLength(2);
-      await act(async () => view.container.querySelectorAll('.setting-library-opening-toggle')[1].click());
+      expect(view.container.querySelectorAll('.opening-list-item')).toHaveLength(2);
+      await act(async () => view.container.querySelectorAll('.opening-list-item')[1].click());
       expect(view.container.querySelector('select').value).toBe('synthetic-variable-version');
       await act(async () => view.container.querySelector('button[aria-label="新建开场白"]').click());
       await act(async () => controller.current.discard());
-      expect(view.container.querySelectorAll('.setting-library-opening-item')).toHaveLength(2);
+      expect(view.container.querySelectorAll('.opening-list-item')).toHaveLength(2);
       expect(stored).toEqual(savedOpening);
     } finally { await view.dispose(); }
   });
@@ -86,24 +87,26 @@ describe('opening configuration editor', () => {
     try {
       expect(view.container.querySelector('[role="switch"]')).toBeNull();
       await fill(' second ');
-      expect([...view.container.querySelectorAll('.setting-library-opening-toggle strong')].map(node => node.textContent)).toEqual(['Synthetic SECOND']);
-      expect(view.container.querySelector('[aria-label="上移"]').disabled).toBe(true);
-      expect(view.container.querySelector('[aria-label="下移"]').disabled).toBe(false);
+      expect([...view.container.querySelectorAll('.opening-list-name')].map(node => node.textContent)).toEqual(['Synthetic SECOND']);
+      await act(async () => view.container.querySelector('.opening-list-item').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true })));
+      const menuAction = text => [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent === text);
+      expect(menuAction('上移').disabled).toBe(true);
+      expect(menuAction('下移').disabled).toBe(false);
       await fill('末尾关键词');
-      expect(view.container.querySelectorAll('.setting-library-opening-item')).toHaveLength(1);
+      expect(view.container.querySelectorAll('.opening-list-item')).toHaveLength(1);
       await fill('没有这个内容');
       expect(view.container.querySelector('[role="status"]').textContent).toBe('没有匹配的开场白');
       expect(model.save).not.toHaveBeenCalled();
       expect(dirtyChanged.mock.calls.every(([dirty]) => !dirty)).toBe(true);
       expect(stored).toEqual(original);
       await fill('');
-      expect(view.container.querySelectorAll('.setting-library-opening-item')).toHaveLength(3);
-      expect(view.container.querySelector('.setting-library-opening-item.is-expanded strong').textContent).toBe('合成主开场');
+      expect(view.container.querySelectorAll('.opening-list-item')).toHaveLength(3);
+      expect(view.container.querySelector('.opening-list-item.is-selected .opening-list-name').textContent).toBe('合成主开场');
       await fill('没有这个内容');
       await act(async () => view.container.querySelector('[aria-label="新建开场白"]').click());
       expect(search.value).toBe('');
-      expect(view.container.querySelectorAll('.setting-library-opening-item')).toHaveLength(4);
-      expect(view.container.querySelector('.setting-library-opening-item.is-expanded strong').textContent).toBe('未命名开场白');
+      expect(view.container.querySelectorAll('.opening-list-item')).toHaveLength(4);
+      expect(view.container.querySelector('.opening-list-item.is-selected .opening-list-name').textContent).toBe('未命名开场白');
       await act(async () => controller.current.save());
       expect(stored.defaultOpeningMessageId).toBe('primary');
       expect(stored.openingMessages.slice(0, 3)).toEqual(original.openingMessages);
@@ -213,10 +216,10 @@ describe('opening configuration editor', () => {
     const component = id => <SettingLibraryPanel characterId={id} settingLibraries={model} />;
     const view = await render(component('first'));
     try {
-      expect(view.container.querySelector('textarea[aria-label="设定正文"]').value).toBe('body-first');
+      expect(editorText(view.container.querySelector('[role=textbox][aria-label="设定正文"]'))).toBe('body-first');
       await act(async () => view.root.render(component('second')));
       expect(view.container.querySelector('input[aria-label="条目标题"]').value).toBe('second');
-      expect(view.container.querySelector('textarea[aria-label="设定正文"]').value).toBe('body-second');
+      expect(editorText(view.container.querySelector('[role=textbox][aria-label="设定正文"]'))).toBe('body-second');
     } finally { await view.dispose(); }
   });
 

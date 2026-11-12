@@ -1,3 +1,4 @@
+import { editorValueEqual } from '../../../ui/utils/editorValueEqual.js';
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Copy, PencilSimple, Scissors, Trash } from "../../../ui/icons/interfaceIcons.jsx";
@@ -67,7 +68,7 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
   const savePromiseRef = useRef(null);
   const nameInputRef = useRef(null);
 
-  const dirty = useMemo(() => JSON.stringify(config) !== JSON.stringify(persisted), [config, persisted]);
+  const dirty = useMemo(() => !editorValueEqual(config, persisted), [config, persisted]);
   const selected = useMemo(() => config ? selectedVariableNode(config, selectedKey) : { kind: "", value: null }, [config, selectedKey]);
   const nodes = useMemo(() => config ? variableTreeNodes(config) : [], [config]);
   const multi = useEditorMultiSelect(selectableTreeIds(nodes), characterId);
@@ -92,7 +93,7 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
     setConvertTarget(null);
     const adopt = (loaded) => {
       if (!active || savePromiseRef.current || (configRef.current && persistedRef.current
-        && JSON.stringify(configRef.current) !== JSON.stringify(persistedRef.current))) return;
+        && !editorValueEqual(configRef.current, persistedRef.current))) return;
       const prepared = ensureInitializationObject(loaded);
       configRef.current = prepared;
       persistedRef.current = prepared;

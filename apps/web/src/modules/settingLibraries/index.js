@@ -2,6 +2,7 @@ export { SettingLibraryPanel } from "./components/SettingLibraryPanel.jsx";
 export { DynamicSettingsPanel } from "./components/DynamicSettingsPanel.jsx";
 export { SettingLibraryInspector } from "./components/SettingLibraryInspector.jsx";
 export { MarkdownTextareaField } from "./components/MarkdownTextareaField.jsx";
+export { EditorWritingBoard } from './components/EditorWritingBoard.jsx';
 export { SettingEntryGlyph } from "./components/SettingLibraryEntryEditor.jsx";
 export { ConfirmationDialog, SaveControl } from "./components/SettingLibraryControls.jsx";
 export { SettingLibraryTree, SettingTreeActionsContext, SettingTreeNode } from "./components/SettingLibraryTree.jsx";

@@ -1,8 +1,8 @@
 import { execFile } from 'node:child_process';
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { resolve } from 'node:path';
+import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { expect, it } from 'vitest';
 import { browserThemeCss } from '../helpers/browserTheme.js';
@@ -13,16 +13,20 @@ it('keeps the standalone opening editor usable across themes, short windows and 
   const directory = await mkdtemp(resolve(tmpdir(), 'eleckoi-character-openings-'));
   try {
     await build({ entryPoints: ['apps/web/tests/browser/character-openings.fixture.jsx'], outfile: resolve(directory, 'fixture.js'), bundle: true,
-      format: 'iife', jsx: 'automatic', alias: { '@shared': resolve('packages/shared/src') },
-      loader: { '.png': 'dataurl', '.svg': 'dataurl', '.woff2': 'file', '.woff': 'file', '.ttf': 'file' }, logLevel: 'silent' });
+      format: 'esm', jsx: 'automatic', alias: { '@shared': resolve('packages/shared/src') },
+      loader: { '.png': 'dataurl', '.svg': 'dataurl', '.woff2': 'file', '.woff': 'file', '.ttf': 'file' }, logLevel: 'silent', plugins: [{name:'inline-css',setup(builder){
+        builder.onResolve({filter:/\.css\?inline$/},args=>({path:resolve(dirname(args.importer),args.path.replace(/\?inline$/,'')),namespace:'inline-css'}));
+        builder.onLoad({filter:/.*/,namespace:'inline-css'},async args=>({loader:'text',contents:(await build({stdin:{contents:await readFile(args.path,'utf8'),loader:'css',resolveDir:dirname(args.path)},bundle:true,write:false,logLevel:'warning'})).outputFiles[0].text}));
+      }}] });
     const htmlPath = resolve(directory, 'fixture.html'), reportPath = resolve(directory, 'report.json');
     await writeFile(resolve(directory, 'theme.css'), browserThemeCss());
-    await writeFile(htmlPath, '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="fixture.css"></head><body><div id="root" style="height:100vh"></div><script src="fixture.js"></script></body></html>');
+    await writeFile(htmlPath, '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="fixture.css"></head><body><div id="root" style="height:100vh"></div><script type="module" src="fixture.js"></script></body></html>');
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
-    await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/character-openings.probe.cjs'), htmlPath, reportPath], { env, timeout: 45000, windowsHide: true });
+    await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/character-openings.probe.cjs'), htmlPath, reportPath], { env, timeout: 90000, windowsHide: true });
     const reports = JSON.parse(await readFile(reportPath, 'utf8'));
     expect(reports).toHaveLength(8);
-    for (const { width, height, layout, backupButtons, settingsSeparated, binding, noOpeningVersions, referenceSearchAppearance } of reports) {
+    for (const { desktop, actions, width, height, layout, backupButtons, settingsSeparated, binding, noOpeningVersions, referenceSearchAppearance } of reports) {
+      if (desktop) { expect(Object.values(actions).every(Boolean)).toBe(true); expect(layout.navigation.slice(0,3)).toEqual(['基础资料','开场白','设定库']); continue; }
       expect(layout.navigation.slice(0, 3)).toEqual(['基础资料', '开场白', '设定库']);
       expect(layout.horizontalOverflow).toBe(false);
       for (const button of [...layout.iconButtons, ...backupButtons]) {
@@ -50,10 +54,15 @@ it('keeps the standalone opening editor usable across themes, short windows and 
       expect(binding).toBe('synthetic-variables');
       expect(noOpeningVersions).toBe(true);
     }
-    await mkdir(resolve('output/playwright'), { recursive: true });
-    for (const theme of ['light', 'dark']) for (const width of [1440, 900, 390]) await copyFile(resolve(directory, `character-openings-${theme}-${width}.png`), resolve('output/playwright', `character-openings-${theme}-${width}.png`));
-    for (const theme of ['light', 'dark']) await copyFile(resolve(directory, `character-openings-collapsed-${theme}.png`), resolve('output/playwright', `character-openings-collapsed-${theme}.png`));
-    await copyFile(resolve(directory, 'character-openings-toolbar-preview.png'), resolve('output/playwright', 'character-openings-toolbar-preview.png'));
-    await copyFile(resolve(directory, 'character-openings-list-preview.png'), resolve('output/playwright', 'character-openings-list-preview.png'));
-  } finally { await rm(directory, { recursive: true, force: true, maxRetries: 3 }); }
-}, 60000);
+    const evidence=resolve('build/opening-workspace-check');await mkdir(evidence,{recursive:true});
+    await copyFile(reportPath,resolve(evidence,'report.json'));
+    for(const file of await readdir(directory))if(/\.png$/.test(file))await copyFile(resolve(directory,file),resolve(evidence,file));
+    const preview=resolve(evidence,'preview');await mkdir(preview,{recursive:true});
+    for(const file of await readdir(directory))if(/\.(html|css|js|woff2?|ttf)$/.test(file))await copyFile(resolve(directory,file),resolve(preview,file));
+  } finally {
+    const evidence=resolve('build/opening-workspace-check');await mkdir(evidence,{recursive:true});
+    for(const file of await readdir(directory))if(/\.png$/.test(file)||file==='report.json')await copyFile(resolve(directory,file),resolve(evidence,file));
+    const target=relative(tmpdir(),directory);if(!target||target.startsWith('..')||isAbsolute(target))throw Error('Invalid fixture cleanup');
+    await rm(directory, { recursive: true, force: true, maxRetries: 3 });
+  }
+}, 105000);

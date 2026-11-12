@@ -40,22 +40,29 @@ describe('regex editor isolation and shared globals', () => {
         <div data-editor="preset"><RegexRulesPanel presetId="synthetic-inactive-preset" regexRules={model} ref={refs[1]} /></div>
       </EditorPresentationContext.Provider>));
       const panels = [...node.querySelectorAll('[data-editor]')];
-      expect([...panels[0].querySelectorAll('.editor-library-heading strong')].map(item => item.textContent)).toEqual(['角色正则']);
-      expect([...panels[1].querySelectorAll('.editor-library-heading strong')].map(item => item.textContent)).toEqual(['预设正则']);
+      expect([...panels[0].querySelectorAll(compact ? '.editor-library-heading strong' : '.rs-library-heading > span')].map(item => item.textContent)).toEqual(['角色正则']);
+      expect([...panels[1].querySelectorAll(compact ? '.editor-library-heading strong' : '.rs-library-heading > span')].map(item => item.textContent)).toEqual(['预设正则']);
       for (const panel of panels) {
         await act(() => [...panel.querySelectorAll('[role="tab"]')].find(tab => tab.textContent === '全局').click());
-        await act(() => panel.querySelector('.regex-rule-row').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
-        const options = [...panel.querySelector('.regex-inspector select').options].map(item => item.value);
-        expect(options).toEqual(panel === panels[0] ? ['Global', 'Character'] : ['Global', 'AgentPreset']);
+        await act(() => panel.querySelector('.regex-rule-row').dispatchEvent(new MouseEvent(compact ? 'dblclick' : 'click', { bubbles: true })));
+        if (compact) {
+          const options = [...panel.querySelector('.regex-inspector select').options].map(item => item.value);
+          expect(options).toEqual(panel === panels[0] ? ['Global', 'Character'] : ['Global', 'AgentPreset']);
+        } else {
+          await act(() => panel.querySelector('[aria-label="当前规则操作"]').click());
+          const moves = [...document.querySelectorAll('[role="menuitem"]')].filter(item => item.textContent.startsWith('移至')).map(item => item.textContent);
+          expect(moves).toEqual([panel === panels[0] ? '移至角色正则' : '移至预设正则']);
+          await act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+        }
       }
-      const name = index => panels[index].querySelector('.regex-inspector input');
+      const name = index => panels[index].querySelector(compact ? '.regex-inspector input' : '.setting-document-heading input');
       await type(name(0), 'Synthetic accepted first');
       await act(async () => expect(await refs[0].current.save()).toBe(true));
       expect(name(1).value).toBe('Synthetic accepted first');
       await type(name(1), 'Synthetic unsaved draft');
-      await act(() => [...panels[1].querySelectorAll('.editor-scope-tabs [role=tab]')].find(tab => tab.textContent === '预设').click());
-      await act(() => [...panels[1].querySelectorAll('.editor-scope-tabs [role=tab]')].find(tab => tab.textContent === '全局').click());
-      await act(() => panels[1].querySelector('.regex-rule-row').dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
+      await act(() => [...panels[1].querySelectorAll('[role=tab]')].find(tab => tab.textContent === '预设').click());
+      await act(() => [...panels[1].querySelectorAll('[role=tab]')].find(tab => tab.textContent === '全局').click());
+      await act(() => panels[1].querySelector('.regex-rule-row').dispatchEvent(new MouseEvent(compact ? 'dblclick' : 'click', { bubbles: true })));
       expect(name(1).value).toBe('Synthetic unsaved draft');
       await type(name(0), 'Synthetic accepted second');
       await act(async () => expect(await refs[0].current.save()).toBe(true));

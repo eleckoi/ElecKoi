@@ -502,7 +502,7 @@ describe('ElecKoi DSH Remote contract', () => {
               meta: {
                 version: 4,
                 id: sessionId,
-                createdAt: '2026-10-01T00:00:00.000Z',
+                createdAt: Date.parse('2026-10-01T00:00:00.000Z'),
                 cwd: workspaceRoot,
                 isSeeded: false,
                 delegationDepth: 0
@@ -540,15 +540,22 @@ describe('ElecKoi DSH Remote contract', () => {
           owner.provide('eleckoiRequestPreviews', previews)
           owner.effect(() => () => previews.close())
           owner.provide('agents', { get: () => undefined } as never)
+          const importedLogs = new Map<string, unknown[]>()
           owner.provide('sessionPersistence', {
             create: async (header: { id: string }) => {
               importedSessionIds.push(header.id)
+              const events: unknown[] = []
+              importedLogs.set(header.id, events)
               return {
-                append: async () => {},
+                append: async (next: unknown[]) => { events.push(...next) },
                 flush: async () => {},
                 close: async () => {}
               }
-            }
+            },
+            open: async (id: string) => {
+              if (!importedLogs.has(id)) throw Error('Synthetic imported Session missing')
+              return { read: async () => ({ events: importedLogs.get(id) }), close: async () => {} }
+            },
           } as never)
         }
       })

@@ -897,8 +897,8 @@ Source: [`packages/host/product-api/src/index.ts`](../../packages/host/product-a
 @Remote async exportArchive(conversationId: string): Promise<string>
 
 /**
- * 导入归档，创建新的聊天和官方 Session。
- * @param characterId - 角色编号。
+ * 将归档导入当前选中的角色，创建新的聊天和官方 Session。
+ * @param characterId - 当前选中的目标角色编号，不要求与归档角色编号相同。
  * @param json - 完整聊天归档 JSON 文本。
  * @returns 操作结果，结构见返回类型；失败抛出错误。
  */

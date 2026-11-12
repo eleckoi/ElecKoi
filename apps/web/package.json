@@ -14,8 +14,10 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@codemirror/commands": "6.11.1",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.15",
     "@eleckoi/author-sdk": "workspace:*",
-    "@eleckoi/tavern-frontend": "workspace:*",
     "@eleckoi/compatibility-mvu": "workspace:*",
     "@eleckoi/dsh-client-character-configuration": "workspace:*",
     "@eleckoi/dsh-client-characters": "workspace:*",
@@ -32,6 +34,7 @@
     "@eleckoi/dsh-product-api": "workspace:*",
     "@eleckoi/dsh-web-search-tavily": "workspace:*",
     "@eleckoi/product-shared": "workspace:*",
+    "@eleckoi/tavern-frontend": "workspace:*",
     "ejs": "3.1.10"
   },
   "devDependencies": {

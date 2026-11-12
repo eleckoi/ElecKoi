@@ -508,7 +508,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
       <section className="character-editor-main-panel">
         {renderHeader ? renderHeader({ character, dirty, saving, save: saveCurrentDraft, subpage, feedback: activeSection === 'card' ? { error: saveError, notice: basicSaveNotice } : feedback }) : <TitleBar splitSurface onClose={requestClose} />}
         <section
-          className={`character-editor-workspace${['openings', 'lore', 'variables', 'regex', 'scripts'].includes(activeSection) ? ' is-collection-editor' : ''}${activeSection === "card" ? " is-basic-info" : ""}${activeSection === "lore" ? " is-setting-library" : ""}${activeSection === "variables" ? " is-variable-config" : ""}${activeSection === "regex" ? " is-regex-rules" : ""}${activeSection === 'scripts' ? ' is-scripts' : ''}${activeSection === 'frontend' ? ' is-frontend' : ''}${activeSection === "dynamic" ? " is-dynamic-settings" : ""}`}
+          className={`character-editor-workspace${['openings', 'lore', 'variables', 'regex', 'scripts'].includes(activeSection) ? ' is-collection-editor' : ''}${activeSection === "card" ? " is-basic-info" : ""}${activeSection === "openings" ? " is-character-openings" : ""}${activeSection === "lore" ? " is-setting-library" : ""}${activeSection === "variables" ? " is-variable-config" : ""}${activeSection === "regex" ? " is-regex-rules" : ""}${activeSection === 'scripts' ? ' is-scripts' : ''}${activeSection === 'frontend' ? ' is-frontend' : ''}${activeSection === "dynamic" ? " is-dynamic-settings" : ""}`}
           aria-label={activeLabel}
           ref={workspaceRef}
         >

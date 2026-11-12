@@ -1,3 +1,4 @@
+import { switchIsOn } from '../helpers/editorText.js';
 // @vitest-environment jsdom
 import React, { act } from 'react';
 import { withLibraryVersions } from '../helpers/editorLibraryVersions.js';
@@ -42,7 +43,8 @@ describe('native script library status display', () => {
     try {
       await act(async () => root.render(<ScriptLibrariesPanel characterId="synthetic-character" scriptLibraries={services} scriptRuntimeConnection={connection} />));
       const group = scope => node.querySelector(`[aria-label="${{ global: '全局脚本', character: '角色脚本', preset: '预设脚本' }[scope]}"]`);
-      await act(() => [...node.querySelectorAll('button')].find(button => button.textContent === '管理').click());
+      await act(() => node.querySelector('[aria-label=脚本目录操作]').click());
+      await act(() => [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '管理版本与导入导出').click());
       for (const scope of ['global', 'character']) {
         await act(() => { const select = document.querySelector('.editor-management-fields select'); select.value = scope; select.dispatchEvent(new Event('change', { bubbles: true })); });
         await act(async () => [...document.querySelectorAll('.editor-management-modal button')].find(button => button.textContent === '打开源码目录').click());
@@ -52,29 +54,32 @@ describe('native script library status display', () => {
       services.openDirectory.mockRejectedValueOnce(new Error('Synthetic directory open failure'));
       await act(async () => [...document.querySelectorAll('.editor-management-modal button')].find(button => button.textContent === '打开源码目录').click());
       await act(() => document.querySelector('.editor-management-modal [aria-label="关闭"]').click());
-      expect(node.textContent).toContain('Synthetic directory open failure');
+      expect(node.querySelector('[role=alert]').title).toContain('Synthetic directory open failure');
       expect(services.saveAll).not.toHaveBeenCalled();
       await switchScope(node, 'global');
-      expect(group('global').querySelector('.script-state').textContent).toBe('运行错误');
+      await act(() => group('global').querySelector('.script-list-name').click());
+      expect(node.querySelector('.rs-writing-footer > span').textContent).toBe('运行错误');
       await switchScope(node, 'character');
-      expect(group('character').querySelector('.script-state').textContent).toBe('运行中');
+      await act(() => group('character').querySelector('.script-list-name').click());
+      expect(node.querySelector('.rs-writing-footer > span').textContent).toBe('运行中');
       await act(() => { snapshot = { ...snapshot, status: 'starting' }; listeners.forEach(listener => listener()); });
-      expect(group('character').querySelector('.script-state').textContent).toBe('启动中');
+      expect(node.querySelector('.rs-writing-footer > span').textContent).toBe('启动中');
       await act(() => { snapshot = { ...snapshot, status: 'error', error: 'Synthetic disconnected channel' }; listeners.forEach(listener => listener()); });
-      expect(group('character').querySelector('.script-state').textContent).toBe('运行错误');
+      expect(node.querySelector('.rs-writing-footer > span').textContent).toBe('运行错误');
       await act(() => { snapshot = { ...snapshot, status: 'idle', conversationId: '', scriptStatuses: {}, error: '' }; listeners.forEach(listener => listener()); });
-      expect(group('character').querySelector('.script-state').textContent).toBe('已启用');
+      expect(node.querySelector('.rs-writing-footer > span').textContent).toBe('已启用');
       await act(() => { snapshot = { ...snapshot, status: 'ready', conversationId: 'synthetic-chat', scriptStatuses: statuses }; listeners.forEach(listener => listener()); });
       expect(group('preset')).toBeNull();
       await switchScope(node, 'global');
       await act(async () => group('global').querySelector('.script-list-name').click());
-      expect(node.querySelector('.script-inspector [role=alert]').textContent).toBe('Synthetic global startup error');
+      expect(node.querySelector('.setting-document [role=alert]').textContent).toBe('Synthetic global startup error');
       await switchScope(node, 'character');
       await act(async () => group('character').querySelector('.script-list-name').click());
-      expect(node.querySelector('.script-inspector [role=alert]')).toBeNull();
+      expect(node.querySelector('.setting-document [role=alert]')).toBeNull();
       await act(async () => { current = null; connectionListeners.forEach(listener => listener()); });
       await switchScope(node, 'global');
-      expect(group('global').querySelector('.script-state').textContent).toBe('运行环境未就绪');
+      await act(() => group('global').querySelector('.script-list-name').click());
+      expect(node.querySelector('.rs-writing-footer > span').textContent).toBe('运行环境未就绪');
       expect(listeners.size).toBe(0);
     } finally { await act(async () => root.unmount()); node.remove(); }
     expect(connectionListeners.size).toBe(0);
@@ -110,11 +115,11 @@ describe('script library editing commands', () => {
     try {
       expect(page.node.querySelector('[aria-label*="新建"][aria-label*="文件夹"], [aria-label*="新建"][aria-label*="分组"]')).toBeNull();
       await page.rightClick('character'); await page.action('重命名');
-      const pane = page.node.querySelector('.editor-sidebar-pane');
-      expect(pane.classList.contains('is-overlay')).toBe(true);
-      expect(page.node.querySelector('.editor-collection-toolbar').closest('.editor-sidebar-pane')).toBeNull();
-      expect(page.node.querySelector('.script-inspector select')).toBeTruthy();
-      expect(page.node.querySelector('.script-inspector input').value).toBe('Synthetic character script');
+      expect(page.node.querySelector('.setting-directory')).toBeTruthy();
+      expect(page.node.querySelectorAll('.setting-library-save-button')).toHaveLength(1);
+      expect(page.node.querySelector('.setting-document-heading input').value).toBe('Synthetic character script');
+      await act(() => [...page.node.querySelectorAll('[role=tab]')].find(tab => tab.textContent === '设置').click());
+      expect(page.node.querySelector('[aria-label=脚本文件夹]')).toBeTruthy();
     } finally { await page.close(); }
   });
 
@@ -128,7 +133,7 @@ describe('script library editing commands', () => {
       await switchScope(page.node, 'character');
       expect(page.node.querySelector('[aria-label="角色脚本"]').querySelectorAll('.script-list-row')).toHaveLength(1);
       await page.rightClick('global'); await page.action('启用');
-      expect(page.row('global').querySelector('input[type="checkbox"]').checked).toBe(true);
+      expect(switchIsOn(page.row('global').querySelector('[role=switch]'))).toBe(true);
       await switchScope(page.node, 'character');
       await act(() => page.row('character').querySelector('button').click());
       await page.rightClick('global'); await page.action('删除');
@@ -138,7 +143,7 @@ describe('script library editing commands', () => {
       expect(page.node.querySelector('[aria-label="全局脚本"]').querySelectorAll('.script-list-row')).toHaveLength(1);
       await switchScope(page.node, 'character');
       await act(() => page.row('character').querySelector('button').click());
-      expect(page.node.querySelector('.script-inspector input').value).toBe('Synthetic character script');
+      expect(page.node.querySelector('.setting-document-heading input').value).toBe('Synthetic character script');
       await act(() => page.node.querySelector('.setting-library-save-button').click());
       expect(page.service.saveAll).toHaveBeenCalledWith([expect.objectContaining({ scope: 'global',
         trees: [expect.objectContaining({ name: 'Synthetic global script 副本' })] })]);
@@ -188,10 +193,10 @@ describe('script library editing commands', () => {
     const page = await mount(false, { character: [first, folder, other] });
     try {
       await dragTo(page, first.id, folder.id);
-      expect(page.node.querySelector('[aria-label="角色脚本"] .script-folder [data-script-id="first"]').classList.contains('is-nested')).toBe(true);
+      expect(page.node.querySelector('[aria-label="角色脚本"] [data-script-id="first"]').classList.contains('is-nested')).toBe(true);
       await dragTo(page, first.id, other.id);
       await dragTo(page, first.id, second.id, .1);
-      expect([...page.node.querySelector('[aria-label="角色脚本"] .script-folder:last-child').querySelectorAll('[data-script-id]')].map(row => row.dataset.scriptId)).toEqual(['other', 'first', 'second']);
+      expect([...page.node.querySelector('[aria-label="角色脚本"] [data-script-id="other"]').parentElement.querySelectorAll('[data-script-id]')].map(row => row.dataset.scriptId)).toEqual(['other', 'first', 'second']);
       await dragTo(page, first.id, folder.id, .1);
       await dragTo(page, other.id, folder.id, .1);
       await act(async () => page.node.querySelector('.setting-library-save-button').click());
@@ -215,7 +220,8 @@ describe('script library editing commands', () => {
       await act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Synthetic'); input.dispatchEvent(new Event('input', { bubbles: true })); });
       expect(page.node.querySelector('.script-list-name').draggable).toBe(false);
       await act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ''); input.dispatchEvent(new Event('input', { bubbles: true })); });
-      await act(() => page.node.querySelector('[aria-label="多选"]').click());
+      await act(() => page.node.querySelector('[aria-label=脚本目录操作]').click());
+      await act(() => [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '多选').click());
       expect(page.node.querySelector('.script-list-name').draggable).toBe(false);
       expect(page.service.saveAll).not.toHaveBeenCalled();
     } finally { await page.close(); }

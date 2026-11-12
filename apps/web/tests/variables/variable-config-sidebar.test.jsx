@@ -1,3 +1,4 @@
+import { editorText } from '../helpers/editorText.js';
 // @vitest-environment jsdom
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -58,7 +59,7 @@ describe('variable sidebar integration', () => {
         input.dispatchEvent(new Event('input', { bubbles: true }));
       });
       await select(view.container, '变量运行配置');
-      expect(JSON.parse(view.container.querySelector('[aria-label=生成的初始状态]').value).date).toBe('第一天');
+      expect(JSON.parse(editorText(view.container.querySelector('[aria-label=生成的初始状态]'))).date).toBe('第一天');
       await act(async () => [...view.container.querySelectorAll('button')].find(item => item.textContent === '保存').click());
       const saved = view.model.save.mock.lastCall[1];
       expect(JSON.parse(saved.initialStateJson)).toEqual({ date: '第一天', 状态组: {}, members: { alpha: { energy: 8, note: null } } });
@@ -134,7 +135,7 @@ describe('variable sidebar integration', () => {
   });
 
   it('removes the closed sidebar immediately when reduced motion is enabled', async () => {
-    vi.spyOn(window, 'matchMedia', 'get').mockReturnValue(() => ({ matches: true }));
+    vi.spyOn(window, 'matchMedia', 'get').mockReturnValue(() => ({ matches: true, addListener() {}, removeListener() {} }));
     const view = await renderPanel();
     try {
       await select(view.container, 'count');

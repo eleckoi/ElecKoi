@@ -1,3 +1,4 @@
+import { EditorTextInput } from '../../../ui/ui/EditorTextInput.jsx';
 import { useState } from 'react';
 import { Button, Input, Menu, SegmentedTabs } from '@deepseek-ai/dsh-client-ui-primitives';
 import { CaretDown, Copy, DotsThree, Trash } from '../../../ui/icons/interfaceIcons.jsx';
@@ -68,7 +69,7 @@ export function VariableConfigDocument({ config, selected, nameInputRef, onChang
     </div></div> : <div className="setting-writing-board vv-writing-board is-code">
       <FailureAlert failure={jsonError} className="vv-error" />
       {view === 'schema' && <p className="vv-code-hint">{tUi('使用 z.object(...) 定义结构和取值限制，无需 import。')}</p>}
-      {view === 'preview' ? <><textarea aria-label={tUi('生成的初始状态')} className="vv-code-editor" value={raw} readOnly spellCheck={false} /><footer className="setting-editor-status"><span>{tUi('根据当前定义生成，只读预览')}</span><span>{tUi('{value0} 字符', { value0: raw.length })}</span></footer></> :
+      {view === 'preview' ? <><EditorTextInput label={tUi('生成的初始状态')} className="vv-code-editor" value={raw} readOnly code /><footer className="setting-editor-status"><span>{tUi('根据当前定义生成，只读预览')}</span><span>{tUi('{value0} 字符', { value0: raw.length })}</span></footer></> :
         <WritingInput className="vv-code-input" label={view === 'schema' ? tUi('变量总校验') : tUi('对象内容')} code value={raw} status={view === 'json' ? tUi('应用结构后加入待保存修改') : saving ? tUi('保存中…') : dirty ? tUi('未保存') : tUi('已保存')} disabled={saving} onChange={value => view === 'schema' ? onChange({ ...config, schemaCode: value }) : setJson(value)} />}
     </div>}
   </>;

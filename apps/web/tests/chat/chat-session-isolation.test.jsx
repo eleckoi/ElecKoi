@@ -5,6 +5,97 @@ import { describe, expect, it, vi } from 'vitest'
 import { useChatSessions } from '../../src/modules/chat/hooks/useChatSessions.js'
 
 describe('conversation display ownership', () => {
+  it.each(['send', 'regenerate'].flatMap(kind => [
+    ...['complete', 'cancelled', 'error'].map(outcome => [kind, outcome, false]),
+    [kind, 'cancelled', true],
+  ]))('switches characters during %s without borrowing another conversation state (%s, return before stopping: %s)', async (kind, outcome, revisit) => {
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+    const records = ['a', 'b'].map(key => ({ id: `chat-${key}`, title: `Synthetic ${key}`,
+      runtimeSessionId: `session-${key}`, metadata: { characterId: `character-${key}` } }))
+    const details = new Map(records.map(record => [record.id, { conversation: record, metadata: record.metadata,
+      runtimeSessionId: record.runtimeSessionId, messages: [{ id: `input-${record.id}`, role: 'user', content: 'Synthetic previous input',
+        conversationId: record.id, sessionEventSeq: 2, sequence: 2 }], hasMore: false }]))
+    const runs = new Map(), listeners = new Set(), streamListeners = new Set()
+    let snapshot
+    const publish = id => {
+      snapshot = { details: { id, status: 'ready', details: details.get(id) },
+        stream: { id, status: runs.has(id) ? 'running' : 'idle', runId: runs.has(id) ? `session-${id.slice(-1)}` : '', content: '', process: [] } }
+      for (const listener of [...listeners, ...streamListeners]) listener()
+    }
+    publish('chat-a')
+    const catalog = { status: 'ready', items: records, error: '' }
+    const model = {
+      getSnapshot: () => catalog, subscribe: () => () => {}, getDetailsSnapshot: () => snapshot.details,
+      getChatSnapshot: () => snapshot, getStreamSnapshot: () => snapshot.stream,
+      subscribeChat: listener => { listeners.add(listener); return () => listeners.delete(listener) },
+      subscribeStream: listener => { streamListeners.add(listener); return () => streamListeners.delete(listener) },
+      refresh: async () => records, open: vi.fn(async id => { publish(id); return details.get(id) }),
+      readModelSelection: async () => ({ provider: 'synthetic', model: 'synthetic' }),
+      send: vi.fn(input => new Promise((resolve, reject) => { runs.set(input.conversationId, { input, resolve, reject }); publish(input.conversationId) })),
+      cancelRequest: vi.fn(async (id, requestId) => {
+        expect(runs.get(id).input.requestId).toBe(requestId)
+        finish(id, 'cancelled'); return true
+      }),
+      invalidateDetails: vi.fn(),
+    }
+    model.regenerate = model.send
+    function finish(id, result = 'complete') {
+      const run = runs.get(id); runs.delete(id)
+      const record = details.get(id)
+      const next = { ...record, messages: [{ id: `reply-${id}`, conversationId: id, role: 'assistant',
+        content: `Reply ${id}`, status: 'complete', sequence: 1 }] }
+      details.set(id, next)
+      if (snapshot.details.id === id) publish(id)
+      if (result === 'error') run.reject(new Error(`Synthetic failure ${id}`))
+      else run.resolve({ details: next, cancelled: result === 'cancelled' })
+    }
+    const props = { conversations: model, characters: [], modelConfigs: [{ id: 'synthetic', model: 'synthetic' }],
+      setStatus: vi.fn(), setActiveSectionState: vi.fn(), notify: vi.fn() }
+    const container = document.createElement('div'); document.body.append(container)
+    const root = createRoot(container)
+    let chat
+    function Probe() { chat = useChatSessions(props); return null }
+    let first, second
+    try {
+      await act(async () => root.render(<Probe />))
+      await act(async () => { first = kind === 'send' ? chat.sendMessage(null, 'Input A')
+        : chat.regenerateReply({ targetMessageId: 'input-chat-a', replacementMessage: 'Revised input A' }) })
+      expect(chat.isSending).toBe(true)
+      await act(async () => chat.openCharacterChat({ id: 'character-b', name: 'Synthetic B' }))
+      expect(chat.sessionId).toBe('chat-b')
+      expect(chat.isSending).toBe(false)
+      expect(model.cancelRequest).not.toHaveBeenCalled()
+      await act(async () => { second = chat.sendMessage(null, 'Input B') })
+      expect([...runs.keys()]).toEqual(['chat-a', 'chat-b'])
+      await act(async () => chat.setInput('Unsent draft B'))
+      if (revisit) {
+        await act(async () => chat.loadChat('chat-a'))
+        expect(chat.isSending).toBe(true)
+        await act(async () => chat.stopSend())
+        await act(async () => { await first })
+        expect(model.cancelRequest.mock.calls[0][0]).toBe('chat-a')
+        expect([...runs.keys()]).toEqual(['chat-b'])
+        await act(async () => chat.loadChat('chat-b'))
+      } else await act(async () => { finish('chat-a', outcome); await first })
+      expect(chat.sessionId).toBe('chat-b')
+      expect(chat.isSending).toBe(true)
+      if (!revisit) expect(chat.input).toBe('Unsent draft B')
+      expect(chat.messages.every(message => message.conversationId === 'chat-b')).toBe(true)
+      expect(model.open.mock.calls.at(-1)).toEqual(['chat-b'])
+      await act(async () => chat.stopSend())
+      await act(async () => { await second })
+      expect(model.cancelRequest).toHaveBeenCalledTimes(revisit ? 2 : 1)
+      expect(model.cancelRequest.mock.calls.at(-1)[0]).toBe('chat-b')
+      expect(chat.isSending).toBe(false)
+      await act(async () => chat.loadChat('chat-a'))
+      expect(chat.messages.at(-1).content).toBe('Reply chat-a')
+    } finally {
+      for (const id of [...runs.keys()]) finish(id)
+      await act(async () => { await Promise.allSettled([first, second]); root.unmount() })
+      container.remove(); vi.unstubAllGlobals()
+    }
+  })
+
   it.each([false, true])('clears a deactivated conversation and rejects an outstanding open (%s)', async pendingOpen => {
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
     const conversation = { id: 'synthetic-deleted-chat', title: 'Synthetic chat',

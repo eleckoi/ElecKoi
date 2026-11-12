@@ -1,3 +1,4 @@
+import { EditorView } from '@codemirror/view';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { CharacterEditorWindow } from '../../src/app/windows/CharacterEditorWindow.jsx';
@@ -39,6 +40,11 @@ window.variableWorkspaceSaved = () => value;
 const model = { getSnapshot: () => ({ status: 'ready', value }), read: async () => value, subscribe: () => () => {}, saveViewState: async () => [],
   save: async (_id, next) => { window.variableWorkspaceCalls++; if (window.variableWorkspaceSaveFails) throw Error('合成保存失败'); value = structuredClone(next); return value; } };
 const q = new URLSearchParams(location.search), theme = q.get('theme') || 'light';
+window.editorViewFor = label => EditorView.findFromDOM(document.querySelector(`[role="textbox"][aria-label="${label}"]`));
+if (q.has('long')) {
+  const text = q.get('long') === 'single' ? '超长行内容'.repeat(250000) : Array.from({ length: 100000 }, (_, i) => `${i} 创作内容，保留完整文字。\n`).join('');
+  value.variables[0].description = text; value.variables[0].updateRule = text;
+}
 document.documentElement.dataset.theme = theme; document.body.toggleAttribute('data-ds-dark-theme', theme === 'dark'); document.documentElement.style.colorScheme = theme;
 const catalog = { refresh: async () => ({ items: [{ id: 'design-character', name: '林间来信', persona: {} }] }) };
 createRoot(document.getElementById('root')).render(<div id="eleckoi-root"><CharacterEditorWindow

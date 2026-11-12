@@ -85,19 +85,40 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
   const [conversationTransitionRevision, setConversationTransitionRevision] = useState(0);
   const [input, setInput] = useState("");
   const [keyword, setKeyword] = useState("");
-  const [isSending, setIsSending] = useState(false);
+  const requestsRef = useRef(new Set());
+  const [, updateRequests] = useState(0);
+  // Request ownership follows the conversation, independently of the selected
+  // view. Only live requests are retained; settling one releases its reference.
+  const requestRef = useMemo(() => {
+    const existing = [...requestsRef.current].find(ref => ref.current?.conversationId === sessionId);
+    if (existing) return existing;
+    let current = null;
+    const ref = {
+      get current() { return current; },
+      set current(value) {
+        current = value;
+        if (value) requestsRef.current.add(ref);
+        else requestsRef.current.delete(ref);
+        updateRequests(revision => revision + 1);
+      },
+    };
+    return ref;
+  }, [sessionId]);
   const liveRun = Boolean(conversations && streamSnapshot.id === sessionId
     && streamSnapshot.status === "running" && streamSnapshot.runId);
   // The DSH stream is the source of truth for the running assistant row. It
   // must be visible during an ordinary send as well as after a restored run;
-  // `isSending` only describes the product request wrapper, not DSH's row
-  // lifecycle.
+  // A local request also covers image preparation and durable settlement.
   const restoredRun = liveRun;
-  const chatBusy = isSending || liveRun;
+  const chatBusy = Boolean(requestRef.current && requestRef.current.sending !== false) || liveRun;
+  const setIsSending = sending => {
+    if (!requestRef.current) return;
+    requestRef.current.sending = sending;
+    updateRequests(revision => revision + 1);
+  };
   const [historyOpen, setHistoryOpen] = useState(false);
   const [chatCharacter, setChatCharacter] = useState(() => createEmptyChatCharacter());
 
-  const requestRef = useRef(null);
   const {
     pinnedIds,
     hiddenIds,
@@ -282,10 +303,6 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
   }
 
   async function loadChat(sessionIdToLoad, options = {}) {
-    if (chatBusy) {
-      setStatus("正在生成，请先停止或等待完成");
-      return;
-    }
     clearInputImages();
     discardInputFiles();
     const loadGeneration = ++loadGenerationRef.current;
@@ -313,10 +330,6 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
   }
 
   async function openCharacterChat(role) {
-    if (chatBusy) {
-      setStatus("正在生成，请先停止或等待完成");
-      return;
-    }
     const characterData = normalizeChatCharacter(role);
     const characterId = characterData.character_id;
     const characterName = characterData.assistant_name || characterData.character_name || tUi("未命名角色");
@@ -367,15 +380,10 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
   }
 
   async function createChat() {
-    if (chatBusy) {
-      setStatus("正在生成，请先停止或等待完成");
-      return;
-    }
     if (!chatCharacter.character_id) {
       setStatus("请先从角色设定中双击角色进入聊天");
       return;
     }
-    abortActiveRequest();
     clearInputImages();
     discardInputFiles();
     const creationGeneration = ++loadGenerationRef.current;
@@ -389,7 +397,6 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
       setSessionId(chat.id);
       replaceChatMessages(chat, "auto");
       setInput("");
-      setIsSending(false);
       setChatCharacter(normalizeLatestChatCharacter(chat));
       setConversationTransitionRevision((value) => value + 1);
       setIsSwitchingChat(false);
@@ -442,7 +449,6 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
     setMessagesWithScroll([], "auto");
     setInput("");
     setChatCharacter(createEmptyChatCharacter());
-    setIsSending(false);
     setStatus("就绪");
   }
 
@@ -516,34 +522,39 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
   }
 
   function stopSend() {
+    const generation = loadGenerationRef.current;
+    const currentStatus = value => { if (generation === loadGenerationRef.current) setStatus(value); };
     const activeRequest = requestRef.current;
     if (activeRequest) {
       stopChatMessageSend({
-        requestRef, setIsSending, setStatus, notify,
+        requestRef, setIsSending, setStatus: currentStatus, notify,
         cancelRequest: (requestId) => conversations.cancelRequest(activeRequest.conversationId || sessionId, requestId),
       });
       return;
     }
     if (restoredRun && streamSnapshot.runId && typeof conversations.cancelStream === "function") {
       void conversations.cancelStream(streamSnapshot.runId).then((cancelled) => {
-        if (!cancelled) setStatus("这次回复已结束");
+        if (!cancelled) currentStatus("这次回复已结束");
       }).catch((error) => {
         const message = getErrorMessage(error, tUi("停止生成失败"));
-        setStatus(message);
+        currentStatus(message);
         notify?.("error", message);
       });
       return;
     }
-    setIsSending(false);
   }
 
   function sendMessage(event, inputOverride) {
+    const generation = loadGenerationRef.current;
+    const isCurrentConversation = () => generation === loadGenerationRef.current;
+    const current = callback => (...args) => { if (isCurrentConversation()) return callback(...args); };
     return runChatMessageSend({
-      event, input: inputOverride ?? input, inputImagesRef, inputFilesRef, isSending: chatBusy || filesUploading, modelConfig, modelSupportsImages, setStatus,
-      requestRef, setIsSending, sessionId, chatCharacter, setSessionId, replaceChatMessages,
-      setChatCharacter, normalizeLatestChatCharacter, refreshSessionsOnly, setInput, clearInputImages, clearInputFiles,
-      setMessages, requestScrollToEnd, reconcileChatMessages,
-      notify, restoreChatEntry, conversationModel: conversations,
+      event, input: inputOverride ?? input, inputImagesRef, inputFilesRef, isSending: chatBusy || filesUploading, modelConfig, modelSupportsImages, setStatus: current(setStatus),
+      requestRef, setIsSending, sessionId, chatCharacter, setSessionId: current(setSessionId), replaceChatMessages: current(replaceChatMessages),
+      setChatCharacter: current(setChatCharacter), normalizeLatestChatCharacter, refreshSessionsOnly, setInput: current(setInput),
+      clearInputImages: current(clearInputImages), clearInputFiles: current(clearInputFiles),
+      setMessages: current(setMessages), requestScrollToEnd: current(requestScrollToEnd), reconcileChatMessages: current(reconcileChatMessages),
+      notify, restoreChatEntry, conversationModel: conversations, isCurrentConversation,
     });
   }
 
@@ -620,11 +631,12 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
     restoreChatEntry(sessionId);
 
     const controller = new AbortController();
+    const generation = loadGenerationRef.current;
+    const ownsView = () => generation === loadGenerationRef.current;
     const requestId = `regen-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const activeRequest = { controller, requestId };
     activeRequest.conversationId = sessionId;
     requestRef.current = activeRequest;
-    setIsSending(true);
     setStatus("正在重新生成...");
     requestScrollToEnd("auto", "regeneration");
     try {
@@ -636,30 +648,31 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
       throwIfAborted(controller.signal);
       const result = await regenerateChatMessage(sessionId, payload, requestId, { model: conversations, signal: controller.signal });
       if (result.cancelled) {
-        if (requestRef.current === null || requestRef.current === activeRequest) {
+        if (ownsView() && (requestRef.current === null || requestRef.current === activeRequest)) {
           replaceChatMessages(result.chat);
           conversations?.invalidateDetails(sessionId);
         }
-        if (requestRef.current === activeRequest) setStatus("已停止");
+        if (ownsView() && requestRef.current === activeRequest) setStatus("已停止");
         return;
       }
-      if (requestRef.current !== activeRequest) return;
+      if (!ownsView() || requestRef.current !== activeRequest) return;
       replaceChatMessages(result.chat);
       conversations?.invalidateDetails(sessionId);
       setChatCharacter(normalizeLatestChatCharacter(result.chat || {}));
-      await refreshSessionsOnly();
-      if (requestRef.current !== activeRequest) return;
+      await refreshSessionsOnly({ keepSection: true });
+      if (!ownsView() || requestRef.current !== activeRequest) return;
       setStatus("回复完成");
     } catch (error) {
       if (requestRef.current === activeRequest && !isAbortError(error)) {
         const message = getErrorMessage(error, tUi("重新生成失败"));
         setIsSending(false);
-        setStatus(message);
+        if (ownsView()) setStatus(message);
         notify?.("error", message);
+        if (!ownsView()) return;
         let reconciled = false;
         try {
           const durable = await getChat(sessionId, { model: conversations });
-          if (requestRef.current === activeRequest) {
+          if (ownsView() && requestRef.current === activeRequest) {
             replaceChatMessages(durable.chat);
             conversations?.invalidateDetails(sessionId);
             setChatCharacter(normalizeLatestChatCharacter(durable.chat || {}));
@@ -668,13 +681,12 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
         } catch {
           // Preserve the original regeneration failure when durable refresh also fails.
         }
-        if (requestRef.current !== activeRequest) return;
+        if (!ownsView() || requestRef.current !== activeRequest) return;
         if (!reconciled) setStatus("重新生成失败，且无法刷新聊天记录");
       }
     } finally {
       if (requestRef.current === activeRequest) {
         requestRef.current = null;
-        setIsSending(false);
       }
     }
   }
@@ -704,7 +716,7 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
     });
   }, [chatCharacter.character_id, characterLookup]);
 
-  useExternalChatRuns({ sessionId, conversations, requestRef, setIsSending, setStatus,
+  useExternalChatRuns({ sessionId, conversations, setStatus,
     reconcileChatMessages, setChatCharacter, normalizeLatestChatCharacter, refreshSessionsOnly });
 
   return {

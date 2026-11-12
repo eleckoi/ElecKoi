@@ -109,8 +109,8 @@ export function RegexRuleInspector({ scope, rule, scopes = REGEX_SCOPES, scopeLo
         </fieldset>
 
         <div className="regex-behavior">
-          <Switch checked={rule.displayOnly} label={tUi("仅修改显示内容")} onChange={(checked) => onChange({ displayOnly: checked })} />
-          <Switch checked={rule.promptOnly} label={tUi("仅修改提示词内容")} onChange={(checked) => onChange({ promptOnly: checked })} />
+          <Switch checked={rule.displayOnly} label={tUi("修改界面显示")} onChange={(checked) => onChange({ displayOnly: checked })} />
+          <Switch checked={rule.promptOnly} label={tUi("修改发送给 AI 的提示词")} onChange={(checked) => onChange({ promptOnly: checked })} />
           <Switch checked={rule.runOnEdit} label={tUi("编辑测试时自动运行")} onChange={(checked) => onChange({ runOnEdit: checked })} />
         </div>
 
@@ -123,7 +123,7 @@ export function RegexRuleInspector({ scope, rule, scopes = REGEX_SCOPES, scopeLo
             {localizeUiCopy(REGEX_TARGETS, tUi).map(target => <option key={target.id} value={target.id}>{target.label}</option>)}
           </select></label>
           <label className="regex-field"><span>{tUi("测试范围")}</span><select value={testSurface} onChange={event => setTestSurface(event.target.value)}>
-            <option value="Display">{tUi("显示内容")}</option><option value="Prompt">{tUi("提示词内容")}</option><option value="Stored">{tUi("保存内容")}</option>
+            <option value="Display">{tUi("界面显示")}</option><option value="Prompt">{tUi("发送给 AI 的提示词")}</option><option value="Stored">{tUi("保存内容")}</option>
           </select></label>
           <label className="regex-field"><span>{tUi("输入")}</span><textarea value={testInput} onChange={(event) => setTestInput(event.target.value)} /></label>
           <label className="regex-field"><span>{tUi("测试变量 JSON")}</span><textarea className="is-code" spellCheck="false" value={testVariables} onChange={event => setTestVariables(event.target.value)} /></label>

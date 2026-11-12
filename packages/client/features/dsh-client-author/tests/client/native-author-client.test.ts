@@ -1110,7 +1110,7 @@ describe('native author Client ownership and interaction', () => {
     vi.mocked(r.remote.eleckoiConversations.changes).mockReturnValue(changedFeed)
     ;(source === 'rules' ? r.tasks[0]! : r.changes).fail(new RemoteStreamCarrierError('Synthetic carrier disconnected'))
     await vi.waitFor(() => {
-      expect(source === 'rules' ? r.tasks.length : r.remote.eleckoiConversations.changes.mock.calls.length).toBe(2)
+      expect(source === 'rules' ? r.tasks.length : vi.mocked(r.remote.eleckoiConversations.changes).mock.calls.length).toBe(2)
       expect(r.runtime.getSnapshot().status).toBe('ready')
     })
     expect(cleanup).not.toHaveBeenCalled()

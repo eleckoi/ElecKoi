@@ -1,7 +1,7 @@
 import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { decodeEditorVersionContent, editorLibraryVersionsSchema } from '@shared/contracts/editorVersions/schemas';
 import { resolveFailure } from '../../utils/failureText.js';
 
@@ -16,7 +16,7 @@ export function useEditorLibraryVersions({ kind, scope, ownerId, service, captur
   callbacks.current = { capture, apply, editorDirty };
   const addresses = [{ scope: 'global', ownerId: '' }, { scope, ownerId }];
   const ready = addresses.every(address => Boolean(drafts[address.scope]));
-  const dirty = !same(drafts, baselines);
+  const dirty = useMemo(() => !same(drafts, baselines), [drafts, baselines]);
   const normalize = value => { const parsed = editorLibraryVersionsSchema.parse(value); return { ...parsed,
     versions: parsed.versions.map(version => ({ ...version, content: JSON.stringify(decodeEditorVersionContent(kind, version.content)) })) }; };
   function adopt(next) { refs.current.drafts = next; setDrafts(next); }

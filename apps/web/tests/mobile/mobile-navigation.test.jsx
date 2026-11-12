@@ -29,7 +29,7 @@ function Page({ panel }) {
   if (view.route.kind === 'model-editor') return <><p data-model-config={view.route.configId}>模型编辑</p><button onClick={view.goBack}>返回</button></>;
   if (view.route.kind === 'conversation') return <><p data-chat={view.chat.sessionId}>独立对话</p><button onClick={() => view.openCharacterEditor(view.chat.chatCharacter.character_id)}>编辑当前角色</button><button onClick={view.goBack}>返回</button></>;
   if (view.route.kind === 'character-editor') return <><p data-character-editor={view.route.characterId}>角色编辑</p><button onClick={view.goBack}>返回</button></>;
-  if (view.route.kind === 'character-profile') return <><p>角色资料</p><button onClick={() => view.openCharacterConversation('character-b')}>开始对话</button><button onClick={view.goBack}>返回</button></>;
+  if (view.route.kind === 'character-profile') return <><p>角色资料</p><button onClick={() => view.openCharacterConversation('character-b')}>进入对话</button><button onClick={view.goBack}>返回</button></>;
   return <ListPage panel={panel} />;
 }
 function ListPage({ panel }) {
@@ -279,13 +279,13 @@ describe('Android independent conversation navigation', () => {
     expect(document.querySelector('.mobile-bottom-nav')).not.toBeNull();
   });
   it('returns from a character conversation to its source profile and then its list', async () => {
-    await mount(); await click('角色'); await click('角色资料'); await click('开始对话');
+    await mount(); await click('角色'); await click('角色资料'); await click('进入对话');
     expect(document.querySelector('[data-chat]').dataset.chat).toBe('chat-b');
     await click('返回'); expect(document.body.textContent).toContain('角色资料');
     expect(document.querySelector('.mobile-shell').dataset.mobilePanel).toBe('character');
     await click('返回'); expect(document.querySelector('[data-list]').dataset.list).toBe('character');
   });
-  it('preserves the current conversation when loading fails or generation blocks a switch', async () => {
+  it('preserves the source when loading fails and allows another conversation while generating', async () => {
     fixture.chat.loadChat = vi.fn(async () => {});
     await mount(); await click('打开会话乙');
     expect(document.querySelector('[data-chat]')).toBeNull();
@@ -293,10 +293,23 @@ describe('Android independent conversation navigation', () => {
     expect(document.querySelector('[role="alert"]').textContent).toContain('对话未能打开，请重试');
     expect(document.querySelector('[role="alert"]').textContent).toContain('eleckoi/internal');
     await click('关闭');
-    fixture.chat.isSending = true; await act(async () => root.render(<Harness />));
+    fixture.chat.isSending = true;
+    fixture.chat.loadChat = vi.fn(async id => {
+      fixture.chat = { ...fixture.chat, sessionId: id, chatCharacter: { character_id: 'character-b' }, isSending: false };
+      root.render(<Harness />);
+    });
+    await act(async () => root.render(<Harness />));
     await click('打开会话乙');
     expect(fixture.chat.loadChat).toHaveBeenCalledTimes(1);
-    expect(document.querySelector('[role="alert"]').textContent).toContain('正在生成');
+    expect(document.querySelector('[data-chat]').dataset.chat).toBe('chat-b');
+    expect(document.querySelector('[role="alert"]')).toBeNull();
+  });
+  it('enters another character profile conversation while the previous one is generating', async () => {
+    fixture.chat.isSending = true;
+    await mount(); await click('角色'); await click('角色资料'); await click('进入对话');
+    expect(fixture.chat.openCharacterChat).toHaveBeenCalledWith('character-b');
+    expect(document.querySelector('[data-chat]').dataset.chat).toBe('chat-b');
+    expect(document.querySelector('[role="alert"]')).toBeNull();
   });
   it('opens the already running conversation without resetting its input or calling the loader', async () => {
     fixture.chat.isSending = true;

@@ -182,7 +182,6 @@ export function MobileWindow(props) {
       finally { skipPanelGuard.current = false; }
       return;
     }
-    if (chat.isSending) { setFailure(tUi("正在生成，请先停止或等待完成")); return; }
     conversationBusyRef.current = true;
     setRouteBusy(true);
     setPendingConversation({ target, source, complete: false });

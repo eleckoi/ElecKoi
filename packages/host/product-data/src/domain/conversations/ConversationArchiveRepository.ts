@@ -143,7 +143,6 @@ export class ConversationArchiveRepository {
   }
 
   import(snapshot: ConversationArchiveSnapshot, characterId: string, runtimeIds: ReadonlyMap<string, string>, conversationId: string = randomUUID(), options: { preserveIds?: boolean } = {}): string {
-    if (snapshot.characterId !== characterId) throw new DesktopError(ELECKOI_FAILURE_CODES.stateMismatch, '聊天记录与当前角色不匹配。', { what: '聊天记录与角色' })
     const character = this.store.native.prepare('SELECT id,name,avatar FROM characters WHERE id=?').get(characterId) as
       { id: string; name: string; avatar: string } | undefined
     if (!character) throw new DesktopError(ELECKOI_FAILURE_CODES.characterNotFound, '当前角色不存在，无法导入聊天记录。', { what: '当前角色' })
@@ -170,9 +169,11 @@ export class ConversationArchiveRepository {
             row.boundaryId = remap('boundaryId', row.boundaryId!)
           }
           if (table === 'chat_sessions') {
+            row.characterId = characterId
             row.characterName = character.name
             row.characterAvatar = character.avatar
           }
+          if (table === 'conversation_speakers' && row.sourceSpeakerId === snapshot.characterId && row.kind === 'assistant') row.sourceSpeakerId = characterId
           if (table === 'agent_conversations') {
             if (row.variableVersionId === undefined) {
               row.variableVersionId = ''
