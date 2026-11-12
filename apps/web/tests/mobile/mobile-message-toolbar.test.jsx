@@ -40,18 +40,42 @@ describe('Android message toolbar', () => {
     content.getBoundingClientRect = () => ({ right: 75 + contentWidth + slide });
     tools().getBoundingClientRect = () => ({ left: toolsLeft, height: 48 });
     const clearance = () => article.style.getPropertyValue('--mobile-message-tool-clearance');
-    await act(async () => notify());
+    await act(async () => { notify(); vi.advanceTimersByTime(20); });
     expect(clearance()).toBe('34px');
     for (const translation of [390, -390, 0]) {
       slide = translation;
       content.style.transform = `translateX(${slide}px)`;
-      await act(async () => notify());
+      await act(async () => { notify(); vi.advanceTimersByTime(20); });
       expect(clearance()).toBe('34px');
     }
     contentWidth = 279; toolsLeft = 310;
-    await act(async () => notify());
+    await act(async () => { notify(); vi.advanceTimersByTime(20); });
     expect(clearance()).toBe('50px');
     expect(article.style.getPropertyValue('--mobile-message-tool-height')).toBe('48px');
+  });
+
+  it('reads toolbar geometry before writing and leaves unchanged clearance untouched', async () => {
+    let notify;
+    vi.stubGlobal('ResizeObserver', class { constructor(callback) { notify = callback; } observe() {} disconnect() {} });
+    await act(async () => root.render(<MessageBubble message={message} name="合成角色" />));
+    const article = container.querySelector('article'), content = article.querySelector('.message-content');
+    const operations = [];
+    Object.defineProperties(content, {
+      offsetLeft: { get: () => { operations.push('read'); return 75; } },
+      offsetWidth: { get: () => { operations.push('read'); return 249; } },
+    });
+    Object.defineProperties(tools(), {
+      offsetLeft: { get: () => { operations.push('read'); return 296; } },
+      offsetHeight: { get: () => { operations.push('read'); return 48; } },
+    });
+    const setProperty = article.style.setProperty.bind(article.style);
+    article.style.setProperty = (...args) => { operations.push('write'); return setProperty(...args); };
+    await act(async () => { notify(); vi.advanceTimersByTime(20); });
+    expect(operations).toEqual(['read', 'read', 'read', 'read', 'write', 'write']);
+    operations.length = 0;
+    await act(async () => { notify(); vi.advanceTimersByTime(20); });
+    expect(operations).not.toContain('write');
+    expect(article.style.getPropertyValue('--mobile-message-tool-clearance')).toBe('34px');
   });
 
   it('fades the old controls before swapping and retains header clearance throughout closing', async () => {
@@ -95,14 +119,16 @@ describe('Android message toolbar', () => {
     expect(container.querySelector('article').classList.contains('mobile-tools-reserved')).toBe(false);
   });
 
-  it('opens process details through the existing action and animates closing', async () => {
+  it('opens process details through the existing action without a toolbar resize during the sheet entrance', async () => {
     const onOpenProcess = vi.fn();
     await act(async () => root.render(<MessageBubble message={message} name="合成角色" onOpenProcess={onOpenProcess} />));
     await act(async () => button('更多').click());
     await tick(150);
     await act(async () => button('查看过程').click());
     expect(onOpenProcess).toHaveBeenCalledWith(message);
-    expect(tools().classList.contains('swapping')).toBe(true);
+    expect(tools().classList.contains('swapping')).toBe(false);
+    expect(button('更多')).not.toBeNull();
+    expect(button('查看过程')).toBeNull();
     await tick(150);
     expect(button('更多')).not.toBeNull();
   });

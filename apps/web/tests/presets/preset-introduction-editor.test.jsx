@@ -77,6 +77,20 @@ describe('preset introduction drafts', () => {
 });
 
 describe('preset introduction presentation', () => {
+  it('does not expand long saved instructions and update notes into the initial document DOM', () => {
+    const text = '合成长文与代码 const n = 1;\n'.repeat(100000) + '完整末尾标记';
+    const html = renderToStaticMarkup(<PresetIntroductionEditor {...props} readOnly preset={{ ...props.preset,
+      profile: { ...profile, usageInstructions: text, timeline: [{ ...profile.timeline[0], note: text }] } }} />);
+    expect(html.includes('完整末尾标记')).toBe(false);
+    expect(html.length).toBeLessThan(20000);
+  });
+
+  it('uses the shared viewport composer and immersive entry on desktop', () => {
+    const html = renderToStaticMarkup(<PresetContentComposer draft={createUsageDraft(profile)} onChange={() => {}} onSave={() => {}} onCancel={() => {}} />);
+    expect(html).not.toContain('<textarea');
+    expect(html).toContain('editor-text-input');
+    expect(html).toContain('沉浸编辑');
+  });
   it('keeps update records free of permanent three-dot menus', () => {
     const html = renderToStaticMarkup(<PresetIntroductionEditor {...props} />);
     expect(html).not.toContain('preset-update-menu');
@@ -102,11 +116,12 @@ describe('preset introduction presentation', () => {
   it('has both actions inside the empty editor before any typing', () => {
     const html = renderToStaticMarkup(<PresetIntroductionEditor {...props} preset={{ ...props.preset, profile: { ...profile, usageInstructions: '' } }} />);
     const form = html.match(/<form[\s\S]*?<\/form>/)?.[0];
-    expect(form).toContain('aria-label="使用说明"');
+    expect(form).toContain('aria-label="使用说明输入区"');
     expect(form).toContain('preset-content-composer-footer');
     expect(form).toContain('>取消<');
     expect(form).toContain('>保存<');
-    expect(html.match(/<textarea/g)).toHaveLength(1);
+    expect(html).toContain('editor-text-input');
+    expect(html).not.toContain('<textarea');
   });
 
   it('keeps new update title, date, body, and actions in one composer', () => {
@@ -114,7 +129,7 @@ describe('preset introduction presentation', () => {
     expect(html.match(/<form/g)).toHaveLength(1);
     expect(html).toContain('aria-label="更新标题"');
     expect(html).toContain('aria-label="更新日期"');
-    expect(html).toContain('aria-label="更新内容"');
+    expect(html).toContain('aria-label="更新内容输入区"');
     expect(html).toContain('>保存更新<');
     expect(html).toContain('>取消<');
   });

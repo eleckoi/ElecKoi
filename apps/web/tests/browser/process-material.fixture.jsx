@@ -8,6 +8,7 @@ import * as reactVirtual from '@tanstack/react-virtual';
 import { AgentProcessDialog } from '../../src/modules/chat/components/AgentProcessDialog.jsx';
 import { renderRoleplayToolCall } from '../../src/modules/chat/components/RoleplayToolCall.jsx';
 import { installBrowserIconSprite } from '../helpers/browserIconSprite.js';
+import { MessageBubble } from '../helpers/officialMarkdown.jsx';
 import '../../src/app/windows/styles/index.css';
 import '../../src/mobile/mobile.css';
 
@@ -18,8 +19,14 @@ function useDisclosure() {
   return { expanded, toggle: () => setExpanded(value => !value) };
 }
 function Process() {
+  const interactive = new URLSearchParams(location.search).has('interactive');
+  const [open, setOpen] = useState(!interactive);
   const [target, setTarget] = useState(null);
-  return <><AgentProcessDialog message={{ status: 'complete' }} onClose={() => {}} onContentTarget={setTarget} />
+  return <>{interactive && <main className="mobile-conversation-page"><MessageBubble
+    message={{ id: 'synthetic-process', role: 'assistant', content: '合成回复', status: 'complete',
+      process: [{ kind: 'tool', toolName: 'synthetic_tool', status: 'complete' }] }}
+    name="合成角色" onOpenProcess={() => setOpen(true)} /></main>}
+    {open && <AgentProcessDialog message={{ status: 'complete' }} onClose={() => setOpen(false)} onContentTarget={setTarget} />}
     {target && ReactDOM.createPortal(<>
       <div style={{ height: 50 }}>合成处理过程</div>
       <official.ReasoningRow text={'合成思考正文。\n'.repeat(60)} running={false} useDisclosure={useDisclosure}

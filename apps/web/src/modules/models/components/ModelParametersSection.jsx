@@ -34,7 +34,7 @@ function CapabilityCheckbox({ picker, label, className = '', ...props }) {
   </label>;
 }
 
-export function ModelParametersSection({ form, activeModelOption, automaticContextWindow, effectiveContextWindow, parameterError, modelCapabilities, showReasoningProfileEditor = false, compact = false, picker = false, menu = false, onChange }) {
+export function ModelParametersSection({ form, activeModelOption, automaticContextWindow, effectiveContextWindow, parameterError, modelCapabilities, showReasoningProfileEditor = false, showCapabilities = true, compact = false, picker = false, menu = false, onChange }) {
   const tUi = useProductTranslation();
   const options = reasoningOptions(modelCapabilities.reasoningEfforts, undefined, tUi);
   const selectedEffort = options.some((item) => item.id === activeModelOption?.reasoningEffort)
@@ -104,7 +104,7 @@ export function ModelParametersSection({ form, activeModelOption, automaticConte
           <ParameterInput menu={menu} type="number" min="0" max="1" step="0.01" disabled={!form.model} value={activeModelOption?.topP ?? ""} onChange={(event) => onChange({ topP: optionalNumber(event.target.value) })} placeholder={compact ? tUi("留空") : tUi("上游默认")} />
         </label>
       </ParameterGrid>
-      <Capabilities {...(picker ? { className: 'chat-model-capabilities' } : {})}>
+      {showCapabilities && <Capabilities {...(picker ? { className: 'chat-model-capabilities' } : {})}>
       {picker ? <summary>{tUi("模型能力")}</summary> : null}
       <div className="model-capabilities">
         {(!picker || (form.builtin && form.useBuiltinModels !== false)) && <div className="model-capabilities-heading">
@@ -144,7 +144,7 @@ export function ModelParametersSection({ form, activeModelOption, automaticConte
           </fieldset>
         ) : null}
       </div>
-      </Capabilities>
+      </Capabilities>}
       {parameterError ? <p className="model-parameter-error">{tUi("上下文、压缩阈值和输出需为正整数；压缩不能超过上下文；温度需为非负数，Top P 为 0–1；已声明推理能力时至少选择一个非关闭档位。")}</p> : null}
       {activeModelOption?.inputModalities?.length === 0 && <p className="model-parameter-error">{tUi("至少选择一种输入能力。")}</p>}
     </section>

@@ -1,4 +1,4 @@
-import { useContext, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
+import { useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Button, IconChevronDownOutlineRegular, IconChevronRightOutlineRegular, Tag, Toast, IconWarningOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import { MainPageContext } from '../../../app/windows/MainPageContext.jsx';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
@@ -7,6 +7,7 @@ import { ModelParametersSection } from './ModelParametersSection.jsx';
 import { modelParameterState } from '../model/modelConfigDraft.js';
 import { useModelCapabilities } from '../hooks/useModelCapabilities.js';
 import { UnsavedChangesDialog } from '../../../ui/ui/UnsavedChangesDialog.jsx';
+import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
 
 // Unsaved drafts follow the catalog lifetime until explicitly saved or cancelled.
 const parameterEdits = new WeakMap();
@@ -35,15 +36,24 @@ export function ModelProviderLabel({ provider, catalog }) {
 }
 
 export function ModelMenuParameters(props) {
-  return <ParameterEditor key={JSON.stringify([props.provider.id, props.model.id])} {...props} />;
+  return <ParameterEditor key={JSON.stringify([props.sessionId, props.provider.id, props.model.id])} {...props} />;
 }
 
-function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassName, valueClassName, registerLeaveGuard, catalog }) {
+function ParameterEditor({ sessionId, provider, model, itemRef, cellClassName, labelClassName, valueClassName, registerLeaveGuard, catalog }) {
   const tUi = useProductTranslation();
   const view = useContext(MainPageContext);
   const snapshot = useSyncExternalStore(catalog.subscribe, catalog.getSnapshot);
+  const parameterStore = useMemo(() => catalog.sessionParameters(sessionId), [catalog, sessionId]);
+  const projectedParameters = useSyncExternalStore(parameterStore.subscribe, parameterStore.getSnapshot, parameterStore.getSnapshot);
+  const [loadedParameters, setLoadedParameters] = useState(null), [loadingError, setLoadingError] = useState(null);
+  const parameters = loadedParameters && (!projectedParameters || loadedParameters.revision > projectedParameters.revision) ? loadedParameters : projectedParameters;
+  useEffect(() => {
+    let active = true;
+    void catalog.readSessionModelParameters(sessionId).then(value => { if (active) { setLoadedParameters(value); setLoadingError(null); } }, error => { if (active) setLoadingError(error); });
+    return () => { active = false; };
+  }, [catalog, sessionId]);
   const config = snapshot.configs.find(item => item.id === provider.id);
-  const key = JSON.stringify([provider.id, model.id]);
+  const key = JSON.stringify([sessionId, provider.id, model.id]);
   if (!parameterEdits.has(catalog)) parameterEdits.set(catalog, new Map());
   const drafts = parameterEdits.get(catalog);
   const [open, setOpen] = useState(false), [, refresh] = useState(0), [failure, setFailure] = useState(null);
@@ -56,8 +66,18 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
   const focusFields = () => window.requestAnimationFrame(() => fieldsRef.current?.querySelector('input:not([disabled])')?.focus());
   const callbacks = useRef({ catalog, notify: view?.chat?.notify });
   callbacks.current = { catalog, notify: view?.chat?.notify };
-  const option = config?.model_options?.find(item => item.id === model.id);
-  const form = { ...config, model: model.id, model_options: (config?.model_options || []).map(item => item.id === model.id ? { ...item, ...edit.current.patch } : item) };
+  const catalogOption = config?.model_options?.find(item => item.id === model.id);
+  const option = catalogOption && { ...catalogOption, ...parameters?.entries[JSON.stringify([provider.id, model.id])] };
+  const activeOption = option && { ...option, ...edit.current.patch };
+  if (activeOption) {
+    const overrides = new Set(catalogOption.overrideFields || []);
+    for (const [field, key] of [['contextWindowTokens', 'contextWindow'], ['maxOutputTokens', 'maxTokens']]) {
+      if (activeOption[field] == null) overrides.delete(key); else overrides.add(key);
+    }
+    activeOption.overrideFields = [...overrides];
+    activeOption.catalogDefaults = { ...catalogOption.catalogDefaults, contextWindowTokens: catalogOption.catalogDefaults?.contextWindowTokens || catalogOption.contextWindowTokens };
+  }
+  const form = { ...config, model: model.id, model_options: (config?.model_options || []).map(item => item.id === model.id ? activeOption : item) };
   const state = modelParameterState(form, config?.provider);
   const capabilities = useModelCapabilities(form);
   function finish() {
@@ -66,14 +86,15 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
   }
   async function save(proceed) {
     const draft = edit.current;
-    if (!Object.keys(draft.patch).length || draft.pending != null || state.parameterError) return;
+    if (!parameters || loadingError || !Object.keys(draft.patch).length || draft.pending != null || state.parameterError) return;
     const generation = draft.generation, patch = { ...draft.patch };
     draft.pending = generation;
-    const task = Promise.resolve().then(() => callbacks.current.catalog.saveModelParameters(provider.id, model.id, patch));
+    const task = Promise.resolve().then(() => callbacks.current.catalog.saveSessionModelParameters(sessionId, provider.id, model.id, patch, draft.revision ?? parameters.revision));
     draft.task = task;
     refresh(value => value + 1);
     try {
-      await task;
+      const saved = await task;
+      if (mounted.current) setLoadedParameters(saved);
       if (draft.generation === generation) {
         draft.patch = {}; draft.error = null;
         drafts.delete(key);
@@ -121,13 +142,8 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
   }, [open]);
   function change(patch) {
     if (edit.current.pending != null) return;
-    const overrides = new Set(state.activeModelOption?.overrideFields || []);
-    for (const [field, key] of [['contextWindowTokens', 'contextWindow'], ['maxOutputTokens', 'maxTokens']]) {
-      if (!Object.hasOwn(patch, field)) continue;
-      if (patch[field] == null) overrides.delete(key); else overrides.add(key);
-      patch = { ...patch, overrideFields: [...overrides] };
-    }
     const nextPatch = { ...edit.current.patch, ...patch };
+    if (!Object.keys(edit.current.patch).length) edit.current.revision = parameters?.revision;
     for (const field of Object.keys(nextPatch)) {
       const baseline = field === 'inputModalities' ? option?.inputModalities || (option?.supportsImageInput ? ['text', 'image'] : ['text'])
         : field === 'supportsImageInput' ? option?.supportsImageInput ?? option?.inputModalities?.includes('image') ?? false : option?.[field];
@@ -161,16 +177,17 @@ function ParameterEditor({ provider, model, itemRef, cellClassName, labelClassNa
       {open ? <IconChevronDownOutlineRegular size={12} /> : <IconChevronRightOutlineRegular size={12} />}
     </button>
     <div ref={fieldsRef} id={id} className="model-menu-parameters" data-model-parameters-fields="" hidden={!open}>
-      <fieldset className="model-menu-draft" disabled={edit.current.pending != null}>
-        <ModelParametersSection form={form} {...state} modelCapabilities={capabilities} picker menu showReasoningProfileEditor onChange={change} />
-        {error && <div className="model-menu-error" role="alert">{error.message}</div>}
+      <FailureAlert failure={loadingError} onRetry={() => { void catalog.readSessionModelParameters(sessionId).then(value => { if (mounted.current) { setLoadedParameters(value); setLoadingError(null); } }, error => { if (mounted.current) setLoadingError(error); }); }} />
+      <fieldset className="model-menu-draft" disabled={!parameters || Boolean(loadingError) || edit.current.pending != null}>
+        <ModelParametersSection form={form} {...state} modelCapabilities={capabilities} picker menu showCapabilities={false} onChange={change} />
+        <FailureAlert failure={error} />
         <footer className="model-menu-actions">
           <Button variant="outline" onClick={cancel}>{tUi('取消')}</Button>
           <Button variant="primary" disabled={!Object.keys(edit.current.patch).length || state.parameterError} aria-busy={edit.current.pending != null} onClick={() => void save()}>{tUi('保存')}</Button>
         </footer>
       </fieldset>
     </div>
-    <UnsavedChangesDialog open={confirmLeave} title={tUi('保存修改？')} description={tUi('离开前是否保存当前模型配置的修改？')}
+    <UnsavedChangesDialog open={confirmLeave} title={tUi('保存修改？')} description={tUi('离开前是否保存模型选择和参数修改？')}
       saving={edit.current.pending != null} saveDisabled={Boolean(state.parameterError)} error={error?.message || (state.parameterError ? tUi('模型参数超出有效范围。') : '')}
       onCancel={() => { pendingLeave.current = null; leaving.current = false; setConfirmLeave(false); focusFields(); }}
       onDiscard={discardAndLeave} onSave={() => void save(pendingLeave.current)} />

@@ -9,14 +9,3 @@
 .native-script-dialog header svg { width: 18px; height: 18px; }
 .native-script-dialog iframe { width: 100%; height: 100%; min-width: 0; min-height: 0; border: 0; background: var(--surface-raised); }
 .native-script-panel-error { margin: 16px; color: var(--danger, #c52d33); overflow-wrap: anywhere; }
-.native-script-actions-dialog { width: min(480px, calc(100vw - 32px)); height: fit-content; }
-.native-script-actions-dialog header { min-height: 52px; }
-.native-script-actions-dialog header button { flex-basis: 44px; height: 44px; }
-.native-script-actions-list { margin: 0; padding: 8px; max-height: min(360px, calc(100dvh - 120px)); overflow-y: auto; list-style: none; }
-.native-script-actions-list button { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; min-height: 52px; padding: 8px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
-.native-script-actions-list button:not(:disabled):hover { background: var(--control-bg-hover); }
-.native-script-actions-list button:disabled { opacity: .5; cursor: default; }
-.native-script-actions-list span, .native-script-actions-list small { max-width: 100%; overflow-wrap: anywhere; }
-.native-script-actions-list small { color: var(--muted); font-size: 12px; }
-.native-script-actions-list p { margin: 4px 12px 8px; color: var(--danger, #c52d33); font-size: 12px; overflow-wrap: anywhere; }
-.native-script-actions-empty { margin: 0; padding: 24px 16px; color: var(--muted); font-size: 14px; }

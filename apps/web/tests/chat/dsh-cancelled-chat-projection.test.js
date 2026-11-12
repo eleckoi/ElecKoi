@@ -215,7 +215,7 @@ describe('cancelled official Chat projection', () => {
         React.createElement('button', { 'data-delete': true, disabled: !selected,
           onClick: () => chat.deleteMessagesFrom(selected) }, '删除选中回复'))
     }
-    const menu = label => [...container.querySelectorAll('[role="menuitem"]')]
+    const menu = label => [...document.querySelectorAll('[role="menuitem"]')]
       .find(button => button.textContent === label)
     const openMenu = () => container.querySelector('.roleplay-menu-trigger').click()
     try {

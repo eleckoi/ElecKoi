@@ -32,7 +32,7 @@ it.each(['scripts'].flatMap(kind => ['character', 'preset'].flatMap(scope => [fa
     const group = node.querySelector(`section[aria-label="${scope === 'preset' ? '预设' : '角色'}脚本"]`);
     await act(() => group.querySelector(kind === 'scripts' ? '.script-list-name' : '.editor-library-name').click());
     if (compact) await act(() => [...node.querySelectorAll('.mobile-editor-actions button')].find(button => button.textContent.trim() === '编辑').click());
-    const source = node.querySelector(compact ? '.script-source' : '[role=textbox][aria-label=脚本源码]');
+    const source = node.querySelector('[role=textbox][aria-label=脚本源码]');
     expect(editorText(source)).toBe('');
     await act(() => [...node.querySelectorAll('button')].find(button => button.textContent.includes('沉浸编辑')).click());
     const dialog = document.querySelector('.immersive-markdown-editor');
@@ -41,7 +41,7 @@ it.each(['scripts'].flatMap(kind => ['character', 'preset'].flatMap(scope => [fa
     await type(dialog.querySelector('textarea, [role=textbox]'), content);
     await act(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
     expect(document.querySelector('.immersive-markdown-editor')).toBeNull();
-    expect(editorText(node.querySelector(compact ? '.script-source' : '[role=textbox][aria-label=脚本源码]'))).toBe(content);
+    expect(editorText(node.querySelector('[role=textbox][aria-label=脚本源码]'))).toBe(content);
     await act(async () => expect(await ref.current.save()).toBe(true));
     const savedLibrary = saved.mock.lastCall[0].find(value => value.scope === scope);
     expect(savedLibrary.trees[0].content).toBe(content);

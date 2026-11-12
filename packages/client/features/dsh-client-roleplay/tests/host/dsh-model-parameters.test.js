@@ -16,11 +16,62 @@ import BasicCompactionEngine from '@deepseek-ai/dsh-compaction-basic'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import * as deepSeek from '@deepseek-ai/dsh-llm-deepseek-api-key'
 import * as piAi from '@deepseek-ai/dsh-llm-pi-ai'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { materializeAgentPreset, requestSnapshot } from '../../src/host/session-runtime.mjs'
-import { currentRequestSnapshot } from '../../src/host/model-selection-migration.mjs'
+import { currentRequestSnapshot, refreshSessionModelSnapshot } from '../../src/host/model-request-snapshot.mjs'
+import { writeSessionSnapshot } from '../../src/host/session-snapshot.mjs'
 
 describe('model request parameters', () => {
+  it('uses the saved default selection directly without persisting another selection', async () => {
+    const selected = { provider: 'synthetic-provider', model: 'synthetic-model', reasoningEffort: 'low' }
+    const ctx = { agentDefaultModel: { currentSelection: () => selected, saveSelection: vi.fn() },
+      llm: { resolveModelInfo: vi.fn(async () => ({ context: { contextWindow: 64000 }, defaultMaxTokens: 8000 })) } }
+    expect(await currentRequestSnapshot(ctx)).toMatchObject({ provider: selected.provider, model: selected.model, reasoningEffort: 'low', contextWindow: 64000, maxTokens: 8000 })
+    expect(ctx.llm.resolveModelInfo).toHaveBeenCalledExactlyOnceWith(selected.provider, selected.model)
+    expect(ctx.agentDefaultModel.saveSelection).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['synthetic-display-name', 'synthetic-current-provider'],
+    ['openai-responses-a1b2c3d4e5f6', 'synthetic-current-provider'],
+    ['deepseek-default', 'deepseek-official'],
+  ])('does not rewrite an unavailable saved provider %s even when %s is available', async (provider, available) => {
+    const selected = { provider, model: 'synthetic-model' }, original = new Error('Synthetic saved provider is unavailable')
+    const ctx = { agentDefaultModel: { currentSelection: () => selected, saveSelection: vi.fn() },
+      llm: { resolveModelInfo: vi.fn(async actual => {
+        if (actual !== available) throw original
+        return { context: { contextWindow: 64000 }, defaultMaxTokens: 8000 }
+      }) },
+      settings: { describe: () => provider === 'deepseek-default' ? [] : [
+        { ns: 'llm-pi-ai', value: { providers: { [available]: { displayName: provider, models: [{ id: selected.model }] } } } },
+        { ns: 'eleckoi-client-models', value: { entries: { [available]: { model: selected.model } } } },
+      ] } }
+    await expect(currentRequestSnapshot(ctx)).rejects.toBe(original)
+    expect(ctx.llm.resolveModelInfo).toHaveBeenCalledExactlyOnceWith(provider, selected.model)
+    expect(ctx.agentDefaultModel.saveSelection).not.toHaveBeenCalled()
+    expect(ctx.agentDefaultModel.currentSelection()).toEqual(selected)
+  })
+
+  it('restores the Session model snapshot from its own saved selection while the global default is unavailable', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'eleckoi-session-model-'))
+    const selected = { provider: 'synthetic-current-provider', model: 'synthetic-model', reasoningEffort: 'low' }
+    const ctx = { agentDefaultModel: { currentSelection: vi.fn(() => ({ provider: 'unavailable-other-provider', model: 'another-model' })), saveSelection: vi.fn() },
+      llm: { resolveModelInfo: async provider => {
+        if (provider !== selected.provider) throw new Error('Synthetic default is unavailable')
+        return { context: { contextWindow: 64000 }, defaultMaxTokens: 8000 }
+      } },
+      settings: { describe: () => [{ ns: 'eleckoi-client-models', value: { entries: { [selected.provider]: { parameters: { [selected.model]: { temperature: .4 } } } } } }] } }
+    try {
+      writeSessionSnapshot(root, 'synthetic-session', { conversationId: 'synthetic-conversation', model: { provider: 'different-provider', model: 'different-model' } })
+      await refreshSessionModelSnapshot(ctx, root, 'synthetic-session', selected)
+      expect(JSON.parse(readFileSync(join(root, 'synthetic-session.json'), 'utf8')).model).toEqual({
+        configId: selected.provider, ...selected, temperature: .4, maxTokens: 8000, contextWindow: 64000,
+      })
+      expect(ctx.agentDefaultModel.currentSelection).not.toHaveBeenCalled()
+      expect(ctx.agentDefaultModel.saveSelection).not.toHaveBeenCalled()
+    } finally { rmSync(root, { recursive: true, force: true }) }
+  })
+
   it('carries saved sampling and compaction parameters into main and subagent request snapshots', () => {
     const ctx = { settings: { describe: () => [{ ns: 'eleckoi-client-models', value: { entries: {
       'example-provider': { parameters: { 'example-model': { temperature: 0, topP: 0.96, autoCompactTokenLimit: 32000, reasoningEffort: 'high' } } },
@@ -28,14 +79,15 @@ describe('model request parameters', () => {
     expect(requestSnapshot(ctx, { provider: 'example-provider', model: 'example-model' }, { context: { contextWindow: 65536 }, defaultMaxTokens: 8192 }))
       .toMatchObject({ temperature: 0, topP: 0.96, autoCompactTokenLimit: 32000, maxTokens: 8192, contextWindow: 65536, reasoningEffort: 'high' })
     expect(requestSnapshot(ctx, { provider: 'example-provider', model: 'example-model', reasoningEffort: 'low' },
-      { context: { contextWindow: 65536 }, defaultMaxTokens: 8192 })).toMatchObject({ reasoningEffort: 'high' })
+      { context: { contextWindow: 65536 }, defaultMaxTokens: 8192 })).toMatchObject({ reasoningEffort: 'low' })
   })
 
   it.each([
     { limit: 7000, compact: true },
     { limit: 12000, compact: false },
     { limit: undefined, compact: false },
-  ])('applies the saved $limit threshold to automatic step compaction', async ({ limit, compact }) => {
+    { limit: 7000, compact: true, sessionContextWindow: 20000 },
+  ])('applies the saved $limit threshold to automatic step compaction', async ({ limit, compact, sessionContextWindow }) => {
     const root = mkdtempSync(join(tmpdir(), 'eleckoi-auto-compaction-'))
     const ctx = new Context()
     const calls = []
@@ -43,7 +95,7 @@ describe('model request parameters', () => {
     const selection = { provider: 'synthetic', model: 'synthetic-model' }
     ctx.provide('agentDefaultModel', { currentSelection: () => selection })
     ctx.provide('settings', { describe: () => [{ ns: 'eleckoi-client-models', value: { entries: {
-      synthetic: { parameters: { 'synthetic-model': { autoCompactTokenLimit: limit } } },
+      synthetic: { parameters: { 'synthetic-model': { autoCompactTokenLimit: limit, contextWindowTokens: sessionContextWindow } } },
     } } }] })
     try {
       for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry, TokenMeter]) {
@@ -86,7 +138,7 @@ describe('model request parameters', () => {
       await agent.whenIdle()
       expect(calls.filter(request => request.purpose === 'compaction')).toHaveLength(compact ? 1 : 0)
       expect(events.some(event => event.type === 'compaction/end')).toBe(compact)
-      expect(snapshot.contextWindow).toBe(1_000_000)
+      expect(snapshot.contextWindow).toBe(sessionContextWindow ?? 1_000_000)
       expect(config).toMatchObject({ thresholdRatio: limit === undefined ? 0.8 : limit / 1_000_000, retainTokens: 0 })
       if (compact) {
         expect(ctx.tokenMeter.measure(agent.session).totalTokens).toBeLessThan(7000)

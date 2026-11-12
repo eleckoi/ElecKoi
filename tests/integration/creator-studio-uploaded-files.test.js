@@ -27,9 +27,17 @@ import ToolResultStore from '../../packages/client/features/dsh-client-roleplay/
 import { emptyEntry } from '../../packages/host/product-data/src/domain/settingLibraries/index'
 import LlmRuntime, { LlmAdapter, createUserMessage, createAssistantMessage } from '@deepseek-ai/dsh-llm'
 import productDataPlugin from '@eleckoi/dsh-product-data'
-import { CharacterConfigurationChangeFeed, ProductRecordChangeFeed } from '../../packages/host/product-api/src/index'
+import { CharacterConfigurationChangeFeed, ProductRecordChangeFeed, ElecKoiConversationModelsApi } from '../../packages/host/product-api/src/index'
 import { installCreatorStudioRuntime, CREATOR_RUNTIME_PRESET_ID } from '../../packages/client/features/dsh-client-creator-studio/src/host/runtime.mjs'
 import { materializeAgentPreset } from '@eleckoi/dsh-client-roleplay'
+import * as roleplayPlugin from '../../packages/client/features/dsh-client-roleplay/src/index.js'
+import * as sessionEditPlugin from '../../packages/host/runtime/src/sessionEditPlugin'
+import { ElecKoiConversationLifecycle } from '../../packages/host/product-api/src/conversationLifecycle'
+import { ConversationChangeFeed, ElecKoiConversationsApi, ElecKoiVariableProcessing } from '../../packages/host/product-api/src/index'
+import SessionProjectionCache from '@deepseek-ai/dsh-session-projection-cache'
+import Storage from '@deepseek-ai/dsh-storage'
+import * as StorageJson from '@deepseek-ai/dsh-storage-json'
+import * as StorageDomain from '@deepseek-ai/dsh-storage-domain'
 import { creatorStudioProjection, CREATOR_STUDIO_EVENT } from '../../packages/client/features/dsh-client-creator-studio/src/host/projection.mjs'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
@@ -43,7 +51,7 @@ const RESULT_READER = 'eleckoi_call_capability'
 const cleanups = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
 
-async function fixture(existing, { productionTemplate = false, stream, legacy = false } = {}) {
+async function fixture(existing, { productionTemplate = false, stream, legacy = false, roleplay = false } = {}) {
   const root = existing?.root ?? mkdtempSync(join(tmpdir(), 'eleckoi-studio-files-'))
   if (!existing) cleanups.push(async () => {
     const child = relative(tmpdir(), root)
@@ -58,7 +66,8 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
   writeFileSync(template, productionTemplate ? readFileSync(resolve('apps/desktop/resources/dsh/agent-preset-template/agent.cordis.yml'), 'utf8')
     : '- id: uploaded-file-tools\n  name: __ELECKOI_UPLOADED_FILE_TOOLS_PLUGIN__\n' + sections.map(id => `# ELECKOI:${id}:BEGIN\n# ELECKOI:${id}:END\n`).join(''))
   for (const [key, value] of Object.entries({ ELECKOI_DATABASE_PATH: join(root, 'product.sqlite'), ELECKOI_MEDIA_ROOT: join(root, 'media'),
-    ELECKOI_PRESET_ROOT: join(root, 'presets'), ELECKOI_PRESET_TEMPLATE_PATH: template, ELECKOI_WORKSPACE_ROOT: root })) {
+    ELECKOI_PRESET_ROOT: join(root, 'presets'), ELECKOI_PRESET_TEMPLATE_PATH: template, ELECKOI_WORKSPACE_ROOT: root,
+    ...(roleplay ? { ELECKOI_SESSION_SNAPSHOT_ROOT: join(root, 'snapshots'), ELECKOI_SESSION_BRIDGE_ROOT: join(root, 'bridges'), DSH_SESSION_ROOT: join(root, 'sessions') } : {}) })) {
     const previous = process.env[key]; process.env[key] = value
     cleanups.push(() => { if (previous === undefined) delete process.env[key]; else process.env[key] = previous })
   }
@@ -66,7 +75,8 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
   const ctx = new Context(), requests = [], requestedPaths = new Map()
   cleanups.push(() => ctx.fiber.dispose())
   ctx.provide('settings', { describe: () => [] })
-  ctx.provide('agentDefaultModel', { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) })
+  let defaultSelection = { provider: 'synthetic', model: 'synthetic' }
+  ctx.provide('agentDefaultModel', { currentSelection: () => ({ ...defaultSelection }), saveSelection: async selection => { defaultSelection = { ...selection } } })
   ctx.provide('workspaceRegistry', { pinnedSessionIds: [], archivedSessionIds: [] })
   ctx.provide('connection', { fetch: { register: () => () => {} } })
   for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry, Commands, TypertRegistry, TokenMeter]) await ctx.plugin(plugin)
@@ -90,9 +100,29 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
   await ctx.plugin(TypertGateway)
   await ctx.plugin(RemoteAccessService)
   await ctx.plugin(SessionController, { nativeOpen: false })
+  await ctx.plugin(ElecKoiConversationModelsApi)
+  if (roleplay) {
+    await ctx.plugin(Storage)
+    for (const [plugin, config] of [[StorageJson, { root: join(root, 'storage') }], [StorageDomain, { backend: 'json' }]]) {
+      const { name, inject, apply, Config } = plugin
+      await ctx.plugin({ name, inject, apply, Config }, config)
+    }
+    await ctx.plugin(SessionProjectionCache, { writeEveryEvents: 100, writeIntervalMs: 60000 })
+    await ctx.plugin(ElecKoiConversationLifecycle)
+    const changes = new ConversationChangeFeed(), variables = new ElecKoiVariableProcessing(ctx.eleckoiProductData)
+    ctx.provide('eleckoiConversationChanges', changes)
+    ctx.provide('eleckoiVariableProcessing', variables)
+    cleanups.push(() => { changes.close(); variables.close() })
+    await ctx.plugin(roleplayPlugin)
+    await ctx.plugin(sessionEditPlugin)
+    await vi.waitFor(() => expect(ctx.get('eleckoiRoleplaySessions')).toBeDefined())
+    await ctx.plugin(ElecKoiConversationsApi)
+  }
   const expectedContent = '合成上传内容：synthetic-file-marker'
   class Adapter extends LlmAdapter {
-    async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 10_000_000 }, defaultMaxTokens: 8192 } }
+    async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 10_000_000 }, defaultMaxTokens: 8192,
+      reasoning: { efforts: [{ id: 'low', name: 'Low' }, { id: 'high', name: 'High' }] } } }
+    async listModels(provider) { return Promise.all(['synthetic', 'model-a', 'model-b'].map(id => this.resolveModel(provider, id))) }
     async *stream(options) {
       requests.push(options)
       if (stream) { yield* stream(options, requests.length); return }
@@ -160,6 +190,93 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
 }
 
 describe('Creator studio uploaded-file composition', { timeout: 30_000 }, () => {
+  it('regenerates an archive imported into another character through the production roleplay bridge without a local snapshot', async () => {
+    const f = await fixture(undefined, { productionTemplate: true, roleplay: true, stream: async function* () {
+      yield { type: 'block-start', index: 0, blockType: 'text' }
+      yield { type: 'block-end', index: 0, block: { type: 'text', text: '<FINAL>Synthetic roleplay reply</FINAL>' } }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    } })
+    const data = f.ctx.eleckoiProductData, api = f.ctx.eleckoiConversationsApi
+    for (const key of ['source', 'target']) data.createCharacter({ id: `synthetic-${key}`, name: `Synthetic ${key}`, group: '', persona: { assistant_name: `Synthetic ${key}` } })
+    const preset = data.readAgentPreset(data.readAgentPresetCatalog().activePresetIds.roleplay)
+    data.saveAgentPreset({ ...preset, toolGroups: preset.toolGroups.map(group => ({ ...group, enabled: false })) }, preset.regexRules)
+    const source = await api.create({ metadata: { characterId: 'synthetic-source' } })
+    const sourceId = source.conversation.id
+    await f.ctx.eleckoiRoleplaySessions.preparePrompt(sourceId, 'Synthetic archive input')
+    await f.ctx.sessionController.prompt({ sessionId: sourceId, requestId: 'synthetic-archive-source', mode: 'queue', content: [{ type: 'text', text: 'Synthetic archive input' }] }, new AbortController().signal)
+    await f.ctx.agents.get(sourceId).whenIdle()
+    await f.ctx.eleckoiConversationLifecycle.wait(sourceId, f.ctx.eleckoiRoleplaySessions.currentOperation(sourceId))
+    const imported = await api.importArchive('synthetic-target', await api.exportArchive(sourceId))
+    const snapshot = join(f.root, 'snapshots', `${imported}.json`)
+    expect(existsSync(snapshot)).toBe(false)
+    expect(data.readConversationDetails(imported).metadata.characterId).toBe('synthetic-target')
+    const before = await readSessionInspection(f.ctx, imported)
+    const input = before.events.find(event => event.type === 'user/message')
+    const prepared = await api.regenerateMessage(imported, input.seq, 'synthetic-import-regeneration')
+    expect(await api.startRegeneration(imported, 'synthetic-import-regeneration', false)).toMatchObject({ accepted: true })
+    await f.ctx.agents.get(imported).whenIdle()
+    await f.ctx.eleckoiConversationLifecycle.wait(imported, prepared.operationId)
+    const after = await readSessionInspection(f.ctx, imported)
+    expect(after.events.filter(event => event.type === 'user/message' && event.data.source.kind === 'user').map(event => event.data.id)).toEqual([input.data.id])
+    expect(after.events.at(-1)).toMatchObject({ type: 'turn/end', data: { reason: { kind: 'completed' } } })
+    expect(JSON.parse(readFileSync(snapshot, 'utf8')).conversationId).toBe(imported)
+    expect(f.ctx.eleckoiRequestPreviews.list(imported)).toHaveLength(1)
+    const repeated = await api.regenerateMessage(imported, input.seq, 'synthetic-import-regeneration-again', 'Synthetic edited archive input')
+    await api.startRegeneration(imported, 'synthetic-import-regeneration-again', false)
+    await f.ctx.agents.get(imported).whenIdle()
+    await f.ctx.eleckoiConversationLifecycle.wait(imported, repeated.operationId)
+    const again = await readSessionInspection(f.ctx, imported)
+    expect(again.events.filter(event => event.type === 'user/message' && event.data.source.kind === 'user')).toMatchObject([
+      { data: { id: input.data.id, content: [{ type: 'text', text: 'Synthetic edited archive input' }] } },
+    ])
+    expect(again.events.at(-1)).toMatchObject({ type: 'turn/end', data: { reason: { kind: 'completed' } } })
+    expect(f.ctx.eleckoiRequestPreviews.list(imported)).toHaveLength(2)
+    expect((await readSessionInspection(f.ctx, sourceId)).events.filter(event => event.type === 'user/message' && event.data.source.kind === 'user'))
+      .toMatchObject([{ data: { content: [{ type: 'text', text: 'Synthetic archive input' }] } }])
+  })
+
+  it('keeps official model selections and numeric parameters independent across Sessions, actual requests and cold reopen', async () => {
+    const f = await fixture(undefined, { stream: async function* () {
+      yield { type: 'block-start', index: 0, blockType: 'text' }
+      yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Synthetic isolated reply' } }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    } })
+    const first = f.opened.sessionId, second = (await f.service.create()).sessionId
+    const choose = (sessionId, model, reasoningEffort) => f.ctx.sessionController.selectModel({ sessionId, provider: 'synthetic', model, reasoningEffort })
+    await choose(first, 'model-a', 'high'); await choose(second, 'model-b', 'low')
+    const api = f.ctx.eleckoiConversationModelsApi
+    await api.saveParameters(first, 'synthetic', 'model-a', { temperature: 0.3, topP: 0.7, maxOutputTokens: 1234, contextWindowTokens: 30000, autoCompactTokenLimit: 15000 }, 0)
+    await api.saveParameters(second, 'synthetic', 'model-b', { temperature: 0.8, maxOutputTokens: 4321 }, 0)
+    expect((await api.parameters(first)).entries['["synthetic","model-a"]']).toMatchObject({ temperature: 0.3, maxOutputTokens: 1234 })
+    const requestParameters = vi.spyOn(api, 'parameterState')
+    await expect(api.saveParameters(first, 'synthetic', 'model-a', { temperature: 0.9 }, 0)).rejects.toMatchObject({ code: 'eleckoi/conflict/stale-revision' })
+    await expect(api.saveParameters(first, 'synthetic', 'model-a', { topP: 1.5 }, 1)).rejects.toMatchObject({ code: 'eleckoi/model/config-invalid' })
+    for (const sessionId of [first, second]) {
+      await f.service.open(sessionId)
+      await f.ctx.sessionController.prompt({ sessionId, requestId: `isolated-${sessionId}`, mode: 'queue', content: [{ type: 'text', text: 'Synthetic input' }] }, new AbortController().signal)
+      await f.ctx.agents.get(sessionId).whenIdle()
+    }
+    expect(requestParameters.mock.calls.map(call => call[0].id)).toContain(first)
+    expect(f.requests.filter(request => request.sessionId === first).at(-1)).toMatchObject({ model: 'model-a', reasoningEffort: 'high', temperature: 0.3, topP: 0.7, maxTokens: 1234 })
+    expect(f.requests.filter(request => request.sessionId === second).at(-1)).toMatchObject({ model: 'model-b', reasoningEffort: 'low', temperature: 0.8, maxTokens: 4321 })
+    const fresh = await f.service.create()
+    expect(f.ctx.agents.get(fresh.sessionId).model.current()).toMatchObject({ model: 'model-b', reasoningEffort: 'low' })
+    expect(await api.parameters(fresh.sessionId)).toEqual({ revision: 0, entries: {} })
+    await choose(first, 'model-b', 'low')
+    await f.ctx.sessionController.prompt({ sessionId: first, requestId: 'same-session-other-model', mode: 'queue', content: [{ type: 'text', text: 'Synthetic other model' }] }, new AbortController().signal)
+    await f.ctx.agents.get(first).whenIdle()
+    expect(f.requests.at(-1)).toMatchObject({ model: 'model-b', maxTokens: 8192 })
+    expect(f.requests.at(-1).temperature).toBeUndefined()
+    expect(f.requests.at(-1).topP).toBeUndefined()
+    await choose(first, 'model-a', 'high')
+    const reopened = await f.restart()
+    expect(reopened.ctx.agents.get(first).model.current()).toMatchObject({ model: 'model-a', reasoningEffort: 'high' })
+    expect((await reopened.ctx.eleckoiConversationModelsApi.parameters(first)).entries['["synthetic","model-a"]']).toMatchObject({ temperature: 0.3, maxOutputTokens: 1234 })
+    await reopened.ctx.sessionController.prompt({ sessionId: first, requestId: 'isolated-cold-reopen', mode: 'queue', content: [{ type: 'text', text: 'Synthetic reopened input' }] }, new AbortController().signal)
+    await reopened.ctx.agents.get(first).whenIdle()
+    expect(reopened.requests.at(-1)).toMatchObject({ model: 'model-a', temperature: 0.3, maxTokens: 1234 })
+    expect(reopened.ctx.agents.get(first).session.snapshotEvents().filter(event => event.type === 'eleckoi/model-parameters')).toHaveLength(1)
+  })
   it('uses the global preset in existing Sessions on their first request and keeps one generated configuration', async () => {
     const f = await fixture(undefined, { stream: async function* () {
       yield { type: 'block-start', index: 0, blockType: 'text' }

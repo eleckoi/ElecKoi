@@ -20,7 +20,7 @@ export interface ImportedTranscriptMessage extends TranscriptMessage {
 /** The caller owns the write lease and imports only into a newly created Session. */
 export function importDshTranscript(sessionRoot: string, sessionId: string, messages: TranscriptMessage[]): ImportedTranscriptMessage[] {
   const log = readDshSessionLog(sessionRoot, sessionId)
-  const initializationEvents = new Set(['permission/preset', 'sandbox/mode', 'approval/policy'])
+  const initializationEvents = new Set(['permission/preset', 'sandbox/mode', 'approval/policy', 'model/selection', 'eleckoi/model-parameters'])
   if (!log || log.header.isSeeded || log.inheritedEventCount
     || log.events.some(event => !initializationEvents.has(event.type))) {
     throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '聊天导入需要尚未开始对话的 Session。', { what: '新建一个尚未开始对话的聊天' })

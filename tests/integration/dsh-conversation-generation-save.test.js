@@ -19,7 +19,7 @@ import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-j
 import productDataPlugin from '@eleckoi/dsh-product-data'
 import { ElecKoiConversationLifecycle } from '../../packages/host/product-api/src/conversationLifecycle'
 import { ConversationChangeFeed, CharacterConfigurationChangeFeed } from '../../packages/host/product-api/src/index'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -36,7 +36,7 @@ import * as sessionEditPlugin from '../../packages/host/runtime/src/sessionEditP
 const cleanups = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
 
-async function fixture({ stream } = {}) {
+async function fixture({ stream, withoutSnapshot = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-generation-save-'))
   cleanups.push(() => rmSync(root, { recursive: true, force: true }))
   const path = join(root, 'product.sqlite3')
@@ -103,12 +103,12 @@ async function fixture({ stream } = {}) {
   mkdirSync(join(root, 'eleckoi-active'), { recursive: true })
   writeFileSync(join(root, 'eleckoi-active', 'preset.json'), JSON.stringify({ id: 'eleckoi-active', plugins: [] }))
   mkdirSync(join(root, conversationId), { recursive: true })
-  writeSessionSnapshot(root, conversationId, { conversationId, operationId: input.operationId,
+  if (!withoutSnapshot) writeSessionSnapshot(root, conversationId, { conversationId, operationId: input.operationId,
     variablesEnabled: true, mountedPresetId: 'eleckoi-active',
     model: { provider: 'synthetic', model: 'synthetic' } })
   const editor = ctx.plugin(sessionEditPlugin)
   await ctx.plugin(roleplayPlugin)
-  ctx.eleckoiRuntimeContexts.set(conversationId, runtimeContextsFor(conversationId, { conversationId, variables: { enabled: true, state: { score: 1 } }, generationVariableStateJson: ctx.eleckoiProductData.snapshotConversationRuntime(conversationId).variableStateJson }).get(conversationId))
+  if (!withoutSnapshot) ctx.eleckoiRuntimeContexts.set(conversationId, runtimeContextsFor(conversationId, { conversationId, variables: { enabled: true, state: { score: 1 } }, generationVariableStateJson: ctx.eleckoiProductData.snapshotConversationRuntime(conversationId).variableStateJson }).get(conversationId))
   await editor
   await vi.waitFor(() => {
     expect(ctx.get('eleckoiSessionEditor')).toBeDefined()
@@ -125,6 +125,27 @@ function run(f) {
 }
 
 describe('official Session and product save boundary', { timeout: 30_000 }, () => {
+  it('installs the roleplay request projection after preparing a Session first activated without a local snapshot', async () => {
+    const requests = [];
+    const f = await fixture({ withoutSnapshot: true, async *stream(options) {
+      requests.push(options);
+      yield { type: 'block-start', index: 0, blockType: 'text' };
+      yield { type: 'block-end', index: 0, block: { type: 'text', text: '<FINAL>Synthetic prepared reply</FINAL>' } };
+      yield { type: 'finish', reason: { kind: 'stop' } };
+    } });
+    expect(existsSync(join(f.root, `${f.conversationId}.json`))).toBe(false);
+    f.ctx.sessionController.resolveAgent = async () => ({ agent: f.handle.agent });
+    await f.ctx.eleckoiRoleplaySessions.preparePrompt(f.conversationId, 'Synthetic prepared input');
+    expect(f.ctx.eleckoiRuntimeContexts.has(f.conversationId)).toBe(true);
+    await run(f);
+    await f.ctx.eleckoiConversationLifecycle.wait(f.conversationId, f.ctx.eleckoiRoleplaySessions.currentOperation(f.conversationId));
+    expect(requests).toHaveLength(1);
+    expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(1);
+    expect(readDshSessionLog(join(f.root, 'sessions'), f.conversationId).events.at(-1)).toMatchObject({ type: 'turn/end', data: { reason: { kind: 'completed' } } });
+    await f.ctx.eleckoiPresetRegistrar.selectForSession(f.conversationId);
+    expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(1);
+  });
+
   it('reassembles a preview with current standing instructions without duplicating the saved system prompt', async () => {
     const f = await fixture()
     const saved = readSessionSnapshot(f.root, f.conversationId)

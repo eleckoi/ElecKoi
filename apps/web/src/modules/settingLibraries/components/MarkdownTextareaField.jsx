@@ -9,8 +9,7 @@ import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.
 
 export function MarkdownTextareaField({ label, value, placeholder, onChange, preview = true, labelAction = null, disabled = false, code = false, textareaClassName = '', toolbarHost = null, immersiveHost = null }) {
   const tUi = useProductTranslation();
-  const { compact } = useEditorPresentation();
-  const virtualized = !compact;
+  const { compact, registerBackHandler } = useEditorPresentation();
   const inputId = useId();
   const editorRef = useRef(null);
   const [immersive, setImmersive] = useState(false);
@@ -32,12 +31,14 @@ export function MarkdownTextareaField({ label, value, placeholder, onChange, pre
       setImmersive(false);
     };
     window.addEventListener("keydown", closeOnEscape);
+    const releaseBack = compact ? registerBackHandler?.(() => { setImmersive(false); return true; }) : undefined;
     return () => {
+      releaseBack?.();
       cancelAnimationFrame(focusFrame);
       window.removeEventListener("keydown", closeOnEscape);
       document.documentElement.classList.remove("immersive-editor-open");
     };
-  }, [immersive]);
+  }, [immersive, compact, registerBackHandler]);
 
   const overlayHost = immersive
     ? document.querySelector(".qq-character-editor-window-shell") || document.body
@@ -63,16 +64,7 @@ export function MarkdownTextareaField({ label, value, placeholder, onChange, pre
             {value.trim() ? <OfficialMarkdown content={value} /> : <p className="is-empty">{tUi("暂无内容")}</p>}
           </article>
         ) : (
-          virtualized ? <EditorTextInput ref={editorRef} label={label} className={editorClassName} value={value} placeholder={placeholder} disabled={disabled} code={code} onChange={onChange} /> : <textarea
-            ref={editorRef}
-            className={editorClassName}
-            aria-label={label}
-            value={value}
-            placeholder={placeholder}
-            disabled={disabled}
-            spellCheck={false}
-            onChange={(event) => onChange(event.target.value)}
-          />
+          <EditorTextInput ref={editorRef} label={label} className={editorClassName} value={value} placeholder={placeholder} disabled={disabled} code={code} onChange={onChange} />
         )}
       </div>
     </section>,
@@ -87,10 +79,10 @@ export function MarkdownTextareaField({ label, value, placeholder, onChange, pre
     <>
       <div className="setting-library-content-field">
         <div className="setting-library-content-heading">
-          <label htmlFor={inputId} onClick={() => { if (virtualized) editorRef.current?.focus(); }}>{label}</label>
+          <label htmlFor={inputId} onClick={() => editorRef.current?.focus()}>{label}</label>
           {toolbarHost ? createPortal(fieldActions, toolbarHost) : fieldActions}
         </div>
-        {virtualized ? !immersive && <EditorTextInput ref={editorRef} id={inputId} label={label} className={editorClassName} value={value} placeholder={placeholder} disabled={disabled} code={code} onChange={onChange} /> : <textarea id={inputId} className={editorClassName} aria-label={label} value={value} placeholder={placeholder} disabled={disabled} spellCheck={false} onChange={(event) => onChange(event.target.value)} />}
+        {!immersive && <EditorTextInput ref={editorRef} id={inputId} label={label} className={editorClassName} value={value} placeholder={placeholder} disabled={disabled} code={code} onChange={onChange} />}
       </div>
       {overlay}
     </>

@@ -869,9 +869,9 @@ window.__ModuleLoader__.load({
       async readModelSelection(conversationId) {
         const selected = this.unwrap(
           await this.remote.eleckoiConversationModels.current(conversationId),
-          '读取全局模型失败。'
+          '读取会话模型失败。'
         )
-        this.publishModelSelection(selected)
+        this.publishModelSelection(selected, conversationId)
         return selected
       }
 
@@ -933,20 +933,29 @@ window.__ModuleLoader__.load({
       async selectModel(conversationId, selection) {
         const selected = this.unwrap(
           await this.remote.eleckoiConversationModels.select(conversationId, selection),
-          '保存全局模型失败。'
+          '保存会话模型失败。'
         )
-        this.publishModelSelection(selected)
+        this.publishModelSelection(selected, conversationId)
         return selected
       }
 
-      getModelSelectionSnapshot = () => this.modelSelectionSnapshot
+      getModelSelectionSnapshot = () => this.getSessionReference(this.detailsSnapshot.runtimeSessionId)?.binding.session.projections.faceOf('modelSelection').getSnapshot()?.next ?? this.modelSelectionSnapshot
 
       subscribeModelSelection = listener => {
         this.modelSelectionListeners.add(listener)
-        return () => this.modelSelectionListeners.delete(listener)
+        let face, stopProjection = () => {}
+        const bind = () => {
+          const next = this.getSessionReference(this.detailsSnapshot.runtimeSessionId)?.binding.session.projections.faceOf('modelSelection')
+          if (next === face) return
+          stopProjection(); face = next; stopProjection = face?.subscribe(listener) ?? (() => {})
+          listener()
+        }
+        const stopDetails = this.subscribeDetails(bind); bind()
+        return () => { stopDetails(); stopProjection(); this.modelSelectionListeners.delete(listener) }
       }
 
-      publishModelSelection(selection) {
+      publishModelSelection(selection, conversationId) {
+        if (conversationId !== this.detailsSnapshot.id) return
         this.modelSelectionSnapshot = { ...selection }
         for (const listener of this.modelSelectionListeners) listener()
       }
@@ -1001,6 +1010,7 @@ window.__ModuleLoader__.load({
       }
 
       prepareDetails(next, officialProjectionSignature = null) {
+        if (next.id !== this.detailsSnapshot.id) this.modelSelectionSnapshot = { provider: '', model: '' }
         const request = this.activeRequests.get(next.id)
         const opening = next.details?.messages.find(message => message.id === 'opening')
         if (opening) {

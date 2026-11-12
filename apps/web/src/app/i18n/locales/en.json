@@ -3289,5 +3289,17 @@
   "修改界面显示": "Modify interface display",
   "修改发送给 AI 的提示词": "Modify the prompt sent to AI",
   "开场白操作": "Opening actions",
-  "开场白列表": "Openings"
+  "开场白列表": "Openings",
+  "切换预设失败": "Failed to switch preset",
+  "添加工具": "Add tools",
+  "展开全部文件夹": "Expand all folders",
+  "收起全部文件夹": "Collapse all folders",
+  "预设编辑器 - ElecKoi": "Preset editor - ElecKoi",
+  "返回菜单": "Back to menu",
+  "脚本提供": "Provided by scripts",
+  "应用于全部创作对话": "Applies to all creative conversations",
+  "应用于全部角色对话": "Applies to all character conversations",
+  "没有匹配的预设": "No matching presets",
+  "全局设定库的启停尚未保存。": "Global setting library changes have not been saved.",
+  "共享设置，影响所有使用这些设定的对话": "Shared settings affect all conversations using these libraries"
 }

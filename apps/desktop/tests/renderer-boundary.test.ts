@@ -50,6 +50,11 @@ describe('Renderer trust boundary', () => {
     const sender = { getURL: () => url } as WebContents
     expect(isDshChildUrl(url)).toBe(true)
     expect(isDshChildUrl('dsh-app://app/?view=chat&chat=conversation-1')).toBe(true)
+    expect(isDshChildUrl('dsh-app://app/?view=preset-editor&preset=one&section=profile')).toBe(true)
+    expect(isDshChildUrl('dsh-app://app/?view=preset-editor&preset=one&section=tools')).toBe(true)
+    expect(isDshChildUrl('dsh-app://app/?view=preset-editor&preset=one&section=unknown')).toBe(false)
+    expect(isDshChildUrl('dsh-app://app/?view=preset-editor&preset=one')).toBe(false)
+    expect(isDshChildUrl('dsh-app://app/?view=preset-editor&preset=one&section=tools&extra=1')).toBe(false)
     expect(isDshChildUrl('dsh-app://app/?view=creator-studio')).toBe(true)
     expect(isDshChildUrl('dsh-app://app/?view=unknown')).toBe(false)
     expect(isDshChildUrl('dsh-app://app/?view=chat')).toBe(false)

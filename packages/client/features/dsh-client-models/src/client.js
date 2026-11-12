@@ -16,8 +16,9 @@ window.__ModuleLoader__.load({
     const ModelPage = React.lazy(() => import(new URL('eleckoi-page-model.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
       .then(module => ({ default: module.ModelPage })))
     class ModelCatalog {
-      constructor(remote) {
+      constructor(remote, sessions) {
         this.remote = remote
+        this.sessions = sessions
         this.providers = []
         this.builtinModels = new Map()
         this.snapshot = { status: 'loading', configs: [], providers: [], error: '' }
@@ -34,6 +35,20 @@ window.__ModuleLoader__.load({
       subscribe = listener => {
         this.listeners.add(listener)
         return () => this.listeners.delete(listener)
+      }
+
+      sessionParameters(sessionId) {
+        const binding = this.sessions.binding(sessionId)
+        if (!binding) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, '当前会话尚未加载。', { what: '当前会话模型参数' })
+        return binding.session.projections.faceOf('eleckoiModelParameters')
+      }
+
+      async readSessionModelParameters(sessionId) {
+        return valueOf(await this.remote.eleckoiConversationModels.parameters(sessionId), '读取会话模型参数失败。')
+      }
+
+      async saveSessionModelParameters(sessionId, provider, model, patch, revision) {
+        return valueOf(await this.remote.eleckoiConversationModels.saveParameters(sessionId, provider, model, patch, revision), '保存会话模型参数失败。')
       }
 
       publish(next) {
@@ -433,7 +448,7 @@ window.__ModuleLoader__.load({
     }
 
     function apply(ctx) {
-      const catalog = new ModelCatalog(ctx.remote)
+      const catalog = new ModelCatalog(ctx.remote, ctx.sessions)
       ctx.provide('eleckoiModels', catalog)
       const loadModelPage = () => import(new URL('eleckoi-page-model.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
       const ModelLabel = React.lazy(() => loadModelPage().then(module => ({ default: module.ModelLabel })))
@@ -448,7 +463,8 @@ window.__ModuleLoader__.load({
         name: 'conversation.input.model.provider.label', priority: -10, registrant: '@eleckoi/dsh-client-models'
       }, owner => React.createElement(React.Suspense, { fallback: owner.provider.name }, React.createElement(ModelProviderLabel, { ...owner, catalog }))))
       ctx.slots.inject('conversation.input.model.parameters', () => ctx.slots.register({
-        name: 'conversation.input.model.parameters', registrant: '@eleckoi/dsh-client-models'
+        name: 'conversation.input.model.parameters', registrant: '@eleckoi/dsh-client-models',
+        inject: sessionId => ({ sessionId })
       }, owner => React.createElement(React.Suspense, { fallback: null }, React.createElement(ModelMenuParameters, { ...owner, catalog }))))
       ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'model', registrant: '@eleckoi/dsh-client-models' },
         () => React.createElement(ModelPage)))
@@ -467,6 +483,6 @@ window.__ModuleLoader__.load({
       }, 'eleckoi: model catalog')
     }
 
-    return { inject: ['locale', 'slots', 'remote', 'remote.session', 'remote.settings', 'remote.llm', 'remote.credentials', 'remote.eleckoiModels'], apply }
+    return { inject: ['locale', 'slots', 'sessions', 'remote', 'remote.session', 'remote.settings', 'remote.llm', 'remote.credentials', 'remote.eleckoiModels', 'remote.eleckoiConversationModels'], apply }
   }
 })

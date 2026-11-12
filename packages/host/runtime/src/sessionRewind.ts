@@ -2,8 +2,10 @@ import { randomUUID } from 'node:crypto'
 import { copyFileSync, existsSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
-import { interruptedTurnClosers } from '@deepseek-ai/dsh-session'
+import { interruptedTurnClosers, type SessionEvent } from '@deepseek-ai/dsh-session'
 import { readDshSessionLog } from './trajectory'
+import { retainSessionModelPreferences } from './sessionModelPreferences'
+import { encodeEditedSessionRows } from './sessionMessageEdit'
 import { HISTORY_RESTORED_EVENT, historyRestoredSchema } from '@eleckoi/dsh-client-roleplay/host/history-stats-projection.mjs'
 import { ELECKOI_FAILURE_CODES, productFailure } from '@eleckoi/dsh-product-api'
 
@@ -19,7 +21,7 @@ export function rewindDshSession(
   if (!Number.isSafeInteger(fromTurn) || fromTurn < 1) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, 'DSH 回退轮次必须是正整数。', { field: '回退轮次' })
   const log = readDshSessionLog(sessionRoot, sessionId)
   if (log === undefined) throw new DshSessionRewindUnavailableError('找不到要回退的 DSH 会话。')
-  if (log.header.isSeeded || log.inheritedEventCount !== 0) {
+  if (log.header.origin === 'subagent') {
     throw new DshSessionRewindUnavailableError('不能直接回退继承了父会话事件的 DSH 子会话。')
   }
   if (log.header.version !== sessionFormatCatalog.currentVersion
@@ -107,12 +109,10 @@ export function rewindDshSession(
   if (retained.at(-1)?.type === 'turn/start' || retained.at(-1)?.type === 'step/start') {
     throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, 'DSH 会话上一轮尚未结束，不能回退。', { what: '等上一轮结束' })
   }
-  const rows = [
-    sessionFormatCatalog.encodeCurrentHeader(log.header, log.inheritedEventCount),
-    ...retained.map((event) => sessionFormatCatalog.encodeCurrentEvent(event))
-  ]
+  retainSessionModelPreferences(retained, log.events)
+  const { rows, eventCount } = encodeEditedSessionRows(log, retained)
   const serialized = `${rows.map((row) => JSON.stringify(row)).join('\n')}\n`
-  verifyEncodedLog(serialized, sessionId, retained.length)
+  verifyEncodedLog(serialized, sessionId, eventCount)
 
   const revision = statSync(log.path, { bigint: true })
   const suffix = randomUUID()
@@ -132,7 +132,7 @@ export function rewindDshSession(
     renameSync(temporary, log.path)
     replaced = true
     const restored = readDshSessionLog(sessionRoot, sessionId)
-    if (restored === undefined || restored.events.length !== retained.length
+    if (restored === undefined || restored.events.length !== eventCount
       || restored.header.id !== sessionId) {
       throw productFailure(ELECKOI_FAILURE_CODES.internal, '回退后的 DSH 会话验证失败。', { what: '回退后的 DSH 会话校验' })
     }
@@ -148,7 +148,7 @@ export function rewindDshSession(
     if (existsSync(temporary)) rmSync(temporary, { force: true })
     if (!retainBackup && existsSync(backup)) rmSync(backup, { force: true })
   }
-  return retained.length
+  return eventCount
 }
 
 function verifyEncodedLog(source: string, sessionId: string, eventCount: number): void {

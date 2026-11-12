@@ -50,7 +50,6 @@
 }
 
 .character-manager-window {
-  --character-manager-canvas: #f7f7f8;
   --character-manager-card-info: color-mix(in srgb, #fff 88%, var(--character-manager-canvas));
   position: relative;
   display: grid;
@@ -703,13 +702,11 @@
 }
 
 :root[data-theme="dark"] .character-manager-window {
-  --character-manager-canvas: #13131a;
   --character-manager-card-info: color-mix(in srgb, #000 12%, var(--character-manager-canvas));
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) .character-manager-window {
-    --character-manager-canvas: #13131a;
     --character-manager-card-info: color-mix(in srgb, #000 12%, var(--character-manager-canvas));
   }
 }

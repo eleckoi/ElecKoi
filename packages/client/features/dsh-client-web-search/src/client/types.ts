@@ -45,8 +45,11 @@ export interface ElecKoiWebSearch {
    * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
    */
   removeKey(): Promise<WebSearchSnapshot>
-  /** 打开「插件 → 网页搜索」官方设置页；不可用时抛出错误。 */
-  openPluginSettings(): void
+  /**
+   * 打开「插件 → 网页搜索」官方设置页；独立桌面窗口等待主窗口回执，不可用时抛出或拒绝。
+   * @returns 当前窗口立即完成；独立桌面窗口返回等待主窗口导航完成的 Promise。
+   */
+  openPluginSettings(): void | Promise<void>
 }
 
 declare module '@deepseek-ai/cordis' {

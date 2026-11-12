@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { dshClientPlugin } from '../../../../../../tests/helpers/dshClientPlugin'
 
 const source = readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8')
@@ -41,6 +41,47 @@ function presetChanges() {
 }
 
 describe('DSH ElecKoi preset client model', () => {
+  it('publishes the persisted create response before a delayed catalog refresh and reads only observed details on change', async () => {
+    const pending: Array<(value: unknown) => void> = []
+    let registration: any, model: any, cleanup = () => {}
+    const created = { id: 'synthetic-created', purpose: 'roleplay', name: 'Synthetic created', modelFamily: 'general', modelTags: [],
+      libraryGroupId: '', activeVersionId: 'synthetic-v1', activeVersionNumber: 1, profile: { authorName: '', authorAvatarPath: '', usageInstructions: '', timeline: [] }, entries: [], regexRules: [] }
+    const remote = {
+      catalog: vi.fn(() => new Promise(resolve => pending.push(resolve))),
+      create: vi.fn(async () => ({ ok: true, value: created })),
+      read: vi.fn(async (id: string) => ({ ok: true, value: { ...created, id } })),
+      delete: vi.fn(async () => { throw new Error('Synthetic delete failure') }),
+    }
+    const feed = presetChanges()
+    runInNewContext(source, { AbortController, window: { __ModuleLoader__: { load: (value: unknown) => { registration = value } } } })
+    dshClientPlugin(registration).apply({ remote: { eleckoiAgentPresets: remote, eleckoiCharacterConfiguration: { changes: (signal: AbortSignal) => feed.open(signal) } },
+      provide: (_name: string, value: unknown) => { model = value }, effect: (run: () => () => void) => { cleanup = run() }, on: () => () => {} })
+    try {
+      await settle(); pending[0]!({ ok: true, value: catalog('synthetic-existing') }); await settle()
+      let complete = false
+      const creating = model.create('Synthetic created').then(() => { complete = true })
+      await settle()
+      expect(complete).toBe(true)
+      expect(model.getSnapshot().catalog.presets.map((preset: { id: string }) => preset.id)).toEqual(['synthetic-existing', created.id])
+      expect(model.getSnapshot().catalog.presets[1]).not.toHaveProperty('entries')
+      await creating
+      await expect(model.delete(created.id)).rejects.toThrow('Synthetic delete failure')
+      expect(model.getDetailSnapshot(created.id).preset).toEqual(created)
+      model.adoptDetail({ ...created, id: 'synthetic-unobserved' })
+      const stop = model.subscribeDetail('synthetic-observed', () => {})
+      feed.emit(); await settle()
+      expect(remote.read).toHaveBeenCalledExactlyOnceWith('synthetic-observed')
+      stop(); feed.emit(); await settle()
+      expect(remote.read).toHaveBeenCalledTimes(1)
+      const authoritative = { ...catalog('synthetic-existing'), presets: [catalog('synthetic-existing').presets[0], { ...created, name: 'Synthetic external update' }] }
+      pending.at(-1)!({ ok: true, value: authoritative }); await settle()
+      expect(model.getSnapshot().catalog.presets.at(-1).name).toBe('Synthetic external update')
+      pending[1]!({ ok: true, value: catalog('stale') }); await settle()
+      expect(model.getSnapshot().catalog.presets.at(-1).name).toBe('Synthetic external update')
+    } finally { cleanup() }
+    expect(feed.isStopped()).toBe(true)
+  })
+
   it('preserves a newer catalog while an older Remote refresh is pending', async () => {
     const pending: Array<(result: { ok: boolean; value: Catalog }) => void> = []
     let registration: { id: string; factory: () => { apply: (ctx: unknown) => void } } | undefined

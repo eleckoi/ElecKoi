@@ -513,7 +513,7 @@ readSelection(): Promise<ConversationSelection>
 saveSelection(value: ConversationSelection): Promise<ConversationSelection>
 
 /**
- * 读取该聊天下一轮使用的全局模型。
+ * 读取指定聊天的官方会话模型；空编号读取新会话默认模型。
  * @param conversationId - ElecKoi 聊天编号。
  * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
  */
@@ -551,7 +551,7 @@ importArchive(characterId: string, json: string): Promise<string>
 revealFile(conversationId: string, attachmentId: string, name: string): Promise<void>
 
 /**
- * 保存下一轮的全局模型选择。
+ * 通过官方控制器选择指定聊天的模型并更新新会话默认值；空编号只更新默认值。
  * @param conversationId - ElecKoi 聊天编号。
  * @param selection - 模型提供商、模型编号和可选推理档位。
  * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
@@ -873,6 +873,31 @@ save(config: ClientModelConfig): Promise<ClientModelConfig | undefined>
  * @returns 更新后的配置；异步失败保留原始错误。
  */
 saveModelParameters(configId: string, modelId: string, patch: ClientModelParameterPatch): Promise<ClientModelConfig | undefined>
+
+/**
+ * 当前会话的官方参数投影；随 Session 释放。
+ * @param sessionId - 官方会话编号。
+ * @returns 官方投影的读取与订阅面。
+ */
+sessionParameters(sessionId: string): { getSnapshot(): import('@eleckoi/dsh-product-api/types').SessionModelParameterState | undefined; subscribe(listener: () => void): () => void }
+
+/**
+ * 读取会话生成参数，不修改模型连接配置。
+ * @param sessionId - 官方会话编号。
+ * @returns 会话参数与修订号。
+ */
+readSessionModelParameters(sessionId: string): Promise<import('@eleckoi/dsh-product-api/types').SessionModelParameterState>
+
+/**
+ * 保存会话参数补丁，使用官方日志投影修订号检查冲突。
+ * @param sessionId - 官方会话编号。
+ * @param provider - 提供商路由编号。
+ * @param model - 模型编号。
+ * @param patch - 本次生成参数变更。
+ * @param revision - 编辑时读取的会话参数修订号。
+ * @returns 已保存的会话参数投影。
+ */
+saveSessionModelParameters(sessionId: string, provider: string, model: string, patch: import('@eleckoi/dsh-product-api/types').SessionModelParameterPatch, revision: number): Promise<import('@eleckoi/dsh-product-api/types').SessionModelParameterState>
 
 /**
  * 删除一个配置，返回剩余目录的第一个配置。
@@ -1430,8 +1455,11 @@ test(apiKey?: string): Promise<{ connection: TavilyConnection }>
  */
 removeKey(): Promise<WebSearchSnapshot>
 
-/** 打开「插件 → 网页搜索」官方设置页；不可用时抛出错误。 */
-openPluginSettings(): void
+/**
+ * 打开「插件 → 网页搜索」官方设置页；独立桌面窗口等待主窗口回执，不可用时抛出或拒绝。
+ * @returns 当前窗口立即完成；独立桌面窗口返回等待主窗口导航完成的 Promise。
+ */
+openPluginSettings(): void | Promise<void>
 ```
 
 Types: [WebSearchSettingsPatch](types-client.md#websearchsettingspatch) · [WebSearchSnapshot](types-client.md#websearchsnapshot)

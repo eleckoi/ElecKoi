@@ -485,6 +485,7 @@ function runtimeAgent(id, header = {}, session = {}) {
   return {
     id,
     status: 'idle',
+    model: { current: () => ({ provider: 'provider-main', model: 'model-main' }) },
     ctx: {
       get(name) { return this[name] },
       on: vi.fn(() => () => undefined),

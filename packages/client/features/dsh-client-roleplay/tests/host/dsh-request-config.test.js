@@ -72,7 +72,7 @@ describe('DSH request configuration', () => {
       rmSync(root, { recursive: true, force: true });
     }
   }, 30_000);
-  it('overrides a persisted legacy route with the model frozen for the current turn', async () => {
+  it('never selects a model from a product snapshot and leaves the captured official route and controls intact', async () => {
     const root = mkdtempSync(join(tmpdir(), 'eleckoi-request-route-'));
     try {
       const path = join(root, 'session-a.json');
@@ -100,17 +100,15 @@ describe('DSH request configuration', () => {
       }));
       expect(registrations.find(({ name }) => name === 'agent/request')?.options)
         .toEqual({ prepend: true });
-      const select = vi.fn();
-      await listeners.get('agent/prepare-step')({ agent: { model: { select } } });
-      expect(select).toHaveBeenCalledWith(expect.objectContaining({ provider: 'current-provider-route', reasoningEffort: 'high' }));
+      expect(listeners.has('agent/prepare-step')).toBe(false);
       const resolved = await listeners.get('agent/request')({}, async () => ({
-        ...select.mock.calls[0][0],
+        provider: 'official-session-route', model: 'official-model', reasoningEffort: 'low',
         temperature: 0.1, topP: 0.2, maxTokens: 1_000, purpose: 'agent',
       }));
 
       expect(resolved).toEqual({
-        provider: 'current-provider-route', model: 'synthetic-model', reasoningEffort: 'high',
-        temperature: 0.4, topP: 0.9, maxTokens: 8_000, purpose: 'agent',
+        provider: 'official-session-route', model: 'official-model', reasoningEffort: 'low',
+        temperature: 0.1, topP: 0.2, maxTokens: 1_000, purpose: 'agent',
       });
     } finally {
       rmSync(root, { recursive: true, force: true });

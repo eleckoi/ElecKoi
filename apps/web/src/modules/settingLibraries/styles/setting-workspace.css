@@ -61,6 +61,7 @@
 .setting-settings-board { flex: 1; min-height: 0; overflow: auto; padding: 20px 6px 32px 0; }
 .setting-settings-board { flex: 0 1 auto; width: min(100%,640px); max-height: 100%; background: var(--writing-surface); border: 1px solid var(--dsw-alias-border-l2, var(--line-strong)); border-radius: 12px; padding: 24px; }
 .setting-settings-board > * { max-width: 560px; }
+.setting-position-page { flex: 1; min-width: 0; min-height: 0; width: min(100%,640px); overflow: hidden; }
 .setting-group-settings { width: min(100%,520px); }
 .setting-group-settings .setting-entry-basics { margin-bottom: 0; }
 .setting-entry-basics { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
@@ -110,6 +111,12 @@
 .setting-insert-settings .setting-library-placement-card { display: grid; grid-template-columns: 72px minmax(0,1fr); gap: 16px; align-items: start; padding: 0; }
 .setting-insert-settings .setting-library-placement-heading { margin: 0; padding-top: 8px; }
 .setting-insert-settings .setting-library-placement-heading strong { color: var(--muted); font-size: 13px; font-weight: 400; }
+.setting-insert-settings .setting-library-placement-card:has(.setting-library-position-manage) { row-gap: 8px; }
+.setting-insert-settings .setting-library-placement-card:has(.setting-library-position-manage) > .setting-library-placement-heading { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; width: min(472px,100%); padding-top: 0; }
+.setting-insert-settings .setting-library-placement-heading > strong { flex: none; white-space: nowrap; }
+.setting-insert-settings .setting-library-placement-heading .setting-library-position-manage { flex: none; margin-left: auto; white-space: nowrap; }
+.setting-insert-settings .setting-library-position-manage > svg { flex-shrink: 0; }
+.setting-insert-settings .setting-library-placement-card:has(.setting-library-position-manage) > .setting-library-placement-rail { grid-column: 2; }
 .setting-insert-settings .setting-library-placement-rail { width: min(384px,100%); }
 .setting-insert-settings .setting-library-placement-choice, .setting-insert-settings .setting-library-placement-row > span { font-size: 13px; font-weight: 400; }
 .setting-insert-settings .setting-library-placement-row.is-context > span { font-size: 13px; font-weight: 400; }
@@ -121,6 +128,7 @@
 .setting-insert-settings .setting-library-order-preview { grid-column: 1 / -1; display: grid; grid-template-columns: 72px minmax(0,1fr); gap: 16px; align-items: start; border: 0; padding: 0; }
 .setting-insert-settings .setting-library-order-preview > strong { margin: 0; padding-top: 11px; color: var(--muted); font-size: 13px; font-weight: 400; }
 .setting-insert-settings .setting-order-items { box-sizing: border-box; width: min(384px,100%); max-height: 202px; overflow: auto; margin: 0; padding: 4px; list-style: none; border: 1px solid var(--dsw-alias-border-l2, var(--line)); border-radius: 8px; }
+.setting-insert-settings .setting-order-empty { margin: 0; padding: 11px 0; color: var(--muted); font-size: 13px; line-height: 20px; }
 .setting-insert-settings .setting-order-items > li { display: grid; grid-template-columns: 28px minmax(0,1fr) auto; align-items: center; gap: 8px; min-height: 32px; padding: 0 8px; border-radius: 4px; color: var(--text); font-size: 13px; line-height: 20px; }
 .setting-insert-settings .setting-order-items > li > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .setting-insert-settings .setting-order-items > li.is-current { background: var(--list); }

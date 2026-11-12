@@ -8,13 +8,13 @@ import { historyStatsProjection } from './history-stats-projection.mjs'
 import { durableProductPluginSpecifier } from './preset-definition.mjs'
 import { turnOutcomesProjection } from './turn-outcomes-projection.mjs'
 import { inputContinuationsProjection } from './input-continuations-projection.mjs'
-import { currentRequestSnapshot } from './model-selection-migration.mjs'
+import { currentRequestSnapshot } from './model-request-snapshot.mjs'
 import { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import { createSystemMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { readSessionInspection, productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 import { projectRequestInput, requestProjectionSnapshot, visibleDialogueHistory } from './conversation-context.mjs'
 
-export { requestSnapshot } from './model-selection-migration.mjs'
+export { requestSnapshot } from './model-request-snapshot.mjs'
 
 export const ACTIVE_RUNTIME_PRESET_ID = 'eleckoi-active'
 
@@ -46,7 +46,15 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
   const prepareCurrentPreset = async (conversationId, text, creating = false) => {
     const runtime = ctx.eleckoiProductData.prepareConversationRuntime(conversationId, text)
     const controls = generationOptions.get(conversationId) ?? {}
-    const mainModel = { ...await currentRequestSnapshot(ctx), ...(controls.responseLength ? { maxTokens: controls.responseLength } : {}) }
+    let selection, session
+    if (!creating) {
+      await presetRegistrar.prepareForSession(runtime.runtimeSessionId)
+      const resolved = await ctx.sessionController.resolveAgent(runtime.runtimeSessionId)
+      if ('error' in resolved) throw resolved.error
+      selection = resolved.agent.model.current()
+      session = resolved.agent.session
+    }
+    const mainModel = { ...await currentRequestSnapshot(ctx, selection, session), ...(controls.responseLength ? { maxTokens: controls.responseLength } : {}) }
     const effectiveToolPolicy = { disabledGroupIds: [...(runtime.disabledToolGroupIds ?? [])] }
     const requestedPreset = materializeAgentPreset(
       presetRoot,
@@ -55,7 +63,6 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       effectiveToolPolicy,
       mainModel
     )
-    if (!creating) await presetRegistrar.prepareForSession(runtime.runtimeSessionId, requestedPreset.id)
     const previous = readOptionalSnapshot(snapshotRoot, runtime.runtimeSessionId)
     return { runtime, previous, mainModel, effectiveToolPolicy, requestedPreset }
   }
@@ -94,6 +101,7 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
         pendingPresetRevision: requestedPreset.revision
       } : {}),
       model: mainModel,
+      ...(generationOptions.get(conversationId)?.responseLength ? { responseLengthOverride: generationOptions.get(conversationId).responseLength } : {}),
       variablesEnabled: runtime.variableContext !== undefined,
       settingLibraryEnabled: runtime.conversationContext.settingLibrary !== undefined,
       disabledToolGroupIds: effectiveToolPolicy.disabledGroupIds,
@@ -103,8 +111,6 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       historyCompactionInstructions: runtime.agentPreset.historyCompactionInstructions ?? ''
     })
     if (!creating) await presetRegistrar.selectForSession(runtime.runtimeSessionId)
-    const agent = ctx.agents.get(runtime.runtimeSessionId)
-    if (agent) agent.model.select(mainModel)
     signal?.throwIfAborted()
     if (operationId) ctx.eleckoiConversationLifecycle.begin({
       operationId, conversationId, runtimeSessionId: runtime.runtimeSessionId, turn: nextTurn
@@ -181,10 +187,10 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
     },
     async previewPrompt(conversationId, text) {
       const runtime = ctx.eleckoiProductData.prepareConversationRuntime(conversationId, text)
-      const model = { ...await currentRequestSnapshot(ctx), ...(generationOptions.get(conversationId)?.responseLength
-        ? { maxTokens: generationOptions.get(conversationId).responseLength } : {}) }
       const resolved = await ctx.sessionController.resolveAgent(runtime.runtimeSessionId)
       if ('error' in resolved) throw resolved.error
+      const model = { ...await currentRequestSnapshot(ctx, resolved.agent.model.current(), resolved.agent.session), ...(generationOptions.get(conversationId)?.responseLength
+        ? { maxTokens: generationOptions.get(conversationId).responseLength } : {}) }
       let surface = resolved.agent.session.deriveMessages()
       const cutoff = generationOptions.get(conversationId)?.historyCutoffId
       if (cutoff) {
@@ -243,8 +249,7 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       return ctx.eleckoiProductData.runtimeVariablesByTurn(conversationId)
     },
     prepareRestoreBeforeTurn(conversationId, sessionId, fromTurn, beforeMessageId) {
-      const snapshot = readSessionSnapshot(snapshotRoot, sessionId)
-      if (snapshot.conversationId !== conversationId) {
+      if (ctx.eleckoiProductData.runtimeSessionId(conversationId) !== sessionId) {
         throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, 'DSH Session 与当前聊天不匹配，不能回退运行状态。', { what: 'DSH Session 与当前聊天' })
       }
       const state = ctx.eleckoiProductData.runtimeStateAt(conversationId, sessionId, fromTurn, 'before', beforeMessageId)
@@ -380,8 +385,10 @@ export function materializeAgentPreset(root, templatePath, preset, toolPolicy, m
 }
 
 function compactionRatio(model) {
-  if (!Number.isFinite(model.autoCompactTokenLimit) || !Number.isFinite(model.contextWindow)) return 0.8
-  return Math.max(Number.EPSILON, Math.min(1, model.autoCompactTokenLimit / model.contextWindow))
+  const capacity = model.compactionContextWindow ?? model.contextWindow
+  const limit = model.autoCompactTokenLimit ?? (model.compactionContextWindow === undefined ? undefined : Math.floor(model.contextWindow * 0.8))
+  if (!Number.isFinite(limit) || !Number.isFinite(capacity)) return 0.8
+  return Math.max(Number.EPSILON, Math.min(1, limit / capacity))
 }
 
 function applyPresetToolPolicy(source, disabled) {

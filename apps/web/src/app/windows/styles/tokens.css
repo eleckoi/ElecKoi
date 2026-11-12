@@ -11,6 +11,7 @@
   --rail-fg: #252525;
   --list: #f9fafb;
   --chat: #ffffff;
+  --character-manager-canvas: #f7f7f8;
   --rail-divider: rgba(27, 37, 49, 0.08);
   --line: rgba(0, 0, 0, 0.055);
   --line-strong: rgba(0, 0, 0, 0.075);
@@ -67,6 +68,7 @@
   --rail-fg: #f2f2f5;
   --list: #1b1b1c;
   --chat: #151517;
+  --character-manager-canvas: #13131a;
   --rail-divider: rgba(255, 255, 255, 0.07);
   --line: rgba(255, 255, 255, 0.075);
   --line-strong: rgba(255, 255, 255, 0.11);
@@ -116,6 +118,7 @@
     --rail-fg: #f2f2f5;
     --list: #1b1b1c;
     --chat: #151517;
+    --character-manager-canvas: #13131a;
     --rail-divider: rgba(255, 255, 255, 0.07);
     --line: rgba(255, 255, 255, 0.075);
     --line-strong: rgba(255, 255, 255, 0.11);

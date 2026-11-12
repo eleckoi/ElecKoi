@@ -438,6 +438,7 @@ window.__ModuleLoader__.load({
           if (!navigation?.actions?.setView) return
           try {
             layout.selectPanel('plugins')
+            navigation.actions.setTab('installed')
             navigation.actions.setView(kind === 'item' ? { kind: 'item', id } : { kind: 'package', name: id })
             event.detail.opened = true
           } catch (error) {

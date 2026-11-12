@@ -15,88 +15,58 @@ beforeEach(() => {
 afterEach(async () => { await act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('native script chat controls', () => {
-  it('opens script buttons in a separate dialog and invokes only their full identity', async () => {
+
+  const openMore = async () => {
+    await act(() => container.querySelector('.roleplay-menu-trigger').click());
+    await act(() => [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '更多').click());
+  };
+  it('runs the exact script identity from More and shows the author-provided source', async () => {
     const run = vi.fn(), key = JSON.stringify(['synthetic-script', 'synthetic-action']);
     await act(() => root.render(<RoleplayInputMenu scriptsReady scriptButtons={[
       { key, label: 'Synthetic action', scriptName: 'Synthetic script', busy: false, error: '' },
       { key: 'synthetic-busy', label: 'Busy action', scriptName: 'Synthetic script', busy: true, error: '' },
     ]} onRunScriptButton={run} />));
-    await act(() => container.querySelector('[aria-label="扮演菜单"]').click());
-    const trigger = [...container.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '脚本');
-    expect(trigger.getAttribute('aria-haspopup')).toBe('dialog');
-    expect(trigger.hasAttribute('aria-expanded')).toBe(false);
-    expect(trigger.querySelectorAll('svg')).toHaveLength(1);
-    expect(document.querySelector('.native-script-actions-dialog')).toBeNull();
-    await act(() => trigger.click());
-    expect(container.querySelector('[role=menu]')).toBeNull();
-    const dialog = document.querySelector('.native-script-actions-dialog');
-    expect(dialog.open).toBe(true);
-    expect(dialog.parentElement).toBe(document.body);
-    expect(document.activeElement).toBe(dialog.querySelector('[aria-label="关闭脚本"]'));
-    const buttons = dialog.querySelectorAll('[aria-label="脚本按钮"] button');
+    await openMore();
+    expect(document.querySelector('.composer-menu-section').textContent).toBe('脚本提供');
+    const buttons = document.querySelectorAll('.composer-menu-script');
+    expect(buttons[0].querySelector('small').textContent).toBe('全局脚本 · Synthetic script');
     expect(buttons[1].disabled).toBe(true);
-    await act(() => buttons[0].click()); expect(run).toHaveBeenCalledWith(key);
-    expect(document.querySelector('.native-script-actions-dialog')).toBeNull();
-    expect(document.activeElement).toBe(container.querySelector('[aria-label="扮演菜单"]'));
+    await act(() => buttons[0].click()); expect(run).toHaveBeenCalledExactlyOnceWith(key);
+    expect(document.querySelector('[role=menu]')).toBeNull();
+    expect(document.activeElement).toBe(container.querySelector('.roleplay-menu-trigger'));
   });
-
-  it('shows an empty dialog without fabricating buttons', async () => {
-    await act(() => root.render(<RoleplayInputMenu scriptButtons={[]} />));
-    await act(() => container.querySelector('[aria-label="扮演菜单"]').click());
-    await act(() => [...container.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '脚本').click());
-    expect(document.querySelector('.native-script-actions-dialog [role=status]').textContent).toBe('暂无可用按钮');
-    expect(container.querySelector('[role=menu]')).toBeNull();
+  it.each(['roleplay', 'creator'])('shows the script group and real empty state in %s without fabricating actions', async purpose => {
+    await act(() => root.render(<RoleplayInputMenu purpose={purpose} scriptButtons={[]} />)); await openMore();
+    expect(document.querySelector('.composer-menu-section').textContent).toBe('脚本提供');
+    expect(document.querySelector('[role=status]').textContent).toBe('暂无可用按钮');
+    expect(document.querySelector('.composer-menu-script')).toBeNull();
   });
-
-  it.each(['close', 'escape', 'backdrop', 'platform-back'])('closes the script dialog with %s and restores focus', async action => {
-    await act(() => root.render(<RoleplayInputMenu />));
-    const opener = container.querySelector('[aria-label="扮演菜单"]');
-    await act(() => opener.click());
-    await act(() => [...container.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '脚本').click());
-    const dialog = document.querySelector('.native-script-actions-dialog');
-    await act(() => {
-      if (action === 'close') dialog.querySelector('[aria-label="关闭脚本"]').click();
-      else if (action === 'backdrop') dialog.click();
-      else window.dispatchEvent(action === 'escape' ? new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
-        : new Event('eleckoi:platform-back', { cancelable: true }));
-    });
-    expect(document.querySelector('.native-script-actions-dialog')).toBeNull();
-    expect(document.activeElement).toBe(opener);
+  it.each(['escape', 'platform-back'])('returns from More with %s before closing the menu', async action => {
+    await act(() => root.render(<RoleplayInputMenu />)); await openMore();
+    const back = () => window.dispatchEvent(action === 'escape' ? new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }) : new Event('eleckoi:platform-back', { cancelable: true }));
+    await act(back); expect(document.querySelector('[role=menu]').classList.contains('is-main')).toBe(true);
+    await act(back); expect(document.querySelector('[role=menu]')).toBeNull();
+    expect(document.activeElement).toBe(container.querySelector('.roleplay-menu-trigger'));
   });
-
-  it('updates button states and withdraws removed actions while the dialog is open', async () => {
+  it('updates readiness, busy state, errors and withdrawn actions while More stays open', async () => {
     const run = vi.fn(), button = { key: 'synthetic-action', label: 'Synthetic action', scriptName: 'Synthetic script', busy: false, error: '' };
     const render = (buttons, ready = true) => root.render(<RoleplayInputMenu scriptsReady={ready} scriptButtons={buttons} onRunScriptButton={run} />);
-    await act(() => render([button], false));
-    await act(() => container.querySelector('[aria-label="扮演菜单"]').click());
-    await act(() => [...container.querySelectorAll('[role=menuitem]')].find(value => value.textContent === '脚本').click());
-    const dialog = document.querySelector('.native-script-actions-dialog');
-    expect(dialog.querySelector('li button').disabled).toBe(true);
+    await act(() => render([button], false)); await openMore();
+    expect(document.querySelector('.composer-menu-script').disabled).toBe(true);
     await act(() => render([{ ...button, busy: true, error: 'Synthetic action failure' }]));
-    expect(dialog.querySelector('li button').getAttribute('aria-busy')).toBe('true');
-    expect(dialog.querySelector('[role=alert]').textContent).toBe('Synthetic action failure');
-    await act(() => dialog.querySelector('li button').click());
-    expect(run).not.toHaveBeenCalled();
-    await act(() => render([]));
-    expect(dialog.querySelector('li')).toBeNull();
-    expect(dialog.querySelector('[role=status]').textContent).toBe('暂无可用按钮');
+    expect(document.querySelector('.composer-menu-script').getAttribute('aria-busy')).toBe('true');
+    expect(document.querySelector('[role=alert]').textContent).toBe('Synthetic action failure');
+    await act(() => document.querySelector('.composer-menu-script').click()); expect(run).not.toHaveBeenCalled();
+    await act(() => render([])); expect(document.querySelector('.composer-menu-script')).toBeNull();
+    expect(document.querySelector('[role=status]').textContent).toBe('暂无可用按钮');
   });
-
-  it('closes the dialog with its chat-scoped menu rather than switching its buttons to another chat', async () => {
+  it('unmounts actions with their chat so retired actions cannot run in a different conversation', async () => {
     const run = vi.fn();
-    const render = id => root.render(<RoleplayInputMenu key={id} scriptsReady onRunScriptButton={run}
-      scriptButtons={[{ key: id, label: id, scriptName: 'Synthetic script', busy: false, error: '' }]} />);
-    await act(() => render('synthetic-chat-one'));
-    await act(() => container.querySelector('[aria-label="扮演菜单"]').click());
-    await act(() => [...container.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '脚本').click());
-    const retiredButton = document.querySelector('.native-script-actions-dialog li button');
-    await act(() => render('synthetic-chat-two'));
-    expect(document.querySelector('.native-script-actions-dialog')).toBeNull();
-    await act(() => retiredButton.click());
-    expect(run).not.toHaveBeenCalled();
-    await act(() => container.querySelector('[aria-label="扮演菜单"]').click());
-    await act(() => [...container.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '脚本').click());
-    expect(document.querySelector('.native-script-actions-dialog li button').textContent).toContain('synthetic-chat-two');
+    const render = id => root.render(<RoleplayInputMenu key={id} scriptsReady onRunScriptButton={run} scriptButtons={[{ key: id, label: id, scriptName: 'Synthetic script', busy: false, error: '' }]} />);
+    await act(() => render('synthetic-chat-one')); await openMore();
+    const retired = document.querySelector('.composer-menu-script'); await act(() => render('synthetic-chat-two'));
+    expect(document.querySelector('[role=menu]')).toBeNull(); await act(() => retired.click()); expect(run).not.toHaveBeenCalled();
+    await openMore(); expect(document.querySelector('.composer-menu-script').textContent).toContain('synthetic-chat-two');
   });
 
   it('mounts the exact script panel, ignores other frames, releases errors and remounts on retry', async () => {

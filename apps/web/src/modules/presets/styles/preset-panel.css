@@ -2140,8 +2140,12 @@
   width: 132px;
   height: 132px;
   place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
   overflow: hidden;
   border-radius: 22px;
+  corner-shape: round;
 }
 
 .preset-profile-editor-avatar .avatar {
@@ -2152,9 +2156,17 @@
   box-shadow: inset 0 0 0 1px var(--line);
 }
 
+.preset-profile-editor-avatar > button > .avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
 .preset-profile-editor-avatar > button > span {
   position: absolute;
   inset: 0;
+  border-radius: inherit;
+  corner-shape: inherit;
   display: grid;
   place-items: center;
   color: #fff;

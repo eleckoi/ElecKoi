@@ -8,9 +8,9 @@ import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { EditorScopeTabs } from '../../../ui/ui/EditorScopeTabs.jsx';
-import { ArrowDown, ArrowUp, Copy, FileCode, FolderSimple, NotePencil, Plus, Power, Trash, X } from '../../../ui/icons/interfaceIcons.jsx';
+import { ArrowDown, ArrowUp, Copy, FileCode, FolderSimple, NotePencil, Plus, Power, Trash } from '../../../ui/icons/interfaceIcons.jsx';
 import { DshTriangleRightIcon } from '../../../ui/icons/dshTreeIcons.jsx';
-import { MarkdownTextareaField, SaveControl } from '../../settingLibraries/index.js';
+import { SaveControl } from '../../settingLibraries/index.js';
 import { ConfirmationDialog } from '../../../ui/ui/ConfirmationDialog.jsx';
 import { EditorSidebarLayout } from '../../../ui/ui/EditorSidebarLayout.jsx';
 import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
@@ -20,7 +20,6 @@ import { EditorContextMenu, useEditorContextMenu } from '../../../ui/ui/EditorCo
 import { EditorCollectionSurface, EditorCollectionToolbar, EditorSelectionBar, EditorSelectionCheckbox, useEditorMultiSelect } from '../../../ui/ui/EditorCollectionControls.jsx';
 import { EditorLibraryVersionManager } from '../../../ui/ui/EditorLibraryVersionManager.jsx';
 import { useEditorLibraryVersions } from '../../../ui/hooks/useEditorLibraryVersions.js';
-import { isNativeAuthorScript } from '@eleckoi/author-sdk';
 import { createScriptItem, findScriptItem, itemBufferKey, libraryKey, materializeScriptBuffers, moveScriptItem, removeScriptItem, reorderScriptItem, setScriptLibraryEnabled, updateScriptItem } from '../model/scriptEditing.js';
 import { resolveFailure } from '../../../utils/failureText.js';
 
@@ -29,7 +28,6 @@ const emptyRuntime = { scriptStatuses: {}, error: '' };
 const emptySnapshot = () => emptyRuntime;
 const noRuntime = () => null;
 const same = editorValueEqual;
-const jsonText = value => JSON.stringify(value, null, 2);
 
 function Switch({ checked, label, disabled, onChange }) {
   return <label className="script-switch" title={label}>
@@ -40,50 +38,6 @@ function Switch({ checked, label, disabled, onChange }) {
 
 function Tool({ label, Icon, onClick, disabled }) {
   return <button type="button" className="script-tool" title={label} aria-label={label} onClick={onClick} disabled={disabled}><Icon size={18} aria-hidden="true" /></button>;
-}
-
-function ScriptInspector({ library, item, groupLabel, busy, buffers, onBuffer, onChange, onMove, onDuplicate, onDelete, onClose, execution, nameInputRef }) {
-  const tUi = useProductTranslation();
-  const [tab, setTab] = useState('source');
-  useEffect(() => setTab('source'), [library.scope, library.ownerId, item?.id]);
-  const key = libraryKey(library.scope, library.ownerId);
-  const textField = (id, field, value, label) => <label className="script-field"><span>{label}</span>
-    <textarea className="is-code" spellCheck={false} value={buffers[itemBufferKey(key, id, field)] ?? jsonText(value)} disabled={busy}
-      onChange={event => onBuffer(itemBufferKey(key, id, field), event.target.value)} /></label>;
-  return <aside className="script-inspector">
-    <header><strong>{item?.name || groupLabel}</strong><div>
-      <Tool label={tUi("关闭编辑器")} Icon={X} onClick={onClose} />
-    </div></header>
-      <div className="script-inspector-fields script-identity">
-        <label className="script-field"><span>{tUi("名称")}</span><input ref={nameInputRef} value={item.name} disabled={busy} onChange={event => onChange({ name: event.target.value })} /></label>
-        {item.type === 'script' && <label className="script-field"><span>{tUi("文件夹")}</span><select disabled={busy}
-          value={library.trees.find(tree => tree.type === 'folder' && tree.scripts.some(script => script.id === item.id))?.id || ''}
-          onChange={event => onMove(event.target.value)}><option value="">{tUi("根目录")}</option>
-          {library.trees.filter(tree => tree.type === 'folder').map(folder => <option key={folder.id} value={folder.id}>{folder.name || tUi("未命名文件夹")}</option>)}
-        </select></label>}
-      </div>
-      {item.type === 'script' && <>
-        <div className="script-inspector-tabs" role="tablist" aria-label={tUi("脚本编辑内容")}>{[['source', tUi("源码")], ['settings', tUi("设置")], ['buttons', tUi("按钮")], ['info', tUi("信息")]].map(([id, label]) =>
-          <button key={id} type="button" role="tab" aria-selected={tab === id} aria-controls={`script-editor-${id}`} id={`script-tab-${id}`} onClick={() => setTab(id)}>{label}</button>)}</div>
-        <div className={`script-inspector-fields script-tab-body is-${tab}`} role="tabpanel" id={`script-editor-${tab}`} aria-labelledby={`script-tab-${tab}`}>
-          {tab === 'source' && <MarkdownTextareaField label={tUi("脚本源码")} value={item.content} disabled={busy} preview={false} code textareaClassName="script-source" onChange={content => onChange({ content })} />}
-          {tab === 'settings' && <>{textField(item.id, 'data', item.data, tUi("脚本设置"))}
-            <label className="script-option"><input type="checkbox" checked={item.export_with.data} disabled={busy} onChange={event => onChange({ export_with: { ...item.export_with, data: event.target.checked } })} />{tUi("导出时包含脚本设置")}</label>
-            <label className="script-option"><input type="checkbox" checked={item.export_with.button} disabled={busy} onChange={event => onChange({ export_with: { ...item.export_with, button: event.target.checked } })} />{tUi("导出时包含按钮设置")}</label></>}
-          {tab === 'buttons' && <>
-            <label className="script-option"><input type="checkbox" checked={item.button.enabled} disabled={busy} onChange={event => onChange({ button: { ...item.button, enabled: event.target.checked } })} />{tUi("显示脚本按钮")}</label>
-            {!isNativeAuthorScript(item) && item.button.buttons.map((button, index) => <div className="script-button-row" key={index}>
-              <input aria-label={tUi("按钮 {value0} 名称", {value0: index + 1})} value={button.name} disabled={busy} onChange={event => onChange({ button: { ...item.button, buttons: item.button.buttons.map((value, position) => position === index ? { ...value, name: event.target.value } : value) } })} />
-              <Switch label={tUi("显示按钮 {value0}", {value0: index + 1})} checked={button.visible} disabled={busy} onChange={visible => onChange({ button: { ...item.button, buttons: item.button.buttons.map((value, position) => position === index ? { ...value, visible } : value) } })} />
-              <Tool label={tUi("删除按钮 {value0}", {value0: index + 1})} Icon={Trash} disabled={busy} onClick={() => onChange({ button: { ...item.button, buttons: item.button.buttons.filter((_, position) => position !== index) } })} />
-            </div>)}
-            {!isNativeAuthorScript(item) && <Tool label={tUi("新增按钮")} Icon={Plus} disabled={busy} onClick={() => onChange({ button: { ...item.button, buttons: [...item.button.buttons, { name: '', visible: true }] } })} />}
-          </>}
-          {tab === 'info' && <label className="script-field"><span>{tUi("脚本信息")}</span><textarea disabled={busy} value={item.info} onChange={event => onChange({ info: event.target.value })} /></label>}
-        </div>
-      </>}
-      {execution?.error && <pre className="script-execution-error" role="alert">{execution.error}</pre>}
-  </aside>;
 }
 
 export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ characterId, presetId, presetName = '', manageSaveShortcut = true, scriptLibraries, scriptRuntimeConnection, onDirtyChange }, ref) {
@@ -364,11 +318,6 @@ export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ c
     if (runtime && (runtimeState.status === 'idle' || runtimeState.status === 'closed')) return tUi("已启用");
     return runtime ? tUi("未启动") : tUi("运行环境未就绪");
   }
-  const inspector = !multi.active && selectedLibrary && selectedItem && (!compact || editing) ? <ScriptInspector library={selectedLibrary} item={selectedItem} groupLabel={selectedLabel} nameInputRef={nameInputRef}
-    busy={saving} buffers={buffers} onBuffer={changeBuffer} onClose={closeEditor} execution={selectedExecution?.scope === selectedLibrary.scope && selectedExecution.ownerId === selectedLibrary.ownerId && selectedExecution.source === selectedItem?.content ? selectedExecution : null}
-    onChange={patch => change(selection.key, library => updateScriptItem(library, selection.id, patch))}
-    onMove={(folderId, direction) => change(selection.key, library => moveScriptItem(library, selection.id, folderId, direction))}
-    onDuplicate={() => duplicate()} onDelete={() => setDeleteTarget({ key: selection.key, id: selectedItem.id, name: selectedItem.name, folder: selectedItem.type === 'folder' })} /> : null;
   const menuItem = context.menu && drafts[context.menu.target.key] && findScriptItem(drafts[context.menu.target.key], context.menu.target.id);
   const itemActions = menuItem ? [
     ...(menuItem.type === 'folder' ? [{ label: tUi("新建脚本"), icon: FileCode, run: () => create(context.menu.target.key, 'script', menuItem.id) }] : []),
@@ -407,7 +356,7 @@ export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ c
     { id: 'up', label: tUi("上移"), Icon: ArrowUp, run: () => change(selection.key, library => moveScriptItem(library, selectedItem.id, undefined, -1)) },
     { id: 'down', label: tUi("下移"), Icon: ArrowDown, run: () => change(selection.key, library => moveScriptItem(library, selectedItem.id, undefined, 1)) },
   ];
-  const pcInspector = !multi.active && selectedLibrary && selectedItem ? <ScriptDocument key={JSON.stringify([selection.key, versions.current(selectedLibrary.scope)?.activeVersionId, selectedItem.id])}
+  const documentEditor = !multi.active && selectedLibrary && selectedItem ? <ScriptDocument key={JSON.stringify([selection.key, versions.current(selectedLibrary.scope)?.activeVersionId, selectedItem.id])}
     library={selectedLibrary} item={selectedItem} nameInputRef={nameInputRef} busy={saving} dirty={dirty}
     dataText={buffers[itemBufferKey(selection.key, selectedItem.id, 'data')]} onDataChange={text => changeBuffer(itemBufferKey(selection.key, selectedItem.id, 'data'), text)}
     status={buffers[itemBufferKey(selection.key, selectedItem.id, 'data')] !== undefined ? tUi('未保存') : status(selectedLibrary, selectedItem, selectedLibrary.trees.find(tree => tree.type === 'folder' && tree.scripts.some(item => item.id === selectedItem.id))?.enabled)}
@@ -419,7 +368,7 @@ export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ c
     query={query} onQueryChange={setQuery} createItems={visibleGroups.flatMap(group => [{ label: tUi('脚本'), Icon: FileCode, run: () => create(libraryKey(group.scope, group.ownerId), 'script') }, { label: tUi('文件夹'), Icon: FolderSimple, run: () => create(libraryKey(group.scope, group.ownerId), 'folder') }])}
     selection={{ ...multi, toggle: () => { multi.toggle(); setSelection(null); } }} saving={saving} disabled={!versions.ready || Object.keys(drafts).length !== 2}
     save={<SaveControl workspace dirty={dirty} saving={saving} error={error || versions.error} notice={notice} onSave={save} title={tUi('统一保存脚本全部修改')} />}
-    onManage={() => setManagerOpen(true)} onVersionChange={id => { try { versions.select(activeScope, id); } catch (cause) { setError(resolveFailure(cause, { fallback: tUi('切换版本失败') }).text); } }} inspector={pcInspector}>
+    onManage={() => setManagerOpen(true)} onVersionChange={id => { try { versions.select(activeScope, id); } catch (cause) { setError(resolveFailure(cause, { fallback: tUi('切换版本失败') }).text); } }} inspector={documentEditor}>
     <EditorSelectionBar selection={multi} visibleIds={visibleTargets.map(target => target.selectionId)} disabled={saving}
       onCopy={() => { batchTargets().forEach(target => duplicate({ key: target.key, id: target.item.id })); multi.clear(); }}
       onDelete={() => setDeleteTarget({ targets: batchTargets().map(target => ({ key: target.key, id: target.item.id })), name: tUi('选中的 {value0} 个项目', { value0: multi.selected.size }), folder: batchTargets().some(target => target.item.type === 'folder') })} />
@@ -431,11 +380,13 @@ export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ c
         onToggle={(key, id, enabled) => change(key, library => updateScriptItem(library, id, { enabled }))} onToggleLibrary={(key, enabled) => change(key, library => setScriptLibraryEnabled(library, enabled))}
         onContextMenu={openContext} dragProps={dragProps} nameDragProps={nameDragProps} rootDragProps={{ onDragOver: event => dragOver(event, key), onDrop: event => drop(event, key) }} /> : <p key={key} className="rs-directory-empty" role="status">{tUi('正在读取…')}</p>; })}
     </div>
-  </EditorLibraryWorkspace> : <EditorSidebarLayout className={`script-libraries-panel${multi.active ? ' is-multiselect' : ''}`} inspector={inspector} inspectorTitle={selectedItem?.name || selectedLabel}
+  </EditorLibraryWorkspace> : <EditorSidebarLayout documentLayout className={`script-libraries-panel${multi.active ? ' is-multiselect' : ''}`} inspector={editing ? documentEditor : null} inspectorTitle={selectedItem?.name || selectedLabel}
     onCloseInspector={closeEditor} preferredWidth={inspectorWidth} onWidthChange={setInspectorWidth}
     feedback={<SaveControl dirty={dirty} saving={saving} error={error || versions.error} notice={notice} onSave={save} />}>
     <div className="script-directory editor-collection-browser editor-collection-material editor-collection-continuous">
-      <EditorCollectionToolbar query={query} onQueryChange={setQuery} placeholder={tUi("搜索脚本")} selection={{ ...multi, toggle: () => { multi.toggle(); setEditing(false); } }} disabled={saving || !versions.ready}
+      <EditorCollectionToolbar leading={<EditorScopeTabs value={activeScope} ownerValue={ownerScope} ownerLabel={presetEditor ? tUi("预设") : tUi("角色")} panelId={scopePanelId} onChange={next => {
+        setActiveScope(next); setSelection(null); setEditing(false); setDragged(null); setDropTarget(null); context.close(); if (multi.active) multi.toggle();
+      }} />} query={query} onQueryChange={setQuery} placeholder={tUi("搜索脚本")} selection={{ ...multi, toggle: () => { multi.toggle(); setEditing(false); } }} disabled={saving || !versions.ready}
         createItems={visibleGroups.flatMap(group => [
           { id: `${group.scope}-label`, type: 'label', text: group.label },
           { label: tUi("脚本"), Icon: FileCode, run: () => create(libraryKey(group.scope, group.ownerId), 'script') },
@@ -448,9 +399,7 @@ export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ c
       {runtimeState.error && <p className="script-panel-error" role="alert">{runtimeState.error}</p>}
       <div id={scopePanelId} role="tabpanel" aria-label={activeScope === 'global' ? tUi("全局脚本") : tUi("角色脚本")} className="script-groups editor-collection-directory editor-sidebar-directory" onContextMenu={event => openContext(event, {})}
         onMouseDown={event => { if (event.button === 0 && !multi.active && !event.target.closest('.script-list-row')) setSelection(null); }}>
-      <EditorScopeTabs value={activeScope} ownerValue={ownerScope} ownerLabel={presetEditor ? tUi("预设") : tUi("角色")} panelId={scopePanelId} onChange={next => {
-        setActiveScope(next); setSelection(null); setEditing(false); setDragged(null); setDropTarget(null); context.close(); if (multi.active) multi.toggle();
-      }} />
+
       <EditorCollectionSurface grouped>{visibleGroups.map(group => {
         const key = libraryKey(group.scope, group.ownerId), library = drafts[key];
         const scriptRow = (item, enabled = true, parentId = '') => {

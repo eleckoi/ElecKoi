@@ -3289,5 +3289,17 @@
   "修改界面显示": "Modifier l’affichage",
   "修改发送给 AI 的提示词": "Modifier le prompt envoyé à l’IA",
   "开场白操作": "Actions du message d’accueil",
-  "开场白列表": "Messages d’accueil"
+  "开场白列表": "Messages d’accueil",
+  "切换预设失败": "Impossible de changer de préréglage",
+  "添加工具": "Ajouter des outils",
+  "展开全部文件夹": "Développer tous les dossiers",
+  "收起全部文件夹": "Réduire tous les dossiers",
+  "预设编辑器 - ElecKoi": "Éditeur de préréglages - ElecKoi",
+  "返回菜单": "Retour au menu",
+  "脚本提供": "Fourni par les scripts",
+  "应用于全部创作对话": "S’applique à toutes les conversations créatives",
+  "应用于全部角色对话": "S’applique à toutes les conversations de personnages",
+  "没有匹配的预设": "Aucun préréglage correspondant",
+  "全局设定库的启停尚未保存。": "Les modifications des bibliothèques globales ne sont pas enregistrées.",
+  "共享设置，影响所有使用这些设定的对话": "Ces réglages partagés affectent toutes les conversations utilisant ces bibliothèques"
 }

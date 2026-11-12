@@ -221,16 +221,20 @@ describe('Android startup admission', () => {
       const notify = (mask, pseudo, active) => window.document.dispatchEvent(new window.CustomEvent('eleckoi:system-bar-mask', { detail: { mask, pseudo, active } }))
       await paint(window)
       notify(official, '::after', true)
+      await paint(window)
       expect(appearances.at(-1)).toEqual({ mode: 'light', surface: '#bfbfbf' })
       notify(product, '', true)
+      await paint(window)
       expect(appearances.at(-1)).toEqual({ mode: 'light', surface: '#606060' })
       notify(product, '', false)
+      await paint(window)
       expect(appearances.at(-1)).toEqual({ mode: 'light', surface: '#bfbfbf' })
       window.document.documentElement.dataset.theme = 'dark'
       root.firstElementChild.style.setProperty('--mobile-system-bar-bg', '#202020')
       await paint(window)
       expect(appearances.at(-1)).toEqual({ mode: 'dark', surface: '#181818' })
       notify(official, '::after', false)
+      await paint(window)
       expect(appearances.at(-1)).toEqual({ mode: 'dark', surface: '#202020' })
     } finally { page.window.close() }
   })
@@ -250,15 +254,84 @@ describe('Android startup admission', () => {
         detail: { mask, pseudo: '', surface: declaredSurface, active }
       }))
       notify(true)
+      await paint(window)
       expect(appearances.at(-1).surface).not.toBe('#ffffff')
       notify(true, surface)
+      await paint(window)
       expect(appearances.at(-1).surface).toBe('#ffffff')
       surface.style.backgroundColor = '#202020'
       window.document.documentElement.dataset.theme = 'dark'
       await paint(window)
       expect(appearances.at(-1)).toEqual({ mode: 'dark', surface: '#202020' })
       notify(false, surface)
+      await paint(window)
       expect(appearances.at(-1).surface).toBe('#ffffff')
+    } finally { page.window.close() }
+  })
+  it('coalesces mask registration and avoids rescanning appearance for unrelated body portals', async () => {
+    const { page, appearances } = clientPage()
+    try {
+      const { window } = page
+      window.document.documentElement.dataset.theme = 'light'
+      mountSurface(window, '#ffffff')
+      const mask = window.document.createElement('div')
+      mask.style.backgroundColor = 'rgba(0,0,0,0.5)'
+      mask.setAttribute('role', 'presentation')
+      const surface = window.document.createElement('section')
+      surface.setAttribute('role', 'dialog'); surface.setAttribute('aria-modal', 'true')
+      mask.append(surface)
+      mask.getAnimations = options => { expect(options?.subtree).not.toBe(true); return [] }
+      window.document.body.append(mask)
+      await paint(window)
+      const original = window.getComputedStyle.bind(window)
+      let reads = 0
+      window.getComputedStyle = (...args) => { reads++; return original(...args) }
+      const notify = active => window.document.dispatchEvent(new window.CustomEvent('eleckoi:system-bar-mask', {
+        detail: { mask, pseudo: '', active }
+      }))
+      notify(true); notify(true)
+      expect(reads).toBe(0)
+      await paint(window)
+      expect(appearances.at(-1)).toEqual({ mode: 'light', surface: '#808080' })
+      reads = 0
+      const portal = window.document.createElement('div')
+      window.document.body.append(portal)
+      await paint(window)
+      portal.remove()
+      await paint(window)
+      expect(reads).toBe(0)
+      notify(false)
+      await paint(window)
+      expect(appearances.at(-1)).toEqual({ mode: 'light', surface: '#ffffff' })
+    } finally { page.window.close() }
+  })
+  it('tracks official body portals through mount, color changes and removal', async () => {
+    const { page, appearances } = clientPage()
+    try {
+      const { window } = page
+      window.document.documentElement.dataset.theme = 'light'
+      mountSurface(window, '#ffffff')
+      await paint(window)
+      const portal = window.document.createElement('div')
+      portal.setAttribute('role', 'presentation'); portal.style.cssText = 'position:fixed;inset:0;z-index:1000'
+      const mask = window.document.createElement('div')
+      mask.setAttribute('aria-hidden', 'true'); mask.style.cssText = 'position:absolute;inset:0'
+      const dialog = window.document.createElement('section')
+      dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true')
+      portal.append(mask, dialog)
+      const original = window.getComputedStyle.bind(window)
+      let opacity = '0.5'
+      window.getComputedStyle = (element, pseudo) => element === mask && pseudo === '::after'
+        ? { display: 'block', visibility: 'visible', backgroundColor: 'rgba(0,0,0,1)', opacity } : original(element, pseudo)
+      window.document.body.append(portal)
+      await paint(window)
+      expect(appearances.at(-1)).toEqual({ mode: 'light', surface: '#808080' })
+      opacity = '0.25'; mask.className = 'closing'
+      await paint(window)
+      expect(appearances.at(-1)).toEqual({ mode: 'light', surface: '#bfbfbf' })
+      portal.remove()
+      await paint(window)
+      expect(appearances.at(-1)).toEqual({ mode: 'light', surface: '#ffffff' })
     } finally { page.window.close() }
   })
   it('sends rasterized sRGB bytes even when Canvas serializes a CSS Color 4 value', async () => {

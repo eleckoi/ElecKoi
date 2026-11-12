@@ -34,15 +34,36 @@ export function useMessageToolbarMotion(expanded, mobile, toolsRef, articleRef, 
     const measure = () => {
       // Both siblings use the article's layout origin; opening transforms must not change clearance.
       const overlap = Math.max(0, content.offsetLeft + content.offsetWidth - tools.offsetLeft + 6);
-      article.style.setProperty('--mobile-message-tool-clearance', `${overlap}px`);
-      article.style.setProperty('--mobile-message-tool-height', `${tools.offsetHeight}px`);
+      const height = tools.offsetHeight;
+      // Complete geometry reads before invalidating layout, including ResizeObserver's first delivery.
+      const clearance = `${overlap}px`, toolHeight = `${height}px`;
+      if (article.style.getPropertyValue('--mobile-message-tool-clearance') !== clearance)
+        article.style.setProperty('--mobile-message-tool-clearance', clearance);
+      if (article.style.getPropertyValue('--mobile-message-tool-height') !== toolHeight)
+        article.style.setProperty('--mobile-message-tool-height', toolHeight);
     };
     measure();
-    const observer = new ResizeObserver(measure);
+    let resizeFrame;
+    const observer = new ResizeObserver(() => {
+      if (resizeFrame !== undefined) return;
+      resizeFrame = requestAnimationFrame(() => { resizeFrame = undefined; measure(); });
+    });
     observer.observe(tools);
     observer.observe(content);
-    return () => { observer.disconnect(); article.style.removeProperty('--mobile-message-tool-clearance'); article.style.removeProperty('--mobile-message-tool-height'); };
+    return () => {
+      observer.disconnect();
+      if (resizeFrame !== undefined) cancelAnimationFrame(resizeFrame);
+      article.style.removeProperty('--mobile-message-tool-clearance'); article.style.removeProperty('--mobile-message-tool-height');
+    };
   }, [mobile, visible, presentedExpanded, toolsRef, articleRef]);
 
-  return { presentedExpanded: mobile ? presentedExpanded : expanded, reserved: mobile && visible && presentedExpanded, swapping: mobile && swapping };
+  const collapseBeforeDialog = () => {
+    // A modal replaces these controls immediately; do not resize the chat again
+    // halfway through its entrance animation when the toolbar fade timer expires.
+    settled.current = false;
+    setPresentedExpanded(false);
+    setSwapping(false);
+  };
+  return { presentedExpanded: mobile ? presentedExpanded : expanded, reserved: mobile && visible && presentedExpanded,
+    swapping: mobile && swapping, collapseBeforeDialog };
 }

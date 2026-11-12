@@ -368,14 +368,16 @@
       {
         "id": "eleckoiConversationModelsRemote",
         "kind": "remote",
-        "title": "全局模型选择",
-        "description": "读取并选择全部聊天下一轮共同使用的模型。",
+        "title": "会话模型与参数",
+        "description": "读取和选择当前会话模型，并保存会话生成参数；空聊天编号只读取或设置新会话默认模型。",
         "mode": "call",
         "scope": "host",
         "relation": "provides",
         "members": [
           "current",
-          "select"
+          "select",
+          "parameters",
+          "saveParameters"
         ],
         "owner": "eleckoiConversationModels"
       },

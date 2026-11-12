@@ -105,7 +105,7 @@ async function create(scenario, returnToList = true) {
   await click(scenario.section); await click('新建');
   await click(scenario.choice, document.querySelector('[role=menu]'));
   expect(container.querySelector('.editor-page-detail')).toBeTruthy();
-  expect(container.querySelector('.mobile-header-actions button')).toBeNull();
+  expect(container.querySelector('.mobile-header-actions button').textContent).toBe('保存');
   if (!returnToList) return;
   await click('返回');
   expect([...container.querySelectorAll(scenario.rows)].some(row => row.textContent.includes(scenario.newName))).toBe(true);

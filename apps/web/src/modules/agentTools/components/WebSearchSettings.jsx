@@ -108,13 +108,17 @@ export function WebSearchSettings({ onBeforeOpenPluginSettings, onOpenPluginSett
         </button>
       </div>
       {settings.mode !== 'tavily' ? <div className="web-search-key-actions">
-        <button type="button" disabled={Boolean(busy)} onClick={() => {
+        <button type="button" disabled={Boolean(busy)} onClick={async () => {
           if (onBeforeOpenPluginSettings?.() === false) return;
+          setBusy('navigation');
+          setError('');
           try {
-            model.openPluginSettings();
+            await model.openPluginSettings();
             onOpenPluginSettings?.();
           } catch (cause) {
             setError(messageOf(cause, tUi("网页搜索插件设置暂时无法打开")));
+          } finally {
+            setBusy('');
           }
         }}>{tUi("前往官方插件配置")}</button>
       </div> : null}

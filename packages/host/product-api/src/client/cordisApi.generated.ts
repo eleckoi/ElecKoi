@@ -490,7 +490,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'readModelSelection(conversationId: string): Promise<ConversationModelSelection>',
-        description: '读取该聊天下一轮使用的全局模型。',
+        description: '读取指定聊天的官方会话模型；空编号读取新会话默认模型。',
         parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }],
         returns: '操作结果，字段见返回类型；异步失败会拒绝 Promise。',
       },
@@ -520,7 +520,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'selectModel(conversationId: string, selection: ConversationModelSelection): Promise<ConversationModelSelection>',
-        description: '保存下一轮的全局模型选择。',
+        description: '通过官方控制器选择指定聊天的模型并更新新会话默认值；空编号只更新默认值。',
         parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'selection', description: '模型提供商、模型编号和可选推理档位。' }],
         returns: '操作结果，字段见返回类型；异步失败会拒绝 Promise。',
       },
@@ -775,6 +775,24 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: '在写入队列中合并指定模型的参数，不覆盖其他模型或提供商字段。',
         parameters: [{ name: 'configId', description: '当前提供商配置编号。' }, { name: 'modelId', description: '当前提供商下的准确模型编号。' }, { name: 'patch', description: '本次编辑的模型参数与能力。' }],
         returns: '更新后的配置；异步失败保留原始错误。',
+      },
+      {
+        signature: 'sessionParameters(sessionId: string): { getSnapshot(): import(\'@eleckoi/dsh-product-api/types\').SessionModelParameterState | undefined; subscribe(listener: () => void): () => void }',
+        description: '当前会话的官方参数投影；随 Session 释放。',
+        parameters: [{ name: 'sessionId', description: '官方会话编号。' }],
+        returns: '官方投影的读取与订阅面。',
+      },
+      {
+        signature: 'readSessionModelParameters(sessionId: string): Promise<import(\'@eleckoi/dsh-product-api/types\').SessionModelParameterState>',
+        description: '读取会话生成参数，不修改模型连接配置。',
+        parameters: [{ name: 'sessionId', description: '官方会话编号。' }],
+        returns: '会话参数与修订号。',
+      },
+      {
+        signature: 'saveSessionModelParameters(sessionId: string, provider: string, model: string, patch: import(\'@eleckoi/dsh-product-api/types\').SessionModelParameterPatch, revision: number): Promise<import(\'@eleckoi/dsh-product-api/types\').SessionModelParameterState>',
+        description: '保存会话参数补丁，使用官方日志投影修订号检查冲突。',
+        parameters: [{ name: 'sessionId', description: '官方会话编号。' }, { name: 'provider', description: '提供商路由编号。' }, { name: 'model', description: '模型编号。' }, { name: 'patch', description: '本次生成参数变更。' }, { name: 'revision', description: '编辑时读取的会话参数修订号。' }],
+        returns: '已保存的会话参数投影。',
       },
       {
         signature: 'deleteConfig(id: string): Promise<ClientModelConfig | undefined>',
@@ -1210,9 +1228,10 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '操作结果，字段见返回类型；异步失败会拒绝 Promise。',
       },
       {
-        signature: 'openPluginSettings(): void',
-        description: '打开「插件 → 网页搜索」官方设置页；不可用时抛出错误。',
+        signature: 'openPluginSettings(): void | Promise<void>',
+        description: '打开「插件 → 网页搜索」官方设置页；独立桌面窗口等待主窗口回执，不可用时抛出或拒绝。',
         parameters: [],
+        returns: '当前窗口立即完成；独立桌面窗口返回等待主窗口导航完成的 Promise。',
       },
     ],
   },

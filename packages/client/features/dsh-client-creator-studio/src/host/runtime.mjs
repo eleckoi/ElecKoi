@@ -93,7 +93,6 @@ export async function installCreatorStudioRuntime(ctx) {
     }
   }
   const bindCurrent = async (agent, state, prepared) => {
-    if (prepared.model.provider && prepared.model.model) agent.model.select(prepared.model)
     const changed = bindings.get(agent) !== prepared.revision
     if (changed) {
       await ctx.agentPresets.recompose(agent.ctx, CREATOR_RUNTIME_PRESET_ID)
@@ -113,7 +112,7 @@ export async function installCreatorStudioRuntime(ctx) {
     if (!state || preparedTurns.get(agent) === turn) return
     signal.throwIfAborted()
     await serialized(async () => {
-      const prepared = await prepareDefinition(await currentRequestSnapshot(ctx))
+      const prepared = await prepareDefinition(await currentRequestSnapshot(ctx, agent.model.current(), agent.session))
       signal.throwIfAborted()
       return bindCurrent(agent, state, prepared)
     })
@@ -156,7 +155,7 @@ export async function installCreatorStudioRuntime(ctx) {
       const current = agent.session.snapshotEvents().findLast(event => event.type === type)
       if (previous && JSON.stringify(previous.data) !== JSON.stringify(current?.data)) agent.session.append(type, previous.data)
     }
-    await serialized(async () => bindCurrent(agent, state, await prepareDefinition()))
+    await serialized(async () => bindCurrent(agent, state, await prepareDefinition(await currentRequestSnapshot(ctx, agent.model.current(), agent.session))))
   }
   const service = {
     async list() {
@@ -193,11 +192,12 @@ export async function installCreatorStudioRuntime(ctx) {
         const { inspection, state } = await readState(sessionId)
         const live = ctx.agents.get(sessionId)
         if (live?.status === 'running') return { sessionId, ...state }
-        const prepared = await prepareDefinition()
+        if (!registration) await prepareDefinition()
         if (!live && legacyPresetId(selectedPreset(inspection))) await migrateStoredPreset(sessionId)
         const resolved = await ctx.sessionController.resolveAgent(sessionId)
         if ('error' in resolved) throw resolved.error
         if (resolved.agent.status === 'running') return { sessionId, ...state }
+        const prepared = await prepareDefinition(await currentRequestSnapshot(ctx, resolved.agent.model.current(), resolved.agent.session))
         const result = await resolved.agent.runMaintenance(() => bindCurrent(resolved.agent, state, prepared))
         return { sessionId, ...result.state }
       })

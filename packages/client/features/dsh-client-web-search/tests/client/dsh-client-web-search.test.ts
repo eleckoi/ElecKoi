@@ -6,7 +6,7 @@ import { dshClientPlugin } from '../../../../../../tests/helpers/dshClientPlugin
 const source = readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8')
 const ok = (value: unknown) => Promise.resolve({ ok: true, value })
 
-function harness() {
+function harness(browser: Record<string, unknown> = {}) {
   let registration: any
   let model: any
   let cleanup = () => {}
@@ -38,7 +38,7 @@ function harness() {
   const layout = { selectPanel: vi.fn() }
   const entry = { options: { key: 'plugins' }, store: { create: () => navigation }, inject: () => ({ hooks: { configLedger: { getSnapshot: () => ({ items }) } } }) }
   const slots = { entriesOfSlot: vi.fn(() => [{ options: { key: 'other' } }, entry]) }
-  runInNewContext(source, { window: { __ModuleLoader__: { load: (value: any) => { registration = value } } } })
+  runInNewContext(source, { URLSearchParams, window: { ...browser, __ModuleLoader__: { load: (value: any) => { registration = value } } } })
   dshClientPlugin(registration).apply({
     remote, get: (name: string) => ({ slots, layout })[name], provide: (_name: string, value: any) => { model = value },
     effect: (run: () => () => void) => { cleanup = run() }, on: () => () => {}
@@ -47,6 +47,18 @@ function harness() {
 }
 
 describe('DSH web search Client model', () => {
+  it('routes editor links to the main window and preserves navigation failures without selecting a child panel', async () => {
+    const openSettings = vi.fn(async () => {})
+    const { model, layout, navigation, cleanup } = harness({ location: { search: '?view=preset-editor&preset=synthetic-preset&section=tools' }, dshDesktop: { plugins: { openSettings } } })
+    try {
+      await model.openPluginSettings()
+      expect(openSettings).toHaveBeenCalledExactlyOnceWith('web-search')
+      expect(layout.selectPanel).not.toHaveBeenCalled()
+      expect(navigation.actions.setView).not.toHaveBeenCalled()
+      openSettings.mockRejectedValueOnce(new Error('合成主窗口未就绪'))
+      await expect(model.openPluginSettings()).rejects.toThrow('合成主窗口未就绪')
+    } finally { cleanup() }
+  })
   it.each([0, 20])('persists and reopens the official Tavily count %i without replacing it with five', async count => {
     const { remote, model, cleanup } = harness()
     try {

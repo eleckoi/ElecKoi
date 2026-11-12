@@ -4,14 +4,20 @@ import { useEffect, useId, useImperativeHandle, useRef, useState } from 'react';
 import { CaretRight, CaretUp, NotePencil, Plus } from '../../../ui/icons/interfaceIcons.jsx';
 import { TrashIcon } from '../../../ui/icons/index.jsx';
 import { UnsavedChangesDialog } from '../../../ui/ui/UnsavedChangesDialog.jsx';
-import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
+import { useEditorPresentation, useEditorSubpage } from '../../../ui/ui/EditorPresentationContext.jsx';
 import { EditorContextMenu, useEditorContextMenu } from '../../../ui/ui/EditorContextMenu.jsx';
 import { calendarDateValue, createTimelineDraft, createUsageDraft, introductionDraftPatch, isIntroductionDraftDirty, visibleTimelineRecords } from '../model/presetIntroductionDraft.js';
+import { EditorWritingBoard } from '../../settingLibraries/index.js';
+import { PresetReadableText } from './PresetReadableText.jsx';
+import '../../../ui/styles/editor-library-workspace.css';
 import '../styles/preset-usage.css';
 
 export function PresetContentComposer({ draft, formRef, saving, error, onChange, onCancel, onSave }) {
   const tUi = useProductTranslation();
+  const { compact } = useEditorPresentation();
   const timeline = draft.kind === 'timeline';
+  const value = timeline ? draft.value.note : draft.value;
+  const change = value => onChange(timeline ? { ...draft.value, note: value } : value);
   return <form ref={formRef} className="preset-content-composer" aria-label={timeline ? tUi("编辑更新记录") : tUi("编辑使用说明")} onSubmit={(event) => { event.preventDefault(); void onSave(); }} onKeyDown={(event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); void onSave(); }
   }}>
@@ -20,12 +26,13 @@ export function PresetContentComposer({ draft, formRef, saving, error, onChange,
         <input className="preset-content-composer-title" aria-label={tUi("更新标题")} placeholder={tUi("更新标题")} value={draft.value.title} onChange={(event) => onChange({ ...draft.value, title: event.target.value })} />
         <input className="preset-content-composer-date" aria-label={tUi("更新日期")} type={!draft.value.dateLabel || calendarDateValue(draft.value.dateLabel) ? 'date' : 'text'} value={calendarDateValue(draft.value.dateLabel) || draft.value.dateLabel} onChange={(event) => onChange({ ...draft.value, dateLabel: event.target.value })} />
       </div> : null}
-      <textarea aria-label={timeline ? tUi("更新内容") : tUi("使用说明")} placeholder={timeline ? tUi("写下这次更新…") : tUi("写下使用说明…")} rows={4} value={timeline ? draft.value.note : draft.value} onChange={(event) => onChange(timeline ? { ...draft.value, note: event.target.value } : event.target.value)} />
+      <EditorWritingBoard className="preset-composer-writing" showHeading={false} code={false} label={timeline ? tUi('更新内容') : tUi('使用说明')}
+        placeholder={timeline ? tUi('写下这次更新…') : tUi('写下使用说明…')} value={value} onChange={change} disabled={saving} />
       <div className="preset-content-composer-footer">
         <span className="preset-content-error" role={error ? 'alert' : undefined}>{error}</span>
         <div className="preset-content-actions">
           <Button data-dsh-control variant="outline" type="button" className="preset-content-button" onClick={onCancel}>{tUi("取消")}</Button>
-          <Button data-dsh-control variant="primary" type="submit" className="preset-content-button is-primary">{saving ? tUi("保存中…") : timeline ? tUi("保存更新") : tUi("保存")}</Button>
+          {!compact && <Button data-dsh-control variant="primary" type="submit" className="preset-content-button is-primary">{saving ? tUi("保存中…") : timeline ? tUi("保存更新") : tUi("保存")}</Button>}
         </div>
       </div>
     </fieldset>
@@ -48,11 +55,11 @@ function ContentDialog({ title, children, onClose, busy }) {
   }}><h2 id={titleId}>{title}</h2>{children}</dialog>;
 }
 
-export function PresetIntroductionEditor({ preset, editorRef, saving, error, onClearError, onSaveProfile }) {
+export function PresetIntroductionEditor({ preset, editorRef, saving, error, onClearError, onSaveProfile, readOnly = false, onDirtyChange, autoEditEmpty = true }) {
   const tUi = useProductTranslation();
   const { compact } = useEditorPresentation();
   const profile = preset.profile;
-  const [draft, setDraft] = useState(() => profile.usageInstructions ? null : createUsageDraft(profile));
+  const [draft, setDraft] = useState(() => readOnly || profile.usageInstructions || !autoEditEmpty ? null : createUsageDraft(profile));
   const [validation, setValidation] = useState('');
   const [pending, setPending] = useState(null);
   const [deleting, setDeleting] = useState(null);
@@ -66,6 +73,9 @@ export function PresetIntroductionEditor({ preset, editorRef, saving, error, onC
   const timelineEditRefs = useRef(new Map());
   const busyRef = useRef(false);
   const dirty = isIntroductionDraftDirty(draft);
+  useEffect(() => { onDirtyChange?.(dirty || Boolean(draft?.isNew)); }, [dirty, draft?.isNew, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+  useEditorSubpage(Boolean(draft) && !readOnly, draft?.kind === 'timeline' ? tUi('编辑更新记录') : tUi('编辑使用说明'), () => requestLeave(() => {}));
   const { records, hiddenCount } = visibleTimelineRecords(profile.timeline, expanded, Boolean(draft?.isNew));
 
   function toggleEarlier() {
@@ -85,7 +95,7 @@ export function PresetIntroductionEditor({ preset, editorRef, saving, error, onC
   function openDraft(next) {
     requestLeave(() => {
       setDraft(next); setValidation(''); onClearError(); setNotice('');
-      requestAnimationFrame(() => formRef.current?.querySelector('input, textarea')?.focus());
+      requestAnimationFrame(() => formRef.current?.querySelector('input, textarea, .cm-content')?.focus());
     });
   }
   function finish() {
@@ -105,7 +115,7 @@ export function PresetIntroductionEditor({ preset, editorRef, saving, error, onC
       finish(); setNotice("saved"); return true;
     } finally { busyRef.current = false; }
   }
-  useImperativeHandle(editorRef, () => ({ requestLeave, save: saveDraft, hasDraft: Boolean(draft) }));
+  useImperativeHandle(editorRef, () => ({ requestLeave, save: saveDraft, hasDraft: Boolean(draft), dirty: dirty || Boolean(draft?.isNew) }));
   useEffect(() => {
     if (!dirty) return;
     const warn = (event) => { event.preventDefault(); event.returnValue = ''; };
@@ -118,37 +128,37 @@ export function PresetIntroductionEditor({ preset, editorRef, saving, error, onC
     <section className="preset-content-section preset-usage-section" aria-label={tUi("使用说明")}>
       <div className="preset-content-section-heading">
         <h2>{tUi("使用说明")}</h2>
-        {draft?.kind !== 'usage' ? <Button data-dsh-control variant="outline" ref={usageEditRef} type="button" className="preset-content-button is-section-action" disabled={saving} onClick={() => openDraft(createUsageDraft(profile))}>{tUi("编辑")}</Button> : null}
+        {!readOnly && draft?.kind !== 'usage' ? <Button data-dsh-control variant="outline" ref={usageEditRef} type="button" className="preset-content-button is-section-action" disabled={saving} onClick={() => openDraft(createUsageDraft(profile))}>{tUi("编辑")}</Button> : null}
       </div>
       {draft?.kind === 'usage' ? composer : <div className="preset-usage-reading-surface">
-        <p className={`preset-usage-copy${profile.usageInstructions ? '' : ' is-empty'}`}>{profile.usageInstructions || tUi("暂无使用说明")}</p>
+        <PresetReadableText className={`preset-usage-copy${profile.usageInstructions ? '' : ' is-empty'}`} label={tUi('使用说明')} value={profile.usageInstructions} emptyText={tUi('暂无使用说明')} />
       </div>}
     </section>
     <section className="preset-content-section preset-updates" aria-label={tUi("更新记录")}>
-      <div className="preset-content-section-heading"><h2>{tUi("更新记录")}</h2><Button data-dsh-control variant="outline" ref={addRef} type="button" className="preset-content-button is-section-action" disabled={saving || Boolean(draft?.isNew)} onClick={() => openDraft(createTimelineDraft())}><Plus size={15} />{tUi("添加更新")}</Button></div>
+      <div className="preset-content-section-heading"><h2>{tUi("更新记录")}</h2>{!readOnly && <Button data-dsh-control variant="outline" ref={addRef} type="button" className="preset-content-button is-section-action" disabled={saving || Boolean(draft?.isNew)} onClick={() => openDraft(createTimelineDraft())}><Plus size={15} />{tUi("添加更新")}</Button>}</div>
       <ol id={timelineId} className="preset-update-list" aria-label={tUi("更新时间线，最新记录在前")}>
         {draft?.kind === 'timeline' && draft.isNew ? <li className="preset-update-step is-editing"><i className="preset-update-node" aria-hidden="true" />{composer}</li> : null}
         {records.map((item, index) => <li className={`preset-update-step${index === 0 ? ' is-latest' : ''}${draft?.kind === 'timeline' && draft.value.id === item.id ? ' is-editing' : ''}`} key={item.id}>
         <i className="preset-update-node" aria-hidden="true" />
         {draft?.kind === 'timeline' && !draft.isNew && draft.value.id === item.id ? composer : <article className="preset-update-record" tabIndex={0}
           aria-label={tUi("更新记录：{value0}", {value0: item.title || item.dateLabel || tUi("未命名更新")})}
-          onContextMenu={event => context.open(event, item)} onKeyDown={event => {
-            if (event.key === 'ContextMenu' || event.shiftKey && event.key === 'F10') context.open(event, item);
+          onContextMenu={event => { if (!readOnly) context.open(event, item); }} onKeyDown={event => {
+            if (!readOnly && (event.key === 'ContextMenu' || event.shiftKey && event.key === 'F10')) context.open(event, item);
           }}>
           <div className="preset-update-record-heading">
             <div className="preset-update-record-summary">
               {item.title ? <h3>{item.title}</h3> : null}
               {item.dateLabel ? <span className="preset-update-record-date">{item.dateLabel}</span> : null}
             </div>
-            <div className="preset-update-record-actions">
+            {!readOnly && <div className="preset-update-record-actions">
               <button ref={element => { if (element) timelineEditRefs.current.set(item.id, element); else timelineEditRefs.current.delete(item.id); }}
                 type="button" className="preset-update-action preset-update-edit" title={tUi("编辑更新")} aria-label={tUi("编辑更新：{value0}", {value0: item.title || item.dateLabel || tUi("未命名更新")})}
                 disabled={saving} onClick={() => openDraft(createTimelineDraft(item))}><NotePencil size={16} aria-hidden="true" /></button>
               <button type="button" className="preset-update-action is-delete" title={tUi("删除更新")} aria-label={tUi("删除更新：{value0}", {value0: item.title || item.dateLabel || tUi("未命名更新")})}
                 disabled={saving} onClick={() => requestLeave(() => { onClearError(); setDeleting(item); })}><TrashIcon size={16} aria-hidden="true" /></button>
-            </div>
+            </div>}
           </div>
-          {item.note ? <p>{item.note}</p> : null}
+          {item.note ? <PresetReadableText className="preset-update-note" label={tUi('更新内容')} value={item.note} /> : null}
         </article>}
       </li>)}</ol>
       {hiddenCount > 0 || expanded && profile.timeline.length > (draft?.isNew ? 2 : 3) ? <button type="button" className={`preset-updates-expand${expanded ? ' is-expanded' : ''}`} aria-expanded={expanded} aria-controls={timelineId} disabled={saving} onClick={toggleEarlier}><span>{expanded ? tUi("收起更早记录") : tUi("展开更早 {value0} 条记录", {value0: hiddenCount})}</span>{expanded ? <CaretUp size={17} /> : <CaretRight size={17} />}</button> : null}

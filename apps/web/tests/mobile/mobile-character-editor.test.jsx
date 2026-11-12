@@ -27,7 +27,7 @@ function modelFor(value, normalize = draft => draft) {
     save: vi.fn(async (_id, draft) => normalize(draft)), saveViewState: vi.fn().mockResolvedValue(undefined) };
 }
 const scenarios = [
-  { name: '设定', selector: '.setting-library-tree-row', search: '搜索设定', field: '.setting-library-title-field input',
+  { name: '设定', selector: '.setting-library-tree-row', search: '搜索设定', field: '[aria-label="条目标题"]',
     setup() {
       const entries = [0, 1].map(index => ({ ...createEntryDraft('', index + 1, []), id: `entry-${index}`, title: `合成条目${index}`, content: '合成正文' }));
       const version = { id: 'version-a', name: '合成版本', entries, groups: [], promptPositions: [], expandedGroupIds: [], listAllExpanded: true };
@@ -36,7 +36,7 @@ const scenarios = [
     }, Component: SettingLibraryPanel, modelProp: 'settingLibraries', order: value => value.entries.filter(entry => entry.kind !== 'opening').sort((a, b) => a.treeViewOrder - b.treeViewOrder).map(value => value.id),
     changed: value => value.entries.find(entry => entry.id === 'entry-0').title,
   },
-  { name: '变量', selector: '.variable-tree-row', search: '搜索变量', field: '.variable-inspector input:not([readonly])',
+  { name: '变量', selector: '.variable-tree-row', search: '搜索变量', field: '[aria-label="当前变量名称"]',
     setup() {
       const variables = [0, 1].map(index => ({ ...createVariableDraft({ variables: [], objects: [] }), id: `entry-${index}`, title: `合成条目${index}`, treeViewOrder: index + 1 }));
       const version = { id: 'version-a', name: '合成版本', variables, objects: [], initialStateJson: '{}', schemaCode: '', expandedObjectIds: [] };
@@ -44,7 +44,7 @@ const scenarios = [
     }, Component: VariableConfigPanel, modelProp: 'variables', order: value => value.variables.slice().sort((a, b) => a.treeViewOrder - b.treeViewOrder).map(value => value.id),
     changed: value => value.variables.find(entry => entry.id === 'entry-0').title,
   },
-  { name: '正则', selector: '.regex-rule-row', search: '搜索正则', field: '.regex-inspector input',
+  { name: '正则', selector: '.regex-rule-row', search: '搜索正则', field: '[aria-label="规则名称"]',
     setup() {
       let collection = { globalRules: [], agentPresetRules: [], characterRules: [] };
       for (let index = 0; index < 2; index++) collection = createRegexRule(collection, 'Character').collection;
@@ -228,7 +228,7 @@ describe('Android branch setting bottom actions', () => {
     await act(async () => resolveRead([{ sessionId: 'synthetic-session', title: '合成分支', library: { entries: [], groups: [] } }]));
     expect(container.querySelector('input[aria-label="搜索分支设定对话"]')).toBe(search);
     expect(search.value).toBe('合成');
-    expect(container.querySelector('[role=status]')).toBeNull();
+    expect([...container.querySelectorAll('[role=status]')].some(node => node.textContent.includes('读取中'))).toBe(false);
     expect(container.querySelector('.dynamic-settings-conversation-row')).toBeTruthy();
 
     await act(async () => root.unmount()); root = createRoot(container);
@@ -291,15 +291,20 @@ describe('Editor loading toolbar', () => {
         await click('变量目录操作');
         expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理版本与导入导出').disabled).toBe(true);
         await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
-      } else expect(container.querySelector('button[aria-label="管理"]')?.disabled).toBe(true);
+      } else if (!scenario.compact && scenario.search === '搜索正则') {
+      await click('正则目录操作');
+      expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理版本与导入导出').disabled).toBe(true);
+      await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
+    } else expect(container.querySelector('button[aria-label="管理"]')?.disabled).toBe(true);
     await fill(input, '合成');
     if (scenario.outcome === 'error') await act(async () => rejectRead(new Error('合成读取失败')));
     else await act(async () => complete(value));
     expect(container.querySelector(`input[aria-label="${scenario.search}"]`)).toBe(input);
     expect(input.value).toBe('合成');
-    expect(container.querySelector('[role=status]')).toBeNull();
+    expect([...container.querySelectorAll('[role=status]')].some(node => node.textContent.includes('读取中'))).toBe(false);
     if (scenario.outcome === 'error') {
-      expect(container.querySelector('[class$="-loading"][role=alert]').textContent).toContain('合成读取失败');
+      const failure = !scenario.compact && scenario.search === '搜索正则' ? container.querySelector('.rs-directory-empty') : container.querySelector('[class$="-loading"][role=alert]');
+      expect(failure.textContent).toContain('合成读取失败');
       if (!scenario.compact && scenario.search === '搜索设定') {
       await click('设定库更多操作');
       expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理设定库').disabled).toBe(true);
@@ -308,7 +313,11 @@ describe('Editor loading toolbar', () => {
         await click('变量目录操作');
         expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理版本与导入导出').disabled).toBe(true);
         await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
-      } else expect(container.querySelector('button[aria-label="管理"]')?.disabled).toBe(true);
+      } else if (!scenario.compact && scenario.search === '搜索正则') {
+      await click('正则目录操作');
+      expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理版本与导入导出').disabled).toBe(true);
+      await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
+    } else expect(container.querySelector('button[aria-label="管理"]')?.disabled).toBe(true);
     }
   });
 });

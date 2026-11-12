@@ -16,7 +16,6 @@ import { SETTING_LIBRARY_CREATE_ICONS } from "../../../ui/icons/settingLibraryCr
 import { SettingLibraryManager } from "./SettingLibraryManager.jsx";
 import { GlobalSettingLibrariesDirectory, GlobalSettingLibraryImport, useGlobalSettingLibraries } from './GlobalSettingLibraries.jsx';
 import { ConfirmationDialog, SaveControl } from "./SettingLibraryControls.jsx";
-import { SettingLibraryInspector } from "./SettingLibraryInspector.jsx";
 import { SettingLibraryWorkspace } from './SettingLibraryWorkspace.jsx';
 import { SettingLibraryDocument } from './SettingLibraryDocument.jsx';
 import { SettingLibraryTree, SettingTreeActionsContext } from "./SettingLibraryTree.jsx";
@@ -424,29 +423,11 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
     { label: tUi("设定"), Icon: CreateEntryIcon, run: () => requestAddNode('entry') },
     { label: tUi("EJS引用设定"), Icon: CreateReferenceIcon, run: () => requestAddNode('reference') }];
   const saveControl = <SaveControl dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} workspace={!compact} />;
-  const inspector = !multi.active && selected.value && (!compact || editing) ? (!compact ?
+  const inspector = !multi.active && selected.value && (!compact || editing) ?
     <SettingLibraryDocument key={JSON.stringify([scope, activeLibraryId, selected.kind, selected.value.id])} selected={selected} library={library} nameInputRef={nameInputRef} SelectedIcon={SelectedIcon}
       onUpdateGroup={updateGroup} onDeleteGroup={() => askDelete('group', selected.value.id)} onUpdateEntry={entry => updateEntryById(entry.id, entry)}
       onEntriesChange={entries => changeLibrary(current => ({ ...current, entries }))} onOpenEntry={id => openEditor(nodeKey('entry', id))}
-      dirty={dirty} saving={saving} /> : (
-    <div className="setting-library-editor" key={JSON.stringify([scope, activeLibraryId])}>
-    {globals.available ? <div className="setting-library-owner-path">{scope === 'global' ? tUi("全局设定库") : tUi("角色设定库")} / {library.name}</div> : null}
-    <SettingLibraryInspector
-      selected={selected}
-      library={library}
-      allowCustomPromptPositions={false}
-      nameInputRef={nameInputRef}
-      SelectedIcon={SelectedIcon}
-      onClose={requestCloseInspector}
-      onUpdateGroup={updateGroup}
-      onDeleteGroup={() => askDelete("group", selected.value.id)}
-      onUpdateEntry={(entry) => updateEntryById(entry.id, entry)}
-      onEntriesChange={(entries) => changeLibrary((current) => ({ ...current, entries }))}
-      onOpenEntry={(entryId) => openEditor(nodeKey("entry", entryId))}
-      onPromptPositionsChange={(promptPositions, entries = library.entries) => changeLibrary((current) => ({ ...current, promptPositions, entries }))}
-    />
-    </div>
-  )) : null;
+      dirty={dirty} saving={saving} /> : null;
 
   function changeScope(next) {
     if (scope === 'character') roleSelectedKey.current = selectedKey;
@@ -461,7 +442,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
 
   const renderLayout = importActions => (
     <Layout
-      {...(!compact ? { ...layoutProps, importActions } : {})}
+      {...(!compact ? { ...layoutProps, importActions } : { documentLayout: true })}
       className={`setting-library-layout${multi.active ? ' is-multiselect' : ''}`}
       inspector={inspector}
       inspectorTitle={selected.kind === 'group' ? tUi("编辑文件夹") : selected.value?.title || tUi("编辑设定")}
@@ -471,7 +452,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
       onMouseDown={() => setMenuOpen(false)}
     >
       <div className="setting-library-browser editor-collection-browser">
-        {compact && <EditorCollectionToolbar query={query} onQueryChange={setQuery} placeholder={scope === 'global' ? tUi("搜索全局设定库") : tUi("搜索设定")} selection={{ ...multi, toggle: toggleSelection }} disabled={saving || !library}
+        {compact && <EditorCollectionToolbar heading={tUi("设定库")} leading={globals.available ? <EditorScopeTabs value={scope} panelId={scopePanelId} onChange={changeScope} /> : null} query={query} onQueryChange={setQuery} placeholder={scope === 'global' ? tUi("搜索全局设定库") : tUi("搜索设定")} selection={{ ...multi, toggle: toggleSelection }} disabled={saving || !library}
           createItems={createItems}
           onManage={scope === 'character' ? () => setManagerOpen(true) : undefined}
           beforeSave={scope === 'global' ? <GlobalSettingLibraryImport state={globals} settingLibraries={settingLibraries} disabled={saving} /> : null}
@@ -482,7 +463,6 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
 
         <div id={scopePanelId} role={globals.available ? 'tabpanel' : undefined} aria-label={scope === 'character' ? tUi("角色设定库") : tUi("全局设定库")} className="setting-library-tree editor-sidebar-directory"
           onMouseDown={scope === 'character' ? handleTreeMouseDown : undefined} onContextMenu={scope === 'character' ? openTreeContextMenu : undefined}>
-        {compact && globals.available ? <EditorScopeTabs value={scope} panelId={scopePanelId} onChange={changeScope} /> : null}
           {scope === 'global' ? <GlobalSettingLibrariesDirectory state={globals} query={query} disabled={saving} editor={{ compact, selection: multi, selectedKey, clipboard, openEditor, openContextMenu, openTreeContextMenu,
             moveLibrary: (id, drop) => {
               const moved = parseNodeKey(drop.dragId), parentId = drop.parentId ? parseNodeKey(drop.parentId).id : '';

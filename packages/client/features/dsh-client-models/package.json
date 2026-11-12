@@ -47,7 +47,10 @@
           "saveModelParameters",
           "deleteConfig",
           "discover",
-          "revealApiKey"
+          "revealApiKey",
+          "sessionParameters",
+          "readSessionModelParameters",
+          "saveSessionModelParameters"
         ]
       }
     ]

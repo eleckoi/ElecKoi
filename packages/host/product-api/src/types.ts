@@ -1,3 +1,9 @@
+/** Extra generation controls saved with one official Session, independently of provider configuration. */
+export interface SessionModelParameterPatch {
+  contextWindowTokens?: number | null | undefined; maxOutputTokens?: number | null | undefined; autoCompactTokenLimit?: number | null | undefined;
+  temperature?: number | null | undefined; topP?: number | null | undefined;
+}
+export interface SessionModelParameterState { revision: number; entries: Record<string, SessionModelParameterPatch> }
 /** Shared setting libraries are independent of character configuration versions. */
 export interface GlobalSettingLibrary {
   id: string

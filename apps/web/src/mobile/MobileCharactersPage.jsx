@@ -86,7 +86,7 @@ export function MobileCharactersPage() {
     <CharacterEditorWindow embeddedCharacterId={route.characterId} characterCatalog={characters} characterConfiguration={view.characterConfiguration}
       compact registerBackHandler={view.registerBackHandler}
       navigationGuardRef={view.guardRef} renderCharacterEditorSection={view.renderCharacterEditorSection}
-      renderHeader={({ saving, dirty, save, subpage, feedback }) => <MobileHeader title={subpage?.title || tUi("编辑角色")} back={subpage?.back || view.goBack}>{subpage?.actions}<MobileSaveFeedback {...feedback} onNotify={chat.notify} successMessage={tUi("角色配置已保存")} />{!subpage && <button type="button" disabled={saving || !dirty} onClick={save}>{tUi("保存")}</button>}</MobileHeader>} />
+      renderHeader={({ saving, dirty, save, subpage, feedback }) => <MobileHeader title={subpage?.title || tUi("编辑角色")} back={subpage?.back || view.goBack}>{subpage?.actions}<MobileSaveFeedback {...feedback} onNotify={chat.notify} successMessage={tUi("角色配置已保存")} /><button type="button" disabled={saving || !dirty} onClick={save}>{tUi("保存")}</button></MobileHeader>} />
   </div>;
   if (route.kind === 'character-groups') return <MobileCharacterGroups groups={groups} characters={chat.characters.items} persona={chat.persona} onSave={chat.saveCharacterGroups} onClose={view.goBack} renderGrid={props => <CharacterGrid {...props} scrollKey="character-group-picker" />} />;
   if (route.kind === 'character-profile') {

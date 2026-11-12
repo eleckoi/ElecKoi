@@ -615,12 +615,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   },
   {
     key: 'eleckoiConversationModelsApi',
-    summary: '管理所有聊天下一轮共同使用的模型，通过官方 Typert Remote 公开跨端调用。',
-    description: '管理所有聊天下一轮共同使用的模型，通过官方 Typert Remote 公开跨端调用。',
+    summary: '沿官方 Session 管理会话模型与额外生成参数，空聊天编号仅表示新会话默认模型。',
+    description: '沿官方 Session 管理会话模型与额外生成参数，空聊天编号仅表示新会话默认模型。',
     methods: [
       {
         signature: '@Remote async current(conversationId: string): Promise<ConversationModelSelection>',
-        description: '读取下一轮使用的全局模型。',
+        description: '读取指定聊天的官方模型选择；空编号读取新会话默认值。',
         parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }],
         returns: '操作结果，结构见返回类型；失败抛出错误。',
       },
@@ -629,6 +629,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: '保存当前选择。',
         parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'selection', description: '模型提供商、模型编号和可选推理档位。' }],
         returns: '操作结果，结构见返回类型；失败抛出错误。',
+      },
+      {
+        signature: '@Remote async parameters(sessionId: string): Promise<SessionModelParameterState>',
+        description: '读取当前 Session 额外生成参数，连接配置和模型能力仍由模型目录管理。',
+        parameters: [{ name: 'sessionId', description: '官方 Session 编号。' }],
+        returns: '官方日志投影中的参数与修订号。',
+      },
+      {
+        signature: '@Remote async saveParameters(sessionId: string, provider: string, model: string, patch: SessionModelParameterPatch, revision: number): Promise<SessionModelParameterState>',
+        description: '原子保存一个 Session 中指定模型的生成参数；不修改其他会话或提供商配置。',
+        parameters: [{ name: 'sessionId', description: '官方 Session 编号。' }, { name: 'provider', description: '提供商路由编号。' }, { name: 'model', description: '模型编号。' }, { name: 'patch', description: '本次变更的生成参数；null 表示采用上游默认。' }, { name: 'revision', description: '编辑时读取的参数修订号。' }],
+        returns: '已保存的官方 Session 参数投影。',
       },
     ],
   },
@@ -1539,6 +1551,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ScriptWorkspace',
     declaration: 'export interface ScriptWorkspace {\n    path: string;\n    version: string;\n    entries: Array<{\n        id: string;\n        file: string;\n    }>;\n}',
+  },
+  {
+    name: 'SessionModelParameterPatch',
+    declaration: 'export interface SessionModelParameterPatch {\n    contextWindowTokens?: number | null | undefined;\n    maxOutputTokens?: number | null | undefined;\n    autoCompactTokenLimit?: number | null | undefined;\n    temperature?: number | null | undefined;\n    topP?: number | null | undefined;\n}',
+  },
+  {
+    name: 'SessionModelParameterState',
+    declaration: 'export interface SessionModelParameterState {\n    revision: number;\n    entries: Record<string, SessionModelParameterPatch>;\n}',
   },
   {
     name: 'SettingLibrary',

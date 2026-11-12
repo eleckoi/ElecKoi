@@ -3,13 +3,13 @@
 .mobile-character-editor .character-editor-main-panel { display: contents; }
 .mobile-character-editor .mobile-header { grid-column: 1 / -1; grid-row: 1; }
 .mobile-character-editor .mobile-header h1 { left: 58px; right: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mobile-character-editor .character-editor-side-panel { grid-column: 1; grid-row: 2; grid-template-rows: minmax(0, 1fr) auto; width: var(--mobile-editor-rail-width, 76px) !important; min-width: 0; height: 100%; padding: 0; overflow: hidden; border: 0; background: var(--rail); }
+:is(.mobile-character-editor, .mobile-preset-editor) .character-editor-side-panel { grid-column: 1; grid-row: 2; grid-template-rows: minmax(0, 1fr) auto; width: var(--mobile-editor-rail-width, 76px) !important; min-width: 0; height: 100%; padding: 0; overflow: hidden; border: 0; background: var(--rail); }
 .mobile-character-editor :is(.character-editor-side-panel > header, .character-editor-sidebar-resizer) { display: none; }
-.mobile-character-editor .character-editor-navigation { display: flex; flex-direction: column; gap: 8px; min-height: 0; height: 100%; padding: 12px 6px; overflow-x: hidden; overflow-y: auto; }
-.mobile-character-editor .character-editor-navigation button { display: flex; flex: none; flex-direction: column; justify-content: center; gap: 6px; width: 100%; min-height: 64px; padding: 8px 2px; border-radius: 10px; white-space: normal; }
-.mobile-character-editor .character-editor-navigation svg { display: block; flex: none; width: 20px; height: 20px; }
-.mobile-character-editor .character-editor-navigation span { display: block; position: static; width: auto; height: auto; padding: 0; margin: 0; clip: auto; clip-path: none; overflow: visible; font-size: 11px; line-height: 1.4; font-weight: 600; }
-.mobile-character-editor .character-editor-workspace { grid-column: 2; grid-row: 2; width: 100%; min-width: 0; min-height: 0; padding: 0; overflow: hidden; border-radius: 0; }
+:is(.mobile-character-editor, .mobile-preset-editor) .character-editor-navigation { display: flex; flex-direction: column; gap: 8px; min-height: 0; height: 100%; padding: 12px 6px; overflow-x: hidden; overflow-y: auto; }
+:is(.mobile-character-editor, .mobile-preset-editor) .character-editor-navigation button { display: flex; flex: none; flex-direction: column; justify-content: center; gap: 6px; width: 100%; min-height: 64px; padding: 8px 2px; border-radius: 10px; white-space: normal; }
+:is(.mobile-character-editor, .mobile-preset-editor) .character-editor-navigation svg { display: block; flex: none; width: 20px; height: 20px; }
+:is(.mobile-character-editor, .mobile-preset-editor) .character-editor-navigation span { display: block; position: static; width: auto; height: auto; padding: 0; margin: 0; clip: auto; clip-path: none; overflow: visible; font-size: 11px; line-height: 1.4; font-weight: 600; }
+.mobile-character-editor .character-editor-workspace { grid-column: 2; grid-row: 2; width: 100%; min-width: 0; min-height: 0; box-sizing: border-box; padding: 0; overflow: hidden; border-radius: 0; background: var(--chat); }
 .mobile-character-editor .character-editor-workspace:not(.is-basic-info) { padding: 0; }
 .mobile-character-editor .is-editor-subpage .character-editor-side-panel { display: none; }
 .mobile-character-editor .is-editor-subpage .character-editor-workspace { grid-column: 1 / -1; }
@@ -125,12 +125,12 @@
 .mobile-character-editor .regex-version-create input { min-width: 0; flex: 1; width: auto; }
 .mobile-character-editor .regex-manager-transfer select { flex: 1; min-width: 0; width: auto; }
 
-.mobile-character-editor .is-sidebar-collapsed { --mobile-editor-rail-width: 52px; }
-.mobile-character-editor .is-sidebar-collapsed .character-editor-navigation { padding-inline: 4px; }
-.mobile-character-editor .is-sidebar-collapsed .character-editor-navigation button { min-height: 48px; }
-.mobile-character-editor .is-sidebar-collapsed .character-editor-navigation span { display: none; }
-.mobile-character-editor .character-editor-sidebar-toggle { display: grid; place-items: center; width: calc(100% - 8px); min-height: 48px; margin: 4px; padding: 0; border: 0; border-radius: 10px; color: var(--muted); background: transparent; }
-.mobile-character-editor .character-editor-sidebar-toggle:focus-visible { outline: 2px solid color-mix(in srgb, var(--text) 38%, transparent); outline-offset: -2px; }
+:is(.mobile-character-editor, .mobile-preset-editor) .is-sidebar-collapsed { --mobile-editor-rail-width: 52px; }
+:is(.mobile-character-editor, .mobile-preset-editor) .is-sidebar-collapsed .character-editor-navigation { padding-inline: 4px; }
+:is(.mobile-character-editor, .mobile-preset-editor) .is-sidebar-collapsed .character-editor-navigation button { min-height: 48px; }
+:is(.mobile-character-editor, .mobile-preset-editor) .is-sidebar-collapsed .character-editor-navigation span { display: none; }
+:is(.mobile-character-editor, .mobile-preset-editor) .character-editor-sidebar-toggle { display: grid; place-items: center; width: calc(100% - 8px); min-height: 48px; margin: 4px; padding: 0; border: 0; border-radius: 10px; color: var(--muted); background: transparent; }
+:is(.mobile-character-editor, .mobile-preset-editor) .character-editor-sidebar-toggle:focus-visible { outline: 2px solid color-mix(in srgb, var(--text) 38%, transparent); outline-offset: -2px; }
 :is(.mobile-character-editor, .mobile-preset-editor) .mobile-editor-actions { position: relative; flex: none; min-width: 0; margin: 0; z-index: 3; }
 :is(.mobile-character-editor, .mobile-preset-editor) .mobile-editor-actions > [role=toolbar] { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); min-height: 70px; padding: 4px; border-top: 1px solid var(--line); border-radius: 0; background: var(--chat); box-shadow: none; }
 :is(.mobile-character-editor, .mobile-preset-editor) .mobile-editor-actions > [role=toolbar] button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 60px; padding: 4px 0; border: 0; border-radius: 10px; background: transparent; color: var(--text); }

@@ -3,11 +3,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { DEFAULT_INSPECTOR_WIDTH, inspectorWidthBounds } from '../hooks/editorSidebarSizing.js';
 import { useInspectorPresence } from '../hooks/useInspectorPresence.js';
 import { EditorPresentationContext, useEditorPresentation, useEditorSubpage } from './EditorPresentationContext.jsx';
+import '../styles/editor-mobile-workspace.css';
 
 /** 各编辑页共用宽度、拖动、键盘操作与开关生命周期，表单和数据仍由所属页面维护。 */
 export function EditorSidebarLayout({
   as: Element = 'section', className = '', paneClassName = '', overlay = true,
-  inspector, inspectorTitle, inspectorActions, onCloseInspector, feedback, children, preferredWidth, onWidthChange, ...props
+  inspector, inspectorTitle, inspectorActions, onCloseInspector, feedback, children, preferredWidth, onWidthChange, documentLayout = false, ...props
 }) {
   const tUi = useProductTranslation();
   const layoutRef = useRef(null);
@@ -81,10 +82,10 @@ export function EditorSidebarLayout({
   }, [drag, min, max, changeWidth]);
 
   const reset = () => changeWidth(DEFAULT_INSPECTOR_WIDTH);
-  if (compact) return <Element {...props} ref={layoutRef} className={`editor-sidebar-layout is-page-layout ${className}${inspector ? ' is-inspector-open' : ''}`}>
+  if (compact) return <Element {...props} ref={layoutRef} className={`editor-sidebar-layout is-page-layout ${className}${documentLayout ? ' is-document-layout' : ''}${inspector ? ' is-inspector-open' : ''}`}>
     <div className="editor-page-list" hidden={Boolean(inspector)} inert={Boolean(inspector)}>{children}</div>
     {inspector ? <>
-      <div ref={pageRef} tabIndex={-1} className={`editor-page-detail ${paneClassName}`}>
+      <div ref={pageRef} tabIndex={-1} className={`editor-page-detail${documentLayout ? ' setting-document mobile-editor-document' : ''} ${paneClassName}`}>
         <EditorPresentationContext.Provider value={{ ...presentation, registerSubpage: registerNestedPage }}>{inspector}</EditorPresentationContext.Provider>
       </div>
       {feedback && <div className="editor-page-feedback">{feedback}</div>}

@@ -248,7 +248,7 @@ describe('preset list consistency', () => {
     expect(html).toContain('aria-label="关闭剧情变量"');
     expect(html).toContain('aria-haspopup="dialog"');
     expect(html).not.toContain('read_variables');
-    expect(html).not.toContain('>新建<');
+    expect(html).toContain('aria-label="新建"');
     expect(html).toContain('data-tool-group-icon="builtin:variables"');
   });
 

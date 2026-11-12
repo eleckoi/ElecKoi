@@ -77,7 +77,8 @@ assertClosedSet('packages/shared/src', new Set(['contracts', 'foundation']), new
 assertClosedSet('packages', new Set(['client', 'host', 'shared', 'sdk', 'compatibility', 'examples']), new Set(['README.md']))
 assertClosedSet('packages/client', new Set(['features', 'mobile']), new Set())
 assertClosedSet('packages/host', new Set(['product-api', 'product-data', 'runtime', 'web-search-tavily', 'web-deepseek']), new Set())
-assertClosedSet('apps/desktop/src/preload', new Set(), new Set(['preload.ts', 'windowsMenu.ts', 'windowsAppearance.ts', 'nativeCapabilities.ts', 'updateDialog.ts']))
+// ADR 0043 adds only the managed main-window navigation adapter, not a product data bridge.
+assertClosedSet('apps/desktop/src/preload', new Set(), new Set(['preload.ts', 'windowsMenu.ts', 'windowsAppearance.ts', 'nativeCapabilities.ts', 'updateDialog.ts', 'pluginNavigation.ts']))
 assertClosedSet(
   'apps/web/src',
   new Set(['app', 'assets', 'mobile', 'modules', 'ui', 'utils']),

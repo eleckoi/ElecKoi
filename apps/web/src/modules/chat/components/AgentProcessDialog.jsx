@@ -11,6 +11,9 @@ import '../styles/process-dialog.css';
 export function AgentProcessDialog({ message, onClose, onContentTarget }) {
   const tUi = useProductTranslation();
   const { overlayRef, sheetRef, closing, dismiss } = useBottomSheetDismiss(onClose);
+  const mobile = document.documentElement.dataset.eleckoiMobile === 'true';
+  const Surface = mobile ? 'div' : MenuSurface;
+  const [entering, setEntering] = useState(!mobile);
   const [now, setNow] = useState(Date.now);
   const timingRunning = isProcessTimingRunning(message);
   const running = message?.pending === true || message?.status === 'streaming' || message?.status === 'running';
@@ -29,6 +32,16 @@ export function AgentProcessDialog({ message, onClose, onContentTarget }) {
     return () => { if (previous?.isConnected) previous.focus({ preventScroll: true }); };
   }, []);
 
+  useLayoutEffect(() => {
+    if (!mobile) return undefined;
+    // The Session Slot commits its original rows after receiving the portal target.
+    // Finish that layout before sliding the sheet, rather than rebuilding it mid-entry.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setEntering(true));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [mobile]);
+
   useEffect(() => {
     const onEscape = event => {
       if (event.key !== 'Escape' || event.defaultPrevented || closing) return;
@@ -44,7 +57,8 @@ export function AgentProcessDialog({ message, onClose, onContentTarget }) {
   return createPortal(<SystemBarOverlay ref={overlayRef} className="roleplay-process-backdrop" maskPseudo="::before"
     systemBarSurfaceRef={sheetRef} data-sheet-closing={closing || undefined} role="presentation"
     onMouseDown={dismiss}>
-    <MenuSurface ref={sheetRef} className="roleplay-process-dialog" role="dialog" aria-modal="true"
+    <Surface ref={sheetRef} className="roleplay-process-dialog" role="dialog" aria-modal="true"
+      data-sheet-preparing={mobile && !entering || undefined}
       aria-label={tUi("处理过程")} tabIndex={-1} onMouseDown={event => event.stopPropagation()}>
       <header className="roleplay-process-header">
         <div><h2>{tUi("处理过程")}</h2><span>{running ? tUi("进行中") : message?.status === 'error' ? tUi("处理失败")
@@ -54,6 +68,6 @@ export function AgentProcessDialog({ message, onClose, onContentTarget }) {
         </button>
       </header>
       <div className="roleplay-process-scroll"><div className="roleplay-process-content" ref={onContentTarget} /></div>
-    </MenuSurface>
+    </Surface>
   </SystemBarOverlay>, document.body);
 }

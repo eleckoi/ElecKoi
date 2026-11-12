@@ -4,12 +4,15 @@ import { CharacterEditorWindow } from "./CharacterEditorWindow.jsx";
 import { CharacterManagerWindow } from "./CharacterManagerWindow.jsx";
 import { CreatorStudioWindow } from "./CreatorStudioWindow.jsx";
 import { PresetManagerWindow } from "./PresetManagerWindow.jsx";
+import { PresetEditorWindow } from './PresetEditorWindow.jsx';
 import { WebSearchProvider } from "../../modules/agentTools/index.js";
 import { AppearanceProvider } from "../../modules/appearance/index.js";
 import { DisplayPreferencesProvider } from "../../modules/settings/index.js";
 import { OfficialMarkdownProvider } from "../../ui/messages/OfficialMarkdown.jsx";
 import { ApplicationFrontendController, NativeFrontendProvider } from "../../modules/authorFrontend/index.js";
 import { ProductLocaleProvider } from '../i18n/ProductLocaleContext.jsx';
+import { useEffect } from 'react';
+import { installMainPluginNavigation } from '../services/pluginNavigation.js';
 
 export default function App(props = {}) {
   return <ProductLocaleProvider locale={props.locale}><OfficialMarkdownProvider component={props.markdownComponent}>
@@ -28,6 +31,7 @@ export default function App(props = {}) {
 }
 
 function AppContent({ renderWindow, ...windowProps } = {}) {
+  useEffect(installMainPluginNavigation, []);
   const { conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, settingsSections, navigation, rightbar, renderSettingsSection, renderLanguageSettings, renderTypographySettings, renderUserProfileEditor, renderCharacterPageSection, renderCharacterEditorSection, renderCharacterManager, renderConversationList, renderPresetEditorSection, renderPresetManager, renderRoleplay } = windowProps;
   const params = new URLSearchParams(window.location.search);
   if (params.get("view") === "chat") {
@@ -43,6 +47,7 @@ function AppContent({ renderWindow, ...windowProps } = {}) {
   if (params.get("view") === "preset-manager") {
     return <PresetManagerWindow presetCatalog={presets} renderPresetManager={renderPresetManager} />;
   }
+  if (params.get('view') === 'preset-editor') return <PresetEditorWindow presetCatalog={presets} characterConfiguration={characterConfiguration} renderPresetEditorSection={renderPresetEditorSection} />;
   if (params.get("view") === "creator-studio-nodes") {
     return <CreatorStudioWindow characterCatalog={characters} projectCatalog={creatorStudio} models={models} presetCatalog={presets} rightbar={rightbar}
       navigation={navigation}

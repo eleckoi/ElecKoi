@@ -365,6 +365,7 @@ export function ChatPanel({
 
   const roleplayMenu = <RoleplayInputMenu
     key={conversationId}
+    presetCatalog={presetCatalog}
     isSending={isSending}
     onCreateChat={onCreateChat}
     onOpenHistory={onOpenHistory}

@@ -137,15 +137,14 @@ export function MobilePresetEditor() {
     return () => setSubpage(current => current === page ? null : current);
   }, []);
   useMobileBack(() => { subpage.back(); return true; }, Boolean(subpage));
-  return <EditorPresentationContext.Provider value={{ compact: true, registerSubpage, registerSaveFeedback }}>
+  return <EditorPresentationContext.Provider value={{ compact: true, registerSubpage, registerSaveFeedback, registerBackHandler: view.registerBackHandler }}>
     <div className="mobile-root-page mobile-preset-editor" data-editor-subpage={Boolean(subpage) || undefined}>
       <PresetWorkspace characterConfiguration={view.characterConfiguration} renderEditorSection={view.renderPresetEditorSection} onNotify={view.chat.notify}
         renderHeader={({ tab, profileEditing, dirty, saving, error, active, onActivate, onSave }) => <>
           <MobileHeader title={subpage?.title || tUi("预设")} back={subpage?.back || view.goBack}>
             {subpage?.actions}
             <MobileSaveFeedback error={error || feedback?.error} onNotify={view.chat.notify} />
-            {tab === 'introduction' && !profileEditing && !subpage && <button type="button" className="mobile-preset-activate" disabled={!onActivate || active || saving} onClick={onActivate}>{tUi("启用")}</button>}
-            {tab !== 'introduction' && !profileEditing && !subpage && <button type="button" className="mobile-preset-save" disabled={!dirty || saving} onClick={onSave}>{saving ? tUi("保存中…") : tUi("保存")}</button>}
+            {!profileEditing && <button type="button" className="mobile-preset-save" disabled={!dirty || saving} onClick={onSave}>{saving ? tUi("保存中…") : tUi("保存")}</button>}
           </MobileHeader>
         </>}
         onTestRegex={(text, rule, target) => view.characterConfiguration.regexRules.test(text, rule, target)} />

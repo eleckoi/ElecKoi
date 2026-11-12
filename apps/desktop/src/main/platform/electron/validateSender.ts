@@ -41,6 +41,8 @@ export function isDshChildUrl(url: string): boolean {
     const candidate = new URL(url)
     if (!isDshAppUrl(url) || candidate.pathname !== '/' || candidate.hash) return false
     const view = candidate.searchParams.get('view')
+    if (view === 'preset-editor') return candidate.searchParams.size === 3 && Boolean(candidate.searchParams.get('preset'))
+      && ['profile', 'prompts', 'tools', 'regex', 'scripts'].includes(candidate.searchParams.get('section') ?? '')
     if (view === 'character-editor' || view === 'chat') {
       const key = view === 'chat' ? 'chat' : 'character'
       return candidate.searchParams.size === 2 && Boolean(candidate.searchParams.get(key))

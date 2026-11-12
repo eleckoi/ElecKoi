@@ -5,6 +5,7 @@ import { windowsAppUserModelId } from './windowsAppIdentity'
 import type { Context, Plugin } from '@deepseek-ai/cordis'
 import { assertTrustedDshClientFrame, isAllowedExternalUrl, isAppRendererUrl, isDshAppUrl, isDshChildUrl } from './validateSender'
 import { ElectronWindowHost } from './ElectronWindowHost'
+import { installMainPluginNavigation } from './mainPluginNavigation'
 import { installTextContextMenu } from './textContextMenu'
 import { installWindowsNativeFrame } from './windowsNativeFrame'
 import { DesktopBrowserGuests } from './desktopBrowserGuests'
@@ -212,6 +213,7 @@ export const mainWindowPlugin = {
       callback({ requestHeaders: { ...headers, origin: target.origin, cookie: ready.cookie, 'sec-fetch-site': 'same-origin' } })
     })
     const focusMainWindow = () => { void windows.open('main') }
+    const disposePluginNavigation = installMainPluginNavigation(assertNativeOwner, () => windows.open('main'))
     app.on('activate', focusMainWindow)
     app.on('second-instance', focusMainWindow)
     const detachPluginFailure = pluginHost.onFailure(error => {
@@ -309,6 +311,7 @@ export const mainWindowPlugin = {
       session.defaultSession.webRequest.onBeforeSendHeaders(null)
       protocol.unhandle('dsh-app')
       app.removeListener('activate', focusMainWindow)
+      disposePluginNavigation()
       app.removeListener('second-instance', focusMainWindow)
       windows.close()
     }
@@ -423,7 +426,7 @@ function initialWindowSize(): { width: number; height: number } {
 
 function initialChildWindowSize(payload?: unknown): { width: number; height: number } {
   const frameName = (payload as { frameName?: unknown } | undefined)?.frameName
-  if (typeof frameName === 'string' && frameName.startsWith('character-editor-')) {
+  if (typeof frameName === 'string' && (frameName.startsWith('character-editor-') || frameName.startsWith('preset-editor-'))) {
     return fitWindowSize(1520, 1120)
   }
   if (frameName === 'creator-studio') {

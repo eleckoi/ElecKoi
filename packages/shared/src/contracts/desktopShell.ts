@@ -1,4 +1,4 @@
-import type { DesktopHostFailureNotice } from './errors/ipc'
+import type { DesktopHostFailureNotice, DesktopIpcFailure } from './errors/ipc'
 import type {
   BugReportDraftSaveRequest,
   BugReportDraftSaved,
@@ -51,6 +51,9 @@ export const DESKTOP_SHELL_IPC = {
   windowControl: 'dsh-desktop:window-control',
   windowsMenu: 'dsh-desktop:windows-menu',
   menuCommand: 'dsh-desktop:menu-command',
+  pluginSettingsOpen: 'dsh-desktop:plugin-settings-open',
+  pluginSettingsRequested: 'dsh-desktop:plugin-settings-requested',
+  pluginSettingsResult: 'dsh-desktop:plugin-settings-result',
   browserAcquire: 'dsh-desktop:browser-acquire',
   browserRelease: 'dsh-desktop:browser-release',
   browserOpenRequested: 'dsh-desktop:browser-open-requested',
@@ -71,6 +74,11 @@ export interface DshDesktopProductApi {
   readonly shortcuts: DesktopShortcutsApi
   deviceInfo(): Promise<string>
   readonly protocolVersion: 1
+  /** ADR 0043: managed native window navigation only; no plugin configuration payloads. */
+  readonly plugins?: {
+    openSettings(id: 'web-search' | 'subagent'): Promise<void>
+    subscribeOpenSettings(listener: (id: 'web-search' | 'subagent') => void | DesktopIpcFailure): () => void
+  }
   readonly browser: DesktopBrowserBridge
   readonly updates?: {
     open(language?: string, manual?: boolean): Promise<UpdateStatus>

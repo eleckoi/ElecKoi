@@ -298,6 +298,38 @@ function mountCatalog(
 }
 
 describe('DSH ElecKoi conversation client model', () => {
+  it('observes only the selected Session model and releases the prior projection on a chat switch', async () => {
+    const mounted = mountCatalog(async () => ({ ok: true, data: [] }))
+    const catalog = mounted.catalog as any
+    const listeners = new Set<() => void>()
+    let selected = { provider: 'synthetic', model: 'model-a' }
+    const face = { getSnapshot: () => ({ next: selected }), subscribe: (fn: () => void) => {
+      listeners.add(fn); return () => { listeners.delete(fn) }
+    } }
+    try {
+      await settle()
+      catalog.publishDetails({ id: 'chat-a', runtimeSessionId: 'session-a', status: 'loading', details: null })
+      const stop = catalog.subscribeModelSelection(vi.fn())
+      catalog.sessionReference = { sessionId: 'session-a', release: vi.fn(), binding: { session: { projections: { faceOf: () => face } } } }
+      catalog.sessionTarget = {}
+      catalog.publishDetails({ id: 'chat-a', runtimeSessionId: 'session-a', status: 'loading', details: null })
+      expect(catalog.getModelSelectionSnapshot()).toEqual(selected)
+      expect(listeners.size).toBe(1)
+      selected = { provider: 'synthetic', model: 'model-b' }
+      for (const listener of listeners) listener()
+      expect(catalog.getModelSelectionSnapshot()).toEqual(selected)
+      catalog.releaseOfficialSession()
+      catalog.publishDetails({ id: 'chat-b', runtimeSessionId: 'session-b', status: 'loading', details: null })
+      catalog.publishModelSelection({ provider: 'synthetic', model: 'late-model-a' }, 'chat-a')
+      expect(catalog.getModelSelectionSnapshot()).toEqual({ provider: '', model: '' })
+      expect(listeners.size).toBe(0)
+      catalog.publishModelSelection({ provider: 'synthetic', model: 'model-c' }, 'chat-b')
+      expect(catalog.getModelSelectionSnapshot()).toEqual({ provider: 'synthetic', model: 'model-c' })
+      stop()
+    } finally { mounted.dispose() }
+    expect(listeners.size).toBe(0)
+  })
+
   it.each(['send', 'regenerate'])('publishes %s activity without reopening a chat or fetching the catalog, and releases the subscription', async mode => {
     const records = [
       { id: 'chat-a', runtimeSessionId: 'runtime-a', updatedAt: '2026-11-01T10:00:00.000Z' },

@@ -14,8 +14,13 @@ export function installWindowsAppearance(): () => void {
   root.setAttribute('data-native-window-controls', '')
   root.style.setProperty('--window-caption-height', `${WINDOWS_TITLEBAR_HEIGHT}px`)
   root.style.setProperty('--dsh-windows-titlebar-height', `${WINDOWS_TITLEBAR_HEIGHT}px`)
+  // Managers extend their content canvas behind the caption, unlike the sidebar-backed shell.
+  const view = new URLSearchParams(window.location.search).get('view')
+  const background = view === 'character-manager' ? 'var(--character-manager-canvas,var(--chat))'
+    : view === 'preset-manager' ? 'var(--chat,var(--dsw-alias-bg-base))'
+      : 'var(--list,var(--dsw-specific-sidebar-fill))'
   const probe = document.createElement('span')
-  probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;background-color:var(--list,var(--dsw-specific-sidebar-fill));color:var(--title-fg,var(--dsw-alias-label-primary))'
+  probe.style.cssText = `position:fixed;visibility:hidden;pointer-events:none;background-color:${background};color:var(--title-fg,var(--dsw-alias-label-primary))`
   document.body.append(probe)
   const nativeColor = (color: string): string => {
     context.clearRect(0, 0, 1, 1)

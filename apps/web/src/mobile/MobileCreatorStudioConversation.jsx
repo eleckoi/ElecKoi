@@ -44,7 +44,7 @@ export function MobileCreatorStudioConversation({ model, headerTarget, cornerTar
     catch (error) { onError(error); }
     finally { setDeleting(false); }
   }
-  const menu = <RoleplayInputMenu purpose="creator" isSending={session.running}
+  const menu = <RoleplayInputMenu key={sessionId} purpose="creator" presetCatalog={view.presets} isSending={session.running}
     onSelectCharacter={onSelectCharacter} onCreateChat={onCreate} onOpenTools={() => setTools(true)}
     onEnterDeleteMode={openDelete} canDeleteMessages={!session.blank}
     onRegenerate={regenerate} regenerateTargetMessageId={session.blank ? null : sessionId} />;

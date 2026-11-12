@@ -90,7 +90,8 @@ it.each([true, false])('selects, copies and deletes prompt subtrees without dupl
     return <EditorPresentationContext.Provider value={{ compact }}><PresetPromptEditor preset={preset} onChange={setPreset} /></EditorPresentationContext.Provider>;
   }
   await act(async () => root.render(<Fixture />));
-  await click(button('多选'));
+  if(compact) { await click(document.querySelector('.editor-collection-more')); await click(button('多选')); }
+  else await click(button('多选'));
   expect(checkbox('合成固定提示词').disabled).toBe(true);
   expect(document.querySelector('.mobile-editor-actions')).toBeNull();
   await click(checkbox('合成文件夹')); await click(checkbox('合成子提示词'));
@@ -107,12 +108,12 @@ it.each([true, false])('selects, copies and deletes prompt subtrees without dupl
   expect(draft.entries.some(entry => entry.id === 'built-in-hidden-tool-timeline')).toBe(true);
   await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ''); input.dispatchEvent(new Event('input', { bubbles: true })); });
   await click(checkbox('合成文件夹')); await click(checkbox('合成子提示词'));
-  await click(button('删除')); await click(button('取消'));
+  await click(button('删除')); await click([...document.querySelectorAll('[role=alertdialog] button')].find(node => node.textContent === '取消'));
   expect(draft.groups).toHaveLength(4);
   await click(button('删除')); await click(document.querySelector('[role="alertdialog"] .is-destructive'));
   expect(draft.groups).toHaveLength(2); expect(draft.entries).toHaveLength(2);
   expect(draft.expandedGroupIds).toEqual([]);
-  await click(button('完成'));
+  await click(compact ? document.querySelector('.editor-selection-cancel') : button('完成'));
   expect(document.querySelector('.editor-selection-bar')).toBeNull();
   expect(document.querySelector('[aria-label="选择合成固定提示词"]')).toBeNull();
   expect(Boolean(document.querySelector('.mobile-editor-actions'))).toBe(compact);

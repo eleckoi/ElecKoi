@@ -91,13 +91,14 @@
 .mobile-tool-group + .mobile-tool-group { margin-top: 24px; }
 .mobile-tool-group > h3 { margin: 0 4px 10px; color: var(--muted); font-size: 12px; font-weight: 400; }
 .mobile-tool-group > div { padding: 4px 10px; border-radius: 16px; background: var(--surface-raised); }
-.mobile-agent-tools .agent-tool-row { grid-template-columns: minmax(0, 1fr) 56px; gap: 4px; min-height: 76px; }
+.mobile-agent-tools { --blue: var(--dsw-static-deepseek-500, #3d75e8); }
+.mobile-agent-tools .agent-tool-row { grid-template-columns: minmax(0, 1fr) 52px; gap: 8px; min-height: 76px; }
 .mobile-agent-tools .agent-tool-row::after { content: none; }
-.mobile-conversation-overlay .mobile-agent-tools .agent-tool-open { height: auto; min-height: 76px; grid-template-columns: 36px minmax(0, 1fr) 16px; gap: 10px; padding: 8px 0; background: transparent; }
-.mobile-agent-tools .agent-tool-open strong { color: var(--text); font-size: 15px; font-weight: 500; white-space: normal; }
-.mobile-agent-tools .agent-tool-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--rail); color: var(--muted); }
-.mobile-agent-tools .agent-tool-icon svg { width: 22px; height: 22px; }
-.mobile-agent-tools .agent-tool-row.enabled .agent-tool-icon { background: var(--rail); color: var(--text); }
+.mobile-conversation-overlay .mobile-agent-tools .agent-tool-open { height: auto; min-height: 76px; grid-template-columns: 20px minmax(0, 1fr) 16px; gap: 10px; padding: 8px 0 8px 12px; background: transparent; }
+.mobile-agent-tools .agent-tool-open strong { color: var(--text); font-size: 15px; font-weight: 400; white-space: normal; }
+.mobile-agent-tools .agent-tool-icon { width: 20px; height: 20px; background: transparent; color: var(--muted); }
+.mobile-agent-tools .agent-tool-icon svg { width: 20px; height: 20px; }
+.mobile-agent-tools .agent-tool-row.enabled .agent-tool-icon { color: var(--text); }
 .mobile-agent-tools .agent-tool-caret { width: 16px; height: 16px; }
 .mobile-conversation-overlay .mobile-agent-tools .agent-tool-switch { width: 52px; height: 48px; background: transparent; }
 .mobile-agent-tools .agent-tool-switch::before { content: ''; position: absolute; inset: 8px 0; border-radius: 32px; background: var(--line-strong); }

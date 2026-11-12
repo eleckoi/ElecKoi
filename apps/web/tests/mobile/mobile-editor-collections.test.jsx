@@ -39,12 +39,12 @@ it.each(['scripts'].flatMap(kind => ['character', 'preset'].map(scope => ({ kind
   await act(() => groups[0].querySelector(kind === 'scripts' ? '.script-list-name' : '.editor-library-name').click());
   expect(node.querySelector('.editor-page-detail')).toBeNull();
   await click('编辑');
-  expect(node.querySelector('.script-inspector input').value).toBe(`合成${scope}条目`);
+  expect(node.querySelector('[aria-label="脚本名称"]').value).toBe(`合成${scope}条目`);
 
   await click('返回');
   expect(node.querySelector('.editor-page-list').hidden).toBe(false);
   expect(node.querySelector('.is-selected')).toBeTruthy();
-  await click('新建');
+  await click('新建', node.querySelector('.mobile-editor-actions [role=toolbar]'));
   await click(`${scope === 'preset' ? '预设' : '角色'}脚本`, node.querySelector('.mobile-editor-action-menu'));
   expect(node.querySelector('.editor-page-detail')).toBeTruthy();
   await act(async () => expect(await ref.current.save()).toBe(true));
@@ -72,12 +72,13 @@ it.each(['scripts'].flatMap(kind => ['character', 'preset'].map(scope => ({ kind
       const name = names().querySelector('span');
       name.click(); name.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
     });
-    expect(node.querySelector('.script-inspector input').value).toBe(`合成${scope}条目`);
+    expect(node.querySelector('[aria-label="脚本名称"]').value).toBe(`合成${scope}条目`);
     await click('返回');
     const control = node.querySelectorAll('.editor-library-group')[0].querySelector('.editor-library-rows input[type=checkbox]');
     await act(() => { control.click(); control.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
     expect(node.querySelector('.editor-page-detail')).toBeNull();
-    await click('多选');
+    await click('管理');
+    await click('多选', document.body.querySelector('[role=menu]'));
     await act(() => names().dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
     expect(node.querySelector('.editor-page-detail')).toBeNull();
   });
@@ -92,13 +93,14 @@ it.each(['character', 'preset'])('scripts $s opens folders and nested scripts on
   for (const label of ['合成文件夹', '合成子脚本']) {
     const name = [...node.querySelectorAll('.script-list-name')].find(button => button.textContent === label);
     await act(() => { name.click(); name.click(); name.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
-    expect(node.querySelector('.script-inspector input').value).toBe(label);
+    expect(node.querySelector('[aria-label="脚本名称"]').value).toBe(label);
     await click('返回');
   }
 });
 
 it.each([false, true].flatMap(compact => ['character', 'preset'].map(scope => ({ compact, scope }))))('regex management retains library versions without extra rule-file or combination entries (compact=$compact, $scope)', async ({ compact, scope }) => {
-  await mount('regex', scope, compact); await click('管理');
+  await mount('regex', scope, compact);
+  if (!compact) { await click('正则目录操作'); await click('管理版本与导入导出', document.body); } else { await click('管理'); await click('管理', document.body.querySelector('[role=menu]')); }
   const modal = document.querySelector('.editor-management-modal');
   const actions = [...modal.querySelectorAll('button')].map(button => button.textContent);
   expect(actions).toContain('导入为新版本'); expect(actions).toContain('导出当前版本');
@@ -109,7 +111,7 @@ it.each([false, true].flatMap(compact => ['character', 'preset'].map(scope => ({
 it.each(['scripts'].flatMap(kind => ['character', 'preset'].flatMap(scope => [false, true].map(compact => ({ kind, scope, compact })))))
   ('$kind $scope clears a single selection on directory space while retaining row, action and multi-selection interactions (compact=$compact)', async ({ kind, scope, compact }) => {
     const { ref, write } = await mount(kind, scope, compact);
-    const directory = node.querySelector('.editor-sidebar-directory');
+    const directory = node.querySelector(compact ? '.editor-sidebar-directory' : '.rs-directory-content');
     const names = () => [...directory.querySelectorAll(kind === 'scripts' ? '.script-list-name' : '.editor-library-name')];
     const press = async target => { await act(() => {
       target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })); target.click();
@@ -123,22 +125,22 @@ it.each(['scripts'].flatMap(kind => ['character', 'preset'].flatMap(scope => [fa
       expect(node.querySelector('.mobile-editor-action-menu')).toBeTruthy();
       expect(directory.querySelectorAll('.is-selected')).toHaveLength(1);
     } else {
-      await press(node.querySelector('.script-inspector input'));
+      await press(node.querySelector('[aria-label="脚本名称"]'));
       expect(directory.querySelectorAll('.is-selected')).toHaveLength(1);
     }
     await press(directory);
     expect(directory.querySelector('.is-selected')).toBeNull();
     expect(node.querySelector('.mobile-editor-action-menu')).toBeNull();
     if (compact) expect([...node.querySelectorAll('.mobile-editor-actions button')].find(button => button.textContent === '编辑').disabled).toBe(true);
-    else expect(node.querySelector('.editor-sidebar-pane')?.hasAttribute('inert')).toBe(true);
+    else expect(node.querySelector('.setting-document [aria-label="脚本名称"]')).toBeNull();
     await press(names()[0]);
-    await press(directory.querySelector('.editor-library-heading'));
+    await press(directory.querySelector(compact ? '.editor-library-heading' : '.rs-library-heading'));
     expect(directory.querySelector('.is-selected')).toBeNull();
     await act(async () => expect(await ref.current.save()).toBe(true));
     expect(write).not.toHaveBeenCalled();
-    await click('多选');
+    if (!compact) { await click('脚本目录操作'); await click('多选', document.body); } else { await click('管理'); await click('多选', document.body.querySelector('[role=menu]')); }
     await press(names()[0]);
-    expect(directory.querySelector('input.editor-selection-checkbox:checked')).toBeTruthy();
+    expect(directory.querySelector('input[type=checkbox]:checked')).toBeTruthy();
     await press(directory);
-    expect(directory.querySelector('input.editor-selection-checkbox:checked')).toBeTruthy();
+    expect(directory.querySelector('input[type=checkbox]:checked')).toBeTruthy();
   });

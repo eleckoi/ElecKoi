@@ -11,7 +11,7 @@ import { readRuntimePresetDefinition } from './preset-definition.mjs'
 import { commitSessionPreset, inheritSessionSnapshot, readSessionSnapshot, removeSessionSnapshot } from './session-snapshot.mjs'
 import { applyDisabledPolicy } from './tool-policy.mjs'
 import { ACTIVE_RUNTIME_PRESET_ID, installRoleplaySessionRuntime, materializeAgentPreset } from './session-runtime.mjs'
-import { refreshSessionModelSnapshot } from './model-selection-migration.mjs'
+import { refreshSessionModelSnapshot } from './model-request-snapshot.mjs'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 import { RuntimeContexts, restoreRuntimeContext } from './runtime-contexts.mjs'
 import { installRoleplaySubagentTurn } from './subagent-turn.mjs'
@@ -32,6 +32,7 @@ export async function apply(ctx) {
   let registrationQueue = Promise.resolve()
   const sessionHandles = new Map()
   const sessionLocks = new Map()
+  const configuredAgents = new WeakSet()
   const withSessionLock = async (sessionId, action) => {
     const previous = sessionLocks.get(sessionId) ?? Promise.resolve()
     let release
@@ -160,13 +161,14 @@ export async function apply(ctx) {
     async selectForSession(sessionId) {
       return withSessionLock(sessionId, async () => {
         const snapshot = readSessionSnapshot(snapshotRoot, sessionId)
+        const agent = ctx.agents.get(sessionId)
+        if (!agent) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, `DSH 会话 ${sessionId} 尚未激活，不能切换预设。`, { what: '激活这个 DSH 会话' })
+        await configureAgent({ agent })
         const requested = snapshot.pendingPresetId
         const requestedRevision = snapshot.pendingPresetRevision
         if (!requested || !requestedRevision) return snapshot.mountedPresetId
         if (requested === snapshot.mountedPresetId
           && requestedRevision === snapshot.mountedPresetRevision) return snapshot.mountedPresetId
-        const agent = ctx.agents.get(sessionId)
-        if (!agent) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, `DSH 会话 ${sessionId} 尚未激活，不能切换预设。`, { what: '激活这个 DSH 会话' })
         if (agent.status !== 'idle') throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, `DSH 会话 ${sessionId} 正在生成，不能切换预设。`, { what: '等这次生成结束再切换预设' })
         const current = await registerActivePreset()
         try {
@@ -182,7 +184,8 @@ export async function apply(ctx) {
     }
   }
   ctx.provide('eleckoiPresetRegistrar', presetRegistrar)
-  ctx.on('agent/created', async ({ agent }) => {
+  const configureAgent = async ({ agent }) => {
+    if (configuredAgents.has(agent)) return
     const child = agent.session.header.origin === 'subagent'
     const sourceSessionId = child ? agent.session.header.parentSession : agent.id
     if (!sourceSessionId) return
@@ -190,7 +193,7 @@ export async function apply(ctx) {
     try {
       const snapshot = child
         ? inheritSessionSnapshot(snapshotRoot, sourceSessionId, agent.id)
-        : await refreshSessionModelSnapshot(ctx, snapshotRoot, agent.id)
+        : await refreshSessionModelSnapshot(ctx, snapshotRoot, agent.id, agent.model.current(), agent.session)
       inherited = child
       if (child) {
         if (!runtimeContexts.has(sourceSessionId)) {
@@ -209,6 +212,7 @@ export async function apply(ctx) {
         installConversationContext(agent.ctx, snapshotRoot, agent.id, ctx.eleckoiRequestPreviews, ctx.settings, runtimeContexts)
       }
       applyDisabledPolicy(agent.ctx, snapshot.disabledToolGroupIds, ctx.get('tools'))
+      configuredAgents.add(agent)
     } catch (error) {
       if (inherited) {
         removeSessionSnapshot(snapshotRoot, agent.id)
@@ -217,7 +221,8 @@ export async function apply(ctx) {
       if (error?.code === 'ENOENT') return
       throw error
     }
-  })
+  }
+  ctx.on('agent/created', configureAgent)
   const disposeRuntime = ctx.inject(['attachments', 'eleckoiSessionEditor'],
     owner => installRoleplaySessionRuntime(owner, presetRegistrar))
   return async () => {

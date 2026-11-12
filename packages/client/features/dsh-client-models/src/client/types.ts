@@ -58,6 +58,28 @@ export interface ElecKoiModels {
    */
   saveModelParameters(configId: string, modelId: string, patch: ClientModelParameterPatch): Promise<ClientModelConfig | undefined>
   /**
+   * 当前会话的官方参数投影；随 Session 释放。
+   * @param sessionId - 官方会话编号。
+   * @returns 官方投影的读取与订阅面。
+   */
+  sessionParameters(sessionId: string): { getSnapshot(): import('@eleckoi/dsh-product-api/types').SessionModelParameterState | undefined; subscribe(listener: () => void): () => void }
+  /**
+   * 读取会话生成参数，不修改模型连接配置。
+   * @param sessionId - 官方会话编号。
+   * @returns 会话参数与修订号。
+   */
+  readSessionModelParameters(sessionId: string): Promise<import('@eleckoi/dsh-product-api/types').SessionModelParameterState>
+  /**
+   * 保存会话参数补丁，使用官方日志投影修订号检查冲突。
+   * @param sessionId - 官方会话编号。
+   * @param provider - 提供商路由编号。
+   * @param model - 模型编号。
+   * @param patch - 本次生成参数变更。
+   * @param revision - 编辑时读取的会话参数修订号。
+   * @returns 已保存的会话参数投影。
+   */
+  saveSessionModelParameters(sessionId: string, provider: string, model: string, patch: import('@eleckoi/dsh-product-api/types').SessionModelParameterPatch, revision: number): Promise<import('@eleckoi/dsh-product-api/types').SessionModelParameterState>
+  /**
    * 删除一个配置，返回剩余目录的第一个配置。
    * @param id - 要读取或修改的项目编号。
    * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。

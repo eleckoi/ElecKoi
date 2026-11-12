@@ -40,7 +40,7 @@ export function useActiveChatModel({ conversations, conversationId, modelConfigs
     const next = normalizeModelSelection(nextSelection);
     setModelSelection(next);
     try {
-      const selected = await conversations.selectModel("", {
+      const selected = await conversations.selectModel(conversationId, {
         provider: next.configId,
         model: next.model,
       });
@@ -65,28 +65,34 @@ export function useActiveChatModel({ conversations, conversationId, modelConfigs
       return;
     }
     setModelSelection(DEFAULT_SELECTION);
-    conversations.readModelSelection("").then(async (selection) => {
+    conversations.readModelSelection(conversationId).then((selection) => {
       if (generation !== generationRef.current) return;
       const current = fromDshSelection(selection);
-      if (resolveModelConfig(modelConfigs, current) || !fallback) {
-        setModelSelection(current);
-        return;
-      }
-      const selected = await conversations.selectModel("", {
-        provider: defaultSelection.configId, model: defaultSelection.model,
-      });
-      if (generation === generationRef.current) setModelSelection(fromDshSelection(selected));
+      setModelSelection(current);
     }).catch((error) => {
       if (generation === generationRef.current) setStatus(errorMessage(error, "模型选择读取失败"));
     });
-  }, [conversations, setStatus, configKey]);
+    return () => { generationRef.current += 1; };
+  }, [conversations, conversationId, setStatus, configKey]);
 
   useEffect(() => {
-    if (!conversations?.subscribeModelSelection) return undefined;
-    return conversations.subscribeModelSelection(() => {
-      setModelSelection(fromDshSelection(conversations.getModelSelectionSnapshot()));
-    });
-  }, [conversations]);
+    if (!conversations?.subscribeDetails || !conversationId) return undefined;
+    let face, stop = () => {};
+    const update = () => {
+      const selection = face?.getSnapshot()?.next;
+      if (selection) setModelSelection(fromDshSelection(selection));
+    };
+    const bind = () => {
+      const details = conversations.getDetailsSnapshot();
+      const reference = details.id === conversationId
+        ? conversations.getSessionReference(details.details?.runtimeSessionId) : null;
+      const next = reference?.binding.session.projections.faceOf('modelSelection');
+      if (next === face) return;
+      stop(); face = next; stop = face?.subscribe(update) || (() => {}); update();
+    };
+    const stopDetails = conversations.subscribeDetails(bind); bind();
+    return () => { stopDetails(); stop(); };
+  }, [conversations, conversationId]);
 
   return { modelConfig, modelSelection, selectChatModel };
 }

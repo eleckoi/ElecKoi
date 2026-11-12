@@ -44,7 +44,7 @@ export function CreatorStudioConversation({ model, editing = false, presetCatalo
     catch (error) { setDeleteError(error); onError(error); }
     finally { setDeleting(false); }
   }
-  const menu = <RoleplayInputMenu purpose="creator" isSending={session.running} onCreateChat={onCreate} onSelectCharacter={onSelectCharacter}
+  const menu = <RoleplayInputMenu key={sessionId} purpose="creator" presetCatalog={presetCatalog} isSending={session.running} onCreateChat={onCreate} onSelectCharacter={onSelectCharacter}
     onOpenTools={() => setTools(true)} onEnterDeleteMode={showMessages} canDeleteMessages={!session.blank}
     onRegenerate={regenerate} regenerateTargetMessageId={session.blank ? null : sessionId} />;
   const resident = renderSlot('eleckoi.creator-studio.composer.bar', { variant: hero ? 'hero' : 'composer', placeholder: hero ? tUi("发消息或创建任务，/ 调用指令，@ 文件或对话") : tUi("输入消息"), leadingAccessory: menu });

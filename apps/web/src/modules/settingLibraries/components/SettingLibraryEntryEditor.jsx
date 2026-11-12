@@ -429,11 +429,11 @@ export function VisualPositionPicker({ entry, entries, promptPositions, allowCus
         </> : conflictMessage}</p> : null}
         <div className="setting-library-order-preview">
           <strong>{workspace ? tUi('同位置条目') : tUi("当前位置顺序")}</strong>
-          {workspace ? <ol className="setting-order-items" aria-label={tUi('同位置条目')}>
+          {workspace ? scope.length ? <ol className="setting-order-items" aria-label={tUi('同位置条目')}>
             {scope.map((candidate) => <li className={candidate.id === entry.id ? "is-current" : ""} aria-current={candidate.id === entry.id ? 'true' : undefined} key={candidate.id}>
               <b>{candidate.order}</b><span title={candidate.title || tUi("待命名设定")}>{candidate.title || tUi("待命名设定")}</span>{candidate.id === entry.id ? <em>{tUi("当前")}</em> : null}
             </li>)}
-          </ol> : scope.map((candidate) => <div className={candidate.id === entry.id ? "is-current" : ""} key={candidate.id}><b>{candidate.order}</b><span>{candidate.title || tUi("待命名设定")}</span>{candidate.id === entry.id ? <em>{tUi("当前")}</em> : null}</div>)}
+          </ol> : <p className="setting-order-empty">{tUi('暂无条目')}</p> : scope.map((candidate) => <div className={candidate.id === entry.id ? "is-current" : ""} key={candidate.id}><b>{candidate.order}</b><span>{candidate.title || tUi("待命名设定")}</span>{candidate.id === entry.id ? <em>{tUi("当前")}</em> : null}</div>)}
         </div>
       </section>
     </>

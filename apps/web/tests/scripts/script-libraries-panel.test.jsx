@@ -100,7 +100,10 @@ describe('script library editing commands', () => {
     };
     withLibraryVersions(service, 'scripts');
     const node = document.createElement('div'); document.body.append(node); const root = createRoot(node);
-    await act(async () => root.render(<EditorPresentationContext.Provider value={{ compact }}>
+    let subpage;
+    const registerSubpage = next => { subpage = next; return () => { if (subpage === next) subpage = null; }; };
+    await act(async () => root.render(<EditorPresentationContext.Provider value={{ compact, registerSubpage }}>
+      {compact && <button aria-label="返回" onClick={() => subpage?.back()}>返回</button>}
       <ScriptLibrariesPanel characterId="synthetic-character" scriptLibraries={service} />
     </EditorPresentationContext.Provider>));
     const row = scope => node.querySelector(`[aria-label="${{ global: '全局脚本', character: '角色脚本', preset: '预设脚本' }[scope]}"] .script-list-row`);
@@ -163,7 +166,7 @@ describe('script library editing commands', () => {
       await page.rightClick('character'); await page.action('重命名');
       expect(page.node.querySelector('.editor-page-list').hidden).toBe(true);
       expect(page.node.querySelector('.editor-page-feedback .setting-library-save-button')).toBeTruthy();
-      await act(() => page.node.querySelector('[aria-label="关闭编辑器"]').click());
+      await act(() => page.node.querySelector('[aria-label="返回"]').click());
       expect(page.node.querySelector('.editor-page-list').hidden).toBe(false);
     } finally { await page.close(); }
   });

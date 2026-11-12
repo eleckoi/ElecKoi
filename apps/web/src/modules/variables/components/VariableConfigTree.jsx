@@ -35,7 +35,7 @@ export function VariableTreeNode({ item, data, itemProps, style, level, isSelect
     <div
       {...itemProps}
       className={`variable-tree-row${data.enabled === false ? " is-disabled" : ""}${level > 0 ? " is-nested" : ""}${actions?.selection?.active ? actions.selection.selected.has(data.id) ? ' is-selected' : '' : isSelected ? " is-selected" : ""}${isDropTarget ? " is-drop-target" : ""}${isDragging ? " is-dragging" : ""}`}
-      style={style}
+      style={data.fixed ? { ...style, paddingLeft: 8 } : style}
       onDoubleClick={(event) => {
         event.stopPropagation();
         if (actions?.openEditor) { actions.openEditor(data.id); return; }
@@ -46,13 +46,13 @@ export function VariableTreeNode({ item, data, itemProps, style, level, isSelect
       onContextMenu={(event) => actions?.openContextMenu(event, data)}
     >
       <EditorSelectionCheckbox selection={actions?.selection} id={data.id} label={data.label} disabled={actions?.saving || data.fixed} />
-      <span className="variable-tree-chevron">
+      {!data.fixed ? <span className="variable-tree-chevron">
         {data.nodeKind === "object" && !data.fixed ? (
           <button type="button" className="variable-tree-expander" aria-label={isExpanded ? tUi("折叠变量组") : tUi("展开变量组")} aria-expanded={isExpanded} onDoubleClick={event => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); if (item.isExpanded()) item.collapse(); else item.expand(); }}>
             <DshTriangleRightIcon className={isExpanded ? "is-expanded" : ""} />
           </button>
         ) : null}
-      </span>
+      </span> : null}
       {data.nodeKind === "object"
         ? <VariableGroupIcon initialization={data.fixed} className="variable-tree-icon" />
         : <VariableEntryIcon type={data.valueType} className="variable-tree-icon" />}

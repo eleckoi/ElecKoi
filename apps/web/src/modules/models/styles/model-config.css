@@ -244,6 +244,22 @@ button.model-group-row:hover {
   object-fit: contain;
 }
 
+span.model-provider-initials {
+  display: inline-grid;
+  place-items: center;
+  box-sizing: border-box;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 25%;
+  color: var(--text);
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: 0;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .model-provider-copy {
   min-width: 0;
 }

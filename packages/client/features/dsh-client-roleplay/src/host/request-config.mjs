@@ -5,47 +5,32 @@ const COMPACTION_GUARD = '你当前只执行内部历史压缩。只返回非空
 
 /**
  * Installs a request configuration on one Agent scope. The top-level turn
- * preparation freezes the global selection into the product snapshot; every
- * model step keeps the selected route and reads output controls through DSH's
- * agent/request waterfall. Persisted DSH request headers are history, not the
- * authority for a new turn.
+ * preparation captures the Session's selection for product controls. DSH owns
+ * the durable route and captures it for each step; this plugin never selects
+ * a route from a product snapshot or from the deployment default.
  */
 export function installRequestConfig(agentCtx, snapshotRoot, sourceSessionId) {
   const reroutedCompactions = new WeakSet()
-  const disposeSelection = agentCtx.on('agent/prepare-step', ({ agent }) => {
-    const model = readSessionSnapshot(snapshotRoot, sourceSessionId).model
-    if (model?.provider && model?.model) agent.model.select(model)
-  })
   const disposeAssembly = agentCtx.on('system-prompt/assemble', async (_assembly, _context, next) => {
     const snapshot = readSessionSnapshot(snapshotRoot, sourceSessionId)
     const model = snapshot.model
     const result = await next()
-    return model === undefined ? result : {
+    const selection = _context.modelSelection ?? model
+    return selection === undefined ? result : {
       ...result,
       variables: {
         ...result.variables,
-        provider: model.provider,
-        model: model.model
+        provider: selection.provider,
+        model: selection.model
       }
     }
   })
   const disposeRequest = agentCtx.on('agent/request', async (_payload, next) => {
     const inherited = await next()
     const snapshot = readSessionSnapshot(snapshotRoot, sourceSessionId)
-    const model = structuredClone(snapshot.model)
-    if (!model?.provider || !model?.model) return inherited
-    const {
-      temperature: _temperature,
-      topP: _topP,
-      maxTokens: _maxTokens,
-      ...rest
-    } = inherited
-    return {
-      ...rest,
-      ...(model.temperature === undefined ? {} : { temperature: model.temperature }),
-      ...(model.topP === undefined ? {} : { topP: model.topP }),
-      ...(model.maxTokens === undefined ? {} : { maxTokens: model.maxTokens })
-    }
+    // Numeric model parameters are applied once by the shared Session model API.
+    // A one-off author request length remains an explicit request-local override.
+    return snapshot.responseLengthOverride === undefined ? inherited : { ...inherited, maxTokens: snapshot.responseLengthOverride }
   }, { prepend: true })
   const disposeCompaction = agentCtx.on('llm/stream', (options, next) => {
     if (options.sessionId !== sourceSessionId || reroutedCompactions.has(options)) return next()
@@ -62,7 +47,6 @@ export function installRequestConfig(agentCtx, snapshotRoot, sourceSessionId) {
     return agentCtx.llm.stream(projected)
   })
   return () => {
-    disposeSelection()
     disposeCompaction()
     disposeRequest()
     disposeAssembly()

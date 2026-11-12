@@ -22,7 +22,7 @@ async function fixture({ legacy = false } = {}) {
   }
   writeFileSync(join(root, 'template'), '- id: synthetic\n  name: synthetic\n' + ['variables', 'setting-library', 'web', 'workspace', 'collaboration', 'roleplay-workflow', 'workflow'].map(id => `# ELECKOI:${id}:BEGIN\n# ELECKOI:${id}:END\n`).join(''))
   const tools = { schemas: () => [] }
-  const makeAgent = session => ({ session, ctx: { tools, on: () => () => {} }, status: 'idle', followup: vi.fn(), runMaintenance: action => action(new AbortController().signal) })
+  const makeAgent = session => ({ session, model: { current: () => ({ provider: 'synthetic', model: 'synthetic' }) }, ctx: { tools, on: () => () => {} }, status: 'idle', followup: vi.fn(), runMaintenance: action => action(new AbortController().signal) })
   const preset = { id: 'synthetic-creator', purpose: 'creator', name: 'Synthetic creator', activeVersionId: 'v1', roleplayPlan: { steps: [] },
     toolGroups: ['variables', 'setting-library', 'roleplay-workflow'].map(id => ({ id: `builtin:${id}`, included: false, enabled: false })) }
   const id = 'synthetic-studio-edit'
@@ -77,7 +77,7 @@ async function fixture({ legacy = false } = {}) {
     agentPresets: { readDocument: async () => ({ content: '[]' }), register: async () => () => {}, recompose: async () => {} },
     agentDefaultModel: { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) },
     llm: { resolveModelInfo: async () => ({}) }, settings: { describe: () => [] },
-    on: (name, listener) => { listeners.set(name, listener); return () => {} }, get: () => tools,
+    on: (name, listener) => { listeners.set(name, listener); return () => {} }, get: key => key === 'tools' ? tools : undefined,
     eleckoiSessionEditor: {
       transaction: async (_id, action) => action(),
       rewind: async (_id, turn, seq, retain) => { agent = undefined; return rewindDshSession(join(root, 'logs'), id, turn, seq, retain) },

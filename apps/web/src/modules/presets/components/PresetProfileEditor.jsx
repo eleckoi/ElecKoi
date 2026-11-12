@@ -15,7 +15,7 @@ function readImage(file) {
   });
 }
 
-export function PresetProfileEditor({ preset, dirty, saving, error, onChange, onCancel, onSave }) {
+export function PresetProfileEditor({ preset, dirty, saving, error, onChange, onCancel, onSave, showActions = true }) {
   const tUi = useProductTranslation();
   const inputRef = useRef(null);
   const [cropFile, setCropFile] = useState(null);
@@ -66,10 +66,10 @@ export function PresetProfileEditor({ preset, dirty, saving, error, onChange, on
         <label><span>{tUi("作者")}</span><input value={profile.authorName} placeholder={tUi("未填写作者")} onChange={(event) => updateProfile({ authorName: event.target.value })} /></label>
         <label><span>{tUi("模型标签")}</span><input value={modelTagText} placeholder={tUi("用逗号分隔")} onChange={(event) => updateModelTags(event.target.value)} /></label>
         {error || imageError ? <p className="preset-profile-editor-error">{error || imageError}</p> : null}
-        <div className="preset-profile-editor-actions">
+        {showActions && <div className="preset-profile-editor-actions">
           <Button data-dsh-control variant="primary" type="submit" className="is-primary" disabled={!dirty || saving}>{saving ? tUi("保存中…") : tUi("保存")}</Button>
           <Button data-dsh-control variant="outline" type="button" onClick={onCancel}>{tUi("取消")}</Button>
-        </div>
+        </div>}
       </form>
 
       <div className="preset-profile-editor-avatar">

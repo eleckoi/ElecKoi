@@ -1,21 +1,23 @@
 import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives';
-import { Code, Copy, FileText, LinkSimple, ListChecks, MagnifyingGlass, PencilSimple, Plus } from '../../../ui/icons/interfaceIcons.jsx';
+import { Button, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Code, Copy, DotsThree, FileText, LinkSimple, ListChecks, MagnifyingGlass, PencilSimple, Plus } from '../../../ui/icons/interfaceIcons.jsx';
 import { isHiddenToolTimelineEntry } from '@shared/contracts/presets/builtIns';
 import { TrashIcon } from '../../../ui/icons/index.jsx';
 import { DshFolderClosedIcon } from '../../../ui/icons/dshTreeIcons.jsx';
 import { SETTING_LIBRARY_CREATE_ICONS } from '../../../ui/icons/settingLibraryCreateIcons.jsx';
+import { EditorLibraryWorkspace } from '../../../ui/ui/EditorLibraryWorkspace.jsx';
 import { EditorSidebarLayout } from '../../../ui/ui/EditorSidebarLayout.jsx';
 import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
 import { MobileEditorActions } from '../../../ui/ui/MobileEditorActions.jsx';
-import { EditorSelectionBar, useEditorMultiSelect } from '../../../ui/ui/EditorCollectionControls.jsx';
+import { EditorCollectionToolbar, EditorSelectionBar, useEditorMultiSelect } from '../../../ui/ui/EditorCollectionControls.jsx';
 import { selectableTreeIds, selectedTreeRootIds, visibleTreeSelectionIds } from '../../../ui/ui/editorCollectionSelection.js';
 import {
   ConfirmationDialog,
   PINNED_ENTRY_IDS,
   SettingLibraryInspector,
+  SettingLibraryDocument,
   SettingLibraryTree,
   SettingTreeActionsContext,
   canTransferSettingNode,
@@ -43,13 +45,15 @@ export function shouldConfirmHiddenTimelineDisable(entry, nextEnabled) {
   return nextEnabled === false && isHiddenToolTimelineEntry(entry);
 }
 
-export function PresetPromptEditor({ preset, onChange, saveAction }) {
+export function PresetPromptEditor({ preset, onChange, saveAction, workspace = false, dirty, saving }) {
   const tUi = useProductTranslation();
   const creatorPreset = preset.purpose === 'creator';
   const { compact } = useEditorPresentation();
   const [query, setQuery] = useState('');
   const [addOpen, setAddOpen] = useState(false);
-  const [selected, setSelected] = useState(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [entryMoreOpen, setEntryMoreOpen] = useState(false);
+  const [selected, setSelected] = useState(() => workspace && preset.entries[0] ? { kind: 'entry', id: preset.entries[0].id } : null);
   const [editing, setEditing] = useState(false);
   const [moving, setMoving] = useState(null);
   const [pendingHiddenTimelineDisableId, setPendingHiddenTimelineDisableId] = useState('');
@@ -78,7 +82,7 @@ export function PresetPromptEditor({ preset, onChange, saveAction }) {
       : null;
 
   useEffect(() => {
-    setSelected(null);
+    setSelected(workspace && preset.entries[0] ? { kind: 'entry', id: preset.entries[0].id } : null);
     setEditing(false);
     setMoving(null);
     setQuery('');
@@ -276,11 +280,19 @@ export function PresetPromptEditor({ preset, onChange, saveAction }) {
     setMoving(null);
   }
 
-  const inspector = !multi.active && selectedValue && (!compact || editing) ? <SettingLibraryInspector
+  const Inspector = workspace || compact ? SettingLibraryDocument : SettingLibraryInspector;
+  const inspector = !multi.active && selectedValue && (!compact || editing) ? <Inspector
+    key={workspace || compact ? `${selected.kind}:${selectedValue.id}` : undefined}
     selected={{ kind: selected.kind, value: selectedValue }}
     library={library}
     allowCustomPromptPositions
     creatorPreset={creatorPreset}
+    dirty={dirty} saving={saving} titleReadOnly={PINNED_ENTRY_IDS.has(selectedValue.id)}
+    hideReferenceTabs
+    entryActions={(workspace || compact) && selected.kind === 'entry' && !PINNED_ENTRY_IDS.has(selectedValue.id) ? <Menu portal dense open={entryMoreOpen} onClose={() => setEntryMoreOpen(false)}
+      anchor={<Button data-dsh-control variant="outline" className="setting-folder-more" icon={<DotsThree size={18} />} aria-label={tUi('提示词操作')} onClick={() => setEntryMoreOpen(!entryMoreOpen)} />}
+      items={[{ id: 'copy', label: tUi('复制'), icon: <Copy size={15} /> }, { id: 'rename', label: tUi('重命名'), icon: <PencilSimple size={15} /> }, { id: 'delete', label: tUi('删除'), icon: <TrashIcon size={15} />, danger: true }]}
+      onSelect={id => { setEntryMoreOpen(false); if (id === 'copy') duplicateEntry(selectedValue); else if (id === 'rename') renameNode({ kind: 'entry', value: selectedValue }); else deleteEntry(selectedValue.id); }} /> : null}
     nameInputRef={nameInputRef}
     SelectedIcon={selected.kind === 'group' ? DshFolderClosedIcon : selectedValue.contentMode === 'ejs' ? Code : selectedValue.dynamicMode === 'ejs_reference' ? LinkSimple : FileText}
     onClose={closeEditor}
@@ -305,11 +317,25 @@ export function PresetPromptEditor({ preset, onChange, saveAction }) {
     { label: '删除', icon: TrashIcon, danger: true, run: () => menuTarget.kind === 'group' ? deleteGroup(menuTarget.value.id) : deleteEntry(menuTarget.value.id) },
   );
 
+  const Layout = workspace && !compact ? EditorLibraryWorkspace : LegacyPromptLayout;
   return (
-    <EditorSidebarLayout className={`preset-prompt-editor setting-library-layout${multi.active ? ' is-multiselect' : ''}`} aria-label={tUi("预设提示词")} onMouseDown={() => setAddOpen(false)}
-      inspector={inspector} inspectorTitle={selected?.kind === 'group' ? tUi("文件夹") : selectedValue?.title || tUi("提示词")} onCloseInspector={closeEditor}>
+    <Layout className={workspace && !compact ? "preset-prompt-workspace" : `preset-prompt-editor setting-library-layout${multi.active ? ' is-multiselect' : ''}`} aria-label={tUi("预设提示词")} onMouseDown={() => setAddOpen(false)}
+      label={tUi('提示词')} query={query} onQueryChange={setQuery}
+      directoryHeading={<h1 className="preset-prompt-directory-title">{tUi('预设提示词')}</h1>}
+      directoryActions={<><Menu portal dense open={addOpen} onClose={() => setAddOpen(false)} anchor={<Button data-dsh-control variant="outline" className="setting-create" icon={<Plus size={16} />} disabled={multi.active || saving} aria-label={tUi('新建提示词')} onClick={() => setAddOpen(!addOpen)}>{tUi('新建')}</Button>}
+        items={[{ id: 'group', label: tUi('文件夹'), icon: <CreateFolderIcon size={16} /> }, { id: 'entry', label: tUi('提示词'), icon: <CreateEntryIcon size={16} /> }, ...(!creatorPreset ? [{ id: 'reference', label: tUi('EJS引用设定'), icon: <CreateReferenceIcon size={16} /> }] : [])]} onSelect={id => createNode(id)} />
+        {saveAction}<Menu portal dense open={moreOpen} onClose={() => setMoreOpen(false)} anchor={<Button data-dsh-control variant="outline" className="setting-directory-more" icon={<DotsThree size={18} />} aria-label={tUi('提示词操作')} onClick={() => setMoreOpen(!moreOpen)} />}
+          items={[{ id: 'multi', label: multi.active ? tUi('完成多选') : tUi('多选'), icon: <ListChecks size={16} /> }, { id: 'expand', label: tUi('展开全部文件夹') }, { id: 'collapse', label: tUi('收起全部文件夹') }]}
+          onSelect={id => { setMoreOpen(false); if (id === 'multi') toggleMultiSelect(); else onChange({ ...preset, expandedGroupIds: id === 'expand' ? preset.groups.map(group => group.id) : [] }); }} /></>}
+      documentLayout={compact} inspector={inspector} inspectorTitle={selected?.kind === 'group' ? tUi("文件夹") : selectedValue?.title || tUi("提示词")} onCloseInspector={closeEditor}>
       <div className="setting-library-browser editor-collection-browser">
-        <div className="setting-library-toolbar editor-collection-toolbar" onMouseDown={(event) => event.stopPropagation()}>
+        {compact && <EditorCollectionToolbar heading={tUi('预设提示词')} query={query} onQueryChange={setQuery} placeholder={tUi('搜索提示词')}
+          disabled={saving} selection={{ ...multi, toggle: toggleMultiSelect }} save={saveAction} createItems={[
+            { label: tUi('文件夹'), Icon: CreateFolderIcon, run: () => createNode('group') },
+            { label: tUi('提示词'), Icon: CreateEntryIcon, run: () => createNode('entry') },
+            ...(!creatorPreset ? [{ label: tUi('EJS引用设定'), Icon: CreateReferenceIcon, run: () => createNode('reference') }] : []),
+          ]} />}
+        {!workspace && !compact && <div className="setting-library-toolbar editor-collection-toolbar" onMouseDown={(event) => event.stopPropagation()}>
           <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
             value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tUi("搜索提示词")} aria-label={tUi("搜索提示词")} />
           <div className="editor-collection-actions">
@@ -325,7 +351,7 @@ export function PresetPromptEditor({ preset, onChange, saveAction }) {
             aria-label={multi.active ? tUi("完成") : tUi("多选")} aria-pressed={multi.active} onClick={toggleMultiSelect}>{multi.active ? tUi("完成") : tUi("多选")}</Button>
           {saveAction}
           </div>
-        </div>
+        </div>}
         <EditorSelectionBar selection={multi} visibleIds={visibleTreeSelectionIds(nodes, query)} onCopy={copySelected}
           onDelete={() => setDeleteBatch({ ids: selectedTreeRootIds(nodes, multi.selected), title: tUi("删除选中的 {value0} 项？", {value0: multi.selected.size}), message: tUi("所选文件夹及其内容会在保存后删除。") })} />
         <div
@@ -385,7 +411,7 @@ export function PresetPromptEditor({ preset, onChange, saveAction }) {
         onCancel={() => setPendingHiddenTimelineDisableId('')}
         onConfirm={confirmHiddenTimelineDisable}
       />
-    </EditorSidebarLayout>
+    </Layout>
   );
 }
 
@@ -402,4 +428,8 @@ function descendantGroups(groups, groupId) {
     }
   }
   return removed;
+}
+
+function LegacyPromptLayout({ label, query, onQueryChange, directoryHeading, directoryActions, ...props }) {
+  return <EditorSidebarLayout {...props} />;
 }

@@ -1,3 +1,4 @@
+import { EditorNavigationRail } from '../../ui/ui/EditorNavigationRail.jsx';
 import { localizeUiCopy } from "../i18n/productCopy.js";
 import { useProductTranslation } from "../i18n/ProductLocaleContext.jsx";
 import { CharacterOpeningsPanel } from "../../modules/characterOpenings/index.js";
@@ -5,8 +6,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpenText,
   ChatCircleDots,
-  CaretLeft,
-  CaretRight,
   BracketsCurly,
   IdentificationCard,
   TreeStructure,
@@ -462,25 +461,8 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
             {compact ? <strong>ElecKoi</strong> : <ElecKoiWordmark />}
           </div>
         </header>
-        <nav id="character-editor-navigation" className="character-editor-navigation" aria-label={tUi("角色编辑器功能")}>
-          {localizeUiCopy(EDITOR_SECTIONS, tUi).map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              aria-label={label}
-              aria-current={activeSection === id ? "page" : undefined}
-              onClick={() => requestSection(id)}
-            >
-              <Icon size={19} weight="fill" aria-hidden="true" />
-              <span>{label}</span>
-            </button>
-          ))}
-        </nav>
-        {compact && <button type="button" className="character-editor-sidebar-toggle"
-          aria-label={sidebarCollapsed ? tUi("展开侧边栏") : tUi("收起侧边栏")} aria-expanded={!sidebarCollapsed}
-          aria-controls="character-editor-navigation" disabled={sidebarPreference.busy} onClick={sidebarPreference.toggle}>
-          {sidebarCollapsed ? <CaretRight size={20} aria-hidden="true" /> : <CaretLeft size={20} aria-hidden="true" />}
-        </button>}
+        <EditorNavigationRail id="character-editor-navigation" label={tUi("角色编辑器功能")} items={localizeUiCopy(EDITOR_SECTIONS, tUi)}
+          value={activeSection} onChange={requestSection} compact={compact} collapsed={sidebarCollapsed} busy={sidebarPreference.busy} onToggle={sidebarPreference.toggle} />
         <div
           className={`character-editor-sidebar-resizer${sidebarResize ? " is-resizing" : ""}`}
           role="separator"

@@ -143,6 +143,10 @@ window.__ModuleLoader__.load({
 
       openPluginSettings() {
         if (this.disposed) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleDisposed, '联网搜索设置已关闭。', { what: '联网搜索设置' })
+        // RETIRE WHEN: official Desktop replaces the complete ADR 0043 main-window adapter.
+        if (new URLSearchParams(window.location?.search || '').has('view') && window.dshDesktop?.plugins) {
+          return window.dshDesktop.plugins.openSettings('web-search')
+        }
         const slots = this.ctx.get('slots')
         const layout = this.ctx.get('layout')
         const entry = slots?.entriesOfSlot('main').find(item => item.options.key === 'plugins')

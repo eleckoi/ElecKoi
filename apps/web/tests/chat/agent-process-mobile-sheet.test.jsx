@@ -38,6 +38,25 @@ async function renderDialog(mobile = true, processMessage = message) {
 }
 
 describe('mobile process bottom sheet', () => {
+  it('uses an opaque phone surface and prepares the native portal layout before sliding', async () => {
+    const frames = new Map(); let nextFrame = 0;
+    vi.stubGlobal('requestAnimationFrame', callback => { frames.set(++nextFrame, callback); return nextFrame; });
+    const cancel = vi.fn(id => frames.delete(id));
+    vi.stubGlobal('cancelAnimationFrame', cancel);
+    const { dialog } = await renderDialog();
+    expect(dialog.hasAttribute('data-sheet-preparing')).toBe(true);
+    expect(dialog.hasAttribute('data-menu-material')).toBe(false);
+    expect(document.querySelector('[data-menu-backing]')).toBeNull();
+    expect(document.activeElement).toBe(dialog);
+    const runFrame = async () => { const callbacks = [...frames.values()]; frames.clear(); await act(async () => callbacks.forEach(callback => callback(0))); };
+    await runFrame();
+    expect(dialog.hasAttribute('data-sheet-preparing')).toBe(true);
+    await runFrame();
+    expect(dialog.hasAttribute('data-sheet-preparing')).toBe(false);
+    await act(async () => root.unmount()); root = undefined;
+    expect(cancel).toHaveBeenCalled();
+  });
+
   it('updates an open turn clock and stops at the official end while the dialog stays open', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(1000);

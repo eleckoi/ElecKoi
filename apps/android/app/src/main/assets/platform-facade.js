@@ -243,15 +243,16 @@
       syncAppearance();
       const animating = maskLayers().some(({ mask }) => {
         for (let node = mask; node && node !== document.body; node = node.parentElement)
-          if (node.getAnimations?.({ subtree: true }).some(animation => animation.playState === 'running'
+          if (node.getAnimations?.().some(animation => animation.playState === 'running'
             && animation.effect?.target === node)) return true;
         return false;
       });
       if (animating) animationFrame = requestAnimationFrame(animateAppearance);
     };
     const syncMasks = () => {
-      if (animationFrame) cancelAnimationFrame(animationFrame);
-      animateAppearance();
+      // A portal mounts in several React commits. Read its final styles once per frame,
+      // outside those commits, instead of forcing layout for every registration/mutation.
+      if (!animationFrame) animationFrame = requestAnimationFrame(animateAppearance);
     };
     const maskObserver = new MutationObserver(syncMasks);
     const watchMasks = () => {
@@ -279,6 +280,9 @@
     const syncPortals = () => {
       const current = new Map();
       for (const layer of document.body.children) {
+        // Product overlays already declare their mask/surface. Do not force their
+        // pending React styles while looking for unregistered official portals.
+        if (masks.has(layer) && !portalMasks.has(layer)) continue;
         const role = layer.getAttribute('role');
         const modal = role === 'presentation' && layer.querySelector(':scope > [role="dialog"][aria-modal="true"]');
         const image = role === 'dialog' && layer.getAttribute('aria-modal') === 'true';
@@ -292,12 +296,18 @@
           current.set(mask, { mask, pseudo: modal ? '::after' : '' });
         }
       }
+      const changed = current.size !== portalMasks.size || [...current].some(([mask, layer]) =>
+        !portalMasks.has(mask) || masks.get(mask)?.pseudo !== layer.pseudo);
+      if (!changed) return;
       for (const mask of portalMasks) if (!current.has(mask)) masks.delete(mask);
       portalMasks.clear();
       for (const [mask, layer] of current) { portalMasks.add(mask); masks.set(mask, layer); }
       watchMasks();
     };
-    const portalObserver = new MutationObserver(syncPortals);
+    const portalObserver = new MutationObserver(records => {
+      if (records.some(record => [...record.addedNodes, ...record.removedNodes].some(node =>
+        node instanceof HTMLElement && ['presentation', 'dialog'].includes(node.getAttribute('role'))))) syncPortals();
+    });
     const watchPortals = () => { portalObserver.observe(document.body, { childList: true }); syncPortals(); };
     if (document.body) watchPortals();
     else document.addEventListener('DOMContentLoaded', watchPortals, { once: true });

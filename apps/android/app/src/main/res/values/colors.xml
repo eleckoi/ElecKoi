@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="eleckoi_icon_background">#62A0D9</color>
+    <color name="eleckoi_icon_background">#AEC9F6</color>
     <!-- ElecKoi Brand Colors - Blue Theme -->
     <color name="eleckoi_primary">#2563EB</color>
     <color name="eleckoi_primary_dark">#1E40AF</color>

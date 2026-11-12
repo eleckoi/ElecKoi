@@ -12,10 +12,11 @@ import { useSidebarListScroll } from '../../../ui/hooks/useSidebarListScroll.js'
 import { SidebarScrollArea } from '../../../ui/ui/SidebarScrollArea.jsx';
 import { useSidebarGroupCollapse } from '../../../ui/hooks/useSidebarGroupCollapse.js';
 import { UnsavedChangesDialog } from '../../../ui/ui/UnsavedChangesDialog.jsx';
+import { ConfirmationDialog } from '../../../ui/ui/ConfirmationDialog.jsx';
 import { useEditorPresentation, useEditorSubpage } from '../../../ui/ui/EditorPresentationContext.jsx';
 import defaultPresetAvatar from '../../../assets/eleckoi-app-icon.png';
 import { SaveControl } from '../../settingLibraries/index.js';
-import { LIST_COLLAPSE_AREAS, usePersistentCollapseState } from '../../settings/index.js';
+import { LIST_COLLAPSE_AREAS, usePersistentCollapseState, useCharacterEditorSidebarState } from '../../settings/index.js';
 import { PresetIntroductionEditor } from './PresetIntroductionEditor.jsx';
 import { PresetContextMenu, usePresetContextMenu } from './PresetContextMenu.jsx';
 import { PresetProfileHeader } from './PresetProfileHeader.jsx';
@@ -24,6 +25,9 @@ import { PresetPromptEditor } from './PresetPromptEditor.jsx';
 import { ScriptLibrariesPanel } from '../../scripts/index.js';
 import { RegexRulesPanel } from '../../regex/index.js';
 import { PresetToolsEditor } from './PresetToolsEditor.jsx';
+import { PresetBasicDocument } from './PresetBasicDocument.jsx';
+import { PresetMobileSections } from './PresetMobileSections.jsx';
+import '../styles/preset-workspace.css';
 import { fileBase64, PresetImportDialog } from './PresetTransfer.jsx';
 import { openPresetManagerWindow } from '../window/openPresetManagerWindow.js';
 import { PresetPurposeSwitch, isDefaultPreset } from './PresetPurposeSwitch.jsx';
@@ -79,7 +83,7 @@ export function reconcilePresetToolRefresh(draft, previous, incoming) {
     && !group.members.some(member => referencedNames.has(member.name))).map(group => ({ ...group, included: false, enabled: true })) };
 }
 
-export function PresetProvider({ children, catalogModel, navigationGuardRef: externalNavigationGuardRef }) {
+export function PresetProvider({ children, catalogModel, navigationGuardRef: externalNavigationGuardRef, fixedPresetId }) {
   const tUi = useProductTranslation();
   const snapshot = useSyncExternalStore(
     catalogModel?.subscribe || subscribeEmptyCatalog,
@@ -88,7 +92,8 @@ export function PresetProvider({ children, catalogModel, navigationGuardRef: ext
   const catalog = snapshot.catalog;
   const [purpose, commitPurpose] = useState('roleplay');
   const purposeCatalog = useMemo(() => catalog ? { ...catalog, groups: catalog.groups.filter(item => item.purpose === purpose), presets: catalog.presets.filter(item => item.purpose === purpose) } : null, [catalog, purpose]);
-  const [selectedPresetId, commitSelectedPresetId] = useState('');
+  const [localSelectedPresetId, commitSelectedPresetId] = useState(() => catalog?.activePresetIds.roleplay || '');
+  const selectedPresetId = fixedPresetId ?? localSelectedPresetId;
   const [localError, setError] = useState('');
   const error = localError || snapshot.error;
   const internalNavigationGuardRef = useRef(null);
@@ -152,6 +157,14 @@ export function PresetListPanel() {
   const { purposeCatalog: catalog, purpose, setPurpose, catalogModel, setCatalog, selectedPresetId, setSelectedPresetId, navigationGuard, refresh, error, setError } = usePresets();
   const [keyword, setKeyword] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const creatingRef = useRef(false);
+  const currentPurpose = useRef(purpose);
+  currentPurpose.current = purpose;
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const deletingRef = useRef(false);
+  const [deleteError, setDeleteError] = useState('');
   const [selectedGroup, setSelectedGroup] = useState(ALL_PRESETS);
   const [importing, setImporting] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -191,10 +204,21 @@ export function PresetListPanel() {
   function addPreset() {
     setCreateOpen(false);
     const create = async () => {
-      const selectedGroupRecord = groups.find((group) => group.id === selectedGroup);
-      const libraryGroupId = selectedGroupRecord?.id || '';
-      const created = await catalogModel.create('新预设', libraryGroupId, purpose);
-      await refresh(created.id);
+      if (creatingRef.current) return;
+      creatingRef.current = true;
+      setCreating(true);
+      try {
+        const selectedGroupRecord = groups.find((group) => group.id === selectedGroup);
+        const libraryGroupId = selectedGroupRecord?.id || '';
+        const created = await catalogModel.create('新预设', libraryGroupId, purpose);
+        if (currentPurpose.current === purpose) {
+          setKeyword('');
+          setCollapsed(current => ({ ...current, [ALL_PRESETS]: false, ...(libraryGroupId ? { [libraryGroupId]: false } : {}) }));
+          setSelectedPresetId(created.id);
+        }
+        setError('');
+      } catch (cause) { setError(resolveFailure(cause, { fallback: tUi("操作失败，请重试。") }).text); }
+      finally { creatingRef.current = false; setCreating(false); }
     };
     if (navigationGuard.current) navigationGuard.current(create);
     else void create();
@@ -254,12 +278,17 @@ export function PresetListPanel() {
   }
 
   function removeFromList(preset) {
-    runGuarded(async () => {
-      try {
-        await catalogModel.delete(preset.id);
-        await refresh();
-      } catch (cause) { setError(resolveFailure(cause, { fallback: tUi("删除预设失败") }).text); }
-    });
+    runGuarded(() => { setDeleteError(''); setDeleteTarget(preset); });
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget || deletingRef.current) return;
+    deletingRef.current = true; setDeleting(true);
+    try {
+      await catalogModel.delete(deleteTarget.id);
+      setDeleteTarget(null); setDeleteError(''); setError('');
+    } catch (cause) { setDeleteError(resolveFailure(cause, { fallback: tUi("删除预设失败") }).text); }
+    finally { deletingRef.current = false; setDeleting(false); }
   }
 
   function renderGroup(section) {
@@ -291,13 +320,13 @@ export function PresetListPanel() {
     </section>;
   }
 
-  return <aside className="character-list-panel preset-list-panel" aria-label={tUi("预设列表")} aria-busy={shouldShowPresetCatalogLoading(catalog, error) || undefined}>
+  return <aside className="character-list-panel preset-list-panel" aria-label={tUi("预设列表")} aria-busy={creating || shouldShowPresetCatalogLoading(catalog, error) || undefined}>
     <SidebarSectionHeader title={tUi("预设")} value={keyword} onValueChange={setKeyword} placeholder={tUi("搜索预设名称")}
       createLabel={tUi("新建预设")} createExpanded={createOpen}
       onCreatePointerDown={(event) => event.stopPropagation()}
       onCreate={(event) => { event.stopPropagation(); setCreateOpen((value) => !value); }} onSearchFocus={() => setCreateOpen(false)} />
     {createOpen ? <div className="character-create-menu preset-create-menu" onPointerDown={(event) => event.stopPropagation()}>
-      <button type="button" onClick={addPreset}><PlusIcon /><span>{tUi("新建预设")}</span></button>
+      <button type="button" disabled={creating} onClick={addPreset}><PlusIcon /><span>{tUi("新建预设")}</span></button>
       <button type="button" disabled={importing} onClick={beginImport}><ImportIcon /><span>{tUi("导入预设")}</span></button>
     </div> : null}
     <input ref={importInputRef} type="file" accept="image/png,application/json,.png,.json" hidden onChange={handleImport} />
@@ -314,6 +343,9 @@ export function PresetListPanel() {
       () => removeFromList(context.menu.target), tUi
     )} /> : null}
     {importDialogOpen ? <PresetImportDialog onSelect={chooseImportSource} onClose={() => setImportDialogOpen(false)} /> : null}
+    <ConfirmationDialog open={Boolean(deleteTarget)} title={tUi("删除预设？")} destructive busy={deleting} confirmLabel={tUi("删除")}
+      description={<>{tUi("确认删除“{value0}”？", { value0: deleteTarget?.name || '' })}{deleteError && <span role="alert"> {deleteError}</span>}</>}
+      onCancel={() => { if (!deletingRef.current) { setDeleteTarget(null); setDeleteError(''); } }} onConfirm={() => void confirmDelete()} />
   </aside>;
 }
 
@@ -334,9 +366,13 @@ export function PresetWorkspace({
   onTestRegex,
   renderEditorSection,
   renderHeader,
+  editorMode: desktopEditorMode = false,
+  renderDesktopEditor,
 }) {
   const tUi = useProductTranslation();
   const { compact } = useEditorPresentation();
+  const editorMode = desktopEditorMode || compact;
+  const sidebar = useCharacterEditorSidebarState();
   const { catalog, catalogModel, selectedPresetId, setCatalog, navigationGuard, refresh, error: catalogError } = usePresets();
   const [preset, setPreset] = useState(null);
   const [persisted, setPersisted] = useState(null);
@@ -357,7 +393,7 @@ export function PresetWorkspace({
   const requestedTabRef = useRef(requestedTab);
   const requestedTabHandledRef = useRef(onRequestedTabHandled);
   const [pendingAction, setPendingAction] = useState(null);
-  const presetDirty = Boolean(preset && persisted && JSON.stringify(preset) !== JSON.stringify(persisted));
+  const presetDirty = Boolean(preset && persisted && !samePresetValue(preset, persisted));
   const dirty = editorDirty || presetDirty;
   const selectionMismatch = preset?.id !== selectedPresetId;
   const editorUnavailable = loading || selectionMismatch;
@@ -369,9 +405,10 @@ export function PresetWorkspace({
 
   function navigate(action) {
     if (savingRef.current) return;
-    if (introductionRef.current) introductionRef.current.requestLeave(action);
-    else if (dirty) setPendingAction({ action });
-    else action();
+    const finish = () => { if (dirtyRef.current) setPendingAction({ action }); else action(); };
+    if (!editorMode && introductionRef.current) introductionRef.current.requestLeave(action);
+    else if (introductionRef.current?.hasDraft) introductionRef.current.requestLeave(() => setTimeout(finish, 0));
+    else finish();
   }
 
   function confirmPresetSavedBeforePluginSettings() {
@@ -398,7 +435,7 @@ export function PresetWorkspace({
       externalChangeRef.current = false;
       setPreset(loaded);
       setPersisted(loaded);
-      const initialTab = requestedTabRef.current || 'introduction';
+      const initialTab = requestedTabRef.current || (editorMode ? 'profile' : 'introduction');
       setTab(initialTab);
       if (requestedTabRef.current) requestedTabHandledRef.current?.();
       setProfileEditing(false);
@@ -444,7 +481,7 @@ export function PresetWorkspace({
       event.preventDefault();
       if (editorUnavailable) return;
       if (document.activeElement?.closest('dialog')) return;
-      if (introductionRef.current?.hasDraft) void introductionRef.current.save();
+      if (introductionRef.current?.dirty) void introductionRef.current.save();
       else if (dirty && !saving) void save();
     }
     window.addEventListener('keydown', saveShortcut);
@@ -453,7 +490,7 @@ export function PresetWorkspace({
 
   useEffect(() => {
     function handleBeforeUnload(event) {
-      if (!dirty || allowCloseRef.current || introductionRef.current) return;
+      if (!dirty || allowCloseRef.current || introductionRef.current && (!editorMode || !presetDirty)) return;
       event.preventDefault();
       event.returnValue = false;
       setPendingAction({
@@ -525,9 +562,11 @@ export function PresetWorkspace({
 
   const active = Boolean(preset && catalog?.activePresetIds[preset.purpose] === preset.id);
   const editorError = selectionMismatch ? '' : error;
-  const header = renderHeader?.({ tab, profileEditing, dirty: !editorUnavailable && dirty, saving, error, active, onActivate: preset && !editorUnavailable ? () => navigate(activate) : undefined, onSave: () => save() });
-  if (!preset && !error && !catalogError) return <>{header}<section className="preset-workspace" aria-busy="true" /></>;
-  if (!preset) return <>{header}<section className="preset-workspace"><p className="preset-workspace-state is-error">{error || catalogError || tUi("没有可编辑的预设")}</p></section></>;
+  const header = renderHeader?.({ tab, profileEditing, dirty: !editorUnavailable && dirty, saving, error, active, onActivate: preset && !editorUnavailable ? () => navigate(activate) : undefined, onSave: () => tab === 'profile' && introductionRef.current?.dirty ? introductionRef.current.save() : save() });
+  if (!preset) {
+    const body = <section className="preset-workspace" aria-busy={!error && !catalogError || undefined}>{error || catalogError ? <p className="preset-workspace-state is-error">{error || catalogError}</p> : null}</section>;
+    return editorMode && !compact ? renderDesktopEditor({ tab: requestedTab || 'profile', body, unavailable: true, onSectionChange: () => {}, onClose: () => window.close() }) : <>{header}{body}</>;
+  }
   const readError = selectionMismatch && error ? <p className="preset-workspace-state is-error" role="alert">{error}</p> : null;
 
   const tabCounts = {
@@ -535,7 +574,7 @@ export function PresetWorkspace({
     tools: preset.toolGroups.filter((group) => group.included).length,
     regex: preset.regexRules.length,
   };
-  const saveAction = compact ? null : <SaveControl dirty={dirty} error={editorError} saving={saving} onSave={() => void save()} />;
+  const saveAction = compact ? null : <SaveControl workspace={editorMode} title={tUi('保存（Ctrl/Command + S）')} dirty={dirty} error={editorError} saving={saving} onSave={() => void save()} />;
   const leaveDialog = <UnsavedChangesDialog
     open={Boolean(pendingAction)}
     title={tUi("保存修改？")}
@@ -600,10 +639,13 @@ export function PresetWorkspace({
   }
 
   let tabEditor = null;
-  if (tab === 'introduction') {
+  if (editorMode && tab === 'profile') {
+    tabEditor = <PresetBasicDocument action={compact ? <button type="button" className="mobile-preset-activate" disabled={active || saving} onClick={() => navigate(activate)}>{tUi(active ? "使用中" : "使用此预设")}</button> : null} preset={preset} dirty={dirty} saving={saving} error={editorError} onChange={setPreset} onSave={save} onDiscard={discardChanges} introductionRef={introductionRef} onClearError={() => setError('')} onIntroductionDirtyChange={compact ? setEditorDirty : undefined}
+      renderIntroduction={fallback => renderEditorSection?.('introduction', extensionOwner, fallback) ?? fallback} />;
+  } else if (tab === 'introduction') {
     tabEditor = <PresetIntroductionEditor key={preset.id} preset={preset} editorRef={introductionRef} saving={saving} error={editorError} onClearError={() => setError('')} onSaveProfile={(patch) => save({ ...preset, profile: { ...preset.profile, ...patch } })} />;
   } else if (tab === 'prompts') {
-    tabEditor = <PresetPromptEditor preset={preset} onChange={setPreset} saveAction={saveAction} />;
+    tabEditor = <PresetPromptEditor preset={preset} onChange={setPreset} saveAction={saveAction} workspace={editorMode} dirty={dirty} saving={saving} />;
   } else if (tab === 'tools') {
     tabEditor = <PresetToolsEditor
       preset={preset}
@@ -612,6 +654,7 @@ export function PresetWorkspace({
       onBeforeOpenSubagentSettings={confirmPresetSavedBeforePluginSettings}
       savePromptOpen={Boolean(pendingAction?.reminderOnly)}
       saveAction={saveAction}
+      workspace={editorMode}
     />;
   } else if (tab === 'scripts') {
     tabEditor = <ScriptLibrariesPanel key={preset.id} ref={scriptsRef} presetId={preset.id} presetName={preset.name} manageSaveShortcut={false}
@@ -623,18 +666,28 @@ export function PresetWorkspace({
   }
   const renderedTabEditor = renderEditorSection?.(tab, extensionOwner, tabEditor) ?? tabEditor;
 
+  if (editorMode && !compact) return <>{renderDesktopEditor({ tab, preset, body: <>{readError}<div className="preset-editor-page" inert={editorUnavailable}>{renderedTabEditor}</div></>, unavailable: editorUnavailable,
+    onSectionChange: next => { if (next !== tab) navigate(() => setTab(next)); }, onClose: () => navigate(() => { allowCloseRef.current = true; window.close(); }) })}{leaveDialog}</>;
+
   return <>
     {header}
     {readError}
-    <section className="preset-workspace" aria-label={tUi("预设编辑器")} aria-busy={loading || undefined} inert={editorUnavailable}>
-      <PresetProfileHeader preset={preset} active={active} showActivate={!compact || !renderHeader} onActivate={() => navigate(activate)} onEdit={() => navigate(() => setProfileEditing(true))} />
-      <nav className="preset-workspace-tabs" aria-label={tUi("预设编辑区域")}>
+    <section className={`preset-workspace${compact ? ` is-mobile-rail${sidebar.collapsed ? ' is-sidebar-collapsed' : ''}` : ''}`} aria-label={tUi("预设编辑器")} aria-busy={loading || undefined} inert={editorUnavailable}>
+      {!compact && <PresetProfileHeader preset={preset} active={active} showActivate={!renderHeader} onActivate={() => navigate(activate)} onEdit={() => navigate(() => setProfileEditing(true))} />}
+      {compact ? <PresetMobileSections value={tab} sidebar={sidebar} onChange={next => { if (next !== tab) navigate(() => setTab(next)); }} /> : <nav className="preset-workspace-tabs" aria-label={tUi("预设编辑区域")}>
         <div className="preset-workspace-tab-list">{localizeUiCopy(TABS, tUi).map((item) => <button type="button" key={item.id} aria-current={tab === item.id ? 'page' : undefined} onClick={() => { if (tab !== item.id) navigate(() => setTab(item.id)); }}><span>{item.label}</span>{tabCounts[item.id] !== undefined ? <em>{tabCounts[item.id]}</em> : null}</button>)}</div>
-      </nav>
+      </nav>}
       <div className={`preset-workspace-body is-${tab}`}>
         {renderedTabEditor}
       </div>
     </section>
     {leaveDialog}
   </>;
+}
+
+function samePresetValue(left, right) {
+  if (left === right) return true;
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false;
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length && keys.every(key => Object.hasOwn(right, key) && samePresetValue(left[key], right[key]));
 }

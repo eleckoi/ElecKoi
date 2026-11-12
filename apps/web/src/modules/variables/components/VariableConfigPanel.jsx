@@ -26,7 +26,6 @@ import {
   withGeneratedInitialState,
 } from "../model/variableConfigEditing.js";
 import { hasVariableSearchResults, variableTreeNodes } from "../model/variableConfigTree.js";
-import { VariableConfigInspector } from "./VariableConfigInspector.jsx";
 import { VariableConfigDocument } from './VariableConfigDocument.jsx';
 import { VariableConfigWorkspace } from './VariableConfigWorkspace.jsx';
 import { VariableConfigManager } from "./VariableConfigManager.jsx";
@@ -381,30 +380,20 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
   return (
     <Layout className={`variable-layout${multi.active ? ' is-multiselect' : ''}`} aria-label={tUi("变量配置")}
       {...(!compact ? { config, query, onQueryChange: setQuery, createItems: [...createItems].reverse(), selection: { ...multi, toggle: toggleSelection }, saving, save: saveControl,
-        onManage: () => setManagerOpen(true), onVersionChange: applyManagerChange } : {})}
+        onManage: () => setManagerOpen(true), onVersionChange: applyManagerChange } : { documentLayout: true })}
       inspectorTitle={selected.value?.id === VARIABLE_INITIALIZATION_OBJECT_ID ? tUi("变量运行配置") : selected.kind === 'object' ? tUi("编辑变量组") : tUi("编辑变量")}
       onCloseInspector={closeInspector}
       feedback={<SaveControl dirty={dirty} error={error} notice={notice} saving={saving} onSave={save} />}
       onMouseDown={() => setAddOpen(false)}
-      inspector={!multi.active && selected.value && (!compact || editing) ? (!compact ? <VariableConfigDocument key={JSON.stringify([characterId, config.activeVersionId, selectedKey])}
+      inspector={!multi.active && selected.value && (!compact || editing) ? <VariableConfigDocument key={JSON.stringify([characterId, config.activeVersionId, selectedKey])}
         config={config} selected={selected} nameInputRef={nameInputRef} dirty={dirty} saving={saving} onChange={changeConfig}
         onReplaceContents={replaceContents}
         onConvert={setConvertTarget} onDelete={() => askDelete(parseNodeKey(selectedKey))} onCopy={() => {
           const target = parseNodeKey(selectedKey), parentId = selected.kind === 'object' ? selected.value.parentId : selected.value.objectId;
           const copied = copyVariableNode(configRef.current, target, parentId); changeConfig(copied.config, false); selectNode(copied.key);
-        }} /> : (
-        <VariableConfigInspector
-          config={config}
-          selected={selected}
-          nameInputRef={nameInputRef}
-          onClose={closeInspector}
-          onChange={(next) => changeConfig(next)}
-          onReplaceContents={replaceContents}
-          onConvert={convertToObject}
-        />
-      )) : null}>
+        }} /> : null}>
       <div className="variable-browser editor-collection-browser">
-        {compact && <EditorCollectionToolbar query={query} onQueryChange={setQuery} placeholder={tUi("搜索变量")} disabled={saving || !config}
+        {compact && <EditorCollectionToolbar heading={tUi("变量配置")} query={query} onQueryChange={setQuery} placeholder={tUi("搜索变量")} disabled={saving || !config}
           selection={{ ...multi, toggle: toggleSelection }}
           createItems={createItems}
           onManage={() => setManagerOpen(true)} save={saveControl} />}

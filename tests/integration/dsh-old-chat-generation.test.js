@@ -129,7 +129,10 @@ async function fixture(withOpening = true, { failPreparation = false,
   const createAgent = current => {
     const scope = new Context()
     cleanups.push(() => scope.fiber.dispose())
-    return { id: SessionId(conversationId), ctx: scope, session: current, status: 'idle', model: { select() {} },
+    return { id: SessionId(conversationId), ctx: scope, session: current, status: 'idle', model: {
+      current: () => current.snapshotEvents().findLast(event => event.type === 'model/selection')?.data ?? { provider: 'test', model: 'test' },
+      select: selection => current.append('model/selection', selection),
+    },
       continueFromInput: id => {
         const input = current.deriveMessages().find(message => message.id === id)
         if (!input) throw new Error('Selected input is not retained')
@@ -210,7 +213,8 @@ async function fixture(withOpening = true, { failPreparation = false,
   cleanups.push(() => previews.close())
   await ctx.plugin(ElecKoiConversationsApi)
   const select = async (selection = { provider: 'test', model: 'test' }) => {
-    globalModelSelection = { ...selection }
+    agent.model.select(selection)
+    await flush()
   }
   await select()
   return { ctx, env, conversationId, userEvent, sessionRoot, followed, select, flush, getAgent: () => agent }
@@ -220,6 +224,21 @@ function contextBridge(f) { return f.ctx.eleckoiRuntimeContexts.get(f.conversati
 function settingBridge(f) { return f.ctx.eleckoiRuntimeContexts.get(f.conversationId).settings }
 
 describe('old chat request preparation', { timeout: 30_000 }, () => {
+  it('regenerates an imported chat with no machine-local configuration snapshot and validates its durable Session owner', async () => {
+    const f = await fixture(false, { native: true });
+    f.ctx.eleckoiProductData.recordRuntimeBeforeTurn(f.conversationId, f.conversationId, 1);
+    const snapshot = join(f.env.ELECKOI_SESSION_SNAPSHOT_ROOT, `${f.conversationId}.json`);
+    rmSync(snapshot);
+    expect(() => f.ctx.eleckoiRoleplaySessions.prepareRestoreBeforeTurn(f.conversationId, 'synthetic-unrelated-session', 1))
+      .toThrow('Session 与当前聊天不匹配');
+    const prepared = await f.ctx.eleckoiConversationsApi.regenerateMessage(f.conversationId, f.userEvent.seq, 'synthetic-import-retry');
+    expect(prepared.prepared).toBe(true);
+    expect(existsSync(snapshot)).toBe(true);
+    expect(JSON.parse(readFileSync(snapshot, 'utf8')).conversationId).toBe(f.conversationId);
+    expect(await f.ctx.eleckoiConversationsApi.startRegeneration(f.conversationId, 'synthetic-import-retry', false)).toMatchObject({ accepted: true });
+    expect(f.followed).toHaveLength(1);
+  });
+
   it('releases the prepared in-memory context when Session creation fails', async () => {
     const f = await fixture()
     f.ctx.sessionController.create = async () => { throw new Error('Synthetic Session creation failure') }
@@ -487,7 +506,7 @@ describe('old chat request preparation', { timeout: 30_000 }, () => {
       data: { id: f.userEvent.data.id, source: f.userEvent.data.source } })
   })
 
-  it('rejects an unavailable global model repeatedly without discarding messages', async () => {
+  it('rejects an unavailable saved Session model repeatedly without replacing it or discarding messages', async () => {
     const f = await fixture()
     await f.select({ provider: 'unavailable-current', model: 'test' })
     const before = readFileSync(readDshSessionLog(f.sessionRoot, f.conversationId).path, 'utf8')

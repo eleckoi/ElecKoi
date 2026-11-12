@@ -6,6 +6,8 @@ import { productFailure } from './productFailure.js'
 import { ELECKOI_FAILURE_CODES } from './errorCodes.generated.js'
 import { registerHostApiInspect } from './hostInspect.js'
 import { readSessionInspection } from './sessionInspection.js'
+import { SESSION_MODEL_PARAMETERS_EVENT, sessionModelParameterKey, sessionModelParameterPatchSchema, sessionModelParametersProjection } from './sessionModelParameters.js'
+import type { SessionModelParameterPatch, SessionModelParameterState } from './sessionModelParameters.js'
 import { importedSession, type DshSessionArchive } from './sessionArchive.js'
 export { readSessionInspection } from './sessionInspection.js'
 import { randomUUID } from 'node:crypto'
@@ -15,19 +17,21 @@ export { ElecKoiAuthorFrontendsApi, eleckoiFrontendAssetsPlugin } from './author
 export type * from './frontend-project-types.js'
 import { join } from 'node:path'
 import type {} from '@deepseek-ai/dsh-agent'
+import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-config-editor'
 import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/dsh-api-session-controller'
 import type {} from '@deepseek-ai/dsh-session-projection'
+import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
 import type {} from '@eleckoi/dsh-client-roleplay/projections'
 import type {} from '@deepseek-ai/dsh-tools'
 import { withPluginTools } from '@eleckoi/dsh-client-roleplay/host/tool-policy.mjs'
 import { toolPluginSources } from './tool-provenance.js'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
-import { SessionLogOffset, type SessionEvent, type SessionHeader, type SessionId } from '@deepseek-ai/dsh-session'
+import { SessionLogOffset, type Session, type SessionEvent, type SessionHeader, type SessionId } from '@deepseek-ai/dsh-session'
 
-declare module '@deepseek-ai/dsh-session' {
+declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
     'eleckoi/input-continuation': { turn: number; inputMessageId: string; inputEventSeq: number }
   }
@@ -378,26 +382,78 @@ export class ElecKoiDisplayPreferencesApi extends TypertRemoteService {
   }
 }
 
-/** 管理所有聊天下一轮共同使用的模型，通过官方 Typert Remote 公开跨端调用。 */
+/** 沿官方 Session 管理会话模型与额外生成参数，空聊天编号仅表示新会话默认模型。 */
 export class ElecKoiConversationModelsApi extends TypertRemoteService {
-  static inject = ['typert', 'llm', 'agentDefaultModel']
+  static inject = ['typert', 'llm', 'agentDefaultModel', 'agents', 'sessionController', 'sessionProjections', 'settings', 'eleckoiProductData']
 
   private readonly ownerContext: Context
+  private readonly parametersReady: Promise<ProjectionHandle<SessionModelParameterState>>
+  private readonly attached = new WeakSet<Agent>()
+  private readonly controlStops = new Set<() => void>()
 
   constructor(ctx: Context) {
     super(ctx, 'eleckoiConversationModelsApi', { namespace: 'eleckoiConversationModels' })
     this.ownerContext = ctx
+    this.parametersReady = ctx.sessionProjections.register(sessionModelParametersProjection)
+    ctx.effect(async () => { const handle = await this.parametersReady; return () => handle.dispose() })
+    ctx.effect(() => ctx.on('agent/created', ({ agent }) => { this.installParameterControls(agent) }))
+    ctx.effect(() => () => { for (const stop of this.controlStops) stop(); this.controlStops.clear() })
+  }
+
+  private installParameterControls(agent: Agent): void {
+    if (this.attached.has(agent)) return
+    this.attached.add(agent)
+    const ctx = this.ownerContext
+    const stop = agent.ctx.on('agent/request', async (_payload, next) => {
+      const inherited = await next()
+      const state = await this.parameterState(agent.session)
+      const patch = state.entries[sessionModelParameterKey(inherited.provider, inherited.model)] ?? {}
+      const document = ctx.settings.describe().find(row => row.ns === 'eleckoi-client-models')?.value as { entries?: Record<string, { parameters?: Record<string, SessionModelParameterPatch> }> } | undefined
+      const parameters = { ...document?.entries?.[inherited.provider]?.parameters?.[inherited.model], ...patch }
+      const result = { ...inherited }
+      const previous = agent.session.requestHeader()?.config
+      if (previous && (previous.provider !== inherited.provider || previous.model !== inherited.model)) {
+        const previousParameters = { ...document?.entries?.[previous.provider]?.parameters?.[previous.model], ...state.entries[sessionModelParameterKey(previous.provider, previous.model)] }
+        for (const key of ['temperature', 'topP'] as const) {
+          if (Object.hasOwn(previousParameters, key) && !Object.hasOwn(parameters, key)) delete result[key]
+        }
+        if (Object.hasOwn(previousParameters, 'maxOutputTokens') && !Object.hasOwn(patch, 'maxOutputTokens')) delete result.maxTokens
+      }
+      for (const key of ['temperature', 'topP'] as const) {
+        if (!Object.hasOwn(parameters, key)) continue
+        const value = parameters[key]
+        if (value == null) delete result[key]; else result[key] = value
+      }
+      if (Object.hasOwn(patch, 'maxOutputTokens')) {
+        if (patch.maxOutputTokens == null) delete result.maxTokens; else result.maxTokens = patch.maxOutputTokens
+      }
+      return result
+    }, { prepend: true })
+    this.controlStops.add(stop)
+    agent.ctx.effect(() => () => { stop(); this.controlStops.delete(stop) })
+  }
+
+  /** Host 内部读取已激活 Session，不再次获取写句柄。 */
+  async parameterState(session: Session): Promise<SessionModelParameterState> {
+    const agent = this.ownerContext.agents.get(session.id)
+    if (agent) this.installParameterControls(agent)
+    return (await this.parametersReady).stateOf(session)
   }
 
   /**
-   * 读取下一轮使用的全局模型。
+   * 读取指定聊天的官方模型选择；空编号读取新会话默认值。
    * @param conversationId - ElecKoi 聊天编号。
    * @returns 操作结果，结构见返回类型；失败抛出错误。
    */
   @Remote
   async current(conversationId: string): Promise<ConversationModelSelection> {
-    void conversationId
-    const selected = this.ownerContext.agentDefaultModel.currentSelection()
+    let selected
+    if (conversationId) {
+      const sessionId = this.ownerContext.eleckoiProductData.runtimeSessionId(conversationId) as SessionId
+      const resolved = await this.ownerContext.sessionController.resolveAgent(sessionId)
+      if ('error' in resolved) throw resolved.error
+      selected = resolved.agent.model.current() ?? this.ownerContext.agentDefaultModel.currentSelection()
+    } else selected = this.ownerContext.agentDefaultModel.currentSelection()
     return {
       provider: selected.provider,
       model: selected.model,
@@ -413,7 +469,11 @@ export class ElecKoiConversationModelsApi extends TypertRemoteService {
    */
   @Remote
   async select(conversationId: string, selection: ConversationModelSelection): Promise<ConversationModelSelection> {
-    void conversationId
+    if (conversationId) {
+      const sessionId = this.ownerContext.eleckoiProductData.runtimeSessionId(conversationId) as SessionId
+      const result = await this.ownerContext.sessionController.selectModel({ sessionId, ...selection })
+      return result.selected
+    }
     const selected = await this.ownerContext.llm.resolveCallConfig({
       provider: selection.provider,
       model: selection.model,
@@ -427,6 +487,47 @@ export class ElecKoiConversationModelsApi extends TypertRemoteService {
       model: selected.model,
       ...(selected.reasoningEffort === undefined ? {} : { reasoningEffort: String(selected.reasoningEffort) })
     }
+  }
+
+  /**
+   * 读取当前 Session 额外生成参数，连接配置和模型能力仍由模型目录管理。
+   * @param sessionId - 官方 Session 编号。
+   * @returns 官方日志投影中的参数与修订号。
+   */
+  @Remote
+  async parameters(sessionId: string): Promise<SessionModelParameterState> {
+    const resolved = await this.ownerContext.sessionController.resolveAgent(sessionId as SessionId)
+    if ('error' in resolved) throw resolved.error
+    return structuredClone(await this.parameterState(resolved.agent.session))
+  }
+
+  /**
+   * 原子保存一个 Session 中指定模型的生成参数；不修改其他会话或提供商配置。
+   * @param sessionId - 官方 Session 编号。
+   * @param provider - 提供商路由编号。
+   * @param model - 模型编号。
+   * @param patch - 本次变更的生成参数；null 表示采用上游默认。
+   * @param revision - 编辑时读取的参数修订号。
+   * @returns 已保存的官方 Session 参数投影。
+   */
+  @Remote
+  async saveParameters(sessionId: string, provider: string, model: string, patch: SessionModelParameterPatch, revision: number): Promise<SessionModelParameterState> {
+    const parsed = sessionModelParameterPatchSchema.safeParse(patch)
+    if (!parsed.success || !provider || !model || !Number.isSafeInteger(revision) || revision < 0) throw productFailure(ELECKOI_FAILURE_CODES.modelConfigInvalid, '模型参数超出有效范围。', { what: '会话模型参数' })
+    const resolved = await this.ownerContext.sessionController.resolveAgent(sessionId as SessionId)
+    if ('error' in resolved) throw resolved.error
+    const { agent } = resolved
+    if (agent.session.header.origin === 'subagent') throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '子会话的模型由所属任务管理。', { what: '主会话模型参数' })
+    const state = await this.parameterState(agent.session)
+    if (state.revision !== revision) throw productFailure(ELECKOI_FAILURE_CODES.conflictStaleRevision, '会话模型参数已被其他操作修改。', { what: '会话模型参数' })
+    const value = { ...state.entries[sessionModelParameterKey(provider, model)], ...parsed.data }
+    const info = await this.ownerContext.llm.resolveModelInfo(provider, model)
+    const context = value.contextWindowTokens ?? info.context?.contextWindow
+    if (value.autoCompactTokenLimit != null && context != null && value.autoCompactTokenLimit > context) throw productFailure(ELECKOI_FAILURE_CODES.modelConfigInvalid, '压缩阈值不能超过上下文窗口。', { what: '会话模型参数' })
+    // Re-check after asynchronous model validation; append merges only this patch.
+    if ((await this.parameterState(agent.session)).revision !== revision) throw productFailure(ELECKOI_FAILURE_CODES.conflictStaleRevision, '会话模型参数已被其他操作修改。', { what: '会话模型参数' })
+    agent.session.append(SESSION_MODEL_PARAMETERS_EVENT, { revision: state.revision + 1, entries: { ...state.entries, [sessionModelParameterKey(provider, model)]: value } }, { ignorable: true })
+    return structuredClone(await this.parameterState(agent.session))
   }
 }
 

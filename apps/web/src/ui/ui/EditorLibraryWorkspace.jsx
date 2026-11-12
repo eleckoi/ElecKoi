@@ -6,7 +6,7 @@ import '../styles/editor-library-workspace.css';
 
 const DEFAULT_WIDTH = 480;
 
-export function EditorLibraryWorkspace({ label, scope, ownerScope, onScopeChange, config, query, onQueryChange, createItems, selection, saving, disabled, save, onManage, onVersionChange, inspector, children, directoryHeading, directoryActions }) {
+export function EditorLibraryWorkspace({ label, scope, ownerScope, onScopeChange, config, query, onQueryChange, createItems, selection, saving, disabled, save, onManage, onVersionChange, inspector, children, directoryHeading, directoryActions, className = '' }) {
   const tUi = useProductTranslation();
   const root = useRef(null), drag = useRef(null);
   const [width, setWidth] = useState(DEFAULT_WIDTH), [available, setAvailable] = useState(1260);
@@ -23,7 +23,7 @@ export function EditorLibraryWorkspace({ label, scope, ownerScope, onScopeChange
   }, []);
   const labelVersion = (version, index) => `v${index + 1} · ${version?.name || tUi('未命名版本')}`;
   const versionIndex = config?.versions.findIndex(version => version.id === config.activeVersionId) ?? -1;
-  return <section ref={root} className={`setting-workspace rs-workspace${resizing ? ' is-resizing' : ''}`} aria-label={label}
+  return <section ref={root} className={`setting-workspace rs-workspace${resizing ? ' is-resizing' : ''} ${className}`} aria-label={label}
     style={{ '--setting-directory-width': `${actualWidth}px` }}>
     <aside className="setting-directory" aria-label={tUi('{value0}目录', { value0: label })}>
       <header className="setting-directory-heading">{directoryHeading ?? <SegmentedTabs size="sm" className="setting-scope-switch" label={tUi("配置范围")} value={scope} onChange={onScopeChange} items={[{ value: ownerScope, label: ownerScope === "preset" ? tUi("预设") : tUi("角色") }, { value: "global", label: tUi("全局") }]} />}<div className="setting-directory-actions">{directoryActions ?? <>

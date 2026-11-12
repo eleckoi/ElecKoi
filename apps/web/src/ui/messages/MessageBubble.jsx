@@ -250,6 +250,7 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
     if (await onEdit?.(message, next)) setEditing(false);
   }
   function openProcess() {
+    if (mobileRoleplay) toolbar.collapseBeforeDialog();
     setExpanded(false);
     onOpenProcess?.(message);
   }

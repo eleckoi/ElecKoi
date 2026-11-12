@@ -1,15 +1,11 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { OpeningEditor } from './OpeningEditor.jsx';
 import { OpeningWorkspace } from './OpeningWorkspace.jsx';
 import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
 import { ConfirmationDialog, SaveControl } from '../../settingLibraries/index.js';
 import { deleteOpening } from '../model/openingEditing.js';
 import { useCharacterConfigurationDraft } from '../../../ui/hooks/useCharacterConfigurationDraft.js';
 import { resolveFailure } from '../../../utils/failureText.js';
-import { Plus } from '../../../ui/icons/interfaceIcons.jsx';
-import { EditorCollectionToolbar } from '../../../ui/ui/EditorCollectionControls.jsx';
 
 export const CharacterOpeningsPanel = forwardRef(function CharacterOpeningsPanel({ characterId, openings, variables, onDirtyChange }, ref) {
   const tUi = useProductTranslation();
@@ -50,7 +46,7 @@ export const CharacterOpeningsPanel = forwardRef(function CharacterOpeningsPanel
     onCancel={() => setDeleteTarget(null)} onConfirm={() => {
       updateEntry(deleteOpening(entry, deleteTarget.messageId)); setDeleteTarget(null);
     }} />;
-  if (!compact) return <section className="character-openings-panel is-opening-workspace" aria-label={tUi("开场白")}>
+  return <section className={`character-openings-panel${compact ? ' is-mobile-opening-workspace' : ' is-opening-workspace'}`} aria-label={tUi("开场白")}>
     {entry ? <OpeningWorkspace ref={openingEditorRef} key={characterId} entry={entry} query={query} onQueryChange={setQuery}
       variableVersions={variableSnapshot.value?.versions || []} variableVersionsError={variableSnapshot.error}
       onChange={updateEntry} onRequestDelete={requestDelete} busy={saving} dirty={dirty}
@@ -59,19 +55,4 @@ export const CharacterOpeningsPanel = forwardRef(function CharacterOpeningsPanel
     {confirmation}
   </section>;
 
-  return (
-    <section className="character-openings-panel" aria-label={tUi("开场白")}>
-      <EditorCollectionToolbar className="character-openings-toolbar" query={query} onQueryChange={setQuery} placeholder={tUi("搜索开场白")}
-        beforeSave={<Button data-dsh-control variant="primary" type="button" className="editor-collection-action" aria-label={tUi("新建开场白")} disabled={!entry || saving}
-          onClick={() => { setQuery(''); openingEditorRef.current?.createBackup(); }}><Plus size={16} aria-hidden="true" />{tUi("新建")}</Button>}
-        save={<SaveControl dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} />} />
-      <div className="character-openings-content">
-        {entry ? <OpeningEditor ref={openingEditorRef} key={characterId} entry={entry} query={query}
-          variableVersions={variableSnapshot.value?.versions || []} variableVersionsError={variableSnapshot.error}
-          onChange={updateEntry} onRequestDelete={requestDelete} />
-          : <p className="setting-library-loading" role={error || library ? 'alert' : 'status'}>{error || (library ? tUi("开场白数据缺失，无法编辑。") : tUi("正在读取…"))}</p>}
-      </div>
-      {confirmation}
-    </section>
-  );
 });

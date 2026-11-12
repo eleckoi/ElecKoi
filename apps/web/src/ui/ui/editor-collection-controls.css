@@ -51,6 +51,11 @@
 .editor-selection-bar > label { display: flex; align-items: center; gap: 8px; }
 .editor-selection-bar > span { color: var(--muted); font-size: 13px; }
 .editor-selection-bar > div { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.editor-selection-bar.is-mobile-selection { gap: 8px 12px; padding: 8px 12px 12px; }
+.editor-selection-bar.is-mobile-selection > label { min-height: 44px; }
+.editor-selection-bar.is-mobile-selection > div { flex-basis: 100%; flex-wrap: wrap; gap: 6px; margin-left: 0; }
+.editor-selection-bar.is-mobile-selection > div > button { min-height: 44px; padding-inline: 8px; gap: 6px; white-space: nowrap; }
+.editor-selection-bar.is-mobile-selection .editor-selection-cancel { margin-right: auto; }
 .editor-selection-checkbox, .editor-selection-bar input { width: 16px; height: 16px; margin: 0 8px 0 0; flex-shrink: 0; accent-color: var(--blue); }
 .editor-collection-actions .is-danger, .editor-selection-bar .is-danger, .editor-management-action.is-danger { color: var(--dsw-text-error, var(--danger)); }
 .editor-management-modal { width: min(560px, calc(100vw - 48px)); min-width: 0; max-height: calc(100dvh - 48px); display: flex; flex-direction: column; }

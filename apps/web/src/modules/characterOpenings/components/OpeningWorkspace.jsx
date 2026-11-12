@@ -3,6 +3,10 @@ import { Button, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
 import { ArrowDown, ArrowUp, ChatCircleDots, Copy, DotsThree, Plus, Trash } from '../../../ui/icons/interfaceIcons.jsx';
 import { EditorLibraryWorkspace } from '../../../ui/ui/EditorLibraryWorkspace.jsx';
+import { EditorSidebarLayout } from '../../../ui/ui/EditorSidebarLayout.jsx';
+import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
+import { MobileEditorActions } from '../../../ui/ui/MobileEditorActions.jsx';
+import { EditorCollectionToolbar } from '../../../ui/ui/EditorCollectionControls.jsx';
 import { EditorField } from '../../../ui/ui/EditorLibraryFields.jsx';
 import { EditorContextMenu, useEditorContextMenu } from '../../../ui/ui/EditorContextMenu.jsx';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
@@ -13,8 +17,10 @@ import '../styles/opening-workspace.css';
 
 export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, query, onQueryChange, variableVersions, variableVersionsError, onChange, onRequestDelete, busy, dirty, save }, ref) {
   const tUi = useProductTranslation(), context = useEditorContextMenu();
+  const { compact } = useEditorPresentation();
   const messages = useMemo(() => primaryFirstOpeningMessages(entry), [entry]);
   const [selectedId, setSelectedId] = useState(messages[0].id), [more, setMore] = useState(false);
+  const [editing, setEditing] = useState(false);
   const selected = messages.find(message => message.id === selectedId);
   const keyword = query.trim().toLocaleLowerCase();
   const visible = useMemo(() => messages.filter(message => !keyword || message.title.toLocaleLowerCase().includes(keyword) || message.content.toLocaleLowerCase().includes(keyword)), [messages, keyword]);
@@ -25,12 +31,12 @@ export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, qu
   useEffect(() => { setMore(false); context.close(); }, [selectedId, query, busy]);
   function createBackup() {
     const result = createBackupOpening(entry);
-    onChange(result.entry); onQueryChange(''); setSelectedId(result.createdId);
+    onChange(result.entry); onQueryChange(''); setSelectedId(result.createdId); setEditing(true);
   }
   useImperativeHandle(ref, () => ({ createBackup }), [entry, onChange, onQueryChange]);
   function duplicate(message) {
     const result = duplicateOpening(entry, message.id);
-    onChange(result.entry); onQueryChange(''); setSelectedId(result.createdId);
+    onChange(result.entry); onQueryChange(''); setSelectedId(result.createdId); setEditing(true);
   }
   function actions(message) {
     const index = messages.findIndex(item => item.id === message.id);
@@ -81,10 +87,13 @@ export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, qu
       </div>
     </div>
   </>;
+  const Layout = compact ? EditorSidebarLayout : EditorLibraryWorkspace;
   return <>
-    <EditorLibraryWorkspace label={tUi('开场白')} query={query} onQueryChange={onQueryChange} inspector={inspector}
-      directoryHeading={<h2 className="opening-directory-title">{tUi('开场白')}</h2>}
-      directoryActions={<><Button disabled={busy} data-dsh-control variant="outline" className="setting-create" icon={<Plus size={16} />} aria-label={tUi('新建开场白')} onClick={createBackup}>{tUi('新建')}</Button>{save}</>}>
+    <Layout {...(compact ? { documentLayout: true } : { label: tUi('开场白'), query, onQueryChange })} inspector={compact && !editing ? null : inspector}
+      inspectorTitle={selected?.title || tUi('开场白')} onCloseInspector={() => setEditing(false)}
+      {...(!compact && { directoryHeading: <h2 className="opening-directory-title">{tUi('开场白')}</h2>,
+        directoryActions: <><Button disabled={busy} data-dsh-control variant="outline" className="setting-create" icon={<Plus size={16} />} aria-label={tUi('新建开场白')} onClick={createBackup}>{tUi('新建')}</Button>{save}</> })}>
+      {compact && <EditorCollectionToolbar heading={tUi('开场白')} createItems={[{ label: tUi('开场白'), Icon: ChatCircleDots, run: createBackup }]} disabled={busy} query={query} onQueryChange={onQueryChange} placeholder={tUi('搜索开场白')} save={save} />}
       <div className="opening-directory-list" onMouseDown={event => { if (!event.target.closest('.opening-list-item')) setSelectedId(''); }}>
         <div role="list" aria-label={tUi('开场白列表')}>{visible.map(message => <div key={message.id} role="listitem"
           className={`opening-list-item${selectedId === message.id ? ' is-selected' : ''}`} onClick={() => setSelectedId(message.id)} onKeyDown={event => listKeys(event, message)}
@@ -92,13 +101,18 @@ export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, qu
           <button type="button" className="opening-list-main" disabled={busy} aria-current={selectedId === message.id ? 'true' : undefined} title={message.title || tUi('未命名开场白')}>
             <ChatCircleDots size={17} /><span className="opening-list-name">{message.title || tUi('未命名开场白')}</span>{message.id === messages[0].id && <span className="opening-primary-label">{tUi('主开场白')}</span>}
           </button>
-          <div className="opening-list-tools" onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
+          {!compact && <div className="opening-list-tools" onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
             {actions(message).filter(action => message.id !== messages[0].id || !['up', 'down'].includes(action.id)).map(({ id, label, icon: Icon, disabled, run }) => <Button key={id} type="button" data-dsh-control variant="outline" className="opening-row-action" disabled={disabled} title={label} aria-label={label} icon={<Icon size={14} />} onClick={run} />)}
-          </div>
+          </div>}
         </div>)}</div>
         {!visible.length && <p className="opening-list-empty" role="status">{tUi('没有匹配的开场白')}</p>}
       </div>
-    </EditorLibraryWorkspace>
+      {compact && <MobileEditorActions label={tUi('开场白操作')} selectionId={selectedId} busy={busy} canEdit={Boolean(selected)} canModify={Boolean(selected) && messages.length > 1}
+        createItems={[{ label: tUi('新建开场白'), Icon: Plus, run: createBackup }]}
+        onEdit={() => setEditing(true)} onDelete={() => selected && onRequestDelete(selected)}
+        moveItems={currentActions.filter(action => ['up','down'].includes(action.id)).map(action => ({ ...action, Icon: action.icon }))}
+        moreItems={currentActions.filter(action => action.id === 'copy').map(action => ({ ...action, Icon: action.icon }))} />}
+    </Layout>
     {contextMessage && <EditorContextMenu menu={context.menu} label={tUi('开场白操作')} actions={actions(contextMessage)} onClose={context.close} />}
   </>;
 });

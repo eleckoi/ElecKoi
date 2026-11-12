@@ -103,7 +103,14 @@ window.__ModuleLoader__.load({
       async create(name, libraryGroupId = '', purpose = 'roleplay') {
         const created = this.assertPreset(await this.call('create', name, libraryGroupId, purpose), null)
         this.adoptDetail(created)
-        await this.refresh()
+        const catalog = this.snapshot.catalog
+        if (catalog) {
+          const { id, name, purpose, modelFamily, modelTags, libraryGroupId, activeVersionId, activeVersionNumber, profile } = created
+          const summary = { id, name, purpose, modelFamily, modelTags, libraryGroupId, activeVersionId, activeVersionNumber, profile, entryCount: created.entries.length }
+          const present = catalog.presets.some(preset => preset.id === id)
+          this.adopt({ ...catalog, presets: present ? catalog.presets.map(preset => preset.id === id ? summary : preset) : [...catalog.presets, summary] })
+          void this.refresh().catch(failureAlreadyPublished)
+        } else await this.refresh()
         return created
       }
 
@@ -141,8 +148,9 @@ window.__ModuleLoader__.load({
       }
 
       async delete(presetId) {
+        const catalog = await this.call('delete', presetId)
         this.details.delete(presetId)
-        return this.adoptCatalog(await this.call('delete', presetId))
+        return this.adoptCatalog(catalog)
       }
 
       start() {
@@ -168,7 +176,7 @@ window.__ModuleLoader__.load({
             if (change?.kind === 'snapshot'
               || (change?.kind === 'configuration' && change.domain === 'agentPresets')) {
               void this.refresh().catch(failureAlreadyPublished)
-              for (const id of this.details.keys()) void this.read(id).catch(failureAlreadyPublished)
+              for (const id of this.detailListeners.keys()) void this.read(id).catch(failureAlreadyPublished)
             }
           }
         } catch (error) {

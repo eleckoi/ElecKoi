@@ -7,6 +7,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { PresetProfileHeader } from '../../src/modules/presets/components/PresetProfileHeader.jsx';
 import { PresetIntroductionEditor } from '../../src/modules/presets/components/PresetIntroductionEditor.jsx';
 import { EditorPresentationContext } from '../../src/ui/ui/EditorPresentationContext.jsx';
+import { changeEditorText, editorText } from '../helpers/editorText.js';
 
 vi.stubGlobal('React', React);
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -30,6 +31,8 @@ async function mount(element) {
   await act(async () => root.render(element));
   return { container, root };
 }
+
+const composerAction = label => [...document.querySelectorAll('.preset-content-composer button, .mobile-overlay-primary')].find(button => button.textContent === label);
 
 describe('preset profile grouping', () => {
   it('keeps activation next to the name in the identity group for both states', async () => {
@@ -96,12 +99,11 @@ describe('preset introduction regions', () => {
     expect(container.querySelector('[aria-label="更新标题"]').value).toBe('合成旧版记录');
     for (const [label, value] of [['更新标题', '修订后的合成旧版记录'], ['更新日期', '2026-10-10'], ['更新内容', '修订后的合成内容']]) {
       await act(() => {
-        const field = container.querySelector(`[aria-label="${label}"]`);
-        Object.getOwnPropertyDescriptor(field.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value').set.call(field, value);
-        field.dispatchEvent(new Event('input', { bubbles: true }));
+        const field = container.querySelector(`[aria-label="${label === '更新内容' ? '更新内容输入区' : label}"]`);
+        changeEditorText(field, value);
       });
     }
-    await act(() => container.querySelector('button[type="submit"]').click());
+    await act(() => container.querySelector('.preset-content-composer').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
     expect(saves).toHaveBeenCalledTimes(1);
     expect(stored.timeline).toEqual([original[0], { ...original[1], title: '修订后的合成旧版记录', dateLabel: '2026-10-10', note: '修订后的合成内容' }]);
     expect(original[1].note).toBe('合成旧版内容');
@@ -118,14 +120,13 @@ describe('preset introduction regions', () => {
       saving={false} error="" onClearError={() => {}} onSaveProfile={onSaveProfile} />);
     await act(() => container.querySelector('[aria-label="编辑更新：合成更新"]').click());
     await act(() => {
-      const field = container.querySelector('[aria-label="更新内容"]');
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(field, '合成待保存内容');
-      field.dispatchEvent(new Event('input', { bubbles: true }));
+      const field = container.querySelector('[aria-label="更新内容输入区"]');
+      changeEditorText(field, '合成待保存内容');
     });
     await act(() => container.querySelector('button[type="submit"]').click());
-    expect(container.querySelector('[aria-label="更新内容"]').value).toBe('合成待保存内容');
+    expect(editorText(container.querySelector('[aria-label="更新内容输入区"]'))).toBe('合成待保存内容');
     expect(onSaveProfile).toHaveBeenCalledTimes(1);
-    await act(() => container.querySelector('.preset-content-composer button[type="button"]').click());
+    await act(() => composerAction('取消').click());
     expect(container.querySelector('.preset-content-composer')).toBeNull();
     expect(container.querySelector('.preset-update-record p').textContent).toBe('合成原文');
     expect(timeline).toHaveLength(1);
@@ -147,12 +148,10 @@ describe('preset introduction regions', () => {
     const region = container.querySelector('.preset-usage-section');
     await act(async () => region.querySelector('button').click());
     expect(region.querySelector('form')).not.toBeNull();
-    expect(region.querySelector('textarea').value).toBe(preset.profile.usageInstructions);
-    expect(region.querySelector('button[type="button"]').textContent).toBe('取消');
+    expect(editorText(region.querySelector('[aria-label="使用说明输入区"]'))).toBe(preset.profile.usageInstructions);
+    expect(composerAction('取消')).not.toBeUndefined();
     await act(async () => {
-      const textarea = region.querySelector('textarea');
-      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(textarea, '修改后的使用说明。');
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      changeEditorText(region.querySelector('[aria-label="使用说明输入区"]'), '修改后的使用说明。');
     });
     await act(async () => region.querySelector('button[type="submit"]').click());
     expect(onSaveProfile).toHaveBeenCalledWith({ usageInstructions: '修改后的使用说明。' });

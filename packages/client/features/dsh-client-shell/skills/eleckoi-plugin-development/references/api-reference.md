@@ -108,7 +108,7 @@
 
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `eleckoiModels` | 模型目录服务 | 服务 | 提供 | `call` | `client` | 读取模型目录、管理独立提供商配置和密钥，以及读取模型。 | `getSnapshot`、`subscribe`、`refresh`、`save`、`saveModelParameters`、`deleteConfig`、`discover`、`revealApiKey` |
+| `eleckoiModels` | 模型目录服务 | 服务 | 提供 | `call` | `client` | 读取模型目录、管理独立提供商配置和密钥，以及读取模型。 | `getSnapshot`、`subscribe`、`refresh`、`save`、`saveModelParameters`、`deleteConfig`、`discover`、`revealApiKey`、`sessionParameters`、`readSessionModelParameters`、`saveSessionModelParameters` |
 
 ## `@eleckoi/dsh-client-persona`
 
@@ -262,7 +262,7 @@ ElecKoi 产品能力的 DSH Host Remote 接口。
 | `eleckoiCreatorStudioRemote` | 创作项目数据 | Remote 合同 | 提供 | `call` | `host` | 通过 DSH Host 读取、创建和删除创作工作室项目。 | `list`、`create`、`delete` |
 | `eleckoiCreatorStudioChangesRemote` | 创作项目变更通知 | Remote 合同 | 提供 | `listen` | `host` | 通过 DSH Remote stream 通知创作项目目录发生变化。 | `changes` |
 | `eleckoiDisplayPreferencesRemote` | 显示偏好配置 | Remote 合同 | 提供 | `call` | `host` | 通过 DSH Host 读取和保存显示偏好，并将本地壁纸写入媒体库。 | `read`、`updateUi`、`setChatDisplay` |
-| `eleckoiConversationModelsRemote` | 全局模型选择 | Remote 合同 | 提供 | `call` | `host` | 读取并选择全部聊天下一轮共同使用的模型。 | `current`、`select` |
+| `eleckoiConversationModelsRemote` | 会话模型与参数 | Remote 合同 | 提供 | `call` | `host` | 读取和选择当前会话模型，并保存会话生成参数；空聊天编号只读取或设置新会话默认模型。 | `current`、`select`、`parameters`、`saveParameters` |
 | `eleckoiConversationsRemote` | 聊天记录目录 | Remote 合同 | 提供 | `call` | `host` | 通过 DSH Host 读取聊天目录与角色关联元数据；消息正文、分页和运行状态由 DSH Session 协议提供。 | `list`、`details`、`requestPreview`、`projectDisplay`、`readGeneratedImage`、`regenerateImage`、`variableTimeline`、`variableConfiguration`、`selectVariableVersion`、`authorState`、`replaceVariableState`、`exportArchive`、`importArchive`、`revealFile`、`create`、`delete`、`rename`、`fork`、`preparePrompt`、`waitForGeneration`、`editMessage`、`deleteMessagesFrom`、`regenerateMessage`、`selectOpening`、`updateOpening`、`startRegeneration` |
 | `eleckoiConversationChangesRemote` | 聊天变更通知 | Remote 合同 | 提供 | `listen` | `host` | 通过 DSH Remote stream 通知聊天目录和消息投影发生变化；消息正文仍由 DSH Session 协议读取。 | `changes` |
 | `eleckoiRequestPreviewsRemote` | 运行期间请求目录 | Remote 合同 | 提供 | `listen` | `host` | 订阅本次 Host 运行期间实际发起的请求；目录不含请求正文，关闭后不恢复。 | `requestPreviews` |

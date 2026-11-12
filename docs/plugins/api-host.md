@@ -751,11 +751,11 @@ Source: [`packages/host/product-api/src/index.ts`](../../packages/host/product-a
 
 ### `ctx.eleckoiConversationModelsApi` — `ElecKoiConversationModelsApi`
 
-管理所有聊天下一轮共同使用的模型，通过官方 Typert Remote 公开跨端调用。
+沿官方 Session 管理会话模型与额外生成参数，空聊天编号仅表示新会话默认模型。
 
 ```ts cordis-catalog
 /**
- * 读取下一轮使用的全局模型。
+ * 读取指定聊天的官方模型选择；空编号读取新会话默认值。
  * @param conversationId - ElecKoi 聊天编号。
  * @returns 操作结果，结构见返回类型；失败抛出错误。
  */
@@ -768,9 +768,27 @@ Source: [`packages/host/product-api/src/index.ts`](../../packages/host/product-a
  * @returns 操作结果，结构见返回类型；失败抛出错误。
  */
 @Remote async select(conversationId: string, selection: ConversationModelSelection): Promise<ConversationModelSelection>
+
+/**
+ * 读取当前 Session 额外生成参数，连接配置和模型能力仍由模型目录管理。
+ * @param sessionId - 官方 Session 编号。
+ * @returns 官方日志投影中的参数与修订号。
+ */
+@Remote async parameters(sessionId: string): Promise<SessionModelParameterState>
+
+/**
+ * 原子保存一个 Session 中指定模型的生成参数；不修改其他会话或提供商配置。
+ * @param sessionId - 官方 Session 编号。
+ * @param provider - 提供商路由编号。
+ * @param model - 模型编号。
+ * @param patch - 本次变更的生成参数；null 表示采用上游默认。
+ * @param revision - 编辑时读取的参数修订号。
+ * @returns 已保存的官方 Session 参数投影。
+ */
+@Remote async saveParameters(sessionId: string, provider: string, model: string, patch: SessionModelParameterPatch, revision: number): Promise<SessionModelParameterState>
 ```
 
-Types: [ConversationModelSelection](types-host.md#conversationmodelselection)
+Types: [ConversationModelSelection](types-host.md#conversationmodelselection) · [SessionModelParameterPatch](types-host.md#sessionmodelparameterpatch) · [SessionModelParameterState](types-host.md#sessionmodelparameterstate)
 
 Source: [`packages/host/product-api/src/index.ts`](../../packages/host/product-api/src/index.ts)
 

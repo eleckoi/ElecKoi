@@ -3289,5 +3289,17 @@
   "修改界面显示": "Anzeige ändern",
   "修改发送给 AI 的提示词": "An die KI gesendeten Prompt ändern",
   "开场白操作": "Aktionen für Begrüßungen",
-  "开场白列表": "Begrüßungen"
+  "开场白列表": "Begrüßungen",
+  "切换预设失败": "Voreinstellung konnte nicht gewechselt werden",
+  "添加工具": "Werkzeuge hinzufügen",
+  "展开全部文件夹": "Alle Ordner aufklappen",
+  "收起全部文件夹": "Alle Ordner zuklappen",
+  "预设编辑器 - ElecKoi": "Voreinstellungseditor - ElecKoi",
+  "返回菜单": "Zurück zum Menü",
+  "脚本提供": "Von Skripten bereitgestellt",
+  "应用于全部创作对话": "Gilt für alle kreativen Gespräche",
+  "应用于全部角色对话": "Gilt für alle Charaktergespräche",
+  "没有匹配的预设": "Keine passenden Voreinstellungen",
+  "全局设定库的启停尚未保存。": "Die Änderungen an globalen Bibliotheken wurden noch nicht gespeichert.",
+  "共享设置，影响所有使用这些设定的对话": "Gemeinsame Einstellungen gelten für alle Gespräche mit diesen Bibliotheken"
 }

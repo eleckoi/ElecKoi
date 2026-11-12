@@ -45,17 +45,13 @@ describe('regex editor isolation and shared globals', () => {
       for (const panel of panels) {
         await act(() => [...panel.querySelectorAll('[role="tab"]')].find(tab => tab.textContent === '全局').click());
         await act(() => panel.querySelector('.regex-rule-row').dispatchEvent(new MouseEvent(compact ? 'dblclick' : 'click', { bubbles: true })));
-        if (compact) {
-          const options = [...panel.querySelector('.regex-inspector select').options].map(item => item.value);
-          expect(options).toEqual(panel === panels[0] ? ['Global', 'Character'] : ['Global', 'AgentPreset']);
-        } else {
-          await act(() => panel.querySelector('[aria-label="当前规则操作"]').click());
-          const moves = [...document.querySelectorAll('[role="menuitem"]')].filter(item => item.textContent.startsWith('移至')).map(item => item.textContent);
-          expect(moves).toEqual([panel === panels[0] ? '移至角色正则' : '移至预设正则']);
-          await act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
-        }
+        await act(() => panel.querySelector('[aria-label="当前规则操作"]').click());
+        const moves = [...document.querySelectorAll('[role="menuitem"]')].filter(item => item.textContent.startsWith('移至')).map(item => item.textContent);
+        expect(moves).toEqual([panel === panels[0] ? '移至角色正则' : '移至预设正则']);
+        await act(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+
       }
-      const name = index => panels[index].querySelector(compact ? '.regex-inspector input' : '.setting-document-heading input');
+      const name = index => panels[index].querySelector('.setting-document-heading input');
       await type(name(0), 'Synthetic accepted first');
       await act(async () => expect(await refs[0].current.save()).toBe(true));
       expect(name(1).value).toBe('Synthetic accepted first');

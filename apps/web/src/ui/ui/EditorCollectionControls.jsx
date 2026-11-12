@@ -1,7 +1,7 @@
 import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useRef, useState } from 'react';
 import { Button, Input, Menu, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
-import { Copy, ListChecks, MagnifyingGlass, NotePencil, Plus, SlidersHorizontal, Trash } from '../icons/interfaceIcons.jsx';
+import { Copy, DotsThree, ListChecks, MagnifyingGlass, NotePencil, Plus, SlidersHorizontal, Trash } from '../icons/interfaceIcons.jsx';
 import { useEditorPresentation } from './EditorPresentationContext.jsx';
 import './editor-collection-controls.css';
 import './editor-collection-material.css';
@@ -12,11 +12,32 @@ export function EditorCollectionSurface({ children, grouped = false }) {
 }
 
 export function EditorCollectionToolbar({ query, onQueryChange, placeholder, createItems = [], onManage, manageLabel: manageLabelSource,
-  selection, disabled = false, beforeSave, save, children, className = '' }) {
+  selection, disabled = false, beforeSave, save, children, className = '', heading, leading }) {
   const tUi = useProductTranslation();
   const manageLabel = manageLabelSource === undefined ? tUi("管理") : manageLabelSource;
   const [createOpen, setCreateOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const { compact } = useEditorPresentation();
+  if (compact) {
+    const moreItems = [
+      ...(selection ? [{ id: 'selection', label: tUi(selection.active ? '完成' : '多选'), icon: <ListChecks size={16} />, disabled, run: selection.toggle }] : []),
+      ...(onManage ? [{ id: 'manage', label: manageLabel, icon: <SlidersHorizontal size={16} />, disabled: disabled || selection?.active, run: onManage }] : []),
+    ];
+    return <header className={`editor-collection-toolbar is-mobile-collection ${className}`} onMouseDown={event => event.stopPropagation()}>
+      <div className="editor-collection-topline">
+        <div className="editor-collection-heading">{leading || <h2>{heading}</h2>}</div>
+        <div className="editor-collection-actions">
+          {moreItems.length > 0 && <Menu open={moreOpen} portal dense anchor={<Button data-dsh-control className="editor-collection-more" variant="outline" aria-label={tUi('管理')} disabled={disabled}
+            aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => { setCreateOpen(false); setMoreOpen(!moreOpen); }}><DotsThree size={20} /></Button>}
+            items={moreItems} onClose={() => setMoreOpen(false)} onSelect={id => { setMoreOpen(false); moreItems.find(item => item.id === id)?.run?.(); }} />}
+          {children}
+        </div>
+      </div>
+      <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
+        value={query} onChange={event => onQueryChange(event.target.value)} placeholder={placeholder} aria-label={placeholder} />
+      {(beforeSave || save) && <div className="editor-collection-feedback">{beforeSave}{save}</div>}
+    </header>;
+  }
   const items = createItems.map((item, index) => ({ ...item, id: item.id ?? String(index), icon: item.Icon ? <item.Icon size={16} /> : undefined }));
   return <header className={`editor-collection-toolbar ${className}`} onMouseDown={event => event.stopPropagation()}>
     <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
@@ -58,15 +79,17 @@ export function EditorSelectionCheckbox({ selection, id, label, disabled }) {
 
 export function EditorSelectionBar({ selection, visibleIds, disabled, onCopy, onDelete, children }) {
   const tUi = useProductTranslation();
+  const { compact } = useEditorPresentation();
   const allRef = useRef(null);
   const count = visibleIds.filter(id => selection.selected.has(id)).length;
   useEffect(() => { if (allRef.current) allRef.current.indeterminate = count > 0 && count < visibleIds.length; }, [count, visibleIds.length]);
   if (!selection.active) return null;
-  return <div className="editor-selection-bar" aria-label={tUi("批量操作")}>
+  return <div className={`editor-selection-bar${compact ? ' is-mobile-selection' : ''}`} aria-label={tUi("批量操作")}>
     <label><input ref={allRef} type="checkbox" checked={visibleIds.length > 0 && count === visibleIds.length} disabled={disabled || !visibleIds.length}
       onChange={event => { const next = new Set(selection.selected); visibleIds.forEach(id => event.target.checked ? next.add(id) : next.delete(id)); selection.set(next); }} />{tUi("全选")}</label>
     <span role="status">{tUi("已选 ")}{selection.selected.size}{tUi(" 项")}</span>
-    <div><Button data-dsh-control variant="outline" icon={<Copy size={16} />} disabled={disabled || !selection.selected.size} onClick={onCopy}>{tUi("复制")}</Button>
+    <div>{compact && <Button data-dsh-control variant="outline" className="editor-selection-cancel" disabled={disabled} onClick={selection.toggle}>{tUi("取消")}</Button>}
+      <Button data-dsh-control variant="outline" icon={<Copy size={16} />} disabled={disabled || !selection.selected.size} onClick={onCopy}>{tUi("复制")}</Button>
       {children}<Button data-dsh-control variant="outline" className="is-danger" icon={<Trash size={16} />} disabled={disabled || !selection.selected.size} onClick={onDelete}>{tUi("删除")}</Button></div>
   </div>;
 }

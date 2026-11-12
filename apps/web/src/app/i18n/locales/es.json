@@ -3289,5 +3289,17 @@
   "修改界面显示": "Modificar la visualización",
   "修改发送给 AI 的提示词": "Modificar el prompt enviado a la IA",
   "开场白操作": "Acciones del saludo",
-  "开场白列表": "Lista de saludos"
+  "开场白列表": "Lista de saludos",
+  "切换预设失败": "No se pudo cambiar el preajuste",
+  "添加工具": "Añadir herramientas",
+  "展开全部文件夹": "Expandir todas las carpetas",
+  "收起全部文件夹": "Contraer todas las carpetas",
+  "预设编辑器 - ElecKoi": "Editor de preajustes - ElecKoi",
+  "返回菜单": "Volver al menú",
+  "脚本提供": "Proporcionado por scripts",
+  "应用于全部创作对话": "Se aplica a todas las conversaciones creativas",
+  "应用于全部角色对话": "Se aplica a todas las conversaciones de personajes",
+  "没有匹配的预设": "No hay preajustes coincidentes",
+  "全局设定库的启停尚未保存。": "Los cambios en las bibliotecas globales no se han guardado.",
+  "共享设置，影响所有使用这些设定的对话": "La configuración compartida afecta a las conversaciones que usan estas bibliotecas"
 }

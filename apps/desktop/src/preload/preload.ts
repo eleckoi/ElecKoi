@@ -19,6 +19,7 @@ import { installWindowsMenu } from './windowsMenu'
 import { installWindowsAppearance } from './windowsAppearance'
 import { createNativeDesktopCapabilities } from './nativeCapabilities'
 import { DESKTOP_IPC } from '@shared/contracts/desktopNative'
+import { createDesktopPluginNavigation } from './pluginNavigation'
 
 /**
  * 边界⑤ preload 侧的**薄适配器**：调一次请求/响应通道。
@@ -68,6 +69,7 @@ function createDesktopProductApi(): DshDesktopProductApi {
   return {
     ...createNativeDesktopCapabilities(),
     protocolVersion: 1,
+    plugins: createDesktopPluginNavigation(),
     browser: createDesktopBrowserBridge(),
     updates: {
       open: (language = document.documentElement.lang, manual = false) => invokeOrFail<UpdateStatus>(DESKTOP_SHELL_IPC.updatesOpen, language, manual),

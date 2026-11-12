@@ -47,7 +47,7 @@
 .mobile-preset-editor .mobile-editor-actions > [role=toolbar] { background: var(--surface-raised); border: 0; padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)); }
 .mobile-preset-editor .editor-page-detail { animation: mobile-preset-detail-in 180ms cubic-bezier(.2, 0, 0, 1); }
 .mobile-preset-editor .editor-page-list:not([hidden]) { animation: mobile-preset-list-in 140ms ease-out; }
-.mobile-preset-editor .preset-tools-editor { display: flex; flex-direction: column; }
+.mobile-preset-editor .preset-tools-editor { display: flex; flex-direction: column; background: var(--chat); border-radius: 0; overflow: hidden; }
 .mobile-preset-editor .preset-tools-list { flex: 1; height: auto; min-height: 0; padding: 4px 12px 24px; }
 .mobile-preset-editor .preset-tools-source + .preset-tools-source { margin-top: 18px; }
 .mobile-preset-editor .preset-tools-section-heading { width: 100%; padding: 8px 4px; font-size: 12px; font-weight: 400; }
@@ -98,5 +98,25 @@
 .mobile-preset-editor button:not([role=switch]):active:not(:disabled) { background-color: var(--control-bg-hover); }
 @media (hover: none) { .mobile-preset-editor :is(.preset-tool-row, .preset-regex-row):hover { background: transparent; } .mobile-preset-editor .preset-regex-row.is-selected { background: var(--active); } }
 @keyframes mobile-preset-detail-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+.mobile-preset-editor .preset-basic-document { padding: 0; border-radius: 0; }
+.mobile-preset-editor .preset-document-heading { display: none; }
+.mobile-preset-editor .preset-basic-card { padding: 20px 16px; border: 0; border-radius: 0; }
+.mobile-preset-editor .preset-basic-card .preset-profile-editor-layout { gap: 20px; }
+.mobile-preset-editor .preset-basic-card .preset-profile-editor-layout form > label { grid-template-columns: minmax(0,1fr); gap: 8px; }
+.mobile-preset-editor .preset-basic-introduction { height: auto; flex: none; overflow: visible; }
+.mobile-preset-editor .preset-basic-introduction .preset-content-section { padding: 20px 16px; border: 0; border-radius: 0; }
+.mobile-preset-editor .preset-basic-scroll { background: var(--rail); }
+.mobile-preset-editor .preset-basic-card { margin-bottom: 12px; background: var(--chat); }
+.mobile-preset-editor .preset-basic-introduction .preset-content-section { background: var(--chat); }
+.mobile-preset-editor .preset-basic-introduction .preset-usage-copy.is-empty { display: grid; min-height: 88px; place-items: center; text-align: center; }
+.mobile-preset-editor .preset-composer-writing { height: clamp(280px,45dvh,440px); min-height: 280px; }
+.mobile-preset-editor .preset-long-reading { height: 340px; min-height: 240px; }
+.mobile-preset-editor .preset-tool-row { grid-template-columns: minmax(0,1fr) 48px; gap: 8px; padding: 0 12px; margin-bottom: 8px; min-height: 76px; border: 1px solid var(--line); border-radius: 10px; background: transparent; }
+.mobile-preset-editor .preset-tool-row::after { content: none; }
+.mobile-preset-editor .preset-tool-summary { grid-template-columns: 20px minmax(0,1fr) auto 14px; gap: 10px; padding: 12px 0; min-height: 76px; }
+.mobile-preset-editor .preset-tool-summary strong { font-weight: 400; }
+.mobile-preset-editor .preset-tool-row .preset-tool-icon, .mobile-preset-editor .preset-tool-row.is-disabled .preset-tool-icon { width: 20px; height: 20px; padding: 0; background: transparent; color: var(--muted); border-radius: 0; }
+.mobile-preset-editor .preset-tool-summary small { display: none; }
+.mobile-preset-editor .preset-tool-row .preset-tool-count { margin: 0; }
 @keyframes mobile-preset-list-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: translateX(0); } }
 @media (prefers-reduced-motion: reduce) { .mobile-preset-editor :is(.editor-page-detail, .editor-page-list:not([hidden])) { animation: none; } :is(.mobile-preset-editor, .mobile-preset-tool-config) :is(.preset-tool-toggle, .preset-regex-enabled)::before, :is(.mobile-preset-editor, .mobile-preset-tool-config) :is(.preset-tool-toggle, .preset-regex-enabled) i { transition: none; } }

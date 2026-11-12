@@ -2,7 +2,7 @@ import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.js
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CaretRight, MinusCircle, X } from '../../../ui/icons/interfaceIcons.jsx';
+import { CaretLeft, Plus, CaretRight, MinusCircle, X } from '../../../ui/icons/interfaceIcons.jsx';
 import { normalizeRoleplayPlanDraft } from '@shared/contracts/presets/roleplayPlan';
 import { AgentToolGroupIcon } from '../../../ui/icons/index.jsx';
 import { RoleplayPlanEditor, SubagentSettingsLink, WebSearchSettings, pluginToolSections } from '../../agentTools/index.js';
@@ -11,6 +11,8 @@ import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.
 import { MobileConversationOverlay } from '../../../mobile/MobileConversationOverlay.jsx';
 import { PresetPluginToolsDialog } from './PresetPluginToolsDialog.jsx';
 import { PresetToolManagerDialog } from './PresetToolManagerDialog.jsx';
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
+import { EditorLibraryWorkspace } from '../../../ui/ui/EditorLibraryWorkspace.jsx';
 import { EditorCollectionToolbar } from '../../../ui/ui/EditorCollectionControls.jsx';
 import '../../../mobile/mobile-preset-editor.css';
 
@@ -21,6 +23,7 @@ export function PresetToolsEditor({
   onBeforeOpenSubagentSettings,
   savePromptOpen = false,
   saveAction,
+  workspace = false,
 }) {
   const tUi = useProductTranslation();
   const { compact } = useEditorPresentation();
@@ -94,10 +97,33 @@ export function PresetToolsEditor({
     setConfigGroupId('');
   }
 
+  const configuration = configGroup ? <PresetToolConfigDialog inline={workspace && !compact}
+        compact={compact}
+        group={configGroup}
+        extra={configIsExtra}
+        roleplayPlan={preset.roleplayPlan}
+        closeBlocked={savePromptOpen}
+        onClose={closeConfig}
+        onEnabledChange={(enabled) => updateGroup(configGroup.id, { enabled })}
+        onNameChange={(name) => updateGroup(configGroup.id, { name })}
+        onRemove={() => { removeGroup(configGroup); setConfigGroupId(''); }}
+        onNotify={onNotify}
+        onBeforeOpenSubagentSettings={onBeforeOpenSubagentSettings}
+        onRoleplayPlanChange={(roleplayPlan) => onChange({ ...preset, roleplayPlan })}
+      /> : null;
+  const pluginConfiguration = plugin ? <PresetPluginToolsDialog inline={workspace && !compact} plugin={plugin} compact={compact} nested={Boolean(configGroupId)} closeBlocked={savePromptOpen}
+        onClose={() => setPluginId('')} onOpenTool={setConfigGroupId} /> : null;
+  const Layout = workspace && !compact ? EditorLibraryWorkspace : 'section';
+  const workspaceProps = workspace && !compact ? {
+    label: tUi('工具'), query, onQueryChange: setQuery,
+    directoryHeading: <h1 className="preset-prompt-directory-title">{tUi('工具')}</h1>,
+    directoryActions: <><Button data-dsh-control variant="outline" className="setting-create" icon={<Plus size={16} />} aria-label={tUi('管理预设工具')} disabled={savePromptOpen} onClick={() => { setPluginId(''); setManagerOpen(true); }}>{tUi('添加工具')}</Button>{saveAction}</>,
+    inspector: configuration || pluginConfiguration,
+  } : {};
   return (
-    <section className="preset-tools-editor" aria-label={tUi("工具")}>
-      <EditorCollectionToolbar className="preset-tools-toolbar" query={query} onQueryChange={setQuery} placeholder={tUi("搜索工具")}
-        onManage={() => { setPluginId(''); setManagerOpen(true); }} manageLabel={tUi("管理预设工具")} disabled={savePromptOpen} save={saveAction} />
+    <Layout {...workspaceProps} className={workspace && !compact ? 'preset-tools-workspace' : 'preset-tools-editor'} aria-label={tUi("工具")}>
+      {!(workspace && !compact) && <EditorCollectionToolbar heading={tUi("工具")} createItems={[{ label: tUi("添加工具"), Icon: Plus, run: () => { setPluginId(''); setManagerOpen(true); } }]} className="preset-tools-toolbar" query={query} onQueryChange={setQuery} placeholder={tUi("搜索工具")}
+        onManage={() => { setPluginId(''); setManagerOpen(true); }} manageLabel={tUi("管理预设工具")} disabled={savePromptOpen} save={saveAction} />}
 
       <div className="preset-tools-list" tabIndex={0} aria-label={tUi("当前预设工具列表")} onContextMenu={(event) => { setManagerOpen(false); context.open(event); }}>
         {[{ id: 'preset', label: tUi("预设工具"), groups: sections.preset.filter(matches) }, { id: 'extra', label: tUi("额外工具"), groups: sections.extra.filter(matches) }].map(section => {
@@ -105,8 +131,8 @@ export function PresetToolsEditor({
           const groups = section.groups;
           return groups.length ? <div className="preset-tools-source" key={section.id}>
             <div className="preset-tools-section-heading"><strong>{section.label}</strong></div>
-            {groups.map((group) => <section className={`preset-tool-row${group.isPlugin ? ' is-plugin' : ''}${extra ? ' is-extra' : ''}${group.enabled ? '' : ' is-disabled'}`} key={group.id} onContextMenu={(event) => { setManagerOpen(false); if (!group.isPlugin) context.open(event, group); else event.preventDefault(); }}>
-              <button type="button" className="preset-tool-summary" aria-haspopup="dialog" onClick={() => { setManagerOpen(false); if (group.isPlugin) setPluginId(group.id); else setConfigGroupId(group.id); }}>
+            {groups.map((group) => <section className={`preset-tool-row${group.isPlugin ? ' is-plugin' : ''}${extra ? ' is-extra' : ''}${group.enabled ? '' : ' is-disabled'}${configGroupId === group.id || pluginId === group.id ? ' is-selected' : ''}`} key={group.id} onContextMenu={(event) => { setManagerOpen(false); if (!group.isPlugin) context.open(event, group); else event.preventDefault(); }}>
+              <button type="button" className="preset-tool-summary" aria-haspopup={workspace && !compact ? undefined : 'dialog'} aria-current={configGroupId === group.id || pluginId === group.id ? 'true' : undefined} onClick={() => { setManagerOpen(false); closeConfig(); if (group.isPlugin) setPluginId(group.id); else { setPluginId(''); setConfigGroupId(group.id); } }}>
                 <span className="preset-tool-icon"><AgentToolGroupIcon groupId={group.id} size={17} /></span>
                 <span><strong>{group.name}</strong><small>{group.available === false ? tUi("缺少插件或工具未加载") : group.description}</small></span>
                 <span className="preset-tool-count" title={group.isPlugin ? tUi("{value0} 项已加入预设，共 {value1} 个工具", {value0: group.includedCount, value1: group.tools.length}) : undefined}>{group.isPlugin && group.included ? `${group.includedCount}/${group.tools.length}` : group.members.length}</span>
@@ -129,31 +155,18 @@ export function PresetToolsEditor({
       {managerOpen ? <PresetToolManagerDialog sources={toolSources} includedIds={new Set(selectedGroups.map(group => group.id))} compact={compact} closeBlocked={savePromptOpen}
         onClose={() => setManagerOpen(false)} onMembershipChange={(tool, included) => applyMembership([{ tool, included }])} /> : null}
 
-      {plugin ? <PresetPluginToolsDialog plugin={plugin} compact={compact} nested={Boolean(configGroupId)} closeBlocked={savePromptOpen}
-        onClose={() => setPluginId('')} onOpenTool={setConfigGroupId} /> : null}
+      {!(workspace && !compact) && pluginConfiguration}
 
       {context.menu && menuGroup ? <PresetContextMenu menu={context.menu} onClose={context.close} actions={[
         { label: tUi("从预设移除"), icon: MinusCircle, run: () => removeGroup(menuGroup) },
       ]} /> : null}
-      {configGroup ? <PresetToolConfigDialog
-        compact={compact}
-        group={configGroup}
-        extra={configIsExtra}
-        roleplayPlan={preset.roleplayPlan}
-        closeBlocked={savePromptOpen}
-        onClose={closeConfig}
-        onEnabledChange={(enabled) => updateGroup(configGroup.id, { enabled })}
-        onNameChange={(name) => updateGroup(configGroup.id, { name })}
-        onRemove={() => { removeGroup(configGroup); setConfigGroupId(''); }}
-        onNotify={onNotify}
-        onBeforeOpenSubagentSettings={onBeforeOpenSubagentSettings}
-        onRoleplayPlanChange={(roleplayPlan) => onChange({ ...preset, roleplayPlan })}
-      /> : null}
-    </section>
+      {!(workspace && !compact) && configuration}
+    </Layout>
   );
 }
 
 function PresetToolConfigDialog({
+  inline = false,
   compact,
   group,
   extra = false,
@@ -169,13 +182,13 @@ function PresetToolConfigDialog({
 }) {
   const tUi = useProductTranslation();
   useEffect(() => {
-    if (compact) return undefined;
+    if (compact || inline) return undefined;
     function closeOnEscape(event) {
       if (!event.defaultPrevented && event.key === 'Escape' && !closeBlocked) onClose();
     }
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [compact, closeBlocked, onClose]);
+  }, [compact, inline, closeBlocked, onClose]);
 
   const body = <div className="preset-tool-config-body">
     {!extra && <section className="preset-tool-config-card preset-tool-config-switch-row">
@@ -194,10 +207,10 @@ function PresetToolConfigDialog({
     {group.description ? <p className="preset-tool-config-description">{group.description}</p> : null}
     {group.id === 'builtin:collaboration' ? <SubagentSettingsLink
       onBeforeOpen={onBeforeOpenSubagentSettings}
-      onOpen={onClose}
+      onOpen={inline ? undefined : onClose}
       onNotify={onNotify}
     /> : null}
-    {group.id === 'builtin:web' ? <div className="preset-tool-web-config"><WebSearchSettings onBeforeOpenPluginSettings={onBeforeOpenSubagentSettings} onOpenPluginSettings={onClose} /></div> : <>
+    {group.id === 'builtin:web' ? <div className="preset-tool-web-config"><WebSearchSettings onBeforeOpenPluginSettings={onBeforeOpenSubagentSettings} onOpenPluginSettings={inline ? undefined : onClose} /></div> : <>
       {group.id === 'builtin:roleplay-workflow' ? <RoleplayPlanEditor
         value={roleplayPlan}
         onChange={onRoleplayPlanChange}
@@ -219,6 +232,7 @@ function PresetToolConfigDialog({
     </>}
     {!extra && <button type="button" className="mobile-preset-tool-remove" onClick={onRemove}><MinusCircle size={18} />{tUi("从预设移除")}</button>}
   </div>;
+  if (inline) return <section className="preset-tool-config-inline"><header className="preset-document-heading"><button type="button" aria-label={tUi('返回工具列表')} onClick={onClose}><CaretLeft size={18} /></button><AgentToolGroupIcon groupId={group.id} size={21} /><h1>{group.name}</h1></header>{body}</section>;
   if (compact) return <MobileConversationOverlay title={extra ? group.name : tUi("{value0}配置", {value0: group.name})} kind="page" className="mobile-preset-tool-config" busy={closeBlocked} onClose={onClose}>{body}</MobileConversationOverlay>;
   return createPortal(<SystemBarOverlay className="preset-tool-config-backdrop" role="presentation" onMouseDown={onClose}>
     <section className="preset-tool-config-dialog" role="dialog" aria-modal="true" aria-label={tUi("{value0}配置", {value0: group.name})} onMouseDown={(event) => event.stopPropagation()}>

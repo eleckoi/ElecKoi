@@ -322,7 +322,7 @@ export interface ElecKoiConversations {
    */
   saveSelection(value: ConversationSelection): Promise<ConversationSelection>
   /**
-   * 读取该聊天下一轮使用的全局模型。
+   * 读取指定聊天的官方会话模型；空编号读取新会话默认模型。
    * @param conversationId - ElecKoi 聊天编号。
    * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
    */
@@ -355,7 +355,7 @@ export interface ElecKoiConversations {
    */
   revealFile(conversationId: string, attachmentId: string, name: string): Promise<void>
   /**
-   * 保存下一轮的全局模型选择。
+   * 通过官方控制器选择指定聊天的模型并更新新会话默认值；空编号只更新默认值。
    * @param conversationId - ElecKoi 聊天编号。
    * @param selection - 模型提供商、模型编号和可选推理档位。
    * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
