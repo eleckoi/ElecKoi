@@ -332,7 +332,7 @@ function windowOptions(appPaths: Context['appPaths'], child: boolean, payload?: 
         color: nativeTheme.shouldUseDarkColors ? '#1b1b1c' : '#f9fafb', symbolColor: nativeTheme.shouldUseDarkColors ? '#f2f2f5' : '#111111' } }
       : { frame: false }),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#13131a' : '#ffffff',
-    icon: appPaths.resolveResource('icons', 'eleckoi-app-icon.png'),
+    icon: appPaths.resolveResource('icons', process.platform === 'win32' ? 'eleckoi-app-icon.ico' : 'eleckoi-app-icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/preload.cjs'),
       contextIsolation: true,
@@ -403,7 +403,8 @@ function configureWindowsAppDetails(appPaths: Context['appPaths'], window: Brows
   if (process.platform !== 'win32') return
 
   const executable = `"${process.execPath}"`
-  const windowIconPath = appPaths.resolveResource('icons', 'eleckoi-app-icon.png')
+  // ICO supplies native small/large frames; a full-size PNG becomes an oversized HICON.
+  const windowIconPath = appPaths.resolveResource('icons', 'eleckoi-app-icon.ico')
   const relaunchCommand = process.defaultApp
     ? `${executable} "${app.getAppPath()}"`
     : executable
