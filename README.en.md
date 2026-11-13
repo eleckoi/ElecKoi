@@ -45,15 +45,6 @@ ElecKoi aims to build a continuously improving creative flywheel: turn the commu
   <br><sub>ElecKoi for Windows character-card authoring</sub>
 </p>
 
-## Upcoming Development Goals
-
-> This section lists future work and does not indicate that these features are already implemented.
-
-- [ ] Expand frontend extension APIs for character works, enabling creation Agents and character cards to support richer interfaces, interactions, and gameplay.
-- [ ] Improve DSH plugin management and MCP integration with unified configuration, permissions, and runtime status.
-- [ ] Continue improving the Windows and Android clients while aligning the core character-creation and roleplay experience across platforms.
-- [ ] Improve image-generation capabilities, including model integrations, parameter controls, editing, and iterative creation workflows.
-
 ## Current Development Challenges
 
 Open problems that require focused attention will be collected in [Open Problems in AI Roleplay Development](docs/open-problems/README.en.md).
