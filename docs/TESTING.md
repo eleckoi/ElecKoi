@@ -4,6 +4,8 @@
 
 Windows 打包前的 `pnpm check:electron-dsh` 只检查实际 Electron Host、原生存储、Session 重开与回退运行。编辑器及脚本按钮交互独立使用 `pnpm check:electron-native-author`，不作为打包前置；测试与探针源码不进入安装包。打包仍保留 SQLite ABI、包内运行资源及安装启动检查。
 
+主窗口日志的退出边界由 `main-window-console.test.ts` 覆盖：窗口或网页对象销毁后的迟到回调不读取原生对象，任一关闭通知和显式释放均移除监听；正常动作、错误、主框架导航、取消关闭和作者卡子框架过滤保持。`main-window-console-native.test.ts` 使用隔离 profile 和隐藏 Electron 窗口，覆盖窗口关闭、强制销毁与网页关闭，在真实原生对象销毁前后检查日志释放及已捕获回调，不操作真实安装或数据，也不代替完整安装升级验收。
+
 预设展示页的进入性能由 `preset-editor-workspace.test.jsx` 覆盖：目录已就绪、刷新与完整详情都不返回时，反复挂载首帧仍展示名称和说明，且不请求完整正文；原目录订阅更新及卸载释放继续检查。`preset-editor.test.js` 在真实浏览器以同一阻塞详情场景核对主页面、跨窗保存刷新，以及深浅主题下「使用中」与编辑按钮的尺寸、圆角和细框，无需截图。
 
 该浏览器检查也覆盖工具目录的细框、无图标底块、开关不越界，以及基础资料头像贴近表单、按钮／图片／遮罩同尺寸和圆角；使用旧布局规则对照复现头像偏移。`plugin-navigation.test.js` 用真实隔离 preload 和两个 Electron 渲染器核对主窗口接收指定入口、子编辑区保留草稿与错误重试；官方入口身份及 installed 页签继续由原 Client 模型测试覆盖。`main-plugin-navigation.test.ts` 检查受管调用、目标回执与 frame 隔离、关闭／超时／卸载清理，`plugin-navigation.test.js` 的 UI 单测检查仅主窗口注册及释放导航订阅。全部使用合成数据，不采集截图或操作真实预设。

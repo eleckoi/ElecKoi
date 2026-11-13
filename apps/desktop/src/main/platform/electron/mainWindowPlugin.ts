@@ -9,6 +9,7 @@ import { installMainPluginNavigation } from './mainPluginNavigation'
 import { installTextContextMenu } from './textContextMenu'
 import { installWindowsNativeFrame } from './windowsNativeFrame'
 import { DesktopBrowserGuests } from './desktopBrowserGuests'
+import { installMainWindowConsole } from './mainWindowConsole'
 import { authenticateDshClientHost, DSH_CLIENT_ORIGIN, forwardDshClientRequest, isDshClientAsset, serveDshClientAsset } from './dshClientDocument'
 import { DESKTOP_SHELL_IPC } from '@shared/contracts/desktopShell'
 import { LOG_ACTIONS } from '@shared/contracts/logActions'
@@ -348,30 +349,7 @@ function configureMainWindow(appPaths: Context['appPaths'], appLog: Context['app
   configureWindowsAppDetails(appPaths, window)
   installWindowsNativeFrame(window)
   window.webContents.on('did-finish-load', () => installWindowsNativeFrame(window))
-  window.webContents.on('console-message', (details) => {
-    // 渲染层动作行（WP14）：与 console 错误共用这个桥，不新开 IPC 通道。
-    // 作者卡的 srcDoc iframe 不是 DSH 应用渲染层，它的行一律不收（下面的错误分支同一条规矩）。
-    if (details.sourceId !== 'about:srcdoc'
-      && !(details.frame && details.frame !== window.webContents.mainFrame)
-      && relayRendererActionLog(appLog, details.message)) return
-    if (details.level !== 'error') return
-    // Rich character cards run in srcDoc iframes. Their compatibility API
-    // errors are author-card diagnostics, not failures of the DSH application
-    // renderer. Electron forwards both frames through this one WebContents
-    // event, so only the main frame belongs in the DSH renderer error stream.
-    // Older Electron builds can report the child frame as the main frame on
-    // this event. `about:srcdoc` is the explicit origin used by author cards,
-    // so use it as a second guard to keep card-local errors out of the DSH
-    // renderer error stream.
-    if (details.sourceId === 'about:srcdoc'
-      || (details.frame && details.frame !== window.webContents.mainFrame)) return
-    appLog.error({
-      message: details.message,
-      lineNumber: details.lineNumber,
-      sourceId: details.sourceId,
-      url: window.webContents.getURL()
-    }, 'DSH client renderer error')
-  })
+  installMainWindowConsole(window, appLog)
   window.webContents.on('did-fail-load', (_event, code, description, url, isMainFrame) => {
     // Rich author cards use srcDoc iframes. Replacing their document while a
     // message changes reports ERR_ABORTED (-3) for about:srcdoc; it is an
