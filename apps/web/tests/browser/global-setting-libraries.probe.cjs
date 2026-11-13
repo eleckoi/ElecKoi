@@ -27,7 +27,7 @@ app.whenReady().then(async () => {
       await evaluate(`document.querySelector('.global-setting-library-entries [role=treeitem]').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:100,clientY:180}))`);
       await wait(`document.querySelector('.editor-context-menu')`);
       const rightClickKeptClosed = await evaluate(`!document.querySelector('.setting-document .setting-document-title input')`);
-      await evaluate(`document.querySelector('.setting-directory-heading').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,composed:true}))`);
+      await evaluate(`document.querySelector('.editor-directory-heading').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,composed:true}))`);
       await wait(`!document.querySelector('.editor-context-menu')`);
       await evaluate(`document.querySelector('.global-setting-library-entries [role=treeitem]').click()`);
       await wait(`document.querySelector('.setting-document .setting-document-title input')`);

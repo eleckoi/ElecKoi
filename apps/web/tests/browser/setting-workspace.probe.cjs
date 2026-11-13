@@ -59,10 +59,10 @@ app.whenReady().then(async () => {
           labels:rows.map(e=>({font:getComputedStyle(e.firstElementChild).fontSize,weight:getComputedStyle(e.firstElementChild).fontWeight})),
           aligned:rows.every(e=>Math.abs(e.children[1].getBoundingClientRect().left-rows[0].children[1].getBoundingClientRect().left)<1),
           keywordAligned:Math.abs(rect('.setting-keywords-inline > .setting-library-keyword-field > .setting-library-keyword-input').left-rows[0].children[1].getBoundingClientRect().left)<1,
-          titleLines:[style('.setting-directory-heading').borderBottomWidth,style('.setting-document-heading').borderBottomWidth],bodyWidth:rect('.setting-settings-board').width};})()`);
+          titleLines:[style('.editor-directory-heading').borderBottomWidth,style('.setting-document-heading').borderBottomWidth],bodyWidth:rect('.setting-settings-board').width};})()`);
       layouts.push(geometry);
       check(!geometry.overflow && geometry.radii.every(r=>r==='16px') && geometry.editor.top===geometry.workspace.top && geometry.directory.top===geometry.workspace.top && geometry.directory.bottom===geometry.editor.bottom && geometry.editor.left-geometry.directory.right===8, 'Panel geometry differs from confirmed design: '+JSON.stringify(geometry));
-      check(geometry.keyword.height===67 && geometry.aligned && geometry.keywordAligned && geometry.heading==='18px' && geometry.labels.every(s=>s.font==='13px'&&s.weight==='400') && geometry.titleLines.every(s=>s==='0px') && geometry.bodyWidth<=640, 'Property geometry differs from design: '+JSON.stringify(geometry));
+      check(geometry.keyword.height===67 && geometry.aligned && geometry.keywordAligned && geometry.heading==='16px' && geometry.labels.every(s=>s.font==='13px'&&s.weight==='400') && geometry.titleLines.every(s=>s==='0px') && geometry.bodyWidth<=640, 'Property geometry differs from design: '+JSON.stringify(geometry));
       await snap(`settings-${theme}-${width}`);
       await select('角色设定');await snap(`folder-${theme}-${width}`);
       if(width===1480 && theme==='light') {

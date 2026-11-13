@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RemoteStream, RemoteStreamCarrierError } from '@deepseek-ai/dsh-api-gateway/client'
 import { AUTHOR_EVENT_NAMES, type AuthorScriptProgram, type ElecKoiAuthorApi } from '@eleckoi/author-sdk'
 import { NativeAuthorClient } from '@eleckoi/dsh-client-author/runtime'
-import { creatorToolsets } from '../../../../../host/product-data/src/domain/creatorStudio/guides'
+import { readFileSync } from 'node:fs'
 import type { NativeAuthorScript, NativeAuthorScriptCatalog, NativeAuthorRuleTask } from '@eleckoi/dsh-product-api/types'
 import { NativeAudioElement } from '../../../../../../tests/helpers/nativeAudioElement'
 
@@ -1184,7 +1184,10 @@ describe('native author Client ownership and interaction', () => {
   })
 
   it('runs the Studio script example and opens its declared native panel through the SDK', async () => {
-    const source = creatorToolsets.find(item => item.id === 'scripts')!.examples[0].content
+    const reference = readFileSync(new URL('../../../dsh-client-shell/skills/eleckoi-character-authoring/references/configurations.md', import.meta.url), 'utf8')
+    const block = reference.match(/### 辅助计算与按钮面板\s+```json\s+([\s\S]*?)```/)
+    expect(block).not.toBeNull()
+    const { content: source } = JSON.parse(block![1]!)
     const program = (await import(`data:text/javascript,${encodeURIComponent(source)}`)).default
     const r = harness([program]); await r.runtime.start()
     const button = r.runtime.getUiSnapshot().buttons[0]!

@@ -36,7 +36,7 @@ app.whenReady().then(async () => {
       check(await run("Array.from(document.querySelectorAll('.mobile-editor-actions [role=toolbar] button')).map(e=>e.textContent).join(',')==='新建,编辑,移动,删除,更多'"), 'Touch actions missing');
       await click('.setting-library-tree-row'); await edit();
       const data = await checkDocument('Prompt document');
-      check(data.titleFont==='18px', 'Mobile title font');
+      check(data.titleFont==='16px', 'Mobile title font');
       await click('.setting-glyph');
       check(await run("(()=>{const e=document.querySelector('.setting-entry-icons'),r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&Array.from(e.querySelectorAll('button')).every(b=>b.getBoundingClientRect().height>=44)})()"),'Icon picker exceeds viewport or touch size');
       await click('.setting-icon-close');

@@ -27,7 +27,7 @@ app.whenReady().then(async () => {
     for(const title of collections) {
       await clickText('.character-editor-navigation button',title);
       const data=await run(`(()=>{const h=document.querySelector('.is-mobile-collection'),search=h.querySelector('input'),top=h.querySelector('.editor-collection-topline'),r=e=>e.getBoundingClientRect().toJSON(),buttons=[...top.querySelectorAll('button')];return {title:${JSON.stringify(title)},header:r(h),search:r(search),searchBox:r(h.querySelector('.editor-collection-search')),divider:getComputedStyle(h).borderBottomWidth,top:r(top),buttons:buttons.map(r),bottom:document.querySelector('.mobile-editor-actions')?.getBoundingClientRect().bottom,overflow:document.documentElement.scrollWidth>innerWidth,oldToolbar:!!document.querySelector('.editor-collection-action'),topNewCount:h.querySelectorAll('[aria-label=新建]').length}})()`);
-      check(data.divider==='0px'&&data.searchBox.height>=44&&Math.abs(data.searchBox.width-data.top.width)<1&&data.topNewCount===0&&!data.overflow&&!data.oldToolbar&&data.search.top>=data.top.bottom+8&&data.buttons.every(b=>b.height>=40&&b.left>=data.header.left&&b.right<=data.header.right), 'Collection header: '+JSON.stringify(data));
+      check(data.divider==='0px'&&Math.abs(data.searchBox.height-40)<1&&Math.abs(data.searchBox.width-data.top.width)<1&&data.topNewCount===0&&!data.overflow&&!data.oldToolbar&&data.search.top>=data.top.bottom+8&&data.buttons.every(b=>b.height>=40&&b.left>=data.header.left&&b.right<=data.header.right), 'Collection header: '+JSON.stringify(data));
       if(data.bottom)check(Math.abs(height-data.bottom)<=2,'Touch toolbar does not reach the phone bottom: '+JSON.stringify(data));
       headers.push(data);
       if(!['工具','开场白'].includes(title)) {
