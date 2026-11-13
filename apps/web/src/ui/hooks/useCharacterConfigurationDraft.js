@@ -1,6 +1,6 @@
 import { editorValueEqual } from '../utils/editorValueEqual.js';
 import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { resolveFailure } from '../../utils/failureText.js';
 
 export function useCharacterConfigurationDraft({ characterId, configuration, onDirtyChange, label = '设定库', onAdopt, prepareSave, rebaseAfterSave, saveShortcut = true }) {
@@ -23,7 +23,7 @@ export function useCharacterConfigurationDraft({ characterId, configuration, onD
     const timeout = window.setTimeout(() => setSaveNotice(''), 1600);
     return () => window.clearTimeout(timeout);
   }, [saveNotice]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     let active = true;
     setError('');
     setSaveNotice('');

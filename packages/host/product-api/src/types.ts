@@ -1,3 +1,9 @@
+import type * as AssetDomain from '@eleckoi/dsh-product-data/character-assets'
+export type CharacterAsset = Pick<AssetDomain.CharacterAsset, keyof AssetDomain.CharacterAsset>
+export type CharacterAssetFolder = Pick<AssetDomain.CharacterAssetFolder, keyof AssetDomain.CharacterAssetFolder>
+export type CharacterAssetCatalog = Omit<AssetDomain.CharacterAssetCatalog, 'items' | 'folders'> & { items: CharacterAsset[]; folders: CharacterAssetFolder[] }
+export type CharacterAssetUpload = Pick<AssetDomain.CharacterAssetUpload, keyof AssetDomain.CharacterAssetUpload>
+export type CharacterAssetUploadTicket = Pick<AssetDomain.CharacterAssetUploadTicket, keyof AssetDomain.CharacterAssetUploadTicket>
 /** Extra generation controls saved with one official Session, independently of provider configuration. */
 export interface SessionModelParameterPatch {
   contextWindowTokens?: number | null | undefined; maxOutputTokens?: number | null | undefined; autoCompactTokenLimit?: number | null | undefined;
@@ -430,7 +436,7 @@ export interface CharacterGroupAssignment {
 }
 
 export type CharacterImportSource = 'eleckoi' | 'sillytavern'
-export type CharacterExportFormat = 'png' | 'json'
+export type CharacterExportFormat = 'png' | 'json' | 'zip'
 
 export interface CharacterImportFile {
   displayName: string
@@ -461,7 +467,7 @@ export interface CharacterImportResult {
 
 export interface CharacterExportResult {
   fileName: string
-  mimeType: 'image/png' | 'application/json'
+  mimeType: 'image/png' | 'application/json' | 'application/zip'
   base64: string
 }
 
@@ -920,6 +926,7 @@ export interface ElecKoiProductDataStore {
   readScriptWorkspace(scope: ScriptLibraryScope, ownerId: string): ScriptWorkspace
   readScriptAsset(scope: ScriptLibraryScope, ownerId: string, version: string, file: string): Uint8Array
   watchScriptSources(changed: () => void): () => void
+  characterAssets(): import('@eleckoi/dsh-product-data/character-assets').CharacterAssetRepository
   frontendProjects(): import('@eleckoi/dsh-product-data/frontends').FrontendProjectRepository
   normalizeChatDisplaySettings(value: unknown): unknown
   setDisplayPreferences(value: unknown): void
@@ -992,6 +999,7 @@ export interface ElecKoiProductDataStore {
   readCharacterOpenings(characterId: string): CharacterOpenings
   saveCharacterOpenings(characterId: string, value: CharacterOpenings): CharacterOpenings
   readSettingLibrary(characterId: string): SettingLibrary
+  readSettingLibrarySnapshot(characterId: string): { library: SettingLibrary; revision: string }
   readGlobalSettingLibraries(): GlobalSettingLibraryCollection
   saveGlobalSettingLibraries(value: GlobalSettingLibraryCollection): GlobalSettingLibraryCollection
   replaceSettingLibraryContent(characterId: string, library: SettingLibraryContent): SettingLibrary
@@ -1007,6 +1015,8 @@ export interface ElecKoiProductDataStore {
   saveVariableConfig(characterId: string, config: VariableConfig): VariableConfig
   saveVariableConfigViewState(characterId: string, expandedObjectIds: string[]): string[]
   readRegexRules(characterId: string): RegexRuleCollection
+  readRegexLibrary(scope: EditorLibraryAddress['scope'], ownerId: string): { scope: EditorLibraryAddress['scope']; ownerId: string; enabled: boolean; rules: RegexRule[]; revision: number; ownerRevision: string }
+  saveRegexLibrary(library: { scope: EditorLibraryAddress['scope']; ownerId: string; enabled: boolean; rules: RegexRule[]; revision: number; ownerRevision: string }, enabledRuleIds: string[]): { scope: EditorLibraryAddress['scope']; ownerId: string; enabled: boolean; rules: RegexRule[]; revision: number; ownerRevision: string }
   readRegexEditor(target: RegexEditorTarget): RegexRuleEditorCollection
   saveRegexEditor(collection: RegexRuleEditorCollection): RegexRuleEditorCollection
   importRegexEditor(collection: RegexRuleEditorCollection, fallbackScope: RegexRuleScope, documents: RegexRuleImportDocument[]): RegexRuleEditorImportResult

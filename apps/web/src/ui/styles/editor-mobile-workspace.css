@@ -4,7 +4,7 @@
 .editor-sidebar-layout.is-document-layout > .mobile-editor-document:has(> .setting-position-page) { gap: 0; overflow: hidden; }
 .mobile-editor-document > .setting-position-page { width: 100%; }
 .mobile-editor-document .setting-document-title { flex: 1; }
-.mobile-editor-document .setting-document-title input { min-width: 0; width: 100%; max-width: 100%; font-size: 18px; }
+.mobile-editor-document .setting-document-title input { min-width: 0; width: 100%; max-width: 100%; font-size: 16px; }
 .mobile-editor-document :is(.setting-glyph,.setting-folder-more) { min-width: 44px; min-height: 44px; }
 .mobile-editor-document .setting-entry-icons { top: 48px; max-width: min(280px, calc(100vw - 64px)); }
 .mobile-editor-document .setting-basic-icon-anchor .setting-entry-icons { left: 0; }
@@ -87,16 +87,27 @@
 .mobile-editor-document .setting-library-entry-section { flex-shrink: 0; }
 
 /* Shared list header: category/actions, then search. Save stays in the phone header. */
-:is(.mobile-character-editor,.mobile-preset-editor) .editor-collection-toolbar.is-mobile-collection { display: flex; flex-direction: column; align-items: stretch; gap: 12px; width: 100%; height: auto; min-height: 0; padding: 12px; border: 0; box-shadow: none; background: transparent; }
-.is-mobile-collection .editor-collection-topline { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.is-mobile-collection .editor-collection-heading { flex: 1; min-width: 0; }
-.is-mobile-collection .editor-collection-heading h2 { margin: 0; font-size: 14px; font-weight: 600; line-height: 22px; }
+:is(.mobile-character-editor,.mobile-preset-editor) .editor-collection-toolbar.is-mobile-collection { display: flex; flex-direction: column; align-items: stretch; gap: 12px; width: 100%; height: auto; min-height: 0; padding: var(--editor-heading-inset-top,12px) var(--editor-heading-inset-inline,12px) 12px; border: 0; box-shadow: none; background: transparent; }
+.is-mobile-collection .editor-directory-heading { margin:0; }
+.is-mobile-collection .editor-collection-topline { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.is-mobile-collection .editor-page-title :is(h1,h2) { margin:0; font-size:22px; font-weight:600; line-height:1.35; }
 .is-mobile-collection .editor-collection-actions { display: flex; flex: none; gap: 6px; margin: 0; }
 .is-mobile-collection .editor-collection-more { width: 44px; min-width: 44px; min-height: 44px; padding: 0; }
-.is-mobile-collection .editor-collection-heading .editor-scope-tabs-bar { padding: 0; }
-.is-mobile-collection .editor-collection-heading .editor-scope-tabs { width: 100%; max-width: 160px; min-width: 0; }
+.is-mobile-collection .editor-directory-scopebar .editor-scope-tabs-bar { padding: 0; min-width:0; flex:1; }
+.is-mobile-collection .editor-directory-scopebar .editor-scope-tabs { width: 100%; max-width: 160px; min-width: 0; }
 .is-mobile-collection .editor-scope-tabs [role=tab] { flex: 1; min-width: 0; padding-inline: 8px; }
-.is-mobile-collection .editor-collection-search { flex: none; width: 100%; min-height: 44px; }
+:is(.is-mobile-collection,.dynamic-settings-list-page.is-compact) .editor-collection-search {
+  display:flex; flex:none; align-self:stretch; width:100%; min-width:0; max-width:none; height:40px; min-height:40px;
+  margin:0; padding:0 13px; gap:9px; border:1px solid var(--line-strong); border-radius:22px;
+  background:var(--editor-search-background); color:var(--muted); box-shadow:none;
+}
+:is(.is-mobile-collection,.dynamic-settings-list-page.is-compact) .editor-collection-search > span { width:17px; height:17px; flex:none; color:var(--muted); }
+:is(.is-mobile-collection,.dynamic-settings-list-page.is-compact) .editor-collection-search svg { width:17px; height:17px; }
+:is(.is-mobile-collection,.dynamic-settings-list-page.is-compact) .editor-collection-search input { height:auto; min-height:0; padding:0; font-family:inherit; font-size:14px; font-weight:400; line-height:22px; text-align:start; }
+:is(.is-mobile-collection,.dynamic-settings-list-page.is-compact) .editor-collection-search input::placeholder { color:var(--muted); }
+.mobile-character-editor .editor-tree-toolbar.is-mobile-collection { padding-bottom:0; }
+.mobile-character-editor .editor-collection-browser :is(.setting-library-tree,.variable-tree) { padding:2px var(--editor-heading-inset-inline) 8px; }
+.mobile-character-editor .editor-collection-browser .role-setting-library-container { width:100%; }
 .is-mobile-collection .editor-collection-feedback:empty { display: none; }
 :is(.mobile-character-editor,.mobile-preset-editor) .editor-page-list { container-type: inline-size; background: var(--chat); border-radius: 0; overflow: hidden; }
 :is(.mobile-character-editor,.mobile-preset-editor) .mobile-editor-actions > [role=toolbar] { padding-bottom: 8px; }

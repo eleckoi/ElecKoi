@@ -378,13 +378,13 @@ export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ c
         query={query} selection={selection} multi={multi} collapsed={collapsed} busy={saving} onCollapse={address => setCollapsed(current => { const next = new Set(current); next.has(address) ? next.delete(address) : next.add(address); return next; })}
         onSelect={target => multi.active ? multi.check(JSON.stringify([target.key, target.id]), !multi.selected.has(JSON.stringify([target.key, target.id]))) : selectItem(target)}
         onToggle={(key, id, enabled) => change(key, library => updateScriptItem(library, id, { enabled }))} onToggleLibrary={(key, enabled) => change(key, library => setScriptLibraryEnabled(library, enabled))}
-        onContextMenu={openContext} dragProps={dragProps} nameDragProps={nameDragProps} rootDragProps={{ onDragOver: event => dragOver(event, key), onDrop: event => drop(event, key) }} /> : <p key={key} className="rs-directory-empty" role="status">{tUi('正在读取…')}</p>; })}
+        onContextMenu={openContext} dragProps={dragProps} nameDragProps={nameDragProps} rootDragProps={{ onDragOver: event => dragOver(event, key), onDrop: event => drop(event, key) }} /> : null; })}
     </div>
   </EditorLibraryWorkspace> : <EditorSidebarLayout documentLayout className={`script-libraries-panel${multi.active ? ' is-multiselect' : ''}`} inspector={editing ? documentEditor : null} inspectorTitle={selectedItem?.name || selectedLabel}
     onCloseInspector={closeEditor} preferredWidth={inspectorWidth} onWidthChange={setInspectorWidth}
     feedback={<SaveControl dirty={dirty} saving={saving} error={error || versions.error} notice={notice} onSave={save} />}>
     <div className="script-directory editor-collection-browser editor-collection-material editor-collection-continuous">
-      <EditorCollectionToolbar leading={<EditorScopeTabs value={activeScope} ownerValue={ownerScope} ownerLabel={presetEditor ? tUi("预设") : tUi("角色")} panelId={scopePanelId} onChange={next => {
+      <EditorCollectionToolbar heading={tUi('脚本')} leading={<EditorScopeTabs value={activeScope} ownerValue={ownerScope} ownerLabel={presetEditor ? tUi("预设") : tUi("角色")} panelId={scopePanelId} onChange={next => {
         setActiveScope(next); setSelection(null); setEditing(false); setDragged(null); setDropTarget(null); context.close(); if (multi.active) multi.toggle();
       }} />} query={query} onQueryChange={setQuery} placeholder={tUi("搜索脚本")} selection={{ ...multi, toggle: () => { multi.toggle(); setEditing(false); } }} disabled={saving || !versions.ready}
         createItems={visibleGroups.flatMap(group => [
@@ -422,7 +422,7 @@ export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ c
           onContextMenu={event => openContext(event, { key, id: '' })}
           onDragOver={event => { if (!event.target.closest('[data-script-id]')) dragOver(event, key); }} onDrop={event => drop(event, key)}
           actions={!multi.active && <Switch label={tUi("启用{value0}", {value0: group.label})} checked={library?.enabled || false} disabled={!library || saving} onChange={enabled => change(key, value => setScriptLibraryEnabled(value, enabled))} />}>
-          {!library ? <p className="editor-library-empty" role="status">{error ? tUi("读取失败") : tUi("正在读取…")}</p> : !library.trees.length ? <p className="editor-library-empty">{tUi("暂无脚本")}</p> : library.trees.map(tree => tree.type === 'script' ? scriptRow(tree) : <div key={tree.id} className="script-folder">
+          {!library ? error && <p className="editor-library-empty" role="alert">{tUi("读取失败")}</p> : !library.trees.length ? <p className="editor-library-empty">{tUi("暂无脚本")}</p> : library.trees.map(tree => tree.type === 'script' ? scriptRow(tree) : <div key={tree.id} className="script-folder">
             <div className={`script-list-row${dragged?.key === key && dragged.id === tree.id ? ' is-dragging' : ''}${multi.active ? multi.selected.has(JSON.stringify([key, tree.id])) ? ' is-selected' : '' : selection?.key === key && selection.id === tree.id ? ' is-selected' : ''}`} data-enabled={library.enabled && tree.enabled} {...dragProps(key, tree)} onContextMenu={event => openContext(event, { key, id: tree.id })}>
               <EditorSelectionCheckbox selection={multi} id={JSON.stringify([key, tree.id])} label={tree.name || tUi("文件夹")} disabled={saving} />
               <button type="button" className={`script-tool script-folder-toggle${collapsed.has(JSON.stringify([key, tree.id])) ? ' is-collapsed' : ''}`} aria-label={`${collapsed.has(JSON.stringify([key, tree.id])) ? tUi("展开") : tUi("收起")} ${tree.name || tUi("分组")}`} aria-expanded={!collapsed.has(JSON.stringify([key, tree.id]))} onClick={() => setCollapsed(current => { const next = new Set(current); if (next.has(JSON.stringify([key, tree.id]))) next.delete(JSON.stringify([key, tree.id])); else next.add(JSON.stringify([key, tree.id])); return next; })}><DshTriangleRightIcon size={12} /></button>

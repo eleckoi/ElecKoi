@@ -15,6 +15,8 @@ describe("Character editor window launcher", () => {
         assign,
       },
       open,
+      outerWidth: 1680,
+      outerHeight: 920,
     });
 
     openCharacterEditorWindow("character-1");
@@ -23,7 +25,7 @@ describe("Character editor window launcher", () => {
     expect(open).toHaveBeenCalledWith(
       "http://127.0.0.1:5173/?view=character-editor&character=character-1",
       "character-editor-character-1",
-      "width=1520,height=1120",
+      "width=1680,height=920",
     );
     expect(assign).not.toHaveBeenCalled();
   });
@@ -45,6 +47,8 @@ describe("Character editor window launcher", () => {
     vi.stubGlobal("window", {
       location: { href: "dsh-app://app/" },
       open,
+      outerWidth: 1280,
+      outerHeight: 800,
     });
 
     openCharacterEditorWindow("character-1");
@@ -52,7 +56,7 @@ describe("Character editor window launcher", () => {
     expect(open).toHaveBeenCalledWith(
       "dsh-app://app/?view=character-editor&character=character-1",
       "character-editor-character-1",
-      "width=1520,height=1120",
+      "width=1280,height=800",
     );
   });
 });

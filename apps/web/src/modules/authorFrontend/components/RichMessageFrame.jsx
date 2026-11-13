@@ -48,6 +48,7 @@ function SharedMessageFrame({ message, document, rootIndex = 0, onSettled, onHei
   const tUi = useProductTranslation();
   const { runtime, state } = useHtmlResources();
   const view = useContext(MainPageContext);
+  const characterId = message.characterId || view?.chat?.chatCharacter?.character_id;
   const connection = view?.characterConfiguration?.scriptRuntimeConnection;
   const authorRuntime = useSyncExternalStore(connection?.subscribe || noSubscription, connection?.getSnapshot || noRuntime, noRuntime);
   const release = useRef(null);
@@ -62,10 +63,10 @@ function SharedMessageFrame({ message, document, rootIndex = 0, onSettled, onHei
   const channel = useMemo(createChannel, [message.conversationId, message.id, document.contentKey, rootIndex, authorRuntime]);
   const committedDocument = useMemo(() => ({ source: null }), [channel, document.source, message.id, runtime]);
   const source = useMemo(() => runtime && state.status === 'ready'
-    ? buildRichMessageHtml(document, channel, runtime, { messageId: message.id, conversationId: message.conversationId })
+    ? buildRichMessageHtml(document, channel, runtime, { messageId: message.id, conversationId: message.conversationId, characterId })
     // Projection refreshes must not destroy an unchanged author's document.
     : state.status === 'waiting-for-chat' ? committedDocument.source : null,
-    [channel, committedDocument, document.source, message.id, message.conversationId, runtime, state.status]);
+    [channel, committedDocument, document.source, message.id, message.conversationId, characterId, runtime, state.status]);
   useLayoutEffect(() => {
     if (source && state.status === 'ready') committedDocument.source = source;
   }, [committedDocument, source, state.status]);

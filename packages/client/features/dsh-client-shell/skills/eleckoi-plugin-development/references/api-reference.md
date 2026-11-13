@@ -6,7 +6,7 @@
 
 本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.2-rc.1`，提交 `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`。
 
-当前共 **17 个 bundle、107 个开发接口**：59 个界面插槽、21 个服务、0 个事件、6 个贡献点、21 个 Remote 合同。
+当前共 **17 个 bundle、108 个开发接口**：59 个界面插槽、21 个服务、0 个事件、6 个贡献点、22 个 Remote 合同。
 
 接口标题和说明用于插件中心展示；真实调用合同以对应类型导出和实现为准。完整参数、返回值和数据字段见 [Client 参考](api-client.md)、[Host 参考](api-host.md) 与 [Remote 调用声明](api-remote.md)。使用方法见 [界面插槽](ui-slots.md)、[服务接口](services.md) 与 [能力贡献](contributions.md)。
 
@@ -28,7 +28,7 @@
 | `@eleckoi/dsh-auto-illustration` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-author` | 0 | 2 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-html-resources` | 0 | 1 | 0 | 1 | 0 | 2 |
-| `@eleckoi/dsh-product-api` | 0 | 0 | 0 | 0 | 21 | 21 |
+| `@eleckoi/dsh-product-api` | 0 | 0 | 0 | 0 | 22 | 22 |
 | `@eleckoi/dsh-runtime` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-web-search-tavily` | 0 | 0 | 0 | 1 | 0 | 1 |
 
@@ -227,7 +227,7 @@
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `eleckoiAuthorRuntime` | 原生作者运行环境 | 服务 | 提供 | `call` | `client` | 启动正式脚本库中的原生程序，处理变量规则并绑定当前聊天的作者页面与输入框。 | `getSnapshot`、`subscribe`、`getUiSnapshot`、`subscribeUi`、`invokeButton`、`dismissPanel`、`mountScriptPanelDocument`、`registerChatUi`、`mountDocument`、`mountProjectDocument` |
-| `eleckoiFrontendProjects` | 原生前端项目 | 服务 | 提供 | `call` | `client` | 通过正式 Remote 管理应用和角色文件项目，按明确归属订阅最新工作区。 | `watch` |
+| `eleckoiFrontendProjects` | 原生前端项目 | 服务 | 提供 | `call` | `client` | 通过正式 Remote 管理应用和角色文件项目及角色资产，按明确归属订阅目录，不缓存媒体正文。 | `watch`、`watchAssets` |
 
 ## `@eleckoi/dsh-client-html-resources`
 
@@ -248,6 +248,7 @@ ElecKoi 产品能力的 DSH Host Remote 接口。
 
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| `eleckoiCharacterAssets` | 角色资产库 | Remote 合同 | 提供 | `call-and-listen` | `host` | 按明确角色上传和管理图片、视频、音频及模型，订阅目录修订；二进制文件由当前 Host 资源路由读取。 | `list`、`canReveal`、`reveal`、`beginUpload`、`appendUpload`、`finishUpload`、`cancelUpload`、`rename`、`duplicate`、`delete`、`createFolder`、`renameFolder`、`move`、`changes` |
 | `eleckoiAuthorFrontends` | 原生作者前端项目 | Remote 合同 | 提供 | `call-and-listen` | `host` | 按明确应用或角色归属管理文件项目、资源、选择与清单，监听不含源码正文的修改通知。 | `workspace`、`importProject`、`select`、`delete`、`readFile`、`writeFile`、`exportProject`、`setMessageRenderer`、`updateProject`、`replaceFiles`、`restoreDefault`、`changes` |
 | `eleckoiAuthorScripts` | 原生作者脚本运行 | Remote 合同 | 提供 | `call-and-listen` | `host` | 读取明确声明原生标准的启用脚本，通过唯一运行页面的双向流等待候选规则结果；桌面默认启动装配尚在实施。 | `read`、`connect`、`getSettings`、`setSettings` |
 | `eleckoiAuthorVariables` | 原生作者变量 | Remote 合同 | 提供 | `call` | `host` | 读取原生聊天变量与配置，将 SDK 修改交给同一作者规则处理流程，并在成功后保存和发布消息变更。 | `getState`、`getConfig`、`setState`、`merge`、`applyPatch`、`reset` |

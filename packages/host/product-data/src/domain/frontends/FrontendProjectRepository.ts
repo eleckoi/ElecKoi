@@ -1,12 +1,15 @@
+import { readZipEntries } from '@product-data/storage/archive/readZipEntries'
+import type { CharacterAssetRepository, PortableCharacterAsset, CharacterAssetFolder } from '@product-data/domain/characterAssets'
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, extname, join, resolve, sep } from 'node:path'
-import { Unzip, UnzipInflate, Zip, ZipDeflate } from 'fflate'
+import { Zip, ZipDeflate } from 'fflate'
 import { FrontendIndex, type FrontendSection } from './FrontendIndex'
 import { FrontendCharacterDeletion } from './FrontendCharacterDeletion'
 import { FRONTEND_MANIFEST_FILE } from './types'
 import type { FrontendScope, FrontendProject, FrontendManifest, FrontendValue, FrontendOwner,
   FrontendWorkspace, FrontendImport, FrontendReplaceFiles, FrontendFileInput, FrontendFile, FrontendExport, FrontendJson } from './types'
+import type { PortableFrontendWorkspace } from './types'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 
@@ -34,6 +37,7 @@ function zipFiles(files: Files): Buffer {
   return Buffer.concat(chunks)
 }
 const PROJECTS = 'projects', SETTINGS = 'character-settings', APPLICATION_SETTINGS = 'application-settings'
+const ASSET_MANIFEST = '.eleckoi-assets.json', ASSET_DIRECTORY = '.eleckoi-assets/'
 const FRONTEND_ACTIONS = ['workspace', 'importProject', 'select',
   'delete', 'readFile', 'writeFile', 'exportProject', 'setMessageRenderer',
   'updateProject', 'replaceFiles', 'restoreDefault'] as const
@@ -54,14 +58,71 @@ const mimeTypes: Record<string, string> = { '.html': 'text/html; charset=utf-8',
 export class FrontendProjectRepository {
   readonly root: string
   private readonly characterDeletion: FrontendCharacterDeletion
-  constructor(readonly index: FrontendIndex, private readonly characterExists: (id: string) => boolean) {
+  constructor(readonly index: FrontendIndex, private readonly characterExists: (id: string) => boolean,
+    private readonly assets?: () => Pick<CharacterAssetRepository, 'portable' | 'portableFolders' | 'withMergedAssets'>) {
     this.root = join(index.root, 'projects')
     this.characterDeletion = new FrontendCharacterDeletion(index, characterExists)
   }
   deleteCharacterOwners<T>(characterIds: readonly string[], operation: () => T): T {
     return this.characterDeletion.run(characterIds, operation)
   }
-  recoverCharacterDeletions(): void { this.characterDeletion.recover() }
+  recoverCharacterDeletions(): void { this.characterDeletion.recover(); this.recoverImports() }
+  private cleanupImportedOwner(characterId: string): void {
+    const projects = Object.entries(this.index.list(PROJECTS)).filter(([, value]) => object(value).characterId === characterId)
+    this.index.atomic(() => { for (const [id] of projects) this.index.delete(PROJECTS, id); this.index.delete(SETTINGS, characterId) })
+    for (const [id] of projects) {
+      if (!id || /[\\/:\0]/.test(id) || id === '.' || id === '..') throw new DesktopError(ELECKOI_FAILURE_CODES.securityDenied, '前端资源目录无效。', { what: '前端资源目录' })
+      const directory = resolve(this.root, id)
+      if (existsSync(directory) && lstatSync(directory).isSymbolicLink()) throw new DesktopError(ELECKOI_FAILURE_CODES.securityDenied, '前端资源目录不能是链接。', { what: '前端资源目录' })
+      rmSync(directory, { recursive: true, force: true })
+    }
+  }
+  private recoverImports(): void {
+    const root = join(this.index.root, '.character-imports')
+    if (!existsSync(root)) return
+    if (lstatSync(root).isSymbolicLink()) throw new DesktopError(ELECKOI_FAILURE_CODES.securityDenied, '前端导入日志目录不能是链接。', { what: '导入日志' })
+    for (const entry of readdirSync(root)) {
+      if (!/^[a-f0-9-]{36}\.json$/.test(entry)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '前端导入日志名称无效。', { what: '导入日志' })
+      const path = join(root, entry), value: unknown = JSON.parse(readFileSync(path, 'utf8'))
+      if (!value || typeof value !== 'object' || !('characterId' in value) || typeof value.characterId !== 'string' || !value.characterId) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '前端导入日志无效。', { what: '导入日志' })
+      if (!this.characterExists(value.characterId)) this.cleanupImportedOwner(value.characterId)
+      rmSync(path)
+    }
+  }
+  portable(characterId: string): PortableFrontendWorkspace {
+    const owner = { scope: 'character' as const, characterId }, workspace = this.workspace(owner)
+    return { projects: workspace.projects.map(project => {
+      const files = this.readFiles(project)
+      files[FRONTEND_MANIFEST_FILE] = Buffer.from(JSON.stringify({ ...project.manifest, project: json(project) }), 'utf8')
+      return { id: project.id, files: Object.entries(files).map(([path, bytes]) => ({ path, content: Buffer.from(bytes).toString('base64'), encoding: 'base64' as const })) }
+    }),
+      selectedProjectId: workspace.selectedProjectId, messageRendererEnabled: workspace.messageRendererEnabled }
+  }
+  withImportedCharacterOwner<T>(characterId: string, portable: PortableFrontendWorkspace | undefined, operation: (commit: () => void) => T): T {
+    if (!portable) return operation(() => {})
+    if (!Array.isArray(portable.projects) || typeof portable.messageRendererEnabled !== 'boolean'
+      || new Set(portable.projects.map(project => project.id)).size !== portable.projects.length
+      || portable.selectedProjectId !== null && !portable.projects.some(project => project.id === portable.selectedProjectId)) {
+      throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '角色卡前端目录或选择无效。', { what: '角色卡前端' })
+    }
+    const owner = { scope: 'character' as const, characterId }
+    const journalRoot = join(this.index.root, '.character-imports'); mkdirSync(journalRoot, { recursive: true })
+    const journal = join(journalRoot, `${randomUUID()}.json`)
+    writeFileSync(journal, JSON.stringify({ characterId }), { flag: 'wx' })
+    let cleanupComplete = true
+    try {
+      return operation(() => {
+        for (const project of portable.projects) {
+          this.importProject(owner, { files: project.files, select: project.id === (portable.selectedProjectId ?? portable.projects[0]?.id) })
+        }
+        this.setMessageRenderer(owner, portable.messageRendererEnabled)
+      })
+    } catch (error) {
+      try { if (!this.characterExists(characterId)) this.cleanupImportedOwner(characterId) }
+      catch (recoveryError) { cleanupComplete = false; throw new AggregateError([error, recoveryError], '角色导入失败，前端资源清理未完成，将在下次启动时重试。') }
+      throw error
+    } finally { if (cleanupComplete && existsSync(journal)) rmSync(journal) }
+  }
   /** Copy project identities and resources while the caller creates the new character in its transaction. */
   copyCharacterOwner<T>(sourceId: string, targetId: string, operation: (copy: () => void) => T): T {
     const source = { scope: 'character' as const, characterId: sourceId };
@@ -138,7 +199,7 @@ export class FrontendProjectRepository {
     if (typeof value !== 'string') throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, 'Frontend file path must be a string', { field: 'path' })
     const name = value.replaceAll('\\', '/')
     if (!name || name.startsWith('/') || name.includes(':') || name.includes('\0')
-      || name.split('/').some(part => !part || part === '.' || part === '..')) throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, `Invalid frontend file path: ${name}`, { field: 'name' })
+      || name.split('/').some(part => !part || part === '.' || part === '..' || /[. ]$/.test(part) || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part))) throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, `Invalid frontend file path: ${name}`, { field: 'name' })
     return name
   }
   private path(id: string, name: string) {
@@ -188,6 +249,7 @@ export class FrontendProjectRepository {
   restoreDefault(owner: FrontendOwner): FrontendWorkspace {
     return this.execute('restoreDefault', owner) as unknown as FrontendWorkspace
   }
+  resourceCharacterId(id: string): string | undefined { const project = this.project(id); return project.scope === 'application' ? undefined : project.characterId }
   readAsset(id: string, name: string) {
     const project = this.project(id)
     if (!project.files.includes(name)) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, `Frontend resource does not exist: ${id}/${name}`, { what: '前端资源' })
@@ -206,7 +268,7 @@ export class FrontendProjectRepository {
     const files: Files = Object.create(null)
     for (const raw of input) {
       const file = object(raw), name = this.name(file.path ?? file.name)
-      if (own(files, name)) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupDuplicate, `Duplicate frontend file: ${name}`, { what: '前端文件' })
+      if (Object.keys(files).some(path => path.toLowerCase() === name.toLowerCase())) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupDuplicate, `Duplicate frontend file: ${name}`, { what: '前端文件' })
       if (file.encoding !== undefined && !['utf8', 'base64'].includes(String(file.encoding))) throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, `Unknown file encoding: ${file.encoding}`, { what: '前端文件编码', expected: 'utf8、base64' })
       if (typeof file.content !== 'string') throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, `Frontend file content must be a string: ${name}`, { field: 'content' })
       files[name] = Buffer.from(file.content, file.encoding === 'base64' ? 'base64' : 'utf8')
@@ -215,24 +277,15 @@ export class FrontendProjectRepository {
   }
   private unzipFiles(bytes: Uint8Array): Files {
     const files: Files = Object.create(null), names = new Set<string>()
-    const archive = new Unzip(file => {
-      if (file.name.endsWith('/')) return
-      const name = this.name(file.name)
-      if (names.has(name)) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupDuplicate, `Duplicate frontend archive file: ${name}`, { what: '前端归档文件' })
-      names.add(name)
-      const chunks: Uint8Array[] = []
-      file.ondata = (error, chunk, final) => {
-        if (error) throw error
-        chunks.push(chunk)
-        if (final) files[name] = Buffer.concat(chunks)
-      }
-      file.start()
-    })
-    archive.register(UnzipInflate)
-    archive.push(bytes, true)
-    if (Object.keys(files).length !== names.size) throw new DesktopError(ELECKOI_FAILURE_CODES.internal, 'Frontend ZIP import did not finish', { what: '前端 ZIP 导入' })
+    for (const [raw, body] of readZipEntries(bytes)) {
+      if (raw.endsWith('/')) { this.name(raw.slice(0, -1)); continue }
+      const name = this.name(raw), identity = name.toLowerCase()
+      if (names.has(identity)) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupDuplicate, `Duplicate frontend archive file: ${name}`, { what: '前端归档文件' })
+      names.add(identity); files[name] = body
+    }
     return files
   }
+
   private archiveManifest(files: Files): Document | undefined {
     if (!own(files, FRONTEND_MANIFEST_FILE)) return undefined
     try { return object(JSON.parse(Buffer.from(files[FRONTEND_MANIFEST_FILE]!).toString('utf8'))) }
@@ -333,6 +386,23 @@ export class FrontendProjectRepository {
       else if (/\.zip$/i.test(String(p.filename || ''))) {
         files = this.unzipFiles(Buffer.from(String(p.data || ''), 'base64'))
       } else files = { 'index.html': p.html !== undefined ? Buffer.from(String(p.html), 'utf8') : Buffer.from(String(p.data || ''), 'base64') }
+      let portableAssets: PortableCharacterAsset[] | undefined
+      let portableFolders: CharacterAssetFolder[] = []
+      if (own(files, ASSET_MANIFEST)) {
+        if (owner.scope !== 'character' || !this.assets) throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, '带角色资产的前端包必须导入角色作用域。', { what: '前端包作用域' })
+        const manifest = JSON.parse(Buffer.from(files[ASSET_MANIFEST]!).toString('utf8'))
+        if (manifest.format !== 'eleckoi.frontend-assets' || manifest.version !== 1 || !Array.isArray(manifest.items)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '前端资产清单无效。', { what: '前端资产清单' })
+        if (manifest.folders !== undefined && !Array.isArray(manifest.folders)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '前端文件夹清单无效。', { what: '前端资产清单' })
+        portableFolders = manifest.folders ?? []
+        portableAssets = manifest.items.map((asset: Record<string, unknown>) => {
+          if (typeof asset.id !== 'string' || !/^[a-f0-9-]{36}$/.test(asset.id)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '前端资产编号无效。', { what: '前端资产' })
+          const path = ASSET_DIRECTORY + asset.id, bytes = files[path]
+          if (!bytes) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '前端包的素材文件缺失。', { what: '前端素材' })
+          delete files[path]; return { ...asset, data: Buffer.from(bytes).toString('base64') } as unknown as PortableCharacterAsset
+        })
+        delete files[ASSET_MANIFEST]
+        if (Object.keys(files).some(path => path.startsWith(ASSET_DIRECTORY))) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '前端包有未登记的素材。', { what: '前端素材' })
+      }
       const archived = this.archiveManifest(files), requested = { ...object(archived?.project), ...object(p.project) }
       const rawManifest = { ...archived, ...object(requested.manifest), ...object(p.manifest) }
       const explicit = p.entryFile ?? requested.entryFile ?? rawManifest.entryFile
@@ -343,7 +413,8 @@ export class FrontendProjectRepository {
         importedAt: new Date().toISOString(), manifest: this.manifest(rawManifest, owner.scope, new Set(Object.keys(files)), entry) } as unknown as FrontendProject
       if (owner.characterId) project.characterId = owner.characterId
       else delete project.characterId
-      this.commit(project, files, owner, p.select !== false)
+      if (portableAssets) this.assets!().withMergedAssets(owner.characterId!, portableAssets, () => this.commit(project, files, owner, p.select !== false), portableFolders)
+      else this.commit(project, files, owner, p.select !== false)
     } else {
       const project = this.owned(String(p.projectId || ''), owner)
       if (method === 'readFile') {
@@ -355,6 +426,15 @@ export class FrontendProjectRepository {
         const files = this.readFiles(project)
         project.manifest = this.manifest(object(json(project.manifest)), owner.scope, new Set(Object.keys(files)), project.entryFile)
         this.materialize(project, files)
+        if (owner.scope === 'character' && this.assets) {
+          if (own(files, ASSET_MANIFEST) || Object.keys(files).some(name => name.startsWith(ASSET_DIRECTORY))) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupDuplicate, '前端文件占用了素材清单的保留目录。', { what: '前端素材目录' })
+          const items = this.assets().portable(owner.characterId!)
+          const folders = this.assets().portableFolders(owner.characterId!)
+          if (items.length || folders.length) {
+            files[ASSET_MANIFEST] = Buffer.from(JSON.stringify({ format: 'eleckoi.frontend-assets', version: 1, folders, items: items.map(({ data, ...metadata }) => metadata) }), 'utf8')
+            for (const item of items) files[ASSET_DIRECTORY + item.id] = Buffer.from(item.data, 'base64')
+          }
+        }
         return { filename: `${project.name}.zip`, data: zipFiles(files).toString('base64'), project: json(project) }
       }
       if (method === 'delete') {

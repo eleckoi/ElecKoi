@@ -1,3 +1,4 @@
+import { CharacterAssetLibrary } from '../../modules/characterAssets/index.js';
 import { EditorNavigationRail } from '../../ui/ui/EditorNavigationRail.jsx';
 import { localizeUiCopy } from "../i18n/productCopy.js";
 import { useProductTranslation } from "../i18n/ProductLocaleContext.jsx";
@@ -13,7 +14,7 @@ import {
 } from "@phosphor-icons/react";
 import logoIcon from "../../assets/eleckoi-app-icon.png";
 import { ElecKoiWordmark } from "../../ui/icons/ElecKoiWordmark.jsx";
-import { FileCode, FolderSimple } from '../../ui/icons/interfaceIcons.jsx';
+import { FileCode, Folder, SlidersHorizontal } from '../../ui/icons/interfaceIcons.jsx';
 import { resolveFailure } from '../../utils/failureText.js';
 import {
   CharacterBasicInfoPanel,
@@ -42,7 +43,8 @@ const EDITOR_SECTIONS = [
   { id: "regex", label: "正则", Icon: BracketsCurly },
   { id: 'scripts', label: '脚本', Icon: FileCode },
   { id: 'frontend', label: '前端', Icon: Browsers },
-  { id: "dynamic", label: "分支设定", Icon: FolderSimple },
+  { id: 'assets', label: '资产库', Icon: Folder },
+  { id: "dynamic", label: "分支设定", Icon: SlidersHorizontal },
 ];
 
 const CHARACTER_EDITOR_SIDEBAR_DEFAULT_WIDTH = 220;
@@ -130,7 +132,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
     () => editableCharacterSnapshot(character) !== editableCharacterSnapshot(persistedCharacter),
     [character, persistedCharacter],
   );
-  const dirty = activeSection === "openings"
+  const dirty = activeSection === 'assets' ? false : activeSection === "openings"
     ? openingsDirty
     : activeSection === "lore"
     ? loreDirty
@@ -435,6 +437,8 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
         characterId: character.id, dirty: frontendDirty, saving, onDirtyChange: setFrontendDirty,
         setController: controller => { frontendRef.current = controller; },
       }, fallback) ?? fallback;
+    } else if (activeSection === 'assets') {
+      editorContent = <CharacterAssetLibrary key={character.id} characterId={character.id} />;
     } else if (activeSection === "dynamic") {
       const fallback = <DynamicSettingsPanel
         ref={dynamicSettingsRef}
@@ -490,7 +494,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
       <section className="character-editor-main-panel">
         {renderHeader ? renderHeader({ character, dirty, saving, save: saveCurrentDraft, subpage, feedback: activeSection === 'card' ? { error: saveError, notice: basicSaveNotice } : feedback }) : <TitleBar splitSurface onClose={requestClose} />}
         <section
-          className={`character-editor-workspace${['openings', 'lore', 'variables', 'regex', 'scripts'].includes(activeSection) ? ' is-collection-editor' : ''}${activeSection === "card" ? " is-basic-info" : ""}${activeSection === "openings" ? " is-character-openings" : ""}${activeSection === "lore" ? " is-setting-library" : ""}${activeSection === "variables" ? " is-variable-config" : ""}${activeSection === "regex" ? " is-regex-rules" : ""}${activeSection === 'scripts' ? ' is-scripts' : ''}${activeSection === 'frontend' ? ' is-frontend' : ''}${activeSection === "dynamic" ? " is-dynamic-settings" : ""}`}
+          className={`character-editor-workspace${['openings', 'lore', 'variables', 'regex', 'scripts'].includes(activeSection) ? ' is-collection-editor' : ''}${activeSection === "card" ? " is-basic-info" : ""}${activeSection === "openings" ? " is-character-openings" : ""}${activeSection === "lore" ? " is-setting-library" : ""}${activeSection === "variables" ? " is-variable-config" : ""}${activeSection === "regex" ? " is-regex-rules" : ""}${activeSection === 'scripts' ? ' is-scripts' : ''}${activeSection === 'frontend' ? ' is-frontend' : ''}${activeSection === 'assets' ? ' is-character-assets' : ''}${activeSection === "dynamic" ? " is-dynamic-settings" : ""}`}
           aria-label={activeLabel}
           ref={workspaceRef}
         >

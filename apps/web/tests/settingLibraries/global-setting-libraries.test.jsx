@@ -177,7 +177,7 @@ it.each(['角色', '全局'])('dismisses the %s setting context menu outside the
     await act(async () => row().dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 20, clientY: 20 })));
     expect(document.querySelector('[role="menu"]')).toBeTruthy();
   };
-  for (const target of [container.querySelector('.setting-directory-heading'), container.querySelector('.setting-library-tree'), container.querySelector('.setting-document'), document.body]) {
+  for (const target of [container.querySelector('.editor-directory-heading'), container.querySelector('.setting-library-tree'), container.querySelector('.setting-document'), document.body]) {
     await openMenu();
     await act(async () => target.dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true })));
     expect(document.querySelector('[role="menu"]')).toBeNull();

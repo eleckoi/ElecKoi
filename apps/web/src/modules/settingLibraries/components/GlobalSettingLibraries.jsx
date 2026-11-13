@@ -126,7 +126,7 @@ export function GlobalSettingLibraryImport({ state, settingLibraries, disabled, 
           {source.versions.map(item => <option key={item.id} value={item.id}>{item.name || tUi("未命名版本")}</option>)}
         </select></label> : null}
         {version ? <p>{version.entries.filter(item => item.kind === 'normal').length}{tUi(" 条设定")}</p> : null}
-        {busy ? <p role="status">{tUi("正在读取…")}</p> : error ? <p role="alert">{error}</p> : characters.length === 0 ? <p>{tUi("暂无可导入的角色设定库")}</p> : null}
+        {!busy && (error ? <p role="alert">{error}</p> : characters.length === 0 ? <p>{tUi("暂无可导入的角色设定库")}</p> : null)}
       </div>
     </EditorManagementModal> : null}
   </>;
@@ -147,7 +147,7 @@ export function GlobalSettingLibrariesDirectory({ state, query, disabled, editor
   const libraries = state.libraryRef.current?.libraries;
   const visible = libraries?.filter(library => !query.trim() || library.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) || hasSearchResults(library, query));
   return <section className="global-setting-libraries" aria-label={tUi("全局设定库")} onMouseDown={event => event.stopPropagation()} onContextMenu={event => { event.preventDefault(); event.stopPropagation(); }}>
-    {!libraries ? <p role={state.error ? 'alert' : 'status'} className="global-setting-library-empty">{state.error || tUi("正在读取…")}</p> : null}
+    {!libraries && state.error && <p role="alert" className="global-setting-library-empty">{state.error}</p>}
     {libraries?.length === 0 ? <p className="global-setting-library-empty">{tUi("暂无全局设定库，导入后可在这里启用。")}</p> : visible?.length === 0 ? <p className="global-setting-library-empty">{tUi("没有匹配的设定库")}</p> : null}
     {visible?.map(library => {
       const open = state.expanded.has(library.id) || Boolean(query.trim());

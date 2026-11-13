@@ -10,7 +10,9 @@ import { decodeRegexDocuments } from '@shared/foundation/regexRuleTransfer'
 import { emptyEntry, normalizeSettingLibrary } from '@product-data/domain/settingLibraries'
 import { convertMvuVariables, type MvuVariableConversion } from './mvuImport'
 import { decodePortableScriptLibrary } from '@product-data/domain/scripts'
-import { isPng, readPngText } from '@product-data/storage/media/PngTextChunkCodec'
+import { isPng, readPngText, readPngArchive, removePngArchive } from '@product-data/storage/media/PngTextChunkCodec'
+import { isZip, readBundle, writeBundle } from './characterBundle'
+import { characterAssetSchema, characterAssetFolderSchema } from '@shared/contracts/characterAssets'
 import type { DecodedCharacterCard, PortableCharacterPackage } from './characterTransferTypes'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
@@ -23,6 +25,10 @@ export function decodeCharacterCard(bytes: Uint8Array, source: 'eleckoi' | 'sill
 }
 
 function decodeElecKoi(bytes: Uint8Array): DecodedCharacterCard {
+  if (isZip(bytes)) {
+    const packageData = decodePortableRoot(readBundle(bytes))
+    return { packageData, complete: true, summary: 'ElecKoi 完整角色卡', regexRules: packageData.regexRules }
+  }
   if (!isPng(bytes)) {
     const text = new TextDecoder().decode(bytes).trim()
     if (!text.startsWith('{')) throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, '无法识别这个角色卡', { what: '角色卡的格式' })
@@ -35,6 +41,14 @@ function decodeElecKoi(bytes: Uint8Array): DecodedCharacterCard {
     }
   }
   const chunks = readPngText(bytes)
+  const bundle = chunks.get('eleckoi-bundle')
+  if (bundle) {
+    if (bundle !== '1') throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, '不支持这个 PNG 资源包版本。', { what: 'PNG 资源包' })
+    const archive = readPngArchive(bytes)
+    if (!archive) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, 'PNG 中的素材包缺失，图片可能被平台重新压缩，请传输原文件。', { what: 'PNG 素材包' })
+    const packageData = decodePortableRoot(readBundle(archive))
+    return { packageData, sourceImage: removePngArchive(bytes), complete: true, summary: 'ElecKoi 完整角色卡', regexRules: packageData.regexRules }
+  }
   const portable = chunks.get('eleckoi-card')
   if (portable) {
     const packageData = decodePortablePackage(portable)
@@ -223,6 +237,7 @@ export function encodeCharacterCardJson(value: PortableCharacterPackage): string
 export function encodePortableCharacterPayload(value: PortableCharacterPackage): string {
   return gzipSync(Buffer.from(encodeCharacterCardJson(value), 'utf8')).toString('base64')
 }
+export function encodeCharacterBundle(value: PortableCharacterPackage): Uint8Array { return writeBundle(portableRoot(value)) }
 
 export function decodePortablePackage(encoded: string): PortableCharacterPackage {
   let expanded: Buffer
@@ -234,10 +249,11 @@ export function decodePortablePackage(encoded: string): PortableCharacterPackage
 
 function decodePortableRoot(root: JsonObject): PortableCharacterPackage {
   if (root.format !== 'eleckoi.character-card') throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, '这不是 ElecKoi 角色卡', { what: '角色卡格式' })
-  if (root.version !== 1 && root.version !== 2) throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, '暂不支持这个角色卡版本', { what: '角色卡版本', expected: '1 / 2' })
-  if (root.version === 2 && (typeof root.character_openings !== 'string' || !root.character_openings)) {
+  if (root.version !== 1 && root.version !== 2 && root.version !== 3) throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, '暂不支持这个角色卡版本', { what: '角色卡版本', expected: '1 / 2 / 3' })
+  if ((root.version === 2 || root.version === 3) && (typeof root.character_openings !== 'string' || !root.character_openings)) {
     throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, 'v2 角色卡缺少独立开场白。', { what: '角色卡的独立开场白' })
   }
+  if (root.library_assets !== undefined && (!Array.isArray(root.library_assets) || root.library_assets.some(item => !record(item) || typeof item.data !== 'string'))) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '角色卡资产目录无效。', { what: '角色卡资产' })
   const character = portableCharacter(record(root.character) ?? {})
   const assets = objectList(root.assets).map((asset) => ({
     key: string(asset.key),
@@ -247,6 +263,12 @@ function decodePortableRoot(root: JsonObject): PortableCharacterPackage {
   return {
     character,
     assets,
+    ...(root.library_folders === undefined ? {} : { libraryFolders: objectList(root.library_folders).map(raw => characterAssetFolderSchema.parse(raw)) }),
+    ...(root.library_assets === undefined ? {} : { libraryAssets: objectList(root.library_assets).map(raw => {
+      const { data, ...metadata } = raw
+      return { ...characterAssetSchema.parse(metadata), data: string(data) }
+    }) }),
+    ...(root.frontends === undefined ? {} : { frontends: decodeFrontendWorkspace(root.frontends) }),
     ...(root.character_openings === undefined ? {} : { characterOpeningsJson: string(root.character_openings) }),
     settingLibraryJson: string(root.setting_library),
     variableConfigJson: string(root.variable_config),
@@ -258,7 +280,10 @@ function decodePortableRoot(root: JsonObject): PortableCharacterPackage {
 function portableRoot(value: PortableCharacterPackage): JsonObject {
   return {
     format: 'eleckoi.character-card',
-    version: value.characterOpeningsJson ? 2 : 1,
+    version: value.libraryAssets?.length || value.libraryFolders?.length || value.frontends?.projects.length ? 3 : value.characterOpeningsJson ? 2 : 1,
+    ...(value.libraryFolders ? { library_folders: value.libraryFolders } : {}),
+    ...(value.libraryAssets ? { library_assets: value.libraryAssets } : {}),
+    ...(value.frontends ? { frontends: value.frontends } : {}),
     ...(value.characterOpeningsJson ? { character_openings: value.characterOpeningsJson } : {}),
     character: {
       name: value.character.name,
@@ -300,6 +325,23 @@ function portableRoot(value: PortableCharacterPackage): JsonObject {
       order: rule.order
     }))
   }
+}
+
+function decodeFrontendWorkspace(value: unknown): NonNullable<PortableCharacterPackage['frontends']> {
+  const root = record(value)
+  if (!root || !Array.isArray(root.projects) || typeof root.messageRendererEnabled !== 'boolean' || (root.selectedProjectId !== null && typeof root.selectedProjectId !== 'string')) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '角色卡前端配置无效。', { what: '角色卡前端' })
+  const projects = root.projects.map(value => {
+    const item = record(value)
+    if (!item || typeof item.id !== 'string' || !Array.isArray(item.files)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '角色卡前端项目无效。', { what: '角色卡前端' })
+    const files = item.files.map(value => {
+      const file = record(value)
+      if (!file || typeof file.path !== 'string' || typeof file.content !== 'string' || file.encoding !== 'base64') throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '角色卡前端文件无效。', { what: '角色卡前端文件' })
+      return { path: file.path, content: file.content, encoding: 'base64' as const }
+    })
+    return { id: item.id, files }
+  })
+  if (new Set(projects.map(item => item.id)).size !== projects.length || root.selectedProjectId !== null && !projects.some(item => item.id === root.selectedProjectId)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '角色卡前端选择无效。', { what: '角色卡前端' })
+  return { projects, selectedProjectId: root.selectedProjectId, messageRendererEnabled: root.messageRendererEnabled }
 }
 
 function decodePortableRegexRules(value: unknown): RegexRule[] {

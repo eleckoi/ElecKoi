@@ -82,7 +82,7 @@ function LegacyProjectFrame({ project, runtime, authorRuntime, request, content,
       if (!mounted) return;
       const folder = entryFile.includes('/') ? entryFile.slice(0, entryFile.lastIndexOf('/') + 1).split('/').map(encodeURIComponent).join('/') : '';
       const baseUrl = `/eleckoi/frontends/${encodeURIComponent(project.id)}/${folder}`;
-      setSource(buildSharedFrontendDocument(result.content, runtime, { channel, frameId: channel, baseUrl, context: contextRef.current, autoHeight,
+      setSource(buildSharedFrontendDocument(result.content, runtime, { channel, frameId: channel, baseUrl, characterId: project.scope === 'character' ? project.characterId : undefined, context: contextRef.current, autoHeight,
         globalStyles: (project.manifest?.globalStyles || []).map(path => frontendAssetUrl(project, path, revision)) }));
     }).catch(fail);
     const receive = event => {

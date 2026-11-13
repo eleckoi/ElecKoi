@@ -65,3 +65,8 @@ export interface FrontendReplaceFiles {
 export interface FrontendFile { path: string; content: string; mimeType: string }
 export interface FrontendFileQuery { path?: string; encoding?: 'utf8' | 'base64' }
 export interface FrontendExport { filename: string; data: string; project: FrontendProject }
+export interface PortableFrontendWorkspace {
+  projects: Array<{ id: string; files: FrontendFileInput[] }>
+  selectedProjectId: string | null
+  messageRendererEnabled: boolean
+}

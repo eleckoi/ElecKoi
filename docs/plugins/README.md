@@ -35,6 +35,9 @@ PC 用户可以从左侧「更多 → 创建你的插件」进入官方创造模
 | [服务接口](services.md) | 如何导入公开类型、调用服务和查询接口 |
 | [格式导入边界](sdk-compatibility.md) | 外部资料转换、原生数据归属与 HTML 显示资源 |
 | [AI 创作工作室工具](creator-studio-tools.md) | 设定 EJS、变量 Zod、脚本按钮面板与正则显示替换 |
+| [角色配置创作参考](authoring-configurations.md) | 角色、设定、变量、脚本与命名版本的按需知识 |
+| [角色资产库创作](character-assets.md) | 导入、引用、文件夹、新建、移动与删除 |
+| [角色界面创作](character-frontends.md) | 常规楼层的正则 HTML、脚本协作，以及专用独立项目的范围、SDK 与阶段边界 |
 | [Client 完整参考](api-client.md) | 客户端服务的全部公开方法与参数 |
 | [Host 完整参考](api-host.md) | Host 产品 API 和 Session 编辑服务 |
 | [Remote 完整声明](api-remote.md) | 官方生成的全部跨端调用声明 |

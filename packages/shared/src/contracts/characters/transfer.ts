@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { characterCollectionSchema } from '../entities/schemas'
 
 export const characterImportSourceSchema = z.enum(['eleckoi', 'sillytavern'])
-export const characterExportFormatSchema = z.enum(['png', 'json'])
+export const characterExportFormatSchema = z.enum(['png', 'json', 'zip'])
 
 export const characterImportFileSchema = z.object({
   displayName: z.string().min(1),
@@ -33,7 +33,7 @@ export const characterImportResultSchema = z.object({
 
 export const characterExportResultSchema = z.object({
   fileName: z.string().min(1),
-  mimeType: z.enum(['image/png', 'application/json']),
+  mimeType: z.enum(['image/png', 'application/json', 'application/zip']),
   base64: z.string().min(1)
 }).strict()
 

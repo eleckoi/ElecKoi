@@ -223,7 +223,8 @@ describe('Android branch setting bottom actions', () => {
     const search = container.querySelector('input[aria-label="搜索分支设定对话"]');
     expect(search).toBeTruthy();
     await fill(search, '合成');
-    expect(container.querySelector('[role=status]').textContent).toContain('正在读取分支设定');
+    expect(container.textContent).not.toContain('正在读取');
+    expect(container.querySelector('[aria-label="分支设定"]').getAttribute('aria-busy')).toBe('true');
     expect(container.textContent).not.toContain('还没有分支设定');
     await act(async () => resolveRead([{ sessionId: 'synthetic-session', title: '合成分支', library: { entries: [], groups: [] } }]));
     expect(container.querySelector('input[aria-label="搜索分支设定对话"]')).toBe(search);

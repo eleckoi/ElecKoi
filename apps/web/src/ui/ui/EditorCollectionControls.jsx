@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, Input, Menu, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { Copy, DotsThree, ListChecks, MagnifyingGlass, NotePencil, Plus, SlidersHorizontal, Trash } from '../icons/interfaceIcons.jsx';
 import { useEditorPresentation } from './EditorPresentationContext.jsx';
+import { EditorDirectoryHeading } from './EditorDirectoryHeading.jsx';
 import './editor-collection-controls.css';
 import './editor-collection-material.css';
 import '../styles/dsh-editor-controls.css';
@@ -23,20 +24,19 @@ export function EditorCollectionToolbar({ query, onQueryChange, placeholder, cre
       ...(selection ? [{ id: 'selection', label: tUi(selection.active ? '完成' : '多选'), icon: <ListChecks size={16} />, disabled, run: selection.toggle }] : []),
       ...(onManage ? [{ id: 'manage', label: manageLabel, icon: <SlidersHorizontal size={16} />, disabled: disabled || selection?.active, run: onManage }] : []),
     ];
-    return <header className={`editor-collection-toolbar is-mobile-collection ${className}`} onMouseDown={event => event.stopPropagation()}>
-      <div className="editor-collection-topline">
-        <div className="editor-collection-heading">{leading || <h2>{heading}</h2>}</div>
+    return <div className={`editor-collection-toolbar is-mobile-collection editor-heading-surface ${className}`} onMouseDown={event => event.stopPropagation()}>
+      <EditorDirectoryHeading title={heading} leading={leading} toplineClassName="editor-collection-topline">
         <div className="editor-collection-actions">
           {moreItems.length > 0 && <Menu open={moreOpen} portal dense anchor={<Button data-dsh-control className="editor-collection-more" variant="outline" aria-label={tUi('管理')} disabled={disabled}
             aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => { setCreateOpen(false); setMoreOpen(!moreOpen); }}><DotsThree size={20} /></Button>}
             items={moreItems} onClose={() => setMoreOpen(false)} onSelect={id => { setMoreOpen(false); moreItems.find(item => item.id === id)?.run?.(); }} />}
           {children}
         </div>
-      </div>
+      </EditorDirectoryHeading>
       <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
         value={query} onChange={event => onQueryChange(event.target.value)} placeholder={placeholder} aria-label={placeholder} />
       {(beforeSave || save) && <div className="editor-collection-feedback">{beforeSave}{save}</div>}
-    </header>;
+    </div>;
   }
   const items = createItems.map((item, index) => ({ ...item, id: item.id ?? String(index), icon: item.Icon ? <item.Icon size={16} /> : undefined }));
   return <header className={`editor-collection-toolbar ${className}`} onMouseDown={event => event.stopPropagation()}>

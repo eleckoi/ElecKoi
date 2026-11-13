@@ -54,7 +54,7 @@ export function VariableTreeNode({ item, data, itemProps, style, level, isSelect
         ) : null}
       </span> : null}
       {data.nodeKind === "object"
-        ? <VariableGroupIcon initialization={data.fixed} className="variable-tree-icon" />
+        ? data.fixed ? <span className="variable-tree-icon-slot"><VariableGroupIcon initialization className="variable-tree-icon" /></span> : <VariableGroupIcon className="variable-tree-icon" />
         : <VariableEntryIcon type={data.valueType} className="variable-tree-icon" />}
       <span className="variable-tree-label">{data.dynamicKey ? `<${data.label}>` : data.label}</span>
       {data.readMode === "required" ? <span className="variable-tree-required" title={tUi("必读")}>{tUi("必读")}</span> : null}

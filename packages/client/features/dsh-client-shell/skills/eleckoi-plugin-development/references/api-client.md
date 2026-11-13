@@ -769,6 +769,14 @@ Native file projects use the generated Remote, independently of chat/script read
  * @returns 取消订阅函数。
  */
 watch(owner: FrontendOwner, listener: (workspace: FrontendWorkspace) => void, onError: (error: unknown) => void): () => void
+
+/** 订阅角色资产元数据，重连重新读取；不缓存文件正文。
+ * @param characterId - 明确所属角色。
+ * @param listener - 最新目录。
+ * @param onError - 非取消错误。
+ * @returns 释放订阅。
+ */
+watchAssets(characterId: string, listener: (catalog: CharacterAssetCatalog) => void, onError: (error: unknown) => void): () => void
 ```
 
 Source: [`packages/client/features/dsh-client-author/src/frontends.ts`](../../packages/client/features/dsh-client-author/src/frontends.ts)

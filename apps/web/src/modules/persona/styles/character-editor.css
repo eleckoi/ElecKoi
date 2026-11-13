@@ -151,11 +151,14 @@
 .character-basic-content {
   display: flex;
   width: 100%;
+  height: 100%;
   min-width: 0;
-  min-height: 100%;
+  min-height: 0;
+  overflow: auto;
   align-items: center;
   flex-direction: column;
-  padding: 30px 44px 48px;
+  justify-content: flex-start;
+  padding: 48px 44px 48px;
   color: var(--text);
   background: var(--chat);
   --semi-color-primary: var(--blue);
@@ -165,6 +168,7 @@
 
 .character-basic-sheet {
   display: grid;
+  flex: none;
   grid-template-columns: 264px minmax(360px, 640px);
   grid-template-areas:
     "avatar name"
@@ -379,6 +383,7 @@
 
 .character-basic-actions {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
@@ -435,8 +440,9 @@
 
 .character-editor-workspace h1 {
   color: var(--text);
+  font-family: inherit;
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.35;
 }
 
@@ -481,13 +487,13 @@
     clip-path: inset(50%);
   }
 
-  .character-editor-workspace:not(.is-basic-info):not(.is-frontend):not(.is-collection-editor) {
+  .character-editor-workspace:not(.is-basic-info):not(.is-frontend):not(.is-collection-editor):not(.is-character-assets) {
     padding: 24px;
   }
 
   .character-basic-content {
     align-items: center;
-    padding: 28px 26px 40px;
+    padding: 36px 26px 40px;
   }
 
   .character-basic-sheet {
@@ -552,3 +558,5 @@
     transition: none;
   }
 }
+
+.character-editor-workspace.is-character-assets { display:block; padding:0; overflow:hidden; }

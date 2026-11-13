@@ -137,7 +137,7 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
           </footer>
         ) : null}
         {preparing ? <div className="character-import-busy">{tUi("正在读取角色卡…")}</div> : null}
-        <input ref={inputRef} type="file" accept="image/png,application/json,.png,.json" multiple hidden onChange={onFilesPicked} />
+        <input ref={inputRef} type="file" accept="image/png,application/json,application/zip,.png,.json,.zip" multiple hidden onChange={onFilesPicked} />
       </section>
     </SystemBarOverlay>
   );

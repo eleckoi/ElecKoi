@@ -88,7 +88,7 @@ describe('character frontend package browser', () => {
     expect(shadow().querySelector('.cf-source').textContent).toContain('manifestVersion');
     expect(service.projects.readFile).not.toHaveBeenCalledWith(expect.anything(), expect.anything(), {path:'eleckoi.frontend.json'});
   });
-  it('imports a complete role page without replacing the package already in use', async () => {
+  it('imports a complete role page and immediately enables the newly imported package', async () => {
     state.selectedProjectId = 'synthetic-role-project';
     await render(<CharacterFrontendPanel characterId={characterId} />);
     const input = shadow().querySelector('input[accept=".html,.htm,.zip"]');
@@ -96,21 +96,21 @@ describe('character frontend package browser', () => {
     Object.defineProperty(input, 'files', { value: [{ name: 'synthetic-page.html', arrayBuffer: async () => bytes.buffer }] });
     await act(() => input.dispatchEvent(new Event('change', { bubbles: true })));
     expect(service.projects.importProject).toHaveBeenCalledWith({ scope: 'character', characterId }, expect.objectContaining({
-      select:false, filename:'synthetic-page.html', data:btoa(html),
+      select:true, filename:'synthetic-page.html', data:btoa(html),
       manifest:{manifestVersion:1,sdkVersion:'0.1.0',scope:'character',entryFile:'index.html',bindings:[{target:'root',view:'chat',entryFile:'index.html'}]},
     }));
-    expect(state.selectedProjectId).toBe('synthetic-role-project');
+    expect(state.selectedProjectId).toBe('synthetic-new-project');
     expect(service.projects.select).not.toHaveBeenCalled();
     expect(shadow().querySelector('[aria-label="切换前端包"]').textContent).toBe('synthetic-page');
-    await click('使用此前端');
-    expect(service.projects.select).toHaveBeenCalledWith({scope:'character',characterId},'synthetic-new-project');
+    expect([...shadow().querySelectorAll('button')].some(button => button.textContent === '使用此前端')).toBe(false);
+    expect(service.projects.select).not.toHaveBeenCalled();
   });
   it('imports a ZIP as a package without imposing an HTML manifest or exposing file upload controls', async () => {
     await render(<CharacterFrontendPanel characterId={characterId} />);
     const input=shadow().querySelector('input[type=file]');
     Object.defineProperty(input,'files',{value:[{name:'synthetic-package.zip',arrayBuffer:async()=>Uint8Array.of(1,2,3).buffer}]});
     await act(()=>input.dispatchEvent(new Event('change',{bubbles:true})));
-    expect(service.projects.importProject).toHaveBeenCalledWith({scope:'character',characterId},{select:false,filename:'synthetic-package.zip',name:'synthetic-package',data:'AQID'});
+    expect(service.projects.importProject).toHaveBeenCalledWith({scope:'character',characterId},{select:true,filename:'synthetic-package.zip',name:'synthetic-package',data:'AQID'});
     expect(shadow().querySelectorAll('input[type=file]')).toHaveLength(1);
   });
   it('exports the browsed package using the upward export icon and preserves the active selection', async () => {

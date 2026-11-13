@@ -1,3 +1,4 @@
+import { prepareCharacterAssetDocument } from './characterAssetDocument.js';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { installRichDocumentMeasurement } from '@eleckoi/author-sdk';
@@ -13,7 +14,7 @@ export function injectFrontendHead(source, head) {
 }
 
 /** Imported scripts start after their owning page has mounted its native capabilities. */
-export function buildSharedFrontendDocument(source, runtime, { channel, baseUrl, rich = false, context, globalStyles = [], autoHeight = false } = {}) {
+export function buildSharedFrontendDocument(source, runtime, { channel, baseUrl, rich = false, context, globalStyles = [], autoHeight = false, characterId } = {}) {
   if (!runtime?.assetsBaseUrl || !runtime.sdk) throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, 'HTML 显示资源尚未就绪', { what: 'HTML 显示资源' });
   const sdk = runtime.sdk, libraries = runtime.assetsBaseUrl + 'libraries/';
   // Matching the embedding scheme keeps the rich document canvas transparent.
@@ -42,5 +43,5 @@ export function buildSharedFrontendDocument(source, runtime, { channel, baseUrl,
   ${rich ? `(${installRichDocumentMeasurement.toString()})(window,height=>send('eleckoi:rich-height',{height}));` : ''}
 })();
 </script>`;
-  return injectFrontendHead(prepareFrontendCompatibilitySource(String(source || '')), head);
+  return injectFrontendHead(prepareFrontendCompatibilitySource(prepareCharacterAssetDocument(String(source || ''), characterId)), head);
 }

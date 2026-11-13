@@ -28,7 +28,9 @@ async function mount(kind, scope, compact = true, prepare) {
     </EditorPresentationContext.Provider>;
   }
   node = document.createElement('div'); document.body.append(node); root = createRoot(node);
-  await act(() => root.render(<Harness />)); return { write, ref };
+  await act(() => root.render(<Harness />));
+  if (compact) expect(node.querySelector('.editor-page-title h1')?.textContent).toBe(kind === 'scripts' ? '脚本' : '正则');
+  return { write, ref };
 }
 
 it.each(['scripts'].flatMap(kind => ['character', 'preset'].map(scope => ({ kind, scope }))))('$kind $scope selects in the list, edits from the bottom and saves creation to the explicit owner', async ({ kind, scope }) => {

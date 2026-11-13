@@ -35,12 +35,12 @@ const runtime = { mountDocument(target, conversationId, messageId) {
 const connection = { getSnapshot: () => runtime, subscribe: () => () => {} };
 const view = { characterConfiguration: { scriptRuntimeConnection: connection } };
 const root = createRoot(document.querySelector('#root'));
-window.renderPresentation = ({ enabled = false, native = false, key = 'first' } = {}) => {
+window.renderPresentation = ({ enabled = false, native = false, key = 'first', source } = {}) => {
   nativeVariables = { counter: 7 };
   const narrative = Array.from({ length: 18 }, (_, index) => `Synthetic narrative paragraph ${index}.`).join('\n\n');
   const message = { id: 'synthetic-reply', conversationId: key, role: 'assistant', status: 'complete',
     content: narrative + '\n\n[TOP]\n\n[MIDDLE]\n\n[BOTTOM]' };
-  message.displayContent = narrative + ['TOP', 'MIDDLE', 'BOTTOM'].map(name => decorateRichDisplayReplacement(
+  message.displayContent = source ? decorateRichDisplayReplacement(source) : narrative + ['TOP', 'MIDDLE', 'BOTTOM'].map(name => decorateRichDisplayReplacement(
     `<!doctype html><html><head>${native ? '<meta name="eleckoi-author-api" content="0.1.0">' : ''}
     <style>html,body{margin:0;padding:0}.card{height:600px;background:#123456;color:#fff}</style></head>
     <body><section class="card">Synthetic ${name} card${!native && name === 'BOTTOM' ? '<output data-native-variable></output>' : ''}</section>

@@ -1,3 +1,4 @@
+import { characterAssetBaseUrl, resolveCharacterAssetReferences } from '@eleckoi/dsh-product-data/frontends'
 import type { Context, Plugin } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
@@ -25,6 +26,8 @@ export class ElecKoiAuthorFrontendsApi extends TypertRemoteService {
     }, 'native frontend changes')
   }
   private repository() { return this.owner.eleckoiProductData.frontendProjects() }
+  /** @internal Notify existing subscribers after a Host authoring operation. */
+  invalidate(owner: FrontendOwner): void { this.changed(this.repository().workspace(owner)) }
   private changed(workspace: FrontendWorkspace): FrontendWorkspace {
     for (const subscriber of this.subscribers) {
       if (subscriber.owner.scope !== workspace.scope || (subscriber.owner.scope === 'character' && subscriber.owner.characterId !== workspace.characterId)) continue
@@ -50,7 +53,7 @@ export class ElecKoiAuthorFrontendsApi extends TypertRemoteService {
    * @returns 导入后的工作区。
    */
   @Remote
-  importProject(owner: FrontendOwner, input: FrontendImport): FrontendWorkspace { return this.changed(this.repository().importProject(owner, input)) }
+  importProject(owner: FrontendOwner, input: FrontendImport): FrontendWorkspace { const workspace = this.repository().importProject(owner, input); if (owner.scope === 'character') this.owner.get('eleckoiCharacterAssetsApi', false)?.invalidate(owner.characterId); return this.changed(workspace) }
 
   /**
    * 选择同一所属对象的项目，null 撤回自定义页面。
@@ -163,7 +166,7 @@ export class ElecKoiAuthorFrontendsApi extends TypertRemoteService {
   }
 }
 
-function singleByteRange(value: string | undefined, length: number): { start: number; end: number } | 'unsatisfiable' | undefined {
+export function singleByteRange(value: string | undefined, length: number): { start: number; end: number } | 'unsatisfiable' | undefined {
   if (!value || !length) return undefined
   const match = /^bytes=(\d*)-(\d*)$/i.exec(value.trim())
   // Unsupported units, multiple ranges and invalid syntax use the full representation.
@@ -192,6 +195,8 @@ export const eleckoiFrontendAssetsPlugin = {
       const id = parts.shift() ?? '', path = parts.join('/'), frontends = ctx.eleckoiProductData.frontendProjects()
       try {
         const asset = frontends.readAsset(id, path)
+        const characterId = frontends.resourceCharacterId(id)
+        if (characterId && /^(?:text\/|application\/(?:javascript|json))/.test(asset.mimeType)) asset.body = Buffer.from(resolveCharacterAssetReferences(asset.body.toString('utf8'), characterAssetBaseUrl(characterId)), 'utf8')
         const range = request.method === 'GET' && !request.headers['if-range'] ? singleByteRange(request.headers.range, asset.body.length) : undefined
         if (range === 'unsatisfiable') { response.writeHead(416, { 'Content-Range': `bytes */${asset.body.length}` }); response.end(); return }
         const body = range ? asset.body.subarray(range.start, range.end + 1) : asset.body

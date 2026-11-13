@@ -8,6 +8,7 @@
 - `ctx.remote.eleckoiAuthorFrontends`：`changes`、`delete`、`exportProject`、`importProject`、`readFile`、`replaceFiles`、`restoreDefault`、`select`、`setMessageRenderer`、`updateProject`、`workspace`、`writeFile`
 - `ctx.remote.eleckoiAuthorScripts`：`connect`、`getSettings`、`read`、`setSettings`
 - `ctx.remote.eleckoiAuthorVariables`：`applyPatch`、`getConfig`、`getState`、`merge`、`reset`、`setState`
+- `ctx.remote.eleckoiCharacterAssets`：`appendUpload`、`beginUpload`、`cancelUpload`、`canReveal`、`changes`、`createFolder`、`delete`、`duplicate`、`finishUpload`、`list`、`move`、`rename`、`renameFolder`、`reveal`
 - `ctx.remote.eleckoiCharacterConfiguration`：`changes`、`exportRegexEditor`、`exportRegexRules`、`importRegexEditor`、`importRegexRules`、`importSettingLibrary`、`readCharacterOpenings`、`readConversationSettingLibraries`、`readEditorLibraryVersions`、`readGlobalSettingLibraries`、`readRegexEditor`、`readRegexRules`、`readScriptLibrary`、`readScriptWorkspace`、`readSettingLibrary`、`readVariableConfig`、`replaceSettingLibraryContent`、`resetConversationSettingLibrary`、`saveCharacterOpenings`、`saveConversationSettingLibrary`、`saveConversationSettingLibraryVersion`、`saveEditorLibraries`、`saveGlobalSettingLibraries`、`saveRegexEditor`、`saveRegexRules`、`saveScriptLibraries`、`saveScriptLibrary`、`saveSettingLibrary`、`saveSettingLibraryViewState`、`saveVariableConfig`、`saveVariableConfigViewState`、`testRegexRule`、`updateSettingLibraryEntries`
 - `ctx.remote.eleckoiCharacters`：`changes`、`commitImport`、`create`、`delete`、`discardImport`、`duplicate`、`export`、`list`、`prepareImport`、`saveGroups`、`select`、`update`
 - `ctx.remote.eleckoiConversationModels`：`current`、`parameters`、`saveParameters`、`select`
@@ -29,7 +30,7 @@ import type {
   TypertRemoteMethod,
 } from '@deepseek-ai/dsh-typert-protocol'
 import type { FrontendExport, FrontendFile, FrontendFileInput, FrontendFileQuery, FrontendImport, FrontendJson, FrontendOwner, FrontendReplaceFiles, FrontendWorkspace, NativeFrontendChange } from '@eleckoi/dsh-product-api/frontends'
-import type { AgentPreset, AgentPresetCatalog, AgentPresetExportFormat, AgentPresetExportResult, AgentPresetImportDocument, AgentPresetImportResult, AgentPresetImportSource, AgentPresetPurpose, AuthorConversationState, CharacterCollection, CharacterConfigurationChange, CharacterExportFormat, CharacterExportResult, CharacterGroupAssignment, CharacterImportFile, CharacterImportPreview, CharacterImportResult, CharacterImportSource, CharacterOpeningMessage, CharacterOpenings, CharacterRecord, ConversationChange, ConversationCreateInput, ConversationDetailsMetadata, ConversationMessageDisplayInput, ConversationMessageDisplayResult, ConversationModelSelection, ConversationRequestPreview, ConversationRequestPreviewSummary, ConversationSummary, ConversationVariableConfiguration, CreateCreatorProjectInput, CreatorProjectCollection, CreatorStudioMessage, CreatorStudioSession, CreatorStudioSessionSummary, DisplayPreferencesSnapshot, DisplayPreferenceValue, EditorLibraryAddress, EditorLibrarySaveRequest, EditorLibrarySaveResult, EditorLibraryVersions, ElecKoiHostStatus, GlobalSettingLibraryCollection, ModelDiscoveryInput, ModelDiscoveryResult, NativeAuthorRuleReply, NativeAuthorRuleTask, NativeAuthorScriptCatalog, NativeAuthorScriptIdentity, NativeAuthorScriptSettings, PersonaProfile, ProductRecordChange, RegexEditorTarget, RegexRule, RegexRuleCollection, RegexRuleEditorCollection, RegexRuleEditorImportResult, RegexRuleImportDocument, RegexRuleImportResult, RegexRuleScope, RegexRuleTarget, RegexRuleTestResult, ScriptLibrary, ScriptLibraryScope, ScriptWorkspace, SessionModelParameterPatch, SessionModelParameterState, SettingLibrary, SettingLibraryContent, SettingLibraryConversation, SettingLibraryEntry, SettingLibraryEntryUpdate, TavilyConnection, VariableConfig, VariableViewerTimeline, WebFetchMode, WebSearchMode } from '@eleckoi/dsh-product-api/types'
+import type { AgentPreset, AgentPresetCatalog, AgentPresetExportFormat, AgentPresetExportResult, AgentPresetImportDocument, AgentPresetImportResult, AgentPresetImportSource, AgentPresetPurpose, AuthorConversationState, CharacterAssetCatalog, CharacterAssetUpload, CharacterAssetUploadTicket, CharacterCollection, CharacterConfigurationChange, CharacterExportFormat, CharacterExportResult, CharacterGroupAssignment, CharacterImportFile, CharacterImportPreview, CharacterImportResult, CharacterImportSource, CharacterOpeningMessage, CharacterOpenings, CharacterRecord, ConversationChange, ConversationCreateInput, ConversationDetailsMetadata, ConversationMessageDisplayInput, ConversationMessageDisplayResult, ConversationModelSelection, ConversationRequestPreview, ConversationRequestPreviewSummary, ConversationSummary, ConversationVariableConfiguration, CreateCreatorProjectInput, CreatorProjectCollection, CreatorStudioMessage, CreatorStudioSession, CreatorStudioSessionSummary, DisplayPreferencesSnapshot, DisplayPreferenceValue, EditorLibraryAddress, EditorLibrarySaveRequest, EditorLibrarySaveResult, EditorLibraryVersions, ElecKoiHostStatus, GlobalSettingLibraryCollection, ModelDiscoveryInput, ModelDiscoveryResult, NativeAuthorRuleReply, NativeAuthorRuleTask, NativeAuthorScriptCatalog, NativeAuthorScriptIdentity, NativeAuthorScriptSettings, PersonaProfile, ProductRecordChange, RegexEditorTarget, RegexRule, RegexRuleCollection, RegexRuleEditorCollection, RegexRuleEditorImportResult, RegexRuleImportDocument, RegexRuleImportResult, RegexRuleScope, RegexRuleTarget, RegexRuleTestResult, ScriptLibrary, ScriptLibraryScope, ScriptWorkspace, SessionModelParameterPatch, SessionModelParameterState, SettingLibrary, SettingLibraryContent, SettingLibraryConversation, SettingLibraryEntry, SettingLibraryEntryUpdate, TavilyConnection, VariableConfig, VariableViewerTimeline, WebFetchMode, WebSearchMode } from '@eleckoi/dsh-product-api/types'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$656c65636b6f694167656e7450726573657473 {
@@ -74,6 +75,22 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     merge: (conversationId: string, stateJson: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
     reset: (conversationId: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
     setState: (conversationId: string, stateJson: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
+  }
+  interface TypertRemoteNamespace$656c65636b6f69436861726163746572417373657473 {
+    appendUpload: (characterId: string, uploadId: string, offset: number, data: string) => Promise<RemoteResult<CharacterAssetUploadTicket>>
+    beginUpload: (characterId: string, input: CharacterAssetUpload) => Promise<RemoteResult<CharacterAssetUploadTicket>>
+    cancelUpload: (characterId: string, uploadId: string) => Promise<RemoteResult<void>>
+    canReveal: () => Promise<RemoteResult<boolean>>
+    changes: (characterId: string, signal?: AbortSignal) => RemoteStreamHandle<{ revision: number; }, never>
+    createFolder: (characterId: string, name: string, parentId: string | null) => Promise<RemoteResult<CharacterAssetCatalog>>
+    delete: (characterId: string, assetIds: string[], folderIds?: string[]) => Promise<RemoteResult<CharacterAssetCatalog>>
+    duplicate: (characterId: string, assetIds: string[]) => Promise<RemoteResult<CharacterAssetCatalog>>
+    finishUpload: (characterId: string, uploadId: string) => Promise<RemoteResult<CharacterAssetCatalog>>
+    list: (characterId: string) => Promise<RemoteResult<CharacterAssetCatalog>>
+    move: (characterId: string, assetIds: string[], folderIds: string[], destination: string | null) => Promise<RemoteResult<CharacterAssetCatalog>>
+    rename: (characterId: string, assetId: string, name: string) => Promise<RemoteResult<CharacterAssetCatalog>>
+    renameFolder: (characterId: string, folderId: string, name: string) => Promise<RemoteResult<CharacterAssetCatalog>>
+    reveal: (characterId: string, assetId: string, signal?: AbortSignal) => Promise<RemoteResult<void>>
   }
   interface TypertRemoteNamespace$656c65636b6f69436861726163746572436f6e66696775726174696f6e {
     changes: (signal?: AbortSignal) => RemoteStreamHandle<CharacterConfigurationChange, never>
@@ -238,6 +255,20 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'eleckoiAuthorVariables/merge': (conversationId: string, stateJson: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
     'eleckoiAuthorVariables/reset': (conversationId: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
     'eleckoiAuthorVariables/setState': (conversationId: string, stateJson: string, signal?: AbortSignal) => Promise<RemoteResult<string>>
+    'eleckoiCharacterAssets/appendUpload': (characterId: string, uploadId: string, offset: number, data: string) => Promise<RemoteResult<CharacterAssetUploadTicket>>
+    'eleckoiCharacterAssets/beginUpload': (characterId: string, input: CharacterAssetUpload) => Promise<RemoteResult<CharacterAssetUploadTicket>>
+    'eleckoiCharacterAssets/cancelUpload': (characterId: string, uploadId: string) => Promise<RemoteResult<void>>
+    'eleckoiCharacterAssets/canReveal': () => Promise<RemoteResult<boolean>>
+    'eleckoiCharacterAssets/changes': (characterId: string, signal?: AbortSignal) => RemoteStreamHandle<{ revision: number; }, never>
+    'eleckoiCharacterAssets/createFolder': (characterId: string, name: string, parentId: string | null) => Promise<RemoteResult<CharacterAssetCatalog>>
+    'eleckoiCharacterAssets/delete': (characterId: string, assetIds: string[], folderIds?: string[]) => Promise<RemoteResult<CharacterAssetCatalog>>
+    'eleckoiCharacterAssets/duplicate': (characterId: string, assetIds: string[]) => Promise<RemoteResult<CharacterAssetCatalog>>
+    'eleckoiCharacterAssets/finishUpload': (characterId: string, uploadId: string) => Promise<RemoteResult<CharacterAssetCatalog>>
+    'eleckoiCharacterAssets/list': (characterId: string) => Promise<RemoteResult<CharacterAssetCatalog>>
+    'eleckoiCharacterAssets/move': (characterId: string, assetIds: string[], folderIds: string[], destination: string | null) => Promise<RemoteResult<CharacterAssetCatalog>>
+    'eleckoiCharacterAssets/rename': (characterId: string, assetId: string, name: string) => Promise<RemoteResult<CharacterAssetCatalog>>
+    'eleckoiCharacterAssets/renameFolder': (characterId: string, folderId: string, name: string) => Promise<RemoteResult<CharacterAssetCatalog>>
+    'eleckoiCharacterAssets/reveal': (characterId: string, assetId: string, signal?: AbortSignal) => Promise<RemoteResult<void>>
     'eleckoiCharacterConfiguration/changes': (signal?: AbortSignal) => RemoteStreamHandle<CharacterConfigurationChange, never>
     'eleckoiCharacterConfiguration/exportRegexEditor': (target: RegexEditorTarget, ruleIds: string[]) => Promise<RemoteResult<{ fileName: string; json: string; }>>
     'eleckoiCharacterConfiguration/exportRegexRules': (characterId: string, ruleIds: string[]) => Promise<RemoteResult<{ fileName: string; json: string; }>>
@@ -349,6 +380,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'eleckoiAuthorFrontends': TypertRemoteNamespace$656c65636b6f69417574686f7246726f6e74656e6473
     'eleckoiAuthorScripts': TypertRemoteNamespace$656c65636b6f69417574686f7253637269707473
     'eleckoiAuthorVariables': TypertRemoteNamespace$656c65636b6f69417574686f725661726961626c6573
+    'eleckoiCharacterAssets': TypertRemoteNamespace$656c65636b6f69436861726163746572417373657473
     'eleckoiCharacterConfiguration': TypertRemoteNamespace$656c65636b6f69436861726163746572436f6e66696775726174696f6e
     'eleckoiCharacters': TypertRemoteNamespace$656c65636b6f6943686172616374657273
     'eleckoiConversationModels': TypertRemoteNamespace$656c65636b6f69436f6e766572736174696f6e4d6f64656c73
@@ -399,6 +431,20 @@ export declare const TYPERT_REMOTE: TypertRemoteInfo<{
   readonly 'eleckoiAuthorVariables/merge': TypertRemoteMethod<{ readonly 'conversationId': string; readonly 'stateJson': string }, string>
   readonly 'eleckoiAuthorVariables/reset': TypertRemoteMethod<{ readonly 'conversationId': string }, string>
   readonly 'eleckoiAuthorVariables/setState': TypertRemoteMethod<{ readonly 'conversationId': string; readonly 'stateJson': string }, string>
+  readonly 'eleckoiCharacterAssets/appendUpload': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'uploadId': string; readonly 'offset': number; readonly 'data': string }, CharacterAssetUploadTicket>
+  readonly 'eleckoiCharacterAssets/beginUpload': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'input': CharacterAssetUpload }, CharacterAssetUploadTicket>
+  readonly 'eleckoiCharacterAssets/cancelUpload': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'uploadId': string }, void>
+  readonly 'eleckoiCharacterAssets/canReveal': TypertRemoteMethod<{  }, boolean>
+  readonly 'eleckoiCharacterAssets/changes': TypertRemoteMethod<{ readonly 'characterId': string }, { revision: number; }, 'stream'>
+  readonly 'eleckoiCharacterAssets/createFolder': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'name': string; readonly 'parentId': string | null }, CharacterAssetCatalog>
+  readonly 'eleckoiCharacterAssets/delete': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'assetIds': string[]; readonly 'folderIds'?: string[] }, CharacterAssetCatalog>
+  readonly 'eleckoiCharacterAssets/duplicate': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'assetIds': string[] }, CharacterAssetCatalog>
+  readonly 'eleckoiCharacterAssets/finishUpload': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'uploadId': string }, CharacterAssetCatalog>
+  readonly 'eleckoiCharacterAssets/list': TypertRemoteMethod<{ readonly 'characterId': string }, CharacterAssetCatalog>
+  readonly 'eleckoiCharacterAssets/move': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'assetIds': string[]; readonly 'folderIds': string[]; readonly 'destination': string | null }, CharacterAssetCatalog>
+  readonly 'eleckoiCharacterAssets/rename': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'assetId': string; readonly 'name': string }, CharacterAssetCatalog>
+  readonly 'eleckoiCharacterAssets/renameFolder': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'folderId': string; readonly 'name': string }, CharacterAssetCatalog>
+  readonly 'eleckoiCharacterAssets/reveal': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'assetId': string }, void>
   readonly 'eleckoiCharacterConfiguration/changes': TypertRemoteMethod<{  }, CharacterConfigurationChange, 'stream'>
   readonly 'eleckoiCharacterConfiguration/exportRegexEditor': TypertRemoteMethod<{ readonly 'target': RegexEditorTarget; readonly 'ruleIds': string[] }, { fileName: string; json: string; }>
   readonly 'eleckoiCharacterConfiguration/exportRegexRules': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'ruleIds': string[] }, { fileName: string; json: string; }>

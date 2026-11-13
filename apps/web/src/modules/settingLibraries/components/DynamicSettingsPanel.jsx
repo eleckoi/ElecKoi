@@ -1,6 +1,7 @@
 import { productLocaleTag } from '../../../app/i18n/productCopy.js';
 import { sourceText } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
+import { EditorDirectoryHeading } from '../../../ui/ui/EditorDirectoryHeading.jsx';
 import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import {
@@ -504,13 +505,14 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
 
   if (!selectedItem || !library) {
     return (
-      <section className="dynamic-settings-list-page" aria-label={tUi("分支设定")}>
+      <section className={`dynamic-settings-list-page editor-heading-surface${compact ? ' is-compact' : ''}`} aria-label={tUi("分支设定")} aria-busy={loading}>
+        <EditorDirectoryHeading title={tUi('分支设定')} />
         <header className={`dynamic-settings-list-toolbar${compact ? ' editor-collection-toolbar' : ''}`}>
           <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
             value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tUi("搜索对话")} aria-label={tUi("搜索分支设定对话")} />
         </header>
         <div className="dynamic-settings-conversation-list">
-          {loading ? <p className="dynamic-settings-status" role="status">{tUi("正在读取分支设定…")}</p> : <FailureAlert failure={error} className="dynamic-settings-status is-error" />}
+          {!loading && <FailureAlert failure={error} className="dynamic-settings-status is-error" />}
           {loading ? null : !filteredItems.length ? (
             !error && <p className="dynamic-settings-status">{normalizedQuery ? tUi("没有找到相关对话") : tUi("还没有分支设定")}</p>
           ) : (

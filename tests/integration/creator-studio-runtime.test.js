@@ -33,7 +33,7 @@ import { readDshSessionLog, rewindDshSession } from '@eleckoi/dsh-runtime'
 import { captureSerializedRequest } from '../helpers/captureModelRequest.js'
 import { officialChatFixture } from '../helpers/officialTrajectory.js'
 import { emptyEntry } from '../../packages/host/product-data/src/domain/settingLibraries/index'
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -127,6 +127,56 @@ async function* text(text) {
 }
 
 describe('AI creator studio official Agent integration', { timeout: 30_000 }, () => {
+  it('imports real workspace media in byte windows and imports an independent HTML draft without exposing source paths as references', async () => {
+    const f = await fixture(async function* () { yield* text('Synthetic completion') }, true, { spill: true })
+    const data = f.ctx.eleckoiProductData, path = join(f.root, 'Synthetic media.mp4'), bytes = Buffer.alloc(2 * 1024 * 1024 + 17, 123)
+    writeFileSync(path, bytes)
+    const reads = vi.spyOn(f.ctx.fs, 'readByteRange')
+    const value = async (capability_id, args) => {
+      const result = await executeToolCall(f.handle.agent.ctx.tools, { callId: `synthetic-file-${capability_id}`, name: 'eleckoi_call_capability', arguments: { capability_id, arguments: args },
+        agent: f.handle.agent, signal: new AbortController().signal })
+      expect(result.isError, JSON.stringify(result)).not.toBe(true)
+      return JSON.parse(result.content[0].text).value
+    }
+    const imported = await value('assets.import_file', { file_path: path, expectedRevision: 0, folderId: null })
+    expect(reads.mock.calls.map(call => call[1].length)).toEqual([1024 * 1024, 1024 * 1024, 17])
+    expect(imported.items[0].reference).toBe(`asset://${imported.importedIds[0]}`)
+    expect(imported.items[0].size).toBe(bytes.length)
+    expect(JSON.stringify(imported)).not.toContain(path)
+    const source = join(f.root, 'Synthetic page.html')
+    writeFileSync(source, '<html><head><meta name="eleckoi-author-api" content="0.1.0"></head><body>Synthetic independent page</body></html>')
+    const project = await value('frontends.import_file', { file_path: source, expectedRevision: 0 })
+    expect(project.selectedProjectId).toBe(null)
+    expect(project.projects[0].scope).toBe('character')
+    expect((await value('frontends.read_file', { projectId: project.importedProjectIds[0] })).content).toContain('Synthetic independent page')
+    expect(data.characterAssets().list(f.character.id).items).toHaveLength(1)
+    reads.mockRestore()
+  })
+
+  it.each(['source', 'role', 'catalog'])('cancels workspace asset publication when the %s changes during import', async changed => {
+    const f = await fixture(async function* () { yield* text('Synthetic completion') }, true, { spill: true })
+    const data = f.ctx.eleckoiProductData, path = join(f.root, 'Synthetic changing.mp4')
+    writeFileSync(path, Buffer.alloc(1024 * 1024 + 7, 9))
+    data.createCharacter({ id: 'synthetic-file-peer', name: 'Synthetic file peer' })
+    const fs = f.ctx.fs, read = fs.readByteRange.bind(fs); let changedOnce = false
+    const spy = vi.spyOn(fs, 'readByteRange').mockImplementation(async (...args) => {
+      const result = await read(...args)
+      if (!changedOnce) {
+        changedOnce = true
+        if (changed === 'source') writeFileSync(path, 'Synthetic changed source')
+        if (changed === 'role') f.handle.agent.session.append(CREATOR_STUDIO_EVENT, { presetId: 'agent-preset-creator', characterId: 'synthetic-file-peer' }, { ignorable: true })
+        if (changed === 'catalog') data.characterAssets().createFolder(f.character.id, 'Synthetic concurrent folder', null)
+      }
+      return result
+    })
+    const result = await executeToolCall(f.handle.agent.ctx.tools, { callId: `synthetic-file-change-${changed}`, name: 'eleckoi_call_capability',
+      arguments: { capability_id: 'assets.import_file', arguments: { file_path: path, expectedRevision: 0 } }, agent: f.handle.agent, signal: new AbortController().signal })
+    expect(result.isError).toBe(true)
+    expect(data.characterAssets().list(f.character.id).items).toEqual([])
+    expect(data.characterAssets().list('synthetic-file-peer').items).toEqual([])
+    expect(readdirSync(join(data.characterAssets().root, 'uploads'))).toEqual([])
+    spy.mockRestore()
+  })
   it('discovers a partial setting edit and replaces one chapter through the native model loop without resending the full body', async () => {
     const prefix = 'Synthetic act one stays intact.\r\n'.repeat(1000), suffix = '\r\nSynthetic act five stays intact.'.repeat(1000)
     const old_string = '第四幕：旧情节𠮷', new_string = '第四幕：新情节 $& $1 $$ 𠮷'
@@ -515,7 +565,7 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     expect(f.ctx.eleckoiProductData.readVariableConfig(f.character.id).objects.some(item => item.id === group.id)).toBe(false)
   })
 
-  it('allows explicit global and preset configuration without a selected character while enforcing character ownership', async () => {
+  it('allows global configuration without a selected character and refuses preset or unrelated character writes', async () => {
     const f = await fixture(async function* () { yield* text('Synthetic completion') })
     const data = f.ctx.eleckoiProductData, presetId = data.readAgentPresetCatalog().activePresetIds.roleplay
     f.handle.agent.session.append(CREATOR_STUDIO_EVENT, { presetId: 'agent-preset-creator', characterId: '' }, { ignorable: true })
@@ -526,22 +576,28 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
       expect(result.isError, JSON.stringify(result)).not.toBe(true)
       return JSON.parse(result.content.find(item => item.type === 'text').text).value
     }
-    for (const target of [{ scope: 'global' }, { scope: 'preset', presetId }]) {
-      for (const kind of ['scripts', 'regex']) {
-        const state = await value('editorVersions.read', { kind, target })
-        expect(state.scope).toBe(target.scope)
-        const document = kind === 'regex' ? data.readRegexEditor({ scope: 'preset', ownerId: presetId })
-          : data.readScriptLibrary(target.scope, target.scope === 'global' ? '' : presetId)
-        await value('editorVersions.save', { kind, documents: [JSON.stringify(document)], versions: [state] })
+    for (const kind of ['scripts', 'regex']) {
+      const state = await value('editorVersions.read', { kind, target: { scope: 'global' } })
+      expect(state.library.scope).toBe('global')
+      if (kind === 'scripts') await value('editorVersions.save', { kind, documents: [state.document], versions: [state.library] })
+      else {
+        const current = await value('regex.list', { target: { scope: 'global' } })
+        await value('regex.configure', { target: { scope: 'global' }, expectedRevision: current.revision, enabled: false })
       }
+      const document = kind === 'regex' ? data.readRegexEditor({ scope: 'preset', ownerId: presetId }) : data.readScriptLibrary('preset', presetId)
+      for (const args of [
+        { capability_id: 'editorVersions.read', arguments: { kind, target: { scope: 'preset', presetId } } },
+        { capability_id: 'editorVersions.save', arguments: { kind, documents: [document], versions: [] } },
+        { capability_id: `${kind}.list`, arguments: { target: { scope: 'preset', presetId } } },
+      ]) expect((await execute(args)).isError).toBe(true)
     }
-    const scripts = await value('presetScripts.read', { presetId })
-    await value('presetScripts.save', { presetId, expectedRevision: scripts.revision, enabled: scripts.enabled, variables: { synthetic: 1 }, trees: scripts.trees })
-    expect(data.readScriptLibrary('preset', presetId).variables).toEqual({ synthetic: 1 })
+    const unknown = await execute({ capability_id: 'presetScripts.save', arguments: { presetId } })
+    expect(unknown.isError).toBe(true)
+    expect(JSON.stringify(unknown)).toContain('未知创作操作')
     expect(records).not.toHaveBeenCalled()
     for (const args of [
       { capability_id: 'editorVersions.read', arguments: { kind: 'regex', target: { scope: 'character' } } },
-      { capability_id: 'editorVersions.save', arguments: { kind: 'scripts', documents: [JSON.stringify(data.readScriptLibrary('character', f.character.id))], versions: [] } },
+      { capability_id: 'editorVersions.save', arguments: { kind: 'scripts', documents: [data.readScriptLibrary('character', f.character.id)], versions: [] } },
     ]) {
       const result = await execute(args)
       expect(result.isError).toBe(true)
@@ -549,10 +605,46 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     }
     f.handle.agent.session.append(CREATOR_STUDIO_EVENT, { presetId: 'agent-preset-creator', characterId: f.character.id }, { ignorable: true })
     data.createCharacter({ id: 'synthetic-unrelated-owner', name: 'Synthetic unrelated owner' })
-    const denied = await execute({ capability_id: 'editorVersions.save', arguments: { kind: 'scripts', documents: [JSON.stringify(data.readScriptLibrary('character', 'synthetic-unrelated-owner'))], versions: [] } })
+    const denied = await execute({ capability_id: 'editorVersions.save', arguments: { kind: 'scripts', documents: [data.readScriptLibrary('character', 'synthetic-unrelated-owner')], versions: [] } })
     expect(denied.isError).toBe(true)
     expect(JSON.stringify(denied)).toContain('不属于当前编辑角色')
     records.mockRestore()
+  })
+
+  it('rejects writes from a model request whose selected role changed before the tools execute', async () => {
+    let f, target, snapshots
+    f = await fixture(async function* (_options, request) {
+      if (request !== 1) { yield* text('Synthetic stopped after selection change'); return }
+      const data = f.ctx.eleckoiProductData
+      f.handle.agent.session.append(CREATOR_STUDIO_EVENT, { presetId: 'agent-preset-creator', characterId: target.id }, { ignorable: true })
+      const calls = [
+        { capability_id: 'settings.update', arguments: { id: 'synthetic-same-entry', changes: { content: 'Unexpected role overwrite' } } },
+        { capability_id: 'scripts.configure', arguments: { expectedRevision: data.readScriptLibrary('character', target.id).revision, changes: { enabled: true } } },
+        { capability_id: 'regex.configure', arguments: { expectedRevision: data.readRegexLibrary('character', target.id).revision, enabled: false } },
+      ]
+      for (let index = 0; index < calls.length; index++) {
+        yield { type: 'block-start', index, blockType: 'tool-call' }
+        yield { type: 'block-end', index, block: { type: 'tool-call', id: `synthetic-switched-${index}`, name: 'eleckoi_call_capability', arguments: JSON.stringify(calls[index]) } }
+      }
+      yield { type: 'finish', reason: { kind: 'tool-calls' } }
+    })
+    const data = f.ctx.eleckoiProductData
+    target = data.createCharacter({ id: 'synthetic-switched-role', name: 'Synthetic switched role' }).items.find(item => item.id === 'synthetic-switched-role')
+    snapshots = [f.character.id, target.id].map(characterId => ({
+      settings: data.saveSettingLibrary(characterId, { ...data.readSettingLibrary(characterId), entries: [{ ...emptyEntry('synthetic-same-entry'), title: 'Synthetic same identity', content: `Synthetic original ${characterId}` }] }),
+      scripts: data.readScriptLibrary('character', characterId), regex: data.readRegexLibrary('character', characterId),
+    }))
+    f.handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Synthetic pending role changes' }], source: { kind: 'user' } }))
+    await f.handle.agent.whenIdle()
+    const results = f.handle.agent.session.snapshotEvents().filter(event => event.type === 'tool/result')
+    expect(results).toHaveLength(3)
+    for (const result of results) { expect(result.data.message.isError).toBe(true); expect(JSON.stringify(result.data)).toContain('编辑角色已切换') }
+    for (const [index, characterId] of [f.character.id, target.id].entries()) {
+      expect(data.readSettingLibrary(characterId)).toEqual(snapshots[index].settings)
+      expect(data.readScriptLibrary('character', characterId)).toEqual(snapshots[index].scripts)
+      expect(data.readRegexLibrary('character', characterId)).toEqual(snapshots[index].regex)
+    }
+    expect(JSON.stringify(f.requests.at(-1).messages)).toContain(target.id)
   })
 
   it('does not offer creation when the creator tool group is disabled', async () => {
@@ -838,9 +930,9 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     const execute = args => executeToolCall(f.handle.agent.ctx.tools, { callId: 'synthetic-direct', name: 'eleckoi_call_capability', arguments: args, agent: f.handle.agent, signal: new AbortController().signal })
     const describe = await executeToolCall(f.handle.agent.ctx.tools, { callId: 'synthetic-guide', name: 'eleckoi_describe_toolset', arguments: { toolset_id: 'scripts', operation_ids: ['scripts.create'], include_schema: true }, agent: f.handle.agent, signal: new AbortController().signal })
     expect(describe.isError, JSON.stringify(describe)).not.toBe(true)
-    expect(JSON.stringify(describe)).toContain('api.ui.registerButton')
+    expect(JSON.stringify(describe)).toContain('eleckoi-character-authoring')
     expect(JSON.stringify(describe)).toContain('expectedRevision')
-    expect(JSON.stringify(describe)).toContain('eleckoi-module')
+    expect(JSON.stringify(describe)).not.toContain('api.ui.registerButton')
     f.handle.agent.session.append(CREATOR_STUDIO_EVENT, { presetId: 'agent-preset-creator', characterId: '' }, { ignorable: true })
     const initial = f.ctx.eleckoiProductData.readSettingLibrary(f.character.id)
     const before = f.ctx.eleckoiProductData.saveSettingLibrary(f.character.id, initial)

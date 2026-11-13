@@ -2,6 +2,9 @@
 
 本目录区分当前开发规范、插件教程、架构决策和历史资料。实现以仓库锁定版本的 DSH 官方源码为基准，ADR 说明决策原因，不替代当前接口合同。
 
+- [创作工具与知识分层](CREATOR_AUTHORING_DESIGN.md)：按需技能、实时参数与文档分发。
+- [角色资产创作](plugins/character-assets.md)与[角色界面创作](plugins/character-frontends.md)：资产操作、常规楼层的正则 HTML 与脚本协作，以及专用独立项目。
+
 ## 当前架构
 
 - [联网搜索与网页抓取](WEB_SEARCH.md)：配置 DeepSeek Search、Fetch、独立密钥及原有提供商。
@@ -37,6 +40,7 @@
 
 - [原生作者 SDK](plugins/author-sdk.html)：开发教程与可搜索接口参考；[仓库教程](plugins/author-sdk.md)和[可运行示例](../packages/examples/native-author/README.md)使用同一合同。
 - [格式导入边界](plugins/sdk-compatibility.md)：外部资料转换为原生数据，不提供外部脚本运行环境。
+- [角色资产库](ASSET_LIBRARY.md)：本地存储、固定引用、前端职责与自动打包。
 - [角色卡传输格式](CHARACTER_CARD_TRANSFER.md)与[预设传输格式](AGENT_PRESET_TRANSFER.md)。
 
 ## 决策与历史

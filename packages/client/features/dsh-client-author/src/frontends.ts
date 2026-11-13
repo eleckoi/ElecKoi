@@ -2,6 +2,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@eleckoi/dsh-product-api/remote'
 import type { FrontendOwner, FrontendWorkspace } from '@eleckoi/dsh-product-api/frontends'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
+import type { CharacterAssetCatalog } from '@eleckoi/dsh-product-api/types'
 
 type Remote = Context['remote']['eleckoiAuthorFrontends']
 type Watch = { start(): void; close(): void }
@@ -10,7 +11,7 @@ type Watch = { start(): void; close(): void }
 export class NativeFrontendClient {
   private readonly watchers = new Set<Watch>()
   private closed = false
-  constructor(readonly projects: Remote) {}
+  constructor(readonly projects: Remote, readonly assets?: Context['remote']['eleckoiCharacterAssets']) {}
 
   /** 订阅明确工作区的最新状态，串行重读并释放旧连接。
    * @param owner - 应用或明确角色的工作区。
@@ -65,6 +66,44 @@ export class NativeFrontendClient {
     return watch.close
   }
 
+  /** 订阅角色资产元数据，重连重新读取；不缓存文件正文。
+   * @param characterId - 明确所属角色。
+   * @param listener - 最新目录。
+   * @param onError - 非取消错误。
+   * @returns 释放订阅。
+   */
+  watchAssets(characterId: string, listener: (catalog: CharacterAssetCatalog) => void, onError: (error: unknown) => void): () => void {
+    if (!this.assets || this.closed) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, '资产服务尚未就绪。', { what: '资产服务' })
+    const remote = this.assets
+    let abort: AbortController | undefined, stopped = false
+    const watcher: Watch = {
+      start: () => {
+        abort?.abort(); const controller = new AbortController(); abort = controller
+        const current = () => !stopped && !this.closed && abort === controller && !controller.signal.aborted
+        const stream = remote.changes(characterId, controller.signal)
+        void (async () => {
+          try {
+            let accepted = -1
+            for await (const change of stream) {
+              if (!current()) return
+              if (change.revision <= accepted) continue
+              try {
+                const result = await remote.list(characterId)
+                if (!current()) return
+                if (!result.ok) throw result.error
+                if (result.value.characterId !== characterId) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, '资产归属不一致。', { what: '资产目录' })
+                accepted = result.value.revision; listener(result.value)
+              } catch (error) { if (current()) onError(error) }
+            }
+            if (current()) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleDisposed, '资产订阅已结束。', { what: '资产目录' })
+          } catch (error) { if (current()) onError(error) }
+          finally { await stream.dispose() }
+        })().catch(error => { if (current()) onError(error) })
+      },
+      close: () => { stopped = true; abort?.abort(); this.watchers.delete(watcher) },
+    }
+    this.watchers.add(watcher); try { watcher.start() } catch (error) { watcher.close(); throw error }; return watcher.close
+  }
   /** @internal */
   reset(): void { if (!this.closed) for (const watcher of this.watchers) watcher.start() }
   /** @internal */

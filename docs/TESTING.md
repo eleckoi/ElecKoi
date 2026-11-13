@@ -2,6 +2,10 @@
 
 测试按负责的代码归属，运行范围按本次改动选择。先证明请求中的行为正确，再完成相关检查；已有结果仍适用时复用，不因提交、推送或目录同步重复运行。
 
+富消息尺寸由 `rich-document-measurement.test.ts` 检查首帧同步发布、后续合帧和释放，`rich-message-viewport-browser.test.js` 使用正式消息组件与隔离 Electron 窗口检查普通 HTML／原生 SDK 两路的图片延迟加载、视口单位、宿主窗口缩放、动态行内及外链样式、内容增减和窄宽度。保留字符串及 URL 原值、页面身份和零重复布局警告；原 `rich-message-settling-browser.test.js` 继续覆盖首进与切换聊天后无需滚动的楼层就绪。只使用合成媒体与临时 profile，不操作真实角色或聊天，也不替代手机真机验收。
+
+资产库的混合文件夹由 `character-asset-folders.test.ts` 覆盖层级、跨角色拒绝、循环、稳定引用、递归删除恢复及目标文件夹已删除的导入；`character-assets.test.ts` 在 JSON／ZIP／PNG、角色复制与独立前端 ZIP 中保留层级和空文件夹。`character-asset-resources.test.ts` 通过实际 Cordis Gateway 调用新建、移动和改名后继续核对原 Range／引用资源。网页组件回归覆盖混合筛选、新建、移动、进入、当前目录导入、复制引用与原失败重试；正式组件合成浏览器的列表列轴、深浅层次与手机布局记录在 `build/asset-folders-check/`，不替代 Android 真机或真实数据验收。
+
 Windows 打包前的 `pnpm check:electron-dsh` 只检查实际 Electron Host、原生存储、Session 重开与回退运行。编辑器及脚本按钮交互独立使用 `pnpm check:electron-native-author`，不作为打包前置；测试与探针源码不进入安装包。打包仍保留 SQLite ABI、包内运行资源及安装启动检查。
 
 主窗口日志的退出边界由 `main-window-console.test.ts` 覆盖：窗口或网页对象销毁后的迟到回调不读取原生对象，任一关闭通知和显式释放均移除监听；正常动作、错误、主框架导航、取消关闭和作者卡子框架过滤保持。`main-window-console-native.test.ts` 使用隔离 profile 和隐藏 Electron 窗口，覆盖窗口关闭、强制销毁与网页关闭，在真实原生对象销毁前后检查日志释放及已捕获回调，不操作真实安装或数据，也不代替完整安装升级验收。
@@ -47,6 +51,12 @@ Windows 打包前的 `pnpm check:electron-dsh` 只检查实际 Electron Host、�
 | `pnpm test` | 上述全部 JS/TS 回归 | 完整运行包准备，切换并恢复 SQLite |
 
 轻量入口直接从源码解析共用 SDK、作者运行时和纯逻辑，不附带运行包构建或原生模块重建。基于构建产物、生成的 Remote 或原生数据库的检查仍使用相应准备入口；不要用轻量分组绕过真实调用链。
+
+创作能力的范围读写由 `creator-authoring-capabilities.test.ts` 和 `creator-global-authoring.test.ts` 覆盖：全局设定库按库与条目编号读取、修改与管理，停用项仍可读，EJS 不执行；全局／当前角色的脚本和正则读写保持归属，创作目录和参数仅提供角色卡／全局范围（含完整配置对象），缺少角色、错误范围、编号与过期修订明确失败。写入检查长正文片段替换、批量原子更新、文件夹增删改／移动、库设置、源码落盘与失败恢复、角色设定自定义位置与完整版本、跨角色修订和模型请求期间切换角色保护、当前命名版本同步和非当前版本保留。脚本只改源码时，未提交的按钮和导出选项不得被默认值重置，兼容脚本保留原格式；正则只改替换内容时，当前启用组合排除的其他规则不得被重新启用，明确启用该条规则时才同步其组合成员。
+
+`tool-result-recovery.test.js` 的全局创作场景从正式桌面 profile 启动，在未选角色时通过合成模型的真实工具循环发现并读写一千余条目录与首、中、末尾长正文、1501 个关键词、正则和脚本源码；检查千条批量修改、全部搜索命中、溢出续读、三种请求序列化、会话权限、正常摘要压缩及已保存创作预设与最终修改重开。全部使用隔离合成数据，不连接真实模型或用户数据。
+
+资产与独立前端的创作合同由 `creator-media-capabilities.test.ts` 覆盖：混合文件夹新建、改名、移动、递归删除、复制引用、完整字节窗口、项目文件原子更新、准确角色归属、修订冲突及带资产的 ZIP。`creator-studio-runtime.test.js` 使用正式 DSH 文件服务检查工作区导入，覆盖源文件、选中角色或目标目录变化时不发布，并释放原上传暂存。`tool-result-recovery.test.js` 的新增正式桌面 profile 场景使用真实 skill、read 和创作调用循环，先读取技能正文再读随包参考，处理 1001 条资产目录的完整溢出结果，再导入工作区文件和独立项目，检查既有资产与前端订阅能收到通知。追加引用链路检查由 Agent 创建使用导入引用的正则 HTML，再核对正则测试输出、独立项目 HTTP 页面实际解析地址及图片请求的 200／MIME／逐字节内容；已保存源码仍保留固定 asset://。技能正文按官方文本合同读取，不当成 JSON；目录首次进入请求时不自动塞入参考正文。
 
 Vitest 默认最多两个工作进程，并保留文件隔离。一次只运行一批重型检查，重型构建串行。中断包装器会终止它启动的测试进程树；如果 SQLite 已开始切换，仍须等待 Electron 恢复结束。恢复失败明确报错，不能当作测试通过。
 
@@ -109,3 +119,5 @@ Vitest 默认最多两个工作进程，并保留文件隔离。一次只运行�
 跨角色聊天归档在 creator-studio-uploaded-files 的同一官方 Host fixture 中启用正式角色桥接、生成源聊天并导出，再导入另一个合成角色，确认没有本机运行配置后直接重新生成、再次修改输入重生成和源历史保持；dsh-conversation-generation-save 核对首次无配置激活后请求投影实际生效且不重复装配。dsh-session-rewind 覆盖继承根会话编辑／删除／回退、回执归属及实际子任务拒绝，旧聊天集成继续验证原错误与失败回滚。chat-model-selection 模拟目录先换会话、React 仍在旧视图的订阅交接；chat-session-isolation、chat-regeneration-live 及 Client 目录回归覆盖失败／取消／后台生成和切换。均使用合成数据，不操作真实聊天或获取截图。
 
 预设列表的明确删除确认、取消零写入、失败重试和新建后立即选中见 preset-editor-workspace；Client 目录测试阻塞后续 catalog 响应，确认已持久化的新建结果先发布且操作先返回，并覆盖外部新目录不被晚到旧请求覆盖、只重读活跃详情及删除失败保留详情。preset-editor 无截图浏览器同时比较“编辑预设／使用中”的透明边框和实际 inset box-shadow，避免仅检查 borderWidth 漏掉双重描边。
+
+编辑器标题及手机列表：`mobile-editor-collections` 检查角色／预设正则和脚本始终保留明确标题；`opening-variable-editor` 覆盖两种布局下延迟读取不产生文字占位、缓存重开与真实失败可见；`mobile-character-editor` 保留分支搜索、查询及失败重试，读取阶段使用 aria-busy。资产菜单测试检查菜单已脱离被裁切的编辑区，原筛选和文件操作保持。合成正式组件的浏览器记录见 `build/editor-heading-check/browser-final.json`：设定与变量首项间距和相邻条目均为 4px、列轴一致、搜索高 40px／圆角 22px，资产菜单的实际命中不再被侧栏遮挡。此记录不代表 Android 真机验收。

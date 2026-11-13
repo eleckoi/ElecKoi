@@ -280,14 +280,14 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
         {collection ? <RegexWorkspaceList collection={collection} scope={visibleScopes[0]} query={query} selectedId={selectedId} selection={multi} busy={saving}
           onSelect={id => multi.active ? multi.check(id, !multi.selected.has(id)) : selectRule(id)} onToggleRule={(scope, id, enabled) => changeCollection(current => updateRegexRule(current, scope, id, { enabled }))}
           onToggleScope={(scope, enabled) => changeCollection(current => setRegexScopeEnabled(current, scope, enabled))} onMove={(scope, id, index) => changeCollection(current => moveRegexRule(current, scope, id, index))}
-          draggedId={draggedId} onDragState={setDraggedId} onContextMenu={openContext} /> : <p className="rs-directory-empty" role="status">{error || tUi('正在读取…')}</p>}
+          draggedId={draggedId} onDragState={setDraggedId} onContextMenu={openContext} /> : error && <p className="rs-directory-empty" role="alert">{error}</p>}
       </div>
     </EditorLibraryWorkspace> :     <EditorSidebarLayout documentLayout className={`regex-layout${multi.active ? ' is-multiselect' : ''}`} aria-label={tUi("正则配置")} onMouseDown={() => setAddOpen(false)}
       inspectorTitle={selected?.rule.name || tUi("编辑正则")} onCloseInspector={closeEditor}
       feedback={<SaveControl dirty={dirty} error={error || libraryVersions.error} notice={notice} saving={saving} onSave={save} />}
       inspector={editing ? documentEditor : null}>
       <div className="regex-browser editor-collection-browser editor-collection-material editor-collection-continuous">
-        <EditorCollectionToolbar leading={<EditorScopeTabs value={activeScope} ownerValue={ownerScope} ownerLabel={ownerScope === 'preset' ? tUi("预设") : tUi("角色")} panelId={scopePanelId} onChange={next => {
+        <EditorCollectionToolbar heading={tUi('正则')} leading={<EditorScopeTabs value={activeScope} ownerValue={ownerScope} ownerLabel={ownerScope === 'preset' ? tUi("预设") : tUi("角色")} panelId={scopePanelId} onChange={next => {
           setActiveScope(next); setSelectedId(''); setEditing(false); setDraggedId(''); context.close(); if (multi.active) multi.toggle();
         }} />} query={query} onQueryChange={setQuery} placeholder={tUi("搜索正则")} disabled={saving || !collection || !libraryVersions.ready}
           selection={{ ...multi, toggle: () => { multi.toggle(); setSelectedId(''); setEditing(false); } }} createItems={createItems}
@@ -297,7 +297,7 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
         <div id={scopePanelId} role="tabpanel" aria-label={activeScope === 'global' ? tUi("全局正则") : tUi("角色正则")} className="regex-list-scroll editor-sidebar-directory" onContextMenu={event => openContext(event, {})} onMouseDown={(event) => { if (event.button === 0 && !event.target.closest(".regex-rule-row")) setSelectedId(""); }}>
 
           <EditorCollectionSurface grouped>
-          {!collection && <p className="regex-loading" role={error ? 'alert' : 'status'}>{error || tUi("正在读取…")}</p>}
+          {!collection && error && <p className="regex-loading" role="alert">{error}</p>}
           {collection && <RegexRuleList
             scopes={visibleScopes}
             collection={collection}

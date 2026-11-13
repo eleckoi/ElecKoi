@@ -39,6 +39,9 @@ function chunk(type: string, data: Uint8Array): Uint8Array {
   new DataView(result.buffer).setUint32(0, data.length, false)
   result.set(encoder.encode(type), 4)
   result.set(data, 8)
+  let crc = 0xffffffff
+  for (const byte of result.subarray(4, 8 + data.length)) { crc ^= byte; for (let bit=0;bit<8;bit++) crc=(crc>>>1)^((crc&1)?0xedb88320:0) }
+  new DataView(result.buffer).setUint32(data.length + 8, (crc ^ 0xffffffff) >>> 0, false)
   return result
 }
 

@@ -166,6 +166,39 @@ const extras = (await readdir(references)).filter(file => !documents.includes(fi
 if (extras.length) throw new Error(`随包插件开发文档包含无来源的旧文件：${extras.join(', ')}`)
 console.log(`Bundled ElecKoi plugin development references are current: ${documents.length} documents.`)
 
+const authoringSkills = {
+  'eleckoi-character-authoring': { 'configurations.md': 'plugins/authoring-configurations.md', 'author-sdk.md': 'plugins/author-sdk.md', 'author-sdk-reference.md': 'plugins/author-sdk-reference.md' },
+  'eleckoi-character-assets': { 'assets.md': 'plugins/character-assets.md', 'asset-storage.md': 'ASSET_LIBRARY.md', 'character-transfer.md': 'CHARACTER_CARD_TRANSFER.md' },
+  'eleckoi-message-frontends': { 'frontends.md': 'plugins/character-frontends.md', 'regex-ejs.md': 'plugins/regex-ejs.md', 'author-sdk.md': 'plugins/author-sdk.md', 'author-sdk-reference.md': 'plugins/author-sdk-reference.md', 'assets.md': 'plugins/character-assets.md' },
+  'eleckoi-character-frontends': { 'frontends.md': 'plugins/character-frontends.md', 'author-sdk.md': 'plugins/author-sdk.md', 'author-sdk-reference.md': 'plugins/author-sdk-reference.md', 'assets.md': 'plugins/character-assets.md' },
+}
+for (const [skill, files] of Object.entries(authoringSkills)) {
+  const target = join(dirname(references), '..', skill, 'references')
+  if (!checkOnly) await mkdir(target, { recursive: true })
+  for (const [file, source] of Object.entries(files)) {
+    const content = normalizeLineEndings(await readFile(join(root, 'docs', source), 'utf8')).replace(/\]\(([^)#]+)(#[^)]*)?\)/g, (link, href, anchor = '') => {
+      if (/^(?:https?:|mailto:)/.test(href)) return link
+      const absolute = join(dirname(join(root, 'docs', source)), href)
+      const canonical = Object.entries(files).find(([, candidate]) => join(root, 'docs', candidate) === absolute)
+      if (canonical) return `](${canonical[0]}${anchor})`
+      if (absolute.startsWith(join(root, 'docs', 'plugins') + '\\') || absolute.startsWith(join(root, 'docs', 'plugins') + '/')) {
+        return `](../../eleckoi-plugin-development/references/${slash(relative(join(root, 'docs', 'plugins'), absolute))}${anchor})`
+      }
+      const sharedAssetReferences = { 'ASSET_LIBRARY.md': 'asset-storage.md', 'CHARACTER_CARD_TRANSFER.md': 'character-transfer.md' }
+      const shared = sharedAssetReferences[slash(relative(join(root, 'docs'), absolute))]
+      return shared ? `](../../eleckoi-character-assets/references/${shared}${anchor})` : link
+    })
+    const expected = `<!-- Generated from docs/${source}; run pnpm generate:plugin-docs. -->\n\n${content}`
+    if (checkOnly) {
+      const current = await readFile(join(target, file), 'utf8').catch(error => { if (error.code !== 'ENOENT') throw error; return '' })
+      if (normalizeLineEndings(current) !== expected) throw new Error(`随包创作参考 ${skill}/${file} 已过期，请运行 pnpm generate:plugin-docs`)
+    } else await writeFile(join(target, file), expected, 'utf8')
+  }
+  const extras = (await readdir(target)).filter(file => !Object.hasOwn(files, file))
+  if (extras.length) throw new Error(`随包创作参考包含无来源文件：${skill}/${extras.join(', ')}`)
+}
+console.log('Bundled character authoring references are current: 4 skills.')
+
 function escapeCell(value) {
   return String(value).replaceAll('|', '\\|').replaceAll('\n', '<br>')
 }

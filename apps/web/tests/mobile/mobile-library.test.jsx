@@ -69,6 +69,15 @@ describe('Android character and preset library contracts', () => {
     expect(document.querySelector('.mobile-library-selection-header')).toBeNull()
   })
 
+  it('offers PNG and ZIP exports and passes the selected ZIP format to the export service', async () => {
+    await mount(); await click('角色操作'); await click('导出角色卡');
+    const format = document.querySelector('select[aria-label="导出格式"]');
+    expect([...format.options].map(option => option.value)).toEqual(['png', 'zip']);
+    await act(() => { format.value = 'zip'; format.dispatchEvent(new Event('change', { bubbles: true })); });
+    view.characters.exportCharacters.mockResolvedValue({ canceled: true, written: [], failures: [] });
+    await click('合成角色甲'); await click('导出');
+    expect(view.characters.exportCharacters).toHaveBeenCalledWith(['character-a'], 'zip');
+  });
   it.each([0, 1])('keeps canceled export selection and only reports files actually saved (%i written)', async count => {
     await mount()
     view.characters.exportCharacters.mockResolvedValue({ canceled: true, written: samples.slice(0, count).map(item => ({ characterId: item.id, fileName: 'synthetic.png' })), failures: [] })

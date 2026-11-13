@@ -46,12 +46,12 @@ export const CharacterOpeningsPanel = forwardRef(function CharacterOpeningsPanel
     onCancel={() => setDeleteTarget(null)} onConfirm={() => {
       updateEntry(deleteOpening(entry, deleteTarget.messageId)); setDeleteTarget(null);
     }} />;
-  return <section className={`character-openings-panel${compact ? ' is-mobile-opening-workspace' : ' is-opening-workspace'}`} aria-label={tUi("开场白")}>
+  return <section className={`character-openings-panel${compact ? ' is-mobile-opening-workspace' : ' is-opening-workspace'}`} aria-label={tUi("开场白")} aria-busy={!entry && !error}>
     {entry ? <OpeningWorkspace ref={openingEditorRef} key={characterId} entry={entry} query={query} onQueryChange={setQuery}
       variableVersions={variableSnapshot.value?.versions || []} variableVersionsError={variableSnapshot.error}
       onChange={updateEntry} onRequestDelete={requestDelete} busy={saving} dirty={dirty}
       save={<SaveControl workspace title={tUi("保存（Ctrl/Command + S）")} dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} />} />
-      : <p className="setting-library-loading" role={error ? 'alert' : 'status'}>{error || tUi("正在读取…")}</p>}
+      : error && <p className="setting-library-loading" role="alert">{error}</p>}
     {confirmation}
   </section>;
 

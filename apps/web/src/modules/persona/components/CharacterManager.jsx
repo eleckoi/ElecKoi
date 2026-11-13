@@ -336,14 +336,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
                   >
                     PNG
                   </button>
-                  <button
-                    type="button"
-                    aria-pressed={exportFormat === "json"}
-                    disabled={exporting}
-                    onClick={() => changeExportFormat("json")}
-                  >
-                    JSON
-                  </button>
+                  <button type="button" aria-pressed={exportFormat === 'zip'} disabled={exporting} onClick={() => changeExportFormat('zip')}>ZIP</button>
                 </div>
               </div>
               <Input data-dsh-control type="search" icon={<IconSearchOutlineRegular />}

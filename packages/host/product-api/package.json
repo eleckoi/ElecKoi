@@ -107,6 +107,32 @@
   "eleckoi": {
     "developerInterfaces": [
       {
+        "id": "eleckoiCharacterAssets",
+        "kind": "remote",
+        "title": "角色资产库",
+        "description": "按明确角色上传和管理图片、视频、音频及模型，订阅目录修订；二进制文件由当前 Host 资源路由读取。",
+        "mode": "call-and-listen",
+        "scope": "host",
+        "relation": "provides",
+        "owner": "eleckoiCharacterAssets",
+        "members": [
+          "list",
+          "canReveal",
+          "reveal",
+          "beginUpload",
+          "appendUpload",
+          "finishUpload",
+          "cancelUpload",
+          "rename",
+          "duplicate",
+          "delete",
+          "createFolder",
+            "renameFolder",
+            "move",
+            "changes"
+        ]
+      },
+      {
         "id": "eleckoiAuthorFrontends",
         "kind": "remote",
         "title": "原生作者前端项目",

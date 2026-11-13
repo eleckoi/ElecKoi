@@ -689,6 +689,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'owner', description: '应用或明确角色的工作区。' }, { name: 'listener', description: '最新状态回调。' }, { name: 'onError', description: '未取消的读取或连接错误。' }],
         returns: '取消订阅函数。',
       },
+      {
+        signature: 'watchAssets(characterId: string, listener: (catalog: CharacterAssetCatalog) => void, onError: (error: unknown) => void): () => void',
+        description: '订阅角色资产元数据，重连重新读取；不缓存文件正文。',
+        parameters: [{ name: 'characterId', description: '明确所属角色。' }, { name: 'listener', description: '最新目录。' }, { name: 'onError', description: '非取消错误。' }],
+        returns: '释放订阅。',
+      },
     ],
   },
   {

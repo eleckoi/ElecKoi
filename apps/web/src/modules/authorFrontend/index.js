@@ -8,3 +8,5 @@ export { useHtmlResources } from './hooks/useHtmlResources.js';
 export { createMessageSurfaceFormatter } from './model/messageSurfaceFormatting.js';
 export { CharacterFrontendPanel } from './components/CharacterFrontendPanel.jsx';
 export { CharacterFrontendView } from './components/CharacterFrontendView.jsx';
+
+export { useNativeFrontendServices } from './hooks/NativeFrontendContext.jsx';

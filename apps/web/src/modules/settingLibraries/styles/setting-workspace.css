@@ -2,7 +2,7 @@
 .qq-character-editor-window-shell:has(.setting-workspace) { --blue: var(--dsw-static-deepseek-500, #3d75e8); --blue-hover: var(--dsw-static-deepseek-600, #3266d5); }
 .setting-workspace { display: grid; grid-template-columns: var(--setting-directory-width, 480px) 8px minmax(0,1fr); height: 100%; min-height: 0; min-width: 0; color: var(--text); font-size: 14px; line-height: 1.5; }
 .setting-workspace.is-resizing, .setting-workspace.is-resizing * { cursor: col-resize !important; user-select: none !important; }
-.setting-directory { --pane-inset: 16px; container-type: inline-size; position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 16px var(--pane-inset) 0; background: var(--chat); border-radius: 16px; overflow: hidden; }
+.setting-directory { --pane-inset: var(--editor-heading-inset-inline,16px); container-type: inline-size; position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: var(--editor-heading-inset-top,16px) var(--pane-inset) 0; background: var(--chat); border-radius: 16px; overflow: hidden; }
 .setting-directory-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 8px; min-height: 34px; margin-bottom: 12px; }
 .setting-scope-switch, .setting-view-switch { width: 132px; flex-shrink: 0; }
 .setting-directory-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 100%; margin-left: auto; }
@@ -38,7 +38,7 @@
 .setting-format-button > svg { flex-shrink: 0; color: var(--muted); }
 .setting-entry-heading { display: flex; flex-direction: column; align-items: stretch; gap: 12px; flex-shrink: 0; margin-bottom: 8px; }
 .setting-document-title { display: flex; min-width: 0; align-items: center; gap: 8px; }
-.setting-document-title input { field-sizing: content; border: 0; background: transparent; width: auto; min-width: 2em; max-width: 320px; padding: 0; color: var(--text); font-size: 18px; font-weight: 600; }
+.setting-document-title input { field-sizing: content; border: 0; background: transparent; width: auto; min-width: 2em; max-width: 320px; padding: 0; color: var(--text); font-family: inherit; font-size: 16px; font-weight: 500; }
 .setting-glyph-anchor { position: relative; }
 .setting-glyph { display: flex; align-items: center; justify-content: center; width: 28px; height: 32px; border: 0; border-radius: 6px; color: var(--text); background: transparent; padding: 0; }
 .setting-glyph:hover { background: var(--active); }
@@ -149,7 +149,6 @@
 .setting-icon-page-button { width: 28px; min-width: 28px; height: 28px; min-height: 28px; padding: 0; }
 @media (max-width: 1150px) {
   .setting-document { --pane-inset: 20px; }
-  .setting-directory { --pane-inset: 14px; }
   .setting-document-title input { max-width: 220px; }
 }
 @media (max-width: 900px) {

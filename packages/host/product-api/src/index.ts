@@ -1,3 +1,6 @@
+import { ElecKoiCharacterAssetsApi, eleckoiCharacterAssetFilesPlugin } from './character-assets.js'
+export { ElecKoiCharacterAssetsApi, eleckoiCharacterAssetFilesPlugin } from './character-assets.js'
+export type { CharacterAsset, CharacterAssetCatalog, CharacterAssetUpload, CharacterAssetUploadTicket } from './character-assets.js'
 import type { Context, Plugin } from '@deepseek-ai/cordis'
 import type { EditorLibraryAddress, EditorLibraryVersions, EditorLibrarySaveRequest, EditorLibrarySaveResult } from './types.js'
 import { ElecKoiConversationLifecycle } from './conversationLifecycle.js'
@@ -2748,6 +2751,8 @@ const eleckoiProductApiPlugin = {
     await ctx.plugin(ElecKoiConversationModelsApi)
     await ctx.plugin(ElecKoiConversationsApi)
     await ctx.plugin(ElecKoiAuthorVariablesApi)
+    await ctx.plugin(ElecKoiCharacterAssetsApi)
+    await ctx.plugin(eleckoiCharacterAssetFilesPlugin)
     await ctx.plugin(ElecKoiAuthorFrontendsApi)
     await ctx.plugin(eleckoiFrontendAssetsPlugin)
     await ctx.plugin(ElecKoiAuthorScriptsApi)

@@ -119,10 +119,25 @@ describe('inline failure diagnostics and report delivery', () => {
     await mount(<AppToast notice={{ id: 1, type: 'error', message: resolved.text, failure: resolved }} />);
     expect(document.querySelector('.app-error-dialog').textContent).toContain(failure.message);
     expect(document.querySelector('.app-error-dialog').textContent).toContain('creatorStudio.open');
-    await act(async () => buttonByText('复制错误').click());
+    const copy = buttonByText('复制');
+    expect(copy.querySelector('svg')).toBeNull();
+    await act(async () => copy.click());
     expect(writeText.mock.calls[0][0]).toContain(failure.message);
     expect(writeText.mock.calls[0][0]).toContain('gateway/service-unavailable');
     expect(writeText.mock.calls[0][0]).toContain('creatorStudio.open');
+  });
+
+  it('keeps the short text-only copy action usable after a clipboard failure', async () => {
+    const writeText = vi.fn().mockRejectedValueOnce(new Error('synthetic clipboard unavailable')).mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    await mount(<AppToast notice={NOTICE} onDismiss={() => {}} />);
+    await act(async () => buttonByText('复制').click());
+    expect(document.querySelector('[role=status]').textContent).toContain('复制失败');
+    expect(buttonByText('复制').querySelector('svg')).toBeNull();
+    await act(async () => buttonByText('复制').click());
+    expect(buttonByText('已复制')).toBeDefined();
+    expect(writeText).toHaveBeenCalledTimes(2);
+    expect(writeText.mock.calls[1][0]).toBe(writeText.mock.calls[0][0]);
   });
 });
 
@@ -184,7 +199,7 @@ describe("错误对话框里的报告入口", () => {
     await mount(<AppToast notice={NOTICE} onDismiss={() => {}} />);
 
     expect(buttonByText("报告问题")).toBeUndefined();
-    expect(buttonByText("复制错误")).toBeDefined();
+    expect(buttonByText("复制")).toBeDefined();
     expect(buttonByText("关闭")).toBeDefined();
   });
 

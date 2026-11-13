@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { isGlobalSettingRuntimeId } from '@shared/contracts/settingLibrary/global'
 import { and, asc, eq } from 'drizzle-orm'
 import type { SettingLibrary, SettingLibraryEntry, SettingLibraryEntryUpdate, SettingLibraryGroup } from '@shared/contracts/settingLibrary/schemas'
@@ -89,6 +89,12 @@ export class SettingLibraryRepository {
     }
     if (db) restore(db)
     else this.store.withWriteTx(restore)
+  }
+
+  authoringSnapshot(characterId: string) {
+    const library = this.get(characterId)
+    const stored = this.store.db.select({ characterId: settingLibraries.characterId }).from(settingLibraries).where(eq(settingLibraries.characterId, characterId)).get()
+    return { library, revision: createHash('sha256').update(JSON.stringify(stored ? library : { characterId, state: 'uninitialized' })).digest('hex') }
   }
 
   get(characterId: string, db: ElecKoiDatabase = this.store.db): SettingLibrary {

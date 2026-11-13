@@ -1,11 +1,12 @@
 # ElecKoi 角色卡同步协议
 
-本文是 Android 与 Desktop 当前唯一的 ElecKoi 角色卡交换合同。两端必须以同一份领域载荷完成 JSON / PNG 往返，不以第三方角色卡标准定义产品数据。
+本文是 Android 与 Desktop 当前唯一的 ElecKoi 角色卡交换合同。两端必须以同一份领域载荷完成 JSON / PNG / ZIP 往返，不以第三方角色卡标准定义产品数据。
 
 ## 文件形式
 
 - JSON：UTF-8 编码的完整 `eleckoi.character-card` 文档，可直接导入。
-- PNG：正常可预览的 PNG 图片，并且只写入一个关键字为 `eleckoi-card` 的 `tEXt` 数据块；块值是上述 JSON 的 UTF-8 字节经 gzip 压缩后再 Base64 编码的结果。
+- PNG：正常可预览的 PNG 图片。无库资产、无独立前端时，沿 `eleckoi-card` 文本块保存 gzip / Base64 角色文档；包含资产或前端时，写入 `eleckoi-bundle=1` 文本标记，并把同一 ZIP 资源包分段放进 IEND 之前的私有辅助块 `ekZa`。每段 16 MiB 是编码分段，不是素材总大小上限。
+- ZIP：同一完整角色资源包，包含 `manifest.json`、`character.json`、`portraits/`、`assets/`、`frontends/`。前端直接保存文件，不再嵌套前端 ZIP。
 - 同一角色同时导出 JSON 与 PNG 时，两者解码后必须得到语义相同的根文档。
 - ElecKoi 导出禁止写入 `chara`、`ccv3`、`chara_card_v2` 等第三方兼容载荷。第三方格式若保留，只能作为用户明确选择的单向导入适配器。
 
@@ -14,9 +15,11 @@
 ```json
 {
   "format": "eleckoi.character-card",
-  "version": 2,
+  "version": 3,
   "character": {},
   "assets": [],
+  "library_assets": [],
+  "frontends": {"projects": [], "selectedProjectId": null, "messageRendererEnabled": true},
   "character_openings": "{...}",
   "setting_library": "{...}",
   "variable_config": "{...}",
@@ -24,7 +27,7 @@
 }
 ```
 
-`version` 是 ElecKoi 自有载荷版本。当前导出为 `2`，新增独立的 `character_openings`；继续支持 v1 角色卡导入，并在导入边界将设定库中的旧开场白提取到角色的独立存储。
+`version` 是 ElecKoi 自有载荷版本。含库资产或前端时导出为 `3`，新增 `library_assets` 与 `frontends`；其余角色继续导出独立开场白的 `2`。继续支持 v1、v2 角色卡导入，并在导入边界将设定库中的旧开场白提取到角色的独立存储。
 
 ## 必须导出的内容
 
@@ -111,31 +114,29 @@
 - 全局正则、Agent/提示词预设正则及它们的启用版本。
 - 本机路径、缓存路径和数据库主键关系。
 
-沉浸前端项目暂不属于这份跨端共同合同：Desktop 目前没有与 Android 相同的角色级持久化领域模型。任一端不得单边把它当成“已同步”字段；需要纳入时必须先为两端补齐同一领域合同和往返测试。
+完整前端和角色库资产现归同一个 Host 领域合同，PC 和 Android 的当前 Web Client / Node Host 共用该实现；旧的独立 Android 实现不再定义当前产品合同。详细存储、引用和单独前端 ZIP 见 [角色资产库](ASSET_LIBRARY.md)。
 
 ## 导入规则
 
 - ElecKoi JSON：识别根对象的 `format` 与 `version` 后直接解码。
-- ElecKoi PNG：只读取 `eleckoi-card`，解压后走与 JSON 完全相同的解码器。
+- ElecKoi PNG：按 `eleckoi-card` 或 `eleckoi-bundle` 标记读取；资源包和 JSON 使用同一领域解码器。PNG 块 CRC、ZIP CRC、清单文件大小和 SHA-256 均须有效。缺包、越界、重复路径或损坏附件须失败，不能静默导入空资源。
+- ElecKoi ZIP：直接读取清单与同一根文档。
+- 完整前端项目编号重新分配，活动项目重定向。存在已选项目时启用该项目；未选时启用目录首个项目，不再要求玩家另点应用。原消息渲染启用状态保留。库资产编号保持，物理所有者改为新角色。
 - 导入时创建新的本地角色 ID，并把设定库、变量配置和角色正则重定向到新角色；载荷中的本机关系不得直接复用。
 - 缺少可选图片时只留空对应槽位；PNG 自身的预览图仅可作为三套图片全部缺失时的兜底。
 
-## Android 当前必须修改
+## 库资产与完整前端
 
-1. `PngCharacterCardFormat.encode` 删除 `chara` 的生成和写入，只写 `eleckoi-card`。
-2. `CharacterCardJsonCodec` 删除 ElecKoi 导出链路中的 `StandardKeyword`、`encodeStandard` 以及 `PortableCharacter` 的全部 `chat_background_*` 字段；显式第三方导入适配器可以独立保留自己的解析模型。
-3. `PortableCharacterPackage` 增加 `regexRules`；`portablePackage` 从 `regexRules.load(characterId).characterRules` 读取并编码，导入后恢复这些规则和 `enabled` 状态。
-4. `JsonCharacterCardFormat.decode` 先识别 `format == eleckoi.character-card` 并调用完整载荷解码器，不能再把所有 JSON 都交给基础角色卡解析。
-5. 导出服务/API/UI 增加 `PNG`、`JSON` 两种格式；JSON 直接写根文档，PNG 包装同一根文档，文件名只改变扩展名。
-6. `portablePackage` 不再收集 `frontends`；在两端建立共同持久化合同前，不允许 Android 单边把它标为跨端完整数据。
-7. 导入 ElecKoi PNG 时不再以 `chara` 兜底。若产品继续提供酒馆导入，必须通过单独的 `SillyTavern` 导入来源进入。
-8. 更新 Android 的 `docs/architecture/character-card-transfer.md`，删除“双数据块”“基础互通”“导出聊天背景”和“已同步沉浸前端”等错误描述。
-9. JSON 包含图片 Base64 后会比 PNG 内的 gzip 载荷更大；Android 与 Desktop 不设置角色卡总大小、解压大小或附件总大小的产品上限。PNG 仍遵守标准定义的单块编码范围，格式与内容完整性继续校验。
+`library_assets` 包含每项固定编号、显示名称、类型、MIME、字节数、SHA-256、创建时间、可选 `folderId` 和文件正文；`library_folders` 保存文件夹编号、显示名称、父级编号和创建时间，包含空文件夹。没有分组信息时素材位于根目录。JSON 正文是 Base64；ZIP / PNG 资源包中的正文是包内文件引用，导入前完整校验并还原同一领域载荷。文件夹是逻辑元数据，不把显示名称拼成存储或包内路径；移动和重命名不改素材编号。
 
-## 共同验收
+`frontends.projects` 包含源项目编号和完整文件列表。每项文件保留相对路径、内容和编码；完整清单包含入口、绑定、样式及作者配置。原文件放在 `frontends/<序号>/<原相对路径>`，不嵌套 ZIP。源项目编号只用于映射选择，不用作导入后的物理目录。
 
-1. Android 导出 JSON，Desktop 导入；再由 Desktop 导出 PNG，Android 导入。
-2. Desktop 导出 JSON，Android 导入；再由 Android 导出 PNG，Desktop 导入。
-3. 四次导入后逐项比较角色资料、三套图片、设定库全部版本与活动版本、变量配置全部版本与活动版本、角色正则与启用状态。
-4. 解包所有 PNG，确认只有一个 `eleckoi-card` 角色卡文本块，且不存在 `chara` / `ccv3`。
-5. 搜索导出 JSON，确认不存在 `chat_background`、`conversation_setting_changes`、`chat_session_variable_states`、聊天记录、用户资料、全局/预设正则。
+导出自动收集角色资产库全部内容，包括尚未使用的素材，避免漏掉由变量拼接或其他开场白动态引用的资源。作者不必另行压缩、整理目录。卡包的每个文件由清单登记大小与摘要；媒体不重复压缩。JSON、ZIP 和 PNG 解码结果的媒体内容与前端文件应一致。
+
+## 跨端与传输验证
+
+1. 在不同临时数据目录往返 JSON、PNG、ZIP，比较资产编号与摘要、完整前端文件与选择、多开场白完整正文、变量、设定及正则。
+2. 验证相对目录含中文、空格和符号，文件内保留 `asset://` 引用；运行时按新角色解析。
+3. 验证损坏文件、缺失 PNG 资源块、不安全路径及导入到第二个前端失败时，整个角色和已写素材一起回滚。
+4. PNG 仍显示正常封面，但群聊平台的重新编码可能移除附加块；需传输原文件。PNG 没有有效封面时沿当前导出器的后备图片行为，不承诺把任意图片格式转成封面。
+5. 不设置素材总量的产品上限；当前导出 / 导入的 Base64 合同和 ZIP 组装在内存中完成，设备可用内存仍是实际边界。共享源码与隔离验证不代替已安装 Android 包的真机验证。

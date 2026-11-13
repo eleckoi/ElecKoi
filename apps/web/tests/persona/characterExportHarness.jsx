@@ -153,6 +153,6 @@ export function typeSearch(container, value) {
 /** 点击「导出角色」直接进入勾选模式，必要时在选择条中切换格式。 */
 export function enterExport(container, format = 'PNG') {
   click(buttonByText(container, '导出角色'))
-  if (format === 'JSON') click(buttonByText(selectionBar(container), 'JSON'))
+  if (format === 'ZIP') click(buttonByText(selectionBar(container), 'ZIP'))
   return container
 }

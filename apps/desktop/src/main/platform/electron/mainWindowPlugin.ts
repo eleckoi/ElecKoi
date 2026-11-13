@@ -10,6 +10,7 @@ import { installTextContextMenu } from './textContextMenu'
 import { installWindowsNativeFrame } from './windowsNativeFrame'
 import { DesktopBrowserGuests } from './desktopBrowserGuests'
 import { installMainWindowConsole } from './mainWindowConsole'
+import { editorWindowSize, isEditorFrame, MAIN_WINDOW_SIZE, matchEditorWindowSize } from './editorWindowSizing'
 import { authenticateDshClientHost, DSH_CLIENT_ORIGIN, forwardDshClientRequest, isDshClientAsset, serveDshClientAsset } from './dshClientDocument'
 import { DESKTOP_SHELL_IPC } from '@shared/contracts/desktopShell'
 import { LOG_ACTIONS } from '@shared/contracts/logActions'
@@ -114,7 +115,7 @@ export const mainWindowPlugin = {
         const frameName = (payload as { frameName?: unknown })?.frameName
         return typeof frameName === 'string' ? frameName : ''
       },
-      options: (payload) => windowOptions(appPaths, true, payload),
+      options: (payload) => windowOptions(appPaths, true, payload, mainWindow),
       load: async (window, payload) => {
         const url = (payload as { url?: unknown })?.url
         if (typeof url !== 'string' || (!isAppRendererUrl(url) && !isDshChildUrl(url))) {
@@ -136,7 +137,7 @@ export const mainWindowPlugin = {
           appLog.error({ code, description, url }, 'ElecKoi child window failed to load')
         })
         window.once('ready-to-show', () => window.show())
-        configureWindowNavigation(appLog, windows, window, true)
+        configureWindowNavigation(appLog, windows, window, true, () => mainWindow)
       }
     })
     protocol.handle('dsh-app', async (request) => {
@@ -319,8 +320,8 @@ export const mainWindowPlugin = {
   }
 } satisfies Plugin.Object
 
-function windowOptions(appPaths: Context['appPaths'], child: boolean, payload?: unknown): BrowserWindowConstructorOptions {
-  const size = child ? initialChildWindowSize(payload) : initialWindowSize()
+function windowOptions(appPaths: Context['appPaths'], child: boolean, payload?: unknown, mainWindow?: BrowserWindow): BrowserWindowConstructorOptions {
+  const size = child ? initialChildWindowSize(payload, mainWindow) : initialWindowSize()
   return {
     title: child ? 'ElecKoi' : 'ElecKoi',
     ...size,
@@ -358,15 +359,19 @@ function configureMainWindow(appPaths: Context['appPaths'], appLog: Context['app
     appLog.error({ code, description, url, isMainFrame }, 'DSH client renderer failed to load')
   })
   window.once('ready-to-show', () => window.show())
-  configureWindowNavigation(appLog, windows, window, true)
+  configureWindowNavigation(appLog, windows, window, true, () => window)
 }
 
-function configureWindowNavigation(appLog: Context['appLog'], windows: ElectronWindowHost, window: BrowserWindow, allowDshClient = false): void {
+function configureWindowNavigation(appLog: Context['appLog'], windows: ElectronWindowHost, window: BrowserWindow, allowDshClient = false, mainWindow: () => BrowserWindow | undefined = () => undefined): void {
   window.webContents.on('will-navigate', (event, url) => {
     if (!isAppRendererUrl(url) && !(allowDshClient && isDshAppUrl(url))) event.preventDefault()
   })
   window.webContents.setWindowOpenHandler(({ url, frameName }) => {
-    if (isAppRendererUrl(url) || isDshChildUrl(url)) void windows.open('child', { url, frameName })
+    if (isAppRendererUrl(url) || isDshChildUrl(url)) {
+      void windows.open('child', { url, frameName }).then(child => {
+        if (isEditorFrame(frameName)) matchEditorWindowSize(child, mainWindow())
+      }).catch(error => appLog.error({ error, frameName }, 'ElecKoi child window failed to open'))
+    }
     else if (isAllowedExternalUrl(url)) {
       void shell.openExternal(url).catch((error: unknown) => {
         appLog.warn({ error, url }, 'Failed to open external URL')
@@ -400,14 +405,12 @@ function configureWindowsAppDetails(appPaths: Context['appPaths'], window: Brows
 }
 
 function initialWindowSize(): { width: number; height: number } {
-  return { width: 1480, height: 970 }
+  return { ...MAIN_WINDOW_SIZE }
 }
 
-function initialChildWindowSize(payload?: unknown): { width: number; height: number } {
+function initialChildWindowSize(payload?: unknown, mainWindow?: BrowserWindow): { width: number; height: number } {
   const frameName = (payload as { frameName?: unknown } | undefined)?.frameName
-  if (typeof frameName === 'string' && (frameName.startsWith('character-editor-') || frameName.startsWith('preset-editor-'))) {
-    return fitWindowSize(1520, 1120)
-  }
+  if (isEditorFrame(frameName)) return editorWindowSize(mainWindow)
   if (frameName === 'creator-studio') {
     return fitWindowSize(1536, 1070)
   }

@@ -9,6 +9,7 @@ import { BranchSettingsSplitView } from '../../src/modules/settingLibraries/comp
 import { SettingLibraryPanel } from '../../src/modules/settingLibraries/components/SettingLibraryPanel.jsx';
 import { createEntryDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
 import { CharacterOpeningsPanel } from '../../src/modules/characterOpenings/components/CharacterOpeningsPanel.jsx';
+import { EditorPresentationContext } from '../../src/ui/ui/EditorPresentationContext.jsx';
 import { normalizeSettingLibrary } from '../../../../packages/host/product-data/src/domain/settingLibraries/settingLibraryNormalization';
 
 vi.stubGlobal('React', React);
@@ -24,6 +25,31 @@ async function render(component) {
 }
 
 describe('opening configuration editor', () => {
+  it.each([false, true])('keeps reads silent and renders cached openings directly without hiding read failures (compact=%s)', async compact => {
+    const value = createCharacterOpenings('synthetic-character');
+    let notify, resolveRead;
+    let snapshot = { status:'loading', value:null };
+    const model = { getSnapshot:() => snapshot, subscribe:listener => { notify=listener; return () => {}; },
+      read:() => new Promise(resolve => { resolveRead=resolve; }), save:vi.fn() };
+    const editor = () => <EditorPresentationContext.Provider value={{ compact }}><CharacterOpeningsPanel characterId="synthetic-character" openings={model} /></EditorPresentationContext.Provider>;
+    let view = await render(editor());
+    try {
+      expect(view.container.textContent).not.toContain('正在读取');
+      expect(view.container.querySelector('.character-openings-panel').getAttribute('aria-busy')).toBe('true');
+      await act(async () => { snapshot={ status:'ready', value }; notify('configuration','synthetic-character',snapshot); resolveRead(value); });
+      expect(view.container.querySelectorAll('.opening-list-item')).toHaveLength(1);
+      await view.dispose(); view=null;
+      view=await render(editor());
+      expect(view.container.querySelectorAll('.opening-list-item')).toHaveLength(1);
+      expect(view.container.textContent).not.toContain('正在读取');
+      await view.dispose(); view=null;
+      model.getSnapshot=() => ({ status:'loading', value:null });
+      model.read=async () => { throw Error('合成读取失败'); };
+      view=await render(editor());
+      expect(view.container.querySelector('[role=alert]').textContent).toContain('合成读取失败');
+    } finally { await view?.dispose(); }
+  });
+
   it('edits and reopens character openings on a separate page, preserving settings, multiple openings and variable bindings', async () => {
     let stored = createCharacterOpenings('synthetic-character');
     const setting = { ...createEntryDraft('', 1, []), id: 'synthetic-setting', title: '合成设定', content: '合成长正文。'.repeat(2000) };

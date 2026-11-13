@@ -112,6 +112,7 @@
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .app-error-actions button:hover {
@@ -137,13 +138,13 @@
 
 @media (max-width: 560px) {
   .app-error-overlay {
-    align-items: end;
-    padding: 12px;
+    align-items: center;
+    padding: 16px;
   }
 
   .app-error-dialog {
     width: 100%;
-    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 32px);
     padding: 18px;
     border-radius: 14px;
   }
@@ -153,10 +154,16 @@
     flex-direction: column;
   }
 
+  .app-error-copy-status:empty { display: none; }
+
   .app-error-actions button {
-    flex: 1 1 0;
+    flex: 1 0 auto;
+    min-width: 0;
     min-height: 44px;
+    padding-inline: 8px;
   }
+
+  .app-error-actions { flex-wrap: wrap; }
 }
 
 @media (prefers-reduced-motion: reduce) {

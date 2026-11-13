@@ -330,6 +330,97 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'eleckoiCharacterAssetsApi',
+    summary: '通过正式 Remote 管理角色资产目录与分段上传；文件正文由资源路由提供。',
+    description: '通过正式 Remote 管理角色资产目录与分段上传；文件正文由资源路由提供。',
+    methods: [
+      {
+        signature: '@Remote list(characterId: string): CharacterAssetCatalog',
+        description: '读取角色资产目录，不传输文件正文。',
+        parameters: [{ name: 'characterId', description: '明确所属角色。' }],
+        returns: '文件元数据及目录修订。',
+      },
+      {
+        signature: '@Remote canReveal(): boolean',
+        description: '查询当前 Host 是否能在系统文件管理器中定位资产。',
+        parameters: [],
+        returns: '系统文件定位操作是否可用。',
+      },
+      {
+        signature: '@Remote async reveal(characterId: string, assetId: string, signal: AbortSignal): Promise<void>',
+        description: '在当前 Host 的文件管理器中定位角色库实际保存的文件。',
+        parameters: [{ name: 'characterId', description: '明确所属角色。' }, { name: 'assetId', description: '要定位的资产编号，不接受客户端路径。' }, { name: 'signal', description: '取消调用的生命周期信号。' }],
+        returns: '系统接受定位操作后完成；失败保留正式错误。',
+      },
+      {
+        signature: '@Remote beginUpload(characterId: string, input: CharacterAssetUpload): CharacterAssetUploadTicket',
+        description: '开始一项分段上传，不创建聊天或 Session。',
+        parameters: [{ name: 'characterId', description: '明确所属角色。' }, { name: 'input', description: '文件名称与总字节数。' }],
+        returns: '上传编号及已确认位置。',
+      },
+      {
+        signature: '@Remote appendUpload(characterId: string, uploadId: string, offset: number, data: string): CharacterAssetUploadTicket',
+        description: '按已确认偏移追加文件数据。',
+        parameters: [{ name: 'characterId', description: '明确所属角色。' }, { name: 'uploadId', description: '当前上传编号。' }, { name: 'offset', description: '本段起始字节位置。' }, { name: 'data', description: '本段 base64。' }],
+        returns: '新的已确认位置。',
+      },
+      {
+        signature: '@Remote finishUpload(characterId: string, uploadId: string): CharacterAssetCatalog',
+        description: '完整接收后原子发布文件和目录。',
+        parameters: [{ name: 'characterId', description: '明确所属角色。' }, { name: 'uploadId', description: '当前上传编号。' }],
+        returns: '最新目录。',
+      },
+      {
+        signature: '@Remote cancelUpload(characterId: string, uploadId: string): void',
+        description: '取消未完成的上传并释放暂存文件。',
+        parameters: [{ name: 'characterId', description: '明确所属角色。' }, { name: 'uploadId', description: '当前上传编号。' }],
+        returns: '清理完成。',
+      },
+      {
+        signature: '@Remote rename(characterId: string, assetId: string, name: string): CharacterAssetCatalog',
+        description: '修改名称，保持引用编号、类型和内容。',
+        parameters: [{ name: 'characterId', description: '明确所属角色。' }, { name: 'assetId', description: '资产编号。' }, { name: 'name', description: '新显示名称。' }],
+        returns: '最新目录。',
+      },
+      {
+        signature: '@Remote duplicate(characterId: string, assetIds: string[]): CharacterAssetCatalog',
+        description: '复制选中资产，创建新的引用编号。',
+        parameters: [{ name: 'characterId', description: '明确所属角色。' }, { name: 'assetIds', description: '要复制的编号。' }],
+        returns: '最新目录。',
+      },
+      {
+        signature: '@Remote delete(characterId: string, assetIds: string[], folderIds?: string[]): CharacterAssetCatalog',
+        description: '删除明确选中的资产，其他角色与文件不变。',
+        parameters: [{ name: 'characterId', description: '明确所属角色。' }, { name: 'assetIds', description: '要删除的编号。' }, { name: 'folderIds', description: '要递归删除的文件夹编号。' }],
+        returns: '最新目录。',
+      },
+      {
+        signature: '@Remote createFolder(characterId: string, name: string, parentId: string | null): CharacterAssetCatalog',
+        description: '新建可容纳混合素材的逻辑文件夹。',
+        parameters: [{ name: 'characterId', description: '所属角色。' }, { name: 'name', description: '显示名称。' }, { name: 'parentId', description: '父文件夹编号，null 表示根目录。' }],
+        returns: '最新目录。',
+      },
+      {
+        signature: '@Remote renameFolder(characterId: string, folderId: string, name: string): CharacterAssetCatalog',
+        description: '重命名文件夹，保持素材引用。',
+        parameters: [{ name: 'characterId', description: '所属角色。' }, { name: 'folderId', description: '文件夹编号。' }, { name: 'name', description: '显示名称。' }],
+        returns: '最新目录。',
+      },
+      {
+        signature: '@Remote move(characterId: string, assetIds: string[], folderIds: string[], destination: string | null): CharacterAssetCatalog',
+        description: '将选中素材和文件夹移至目标位置，不移动实际文件或更改引用编号。',
+        parameters: [{ name: 'characterId', description: '所属角色。' }, { name: 'assetIds', description: '素材编号。' }, { name: 'folderIds', description: '文件夹编号。' }, { name: 'destination', description: '目标文件夹编号，null 表示根目录。' }],
+        returns: '最新目录。',
+      },
+      {
+        signature: '@Remote({ mode: \'stream\' }) changes(characterId: string, signal: AbortSignal): AsyncIterable<{ revision: number }>',
+        description: '订阅当前角色目录失效通知；取消时释放等待者。',
+        parameters: [{ name: 'characterId', description: '明确所属角色。' }, { name: 'signal', description: '生命周期取消。' }],
+        returns: '最新目录修订号，不包含二进制内容。',
+      },
+    ],
+  },
+  {
     key: 'eleckoiCharacterConfigurationApi',
     summary: '管理完整设定库、变量定义和正则配置，通过官方 Typert Remote 公开跨端调用。',
     description: '管理完整设定库、变量定义和正则配置，通过官方 Typert Remote 公开跨端调用。',
@@ -1189,6 +1280,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AuthorScriptJson = null | boolean | number | string | AuthorScriptJson[] | {\n    [key: string]: AuthorScriptJson;\n};',
   },
   {
+    name: 'CharacterAsset',
+    declaration: 'export type CharacterAsset = Pick<AssetDomain.CharacterAsset, keyof AssetDomain.CharacterAsset>;',
+  },
+  {
+    name: 'CharacterAssetCatalog',
+    declaration: 'export type CharacterAssetCatalog = Omit<AssetDomain.CharacterAssetCatalog, \'items\' | \'folders\'> & {\n    items: CharacterAsset[];\n    folders: CharacterAssetFolder[];\n};',
+  },
+  {
+    name: 'CharacterAssetFolder',
+    declaration: 'export type CharacterAssetFolder = Pick<AssetDomain.CharacterAssetFolder, keyof AssetDomain.CharacterAssetFolder>;',
+  },
+  {
+    name: 'CharacterAssetUpload',
+    declaration: 'export type CharacterAssetUpload = Pick<AssetDomain.CharacterAssetUpload, keyof AssetDomain.CharacterAssetUpload>;',
+  },
+  {
+    name: 'CharacterAssetUploadTicket',
+    declaration: 'export type CharacterAssetUploadTicket = Pick<AssetDomain.CharacterAssetUploadTicket, keyof AssetDomain.CharacterAssetUploadTicket>;',
+  },
+  {
     name: 'CharacterCollection',
     declaration: 'export interface CharacterCollection {\n    active_character_id: string;\n    groups: string[];\n    items: CharacterRecord[];\n}',
   },
@@ -1198,11 +1309,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CharacterExportFormat',
-    declaration: 'export type CharacterExportFormat = \'png\' | \'json\';',
+    declaration: 'export type CharacterExportFormat = \'png\' | \'json\' | \'zip\';',
   },
   {
     name: 'CharacterExportResult',
-    declaration: 'export interface CharacterExportResult {\n    fileName: string;\n    mimeType: \'image/png\' | \'application/json\';\n    base64: string;\n}',
+    declaration: 'export interface CharacterExportResult {\n    fileName: string;\n    mimeType: \'image/png\' | \'application/json\' | \'application/zip\';\n    base64: string;\n}',
   },
   {
     name: 'CharacterGroupAssignment',

@@ -16,6 +16,7 @@ import {
   regexEditorTargetSchema,
   regexRuleEditorCollectionSchema
 } from '@shared/contracts/regex/schemas'
+import { regexLibrarySchema, type RegexLibrary } from '@shared/contracts/regex/schemas'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import {
@@ -181,6 +182,47 @@ export class RegexRuleRepository {
     }
     const collection = this.readEditor({ scope, ownerId })
     return scope === 'preset' ? collection.agentPresetRules : collection.characterRules
+  }
+
+  readLibrary(scope: 'global' | 'character' | 'preset', ownerId: string) {
+    const rules = this.readScope(scope, ownerId)
+    const enabled = this.scopeEnabled(scope, ownerId)
+    return regexLibrarySchema.parse({ scope, ownerId, enabled, rules,
+      ownerRevision: createHash('sha256').update(JSON.stringify({ enabled, rules })).digest('hex'),
+      revision: this.store.db.select().from(regexState).where(eq(regexState.singletonId, 1)).get()?.revision ?? 0 })
+  }
+
+  saveLibrary(input: RegexLibrary, enabledRuleIds: string[]): RegexLibrary {
+    const library = regexLibrarySchema.parse(input), rules = library.rules.map(normalizedRule)
+    return this.store.withWriteTx(db => {
+      const current = this.readLibrary(library.scope, library.ownerId)
+      if (current.revision !== library.revision || current.ownerRevision !== library.ownerRevision) throw new DesktopError(
+        ELECKOI_FAILURE_CODES.conflictStaleRevision, '该范围的正则已被修改，请重新读取后合并。', { what: '正则库' })
+      const previous = new Map(current.rules.map(rule => [rule.id, rule])), previousIds = new Set(previous.keys()), nextIds = new Set(rules.map(rule => rule.id))
+      const changedEnablement = new Set(enabledRuleIds)
+      if ([...changedEnablement].some(id => !nextIds.has(id))) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, '启停修改中存在不属于该库的规则编号。', { what: '正则规则' })
+      for (const rule of rules) if (!previous.has(rule.id) || previous.get(rule.id)!.enabled !== rule.enabled) changedEnablement.add(rule.id)
+      const state = db.select().from(regexState).where(eq(regexState.singletonId, 1)).get()
+      const key = library.scope === 'global' ? 'globalEnabledIds' : library.scope === 'preset' ? 'agentPresetEnabledIds' : 'characterEnabledIds'
+      const versions = this.readVersions(db).map(version => ({ ...version, [key]: version.id === state?.activeVersionId
+        ? [...version[key].filter(id => !previousIds.has(id) || nextIds.has(id) && !changedEnablement.has(id)), ...rules.filter(rule => changedEnablement.has(rule.id) && rule.enabled).map(rule => rule.id)]
+        : version[key].filter(id => !previousIds.has(id) || nextIds.has(id)) }))
+      if (library.scope === 'global') {
+        this.persistShared(db, { globalRules: rules, versions })
+      } else {
+        // Preserve shared rules and other owners' enablement memberships.
+        this.persistEnablementVersions(db, versions)
+        if (library.scope === 'preset') this.agentPresetRegexes.replaceRegexRules(library.ownerId, rules, db)
+        else {
+          db.delete(characterRegexRules).where(eq(characterRegexRules.characterId, library.ownerId)).run()
+          insertCharacterRules(db, library.ownerId, rules)
+        }
+      }
+      this.saveScopeEnabled(db, library.scope, library.ownerId, library.enabled)
+      db.insert(regexState).values({ singletonId: 1, activeVersionId: state?.activeVersionId ?? null, revision: current.revision + 1 })
+        .onConflictDoUpdate({ target: regexState.singletonId, set: { activeVersionId: state?.activeVersionId ?? null, revision: current.revision + 1 } }).run()
+      return this.readLibrary(library.scope, library.ownerId)
+    })
   }
 
   copyCharacter(sourceId: string, targetId: string): Map<string, string> {
@@ -440,12 +482,16 @@ export class RegexRuleRepository {
       const insert = db.insert(globalRegexRules).values(ruleParameters()).prepare()
       collection.globalRules.forEach((rule, index) => insert.run(ruleRow(rule, index)))
     }
+    this.persistEnablementVersions(db, collection.versions)
+  }
+
+  private persistEnablementVersions(db: ElecKoiDatabase, versions: RegexRuleVersion[]): void {
     db.delete(regexEnablementVersions).run()
-    if (collection.versions.length > 0) {
+    if (versions.length > 0) {
       const insert = db.insert(regexEnablementVersions).values({ id: sql.placeholder('id'), name: sql.placeholder('name'),
         sortIndex: sql.placeholder('sortIndex'), globalEnabledIdsJson: sql.placeholder('globalEnabledIdsJson'),
         agentPresetEnabledIdsJson: sql.placeholder('agentPresetEnabledIdsJson'), characterEnabledIdsJson: sql.placeholder('characterEnabledIdsJson') }).prepare()
-      collection.versions.forEach((version, sortIndex) => insert.run({ id: version.id, name: version.name, sortIndex,
+      versions.forEach((version, sortIndex) => insert.run({ id: version.id, name: version.name, sortIndex,
         globalEnabledIdsJson: JSON.stringify(version.globalEnabledIds), agentPresetEnabledIdsJson: JSON.stringify(version.agentPresetEnabledIds),
         characterEnabledIdsJson: JSON.stringify(version.characterEnabledIds) }))
     }

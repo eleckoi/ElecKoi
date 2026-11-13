@@ -19,6 +19,7 @@ import * as settingTools from '../../apps/desktop/resources/dsh/setting-library-
 import * as variableTools from '../../apps/desktop/resources/dsh/variable-tools.mjs'
 import { ElecKoiVariableProcessing } from '../../packages/host/product-api/src/variable-processing.ts'
 import { emptyEntry } from '../../packages/host/product-data/src/domain/settingLibraries/index'
+import { createHash, randomUUID } from 'node:crypto'
 import { RESULT_READERS, resultDomain } from '../../packages/client/features/dsh-client-roleplay/src/host/tool-result-access.mjs'
 import { applyDisabledPolicy, filterDeclarations } from '../../packages/client/features/dsh-client-roleplay/src/host/tool-policy.mjs'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs'
@@ -116,6 +117,295 @@ async function profileFixture(platform, existingRoot) {
 }
 
 describe('Shipped Host tool-result composition', () => {
+  it('loads packaged authoring skills progressively and edits a large asset catalog and frontend through the real Studio', async () => {
+    const f = await profileFixture('desktop'), { ctx, root } = f, data = ctx.eleckoiProductData
+    const characterId = 'synthetic-asset-studio'
+    data.createCharacter({ id: characterId, name: 'Synthetic asset Studio target' })
+    const body = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>'), hash = createHash('sha256').update(body).digest('hex')
+    const seeded = Array.from({ length: 1001 }, (_, index) => ({ id: randomUUID(), name: `Synthetic asset-${index}.svg`, type: 'image', mimeType: 'image/svg+xml',
+      size: body.length, hash, createdAt: '2026-11-13T00:00:00.000Z', folderId: null, data: body.toString('base64') }))
+    data.characterAssets().withMergedAssets(characterId, seeded, () => {})
+    const mediaPath = join(root, 'workspace', 'Synthetic new media.svg'); mkdirSync(join(root, 'workspace'), { recursive: true }); writeFileSync(mediaPath, body)
+    const studio = await ctx.eleckoiCreatorStudioRuntime.create(characterId), agent = (await ctx.sessionController.resolveAgent(studio.sessionId)).agent
+    const execute = async (name, args) => executeToolCall(agent.ctx.tools, { callId: `synthetic-media-${name}`, name, arguments: args, agent, signal: new AbortController().signal })
+    const catalog = JSON.parse((await execute('eleckoi_list_toolsets', {})).content[0].text)
+    expect(catalog.toolsets.find(item => item.id === 'assets').skill).toBe('eleckoi-character-assets')
+    const names = (await ctx.skills.list()).map(item => item.name)
+    for (const name of ['eleckoi-character-authoring', 'eleckoi-character-assets', 'eleckoi-message-frontends', 'eleckoi-character-frontends']) expect(names).toContain(name)
+    const assetStream = ctx.eleckoiCharacterAssetsApi.changes(characterId, new AbortController().signal)[Symbol.asyncIterator]()
+    const projectOwner = { scope: 'character', characterId }, projectStream = ctx.eleckoiAuthorFrontendsApi.changes(projectOwner, new AbortController().signal)[Symbol.asyncIterator]()
+    await assetStream.next(); await projectStream.next()
+    const assetNotification = assetStream.next(), projectNotification = projectStream.next()
+    const spills = [], saveText = ctx.spillStore.saveText.bind(ctx.spillStore)
+    const save = vi.spyOn(ctx.spillStore, 'saveText').mockImplementation(async input => { const ref = await saveText(input); spills.push({ ref, original: input.content }); return ref })
+    let step = 0, revision, projectId, reference; const requests = []
+    f.setStream(async function* (request) {
+      requests.push(request)
+      const latest = request.messages.findLast(message => message.role === 'tool')?.content[0].text
+      let name = 'eleckoi_call_capability', args
+      if (step === 0) {
+        expect(JSON.stringify(request.messages)).not.toContain('页面程序读取所属消息')
+        name = 'skill'; args = { name: 'eleckoi-message-frontends' }
+      } else if (step === 1) {
+        expect(latest).toContain('<skill_content name="eleckoi-message-frontends">')
+        expect(latest).toContain('references/frontends.md')
+        const base = /Base directory for this skill: (.+)/.exec(latest)[1]
+        name = 'read'; args = { file_path: join(base, 'references/frontends.md') }
+      } else if (step === 2) {
+        expect(latest).toContain('页面程序读取所属消息')
+        args = { capability_id: 'assets.list', arguments: {} }
+      } else if (step === 3) {
+        const spill = spills.at(-1); expect(latest).toContain(spill.ref.locator)
+        args = { result: { file_path: spill.ref.locator, limit: Buffer.byteLength(spill.original) } }
+      } else if (step === 4) {
+        const page = JSON.parse(latest); expect(page.next_offset).toBe(null)
+        const catalog = JSON.parse(page.content).value; expect(catalog.items).toHaveLength(1001)
+        for (const index of [0, 500, 1000]) expect(catalog.items[index].reference).toBe(`asset://${seeded[index].id}`)
+        revision = catalog.revision
+        args = { capability_id: 'assets.create_folder', arguments: { expectedRevision: revision, name: 'Synthetic generated files', parentId: null } }
+      } else if (step === 5) {
+        const spill = spills.at(-1)
+        args = { result: { file_path: spill.ref.locator, limit: Buffer.byteLength(spill.original) } }
+      } else if (step === 6) {
+        const value = JSON.parse(JSON.parse(latest).content).value
+        args = { capability_id: 'assets.import_file', arguments: { expectedRevision: value.revision, folderId: value.createdFolderIds[0], file_path: mediaPath } }
+      } else if (step === 7) {
+        const spill = spills.at(-1)
+        args = { result: { file_path: spill.ref.locator, limit: Buffer.byteLength(spill.original) } }
+      } else if (step === 8) {
+        const value = JSON.parse(JSON.parse(latest).content).value
+        reference = value.items.find(item => item.id === value.importedIds[0]).reference
+        args = { capability_id: 'frontends.import', arguments: { format: 'html', expectedRevision: 0, name: 'Synthetic generated frontend',
+          html: `<!doctype html><html><head><meta name="eleckoi-author-api" content="0.1.0"></head><body><img src="${reference}"></body></html>` } }
+      } else if (step === 9) {
+        const value = JSON.parse(latest).value; projectId = value.importedProjectIds[0]
+        expect(value.selectedProjectId).toBe(null)
+        args = { capability_id: 'frontends.read_file', arguments: { projectId } }
+      } else if (step === 10) expect(JSON.parse(latest).value.content).toContain(reference)
+      yield { type: 'block-start', index: 0, blockType: args ? 'tool-call' : 'text' }
+      yield { type: 'block-end', index: 0, block: args ? { type: 'tool-call', id: `synthetic-media-call-${step++}`, name, arguments: JSON.stringify(args) }
+        : { type: 'text', text: 'Synthetic assets and frontend saved' } }
+      yield { type: 'finish', reason: { kind: args ? 'tool-calls' : 'stop' } }
+    })
+    await ctx.sessionController.prompt({ sessionId: agent.id, requestId: 'synthetic-media-authoring', mode: 'queue', content: [{ type: 'text', text: 'Synthetic authoring from skills and workspace' }] }, new AbortController().signal)
+    await agent.whenIdle()
+    expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
+    expect(requests).toHaveLength(11)
+    expect(spills).toHaveLength(3)
+    expect((await assetNotification).value.revision).toBeGreaterThan(0)
+    expect((await projectNotification).value.revision).toBeGreaterThan(0)
+    await assetStream.return(); await projectStream.return(); save.mockRestore()
+    expect(data.characterAssets().list(characterId).items).toHaveLength(1002)
+    expect(data.frontendProjects().readFile(projectOwner, projectId).content).toContain(reference)
+    const ruleState = JSON.parse((await execute('eleckoi_call_capability', { capability_id: 'regex.list', arguments: {} })).content[0].text).value
+    const ruleResult = await execute('eleckoi_call_capability', { capability_id: 'regex.create', arguments: { expectedRevision: ruleState.revision,
+      rule: { name: 'Synthetic asset display', pattern: '<panel/>', replacement: `<html><head><meta name="eleckoi-author-api" content="0.1.0"></head><body><img src="${reference}"></body></html>`,
+        enabled: true, targets: ['AiOutput'], displayOnly: true, promptOnly: false, runOnEdit: false, order: 0 } } })
+    expect(ruleResult.isError, JSON.stringify(ruleResult)).not.toBe(true)
+    const rule = JSON.parse(ruleResult.content[0].text).value.rule
+    const tested = await execute('eleckoi_call_capability', { capability_id: 'regex.test', arguments: { text: '<panel/>', rule, target: 'AiOutput', surface: 'Display' } })
+    expect(tested.isError, JSON.stringify(tested)).not.toBe(true)
+    expect(JSON.parse(tested.content[0].text).value.output).toContain(`src="${reference}"`)
+    const origin = `http://127.0.0.1:${ctx.webServer.port}`, assetPath = `/eleckoi/character-assets/${encodeURIComponent(characterId)}/${reference.slice('asset://'.length)}`
+    const served = await fetch(`${origin}/eleckoi/frontends/${projectId}/index.html`)
+    expect(served.status).toBe(200)
+    expect(await served.text()).toContain(`src="${assetPath}"`)
+    const image = await fetch(origin + assetPath)
+    expect(image.status).toBe(200); expect(image.headers.get('content-type')).toBe('image/svg+xml')
+    expect(Buffer.from(await image.arrayBuffer()).equals(body)).toBe(true)
+    expect(data.frontendProjects().readFile(projectOwner, projectId).content).toContain(reference)
+  }, 120_000)
+  it('discovers, reads and edits global authoring originals through the shipped Studio, including full results, compaction and saved-preset restore', async () => {
+    const f = await profileFixture('desktop'), { ctx, root } = f, data = ctx.eleckoiProductData
+    const count = 1001, indexes = [0, 500, 1000], libraryId = 'synthetic-global-authoring'
+    const entries = Array.from({ length: count }, (_, index) => ({ ...emptyEntry(`synthetic-global-entry-${index}`),
+      title: `Synthetic shared entry-${index}`, enabled: false, agentReadStrategy: 'normal',
+      content: `Synthetic body ${index}\n${indexes.includes(index) ? 'Synthetic long original 𠮷😀\n'.repeat(4000) : ''}Synthetic final keyword ${index}`,
+      keywords: Array.from({ length: indexes.includes(index) ? 1501 : 1 }, (_, keyword) => `Synthetic keyword ${index}-${keyword}`),
+    }))
+    const globals = data.saveGlobalSettingLibraries({ revision: 0, libraries: [{ id: libraryId, name: 'Synthetic disabled shared library', enabled: false,
+      entries, groups: [], promptPositions: [], expandedGroupIds: [], listAllExpanded: false, createdAt: '', updatedAt: '' }] })
+    const preset = data.createAgentPreset('Synthetic saved global review preset', '', 'creator')
+    data.saveAgentPreset(preset, preset.regexRules)
+    data.setActiveAgentPreset(preset.id)
+    const regex = { id: 'synthetic-global-regex', name: 'Synthetic global regex', pattern: 'TOKEN',
+      replacement: `${'Synthetic replacement\n'.repeat(4000)}Synthetic regex tail`, targets: ['AiOutput'], enabled: false, displayOnly: true, promptOnly: false, runOnEdit: false, order: 0,
+      trimStrings: [], minDepth: null, maxDepth: null, substituteRegex: 0 }
+    data.saveRegexEditor({ ...data.readRegexEditor({ scope: 'preset', ownerId: preset.id }), globalEnabled: false, globalRules: [regex] })
+    const source = { id: 'synthetic-global-script', type: 'script', name: 'Synthetic global script', content: `export default () => { /* ${'Synthetic source\n'.repeat(4000)}Synthetic script tail */ }`,
+      info: '', enabled: false, data: {}, button: { enabled: false, buttons: [] }, export_with: { data: true, button: true }, runtime: { kind: 'eleckoi-module', apiVersion: 1 } }
+    data.saveScriptLibrary({ ...data.readScriptLibrary('global', ''), trees: [source] })
+    const studio = await ctx.eleckoiCreatorStudioRuntime.create('')
+    const agent = (await ctx.sessionController.resolveAgent(studio.sessionId)).agent
+    const records = vi.spyOn(ctx.eleckoiProductRecordChanges, 'publish')
+    const execute = (name, args, owner = agent) => executeToolCall(owner.ctx.tools, { callId: `synthetic-global-direct-${name}`, name, arguments: args, agent: owner, signal: new AbortController().signal })
+    const catalog = JSON.parse((await execute('eleckoi_list_toolsets', {})).content[0].text)
+    for (const domain of ['settings', 'regex', 'scripts']) {
+      expect(catalog.toolsets.find(item => item.id === domain).description).toContain('全局')
+      const guide = JSON.parse((await execute('eleckoi_describe_toolset', { toolset_id: domain, operation_ids: [`${domain}.list`, `${domain}.read`, `${domain}.update`], include_schema: true })).content[0].text)
+      expect(guide.operations.every(operation => operation.inputSchema.properties.target)).toBe(true)
+      expect(guide.toolset.guide.join('\n')).toContain('无需选择角色')
+    }
+    let settingRevision = globals.revision, regexRevision, regexOwnerRevision, scriptRevision
+    const editedSource = source.content.replace('Synthetic script tail', 'Synthetic script edited tail')
+    const editedReplacement = regex.replacement.replace('Synthetic regex tail', 'Synthetic regex edited tail')
+    const calls = [
+      { capability_id: 'settings.list', arguments: { target: { scope: 'global' } }, query: 'Synthetic shared entry-', hits: count,
+        check(value) { expect(value.libraries[0].entries.map(entry => entry.id)).toEqual(entries.map(entry => entry.id)); expect(value.libraries[0].enabled).toBe(false) } },
+      ...indexes.map(index => ({ capability_id: 'settings.read', arguments: { target: { scope: 'global', libraryId }, id: entries[index].id }, query: 'Synthetic final keyword', hits: 1,
+        check(value) { expect(value).toEqual({ ...entries[index], revision: globals.revision, source: { scope: 'global', libraryId, libraryName: globals.libraries[0].name, libraryEnabled: false } }); expect(value.keywords.at(-1)).toBe(`Synthetic keyword ${index}-1500`) } })),
+      { capability_id: 'regex.list', arguments: { target: { scope: 'global' } }, query: 'Synthetic regex tail', hits: 1, check(value) { expect(value.rules).toEqual([regex]); expect(value.enabled).toBe(false); regexRevision = value.revision; regexOwnerRevision = value.ownerRevision } },
+      { capability_id: 'scripts.list', arguments: { target: { scope: 'global' } }, check(value) { expect(value.items[0].id).toBe(source.id); expect(value.items[0]).not.toHaveProperty('content'); scriptRevision = value.revision } },
+      { capability_id: 'scripts.read', arguments: { target: { scope: 'global' }, id: source.id }, query: 'Synthetic script tail', hits: 1, check(value) { expect(value.item).toEqual(source) } },
+      ...indexes.map(index => ({ capability_id: 'settings.edit', arguments: () => ({ target: { scope: 'global', libraryId }, expectedRevision: settingRevision,
+        id: entries[index].id, old_string: `Synthetic final keyword ${index}`, new_string: `Synthetic final edited keyword ${index}` }),
+        check(value) { expect(value).toMatchObject({ id: entries[index].id, changed: true, replacements: 1 }); settingRevision = value.revision } })),
+      { capability_id: 'settings.update_many', arguments: () => ({ target: { scope: 'global', libraryId }, expectedRevision: settingRevision,
+        updates: entries.map(entry => ({ id: entry.id, changes: { agentSelectionHint: 'Synthetic audited entry' } })) }), query: 'Synthetic audited entry', hits: count,
+        check(value) {
+          settingRevision = value.revision; expect(value.entries).toHaveLength(count)
+          for (const index of indexes) {
+            expect(value.entries[index].content).toBe(entries[index].content.replace(`Synthetic final keyword ${index}`, `Synthetic final edited keyword ${index}`))
+            expect(value.entries[index].keywords.at(-1)).toBe(`Synthetic keyword ${index}-1500`)
+          }
+        } },
+      { capability_id: 'regex.update', arguments: () => ({ target: { scope: 'global' }, expectedRevision: regexRevision, expectedOwnerRevision: regexOwnerRevision,
+        id: regex.id, changes: { replacement: editedReplacement } }), query: 'Synthetic regex edited tail', hits: 1,
+        check(value) { expect(value.rule).toEqual({ ...regex, replacement: editedReplacement }); regexRevision = value.revision } },
+      { capability_id: 'scripts.update', arguments: () => ({ target: { scope: 'global' }, expectedRevision: scriptRevision, id: source.id, changes: { content: editedSource } }),
+        query: 'Synthetic script edited tail', hits: 1, check(value) {
+          const actualMetadata = { ...value.item, content: 'Synthetic omitted source' }, expectedMetadata = { ...source, content: 'Synthetic omitted source' }
+          expect(actualMetadata, JSON.stringify({ actualMetadata, expectedMetadata })).toEqual(expectedMetadata)
+          expect(Object.keys(actualMetadata).sort(), JSON.stringify({ actualMetadata, expectedMetadata })).toEqual(Object.keys(expectedMetadata).sort())
+          expect(value.item.content === editedSource, JSON.stringify({ actualTail: value.item.content.slice(-100), expectedTail: editedSource.slice(-100), actualLength: value.item.content.length, expectedLength: editedSource.length })).toBe(true)
+          scriptRevision = value.revision
+        } },
+    ]
+    const spills = [], requests = [], saveText = ctx.spillStore.saveText.bind(ctx.spillStore)
+    const save = vi.spyOn(ctx.spillStore, 'saveText').mockImplementation(async input => {
+      const ref = await saveText(input); spills.push({ ref, original: input.content }); return ref
+    })
+    let cursor = 0, phase, active, recovered = '', sequence = 0, consumedSpills = 0
+    f.setStream(async function* (request) {
+      if (request.purpose === 'compaction') {
+        yield { type: 'block-start', index: 0, blockType: 'text' }
+        yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Synthetic global review summary' } }
+        yield { type: 'finish', reason: { kind: 'stop' } }; return
+      }
+      requests.push(request)
+      let args
+      if (phase) {
+        const raw = request.messages.findLast(message => message.role === 'tool').content.filter(block => block.type === 'text').map(block => block.text).join('')
+        if (phase === 'operation' && spills.length > consumedSpills) {
+          consumedSpills = spills.length
+          active = spills.at(-1); recovered = ''; phase = 'search'
+          expect(raw).toContain(active.ref.locator)
+          args = { result: { file_path: active.ref.locator, query: calls[cursor].query, limit: count + 1 } }
+        } else {
+          const result = JSON.parse(raw)
+          if (phase === 'search') {
+            expect(result.matches).toHaveLength(calls[cursor].hits); expect(result.next_offset).toBeNull(); phase = 'page'
+            args = { result: { file_path: active.ref.locator, offset: 0, limit: Math.ceil(Buffer.byteLength(active.original) / 2) } }
+          } else if (phase === 'page') {
+            expect(result.kind).toBe('tool_result_page'); recovered += result.content
+            if (result.next_offset !== null) args = { result: { file_path: active.ref.locator, offset: result.next_offset, limit: Math.ceil(Buffer.byteLength(active.original) / 2) } }
+            else { expect(recovered).toBe(active.original); calls[cursor++].check(JSON.parse(recovered).value); phase = undefined }
+          } else { calls[cursor++].check(result.value); phase = undefined }
+        }
+      }
+      if (!args && cursor < calls.length) { const call = calls[cursor]; args = { capability_id: call.capability_id, arguments: typeof call.arguments === 'function' ? call.arguments() : call.arguments }; phase = 'operation' }
+      yield { type: 'block-start', index: 0, blockType: args ? 'tool-call' : 'text' }
+      yield { type: 'block-end', index: 0, block: args ? { type: 'tool-call', id: `synthetic-global-model-${sequence++}`, name: 'eleckoi_call_capability', arguments: JSON.stringify(args) }
+        : { type: 'text', text: 'Synthetic global originals reviewed' } }
+      yield { type: 'finish', reason: { kind: args ? 'tool-calls' : 'stop' } }
+    })
+    await ctx.sessionController.prompt({ sessionId: agent.id, requestId: 'synthetic-global-authoring-read', mode: 'queue', content: [{ type: 'text', text: 'Synthetic global source review' }] }, new AbortController().signal)
+    await agent.whenIdle(); save.mockRestore()
+    expect(cursor, JSON.stringify(agent.session.snapshotEvents().at(-1))).toBe(calls.length)
+    expect(spills).toHaveLength(9)
+    expect(records).not.toHaveBeenCalled(); records.mockRestore()
+    expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
+    expect(JSON.stringify(requests[0])).toContain('eleckoi-character-authoring')
+    expect(JSON.stringify(requests[0])).not.toContain('Synthetic final keyword')
+    for (const api of ['deepseek_messages', 'openai-completions', 'openai-responses']) {
+      const wire = JSON.stringify(await captureSerializedRequest(api, requests.at(-1)))
+      for (const index of indexes) expect(wire).toContain(`Synthetic final keyword ${index}`)
+      expect(wire).toContain('Synthetic regex tail'); expect(wire).toContain('Synthetic script tail')
+      expect(wire).toContain('Synthetic regex edited tail'); expect(wire).toContain('Synthetic script edited tail')
+    }
+    const finalGlobals = data.readGlobalSettingLibraries()
+    expect(finalGlobals.revision).toBe(settingRevision)
+    expect(finalGlobals.libraries[0].enabled).toBe(false)
+    expect(finalGlobals.libraries[0].entries.every(entry => entry.agentSelectionHint === 'Synthetic audited entry' && !entry.enabled)).toBe(true)
+    expect(data.readRegexLibrary('global', '').rules[0].replacement).toBe(editedReplacement)
+    expect(data.readScriptLibrary('global', '').trees[0].content).toBe(editedSource)
+    let batchSent = false, batchRead = false
+    const batchIndexes = [1, 501, 999]
+    f.setStream(async function* (request) {
+      if (!batchSent) {
+        batchSent = true
+        for (const [index, entryIndex] of batchIndexes.entries()) {
+          yield { type: 'block-start', index, blockType: 'tool-call' }
+          yield { type: 'block-end', index, block: { type: 'tool-call', id: `synthetic-global-batch-${entryIndex}`, name: 'eleckoi_call_capability',
+            arguments: JSON.stringify({ capability_id: 'settings.read', arguments: { target: { scope: 'global', libraryId }, id: entries[entryIndex].id } }) } }
+        }
+        yield { type: 'finish', reason: { kind: 'tool-calls' } }; return
+      }
+      if (request.purpose !== 'compaction') {
+        for (const entryIndex of batchIndexes) {
+          const message = request.messages.find(message => message.role === 'tool' && message.toolCallId === `synthetic-global-batch-${entryIndex}`)
+          expect(JSON.parse(message.content[0].text).value.content).toBe(entries[entryIndex].content)
+        }
+        batchRead = true
+      }
+      yield { type: 'block-start', index: 0, blockType: 'text' }
+      yield { type: 'block-end', index: 0, block: { type: 'text', text: request.purpose === 'compaction' ? 'Synthetic global review summary' : 'Synthetic batch reviewed' } }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    })
+    await ctx.sessionController.prompt({ sessionId: agent.id, requestId: 'synthetic-global-batch-read', mode: 'queue', content: [{ type: 'text', text: 'Synthetic batch review' }] }, new AbortController().signal)
+    await agent.whenIdle(); expect(batchRead).toBe(true)
+    const peerStudio = await ctx.eleckoiCreatorStudioRuntime.create('')
+    const peer = (await ctx.sessionController.resolveAgent(peerStudio.sessionId)).agent
+    const denied = await execute('eleckoi_call_capability', { result: { file_path: spills[0].ref.locator, query: 'Synthetic shared entry-' } }, peer)
+    expect(denied.isError).toBe(true)
+    const compacted = await ctx.commands.execute(agent, '/compact', [], new AbortController().signal)
+    expect(compacted.result.kind, JSON.stringify(compacted)).toBe('success')
+    expect(agent.session.snapshotEvents().some(event => event.type === 'compaction/end' && !event.data.error)).toBe(true)
+    await ctx.sessions.flush(agent.session); await ctx.fiber.dispose()
+    const restarted = await profileFixture('desktop', root)
+    expect(restarted.ctx.eleckoiProductData.readAgentPresetCatalog().activePresetIds.creator).toBe(preset.id)
+    expect(restarted.ctx.eleckoiProductData.readGlobalSettingLibraries()).toEqual(finalGlobals)
+    expect(restarted.ctx.eleckoiProductData.readRegexLibrary('global', '').rules[0].replacement).toBe(editedReplacement)
+    expect(restarted.ctx.eleckoiProductData.readScriptLibrary('global', '').trees[0].content).toBe(editedSource)
+    await restarted.ctx.eleckoiCreatorStudioRuntime.open(studio.sessionId)
+    const restored = (await restarted.ctx.sessionController.resolveAgent(studio.sessionId)).agent
+    expect(JSON.stringify(restored.session.deriveMessages())).toContain('Synthetic global review summary')
+    for (const arguments_ of [{ capability_id: 'settings.read', arguments: { target: { scope: 'global', libraryId }, id: entries.at(-1).id } },
+      { result: { file_path: spills[0].ref.locator, query: 'Synthetic shared entry-', limit: count + 1 } }]) {
+      const result = await executeToolCall(restored.ctx.tools, { callId: `synthetic-global-restored-${arguments_.capability_id ?? 'result'}`, name: 'eleckoi_call_capability', arguments: arguments_, agent: restored, signal: new AbortController().signal })
+      expect(result.isError, JSON.stringify(result)).not.toBe(true)
+      if (arguments_.result) expect(JSON.parse(result.content[0].text).matches).toHaveLength(count)
+    }
+    const roleId = 'synthetic-profile-options'
+    restarted.ctx.eleckoiProductData.createCharacter({ id: roleId, name: 'Synthetic configuration target' })
+    const roleStudio = await restarted.ctx.eleckoiCreatorStudioRuntime.create(roleId)
+    const roleAgent = (await restarted.ctx.sessionController.resolveAgent(roleStudio.sessionId)).agent
+    const roleCall = async (capability_id, arguments_) => {
+      const result = await executeToolCall(roleAgent.ctx.tools, { callId: `synthetic-profile-${capability_id}`, name: 'eleckoi_call_capability',
+        arguments: { capability_id, arguments: arguments_ }, agent: roleAgent, signal: new AbortController().signal })
+      expect(result.isError, JSON.stringify(result)).not.toBe(true)
+      return JSON.parse(result.content[0].text).value
+    }
+    const snapshot = await roleCall('settings.read_library', {})
+    const position = { id: 'synthetic-profile-anchor', name: 'Synthetic custom position', anchor: 'insert_point_3', side: 'before_setting_position', order: 1, createdAt: '', updatedAt: '' }
+    const savedRole = await roleCall('settings.save_library', { expectedLibraryRevision: snapshot.libraryRevision,
+      library: { ...snapshot.library, promptPositions: [position] } })
+    expect(savedRole.library.promptPositions).toEqual([position])
+    const version = await roleCall('editorVersions.read', { kind: 'scripts', target: { scope: 'character' } })
+    const savedVersion = await roleCall('editorVersions.save', { kind: 'scripts', documents: [version.document], versions: [version.library] })
+    expect(savedVersion.documents[0]).toMatchObject({ scope: 'character', ownerId: roleId })
+  }, 120_000)
+
   it.each(['desktop', 'android'])('%s edits every opening and its variable binding through the Studio model loop and resumes saved results', async platform => {
     const f = await profileFixture(platform), { ctx, root } = f, data = ctx.eleckoiProductData
     const characterId = 'synthetic-opening-author'

@@ -392,8 +392,8 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
           const target = parseNodeKey(selectedKey), parentId = selected.kind === 'object' ? selected.value.parentId : selected.value.objectId;
           const copied = copyVariableNode(configRef.current, target, parentId); changeConfig(copied.config, false); selectNode(copied.key);
         }} /> : null}>
-      <div className="variable-browser editor-collection-browser">
-        {compact && <EditorCollectionToolbar heading={tUi("变量配置")} query={query} onQueryChange={setQuery} placeholder={tUi("搜索变量")} disabled={saving || !config}
+      <div className="variable-browser editor-collection-browser editor-heading-surface">
+        {compact && <EditorCollectionToolbar className="editor-tree-toolbar" heading={tUi("变量")} query={query} onQueryChange={setQuery} placeholder={tUi("搜索变量")} disabled={saving || !config}
           selection={{ ...multi, toggle: toggleSelection }}
           createItems={createItems}
           onManage={() => setManagerOpen(true)} save={saveControl} />}
@@ -414,7 +414,7 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
               onMove={handleMove}
             />
           </VariableTreeActionsContext.Provider>
-          {!config ? <p className="variable-loading" role={error ? 'alert' : 'status'}>{error || tUi("正在读取…")}</p> : !searchHasResults ? <p className="variable-empty">{tUi("没有匹配的变量")}</p> : null}
+          {!config ? error && <p className="variable-loading" role="alert">{error}</p> : !searchHasResults ? <p className="variable-empty">{tUi("没有匹配的变量")}</p> : null}
         </div>
         {compact && config && !multi.active && <MobileEditorActions label={tUi("变量操作")} selectionId={selectedKey} busy={saving} createItems={createItems}
           canEdit={Boolean(selected.value)} canModify={Boolean(selected.value) && selected.value.id !== VARIABLE_INITIALIZATION_OBJECT_ID}

@@ -14,7 +14,7 @@
 .mobile-character-editor .is-editor-subpage .character-editor-side-panel { display: none; }
 .mobile-character-editor .is-editor-subpage .character-editor-workspace { grid-column: 1 / -1; }
 
-.mobile-character-editor .character-basic-content { width: 100%; height: 100%; min-height: 0; min-width: 0; padding: 20px 12px; align-items: stretch; overflow: auto; }
+.mobile-character-editor .character-basic-content { width: 100%; height: 100%; min-height: 0; min-width: 0; padding: 20px 12px; align-items: stretch; justify-content:flex-start; overflow: auto; }
 .mobile-character-editor .character-basic-sheet { flex: none; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: 'avatar' 'name' 'cover' 'intro'; gap: 24px; width: 100%; min-width: 0; max-width: 560px; margin-inline: auto; }
 .mobile-character-editor .character-basic-avatar-upload { width: 104px; height: 104px; }
 .mobile-character-editor .character-basic-avatar-cell { justify-content: center; }

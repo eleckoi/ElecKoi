@@ -29,7 +29,8 @@ describe('app notices', () => {
     expect(html).toContain('运行错误');
     expect(html).toContain('RESOURCE_EXHAUSTED');
     expect(html).toContain('Caused by: HTTP 429');
-    expect(html).toContain('复制错误');
+    expect(html).toContain('复制');
+    expect(html).not.toContain('复制错误');
     expect(html).toContain('关闭');
   });
 

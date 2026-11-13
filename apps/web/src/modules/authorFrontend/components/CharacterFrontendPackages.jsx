@@ -58,7 +58,7 @@ export function CharacterFrontendPackages({ characterId, workspace, status, requ
     if (!file) return;
     await run(async () => {
       const html = /\.html?$/i.test(file.name);
-      const next = await request('frontends.import', { select: false, filename: file.name,
+      const next = await request('frontends.import', { select: true, filename: file.name,
         name: file.name.replace(/\.(zip|html?)$/i, ''), data: encode(new Uint8Array(await file.arrayBuffer())),
         ...(html ? { manifest: { manifestVersion: 1, sdkVersion: AUTHOR_API_VERSION, scope: 'character', entryFile: 'index.html',
           bindings: [{ target: 'root', view: 'chat', entryFile: 'index.html' }] } } : {}) });
@@ -118,7 +118,7 @@ export function CharacterFrontendPackages({ characterId, workspace, status, requ
     </header>
     {(error || serviceError) && <div className="cf-error" role="alert">{error || serviceError}</div>}
     {status === 'unavailable' ? <div className="cf-empty" role="alert">{tUi("原生前端插件未启用")}</div>
-      : status === 'loading' ? <div className="cf-empty" role="status">{tUi("正在读取前端包…")}</div>
+      : status === 'loading' ? <div className="cf-empty" aria-busy="true" />
       : !project ? <div className="cf-empty"><FileTypeIcon kind="folder" size={44} /><h2>{tUi("导入你的角色前端")}</h2><p>{tUi("支持 HTML、ZIP")}</p></div>
       : <div id={`${id}-body`} className={`cf-body cf-view-${view}`} data-reading={reading || undefined} role="tabpanel" aria-labelledby={`${id}-${view}`}>
         <div className="cf-files" hidden={view !== 'files'}>
@@ -155,7 +155,7 @@ function PackageDocument({ project, path, request, visible }) {
   if (!path) return <div className="cf-empty">{tUi("选择文件")}</div>;
   if (imageFile(path)) return <div className="cf-image"><img key={`${path}:${revision}`} src={frontendAssetUrl(project, path, revision)} alt={path} /></div>;
   if (!textual(path)) return <div className="cf-empty"><FileTypeIcon path={path} size={40} /><span>{path.split('/').at(-1)}</span></div>;
-  if (!loaded || loaded.path !== path || loaded.revision !== revision) return <div className="cf-empty" role="status">{tUi("正在读取…")}</div>;
+  if (!loaded || loaded.path !== path || loaded.revision !== revision) return <div className="cf-empty" aria-busy="true" />;
   if (loaded.error) return <div className="cf-error" role="alert">{loaded.error}</div>;
   return <div ref={surface} className="cf-source"><CodeBlock code={loaded.content || ''} lang={languageForPath(path)} lineNumbers showHeader={false} copyLabel={tUi("复制")} copiedLabel={tUi("已复制")} /></div>;
 }

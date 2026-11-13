@@ -125,13 +125,13 @@ describe('导出选择条', () => {
     click(cardByName(container, '角色乙'))
     expect(pressedFormat(container)).toBe('PNG')
 
-    click(buttonByText(container, 'JSON'))
+    click(buttonByText(container, 'ZIP'))
 
-    expect(pressedFormat(container)).toBe('JSON')
+    expect(pressedFormat(container)).toBe('ZIP')
     expect(selectedIds(container), '换格式不影响已勾选的卡').toBe(2)
 
     await clickAsync(exportButton(container))
-    expect(onExportCharacters.mock.calls).toEqual([[['card-1', 'card-2'], 'json']])
+    expect(onExportCharacters.mock.calls).toEqual([[['card-1', 'card-2'], 'zip']])
   })
 
   it('成功后保留勾选与模式，可以直接换格式再导一次', async () => {
@@ -147,12 +147,12 @@ describe('导出选择条', () => {
     expect(container.querySelector('.character-manager-selection-notice').textContent).toBe('已导出 2 张 · PNG → D:\\导出')
     expect(buttonByText(container, '完成'), '成功后退出的语义变成「完成」').toBeTruthy()
 
-    click(buttonByText(container, 'JSON'))
+    click(buttonByText(container, 'ZIP'))
     await clickAsync(exportButton(container))
 
     expect(onExportCharacters.mock.calls).toEqual([
       [['card-1', 'card-2'], 'png'],
-      [['card-1', 'card-2'], 'json'],
+      [['card-1', 'card-2'], 'zip'],
     ])
   })
 

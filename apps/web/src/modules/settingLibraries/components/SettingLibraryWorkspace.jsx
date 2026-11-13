@@ -4,6 +4,7 @@ import { CaretDown, DotsThree, ListChecks, MagnifyingGlass, Plus, SlidersHorizon
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
 import { switchLibraryVersion } from '../model/settingLibraryTransfer.js';
 import '../styles/setting-workspace.css';
+import { EditorDirectoryHeading } from '../../../ui/ui/EditorDirectoryHeading.jsx';
 
 const DEFAULT_WIDTH = 480;
 
@@ -34,10 +35,9 @@ export function SettingLibraryWorkspace({ scope, onScopeChange, globalAvailable,
   ];
   return <section ref={root} className={`setting-workspace${resizing ? ' is-resizing' : ''}`} aria-label={tUi('设定库')}
     style={{ '--setting-directory-width': `${actualWidth}px` }}>
-    <aside className="setting-directory" aria-label={tUi('设定目录')}>
-      <header className="setting-directory-heading">
-        <SegmentedTabs size="sm" className="setting-scope-switch" label={tUi('配置范围')} value={scope} onChange={onScopeChange}
-          items={[{ value: 'character', label: tUi('角色'), panelId }, ...(globalAvailable ? [{ value: 'global', label: tUi('全局'), panelId }] : [])]} />
+    <aside className="setting-directory editor-heading-surface" aria-label={tUi('设定目录')}>
+      <EditorDirectoryHeading title={tUi('设定库')} leading={globalAvailable && <SegmentedTabs size="sm" className="setting-scope-switch" label={tUi('配置范围')} value={scope} onChange={onScopeChange}
+          items={[{ value: 'character', label: tUi('角色'), panelId }, { value: 'global', label: tUi('全局'), panelId }]} />}>
         <div className="setting-directory-actions">
           <Menu open={createOpen} portal dense onClose={() => setCreateOpen(false)}
             anchor={<Button data-dsh-control variant="outline" className="setting-create" icon={<Plus size={16} />} aria-label={tUi('新建')}
@@ -50,7 +50,7 @@ export function SettingLibraryWorkspace({ scope, onScopeChange, globalAvailable,
               aria-label={tUi('设定库更多操作')} aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)} />}
             items={moreItems} onSelect={id => { setMoreOpen(false); moreItems.find(item => item.id === id)?.run?.(); }} />
         </div>
-      </header>
+      </EditorDirectoryHeading>
       <div className="setting-directory-search"><Input data-dsh-control className="setting-search-input" type="search" icon={<MagnifyingGlass size={16} />}
         aria-label={scope === 'global' ? tUi('搜索全局设定库') : tUi('搜索设定')} placeholder={scope === 'global' ? tUi('搜索全局设定库') : tUi('搜索设定')}
         value={query} onChange={event => onQueryChange(event.target.value)} /></div>

@@ -3,6 +3,8 @@ import type { RegexRule } from '@shared/contracts/regex/schemas'
 import type { SettingLibrary } from '@shared/contracts/settingLibrary/schemas'
 import type { VariableConfig } from '@shared/contracts/variables/schemas'
 import type { PortableScriptLibrary } from '@product-data/domain/scripts'
+import type { PortableCharacterAsset, CharacterAssetFolder } from '@shared/contracts/characterAssets'
+import type { PortableFrontendWorkspace } from '@product-data/domain/frontends'
 
 export interface PortableCharacter {
   name: string
@@ -31,6 +33,9 @@ export interface PortableCharacterPackage {
   variableConfigJson: string
   regexRules: RegexRule[]
   scriptLibrary?: PortableScriptLibrary
+  libraryAssets?: PortableCharacterAsset[]
+  libraryFolders?: CharacterAssetFolder[]
+  frontends?: PortableFrontendWorkspace | undefined
 }
 
 export interface DecodedCharacterCard {

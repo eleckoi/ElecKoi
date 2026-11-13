@@ -118,3 +118,20 @@ describe('native frontend UI command mapping', () => {
     await expect(requestNativeFrontend(service, owner, 'frontends.workspace')).rejects.toMatchObject({ code: 'synthetic/error', message: 'Synthetic rejected request', details: { stage: 'read' } })
   })
 })
+
+it('recovers asset reads after failure and releases stale role subscriptions across a reconnect', async () => {
+  const feeds:Feed[]=[],received=vi.fn(),error=vi.fn(),catalog=(revision:number)=>({characterId:'synthetic-owner',revision,items:[]});
+  let finish!:(value:any)=>void;
+  const assets={list:vi.fn(async()=>({ok:true,value:catalog(1)})),changes:vi.fn((_id:string,signal:AbortSignal)=>{const feed=new Feed(signal);feeds.push(feed);return feed})};
+  assets.list.mockResolvedValueOnce({ok:false,error:{code:'synthetic/read',message:'Synthetic failure'}} as any);
+  const client=new NativeFrontendClient({} as any,assets as any);cleanups.push(()=>client.dispose());
+  const stop=client.watchAssets('synthetic-owner',received,error);feeds[0]!.push(0);
+  await vi.waitFor(()=>expect(error).toHaveBeenCalledOnce());expect(received).not.toHaveBeenCalled();
+  feeds[0]!.push(1);await vi.waitFor(()=>expect(received).toHaveBeenCalledWith(catalog(1)));
+  assets.list.mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve}));feeds[0]!.push(2);
+  await vi.waitFor(()=>expect(finish).toBeTypeOf('function'));client.reset();feeds[1]!.push(1);
+  await vi.waitFor(()=>expect(received).toHaveBeenCalledTimes(2));finish({ok:true,value:catalog(99)});
+  await Promise.resolve();await Promise.resolve();expect(received).toHaveBeenCalledTimes(2);
+  stop();await vi.waitFor(()=>expect(feeds.every(feed=>feed.dispose.mock.calls.length>0)).toBe(true));
+  expect(assets.changes.mock.calls.map(args=>args[0])).toEqual(['synthetic-owner','synthetic-owner']);
+});

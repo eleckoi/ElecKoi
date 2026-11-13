@@ -31,6 +31,7 @@ import type { ConversationRuntimeState, ConversationStateSnapshot } from '@produ
 import { resolveConversationSeed } from '@product-data/domain/conversations/conversationSeed'
 import { CreatorProjectRepository } from '@product-data/domain/creatorStudio/CreatorProjectRepository'
 export { creatorCapabilities, creatorToolsets, creatorAuthoringInstructions } from '@product-data/domain/creatorStudio/capabilities'
+import { CharacterAssetRepository } from '@product-data/domain/characterAssets'
 import { FrontendIndex, FrontendProjectRepository } from '@product-data/domain/frontends'
 import { SettingLibraryRepository } from '@product-data/domain/settingLibraries/SettingLibraryRepository'
 import { GlobalSettingLibraryRepository } from '@product-data/domain/globalSettingLibraries'
@@ -193,6 +194,7 @@ class ProductDataStore {
   private variableStates: VariableStateRepository | undefined
   private projects: CreatorProjectRepository | undefined
   private frontends: FrontendProjectRepository | undefined
+  private assets: CharacterAssetRepository | undefined
   private presets: AgentPresetRepository | undefined
   private scripts: ScriptLibraryRepository | undefined
   private editorVersions: EditorLibraryVersionsService | undefined
@@ -269,6 +271,8 @@ class ProductDataStore {
         if (address.scope === 'preset' && !agentPresetExists(store.db, address.ownerId)) throw new DesktopError(ELECKOI_FAILURE_CODES.agentPresetNotFound, '配置版本所属预设不存在。', { what: '预设' })
       })
       this.editorVersions = new EditorLibraryVersionsService(versionRepository, this.scripts, this.regexRules)
+      this.assets = new CharacterAssetRepository(join(dirname(this.path!), 'character-assets'), id => characterExists(store.db, id))
+      this.frontends ??= new FrontendProjectRepository(new FrontendIndex(join(dirname(this.path!), 'author-frontends')), id => characterExists(store.db, id), () => this.characterAssets())
       this.transfers = new CharacterTransferService(
         store,
         this.characters,
@@ -277,7 +281,9 @@ class ProductDataStore {
         this.regexRules,
         media,
         this.scripts,
-        this.openings
+        this.openings,
+        this.assets,
+        this.frontends
       )
     }
     return {
@@ -308,12 +314,12 @@ class ProductDataStore {
   frontendProjects(): FrontendProjectRepository {
     if (!this.frontends) {
       if (!this.path || !isAbsolute(this.path)) throw new DesktopError(ELECKOI_FAILURE_CODES.internal, 'Frontend projects require the product data directory', { what: '产品数据目录' })
-      const index = new FrontendIndex(join(dirname(this.path), 'author-frontends'))
-      this.frontends = new FrontendProjectRepository(index, id => characterExists(this.databaseRepositories().store.db, id))
+      this.frontends = new FrontendProjectRepository(new FrontendIndex(join(dirname(this.path), 'author-frontends')), id => characterExists(this.databaseRepositories().store.db, id), () => this.characterAssets())
     }
     this.frontends.recoverCharacterDeletions()
     return this.frontends
   }
+  characterAssets(): CharacterAssetRepository { this.databaseRepositories(); return this.assets! }
 
   setDisplayPreferences(value: unknown): void {
     this.displayUi = value && typeof value === 'object' && !Array.isArray(value)
@@ -899,7 +905,7 @@ class ProductDataStore {
     const library = settingLibraries.get(sourceId), config = variables.get(sourceId);
     const scriptLibrary = this.scripts!.portable('character', sourceId);
     try {
-      this.frontendProjects().copyCharacterOwner(sourceId, characterId, copyFrontends => this.editorVersions!.transaction(() => {
+      this.characterAssets().withNewOwner(characterId, this.characterAssets().portable(sourceId), copyAssets => this.frontendProjects().copyCharacterOwner(sourceId, characterId, copyFrontends => this.editorVersions!.transaction(() => {
         this.scripts!.transaction(db => {
           characters.createInTransaction({ ...source, id: characterId, name }, db, false);
           variables.restoreInTransaction(characterId, { ...config, characterId }, db);
@@ -909,9 +915,9 @@ class ProductDataStore {
           this.scripts!.saveInTransaction({ ...scripts, enabled: scriptLibrary.enabled }, db);
           const regexIds = this.regexRules!.copyCharacter(sourceId, characterId);
           this.editorVersions!.copyCharacter(sourceId, characterId, regexIds);
-          copyFrontends();
+          copyFrontends(); copyAssets();
         });
-      }));
+      })), this.characterAssets().portableFolders(sourceId));
       characters.commitMediaChanges();
     } catch (error) { characters.rollbackMediaChanges(); throw error; }
     return { characterId, collection: this.readCharacters() };
@@ -933,10 +939,11 @@ class ProductDataStore {
     const { characters } = this.databaseRepositories()
     const current = characters.get(), removed = new Set(characterIds)
     try {
-      const result = this.frontendProjects().deleteCharacterOwners(current.items.filter(item => removed.has(item.id)).map(item => item.id), () => this.scripts!.transaction(db => {
+      const ids = current.items.filter(item => removed.has(item.id)).map(item => item.id)
+      const result = this.characterAssets().deleteOwners(ids, () => this.frontendProjects().deleteCharacterOwners(ids, () => this.scripts!.transaction(db => {
         for (const id of removed) this.scripts!.deleteOwnerInTransaction('character', id, db)
         return characters.replaceAll({ ...current, items: current.items.filter(item => !removed.has(item.id)) }, db)
-      }))
+      })))
       characters.commitMediaChanges()
       return this.withPrimaryOpenings(result)
     } catch (error) { characters.rollbackMediaChanges(); throw error }
@@ -982,6 +989,10 @@ class ProductDataStore {
 
   readSettingLibrary(characterId: string): SettingLibrary {
     return this.databaseRepositories().settingLibraries.get(characterId)
+  }
+
+  readSettingLibrarySnapshot(characterId: string) {
+    return this.databaseRepositories().settingLibraries.authoringSnapshot(characterId)
   }
 
   replaceSettingLibraryContent(
@@ -1075,6 +1086,20 @@ class ProductDataStore {
   readRegexRules(characterId: string): RegexRuleCollection {
     this.databaseRepositories()
     return this.requireRegexRules().get(characterId)
+  }
+
+  readRegexLibrary(scope: EditorLibraryAddress['scope'], ownerId: string) {
+    this.databaseRepositories()
+    return this.requireRegexRules().readLibrary(scope, ownerId)
+  }
+
+  saveRegexLibrary(library: import('@shared/contracts/regex/schemas').RegexLibrary, enabledRuleIds: string[]) {
+    this.databaseRepositories()
+    return this.editorVersions!.transaction(() => {
+      const saved = this.requireRegexRules().saveLibrary(library, enabledRuleIds)
+      this.editorVersions!.sync({ kind: 'regex', scope: saved.scope, ownerId: saved.ownerId })
+      return saved
+    })
   }
 
   readRegexEditor(target: RegexEditorTarget): RegexRuleEditorCollection {
@@ -1313,6 +1338,8 @@ class ProductDataStore {
     this.variableStates = undefined
     this.projects = undefined
     this.frontends = undefined
+    this.assets?.close()
+    this.assets = undefined
     this.presets = undefined
     this.scripts = undefined
     this.editorVersions = undefined

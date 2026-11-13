@@ -28,6 +28,172 @@ async function fixture() {
 }
 
 describe('Creator authoring matches the native setting, schema, script and regex contracts', { timeout: 30_000 }, () => {
+  it('edits character positions and complete setting versions with a role-bound revision and preserves other scopes', async () => {
+    const f = await fixture(), body = 'Synthetic retained long setting 𠮷\n'.repeat(3000)
+    const entry = f.call('settings.create', { title: 'Synthetic positioned entry', content: body, order: 8 })
+    expect(entry.order).toBe(8)
+    const other = f.data.saveSettingLibrary('synthetic-other-character', f.data.readSettingLibrary('synthetic-other-character'))
+    const global = f.data.readGlobalSettingLibraries(), presetId = f.data.readAgentPresetCatalog().activePresetIds.roleplay
+    const preset = f.data.readAgentPreset(presetId), read = f.call('settings.read_library')
+    expect(read.source).toEqual({ scope: 'character', characterId: f.characterId })
+    expect(read.library).not.toHaveProperty('characterId')
+    const position = { id: 'synthetic-position', name: 'Synthetic custom anchor', anchor: 'insert_point_2', side: 'after_setting_position', order: 2, createdAt: '', updatedAt: '' }
+    const inactive = { ...read.library.versions[0], id: 'synthetic-other-version', name: 'Synthetic preserved version' }
+    const saved = f.call('settings.save_library', { expectedLibraryRevision: read.libraryRevision, library: { ...read.library,
+      promptPositions: [position], entries: [{ ...entry, triggerMode: 'always', position: position.anchor, promptPositionId: position.id, insertRole: 'assistant' }],
+      versions: [...read.library.versions, inactive] } })
+    expect(saved.library.promptPositions).toEqual([position])
+    expect(saved.library.entries[0]).toMatchObject({ content: body, triggerMode: 'always', promptPositionId: position.id, insertRole: 'assistant' })
+    expect(saved.library.versions.find((item: any) => item.id === inactive.id)).toEqual(inactive)
+    expect(() => f.call('settings.save_library', { expectedLibraryRevision: read.libraryRevision, library: read.library })).toThrow('重新读取')
+    const rejected = (library: object) => f.call('settings.save_library', { expectedLibraryRevision: saved.libraryRevision, library })
+    expect(() => rejected({ ...saved.library, activeVersionId: 'missing' })).toThrow()
+    expect(() => rejected({ ...saved.library, versions: [...saved.library.versions, inactive] })).toThrow()
+    expect(() => rejected({ ...saved.library, promptPositions: [] })).toThrow()
+    expect(() => rejected({ ...saved.library, characterId: 'synthetic-other-character' })).toThrow()
+    expect(() => rejected({ ...saved.library, promptPositions: [{ ...position, anchor: 'instructions' }] })).toThrow()
+    expect(() => f.call('settings.update', { id: entry.id, changes: { promptPositionId: 'synthetic-foreign-position' } })).toThrow()
+    expect(f.call('settings.read_library')).toEqual(saved)
+    const selected = saved.library.versions.find((item: any) => item.id === inactive.id)
+    const { id: selectedId, createdAt: _created, updatedAt: _updated, ...selectedContent } = selected
+    const switched = f.call('settings.save_library', { expectedLibraryRevision: saved.libraryRevision,
+      library: { ...saved.library, ...selectedContent, activeVersionId: selectedId, versions: saved.library.versions } })
+    expect(switched.library.entries[0].content).toBe(body)
+    expect(switched.library.promptPositions).toEqual([])
+    expect(f.data.readSettingLibrary('synthetic-other-character')).toEqual(other)
+    expect(f.data.readGlobalSettingLibraries()).toEqual(global)
+    expect(f.data.readAgentPreset(presetId)).toEqual(preset)
+    await f.ctx.fiber.dispose()
+    const reopened = new Context(); cleanups.push(() => reopened.fiber.dispose()); await reopened.plugin(productDataPlugin)
+    expect(reopened.eleckoiProductData.readSettingLibrary(f.characterId)).toEqual({ ...switched.library, characterId: f.characterId })
+  })
+
+  it('saves a previously uninitialized role library and rejects a snapshot from another role', async () => {
+    const f = await fixture(), read = f.operations.find(item => item.id === 'settings.read_library')!, save = f.operations.find(item => item.id === 'settings.save_library')!
+    const first = read.execute('synthetic-other-character', {}) as any, again = read.execute('synthetic-other-character', {}) as any
+    expect(first.libraryRevision).toBe(again.libraryRevision)
+    expect(() => save.execute(f.characterId, { expectedLibraryRevision: first.libraryRevision, library: first.library })).toThrow('重新读取')
+    const saved = save.execute('synthetic-other-character', { expectedLibraryRevision: first.libraryRevision, library: { ...first.library, name: 'Synthetic empty version' } }) as any
+    expect(saved.library.name).toBe('Synthetic empty version')
+    expect(saved.libraryRevision).not.toBe(first.libraryRevision)
+  })
+
+  it('preserves compatible script format while updating settings, export flags, buttons and folder membership', async () => {
+    const f = await fixture(), id = 'synthetic-compatible'
+    const created = f.call('scripts.create', { expectedRevision: 0, name: 'Synthetic native', content: 'export default () => {}' }).item
+    const { runtime: _runtime, ...compatible } = created
+    f.data.saveScriptLibrary({ ...f.data.readScriptLibrary('character', f.characterId), trees: [{ ...compatible, id, content: 'console.log("Synthetic compatible source")',
+      export_with: { data: false, button: false }, button: { enabled: false, buttons: [{ name: 'Synthetic action', visible: false }] } }] })
+    const write = (operation: string, input: object) => f.call(`scripts.${operation}`, { expectedRevision: f.call('scripts.list').revision, ...input })
+    const updated = write('update', { id, changes: { content: 'console.log("Synthetic saved compatible tail")', data: { count: 2 }, info: 'Synthetic information', enabled: true } })
+    expect(updated.item).not.toHaveProperty('runtime')
+    expect(updated.item).toMatchObject({ data: { count: 2 }, info: 'Synthetic information', enabled: true, export_with: { data: false, button: false }, button: { enabled: false } })
+    const folder = write('create_folder', { name: 'Synthetic destination' }).item
+    write('update_folder', { id: folder.id, changes: { icon: 'synthetic-icon', color: '#123456', enabled: false } })
+    write('move', { id, folderId: folder.id })
+    expect(f.call('scripts.read', { id: folder.id }).item.scripts[0]).toEqual(updated.item)
+    write('update', { id, changes: { export_with: { data: true, button: false }, button: { enabled: true, buttons: [{ name: 'Synthetic renamed action', visible: true }] } } })
+    const before = f.data.readScriptLibrary('character', f.characterId)
+    expect(() => write('move', { id, folderId: 'synthetic-other-library-folder' })).toThrow()
+    expect(() => write('move', { id, folderId: '', index: 0 })).toThrow()
+    expect(f.data.readScriptLibrary('character', f.characterId)).toEqual(before)
+    expect(f.call('scripts.read', { id }).item).toMatchObject({ export_with: { data: true, button: false }, button: { enabled: true, buttons: [{ name: 'Synthetic renamed action', visible: true }] } })
+  })
+
+  it.each(['scripts', 'regex'])('manages character %s versions through explicit configuration objects', async kind => {
+    const f = await fixture(), read = f.call('editorVersions.read', { kind, target: { scope: 'character' } })
+    expect(read.library.ownerId).toBe(f.characterId)
+    const current = read.library.versions[0], inactive = { ...current, id: 'synthetic-inactive-library', name: 'Synthetic additional version' }
+    const saved = f.call('editorVersions.save', { kind, documents: [read.document], versions: [{ ...read.library, versions: [current, inactive] }] })
+    expect(saved.versions[0].versions.find((version: any) => version.id === inactive.id)).toEqual(inactive)
+    expect(saved.documents[0]).toMatchObject(kind === 'scripts' ? { scope: 'character', ownerId: f.characterId } : { target: { scope: 'character', ownerId: f.characterId } })
+    expect(() => f.call('editorVersions.save', { kind, documents: [read.document], versions: [read.library] })).toThrow('更新')
+  })
+
+  it('offers only character and global configuration contracts while keeping manual preset data unchanged', async () => {
+    const f = await fixture(), presetId = f.data.readAgentPresetCatalog().activePresetIds.roleplay, target = { scope: 'preset', presetId }
+    const before = f.data.readAgentPreset(presetId)
+    expect(creatorToolsets.some(item => String(item.id) === 'presetScripts')).toBe(false)
+    expect(f.operations.some(item => item.id.startsWith('presetScripts.'))).toBe(false)
+    for (const domain of ['regex', 'scripts']) {
+      expect(() => f.call(`${domain}.list`, { target })).toThrow()
+      expect(() => f.call(`${domain}.configure`, { target, expectedRevision: 0, enabled: false, changes: { enabled: false } })).toThrow()
+      expect(() => f.call('editorVersions.read', { kind: domain, target })).toThrow()
+      const document = domain === 'regex' ? f.data.readRegexEditor({ scope: 'preset', ownerId: presetId }) : f.data.readScriptLibrary('preset', presetId)
+      expect(() => f.call('editorVersions.save', { kind: domain, documents: [document], versions: [] })).toThrow()
+      const versions = f.data.readEditorLibraryVersions({ kind: domain as 'regex' | 'scripts', scope: 'preset', ownerId: presetId })
+      expect(() => f.call('editorVersions.save', { kind: domain, documents: [], versions: [versions] })).toThrow()
+    }
+    const document = f.data.readRegexEditor({ scope: 'character', ownerId: f.characterId })
+    expect(() => f.call('editorVersions.save', { kind: 'regex', documents: [{ ...document, agentPresetEnabled: false }], versions: [] })).toThrow('其他归属')
+    expect(f.data.readAgentPreset(presetId)).toEqual(before)
+  })
+  it('reads disabled global setting originals without a character and resolves duplicate entry identities by library', async () => {
+    const f = await fixture(), entry = f.call('settings.create', { title: 'Synthetic shared title', content: '<%= getvar("score") %>', contentMode: 'ejs', enabled: false })
+    const globals = f.data.saveGlobalSettingLibraries({ revision: 0, libraries: ['first', 'second'].map((id, index) => ({
+      id, name: `Synthetic ${id} library`, enabled: false, entries: [{ ...entry, content: `${entry.content}\nSynthetic tail ${index}` }],
+      groups: [], promptPositions: [], listAllExpanded: false, expandedGroupIds: [], createdAt: '', updatedAt: '',
+    })) })
+    const read = (id: string, input: unknown) => f.operations.find(operation => operation.id === id)!.execute('', input) as any
+    expect(read('settings.list', { target: { scope: 'global' } }).libraries.map((library: { id: string }) => library.id)).toEqual(['first', 'second'])
+    const target = { scope: 'global', libraryId: 'second' }
+    expect(read('settings.list', { target }).libraries).toHaveLength(1)
+    expect(read('settings.list', { target }).libraries[0].entries[0]).not.toHaveProperty('content')
+    expect(read('settings.read', { target, id: entry.id })).toEqual({ ...globals.libraries[1]!.entries[0], revision: globals.revision,
+      source: { scope: 'global', libraryId: 'second', libraryName: 'Synthetic second library', libraryEnabled: false } })
+    expect(f.call('settings.read', { id: entry.id }).content).toBe(entry.content)
+    for (const [operation, input] of [
+      ['settings.list', {}], ['settings.read', { id: entry.id }],
+      ['settings.read', { target: { scope: 'global' }, id: entry.id }],
+      ['settings.read', { target: { scope: 'global', libraryId: 'missing' }, id: entry.id }],
+      ['settings.read', { target, id: 'missing' }],
+      ['settings.read', { target: { scope: 'character', libraryId: 'first' }, id: entry.id }],
+      ['settings.update', { target, id: entry.id, changes: { content: 'Unexpected write' } }],
+    ] as const) expect(() => read(operation, input)).toThrow()
+    expect(f.data.readGlobalSettingLibraries()).toEqual(globals)
+    await f.ctx.fiber.dispose()
+    const reopened = new Context(); cleanups.push(() => reopened.fiber.dispose()); await reopened.plugin(productDataPlugin)
+    const operation = creatorCapabilities(reopened.eleckoiProductData).find(item => item.id === 'settings.read')!
+    expect((operation.execute('', { target, id: entry.id }) as any).content).toBe(globals.libraries[1]!.entries[0]!.content)
+  })
+
+  it('reads complete regex and script sources from explicit scopes and rejects stale or ambiguous targets', async () => {
+    const f = await fixture(), presetId = f.data.readAgentPresetCatalog().activePresetIds.roleplay
+    const created = f.call('scripts.create', { expectedRevision: 0, name: 'Synthetic source', content: 'export default () => { /* Synthetic source tail */ }' }).item
+    const regex = f.call('regex.create', { expectedRevision: f.call('regex.list').revision, rule: {
+      name: 'Synthetic rule', pattern: 'TOKEN', replacement: 'Synthetic character replacement', targets: ['AiOutput'], enabled: false,
+      displayOnly: true, promptOnly: false, runOnEdit: false, order: 0,
+    } }).rule
+    const globalRules = [{ ...regex, id: 'synthetic-global-rule', replacement: 'Synthetic global replacement' }]
+    f.data.saveRegexEditor({ ...f.data.readRegexEditor({ scope: 'character', ownerId: f.characterId }), globalEnabled: false, globalRules })
+    const presetRules = [{ ...regex, id: 'synthetic-preset-rule', replacement: 'Synthetic preset replacement' }]
+    f.data.saveRegexEditor({ ...f.data.readRegexEditor({ scope: 'preset', ownerId: presetId }), agentPresetEnabled: false, agentPresetRules: presetRules })
+    const read = (id: string, target: object, input: object = {}) => f.operations.find(operation => operation.id === id)!.execute('', { ...input, target }) as any
+    for (const target of [{ scope: 'global' } as const]) {
+      const ownerId = ''
+      const source = { ...created, content: `export default () => { /* Synthetic ${target.scope} source tail */ }` }
+      f.data.saveScriptLibrary({ ...f.data.readScriptLibrary(target.scope, ownerId), enabled: false, trees: [source], variables: { synthetic: target.scope } })
+      const scripts = read('scripts.list', target)
+      expect(scripts).toMatchObject({ scope: target.scope, ownerId, enabled: false, variables: { synthetic: target.scope } })
+      expect(scripts.items[0]).not.toHaveProperty('content')
+      expect(read('scripts.read', target, { id: source.id }).item).toEqual(source)
+      const rules = target.scope === 'global' ? globalRules : presetRules
+      expect(read('regex.list', target)).toMatchObject({ scope: target.scope, ownerId, enabled: false, rules })
+      expect(read('regex.read', target, { id: rules[0]!.id }).rule).toEqual(rules[0])
+      expect(() => read('scripts.update', target, { id: source.id, expectedRevision: scripts.revision - 1, changes: { enabled: true } })).toThrow()
+      expect(() => read('regex.update', target, { id: rules[0]!.id, expectedRevision: read('regex.list', target).revision - 1, changes: { enabled: true } })).toThrow()
+    }
+    expect(f.call('scripts.read', { id: created.id }).item).toEqual(created)
+    expect(f.call('regex.read', { id: regex.id }).rule).toEqual(regex)
+    for (const operation of ['scripts.list', 'scripts.read', 'regex.list', 'regex.read']) {
+      const input = operation.endsWith('.read') ? { id: created.id } : {}
+      expect(() => read(operation, { scope: 'character', ownerId: 'synthetic-other-character' }, input)).toThrow()
+      expect(() => read(operation, { scope: 'preset' }, input)).toThrow()
+      expect(() => read(operation, { scope: 'preset', presetId }, input)).toThrow()
+      expect(() => read(operation, { scope: 'global', presetId }, input)).toThrow()
+    }
+  })
+
   it('replaces one chapter literally while retaining surrounding text, metadata, other entries and inactive versions across reopen', async () => {
     const f = await fixture()
     const prefix = '第一幕：原样保留𠮷。\r\n'.repeat(2000), suffix = '\r\n第五幕：仍然保留𠮷。'.repeat(2000)
@@ -308,12 +474,6 @@ describe('Creator authoring matches the native setting, schema, script and regex
     const before = f.call('scripts.read', { id: draft.item.id })
     expect(() => f.call('scripts.update', { id: draft.item.id, expectedRevision: before.revision, changes: { enabled: true } })).toThrow('源码为空')
     expect(f.call('scripts.read', { id: draft.item.id })).toEqual(before)
-    const presetId = f.data.readAgentPresetCatalog().activePresetIds.roleplay
-    const library = f.call('presetScripts.read', { presetId })
-    const saved = f.call('presetScripts.save', { presetId, expectedRevision: library.revision, enabled: false, variables: {}, trees: [draft.item] })
-    expect(saved.trees[0]).toMatchObject({ content: '', enabled: false })
-    expect(() => f.call('presetScripts.save', { presetId, expectedRevision: saved.revision, enabled: true, variables: {}, trees: [{ ...draft.item, enabled: true }] })).toThrow('源码为空')
-    expect(f.call('presetScripts.read', { presetId })).toEqual(saved)
   })
   it('creates a blank character without a selected target and preserves existing character identities', async () => {
     const f = await fixture(), before = f.data.readCharacters()
@@ -419,6 +579,6 @@ describe('Creator authoring matches the native setting, schema, script and regex
     await f.ctx.fiber.dispose()
     const reopened = new Context(); cleanups.push(() => reopened.fiber.dispose()); await reopened.plugin(productDataPlugin)
     const read = creatorCapabilities(reopened.eleckoiProductData).find(operation => operation.id === 'regex.read')!
-    expect(read.execute(f.characterId, { id: created.rule.id })).toEqual(created)
+    expect(read.execute(f.characterId, { id: created.rule.id })).toEqual({ ...created, scope: 'character', ownerId: f.characterId, enabled: before.characterEnabled ?? true })
   })
 })

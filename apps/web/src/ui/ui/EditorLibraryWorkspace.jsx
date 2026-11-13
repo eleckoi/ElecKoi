@@ -3,6 +3,7 @@ import { Button, Input, Menu, SegmentedTabs } from '@deepseek-ai/dsh-client-ui-p
 import { CaretDown, DotsThree, ListChecks, MagnifyingGlass, Plus, SlidersHorizontal } from '../icons/interfaceIcons.jsx';
 import { useProductTranslation } from '../../app/i18n/ProductLocaleContext.jsx';
 import '../styles/editor-library-workspace.css';
+import { EditorDirectoryHeading } from './EditorDirectoryHeading.jsx';
 
 const DEFAULT_WIDTH = 480;
 
@@ -25,8 +26,8 @@ export function EditorLibraryWorkspace({ label, scope, ownerScope, onScopeChange
   const versionIndex = config?.versions.findIndex(version => version.id === config.activeVersionId) ?? -1;
   return <section ref={root} className={`setting-workspace rs-workspace${resizing ? ' is-resizing' : ''} ${className}`} aria-label={label}
     style={{ '--setting-directory-width': `${actualWidth}px` }}>
-    <aside className="setting-directory" aria-label={tUi('{value0}目录', { value0: label })}>
-      <header className="setting-directory-heading">{directoryHeading ?? <SegmentedTabs size="sm" className="setting-scope-switch" label={tUi("配置范围")} value={scope} onChange={onScopeChange} items={[{ value: ownerScope, label: ownerScope === "preset" ? tUi("预设") : tUi("角色") }, { value: "global", label: tUi("全局") }]} />}<div className="setting-directory-actions">{directoryActions ?? <>
+    <aside className="setting-directory editor-heading-surface" aria-label={tUi('{value0}目录', { value0: label })}>
+      <EditorDirectoryHeading title={directoryHeading ?? label} leading={!directoryHeading && <SegmentedTabs size="sm" className="setting-scope-switch" label={tUi("配置范围")} value={scope} onChange={onScopeChange} items={[{ value: ownerScope, label: ownerScope === "preset" ? tUi("预设") : tUi("角色") }, { value: "global", label: tUi("全局") }]} />}><div className="setting-directory-actions">{directoryActions ?? <>
         <Menu portal dense open={createOpen} onClose={() => setCreateOpen(false)} anchor={<Button data-dsh-control variant="outline" className="setting-create" icon={<Plus size={16} />}
           aria-label={tUi('新建{value0}', { value0: label })} aria-haspopup="menu" aria-expanded={createOpen} disabled={saving || disabled || !config || selection.active} onClick={() => setCreateOpen(!createOpen)}>{tUi('新建')}</Button>}
           items={createItems.map((item, index) => ({ id: String(index), label: item.label, disabled: item.disabled, icon: item.Icon ? <item.Icon size={16} /> : undefined }))} onSelect={id => { setCreateOpen(false); createItems[Number(id)]?.run(); }} />
@@ -36,7 +37,7 @@ export function EditorLibraryWorkspace({ label, scope, ownerScope, onScopeChange
           items={[{ id: 'select', label: selection.active ? tUi('完成多选') : tUi('多选'), icon: <ListChecks size={16} />, disabled: saving || !config },
             { id: 'manage', label: tUi('管理版本与导入导出'), icon: <SlidersHorizontal size={16} />, disabled: saving || disabled || !config || selection.active }]}
           onSelect={id => { setMoreOpen(false); id === 'select' ? selection.toggle() : onManage(); }} />
-      </>}</div></header>
+      </>}</div></EditorDirectoryHeading>
       <div className="setting-directory-search"><Input data-dsh-control type="search" className="setting-search-input" icon={<MagnifyingGlass size={16} />} aria-label={tUi('搜索{value0}', { value0: label })} placeholder={tUi('搜索{value0}', { value0: label })} value={query} onChange={event => onQueryChange(event.target.value)} /></div>
       {children}
       {config && <footer className="setting-version"><Menu portal dense side="top" minWidthFromAnchor autoFocus open={versionOpen} selectedId={config.activeVersionId} onClose={() => setVersionOpen(false)}

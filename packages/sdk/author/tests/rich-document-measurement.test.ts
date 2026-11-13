@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { expect, it, vi } from 'vitest'
 import { installRichDocumentMeasurement } from '@eleckoi/author-sdk'
 
@@ -7,9 +8,9 @@ it('publishes the first height while iframe animation frames are suspended, then
   const disconnect = vi.fn(), publish = vi.fn()
   vi.stubGlobal('MutationObserver', class { constructor(callback: () => void) { mutated = callback } observe() {} disconnect = disconnect })
   vi.stubGlobal('ResizeObserver', undefined)
-  const page = { scrollY: 0,
-    document: { readyState: 'complete', body: { getBoundingClientRect: () => ({ top: 0, bottom }), scrollHeight: 0, querySelectorAll: () => [] },
-      addEventListener() {}, removeEventListener() {} },
+  vi.spyOn(document.body, 'getBoundingClientRect').mockImplementation(() => ({ top: 0, bottom }) as DOMRect)
+  const page = { scrollY: 0, innerWidth: 900, innerHeight: 800,
+    document,
     getComputedStyle: () => ({ marginBottom: '0' }),
     requestAnimationFrame: vi.fn(callback => { painted = callback; return 1 }), cancelAnimationFrame: vi.fn(),
     addEventListener: (type: string, callback: () => void) => { if (type === 'pagehide') hide = callback }, removeEventListener() {},
@@ -23,5 +24,5 @@ it('publishes the first height while iframe animation frames are suspended, then
     expect(publish).toHaveBeenCalledOnce()
     painted(); expect(publish.mock.calls).toEqual([[160], [240]])
     hide(); expect(disconnect).toHaveBeenCalledOnce()
-  } finally { vi.unstubAllGlobals() }
+  } finally { vi.unstubAllGlobals(); vi.restoreAllMocks() }
 })

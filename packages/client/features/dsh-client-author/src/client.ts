@@ -5,10 +5,10 @@ import { NativeFrontendClient } from './frontends.js'
 export type { NativeFrontendClient } from './frontends.js'
 export type { ElecKoiAuthorRuntime, NativeAuthorRuntimeSnapshot, NativeAuthorChatHandlers, NativeAuthorProjectContext } from './client/types.js'
 
-export const inject = ['remote', 'remote.eleckoiAuthorScripts', 'remote.eleckoiAuthorVariables', 'remote.eleckoiAuthorFrontends', 'remote.eleckoiConversations', 'remote.eleckoiCharacters', 'remote.eleckoiCharacterConfiguration', 'remote.eleckoiAgentPresets', 'eleckoiConversations', 'eleckoiScriptLibraries', 'eleckoiModels']
+export const inject = ['remote', 'remote.eleckoiAuthorScripts', 'remote.eleckoiAuthorVariables', 'remote.eleckoiAuthorFrontends', 'remote.eleckoiCharacterAssets', 'remote.eleckoiConversations', 'remote.eleckoiCharacters', 'remote.eleckoiCharacterConfiguration', 'remote.eleckoiAgentPresets', 'eleckoiConversations', 'eleckoiScriptLibraries', 'eleckoiModels']
 
 export async function apply(ctx: Context): Promise<void> {
-  const frontends = new NativeFrontendClient(ctx.remote.eleckoiAuthorFrontends)
+  const frontends = new NativeFrontendClient(ctx.remote.eleckoiAuthorFrontends, ctx.remote.eleckoiCharacterAssets)
   ctx.provide('eleckoiFrontendProjects', frontends)
   ctx.effect(() => {
     const stop = ctx.on('connection/reset', () => frontends.reset())

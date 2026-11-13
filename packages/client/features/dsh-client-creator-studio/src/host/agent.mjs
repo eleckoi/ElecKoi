@@ -7,6 +7,7 @@ import { CREATOR_STUDIO_EVENT, creatorStudioProjection, resolveCreatorStudioSele
 import { readToolResult, resultReadParameter } from '@eleckoi/dsh-client-roleplay/host/tool-result-access.mjs'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 import { presetPromptCapabilities, presetPromptToolset } from './preset-prompt-capabilities.mjs'
+import { mediaFileCapabilities } from './media-file-capabilities.mjs'
 
 export const name = 'eleckoi-creator-studio-agent'
 export const inject = ['agents', 'tools', 'llm', 'settings', 'sessionProjections', 'eleckoiProductData', 'eleckoiCharacterConfigurationChanges', 'eleckoiProductRecordChanges']
@@ -23,7 +24,8 @@ export function apply(ctx, config) {
     return resolveCreatorStudioSelection(state, ctx.eleckoiProductData.readCharacters().items)
   }
   const dispatchedLibraries = new WeakMap()
-  const capabilities = [...presetPromptCapabilities(() => ctx.eleckoiProductData.creatorPresetRuntime(config.presetId).settingLibrary), ...creatorCapabilities(ctx.eleckoiProductData)]
+  const dispatchedTargets = new WeakMap()
+  const capabilities = [...presetPromptCapabilities(() => ctx.eleckoiProductData.creatorPresetRuntime(config.presetId).settingLibrary), ...creatorCapabilities(ctx.eleckoiProductData), ...mediaFileCapabilities(ctx, readState)]
   const toolsets = [presetPromptToolset, ...creatorToolsets]
   const output = { schema: { type: 'object', additionalProperties: true }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value, null, 2) }] }
   const requireToolset = id => {
@@ -35,7 +37,7 @@ export function apply(ctx, config) {
   const projected = new WeakSet()
   if (config.creatorTools) {
     disposers.push(ctx.tools.register(defineTool({ name: 'eleckoi_list_toolsets', description: '列出 AI 创作工作室可用的能力组。', parameters: {}, output,
-      execute: () => ({ toolsets: toolsets.map(({ id, title, description }) => ({ id, title, description, operationCount: capabilities.filter(operation => operation.toolsetId === id).length })) }) })))
+      execute: () => ({ toolsets: toolsets.map(({ id, title, description, skill }) => ({ id, title, description, ...(skill ? { skill } : {}), operationCount: capabilities.filter(operation => operation.toolsetId === id).length })) }) })))
     disposers.push(ctx.tools.register(defineTool({ name: 'eleckoi_describe_toolset', description: '查看能力组的操作；指定 operation_ids 并启用 include_schema 可读取这些操作的准确参数。',
       parameters: { toolset_id: { type: 'string', required: true }, operation_ids: { type: 'array', items: { type: 'string' } }, include_schema: { type: 'boolean' } }, output,
       execute(args) {
@@ -46,7 +48,7 @@ export function apply(ctx, config) {
         if (selected.size && operations.length !== selected.size) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '所选操作不属于这个能力组。', { field: 'operation_ids' })
         return { toolset, operations: operations.map(({ execute, inputSchema, ...item }) => ({ ...item, ...(args.include_schema ? { inputSchema } : {}) })) }
       } })))
-    disposers.push(ctx.tools.register(defineTool({ name: 'eleckoi_call_capability', description: '执行已发现的创作操作；普通调用必须同时提供 capability_id 与 arguments。角色操作使用菜单当前选择的编辑目标；未选择角色不影响普通对话、全局配置和明确 presetId 的预设配置。可以新建空角色作为编辑目标。参数必须符合已查询的输入结构。创作工具结果溢出时，只传 result 按提示续读全文或搜索，不重新执行创作操作。',
+    disposers.push(ctx.tools.register(defineTool({ name: 'eleckoi_call_capability', description: '执行已发现的创作操作。先加载相关技能，再查询对应 inputSchema；提供 capability_id 与 arguments。大结果沿 result 续读或搜索，不重复写操作。',
       parameters: { capability_id: { type: 'string' }, arguments: { type: 'object', additionalProperties: true }, result: resultReadParameter }, output,
       async execute(args, exec) {
         exec.signal.throwIfAborted()
@@ -57,17 +59,24 @@ export function apply(ctx, config) {
         const operation = capabilities.find(item => item.id === args.capability_id)
         if (!operation) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `未知创作操作：${args.capability_id}`, { what: '创作操作' })
         if (operation.target === 'selected-character' && !state.characterId) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '请先在 AI 创作工作室菜单中选择角色，或通过 character.create 新建空角色。', { what: '在 AI 创作工作室菜单中选择编辑角色' })
-        const value = await operation.execute(state.characterId, args.arguments, exec.signal, dispatchedLibraries.get(exec.agent))
+        const dispatchedTarget = dispatchedTargets.get(exec.agent)
+        if (operation.effect === 'write' && operation.target !== 'new-character' && args.arguments.target?.scope !== 'global'
+          && dispatchedTarget !== undefined && dispatchedTarget !== state.characterId) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch,
+          '本次模型请求期间编辑角色已切换，请重新读取当前角色后再修改。', { what: '本次请求的编辑角色' })
+        const value = await operation.execute(state.characterId, args.arguments, exec.signal, dispatchedLibraries.get(exec.agent), exec)
         exec.signal.throwIfAborted()
-        let changedCharacterId = state.characterId
+        let changedCharacterId = args.arguments.target?.scope === 'global' ? '' : state.characterId
         if (operation.target === 'new-character') {
           if (typeof value?.id !== 'string' || !ctx.eleckoiProductData.readCharacters().items.some(item => item.id === value.id)) {
             throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '新建角色没有返回有效的角色编号。', { what: '新建角色返回的角色编号' })
           }
           changedCharacterId = value.id
           exec.agent.session.append(CREATOR_STUDIO_EVENT, { ...state, characterId: value.id }, { ignorable: true })
+          dispatchedTargets.set(exec.agent, value.id)
         }
         if (operation.effect === 'write') {
+          if (operation.toolsetId === 'assets' || operation.toolsetId === 'frontends') ctx.get('eleckoiCharacterAssetsApi', false)?.invalidate(changedCharacterId)
+          if (operation.toolsetId === 'frontends') ctx.get('eleckoiAuthorFrontendsApi', false)?.invalidate({ scope: 'character', characterId: changedCharacterId })
           ctx.eleckoiCharacterConfigurationChanges.publish({ kind: 'snapshot' })
           if (changedCharacterId) ctx.eleckoiProductRecordChanges.publish({ kind: 'records', domain: 'characters', ids: [changedCharacterId] })
         }
@@ -130,6 +139,7 @@ export function apply(ctx, config) {
     const context = { settingLibrary }
     // Only a model dispatch establishes cached body delivery; previews assemble without sending.
     dispatchedLibraries.set(agent, settingLibrary)
+    dispatchedTargets.set(agent, readState(agent).characterId)
     const messages = extendNativeRequestInput(options.messages, requestProjectionSnapshot(context).plan)
     const request = { ...options, messages }
     projected.add(request)

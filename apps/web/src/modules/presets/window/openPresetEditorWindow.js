@@ -5,5 +5,5 @@ export function openPresetEditorWindow(presetId, section = 'profile') {
   if (!id) return;
   const url = new URL(window.location.href);
   url.search = new URLSearchParams({ view: 'preset-editor', preset: id, section: SECTIONS.has(section) ? section : 'profile' }).toString();
-  window.open(url.toString(), `preset-editor-${encodeURIComponent(id)}`, 'width=1520,height=1120');
+  window.open(url.toString(), `preset-editor-${encodeURIComponent(id)}`, `width=${window.outerWidth},height=${window.outerHeight}`);
 }

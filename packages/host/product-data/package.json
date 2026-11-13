@@ -26,6 +26,10 @@
     "./regex": {
       "types": "./lib/regex-ejs.d.ts",
       "default": "./lib/regex-ejs.js"
+    },
+    "./character-assets": {
+      "types": "./lib/character-assets.d.ts",
+      "default": "./lib/character-assets.js"
     }
   },
   "files": [
@@ -38,7 +42,8 @@
     "lib/variables.d.ts",
     "lib/*.js",
     "lib/*.js.map",
-    "lib/regex-ejs.d.ts"
+    "lib/regex-ejs.d.ts",
+    "lib/*.d.ts"
   ],
   "scripts": {
     "build": "tsdown"

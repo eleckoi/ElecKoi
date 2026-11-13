@@ -31,6 +31,7 @@ import { characterExists } from '@product-data/domain/personas'
 import {
   decodeCharacterCard,
   encodeCharacterCardJson,
+  encodeCharacterBundle,
   encodePortableCharacterPayload
 } from './characterCardFormats'
 import type { DecodedCharacterCard, PortableAsset } from './characterTransferTypes'
@@ -40,11 +41,13 @@ import {
   encodeSettingLibrarySnapshot,
   encodeVariableConfigSnapshot
 } from './portableSnapshots'
-import { isPng, removePngText, writePngText } from '@product-data/storage/media/PngTextChunkCodec'
+import { isPng, removePngText, writePngText, writePngArchive, removePngArchive } from '@product-data/storage/media/PngTextChunkCodec'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
+import type { CharacterAssetRepository } from '@product-data/domain/characterAssets'
+import type { FrontendProjectRepository } from '@product-data/domain/frontends'
 
-const CARD_PAYLOAD_KEYWORDS = new Set(['eleckoi-card', 'chara', 'ccv3'])
+const CARD_PAYLOAD_KEYWORDS = new Set(['eleckoi-card', 'chara', 'ccv3', 'eleckoi-bundle'])
 
 interface PreparedItem {
   id: string
@@ -66,6 +69,8 @@ export class CharacterTransferService {
     private readonly mediaAssets?: LocalMediaStore,
     private readonly scripts = new ScriptLibraryRepository(store, { character: characterExists, preset: agentPresetExists }),
     private readonly openings = new CharacterOpeningRepository(store),
+    private readonly libraryAssets?: CharacterAssetRepository,
+    private readonly frontends?: FrontendProjectRepository,
   ) {}
 
   export(characterId: string, format: CharacterExportFormat): CharacterExportResult {
@@ -91,6 +96,9 @@ export class CharacterTransferService {
         showOpening: boolean(persona.show_opening)
       },
       assets,
+      libraryAssets: this.libraryAssets?.portable(characterId) ?? [],
+      libraryFolders: this.libraryAssets?.portableFolders(characterId) ?? [],
+      frontends: this.frontends?.portable(characterId),
       scriptLibrary: this.scripts.portable('character', characterId),
       characterOpeningsJson: JSON.stringify(this.openings.get(characterId)),
       settingLibraryJson: encodeSettingLibrarySnapshot(this.settingLibraries.get(characterId)),
@@ -107,12 +115,14 @@ export class CharacterTransferService {
         base64: Buffer.from(json, 'utf8').toString('base64')
       }
     }
+    if (format === 'zip') return { fileName: `${safeName}.zip`, mimeType: 'application/zip', base64: Buffer.from(encodeCharacterBundle(packageData)).toString('base64') }
     const baseImage = assets.find((asset) => asset.key === 'avatar.portrait' && asset.mediaType === 'image/png')
       ?? assets.find((asset) => asset.key === 'avatar.square' && asset.mediaType === 'image/png')
       ?? assets.find((asset) => asset.key === 'avatar.circle' && asset.mediaType === 'image/png')
-    const png = writePngText(baseImage?.bytes ?? fallbackPng(), new Map([
-      ['eleckoi-card', encodePortableCharacterPayload(packageData)]
-    ]))
+    const hasResources = packageData.libraryAssets.length > 0 || packageData.libraryFolders.length > 0 || !!packageData.frontends?.projects.length
+    const png = hasResources
+      ? writePngArchive(writePngText(removePngText(baseImage?.bytes ?? fallbackPng(), new Set([...CARD_PAYLOAD_KEYWORDS, 'eleckoi-bundle'])), new Map([['eleckoi-bundle', '1']])), encodeCharacterBundle(packageData))
+      : writePngText(baseImage?.bytes ?? fallbackPng(), new Map([['eleckoi-card', encodePortableCharacterPayload(packageData)]]))
     return {
       fileName: `${safeName}.png`,
       mimeType: 'image/png',
@@ -209,7 +219,11 @@ export class CharacterTransferService {
     const characterId = `character-${randomUUID()}`
     const scripts = decoded.packageData.scriptLibrary
     try {
-      this.scripts.transaction((db) => {
+      const withAssets = (operation: (commit: () => void) => void) => this.libraryAssets
+        ? this.libraryAssets.withNewOwner(characterId, decoded.packageData.libraryAssets ?? [], operation, decoded.packageData.libraryFolders ?? []) : operation(() => {})
+      const withFrontends = (operation: (commit: () => void) => void) => this.frontends
+        ? this.frontends.withImportedCharacterOwner(characterId, decoded.packageData.frontends, operation) : operation(() => {})
+      withAssets(copyAssets => withFrontends(copyFrontends => this.scripts.transaction((db) => {
         this.characters.createInTransaction(this.characterRecord(characterId, decoded), db)
         if (scripts) this.scripts.importInTransaction('character', characterId, scripts, db)
         const library = this.importedLibrary(characterId, decoded)
@@ -237,7 +251,8 @@ export class CharacterTransferService {
           }, imported)
           this.regexRules.saveInTransaction(characterId, merged, current.revision, db)
         }
-      })
+        copyAssets(); copyFrontends()
+      })))
       this.characters.commitMediaChanges()
     } catch (error) {
       this.characters.rollbackMediaChanges()
@@ -306,7 +321,7 @@ export class CharacterTransferService {
 }
 
 function portableImageBytes(mediaType: string, bytes: Uint8Array): Uint8Array {
-  return mediaType === 'image/png' ? removePngText(bytes, CARD_PAYLOAD_KEYWORDS) : bytes
+  return mediaType === 'image/png' ? removePngArchive(removePngText(bytes, CARD_PAYLOAD_KEYWORDS)) : bytes
 }
 
 function retargetLibrary(library: SettingLibrary, characterId: string): SettingLibrary {

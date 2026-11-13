@@ -165,7 +165,7 @@ describe('character editor client extension', () => {
         characterCatalog={{ refresh: async () => ({ items: [character] }) }} characterConfiguration={{}} />));
       const navigation = node.querySelector('.character-editor-navigation');
       expect([...navigation.querySelectorAll('button')].map(button => button.getAttribute('aria-label')))
-        .toEqual(['基础资料', '开场白', '设定库', '变量', '正则', '脚本', '前端', '分支设定']);
+        .toEqual(['基础资料', '开场白', '设定库', '变量', '正则', '脚本', '前端', '资产库', '分支设定']);
       const toggle = node.querySelector('.character-editor-sidebar-toggle');
       expect(toggle.getAttribute('aria-label')).toBe('收起侧边栏');
       await act(async () => toggle.click());

@@ -1,0 +1,29 @@
+.editor-heading-surface {
+  --editor-heading-inset-top: 16px;
+  --editor-heading-inset-inline: 24px;
+  --editor-heading-gap: 12px;
+  --editor-search-background: var(--control-bg, #ebebeb);
+}
+:root[data-theme=dark] .editor-heading-surface { --editor-search-background:#2f2f30; }
+.editor-directory-heading { display:flex; flex-direction:column; flex:none; width:100%; gap:var(--editor-heading-gap,12px); min-width:0; margin-bottom:12px; }
+.editor-directory-topline, .editor-directory-scopebar { display:flex; align-items:center; gap:12px 8px; min-width:0; }
+.editor-directory-topline { align-items:flex-start; }
+.editor-directory-scopebar { flex-wrap:wrap; }
+.editor-page-title, .editor-page-title :is(h1,h2), .editor-heading-surface h1.editor-page-title {
+  margin:0; min-width:0; color:var(--text); font-family:inherit; font-size:22px; font-weight:600; line-height:1.35;
+}
+.editor-directory-topline .editor-page-title { flex:1; }
+.editor-directory-heading .setting-directory-actions { margin-left:auto; }
+.editor-directory-heading .setting-directory-heading { margin:0; }
+.setting-document .setting-document-title :is(input,h1,h2), .preset-tool-config-inline .preset-document-heading :is(h1,h2) {
+  font-family:inherit; font-size:16px; font-weight:500; line-height:1.4;
+}
+.setting-document .setting-document-title { gap:8px; }
+.setting-document .setting-document-title > svg { width:21px; height:21px; flex-shrink:0; }
+.dynamic-settings-list-page.editor-heading-surface { grid-template-rows:auto auto minmax(0,1fr); padding:var(--editor-heading-inset-top) var(--editor-heading-inset-inline) 0; }
+.dynamic-settings-list-page.editor-heading-surface .dynamic-settings-list-toolbar { padding:0; min-height:32px; height:auto; margin-bottom:18px; background:transparent; box-shadow:none; border:0; }
+.dynamic-settings-list-page.editor-heading-surface .editor-collection-search { width:100%; }
+@media(min-width:761px) { .editor-directory-topline:not(.editor-collection-topline) { min-height:32px; align-items:center; } }
+@media(max-width:1150px) { .editor-heading-surface { --editor-heading-inset-inline:20px; } }
+@media(max-width:760px) { .editor-heading-surface { --editor-heading-inset-top:20px; --editor-heading-inset-inline:16px; } }
+@media(max-width:380px) { .editor-heading-surface { --editor-heading-inset-inline:10px; } }

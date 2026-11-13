@@ -95,7 +95,7 @@
 
 .variable-tree [role="tree"],
 .variable-tree [role="treeitem"] { outline: 0; }
-.variable-tree [role="tree"] { position: relative; min-height: 100%; padding: 8px 0 24px; }
+.variable-tree [role="tree"] { position: relative; min-height: 100%; padding: 2px 0 6px; }
 .variable-tree [role="treeitem"]:focus-visible .variable-tree-row { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 22%, transparent); }
 .variable-tree-row {
   display: flex;

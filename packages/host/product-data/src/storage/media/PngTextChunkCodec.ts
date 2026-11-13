@@ -10,6 +10,24 @@ interface PngChunk {
   data: Uint8Array
 }
 
+/** Private ancillary chunks keep PNG standards compliant; ordinary image decoders ignore the ZIP. */
+export function writePngArchive(bytes: Uint8Array, archive: Uint8Array): Uint8Array {
+  const chunks = parsePng(bytes).filter(chunk => chunk.type !== 'ekZa')
+  const end = chunks.findIndex(chunk => chunk.type === 'IEND')
+  const parts: PngChunk[] = []
+  // This is a chunk size, never a total archive size cap.
+  for (let offset = 0; offset < archive.length; offset += 16 * 1024 * 1024) parts.push({ type: 'ekZa', data: archive.subarray(offset, offset + 16 * 1024 * 1024) })
+  chunks.splice(end, 0, ...parts)
+  return writePngChunks(chunks, new Map())
+}
+export function readPngArchive(bytes: Uint8Array): Uint8Array | undefined {
+  const parts = parsePng(bytes).filter(chunk => chunk.type === 'ekZa').map(chunk => chunk.data)
+  return parts.length ? concat(parts) : undefined
+}
+export function removePngArchive(bytes: Uint8Array): Uint8Array {
+  return writePngChunks(parsePng(bytes).filter(chunk => chunk.type !== 'ekZa'), new Map())
+}
+
 export function isPng(bytes: Uint8Array): boolean {
   return bytes.length >= PNG_SIGNATURE.length && PNG_SIGNATURE.every((value, index) => bytes[index] === value)
 }
@@ -72,6 +90,9 @@ function parsePng(bytes: Uint8Array): PngChunk[] {
     if (type.length !== 4 || [...type].some((character) => character.charCodeAt(0) < 65 || character.charCodeAt(0) > 122)) {
       throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, 'PNG 数据块类型无效', { what: 'PNG 数据块类型' })
     }
+    if (view.getUint32(offset + 8 + length, false) !== crc32(bytes.subarray(offset + 4, offset + 8 + length))) {
+      throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, 'PNG 数据块校验失败', { what: 'PNG 数据块' })
+    }
     chunks.push({ type, data: bytes.slice(offset + 8, offset + 8 + length) })
     offset = end
     if (type === 'IEND') {
@@ -106,12 +127,14 @@ function textKeyword(data: Uint8Array): string {
   return separator > 0 ? new TextDecoder('latin1').decode(data.slice(0, separator)) : ''
 }
 
+const CRC_TABLE = Uint32Array.from({ length: 256 }, (_, value) => {
+  let result = value
+  for (let bit = 0; bit < 8; bit++) result = (result >>> 1) ^ ((result & 1) ? 0xedb88320 : 0)
+  return result >>> 0
+})
 function crc32(bytes: Uint8Array): number {
   let crc = 0xffffffff
-  for (const byte of bytes) {
-    crc ^= byte
-    for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0)
-  }
+  for (const byte of bytes) crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ byte) & 255]!
   return (crc ^ 0xffffffff) >>> 0
 }
 

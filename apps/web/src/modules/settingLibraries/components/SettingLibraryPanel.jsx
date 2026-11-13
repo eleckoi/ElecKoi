@@ -451,8 +451,8 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
       aria-label={tUi("设定库")}
       onMouseDown={() => setMenuOpen(false)}
     >
-      <div className="setting-library-browser editor-collection-browser">
-        {compact && <EditorCollectionToolbar heading={tUi("设定库")} leading={globals.available ? <EditorScopeTabs value={scope} panelId={scopePanelId} onChange={changeScope} /> : null} query={query} onQueryChange={setQuery} placeholder={scope === 'global' ? tUi("搜索全局设定库") : tUi("搜索设定")} selection={{ ...multi, toggle: toggleSelection }} disabled={saving || !library}
+      <div className="setting-library-browser editor-collection-browser editor-heading-surface">
+        {compact && <EditorCollectionToolbar className="editor-tree-toolbar" heading={tUi("设定库")} leading={globals.available ? <EditorScopeTabs value={scope} panelId={scopePanelId} onChange={changeScope} /> : null} query={query} onQueryChange={setQuery} placeholder={scope === 'global' ? tUi("搜索全局设定库") : tUi("搜索设定")} selection={{ ...multi, toggle: toggleSelection }} disabled={saving || !library}
           createItems={createItems}
           onManage={scope === 'character' ? () => setManagerOpen(true) : undefined}
           beforeSave={scope === 'global' ? <GlobalSettingLibraryImport state={globals} settingLibraries={settingLibraries} disabled={saving} /> : null}
@@ -485,7 +485,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
               ariaLabel={tUi("设定文件夹树")}
             />
           </SettingTreeActionsContext.Provider>
-          {!library ? <p className="setting-library-loading" role={error ? 'alert' : 'status'}>{error || tUi("正在读取…")}</p> : !searchHasResults ? <p className="setting-library-empty">{tUi("没有匹配的设定")}</p> : null}
+          {!library ? error && <p className="setting-library-loading" role="alert">{error}</p> : !searchHasResults ? <p className="setting-library-empty">{tUi("没有匹配的设定")}</p> : null}
           </div>
           </>}
         </div>

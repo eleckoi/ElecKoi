@@ -1,0 +1,11 @@
+{
+  "source": "https://github.com/DavidHDev/react-bits/blob/main/src/content/Components/Folder/Folder.jsx",
+  "originalSha256": "f621461e0f8c994fd1879c510586971e8984f7a33943240c538d647aab69ff57",
+  "changes": [
+    "Explicit empty items render an empty folder",
+    "Controlled closed state retains hover peek; click navigates instead of opening",
+    "Solid neutral gray theme; no thumbnail attached to the front",
+    "Full upstream license preserved in source and distributed web notices"
+  ],
+  "license": "MIT + Commons Clause License Condition v1.0"
+}

@@ -71,7 +71,7 @@ describe('角色卡导出：选择哪些卡片', () => {
 
     it('再次点击已勾选的卡可以取消勾选', async () => {
       const { container, onExportCharacters } = renderManager()
-      enterExport(container, 'JSON')
+      enterExport(container, 'ZIP')
 
       click(cardByName(container, '角色甲'))
       click(cardByName(container, '角色乙'))
@@ -80,12 +80,12 @@ describe('角色卡导出：选择哪些卡片', () => {
 
       await clickAsync(exportButton(container))
 
-      expect(onExportCharacters.mock.calls).toEqual([[['card-1'], 'json']])
+      expect(onExportCharacters.mock.calls).toEqual([[['card-1'], 'zip']])
     })
 
     it('取消退出勾选模式，不触发任何导出', () => {
       const { container, onExportCharacters } = renderManager()
-      enterExport(container, 'JSON')
+      enterExport(container, 'ZIP')
 
       click(buttonByText(container, '取消'))
 
@@ -129,7 +129,7 @@ describe('角色卡导出：选择哪些卡片', () => {
       expect(container.querySelector('.character-manager-export-menu')).toBeNull()
       expect(pressedFormat(container)).toBe('PNG')
       expect([...selectionBar(container).querySelectorAll('.character-manager-format-switch button')]
-        .map((button) => button.textContent.trim())).toEqual(['PNG', 'JSON'])
+        .map((button) => button.textContent.trim())).toEqual(['PNG', 'ZIP'])
     })
 
     it('不进入勾选模式时，卡片不携带任何勾选语义', () => {
@@ -143,7 +143,7 @@ describe('角色卡导出：选择哪些卡片', () => {
 
     it('未点过任何卡时，即使有 active_character_id 也不预选', () => {
       const { container } = renderManager()
-      enterExport(container, 'JSON')
+      enterExport(container, 'ZIP')
 
       expect(selectedNames(container)).toEqual([])
     })

@@ -9,6 +9,6 @@ export function openCharacterEditorWindow(characterId) {
   window.open(
     editorUrl.toString(),
     `${CHARACTER_EDITOR_LABEL}-${id.replace(/[^a-zA-Z0-9_-]/g, "-")}`,
-    "width=1520,height=1120",
+    `width=${window.outerWidth},height=${window.outerHeight}`,
   );
 }

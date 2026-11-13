@@ -72,12 +72,13 @@
         "id": "eleckoiFrontendProjects",
         "kind": "service",
         "title": "原生前端项目",
-        "description": "通过正式 Remote 管理应用和角色文件项目，按明确归属订阅最新工作区。",
+        "description": "通过正式 Remote 管理应用和角色文件项目及角色资产，按明确归属订阅目录，不缓存媒体正文。",
         "mode": "call",
         "scope": "client",
         "relation": "provides",
         "members": [
-          "watch"
+          "watch",
+          "watchAssets"
         ]
       }
     ]

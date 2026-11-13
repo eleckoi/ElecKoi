@@ -4,7 +4,7 @@ import { DesktopError } from "@shared/foundation/DesktopError";
 import { SystemBarOverlay } from './SystemBarOverlay.jsx';
 import React, { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CopyIcon, XIcon } from "../icons/index.jsx";
+import { XIcon } from "../icons/index.jsx";
 import { failureDetailLines, formatFailureDetails, localizeFailure } from "../../utils/failureText.js";
 
 /**
@@ -91,7 +91,7 @@ export function AppErrorDialog({ notice, onDismiss, onReportProblem }) {
     return lines.join("\n");
   }
 
-  const copyLabel = copyState === "copied" ? tUi("已复制") : copyState === "failed" ? tUi("重试复制") : tUi("复制错误");
+  const copyLabel = copyState === "copied" ? tUi("已复制") : tUi("复制");
   const statusText = copyState === "copied"
     ? tUi("错误内容已复制")
     : copyState === "failed"
@@ -144,7 +144,6 @@ export function AppErrorDialog({ notice, onDismiss, onReportProblem }) {
               </button>
             ) : null}
             <button ref={copyRef} type="button" className="is-primary" onClick={copyError}>
-              <CopyIcon size={15} />
               <span>{copyLabel}</span>
             </button>
           </div>

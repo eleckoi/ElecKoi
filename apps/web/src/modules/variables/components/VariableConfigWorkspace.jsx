@@ -4,6 +4,7 @@ import { CaretDown, DotsThree, ListChecks, MagnifyingGlass, Plus, SlidersHorizon
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
 import { switchVariableVersion } from '../model/variableConfigTransfer.js';
 import '../styles/variable-workspace.css';
+import { EditorDirectoryHeading } from '../../../ui/ui/EditorDirectoryHeading.jsx';
 
 const DEFAULT_WIDTH = 480;
 
@@ -26,8 +27,8 @@ export function VariableConfigWorkspace({ config, query, onQueryChange, createIt
   const versionIndex = config?.versions.findIndex(version => version.id === config.activeVersionId) ?? -1;
   return <section ref={root} className={`setting-workspace vv-workspace variable-workspace${resizing ? ' is-resizing' : ''}`} aria-label={tUi('变量配置')}
     style={{ '--setting-directory-width': `${actualWidth}px` }}>
-    <aside className="setting-directory" aria-label={tUi('变量目录')}>
-      <header className="setting-directory-heading"><h1 className="vv-directory-title">{tUi('变量配置')}</h1><div className="setting-directory-actions">
+    <aside className="setting-directory editor-heading-surface" aria-label={tUi('变量目录')}>
+      <EditorDirectoryHeading title={tUi('变量')}><div className="setting-directory-actions">
         <Menu portal dense open={createOpen} onClose={() => setCreateOpen(false)} anchor={<Button data-dsh-control variant="outline" className="setting-create" icon={<Plus size={16} />}
           aria-label={tUi('新建变量或变量组')} aria-haspopup="menu" aria-expanded={createOpen} disabled={saving || !config || selection.active} onClick={() => setCreateOpen(!createOpen)}>{tUi('新建')}</Button>}
           items={createItems.map((item, index) => ({ id: String(index), label: item.label, icon: <item.Icon size={16} /> }))} onSelect={id => { setCreateOpen(false); createItems[Number(id)]?.run(); }} />
@@ -37,7 +38,7 @@ export function VariableConfigWorkspace({ config, query, onQueryChange, createIt
           items={[{ id: 'select', label: selection.active ? tUi('完成多选') : tUi('多选'), icon: <ListChecks size={16} />, disabled: saving || !config },
             { id: 'manage', label: tUi('管理版本与导入导出'), icon: <SlidersHorizontal size={16} />, disabled: saving || !config || selection.active }]}
           onSelect={id => { setMoreOpen(false); id === 'select' ? selection.toggle() : onManage(); }} />
-      </div></header>
+      </div></EditorDirectoryHeading>
       <div className="setting-directory-search"><Input data-dsh-control type="search" className="setting-search-input" icon={<MagnifyingGlass size={16} />} aria-label={tUi('搜索变量')} placeholder={tUi('搜索变量')} value={query} onChange={event => onQueryChange(event.target.value)} /></div>
       {children}
       {config && <footer className="setting-version"><Menu portal dense side="top" minWidthFromAnchor autoFocus open={versionOpen} selectedId={config.activeVersionId} onClose={() => setVersionOpen(false)}

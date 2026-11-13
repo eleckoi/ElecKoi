@@ -1,3 +1,4 @@
+import { prepareCharacterAssetDocument } from '../model/characterAssetDocument.js';
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
@@ -14,6 +15,7 @@ const noRuntime = () => null;
 export function NativeMessageFrame({ message, document, rootIndex = 0, onSettled, onHeight, initialHeight }) {
   const tUi = useProductTranslation();
   const view = useContext(MainPageContext);
+  const characterId = message.characterId || view?.chat?.chatCharacter?.character_id;
   const connection = view?.characterConfiguration?.scriptRuntimeConnection;
   const runtime = useSyncExternalStore(connection?.subscribe || noSubscription, connection?.getSnapshot || noRuntime, noRuntime);
   const frame = useRef(null), release = useRef(null);
@@ -24,7 +26,7 @@ export function NativeMessageFrame({ message, document, rootIndex = 0, onSettled
   settled.current = onSettled;
   reportHeight.current = onHeight;
   const channel = useMemo(() => crypto.randomUUID(), [message.conversationId, message.id, document.source, rootIndex, runtime]);
-  const source = useMemo(() => buildAuthorDocumentSource(document.source, channel, true), [document.source, channel]);
+  const source = useMemo(() => buildAuthorDocumentSource(prepareCharacterAssetDocument(document.source, characterId), channel, true), [document.source, channel, characterId]);
   useLayoutEffect(() => {
     setError(''); setHeight(null); setDiagnostics([]);
     let ready = false, measured = false, reported = false;

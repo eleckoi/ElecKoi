@@ -42,6 +42,9 @@
       ],
       "@shared/*": [
         "./packages/shared/src/*"
+      ],
+      "@eleckoi/dsh-product-data/character-assets": [
+        "./packages/host/product-data/src/character-assets.ts"
       ]
     }
   },

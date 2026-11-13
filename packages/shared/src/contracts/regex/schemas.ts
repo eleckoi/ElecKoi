@@ -26,6 +26,15 @@ export const regexRuleSchema = z.object({
   substituteRegex: z.union([z.literal(0), z.literal(1), z.literal(2)]).optional()
 })
 
+export const regexLibrarySchema = z.strictObject({
+  scope: z.enum(['global', 'character', 'preset']), ownerId: z.string(), enabled: z.boolean(),
+  rules: z.array(regexRuleSchema), revision: z.number().int().nonnegative(), ownerRevision: z.string().regex(/^[a-f0-9]{64}$/),
+}).superRefine((library, context) => {
+  if (library.scope === 'global' ? library.ownerId !== '' : !library.ownerId) context.addIssue({ code: 'custom', path: ['ownerId'], message: '正则库归属与作用域不匹配。' })
+  if (new Set(library.rules.map(rule => rule.id)).size !== library.rules.length) context.addIssue({ code: 'custom', path: ['rules'], message: '正则规则编号重复。' })
+})
+export type RegexLibrary = z.output<typeof regexLibrarySchema>
+
 export const regexRuleVersionSchema = z.object({
   id: z.string().min(1),
   name: z.string(),

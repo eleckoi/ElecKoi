@@ -1,3 +1,4 @@
+import { prepareCharacterAssetDocument } from '../model/characterAssetDocument.js';
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
@@ -22,7 +23,7 @@ export function NativeProjectFrame({ content, project, entryFile, revision, cont
   const fullHeight = context?.binding?.target === 'root' || context?.binding?.target === 'page' || context?.binding?.slot === 'main';
   const source = useMemo(() => {
     const folder = entryFile.includes('/') ? entryFile.slice(0, entryFile.lastIndexOf('/') + 1).split('/').map(encodeURIComponent).join('/') : '';
-    return buildAuthorDocumentSource(content, channel, autoHeight, {
+    return buildAuthorDocumentSource(prepareCharacterAssetDocument(content, characterId), channel, autoHeight, {
       baseUrl: `/eleckoi/frontends/${encodeURIComponent(project.id)}/${folder}`, context: currentContext.current, runtimeDiagnostics: false,
       globalStyles: (project.manifest?.globalStyles || []).map(path => frontendAssetUrl(project, path, revision)),
     });

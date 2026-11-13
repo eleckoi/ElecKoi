@@ -108,7 +108,7 @@ export function MobileCharactersPage() {
       const ids = [...new Set([...selectedIds, ...visible.map(item => item.id)])];
       setSelectedIds(ids);
     }}>
-      {selection === 'export' && <select aria-label={tUi("导出格式")} value={format} disabled={busy} onChange={event => setFormat(event.target.value)}><option value="png">PNG</option><option value="json">JSON</option></select>}
+      {selection === 'export' && <select aria-label={tUi("导出格式")} value={format} disabled={busy} onChange={event => setFormat(event.target.value)}><option value="png">PNG</option><option value="zip">ZIP</option></select>}
       <button type="button" className={selection === 'delete' ? 'is-destructive' : 'is-confirm'} disabled={busy || !selectedIds.length} onClick={() => selection === 'delete' ? setDeleteOpen(true) : finishSelection()}>{selection === 'delete' ? tUi("删除") : selection === 'duplicate' ? tUi("复制") : tUi("导出")}</button>
     </MobileSelectionHeader>}
     <CharacterGrid characters={visible} persona={chat.persona} selectedIds={selectedIds} selection={selection} filters={<div className="mobile-group-tabs" role="group" aria-label={tUi("角色分组")}><button type="button" aria-pressed={!group} onClick={() => setGroup('')}>{tUi("全部")}{!group && <span>{chat.characters.items.length}</span>}</button>

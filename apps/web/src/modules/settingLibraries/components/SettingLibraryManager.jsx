@@ -247,7 +247,6 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
                   <UserCircle size={19} /><strong>{item.name}</strong><small>{item.versions.length}{tUi(" 个版本")}</small><CaretRight size={15} />
                 </button>
               ))}
-              {loadingSources ? <div className="setting-library-manager-loading">{tUi("正在读取其他角色…")}</div> : null}
             </div>
           </section>
           <section className="setting-library-manager-card">
