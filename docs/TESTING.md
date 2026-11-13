@@ -6,7 +6,7 @@
 
 资产库的混合文件夹由 `character-asset-folders.test.ts` 覆盖层级、跨角色拒绝、循环、稳定引用、递归删除恢复及目标文件夹已删除的导入；`character-assets.test.ts` 在 JSON／ZIP／PNG、角色复制与独立前端 ZIP 中保留层级和空文件夹。`character-asset-resources.test.ts` 通过实际 Cordis Gateway 调用新建、移动和改名后继续核对原 Range／引用资源。网页组件回归覆盖混合筛选、新建、移动、进入、当前目录导入、复制引用与原失败重试；正式组件合成浏览器的列表列轴、深浅层次与手机布局记录在 `build/asset-folders-check/`，不替代 Android 真机或真实数据验收。
 
-Windows 打包前的 `pnpm check:electron-dsh` 只检查实际 Electron Host、原生存储、Session 重开与回退运行。编辑器及脚本按钮交互独立使用 `pnpm check:electron-native-author`，不作为打包前置；测试与探针源码不进入安装包。打包仍保留 SQLite ABI、包内运行资源及安装启动检查。
+Windows 打包与功能回归分别执行。全量功能、UI、编辑器及原生作者客户端交互回归不作为发布打包的前置，不因测试文件、旧断言或探针定位阻塞正常打包；相关测试按实际修改独立运行。实际发布工作树仍完成锁定依赖安装与完整源码构建。`pnpm check:electron-dsh` 检查实际 Electron Host、原生存储、Session 重开与回退运行；编辑器及脚本按钮交互独立使用 `pnpm check:electron-native-author`。测试与探针源码不进入安装包；打包保留 SQLite ABI、更新流程、包内运行资源及安装启动检查。
 
 主窗口日志的退出边界由 `main-window-console.test.ts` 覆盖：窗口或网页对象销毁后的迟到回调不读取原生对象，任一关闭通知和显式释放均移除监听；正常动作、错误、主框架导航、取消关闭和作者卡子框架过滤保持。`main-window-console-native.test.ts` 使用隔离 profile 和隐藏 Electron 窗口，覆盖窗口关闭、强制销毁与网页关闭，在真实原生对象销毁前后检查日志释放及已捕获回调，不操作真实安装或数据，也不代替完整安装升级验收。
 
