@@ -49,7 +49,7 @@ const NODE_MIN_SIZE = {
   default: { width: 260, height: 160 },
 };
 
-export function CanvasIconButton({ label, children, className = "", ...props }) {
+function CanvasIconButton({ label, children, className = "", ...props }) {
   return <button
     className={`creator-canvas-icon-button ${className}`.trim()}
     type="button"

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { SessionModelParameterPatch, SessionModelParameterState } from './types.js'
+import type { SessionModelParameterState } from './types.js';
 export type { SessionModelParameterPatch, SessionModelParameterState } from './types.js'
 
 export const SESSION_MODEL_PARAMETERS = 'eleckoiModelParameters'

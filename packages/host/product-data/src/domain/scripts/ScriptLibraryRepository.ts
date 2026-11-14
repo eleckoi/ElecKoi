@@ -1,3 +1,4 @@
+import { recordCharacterEdit } from '@product-data/domain/characterCatalog'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { dirname, isAbsolute, join } from 'node:path'
@@ -96,6 +97,7 @@ export class ScriptLibraryRepository {
       db.update(scriptLibraries).set(update).where(and(
         eq(scriptLibraries.scope, scope), eq(scriptLibraries.ownerId, ownerId),
       )).run()
+      if (scope === 'character') recordCharacterEdit(db, ownerId)
     }
     return library
   }
@@ -157,6 +159,7 @@ export class ScriptLibraryRepository {
       target: [scriptLibraries.scope, scriptLibraries.ownerId], set: row,
     }).run()
     this.files.mark(next.scope, next.ownerId, before, row)
+    if (next.scope === 'character') recordCharacterEdit(db, next.ownerId)
     return next
   }
 
@@ -177,7 +180,7 @@ export class ScriptLibraryRepository {
     const files = decodeScriptFiles(portable.files ?? []), directory = this.directory(scope, ownerId)
     if (this.exists(scope, ownerId, db) || this.files.names(directory).length) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupDuplicate, '导入脚本需要新的所属对象，未覆盖现有文件。', { what: '脚本导入目标' })
     const saved = this.saveInTransaction({ scope, ownerId, trees: portable.trees, variables: portable.variables,
-      enabled: false, revision: 0 }, db)
+      enabled: portable.enabled, revision: 0 }, db)
     const entries = new Set(saved.trees.flatMap(tree => tree.type === 'folder' ? tree.scripts : [tree])
       .map(item => `scripts/${sourceHash(item.id)}.js`))
     for (const file of files) {

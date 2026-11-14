@@ -1,3 +1,4 @@
+import { characterExportRoot } from './helpers/characterExportRoot'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative } from 'node:path'
@@ -262,14 +263,14 @@ describe('Creator authoring matches the native setting, schema, script and regex
   it('imports only supported opening fields from a card and never writes retired fields back', async () => {
     const f = await fixture()
     const saved = f.saveOpenings({ openingMessages: [{ id: 'synthetic-opening', title: 'Synthetic', content: 'Synthetic opening' }], defaultOpeningMessageId: 'synthetic-opening' })
-    const card = JSON.parse(Buffer.from(f.data.exportCharacter(f.characterId, 'json').base64, 'base64').toString('utf8'))
+    const card = characterExportRoot(f.data.exportCharacter(f.characterId, 'png'))
     card.character_openings = JSON.stringify({ ...saved, openingMessages: saved.openingMessages.map((message: object) => ({ ...message,
       initialVariableStateJson: '{"discarded":99}', futureFileMetadata: 'ignored',
     })) })
     const preview = f.data.prepareCharacterImports([{ displayName: 'synthetic-card.json', mimeType: 'application/json', base64: Buffer.from(JSON.stringify(card)).toString('base64') }], 'eleckoi')
     const id = f.data.commitCharacterImports(preview.token).importedCharacterIds[0]!
     expect(f.data.readCharacterOpenings(id).openingMessages).toEqual(saved.openingMessages)
-    const exported = JSON.parse(Buffer.from(f.data.exportCharacter(id, 'json').base64, 'base64').toString('utf8'))
+    const exported = characterExportRoot(f.data.exportCharacter(id, 'png'))
     expect(exported.character_openings).not.toContain('initialVariableStateJson')
     expect(exported.character_openings).not.toContain('futureFileMetadata')
   })
@@ -295,13 +296,13 @@ describe('Creator authoring matches the native setting, schema, script and regex
     const chat = f.data.createConversation({ metadata: { characterId: f.characterId } });
     expect(chat.messages[0]!.content).toBe(desired[5_000]!.content);
     expect(chat.messages[0]!.openingOptions).toHaveLength(desired.length);
-    for (const format of ['json', 'png'] as const) {
+    for (const format of ['png', 'zip'] as const) {
       const exported = f.data.exportCharacter(f.characterId, format);
       const preview = f.data.prepareCharacterImports([{ displayName: exported.fileName, mimeType: exported.mimeType, base64: exported.base64 }], 'eleckoi');
       const imported = f.data.commitCharacterImports(preview.token).importedCharacterIds[0]!;
       expect(f.data.readCharacterOpenings(imported).openingMessages).toEqual(desired);
     }
-    const earlyCard = JSON.parse(Buffer.from(f.data.exportCharacter(f.characterId, 'json').base64, 'base64').toString('utf8'));
+    const earlyCard = characterExportRoot(f.data.exportCharacter(f.characterId, 'png'));
     const oldSnapshot = { id: 'synthetic-early-current', name: '合成旧结构', enabled: updated.enabled,
       openingMessages: desired.map(message => ({ ...message, initialVariableStateJson: '' })), defaultOpeningMessageId: updated.defaultOpeningMessageId, createdAt: '', updatedAt: '' };
     earlyCard.character_openings = JSON.stringify({ ...updated, openingMessages: oldSnapshot.openingMessages, activeVersionId: oldSnapshot.id, name: oldSnapshot.name,
@@ -475,15 +476,15 @@ describe('Creator authoring matches the native setting, schema, script and regex
     expect(() => f.call('scripts.update', { id: draft.item.id, expectedRevision: before.revision, changes: { enabled: true } })).toThrow('源码为空')
     expect(f.call('scripts.read', { id: draft.item.id })).toEqual(before)
   })
-  it('creates a blank character without a selected target and preserves existing character identities', async () => {
+  it.each([{ group: undefined }, { group: '' }, { group: '合成新分组' }])('creates a blank character with optional group=$group and preserves existing character identities', async ({ group }) => {
     const f = await fixture(), before = f.data.readCharacters()
     const create = f.operations.find(item => item.id === 'character.create')!
     expect(create.target).toBe('new-character')
-    const created = create.execute('', { name: '合成新角色', group: '合成新分组' }) as { id: string }
+    const created = create.execute('', { name: '合成新角色', ...(group === undefined ? {} : { group }) }) as { id: string }
     const after = f.data.readCharacters()
     expect(after.items).toHaveLength(before.items.length + 1)
     expect(after.active_character_id).toBe(before.active_character_id)
-    expect(after.items.find(item => item.id === created.id)).toMatchObject({ name: '合成新角色', group: '合成新分组', avatar: '',
+    expect(after.items.find(item => item.id === created.id)).toMatchObject({ name: '合成新角色', group: group ?? '', avatar: '',
       persona: { opening: '', assistant_avatar: '', assistant_square: '', assistant_cover: '', show_opening: true } })
     expect(after.items.filter(item => item.id !== created.id)).toEqual(before.items)
     for (const input of [{ name: '' }, { name: '   ' }, { name: '合成新角色', characterId: f.characterId }, {}]) {

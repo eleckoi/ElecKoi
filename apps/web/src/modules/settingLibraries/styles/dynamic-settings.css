@@ -90,8 +90,7 @@
 
 .dynamic-settings-conversation-row:focus-visible,
 .dynamic-settings-tree-row:focus-visible,
-.dynamic-settings-detail-toolbar button:focus-visible,
-.dynamic-settings-inspector > header > button:focus-visible {
+.dynamic-settings-detail-toolbar button:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--blue) 58%, transparent);
   outline-offset: -2px;
 }
@@ -237,7 +236,7 @@
 
 .dynamic-settings-editor-pane {
   position: relative;
-  display: grid;
+  display: flex;
   min-width: 0;
   min-height: 0;
   border-left: 1px solid color-mix(in srgb, var(--text) 8%, transparent);
@@ -259,6 +258,20 @@
   gap: 10px;
   padding: 9px 22px;
   border-bottom: 1px solid color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+.dynamic-settings-tree-toolbar .editor-collection-search {
+  width: 100%;
+  min-width: 0;
+}
+
+.dynamic-settings-tree-toolbar > .setting-library-add-wrap {
+  width: auto;
+  min-width: max-content;
+}
+
+.dynamic-settings-tree-toolbar button {
+  white-space: nowrap;
 }
 
 .dynamic-settings-tree {
@@ -341,121 +354,8 @@
   display: block;
 }
 
-.dynamic-settings-inspector {
-  display: grid;
-  grid-template-rows: 50px minmax(0, 1fr);
-  min-width: 0;
-  min-height: 0;
-}
-
-.dynamic-settings-inspector > .dynamic-settings-status {
-  grid-row: 1 / -1;
-  align-self: center;
-}
-
-.dynamic-settings-inspector > header {
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) 28px;
-  align-items: center;
-  gap: 7px;
-  min-height: 50px;
-  padding: 8px 12px 5px 17px;
-}
-
-.dynamic-settings-inspector > header > span,
-.dynamic-settings-inspector > header > button {
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-}
-
-.dynamic-settings-inspector > header strong {
-  overflow: hidden;
-  font-size: 14px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dynamic-settings-inspector > header > button {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-}
-
-.dynamic-settings-inspector > header > button:hover {
-  color: var(--text);
-  background: var(--active);
-}
-
-.dynamic-settings-inspector-body {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  align-content: start;
-  gap: 14px;
-  min-width: 0;
-  min-height: 0;
-  padding: 7px 18px 18px;
-  overflow: auto;
-}
-
-.dynamic-settings-field {
-  display: grid;
-  align-content: start;
-  gap: 7px;
-  min-width: 0;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.dynamic-settings-field input,
-.dynamic-settings-field textarea {
-  width: 100%;
-  min-width: 0;
-  color: var(--text);
-  background: var(--field-bg);
-  border: 1px solid color-mix(in srgb, var(--text) 13%, transparent);
-  border-radius: 8px;
-  outline: 0;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 400;
-}
-
-.dynamic-settings-field input {
-  height: 38px;
-  padding: 0 11px;
-}
-
-.dynamic-settings-field.is-content {
-  min-height: 220px;
-}
-
-.dynamic-settings-field textarea {
-  min-height: 220px;
-  height: 100%;
-  padding: 10px 11px;
-  resize: vertical;
-  line-height: 1.65;
-}
-
-.dynamic-settings-field input:focus,
-.dynamic-settings-field textarea:focus,
 .dynamic-settings-name-dialog input:focus {
   border-color: var(--blue);
-}
-
-.dynamic-settings-readonly-content {
-  min-height: 220px;
-  padding: 12px 13px;
-  overflow: auto;
-  color: var(--text);
-  background: var(--surface-subtle);
-  border-radius: 8px;
-  font-size: 13px;
-  line-height: 1.7;
-  white-space: pre-wrap;
 }
 
 .dynamic-settings-name-dialog label {
@@ -508,16 +408,11 @@
 
 @container (max-width: 760px) {
   .dynamic-settings-tree-toolbar {
-    grid-template-columns: minmax(0, 1fr) 32px auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 8px;
     padding-inline: 8px;
   }
 
-  .dynamic-settings-tree-toolbar .setting-library-create-button {
-    min-width: 0;
-    justify-content: center;
-    gap: 0;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

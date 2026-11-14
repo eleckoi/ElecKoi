@@ -8,7 +8,7 @@ import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { forwardRef, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { EditorScopeTabs } from '../../../ui/ui/EditorScopeTabs.jsx';
-import { ArrowDown, ArrowUp, Copy, FileCode, FolderSimple, NotePencil, Plus, Power, Trash } from '../../../ui/icons/interfaceIcons.jsx';
+import { ArrowDown, ArrowUp, Copy, FileCode, FolderSimple, NotePencil, Power, Trash } from '../../../ui/icons/interfaceIcons.jsx';
 import { DshTriangleRightIcon } from '../../../ui/icons/dshTreeIcons.jsx';
 import { SaveControl } from '../../settingLibraries/index.js';
 import { ConfirmationDialog } from '../../../ui/ui/ConfirmationDialog.jsx';
@@ -34,10 +34,6 @@ function Switch({ checked, label, disabled, onChange }) {
     <input type="checkbox" aria-label={label} checked={checked} disabled={disabled} onChange={event => onChange(event.target.checked)} />
     <i aria-hidden="true" />
   </label>;
-}
-
-function Tool({ label, Icon, onClick, disabled }) {
-  return <button type="button" className="script-tool" title={label} aria-label={label} onClick={onClick} disabled={disabled}><Icon size={18} aria-hidden="true" /></button>;
 }
 
 export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ characterId, presetId, presetName = '', manageSaveShortcut = true, scriptLibraries, scriptRuntimeConnection, onDirtyChange }, ref) {

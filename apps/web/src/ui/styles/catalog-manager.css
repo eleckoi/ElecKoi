@@ -1,0 +1,152 @@
+.catalog-manager.character-manager-window,
+.catalog-manager.preset-manager-window {
+  --catalog-manager-card: #fff;
+  --catalog-manager-secondary: #73777f;
+  --catalog-manager-card-shadow: 0 2px 7px rgba(28,32,40,.035), 0 0 0 1px rgba(28,32,40,.025);
+
+  background: var(--character-manager-canvas);
+}
+
+:root[data-theme="dark"] .catalog-manager {
+  --catalog-manager-card: #26272b;
+  --catalog-manager-secondary: #a0a2a9;
+  --catalog-manager-card-shadow: 0 2px 8px rgba(0,0,0,.12), 0 0 0 1px rgba(255,255,255,.035);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .catalog-manager {
+    --catalog-manager-card: #26272b;
+    --catalog-manager-secondary: #a0a2a9;
+    --catalog-manager-card-shadow: 0 2px 8px rgba(0,0,0,.12), 0 0 0 1px rgba(255,255,255,.035);
+  }
+}
+
+.catalog-manager:is(.character-manager-window, .preset-manager-window) :is(.character-manager-main, .preset-manager-main) {
+  --catalog-manager-content-inset: 28px;
+  padding: 48px 0 0 28px;
+  background: var(--character-manager-canvas);
+}
+
+.catalog-manager:is(.character-manager-window, .preset-manager-window) :is(.character-manager-titlebar, .preset-manager-titlebar) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  min-height: 36px;
+  gap: 24px;
+  margin-bottom: 25px;
+  margin-right: var(--catalog-manager-content-inset);
+}
+
+.catalog-manager:is(.character-manager-window, .preset-manager-window) :is(.character-manager-titlebar, .preset-manager-titlebar) h2 {
+  flex: none;
+  margin: 0;
+  font-size: 22px;
+  line-height: 36px;
+  font-weight: 600;
+  letter-spacing: -.4px;
+}
+
+.catalog-manager-header-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.catalog-manager-header-actions button { flex: none; gap: 6px; white-space: nowrap; }
+.catalog-manager-header-actions button svg { flex: none; width: 17px; height: 17px; }
+.catalog-manager-header-actions button .catalog-manager-caret { width: 12px; height: 12px; }
+.catalog-manager-action-divider { flex: none; width: 1px; height: 18px; margin: 0 2px; background: var(--line-strong); }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .catalog-manager-surface-button { background: var(--dsw-alias-button-elevated-fill); }
+@media (hover: hover) {
+  .catalog-manager:is(.character-manager-window, .preset-manager-window) .catalog-manager-surface-button:hover:not(:disabled) { background: var(--dsw-alias-button-floating-hover); }
+}
+
+.catalog-manager-search { position: relative; width: clamp(180px, 20vw, 320px); flex: 0 1 320px; min-width: 140px; }
+.catalog-manager-search > span { width: 100%; }
+.catalog-manager-search input { height: 36px; padding-right: 30px; }
+.catalog-manager-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .catalog-manager-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  display: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  padding: 0;
+  color: var(--catalog-manager-secondary);
+}
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .catalog-manager-search-clear svg { width: 14px; height: 14px; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .catalog-manager-search:focus-within .catalog-manager-search-clear { display: grid; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-selection-bar { flex: 1; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-selection-bar .catalog-manager-search { width: 100%; }
+
+.catalog-manager:is(.character-manager-window, .preset-manager-window) :is(.character-manager-scroll, .preset-manager-grid) {
+  margin-right: var(--window-resize-edge-inset, 2px);
+  padding-right: calc(var(--catalog-manager-content-inset) - var(--window-resize-edge-inset, 2px) - var(--dsh-scrollbar-width, 5px));
+  scrollbar-gutter: stable;
+}
+.catalog-manager .preset-manager-grid::-webkit-scrollbar-track { margin: 2px; }
+
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid {
+  --character-card-gap: 12px;
+  grid-auto-rows: 1px;
+  gap: 0 20px;
+}
+
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid .character-card,
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .preset-manager-card {
+  border-radius: 16px;
+  corner-shape: round;
+  background: var(--catalog-manager-card);
+  box-shadow: var(--catalog-manager-card-shadow);
+  transform: none;
+  transition: box-shadow 140ms ease;
+}
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid .character-card:hover,
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .preset-manager-card:hover {
+  background: var(--catalog-manager-card);
+  box-shadow: 0 5px 16px rgba(0,0,0,.09), 0 0 0 1px var(--line);
+  transform: none;
+}
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid .character-card-copy { padding: 12px 13px 13px; gap: 9px; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid .character-card-copy > strong { font-size: 15px; line-height: 21px; font-weight: 500; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid .character-card-owner { gap: 6px; color: var(--catalog-manager-secondary); font-size: 12px; line-height: 20px; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid .character-card-owner-avatar { width: 20px; height: 20px; font-size: 9px; font-weight: 400; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid .character-card.selected { background: var(--catalog-manager-card); outline: 2px solid var(--blue); outline-offset: 2px; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid .character-card-check { width: 24px; height: 24px; border: 1.5px solid rgba(255,255,255,.95); border-radius: 50%; corner-shape: round; background: rgba(25,25,27,.35); box-shadow: 0 1px 5px rgba(0,0,0,.18); }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid .character-card.selected .character-card-check { background: var(--blue); border-color: transparent; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid .character-card.selected .character-card-check::after { top: 4px; left: 7px; }
+
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .preset-manager-grid { grid-row: 3; gap: 12px 20px; padding: 2px calc(var(--catalog-manager-content-inset) - var(--window-resize-edge-inset, 2px) - var(--dsh-scrollbar-width, 5px)) 28px 4px; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .preset-manager-error { grid-row: 2; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .preset-manager-card { border: 1px solid transparent; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .preset-manager-card.is-current { border-color: color-mix(in srgb, var(--blue) 45%, transparent); }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .preset-manager-card.is-delete-selected { border-color: var(--blue); }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .preset-manager-card-open strong { font-size: 15px; font-weight: 500; line-height: 21px; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .preset-manager-card-open small { color: var(--catalog-manager-secondary); font-size: 12px; line-height: 20px; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .preset-manager-card-check { width: 24px; height: 24px; top: -5px; right: -5px; }
+.catalog-manager:is(.character-manager-window, .preset-manager-window) .preset-manager-card.is-delete-selected .preset-manager-card-check::after { top: 5px; left: 8px; }
+
+@media (min-width: 1800px) {
+  .catalog-manager:is(.character-manager-window, .preset-manager-window) :is(.character-manager-main, .preset-manager-main) { --catalog-manager-content-inset: 36px; padding-left: 36px; }
+  .catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid { column-gap: 22px; }
+}
+@media (max-width: 1270px) {
+  .catalog-manager:is(.character-manager-window, .preset-manager-window) :is(.character-manager-titlebar, .preset-manager-titlebar) { align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
+  .catalog-manager-header-actions { width: 100%; }
+  .catalog-manager-search { width: 280px; flex: 1; max-width: 380px; margin-right: auto; }
+  .catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-selection-bar { grid-template-columns: minmax(0, 1fr); }
+  .catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-selection-bar .catalog-manager-search { max-width: none; }
+  .catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-selection-actions { flex-wrap: wrap; }
+}
+@media (max-width: 960px) {
+
+
+  .catalog-manager:is(.character-manager-window, .preset-manager-window) :is(.character-manager-main, .preset-manager-main) { --catalog-manager-content-inset: 20px; padding-left: 20px; }
+  .catalog-manager-header-actions { flex-wrap: wrap; }
+  .catalog-manager-search { width: 220px; max-width: none; }
+  .catalog-manager-action-divider { display: none; }
+  .catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .catalog-manager:is(.character-manager-window, .preset-manager-window) .character-manager-grid .character-card,.catalog-manager:is(.character-manager-window, .preset-manager-window) .preset-manager-card { transition: none; }
+}

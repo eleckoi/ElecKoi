@@ -14,6 +14,12 @@ export interface Persona {
 
 export interface CharacterRecord {
   id: string
+  /** Original card author, independent of the local player's profile. */
+  authorName?: string
+  authorAvatar?: string
+  /** Local catalog activity; zero means unknown for an older installation. */
+  addedAtEpochMs?: number
+  editedAtEpochMs?: number
   [key: string]: unknown
 }
 

@@ -105,7 +105,12 @@ export function productFailure(
   message: string,
   details: ProductFailureDetails = {}
 ): ProductFailure {
-  return { isDSHRemoteError: true, code, message, details }
+  const failure: ProductFailure = { isDSHRemoteError: true, code, message, details }
+  // Keep the wire object unchanged while preserving a local throw-site trace
+  // for plugin lifecycle wrappers and Host diagnostic exporters.
+  const stack = new Error(message).stack
+  if (stack) Object.defineProperty(failure, 'stack', { value: stack, writable: true, configurable: true })
+  return failure
 }
 
 /** 兜底码（从生成物派生，码表改了自动跟上）。 */

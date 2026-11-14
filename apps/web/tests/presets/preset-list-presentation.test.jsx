@@ -1,17 +1,20 @@
+// @vitest-environment jsdom
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import { PresetPromptEditor, shouldConfirmHiddenTimelineDisable } from '../../src/modules/presets/components/PresetPromptEditor.jsx';
 import { RegexRuleList } from '../../src/modules/regex/components/RegexRuleList.jsx';
 import { REGEX_SCOPES } from '../../src/modules/regex/model/regexRulesEditing.js';
+const sourceFile = relative => resolve('apps/web/tests/presets', relative);
 const presetRegexList = rules => <RegexRuleList collection={{ globalRules: [], agentPresetRules: rules, characterRules: [] }} scopes={REGEX_SCOPES.filter(scope => scope.id !== 'Character')} query="" selectedId="" collapsed={new Set()} draggedId="" />;
 import { PresetToolsEditor } from '../../src/modules/presets/components/PresetToolsEditor.jsx';
 import { PresetProfileHeader } from '../../src/modules/presets/components/PresetProfileHeader.jsx';
 import { buildPresetListSections, PresetListRow, presetListContextActions, shouldShowPresetCatalogLoading } from '../../src/modules/presets/components/PresetPanel.jsx';
 import { createEntryDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
 import { treeNodes } from '../../src/modules/settingLibraries/model/settingLibraryTree.js';
-import { SettingLibraryInspector } from '../../src/modules/settingLibraries/components/SettingLibraryInspector.jsx';
+import { SettingLibraryDocument } from '../../src/modules/settingLibraries/components/SettingLibraryDocument.jsx';
 import { TrashIcon } from '../../src/ui/icons/index.jsx';
 import { SETTING_LIBRARY_CREATE_ICONS } from '../../src/ui/icons/settingLibraryCreateIcons.jsx';
 import { PresetPurposeSwitch } from '../../src/modules/presets/components/PresetPurposeSwitch.jsx';
@@ -24,7 +27,7 @@ vi.mock('../../src/modules/settingLibraries/index.js', async () => {
     ...drafts,
     ...tree,
     ConfirmationDialog: () => null,
-    SettingLibraryInspector: () => null,
+    SettingLibraryDocument: () => null,
     SettingLibraryTree: () => null,
     SettingTreeActionsContext: react.createContext(null),
   };
@@ -32,7 +35,6 @@ vi.mock('../../src/modules/settingLibraries/index.js', async () => {
 vi.mock('../../src/modules/regex/index.js', () => ({ RegexRuleInspector: () => null, newRegexId: () => crypto.randomUUID() }));
 
 vi.stubGlobal('React', React);
-vi.stubGlobal('window', { innerWidth: 1280 });
 afterAll(() => vi.unstubAllGlobals());
 const preset = { id: 'test', name: '测试', groups: [], entries: [], regexRules: [], expandedGroupIds: [], promptPositions: [], activeVersionId: '' };
 const props = { preset, onChange: () => {}, saveAction: null };
@@ -48,18 +50,18 @@ describe('preset list consistency', () => {
       '../../src/modules/presets/components/PresetPromptEditor.jsx',
       '../../src/modules/settingLibraries/components/SettingLibraryPanel.jsx',
     ]) {
-      const source = readFileSync(new URL(file, import.meta.url), 'utf8');
+      const source = readFileSync(sourceFile(file), 'utf8');
       expect(source).toContain('SETTING_LIBRARY_CREATE_ICONS');
       expect(source).not.toMatch(/\b(?:FolderPlus|FilePlus)\b/);
     }
   });
 
   it('matches Android creation capabilities and setting-library menu order', () => {
-    const presetSource = readFileSync(new URL('../../src/modules/presets/components/PresetPromptEditor.jsx', import.meta.url), 'utf8');
+    const presetSource = readFileSync(sourceFile('../../src/modules/presets/components/PresetPromptEditor.jsx'), 'utf8');
     expect(presetSource).not.toContain("createNode('cache'");
     expect(presetSource).not.toContain('新建缓存设定');
 
-    const librarySource = readFileSync(new URL('../../src/modules/settingLibraries/components/SettingLibraryPanel.jsx', import.meta.url), 'utf8');
+    const librarySource = readFileSync(sourceFile('../../src/modules/settingLibraries/components/SettingLibraryPanel.jsx'), 'utf8');
     const entryOffsets = [...librarySource.matchAll(/requestAddNode\(["']entry["']/g)].map((match) => match.index);
     const referenceOffsets = [...librarySource.matchAll(/requestAddNode\(["']reference["']/g)].map((match) => match.index);
     expect(librarySource).not.toContain('requestAddNode("cache"');
@@ -115,14 +117,14 @@ describe('preset list consistency', () => {
   });
 
   it('scopes preset manager avatar sizing without stretching the delete marker', () => {
-    const css = readFileSync(new URL('../../src/modules/presets/styles/preset-panel.css', import.meta.url), 'utf8');
+    const css = readFileSync(sourceFile('../../src/modules/presets/styles/preset-panel.css'), 'utf8');
     expect(css).toMatch(/\.preset-manager-card-open\s*>\s*\.preset-manager-avatar\s*\{/);
     expect(css).not.toMatch(/\.preset-manager-card-open\s*>\s*span\s*\{/);
     expect(css).toMatch(/\.preset-manager-card-open\s*\{[^}]*width:\s*100%;/s);
   });
 
   it('offers PNG and JSON from the existing preset manager export control', () => {
-    const source = readFileSync(new URL('../../src/modules/presets/components/PresetManager.jsx', import.meta.url), 'utf8');
+    const source = readFileSync(sourceFile('../../src/modules/presets/components/PresetManager.jsx'), 'utf8');
     expect(source).toContain('aria-haspopup="menu"');
     expect(source).toContain('PNG 预设卡');
     expect(source).toContain("exportPreset('png')");
@@ -131,7 +133,7 @@ describe('preset list consistency', () => {
   });
 
   it('opens preset group actions from the whole sidebar while limiting the all-presets row to creation', () => {
-    const source = readFileSync(new URL('../../src/modules/presets/components/PresetManager.jsx', import.meta.url), 'utf8');
+    const source = readFileSync(sourceFile('../../src/modules/presets/components/PresetManager.jsx'), 'utf8');
     expect(source).toContain('className="preset-manager-groups" onContextMenu={(event) => openGroupMenu(event)}');
     expect(source).toContain('onContextMenu={(event) => openGroupMenu(event, null)}');
     expect(source).toContain("groupMenu.group ? <>");
@@ -144,7 +146,7 @@ describe('preset list consistency', () => {
       'PresetPromptEditor.jsx',
     ];
     for (const file of presetComponents) {
-      const source = readFileSync(new URL(`../../src/modules/presets/components/${file}`, import.meta.url), 'utf8');
+      const source = readFileSync(sourceFile(`../../src/modules/presets/components/${file}`), 'utf8');
       expect(source, file).not.toMatch(/import\s*\{[^}]*\bTrash\b[^}]*\}\s*from\s*['"]@phosphor-icons\/react['"]/s);
       expect(source, file).toContain('TrashIcon');
     }
@@ -167,8 +169,8 @@ describe('preset list consistency', () => {
   });
 
   it('keeps prompt rows to an open action and a switch, without an inline delete button', () => {
-    const promptSource = readFileSync(new URL('../../src/modules/presets/components/PresetPromptEditor.jsx', import.meta.url), 'utf8');
-    const treeSource = readFileSync(new URL('../../src/modules/settingLibraries/components/SettingLibraryTree.jsx', import.meta.url), 'utf8');
+    const promptSource = readFileSync(sourceFile('../../src/modules/presets/components/PresetPromptEditor.jsx'), 'utf8');
+    const treeSource = readFileSync(sourceFile('../../src/modules/settingLibraries/components/SettingLibraryTree.jsx'), 'utf8');
     expect(promptSource).toContain('<SettingLibraryTree');
     expect(treeSource).toContain('role="switch"');
     expect(treeSource).not.toContain('TrashIcon');
@@ -193,7 +195,7 @@ describe('preset list consistency', () => {
       kind: 'hidden_tool_timeline',
       position: 'insert_point_4',
     };
-    const html = renderToStaticMarkup(<SettingLibraryInspector
+    const html = renderToStaticMarkup(<SettingLibraryDocument
       selected={{ kind: 'entry', value: hidden }}
       library={{ ...preset, entries: [hidden], promptPositions: [] }}
       nameInputRef={{ current: null }}
@@ -205,9 +207,10 @@ describe('preset list consistency', () => {
       onPromptPositionsChange={() => {}}
     />);
 
-    expect(html).toContain('aria-label="设定编辑区域"');
-    expect(html).toContain('>触发<');
-    expect(html).toContain('>插入<');
+    expect(html).toContain('aria-label="设定编辑视图"');
+    expect(html).toContain('>正文<');
+    expect(html).toContain('>设置<');
+    expect(html).not.toContain('aria-current="step"');
     expect(html).not.toContain('时间线协议');
     expect(shouldConfirmHiddenTimelineDisable(hidden, false)).toBe(true);
     expect(shouldConfirmHiddenTimelineDisable(hidden, true)).toBe(false);

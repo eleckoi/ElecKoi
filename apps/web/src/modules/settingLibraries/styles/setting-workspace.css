@@ -97,7 +97,7 @@
 .setting-keyword-details[open] > summary svg { transform: rotate(90deg); }
 .setting-keyword-details > summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
 .setting-keyword-details .setting-library-advanced-rules { padding: 12px 0 0; }
-.setting-keyword-details .setting-library-advanced-rules-heading, .setting-keyword-details h4 { display: none; }
+.setting-keyword-details h4 { display: none; }
 .setting-keyword-details .setting-library-rule-stack { display: grid; padding: 0; gap: 12px; }
 .setting-keyword-details .setting-library-rule-input select { width: min(200px,100%); height: 34px; padding: 0 8px; border: 1px solid var(--dsw-alias-border-l2, var(--line-strong)); border-radius: 8px; background: var(--field-bg); color: var(--text); font-size: 14px; font-weight: 400; }
 .setting-settings-board .setting-library-number-row { display: grid; grid-template-columns: 72px minmax(0,1fr); align-items: center; min-height: 34px; gap: 16px; border: 0; }

@@ -1,9 +1,9 @@
 import { useProductTranslation } from "../../../i18n/ProductLocaleContext.jsx";
 import { useLayoutEffect, useState } from 'react';
 import { SidebarRail } from './SidebarRail.jsx';
-import { SidePanelShell } from './SidePanelShell.jsx';
+import { SidePanelShell, SidebarUpdateSeat } from './SidePanelShell.jsx';
 
-function WorkspaceSidebarSurface({ collapsed, children }) {
+function WorkspaceSidebarSurface({ collapsed, children, renderSidebarSlot }) {
   const [ready, setReady] = useState(false);
   useLayoutEffect(() => {
     const root = document.documentElement;
@@ -17,6 +17,7 @@ function WorkspaceSidebarSurface({ collapsed, children }) {
       {!collapsed ? <span className="desktop-menu-seat" data-desktop-menu-seat /> : null}
     </header>
     <div className="native-workspace-body">{ready ? children : null}</div>
+    <div className="workspace-update-footer"><SidebarUpdateSeat renderSidebarSlot={renderSidebarSlot} /></div>
   </div>;
 }
 
@@ -31,7 +32,7 @@ export function SidebarContent({ expanded = false, collapsed, onCollapse, sidePa
       <div className="navigation-rail-title" data-tauri-drag-region />
       {rail}
     </section>
-    {workspaceSidebar ? <WorkspaceSidebarSurface collapsed={workspaceCollapsed}>{workspaceSidebar}</WorkspaceSidebarSurface> : <SidePanelShell collapsed={collapsed} onCollapse={onCollapse} renderSidebarSlot={renderSidebarSlot} footerActions={footerActions} desktopMenu={desktopMenu}>
+    {workspaceSidebar ? <WorkspaceSidebarSurface collapsed={workspaceCollapsed} renderSidebarSlot={renderSidebarSlot}>{workspaceSidebar}</WorkspaceSidebarSurface> : <SidePanelShell collapsed={collapsed} onCollapse={onCollapse} renderSidebarSlot={renderSidebarSlot} footerActions={footerActions} desktopMenu={desktopMenu}>
       {renderSidebarSlot?.('sidebar.workspaces', { wide: true, content: sidePanel }) || sidePanel}
     </SidePanelShell>}
   </>;

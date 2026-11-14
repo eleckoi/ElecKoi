@@ -6,12 +6,69 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DynamicSettingsPanel } from '../../src/modules/settingLibraries/components/DynamicSettingsPanel.jsx'
 import { createEntryDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js'
+import { EditorView } from '@codemirror/view'
+import { EditorPresentationContext } from '../../src/ui/ui/EditorPresentationContext.jsx'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 afterEach(() => { document.body.innerHTML = '' })
 
 describe('automatic chat branch settings', () => {
+  it.each([false, true])('edits and saves through the shared document, preserves references and inherited read-only entries (compact=%s)', async compact => {
+    const library = { characterId: 'synthetic-character', name: '合成设定库', entries: [
+      { ...createEntryDraft('', 1, []), id: 'controller', title: '控制器', content: '<%= getwi("引用") %>', contentMode: 'ejs' },
+      { ...createEntryDraft('', 2, []), id: 'reference', title: '引用', dynamicMode: 'ejs_reference', content: '引用正文' },
+      { ...createEntryDraft('', 3, []), id: 'inherited', title: '继承设定', kind: 'character', content: '只读正文' },
+    ], groups: [{ id: 'folder', name: '原文件夹', parentId: '', treeViewOrder: 0 }], promptPositions: [], versions: [], expandedGroupIds: [] };
+    const item = { sessionId: 'synthetic-chat', title: '合成聊天', library };
+    const model = { readConversations: vi.fn(async () => [item]), subscribe: () => () => {}, saveConversation: vi.fn(async (_owner, _session, next) => { item.library = next; }) };
+    const container = document.createElement('div'); document.body.append(container); const root = createRoot(container), ref = React.createRef();
+    const click = async node => { expect(node).toBeTruthy(); await act(async () => node.click()); };
+    const button = label => [...container.querySelectorAll('button')].find(node => node.textContent.trim() === label);
+    const open = async title => {
+      await click([...container.querySelectorAll('[role="treeitem"]')].find(node => node.textContent.includes(title)));
+      if (compact) await click(button('编辑'));
+    };
+    const changeInput = async (input, value) => act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const editContent = async text => act(async () => {
+      const view = EditorView.findFromDOM(container.querySelector('.cm-editor'));
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
+    });
+    try {
+      await act(async () => root.render(<EditorPresentationContext.Provider value={{ compact }}><DynamicSettingsPanel ref={ref} characterId="synthetic-character" settingLibraries={model} /></EditorPresentationContext.Provider>));
+      await click(container.querySelector('.dynamic-settings-conversation-row'));
+      await open('控制器');
+      expect(container.querySelector('[aria-current="step"]')).toBeNull();
+      expect(container.querySelector('.setting-view-switch')).not.toBeNull();
+      await click(container.querySelector('.setting-library-reference-items button'));
+      expect(container.querySelector('[aria-label="条目标题"]').value).toBe('引用');
+      await editContent('引用正文已修改');
+      await click(container.querySelector('[aria-label="关闭详情"]'));
+      await open('控制器');
+      await click(button('设置'));
+      await click(button('提示词常驻'));
+      await click(container.querySelector('[aria-label="选择设定插入点 2"]'));
+      await changeInput(container.querySelector('[aria-label="位置内顺序"]'), '12');
+      await click(container.querySelector('[aria-label="关闭详情"]'));
+      await open('继承设定');
+      expect(container.querySelector('[aria-label="条目标题"]').readOnly).toBe(true);
+      expect(container.querySelector('.cm-content').getAttribute('aria-readonly')).toBe('true');
+      expect(container.querySelector('.setting-view-switch')).toBeNull();
+      expect(container.querySelector('[aria-label="删除设定"]')).toBeNull();
+      await click(container.querySelector('[aria-label="关闭详情"]'));
+      await open('原文件夹');
+      await changeInput(container.querySelector('[aria-label="文件夹名称"]'), '修改文件夹');
+      await act(async () => ref.current.save());
+      const saved = model.saveConversation.mock.lastCall[2];
+      expect(saved.entries.find(entry => entry.id === 'reference').content).toBe('引用正文已修改');
+      expect(saved.entries.find(entry => entry.id === 'controller')).toMatchObject({ triggerMode: 'always', position: 'insert_point_2', order: 12 });
+      expect(saved.entries.find(entry => entry.id === 'inherited').content).toBe('只读正文');
+      expect(saved.groups[0].name).toBe('修改文件夹');
+    } finally { await act(async () => root.unmount()); }
+  });
   it('right-clicks branch settings without opening or switching the editor and deletes the menu target', async () => {
     const library = { characterId: 'synthetic-character', name: '合成设定库', entries: [
       { ...createEntryDraft('', 1, []), id: 'synthetic-first', title: '合成第一条目' },
@@ -25,15 +82,15 @@ describe('automatic chat branch settings', () => {
     try {
       await act(async () => root.render(<DynamicSettingsPanel characterId="synthetic-character" settingLibraries={model} />));
       await act(async () => container.querySelector('.dynamic-settings-conversation-row').click());
-      await right('合成第二条目'); expect(container.querySelector('.dynamic-settings-inspector')).toBeNull();
+      await right('合成第二条目'); expect(container.querySelector('.dynamic-settings-editor-pane')).toBeNull();
       await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true })));
       expect(document.querySelector('[role="menu"]')).toBeNull();
       await act(async () => row('合成第一条目').click());
-      const inspector = container.querySelector('.dynamic-settings-inspector');
-      await right('合成第二条目'); expect(container.querySelector('.dynamic-settings-inspector')).toBe(inspector);
+      const inspector = container.querySelector('.dynamic-settings-editor-pane');
+      await right('合成第二条目'); expect(container.querySelector('.dynamic-settings-editor-pane')).toBe(inspector);
       await act(async () => [...document.querySelectorAll('[role="menuitem"]')].find(node => node.textContent.trim() === '删除').click());
       await act(async () => document.querySelector('[role="alertdialog"] .is-destructive').click());
-      expect(row('合成第二条目')).toBeUndefined(); expect(container.querySelector('.dynamic-settings-inspector')).toBe(inspector);
+      expect(row('合成第二条目')).toBeUndefined(); expect(container.querySelector('.dynamic-settings-editor-pane')).toBe(inspector);
       await act(async () => container.querySelector('.setting-library-save-button').click());
       expect(model.saveConversation.mock.lastCall[2].entries.map(entry => entry.id)).toEqual(['synthetic-first']);
     } finally { await act(async () => root.unmount()); }
@@ -70,35 +127,35 @@ describe('automatic chat branch settings', () => {
       expect(container.textContent).toContain('合成聊天')
       expect(container.querySelector('.dynamic-settings-conversation-row').getAttribute('aria-label')).toBe('分支 1：合成聊天')
       await act(async () => container.querySelector('.dynamic-settings-conversation-row').click())
-      expect(container.querySelector('[aria-label="设定编辑区域"]')).toBeNull()
+      expect(container.querySelector('[aria-label="设定编辑视图"]')).toBeNull()
       expect(container.querySelector('[role="separator"]')).toBeNull()
       await act(async () => container.querySelector('[role="treeitem"]').click())
-      expect(container.querySelector('[aria-label="设定编辑区域"]')).not.toBeNull()
+      expect(container.querySelector('[aria-label="设定编辑视图"]')).not.toBeNull()
       expect(container.querySelectorAll('[role="separator"]')).toHaveLength(1)
       expect(container.querySelector('[role="separator"]').getAttribute('aria-valuenow')).toBe('737')
-      expect(container.querySelector('.dynamic-settings-inspector > header strong').textContent).toBe('偏好')
-      expect(container.textContent).toContain('条目标题')
-      await act(async () => button('2触发').click())
+      expect(container.querySelector('input[aria-label="条目标题"]').value).toBe('偏好')
+      expect(container.querySelector('.cm-content').textContent).toBe('喜欢茶。')
+      await act(async () => button('设置').click())
       expect(container.querySelector('[aria-label="读取策略"]')).not.toBeNull()
       expect(container.textContent).toContain('关键词命中')
-      await act(async () => button('3正文').click())
-      expect(container.textContent).toContain('设定正文')
-      expect(container.textContent).toContain('EJS')
+      await act(async () => button('正文').click())
+      expect(container.querySelector('.cm-content').textContent).toBe('喜欢茶。')
+      expect(container.querySelector('.setting-format-button')).not.toBeNull()
       await act(async () => container.querySelector('[aria-label="关闭详情"]').click())
       expect(container.querySelector('.is-closing').hasAttribute('inert')).toBe(true)
       await act(async () => new Promise(resolve => setTimeout(resolve, 200)))
       expect(container.querySelector('.dynamic-settings-editor-pane')).toBeNull()
       expect(container.querySelector('[role="separator"]')).toBeNull()
       await act(async () => container.querySelector('[role="treeitem"]').click())
-      expect(container.querySelector('.dynamic-settings-inspector')).not.toBeNull()
+      expect(container.querySelector('.dynamic-settings-editor-pane')).not.toBeNull()
       await act(async () => container.querySelector('[role="treeitem"]').click())
-      expect(container.querySelector('.dynamic-settings-inspector')).not.toBeNull()
+      expect(container.querySelector('.dynamic-settings-editor-pane')).not.toBeNull()
       await act(async () => container.querySelector('[role="tree"]').dispatchEvent(new MouseEvent('mousedown', { clientX: 32, bubbles: true })))
       await act(async () => new Promise(resolve => setTimeout(resolve, 200)))
-      expect(container.querySelector('.dynamic-settings-inspector')).toBeNull()
+      expect(container.querySelector('.dynamic-settings-editor-pane')).toBeNull()
       await act(async () => container.querySelector('[aria-label="返回对话列表"]').click())
       await act(async () => container.querySelector('.dynamic-settings-conversation-row').click())
-      expect(container.querySelector('.dynamic-settings-inspector')).toBeNull()
+      expect(container.querySelector('.dynamic-settings-editor-pane')).toBeNull()
       await act(async () => container.querySelector('[aria-label="返回对话列表"]').click())
       await act(async () => notify('conversations', 'synthetic-character', { status: 'ready', value: [] }))
       expect(container.textContent).toContain('还没有分支设定')

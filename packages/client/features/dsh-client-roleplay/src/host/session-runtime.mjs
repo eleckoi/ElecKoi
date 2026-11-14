@@ -8,7 +8,7 @@ import { historyStatsProjection } from './history-stats-projection.mjs'
 import { durableProductPluginSpecifier } from './preset-definition.mjs'
 import { turnOutcomesProjection } from './turn-outcomes-projection.mjs'
 import { inputContinuationsProjection } from './input-continuations-projection.mjs'
-import { currentRequestSnapshot } from './model-request-snapshot.mjs'
+import { currentRequestSnapshot, requestSnapshot } from './model-request-snapshot.mjs'
 import { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import { createSystemMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { readSessionInspection, productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
@@ -54,7 +54,11 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       selection = resolved.agent.model.current()
       session = resolved.agent.session
     }
-    const mainModel = { ...await currentRequestSnapshot(ctx, selection, session), ...(controls.responseLength ? { maxTokens: controls.responseLength } : {}) }
+    // An empty Session stores selection metadata without requiring a live route.
+    // Request preparation resolves the actual capabilities before generation.
+    const model = creating ? requestSnapshot(ctx, ctx.agentDefaultModel.currentSelection())
+      : await currentRequestSnapshot(ctx, selection, session)
+    const mainModel = { ...model, ...(controls.responseLength ? { maxTokens: controls.responseLength } : {}) }
     const effectiveToolPolicy = { disabledGroupIds: [...(runtime.disabledToolGroupIds ?? [])] }
     const requestedPreset = materializeAgentPreset(
       presetRoot,
@@ -82,7 +86,7 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
     const presetChanged = mountedPresetId !== requestedPreset.id
       || mountedPresetRevision !== requestedPreset.revision
     const historySession = creating ? ctx.sessions.get(runtime.runtimeSessionId)
-      : await requireIdleSession(ctx, runtime.runtimeSessionId)
+      : (await requireIdleAgent(ctx, runtime.runtimeSessionId)).session
     const nextTurn = initialTurn ?? (creating ? 1 : await nextSessionTurn(ctx, runtime.runtimeSessionId))
     const operationId = creating ? undefined : randomUUID()
     ctx.eleckoiProductData.recordRuntimeBeforeTurn(conversationId, runtime.runtimeSessionId, nextTurn)
@@ -137,7 +141,7 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
     async regenerateImage(conversationId, batchId, frameId, signal) {
       await ctx.eleckoiConversationLifecycle.drain(conversationId)
       const runtime = ctx.eleckoiProductData.prepareConversationRuntime(conversationId, '')
-      await requireIdleSession(ctx, runtime.runtimeSessionId)
+      await requireIdleAgent(ctx, runtime.runtimeSessionId)
       const plugin = ctx.get('eleckoiAutoIllustration')
       if (!plugin) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition,
         '自动配图插件未启用，请在插件页启用后重画。', { what: '启用自动配图插件' })
@@ -160,8 +164,11 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
     },
     async prepareSessionAccess(conversationId) {
       await ctx.eleckoiConversationLifecycle.drain(conversationId)
-      const prepared = await prepareCurrentPreset(conversationId, '')
-      return prepared.runtime.runtimeSessionId
+      const sessionId = ctx.eleckoiProductData.runtimeSessionId(conversationId)
+      await presetRegistrar.prepareForSession(sessionId)
+      const resolved = await ctx.sessionController.resolveAgent(sessionId)
+      if ('error' in resolved) throw resolved.error
+      return sessionId
     },
     async create(conversationId) {
       const prepared = await prepare(conversationId, '', true)
@@ -237,7 +244,10 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
         refreshSettingBranches()
       }
       try {
-        await requireIdleSession(ctx, sessionId)
+        const agent = await requireIdleAgent(ctx, sessionId)
+        // Regeneration is a request command. Validate its selected route before
+        // any message rewind so an unavailable provider leaves history intact.
+        await currentRequestSnapshot(ctx, agent.model.current(), agent.session)
         await ctx.eleckoiConversationLifecycle.drain(conversationId)
         return { rollback }
       } catch (error) {
@@ -344,11 +354,11 @@ async function nextSessionTurn(ctx, sessionId) {
   return lastTurn + 1
 }
 
-async function requireIdleSession(ctx, sessionId) {
+async function requireIdleAgent(ctx, sessionId) {
   const resolved = await ctx.sessionController.resolveAgent(sessionId)
   if ('error' in resolved) throw resolved.error
   if (resolved.agent.status !== 'idle') throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '当前聊天仍在生成，不能提交新的消息。', { what: '等当前回复生成完成' })
-  return resolved.agent.session
+  return resolved.agent
 }
 
 export function materializeAgentPreset(root, templatePath, preset, toolPolicy, mainModel, options = {}) {

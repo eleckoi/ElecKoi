@@ -1,11 +1,10 @@
 export { SettingLibraryPanel } from "./components/SettingLibraryPanel.jsx";
 export { GlobalSettingLibrariesQuickDialog } from './components/GlobalSettingLibrariesQuickDialog.jsx';
 export { DynamicSettingsPanel } from "./components/DynamicSettingsPanel.jsx";
-export { SettingLibraryInspector } from "./components/SettingLibraryInspector.jsx";
 export { SettingLibraryDocument } from './components/SettingLibraryDocument.jsx';
 export { MarkdownTextareaField } from "./components/MarkdownTextareaField.jsx";
 export { EditorWritingBoard } from './components/EditorWritingBoard.jsx';
-export { SettingEntryGlyph } from "./components/SettingLibraryEntryEditor.jsx";
+export { SettingEntryGlyph } from "./components/SettingEntryFields.jsx";
 export { ConfirmationDialog, SaveControl } from "./components/SettingLibraryControls.jsx";
 export { SettingLibraryTree, SettingTreeActionsContext, SettingTreeNode } from "./components/SettingLibraryTree.jsx";
 export { FIXED_ENTRY_IDS, PINNED_ENTRY_IDS, canTransferSettingNode, copySettingNode, createEntryDraft, createGroupDraft, moveTreeNode } from "./model/settingLibraryEditing.js";

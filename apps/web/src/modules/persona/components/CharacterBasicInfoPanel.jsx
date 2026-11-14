@@ -1,14 +1,15 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { useEffect, useRef, useState } from "react";
 import Avatar from "@douyinfe/semi-ui-19/lib/es/avatar";
 import Input from "@douyinfe/semi-ui-19/lib/es/input";
 import TextArea from "@douyinfe/semi-ui-19/lib/es/input/textarea";
-import { Camera, CheckCircle, CircleNotch, ImageSquare, WarningCircle } from "@phosphor-icons/react";
+import { Camera, CheckCircle, CircleNotch, Eye, ImageSquare, User, WarningCircle } from "@phosphor-icons/react";
 import { assetSrc } from "../../../app/services/assets.js";
 import { AvatarCropModal } from "../../../ui/ui/AvatarCropModal.jsx";
+import { CharacterCard } from './CharacterCard.jsx';
 
 function readImage(file) {
   return new Promise((resolve, reject) => {
@@ -83,6 +84,9 @@ export function CharacterBasicInfoPanel({ character, dirty, saving, error, saveN
   const avatar = persona.assistant_avatar || character?.avatar || "";
   const cover = persona.assistant_cover || character?.coverImage || "";
   const profile = character?.profileLike || "";
+  const authorName = character?.authorName || "";
+  const authorAvatar = character?.authorAvatar || "";
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {
     function handleSaveShortcut(event) {
@@ -105,92 +109,119 @@ export function CharacterBasicInfoPanel({ character, dirty, saving, error, saveN
   return (
     <section className="character-basic-content" aria-label={tUi("基础资料")}>
       <div className="character-basic-sheet">
-        <div className="character-basic-avatar-cell">
-          <LocalImageUpload
-            className="character-basic-avatar-upload"
-            label={tUi("选择头像")}
-            crop={{
-              title: tUi("调整圆形与方形头像"),
-              width: 250,
-              height: 250,
-              radius: "8px",
-              showCircleGuide: true,
-              outputShape: "square",
-              outputWidth: 420,
-            }}
-            disabled={saving}
-            onSelect={(value) => onChange({ persona: { assistant_avatar: value, assistant_square: value } })}
-          >
-            <span className="character-basic-avatar-trigger">
-              <Avatar
-                alt={tUi("角色头像")}
-                shape="circle"
-                src={assetSrc(avatar)}
-                className="character-basic-avatar"
+        <section className="character-basic-group character-basic-identity-group" aria-label={tUi("角色信息")}>
+          <h3>{tUi("角色信息")}</h3>
+          <div className="character-basic-identity-row">
+            <div className="character-basic-avatar-cell">
+              <LocalImageUpload
+                className="character-basic-avatar-upload"
+                label={tUi("选择头像")}
+                crop={{
+                  title: tUi("调整圆形与方形头像"),
+                  width: 250,
+                  height: 250,
+                  radius: "8px",
+                  showCircleGuide: true,
+                  outputShape: "square",
+                  outputWidth: 420,
+                }}
+                disabled={saving}
+                onSelect={(value) => onChange({ persona: { assistant_avatar: value, assistant_square: value } })}
               >
-                <ImageSquare size={30} weight="thin" aria-hidden="true" />
-              </Avatar>
-              <span className="character-basic-camera-badge" aria-hidden="true">
-                <Camera size={19} weight="fill" />
+                <span className="character-basic-avatar-trigger">
+                  <Avatar
+                    alt={tUi("角色头像")}
+                    shape="circle"
+                    src={assetSrc(avatar)}
+                    className="character-basic-avatar"
+                  >
+                    <ImageSquare size={30} weight="thin" aria-hidden="true" />
+                  </Avatar>
+                  <span className="character-basic-camera-badge" aria-hidden="true">
+                    <Camera size={19} weight="fill" />
+                  </span>
+                </span>
+              </LocalImageUpload>
+            </div>
+
+            <label className="character-basic-field character-basic-name-field">
+              <span id="character-name-label">{tUi("角色名字")}</span>
+              <Input
+                aria-labelledby="character-name-label"
+                value={name}
+                showClear
+                size="large"
+                disabled={saving}
+                onChange={(value) => onChange({ name: value, persona: { assistant_name: value } })}
+              />
+            </label>
+          </div>
+        </section>
+        <section className="character-basic-group character-basic-author-group" aria-label={tUi("作者信息")}>
+          <h3>{tUi("作者信息")}</h3>
+          <div className="character-basic-identity-row">
+            <LocalImageUpload className="character-basic-avatar-upload" label={tUi("选择作者头像")}
+              crop={{ title: tUi("调整作者头像"), width: 250, height: 250, radius: "8px", showCircleGuide: true, outputShape: "square", outputWidth: 420 }}
+              disabled={saving} onSelect={(value) => onChange({ authorAvatar: value })}>
+              <span className="character-basic-avatar-trigger">
+                <Avatar alt={tUi("作者头像")} shape="circle" src={assetSrc(authorAvatar)} className="character-basic-avatar">
+                  <User size={26} weight="thin" aria-hidden="true" />
+                </Avatar>
+                <span className="character-basic-camera-badge" aria-hidden="true"><Camera size={13} weight="fill" /></span>
               </span>
-            </span>
-          </LocalImageUpload>
-        </div>
-
-        <label className="character-basic-field character-basic-name-field">
-          <span id="character-name-label">{tUi("角色名字")}</span>
-          <Input
-            aria-labelledby="character-name-label"
-            value={name}
-            showClear
-            size="large"
-            disabled={saving}
-            onChange={(value) => onChange({ name: value, persona: { assistant_name: value } })}
-          />
-        </label>
-
-        <div className="character-basic-field character-basic-cover-field">
-          <span id="character-cover-label">{tUi("封面立绘")}</span>
-          <LocalImageUpload
-            className="character-basic-cover-upload"
-            label={tUi("选择封面立绘")}
-            crop={{
-              title: tUi("裁剪封面立绘"),
-              width: 210,
-              height: 280,
-              radius: "12px",
-              outputShape: "portrait",
-              outputWidth: 900,
-            }}
-            disabled={saving}
-            onSelect={(value) => onChange({ persona: { assistant_cover: value } })}
-          >
-            <span className="character-basic-cover-trigger" aria-labelledby="character-cover-label">
-              {cover ? (
-                <img src={assetSrc(cover)} alt={tUi("封面立绘")} />
-              ) : (
-                <ImageSquare size={34} weight="thin" aria-hidden="true" />
-              )}
-              <span className="character-basic-cover-action" aria-hidden="true">
-                <Camera size={17} weight="fill" />
-                <span>{tUi("点击上传图片")}</span>
+            </LocalImageUpload>
+            <label className="character-basic-field character-basic-author-name-field">
+              <span id="character-author-name-label">{tUi("作者名字")}</span>
+              <Input aria-labelledby="character-author-name-label" value={authorName} placeholder={tUi("未填写作者")}
+                showClear size="large" disabled={saving} onChange={(value) => onChange({ authorName: value })} />
+            </label>
+          </div>
+        </section>
+        <section className="character-basic-group character-basic-display-group" aria-label={tUi("展示内容")}>
+          <h3>{tUi("展示内容")}</h3>
+          <div className="character-basic-field character-basic-cover-field">
+            <span id="character-cover-label">{tUi("封面立绘")}</span>
+            <LocalImageUpload
+              className="character-basic-cover-upload"
+              label={tUi("选择封面立绘")}
+              crop={{
+                title: tUi("裁剪封面立绘"),
+                width: 210,
+                height: 280,
+                radius: "12px",
+                outputShape: "portrait",
+                outputWidth: 900,
+              }}
+              disabled={saving}
+              onSelect={(value) => onChange({ persona: { assistant_cover: value } })}
+            >
+              <span className="character-basic-cover-trigger" aria-labelledby="character-cover-label">
+                {cover ? (
+                  <img src={assetSrc(cover)} alt={tUi("封面立绘")} />
+                ) : (
+                  <ImageSquare size={34} weight="thin" aria-hidden="true" />
+                )}
+                <span className="character-basic-cover-action" aria-hidden="true">
+                  <Camera size={17} weight="fill" />
+                  <span>{tUi("更换图片")}</span>
+                </span>
               </span>
-            </span>
-          </LocalImageUpload>
-        </div>
+            </LocalImageUpload>
+          </div>
 
-        <label className="character-basic-field character-basic-intro-field">
-          <span id="character-profile-label">{tUi("简介")}</span>
-          <TextArea
-            aria-labelledby="character-profile-label"
-            value={profile}
-            placeholder={tUi("请输入内容...")}
-            resize="none"
-            showCounter
-            disabled={saving}
-            onChange={(value) => onChange({ profileLike: value })}
-          />
-        </label>
+          <label className="character-basic-field character-basic-intro-field">
+            <span id="character-profile-label">{tUi("简介")}</span>
+            <TextArea
+              aria-labelledby="character-profile-label"
+              value={profile}
+              placeholder={tUi("请输入内容...")}
+              resize="none"
+              showCounter
+              disabled={saving}
+              onChange={(value) => onChange({ profileLike: value })}
+            />
+          </label>
+        </section>
       </div>
 
       <footer className="character-basic-actions">
@@ -202,6 +233,9 @@ export function CharacterBasicInfoPanel({ character, dirty, saving, error, saveN
           {status?.Icon ? <status.Icon size={15} weight="bold" aria-hidden="true" /> : null}
           {status?.label || ""}
         </span>
+        <Button data-dsh-control variant="outline" type="button" onClick={() => setPreviewOpen(true)}>
+          <Eye size={17} aria-hidden="true" />{tUi("预览角色卡")}
+        </Button>
         {dirty ? (
           <Button data-dsh-control variant="outline" type="button" title={tUi("放弃所有未保存的更改")} disabled={saving} onClick={onCancel}>{tUi("放弃更改")}</Button>
         ) : null}
@@ -216,6 +250,10 @@ export function CharacterBasicInfoPanel({ character, dirty, saving, error, saveN
           {saving ? tUi("保存中…") : tUi("保存更改")}
         </Button>
       </footer>
+      <Modal open={previewOpen} title={tUi("预览角色卡")} closeLabel={tUi("关闭")} onClose={() => setPreviewOpen(false)} className="character-basic-preview-dialog"
+        contentClassName="character-basic-preview">
+        <div className="character-manager-grid character-basic-preview-card"><CharacterCard character={character} onClick={() => {}} /></div>
+      </Modal>
     </section>
   );
 }

@@ -431,6 +431,7 @@ describe('official ChatView with roleplay presentation', () => {
   })
 
   it('preserves the official first-row anchor when an older page is prepended', async () => {
+    vi.useFakeTimers()
     const chat = mountChat()
     const current = userNode('current-input', 20, 'request-current')
     const older = userNode('older-input', 1, 'request-older')
@@ -441,14 +442,22 @@ describe('official ChatView with roleplay presentation', () => {
     })
     const loadOlder = vi.fn()
     chat.fixture.props.loadOlder = loadOlder
+    chat.fixture.props.consumeOlder = vi.fn(() => {
+      positions.set(current.key, 400)
+      chat.fixture.update({ order: [older.key, current.key], nodes: new Map([[older.key, older], [current.key, current]]),
+        session: { ...chat.fixture.state.session, historyLoadStatus: 'idle' } })
+      return true
+    })
     try {
       await chat.render([], { order: [current.key], nodes: new Map([[current.key, current]]),
         session: { ...chat.fixture.state.session, hasMore: true } })
       await chat.move(120, true)
       await act(async () => chat.scroller.querySelector('[data-chat-column] > div > button').click())
+      await act(async () => vi.advanceTimersByTimeAsync(32))
       expect(loadOlder).toHaveBeenCalledOnce()
-      positions.set(current.key, 400)
-      await chat.render([], { order: [older.key, current.key], nodes: new Map([[older.key, older], [current.key, current]]) })
+      await chat.render([], { session: { ...chat.fixture.state.session, historyLoadStatus: 'pendingConsumption' } })
+      await act(async () => vi.advanceTimersByTimeAsync(32))
+      expect(chat.fixture.props.consumeOlder).toHaveBeenCalledOnce()
       expect(chat.scroller.scrollTop).toBe(320)
       expect(chat.fixture.saved).toMatchObject({ anchorKey: current.key, anchorTop: 80, scrollTop: 320 })
     } finally { await chat.close(); geometry.mockRestore() }

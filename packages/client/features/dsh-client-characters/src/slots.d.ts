@@ -44,6 +44,7 @@ export interface CharacterListOwner {
   onImportPreparedCharacters(...args: unknown[]): unknown
   onCreateCharacter(...args: unknown[]): unknown
   onDeleteCharacters(characterIds: string[]): unknown
+  onExportCharacters(characterIds: string[], format: 'png' | 'zip'): Promise<unknown>
 }
 
 export interface CharacterProfileOwner {

@@ -1,3 +1,4 @@
+import { recordCharacterEdit } from '@product-data/domain/characterCatalog'
 import { createHash, randomUUID } from 'node:crypto'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import type {
@@ -150,6 +151,17 @@ function insertCharacterRules(db: ElecKoiDatabase, characterId: string, rules: R
   rules.forEach((rule, index) => insert.run(ruleRow(rule, index)))
 }
 
+export function readRegexScopeEnabled(db: ElecKoiDatabase, scope: 'global' | 'character' | 'preset', ownerId: string): boolean {
+  return db.select({ enabled: regexLibraries.enabled }).from(regexLibraries)
+    .where(and(eq(regexLibraries.scope, scope), eq(regexLibraries.ownerId, ownerId))).get()?.enabled !== 0
+}
+
+export function saveRegexScopeEnabled(db: ElecKoiDatabase, scope: 'global' | 'character' | 'preset', ownerId: string, enabled: boolean): void {
+  db.insert(regexLibraries).values({ scope, ownerId, enabled: Number(enabled),
+    characterId: scope === 'character' ? ownerId : null, presetId: scope === 'preset' ? ownerId : null })
+    .onConflictDoUpdate({ target: [regexLibraries.scope, regexLibraries.ownerId], set: { enabled: Number(enabled) } }).run()
+}
+
 export class RegexRuleRepository {
   constructor(
     private readonly store: ElecKoiSqliteStore,
@@ -157,14 +169,11 @@ export class RegexRuleRepository {
   ) {}
 
   scopeEnabled(scope: 'global' | 'character' | 'preset', ownerId: string, db: ElecKoiDatabase = this.store.db): boolean {
-    return db.select({ enabled: regexLibraries.enabled }).from(regexLibraries)
-      .where(and(eq(regexLibraries.scope, scope), eq(regexLibraries.ownerId, ownerId))).get()?.enabled !== 0
+    return readRegexScopeEnabled(db, scope, ownerId)
   }
 
   private saveScopeEnabled(db: ElecKoiDatabase, scope: 'global' | 'character' | 'preset', ownerId: string, enabled: boolean): void {
-    db.insert(regexLibraries).values({ scope, ownerId, enabled: Number(enabled),
-      characterId: scope === 'character' ? ownerId : null, presetId: scope === 'preset' ? ownerId : null })
-      .onConflictDoUpdate({ target: [regexLibraries.scope, regexLibraries.ownerId], set: { enabled: Number(enabled) } }).run()
+    saveRegexScopeEnabled(db, scope, ownerId, enabled)
   }
 
   private readVersions(db: ElecKoiDatabase): RegexRuleVersion[] {
@@ -221,6 +230,7 @@ export class RegexRuleRepository {
       this.saveScopeEnabled(db, library.scope, library.ownerId, library.enabled)
       db.insert(regexState).values({ singletonId: 1, activeVersionId: state?.activeVersionId ?? null, revision: current.revision + 1 })
         .onConflictDoUpdate({ target: regexState.singletonId, set: { activeVersionId: state?.activeVersionId ?? null, revision: current.revision + 1 } }).run()
+      if (library.scope === 'character') recordCharacterEdit(db, library.ownerId)
       return this.readLibrary(library.scope, library.ownerId)
     })
   }
@@ -311,6 +321,8 @@ export class RegexRuleRepository {
       else {
         db.delete(characterRegexRules).where(eq(characterRegexRules.characterId, target.ownerId)).run()
         insertCharacterRules(db, target.ownerId, normalized.characterRules)
+        if (JSON.stringify(current.characterRules) !== JSON.stringify(normalized.characterRules)
+          || current.characterEnabled !== normalized.characterEnabled) recordCharacterEdit(db, target.ownerId)
       }
       const activeVersionId = normalized.activeVersionId
       db.insert(regexState).values({ singletonId: 1, activeVersionId: activeVersionId || null, revision: current.revision + 1 })
@@ -390,6 +402,7 @@ export class RegexRuleRepository {
   ): RegexRuleCollection {
     const normalized = normalizedCollection(characterId, input)
     requireCharacter(db, characterId)
+    const previousCharacterRules = this.get(characterId, db)
     const current = db.select().from(regexState).where(eq(regexState.singletonId, 1)).get()
     const revision = current?.revision ?? 0
     if (revision !== expectedRevision) {
@@ -414,6 +427,8 @@ export class RegexRuleRepository {
     this.agentPresetRegexes.replaceActiveRegexRules(normalized.agentPresetRules, db)
     db.delete(characterRegexRules).where(eq(characterRegexRules.characterId, characterId)).run()
     insertCharacterRules(db, characterId, normalized.characterRules)
+    if (JSON.stringify(previousCharacterRules.characterRules) !== JSON.stringify(normalized.characterRules)
+      || previousCharacterRules.characterEnabled !== normalized.characterEnabled) recordCharacterEdit(db, characterId)
     db.insert(regexState).values({
       singletonId: 1,
       activeVersionId: normalized.activeVersionId || null,

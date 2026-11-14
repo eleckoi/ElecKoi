@@ -1,7 +1,7 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { PencilIcon, PlusIcon, CharacterManagerIcon, ImportIcon, TrashIcon } from "../../../ui/icons/index.jsx";
+import { useEffect, useMemo, useState } from "react";
+import { Menu } from '@deepseek-ai/dsh-client-ui-primitives';
+import { PencilIcon, PlusIcon, CharacterManagerIcon, ImportIcon, ExportIcon, TrashIcon } from "../../../ui/icons/index.jsx";
 import { AddGroupDialog } from "./AddGroupDialog.jsx";
 import { CharacterGroupList } from "./CharacterGroupList.jsx";
 import { CharacterImportDialog } from "./CharacterImportDialog.jsx";
@@ -12,8 +12,10 @@ import { useSidebarListScroll } from "../../../ui/hooks/useSidebarListScroll.js"
 import { SidebarScrollArea } from "../../../ui/ui/SidebarScrollArea.jsx";
 import { LIST_COLLAPSE_AREAS, usePersistentCollapseState } from "../../settings/index.js";
 import { openCharacterManagerWindow } from "../window/openCharacterManagerWindow.js";
+import { openCharacterEditorWindow } from '../window/openCharacterEditorWindow.js';
+import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
 
-export function CharacterListPanel({ characters, activeCharacterId, artworkMode, onSelectCharacter, onOpenCharacterChat, onSaveCharacterGroups, onImportPreparedCharacters, onPrepareCharacterImports, onDiscardCharacterImports, onCreateCharacter, onDeleteCharacters }) {
+export function CharacterListPanel({ characters, activeCharacterId, artworkMode, onSelectCharacter, onOpenCharacterChat, onSaveCharacterGroups, onImportPreparedCharacters, onPrepareCharacterImports, onDiscardCharacterImports, onCreateCharacter, onDeleteCharacters, onExportCharacters }) {
   const tUi = useProductTranslation();
   const [keyword, setKeyword] = useState("");
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
@@ -29,7 +31,8 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deletingCharacter, setDeletingCharacter] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
-  const characterMenuRef = useRef(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(null);
   const scrollRef = useSidebarListScroll();
   const [draggingGroup, setDraggingGroup] = useState("");
   const [dragOverGroup, setDragOverGroup] = useState("");
@@ -58,7 +61,6 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
     function closeContextMenus(event) {
       if (event.type === "keydown" && event.key !== "Escape") return;
       setGroupMenu(null);
-      setCharacterMenu(null);
       setCreateMenuOpen(false);
     }
     window.addEventListener("pointerdown", closeContextMenus);
@@ -68,10 +70,6 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
       window.removeEventListener("keydown", closeContextMenus);
     };
   }, []);
-
-  useEffect(() => {
-    characterMenuRef.current?.querySelector("button")?.focus();
-  }, [characterMenu]);
 
   function openGroupMenu(event, group) {
     event.preventDefault();
@@ -85,16 +83,15 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
     event.stopPropagation();
     const row = event.currentTarget;
     const rowRect = row.getBoundingClientRect();
-    const menuWidth = 148;
-    const menuHeight = 44;
     const requestedX = event.clientX || rowRect.left + 18;
     const requestedY = event.clientY || rowRect.top + rowRect.height / 2;
     setCharacterMenu({
       character,
       returnFocus: row,
-      x: Math.max(8, Math.min(requestedX, window.innerWidth - menuWidth - 8)),
-      y: Math.max(8, Math.min(requestedY, window.innerHeight - menuHeight - 8)),
+      x: requestedX,
+      y: requestedY,
     });
+    setExportError(null);
     setGroupMenu(null);
   }
 
@@ -103,6 +100,29 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
     setDeleteError(null);
     setPendingDelete({ character: characterMenu.character, returnFocus: characterMenu.returnFocus });
     setCharacterMenu(null);
+  }
+
+  async function exportCharacter(character, format) {
+    if (exporting) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const result = await onExportCharacters([character.id], format);
+      if (result?.failures?.length) setExportError(result.failures[0].message);
+    } catch (cause) {
+      setExportError(cause ?? tUi('导出失败，请重试。'));
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function selectCharacterAction(id) {
+    if (!characterMenu) return;
+    if (id === 'delete') { requestDeleteCharacter(); return; }
+    const character = characterMenu.character;
+    setCharacterMenu(null);
+    if (id === 'edit') openCharacterEditorWindow(character.id);
+    else if (id.startsWith('export-')) void exportCharacter(character, id.slice(7));
   }
 
   function cancelDeleteCharacter() {
@@ -276,22 +296,18 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
         />
       ) : null}
 
-      {characterMenu ? createPortal(
-        <div
-          ref={characterMenuRef}
-          className="character-context-menu"
-          role="menu"
-          aria-label={tUi("{value0}的操作", {value0: characterName(characterMenu.character, tUi)})}
-          style={{ left: `${characterMenu.x}px`, top: `${characterMenu.y}px` }}
-          onPointerDown={(event) => event.stopPropagation()}
-        >
-          <button type="button" role="menuitem" className="is-danger" onClick={requestDeleteCharacter}>
-            <TrashIcon />
-            <span>{tUi("删除角色")}</span>
-          </button>
-        </div>,
-        document.body,
-      ) : null}
+      {characterMenu ? <Menu open anchor={null} contextual portal autoFocus
+        anchorPoint={{ x: characterMenu.x, y: characterMenu.y }}
+        returnFocus={() => characterMenu.returnFocus}
+        onClose={() => setCharacterMenu(null)} onSelect={selectCharacterAction}
+        items={[
+          { id: 'edit', label: tUi('编辑角色卡'), icon: <PencilIcon /> },
+          { id: 'export', label: tUi('导出角色'), icon: <ExportIcon />, disabled: exporting || !onExportCharacters,
+            submenu: ['png', 'zip'].map(format => ({ id: `export-${format}`, label: format.toUpperCase() })) },
+          { id: 'delete-divider', type: 'separator' },
+          { id: 'delete', label: tUi('删除角色'), icon: <TrashIcon />, danger: true },
+        ]} /> : null}
+      <FailureAlert failure={exportError} className="character-export-error" />
 
       {pendingDelete ? (
         <DeleteCharacterDialog

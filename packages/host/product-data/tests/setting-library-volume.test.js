@@ -52,7 +52,7 @@ describe('large character-card setting libraries', () => {
     }
     const saved = data.saveSettingLibrary(characterId, imported);
     expect(saved.entries).toHaveLength(count);
-    const exported = data.exportCharacter(characterId, 'json');
+    const exported = data.exportCharacter(characterId, 'zip');
     const decoded = decodeCharacterCard(Buffer.from(exported.base64, 'base64'), 'eleckoi');
     const portable = decodeSettingLibrarySnapshot(decoded.packageData.settingLibraryJson, characterId);
     expect(portable.entries).toHaveLength(count);

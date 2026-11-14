@@ -10,6 +10,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { AgentRegistry } from '@deepseek-ai/dsh-agent'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
+import SessionQuery from '@deepseek-ai/dsh-session-query-sqlite'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import LlmRuntime, { LlmAdapter } from '@deepseek-ai/dsh-llm'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -22,7 +23,6 @@ import * as SpawnSubagent from '@deepseek-ai/dsh-subagent-spawn-in-process'
 import * as ForkSubagent from '@deepseek-ai/dsh-subagent-fork-in-process'
 import * as SubagentTool from '@deepseek-ai/dsh-tool-subagent'
 import * as SubagentControl from '@deepseek-ai/dsh-tool-subagent-control'
-import { installRoleplaySubagentTurn } from '../../packages/client/features/dsh-client-roleplay/src/host/subagent-turn.mjs'
 import { readDshSessionLog } from '@eleckoi/dsh-runtime'
 import { apply as applySessionEdit } from '../../packages/host/runtime/src/sessionEditPlugin'
 import { snapshotPath } from '../../packages/client/features/dsh-client-roleplay/src/host/session-snapshot.mjs'
@@ -47,7 +47,7 @@ afterEach(() => {
 })
 
 describe('DSH subagent runtime context inheritance', () => {
-  it.each(['spawn', 'fork', 'cancel', 'delete-spawn', 'delete-fork'])('settles delegated work before closing or deleting its roleplay turn (%s)', async mode => {
+  it.each(['spawn', 'fork', 'delete-spawn', 'delete-fork'])('keeps official asynchronous child delivery and stops descendants before deletion (%s)', async mode => {
     const ctx = new Context(), childEntered = Promise.withResolvers(), release = Promise.withResolvers(), stopped = Promise.withResolvers()
     const counts = new Map(), requests = []
     const rootId = SessionId('synthetic-roleplay-parent')
@@ -56,6 +56,7 @@ describe('DSH subagent runtime context inheritance', () => {
       const directory = mkdtempSync(join(tmpdir(), 'eleckoi-subagent-turn-'))
       directories.push(directory)
       await ctx.plugin(JsonlSessionPersistence, { root: directory, compression: 'none' })
+      await ctx.plugin(SessionQuery, { path: join(directory, 'query.sqlite'), openAt: 'never' })
       await ctx.plugin(AgentLoop, { agents: [] })
       const deleting = mode.startsWith('delete-')
       if (deleting) {
@@ -84,21 +85,18 @@ describe('DSH subagent runtime context inheritance', () => {
           } else if (step === 1) {
             childEntered.resolve()
             await Promise.race([release.promise, new Promise((_, reject) => options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true }))])
-            yield* call('send_message', { agent_id: rootId, message: 'Synthetic delivered result' })
+            yield* call('send_message', { agent: rootId, message: 'Synthetic delivered result' })
           } else yield* reply('Synthetic child closing result')
         }
       }
       ctx.llm.registerAdapter(['synthetic'], new Adapter())
-      const root = await ctx.agents.create({ sessionId: rootId, agentOptions: { provider: 'synthetic', model: 'synthetic' },
-        setup: owner => { if (!deleting) installRoleplaySubagentTurn(owner) } })
+      const root = await ctx.agents.create({ sessionId: rootId, agentOptions: { provider: 'synthetic', model: 'synthetic' } })
       root.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Synthetic delegation' }], source: { kind: 'user' } }))
-      await Promise.race([
-        Promise.all([childEntered.promise, stopped.promise]),
-        ...(!deleting ? [root.agent.whenIdle().then(() => { throw new Error(`Parent ended before delegation: ${JSON.stringify(root.agent.session.snapshotEvents())}`) })] : []),
-      ])
+      await Promise.all([childEntered.promise, stopped.promise])
+      await root.agent.whenIdle()
+      expect(root.agent.session.snapshotEvents().filter(event => event.type === 'turn/start')).toHaveLength(1)
+      expect(ctx.agents.list().some(agent => agent.session.header.origin === 'subagent' && agent.status !== 'idle')).toBe(true)
       if (deleting) {
-        // Older Sessions can already be idle while a child is still running.
-        await root.agent.whenIdle()
         const child = ctx.agents.list().find(agent => agent.session.header.origin === 'subagent')
         await ctx.sessionPersistence.flush()
         expect(readDshSessionLog(directory, child.id)).toBeDefined()
@@ -123,19 +121,18 @@ describe('DSH subagent runtime context inheritance', () => {
         expect(existsSync(snapshotPath(snapshots, 'unrelated'))).toBe(true)
         return
       }
-      let idle = false
-      const wait = root.agent.whenIdle().then(() => { idle = true })
-      await new Promise(resolve => setImmediate(resolve))
-      expect(idle).toBe(false)
-      if (mode === 'cancel') root.agent.cancel({ kind: 'user' })
-      else release.resolve()
-      await wait
+      release.resolve()
+      await ctx.subagents.waitForTreeWork(root.agent)
+      await root.agent.whenIdle()
       const events = root.agent.session.snapshotEvents()
-      expect(events.filter(event => event.type === 'turn/start')).toHaveLength(1)
-      expect(events.findLast(event => event.type === 'turn/end').data.reason.kind).toBe(mode === 'cancel' ? 'aborted' : 'completed')
-      if (mode !== 'cancel') {
+      expect(events.filter(event => event.type === 'turn/start').length).toBeGreaterThan(1)
+      expect(events.findLast(event => event.type === 'turn/end').data.reason.kind).toBe('completed')
+      {
         const sources = events.filter(event => event.type === 'user/message').map(event => event.data.source.kind)
-        expect(sources).toEqual(expect.arrayContaining(['user', 'agent-message', 'subagent-settled']))
+        const childId = events.find(event => event.type === 'subagent/catalog').data.childId
+        await ctx.sessionPersistence.flush()
+        const childResults = readDshSessionLog(directory, childId).events.filter(event => event.type === 'tool/result')
+        expect(sources, JSON.stringify(childResults)).toEqual(expect.arrayContaining(['user', 'agent-message', 'subagent-settled']))
         const final = requests.filter(request => request.sessionId === rootId).at(-1)
         expect(JSON.stringify(final.messages)).toContain('Synthetic delivered result')
         expect(JSON.stringify(final.messages)).toContain('its closing message is omitted')

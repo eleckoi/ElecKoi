@@ -59,7 +59,8 @@ export class FrontendProjectRepository {
   readonly root: string
   private readonly characterDeletion: FrontendCharacterDeletion
   constructor(readonly index: FrontendIndex, private readonly characterExists: (id: string) => boolean,
-    private readonly assets?: () => Pick<CharacterAssetRepository, 'portable' | 'portableFolders' | 'withMergedAssets'>) {
+    private readonly assets?: () => Pick<CharacterAssetRepository, 'portable' | 'portableFolders' | 'withMergedAssets'>,
+    private readonly onCharacterChanged: (id: string) => void = () => {}) {
     this.root = join(index.root, 'projects')
     this.characterDeletion = new FrontendCharacterDeletion(index, characterExists)
   }
@@ -113,7 +114,7 @@ export class FrontendProjectRepository {
     try {
       return operation(() => {
         for (const project of portable.projects) {
-          this.importProject(owner, { files: project.files, select: project.id === (portable.selectedProjectId ?? portable.projects[0]?.id) })
+          this.importProject(owner, { files: project.files, select: project.id === portable.selectedProjectId })
         }
         this.setMessageRenderer(owner, portable.messageRendererEnabled)
       })
@@ -485,6 +486,7 @@ export class FrontendProjectRepository {
       }
     }
     const workspace = this.workspaceOf(owner)
+    if (owner.scope === 'character') this.onCharacterChanged(owner.characterId!)
     return workspace
   }
 }

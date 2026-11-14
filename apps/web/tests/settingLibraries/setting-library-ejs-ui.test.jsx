@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { referencedEjsTitles } from '../../src/modules/settingLibraries/components/SettingLibraryEntryEditor.jsx';
+import { referencedEjsTitles } from '../../src/modules/settingLibraries/components/SettingEntryFields.jsx';
 
 describe('setting-library EJS editor', () => {
   it('recognizes both Android getwi call forms', () => {

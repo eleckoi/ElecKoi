@@ -112,7 +112,7 @@ export function CreatorCanvasConnectionLine({ fromX, fromY, toX, toY, fromPositi
   </g>;
 }
 
-export function CreatorCanvasPendingStub({ start, end, sourceSide }) {
+function CreatorCanvasPendingStub({ start, end, sourceSide }) {
   const [path] = getBezierPath({
     sourceX: start.x,
     sourceY: start.y,

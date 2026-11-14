@@ -20,7 +20,7 @@ import java.util.concurrent.*;
 public final class HostRuntimeService extends Service {
     static final String START = "com.eleckoi.app.START", STOP = "com.eleckoi.app.STOP", RESTART = "com.eleckoi.app.RESTART";
     static final String RECOVER_PLUGINS = "com.eleckoi.app.RECOVER_PLUGINS";
-    private static final String PREFIX = "ELECKOI_HOST\t";
+    private static final String PREFIX = HostRunDiagnostics.PROTOCOL_PREFIX;
     public interface Listener { void changed(Snapshot snapshot); }
     public static final class Snapshot {
         public final String phase, message, url, diagnostic;
@@ -54,6 +54,7 @@ public final class HostRuntimeService extends Service {
     private boolean profileStartup;
     private long lastInstallationProgressAt;
     private volatile Process process;
+    private volatile HostRunDiagnostics hostRun;
     private volatile RuntimeInstaller.Installation activeInstallation;
     private volatile boolean starting, stopping;
     private PowerManager.WakeLock wakeLock;
@@ -126,6 +127,8 @@ public final class HostRuntimeService extends Service {
     private void startHost(boolean disableUserPlugins) {
         starting = true;
         startupStartedAt = SystemClock.elapsedRealtime();
+        HostRunDiagnostics run = ((ElecKoiApplication)getApplication()).diagnostics().hostRun();
+        hostRun = run;
         try {
             if (!Arrays.asList(Build.SUPPORTED_ABIS).contains("arm64-v8a")) throw new IOException("离线本地 Host 需要 ARM64 Android 设备");
             paths = new RuntimePaths(this); refreshDns();
@@ -138,6 +141,7 @@ public final class HostRuntimeService extends Service {
             log("Startup runtime available after " + (SystemClock.elapsedRealtime() - startupStartedAt) + " ms");
             if (stopping) return;
             runtimeVersion = installation.version;
+            run.installed(runtimeVersion);
             activeInstallation = installation;
             wakeLock = getSystemService(PowerManager.class).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ElecKoi:UnifiedHost");
             wakeLock.acquire();
@@ -146,16 +150,17 @@ public final class HostRuntimeService extends Service {
             processStartedAt = SystemClock.elapsedRealtime(); firstOutputSeen = false;
             Process child = RuntimeCommand.create(this, paths, installation, profileStartup, disableUserPlugins).start(); process = child;
             log("Startup child created after " + (SystemClock.elapsedRealtime() - startupStartedAt) + " ms");
-            streams.execute(() -> readLines(child, child.getErrorStream(), false));
-            streams.execute(() -> readLines(child, child.getInputStream(), true));
+            Future<?> stderr = streams.submit(() -> readLines(child, child.getErrorStream(), false, run));
+            Future<?> stdout = streams.submit(() -> readLines(child, child.getInputStream(), true, run));
             streams.execute(() -> {
                 try {
-                    int code = child.waitFor();
+                    int code = run.awaitExit(child, stderr, stdout);
                     if (process == child) {
                         process = null; releaseWakeLock();
                         if (!stopping) state("failed", snapshot.phase.equals("failed") ? snapshot.message + " (exit " + code + ")" : "Host 进程退出，代码 " + code, "");
                     }
                 } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+                catch (ExecutionException error) { run.failure(error); }
             });
             // Startup must settle into a real ready state, an explicit failure or a process exit.
             streams.execute(() -> {
@@ -168,28 +173,27 @@ public final class HostRuntimeService extends Service {
                 } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
             });
         } catch (Exception error) {
-            ((ElecKoiApplication)getApplication()).diagnostics().record(RuntimeDiagnostics.failure("host-error",error));
+            run.failure(error);
             releaseWakeLock();
             if (!stopping) { log(error.toString()); state("failed", error.getMessage() == null ? error.toString() : error.getMessage(), ""); }
         } finally { starting = false; }
     }
-    private void readLines(Process child, InputStream input, boolean protocol) {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
+    private void readLines(Process child, InputStream input, boolean protocol, HostRunDiagnostics run) {
+        try {
+            run.read(input, protocol ? "stdout" : "stderr", line -> {
                 synchronized (this) {
                     if (process == child && !firstOutputSeen) {
                         firstOutputSeen = true;
                         log("Startup first output after " + (SystemClock.elapsedRealtime() - processStartedAt) + " ms from child launch");
                     }
                 }
-                if (protocol && line.startsWith(PREFIX)) handleProtocol(child, line.substring(PREFIX.length()));
-                else log(line);
-            }
+                if (protocol && line.startsWith(PREFIX)) handleProtocol(child, line.substring(PREFIX.length()), run);
+                else rememberLog(line);
+            });
         } catch (Exception error) {
             synchronized (this) {
                 if (process == child && !stopping) {
-                    ((ElecKoiApplication)getApplication()).diagnostics().record(RuntimeDiagnostics.failure("host-error",error));
+                    run.failure(error);
                     log(error.toString());
                     // Closing the failed process also closes its other output
                     // stream. Preserve the original startup/protocol failure.
@@ -199,8 +203,9 @@ public final class HostRuntimeService extends Service {
             }
         }
     }
-    private void handleProtocol(Process child, String raw) throws Exception {
+    private void handleProtocol(Process child, String raw, HostRunDiagnostics run) throws Exception {
         JSONObject event = new JSONObject(raw);
+        run.protocol(event);
         if (event.getInt("protocolVersion") != 1) throw new IOException("Unsupported Host protocol version");
         switch (event.getString("type")) {
             case "ready":
@@ -230,7 +235,7 @@ public final class HostRuntimeService extends Service {
                 log("Startup HTTP verified after " + (SystemClock.elapsedRealtime() - startupStartedAt) + " ms");
                 synchronized (this) {
                     if (process == child && !stopping && !snapshot.phase.equals("failed")) {
-                        hostPid = readyPid; healthUrl = health.toExternalForm();
+                        hostPid = readyPid; run.ready(readyPid); healthUrl = health.toExternalForm();
                         state("ready", "共同 Host 已就绪", url);
                         try { replyNotifications = new ReplyNotifications((ElecKoiApplication)getApplication(),target,notificationCookie,this::log); }
                         catch (Exception error) { log("回复通知连接未建立"); }
@@ -291,6 +296,14 @@ public final class HostRuntimeService extends Service {
         } catch (Exception error) { log("DNS update failed: " + error); }
     }
     private synchronized void log(String line) {
+        rememberLog(line);
+        AndroidDiagnostics diagnostics = ((ElecKoiApplication)getApplication()).diagnostics();
+        RuntimeDiagnostics.Record entry = RuntimeDiagnostics.event("host-shell", "log").with("message", line);
+        HostRunDiagnostics run = hostRun;
+        diagnostics.record(run == null ? entry : run.context(entry));
+        diagnostics.flushSoon();
+    }
+    private synchronized void rememberLog(String line) {
         logs.addLast(line); while (logs.size() > 120) logs.removeFirst(); Log.i("ElecKoiUnifiedHost", line);
     }
     private synchronized String diagnostics() { return String.join("\n", logs); }
@@ -310,7 +323,13 @@ public final class HostRuntimeService extends Service {
             replyNotifications.close(); replyNotifications = null;
         }
         snapshot = new Snapshot(phase, message, url, diagnostics(), healthUrl, runtimeVersion, hostPid, progress);
-        if(durable) ((ElecKoiApplication)getApplication()).diagnostics().record(RuntimeDiagnostics.event("host-lifecycle",phase).with("hostPid",hostPid));
+        if(durable) {
+            HostRunDiagnostics run = hostRun;
+            RuntimeDiagnostics.Record event = RuntimeDiagnostics.event("host-lifecycle",phase).with("hostPid",hostPid)
+                .with("message", message).with("runtimeVersion", runtimeVersion);
+            ((ElecKoiApplication)getApplication()).diagnostics().record(run == null ? event : run.context(event));
+            if (run != null) run.lifecycle(phase, message);
+        }
         Snapshot current = snapshot;
         // Copy progress stays in memory; phase transitions retain diagnostics and update the notification.
         if (durable) persistState(current);

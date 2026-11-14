@@ -1,4 +1,4 @@
-const { app, ipcMain, net, session } = require('electron')
+const { app, ipcMain, session } = require('electron')
 const { dirname, resolve } = require('node:path')
 const Module = require('node:module')
 const { buildSync } = Module.createRequire(require.resolve('vite'))('esbuild')
@@ -14,6 +14,8 @@ exports.loadNativeModule = relative => {
 exports.installProbeDesktopNative = ({ window, root, getReady, host, overlays }) => {
   const load = name => exports.loadNativeModule(`apps/desktop/src/main/platform/electron/dsh/${name}.ts`)
   const { DESKTOP_IPC } = exports.loadNativeModule('packages/shared/src/contracts/desktopNative.ts')
+  const { DESKTOP_SHELL_IPC } = exports.loadNativeModule('packages/shared/src/contracts/desktopShell.ts')
+  const { pendingDraftDirectory, listPendingDrafts } = exports.loadNativeModule('apps/desktop/src/main/modules/diagnostics/reportDrafts.ts')
   const owner = event => {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame) throw new Error('Unowned probe frame')
     return window
@@ -27,9 +29,14 @@ exports.installProbeDesktopNative = ({ window, root, getReady, host, overlays })
   load('microphone-permissions').installMicrophonePermissions(session.defaultSession, () => window.webContents)
   const { connectDesktopWelcome } = load('welcome-backend')
   ipcMain.handle(DESKTOP_IPC.deviceInfo, event => { owner(event); return load('device-info').readDeviceInfo() })
+  ipcMain.handle(DESKTOP_SHELL_IPC.bugReportDrafts, event => {
+    owner(event)
+    return { drafts: listPendingDrafts({ directory: pendingDraftDirectory(root), now: new Date() }) }
+  })
   ipcMain.handle(DESKTOP_IPC.localeBootstrap, async event => {
     owner(event)
-    const backend = await connectDesktopWelcome(getReady().url, (url, init) => net.fetch(url, init))
+    const ready = getReady()
+    const backend = connectDesktopWelcome(ready.url, ready.cookie)
     return { languages: ['zh-CN'], preference: await backend.readLocalePreference() }
   })
   return async () => { shortcuts.dispose(); await stopDrag() }

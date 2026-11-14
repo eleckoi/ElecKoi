@@ -589,7 +589,7 @@ describe('DSH ElecKoi conversation client model', () => {
     } finally { mounted.dispose() }
   })
 
-  it('recovers the human input for historic child wakes without retiring the original answer or skipping round labels', async () => {
+  it('keeps official child-triggered parent turns separate from human input and regeneration', async () => {
     const mounted = mountCatalog(async () => ({ ok: true, data: [] }))
     const catalog = mounted.catalog as any
     const fixture = officialChatFixture()
@@ -627,10 +627,10 @@ describe('DSH ElecKoi conversation client model', () => {
       catalog.acceptOfficialSession('synthetic-chat', 'synthetic-session', { getSnapshot: () => ({ running: false }) }, { getSnapshot: () => chat })
       const messages = catalog.getDetailsSnapshot().details.messages
       expect(messages.map((item: any) => item.content)).toEqual(['Synthetic delegation', '<FINAL>Synthetic dispatch reply</FINAL>', '<FINAL>Synthetic closing reply</FINAL>'])
-      expect(messages.at(-1)).toMatchObject({ dshTurn: 6, inputEventSeq: 3 })
-      expect(findRegenerateBranchUserIndex(messages, messages.at(-1).id)).toBe(0)
+      expect(messages.at(-1)).toMatchObject({ dshTurn: 6, inputEventSeq: undefined })
+      expect(findRegenerateBranchUserIndex(messages, messages.at(-1).id)).toBe(-1)
       const trajectory = adaptTrajectorySnapshot({ eventNodes: [], requests: [] }, undefined, identities)
-      expect([...trajectory.turnLabels]).toEqual([[5, 1], [6, 1]])
+      expect([...trajectory.turnLabels]).toEqual([[5, 1]])
       expect(trajectory.inputTurns.get(3)).toBe(5)
     } finally { catalog.sessionReference = undefined; mounted.dispose() }
   })

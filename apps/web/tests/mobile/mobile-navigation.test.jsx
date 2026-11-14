@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import React, { act, useSyncExternalStore } from 'react';
+import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useMainPageView } from '../../src/app/windows/MainPageContext.jsx';
@@ -350,6 +351,19 @@ describe('Android independent conversation navigation', () => {
     expect(fixture.onCancel).toHaveBeenCalledTimes(1);
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
     expect(document.body.textContent).toContain('角色资料');
+  });
+  it('closes an official modal with Android Back without leaving the source route', async () => {
+    await mount(); await click('角色资料');
+    const modalHost = document.createElement('div'); document.body.append(modalHost); const modalRoot = createRoot(modalHost);
+    const onClose = vi.fn(() => modalRoot.render(null));
+    try {
+      await act(async () => modalRoot.render(<Modal open title="合成官方弹窗" closeLabel="关闭" onClose={onClose}><button data-modal-autofocus>合成操作</button></Modal>));
+      const event = new Event('eleckoi:platform-back', { cancelable: true });
+      await act(async () => window.dispatchEvent(event));
+      expect(event.defaultPrevented).toBe(true); expect(onClose).toHaveBeenCalledOnce();
+      expect(document.querySelector('[aria-label="合成官方弹窗"]')).toBeNull();
+      expect(document.body.textContent).toContain('角色资料');
+    } finally { await act(async () => modalRoot.unmount()); modalHost.remove(); }
   });
   it('hands native Back to a focused official menu before returning from its page', async () => {
     await mount(); await click('角色资料');

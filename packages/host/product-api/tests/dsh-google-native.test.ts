@@ -49,7 +49,8 @@ describe('Google native provider through the locked DSH adapter', () => {
     expect(models).toEqual(['one', 'two'].map(suffix => ({ id: `synthetic-model-${suffix}`,
       name: `Display synthetic-model-${suffix}`, contextWindow: 65536, maxTokens: 8192 })))
     expect(requests).toHaveLength(2)
-    expect(requests[0]!.path).toBe('/gateway/v1beta/models')
+    expect(new URL(requests[0]!.path!, 'http://localhost').pathname).toBe('/gateway/v1beta/models')
+    expect(new URL(requests[0]!.path!, 'http://localhost').searchParams.get('pageSize')).toBe('1000')
     expect(new URL(requests[1]!.path!, 'http://localhost').searchParams.get('pageToken')).toBe('page +/two')
     for (const request of requests) {
       expect(request.headers).toMatchObject({ 'x-goog-api-key': typed ? 'synthetic-draft-value' : 'synthetic-stored-value',
@@ -65,8 +66,6 @@ describe('Google native provider through the locked DSH adapter', () => {
 
   it.each([
     { body: { data: [{ id: 'synthetic-model' }] }, message: 'models' },
-    { body: { models: [{ name: 'synthetic-model', supportedGenerationMethods: ['generateContent'] }] }, message: 'name' },
-    { body: { models: [{ name: 'models/synthetic-model' }] }, message: 'supportedGenerationMethods' },
     { body: { models: [], nextPageToken: 7 }, message: 'nextPageToken' },
     { body: { models: [], nextPageToken: 'repeated-token' }, message: 'repeated' },
   ])('reports an invalid native listing instead of adopting another protocol ($message)', async ({ body, message }) => {
@@ -76,6 +75,27 @@ describe('Google native provider through the locked DSH adapter', () => {
     })
     await expect(discoverDraftModels(owner(), { configId: 'config-google', api: 'google-generative-ai', baseURL }))
       .rejects.toThrow(message)
+  }, 15_000)
+
+  it.each([
+    { name: 'synthetic-model', supportedGenerationMethods: ['generateContent'] },
+    { name: 'models/synthetic-model' },
+  ])('uses the official parser for native names and optional generation metadata (%j)', async entry => {
+    const baseURL = await endpoint((_request, response) => { response.end(JSON.stringify({ models: [entry] })) })
+    await expect(discoverDraftModels(owner(), { configId: 'config-google', api: 'google-generative-ai', baseURL }))
+      .resolves.toEqual([{ id: 'synthetic-model', name: 'synthetic-model' }])
+  })
+
+  it('reads all valid pages when their combined size exceeds the official single-response budget', async () => {
+    let pages = 0
+    const baseURL = await endpoint((_request, response) => {
+      pages += 1
+      response.end(JSON.stringify({ models: [model(`synthetic-model-${pages}`)], padding: 'x'.repeat(3 * 1024 * 1024),
+        ...(pages === 1 ? { nextPageToken: 'synthetic-next' } : {}) }))
+    })
+    const models = await discoverDraftModels(owner(), { configId: 'config-google', api: 'google-generative-ai', baseURL })
+    expect(models.map(item => item.id)).toEqual(['synthetic-model-1', 'synthetic-model-2'])
+    expect(pages).toBe(2)
   }, 15_000)
 
   it('streams native reasoning and text with the saved key, headers and sampling parameters', async () => {

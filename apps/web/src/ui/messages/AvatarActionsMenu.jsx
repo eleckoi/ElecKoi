@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MenuItemButton, MenuSurface, useAnchoredPosition } from '@deepseek-ai/dsh-client-ui-primitives';
+import { MenuItemButton, MenuSurface } from '@deepseek-ai/dsh-client-ui-primitives';
 import { IdentificationCard, ImageSquare } from '@phosphor-icons/react';
 import { useProductTranslation } from '../../app/i18n/ProductLocaleContext.jsx';
+import { useCssAnchor } from '../hooks/useCssAnchor.js';
 import './avatar-actions-menu.css';
 
 function surfacePath(height, tip) {
@@ -12,18 +13,12 @@ function surfacePath(height, tip) {
 /** The menu only owns its presentation; actions keep their existing owners. */
 export function AvatarActionsMenu({ anchor, onClose, onView, onEdit, canView = true }) {
   const tUi = useProductTranslation();
-  const anchorRef = useRef(anchor);
+  const anchorName = useCssAnchor(anchor);
   const panelRef = useRef(null);
   const menuRef = useRef(null);
   const focusedRef = useRef(false);
   const id = useId().replaceAll(':', '');
   const [geometry, setGeometry] = useState({ height: 124, tip: 62 });
-  const getAnchorRect = useCallback(() => {
-    if (!anchor.isConnected) return null;
-    const rect = anchor.getBoundingClientRect();
-    return new DOMRect(rect.left, rect.top + rect.height / 2 - (panelRef.current?.offsetHeight || 124) / 2, rect.width, rect.height);
-  }, [anchor]);
-  const position = useAnchoredPosition({ open: true, anchorRef, panelRef, side: 'right', gap: 8, margin: 12, getAnchorRect });
   useLayoutEffect(() => {
     const measure = () => {
       const panel = panelRef.current;
@@ -37,13 +32,14 @@ export function AvatarActionsMenu({ anchor, onClose, onView, onEdit, canView = t
     const observer = new ResizeObserver(measure);
     observer.observe(panelRef.current);
     window.addEventListener('scroll', measure, true);
-    return () => { observer.disconnect(); window.removeEventListener('scroll', measure, true); };
-  }, [anchor, position]);
+    window.addEventListener('resize', measure);
+    return () => { observer.disconnect(); window.removeEventListener('scroll', measure, true); window.removeEventListener('resize', measure); };
+  }, [anchor]);
   useEffect(() => {
-    if (!position || focusedRef.current) return;
+    if (focusedRef.current) return;
     menuRef.current?.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
     focusedRef.current = true;
-  }, [position]);
+  }, [anchor]);
   useEffect(() => {
     const outside = event => {
       if (!panelRef.current?.contains(event.target) && !anchor.contains(event.target)) onClose();
@@ -69,7 +65,7 @@ export function AvatarActionsMenu({ anchor, onClose, onView, onEdit, canView = t
     }
   }
   const path = surfacePath(geometry.height, geometry.tip);
-  return createPortal(<div ref={panelRef} className="avatar-actions-popup" style={position || { visibility: 'hidden' }} onKeyDown={keyDown}>
+  return createPortal(<div ref={panelRef} className="avatar-actions-popup" style={{ positionAnchor: anchorName, '--avatar-actions-height': `${geometry.height}px` }} onKeyDown={keyDown}>
     <svg className="avatar-actions-outline" width="120" height={geometry.height} aria-hidden="true" focusable="false">
       <defs>
         <clipPath id={`${id}-clip`}><path d={path} /></clipPath>

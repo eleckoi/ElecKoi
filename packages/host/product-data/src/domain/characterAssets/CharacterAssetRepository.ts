@@ -15,7 +15,7 @@ type Upload = { characterId: string; name: string; size: number; folderId: strin
 /** Character-owned immutable blobs plus an atomic metadata catalog. Shared by both Host profiles. */
 export class CharacterAssetRepository {
   private uploads = new Map<string, Upload>()
-  constructor(readonly root: string, private readonly characterExists: (id: string) => boolean) {
+  constructor(readonly root: string, private readonly characterExists: (id: string) => boolean, private readonly onChanged: (id: string) => void = () => {}) {
     mkdirSync(root, { recursive: true }); this.ordinary(root)
     const staging = join(root, 'uploads'); mkdirSync(staging, { recursive: true }); this.ordinary(staging)
     for (const entry of readdirSync(staging)) this.remove(join(staging, entry))
@@ -43,12 +43,13 @@ export class CharacterAssetRepository {
     return value
   }
   list(id: string): CharacterAssetCatalog { this.requireOwner(id); return this.read(id) }
-  private write(value: CharacterAssetCatalog) {
+  private write(value: CharacterAssetCatalog, notify = true) {
     validateAssetFolders(value.items, value.folders)
     const directory = this.directory(value.characterId); this.ordinary(directory); mkdirSync(directory, { recursive: true })
     const temp = join(directory, `${randomUUID()}.tmp`)
     try { writeFileSync(temp, JSON.stringify(catalogSchema.parse(value)), { flag: 'wx' }); renameSync(temp, join(directory, 'catalog.json')) }
     finally { if (existsSync(temp)) this.remove(temp) }
+    if (notify) this.onChanged(value.characterId)
   }
   private name(name: string): string { if (typeof name !== 'string' || !name.trim() || /[\0\r\n\\/]/.test(name)) fail('资产名称不能为空，也不能包含目录。'); return name.trim() }
   private blob(characterId: string, digest: string): string {
@@ -196,10 +197,13 @@ export class CharacterAssetRepository {
         if (!existsSync(target)) { writeFileSync(target, bytes, { flag: 'wx' }); created.push(target) }
         additions.push(asset)
       }
-      if (additions.length || mergedFolders.length !== before.folders.length) this.write({ ...before, revision: before.revision + 1, items: [...before.items, ...additions], folders: mergedFolders })
-      return operation()
+      const changed = additions.length || mergedFolders.length !== before.folders.length
+      if (changed) this.write({ ...before, revision: before.revision + 1, items: [...before.items, ...additions], folders: mergedFolders }, false)
+      const result = operation()
+      if (changed) this.onChanged(characterId)
+      return result
     } catch (error) {
-      if (additions.length || mergedFolders.length !== before.folders.length) this.write(before)
+      if (additions.length || mergedFolders.length !== before.folders.length) this.write(before, false)
       for (const path of created) this.remove(path)
       throw error
     }
@@ -212,7 +216,7 @@ export class CharacterAssetRepository {
     try {
       return operation(() => {
         for (const { asset, bytes } of validated) { const path = this.blob(characterId, asset.hash); mkdirSync(join(this.directory(characterId), 'blobs'), { recursive: true }); if (!existsSync(path)) writeFileSync(path, bytes, { flag: 'wx' }) }
-        this.write({ characterId, revision: 1, items: validated.map(item => item.asset), folders })
+        this.write({ characterId, revision: 1, items: validated.map(item => item.asset), folders }, false)
       })
     } catch (error) { if (!this.characterExists(characterId)) this.remove(this.directory(characterId)); throw error }
   }

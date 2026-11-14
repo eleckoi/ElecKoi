@@ -1,19 +1,16 @@
 import { autoIllustrationSchema } from '@shared/contracts/presets/autoIllustration'
 import { creatorPresetEntrySchema } from '@shared/contracts/presets/creatorPrompts'
 import { upgradeAutoIllustrationConfiguration } from './autoIllustrationUpgrade'
+import { defaultPresetContents, upgradeDefaultCreatorPreset } from './defaultCreatorPresetUpgrade'
 import { createHash, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import {
-  AGENT_TOOL_GROUPS,
-  CREATOR_AGENT_TOOL_GROUP_IDS,
-  DEFAULT_AGENT_TOOL_GROUP_IDS,
-  agentToolGroups
-} from '@product-data/domain/agentTools'
+import { AGENT_TOOL_GROUPS, CREATOR_AGENT_TOOL_GROUP_IDS, agentToolGroups } from '@product-data/domain/agentTools';
 import type { ElecKoiDatabase, ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
 import type { LocalMediaStore } from '@product-data/storage/media/LocalMediaStore'
 import { ScriptLibraryRepository } from '@product-data/domain/scripts'
+import { readRegexScopeEnabled, saveRegexScopeEnabled } from '@product-data/domain/regexRules'
 import { characterExists } from '@product-data/domain/personas'
 import { agentPresetExists } from './agentPresetLookup'
 import {
@@ -153,7 +150,7 @@ export class AgentPresetRepository {
           createdAtEpochMs: Date.now(),
           expandedGroupIdsJson: '[]'
         }).onConflictDoNothing().run()
-        for (const [kind, content] of defaultContents(purpose)) {
+        for (const [kind, content] of defaultPresetContents(purpose)) {
           db.insert(agentPresetContents).values({ presetId: id, kind, content })
             .onConflictDoNothing().run()
           db.insert(agentPresetVersionContents).values({
@@ -170,6 +167,9 @@ export class AgentPresetRepository {
         }
         db.insert(agentPresetState).values({ purpose, activePresetId: id }).onConflictDoNothing().run()
       }
+      // RETIRE WHEN: all supported installations/backups carry the completed
+      // default-Creator replacement; remove with defaultCreatorPresetUpgrade.
+      upgradeDefaultCreatorPreset(this.store.native)
     })
     this.upgradeIllustrationConfiguration()
     this.ensureRequiredEntries()
@@ -526,6 +526,7 @@ export class AgentPresetRepository {
         }
       })
       if (decoded.scriptLibrary) this.scripts.importInTransaction('preset', created.id, decoded.scriptLibrary, db)
+      if (decoded.regexEnabled !== undefined) saveRegexScopeEnabled(db, 'preset', created.id, decoded.regexEnabled)
       return agentPresetImportResultSchema.parse({
         preset: imported,
         source: decoded.source,
@@ -546,6 +547,7 @@ export class AgentPresetRepository {
     const safeName = preset.name.replace(/[\\/:*?"<>|]/g, '-').trim() || 'ElecKoi预设'
     const avatar = portableAvatar(preset.profile.authorAvatarPath, this.mediaAssets)
     const json = encodeElecKoiAgentPreset(preset, {
+      regexEnabled: readRegexScopeEnabled(this.store.db, 'preset', presetId),
       scriptLibrary: this.scripts.portable('preset', presetId),
       ...(avatar ? { authorAvatar: avatar.transfer } : {}),
       versions: this.transferVersions(presetId)
@@ -1062,22 +1064,6 @@ function emptyPreset(id: string, name: string, versionId: string, libraryGroupId
     regexRules: [],
     expandedGroupIds: []
   })
-}
-
-function defaultContents(purpose: AgentPresetPurpose): Array<[string, string]> {
-  const enabledIds = purpose === 'creator' ? [...CREATOR_AGENT_TOOL_GROUP_IDS] : [...DEFAULT_AGENT_TOOL_GROUP_IDS]
-  return [
-    [CONTENT_USAGE_INSTRUCTIONS, ''],
-    [CONTENT_TIMELINE, '[]'],
-    [CONTENT_PROMPT_POSITIONS, '[]'],
-    [CONTENT_REGEX_RULES, '[]'],
-    [CONTENT_TOOL_CONFIGURATION, JSON.stringify({
-      version: TOOL_CONFIGURATION_VERSION,
-      includedGroupIds: enabledIds,
-      enabledGroupIds: enabledIds,
-      roleplayPlan: defaultRoleplayPlanSettings()
-    })]
-  ]
 }
 
 function contentRows(preset: AgentPreset): Array<[string, string]> {

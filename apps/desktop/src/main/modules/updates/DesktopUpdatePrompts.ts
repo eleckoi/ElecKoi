@@ -163,7 +163,7 @@ export class DesktopUpdatePrompts {
       {
         const result = await this.dialogs.show(parent, { title: messages.updateCheckTitle,
           message: formatDesktopMessage(messages.updateAvailable, { version: state.version ?? '' }),
-          detail: [messages.updateDetail, updates.status().releaseNotes].filter(Boolean).join('\n\n'),
+          detail: messages.updateDetail, releaseNotes: updates.status().releaseNotes ?? '',
           buttons: [messages.updateDownload], cancelId: 1 })
         if (result.response !== 0) return
       }

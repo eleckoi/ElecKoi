@@ -114,7 +114,6 @@ export function SidebarRail({ activeSection, navigationItems = [], renderEntryAc
       </div>
       <div className="rail-bottom-zone">
         {footerActions && <div className="rail-footer-actions" aria-label={tUi("侧边栏插件操作")}>{footerActions}</div>}
-        <div className="rail-desktop-update">{renderSidebarSlot?.('sidebar.update', {})}</div>
         {compactAccount ? <div className="rail-account-row">{profile}<div className="rail-settings-seat">{settings}</div></div> : <>{profile}{settings}</>}
       </div>
     </aside>

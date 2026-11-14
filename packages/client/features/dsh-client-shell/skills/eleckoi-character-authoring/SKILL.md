@@ -7,6 +7,8 @@ description: 在 ElecKoi 创作工作室新建或修改角色资料、开场白�
 
 使用当前 Session 选择的角色。创建新角色使用 character.create；共享全局配置必须明确 target，预设提示词通过 presetPrompts 只读。工作区编程负责制作文件，产品配置经创作能力保存。
 
+新建角色默认省略 group，直接创建在未分组；角色分组只用于整理角色列表，仅按用户要求指定或新建，不按题材自行分类，也不把询问分组作为建卡前置。修改已有角色资料时，未要求调整分组就保留原归属。
+
 1. 先 eleckoi_list_toolsets 找领域，eleckoi_describe_toolset 查所需 operation_ids、include_schema=true。
 2. 用该领域的 list/read 读取准确编号、完整原稿和修订；目录不等于正文。
 3. 只提交用户要求的修改，按 schema 携带该范围修订。片段改写优先 settings.edit；命名版本和普通条目使用各自入口。

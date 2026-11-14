@@ -1,16 +1,7 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { forwardRef, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { EditorScopeTabs } from '../../../ui/ui/EditorScopeTabs.jsx';
-import {
-  Code,
-  Copy,
-  FileText,
-  LinkSimple,
-  PencilSimple,
-  Plus,
-  SlidersHorizontal,
-  Trash,
-} from "../../../ui/icons/interfaceIcons.jsx";
+import { Code, Copy, FileText, LinkSimple, PencilSimple, Trash } from "../../../ui/icons/interfaceIcons.jsx";
 import { DshFolderClosedIcon } from "../../../ui/icons/dshTreeIcons.jsx";
 import { SETTING_LIBRARY_CREATE_ICONS } from "../../../ui/icons/settingLibraryCreateIcons.jsx";
 import { SettingLibraryManager } from "./SettingLibraryManager.jsx";
@@ -67,7 +58,6 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
   const [clipboard, setClipboard] = useState(null);
   const [roleExpandedKeys, setRoleExpandedKeys] = useState([]);
   const [query, setQuery] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
   const [managerOpen, setManagerOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -255,7 +245,6 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
       nextLibrary = withExpandedGroups(nextLibrary, nextGroupIds);
     }
     changeLibrary(nextLibrary, libraryId);
-    setMenuOpen(false);
     setContextMenu(null);
     selectTarget(nextKey, libraryId);
     openEditor(nextKey);
@@ -358,7 +347,6 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
     event.preventDefault();
     event.stopPropagation();
     if (compact) return;
-    setMenuOpen(false);
     if (node.fixed) {
       setContextMenu({
         trigger: event.currentTarget, libraryId: scope === 'global' ? sourceLibrary.id : activeLibraryId,
@@ -386,7 +374,6 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
   function openTreeContextMenu(event, sourceLibrary = libraryRef.current) {
     event.preventDefault();
     if (!sourceLibrary) return;
-    setMenuOpen(false);
     setContextMenu({
       trigger: event.currentTarget, libraryId: scope === 'global' ? sourceLibrary.id : activeLibraryId,
       x: Math.min(event.clientX, window.innerWidth - 176),
@@ -449,7 +436,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
       onCloseInspector={requestCloseInspector}
       feedback={<SaveControl dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} />}
       aria-label={tUi("设定库")}
-      onMouseDown={() => setMenuOpen(false)}
+
     >
       <div className="setting-library-browser editor-collection-browser editor-heading-surface">
         {compact && <EditorCollectionToolbar className="editor-tree-toolbar" heading={tUi("设定库")} leading={globals.available ? <EditorScopeTabs value={scope} panelId={scopePanelId} onChange={changeScope} /> : null} query={query} onQueryChange={setQuery} placeholder={scope === 'global' ? tUi("搜索全局设定库") : tUi("搜索设定")} selection={{ ...multi, toggle: toggleSelection }} disabled={saving || !library}

@@ -33,9 +33,9 @@ const fixture = await vi.hoisted(async () => {
     readonly setBounds = vi.fn()
     constructor(readonly options: unknown) { views.push(this) }
   }
-  return { handlers, views, FakeParent, FakeView, load }
+  return { handlers, views, FakeParent, FakeView, load, openExternal: vi.fn(async () => {}) }
 })
-vi.mock('electron', () => ({ WebContentsView: fixture.FakeView, ipcMain: {
+vi.mock('electron', () => ({ WebContentsView: fixture.FakeView, shell: { openExternal: fixture.openExternal }, ipcMain: {
   handle: (name: string, fn: (...args: unknown[]) => unknown) => fixture.handlers.set(name, fn),
   removeHandler: (name: string) => fixture.handlers.delete(name),
 } }))
@@ -93,6 +93,39 @@ it('refreshes transfer content while preserving the currently authorized close r
     expect.objectContaining({ revision: before.revision, message: '正在下载 67%', detail: '67 MB / 100 MB' }))
   f.invoke(UPDATE_DIALOG_IPC.respond, 0)
   expect(await pending).toMatchObject({ response: 0 })
+})
+
+it('preserves progress and choices while a main-owned action is busy, then permits retry', async () => {
+  vi.useFakeTimers()
+  const f = setup()
+  const action = Promise.withResolvers<boolean>()
+  const pending = f.show(undefined, { action: { index: 0, run: () => action.promise } })
+  const response = f.invoke(UPDATE_DIALOG_IPC.respond, 0)
+  expect(f.invoke(UPDATE_DIALOG_IPC.status)).toMatchObject({ busyButton: 0 })
+  dialogs!.update({ message: '正在准备', detail: '合成进度' })
+  action.resolve(false)
+  await vi.advanceTimersByTimeAsync(500)
+  await response
+  expect(f.invoke(UPDATE_DIALOG_IPC.status)).toMatchObject({ message: '正在准备', detail: '合成进度' })
+  expect(f.invoke(UPDATE_DIALOG_IPC.status)).not.toHaveProperty('busyButton')
+  f.invoke(UPDATE_DIALOG_IPC.respond, 1)
+  expect((await pending).response).toBe(1)
+})
+
+it('does not let a replaced action finish or mutate the new prompt', async () => {
+  vi.useFakeTimers()
+  const f = setup()
+  const action = Promise.withResolvers<boolean>()
+  const first = f.show(undefined, { action: { index: 0, run: () => action.promise } })
+  const response = f.invoke(UPDATE_DIALOG_IPC.respond, 0)
+  const next = f.show(undefined, { message: '新的确认' })
+  expect((await first).response).toBe(1)
+  action.resolve(true)
+  await vi.advanceTimersByTimeAsync(500)
+  await response
+  expect(f.invoke(UPDATE_DIALOG_IPC.status)).toMatchObject({ message: '新的确认' })
+  f.invoke(UPDATE_DIALOG_IPC.respond, 1)
+  expect((await next).response).toBe(1)
 })
 
 it('attaches within its owner and resizes below the Windows caption without a native child window', async () => {
@@ -209,7 +242,26 @@ it('denies foreign navigation, redirects, and new windows', async () => {
   expect(event.preventDefault).toHaveBeenCalledOnce()
   contents.emit('will-redirect', event)
   expect(event.preventDefault).toHaveBeenCalledTimes(2)
-  expect(contents.setWindowOpenHandler.mock.calls[0]![0]()).toEqual({ action: 'deny' })
+  const open = contents.setWindowOpenHandler.mock.calls.at(-1)![0] as unknown as (details: { url: string }) => { action: string }
+  expect(open({ url: 'javascript:alert(1)' })).toEqual({ action: 'deny' })
+  expect(fixture.openExternal).not.toHaveBeenCalled()
+  expect(open({ url: 'https://github.com/eleckoi/ElecKoi/releases' })).toEqual({ action: 'deny' })
+  expect(fixture.openExternal).toHaveBeenCalledWith('https://github.com/eleckoi/ElecKoi/releases')
+  dialogs!.cancel()
+  await pending
+})
+
+it('renders release Markdown separately while keeping HTML and unsafe links inert', async () => {
+  const f = setup()
+  const pending = f.show(undefined, { detail: '下载完成后可安装', releaseNotes: '# 更新说明\n\n- **完整资产**\n- `asset://编号`\n\n[发布页](https://github.com/eleckoi/ElecKoi/releases)\n\n<script>alert(1)</script>\n\n[危险](javascript:alert(1))\n\n| 功能 | 状态 |\n| --- | --- |\n| 图片 | 支持 |' })
+  const state = f.invoke(UPDATE_DIALOG_IPC.status) as { detail: string; releaseNotesHtml: string }
+  expect(state.detail).toBe('下载完成后可安装')
+  expect(state.releaseNotesHtml).toContain('<h1>更新说明</h1>')
+  expect(state.releaseNotesHtml).toContain('<strong>完整资产</strong>')
+  expect(state.releaseNotesHtml).toContain('<table>')
+  expect(state.releaseNotesHtml).toContain('href="https://github.com/eleckoi/ElecKoi/releases"')
+  expect(state.releaseNotesHtml).not.toContain('<script>')
+  expect(state.releaseNotesHtml).not.toContain('href="javascript:')
   dialogs!.cancel()
   await pending
 })

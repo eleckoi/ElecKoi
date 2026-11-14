@@ -282,7 +282,7 @@ describe('Android preset presentation', () => {
   it('keeps immediate selection editing in the desktop presentation', async () => {
     await act(async () => root.render(<PresetPromptEditor preset={preset} onChange={() => {}} />));
     await click(row('合成提示词'));
-    expect(document.querySelector('.setting-library-inspector')).not.toBeNull();
+    expect(document.querySelector('.setting-entry-heading')).not.toBeNull();
     expect(document.querySelector('.mobile-editor-actions')).toBeNull();
   });
 });

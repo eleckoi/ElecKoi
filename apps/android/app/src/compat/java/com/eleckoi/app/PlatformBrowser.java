@@ -61,8 +61,8 @@ final class PlatformBrowser extends BrowserSurface {
             }
         });
         session.setContentDelegate(new GeckoSession.ContentDelegate() {
-            @Override public void onCrash(GeckoSession current) { trace("gecko-process","crash"); listener.failure("内置 Gecko 渲染进程崩溃，请重新打开应用"); }
-            @Override public void onKill(GeckoSession current) { trace("gecko-process","killed"); listener.failure("内置 Gecko 渲染进程被系统终止，请重新打开应用"); }
+            @Override public void onCrash(GeckoSession current) { markRendererExited(); trace("gecko-process","crash"); listener.failure("内置 Gecko 渲染进程崩溃，请点击重试重新打开页面"); }
+            @Override public void onKill(GeckoSession current) { markRendererExited(); trace("gecko-process","killed"); listener.failure("内置 Gecko 渲染进程被系统终止，请点击重试重新打开页面"); }
             @Override public void onExternalResponse(GeckoSession current,WebResponse response) {
                 listener.download(response.uri,response.headers.get("Content-Disposition"),response.headers.get("Content-Type"),response.body);
             }
@@ -113,7 +113,7 @@ final class PlatformBrowser extends BrowserSurface {
                     operations.execute(()->{
                         String response;
                         try {
-                            if(closed || !listener.sameHost(sender.url)) throw new SecurityException("Host page no longer active");
+                            if(closed || needsRecreation() || !listener.sameHost(sender.url)) throw new SecurityException("Host page no longer active");
                             String method=request.getString("method"); JSONArray arguments=request.getJSONArray("arguments"); Object result;
                             if("browserConsole".equals(method)) { listener.console(arguments.getString(0),arguments.getString(1),arguments.getString(2),arguments.getInt(3)); result=JSONObject.NULL; }
                             else result=bridge.invoke(method,arguments);
@@ -161,7 +161,7 @@ final class PlatformBrowser extends BrowserSurface {
         }));
     }
     private boolean trusted(WebExtension.MessageSender sender) {
-        return !closed && sender.session==session && sender.isTopLevel() && GeckoEnvironment.EXTENSION.equals(sender.webExtension.id)
+        return !closed && !needsRecreation() && sender.session==session && sender.isTopLevel() && GeckoEnvironment.EXTENSION.equals(sender.webExtension.id)
             && listener.sameHost(sender.url);
     }
     private void trace(String kind,String stage) { listener.diagnostic(RuntimeDiagnostics.event(kind,stage).with("pending",commands.size()).with("connected",pagePort!=null)); }
@@ -218,11 +218,11 @@ final class PlatformBrowser extends BrowserSurface {
         if(Looper.myLooper()==Looper.getMainLooper()) throw new IllegalStateException("Cookie reads must not block the UI thread");
         return (String)environment.request("get",value,null).get(30,TimeUnit.SECONDS);
     }
-    @Override void stopLoading() { session.stop(); }
-    @Override boolean canGoBack() { return back; }
-    @Override void goBack() { session.goBack(); }
-    @Override void onResume() { session.setActive(true); }
-    @Override void onPause() { session.setActive(false); }
+    @Override void stopLoading() { if(!needsRecreation()) session.stop(); }
+    @Override boolean canGoBack() { return !needsRecreation() && back; }
+    @Override void goBack() { if(!needsRecreation()) session.goBack(); }
+    @Override void onResume() { if(!needsRecreation()) session.setActive(true); }
+    @Override void onPause() { if(!needsRecreation()) session.setActive(false); }
     @Override void destroy() {
         choicePrompts.dismiss();
         closed=true; if(pagePort!=null) pagePort.disconnect();

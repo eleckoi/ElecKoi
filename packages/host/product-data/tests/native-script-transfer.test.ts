@@ -1,3 +1,4 @@
+import { characterExportRoot } from './helpers/characterExportRoot'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -47,8 +48,7 @@ function input(exported: { fileName: string; mimeType: string; base64: string })
   return { displayName: exported.fileName, mimeType: exported.mimeType, base64: exported.base64 }
 }
 
-it.each(['json', 'png'] as const)('persists EJS solely as regex replacement through character and preset %s round trips', format => {
-  for (const scope of ['character', 'preset'] as const) {
+it.each([['character', 'png'], ['character', 'zip'], ['preset', 'png'], ['preset', 'json']] as const)('persists EJS solely as regex replacement through %s %s round trips', (scope, format) => {
     const source = setup(), target = setup()
     source.characters.create({ id: 'synthetic-ejs-character', name: 'Synthetic EJS character' })
     const presetId = source.presets.create('Synthetic EJS preset').id
@@ -71,7 +71,6 @@ it.each(['json', 'png'] as const)('persists EJS solely as regex replacement thro
     target.database.close(); target.database.open()
     expect(read()).toEqual(saved)
     expect(target.database.native.prepare("SELECT 1 FROM sqlite_master WHERE name='display_template_libraries'").get()).toBeUndefined()
-  }
 }, 30_000)
 function assertWorkspace(scripts: ScriptLibraryRepository, scope: 'character' | 'preset', ownerId: string) {
   const workspace = scripts.workspace(scope, ownerId)
@@ -79,15 +78,40 @@ function assertWorkspace(scripts: ScriptLibraryRepository, scope: 'character' | 
   expect(readFileSync(join(workspace.path, 'helpers', 'derive.mjs'), 'utf8')).toBe(helper)
   expect(Buffer.from(scripts.asset(scope, ownerId, workspace.version, 'assets/data.bin'))).toEqual(binary)
   expect(readFileSync(join(workspace.path, 'helpers', 'empty.json'))).toHaveLength(0)
-  expect(scripts.get(scope, ownerId)).toMatchObject({ trees, enabled: false, variables: { librarySetting: 5 } })
+  expect(scripts.get(scope, ownerId)).toMatchObject({ trees, enabled: true, variables: { librarySetting: 5 } })
 }
 
 describe('native script file transfer', () => {
+  it.each([
+    ['character', 'png'], ['character', 'zip'], ['preset', 'json'], ['preset', 'png'],
+  ] as const)('preserves the authored library, folder and script switches through %s %s import and reopen', (scope, format) => {
+    for (const enabled of [true, false]) {
+      const source = setup(), target = setup()
+      source.characters.create({ id: 'synthetic-switch-character', name: 'Synthetic switch character' })
+      const ownerId = scope === 'character' ? 'synthetic-switch-character' : source.presets.create('Synthetic switch preset').id
+      const mixedTrees = [...trees, { ...script, id: 'synthetic-disabled-script', enabled: false },
+        { ...trees[0]!, id: 'synthetic-disabled-folder', enabled: false,
+          scripts: [{ ...script, id: 'synthetic-enabled-child', enabled: true }] }]
+      source.scripts.save({ ...source.scripts.get(scope, ownerId), enabled, trees: mixedTrees, variables: { librarySetting: 5 } })
+      const exported = scope === 'character'
+        ? source.transfer.export(ownerId, format)
+        : source.presets.export(ownerId, format as 'json' | 'png')
+      const importedId = scope === 'character'
+        ? target.transfer.commit(target.transfer.prepare([input(exported)], 'eleckoi').token).importedCharacterIds[0]!
+        : target.presets.import(input(exported), 'eleckoi').preset.id
+      const expected = { enabled, trees: mixedTrees, variables: { librarySetting: 5 } }
+      expect(target.scripts.get(scope, importedId)).toMatchObject(expected)
+      target.database.close(); target.database.open()
+      expect(createScriptLibraryRepository(target.database).get(scope, importedId)).toMatchObject(expected)
+      expect(target.database.native.pragma('foreign_key_check')).toEqual([])
+    }
+  }, 30_000)
+
   it('imports and persists every character beyond the former fifty-card batch ceiling', () => {
     const f = setup()
     f.characters.create({ id: 'synthetic-source', name: 'Synthetic source', persona: { assistant_name: 'Synthetic source' } })
-    const document = f.transfer.export('synthetic-source', 'json')
-    const preview = f.transfer.prepare(Array.from({ length: 101 }, (_, index) => ({ ...input(document), displayName: `synthetic-card-${index}.json` })), 'eleckoi')
+    const document = f.transfer.export('synthetic-source', 'png')
+    const preview = f.transfer.prepare(Array.from({ length: 101 }, (_, index) => ({ ...input(document), displayName: `synthetic-card-${index}.png` })), 'eleckoi')
     expect(preview.items).toHaveLength(101)
     expect(preview.items.every(item => item.importable)).toBe(true)
     const result = f.transfer.commit(preview.token)
@@ -101,7 +125,7 @@ describe('native script file transfer', () => {
 
 
 
-  it.each(['json', 'png'] as const)('carries character helper paths and exact binary bytes through %s into a different workspace', format => {
+  it.each(['png', 'zip'] as const)('carries character helper paths and exact binary bytes through %s into a different workspace', format => {
     const source = setup(), target = setup()
     source.characters.create({ id: 'synthetic-character', name: 'Synthetic character' })
     source.scripts.save({ ...source.scripts.get('character', 'synthetic-character'), trees, enabled: true, variables: { librarySetting: 5 } })
@@ -148,7 +172,7 @@ describe('native script file transfer', () => {
   ])('reports malformed attachments before importing a card: %j', ({ files: attachments }) => {
     const source = setup(), target = setup()
     source.characters.create({ id: 'synthetic-character', name: 'Synthetic character' })
-    const root = JSON.parse(Buffer.from(source.transfer.export('synthetic-character', 'json').base64, 'base64').toString('utf8'))
+    const root = characterExportRoot(source.transfer.export('synthetic-character', 'png'))
     root.script_library.files = attachments
     const preview = target.transfer.prepare([{ displayName: 'synthetic.json', mimeType: 'application/json',
       base64: Buffer.from(JSON.stringify(root)).toString('base64') }], 'eleckoi')
@@ -162,7 +186,7 @@ describe('native script file transfer', () => {
     const source = setup(), target = setup()
     source.characters.create({ id: 'synthetic-character', name: 'Synthetic character' })
     source.scripts.save({ ...source.scripts.get('character', 'synthetic-character'), trees })
-    const root = JSON.parse(Buffer.from(source.transfer.export('synthetic-character', 'json').base64, 'base64').toString('utf8'))
+    const root = characterExportRoot(source.transfer.export('synthetic-character', 'png'))
     root.script_library.files = [{ path: source.scripts.workspace('character', 'synthetic-character').entries[0]!.file,
       data: Buffer.from('export const wrong = true;').toString('base64') }]
     const shared = target.scripts.save({ ...target.scripts.get('global', ''), trees })

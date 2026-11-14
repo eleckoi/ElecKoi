@@ -1,4 +1,6 @@
 - insert:
+    - id: eleckoi-host-diagnostics
+      name: '@eleckoi/dsh-runtime/host-log-plugin'
     - id: eleckoi-session-edit
       name: '@eleckoi/dsh-runtime/session-edit-plugin'
     - id: eleckoi-plugin-development-skills

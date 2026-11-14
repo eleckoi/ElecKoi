@@ -45,6 +45,7 @@ const positions = new Set<NonNullable<SettingLibraryEntry['position']>>([
   'instructions', 'insert_point_1', 'insert_point_2', 'insert_point_3', 'insert_point_4', 'insert_point_5'
 ])
 export interface DecodedAgentPresetImport {
+  regexEnabled?: boolean
   scriptLibrary?: PortableScriptLibrary
   preset: AgentPreset
   source: AgentPresetImportSource
@@ -83,6 +84,7 @@ export interface AgentPresetTransferVersion extends AgentPresetTransferContent {
 }
 
 export interface AgentPresetEncodeOptions {
+  regexEnabled?: boolean
   scriptLibrary?: PortableScriptLibrary
   authorAvatar?: AgentPresetTransferAvatar
   versions?: AgentPresetTransferVersion[]
@@ -137,6 +139,7 @@ export function encodeElecKoiAgentPreset(preset: AgentPreset, options: AgentPres
       },
       active_version_id: preset.activeVersionId,
       active_version_number: preset.activeVersionNumber,
+      regex_enabled: options.regexEnabled ?? true,
       ...(options.scriptLibrary ? { script_library: {
         trees: options.scriptLibrary.trees, variables: options.scriptLibrary.variables, enabled: options.scriptLibrary.enabled,
         files: options.scriptLibrary.files ?? []
@@ -212,8 +215,10 @@ function decodeElecKoi(document: AgentPresetImportDocument, bytes: Uint8Array, p
     createdAtEpochMs: Math.max(0, integerValue(version.created_at_epoch_ms, Date.now())),
     ...contentFromPortable(version, version, document.displayName, timestamp, purpose, legacyCreator)
   }))
+  if (value.regex_enabled !== undefined && typeof value.regex_enabled !== 'boolean') throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '预设正则库开关必须是布尔值。', { what: '预设正则库开关' })
   return {
     source: 'eleckoi',
+    regexEnabled: value.regex_enabled === undefined ? true : value.regex_enabled as boolean,
     ...(value.script_library === undefined ? {} : { scriptLibrary: decodePortableScriptLibrary(value.script_library) }),
     ...(authorAvatarBase64 ? { authorAvatarBase64 } : {}),
     ...(authorAvatarMediaType ? { authorAvatarMediaType } : {}),

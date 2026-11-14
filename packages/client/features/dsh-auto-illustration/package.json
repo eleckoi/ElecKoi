@@ -28,14 +28,14 @@
     }
   },
   "engines": {
-    "dsh": "0.2.2-rc.1"
+    "dsh": "0.2.2-rc.3"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-credentials": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-llm": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-credentials": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.3",
     "@eleckoi/dsh-product-data": "workspace:*",
     "@eleckoi/dsh-product-api": "workspace:*",
-    "zod": "4.1.11",
+    "zod": "4.6.6",
     "@eleckoi/dsh-client-roleplay": "workspace:*",
     "@eleckoi/dsh-client-models": "workspace:*",
     "@eleckoi/dsh-client-presets": "workspace:*"

@@ -1,3 +1,4 @@
+import { recordCharacterEdit } from '@product-data/domain/characterCatalog'
 import { and, asc, eq, sql } from 'drizzle-orm'
 import type { VariableConfig, VariableConfigVersion } from '@shared/contracts/variables/schemas'
 import { variableConfigSchema } from '@shared/contracts/variables/schemas'
@@ -114,7 +115,7 @@ export class VariableConfigRepository {
     if (input.characterId !== characterId) throw new DesktopError(ELECKOI_FAILURE_CODES.stateMismatch, '变量配置与角色不匹配。', { what: '变量配置与角色' })
     const previous = this.get(characterId, db)
     const normalized = normalizeVariableConfig(characterId, variableConfigSchema.parse(input), previous)
-    if (persistedContent(previous) !== persistedContent(normalized)) this.persist(db, normalized)
+    if (persistedContent(previous) !== persistedContent(normalized)) { this.persist(db, normalized); recordCharacterEdit(db, characterId) }
     return normalized
   }
 
@@ -136,6 +137,7 @@ export class VariableConfigRepository {
       if (!state || typeof state !== 'object' || Array.isArray(state)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, `变量备份“${version.id}”的初始状态不是对象。`, { what: '变量备份的初始状态', path: 'initialStateJson' })
     }
     this.persist(db, config)
+    recordCharacterEdit(db, characterId)
     return this.get(characterId, db)
   }
 

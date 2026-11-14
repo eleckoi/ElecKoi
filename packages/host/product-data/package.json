@@ -60,7 +60,7 @@
     "json5": "2.2.3",
     "lodash": "4.17.21",
     "yaml": "2.9.0",
-    "zod": "4.1.11",
+    "zod": "4.6.6",
     "@eleckoi/product-shared": "workspace:*"
   },
   "devDependencies": {
@@ -72,6 +72,6 @@
   },
   "description": "ElecKoi 产品数据的 DSH Host Cordis 服务。",
   "engines": {
-    "dsh": "0.2.2-rc.1"
+    "dsh": "0.2.2-rc.3"
   }
 }

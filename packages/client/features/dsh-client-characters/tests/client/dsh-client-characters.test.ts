@@ -73,14 +73,14 @@ describe('DSH ElecKoi character client model', () => {
     return { catalog, remoteExport, document, blobs, anchors, timers, revoke }
   }
 
-  // 这条用例真的搬 10001 条、每条 60 字符的数据走一遍导出：造 JSON、base64 解码、再把
+  // 这条用例搬运 10001 条、每条 60 字符的合成二进制内容：base64 解码，再把
   // ArrayBuffer 逐字节比回来。Windows 上跑不完默认的 5 秒（CI 实测超时），所以显式给足时间；
   // 断言一条没放宽。
-  it.each(['png', 'json'])('hands the actual %s bytes and filename to the desktop browser download', async format => {
+  it.each(['png', 'zip'])('hands the actual %s bytes and filename to the desktop browser download', async format => {
     const test = exportCatalog()
     const bytes = format === 'png' ? Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 255, 0, 128])
-      : Buffer.from(JSON.stringify({ name: 'Synthetic export', entries: Array.from({ length: 10001 }, (_, i) => ({ id: i, text: `Synthetic ${i} ` + '正文'.repeat(30) })) }))
-    const file = { fileName: `synthetic.${format}`, mimeType: format === 'png' ? 'image/png' : 'application/json', base64: bytes.toString('base64') }
+      : Buffer.from(Array.from({ length: 10001 }, (_, i) => `Synthetic ${i} ` + '正文'.repeat(30)).join('\n'))
+    const file = { fileName: `synthetic.${format}`, mimeType: format === 'png' ? 'image/png' : 'application/zip', base64: bytes.toString('base64') }
     test.remoteExport.mockResolvedValue({ ok: true, value: file })
     const result = await test.catalog.exportCharacters(['a', 'a'], format)
     expect(test.remoteExport).toHaveBeenCalledExactlyOnceWith('a', format)
@@ -120,18 +120,18 @@ describe('DSH ElecKoi character client model', () => {
   it('stops on native cancellation without counting canceled or unattempted cards as written', async () => {
     const saveBytes = vi.fn().mockResolvedValueOnce({ cancelled: false }).mockResolvedValueOnce({ cancelled: true })
     const test = exportCatalog({ saveBytes })
-    test.remoteExport.mockImplementation(async (id: string) => ({ ok: true, value: { fileName: `${id}.json`, mimeType: 'application/json', base64: 'e30=' } }))
-    expect(await test.catalog.exportCharacters(['a', 'b', 'c'], 'json')).toMatchObject({ canceled: true, written: [{ characterId: 'a' }], failures: [] })
-    expect(test.remoteExport.mock.calls).toEqual([['a', 'json'], ['b', 'json']])
+    test.remoteExport.mockImplementation(async (id: string) => ({ ok: true, value: { fileName: `${id}.zip`, mimeType: 'application/zip', base64: 'e30=' } }))
+    expect(await test.catalog.exportCharacters(['a', 'b', 'c'], 'zip')).toMatchObject({ canceled: true, written: [{ characterId: 'a' }], failures: [] })
+    expect(test.remoteExport.mock.calls).toEqual([['a', 'zip'], ['b', 'zip']])
   })
 
   it('reports remote and native write failures while still exporting the other selected cards', async () => {
     const saveBytes = vi.fn().mockRejectedValueOnce(new Error('Synthetic write failure')).mockResolvedValue({ cancelled: false })
     const test = exportCatalog({ saveBytes })
     test.remoteExport.mockRejectedValueOnce(new Error('Synthetic export failure'))
-      .mockResolvedValue({ ok: true, value: { fileName: 'synthetic.json', mimeType: 'application/json', base64: 'e30=' } })
-    const result = await test.catalog.exportCharacters(['a', 'b', 'c'], 'json')
-    expect(result.written).toEqual([{ characterId: 'c', fileName: 'synthetic.json' }])
+      .mockResolvedValue({ ok: true, value: { fileName: 'synthetic.zip', mimeType: 'application/zip', base64: 'e30=' } })
+    const result = await test.catalog.exportCharacters(['a', 'b', 'c'], 'zip')
+    expect(result.written).toEqual([{ characterId: 'c', fileName: 'synthetic.zip' }])
     expect(result.failures).toEqual([{ characterId: 'a', message: 'Synthetic export failure' }, { characterId: 'b', message: 'Synthetic write failure' }])
   })
 

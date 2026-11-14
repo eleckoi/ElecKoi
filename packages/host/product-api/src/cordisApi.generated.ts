@@ -1309,11 +1309,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CharacterExportFormat',
-    declaration: 'export type CharacterExportFormat = \'png\' | \'json\' | \'zip\';',
+    declaration: 'export type CharacterExportFormat = \'png\' | \'zip\';',
   },
   {
     name: 'CharacterExportResult',
-    declaration: 'export interface CharacterExportResult {\n    fileName: string;\n    mimeType: \'image/png\' | \'application/json\' | \'application/zip\';\n    base64: string;\n}',
+    declaration: 'export interface CharacterExportResult {\n    fileName: string;\n    mimeType: \'image/png\' | \'application/zip\';\n    base64: string;\n}',
   },
   {
     name: 'CharacterGroupAssignment',
@@ -1353,7 +1353,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CharacterRecord',
-    declaration: 'export interface CharacterRecord {\n    id: string;\n    name?: string;\n    avatar?: string;\n    group?: string;\n    groupName?: string;\n    groupViewOrder?: number;\n    folder?: string;\n    frontendBeautyEnabled?: boolean | number;\n    profileAge?: string;\n    profileSex?: string;\n    profileHeight?: string;\n    profileBirthday?: string;\n    profileLike?: string;\n    showOpening?: boolean | number;\n    chatBackground?: string;\n    chatBackgroundOpacity?: number;\n    chatBackgroundBlur?: number;\n    chatBackgroundScrim?: number;\n    chatBackgroundCustom?: {\n        image: string;\n        opacity: number;\n        blur: number;\n        scrim: number;\n    };\n    primaryOpening?: string;\n    persona?: CharacterPersona;\n}',
+    declaration: 'export interface CharacterRecord {\n    id: string;\n    addedAtEpochMs?: number;\n    editedAtEpochMs?: number;\n    authorName?: string;\n    authorAvatar?: string;\n    name?: string;\n    avatar?: string;\n    group?: string;\n    groupName?: string;\n    groupViewOrder?: number;\n    folder?: string;\n    frontendBeautyEnabled?: boolean | number;\n    profileAge?: string;\n    profileSex?: string;\n    profileHeight?: string;\n    profileBirthday?: string;\n    profileLike?: string;\n    showOpening?: boolean | number;\n    chatBackground?: string;\n    chatBackgroundOpacity?: number;\n    chatBackgroundBlur?: number;\n    chatBackgroundScrim?: number;\n    chatBackgroundCustom?: {\n        image: string;\n        opacity: number;\n        blur: number;\n        scrim: number;\n    };\n    primaryOpening?: string;\n    persona?: CharacterPersona;\n}',
   },
   {
     name: 'ConversationChange',

@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/deepseek-ai/deepseek-harness",
-  "commit": "b830ec950faba0a46dda564be3e2d854afed94f1",
+  "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced",
   "license": "MIT",
   "licenseFile": "apps/desktop/resources/licenses/dsh-desktop-MIT.txt",
   "files": [
@@ -14,23 +14,24 @@
         "The existing product caption seat owns menu placement; observing the seat supports layout remounts.",
         "An explicit DOM library reference supplies the preload document types.",
         "Native popup requests carry the current document language; observing a remount skips work while the menu is connected."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "packages/shared/src/contracts/desktopMenuLocale.ts",
       "source": "apps/desktop/src/locale.ts",
-      "sha256": "7f1681964498d06fb8d58474721f69efba4932fffad9fd61c08dc52337de854a",
+      "sha256": "80c869fb1015cf202954e183d229b25d468c8c16a15e02a02b93974f2f86f992",
       "localSha256": "f8076eb1da40b35a9e0c376cf1b6d2e9f8dcebd0791c695e275c5948e7c3e3ef",
       "changes": [
         "Only caption-menu dictionary keys and the official eight-language resolver are retained; product name is ElecKoi.",
         "The developer-tools caption label is provided for the same eight supported languages."
       ],
-      "commit": "66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db"
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/src/main/platform/electron/desktopCaptionMenu.ts",
       "source": "apps/desktop/src/main.ts",
-      "sha256": "e345eda0425f2df795d20413bb87bb9a3ddc46e71ceb1cec0755ad1cca3fb847",
+      "sha256": "d2464e5c6376967888b69c8bbdefae64f0dce84dc113b9b5ab16b5eedcad9adf",
       "localSha256": "339df9baad79251619cc03a457abf464727c27bd6f4dc783dcea3d9635acc0e0",
       "changes": [
         "Extracted Windows caption popup validation, edit-item construction and zoom-adjusted native placement.",
@@ -41,7 +42,16 @@
       "relatedSource": {
         "path": "apps/desktop/src/keyboard.ts",
         "sha256": "7cf07391d8998813ea894d0e5d2f47053f5cc13dc9f48f257856cd19143b6728"
-      }
+      },
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+    },
+    {
+      "path": "apps/desktop/resources/shell/scrollbar.css",
+      "source": "packages/client/ui-theme/src/styles/scrollbar.css",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced",
+      "sha256": "d83797aa96625e8ec77412bfc5649469cd5834d3cb0f7f6a1f3db8a59e1f4530",
+      "localSha256": "d83797aa96625e8ec77412bfc5649469cd5834d3cb0f7f6a1f3db8a59e1f4530",
+      "changes": []
     }
   ]
 }

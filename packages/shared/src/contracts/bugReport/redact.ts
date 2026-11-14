@@ -129,6 +129,8 @@ export function redactBugReport(
     ...(report.logTail === undefined
       ? {}
       : { logTail: redactReportText(report.logTail, options) }),
+    ...(report.runtimeDiagnostics === undefined
+      ? {} : { runtimeDiagnostics: redactReportText(report.runtimeDiagnostics, options) }),
     ...(report.notes === undefined ? {} : { notes: redactReportText(report.notes, options) })
   }
 }

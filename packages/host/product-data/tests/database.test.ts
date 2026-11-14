@@ -179,7 +179,7 @@ const schemaV7Sql = schemaV10Sql
 function productRecords(database: Database.Database) {
   // Script libraries have separate migration and data-retention assertions.
   // Runtime-state retention has its own exact migration assertions.
-  const tables = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('conversation_generation_results', 'script_libraries', 'agent_setting_snapshots', 'conversation_state_snapshots', 'character_openings', 'global_setting_libraries', 'global_setting_library_state') ORDER BY name")
+  const tables = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('character_catalog_activity', 'conversation_generation_results', 'script_libraries', 'agent_setting_snapshots', 'conversation_state_snapshots', 'character_openings', 'global_setting_libraries', 'global_setting_library_state') ORDER BY name")
     .all() as { name: string }[]
   return Object.fromEntries(tables.map(({ name }) => [name,
     (database.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all() as Record<string, unknown>[])

@@ -1,0 +1,90 @@
+diff --git a/lib/index.js b/lib/index.js
+index 37a1a88b..8c8266fa 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -767,7 +767,7 @@ var TypertGatewayService = class extends Service {
+ 	/** Carrier adapter shared by the WebSocket mux and local Host transports. */
+ 	wireStream = {
+ 		open: (endpoint, payload, uplink, peer, signal) => this.openWireStream(endpoint, payload, uplink, peer, signal, new AbortController()),
+-		failure: (error) => rpcError(error)
++		failure: error => { logRemoteFailure(this.ctx, "stream", error); return rpcError(error); }
+ 	};
+ 	srcClaims;
+ 	remoteEvents;
+@@ -944,7 +944,8 @@ var TypertGatewayService = class extends Service {
+ 	* @throws {@link TypertGatewayError} for dispatch, provider, or boundary failures; lookup-policy and business errors retain identity.
+ 	*/
+ 	async invoke(request) {
+-		return this.invokePrepared(await this.prepareInvocation(request, new AbortController()));
++		try { return await this.invokePrepared(await this.prepareInvocation(request, new AbortController())); }
++		catch (error) { logRemoteFailure(this.ctx, request, error); throw error; }
+ 	}
+ 	async invokePrepared(prepared) {
+ 		if (prepared.descriptor.mode !== void 0) throw new TypertGatewayError("gateway/signature-invalid", prepared.endpoint, "stream Remote methods must be opened through the stream carrier");
+@@ -1193,6 +1194,7 @@ var TypertGatewayService = class extends Service {
+ 			const prepared = await this.prepareInvocation(remoteRequest(endpoint, payload, signal, peer), new AbortController());
+ 			return encodeRpcResult(await this.invokePrepared(prepared), prepared.descriptor.result);
+ 		} catch (error) {
++			logRemoteFailure(this.ctx, endpoint, error);
+ 			return rpcFailure(error);
+ 		}
+ 	}
+@@ -1701,6 +1703,13 @@ var GatewayInvocation = class {
+ function releaseUplink(source) {
+ 	Promise.resolve().then(() => source[Symbol.asyncIterator]().return?.()).catch(() => void 0);
+ }
++// RETIRE WHEN: the official Gateway logs original failures before wire folding.
++function logRemoteFailure(ctx, target, error) {
++	try {
++		const endpoint = typeof target === "string" ? target : endpointOf(target.namespace, target.method);
++		ctx.logger.error("Remote %s failed: %O", endpoint, error);
++	} catch {}
++}
+ function rpcFailure(error) {
+ 	const remote = remoteErrorOf(error);
+ 	if (remote !== void 0) return {
+diff --git a/lib/types/index.js b/lib/types/index.js
+index f95f23c8..80492668 100644
+--- a/lib/types/index.js
++++ b/lib/types/index.js
+@@ -61,7 +61,7 @@ export class TypertGatewayService extends Service {
+     /** Carrier adapter shared by the WebSocket mux and local Host transports. */
+     wireStream = {
+         open: (endpoint, payload, uplink, peer, signal) => this.openWireStream(endpoint, payload, uplink, peer, signal, new AbortController()),
+-        failure: error => rpcError(error),
++        failure: error => { logRemoteFailure(this.ctx, "stream", error); return rpcError(error); },
+     };
+     srcClaims;
+     remoteEvents;
+@@ -251,7 +251,8 @@ export class TypertGatewayService extends Service {
+      * @throws {@link TypertGatewayError} for dispatch, provider, or boundary failures; lookup-policy and business errors retain identity.
+      */
+     async invoke(request) {
+-        return this.invokePrepared(await this.prepareInvocation(request, new AbortController()));
++        try { return await this.invokePrepared(await this.prepareInvocation(request, new AbortController())); }
++        catch (error) { logRemoteFailure(this.ctx, request, error); throw error; }
+     }
+     async invokePrepared(prepared) {
+         if (prepared.descriptor.mode !== undefined) {
+@@ -559,6 +560,7 @@ export class TypertGatewayService extends Service {
+             return encodeRpcResult(value, prepared.descriptor.result);
+         }
+         catch (error) {
++            logRemoteFailure(this.ctx, endpoint, error);
+             return rpcFailure(error);
+         }
+     }
+@@ -1163,6 +1165,13 @@ class GatewayInvocation {
+ function releaseUplink(source) {
+     void Promise.resolve().then(() => source[Symbol.asyncIterator]().return?.()).catch(() => undefined);
+ }
++// RETIRE WHEN: the official Gateway logs original failures before wire folding.
++function logRemoteFailure(ctx, target, error) {
++    try {
++        const endpoint = typeof target === "string" ? target : endpointOf(target.namespace, target.method);
++        ctx.logger.error("Remote %s failed: %O", endpoint, error);
++    } catch {}
++}
+ function rpcFailure(error) {
+     const remote = remoteErrorOf(error);
+     if (remote !== undefined) {

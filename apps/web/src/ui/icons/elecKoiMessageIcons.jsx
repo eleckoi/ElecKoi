@@ -1,8 +1,4 @@
-import {
-  IconCopyOutlineRegular, IconCopyOutlineMedium, IconEditOutlineRegular,
-  IconRefreshOutlineRegular, IconRefreshOutlineMedium, IconChevronLeftOutlineRegular, IconChevronRightOutlineRegular,
-  IconClockOutlineRegular, IconClockOutlineMedium,
-} from '@deepseek-ai/dsh-client-ui-primitives';
+import { IconCopyOutlineRegular, IconCopyOutlineMedium, IconEditOutlineRegular, IconRefreshOutlineRegular, IconRefreshOutlineMedium, IconChevronRightOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import { Eye } from './interfaceIcons.jsx';
 import thoughtBulb from './thought-bulb.svg';
 
@@ -30,8 +26,6 @@ export const MessagePencilIcon = ({ size = 18, className }) => <svg width={size}
   <path d="M410 231 422 220 410 231 422 220 388 186 326 124 292 90 280 101 258 124 59 323Q43 339 36 360L1 481Q-3 494 7 504Q17 514 31 511L151 475Q173 469 189 453L388 254L410 231ZM160 399 151 422 160 399 151 422Q145 427 138 429L59 452L82 374Q85 367 89 361L112 352V384Q113 398 128 400H160ZM363 19 348 33 363 19 348 33 326 56 314 67 348 101 410 163 444 197 455 186 478 163 493 149Q511 129 511 103Q511 78 493 58L453 19Q434 0 408 0Q383 0 363 19ZM315 187 171 331 315 187 171 331Q160 340 149 331Q139 319 149 308L293 164Q304 155 315 164Q325 175 315 187Z" fill="currentColor" />
 </svg>;
 export const AgentPencilIcon = ({ size = 18, className }) => <IconEditOutlineRegular size={size} className={className} />;
-export const AgentHistoryIcon = ({ size = 18, className }) => <IconClockOutlineRegular size={size} className={className} />;
-export const HistoryIcon = ({ size = 18, className }) => <IconClockOutlineMedium size={size} className={className} />;
 export function ViewProcessIcon({ size = 19, className }) {
   return <Eye size={size} weight="regular" aria-hidden="true"
     className={`message-action-eye-glyph${className ? ` ${className}` : ''}`} />;
@@ -49,10 +43,7 @@ export const RefreshMessageIcon = ({ size = 16, className, emphasized = false })
   const Icon = emphasized ? IconRefreshOutlineMedium : IconRefreshOutlineRegular;
   return <Icon size={size} className={`message-action-wide-glyph${className ? ` ${className}` : ''}`} />;
 };
-export const TranslateIcon = (props) => <StrokeIcon {...props} paths={['M4.5 5.2h7.8M8.4 3.8v1.4M6.1 8.4c1 2.2 2.7 4 5.1 5.2', 'M11.9 8.4c-.75 1.85-2.35 3.72-4.9 5.65', 'M13.3 20.2 17 10.8l3.7 9.4M14.4 17.4h5.2']} />;
 export const MessageChevronRightIcon = ({ size = 18, className }) => <IconChevronRightOutlineRegular size={size} className={className} />;
-export const MessageChevronLeftIcon = ({ size = 18, className }) => <IconChevronLeftOutlineRegular size={size} className={className} />;
-export const MessageArrowBackIcon = (props) => <StrokeIcon size={24} strokeWidth={1.5} {...props} paths={['M20 12H4', 'm11 5-7 7 7 7']} />;
 
 export function SearchSettingIcon({ size = 20, className }) {
   return <svg width={size} height={size} className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">

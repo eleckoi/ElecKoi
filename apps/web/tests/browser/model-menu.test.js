@@ -13,7 +13,7 @@ it('extends the installed official menu with readable parameters and provider-he
   try {
     await build({entryPoints:['apps/web/tests/browser/model-menu.fixture.jsx'],outfile:resolve(directory,'fixture.js'),bundle:true,format:'iife',jsx:'automatic',alias:{'@shared':resolve('packages/shared/src')},loader:{'.woff2':'file','.woff':'file','.ttf':'file','.png':'file','.svg':'file'},logLevel:'silent'});
     const source=await readFile(require.resolve('@deepseek-ai/dsh-client-ui-model-selection/client'),'utf8');
-    await writeFile(resolve(directory,'official.js'),source.replace('return module.exports;','return {...module.exports,ModelSelect,zh};'));
+    await writeFile(resolve(directory,'official.js'),source.replace('return module.exports','return {...module.exports,ModelSelect,zh};'));
     await writeFile(resolve(directory,'theme.css'),browserThemeCss());
     const html=resolve(directory,'fixture.html'),report=resolve(directory,'report.json');
     await writeFile(html,'<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="fixture.css"></head><body><div id="root"></div><script src="fixture.js"></script><script src="official.js"></script></body></html>');

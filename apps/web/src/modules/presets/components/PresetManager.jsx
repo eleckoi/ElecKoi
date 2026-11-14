@@ -3,12 +3,13 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from '../../../ui/ui/Avatar.jsx';
-import { Input, IconSearchOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import { GroupAssignmentMenu } from '../../../ui/ui/GroupAssignmentMenu.jsx';
 import { ExportIcon, ImportIcon, PencilIcon, PlusIcon, TrashIcon } from '../../../ui/icons/index.jsx';
 import defaultPresetAvatar from '../../../assets/eleckoi-app-icon.png';
 import { isDefaultPreset, PresetPurposeSwitch } from './PresetPurposeSwitch.jsx';
 import { resolveFailure } from '../../../utils/failureText.js';
+import { CatalogManagerSearch } from '../../../ui/ui/CatalogManagerSearch.jsx';
+import '../../../ui/styles/catalog-manager.css';
 
 const ALL_PRESETS = '全部预设';
 
@@ -32,7 +33,7 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
   const visible = useMemo(() => {
     const key = keyword.trim().toLocaleLowerCase();
     return catalog.presets.filter((preset) => {
-      const inGroup = selectedGroup === ALL_PRESETS || preset.libraryGroupId === selectedGroup;
+      const inGroup = selectedGroup === ALL_PRESETS || (preset.libraryGroupId || '') === selectedGroup;
       const matches = !key || `${preset.name} ${preset.profile.authorName}`.toLocaleLowerCase().includes(key);
       return inGroup && matches;
     });
@@ -179,33 +180,36 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
     }
   }
 
-  return <section className="preset-manager-window" aria-label={tUi("预设管理器")}>
+  return <section className="preset-manager-window catalog-manager" aria-label={tUi("预设管理器")}>
       <aside className="preset-manager-groups" onContextMenu={(event) => openGroupMenu(event)}>
         {onPurposeChange && <PresetPurposeSwitch value={purpose} disabled={importing} onChange={onPurposeChange} />}
         <button type="button" className={selectedGroup === ALL_PRESETS ? 'active' : ''} onClick={() => onSelectGroup(ALL_PRESETS)} onContextMenu={(event) => openGroupMenu(event, null)}><span>{tUi(ALL_PRESETS)}</span><em>{catalog.presets.length}</em></button>
         <small>{tUi("分组")}</small>
-        <div>{catalog.groups.map((group) => <button type="button" className={selectedGroup === group.id ? 'active' : ''} key={group.id} onClick={() => onSelectGroup(group.id)} onContextMenu={(event) => openGroupMenu(event, group)}><span>{group.name}</span><em>{catalog.presets.filter((preset) => preset.libraryGroupId === group.id).length}</em></button>)}</div>
-        <Button data-dsh-control variant="outline" className="preset-manager-add-group" type="button" onClick={() => openGroupDialog()}><PlusIcon /><span>{tUi("添加分组")}</span></Button>
+        <div className="catalog-manager-group-list">{catalog.groups.map((group) => <button type="button" className={selectedGroup === group.id ? 'active' : ''} key={group.id} onClick={() => onSelectGroup(group.id)} onContextMenu={(event) => openGroupMenu(event, group)}><span>{group.name}</span><em>{catalog.presets.filter((preset) => preset.libraryGroupId === group.id).length}</em></button>)}</div>
+        <Button data-dsh-control variant="outline" className="preset-manager-add-group catalog-manager-surface-button" type="button" onClick={() => openGroupDialog()}><PlusIcon /><span>{tUi("添加分组")}</span></Button>
       </aside>
       <div className="preset-manager-main">
         <header className="preset-manager-titlebar">
           <h2>{tUi("预设管理器")}</h2>
-          <Input data-dsh-control className="preset-manager-search" type="search" icon={<IconSearchOutlineRegular />} value={keyword} onChange={event => setKeyword(event.target.value)} placeholder={tUi("搜索预设…")} aria-label={tUi("搜索预设")} />
+          <div className="catalog-manager-header-actions">
+          <CatalogManagerSearch className="preset-manager-search" value={keyword} onChange={setKeyword} placeholder={tUi("搜索预设…")} label={tUi("搜索预设")} />
+          <span className="catalog-manager-action-divider" />
           {!deleteMode ? <>
-            <Button data-dsh-control variant="outline" type="button" disabled={importing} onClick={onImport}><ImportIcon /><span>{tUi("导入预设")}</span></Button>
+            <Button data-dsh-control variant="primary" type="button" disabled={importing} onClick={onImport}><ImportIcon /><span>{tUi("导入预设")}</span></Button>
             <div className="preset-manager-export" ref={exportControlRef}>
-              <Button data-dsh-control variant="outline" type="button" disabled={!selectedPresetId} aria-haspopup="menu" aria-expanded={exportOpen} onClick={() => { setExportError(''); setExportOpen((current) => !current); }}><ExportIcon /><span>{tUi("导出预设")}</span></Button>
+              <Button data-dsh-control variant="outline" className="catalog-manager-surface-button" type="button" disabled={!selectedPresetId} aria-haspopup="menu" aria-expanded={exportOpen} onClick={() => { setExportError(''); setExportOpen((current) => !current); }}><ExportIcon /><span>{tUi("导出预设")}</span></Button>
               {exportOpen ? <div className="preset-manager-export-menu" ref={exportMenuRef} role="menu" aria-label={tUi("选择预设格式")}>
                 <button type="button" role="menuitem" disabled={exporting} onClick={() => void exportPreset('png')}>{tUi("PNG 预设卡")}</button>
                 <button type="button" role="menuitem" disabled={exporting} onClick={() => void exportPreset('json')}>{tUi("JSON 预设")}</button>
                 {exportError ? <span role="alert">{exportError}</span> : null}
               </div> : null}
             </div>
-            <Button data-dsh-control variant="outline" type="button" onClick={() => setDeleteMode(true)}><TrashIcon /><span>{tUi("删除")}</span></Button>
+            <Button data-dsh-control variant="outline" className="catalog-manager-surface-button" type="button" onClick={() => setDeleteMode(true)}><TrashIcon /><span>{tUi("删除")}</span></Button>
           </> : <>
             <Button data-dsh-control variant="primary" className="preset-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={() => void removeSelectedPresets()}>{tUi("确认")}{selectedIds.length ? ` ${selectedIds.length}` : ''}</Button>
             <Button data-dsh-control variant="outline" type="button" onClick={cancelDeleteMode}>{tUi("取消")}</Button>
           </>}
+          </div>
         </header>
         {error || importError ? <p className="preset-manager-error">{error || importError}</p> : null}
         <div className="preset-manager-grid">{visible.map((preset) => {

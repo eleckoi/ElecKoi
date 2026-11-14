@@ -19,7 +19,7 @@ export function TrajectoryView({ renderSlot, viewOwner }) {
   </section>;
 }
 
-export function SessionTrajectoryView(props) {
+function SessionTrajectoryView(props) {
   const official = props.useTrajectory((value) => value);
   const outcomes = props.useProjection("eleckoiTurnOutcomes");
   const inputIdentities = props.useProjection("eleckoiInputContinuations");

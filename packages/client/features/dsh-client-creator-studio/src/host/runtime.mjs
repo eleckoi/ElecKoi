@@ -35,7 +35,7 @@ export async function installCreatorStudioRuntime(ctx) {
     }
     return { preset, disabledGroupIds }
   }
-  const prepareDefinition = async (model = registration?.model ?? {}) => {
+  const prepareDefinition = async (model = {}) => {
     const { preset, disabledGroupIds } = currentPreset()
     const creator = await ctx.agentPresets.readDocument('cordis')
     const generated = materializeAgentPreset(root, template, { ...preset, versionId: preset.activeVersionId }, { disabledGroupIds }, model,
@@ -46,17 +46,19 @@ export async function installCreatorStudioRuntime(ctx) {
       await registration?.dispose()
       registration = undefined
       const dispose = await ctx.agentPresets.register(readRuntimePresetDefinition(join(root, generated.id, 'preset.json'), generated.id, template, ['uploaded-file-tools']))
-      registration = { revision: generated.revision, model, dispose }
+      registration = { revision: generated.revision, dispose }
     }
-    return { ...generated, preset, disabledGroupIds, model }
+    return { ...generated, preset, disabledGroupIds }
   }
-  // Inventory needs no model credentials. Each real turn resolves the selected
-  // model before installing its model-dependent compaction configuration.
-  await prepareDefinition({})
+  // Warm the preset for ordinary cold Session restoration. An invalid author
+  // configuration must not prevent the Studio command service from loading;
+  // create/open prepare it again and return the current diagnostic to the caller.
+  try { await prepareDefinition({}) }
+  catch (error) { ctx.logger.error('AI 创作工作室预设准备失败，创建或打开会话时将返回具体错误。', error) }
 
   // RETIRE WHEN: supported upgrade, import and rewind sources can no longer
   // select hashed Studio preset IDs. Remove this conversion, legacyPresetId,
-  // its open/edit calls and the generated-directory cleanup together; keep the
+  // its open/edit calls, failure retention and generated-directory cleanup together; keep the
   // current-selection helper and global binding. Session identities and history
   // stay; only append the official selection before retiring generated files.
   // First-turn edits can remove every event. Only their already validated
@@ -81,15 +83,24 @@ export async function installCreatorStudioRuntime(ctx) {
   }
   const legacyDirectories = readdirSync(root, { withFileTypes: true }).filter(entry => entry.isDirectory() && legacyPresetId(entry.name) && existsSync(join(root, entry.name, 'preset.json')))
   if (legacyDirectories.length) {
+    const retainedPresets = new Set()
     for (const stored of await ctx.sessionPersistence.list()) {
-      if (legacyPresetId(stored.header.agentPreset)) await migrateStoredPreset(stored.header.id)
+      if (!legacyPresetId(stored.header.agentPreset)) continue
+      try { await migrateStoredPreset(stored.header.id) }
+      catch (error) {
+        retainedPresets.add(stored.header.agentPreset)
+        ctx.logger.error(`旧创作工作室会话 ${stored.header.id} 升级失败，已保留原记录。`, error)
+      }
     }
     for (const entry of legacyDirectories) {
-      const directory = join(root, entry.name), file = join(directory, 'preset.json')
-      if (lstatSync(directory).isSymbolicLink() || lstatSync(file).isSymbolicLink()) throw productFailure(ELECKOI_FAILURE_CODES.securityDenied, '旧创作配置目录不能是重定向目录。', { what: '旧创作配置目录', guard: 'creator-preset-directory' })
-      readRuntimePresetDefinition(file, entry.name, template)
-      unlinkSync(file)
-      if (readdirSync(directory).length === 0) rmdirSync(directory)
+      if (retainedPresets.has(entry.name)) continue
+      try {
+        const directory = join(root, entry.name), file = join(directory, 'preset.json')
+        if (lstatSync(directory).isSymbolicLink() || lstatSync(file).isSymbolicLink()) throw productFailure(ELECKOI_FAILURE_CODES.securityDenied, '旧创作配置目录不能是重定向目录。', { what: '旧创作配置目录', guard: 'creator-preset-directory' })
+        readRuntimePresetDefinition(file, entry.name, template)
+        unlinkSync(file)
+        if (readdirSync(directory).length === 0) rmdirSync(directory)
+      } catch (error) { ctx.logger.error(`旧创作工作室预设 ${entry.name} 清理失败，已保留文件。`, error) }
     }
   }
   const bindCurrent = async (agent, state, prepared) => {
@@ -146,7 +157,7 @@ export async function installCreatorStudioRuntime(ctx) {
     const selection = inspection.events.findLast(event => event.type === 'model/selection')?.data
     const currentSelection = events.findLast(event => event.type === 'model/selection')?.data
     if (selection && JSON.stringify(selection) !== JSON.stringify(currentSelection)) {
-      await ctx.sessionController.selectModel({ sessionId, ...selection })
+      agent.model.select(selection)
     }
     // These are conversation preferences, independent of the deleted turn.
     // Replay only the already validated pre-edit facts through the Session log.
@@ -155,13 +166,13 @@ export async function installCreatorStudioRuntime(ctx) {
       const current = agent.session.snapshotEvents().findLast(event => event.type === type)
       if (previous && JSON.stringify(previous.data) !== JSON.stringify(current?.data)) agent.session.append(type, previous.data)
     }
-    await serialized(async () => bindCurrent(agent, state, await prepareDefinition(await currentRequestSnapshot(ctx, agent.model.current(), agent.session))))
+    await serialized(async () => bindCurrent(agent, state, await prepareDefinition({})))
   }
   const service = {
     async list() {
       const { items } = await ctx.sessionController.list({})
       const characters = ctx.eleckoiProductData.readCharacters().items
-      const presetId = currentPreset().preset.id
+      const presetId = ctx.eleckoiProductData.readAgentPresetCatalog().activePresetIds.creator
       return items.flatMap(item => {
         if (item.origin === 'subagent') return []
         const state = item.projections?.values?.[creatorStudioProjection.key]
@@ -176,13 +187,14 @@ export async function installCreatorStudioRuntime(ctx) {
       const workspace = workspaceId === undefined ? undefined : ctx.workspaceRegistry.get(workspaceId)
       if (workspaceId !== undefined && !workspace) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '找不到所选工作区。', { what: '工作区' })
       return serialized(async () => {
-        const prepared = await prepareDefinition(await currentRequestSnapshot(ctx))
+        // Creating or opening a Session must leave the model picker reachable
+        // even when its saved route has been removed. Resolve it at prepare-step.
+        const prepared = await prepareDefinition({})
         const { sessionId } = await ctx.sessionController.create({ sessionId: `session-${randomUUID()}`,
           ...(workspace ? { workspaceId: workspace.id } : { cwd }), agentPreset: prepared.id })
         const agent = ctx.agents.get(sessionId)
         if (!agent) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, 'AI 创作工作室 Agent 未完成创建。', { what: 'AI 创作工作室 Agent' })
         bindings.set(agent, prepared.revision)
-        agent.model.select(prepared.model)
         agent.session.append(CREATOR_STUDIO_EVENT, { presetId: prepared.preset.id, characterId }, { ignorable: true })
         return { sessionId: String(sessionId), presetId: prepared.preset.id, characterId }
       })
@@ -197,7 +209,7 @@ export async function installCreatorStudioRuntime(ctx) {
         const resolved = await ctx.sessionController.resolveAgent(sessionId)
         if ('error' in resolved) throw resolved.error
         if (resolved.agent.status === 'running') return { sessionId, ...state }
-        const prepared = await prepareDefinition(await currentRequestSnapshot(ctx, resolved.agent.model.current(), resolved.agent.session))
+        const prepared = await prepareDefinition({})
         const result = await resolved.agent.runMaintenance(() => bindCurrent(resolved.agent, state, prepared))
         return { sessionId, ...result.state }
       })
@@ -253,6 +265,9 @@ export async function installCreatorStudioRuntime(ctx) {
       if (ctx.agents.get(sessionId)?.status === 'running') throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '请先停止生成再重新生成。', { what: '停止生成' })
       const target = requireSessionMessage(inspection, input.seq, 'user')
       const turn = sessionMessageTurn(inspection.events, target.index)
+      const current = await ctx.sessionController.resolveAgent(sessionId)
+      if ('error' in current) throw current.error
+      await currentRequestSnapshot(ctx, current.agent.model.current(), current.agent.session)
       await ctx.eleckoiSessionEditor.transaction(sessionId, async () => {
         const changed = await ctx.eleckoiSessionEditor.rewind(sessionId, turn, input.seq, false)
         if (changed === undefined) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '当前消息不能安全重新生成。', { what: '换一条可以安全重新生成的消息' })

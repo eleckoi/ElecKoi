@@ -17,7 +17,7 @@ const MANAGEMENT_FIXED_ROWS = [
   { type: 'slot', key: 'slot:insert_point_5', label: '设定插入点 5', anchor: 'insert_point_5' },
 ];
 
-export function normalizeCustomPositions(positions) {
+function normalizeCustomPositions(positions) {
   const ordered = [...positions].sort((left, right) => (
     (ANCHOR_ORDER.get(left.anchor) ?? Number.MAX_SAFE_INTEGER) - (ANCHOR_ORDER.get(right.anchor) ?? Number.MAX_SAFE_INTEGER)
     || left.side.localeCompare(right.side)

@@ -64,6 +64,7 @@ final class AndroidDiagnostics {
         record(environment().with("kind", "process-start"));
     }
     void record(JSONObject event) { store.record(event); }
+    HostRunDiagnostics hostRun() { return new HostRunDiagnostics(store); }
     void event(String kind, String stage) { record(new RuntimeDiagnostics.Record().with("kind", kind).with("stage", stage)); }
     void visible(boolean value) { visible = value; event("activity", value ? "resume" : "pause"); }
     private void sample() {
@@ -200,6 +201,7 @@ final class AndroidDiagnostics {
                 .put("environment", environment)
                 .put("session", session)
                 .put("events", events)
+                .put("runtimeDiagnostics", store.report(env, RuntimeDiagnostics.REPORT_BYTES))
                 .put("delivery", delivery)
                 .toString();
         } catch (Exception failure) { return "{\"available\":false}"; }

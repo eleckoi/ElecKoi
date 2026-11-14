@@ -1,29 +1,4 @@
-import {
-  IconCopyOutlineRegular,
-  IconTrashOutlineRegular,
-  IconEditOutlineRegular,
-  IconPlusOutlineRegular,
-  IconSearchOutlineRegular,
-  IconChevronDownOutlineRegular,
-  IconChevronLeftOutlineRegular,
-  IconChevronRightOutlineRegular,
-  IconChevronUpOutlineRegular,
-  IconEllipsisOutlineRegular,
-  IconCloseOutlineRegular,
-  IconDatabaseOutlineRegular,
-  IconSlidersTwoOutlineRegular,
-  IconLinkOutlineRegular,
-  IconPinOutlineRegular,
-  IconDownloadOutlineRegular,
-  IconRefreshOutlineRegular,
-  IconGlobeOutlineRegular,
-  IconSettingsOutlineRegular,
-  IconUsersOutlineRegular,
-  IconPlayOutlineRegular,
-  IconCodeOutlineRegular,
-  IconBrowseOutlineRegular,
-  IconFolderCloseRegular,
-} from '@deepseek-ai/dsh-client-ui-primitives';
+import { IconCopyOutlineRegular, IconTrashOutlineRegular, IconEditOutlineRegular, IconPlusOutlineRegular, IconSearchOutlineRegular, IconChevronDownOutlineRegular, IconChevronLeftOutlineRegular, IconChevronRightOutlineRegular, IconChevronUpOutlineRegular, IconEllipsisOutlineRegular, IconCloseOutlineRegular, IconDatabaseOutlineRegular, IconSlidersTwoOutlineRegular, IconLinkOutlineRegular, IconPinOutlineRegular, IconDownloadOutlineRegular, IconRefreshOutlineRegular, IconSettingsOutlineRegular, IconUsersOutlineRegular, IconPlayOutlineRegular, IconCodeOutlineRegular, IconFolderCloseRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 
 export * from '@phosphor-icons/react';
 
@@ -52,10 +27,8 @@ export const LinkSimple = interfaceIcon(IconLinkOutlineRegular);
 export const PushPin = interfaceIcon(IconPinOutlineRegular);
 export const DownloadSimple = interfaceIcon(IconDownloadOutlineRegular);
 export const ArrowClockwise = interfaceIcon(IconRefreshOutlineRegular);
-export const Globe = interfaceIcon(IconGlobeOutlineRegular);
 export const GearSix = interfaceIcon(IconSettingsOutlineRegular);
 export const UsersThree = interfaceIcon(IconUsersOutlineRegular);
 export const Play = interfaceIcon(IconPlayOutlineRegular);
 export const FileCode = interfaceIcon(IconCodeOutlineRegular);
-export const Browse = interfaceIcon(IconBrowseOutlineRegular);
 export const FolderSimple = interfaceIcon(IconFolderCloseRegular);

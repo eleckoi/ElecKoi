@@ -224,10 +224,10 @@ async function main() {
   for (const width of [1280, 800]) {
     window.setContentSize(width, 850)
     await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
-    await window.webContents.executeJavaScript(`document.querySelector('[data-plugin-package="@deepseek-ai/dsh-experimental-agent-team-profile"] button')?.click()`)
-    await waitFor(`Boolean(document.querySelector('[data-plugin-detail="@deepseek-ai/dsh-experimental-agent-team-profile"]'))`, 'Team detail did not open.')
+    await window.webContents.executeJavaScript(`document.querySelector('[data-plugin-package="@deepseek-ai/dsh-experimental-voice-input-bundle"] button')?.click()`)
+    await waitFor(`Boolean(document.querySelector('[data-plugin-detail="@deepseek-ai/dsh-experimental-voice-input-bundle"]'))`, 'Voice-input detail did not open.')
     const report = await window.webContents.executeJavaScript(`(() => {
-      const detail = document.querySelector('[data-plugin-detail="@deepseek-ai/dsh-experimental-agent-team-profile"]')
+      const detail = document.querySelector('[data-plugin-detail="@deepseek-ai/dsh-experimental-voice-input-bundle"]')
       const elements = { title: detail.querySelector('h3'), back: detail.querySelector('button[aria-label]'), icon: detail.querySelector('button[aria-label] svg') }
       const measure = () => Object.fromEntries(Object.entries(elements).map(([name, element]) => {
         const css = getComputedStyle(element), range = document.createRange()
@@ -245,7 +245,7 @@ async function main() {
       await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
       writeFileSync(process.env.ELECKOI_PLUGIN_DETAIL_SCREENSHOT, (await window.webContents.capturePage()).toPNG())
     }
-    await window.webContents.executeJavaScript(`document.querySelector('[data-plugin-detail="@deepseek-ai/dsh-experimental-agent-team-profile"] button[aria-label]').click()`)
+    await window.webContents.executeJavaScript(`document.querySelector('[data-plugin-detail="@deepseek-ai/dsh-experimental-voice-input-bundle"] button[aria-label]').click()`)
     await waitFor(pluginList, 'Plugin detail did not return to its list.')
   }
   window.setContentSize(1280, 850)

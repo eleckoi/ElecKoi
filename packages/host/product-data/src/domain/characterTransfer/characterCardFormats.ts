@@ -96,6 +96,7 @@ function convertSillyTavernCard(root: JsonObject): DecodedCharacterCard {
     packageData: {
       character: portableCharacter({
         name,
+        author_name: cleanString(data.creator),
         profile_like: cleanString(data.creator_notes),
         opening: openings[0] ?? '',
         show_opening: openings.length > 0
@@ -230,12 +231,8 @@ function convertedRegexRules(extensions: JsonObject | undefined): RegexRule[] {
     .map((rule, order) => ({ ...rule, order }))
 }
 
-export function encodeCharacterCardJson(value: PortableCharacterPackage): string {
-  return JSON.stringify(portableRoot(value), null, 2)
-}
-
 export function encodePortableCharacterPayload(value: PortableCharacterPackage): string {
-  return gzipSync(Buffer.from(encodeCharacterCardJson(value), 'utf8')).toString('base64')
+  return gzipSync(Buffer.from(JSON.stringify(portableRoot(value)), 'utf8')).toString('base64')
 }
 export function encodeCharacterBundle(value: PortableCharacterPackage): Uint8Array { return writeBundle(portableRoot(value)) }
 
@@ -255,6 +252,7 @@ function decodePortableRoot(root: JsonObject): PortableCharacterPackage {
   }
   if (root.library_assets !== undefined && (!Array.isArray(root.library_assets) || root.library_assets.some(item => !record(item) || typeof item.data !== 'string'))) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '角色卡资产目录无效。', { what: '角色卡资产' })
   const character = portableCharacter(record(root.character) ?? {})
+  if (root.regex_enabled !== undefined && typeof root.regex_enabled !== 'boolean') throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '角色卡正则库开关必须是布尔值。', { what: '角色卡正则库开关' })
   const assets = objectList(root.assets).map((asset) => ({
     key: string(asset.key),
     mediaType: string(asset.media_type),
@@ -273,6 +271,7 @@ function decodePortableRoot(root: JsonObject): PortableCharacterPackage {
     settingLibraryJson: string(root.setting_library),
     variableConfigJson: string(root.variable_config),
     regexRules: decodePortableRegexRules(root.regex_rules),
+    regexEnabled: root.regex_enabled === undefined ? true : root.regex_enabled as boolean,
     ...(root.script_library === undefined ? {} : { scriptLibrary: decodePortableScriptLibrary(root.script_library) }),
   }
 }
@@ -287,6 +286,7 @@ function portableRoot(value: PortableCharacterPackage): JsonObject {
     ...(value.characterOpeningsJson ? { character_openings: value.characterOpeningsJson } : {}),
     character: {
       name: value.character.name,
+      author_name: value.character.authorName ?? '',
       frontend_beauty_enabled: value.character.frontendBeautyEnabled,
       profile_age: value.character.profileAge,
       profile_sex: value.character.profileSex,
@@ -304,6 +304,7 @@ function portableRoot(value: PortableCharacterPackage): JsonObject {
     })),
     setting_library: value.settingLibraryJson,
     variable_config: value.variableConfigJson,
+    regex_enabled: value.regexEnabled ?? true,
     ...(value.scriptLibrary ? { script_library: {
       trees: value.scriptLibrary.trees, variables: value.scriptLibrary.variables, enabled: value.scriptLibrary.enabled,
       files: value.scriptLibrary.files ?? []
@@ -371,6 +372,7 @@ function decodePortableRegexRules(value: unknown): RegexRule[] {
 function portableCharacter(value: JsonObject): PortableCharacterPackage['character'] {
   return {
     name: string(value.name) || '导入角色',
+    authorName: string(value.author_name),
     frontendBeautyEnabled: boolean(value.frontend_beauty_enabled),
     profileAge: string(value.profile_age), profileSex: string(value.profile_sex),
     profileHeight: string(value.profile_height), profileBirthday: string(value.profile_birthday),

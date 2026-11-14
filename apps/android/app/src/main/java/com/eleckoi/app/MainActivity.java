@@ -331,6 +331,10 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         if (!bound) { bound = bindService(intent, connection, BIND_AUTO_CREATE); }
     }
     private void retryStartup() {
+        if (web.needsRecreation()) {
+            diagnostics.event("page-lifecycle", "recreate-browser");
+            recreate(); return;
+        }
         runtimePanel.setVisibility(View.GONE);
         showStartupProgress(null, getString(R.string.runtime_starting));
         if (runtime != null && runtime.snapshot().phase.equals("ready")) loadHostPage(runtime.snapshot().url);
@@ -423,6 +427,9 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         startupExit.start();
     }
     private void loadHostPage(String value) {
+        if (web.needsRecreation()) {
+            showFailure("渲染进程已退出，请点击重试重新打开页面。"); return;
+        }
         diagnostics.event("page-lifecycle", "load");
         long generation = ++pageLoadGeneration;
         web.stopLoading();
@@ -439,8 +446,8 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
             try {
                 String cookie = HostPageHandshake.verify(new URL(value));
                 ui.post(() -> {
-                    if (web == null || generation != pageLoadGeneration) return;
-                    web.loadAuthenticated(value, cookie, () -> web != null && generation == pageLoadGeneration,
+                    if (web == null || web.needsRecreation() || generation != pageLoadGeneration) return;
+                    web.loadAuthenticated(value, cookie, () -> web != null && !web.needsRecreation() && generation == pageLoadGeneration,
                         error -> showFailure("页面认证失败：" + error));
                 });
             } catch (IOException error) {
@@ -850,7 +857,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         if (pendingSave != null) { discardSource(pendingSave); platformResult(pendingSave.requestId, false, "Activity closed while saving"); }
         for (String token : stagedSaves.keySet()) new PlatformBridge().abortFile(token);
         systemSpeech.close();
-        web.destroy(); web=null;
+        page.removeView(web.view()); web.destroy(); web=null;
         files.shutdown(); super.onDestroy();
     }
 }

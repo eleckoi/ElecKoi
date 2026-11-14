@@ -1,3 +1,4 @@
+import { characterExportRoot } from './helpers/characterExportRoot'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -229,7 +230,7 @@ describe('character card import', () => {
     }), 'eleckoi')).toThrow('这不是 ElecKoi 角色卡')
   })
 
-  it('exports one complete ElecKoi payload as both JSON and a single-block PNG', () => {
+  it('exports the same complete ElecKoi payload as ZIP and a single-block PNG', () => {
     const directory = mkdtempSync(join(tmpdir(), 'eleckoi-card-export-'))
     directories.push(directory)
     const database = new SqliteDatabase(join(directory, 'data.sqlite3'))
@@ -288,9 +289,9 @@ describe('character card import', () => {
     }, regex.revision)
     const transfers = new CharacterTransferService(database, characters, settingLibraries, variables, regexRules, media)
 
-    const jsonExport = transfers.export('export-character', 'json')
-    const root = JSON.parse(Buffer.from(jsonExport.base64, 'base64').toString('utf8'))
-    expect(jsonExport.fileName).toBe('完整角色.json')
+    const zipExport = transfers.export('export-character', 'zip')
+    const root = characterExportRoot(zipExport)
+    expect(zipExport.fileName).toBe('完整角色.zip')
     expect(root).toMatchObject({ format: 'eleckoi.character-card', version: 2 })
     expect(root.character).not.toHaveProperty('chat_background_mode')
     expect(root.character).not.toHaveProperty('chat_background_opacity')
@@ -310,15 +311,15 @@ describe('character card import', () => {
     expect(text.has('chara')).toBe(false)
     expect(text.has('ccv3')).toBe(false)
     const decodedPng = decodeCharacterCard(pngBytes, 'eleckoi')
-    expect(decodedPng.packageData.character).toEqual(decodeCharacterCard(Buffer.from(jsonExport.base64, 'base64'), 'eleckoi').packageData.character)
+    expect(decodedPng.packageData.character).toEqual(decodeCharacterCard(Buffer.from(zipExport.base64, 'base64'), 'eleckoi').packageData.character)
     expect(decodedPng.regexRules).toEqual([
       expect.objectContaining({ id: 'character-rule', enabled: false, displayOnly: true, runOnEdit: true })
     ])
 
     const preview = transfers.prepare([{
-      displayName: jsonExport.fileName,
-      mimeType: jsonExport.mimeType,
-      base64: jsonExport.base64
+      displayName: zipExport.fileName,
+      mimeType: zipExport.mimeType,
+      base64: zipExport.base64
     }], 'eleckoi')
     const imported = transfers.commit(preview.token)
     const importedId = imported.importedCharacterIds[0]!
@@ -371,7 +372,7 @@ describe('character card import', () => {
       '清理测试标签',
       '保留双表面标记'
     ])
-    for (const format of ['json', 'png'] as const) {
+    for (const format of ['png', 'zip'] as const) {
       const exported = transfers.export(characterId, format)
       const decoded = decodeCharacterCard(Buffer.from(exported.base64, 'base64'), 'eleckoi')
       expect(decoded.packageData.character.profileLike).toBe(tavernCard().data.creator_notes)

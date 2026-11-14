@@ -3,7 +3,7 @@ const api = window.dshUpdateDialog
 let view
 let responding = false
 function respond(index) {
-  if (responding || view === undefined) return
+  if (responding || view === undefined || view.busyButton !== undefined) return
   responding = true
   void api.respond(view.revision, index).catch(() => { responding = false })
 }
@@ -11,7 +11,7 @@ document.getElementById('close').addEventListener('click', () => { respond(view.
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && view !== undefined) { event.preventDefault(); respond(view.cancelId) }
   if (event.key !== 'Tab') return
-  const controls = [...document.querySelectorAll('button, details:not([hidden]) > summary, details[open]:not([hidden]) > pre')]
+  const controls = [...document.querySelectorAll('button, #content, #release-notes a[href], details:not([hidden]) > summary, details[open]:not([hidden]) > pre')]
   const current = controls.indexOf(document.activeElement)
   const next = current < 0 ? (event.shiftKey ? controls.length - 1 : 0)
     : (current + (event.shiftKey ? -1 : 1) + controls.length) % controls.length
@@ -34,6 +34,15 @@ function render(state) {
   document.getElementById('title').textContent = state.message
   document.getElementById('detail').textContent = state.detail
   document.getElementById('detail').hidden = state.detail === ''
+  const notes = document.getElementById('release-notes')
+  const notesChanged = notes.innerHTML !== state.releaseNotesHtml
+  if (notesChanged) notes.innerHTML = state.releaseNotesHtml
+  notes.hidden = state.releaseNotesHtml === ''
+  document.getElementById('dialog').classList.toggle('has-release-notes', !notes.hidden)
+  for (const link of notes.querySelectorAll('a[href]')) {
+    link.target = '_blank'
+    link.rel = 'noreferrer noopener'
+  }
   document.getElementById('close').setAttribute('aria-label', state.closeLabel)
   document.getElementById('technical-details').hidden = state.technicalDetails === ''
   document.getElementById('technical-details-label').textContent = state.technicalDetailsLabel
@@ -48,8 +57,13 @@ function render(state) {
     button.addEventListener('click', () => { respond(index) })
     document.getElementById('actions').append(button)
   }
+  document.getElementById('close').disabled = state.busyButton !== undefined
+  for (const [index, button] of [...document.getElementById('actions').children].entries()) {
+    button.disabled = state.busyButton !== undefined
+    button.setAttribute('aria-busy', String(state.busyButton === index))
+  }
   document.querySelector('main').hidden = false
-  if (initial || choicesChanged) document.getElementById('dialog').scrollTop = 0
+  if (initial || choicesChanged || notesChanged) document.getElementById('content').scrollTop = 0
   document.body.classList.add('visible')
   if (initial || choicesChanged) document.getElementById('dialog').focus()
 }

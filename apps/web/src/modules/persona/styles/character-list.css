@@ -262,46 +262,7 @@ button.character-group-row:hover {
   height: 18px;
 }
 
-.character-context-menu {
-  --character-danger: #d92d20;
-  position: fixed;
-  z-index: 90;
-  display: grid;
-  min-width: 148px;
-  padding: 6px;
-  border: 1px solid var(--line-strong);
-  border-radius: 9px;
-  background: var(--surface-raised);
-  box-shadow: 0 8px 24px var(--shadow-color);
-}
-
-.character-context-menu button {
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 8px;
-  border-radius: 5px;
-  color: var(--text);
-  text-align: left;
-  font-size: 14px;
-}
-
-.character-context-menu button:hover,
-.character-context-menu button:focus-visible {
-  background: var(--control-bg-hover);
-  outline: none;
-}
-
-.character-context-menu button.is-danger {
-  color: var(--character-danger);
-}
-
-.character-context-menu svg {
-  width: 18px;
-  height: 18px;
-}
+.character-export-error { margin: 8px 12px; }
 
 .character-delete-overlay {
   position: fixed;
@@ -358,7 +319,7 @@ button.character-group-row:hover {
   min-width: 76px;
 }
 
-:root[data-theme="dark"] :is(.character-context-menu, .character-delete-dialog) {
+:root[data-theme="dark"] .character-delete-dialog {
   --character-danger: #ff6961;
 }
 

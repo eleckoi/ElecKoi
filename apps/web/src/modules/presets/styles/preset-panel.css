@@ -841,7 +841,7 @@
   font-size: 14px;
 }
 
-.preset-manager-groups > div:not(.preset-purpose-switch) {
+.preset-manager-groups > .catalog-manager-group-list {
   flex: 1;
   min-height: 0;
   overflow-y: auto;

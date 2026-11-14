@@ -30,6 +30,42 @@ function python(body) {
 }
 
 describe('Android shared resource distribution', () => {
+  it('keeps Office runtime exports while excluding foreign frame prebuilds and checking ARM64 binaries', () => python(String.raw`
+with tempfile.TemporaryDirectory() as temporary:
+    source = Path(temporary)
+    (source / 'package.json').write_text(json.dumps({'name': '@deepseek-ai/libreoffice-kit'}))
+    (source / 'frame-forwarding').mkdir()
+    (source / 'frame-forwarding/index.mjs').write_bytes(b'export const synthetic = true')
+    for platform in ['darwin-arm64', 'darwin-x64', 'win32-arm64', 'win32-x64', 'linux-arm64']:
+        folder = source / 'frame-forwarding/prebuilds' / platform
+        folder.mkdir(parents=True)
+        header = bytearray(64)
+        if platform == 'linux-arm64':
+            header[:6] = b'\x7fELF\x02\x01'
+            header[18:20] = (183).to_bytes(2, 'little')
+        else:
+            header[:4] = b'MACH'
+        (folder / 'frame-forwarding.node').write_bytes(header)
+    def packed():
+        output = io.BytesIO()
+        with tarfile.open(fileobj=output, mode='w') as archive:
+            packager.add_directory(archive, source, 'synthetic-office', '@deepseek-ai/libreoffice-kit')
+        output.seek(0)
+        return tarfile.open(fileobj=output)
+    with packed() as archive:
+        assert archive.extractfile('synthetic-office/frame-forwarding/index.mjs').read() == b'export const synthetic = true'
+        binaries = [item for item in archive if item.name.endswith('.node')]
+        assert [item.name for item in binaries] == ['synthetic-office/frame-forwarding/prebuilds/linux-arm64/frame-forwarding.node']
+        assert binaries[0].mode == 0o755
+    (source / 'frame-forwarding/prebuilds/linux-arm64/frame-forwarding.node').write_bytes(b'MACH')
+    try:
+        packed()
+    except ValueError as error:
+        assert 'Foreign native binary' in str(error)
+    else:
+        raise AssertionError('Invalid ARM64 binary was accepted')
+`))
+
   it('stores resource bytes once and retains the built resource path as a portable directory link', () => python(String.raw`
 with tempfile.TemporaryDirectory() as temporary:
     source = package(temporary)

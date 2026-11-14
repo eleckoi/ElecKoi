@@ -38,12 +38,17 @@ window.__ModuleLoader__.load({
       }
       const targetTurn = turn => {
         const input = index.turns.get(turn)
-        return input ? rounds.get(input.round)?.target.turn ?? null : null
+        return input ? rounds.get(input.round)?.target.turn ?? turn : turn
       }
       return {
-        items: [...rounds.entries()].sort(([a], [b]) => a - b).map(([round, group]) => ({
-          ...group.target, labelTurn: round, prompt: group.prompt || '', response: group.latest.response,
-        })),
+        items: navigation.items.flatMap(item => {
+          const input = index.turns.get(item.turn)
+          if (!input) return [item]
+          const group = rounds.get(input.round)
+          return group.target === item ? [{
+            ...item, labelTurn: input.round, prompt: group.prompt || '', response: group.latest.response,
+          }] : []
+        }),
         activeTurn: targetTurn(navigation.activeTurn), busyTurn: targetTurn(navigation.busyTurn),
       }
     }
@@ -60,6 +65,7 @@ window.__ModuleLoader__.load({
       'conversation.chat.node': 'eleckoi.roleplay.chat.node',
       'conversation.chat.flow': 'eleckoi.roleplay.chat.flow',
       'conversation.chat.text-interaction': 'eleckoi.roleplay.chat.text-interaction',
+      'conversation.chat.markdown.fence': 'eleckoi.roleplay.chat.markdown.fence',
       'conversation.chat.user.images': 'eleckoi.roleplay.chat.user.images',
       'conversation.chat.message.images': 'eleckoi.roleplay.chat.images',
       'conversation.chat.before': 'eleckoi.roleplay.chat.before',
@@ -310,8 +316,9 @@ window.__ModuleLoader__.load({
                 if (projected.has(entry)) continue
                 const registrationOptions = {
                   name: target,
-                  ...(targetSpec.kind === 'list'
-                    ? { id: options.bridgeChildren ? entry.options.id : `dsh:${source}:${entry.options.id}` }
+                  ...(['list', 'hoc'].includes(targetSpec.kind)
+                    ? { id: options.bridgeChildren ? entry.options.id : `dsh:${source}:${entry.options.id}`,
+                        ...(targetSpec.kind === 'hoc' ? { key: entry.options.key } : {}) }
                     : targetSpec.kind === 'keyed' ? { key: entry.options.key } : {}),
                   ...(entry.options.order !== undefined ? { order: entry.options.order } : {}),
                   ...(entry.options.label !== undefined ? { label: entry.options.label } : {}),
@@ -428,6 +435,7 @@ window.__ModuleLoader__.load({
         })
         projectConversationSeat('conversation.chat.flow', 'eleckoi.roleplay.chat.flow')
         projectConversationSeat('conversation.chat.text-interaction', 'eleckoi.roleplay.chat.text-interaction')
+        projectConversationSeat('conversation.chat.markdown.fence', 'eleckoi.roleplay.chat.markdown.fence', { bridgeChildren: true })
         projectConversationSeat('conversation.chat.user.images', 'eleckoi.roleplay.chat.user.images')
         projectConversationSeat('conversation.chat.message.images', 'eleckoi.roleplay.chat.images')
         projectConversationSeat('conversation.chat.before', 'eleckoi.roleplay.chat.before')

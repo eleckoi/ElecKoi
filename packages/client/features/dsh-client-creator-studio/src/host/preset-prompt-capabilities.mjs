@@ -17,7 +17,7 @@ export const presetPromptToolset = {
 export function presetPromptCapabilities(readLibrary) {
   const operation = (name, title, schema, run) => ({
     id: `presetPrompts.${name}`, toolsetId: 'presetPrompts', title, effect: 'read', target: 'current-preset',
-    inputSchema: z.toJSONSchema(schema),
+    inputSchema: { ...z.toJSONSchema(schema) },
     execute(_characterId, input, signal, cachedLibrary) {
       signal?.throwIfAborted()
       const args = schema.parse(input)

@@ -7,7 +7,7 @@
 .mobile-bubble-menu button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mobile-bubble-menu hr { height: 1px; margin: 5px 12px; border: 0; background: var(--line); }
 .mobile-menu-error { margin: 6px 12px; color: var(--dsw-alias-state-error-primary); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.mobile-shell :is(.mobile-bubble-menu, .mobile-library-dialog, .mobile-group-manager) .is-destructive { color: var(--dsw-alias-state-error-primary); }
+.mobile-shell :is(.mobile-bubble-menu, .mobile-library-dialog) .is-destructive { color: var(--dsw-alias-state-error-primary); }
 .mobile-bubble-menu button:is(:focus-visible,:hover):not(:disabled) { background: var(--surface-subtle); }
 .mobile-library-dialog { width: min(100%,312px); max-height: calc(100% - 24px); overflow: auto; padding: 24px 24px 12px; border-radius: 24px; background: var(--surface-raised); box-shadow: 0 12px 36px rgb(0 0 0 / 15%); }
 .mobile-library-dialog h2 { margin: 0 0 16px; font-size: 20px; font-weight: 500; }
@@ -29,24 +29,6 @@
 .mobile-library-selection-actions select { min-width: 64px; min-height: 48px; padding: 0 4px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 14px; }
 .mobile-shell .mobile-library-selection-actions .is-confirm { color: var(--blue); }
 .mobile-shell .mobile-library-selection-actions .is-destructive { color: var(--dsw-alias-state-error-primary); }
-.mobile-group-manager .mobile-header h1 { text-align: left; font-size: 18px; font-weight: 500; }
-.mobile-group-manager .mobile-header { padding-inline: 12px; gap: 8px; }
-.mobile-group-manager .mobile-header-actions { width: 44px; }
-.mobile-group-manager-actions { display: flex; flex: none; gap: 10px; padding: 8px 18px; min-height: 64px; background: var(--mobile-header-bg); }
-.mobile-shell .mobile-group-manager-actions button { display: flex; align-items: center; justify-content: center; gap: 8px; flex: 1; min-width: 0; border: 0; border-radius: 12px; background: var(--surface-subtle); font-size: 14px; }
-.mobile-group-manager-actions svg { width: 20px; }
-.mobile-group-manager-list { background: var(--mobile-header-bg); }
-.mobile-group-manager-all, .mobile-group-manager-row { display: flex; align-items: center; gap: 8px; min-height: 54px; padding: 0 18px; }
-.mobile-group-manager-all { background: var(--rail); }
-.mobile-group-manager-all svg { color: var(--muted); margin-right: 16px; }
-.mobile-group-manager-row > button { border: 0; background: transparent; }
-.mobile-shell .mobile-group-manager-name { flex: 1; min-width: 0; text-align: left; font-size: 16px; overflow-wrap: anywhere; }
-.mobile-group-manager-icon { display: grid; place-items: center; width: 44px; min-width: 44px; padding: 0; color: var(--muted); }
-.mobile-group-drag { display: grid; place-items: center; width: 36px; flex: none; padding: 0; color: var(--muted); touch-action: none; }
-.mobile-group-manager-row[data-drop-target=true] { background: var(--surface-subtle); }
-.mobile-group-reorder { flex: none; width: 36px; display: flex; flex-direction: column; touch-action: none; }
-.mobile-shell .mobile-group-reorder button { height: 27px; min-height: 27px; width: 36px; padding: 0; border: 0; background: transparent; color: var(--muted); }
-.mobile-group-reorder svg { width: 15px; height: 15px; }
 .mobile-character-profile { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .mobile-character-profile .character-profile-panel.is-single-portrait { display: flex; flex-direction: column; gap: 0; width: 100%; height: 100%; padding: 0; background: var(--mobile-content-bg); }
 .mobile-character-profile .character-profile-scroll { flex: 1; min-height: 0; width: 100%; overflow: auto; padding: 20px 16px 24px; }

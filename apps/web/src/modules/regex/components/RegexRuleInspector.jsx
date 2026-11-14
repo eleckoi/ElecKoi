@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { Copy, Play, Trash, X } from "../../../ui/icons/interfaceIcons.jsx";
 import { REGEX_SCOPES, REGEX_TARGETS } from "../model/regexRulesEditing.js";
 import { MarkdownTextareaField } from '../../settingLibraries/index.js';
-import { resolveFailure } from "../../../utils/failureText.js";
+
 
 function Switch({ checked, onChange, label }) {
   return (

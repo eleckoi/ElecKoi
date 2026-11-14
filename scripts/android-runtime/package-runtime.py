@@ -393,6 +393,7 @@ def add_directory(output, source, prefix, record_name=None):
             dirs[:] = [name for name in dirs if name != "assets"]
         dirs[:] = sorted(name for name in dirs if name not in ("node_modules", ".git", ".gradle", ".cache")
                          and not (record_name == "better-sqlite3" and local == Path(".") and name in ("build", "bin"))
+                         and not (record_name == "@deepseek-ai/libreoffice-kit" and local == Path("frame-forwarding/prebuilds") and name != "linux-arm64")
                          and not (record_name == "node-pty" and local == Path("prebuilds") and name != "linux-arm64"))
         for name in sorted(files):
             if record_name == "@eleckoi/web-client" and local == Path(".") and name != "package.json" and not name.upper().startswith(("LICENSE", "NOTICE", "README")):

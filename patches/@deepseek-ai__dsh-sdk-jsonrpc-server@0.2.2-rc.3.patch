@@ -1,0 +1,45 @@
+diff --git a/lib/index.js b/lib/index.js
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -424,6 +424,9 @@
+ 				atOffset: agent.session.seq
+ 			};
+ 		}));
++		this.disposers.push(ctx.on("agent/assistant-stream", ({ agent, frame }) => {
++			this.transport.notify("agent.assistant-stream", { sessionId: String(agent.session.id), frame });
++		}));
+ 		this.disposers.push(ctx.on("agent/status", ({ agent, status }) => {
+ 			this.transport.notify("session.status", {
+ 				sessionId: String(agent.session.id),
+@@ -619,6 +622,22 @@
+ 	* @param agent - Agent whose requests need routing.
+ 	* @returns Whether this server owns the Agent or its live subagent tree root.
+ 	*/
++	/** Cancel only the addressed Agent turn while keeping the runtime alive. */
++	cancel(params) {
++		const rec = this.sessions.get(params.sessionId);
++		if (rec === void 0 || this.ctx.agents.get(rec.handle.agent.id) !== rec.handle.agent) return { accepted: false };
++		rec.handle.agent.cancel({ kind: "user" }, { keepInbox: true });
++		return { accepted: true };
++	}
++	/** Dispose one addressed Agent/Session without affecting its siblings. */
++	async disposeSession(params) {
++		const pending = this.sessionCreations.get(params.sessionId);
++		const rec = this.sessions.get(params.sessionId) ?? (pending === void 0 ? void 0 : await pending);
++		if (rec === void 0) return { accepted: false };
++		this.sessions.delete(params.sessionId);
++		await rec.handle.dispose();
++		return { accepted: true };
++	}
+ 	ownsAgent(agent) {
+ 		if (this.ctx.agents.get(agent.id) !== agent) return false;
+ 		if (this.sessions.get(agent.session.id)?.handle.agent === agent) return true;
+@@ -741,6 +760,8 @@
+ 					sessionId: params.sessionId,
+ 					path: params.path
+ 				});
++			case "session/cancel": return this.cancel(params);
++			case "session/dispose": return this.disposeSession(params);
+ 			case "shutdown": return this.shutdown();
+ 			default: throw new Error(`unknown DeepSeek Harness SDK runtime method: ${method}`);
+ 		}

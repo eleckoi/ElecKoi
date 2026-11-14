@@ -1,1 +1,1 @@
-export { RegexRuleRepository, type AgentPresetRegexPort } from './RegexRuleRepository'
+export { RegexRuleRepository, readRegexScopeEnabled, saveRegexScopeEnabled, type AgentPresetRegexPort } from './RegexRuleRepository'

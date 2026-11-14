@@ -40,6 +40,9 @@ export const DESKTOP_IPC = {
   windowsMenu: 'dsh-desktop:windows-menu',
 } as const
 
+/** Product release feeds remain controlled by the installed ElecKoi distribution. */
+export type DesktopUpdateChannel = 'nightly' | 'latest'
+
 /** Desktop release update state rendered by desktop-owned UI. */
 export type DesktopUpdatePreparationFailureKind = 'stop-failed' | 'tasks-changed' | 'tasks-unavailable' | 'fullscreen-timeout'
 
@@ -50,17 +53,23 @@ export interface DesktopUpdateState {
   /** Main-owned diagnostics without subprocess output or credentials; hidden until expanded. */
   readonly technicalDetails?: string
   readonly percent?: number
-  readonly failedOperation?: 'check' | 'download' | 'install'
+  readonly failedOperation?: 'check' | 'download' | 'install' | 'configuration'
   /** Main-owned preparation cause; UI wording is selected by the active locale. */
   readonly preparationFailure?: DesktopUpdatePreparationFailureKind
+  /** Current filesystem failure, independent of previous cache cleanup attempts. */
+  readonly downloadFailure?: 'space' | 'permission' | 'busy'
 }
 
 /** Classified failure copy selected by the Web locale without exposing raw updater diagnostics. */
 export type DesktopUpdateFailureKind =
+  | 'configuration'
   | 'check'
   | 'check-network'
   | 'download'
   | 'download-network'
+  | 'download-space'
+  | 'download-permission'
+  | 'download-busy'
   | 'install'
   | 'install-network'
   | 'stop-failed'
@@ -74,6 +83,7 @@ export interface DesktopUpdatePresentation {
   readonly version?: string
   readonly percent?: number
   readonly failure?: DesktopUpdateFailureKind
+  readonly configurationError?: 'startup' | 'cleanup'
 }
 
 /** Product documents cannot supply update versions, package URLs, or installation authorization. */

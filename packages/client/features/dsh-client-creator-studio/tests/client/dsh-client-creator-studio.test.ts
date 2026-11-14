@@ -46,14 +46,19 @@ it('bridges the official view roster, header, plugin children and composer witho
   register({ name: 'conversation.session.header.corner', store, inject }, Sidebar)
   register({ name: 'conversation.input.right', id: 'synthetic-image-provider' }, Control)
   const removeView = register({ name: 'conversation.view', id: 'synthetic-gallery', label: '画廊', store, inject,
-    children: { 'synthetic-gallery.actions': { kind: 'list', scope: 'session' } } })
+    children: { 'synthetic-gallery.actions': { kind: 'list', scope: 'session' },
+      'conversation.chat.markdown.fence': { kind: 'hoc', scope: 'session' } } })
   const removeAction = register({ name: 'synthetic-gallery.actions', id: 'synthetic-action' }, Control)
+  const removeFence = register({ name: 'conversation.chat.markdown.fence', id: 'synthetic-fence', key: 'diff' }, Control)
+  const removePatch = register({ name: 'conversation.chat.markdown.fence', id: 'synthetic-fence', key: 'patch' }, Control)
   await settle()
   const entry = (name: string) => slots.entriesOfSlot(name)[0]
   expect(entry('eleckoi.creator-studio.view')).toMatchObject({ store, inject })
   expect(entry('eleckoi.creator-studio.session.header.corner')).toMatchObject({ store, inject })
   expect(entry('eleckoi.creator-studio.input.right').options.id).toBe('synthetic-image-provider')
   expect(entry('eleckoi.creator-studio.synthetic-gallery.actions').options.id).toBe('synthetic-action')
+  expect(entry('eleckoi.creator-studio.chat.markdown.fence').options.id).toBe('synthetic-fence')
+  expect(slots.entriesOfSlot('eleckoi.creator-studio.chat.markdown.fence').map((entry: any) => entry.options.key)).toEqual(['diff', 'patch'])
   const renderNativeTool = vi.fn((name, owner) => ({ name, owner }))
   const projectedView = entry('eleckoi.creator-studio.view').component({ renderSlot: renderNativeTool })
   for (const toolName of ['eleckoi_list_toolsets', 'eleckoi_describe_toolset', 'eleckoi_call_capability']) {
@@ -80,7 +85,7 @@ it('bridges the official view roster, header, plugin children and composer witho
   const unmount = effects[0]!()
   expect(retain).toHaveBeenCalledWith('synthetic-visible-studio')
   expect(unmount).toBeUndefined(); expect(release).not.toHaveBeenCalled()
-  removeView(); removeAction(); await settle()
+  removePatch(); removeFence(); removeView(); removeAction(); await settle()
   expect(slots.entriesOfSlot('eleckoi.creator-studio.view')).toHaveLength(0)
   expect(slots.spec('eleckoi.creator-studio.synthetic-gallery.actions')).toBeUndefined()
   for (const dispose of cleanups.reverse()) dispose()

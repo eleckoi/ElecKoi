@@ -448,7 +448,7 @@ window.__ModuleLoader__.load({
               const { name: sourceName, id, key, ...attributes } = entry.options
               const kind = ctx.slots.spec(target).kind
               const options = { ...attributes, name: target,
-                ...(kind === 'list' ? { id } : kind === 'keyed' ? { key } : {}),
+                ...(kind === 'hoc' ? { id, key } : kind === 'list' ? { id } : kind === 'keyed' ? { key } : {}),
                 ...(entry.inject ? { inject: entry.inject } : {}), ...(entry.store ? { store: entry.store } : {}),
                 ...(entry.locale ? { locale: entry.locale } : {}), ...(entry.select ? { select: entry.select } : {}) }
               if (entry.children) {

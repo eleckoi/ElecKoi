@@ -7,7 +7,7 @@ import { CornersIn, CornersOut, Eye, PencilSimple } from "../../../ui/icons/inte
 import { EditorTextInput } from '../../../ui/ui/EditorTextInput.jsx';
 import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
 
-export function MarkdownTextareaField({ label, value, placeholder, onChange, preview = true, labelAction = null, disabled = false, code = false, textareaClassName = '', toolbarHost = null, immersiveHost = null }) {
+export function MarkdownTextareaField({ label, value, placeholder, onChange, preview = true, labelAction = null, disabled = false, readOnly = false, code = false, textareaClassName = '', toolbarHost = null, immersiveHost = null }) {
   const tUi = useProductTranslation();
   const { compact, registerBackHandler } = useEditorPresentation();
   const inputId = useId();
@@ -64,14 +64,14 @@ export function MarkdownTextareaField({ label, value, placeholder, onChange, pre
             {value.trim() ? <OfficialMarkdown content={value} /> : <p className="is-empty">{tUi("暂无内容")}</p>}
           </article>
         ) : (
-          <EditorTextInput ref={editorRef} label={label} className={editorClassName} value={value} placeholder={placeholder} disabled={disabled} code={code} onChange={onChange} />
+          <EditorTextInput ref={editorRef} label={label} className={editorClassName} value={value} placeholder={placeholder} disabled={disabled} readOnly={readOnly} code={code} onChange={onChange} />
         )}
       </div>
     </section>,
     overlayHost,
   ) : null;
 
-  const immersiveAction = <button type="button" disabled={disabled} onClick={() => setImmersive(true)}><CornersOut size={14} />{tUi('沉浸编辑')}</button>;
+  const immersiveAction = <button type="button" disabled={disabled || readOnly} onClick={() => setImmersive(true)}><CornersOut size={14} />{tUi('沉浸编辑')}</button>;
   const fieldActions = <div className="setting-library-content-actions">
     {immersiveHost ? createPortal(immersiveAction, immersiveHost) : immersiveAction}{labelAction}
   </div>;
@@ -82,7 +82,7 @@ export function MarkdownTextareaField({ label, value, placeholder, onChange, pre
           <label htmlFor={inputId} onClick={() => editorRef.current?.focus()}>{label}</label>
           {toolbarHost ? createPortal(fieldActions, toolbarHost) : fieldActions}
         </div>
-        {!immersive && <EditorTextInput ref={editorRef} id={inputId} label={label} className={editorClassName} value={value} placeholder={placeholder} disabled={disabled} code={code} onChange={onChange} />}
+        {!immersive && <EditorTextInput ref={editorRef} id={inputId} label={label} className={editorClassName} value={value} placeholder={placeholder} disabled={disabled} readOnly={readOnly} code={code} onChange={onChange} />}
       </div>
       {overlay}
     </>

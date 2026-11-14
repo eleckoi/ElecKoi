@@ -3,4 +3,5 @@
 .sidebar-section-search { position: relative; flex: 1; min-width: 0; }
 .sidebar-section-search-field { width: 100%; }
 .sidebar-section-search-field input { padding-right: 32px; }
+.sidebar-section-search-field input::-webkit-search-cancel-button { display: none; }
 .sidebar-section-search-clear { position: absolute; right: 2px; top: 2px; }

@@ -19,6 +19,7 @@ vi.mock('@douyinfe/semi-ui-19/lib/es/input/textarea', () => ({
 vi.mock('../../src/ui/ui/AvatarCropModal.jsx', () => ({ AvatarCropModal: avatarCropModalMock }))
 
 import { CharacterBasicInfoPanel } from '../../src/modules/persona/components/CharacterBasicInfoPanel.jsx'
+import { CharacterCard } from '../../src/modules/persona/components/CharacterCard.jsx'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -29,6 +30,38 @@ afterEach(() => {
 })
 
 describe('character basic information editor', () => {
+  it('edits only the original author fields and shows them on the card preview', async () => {
+    const onChange = vi.fn()
+    const container = document.createElement('div'); document.body.append(container)
+    const root = createRoot(container)
+    try {
+      await act(async () => root.render(<CharacterBasicInfoPanel character={{ id:'card', name:'角色', authorName:'原作者', authorAvatar:'', persona:{ user_name:'本地玩家', user_avatar:'local-player.png' } }}
+        dirty={false} saving={false} onChange={onChange} onSave={() => {}} onCancel={() => {}} />))
+      expect([...container.querySelectorAll('.character-basic-group > h3')].map(n => n.textContent)).toEqual(['角色信息', '作者信息', '展示内容'])
+      const input = container.querySelector('[aria-labelledby="character-author-name-label"]')
+      expect(input.value).toBe('原作者')
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '新作者')
+        input.dispatchEvent(new Event('input', { bubbles:true }))
+      })
+      expect(onChange).toHaveBeenLastCalledWith({ authorName:'新作者' })
+      const crop = avatarCropModalMock.mock.calls.map(([props]) => props).find(props => props.title === '调整作者头像')
+      await act(async () => crop.onSave(new File(['author-avatar'], 'author.png', { type:'image/png' })))
+      expect(onChange).toHaveBeenLastCalledWith({ authorAvatar:expect.stringMatching(/^data:image\/png;base64,/) })
+      await act(async () => [...container.querySelectorAll('button')].find(n => n.textContent === '预览角色卡').click())
+      expect(document.querySelector('[role="dialog"] .character-card-owner > span:last-child').textContent).toBe('原作者')
+      expect(document.querySelector('[role="dialog"] .character-card-owner img')?.getAttribute('src')).not.toBe('local-player.png')
+    } finally { await act(async () => root.unmount()) }
+  })
+
+  it('does not impersonate the local player when a character has no author', async () => {
+    const container = document.createElement('div'); document.body.append(container)
+    const root = createRoot(container)
+    try {
+      await act(async () => root.render(<CharacterCard character={{ id:'card', name:'角色', persona:{ user_name:'本地玩家' } }} onClick={() => {}} />))
+      expect(container.querySelector('.character-card-owner > span:last-child').textContent).toBe('未填写作者')
+    } finally { await act(async () => root.unmount()) }
+  })
   it('uses the shared square crop with a circular safe area for the character avatar', async () => {
     const onChange = vi.fn()
     const container = document.createElement('div')

@@ -8,6 +8,7 @@ import {
 } from './hostSessionProtocol'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
+import { formatHostDiagnostic } from '@eleckoi/dsh-runtime'
 
 type NodeHostMessage = ChildHostMessage | { type: 'control-error'; message: string; id?: string }
 
@@ -103,7 +104,7 @@ function reportFailure(error: unknown): void {
   failureReported = true
   const message = error instanceof Error ? error.message : String(error)
   void send({ type: 'fatal', message }).catch(sendError => { console.error(sendError) })
-  console.error(error)
+  console.error(formatHostDiagnostic(error))
   process.exitCode = 1
 }
 

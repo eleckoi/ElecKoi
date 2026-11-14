@@ -1,6 +1,6 @@
 const KEYWORD_DELIMITER = /[,，、\n]/;
 
-export function normalizeKeywordValues(values) {
+function normalizeKeywordValues(values) {
   return [...new Set((Array.isArray(values) ? values : [])
     .map((value) => String(value).trim())
     .filter(Boolean))];

@@ -5,7 +5,6 @@ export {
   DshCopyIcon as CopyIcon,
   DshDownloadIcon as DownloadIcon,
   DshEditIcon as PencilIcon,
-  DshNewChatIcon as NewChatIcon,
   DshPlusIcon as PlusIcon,
   DshTrashIcon as TrashIcon,
   DshUserIcon as ProfileIcon,

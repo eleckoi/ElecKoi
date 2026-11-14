@@ -16,12 +16,17 @@ import '../../src/app/windows/shell/styles/titlebar.css';
 
 let SidebarRoot, dictionary;
 const noop = () => {};
+const runContribution = run => {
+  const effect = run();
+  if (effect?.[Symbol.iterator]) for (const _dispose of effect) { /* retained until this isolated page is destroyed */ }
+  return noop;
+};
 window.__ModuleLoader__ = { load: ({ factory }) => {
 const { apply } = factory(name => ({ react: React, 'react/jsx-runtime': jsx,
   '@deepseek-ai/dsh-client-store': store, '@deepseek-ai/dsh-client-ui-slots': slots, '@deepseek-ai/dsh-client-ui-primitives': primitives })[name]);
-apply({ get: () => ({ startSession: noop }), effect: run => run(),
+apply({ get: () => ({ startSession: noop }), effect: runContribution,
   locale: { register: (_name, dictionaries) => { dictionary = dictionaries.zh; return noop; }, subscribe: () => noop },
-  slots: { entriesOfSlot: () => [], subscribe: () => noop, inject: (_name, run) => run(),
+  slots: { entriesOfSlot: () => [], subscribe: () => noop, inject: (_name, run) => runContribution(run), registerFactory: () => noop,
     register: (options, Component) => { if (options.name === 'sidebar') SidebarRoot = Component; return noop; } },
 });
 } };

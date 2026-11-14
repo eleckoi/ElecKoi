@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SqliteDatabase } from '../../../../tests/helpers/SqliteDatabase'
+import { CURRENT_SCHEMA_VERSION } from '../src/storage/sqlite/schemaVersion'
 import { installSchema } from '../src/storage/sqlite/installSchema'
 import { ConversationRepository } from '../src/domain/conversations/ConversationRepository'
 import { ConversationStateRepository } from '../src/domain/conversations/ConversationStateRepository'
@@ -36,7 +37,7 @@ function fixture() {
 }
 function downgrade(path: string) {
   const db = new Database(path)
-  db.exec('ALTER TABLE chat_session_variable_states DROP COLUMN identityJson; ALTER TABLE conversation_state_snapshots DROP COLUMN variableIdentityJson; PRAGMA user_version=16;')
+  db.exec('DROP TABLE character_catalog_activity; ALTER TABLE chat_session_variable_states DROP COLUMN identityJson; ALTER TABLE conversation_state_snapshots DROP COLUMN variableIdentityJson; PRAGMA user_version=16;')
   return db
 }
 describe('variable identity storage evolution', () => {
@@ -44,7 +45,7 @@ describe('variable identity storage evolution', () => {
     const f = fixture(), before = f.states.viewerStates(f.id)
     const snapshots = f.store.native.prepare('SELECT variableStateJson FROM conversation_state_snapshots').all()
     f.store.close(); const old = downgrade(f.path); old.close(); f.store.open()
-    expect(f.store.native.pragma('user_version', { simple: true })).toBe(17)
+    expect(f.store.native.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
     expect(f.states.viewerStates(f.id)).toEqual(before)
     expect(f.store.native.prepare('SELECT variableStateJson FROM conversation_state_snapshots').all()).toEqual(snapshots)
     const metadata = JSON.parse(f.states.identities(f.id))

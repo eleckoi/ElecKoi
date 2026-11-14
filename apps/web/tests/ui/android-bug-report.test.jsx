@@ -33,6 +33,21 @@ function installPlatform(facts) {
 }
 
 describe("Android 诊断事件 → 报告日志行", () => {
+  it("保留原始堆栈并识别 Host、渲染和非零退出，不把普通警告当失败", () => {
+    const records = [
+      { kind: "shell-failure", message: "Synthetic renderer killed", stack: "Synthetic root\nat syntheticFrame" },
+      { kind: "host-error", message: "Synthetic Host root", stack: "Synthetic full Host stack" },
+      { kind: "host-output", source: "stderr", message: "[ElecKoi Host][error] Synthetic plugin failure" },
+      { kind: "host-run", stage: "exited", exitCode: 1 },
+      { kind: "host-output", source: "stderr", message: "[ElecKoi Host][warn] Synthetic warning" },
+      { kind: "host-run", stage: "exited", exitCode: 0 },
+    ];
+    const lines = androidReportLines(records).map(line => JSON.parse(line));
+    expect(lines.slice(0, 4).every(line => line.phase === "failure")).toBe(true);
+    expect(lines[0].details.upstreamDetails).toEqual(records[0]);
+    expect(lines[1].details.upstreamDetails.stack).toBe("Synthetic full Host stack");
+    expect(lines.slice(4).every(line => line.phase === undefined)).toBe(true);
+  });
   it("失败记录改写成契约形状，其余原样保留", () => {
     const lines = androidReportLines([
       JSON.stringify({ kind: "session", stage: "started" }),
@@ -61,6 +76,18 @@ describe("Android 诊断事件 → 报告日志行", () => {
 });
 
 describe("Android 报告桥", () => {
+  it("携带运行诊断时保留早于事件尾的原始原因，并沿共享出口脱敏", async () => {
+    const runtimeDiagnostics = `Synthetic original cause api_key=synthetic-private-key\n${Array.from({ length: 260 }, (_, index) => `Synthetic diagnostic ${index}`).join("\n")}\nSYNTHETIC_RUNTIME_END`;
+    installPlatform({ available: true, environment: ENVIRONMENT, session: SESSION,
+      events: Array.from({ length: 200 }, (_, index) => JSON.stringify({ kind: "sample", message: `Synthetic tail ${index}` })),
+      runtimeDiagnostics, delivery: { mailbox: "", repository: "" } });
+    const { report } = await bugReportBridge().preview({ includeLogTail: true });
+    expect(isBugReport(report)).toBe(true);
+    expect(report.runtimeDiagnostics).toContain("Synthetic original cause");
+    expect(report.runtimeDiagnostics).toContain("SYNTHETIC_RUNTIME_END");
+    expect(report.runtimeDiagnostics).not.toContain("synthetic-private-key");
+    expect((await bugReportBridge().preview({ includeLogTail: false })).report.runtimeDiagnostics).toBeUndefined();
+  });
   it("没有平台桥时不可用", () => {
     delete window.ElecKoiPlatform;
     expect(isBugReportAvailable()).toBe(false);

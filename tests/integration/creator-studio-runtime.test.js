@@ -355,7 +355,7 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     }, true, { subagents: true })
     const activation = await f.ctx.subagents.startActivation({
       provider, label: '合成子任务', delivery: 'caller', signal: new AbortController().signal,
-      request: { parent: f.handle.agent, prompt: [{ type: 'text', text: '合成独立任务' }], agentOptions: { model: 'synthetic-child' } },
+      parent: f.handle.agent, prompt: [{ type: 'text', text: '合成独立任务' }], agentOptions: { model: 'synthetic-child' },
     })
     cleanups.push(() => activation.dispose())
     const result = await activation.result
@@ -367,7 +367,7 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
       .toEqual([{ presetId: 'agent-preset-creator', characterId: f.character.id }])
     expect(stored.events.find(event => event.type === 'tool/result').data.isError).not.toBe(true)
     await f.ctx.subagents.sendMessage(f.handle.agent, activation.childId, [{ type: 'text', text: '合成恢复后继续' }], { signal: new AbortController().signal })
-    await f.ctx.subagents.waitForChildren(f.handle.agent)
+    await f.ctx.subagents.waitForTreeWork(f.handle.agent)
     await f.handle.agent.whenIdle()
     const resumed = readDshSessionLog(join(f.root, 'sessions'), activation.childId)
     expect(resumed.events.filter(event => event.type === CREATOR_STUDIO_EVENT)).toHaveLength(1)

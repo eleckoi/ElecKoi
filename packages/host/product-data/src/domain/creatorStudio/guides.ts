@@ -1,7 +1,7 @@
 /** Discovery routes to bundled skills; detailed authoring knowledge loads on demand. */
 export const creatorToolsets = [
   { id: 'character', title: '角色资料', description: '新建空角色，维护当前角色资料和独立开场白。', skill: 'eleckoi-character-authoring',
-    guide: ['先读取当前角色；character.create 可从零创建。开场白用 character.read_openings／character.save_openings，与设定版本独立。常规楼层界面加载 eleckoi-message-frontends；角色配置与配套脚本加载 eleckoi-character-authoring。'] },
+    guide: ['先读取当前角色；character.create 可从零创建，默认省略 group，创建在未分组。角色分组是可选的列表整理，仅按用户要求指定或新建，不按角色题材自行分类。开场白用 character.read_openings／character.save_openings，与设定版本独立。常规楼层界面加载 eleckoi-message-frontends；角色配置与配套脚本加载 eleckoi-character-authoring。'] },
   { id: 'settings', title: '设定库', description: '读写角色卡或共享全局的设定原稿、EJS、文件夹和配置。', skill: 'eleckoi-character-authoring',
     guide: ['省略 target 是当前角色；target={scope:"global",libraryId} 是明确全局库，无需选择角色。list 是目录，read 是原稿。片段编辑 settings.edit 无需重传整条正文。全局写入带 expectedRevision；角色完整配置用 read_library/save_library。agentReadStrategy 的 keyword 是选读关键词匹配。详细知识加载 skill eleckoi-character-authoring。'] },
   { id: 'variables', title: '变量库', description: '维护当前角色的变量定义、默认值和 Zod 校验。', skill: 'eleckoi-character-authoring',
@@ -20,4 +20,4 @@ export const creatorToolsets = [
     guide: ['独立项目用于自定义整套角色聊天内容区交互，如接入 AI 的网页游戏。常规楼层界面用正则／正文 HTML，配套按钮面板用脚本。先 list/read_file，写入带工作区 expectedRevision；新项目默认不启用。选择 null 恢复默认。完整流程加载 skill eleckoi-character-frontends。'] },
 ] as const
 
-export const creatorAuthoringInstructions = '先查询 presetPrompts，读取当前创作预设 required_entries；已知路径可直接 read。按任务加载技能：角色配置与后台脚本／按钮面板 eleckoi-character-authoring；资产 eleckoi-character-assets；常规楼层界面 eleckoi-message-frontends（通常由正则替换生成 HTML，也支持正文 HTML）。常规创作保留楼层结构，脚本可配套界面；需要自定义整套内容区交互时才用独立项目 eleckoi-character-frontends。依据展示目标和已有实现选择入口。技能和参考按需读取，准确参数通过 eleckoi_describe_toolset 的 operation_ids、include_schema 查询，再用 eleckoi_call_capability 执行。省略 target 是当前角色，global 必须明确；资产和独立前端只属于当前角色。先读后改，保留未修改内容。结果溢出沿 result 续读或搜索，不重复写入。工作区编程制作源码，产品数据通过对应能力保存。'
+export const creatorAuthoringInstructions = '先查询 presetPrompts，读取当前创作预设 required_entries；已知路径可直接 read。按任务加载技能：角色配置与后台脚本／按钮面板 eleckoi-character-authoring；资产 eleckoi-character-assets；常规楼层界面 eleckoi-message-frontends（通常由正则替换生成 HTML，也支持正文 HTML）。新建角色默认未分组；仅按用户要求指定或新建角色分组，不自行按题材分类。常规创作保留楼层结构，脚本可配套界面；需要自定义整套内容区交互时才用独立项目 eleckoi-character-frontends。依据展示目标和已有实现选择入口。技能和参考按需读取，准确参数通过 eleckoi_describe_toolset 的 operation_ids、include_schema 查询，再用 eleckoi_call_capability 执行。省略 target 是当前角色，global 必须明确；资产和独立前端只属于当前角色。先读后改，保留未修改内容。结果溢出沿 result 续读或搜索，不重复写入。工作区编程制作源码，产品数据通过对应能力保存。'

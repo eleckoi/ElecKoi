@@ -82,6 +82,8 @@ export interface BugReport {
   readonly failures: readonly BugReportFailure[]
   /** 已脱敏的日志尾；用户不勾选就没有这个字段。 */
   readonly logTail?: string
+  /** Native runtime diagnostics retained within the platform's existing capacity. */
+  readonly runtimeDiagnostics?: string
   /** 用户自己补的一句话；同样已脱敏。 */
   readonly notes?: string
 }
@@ -186,6 +188,7 @@ export function isBugReport(value: unknown): value is BugReport {
   if (!failures.every(isBugReportFailure)) return false
 
   if (!isOptionalString(value.logTail)) return false
+  if (!isOptionalString(value.runtimeDiagnostics)) return false
   if (!isOptionalString(value.notes)) return false
   return true
 }

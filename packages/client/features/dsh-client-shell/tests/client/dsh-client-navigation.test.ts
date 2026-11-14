@@ -96,6 +96,12 @@ describe('ElecKoi DSH client navigation', () => {
     const railItems = slots.entriesOfSlot('sidebar.panellist').map(entry => entry.options.id)
     expect(railItems).toEqual(['creatorStudio', 'community', 'messages', 'character', 'presets', 'model'])
     expect(panels).toEqual(['settings', 'messages', 'character', 'presets', 'model'])
+    const renderFactorySlot = vi.fn(() => 'official panel icon')
+    const owner = { size: 24, active: true }
+    const projectedIcon = slots.entriesOfSlot('sidebar')[0]!.component({ renderFactorySlot,
+      renderContent: (render: any) => render('sidebar.panellist', owner, { only: 'plugins' }) })
+    expect(projectedIcon).toBe('official panel icon')
+    expect(renderFactorySlot).toHaveBeenCalledWith('sidebar.panel.icon', { ...owner, id: 'plugins' })
 
     for (const id of panels) {
       const entry = entries.find(item => item.options.name === 'main' && item.options.key === id)

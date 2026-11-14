@@ -35,7 +35,7 @@ export function decodeScriptLibrary(value: unknown): PortableScriptLibrary | und
       ...(item.type === 'folder' && Array.isArray(item.scripts) ? { scripts: item.scripts.map(identity) } : {}),
     }
   }
-  const input = { scope: 'global', ownerId: '', enabled: false, revision: 0,
+  const input = { scope: 'global', ownerId: '', enabled: helper.enabled === undefined ? true : helper.enabled, revision: 0,
     trees: scripts.map(identity), variables: helper.variables === undefined ? {} : helper.variables,
   }
   z.json().parse(input)
@@ -47,6 +47,6 @@ export function decodePortableScriptLibrary(value: unknown): PortableScriptLibra
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '脚本库配置必须是对象。', { what: '脚本库配置' })
   const library = value as Record<string, unknown>
   if (!Array.isArray(library.trees)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '脚本库缺少脚本列表。', { what: '脚本列表', path: 'trees' })
-  return { ...decodeScriptLibrary({ scripts: library.trees, variables: library.variables })!,
+  return { ...decodeScriptLibrary({ scripts: library.trees, variables: library.variables, enabled: library.enabled })!,
     ...(library.files === undefined ? {} : { files: decodeScriptFiles(library.files) }) }
 }

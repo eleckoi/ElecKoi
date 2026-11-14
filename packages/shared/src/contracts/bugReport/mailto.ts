@@ -97,6 +97,9 @@ export function formatBugReportBody(report: BugReport, letter: BugReportLetterOp
     lines.push('', `日志尾（最后 ${Math.min(lineCount, BUG_REPORT_LOG_TAIL_MAX_LINES)} 行，已脱敏）：`, report.logTail)
   }
 
+  if (report.runtimeDiagnostics !== undefined && report.runtimeDiagnostics !== '') {
+    lines.push('', '运行诊断（按容量保留，已脱敏）：', report.runtimeDiagnostics)
+  }
   if (report.notes !== undefined && report.notes.trim() !== '') {
     lines.push('', '备注：', report.notes.trim())
   }

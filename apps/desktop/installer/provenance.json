@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/deepseek-ai/deepseek-harness",
-  "commit": "66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db",
+  "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced",
   "license": "MIT",
   "licenseFile": "apps/desktop/resources/licenses/dsh-desktop-MIT.txt",
   "files": [
@@ -11,7 +11,8 @@
       "localSha256": "16ec343d61f01058ceacacaae99c1b14f124447dffc5236be9b1eb6309e464f9",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/drawing.nsh",
@@ -20,7 +21,8 @@
       "localSha256": "048ffcbe9bd53f004bae54b00e8273ff5997c7a499f2e3f949585064c076db4a",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/extract-progress.h",
@@ -29,7 +31,8 @@
       "localSha256": "1293171c62b5bcce7b6dc43ef242f45b92381adadaf477eab2c74e8caec536bd",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/extract-report.h",
@@ -38,7 +41,8 @@
       "localSha256": "3dcf7d12433960886ea152dcb2b21ccad56ff30044666a6f1ddfd0bf9e0734cb",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/extract.h",
@@ -47,7 +51,8 @@
       "localSha256": "d00e0f4c64230ab40c7dbbfbebebd870fb92f9e07be4205518fe8440d65b3f82",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/lifecycle.nsh",
@@ -56,7 +61,8 @@
       "localSha256": "ed7c33f6c65f0d3185c4dadc59da6195459fc090187e708b45587dd0dcff3b4b",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/pages.nsh",
@@ -65,7 +71,8 @@
       "localSha256": "eacda5167cb481c5a5eb01b83b399bec17ce1b8e6c9ab342c417730edee27f43",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/path.nsh",
@@ -74,7 +81,8 @@
       "localSha256": "76510284010591b46382b559f53da1fc9ce6fc7375a7e6267cdb0609b19a31d6",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/progress.h",
@@ -83,7 +91,8 @@
       "localSha256": "29e420e9b6574c40002dd22b9328d12017c685f64dd16eb64e8bf883da784a60",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/theme.nsh",
@@ -92,7 +101,8 @@
       "localSha256": "7733eae3d1a0a1ea4a82088156057cbf0a714b58fe32fd6c104a49aa21a2d7a6",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/uninstall-data.h",
@@ -101,7 +111,8 @@
       "localSha256": "d490b93dfdc3cd5a54bf63a8db19d8055276f5f8a69dd6cc13cc31692899c996",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/uninstall.nsh",
@@ -110,97 +121,108 @@
       "localSha256": "b25a2c310ec9f8b1067e7021ee239f245fe12b44f6e123e1d3372018376367d8",
       "changes": [
         "Product display name is ElecKoi; uninstall preserves the existing combined product data directory and removes only the updater cache."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/window-frame.cpp",
       "source": "apps/desktop/installer/window-frame.cpp",
-      "sha256": "a8b1cfdefc79130e040ceffdb69a38de512de4467fecf9ad51e84b3f99b6dd52",
-      "localSha256": "a8b1cfdefc79130e040ceffdb69a38de512de4467fecf9ad51e84b3f99b6dd52",
+      "sha256": "eb8a7141b4b155a64ee19dbf31bda8a88bb63f81346204db1614ef62cd65dda6",
+      "localSha256": "eb8a7141b4b155a64ee19dbf31bda8a88bb63f81346204db1614ef62cd65dda6",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/locales/de_DE.json",
       "source": "apps/desktop/installer/locales/de_DE.json",
-      "sha256": "afd43940f8fa2f8039d63fe261555a4e51fa1a45c737d2f1f7d39e51abc22048",
-      "localSha256": "f30c765d5fcd4ce46c466d730aea6e5e064af6f234aa9a25bb9a71903e910eeb",
+      "sha256": "c95ba13cb9d34b31f4c397736b33123fdb5016d96306a8c8c189691ca906e76f",
+      "localSha256": "6e37e9615872405b47b526713d55fda9032be1fb620d43761e2d06d1820d83ec",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/locales/en_US.json",
       "source": "apps/desktop/installer/locales/en_US.json",
-      "sha256": "50b6f846bf42bbbd9000f62a6cebf4bdcf731d2f83855a9dfa69dad09ccb42cb",
-      "localSha256": "fc8b4553f43ef8395a3747f7bc1437f1f64965584e1c49fe0657a659506ab992",
+      "sha256": "68eccb64631e4af8090eb25031e15149c080f67e30389b73b9dfea1e58584db4",
+      "localSha256": "07efcf4e6f9e5485aa033834563fafded35d2fc0afdd96156c445762757250d9",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/locales/es_ES.json",
       "source": "apps/desktop/installer/locales/es_ES.json",
-      "sha256": "dbc3f411d1d9c73a0516e8eb70b208c6c1accf1b2a1daa34332892025e6c3ab0",
-      "localSha256": "d83eaf30046be531ebbfd6b62c0f57d59e043fd87ca2fe060f6811783a23110a",
+      "sha256": "3c7a6dffec8e35cc5105d408313d033a4b263061cbea7ba97073e6c359c6e8f2",
+      "localSha256": "98fa74f19707828c793b4b24d6d007cdcf4b9f3881d503c430a12a87fbaec414",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/locales/fr_FR.json",
       "source": "apps/desktop/installer/locales/fr_FR.json",
-      "sha256": "b89a55bd420c07fbb4be994583882caa968d0e67c30450f1482e7de248207163",
-      "localSha256": "54e3f4e625e84708cdb33f0dc7e57285ba3cc8cbf0e4db9c6db378a669fe0920",
+      "sha256": "bdbe79545b0f11a4d0be3322d9beff7b3fcaa9ccb10ed3ef8d74ad074fb6eded",
+      "localSha256": "4d0af1b87b69f8db1fd47d22b4c8741340a792f7649fe9a2762303b21a659cf1",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/locales/ja_JP.json",
       "source": "apps/desktop/installer/locales/ja_JP.json",
-      "sha256": "bd3759076ddfbf7d02d07d498e963ef1ffb4f7f029a0778789a499160272e32d",
-      "localSha256": "48ec3c5c14b435f83ef61fd9458da73888255eabcc952ee8e664b46421c1d07d",
+      "sha256": "f207abfc08726c6937e7e4092b9178b541cd386142a43b17cc78410ecbb8a12d",
+      "localSha256": "a316d146088c8de4b0d9d28b35b3d4c38f97eed1abb38a505566244550d0e867",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/locales/pt_BR.json",
       "source": "apps/desktop/installer/locales/pt_BR.json",
-      "sha256": "1e594f97dfe7a2537a26a3a26e8f8e23f8e8227eff20efe4ac156c2f6d6b0d96",
-      "localSha256": "958353073c485acaed9c785d9473a203b240ab1ec15fa0831bbe3f0fa37961a1",
+      "sha256": "a05d46ff200a437dbae667a2d4fbe91293db8caf50bda527d554414ebcfebb74",
+      "localSha256": "a5e66ca03aca7ac464d81a95c52f9f9447a6772de15dfc0f135c7e485f6c2477",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/locales/ru_RU.json",
       "source": "apps/desktop/installer/locales/ru_RU.json",
-      "sha256": "63f4cc078453a4008be80b8481346316693d5832265029a339a120cae493dc82",
-      "localSha256": "f0ecee0afe3083bd0a54432924b92a6bce64682f15bae36b020f47b13d54283c",
+      "sha256": "a81a26abafef4df16b941264ae5f6391dc5c4ba06ff29c6b983729974037b720",
+      "localSha256": "b6a51be4e7f9c6339151efd7cd68e135bab8d40b7701c5a88506e682862a5152",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/installer/locales/zh_CN.json",
       "source": "apps/desktop/installer/locales/zh_CN.json",
-      "sha256": "ff7b4125ecba7b5c96a8f044fe31f8a3b687bb476f708321c2b873614ae5c6cb",
-      "localSha256": "5eb2d52ededb4a5e4b1322b544fbb66a0fc4f0b854ba156f211d6d84ed141e63",
+      "sha256": "3cb39a31226d15930ef97375065851e7ebea3eb656cc6ea14f4d9092017f3729",
+      "localSha256": "895435f894e32e9582edb814fadf290a2b2131a8c6152248ffd52b23ce4ab988",
       "changes": [
         "Product display name is ElecKoi where present."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/scripts/installer.nsh",
       "source": "apps/desktop/scripts/installer.nsh",
-      "sha256": "ac6fe5da94c56679f0a39ab69ec683268f93df519f6843be21be1eb5b1e7afdf",
-      "localSha256": "2e9361e5968e9cf1233a9cf5211c6cf48046527cddf2dc304ff2bc39ce5936fa",
+      "sha256": "570ed398c9b6b70d7428945502a45f328504b1dc847dfcc869dbea3ec9f5fb6d",
+      "localSha256": "1b13e694d212cf626bd6ddf6cf96677dc2392bab9bcd67e824d39714c1f3c497",
       "changes": [
         "Build output and generated ElecKoi artwork use existing ignored resource directories; the existing installation security repair runs after directory promotion."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/scripts/installer-directories.nsh",
@@ -209,7 +231,8 @@
       "localSha256": "1c77168ed7abe7465f05c0e5d65f53f09a30decd0e4bb4147555577e06809cef",
       "changes": [
         "Build output and generated ElecKoi artwork use existing ignored resource directories; the existing installation security repair runs after directory promotion."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/scripts/installer-locales.mjs",
@@ -218,7 +241,8 @@
       "localSha256": "5e61747e74dde685f1fd53ac26d00c117735ce6ee6286dc5e6ddb6998fd764ae",
       "changes": [
         "Build output and generated ElecKoi artwork use existing ignored resource directories; the existing installation security repair runs after directory promotion."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/scripts/installer-locales.d.mts",
@@ -227,7 +251,8 @@
       "localSha256": "756fcf6f8a4e1b0d974cca5cb861b0713b51b26cd56114d731634127ab5ab9df",
       "changes": [
         "Build output and generated ElecKoi artwork use existing ignored resource directories; the existing installation security repair runs after directory promotion."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/scripts/windows-directory-installer.mjs",
@@ -236,7 +261,8 @@
       "localSha256": "b12d1b4d84a324b2eca2d18232eaf5299ac9ae5724b91c534c1344be9054dd1d",
       "changes": [
         "Build output and generated ElecKoi artwork use existing ignored resource directories; the existing installation security repair runs after directory promotion."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/scripts/windows-directory-installer.d.mts",
@@ -245,7 +271,8 @@
       "localSha256": "95b9bf7be86252bcb1738e4a8922d91610d342913a7170be41942e6b3c91fdaa",
       "changes": [
         "Build output and generated ElecKoi artwork use existing ignored resource directories; the existing installation security repair runs after directory promotion."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "apps/desktop/scripts/prepare-windows-installer.ps1",
@@ -254,7 +281,48 @@
       "localSha256": "059e7a48aa1ea2c21335ce320905ef26718040b212247a9864486aa80883d6b2",
       "changes": [
         "Build output and generated ElecKoi artwork use existing ignored resource directories; the existing installation security repair runs after directory promotion."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+    },
+    {
+      "path": "apps/desktop/installer/restart-banner.h",
+      "source": "apps/desktop/installer/restart-banner.h",
+      "changes": [
+        "Product display name is ElecKoi; the status window extracts the existing ElecKoi installer icon."
+      ],
+      "sha256": "01d885cc2f355d6b3abe6e1756d61d3a89e5a68ef588997877f45c172007b394",
+      "localSha256": "2d772505750d3e1eda9c8e56f2d927edd65d28d7c91aa3f767c497a47c2a7864",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+    },
+    {
+      "path": "apps/desktop/installer/restart-status.h",
+      "source": "apps/desktop/installer/restart-status.h",
+      "changes": [
+        "Product display name is ElecKoi; the status window extracts the existing ElecKoi installer icon."
+      ],
+      "sha256": "53331d09fa30638f508a8463cfec537a8d688bdeeb706bb6debd4f42bb747e58",
+      "localSha256": "9c51bd6c370fe691d499ca397fbab28a5991eb0796c8ce014079b34addaeeb94",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+    },
+    {
+      "path": "apps/desktop/installer/restart-text.h",
+      "source": "apps/desktop/installer/restart-text.h",
+      "changes": [
+        "Product display name is ElecKoi; the status window extracts the existing ElecKoi installer icon."
+      ],
+      "sha256": "106f8f6e277628b6001b1092e44412c93e7f391913d69bd0dff01dcec95779dc",
+      "localSha256": "106f8f6e277628b6001b1092e44412c93e7f391913d69bd0dff01dcec95779dc",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+    },
+    {
+      "path": "apps/desktop/scripts/restart-banner.nsh",
+      "source": "apps/desktop/scripts/restart-banner.nsh",
+      "changes": [
+        "Product display name is ElecKoi; the status window extracts the existing ElecKoi installer icon."
+      ],
+      "sha256": "30c1ba40387df329694849ad7f01ec9f01c14bde5b91ad78b1ea07bec3565793",
+      "localSha256": "30c1ba40387df329694849ad7f01ec9f01c14bde5b91ad78b1ea07bec3565793",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     }
   ]
 }

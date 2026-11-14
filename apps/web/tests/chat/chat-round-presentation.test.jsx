@@ -52,9 +52,9 @@ describe('chat rounds presented by native DSH components', () => {
   it('uses neither text nor adjacent turns to associate unlinked executions', () => {
     const index = createInputRoundIndex({ ...identities, links: [{ turn: 6, inputEventSeq: 51, inputMessageId: 'different-id' }] })
     const navigation = presentChatTurnNavigation({ items: mergeTurnRailItems([], outline), activeTurn: 6, busyTurn: null }, index)
-    expect(navigation.items.map(item => item.turn)).toEqual([1, 3, 5])
-    expect(navigation.activeTurn).toBeNull()
-    expect(navigation.items[2].response).toBe('')
+    expect(navigation.items.map(item => item.turn)).toEqual([1, 2, 3, 4, 5, 6])
+    expect(navigation.activeTurn).toBe(6)
+    expect(navigation.items.find(item => item.turn === 5).response).toBe('')
   })
 
   it('renders native rail marks with logical labels and passes the raw input Turn to official navigation', async () => {
@@ -143,7 +143,7 @@ describe('chat rounds presented by native DSH components', () => {
     expect(fold([events[0], events[1], event('request/header'), ...events.slice(2)])).toEqual({ steps: 0, turns: 0 })
   })
 
-  it('keeps late child results attached to their delegation and changes ownership only after a successful follow-up', () => {
+  it('leaves child notifications as independent official execution turns', () => {
     let state = inputContinuationsProjection.init(), seq = 0
     const apply = (type, data) => { state = inputContinuationsProjection.apply(state, { type, data, seq: ++seq }) }
     const human = (turn, id) => {
@@ -156,27 +156,32 @@ describe('chat rounds presented by native DSH components', () => {
       apply('turn/end', { turn })
     }
     const send = isError => {
-      apply('tool/call', { callId: 'send', name: 'send_message', arguments: JSON.stringify({ agent_id: 'child', message: 'Synthetic follow-up' }) })
+      apply('tool/call', { callId: 'send', name: 'send_message', arguments: JSON.stringify({ agent: 'reviewer', message: 'Synthetic follow-up' }) })
       apply('tool/result', { message: { toolCallId: 'send', isError } })
     }
     human(1, 'original-input')
-    apply('subagent/catalog', { childId: 'child' })
+    apply('subagent/catalog', { version: 3, childId: 'child', name: 'reviewer' })
     apply('turn/end', { turn: 1 })
     human(2, 'unrelated-input')
     apply('turn/end', { turn: 2 })
     wake(3)
-    expect(state.links.at(-1)).toMatchObject({ turn: 3, inputMessageId: 'original-input' })
+    expect(state.links).toEqual([])
     human(4, 'rejected-follow-up')
     send(true)
     apply('turn/end', { turn: 4 })
     wake(5)
-    expect(state.links.at(-1).inputMessageId).toBe('original-input')
+    expect(state.links).toEqual([])
     human(6, 'accepted-follow-up')
     send(false)
     apply('turn/end', { turn: 6 })
     wake(7)
-    expect(state.links.at(-1)).toMatchObject({ turn: 7, inputMessageId: 'accepted-follow-up' })
-    expect(state.sends).toEqual({})
-    expect(Object.keys(state.children)).toEqual(['child'])
+    expect(state.links).toEqual([])
+    const index = createInputRoundIndex(inputContinuationsProjection.wire.view(state))
+    expect([...index.turns.keys()]).toEqual([1, 2, 4, 6])
+    const official = { items: Array.from({ length: 7 }, (_, i) => ({ turn: i + 1, prompt: '', response: '' })), activeTurn: 7, busyTurn: 7 }
+    const navigation = presentChatTurnNavigation(official, index)
+    expect(navigation.items.map(item => item.turn)).toEqual([1, 2, 3, 4, 5, 6, 7])
+    expect(navigation.items.at(-1)).toBe(official.items.at(-1))
+    expect(navigation).toMatchObject({ activeTurn: 7, busyTurn: 7 })
   })
 })

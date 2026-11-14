@@ -8,6 +8,7 @@ import type { PortableFrontendWorkspace } from '@product-data/domain/frontends'
 
 export interface PortableCharacter {
   name: string
+  authorName?: string
   frontendBeautyEnabled: boolean
   profileAge: string
   profileSex: string
@@ -32,6 +33,7 @@ export interface PortableCharacterPackage {
   settingLibraryJson: string
   variableConfigJson: string
   regexRules: RegexRule[]
+  regexEnabled?: boolean
   scriptLibrary?: PortableScriptLibrary
   libraryAssets?: PortableCharacterAsset[]
   libraryFolders?: CharacterAssetFolder[]

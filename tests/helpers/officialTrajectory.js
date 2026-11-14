@@ -24,9 +24,9 @@ const modules = { zod, '@tanstack/react-virtual': reactVirtual,
 // Private engine inspection is confined to this test loader.
 function loadClient(name, exposed = '') {
   const source = readFileSync(resolve(`node_modules/@deepseek-ai/${name}/lib/client.js`), 'utf8')
-  if (source.split('return module.exports;').length !== 2) throw new Error('Unexpected Client bundle boundary')
+  if (source.split('return module.exports').length !== 2) throw new Error('Unexpected Client bundle boundary')
   let registration
-  runInNewContext(source.replace('return module.exports;', `return { ...module.exports${exposed} };`), {
+  runInNewContext(source.replace('return module.exports', `return { ...module.exports${exposed} };`), {
     window: { __ModuleLoader__: { load: value => { registration = value } } },
     console, setTimeout, clearTimeout, setInterval, clearInterval,
   })

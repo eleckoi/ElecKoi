@@ -36,7 +36,7 @@
   return stop;
 };
 </code></pre>
-<p>把 <a href="../../packages/examples/native-author/example.character.json">原生示例角色</a> 按 ElecKoi 格式导入，即可获得后台规则、设置弹窗、辅助模块、两个开场白及原生 HTML 页面。导入脚本保持停用，用户明确启用；不凭卡容器格式或脚本名称改写程序。完整步骤见 <a href="../../packages/examples/native-author/README.md">示例说明</a>。</p>
+<p>把 <a href="../../packages/examples/native-author/example.character.json">原生示例角色</a> 按 ElecKoi 格式导入，即可获得后台规则、设置弹窗、辅助模块、两个开场白及原生 HTML 页面。导入保留卡片中脚本库、文件夹及脚本各自的启停配置，不强制关闭总开关；容器未提供库开关时启用该库。该教程示例明确保存为停用，演示启用步骤见 <a href="../../packages/examples/native-author/README.md">示例说明</a>。</p>
 <h2 id="guide-输入与发送">输入与发送</h2>
 <p>正则及脚本的分组标题开关批量设置整个库及全部条目：开启全部启用，关闭全部停用，包含搜索隐藏的条目、脚本文件夹和子脚本；条目开关仍可单独修改，修改后统一保存。运行时要求库、条目及所属文件夹均启用，停用的名称置灰。SDK 保存提交调用者提供的完整配置，不自动改写条目状态；需要批量启停时同时设置库与全部条目的 <code>enabled</code>。<code>editorVersions.read/save</code> 管理完整命名版本，正则 content 为 <code>{enabled,rules}</code>，脚本包含 <code>{enabled,trees,variables,files}</code>；版本恢复包含整体开关。正则配置正文使用 <code>globalEnabled</code>、<code>agentPresetEnabled</code>、<code>characterEnabled</code> 表达对应归属的整体状态，编辑入口仅提交全局与自身归属。</p>
 <p><code>input.set(text)</code> 只填写实际输入框；<code>input.append(text)</code> 追加，<code>input.clear()</code> 清空。<code>input.send()</code> 请求官方输入框提交当前草稿和附件，返回 <code>{ submitted }</code>，不是 AI 完成回执。</p>
@@ -410,7 +410,7 @@ await api.presets.updateEntries(preset.id, [
 <p>源码只保存为普通 <code>.js</code> 文件，数据库只保存文件引用、所属关系和管理设置。读取以文件内容为准，外部编辑使旧界面草稿失效，保存失败不覆盖有效源码。卡导入自动关联角色，不要求重新绑定；没有旧脚本库启动转换或数据库源码转换。</p>
 <p>角色配置的三类脚本标题旁提供“打开目录”按钮，经正式 Remote 在 Host 本机打开所属目录，不保存界面草稿，不用系统默认程序直接执行 <code>.js</code>。入口文件位于该目录的 <code>scripts/</code> 下，由稳定编号登记。作者可以在所属目录内增加辅助模块，例如入口中使用 <code>import { derive } from '../helpers/derive.js'</code>。运行器通过原生 <code>/eleckoi/scripts</code> 路由加载普通浏览器 ES 模块，不改写 import，不提供 Node 内置模块、TypeScript 编译或 npm 裸包名解析。资源路径可使用 <code>new URL('../assets/config.json', import.meta.url)</code> 明确相对模块的位置。</p>
 <p>Host 监听源码目录；外部保存或替换文件后，Client 读取内容版本，真实变化才清理旧程序并启动新程序，重复通知不重复启动。辅助模块也参与版本判定，旧版本资源请求在文件变化后返回冲突而非混用新旧代码。源码或模块加载错误仍显示在原管理入口，修正后可重新启动。</p>
-<p>原生角色卡与预设的 JSON、PNG 导出携带所属脚本目录内的辅助模块与资源文件，保留相对路径和二进制内容。<code>script_library.trees</code> 保存入口程序及管理配置；<code>script_library.files</code> 是 <code>{ path, data }</code> 列表，<code>path</code> 是所属目录内的相对路径，<code>data</code> 是原始字节的 Base64。登记的入口不在附件列表重复保存，附件不能覆盖入口。导入自动关联新角色或预设，脚本库保持停用，由用户明确启用；文件与管理记录一起提交，失败一起恢复。全局脚本不复制到每张角色卡，预设脚本不复制到角色脚本库。删除所属角色或预设同时删除其脚本目录中的文件，不删除共享全局文件。</p>
+<p>原生角色卡的 JSON、PNG、ZIP 及预设的 JSON、PNG 导出携带所属脚本目录内的辅助模块与资源文件，保留相对路径和二进制内容。<code>script_library.trees</code> 保存入口程序及管理配置；<code>script_library.files</code> 是 <code>{ path, data }</code> 列表，<code>path</code> 是所属目录内的相对路径，<code>data</code> 是原始字节的 Base64。登记的入口不在附件列表重复保存，附件不能覆盖入口。导入自动关联新角色或预设，保留 <code>script_library.enabled</code> 和各文件夹、脚本的启停状态；库开关缺省时启用，明确保存为 <code>false</code> 时保持关闭，不能用默认值覆盖作者配置。文件与管理记录一起提交，失败一起恢复。全局脚本不复制到每张角色卡，预设脚本不复制到角色脚本库。删除所属角色或预设同时删除其脚本目录中的文件，不删除共享全局文件。</p>
 <p>脚本附件及角色卡、预设容器不设置产品侧的固定大小上限。数据库单文件快照不包含这些源码目录，不是完整产品备份。</p>
 <p>脚本项目使用明确的声明 <code>runtime: { kind: 'eleckoi-module', apiVersion: 1 }</code>。运行器不根据名称、源码含有某个词、文件位置或旧 API 全局对象判断它是原生程序。未声明的源码保留，不自动转换；已声明原生标准但版本不受支持时明确报告原因。</p>
 <p>原生程序导出启动函数，启动时接收 SDK、取消信号、脚本设置、所属库的共享设置和明确作用域。可以返回异步清理函数。管理运行器按全局、当前预设、当前角色的库顺序及各库的树顺序启动；停用时逆序清理。程序在启动阶段完成规则注册，全部启动成功后才接受变量任务；不能在启动函数中等待需要这些规则处理的变量保存。</p>

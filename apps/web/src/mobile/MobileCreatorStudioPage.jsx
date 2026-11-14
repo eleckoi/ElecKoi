@@ -1,9 +1,9 @@
 import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Check, UserCircle } from '@phosphor-icons/react';
+import { Check } from '@phosphor-icons/react';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
 import { Avatar } from '../ui/ui/Avatar.jsx';
-import { characterAvatar, characterName } from '../utils/characterDisplay.js';
+
 import { IconFlatListOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import { MobileDialog, MobileHeader, MobileSearch } from './MobileChrome.jsx';
 import { FailureAlert } from '../ui/ui/FailureAlert.jsx';
@@ -65,7 +65,7 @@ export function MobileCreatorStudioPage() {
   </div>;
 }
 
-export function CreatorStudioCharacterPicker({ characters, selectedId, busy, error, onSelect, onClose }) {
+function CreatorStudioCharacterPicker({ characters, selectedId, busy, error, onSelect, onClose }) {
   const tUi = useProductTranslation();
   const [query, setQuery] = useState('');
   const [group, setGroup] = useState('');

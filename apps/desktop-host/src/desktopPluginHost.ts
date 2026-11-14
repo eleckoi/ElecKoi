@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path'
 import { initProfile, readProfileManifest, sanitizeProfile, writeProfileBundles } from '@deepseek-ai/dsh-app-boot'
 import { OPTIONAL_BUNDLES, PROFILE_TEMPLATES } from '@deepseek-ai/dsh-official-bundles'
 import { ELECKOI_DESKTOP_BUNDLES, registerDesktopBundles } from './desktopPluginBundles'
-import { ELECKOI_FAILURE_CODES, isEleckoiFailureCode } from '@shared/contracts/errors/codes'
+import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError'
 import { isChildFatalFrame, pluginHostFailureOf } from './childHostFailure'
 import type { ChildHostMessage, ParentHostMessage } from './hostSessionProtocol'

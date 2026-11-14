@@ -10,7 +10,7 @@ import type { installNativeKeyboard as NativeKeyboard } from '../../../../node_m
 
 const source = readFileSync(resolve('node_modules/@deepseek-ai/dsh-client-shortcuts/lib/client.js'), 'utf8')
 let registration: { factory(require: (name: string) => unknown): { ShortcutRegistry: typeof Registry; installKeyboard: typeof Keyboard; installNativeKeyboard: typeof NativeKeyboard } } | undefined
-runInNewContext(source.replace('return module.exports;', 'return { ShortcutRegistry, installKeyboard, installNativeKeyboard };'), {
+runInNewContext(source.replace('return module.exports', 'return { ShortcutRegistry, installKeyboard, installNativeKeyboard };'), {
   window: { __ModuleLoader__: { load: (value: typeof registration) => { registration = value } } },
   setTimeout, clearTimeout, console, AbortController, MutationObserver, HTMLElement, Element, Node, KeyboardEvent
 })

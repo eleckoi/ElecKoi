@@ -13,7 +13,7 @@ import { CREATOR_STUDIO_EVENT } from '../../src/host/projection.mjs'
 
 const cleanups = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
-async function fixture({ legacy = false } = {}) {
+async function fixture({ legacy = false, modelSelection } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-studio-edit-'))
   cleanups.push(() => { const child = relative(tmpdir(), root); if (!child || child.startsWith('..') || isAbsolute(child)) throw new Error('Unexpected cleanup path'); rmSync(root, { recursive: true, force: true }) })
   for (const [name, value] of Object.entries({ ELECKOI_PRESET_TEMPLATE_PATH: join(root, 'template'), ELECKOI_PRESET_ROOT: join(root, 'presets'), ELECKOI_WORKSPACE_ROOT: root })) {
@@ -22,7 +22,10 @@ async function fixture({ legacy = false } = {}) {
   }
   writeFileSync(join(root, 'template'), '- id: synthetic\n  name: synthetic\n' + ['variables', 'setting-library', 'web', 'workspace', 'collaboration', 'roleplay-workflow', 'workflow'].map(id => `# ELECKOI:${id}:BEGIN\n# ELECKOI:${id}:END\n`).join(''))
   const tools = { schemas: () => [] }
-  const makeAgent = session => ({ session, model: { current: () => ({ provider: 'synthetic', model: 'synthetic' }) }, ctx: { tools, on: () => () => {} }, status: 'idle', followup: vi.fn(), runMaintenance: action => action(new AbortController().signal) })
+  const makeAgent = session => ({ session, model: {
+    current: () => session.snapshotEvents().findLast(event => event.type === 'model/selection')?.data ?? { provider: 'synthetic', model: 'synthetic' },
+    select: selection => session.append('model/selection', selection),
+  }, ctx: { tools, on: () => () => {} }, status: 'idle', followup: vi.fn(), runMaintenance: action => action(new AbortController().signal) })
   const preset = { id: 'synthetic-creator', purpose: 'creator', name: 'Synthetic creator', activeVersionId: 'v1', roleplayPlan: { steps: [] },
     toolGroups: ['variables', 'setting-library', 'roleplay-workflow'].map(id => ({ id: `builtin:${id}`, included: false, enabled: false })) }
   const id = 'synthetic-studio-edit'
@@ -46,6 +49,7 @@ async function fixture({ legacy = false } = {}) {
     ['approval/policy', { policy: 'never' }],
   ]
   for (const [type, data] of permissions) session.append(type, data)
+  if (modelSelection) session.append('model/selection', modelSelection)
   if (legacy) session.append('agent-preset/selected', { agentPreset: 'eleckoi-creator-active' })
   const persistence = new Context()
   cleanups.push(() => persistence.fiber.dispose())
@@ -59,6 +63,7 @@ async function fixture({ legacy = false } = {}) {
     list: vi.fn(async () => ({ items: [] })),
     inspect: vi.fn(async () => ({ meta, events: agent?.session.snapshotEvents() ?? readDshSessionLog(join(root, 'logs'), id).events })),
     create: vi.fn(),
+    selectModel: vi.fn(async () => { throw new Error('no adapter registered for provider "synthetic-removed"') }),
     resolveAgent: vi.fn(async sessionId => {
       expect(sessionId).toBe(id)
       if (agent) return { agent }
@@ -76,7 +81,10 @@ async function fixture({ legacy = false } = {}) {
     eleckoiProductData: { readCharacters: () => ({ items: characters }), readAgentPresetCatalog: () => ({ activePresetIds: { creator: preset.id } }), readAgentPreset: () => preset },
     agentPresets: { readDocument: async () => ({ content: '[]' }), register: async () => () => {}, recompose: async () => {} },
     agentDefaultModel: { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) },
-    llm: { resolveModelInfo: async () => ({}) }, settings: { describe: () => [] },
+    llm: { resolveModelInfo: async provider => {
+      if (provider === 'synthetic-removed') throw new Error('no adapter registered for provider "synthetic-removed"')
+      return {}
+    } }, settings: { describe: () => [] },
     on: (name, listener) => { listeners.set(name, listener); return () => {} }, get: key => key === 'tools' ? tools : undefined,
     eleckoiSessionEditor: {
       transaction: async (_id, action) => action(),
@@ -90,6 +98,20 @@ async function fixture({ legacy = false } = {}) {
 }
 
 describe('Studio message edits retain independent conversation preferences', { timeout: 30_000 }, () => {
+  it.each(['delete', 'regenerate'])('keeps the saved model and history safe on %s with a removed provider', async operation => {
+    const modelSelection = { provider: 'synthetic-removed', model: 'synthetic-model', reasoningEffort: 'high' }
+    const f = await fixture({ modelSelection })
+    if (operation === 'delete') await f.service.deleteMessagesFrom(f.id, f.inputEvent.seq, 'user')
+    else {
+      const before = f.current().session.snapshotEvents()
+      await expect(f.service.regenerate(f.id)).rejects.toThrow('no adapter registered')
+      expect(f.current().session.snapshotEvents()).toEqual(before)
+      expect(f.current().followup).not.toHaveBeenCalled()
+    }
+    expect(f.current().model.current()).toEqual(modelSelection)
+    expect(f.current().session.snapshotEvents().filter(event => event.type === 'model/selection')).toMatchObject([{ data: modelSelection }])
+    expect(f.controller.selectModel).not.toHaveBeenCalled()
+  })
   it('keeps child Sessions out of Studio history and preserves their composition at the request boundary', async () => {
     const f = await fixture()
     const item = { sessionId: 'synthetic-root', projections: { values: { eleckoiCreatorStudio: f.selected } } }

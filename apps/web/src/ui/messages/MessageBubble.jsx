@@ -11,7 +11,7 @@ import { OfficialMarkdown } from "./OfficialMarkdown.jsx";
 import { Avatar } from "../ui/Avatar.jsx";
 import { AvatarPreviewDialog } from "./AvatarPreviewDialog.jsx";
 import { AvatarActionsMenu } from "./AvatarActionsMenu.jsx";
-import { ViewProcessIcon, AgentPencilIcon, CopyIcon, MessageChevronRightIcon, MessagePencilIcon, MoreDotsIcon, RefreshMessageIcon } from "../icons/elecKoiMessageIcons.jsx";
+import { ViewProcessIcon, AgentPencilIcon, CopyIcon, MessagePencilIcon, MoreDotsIcon, RefreshMessageIcon } from "../icons/elecKoiMessageIcons.jsx";
 import { AgentProcessStatus } from "../../modules/chat/components/AgentProcessStatus.jsx";
 import { ChatImageGallery } from "./ChatImageGallery.jsx";
 import { generatedImageSegments } from './generatedImagePresentation.js';

@@ -32,7 +32,7 @@ import type {} from '@deepseek-ai/dsh-tools'
 import { withPluginTools } from '@eleckoi/dsh-client-roleplay/host/tool-policy.mjs'
 import { toolPluginSources } from './tool-provenance.js'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
-import { SessionLogOffset, type Session, type SessionEvent, type SessionHeader, type SessionId } from '@deepseek-ai/dsh-session'
+import { type Session, type SessionEvent, type SessionId } from '@deepseek-ai/dsh-session';
 
 declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
@@ -42,76 +42,7 @@ declare module '@deepseek-ai/dsh-session/types' {
 import type {} from '@deepseek-ai/dsh-session-persistence'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
-import type {
-  AgentPreset,
-  AgentPresetCatalog,
-  AgentPresetExportFormat,
-  AgentPresetExportResult,
-  AgentPresetImportDocument,
-  AgentPresetImportResult,
-  AgentPresetImportSource,
-  AgentPresetPurpose,
-  AuthorConversationState,
-  CreateCreatorProjectInput,
-  CreatorStudioRuntime,
-  CreatorStudioSession,
-  CreatorStudioSessionSummary,
-  CreatorStudioMessage,
-  CharacterCollection,
-  CharacterExportFormat,
-  CharacterExportResult,
-  CharacterGroupAssignment,
-  CharacterImportFile,
-  CharacterImportPreview,
-  CharacterImportResult,
-  CharacterImportSource,
-  CharacterRecord,
-  CharacterConfigurationChange,
-  ConversationChange,
-  ConversationArchiveSnapshot,
-  ConversationModelSelection,
-  ConversationCreateInput,
-  ConversationDetailsMetadata,
-  ConversationRequestPreview,
-  ConversationRequestPreviewSummary,
-  ConversationMessageDisplayInput,
-  ConversationMessageDisplayResult,
-  ConversationSummary,
-  CreatorProjectCollection,
-  DisplayPreferencesSnapshot,
-  DisplayPreferenceValue,
-  ElecKoiHostStatus,
-  ElecKoiProductDataStore,
-  PersonaProfile,
-  ProductRecordChange,
-  RegexRule,
-  RegexRuleCollection,
-  RegexEditorTarget,
-  RegexRuleEditorCollection,
-  RegexRuleEditorImportResult,
-  RegexRuleImportDocument,
-  RegexRuleImportResult,
-  RegexRuleScope,
-  RegexRuleTarget,
-  RegexRuleTestResult,
-  CharacterOpenings,
-  GlobalSettingLibraryCollection,
-  CharacterOpeningMessage,
-  SettingLibrary,
-  SettingLibraryContent,
-  SettingLibraryConversation,
-  SettingLibraryEntry,
-  SettingLibraryEntryUpdate,
-  ScriptLibrary,
-  ScriptLibraryScope,
-  ScriptWorkspace,
-  TavilyConnection,
-  WebSearchMode,
-  WebFetchMode,
-  VariableConfig,
-  VariableViewerTimeline,
-  ConversationVariableConfiguration
-} from './types.js'
+import type { AgentPreset, AgentPresetCatalog, AgentPresetExportFormat, AgentPresetExportResult, AgentPresetImportDocument, AgentPresetImportResult, AgentPresetImportSource, AgentPresetPurpose, AuthorConversationState, CreateCreatorProjectInput, CreatorStudioRuntime, CreatorStudioSession, CreatorStudioSessionSummary, CreatorStudioMessage, CharacterCollection, CharacterExportFormat, CharacterExportResult, CharacterGroupAssignment, CharacterImportFile, CharacterImportPreview, CharacterImportResult, CharacterImportSource, CharacterRecord, CharacterConfigurationChange, ConversationChange, ConversationModelSelection, ConversationCreateInput, ConversationDetailsMetadata, ConversationRequestPreview, ConversationRequestPreviewSummary, ConversationMessageDisplayInput, ConversationMessageDisplayResult, ConversationSummary, CreatorProjectCollection, DisplayPreferencesSnapshot, DisplayPreferenceValue, ElecKoiHostStatus, ElecKoiProductDataStore, PersonaProfile, ProductRecordChange, RegexRule, RegexRuleCollection, RegexEditorTarget, RegexRuleEditorCollection, RegexRuleEditorImportResult, RegexRuleImportDocument, RegexRuleImportResult, RegexRuleScope, RegexRuleTarget, RegexRuleTestResult, CharacterOpenings, GlobalSettingLibraryCollection, CharacterOpeningMessage, SettingLibrary, SettingLibraryContent, SettingLibraryConversation, SettingLibraryEntry, SettingLibraryEntryUpdate, ScriptLibrary, ScriptLibraryScope, ScriptWorkspace, TavilyConnection, WebSearchMode, WebFetchMode, VariableConfig, VariableViewerTimeline, ConversationVariableConfiguration } from './types.js';
 import { testTavilyConnection } from './tavily.js'
 import { ElecKoiVariableProcessing } from './variable-processing.js'
 import { ElecKoiAuthorVariablesApi } from './author-variables.js'

@@ -27,14 +27,14 @@ let store = { view: 'chat', viewRequest: null };
 const readStore = () => store, subscribeStore = listener => { listeners.add(listener); return () => listeners.delete(listener); };
 const openView = (view, focus) => { store = { view, viewRequest: { view, focus } }; listeners.forEach(listener => listener()); };
 const completeViewRequest = () => { store = { ...store, viewRequest: null }; listeners.forEach(listener => listener()); };
-let session = { running: false, blank: false, openState: 'open', loadingOlder: false, hasMore: false };
+let session = { running: false, blank: false, openState: 'open', loadingOlder: false, hasMore: false, pendingSubmissions: [] };
 const runtime = new DraftEditorRuntime(); registerPlainText(runtime.editor); runtime.setDraft('合成草稿');
 const keyboard = { editor: runtime.editor, arbitrate: () => 'pass', space: () => false, dismissPopup() {}, bindFilePicker: () => () => {}, submit() {}, steerQueue() {} };
 const hook = value => select => select(value);
 function NativeComposer(owner) {
   return <InputBar {...owner} useSession={select => select(session)} useInput={hook({ phase: 'plain', draft: '合成草稿', attachmentIds: [], queue: [] })}
     useAccess={() => true} useNotices={hook(null)} useBusyEnter={hook('queue')} useStopShortcut={hook([])} useMenuLauncher={hook(null)} useFileUploads={hook({})} useLexicon={hook([])} useProjection={() => undefined}
-    inputActions={{}} keyboard={keyboard} sessionId={sessionId} t={(key, values = {}) => Object.entries(values).reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), conversationZh[key] ?? key)}
+    inputActions={{}} keyboard={keyboard} registerFileIntake={() => () => {}} sessionId={sessionId} t={(key, values = {}) => Object.entries(values).reduce((text, [name, value]) => text.replaceAll(`{${name}}`, String(value)), conversationZh[key] ?? key)}
     renderSlot={name => name === 'conversation.composer.dock' ? <span data-synthetic-stats="">合成统计</span> : null} />;
 }
 const inspection = { eventNodes: [], eventLocations: new Map(), requests: [], callSchemas: new Map(), partial: null, runningCalls: [] };

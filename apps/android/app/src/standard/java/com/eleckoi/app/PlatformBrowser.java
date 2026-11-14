@@ -59,7 +59,7 @@ final class PlatformBrowser extends BrowserSurface {
                 if(request.isForMainFrame()) listener.failure("页面 HTTP "+response.getStatusCode());
             }
             @Override public boolean onRenderProcessGone(WebView view,RenderProcessGoneDetail detail) {
-                listener.failure("系统 WebView 渲染进程退出，didCrash="+detail.didCrash()); return true;
+                markRendererExited(); listener.failure("系统 WebView 渲染进程退出，请点击重试重新打开页面，didCrash="+detail.didCrash()); return true;
             }
         });
         web.setWebChromeClient(new WebChromeClient() {
@@ -78,7 +78,7 @@ final class PlatformBrowser extends BrowserSurface {
         Transport(Bridge bridge) { this.bridge=bridge; }
         @JavascriptInterface public String invoke(String method,String arguments) {
             try {
-                if(!listener.sameHost(getUrl())) throw new SecurityException("Host page not active");
+                if(needsRecreation() || !listener.sameHost(getUrl())) throw new SecurityException("Host page not active");
                 JSONArray input=new JSONArray(arguments);
                 Object value;
                 if("nativeChoice".equals(method)) { choicePrompts.handle(input.getString(0),input.getString(1),input.getJSONObject(2)); value=null; }
@@ -107,16 +107,20 @@ final class PlatformBrowser extends BrowserSurface {
         },url,cookie,current,()->{ CookieManager.getInstance().flush(); currentUrl=url; web.loadUrl(url); },failed);
     }
     @Override void command(String type,JSONObject payload,Consumer<String> completion) {
-        if(!listener.sameHost(getUrl())) return;
+        if(needsRecreation() || !listener.sameHost(getUrl())) return;
         String command=payload("type",type).toString();
         try { command=new JSONObject(command).put("payload",payload).toString(); } catch(Exception error) { throw new IllegalArgumentException(error); }
         web.evaluateJavascript("window.ElecKoiPlatform?.browserCommand("+command+")",completion==null?null:completion::accept);
     }
     @Override String cookies(String url) { return CookieManager.getInstance().getCookie(url); }
-    @Override void stopLoading() { web.stopLoading(); }
-    @Override boolean canGoBack() { return web.canGoBack(); }
-    @Override void goBack() { web.goBack(); }
-    @Override void onResume() { web.onResume(); }
-    @Override void onPause() { web.onPause(); }
-    @Override void destroy() { currentUrl=""; choicePrompts.dismiss(); if(documentScript!=null) documentScript.remove(); web.removeJavascriptInterface("ElecKoiAndroidTransport"); web.destroy(); }
+    @Override void stopLoading() { if(!needsRecreation()) web.stopLoading(); }
+    @Override boolean canGoBack() { return !needsRecreation() && web.canGoBack(); }
+    @Override void goBack() { if(!needsRecreation()) web.goBack(); }
+    @Override void onResume() { if(!needsRecreation()) web.onResume(); }
+    @Override void onPause() { if(!needsRecreation()) web.onPause(); }
+    @Override void destroy() {
+        currentUrl=""; choicePrompts.dismiss();
+        if(!needsRecreation()) { if(documentScript!=null) documentScript.remove(); web.removeJavascriptInterface("ElecKoiAndroidTransport"); }
+        web.destroy();
+    }
 }

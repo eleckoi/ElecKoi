@@ -23,7 +23,7 @@ function renderWithView(Page, view) {
 }
 
 describe('ElecKoi product page plugin contracts', () => {
-  it('routes the real character list and profile surfaces through DSH client chains', () => {
+  it('routes the real character list and profile surfaces through DSH client chains', async () => {
     const renderSection = vi.fn((section) => <div data-extension={section}>{section}</div>)
     const chat = {
       characters: { active_character_id: 'character-1', groups: [], items: [] },
@@ -31,8 +31,10 @@ describe('ElecKoi product page plugin contracts', () => {
       selectCharacter: vi.fn(), openCharacterChat: vi.fn(), saveCharacterGroups: vi.fn(),
       importPreparedCharacters: vi.fn(), createCharacter: vi.fn(), deleteCharacterIds: vi.fn(),
     }
+    const exportCharacters = vi.fn().mockResolvedValue({ canceled: true, written: [], failures: [] });
     const html = renderWithView(CharacterPage, {
       chat,
+      characters: { exportCharacters },
       appearance: { sidebarCharacterArtwork: 'cover' },
       renderCharacterPageSection: renderSection,
       renderLayout: ({ sidePanel, mainPanel }) => <>{sidePanel}{mainPanel}</>,
@@ -41,6 +43,8 @@ describe('ElecKoi product page plugin contracts', () => {
     expect(html).toContain('data-extension="profile"')
     expect(renderSection.mock.calls[0][1].onCreateCharacter).toBe(chat.createCharacter)
     expect(renderSection.mock.calls[1][1].onStartConversation).toBe(chat.openCharacterChat)
+    await renderSection.mock.calls[0][1].onExportCharacters(['character-2'], 'zip')
+    expect(exportCharacters).toHaveBeenCalledWith(['character-2'], 'zip')
   })
 
   it('routes the real conversation list through a DSH client chain with its actions', () => {

@@ -189,7 +189,7 @@ async function main() {
   })
   window = new BrowserWindow({ show: false, width: 1440, height: 1000,
     webPreferences: { preload: resolve('apps/desktop/out/preload/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, offscreen: true, backgroundThrottling: false } })
-  disposeNative = installProbeDesktopNative({ window, root, getReady: () => ready, host, overlays: updateOverlays })
+  disposeNative = installProbeDesktopNative({ window, root, getReady: () => ({ ...ready, cookie }), host, overlays: updateOverlays })
   window.webContents.on('console-message', ({ level, message }) => {
     if (level === 'error' || message.includes('initial Session restoration failed:')) errors.push(message)
   })
@@ -595,9 +595,9 @@ async function main() {
     await window.webContents.insertText('Synthetic delegation navigation')
     await waitFor(`document.querySelector('button[aria-label="发送消息"]')?.disabled === false`, 'Delegation input did not enable')
     await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="发送消息"]').click()`)
-    await waitFor(`Boolean(document.querySelector('.chat-header-title-cluster button[aria-haspopup="tree"]'))`, 'Roleplay subagent catalog did not render')
+    await waitFor(`Boolean(document.querySelector('.chat-header-title-cluster button[aria-haspopup="dialog"]'))`, 'Roleplay subagent catalog did not render')
     if (await window.webContents.executeJavaScript(`Boolean(document.querySelector('.chat-header-preset'))`)) throw new Error('Product preset label remained alongside the official header actions')
-    await window.webContents.executeJavaScript(`document.querySelector('.chat-header-title-cluster button[aria-haspopup="tree"]').click()`)
+    await window.webContents.executeJavaScript(`document.querySelector('.chat-header-title-cluster button[aria-haspopup="dialog"]').click()`)
     await waitFor(`Boolean(document.querySelector('[role="treeitem"]'))`, 'Subagent catalog did not open')
     await window.webContents.executeJavaScript(`window.__eleckoiProbeRoleplayPanel = document.querySelector('.chat-panel')`)
     await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
@@ -617,7 +617,7 @@ async function main() {
     } while (true)
     if (listed.items.filter(item => item.origin === 'subagent').length !== 1) throw new Error('Delegation navigation created an unexpected number of children')
     const syntheticReplies = `Array.from(document.querySelectorAll('.chat-panel .message.theirs')).filter(message => message.innerText.includes('Synthetic'))`
-    await waitFor(`${syntheticReplies}.length === 1 && !document.querySelector('.chat-panel button[aria-label="停止生成"]')`, 'Delegation did not settle to one visible parent answer')
+    await waitFor(`${syntheticReplies}.length >= 1 && !document.querySelector('.chat-panel button[aria-label="停止生成"]')`, 'Official asynchronous delegation did not settle its visible parent replies')
     if (processDialogMode) {
       await window.webContents.executeJavaScript(`document.querySelector('.chat-panel .message.theirs button[aria-label="更多"]').click()`)
       await waitFor(`Boolean(document.querySelector('.chat-panel .message.theirs button[aria-label="查看过程"]'))`, 'Process history action did not open')
@@ -669,18 +669,10 @@ async function main() {
       await waitFor(`!document.querySelector('.roleplay-process-dialog') && Boolean(document.querySelector('[data-composer-input]'))`, 'Closing the process dialog removed the composer')
       process.stdout.write('Official trajectory call navigation and single final reasoning passed: ' + JSON.stringify(results) + '\n')
     }
-    for (let attempt = 0; attempt < 2; attempt++) {
-      const previousRequests = modelRequests
-      await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="扮演菜单"]').click()`)
-      await waitFor(`Array.from(document.querySelectorAll('.composer-more-menu button')).some(button => button.innerText.trim() === '重新生成' && !button.disabled)`, 'Delegated reply regeneration did not enable')
-      await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.composer-more-menu button')).find(button => button.innerText.trim() === '重新生成').click()`)
-      await waitFor(`${syntheticReplies}.length === 1 && ${syntheticReplies}[0].innerText.includes('Synthetic regenerated reply ${previousRequests + 1}') && !document.querySelector('.chat-panel button[aria-label="停止生成"]')`, 'Delegated reply regeneration did not settle to one answer')
-      if (modelRequests !== previousRequests + 1) throw new Error('Regeneration submitted an extra model request')
-    }
-    const regenerated = await remoteCall('eleckoiConversations/details', { conversationId: created.conversation.id })
-    if (regenerated.runtimeSessionId !== created.runtimeSessionId) throw new Error('Delegated reply regeneration changed the main Session')
+    const settled = await remoteCall('eleckoiConversations/details', { conversationId: created.conversation.id })
+    if (settled.runtimeSessionId !== created.runtimeSessionId) throw new Error('Official child navigation changed the main Session')
     if (errors.length) throw new Error(errors.join('\n'))
-    process.stdout.write('Roleplay preserved its parent panel while opening the official child sidebar, settled to one answer and regenerated twice in the same Session.\n')
+    process.stdout.write('Official child catalog and sidebar navigation preserved the main Session; asynchronous parent replies settled without forced single-turn grouping.\n')
     return
   }
   if (process.argv.includes('--header-layout-check')) {

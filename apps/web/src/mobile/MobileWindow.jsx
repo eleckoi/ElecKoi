@@ -135,7 +135,7 @@ export function MobileWindow(props) {
       if (dialog && !dialog.dataset.mobileBackOwner) {
         const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
         Object.defineProperty(escape, 'eleckoiPlatformBack', { value: true });
-        window.dispatchEvent(escape);
+        focused.dispatchEvent(escape);
         event.preventDefault();
       } else if (back()) event.preventDefault();
     }

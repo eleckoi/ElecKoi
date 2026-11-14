@@ -52,7 +52,6 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
   const [clipboard, setClipboard] = useState(null);
   const [expandedIds, setExpandedIds] = useState([]);
   const [query, setQuery] = useState("");
-  const [addOpen, setAddOpen] = useState(false);
   const [managerOpen, setManagerOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -195,7 +194,6 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
       setSelectedKey(nodeKey("variable", variable.id));
     }
     openEditor();
-    setAddOpen(false);
     setContextMenu(null);
     requestAnimationFrame(() => nameInputRef.current?.select());
   }
@@ -257,7 +255,6 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
     event.preventDefault();
     event.stopPropagation();
     if (compact) return;
-    setAddOpen(false);
     if (node.fixed) return;
     setContextMenu({
       trigger: event.currentTarget,
@@ -272,7 +269,6 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
   function openBackgroundMenu(event) {
     event.preventDefault();
     if (!configRef.current) return;
-    setAddOpen(false);
     setContextMenu({ trigger: event.currentTarget, x: event.clientX, y: event.clientY, kind: "background", id: "", parentId: "" });
   }
 
@@ -384,7 +380,7 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
       inspectorTitle={selected.value?.id === VARIABLE_INITIALIZATION_OBJECT_ID ? tUi("变量运行配置") : selected.kind === 'object' ? tUi("编辑变量组") : tUi("编辑变量")}
       onCloseInspector={closeInspector}
       feedback={<SaveControl dirty={dirty} error={error} notice={notice} saving={saving} onSave={save} />}
-      onMouseDown={() => setAddOpen(false)}
+
       inspector={!multi.active && selected.value && (!compact || editing) ? <VariableConfigDocument key={JSON.stringify([characterId, config.activeVersionId, selectedKey])}
         config={config} selected={selected} nameInputRef={nameInputRef} dirty={dirty} saving={saving} onChange={changeConfig}
         onReplaceContents={replaceContents}

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { clientStyleStaticText } from '../helpers/browserTheme.js';
 
 const chatStyles = readFileSync(
   new URL('../../src/modules/chat/styles/chat-panel.css', import.meta.url),
@@ -24,10 +25,7 @@ const chatClient = readFileSync(
 );
 
 function conversationSheet(name) {
-  const section = conversationClient.split(`/${name}.module.css.mjs`)[1]?.split('//#endregion')[0];
-  const literal = section?.match(/const css\$\d+ = ("(?:[^"\\]|\\.)*");/)?.[1];
-  if (!literal) throw new Error(`Missing installed conversation sheet: ${name}`);
-  return JSON.parse(literal);
+  return clientStyleStaticText(conversationClient, name);
 }
 
 describe('chat layout width alignment', () => {
@@ -60,9 +58,9 @@ describe('chat layout width alignment', () => {
     const seat = chatStyles.match(/\.chat-composer-region\s*\{([^}]+)\}/)?.[1];
     expect(seat).toContain(`--dsh-composer-text-max-height: ${officialCap};`);
     expect(inputStyles).toMatch(/\.[\w]+_scroll\{[^}]*max-height:var\(--dsh-composer-text-max-height\);[^}]*overflow-y:auto/);
-    expect(conversationClient).toContain('"data-input-scroll": true');
+    expect(conversationClient).toMatch(/"data-input-scroll":\s*true/);
     expect(inputStyles).toContain('--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)');
-    expect(themeClient).toContain('["scrollbar.css", scrollbar_css_default]');
+    expect(themeClient).toMatch(/\[["`]scrollbar\.css["`],\s*scrollbar_css_default\]/);
     expect(chatStyles).not.toMatch(/\[data-input-scroll\][^{]*\{[^}]*overflow[^;]*:\s*(hidden|clip)/);
   });
 
@@ -79,11 +77,7 @@ describe('chat layout width alignment', () => {
   });
 
   it('keeps the transcript tail clearance at the pinned ChatView value for every layout', () => {
-    const section = chatClient.split('/ChatView.module.css.mjs')[1]?.split('//#endregion')[0];
-    const expression = section?.match(/const css\$\d+ = (.+);/)?.[1];
-    expect(expression).toBeTruthy();
-    // New bundles interpolate asset URLs inside CSS; static fragments retain the spacing rules.
-    const officialStyles = [...expression.matchAll(/"(?:[^"\\]|\\.)*"/g)].map(match => JSON.parse(match[0])).join('');
+    const officialStyles = clientStyleStaticText(chatClient, 'ChatView');
     const officialPadding = officialStyles.match(/\.[\w]+_scroll\{[^}]*padding:(\d+px)\s/)[1];
     const productPadding = chatStyles.match(/\.message-area \[data-chat-scroll\]\s*\{[^}]*padding:\s*28px var\(--chat-scroll-horizontal-padding\) (\d+px);/)[1];
     expect(productPadding).toBe(officialPadding);

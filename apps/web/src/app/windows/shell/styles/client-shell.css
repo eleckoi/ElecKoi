@@ -204,6 +204,14 @@
   flex: none;
 }
 
+.sidebar-update-seat { display: flex; align-items: center; margin-inline-start: auto; min-width: 0; max-width: 100%; -webkit-app-region: no-drag; }
+.sidebar-update-seat:empty { display: none; }
+.sidebar-update-seat button { min-height: 32px; color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l3); background: var(--dsw-alias-interactive-bg-hover); }
+.side-panel-footer-actions.is-update-only:has(> .sidebar-update-seat:empty) { display: none; }
+.workspace-update-footer { display: flex; align-items: center; min-height: 40px; padding: 4px 12px; background: var(--rail); }
+.workspace-update-footer:has(> .sidebar-update-seat:empty) { display: none; }
+.native-workspace-sidebar:has(> .workspace-update-footer > .sidebar-update-seat:not(:empty)) { grid-template-rows: var(--window-caption-height, 40px) minmax(0, 1fr) auto; }
+
 .eleckoi-plugin-overlay-seat > * {
   pointer-events: auto;
 }

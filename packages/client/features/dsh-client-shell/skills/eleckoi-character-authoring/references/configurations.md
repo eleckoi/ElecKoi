@@ -12,13 +12,15 @@
 
 save 提供 kind、配置对象数组 documents 和版本库数组 versions：把 read 返回的 document 和 library 分别放入对应数组；documents 是对象，不是 JSON 字符串。正文与当前命名版本必须一致，revision 和脚本 resourceRevision 必须来自最新读取。冲突不覆盖数据，重新读取后合并。只提交本次修改的库，保存正文与版本采用同一事务。脚本配置按明确 global 或 character 范围保存；正则 document 是当前角色编辑器，包含共享全局与该角色，保留未修改范围。未选择角色时可以读取全局正则版本，此时 document=null；普通全局正则读写仍使用 regex 的条目入口。
 
-更名不改变编号，复制版本需生成新编号；创建和导入的配置库默认停用。版本文件格式为 eleckoi.editor-library-version、version=1、kind、name、content；不混用角色卡或预设整包格式。旧正则启用组合仍只保存规则启停组合，不代表源码版本。
+更名不改变编号，复制版本需生成新编号。新建空白版本沿各类型的草稿默认值；导入已有版本保留 content 中的库、分组和条目启停，不强制改成停用。版本文件格式为 eleckoi.editor-library-version、version=1、kind、name、content；不混用角色卡或预设整包格式。旧正则启用组合仍只保存规则启停组合，不代表源码版本。
 
 ## 角色资料
 
 可以调用 character.create 提供 name 和可选 group，从零创建空角色并设为当前工作室编辑目标，不要求先选择角色；已有编辑目标时调用新建，也不会修改原角色。
 
-读取和修改已有资料仍要求当前工作室明确选择角色，先读后改；不能按目录顺序或名称猜测编辑对象。character.update 的 group 是所属角色分组名称，空字符串表示未分组；修改它只调整当前角色归属，保留其他角色和资料。角色是编辑对象，不是工作室要扮演的身份。
+新建角色默认只提供 name，省略 group 或传空字符串，角色进入未分组。分组是角色列表的可选整理方式，建卡不需要先创建或选择分组，也无需主动询问用户分组。仅在用户要求指定归属或整理分组时填写 group；用户指定已有分组时沿用准确名称，只有要求新分组时才建立，不按题材、世界观或角色名自行分类。角色列表分组与卡内设定、脚本及资产的文件夹分别归属，不能互相替代。
+
+读取和修改已有资料仍要求当前工作室明确选择角色，先读后改；不能按目录顺序或名称猜测编辑对象。character.update 的 group 是所属角色分组名称，空字符串表示未分组；仅在用户要求调整分组时提交，普通资料修改省略 group，保留原归属。修改它只调整当前角色归属，保留其他角色和资料。角色是编辑对象，不是工作室要扮演的身份。
 
 开场白在角色编辑器的独立页面维护，通过 character.read_openings 读取、character.save_openings 保存。保存参数为 enabled、openingMessages、defaultOpeningMessageId；enabled 是保留字段，不控制显示，主开场白正文留空时新对话不显示开场白，有正文才显示。openingMessages 是全部不同开场白的列表，每项包含 id、title、content 和可选 variableVersionId，主开场由 defaultOpeningMessageId 指定。保留未修改的其他开场白和字段。开场白没有命名版本，不传 versions 或 activeVersionId，也不传由工作室选择确定的 characterId。
 

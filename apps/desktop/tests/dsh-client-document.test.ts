@@ -1,10 +1,12 @@
 import { createServer, type RequestListener } from 'node:http'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { connectDesktopWelcome } from '../src/main/platform/electron/dsh/welcome-backend'
 import {
   authenticateDshClientHost,
   forwardDshClientRequest,
+  removeLegacyDshHostCookies,
   serveDshClientAsset
 } from '../src/main/platform/electron/dshClientDocument'
 
@@ -29,6 +31,33 @@ async function listen(handler: RequestListener): Promise<string> {
 }
 
 describe('DSH client document transport', () => {
+  it('reuses the Host cookie for repeated native locale reads without a second authentication request', async () => {
+    const requests: Array<{ url: string | undefined; cookie: string | undefined }> = []
+    const host = await listen((request, response) => {
+      requests.push({ url: request.url, cookie: request.headers.cookie })
+      let body = ''
+      request.on('data', chunk => { body += chunk })
+      request.on('end', () => {
+        const rpc = JSON.parse(body)
+        response.setHeader('content-type', 'application/json')
+        response.end(JSON.stringify({ type: 'server-response', rpcId: rpc.rpcId, result: { ok: true,
+          value: { namespaces: [{ ns: 'locale', value: { preference: 'zh' } }] }
+        } }))
+      })
+    })
+    const backend = connectDesktopWelcome(new URL('login?token=synthetic', host).href, 'dsh-auth-synthetic=synthetic')
+    await expect(backend.readLocalePreference()).resolves.toBe('zh')
+    await expect(backend.readLocalePreference()).resolves.toBe('zh')
+    expect(requests).toEqual(Array.from({ length: 2 }, () => ({ url: '/api/settings/describe', cookie: 'dsh-auth-synthetic=synthetic' })))
+  })
+
+  it('cleans only old Host authentication cookies for the owned Host origin', async () => {
+    const cookies = { get: vi.fn(async () => [{ name: 'dsh-auth-old' }, { name: 'synthetic-other' }, { name: 'dsh-auth-older' }]), remove: vi.fn(async () => {}) }
+    await removeLegacyDshHostCookies(cookies, 'http://127.0.0.1:32123/login?token=synthetic')
+    expect(cookies.get).toHaveBeenCalledWith({ url: 'http://127.0.0.1:32123' })
+    expect(cookies.remove.mock.calls).toEqual([['http://127.0.0.1:32123', 'dsh-auth-old'], ['http://127.0.0.1:32123', 'dsh-auth-older']])
+  })
+
   it('serves the pinned frontend with a boot gate and rejects traversal', async () => {
     const page = await serveDshClientAsset(new Request('dsh-app://app/'), frontendDirectory)
     expect(page.status).toBe(200)

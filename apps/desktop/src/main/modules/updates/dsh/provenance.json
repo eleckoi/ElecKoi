@@ -1,37 +1,40 @@
 {
   "repository": "https://github.com/deepseek-ai/deepseek-harness",
-  "commit": "66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db",
+  "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced",
   "license": "MIT",
   "licenseFile": "apps/desktop/resources/licenses/dsh-desktop-MIT.txt",
   "files": [
     {
       "path": "update-coordinator.ts",
       "source": "apps/desktop/src/update-coordinator.ts",
-      "sha256": "5cf1f239f82b8695afa607f36176cb95792d2b61be12aa3e28f0ee5341a95aa7",
+      "sha256": "bae3b1073f99563a9a768e30df6174a46d4f8f7f37c468392e9790bab4857375",
       "changes": [
         "Relative TypeScript import suffixes use .js for the local compiler.",
         "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
       ],
-      "localSha256": "9365f95fbc1fa4214a41ab8dec59684945be2e32f56085e5e94ee6a7c98293cf"
+      "localSha256": "97176e9aa33310b95626236db8a2bd80051443f0ac8604f2060200b7ae37a784",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "update-http-executor.ts",
-      "source": "apps/desktop/src/update-http-executor.ts",
+      "source": "apps/desktop/src/updates/electron-updater/http-executor.ts",
       "sha256": "7230d88ece24770bb45ddac28ff6b9a0ed60f1b20a4361da44fc5265a1cc4eb8",
       "changes": [
         "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
       ],
-      "localSha256": "7230d88ece24770bb45ddac28ff6b9a0ed60f1b20a4361da44fc5265a1cc4eb8"
+      "localSha256": "7230d88ece24770bb45ddac28ff6b9a0ed60f1b20a4361da44fc5265a1cc4eb8",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "../../../platform/electron/dsh/update-error.ts",
       "source": "apps/desktop/src/update-error.ts",
-      "sha256": "1cc7ef0e3bffb99f1e5ffaac15449fd9259b9f0cda101a9db070054233110472",
+      "sha256": "a3123399e4703bc455acf5ee9827e9864cb5d3e3d2024c0f8ff4b18d808bca49",
       "changes": [
         "Relative TypeScript import suffixes use .js for the local compiler.",
         "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
       ],
-      "localSha256": "dd5eb3317be5da45c153c1f461473980353fd8271ce9060aa922d0d932a9aa8f"
+      "localSha256": "ff5b1adc18acbd584589779dc2afe23a8500051a02cb6741eaa594104559a0dd",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "../../../platform/electron/dsh/update-overlay.ts",
@@ -41,18 +44,21 @@
         "Relative TypeScript import suffixes use .js for the local compiler.",
         "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
       ],
-      "localSha256": "ec29a810b8a2a7bd9d9386147752780aedf42401b6aa4a90704ac7503746b64f"
+      "localSha256": "ec29a810b8a2a7bd9d9386147752780aedf42401b6aa4a90704ac7503746b64f",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "update-dialog.ts",
       "source": "apps/desktop/src/update-dialog.ts",
-      "sha256": "57e0ad6493130838e80f970bba9d79542af73a13705e92b045bd173d46c77a9f",
+      "sha256": "d5cbfa42141b81d89b3349f31789afc85bc2cbe81a9ed665feb1cade2fce80c3",
       "changes": [
         "Relative TypeScript import suffixes use .js for the local compiler.",
         "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter.",
-        "Transfer content can refresh without replacing confirmation choices or invalidating an in-flight close response."
+        "Transfer content can refresh without replacing confirmation choices or invalidating an in-flight close response.",
+        "Main-owned release notes are rendered as Markdown with raw HTML disabled; HTTP(S) links open in the system browser without navigating the isolated document."
       ],
-      "localSha256": "7ad26d36b3a98911499deb610bd64d79c1848ae6d38addd54fe2a65657f7aeaa"
+      "localSha256": "a24caa500d68a34db869cc835fab82a104a80978a4208a2d22f89b2afbbbe58f",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "../../../platform/electron/dsh/update-window.ts",
@@ -62,17 +68,19 @@
         "Relative TypeScript import suffixes use .js for the local compiler.",
         "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
       ],
-      "localSha256": "b0f5131dab4f89f49bc9a6007bb537a30f546a6ff1f52b66d08fa456a290d47e"
+      "localSha256": "b0f5131dab4f89f49bc9a6007bb537a30f546a6ff1f52b66d08fa456a290d47e",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "update-presentation.ts",
       "source": "apps/desktop/src/update-presentation.ts",
-      "sha256": "db4db32ff6c1d0ab16bdd2774bd847a69bb8a8f84d2c89dc6319db5c89d3866e",
+      "sha256": "a2c366256f087fce7ecd775e2cbf5037286885256ece6e9e73301654798dc4a9",
       "changes": [
         "Relative TypeScript import suffixes use .js for the local compiler.",
         "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
       ],
-      "localSha256": "04038c215e91dc8bcffbbfe9ee90e5dabf7645e6d831a38500826272dad7673d"
+      "localSha256": "aa7737d5cd656cd0f705a328c3e085a7ff43310c8126053119a5a46016000262",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "update-schedule.ts",
@@ -82,7 +90,8 @@
         "Relative TypeScript import suffixes use .js for the local compiler.",
         "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
       ],
-      "localSha256": "3d516776fcfb2e2fd22a9089028355e07261933d5f15b8a3e4ff47c1af7a58b7"
+      "localSha256": "3d516776fcfb2e2fd22a9089028355e07261933d5f15b8a3e4ff47c1af7a58b7",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "duration-env.ts",
@@ -91,7 +100,8 @@
       "changes": [
         "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
       ],
-      "localSha256": "f230ed09a0094871e30d3eac559b9674fc122b01539348b661df4b3dd1b534aa"
+      "localSha256": "f230ed09a0094871e30d3eac559b9674fc122b01539348b661df4b3dd1b534aa",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "../../../platform/electron/dsh/windows-layout.ts",
@@ -100,17 +110,19 @@
       "changes": [
         "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
       ],
-      "localSha256": "c032247c34d9794171aa3bd67534d511aca9f8963058d9976fb57f8c06a24628"
+      "localSha256": "c032247c34d9794171aa3bd67534d511aca9f8963058d9976fb57f8c06a24628",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "../../../platform/electron/dsh/locale.ts",
       "source": "apps/desktop/src/locale.ts",
-      "sha256": "7f1681964498d06fb8d58474721f69efba4932fffad9fd61c08dc52337de854a",
+      "sha256": "80c869fb1015cf202954e183d229b25d468c8c16a15e02a02b93974f2f86f992",
       "changes": [
         "Product display name uses ElecKoi; official translations and locale selection are retained.",
         "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
       ],
-      "localSha256": "2b25422d27dba477cfb5804b0ebd0871980c85880c60bf410d7b4630cedd3534"
+      "localSha256": "d27961f2ca487c63929f42c8eb0463d866dfdc65a66801d7746ad4e9b6615426",
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     },
     {
       "path": "../../../platform/electron/dsh/locale-cache.ts",
@@ -120,7 +132,39 @@
       "changes": [
         "Relative TypeScript import suffixes use .js for the local compiler.",
         "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
-      ]
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+    },
+    {
+      "path": "updates/electron-updater/channel.ts",
+      "source": "apps/desktop/src/updates/electron-updater/channel.ts",
+      "sha256": "1b40e661a67c05bdfda6ce6037b6aeaeddba6f5e23b3ab667a82eb7dd1b854cc",
+      "localSha256": "99c0b1acceafe9581682f7731e8f740a737f7c943c54bf31e5745a1a6e14b32f",
+      "changes": [
+        "Relative TypeScript import suffixes use .js for the local compiler.",
+        "The product stable distribution uses latest and does not admit prereleases."
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+    },
+    {
+      "path": "updates/electron-updater/discard.ts",
+      "source": "apps/desktop/src/updates/electron-updater/discard.ts",
+      "sha256": "22c144499f47a68ae2926e62e62377042d8afe454c3eabb7d6f446e447ded1e7",
+      "localSha256": "52c3665f1b82626b4eaa63e08083c1fded58c9e878017cd5beba9d5044f62e5f",
+      "changes": [
+        "Relative TypeScript import suffixes use .js for the local compiler."
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+    },
+    {
+      "path": "update-cleanup-log.ts",
+      "source": "apps/desktop/src/update-cleanup-log.ts",
+      "sha256": "7eb26168873698081de01fcbdf2b5f6533fd7be7e2d5789e44ab3a11c59a4657",
+      "localSha256": "7eb26168873698081de01fcbdf2b5f6533fd7be7e2d5789e44ab3a11c59a4657",
+      "changes": [
+        "Relative TypeScript import suffixes use .js for the local compiler."
+      ],
+      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
     }
   ],
   "licenseSha256": "ebb4f09972aee8608be255debaf78451a68e95c290f55c240dec2ecfa16ea6be"

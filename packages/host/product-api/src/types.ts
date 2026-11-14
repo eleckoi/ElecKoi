@@ -402,6 +402,11 @@ export interface CharacterPersona {
 
 export interface CharacterRecord {
   id: string
+  /** Host-owned local catalog timestamps; zero means historical time is unknown. */
+  addedAtEpochMs?: number
+  editedAtEpochMs?: number
+  authorName?: string
+  authorAvatar?: string
   name?: string
   avatar?: string
   group?: string
@@ -436,7 +441,7 @@ export interface CharacterGroupAssignment {
 }
 
 export type CharacterImportSource = 'eleckoi' | 'sillytavern'
-export type CharacterExportFormat = 'png' | 'json' | 'zip'
+export type CharacterExportFormat = 'png' | 'zip'
 
 export interface CharacterImportFile {
   displayName: string
@@ -467,7 +472,7 @@ export interface CharacterImportResult {
 
 export interface CharacterExportResult {
   fileName: string
-  mimeType: 'image/png' | 'application/json' | 'application/zip'
+  mimeType: 'image/png' | 'application/zip'
   base64: string
 }
 

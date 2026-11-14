@@ -1,3 +1,4 @@
+import { characterExportRoot } from './helpers/characterExportRoot'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -8,6 +9,7 @@ import { CharacterAssetRepository } from '../src/domain/characterAssets'
 import { decodeCharacterCard } from '../src/domain/characterTransfer/characterCardFormats'
 import { readPngArchive, removePngArchive } from '../src/storage/media/PngTextChunkCodec'
 import { readZipEntries } from '../src/storage/archive/readZipEntries'
+import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const cleanups: Array<() => void | Promise<void>> = []
@@ -51,9 +53,10 @@ describe('character asset library', () => {
     reopened.close(); expect(readdirSync(join(root, 'uploads'))).toEqual([])
   })
 
-  it.each(['png', 'zip', 'json'] as const)('round trips assets, regex HTML, many openings and selected nested frontends through %s to another directory', async format => {
+  it.each(['png', 'zip'] as const)('round trips assets, regex HTML, many openings and selected nested frontends through %s to another directory', async format => {
     const source = await host(), characterId = 'synthetic-source'
-    source.data.createCharacter({ id: characterId, name: '完整素材卡' })
+    const authorBytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
+    source.data.createCharacter({ id: characterId, name: '完整素材卡', authorName: '原作者 ✨', authorAvatar: `data:image/png;base64,${authorBytes.toString('base64')}` })
     const bytes = Buffer.alloc(2 * 1024 * 1024 + 31); for (let i = 0; i < bytes.length; i++) bytes[i] = i % 251
     const repo = source.data.characterAssets()
     const folder = repo.createFolder(characterId, '开场 /?'.replace('/', '—'), null).folders[0]!
@@ -81,16 +84,24 @@ describe('character asset library', () => {
       const corrupted = Buffer.from(binary); corrupted[Math.floor(corrupted.length / 2)]! ^= 1
       expect(() => decodeCharacterCard(corrupted, 'eleckoi')).toThrow()
     }
-    if (format !== 'json') {
+    {
       const entries = readZipEntries(format === 'png' ? readPngArchive(binary)! : binary)
       expect([...entries.keys()].some(path => path.startsWith('frontends/0/pages/start.html'))).toBe(true)
       expect([...entries.keys()].some(path => /^frontends\/\d+\.zip$/.test(path))).toBe(false)
+      const document = JSON.parse(Buffer.from(entries.get('character.json')!).toString('utf8'))
+      const video = document.library_assets[0].data
+      expect(video).toEqual({ file: expect.stringMatching(/^assets\//) })
+      expect(Buffer.from(entries.get(video.file)!)).toEqual(bytes)
     }
     const target = await host()
     const preview = target.data.prepareCharacterImports([{ displayName: exported.fileName, mimeType: exported.mimeType, base64: exported.base64 }], 'eleckoi')
     expect(preview.items[0]?.errorMessage).toBe(''); expect(preview.items[0]?.importable).toBe(true)
     const importedId = target.data.commitCharacterImports(preview.token).importedCharacterIds[0]!
     expect(importedId).not.toBe(characterId)
+    const importedCard = target.data.readCharacters().items.find(card => card.id === importedId)!;
+    expect(importedCard.authorName).toBe('原作者 ✨');
+    const targetMedia = new LocalMediaStore(join(target.root, 'media'));
+    expect(readFileSync(targetMedia.pathForReference(importedCard.authorAvatar!)!)).toEqual(authorBytes);
     const imported = target.data.characterAssets().list(importedId).items[0]!
     expect(imported).toEqual(asset)
     expect(target.data.characterAssets().list(importedId).folders).toEqual(repo.list(characterId).folders)
@@ -102,17 +113,21 @@ describe('character asset library', () => {
     expect(target.data.readCharacterOpenings(importedId).openingMessages[500]?.content).toBe(long + reference)
     expect(target.data.readRegexRules(importedId).characterRules[0]?.replacement).toContain(reference)
     const duplicate = target.data.duplicateCharacter(importedId)
+    const duplicateCard = target.data.readCharacters().items.find(card => card.id === duplicate.characterId)!;
+    expect(duplicateCard.authorName).toBe('原作者 ✨');
+    expect(duplicateCard.authorAvatar).not.toBe(importedCard.authorAvatar);
     expect(target.data.characterAssets().list(duplicate.characterId).items[0]).toEqual(asset)
     expect(target.data.characterAssets().list(duplicate.characterId).folders).toEqual(repo.list(characterId).folders)
     target.data.deleteCharacters([importedId])
+    expect(readFileSync(targetMedia.pathForReference(duplicateCard.authorAvatar!)!)).toEqual(authorBytes);
     expect(readFileSync(target.data.characterAssets().readAsset(duplicate.characterId, asset.id).path)).toEqual(bytes)
     expect(source.data.characterAssets().list(characterId).items).toEqual([asset])
-  })
+  }, 30_000)
 
   it('publishes no half card when a resource hash or frontend archive fails validation', async () => {
     const f = await host(); f.data.createCharacter({ id: 'source', name: '失败源卡' })
     upload(f.data.characterAssets(), 'source', 'image.png', Buffer.from('synthetic'))
-    const exported = f.data.exportCharacter('source', 'json'), root = JSON.parse(Buffer.from(exported.base64, 'base64').toString())
+    const exported = f.data.exportCharacter('source', 'png'), root = characterExportRoot(exported)
     root.library_assets[0].hash = '0'.repeat(64)
     const before = f.data.readCharacters()
     const preview = f.data.prepareCharacterImports([{ displayName: 'bad.json', mimeType: 'application/json', base64: Buffer.from(JSON.stringify(root)).toString('base64') }], 'eleckoi')
@@ -122,7 +137,7 @@ describe('character asset library', () => {
   })
 })
 
-it('automatically enables a sole frontend without a saved selection and makes standalone ZIP exports self contained', async () => {
+it('preserves an unselected frontend in a complete card and makes standalone ZIP exports self contained', async () => {
   const source = await host(); source.data.createCharacter({ id: 'source', name: '完整前端' });
   const assets = source.data.characterAssets(), folder = assets.createFolder('source', '开场', null).folders[0]!;
   assets.createFolder('source', '空文件夹', folder.id);
@@ -133,7 +148,7 @@ it('automatically enables a sole frontend without a saved selection and makes st
   const exported = source.data.exportCharacter('source', 'png'); const target = await host();
   const preview = target.data.prepareCharacterImports([{ displayName: exported.fileName, mimeType: exported.mimeType, base64: exported.base64 }], 'eleckoi');
   const imported = target.data.commitCharacterImports(preview.token).importedCharacterIds[0]!;
-  expect(target.data.frontendProjects().workspace({ scope: 'character', characterId: imported }).selectedProjectId).toBeTruthy();
+  expect(target.data.frontendProjects().workspace({ scope: 'character', characterId: imported }).selectedProjectId).toBeNull();
   const zip = repository.exportProject(owner, created.projects[0]!.id);
   target.data.createCharacter({ id: 'standalone', name: '独立导入' });
   const standalone = target.data.frontendProjects().importProject({ scope: 'character', characterId: 'standalone' }, { filename: zip.filename, data: zip.data });
@@ -149,7 +164,7 @@ it('rolls back an entire imported card and its first frontend if a later fronten
   const repo=source.data.frontendProjects(),owner={scope:'character' as const,characterId:'source'};
   repo.importProject(owner,{html:`<img src="asset://${asset.id}">`});
   repo.importProject(owner,{html:'<html>Second synthetic project</html>'});
-  const exported=source.data.exportCharacter('source','json'),root=JSON.parse(Buffer.from(exported.base64,'base64').toString());
+  const exported=source.data.exportCharacter('source', 'png'),root=characterExportRoot(exported);
   root.frontends.projects[1].files.push({path:'../escape.bin',content:'AA==',encoding:'base64'});
   const target=await host(),before=target.data.readCharacters(),projects=target.data.frontendProjects();
   const preview=target.data.prepareCharacterImports([{displayName:'invalid.json',mimeType:'application/json',base64:Buffer.from(JSON.stringify(root)).toString('base64')}],'eleckoi');

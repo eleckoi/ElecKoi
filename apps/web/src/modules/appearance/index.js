@@ -1,4 +1,3 @@
-export { ThemePaletteModal } from "./components/ThemePaletteModal.jsx";
 export {
   applyAppearanceMode,
   initializeAppearanceMode,

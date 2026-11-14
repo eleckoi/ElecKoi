@@ -1,10 +1,12 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { initProfile, loadProfileDirectory, readProfileManifest, writeProfileBundles } from '@deepseek-ai/dsh-app-boot'
 import { OPTIONAL_BUNDLES, PROFILE_TEMPLATES } from '@deepseek-ai/dsh-official-bundles'
 import { describe, expect, it } from 'vitest'
 import { ELECKOI_DESKTOP_BUNDLES, ELECKOI_DESKTOP_RECOVERY_BUNDLES, ELECKOI_INSTALL_ANCHOR, registerDesktopBundles } from '@eleckoi/desktop-host'
+const require = createRequire(import.meta.url)
 
 describe('desktop bundle registration', () => {
   it.each([0, 7, 8])('leaves automatic illustration disabled until explicitly selected: profile v%s', version => {
@@ -51,7 +53,7 @@ describe('desktop bundle registration', () => {
     const runtime = JSON.parse(readFileSync('packages/host/runtime/package.json', 'utf8'))
     const desktop = JSON.parse(readFileSync('package.json', 'utf8'))
     for (const name of OPTIONAL_BUNDLES) {
-      expect(runtime.dependencies[name]).toBe('0.2.2-rc.1')
+      expect(runtime.dependencies[name]).toBe('0.2.2-rc.3')
       expect(desktop.dependencies[name]).toBe(runtime.dependencies[name])
     }
     const root = mkdtempSync(join(tmpdir(), 'eleckoi-optional-bundles-'))
@@ -63,8 +65,13 @@ describe('desktop bundle registration', () => {
       expect(selected.filter(name => OPTIONAL_BUNDLES.includes(name))).toEqual([])
       writeProfileBundles(root, manifest, [...selected, ...OPTIONAL_BUNDLES])
       const profile = loadProfileDirectory('dsh', root, ELECKOI_INSTALL_ANCHOR)
-      expect(profile.skippedBundles).toEqual([])
-      expect(profile.layers.map(layer => layer.packageName)).toEqual(expect.arrayContaining([...OPTIONAL_BUNDLES]))
+      const unsupported = OPTIONAL_BUNDLES.filter(name => {
+        const platforms = require(`${name}/package.json`).dsh?.bundle?.platforms as string[] | undefined
+        return platforms !== undefined && !platforms.includes(process.platform)
+      })
+      expect(profile.skippedBundles.map(bundle => bundle.packageName)).toEqual(unsupported)
+      expect(profile.skippedBundles.every(bundle => bundle.reason.startsWith('UnsupportedBundlePlatformError:'))).toBe(true)
+      expect(profile.layers.map(layer => layer.packageName)).toEqual(expect.arrayContaining(OPTIONAL_BUNDLES.filter(name => !unsupported.includes(name))))
     } finally { rmSync(root, { recursive: true, force: true }) }
   }, 30_000)
   it('registers core bundles once and preserves existing selections and user patches', () => {

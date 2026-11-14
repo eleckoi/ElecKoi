@@ -1,7 +1,7 @@
 import { useProductTranslation } from "../i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChatSessions } from "../../modules/chat/index.js";
 import { getModelMeta, useModelRuntime } from "../../modules/models/index.js";
 import { usePersonaCharacters } from "../../modules/persona/index.js";
@@ -18,16 +18,14 @@ export function useChatClient({ conversations, characters: characterCatalog, mod
   const [meta, setMeta] = useState(null);
   const [status, setStatus] = useState(tUi("就绪"));
   const [notice, setNotice] = useState(null);
+  const noticeSequence = useRef(0);
 
   // `failure` 是可选的结构化失败（`resolveFailure` 的产物）：错误对话框要显示码与详情，
   // 只给一句话会把码丢掉。
   function notify(type, message, failure = null) {
-    const id = Date.now();
+    const id = ++noticeSequence.current;
     setNotice({ id, type, message, failure });
-    if (type === "error") return;
-    window.setTimeout(() => {
-      setNotice((current) => (current?.id === id ? null : current));
-    }, 3200);
+    // Official Toast owns its hold, fade and completion; errors remain until dismissed.
   }
 
   const dismissNotice = useCallback(() => setNotice(null), []);

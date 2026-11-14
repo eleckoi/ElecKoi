@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { readFile } from 'node:fs/promises'
-import { app, BrowserWindow, ipcMain, nativeTheme, net, protocol, screen, session, shell, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, protocol, screen, session, shell, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from 'electron'
 import { windowsAppUserModelId } from './windowsAppIdentity'
 import type { Context, Plugin } from '@deepseek-ai/cordis'
 import { assertTrustedDshClientFrame, isAllowedExternalUrl, isAppRendererUrl, isDshAppUrl, isDshChildUrl } from './validateSender'
@@ -11,7 +11,7 @@ import { installWindowsNativeFrame } from './windowsNativeFrame'
 import { DesktopBrowserGuests } from './desktopBrowserGuests'
 import { installMainWindowConsole } from './mainWindowConsole'
 import { editorWindowSize, isEditorFrame, MAIN_WINDOW_SIZE, matchEditorWindowSize } from './editorWindowSizing'
-import { authenticateDshClientHost, DSH_CLIENT_ORIGIN, forwardDshClientRequest, isDshClientAsset, serveDshClientAsset } from './dshClientDocument'
+import { authenticateDshClientHost, DSH_CLIENT_ORIGIN, forwardDshClientRequest, isDshClientAsset, removeLegacyDshHostCookies, serveDshClientAsset } from './dshClientDocument'
 import { DESKTOP_SHELL_IPC } from '@shared/contracts/desktopShell'
 import { LOG_ACTIONS } from '@shared/contracts/logActions'
 import { foldFailure } from '@shared/foundation/failure'
@@ -47,6 +47,8 @@ export const mainWindowPlugin = {
       pluginHostReady = undefined
       const restarted = await runPluginHostStart()
       pluginHostReady = { ...restarted, cookie: await authenticateDshClientHost(restarted.url) }
+      void removeLegacyDshHostCookies(session.defaultSession.cookies, restarted.url)
+        .catch((error: unknown) => { console.error('desktop: legacy Host cookie cleanup failed', error) })
       if (fileDragStopped) { disposeFileDrag = startFileDrag(); fileDragStopped = false }
       for (const window of windows.all()) window.webContents.reload()
     }, async () => {
@@ -82,7 +84,7 @@ export const mainWindowPlugin = {
       assertNativeOwner(event)
       const ready = pluginHostReady
       if (!ready) throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, '语言服务尚未就绪。', { what: '语言服务' })
-      const backend = await connectDesktopWelcome(ready.url, (url, init) => net.fetch(url, init))
+      const backend = connectDesktopWelcome(ready.url, ready.cookie)
       return { languages: app.getPreferredSystemLanguages(), preference: await backend.readLocalePreference() }
     })
     const localeChanged = (event: Electron.IpcMainEvent, language: unknown): void => {
@@ -145,7 +147,7 @@ export const mainWindowPlugin = {
       if (url.hostname === 'shell') {
         const name = url.pathname.slice(1)
         const types: Record<string, string> = { 'update-dialog.html': 'text/html', 'update-dialog.js': 'text/javascript',
-          'update-dialog.css': 'text/css', 'design-platform.css': 'text/css', 'shell-theme.js': 'text/javascript', 'update-close.svg': 'image/svg+xml' }
+          'update-dialog.css': 'text/css', 'design-platform.css': 'text/css', 'scrollbar.css': 'text/css', 'shell-theme.js': 'text/javascript', 'update-close.svg': 'image/svg+xml' }
         if (!Object.hasOwn(types, name)) return new Response(null, { status: 404 })
         return new Response(await readFile(appPaths.resolveResource('shell', name)), { headers: { 'content-type': types[name]! } })
       }
@@ -293,6 +295,8 @@ export const mainWindowPlugin = {
 
     const ready = await runPluginHostStart()
     pluginHostReady = { ...ready, cookie: await authenticateDshClientHost(ready.url) }
+    void removeLegacyDshHostCookies(session.defaultSession.cookies, ready.url)
+      .catch((error: unknown) => { console.error('desktop: legacy Host cookie cleanup failed', error) })
     await windows.open('main')
     return async () => {
       await disposeFileDrag()

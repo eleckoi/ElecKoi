@@ -29,7 +29,7 @@ export const updateStatusSchema = z.object({
   downloadSizeBytes: z.number().nonnegative().nullable(),
   progress: updateProgressSchema.nullable(),
   message: z.string().nullable(),
-  failedOperation: z.enum(['check', 'download', 'install']).optional()
+  failedOperation: z.enum(['check', 'download', 'install', 'configuration']).optional()
 })
 
 export const updateInstallResultSchema = z.object({

@@ -1,14 +1,3 @@
-export function ElecKoiPromptMarkerIcon({ size = 15, className }) {
-  return (
-    <svg width={size} height={size} className={className} viewBox="0 0 512 512" fill="none" aria-hidden="true">
-      <path
-        d="M96 32Q96 18 105 9Q114 0 128 0H384Q398 0 407 9Q416 18 416 32Q416 46 407 55Q398 64 384 64H355L366 212Q423 243 445 307L446 310Q451 325 442 339Q432 352 416 352H96Q80 352 70 339Q61 325 66 310L67 307Q89 243 146 212L158 64H128Q114 64 105 55Q96 46 96 32ZM224 384H288H224H288V480Q288 494 279 503Q270 512 256 512Q242 512 233 503Q224 494 224 480V384Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
-
 export function ElecKoiSettingEntryIcon({ size = 18, className }) {
   return (
     <svg

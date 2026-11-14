@@ -100,14 +100,14 @@ export function selectedVariableNode(config, key) {
   return { kind: "", value: null };
 }
 
-export function nextTreeOrder(config, parentId) {
+function nextTreeOrder(config, parentId) {
   return 1 + Math.max(0,
     ...config.objects.filter((item) => item.parentId === parentId && item.id !== VARIABLE_INITIALIZATION_OBJECT_ID).map((item) => item.treeViewOrder),
     ...config.variables.filter((item) => item.objectId === parentId).map((item) => item.treeViewOrder),
   );
 }
 
-export function descendantsOf(config, objectId) {
+function descendantsOf(config, objectId) {
   const ids = new Set([objectId]);
   let changed = true;
   while (changed) {

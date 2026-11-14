@@ -74,6 +74,19 @@ export async function authenticateDshClientHost(url: string): Promise<string> {
   return end < 0 ? cookie : cookie.slice(0, end)
 }
 
+/** Remove authentication cookies left by the former native locale request. */
+export async function removeLegacyDshHostCookies(cookies: {
+  get(filter: { url: string }): Promise<readonly { readonly name: string }[]>
+  remove(url: string, name: string): Promise<void>
+}, url: string): Promise<void> {
+  // RETIRE WHEN: the pinned upstream removes legacy Host cookie cleanup;
+  // remove this function, its startup calls and dedicated regression together.
+  const origin = new URL(url).origin
+  for (const { name } of await cookies.get({ url: origin })) {
+    if (name.startsWith('dsh-auth-')) await cookies.remove(origin, name)
+  }
+}
+
 export async function forwardDshClientRequest(request: Request, host: string, cookie: string): Promise<Response> {
   const source = new URL(request.url)
   const origin = request.headers.get('origin')

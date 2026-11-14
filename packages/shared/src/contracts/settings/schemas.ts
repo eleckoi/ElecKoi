@@ -16,6 +16,8 @@ export const listCollapseStateSchema = z.object({
   plugins: collapsedGroupMapSchema.optional()
 })
 export const appearanceUiPreferencesSchema = z.object({
+    desktop_character_sort: z.enum(['default', 'newest', 'oldest', 'edited', 'name']).optional(),
+  mobile_character_sort: z.enum(['default', 'newest', 'oldest', 'edited', 'name']).optional(),
   sidebar_character_artwork: sidebarCharacterArtworkSchema.optional(),
   new_character_background: newCharacterBackgroundSchema.optional(),
   conversation_content_width: z.number().finite().positive().optional(),

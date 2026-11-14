@@ -4,7 +4,7 @@ import { loadLayeredEnv, loadProfileDirectory, reportSkippedBundles } from '@dee
 import { runProfile } from '@deepseek-ai/dsh/profile-boot'
 import { retireDeepSeekExtensionSelection } from '@eleckoi/dsh-client-web-search/profile'
 import { ELECKOI_INSTALL_ANCHOR } from './desktopPluginBundles'
-import { installWebClientAssets, repairRequestContextLogs, recoverStartupSessions } from '@eleckoi/dsh-runtime'
+import { installWebClientAssets, repairRequestContextLogs, recoverStartupSessions, formatHostDiagnostic } from '@eleckoi/dsh-runtime'
 import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-jobs'
 import { Peer } from '@deepseek-ai/dsh-client-connection'
@@ -196,7 +196,7 @@ void main().catch(async error => {
     details: failure.details as Readonly<Record<string, unknown>>,
     ...error instanceof Error && typeof error.stack === 'string' ? { stack: error.stack } : {}
   }).catch(() => undefined)
-  console.error(error)
+  console.error(formatHostDiagnostic(error))
   process.exitCode = 1
   if (process.connected) process.disconnect?.()
 })

@@ -1,4 +1,11 @@
 {
+  "角色信息": "Información del personaje",
+  "作者信息": "Información del autor",
+  "作者名字": "Nombre del autor",
+  "选择作者头像": "Elegir avatar del autor",
+  "调整作者头像": "Ajustar avatar del autor",
+  "预览角色卡": "Vista previa de la tarjeta",
+  "展示内容": "Contenido mostrado",
   "创建设定文件夹": "Crear carpeta de ambientación",
   "移动设定": "Mover ambientación",
   "移动设定文件夹": "Mover carpeta de ambientación",
@@ -3370,5 +3377,18 @@
   "最新导入": "Más recientes",
   "最早导入": "Más antiguos",
   "打开所在目录": "Abrir directorio contenedor",
-  "资产库操作": "Acciones de la biblioteca de recursos"
+  "资产库操作": "Acciones de la biblioteca de recursos",
+  "查看技术详情": "Ver detalles técnicos",
+  "默认顺序": "Orden predeterminado",
+  "最近导入": "Importados recientemente",
+  "最近编辑": "Editados recientemente",
+  "我的分组": "Mis grupos",
+  "进入编辑": "Editar",
+  "完成编辑": "Listo",
+  "长按拖动排序": "Mantén pulsado para ordenar",
+  "角色卡排序": "Ordenar personajes",
+  "关闭分组面板": "Cerrar panel de grupos",
+  "分组 {value0}，长按拖动，点击改名": "Grupo {value0}, mantén pulsado para ordenar, toca para renombrar",
+  "删除“{value0}”分组，角色卡保留。": "Eliminar el grupo «{value0}». Se conservarán las tarjetas.",
+  "移动角色": "Mover personajes"
 }

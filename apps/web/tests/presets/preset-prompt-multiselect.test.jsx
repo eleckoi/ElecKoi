@@ -31,16 +31,16 @@ it.each(['creator', 'roleplay'])('keeps familiar prompt controls while limiting 
   await click(button('新建'));
   expect(Boolean([...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent === 'EJS引用设定'))).toBe(purpose === 'roleplay');
   await click(document.querySelector('[role="treeitem"]'));
-  const tab = label => [...document.querySelectorAll('.setting-library-entry-tabs button')].find(item => item.textContent.endsWith(label));
-  await click(tab('触发'));
-  expect(button('Agent 读取').getAttribute('aria-checked')).toBe('true');
+  const tab = label => [...document.querySelectorAll('[role=tab]')].find(item => item.textContent.endsWith(label));
+  await click(tab('设置'));
+  expect(button('Agent 读取').getAttribute('aria-selected')).toBe('true');
   expect(button('提示词常驻')).toBeTruthy();
   expect(Boolean(document.querySelector('[aria-label="关键词命中"]'))).toBe(purpose === 'roleplay');
   await click(button('必读')); expect(draft.entries[0].agentReadStrategy).toBe('required');
   await click(button('选读')); expect(draft.entries[0].agentReadStrategy).toBe('normal');
   await click(tab('正文'));
-  expect(Boolean(document.querySelector('[aria-label="正文格式"]'))).toBe(purpose === 'roleplay');
-  await click(tab('触发')); await click(button('提示词常驻'));
+  expect(Boolean(document.querySelector('.setting-format-button[title="正文格式"]'))).toBe(purpose === 'roleplay');
+  await click(tab('设置')); await click(button('提示词常驻'));
   expect(draft.entries[0].triggerMode).toBe('always');
   expect(document.querySelector('[aria-label="读取策略"]')).toBeNull();
 });
@@ -67,14 +67,14 @@ it('right-clicks preset prompts without opening or replacing the editor and keep
     await act(async () => row.dispatchEvent(new MouseEvent('mousedown', { button: 2, bubbles: true })));
     await act(async () => row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 24, clientY: 24 })));
   };
-  await right(rows()[1]); expect(document.querySelector('[aria-label="设定编辑器"]')).toBeNull();
+  await right(rows()[1]); expect(document.querySelector('.editor-sidebar-pane.setting-document')).toBeNull();
   await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true, composed: true })));
-  await click(rows()[0]); const inspector = document.querySelector('[aria-label="设定编辑器"]');
-  await right(rows()[1]); expect(document.querySelector('[aria-label="设定编辑器"]')).toBe(inspector);
+  await click(rows()[0]); const inspector = document.querySelector('.editor-sidebar-pane.setting-document');
+  await right(rows()[1]); expect(document.querySelector('.editor-sidebar-pane.setting-document')).toBe(inspector);
   expect(inspector.querySelector('input[placeholder="条目标题/待命名"]').value).toBe('合成第一提示词');
   await click([...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent.trim() === '删除'));
   expect(draft.entries.map(item => item.id)).toEqual(['first']);
-  expect(document.querySelector('[aria-label="设定编辑器"]')).toBe(inspector);
+  expect(document.querySelector('.editor-sidebar-pane.setting-document')).toBe(inspector);
 });
 
 it.each([true, false])('selects, copies and deletes prompt subtrees without duplicating descendants or affecting fixed entries (compact=%s)', async compact => {

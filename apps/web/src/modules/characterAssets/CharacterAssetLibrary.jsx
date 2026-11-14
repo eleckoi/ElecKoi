@@ -2,6 +2,7 @@ import { DesktopError } from '@shared/foundation/DesktopError';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image as ImageIcon, FilmStrip, MusicNote, Cube, Plus, ArrowSquareIn, ArrowSquareOut, MagnifyingGlass, SquaresFour, ListBullets, DotsThree, Copy, LinkSimple, PencilSimple, Trash, DownloadSimple, Check, X, CaretLeft, CaretRight, ListChecks, Eye, FolderOpen } from '../../ui/icons/interfaceIcons.jsx';
+import { AppToast } from '../../ui/ui/AppToast.jsx';
 import { SystemBarOverlay } from '../../ui/ui/SystemBarOverlay.jsx';
 import { useEditorPresentation } from '../../ui/ui/EditorPresentationContext.jsx';
 import { EditorContextMenu, useEditorContextMenu } from '../../ui/ui/EditorContextMenu.jsx';
@@ -39,7 +40,8 @@ export function CharacterAssetLibrary({ characterId }) {
   const [sort, setSort] = useState('newest'), [formats, setFormats] = useState([]), [size, setSize] = useState('medium');
   const [selecting, setSelecting] = useState(false), [selected, setSelected] = useState([]);
   const [menu, setMenu] = useState(null), [modal, setModal] = useState(null), [draft, setDraft] = useState('');
-  const [notice, setNotice] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const noticeSequence = useRef(0);
   const upload = useRef(null), modalInput = useRef(null), dialogRef = useRef(null), working = useRef(false), alive = useRef(true);
   const currentFolder = folders.find(folder => folder.id === folderId);
   const contents = useMemo(() => {
@@ -60,7 +62,6 @@ export function CharacterAssetLibrary({ characterId }) {
   for (let current = currentFolder; current; current = folders.find(folder => folder.id === current.parentId)) crumbs.unshift(current);
   const parts = ids => [ids.filter(id => items.some(item => item.id === id)), ids.filter(id => folders.some(folder => folder.id === id))];
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 2400); return () => clearTimeout(timer); }, [notice]);
   useEffect(() => { if (['rename', 'newFolder', 'renameFolder'].includes(modal?.kind)) modalInput.current?.focus(); }, [modal]);
   const closeLayer = () => { if (busy) return false; if (context.menu) context.close(); else if (modal) setModal(null); else if (menu) setMenu(null); else if (selecting) { setSelecting(false); setSelected([]); } else if (folderId) { enterFolder(currentFolder?.parentId ?? null); } else return false; return true; };
   useEffect(() => registerBackHandler?.(closeLayer), [registerBackHandler, context.menu, modal, menu, selecting, busy, folderId]);
@@ -90,7 +91,7 @@ export function CharacterAssetLibrary({ characterId }) {
   }
   function enterFolder(id) { if (busy) return; context.close(); setFolderId(id); setQuery(''); setMenu(null); setSelected([]); setSelecting(false); }
   function toggle(id) { setSelected(all => all.includes(id) ? all.filter(value => value !== id) : [...all,id]); }
-  function message(text) { if (alive.current) { setNotice(text); setMenu(null); } }
+  function message(text) { if (alive.current) { setNotice({ id: ++noticeSequence.current, type: 'success', message: text }); setMenu(null); } }
   function beginModal(kind,item) { context.close(); setMenu(null); setDraft(kind === 'newFolder' ? tUi('未命名文件夹') : ['rename', 'renameFolder'].includes(kind) ? [...items, ...folders].find(value => value.id === item)?.name || '' : ''); setModal({kind,item}); }
   async function copyReference(list) {
     const text = list.map(item => characterAssetReference(item.id)).join('\n');
@@ -147,7 +148,7 @@ export function CharacterAssetLibrary({ characterId }) {
       { label: tUi('导入文件'), icon: ArrowSquareIn, disabled: busy, run: openUpload },
       { label: tUi('新建文件夹'), icon: NewFolderIcon, disabled: busy, run: () => beginModal('newFolder') },
     ]} />}
-    {notice && <div className="toast" role="status"><Check size={16} />{notice}</div>}
+    <AppToast notice={notice} onDismiss={() => setNotice(null)} />
     {modal && <SystemBarOverlay className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setModal(null); }}><section role="dialog" aria-modal="true" aria-label={tUi(modal.kind === 'preview' ? '资产预览' : modal.kind === 'reference' ? '资产引用' : modal.kind === 'newFolder' ? '新建文件夹' : modal.kind === 'move' ? '移动到' : ['rename', 'renameFolder'].includes(modal.kind) ? '重命名' : '删除资产')} ref={dialogRef} className={`modal ${modal.kind === 'preview' ? 'preview-dialog' : ''}`}>
       <header className="modal-heading"><h2>{modal.kind === 'preview' || modal.kind === 'reference' ? focused?.name : tUi(modal.kind === 'newFolder' ? '新建文件夹' : modal.kind === 'move' ? '移动到' : ['rename', 'renameFolder'].includes(modal.kind) ? '重命名' : '删除资产')}</h2><IconButton Icon={X} label={tUi('关闭弹窗')} onClick={() => setModal(null)} /></header>
       {modal.kind === 'preview' && focused && <div className="preview-layout"><div className="preview-stage">{previewBody(focused)}</div><aside className="preview-details"><dl><div><dt>{tUi('类型')}</dt><dd>{tUi(types.find(t => t.id === focused.type)?.label)}</dd></div><div><dt>{tUi('大小')}</dt><dd>{fileSize(focused.size)}</dd></div>{focused.dimensions && <div><dt>{tUi('尺寸')}</dt><dd>{focused.dimensions}</dd></div>}</dl><label className="reference-field">{tUi('引用')}<input aria-label={tUi('资产引用地址')} value={`asset://${focused.id}`} readOnly /></label><div className="preview-actions"><button type="button" className="button primary" onClick={() => copyReference([focused])}><LinkSimple size={17} />{tUi('复制引用')}</button><button type="button" className="button" onClick={() => download(focused)}><DownloadSimple size={17} />{tUi('下载')}</button></div></aside></div>}

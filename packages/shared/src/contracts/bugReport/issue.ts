@@ -166,6 +166,9 @@ export function formatBugReportIssueBody(report: BugReport): string {
     )
   }
 
+  if (report.runtimeDiagnostics !== undefined && report.runtimeDiagnostics !== '') {
+    lines.push('', '<details>', '<summary>运行诊断（按容量保留，已脱敏）</summary>', '', fenced(report.runtimeDiagnostics), '', '</details>')
+  }
   if (report.notes !== undefined && report.notes.trim() !== '') {
     lines.push('', `**备注**：${report.notes.trim()}`)
   }

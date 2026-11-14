@@ -1,4 +1,11 @@
 {
+  "角色信息": "Charakterinformationen",
+  "作者信息": "Autoreninformationen",
+  "作者名字": "Autorenname",
+  "选择作者头像": "Autorenavatar auswählen",
+  "调整作者头像": "Autorenavatar anpassen",
+  "预览角色卡": "Charakterkarte ansehen",
+  "展示内容": "Anzeigeinhalt",
   "创建设定文件夹": "Kontextordner erstellen",
   "移动设定": "Kontext verschieben",
   "移动设定文件夹": "Kontextordner verschieben",
@@ -3370,5 +3377,18 @@
   "最新导入": "Neueste zuerst",
   "最早导入": "Älteste zuerst",
   "打开所在目录": "Übergeordnetes Verzeichnis öffnen",
-  "资产库操作": "Aktionen der Asset-Bibliothek"
+  "资产库操作": "Aktionen der Asset-Bibliothek",
+  "查看技术详情": "Technische Details anzeigen",
+  "默认顺序": "Standardreihenfolge",
+  "最近导入": "Zuletzt importiert",
+  "最近编辑": "Zuletzt bearbeitet",
+  "我的分组": "Meine Gruppen",
+  "进入编辑": "Bearbeiten",
+  "完成编辑": "Fertig",
+  "长按拖动排序": "Zum Sortieren gedrückt halten",
+  "角色卡排序": "Charaktere sortieren",
+  "关闭分组面板": "Gruppenbereich schließen",
+  "分组 {value0}，长按拖动，点击改名": "Gruppe {value0}, gedrückt halten zum Sortieren, antippen zum Umbenennen",
+  "删除“{value0}”分组，角色卡保留。": "Gruppe „{value0}“ löschen. Die Charakterkarten bleiben erhalten.",
+  "移动角色": "Charaktere verschieben"
 }

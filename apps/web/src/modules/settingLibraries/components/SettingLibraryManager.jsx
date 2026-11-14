@@ -5,7 +5,7 @@ import { EditorManagementModal } from '../../../ui/ui/EditorCollectionControls.j
 import { EditorVersionManager } from '../../../ui/ui/EditorVersionManager.jsx';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowsMerge, CaretRight, Check, FileText, FolderOpen, Minus, UserCircle } from "../../../ui/icons/interfaceIcons.jsx";
-import { ExportIcon, ImportIcon } from "../../../ui/icons/index.jsx";
+import { ImportIcon } from "../../../ui/icons/index.jsx";
 import {
   createLibraryVersion,
   deleteActiveLibraryVersion,
@@ -126,7 +126,6 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
   const [dialog, setDialog] = useState("");
   const [notice, setNotice] = useState("");
   const [sources, setSources] = useState([]);
-  const [loadingSources, setLoadingSources] = useState(false);
   const [source, setSource] = useState(null);
   const [versionId, setVersionId] = useState("");
   const [checkedIds, setCheckedIds] = useState(new Set());
@@ -143,7 +142,6 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
   useEffect(() => {
     if (page !== "sources") return undefined;
     let alive = true;
-    setLoadingSources(true);
     const ownVersions = current.versions.filter((version) => version.id !== current.activeVersionId);
     setSources([{ id: "__self__", name: "当前角色 · 其他版本", versions: ownVersions }]);
     settingLibraries.listCharacters().then(async (collection) => {
@@ -161,7 +159,7 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
         { id: "__self__", name: `${character?.name || character?.persona?.assistant_name || "当前角色"} · 其他版本`, versions: ownVersions },
         ...others.filter(Boolean),
       ]);
-    }).catch((cause) => alive && onError(resolveFailure(cause, { fallback: tUi("读取导入来源失败") }).text)).finally(() => alive && setLoadingSources(false));
+    }).catch((cause) => alive && onError(resolveFailure(cause, { fallback: tUi("读取导入来源失败") }).text));
     return () => { alive = false; };
   }, [page, characterId, settingLibraries]);
 

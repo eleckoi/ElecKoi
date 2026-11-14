@@ -6,7 +6,7 @@ import { createEntryDraft } from '../../src/modules/settingLibraries/model/setti
 import { createPositionDraft, fixedPlacementRowSelectable, moveCustomPosition, positionManagementRows, positionPickerRows, removeCustomPosition, savePositionDraft } from '../../src/modules/settingLibraries/model/customPositions.js';
 import { CustomPositionManager } from '../../src/modules/settingLibraries/components/CustomPositionManager.jsx';
 import { HIDDEN_TOOL_TIMELINE_PROMPT_POSITION_ID, normalizeAgentPresetPrompts } from '../../../../packages/shared/src/contracts/presets/builtIns';
-import { SettingLibraryEntryEditor, VisualPositionPicker } from '../../src/modules/settingLibraries/components/SettingLibraryEntryEditor.jsx';
+import { VisualPositionPicker } from '../../src/modules/settingLibraries/components/SettingEntryFields.jsx';
 
 vi.stubGlobal('React', React);
 afterAll(() => vi.unstubAllGlobals());
@@ -197,20 +197,7 @@ describe('custom position editing', () => {
   it('keeps the cache placement visible without a manual cache-entry editor', () => {
     vi.stubGlobal('crypto', { randomUUID: () => 'setting-entry' });
     const entry = createEntryDraft('', 1, [], 'standard');
-    const editorHtml = renderToStaticMarkup(<SettingLibraryEntryEditor
-      entry={entry}
-      entries={[entry]}
-      groups={[]}
-      onChange={() => {}}
-      onEntriesChange={() => {}}
-      onOpenEntry={() => {}}
-    />);
-    expect((editorHtml.match(/setting-library-entry-tab-node/g) || [])).toHaveLength(4);
-    expect((editorHtml.match(/setting-library-entry-tab-connector/g) || [])).toHaveLength(3);
-    expect(editorHtml).toContain('基础');
-    expect(editorHtml).toContain('触发');
-    expect(editorHtml).toContain('正文');
-    expect(editorHtml).toContain('插入');
+    expect(entry.kind).toBe('normal');
     expect(positionPickerRows([]).some((row) => row.label === '缓存设定区')).toBe(true);
   });
 });

@@ -14,7 +14,7 @@ export function adaptTrajectorySnapshot(official, outcomes, inputIdentities) {
     const input = inputs.get(link.inputEventSeq);
     if (input?.messageId !== link.inputMessageId) continue;
     turnLabels.set(link.turn, input.round);
-    if (link.kind !== 'subagent') inputTurns.set(link.inputEventSeq, link.turn);
+    inputTurns.set(link.inputEventSeq, link.turn);
   }
   return {
     ...official,

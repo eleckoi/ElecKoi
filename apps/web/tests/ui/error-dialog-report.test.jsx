@@ -219,7 +219,7 @@ describe("错误对话框里的报告入口", () => {
     const onReportProblem = vi.fn();
     await mount(<AppToast notice={{ id: 8, type: "info", message: "已保存" }} onReportProblem={onReportProblem} />);
 
-    expect(document.querySelector(".app-toast")).not.toBeNull();
+    expect(document.querySelector("[role=alert]")).not.toBeNull();
     expect(buttonByText("报告问题")).toBeUndefined();
     expect(onReportProblem).not.toHaveBeenCalled();
   });

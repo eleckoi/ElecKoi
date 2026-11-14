@@ -27,7 +27,7 @@ export function VariableEntryIcon({ type = "", size = 17, className = "" }) {
   return <Icon size={size} className={className} aria-hidden="true" />;
 }
 
-export function VariableTreeNode({ item, data, itemProps, style, level, isSelected, isExpanded, isDropTarget, isDragging }) {
+function VariableTreeNode({ item, data, itemProps, style, level, isSelected, isExpanded, isDropTarget, isDragging }) {
   const tUi = useProductTranslation();
   const actions = useContext(VariableTreeActionsContext);
 

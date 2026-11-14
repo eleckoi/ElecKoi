@@ -40,8 +40,8 @@ describe('Android unified save notifications', () => {
   it('uses the existing success toast without adding anything next to the save button', async () => {
     await render({ notice: 'saved', successMessage: '角色配置已保存' });
     expect(container.querySelector('header').textContent).toBe('保存');
-    expect(container.querySelector('.app-toast.success [aria-hidden=true]')).not.toBeNull();
-    expect(container.querySelector('.app-toast.success').textContent).toBe('角色配置已保存');
+    expect(document.querySelector('[role=alert] [aria-hidden=true]')).not.toBeNull();
+    expect(document.querySelector('[role=alert]').textContent).toBe('角色配置已保存');
     expect(notifications).toHaveBeenCalledExactlyOnceWith('success', '角色配置已保存');
   });
 
@@ -60,10 +60,10 @@ describe('Android unified save notifications', () => {
     expect(notifications).toHaveBeenCalledExactlyOnceWith('error', error);
     expect(container.querySelector('header').textContent).toBe('保存');
     expect(document.querySelector('.app-error-detail').textContent).toBe(error);
-    expect(document.querySelector('.app-toast.success')).toBeNull();
+    expect(document.querySelector('[role=alert]')).toBeNull();
     await act(async () => document.querySelector('[aria-label="关闭错误详情"]').click());
     await render({ error, notice: 'saved' });
-    expect(document.querySelector('[role=alertdialog]')).toBeNull();
+    expect(document.querySelector('[role=dialog]')).toBeNull();
     expect(notifications).toHaveBeenCalledTimes(1);
   });
 });

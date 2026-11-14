@@ -49,7 +49,8 @@ it('automatically offers an available version once and waits for download author
   const f = setup()
   const pending = prompts!.notify(f.service)
   expect(fixture.active.options.message).toContain('0.2.21')
-  expect(fixture.active.options.detail).toContain('Synthetic release notes')
+  expect(fixture.active.options.releaseNotes).toBe('Synthetic release notes')
+  expect(fixture.active.options.detail).not.toContain('Synthetic release notes')
   expect(f.updates.download).not.toHaveBeenCalled()
   fixture.active.finish(1); await pending
   await prompts!.notify(f.service)

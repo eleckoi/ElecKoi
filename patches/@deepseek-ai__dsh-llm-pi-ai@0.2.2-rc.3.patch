@@ -1,0 +1,106 @@
+diff --git a/lib/index.js b/lib/index.js
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -2142,6 +2142,7 @@
+ 				const iterator = toStreamChunks(snapshot.models.streamSimple(model, context, {
+ 					...profileOptions(profile, reasoning, apiKey),
+ 					...options.temperature === void 0 ? {} : { temperature: options.temperature },
++					...options.topP === void 0 ? {} : { topP: options.topP },
+ 					...options.maxTokens === void 0 ? {} : { maxTokens: options.maxTokens },
+ 					...options.sessionId === void 0 ? {} : { sessionId: String(options.sessionId) },
+ 					signal: watchdog.signal,
+@@ -2592,45 +2593,58 @@
+ 	if (request.baseURL === void 0 || request.baseURL.length === 0) throw new LlmError(`pi-ai ships no catalog for provider "${request.provider ?? ""}", so its models can only come from its endpoint; set a baseURL, or enter this provider's models by hand`, "DISCOVERY_FAILED");
+ 	const api = request.api ?? "openai-completions";
+ 	if (!LISTABLE_PROTOCOLS.has(api)) throw new LlmError(`pi-ai protocol "${api}" has no model listing this build can read; enter this provider's models by hand`, "DISCOVERY_UNSUPPORTED");
+-	const url = listingUrl(request.baseURL, api);
++	let url = listingUrl(request.baseURL, api);
+ 	const stored = storedProfile?.();
+ 	const supplied = request.apiKey ?? await stored?.resolveApiKey();
+ 	const apiKey = supplied === void 0 ? void 0 : usableProbeKey(supplied);
+-	let response;
+-	try {
+-		const headers = new Headers(stored?.headers === void 0 ? void 0 : Object.entries(stored.headers));
+-		headers.set("accept", "application/json");
+-		if (api === "anthropic-messages") {
+-			headers.set("anthropic-version", ANTHROPIC_VERSION);
+-			if (apiKey !== void 0) headers.set("x-api-key", apiKey);
+-		} else if (api === "google-generative-ai") {
+-			if (apiKey !== void 0) headers.set("x-goog-api-key", apiKey);
+-		} else if (apiKey !== void 0) headers.set("authorization", `Bearer ${apiKey}`);
+-		for (const [name, value] of Object.entries(attributionHeaders())) headers.set(name, value);
+-		response = await fetch(url, {
+-			method: "GET",
+-			headers,
+-			...request.signal === void 0 ? {} : { signal: request.signal }
+-		});
+-	} catch (error) {
+-		if (request.signal?.aborted) throw new LlmError("model discovery aborted by caller", "ABORTED", { cause: error });
+-		throw new LlmError(`could not reach ${url}`, "DISCOVERY_FAILED", { cause: error });
+-	}
+-	if (!response.ok) throw new LlmError(`${url} answered ${response.status}${response.status === 401 || response.status === 403 ? "; check the API key" : ""}`, "DISCOVERY_FAILED");
+-	let text;
+-	try {
+-		text = await readBounded(response, url);
+-	} catch (error) {
+-		if (request.signal?.aborted) throw new LlmError("model discovery aborted by caller", "ABORTED", { cause: error });
+-		throw error;
+-	}
+-	let body;
+-	try {
+-		body = JSON.parse(text);
+-	} catch (error) {
+-		throw new LlmError(`${url} did not answer with JSON`, "DISCOVERY_FAILED", { cause: error });
+-	}
+-	return api === "google-generative-ai" ? readGeminiListing(body) : readListing(body);
++	const models = [];
++	const pageTokens = new Set();
++	for (;;) {
++		let response;
++		try {
++			const headers = new Headers(stored?.headers === void 0 ? void 0 : Object.entries(stored.headers));
++			headers.set("accept", "application/json");
++			if (api === "anthropic-messages") {
++				headers.set("anthropic-version", ANTHROPIC_VERSION);
++				if (apiKey !== void 0) headers.set("x-api-key", apiKey);
++			} else if (api === "google-generative-ai") {
++				if (apiKey !== void 0) headers.set("x-goog-api-key", apiKey);
++			} else if (apiKey !== void 0) headers.set("authorization", `Bearer ${apiKey}`);
++			for (const [name, value] of Object.entries(attributionHeaders())) headers.set(name, value);
++			response = await fetch(url, {
++				method: "GET",
++				headers,
++				...request.signal === void 0 ? {} : { signal: request.signal }
++			});
++		} catch (error) {
++			if (request.signal?.aborted) throw new LlmError("model discovery aborted by caller", "ABORTED", { cause: error });
++			throw new LlmError(`could not reach ${url}`, "DISCOVERY_FAILED", { cause: error });
++		}
++		if (!response.ok) throw new LlmError(`${url} answered ${response.status}${response.status === 401 || response.status === 403 ? "; check the API key" : ""}`, "DISCOVERY_FAILED");
++		let text;
++		try {
++			text = await readBounded(response, url);
++		} catch (error) {
++			if (request.signal?.aborted) throw new LlmError("model discovery aborted by caller", "ABORTED", { cause: error });
++			throw error;
++		}
++		let body;
++		try {
++			body = JSON.parse(text);
++		} catch (error) {
++			throw new LlmError(`${url} did not answer with JSON`, "DISCOVERY_FAILED", { cause: error });
++		}
++		if (api !== "google-generative-ai") return readListing(body);
++		models.push(...readGeminiListing(body));
++		const next = body.nextPageToken;
++		if (next === void 0 || next === "") return models;
++		if (typeof next !== "string") throw new LlmError("Google model listing has an invalid nextPageToken", "DISCOVERY_FAILED");
++		if (pageTokens.has(next)) throw new LlmError("Google model listing repeated a nextPageToken", "DISCOVERY_FAILED");
++		pageTokens.add(next);
++		const nextUrl = new URL(listingUrl(request.baseURL, api));
++		nextUrl.searchParams.set("pageToken", next);
++		url = nextUrl.href;
++	}
+ }
+ //#endregion
+ //#region lib/types/login.js

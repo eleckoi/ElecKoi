@@ -36,7 +36,6 @@ import { resolveFailure } from '../../../utils/failureText.js';
 
 const PresetContext = createContext(null);
 const ALL_PRESETS = '全部预设';
-const DEFAULT_PRESET_ID = 'agent-preset-standard';
 const TABS = [
   { id: 'introduction', label: '使用说明' },
   { id: 'prompts', label: '预设提示词' },

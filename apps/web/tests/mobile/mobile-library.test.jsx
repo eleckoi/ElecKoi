@@ -53,6 +53,17 @@ async function input(value) {
 }
 
 describe('Android character and preset library contracts', () => {
+  it('shows the original card author and leaves missing authors empty instead of using the current player', async () => {
+    await mount('character', { kind: 'root' }, [
+      { ...samples[0], authorName: '原始作者', authorAvatar: 'data:image/png;base64,YXV0aG9y' },
+      { ...samples[1] },
+    ]);
+    const cards = [...document.querySelectorAll('.mobile-character-card')];
+    expect(cards[0].querySelector('.mobile-character-author').textContent).toContain('原始作者');
+    expect(cards[1].textContent).toContain('未填写作者');
+    expect(cards.some(card => card.textContent.includes('合成用户'))).toBe(false);
+  });
+
   it('copies only selected cards and keeps failed cards selected for retry', async () => {
     await mount()
     view.characters.duplicate.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error('Synthetic copy failure')).mockResolvedValue({})
@@ -117,45 +128,68 @@ describe('Android character and preset library contracts', () => {
     await click('进入对话'); expect(start).toHaveBeenCalledWith('character-a');
     await click('编辑角色'); expect(view.route).toEqual({ kind: 'character-editor', characterId: 'character-a' });
   });
-  it('opens the anchored action menu, restores focus and enters a full-page manager', async () => {
+  it('replaces the old manager with quick group switching and batch moving while preserving the action menu', async () => {
     await mount(); await click('角色操作');
     const menu = document.querySelector('.mobile-bubble-menu');
     expect([...menu.querySelectorAll('[role="menuitem"]')].map(item => item.textContent.trim()))
-      .toEqual(['新建角色', '分组管理', '复制角色卡', '导入角色卡', '导出角色卡', '删除角色卡']);
-    expect(menu.querySelectorAll('hr')).toHaveLength(2);
-    expect(document.querySelector('.mobile-dialog')).toBeNull();
-    expect(maskEvents.filter(event => event.active)).toHaveLength(1);
+      .toEqual(['新建角色', '移动角色', '复制角色卡', '导入角色卡', '导出角色卡', '删除角色卡']);
     await act(async () => backHandlers.at(-1)());
-    expect(document.activeElement.getAttribute('aria-label')).toBe('角色操作'); expect(maskEvents.filter(event => !event.active)).toHaveLength(1);
-    await click('角色操作'); await click('分组管理');
-    expect(view.route.kind).toBe('character-groups');
-    expect(document.querySelector('.mobile-group-manager')).toBeTruthy(); expect(document.querySelector('.mobile-bubble-menu')).toBeNull();
+    expect(document.activeElement.getAttribute('aria-label')).toBe('角色操作');
+    await click('展开分组'); await click('分组甲', document.querySelector('.mobile-character-library-group-panel'));
+    expect(document.querySelector('.mobile-character-library-panel-reveal').classList.contains('is-open')).toBe(false);
+    expect([...document.querySelectorAll('.mobile-character-card')].map(node => node.getAttribute('aria-label'))).toEqual(['合成角色甲']);
+    expect(document.querySelector('.mobile-character-library-tabs [aria-pressed=true]').textContent).toBe('分组甲');
+    expect(document.querySelector('.mobile-character-library-tabs').textContent).not.toMatch(/\d/);
+    await click('展开分组'); await click('全部', document.querySelector('.mobile-character-library-group-panel'));
+    await click('角色操作'); await click('移动角色'); await click('合成角色甲'); await click('合成角色丙'); await click('移动到分组');
+    expect(document.querySelectorAll('.mobile-character-selection[data-selected="true"]')).toHaveLength(2);
+    expect(document.querySelector('.mobile-character-selection[data-selected="false"] svg')).toBeNull();
+    await click('分组乙', document.querySelector('.mobile-character-library-group-panel'));
+    expect(saveGroups).toHaveBeenLastCalledWith(['分组甲', '分组乙'], [{ characterId: 'character-a', group: '分组乙' }, { characterId: 'character-c', group: '分组乙' }]);
+    expect(document.querySelector('.mobile-library-selection-header')).toBeNull();
+    expect(document.querySelectorAll('.mobile-character-card')).toHaveLength(3);
   });
-  it('renames memberships atomically, rejects duplicate names, and confirms deletion with the PC destination', async () => {
-    await mount('character', { kind: 'character-groups' });
-    await click('分组甲 (1)'); await input('分组乙'); await click('保存');
+  it('renames memberships atomically, rejects duplicate names and deletes only the group', async () => {
+    await mount(); await click('展开分组'); await click('进入编辑');
+    await click('分组 分组甲，长按拖动，点击改名'); await input('分组乙'); await click('保存');
     expect(saveGroups).not.toHaveBeenCalled(); expect(document.querySelector('[role="alert"]').textContent).toContain('已存在');
     await input('分组丙'); await click('保存');
     expect(saveGroups).toHaveBeenLastCalledWith(['分组丙', '分组乙'], [{ characterId: 'character-a', group: '分组丙' }]);
-    await click('删除分组'); await click('删除分组 分组丙');
-    expect(saveGroups).toHaveBeenCalledTimes(1);
-    expect(document.querySelector('.mobile-library-dialog').textContent).toContain('移至“分组乙”');
+    await click('删除分组 分组丙'); expect(saveGroups).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('.mobile-library-dialog').textContent).toContain('角色卡保留');
     await click('删除', document.querySelector('.mobile-library-dialog'));
-    expect(saveGroups).toHaveBeenLastCalledWith(['分组乙'], [{ characterId: 'character-a', group: '分组乙' }]);
+    expect(saveGroups).toHaveBeenLastCalledWith(['分组乙'], [{ characterId: 'character-a', group: '' }]);
+    expect(view.chat.characters.items).toHaveLength(3);
   });
-  it('saves explicit group membership without touching other unselected groups and keeps failed saves open', async () => {
-    await mount('character', { kind: 'character-groups' }); await click('管理分组 分组甲 的角色');
-    await click('合成角色甲'); await click('合成角色丙');
-    saveGroups.mockRejectedValueOnce(new Error('保存失败'));
-    await click('保存'); expect(document.querySelector('.mobile-library-selection-header')).toBeTruthy();
-    expect(document.querySelector('[role="alert"]').textContent).toContain('保存失败');
-    await click('保存');
-    expect(saveGroups).toHaveBeenLastCalledWith(['分组甲', '分组乙'], [{ characterId: 'character-a', group: '' }, { characterId: 'character-c', group: '分组甲' }]);
+  it('keeps editing expanded through Back and outside clicks, and saves ordering only on Done', async () => {
+    await mount(); await click('展开分组'); await click('进入编辑');
+    const chip = document.querySelector('[data-reorder-group="分组乙"] .mobile-character-library-group-chip');
+    await act(async () => chip.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })));
+    expect(saveGroups).not.toHaveBeenCalled();
+    expect([...document.querySelectorAll('.mobile-character-library-group-grid [data-reorder-group]')].map(node => node.dataset.reorderGroup)).toEqual(['分组乙', '分组甲']);
+    expect([...document.querySelectorAll('[aria-label="收起分组"]')].every(node => node.disabled)).toBe(true);
+    await click('关闭分组面板'); await act(async () => backHandlers.at(-1)());
+    expect(document.querySelector('.mobile-character-library-panel-reveal').classList.contains('is-open')).toBe(true);
+    saveGroups.mockRejectedValueOnce(new Error('排序写入失败'));
+    await click('完成编辑'); expect(document.querySelector('[role="alert"]').textContent).toContain('排序写入失败');
+    expect(document.querySelector('.mobile-character-library-edit-mode').textContent).toBe('完成编辑');
+    await click('完成编辑'); expect(saveGroups).toHaveBeenLastCalledWith(['分组乙', '分组甲'], []);
+    await click('收起分组', document.querySelector('.mobile-character-library-group-panel'));
+    expect(document.querySelector('.mobile-character-library-panel-reveal').classList.contains('is-open')).toBe(false);
   });
-  it('keeps group order in the formal group list and supports keyboard reordering', async () => {
-    await mount('character', { kind: 'character-groups' });
-    await act(async () => document.querySelector('[aria-label="调整分组 分组乙 的顺序"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })));
-    expect(saveGroups).toHaveBeenLastCalledWith(['分组乙', '分组甲'], []);
+  it('keeps failed new groups and member moves available for retry', async () => {
+    await mount(); await click('展开分组'); await click('新建'); await input('分组丙');
+    saveGroups.mockRejectedValueOnce(new Error('新建写入失败')); await click('保存');
+    expect(document.querySelector('.mobile-library-name').value).toBe('分组丙');
+    await click('保存'); expect(saveGroups).toHaveBeenLastCalledWith(['分组甲', '分组乙', '分组丙'], []);
+    await click('全部', document.querySelector('.mobile-character-library-group-panel'));
+    await click('角色操作'); await click('移动角色'); await click('合成角色甲'); await click('移动到分组');
+    saveGroups.mockRejectedValueOnce(new Error('成员写入失败'));
+    await click('分组乙', document.querySelector('.mobile-character-library-group-panel'));
+    expect(document.querySelectorAll('.mobile-character-card[aria-pressed=true]')).toHaveLength(1);
+    expect(document.querySelector('.mobile-character-library-panel-reveal').classList.contains('is-open')).toBe(true);
+    await click('分组乙', document.querySelector('.mobile-character-library-group-panel'));
+    expect(document.querySelector('.mobile-library-selection-header')).toBeNull();
   });
   it('excludes the protected default preset from batch deletion and retries only failed IDs', async () => {
     const presets = ['agent-preset-standard', 'preset-a', 'preset-b'].map((id, index) => ({ id, purpose: 'roleplay', name: `合成预设${index}`, libraryGroupId: '', profile: {}, modelTags: [] }));

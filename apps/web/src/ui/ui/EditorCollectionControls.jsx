@@ -1,7 +1,7 @@
 import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useRef, useState } from 'react';
 import { Button, Input, Menu, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
-import { Copy, DotsThree, ListChecks, MagnifyingGlass, NotePencil, Plus, SlidersHorizontal, Trash } from '../icons/interfaceIcons.jsx';
+import { Copy, DotsThree, ListChecks, MagnifyingGlass, Plus, SlidersHorizontal, Trash } from '../icons/interfaceIcons.jsx';
 import { useEditorPresentation } from './EditorPresentationContext.jsx';
 import { EditorDirectoryHeading } from './EditorDirectoryHeading.jsx';
 import './editor-collection-controls.css';
@@ -104,5 +104,3 @@ export function EditorManagementAction({ label, Icon, danger, disabled, onClick 
   return <Button data-dsh-control variant="ghost" className={`editor-management-action${danger ? ' is-danger' : ''}`}
     icon={Icon ? <Icon size={18} /> : undefined} disabled={disabled} onClick={onClick}>{label}</Button>;
 }
-
-export { NotePencil as EditorRenameIcon };

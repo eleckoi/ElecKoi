@@ -29,7 +29,8 @@ import { PINNED_ENTRY_IDS, canTransferSettingNode, copySettingNode, moveTreeNode
 import { descendants, findSelected, nodeKey, parseNodeKey } from "../model/settingLibraryTree.js";
 import { DynamicSettingsNameDialog } from "./DynamicSettingsDialogs.jsx";
 import { ConfirmationDialog, SaveControl } from "./SettingLibraryControls.jsx";
-import { SettingEntryGlyph, SettingLibraryEntryEditor } from "./SettingLibraryEntryEditor.jsx";
+import { SettingEntryGlyph } from "./SettingEntryFields.jsx";
+import { SettingLibraryDocument } from "./SettingLibraryDocument.jsx";
 import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
 import { EditorContextMenu } from '../../../ui/ui/EditorContextMenu.jsx';
 import { MobileEditorActions } from '../../../ui/ui/MobileEditorActions.jsx';
@@ -507,7 +508,7 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
     return (
       <section className={`dynamic-settings-list-page editor-heading-surface${compact ? ' is-compact' : ''}`} aria-label={tUi("分支设定")} aria-busy={loading}>
         <EditorDirectoryHeading title={tUi('分支设定')} />
-        <header className={`dynamic-settings-list-toolbar${compact ? ' editor-collection-toolbar' : ''}`}>
+        <header className={`dynamic-settings-list-toolbar${compact ? ' editor-collection-toolbar is-mobile-collection' : ''}`}>
           <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
             value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tUi("搜索对话")} aria-label={tUi("搜索分支设定对话")} />
         </header>
@@ -548,7 +549,7 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
   const editableEntry = selected.kind === "entry" && isEditableEntry(selected.value);
 
   return (
-      <section className="dynamic-settings-detail" aria-label={tUi("分支设定：{value0}", {value0: selectedItem.title})} onMouseDown={() => setAddMenuOpen(false)}>
+      <section className={`dynamic-settings-detail editor-heading-surface${compact ? ' is-compact' : ''}`} aria-label={tUi("分支设定：{value0}", {value0: selectedItem.title})} onMouseDown={() => setAddMenuOpen(false)}>
       <header className="dynamic-settings-detail-toolbar" onMouseDown={(event) => event.stopPropagation()}>
         <button type="button" className="dynamic-settings-back" aria-label={tUi("返回对话列表")} onClick={closeConversation}><ArrowLeft size={18} /></button>
         <span className="dynamic-settings-branch-label"><GitBranch size={18} aria-hidden="true" />{tUi("分支 ")}{branchNumbersRef.current.get(selectedItem.sessionId)}</span>
@@ -573,7 +574,7 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
         feedback={<SaveControl dirty={dirty} error={error} notice={notice} saving={saving} onSave={save} />}
         inspectorTitle={selected.kind === 'group' ? tUi("编辑文件夹") : selected.value?.title || tUi("编辑分支设定")} onCloseInspector={closeEditor}>
         <section className="dynamic-settings-tree-pane">
-          <div className={`dynamic-settings-tree-toolbar${compact ? ' editor-collection-toolbar' : ''}`}>
+          <div className={`dynamic-settings-tree-toolbar${compact ? ' editor-collection-toolbar is-mobile-collection' : ''}`}>
             <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
               value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tUi("搜索设定")} aria-label={tUi("搜索分支设定")} />
             {!compact && <div className="setting-library-add-wrap">
@@ -681,43 +682,24 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
           ].map(action => ({ ...action, disabled: saving }))} /> : null}
         </section>
 
-        {selected.value && (!compact || editing) ? <aside className="dynamic-settings-inspector" aria-label={tUi("分支设定详情")}>
-            <>
-              <header>
-                <span aria-hidden="true">{selected.kind === "group" ? <DshFolderClosedIcon /> : <EntryIcon entry={selected.value} />}</span>
-                <strong>{selected.kind === "group" ? selected.value.name : selected.value.title || tUi("未命名设定")}</strong>
-                <button type="button" aria-label={tUi("关闭详情")} onClick={closeEditor}><X size={17} /></button>
-              </header>
-              <div className="dynamic-settings-inspector-body">
-                {selected.kind === "group" ? (
-                  <label className="dynamic-settings-field">
-                    <span>{tUi("文件夹名称")}</span>
-                    <input value={selected.value.name} onChange={(event) => changeLibrary((current) => ({
-                      ...current,
-                      groups: current.groups.map((group) => group.id === selected.value.id ? { ...group, name: event.target.value, updatedAt: new Date().toISOString() } : group),
-                    }))} />
-                  </label>
-                ) : editableEntry ? (
-                  <SettingLibraryEntryEditor
-                    key={selected.value.id}
-                    entry={selected.value}
-                    entries={library.entries}
-                    promptPositions={library.promptPositions}
-                    onChange={(patch) => changeLibrary((current) => ({
-                      ...current,
-                      entries: current.entries.map((entry) => entry.id === selected.value.id
-                        ? { ...entry, ...patch, updatedAt: new Date().toISOString() } : entry),
-                    }))}
-                    onEntriesChange={(entries) => changeLibrary((current) => ({ ...current, entries }))}
-                    onOpenEntry={(id) => setSelectedKey(nodeKey("entry", id))}
-                  />
-                ) : (
-                  <div className="dynamic-settings-readonly-content">{selected.value.content || tUi("暂无正文")}</div>
-                )}
-                {canDeleteSelected ? <Button data-dsh-control variant="outline" type="button" className="setting-library-delete-link" onClick={requestDeleteSelected}><Trash size={15} />{selected.kind === "group" ? tUi("删除文件夹") : tUi("删除设定")}</Button> : null}
-              </div>
-            </>
-        </aside> : null}
+        {selected.value && (!compact || editing) ? <SettingLibraryDocument
+          key={nodeKey(selected.kind, selected.value.id)} selected={selected} library={library}
+          dirty={dirty} saving={saving} readOnly={selected.kind === 'entry' && !editableEntry}
+          SelectedIcon={() => <EntryIcon entry={selected.value} />}
+          entryActions={<>
+            {canDeleteSelected && selected.kind === 'entry' ? <Button data-dsh-control variant="outline" className="setting-folder-more" icon={<Trash size={17} />} aria-label={tUi('删除设定')} disabled={saving} onClick={requestDeleteSelected} /> : null}
+            <Button data-dsh-control variant="outline" className="setting-folder-more" icon={<X size={17} />} aria-label={tUi('关闭详情')} onClick={closeEditor} />
+          </>}
+          onUpdateGroup={(patch) => changeLibrary((current) => ({ ...current,
+            groups: current.groups.map((group) => group.id === selected.value.id ? { ...group, ...patch, updatedAt: new Date().toISOString() } : group),
+          }))}
+          onDeleteGroup={requestDeleteSelected}
+          onUpdateEntry={(patch) => { if (editableEntry) changeLibrary((current) => ({ ...current,
+            entries: current.entries.map((entry) => entry.id === selected.value.id ? { ...entry, ...patch, updatedAt: new Date().toISOString() } : entry),
+          })); }}
+          onEntriesChange={(entries) => changeLibrary((current) => ({ ...current, entries }))}
+          onOpenEntry={(id) => { setSelectedKey(nodeKey('entry', id)); setEditing(true); }}
+        /> : null}
       </BranchSettingsSplitView>
 
       <DynamicSettingsNameDialog dialog={nameDialog} busy={saving} onCancel={() => setNameDialog(null)} onConfirm={(name) => {

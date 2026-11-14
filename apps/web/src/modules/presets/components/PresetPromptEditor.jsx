@@ -2,7 +2,7 @@ import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
-import { Code, Copy, DotsThree, FileText, LinkSimple, ListChecks, MagnifyingGlass, PencilSimple, Plus } from '../../../ui/icons/interfaceIcons.jsx';
+import { Code, Copy, DotsThree, FileText, LinkSimple, ListChecks, MagnifyingGlass, PencilSimple, Plus, X } from '../../../ui/icons/interfaceIcons.jsx';
 import { isHiddenToolTimelineEntry } from '@shared/contracts/presets/builtIns';
 import { TrashIcon } from '../../../ui/icons/index.jsx';
 import { DshFolderClosedIcon } from '../../../ui/icons/dshTreeIcons.jsx';
@@ -16,7 +16,6 @@ import { selectableTreeIds, selectedTreeRootIds, visibleTreeSelectionIds } from 
 import {
   ConfirmationDialog,
   PINNED_ENTRY_IDS,
-  SettingLibraryInspector,
   SettingLibraryDocument,
   SettingLibraryTree,
   SettingTreeActionsContext,
@@ -280,28 +279,27 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
     setMoving(null);
   }
 
-  const Inspector = workspace || compact ? SettingLibraryDocument : SettingLibraryInspector;
-  const inspector = !multi.active && selectedValue && (!compact || editing) ? <Inspector
-    key={workspace || compact ? `${selected.kind}:${selectedValue.id}` : undefined}
+  const inspector = !multi.active && selectedValue && (!compact || editing) ? <SettingLibraryDocument
+    key={`${selected.kind}:${selectedValue.id}`}
     selected={{ kind: selected.kind, value: selectedValue }}
     library={library}
     allowCustomPromptPositions
     creatorPreset={creatorPreset}
     dirty={dirty} saving={saving} titleReadOnly={PINNED_ENTRY_IDS.has(selectedValue.id)}
     hideReferenceTabs
-    entryActions={(workspace || compact) && selected.kind === 'entry' && !PINNED_ENTRY_IDS.has(selectedValue.id) ? <Menu portal dense open={entryMoreOpen} onClose={() => setEntryMoreOpen(false)}
+    entryActions={<>{selected.kind === 'entry' && !PINNED_ENTRY_IDS.has(selectedValue.id) ? <Menu portal dense open={entryMoreOpen} onClose={() => setEntryMoreOpen(false)}
       anchor={<Button data-dsh-control variant="outline" className="setting-folder-more" icon={<DotsThree size={18} />} aria-label={tUi('提示词操作')} onClick={() => setEntryMoreOpen(!entryMoreOpen)} />}
       items={[{ id: 'copy', label: tUi('复制'), icon: <Copy size={15} /> }, { id: 'rename', label: tUi('重命名'), icon: <PencilSimple size={15} /> }, { id: 'delete', label: tUi('删除'), icon: <TrashIcon size={15} />, danger: true }]}
       onSelect={id => { setEntryMoreOpen(false); if (id === 'copy') duplicateEntry(selectedValue); else if (id === 'rename') renameNode({ kind: 'entry', value: selectedValue }); else deleteEntry(selectedValue.id); }} /> : null}
+      {!workspace && !compact && <Button data-dsh-control variant="outline" className="setting-folder-more" icon={<X size={17} />} aria-label={tUi('关闭编辑器')} onClick={closeEditor} />}
+    </>}
     nameInputRef={nameInputRef}
     SelectedIcon={selected.kind === 'group' ? DshFolderClosedIcon : selectedValue.contentMode === 'ejs' ? Code : selectedValue.dynamicMode === 'ejs_reference' ? LinkSimple : FileText}
-    onClose={closeEditor}
     onUpdateGroup={(patch) => onChange({ ...preset, groups: preset.groups.map((group) => group.id === selected.id ? { ...group, ...patch } : group) })}
     onDeleteGroup={() => deleteGroup(selected.id)}
     onUpdateEntry={updateEntry}
     onEntriesChange={(entries) => onChange({ ...preset, entries })}
     onOpenEntry={(entryId) => { setSelected({ kind: 'entry', id: entryId }); setEditing(true); }}
-    onRequestDeleteOpening={() => {}}
     onPromptPositionsChange={(promptPositions, entries = preset.entries) => onChange({ ...preset, promptPositions, entries })}
   /> : null;
   const menuTarget = context.menu?.target;
@@ -317,7 +315,7 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
     { label: '删除', icon: TrashIcon, danger: true, run: () => menuTarget.kind === 'group' ? deleteGroup(menuTarget.value.id) : deleteEntry(menuTarget.value.id) },
   );
 
-  const Layout = workspace && !compact ? EditorLibraryWorkspace : LegacyPromptLayout;
+  const Layout = workspace && !compact ? EditorLibraryWorkspace : PromptSidebarLayout;
   return (
     <Layout className={workspace && !compact ? "preset-prompt-workspace" : `preset-prompt-editor setting-library-layout${multi.active ? ' is-multiselect' : ''}`} aria-label={tUi("预设提示词")} onMouseDown={() => setAddOpen(false)}
       label={tUi('提示词')} query={query} onQueryChange={setQuery}
@@ -327,7 +325,7 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
         {saveAction}<Menu portal dense open={moreOpen} onClose={() => setMoreOpen(false)} anchor={<Button data-dsh-control variant="outline" className="setting-directory-more" icon={<DotsThree size={18} />} aria-label={tUi('提示词操作')} onClick={() => setMoreOpen(!moreOpen)} />}
           items={[{ id: 'multi', label: multi.active ? tUi('完成多选') : tUi('多选'), icon: <ListChecks size={16} /> }, { id: 'expand', label: tUi('展开全部文件夹') }, { id: 'collapse', label: tUi('收起全部文件夹') }]}
           onSelect={id => { setMoreOpen(false); if (id === 'multi') toggleMultiSelect(); else onChange({ ...preset, expandedGroupIds: id === 'expand' ? preset.groups.map(group => group.id) : [] }); }} /></>}
-      documentLayout={compact} inspector={inspector} inspectorTitle={selected?.kind === 'group' ? tUi("文件夹") : selectedValue?.title || tUi("提示词")} onCloseInspector={closeEditor}>
+      documentLayout inspector={inspector} inspectorTitle={selected?.kind === 'group' ? tUi("文件夹") : selectedValue?.title || tUi("提示词")} onCloseInspector={closeEditor}>
       <div className="setting-library-browser editor-collection-browser">
         {compact && <EditorCollectionToolbar heading={tUi('预设提示词')} query={query} onQueryChange={setQuery} placeholder={tUi('搜索提示词')}
           disabled={saving} selection={{ ...multi, toggle: toggleMultiSelect }} save={saveAction} createItems={[
@@ -430,6 +428,6 @@ function descendantGroups(groups, groupId) {
   return removed;
 }
 
-function LegacyPromptLayout({ label, query, onQueryChange, directoryHeading, directoryActions, ...props }) {
-  return <EditorSidebarLayout {...props} />;
+function PromptSidebarLayout({ label, query, onQueryChange, directoryHeading, directoryActions, ...props }) {
+  return <EditorSidebarLayout {...props} paneClassName="setting-document" />;
 }

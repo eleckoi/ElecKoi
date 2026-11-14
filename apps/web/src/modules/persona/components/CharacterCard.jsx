@@ -4,9 +4,10 @@ import { assetSrc } from "../../../app/services/assets.js";
 import { Avatar } from "../../../ui/ui/Avatar.jsx";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-export function CharacterCard({ character, active, artworkAspectRatio = 0.76, authorName: authorNameSource, authorAvatar = "", selectable = false, selected = false, onClick, onDoubleClick, onContextMenu }) {
+export function CharacterCard({ character, active, artworkAspectRatio = 0.76, selectable = false, selected = false, onClick, onDoubleClick, onContextMenu }) {
   const tUi = useProductTranslation();
-  const authorName = authorNameSource === undefined ? tUi("用户") : authorNameSource;
+  const authorName = character?.authorName?.trim() || tUi("未填写作者");
+  const authorAvatar = character?.authorAvatar || "";
   const name = characterName(character, tUi);
   const cover = characterCover(character);
   const resolvedCover = assetSrc(cover);
@@ -25,8 +26,11 @@ export function CharacterCard({ character, active, artworkAspectRatio = 0.76, au
     const updateSpan = () => {
       const gridStyle = getComputedStyle(grid);
       const rowHeight = Number.parseFloat(gridStyle.gridAutoRows) || 4;
-      const rowGap = Number.parseFloat(gridStyle.rowGap) || 18;
-      const span = Math.ceil((card.getBoundingClientRect().height + rowGap) / (rowHeight + rowGap));
+      const measuredGap = Number.parseFloat(gridStyle.rowGap);
+      const rowGap = Number.isFinite(measuredGap) ? measuredGap : 18;
+      const cardGap = Number.parseFloat(gridStyle.getPropertyValue('--character-card-gap'));
+      const spacing = Number.isFinite(cardGap) ? cardGap : rowGap;
+      const span = Math.ceil((card.getBoundingClientRect().height + spacing) / (rowHeight + rowGap));
       card.style.gridRowEnd = `span ${Math.max(1, span)}`;
     };
 

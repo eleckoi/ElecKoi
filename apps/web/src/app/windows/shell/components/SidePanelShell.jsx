@@ -11,7 +11,7 @@ export function SidePanelShell({ collapsed = false, onCollapse, footerActions, r
   const tUi = useProductTranslation();
   return (
     <section
-      className={`side-panel-shell${collapsed ? " collapsed" : ""}${footerActions ? " has-footer-actions" : ""}`}
+      className={`side-panel-shell${collapsed ? " collapsed" : ""}${footerActions || renderSidebarSlot ? " has-footer-actions" : ""}`}
       aria-label={tUi("侧边栏")}
       aria-hidden={collapsed || undefined}
       inert={collapsed || undefined}
@@ -34,7 +34,14 @@ export function SidePanelShell({ collapsed = false, onCollapse, footerActions, r
         {renderSidebarSlot?.("sidebar.brand.name", { content: <ElecKoiWordmark /> }) || <ElecKoiWordmark />}
       </div>
       <div className="side-panel-content">{children}</div>
-      {footerActions ? <div className="side-panel-footer-actions" aria-label={tUi("侧边栏插件操作")}>{footerActions}</div> : null}
+      {footerActions || renderSidebarSlot ? <div className={`side-panel-footer-actions${footerActions ? "" : " is-update-only"}`} aria-label={tUi("侧边栏插件操作")}>
+        {footerActions}
+        <SidebarUpdateSeat renderSidebarSlot={renderSidebarSlot} />
+      </div> : null}
     </section>
   );
+}
+
+export function SidebarUpdateSeat({ renderSidebarSlot }) {
+  return <div className="sidebar-update-seat">{renderSidebarSlot?.('sidebar.update', {})}</div>;
 }

@@ -26,8 +26,8 @@
     },
     {
       "path": "native/android-runtime/session-publication-lock.json",
-      "size": 635,
-      "sha256": "5dd73583b7955b4b86de936be25349328754d3cd4b02a98c10785ff9bceaaa8e"
+      "size": 616,
+      "sha256": "2c08c7baba45686e2577611261832a15a6f8ccdd175136deb4619331fe8e70a4"
     }
   ],
   "outputs": [

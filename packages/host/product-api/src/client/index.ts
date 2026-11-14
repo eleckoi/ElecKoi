@@ -3,7 +3,7 @@ import type {} from '@deepseek-ai/dsh-api-gateway/client'
 import eleckoiRemote from '@eleckoi/dsh-product-api/remote'
 import { invalidResponseFailure } from './invalidResponse.js'
 import { registerClientApiInspect } from './inspect.js'
-import { unwrapOrFail } from './unwrapFailure.js'
+
 export type {} from '@eleckoi/dsh-product-api/remote'
 
 /**

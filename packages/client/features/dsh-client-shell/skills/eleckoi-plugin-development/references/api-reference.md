@@ -4,7 +4,7 @@
 
 # ElecKoi 插件开发接口总表
 
-本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.2-rc.1`，提交 `66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db`。
+本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.2-rc.3`，提交 `38a6a5c965aa99ab525161efb7cc5cf1fe62fced`。
 
 当前共 **17 个 bundle、108 个开发接口**：59 个界面插槽、21 个服务、0 个事件、6 个贡献点、22 个 Remote 合同。
 

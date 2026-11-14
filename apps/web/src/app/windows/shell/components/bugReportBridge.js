@@ -20,6 +20,10 @@ const ANDROID_FAILURE_KINDS = new Set([
   "renderer-error",
   "page-error",
   "bridge-timeout",
+  "shell-failure",
+  "host-error",
+  "browser-send-error",
+  "gecko-process",
 ]);
 
 /**
@@ -51,8 +55,11 @@ export function androidReportLines(events) {
     }
     if (!record || typeof record !== "object" || Array.isArray(record)) continue;
     const kind = typeof record.kind === "string" ? record.kind : "";
-    const level = typeof record.level === "string" ? record.level : "";
-    const failed = ANDROID_FAILURE_KINDS.has(kind) || level === "error" || level === "fatal";
+    const level = typeof record.level === "string" ? record.level.toLowerCase() : "";
+    const hostFailure = kind === "host-output" && typeof record.message === "string" && record.message.startsWith("[ElecKoi Host][error]");
+    const exited = kind === "host-run" && record.stage === "exited" && typeof record.exitCode === "number" && record.exitCode !== 0;
+    const protocolFailure = kind === "host-protocol" && ["fatal", "control-error"].includes(record.stage);
+    const failed = ANDROID_FAILURE_KINDS.has(kind) || level === "error" || level === "fatal" || hostFailure || exited || protocolFailure;
     if (!failed) {
       lines.push(JSON.stringify(record));
       continue;
@@ -66,7 +73,7 @@ export function androidReportLines(events) {
       phase: "failure",
       code: `${ANDROID_FAILURE_CODE_PREFIX}${ANDROID_FAILURE_KINDS.has(kind) ? kind : ANDROID_GENERIC_FAILURE}`,
       msg: message,
-      details: { what: kind || "android" },
+      details: { what: kind || "android", upstreamDetails: record },
     }));
   }
   return lines;
@@ -91,6 +98,7 @@ function androidBugReportBridge(platform) {
       environment: facts.environment,
       session: facts.session,
       includeLogTail: request?.includeLogTail === true,
+      ...(typeof facts.runtimeDiagnostics === "string" ? { runtimeDiagnostics: facts.runtimeDiagnostics } : {}),
       ...(typeof request?.notes === "string" && request.notes.trim() !== "" ? { notes: request.notes } : {}),
     });
     return { report, delivery: facts.delivery || { mailbox: "", repository: "" } };

@@ -2,7 +2,6 @@ import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.js
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useMemo, useState } from "react";
 import { CopyIcon, ExportIcon, ImportIcon, PencilIcon, PlusIcon, TrashIcon } from "../../../ui/icons/index.jsx";
-import { Input, IconSearchOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import { FailureAlert } from "../../../ui/ui/FailureAlert.jsx";
 import { GroupAssignmentMenu } from "../../../ui/ui/GroupAssignmentMenu.jsx";
 import { openCharacterEditorWindow } from "../window/openCharacterEditorWindow.js";
@@ -10,6 +9,10 @@ import { AddGroupDialog } from "./AddGroupDialog.jsx";
 import { CharacterCard } from "./CharacterCard.jsx";
 import { CharacterImportDialog } from "./CharacterImportDialog.jsx";
 import { ALL_CHARACTERS, characterGroup, characterName } from "./characterUtils.js";
+import { CatalogManagerSearch } from '../../../ui/ui/CatalogManagerSearch.jsx';
+import { CharacterSortMenu } from '../../../ui/ui/CharacterSortMenu.jsx';
+import { sortCharacters, useCharacterSort } from '../../../ui/hooks/useCharacterSort.js';
+import '../../../ui/styles/catalog-manager.css';
 
 const CHARACTER_ARTWORK_RATIOS = [0.76, 0.68, 0.84, 0.72];
 
@@ -19,6 +22,7 @@ export function characterArtworkAspectRatio(index) {
 
 export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCharacters, onImportCharacters, onPrepareImports, onDiscardImports, onExportCharacters, onDuplicateCharacter }) {
   const tUi = useProductTranslation();
+  const { sort, chooseSort, error: sortError } = useCharacterSort('desktop_character_sort');
   const [selectedGroup, setSelectedGroup] = useState(ALL_CHARACTERS);
   const [keyword, setKeyword] = useState("");
   const [deleteMode, setDeleteMode] = useState(false);
@@ -44,12 +48,12 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
   }, [characters]);
   const visibleCharacters = useMemo(() => {
     const key = keyword.trim().toLocaleLowerCase();
-    return (characters.items || []).filter((character) => {
+    return sortCharacters((characters.items || []).filter((character) => {
       const inGroup = selectedGroup === ALL_CHARACTERS || characterGroup(character) === selectedGroup;
-      const matches = !key || `${characterName(character, tUi)} ${characterGroup(character)}`.toLocaleLowerCase().includes(key);
+      const matches = !key || `${characterName(character, tUi)} ${characterGroup(character)} ${character.authorName || ''}`.toLocaleLowerCase().includes(key);
       return inGroup && matches;
-    });
-  }, [characters, keyword, selectedGroup, tUi]);
+    }), sort, tUi.locale);
+  }, [characters, keyword, selectedGroup, tUi, sort]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectionMode = deleteMode || Boolean(exportFormat);
   // 导出目标的名字取自完整角色列表（而不是当前可见列表），
@@ -190,10 +194,9 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
     setError(null);
     try {
       const remaining = groups.filter((item) => item !== group);
-      const targetGroup = remaining[0] || "";
       const assignments = (characters.items || [])
         .filter((character) => characterGroup(character) === group)
-        .map((character) => ({ characterId: character.id, group: targetGroup }));
+        .map((character) => ({ characterId: character.id, group: '' }));
       await onSaveGroups(remaining, assignments);
       setSelectedGroup(ALL_CHARACTERS);
     } catch (cause) {
@@ -291,7 +294,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
   }
 
   return (
-    <section className="character-manager-window" aria-label={tUi("角色卡管理器")}>
+    <section className="character-manager-window catalog-manager" aria-label={tUi("角色卡管理器")}>
       <aside className="character-manager-groups" onContextMenu={(event) => openGroupMenu(event)}>
         <button
           className={`character-manager-group ${selectedGroup === ALL_CHARACTERS ? "active" : ""}`}
@@ -304,10 +307,9 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
         <small>{tUi("分组")}</small>
         <div className="character-manager-group-list">
           {groups.map((group) => (
-            <button
+            <button key={group}
               className={`character-manager-group ${selectedGroup === group ? "active" : ""}`}
               type="button"
-              key={group}
               onClick={() => setSelectedGroup(group)}
               onContextMenu={(event) => openGroupMenu(event, group)}
             >
@@ -316,7 +318,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
             </button>
           ))}
         </div>
-        <Button data-dsh-control variant="outline" className="character-add-group-button" type="button" onClick={() => openGroupDialog("add")}>
+        <Button data-dsh-control variant="outline" className="character-add-group-button catalog-manager-surface-button" type="button" onClick={() => openGroupDialog("add")}>
           <PlusIcon />
           {tUi("添加分组")}</Button>
       </aside>
@@ -339,12 +341,12 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
                   <button type="button" aria-pressed={exportFormat === 'zip'} disabled={exporting} onClick={() => changeExportFormat('zip')}>ZIP</button>
                 </div>
               </div>
-              <Input data-dsh-control type="search" icon={<IconSearchOutlineRegular />}
+              <CatalogManagerSearch
                 className="character-manager-search"
                 value={keyword}
-                onChange={event => setKeyword(event.target.value)}
+                onChange={setKeyword}
                 placeholder={tUi("搜索角色…")}
-                aria-label={tUi("搜索角色")}
+                label={tUi("搜索角色")}
               />
               <div className="character-manager-selection-actions">
                 <Button data-dsh-control variant="outline" type="button" disabled={exporting || allVisibleSelected} onClick={selectAllVisible}>
@@ -368,13 +370,16 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
           ) : (
             <>
               <h2>{tUi("角色卡管理器")}</h2>
-              <Input data-dsh-control type="search" icon={<IconSearchOutlineRegular />}
+              <div className="catalog-manager-header-actions">
+              <CatalogManagerSearch
                 className="character-manager-search"
                 value={keyword}
-                onChange={event => setKeyword(event.target.value)}
+                onChange={setKeyword}
                 placeholder={tUi("搜索角色…")}
-                aria-label={tUi("搜索角色")}
+                label={tUi("搜索角色")}
               />
+              <CharacterSortMenu value={sort} onChange={chooseSort} />
+              <span className="catalog-manager-action-divider" />
               {deleteMode ? (
                 <>
                   <Button data-dsh-control variant="primary" className="character-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={confirmDelete}>
@@ -384,18 +389,20 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
                 </>
               ) : (
                 <>
-                  <Button data-dsh-control variant="outline" type="button" onClick={() => setImportOpen(true)}><ImportIcon />{tUi("导入角色")}</Button>
-                  <Button data-dsh-control variant="outline" type="button" disabled={!characters.items?.length} onClick={startExport}>
+                  <Button data-dsh-control variant="primary" type="button" onClick={() => setImportOpen(true)}><ImportIcon />{tUi("导入角色")}</Button>
+                  <Button data-dsh-control variant="outline" className="catalog-manager-surface-button" type="button" disabled={!characters.items?.length} onClick={startExport}>
                     <ExportIcon />{tUi("导出角色")}</Button>
-                  <Button data-dsh-control variant="outline" type="button" disabled={!characters.items?.length} onClick={() => setDeleteMode(true)}><TrashIcon />{tUi("删除")}</Button>
+                  <Button data-dsh-control variant="outline" className="catalog-manager-surface-button" type="button" disabled={!characters.items?.length} onClick={() => setDeleteMode(true)}><TrashIcon />{tUi("删除")}</Button>
                 </>
               )}
+              </div>
             </>
           )}
         </header>
 
         <div className="character-manager-scroll">
           <FailureAlert failure={error} className="character-manager-error" />
+          {sortError ? <FailureAlert failure={sortError} className="character-manager-error" /> : null}
           {visibleCharacters.length ? (
             <div className="character-manager-grid">
               {visibleCharacters.map((character, index) => (
@@ -403,8 +410,6 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
                   key={character.id}
                   character={character}
                   artworkAspectRatio={characterArtworkAspectRatio(index)}
-                  authorName={persona?.user_name || tUi("用户")}
-                  authorAvatar={persona?.user_avatar || ""}
                   selectable={selectionMode}
                   selected={selectedSet.has(character.id)}
                   onClick={selectionMode ? toggleSelected : openCharacterEditorWindow}

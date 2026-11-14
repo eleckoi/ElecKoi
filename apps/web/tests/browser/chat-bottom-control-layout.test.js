@@ -12,7 +12,7 @@ it('keeps official chat controls and extension content on their shared layout tr
   const directory = await mkdtemp(resolve(tmpdir(), 'eleckoi-chat-bottom-'));
   try {
     const source = await readFile(resolve('node_modules/@deepseek-ai/dsh-client-ui-chat/lib/client.js'), 'utf8');
-    if (source.split('return module.exports;').length !== 2) throw new Error('Unexpected Chat Client bundle boundary');
+    if (source.split('return module.exports').length !== 2) throw new Error('Unexpected Chat Client bundle boundary');
     await build({ entryPoints: ['apps/web/tests/browser/chat-bottom-control.fixture.jsx'], outfile: resolve(directory, 'fixture.js'),
       bundle: true, format: 'iife', jsx: 'automatic', logLevel: 'silent',
       alias: { '@shared': resolve('packages/shared/src') },
@@ -25,7 +25,7 @@ it('keeps official chat controls and extension content on their shared layout tr
           import * as store from '@deepseek-ai/dsh-client-store'; import * as primitives from '@deepseek-ai/dsh-client-ui-primitives';
           let registration; const captureModule = value => { registration = value; };
           ${source.replace('window.__ModuleLoader__.load(', 'captureModule(')
-            .replace('return module.exports;', 'return { ...module.exports, ChatView, ChatFlow };')}
+            .replace('return module.exports', 'return { ...module.exports, ChatView, ChatFlow };')}
           const modules = { '@tanstack/react-virtual': virtual, react: React, 'react/jsx-runtime': jsxRuntime, 'react-dom': ReactDOM,
             '@deepseek-ai/dsh-client-store': store, '@deepseek-ai/dsh-client-ui-primitives': primitives };
           const { ChatView: OfficialChatView, ChatFlow } = registration.factory(Object.assign(name => { if (!(name in modules)) throw new Error(name); return modules[name]; }, { asset: name => name }));

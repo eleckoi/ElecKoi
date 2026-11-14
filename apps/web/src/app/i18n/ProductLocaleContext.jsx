@@ -34,5 +34,4 @@ export function ProductLocaleProvider({ locale, children }) {
 }
 
 export const useProductTranslation = () => useContext(ProductLocaleContext).t;
-export const useProductLocale = () => useContext(ProductLocaleContext).id;
 export const useProductLanguageName = () => useContext(ProductLocaleContext).name;

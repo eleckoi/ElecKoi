@@ -13,7 +13,7 @@ const schemas = {
 export function mediaFileCapabilities(ctx, readState) {
   return Object.entries(schemas).map(([domain, schema]) => ({ id: `${domain}.import_file`, toolsetId: domain,
     title: domain === 'assets' ? '从当前工作区文件分段导入角色资产' : '从当前工作区导入 HTML 或 ZIP 独立前端',
-    effect: 'write', target: 'selected-character', inputSchema: z.toJSONSchema(schema),
+    effect: 'write', target: 'selected-character', inputSchema: { ...z.toJSONSchema(schema) },
     async execute(characterId, raw, signal, _delivered, exec) {
       const input = schema.parse(raw), fs = ctx.get('fs', false), directories = ctx.get('workingDirectory', false)
       if (!fs || !directories) throw productFailure(codes.statePrecondition, '当前会话未启用工作区文件能力。', { what: '工作区文件能力' })

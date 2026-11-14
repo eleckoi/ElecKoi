@@ -56,6 +56,28 @@ afterEach(() => {
 })
 
 describe('character editor client extension', () => {
+  it('treats author-only changes as a draft, supports discard and saves the original author independently of the player', async () => {
+    const original = { id: 'author-card', name: '合成角色', authorName: '原作者', authorAvatar: '', persona: { assistant_name: '合成角色', user_name: '当前玩家' } };
+    const update = vi.fn(async character => ({ items: [character] }));
+    const node = document.createElement('div'); document.body.append(node); const root = createRoot(node);
+    let owner;
+    try {
+      await act(async () => root.render(<CharacterEditorWindow embeddedCharacterId={original.id}
+        characterCatalog={{ refresh: async () => ({ items: [original] }), update }} characterConfiguration={{}}
+        renderCharacterEditorSection={(section, context, fallback) => { if (section === 'card') owner = context; return fallback; }} />));
+      expect(owner.dirty).toBe(false);
+      await act(async () => owner.onChange({ authorName: '新作者', authorAvatar: 'data:image/png;base64,YXV0aG9y' }));
+      expect(owner.dirty).toBe(true);
+      await act(async () => owner.onCancel());
+      expect(owner.dirty).toBe(false); expect(owner.character.authorName).toBe('原作者');
+      expect(update).not.toHaveBeenCalled();
+      await act(async () => owner.onChange({ authorName: '新作者', authorAvatar: 'data:image/png;base64,YXV0aG9y' }));
+      await act(async () => owner.onSave());
+      expect(update).toHaveBeenCalledWith(expect.objectContaining({ authorName: '新作者', authorAvatar: 'data:image/png;base64,YXV0aG9y', persona: original.persona }));
+      expect(owner.dirty).toBe(false); expect(owner.saveNotice).toBe('saved');
+    } finally { await act(async () => root.unmount()); }
+  });
+
   it('places openings above settings and routes save, failure and discard to the opening controller', async () => {
     const character = { id: 'synthetic-character', name: '合成角色', persona: {} };
     const save = vi.fn().mockResolvedValueOnce(false).mockResolvedValue(true), discard = vi.fn();
@@ -143,11 +165,11 @@ describe('character editor client extension', () => {
       </DisplayPreferencesProvider>));
       await act(async () => node.querySelector('.character-editor-sidebar-toggle').click());
       expect(node.querySelector('.is-sidebar-collapsed')).toBeNull();
-      expect(document.querySelector('[role=alertdialog]').textContent).toContain('保存侧边栏状态失败');
-      expect(document.querySelector('[role=alertdialog]').textContent).not.toContain('合成配置写入失败');
+      expect(document.querySelector('[role=dialog]').textContent).toContain('保存侧边栏状态失败');
+      expect(document.querySelector('[role=dialog]').textContent).not.toContain('合成配置写入失败');
       expect(stored.ui).toEqual({}); expect(saveCharacter).not.toHaveBeenCalled();
-      await act(async () => document.querySelector('[role=alertdialog] button[aria-label="关闭错误详情"]').click());
-      expect(document.querySelector('[role=alertdialog]')).toBeNull();
+      await act(async () => document.querySelector('[role=dialog] button[aria-label="关闭错误详情"]').click());
+      expect(document.querySelector('[role=dialog]')).toBeNull();
       remote.eleckoiDisplayPreferences.updateUi.mockImplementation(async ui => {
         stored.ui = ui; stored.revision += 1; return { ok: true, value: stored };
       });

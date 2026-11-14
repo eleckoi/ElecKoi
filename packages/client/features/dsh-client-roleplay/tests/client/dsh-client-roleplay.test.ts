@@ -61,11 +61,21 @@ describe('ElecKoi roleplay client contribution', () => {
     await Promise.resolve()
     const releaseChat = slots.register({ name: 'conversation.view', id: 'chat', order: 0, label: () => '对话', children: {
       'conversation.chat.flow': { kind: 'single', scope: 'session' },
-      'conversation.chat.text-interaction': { kind: 'keyed', scope: 'session' }
+      'conversation.chat.text-interaction': { kind: 'keyed', scope: 'session' },
+      'conversation.chat.markdown.fence': { kind: 'hoc', scope: 'session' }
     } }, () => null)
+    const releaseChatFence = slots.register({ name: 'conversation.chat.markdown.fence', id: 'synthetic-fence', key: 'diff' }, () => null)
+    const releaseChatPatch = slots.register({ name: 'conversation.chat.markdown.fence', id: 'synthetic-fence', key: 'patch' }, () => null)
     const releaseTextInteraction = slots.register({ name: 'conversation.chat.text-interaction', key: 'synthetic-text' }, () => null)
     await Promise.resolve()
     expect(slots.entriesOfSlot('eleckoi.roleplay.chat.text-interaction').map((entry: any) => entry.options.key)).toEqual(['synthetic-text'])
+    for (const name of ['eleckoi.roleplay.chat.markdown.fence', 'eleckoi.roleplay.view.conversation.chat.markdown.fence']) {
+      expect(slots.entriesOfSlot(name).map((entry: any) => entry.options)).toEqual([
+        { id: 'synthetic-fence', key: 'diff' }, { id: 'synthetic-fence', key: 'patch' },
+      ])
+    }
+    releaseChatPatch()
+    releaseChatFence()
     releaseTextInteraction()
     const releaseFlow = slots.register({ name: 'conversation.chat.flow', children: {
       'conversation.chat.before': { kind: 'single', scope: 'session' },
@@ -78,7 +88,8 @@ describe('ElecKoi roleplay client contribution', () => {
     expect(slots.spec('eleckoi.roleplay.chat.before')).toBeDefined()
     expect(slots.spec('eleckoi.roleplay.view.conversation.chat.before')).toBeDefined()
     const releaseCustom = slots.register({ name: 'conversation.view', id: 'sample-view', order: 5, label: () => '示例视图',
-      children: { 'sample-view.controls': { kind: 'list', scope: 'session' } },
+      children: { 'sample-view.controls': { kind: 'list', scope: 'session' },
+        'sample-view.fence': { kind: 'hoc', scope: 'session' } },
       store: () => null, inject: () => ({ hooks: {} }),
     }, () => null)
     const releaseTrajectory = slots.register({ name: 'conversation.view', id: 'trajectory', order: 10, label: () => '轨迹' }, () => null)
@@ -89,8 +100,10 @@ describe('ElecKoi roleplay client contribution', () => {
     expect(projectedView.inject).toBe(pluginView.inject)
     const Controls = () => null
     const releaseControls = slots.register({ name: 'sample-view.controls', id: 'sample-control', order: 2 }, Controls)
+    const releaseFence = slots.register({ name: 'sample-view.fence', id: 'synthetic-fence' }, Controls)
     await Promise.resolve()
     expect(slots.entriesOfSlot('eleckoi.roleplay.view.sample-view.controls')[0].options.id).toBe('sample-control')
+    expect(slots.entriesOfSlot('eleckoi.roleplay.view.sample-view.fence')[0].options.id).toBe('synthetic-fence')
     const viewProps = { sessionId: 'session-sample', renderSlot: (name: string, owner: unknown, options: unknown) => ({ name, owner, options }) }
     const viewNode = projectedView.component(viewProps)
     expect(viewNode.type).toBe(pluginView.component)
@@ -145,6 +158,7 @@ describe('ElecKoi roleplay client contribution', () => {
     product.props.dshConversation.selectView('trajectory')
     expect(preferred).toBe('trajectory')
     preferred = 'sample-view'
+    releaseFence()
     releaseCustom()
     releaseControls()
     await Promise.resolve()

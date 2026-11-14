@@ -8,9 +8,15 @@ import { describe, expect, it, vi } from 'vitest';
 const require = createRequire(import.meta.url);
 const packageRoot = dirname(require.resolve('@deepseek-ai/dsh-client-ui-workspace/package.json'));
 const source = readFileSync(join(packageRoot, 'lib/client.js'), 'utf8');
-const start = source.indexOf('var UiWorkspaceService = class extends ');
-const end = source.indexOf('\n\t\t/**\n\t\t* `error` as the Session Controller', start);
-if (start < 0 || end < start) throw new Error('Locked Workspace service boundary changed');
+const ts = createRequire(require.resolve('@deepseek-ai/dsh-typert-generator/package.json'))('typescript');
+const parsed = ts.createSourceFile('workspace.js', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+let serviceDeclaration;
+const findService = node => {
+  if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === 'UiWorkspaceService') serviceDeclaration = node;
+  ts.forEachChild(node, findService);
+};
+findService(parsed);
+if (!serviceDeclaration) throw new Error('Locked Workspace service declaration changed');
 
 function fixture(saved = {}, items = []) {
   const disposers = [];
@@ -34,7 +40,7 @@ function fixture(saved = {}, items = []) {
   const ctx = { effect: fn => { disposers.push(fn()); },
     layout: { beginNavigation: vi.fn(() => new AbortController().signal), selectPanel: vi.fn() } };
   const Service = class { constructor(context) { this.ctx = context; } };
-  const Constructor = runInNewContext(`${source.slice(start, end)}; UiWorkspaceService`, {
+  const Constructor = runInNewContext(`var ${serviceDeclaration.getText(parsed)}; UiWorkspaceService`, {
     _deepseek_ai_cordis: { Service },
     _deepseek_ai_dsh_client_store: { createSnapshotStore: () => selection },
     AbortController, AbortSignal, console,

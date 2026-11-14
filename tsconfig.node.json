@@ -69,6 +69,7 @@
     "packages/host/product-api/src/client/inspect.ts",
     "packages/host/product-api/src/errorCodes.generated.ts",
     "packages/host/product-api/src/productFailure.ts",
+    "packages/host/runtime/src/hostDiagnostics.ts",
     "packages/host/product-api/src/client/invalidResponse.ts",
     "packages/host/product-api/src/client/unwrapFailure.ts",
     "packages/host/product-api/src/client/cordisApi.generated.ts",

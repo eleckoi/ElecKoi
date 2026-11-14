@@ -1,9 +1,12 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SidePanelShell } from '../../src/app/windows/shell/components/SidePanelShell.jsx';
+import { SidebarContent } from '../../src/app/windows/shell/components/SidebarContent.jsx';
 
 vi.mock('../../src/ui/icons/dshComposerIcons.jsx', () => ({ DshPanelLeftIcon: () => null }));
+beforeEach(() => vi.stubGlobal('React', React));
+afterEach(() => vi.unstubAllGlobals());
 
 describe('sidebar footer actions', () => {
   it('keeps plugin actions after the scrollable side panel content', () => {
@@ -21,5 +24,20 @@ describe('sidebar footer actions', () => {
     const html = renderToStaticMarkup(<SidePanelShell><div>聊天列表</div></SidePanelShell>);
     expect(html).not.toContain('has-footer-actions');
     expect(html).not.toContain('侧边栏插件操作');
+  });
+
+  it.each([false, true])('puts the single update slot at the right footer of the %s workspace sidebar', workspace => {
+    const calls = [];
+    const html = renderToStaticMarkup(<SidebarContent collapsed={false} workspaceCollapsed={false}
+      sidePanel={<div>角色会话列表</div>} workspaceSidebar={workspace ? <div>工作区会话列表</div> : null}
+      navigationItems={[]} persona={{ user_name: '合成用户' }} renderSidebarSlot={name => {
+        if (name !== 'sidebar.update') return null;
+        calls.push(name); return <button>47%</button>;
+      }} />);
+    expect(calls).toEqual(['sidebar.update']);
+    expect(html).not.toContain('rail-desktop-update');
+    expect(html).toContain('class="sidebar-update-seat"><button>47%</button>');
+    expect(html.indexOf('sidebar-update-seat')).toBeGreaterThan(html.indexOf('</aside>'));
+    expect(html).toContain(workspace ? 'workspace-update-footer' : 'side-panel-footer-actions is-update-only');
   });
 });

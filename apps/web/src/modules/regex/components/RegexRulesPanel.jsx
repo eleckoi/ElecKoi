@@ -51,7 +51,6 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
   const [selectedId, setSelectedId] = useState("");
   const [editing, setEditing] = useState(false);
   const [query, setQuery] = useState("");
-  const [addOpen, setAddOpen] = useState(false);
   const [managerOpen, setManagerOpen] = useState(false);
   const [draggedId, setDraggedId] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -220,7 +219,6 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
     changeCollection(created.collection);
     setSelectedId(created.rule.id);
     setEditing(true);
-    setAddOpen(false);
   }
 
   function changeSelected(patch) {
@@ -282,7 +280,7 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
           onToggleScope={(scope, enabled) => changeCollection(current => setRegexScopeEnabled(current, scope, enabled))} onMove={(scope, id, index) => changeCollection(current => moveRegexRule(current, scope, id, index))}
           draggedId={draggedId} onDragState={setDraggedId} onContextMenu={openContext} /> : error && <p className="rs-directory-empty" role="alert">{error}</p>}
       </div>
-    </EditorLibraryWorkspace> :     <EditorSidebarLayout documentLayout className={`regex-layout${multi.active ? ' is-multiselect' : ''}`} aria-label={tUi("正则配置")} onMouseDown={() => setAddOpen(false)}
+    </EditorLibraryWorkspace> :     <EditorSidebarLayout documentLayout className={`regex-layout${multi.active ? ' is-multiselect' : ''}`} aria-label={tUi("正则配置")}
       inspectorTitle={selected?.rule.name || tUi("编辑正则")} onCloseInspector={closeEditor}
       feedback={<SaveControl dirty={dirty} error={error || libraryVersions.error} notice={notice} saving={saving} onSave={save} />}
       inspector={editing ? documentEditor : null}>

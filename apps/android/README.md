@@ -58,6 +58,8 @@ APK 分别位于 `app/build/outputs/apk/standard/debug/` 和 `app/build/outputs/
 
 资产准备从当前工作区锁文件生成生产依赖闭包，固定并校验 Ubuntu、Node 与 Linux ARM64 SQLite，按锁文件完整性下载平台原生依赖。它只构建 JavaScript 与归档，不在 Windows 执行 ARM64 二进制，也不启动 Docker、WSL 或模拟器。日常 APK 构建直接复用准备好的三份归档。
 
+LibreOfficeKit 的 `frame-forwarding/prebuilds` 按平台目录只保留 Linux ARM64，排除同一发布包附带的 macOS 和 Windows 文件；JavaScript 导出、许可证和已锁定的 WASM 引擎保留。保留下来的原生文件仍须通过 ARM64 ELF 校验，不通过时明确停止打包。
+
 Android 平台辅助程序使用锁定的 NDK 在 Windows 交叉编译，具体流程见 `native/android-runtime/README.md`；DSH 或 ARM64 业务依赖需要源码编译时才安排原生 ARM64 Runner，没有已验证资产时必须明确失败。当前基础版本和校验和见 `scripts/android-runtime/runtime-base-lock.json`。
 
 `build/android-runtime/assets/runtime/manifest.json` 由脚本生成，声明协议版本、Node 路径、Host 入口及每份归档的 SHA-256 与字节数。Gradle 和手机安装器都拒绝缺失或不匹配的资源。归档用 `.archive` 后缀避免 AAPT2 解压改写 gzip 资产；Ubuntu 硬链接转换为内容相同的普通文件，其余内容、权限、属主和符号链接由校验器逐项核对。
@@ -69,6 +71,14 @@ Android 平台辅助程序使用锁定的 NDK 在 Windows 交叉编译，具体�
 ## 插件启动恢复
 
 Host 或客户端插件启动失败时，原生错误页面提供「停用用户插件并重启」。安卓壳先确认旧 Host 已停止，再由新 Host 在加载插件前调用锁定 DSH 的 `sanitizeProfile`：备份当前 profile 的 `cordis.patch.yml`，启用官方 Web 基础组合和 `ELECKOI_ANDROID_BUNDLES` 中的内置组合，并保留已选中的官方 `OPTIONAL_BUNDLES`。用户安装的包与依赖声明、产品数据库和会话文件保留，恢复后可在插件中心卸载或重新启用插件。Profile 覆写配置保存在备份中，恢复启动时不重放。该入口共用于标准版和兼容版，操作失败会保留错误诊断。
+
+## 运行诊断
+
+错误页的「查看错误」与应用菜单的「运行诊断」共用持久记录；查看、复制、导出和分享均包含 Host 的 stdout／stderr、错误堆栈、协议失败、启动阶段和退出码。每次启动有独立编号，并带实际运行资源版本与已就绪的 Host 进程号，重试和应用重开不会清空仍在保留范围内的前次记录。进程退出时先收完两路输出，再发布退出事件，保留没有末尾换行的最后一行。
+
+记录仍使用应用私有 `runtime-diagnostics/` 的四段轮转文件，每段最多 1,000,000 字节，写满淘汰最旧段；应用内手动报告最多 500,000 字节并覆盖同一临时文件，不随重试无限增加。报告取最近事件，超出保留范围的历史不能恢复；用户另存到下载目录的副本由用户管理。Host 输出先清理明确凭据和 URL 查询，再按原字段大小分段保存，长行有行号及分段编号，避免直接截断堆栈。ready 协议的认证 URL 等传输字段不落盘；不主动读取聊天、模型请求或产品数据库。磁盘不可写时报告明确显示诊断存储失败。
+
+这项改动需要包含新原生代码的 APK 才生效，不能补回旧版本已经遗漏的日志。原生单元回归使用真实合成子进程验证代码 1 退出与双流收尾，并覆盖重试、重开、长行、凭据清理、并发写入／导出及实际轮转上限；不代替手机验收。
 
 ## Release 签名
 

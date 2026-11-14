@@ -11,7 +11,7 @@ import { assistantStreamFirstTokenTime, type AssistantStreamRecord } from '@deep
 import { createSessionFormatCatalogWithChildren, historicalSessionFormatCatalog, sessionFormatCatalog, SessionFormatUnsupportedMigrationError } from '@deepseek-ai/dsh-session-format-catalog'
 import { historicalChildCatalogSource } from '@deepseek-ai/dsh-session-format-v3-to-v4'
 import { ELECKOI_FAILURE_CODES, productFailure } from '@eleckoi/dsh-product-api'
-import { finalReplyText } from '@shared/foundation/finalReply'
+
 
 // RETIRE WHEN: supported stored and imported logs no longer contain this retired
 // plugin's envelopes. Remove the identity, its request-row filters and dedicated

@@ -7,7 +7,7 @@ import { prepareFrontendCompatibilitySource } from '@eleckoi/tavern-frontend';
 const literal = value => JSON.stringify(value).replaceAll('<', '\\u003c').replaceAll('\u2028', '\\u2028').replaceAll('\u2029', '\\u2029');
 const attr = value => String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
 
-export function injectFrontendHead(source, head) {
+function injectFrontendHead(source, head) {
   if (/<head\b[^>]*>/i.test(source)) return source.replace(/<head\b[^>]*>/i, value => value + head);
   if (/<html\b[^>]*>/i.test(source)) return source.replace(/<html\b[^>]*>/i, value => value + `<head>${head}</head>`);
   return `<!doctype html><html><head>${head}</head>${/<body\b/i.test(source) ? source : `<body>${source}</body>`}</html>`;

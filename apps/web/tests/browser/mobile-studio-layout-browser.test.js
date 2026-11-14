@@ -13,8 +13,8 @@ it('matches the roleplay header height and gives the official Studio trajectory 
   try {
     const source = await readFile(require.resolve('@deepseek-ai/dsh-client-ui-trajectory/client'), 'utf8');
     const composerSource = await readFile(require.resolve('@deepseek-ai/dsh-client-ui-conversation/client'), 'utf8');
-    if (composerSource.split('return module.exports;').length !== 2) throw new Error('Unexpected locked Conversation Client bundle boundary');
-    if (source.split('return module.exports;').length !== 2) throw new Error('Unexpected locked Trajectory Client bundle boundary');
+    if (composerSource.split('return module.exports').length !== 2) throw new Error('Unexpected locked Conversation Client bundle boundary');
+    if (source.split('return module.exports').length !== 2) throw new Error('Unexpected locked Trajectory Client bundle boundary');
     await build({ entryPoints: ['apps/web/tests/browser/mobile-studio-layout.fixture.jsx'], outfile: resolve(directory, 'fixture.js'), bundle: true,
       format: 'iife', jsx: 'automatic', alias: { '@shared': resolve('packages/shared/src') }, loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file', '.png': 'file', '.svg': 'file' }, logLevel: 'silent',
       plugins: [{ name: 'official-studio-composer-fixture', setup(build) {
@@ -24,7 +24,7 @@ it('matches the roleplay header height and gives the official Studio trajectory 
           import * as Cordis from '@deepseek-ai/cordis'; import * as zod from 'zod';
           import * as store from '@deepseek-ai/dsh-client-store'; import * as slots from '@deepseek-ai/dsh-client-ui-slots'; import * as primitives from '@deepseek-ai/dsh-client-ui-primitives';
           let registration; const captureModule=value=>{registration=value;};
-          ${composerSource.replace('window.__ModuleLoader__.load(', 'captureModule(').replace('return module.exports;', 'return {InputBar,DraftEditorRuntime,registerPlainText: O$1,conversationZh: zh};')}
+          ${composerSource.replace('window.__ModuleLoader__.load(', 'captureModule(').replace('return module.exports', 'return {InputBar,DraftEditorRuntime,registerPlainText: O$1,conversationZh: zh};')}
           const modules={react:React,'react/jsx-runtime':jsxRuntime,'react-dom':ReactDOM,zod,'@deepseek-ai/cordis':Cordis,'@deepseek-ai/dsh-client-store':store,'@deepseek-ai/dsh-client-ui-slots':slots,'@deepseek-ai/dsh-client-ui-primitives':primitives};
           export const {InputBar,DraftEditorRuntime,registerPlainText,conversationZh}=registration.factory(name=>{if(!(name in modules))throw new Error(name);return modules[name];});
         ` }));
@@ -34,7 +34,7 @@ it('matches the roleplay header height and gives the official Studio trajectory 
           import * as React from 'react'; import * as jsxRuntime from 'react/jsx-runtime'; import * as ReactDOM from 'react-dom';
           import * as virtual from '@tanstack/react-virtual'; import * as store from '@deepseek-ai/dsh-client-store'; import * as primitives from '@deepseek-ai/dsh-client-ui-primitives';
           let registration;const captureModule=value=>{registration=value;};
-          ${source.replace('window.__ModuleLoader__.load(', 'captureModule(').replace('return module.exports;', 'return { ...module.exports, TrajectoryView, trajectoryZh: zh };')}
+          ${source.replace('window.__ModuleLoader__.load(', 'captureModule(').replace('return module.exports', 'return { ...module.exports, TrajectoryView, trajectoryZh: zh };')}
           const modules={'@tanstack/react-virtual':virtual,react:React,'react/jsx-runtime':jsxRuntime,'react-dom':ReactDOM,'@deepseek-ai/dsh-client-store':store,'@deepseek-ai/dsh-client-ui-primitives':primitives};
           export const {TrajectoryView,trajectoryZh}=registration.factory(name=>{if(!(name in modules))throw new Error(name);return modules[name];});
         ` }));

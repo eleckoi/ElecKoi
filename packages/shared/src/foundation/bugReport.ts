@@ -26,6 +26,8 @@ import { redactBugReport, type BugReportRedactionOptions } from '../contracts/bu
 
 /** 收集一份报告要的输入。 */
 export interface BugReportCollection {
+  /** Native runtime capture with its own bounded retention, included with logs. */
+  readonly runtimeDiagnostics?: string
   /** 最近一段日志行（已按时间顺序）。 */
   readonly lines: readonly string[]
   readonly environment: BugReportEnvironment
@@ -82,6 +84,8 @@ export function buildBugReport(collection: BugReportCollection): BugReport {
     ...(collection.includeLogTail
       ? { logTail: limitLogTail(collection.lines.join('\n')) }
       : {}),
+    ...(collection.includeLogTail && collection.runtimeDiagnostics !== undefined
+      ? { runtimeDiagnostics: collection.runtimeDiagnostics } : {}),
     ...(notes === '' ? {} : { notes })
   }
   return redactBugReport(report, collection.redaction ?? {})

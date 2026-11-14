@@ -22,7 +22,7 @@ export function rulesForScope(collection, scope) {
   return key ? collection?.[key] || [] : [];
 }
 
-export function withScopeRules(collection, scope, rules) {
+function withScopeRules(collection, scope, rules) {
   const key = REGEX_SCOPES.find((item) => item.id === scope)?.key;
   if (!key) return collection;
   return { ...collection, [key]: rules.map((rule, order) => ({ ...rule, order })) };

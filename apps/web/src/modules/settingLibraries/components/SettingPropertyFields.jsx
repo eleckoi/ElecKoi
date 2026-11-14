@@ -1,8 +1,4 @@
 import { SegmentedTabs, Switch } from '@deepseek-ai/dsh-client-ui-primitives';
-import { createContext, useContext } from 'react';
-
-export const SettingWorkspaceContext = createContext(false);
-export const useSettingWorkspace = () => useContext(SettingWorkspaceContext);
 
 export function PropertySegment({ label, value, options, onChange }) {
   return <section className="setting-property-row"><span className="setting-property-label">{label}</span>

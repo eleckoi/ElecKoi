@@ -1,16 +1,9 @@
-import React from "react";
-import { AppErrorDialog } from "./AppErrorDialog.jsx";
+import React from 'react';
+import { Toast } from '@deepseek-ai/dsh-client-ui-primitives';
+import { AppErrorDialog } from './AppErrorDialog.jsx';
 
 export function AppToast({ notice, onDismiss, onReportProblem }) {
   if (!notice?.message) return null;
-  if (notice.type === "error") {
-    return <AppErrorDialog notice={notice} onDismiss={onDismiss} onReportProblem={onReportProblem} />;
-  }
-
-  return (
-    <div className={`app-toast ${notice.type || "info"}`} role="status" aria-live="polite">
-      <span className="app-toast-icon" aria-hidden="true" />
-      <span>{notice.message}</span>
-    </div>
-  );
+  if (notice.type === 'error') return <AppErrorDialog key={notice.id} notice={notice} onDismiss={onDismiss} onReportProblem={onReportProblem} />;
+  return <Toast key={notice.id} text={notice.message} tone={notice.type === 'success' ? 'success' : undefined} onDone={() => onDismiss?.()} />;
 }

@@ -18,7 +18,7 @@ import type {
 import type { CharacterRecord } from '@shared/contracts/entities/persona'
 import type { SettingLibrary } from '@shared/contracts/settingLibrary/schemas'
 import type { VariableConfig } from '@shared/contracts/variables/schemas'
-import type { RegexRuleRepository } from '@product-data/domain/regexRules'
+import { saveRegexScopeEnabled, type RegexRuleRepository } from '@product-data/domain/regexRules'
 import { includeImportedRulesInActiveVersion } from '@shared/foundation/regex/RegexRuleProcessor'
 import type { SettingLibraryRepository } from '@product-data/domain/settingLibraries'
 import type { VariableConfigRepository } from '@product-data/domain/variables'
@@ -30,7 +30,6 @@ import { agentPresetExists } from '@product-data/domain/agentPresets'
 import { characterExists } from '@product-data/domain/personas'
 import {
   decodeCharacterCard,
-  encodeCharacterCardJson,
   encodeCharacterBundle,
   encodePortableCharacterPayload
 } from './characterCardFormats'
@@ -80,11 +79,13 @@ export class CharacterTransferService {
     const assets = [
       this.portableAsset('avatar.circle', string(persona.assistant_avatar, string(character.avatar))),
       this.portableAsset('avatar.square', string(persona.assistant_square)),
-      this.portableAsset('avatar.portrait', string(persona.assistant_cover))
+      this.portableAsset('avatar.portrait', string(persona.assistant_cover)),
+      this.portableAsset('author.avatar', string(character.authorAvatar))
     ].filter((asset): asset is PortableAsset => !!asset)
     const packageData = {
       character: {
         name: string(character.name, string(persona.assistant_name, '未命名角色')),
+        authorName: string(character.authorName),
         frontendBeautyEnabled: boolean(character.frontendBeautyEnabled),
         profileAge: string(character.profileAge),
         profileSex: string(character.profileSex),
@@ -100,21 +101,14 @@ export class CharacterTransferService {
       libraryFolders: this.libraryAssets?.portableFolders(characterId) ?? [],
       frontends: this.frontends?.portable(characterId),
       scriptLibrary: this.scripts.portable('character', characterId),
+      regexEnabled: this.regexRules.scopeEnabled('character', characterId),
       characterOpeningsJson: JSON.stringify(this.openings.get(characterId)),
       settingLibraryJson: encodeSettingLibrarySnapshot(this.settingLibraries.get(characterId)),
       variableConfigJson: encodeVariableConfigSnapshot(this.variables.get(characterId)),
       regexRules: this.regexRules.get(characterId).characterRules
         .slice().sort((left, right) => left.order - right.order)
     }
-    const json = encodeCharacterCardJson(packageData)
     const safeName = safeExportFileStem(packageData.character.name)
-    if (format === 'json') {
-      return {
-        fileName: `${safeName}.json`,
-        mimeType: 'application/json',
-        base64: Buffer.from(json, 'utf8').toString('base64')
-      }
-    }
     if (format === 'zip') return { fileName: `${safeName}.zip`, mimeType: 'application/zip', base64: Buffer.from(encodeCharacterBundle(packageData)).toString('base64') }
     const baseImage = assets.find((asset) => asset.key === 'avatar.portrait' && asset.mediaType === 'image/png')
       ?? assets.find((asset) => asset.key === 'avatar.square' && asset.mediaType === 'image/png')
@@ -225,6 +219,7 @@ export class CharacterTransferService {
         ? this.frontends.withImportedCharacterOwner(characterId, decoded.packageData.frontends, operation) : operation(() => {})
       withAssets(copyAssets => withFrontends(copyFrontends => this.scripts.transaction((db) => {
         this.characters.createInTransaction(this.characterRecord(characterId, decoded), db)
+        if (decoded.packageData.regexEnabled !== undefined) saveRegexScopeEnabled(db, 'character', characterId, decoded.packageData.regexEnabled)
         if (scripts) this.scripts.importInTransaction('character', characterId, scripts, db)
         const library = this.importedLibrary(characterId, decoded)
         const variables = this.importedVariables(characterId, decoded)
@@ -272,6 +267,8 @@ export class CharacterTransferService {
     return {
       id: characterId,
       name: source.name,
+      authorName: source.authorName ?? '',
+      authorAvatar: assetUrl(assets, 'author.avatar'),
       avatar: circle,
       group: '',
       folder: '',

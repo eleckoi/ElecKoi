@@ -1,3 +1,4 @@
+import { recordCharacterEdit } from '@product-data/domain/characterCatalog'
 import { appendCharacterOpeningMessages } from '@shared/foundation/characterOpenings'
 import { CharacterOpeningRepository } from '@product-data/domain/characterOpenings'
 import type { CharacterOpenings, CharacterOpeningMessage } from '@shared/contracts/characterOpenings/schemas'
@@ -271,8 +272,8 @@ class ProductDataStore {
         if (address.scope === 'preset' && !agentPresetExists(store.db, address.ownerId)) throw new DesktopError(ELECKOI_FAILURE_CODES.agentPresetNotFound, '配置版本所属预设不存在。', { what: '预设' })
       })
       this.editorVersions = new EditorLibraryVersionsService(versionRepository, this.scripts, this.regexRules)
-      this.assets = new CharacterAssetRepository(join(dirname(this.path!), 'character-assets'), id => characterExists(store.db, id))
-      this.frontends ??= new FrontendProjectRepository(new FrontendIndex(join(dirname(this.path!), 'author-frontends')), id => characterExists(store.db, id), () => this.characterAssets())
+      this.assets = new CharacterAssetRepository(join(dirname(this.path!), 'character-assets'), id => characterExists(store.db, id), id => store.withWriteTx(db => recordCharacterEdit(db, id)))
+      this.frontends ??= new FrontendProjectRepository(new FrontendIndex(join(dirname(this.path!), 'author-frontends')), id => characterExists(store.db, id), () => this.characterAssets(), id => store.withWriteTx(db => recordCharacterEdit(db, id)))
       this.transfers = new CharacterTransferService(
         store,
         this.characters,
@@ -314,7 +315,7 @@ class ProductDataStore {
   frontendProjects(): FrontendProjectRepository {
     if (!this.frontends) {
       if (!this.path || !isAbsolute(this.path)) throw new DesktopError(ELECKOI_FAILURE_CODES.internal, 'Frontend projects require the product data directory', { what: '产品数据目录' })
-      this.frontends = new FrontendProjectRepository(new FrontendIndex(join(dirname(this.path), 'author-frontends')), id => characterExists(this.databaseRepositories().store.db, id), () => this.characterAssets())
+      this.frontends = new FrontendProjectRepository(new FrontendIndex(join(dirname(this.path), 'author-frontends')), id => characterExists(this.databaseRepositories().store.db, id), () => this.characterAssets(), id => this.databaseRepositories().store.withWriteTx(db => recordCharacterEdit(db, id)))
     }
     this.frontends.recoverCharacterDeletions()
     return this.frontends

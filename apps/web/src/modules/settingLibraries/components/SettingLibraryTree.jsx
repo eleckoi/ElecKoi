@@ -3,7 +3,7 @@ import { createContext, useContext } from "react";
 import { ChatCircleDots, Code, LinkSimple } from "../../../ui/icons/interfaceIcons.jsx";
 import { DshFolderClosedIcon, DshFolderOpenIcon, DshTriangleRightIcon } from "../../../ui/icons/dshTreeIcons.jsx";
 import { HeadlessTree } from "../../../ui/tree/HeadlessTree.jsx";
-import { SettingEntryGlyph } from "./SettingLibraryEntryEditor.jsx";
+import { SettingEntryGlyph } from "./SettingEntryFields.jsx";
 import { EditorSelectionCheckbox } from '../../../ui/ui/EditorCollectionControls.jsx';
 
 export const SettingTreeActionsContext = createContext(null);

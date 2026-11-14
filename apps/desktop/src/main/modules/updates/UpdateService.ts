@@ -219,34 +219,13 @@ export function normalizeReleaseNotes(notes: UpdateInfo['releaseNotes']): string
   const raw = Array.isArray(notes)
     ? notes.map((item) => item.note ?? '').filter(Boolean).join('\n\n')
     : notes ?? ''
-  const plain = decodeBasicHtmlEntities(
-    raw
-      .replace(/<\s*br\s*\/?>/gi, '\n')
-      .replace(/<\s*\/p\s*>/gi, '\n')
-      .replace(/<[^>]*>/g, '')
-  )
-    .replace(/\r\n?/g, '\n')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-  if (!plain) return null
-  return plain
+  return raw.replace(/\r\n?/g, '\n').trim() || null
 }
 
 function cleanSingleLine(value: string | null): string | null {
   if (value === null) return null
   const cleaned = value.replace(/\s+/g, ' ').trim()
   return cleaned || null
-}
-
-function decodeBasicHtmlEntities(value: string): string {
-  return value
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
 }
 
 function downloadSize(info: UpdateInfo): number {

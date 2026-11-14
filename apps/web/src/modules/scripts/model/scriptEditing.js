@@ -72,7 +72,7 @@ export function reorderScriptItem(library, id, parentId, destinationIndex) {
   return folder ? updateScriptItem(next, parentId, { scripts: items }) : { ...next, trees: items };
 }
 
-export function parseScriptObject(text, label) {
+function parseScriptObject(text, label) {
   let value;
   try { value = JSON.parse(text); } catch { throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, `${label}不是有效的 JSON。`, { what: label }); }
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, `${label}必须是 JSON 对象。`, { what: label });

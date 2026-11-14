@@ -112,7 +112,7 @@ export function filterProviderItems(items, keyword) {
   return items.filter((item) => item.searchText.includes(query));
 }
 
-export function isImageProviderId(providerId, tUi = sourceText) {
+function isImageProviderId(providerId, tUi = sourceText) {
   return catalogItem(providerId, tUi).section === "image";
 }
 

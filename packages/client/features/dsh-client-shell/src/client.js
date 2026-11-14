@@ -230,6 +230,9 @@ window.__ModuleLoader__.load({
               })
               React.useEffect(() => { if (protectedCurrent) ctx.layout.selectPanel('messages') }, [protectedCurrent, scopedSessions])
               const productSlot = (key, owner, renderOptions) => {
+                if (key === 'sidebar.panellist') return props.renderFactorySlot('sidebar.panel.icon', {
+                  ...owner, id: renderOptions.only
+                })
                 // Preserve the former product fallback priority for these seats.
                 const entry = slots.entriesOfSlot(key)[0]
                 if (owner && Object.hasOwn(owner, 'content') && (entry?.options.priority ?? 0) >= -100) return owner.content

@@ -10,7 +10,7 @@ import * as primitives from '@deepseek-ai/dsh-client-ui-primitives';
 const require = createRequire(import.meta.url);
 const source = readFileSync(require.resolve('@deepseek-ai/dsh-client-ui-model-selection/client'), 'utf8');
 let registration;
-runInNewContext(source.replace('return module.exports;', 'return { ...module.exports, ModelSelect, zh };'), {
+runInNewContext(source.replace('return module.exports', 'return { ...module.exports, ModelSelect, zh };'), {
   window: new Proxy({}, { get: (_target, key) => key === '__ModuleLoader__' ? { load: entry => { registration = entry; } } : window[key] }),
   document, Element, HTMLElement, HTMLInputElement, HTMLButtonElement, Node, queueMicrotask,
   get setTimeout() { return globalThis.setTimeout; }, get clearTimeout() { return globalThis.clearTimeout; },

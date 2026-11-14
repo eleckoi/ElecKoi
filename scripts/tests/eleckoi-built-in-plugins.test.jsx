@@ -178,7 +178,7 @@ describe('ElecKoi built-in bundle details', () => {
             availability: 'installation', optional: false, rows: [{ rowId: 'synthetic-row', entryId: `entry:${name}`,
                 moduleName: name, enabled: true, phase: 'active' }], overrides: [], meta: { title: name }, ...options });
         const userNames = ['@test/user-plugin', '@eleckoi/user-installed-synthetic', '@test/missing-user-plugin'];
-        const experimental = '@deepseek-ai/dsh-experimental-agent-team-profile';
+        const experimental = '@deepseek-ai/dsh-experimental-voice-input-bundle';
         let view = { kind: 'list' };
         let state = { ...initialState, status: 'ready', packages: [
             ...[...bundles].reverse().map(name => makePackage(name)),
@@ -416,7 +416,7 @@ describe('ElecKoi built-in bundle details', () => {
                 continue;
             expect(source, spec).toContain("['" + packageName + "',");
         }
-        expect(workspace.patchedDependencies['@deepseek-ai/dsh-typert-generator@0.2.2-rc.1'])
-            .toBe('patches/@deepseek-ai__dsh-typert-generator@0.2.2-rc.1.patch');
+        expect(workspace.patchedDependencies['@deepseek-ai/dsh-typert-generator@0.2.2-rc.3'])
+            .toBe('patches/@deepseek-ai__dsh-typert-generator@0.2.2-rc.3.patch');
     });
 });

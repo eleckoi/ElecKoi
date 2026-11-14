@@ -19,4 +19,5 @@ export type {
   DshRequestContextRole
 } from './requestContext'
 export { recoverStartupSessions } from './sessionStartupRecovery'
+export { formatHostDiagnostic } from './hostDiagnostics'
 export { installWebClientAssets } from './webClientAssets'

@@ -121,6 +121,27 @@ it('serves registered modules and relative resources through the actual Host, Re
   expect(changed.scripts[0]!.entryUrl).not.toBe(loaded.scripts[0]!.entryUrl)
   expect((await fetch(`${base}/helpers/derive.js`)).status).toBe(409)
   abort.abort()
+  for (const enabled of [true, false]) {
+    const library = ctx.eleckoiProductData.readScriptLibrary('character', 'synthetic-character')
+    ctx.eleckoiProductData.saveScriptLibrary({ ...library, enabled })
+    for (const format of ['png', 'zip'] as const) {
+      const exported = ctx.eleckoiProductData.exportCharacter('synthetic-character', format)
+      const preview = ctx.eleckoiProductData.prepareCharacterImports([{ displayName: exported.fileName,
+        mimeType: exported.mimeType, base64: exported.base64 }], 'eleckoi')
+      const importedId = ctx.eleckoiProductData.commitCharacterImports(preview.token).importedCharacterIds[0]!
+      const importedConversation = ctx.eleckoiProductData.createConversation({ metadata: { characterId: importedId } }).conversation.id
+      const importedCatalog = await ctx.typertGateway.invoke({ peer: ownerPeer(ctx), namespace: 'eleckoiAuthorScripts',
+        method: 'read', args: { conversationId: importedConversation } }) as NativeAuthorScriptCatalog
+      const programs = importedCatalog.scripts.filter(item => item.scope === 'character' && item.ownerId === importedId)
+      expect(programs).toHaveLength(enabled ? 1 : 0)
+      if (enabled) {
+        expect(programs[0]).toMatchObject({ id: 'synthetic-script', scope: 'character', ownerId: importedId })
+        const source = await fetch(`http://127.0.0.1:${ctx.webServer.port}${programs[0]!.entryUrl}`)
+        expect(source.status).toBe(200)
+        expect(await source.text()).toBe(loaded.scripts[0]!.source)
+      }
+    }
+  }
   await plugin.dispose()
   expect((await fetch(`${base}/${ready.entries[0]!.file}`)).status).toBe(404)
   expect(ctx.get('eleckoiCompatibilityApi', false)).toBeUndefined()

@@ -14,7 +14,6 @@ import { ACTIVE_RUNTIME_PRESET_ID, installRoleplaySessionRuntime, materializeAge
 import { refreshSessionModelSnapshot } from './model-request-snapshot.mjs'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 import { RuntimeContexts, restoreRuntimeContext } from './runtime-contexts.mjs'
-import { installRoleplaySubagentTurn } from './subagent-turn.mjs'
 
 export const name = 'eleckoi-agent-preset-bridge'
 const legacyPresetId = id => /^agent-preset-[a-z0-9-]+-[0-9a-f]{16}$/.test(id ?? '')
@@ -193,7 +192,7 @@ export async function apply(ctx) {
     try {
       const snapshot = child
         ? inheritSessionSnapshot(snapshotRoot, sourceSessionId, agent.id)
-        : await refreshSessionModelSnapshot(ctx, snapshotRoot, agent.id, agent.model.current(), agent.session)
+        : readSessionSnapshot(snapshotRoot, agent.id)
       inherited = child
       if (child) {
         if (!runtimeContexts.has(sourceSessionId)) {
@@ -207,7 +206,12 @@ export async function apply(ctx) {
       }
       await registerActivePreset()
       if (!child) {
-        installRoleplaySubagentTurn(agent.ctx)
+        // Restoring history and the picker does not need a routable model.
+        // Refresh model capabilities only when this Agent starts a request.
+        agent.ctx.on('agent/prepare-step', async ({ agent: preparing }) => {
+          if (preparing !== agent) return
+          await refreshSessionModelSnapshot(ctx, snapshotRoot, agent.id, agent.model.current(), agent.session)
+        }, { prepend: true })
         installRequestConfig(agent.ctx, snapshotRoot, agent.id)
         installConversationContext(agent.ctx, snapshotRoot, agent.id, ctx.eleckoiRequestPreviews, ctx.settings, runtimeContexts)
       }

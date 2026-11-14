@@ -98,6 +98,8 @@ ElecKoi 原生脚本用 `api.ui.registerButton` 注册按钮，`api.ui.openPanel
 
 项目清单使用 `scope="character"`、manifestVersion=1、sdkVersion="0.1.0"，显式 entryFile 必须存在。角色绑定目前为无 bindings（直接使用 entryFile），或一条 target=root、view 省略或为 chat 的绑定；应用级 page／slot 不属于此角色路线。
 
+完整卡导入沿包内 `selectedProjectId` 恢复所选项目，`null` 保持默认内容区，不自动选首个项目；`messageRendererEnabled` 单独保留。导入不能把作者明确关闭的功能打开，也不能把开启的功能默认关闭。
+
 页面同样声明 SDK 并等待 ElecKoiReady。独立页用 messages.list/getPage/pageOlder、chat.send、input、variables 和正式 events 完成所需交互，准确字段按接口参考查阅。chat.send 等待实际生成结果，input.set 只改宿主草稿，input.send 请求宿主提交；不要混用成功含义。长历史按正式游标分页，不能把已加载窗口当完整聊天。
 
 当前角色页面固定角色和聊天；切换聊天撤回旧 SDK。配置预览只有绑定到同角色聊天时才能调用聊天功能。事件与已挂载资源在页面结束时释放，不通过 parent、宿主 DOM、Node、外部全局对象或另一套通信协议操纵客户端。

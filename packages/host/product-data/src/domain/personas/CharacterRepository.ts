@@ -1,3 +1,4 @@
+import { readCharacterActivity, recordCharacterAdded, recordCharacterEdit } from '@product-data/domain/characterCatalog'
 import { createCharacterOpenings } from '@shared/contracts/characterOpenings/schemas'
 import { readCharacterOpenings } from '@product-data/domain/characterOpenings'
 import { characterOpenings } from '@product-data/storage/sqlite/schema/common'
@@ -52,6 +53,7 @@ export class CharacterRepository {
     const state = db.select().from(characterMeta).where(eq(characterMeta.id, 'default')).get()
     const profile = db.select().from(userProfile).where(eq(userProfile.id, 'default')).get()
     const texts = db.select().from(characterTextContents).all()
+    const activity = readCharacterActivity(db)
     return {
       active_character_id: rows.some((row) => row.id === state?.activeCharacterId) ? state!.activeCharacterId : rows[0]?.id ?? '',
       groups: state ? normalizedGroups(parseJsonArray<string>(state.groupsJson)) : [],
@@ -61,6 +63,8 @@ export class CharacterRepository {
         const content = Object.fromEntries(texts.filter((item) => item.characterId === row.id).map((item) => [item.kind, item.content]))
         return {
           ...row, group: normalizedGroup(row.groupName),
+          authorName: content.author_name ?? '', authorAvatar: content.author_avatar ?? '',
+          addedAtEpochMs: activity.get(row.id)?.addedAtEpochMs ?? 0, editedAtEpochMs: activity.get(row.id)?.editedAtEpochMs ?? 0,
           chatBackgroundCustom: customChatBackgroundFromCharacter({ ...row,
             chatBackgroundCustom: parseJsonObject(content[CUSTOM_BACKGROUND_KIND] ?? '{}') }),
           persona: {
@@ -97,6 +101,7 @@ export class CharacterRepository {
       ? character
       : { ...character, chatBackground: string(this.defaultChatBackground()) }
     this.saveCard(nextCharacter, existing.length, database)
+    recordCharacterAdded(database, character.id)
     const group = normalizedGroup(string(character.group, string(character.groupName)))
     const groups = normalizedGroups([...(state ? parseJsonArray<string>(state.groupsJson) : []), group])
     database.insert(characterMeta).values({
@@ -178,7 +183,10 @@ export class CharacterRepository {
         // that represent independent use are detached by the conversation cleanup.
         database.delete(characters).where(eq(characters.id, row.id)).run()
       }
-      for (const [index, character] of collection.items.entries()) this.saveCard(character, index, database)
+      for (const [index, character] of collection.items.entries()) {
+        this.saveCard(character, index, database)
+        if (!existing.some(row => row.id === character.id)) recordCharacterAdded(database, character.id)
+      }
       const previous = database.select().from(characterMeta).where(eq(characterMeta.id, 'default')).get()
       const state = {
         id: 'default', activeCharacterId: ids.has(collection.active_character_id) ? collection.active_character_id : collection.items[0]?.id ?? '',
@@ -202,6 +210,10 @@ export class CharacterRepository {
 
   private saveCard(input: CharacterRecord, index: number, db: ElecKoiDatabase): void {
     const previous = db.select().from(characters).where(eq(characters.id, input.id)).get()
+    const authorContents = db.select().from(characterTextContents).where(eq(characterTextContents.characterId, input.id)).all()
+    input = { ...input,
+      authorName: string(input.authorName, authorContents.find(item => item.kind === 'author_name')?.content),
+      authorAvatar: string(input.authorAvatar, authorContents.find(item => item.kind === 'author_avatar')?.content) }
     const customContent = db.select().from(characterTextContents).where(and(eq(characterTextContents.characterId, input.id), eq(characterTextContents.kind, CUSTOM_BACKGROUND_KIND))).get()
     const previousCustom = customChatBackgroundFromCharacter({ ...previous, chatBackgroundCustom: parseJsonObject(customContent?.content ?? '{}') })
     input = this.prepareCardMedia({ ...input, chatBackground: string(input.chatBackground, previous?.chatBackground),
@@ -221,13 +233,23 @@ export class CharacterRepository {
       chatBackgroundOpacity: number(input.chatBackgroundOpacity, previous?.chatBackgroundOpacity ?? 0.72),
       chatBackgroundBlur: number(input.chatBackgroundBlur, previous?.chatBackgroundBlur ?? 2), chatBackgroundScrim: number(input.chatBackgroundScrim, previous?.chatBackgroundScrim ?? 0.5)
     }
-    if (JSON.stringify(previous) !== JSON.stringify(row)) db.insert(characters).values(row).onConflictDoUpdate({ target: characters.id, set: row }).run()
+    if (JSON.stringify(previous) !== JSON.stringify(row)) {
+      db.insert(characters).values(row).onConflictDoUpdate({ target: characters.id, set: row }).run()
+      const cardContent = ({ orderIndex: _order, groupViewOrder: _view, groupName: _group, ...content }: typeof row) => JSON.stringify(content)
+      if (previous && cardContent(previous) !== cardContent(row)) recordCharacterEdit(db, input.id)
+    }
     const custom = customChatBackgroundFromCharacter(input)
     if (custom.image) {
       const content = JSON.stringify(custom)
-      if (customContent?.content !== content) db.insert(characterTextContents).values({ characterId: input.id, kind: CUSTOM_BACKGROUND_KIND, content })
-        .onConflictDoUpdate({ target: [characterTextContents.characterId, characterTextContents.kind], set: { content } }).run()
-    } else if (customContent) db.delete(characterTextContents).where(and(eq(characterTextContents.characterId, input.id), eq(characterTextContents.kind, CUSTOM_BACKGROUND_KIND))).run()
+      if (customContent?.content !== content) {
+        db.insert(characterTextContents).values({ characterId: input.id, kind: CUSTOM_BACKGROUND_KIND, content })
+          .onConflictDoUpdate({ target: [characterTextContents.characterId, characterTextContents.kind], set: { content } }).run()
+        if (previous) recordCharacterEdit(db, input.id)
+      }
+    } else if (customContent) {
+      db.delete(characterTextContents).where(and(eq(characterTextContents.characterId, input.id), eq(characterTextContents.kind, CUSTOM_BACKGROUND_KIND))).run()
+      if (previous) recordCharacterEdit(db, input.id)
+    }
     if (!previous) db.insert(characterOpenings).values({ characterId: input.id,
       configurationJson: JSON.stringify(createCharacterOpenings(input.id, string(persona.opening), Boolean(persona.show_opening ?? input.showOpening ?? true))) }).run()
     this.conversationCleanup.refreshCharacterIdentity(input.id, {
@@ -240,7 +262,15 @@ export class CharacterRepository {
       const current = db.select().from(characterTextContents).where(and(eq(characterTextContents.characterId, input.id), eq(characterTextContents.kind, kind))).get()
       const content = string(persona[kind], current?.content)
       if (current?.content === content) continue
+      if (previous) recordCharacterEdit(db, input.id)
       db.insert(characterTextContents).values({ characterId: input.id, kind, content }).onConflictDoUpdate({ target: [characterTextContents.characterId, characterTextContents.kind], set: { content } }).run()
+    }
+    for (const [kind, content] of [['author_name', string(input.authorName)], ['author_avatar', string(input.authorAvatar)]] as const) {
+      const current = authorContents.find(item => item.kind === kind)
+      if ((current?.content ?? '') === content) continue
+      if (previous) recordCharacterEdit(db, input.id)
+      db.insert(characterTextContents).values({ characterId: input.id, kind, content })
+        .onConflictDoUpdate({ target: [characterTextContents.characterId, characterTextContents.kind], set: { content } }).run()
     }
   }
 
@@ -281,6 +311,7 @@ export class CharacterRepository {
     return {
       ...input,
       avatar,
+      authorAvatar: prepare('author-avatar', input.authorAvatar),
       chatBackground: isCustomChatBackground(input.chatBackground) ? background : input.chatBackground,
       chatBackgroundCustom: { ...custom, image: background },
       persona: {

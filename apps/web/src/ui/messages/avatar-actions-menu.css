@@ -2,7 +2,9 @@
   position: fixed;
   z-index: 1100;
   width: 120px;
-  max-height: var(--dsh-anchored-max-height);
+  top: clamp(12px, calc(anchor(center) - var(--avatar-actions-height) / 2), calc(100dvh - 12px - var(--avatar-actions-height)));
+  left: clamp(12px, calc(anchor(right) + 8px), calc(100vw - 132px));
+  max-height: calc(100dvh - 24px);
   color: var(--dsw-alias-label-primary);
   font-family: var(--dsw-font-family);
 }

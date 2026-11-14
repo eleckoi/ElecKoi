@@ -12,12 +12,12 @@ import { withDshAssets } from '../../../../tests/helpers/clientModuleRequire.js'
 // Execute the installed, pinned Client bundle. Only the test loader exposes
 // private components; production obtains ChatView from its public slot entry.
 const source = readFileSync(resolve('node_modules/@deepseek-ai/dsh-client-ui-chat/lib/client.js'), 'utf8')
-if (source.split('return module.exports;').length !== 2) throw new Error('Unexpected Chat Client bundle boundary')
+if (source.split('return module.exports').length !== 2) throw new Error('Unexpected Chat Client bundle boundary')
 let registration
 const browser = new Proxy({}, { get: (_target, key) => key === '__ModuleLoader__'
   ? { load: value => { registration = value } }
   : typeof window === 'undefined' ? undefined : window[key] })
-runInNewContext(source.replace('return module.exports;', 'return { ...module.exports, RawChatView: ChatView, ChatFlow, ChatReading, ChatViewport, ScrollFollow, TurnNavigator, mergeTurnRailItems, ActivityPill, ManualCompactionNodeView };'), {
+runInNewContext(source.replace('return module.exports', 'return { ...module.exports, RawChatView: ChatView, ChatFlow, ChatReading, ChatViewport, ScrollFollow, TurnNavigator, mergeTurnRailItems, ActivityPill, ManualCompactionNodeView };'), {
   window: browser,
   document: typeof document === 'undefined' ? undefined : document,
   HTMLElement: typeof HTMLElement === 'undefined' ? undefined : HTMLElement,
@@ -59,7 +59,7 @@ export function chatFixture(sessionId = 'session-test') {
   const empty = []
   let state = {
     order: empty, nodes: new Map(), grouped: undefined, rail: empty,
-    session: { running: false, openState: 'open', openError: null, hasMore: false, loadingOlder: false, pendingSubmissions: empty },
+    session: { running: false, openState: 'open', openError: null, hasMore: false, loadingOlder: false, historyLoadStatus: 'idle', pendingSubmissions: empty },
     inbox: { 'next-step': empty },
   }
   const subscribe = listener => { listeners.add(listener); return () => listeners.delete(listener) }
@@ -88,7 +88,7 @@ export function chatFixture(sessionId = 'session-test') {
     actions: { setTurnProcessOpen() {} },
     t: key => key,
     chatScroll: { read: () => saved, save: value => { saved = value } },
-    loadOlder: async () => {}, loadThrough: async () => {},
+    loadOlder: () => {}, consumeOlder: () => false, loadThrough: async () => {},
     openFile: async () => {}, openSkill() {}, openExternalLink() {}, loadImage: async () => '',
     inspectCall() {}, fileMentions() {},
     renderSlot: (_name, _owner, options) => options?.fallback ?? null,

@@ -440,7 +440,7 @@ window.__ModuleLoader__.load({
       const aborted = new Set(abortedTurns)
       const closedTurns = new Set(nodes.filter(node => node.kind === 'turn-tail' && node.data?.closing)
         .map(nodeTurn).filter(Number.isSafeInteger))
-      const supersededInputTurns = new Set(inputLinks.filter(link => link.kind !== 'subagent' && Number.isSafeInteger(link.inputTurn)
+      const supersededInputTurns = new Set(inputLinks.filter(link => Number.isSafeInteger(link.inputTurn)
         && link.inputTurn > 0 && link.inputTurn !== link.turn).map(link => link.inputTurn))
       if (Number.isSafeInteger(regeneratingInputTurn) && regeneratingInputTurn > 0) supersededInputTurns.add(regeneratingInputTurn)
       const latestOpenAssistantByTurn = new Map()

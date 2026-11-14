@@ -7,13 +7,36 @@
 body { margin: 0; height: 100vh; display: grid; place-items: center; isolation: isolate; background: transparent; color: var(--dsw-alias-label-primary); color-scheme: light; }
 body[data-ds-dark-theme] { color-scheme: dark; }
 body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--dsw-alias-bg-mask-1); }
-main { width: min(380px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; padding: 22px 24px 24px; border-radius: 24px; background: var(--dsw-alias-bg-layer-1); box-shadow: none; }
+main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: min(480px, calc(100vw - 48px)); max-height: calc(100dvh - 48px); overflow: hidden; border-radius: 20px; background: var(--dsw-alias-bg-layer-1); box-shadow: none; }
+main.has-release-notes { width: min(920px, calc(100vw - 64px)); max-height: min(640px, calc(100dvh - 64px)); }
 body[data-ds-dark-theme] main { box-shadow: inset 0 0 0 1px var(--dsw-alias-border-l2); }
-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 24px 28px 14px; }
 main:focus { outline: none; }
-h1 { margin: 0; min-height: 28px; font-size: 16px; font-weight: 500; line-height: 24px; overflow-wrap: anywhere; }
-p { margin: 0; font-size: 14px; line-height: 22px; white-space: pre-wrap; overflow-wrap: anywhere; }
-#actions { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; position: sticky; bottom: 0; background: var(--dsw-alias-bg-layer-1); }
+h1 { margin: 0; min-height: 28px; font-size: 20px; font-weight: 600; line-height: 28px; overflow-wrap: anywhere; }
+#content { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 28px; scrollbar-gutter: stable; }
+#detail { margin: 0; font-size: 14px; line-height: 22px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.has-release-notes #detail { color: var(--dsw-alias-label-secondary); }
+#release-notes { margin-top: 20px; font-size: 14px; line-height: 1.75; overflow-wrap: anywhere; }
+#release-notes > :first-child { margin-top: 0; }
+#release-notes > :last-child { margin-bottom: 0; }
+#release-notes :is(h1,h2,h3,h4,h5,h6) { min-height: 0; margin: 24px 0 10px; font-weight: 600; line-height: 1.5; }
+#release-notes h1 { font-size: 20px; }
+#release-notes h2 { font-size: 17px; }
+#release-notes :is(h3,h4,h5,h6) { font-size: 15px; }
+#release-notes p { margin: 10px 0; }
+#release-notes :is(ul,ol) { margin: 10px 0; padding-inline-start: 22px; }
+#release-notes li { margin: 6px 0; padding-inline-start: 2px; }
+#release-notes li > p { margin: 6px 0; }
+#release-notes a { color: var(--dsw-alias-link); text-decoration: underline; text-underline-offset: 3px; }
+#release-notes code { padding: 2px 5px; border-radius: 4px; background: var(--dsw-alias-markdown-inline-code); font-size: .9em; }
+#release-notes pre code { padding: 0; background: none; font-size: inherit; }
+#release-notes blockquote { margin: 12px 0; padding-inline-start: 14px; border-inline-start: 3px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-secondary); }
+#release-notes table { display: block; max-width: 100%; overflow: auto; border-collapse: collapse; margin: 12px 0; }
+#release-notes :is(th,td) { padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l2); text-align: start; }
+#release-notes img { max-width: 100%; }
+#release-notes hr { border: 0; border-top: 1px solid var(--dsw-alias-border-l2); margin: 20px 0; }
+#actions { display: flex; flex-direction: row-reverse; flex-wrap: wrap; gap: 8px; padding: 20px 28px 24px; background: var(--dsw-alias-bg-layer-1); }
+#actions button { min-width: 112px; }
 button { min-height: 44px; padding: 9px 16px; border: 0; border-radius: 12px; font-family: inherit; font-size: 14px; font-weight: 500; line-height: 22px; color: inherit; cursor: pointer; }
 .primary { background: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-inverted); }
 
@@ -21,10 +44,24 @@ button { min-height: 44px; padding: 9px 16px; border: 0; border-radius: 12px; fo
 .close { display: grid; place-items: center; flex: none; width: 28px; min-height: 28px; padding: 7px; border-radius: 50%; background: transparent; }
 .close::before { content: ""; width: 14px; height: 14px; background: currentColor; mask: url("update-close.svg") center / contain no-repeat; }
 
-button:focus-visible, summary:focus-visible, pre:focus-visible { outline: 2px solid var(--dsw-alias-link); outline-offset: 3px; }
+button:focus-visible, summary:focus-visible, pre:focus-visible, a:focus-visible { outline: 2px solid var(--dsw-alias-link); outline-offset: 3px; }
+#content:focus-visible { outline: 2px solid var(--dsw-alias-link); outline-offset: -2px; }
 details { margin-top: 12px; font-size: 13px; line-height: 20px; }
 summary { cursor: pointer; color: var(--dsw-alias-label-secondary); }
-pre { margin: 8px 0 0; padding: 10px; max-height: min(180px, 30vh); overflow: auto; border-radius: 8px; background: var(--dsw-alias-markdown-code-block); font: 12px/18px monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+pre { margin: 8px 0 0; padding: 12px; overflow: auto; border-radius: 8px; background: var(--dsw-alias-markdown-code-block); font: 12px/18px monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+#technical-details pre { max-height: min(180px, 30vh); }
+#content, pre, table { --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2); --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2); }
+@media (max-width: 600px) {
+  main, main.has-release-notes { width: calc(100vw - 24px); max-height: calc(100dvh - 24px); border-radius: 16px; }
+  header { padding: 20px 20px 12px; }
+  #content { padding: 0 20px; }
+  #actions { padding: 16px 20px 20px; }
+}
+@media (max-height: 420px) {
+  main, main.has-release-notes { max-height: calc(100dvh - 16px); }
+  header { padding-top: 12px; padding-bottom: 8px; }
+  #actions { padding-top: 12px; padding-bottom: 12px; }
+}
 button:disabled { opacity: 0.5; cursor: default; }
 [hidden] { display: none !important; }
 body.update-dialog { opacity: 0; transition: opacity 150ms ease; }

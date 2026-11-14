@@ -152,7 +152,7 @@ export function MobilePresetEditor() {
   </EditorPresentationContext.Provider>;
 }
 
-export function MobilePresetCards({ presets, activeId, onOpen, onActions, selection = '', selectedIds = [], busy = false, purpose = 'roleplay' }) {
+function MobilePresetCards({ presets, activeId, onOpen, onActions, selection = '', selectedIds = [], busy = false, purpose = 'roleplay' }) {
   const tUi = useProductTranslation();
   const ref = useMobileScroll(`presets:${purpose}`);
   return <div className="mobile-scroll mobile-preset-cards" ref={ref}>{presets.map(preset => <article className={`mobile-preset-card${preset.id === activeId ? ' is-active' : ''}`} key={preset.id} data-selected={selection ? selectedIds.includes(preset.id) : undefined}>

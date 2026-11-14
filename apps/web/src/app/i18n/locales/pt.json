@@ -1,4 +1,11 @@
 {
+  "角色信息": "Informações do personagem",
+  "作者信息": "Informações do autor",
+  "作者名字": "Nome do autor",
+  "选择作者头像": "Escolher avatar do autor",
+  "调整作者头像": "Ajustar avatar do autor",
+  "预览角色卡": "Prévia do cartão",
+  "展示内容": "Conteúdo exibido",
   "创建设定文件夹": "Criar pasta de contexto",
   "移动设定": "Mover contexto",
   "移动设定文件夹": "Mover pasta de contexto",
@@ -3370,5 +3377,18 @@
   "最新导入": "Mais recentes",
   "最早导入": "Mais antigos",
   "打开所在目录": "Abrir diretório do arquivo",
-  "资产库操作": "Ações da biblioteca de recursos"
+  "资产库操作": "Ações da biblioteca de recursos",
+  "查看技术详情": "Ver detalhes técnicos",
+  "默认顺序": "Ordem padrão",
+  "最近导入": "Importados recentemente",
+  "最近编辑": "Editados recentemente",
+  "我的分组": "Meus grupos",
+  "进入编辑": "Editar",
+  "完成编辑": "Concluir",
+  "长按拖动排序": "Mantenha pressionado para ordenar",
+  "角色卡排序": "Ordenar personagens",
+  "关闭分组面板": "Fechar painel de grupos",
+  "分组 {value0}，长按拖动，点击改名": "Grupo {value0}, mantenha pressionado para ordenar, toque para renomear",
+  "删除“{value0}”分组，角色卡保留。": "Excluir o grupo “{value0}”. As fichas serão mantidas.",
+  "移动角色": "Mover personagens"
 }

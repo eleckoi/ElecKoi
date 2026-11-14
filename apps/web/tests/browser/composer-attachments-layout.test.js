@@ -13,9 +13,9 @@ it('keeps the official composer centered while all draft attachments scroll with
   try {
     const sources = await Promise.all(['conversation', 'attachment'].map(async name => {
       const source = await readFile(require.resolve(`@deepseek-ai/dsh-client-ui-${name}/client`), 'utf8');
-      if (source.split('return module.exports;').length !== 2) throw new Error('Locked composer factory changed');
+      if (source.split('return module.exports').length !== 2) throw new Error('Locked composer factory changed');
       const exposed = name === 'conversation' ? 'InputBar, QueueDock, DraftEditorRuntime, registerPlainText: O$1' : 'ComposerAttachments';
-      return `let ${name};{const captureModule=value=>{${name}=value;};${source.replace('window.__ModuleLoader__.load(', 'captureModule(').replace('return module.exports;', `return {${exposed}};`)}\n}`;
+      return `let ${name};{const captureModule=value=>{${name}=value;};${source.replace('window.__ModuleLoader__.load(', 'captureModule(').replace('return module.exports', `return {${exposed}};`)}\n}`;
     }));
     await build({ entryPoints: ['apps/web/tests/browser/composer-attachments.fixture.jsx'], outfile: resolve(directory, 'fixture.js'), bundle: true,
       format: 'iife', jsx: 'automatic', alias: { '@shared': resolve('packages/shared/src') },

@@ -5,7 +5,7 @@ import { productLocaleTag } from '../../../app/i18n/productCopy.js';
 import { variableDifferences, variablePointer } from '../model/variableBrowser.js';
 import { VariableBrowser, VariableRows, VariableValue } from './VariableBrowser.jsx';
 
-export function variableTime(value, t, full = false) {
+function variableTime(value, t, full = false) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '' : new Intl.DateTimeFormat(productLocaleTag(t), { ...(full ? { month: '2-digit', day: '2-digit' } : {}), hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
 }

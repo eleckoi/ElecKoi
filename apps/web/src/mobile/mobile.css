@@ -36,13 +36,12 @@
 .mobile-shell button:focus-visible { outline: 2px solid color-mix(in srgb, var(--text) 38%, transparent); outline-offset: 2px; }
 :root[data-eleckoi-mobile="true"] :is(button, a, summary, [tabindex]):focus-visible { outline-color: color-mix(in srgb, var(--text) 38%, transparent); }
 :root[data-eleckoi-mobile="true"] :is(input, select, textarea):focus-visible { outline: none; }
-:root[data-eleckoi-mobile="true"] :is(.regex-field, .regex-version-create, .regex-manager-transfer, .dynamic-settings-field, .dynamic-settings-name-dialog, .model-detail-form, .preset-author-fields, .preset-description-field, .preset-profile-editor-layout, .profile-settings-name, .roleplay-plan-list) :is(input, select, textarea):focus { border-color: color-mix(in srgb, var(--text) 28%, transparent); box-shadow: none; }
+:root[data-eleckoi-mobile="true"] :is(.regex-field, .regex-version-create, .regex-manager-transfer, .dynamic-settings-name-dialog, .model-detail-form, .preset-author-fields, .preset-description-field, .preset-profile-editor-layout, .profile-settings-name, .roleplay-plan-list) :is(input, select, textarea):focus { border-color: color-mix(in srgb, var(--text) 28%, transparent); box-shadow: none; }
 :root[data-eleckoi-mobile="true"] .character-basic-content :is(.semi-input-wrapper-focus, .semi-input-textarea-wrapper-focus) { border-color: color-mix(in srgb, var(--text) 28%, transparent); }
 :root[data-eleckoi-mobile="true"] :is(.dsh-search-field, .web-search-key-field, .chat-model-list-tools label):focus-within { border-color: color-mix(in srgb, var(--text) 28%, transparent); outline: none; box-shadow: none; }
 :root[data-eleckoi-mobile="true"] :is(.side-panel-collapse-button, .side-panel-expand-button):focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 38%, transparent); }
 :root[data-eleckoi-mobile="true"] :is(.model-group-row, .model-config-provider, .model-icon-button, .model-fetch-button, .model-add-button, .model-picker-value, .model-picker-shell button, .model-manual-add button, .model-header-row button):focus-visible { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 38%, transparent); }
 :root[data-eleckoi-mobile="true"] .model-reasoning-efforts button:focus-visible { border-color: color-mix(in srgb, var(--text) 28%, transparent); }
-:root[data-eleckoi-mobile="true"] .setting-library-entry-tabs button:focus-visible .setting-library-entry-tab-node { box-shadow: 0 0 0 3px color-mix(in srgb, var(--text) 20%, transparent); }
 :root[data-eleckoi-mobile="true"] .setting-library-placement-row:focus-visible .setting-library-placement-choice,
 :root[data-eleckoi-mobile="true"] .character-deck-card:focus-visible .character-deck-card-art,
 :root[data-eleckoi-mobile="true"] :is(.regex-rule-switch, .regex-inline-switch) input:focus-visible + i { outline-color: color-mix(in srgb, var(--text) 38%, transparent); }
@@ -136,10 +135,6 @@
 .mobile-message-menu { position: absolute; right: 8px; bottom: 0; display: inline-flex; align-items: center; justify-content: center; width: 48px; border: 0; background: transparent; color: var(--muted); opacity: 0; pointer-events: none; }
 .mobile-message-menu:focus-visible, .mobile-message-row:focus-within .mobile-message-menu { opacity: 1; pointer-events: auto; }
 @media (hover: hover) { .mobile-message-row:hover .mobile-message-menu { opacity: 1; pointer-events: auto; } }
-.mobile-group-tabs { display: flex; flex: none; align-items: center; gap: 4px; padding: 8px; overflow-x: auto; scrollbar-width: none; }
-.mobile-group-tabs button { min-height: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; padding: 0 11px; white-space: nowrap; color: var(--muted); font-size: 12.5px; }
-.mobile-group-tabs button[aria-pressed="true"] { color: var(--text); background: var(--surface-raised); }
-.mobile-group-tabs button > span { margin-left: 4px; color: var(--soft-text); }
 .mobile-character-list { padding: 0 4px; }
 .mobile-character-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1px; grid-auto-flow: row dense; align-items: start; column-gap: 4px; padding: 0 0 22px; }
 .mobile-character-card { position: relative; display: block; width: 100%; padding: 0; margin: 0; border: none; border-radius: 5px; overflow: hidden; text-align: left; background: var(--surface-raised); }
@@ -343,7 +338,7 @@
 .mobile-creator-page .creator-studio-home-inner { min-width: 0; padding: 18px; }
 .mobile-creator-page .creator-studio-home-heading h1 { font-size: 18px; }
 .mobile-creator-page .creator-studio-project-search { min-width: 0; width: 100%; }
-html[data-eleckoi-mobile="true"] :is(.character-import-dialog, .preset-import-dialog, .app-error-dialog, .unsaved-changes-dialog, .community-dialog) { max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; }
+html[data-eleckoi-mobile="true"] :is(.character-import-dialog, .preset-import-dialog, .unsaved-changes-dialog, .community-dialog) { max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; }
 html[data-eleckoi-mobile="true"] :is(.character-import-dialog, .preset-import-dialog, .unsaved-changes-dialog) button { min-height: 48px; }
 
 @keyframes mobile-sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }

@@ -12,8 +12,8 @@ import java.util.regex.Pattern;
 final class RuntimeDiagnostics {
     static final int SEGMENT_BYTES = 1_000_000, SEGMENTS = 4, REPORT_BYTES = 500_000;
     private static final int MAX_PENDING = 128, MAX_PENDING_BYTES = 256_000;
-    private static final Set<String> TEXT = new HashSet<>(Arrays.asList("kind", "stage", "id", "command", "name", "message", "stack", "source", "level", "phase", "variant", "version", "browser", "model", "manufacturer", "system", "abi"));
-    private static final Set<String> NUMBERS = new HashSet<>(Arrays.asList("line", "column", "elapsedMs", "delayMs", "pageMs", "pending", "heapBytes", "heapMaxBytes", "pssKb", "availableBytes", "versionCode", "sdk", "pid", "hostPid", "occurrences"));
+    private static final Set<String> TEXT = new HashSet<>(Arrays.asList("kind", "stage", "id", "command", "name", "message", "stack", "source", "level", "phase", "variant", "version", "runtimeVersion", "browser", "model", "manufacturer", "system", "abi"));
+    private static final Set<String> NUMBERS = new HashSet<>(Arrays.asList("line", "column", "part", "parts", "elapsedMs", "delayMs", "pageMs", "pending", "heapBytes", "heapMaxBytes", "pssKb", "availableBytes", "versionCode", "sdk", "pid", "hostPid", "occurrences", "exitCode"));
     private static final Set<String> FLAGS = new HashSet<>(Arrays.asList("visible", "connected", "success", "lowMemory"));
     private static final Pattern SECRET = Pattern.compile("(?i)(authorization|api[_-]?key|access[_-]?token|refresh[_-]?token|password|cookie|secret)([\\\"']?\\s*[:=]\\s*[\\\"']?)[^\\s,;\\\"']+");
     private static final Pattern BEARER = Pattern.compile("(?i)\\bBearer\\s+[A-Za-z0-9._~+/-]+=*");
@@ -48,7 +48,7 @@ final class RuntimeDiagnostics {
         for (String key : TEXT) if (source.opt(key) instanceof String) result.with(key, clean((String) source.opt(key), key.equals("stack") ? 8192 : key.equals("message") ? 2048 : 512));
         for (String key : NUMBERS) if (source.opt(key) instanceof Number) {
             double value = ((Number) source.opt(key)).doubleValue();
-            if (Double.isFinite(value) && value >= 0) result.with(key, source.opt(key));
+            if (Double.isFinite(value) && (value >= 0 || key.equals("exitCode"))) result.with(key, source.opt(key));
         }
         for (String key : FLAGS) if (source.opt(key) instanceof Boolean) result.with(key, source.opt(key));
         return result;
@@ -68,12 +68,14 @@ final class RuntimeDiagnostics {
         pending.put(key, value); pendingBytes += bytes;
     }
     synchronized int pendingCount() { return pending.size(); }
-    void flush() {
+    synchronized void recordDurable(JSONObject source) {
+        record(source);
+        flush();
+    }
+    synchronized void flush() {
         List<JSONObject> batch;
-        synchronized (this) {
-            batch = new ArrayList<>(pending.values()); pending.clear(); pendingBytes = 0;
-            if (dropped > 0) { batch.add(new Record().with("kind", "diagnostic-overflow").with("count", dropped).with("lastAt", System.currentTimeMillis())); dropped = 0; }
-        }
+        batch = new ArrayList<>(pending.values()); pending.clear(); pendingBytes = 0;
+        if (dropped > 0) { batch.add(new Record().with("kind", "diagnostic-overflow").with("count", dropped).with("lastAt", System.currentTimeMillis())); dropped = 0; }
         if (batch.isEmpty()) return;
         try {
             Files.createDirectories(directory.toPath());
@@ -96,7 +98,7 @@ final class RuntimeDiagnostics {
         for (int index = SEGMENTS - 2; index >= 0; index--) if (segment(index).isFile())
             Files.move(segment(index).toPath(), segment(index + 1).toPath(), StandardCopyOption.REPLACE_EXISTING);
     }
-    String report(JSONObject environment, int maximum) throws IOException {
+    synchronized String report(JSONObject environment, int maximum) throws IOException {
         flush();
         String header = "ElecKoi Android runtime diagnostics\n" + filter(environment) + "\n";
         if (!storageError.isEmpty()) header += "Diagnostic storage failure: " + storageError + "\n";
@@ -136,7 +138,7 @@ final class RuntimeDiagnostics {
         }
         return lines.size() <= maximum ? lines : new ArrayList<>(lines.subList(lines.size() - maximum, lines.size()));
     }
-    File export(JSONObject environment) throws IOException {
+    synchronized File export(JSONObject environment) throws IOException {
         String text = report(environment, REPORT_BYTES);
         Files.createDirectories(directory.toPath());
         File exports = new File(directory, "export"); Files.createDirectories(exports.toPath());

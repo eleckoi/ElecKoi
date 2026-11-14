@@ -19,7 +19,7 @@ const packages = [
   ['vue', '3.5.42'],
   ['vue-router', '4.6.3'],
   ['yaml', '2.9.0'],
-  ['zod', '4.1.11'],
+  ['zod', '4.6.6'],
 ]
 
 const mitText = `Permission is hereby granted, free of charge, to any person obtaining a copy

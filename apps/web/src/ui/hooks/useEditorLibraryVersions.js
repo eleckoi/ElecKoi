@@ -132,7 +132,6 @@ export function useEditorLibraryVersions({ kind, scope, ownerId, service, captur
     if (!document || document.format !== 'eleckoi.editor-library-version' || document.version !== 1 || document.kind !== kind
       || typeof document.name !== 'string' || typeof document.content !== 'string') throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '配置版本文件的格式或类型不匹配。', { what: '配置版本文件' });
     const content = decodeEditorVersionContent(kind, document.content);
-    if ('enabled' in content) content.enabled = false;
     const names = new Set(refs.current.drafts[targetScope].versions.map(version => version.name));
     const base = document.name.trim() || tUi("导入版本");
     let name = base, suffix = 1;

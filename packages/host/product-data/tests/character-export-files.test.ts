@@ -1,7 +1,9 @@
+import { characterExportRoot } from './helpers/characterExportRoot'
+import { characterExportFormatSchema, characterExportResultSchema } from '@shared/contracts/characters/transfer'
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { gzipSync, gunzipSync } from 'node:zlib'
+import { gzipSync } from 'node:zlib'
 import { afterEach, describe, expect, it } from 'vitest'
 import { CharacterTransferService } from '../src/domain/characterTransfer/CharacterTransferService'
 import { CharacterRepository } from '../src/domain/personas/CharacterRepository'
@@ -51,6 +53,10 @@ function createCharacter(characters: CharacterRepository, id: string, name: stri
 }
 
 describe('character card batch export', () => {
+  it('excludes standalone JSON files from the existing export contracts', () => {
+    expect(characterExportFormatSchema.safeParse('json').success).toBe(false)
+    expect(characterExportResultSchema.safeParse({ fileName: 'card.json', mimeType: 'application/json', base64: 'e30=' }).success).toBe(false)
+  })
   it('writes every selected card into the chosen directory and reports them', async () => {
     // target 目录故意不预建：选完目录后被删掉时，导出不应整批按 ENOENT 失败。
     const { target, transfers, characters } = harness()
@@ -68,7 +74,7 @@ describe('character card batch export', () => {
     const { target, transfers, characters } = harness()
     createCharacter(characters, 'card-1', '..\\..\\坏:名字*?')
 
-    const result = await transfers.exportMany(['card-1'], 'json', target)
+    const result = await transfers.exportMany(['card-1'], 'zip', target)
 
     expect(result.written).toHaveLength(1)
     expect(result.written[0]!.fileName).not.toMatch(/[\\/:*?"<>|]/)
@@ -128,23 +134,22 @@ describe('character card batch export', () => {
 
 const privateGroup = 'synthetic-private-user-group'
 const plainPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')
-function cardRoot(bytes: Uint8Array, format: 'json' | 'png') {
-  return JSON.parse(format === 'json' ? Buffer.from(bytes).toString('utf8')
-    : gunzipSync(Buffer.from(readPngText(bytes).get('eleckoi-card')!, 'base64')).toString('utf8'))
+function cardRoot(bytes: Uint8Array) {
+  return characterExportRoot({ base64: Buffer.from(bytes).toString('base64') })
 }
 
 describe('character cards exclude user grouping', () => {
-  it.each(['json', 'png'] as const)('does not export a user group in single or batch %s cards', async format => {
+  it.each(['png', 'zip'] as const)('does not export a user group in single or batch %s cards', async format => {
     const { target, transfers, characters } = harness()
     characters.create({ id: 'synthetic-grouped-card', name: '合成分享角色', group: privateGroup, persona: { assistant_name: '合成分享角色' } })
     const before = characters.get()
     const exported = transfers.export('synthetic-grouped-card', format)
-    const root = cardRoot(Buffer.from(exported.base64, 'base64'), format)
+    const root = cardRoot(Buffer.from(exported.base64, 'base64'))
     expect(root.character).not.toHaveProperty('group')
     expect(JSON.stringify(root)).not.toContain(privateGroup)
     const result = await transfers.exportMany(['synthetic-grouped-card'], format, target)
     expect(result.failures).toEqual([])
-    expect(cardRoot(readFileSync(join(target, result.written[0]!.fileName)), format).character).not.toHaveProperty('group')
+    expect(cardRoot(readFileSync(join(target, result.written[0]!.fileName))).character).not.toHaveProperty('group')
     expect(characters.get()).toEqual(before)
   }, 30_000)
 
@@ -165,11 +170,11 @@ describe('character cards exclude user grouping', () => {
     expect(collection.items.find(item => item.id === imported.importedCharacterIds[0])!.group).toBe('')
     expect(collection.groups).toEqual(['synthetic-local-group'])
     expect(collection.items.find(item => item.id === 'synthetic-local-card')!.group).toBe('synthetic-local-group')
-    const root = cardRoot(Buffer.from(transfers.export(imported.importedCharacterIds[0]!, format).base64, 'base64'), format)
+    const root = cardRoot(Buffer.from(transfers.export(imported.importedCharacterIds[0]!, 'png').base64, 'base64'))
     expect(JSON.stringify(root)).not.toContain(privateGroup)
   }, 30_000)
 
-  it.each(['json', 'png'] as const)('removes old card data carried inside avatar PNGs from %s exports', format => {
+  it.each(['png', 'zip'] as const)('removes old card data carried inside avatar PNGs from %s exports', format => {
     const { transfers, characters } = harness()
     const oldPayload = gzipSync(Buffer.from(JSON.stringify({ format: 'eleckoi.character-card', version: 1,
       character: { name: '合成旧卡', group: privateGroup }, assets: [], regex_rules: [] }))).toString('base64')
@@ -178,7 +183,7 @@ describe('character cards exclude user grouping', () => {
     characters.create({ id: 'synthetic-image-card', name: '合成图片卡', group: privateGroup,
       persona: { assistant_name: '合成图片卡', assistant_avatar: image, assistant_square: image, assistant_cover: image } })
     const exportedBytes = Buffer.from(transfers.export('synthetic-image-card', format).base64, 'base64')
-    const root = cardRoot(exportedBytes, format)
+    const root = cardRoot(exportedBytes)
     expect(root.character).not.toHaveProperty('group')
     for (const asset of root.assets) {
       const metadata = readPngText(Buffer.from(asset.data, 'base64'))

@@ -12,6 +12,9 @@ import java.util.function.Consumer;
 
 /** Browser-specific transport; platform operations and the local Host remain shared. */
 abstract class BrowserSurface {
+    private volatile boolean rendererExited;
+    final boolean needsRecreation() { return rendererExited; }
+    final void markRendererExited() { rendererExited = true; }
     interface Bridge { Object invoke(String method, JSONArray arguments) throws Exception; }
     interface Listener {
         boolean sameHost(String url);

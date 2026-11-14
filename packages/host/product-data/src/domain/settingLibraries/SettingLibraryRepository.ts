@@ -1,3 +1,4 @@
+import { recordCharacterEdit } from '@product-data/domain/characterCatalog'
 import { createHash, randomUUID } from 'node:crypto'
 import { isGlobalSettingRuntimeId } from '@shared/contracts/settingLibrary/global'
 import { and, asc, eq } from 'drizzle-orm'
@@ -258,6 +259,7 @@ export class SettingLibraryRepository {
         eq(settingLibraryVersions.characterId, characterId), eq(settingLibraryVersions.versionId, current.activeVersionId)
       )).run()
       this.pruneEntryContents(characterId)
+      recordCharacterEdit(db, characterId)
       return changed
     })
   }
@@ -498,6 +500,7 @@ export class SettingLibraryRepository {
     if (input.characterId !== characterId) throw new DesktopError(ELECKOI_FAILURE_CODES.stateMismatch, '设定库与角色不匹配。', { what: '设定库与角色' })
     const normalized = normalizeSettingLibrary(characterId, input)
     this.persist(db, normalized)
+    recordCharacterEdit(db, characterId)
     return normalized
   }
 

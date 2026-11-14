@@ -26,7 +26,7 @@ const sourceFile = (value: z.output<typeof file>): FrontendFileInput => ({ path:
 export function creatorMediaCapabilities(data: Context['eleckoiProductData']): CreatorCapability[] {
   const catalog: CreatorCapability[] = []
   function operation<T extends z.ZodType>(toolset: string, name: string, title: string, effect: 'read' | 'write', schema: T, execute: (characterId: string, input: z.output<T>) => unknown) {
-    catalog.push({ id: `${toolset}.${name}`, toolsetId: toolset, title, effect, target: 'selected-character', inputSchema: z.toJSONSchema(schema),
+    catalog.push({ id: `${toolset}.${name}`, toolsetId: toolset, title, effect, target: 'selected-character', inputSchema: { ...z.toJSONSchema(schema) },
       execute(characterId, input, signal) {
         signal?.throwIfAborted()
         if (!data.readCharacters().items.some(item => item.id === characterId)) throw new DesktopError(codes.characterNotFound, '请先选择存在的角色卡。', { what: '当前编辑角色' })

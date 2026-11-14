@@ -2,12 +2,12 @@
 
 # DSH 与 Cordis 合规基准
 
-本目录以仓库锁定的 DSH 提交 `b830ec950faba0a46dda564be3e2d854afed94f1` 为准。开发插件前必须阅读上游原文：
+本目录以仓库锁定的 DSH 提交 `38a6a5c965aa99ab525161efb7cc5cf1fe62fced` 为准。开发插件前必须阅读上游原文：
 
-- [Cordis 入门](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/docs/cordis-primer.zh.md)
-- [Cordis 完整教程](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/docs/cordis-tutorial/index.zh.md)，包括其七章可运行示例
-- [DSH 开发指南](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/docs/development.zh.md)
-- [DSH 架构](https://github.com/deepseek-ai/deepseek-harness/blob/b830ec950faba0a46dda564be3e2d854afed94f1/docs/architecture.zh.md)
+- [Cordis 入门](https://github.com/deepseek-ai/deepseek-harness/blob/38a6a5c965aa99ab525161efb7cc5cf1fe62fced/docs/cordis-primer.zh.md)
+- [Cordis 完整教程](https://github.com/deepseek-ai/deepseek-harness/blob/38a6a5c965aa99ab525161efb7cc5cf1fe62fced/docs/cordis-tutorial/index.zh.md)，包括其七章可运行示例
+- [DSH 开发指南](https://github.com/deepseek-ai/deepseek-harness/blob/38a6a5c965aa99ab525161efb7cc5cf1fe62fced/docs/development.zh.md)
+- [DSH 架构](https://github.com/deepseek-ai/deepseek-harness/blob/38a6a5c965aa99ab525161efb7cc5cf1fe62fced/docs/architecture.zh.md)
 
 本文是 ElecKoi 对照表，不替代上游原文。
 
@@ -29,7 +29,7 @@ Cordis 是 DSH 的插件框架。它负责：
 
 | 上游规则 | ElecKoi 当前状态 | 插件作者要求 |
 | --- | --- | --- |
-| 产品能力由可替换插件组成，不存在需要修改的特权内核 | 已使用 DSH bundle 装配 15 个核心能力组合与一个可选 Tavily 联网组合，并提供 12 个官方可选组合；桌面壳仍保留平台职责 | 新业务能力优先做 Host/Client 插件；平台例外需要 ADR |
+| 产品能力由可替换插件组成，不存在需要修改的特权内核 | 运行清单登记 17 个 ElecKoi 组合，并携带同批官方目录的 16 个可选组合；启用和平台适用性由正式 profile 决定，桌面壳保留平台职责 | 新业务能力优先做 Host/Client 插件；平台例外需要 ADR |
 | profile 与 bundle 通过 `package.json.dsh` 和有序 patch 组合 | 符合；桌面 profile 由运行清单协调 bundle | 使用 `dsh.bundle.patch`，不要创建第二套启动器 |
 | 依赖通过 `inject` 表达 | 内置 Host/Client 插件均声明运行依赖；纯空入口没有依赖 | 禁止依赖手工加载顺序 |
 | service 使用稳定 `ctx.<key>`，调用者不导入具体实现 | Client 数据模型和 Host 服务使用稳定 key | 注入 service；不要导入实现文件或读取内部注册表 |

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, MenuSurface } from '@deepseek-ai/dsh-client-ui-primitives';
 import { CaretLeft, CaretRight, X } from '../../../ui/icons/interfaceIcons.jsx';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
-import { ICON_OPTIONS } from './SettingLibraryEntryEditor.jsx';
+import { ICON_OPTIONS } from './SettingEntryFields.jsx';
 
 export function SettingEntryIconPicker({ entry, onChange, onClose }) {
   const tUi = useProductTranslation();

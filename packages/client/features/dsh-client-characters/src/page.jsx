@@ -1,5 +1,6 @@
 import { CharacterListPanel, CharacterProfilePanel, openCharacterEditorWindow } from "../../../../../apps/web/src/modules/persona/index.js";
 import { useMainPageView } from "../../../../../apps/web/src/app/windows/MainPageContext.jsx";
+import { LOG_ACTIONS, runLoggedAction } from '../../../../../apps/web/src/utils/logAction.js';
 export { PersonNavIcon as NavigationIcon } from "../../../../../apps/web/src/ui/icons/navIcons.jsx";
 
 export function CharacterPage() {
@@ -17,6 +18,7 @@ export function CharacterPage() {
     onDiscardCharacterImports: chat.discardCharacterImports,
     onCreateCharacter: chat.createCharacter,
     onDeleteCharacters: chat.deleteCharacterIds,
+    onExportCharacters: (ids, format) => runLoggedAction(LOG_ACTIONS.characterExport, () => view.characters.exportCharacters(ids, format)),
   };
   const listFallback = <CharacterListPanel {...listOwner} />;
   const profileOwner = {

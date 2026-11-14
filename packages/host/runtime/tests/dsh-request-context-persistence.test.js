@@ -61,6 +61,27 @@ function removeMarker(f, mutate = row => row) {
 }
 
 describe('request context durable event contract', { timeout: 30_000 }, () => {
+  it('preserves ignorable product records in an atomic official append batch and after reopening', async () => {
+    const f = await fixture()
+    const before = f.session.snapshotEvents()
+    expect(() => f.session.append([
+      ['eleckoi/synthetic-annotation', { value: '合成标注' }, { ignorable: true }],
+      ['eleckoi/synthetic-annotation', { value: NaN }, { ignorable: true }]
+    ])).toThrow()
+    expect(f.session.snapshotEvents()).toEqual(before)
+    const appended = f.session.append([
+      ['eleckoi/synthetic-annotation', { value: '合成标注' }, { ignorable: true }],
+      ['eleckoi/synthetic-annotation', { value: '合成后续标注' }, { ignorable: true }]
+    ])
+    expect(appended.map(event => event.seq)).toEqual([before.length, before.length + 1])
+    expect(appended.every(event => event.ignorable === true)).toBe(true)
+    const writer = await f.ctx.sessionPersistence.open(f.session.id, 'write')
+    try { await writer.append(appended); await writer.flush() }
+    finally { await writer.close() }
+    expect((await reopen(f)).events).toEqual(f.session.snapshotEvents())
+    expect(f.session.deriveMessages()).toHaveLength(1)
+  })
+
   it('closes and reopens a real log without requiring the downstream projection plugin', async () => {
     const f = await fixture()
     const stored = await reopen(f)
