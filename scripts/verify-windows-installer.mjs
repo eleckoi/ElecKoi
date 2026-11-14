@@ -42,7 +42,15 @@ async function startAndClose(label) {
     while (Date.now() < deadline) {
       if (child.exitCode !== null) throw Error(`Installed app exited during ${label} (${child.exitCode}): ${output}`)
       if (existsSync(join(profile, 'DevToolsActivePort'))) {
-        const port = readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split(/\r?\n/)[0]
+        let port
+        try {
+          port = readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split(/\r?\n/)[0]
+        } catch (error) {
+          // Chromium may still be replacing the file after it becomes visible.
+          if (error.code !== 'EBUSY' && error.code !== 'ENOENT') throw error
+          await delay(250)
+          continue
+        }
         try {
           const targets = await fetch(`http://127.0.0.1:${port}/json/list`).then(response => response.json())
           target = targets.find(item => item.type === 'page' && item.url === 'dsh-app://app/')
