@@ -6,7 +6,7 @@ import { StartupProfileStore } from '@main/host/startup/StartupProfileStore'
 import { configureElectron, configureRuntimeUserData } from '@main/host/startup/configureElectron'
 import { getBootstrapLogger, logAppSessionEnd, logAppSessionStart } from '@main/platform/logging/AppLog'
 import { appLogFilePath } from '@main/platform/logging/logRotation'
-import { installProcessFailureLogging } from '@main/platform/logging/processFailureLogging'
+import { installDesktopProcessFailureLogging } from '@main/host/dshHostPlugin'
 import { localMediaScheme } from '@main/platform/electron/mediaProtocol'
 import { windowsAppUserModelId } from '@main/platform/electron/windowsAppIdentity'
 import { DesktopFatalRecovery } from '@main/platform/electron/desktopFatalRecovery'
@@ -58,7 +58,7 @@ async function startDesktop(): Promise<void> {
     await host.mountFoundation()
     // 进程级出口写进文件日志：platformPlugin 已经把 appLog 提供出来了；万一没有（不该发生），
     // 退回 bootstrap logger，至少不静默。
-    installProcessFailureLogging(host.appLog ?? logger)
+    installDesktopProcessFailureLogging(host.appLog ?? logger)
     await app.whenReady()
     app.setAppUserModelId(windowsAppUserModelId)
     logSessionStart()

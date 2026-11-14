@@ -46,7 +46,7 @@ import type { BugReport } from '@shared/contracts/bugReport/report'
 import { assertTrustedDshClientFrame } from '@main/platform/electron/validateSender'
 import { handleDesktopIpcCall } from '@main/platform/electron/desktopIpcHandler'
 import { logAction } from '@main/platform/logging/logActions'
-import { buildBugReport } from '@shared/foundation/bugReport'
+import { collectDesktopReport } from './reportCollection'
 import { readReportConfig, refreshRemoteReportConfig } from './bundledReportConfig'
 import { bestEffort } from '@shared/foundation/swallowedFailure'
 import { bugReportOpenFailure, isConfiguredFormTarget } from './reportOpen'
@@ -57,9 +57,7 @@ import {
   pendingDraftDirectory,
   savePendingDraft
 } from './reportDrafts'
-import { readPreviousSession, readRecentLogLines } from './previousSession'
 import {
-  BUG_REPORT_LOG_SCAN_LINES,
   BUG_REPORT_RELAY_TIMEOUT_MS,
   desktopReportEnvironment,
   exportFileName
@@ -86,11 +84,7 @@ export const diagnosticsPlugin = {
     )
 
     const collect = (request: { readonly includeLogTail: boolean; readonly notes?: string }): BugReport => {
-      // 首次运行（没有上一份日志）按「无异常会话」处理：报告里不该凭空出现一次崩溃。
-      const session = readPreviousSession(userData)
-        ?? { startedAt: new Date().toISOString(), ended: true }
-      return buildBugReport({
-        lines: readRecentLogLines(userData, BUG_REPORT_LOG_SCAN_LINES),
+      return collectDesktopReport(userData, {
         environment: desktopReportEnvironment({
           appVersion: app.getVersion(),
           platform: process.platform,
@@ -100,7 +94,6 @@ export const diagnosticsPlugin = {
           ...(process.versions.electron === undefined ? {} : { electronVersion: process.versions.electron }),
           nodeVersion: process.versions.node
         }),
-        session,
         includeLogTail: request.includeLogTail,
         ...(request.notes === undefined ? {} : { notes: request.notes }),
         redaction: { home: app.getPath('home'), userData }

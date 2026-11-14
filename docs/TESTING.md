@@ -1,5 +1,9 @@
 # 测试与日常验证
 
+`composer-attachments-layout.test.js` 的菜单检查使用正式角色／工作室输入菜单与真实手机版标记，分别在两种主题和 PC／手机宽度核对主菜单、更多菜单与实际触发按钮的 4px 间距；不能用 Portal 的父元素代替触发按钮。安卓开发版另通过 ADB 和当前 WebView 复现旧规则覆盖后的顶部错位，临时移除 `bottom: auto` 后回到正确锚点；这一现场验证不等同已安装包含修复的新 APK，现场截图只保留在 ignored build。
+
+`bug-report-collection.test.ts` 沿官方 Logger、共享原始诊断格式器、真实桌面文件日志、跨启动读取及正式报告收集验证根原因、聚合成员、长 Unicode 末尾、轮转文件和最终正文。故障列表使用原始捕获范围，摘要独立保留原行数；用户不带日志时不导出原始诊断正文。`app-log.test.ts` 保持进程出口和原日志行为检查，不改变官方退出策略。
+
 `deepseek-web-profile.test.js` 的模型删除用例使用正式 desktop／android profile：工作室通过官方 `llm-pi-ai` 设置路径创建并删除提供商，验证旧选择保留、热打开、空会话创建、冷恢复、失效模型请求明确失败，以及选新模型后在原 Session 完成请求；角色对话保留真实合成输入与回复，验证冷恢复、模型入口读取、消息访问、失效请求不丢历史、新建及换模型后继续发送。此处 Android profile 由隔离桌面 Node 承载，不代表手机验收。`creator-studio-message-edit.test.js` 同时覆盖回退移除模型事件后恢复失效的保存选择；`dsh-old-chat-generation.test.js` 逐字节核对失效模型在重新生成的回退前失败，保留对原消息、原模型、重复失败及事务回滚的检查。检查记录位于 `build/studio-removed-model-check/`。
 
 角色卡独立 JSON 导出已撤除：格式和结果合同只保留 PNG／ZIP，沿现有接口校验，不另加 JSON 专用拦截。角色卡内容、作者、脚本、设定和资产的往返检查使用 PNG／ZIP。`character-assets.test.ts` 比较包内 `character.json` 的视频文件引用和独立二进制字节，避免把视频展开为独立 JSON 导出。既有 JSON 单向导入、预设 JSON 导出及包内元数据编码不属于该删除范围。

@@ -3,9 +3,17 @@ import { dirname, join } from 'node:path'
 import { app, session } from 'electron'
 import type { Context, Plugin } from '@deepseek-ai/cordis'
 import { DshDesktopPluginHost, resolveDshWebFrontendDirectory } from '@eleckoi/desktop-host'
+import { formatHostDiagnostic } from '@eleckoi/dsh-runtime'
+import type { Logger } from 'pino'
 import { resolveDshSystemProxyEnvironment } from '@main/platform/electron/systemProxy'
+import { installProcessFailureLogging } from '@main/platform/logging/processFailureLogging'
 
 const require = createRequire(import.meta.url)
+
+/** 在 Host 组合根注入共享格式器，平台日志不依赖 DSH 运行库。 */
+export function installDesktopProcessFailureLogging(logger: Pick<Logger, 'error'>): void {
+  installProcessFailureLogging(logger, formatHostDiagnostic)
+}
 
 /**
  * 从任意抛出值里按形状读契约码。
@@ -56,13 +64,12 @@ export const dshHostPlugin = {
       // 子进程的 stdout/stderr 以前被完全丢掉（`onDiagnostic` 没人传），唯一能看到的诊断就没了。
       // 这里接进主进程日志；行前缀是给 grep 用的固定标记，不是用户文案。
       onDiagnostic(message) {
-        const line = message.trim()
-        if (line !== '') ctx.appLog.info({ source: 'dsh-plugin-host' }, line)
+        if (message !== '') ctx.appLog.info({ source: 'dsh-plugin-host' }, message)
       },
       onFailure(error) {
         // 边界③ 已经把子进程的失败折成契约形态（码 + 详情 + 子进程栈），这里只负责记录与转发。
         // pino 只认 `err` 这个键；写成 `error` 会丢掉栈。
-        ctx.appLog.error({ err: error, code: failureCodeOf(error), details: failureDetailsOf(error) }, 'DSH 插件宿主意外退出')
+        ctx.appLog.error({ phase: 'failure', err: error, code: failureCodeOf(error), details: failureDetailsOf(error) }, 'DSH 插件宿主意外退出')
         for (const listener of failureListeners) listener(error)
         ctx.emit('eleckoi/desktop-fatal', error)
       }

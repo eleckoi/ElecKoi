@@ -2407,7 +2407,6 @@ button.chat-file-card:hover { border-color: var(--blue); }
 
 .composer-more-menu {
   position: fixed;
-  bottom: auto;
   z-index: 1200;
   display: flex;
   flex-direction: column;

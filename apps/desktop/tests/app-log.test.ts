@@ -30,6 +30,7 @@ import {
   type AppLogFileEntry
 } from '../src/main/platform/logging/logRotation'
 import { installProcessFailureLogging } from '../src/main/platform/logging/processFailureLogging'
+import { formatHostDiagnostic } from '../../../packages/host/runtime/src/hostDiagnostics'
 
 /** 固定"今天"，让日志文件名与轮转年龄可断言。 */
 const NOW = new Date(2026, 9, 15, 9, 30, 0)
@@ -92,7 +93,7 @@ describe('日志落盘', () => {
   it('崩溃行同时带码、开发者文案与参数化详情', () => {
     const log = createAppLog(userData, NOW)
     const events = new EventEmitter()
-    installProcessFailureLogging(log, events)
+    installProcessFailureLogging(log, formatHostDiagnostic, events)
     events.emit(
       'uncaughtExceptionMonitor',
       new DesktopError(ELECKOI_FAILURE_CODES.characterNotFound, '角色卡不存在：角色卡 abc.json', { what: '角色卡' }),
@@ -114,7 +115,7 @@ describe('日志落盘', () => {
   it('未处理的 Promise 拒绝也写一行', () => {
     const log = createAppLog(userData, NOW)
     const events = new EventEmitter()
-    installProcessFailureLogging(log, events)
+    installProcessFailureLogging(log, formatHostDiagnostic, events)
     events.emit('unhandledRejection', new Error('拒绝探针'), Promise.resolve())
 
     expect(logLines().at(-1)).toMatchObject({
@@ -127,7 +128,7 @@ describe('日志落盘', () => {
 
   it('只装 uncaughtExceptionMonitor，不装会接管默认崩溃行为的 uncaughtException', () => {
     const events = new EventEmitter()
-    installProcessFailureLogging(createAppLog(userData, NOW), events)
+    installProcessFailureLogging(createAppLog(userData, NOW), formatHostDiagnostic, events)
 
     expect(events.listenerCount('unhandledRejection')).toBe(1)
     expect(events.listenerCount('uncaughtExceptionMonitor')).toBe(1)
@@ -223,7 +224,7 @@ describe('会话首尾标记', () => {
     const log = createAppLog(userData, NOW)
     logAppSessionStart(log, logFile())
     const events = new EventEmitter()
-    installProcessFailureLogging(log, events)
+    installProcessFailureLogging(log, formatHostDiagnostic, events)
     events.emit('uncaughtExceptionMonitor', new Error('崩溃探针'), 'uncaughtException')
 
     const text = readFileSync(logFile(), 'utf8')

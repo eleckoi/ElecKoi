@@ -167,6 +167,21 @@ export function readRecentLogLines(userData: string, maxLines: number): string[]
   return []
 }
 
+/** Preserve the retained native log text independently of the short report summary. */
+export function readRecentLogDiagnostics(userData: string): string {
+  return logFilesNewestFirst(userData).slice(0, BUG_REPORT_SESSION_SCAN_FILES).reverse().map(file => {
+    const text = readTextTail(file)
+    const header = `=== ${basename(file)} ===`
+    if (text === undefined) return `${header}\n[日志文件无法读取]`
+    const bounded = statSize(file) > LOG_READ_MAX_BYTES ? '\n[文件超出既有读取容量，以下为日志尾部]' : ''
+    return text.trim() === '' && bounded === '' ? '' : `${header}${bounded}\n${text || '[读取范围内无完整日志记录]'}`
+  }).filter(Boolean).join('\n\n')
+}
+
+function statSize(file: string): number {
+  try { return statSync(file).size } catch { return 0 }
+}
+
 /** 日志目录 `logs/` 的绝对路径。 */
 export function appLogDirectoryOf(userData: string): string {
   return join(userData, APP_LOG_DIRECTORY_NAME)

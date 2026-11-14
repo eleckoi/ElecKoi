@@ -42,6 +42,10 @@ it('keeps the official composer centered while all draft attachments scroll with
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
     await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/composer-attachments.probe.cjs'), htmlPath, reportPath], { env, timeout: 90000, windowsHide: true });
     const { attachments: reports, queues, menus } = JSON.parse(await readFile(reportPath, 'utf8')); expect(reports).toHaveLength(80);
+    for (const menu of menus) {
+      expect(Math.abs(menu.anchor.y - menu.panel.bottom - 4), JSON.stringify(menu)).toBeLessThan(1);
+      expect(Math.abs(menu.moreGap - 4), JSON.stringify(menu)).toBeLessThan(1);
+    }
     expect(queues).toHaveLength(24);
     const evidence = resolve('output/playwright/composer-attachments'); await mkdir(evidence, { recursive: true });
     await copyFile(reportPath, resolve(evidence, 'report.json'));

@@ -30,6 +30,8 @@ export interface BugReportCollection {
   readonly runtimeDiagnostics?: string
   /** 最近一段日志行（已按时间顺序）。 */
   readonly lines: readonly string[]
+  /** Full retained records used for failures when the display summary is shorter. */
+  readonly failureLines?: readonly string[]
   readonly environment: BugReportEnvironment
   readonly session: BugReportSession
   /** 用户是否勾选了「带上日志尾」。 */
@@ -80,7 +82,7 @@ export function buildBugReport(collection: BugReportCollection): BugReport {
     generatedAt: (collection.generatedAt ?? new Date()).toISOString(),
     environment: collection.environment,
     session: collection.session,
-    failures: foldBugReportFailures(collectReportFailures(collection.lines)),
+    failures: foldBugReportFailures(collectReportFailures(collection.failureLines ?? collection.lines)),
     ...(collection.includeLogTail
       ? { logTail: limitLogTail(collection.lines.join('\n')) }
       : {}),

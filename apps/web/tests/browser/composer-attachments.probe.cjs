@@ -35,7 +35,7 @@ app.whenReady().then(async () => {
         await settle();
         const menu = await evaluate(`(()=>{
           const panel=document.querySelector('.composer-more-menu'), rect=node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}};
-          return {panel:rect(panel),anchor:rect(panel.parentElement),scrollWidth:panel.scrollWidth,clientWidth:panel.clientWidth,
+          return {panel:rect(panel),anchor:rect(document.querySelector('.composer-more-trigger')),scrollWidth:panel.scrollWidth,clientWidth:panel.clientWidth,
             buttons:[...panel.querySelectorAll('button')].map(button=>({text:button.textContent,box:rect(button),label:rect(button.querySelector('span'))})),
             pageWidth:document.documentElement.scrollWidth,draft:document.querySelector('[data-composer-input]').textContent};
         })()`);
@@ -45,6 +45,11 @@ app.whenReady().then(async () => {
           await new Promise(resolve=>setTimeout(resolve,150));
           writeFileSync(join(dirname(reportPath), surface+'-menu-'+theme+'.png'),(await win.webContents.capturePage()).toPNG());
         }
+        await evaluate(`document.querySelector('.composer-menu-next').click()`);
+        await wait(`!!document.querySelector('.composer-more-menu.is-more')`); await settle();
+        menus[menus.length-1].moreGap=await evaluate(`document.querySelector('.composer-more-trigger').getBoundingClientRect().top-document.querySelector('.composer-more-menu').getBoundingClientRect().bottom`);
+        await evaluate(`document.querySelector('.composer-menu-back').click()`);
+        await wait(`!!document.querySelector('.composer-more-menu.is-main')`); await settle();
         await evaluate(`[...document.querySelectorAll('.composer-more-menu button')].find(button=>button.textContent==='工具').click()`);
         await wait(`!document.querySelector('.composer-more-menu')`);
         menus[menus.length-1].actionRan=await evaluate(`window.composerFixture.toolsOpened===true`);

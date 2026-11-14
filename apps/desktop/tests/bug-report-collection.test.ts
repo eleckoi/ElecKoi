@@ -14,8 +14,11 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { Context } from '@deepseek-ai/cordis'
+import { formatHostDiagnostic, installHostLogExporter } from '../../../packages/host/runtime/src/hostDiagnostics'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BUG_REPORT_LOG_TAIL_MAX_LINES, type BugReportEnvironment } from '@shared/contracts/bugReport/report'
+import { formatBugReportBody } from '@shared/contracts/bugReport/mailto'
 import { buildBugReport, collectReportFailures } from '@shared/foundation/bugReport'
 import {
   parseSessionEvents,
@@ -37,6 +40,9 @@ import {
   readBugReportRelay
 } from '../src/main/modules/diagnostics/reportDelivery'
 import { parseBugReportConfig } from '../src/main/modules/diagnostics/reportConfig'
+import { collectDesktopReport } from '../src/main/modules/diagnostics/reportCollection'
+import { createAppLog, logAppSessionStart } from '../src/main/platform/logging/AppLog'
+import { logProcessFailure } from '../src/main/platform/logging/processFailureLogging'
 
 const GENERATED_AT = new Date('2026-10-27T12:00:00.000Z')
 const ENVIRONMENT: BugReportEnvironment = {
@@ -169,6 +175,43 @@ describe('从磁盘读上次会话', () => {
 })
 
 describe('失败收集与报告', () => {
+  it('exports persisted Host causes beyond the short summary after a new desktop session starts', async () => {
+    const logger = createAppLog(userData, new Date(2026, 9, 27))
+    logAppSessionStart(logger, 'synthetic-log')
+    const ctx = new Context()
+    installHostLogExporter(ctx, text => logger.info({ source: 'dsh-plugin-host' }, text))
+    const root = new Error('synthetic-root-cause')
+    root.stack = `Error: synthetic-root-cause\n${'原始诊断完整正文'.repeat(20000)}\nsynthetic-long-stack-end`
+    ctx.logger.error('Synthetic Host operation failed', new AggregateError([new Error('synthetic-operation', { cause: root }), new Error('synthetic-member')], 'synthetic-aggregate'))
+    for (let i = 0; i < 2105; i++) logger.info({ source: 'synthetic-context' }, `synthetic-following-${i}`)
+    await ctx.fiber.dispose()
+    const reopened = createAppLog(userData, new Date(2026, 9, 28))
+    logAppSessionStart(reopened, 'synthetic-reopened-log')
+    const input = { environment: ENVIRONMENT, includeLogTail: true, generatedAt: GENERATED_AT }
+    const report = collectDesktopReport(userData, input)
+    expect(report.session.ended).toBe(false)
+    expect(report.logTail).not.toContain('synthetic-root-cause')
+    for (const text of ['synthetic-root-cause', 'synthetic-member', 'synthetic-aggregate', 'synthetic-long-stack-end', 'synthetic-following-2104']) {
+      expect(report.runtimeDiagnostics).toContain(text)
+      expect(JSON.parse(JSON.stringify(report)).runtimeDiagnostics).toContain(text)
+      expect(formatBugReportBody(report)).toContain(text)
+    }
+    expect(report.runtimeDiagnostics).toContain('原始诊断完整正文'.repeat(20000))
+    expect(collectDesktopReport(userData, { ...input, includeLogTail: false }).runtimeDiagnostics).toBeUndefined()
+  })
+
+  it('retains main-process aggregate causes and rotated records in the exported report', () => {
+    const logger = createAppLog(userData, new Date(2026, 9, 27))
+    logProcessFailure(logger, formatHostDiagnostic, 'uncaughtExceptionMonitor', new AggregateError([
+      new Error('synthetic-main-member', { cause: new Error('synthetic-main-root') })
+    ], 'synthetic-main-aggregate'), 'uncaughtException')
+    writeLog('eleckoi-desktop-2026-10-26.log.1', [JSON.stringify({ msg: 'synthetic-rotated-raw', api_key: 'synthetic-credential' })])
+    const report = collectDesktopReport(userData, { environment: ENVIRONMENT, includeLogTail: true, generatedAt: GENERATED_AT })
+    for (const text of ['synthetic-main-member', 'synthetic-main-root', 'synthetic-main-aggregate', 'synthetic-rotated-raw']) expect(report.runtimeDiagnostics).toContain(text)
+    expect(report.failures.length).toBeGreaterThan(0)
+    expect(report.runtimeDiagnostics).not.toContain('synthetic-credential')
+  })
+
   it('只认 phase=failure 且带码的行', () => {
     const failures = collectReportFailures([
       failureLine('eleckoi/plugin/load-failed', '插件宿主启动失败', { what: 'DSH 插件宿主' }),

@@ -18,6 +18,7 @@ const keyboard = { editor, arbitrate: () => 'pass', space: () => false, dismissP
   bindFilePicker: () => () => {}, submit() {}, steerQueue() {} };
 const query = new URLSearchParams(location.search), studio = query.get('surface') === 'studio';
 const mobile = query.get('mobile') === 'true';
+document.documentElement.dataset.eleckoiMobile = String(mobile);
 const slot = studio ? 'conversation.input.attachments' : 'eleckoi.roleplay.conversation.input.attachments';
 function Fixture() {
   const [attachments, setAttachments] = useState([]);

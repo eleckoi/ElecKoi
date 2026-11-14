@@ -41,6 +41,7 @@ const FAILURE_CONTEXT: Readonly<Record<ProcessFailureEvent, string>> = {
  */
 export function logProcessFailure(
   logger: Pick<Logger, 'error'>,
+  formatDiagnostic: (failure: unknown) => string,
   event: ProcessFailureEvent,
   failure: unknown,
   origin?: string
@@ -48,6 +49,8 @@ export function logProcessFailure(
   const folded = foldFailure(failure)
   logger.error({
     event,
+    phase: 'failure',
+    diagnostic: formatDiagnostic(failure),
     ...(origin === undefined ? {} : { origin }),
     err: failure,
     code: folded.code,
@@ -63,12 +66,13 @@ export function logProcessFailure(
  */
 export function installProcessFailureLogging(
   logger: Pick<Logger, 'error'>,
+  formatDiagnostic: (failure: unknown) => string,
   target: ProcessFailureTarget = process
 ): void {
   target.on('unhandledRejection', (reason) => {
-    logProcessFailure(logger, 'unhandledRejection', reason)
+    logProcessFailure(logger, formatDiagnostic, 'unhandledRejection', reason)
   })
   target.on('uncaughtExceptionMonitor', (error, origin) => {
-    logProcessFailure(logger, 'uncaughtExceptionMonitor', error, origin)
+    logProcessFailure(logger, formatDiagnostic, 'uncaughtExceptionMonitor', error, origin)
   })
 }
