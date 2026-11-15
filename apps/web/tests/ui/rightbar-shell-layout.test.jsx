@@ -10,8 +10,8 @@ const mainWindowSource = readFileSync(
   new URL("../../src/app/windows/MainWindow.jsx", import.meta.url),
   "utf8",
 );
-const rightbarLayoutSource = readFileSync(
-  new URL("../../src/app/windows/shell/hooks/useRightbarLayout.js", import.meta.url),
+const frameSource = readFileSync(
+  new URL("../../../../node_modules/@deepseek-ai/dsh-client-ui-layout/src/client/AppFrame.tsx", import.meta.url),
   "utf8",
 );
 const titlebarStyles = readFileSync(
@@ -22,6 +22,7 @@ const shellStyles = readFileSync(
   new URL("../../src/app/windows/shell/styles/client-shell.css", import.meta.url),
   "utf8",
 );
+const nativeFrameStyles = readFileSync('node_modules/@deepseek-ai/dsh-client-ui-layout/src/client/AppFrame.module.css', 'utf8');
 const chatStyles = readFileSync(
   new URL("../../src/modules/chat/styles/chat-panel.css", import.meta.url),
   "utf8",
@@ -54,7 +55,7 @@ describe("right sidebar shell layout", () => {
 
     expect(embedded).toContain('title="最小化"');
     expect(detached).not.toContain('title="最小化"');
-    expect(mainWindowSource).toMatch(/<TitleBar[\s\S]*?showWindowControls=\{false\}/);
+    expect(readFileSync('apps/web/src/app/windows/shell/components/OfficialFramePage.jsx', 'utf8')).toMatch(/<TitleBar[\s\S]*?showWindowControls=\{false\}/);
     expect(mainWindowSource).toContain('className="main-window-controls"');
     expect(mainWindowSource).toMatch(/className="main-window-controls"[\s\S]*?<WindowControls \/>/);
     expect(titlebarStyles).toMatch(
@@ -78,28 +79,22 @@ describe("right sidebar shell layout", () => {
   });
 
   it("uses the collapsed left-sidebar width immediately on narrow windows", () => {
-    expect(rightbarLayoutSource).toContain(
-      "sidePanelCollapsed || geometry.viewportWidth < SIDEBAR_AUTO_COLLAPSE",
-    );
-    expect(rightbarLayoutSource).toContain(
-      '"--dsh-windows-sidebar-width": `${geometry.railWidth + effectiveSidePanelWidth}px`',
-    );
+    expect(frameSource).toContain('const narrow = viewport < SIDEBAR_AUTO_COLLAPSE');
+    expect(frameSource).toContain('const sidebarCollapsed = narrow ? !layoutInfo.narrowExpanded');
   });
 
   it("places the official right-sidebar surface above the custom main column", () => {
     const mainPanel = shellStyles.match(/\.main-panel-shell\s*\{([^}]*)\}/)?.[1] ?? "";
-    const rightbarColumn = shellStyles.match(/\.dsh-rightbar-column\s*\{([^}]*)\}/)?.[1] ?? "";
+    const rightbarColumn = [...nativeFrameStyles.matchAll(/\.rightbarCol\s*\{([^}]*)\}/g)].map(match => match[1]).find(rule => rule.includes('position:')) ?? '';
 
     expect(mainPanel).not.toContain("z-index");
     expect(rightbarColumn).toContain("position: relative");
     expect(rightbarColumn).toContain("overflow: visible");
-    expect(rightbarColumn).toContain("z-index: 10");
+    expect(shellStyles).not.toContain('.dsh-rightbar-column');
   });
 
-  it("keeps the right-sidebar title strip draggable", () => {
-    expect(shellStyles).toMatch(
-      /\.dsh-rightbar-column::before\s*\{[^}]*top:\s*calc\(-1 \* var\(--window-caption-height, 40px\)\);[^}]*height:\s*var\(--window-caption-height, 40px\);[^}]*-webkit-app-region:\s*drag;/,
-    );
+  it("keeps the official frame caption drag region", () => {
+    expect(nativeFrameStyles).toMatch(/\.frame::before\s*\{[^}]*-webkit-app-region:\s*drag;/);
   });
 
   it("provides the official desktop browser bridge instead of an iframe-only fallback", () => {

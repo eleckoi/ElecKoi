@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
+import { renderNativeConversationContent } from '../helpers/NativeConversationPresentation.jsx';
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { ChatPanel } from '../../src/modules/chat/components/ChatPanel.jsx';
 import { WithOfficialMarkdown } from '../helpers/officialMarkdown.jsx';
@@ -9,7 +9,18 @@ import { ChatView, chatFixture, turnNode, userNode } from '../helpers/officialCh
 
 globalThis.React = React;
 
-describe('conversation switching', () => {
+async function renderMarkup(view) {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+  const node = document.createElement('div'); document.body.append(node);
+  const root = createRoot(node);
+  try {
+    await act(async () => root.render(view));
+    return node.innerHTML;
+  } finally { await act(async () => root.unmount()); node.remove(); vi.unstubAllGlobals(); }
+}
+
+describe('conversation switching', async () => {
   it('keeps the same official user node mounted through regeneration and editing', async () => {
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     vi.stubGlobal('ResizeObserver', class {
@@ -50,7 +61,7 @@ describe('conversation switching', () => {
     document.body.append(container);
     const root = createRoot(container);
     try {
-      await act(async () => { root.render(<WithOfficialMarkdown><ChatPanel {...props} /></WithOfficialMarkdown>); });
+      await act(async () => { root.render(<WithOfficialMarkdown><ChatPanel renderConversationContent={renderNativeConversationContent} {...props} /></WithOfficialMarkdown>); });
       expect(container.textContent.match(/同一条输入/g)).toHaveLength(1);
       const originalRow = container.querySelector('[data-chat-node-key="node-7"]');
       expect(originalRow).not.toBeNull();
@@ -63,12 +74,14 @@ describe('conversation switching', () => {
       expect(container.querySelector('[data-chat-flow] [data-chat-running]')).toBeNull();
       const scrollport = container.querySelector('[data-conversation-scroll]');
       const composerSeat = container.querySelector('[data-composer-seat]');
-      expect(composerSeat.parentElement).toBe(scrollport);
+      expect(composerSeat.parentElement).toBe(scrollport.parentElement);
+      expect(scrollport.contains(composerSeat)).toBe(false);
+      expect(scrollport.querySelector('[data-composer-clearance]')).not.toBeNull();
       expect(scrollport.querySelector('.chat-transcript-region [data-chat-view]')).not.toBeNull();
       expect(scrollport.style.getPropertyValue('--dsh-conversation-viewport-height')).toBe('0px');
       await act(async () => {
         fixture.update({ nodes: new Map([[formal.key, userNode(formal.key, 7, requestId, 1, '修改后的输入')], [next.key, next]]) });
-        root.render(<WithOfficialMarkdown><ChatPanel {...props} messages={[{ ...existingUser,
+        root.render(<WithOfficialMarkdown><ChatPanel renderConversationContent={renderNativeConversationContent} {...props} messages={[{ ...existingUser,
           content: '修改后的输入', displayContent: '修改后的输入' }]} /></WithOfficialMarkdown>);
       });
       expect(container.textContent).not.toContain('同一条输入');
@@ -83,7 +96,7 @@ describe('conversation switching', () => {
     }
   });
 
-  it('removes the previous conversation content while the new conversation loads', () => {
+  it('removes the previous conversation content while the new conversation loads', async () => {
     const fixture = chatFixture('session-a');
     const node = turnNode('turn-a', 1, 'closed');
     fixture.update({ order: [node.key], nodes: new Map([[node.key, node]]) });
@@ -107,15 +120,15 @@ describe('conversation switching', () => {
           return childOptions?.fallback ?? null;
         }} /> : options?.fallback ?? null,
     };
-    const previous = renderToStaticMarkup(<WithOfficialMarkdown><ChatPanel {...props} /></WithOfficialMarkdown>);
-    const switching = renderToStaticMarkup(<WithOfficialMarkdown><ChatPanel {...props} isSwitchingChat /></WithOfficialMarkdown>);
+    const previous = await renderMarkup(<WithOfficialMarkdown><ChatPanel renderConversationContent={renderNativeConversationContent} {...props} /></WithOfficialMarkdown>);
+    const switching = await renderMarkup(<WithOfficialMarkdown><ChatPanel renderConversationContent={renderNativeConversationContent} {...props} isSwitchingChat /></WithOfficialMarkdown>);
 
     expect(previous).toContain('旧会话前端内容');
     expect(switching).not.toContain('旧会话前端内容');
     expect(switching).toContain('aria-busy="true"');
   });
 
-  it('keeps the native DSH bar and injects the roleplay menu, model picker, and product dock', () => {
+  it('keeps the native DSH bar and injects the roleplay menu, model picker, and product dock', async () => {
     const props = {
       hasActiveChat: true,
       currentTitle: '角色乙',
@@ -155,9 +168,9 @@ describe('conversation switching', () => {
       return options?.fallback ?? null;
     });
     const fallbackChain = (_name, _owner, options) => options?.fallback ?? null;
-    const nativeMarkup = renderToStaticMarkup(
+    const nativeMarkup = await renderMarkup(
       <WithOfficialMarkdown>
-        <ChatPanel
+        <ChatPanel renderConversationContent={renderNativeConversationContent}
           {...props}
           renderRoleplaySlot={nativeSlot}
           renderRoleplaySlotChain={fallbackChain}
@@ -183,9 +196,9 @@ describe('conversation switching', () => {
       return options?.fallback ?? null;
     });
     const renderSlotChain = vi.fn((_name, _owner, options) => options?.fallback ?? null);
-    const skinMarkup = renderToStaticMarkup(
+    const skinMarkup = await renderMarkup(
       <WithOfficialMarkdown>
-        <ChatPanel
+        <ChatPanel renderConversationContent={renderNativeConversationContent}
           {...props}
           renderRoleplaySlot={renderSlot}
           renderRoleplaySlotChain={renderSlotChain}
@@ -202,10 +215,10 @@ describe('conversation switching', () => {
     );
   });
 
-  it('places the official right-sidebar affordance immediately after new chat', () => {
-    const markup = renderToStaticMarkup(
+  it('places the official right-sidebar affordance immediately after new chat', async () => {
+    const markup = await renderMarkup(
       <WithOfficialMarkdown>
-        <ChatPanel
+        <ChatPanel renderConversationContent={renderNativeConversationContent}
           hasActiveChat
           currentTitle="角色乙"
           conversationId="conversation-a"

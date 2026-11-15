@@ -62,12 +62,12 @@ describe('DSH character tool policy', () => {
       { type: 'function', function: { name: 'eleckoi_read_variables' } },
       { type: 'function', function: { name: 'eleckoi_read_setting_files' } },
       { type: 'function', function: { name: 'future_tool' } },
-      { type: 'function', function: { name: 'eleckoi_read_uploaded_file' } },
+      { type: 'function', function: { name: 'read' } },
       { type: 'function', function: { name: 'eleckoi_internal_probe' } }
     ], new Set(['builtin:variables', 'builtin:other']))).toEqual([
       { type: 'function', function: { name: 'eleckoi_read_setting_files' } },
       { type: 'function', function: { name: 'future_tool' } },
-      { type: 'function', function: { name: 'eleckoi_read_uploaded_file' } },
+      { type: 'function', function: { name: 'read' } },
       { type: 'function', function: { name: 'eleckoi_internal_probe' } }
     ])
   })
@@ -79,7 +79,7 @@ describe('DSH character tool policy', () => {
     const missing = withPluginTools(preset, [])
     expect(missing.toolGroups).toEqual([{ ...reference, available: false }])
     const loaded = withPluginTools(missing, [{ name: 'synthetic_roll', description: 'runtime description' },
-      { name: 'synthetic_second', description: 'second' }, { name: 'eleckoi_read_uploaded_file' }])
+      { name: 'synthetic_second', description: 'second' }, { name: 'read' }])
     expect(loaded.toolGroups[0]).toEqual({ ...reference, available: true })
     expect(loaded.toolGroups.map(group => group.id)).toEqual(['plugin-tool:synthetic_roll'])
     expect(loaded.extraToolGroups).toEqual([expect.objectContaining({ id: 'plugin-tool:synthetic_second', included: false, enabled: true })])
@@ -139,7 +139,7 @@ describe('DSH character tool policy', () => {
         try {
           applyDisabledPolicy(agent.ctx, ['builtin:other', 'builtin:remote-dsh', 'builtin:workspace'])
           expect(owner.tools.schemas(agent).map(tool => tool.name)).toEqual([
-            'generate_image', 'generate_images', 'edit_image', 'synthetic_extension_tool'
+            'generate_image', 'generate_images', 'edit_image', 'synthetic_extension_tool', 'read'
           ])
           const result = await executeToolCall(owner.tools, { agent, callId: 'synthetic-plugin-call', name: 'generate_image',
             arguments: {}, signal: new AbortController().signal })
@@ -147,9 +147,9 @@ describe('DSH character tool policy', () => {
           expect(result.content).toEqual([{ type: 'text', text: 'synthetic plugin result' }])
           const blocked = await executeToolCall(owner.tools, { agent, callId: 'synthetic-workspace-call', name: 'read',
             arguments: {}, signal: new AbortController().signal })
-          expect(blocked.isError).toBe(true)
+          expect(blocked.isError).toBe(false)
           await plugin.dispose()
-          expect(owner.tools.schemas(agent)).toEqual([])
+          expect(owner.tools.schemas(agent).map(tool => tool.name)).toEqual(['read'])
           applyDisabledPolicy(agent.ctx, [])
           expect(owner.tools.schemas(agent).map(tool => tool.name)).toEqual(['read'])
         } finally { await scope.dispose() }

@@ -1,34 +1,6 @@
-.app-update-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 180;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: var(--modal-backdrop, rgb(24 28 34 / 26%));
-  backdrop-filter: blur(3px);
-  -webkit-app-region: no-drag;
-}
-.app-update-dialog {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  width: min(680px, 100%);
-  max-height: min(860px, calc(100dvh - 48px));
-  min-height: 0;
-  overflow: hidden;
-  color: var(--text);
-  background: var(--surface-raised);
-  border: 1px solid var(--line);
-  border-radius: 22px;
-  box-shadow: 0 20px 58px var(--shadow-color);
-}
-.app-update-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 24px 32px; }
-.app-update-heading h2 { margin: 0; font-size: 22px; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
-.app-update-release-link { flex: none; padding: 10px 16px; border-radius: 10px; color: var(--on-accent); background: var(--blue); font-size: 14px; text-decoration: none; }
-.app-update-release-link:hover { background: var(--blue-hover); }
-.app-update-notes-section { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 8px 32px 20px; }
+.app-update-notes-section { min-height:0; overflow-wrap:anywhere; }
 .app-update-notes { margin: 0; color: var(--text); font-size: 15px; line-height: 1.8; overflow-wrap: anywhere; }
-.app-update-footer { padding: 16px 32px 24px; }
+.app-update-footer { padding-top:16px; }
 .app-update-download-progress { margin-bottom: 14px; }
 .app-update-progress { height: 7px; overflow: hidden; background: var(--surface-muted); border-radius: 999px; }
 .app-update-progress i { display: block; height: 100%; background: var(--blue); border-radius: inherit; transition: width 180ms ease; }
@@ -37,22 +9,8 @@
 .app-update-footer > span { display: block; color: var(--soft-text); font-size: 12px; line-height: 1.5; }
 .app-update-error, .app-update-status[role="alert"] { color: var(--danger, #cf3737); }
 .app-update-error { margin: 10px 0 0; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
-.app-update-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
-.app-update-actions button { min-width: 94px; min-height: 40px; padding: 8px 16px; color: var(--text); background: var(--surface-raised); border: 1px solid var(--line); border-radius: 10px; font: inherit; font-size: 14px; }
-.app-update-actions button:hover:not(:disabled) { background: var(--control-bg-hover); }
-.app-update-actions button.is-primary { color: var(--on-accent); background: var(--blue); border-color: var(--blue); }
-.app-update-actions button.is-primary:hover:not(:disabled) { background: var(--blue-hover); border-color: var(--blue-hover); }
-.app-update-dialog :is(button, a, [tabindex]):focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .app-update-notes-section:focus-visible { outline-offset: -3px; }
-.app-update-actions button:disabled { cursor: default; opacity: .55; }
 @media (max-width: 560px), (max-height: 620px) {
-  .app-update-overlay { padding: 12px; }
-  .app-update-dialog { max-height: calc(100dvh - 24px); border-radius: 16px; }
-  .app-update-heading { padding: 16px 20px; gap: 12px; }
-  .app-update-heading h2 { font-size: 19px; }
-  .app-update-release-link { padding: 8px 12px; font-size: 13px; }
-  .app-update-notes-section { padding: 4px 20px 12px; }
-  .app-update-footer { padding: 12px 20px 16px; }
-  .app-update-actions { margin-top: 12px; }
+  .app-update-footer { padding-top:12px; }
 }
 @media (prefers-reduced-motion: reduce) { .app-update-progress i { transition: none; } }

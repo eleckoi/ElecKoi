@@ -60,7 +60,7 @@ export class ConversationRepository {
       database.insert(agentBranches).values({ id: branchId, conversationId: id }).run()
       database.insert(chatSessionCharacterSnapshots).values({ sessionId: id, personaJson: JSON.stringify(metadata.characterPersona) }).run()
       seedConversationVariableStates(id, variableStateJson, database, seed.initialVariableIdentityJson)
-      if (seed.openingText) this.insertOpening(database, {
+      if (seed.openingText || seed.openingOptions.length > 1) this.insertOpening(database, {
         conversationId: id,
         branchId,
         sourceSpeakerId: card?.id || 'assistant',

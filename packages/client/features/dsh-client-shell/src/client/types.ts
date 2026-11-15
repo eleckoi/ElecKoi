@@ -14,7 +14,7 @@ export interface ElecKoiWindowNavigation {
   readonly sidebar: HostObservable<{ shown: boolean }>
   selectPanel(id: string): void
   renderPanel(id: string): ReactNode
-  renderSidebar(renderContent: (renderSlot: unknown, workspaceSidebar?: ReactNode) => ReactNode, owner?: { workspace?: boolean; collapsed?: boolean; width?: number }): ReactNode
+  reportSidebar(state: { shown: boolean; width: number; drawer: boolean }): void
   toggleSidebar(): void
   closeSidebar(): void
   setPanelGuard(guard: (commit: () => void) => void): () => void
@@ -23,11 +23,31 @@ export interface ElecKoiWindowNavigation {
 /** 保留共享窗口传入的业务服务与页面呈现回调。 */
 export interface ElecKoiWindowOwner {
   navigation: ElecKoiWindowNavigation
+  nativeFrame: ReactNode
   fallback: ReactNode
   readonly [property: string]: unknown
 }
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface SlotFactoryMap {
+    /** Product display seats hosted by the actual registered native ConversationRoot. */
+    'eleckoi.conversation.frame': {
+      scope: 'session-maybe'
+      props: {
+        presentation: {
+          header: null
+          views: ReactNode
+          composer: ReactNode
+          phase?: 'active' | 'hero' | 'settling'
+          variant?: 'main' | 'embedded'
+          hero?: boolean
+          widthControls?: false
+          widthPreference?: { read(): number | null; write(width: number): void }
+          onScrollElement?: (element: HTMLDivElement | null) => void
+        }
+      }
+    }
+  }
   interface SlotMap {
     'sidebar.update': { kind: 'single'; scope: 'root'; owner: Record<string, never> }
     'eleckoi.shell.window': { kind: 'chain'; scope: 'root'; owner: ElecKoiWindowOwner }

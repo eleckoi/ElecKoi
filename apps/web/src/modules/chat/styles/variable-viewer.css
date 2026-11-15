@@ -1,4 +1,3 @@
-.variable-viewer-backdrop{position:fixed;inset:0;z-index:190;display:grid;place-items:center;padding:32px;background:rgb(0 0 0 / 18%);backdrop-filter:blur(5px)}
 .vm-dialog,.mobile-variable-manager,.vm-config-sheet{
  --vm-paper:var(--dsw-alias-bg-base,#fff);--vm-ink:var(--dsw-alias-label-primary,#111);--vm-secondary:var(--dsw-alias-label-secondary,#65676b);
  --vm-line:var(--dsw-alias-border-l1,#0000000a);--vm-outline:var(--dsw-alias-border-l2,#0000001a);--vm-wash:color-mix(in srgb,var(--vm-paper) 97%,var(--vm-ink));
@@ -11,10 +10,6 @@
 :where(.vm-dialog,.vm-config-sheet) button{font-family:inherit;cursor:pointer;color:inherit}
 .vm-dialog button:disabled,.vm-config-sheet button:disabled{cursor:default;opacity:.5}
 .vm-dialog button:focus-visible{outline:2px solid var(--vm-accent);outline-offset:-2px}
-.vm-header{display:flex;align-items:center;gap:10px;padding:0 23px 0 27px}
-.vm-header>svg{color:var(--vm-secondary);flex:none}.vm-header h2{margin:0;font-size:18px;line-height:25px;font-weight:600;flex:1}
-.vm-header>button{display:grid;place-items:center;width:30px;height:30px;border:0;border-radius:7px;background:none;color:var(--vm-secondary)}
-.vm-header>button:hover{background:var(--vm-selection)}
 .vm-tabs{display:flex;align-items:stretch;gap:26px;padding:0 28px;border-bottom:1px solid var(--vm-outline);flex:none}
 .vm-tabs>button{position:relative;padding:0 0 14px;align-self:end;font-size:13px;line-height:20px;background:none;border:0;color:var(--vm-secondary)}
 .vm-tabs>button[aria-selected=true]{color:var(--vm-ink);font-weight:600}

@@ -1,5 +1,19 @@
 # 测试与日常验证
 
+2026-11-15 官方中性色检查：`roleplay-style.test.js` 继续检查 32 组 PC／移动角色气泡与底板，参考材质的颜色改为官方主题 token，像素合成检查保留；追加实际 `<input type=color>` 在同一已挂载页面深浅切换后与官方 token 相等，独立颜色、重置及透明度原断言保持。`editor-collection-theme.test.js` 使用正式手机／平板列表与已安装官方 Switch 作颜色对照，24 组覆盖 320／390／768px、角色／预设、脚本／正则与深浅；核对列表面、文字、选中态、开关开启／关闭的轨道和拇指、点击切换及横向溢出。颜色静态探针关闭过渡后采样，避免把过渡起点当成最终色；比较实际绘制色，避免把同色的 hex／rgb 序列化差异误判。真实主题 token 的压缩 hex 格式由浏览器检查覆盖，非真机验收。
+
+2026-11-15 窄屏底板：`roleplay-style.test.js` 扩为两种主题、气泡开关和八种 PC／移动容器组合，共 32 组；包含移动 599／600px 边界、768px 平板，以及窗口 780px 但聊天容器被侧栏压窄的 PC。以实际 panelWidth 判断底板侧边内缩，小于 600px 应为 0，600px 及以上保留至少 8px；原首条贴顶、5px／12px 消息净距、10px／14px 内距、头像／楼层、滚动、材质和设置检查保持。查看手机与平板截图，非 Android 真机验收。
+
+2026-11-15 酒馆气泡实测还原：参考为用户当前本地酒馆 DOM／computedStyle／DOMRect 的 5px 消息净距、10px padding 和约 10.67px 含边框头像顶距。`roleplay-style.test.js` 在原 16 个 PC／手机、深浅组合中核对开启气泡时所有消息净距 5px、实际头像顶距 10px、首条贴顶；关闭时保留净距 12px／内距 14px，原楼层、滚动与材质断言不变。自定义 24px 检查通过正式共用设置模型更新已有滑块，不再绕过模型改原始 profile；`chat-display.test.js` 同时检查新缺省值、保存解析、关闭恢复普通间距及重置。未新增屏幕控件、SQL 或真机验收结论。
+
+2026-11-15 角色气泡贴顶：`roleplay-style.test.js` 在正式 ChatPanel、官方 ConversationRoot／Content 与 AppFrame 承载的合成消息中，检查深浅主题及 1440／900／390／320px 共 16 个气泡开关组合。滚到开头时，开启气泡的首条外部顶部距离为 0，关闭时保持 10px；内部 14px、消息间距 12px、滚动到底和单个输入区的原检查保留。修复前新增断言检出 10px 空带，修复后通过，并查看 PC 与手机截图；不称真机验收。
+
+2026-11-15 变量底部留白与开场白：`mobile-editor.test.js` 在正式手机变量文档滚到底后核对最后输入框仍在表单内、保留实际底部内距，另用 390×420 高度复核 24px 留白；不是 Android 真机输入法验收。`character-openings.test.ts` 覆盖空正文／空白字符选项、空主项、多项切换、变量绑定与磁盘重开，单条空开场仍不生成消息。`opening-variable-editor.test.jsx` 和 `settingLibraryEditing.test.js` 覆盖手机／桌面上移到主项、主项下移、保存重开和边界；`opening-controls.test.jsx` 覆盖角色／Agent 空正文的翻页。`opening-pager-layout.test.js` 在正式 MessageBubble 及正式消息行结构中，检查 36 个深浅／320、390、1200px／三种头像／气泡组合的短、空、长正文切换与箭头几何位置。探针须启用离屏绘制保证隐藏窗口动画继续运行，不改产品动画；不得以缺少正式消息行导致的 Flex 收缩当成产品长正文故障。
+
+角色输入与轨迹回归直接执行已安装的官方 Client：`native-input-preparation.test.ts` 核对产品服务缺失时仍可原生发送、准备失败保留和空提示续写；角色 SlotCore 回归核对带子座位的输入扩展及队列出现／卸载。轨迹请求用例沿 `tests/helpers/officialTrajectory.js` 读取真实官方定义和布局，保留重新生成的正式输入身份、请求和错误断言，提示词变更提示沿当前官方行为。`native-roleplay-trajectory.test.jsx` 将正式角色轨迹入口接到官方 View，确认原结果订阅及子调用折叠能力透传，不加载本地轨迹副本。
+
+`composer-scroll-popovers.test.js` 使用正式 ChatPanel、锁定 Chat Client 的 ChatView／ChatFlow、原 ActivityPill／UsagePill 和官方权限／占用组件，覆盖空对话、80 条合成官方节点和输入区增高，320／390／1200px、深浅主题下核对五个浮层的实际按钮间距及点击前后滚动位置，另查末条可见、官方返回底部、更多菜单、轨迹切回与草稿保持。流式部分以正式 assistant-step 不可变节点和 running 状态连续追加 24 次正文，在手机／桌面宽度保持五个浮层打开，逐次记录按钮间距、正文增长及滚动变化，浏览器 bundle 使用与产品一致的 production React。默认当前 Electron；`ELECKOI_POPOVER_BROWSER` 可选择隔离的旧 Electron 运行同一探针，用于复现系统 WebView 所属 Chromium 代际，不读真实手机或会话，不等同手机验收。
+
 `composer-attachments-layout.test.js` 的菜单检查使用正式角色／工作室输入菜单与真实手机版标记，分别在两种主题和 PC／手机宽度核对主菜单、更多菜单与实际触发按钮的 4px 间距；不能用 Portal 的父元素代替触发按钮。安卓开发版另通过 ADB 和当前 WebView 复现旧规则覆盖后的顶部错位，临时移除 `bottom: auto` 后回到正确锚点；这一现场验证不等同已安装包含修复的新 APK，现场截图只保留在 ignored build。
 
 `bug-report-collection.test.ts` 沿官方 Logger、共享原始诊断格式器、真实桌面文件日志、跨启动读取及正式报告收集验证根原因、聚合成员、长 Unicode 末尾、轮转文件和最终正文。故障列表使用原始捕获范围，摘要独立保留原行数；用户不带日志时不导出原始诊断正文。`app-log.test.ts` 保持进程出口和原日志行为检查，不改变官方退出策略。

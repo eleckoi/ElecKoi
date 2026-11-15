@@ -88,14 +88,22 @@ export function withPluginTools(preset, declarations, plugins = new Map()) {
     included: false, enabled: true, available: true,
     ...(plugins.has(declaration.name) ? { plugin: plugins.get(declaration.name) } : {})
   })
-  return { ...preset, toolGroups: groups, extraToolGroups }
+  // These native readers are mounted by every product preset independently of
+  // optional groups. Publish them separately from the editable references.
+  const basicToolGroups = [{ id: 'builtin:file-read', name: '文件读取',
+    description: '读取本机文件与已上传附件；图片读取需要当前模型支持。', source: 'built_in',
+    included: true, enabled: true, members: [
+      { name: 'read', description: '按官方行窗口读取文本文件。' },
+      { name: 'read_image', description: '读取图片，需要模型支持图片输入。' },
+    ] }]
+  return { ...preset, toolGroups: groups, basicToolGroups, extraToolGroups }
 }
 
 function isEssential(declaration) {
   const toolName = declarationName(declaration)
   return toolName === 'eleckoi_capability_probe'
     || toolName === 'run_code'
-    || toolName === 'eleckoi_read_uploaded_file'
+    || toolName === 'read' || toolName === 'read_image'
     || toolName.startsWith('eleckoi_internal_')
 }
 
@@ -117,7 +125,7 @@ const VARIABLE_TOOLS = new Set([
 ])
 const CREATOR_TOOLS = new Set(['eleckoi_list_toolsets', 'eleckoi_describe_toolset', 'eleckoi_call_capability'])
 const WORKSPACE_TOOLS = new Set([
-  'shell_command', 'bash', 'pwsh', 'read', 'edit', 'write', 'exec_command', 'write_stdin', 'apply_patch', 'request_permissions', 'working_directory'
+  'shell_command', 'bash', 'pwsh', 'edit', 'write', 'exec_command', 'write_stdin', 'apply_patch', 'request_permissions', 'working_directory'
 ])
 const WORKFLOW_TOOLS = new Set([
   'todo_write', 'get_goal', 'create_goal', 'update_goal',

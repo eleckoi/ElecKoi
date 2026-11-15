@@ -195,7 +195,6 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
     }
     openEditor();
     setContextMenu(null);
-    requestAnimationFrame(() => nameInputRef.current?.select());
   }
 
   function toggleNode(node) {

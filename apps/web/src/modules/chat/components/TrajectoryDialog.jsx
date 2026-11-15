@@ -1,6 +1,5 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useCallback, useMemo } from "react";
-import { TrajectoryView as ProductTrajectoryView, zh } from "@eleckoi/dsh-client-trajectory/client";
 import { adaptTrajectorySnapshot } from "../model/trajectorySnapshotAdapter.js";
 
 const noop = () => {};
@@ -28,13 +27,7 @@ function SessionTrajectoryView(props) {
     [official, outcomes, inputIdentities],
   );
   const useTrajectory = useCallback((selector) => selector(snapshot), [snapshot]);
-  const translate = useCallback((key, values = {}) => {
-    let text = zh[key];
-    if (!text) return props.t(key, values);
-    for (const [name, value] of Object.entries(values)) {
-      text = text.replaceAll(`{${name}}`, String(value));
-    }
-    return text;
-  }, [props.t]);
-  return <ProductTrajectoryView {...props} useTrajectory={useTrajectory} t={translate} />;
+  const t = useCallback((key, values) => props.t(key, key === 'turn.label' && values?.turn !== undefined
+    ? { ...values, turn: snapshot.turnLabels.get(values.turn) ?? values.turn } : values), [props.t, snapshot.turnLabels]);
+  return props.renderNative({ useTrajectory, t });
 }

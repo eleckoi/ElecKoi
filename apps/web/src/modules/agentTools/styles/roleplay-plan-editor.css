@@ -19,7 +19,6 @@
   font-weight: 600 !important;
 }
 
-.roleplay-plan-heading button,
 .roleplay-plan-actions button,
 .roleplay-plan-save {
   display: inline-flex;
@@ -33,14 +32,8 @@
 
 .roleplay-plan-heading button {
   gap: 5px;
-  min-height: 28px;
-  padding: 0 7px;
-  border-radius: 7px;
-  color: var(--blue);
-  font-size: 12px;
 }
 
-.roleplay-plan-heading button:hover,
 .roleplay-plan-actions button:hover:not(:disabled) {
   background: var(--control-bg-hover);
 }
@@ -110,7 +103,9 @@
 
 .roleplay-plan-actions button svg { width: 14px; height: 14px; }
 .roleplay-plan-actions button:disabled,
-.roleplay-plan-heading button:disabled { cursor: default; opacity: .3; }
+.roleplay-plan-heading button:disabled { cursor: default; }
+.roleplay-plan-actions button:disabled:not([data-dsh-control]),
+.roleplay-plan-heading button:disabled:not([data-dsh-control]) { opacity: .3; }
 
 .roleplay-plan-save-row {
   display: flex;

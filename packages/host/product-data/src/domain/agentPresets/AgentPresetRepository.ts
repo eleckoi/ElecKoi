@@ -1001,11 +1001,12 @@ function portableAvatar(reference: string, mediaAssets?: LocalMediaStore): {
 }
 
 function normalizePreset(input: AgentPreset): AgentPreset {
+  const { basicToolGroups: _runtimeReaders, ...storedInput } = input
   const validGroupIds = new Set(input.groups.map((group) => group.id))
   const validToolIds = new Set(AGENT_TOOL_GROUPS.map((group) => group.id))
   const prompts = normalizeAgentPresetPrompts(input.entries, input.promptPositions, input.purpose)
   return agentPresetSchema.parse({
-    ...input,
+    ...storedInput,
     name: input.name.trim() || '未命名预设',
     modelTags: input.modelTags.map((tag) => ({
       id: tag.id.trim().toLocaleLowerCase(),

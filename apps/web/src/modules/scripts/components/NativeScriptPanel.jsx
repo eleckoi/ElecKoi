@@ -1,17 +1,18 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { buildAuthorDocumentSource } from '@eleckoi/author-sdk';
-import { ArrowClockwise, X } from '../../../ui/icons/interfaceIcons.jsx';
+import { ArrowClockwise } from '../../../ui/icons/interfaceIcons.jsx';
 import { resolveFailure } from '../../../utils/failureText.js';
 import '../styles/native-script-ui.css';
+import '../../../ui/styles/product-dialogs.css';
 
 /** The modal owns DOM lifetime; the injected Client service owns the exact script identity. */
 export function NativeScriptPanel({ runtime, panel }) {
   const tUi = useProductTranslation();
-  const dialog = useRef(null), frame = useRef(null), release = useRef(null);
+  const frame = useRef(null), release = useRef(null);
   const [error, setError] = useState(''), [ready, setReady] = useState(false), [reload, setReload] = useState(0);
   const channel = useMemo(() => crypto.randomUUID(), [panel.key, reload]);
   const source = useMemo(() => buildAuthorDocumentSource(panel.html, channel, false, { baseUrl: panel.baseUrl }), [panel.html, panel.baseUrl, channel]);
@@ -29,11 +30,6 @@ export function NativeScriptPanel({ runtime, panel }) {
     window.addEventListener('message', receive);
     return () => { window.removeEventListener('message', receive); release.current?.(); release.current = null; };
   }, [channel, runtime]);
-  useEffect(() => {
-    const target = dialog.current, previous = document.activeElement;
-    target.showModal();
-    return () => { target.close(); if (previous?.isConnected) previous.focus(); };
-  }, []);
   const loaded = () => {
     const target = frame.current?.contentWindow;
     if (!target || release.current) return;
@@ -50,16 +46,11 @@ export function NativeScriptPanel({ runtime, panel }) {
       setError(resolveFailure(failure, { fallback: tUi("作者面板加载失败") }).text);
     }
   };
-  return createPortal(<dialog ref={dialog} className="native-script-dialog" aria-label={panel.title}
-    onCancel={event => { event.preventDefault(); close(); }} onClick={event => { if (event.target === dialog.current) close(); }}>
-    <div className="native-script-dialog-layout">
-      <header><h2>{panel.title}</h2>
-        <button type="button" title={tUi("重新加载")} aria-label={tUi("重新加载作者面板")} onClick={() => setReload(value => value + 1)}><ArrowClockwise /></button>
-        <button type="button" title={tUi("关闭")} aria-label={tUi("关闭作者面板")} onClick={close}><X /></button>
-      </header>
+  return <Modal open title={panel.title} closeLabel={tUi('关闭作者面板')} onClose={close}
+    className="product-dialog native-script-modal" contentClassName="product-dialog-content"
+    footer={<Button variant="outline" icon={<ArrowClockwise size={16} />} aria-label={tUi('重新加载作者面板')} onClick={() => setReload(value => value + 1)}>{tUi('重新加载')}</Button>}>
       {error ? <p className="native-script-panel-error" role="alert">{error}</p> : <iframe key={channel} ref={frame}
-        title={panel.title} name={channel} srcDoc={source} onLoad={loaded} aria-busy={!ready}
+        className="native-script-frame" title={panel.title} name={channel} srcDoc={source} onLoad={loaded} aria-busy={!ready}
         allow="autoplay; clipboard-read; clipboard-write" />}
-    </div>
-  </dialog>, document.body);
+  </Modal>;
 }

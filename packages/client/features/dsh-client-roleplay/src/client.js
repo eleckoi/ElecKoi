@@ -90,7 +90,7 @@ window.__ModuleLoader__.load({
       : name === 'conversation.view' ? 'eleckoi.roleplay.session.view' : `eleckoi.roleplay.view.${name}`
 
     function RoleplaySessionView({
-      matched, sessionId, useSession, useSessionStatus, useInput, renderSlot, renderSlotChain
+      matched, sessionId, useSession, useSessionStatus, useInput, useHeaderMenuEntries, renderSlot, renderSlotChain
     }) {
       const session = useSession(snapshot => snapshot)
       const input = useInput(snapshot => snapshot)
@@ -102,6 +102,7 @@ window.__ModuleLoader__.load({
       ), [renderSlotChain])
       const props = {
         ...matched.props,
+        hasHeaderMenu: useHeaderMenuEntries?.(count => count > 0) ?? false,
         renderRoleplaySlot: renderSlot,
         renderRoleplaySlotChain: renderSlotChain,
         renderRoleplayMessage,
@@ -146,7 +147,9 @@ window.__ModuleLoader__.load({
       })
     }
 
-    function RoleplayView({ matched, conversations, sessions, openMainSession, SessionProvider, renderSlot }) {
+    function RoleplayView({ matched, conversations, sessions, openMainSession, SessionProvider, renderSlot, renderFactorySlot }) {
+      const renderConversationContent = React.useCallback(presentation => renderFactorySlot('eleckoi.conversation.frame', { presentation }), [renderFactorySlot])
+      matched = { ...matched, props: { ...matched.props, renderConversationContent } }
       const runtimeSessionId = matched.props.runtimeSessionId
       React.useSyncExternalStore(conversations.subscribeDetails, conversations.getDetailsSnapshot)
       const retained = React.useRef(null)
@@ -184,7 +187,7 @@ window.__ModuleLoader__.load({
         dshComposerOwner: undefined,
         dshInputZone: undefined
       })
-      if (!active) return view
+      if (!active) return React.createElement(SessionProvider, { session: undefined, empty: () => view }, view)
       const scopedView = renderSlot('eleckoi.roleplay.session', { matched }, { fallback: view })
       return React.createElement(SessionProvider, { session: reference }, scopedView)
     }
@@ -221,18 +224,19 @@ window.__ModuleLoader__.load({
             const projected = new Map()
             const adapt = entry => function ConversationSeatEntry(ownerProps) {
               if (options.component) return React.createElement(options.component, ownerProps)
-              if (options.bridgeChildren) return React.createElement(entry.component, {
-                ...ownerProps,
-                renderSlot: (name, owner, renderOptions) => {
+              if (options.bridgeChildren && entry.children && Object.keys(entry.children).length > 0) {
+                const renderSlot = React.useCallback((name, owner, renderOptions) => {
                   const renderNative = () => ownerProps.renderSlot(childSeatName(name), owner, renderOptions)
                   if (name === 'tool.call.toolview' && ownerProps.renderToolCall) {
                     const rendered = ownerProps.renderToolCall(owner, renderNative)
                     if (rendered !== undefined) return rendered
                   }
                   return renderNative()
-                },
-                renderSlotChain: (name, owner, renderOptions) => ownerProps.renderSlotChain(childSeatName(name), owner, renderOptions),
-              })
+                }, [ownerProps.renderSlot, ownerProps.renderToolCall])
+                const renderSlotChain = React.useCallback((name, owner, renderOptions) =>
+                  ownerProps.renderSlotChain(childSeatName(name), owner, renderOptions), [ownerProps.renderSlotChain])
+                return React.createElement(entry.component, { ...ownerProps, renderSlot, renderSlotChain })
+              }
               if (source === 'conversation.composer.dock' && ['activity', 'usage'].includes(entry.options.id)) {
                 const display = useDisplayStats(ownerProps)
                 const adjustment = ownerProps.useProjection('eleckoiHistoryStatsAdjustment')
@@ -251,12 +255,12 @@ window.__ModuleLoader__.load({
               if (source === 'conversation.composer' || source === 'conversation.composer.bar') {
                 const display = useDisplayStats(ownerProps)
                 const { renderBridgeSlot, ...props } = ownerProps
-                const renderSlot = (name, owner, renderOptions) => {
+                const renderSlot = React.useCallback((name, owner, renderOptions) => {
                   const bridged = bridgedComposerChildren[name]
                   return bridged && renderBridgeSlot
                     ? renderBridgeSlot(bridged, owner, renderOptions)
                     : null
-                }
+                }, [renderBridgeSlot])
                 return React.createElement(entry.component, { ...props, useProjection: display.useProjection, renderSlot })
               }
               if (source !== 'conversation.view' && source !== 'conversation.chat.flow') return React.createElement(entry.component, ownerProps)
@@ -290,9 +294,10 @@ window.__ModuleLoader__.load({
                 return React.createElement(entry.component, { ...props, flowSlotName: bridgedChatChildren['conversation.chat.flow'], renderSlot, usePresentation, presentTurnNavigation })
               }
               const { component, ...props } = ownerProps
-              const renderSlot = (name, owner) => name === 'conversation.trajectory.images'
-                ? ownerProps.renderSlot('eleckoi.roleplay.trajectory.images', owner) : null
-              return React.createElement(component || entry.component, { ...props, renderSlot })
+              const renderSlot = React.useCallback((name, owner) => name === 'conversation.trajectory.images'
+                ? ownerProps.renderSlot('eleckoi.roleplay.trajectory.images', owner) : null, [ownerProps.renderSlot])
+              const renderNative = React.useCallback(overrides => React.createElement(entry.component, { ...props, ...overrides, renderSlot }), [props, renderSlot])
+              return component ? React.createElement(component, { ...props, renderSlot, renderNative }) : renderNative()
             }
             const sync = () => {
               const sourceSpec = ctx.slots.spec(source)
@@ -303,7 +308,6 @@ window.__ModuleLoader__.load({
               const entries = (options.winnerOnly ? sourceEntries.slice(0, 1) : sourceEntries)
                 .filter(entry => {
                   if (options.entryId && entry.options.id !== options.entryId) return false
-                  if (options.leafOnly && entry.children && Object.keys(entry.children).length > 0) return false
                   return options.include ? options.include(entry) : true
                 })
               const current = new Set(entries)
@@ -317,7 +321,7 @@ window.__ModuleLoader__.load({
                 const registrationOptions = {
                   name: target,
                   ...(['list', 'hoc'].includes(targetSpec.kind)
-                    ? { id: options.bridgeChildren ? entry.options.id : `dsh:${source}:${entry.options.id}`,
+                    ? { id: options.bridgeChildren && !options.inputSeat ? entry.options.id : `dsh:${source}:${entry.options.id}`,
                         ...(targetSpec.kind === 'hoc' ? { key: entry.options.key } : {}) }
                     : targetSpec.kind === 'keyed' ? { key: entry.options.key } : {}),
                   ...(entry.options.order !== undefined ? { order: entry.options.order } : {}),
@@ -370,7 +374,13 @@ window.__ModuleLoader__.load({
         }, RoleplayView))
         ctx.slots.inject('eleckoi.roleplay.session', () => ctx.slots.register({
           name: 'eleckoi.roleplay.session',
+          inject: () => ({ hooks: { headerMenuEntries: {
+            subscribe: listener => ctx.slots.subscribe('eleckoi.roleplay.header.menu', listener),
+            getSnapshot: () => ctx.slots.entriesOfSlot('eleckoi.roleplay.header.menu').length,
+          } } }),
           children: {
+            'eleckoi.roleplay.background': { kind: 'single', scope: 'session' },
+            'eleckoi.roleplay.header.menu': { kind: 'list', scope: 'session' },
             'eleckoi.roleplay.session.header': { kind: 'single', scope: 'session' },
             'eleckoi.roleplay.session.body': { kind: 'single', scope: 'session' },
             'eleckoi.roleplay.message.content': { kind: 'chain', scope: 'session' },
@@ -412,21 +422,19 @@ window.__ModuleLoader__.load({
         projectConversationSeat('conversation.composer.bar', 'eleckoi.roleplay.conversation.composer.bar', {
           winnerOnly: true
         })
-        projectConversationSeat('conversation.input.left', 'eleckoi.roleplay.conversation.input.left', { leafOnly: true })
-        projectConversationSeat('conversation.input.right', 'eleckoi.roleplay.conversation.input.right', { leafOnly: true })
-        projectConversationSeat('conversation.input.overlay', 'eleckoi.roleplay.conversation.input.overlay', { leafOnly: true })
-        projectConversationSeat('conversation.input.dock', 'eleckoi.roleplay.conversation.input.dock', {
-          leafOnly: true,
-          include: entry => entry.options.id !== 'queue'
-        })
-        projectConversationSeat('conversation.input.attachments', 'eleckoi.roleplay.conversation.input.attachments', { leafOnly: true })
-        projectConversationSeat('conversation.input.permission', 'eleckoi.roleplay.conversation.input.permission', { leafOnly: true })
-        projectConversationSeat('conversation.input.plan', 'eleckoi.roleplay.conversation.input.plan', { leafOnly: true })
+        const inputSeat = { bridgeChildren: true, inputSeat: true }
+        projectConversationSeat('conversation.input.left', 'eleckoi.roleplay.conversation.input.left', inputSeat)
+        projectConversationSeat('conversation.input.right', 'eleckoi.roleplay.conversation.input.right', inputSeat)
+        projectConversationSeat('conversation.input.overlay', 'eleckoi.roleplay.conversation.input.overlay', inputSeat)
+        projectConversationSeat('conversation.input.dock', 'eleckoi.roleplay.conversation.input.dock', inputSeat)
+        projectConversationSeat('conversation.input.attachments', 'eleckoi.roleplay.conversation.input.attachments', inputSeat)
+        projectConversationSeat('conversation.input.permission', 'eleckoi.roleplay.conversation.input.permission', inputSeat)
+        projectConversationSeat('conversation.input.plan', 'eleckoi.roleplay.conversation.input.plan', inputSeat)
         projectConversationSeat('conversation.input.model', 'eleckoi.roleplay.conversation.input.model', { winnerOnly: true, bridgeChildren: true })
-        projectConversationSeat('conversation.input.activity', 'eleckoi.roleplay.conversation.input.activity', { leafOnly: true })
-        projectConversationSeat('conversation.composer.dock', 'eleckoi.roleplay.conversation.composer.dock', { leafOnly: true })
-        projectConversationSeat('conversation.approval.detail', 'eleckoi.roleplay.conversation.approval.detail', { leafOnly: true })
-        projectConversationSeat('conversation.plan-review.actions', 'eleckoi.roleplay.conversation.plan-review.actions', { leafOnly: true })
+        projectConversationSeat('conversation.input.activity', 'eleckoi.roleplay.conversation.input.activity', inputSeat)
+        projectConversationSeat('conversation.composer.dock', 'eleckoi.roleplay.conversation.composer.dock', inputSeat)
+        projectConversationSeat('conversation.approval.detail', 'eleckoi.roleplay.conversation.approval.detail', inputSeat)
+        projectConversationSeat('conversation.plan-review.actions', 'eleckoi.roleplay.conversation.plan-review.actions', inputSeat)
         projectConversationSeat('conversation.trajectory.images', 'eleckoi.roleplay.trajectory.images')
         projectConversationSeat('conversation.view', 'eleckoi.roleplay.trajectory', { entryId: 'trajectory' })
         projectConversationSeat('conversation.view', 'eleckoi.roleplay.chat', { entryId: 'chat' })

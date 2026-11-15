@@ -5,7 +5,7 @@ import { CopyIcon, ExportIcon, ImportIcon, PencilIcon, PlusIcon, TrashIcon } fro
 import { FailureAlert } from "../../../ui/ui/FailureAlert.jsx";
 import { GroupAssignmentMenu } from "../../../ui/ui/GroupAssignmentMenu.jsx";
 import { openCharacterEditorWindow } from "../window/openCharacterEditorWindow.js";
-import { AddGroupDialog } from "./AddGroupDialog.jsx";
+import { GroupNameDialog } from "../../../ui/ui/GroupNameDialog.jsx";
 import { CharacterCard } from "./CharacterCard.jsx";
 import { CharacterImportDialog } from "./CharacterImportDialog.jsx";
 import { ALL_CHARACTERS, characterGroup, characterName } from "./characterUtils.js";
@@ -318,7 +318,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
             </button>
           ))}
         </div>
-        <Button data-dsh-control variant="outline" className="character-add-group-button catalog-manager-surface-button" type="button" onClick={() => openGroupDialog("add")}>
+        <Button data-dsh-control variant="primary" className="character-add-group-button" type="button" onClick={() => openGroupDialog("add")}>
           <PlusIcon />
           {tUi("添加分组")}</Button>
       </aside>
@@ -449,7 +449,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
       ) : null}
 
       {groupDialog ? (
-        <AddGroupDialog
+        <GroupNameDialog
           title={groupDialog.mode === "rename" ? tUi("重命名该组") : tUi("添加分组")}
           value={groupDraft}
           onChange={setGroupDraft}

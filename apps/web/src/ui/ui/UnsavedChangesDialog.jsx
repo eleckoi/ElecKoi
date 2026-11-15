@@ -1,101 +1,18 @@
-import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
-import { SystemBarOverlay } from './SystemBarOverlay.jsx';
-import { useEffect, useId, useRef } from "react";
-import { createPortal } from "react-dom";
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import { useProductTranslation } from '../../app/i18n/ProductLocaleContext.jsx';
+import '../styles/product-dialogs.css';
 
-export function UnsavedChangesDialog({
-  open,
-  title,
-  description,
-  error = "",
-  saving = false,
-  saveDisabled = false,
-  saveLabel: saveLabelSource,
-  discardLabel: discardLabelSource,
-  cancelLabel: cancelLabelSource,
-  onCancel,
-  onDiscard,
-  onSave,
-}) {
+/** Product commands only; official Modal owns chrome, focus, Escape and portals. */
+export function UnsavedChangesDialog({ open, title, description, error = '', saving = false, saveDisabled = false,
+  saveLabel, discardLabel, cancelLabel, onCancel, onDiscard, onSave }) {
   const tUi = useProductTranslation();
-  const saveLabel = saveLabelSource === undefined ? tUi("保存") : saveLabelSource;
-  const discardLabel = discardLabelSource === undefined ? tUi("不保存") : discardLabelSource;
-  const cancelLabel = cancelLabelSource === undefined ? tUi("取消") : cancelLabelSource;
-  const titleId = useId();
-  const descriptionId = useId();
-  const errorId = useId();
-  const dialogRef = useRef(null);
-  const cancelRef = useRef(null);
-  const savingRef = useRef(saving);
-  const onCancelRef = useRef(onCancel);
-
-  savingRef.current = saving;
-  onCancelRef.current = onCancel;
-
-  useEffect(() => {
-    if (!open || typeof document === "undefined") return undefined;
-    const previousFocus = document.activeElement;
-    const focusFrame = window.requestAnimationFrame(() => cancelRef.current?.focus());
-
-    function handleKeyDown(event) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        if (!savingRef.current) onCancelRef.current?.();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const focusable = Array.from(dialogRef.current?.querySelectorAll("button:not(:disabled)") || []);
-      if (!focusable.length) {
-        event.preventDefault();
-        return;
-      }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.cancelAnimationFrame(focusFrame);
-      window.removeEventListener("keydown", handleKeyDown);
-      if (previousFocus?.isConnected) previousFocus.focus();
-    };
-  }, [open]);
-
-  if (!open) return null;
-
-  const dialog = (
-    <SystemBarOverlay className="unsaved-changes-overlay" role="presentation" onMouseDown={() => !saving && onCancel?.()}>
-      <section
-        ref={dialogRef}
-        className="unsaved-changes-dialog"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={`${descriptionId}${error ? ` ${errorId}` : ""}`}
-        aria-busy={saving || undefined}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <h2 id={titleId}>{title}</h2>
-        <p id={descriptionId}>{description}</p>
-        {error ? <p id={errorId} className="unsaved-changes-error" role="alert">{error}</p> : null}
-        <div className="unsaved-changes-actions">
-          <button type="button" className="is-primary" disabled={saving || saveDisabled} onClick={onSave}>
-            {saving ? tUi("保存中") : saveLabel}
-          </button>
-          <button type="button" disabled={saving} onClick={onDiscard}>{discardLabel}</button>
-          <button ref={cancelRef} type="button" disabled={saving} onClick={onCancel}>{cancelLabel}</button>
-        </div>
-      </section>
-    </SystemBarOverlay>
-  );
-
-  const portalTarget = typeof document === "undefined" ? null : document.body;
-  return portalTarget ? createPortal(dialog, portalTarget) : dialog;
+  return <Modal open={open} title={title} description={description} closeLabel={tUi('关闭')}
+    onClose={() => { if (!saving) onCancel?.(); }} className="product-dialog" contentClassName="product-dialog-content"
+    footer={<div className="product-dialog-actions">
+      <Button variant="outline" data-modal-autofocus disabled={saving} onClick={onCancel}>{cancelLabel ?? tUi('取消')}</Button>
+      <Button variant="outline" disabled={saving} onClick={onDiscard}>{discardLabel ?? tUi('不保存')}</Button>
+      <Button variant="primary" disabled={saving || saveDisabled} onClick={onSave}>{saving ? tUi('保存中') : saveLabel ?? tUi('保存')}</Button>
+    </div>}>
+    {error ? <p className="product-dialog-error" role="alert">{error}</p> : undefined}
+  </Modal>;
 }

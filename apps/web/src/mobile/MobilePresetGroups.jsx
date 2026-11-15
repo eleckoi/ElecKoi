@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { useState } from 'react';
 import { MobileHeader } from './MobileChrome.jsx';
@@ -13,7 +14,7 @@ export function MobilePresetGroups({ catalog, model, onClose, purpose }) {
   const { groups, presets } = catalog;
   return <div className="mobile-root-page mobile-group-manager">
     <MobileHeader title={tUi("预设分组管理")} back={() => !busy && onClose()} />
-    <div className="mobile-group-manager-actions"><button type="button" disabled={busy} onClick={() => setEditing({ id: '', name: '' })}><MobileLibraryIcon name="plus" />{tUi("添加分组")}</button><button type="button" disabled={busy || !groups.length} onClick={() => setDeleting(value => !value)}><MobileLibraryIcon name="trash" />{deleting ? tUi("完成删除") : tUi("删除分组")}</button></div>
+    <div className="mobile-group-manager-actions"><Button data-dsh-control variant="primary" type="button" disabled={busy} onClick={() => setEditing({ id: '', name: '' })}><MobileLibraryIcon name="plus" />{tUi("添加分组")}</Button><button type="button" disabled={busy || !groups.length} onClick={() => setDeleting(value => !value)}><MobileLibraryIcon name="trash" />{deleting ? tUi("完成删除") : tUi("删除分组")}</button></div>
     <div className="mobile-scroll mobile-group-manager-list"><div className="mobile-group-manager-all"><MobileLibraryIcon name="history" />{tUi("全部预设 (")}{presets.length})</div>
       {groups.map(group => <div className="mobile-group-manager-row" key={group.id}>
         <button type="button" className="mobile-group-manager-name" disabled={busy} onClick={() => setEditing(group)}>{group.name} ({presets.filter(item => item.libraryGroupId === group.id).length})</button>

@@ -22,7 +22,7 @@ async function render(child, models) {
   await act(async () => root.render(<MainPageContext.Provider value={{ models }}>{child}</MainPageContext.Provider>));
 }
 async function escape() {
-  await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+  await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
 }
 async function change(input, value) {
   await act(async () => {
@@ -43,13 +43,13 @@ describe('Desktop automatic illustration dialogs', () => {
     await render(<AutoIllustrationSettings onSelect={vi.fn()} />, catalog([config('image-config-a'), config('text-config', 'custom')]));
     expect(document.querySelector('.desktop-auto-illustration-settings')).toBeTruthy();
     await click(document.querySelector('.auto-illustration-model'));
-    const dialog = document.querySelector('.desktop-illustration-models');
+    const dialog = document.querySelector('.illustration-model-modal');
     expect(dialog).toBeTruthy();
     expect(document.querySelector('.mobile-conversation-overlay')).toBeNull();
     expect(document.querySelector('.mobile-sheet-handle')).toBeNull();
-    expect(dialog.querySelector('.chat-model-tabs')).toBeTruthy();
-    expect(dialog.querySelector('.desktop-illustration-scroll')).toBeTruthy();
-    expect([...dialog.querySelectorAll('footer button')].map(button => button.textContent)).toEqual(['取消', '保存']);
+    expect(dialog.querySelector('.illustration-model-tabs')).toBeTruthy();
+    expect(dialog.querySelector('.product-dialog-content')).toBeTruthy();
+    expect([...dialog.querySelectorAll('.product-dialog-actions button')].map(button => button.textContent)).toEqual(['取消', '保存']);
     expect(dialog.textContent).not.toContain('text-config');
     expect(find('参数').disabled).toBe(true);
     expect(find('保存').disabled).toBe(true);
@@ -64,7 +64,7 @@ describe('Desktop automatic illustration dialogs', () => {
     await change(input, '2'); await click(find('保存'));
     expect(models.save).toHaveBeenCalledWith(expect.objectContaining({ id: 'image-config-b', image_settings: expect.objectContaining({ fixedImageCount: 2, width: 832 }) }));
     expect(select).toHaveBeenCalledWith('image-config-b');
-    expect(document.querySelector('.desktop-illustration-models')).toBeNull();
+    expect(document.querySelector('.illustration-model-modal')).toBeNull();
   });
 
   it('closes an unchanged picker with Escape and restores focus to its trigger', async () => {
@@ -73,7 +73,7 @@ describe('Desktop automatic illustration dialogs', () => {
     await click(opener);
     expect(document.activeElement).toBe(find('关闭绘图模型选择'));
     await escape();
-    expect(document.querySelector('.desktop-illustration-models')).toBeNull();
+    expect(document.querySelector('.illustration-model-modal')).toBeNull();
     expect(document.activeElement).toBe(opener);
   });
 
@@ -83,13 +83,13 @@ describe('Desktop automatic illustration dialogs', () => {
     await click(document.querySelector('.auto-illustration-model'));
     await click(document.querySelector('.desktop-illustration-config .desktop-illustration-choice'));
     await escape();
-    expect(document.querySelector('[role=alertdialog]')).toBeTruthy();
-    expect(document.querySelector('.desktop-illustration-models')).toBeTruthy();
+    expect(document.querySelector('[role=dialog][aria-label="保存绘图设置？"]')).toBeTruthy();
+    expect(document.querySelector('.illustration-model-modal')).toBeTruthy();
     await escape();
-    expect(document.querySelector('[role=alertdialog]')).toBeNull();
+    expect(document.querySelector('[role=dialog][aria-label="保存绘图设置？"]')).toBeNull();
     expect(document.querySelector('.desktop-illustration-config [aria-pressed=true]')).toBeTruthy();
     await click(find('取消')); await click(find('不保存'));
-    expect(document.querySelector('.desktop-illustration-models')).toBeNull();
+    expect(document.querySelector('.illustration-model-modal')).toBeNull();
     expect(select).not.toHaveBeenCalled();
   });
 
@@ -99,7 +99,7 @@ describe('Desktop automatic illustration dialogs', () => {
     await click(document.querySelector('.auto-illustration-model'));
     await click(document.querySelector('.desktop-illustration-config .desktop-illustration-choice'));
     await click(find('保存'));
-    expect(document.querySelector('.desktop-illustration-models [role=alert]').textContent).toContain('Synthetic binding failure');
+    expect(document.querySelector('.illustration-model-modal [role=alert]').textContent).toContain('Synthetic binding failure');
     expect(document.querySelector('.desktop-illustration-config [aria-pressed=true]')).toBeTruthy();
     await act(async () => models.publish({ configs: [], status: 'ready', error: '' }));
     expect(find('保存').disabled).toBe(true);
@@ -114,10 +114,12 @@ describe('Desktop automatic illustration dialogs', () => {
     await click(document.querySelector('.desktop-illustration-config .desktop-illustration-choice'));
     await click(find('保存'));
     await escape();
-    expect(document.querySelector('.desktop-illustration-models').getAttribute('aria-busy')).toBe('true');
-    expect(find('关闭绘图模型选择').disabled).toBe(true);
+    expect(document.querySelector('.illustration-model-modal')).not.toBeNull();
+    expect(find('保存中…').disabled).toBe(true);
+    await click(find('关闭绘图模型选择'));
+    expect(document.querySelector('.illustration-model-modal')).not.toBeNull();
     await act(async () => finish());
-    expect(document.querySelector('.desktop-illustration-models')).toBeNull();
+    expect(document.querySelector('.illustration-model-modal')).toBeNull();
   });
 
   it('configures drawing in the independent plugin and retains its page when the picker closes', async () => {

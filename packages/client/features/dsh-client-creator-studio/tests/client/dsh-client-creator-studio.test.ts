@@ -11,7 +11,7 @@ it('bridges the official view roster, header, plugin children and composer witho
   let registration: any
   runInNewContext(source, { window: { __ModuleLoader__: { load(value: unknown) { registration = value } } } })
   const effects: Array<() => () => void> = [], cleanups: Array<() => void> = []
-  const React = { lazy: () => () => null, createElement: (type: unknown, props: unknown, ...children: unknown[]) => ({ type, props, children }), useLayoutEffect: (effect: () => () => void) => effects.push(effect) }
+  const React = { lazy: () => () => null, createElement: (type: unknown, props: unknown, ...children: unknown[]) => ({ type, props, children }), useLayoutEffect: (effect: () => () => void) => effects.push(effect), useCallback: (callback: unknown) => callback }
   const slots: any = new SlotCore()
   slots.inject = (name: string, install: () => () => void) => {
     let dispose: (() => void) | undefined

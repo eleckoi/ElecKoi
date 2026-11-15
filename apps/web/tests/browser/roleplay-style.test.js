@@ -12,7 +12,7 @@ it('keeps roleplay surfaces flush, independent, and readable in both desktop and
   const directory = await mkdtemp(resolve(tmpdir(), 'eleckoi-roleplay-style-'));
   try {
     await build({ entryPoints: ['apps/web/tests/browser/roleplay-style.fixture.jsx'], outfile: resolve(directory, 'fixture.js'), bundle: true,
-      format: 'iife', jsx: 'automatic', alias: { '@shared': resolve('packages/shared/src') },
+      format: 'iife', jsx: 'automatic', alias: { '@shared': resolve('packages/shared/src') }, define: { 'process.env.DSH_CLIENT_TITLE': '"ElecKoi"', 'process.env.NODE_ENV': '"production"' },
       loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file', '.png': 'file', '.svg': 'file' }, logLevel: 'silent' });
     await writeFile(resolve(directory, 'theme.css'), browserThemeCss());
     const html = resolve(directory, 'fixture.html'), report = resolve(directory, 'report.json');
@@ -28,14 +28,32 @@ it('keeps roleplay surfaces flush, independent, and readable in both desktop and
     const result = JSON.parse(await readFile(report, 'utf8'));
     expect(result.errors).toEqual([]);
     expect(result.initial).toEqual({backdrop:false,bubbles:false});
-    expect(result.layouts).toHaveLength(16);
+    expect(result.widthDrags).toHaveLength(8);
+    for (const drag of result.widthDrags) {
+      expect(drag.before.hit, JSON.stringify(drag)).toBe(true);
+      expect(drag.after.stored, JSON.stringify(drag)).not.toBe(drag.before.stored);
+      expect(drag.after.width, JSON.stringify(drag)).not.toBe(drag.before.width);
+      if (drag.backdrop) expect(drag.after.backdrop, JSON.stringify(drag)).not.toBe(drag.before.backdrop);
+    }
+    expect(result.tintInputs).toHaveLength(2);
+    for (const input of result.tintInputs) {
+      expect(input.backdrop).toBe(input.officialBackdrop);
+      expect(input.user).toBe(input.officialBubble);
+      expect(input.assistant).toBe(input.officialBubble);
+    }
+    expect(result.layouts).toHaveLength(32);
     for (const layout of result.layouts) {
       const detail = JSON.stringify(layout);
       expect(layout.overflow, detail).toBe(false);
       expect(layout.scrollable, detail).toBe(true);
       expect(layout.atTail, detail).toBe(true);
       expect(layout.composers).toBe(1);
-      expect(layout.gaps.every(gap => Math.abs(gap-12)<.1), detail).toBe(true);
+      if (layout.panelWidth < 600) expect(layout.backdropSideInset, detail).toBeCloseTo(0, 2);
+      else expect(layout.backdropSideInset, detail).toBeGreaterThanOrEqual(8);
+      expect(layout.firstMessageTopGap, detail).toBe(layout.bubbles ? 0 : 10);
+      expect(layout.firstMessagePaddingTop, detail).toBe(layout.bubbles ? '10px' : '14px');
+      expect(layout.rows.every(row => Math.abs(row.avatarTopInset-(layout.bubbles ? 10 : 14))<.1), detail).toBe(true);
+      expect(layout.gaps.every(gap => Math.abs(gap-(layout.bubbles ? 5 : 12))<.1), detail).toBe(true);
       expect(layout.base).toMatchObject({ top: '0px', bottom: '0px', radius: '0px', border: '0px', blur: 'blur(20px) saturate(0.88)' });
       expect(layout.bodyBottom, detail).toBe(layout.panelBottom);
       expect(layout.wallpaperTop, detail).toBe(layout.headerBottom);

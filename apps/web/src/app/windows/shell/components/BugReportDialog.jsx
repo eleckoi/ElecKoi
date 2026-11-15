@@ -5,10 +5,10 @@ import { DesktopError } from "@shared/foundation/DesktopError";
 import { buildBugReportFormUrl, isBugReportFormConfig } from "@shared/contracts/bugReport/form";
 import { hasBugReportChannel } from "@shared/contracts/bugReport/delivery";
 import { formatBugReportBody, buildBugReportMailto } from "@shared/contracts/bugReport/mailto";
-import { SystemBarOverlay } from '../../../../ui/ui/SystemBarOverlay.jsx';
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../../../../ui/styles/product-dialogs.css';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
-import { CopyIcon, DownloadIcon, XIcon } from "../../../../ui/icons/index.jsx";
+import { CopyIcon, DownloadIcon } from "../../../../ui/icons/index.jsx";
 import { resolveFailure } from "../../../../utils/failureText.js";
 import { bestEffort } from "../../../../utils/swallowedFailure.js";
 import { bugReportBridge, letterOf } from "./bugReportBridge.js";
@@ -187,13 +187,8 @@ function failureHintText(channel, cause, tUi = sourceText) {
  */
 export function BugReportDialog({ open, onClose, onNotify, initialNotes = "" }) {
   const tUi = useProductTranslation();
-  const titleId = useId();
-  const descriptionId = useId();
   const failureHintId = useId();
-  const dialogRef = useRef(null);
-  const primaryButtonRef = useRef(null);
   const onCloseRef = useRef(onClose);
-  const closeRef = useRef(() => {});
 
   onCloseRef.current = onClose;
 
@@ -217,42 +212,6 @@ export function BugReportDialog({ open, onClose, onNotify, initialNotes = "" }) 
   const crashHandledRef = useRef(false);
   // 草稿提示同一会话只出现一次（决定 14）。
   const draftsAskedRef = useRef(false);
-
-  useEffect(() => {
-    if (!open || typeof document === "undefined") return undefined;
-    const previousFocus = document.activeElement;
-    const focusFrame = window.requestAnimationFrame(() => primaryButtonRef.current?.focus());
-
-    function handleKeyDown(event) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeRef.current?.();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const focusable = Array.from(dialogRef.current?.querySelectorAll("button:not(:disabled), input:not(:disabled), textarea:not(:disabled)") || []);
-      if (!focusable.length) {
-        event.preventDefault();
-        return;
-      }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.cancelAnimationFrame(focusFrame);
-      window.removeEventListener("keydown", handleKeyDown);
-      if (previousFocus?.isConnected) previousFocus.focus();
-    };
-  }, [open]);
 
   // 收集参数走 ref：notes 每敲一个字都变，若让 collect 跟着变，打开对话框那个 effect 会被反复触发
   // 并把刚输入的备注清掉。
@@ -538,7 +497,6 @@ export function BugReportDialog({ open, onClose, onNotify, initialNotes = "" }) 
     onCloseRef.current?.();
   }
 
-  closeRef.current = close;
 
   const report = preview?.report;
   const delivery = preview?.delivery;
@@ -564,24 +522,53 @@ export function BugReportDialog({ open, onClose, onNotify, initialNotes = "" }) 
 
   if (!open) return null;
 
-  const dialog = (
-    <SystemBarOverlay className="bug-report-overlay" role="presentation" onMouseDown={close}>
-      <section
-        ref={dialogRef}
-        className="bug-report-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
-        aria-busy={busy || undefined}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <button className="bug-report-close" type="button" aria-label={tUi("关闭报告")} title={tUi("关闭")} onClick={close}>
-          <XIcon />
-        </button>
-        <h2 id={titleId}>{tUi("报告问题")}</h2>
-        <p id={descriptionId}>{tUi("报告里只有版本、失败和你要带上的日志尾；发送前可以自己删改。")}</p>
+  return <Modal open title={tUi('报告问题')} description={tUi('报告里只有版本、失败和你要带上的日志尾；发送前可以自己删改。')}
+    closeLabel={tUi('关闭报告')} onClose={close} className="product-dialog bug-report-modal" contentClassName="product-dialog-content"
+    footer={<div className="product-dialog-actions bug-report-actions">
+          {healthyActions.map((action) => (
+            <Button
+              key={action.key}
 
+              type="button"
+              variant={primaryKey === action.key ? "primary" : "outline"}
+              disabled={busy}
+              onClick={action.onClick}
+            >
+              {action.label}
+            </Button>
+          ))}
+          {report ? (
+            <Button
+              type="button"
+              variant={primaryKey === "copy" ? "primary" : "outline"}
+              disabled={busy}
+              onClick={copyReport}
+            >
+              <CopyIcon />
+              <span>{tUi("复制报告")}</span>
+            </Button>
+          ) : null}
+          {report ? (
+            <Button variant="outline" type="button" disabled={busy} onClick={exportReport}>
+              <DownloadIcon />
+              <span>{tUi("导出文件")}</span>
+            </Button>
+          ) : null}
+          {failedActions.map((action) => (
+            <Button
+              key={action.key}
+              type="button"
+              variant="outline"
+              disabled={busy}
+              aria-describedby={failureHintId}
+              title={failureHintText(action.key, action.failure, tUi)}
+              onClick={action.onClick}
+            >
+              {action.label}
+            </Button>
+          ))}
+          <Button variant="outline" type="button" onClick={close}>{tUi("关闭")}</Button>
+        </div>}>
         {/*
           正文区单独滚动：对话框有 max-height，长失败诊断 + 展开的全文很容易超出一屏。
           以前没有这个容器，`.bug-report-failures` 被 flex 压扁后它的 <ul> 会盖到下面的
@@ -601,8 +588,8 @@ export function BugReportDialog({ open, onClose, onNotify, initialNotes = "" }) 
               </p>
               <div className="bug-report-draft-actions">
                 {/* 预览没到就没有 delivery，重发会静默跳过表单通道；先禁用。 */}
-                <button type="button" disabled={busy || preview === null} onClick={resendDraft}>{tUi("重新送出")}</button>
-                <button type="button" disabled={busy} onClick={discardDraft}>{tUi("丢弃")}</button>
+                <Button variant="outline" type="button" disabled={busy || preview === null} onClick={resendDraft}>{tUi("重新送出")}</Button>
+                <Button variant="outline" type="button" disabled={busy} onClick={discardDraft}>{tUi("丢弃")}</Button>
               </div>
             </section>
           ) : null}
@@ -681,55 +668,6 @@ export function BugReportDialog({ open, onClose, onNotify, initialNotes = "" }) 
           </p>
         ) : null}
 
-        <div className="bug-report-actions">
-          {healthyActions.map((action) => (
-            <button
-              key={action.key}
-              ref={primaryKey === action.key ? primaryButtonRef : undefined}
-              type="button"
-              className={primaryKey === action.key ? "is-primary" : undefined}
-              disabled={busy}
-              onClick={action.onClick}
-            >
-              {action.label}
-            </button>
-          ))}
-          {report ? (
-            <button
-              ref={primaryKey === "copy" ? primaryButtonRef : undefined}
-              type="button"
-              className={primaryKey === "copy" ? "is-primary" : undefined}
-              disabled={busy}
-              onClick={copyReport}
-            >
-              <CopyIcon />
-              <span>{tUi("复制报告")}</span>
-            </button>
-          ) : null}
-          {report ? (
-            <button type="button" disabled={busy} onClick={exportReport}>
-              <DownloadIcon />
-              <span>{tUi("导出文件")}</span>
-            </button>
-          ) : null}
-          {failedActions.map((action) => (
-            <button
-              key={action.key}
-              type="button"
-              disabled={busy}
-              aria-describedby={failureHintId}
-              title={failureHintText(action.key, action.failure, tUi)}
-              onClick={action.onClick}
-            >
-              {action.label}
-            </button>
-          ))}
-          <button type="button" onClick={close}>{tUi("关闭")}</button>
-        </div>
-      </section>
-    </SystemBarOverlay>
-  );
 
-  const portalTarget = typeof document === "undefined" ? null : document.body;
-  return portalTarget ? createPortal(dialog, portalTarget) : dialog;
+    </Modal>;
 }

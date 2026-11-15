@@ -154,36 +154,29 @@ function bodyText() {
   return document.body.textContent;
 }
 
-/**
- * SSR 分支的渲染：组件只在 `document` 不存在时把对话框内联输出。这个文件跑在 jsdom 下，
- * 所以渲染期间把 `document` 藏起来，恢复后其余用例照样有 DOM 用。
- */
-function renderOnServer(element) {
-  const saved = Object.getOwnPropertyDescriptor(globalThis, "document");
-  Object.defineProperty(globalThis, "document", { value: undefined, configurable: true, writable: true });
-  try {
-    return renderToStaticMarkup(element);
-  } finally {
-    if (saved) Object.defineProperty(globalThis, "document", saved);
-    else delete globalThis.document;
-  }
+async function renderElement(element) {
+  if (!root) { container = document.createElement('div'); document.body.append(container); root = createRoot(container); }
+  await act(async () => root.render(element));
+  return document.body.innerHTML;
 }
 
 describe("bug report entry", () => {
-  it("社区弹窗只在提供回调时出现「报告问题」", () => {
-    const withEntry = renderOnServer(
+  it("社区弹窗只在提供回调时出现「报告问题」", async () => {
+    const withEntry = await renderElement(
       <CommunityDialog open onClose={() => {}} onNotify={() => {}} onReportProblem={() => {}} />,
     );
     expect(withEntry).toContain("报告问题");
     expect(withEntry).toContain("复制群号");
 
-    const withoutEntry = renderOnServer(<CommunityDialog open onClose={() => {}} onNotify={() => {}} />);
+    const withoutEntry = await renderElement(<CommunityDialog open onClose={() => {}} onNotify={() => {}} />);
     expect(withoutEntry).not.toContain("报告问题");
     expect(withoutEntry).toContain("复制群号");
   });
 
-  it("对话框能渲染；还没拿到预览时说明正在收集", () => {
-    const html = renderOnServer(<BugReportDialog open onClose={() => {}} onNotify={() => {}} />);
+  it("对话框能渲染；还没拿到预览时说明正在收集", async () => {
+    const bridge = installBridge();
+    bridge.bugReport.preview.mockImplementation(() => new Promise(() => {}));
+    const html = await renderElement(<BugReportDialog open onClose={() => {}} onNotify={() => {}} />);
     expect(html).toContain("报告问题");
     expect(html).toContain("正在收集…");
     expect(html).toContain('aria-modal="true"');
@@ -191,7 +184,7 @@ describe("bug report entry", () => {
   });
 
   it("关闭时什么都不渲染", () => {
-    expect(renderOnServer(<BugReportDialog open={false} onClose={() => {}} />)).toBe("");
+    expect(renderToStaticMarkup(<BugReportDialog open={false} onClose={() => {}} />)).toBe("");
   });
 
   it("没有桌面桥时不认为报告功能可用", () => {
@@ -213,7 +206,7 @@ describe("通道顺序与可见性", () => {
     installBridge();
     await mountDialog();
     expect(actionLabels()).toEqual(["提交到飞书", "用邮件发送", "复制报告", "导出文件", "关闭"]);
-    expect(buttonByText("提交到飞书").className).toContain("is-primary");
+    expect(buttonByText("提交到飞书").className).toContain("_primary_");
   });
 
   it("配了代发也不抢主位：表单是主按钮，代发排在邮件之后（决定 11）", async () => {
@@ -232,7 +225,7 @@ describe("通道顺序与可见性", () => {
       "导出文件",
       "关闭",
     ]);
-    expect(buttonByText("提交到飞书").className).toContain("is-primary");
+    expect(buttonByText("提交到飞书").className).toContain("_primary_");
     expect(actionLabels().indexOf("直接发送")).toBeGreaterThan(actionLabels().indexOf("用邮件发送"));
   });
 
@@ -353,7 +346,7 @@ describe("投递动作：先复制，再打开", () => {
     });
 
     expect(actionLabels().indexOf("直接发送")).toBeGreaterThan(actionLabels().indexOf("导出文件"));
-    expect(buttonByText("直接发送").className).not.toContain("is-primary");
+    expect(buttonByText("直接发送").className).not.toContain("_primary_");
   });
 
   it("降级后重试成功，通道回到主位", async () => {
@@ -370,13 +363,13 @@ describe("投递动作：先复制，再打开", () => {
       buttonByText("提交到飞书").click();
     });
     expect(actionLabels().indexOf("提交到飞书")).toBeGreaterThan(actionLabels().indexOf("导出文件"));
-    expect(buttonByText("提交到飞书").className).not.toContain("is-primary");
+    expect(buttonByText("提交到飞书").className).not.toContain("_primary_");
 
     await act(async () => {
       buttonByText("提交到飞书").click();
     });
     expect(actionLabels()).toEqual(["提交到飞书", "用邮件发送", "复制报告", "导出文件", "关闭"]);
-    expect(buttonByText("提交到飞书").className).toContain("is-primary");
+    expect(buttonByText("提交到飞书").className).toContain("_primary_");
   });
 });
 
@@ -393,7 +386,7 @@ describe("会话内降级跨「关掉再打开」", () => {
       buttonByText("提交到飞书").click();
     });
     expect(actionLabels().indexOf("提交到飞书")).toBeGreaterThan(actionLabels().indexOf("复制报告"));
-    expect(buttonByText("提交到飞书").className).not.toContain("is-primary");
+    expect(buttonByText("提交到飞书").className).not.toContain("_primary_");
 
     await renderDialog(false);
     await renderDialog(true);
@@ -402,7 +395,7 @@ describe("会话内降级跨「关掉再打开」", () => {
 
     expect(buttonByText("提交到飞书")).toBeDefined();
     expect(actionLabels().indexOf("提交到飞书")).toBeGreaterThan(actionLabels().indexOf("复制报告"));
-    expect(buttonByText("提交到飞书").className).not.toContain("is-primary");
+    expect(buttonByText("提交到飞书").className).not.toContain("_primary_");
     expect(bodyText()).toContain("飞书表单：没能打开浏览器");
   });
 });

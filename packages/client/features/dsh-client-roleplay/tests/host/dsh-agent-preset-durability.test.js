@@ -51,7 +51,7 @@ describe('DSH Agent preset durability', () => {
       await ctx.plugin(JsonlSessionPersistence, { root: sessionRoot, compression: 'none' })
       await ctx.plugin(Loader)
       await ctx.plugin(AgentPresetRegistry, { default: 'eleckoi-active' })
-      ctx.provide('agents', { create: vi.fn(), resume: vi.fn(), get: vi.fn() })
+      ctx.provide('agents', { create: vi.fn(), resume: vi.fn(), get: vi.fn(), admitActivation: vi.fn(() => () => {}) })
       const prepared = ctx.sessions.prepare(id, { meta: { cwd: directory, agentPreset: legacyId } })
       const session = Session.create(id, [], prepared.header)
       session.append('turn/start', { turn: 1 })
@@ -239,7 +239,7 @@ describe('DSH Agent preset durability', () => {
       inject: vi.fn(() => ({ dispose: vi.fn() })),
       provide: vi.fn(),
       on: vi.fn(() => () => undefined),
-      agents: { create: vi.fn(), resume: vi.fn(), get: vi.fn() },
+      agents: { create: vi.fn(), resume: vi.fn(), get: vi.fn(), admitActivation: vi.fn(() => () => {}) },
       sessionController: { inspect: vi.fn(async () => ({ meta: {}, events: [] })) },
       agentPresets: {
         register: vi.fn(async (definition) => {

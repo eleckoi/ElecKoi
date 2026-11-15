@@ -59,7 +59,7 @@ it.each(['scripts'].flatMap(kind => ['character', 'preset'].map(scope => ({ kind
   await click('更多'); await click('复制', node.querySelector('.mobile-editor-action-menu'));
   await act(async () => expect(await ref.current.save()).toBe(true));
   expect(write.mock.lastCall[0][0]['trees']).toHaveLength(3);
-  await click('删除'); await click('删除', document.querySelector('[role=alertdialog]'));
+  await click('删除'); await click('删除', document.querySelector('[role=dialog]'));
   await act(async () => expect(await ref.current.save()).toBe(true));
   expect(write.mock.lastCall[0][0]['trees']).toHaveLength(2);
 });

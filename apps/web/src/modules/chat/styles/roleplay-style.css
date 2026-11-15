@@ -1,5 +1,5 @@
 /* One continuous, borderless reading surface; the official scroll owner stays full width. */
-.chat-panel[data-roleplay-backdrop] .chat-conversation-body::before {
+.chat-panel[data-roleplay-backdrop] [data-conversation-content]::before {
   content: '';
   position: absolute;
   inset-block: 0;
@@ -13,10 +13,10 @@
   -webkit-backdrop-filter: blur(var(--rp-backdrop-blur)) saturate(.88);
 }
 
-.chat-panel[data-roleplay-backdrop] .message-area { z-index: 1; }
-
 /* The message-flow row owns spacing. A second article margin doubles the gap. */
 .chat-panel:is([data-roleplay-backdrop], [data-roleplay-bubbles]) .message-flow-row .message-roleplay { margin-bottom: 0; }
+
+.chat-panel.layout-roleplay[data-roleplay-bubbles] .message-area [data-chat-scroll] { padding-top: 0; }
 
 :is(.chat-panel, .chat-display-preview):is([data-roleplay-backdrop], [data-roleplay-bubbles]) .message-roleplay {
   padding-block: 14px;
@@ -26,10 +26,10 @@
 :is(.chat-panel, .chat-display-preview):is([data-roleplay-backdrop], [data-roleplay-bubbles]) .message-roleplay:has(> .message-floor) {
   min-height: calc(var(--chat-roleplay-leading-stack-height) + 28px);
 }
-:is(.chat-panel, .chat-display-preview):is([data-roleplay-backdrop], [data-roleplay-bubbles]) .message-roleplay.has-opening-pager {
-  min-height: calc(var(--chat-roleplay-leading-stack-height) + 90px);
+:is(.chat-panel, .chat-display-preview)[data-roleplay-bubbles] .message-roleplay { padding-block: 10px; }
+:is(.chat-panel, .chat-display-preview)[data-roleplay-bubbles] .message-roleplay:has(> .message-floor) {
+  min-height: calc(var(--chat-roleplay-leading-stack-height) + 20px);
 }
-
 :is(.chat-panel, .chat-display-preview)[data-roleplay-bubbles] .message-roleplay { isolation: isolate; }
 :is(.chat-panel, .chat-display-preview)[data-roleplay-bubbles] .message-roleplay::before {
   content: '';
@@ -53,6 +53,10 @@
   -webkit-backdrop-filter: blur(var(--rp-backdrop-blur)) saturate(.88);
 }
 .mobile-conversation-page .chat-panel[data-roleplay-backdrop] { --chat-scroll-horizontal-padding: 16px; }
+
+@container chat-panel (width < 600px) {
+  .chat-panel[data-roleplay-backdrop] [data-conversation-content]::before { width: 100%; }
+}
 
 @container chat-panel (min-width: 600px) {
   .chat-panel[data-roleplay-backdrop] .message-roleplay {

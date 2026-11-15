@@ -23,9 +23,11 @@
   .library-toolbar { display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; padding:22px 0 24px; }
   .library-filters, .library-create-actions { display:flex; align-items:center; gap:9px; }
   .library-create-actions { margin-left:auto; }
-  .library-pill { display:inline-flex; align-items:center; justify-content:center; gap:7px; height:38px; padding:0 14px; background:transparent; border:1px solid var(--line); border-radius:22px; white-space:nowrap; font-size:13px; }
-  .library-pill:hover { background:var(--hover); }
-  .library-pill small { font-size:11px; color:var(--secondary); }
+  .library-pill { display:inline-flex; align-items:center; justify-content:center; gap:7px; height:38px; padding:0 14px; white-space:nowrap; font-size:13px; }
+  .library-pill:not([data-dsh-control]) { background:transparent; border:1px solid var(--line); border-radius:22px; }
+  .library-pill:hover:not([data-dsh-control]) { background:var(--hover); }
+  .library-pill small { font-size:11px; }
+  .library-pill small:not([data-dsh-control]) { color:var(--secondary); }
   .upload-file-button { background:var(--ink); color:var(--page); border-color:var(--ink); }
   .upload-file-button:hover { background:var(--ink); opacity:.86; }
   .menu-anchor { position:relative; }
@@ -141,290 +143,30 @@
 @media (max-width:380px) { .character-asset-library { .library-pill { padding-inline:8px; gap:5px; font-size:12px; } } }
 @media (hover:none) { .character-asset-library .card-more { opacity:1; } }
 
-.character-asset-library {
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 60;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 40px;
-    background: #0008;
-    backdrop-filter: blur(5px);
-  }
-  .modal {
-    width: 400px;
-    max-width: 100%;
-    background: var(--page);
-    border: 1px solid var(--line);
-    border-radius: 22px;
-    box-shadow: var(--shadow);
-    overflow: hidden;
-  }
-  .modal-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    padding: 21px 24px;
-  }
-  .modal-heading h2 {
-    font-size: 15px;
-    font-weight: 500;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    margin: 0;
-  }
-  .modal-heading .icon-button {
-    border-radius: 50%;
-    background: var(--tile);
-  }
-  .dialog-body {
-    padding: 0 24px 24px;
-  }
-  .dialog-body label,.reference-field {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    color: var(--secondary);
-    font-size: 12px;
-  }
-  .dialog-body input,.reference-field input {
-    width: 100%;
-    height: 38px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: var(--tile);
-    color: var(--ink);
-    padding: 0 11px;
-    font-size: 13px;
-  }
-  .dialog-body p {
-    margin: 0 0 24px;
-    font-size: 14px;
-  }
-  .dialog-body footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding-top: 22px;
-  }
-  .button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-height: 36px;
-    padding: 0 16px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    background: transparent;
-    color: var(--ink);
-    font-size: 13px;
-  }
-  .button:hover {
-    background: var(--hover);
-  }
-  .button.primary {
-    background: var(--ink);
-    color: var(--page);
-    border-color: var(--ink);
-  }
-  .button.destructive {
-    background: var(--danger);
-    color: #fff;
-    border-color: var(--danger);
-  }
-  .preview-dialog {
-    width: 1080px;
-    max-height: 90dvh;
-  }
-  .preview-layout {
-    display: grid;
-    grid-template-columns: minmax(0,1fr) 256px;
-    min-height: 470px;
-    max-height: 74dvh;
-    border-top: 1px solid var(--line);
-  }
-  .preview-stage {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 0;
-    overflow: hidden;
-    background: var(--tile);
-    padding: 26px;
-  }
-  .preview-stage>img,.preview-stage>video {
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    object-fit: contain;
-    max-height: 64dvh;
-  }
-  .preview-details {
-    padding: 28px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-height: 0;
-    overflow: auto;
-  }
-  .preview-details dl {
-    margin: 0 0 23px;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    font-size: 12px;
-  }
-  .preview-details dl>div {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-  }
-  .preview-details dt {
-    color: var(--secondary);
-  }
-  .preview-details dd {
-    margin: 0;
-    text-align: right;
-  }
-  .reference-field {
-    margin-bottom: 10px;
-  }
-  .reference-field input {
-    font-family: ui-monospace,Consolas,monospace;
-    font-size: 11px;
-  }
-  .audio-preview {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 32px;
-    flex-direction: column;
-    width: 100%;
-    color: var(--secondary);
-  }
-  audio {
-    width: 100%;
-    max-width: 380px;
-  }
-  .model-preview {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    flex-direction: column;
-    color: var(--secondary);
-  }
-
-  .modal-backdrop { backdrop-filter:none; }
-  .preview-actions { display:grid; gap:10px; }
-}
-@media (max-width: 640px) {
-  .character-asset-library {
-    .modal-backdrop {
-      padding: 12px;
-    }
-    .modal-heading {
-      flex: none;
-      padding: 12px 16px;
-    }
-    .modal-heading .icon-button {
-      width: 40px;
-      height: 40px;
-    }
-    .preview-dialog {
-      display: flex;
-      flex-direction: column;
-      height: min(720px, calc(100dvh - 24px));
-      max-height: calc(100dvh - 24px);
-    }
-    .preview-layout {
-      display: grid;
-      flex: 1;
-      min-height: 0;
-      max-height: none;
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: minmax(0, 1fr) auto;
-      overflow: hidden;
-    }
-    .preview-stage {
-      min-height: 0;
-      max-height: none;
-      padding: 12px;
-    }
-    .preview-stage > img, .preview-stage > video {
-      max-height: 100%;
-    }
-    .preview-details {
-      min-width: 0;
-      padding: 12px 16px;
-      gap: 10px;
-      overflow: auto;
-    }
-    .preview-details dl {
-      display: flex;
-      flex-direction: row;
-      flex-wrap: wrap;
-      gap: 8px 20px;
-      margin: 0;
-    }
-    .preview-details dl > div {
-      gap: 8px;
-    }
-    .reference-field {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      align-items: center;
-      gap: 10px;
-      margin: 0;
-    }
-    .reference-field input {
-      min-width: 0;
-      height: 36px;
-    }
-    .preview-actions {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-    }
-    .preview-actions .button {
-      min-height: 40px;
-      padding: 0 6px;
-      white-space: nowrap;
-    }
-  }
-}
-
-.character-asset-library .dialog-body textarea {
-  width: 100%;
-  min-height: 90px;
-  padding: 10px;
-  resize: vertical;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--tile);
-  color: var(--ink);
-  font: 12px/1.5 ui-monospace, Consolas, monospace;
-}
-
-@media (max-height: 600px) {
-  .character-asset-library {
-    .modal-backdrop { padding: 12px; }
-    .preview-dialog { display: flex; flex-direction: column; height: calc(100dvh - 24px); max-height: calc(100dvh - 24px); }
-    .modal-heading { flex: none; padding: 12px 16px; }
-    .preview-layout { flex: 1; min-height: 0; max-height: none; overflow: hidden; }
-    .preview-stage { min-height: 0; }
-    .preview-stage > img, .preview-stage > video { max-height: 100%; }
-    .preview-details { min-width: 0; padding: 12px 16px; gap: 10px; overflow: auto; }
-    .preview-details dl { margin: 0; flex-direction: row; flex-wrap: wrap; gap: 8px 16px; }
-    .preview-details dl > div { gap: 8px; }
-    .reference-field { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; margin: 0; }
-    .reference-field input { min-width: 0; }
-    .preview-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-    .preview-actions .button { min-height: 40px; padding: 0 6px; white-space: nowrap; }
-  }
+.asset-dialog { --ink:var(--dsw-alias-label-primary); --secondary:var(--dsw-alias-label-secondary); --line:var(--dsw-alias-border-l1); --tile:var(--dsw-alias-bg-layer-1); }
+.asset-preview-dialog { width:min(1080px,100%); }
+.asset-dialog .preview-layout { display:grid; grid-template-columns:minmax(0,1fr) 256px; min-width:0; gap:20px; }
+.asset-dialog .preview-stage { display:flex; align-items:center; justify-content:center; min-width:0; min-height:0; padding:16px; background:var(--tile); }
+.asset-dialog .preview-stage > :is(img,video) { width:100%; max-height:60dvh; object-fit:contain; }
+.asset-dialog .preview-details { display:flex; flex-direction:column; min-width:0; gap:16px; }
+.asset-dialog .preview-details dl { display:grid; gap:12px; margin:0; font-size:13px; }
+.asset-dialog .preview-details dl > div { display:flex; justify-content:space-between; gap:16px; }
+.asset-dialog dt { color:var(--secondary); }
+.asset-dialog dd { margin:0; }
+.asset-dialog .reference-field { display:flex; flex-direction:column; gap:8px; font-size:13px; }
+.asset-dialog .preview-actions { display:grid; gap:8px; }
+.asset-dialog :is(.audio-preview,.model-preview) { display:flex; align-items:center; flex-direction:column; gap:16px; color:var(--secondary); }
+.asset-dialog audio { width:100%; max-width:380px; }
+.asset-delete-copy p { margin:0 0 12px; font-size:14px; line-height:22px; }
+.asset-reference-copy { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; user-select:text; }
+.asset-dialog .move-picker { display:flex; flex-direction:column; gap:16px; }
+.asset-dialog .move-location { display:flex; align-items:center; gap:8px; }
+.asset-dialog .move-folders { display:grid; max-height:320px; overflow:auto; }
+.asset-dialog .move-folders > button { display:flex; align-items:center; gap:8px; width:100%; justify-content:flex-start; }
+.asset-dialog .move-folders > button > span { flex:1; text-align:left; }
+@media (max-width:640px) {
+ .asset-dialog .preview-layout { grid-template-columns:minmax(0,1fr); }
+ .asset-dialog .preview-details dl { display:flex; gap:16px; }
+ .asset-dialog .preview-details dl > div { gap:8px; }
+ .asset-dialog .preview-actions { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }

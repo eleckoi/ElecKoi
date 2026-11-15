@@ -1,0 +1,36 @@
+/* Historical caption appearance fixture; product geometry uses native AppFrame. */
+.dsh-rightbar-column {
+  position: relative;
+  grid-column: 4;
+  z-index: 10;
+  min-width: 0;
+  min-height: 0;
+  height: calc(100% - var(--window-caption-height, 40px));
+  margin-top: var(--window-caption-height, 40px);
+  overflow: visible;
+  background: var(--chat);
+}
+
+.dsh-rightbar-column::before {
+  content: "";
+  position: absolute;
+  top: calc(-1 * var(--window-caption-height, 40px));
+  right: 0;
+  left: 0;
+  z-index: 1;
+  height: var(--window-caption-height, 40px);
+  -webkit-app-region: drag;
+}
+
+.rightbar-resizer {
+  position: absolute;
+  top: var(--window-caption-height, 40px);
+  bottom: 0;
+  left: calc(100% - var(--rightbar-normal-width));
+  z-index: 16;
+  width: 8px;
+  margin-left: -4px;
+  cursor: col-resize;
+  touch-action: none;
+  -webkit-app-region: no-drag;
+}

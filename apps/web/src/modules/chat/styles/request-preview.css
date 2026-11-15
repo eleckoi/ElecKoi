@@ -1,45 +1,3 @@
-.request-preview-backdrop {
-  position: fixed;
-  z-index: 1300;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: var(--modal-backdrop, rgb(0 0 0 / 36%));
-}
-.request-preview-dialog {
-  display: grid;
-  grid-template-rows: 58px minmax(0, 1fr);
-  width: min(1240px, 100%);
-  height: min(880px, calc(100dvh - 48px));
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  background: var(--surface-raised);
-  color: var(--text);
-  box-shadow: 0 24px 72px var(--shadow-color);
-}
-.request-preview-header {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) 34px;
-  align-items: center;
-  gap: 10px;
-  padding: 0 16px 0 22px;
-  border-bottom: 1px solid var(--line);
-}
-.request-preview-header > svg { color: var(--blue); }
-.request-preview-header h2 { margin: 0; font-size: 17px; font-weight: 650; }
-.request-preview-header button {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  color: var(--text);
-}
-.request-preview-header button:hover { background: var(--control-bg-hover); }
 .request-preview-body { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 0; }
 .request-preview-catalog { min-height: 0; overflow-y: auto; padding: 12px 10px; border-right: 1px solid var(--line); background: var(--surface-subtle); }
 .request-preview-round + .request-preview-round { margin-top: 16px; }
@@ -64,10 +22,7 @@
 .request-preview-empty.is-error { color: var(--danger, #d94747); }
 .request-preview-empty p { margin: 0 0 8px; }
 .request-preview-empty button { border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; background: var(--control-bg); color: var(--text); }
-.request-preview-dialog button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 @media (max-width: 720px) {
-  .request-preview-backdrop { padding: 12px; }
-  .request-preview-dialog { height: calc(100dvh - 24px); border-radius: 14px; }
   .request-preview-body { grid-template-columns: 156px minmax(0, 1fr); }
   .request-preview-content { padding: 4px; }
 }

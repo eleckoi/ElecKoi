@@ -1,10 +1,10 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
-import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../../../ui/styles/product-dialogs.css';
 import { OfficialMarkdown } from '../../../ui/messages/OfficialMarkdown.jsx';
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { resolveFailure } from "../../../utils/failureText.js";
 
 const VISIBLE_PHASES = new Set(["available", "downloading", "verifying", "ready", "installing", "error"]);
@@ -81,13 +81,8 @@ function AndroidAppUpdateController({ updates }) {
 function UpdateDialog({ status, actionError, onClose, onDownload, onInstall }) {
   const tUi = useProductTranslation();
   const android = globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android';
-  const titleId = useId();
   const descriptionId = useId();
-  const dialogRef = useRef(null);
-  const secondaryRef = useRef(null);
-  const lifecycleRef = useRef({ onClose, installing: false });
   const installing = status.phase === "installing";
-  lifecycleRef.current = { onClose, installing };
   const downloading = status.phase === "downloading";
   const verifying = status.phase === "verifying";
   const busy = downloading || verifying;
@@ -107,57 +102,33 @@ function UpdateDialog({ status, actionError, onClose, onDownload, onInstall }) {
     return tUi("新版本已准备好，下载期间仍可继续使用 ElecKoi。");
   }, [android, downloading, failed, installing, progressPercent, ready, verifying, status.message, tUi]);
 
-  useEffect(() => {
-    const previousFocus = document.activeElement;
-    const focusFrame = window.requestAnimationFrame(() => secondaryRef.current?.focus());
 
-    function handleKeyDown(event) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        if (!lifecycleRef.current.installing) lifecycleRef.current.onClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const focusable = Array.from(dialogRef.current?.querySelectorAll('button:not(:disabled), a[href], [tabindex="0"]') || []);
-      if (!focusable.length) {
-        event.preventDefault();
-        return;
-      }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.cancelAnimationFrame(focusFrame);
-      window.removeEventListener("keydown", handleKeyDown);
-      if (previousFocus?.isConnected) previousFocus.focus();
-    };
-  }, []);
-
-  const dialog = (
-    <SystemBarOverlay className="app-update-overlay" role="presentation" onMouseDown={() => !installing && onClose()}>
-      <section
-        ref={dialogRef}
-        className="app-update-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
-        aria-busy={busy || installing || undefined}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <header className="app-update-heading">
-          <h2 id={titleId}>v{status.availableVersion} {title}</h2>
-          <a className="app-update-release-link" href={releaseUrl} target="_blank" rel="noopener noreferrer">{tUi("前往下载")}</a>
-        </header>
+  return <Modal open title={`v${status.availableVersion} ${title}`} closeLabel={tUi('关闭')} onClose={() => { if (!installing) onClose(); }}
+    className="product-dialog app-update-modal" contentClassName="product-dialog-content" footer={<div className="product-dialog-actions">
+            <Button variant="outline" type="button" disabled={installing} onClick={onClose}>
+              {busy ? tUi("隐藏") : ready ? tUi("稍后重启") : tUi("稍后")}
+            </Button>
+            <Button variant="primary"
+              type="button"
+              disabled={busy || installing}
+              onClick={ready || retryInstall ? onInstall : onDownload}
+            >
+              {installing
+                ? tUi("正在重启")
+                : verifying
+                  ? tUi("正在校验")
+                : downloading
+                  ? tUi("下载中 {value0}%", {value0: progressPercent})
+                  : ready
+                    ? tUi("重启并更新")
+                    : failed
+                      ? retryInstall ? tUi("重试安装") : status.failedOperation === 'check' ? tUi("重新检查") : tUi("重新下载")
+                      : android ? tUi("前往下载") : tUi("下载更新")}
+            </Button>
+          </div>}>
+      <div className="app-update-body">
+        <a className="app-update-release-link" href={releaseUrl} target="_blank" rel="noopener noreferrer">{tUi('前往下载')}</a>
         <section className="app-update-notes-section" aria-label={tUi("本次更新")} tabIndex={0}>
           <div className="app-update-notes">
             <OfficialMarkdown content={status.releaseNotes || status.releaseName || tUi("包含稳定性改进和问题修复。")} />
@@ -178,35 +149,10 @@ function UpdateDialog({ status, actionError, onClose, onDownload, onInstall }) {
             {status.downloadSizeBytes ? tUi(" · 约 {value0}", {value0: formatBytes(status.downloadSizeBytes)}) : ""}
           </span>
           {actionError ? <p className="app-update-error" role="alert">{actionError}</p> : null}
-          <div className="app-update-actions">
-            <button ref={secondaryRef} type="button" disabled={installing} onClick={onClose}>
-              {busy ? tUi("隐藏") : ready ? tUi("稍后重启") : tUi("稍后")}
-            </button>
-            <button
-              type="button"
-              className="is-primary"
-              disabled={busy || installing}
-              onClick={ready || retryInstall ? onInstall : onDownload}
-            >
-              {installing
-                ? tUi("正在重启")
-                : verifying
-                  ? tUi("正在校验")
-                : downloading
-                  ? tUi("下载中 {value0}%", {value0: progressPercent})
-                  : ready
-                    ? tUi("重启并更新")
-                    : failed
-                      ? retryInstall ? tUi("重试安装") : status.failedOperation === 'check' ? tUi("重新检查") : tUi("重新下载")
-                      : android ? tUi("前往下载") : tUi("下载更新")}
-            </button>
-          </div>
-        </footer>
-      </section>
-    </SystemBarOverlay>
-  );
 
-  return createPortal(dialog, document.body);
+        </footer>
+      </div>
+    </Modal>;
 }
 
 function formatBytes(bytes) {

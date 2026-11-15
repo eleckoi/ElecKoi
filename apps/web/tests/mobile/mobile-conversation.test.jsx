@@ -1,15 +1,17 @@
 // @vitest-environment jsdom
 import React, { act, useLayoutEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { MobileMessagesPage } from '../../src/mobile/MobileMessagesPage.jsx';
 import { MobileConversationPage } from '../../src/mobile/MobileConversationPage.jsx';
+import { ChatWallpaper } from '../../../../packages/client/features/dsh-client-chat-background/src/page.jsx';
 import { MessagesPage } from '../../../../packages/client/features/dsh-client-conversations/src/page.jsx';
 import { MessageBubble } from '../helpers/officialMarkdown.jsx';
 import { APP_DEFAULT_CHAT_BACKGROUND, CUSTOM_CHAT_BACKGROUND, GLOBAL_CHAT_BACKGROUND } from '../../src/modules/appearance/preferences/chatWallpaper.js';
+import { focusOfficialDraft, keepOfficialDraftFocus } from '../../../../tests/helpers/officialTrajectory.js';
+import { renderNativeConversationContent } from '../helpers/NativeConversationPresentation.jsx';
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -17,13 +19,15 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 function conversationView() {
   const goBack = vi.fn();
   const selectView = vi.fn();
-  const renderComposer = vi.fn(() => null);
+  const renderComposer = vi.fn((name, owner) => name === 'eleckoi.roleplay.background' && owner.activeView === 'chat'
+    ? <ChatWallpaper wallpaper={owner.wallpaper} /> : name === 'eleckoi.roleplay.header.menu'
+      ? <button role="menuitem" onClick={owner.onOpen}>自定义背景</button> : null);
   return {
     route: { kind: 'conversation' }, goBack, scrollPositions: new Map(),
     appearance: {}, conversations: {},
     presets: { refresh: async () => ({ presets: [], activePresetIds: { roleplay: '', creator: 'synthetic-creator' } }) },
     renderLayout: ({ mainPanel }) => mainPanel,
-    renderRoleplay: ({ component: Component, props }) => <Component {...props} renderRoleplaySlot={renderComposer} dshConversation={{
+    renderRoleplay: ({ component: Component, props }) => <Component {...props} hasHeaderMenu renderConversationContent={renderNativeConversationContent} renderRoleplaySlot={renderComposer} dshConversation={{
       activeView: 'chat', tabs: [{ id: 'chat', label: '对话' }, { id: 'trajectory', label: '轨迹' }, { id: 'plugin-view', label: '扩展视图' }], selectView,
     }} />,
     selectView,
@@ -57,13 +61,18 @@ describe('Android conversation header', () => {
     }
   });
 
-  it('leaves the shared PC header without an Android back button', () => {
+  it('leaves the shared PC header without an Android back button', async () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
     const view = conversationView();
-    const markup = renderToStaticMarkup(<MainPageContext.Provider value={view}><MessagesPage /></MainPageContext.Provider>);
-    expect(view.renderComposer).toHaveBeenCalledWith('eleckoi.roleplay.conversation.composer.bar', expect.objectContaining({ submitOnEnter: true }));
-    expect(markup).not.toContain('mobile-conversation-back');
-    expect(markup).not.toContain('aria-label="返回"');
-    expect(markup).toContain('对话操作');
+    const container = document.createElement('div'); document.body.append(container);
+    const root = createRoot(container);
+    try {
+      await act(() => root.render(<MainPageContext.Provider value={view}><MessagesPage /></MainPageContext.Provider>));
+      expect(view.renderComposer).toHaveBeenCalledWith('eleckoi.roleplay.conversation.composer.bar', expect.objectContaining({ submitOnEnter: true }));
+      expect(container.querySelector('.mobile-conversation-back')).toBeNull();
+      expect(container.querySelector('[aria-label="返回"]')).toBeNull();
+      expect(container.querySelector('[aria-label="对话操作"]')).not.toBeNull();
+    } finally { await act(() => root.unmount()); container.remove(); vi.unstubAllGlobals(); }
   });
 });
 
@@ -87,22 +96,23 @@ describe('Android conversation wallpaper', () => {
     view.chat.chatBackgroundCharacter = { chatBackground: '' };
     view.chat.chatPersona.assistant_cover = imageA;
     const style = document.createElement('style');
-    style.textContent = '.chat-panel { background: white; }' + readFileSync('apps/web/src/mobile/mobile.css', 'utf8');
+    style.textContent = '[data-eleckoi-native-frame] > [data-phase] { background: white; }' + readFileSync('packages/client/features/dsh-client-chat-background/src/wallpaper.css', 'utf8');
     document.head.append(style);
     try {
       await mountWallpaper(view, async (container, render) => {
         const panel = container.querySelector('.chat-panel');
         expect(panel.parentElement.dataset.slot).toBe('eleckoi.roleplay.session.body');
-        const wallpaperRule = [...style.sheet.cssRules].find(rule => rule.selectorText?.includes('.has-chat-wallpaper') && rule.style?.background === 'transparent');
+        const native = panel.querySelector('[data-eleckoi-native-frame] > [data-phase]');
+        const wallpaperRule = [...style.sheet.cssRules].find(rule => rule.selectorText?.includes(':has(.chat-shell-backdrop)') && rule.style?.background === 'transparent');
         expect(wallpaperRule).toBeDefined();
-        expect(panel.matches(wallpaperRule.selectorText)).toBe(true);
+        expect(native.matches(wallpaperRule.selectorText)).toBe(true);
         expect(wallpaperRule.style.zIndex).toBe('1');
-        expect(getComputedStyle(panel).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+        expect(getComputedStyle(native).backgroundColor).toBe('rgba(0, 0, 0, 0)');
         view.chat.chatBackgroundCharacter = { chatBackground: APP_DEFAULT_CHAT_BACKGROUND };
         await render();
         expect(container.querySelector('.chat-shell-backdrop')).toBeNull();
-        expect(panel.matches(wallpaperRule.selectorText)).toBe(false);
-        expect(getComputedStyle(panel).backgroundColor).toBe('rgb(255, 255, 255)');
+        expect(native.matches(wallpaperRule.selectorText)).toBe(false);
+        expect(getComputedStyle(native).backgroundColor).toBe('rgb(255, 255, 255)');
       });
     } finally { style.remove(); }
   });
@@ -133,13 +143,13 @@ describe('Android conversation wallpaper', () => {
     view.chat.chatBackgroundCharacter = { id: 'character-a', chatBackground: '', chatBackgroundOpacity: 0.42, chatBackgroundBlur: 7, chatBackgroundScrim: 0.18 };
     view.chat.chatPersona.assistant_cover = imageA;
     await mountWallpaper(view, async (container, render) => {
-      const backdrop = () => container.querySelector('.mobile-conversation-page > .chat-shell-backdrop');
+      const backdrop = () => container.querySelector('.native-roleplay-content .chat-shell-backdrop');
       expect(backdrop().querySelector('img').getAttribute('src')).toBe(imageA);
       expect(backdrop().style.getPropertyValue('--wallpaper-opacity')).toBe('0.42');
       expect(backdrop().style.getPropertyValue('--wallpaper-blur')).toBe('7px');
       expect(backdrop().style.getPropertyValue('--wallpaper-scrim')).toBe('0.18');
       expect(backdrop().getAttribute('aria-hidden')).toBe('true');
-      expect(backdrop().nextElementSibling.classList.contains('chat-panel')).toBe(true);
+      expect(backdrop().parentElement.classList.contains('native-roleplay-content')).toBe(true);
       view.chat.chatBackgroundCharacter = { ...view.chat.chatBackgroundCharacter, chatBackground: imageB };
       await render();
       expect(backdrop().querySelector('img').getAttribute('src')).toBe(imageB);
@@ -296,10 +306,10 @@ describe('Android composer toolbar focus', () => {
     }
   });
 
-  it('keeps the soft keyboard gated when the official editor focuses on entry', async () => {
+  it('gates keyboard intent when the installed native focus helper focuses a borrowed editor', async () => {
     function AutofocusedEditor() {
       const ref = useRef(null);
-      useLayoutEffect(() => { ref.current.focus(); }, []);
+      useLayoutEffect(() => { focusOfficialDraft({ getRootElement: () => ref.current, focus: callback => callback() }, () => {}); }, []);
       return <div data-composer-card><div data-input-scroll><div ref={ref} data-composer-input contentEditable suppressContentEditableWarning /></div></div>;
     }
     const container = document.createElement('div'); document.body.append(container);
@@ -328,10 +338,9 @@ describe('Android composer toolbar focus', () => {
       await act(async () => root.render(<MobileConversationPage><div data-composer-card>
         <div data-input-scroll><div data-composer-input contentEditable suppressContentEditableWarning inputMode={mode ?? undefined} /></div>
         <button type="button" onMouseDown={event => {
-          event.preventDefault();
           const input = container.querySelector('[data-composer-input]');
           expect(input.getAttribute('inputmode')).toBe('none');
-          input.focus();
+          keepOfficialDraftFocus(event, { getRootElement: () => input });
         }} onClick={toggleMenu}><span>添加</span></button>
       </div></MobileConversationPage>));
       const input = container.querySelector('[data-composer-input]');

@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -11,7 +12,7 @@ import { CreatorStudioHero } from '../modules/creatorStudio/index.js';
 
 /** Official Chat keeps its native tool cards; the resident mobile composer owns input and stats. */
 export function MobileCreatorStudioConversation({ model, headerTarget, cornerTarget, editing = false, onCreate, onSelectCharacter, onError,
-  sessionId, useSession, useInput, useWorkspaces, useSessionStatus, useProjection, useInspectCall, useConversationViews, useEntryPins, useEntryActions, setPinned, useStore, actions, openView, selectView, renderHeaderSlot, renderSlot, renderSlotChain }) {
+  sessionId, useSession, useInput, useWorkspaces, useSessionStatus, useProjection, useInspectCall, useConversationViews, useEntryPins, useEntryActions, setPinned, useStore, actions, openView, selectView, renderHeaderSlot, renderSlot, renderSlotChain, renderFactorySlot }) {
   const tUi = useProductTranslation();
   const view = useMainPageView();
   const session = useSession(snapshot => snapshot);
@@ -68,28 +69,31 @@ export function MobileCreatorStudioConversation({ model, headerTarget, cornerTar
         onOpen: selectView, onPinnedChange: setPinned, onDismiss,
       })} /> : null}
       </div>}
-      <div className={`creator-studio-chat-scroll${active?.id !== 'chat' ? ' creator-studio-panel-view' : ''}${active?.id === 'trajectory' ? ' creator-studio-trajectory trajectory-host' : ''}`} hidden={hero} data-conversation-scroll={active?.id === 'chat' ? 'true' : undefined}>
-        {!hero && active && renderSlot('eleckoi.creator-studio.view', viewOwner, { only: active.id })}
-      </div>
-      <div className="chat-composer-region" data-composer-seat="true" inert={editing ? true : undefined} aria-busy={editing || undefined}>
-        {hero && <CreatorStudioHero model={model} sessionId={sessionId} presetCatalog={view.presets} useWorkspaces={useWorkspaces} renderSlot={renderSlot} onError={onError} />}
-        {renderSlot('eleckoi.creator-studio.input.dock', { session, input })}
-        {composer}
+      <div className="creator-native-content">
+        {renderFactorySlot('eleckoi.conversation.frame', { presentation: { header: null, variant: 'embedded', widthControls: false, hero, phase: hero ? 'hero' : 'active',
+          views: !hero && <div className={`creator-studio-transcript${active?.id !== 'chat' ? ' creator-studio-panel-view' : ''}${active?.id === 'trajectory' ? ' creator-studio-trajectory trajectory-host' : ''}`}>
+            {active && renderSlot('eleckoi.creator-studio.view', viewOwner, { only: active.id })}
+          </div>,
+          composer: <div className="chat-composer-region" inert={editing ? true : undefined} aria-busy={editing || undefined}>
+            {hero && <CreatorStudioHero model={model} sessionId={sessionId} presetCatalog={view.presets} useWorkspaces={useWorkspaces} renderSlot={renderSlot} onError={onError} />}
+            {renderSlot('eleckoi.creator-studio.input.dock', { session, input })}{composer}
+          </div>,
+        } })}
       </div>
     </div>
     {tools && <AgentToolsDialog purpose="creator" presetCatalog={view.presets} onNotify={notify}
       onClose={() => setTools(false)} onManage={view.openPresetTools} />}
-    {messages && <MobileDialog title={tUi("删除消息")} busy={deleting} onClose={() => setMessages(null)} className="creator-studio-message-picker creator-studio-confirmation">
+    {messages && <MobileDialog title={tUi("删除消息")} busy={deleting} onClose={() => setMessages(null)} className="creator-studio-message-picker" footer={<div className="product-dialog-actions">
+        <Button type="button" variant="outline" disabled={deleting} onClick={() => setMessages(null)}>{tUi("取消")}</Button>
+        <Button type="button" variant="primary" disabled={!deleteFrom || deleting} onClick={removeMessages}>{deleting ? tUi("删除中…") : tUi("删除")}</Button>
+      </div>}>
       <div className="creator-studio-message-list">
         {messages.map(message => <label key={message.eventSeq}><input type="radio" name="studio-delete-from"
           checked={deleteFrom?.eventSeq === message.eventSeq} onChange={() => setDeleteFrom(message)} />
           <span>{message.text}</span></label>)}
       </div>
       <p>{tUi("删除选中的消息及之后的内容")}</p>
-      <div className="confirmation-actions">
-        <button type="button" disabled={deleting} onClick={() => setMessages(null)}>{tUi("取消")}</button>
-        <button type="button" className="is-destructive" disabled={!deleteFrom || deleting} onClick={removeMessages}>{deleting ? tUi("删除中…") : tUi("删除")}</button>
-      </div>
+
     </MobileDialog>}
   </MobileConversationPage>;
 }

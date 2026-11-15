@@ -1,0 +1,10 @@
+{
+  "name": "@eleckoi/dsh-client-chat-background",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "为角色对话显示已保存的立绘、自定义图片或共享背景。",
+  "exports": { ".": "./src/index.js", "./client": "./src/client.js", "./package.json": "./package.json" },
+  "engines": { "dsh": "0.2.2-rc.3" },
+  "dsh": { "client": { "platform": "web", "inject": ["@eleckoi/dsh-client-roleplay", "@eleckoi/dsh-client-shell"] } }
+}

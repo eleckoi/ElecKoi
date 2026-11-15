@@ -2,6 +2,7 @@ import { BookOpen, ChartLineUp, Folder, Globe, ListChecks, MagicWand, PlugsConne
 
 export const AGENT_TOOL_GROUP_ICONS = Object.freeze({
   'builtin:creator': MagicWand,
+  'builtin:file-read': Folder,
   'builtin:variables': TreeStructure,
   'builtin:setting-library': BookOpen,
   'builtin:roleplay-workflow': ChartLineUp,

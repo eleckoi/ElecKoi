@@ -19,7 +19,7 @@ export function mediaFileCapabilities(ctx, readState) {
       if (!fs || !directories) throw productFailure(codes.statePrecondition, '当前会话未启用工作区文件能力。', { what: '工作区文件能力' })
       const assertTarget = () => {
         signal.throwIfAborted()
-        if (readState(exec.agent).characterId !== characterId) throw productFailure(codes.stateMismatch, '导入期间编辑角色已切换，请重新选择目标后导入。', { what: '导入目标角色' })
+        if ((exec.creatorCharacterId ?? readState(exec.agent).characterId) !== characterId) throw productFailure(codes.stateMismatch, '导入期间编辑角色已切换，请重新选择目标后导入。', { what: '导入目标角色' })
       }
       const target = await fs.resolve(input.file_path, { cwd: await directories.ensure(exec.agent, signal), signal })
       const info = await fs.stat(target, signal)

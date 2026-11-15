@@ -66,18 +66,13 @@
   align-items: center;
   gap: 6px;
   padding: 0 12px;
-  border-radius: 8px;
   font-size: 13px;
+}
+
+.regex-create-button:not([data-dsh-control]),
+.regex-manage-button:not([data-dsh-control]) {
+  border-radius: 8px;
   font-weight: 600;
-}
-
-.regex-create-button {
-  color: #fff;
-  background: var(--blue);
-}
-
-.regex-create-button:hover {
-  filter: brightness(.96);
 }
 
 .regex-manage-button {

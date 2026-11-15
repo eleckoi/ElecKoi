@@ -1,3 +1,5 @@
+import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../ui/styles/product-dialogs.css';
 import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
@@ -73,11 +75,13 @@ export function MobileActionMenu({ title, anchor, onClose, actions, busy = false
 export function MobileConfirm({ title, children, confirmText: confirmTextSource, destructive = true, onClose, onConfirm, busy = false, error }) {
   const tUi = useProductTranslation();
   const confirmText = confirmTextSource === undefined ? tUi("删除") : confirmTextSource;
-  return <LibraryOverlay title={title} onClose={onClose} busy={busy} className="mobile-library-dialog">
-    <h2>{title}</h2>{children && <div className="mobile-library-dialog-copy">{children}</div>}
-    {error && <p role="alert">{error}</p>}
-    <div className="mobile-library-dialog-actions"><button type="button" disabled={busy} onClick={onClose}>{tUi("取消")}</button><button type="button" className={destructive ? 'is-destructive' : 'is-confirm'} disabled={busy} onClick={onConfirm}>{busy ? tUi("处理中…") : confirmText}</button></div>
-  </LibraryOverlay>;
+  return <Modal open title={title} closeLabel={tUi('关闭')} onClose={() => { if (!busy) onClose(); }} tone={destructive ? 'warning' : undefined}
+    className="product-dialog" contentClassName="product-dialog-content" footer={<div className="product-dialog-actions">
+      <Button variant="outline" disabled={busy} onClick={onClose}>{tUi('取消')}</Button>
+      <Button variant="primary" disabled={busy} onClick={onConfirm}>{busy ? tUi('处理中…') : confirmText}</Button>
+    </div>}>
+    {children}{error && <p className="product-dialog-error" role="alert">{error}</p>}
+  </Modal>;
 }
 
 export function MobileNameDialog({ title, initialName = '', onClose, onSave }) {
@@ -85,7 +89,7 @@ export function MobileNameDialog({ title, initialName = '', onClose, onSave }) {
   const [name, setName] = useState(initialName);
   const { busy, error, run } = useMobileOperation();
   return <MobileConfirm title={title} onClose={onClose} busy={busy} error={error} confirmText={tUi("保存")} destructive={false} onConfirm={() => run(async () => { if (!name.trim()) throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, tUi("请输入名称"), { field: tUi("名称") }); await onSave(name.trim()); onClose(); })}>
-    <input className="mobile-library-name" aria-label={tUi("名称")} value={name} disabled={busy} onChange={event => setName(event.target.value)} />
+    <Input className="product-dialog-field" data-modal-autofocus aria-label={tUi("名称")} value={name} disabled={busy} onChange={event => setName(event.target.value)} />
   </MobileConfirm>;
 }
 

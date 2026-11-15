@@ -59,7 +59,6 @@
 .creator-studio-hero-choice:not(:disabled):hover,
 .creator-studio-hero-choice[aria-expanded=true] { background: var(--dsw-alias-interactive-bg-hover); }
 
-.creator-simple-conversation[data-phase=hero] .creator-simple-conversation-scroll { justify-content: safe center; }
 .creator-simple-conversation[data-phase=hero] .creator-simple-composer {
   --dsh-composer-stack-gap: 8px;
   display: flex;

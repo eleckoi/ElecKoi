@@ -1,10 +1,10 @@
 import { productLocaleTag } from '../../app/i18n/productCopy.js';
 import { sourceText } from "../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
-import { SystemBarOverlay } from '../ui/SystemBarOverlay.jsx';
+import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../styles/product-dialogs.css';
 import { useRegexEjsDisplay } from '../../modules/regex/index.js';
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { faChevronLeft, faChevronRight } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { OfficialMarkdown } from "./OfficialMarkdown.jsx";
@@ -161,7 +161,6 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
   const toolsRef = useRef(null);
   const mobileRoleplay = layoutMode === "roleplay" && typeof document !== "undefined" && document.documentElement.dataset.eleckoiMobile === "true";
   const toolbar = useMessageToolbarMotion(expanded, mobileRoleplay, toolsRef, articleRef, !pending);
-  const jumpDialogRef = useRef(null);
   const jumpTriggerRef = useRef(null);
   const openingSwitchingRef = useRef(false);
   const selectedOpeningIdRef = useRef(message.selectedOpeningId);
@@ -218,30 +217,7 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
     window.addEventListener('keydown', escape);
     return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('keydown', escape); };
   }, [expanded]);
-  useEffect(() => {
-    if (!jumpOpen) return undefined;
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closePageJump();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const focusable = [...(jumpDialogRef.current?.querySelectorAll("input, button:not(:disabled)") || [])];
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [jumpOpen]);
+
 
   async function saveEdit() {
     if (!editingEnabled) return;
@@ -395,17 +371,15 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
       {avatarMenuAnchor && avatarMenuEnabled ? <AvatarActionsMenu anchor={avatarMenuAnchor} canView={Boolean(avatar)}
         onClose={() => setAvatarMenuAnchor(null)} onView={() => setAvatarPreviewOpen(true)} onEdit={onEditCharacter} /> : null}
       {avatarPreviewOpen && avatar ? <AvatarPreviewDialog src={avatar} name={name} onClose={() => setAvatarPreviewOpen(false)} onPin={onPinAvatar ? () => { onPinAvatar({ src: pinSrc || avatar, name }); setAvatarPreviewOpen(false); } : undefined} /> : null}
-      {jumpOpen && typeof document !== "undefined" ? createPortal(
-        <SystemBarOverlay className="opening-jump-backdrop" onPointerDown={() => closePageJump()}>
-          <form ref={jumpDialogRef} className="opening-jump-dialog" role="dialog" aria-modal="true" aria-labelledby="opening-jump-title" onPointerDown={(event) => event.stopPropagation()} onSubmit={submitPageJump}>
-            <h2 id="opening-jump-title">{tUi("跳转开场白")}</h2>
-            <label>{tUi("页码（1–")}{options.length}）<input type="number" min="1" max={options.length} step="1" value={pageInput} onChange={(event) => setPageInput(event.target.value.replace(/\D/g, ''))} inputMode="numeric" autoFocus aria-invalid={Boolean(pageInput) && !requestedPageValid} aria-describedby={pageInput && !requestedPageValid ? "opening-jump-error" : undefined} /></label>
-            {pageInput && !requestedPageValid ? <small id="opening-jump-error">{tUi("请输入 1 到 ")}{options.length}</small> : null}
-            <div><button type="button" onClick={() => closePageJump()}>{tUi("取消")}</button><button type="submit" className="primary" disabled={!openingEnabled || !requestedPageValid}>{tUi("跳转")}</button></div>
-          </form>
-        </SystemBarOverlay>,
-        document.body,
-      ) : null}
+      <Modal open={jumpOpen} title={tUi('跳转开场白')} closeLabel={tUi('关闭')} onClose={() => closePageJump()}
+        className="product-dialog" contentClassName="product-dialog-content" footer={<div className="product-dialog-actions">
+          <Button variant="outline" onClick={() => closePageJump()}>{tUi('取消')}</Button>
+          <Button variant="primary" disabled={!openingEnabled || !requestedPageValid} onClick={submitPageJump}>{tUi('跳转')}</Button>
+        </div>}>
+        <form className="product-dialog-fields" onSubmit={submitPageJump}><label><span>{tUi('页码（1–')}{options.length}）</span>
+          <Input className="product-dialog-field" data-modal-autofocus type="number" min="1" max={options.length} step="1" value={pageInput} onChange={event => setPageInput(event.target.value.replace(/\D/g, ''))} inputMode="numeric" aria-invalid={Boolean(pageInput) && !requestedPageValid} aria-describedby={pageInput && !requestedPageValid ? 'opening-jump-error' : undefined} />
+        </label>{pageInput && !requestedPageValid ? <small className="product-dialog-error" id="opening-jump-error">{tUi('请输入 1 到 ')}{options.length}</small> : null}</form>
+      </Modal>
     </article>
   );
 }

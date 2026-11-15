@@ -17,16 +17,22 @@ export function apply(ctx, config) {
   const ownerScope = scopeOf(ctx)
   if (ownerScope === undefined) throw productFailure(ELECKOI_FAILURE_CODES.internal, 'AI 创作工作室插件必须挂载在正式预设或 Agent 作用域中。', { what: 'AI 创作工作室插件的挂载作用域' })
   const owns = agent => agent && scopeChainOf(scopeOf(agent.ctx)).includes(ownerScope)
+  const roleplay = config.roleplay === true
   const readState = agent => {
     if (!owns(agent)) throw productFailure(ELECKOI_FAILURE_CODES.securityDenied, '该会话不属于当前 AI 创作工作室作用域。', { what: '该会话所属的 AI 创作工作室作用域', guard: 'creator-studio-scope' })
+    if (roleplay) {
+      const runtime = ctx.get('eleckoiRuntimeContexts').get(agent.id)
+      const details = ctx.eleckoiProductData.readConversationDetails(runtime.conversationId)
+      return { presetId: config.presetId, characterId: details.metadata.characterId || '' }
+    }
     const state = ctx.sessionProjections.stateOf(agent.session, creatorStudioProjection.key)
     if (!state || state.presetId !== config.presetId) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, 'AI 创作工作室会话缺少正式预设绑定。', { what: 'AI 创作工作室会话的预设绑定' })
     return resolveCreatorStudioSelection(state, ctx.eleckoiProductData.readCharacters().items)
   }
   const dispatchedLibraries = new WeakMap()
   const dispatchedTargets = new WeakMap()
-  const capabilities = [...presetPromptCapabilities(() => ctx.eleckoiProductData.creatorPresetRuntime(config.presetId).settingLibrary), ...creatorCapabilities(ctx.eleckoiProductData), ...mediaFileCapabilities(ctx, readState)]
-  const toolsets = [presetPromptToolset, ...creatorToolsets]
+  const capabilities = [...(roleplay ? [] : presetPromptCapabilities(() => ctx.eleckoiProductData.creatorPresetRuntime(config.presetId).settingLibrary)), ...creatorCapabilities(ctx.eleckoiProductData), ...mediaFileCapabilities(ctx, readState)]
+  const toolsets = [...(roleplay ? [] : [presetPromptToolset]), ...creatorToolsets]
   const output = { schema: { type: 'object', additionalProperties: true }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value, null, 2) }] }
   const requireToolset = id => {
     const toolset = toolsets.find(item => item.id === id)
@@ -49,7 +55,7 @@ export function apply(ctx, config) {
         return { toolset, operations: operations.map(({ execute, inputSchema, ...item }) => ({ ...item, ...(args.include_schema ? { inputSchema } : {}) })) }
       } })))
     disposers.push(ctx.tools.register(defineTool({ name: 'eleckoi_call_capability', description: '执行已发现的创作操作。先加载相关技能，再查询对应 inputSchema；提供 capability_id 与 arguments。大结果沿 result 续读或搜索，不重复写操作。',
-      parameters: { capability_id: { type: 'string' }, arguments: { type: 'object', additionalProperties: true }, result: resultReadParameter }, output,
+      parameters: { capability_id: { type: 'string' }, character_id: { type: 'string', description: '可选编辑目标。使用 character.list 返回的准确角色编号；省略时使用当前快捷定位角色，不要求预先绑定角色。' }, arguments: { type: 'object', additionalProperties: true }, result: resultReadParameter }, output,
       async execute(args, exec) {
         exec.signal.throwIfAborted()
         if (!exec.agent) throw productFailure(ELECKOI_FAILURE_CODES.internal, '创作操作缺少调用会话。', { what: '创作操作的调用会话' })
@@ -58,21 +64,27 @@ export function apply(ctx, config) {
         if (typeof args.capability_id !== 'string' || !args.arguments || typeof args.arguments !== 'object' || Array.isArray(args.arguments)) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '普通创作调用必须提供 capability_id 和 arguments。', { field: 'capability_id' })
         const operation = capabilities.find(item => item.id === args.capability_id)
         if (!operation) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `未知创作操作：${args.capability_id}`, { what: '创作操作' })
-        if (operation.target === 'selected-character' && !state.characterId) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '请先在 AI 创作工作室菜单中选择角色，或通过 character.create 新建空角色。', { what: '在 AI 创作工作室菜单中选择编辑角色' })
+        const characterId = args.character_id ?? state.characterId
+        if (args.character_id !== undefined && (typeof characterId !== 'string' || !characterId.trim())) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, 'character_id 必须是发现列表中的角色编号。', { field: 'character_id' })
+        if (operation.target === 'selected-character' && !characterId) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '请通过 character.list 发现角色并提供 character_id，或通过 character.create 新建角色。', { what: '指定创作目标角色' })
         const dispatchedTarget = dispatchedTargets.get(exec.agent)
         if (operation.effect === 'write' && operation.target !== 'new-character' && args.arguments.target?.scope !== 'global'
-          && dispatchedTarget !== undefined && dispatchedTarget !== state.characterId) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch,
+          && args.character_id === undefined && dispatchedTarget !== undefined && dispatchedTarget !== state.characterId) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch,
           '本次模型请求期间编辑角色已切换，请重新读取当前角色后再修改。', { what: '本次请求的编辑角色' })
-        const value = await operation.execute(state.characterId, args.arguments, exec.signal, dispatchedLibraries.get(exec.agent), exec)
+        const value = await operation.execute(characterId, args.arguments, exec.signal,
+          characterId === state.characterId ? dispatchedLibraries.get(exec.agent) : undefined,
+          { ...exec, creatorCharacterId: args.character_id })
         exec.signal.throwIfAborted()
-        let changedCharacterId = args.arguments.target?.scope === 'global' ? '' : state.characterId
+        let changedCharacterId = args.arguments.target?.scope === 'global' ? '' : characterId
         if (operation.target === 'new-character') {
           if (typeof value?.id !== 'string' || !ctx.eleckoiProductData.readCharacters().items.some(item => item.id === value.id)) {
             throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '新建角色没有返回有效的角色编号。', { what: '新建角色返回的角色编号' })
           }
           changedCharacterId = value.id
-          exec.agent.session.append(CREATOR_STUDIO_EVENT, { ...state, characterId: value.id }, { ignorable: true })
-          dispatchedTargets.set(exec.agent, value.id)
+          if (!roleplay) {
+            exec.agent.session.append(CREATOR_STUDIO_EVENT, { ...state, characterId: value.id }, { ignorable: true })
+            dispatchedTargets.set(exec.agent, value.id)
+          }
         }
         if (operation.effect === 'write') {
           if (operation.toolsetId === 'assets' || operation.toolsetId === 'frontends') ctx.get('eleckoiCharacterAssetsApi', false)?.invalidate(changedCharacterId)
@@ -82,6 +94,17 @@ export function apply(ctx, config) {
         }
         return { value }
       } })))
+  }
+  // Roleplay retains its own request projection and preset instructions. Only
+  // reuse the authoring tools; never mark the conversation as a Studio Session.
+  if (roleplay) {
+    disposers.push(ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
+      const assembly = await next()
+      if (!owns(context.agent)) return assembly
+      return { ...assembly, sections: [...assembly.sections, { name: 'eleckoi:creator-tools', interpolate: false,
+        text: '创作能力可调用 character.list 发现角色。eleckoi_call_capability 可显式传 character_id；当前聊天角色只作省略编号时的快捷定位，不限制编辑其他角色。先 describe_toolset 查询准确参数，再调用。' }] }
+    }))
+    return () => { for (const dispose of disposers.reverse()) dispose() }
   }
   disposers.push(ctx.on('agent/created', ({ agent }) => {
     if (!owns(agent)) return

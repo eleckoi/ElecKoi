@@ -1,8 +1,7 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { TextAlignLeft, X } from "../../../ui/icons/interfaceIcons.jsx";
+import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../../../ui/styles/product-dialogs.css';
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RequestContextPanel, zh } from "@eleckoi/dsh-client-trajectory/client/request-context";
 import { MobileConversationOverlay, isMobilePresentation } from '../../../mobile/MobileConversationOverlay.jsx';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
@@ -13,11 +12,6 @@ export function RequestPreviewDialog({ conversationId, conversationModel, onClos
   const tUi = useProductTranslation();
   const mobile = isMobilePresentation();
   const [showDetails, setShowDetails] = useState(false);
-  const titleId = useId();
-  const dialogRef = useRef(null);
-  const closeRef = useRef(null);
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
   const [catalog, setCatalog] = useState({ requests: [], loading: true, error: null });
   const [selectedId, setSelectedId] = useState("");
   const latestId = useRef("");
@@ -60,25 +54,7 @@ export function RequestPreviewDialog({ conversationId, conversationModel, onClos
     return () => controller.abort();
   }, [conversationId, conversationModel, selectedId, retry, mobile, showDetails]);
 
-  useEffect(() => {
-    if (mobile) return undefined;
-    const previousFocus = document.activeElement;
-    closeRef.current?.focus();
-    const keys = event => {
-      if (event.key === "Escape") { event.preventDefault(); onCloseRef.current(); return; }
-      if (event.key !== "Tab") return;
-      const controls = [...dialogRef.current.querySelectorAll('button:not(:disabled), [tabindex="0"]')];
-      const first = controls[0];
-      const last = controls.at(-1);
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-    };
-    window.addEventListener("keydown", keys);
-    return () => {
-      window.removeEventListener("keydown", keys);
-      if (previousFocus?.isConnected) previousFocus.focus();
-    };
-  }, [mobile]);
+
 
   const groups = useMemo(() => {
     const result = new Map();
@@ -115,15 +91,6 @@ export function RequestPreviewDialog({ conversationId, conversationModel, onClos
       </div>;
   if (mobile) return <MobileConversationOverlay kind="page" title={tUi("请求上下文预览")} className="mobile-request-preview" onClose={onClose}
     onBack={showDetails ? () => setShowDetails(false) : undefined}>{body}</MobileConversationOverlay>;
-  return createPortal(<SystemBarOverlay className="request-preview-backdrop" role="presentation" onMouseDown={onClose}>
-    <section ref={dialogRef} className="request-preview-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}
-      onMouseDown={event => event.stopPropagation()}>
-      <header className="request-preview-header">
-        <TextAlignLeft size={20} aria-hidden="true" />
-        <h2 id={titleId}>{tUi("请求上下文预览")}</h2>
-        <button ref={closeRef} type="button" onClick={onClose} aria-label={tUi("关闭请求上下文预览")}><X size={18} /></button>
-      </header>
-      {body}
-    </section>
-  </SystemBarOverlay>, document.body);
+  return <Modal open title={tUi('请求上下文预览')} closeLabel={tUi('关闭请求上下文预览')} onClose={onClose}
+    className="product-dialog request-preview-modal" contentClassName="product-dialog-content">{body}</Modal>;
 }

@@ -49,14 +49,15 @@
   align-items: center;
   gap: 6px;
   padding: 0 12px;
-  border-radius: 8px;
   font-size: 13px;
-  font-weight: 600;
 }
 
-.variable-create-button { color: #fff; background: var(--blue); }
+.variable-create-button:not([data-dsh-control]),
+.variable-manage-button:not([data-dsh-control]) {
+  border-radius: 8px;
+  font-weight: 600;
+}
 .variable-manage-button { color: var(--text); background: var(--field-bg); border: 1px solid color-mix(in srgb, var(--text) 13%, transparent); }
-.variable-create-button:hover { filter: brightness(.96); }
 .variable-manage-button:hover,
 .variable-manage-button[aria-expanded="true"] { background: var(--active); }
 

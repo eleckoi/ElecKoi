@@ -1,0 +1,126 @@
+diff --git a/src/index.ts b/src/index.ts
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -158,4 +158,7 @@
+  * startup) are owned by the loop fiber and never need a handle.
+  */
++/** Admission around one factory activation; proceed retains the original caller's owned lifecycle. */
++export type AgentActivationAdmission = (sessionId: SessionId, proceed: () => Promise<AgentHandle>) => Promise<AgentHandle>
++
+ export interface AgentHandle {
+   agent: Agent
+@@ -249,4 +252,5 @@
+   private turnBoundaryProjectionHandle!: ProjectionHandle<TurnBoundaryProjection>
+   private store = new Map<SessionId, AgentEntry>()
++  private readonly activationAdmissions = new Set<AgentActivationAdmission>()
+   private factory: FactorySlot | undefined
+   private readonly initiators = new AsyncLocalStorage<Agent | undefined>()
+@@ -394,4 +398,18 @@
+ 
+   /** Return the active creation factory. */
++  /** Register activation admission without replacing global create/resume methods. */
++  admitActivation(admission: AgentActivationAdmission): () => void {
++    return this.ctx.effect(() => {
++      this.activationAdmissions.add(admission)
++      return () => { this.activationAdmissions.delete(admission) }
++    }, 'agents.admitActivation()')
++  }
++
++  private activate(sessionId: SessionId, proceed: () => Promise<AgentHandle>): Promise<AgentHandle> {
++    const admissions = [...this.activationAdmissions]
++    return admissions.reduceRight<() => Promise<AgentHandle>>((next, admission) =>
++      () => admission(sessionId, next), proceed)()
++  }
++
+   private requireFactory(): FactorySlot {
+     if (this.factory === undefined) throw new Error(NO_FACTORY_MESSAGE)
+@@ -414,8 +432,10 @@
+     // its effects to ownerCtx; plain factories receive ownerCtx as an explicit
+     // capability and need no Cordis tracker magic.
+-    const { target } = this.requireFactory()
+-    const receiver = getTraceable(ownerCtx, target)
+-    // oxlint-disable-next-line typescript/unbound-method -- Reflect.apply intentionally supplies the caller-traced receiver
+-    return Reflect.apply(target.createAgent, receiver, [ownerCtx, options])
++    return this.activate(options.sessionId, () => {
++      const { target } = this.requireFactory()
++      const receiver = getTraceable(ownerCtx, target)
++      // oxlint-disable-next-line typescript/unbound-method -- Reflect.apply intentionally supplies the caller-traced receiver
++      return Reflect.apply(target.createAgent, receiver, [ownerCtx, options])
++    })
+   }
+ 
+@@ -429,8 +449,10 @@
+   async resume(options: ResumeAgentOptions): Promise<AgentHandle> {
+     const ownerCtx = this.ctx
+-    const { target } = this.requireFactory()
+-    const receiver = getTraceable(ownerCtx, target)
+-    // oxlint-disable-next-line typescript/unbound-method -- Reflect.apply intentionally supplies the caller-traced receiver
+-    return Reflect.apply(target.resume, receiver, [ownerCtx, options])
++    return this.activate(options.resumeSessionId, () => {
++      const { target } = this.requireFactory()
++      const receiver = getTraceable(ownerCtx, target)
++      // oxlint-disable-next-line typescript/unbound-method -- Reflect.apply intentionally supplies the caller-traced receiver
++      return Reflect.apply(target.resume, receiver, [ownerCtx, options])
++    })
+   }
+ 
+diff --git a/lib/index.js b/lib/index.js
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -440,4 +440,5 @@
+ 	turnBoundaryProjectionHandle;
+ 	store = /* @__PURE__ */ new Map();
++	activationAdmissions = new Set();
+ 	factory;
+ 	initiators = new AsyncLocalStorage();
+@@ -567,4 +568,10 @@
+ 	}
+ 	/** Return the active creation factory. */
++	admitActivation(admission) {
++		return this.ctx.effect(() => {this.activationAdmissions.add(admission); return () => {this.activationAdmissions.delete(admission)}}, "agents.admitActivation()");
++	}
++	activate(sessionId, proceed) {
++		return [...this.activationAdmissions].reduceRight((next, admission) => () => admission(sessionId, next), proceed)();
++	}
+ 	requireFactory() {
+ 		if (this.factory === void 0) throw new Error(NO_FACTORY_MESSAGE);
+@@ -582,7 +589,9 @@
+ 	async create(options) {
+ 		const ownerCtx = this.ctx;
++		return this.activate(options.sessionId, () => {
+ 		const { target } = this.requireFactory();
+ 		const receiver = getTraceable(ownerCtx, target);
+ 		return Reflect.apply(target.createAgent, receiver, [ownerCtx, options]);
++		});
+ 	}
+ 	/**
+@@ -595,7 +604,9 @@
+ 	async resume(options) {
+ 		const ownerCtx = this.ctx;
++		return this.activate(options.resumeSessionId, () => {
+ 		const { target } = this.requireFactory();
+ 		const receiver = getTraceable(ownerCtx, target);
+ 		return Reflect.apply(target.resume, receiver, [ownerCtx, options]);
++		});
+ 	}
+ 	/**
+diff --git a/lib/types/index.d.ts b/lib/types/index.d.ts
+--- a/lib/types/index.d.ts
++++ b/lib/types/index.d.ts
+@@ -139,4 +139,7 @@
+  * startup) are owned by the loop fiber and never need a handle.
+  */
++/** Admission around one factory activation; proceed retains the original caller's owned lifecycle. */
++export type AgentActivationAdmission = (sessionId: SessionId, proceed: () => Promise<AgentHandle>) => Promise<AgentHandle>
++
+ export interface AgentHandle {
+     agent: Agent;
+@@ -276,4 +279,8 @@
+     setFactory(factory: AgentFactory): () => void;
+     /** Return the active creation factory. */
++    /** Admission retains the original factory lifecycle and owner context. */
++    admitActivation(admission: AgentActivationAdmission): () => void;
++    private activate;
++    private activationAdmissions;
+     private requireFactory;
+     /**

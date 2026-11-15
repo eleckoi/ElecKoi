@@ -60,7 +60,6 @@
 .preset-update-record p { margin: 4px 0 0; color: var(--preset-secondary); white-space: pre-wrap; overflow-wrap: anywhere; }
 .preset-updates-empty { display: grid; min-height: 112px; place-items: center; padding: 16px; color: var(--preset-secondary); text-align: center; }
 
-
 .preset-updates-expand {
   position: relative; isolation: isolate; display: flex; align-items: center; justify-content: center; gap: 10px;
   width: 100%; min-height: 48px; margin-top: 30px; padding: 12px 20px; border: 0; border-radius: 16px;
@@ -95,17 +94,7 @@
 .preset-content-composer-footer { display: flex; align-items: flex-end; justify-content: flex-end; gap: 16px; min-height: 34px; }
 .preset-content-error { flex: 1; margin: 0; color: #c93737; font-size: 12px; line-height: 1.5; }
 .preset-content-actions { display: flex; flex: none; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.preset-usage-content button:not([data-dsh-control]):focus-visible, .preset-update-record:focus-visible, .preset-content-dialog button:not([data-dsh-control]):focus-visible,
-.preset-content-composer input:focus-visible, .preset-content-composer textarea:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
-.preset-content-dialog {
-  box-sizing: border-box; width: min(400px, calc(100vw - 48px)); padding: 24px; border: 1px solid var(--line-strong);
-  border-radius: 18px; background: var(--surface-raised); color: var(--text); font: inherit;
-  box-shadow: 0 16px 56px var(--shadow-color);
-}
-.preset-content-dialog::backdrop { background: rgb(0 0 0 / 22%); }
-.preset-content-dialog h2 { margin: 0 0 12px; font-size: 18px; }
-.preset-content-dialog p { margin: 0 0 20px; font-size: 14px; }
-.preset-content-dialog .preset-content-actions { margin-top: 24px; }
+.preset-usage-content button:not([data-dsh-control]):focus-visible, .preset-update-record:focus-visible, .preset-content-composer input:focus-visible, .preset-content-composer textarea:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
 .preset-content-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (hover: hover) and (pointer: fine) {
   .preset-update-action:hover:not(:disabled) { background: var(--control-bg-hover); color: var(--text); }

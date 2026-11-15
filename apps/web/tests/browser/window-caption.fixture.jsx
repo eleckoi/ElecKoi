@@ -1,3 +1,4 @@
+import './caption-reference.css';
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SidebarContent } from '../../src/app/windows/shell/components/SidebarContent.jsx';

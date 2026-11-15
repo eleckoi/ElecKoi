@@ -7,16 +7,8 @@
 .mobile-bubble-menu button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mobile-bubble-menu hr { height: 1px; margin: 5px 12px; border: 0; background: var(--line); }
 .mobile-menu-error { margin: 6px 12px; color: var(--dsw-alias-state-error-primary); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.mobile-shell :is(.mobile-bubble-menu, .mobile-library-dialog) .is-destructive { color: var(--dsw-alias-state-error-primary); }
+.mobile-shell .mobile-bubble-menu .is-destructive { color: var(--dsw-alias-state-error-primary); }
 .mobile-bubble-menu button:is(:focus-visible,:hover):not(:disabled) { background: var(--surface-subtle); }
-.mobile-library-dialog { width: min(100%,312px); max-height: calc(100% - 24px); overflow: auto; padding: 24px 24px 12px; border-radius: 24px; background: var(--surface-raised); box-shadow: 0 12px 36px rgb(0 0 0 / 15%); }
-.mobile-library-dialog h2 { margin: 0 0 16px; font-size: 20px; font-weight: 500; }
-.mobile-library-dialog-copy { color: var(--muted); font-size: 14px; line-height: 1.6; }
-.mobile-library-dialog p[role=alert] { color: var(--dsw-alias-state-error-primary); white-space: pre-wrap; font-size: 13px; }
-.mobile-library-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-.mobile-shell .mobile-library-dialog-actions button { min-width: 48px; padding: 0 8px; border: 0; background: transparent; color: var(--muted); font-size: 14px; }
-.mobile-shell .mobile-library-dialog-actions .is-confirm { color: var(--blue); }
-.mobile-library-name { width: 100%; min-width: 0; height: 42px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--field-bg); color: var(--text); font: inherit; }
 .mobile-library-selection-header { display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: 48px; }
 .mobile-library-selection-header strong { flex: 1; min-width: 0; font-size: 17px; font-weight: 500; }
 .mobile-shell .mobile-library-selection-header button { padding: 0 4px; border: 0; background: transparent; font-size: 14px; }

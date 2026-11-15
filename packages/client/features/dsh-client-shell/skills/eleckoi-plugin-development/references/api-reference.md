@@ -6,7 +6,7 @@
 
 本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.2-rc.3`，提交 `38a6a5c965aa99ab525161efb7cc5cf1fe62fced`。
 
-当前共 **17 个 bundle、108 个开发接口**：59 个界面插槽、21 个服务、0 个事件、6 个贡献点、22 个 Remote 合同。
+当前共 **17 个 bundle、111 个开发接口**：62 个界面插槽、21 个服务、0 个事件、6 个贡献点、22 个 Remote 合同。
 
 接口标题和说明用于插件中心展示；真实调用合同以对应类型导出和实现为准。完整参数、返回值和数据字段见 [Client 参考](api-client.md)、[Host 参考](api-host.md) 与 [Remote 调用声明](api-remote.md)。使用方法见 [界面插槽](ui-slots.md)、[服务接口](services.md) 与 [能力贡献](contributions.md)。
 
@@ -23,8 +23,8 @@
 | `@eleckoi/dsh-client-persona` | 1 | 1 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-presets` | 7 | 1 | 0 | 0 | 0 | 8 |
 | `@eleckoi/dsh-client-web-search` | 0 | 1 | 0 | 0 | 0 | 1 |
-| `@eleckoi/dsh-client-shell` | 9 | 1 | 0 | 4 | 0 | 14 |
-| `@eleckoi/dsh-client-roleplay` | 29 | 1 | 0 | 0 | 0 | 30 |
+| `@eleckoi/dsh-client-shell` | 10 | 1 | 0 | 4 | 0 | 15 |
+| `@eleckoi/dsh-client-roleplay` | 31 | 1 | 0 | 0 | 0 | 32 |
 | `@eleckoi/dsh-auto-illustration` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-author` | 0 | 2 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-html-resources` | 0 | 1 | 0 | 1 | 0 | 2 |
@@ -156,8 +156,8 @@
 
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `eleckoi.shell.window` | 窗口呈现 | 界面插槽 | 提供 | `replace` | `root` | 按运行平台装配窗口页面，保留共享 Client 业务服务和导航合同。 | — |
-| `layout` | 桌面布局服务 | 服务 | 提供 | `call` | `client` | 切换主面板并控制桌面导航和侧栏。 | `selectPanel`、`beginNavigation`、`toggleSidebar`、`openRightbar`、`closeRightbar` |
+| `eleckoi.shell.window` | 窗口呈现 | 界面插槽 | 提供 | `replace` | `root` | 按运行平台呈现产品页面；owner.nativeFrame 保留官方布局根、控制器及原有插槽。 | — |
+| `layout` | 桌面布局服务 | 服务 | 提供 | `call` | `client` | 通过同版本官方 LayoutController 切换主面板、导航及侧栏，不提供平行布局服务。 | `selectPanel`、`beginNavigation`、`toggleSidebar`、`openRightbar`、`closeRightbar` |
 | `sidebar.brand.mark` | 品牌图标 | 贡献点 | 接入 | `replace` | `root` | 向官方侧边栏提供品牌图标。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
 | `sidebar.brand.name` | 品牌名称 | 贡献点 | 接入 | `replace` | `root` | 向官方侧边栏提供品牌名称。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
 | `sidebar.panellist` | 导航入口 | 贡献点 | 接入 | `append` | `root` | 向侧边栏增加主导航入口。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
@@ -165,6 +165,7 @@
 | `sidebar` | 侧边栏 | 界面插槽 | 提供 | `replace` | `root` | 替换桌面侧边栏。 | — |
 | `main` | 主面板 | 界面插槽 | 提供 | `register` | `root` | 按面板键注册桌面主页面。 | — |
 | `rightbar` | 右侧面板 | 界面插槽 | 提供 | `replace` | `root` | 提供桌面右侧面板。 | — |
+| `shell.bottom` | 窗口底部区域 | 界面插槽 | 提供 | `append` | `root` | 由官方 AppFrame 承载窗口底部内容，保留原始插槽作用域和生命周期。 | — |
 | `shell.overlay` | 全局浮层 | 界面插槽 | 提供 | `append` | `root` | 在桌面界面上方增加浮层。 | — |
 | `shell.leading` | 窗口前置区域 | 界面插槽 | 提供 | `replace` | `root` | 提供桌面窗口前置内容。 | — |
 | `settings.section` | 设置分区 | 界面插槽 | 提供 | `append` | `root` | 向设置页增加分区。 | — |
@@ -179,6 +180,8 @@
 
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| `eleckoi.roleplay.background` | 角色对话背景 | 界面插槽 | 提供 | `replace` | `session` | 在原生会话内部贡献背景显示，不替换布局、滚动或输入。 | — |
+| `eleckoi.roleplay.header.menu` | 角色对话操作菜单 | 界面插槽 | 提供 | `append` | `session` | 向角色对话的操作菜单贡献功能入口。 | — |
 | `eleckoi.roleplay.chat` | 角色对话视图 | 界面插槽 | 提供 | `replace` | `session` | 以官方 ChatView 承接角色消息座位、历史分页、导航与阅读位置。 | — |
 | `eleckoi.roleplay.chat.node` | 角色对话节点 | 界面插槽 | 提供 | `replace` | `session` | 按正式 ChatNodeKind 替换角色对话的节点呈现。 | — |
 | `eleckoi.roleplay.chat.images` | 角色对话图片 | 界面插槽 | 提供 | `replace` | `session` | 呈现角色对话中使用正式授权加载器读取的消息图片。 | — |

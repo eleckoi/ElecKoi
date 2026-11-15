@@ -5,21 +5,21 @@
 
 /* 脚本与正则使用连续面板，分区标题位于面板外。 */
 .editor-sidebar-layout .editor-collection-continuous {
-  --editor-collection-entry: #ffffff;
-  --editor-collection-outline: #e6e9ee;
-  --editor-collection-shadow: rgba(26, 39, 61, .035);
-  --editor-collection-heading: #333943;
-  --editor-collection-icon: #81858c;
-  --editor-collection-switch-on: #4868b2;
-  --editor-collection-switch-off: #dee2e9;
+  --editor-collection-entry: var(--dsw-alias-bg-layer-1);
+  --editor-collection-outline: var(--dsw-alias-border-l2);
+  --editor-collection-shadow: transparent;
+  --editor-collection-heading: var(--dsw-alias-label-primary);
+  --editor-collection-icon: var(--dsw-alias-label-secondary);
+  --editor-collection-switch-on: var(--dsw-alias-brand-primary);
+  --editor-collection-switch-off: var(--dsw-alias-border-l3);
   --switch-corner-shape: superellipse(1.5);
 
   & :is(.editor-collection-directory, .regex-list-scroll) {
-    --text: #30353d;
-    --muted: #81858c;
-    --soft-text: #81858c;
-    --active: #edf0f5;
-    --editor-collection-hover: #f6f7f9;
+    --text: var(--dsw-alias-label-primary);
+    --muted: var(--dsw-alias-label-secondary);
+    --soft-text: var(--dsw-alias-label-secondary);
+    --active: var(--dsw-alias-interactive-bg-active);
+    --editor-collection-hover: var(--dsw-alias-interactive-bg-hover);
     padding: 18px 28px 40px;
     color: var(--text);
     font: 14px/1.5 "Segoe UI", "Microsoft YaHei", sans-serif;
@@ -99,10 +99,11 @@
     height: 14px;
     border-radius: 50%;
     corner-shape: var(--switch-corner-shape);
-    background: #fff;
+    background: var(--dsw-alias-switch-thumb);
     box-shadow: none;
   }
   & :is(.script-switch, .regex-rule-switch) input:checked + i { background: var(--editor-collection-switch-on); }
+  & .script-switch input:checked + i::before, & .regex-rule-switch input:checked + i::after { background: var(--dsw-alias-label-primary-foreground); }
   & .script-switch input:checked + i::before, & .regex-rule-switch input:checked + i::after { transform: translateX(14px); }
   & :is(.script-switch, .regex-rule-switch) input:focus-visible + i { outline: 2px solid var(--editor-collection-switch-on); outline-offset: 3px; }
   & .regex-rule-switch input:disabled + i { opacity: .4; }
@@ -113,23 +114,6 @@
     & .script-list-row.is-nested { padding-left: 48px; }
     & .script-state { max-width: 88px; }
   }
-}
-
-:root[data-theme="dark"] .editor-sidebar-layout .editor-collection-continuous {
-  --editor-collection-entry: #252a33;
-  --editor-collection-outline: #39424f;
-  --editor-collection-shadow: rgba(0, 0, 0, .12);
-  --editor-collection-heading: #e5e8ef;
-  --editor-collection-icon: #a1adbf;
-  --editor-collection-switch-on: #6685c7;
-  --editor-collection-switch-off: #525e70;
-}
-:root[data-theme="dark"] .editor-sidebar-layout .editor-collection-continuous :is(.editor-collection-directory, .regex-list-scroll) {
-  --text: #e5e8ef;
-  --muted: #a1adbf;
-  --soft-text: #a1adbf;
-  --active: #424f63;
-  --editor-collection-hover: #303744;
 }
 
 /* 紧凑列表保留触屏操作空间，颜色和控件外观由官方组件负责。 */

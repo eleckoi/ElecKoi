@@ -3,6 +3,10 @@ import { runInNewContext } from 'node:vm'
 import { describe, expect, it, vi } from 'vitest'
 import { dshClientRequire } from '../../../../../../tests/helpers/dshClientPlugin'
 
+import { loadOfficialLayout } from '../../../../../../tests/helpers/officialLayout.js'
+
+const officialLayout = loadOfficialLayout()
+
 const packages = [
   'dsh-client-shell', 'dsh-client-conversations', 'dsh-client-characters',
   'dsh-client-presets', 'dsh-client-models'
@@ -65,17 +69,20 @@ describe('ElecKoi DSH client navigation', () => {
         if (name === 'react') return {
           Suspense: 'Suspense',
           useEffect: () => {},
+          useCallback: (callback: unknown) => callback,
           lazy: (load: any) => ({ load }),
           createElement: (component: any, props: any, ...children: any[]) => ({ component, props, children })
         }
         if (name === 'react-dom') return {}
         if (name === '@deepseek-ai/dsh-client-ui-primitives') return uiPrimitives
         if (name === '@deepseek-ai/dsh-client-ui-sidebar') return officialSidebar
+        if (name === '@deepseek-ai/dsh-client-ui-layout') return officialLayout
         return dshClientRequire(name)
       })
-      let effectCount = 0
       const context: any = {
         slots,
+        locale: { register: () => () => {}, bind: () => (key: string) => key },
+        shortcuts: { register: () => () => {} },
         inject: () => {},
         provide: () => {},
         get: (name: string) => services[name],
@@ -84,7 +91,7 @@ describe('ElecKoi DSH client navigation', () => {
         remote: { eleckoiAgentPresets: {} },
         reflect: { provide: (name: string, value: unknown) => { services[name] = value; context[name] = value; return () => {} } },
         effect: (run: () => void, label: string) => {
-          if (packageName === 'dsh-client-shell' && (effectCount++ === 0 || label === 'eleckoi: native workspace sidebar library')) run()
+          if (packageName === 'dsh-client-shell' && ['layout: command labels', 'ui-layout: service + root registration', 'eleckoi: product Session destination', 'eleckoi: native workspace sidebar library'].includes(label)) run()
         },
       }
       plugin.apply(context)
@@ -98,9 +105,9 @@ describe('ElecKoi DSH client navigation', () => {
     expect(panels).toEqual(['settings', 'messages', 'character', 'presets', 'model'])
     const renderFactorySlot = vi.fn(() => 'official panel icon')
     const owner = { size: 24, active: true }
-    const projectedIcon = slots.entriesOfSlot('sidebar')[0]!.component({ renderFactorySlot,
-      renderContent: (render: any) => render('sidebar.panellist', owner, { only: 'plugins' }) })
-    expect(projectedIcon).toBe('official panel icon')
+    const renderedSidebar = slots.entriesOfSlot('sidebar')[0]!.component({ renderFactorySlot })
+    const sidebarFace = renderedSidebar.children[0].props
+    expect(sidebarFace.renderSidebarSlot('sidebar.panellist', owner, { only: 'plugins' })).toBe('official panel icon')
     expect(renderFactorySlot).toHaveBeenCalledWith('sidebar.panel.icon', { ...owner, id: 'plugins' })
 
     for (const id of panels) {
@@ -117,64 +124,44 @@ describe('ElecKoi DSH client navigation', () => {
     layout.selectPanel('extension-page')
     expect(layout.panelInfo.getSnapshot().activePanelId).toBe('extension-page')
     layout.selectPanel('messages')
-    expect(layout.panelInfo.getSnapshot().activePanelId).toBe(null)
-    if (platform === 'android') {
-      expect(layout.panelInfo.getSnapshot().windowPanelId).toBe('messages')
-      slots.register({ name: 'main', key: 'creatorStudio' }, () => null)
-      layout.selectPanel('creatorStudio')
-      expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: null, windowPanelId: 'creatorStudio' })
-      expect(slots.entriesOfSlot('sidebar')).toHaveLength(1)
-      const sidebar = slots.entriesOfSlot('sidebar')[0]!
-      const workspace = sidebar.component({ workspace: true, renderContent: (_render: any, workspace: any) => workspace,
-        usePanels: (select: any) => select([{ id: 'schedules' }, { id: 'plugins' }]), collapsed: false, width: 288, renderSlot: vi.fn() })
-      expect(workspace).toMatchObject({ component: OfficialSidebar, props: { collapsed: false, width: 288 } })
-      expect(workspace.props.usePanels((rows: any) => rows)).toEqual([{ id: 'schedules' }])
-      expect(workspace.props.useEntryActions()).toBe(false)
-      layout.selectPanel(null)
-      expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: null, windowPanelId: 'conversation' })
-    } else {
-      layout.selectPanel(null)
-      expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: null, windowPanelId: 'conversation' })
-      const sidebar = slots.entriesOfSlot('sidebar')[0]!
-      expect(sidebar).toBeTruthy()
-      expect(sidebar.options.children['sidebar.update']).toMatchObject({ kind: 'single', scope: 'root' })
-      const renderNativeSlot = vi.fn()
-      expect(sidebar.component({ renderContent: (render: any) => render('sidebar.workspaces', { content: 'original product list' }),
-        renderSlot: renderNativeSlot })).toBe('original product list')
-      expect(renderNativeSlot).not.toHaveBeenCalled()
-      const renderContent = vi.fn((_render: any, workspace: any) => workspace)
-      const workspace = sidebar.component({ workspace: true, renderContent, usePanels: (select: any) => select([{ id: 'schedules' }, { id: 'plugins' }]), collapsed: false, width: 280, renderSlot: renderNativeSlot })
-      expect(renderContent).toHaveBeenCalledOnce()
-      expect(workspace).toMatchObject({
-        component: OfficialSidebar, props: { collapsed: false, width: 280 },
-      })
-      expect(workspace.props.usePanels((rows: any) => rows)).toEqual([{ id: 'schedules' }])
-      expect(workspace.props.useEntryActions()).toBe(false)
-      workspace.props.renderSlot('sidebar.settings', {})
-      expect(renderNativeSlot).not.toHaveBeenCalled()
-      workspace.props.renderSlot('sidebar.workspaces', { wide: true })
-      expect(renderNativeSlot).toHaveBeenCalledWith('sidebar.workspaces', expect.objectContaining({ wide: true,
-        open: expect.any(Function), searchSessions: expect.any(Function) }), undefined)
-      expect(slots.entriesOfSlot('sidebar.panellist').some(entry => entry.options.id === 'community')).toBe(true)
-      expect(layout.sidebarInfo.getSnapshot()).toEqual({ shown: true })
-      layout.toggleSidebar()
-      expect(layout.sidebarInfo.getSnapshot()).toEqual({ shown: false })
-      layout.toggleSidebar()
-      layout.selectPanel('messages')
-      await new Promise(resolve => setImmediate(resolve))
-      expect(layout.panelInfo.getSnapshot().activePanelId).toBe(null)
-      expect(slots.entriesOfSlot('sidebar')).toHaveLength(1)
-      expect(slots.entriesOfSlot('sidebar')[0]).toBe(sidebar)
-      expect(slots.entriesOfSlot('sidebar.panellist').filter(entry => entry.options.id === 'community')).toHaveLength(1)
-      currentSessionId = 'roleplay-session'
-      layout.selectPanel(null)
-      expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: null })
-      expect(layout.sidebarInfo.getSnapshot().shown).toBe(false)
-      currentSessionId = 'workspace-session'
-      layout.selectPanel(null)
-      expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: null, windowPanelId: 'conversation' })
-      expect(layout.sidebarInfo.getSnapshot().shown).toBe(true)
-    }
+    expect(layout.panelInfo.getSnapshot().activePanelId).toBe('messages')
+    slots.register({ name: 'main', key: 'creatorStudio' }, () => null)
+    layout.selectPanel('creatorStudio')
+    expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: 'creatorStudio' })
+    expect(slots.entriesOfSlot('sidebar')).toHaveLength(1)
+    const sidebar = slots.entriesOfSlot('sidebar')[0]!
+    expect(sidebar.options.children['sidebar.update']).toMatchObject({ kind: 'single', scope: 'root' })
+    const renderNativeSlot = vi.fn()
+    const face = sidebar.component({ renderSlot: renderNativeSlot,
+      usePanels: (select: any) => select([{ id: 'schedules' }, { id: 'plugins' }]), collapsed: false, width: 280 }).children[0].props
+    const workspace = face.workspaceSidebar
+    expect(workspace).toMatchObject({ component: OfficialSidebar, props: { collapsed: false, width: 280 } })
+    expect(workspace.props.usePanels((rows: any) => rows)).toEqual([{ id: 'schedules' }])
+    expect(workspace.props.useEntryActions()).toBe(false)
+    workspace.props.renderSlot('sidebar.settings', {})
+    expect(renderNativeSlot).not.toHaveBeenCalled()
+    workspace.props.renderSlot('sidebar.workspaces', { wide: true })
+    expect(renderNativeSlot).toHaveBeenCalledWith('sidebar.workspaces', expect.objectContaining({ wide: true,
+      open: expect.any(Function), searchSessions: expect.any(Function) }), undefined)
+    expect(face.renderSidebarSlot('sidebar.workspaces', { content: 'original product list' })).toBe('original product list')
+    expect(slots.entriesOfSlot('sidebar.panellist').filter(entry => entry.options.id === 'community')).toHaveLength(1)
+    // Geometry is reported by the actual Frame sidebar owner, not guessed from panel identity.
+    layout.reportSidebar({ shown: true, width: 280, drawer: platform === 'android' })
+    expect(layout.sidebarInfo.getSnapshot().shown).toBe(true)
+    const store = root.store.create()
+    const before = store.getSnapshot().layoutInfo.sidebar
+    layout.toggleSidebar()
+    expect(store.getSnapshot().layoutInfo.sidebar).not.toBe(before)
+    layout.toggleSidebar()
+    currentSessionId = 'roleplay-session'
+    layout.selectPanel(null)
+    expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: 'messages' })
+    currentSessionId = 'workspace-session'
+    layout.selectPanel(null)
+    expect(layout.panelInfo.getSnapshot()).toEqual({ activePanelId: null })
+    expect(slots.entriesOfSlot('sidebar')[0]).toBe(sidebar)
+    expect(root.children['shell.bottom']).toEqual({ kind: 'single', scope: 'root' })
+    expect(services.layout).toBeInstanceOf(officialLayout.LayoutController)
     layout.openRightbar(true, false)
     expect(layout.rightbarInfo.getSnapshot()).toMatchObject({
       shown: true, track: true, fullscreen: false, width: expect.any(Number)
@@ -223,11 +210,13 @@ describe('ElecKoi DSH client navigation', () => {
       useSyncExternalStore: (_subscribe: any, getSnapshot: () => any) => getSnapshot(),
       useMemo: (calculate: () => any) => calculate(),
       useEffect: () => {},
+      useCallback: (callback: unknown) => callback,
       createElement: (component: any, props: any, ...children: any[]) => ({ component, props, children }),
     }
     const source = readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8')
     runInNewContext(source, {
       __ELECKOI_CLIENT_PLATFORM__: { kind: 'android' },
+      __ELECKOI_DSH_SIDEBAR_READY__: true,
       window: { __ModuleLoader__: { load: (value: any) => { registration = value } } },
       AbortController,
     })
@@ -235,15 +224,19 @@ describe('ElecKoi DSH client navigation', () => {
       if (name === 'react') return React
       if (name === '@deepseek-ai/dsh-client-ui-primitives') return uiPrimitives
       if (name === '@eleckoi/dsh-product-api') return dshClientRequire(name)
+      if (name === '@deepseek-ai/dsh-client-ui-layout') return officialLayout
       throw new Error(`Unexpected module ${name}`)
     })
-    let effectCount = 0
-    plugin.apply({
-      slots,
-      inject: () => {},
-      reflect: { provide: () => () => {} },
-      effect: (run: () => void) => { if (effectCount++ === 0) run() },
-    })
+    const services: Record<string, any> = {}
+    const context: any = {
+      slots, locale: { register: () => () => {}, bind: () => (key: string) => key },
+      shortcuts: { register: () => () => {} },
+      inject: () => {}, get: (name: string) => services[name],
+      plugin: (child: any) => child.apply(context), extend: (values: any) => ({ ...context, ...values }),
+      reflect: { provide: (name: string, value: unknown) => { services[name] = value; return () => {} } },
+      effect: (run: () => void, label: string) => { if (['layout: command labels', 'ui-layout: service + root registration'].includes(label)) run() },
+    }
+    plugin.apply(context)
     const render = (panel = { activePanelId: null } as any) => {
       stateIndex = 0
       const rightbarInfo = { subscribe: () => () => {}, getSnapshot: () => ({ shown: false }) }
@@ -263,20 +256,19 @@ describe('ElecKoi DSH client navigation', () => {
           return { slot: name }
         },
       })
-      return tree.children[0].children[0].props
+      return tree.component(tree.props).children[0].children[0].props
     }
 
     expect(rootOptions.children.sidebar).toEqual({ kind: 'single', scope: 'root' })
     expect(render().markdownComponent).toBe(uiPrimitives.MarkdownText)
     expect(render().navigation.hasSidebarFooterActions).toBe(true)
-    expect(render().navigation.selectedPanelId).toBe('messages')
+    expect(render().navigation.selectedPanelId).toBe('conversation')
     expect(render({ activePanelId: null, windowPanelId: 'conversation' }).navigation.selectedPanelId).toBe('conversation')
     expect(render().rightbar.render({ width: 360, viewportWidth: 1200, canShow: true })).toEqual({ slot: 'rightbar' })
     render().rightbar.close()
     expect(sidebarRight.toggleExpanded).toHaveBeenCalledTimes(1)
-    const content = (renderSidebarSlot: any) => renderSidebarSlot('sidebar.footer.action', { wide: true })
-    expect(render().navigation.renderSidebar(content)).toEqual({ slot: 'sidebar' })
-    expect(slotCalls.some(call => call.name === 'sidebar' && call.owner.renderContent === content)).toBe(true)
+    expect(render().nativeFrame.component).toBeTypeOf('function')
+    expect(render().navigation.renderSidebar).toBeUndefined()
     expect(rootOptions.children['eleckoi.sidebar.footer.action']).toBeUndefined()
     expect(render().settingsSections).toEqual([
       { id: 'plugins', order: 15, label: '内置插件' },

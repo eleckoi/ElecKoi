@@ -38,18 +38,8 @@
 
 .setting-position-more { position: relative; align-self: center; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; color: var(--muted); cursor: pointer; }
 
-.setting-position-dialog-backdrop { position: absolute; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: color-mix(in srgb, var(--text) 15%, transparent); backdrop-filter: blur(3px); }
-.setting-position-dialog { box-sizing: border-box; display: grid; width: min(360px, 100%); gap: 18px; padding: 20px; border: 1px solid var(--line-strong); border-radius: 14px; color: var(--text); background: var(--surface-raised); box-shadow: 0 18px 48px var(--shadow-color); }
-.setting-position-dialog h3 { margin: 0; font-size: 16px; font-weight: 650; }
-.setting-position-dialog label { display: grid; gap: 8px; font-size: 13px; font-weight: 550; }
-.setting-position-dialog input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 40px; padding: 9px 12px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--field-bg); font: inherit; }
-.setting-position-dialog p { margin: -6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
-.setting-position-dialog p[role="alert"] { color: #cf3737; }
-.setting-position-dialog footer { display: flex; justify-content: flex-end; gap: 8px; }
-
-.setting-position-manager button:focus-visible,
-.setting-position-dialog input:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-.setting-position-manager button:hover { background: var(--active); }
+.setting-position-manager button:focus-visible:not([data-dsh-control]) { outline: 2px solid var(--blue); outline-offset: 2px; }
+.setting-position-manager button:hover:not([data-dsh-control]) { background: var(--active); }
 .setting-position-manager .setting-position-drag-handle:hover,
 .setting-position-manager .setting-position-guide-main:hover { color: var(--text); background: transparent; }
 .setting-library-placement-heading .setting-library-position-manage { display: inline-flex; align-items: center; gap: 6px; margin: 0; }

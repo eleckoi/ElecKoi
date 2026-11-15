@@ -27,16 +27,6 @@
 }
 
 .chat-conversation-body {
-  --dsh-chat-content-width: var(
-    --dsh-chat-user-width,
-    clamp(680px, calc(var(--dsh-conversation-column-width, 0px) * 0.64), 920px)
-  );
-  --dsh-composer-card-max-width: calc(var(--dsh-chat-content-width) + 32px);
-  --dsh-composer-side-clearance: 16px;
-  --dsh-composer-dock-inset: 8px;
-  --chat-reading-width: var(--dsh-chat-content-width);
-  --chat-composer-card-max-width: var(--dsh-composer-card-max-width);
-  --chat-composer-side-clearance: var(--dsh-composer-side-clearance);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -85,15 +75,18 @@
   height: 34px;
   margin-top: 4px;
   padding: 0 16px;
+  font-size: 13px;
+}
+
+.chat-empty-guide button:not([data-dsh-control]) {
   border: 1px solid #d8d8d8;
   border-radius: 10px;
   background: #fff;
   color: #222;
-  font-size: 13px;
   transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease;
 }
 
-.chat-empty-guide button:hover {
+.chat-empty-guide button:hover:not([data-dsh-control]) {
   border-color: color-mix(in srgb, var(--blue) 34%, #d8d8d8);
   background: color-mix(in srgb, var(--blue) 8%, #fff);
   color: var(--blue);
@@ -282,21 +275,6 @@
   white-space: nowrap;
 }
 
-.message-area {
-  position: relative;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overflow-anchor: none;
-  overscroll-behavior: contain;
-  margin-right: var(--chat-window-resize-edge-inset);
-  padding: 0;
-  scrollbar-gutter: stable;
-}
-
 .chat-transcript-region {
   display: flex;
   flex: 1 0 auto;
@@ -312,20 +290,10 @@
   flex: 1 0 auto;
 }
 
-.chat-panel.view-trajectory .message-area {
-  overflow: hidden;
-  scrollbar-gutter: auto;
-}
-
 .chat-panel.view-trajectory .chat-transcript-region {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
-}
-
-/* Width, thumb colors and hover behavior belong to the DSH theme sheet. */
-.message-area::-webkit-scrollbar-track {
-  margin: 2px;
 }
 
 .message {
@@ -356,7 +324,7 @@
   padding: 28px var(--chat-scroll-horizontal-padding) 16px;
 }
 
-.message-area.layout-roleplay [data-chat-scroll] {
+.chat-panel.layout-roleplay .message-area [data-chat-scroll] {
   padding-top: 10px;
 }
 
@@ -379,7 +347,7 @@
   padding-inline: var(--chat-horizontal-padding, 16px);
 }
 
-.message-area.layout-roleplay [data-chat-column] > :is([data-slot="conversation.chat.flow"], [data-slot="eleckoi.roleplay.chat.flow"]) > [data-chat-flow-key]:not(:has(.message-flow)) {
+.chat-panel.layout-roleplay .message-area [data-chat-column] > :is([data-slot="conversation.chat.flow"], [data-slot="eleckoi.roleplay.chat.flow"]) > [data-chat-flow-key]:not(:has(.message-flow)) {
   width: min(calc(var(--chat-reading-width) + 2 * var(--chat-roleplay-side-rail)), 100%);
   padding-inline: var(--chat-roleplay-side-rail);
 }
@@ -844,10 +812,6 @@
   min-height: var(--chat-roleplay-leading-stack-height);
 }
 
-.message-roleplay.has-opening-pager {
-  min-height: calc(var(--chat-roleplay-leading-stack-height) + 62px);
-}
-
 .message-roleplay.mine {
   justify-content: initial;
 }
@@ -875,27 +839,6 @@
   outline-offset: 3px;
 }
 
-.avatar-preview-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1200;
-  display: grid;
-  place-items: center;
-  box-sizing: border-box;
-  padding: 32px;
-  background: rgba(11, 13, 17, .82);
-  -webkit-app-region: no-drag;
-}
-
-.avatar-preview-dialog {
-  position: relative;
-  display: grid;
-  place-items: center;
-  gap: 12px;
-  max-width: 100%;
-  max-height: 100%;
-}
-
 .avatar-preview-image {
   display: block;
   width: auto;
@@ -905,54 +848,6 @@
   object-fit: contain;
   border-radius: 12px;
   box-shadow: 0 12px 48px rgba(0, 0, 0, .35);
-}
-
-.avatar-preview-actions {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-}
-
-.avatar-preview-close,
-.avatar-preview-pin {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 84px;
-  min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, .46);
-  border-radius: 9px;
-  background: rgba(15, 17, 21, .9);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, .38);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.avatar-preview-pin {
-  min-width: 120px;
-}
-
-.avatar-preview-close span {
-  font-size: 25px;
-  font-weight: 400;
-  line-height: 1;
-}
-
-.avatar-preview-close:hover,
-.avatar-preview-close:focus-visible,
-.avatar-preview-pin:hover,
-.avatar-preview-pin:focus-visible {
-  background: #30353d;
-}
-
-.avatar-preview-close:focus-visible,
-.avatar-preview-pin:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: 3px;
 }
 
 .avatar-preview-error {
@@ -1232,7 +1127,7 @@
 }
 .message-roleplay > .opening-pager {
   grid-column: 1 / -1;
-  grid-row: 1;
+  grid-row: 2;
   align-self: end;
   grid-template-columns:
     var(--chat-roleplay-side-rail)
@@ -1291,25 +1186,6 @@
 }
 .opening-pager button:disabled { opacity: .42; }
 
-.opening-jump-backdrop {
-  position: fixed; inset: 0; z-index: 210; display: grid; place-items: center;
-  padding: 16px; background: rgba(20, 23, 28, .34); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
-}
-.opening-jump-dialog {
-  display: grid; gap: 12px; box-sizing: border-box; width: min(320px, calc(100vw - 32px)); padding: 18px;
-  border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface-raised);
-  color: var(--text); box-shadow: 0 18px 52px rgba(0, 0, 0, .22);
-}
-.opening-jump-dialog h2 { margin: 0; font-size: 16px; line-height: 22px; }
-.opening-jump-dialog label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
-.opening-jump-dialog input { width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 7px; outline: none; background: var(--control-bg); color: var(--text); font: inherit; font-variant-numeric: tabular-nums; }
-.opening-jump-dialog input:focus-visible { border-color: var(--text); box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 15%, transparent); }
-.opening-jump-dialog small { margin-top: -6px; color: #d94747; font-size: 12px; }
-.opening-jump-dialog > div { display: flex; justify-content: flex-end; gap: 8px; }
-.opening-jump-dialog button { min-width: 64px; height: 36px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 7px; background: transparent; color: var(--text); }
-.opening-jump-dialog button.primary { border-color: var(--blue); background: var(--blue); color: #fff; }
-.opening-jump-dialog button:disabled { opacity: .42; }
-
 .agent-process-inline {
   display: flex; align-items: center; gap: 6px; width: 100%; max-width: 100%; min-height: 24px;
   min-width: 0;
@@ -1339,68 +1215,10 @@
 }
 @media (prefers-reduced-motion: reduce) { .agent-process-inline-leading > svg { transition: none; } }
 
-.agent-tools-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 185;
-  display: grid;
-  place-items: center;
-  padding: 32px;
-  background: rgba(20, 23, 28, .28);
-  backdrop-filter: blur(2px);
-}
-
-.agent-tools-dialog {
-  --blue: var(--dsw-static-deepseek-500, #3d75e8);
-  display: grid;
-  grid-template-rows: 54px minmax(0, 1fr) 62px;
-  width: min(580px, calc(100vw - 64px));
-  height: min(720px, calc(100vh - 72px));
-  overflow: hidden;
-  border: 1px solid var(--line-strong);
-  border-radius: 18px;
-  background: var(--surface-raised);
-  color: var(--text);
-  box-shadow: 0 24px 72px rgba(0, 0, 0, .22);
-}
-
 .agent-tools-content {
   min-height: 0;
   overflow: hidden;
 }
-
-.agent-tools-dialog > header {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 36px;
-  align-items: center;
-  padding: 0 14px;
-  border-bottom: 1px solid var(--line);
-}
-
-.agent-tools-dialog > header h2 {
-  margin: 0;
-  overflow: hidden;
-  font-size: 16px;
-  font-weight: 700;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.agent-tools-dialog > header button {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text);
-}
-
-.agent-tools-dialog > header button:hover { background: var(--control-bg-hover); }
-.agent-tools-dialog > header svg { width: 18px; height: 18px; }
 
 .agent-tools-list {
   height: 100%;
@@ -1524,14 +1342,6 @@
 .agent-tool-members small { color: var(--muted); font-size: 11px; line-height: 1.45; }
 .agent-tool-members > p { margin: 0; padding: 17px 14px; color: var(--muted); font-size: 12px; }
 .agent-tool-source { font-size: 13px; }
-
-.agent-tools-dialog > footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 18px;
-  border-top: 1px solid var(--line);
-}
 
 .agent-tools-manage {
   display: inline-flex;
@@ -2063,10 +1873,6 @@
 }
 
 .chat-composer-region {
-  --dsh-composer-text-max-height: 336px;
-  position: sticky;
-  bottom: 0;
-  z-index: 7;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   flex: none;
@@ -2083,11 +1889,6 @@
 }
 
 .chat-panel.view-trajectory .chat-composer-region {
-  position: absolute;
-  z-index: 7;
-  right: var(--dsh-scrollbar-width, 8px);
-  bottom: 0;
-  left: 0;
   padding-top: 36px;
   background: linear-gradient(
     180deg,
@@ -2352,11 +2153,11 @@ button.chat-file-card:hover { border-color: var(--blue); }
 }
 
 @container chat-panel (max-width: 720px) {
-  .message-area.layout-roleplay {
+  .chat-panel.layout-roleplay .message-area {
     scrollbar-gutter: auto;
   }
 
-  .message-area.layout-roleplay [data-chat-column] > :is([data-slot="conversation.chat.flow"], [data-slot="eleckoi.roleplay.chat.flow"]) > [data-chat-flow-key]:not(:has(.message-flow)) {
+  .chat-panel.layout-roleplay .message-area [data-chat-column] > :is([data-slot="conversation.chat.flow"], [data-slot="eleckoi.roleplay.chat.flow"]) > [data-chat-flow-key]:not(:has(.message-flow)) {
     padding-inline-end: var(--chat-horizontal-padding, 10px);
   }
 
@@ -2504,15 +2305,6 @@ button.chat-file-card:hover { border-color: var(--blue); }
   .chat-header-new {
     display: none;
   }
-}
-
-.history-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: grid;
-  place-items: center;
-  background: rgba(0, 0, 0, 0.16);
 }
 
 .history-window {
@@ -2779,67 +2571,6 @@ button.chat-file-card:hover { border-color: var(--blue); }
   font-size: 13px;
 }
 
-.history-confirm-backdrop {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  display: grid;
-  place-items: center;
-  background: rgba(0, 0, 0, 0.12);
-}
-
-.history-confirm {
-  display: grid;
-  gap: 10px;
-  width: min(360px, calc(100% - 56px));
-  padding: 20px 22px 18px;
-  border: 1px solid #dddddd;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.18);
-}
-
-.history-confirm strong {
-  color: #111;
-  font-size: 17px;
-  font-weight: 650;
-}
-
-.history-confirm span {
-  color: #666;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.history-confirm div {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.history-confirm button {
-  min-width: 72px;
-  height: 32px;
-  padding: 0 14px;
-  border: 1px solid #d8d8d8;
-  border-radius: 7px;
-  background: #fff;
-  color: #333;
-  font-size: 14px;
-}
-
-.history-confirm button:hover {
-  background: #f2f2f2;
-}
-
-.history-confirm button.danger {
-  border-color: #d92d20;
-  background: #d92d20;
-  color: #fff;
-}
-
-.history-confirm button.danger:hover {
-  border-color: #c6261d;
-  background: #c6261d;
-}
+/* Product reading decoration on the real DSH content occurrence. */
+.native-roleplay-content [data-eleckoi-native-frame] > [data-phase] { flex: 1; min-height: 0; background: transparent; }
+.native-roleplay-content [data-conversation-content] { --chat-reading-width: var(--dsh-chat-content-width); --chat-composer-card-max-width: var(--dsh-composer-card-max-width); --chat-composer-side-clearance: var(--dsh-composer-side-clearance); }

@@ -1,9 +1,9 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { useMemo, useState } from 'react';
 import { DotsThree, PushPin, Trash } from '@phosphor-icons/react';
 import { MessagesPage } from '../../../../packages/client/features/dsh-client-conversations/src/page.jsx';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
-import { resolveChatWallpaper } from '../modules/appearance/index.js';
 import { characterAvatar, characterCover, characterName } from '../utils/characterDisplay.js';
 import { SidebarCharacterArtwork } from '../ui/ui/SidebarCharacterArtwork.jsx';
 import { MobileDialog, MobileHeader, MobileState, useMobileScroll } from './MobileChrome.jsx';
@@ -24,9 +24,7 @@ export function MobileMessagesPage() {
   const [error, setError] = useState(null);
   const characters = useMemo(() => new Map(chat.characters.items.map(item => [item.id, item])), [chat.characters.items]);
   if (view.route.kind === 'conversation') {
-    const wallpaper = resolveChatWallpaper({ character: chat.chatBackgroundCharacter, persona: chat.chatPersona,
-      globalWallpaper: view.appearance.globalChatWallpaper });
-    return <MobileConversationPage wallpaper={chat.sessionId || chat.chatCharacter?.character_id ? wallpaper : undefined}>
+    return <MobileConversationPage>
       <MessagesPage submitOnEnter={false} headerLeading={<button type="button" className="mobile-conversation-back" aria-label={tUi("返回")} onClick={view.goBack}><MobileBackIcon /></button>} />
     </MobileConversationPage>;
   }
@@ -42,19 +40,20 @@ export function MobileMessagesPage() {
       onPin={item => run(() => chat.togglePinChat(item.id))} onHide={setHideEntry} />
     {error && !menu && !hideEntry && <FailureAlert failure={error} className="mobile-inline-error" />}
     {picker && <MobileDialog title={tUi("选择角色")} onClose={() => setPicker(false)}>
-      <div className="mobile-picker-list">{chat.characters.items.map(item => <button type="button" key={item.id} disabled={view.routeBusy} onClick={async () => { setPicker(false); await view.openCharacterConversation(item.id); }}>
+      <div className="mobile-picker-list">{chat.characters.items.map(item => <Button type="button" key={item.id} disabled={view.routeBusy} onClick={async () => { setPicker(false); await view.openCharacterConversation(item.id); }}>
         <SidebarCharacterArtwork mode={view.appearance.sidebarCharacterArtwork} name={characterName(item, tUi)} cover={characterCover(item)} avatar={characterAvatar(item)} /><span>{characterName(item, tUi)}</span>
-      </button>)}</div>
-      {!chat.characters.items.length && <button type="button" onClick={() => { setPicker(false); view.selectPanel('character'); }}>{tUi("创建角色")}</button>}
+      </Button>)}</div>
+      {!chat.characters.items.length && <Button type="button" onClick={() => { setPicker(false); view.selectPanel('character'); }}>{tUi("创建角色")}</Button>}
     </MobileDialog>}
     {menu && <MobileDialog title={menu.character_name || tUi("会话操作")} busy={busy} onClose={() => setMenu(null)}>
-      <button type="button" disabled={busy} onClick={() => run(() => chat.togglePinChat(menu.id))}><PushPin size={22} />{chat.pinnedIds.includes(menu.id) ? tUi("取消置顶") : tUi("置顶会话")}</button>
-      <button type="button" disabled={busy} onClick={() => { setHideEntry(menu); setMenu(null); }}><Trash size={22} />{tUi("隐藏会话入口")}</button>
+      <Button type="button" disabled={busy} onClick={() => run(() => chat.togglePinChat(menu.id))}><PushPin size={22} />{chat.pinnedIds.includes(menu.id) ? tUi("取消置顶") : tUi("置顶会话")}</Button>
+      <Button type="button" disabled={busy} onClick={() => { setHideEntry(menu); setMenu(null); }}><Trash size={22} />{tUi("隐藏会话入口")}</Button>
       <FailureAlert failure={error} />
     </MobileDialog>}
-    {hideEntry && <MobileDialog title={tUi("删除消息入口？")} busy={busy} onClose={() => setHideEntry(null)}>
+    {hideEntry && <MobileDialog title={tUi("删除消息入口？")} busy={busy} onClose={() => setHideEntry(null)}
+      footer={<div className="product-dialog-actions"><Button variant="outline" disabled={busy} onClick={() => setHideEntry(null)}>{tUi("取消")}</Button>
+        <Button variant="primary" disabled={busy} onClick={() => run(async () => { await chat.hideChatEntry(hideEntry.id); setHideEntry(null); })}>{tUi("删除入口")}</Button></div>}>
       <p>{tUi("只会从消息列表隐藏这个入口；角色和聊天记录都会保留。")}</p>
-      <button type="button" disabled={busy} onClick={() => run(async () => { await chat.hideChatEntry(hideEntry.id); setHideEntry(null); })}>{tUi("删除入口")}</button>
       <FailureAlert failure={error} />
     </MobileDialog>}
   </div>;

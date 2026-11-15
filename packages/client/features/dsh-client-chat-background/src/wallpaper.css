@@ -1,0 +1,59 @@
+/* Display-only contribution within the native conversation's product seat. */
+.native-roleplay-content .chat-shell-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: var(--chat-wallpaper-canvas, #fff);
+  pointer-events: none;
+}
+.chat-shell-backdrop img {
+  position: absolute;
+  inset: -28px;
+  width: calc(100% + 56px);
+  height: calc(100% + 56px);
+  object-fit: cover;
+  opacity: var(--wallpaper-opacity, .72);
+  filter: blur(var(--wallpaper-blur, 2px));
+  user-select: none;
+}
+.chat-shell-backdrop > i {
+  position: absolute;
+  inset: 0;
+  background: rgb(var(--chat-wallpaper-scrim-rgb, 255 255 255) / var(--wallpaper-scrim, .5));
+}
+.chat-panel:has(.chat-shell-backdrop) {
+  --chat-wallpaper-canvas: #fff;
+  --chat-wallpaper-scrim-rgb: 255 255 255;
+  --chat-wallpaper-content-fg: #15171a;
+  --chat-wallpaper-content-shadow: transparent;
+  --composer-icon-fg: var(--chat-wallpaper-content-fg);
+  --composer-icon-shadow: var(--chat-wallpaper-content-shadow);
+  --bubble-fg: var(--chat-wallpaper-content-fg);
+  --bubble-fg-shadow: var(--chat-wallpaper-content-shadow);
+}
+.chat-panel:has(.chat-shell-backdrop) .chat-header { background: var(--chat); }
+:root[data-theme="dark"] .chat-panel:has(.chat-shell-backdrop) {
+  --chat-wallpaper-canvas: #171717;
+  --chat-wallpaper-scrim-rgb: 23 23 23;
+  --chat-wallpaper-content-fg: #f5f5f2;
+  --chat-wallpaper-content-shadow: rgba(0, 0, 0, .3);
+}
+/* Only the retained native root's paint becomes transparent, not its layout,
+   theme variables, menu surfaces or scroll/input ownership. */
+.native-roleplay-content:has(.chat-shell-backdrop) > [data-eleckoi-native-frame] > [data-phase] {
+  background: transparent;
+  z-index: 1;
+}
+.chat-panel[data-roleplay-backdrop] .chat-shell-backdrop img {
+  opacity: var(--roleplay-wallpaper-opacity);
+  filter: blur(var(--roleplay-wallpaper-blur));
+}
+.chat-panel[data-roleplay-backdrop] .chat-shell-backdrop > i {
+  background: var(--roleplay-wallpaper-wash);
+}
+.chat-panel:has(.chat-shell-backdrop) .message-area.layout-roleplay :is(.message-author, .bubble),
+.chat-panel:has(.chat-shell-backdrop) .message-area.layout-roleplay .bubble :is(strong, p, li, h1, h2, h3, h4, h5, h6) {
+  color: var(--chat-wallpaper-content-fg);
+  text-shadow: 0 0 1px var(--chat-wallpaper-content-shadow);
+}

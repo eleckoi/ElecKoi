@@ -156,8 +156,8 @@ describe('Android character and preset library contracts', () => {
     await input('分组丙'); await click('保存');
     expect(saveGroups).toHaveBeenLastCalledWith(['分组丙', '分组乙'], [{ characterId: 'character-a', group: '分组丙' }]);
     await click('删除分组 分组丙'); expect(saveGroups).toHaveBeenCalledTimes(1);
-    expect(document.querySelector('.mobile-library-dialog').textContent).toContain('角色卡保留');
-    await click('删除', document.querySelector('.mobile-library-dialog'));
+    expect(document.querySelector('[role="dialog"]').textContent).toContain('角色卡保留');
+    await click('删除', document.querySelector('[role="dialog"]'));
     expect(saveGroups).toHaveBeenLastCalledWith(['分组乙'], [{ characterId: 'character-a', group: '' }]);
     expect(view.chat.characters.items).toHaveLength(3);
   });
@@ -180,7 +180,7 @@ describe('Android character and preset library contracts', () => {
   it('keeps failed new groups and member moves available for retry', async () => {
     await mount(); await click('展开分组'); await click('新建'); await input('分组丙');
     saveGroups.mockRejectedValueOnce(new Error('新建写入失败')); await click('保存');
-    expect(document.querySelector('.mobile-library-name').value).toBe('分组丙');
+    expect(document.querySelector('input[aria-label="名称"]').value).toBe('分组丙');
     await click('保存'); expect(saveGroups).toHaveBeenLastCalledWith(['分组甲', '分组乙', '分组丙'], []);
     await click('全部', document.querySelector('.mobile-character-library-group-panel'));
     await click('角色操作'); await click('移动角色'); await click('合成角色甲'); await click('移动到分组');
@@ -201,11 +201,11 @@ describe('Android character and preset library contracts', () => {
     await click('批量删除'); await click('全选');
     expect(document.querySelector('.mobile-selection-bar').textContent).toContain('2 项');
     expect(document.querySelector('.mobile-preset-open').disabled).toBe(true);
-    await click('删除'); await click('删除', document.querySelector('.mobile-library-dialog'));
+    await click('删除'); await click('删除', document.querySelector('[role="dialog"]'));
     expect(remove.mock.calls.map(([id]) => id)).toEqual(['preset-a', 'preset-b']);
     expect(document.querySelector('.mobile-selection-bar').textContent).toContain('1 项');
-    expect(document.querySelector('.mobile-library-dialog [role="alert"]').textContent).toContain('操作失败，请重试。');
-    await click('删除', document.querySelector('.mobile-library-dialog'));
+    expect(document.querySelector('[role="dialog"] [role="alert"]').textContent).toContain('操作失败，请重试。');
+    await click('删除', document.querySelector('[role="dialog"]'));
     expect(remove.mock.calls.map(([id]) => id)).toEqual(['preset-a', 'preset-b', 'preset-b']);
     expect(document.querySelector('.mobile-library-selection-header')).toBeNull();
   });

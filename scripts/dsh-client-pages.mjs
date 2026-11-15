@@ -1,4 +1,5 @@
 export const dshClientPages = [
+  { key: 'chat-background', package: 'client/features/dsh-client-chat-background', entry: 'page.jsx', component: 'ChatWallpaper' },
   { key: 'creator-studio', package: 'client/features/dsh-client-creator-studio', entry: 'page.jsx', component: 'CreatorStudioPage' },
   { key: 'auto-illustration', package: 'client/features/dsh-auto-illustration', entry: 'page.jsx', component: 'AutoIllustrationPage' },
   { key: 'mobile', package: 'client/mobile/dsh-client-mobile', entry: 'page.jsx', component: 'MobileWindow' },

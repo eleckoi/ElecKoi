@@ -6,7 +6,6 @@ import { useEditorPresentation } from './EditorPresentationContext.jsx';
 import { EditorDirectoryHeading } from './EditorDirectoryHeading.jsx';
 import './editor-collection-controls.css';
 import './editor-collection-material.css';
-import '../styles/dsh-editor-controls.css';
 
 export function EditorCollectionSurface({ children, grouped = false }) {
   return <div className={`editor-collection-surface${grouped ? ' is-grouped' : ''}`}>{children}</div>;

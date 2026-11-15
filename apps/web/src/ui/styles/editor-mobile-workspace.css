@@ -32,6 +32,7 @@
 .mobile-editor-document .opening-writing { min-height: 320px; }
 .mobile-editor-document .setting-library-content-field { min-height: 0; }
 .mobile-editor-document .vv-properties .vv-control { min-width: 0; }
+.mobile-editor-document .vv-properties { flex-basis: auto; }
 .mobile-editor-document .setting-settings-board { max-height: none; overflow: visible; }
 .mobile-editor-document .setting-keywords-field { min-width: 0; }
 .mobile-editor-document .setting-property-row:has(> button[role=switch]) { min-height: 44px; }

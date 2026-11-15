@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { CreatorStudioConversation } from '../../src/modules/creatorStudio/components/CreatorStudioConversation.jsx';
 import { MobileCreatorStudioConversation } from '../../src/mobile/MobileCreatorStudioConversation.jsx';
+import { renderNativeConversationContent } from '../helpers/NativeConversationPresentation.jsx';
 
 let root, container;
 beforeEach(() => {
@@ -31,6 +32,7 @@ function fixture() {
     useConversationViews: select => select([{ id: 'chat', label: '对话' }, { id: 'trajectory', label: '轨迹' }]),
     useEntryPins: select => select([]), useEntryActions: select => select(false), setPinned: vi.fn(),
     actions: {}, openView: vi.fn(), selectView: vi.fn(), renderHeaderSlot: () => null,
+    renderFactorySlot: (_name, owner) => renderNativeConversationContent(owner.presentation),
     renderSlot: (name, owner) => name === 'eleckoi.creator-studio.composer.bar' ? owner.modelAccessory : null,
     renderSlotChain: (_name, _owner, options) => options.fallback };
   return { props, models, model, configs, session };

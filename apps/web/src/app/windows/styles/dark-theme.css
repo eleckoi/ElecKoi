@@ -32,9 +32,7 @@
   .history-item,
   .history-item-main,
   .history-item span,
-  .history-empty strong,
-  .history-confirm strong
-) {
+  .history-empty strong) {
   color: var(--text);
 }
 
@@ -89,8 +87,6 @@
   .conversation-character-picker,
   .conversation-context-menu,
   .character-group-context-menu,
-  .character-group-dialog,
-  .model-provider-delete-dialog,
   .model-delete-popover,
   .model-picker-menu,
   .model-manual-add,
@@ -115,10 +111,9 @@
   .model-picker-value,
   .model-picker-shell > button:not(.model-picker-value),
   .model-manual-add button,
-  .character-group-dialog input,
   .history-confirm button,
   .chat-empty-guide button
-) {
+):not([data-dsh-control]) {
   border-color: var(--line-strong);
   background: var(--field-bg);
   color: var(--text);
@@ -135,9 +130,7 @@
   .history-titlebar button:hover,
   .history-item:hover,
   .history-item.active,
-  .history-item-delete:hover,
-  .history-confirm button:hover
-) {
+  .history-item-delete:hover) {
   background: var(--control-bg-hover);
 }
 
@@ -241,13 +234,13 @@
   color: var(--muted);
 }
 
-:root[data-theme="dark"] :is(.model-icon-button, .model-fetch-button, .model-add-button, .model-save-actions > button.model-cancel-button) {
+:root[data-theme="dark"] :is(.model-icon-button, .model-fetch-button, .model-add-button, .model-save-actions > button.model-cancel-button):not([data-dsh-control]) {
   border-color: var(--line-strong);
   background: var(--surface-raised);
   color: var(--text);
 }
 
-:root[data-theme="dark"] :is(.model-icon-button:disabled, .model-fetch-button:disabled, .model-add-button:disabled) {
+:root[data-theme="dark"] :is(.model-icon-button:disabled, .model-fetch-button:disabled, .model-add-button:disabled):not([data-dsh-control]) {
   background: var(--field-disabled);
   color: var(--soft-text);
 }

@@ -5,6 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { MobileCreatorStudioConversation } from '../../src/mobile/MobileCreatorStudioConversation.jsx';
 import { CreatorStudioConversation } from '../../src/modules/creatorStudio/components/CreatorStudioConversation.jsx';
+import { renderNativeConversationContent } from '../helpers/NativeConversationPresentation.jsx';
 
 vi.stubGlobal('React', React); vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
 let root, node, header;
@@ -45,6 +46,7 @@ async function mount(initialView = 'chat', Component = MobileCreatorStudioConver
     useEntryPins: select => select(useSyncExternalStore(subscribe, pinSnapshot)), useEntryActions: select => select(true), setPinned: vi.fn(),
     actions: { completeViewRequest }, openView, selectView: id => openView(id),
     renderHeaderSlot,
+    renderFactorySlot: (_name, owner) => renderNativeConversationContent(owner.presentation),
     renderSlot, renderSlotChain: (_name, _owner, options) => options.fallback };
   node = document.createElement('div'); document.body.append(node); root = createRoot(node);
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });

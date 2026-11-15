@@ -86,6 +86,7 @@ export const agentPresetSchema = z.object({
   groups: z.array(settingLibraryGroupSchema),
   promptPositions: z.array(settingLibraryPromptPositionSchema),
   toolGroups: z.array(agentToolGroupSchema),
+  basicToolGroups: z.array(agentToolGroupSchema).optional(),
   subagentModelSelection: z.object({ configId: z.string(), model: z.string() }).optional(),
   toolModelConfigIds: z.record(z.string(), z.string()).optional(),
   autoIllustration: autoIllustrationSchema.optional(),

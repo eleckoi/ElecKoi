@@ -50,7 +50,6 @@
   ],
   "presetComposition": "agent-preset-template/agent.cordis.yml",
   "presetLocalPlugins": [
-    "./uploaded-file-tools.mjs",
     "./roleplay-plan-tool.mjs",
     "./setting-library-tools.mjs",
     "./variable-tools.mjs"

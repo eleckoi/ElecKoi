@@ -83,7 +83,9 @@ describe("chat display preview", () => {
     });
     const click = label => act(() => document.querySelector(`[aria-label="${label}"]`).click());
     expect(document.querySelector('[data-group="layout-style"]')).toBeTruthy();
-    expect([...document.querySelectorAll('.ec-settings-list [data-group]')].at(-1).dataset.group).toBe('layout-style');
+    expect(document.querySelector('.ec-settings-list [data-group]').dataset.group).toBe('layout-style');
+    expect(document.querySelector('[data-group="layout-style"] summary').textContent).toContain('酒馆风格');
+    expect([...document.querySelectorAll('.ec-settings-list [data-group]')].at(-1).dataset.group).toBe('behavior');
     expect(document.querySelector('[aria-label="对话底板"]').checked).toBe(false);
     expect(document.querySelector('[aria-label="消息气泡"]').checked).toBe(false);
     click('对话底板');
@@ -98,6 +100,8 @@ describe("chat display preview", () => {
     expect(preferences.roleplay_style.user_bubble_tint).toBeNull();
     act(() => document.querySelectorAll('.ec-layout-choice')[1].click());
     expect(document.querySelector('[data-group="layout-style"]')).toBeNull();
+    expect(document.querySelector('.ec-settings-list [data-group]').dataset.group).toBe('bubble');
+    expect(document.querySelector('[data-group="bubble"] summary').textContent).toContain('Agent 气泡显示');
     expect(document.querySelector('.chat-display-preview').hasAttribute('data-roleplay-backdrop')).toBe(false);
     expect(document.querySelector('.chat-display-preview').style.getPropertyValue('--rp-backdrop-blur')).toBe('');
     act(() => document.querySelectorAll('.ec-layout-choice')[0].click());

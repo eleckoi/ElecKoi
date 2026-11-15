@@ -205,6 +205,14 @@ describe('DSH subagent runtime context inheritance', () => {
     }
     let resume, rewrite, dispose
     try {
+      await persistence.plugin(SessionProjectionRegistry)
+      await persistence.plugin(AgentRegistry)
+      const factory = ctx.agents
+      persistence.agents.setFactory({
+        createAgent: (_owner, options) => factory.create(options),
+        resume: (_owner, options) => factory.resume(options),
+      })
+      ctx.agents = persistence.agents
       await persistence.plugin(JsonlSessionPersistence, { root: join(fixture.directory, 'sessions'), compression: 'none' })
       const session = Session.create(id)
       session.append('user/message', createUserMessage({ content: [{ type: 'text', text: 'Synthetic input' }], source: { kind: 'user' } }), { surfaceOp: 'append' })
@@ -271,6 +279,8 @@ describe('DSH subagent runtime context inheritance', () => {
     })
     const tracked = []
     const disposeTracking = installAgentHandleTracking(ctx.agents, handle => tracked.push(handle), (_id, action) => action())
+    expect(Object.hasOwn(ctx.agents, 'create')).toBe(false)
+    expect(Object.hasOwn(ctx.agents, 'resume')).toBe(false)
     const caller = ctx.extend()
 
     await caller.agents.create({ sessionId: 'created-session' })
@@ -311,7 +321,7 @@ describe('DSH subagent runtime context inheritance', () => {
       inject: vi.fn(() => ({ dispose: vi.fn() })),
       provide: vi.fn(),
       on: vi.fn(),
-      agents: { create: originalCreate, resume: originalResume, get: vi.fn(() => agent) },
+      agents: { create: originalCreate, resume: originalResume, get: vi.fn(() => agent), admitActivation: vi.fn(() => () => {}) },
       agentDefaultModel: { currentSelection: () => ({ provider: 'provider-main', model: 'model-main' }) },
       llm: { resolveModelInfo: vi.fn(async () => ({})) },
       settings: { describe: () => [] },
@@ -331,8 +341,10 @@ describe('DSH subagent runtime context inheritance', () => {
     expect(ctx.provide).toHaveBeenCalledWith('eleckoiPresetRegistrar', expect.any(Object))
     runtimeContexts.set('orphan-session', fixture.contexts.get('root-session'))
     await agentCreatedListener(ctx)({ agent })
+    // Restoring a page preserves the saved selection; model resolution waits for an actual request.
     expect(JSON.parse(readFileSync(join(fixture.snapshotRoot, 'orphan-session.json'), 'utf8')).model)
-      .toMatchObject({ configId: 'provider-main', provider: 'provider-main', model: 'model-main' })
+      .toEqual({ provider: 'legacy-label', model: 'model-main' })
+    expect(ctx.llm.resolveModelInfo).not.toHaveBeenCalled()
     expect(ctx.agentPresets.register.mock.calls.map(([definition]) => definition.id))
       .toEqual(['eleckoi-active'])
     expect(originalCreate).not.toHaveBeenCalled()
@@ -377,7 +389,7 @@ describe('DSH subagent runtime context inheritance', () => {
       inject: vi.fn(() => ({ dispose: vi.fn() })),
       provide: vi.fn(),
       on: vi.fn(() => () => undefined),
-      agents: { create: originalCreate, resume: originalResume },
+      agents: { create: originalCreate, resume: originalResume, admitActivation: vi.fn(() => () => {}) },
       sessionController: { inspect: vi.fn(async () => ({ meta: {}, events: [] })) },
       agentPresets: { mount: vi.fn(), register: vi.fn(async () => async () => undefined) }
     }
@@ -446,7 +458,8 @@ describe('DSH subagent runtime context inheritance', () => {
       on: vi.fn(() => () => undefined),
       agents: {
         create: vi.fn(async () => { throw failure }),
-        resume: vi.fn()
+        resume: vi.fn(),
+        admitActivation: vi.fn(() => () => {})
       },
       sessionController: { inspect: vi.fn(async () => ({ meta: {}, events: [] })) },
       agentPresets: { mount: vi.fn(), register: vi.fn(async () => async () => undefined) }

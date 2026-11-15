@@ -28,7 +28,7 @@ export const AGENT_TOOL_GROUPS: ReadonlyArray<Omit<AgentToolGroup, 'enabled' | '
     'request_plugin_install', 'list_available_plugins_to_install'
   ]),
   group('builtin:workspace', '本地工作区', '执行命令并修改角色或创作工作区中的文件', [
-    'shell_command', 'bash', 'pwsh', 'read', 'edit', 'write', 'exec_command', 'write_stdin', 'apply_patch',
+    'shell_command', 'bash', 'pwsh', 'edit', 'write', 'exec_command', 'write_stdin', 'apply_patch',
     'request_permissions', 'working_directory'
   ]),
   group('builtin:web', '联网搜索', '使用 DeepSeek 或 Tavily 搜索网页并读取内容', [

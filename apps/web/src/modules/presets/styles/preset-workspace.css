@@ -45,7 +45,8 @@
 .preset-prompt-workspace .preset-prompt-tree { flex: 1; min-height: 0; overflow: auto; padding: 0; }
 .preset-tools-workspace .preset-tools-list { flex: 1; min-height: 0; overflow: auto; padding: 0; }
 .preset-tools-workspace .preset-tools-section-heading { padding: 4px 8px 10px; }
-.preset-tools-workspace .preset-tool-row { box-sizing: border-box; width: 100%; grid-template-columns: minmax(0,1fr) 36px; gap: 12px; padding-right: 12px; margin-bottom: 8px; border: 1px solid var(--dsw-alias-border-l2,var(--line-strong)); border-radius: 10px; background: transparent; }
+.preset-tools-workspace .preset-tool-row { box-sizing: border-box; width: 100%; grid-template-columns: minmax(0,1fr) 36px; gap: 12px; padding-left: 0; padding-right: 12px; margin-bottom: 8px; border: 1px solid var(--dsw-alias-border-l2,var(--line-strong)); border-radius: 10px; background: transparent; }
+.preset-tools-workspace .preset-tool-row.is-extra { grid-template-columns: minmax(0,1fr) auto; }
 .preset-tools-workspace .preset-tool-row:hover { background: var(--dsw-alias-interactive-bg-hover,var(--active)); }
 .preset-tools-workspace .preset-tool-row.is-selected { border-color: color-mix(in srgb,var(--blue) 28%,var(--dsw-alias-border-l2,var(--line-strong))); background: var(--active); }
 .preset-tools-workspace .preset-tool-row.is-plugin { grid-template-columns: minmax(0,1fr); padding-right: 0; }

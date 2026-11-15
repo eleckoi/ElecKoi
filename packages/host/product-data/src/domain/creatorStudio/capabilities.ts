@@ -158,6 +158,11 @@ export function creatorCapabilities(data: Context['eleckoiProductData']): Creato
         return execute(characterId, schema.parse(input), signal)
       } })
   }
+  operation('character', 'list', '发现本机角色列表，可按名称搜索', 'read', z.object({ query: z.string().optional() }).strict(), (_characterId, input) => {
+    const query = input.query?.trim().toLocaleLowerCase()
+    return { items: data.readCharacters().items.filter(item => !query || (item.name ?? '').toLocaleLowerCase().includes(query))
+      .map(({ id, name, group }) => ({ id, name, group })) }
+  }, 'explicit-scope')
   operation('character', 'create', '新建空角色并设为当前工作室编辑目标，默认未分组', 'write', z.object({
     name: z.string().trim().min(1).describe('新角色名称；只创建空白资料，后续通过创作能力补充内容。'),
     group: z.string().optional().describe('角色列表的可选分组名称；默认省略或传空字符串，创建在未分组。仅在用户要求分组时填写，不按角色题材、世界观或名称自行编造分组，也无需为此询问用户。'),

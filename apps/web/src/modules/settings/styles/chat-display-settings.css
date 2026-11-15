@@ -776,6 +776,7 @@
 .chat-display-design .ec-chat-window .message-area { padding: 22px 19px; overflow: visible; }
 .chat-display-design .ec-chat-window .message-roleplay { padding: 0; }
 .chat-display-design .ec-chat-window:is([data-roleplay-backdrop], [data-roleplay-bubbles]) .message-roleplay { padding-block: 10px; }
+.chat-display-design .ec-chat-window[data-roleplay-bubbles] .message-roleplay { padding-inline: 10px; }
 .chat-display-design .ec-chat-window:is([data-roleplay-backdrop], [data-roleplay-bubbles]) .message-roleplay:has(> .message-floor) { min-height: calc(var(--chat-roleplay-leading-stack-height) + 20px); }
 .chat-display-design .ec-chat-window .message-roleplay .message-author { font-weight: 600; color: var(--ec-ink); }
 .chat-display-design .ec-chat-window .message-roleplay .message-timestamp { font-size: 11px; color: var(--ec-secondary); opacity: 1; }

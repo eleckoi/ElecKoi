@@ -1,7 +1,7 @@
 import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
-import { SystemBarOverlay } from '../ui/ui/SystemBarOverlay.jsx';
+import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../ui/styles/product-dialogs.css';
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import { X } from '@phosphor-icons/react';
 import { DshSearchIcon } from '../ui/icons/dshComposerIcons.jsx';
 import { MobileAddCircleIcon, MobileBackIcon, MobileSidebarIcon } from './MobileIcons.jsx';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
@@ -38,28 +38,12 @@ export function useMobileBack(action, enabled = true) {
   useEffect(() => enabled ? view.registerBackHandler(() => actionRef.current()) : undefined, [enabled, view.registerBackHandler]);
 }
 
-export function MobileDialog({ title, children, onClose, busy = false, className = '', systemBarSurface = false }) {
+export function MobileDialog({ title, children, onClose, busy = false, className = '', footer }) {
   const tUi = useProductTranslation();
-  const ref = useRef(null);
-  useMobileBack(() => { if (!busy) onClose(); return true; });
-  useEffect(() => {
-    const previous = document.activeElement;
-    ref.current?.querySelector('input, button, select, textarea')?.focus();
-    return () => { if (previous?.isConnected) previous.focus(); };
-  }, []);
-  function trap(event) {
-    if (event.key !== 'Tab') return;
-    const controls = [...ref.current.querySelectorAll('button:not(:disabled),input:not(:disabled),select,textarea,[tabindex="0"]')];
-    const first = controls[0], last = controls.at(-1);
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-    if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-  }
-  return <SystemBarOverlay className={`mobile-dialog-overlay ${className}`} systemBarSurfaceRef={systemBarSurface ? ref : undefined} onClick={() => !busy && onClose()}>
-    <section ref={ref} className="mobile-dialog" role="dialog" aria-modal="true" data-mobile-back-owner="dialog" aria-label={title} onKeyDown={trap} onClick={event => event.stopPropagation()}>
-      <header><h2>{title}</h2><button type="button" aria-label={tUi("关闭")} disabled={busy} onClick={onClose}><X size={22} /></button></header>
-      {children}
-    </section>
-  </SystemBarOverlay>;
+  return <Modal open title={title} closeLabel={tUi('关闭')} onClose={() => { if (!busy) onClose(); }}
+    className="product-dialog" contentClassName="product-dialog-content" footer={footer}>
+    <div className={`mobile-dialog-body ${className}`}>{children}</div>
+  </Modal>;
 }
 
 export function useMobileScroll(key, enabled = true) {

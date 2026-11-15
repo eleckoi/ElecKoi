@@ -1,4 +1,6 @@
 {
+  "默认启用": "Activé par défaut",
+  "基础工具": "Outils de base",
   "角色信息": "Informations du personnage",
   "作者信息": "Informations de l’auteur",
   "作者名字": "Nom de l’auteur",
@@ -466,7 +468,8 @@
   "间距与留白": "Espacement",
   "文本颜色": "Couleur du texte",
   "富消息": "Messages enrichis",
-  "布局独有风格": "Style de la disposition",
+  "酒馆风格": "Style taverne",
+  "Agent 气泡显示": "Bulles Agent",
   "有气泡": "Il y a des bulles",
   "无气泡": "Pas de bulles d'air",
   "生成统计": "Générer des statistiques",

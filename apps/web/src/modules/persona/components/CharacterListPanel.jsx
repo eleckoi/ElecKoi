@@ -2,7 +2,7 @@ import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.js
 import { useEffect, useMemo, useState } from "react";
 import { Menu } from '@deepseek-ai/dsh-client-ui-primitives';
 import { PencilIcon, PlusIcon, CharacterManagerIcon, ImportIcon, ExportIcon, TrashIcon } from "../../../ui/icons/index.jsx";
-import { AddGroupDialog } from "./AddGroupDialog.jsx";
+import { GroupNameDialog } from "../../../ui/ui/GroupNameDialog.jsx";
 import { CharacterGroupList } from "./CharacterGroupList.jsx";
 import { CharacterImportDialog } from "./CharacterImportDialog.jsx";
 import { DeleteCharacterDialog } from "./DeleteCharacterDialog.jsx";
@@ -321,7 +321,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
       ) : null}
 
       {groupDialogOpen ? (
-        <AddGroupDialog
+        <GroupNameDialog
           title={groupDialogMode === "rename" ? tUi("重命名该组") : tUi("添加分组")}
           value={newGroupName}
           onChange={setNewGroupName}

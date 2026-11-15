@@ -4,7 +4,6 @@
 
 @import "./tokens.css";
 @import "./dsh-theme-bridge.css";
-@import "../../../ui/styles/dsh-editor-controls.css";
 @import "./base.css";
 @import "../shell/styles/titlebar.css";
 @import "../shell/styles/client-shell.css";
@@ -41,8 +40,7 @@
 @import "../../../modules/chat/styles/chat-background.css";
 @import "../../../ui/styles/avatar.css";
 @import "../../../ui/styles/avatar-crop.css";
-@import "../../../ui/styles/unsaved-changes.css";
-@import "../../../ui/styles/confirmation-dialog.css";
+@import "../../../ui/styles/product-dialogs.css";
 @import "../../../ui/styles/avatar-slots.css";
 @import "../../../ui/styles/app-error-dialog.css";
 @import "../../../ui/styles/failure-alert.css";

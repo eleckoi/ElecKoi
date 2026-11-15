@@ -1,11 +1,12 @@
 import { productLocaleTag } from '../../../app/i18n/productCopy.js';
 import { sourceText } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
+import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import { ConfirmationDialog } from '../../../ui/ui/ConfirmationDialog.jsx';
+import '../../../ui/styles/product-dialogs.css';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
 import { useDshDisplayPreferences } from "../../settings/index.js";
-import { HistoryExportIcon, HistoryImportIcon, TrashIcon, XIcon } from "../../../ui/icons/index.jsx";
+import { HistoryExportIcon, HistoryImportIcon, TrashIcon } from "../../../ui/icons/index.jsx";
 import { Avatar } from "../../../ui/ui/Avatar.jsx";
 import { DshSearchField } from "../../../ui/ui/DshSearchField.jsx";
 import { applyChatHistoryPolicy, exportChatHistory, importChatHistory } from "../api/chatApi.js";
@@ -44,7 +45,6 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
   const [transferError, setTransferError] = useState(null);
   const [transferring, setTransferring] = useState(false);
   const importInput = useRef(null);
-  const confirmRef = useRef(null);
   const currentSession = (sessions || []).find((item) => item.id === sessionId);
   const currentCharacterId = currentSession?.character_id || chatCharacter?.character_id || "";
   const characterName = currentSession?.character_name || chatCharacter?.assistant_name || chatCharacter?.character_name || "";
@@ -54,12 +54,7 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
     setSaveMode(preferenceSnapshot.ui?.history_save_mode === "recent10" ? "recent10" : "all");
   }, [open, preferenceSnapshot.status, preferenceSnapshot.ui]);
 
-  useEffect(() => {
-    if (!mobile || !confirmAction) return undefined;
-    const previous = document.activeElement;
-    confirmRef.current?.querySelector('button')?.focus({ preventScroll: true });
-    return () => { if (previous?.isConnected) previous.focus({ preventScroll: true }); };
-  }, [mobile, confirmAction]);
+
 
   const filteredGroups = useMemo(() => {
     const key = keyword.trim().toLowerCase();
@@ -258,32 +253,12 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
           ))}
         </div>
 
-        {confirmAction ? (
-          <div className="history-confirm-backdrop" onMouseDown={() => setConfirmAction(null)}>
-            <section ref={confirmRef} className="history-confirm" role="alertdialog" aria-modal="true" aria-label={confirmAction.type === 'policy' ? tUi("切换保留策略") : tUi("删除历史对话")} onMouseDown={(event) => event.stopPropagation()}>
-              <strong>{confirmAction.type === "policy" ? tUi("切换保留策略") : tUi("删除历史对话")}</strong>
-              <span>
-                {confirmAction.type === "policy"
-                  ? tUi("仅保留最新 10 条会删除更早的历史记录，删除后无法恢复。")
-                  : tUi("这条历史记录会被删除，删除后无法恢复。")}
-              </span>
-              <div>
-                <button type="button" onClick={() => setConfirmAction(null)}>
-                  {tUi("取消")}</button>
-                <button className="danger" type="button" onClick={confirmPendingAction}>
-                  {confirmAction.type === "policy" ? tUi("确认切换") : tUi("确认删除")}
-                </button>
-              </div>
-            </section>
-          </div>
-        ) : null}
+        <ConfirmationDialog open={Boolean(confirmAction)} title={confirmAction?.type === 'policy' ? tUi('切换保留策略') : tUi('删除历史对话')}
+          description={confirmAction?.type === 'policy' ? tUi('仅保留最新 10 条会删除更早的历史记录，删除后无法恢复。') : tUi('这条历史记录会被删除，删除后无法恢复。')}
+          confirmLabel={confirmAction?.type === 'policy' ? tUi('确认切换') : tUi('确认删除')} destructive onCancel={() => setConfirmAction(null)} onConfirm={confirmPendingAction} />
   </>;
   if (mobile) return <MobileConversationOverlay title={characterName || tUi("聊天记录")} subtitle={characterName ? tUi("聊天记录") : undefined} className="mobile-history"
     onClose={onClose} onBack={confirmAction ? () => setConfirmAction(null) : undefined} beforeClose={() => { if (confirmAction) { setConfirmAction(null); return false; } return true; }}>{body}</MobileConversationOverlay>;
-  return createPortal(<SystemBarOverlay className="history-overlay" onMouseDown={onClose}>
-    <section className="history-window" onMouseDown={event => event.stopPropagation()}>
-      <header className="history-titlebar"><strong>{characterName}</strong><button type="button" onClick={onClose} title={tUi("关闭")}><XIcon /></button></header>
-      {body}
-    </section>
-  </SystemBarOverlay>, document.body);
+  return <Modal open title={tUi('聊天记录')} description={characterName || undefined} closeLabel={tUi('关闭')} onClose={onClose}
+    className="product-dialog history-modal" contentClassName="product-dialog-content">{body}</Modal>;
 }

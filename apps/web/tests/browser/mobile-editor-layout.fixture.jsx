@@ -11,7 +11,7 @@ import { PresetToolsEditor } from '../../src/modules/presets/components/PresetTo
 import { DynamicSettingsPanel } from '../../src/modules/settingLibraries/components/DynamicSettingsPanel.jsx';
 import { createEntryDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
 import { EditorPresentationContext } from '../../src/ui/ui/EditorPresentationContext.jsx';
-import { Input, Button } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Input, Button, Switch } from '@deepseek-ai/dsh-client-ui-primitives';
 import { editorCollectionService } from '../helpers/editorCollectionServices.js';
 import '../../src/app/windows/styles/tokens.css';
 import '../../src/app/windows/styles/base.css';
@@ -46,18 +46,25 @@ function treeService(kind) {
   return { getSnapshot: () => ({ status: 'ready', value }), subscribe: () => () => {}, read: async () => value, saveViewState: async () => {} };
 }
 function Fixture() {
+  const [subpage, setSubpage] = useState(null);
   const [address, setAddress] = useState({ kind: 'regex', scope: 'character', compact: true });
   const { kind, scope, compact } = address;
   const service = useMemo(() => ['settings', 'variables', 'merge', 'branches'].includes(kind) ? treeService(kind)
     : ['prompts', 'tools'].includes(kind) ? null : editorCollectionService(kind, scope), [kind, scope]);
-  const presentation = useMemo(() => ({ compact }), [compact]);
+  const presentation = useMemo(() => ({ compact, registerSubpage: page => {
+    setSubpage(page);
+    return () => setSubpage(current => current === page ? null : current);
+  } }), [compact]);
   const ownerProps = { [scope === 'preset' ? 'presetId' : 'characterId']: `synthetic-${scope}` };
   return <>
-    <div className="setting-library-save-control" data-official-controls style={{ position: 'fixed', top: -2000 }}><Input /><Button variant="outline">操作</Button><Button variant="primary">操作</Button></div>
+    <div className="setting-library-save-control" data-official-controls style={{ position: 'fixed', top: -2000 }}><Input /><Button variant="outline">操作</Button><Button variant="primary">操作</Button><Switch checked onChange={() => {}} label="官方开启参考" /><Switch checked={false} onChange={() => {}} label="官方关闭参考" />
+      <span data-official-surface style={{ background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)' }} />
+      <span data-official-active style={{ background: 'var(--dsw-alias-interactive-bg-active)' }} />
+    </div>
     <nav hidden>{kinds.flatMap(kind => ['character', 'preset'].flatMap(scope => [true, false].map(compact =>
       <button key={`${kind}:${scope}:${compact}`} data-editor={`${kind}:${scope}:${compact}`} onClick={() => setAddress({ kind, scope, compact })}>fixture</button>)))}</nav>
     <main data-current={`${kind}:${scope}:${compact}`} className={compact ? 'mobile-shell' : ''} style={{ height: '100vh', overflow: 'hidden' }}>
-      <header style={{ flex: 'none', height: 60, padding: 16 }}>编辑{scope === 'preset' ? '预设' : '角色'}</header>
+      <header style={{ flex: 'none', height: 60, padding: 16 }}>{subpage && <button data-fixture-back onClick={subpage.back}>返回</button>}编辑{scope === 'preset' ? '预设' : '角色'}</header>
       <div className={compact ? scope === 'preset' ? 'mobile-preset-editor' : 'mobile-character-editor' : ''}
         style={{ height: 'calc(100vh - 60px)', minHeight: 0, marginLeft: compact && scope === 'character' ? 76 : 0 }}>
         <EditorPresentationContext.Provider key={`${kind}:${scope}:${compact}`} value={presentation}>

@@ -349,7 +349,7 @@ it.each(['desktop', 'android'])('%s keeps Studio APIs and model turns available 
   expect(catalog).toHaveLength(7)
 }, 120_000)
 
-it.each(['desktop', 'android'])('%s reports an invalid Creator preset without losing the Studio API and recovers after a preset correction', async platform => {
+it.each(['desktop', 'android'])('%s omits roleplay-only groups from Creator execution without blocking Studio or changing saved choices', async platform => {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-studio-invalid-preset-'))
   cleanups.push(() => rm(root, { recursive: true, force: true, maxRetries: 3 }))
   let f = await start(platform, root)
@@ -370,17 +370,15 @@ it.each(['desktop', 'android'])('%s reports an invalid Creator preset without lo
   ctx.llm.registerAdapter(['synthetic-invalid-preset'], new Adapter())
   await ctx.agentDefaultModel.saveSelection({ provider: 'synthetic-invalid-preset', model: 'synthetic-invalid-preset' })
   await expect(invoke('list')).resolves.toEqual([expect.objectContaining({ sessionId: existing.sessionId })])
-  const configurationError = {
-    code: 'eleckoi/state/precondition',
-    message: '创作预设中的角色对话工具不适用于 AI 创作工作室，请使用创作能力。',
-  }
-  await expect(invoke('create', { characterId: '' })).rejects.toMatchObject(configurationError)
-  await expect(invoke('open', { sessionId: existing.sessionId })).rejects.toMatchObject(configurationError)
+  const unrelatedCreated = await invoke('create', { characterId: '' })
+  expect(await invoke('open', { sessionId: existing.sessionId })).toMatchObject({ sessionId: existing.sessionId })
   const invalid = ctx.eleckoiProductData.readAgentPreset(preset.id)
+  expect(invalid.toolGroups.find(group => group.id === 'builtin:variables')).toMatchObject({ included: true, enabled: true })
+  expect(ctx.agents.get(existing.sessionId).ctx.tools.schemas().map(tool => tool.name)).not.toContain('eleckoi_read_variables')
   ctx.eleckoiProductData.saveAgentPreset({ ...invalid, toolGroups: preset.toolGroups }, invalid.regexRules)
   expect(await invoke('open', { sessionId: existing.sessionId })).toMatchObject({ sessionId: existing.sessionId })
   const created = await invoke('create', { characterId: '' })
-  expect((await invoke('list')).map(item => item.sessionId).sort()).toEqual([existing.sessionId, created.sessionId].sort())
+  expect((await invoke('list')).map(item => item.sessionId).sort()).toEqual([existing.sessionId, unrelatedCreated.sessionId, created.sessionId].sort())
 }, 120_000)
 
 it.each(['desktop', 'android'])('%s keeps Studio available when an interrupted older Studio Session cannot be upgraded', async platform => {

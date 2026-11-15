@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
 import { describe, expect, it, vi } from 'vitest'
 import { dshClientRequire } from '../../../../../../tests/helpers/dshClientPlugin'
+import { loadOfficialLayout } from '../../../../../../tests/helpers/officialLayout.js'
 
 function source<T>(initial: T) {
   let snapshot = initial
@@ -37,21 +38,21 @@ function fixture(platform = 'desktop') {
     entriesOfSlot: (name: string) => name === 'sidebar.workspaces' ? [{ inject: () => face }] : entries.filter(entry => entry.options.name === name),
   }
   const services: any = { sessions: { list: sessions, search: sessions.search }, workspaces: { list: registry }, eleckoiConversations: conversations, uiWorkspace, eleckoiCreatorStudio: { sessions: studio } }
-  const context: any = { slots, layout, get: (name: string) => services[name], inject: () => {},
+  const context: any = { slots, layout, locale: { bind: () => (key: string) => key }, get: (name: string) => services[name], inject: () => {},
     reflect: { provide: () => () => {} }, extend: (values: any) => ({ ...context, ...values }),
     plugin: (plugin: any) => { plugin.apply(context); return { dispose: () => {} } },
     effect: (run: any, label: string) => { if (label === 'eleckoi: native workspace sidebar library') run() },
   }
   const official = { inject: [], apply: (ctx: any) => ctx.slots.inject('sidebar', () => ctx.slots.register({ name: 'sidebar' }, () => null)) }
   const React = { lazy: () => () => null, useEffect: (run: any) => run(),
-    createElement: (component: any, props: any) => ({ component, props }) }
+    createElement: (component: any, props: any, ...children: any[]) => ({ component, props: { ...props, children: children[0] } }) }
   let registration: any
   runInNewContext(readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8'), {
     __ELECKOI_CLIENT_PLATFORM__: { kind: platform }, __ELECKOI_DSH_SIDEBAR_READY__: true, AbortController,
     window: { __ModuleLoader__: { load: (value: any) => { registration = value } }, addEventListener: () => {}, removeEventListener: () => {} },
   })
   registration.factory((name: string) => name === 'react' ? React : name === '@deepseek-ai/dsh-client-ui-primitives' ? {}
-    : name === '@deepseek-ai/dsh-client-ui-sidebar' ? official : dshClientRequire(name)).apply(context)
+    : name === '@deepseek-ai/dsh-client-ui-sidebar' ? official : name === '@deepseek-ai/dsh-client-ui-layout' ? loadOfficialLayout() : dshClientRequire(name)).apply(context)
   const sidebar = entries.find(entry => entry.options.name === 'sidebar')
   const hooks = sidebar.options.inject().hooks
   const render = () => {
@@ -61,7 +62,7 @@ function fixture(platform = 'desktop') {
       useSessions: (select: any) => select(sessions.getSnapshot()),
       renderSlot: (_name: string, owner: any) => owner,
     })
-    return body.props.renderSlot('sidebar.workspaces', { wide: true })
+    return body.props.children.props.workspaceSidebar.props.renderSlot('sidebar.workspaces', { wide: true })
   }
   return { sessions, conversations, registry, uiWorkspace, studio, layout, face, hooks, render }
 }
@@ -69,7 +70,7 @@ function fixture(platform = 'desktop') {
 describe.each(['desktop', 'android'])('%s plugin Workspace Session ownership', platform => {
   it('shows only existing creative conversations in Studio, across workspaces and ungrouped, without modifying any Session', async () => {
     const f = fixture(platform), list = f.sessions.getSnapshot(), registry = f.registry.getSnapshot()
-    f.layout.panelInfo.publish(platform === 'android' ? { activePanelId: null, windowPanelId: 'creatorStudio' } : { activePanelId: 'creatorStudio' })
+    f.layout.panelInfo.publish({ activePanelId: 'creatorStudio' })
     expect(f.hooks.eleckoiWorkspaceSessions.getSnapshot().ids).toEqual(['studio', 'new-studio'])
     expect(f.hooks.eleckoiWorkspaceRegistry.getSnapshot().items[0].sessionIds).toEqual([])
     const owner = f.render()
@@ -81,7 +82,7 @@ describe.each(['desktop', 'android'])('%s plugin Workspace Session ownership', p
     expect(f.uiWorkspace.openSession).not.toHaveBeenCalled()
     expect(f.sessions.getSnapshot()).toBe(list)
     expect(f.registry.getSnapshot()).toBe(registry)
-    f.layout.panelInfo.publish({ activePanelId: null, windowPanelId: 'conversation' })
+    f.layout.panelInfo.publish({ activePanelId: null })
     expect(f.hooks.eleckoiWorkspaceSessions.getSnapshot().ids).toContain('native')
   })
   it('excludes product Sessions and their descendants from grouped and ungrouped metadata without changing the shared catalogs', () => {

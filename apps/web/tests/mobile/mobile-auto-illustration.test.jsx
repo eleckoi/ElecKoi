@@ -66,7 +66,7 @@ describe('Android preset automatic illustration', () => {
     await act(async () => handlers.at(-1)());
     expect(document.querySelector('[role=tab][aria-selected=true]').textContent).toBe('模型');
     await act(async () => handlers.at(-1)());
-    expect(document.querySelector('[role=alertdialog]')).toBeTruthy();
+    expect(document.querySelector('[role=dialog][aria-label="保存绘图设置？"]')).toBeTruthy();
     await click(find('不保存'));
     expect(document.querySelector('.mobile-illustration-models')).toBeNull();
     expect(select).toHaveBeenCalledTimes(1);

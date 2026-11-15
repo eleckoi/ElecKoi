@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ArrowDown, ArrowUp, Plus, Trash } from '../../../ui/icons/interfaceIcons.jsx';
 import { defaultRoleplayPlanSettings } from '@shared/contracts/presets/roleplayPlan';
@@ -34,7 +35,7 @@ export function RoleplayPlanEditor({ value, onChange, onSave, saving = false }) 
     <section className="roleplay-plan-editor" aria-label={tUi("角色扮演固定任务")}>
       <div className="roleplay-plan-heading">
         <h3>{tUi("固定任务")}</h3>
-        <button type="button" onClick={add}><Plus size={15} />{tUi("添加任务")}</button>
+        <Button data-dsh-control variant="primary" type="button" onClick={add}><Plus size={15} />{tUi("添加任务")}</Button>
       </div>
       <ol className="roleplay-plan-list">
         {steps.map((step, index) => {

@@ -18,6 +18,29 @@ import {
 import { chatDisplaySettings } from '../../src/modules/settings/model/chatDisplaySettings.js';
 
 describe("chat display preferences", () => {
+  it('uses Tavern bubble spacing through the existing tuner without overwriting plain-text spacing', () => {
+    let saved = structuredClone(DEFAULT_CHAT_DISPLAY_PREFERENCES);
+    saved.profiles.roleplay.turn_spacing = 24;
+    const model = () => chatDisplaySettings(saved, next => { saved = next; });
+    model().updateRoleplayStyle({ bubbles_enabled: true });
+    expect(model().profile.turn_spacing).toBe(5);
+    expect(model().defaults.turn_spacing).toBe(5);
+    model().updateProfile({ bubble_corner_radius: 16 });
+    expect(saved.profiles.roleplay.turn_spacing).toBe(24);
+    model().updateProfile({ turn_spacing: 8 });
+    expect(saved.roleplay_style.bubble_spacing).toBe(8);
+    expect(model().profile.turn_spacing).toBe(8);
+    expect(saved.profiles.roleplay.turn_spacing).toBe(24);
+    saved = chatDisplayPreferencesSchema.parse(JSON.parse(JSON.stringify(saved)));
+    expect(model().profile.turn_spacing).toBe(8);
+    model().updateRoleplayStyle({ bubbles_enabled: false });
+    expect(model().profile.turn_spacing).toBe(24);
+    model().updateRoleplayStyle({ bubbles_enabled: true });
+    model().resetProfile();
+    expect(saved.roleplay_style.bubble_spacing).toBe(5);
+    expect(saved.profiles.roleplay.turn_spacing).toBe(12);
+  });
+
   it('fills older display documents without changing their profiles or unknown extension fields', () => {
     const { roleplay_style, ...older } = structuredClone(DEFAULT_CHAT_DISPLAY_PREFERENCES);
     older.profiles.roleplay.avatar_size = 72;
@@ -29,7 +52,8 @@ describe("chat display preferences", () => {
     expect(DEFAULT_ROLEPLAY_STYLE).toMatchObject({ backdrop_enabled: false, bubbles_enabled: false });
     const css = roleplayStyleCssVariables(resolveRoleplayStyle({}));
     expect(css['--rp-user-tint']).toBe(css['--rp-assistant-tint']);
-    expect(css['--rp-user-tint']).toContain('light-dark(');
+    expect(css['--rp-user-tint']).toBe('var(--dsw-alias-bg-layer-1)');
+    expect(css['--rp-backdrop-tint']).toBe('var(--dsw-alias-bg-module-platform)');
     expect(css['--rp-user-opacity']).toBe(css['--rp-assistant-opacity']);
     for (const patch of [{ backdrop_blur: 41 }, { bubble_blur: -1 }, { user_bubble_opacity: 101 }, { assistant_bubble_tint: 'red' }]) {
       expect(chatDisplayPreferencesSchema.safeParse({ ...DEFAULT_CHAT_DISPLAY_PREFERENCES, roleplay_style: patch }).success).toBe(false);

@@ -243,34 +243,15 @@ function presetRevision(path) {
 }
 
 export function installAgentHandleTracking(agents, track, withSessionLock) {
-  // Cordis services are caller-traced proxies. Patching the proxy only creates
-  // a caller-local shadow, so SessionController would bypass it. Patch the
-  // exported concrete service target and keep the original caller-bound `this`.
-  const target = agents[Symbol.for('cordis.original')] ?? agents
-  const originalCreate = target.create
-  const originalResume = target.resume
-  // Activation must own the same lock as closed-log edits, including the
-  // interval before the factory publishes its Agent and returns its handle.
-  const wrappedCreate = async function (options) {
-    return withSessionLock(options.sessionId, async () => {
-      const handle = await Reflect.apply(originalCreate, this, [options])
-      track(handle)
-      return handle
-    })
-  }
-  const wrappedResume = async function (options) {
-    return withSessionLock(options.resumeSessionId, async () => {
-      const handle = await Reflect.apply(originalResume, this, [options])
-      track(handle)
-      return handle
-    })
-  }
-  target.create = wrappedCreate
-  target.resume = wrappedResume
-  return () => {
-    if (target.create === wrappedCreate) target.create = originalCreate
-    if (target.resume === wrappedResume) target.resume = originalResume
-  }
+  // RETIRE WHEN: the locked registry offers equivalent factory admission.
+  // Agent setup/created runs after writer acquisition and exposes no owned
+  // handle. Admission retains the original factory/caller lifecycle while
+  // excluding closed-log edits during that earlier activation interval.
+  return agents.admitActivation((sessionId, proceed) => withSessionLock(sessionId, async () => {
+    const handle = await proceed()
+    track(handle)
+    return handle
+  }))
 }
 
 function storedPresetForInspection(inspection) {

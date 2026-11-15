@@ -1,60 +1,13 @@
 import { useProductTranslation } from "../../../i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
-import { SystemBarOverlay } from '../../../../ui/ui/SystemBarOverlay.jsx';
-import { useEffect, useId, useRef } from "react";
-import { createPortal } from "react-dom";
-import { CopyIcon, XIcon } from "../../../../ui/icons/index.jsx";
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../../../../ui/styles/product-dialogs.css';
+import { CopyIcon } from "../../../../ui/icons/index.jsx";
 import { ELECKOI_QQ_GROUP_NUMBER } from "@shared/foundation/community";
 
 export function CommunityDialog({ open, onClose, onNotify, onReportProblem }) {
   const tUi = useProductTranslation();
-  const titleId = useId();
-  const descriptionId = useId();
-  const dialogRef = useRef(null);
-  const primaryButtonRef = useRef(null);
-  const onCloseRef = useRef(onClose);
-
-  onCloseRef.current = onClose;
-
-  useEffect(() => {
-    if (!open || typeof document === "undefined") return undefined;
-    const previousFocus = document.activeElement;
-    const focusFrame = window.requestAnimationFrame(() => primaryButtonRef.current?.focus());
-
-    function handleKeyDown(event) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onCloseRef.current?.();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const focusable = Array.from(dialogRef.current?.querySelectorAll("button:not(:disabled)") || []);
-      if (!focusable.length) {
-        event.preventDefault();
-        return;
-      }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.cancelAnimationFrame(focusFrame);
-      window.removeEventListener("keydown", handleKeyDown);
-      if (previousFocus?.isConnected) previousFocus.focus();
-    };
-  }, [open]);
-
-  if (!open) return null;
-
   async function copyGroupNumber(message = tUi("群号已复制")) {
     try {
       if (!navigator.clipboard?.writeText) throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, "Clipboard API unavailable", { what: "剪贴板接口" });
@@ -67,49 +20,14 @@ export function CommunityDialog({ open, onClose, onNotify, onReportProblem }) {
     }
   }
 
-  const dialog = (
-    <SystemBarOverlay className="community-dialog-overlay" role="presentation" onMouseDown={onClose}>
-      <section
-        ref={dialogRef}
-        className="community-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <button className="community-dialog-close" type="button" aria-label={tUi("关闭社区指引")} title={tUi("关闭")} onClick={onClose}>
-          <XIcon />
-        </button>
-        <div className="community-dialog-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <circle cx="9" cy="8" r="3.15" />
-            <path d="M3.4 19.4c.55-3.72 2.42-5.58 5.6-5.58s5.05 1.86 5.6 5.58" />
-            <path d="M14.6 5.45a3 3 0 0 1 0 5.1" />
-            <path d="M16.15 13.7c2.55.42 4 2.32 4.45 5.7" />
-          </svg>
-        </div>
-        <h2 id={titleId}>{tUi("ElecKoi测试群")}</h2>
-        <p id={descriptionId}>{tUi("交流使用体验与问题反馈")}</p>
+  return <Modal open={open} title={tUi('ElecKoi测试群')} description={tUi('交流使用体验与问题反馈')} closeLabel={tUi('关闭社区指引')} onClose={onClose}
+    className="product-dialog" contentClassName="product-dialog-content" footer={<div className="product-dialog-actions">
+      {onReportProblem && <Button variant="outline" onClick={() => onReportProblem()}>{tUi('报告问题')}</Button>}
+      <Button variant="primary" onClick={() => copyGroupNumber()} icon={<CopyIcon />}>{tUi('复制群号')}</Button>
+    </div>}>
         <div className="community-dialog-group-number">
           <span>{tUi("QQ群")}</span>
           <strong>{ELECKOI_QQ_GROUP_NUMBER}</strong>
         </div>
-        <div className="community-dialog-actions">
-          {onReportProblem ? (
-            <button type="button" onClick={() => onReportProblem()}>
-              <span>{tUi("报告问题")}</span>
-            </button>
-          ) : null}
-          <button ref={primaryButtonRef} type="button" className="is-primary" onClick={() => copyGroupNumber()}>
-            <CopyIcon />
-            <span>{tUi("复制群号")}</span>
-          </button>
-        </div>
-      </section>
-    </SystemBarOverlay>
-  );
-
-  const portalTarget = typeof document === "undefined" ? null : document.body;
-  return portalTarget ? createPortal(dialog, portalTarget) : dialog;
+  </Modal>;
 }

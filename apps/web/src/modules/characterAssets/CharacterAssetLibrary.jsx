@@ -1,9 +1,10 @@
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image as ImageIcon, FilmStrip, MusicNote, Cube, Plus, ArrowSquareIn, ArrowSquareOut, MagnifyingGlass, SquaresFour, ListBullets, DotsThree, Copy, LinkSimple, PencilSimple, Trash, DownloadSimple, Check, X, CaretLeft, CaretRight, ListChecks, Eye, FolderOpen } from '../../ui/icons/interfaceIcons.jsx';
+import { Image as ImageIcon, FilmStrip, MusicNote, Cube, Plus, ArrowSquareIn, ArrowSquareOut, MagnifyingGlass, SquaresFour, ListBullets, DotsThree, Copy, LinkSimple, PencilSimple, Trash, DownloadSimple, Check, CaretLeft, CaretRight, ListChecks, Eye, FolderOpen } from '../../ui/icons/interfaceIcons.jsx';
 import { AppToast } from '../../ui/ui/AppToast.jsx';
-import { SystemBarOverlay } from '../../ui/ui/SystemBarOverlay.jsx';
+import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../../ui/styles/product-dialogs.css';
 import { useEditorPresentation } from '../../ui/ui/EditorPresentationContext.jsx';
 import { EditorContextMenu, useEditorContextMenu } from '../../ui/ui/EditorContextMenu.jsx';
 import { useProductTranslation } from '../../app/i18n/ProductLocaleContext.jsx';
@@ -42,7 +43,7 @@ export function CharacterAssetLibrary({ characterId }) {
   const [menu, setMenu] = useState(null), [modal, setModal] = useState(null), [draft, setDraft] = useState('');
   const [notice, setNotice] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const noticeSequence = useRef(0);
-  const upload = useRef(null), modalInput = useRef(null), dialogRef = useRef(null), working = useRef(false), alive = useRef(true);
+  const upload = useRef(null), working = useRef(false), alive = useRef(true);
   const currentFolder = folders.find(folder => folder.id === folderId);
   const contents = useMemo(() => {
     const result = new Map();
@@ -62,23 +63,12 @@ export function CharacterAssetLibrary({ characterId }) {
   for (let current = currentFolder; current; current = folders.find(folder => folder.id === current.parentId)) crumbs.unshift(current);
   const parts = ids => [ids.filter(id => items.some(item => item.id === id)), ids.filter(id => folders.some(folder => folder.id === id))];
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  useEffect(() => { if (['rename', 'newFolder', 'renameFolder'].includes(modal?.kind)) modalInput.current?.focus(); }, [modal]);
-  const closeLayer = () => { if (busy) return false; if (context.menu) context.close(); else if (modal) setModal(null); else if (menu) setMenu(null); else if (selecting) { setSelecting(false); setSelected([]); } else if (folderId) { enterFolder(currentFolder?.parentId ?? null); } else return false; return true; };
+  const closeLayer = () => { if (busy || modal) return false; if (context.menu) context.close(); else if (menu) setMenu(null); else if (selecting) { setSelecting(false); setSelected([]); } else if (folderId) { enterFolder(currentFolder?.parentId ?? null); } else return false; return true; };
   useEffect(() => registerBackHandler?.(closeLayer), [registerBackHandler, context.menu, modal, menu, selecting, busy, folderId]);
   useEffect(() => {
-    const previous = document.activeElement;
-    const key = event => {
-      if (event.key === 'Escape' && closeLayer()) { event.preventDefault(); event.stopPropagation(); }
-      if (event.key === 'Tab' && modal) {
-        const controls = [...(dialogRef.current?.querySelectorAll('button:not(:disabled),input,textarea,a[href],audio[controls],video[controls]') || [])];
-        const first = controls[0], last = controls.at(-1);
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-      }
-    };
+    const key = event => { if (!event.defaultPrevented && event.key === 'Escape' && closeLayer()) { event.preventDefault(); event.stopPropagation(); } };
     window.addEventListener('keydown', key);
-    if (modal) requestAnimationFrame(() => (modalInput.current || dialogRef.current?.querySelector('button'))?.focus());
-    return () => { window.removeEventListener('keydown', key); if (modal && previous?.isConnected) previous.focus(); };
+    return () => window.removeEventListener('keydown', key);
   }, [context.menu, modal, menu, selecting, busy, folderId]);
   useEffect(() => { setSelected(current => current.filter(id => [...items, ...folders].some(item => item.id === id))); }, [library.revision]);
   useEffect(() => { if (folderId && !currentFolder && !library.loading) setFolderId(null); }, [library.revision, folderId, currentFolder, library.loading]);
@@ -149,13 +139,18 @@ export function CharacterAssetLibrary({ characterId }) {
       { label: tUi('新建文件夹'), icon: NewFolderIcon, disabled: busy, run: () => beginModal('newFolder') },
     ]} />}
     <AppToast notice={notice} onDismiss={() => setNotice(null)} />
-    {modal && <SystemBarOverlay className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setModal(null); }}><section role="dialog" aria-modal="true" aria-label={tUi(modal.kind === 'preview' ? '资产预览' : modal.kind === 'reference' ? '资产引用' : modal.kind === 'newFolder' ? '新建文件夹' : modal.kind === 'move' ? '移动到' : ['rename', 'renameFolder'].includes(modal.kind) ? '重命名' : '删除资产')} ref={dialogRef} className={`modal ${modal.kind === 'preview' ? 'preview-dialog' : ''}`}>
-      <header className="modal-heading"><h2>{modal.kind === 'preview' || modal.kind === 'reference' ? focused?.name : tUi(modal.kind === 'newFolder' ? '新建文件夹' : modal.kind === 'move' ? '移动到' : ['rename', 'renameFolder'].includes(modal.kind) ? '重命名' : '删除资产')}</h2><IconButton Icon={X} label={tUi('关闭弹窗')} onClick={() => setModal(null)} /></header>
-      {modal.kind === 'preview' && focused && <div className="preview-layout"><div className="preview-stage">{previewBody(focused)}</div><aside className="preview-details"><dl><div><dt>{tUi('类型')}</dt><dd>{tUi(types.find(t => t.id === focused.type)?.label)}</dd></div><div><dt>{tUi('大小')}</dt><dd>{fileSize(focused.size)}</dd></div>{focused.dimensions && <div><dt>{tUi('尺寸')}</dt><dd>{focused.dimensions}</dd></div>}</dl><label className="reference-field">{tUi('引用')}<input aria-label={tUi('资产引用地址')} value={`asset://${focused.id}`} readOnly /></label><div className="preview-actions"><button type="button" className="button primary" onClick={() => copyReference([focused])}><LinkSimple size={17} />{tUi('复制引用')}</button><button type="button" className="button" onClick={() => download(focused)}><DownloadSimple size={17} />{tUi('下载')}</button></div></aside></div>}
-      {modal.kind === 'reference' && focused && <div className="dialog-body"><textarea autoFocus aria-label={tUi('资产引用地址')} value={modal.value || `asset://${focused.id}`} readOnly onFocus={e => e.target.select()} /></div>}
-      {['rename', 'renameFolder', 'newFolder'].includes(modal.kind) && <form className="dialog-body" onSubmit={saveDialog}><label>{tUi('名称')}<input ref={modalInput} aria-label={tUi('资产名称')} value={draft} onChange={e => setDraft(e.target.value)} /></label><footer><button type="button" className="button" onClick={() => setModal(null)}>{tUi('取消')}</button><button type="submit" className="button primary" disabled={!draft.trim()}>{tUi('确定')}</button></footer></form>}
+    {modal && <Modal open title={modal.kind === 'preview' || modal.kind === 'reference' ? focused?.name || tUi('资产预览') : tUi(modal.kind === 'newFolder' ? '新建文件夹' : modal.kind === 'move' ? '移动到' : ['rename', 'renameFolder'].includes(modal.kind) ? '重命名' : '删除资产')}
+      closeLabel={tUi('关闭弹窗')} onClose={() => { if (!busy) setModal(null); }}
+      className={`product-dialog asset-dialog${modal.kind === 'preview' ? ' asset-preview-dialog' : ''}`} contentClassName="product-dialog-content"
+      footer={['rename', 'renameFolder', 'newFolder', 'delete'].includes(modal.kind) ? <div className="product-dialog-actions">
+        <Button variant="outline" disabled={busy} data-modal-autofocus={modal.kind === 'delete' || undefined} onClick={() => setModal(null)}>{tUi('取消')}</Button>
+        <Button variant="primary" disabled={busy || (modal.kind !== 'delete' && !draft.trim())} onClick={modal.kind === 'delete' ? commitDelete : saveDialog}>{tUi(modal.kind === 'delete' ? '删除' : '确定')}</Button>
+      </div> : undefined}>
+      {modal.kind === 'preview' && focused && <div className="preview-layout"><div className="preview-stage">{previewBody(focused)}</div><aside className="preview-details"><dl><div><dt>{tUi('类型')}</dt><dd>{tUi(types.find(t => t.id === focused.type)?.label)}</dd></div><div><dt>{tUi('大小')}</dt><dd>{fileSize(focused.size)}</dd></div>{focused.dimensions && <div><dt>{tUi('尺寸')}</dt><dd>{focused.dimensions}</dd></div>}</dl><label className="reference-field">{tUi('引用')}<Input className="product-dialog-field" aria-label={tUi('资产引用地址')} value={`asset://${focused.id}`} readOnly /></label><div className="preview-actions"><Button variant="primary" onClick={() => copyReference([focused])} icon={<LinkSimple size={17} />}>{tUi('复制引用')}</Button><Button variant="outline" onClick={() => download(focused)} icon={<DownloadSimple size={17} />}>{tUi('下载')}</Button></div></aside></div>}
+      {modal.kind === 'reference' && focused && <pre className="asset-reference-copy" data-modal-autofocus tabIndex={0} aria-label={tUi('资产引用地址')}>{modal.value || `asset://${focused.id}`}</pre>}
+      {['rename', 'renameFolder', 'newFolder'].includes(modal.kind) && <form className="product-dialog-fields" onSubmit={saveDialog}><label><span>{tUi('名称')}</span><Input className="product-dialog-field" data-modal-autofocus aria-label={tUi('资产名称')} value={draft} onChange={e => setDraft(e.target.value)} disabled={busy} /></label></form>}
       {modal.kind === 'move' && <AssetMovePicker folders={folders} selectedFolders={parts(modal.ids)[1]} source={folderId} onCancel={() => setModal(null)} onMove={destination => action(async () => { await library.request('move', ...parts(modal.ids), destination); setModal(null); setSelected([]); setSelecting(false); message(tUi('已移动')); })} />}
-      {modal.kind === 'delete' && <div className="dialog-body"><p>{modal.ids ? tUi("删除选中的 {count} 项资产？", {count:modal.ids.length}) : tUi("删除“{name}”？", {name:focused?.name})}</p><p>{tUi("文件夹内的内容也会删除，引用这些资产的前端将无法继续加载它们。")}</p><footer><button className="button" onClick={() => setModal(null)}>{tUi('取消')}</button><button className="button destructive" onClick={commitDelete}>{tUi('删除')}</button></footer></div>}
-    </section></SystemBarOverlay>}
+      {modal.kind === 'delete' && <div className="asset-delete-copy"><p>{modal.ids ? tUi("删除选中的 {count} 项资产？", {count:modal.ids.length}) : tUi("删除“{name}”？", {name:focused?.name})}</p><p>{tUi("文件夹内的内容也会删除，引用这些资产的前端将无法继续加载它们。")}</p></div>}
+    </Modal>}
   </section>;
 }

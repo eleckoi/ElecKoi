@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { PlusIcon, TrashIcon } from "../../../ui/icons/index.jsx";
 
@@ -25,7 +26,7 @@ export function ModelNetworkSection({ form, draftHeader, setDraftHeader, onUpdat
         <div className="model-header-row draft">
           <input value={draftHeader.name} onChange={(event) => setDraftHeader((current) => ({ ...current, name: event.target.value }))} placeholder={tUi("Header 名称")} aria-label={tUi("新请求头名称")} />
           <input value={draftHeader.value} onChange={(event) => setDraftHeader((current) => ({ ...current, value: event.target.value }))} placeholder={tUi("值")} aria-label={tUi("新请求头值")} />
-          <button type="button" aria-label={tUi("添加请求头")} title={tUi("添加请求头")} onClick={onAddHeader}><PlusIcon /></button>
+          <Button data-dsh-control variant="primary" type="button" aria-label={tUi("添加请求头")} title={tUi("添加请求头")} onClick={onAddHeader}><PlusIcon /></Button>
         </div>
       </div>
       </div>

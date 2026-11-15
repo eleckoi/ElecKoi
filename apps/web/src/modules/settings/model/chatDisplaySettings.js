@@ -36,11 +36,19 @@ export const chatDisplayTuners = {
 export function chatDisplaySettings(chatDisplay, onChange) {
   const preferences = chatDisplay || DEFAULT_CHAT_DISPLAY_PREFERENCES;
   const { layout, profile } = resolveChatDisplayProfile(preferences);
-  const defaults = DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles[layout];
   const roleplayStyle = resolveRoleplayStyle(preferences);
-  const updateProfile = patch => onChange({ ...preferences, profiles: {
-    ...preferences.profiles, [layout]: { ...profile, ...patch },
-  } });
+  const bubbleMode = layout === 'roleplay' && roleplayStyle.bubbles_enabled;
+  const baseDefaults = DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles[layout];
+  const defaults = bubbleMode ? { ...baseDefaults, turn_spacing: DEFAULT_CHAT_DISPLAY_PREFERENCES.roleplay_style.bubble_spacing } : baseDefaults;
+  const updateProfile = patch => {
+    if (!bubbleMode) return onChange({ ...preferences, profiles: { ...preferences.profiles, [layout]: { ...profile, ...patch } } });
+    const { turn_spacing, ...rest } = patch;
+    onChange({ ...preferences,
+      profiles: { ...preferences.profiles, [layout]: { ...profile,
+        turn_spacing: preferences.profiles?.[layout]?.turn_spacing ?? baseDefaults.turn_spacing, ...rest } },
+      roleplay_style: { ...roleplayStyle, ...(turn_spacing === undefined ? {} : { bubble_spacing: turn_spacing }) },
+    });
+  };
   return {
     preferences, layout, profile, defaults, roleplayStyle,
     updateRoleplayStyle: patch => onChange({ ...preferences, roleplay_style: { ...roleplayStyle, ...patch } }),
@@ -52,7 +60,7 @@ export function chatDisplaySettings(chatDisplay, onChange) {
     updatePreferences: patch => onChange({ ...preferences, ...patch }),
     resetProfile: () => onChange({ ...preferences,
       ...(layout === 'roleplay' ? { roleplay_style: { ...DEFAULT_CHAT_DISPLAY_PREFERENCES.roleplay_style } } : {}),
-      profiles: { ...preferences.profiles, [layout]: { ...defaults } } }),
+      profiles: { ...preferences.profiles, [layout]: { ...baseDefaults } } }),
     updateTextColor: (key, value) => onChange({ ...preferences, text_colors: { ...preferences.text_colors, [key]: value } }),
     resetTextColors: () => onChange({ ...preferences, text_colors: { ...DEFAULT_CHAT_TEXT_COLORS } }),
   };

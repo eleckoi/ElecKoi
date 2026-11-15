@@ -1,44 +1,16 @@
-import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
-import { useEffect, useRef, useState } from 'react';
-import { Check, X } from '@phosphor-icons/react';
-import { registerOverlayBack } from '../../../ui/hooks/overlayBack.js';
+import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import { useState, useRef } from 'react';
+import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
+import '../../../ui/styles/product-dialogs.css';
 
-/** In-document inputs work in Electron and WebView without browser dialog support. */
 export function FrontendWorkbenchPrompt({ question, onResolve }) {
-  const tUi = useProductTranslation();
-  const [value, setValue] = useState(question.initialValue ?? ''), [closing, setClosing] = useState(false);
-  const form = useRef(null), timer = useRef(null), completed = useRef(false);
-  const inputMode = question.initialValue !== undefined;
-  const finish = result => {
-    if (completed.current) return;
-    completed.current = true; setClosing(true);
-    const delay = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 0 : 160;
-    timer.current = window.setTimeout(() => onResolve(result), delay);
-  };
-  useEffect(() => {
-    const element = form.current, root = element.getRootNode(), previous = root.activeElement;
-    const input = element.querySelector('input');
-    (input || element.querySelector('[data-cancel]')).focus(); input?.select();
-    return () => { window.clearTimeout(timer.current); previous?.focus(); };
-  }, []);
-  useEffect(() => registerOverlayBack(() => { finish(null); return true; }, window, 1200));
-  return <div className={`af-prompt-backdrop${closing ? ' closing' : ''}`} onPointerDown={event => { if (event.target === event.currentTarget) finish(null); }}>
-    <form ref={form} className="af-prompt" role="dialog" aria-modal="true" aria-label={question.title}
-      onSubmit={event => { event.preventDefault(); if (!inputMode || value.trim()) finish(inputMode ? value.trim() : true); }}
-      onKeyDown={event => {
-        if (event.key !== 'Tab') return;
-        event.stopPropagation();
-        const controls = [...form.current.querySelectorAll('input,button:not(:disabled)')];
-        const first = controls[0], last = controls.at(-1), active = form.current.getRootNode().activeElement;
-        if (event.shiftKey && active === first) { event.preventDefault(); last.focus(); }
-        else if (!event.shiftKey && active === last) { event.preventDefault(); first.focus(); }
-      }}>
-      <strong>{question.title}</strong>
-      {inputMode ? <label>{question.label || question.title}<input aria-label={question.label || question.title} value={value} disabled={closing} onChange={event => setValue(event.target.value)} /></label>
-        : <p>{question.message}</p>}
-      <div className="af-prompt-actions"><Button data-dsh-control variant="outline" data-cancel type="button" disabled={closing} onClick={() => finish(null)}><X size={16} />{tUi("取消")}</Button>
-        <Button data-dsh-control variant="primary" type="submit" className={question.danger ? 'danger' : 'primary'} disabled={closing || (inputMode && !value.trim())}><Check size={16} />{question.confirmLabel || tUi("确定")}</Button></div>
-    </form>
-  </div>;
+  const tUi = useProductTranslation(), [value, setValue] = useState(question.initialValue ?? '');
+  const completed = useRef(false), inputMode = question.initialValue !== undefined;
+  const finish = result => { if (!completed.current) { completed.current = true; onResolve(result); } };
+  const submit = event => { event?.preventDefault(); if (!inputMode || value.trim()) finish(inputMode ? value.trim() : true); };
+  return <Modal open title={question.title} description={inputMode ? undefined : question.message} closeLabel={tUi('关闭')} onClose={() => finish(null)}
+    tone={question.danger ? 'warning' : undefined} className="product-dialog" contentClassName="product-dialog-content"
+    footer={<div className="product-dialog-actions"><Button variant="outline" data-modal-autofocus={!inputMode || undefined} onClick={() => finish(null)}>{tUi('取消')}</Button><Button variant="primary" disabled={inputMode && !value.trim()} onClick={submit}>{question.confirmLabel}</Button></div>}>
+    {inputMode ? <form className="product-dialog-fields" onSubmit={submit}><label><span>{question.label || question.title}</span><Input data-modal-autofocus className="product-dialog-field" aria-label={question.label || question.title} value={value} onChange={event => setValue(event.target.value)} /></label></form> : undefined}
+  </Modal>;
 }

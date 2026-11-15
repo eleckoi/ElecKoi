@@ -1,6 +1,6 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
-import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
+import { GroupNameDialog } from '../../../ui/ui/GroupNameDialog.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from '../../../ui/ui/Avatar.jsx';
 import { GroupAssignmentMenu } from '../../../ui/ui/GroupAssignmentMenu.jsx';
@@ -186,7 +186,7 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
         <button type="button" className={selectedGroup === ALL_PRESETS ? 'active' : ''} onClick={() => onSelectGroup(ALL_PRESETS)} onContextMenu={(event) => openGroupMenu(event, null)}><span>{tUi(ALL_PRESETS)}</span><em>{catalog.presets.length}</em></button>
         <small>{tUi("分组")}</small>
         <div className="catalog-manager-group-list">{catalog.groups.map((group) => <button type="button" className={selectedGroup === group.id ? 'active' : ''} key={group.id} onClick={() => onSelectGroup(group.id)} onContextMenu={(event) => openGroupMenu(event, group)}><span>{group.name}</span><em>{catalog.presets.filter((preset) => preset.libraryGroupId === group.id).length}</em></button>)}</div>
-        <Button data-dsh-control variant="outline" className="preset-manager-add-group catalog-manager-surface-button" type="button" onClick={() => openGroupDialog()}><PlusIcon /><span>{tUi("添加分组")}</span></Button>
+        <Button data-dsh-control variant="primary" className="preset-manager-add-group" type="button" onClick={() => openGroupDialog()}><PlusIcon /><span>{tUi("添加分组")}</span></Button>
       </aside>
       <div className="preset-manager-main">
         <header className="preset-manager-titlebar">
@@ -239,7 +239,7 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
         groups={catalog.groups}
         onMove={movePresetToGroup}
       /> : null}
-      {groupDialogOpen ? <PresetGroupDialog
+      {groupDialogOpen ? <GroupNameDialog
         title={editingGroupId ? tUi("重命名该组") : tUi("添加分组")}
         value={groupDraft}
         onChange={setGroupDraft}
@@ -247,18 +247,4 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
         onCancel={() => { setGroupDialogOpen(false); setEditingGroupId(''); setGroupDraft(''); }}
       /> : null}
   </section>;
-}
-
-function PresetGroupDialog({ title, value, onChange, onConfirm, onCancel }) {
-  const tUi = useProductTranslation();
-  return <SystemBarOverlay className="preset-group-dialog-backdrop">
-    <form className="preset-group-dialog" role="dialog" aria-modal="true" aria-label={title} onSubmit={(event) => { event.preventDefault(); onConfirm(); }}>
-      <h3>{title}</h3>
-      <input value={value} onChange={(event) => onChange(event.target.value)} placeholder={tUi("填写分组")} autoFocus />
-      <div>
-        <Button data-dsh-control variant="primary" className="preset-group-dialog-confirm" type="submit" disabled={!value.trim()}>{tUi("确定")}</Button>
-        <Button data-dsh-control variant="outline" type="button" onClick={onCancel}>{tUi("取消")}</Button>
-      </div>
-    </form>
-  </SystemBarOverlay>;
 }

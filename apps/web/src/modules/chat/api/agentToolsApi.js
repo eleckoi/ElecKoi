@@ -9,7 +9,9 @@ function asToolCatalog(preset) {
     presetId: preset.id,
     characterId: '',
     scopeId: `agent-preset:${preset.id}`,
-    groups: preset.toolGroups.filter((group) => group.included),
+    groups: preset.toolGroups.filter((group) => group.included && (preset.purpose !== 'creator'
+      || !['builtin:variables', 'builtin:roleplay-workflow', 'builtin:setting-library'].includes(group.id))),
+    basicGroups: preset.basicToolGroups || [],
     extraGroups: preset.extraToolGroups || [],
     roleplayPlan: preset.roleplayPlan,
     toolModelConfigIds: preset.toolModelConfigIds || {},

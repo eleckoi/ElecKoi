@@ -1,4 +1,6 @@
-import React from "react";
+// @vitest-environment jsdom
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { CommunityDialog } from "../../src/app/windows/shell/components/CommunityDialog.jsx";
@@ -7,6 +9,7 @@ import { CommunityNavIcon, CreatorStudioNavIcon, MessageNavIcon, ModelNavIcon, P
 import { ELECKOI_QQ_GROUP_NUMBER } from "../../../../packages/shared/src/foundation/community";
 
 vi.stubGlobal("React", React);
+vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
 afterAll(() => vi.unstubAllGlobals());
 
 describe("community navigation", () => {
@@ -99,14 +102,14 @@ describe("community navigation", () => {
     expect(html).not.toContain('aria-label="插件"');
   });
 
-  it("shows the current ElecKoi QQ group with a copy action only", () => {
-    const html = renderToStaticMarkup(
-      <CommunityDialog open onClose={() => {}} onNotify={() => {}} />,
-    );
-
-    expect(html).toContain('role="dialog"');
-    expect(html).toContain(ELECKOI_QQ_GROUP_NUMBER);
-    expect(html).toContain("复制群号");
-    expect(html).not.toContain("加入QQ群");
+  it("shows the current ElecKoi QQ group with a copy action only", async () => {
+    const host = document.createElement('div'); document.body.append(host); const root = createRoot(host);
+    try {
+      await act(async () => root.render(<CommunityDialog open onClose={() => {}} onNotify={() => {}} />));
+      expect(document.querySelector('[role="dialog"]').textContent).toContain(ELECKOI_QQ_GROUP_NUMBER);
+      expect(document.body.textContent).toContain('复制群号');
+      expect(document.body.textContent).not.toContain('加入QQ群');
+      expect(host.querySelector('[role="dialog"]')).toBeNull();
+    } finally { await act(async () => root.unmount()); host.remove(); }
   });
 });

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import type { TrajectoryRequestContextItem } from './TrajectoryTable.tsx'
+import type { TrajectoryRequestContextItem } from './request-context-types.ts'
 import type { TrajectoryTranslate } from './locales.ts'
-import css from './TrajectoryTable.module.css'
+import css from './RequestContextPanel.module.css'
 
 function contextRoleLabel(role: TrajectoryRequestContextItem['role'], t: TrajectoryTranslate): string {
   if (role === 'system') return t('kind.system')

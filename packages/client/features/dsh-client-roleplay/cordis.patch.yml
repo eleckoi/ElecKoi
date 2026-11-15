@@ -4,7 +4,7 @@
 - id: spill-policy
   config:
     maxInlineTokens: 12500
-    pagedTools: [eleckoi_read_setting_files, eleckoi_read_variables, eleckoi_call_capability, eleckoi_read_uploaded_file]
+    pagedTools: [eleckoi_read_setting_files, eleckoi_read_variables, eleckoi_call_capability]
 
 - insert:
     - id: eleckoi-tool-result-store
@@ -14,3 +14,6 @@
 
     - id: eleckoi-client-roleplay
       name: '@eleckoi/dsh-client-roleplay'
+
+    - id: eleckoi-chat-background
+      name: '@eleckoi/dsh-client-chat-background'

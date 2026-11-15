@@ -374,6 +374,7 @@
     "@eleckoi/dsh-client-conversations": "workspace:*",
     "@eleckoi/dsh-client-creator-studio": "workspace:*",
     "@eleckoi/dsh-client-display-preferences": "workspace:*",
+    "@eleckoi/dsh-client-chat-background": "workspace:*",
     "@eleckoi/dsh-client-html-resources": "workspace:*",
     "@eleckoi/dsh-client-models": "workspace:*",
     "@eleckoi/dsh-client-persona": "workspace:*",

@@ -31,7 +31,7 @@ export async function installCreatorStudioRuntime(ctx) {
     if (preset.purpose !== 'creator') throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '当前全局预设不是创作预设。', { what: '选择全局创作预设' })
     const disabledGroupIds = preset.toolGroups.filter(group => !group.included || !group.enabled).map(group => group.id)
     for (const groupId of ['builtin:variables', 'builtin:setting-library', 'builtin:roleplay-workflow']) {
-      if (!disabledGroupIds.includes(groupId)) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '创作预设中的角色对话工具不适用于 AI 创作工作室，请使用创作能力。', { what: '在创作预设中关闭角色对话工具' })
+      if (!disabledGroupIds.includes(groupId)) disabledGroupIds.push(groupId)
     }
     return { preset, disabledGroupIds }
   }
@@ -45,7 +45,7 @@ export async function installCreatorStudioRuntime(ctx) {
     if (registration?.revision !== generated.revision) {
       await registration?.dispose()
       registration = undefined
-      const dispose = await ctx.agentPresets.register(readRuntimePresetDefinition(join(root, generated.id, 'preset.json'), generated.id, template, ['uploaded-file-tools']))
+      const dispose = await ctx.agentPresets.register(readRuntimePresetDefinition(join(root, generated.id, 'preset.json'), generated.id, template))
       registration = { revision: generated.revision, dispose }
     }
     return { ...generated, preset, disabledGroupIds }

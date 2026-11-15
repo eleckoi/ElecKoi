@@ -4,13 +4,21 @@ export function resolveRoleplayStyle(preferences) {
   return { ...DEFAULT_ROLEPLAY_STYLE, ...preferences?.roleplay_style };
 }
 
-export function roleplayStyleDefaultTint(kind, dark) {
-  return kind === 'backdrop' ? (dark ? '#1b1f27' : '#f9fafc') : (dark ? '#12171f' : '#ffffff');
+function roleplayTintToken(kind) {
+  return kind === 'backdrop' ? '--dsw-alias-bg-module-platform' : '--dsw-alias-bg-layer-1';
+}
+
+/** Native color inputs need hex; the painted surfaces use the live theme token directly. */
+export function roleplayStyleDefaultTint(kind) {
+  const color = getComputedStyle(document.body).getPropertyValue(roleplayTintToken(kind)).trim();
+  if (color.startsWith('#')) return color.length === 4 ? `#${[...color.slice(1)].map(channel => channel.repeat(2)).join('')}` : color;
+  const channels = color.match(/[\d.]+/g)?.slice(0, 3) || [0, 0, 0];
+  return `#${channels.map(channel => Math.round(Number(channel)).toString(16).padStart(2, '0')).join('')}`;
 }
 
 export function roleplayStyleCssVariables(style) {
   const value = { ...DEFAULT_ROLEPLAY_STYLE, ...style };
-  const themeTint = kind => `light-dark(${roleplayStyleDefaultTint(kind, false)}, ${roleplayStyleDefaultTint(kind, true)})`;
+  const themeTint = kind => `var(${roleplayTintToken(kind)})`;
   return {
     '--rp-backdrop-blur': `${value.backdrop_blur}px`,
     '--rp-backdrop-tint': value.backdrop_tint || themeTint('backdrop'),
@@ -64,10 +72,9 @@ export function resolveChatDisplayProfile(preferences) {
     && Object.entries(DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles.roleplay)
       .every(([key, value]) => key === 'bubble_corner_radius' ? [10, 12].includes(savedProfile[key])
         : savedProfile[key] === (key === 'turn_spacing' ? 10 : value));
-  return {
-    layout,
-    profile: agentUsesPreviousDefaults || roleplayUsesPreviousDefaults ? DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles[layout] : savedProfile,
-  };
+  const profile = agentUsesPreviousDefaults || roleplayUsesPreviousDefaults ? DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles[layout] : savedProfile;
+  const style = resolveRoleplayStyle(preferences);
+  return { layout, profile: layout === 'roleplay' && style.bubbles_enabled ? { ...profile, turn_spacing: style.bubble_spacing } : profile };
 }
 
 export function chatDisplayCssVariables(layout, profile) {

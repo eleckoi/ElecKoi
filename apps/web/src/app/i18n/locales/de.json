@@ -1,4 +1,6 @@
 {
+  "默认启用": "Standardmäßig aktiviert",
+  "基础工具": "Grundlegende Werkzeuge",
   "角色信息": "Charakterinformationen",
   "作者信息": "Autoreninformationen",
   "作者名字": "Autorenname",
@@ -466,7 +468,8 @@
   "间距与留白": "Abstände",
   "文本颜色": "Textfarbe",
   "富消息": "Interaktive Nachrichten",
-  "布局独有风格": "Layoutstil",
+  "酒馆风格": "Tavernenstil",
+  "Agent 气泡显示": "Agent-Sprechblasen",
   "有气泡": "Es gibt Blasen",
   "无气泡": "Keine Luftblasen",
   "生成统计": "Statistiken erstellen",

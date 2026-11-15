@@ -50,8 +50,8 @@ export const OpeningEditor = forwardRef(function OpeningEditor({ entry, query = 
             {isPrimary ? <span>{tUi("主开场白")}</span> : null}
           </button>
           <div className="setting-library-opening-tools">
-            {!isPrimary ? <Button data-dsh-control variant="outline" type="button" aria-label={tUi("上移")} title={tUi("上移")} disabled={index === 1} onClick={() => onChange(moveBackupOpening(entry, message.id, -1))}><ArrowUp size={16} /></Button> : null}
-            {!isPrimary ? <Button data-dsh-control variant="outline" type="button" aria-label={tUi("下移")} title={tUi("下移")} disabled={index === backups.length} onClick={() => onChange(moveBackupOpening(entry, message.id, 1))}><ArrowDown size={16} /></Button> : null}
+            <Button data-dsh-control variant="outline" type="button" aria-label={tUi("上移")} title={tUi("上移")} disabled={index === 0} onClick={() => onChange(moveBackupOpening(entry, message.id, -1))}><ArrowUp size={16} /></Button>
+            <Button data-dsh-control variant="outline" type="button" aria-label={tUi("下移")} title={tUi("下移")} disabled={index === messages.length - 1} onClick={() => onChange(moveBackupOpening(entry, message.id, 1))}><ArrowDown size={16} /></Button>
             <Button data-dsh-control variant="outline" type="button" aria-label={tUi("复制开场白")} title={tUi("复制开场白")} onClick={() => duplicate(message.id)}><Copy size={16} /></Button>
             <Button data-dsh-control variant="outline" type="button" aria-label={tUi("删除开场白")} title={tUi("删除开场白")} disabled={messages.length <= 1} onClick={() => onRequestDelete(message)}><Trash size={16} /></Button>
           </div>

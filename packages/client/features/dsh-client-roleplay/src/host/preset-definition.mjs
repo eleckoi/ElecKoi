@@ -6,7 +6,6 @@ import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 const resolveRuntimeModule = createRequire(import.meta.url).resolve
 
 const PRODUCT_PLUGIN_FILES = new Map([
-  ['uploaded-file-tools', 'uploaded-file-tools.mjs'],
   ['variable-tools', 'variable-tools.mjs'],
   ['setting-library-tools', 'setting-library-tools.mjs'],
   ['roleplay-plan-tool', 'roleplay-plan-tool.mjs']
@@ -19,27 +18,25 @@ const retiredPrunerUrl = pathToFileURL(resolveRuntimeModule(retiredPruner)).href
 export const durableProductPluginSpecifier = productSpecifier
 
 export function runtimePresetDefinition(definition) {
+  const plugins = Array.isArray(definition.plugins)
+    ? currentPlugins(definition.plugins).map(resolveRuntimePlugin) : definition.plugins
+  // RETIRE WHEN: supported generated presets all include the native reader and
+  // no longer refer to uploaded-file-tools. Keep the ordinary native composition.
+  if (Array.isArray(plugins) && !plugins.some(plugin => plugin.name === '@deepseek-ai/dsh-tool-fs')) {
+    plugins.push({ id: 'tool-fs', name: '@deepseek-ai/dsh-tool-fs',
+      config: { read: true, readImage: true, write: false, edit: false, applyPatch: false } })
+  }
   return {
     ...definition,
-    plugins: Array.isArray(definition.plugins)
-      ? currentPlugins(definition.plugins).map(resolveRuntimePlugin)
-      : definition.plugins
+    plugins
   }
 }
 
-export function readRuntimePresetDefinition(path, id, templatePath, requiredProductPlugins = []) {
+export function readRuntimePresetDefinition(path, id, templatePath) {
   const source = readFileSync(path, 'utf8')
   const parsed = JSON.parse(source)
   if (parsed?.id !== id || !Array.isArray(parsed.plugins)) {
     throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, `ElecKoi Agent preset ${id} has an invalid composition`, { what: 'Agent 预设的组成' })
-  }
-  // Generated declarations retain their selected capabilities; required Host
-  // file access is restored before mounting without changing Session history.
-  for (const pluginId of requiredProductPlugins) {
-    if (!PRODUCT_PLUGIN_FILES.has(pluginId)) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `未知的预设必需插件：${pluginId}`, { what: '预设必需插件' })
-    if (!parsed.plugins.some(plugin => plugin?.id === pluginId)) {
-      parsed.plugins.push({ id: pluginId, name: productSpecifier(pluginId) })
-    }
   }
   return runtimePresetDefinition(parsed)
 }
@@ -68,5 +65,5 @@ function currentPlugins(plugins) {
   // former preset-mounted image handler. Remove this filter with its regression.
   const oldImage = plugin => plugin?.id === 'image-generation-tools' &&
     ['eleckoi:agent-preset/image-generation-tools', new URL('./image-generation-tools.mjs', import.meta.url).href].includes(plugin.name)
-  return plugins.filter(plugin => !oldImage(plugin) && plugin?.name !== retiredPruner && plugin?.name !== retiredPrunerUrl)
+  return plugins.filter(plugin => plugin?.id !== 'uploaded-file-tools' && !oldImage(plugin) && plugin?.name !== retiredPruner && plugin?.name !== retiredPrunerUrl)
 }

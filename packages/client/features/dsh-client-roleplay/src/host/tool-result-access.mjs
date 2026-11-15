@@ -4,14 +4,12 @@ export const RESULT_READERS = Object.freeze({
   settings: 'eleckoi_read_setting_files',
   variables: 'eleckoi_read_variables',
   creator: 'eleckoi_call_capability',
-  uploads: 'eleckoi_read_uploaded_file',
 })
 
 const sources = Object.freeze({
   settings: ['eleckoi_glob_setting_files', 'eleckoi_grep_setting_files', 'eleckoi_read_setting_files', 'eleckoi_apply_setting_patch'],
   variables: ['eleckoi_glob_variables', 'eleckoi_grep_variables', 'eleckoi_read_variables', 'eleckoi_apply_variable_patch'],
   creator: ['eleckoi_list_toolsets', 'eleckoi_describe_toolset', 'eleckoi_call_capability'],
-  uploads: ['eleckoi_read_uploaded_file'],
 })
 
 export const resultReadParameter = {

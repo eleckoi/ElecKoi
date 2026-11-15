@@ -43,7 +43,7 @@ function CreatorStudioDevelopmentNotice({ onSimple, onDeveloper }) {
   </main>;
 }
 
-export function CreatorStudioWindow({ characterCatalog, projectCatalog, models, presetCatalog, renderCreatorStudioConversation, rightbar, navigation }) {
+export function CreatorStudioWindow({ characterCatalog, projectCatalog, models, presetCatalog, renderCreatorStudioConversation, rightbar, navigation, nativeFrame }) {
   const tUi = useProductTranslation();
   const [mode, setMode] = useState('entry');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -63,6 +63,7 @@ export function CreatorStudioWindow({ characterCatalog, projectCatalog, models, 
   const nativePanelId = ['plugins', 'conversation'].includes(navigation?.selectedPanelId) ? navigation.selectedPanelId : null;
   if (mode === 'entry') return <CreatorStudioDevelopmentNotice onSimple={() => setMode('simple')} onDeveloper={() => setMode('developer')} />;
   if (mode === 'simple') return <CreatorStudioSimplePage characterCatalog={characterCatalog} model={projectCatalog.sessions}
+    nativeFrame={nativeFrame} navigation={navigation}
     models={models} presetCatalog={presetCatalog} rightbar={rightbar} renderConversation={renderCreatorStudioConversation}
     nativePanel={nativePanelId ? navigation.renderPanel(nativePanelId) : null}
     onReturnToConversation={() => navigation.selectPanel('messages')} onBack={() => setMode('entry')} />;

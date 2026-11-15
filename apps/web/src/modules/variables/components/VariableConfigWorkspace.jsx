@@ -29,7 +29,7 @@ export function VariableConfigWorkspace({ config, query, onQueryChange, createIt
     style={{ '--setting-directory-width': `${actualWidth}px` }}>
     <aside className="setting-directory editor-heading-surface" aria-label={tUi('变量目录')}>
       <EditorDirectoryHeading title={tUi('变量')}><div className="setting-directory-actions">
-        <Menu portal dense open={createOpen} onClose={() => setCreateOpen(false)} anchor={<Button data-dsh-control variant="outline" className="setting-create" icon={<Plus size={16} />}
+        <Menu portal dense open={createOpen} onClose={() => setCreateOpen(false)} anchor={<Button data-dsh-control variant="primary" className="setting-create" icon={<Plus size={16} />}
           aria-label={tUi('新建变量或变量组')} aria-haspopup="menu" aria-expanded={createOpen} disabled={saving || !config || selection.active} onClick={() => setCreateOpen(!createOpen)}>{tUi('新建')}</Button>}
           items={createItems.map((item, index) => ({ id: String(index), label: item.label, icon: <item.Icon size={16} /> }))} onSelect={id => { setCreateOpen(false); createItems[Number(id)]?.run(); }} />
         {save}

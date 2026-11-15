@@ -55,7 +55,8 @@
 :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-picker-shell > button svg { width: 16px; height: 16px; transform: none; }
 :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .mobile-model-connection-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding-top: 10px; }
 :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .mobile-model-connection-actions .model-manual-add-anchor { display: contents; }
-:is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .mobile-model-connection-actions :is(.model-add-button, .model-fetch-button) { display: flex; align-items: center; justify-content: center; width: 100%; height: 48px; padding: 0 8px; gap: 7px; border: 0; border-radius: 14px; corner-shape: round; font-size: 14px; background: var(--surface-raised); color: var(--text); }
+:is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .mobile-model-connection-actions :is(.model-add-button, .model-fetch-button) { display: flex; align-items: center; justify-content: center; width: 100%; height: 48px; padding: 0 8px; gap: 7px; font-size: 14px; }
+:is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .mobile-model-connection-actions :is(.model-add-button, .model-fetch-button):not([data-dsh-control]) { border: 0; border-radius: 14px; corner-shape: round; background: var(--surface-raised); color: var(--text); }
 :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-parameter-grid { display: block; overflow: hidden; }
 :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-parameter-grid > label { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(108px, 132px); align-items: center; gap: 8px; min-height: 68px; padding: 10px 14px; border: 0; }
 :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-parameter-grid > label + label::before { content: ''; position: absolute; top: 0; left: 14px; right: 0; height: .5px; background: var(--line); }
@@ -90,26 +91,19 @@
 :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-headers-editor h4 { color: var(--muted); font-size: 11px; font-weight: 400; }
 :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-header-row { grid-template-columns: minmax(0, 1fr) 48px; gap: 8px; }
 :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-header-row input:first-child { grid-column: 1 / -1; }
-:is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-header-row button { height: 48px; width: 48px; background: var(--control-bg); color: var(--muted); }
+:is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-header-row button { height: 48px; width: 48px; }
+:is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-header-row button:not([data-dsh-control]) { background: var(--control-bg); color: var(--muted); }
 :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-header-row input[readonly] { color: var(--muted); }
-.mobile-dialog-overlay.mobile-model-sheet { align-items: flex-end; padding: 0; }
-.mobile-model-sheet .mobile-dialog { display: flex; flex-direction: column; width: 100%; max-width: 640px; height: min(520px, calc(100% - 24px)); max-height: calc(100% - 24px); overflow: hidden; padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px)); border-radius: 22px 22px 0 0; corner-shape: round; }
-.mobile-model-sheet .mobile-dialog > header { flex: none; margin-bottom: 8px; }
 .mobile-model-picker-tools { display: flex; align-items: center; flex: none; gap: 8px; margin-bottom: 8px; }
-.mobile-model-search { display: flex; align-items: center; flex: 1; min-width: 0; height: 48px; gap: 8px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--field-bg); color: var(--muted); }
-.mobile-model-search > svg { flex: none; }
-:is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-detail-form .mobile-model-search > input { flex: 1; width: 100%; min-width: 0; height: 46px; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--text); font-size: 14px; }
-.mobile-model-search:focus-within { border-color: color-mix(in srgb, var(--text) 28%, transparent); }
 .mobile-model-picker-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
 .mobile-model-picker-row { display: flex; align-items: center; min-width: 0; gap: 4px; margin-bottom: 4px; }
-.mobile-model-sheet .mobile-model-choice { flex: 1; min-width: 0; min-height: 56px; width: 100%; padding: 12px; gap: 10px; border-radius: 10px; color: var(--text); }
+.mobile-model-sheet .mobile-model-choice { flex:1; min-width:0; min-height:56px; width:100%; gap:10px; text-align:left; }
 .mobile-model-choice > span { flex: 1; min-width: 0; display: grid; gap: 3px; }
 .mobile-model-choice strong { font-size: 15px; line-height: 21px; font-weight: 400; overflow-wrap: anywhere; }
 .mobile-model-choice small { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .mobile-model-choice > svg { flex: none; color: var(--muted); }
-.mobile-model-sheet .mobile-model-remove { flex: none; justify-content: center; padding: 0; color: var(--muted); }
+.mobile-model-sheet .mobile-model-remove { flex:none; min-width:44px; min-height:44px; justify-content:center; }
 .mobile-model-picker-empty { padding: 24px 8px; margin: 0; color: var(--muted); font-size: 14px; line-height: 21px; text-align: center; }
-.mobile-model-manual-actions { display: flex; justify-content: flex-end; gap: 8px; }
 @media (max-width: 350px) { :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .mobile-header { padding: 0 12px; } :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .mobile-header h1 { left: 86px; right: 86px; } }
 @media (min-width: 520px) { :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-reasoning-efforts { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-capability-toggle input, :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-capability-toggle input::after { transition: none; } }

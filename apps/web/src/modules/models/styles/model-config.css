@@ -86,15 +86,15 @@
   white-space: nowrap;
 }
 
-.model-group-row:focus-visible,
-.model-config-provider:focus-visible,
-.model-icon-button:focus-visible,
-.model-fetch-button:focus-visible,
-.model-add-button:focus-visible,
-.model-picker-value:focus-visible,
-.model-picker-shell button:focus-visible,
-.model-manual-add button:focus-visible,
-.model-header-row button:focus-visible {
+.model-group-row:focus-visible:not([data-dsh-control]),
+.model-config-provider:focus-visible:not([data-dsh-control]),
+.model-icon-button:focus-visible:not([data-dsh-control]),
+.model-fetch-button:focus-visible:not([data-dsh-control]),
+.model-add-button:focus-visible:not([data-dsh-control]),
+.model-picker-value:focus-visible:not([data-dsh-control]),
+.model-picker-shell button:focus-visible:not([data-dsh-control]),
+.model-manual-add button:focus-visible:not([data-dsh-control]),
+.model-header-row button:focus-visible:not([data-dsh-control]) {
   outline: 0;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 46%, #ffffff);
 }
@@ -480,97 +480,7 @@ span.model-provider-initials {
   color: #b2b2b2;
 }
 
-.model-provider-delete-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 160;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgb(24 28 34 / 22%);
-  backdrop-filter: blur(3px);
-  -webkit-app-region: no-drag;
-}
 
-.model-provider-delete-dialog {
-  width: min(380px, calc(100vw - 48px));
-  padding: 22px;
-  border: 1px solid rgb(0 0 0 / 8%);
-  border-radius: 14px;
-  background: var(--chat);
-  box-shadow: 0 18px 48px rgb(0 0 0 / 18%);
-}
-
-.model-provider-delete-dialog h2 {
-  margin: 0;
-  color: var(--text);
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.model-provider-delete-dialog p {
-  margin: 10px 0 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.65;
-}
-
-.model-provider-delete-error {
-  display: block;
-  margin-top: 10px;
-  color: #cf3737;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.model-provider-delete-dialog > div {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 22px;
-}
-
-.model-provider-delete-dialog button {
-  min-width: 88px;
-  height: 36px;
-  padding: 0 15px;
-  border: 1px solid #d8d8d8;
-  border-radius: 9px;
-  background: #fff;
-  color: #333;
-  font-size: 13px;
-}
-
-.model-provider-delete-dialog button:hover {
-  background: var(--control-bg);
-}
-
-.model-provider-delete-dialog button:disabled {
-  cursor: default;
-  opacity: 0.58;
-}
-
-.model-provider-delete-dialog button.primary {
-  border-color: var(--blue);
-  background: var(--blue);
-  color: #fff;
-}
-
-.model-provider-delete-dialog button.primary:hover:not(:disabled) {
-  border-color: var(--blue-hover);
-  background: var(--blue-hover);
-}
-
-.model-provider-delete-dialog button.danger {
-  border-color: #d94c4c;
-  background: #d94c4c;
-  color: #fff;
-}
-
-.model-provider-delete-dialog button.danger:hover:not(:disabled) {
-  border-color: #c94343;
-  background: #c94343;
-}
 
 .model-detail-hero {
   display: grid;
@@ -1008,22 +918,26 @@ span.model-provider-initials {
   justify-content: center;
   gap: 6px;
   height: 42px;
+  font-size: 13px;
+}
+
+.model-fetch-button:not([data-dsh-control]),
+.model-add-button:not([data-dsh-control]) {
   border: 1px solid #d8d8d8;
   border-radius: 10px;
   background: #fff;
   color: #111;
-  font-size: 13px;
 }
 
-.model-fetch-button:hover:not(:disabled),
-.model-add-button:hover:not(:disabled) {
+.model-fetch-button:hover:not(:disabled):not([data-dsh-control]),
+.model-add-button:hover:not(:disabled):not([data-dsh-control]) {
   border-color: color-mix(in srgb, var(--blue) 32%, #d8d8d8);
   color: var(--blue);
   background: color-mix(in srgb, var(--blue) 8%, #fff);
 }
 
-.model-fetch-button:disabled,
-.model-add-button:disabled {
+.model-fetch-button:disabled:not([data-dsh-control]),
+.model-add-button:disabled:not([data-dsh-control]) {
   color: #aaa;
   background: #f7f7f7;
 }
@@ -1111,11 +1025,14 @@ span.model-provider-initials {
   min-width: 76px;
   height: 36px;
   padding: 0 13px;
+  font-size: 13px;
+}
+
+.model-manual-add button:not([data-dsh-control]) {
   border: 1px solid #dedede;
   border-radius: 8px;
   background: #fff;
   color: #333;
-  font-size: 13px;
 }
 
 
@@ -1329,11 +1246,11 @@ span.model-provider-initials {
   place-items: center;
   width: 36px;
   height: 36px;
-  border-radius: 7px;
-  color: #777;
 }
 
-.model-header-row button:hover {
+.model-header-row button:not([data-dsh-control]) { border-radius: 7px; color: #777; }
+
+.model-header-row button:hover:not([data-dsh-control]) {
   background: #f0f0f0;
   color: #222;
 }
@@ -1449,7 +1366,9 @@ span.model-provider-initials {
 .model-config-detail:not(.mobile-model-config-detail) .model-provider-id-field small { color: var(--model-muted); font-size: 11px; }
 .model-config-detail:not(.mobile-model-config-detail) .model-save-actions { gap: 8px; }
 .model-config-detail:not(.mobile-model-config-detail) .model-save-actions > button,
-.model-config-detail:not(.mobile-model-config-detail) :is(.model-add-button, .model-fetch-button, .model-manual-add button) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; width: auto; height: 32px; padding: 5px 11px; font-size: 12px; font-weight: 400; line-height: 1.5; border-radius: 8px; border: 1px solid var(--model-line); background: var(--model-panel); color: var(--model-text); }
+.model-config-detail:not(.mobile-model-config-detail) :is(.model-add-button, .model-fetch-button, .model-manual-add button) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; width: auto; height: 32px; padding: 5px 11px; font-size: 12px; line-height: 1.5; }
+.model-config-detail:not(.mobile-model-config-detail) .model-save-actions > button:not([data-dsh-control]),
+.model-config-detail:not(.mobile-model-config-detail) :is(.model-add-button, .model-fetch-button, .model-manual-add button):not([data-dsh-control]) { font-weight: 400; border-radius: 8px; border: 1px solid var(--model-line); background: var(--model-panel); color: var(--model-text); }
 .model-config-detail:not(.mobile-model-config-detail) .model-save-actions > button:not(.model-cancel-button):not(.model-icon-button) { background: var(--model-text); border-color: var(--model-text); color: var(--model-panel); }
 .model-config-detail:not(.mobile-model-config-detail) .model-save-actions > button:disabled { opacity: .5; }
 .model-config-detail:not(.mobile-model-config-detail) .model-save-actions .model-icon-button { width: 32px; padding: 0; }

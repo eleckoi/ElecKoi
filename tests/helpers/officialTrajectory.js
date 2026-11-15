@@ -26,18 +26,26 @@ function loadClient(name, exposed = '') {
   const source = readFileSync(resolve(`node_modules/@deepseek-ai/${name}/lib/client.js`), 'utf8')
   if (source.split('return module.exports').length !== 2) throw new Error('Unexpected Client bundle boundary')
   let registration
-  runInNewContext(source.replace('return module.exports', `return { ...module.exports${exposed} };`), {
+  const environment = {
     window: { __ModuleLoader__: { load: value => { registration = value } } },
     console, setTimeout, clearTimeout, setInterval, clearInterval,
-  })
+  }
+  for (const name of ['document', 'HTMLElement', 'ResizeObserver', 'localStorage', 'getComputedStyle', 'requestAnimationFrame', 'cancelAnimationFrame']) {
+    Object.defineProperty(environment, name, { get: () => globalThis[name] })
+  }
+  runInNewContext(source.replace('return module.exports', `return { ...module.exports${exposed} };`), environment)
   return registration.factory(withDshAssets(name => {
     if (!(name in modules)) throw new Error(`Unexpected Client dependency: ${name}`)
     return modules[name]
   }))
 }
 
-const conversation = loadClient('dsh-client-ui-conversation', ', ConversationNodeAssembler, ConversationEventRegistry, inspectSystemPrompt, inspectRequestPrompt, ContextMeter')
-const trajectory = loadClient('dsh-client-ui-trajectory')
+const conversation = loadClient('dsh-client-ui-conversation', ', ConversationNodeAssembler, ConversationEventRegistry, inspectSystemPrompt, inspectRequestPrompt, ContextMeter, ConversationRoot, ConversationContent, ConversationWidthControls, installDraftWheel, focusDraftEditor, keepDraftFocus')
+const trajectory = loadClient('dsh-client-ui-trajectory', ', deriveTrajectoryLayout, registerTrajectoryToolDefinition, TrajectoryView, zh')
+export const OfficialTrajectoryView = trajectory.TrajectoryView
+export const officialTrajectoryLayout = trajectory.deriveTrajectoryLayout
+export const registerOfficialTrajectoryTools = trajectory.registerTrajectoryToolDefinition
+export const officialTrajectoryZh = trajectory.zh
 
 export function officialTrajectoryFixture() {
   const events = new conversation.ConversationEventRegistry(new cordis.Context())
@@ -87,6 +95,13 @@ export const OfficialReasoningContent = loadClient('dsh-client-ui-chat', ', Reas
 export const OfficialCompactionNodeView = loadClient('dsh-client-ui-chat', ', CompactionNodeView').CompactionNodeView
 export const OfficialTurnErrorNodeView = loadClient('dsh-client-ui-chat', ', TurnErrorNodeView').TurnErrorNodeView
 export const OfficialContextMeter = conversation.ContextMeter
+export const OfficialConversationContent = conversation.ConversationContent
+export const OfficialConversationRoot = conversation.ConversationRoot
+export const OfficialConversationWidthControls = conversation.ConversationWidthControls
+export const installOfficialDraftWheel = conversation.installDraftWheel
+export const focusOfficialDraft = conversation.focusDraftEditor
+export const keepOfficialDraftFocus = conversation.keepDraftFocus
+export const officialComposerSeat = loadClient('dsh-client-ui-chat', ', composerSeat').composerSeat
 
 export function officialChatFixture() {
   const chat = loadClient('dsh-client-ui-chat', ', registerConversationNodes')

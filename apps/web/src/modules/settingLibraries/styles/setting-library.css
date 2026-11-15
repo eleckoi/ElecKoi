@@ -131,11 +131,6 @@
   gap: 6px;
 }
 
-.setting-library-create-button:hover,
-.setting-library-create-button[aria-expanded="true"] {
-  filter: brightness(.96);
-}
-
 .setting-library-save-control {
   display: flex;
   min-width: 0;
@@ -1512,47 +1507,6 @@ html.immersive-editor-open .qq-character-editor-window-shell .window-controls {
   height: 210px;
 }
 
-.setting-library-dialog button {
-  min-width: 76px;
-}
-
-.setting-library-dialog-overlay {
-  position: fixed;
-  z-index: 300;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(0, 0, 0, .2);
-  backdrop-filter: blur(2px);
-}
-
-.setting-library-dialog {
-  width: min(360px, calc(100vw - 40px));
-  padding: 22px;
-  background: var(--chat);
-  border: 1px solid color-mix(in srgb, var(--text) 15%, transparent);
-  border-radius: 12px;
-  box-shadow: 0 18px 55px rgba(0, 0, 0, .2);
-}
-
-.setting-library-dialog h2 {
-  margin: 0;
-  font-size: 17px;
-}
-
-.setting-library-dialog p {
-  margin: 9px 0 22px;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.setting-library-dialog > div {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
 .setting-library-manager-overlay {
   position: fixed;
   z-index: 300;
@@ -1808,19 +1762,6 @@ html.immersive-editor-open .qq-character-editor-window-shell .window-controls {
 
 .setting-library-manager-dialog {
   width: min(430px, calc(100vw - 40px));
-}
-
-.setting-library-dialog.setting-library-manager-dialog > .setting-library-manager-dialog-body {
-  display: grid;
-  justify-content: stretch;
-  gap: 14px;
-  margin: 16px 0 20px;
-}
-
-.setting-library-dialog.setting-library-manager-dialog > .setting-library-manager-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
 }
 
 .setting-library-manager-choice-list {

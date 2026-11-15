@@ -14,6 +14,10 @@ window.__ModuleLoader__.load({
       settings: page('MobileSettingsPage')
     }
     function apply(ctx) {
+      // Product mobile headers already provide Back and the navigation trigger.
+      ctx.slots.inject('shell.leading', () => ctx.slots.register({
+        name: 'shell.leading', priority: -100, registrant: '@eleckoi/dsh-client-mobile'
+      }, () => null))
       ctx.slots.inject('plugins.header.leading', () => ctx.slots.register({
         name: 'plugins.header.leading', id: 'eleckoi-mobile-back',
         select: owner => globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android' ? owner : null,

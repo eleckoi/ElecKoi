@@ -1,3 +1,6 @@
+- id: ui-workspace
+  config:
+    autoSelectSession: false
 - insert:
     - id: eleckoi-client-shell
       name: '@eleckoi/dsh-client-shell'

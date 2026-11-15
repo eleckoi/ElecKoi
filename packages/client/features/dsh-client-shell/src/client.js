@@ -13,6 +13,10 @@ window.__ModuleLoader__.load({
     const { productFailure, ELECKOI_FAILURE_CODES, unwrapOrFail, failureAlreadyPublished } = require('@eleckoi/dsh-product-api')
     const SettingsPage = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
       .then(module => ({ default: module.SettingsPage })))
+    const OfficialFrameSidebar = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
+      .then(module => ({ default: module.OfficialFrameSidebar })))
+    const OfficialFramePage = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
+      .then(module => ({ default: module.OfficialFramePage })))
     const CreatorStudioNavigationIcon = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
       .then(module => ({ default: module.CreatorStudioNavigationIcon })))
     const CommunityNavigationIcon = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
@@ -133,7 +137,7 @@ window.__ModuleLoader__.load({
         const registry = workspaces?.list.getSnapshot() ?? emptyRegistry
         const catalog = conversations?.getSnapshot()
         const panel = ctx.layout.panelInfo?.getSnapshot()
-        const studioOnly = panel?.activePanelId === 'creatorStudio' || panel?.windowPanelId === 'creatorStudio'
+        const studioOnly = panel?.activePanelId === 'creatorStudio'
         if (snapshot && list === previousList && registry === previousRegistry && catalog === previousCatalog && studioOnly === previousStudioOnly) return snapshot
         previousList = list; previousRegistry = registry; previousCatalog = catalog
         previousStudioOnly = studioOnly
@@ -222,11 +226,11 @@ window.__ModuleLoader__.load({
           } : options, options.name === 'sidebar' ? props => {
               const scopedSessions = props.useEleckoiWorkspaceSessions?.(value => value)
               const panel = ctx.layout.panelInfo?.getSnapshot()
-              const openingStudio = ['creatorStudio', 'schedules'].includes(panel?.activePanelId) || panel?.windowPanelId === 'creatorStudio'
+              const openingStudio = ['creatorStudio', 'schedules'].includes(panel?.activePanelId)
               const protectedCurrent = props.useSessions?.(value => {
                 const current = Object.values(value.byId).filter(row => (row.retainedBy?.mainView ?? 0) > 0)
                 const protectedIds = visibility.getSnapshot().protectedIds
-                return props.workspace && !openingStudio && current.length > 0 && current.every(row => protectedIds.has(row.id))
+                return panel?.activePanelId === null && !openingStudio && current.length > 0 && current.every(row => protectedIds.has(row.id))
               })
               React.useEffect(() => { if (protectedCurrent) ctx.layout.selectPanel('messages') }, [protectedCurrent, scopedSessions])
               const productSlot = (key, owner, renderOptions) => {
@@ -238,7 +242,7 @@ window.__ModuleLoader__.load({
                 if (owner && Object.hasOwn(owner, 'content') && (entry?.options.priority ?? 0) >= -100) return owner.content
                 return props.renderSlot(key, owner, renderOptions)
               }
-              const workspaceSidebar = props.workspace ? React.createElement(Component, {
+              const workspaceSidebar = React.createElement(Component, {
                 ...props,
                 usePanels: select => props.usePanels(rows => select(rows.filter(item => workspacePanel(item.id)))),
                 useEntryActions: noEntryActions,
@@ -255,8 +259,9 @@ window.__ModuleLoader__.load({
                       unarchiveSession: id => { visibility.assertVisible(id); return face.unarchiveSession(id) }
                     }, renderOptions)
                   })() : props.renderSlot(key, owner, renderOptions)
-              }) : null
-              return props.renderContent(productSlot, workspaceSidebar)
+              })
+              return React.createElement(React.Suspense, { fallback: null }, React.createElement(OfficialFrameSidebar,
+                { ...props, renderSidebarSlot: productSlot, workspaceSidebar }))
             } : Component)
           const value = Reflect.get(target, name)
           return typeof value === 'function' ? value.bind(target) : value
@@ -264,7 +269,52 @@ window.__ModuleLoader__.load({
       })
       officialSidebar.apply(ctx.extend({ slots: scopedSlots }))
     }
-    function ElecKoiRoot({ layout, slots, subscribeSlots, frontendConnection, locale, theme, subscribeTheme, conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, webSearch, displayPreferences, sidebarRight, renderSlot, renderSlotChain }) {
+    function installNativeConversationContent(ctx) {
+      const slots = ctx.slots
+      const Presentation = React.createContext(null)
+      const NativeWidth = React.createContext(null)
+      const noHeader = () => null
+      function ProductViews() { return React.useContext(Presentation).views }
+      function ProductComposer() { return React.useContext(Presentation).composer }
+      function NoProductWidthControls() { return null }
+      function ProductWidthControls(props) {
+        const Component = React.useContext(NativeWidth)
+        const { widthPreference } = React.useContext(Presentation)
+        return React.createElement(Component, { ...props, widthPreference })
+      }
+      let root, releaseRoot
+      const syncRoot = () => {
+        const next = slots.entriesOfSlot('main.conversation')[0]
+        if (next === root) return
+        releaseRoot?.(); releaseRoot = undefined; root = next
+        if (!next) return
+        releaseRoot = slots.registerFactory({ name: 'eleckoi.conversation.frame', scope: 'session-maybe',
+          ...(next.inject ? { inject: next.inject } : {}), ...(next.store ? { store: next.store } : {}),
+          ...(next.locale ? { locale: next.locale } : {}) }, props => {
+          const host = React.useRef(null)
+          const { onScrollElement } = props.presentation
+          React.useLayoutEffect(() => {
+            onScrollElement?.(host.current?.querySelector('[data-conversation-scroll]') ?? null)
+            return () => onScrollElement?.(null)
+          }, [onScrollElement, props.sessionId])
+          const { variant, phase, hero, widthControls } = props.presentation
+          const renderFactorySlot = React.useCallback((name, owner, options) => name !== 'conversation.content' ? props.renderFactorySlot(name, owner, options)
+            : React.createElement(NativeWidth.Provider, { value: options?.slots?.widthControls }, props.renderFactorySlot(name,
+              { ...owner, variant: variant ?? owner.variant, phase: phase ?? owner.phase, hero: hero ?? owner.hero },
+              { ...options, slots: { ...options?.slots, views: ProductViews, composer: ProductComposer,
+                widthControls: widthControls === false || !options?.slots?.widthControls ? NoProductWidthControls : ProductWidthControls } })),
+            [props.renderFactorySlot, variant, phase, hero, widthControls])
+          return React.createElement(Presentation.Provider, { value: props.presentation },
+            React.createElement('div', { ref: host, 'data-eleckoi-native-frame': '', style: { display: 'contents' } }, React.createElement(next.component, { ...props,
+              renderSlot: noHeader, renderFactorySlot,
+            })))
+        })
+      }
+      const stopRoot = slots.subscribe('main.conversation', syncRoot)
+      syncRoot()
+      return () => { stopRoot(); releaseRoot?.() }
+    }
+    function ElecKoiRoot({ nativeFrame, layout, slots, subscribeSlots, frontendConnection, locale, theme, subscribeTheme, conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, webSearch, displayPreferences, sidebarRight, renderSlot, renderSlotChain }) {
       const tUi = locale.bind('eleckoi.ui')
       const [ProductApp, setProductApp] = React.useState(null)
       const [loadError, setLoadError] = React.useState('')
@@ -326,7 +376,7 @@ window.__ModuleLoader__.load({
       const hasSidebarFooterActions = React.useMemo(() =>
         slots.entriesOfSlot('sidebar.footer.action').length > 0, [slots, footerVersion])
       React.useEffect(() => {
-        const selected = panelInfo.activePanelId ?? 'messages'
+        const selected = panelInfo.activePanelId
         const panels = slots.entriesOfSlot('main').map(entry => entry.options.key)
         if (selected && !panels.includes(selected) && panels.length > 0) {
           layout.selectPanel(panels.includes('messages') ? 'messages' : panels[0])
@@ -536,7 +586,7 @@ window.__ModuleLoader__.load({
           id: 'eleckoi-root',
           style: { position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'auto' }
         }, ProductApp ? React.createElement(ProductApp, {
-          markdownComponent: MarkdownText, locale,
+          markdownComponent: MarkdownText, locale, nativeFrame,
           slots, subscribeSlots, frontendConnection,
           conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, webSearch, displayPreferences, appearance, settingsSections, rightbar,
           navigation: {
@@ -555,11 +605,11 @@ window.__ModuleLoader__.load({
             }),
             productPanelIds,
             hasSidebarFooterActions,
-            selectedPanelId: panelInfo.windowPanelId ?? panelInfo.activePanelId ?? 'messages',
+            selectedPanelId: panelInfo.activePanelId ?? 'conversation',
             selectPanel: id => layout.selectPanel(id),
             renderPanel: id => renderSlot('main', {}, { entryKey: id }),
-            renderSidebar: (renderContent, owner = {}) => renderSlot('sidebar', { ...owner, renderContent }),
             sidebar: layout.sidebarInfo,
+            reportSidebar: layout.reportSidebar,
             toggleSidebar: () => layout.toggleSidebar(),
             closeSidebar: () => layout.closeSidebar(),
             setPanelGuard: guard => layout.setPanelGuard(guard)
@@ -583,17 +633,13 @@ window.__ModuleLoader__.load({
             }, React.createElement('div', { className: 'chat-empty-guide' },
               React.createElement('strong', null, tUi("角色聊天插件未启用"))))
           })
-        }) : loadError),
-        React.createElement('div', {
-          className: 'eleckoi-plugin-overlay-seat',
-          'data-shell-overlay': true,
-          style: { position: 'fixed', inset: 0, zIndex: 20, pointerEvents: 'none' }
-        }, renderSlot('shell.overlay', {}))
+        }) : loadError)
       )
     }
 
     function apply(ctx) {
       const subscribeSlots = listener => ctx.on('slots/changed', listener)
+      ctx.effect(() => installNativeConversationContent(ctx), 'eleckoi: native Conversation factories')
       let currentScriptRuntime = null
       const scriptRuntimeListeners = new Set()
       const scriptRuntimeConnection = {
@@ -626,142 +672,75 @@ window.__ModuleLoader__.load({
           for (const listener of frontendListeners) listener()
         }
       }, 'eleckoi: optional native frontend projects'))
-      {
-        const mobile = globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android'
-        let panelSnapshot = { activePanelId: null }
-        let rightbarSnapshot = {
-          shown: false,
-          track: false,
-          fullscreen: false,
-          instant: false,
-          width: null,
-          viewportWidth: typeof window.innerWidth === 'number' ? window.innerWidth : 960
-        }
-        let navigation = new AbortController()
-        const listeners = new Set()
-        const rightbarListeners = new Set()
-        const sidebarListeners = new Set()
-        let sidebarSnapshot = { shown: false }
-        let panelGuard = null
-        const sidebarInfo = {
-          getSnapshot: () => sidebarSnapshot,
-          subscribe: listener => {
-            sidebarListeners.add(listener)
-            return () => sidebarListeners.delete(listener)
-          }
-        }
-        const showSidebar = shown => {
-          if (sidebarSnapshot.shown === shown) return
-          sidebarSnapshot = { shown }
-          for (const listener of sidebarListeners) listener()
-        }
-        const panelInfo = {
-          getSnapshot: () => panelSnapshot,
-          subscribe: listener => {
-            listeners.add(listener)
-            return () => listeners.delete(listener)
-          }
-        }
-        const rightbarInfo = {
-          getSnapshot: () => rightbarSnapshot,
-          subscribe: listener => {
-            rightbarListeners.add(listener)
-            return () => rightbarListeners.delete(listener)
-          }
-        }
-        const publishRightbar = patch => {
-          const next = { ...rightbarSnapshot, ...patch }
-          if (Object.keys(next).every(key => Object.is(next[key], rightbarSnapshot[key]))) return
-          rightbarSnapshot = next
-          for (const listener of rightbarListeners) listener()
-        }
-        const layout = {
-          panelInfo,
-          rightbarInfo,
-          sidebarInfo,
-          closeSidebar: () => showSidebar(false),
-          setPanelGuard: guard => {
-            panelGuard = guard
-            return () => { if (panelGuard === guard) panelGuard = null }
-          },
-          selectPanel: id => {
-            if (id === null || id === 'conversation') {
-              const foreground = Object.values(ctx.get('sessions')?.list.getSnapshot().byId ?? {}).filter(row => (row.retainedBy?.mainView ?? 0) > 0)
-              if (foreground.length === 1) {
-                const row = foreground[0]
-                const values = row.projectionValues ?? ctx.get('sessions').list.getSnapshot().projectionsBySession[row.id]?.values
-                if (values?.eleckoiCreatorStudio || values?.agentPreset === 'eleckoi-creator-active') id = 'creatorStudio'
-              }
-            }
-            if (!mobile && shellActions.has(id)) {
-              window.dispatchEvent(new CustomEvent('eleckoi:shell-action', { detail: id }))
-              return
-            }
-            if (id !== null && !ctx.slots.entriesOfSlot('main').some(entry => entry.options.key === id)) {
-              throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `layout.selectPanel: main panel "${id}" is not registered`, { what: '主面板' })
-            }
-            const requestedWorkspace = id === null || id === 'conversation'
-            const currentSessionId = !mobile && requestedWorkspace ? ctx.get('uiSession')?.adapter.current.getSnapshot().key : undefined
-            const roleplayMain = currentSessionId && ctx.get('eleckoiConversations')?.getSnapshot().items
-              .some(item => item.runtimeSessionId === currentSessionId)
-            const workspace = id === 'creatorStudio' || id === 'schedules' || requestedWorkspace && !roleplayMain
-            const panelId = requestedWorkspace || id === 'messages' || mobile && id === 'creatorStudio' ? null : id
-            const windowPanelId = mobile ? id ?? 'conversation' : requestedWorkspace && workspace ? 'conversation' : undefined
-            if (panelSnapshot.activePanelId === panelId && panelSnapshot.windowPanelId === windowPanelId) { if (mobile) showSidebar(false); return }
-            const commit = () => {
-              navigation.abort()
-              navigation = new AbortController()
-              panelSnapshot = { activePanelId: panelId, ...(windowPanelId ? { windowPanelId } : {}) }
-              showSidebar(!mobile && workspace)
-              for (const listener of listeners) listener()
-            }
-            if (panelGuard) panelGuard(commit)
-            else commit()
-          },
-          beginNavigation: () => {
-            navigation.abort()
-            navigation = new AbortController()
-            return navigation.signal
-          },
-          toggleSidebar: () => showSidebar(!sidebarSnapshot.shown),
-          setViewportWidth: width => {
-            if (!Number.isFinite(width) || width <= 0 || rightbarSnapshot.viewportWidth === width) return
-            publishRightbar({ viewportWidth: width, instant: false })
-          },
-          setRightbar: width => {
-            if (!Number.isFinite(width)) return
-            const maximum = Math.max(300, rightbarSnapshot.viewportWidth * 0.7)
-            publishRightbar({ width: Math.min(maximum, Math.max(300, Math.round(width))), instant: false })
-          },
-          openRightbar: (track, fullscreen) => {
-            publishRightbar({
-              shown: true,
-              track: Boolean(track),
-              fullscreen: Boolean(fullscreen),
-              instant: rightbarSnapshot.fullscreen && !fullscreen,
-              width: rightbarSnapshot.width ?? Math.max(300, Math.round(rightbarSnapshot.viewportWidth * 0.45))
-            })
-          },
-          closeRightbar: () => {
-            publishRightbar({
-              shown: false,
-              track: false,
-              fullscreen: false,
-              instant: rightbarSnapshot.shown && rightbarSnapshot.fullscreen
-            })
-          }
-        }
-        const stopPanelInfo = ctx.slots.provideRoot({ hooks: { panelInfo } })
-        const stopLayout = ctx.reflect.provide('layout', layout)
-        const stopRoot = ctx.slots.register({
-          name: 'root',
-          priority: -1,
-          children: {
-            sidebar: { kind: 'single', scope: 'root' },
-            main: { kind: 'keyed', scope: 'root' },
-            rightbar: { kind: 'single', scope: 'root' },
-            'shell.overlay': { kind: 'list', scope: 'root' },
-            'shell.leading': { kind: 'single', scope: 'root' },
+      const mountOfficialLayout = () => {
+      const officialLayout = require('@deepseek-ai/dsh-client-ui-layout')
+      ctx.plugin({
+        inject: officialLayout.inject,
+        apply(scope) {
+          let nativeLayout
+          const slots = scope.slots
+          const scopedSlots = new Proxy(slots, {
+            get(target, name) {
+              if (name === 'register') return (options, Frame) => {
+                if (options.name !== 'root') return target.register(options, Frame)
+                const store = options.store.create()
+                const native = nativeLayout
+                let panelGuard = null
+                let sidebarSnapshot = { shown: false }
+                const sidebarListeners = new Set()
+                let rightbarSource, rightbarSnapshot
+                const rightbarInfo = {
+                  subscribe: listener => store.subscribe(listener),
+                  getSnapshot: () => {
+                    const info = store.getSnapshot().layoutInfo
+                    if (rightbarSource !== info) {
+                      rightbarSource = info
+                      rightbarSnapshot = { shown: info.rightbarShown, track: info.rightbarTrack,
+                        fullscreen: info.rightbarFullscreen, instant: info.rightbarInstant,
+                        width: info.rightbar, viewportWidth: info.viewportWidth }
+                    }
+                    return rightbarSnapshot
+                  }
+                }
+                const layout = {
+                  panelInfo: native.panelInfo, rightbarInfo,
+                  sidebarInfo: { getSnapshot: () => sidebarSnapshot,
+                    subscribe: listener => { sidebarListeners.add(listener); return () => sidebarListeners.delete(listener) } },
+                  reportSidebar: next => {
+                    if (Object.keys(next).every(key => Object.is(next[key], sidebarSnapshot[key]))) return
+                    sidebarSnapshot = next
+                    for (const listener of sidebarListeners) listener()
+                  },
+                  setPanelGuard: guard => { panelGuard = guard; return () => { if (panelGuard === guard) panelGuard = null } },
+                  selectPanel: id => {
+                    if (globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind !== 'android' && shellActions.has(id)) {
+                      window.dispatchEvent(new CustomEvent('eleckoi:shell-action', { detail: id })); return
+                    }
+                    const commit = () => native.selectPanel(id === 'conversation' ? null : id)
+                    if (panelGuard) panelGuard(commit); else commit()
+                  },
+                  beginNavigation: () => native.beginNavigation(),
+                  toggleSidebar: () => native.toggleSidebar(),
+                  closeSidebar: () => { if (sidebarSnapshot.shown) native.toggleSidebar() },
+                  setViewportWidth: width => store.actions.setViewportWidth(width),
+                  setRightbar: width => store.actions.setRightbar(width),
+                  openRightbar: (track, fullscreen) => native.openRightbar(track, fullscreen),
+                  closeRightbar: () => native.closeRightbar(),
+                }
+                const routeProductSession = () => {
+                  if (native.panelInfo.getSnapshot().activePanelId !== null) return
+                  const id = scope.get('uiSession')?.adapter.current.getSnapshot().key
+                  if (!id) return
+                  if (scope.get('eleckoiConversations')?.getSnapshot().items.some(row => row.runtimeSessionId === id)) native.selectPanel('messages')
+                  else {
+                    const sessions = scope.get('sessions').list.getSnapshot()
+                    const values = sessions.byId[id]?.projectionValues ?? sessions.projectionsBySession[id]?.values
+                    if (values?.eleckoiCreatorStudio || values?.agentPreset === 'eleckoi-creator-active') native.selectPanel('creatorStudio')
+                  }
+                }
+                scope.effect(() => store.subscribe(routeProductSession), 'eleckoi: product Session destination')
+                const result = target.register({ ...options,
+                  children: { ...options.children,
             'settings.section': { kind: 'list', scope: 'root' },
             'eleckoi.shell.window': { kind: 'chain', scope: 'root' },
             'eleckoi.persona.editor': { kind: 'chain', scope: 'root' },
@@ -786,28 +765,62 @@ window.__ModuleLoader__.load({
             'eleckoi.preset.manager': { kind: 'chain', scope: 'root' },
             'eleckoi.roleplay': { kind: 'chain', scope: 'root' },
             'eleckoi.creator-studio.conversation': { kind: 'single', scope: 'root' }
-          },
-          inject: () => ({ layout, slots: ctx.slots, subscribeSlots, frontendConnection, locale: ctx.locale,
-            theme: ctx.theme, subscribeTheme: listener => ctx.on('theme/change', listener),
-            conversations: ctx.get('eleckoiConversations'), characters: ctx.eleckoiCharacters,
-            characterConfiguration: { openings: ctx.eleckoiCharacterOpenings, settingLibraries: ctx.eleckoiSettingLibraries, globalSettingLibraries: ctx.eleckoiGlobalSettingLibraries,
-              variables: ctx.eleckoiVariables, regexRules: ctx.eleckoiRegexRules,
-              scripts: ctx.eleckoiScriptLibraries, scriptRuntimeConnection },
-            creatorStudio: ctx.eleckoiCreatorStudio,
-            sidebarRight: ctx.get('sidebarRight'),
-            models: ctx.eleckoiModels,
-            persona: ctx.eleckoiPersona, presets: ctx.eleckoiPresets,
-            webSearch: ctx.eleckoiWebSearch,
-            displayPreferences: ctx.eleckoiDisplayPreferences })
-        }, ElecKoiRoot)
-        const disposeRoot = () => {
-          navigation.abort()
-          stopRoot()
-          stopPanelInfo()
-          void stopLayout()
+                  },
+                  inject: (...args) => ({ ...options.inject?.(...args), layout, slots, subscribeSlots, frontendConnection, locale: scope.locale,
+                    theme: scope.theme, subscribeTheme: listener => scope.on('theme/change', listener),
+                    conversations: scope.get('eleckoiConversations'), characters: scope.eleckoiCharacters,
+                    characterConfiguration: { openings: scope.eleckoiCharacterOpenings, settingLibraries: scope.eleckoiSettingLibraries, globalSettingLibraries: scope.eleckoiGlobalSettingLibraries,
+                      variables: scope.eleckoiVariables, regexRules: scope.eleckoiRegexRules,
+                      scripts: scope.eleckoiScriptLibraries, scriptRuntimeConnection },
+                    creatorStudio: scope.eleckoiCreatorStudio, sidebarRight: scope.get('sidebarRight'), models: scope.eleckoiModels,
+                    persona: scope.eleckoiPersona, presets: scope.eleckoiPresets, webSearch: scope.eleckoiWebSearch,
+                    displayPreferences: scope.eleckoiDisplayPreferences })
+                }, props => {
+                  const renderSlot = React.useCallback((name, owner, options) => {
+                    const content = props.renderSlot(name, owner, options)
+                    if (name !== 'main') return content
+                    const id = options.entryKey
+                    const entry = slots.entriesOfSlot('main').find(row => row.options.key === id)
+                    if (entry?.registrant?.startsWith('@eleckoi/dsh-client-')) return content
+                    return React.createElement(React.Suspense, { fallback: null },
+                      React.createElement(OfficialFramePage, { panelId: id, mainPanel: content }))
+                  }, [props.renderSlot])
+                  return React.createElement(ElecKoiRoot, { ...props,
+                    nativeFrame: React.createElement(Frame, { ...props, renderSlot }) })
+                })
+                scope.effect(() => {
+                  let initialized = false
+                  const initialize = () => {
+                    if (initialized || !slots.entriesOfSlot('main').some(entry => entry.options.key === 'messages')) return
+                    initialized = true
+                    if (native.panelInfo.getSnapshot().activePanelId === null) native.selectPanel('messages')
+                  }
+                  const stop = slots.subscribe('main', initialize)
+                  initialize()
+                  return stop
+                }, 'eleckoi: initial product destination')
+                return result
+              }
+              const value = Reflect.get(target, name)
+              return typeof value === 'function' ? value.bind(target) : value
+            }
+          })
+          const reflect = new Proxy(scope.reflect, {
+            get(target, name) {
+              if (name === 'provide') return (key, value, ...args) => {
+                if (key === 'layout') nativeLayout = value
+                return target.provide(key, value, ...args)
+              }
+              const value = Reflect.get(target, name)
+              return typeof value === 'function' ? value.bind(target) : value
+            }
+          })
+          officialLayout.apply(scope.extend({ slots: scopedSlots, reflect }))
         }
-        ctx.effect(() => disposeRoot, 'eleckoi client root and layout')
+      })
+
       }
+      mountOfficialLayout()
 
       for (const region of ['sidebar.panellist.actions', 'conversation.session.header.views.actions', 'sidebar.right.tab.guide.actions']) {
         ctx.slots.inject(region, () => {
@@ -871,52 +884,7 @@ window.__ModuleLoader__.load({
         return face ? React.createElement(BuiltInPluginContents, { key: packageName, packageName, face, locale: ctx.locale })
           : React.createElement('p', { role: 'status' }, '插件管理器尚未就绪。')
       })))
-      ctx.effect(() => {
-        const fontSizeVariables = {
-          text: '--dsh-content-font-size',
-          code: '--dsh-code-font-size',
-          terminal: '--dsh-terminal-font-size'
-        }
-        const fontFamilyVariables = {
-          text: '--dsh-font-family-text',
-          code: '--dsh-font-family-code',
-          terminal: '--dsh-font-family-terminal'
-        }
-        let appliedTokens = []
-        const themeColorMeta = document.createElement('meta')
-        themeColorMeta.name = 'theme-color'
-        const present = snapshot => {
-          const scheme = snapshot.active.colorScheme
-          document.documentElement.style.colorScheme = scheme
-          document.documentElement.dataset.dsThemeSource = snapshot.preference === 'system' ? 'system' : scheme
-          document.body.toggleAttribute('data-ds-dark-theme', scheme === 'dark')
-          for (const [role, name] of Object.entries(fontSizeVariables)) {
-            document.body.style.setProperty(name, `${snapshot.fontSizes[role]}px`)
-          }
-          for (const [role, name] of Object.entries(fontFamilyVariables)) {
-            const list = snapshot.fontFamilies[role]
-            if (list === '') document.body.style.removeProperty(name)
-            else document.body.style.setProperty(name, list)
-          }
-          for (const name of appliedTokens) document.body.style.removeProperty(name)
-          appliedTokens = Object.keys(snapshot.active.tokens)
-          for (const name of appliedTokens) document.body.style.setProperty(name, snapshot.active.tokens[name])
-          themeColorMeta.content = getComputedStyle(document.body).backgroundColor
-          if (!themeColorMeta.isConnected) document.head.append(themeColorMeta)
-        }
-        present(ctx.theme.getTheme())
-        const stop = ctx.on('theme/change', present)
-        return () => {
-          stop()
-          document.documentElement.style.removeProperty('color-scheme')
-          delete document.documentElement.dataset.dsThemeSource
-          document.body.removeAttribute('data-ds-dark-theme')
-          for (const name of Object.values(fontSizeVariables)) document.body.style.removeProperty(name)
-          for (const name of Object.values(fontFamilyVariables)) document.body.style.removeProperty(name)
-          for (const name of appliedTokens) document.body.style.removeProperty(name)
-          themeColorMeta.remove()
-        }
-      }, 'eleckoi client theme presentation')
+
     }
 
     return {

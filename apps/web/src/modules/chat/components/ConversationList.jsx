@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -174,14 +175,14 @@ export function ConversationList({
             <div className="conversation-character-picker-empty">
               <strong>{tUi("还未创建角色")}</strong>
               <span>{tUi("先创建角色卡，再添加到聊天列表。")}</span>
-              <button
+              <Button data-dsh-control variant="primary"
                 type="button"
                 onClick={() => {
                   setAddCharacterOpen(false);
                   onGoCharacterSettings();
                 }}
               >
-                {tUi("去创建角色")}</button>
+                {tUi("去创建角色")}</Button>
             </div>
           ) : null}
         </div>,

@@ -85,8 +85,9 @@ describe('native script chat controls', () => {
       baseUrl: '/eleckoi/scripts/global/_/synthetic-version/scripts/entry.js' };
     const previous = document.createElement('button'); container.append(previous); previous.focus();
     await act(() => root.render(<NativeScriptPanel runtime={runtime} panel={panel} />));
-    const dialog = document.querySelector('.native-script-dialog'), frame = dialog.querySelector('iframe');
-    expect(HTMLDialogElement.prototype.showModal).toHaveBeenCalledOnce();
+    const dialog = document.querySelector('.native-script-modal'), frame = dialog.querySelector('iframe');
+    expect(HTMLDialogElement.prototype.showModal).not.toHaveBeenCalled();
+    expect(dialog.getAttribute("role")).toBe("dialog");
     await act(() => frame.dispatchEvent(new Event('load')));
     expect(runtime.mountScriptPanelDocument).toHaveBeenCalledWith(frame.contentWindow, panel.key);
     expect(frame.srcdoc).toContain('/eleckoi/scripts/global/_/synthetic-version/scripts/entry.js');

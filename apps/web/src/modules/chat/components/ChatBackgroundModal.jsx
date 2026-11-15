@@ -1,29 +1,15 @@
 import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../../../ui/styles/product-dialogs.css';
 import { assetSrc } from '../../../app/services/assets.js';
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { DshCheckIcon, DshCloseIcon } from "../../../ui/icons/dshComposerIcons.jsx";
+import { DshCheckIcon } from "../../../ui/icons/dshComposerIcons.jsx";
 import { PictureFrameIcon } from "../../../ui/icons/openSourceIcons.jsx";
 import { Avatar } from "../../../ui/ui/Avatar.jsx";
 import { AvatarCropModal } from "../../../ui/ui/AvatarCropModal.jsx";
 import { TunerSliderRow } from "../../../ui/ui/TunerSliderRow.jsx";
-import {
-  APP_DEFAULT_CHAT_BACKGROUND,
-  CHAT_WALLPAPER_DEFAULTS,
-  CUSTOM_CHAT_BACKGROUND,
-  GLOBAL_CHAT_BACKGROUND,
-  characterArtwork,
-  chatWallpaperMode,
-  customChatBackgroundFromCharacter,
-  fileToDataUrl,
-  normalizeGlobalChatWallpaper,
-  normalizeNewCharacterBackground,
-  resolveChatAvatar,
-  resolveChatAvatarShape,
-  resolveChatDisplayProfile,
-} from "../../appearance/index.js";
+import { APP_DEFAULT_CHAT_BACKGROUND, CHAT_WALLPAPER_DEFAULTS, CUSTOM_CHAT_BACKGROUND, GLOBAL_CHAT_BACKGROUND, characterArtwork, chatWallpaperMode, customChatBackgroundFromCharacter, fileToDataUrl, normalizeGlobalChatWallpaper, normalizeNewCharacterBackground, resolveChatAvatar, resolveChatAvatarShape, resolveChatDisplayProfile,  } from "../../appearance/index.js";
 
 const MODES = [
   ["default", "纯色背景"],
@@ -122,7 +108,6 @@ export function ChatBackgroundModal({
   onNotify,
 }) {
   const tUi = useProductTranslation();
-  const dialogRef = useRef(null);
   const fileRef = useRef(null);
   const [mode, setMode] = useState("character");
   const [customImage, setCustomImage] = useState("");
@@ -149,17 +134,9 @@ export function ChatBackgroundModal({
     setBlur(Math.round(Number(character?.chatBackgroundBlur ?? CHAT_WALLPAPER_DEFAULTS.blur)));
     setScrim(clampPercent(Number(character?.chatBackgroundScrim ?? CHAT_WALLPAPER_DEFAULTS.scrim) * 100, 50));
     setCropFile(null);
-    window.setTimeout(() => dialogRef.current?.focus(), 0);
   }, [character, globalWallpaper, newCharacterBackground, open]);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const closeOnEscape = (event) => {
-      if (event.key === "Escape") onClose?.();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose, open]);
+
 
   const cardImage = useMemo(() => characterArtwork(character, persona), [character, persona]);
   const previewImage = mode === "character"
@@ -254,25 +231,10 @@ export function ChatBackgroundModal({
     }
   }
 
-  return createPortal((<>
-    <SystemBarOverlay className="chat-background-backdrop" role="presentation" onPointerDown={onClose}>
-      <section
-        className="chat-background-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="chat-background-title"
-        tabIndex={-1}
-        ref={dialogRef}
-        onPointerDown={(event) => event.stopPropagation()}
-      >
-        <header>
-          <div>
-            <strong id="chat-background-title">{tUi("聊天背景")}</strong>
-            <span>{character?.name || persona?.assistant_name || tUi("当前角色")}</span>
-          </div>
-          <button type="button" aria-label={tUi("关闭")} title={tUi("关闭")} onClick={onClose}><DshCloseIcon /></button>
-        </header>
-
+  return <>
+    <Modal open title={tUi('聊天背景')} description={character?.name || persona?.assistant_name || tUi('当前角色')} closeLabel={tUi('关闭')}
+      onClose={() => { if (!busy && !cropFile) onClose(); }} className="product-dialog chat-background-modal" contentClassName="product-dialog-content"
+      footer={<div className="product-dialog-actions"><Button variant="outline" disabled={busy} onClick={onClose}>{tUi('取消')}</Button><Button variant="primary" disabled={busy} onClick={save}>{tUi('保存')}</Button></div>}>
         <div className="chat-background-body">
           <section className="chat-background-source">
             <h3>{tUi("当前角色")}</h3>
@@ -333,13 +295,8 @@ export function ChatBackgroundModal({
           </div>
         </section>
 
-        <footer>
-          <button type="button" onClick={onClose}>{tUi("取消")}</button>
-          <button className="primary" type="button" disabled={busy} onClick={save}>{tUi("保存")}</button>
-        </footer>
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={chooseImage} />
-      </section>
-    </SystemBarOverlay>
+    </Modal>
     <AvatarCropModal
       file={cropFile}
       title={tUi("裁剪聊天背景")}
@@ -351,5 +308,5 @@ export function ChatBackgroundModal({
       onCancel={() => setCropFile(null)}
       onSave={saveCroppedImage}
     />
-  </>), document.body);
+  </>;
 }

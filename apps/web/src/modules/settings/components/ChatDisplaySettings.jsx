@@ -88,11 +88,12 @@ function StyleTintField({ label, value, defaultColor, onChange }) {
 export function RoleplayStyleControls({ model }) {
   const tUi = useProductTranslation();
   const { roleplayStyle: style, updateRoleplayStyle: update, profile, defaults, updateProfile } = model;
-  const [dark, setDark] = useState(() => document.documentElement.dataset.theme === 'dark');
+  const [, setThemeRevision] = useState(0);
   useEffect(() => {
-    const updateTheme = () => setDark(document.documentElement.dataset.theme === 'dark');
+    const updateTheme = () => setThemeRevision(revision => revision + 1);
     const observer = new MutationObserver(updateTheme);
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-ds-dark-theme'] });
     updateTheme();
     return () => observer.disconnect();
   }, []);
@@ -102,7 +103,7 @@ export function RoleplayStyleControls({ model }) {
     <DisplaySwitch label={tUi("对话底板")} checked={style.backdrop_enabled} onChange={value => update({ backdrop_enabled: value })} />
     {style.backdrop_enabled && <div className="ec-style-section">
       {tune('backdrop_blur', tUi("底板模糊程度"), 40, 'px')}
-      <StyleTintField label={tUi("底板色调")} value={style.backdrop_tint} defaultColor={roleplayStyleDefaultTint('backdrop', dark)} onChange={value => update({ backdrop_tint: value })} />
+      <StyleTintField label={tUi("底板色调")} value={style.backdrop_tint} defaultColor={roleplayStyleDefaultTint('backdrop')} onChange={value => update({ backdrop_tint: value })} />
       {tune('backdrop_opacity', tUi("底板不透明度"))}
     </div>}
     <DisplaySwitch label={tUi("消息气泡")} checked={style.bubbles_enabled} onChange={value => update({ bubbles_enabled: value })} />
@@ -111,11 +112,11 @@ export function RoleplayStyleControls({ model }) {
         <DisplayTuner {...localizeUiCopy(chatDisplayTuners, tUi).bubble_corner_radius} value={profile.bubble_corner_radius} defaultValue={defaults.bubble_corner_radius} onChange={value => updateProfile({ bubble_corner_radius: value })} />
       </div>
       <div className="ec-style-section"><h3>{tUi("用户消息")}</h3>
-        <StyleTintField label={tUi("用户气泡色调")} value={style.user_bubble_tint} defaultColor={roleplayStyleDefaultTint('bubble', dark)} onChange={value => update({ user_bubble_tint: value })} />
+        <StyleTintField label={tUi("用户气泡色调")} value={style.user_bubble_tint} defaultColor={roleplayStyleDefaultTint('bubble')} onChange={value => update({ user_bubble_tint: value })} />
         {tune('user_bubble_opacity', tUi("用户气泡不透明度"))}
       </div>
       <div className="ec-style-section"><h3>{tUi("AI 消息")}</h3>
-        <StyleTintField label={tUi("AI 气泡色调")} value={style.assistant_bubble_tint} defaultColor={roleplayStyleDefaultTint('bubble', dark)} onChange={value => update({ assistant_bubble_tint: value })} />
+        <StyleTintField label={tUi("AI 气泡色调")} value={style.assistant_bubble_tint} defaultColor={roleplayStyleDefaultTint('bubble')} onChange={value => update({ assistant_bubble_tint: value })} />
         {tune('assistant_bubble_opacity', tUi("AI 气泡不透明度"))}
       </div>
     </>}
@@ -207,15 +208,17 @@ export function ChatDisplaySettings({ persona, chatDisplay, onChatDisplayChange,
             </div>
           </section>
           <div className="ec-settings-list">
-            <DisplayGroup id="behavior" icon={SlidersHorizontal} title={tUi("显示行为")}
-              description={tUi("生成统计{value0}", {value0: visibleMessageInfo.length ? tUi(" · 显示{value0}", {value0: formatProductList(visibleMessageInfo, tUi)}) : ''})}
-              preview={<span className="ec-behavior-sample">{tUi("统计")}{preferences.generation_stats_enabled ? tUi("已开启") : tUi("已关闭")}</span>}>
-              <DisplaySwitch label={tUi("生成统计")} checked={preferences.generation_stats_enabled} onChange={value => updatePreferences({ generation_stats_enabled: value })} />
-              {layout === 'roleplay' && <>
-                <DisplaySwitch label={tUi("聊天时间戳")} checked={preferences.roleplay_timestamps_enabled} onChange={value => updatePreferences({ roleplay_timestamps_enabled: value })} />
-                <DisplaySwitch label={tUi("显示消息楼层")} checked={preferences.roleplay_message_floors_enabled} onChange={value => updatePreferences({ roleplay_message_floors_enabled: value })} />
-              </>}
-            </DisplayGroup>
+            {layout === 'roleplay' && <DisplayGroup id="layout-style" icon={ChatCircleDots} title={tUi("酒馆风格")}
+              description={`${model.roleplayStyle.backdrop_enabled ? tUi("底板模糊 {value0} px", {value0: model.roleplayStyle.backdrop_blur}) : tUi("底板已关闭")} · ${model.roleplayStyle.bubbles_enabled ? tUi("有气泡") : tUi("无气泡")}`}
+              preview={<span className={`ec-style-sample${model.roleplayStyle.bubbles_enabled ? ' has-bubbles' : ''}`}><span /><span /></span>}>
+              <RoleplayStyleControls model={model} />
+            </DisplayGroup>}
+            {layout !== 'roleplay' && <DisplayGroup id="bubble" icon={ChatCircleDots} title={tUi("Agent 气泡显示")}
+              description={tUi("圆角 {value0} px{value1}", {value0: profile.bubble_corner_radius, value1: profile.assistant_bubble_enabled ? tUi(" · 角色气泡已开启") : ''})}
+              preview={<ChatCircleDots className="ec-bubble-sample" />}>
+              {layout === 'agent' && <DisplaySwitch label={tUi("角色气泡")} checked={profile.assistant_bubble_enabled} onChange={value => updateProfile({ assistant_bubble_enabled: value })} />}
+              {tune('bubble_corner_radius')}
+            </DisplayGroup>}
             <DisplayGroup id="avatar" icon={UserCircle} title={layout === 'social' ? tUi("头像与气泡") : tUi("头像与名字")}
               description={`${localizeUiCopy(avatarShapes, tUi).find(shape => shape.id === profile.avatar_shape)?.label} · ${profile.avatar_size} px`}
               preview={<span className="ec-avatar-samples">{localizeUiCopy(avatarShapes, tUi).map(shape => <img key={shape.id} src={avatarSource(shape.id)} alt="" className={`ec-avatar-${shape.id}`} />)}</span>}>
@@ -259,17 +262,15 @@ export function ChatDisplaySettings({ persona, chatDisplay, onChatDisplayChange,
                 onChange={value => updatePreferences({ rich_message_floor_limit: Math.round(value) })} /></div>}
               <p className="ec-help">{localizeUiCopy(richMessageLimitDescription, tUi)}</p>
             </DisplayGroup>
-            {layout === 'roleplay' && <DisplayGroup id="layout-style" icon={ChatCircleDots} title={tUi("布局独有风格")}
-              description={`${model.roleplayStyle.backdrop_enabled ? tUi("底板模糊 {value0} px", {value0: model.roleplayStyle.backdrop_blur}) : tUi("底板已关闭")} · ${model.roleplayStyle.bubbles_enabled ? tUi("有气泡") : tUi("无气泡")}`}
-              preview={<span className={`ec-style-sample${model.roleplayStyle.bubbles_enabled ? ' has-bubbles' : ''}`}><span /><span /></span>}>
-              <RoleplayStyleControls model={model} />
-            </DisplayGroup>}
-            {layout !== 'roleplay' && <DisplayGroup id="bubble" icon={ChatCircleDots} title={tUi("布局独有风格")}
-              description={tUi("圆角 {value0} px{value1}", {value0: profile.bubble_corner_radius, value1: profile.assistant_bubble_enabled ? tUi(" · 角色气泡已开启") : ''})}
-              preview={<ChatCircleDots className="ec-bubble-sample" />}>
-              {layout === 'agent' && <DisplaySwitch label={tUi("角色气泡")} checked={profile.assistant_bubble_enabled} onChange={value => updateProfile({ assistant_bubble_enabled: value })} />}
-              {tune('bubble_corner_radius')}
-            </DisplayGroup>}
+            <DisplayGroup id="behavior" icon={SlidersHorizontal} title={tUi("显示行为")}
+              description={tUi("生成统计{value0}", {value0: visibleMessageInfo.length ? tUi(" · 显示{value0}", {value0: formatProductList(visibleMessageInfo, tUi)}) : ''})}
+              preview={<span className="ec-behavior-sample">{tUi("统计")}{preferences.generation_stats_enabled ? tUi("已开启") : tUi("已关闭")}</span>}>
+              <DisplaySwitch label={tUi("生成统计")} checked={preferences.generation_stats_enabled} onChange={value => updatePreferences({ generation_stats_enabled: value })} />
+              {layout === 'roleplay' && <>
+                <DisplaySwitch label={tUi("聊天时间戳")} checked={preferences.roleplay_timestamps_enabled} onChange={value => updatePreferences({ roleplay_timestamps_enabled: value })} />
+                <DisplaySwitch label={tUi("显示消息楼层")} checked={preferences.roleplay_message_floors_enabled} onChange={value => updatePreferences({ roleplay_message_floors_enabled: value })} />
+              </>}
+            </DisplayGroup>
             {renderLanguageSettings && <DisplayGroup id="language" icon={Translate} title={tUi("语言")}
               description={tUi("界面显示语言")} preview={<span className="ec-behavior-sample">{languageName}</span>}>
               <div className="settings-language-control" aria-label={tUi("界面语言")}>{renderLanguageSettings()}</div>

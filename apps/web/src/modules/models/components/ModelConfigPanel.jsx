@@ -2,6 +2,7 @@ import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
+import { isBehindModal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import {
   addableProviderItems,
@@ -177,10 +178,10 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
 
   useEffect(() => {
     function closeMenus(event) {
-      if (modelPickerRef.current && !modelPickerRef.current.contains(event.target)) {
+      if (modelPickerRef.current && !isBehindModal(modelPickerRef.current) && !modelPickerRef.current.contains(event.target)) {
         setModelMenuOpen(false);
       }
-      if (manualModelRef.current && !manualModelRef.current.contains(event.target)) {
+      if (manualModelRef.current && !isBehindModal(manualModelRef.current) && !manualModelRef.current.contains(event.target)) {
         setManualModelOpen(false);
       }
     }

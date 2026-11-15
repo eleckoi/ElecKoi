@@ -3,7 +3,7 @@ import { runInNewContext } from 'node:vm'
 import { resolve } from 'node:path'
 import { composeEntries, loadOverlayPatches } from '@deepseek-ai/dsh-app-boot'
 import { SlotCore } from '@deepseek-ai/dsh-client-ui-slots'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 const source = readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8')
 const slotTypes = readFileSync(new URL('../../src/slots.d.ts', import.meta.url), 'utf8')
@@ -23,7 +23,7 @@ describe('ElecKoi roleplay client contribution', () => {
     runInNewContext(source, {
       window: { __ModuleLoader__: { load: (value: any) => { registration = value } } }
     })
-    const React = { createElement: (type: unknown, props: unknown) => ({ type, props }) }
+    const React = { createElement: (type: unknown, props: unknown) => ({ type, props }), useCallback: (callback: unknown) => callback }
     const slots: any = new SlotCore()
     const disposers: Array<() => void> = []
     slots.inject = (name: string, register: () => () => void) => {
@@ -190,7 +190,7 @@ describe('ElecKoi roleplay client contribution', () => {
     })
     expect(registration.id).toBe('@eleckoi/dsh-client-roleplay')
     const React = {
-      createElement: (type: unknown, props: unknown) => ({ type, props }),
+      createElement: (type: unknown, props: unknown, child: unknown) => ({ type, props, child }),
       useState: () => [null, () => {}],
       useEffect: () => {},
       useSyncExternalStore: (_subscribe: unknown, get: () => unknown) => get(),
@@ -221,8 +221,16 @@ describe('ElecKoi roleplay client contribution', () => {
     })
     expect(entry.select(owner)).toBe(owner)
     expect(entry.select({ component: null })).toBeNull()
-    expect(component({ matched: owner, conversations: { subscribeDetails() {}, getDetailsSnapshot: () => ({}), getSessionReference: () => null } })).toEqual({ type: ChatView, props: {
+    const SessionProvider = () => null
+    const renderFactorySlot = vi.fn((name, owner) => ({ name, owner }))
+    const result = component({ matched: owner, SessionProvider, renderFactorySlot,
+      conversations: { subscribeDetails() {}, getDetailsSnapshot: () => ({}), getSessionReference: () => null } })
+    expect(result.type).toBe(SessionProvider)
+    expect(result.props.session).toBeUndefined()
+    expect(result.props.empty()).toBe(result.child)
+    expect(result.child).toEqual({ type: ChatView, child: undefined, props: {
       ...owner.props,
+      renderConversationContent: expect.any(Function),
       renderRoleplaySlot: undefined,
       renderRoleplaySlotChain: undefined,
       renderRoleplayMessage: undefined,
@@ -230,6 +238,9 @@ describe('ElecKoi roleplay client contribution', () => {
       dshComposerOwner: undefined,
       dshInputZone: undefined
     } })
+    const presentation = { header: null, views: 'product body' }
+    result.child.props.renderConversationContent(presentation)
+    expect(renderFactorySlot).toHaveBeenCalledWith('eleckoi.conversation.frame', { presentation })
     expect(unregister).toBe(true)
   })
 
@@ -284,7 +295,7 @@ describe('ElecKoi roleplay client contribution', () => {
     expect(result.props.session).toBe(reference)
     expect(result.child).toEqual({
       name: 'eleckoi.roleplay.session',
-      owner: { matched },
+      owner: { matched: { ...matched, props: { ...matched.props, renderConversationContent: expect.any(Function) } } },
       options: expect.objectContaining({ fallback: expect.anything() })
     })
 
@@ -324,6 +335,7 @@ describe('ElecKoi roleplay client contribution', () => {
       createElement: (type: unknown, props: unknown, child: unknown) => ({ type, props, child }),
       useSyncExternalStore: (_subscribe: unknown, get: () => unknown) => get(),
       useRef: (value: unknown) => ({ current: value }), useLayoutEffect() {},
+      useCallback: (callback: unknown) => callback,
     }
     registration.factory(clientRequire(React)).apply({ slots: {
       inject: (name: string, register: () => void) => { if (name === 'eleckoi.roleplay') register() },
@@ -345,7 +357,9 @@ describe('ElecKoi roleplay client contribution', () => {
     expect(second.type).toBe(SessionProvider)
     expect(second.props.session).toBe(current)
     expect(second.child.name).toBe('eleckoi.roleplay.session')
-    expect(render('unavailable').type).not.toBe(SessionProvider)
+    const unavailable = render('unavailable')
+    expect(unavailable.type).toBe(SessionProvider)
+    expect(unavailable.props.session).toBeUndefined()
   })
 
   it('projects live DSH composer contributions into the retained roleplay seats', async () => {
@@ -528,6 +542,13 @@ describe('ElecKoi roleplay client contribution', () => {
       name: 'conversation.input.dock', id: 'sample-input-dock', order: 2,
       registrant: 'sample-extension'
     }, extensionDock)
+    const nestedButton = () => null
+    const nestedDetail = () => null
+    const releaseNestedButton = slots.register({
+      name: 'conversation.input.right', id: 'sample-nested', order: 13,
+      children: { 'sample.input.detail': { kind: 'single', scope: 'session' } },
+    }, nestedButton)
+    const releaseNestedDetail = slots.register({ name: 'sample.input.detail' }, nestedDetail)
     const releaseQueueDock = slots.register({
       name: 'conversation.input.dock', id: 'queue', order: 20,
       registrant: '@deepseek-ai/dsh-client-ui-conversation'
@@ -573,7 +594,19 @@ describe('ElecKoi roleplay client contribution', () => {
     const dock = slots.entriesOfSlot('eleckoi.roleplay.conversation.composer.dock')[0]
     const inputDock = slots.entriesOfSlot('eleckoi.roleplay.conversation.input.dock')[0]
     expect(slots.entriesOfSlot('eleckoi.roleplay.conversation.input.dock')
-      .some((entry: any) => entry.options.id === 'dsh:conversation.input.dock:queue')).toBe(false)
+      .some((entry: any) => entry.options.id === 'dsh:conversation.input.dock:queue')).toBe(true)
+    const nested = slots.entriesOfSlot('eleckoi.roleplay.conversation.input.right')
+      .find((entry: any) => entry.options.id === 'dsh:conversation.input.right:sample-nested')
+    const nestedRendered = nested.component({ renderSlot: renderBridgeSlot })
+    expect(nestedRendered.type).toBe(nestedButton)
+    expect(nestedRendered.props.renderSlot('sample.input.detail', { expanded: true }, { fallback: 'empty' }))
+      .toBe('bridged-child')
+    expect(childCalls.at(-1)).toEqual({ name: 'eleckoi.roleplay.view.sample.input.detail', owner: { expanded: true }, options: { fallback: 'empty' } })
+    expect(slots.entriesOfSlot('eleckoi.roleplay.view.sample.input.detail')[0].component({}).type).toBe(nestedDetail)
+    releaseNestedDetail()
+    await Promise.resolve()
+    expect(slots.entriesOfSlot('eleckoi.roleplay.view.sample.input.detail')).toHaveLength(0)
+    releaseNestedButton()
     expect(button?.component({ marker: 'button' })).toEqual({ type: extensionButton, props: { marker: 'button' } })
     expect(rightbarButton?.component({ marker: 'rightbar' })).toEqual({
       type: officialRightbarButton,

@@ -86,7 +86,7 @@ describe('runtime request preview dialog', () => {
     expect(service.readRequestPreview.mock.calls.map(call => call[1])).toEqual(['request-1', 'request-1'])
     const onClose = vi.fn()
     await render(service, onClose)
-    await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })))
+    await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })))
     expect(onClose).toHaveBeenCalledOnce()
   })
 })

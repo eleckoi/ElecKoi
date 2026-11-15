@@ -52,7 +52,7 @@ export const FrontendWorkbench = forwardRef(function FrontendWorkbench({ workspa
     element.addEventListener('keydown', trap);
     return () => { element.removeEventListener('keydown', trap); previous?.focus(); };
   }, [embedded]);
-  useEffect(() => { if (!embedded) return registerOverlayBack(() => { close(); return true; }, window, 1100); });
+  useEffect(() => { if (!embedded) return registerOverlayBack(() => { if (question) return false; close(); return true; }, window, 1100); });
   useEffect(() => { if (embedded) return; const before = event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } }; window.addEventListener('beforeunload', before); return () => window.removeEventListener('beforeunload', before); }, [dirty, embedded]);
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
@@ -169,7 +169,7 @@ export const FrontendWorkbench = forwardRef(function FrontendWorkbench({ workspa
     <div className="af-workspace"><aside className="af-explorer">
       <nav aria-label={tUi("前端项目")}>{workspace.projects.map(item => <button key={item.id} disabled={busy} aria-pressed={item.id === projectId} onClick={() => chooseProject(item)} onContextMenu={event => context.open(event, { projectId: item.id })}>
         <Folder size={17} /><span>{item.name}</span>{item.id === workspace.selectedProjectId && <Check size={16} />}</button>)}</nav>
-      {project && <><div className="af-file-actions"><strong>{tUi("文件")}</strong><span className="af-spacer" /><Button data-dsh-control variant="outline" disabled={busy} onClick={addText} aria-label={tUi("新建文件")}><FilePlus size={17} /></Button><Button data-dsh-control variant="outline" disabled={busy} onClick={() => addInput.current.click()} aria-label={tUi("添加资源")}><ImportIcon size={17} /></Button></div>
+      {project && <><div className="af-file-actions"><strong>{tUi("文件")}</strong><span className="af-spacer" /><Button data-dsh-control variant="primary" disabled={busy} onClick={addText} aria-label={tUi("新建文件")}><FilePlus size={17} /></Button><Button data-dsh-control variant="primary" disabled={busy} onClick={() => addInput.current.click()} aria-label={tUi("添加资源")}><ImportIcon size={17} /></Button></div>
         <nav aria-label={tUi("项目文件")}>{[...new Set([manifestPath, ...project.files])].sort().map(filename => <button key={filename} disabled={busy} aria-pressed={path === filename} onClick={() => chooseFile(filename)} title={filename} onContextMenu={event => context.open(event, { projectId, path: filename })}>
           {textual(filename) ? <File size={15} /> : <Image size={15} />}<span style={{ paddingInlineStart: Math.min(4, filename.split('/').length - 1) * 9 }}>{filename}</span></button>)}</nav></>}
     </aside><div className="af-editor">

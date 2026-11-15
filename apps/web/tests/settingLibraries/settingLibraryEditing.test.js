@@ -112,7 +112,7 @@ describe('setting-library editor model', () => {
     expect(changed.openingMessages[0]).toMatchObject({ id: 'primary', content: '修改后的主开场' })
   })
 
-  it('supports creating, duplicating, reordering and deleting backup openings', () => {
+  it('supports creating, duplicating, reordering and deleting all openings', () => {
     vi.stubGlobal('crypto', { randomUUID: vi.fn().mockReturnValueOnce('created').mockReturnValueOnce('copied') })
     const created = createBackupOpening(openingEntry())
     expect(created.createdId).toBe('opening-created')
@@ -121,6 +121,14 @@ describe('setting-library editor model', () => {
     expect(copied.entry.openingMessages[2].title).toBe('备用 副本')
     const moved = moveBackupOpening(copied.entry, 'opening-created', -1)
     expect(moved.openingMessages.map((message) => message.id)).toEqual(['primary', 'backup', 'opening-created', 'opening-copied'])
+    const promoted = moveBackupOpening(moved, 'backup', -1)
+    expect(promoted.defaultOpeningMessageId).toBe('backup')
+    expect(primaryFirstOpeningMessages(promoted).map(message => message.id)).toEqual(['backup', 'primary', 'opening-created', 'opening-copied'])
+    const demoted = moveBackupOpening(promoted, 'backup', 1)
+    expect(demoted.defaultOpeningMessageId).toBe('primary')
+    expect(demoted.openingMessages).toEqual(moved.openingMessages)
+    expect(moveBackupOpening(demoted, 'missing', -1)).toBe(demoted)
+    expect(moveBackupOpening(demoted, 'primary', -1)).toBe(demoted)
     const withoutPrimary = deleteOpening(moved, 'primary')
     expect(withoutPrimary.defaultOpeningMessageId).toBe('backup')
     expect(withoutPrimary.openingMessages.find(message => message.id === 'backup').content).toBe('备用开场')

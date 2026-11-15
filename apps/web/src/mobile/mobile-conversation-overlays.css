@@ -80,11 +80,6 @@
 .mobile-conversation-overlay .mobile-history .history-empty { min-height: 160px; color: var(--muted); }
 .mobile-history .history-empty strong { color: var(--text); font-size: 16px; }
 .mobile-history .history-empty span { color: var(--muted); font-size: 13px; }
-.mobile-history .history-confirm-backdrop { z-index: 2; border-radius: inherit; background: var(--modal-backdrop, rgb(0 0 0 / 18%)); padding: 18px; }
-.mobile-history .history-confirm { width: 100%; max-width: 360px; padding: 20px; border: 0; border-radius: 18px; background: var(--surface-raised); color: var(--text); }
-.mobile-history .history-confirm > span { color: var(--muted); }
-.mobile-history .history-confirm button { min-height: 48px; background: var(--control-bg); color: var(--text); }
-:root:not([data-theme="dark"]) .mobile-history .history-confirm button.danger { color: var(--dsw-alias-label-primary-foreground); }
 .mobile-agent-tools .mobile-overlay-scroll { background: var(--rail); }
 .mobile-agent-tools .agent-tools-content { overflow: visible; }
 .mobile-agent-tools .agent-tools-list { height: auto; overflow: visible; padding: 0; }

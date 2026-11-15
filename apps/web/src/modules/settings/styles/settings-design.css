@@ -89,9 +89,6 @@
 .settings-design .sd-save-status { color: var(--sd-muted); }
 .settings-design .sd-error { color: var(--danger, #c43e42); }
 .settings-design .sd-error button { color: var(--sd-blue); padding: 2px 4px; }
-.profile-avatar-dialog-overlay { position: fixed; inset: 0; z-index: 110; background: light-dark(#23304424, #00000060); display: grid; place-items: center; padding: 20px; backdrop-filter: blur(3px); -webkit-app-region: no-drag; }
-.settings-design.profile-avatar-dialog { width: min(360px, 100%); max-height: calc(100dvh - 40px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; background: transparent; border-radius: 16px; box-shadow: var(--dsw-elevation-prominent); padding: 20px; }
-.settings-design.profile-avatar-dialog > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
 .settings-design .sd-close { display: grid; place-items: center; height: 28px; width: 28px; border-radius: 7px; color: var(--sd-muted); }
 .settings-design .sd-close:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .settings-design .sd-avatar-tabs { width: 100%; font-size: 12px; }

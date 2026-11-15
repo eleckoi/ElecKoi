@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useId, useRef, useState } from "react";
 import { Eye, EyeSlash } from "@phosphor-icons/react";
@@ -172,14 +173,14 @@ export function ModelBasicConfigSection({ editor, compact = false, renderModelPi
                   if (event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); addManualModel(); }
                   if (event.key === 'Escape') setManualModelOpen(false);
                 }} placeholder={tUi("填写提供商实际模型 ID")} aria-label={tUi("模型名")} />
-              <button type="button" onClick={addManualModel}>{tUi("添加")}</button>
+              <Button data-dsh-control variant="primary" type="button" onClick={addManualModel}>{tUi("添加")}</Button>
               <button type="button" onClick={() => setManualModelOpen(false)}>{tUi("取消")}</button>
             </div>
           </div>}
         </div>
       </div>;
   const manualModelControl = <div className="model-manual-add-anchor" ref={compact ? manualModelRef : undefined}>
-              <button
+              <Button data-dsh-control variant="primary"
                 className="model-add-button"
                 type="button"
                 aria-expanded={manualModelOpen}
@@ -189,7 +190,7 @@ export function ModelBasicConfigSection({ editor, compact = false, renderModelPi
                   setModelMenuOpen(false);
                   setManualModelOpen((current) => !current);
                 }}
-              ><PlusIcon /><span>{tUi("添加模型")}</span></button>
+              ><PlusIcon /><span>{tUi("添加模型")}</span></Button>
               {compact && (renderManualModel ? renderManualModel(editor) : manualModelOpen ? (
                 <div className="model-manual-add" id="model-manual-add-popover">
                   <input
@@ -205,7 +206,7 @@ export function ModelBasicConfigSection({ editor, compact = false, renderModelPi
                   />
                   <div>
                     <button type="button" onClick={() => setManualModelOpen(false)}>{tUi("取消")}</button>
-                    <button type="button" onClick={addManualModel}>{tUi("添加并使用")}</button>
+                    <Button data-dsh-control variant="primary" type="button" onClick={addManualModel}>{tUi("添加并使用")}</Button>
                   </div>
                 </div>
               ) : null)}

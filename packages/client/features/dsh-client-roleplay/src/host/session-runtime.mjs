@@ -368,8 +368,10 @@ export function materializeAgentPreset(root, templatePath, preset, toolPolicy, m
   const directory = join(root, mountedPresetId)
   mkdirSync(directory, { recursive: true })
   let composition = readFileSync(templatePath, 'utf8')
+    .replace('__ELECKOI_CREATOR_TOOLS_PLUGIN__', JSON.stringify('@eleckoi/dsh-client-creator-studio/agent'))
+    .replace('__ELECKOI_PRODUCT_PRESET_ID__', JSON.stringify(preset.id))
     .replace('__ELECKOI_SETTING_LIBRARY_TOOLS_PLUGIN__', JSON.stringify(durableProductPluginSpecifier('setting-library-tools')))
-    .replace('__ELECKOI_UPLOADED_FILE_TOOLS_PLUGIN__', JSON.stringify(durableProductPluginSpecifier('uploaded-file-tools')))
+    .replaceAll('__ELECKOI_WORKSPACE_WRITES__', String(!toolPolicy.disabledGroupIds.includes('builtin:workspace')))
     .replace('__ELECKOI_VARIABLE_TOOLS_PLUGIN__', JSON.stringify(durableProductPluginSpecifier('variable-tools')))
     .replace('__ELECKOI_ROLEPLAY_PLAN_TOOL_PLUGIN__', JSON.stringify(durableProductPluginSpecifier('roleplay-plan-tool')))
     .replace('__ELECKOI_ROLEPLAY_PLAN_STEPS__', JSON.stringify(preset.roleplayPlan.steps))
@@ -403,6 +405,7 @@ function compactionRatio(model) {
 
 function applyPresetToolPolicy(source, disabled) {
   const sections = [
+    ['creator', 'builtin:creator'],
     ['variables', 'builtin:variables'],
     ['setting-library', 'builtin:setting-library'],
     ['web', 'builtin:web'],

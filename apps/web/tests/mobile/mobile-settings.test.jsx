@@ -86,15 +86,16 @@ describe('Android settings presentation with shared PC contracts', () => {
 
   it('opens shared roleplay style controls and retains independent tints across returning to the page', async () => {
     await mount('chat');
-    expect([...container.querySelectorAll('.mobile-settings-row')].findIndex(n=>n.textContent.includes('布局独有风格')))
-      .toBeGreaterThan([...container.querySelectorAll('.mobile-settings-row')].findIndex(n=>n.textContent.includes('富消息')));
-    await click('布局独有风格无气泡');
+    expect([...container.querySelectorAll('.mobile-settings-row')].slice(0, 3).map(row => row.textContent))
+      .toEqual(['对话布局角色扮演', '酒馆风格无气泡', '头像与名字圆角矩形 · 65']);
+    await click('酒馆风格无气泡');
     expect(view.settingsPage).toBe('chat:style');
+    expect(container.querySelector('.mobile-header h1').textContent).toBe('酒馆风格');
     expect(container.querySelector('[aria-label="对话底板"]').checked).toBe(false);
     await act(async () => container.querySelector('[aria-label="消息气泡"]').click());
     await input(container.querySelector('[aria-label="用户气泡色调"]'), '#987654');
     expect(view.appearance.chatDisplay.roleplay_style).toMatchObject({ bubbles_enabled: true, user_bubble_tint: '#987654', assistant_bubble_tint: null });
-    await click('返回'); await click('布局独有风格有气泡');
+    await click('返回'); await click('酒馆风格有气泡');
     expect(container.querySelector('[aria-label="用户气泡色调"]').value).toBe('#987654');
     await click('恢复用户气泡色调默认值');
     expect(view.appearance.chatDisplay.roleplay_style.user_bubble_tint).toBeNull();
@@ -243,8 +244,8 @@ describe('Android settings presentation with shared PC contracts', () => {
   it('protects a profile draft on return and returns from avatar management before leaving settings', async () => {
     await mount('profile');
     await input(container.querySelector('[aria-label="名字"]'), '尚未保存的合成名字');
-    await click('返回'); expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
-    await act(async () => [...document.querySelectorAll('[role="alertdialog"] button')].find(item => item.textContent === '取消').click());
+    await click('返回'); expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    await act(async () => [...document.querySelectorAll('[role="dialog"] button')].find(item => item.textContent === '取消').click());
     await click('管理头像'); expect(container.querySelectorAll('.mobile-header h1')).toHaveLength(1);
     await click('返回'); expect(container.querySelector('[aria-label="名字"]').value).toBe('尚未保存的合成名字');
   });
@@ -273,7 +274,7 @@ describe('Android settings presentation with shared PC contracts', () => {
     expect(view.chat.persona).toEqual(stored);
     expect(container.querySelector('.mobile-profile-avatar img').getAttribute('src')).toBe(stored.user_avatar);
     await click('返回');
-    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(view.settingsPage).toBe('home');
   });
 
@@ -282,7 +283,7 @@ describe('Android settings presentation with shared PC contracts', () => {
     const persisted = { ...view.chat.persona };
     await selectAvatar();
     await click('返回');
-    const dialog = document.querySelector('[role="alertdialog"]');
+    const dialog = document.querySelector('[role="dialog"]');
     expect(dialog).not.toBeNull();
     await act(async () => [...dialog.querySelectorAll('button')].find(item => item.textContent === '不保存').click());
     expect(save).not.toHaveBeenCalled();

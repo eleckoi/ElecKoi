@@ -14,7 +14,7 @@
 - id: spill-policy
   config:
     maxInlineTokens: 12500
-    pagedTools: [eleckoi_read_setting_files, eleckoi_read_variables, eleckoi_call_capability, eleckoi_read_uploaded_file]
+    pagedTools: [eleckoi_read_setting_files, eleckoi_read_variables, eleckoi_call_capability]
 
 - id: attachment-local
   config:

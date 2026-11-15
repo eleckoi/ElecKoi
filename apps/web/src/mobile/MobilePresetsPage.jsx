@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
@@ -97,7 +98,7 @@ function MobilePresetLibrary() {
           <button type="button" aria-current={groupId === group.id ? 'page' : undefined} onClick={() => setGroupId(group.id)}>{group.name}<span>{catalog.presets.filter(preset => preset.libraryGroupId === group.id).length}</span></button>
           {groupId === group.id && <button type="button" className="mobile-preset-group-manage" aria-label={tUi("管理分组 {value0}", {value0: group.name})} disabled={busy || Boolean(selection)} onClick={() => view.pushRoute({ kind: 'preset-groups' })}><MobileSettingsIcon /></button>}
         </div>)}
-        <button type="button" className="mobile-preset-create-group" disabled={busy || Boolean(selection)} onClick={() => setGroupDialog({ mode: 'create' })}><Plus size={15} weight="regular" /><span>{tUi("新建分组")}</span></button>
+        <Button data-dsh-control variant="primary" type="button" className="mobile-preset-create-group" disabled={busy || Boolean(selection)} onClick={() => setGroupDialog({ mode: 'create' })}><Plus size={15} weight="regular" /><span>{tUi("新建分组")}</span></Button>
       </nav>}
       <MobilePresetCards key={purpose} purpose={purpose} presets={visible} activeId={catalog?.activePresetIds[purpose]} selection={selection} selectedIds={selectedIds} busy={busy} onOpen={id => {
         if (!selection) open(id);

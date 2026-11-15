@@ -4,7 +4,6 @@ import { flushSync } from 'react-dom';
 import { CharacterFrontendPanel } from '../../src/modules/authorFrontend/components/CharacterFrontendPanel.jsx';
 import { NativeFrontendProvider } from '../../src/modules/authorFrontend/hooks/NativeFrontendContext.jsx';
 import { ICON_SYMBOLS } from '@deepseek-ai/dsh-client-ui-primitives';
-import '../../src/ui/styles/dsh-editor-controls.css';
 
 const svgNamespace = 'http://www.w3.org/2000/svg';
 const sprite = document.createElementNS(svgNamespace, 'svg');

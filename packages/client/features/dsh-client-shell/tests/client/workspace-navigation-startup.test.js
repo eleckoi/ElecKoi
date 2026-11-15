@@ -45,7 +45,7 @@ function fixture(saved = {}, items = []) {
     _deepseek_ai_dsh_client_store: { createSnapshotStore: () => selection },
     AbortController, AbortSignal, console,
   });
-  const navigation = new Constructor(ctx, {}, workspaces, sessions, {}, vi.fn());
+  const navigation = new Constructor(ctx, {}, workspaces, sessions, {}, vi.fn(), false);
   return { navigation, ctx, workspaces, sessions, selection, releases,
     dispose: () => { for (const dispose of disposers) dispose?.(); } };
 }
@@ -61,8 +61,9 @@ describe('product-owned startup navigation', () => {
       expect(f.sessions.retain).not.toHaveBeenCalled();
       expect(f.ctx.layout.beginNavigation).not.toHaveBeenCalled();
       expect(f.ctx.layout.selectPanel).not.toHaveBeenCalled();
-      expect(f.workspaces.list.subscribe).not.toHaveBeenCalled();
-      expect(f.sessions.list.subscribe).not.toHaveBeenCalled();
+      // Native subscriptions still perform archived-current cleanup under product startup policy.
+      expect(f.workspaces.list.subscribe).toHaveBeenCalledOnce();
+      expect(f.sessions.list.subscribe).toHaveBeenCalledOnce();
       f.dispose();
     },
   );

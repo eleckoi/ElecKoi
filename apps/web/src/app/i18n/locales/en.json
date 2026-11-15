@@ -1,4 +1,6 @@
 {
+  "默认启用": "Enabled by default",
+  "基础工具": "Basic tools",
   "角色信息": "Character information",
   "作者信息": "Author information",
   "作者名字": "Author name",
@@ -466,7 +468,8 @@
   "间距与留白": "Spacing",
   "文本颜色": "Text color",
   "富消息": "Rich messages",
-  "布局独有风格": "Layout style",
+  "酒馆风格": "Tavern style",
+  "Agent 气泡显示": "Agent bubbles",
   "有气泡": "There are bubbles",
   "无气泡": "No air bubbles",
   "生成统计": "Generate statistics",

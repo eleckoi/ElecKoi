@@ -1,6 +1,7 @@
 import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../../../ui/styles/product-dialogs.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { closestCenter, DndContext, DragOverlay, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -123,40 +124,20 @@ function SortablePositionRow({ row, index, total, selected, reducedMotion, menuO
 }
 
 function PositionNameDialog({ draft, existing, onChange, onCancel, onSave }) {
-  const tUi = useProductTranslation();
-  const inputRef = useRef(null);
+  const tUi = useProductTranslation(), inputRef = useRef(null);
   const [error, setError] = useState(null);
-  useEffect(() => { inputRef.current?.focus(); inputRef.current?.select(); }, []);
-  return <div className="setting-position-dialog-backdrop" role="presentation" onKeyDown={(event) => {
-    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onCancel(); }
-  }} onMouseDown={(event) => {
-    if (event.target === event.currentTarget) onCancel();
-  }}>
-    <form className="setting-position-dialog" role="dialog" aria-modal="true" aria-labelledby="position-dialog-title" onSubmit={(event) => {
-      event.preventDefault();
-      try { onSave(); } catch (cause) { setError(cause); inputRef.current?.focus(); }
-    }}>
-      <h3 id="position-dialog-title">{existing ? tUi("重命名位置") : tUi("新建位置")}</h3>
-      <label><span>{tUi("名称")}</span><input ref={inputRef} value={draft.name} placeholder={tUi("例如：世界状态")} aria-invalid={error ? true : undefined} onChange={(event) => { onChange({ ...draft, name: event.target.value }); setError(null); }} /></label>
-      <FailureAlert failure={error} />
-      <footer><Button data-dsh-control variant="outline" type="button" className="setting-position-button" onClick={onCancel}>{tUi("取消")}</Button><Button data-dsh-control variant="primary" type="submit" className="setting-position-button is-primary">{tUi("保存")}</Button></footer>
-    </form>
-  </div>;
+  const submit = event => { event?.preventDefault(); try { onSave(); } catch (cause) { setError(cause); inputRef.current?.focus(); } };
+  return <Modal open title={existing ? tUi('重命名位置') : tUi('新建位置')} closeLabel={tUi('关闭')} onClose={onCancel}
+    className="product-dialog" contentClassName="product-dialog-content" footer={<div className="product-dialog-actions"><Button variant="outline" onClick={onCancel}>{tUi('取消')}</Button><Button variant="primary" onClick={submit}>{tUi('保存')}</Button></div>}>
+    <form className="product-dialog-fields" onSubmit={submit}><label><span>{tUi('名称')}</span><Input ref={inputRef} data-modal-autofocus className="product-dialog-field" value={draft.name} placeholder={tUi('例如：世界状态')} aria-invalid={error ? true : undefined} onChange={event => { onChange({ ...draft, name: event.target.value }); setError(null); }} /></label><FailureAlert failure={error} /></form>
+  </Modal>;
 }
 
 function DeletePositionDialog({ position, affected, onCancel, onConfirm }) {
   const tUi = useProductTranslation();
-  return <div className="setting-position-dialog-backdrop" role="presentation" onKeyDown={(event) => {
-    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onCancel(); }
-  }} onMouseDown={(event) => {
-    if (event.target === event.currentTarget) onCancel();
-  }}>
-    <section className="setting-position-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-position-title">
-      <h3 id="delete-position-title">{tUi("删除“")}{position.name}”？</h3>
-      {affected ? <p>{affected}{tUi(" 条提示词会回到相邻的固定位置，正文不会删除。")}</p> : null}
-      <footer><Button data-dsh-control variant="outline" type="button" className="setting-position-button" onClick={onCancel}>{tUi("取消")}</Button><Button data-dsh-control variant="outline" type="button" className="setting-position-button is-danger" onClick={onConfirm}>{tUi("删除")}</Button></footer>
-    </section>
-  </div>;
+  return <Modal open title={`${tUi('删除“')}${position.name}”？`} closeLabel={tUi('关闭')} onClose={onCancel} tone="warning"
+    description={affected ? `${affected}${tUi(' 条提示词会回到相邻的固定位置，正文不会删除。')}` : undefined}
+    className="product-dialog" contentClassName="product-dialog-content" footer={<div className="product-dialog-actions"><Button variant="outline" data-modal-autofocus onClick={onCancel}>{tUi('取消')}</Button><Button variant="primary" onClick={onConfirm}>{tUi('删除')}</Button></div>} />;
 }
 
 export function CustomPositionManager({ entry, positions, entries, onChange, onBack }) {
@@ -196,7 +177,7 @@ export function CustomPositionManager({ entry, positions, entries, onChange, onB
     setDraft(createPositionDraft(positions, position, currentAnchor));
     setDeleting(null);
   }, [positions, entry?.promptPositionId, entry?.position]);
-  const headerActions = useMemo(() => <button ref={addRef} type="button" onClick={() => edit()}>{tUi("新建")}</button>, [edit, tUi]);
+  const headerActions = useMemo(() => <Button data-dsh-control variant="primary" ref={addRef} type="button" onClick={() => edit()}>{tUi("新建")}</Button>, [edit, tUi]);
   useEditorSubpage(true, tUi("自定义位置"), onBack, headerActions);
 
   function saveDraft() {
@@ -246,7 +227,7 @@ export function CustomPositionManager({ entry, positions, entries, onChange, onB
     {!compact && <header className="setting-position-manager-header">
       <button type="button" className="setting-position-back" aria-label={tUi("返回插入配置")} title={tUi("返回")} onClick={onBack}><ArrowLeft size={18} /></button>
       <h2>{tUi("自定义位置")}</h2>
-      <Button data-dsh-control variant="outline" ref={addRef} type="button" className="setting-position-button" onClick={() => edit()}><Plus size={16} />{tUi("新建")}</Button>
+      <Button data-dsh-control variant="primary" ref={addRef} type="button" className="setting-position-button" onClick={() => edit()}><Plus size={16} />{tUi("新建")}</Button>
     </header>}
 
     <DndContext

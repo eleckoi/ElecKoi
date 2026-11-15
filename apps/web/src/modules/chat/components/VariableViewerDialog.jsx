@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { createPortal } from 'react-dom';
-import { Input, MenuSurface } from '@deepseek-ai/dsh-client-ui-primitives';
-import { Database, MagnifyingGlass, X } from '../../../ui/icons/interfaceIcons.jsx';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import { MagnifyingGlass } from '../../../ui/icons/interfaceIcons.jsx';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
-import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
+import '../../../ui/styles/product-dialogs.css';
 import { MobileConversationOverlay, isMobilePresentation } from '../../../mobile/MobileConversationOverlay.jsx';
 import { VariableBrowser } from './VariableBrowser.jsx';
 import { VariableConfigurationSelect } from './VariableConfigurationSelect.jsx';
@@ -16,7 +15,6 @@ export function VariableViewerDialog({ conversationId, conversationModel, onClos
   const t = useProductTranslation(), mobile = isMobilePresentation();
   const [view, setView] = useState('manage'), [selectedId, setSelectedId] = useState(''), [historyDetail, setHistoryDetail] = useState(false);
   const [path, setPath] = useState([]), [historyPath, setHistoryPath] = useState([]), [query, setQuery] = useState(''), [search, setSearch] = useState(false);
-  const closeRef = useRef(null), dialogRef = useRef(null);
   const snapshot = useSyncExternalStore(conversationModel?.subscribeTimeline || subscribeEmpty, conversationModel?.getTimelineSnapshot || getEmpty);
   const timeline = snapshot.id === conversationId ? snapshot.timeline : null;
   const error = snapshot.id === conversationId ? snapshot.error : '';
@@ -32,21 +30,7 @@ export function VariableViewerDialog({ conversationId, conversationModel, onClos
       setSelectedId(timeline.floors.at(-1)?.id || ''); setHistoryPath([]);
     }
   }, [timeline, selectedId]);
-  useEffect(() => {
-    if (mobile) return undefined;
-    const previous = document.activeElement;
-    closeRef.current?.focus();
-    const keys = event => {
-      if (event.key === 'Escape') { onClose(); return; }
-      if (event.key !== 'Tab') return;
-      const items = [...(dialogRef.current?.querySelectorAll('button:not(:disabled),input:not(:disabled),[tabindex="0"]') || [])].filter(item => !item.closest('[hidden]'));
-      const first = items[0], last = items.at(-1);
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-    };
-    window.addEventListener('keydown', keys);
-    return () => { window.removeEventListener('keydown', keys); if (previous?.isConnected) previous.focus(); };
-  }, [mobile, onClose]);
+
   const floor = timeline?.floors.find(item => item.id === selectedId);
   function selectFloor(id) { setSelectedId(id); setHistoryPath([]); setHistoryDetail(true); }
   function back() {
@@ -79,9 +63,5 @@ export function VariableViewerDialog({ conversationId, conversationModel, onClos
     headerAction={view === 'manage' ? <button type="button" className="vm-mobile-search" aria-label={t('搜索变量')} onClick={() => { setSearch(value => !value); setQuery(''); }}><MagnifyingGlass size={23} /></button> : null}>
     {body}
   </MobileConversationOverlay>;
-  return createPortal(<SystemBarOverlay className="variable-viewer-backdrop" role="presentation" onMouseDown={onClose}>
-    <MenuSurface ref={dialogRef} className="variable-viewer-dialog vm-dialog" role="dialog" aria-modal="true" aria-labelledby="vm-title" onMouseDown={event => event.stopPropagation()}>
-      <header className="vm-header"><Database size={20} /><h2 id="vm-title">{title}</h2><button ref={closeRef} type="button" aria-label={t('关闭')} onClick={onClose}><X size={20} /></button></header>{body}
-    </MenuSurface>
-  </SystemBarOverlay>, document.body);
+  return <Modal open title={title} closeLabel={t('关闭')} onClose={onClose} className="product-dialog variable-viewer-modal" contentClassName="product-dialog-content">{body}</Modal>;
 }

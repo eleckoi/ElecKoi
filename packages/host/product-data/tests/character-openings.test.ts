@@ -12,6 +12,7 @@ import { emptyEntry } from '../src/domain/settingLibraries/settingLibraryNormali
 import { VariableConfigRepository } from '../src/domain/variables/VariableConfigRepository'
 import { resolveConversationSeed } from '../src/domain/conversations/conversationSeed'
 import { ConversationRepository } from '../src/domain/conversations/ConversationRepository'
+import { MessageRepository } from '../src/domain/conversations/MessageRepository'
 import { legacyOpeningSchemaSql } from './helpers/legacyOpeningStorage'
 import { restoreEditorSchemaV12 } from './helpers/editorSchemaV12'
 import { CURRENT_SCHEMA_VERSION, installSchema } from '../src/storage/sqlite/installSchema'
@@ -57,7 +58,7 @@ it('keeps openings independent through setting version changes, deletion, variab
   expect(f.db.native.prepare('SELECT * FROM character_openings').all()).toEqual([])
 }, 30_000)
 
-it('creates no opening message for blank content and uses filled content without the former enable gate', () => {
+it('leaves a single blank opening silent and uses filled content without the former enable gate', () => {
   const f = fixture(), characterId = 'synthetic-character';
   const repository = new ConversationRepository(f.db, (id, db) => resolveConversationSeed(id, db, f.openings, f.variables));
   const original = f.openings.get(characterId), primary = original.openingMessages[0]!;
@@ -70,6 +71,35 @@ it('creates no opening message for blank content and uses filled content without
   const filled = repository.create({ metadata: { characterId } }).conversation.id;
   expect(repository.openingText(filled)).toBe('合成开场正文');
   expect(repository.openingText(blank)).toBe('');
+}, 30_000)
+
+it('keeps blank alternatives selectable, including a blank primary, after switching and disk reopen', () => {
+  const f = fixture(), characterId = 'synthetic-character'
+  const repository = new ConversationRepository(f.db, (id, db) => resolveConversationSeed(id, db, f.openings, f.variables))
+  const messages = new MessageRepository(f.db)
+  const original = f.openings.get(characterId), primary = original.openingMessages[0]!
+  const variableVersionId = f.variables.get(characterId).activeVersionId
+  const options = [{ ...primary, content: '合成正文' }, { id: 'blank', title: '空白开场', content: '', variableVersionId },
+    { id: 'whitespace', title: '空白字符开场', content: ' \n\t ' }]
+  f.openings.save(characterId, { ...original, openingMessages: options })
+  const filledId = repository.create({ metadata: { characterId } }).conversation.id
+  const read = (id: string) => messages.pageMetadata(id).messages[0]!
+  expect(read(filledId).openingOptions?.map(option => option.id)).toEqual(options.map(option => option.id))
+  repository.selectOpening(filledId, 'blank')
+  expect(read(filledId)).toMatchObject({ id: 'opening', content: '', selectedOpeningId: 'blank' })
+  expect(f.db.native.prepare('SELECT variableVersionId FROM agent_conversations WHERE id=?').get(filledId)).toEqual({ variableVersionId })
+  f.openings.save(characterId, { ...original, defaultOpeningMessageId: 'blank', openingMessages: [options[1]!, options[0]!, options[2]!] })
+  const blankId = repository.create({ metadata: { characterId } }).conversation.id
+  expect(read(blankId)).toMatchObject({ id: 'opening', content: '', selectedOpeningId: 'blank' })
+  f.db.close(); f.db.open()
+  expect(read(filledId)).toMatchObject({ content: '', selectedOpeningId: 'blank' })
+  expect(read(blankId).openingOptions).toHaveLength(3)
+  repository.selectOpening(blankId, primary.id)
+  expect(read(blankId)).toMatchObject({ content: '合成正文', selectedOpeningId: primary.id })
+  repository.selectOpening(blankId, 'whitespace')
+  expect(read(blankId)).toMatchObject({ content: ' \n\t ', selectedOpeningId: 'whitespace' })
+  repository.selectOpening(blankId, 'blank')
+  expect(read(blankId)).toMatchObject({ content: '', selectedOpeningId: 'blank' })
 }, 30_000)
 
 it('collects every legacy opening into one list and retains all settings and the default opening', () => {

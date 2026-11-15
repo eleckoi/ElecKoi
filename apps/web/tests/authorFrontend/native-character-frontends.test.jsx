@@ -137,12 +137,12 @@ describe('character frontend package browser', () => {
     service.projects.delete=vi.fn(async(input,id)=>{state.projects=state.projects.filter(p=>p.id!==id);state.revision++;watchers.forEach(fn=>fn(value()));return {ok:true,value:value()};});
     await render(<CharacterFrontendPanel characterId={characterId}/>);
     await choosePackage('Synthetic other project'); await menuAction('重命名');
-    const input=shadow().querySelector('[role=dialog] input');
+    const input=document.querySelector('[role=dialog] input');
     await act(()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Synthetic renamed');input.dispatchEvent(new Event('input',{bubbles:true}));});
-    await click('保存',shadow().querySelector('[role=dialog]')); await act(async()=>vi.advanceTimersByTimeAsync(180));
+    await click('保存',document.querySelector('[role=dialog]')); await act(async()=>vi.advanceTimersByTimeAsync(180));
     expect(service.projects.updateProject).toHaveBeenCalledWith({scope:'character',characterId},'synthetic-other-project',{name:'Synthetic renamed'});
     await menuAction('移除前端包'); expect(service.projects.delete).not.toHaveBeenCalled();
-    await click('移除',shadow().querySelector('[role=dialog]')); await act(async()=>vi.advanceTimersByTimeAsync(180));
+    await click('移除',document.querySelector('[role=dialog]')); await act(async()=>vi.advanceTimersByTimeAsync(180));
     expect(service.projects.delete).toHaveBeenCalledWith({scope:'character',characterId},'synthetic-other-project');
     expect(state.projects.map(p=>p.id)).toEqual(['synthetic-role-project']);
   });

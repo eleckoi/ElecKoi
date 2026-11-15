@@ -146,10 +146,13 @@
 .conversation-character-picker-empty button {
   height: 32px;
   padding: 0 16px;
+  font-size: 14px;
+}
+
+.conversation-character-picker-empty button:not([data-dsh-control]) {
   border-radius: 8px;
   background: #12a8ff;
   color: #fff;
-  font-size: 14px;
 }
 
 .conversation-scroll {

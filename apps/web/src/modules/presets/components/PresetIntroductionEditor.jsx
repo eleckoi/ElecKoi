@@ -1,5 +1,5 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useId, useImperativeHandle, useRef, useState } from 'react';
 import { CaretRight, CaretUp, NotePencil, Plus } from '../../../ui/icons/interfaceIcons.jsx';
 import { TrashIcon } from '../../../ui/icons/index.jsx';
@@ -11,6 +11,7 @@ import { EditorWritingBoard } from '../../settingLibraries/index.js';
 import { PresetReadableText } from './PresetReadableText.jsx';
 import '../../../ui/styles/editor-library-workspace.css';
 import '../styles/preset-usage.css';
+import '../../../ui/styles/product-dialogs.css';
 
 export function PresetContentComposer({ draft, formRef, saving, error, onChange, onCancel, onSave }) {
   const tUi = useProductTranslation();
@@ -40,19 +41,9 @@ export function PresetContentComposer({ draft, formRef, saving, error, onChange,
 }
 
 function ContentDialog({ title, children, onClose, busy }) {
-  const ref = useRef(null);
-  const titleId = useId();
-  useEffect(() => {
-    const previous = document.activeElement;
-    const dialog = ref.current;
-    dialog.showModal();
-    return () => { dialog.close(); if (previous?.isConnected) previous.focus(); };
-  }, []);
-  return <dialog ref={ref} className="preset-content-dialog" aria-labelledby={titleId} onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }} onClick={(event) => {
-    if (event.target !== event.currentTarget || busy) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();
-  }}><h2 id={titleId}>{title}</h2>{children}</dialog>;
+  const tUi = useProductTranslation();
+  return <Modal open title={title} closeLabel={tUi('关闭')} onClose={() => { if (!busy) onClose(); }}
+    className="product-dialog preset-content-modal" contentClassName="product-dialog-content">{children}</Modal>;
 }
 
 export function PresetIntroductionEditor({ preset, editorRef, saving, error, onClearError, onSaveProfile, readOnly = false, onDirtyChange, autoEditEmpty = true }) {
@@ -135,7 +126,7 @@ export function PresetIntroductionEditor({ preset, editorRef, saving, error, onC
       </div>}
     </section>
     <section className="preset-content-section preset-updates" aria-label={tUi("更新记录")}>
-      <div className="preset-content-section-heading"><h2>{tUi("更新记录")}</h2>{!readOnly && <Button data-dsh-control variant="outline" ref={addRef} type="button" className="preset-content-button is-section-action" disabled={saving || Boolean(draft?.isNew)} onClick={() => openDraft(createTimelineDraft())}><Plus size={15} />{tUi("添加更新")}</Button>}</div>
+      <div className="preset-content-section-heading"><h2>{tUi("更新记录")}</h2>{!readOnly && <Button data-dsh-control variant="primary" ref={addRef} type="button" className="preset-content-button is-section-action" disabled={saving || Boolean(draft?.isNew)} onClick={() => openDraft(createTimelineDraft())}><Plus size={15} />{tUi("添加更新")}</Button>}</div>
       <ol id={timelineId} className="preset-update-list" aria-label={tUi("更新时间线，最新记录在前")}>
         {draft?.kind === 'timeline' && draft.isNew ? <li className="preset-update-step is-editing"><i className="preset-update-node" aria-hidden="true" />{composer}</li> : null}
         {records.map((item, index) => <li className={`preset-update-step${index === 0 ? ' is-latest' : ''}${draft?.kind === 'timeline' && draft.value.id === item.id ? ' is-editing' : ''}`} key={item.id}>

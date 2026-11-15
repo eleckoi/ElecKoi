@@ -454,23 +454,8 @@
   min-height: 40px;
   gap: 8px;
   padding: 0 17px 0 15px;
-  color: var(--studio-on-selection);
-  background: var(--studio-selection);
-  border: 0;
-  border-radius: 10px;
-  font: inherit;
   font-size: 14px;
-  font-weight: 600;
   cursor: pointer;
-  transition: background-color 160ms ease-out, transform 120ms ease-out;
-}
-
-.creator-studio-new-project-button:hover {
-  background: color-mix(in srgb, var(--studio-selection) 88%, var(--studio-accent));
-}
-
-.creator-studio-new-project-button:active {
-  transform: translateY(1px);
 }
 
 .creator-studio-project-toolbar {
@@ -1036,140 +1021,6 @@
   white-space: nowrap;
 }
 
-.creator-studio-delete-confirm {
-  position: absolute;
-  z-index: 12;
-  top: calc(100% + 9px);
-  right: 0;
-  width: min(312px, calc(100vw - 40px));
-  padding: 20px;
-  color: var(--studio-text);
-  background: var(--studio-surface);
-  border-radius: 12px;
-  box-shadow: var(--studio-menu-shadow);
-}
-
-.creator-studio-grid-card > .creator-studio-delete-confirm {
-  top: 44px;
-  right: 8px;
-}
-
-.creator-studio-delete-confirm::before {
-  position: absolute;
-  top: -5px;
-  right: 14px;
-  width: 10px;
-  height: 10px;
-  background: var(--studio-surface);
-  content: "";
-  transform: rotate(45deg);
-}
-
-.creator-studio-delete-confirm > strong {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.creator-studio-delete-confirm > p {
-  margin: 9px 0 0;
-  color: var(--studio-muted);
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.creator-studio-delete-confirm > p.creator-studio-delete-error {
-  color: #cf3737;
-}
-
-.creator-studio-delete-confirm > div {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 18px;
-}
-
-.creator-studio-delete-confirm button {
-  min-height: 34px;
-  padding: 0 14px;
-  color: var(--studio-text);
-  background: var(--studio-surface-soft);
-  border: 0;
-  border-radius: 8px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.creator-studio-delete-confirm button.is-danger {
-  color: var(--studio-on-selection);
-  background: var(--studio-selection);
-}
-
-.creator-studio-delete-confirm button:disabled {
-  cursor: wait;
-  opacity: 0.55;
-}
-
-.creator-studio-dialog-backdrop {
-  position: fixed;
-  z-index: 20;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 28px;
-  background: rgba(18, 28, 35, 0.26);
-  backdrop-filter: blur(3px);
-}
-
-.creator-studio-create-dialog {
-  width: min(590px, 100%);
-  max-height: calc(100vh - 56px);
-  overflow: auto;
-  color: var(--studio-text);
-  background: var(--studio-surface);
-  border: 1px solid var(--studio-border);
-  border-radius: 16px;
-  box-shadow: var(--studio-menu-shadow);
-}
-
-.creator-studio-create-dialog > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 58px;
-  padding: 0 20px;
-}
-
-.creator-studio-create-dialog > header h2 {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 650;
-}
-
-.creator-studio-create-dialog > header button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  color: var(--studio-muted);
-  background: transparent;
-  border: 0;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.creator-studio-create-dialog > form {
-  display: grid;
-  gap: 18px;
-  padding: 4px 20px 20px;
-}
-
 .creator-studio-form-field {
   display: grid;
   gap: 7px;
@@ -1203,8 +1054,7 @@
   gap: 8px;
 }
 
-.creator-studio-directory-field button,
-.creator-studio-create-dialog footer button {
+.creator-studio-directory-field button {
   min-height: 40px;
   padding: 0 15px;
   color: var(--studio-text);
@@ -1218,17 +1068,6 @@
   margin: -6px 0 0;
   color: #cf4d4d;
   font-size: 12px;
-}
-
-.creator-studio-create-dialog footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.creator-studio-create-dialog footer button.is-primary {
-  color: white;
-  background: var(--studio-accent);
 }
 
 .creator-studio-library-empty {

@@ -1,10 +1,10 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useState } from 'react';
 import { Input } from '@deepseek-ai/dsh-client-ui-primitives';
-import { X, Check, SquaresFour, MagnifyingGlass } from '../../../ui/icons/interfaceIcons.jsx';
+import { Check, SquaresFour, MagnifyingGlass } from '../../../ui/icons/interfaceIcons.jsx';
 import { AgentToolGroupIcon } from '../../../ui/icons/index.jsx';
-import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
+import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../../../ui/styles/product-dialogs.css';
 import { MobileConversationOverlay } from '../../../mobile/MobileConversationOverlay.jsx';
 
 /** Edit the parent draft directly; retain the opening catalog so removed references remain selectable. */
@@ -28,12 +28,7 @@ export function PresetToolManagerDialog({ sources, includedIds, compact, closeBl
   const source = catalog.get(sourceId);
   const key = query.trim().toLocaleLowerCase();
   const tools = source?.tools.filter(tool => !key || `${tool.name} ${tool.description} ${tool.members.map(member => member.name).join(' ')}`.toLocaleLowerCase().includes(key)) || [];
-  useEffect(() => {
-    if (compact) return;
-    const escape = event => { if (event.key === 'Escape' && !event.defaultPrevented && !closeBlocked) onClose(); };
-    window.addEventListener('keydown', escape);
-    return () => window.removeEventListener('keydown', escape);
-  }, [compact, closeBlocked, onClose]);
+
   function select(tool, checked) {
     const original = openingTools.get(tool.id);
     onMembershipChange({ ...tool, enabled: checked ? original?.included ? original.enabled : true : tool.enabled }, checked);
@@ -51,10 +46,10 @@ export function PresetToolManagerDialog({ sources, includedIds, compact, closeBl
         {tools.map(tool => <label className="preset-tool-manager-row" key={tool.id}>
           <span className="preset-tool-icon"><AgentToolGroupIcon groupId={tool.id} size={19} /></span>
           <span className="preset-tool-manager-copy"><strong>{tool.name}</strong><small>{tool.description}</small></span>
-          <span className="preset-tool-manager-check">
+          {tool.readOnly ? <span className="preset-tool-basic-state">{tUi('默认启用')}</span> : <span className="preset-tool-manager-check">
             <input type="checkbox" aria-label={tUi("选择：{value0}", {value0: tool.name})} checked={selected(tool)} disabled={closeBlocked} onChange={event => select(tool, event.target.checked)} />
             <Check size={13} weight="bold" aria-hidden="true" />
-          </span>
+          </span>}
         </label>)}
         {!source && <p className="preset-tool-dialog-empty">{tUi("选择工具来源")}</p>}
         {source && !tools.length && <p className="preset-tool-dialog-empty">{tUi("没有匹配的工具")}</p>}
@@ -62,10 +57,6 @@ export function PresetToolManagerDialog({ sources, includedIds, compact, closeBl
     </section>
   </div>;
   if (compact) return <MobileConversationOverlay title={tUi("管理预设工具")} kind="page" className="mobile-preset-tool-manager" busy={closeBlocked} onClose={onClose}>{body}</MobileConversationOverlay>;
-  return createPortal(<SystemBarOverlay className="preset-tool-config-backdrop" onMouseDown={() => { if (!closeBlocked) onClose(); }}>
-    <section className="preset-tool-config-dialog preset-tool-manager-dialog" role="dialog" aria-modal="true" aria-label={tUi("管理预设工具")} onMouseDown={event => event.stopPropagation()}>
-      <header><h2>{tUi("管理预设工具")}</h2><button type="button" aria-label={tUi("关闭管理窗口")} onClick={onClose}><X size={19} /></button></header>
-      {body}
-    </section>
-  </SystemBarOverlay>, document.body);
+  return <Modal open title={tUi('管理预设工具')} closeLabel={tUi('关闭管理窗口')} onClose={() => { if (!(closeBlocked)) onClose(); }}
+    className="product-dialog preset-tools-modal" contentClassName="product-dialog-content">{body}</Modal>;
 }

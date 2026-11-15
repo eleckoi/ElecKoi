@@ -21,7 +21,6 @@
     },
     "./package.json": "./package.json",
     "./locale/*.json": "./locale/*.json",
-    "./host/uploaded-file-tools.mjs/locale/*.json": "./locale/host/uploaded-file-tools/*.json",
     "./host/variable-tools.mjs/locale/*.json": "./locale/host/variable-tools/*.json",
     "./host/setting-library-tools.mjs/locale/*.json": "./locale/host/setting-library-tools/*.json",
     "./host/roleplay-plan-tool.mjs/locale/*.json": "./locale/host/roleplay-plan-tool/*.json"
@@ -38,6 +37,7 @@
     }
   },
   "dependencies": {
+    "@deepseek-ai/dsh-tool-fs": "0.2.2-rc.3",
     "@deepseek-ai/dsh-agent-default-model": "0.2.2-rc.3",
     "@deepseek-ai/dsh-api-session-controller": "0.2.2-rc.3",
     "@deepseek-ai/dsh-client-ui-chat": "0.2.2-rc.3",
@@ -64,6 +64,24 @@
   },
   "eleckoi": {
     "developerInterfaces": [
+      {
+        "id": "eleckoi.roleplay.background",
+        "kind": "ui-slot",
+        "title": "角色对话背景",
+        "description": "在原生会话内部贡献背景显示，不替换布局、滚动或输入。",
+        "mode": "replace",
+        "scope": "session",
+        "relation": "provides"
+      },
+      {
+        "id": "eleckoi.roleplay.header.menu",
+        "kind": "ui-slot",
+        "title": "角色对话操作菜单",
+        "description": "向角色对话的操作菜单贡献功能入口。",
+        "mode": "append",
+        "scope": "session",
+        "relation": "provides"
+      },
       {
         "id": "eleckoi.roleplay.chat",
         "kind": "ui-slot",

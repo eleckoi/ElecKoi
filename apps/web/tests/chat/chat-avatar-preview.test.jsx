@@ -42,7 +42,7 @@ describe("chat avatar preview trigger", () => {
     await click(menuItems()[0]);
     expect(menuItems()).toHaveLength(0);
     expect(document.querySelector('[role=dialog]')).not.toBeNull();
-    await click(document.querySelector('.avatar-preview-pin'));
+    await click([...document.querySelectorAll('.avatar-preview-modal button')].find(button => button.textContent === '固定在聊天中'));
     expect(pin).toHaveBeenCalledWith({ src: 'data:image/png;base64,AAAA', name: '合成角色' });
     expect(document.querySelector('[role=dialog]')).toBeNull();
     expect(document.activeElement).toBe(avatar);
@@ -86,7 +86,7 @@ describe("chat avatar preview trigger", () => {
     const avatar = await mount({ message: { ...message, role: mode === 'user' ? 'user' : 'assistant' },
       layoutMode: mode === 'agent' ? 'agent' : 'roleplay', onEditCharacter: vi.fn() });
     await click(avatar); expect(menuItems()).toHaveLength(0);
-    expect(document.querySelector('.avatar-preview-dialog')).not.toBeNull();
+    expect(document.querySelector('.avatar-preview-modal')).not.toBeNull();
   });
   it('updates all eight interface languages without replacing the open avatar menu', async () => {
     const locale = officialLocale();

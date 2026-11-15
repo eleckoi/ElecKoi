@@ -22,6 +22,9 @@ export function creatorComposition(document, product, disabledIds) {
   ])
   const visit = plugins => plugins.flatMap(plugin => {
     if (plugin.id === 'persona') return []
+    if (plugin.id === 'tool-fs' && disabled.has('builtin:workspace')) {
+      return [{ ...plugin, config: { ...(plugin.config ?? {}), read: true, readImage: true, write: false, edit: false, applyPatch: false } }]
+    }
     if (disabled.has(groups.get(plugin.id))) return []
     if (plugin.id === 'compaction' || plugin.id === 'agent-instructions') {
       const replacement = additions.get(plugin.id)
@@ -31,5 +34,9 @@ export function creatorComposition(document, product, disabledIds) {
     }
     return [{ ...plugin, ...(Array.isArray(plugin.config) ? { config: visit(plugin.config) } : {}) }]
   })
-  return [...visit(declared), ...product.filter(plugin => ['uploaded-file-tools', 'fs-observation-policy', 'creator-studio-agent'].includes(plugin.id))]
+  const plugins = visit(declared)
+  if (!plugins.some(plugin => plugin.name === '@deepseek-ai/dsh-tool-fs')) {
+    plugins.push({ id: 'tool-fs', name: '@deepseek-ai/dsh-tool-fs', config: { read: true, readImage: true, write: false, edit: false, applyPatch: false } })
+  }
+  return [...plugins, ...product.filter(plugin => ['fs-observation-policy', 'creator-studio-agent'].includes(plugin.id))]
 }

@@ -42,8 +42,8 @@ export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, qu
     const index = messages.findIndex(item => item.id === message.id);
     return [
       { id: 'copy', label: tUi('复制开场白'), icon: Copy, disabled: busy, run: () => duplicate(message) },
-      { id: 'up', label: tUi('上移'), icon: ArrowUp, disabled: busy || index <= 1, run: () => onChange(moveBackupOpening(entry, message.id, -1)) },
-      { id: 'down', label: tUi('下移'), icon: ArrowDown, disabled: busy || index === 0 || index === messages.length - 1, run: () => onChange(moveBackupOpening(entry, message.id, 1)) },
+      { id: 'up', label: tUi('上移'), icon: ArrowUp, disabled: busy || index <= 0, run: () => onChange(moveBackupOpening(entry, message.id, -1)) },
+      { id: 'down', label: tUi('下移'), icon: ArrowDown, disabled: busy || index === messages.length - 1, run: () => onChange(moveBackupOpening(entry, message.id, 1)) },
       { id: 'delete', label: tUi('删除开场白'), icon: Trash, disabled: busy || messages.length <= 1, danger: true, run: () => onRequestDelete(message) },
     ];
   }
@@ -92,7 +92,7 @@ export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, qu
     <Layout {...(compact ? { documentLayout: true } : { label: tUi('开场白'), query, onQueryChange })} inspector={compact && !editing ? null : inspector}
       inspectorTitle={selected?.title || tUi('开场白')} onCloseInspector={() => setEditing(false)}
       {...(!compact && { directoryHeading: <h2 className="opening-directory-title">{tUi('开场白')}</h2>,
-        directoryActions: <><Button disabled={busy} data-dsh-control variant="outline" className="setting-create" icon={<Plus size={16} />} aria-label={tUi('新建开场白')} onClick={createBackup}>{tUi('新建')}</Button>{save}</> })}>
+        directoryActions: <><Button disabled={busy} data-dsh-control variant="primary" className="setting-create" icon={<Plus size={16} />} aria-label={tUi('新建开场白')} onClick={createBackup}>{tUi('新建')}</Button>{save}</> })}>
       {compact && <EditorCollectionToolbar heading={tUi('开场白')} createItems={[{ label: tUi('开场白'), Icon: ChatCircleDots, run: createBackup }]} disabled={busy} query={query} onQueryChange={onQueryChange} placeholder={tUi('搜索开场白')} save={save} />}
       <div className="opening-directory-list" onMouseDown={event => { if (!event.target.closest('.opening-list-item')) setSelectedId(''); }}>
         <div role="list" aria-label={tUi('开场白列表')}>{visible.map(message => <div key={message.id} role="listitem"
@@ -102,7 +102,7 @@ export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, qu
             <ChatCircleDots size={17} /><span className="opening-list-name">{message.title || tUi('未命名开场白')}</span>{message.id === messages[0].id && <span className="opening-primary-label">{tUi('主开场白')}</span>}
           </button>
           {!compact && <div className="opening-list-tools" onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
-            {actions(message).filter(action => message.id !== messages[0].id || !['up', 'down'].includes(action.id)).map(({ id, label, icon: Icon, disabled, run }) => <Button key={id} type="button" data-dsh-control variant="outline" className="opening-row-action" disabled={disabled} title={label} aria-label={label} icon={<Icon size={14} />} onClick={run} />)}
+            {actions(message).map(({ id, label, icon: Icon, disabled, run }) => <Button key={id} type="button" data-dsh-control variant="outline" className="opening-row-action" disabled={disabled} title={label} aria-label={label} icon={<Icon size={14} />} onClick={run} />)}
           </div>}
         </div>)}</div>
         {!visible.length && <p className="opening-list-empty" role="status">{tUi('没有匹配的开场白')}</p>}

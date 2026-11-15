@@ -70,12 +70,12 @@ export function shouldShowPresetCatalogLoading(catalog, error) {
 
 export function reconcilePresetToolRefresh(draft, previous, incoming) {
   const ids = new Set(previous.toolGroups.map(group => group.id));
-  const content = ({ extraToolGroups, ...preset }) => JSON.stringify({ ...preset, toolGroups: preset.toolGroups.map(({ available, plugin, ...group }) => group) });
+  const content = ({ extraToolGroups, basicToolGroups, ...preset }) => JSON.stringify({ ...preset, toolGroups: preset.toolGroups.map(({ available, plugin, ...group }) => group) });
   const comparable = { ...incoming, toolGroups: incoming.toolGroups.filter(group => ids.has(group.id) || group.source !== 'extension') };
   if (content(comparable) !== content(previous)) return null;
   const latest = new Map([...incoming.toolGroups, ...(incoming.extraToolGroups || [])].map(group => [group.id, group]));
   const referencedNames = new Set(draft.toolGroups.filter(group => group.included).flatMap(group => group.members.map(member => member.name)));
-  return { ...draft, toolGroups: [
+  return { ...draft, basicToolGroups: incoming.basicToolGroups, toolGroups: [
     ...draft.toolGroups.map(group => latest.has(group.id) ? { ...group, available: latest.get(group.id).available, ...(latest.get(group.id).plugin ? { plugin: latest.get(group.id).plugin } : {}) } : group),
     ...incoming.toolGroups.filter(group => !ids.has(group.id)),
   ], extraToolGroups: [...latest.values()].filter(group => group.source === 'extension' && group.available === true

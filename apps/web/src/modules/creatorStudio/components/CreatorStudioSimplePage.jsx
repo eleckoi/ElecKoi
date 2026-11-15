@@ -9,7 +9,7 @@ import { characterAvatar, characterGroup, characterName } from '../../../utils/c
 import { DshNewChatIcon, DshPanelLeftIcon, DshEllipsisIcon, DshEditIcon, DshTrashIcon } from '../../../ui/icons/dshComposerIcons.jsx';
 import { WindowControls } from '../../../app/windows/shell/components/TitleBar.jsx';
 import { CreatorStudioConversation } from './CreatorStudioConversation.jsx';
-import { useRightbarLayout } from '../../../app/windows/shell/hooks/useRightbarLayout.js';
+import { NativeFramePresentation } from '../../../app/windows/shell/components/NativeFramePresentation.jsx';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
 import '../styles/creator-studio-simple.css';
 
@@ -24,14 +24,12 @@ function conversationGroups(items) {
   return [...groups];
 }
 
-export function CreatorStudioSimplePage({ characterCatalog, model, models, presetCatalog, renderConversation, rightbar, onBack, nativePanel, onReturnToConversation }) {
+export function CreatorStudioSimplePage({ characterCatalog, model, models, presetCatalog, renderConversation, nativeFrame, navigation, onBack, nativePanel, onReturnToConversation }) {
   const tUi = useProductTranslation();
   const state = useSyncExternalStore(model.subscribe, model.getSnapshot);
   const characters = useSyncExternalStore(characterCatalog.subscribe, characterCatalog.getSnapshot);
   const [collapsed, setCollapsed] = useState(false), [query, setQuery] = useState('');
-  const shell = useRef(null);
-  const collapseSidePanel = useCallback(() => setCollapsed(true), []);
-  const rightbarLayout = useRightbarLayout({ model: rightbar, shellRef: shell, sidePanelCollapsed: collapsed, collapseSidePanel });
+  const onSidebar = useCallback(owner => setCollapsed(owner.collapsed), []);
   const [matches, setMatches] = useState(null), [searchError, setSearchError] = useState(null);
   const [selecting, setSelecting] = useState(false), [selected, setSelected] = useState(new Set());
   const [picker, setPicker] = useState(false), [menuId, setMenuId] = useState('');
@@ -86,19 +84,8 @@ export function CreatorStudioSimplePage({ characterCatalog, model, models, prese
       if (!model.getSnapshot().active) await model.restoreRecent();
     })) { setDeleting(null); stopSelecting(); }
   }
-  return <main ref={shell} className={`qq-shell creator-simple-shell${collapsed ? ' is-sidebar-collapsed' : ''}`}
-    style={rightbarLayout.shellStyle} data-rightbar-dragging={rightbarLayout.dragging || undefined}>
-    <header className="creator-simple-titlebar" data-tauri-drag-region>
-      <div className="creator-simple-titlebar-sidebar" data-tauri-drag-region>
-        <button type="button" aria-label={nativePanel ? tUi("返回工作室对话") : tUi("返回工作室入口")} title={nativePanel ? tUi("返回工作室对话") : tUi("返回工作室入口")} onClick={nativePanel ? onReturnToConversation : onBack}><ArrowLeft size={18} /></button>
-        <img src={logoIcon} alt="" draggable="false" /><strong>{tUi("AI 创作工作室")}</strong>
-        <button type="button" className="creator-simple-sidebar-toggle" aria-label={collapsed ? tUi("展开对话列表") : tUi("收起对话列表")} title={collapsed ? tUi("展开对话列表") : tUi("收起对话列表")}
-          aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}><DshPanelLeftIcon size={19} /></button>
-      </div>
-      <div className="creator-simple-titlebar-space" data-tauri-drag-region /><WindowControls />
-    </header>
-    <section className="creator-simple-workspace">
-      {!collapsed && <aside className="creator-simple-sidebar" aria-label={tUi("工作室对话列表")}>
+  const sidebar = (
+      <aside className="creator-simple-sidebar" aria-label={tUi("工作室对话列表")}>
         <button type="button" className="creator-simple-new" disabled={busy} onClick={create}><DshNewChatIcon size={18} />{tUi("新对话")}</button>
         <button type="button" className="creator-simple-character" disabled={busy || !state.active} onClick={() => setPicker(true)}>
           {target ? <Avatar as="span" src={characterAvatar(target)} name={characterName(target, tUi)} /> : <UserCircle size={20} />}<span>{target ? characterName(target, tUi) : tUi("选择角色")}</span>
@@ -127,7 +114,9 @@ export function CreatorStudioSimplePage({ characterCatalog, model, models, prese
           <button type="button" disabled={busy || !selected.size} onClick={pinSelected}><PushPin size={17} />{unpinSelected ? tUi("取消置顶") : tUi("置顶")}</button>
           <button type="button" disabled={busy || !selected.size} onClick={() => setDeleting(state.items.filter(item => selected.has(item.sessionId)))}><DshTrashIcon size={17} />{tUi("删除")}</button>
         </footer>}
-      </aside>}
+      </aside>
+  );
+  const main = (
       <section className="creator-simple-content" aria-label={tUi("工作室对话")}>
         {nativePanel ? nativePanel : <>
         <FailureAlert failure={error || state.error} className="creator-simple-error" />
@@ -138,11 +127,19 @@ export function CreatorStudioSimplePage({ characterCatalog, model, models, prese
         </div>}
         </>}
       </section>
-      <div className="creator-simple-rightbar">
-        {rightbar?.render({ width: rightbarLayout.width, viewportWidth: rightbarLayout.viewportWidth, canShow: rightbarLayout.canShow })}
+  );
+  return <main className="qq-shell creator-simple-shell">
+    <header className="creator-simple-titlebar" data-tauri-drag-region>
+      <div className="creator-simple-titlebar-sidebar" data-tauri-drag-region>
+        <button type="button" aria-label={nativePanel ? tUi("返回工作室对话") : tUi("返回工作室入口")} title={nativePanel ? tUi("返回工作室对话") : tUi("返回工作室入口")} onClick={nativePanel ? onReturnToConversation : onBack}><ArrowLeft size={18} /></button>
+        <img src={logoIcon} alt="" draggable="false" /><strong>{tUi("AI 创作工作室")}</strong>
+        <button type="button" className="creator-simple-sidebar-toggle" aria-label={collapsed ? tUi("展开对话列表") : tUi("收起对话列表")} title={collapsed ? tUi("展开对话列表") : tUi("收起对话列表")}
+          aria-expanded={!collapsed} onClick={navigation.toggleSidebar}><DshPanelLeftIcon size={19} /></button>
       </div>
-    </section>
-    {rightbarLayout.showResizeHandle && rightbarLayout.resizeHandle}
+      <div className="creator-simple-titlebar-space" data-tauri-drag-region /><WindowControls />
+    </header>
+
+    <div className="creator-simple-native-frame"><NativeFramePresentation frame={nativeFrame} sidebar={sidebar} main={main} onSidebar={onSidebar} /></div>
     {picker && <CreatorStudioCharacterDialog collection={characters.collection} selectedId={target?.id || ''} busy={busy}
       error={error || characters.error} onSelect={choose} onClose={() => setPicker(false)} />}
     <Modal open={!!renaming} title={tUi("重命名对话")} closeLabel={tUi("关闭")} onClose={() => !busy && setRenaming(null)} className="creator-simple-dialog"

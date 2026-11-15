@@ -40,7 +40,7 @@ export function SettingLibraryWorkspace({ scope, onScopeChange, globalAvailable,
           items={[{ value: 'character', label: tUi('角色'), panelId }, { value: 'global', label: tUi('全局'), panelId }]} />}>
         <div className="setting-directory-actions">
           <Menu open={createOpen} portal dense onClose={() => setCreateOpen(false)}
-            anchor={<Button data-dsh-control variant="outline" className="setting-create" icon={<Plus size={16} />} aria-label={tUi('新建')}
+            anchor={<Button data-dsh-control variant="primary" className="setting-create" icon={<Plus size={16} />} aria-label={tUi('新建')}
               aria-haspopup="menu" aria-expanded={createOpen} disabled={saving || !library || selection.active} onClick={() => setCreateOpen(!createOpen)}>{tUi('新建')}</Button>}
             items={createItems.map((item, index) => ({ id: String(index), label: item.label, icon: <item.Icon size={16} /> }))}
             onSelect={id => { setCreateOpen(false); createItems[Number(id)]?.run(); }} />

@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CreatorStudioWindow } from '../../src/app/windows/CreatorStudioWindow.jsx';
 import { PresetManagerWindow } from '../../src/app/windows/PresetManagerWindow.jsx';
+import { officialLayoutFixture } from '../../../../tests/helpers/officialLayout.js';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 globalThis.React = React;
@@ -26,6 +27,14 @@ async function mount(element) {
   } };
 }
 function studioFixture() {
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+  const { Frame, store: layout, dispose } = officialLayoutFixture({ window, document, ResizeObserver, requestAnimationFrame, cancelAnimationFrame });
+  cleanups.push(dispose);
+  function NativeFrame(props) {
+    const useStore = selector => selector(React.useSyncExternalStore(layout.subscribe, layout.getSnapshot));
+    return <Frame {...props} actions={layout.actions} useStore={useStore} usePanelInfo={selector => selector({ activePanelId: 'creatorStudio' })}
+      useSessions={selector => selector({ byId: {} })} useFoldedLandscape={selector => selector(false)} t={key => key} />;
+  }
   const active = { sessionId: 'synthetic-session', characterId: '', presetId: 'synthetic-creator' };
   const model = Object.assign(store({ status: 'ready', active, reference: {}, error: '', items: [
     { ...active, title: '合成对话', updatedAt: Date.now(), pinned: false, pinIndex: -1 },
@@ -36,6 +45,8 @@ function studioFixture() {
     selectCharacter: vi.fn(async characterId => { model.publish({ ...model.getSnapshot(), active: { ...active, characterId } }); }),
   });
   const props = {
+    nativeFrame: <NativeFrame renderSlot={name => name === 'rightbar' ? <div data-native-rightbar="" /> : null} />,
+    navigation: { selectedPanelId: 'creatorStudio', toggleSidebar: layout.actions.toggleSidebar },
     characterCatalog: store({ status: 'ready', error: '', collection: { groups: ['合成分组'], items: [{ id: 'synthetic-character', name: '合成角色', group: '合成分组', avatar: '' }] } }),
     projectCatalog: { sessions: model }, models: store({ configs: [] }),
     presetCatalog: store({ status: 'ready', error: '', catalog: { presets: [{ id: 'synthetic-creator', name: '合成创作预设' }] } }),
@@ -51,6 +62,7 @@ describe('Desktop simple AI creator studio', () => {
       const [selectedPanelId, setPanel] = React.useState('messages');
       selectPanel = setPanel;
       return <CreatorStudioWindow {...props} navigation={{ selectedPanelId, selectPanel: setPanel,
+        toggleSidebar: props.navigation.toggleSidebar,
         renderPanel: id => <div data-official-panel={id}>插件配置</div> }}
         rightbar={{ render: () => <div data-native-rightbar="" /> }} />;
     }
@@ -77,7 +89,7 @@ describe('Desktop simple AI creator studio', () => {
     expect(f.node.querySelector('[aria-label="收起对话列表"]').closest('.creator-simple-titlebar-sidebar')).toBeTruthy();
     expect(f.node.querySelectorAll('[aria-label="新建工作室对话"]')).toHaveLength(1);
     await f.click('收起对话列表');
-    expect(f.node.querySelector('.creator-simple-sidebar')).toBeNull();
+    expect(f.node.querySelector('.creator-simple-sidebar').closest('[aria-hidden]').getAttribute('aria-hidden')).toBe('true');
     await f.click('展开对话列表');
     await f.click('选择角色'); await f.click('选择角色 合成角色');
     expect(model.selectCharacter).toHaveBeenCalledWith('synthetic-character');

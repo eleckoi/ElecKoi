@@ -1,40 +1,21 @@
-import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
-import { useEffect, useRef, useState } from "react";
+import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import { useEffect, useState } from 'react';
+import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
+import '../../../ui/styles/product-dialogs.css';
 
 export function DynamicSettingsNameDialog({ dialog, busy, onCancel, onConfirm }) {
   const tUi = useProductTranslation();
-  const [value, setValue] = useState(dialog?.value || "");
-  const inputRef = useRef(null);
-
-  useEffect(() => {
-    setValue(dialog?.value || "");
-    if (dialog) requestAnimationFrame(() => inputRef.current?.select());
-  }, [dialog]);
-
+  const [value, setValue] = useState(dialog?.value || '');
+  useEffect(() => setValue(dialog?.value || ''), [dialog]);
   if (!dialog) return null;
-  const normalized = value.trim();
-  return (
-    <SystemBarOverlay className="setting-library-dialog-overlay" role="presentation" onMouseDown={onCancel}>
-      <section className="setting-library-dialog dynamic-settings-name-dialog" role="dialog" aria-modal="true" aria-labelledby="dynamic-settings-name-title" onMouseDown={(event) => event.stopPropagation()}>
-        <h2 id="dynamic-settings-name-title">{dialog.title}</h2>
-        <label>
-          <span>{dialog.label}</span>
-          <input
-            ref={inputRef}
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") onCancel();
-              if (event.key === "Enter" && normalized && !busy) onConfirm(normalized);
-            }}
-          />
-        </label>
-        <div>
-          <button type="button" disabled={busy} onClick={onCancel}>{tUi("取消")}</button>
-          <button type="button" className="is-primary" disabled={!normalized || busy} onClick={() => onConfirm(normalized)}>{busy ? tUi("保存中…") : dialog.confirmLabel}</button>
-        </div>
-      </section>
-    </SystemBarOverlay>
-  );
+  const submit = event => { event?.preventDefault(); if (value.trim() && !busy) onConfirm(value.trim()); };
+  return <Modal open title={dialog.title} closeLabel={tUi('关闭')} onClose={() => { if (!busy) onCancel(); }}
+    className="product-dialog" contentClassName="product-dialog-content" footer={<div className="product-dialog-actions">
+      <Button variant="outline" disabled={busy} onClick={onCancel}>{tUi('取消')}</Button>
+      <Button variant="primary" disabled={!value.trim() || busy} onClick={submit}>{busy ? tUi('保存中…') : dialog.confirmLabel}</Button>
+    </div>}>
+    <form className="product-dialog-fields" onSubmit={submit}><label><span>{dialog.label}</span>
+      <Input className="product-dialog-field" data-modal-autofocus aria-label={dialog.label} value={value} disabled={busy} onChange={event => setValue(event.target.value)} />
+    </label></form>
+  </Modal>;
 }

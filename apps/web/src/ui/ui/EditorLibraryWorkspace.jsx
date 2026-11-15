@@ -28,7 +28,7 @@ export function EditorLibraryWorkspace({ label, scope, ownerScope, onScopeChange
     style={{ '--setting-directory-width': `${actualWidth}px` }}>
     <aside className="setting-directory editor-heading-surface" aria-label={tUi('{value0}目录', { value0: label })}>
       <EditorDirectoryHeading title={directoryHeading ?? label} leading={!directoryHeading && <SegmentedTabs size="sm" className="setting-scope-switch" label={tUi("配置范围")} value={scope} onChange={onScopeChange} items={[{ value: ownerScope, label: ownerScope === "preset" ? tUi("预设") : tUi("角色") }, { value: "global", label: tUi("全局") }]} />}><div className="setting-directory-actions">{directoryActions ?? <>
-        <Menu portal dense open={createOpen} onClose={() => setCreateOpen(false)} anchor={<Button data-dsh-control variant="outline" className="setting-create" icon={<Plus size={16} />}
+        <Menu portal dense open={createOpen} onClose={() => setCreateOpen(false)} anchor={<Button data-dsh-control variant="primary" className="setting-create" icon={<Plus size={16} />}
           aria-label={tUi('新建{value0}', { value0: label })} aria-haspopup="menu" aria-expanded={createOpen} disabled={saving || disabled || !config || selection.active} onClick={() => setCreateOpen(!createOpen)}>{tUi('新建')}</Button>}
           items={createItems.map((item, index) => ({ id: String(index), label: item.label, disabled: item.disabled, icon: item.Icon ? <item.Icon size={16} /> : undefined }))} onSelect={id => { setCreateOpen(false); createItems[Number(id)]?.run(); }} />
         {save}

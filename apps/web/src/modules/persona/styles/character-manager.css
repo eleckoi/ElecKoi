@@ -304,10 +304,10 @@
   transform: translateY(-1px);
 }
 
-.character-manager-group:focus-visible,
-.character-add-group-button:focus-visible,
-.character-manager-titlebar button:focus-visible,
-.character-manager-grid .character-card:focus-visible {
+.character-manager-group:focus-visible:not([data-dsh-control]),
+.character-add-group-button:focus-visible:not([data-dsh-control]),
+.character-manager-titlebar button:focus-visible:not([data-dsh-control]),
+.character-manager-grid .character-card:focus-visible:not([data-dsh-control]) {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
@@ -406,55 +406,6 @@
   font-size: 14px;
 }
 
-.character-group-dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 330;
-  display: grid;
-  place-items: center;
-  background: rgba(0, 0, 0, 0.46);
-}
-
-.character-group-dialog {
-  display: grid;
-  gap: 22px;
-  width: 420px;
-  padding: 0 28px 28px;
-  border-radius: 10px;
-  background: var(--surface-raised);
-  box-shadow: 0 14px 34px var(--shadow-color);
-}
-
-.character-group-dialog h3 {
-  margin: 0 -28px;
-  padding: 14px 28px;
-  border-bottom: 1px solid var(--line);
-  color: var(--text);
-  text-align: center;
-  font-size: 17px;
-  font-weight: 500;
-}
-
-.character-group-dialog input {
-  height: 44px;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  outline: 0;
-  padding: 0 12px;
-  background: var(--field-bg);
-  color: var(--text);
-  font-size: 16px;
-}
-
-.character-group-dialog div {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.character-group-dialog button {
-  min-width: 96px;
-}
 
 .character-import-overlay {
   position: fixed;

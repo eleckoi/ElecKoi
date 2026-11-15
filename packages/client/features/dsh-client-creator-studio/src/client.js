@@ -459,15 +459,19 @@ window.__ModuleLoader__.load({
               entries.set(entry, ctx.slots.register(options, ({ renderBridgeSlot, ...props }) => {
                 const useProjection = source === 'conversation.composer.bar' || source === 'conversation.composer.dock'
                   ? useDisplayStats(props) : props.useProjection
+                // Keep the native memoized tree's renderer props stable across stream updates.
+                const renderSlot = React.useCallback((name, owner, renderOptions) => {
+                  const renderNative = () => (renderBridgeSlot || props.renderSlot)(studioSeat(name), owner, renderOptions)
+                  if (name === 'tool.call.toolview' && creatorToolNames.has(owner.toolName)) {
+                    return React.createElement(React.Suspense, { fallback: renderNative() }, React.createElement(CreatorToolCall, { ...owner, renderNative }))
+                  }
+                  return renderNative()
+                }, [renderBridgeSlot, props.renderSlot])
+                const renderSlotChain = React.useCallback((name, owner, renderOptions) =>
+                  props.renderSlotChain(studioSeat(name), owner, renderOptions), [props.renderSlotChain])
                 return React.createElement(override?.component || entry.component, {
-                  ...props, useProjection, renderSlot: (name, owner, renderOptions) => {
-                    const renderNative = () => (renderBridgeSlot || props.renderSlot)(studioSeat(name), owner, renderOptions)
-                    if (name === 'tool.call.toolview' && creatorToolNames.has(owner.toolName)) {
-                      return React.createElement(React.Suspense, { fallback: renderNative() }, React.createElement(CreatorToolCall, { ...owner, renderNative }))
-                    }
-                    return renderNative()
-                  },
-                  ...(props.renderSlotChain ? { renderSlotChain: (name, owner, renderOptions) => props.renderSlotChain(studioSeat(name), owner, renderOptions) } : {}),
+                  ...props, useProjection, renderSlot,
+                  ...(props.renderSlotChain ? { renderSlotChain } : {}),
                 })
               }))
             }

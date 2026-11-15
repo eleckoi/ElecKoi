@@ -84,7 +84,7 @@ describe('Android model library and configuration actions', () => {
     });
     expect(container.querySelector('section[aria-label="绘画模型"]')).toBeNull();
     await act(async () => container.querySelector('[aria-label="新建模型配置"]').click());
-    const choices = [...container.querySelectorAll('.mobile-picker-list button')];
+    const choices = [...document.querySelectorAll('.mobile-picker-list button')];
     expect(choices.find(node => node.textContent.includes('自定义提供商')).querySelector('img').getAttribute('src')).toBe(projectLogo);
     await act(async () => choices.find(node => node.textContent.includes('OpenAI Images')).click());
     expect(view.pushRoute.mock.calls[0][0]).toMatchObject({ kind: 'model-editor', draft: { provider: 'openai_image' } });
@@ -112,8 +112,8 @@ describe('Android model library and configuration actions', () => {
     await mount([], { kind: 'root' }, undefined, { providers });
     expect(container.querySelectorAll('.mobile-provider-row')).toHaveLength(0);
     await act(async () => container.querySelector('[aria-label="新建模型配置"]').click());
-    expect([...container.querySelectorAll('.mobile-model-create-group > label, .mobile-model-create-group > span')].map(node => node.textContent)).toEqual(['内置提供商', '绘画模型']);
-    const select = container.querySelector('[aria-label="从 DSH 目录选择"]');
+    expect([...document.querySelectorAll('.mobile-model-create-group > label, .mobile-model-create-group > span')].map(node => node.textContent)).toEqual(['内置提供商', '绘画模型']);
+    const select = document.querySelector('[aria-label="从 DSH 目录选择"]');
     expect([...select.options].map(option => option.value)).toEqual(['', 'example-builtin']);
     await act(async () => { select.value = 'example-builtin'; select.dispatchEvent(new Event('change', { bubbles: true })); });
     expect(view.pushRoute).toHaveBeenCalledExactlyOnceWith({ kind: 'model-editor', draft: expect.objectContaining({
@@ -128,7 +128,7 @@ describe('Android model library and configuration actions', () => {
     const saved = config('custom', { id: 'example-builtin', builtin: true });
     await mount([saved], { kind: 'root' }, undefined, { providers });
     await act(async () => container.querySelector('[aria-label="新建模型配置"]').click());
-    const select = container.querySelector('[aria-label="从 DSH 目录选择"]');
+    const select = document.querySelector('[aria-label="从 DSH 目录选择"]');
     await act(async () => { select.value = saved.id; select.dispatchEvent(new Event('change', { bubbles: true })); });
     expect(view.pushRoute).toHaveBeenCalledExactlyOnceWith({ kind: 'model-editor', configId: saved.id });
   });
@@ -159,7 +159,7 @@ describe('Android model library and configuration actions', () => {
     expect(view.models.save).not.toHaveBeenCalled();
     await act(async () => container.querySelector('[aria-label="返回"]').click());
     expect(view.leave).not.toHaveBeenCalled();
-    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+    expect(document.querySelector('[role="dialog"][aria-label="保存修改？"]')).not.toBeNull();
   });
 
   it('puts one Save action beside the configuration title and saves the current draft through the existing form', async () => {
@@ -192,16 +192,16 @@ describe('Android model library and configuration actions', () => {
     ] });
     await mount([saved], { kind: 'model-editor', configId: saved.id });
     await act(async () => container.querySelector('.model-picker-value').click());
-    const dialog = container.querySelector('[role="dialog"][aria-label="模型列表"]');
-    expect(dialog.closest('.mobile-model-sheet')).not.toBeNull();
+    const dialog = document.querySelector('[role="dialog"][aria-label="模型列表"]');
+    expect(dialog.querySelector('.mobile-model-sheet')).not.toBeNull();
     await act(async () => dialog.querySelector('h2').click());
-    expect(container.querySelector('[role="dialog"][aria-label="模型列表"]')).toBe(dialog);
+    expect(document.querySelector('[role="dialog"][aria-label="模型列表"]')).toBe(dialog);
     expect(dialog.querySelectorAll('.mobile-model-choice')).toHaveLength(2);
     await change(dialog.querySelector('[aria-label="搜索模型"]'), 'beta');
     expect(dialog.querySelectorAll('.mobile-model-choice')).toHaveLength(1);
     const choice = dialog.querySelector('.mobile-model-choice');
     await act(async () => { choice.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); choice.click(); });
-    expect(container.querySelector('[aria-label="模型列表"]')).toBeNull();
+    expect(document.querySelector('[aria-label="模型列表"]')).toBeNull();
     expect(container.querySelector('.model-picker-value').textContent).toBe('example-model-b');
     expect(view.models.save).not.toHaveBeenCalled();
     await act(async () => button('保存').click());
@@ -213,21 +213,21 @@ describe('Android model library and configuration actions', () => {
     await mount([saved], { kind: 'model-editor', configId: saved.id });
     expect([...container.querySelectorAll('.mobile-model-connection-actions button')].map(node => node.textContent)).toEqual(['添加模型', '读取模型']);
     await act(async () => container.querySelector('.model-picker-value').click());
-    expect(container.querySelector('[aria-label="模型列表"]').textContent).not.toContain('添加模型');
-    await act(async () => container.querySelector('[aria-label="模型列表"] [aria-label="关闭"]').click());
+    expect(document.querySelector('[aria-label="模型列表"]').textContent).not.toContain('添加模型');
+    await act(async () => document.querySelector('[aria-label="模型列表"] [aria-label="关闭"]').click());
     await act(async () => button('添加模型').click());
-    expect(container.querySelector('[aria-label="模型列表"]')).toBeNull();
-    const manual = container.querySelector('[role="dialog"][aria-label="添加模型"]');
+    expect(document.querySelector('[aria-label="模型列表"]')).toBeNull();
+    const manual = document.querySelector('[role="dialog"][aria-label="添加模型"]');
     await change(manual.querySelector('input'), 'example-manual-model');
     const add = [...manual.querySelectorAll('button')].find(node => node.textContent === '添加并使用');
     await act(async () => { add.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); add.click(); });
     expect(container.querySelector('.model-picker-value').textContent).toBe('example-manual-model');
-    expect(container.querySelector('[aria-label="添加模型"]')).toBeNull();
+    expect(document.querySelector('[aria-label="添加模型"]')).toBeNull();
     await act(async () => container.querySelector('.model-picker-value').click());
-    const remove = container.querySelector('[aria-label="删除模型 example-manual-model"]');
+    const remove = document.querySelector('[aria-label="删除模型 example-manual-model"]');
     await act(async () => { remove.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true })); remove.click(); });
-    expect(container.querySelector('[role="dialog"][aria-label="模型列表"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="删除模型 example-manual-model"]')).toBeNull();
+    expect(document.querySelector('[role="dialog"][aria-label="模型列表"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="删除模型 example-manual-model"]')).toBeNull();
     expect(view.models.save).not.toHaveBeenCalled();
   });
 
@@ -255,7 +255,7 @@ describe('Android model library and configuration actions', () => {
     expect(view.chat.notify).toHaveBeenCalledWith('error', 'Synthetic save failure');
     await act(async () => container.querySelector('[aria-label="返回"]').click());
     expect(view.leave).not.toHaveBeenCalled();
-    const dialog = document.querySelector('[role="alertdialog"]');
+    const dialog = document.querySelector('[role="dialog"][aria-label="保存修改？"]');
     expect(dialog).not.toBeNull();
     await act(async () => [...dialog.querySelectorAll('button')].find(node => node.textContent === '取消').click());
     expect(field('配置名称').value).toBe('Unsaved configuration');

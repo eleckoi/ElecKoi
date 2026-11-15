@@ -12,7 +12,7 @@ it('slides sidebar tracks natively and keeps interruption, resizing and reduced 
   const directory = await mkdtemp(resolve(tmpdir(), 'eleckoi-sidebar-motion-'));
   try {
     await build({entryPoints:['apps/web/tests/browser/window-caption.fixture.jsx'],outfile:resolve(directory,'fixture.js'),
-      bundle:true,format:'iife',jsx:'automatic',alias:{'@shared':resolve('packages/shared/src')},
+      bundle:true,format:'iife',jsx:'automatic',alias:{'@shared':resolve('packages/shared/src')},define:{'process.env.DSH_CLIENT_TITLE':'"ElecKoi"'},
       loader:{'.woff2':'file','.woff':'file','.ttf':'file','.png':'file'},logLevel:'silent'});
     const htmlPath=resolve(directory,'fixture.html'),reportPath=resolve(directory,'report.json');
     await writeFile(htmlPath,'<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="fixture.css"></head><body><div id="root"></div><script src="fixture.js"></script></body></html>');
@@ -38,12 +38,14 @@ it('slides sidebar tracks natively and keeps interruption, resizing and reduced 
       expect(end.animating).toBe(false);
     }
     expect(report.collapsed.width).toBe(0);
-    expect(report.resized.width).toBe(264);
+    expect(report.resized.width).toBe(0); // Native auto-collapse below 1024px.
     expect(report.resized.animations).toEqual([]);
     expect(report.resized.animating).toBe(false);
     expect(report.dragStart.animations).toEqual([]);
-    expect(report.dragStart.width).toBeCloseTo(report.beforeDrag.width,1);
-    expect(report.dragMoved.width).toBeCloseTo(report.beforeDrag.width+20,1);
+    expect(report.beforeDrag.width).toBeGreaterThan(0);
+    expect(report.beforeDrag.width).toBeLessThan(280);
+    expect(report.dragStart.width).toBeCloseTo(280,1); // Native drag starts from its resolved column width.
+    expect(report.dragMoved.width).toBeCloseTo(300,1);
     expect(report.rightbarMid.rightbarWidth).toBeGreaterThan(0);
     expect(report.rightbarMid.rightbarWidth).toBeLessThan(300);
     expect(report.rightbarOpen.rightbarWidth).toBe(300);

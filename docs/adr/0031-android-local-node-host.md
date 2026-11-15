@@ -97,6 +97,8 @@ Android 与桌面共用当前产品领域合同和 Host 业务包，但分别拥
 
 系统 WebView 的 `onRenderProcessGone`、Gecko 的 `onCrash`／`onKill` 均将当前浏览器标为失效。失效后不继续发送页面操作或使用原对象重载；用户点击重试时通过 Activity 重建浏览器和认证加载链，正常存活的 Host 服务继续运行，不自动停用插件或改写预设。后台启动完成回调遇到失效浏览器时保留明确提示，不进入必然超时的旧页面加载。Activity 销毁时移除浏览器视图并释放旧实例；系统 WebView 的失效实例只执行销毁，不再操作脚本接口。该流程处理退出后的恢复，不代表确认了系统终止渲染进程的原因。合同依据：[Android 渲染进程退出](https://developer.android.com/reference/android/webkit/WebViewClient#onRenderProcessGone(android.webkit.WebView,%20android.webkit.RenderProcessGoneDetail))、[Gecko 内容进程退出](https://mozilla.github.io/geckoview/javadoc/mozilla-central/org/mozilla/geckoview/GeckoSession.ContentDelegate.html#onKill(org.mozilla.geckoview.GeckoSession))；Gecko 语义另以本项目锁定版本的 sources.jar 核对。
 
+2026-11-15 兼容版按用户要求保留后台页面：Activity 恢复时通过锁定 GeckoView 158 的公开 `setPriorityHint(PRIORITY_HIGH)` 标记当前单页面，并设置活跃与输入焦点；暂停时仅撤焦点，不再主动调用 `setActive(false)`。Gecko 仍管理绘制表面的可见性，高优先级提示覆盖表面不再可见但页面仍重要的情形，依据 [Gecko 页面优先级合同](https://firefox-source-docs.mozilla.org/mobile/android/geckoview/contributor/geckoview-architecture.html#priority-hint)。页面所有权、正常销毁及上述退出重试机制保持；不增加常驻服务、轮询、自动重载或消息重放。该调整降低主动停用造成的回收风险，不代表已确认反馈设备的具体终止原因，也不能阻止系统低内存或强制终止。
+
 Host 使用动态端口，锁定版本的 `client-connection` 按 hostname 与 port 生成独立名称的签名 Cookie；浏览器 Cookie 按主机共享，不按端口隔离。WebView 会跨进程重启保留 Cookie，直接反复加载启动 URL 会累积已经退役的 authority 认证，最终触发 Node 的请求头溢出和 HTTP 431。
 
 原生壳先通过请求局部 Cookie jar 完成官方 token 交换和最终页面校验，取实际响应签发的 Cookie，不自行签名或修改 DSH 认证。成功后只删除该 WebView 主机下符合锁定版正式名称语法、且不属于当前 authority 的 DSH 认证 Cookie，保留插件 Cookie。等待每次 CookieManager 写入成功回调后加载页面；失败明确可见，重试和 Activity 销毁使过期加载任务失效。禁止以提高请求头上限、清空所有 Cookie 或清空产品数据替代生命周期管理。

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { ChatBackgroundModal, ChatWallpaperLayer, HistoryModal } from "../../modules/chat/index.js";
+import { ChatBackgroundModal, HistoryModal } from "../../modules/chat/index.js";
 import { RoleplayPanel } from "./RoleplayPanel.jsx";
-import { resolveChatWallpaper } from "../../modules/appearance/index.js";
 import { AppToast } from "../../ui/ui/AppToast.jsx";
 import { BugReportDialog } from "./shell/components/BugReportDialog.jsx";
 import { useReportProblem } from "./shell/hooks/useReportProblem.js";
@@ -13,10 +12,6 @@ import { TitleBar } from "./shell/components/TitleBar.jsx";
 import { MainPageContext } from "./MainPageContext.jsx";
 import { subscribeAppFailure } from "../../utils/appFailureOutlet.js";
 import { bestEffort } from "../../utils/swallowedFailure.js";
-
-const CHAT_WINDOW_STYLE = {
-  "--side-panel-width": "0px",
-};
 
 export function ChatWindow({ conversations, characters, characterConfiguration, models, persona, presets, renderRoleplay }) {
   const chat = useChatClient({ conversations, characters, models, persona });
@@ -40,18 +35,10 @@ export function ChatWindow({ conversations, characters, characterConfiguration, 
     chat.notify("error", resolved.text, resolved);
   }), [chat.notify]);
 
-  const chatWallpaper = resolveChatWallpaper({
-    character: chat.chatBackgroundCharacter,
-    persona: chat.chatPersona,
-    globalWallpaper: appearance.globalChatWallpaper,
-  });
-  const showChatWallpaper = Boolean(chat.sessionId || chat.chatCharacter?.character_id) && Boolean(chatWallpaper.image);
-
-  const pageView = { chat, conversations, characters, characterConfiguration, models, presets };
+  const pageView = { chat, appearance, conversations, characters, characterConfiguration, models, presets };
 
   return <FailureReportContext.Provider value={reportProblem.available ? reportProblem.openReport : null}><MainPageContext.Provider value={pageView}>
-    <main className={`qq-shell qq-chat-window-shell${showChatWallpaper ? " has-chat-wallpaper" : ""}`} style={CHAT_WINDOW_STYLE}>
-      {showChatWallpaper ? <ChatWallpaperLayer wallpaper={chatWallpaper} /> : null}
+    <main className="qq-shell qq-chat-window-shell">
       <TitleBar />
       <section className="chat-window-body">
         <RoleplayPanel

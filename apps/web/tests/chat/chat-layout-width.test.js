@@ -30,7 +30,7 @@ function conversationSheet(name) {
 
 describe('chat layout width alignment', () => {
   it('keeps the Agent text column aligned with the official DSH composer inset', () => {
-    expect(chatStyles).toMatch(
+    expect(conversationSheet('ConversationRoot')).toMatch(
       /--dsh-composer-card-max-width:\s*calc\(var\(--dsh-chat-content-width\) \+ 32px\);/,
     );
     expect(chatStyles).toMatch(
@@ -56,7 +56,7 @@ describe('chat layout width alignment', () => {
     const officialCap = rootStyles.match(/--dsh-composer-text-max-height:([^;}]+)/)?.[1];
     expect(officialCap).toBe('336px');
     const seat = chatStyles.match(/\.chat-composer-region\s*\{([^}]+)\}/)?.[1];
-    expect(seat).toContain(`--dsh-composer-text-max-height: ${officialCap};`);
+    expect(seat).not.toContain('--dsh-composer-text-max-height:');
     expect(inputStyles).toMatch(/\.[\w]+_scroll\{[^}]*max-height:var\(--dsh-composer-text-max-height\);[^}]*overflow-y:auto/);
     expect(conversationClient).toMatch(/"data-input-scroll":\s*true/);
     expect(inputStyles).toContain('--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2)');
@@ -64,9 +64,15 @@ describe('chat layout width alignment', () => {
     expect(chatStyles).not.toMatch(/\[data-input-scroll\][^{]*\{[^}]*overflow[^;]*:\s*(hidden|clip)/);
   });
 
-  it('lets the native scrollport and floating controls span the sticky Composer', () => {
-    expect(chatStyles).toMatch(/\.message-area\s*\{[^}]*display:\s*flex;[^}]*flex:\s*1;[^}]*padding:\s*0;[^}]*scrollbar-gutter:\s*stable;/);
-    expect(chatStyles).toMatch(/\.chat-composer-region\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0;/);
+  it('uses the native scrollport and shared Composer seat without another scroll layout', () => {
+    const rootStyles = conversationSheet('ConversationRoot');
+    const scrollBody = rootStyles.match(/\.[\w]+_scrollBody\{([^}]+)\}/)?.[1];
+    expect(scrollBody).toContain('overflow-y:auto');
+    expect(scrollBody).toContain('scrollbar-gutter:stable');
+    expect(rootStyles).toContain('[data-conversation-frame]');
+    expect(rootStyles).toContain('[data-composer-clearance]');
+    expect(chatStyles).not.toMatch(/^\.message-area\s*\{/m);
+    expect(chatStyles).not.toMatch(/^\.chat-composer-region\s*\{[^}]*(position|bottom):/m);
     expect(chatStyles).not.toContain('.message-area [data-chat-to-bottom]');
     expect(chatStyles).toMatch(/\.message-area \[data-chat-scroll\]\s*\{[^}]*padding:\s*28px var\(--chat-scroll-horizontal-padding\) 16px;/);
     expect(chatStyles).not.toContain('.chat-to-bottom-slot');

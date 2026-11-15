@@ -25,6 +25,38 @@ async function render(component) {
 }
 
 describe('opening configuration editor', () => {
+  it.each([false, true])('lets any opening become primary through the existing move controls and persist (compact=%s)', async compact => {
+    let stored = { ...createCharacterOpenings('synthetic-character'), defaultOpeningMessageId: 'first', openingMessages: [
+      { id: 'first', title: '原主开场', content: '合成正文' }, { id: 'blank', title: '空白开场', content: '' },
+    ] }
+    const model = { getSnapshot: () => ({ status: 'ready', value: structuredClone(stored) }), subscribe: () => () => {},
+      read: async () => structuredClone(stored), save: async (_id, value) => (stored = characterOpeningsSchema.parse(value)) }
+    const controller = createRef()
+    const editor = () => <EditorPresentationContext.Provider value={{ compact }}><CharacterOpeningsPanel ref={controller} characterId="synthetic-character" openings={model} /></EditorPresentationContext.Provider>
+    let view = await render(editor())
+    const move = async (index, direction) => {
+      const row = view.container.querySelectorAll('.opening-list-item')[index]
+      await act(async () => row.click())
+      if (compact) await act(async () => [...view.container.querySelectorAll('.mobile-editor-actions [role=toolbar] button')].find(button => button.textContent === '移动').click())
+      const control = compact ? [...view.container.querySelectorAll('[role=menuitem]')].find(button => button.textContent === direction) : row.querySelector(`[aria-label="${direction}"]`)
+      expect(control.disabled).toBe(false)
+      await act(async () => control.click())
+    }
+    try {
+      await move(1, '上移')
+      expect(view.container.querySelector('.opening-list-item').textContent).toContain('空白开场')
+      expect(view.container.querySelector('.opening-list-item .opening-primary-label')).not.toBeNull()
+      await move(0, '下移')
+      expect(view.container.querySelector('.opening-list-item').textContent).toContain('原主开场')
+      await move(1, '上移')
+      await act(async () => expect(controller.current.save()).resolves.toBe(true))
+      expect(stored.defaultOpeningMessageId).toBe('blank')
+      expect(stored.openingMessages[0]).toMatchObject({ id: 'blank', content: '' })
+      await view.dispose(); view = await render(editor())
+      expect(view.container.querySelector('.opening-list-item').textContent).toContain('空白开场')
+    } finally { await view.dispose() }
+  })
+
   it.each([false, true])('keeps reads silent and renders cached openings directly without hiding read failures (compact=%s)', async compact => {
     const value = createCharacterOpenings('synthetic-character');
     let notify, resolveRead;
@@ -116,7 +148,7 @@ describe('opening configuration editor', () => {
       expect([...view.container.querySelectorAll('.opening-list-name')].map(node => node.textContent)).toEqual(['Synthetic SECOND']);
       await act(async () => view.container.querySelector('.opening-list-item').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true })));
       const menuAction = text => [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent === text);
-      expect(menuAction('上移').disabled).toBe(true);
+      expect(menuAction('上移').disabled).toBe(false);
       expect(menuAction('下移').disabled).toBe(false);
       await fill('末尾关键词');
       expect(view.container.querySelectorAll('.opening-list-item')).toHaveLength(1);

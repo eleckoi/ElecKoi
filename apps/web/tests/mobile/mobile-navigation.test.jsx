@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import React, { act, useSyncExternalStore } from 'react';
+import * as jsxRuntime from 'react/jsx-runtime';
 import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +11,7 @@ import { MobileWorkspaceControls } from '../../src/mobile/MobileWorkspaceControl
 import { MobilePluginBack } from '../../src/mobile/MobilePluginBack.jsx';
 import { UnsavedChangesDialog } from '../../src/ui/ui/UnsavedChangesDialog.jsx';
 import { OfficialMarkdownProvider } from '../../src/ui/messages/OfficialMarkdown.jsx';
+import { loadOfficialLayout } from '../../../../tests/helpers/officialLayout.js';
 
 const fixture = vi.hoisted(() => ({ chat: null, dialog: false, onCancel: null, updates: null }));
 vi.mock('../../src/app/hooks/useChatClient.js', () => ({ useChatClient: () => fixture.chat }));
@@ -23,6 +25,44 @@ vi.mock('../../src/ui/ui/AppToast.jsx', () => ({ AppToast: () => null }));
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let root, selected, listeners, navigation, guard, rightbar, catalogs;
+let OfficialFrame;
+// The shipped official shell supplies React 18.3.1. These route units use the
+// workspace's React 19; preserve React 18's DOM semantics for native inert="".
+// The actual Android-profile browser probe separately asserts inert on the DOM.
+const nativeJsx = render => (type, props, key) => render(type,
+  typeof type === 'string' && props?.inert === '' ? { ...props, inert: true } : props, key);
+const officialLayout = loadOfficialLayout({ window, document, getComputedStyle,
+  jsxRuntime: { ...jsxRuntime, jsx: nativeJsx(jsxRuntime.jsx), jsxs: nativeJsx(jsxRuntime.jsxs) },
+  ResizeObserver: class { observe() {} disconnect() {} },
+  requestAnimationFrame: callback => setTimeout(callback, 0), cancelAnimationFrame: clearTimeout });
+officialLayout.apply({
+  locale: { bind: () => key => key }, reflect: { provide: () => () => {} },
+  slots: { provideRoot: () => () => {}, entries: () => [], subscribe: () => () => {},
+    register: (_options, component) => { OfficialFrame = component; return () => {}; } },
+  shortcuts: { register: () => () => {} },
+  effect: (run, label) => { if (label === 'ui-layout: service + root registration') run(); },
+});
+const emptySidebar = { shown: false }, emptyRightbar = { shown: false };
+const subscribeEmpty = () => () => {};
+/** Route units control the sources; the installed AppFrame still owns composition. */
+function NativeFrame() {
+  const view = useMainPageView();
+  const sidebar = useSyncExternalStore(navigation.sidebar.subscribe, navigation.sidebar.getSnapshot);
+  const right = useSyncExternalStore(rightbar?.subscribe ?? subscribeEmpty, rightbar?.getSnapshot ?? (() => emptyRightbar));
+  return <OfficialFrame useStore={select => select({ layoutInfo: { viewportWidth: 390, sidebar: 280,
+    narrowExpanded: sidebar.shown, rightbar: 300, rightbarShown: right.shown, rightbarTrack: false } })}
+    useSessions={select => select({ byId: {} })} usePanelInfo={select => select({ activePanelId: selected === 'conversation' ? null : selected })}
+    useFoldedLandscape={select => select(false)} t={key => key}
+    actions={{ toggleSidebar: navigation.toggleSidebar, setViewportWidth() {} }}
+    renderSlot={(name, owner, options) => {
+      if (name === 'sidebar') return navigation.renderSidebar((render, workspace) => view.renderFrameSidebar(render, workspace), { ...owner, workspace: true });
+      if (name === 'rightbar') return rightbar?.render(owner);
+      if (name !== 'main') return null;
+      const panel = options.entryKey, content = navigation.renderPanel(panel);
+      return ['messages', 'character', 'creatorStudio', 'presets', 'model', 'settings'].includes(panel) ? content
+        : view.renderFramePage({ panelId: panel, mainPanel: content });
+    }} />;
+}
 const originalAnimate = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'animate');
 function emit() { listeners.forEach(listener => listener()); }
 function Page({ panel }) {
@@ -40,7 +80,7 @@ function ListPage({ panel }) {
 }
 function Harness() {
   const panel = useSyncExternalStore(listener => { listeners.add(listener); return () => listeners.delete(listener); }, () => selected);
-  return <OfficialMarkdownProvider component={({ text }) => <span>{text}</span>}><MobileWindow {...catalogs} navigation={{ ...navigation, selectedPanelId: panel }} rightbar={rightbar} />
+  return <OfficialMarkdownProvider component={({ text }) => <span>{text}</span>}><MobileWindow {...catalogs} nativeFrame={<NativeFrame />} navigation={{ ...navigation, selectedPanelId: panel }} rightbar={rightbar} />
     <UnsavedChangesDialog open={fixture.dialog} title="保存编辑" description="是否保存？" onCancel={fixture.onCancel} />
   </OfficialMarkdownProvider>;
 }
@@ -120,18 +160,18 @@ describe('Android independent conversation navigation', () => {
   it('shows an automatic update from the mobile root and opens the Android download action', async () => {
     vi.stubGlobal('__ELECKOI_CLIENT_PLATFORM__', { kind: 'android' });
     await mount();
-    expect(document.querySelector('.app-update-dialog')).toBeNull();
+    expect(document.querySelector('.app-update-modal')).toBeNull();
     fixture.updates.status = { phase: 'available', availableVersion: '1.2.3', currentVersion: '1.2.2',
       manualCheck: false, releaseUrl: 'https://github.com/eleckoi/ElecKoi/releases/tag/v1.2.3', releaseNotes: '合成更新说明' };
     await act(async () => root.render(<Harness />));
-    expect(document.querySelector('.app-update-dialog').textContent).toContain('v1.2.3');
+    expect(document.querySelector('.app-update-modal').textContent).toContain('v1.2.3');
     expect(document.querySelector('.app-update-release-link').href).toBe(fixture.updates.status.releaseUrl);
-    await act(async () => document.querySelector('.app-update-actions .is-primary').click());
+    await act(async () => [...document.querySelectorAll('.app-update-modal button')].find(button => button.textContent.includes('下载')).click());
     expect(fixture.updates.download).toHaveBeenCalledOnce();
     expect(fixture.updates.install).not.toHaveBeenCalled();
     fixture.updates.status = { ...fixture.updates.status, phase: 'error', message: '合成网络错误' };
     await act(async () => root.render(<Harness />));
-    expect(document.querySelector('.app-update-dialog')).toBeNull();
+    expect(document.querySelector('.app-update-modal')).toBeNull();
   });
 
   it('searches all three catalogs without filtering the source page and returns through the source route', async () => {
@@ -205,17 +245,9 @@ describe('Android independent conversation navigation', () => {
     await click('侧边栏'); await click('打开用户资料设置');
     expect(settingsView.settingsPage).toBe('profile');
   });
-  it('uses the shared sidebar, keeps plugin routes, and finishes both opening and closing motion', async () => {
+  it('retains the shared sidebar across official drawer navigation and restores the source route', async () => {
     let snapshot = { shown: false };
-    const subscribers = new Set(), animations = [];
-    Object.defineProperty(HTMLElement.prototype, 'animate', { configurable: true, writable: true, value: () => {} });
-    vi.spyOn(HTMLElement.prototype, 'animate').mockImplementation(function (keyframes, options) {
-      let resolve, reject;
-      const animation = { currentTime: 0, keyframes, options, element: this,
-        finished: new Promise((done, fail) => { resolve = done; reject = fail; }),
-        finish: () => resolve(), cancel: vi.fn(() => reject(new Error('cancelled'))) };
-      animations.push(animation); return animation;
-    });
+    const subscribers = new Set();
     const show = shown => { snapshot = { shown }; subscribers.forEach(listener => listener()); };
     navigation.sidebar = { subscribe: listener => { subscribers.add(listener); return () => subscribers.delete(listener); }, getSnapshot: () => snapshot };
     navigation.toggleSidebar = () => show(!snapshot.shown);
@@ -225,7 +257,6 @@ describe('Android independent conversation navigation', () => {
     navigation.items = ['messages', 'character', 'creatorStudio', 'presets', 'model', 'extension-panel'].map(id => ({ id, label: id }));
     navigation.hasSidebarFooterActions = true;
     navigation.renderSidebar = render => render((name, owner) => name === 'sidebar.footer.action' ? <button>扩展操作</button> : owner.content);
-    const finish = async () => { await act(async () => animations.filter(animation => !animation.cancel.mock.calls.length).forEach(animation => animation.finish())); };
     await mount();
     document.querySelector('[data-list]').scrollTop = 160;
     await click('侧边栏');
@@ -237,28 +268,23 @@ describe('Android independent conversation navigation', () => {
     expect(account.querySelector('.rail-settings-trigger').textContent).toBe('');
     expect(account.querySelector('.rail-settings-trigger').getAttribute('aria-label')).toBe('打开设置');
     expect(account.querySelector('.rail-footer-actions')).toBeNull();
-    expect(animations).toHaveLength(4);
-    expect(animations.map(animation => Object.keys(animation.keyframes[0]).sort())).toEqual([
-      ['offset', 'transform'], ['offset', 'transform'], ['offset', 'opacity'], ['offset', 'opacity']
-    ]);
-    expect(document.querySelector('.mobile-shell').dataset.drawerMoving).toBe('true');
-    await finish();
-    expect(document.querySelector('.mobile-shell').dataset.drawerMoving).toBe('false');
+    expect(document.querySelector('[data-sidebar-drawer]')).not.toBeNull();
+    expect(document.querySelector('.mobile-drawer').parentElement.hasAttribute('inert')).toBe(false);
     await click('extension-panel');
     expect(document.querySelector('.mobile-shell').dataset.mobilePanel).toBe('extension-panel');
     expect(document.querySelector('.mobile-drawer')).not.toBeNull();
-    expect(document.querySelector('.mobile-page-seat').hasAttribute('inert')).toBe(true);
-    expect(document.querySelector('.mobile-drawer')).not.toBeNull();
-    await finish();
-    expect(document.querySelector('.mobile-drawer')).toBeNull();
+    expect(navigation.sidebar.getSnapshot()).toMatchObject({ shown: false });
+    expect(document.querySelector('.mobile-drawer').parentElement.hasAttribute('inert'),
+      document.querySelector('[data-shell-bottom]').parentElement.outerHTML.slice(0, 900)).toBe(true);
     expect(document.querySelector('.mobile-page-seat').hasAttribute('inert')).toBe(false);
     await click('返回');
     expect(document.querySelector('[data-list]').scrollTop).toBe(160);
-    await click('侧边栏'); await finish();
-    await click('关闭侧边栏'); await finish();
-    expect(document.querySelector('.mobile-drawer')).toBeNull();
-    expect(document.querySelector('.mobile-front-surface').style.transform).toBe('none');
-    expect(animations.every(animation => animation.cancel.mock.calls.length === 1)).toBe(true);
+    await click('侧边栏');
+    const retained = document.querySelector('.mobile-drawer');
+    await click('收起侧边栏');
+    expect(document.querySelector('.mobile-drawer')).toBe(retained);
+    expect(retained.parentElement.hasAttribute('inert')).toBe(true);
+    expect(document.querySelector('.mobile-front-surface')).toBeNull();
   });
   it('waits for the actual selected session and restores the list scroll on native Back', async () => {
     await mount(); document.querySelector('[data-list]').scrollTop = 240;
@@ -344,12 +370,12 @@ describe('Android independent conversation navigation', () => {
     await mount(); await click('角色资料');
     fixture.dialog = true;
     await act(async () => root.render(<Harness />));
-    [...document.querySelectorAll('[role="alertdialog"] button')].find(button => button.textContent === '取消').focus();
+    [...document.querySelectorAll('[role="dialog"] button')].find(button => button.textContent === '取消').focus();
     const event = new Event('eleckoi:platform-back', { cancelable: true });
     await act(async () => window.dispatchEvent(event));
     expect(event.defaultPrevented).toBe(true);
     expect(fixture.onCancel).toHaveBeenCalledTimes(1);
-    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.body.textContent).toContain('角色资料');
   });
   it('closes an official modal with Android Back without leaving the source route', async () => {
@@ -392,7 +418,8 @@ describe('Android independent conversation navigation', () => {
     await act(async () => window.dispatchEvent(event));
     expect(event.defaultPrevented).toBe(true);
     expect(rightbar.close).toHaveBeenCalledTimes(1);
-    expect(document.querySelector('.mobile-rightbar-seat').hidden).toBe(true);
+    expect(rightbar.getSnapshot().shown).toBe(false);
+    expect(document.querySelector('[data-rightbar-col]')).not.toBeNull();
     expect(document.querySelector('[data-chat]').dataset.chat).toBe('chat-a');
     expect(document.querySelector('[data-rightbar-compact]').dataset.rightbarCompact).toBe('true');
   });

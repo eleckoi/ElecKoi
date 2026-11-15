@@ -1,5 +1,1 @@
-.editor-management-modal.version-name-dialog { width: min(420px, 100%); gap: 16px; }
-.version-name-dialog .editor-management-content { padding-bottom: 0; }
-.version-name-dialog .editor-management-fields { margin-bottom: 0; }
-.version-name-dialog form { margin: 0; }
-.version-name-dialog [role="alert"] { display: block; margin-top: 8px; font-size: 12px; color: var(--dsw-text-error, var(--danger)); }
+.version-name-dialog [role="alert"] { display:block; margin-top:8px; font-size:12px; color:var(--dsw-alias-state-error-primary); }

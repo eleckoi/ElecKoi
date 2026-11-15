@@ -28,7 +28,7 @@ export function resolveConversationSeed(
   variables: ConversationVariableConfigReader
 ): ConversationSeed {
   const entry = openings.get(characterId, database)
-  const messages = entry.openingMessages.filter(message => message.content.trim())
+  const messages = entry.openingMessages
   const opening = messages.find(candidate => candidate.id === entry.defaultOpeningMessageId)
 
   const config = messages.some(candidate => candidate.variableVersionId) ? variables.get(characterId, database) : undefined

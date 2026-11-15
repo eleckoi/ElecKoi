@@ -1,0 +1,136 @@
+.noPayload {
+  padding: 2px 14px 0;
+}
+
+.noPayload {
+  margin: 0;
+  padding: 18px 14px;
+  color: var(--dsw-alias-label-tertiary);
+  font: var(--dsw-font-xs-13);
+}
+
+.requestContext {
+  display: grid;
+  margin: 0;
+  padding: 8px 14px 18px;
+  list-style: none;
+}
+
+.requestContextItem {
+  min-width: 0;
+  padding: 12px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.requestContextItem:last-child {
+  border-bottom: 0;
+}
+
+.requestContextHeader {
+  display: grid;
+  grid-template-columns: 22px auto minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 0;
+  margin-bottom: 8px;
+  gap: 7px;
+}
+
+.requestContextOrder {
+  color: var(--dsw-alias-label-caption);
+  font: var(--dsw-font-xxs-12);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.requestContextRole {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  border-radius: var(--dsw-radius-xs);
+  font: var(--dsw-font-xxs-12);
+  font-weight: 500;
+}
+
+.requestContextRolesystem {
+  color: var(--dsw-alias-label-tertiary);
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.requestContextRoleuser {
+  color: var(--dsw-alias-state-business-primary);
+  background: var(--dsw-alias-state-business-secondary);
+}
+
+.requestContextRoleassistant {
+  color: var(--dsw-alias-label-secondary);
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.requestContextHeader strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-primary);
+  font: var(--dsw-font-xs-strong-13);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.requestContextHeader small {
+  max-width: 148px;
+  overflow: hidden;
+  color: var(--dsw-alias-label-tertiary);
+  font: var(--dsw-font-xxs-12);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.requestContextContent {
+  margin: 0;
+  padding-left: 29px;
+  overflow-wrap: anywhere;
+  color: var(--dsw-alias-label-primary);
+  font: 12px/19px var(--ds-font-family-code);
+  white-space: pre-wrap;
+}
+
+.requestContextContentExpanded {
+  max-height: min(56vh, 720px);
+  padding: 10px 12px;
+  overflow: auto;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-bg-layer-1);
+  scrollbar-gutter: stable;
+}
+
+.requestContextExpand {
+  all: unset;
+  display: inline-flex;
+  align-items: baseline;
+  margin: 7px 0 0 29px;
+  color: var(--dsw-alias-state-business-primary);
+  cursor: pointer;
+  gap: 8px;
+}
+
+.requestContextExpand span {
+  font: var(--dsw-font-xxs-12);
+  font-weight: 500;
+}
+
+.requestContextExpand small {
+  color: var(--dsw-alias-label-tertiary);
+  font: var(--dsw-font-xxs-12);
+}
+
+.requestContextExpand:hover span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.requestContextExpand:focus-visible {
+  outline: 1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}

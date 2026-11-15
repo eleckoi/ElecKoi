@@ -248,7 +248,6 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
     setContextMenu(null);
     selectTarget(nextKey, libraryId);
     openEditor(nextKey);
-    requestAnimationFrame(() => nameInputRef.current?.select());
   }
 
   function askDelete(kind, id, libraryId = activeLibraryId) {

@@ -5,7 +5,7 @@ description: 在 ElecKoi 创作工作室新建或修改角色资料、开场白�
 
 # 角色卡创作
 
-使用当前 Session 选择的角色。创建新角色使用 character.create；共享全局配置必须明确 target，预设提示词通过 presetPrompts 只读。工作区编程负责制作文件，产品配置经创作能力保存。
+当前 Session 选择的角色只用于快速定位，不是创作能力的前提。character.list 可列出或按名称搜索角色；用 eleckoi_call_capability 的 character_id 指定返回的准确角色编号，省略时使用当前定位角色。创建新角色使用 character.create；共享全局配置必须明确 target，创作工作室预设提示词通过 presetPrompts 只读。工作区编程负责制作文件，产品配置经创作能力保存。
 
 新建角色默认省略 group，直接创建在未分组；角色分组只用于整理角色列表，仅按用户要求指定或新建，不按题材自行分类，也不把询问分组作为建卡前置。修改已有角色资料时，未要求调整分组就保留原归属。
 

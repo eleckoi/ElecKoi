@@ -47,10 +47,10 @@ export function moveBackupOpening(entry, messageId, offset) {
   const messages = primaryFirstOpeningMessages(entry);
   const fromIndex = messages.findIndex((message) => message.id === messageId);
   const toIndex = fromIndex + offset;
-  if (fromIndex <= 0 || toIndex < 1 || toIndex >= messages.length) return entry;
+  if (fromIndex < 0 || toIndex < 0 || toIndex >= messages.length) return entry;
   const next = [...messages];
   next.splice(toIndex, 0, next.splice(fromIndex, 1)[0]);
-  return withOpeningMessages(entry, next, messages[0].id);
+  return withOpeningMessages(entry, next, next[0].id);
 }
 
 export function deleteOpening(entry, messageId) {

@@ -1,11 +1,11 @@
 import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { useState } from 'react';
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { Copy, NotePencil, Plus, Trash } from '../icons/interfaceIcons.jsx';
 import { ExportIcon, ImportIcon } from '../icons/index.jsx';
 import { EditorManagementAction, EditorManagementModal } from './EditorCollectionControls.jsx';
 import { FailureAlert } from './FailureAlert.jsx';
 import { VersionNameDialog } from './VersionNameDialog.jsx';
+import { ConfirmationDialog } from './ConfirmationDialog.jsx';
 
 /** Version commands change the owner's draft; the surrounding editor performs the save. */
 export function EditorVersionManager({ title, versions, activeVersionId, scopes, scope, onScopeChange,
@@ -47,9 +47,8 @@ export function EditorVersionManager({ title, versions, activeVersionId, scopes,
         else onCreate(name);
         setDialog('');
       }} />}
-    {dialog === 'delete' && <EditorManagementModal title={tUi("删除当前版本？")} onClose={() => setDialog('')}
-      footer={<><Button variant="outline" onClick={() => setDialog('')}>{tUi("取消")}</Button><Button variant="outline" className="is-danger" onClick={() => { onDelete(); setDialog(''); }}>{tUi("删除")}</Button></>}>
-      <p>{tUi("删除“")}{current?.name || tUi("待命名")}{tUi("”将在保存后生效。")}</p>
-    </EditorManagementModal>}
+    <ConfirmationDialog open={dialog === 'delete'} title={tUi('删除当前版本？')} destructive
+      description={`${tUi('删除“')}${current?.name || tUi('待命名')}${tUi('”将在保存后生效。')}`}
+      confirmLabel={tUi('删除')} onCancel={() => setDialog('')} onConfirm={() => { onDelete(); setDialog(''); }} />
   </>;
 }

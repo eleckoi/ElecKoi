@@ -7,8 +7,46 @@ import { AgentToolsDialog } from '../../src/modules/chat/components/AgentToolsDi
 import { EditorPresentationContext } from '../../src/ui/ui/EditorPresentationContext.jsx';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { agentToolGroups } from '../../../../packages/host/product-data/src/domain/agentTools/agentToolGroups';
+import { withPluginTools } from '../../../../packages/client/features/dsh-client-roleplay/src/host/tool-policy.mjs';
 
 const groups = [['builtin:setting-library', 4, 'eleckoi_read_setting_files'], ['builtin:variables', 4, 'eleckoi_read_variables'], ['builtin:creator', 3, 'eleckoi_call_capability']];
+
+it.each([false, true].flatMap(mobile => ['roleplay', 'creator'].map(purpose => ({ mobile, purpose }))))('shows native basic readers and purpose-appropriate choices mobile=$mobile purpose=$purpose', async ({ mobile, purpose }) => {
+  const change = vi.fn();
+  const preset = withPluginTools({ purpose, toolGroups: agentToolGroups(new Set(['builtin:variables', 'builtin:setting-library', 'builtin:roleplay-workflow'])) }, []);
+  const before = structuredClone(preset);
+  await act(async () => root.render(<MainPageContext.Provider value={{ registerBackHandler: () => () => {} }}>
+    <EditorPresentationContext.Provider value={{ compact: mobile }}><PresetToolsEditor preset={preset} onChange={change} /></EditorPresentationContext.Provider>
+  </MainPageContext.Provider>));
+  const reader = [...document.querySelectorAll('.preset-tool-row')].find(row => row.textContent.includes('文件读取'));
+  expect(reader.textContent).toContain('默认启用');
+  expect(reader.querySelector('[role=switch]')).toBeNull();
+  await act(async () => reader.querySelector('button').click());
+  const detail = document.querySelector('.preset-tool-config-body');
+  expect([...detail.querySelectorAll('code')].map(node => node.textContent)).toEqual(['read', 'read_image']);
+  expect(detail.querySelector('[role=switch]')).toBeNull();
+  expect(detail.textContent).not.toContain('从预设移除');
+  await act(async () => document.querySelector('[aria-label="关闭"]').click());
+  await openToolManager();
+  const manager = document.querySelector('.preset-tool-manager-body');
+  expect(manager.textContent).toContain('文件读取');
+  expect(manager.querySelector('[aria-label="选择：文件读取"]')).toBeNull();
+  for (const name of ['剧情变量', '角色扮演计划', '角色设定库']) expect(manager.textContent.includes(name)).toBe(purpose === 'roleplay');
+  expect(change).not.toHaveBeenCalled();
+  expect(preset).toEqual(before);
+});
+
+it.each([false, true])('opens base reader details in the conversation tool list without an editable toggle mobile=%s', async mobile => {
+  document.documentElement.dataset.eleckoiMobile = String(mobile);
+  const preset = withPluginTools({ id: 'synthetic-base', purpose: 'roleplay', toolGroups: agentToolGroups(new Set()) }, []);
+  const save = vi.fn(), catalog = { refresh: async () => ({ activePresetIds: { roleplay: preset.id } }), read: async () => preset, save };
+  await act(async () => root.render(<MainPageContext.Provider value={{ registerBackHandler: () => () => {} }}><AgentToolsDialog presetCatalog={catalog} onClose={() => {}} /></MainPageContext.Provider>));
+  expect(document.querySelector('.agent-tools-content').textContent).not.toContain('还没有添加工具');
+  await act(async () => document.querySelector('.agent-tool-open').click());
+  expect([...document.querySelectorAll('.agent-tool-detail code')].map(node => node.textContent)).toEqual(['read', 'read_image']);
+  expect(document.querySelector('.agent-tool-detail [role=switch]')).toBeNull();
+  expect(save).not.toHaveBeenCalled();
+});
 
 async function openToolManager() {
   let button=document.querySelector('.preset-tools-toolbar [aria-label="管理预设工具"]');
@@ -109,7 +147,7 @@ it.each([false, true])('edits the shared preset draft directly and retains selec
   expect(document.querySelectorAll('.preset-tool-manager-row')).toHaveLength(2);
   await act(async () => document.querySelector('input[aria-label="选择：同插件的另一个工具"]').click());
   expect(current.toolGroups.find(group => group.id === other.id)).toMatchObject({ included: true });
-  await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  await act(async () => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
   expect(document.querySelector('[role="dialog"][aria-label="管理预设工具"]')).toBeNull();
   expect(current.toolGroups.some(group => group.id === other.id)).toBe(true);
 });

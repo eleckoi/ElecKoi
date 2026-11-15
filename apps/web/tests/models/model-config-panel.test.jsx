@@ -78,10 +78,10 @@ describe('model configuration form', () => {
     const children = form.childElementCount;
     await act(async () => container.querySelector('[aria-label="删除配置"]').click());
     expect(form.childElementCount).toBe(children);
-    const dialog = document.body.querySelector('[role="alertdialog"]');
-    expect(dialog.closest('.model-provider-delete-overlay')).not.toBeNull();
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog.closest('[role=presentation]')).not.toBeNull();
     expect(form.contains(dialog)).toBe(false);
-    await act(async () => dialog.querySelector('.danger').click());
+    await act(async () => [...dialog.querySelectorAll('button')].find(button => button.textContent === '删除配置').click());
     expect(remove).toHaveBeenCalledExactlyOnceWith('config-first');
     expect(field('配置名称').value).toBe('Other');
   });

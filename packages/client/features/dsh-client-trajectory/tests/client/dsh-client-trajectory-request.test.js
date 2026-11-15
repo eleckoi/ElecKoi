@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { trajectoryAssistantDefinition, officialTrajectoryFixture } from '../../../../../../tests/helpers/officialTrajectory.js'
+import { trajectoryAssistantDefinition, officialTrajectoryFixture, officialTrajectoryLayout as deriveTrajectoryLayout,
+  registerOfficialTrajectoryTools as registerTrajectoryToolDefinition, officialTrajectoryZh as zh } from '../../../../../../tests/helpers/officialTrajectory.js'
 import { adaptTrajectorySnapshot } from '../../../../../../apps/web/src/modules/chat/model/trajectorySnapshotAdapter.js'
-import { deriveTrajectoryLayout } from '../../src/client/layout.ts'
 import { inputContinuationsProjection } from '../../../dsh-client-roleplay/src/host/input-continuations-projection.mjs'
-import { zh } from '../../src/client/locales.ts'
-import { registerTrajectoryToolDefinition } from '../../src/client/trajectory-tool-definition.ts'
 
 function event(type, seq, data) {
   return { type, seq, time: seq * 10, data }
@@ -187,11 +185,12 @@ describe('installed trajectory bundle after existing-input regeneration', () => 
       if (finalPrompt === '合成系统一') expect(official.requests[0].promptChange).toBeUndefined()
       else expect(official.requests[0].promptChange).toMatchObject({ seq: 11, kind: 'system' })
       expect(cells(adapt(events, official)).filter(cell => cell.kind === 'system'))
-        .toMatchObject([{ text: '初始系统提示词', sourceSeq: 3 }])
+        .toMatchObject([{ text: '初始系统提示词', sourceSeq: 3 },
+          ...(finalPrompt === '合成系统一' ? [] : [{ text: '系统提示词已更新', sourceSeq: 11, promptDetail: { system: finalPrompt } }])])
     },
   )
 
-  it('keeps runtime prompt changes in actual request details without adding update notices', () => {
+  it('keeps native prompt-change notices and their actual request details', () => {
     const events = regenerationEvents('合成运行端点 http://127.0.0.1:41002')
     events[2].data.message.content[0].text = '合成运行端点 http://127.0.0.1:41001'
     events.push(event('turn/start', 15, { turn: 3 }),
@@ -212,7 +211,11 @@ describe('installed trajectory bundle after existing-input regeneration', () => 
     ])
     expect(official.requests.map(request => request.promptChange.kind)).toEqual(['system', 'system'])
     expect(cells(adapt(events, official)).filter(cell => cell.kind === 'system'))
-      .toMatchObject([{ text: '初始系统提示词', systemPromptDetail: '合成运行端点 http://127.0.0.1:41001' }])
+      .toMatchObject([
+        { text: '初始系统提示词', systemPromptDetail: '合成运行端点 http://127.0.0.1:41001' },
+        { text: '系统提示词已更新', promptDetail: { system: '合成运行端点 http://127.0.0.1:41002' } },
+        { text: '系统提示词已更新', promptDetail: { system: '合成运行端点 http://127.0.0.1:41003' } },
+      ])
   })
 
   it.each(['合成系统一', '合成系统二'])(
@@ -235,7 +238,7 @@ describe('installed trajectory bundle after existing-input regeneration', () => 
         .toBe(systemPrompt === '合成系统一' ? 'tools' : 'system-and-tools')
       expect(official.requests[1].prompt).toMatchObject({ system: systemPrompt, tools: [{ name: 'synthetic_tool' }] })
       expect(cells(adapt(events, official)).filter(cell => cell.kind === 'system'))
-        .toMatchObject([{ text: '初始系统提示词' }, { text: '工具已更新' }])
+        .toMatchObject([{ text: '初始系统提示词' }, { text: systemPrompt === '合成系统一' ? '工具已更新' : '系统提示词和工具已更新' }])
     },
   )
 
@@ -308,7 +311,10 @@ describe('installed trajectory bundle after existing-input regeneration', () => 
     expect(turns.map(turn => turn.turn)).toEqual([2])
     const cells = turns.flatMap(turn => turn.groups.flatMap(group => group.cells))
     expect(cells.filter(cell => cell.text === '初始系统提示词')).toHaveLength(1)
-    expect(cells.filter(cell => cell.kind === 'system')).toHaveLength(1)
+    expect(cells.filter(cell => cell.kind === 'system')).toMatchObject([
+      { text: '初始系统提示词', systemPromptDetail: '合成系统一' },
+      { text: '系统提示词已更新', promptDetail: { system: '合成系统二' } },
+    ])
     expect(cells.some(cell => cell.requestOnly === true || cell.isError === true)).toBe(false)
   })
 

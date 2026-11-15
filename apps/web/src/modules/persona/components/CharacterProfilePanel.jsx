@@ -1,3 +1,4 @@
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRightIcon, PencilIcon } from "../../../ui/icons/index.jsx";
@@ -151,7 +152,7 @@ export function CharacterProfilePanel({
           <img src={logoIcon} alt="" draggable="false" />
           <strong>{tUi("还没有角色")}</strong>
           <span>{tUi("先创建一个角色，再开始第一段对话。")}</span>
-          <button type="button" onMouseDown={preventPointerFocus} onClick={onCreateFirstCharacter}>{tUi("新建角色")}</button>
+          <Button data-dsh-control variant="primary" type="button" onMouseDown={preventPointerFocus} onClick={onCreateFirstCharacter}>{tUi("新建角色")}</Button>
         </div>
       </section>
     );

@@ -38,16 +38,16 @@ it('requires explicit confirmation before deleting a preset and preserves failed
   model.delete = vi.fn(async () => model.adopt({ ...snapshot.catalog, presets: [] }));
   await mountList(); await requestDelete();
   expect(model.delete).not.toHaveBeenCalled();
-  expect(document.querySelector('[role=alertdialog]').textContent).toContain(stored.name);
-  await click([...document.querySelectorAll('[role=alertdialog] button')].find(element => element.textContent === '取消'));
+  expect(document.querySelector('[role=dialog]').textContent).toContain(stored.name);
+  await click([...document.querySelectorAll('[role=dialog] button')].find(element => element.textContent === '取消'));
   expect(model.delete).not.toHaveBeenCalled();
   await requestDelete(); model.delete.mockRejectedValueOnce(new Error('合成删除失败'));
-  await click([...document.querySelectorAll('[role=alertdialog] button')].find(element => element.textContent === '删除'));
-  expect(document.querySelector('[role=alertdialog]').textContent).toContain('合成删除失败');
+  await click([...document.querySelectorAll('[role=dialog] button')].find(element => element.textContent === '删除'));
+  expect(document.querySelector('[role=dialog]').textContent).toContain('合成删除失败');
   expect(host.querySelector('.preset-list-row')).not.toBeNull();
-  await click([...document.querySelectorAll('[role=alertdialog] button')].find(element => element.textContent === '删除'));
+  await click([...document.querySelectorAll('[role=dialog] button')].find(element => element.textContent === '删除'));
   expect(model.delete).toHaveBeenCalledTimes(2);
-  expect(document.querySelector('[role=alertdialog]')).toBeNull();
+  expect(document.querySelector('[role=dialog]')).toBeNull();
 });
 
 it('selects a newly persisted preset without awaiting another catalog refresh and reports creation failures', async () => {
@@ -94,7 +94,7 @@ it('edits metadata, instructions and updates on one page and guards metadata bef
   const input = host.querySelector('.preset-profile-editor-layout input');
   await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'修改后的合成名称');input.dispatchEvent(new Event('input',{bubbles:true})); });
   await click(host.querySelector('[data-close]'));
-  expect(document.querySelector('[role=alertdialog]')).not.toBeNull();
+  expect(document.querySelector('[role=dialog]')).not.toBeNull();
   expect(model.save).not.toHaveBeenCalled();
 });
 

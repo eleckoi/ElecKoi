@@ -3,33 +3,14 @@ import { sourceText } from "../../../app/i18n/productCopy.js";
 import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 // NODE STUDIO: retained node/project development surface for future main-window integration.
-import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
+import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../../../ui/styles/product-dialogs.css';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ArrowSquareOut,
-  CalendarBlank,
-  Folder,
-  FolderSimplePlus,
-  IdentificationCard,
-  ListBullets,
-  MagnifyingGlass,
-  SquaresFour,
-  UserFocus,
-  X,
-} from "../../../ui/icons/interfaceIcons.jsx";
-import {
-  DshCheckIcon,
-  DshChevronDownIcon,
-  DshChevronRightIcon,
-  DshPlusIcon,
-} from "../../../ui/icons/dshComposerIcons.jsx";
+import { ArrowSquareOut, CalendarBlank, Folder, FolderSimplePlus, IdentificationCard, ListBullets, MagnifyingGlass, SquaresFour, UserFocus,  } from "../../../ui/icons/interfaceIcons.jsx";
+import { DshCheckIcon, DshChevronDownIcon, DshChevronRightIcon, DshPlusIcon,  } from "../../../ui/icons/dshComposerIcons.jsx";
 import { TrashIcon } from "../../../ui/icons/index.jsx";
-import {
-  CreatorStudioAssetsIcon,
-  CreatorStudioProjectsIcon,
-  CreatorStudioSkillsIcon,
-} from "./CreatorStudioNavigationIcons.jsx";
+import { CreatorStudioAssetsIcon, CreatorStudioProjectsIcon, CreatorStudioSkillsIcon,  } from "./CreatorStudioNavigationIcons.jsx";
 import { failureAlreadyPublished } from "../../../utils/swallowedFailure.js";
 
 const CREATE_OPTIONS = [
@@ -80,15 +61,12 @@ function ProjectPreview({ project }) {
 
 function ProjectDeleteConfirm({ project, busy, error, onCancel, onConfirm }) {
   const tUi = useProductTranslation();
-  return <div className="creator-studio-delete-confirm" role="dialog" aria-modal="false" aria-labelledby={`delete-project-${project.id}`} onClick={(event) => event.stopPropagation()}>
-    <strong id={`delete-project-${project.id}`}>{tUi("删除项目")}</strong>
-    <p>“{project.name}{tUi("”及其中的本地文件会被永久删除，此操作不可撤销。")}</p>
-    <FailureAlert failure={error} className="creator-studio-delete-error" />
-    <div>
-      <button type="button" onClick={onCancel} disabled={busy}>{tUi("取消")}</button>
-      <button className="is-danger" type="button" onClick={onConfirm} disabled={busy}>{busy ? tUi("删除中…") : tUi("确认删除")}</button>
-    </div>
-  </div>;
+  return <Modal open title={tUi("删除项目")} description={`“${project.name}${tUi("”及其中的本地文件会被永久删除，此操作不可撤销。")}`}
+    closeLabel={tUi("关闭")} tone="warning" onClose={() => { if (!busy) onCancel(); }} className="product-dialog" contentClassName="product-dialog-content"
+    footer={<div className="product-dialog-actions"><Button variant="outline" data-modal-autofocus disabled={busy} onClick={onCancel}>{tUi("取消")}</Button>
+      <Button variant="primary" disabled={busy} onClick={onConfirm}>{busy ? tUi("删除中…") : tUi("确认删除")}</Button></div>}>
+    <FailureAlert failure={error} />
+  </Modal>;
 }
 
 export function ProjectCollection({ projects, viewMode, pendingDeletionId, deletingProjectId, deleteError, onOpenProject, onRequestDelete, onCancelDelete, onConfirmDelete }) {
@@ -326,12 +304,7 @@ function CreateProjectDialog({ characters, projectCatalog, onClose, onCreated })
   const nameRef = useRef(null);
   const directoryRequestRef = useRef(null);
 
-  useEffect(() => {
-    nameRef.current?.focus();
-    const handleKeyDown = (event) => { if (event.key === "Escape" && !busy) onClose(); };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [busy, onClose]);
+
 
   useEffect(() => () => directoryRequestRef.current?.abort(), []);
 
@@ -370,14 +343,9 @@ function CreateProjectDialog({ characters, projectCatalog, onClose, onCreated })
     }
   };
 
-  return <SystemBarOverlay className="creator-studio-dialog-backdrop" role="presentation" onMouseDown={(event) => {
-    if (event.target === event.currentTarget && !busy) onClose();
-  }}>
-    <section className="creator-studio-create-dialog" role="dialog" aria-modal="true" aria-labelledby="creator-studio-create-title">
-      <header>
-        <h2 id="creator-studio-create-title">{tUi("新建项目")}</h2>
-        <button type="button" onClick={onClose} disabled={busy} aria-label={tUi("关闭新建项目窗口")}><X size={18} aria-hidden="true" /></button>
-      </header>
+  return <Modal open title={tUi('新建项目')} closeLabel={tUi('关闭新建项目窗口')} onClose={() => { if (!busy) onClose(); }}
+    className="product-dialog creator-project-modal" contentClassName="product-dialog-content"
+    footer={<div className="product-dialog-actions"><Button variant="outline" disabled={busy} onClick={onClose}>{tUi('取消')}</Button><Button variant="primary" disabled={busy} onClick={submit}>{busy ? tUi('创建中…') : tUi('创建项目')}</Button></div>}>
       <form onSubmit={submit}>
         <div className="creator-studio-create-options" role="group" aria-label={tUi("创建方式")}>
           {localizeUiCopy(CREATE_OPTIONS, tUi).map(({ id, title, description, Icon }) => <button
@@ -390,7 +358,7 @@ function CreateProjectDialog({ characters, projectCatalog, onClose, onCreated })
 
         <label className="creator-studio-form-field">
           <span>{tUi("项目名称")}</span>
-          <input ref={nameRef} value={name} onChange={(event) => setName(event.target.value)} placeholder={tUi("未命名项目")} />
+          <Input data-modal-autofocus className="product-dialog-field" ref={nameRef} value={name} onChange={(event) => setName(event.target.value)} placeholder={tUi("未命名项目")} />
         </label>
 
         {mode === "existing" ? <label className="creator-studio-form-field">
@@ -404,19 +372,14 @@ function CreateProjectDialog({ characters, projectCatalog, onClose, onCreated })
         <div className="creator-studio-form-field">
           <span>{tUi("保存位置")}</span>
           <div className="creator-studio-directory-field">
-            <input value={parentDirectory} readOnly placeholder={tUi("选择本地文件夹")} aria-label={tUi("项目保存位置")} />
-            <button type="button" onClick={chooseDirectory}>{tUi("选择文件夹")}</button>
+            <Input className="product-dialog-field" value={parentDirectory} readOnly placeholder={tUi("选择本地文件夹")} aria-label={tUi("项目保存位置")} />
+            <Button variant="outline" onClick={chooseDirectory}>{tUi("选择文件夹")}</Button>
           </div>
         </div>
 
         <FailureAlert failure={error} className="creator-studio-form-error" />
-        <footer>
-          <button type="button" onClick={onClose} disabled={busy}>{tUi("取消")}</button>
-          <button className="is-primary" type="submit" disabled={busy}>{busy ? tUi("创建中…") : tUi("创建项目")}</button>
-        </footer>
       </form>
-    </section>
-  </SystemBarOverlay>;
+  </Modal>;
 }
 
 function LibraryPage({ page }) {
@@ -542,7 +505,7 @@ export function CreatorStudioProjectHome({ sidebarCollapsed = false, characterCa
       {activePage === "projects" ? <div className="creator-studio-home-inner">
         <div className="creator-studio-home-heading">
           <h1>{tUi("创作项目")}</h1>
-          <button className="creator-studio-new-project-button" type="button" onClick={() => setCreateDialogOpen(true)}><DshPlusIcon size={16} />{tUi("新建项目")}</button>
+          <Button data-dsh-control variant="primary" className="creator-studio-new-project-button" type="button" onClick={() => setCreateDialogOpen(true)}><DshPlusIcon size={16} />{tUi("新建项目")}</Button>
         </div>
         <div className="creator-studio-project-toolbar">
           <label className="creator-studio-project-search">

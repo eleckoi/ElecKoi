@@ -3,7 +3,7 @@ import { useLayoutEffect, useState } from 'react';
 import { SidebarRail } from './SidebarRail.jsx';
 import { SidePanelShell, SidebarUpdateSeat } from './SidePanelShell.jsx';
 
-function WorkspaceSidebarSurface({ collapsed, children, renderSidebarSlot }) {
+export function WorkspaceSidebarSurface({ collapsed, children, renderSidebarSlot }) {
   const [ready, setReady] = useState(false);
   useLayoutEffect(() => {
     const root = document.documentElement;

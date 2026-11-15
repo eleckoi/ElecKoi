@@ -20,17 +20,13 @@
 .creator-studio-view-tabs [role=tab] { flex: none; }
 .creator-studio-view-header > div:has(> [data-plugin-entry-more]) { align-self: flex-start; }
 .mobile-creator-studio-page [data-plugin-entry-more="conversation"] { width: 28px; min-width: 28px; height: 28px; min-height: 28px; margin: 0; padding: 0; }
-.creator-studio-chat-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
-.creator-studio-chat-scroll.creator-studio-panel-view { display: flex; overflow: hidden; padding: 0; }
+.creator-studio-transcript { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; min-height: auto; }
+.creator-studio-transcript.creator-studio-panel-view { flex: 1 1 0; min-height: 0; overflow: hidden; padding: 0; }
 .creator-studio-panel-view > [data-slot] { flex: 1; min-width: 0; min-height: 0; }
-.creator-studio-chat-scroll.creator-studio-trajectory { --dsh-composer-height: 0px; display: flex; overflow: hidden; padding: 0; }
+.creator-studio-transcript.creator-studio-trajectory { --dsh-composer-height: 0px; overflow: hidden; padding: 0; }
 .creator-studio-trajectory > [data-slot], .creator-studio-trajectory > [data-slot] > * { flex: 1; min-width: 0; min-height: 0; }
-.creator-studio-session-body > .chat-composer-region { flex: none; padding: 0; }
-.creator-studio-session-body[data-phase="hero"] { justify-content: safe center; overflow-y: auto; padding-block: 16px; }
-.creator-studio-session-body[data-phase="hero"] > .creator-studio-chat-scroll { display: none; }
-.creator-studio-session-body[data-phase="hero"] > .chat-composer-region { position: relative; display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 0; padding-bottom: 32px; background: transparent; }
-.creator-studio-conversation .creator-studio-chat-scroll[data-conversation-scroll] [data-chat-to-bottom] { bottom: 8px; }
-.creator-studio-conversation [data-composer-seat] { margin-top: auto; }
+.creator-studio-session-body .chat-composer-region { flex: none; padding: 0; }
+.creator-studio-session-body[data-phase="hero"] .chat-composer-region { display: flex; flex-direction: column; gap: 8px; width: 100%; margin: 0; padding-bottom: 32px; background: transparent; }
 .creator-studio-start { display: grid; place-content: center; }
 .creator-studio-start button { display: flex; gap: 8px; align-items: center; background: var(--field-bg); border: 0; border-radius: 12px; padding: 12px 20px; }
 .creator-studio-spinner { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--muted); animation: studio-spin .8s linear infinite; }

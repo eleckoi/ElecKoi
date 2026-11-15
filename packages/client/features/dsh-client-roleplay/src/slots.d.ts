@@ -54,6 +54,16 @@ export interface RoleplayMessageContentOwner extends RoleplayMessageOwner {
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
+    'eleckoi.roleplay.background': {
+      kind: 'single'
+      scope: 'session'
+      owner: { wallpaper: { image: string; opacity: number; blur: number; scrim: number }; activeView: string }
+    }
+    'eleckoi.roleplay.header.menu': {
+      kind: 'list'
+      scope: 'session'
+      owner: { onOpen: () => void }
+    }
     'eleckoi.roleplay.conversation.input.model.label': {
       kind: 'single'
       scope: 'session'

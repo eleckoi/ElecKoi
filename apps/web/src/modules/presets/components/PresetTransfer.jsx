@@ -1,34 +1,22 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
+import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../../../ui/styles/product-dialogs.css';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
-import { useEffect } from 'react';
-import { ChevronRightIcon, ImportIcon, XIcon } from '../../../ui/icons/index.jsx';
+import { ChevronRightIcon, ImportIcon } from '../../../ui/icons/index.jsx';
 
 export function PresetImportDialog({ onSelect, onClose }) {
   const tUi = useProductTranslation();
-  useEffect(() => {
-    function closeOnEscape(event) { if (event.key === 'Escape') onClose(); }
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [onClose]);
-
-  return <SystemBarOverlay className="preset-import-overlay" role="presentation" onMouseDown={onClose}>
-    <section className="preset-import-dialog" role="dialog" aria-modal="true" aria-labelledby="preset-import-title" onMouseDown={(event) => event.stopPropagation()}>
-      <header>
-        <h3 id="preset-import-title">{tUi("导入预设")}</h3>
-        <button type="button" aria-label={tUi("关闭")} onClick={onClose}><XIcon /></button>
-      </header>
+  return <Modal open title={tUi('导入预设')} closeLabel={tUi('关闭')} onClose={onClose} className="product-dialog" contentClassName="product-dialog-content">
       <div className="preset-import-source-list">
-        <button type="button" autoFocus onClick={() => onSelect('eleckoi')}>
+        <button type="button" data-modal-autofocus onClick={() => onSelect('eleckoi')}>
           <ImportIcon /><span><strong>{tUi("ElecKoi 预设")}</strong><small>{tUi("PNG 或 JSON")}</small></span><ChevronRightIcon />
         </button>
         <button type="button" onClick={() => onSelect('sillytavern')}>
           <ImportIcon /><span><strong>{tUi("酒馆预设")}</strong><small>JSON</small></span><ChevronRightIcon />
         </button>
       </div>
-    </section>
-  </SystemBarOverlay>;
+  </Modal>;
 }
 
 export function fileBase64(file) {

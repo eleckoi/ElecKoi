@@ -53,7 +53,7 @@ it.each(['android'])('reopens a dismissed version on %s from About and after ano
   })
   await act(async () => root.render(<UpdateSettings />))
   const aboutButton = () => document.querySelector('.about-update-button')
-  const close = async () => act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })))
+  const close = async () => act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })))
   await act(async () => aboutButton().click())
   expect(document.querySelector('[role="dialog"]')).not.toBeNull()
   await close()
@@ -73,7 +73,7 @@ it.each(['android'].flatMap(platform => ['downloading', 'verifying', 'ready', 'e
   vi.stubGlobal('__ELECKOI_CLIENT_PLATFORM__', { kind: platform })
   const { service } = connectUpdateService({ phase, currentVersion: '0.2.12', availableVersion: '0.2.13', failedOperation: phase === 'error' ? 'download' : undefined })
   await act(async () => root.render(<UpdateSettings />))
-  await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })))
+  await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })))
   expect(document.querySelector('[role="dialog"]')).toBeNull()
   const button = document.querySelector('.about-update-button')
   expect(button.disabled).toBe(false)
@@ -89,8 +89,8 @@ it('uses the declared Android release and download action without desktop instal
   const updates={status:{phase:'available',availableVersion:'0.2.9',currentVersion:'0.2.8',releaseUrl:'https://github.com/eleckoi/ElecKoi/releases/tag/android-v0.2.9'},download:vi.fn(),install:vi.fn()};
   await act(async () => root.render(<AppUpdateController updates={updates} />));
   expect(document.querySelector('a').href).toBe(updates.status.releaseUrl);
-  expect(document.querySelector('.is-primary').textContent).toBe('前往下载');
-  await act(async () => document.querySelector('.is-primary').click());
+  expect(document.querySelector('.product-dialog-actions button:last-child').textContent).toBe('前往下载');
+  await act(async () => document.querySelector('.product-dialog-actions button:last-child').click());
   expect(updates.download).toHaveBeenCalledOnce(); expect(updates.install).not.toHaveBeenCalled();
   updates.status={...updates.status,phase:'error',manualCheck:false,message:'合成网络错误'};
   await act(async () => root.render(<AppUpdateController updates={updates} />));
@@ -106,14 +106,14 @@ it('keeps complete Android notes and reading focus during download, then hides o
   await new Promise(resolve => setTimeout(resolve, 5))
   const notes = document.querySelector('.app-update-notes-section')
   expect(notes.textContent.trim().replace(/\s+/g, ' ')).toBe(releaseNotes.replace(/\s+/g, ' '))
-  await act(async () => document.querySelector('.is-primary').click())
+  await act(async () => document.querySelector('.product-dialog-actions button:last-child').click())
   expect(updates.download).toHaveBeenCalledOnce()
   notes.focus()
   updates.status = { ...updates.status, phase: 'downloading', progress: { percent: 46 } }
   await render()
   expect(document.activeElement).toBe(notes)
   expect(document.querySelector('[role="progressbar"]').getAttribute('aria-valuenow')).toBe('46')
-  await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })))
+  await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })))
   expect(document.querySelector('[role="dialog"]')).toBeNull()
 })
 
@@ -138,7 +138,7 @@ it.each([
     check: vi.fn(), download: vi.fn(), install: vi.fn(async () => ({ accepted: true }))
   }
   await act(async () => root.render(<AppUpdateController updates={updates} />))
-  const button = document.querySelector('.is-primary')
+  const button = document.querySelector('.product-dialog-actions button:last-child')
   expect(button.textContent).toBe(label)
   await act(async () => button.click())
   for (const stage of ['check', 'download', 'install']) {

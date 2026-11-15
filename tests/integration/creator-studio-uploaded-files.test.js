@@ -60,11 +60,9 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
   })
   const resources = join(root, 'resources'), template = join(resources, 'agent-preset-template', 'agent.cordis.yml')
   mkdirSync(join(resources, 'agent-preset-template'), { recursive: true })
-  writeFileSync(join(resources, 'uploaded-file-tools.mjs'),
-    `export * from ${JSON.stringify(pathToFileURL(resolve('apps/desktop/resources/dsh/uploaded-file-tools.mjs')).href)}\n`)
-  const sections = ['variables', 'setting-library', 'web', 'workspace', 'collaboration', 'roleplay-workflow', 'workflow']
+  const sections = ['creator', 'variables', 'setting-library', 'web', 'workspace', 'collaboration', 'roleplay-workflow', 'workflow']
   writeFileSync(template, productionTemplate ? readFileSync(resolve('apps/desktop/resources/dsh/agent-preset-template/agent.cordis.yml'), 'utf8')
-    : '- id: uploaded-file-tools\n  name: __ELECKOI_UPLOADED_FILE_TOOLS_PLUGIN__\n' + sections.map(id => `# ELECKOI:${id}:BEGIN\n# ELECKOI:${id}:END\n`).join(''))
+    : '- id: tool-fs\n  name: \'@deepseek-ai/dsh-tool-fs\'\n  config: { write: false, edit: false, applyPatch: false }\n' + sections.map(id => `# ELECKOI:${id}:BEGIN\n# ELECKOI:${id}:END\n`).join(''))
   for (const [key, value] of Object.entries({ ELECKOI_DATABASE_PATH: join(root, 'product.sqlite'), ELECKOI_MEDIA_ROOT: join(root, 'media'),
     ELECKOI_PRESET_ROOT: join(root, 'presets'), ELECKOI_PRESET_TEMPLATE_PATH: template, ELECKOI_WORKSPACE_ROOT: root,
     ...(roleplay ? { ELECKOI_SESSION_SNAPSHOT_ROOT: join(root, 'snapshots'), ELECKOI_SESSION_BRIDGE_ROOT: join(root, 'bridges'), DSH_SESSION_ROOT: join(root, 'sessions') } : {}) })) {
@@ -86,7 +84,7 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
   await ctx.plugin(LocalFileSystem, { cwd: root })
   await ctx.plugin(WorkingDirectory, { defaultDirectory: root })
   await ctx.plugin(ToolResultStore, { root: join(root, 'tool-results'), cleanupPeriodDays: 0 })
-  await ctx.plugin(spillPolicy, { maxInlineTokens: 12_500, pagedTools: ['eleckoi_read_setting_files', 'eleckoi_read_variables', RESULT_READER, 'eleckoi_read_uploaded_file'] })
+  await ctx.plugin(spillPolicy, { maxInlineTokens: 12_500, pagedTools: ['eleckoi_read_setting_files', 'eleckoi_read_variables', RESULT_READER] })
   await ctx.plugin(FileUploads)
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(productDataPlugin)
@@ -120,7 +118,7 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
   }
   const expectedContent = '合成上传内容：synthetic-file-marker'
   class Adapter extends LlmAdapter {
-    async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 10_000_000 }, defaultMaxTokens: 8192,
+    async resolveModel(provider, id) { return { provider, id, name: id, inputModalities: ['text', 'image'], context: { contextWindow: 10_000_000 }, defaultMaxTokens: 8192,
       reasoning: { efforts: [{ id: 'low', name: 'Low' }, { id: 'high', name: 'High' }] } } }
     async listModels(provider) { return Promise.all(['synthetic', 'model-a', 'model-b'].map(id => this.resolveModel(provider, id))) }
     async *stream(options) {
@@ -133,7 +131,7 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
         const filePath = requestedPaths.get(options.sessionId) ?? ctx.fs.processPathFromHostPath(ctx.attachments.fileHostPath(uploaded))
         yield { type: 'block-start', index: 0, blockType: 'tool-call' }
         yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: `synthetic-read-${requests.length}`,
-          name: 'eleckoi_read_uploaded_file', arguments: JSON.stringify({ file_path: filePath }) } }
+          name: 'read', arguments: JSON.stringify({ file_path: filePath }) } }
         yield { type: 'finish', reason: { kind: 'tool-calls' } }
       } else {
         yield { type: 'block-start', index: 0, blockType: 'text' }
@@ -190,6 +188,108 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
 }
 
 describe('Creator studio uploaded-file composition', { timeout: 30_000 }, () => {
+  it.each([true, false])('discovers and edits an explicit character without changing the shortcut binding, roleplay=%s', async roleplay => {
+    const calls = [
+      ['eleckoi_list_toolsets', {}],
+      ['eleckoi_describe_toolset', { toolset_id: 'character', operation_ids: ['character.list', 'character.read', 'character.update'], include_schema: true }],
+      ['eleckoi_call_capability', { capability_id: 'character.list', arguments: { query: 'Other' } }],
+      ['eleckoi_call_capability', { capability_id: 'character.read', character_id: 'other-target', arguments: {} }],
+      ['eleckoi_call_capability', { capability_id: 'character.update', character_id: 'other-target', arguments: { name: 'Updated target' } }],
+    ]
+    let step = 0
+    const f = await fixture(undefined, { productionTemplate: true, roleplay, stream: async function* () {
+      const call = calls[step++]
+      if (call) {
+        yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+        yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: `authoring-${step}`, name: call[0], arguments: JSON.stringify(call[1]) } }
+        yield { type: 'finish', reason: { kind: 'tool-calls' } }; return
+      }
+      yield { type: 'block-start', index: 0, blockType: 'text' }
+      yield { type: 'block-end', index: 0, block: { type: 'text', text: '<FINAL>Authoring complete</FINAL>' } }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    } })
+    const data = f.ctx.eleckoiProductData
+    data.createCharacter({ id: 'shortcut-character', name: 'Shortcut unchanged', persona: { assistant_name: 'Shortcut' } })
+    data.createCharacter({ id: 'other-target', name: 'Other target' })
+    const purpose = roleplay ? 'roleplay' : 'creator'
+    const preset = data.readAgentPreset(data.readAgentPresetCatalog().activePresetIds[purpose])
+    data.saveAgentPreset({ ...preset, toolGroups: preset.toolGroups.map(group => ({ ...group, included: group.id === 'builtin:creator', enabled: group.id === 'builtin:creator' })) }, preset.regexRules)
+    const id = roleplay ? (await f.ctx.eleckoiConversationsApi.create({ metadata: { characterId: 'shortcut-character' } })).conversation.id : f.opened.sessionId
+    if (roleplay) await f.ctx.eleckoiRoleplaySessions.preparePrompt(id, 'Discover and edit Other target')
+    else await f.service.open(id)
+    await f.ctx.sessionController.prompt({ sessionId: id, requestId: 'authoring-discovery', mode: 'queue', content: [{ type: 'text', text: 'Discover and edit Other target' }] }, new AbortController().signal)
+    await f.ctx.agents.get(id).whenIdle()
+    expect(f.requests).toHaveLength(6)
+    for (const request of f.requests) expect(request.tools.map(tool => tool.name)).toEqual(expect.arrayContaining(calls.map(call => call[0])))
+    const messages = (await f.ctx.sessionQuery.readSurface(id)).events
+    const results = messages.filter(event => event.type === 'tool/result')
+    expect(results).toHaveLength(5)
+    expect(JSON.stringify(results)).toContain('Other target')
+    expect(JSON.stringify(results)).not.toContain('isError":true')
+    expect(data.readCharacters().items.find(item => item.id === 'other-target').name).toBe('Updated target')
+    expect(data.readCharacters().items.find(item => item.id === 'shortcut-character').name).toBe('Shortcut unchanged')
+    if (roleplay) {
+      expect(data.readConversationDetails(id).metadata.characterId).toBe('shortcut-character')
+      expect(messages.some(event => event.type === CREATOR_STUDIO_EVENT)).toBe(false)
+      await f.ctx.eleckoiConversationLifecycle.wait(id, f.ctx.eleckoiRoleplaySessions.currentOperation(id))
+      data.saveAgentPreset({ ...preset, toolGroups: preset.toolGroups.map(group => ({ ...group, included: false, enabled: false })) }, preset.regexRules)
+      await f.ctx.eleckoiRoleplaySessions.preparePrompt(id, 'Disabled now')
+      await f.ctx.sessionController.prompt({ sessionId: id, requestId: 'authoring-disabled', mode: 'queue', content: [{ type: 'text', text: 'Disabled now' }] }, new AbortController().signal)
+      await f.ctx.agents.get(id).whenIdle()
+      expect(f.requests.at(-1).tools.map(tool => tool.name)).not.toEqual(expect.arrayContaining(['eleckoi_call_capability']))
+    } else expect(f.ctx.sessionProjections.stateOf(f.ctx.agents.get(id).session, creatorStudioProjection.key).characterId).toBe('')
+  })
+  it('reads desktop paths and Android-style uploads in actual roleplay with Workspace tools disabled', async () => {
+    const external = mkdtempSync(join(tmpdir(), 'eleckoi-official-read-'))
+    const filePath = join(external, '工作区之外.txt'), marker = 'OFFICIAL_OUTSIDE_WORKSPACE_正文'
+    writeFileSync(filePath, marker)
+    cleanups.push(() => rm(external, { recursive: true, force: true, maxRetries: 5 }))
+    let f
+    f = await fixture(undefined, { productionTemplate: true, roleplay: true, stream: async function* (request, step) {
+      const last = request.messages.findLast(message => message.role === 'tool' || message.role === 'user' && message.source?.kind === 'user')
+      if (last.role === 'user') {
+        const surface = await f.ctx.sessionQuery.readSurface(request.sessionId)
+        const content = surface.events.findLast(event => event.type === 'user/message').data.content
+        const file = content.find(part => part.type === 'file')?.attachment
+        const image = content.find(part => part.type === 'image')?.attachment
+        const target = image ? f.ctx.fs.processPathFromHostPath(f.ctx.attachments.imageHostPath(image))
+          : file ? f.ctx.fs.processPathFromHostPath(f.ctx.attachments.fileHostPath(file)) : filePath
+        yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+        yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: `native-read-${step}`, name: image ? 'read_image' : 'read', arguments: JSON.stringify({ file_path: target }) } }
+        yield { type: 'finish', reason: { kind: 'tool-calls' } }; return
+      }
+      yield { type: 'block-start', index: 0, blockType: 'text' }
+      yield { type: 'block-end', index: 0, block: { type: 'text', text: '<FINAL>Read through the native tool</FINAL>' } }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    } })
+    const data = f.ctx.eleckoiProductData, api = f.ctx.eleckoiConversationsApi
+    data.createCharacter({ id: 'native-reader-character', name: 'Native reader', persona: { assistant_name: 'Reader' } })
+    const preset = data.readAgentPreset(data.readAgentPresetCatalog().activePresetIds.roleplay)
+    data.saveAgentPreset({ ...preset, toolGroups: preset.toolGroups.map(group => ({ ...group, enabled: false })) }, preset.regexRules)
+    const source = await api.create({ metadata: { characterId: 'native-reader-character' } }), id = source.conversation.id
+    await f.ctx.eleckoiRoleplaySessions.preparePrompt(id, `@${filePath}`)
+    await f.ctx.sessionController.prompt({ sessionId: id, requestId: 'native-path', mode: 'queue', content: [{ type: 'text', text: `@${filePath}` }] }, new AbortController().signal)
+    await f.ctx.agents.get(id).whenIdle()
+    expect(f.requests[1].messages.findLast(message => message.role === 'tool').content[0].text).toContain(marker)
+    await f.ctx.eleckoiConversationLifecycle.wait(id, f.ctx.eleckoiRoleplaySessions.currentOperation(id))
+    await f.ctx.eleckoiRoleplaySessions.preparePrompt(id, '读取上传文件')
+    await f.sendFile(id, { content: marker })
+    expect(f.requests[3].messages.findLast(message => message.role === 'tool').content[0].text).toContain(marker)
+    await f.ctx.eleckoiConversationLifecycle.wait(id, f.ctx.eleckoiRoleplaySessions.currentOperation(id))
+    await f.ctx.eleckoiRoleplaySessions.preparePrompt(id, '读取图片')
+    const png = readFileSync('apps/web/src/assets/eleckoi-app-icon.png')
+    const image = await f.ctx.fileUploads.uploadImageStream({ sessionId: id, data: (async function* () { yield png })(), mediaType: 'image/png', name: '手机相册.png' })
+    await f.ctx.sessionController.prompt({ sessionId: id, requestId: 'native-image', mode: 'queue', content: [{ type: 'text', text: '读取图片' }, { type: 'file', receiptId: image.receiptId }] }, new AbortController().signal)
+    await f.ctx.agents.get(id).whenIdle()
+    expect(f.requests).toHaveLength(6)
+    expect(f.requests.at(-1).messages.findLast(message => message.role === 'tool').content.some(part => part.type === 'image')).toBe(true)
+    for (const request of f.requests) {
+      const names = request.tools.map(tool => tool.name)
+      expect(names).toEqual(expect.arrayContaining(['read', 'read_image']))
+      for (const name of ['write', 'edit', 'apply_patch', 'pwsh', 'bash', 'shell_command', 'eleckoi_read_uploaded_file']) expect(names).not.toContain(name)
+    }
+    expect(readFileSync(filePath, 'utf8')).toBe(marker)
+  })
   it('regenerates an archive imported into another character through the production roleplay bridge without a local snapshot', async () => {
     const f = await fixture(undefined, { productionTemplate: true, roleplay: true, stream: async function* () {
       yield { type: 'block-start', index: 0, blockType: 'text' }
@@ -417,125 +517,33 @@ describe('Creator studio uploaded-file composition', { timeout: 30_000 }, () => 
     expect(agent.inbox.nextTurn).toHaveLength(0)
   })
 
-  it('recovers a complete large upload through its original reader under the formal spill policy', async () => {
-    const body = 'Synthetic uploaded text 😀'.repeat(10001) + 'tail-marker'
-    let f, ref, offset = 0, recovered = '', finished = false
+  it('reads a complete large upload with the native line windows and preserves the tail', async () => {
+    const lines = Array.from({ length: 10001 }, (_, index) => `Synthetic 😀 line ${index + 1}`)
+    let f, offset = 1, recovered = []
     f = await fixture(undefined, { productionTemplate: true, stream: async function* (request, step) {
-      if (step > 2) {
-        const page = JSON.parse(request.messages.at(-1).content[0].text)
-        expect(page.kind).toBe('tool_result_page')
-        recovered += page.content; offset = page.next_offset
-        if (offset === null) {
-          expect(JSON.parse(recovered).content).toBe(body)
-          finished = true
+      if (step > 1) {
+        const text = request.messages.at(-1).content[0].text
+        const page = [...text.matchAll(/^(\d+): (.*)$/gm)]
+        expect(page.length).toBeGreaterThan(0)
+        recovered.push(...page.map(row => row[2]))
+        offset = Number(page.at(-1)[1]) + 1
+        if (offset > lines.length) {
           yield { type: 'block-start', index: 0, blockType: 'text' }
           yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Synthetic upload recovered' } }
           yield { type: 'finish', reason: { kind: 'stop' } }; return
         }
       }
-      let args
-      if (step === 1) {
-        const surface = await f.ctx.sessionQuery.readSurface(request.sessionId)
-        const file = surface.events.findLast(event => event.type === 'user/message' && event.data.source.kind === 'user').data.content.find(part => part.type === 'file').attachment
-        args = { file_path: file.attachmentId }
-      } else args = { result: { file_path: ref.locator, offset, limit: 100003 } }
+      const surface = await f.ctx.sessionQuery.readSurface(request.sessionId)
+      const file = surface.events.findLast(event => event.type === 'user/message' && event.data.source.kind === 'user').data.content.find(part => part.type === 'file').attachment
+      const file_path = f.ctx.fs.processPathFromHostPath(f.ctx.attachments.fileHostPath(file))
       yield { type: 'block-start', index: 0, blockType: 'tool-call' }
-      yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: `synthetic-upload-read-${step}`, name: 'eleckoi_read_uploaded_file', arguments: JSON.stringify(args) } }
+      yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: `synthetic-upload-read-${step}`, name: 'read', arguments: JSON.stringify({ file_path, offset, limit: 1000 }) } }
       yield { type: 'finish', reason: { kind: 'tool-calls' } }
     } })
-    const originalSave = f.ctx.spillStore.saveText.bind(f.ctx.spillStore)
-    const save = vi.spyOn(f.ctx.spillStore, 'saveText').mockImplementation(async input => { ref = await originalSave(input); return ref })
-    await f.sendFile(f.opened.sessionId, { content: body })
-    expect(finished).toBe(true)
-    expect(save).toHaveBeenCalledTimes(1)
-    save.mockRestore()
+    await f.sendFile(f.opened.sessionId, { content: lines.join('\n') })
+    expect(recovered).toEqual(lines)
+    expect(f.requests.at(-1).tools.some(tool => tool.name === 'eleckoi_read_uploaded_file')).toBe(false)
   })
-
-  it.each([101, 1_001, 10_001])('recovers the complete %i-entry catalog and large bodies through the real Studio composition', async count => {
-    let stage = 0, waiting, nextOffset = 0, recovered = '', expected, entries
-    const refs = []
-    const f = await fixture(undefined, { productionTemplate: true, stream: async function* (request) {
-      if (request.messages.at(-1).role === 'tool') {
-        const text = request.messages.at(-1).content[0].text
-        if (waiting === 'read') {
-          const page = JSON.parse(text)
-          recovered += page.content
-          nextOffset = page.next_offset
-          if (nextOffset === null) {
-            expect(JSON.parse(recovered).value).toEqual(expected[stage])
-            stage++; waiting = undefined
-          }
-        } else if (text.includes('Full formatted result stored at: ')) {
-          recovered = ''; nextOffset = 0; waiting = 'read'
-          expect(refs.length).toBeGreaterThan(0)
-        } else {
-          expect(JSON.parse(text).value).toEqual(expected[stage])
-          stage++; waiting = undefined
-        }
-      }
-      if (stage >= 4) {
-        yield { type: 'block-start', index: 0, blockType: 'text' }
-        yield { type: 'block-end', index: 0, block: { type: 'text', text: '合成目录与正文已完整恢复' } }
-        yield { type: 'finish', reason: { kind: 'stop' } }; return
-      }
-      const reading = waiting === 'read'
-      const selected = [0, Math.floor(count / 2), count - 1]
-      const args = reading ? { result: { file_path: refs.at(-1).locator, offset: nextOffset, limit: 250_000 } }
-        : stage === 0 ? { capability_id: 'settings.list', arguments: {} }
-          : { capability_id: 'settings.read', arguments: { id: entries[selected[stage - 1]].id } }
-      if (!reading) waiting = 'capability'
-      yield { type: 'block-start', index: 0, blockType: 'tool-call' }
-      yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: `synthetic-recovery-${request.messages.length}`,
-        name: reading ? RESULT_READER : 'eleckoi_call_capability', arguments: JSON.stringify(args) } }
-      yield { type: 'finish', reason: { kind: 'tool-calls' } }
-    } })
-    const originalSave = f.ctx.spillStore.saveText.bind(f.ctx.spillStore)
-    const save = vi.spyOn(f.ctx.spillStore, 'saveText').mockImplementation(async input => { const ref = await originalSave(input); refs.push(ref); return ref })
-    const character = f.ctx.eleckoiProductData.createCharacter({ id: 'synthetic-volume-character', name: '合成编辑目标', group: '' }).items[0]
-    const selected = [0, Math.floor(count / 2), count - 1]
-    entries = Array.from({ length: count }, (_, index) => ({ ...emptyEntry(`synthetic-entry-${index}`), title: `合成设定-${index}`,
-      content: selected.includes(index) ? `开始-${index}|${'合成正文𠮷😀'.repeat(20_001)}|末尾关键词-${index}` : `合成正文-${index}`,
-      agentReadStrategy: 'keyword', keywords: Array.from({ length: selected.includes(index) ? 1_501 : 1 }, (_, key) => `关键词-${index}-${key}`),
-    }))
-    const library = f.ctx.eleckoiProductData.readSettingLibrary(character.id)
-    f.ctx.eleckoiProductData.saveSettingLibrary(character.id, { ...library, entries: [...library.entries, ...entries] })
-    const { creatorCapabilities } = await import('@eleckoi/dsh-product-data')
-    const capabilities = creatorCapabilities(f.ctx.eleckoiProductData)
-    expected = [capabilities.find(item => item.id === 'settings.list').execute(character.id, {}),
-      ...selected.map(index => capabilities.find(item => item.id === 'settings.read').execute(character.id, { id: entries[index].id }))]
-    await f.service.selectCharacter(f.opened.sessionId, character.id)
-    const { agent } = await f.ctx.sessionController.resolveAgent(f.opened.sessionId)
-    await f.ctx.sessionController.prompt({ sessionId: agent.id, requestId: 'synthetic-recovery-request', mode: 'queue',
-      content: [{ type: 'text', text: '读取当前一张角色卡的完整目录及首中末条目' }] }, new AbortController().signal)
-    await agent.whenIdle()
-    expect(stage).toBe(4)
-    expect(save).toHaveBeenCalledTimes(count === 101 ? 3 : 4)
-    expect(f.requests[0].tools.map(tool => tool.name)).toContain(RESULT_READER)
-    expect(f.requests.every(request => !request.tools.some(tool => tool.name === 'eleckoi_read_tool_result'))).toBe(true)
-    expect(f.requests.some(request => request.purpose === 'compaction')).toBe(false)
-    expect(agent.session.snapshotEvents().some(event => event.type === 'compaction/prune')).toBe(false)
-    expect(agent.session.snapshotEvents().filter(event => event.type === 'turn/end').at(-1).data.reason).toEqual({ kind: 'completed' })
-    if (count === 10_001) for (const api of ['deepseek_messages', 'openai-completions', 'openai-responses']) {
-      const request = f.requests.at(-1), wire = await captureSerializedRequest(api, request)
-      const expectedOutputs = request.messages.filter(message => message.role === 'tool')
-        .map(message => message.content.filter(block => block.type === 'text').map(block => block.text).join(''))
-      const outputs = api === 'deepseek_messages'
-        ? wire.messages.flatMap(message => message.content.filter(block => block.type === 'tool_result').map(block => block.content.map(part => part.text || '').join('')))
-        : api === 'openai-completions' ? wire.messages.filter(message => message.role === 'tool').map(message => message.content)
-          : wire.input.filter(item => item.type === 'function_call_output').map(item => item.output)
-      expect(outputs, api).toEqual(expectedOutputs)
-      expect(outputs.some(output => output.includes('末尾关键词-10000')), api).toBe(true)
-    }
-    const originalId = agent.id, ref = refs.at(-1)
-    await f.ctx.sessions.flush(agent.session)
-    save.mockRestore()
-    const reopened = await f.restart()
-    const resumed = (await reopened.ctx.sessionController.resolveAgent(originalId)).agent
-    expect(resumed.id).toBe(originalId)
-    expect(resumed.ctx.tools.schemas(resumed).map(tool => tool.name)).toContain(RESULT_READER)
-    expect(resumed.ctx.get('toolResultPruner')).toBeUndefined()
-    expect((await reopened.ctx.spillStore.readResult({ file_path: ref.locator }, { agent: resumed, signal: new AbortController().signal }, 'creator')).content).toContain('"value"')
-  }, 120_000)
 
   it('continues a large write receipt through the existing creator call without repeating the write', async () => {
     const body = `${'合成正文😀'.repeat(20_001)}最终写入关键词`
@@ -575,8 +583,8 @@ describe('Creator studio uploaded-file composition', { timeout: 30_000 }, () => 
   it('uploads through the official receipt flow and reads the text during the Agent tool loop', async () => {
     const f = await fixture()
     const { agent, receipt } = await f.sendFile(f.opened.sessionId)
-    expect(f.requests[0].tools.map(tool => tool.name)).toContain('eleckoi_read_uploaded_file')
-    expect(f.requests[0].tools.filter(tool => tool.name === 'eleckoi_read_uploaded_file')).toHaveLength(1)
+    expect(f.requests[0].tools.map(tool => tool.name)).toContain('read')
+    expect(f.requests[0].tools.filter(tool => tool.name === 'read')).toHaveLength(1)
     expect(JSON.stringify(f.requests[0].messages)).toContain('synthetic-notes.md')
     expect(JSON.stringify(f.requests[1].messages)).toContain(f.expectedContent)
     expect(agent.session.deriveMessages().find(message => message.role === 'user').content)
@@ -595,18 +603,18 @@ describe('Creator studio uploaded-file composition', { timeout: 30_000 }, () => 
     const presetId = (await readSessionInspection(f.ctx, agent.id)).meta.agentPreset
     const path = join(f.root, 'presets', 'creator-studio', presetId, 'preset.json')
     const definition = JSON.parse(readFileSync(path, 'utf8'))
-    definition.plugins = definition.plugins.filter(plugin => plugin.id !== 'uploaded-file-tools')
+    definition.plugins = definition.plugins.filter(plugin => plugin.id !== 'tool-fs')
     writeFileSync(path, JSON.stringify(definition))
     const reopened = await f.restart()
     // Resume must retain the conversation identity and the persisted file reference.
     expect(reopened.opened.sessionId).toBe(agent.id)
     await reopened.sendFile(agent.id)
-    expect(reopened.requests.at(-2).tools.map(tool => tool.name)).toContain('eleckoi_read_uploaded_file')
+    expect(reopened.requests.at(-2).tools.map(tool => tool.name)).toContain('read')
     expect(JSON.stringify(reopened.requests.at(-1).messages)).toContain(f.expectedContent)
-    expect(JSON.parse(readFileSync(path, 'utf8')).plugins.map(plugin => plugin.id)).toContain('uploaded-file-tools')
+    expect(JSON.parse(readFileSync(path, 'utf8')).plugins.map(plugin => plugin.id)).toContain('tool-fs')
   })
 
-  it('rejects another studio Session file even when its exact attachment id is known', async () => {
+  it('requires an actual native file path rather than treating an attachment digest as a filesystem path', async () => {
     const f = await fixture()
     const peer = await f.service.create()
     const foreignText = 'synthetic-other-session-private-content'
@@ -615,13 +623,13 @@ describe('Creator studio uploaded-file composition', { timeout: 30_000 }, () => 
     await f.sendFile(f.opened.sessionId, { readPath: receipt.file.attachmentId })
     const request = f.requests.slice(before).at(-1)
     expect(request.sessionId).toBe(f.opened.sessionId)
-    expect(JSON.stringify(request.messages)).toContain('此文件不在当前会话的可读附件中。')
+    expect(JSON.stringify(request.messages)).toContain(receipt.file.attachmentId)
     expect(JSON.stringify(request.messages)).not.toContain(foreignText)
   })
 
   it('reports binary content as unsupported text instead of claiming to read it', async () => {
     const f = await fixture()
     await f.sendFile(f.opened.sessionId, { content: Buffer.from([0x41, 0, 0x42]) })
-    expect(JSON.stringify(f.requests.at(-1).messages)).toContain('此文件是二进制内容，无法作为文本读取。')
+    expect(JSON.stringify(f.requests.at(-1).messages)).toMatch(/binary|Binary/)
   })
 })

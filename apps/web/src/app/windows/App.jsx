@@ -50,11 +50,12 @@ function AppContent({ renderWindow, ...windowProps } = {}) {
   if (params.get('view') === 'preset-editor') return <PresetEditorWindow presetCatalog={presets} characterConfiguration={characterConfiguration} renderPresetEditorSection={renderPresetEditorSection} />;
   if (params.get("view") === "creator-studio-nodes") {
     return <CreatorStudioWindow characterCatalog={characters} projectCatalog={creatorStudio} models={models} presetCatalog={presets} rightbar={rightbar}
+      nativeFrame={windowProps.nativeFrame}
       navigation={navigation}
       renderCreatorStudioConversation={windowProps.renderCreatorStudioConversation} />;
   }
 
-  const fallback = <MainWindow conversations={conversations} characters={characters} characterConfiguration={characterConfiguration} models={models} persona={persona} presets={presets}
+  const fallback = <MainWindow nativeFrame={windowProps.nativeFrame} conversations={conversations} characters={characters} characterConfiguration={characterConfiguration} models={models} persona={persona} presets={presets}
     creatorStudio={creatorStudio} renderCreatorStudioConversation={windowProps.renderCreatorStudioConversation}
     settingsSections={settingsSections} navigation={navigation} rightbar={rightbar} renderSettingsSection={renderSettingsSection} renderLanguageSettings={renderLanguageSettings}
     renderTypographySettings={renderTypographySettings}

@@ -1,8 +1,8 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../../../ui/styles/product-dialogs.css';
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { ArrowLeft, ArrowRight, CaretRight, X } from '../../../ui/icons/interfaceIcons.jsx';
+import { ArrowLeft, ArrowRight, CaretRight } from '../../../ui/icons/interfaceIcons.jsx';
 import { AgentToolGroupIcon } from '../../../ui/icons/index.jsx';
 import { RoleplayPlanEditor, SubagentSettingsLink, WebSearchSettings, pluginToolSections } from '../../agentTools/index.js';
 import { loadAgentTools, setAgentToolGroupEnabled, setRoleplayPlanSettings } from '../api/agentToolsApi.js';
@@ -23,8 +23,8 @@ export function AgentToolsDialog({
   const [loading, setLoading] = useState(true);
   const [changingId, setChangingId] = useState('');
   const [savingRoleplayPlan, setSavingRoleplayPlan] = useState(false);
-  const selected = catalog?.groups.find((item) => item.id === selectedId) || catalog?.extraGroups?.find(item => item.id === selectedId);
-  const selectedIsExtra = Boolean(catalog?.extraGroups?.some(item => item.id === selectedId));
+  const selected = catalog?.basicGroups?.find(item => item.id === selectedId) || catalog?.groups.find((item) => item.id === selectedId) || catalog?.extraGroups?.find(item => item.id === selectedId);
+  const selectedIsExtra = Boolean(catalog?.basicGroups?.some(item => item.id === selectedId) || catalog?.extraGroups?.some(item => item.id === selectedId));
   const sections = pluginToolSections(catalog?.groups || [], catalog?.extraGroups || []);
   const selectedPlugin = [...sections.preset, ...sections.extra].find(group => group.isPlugin && group.id === selectedId);
   function goBack() {
@@ -42,16 +42,7 @@ export function AgentToolsDialog({
     return () => { active = false; };
   }, [onNotify, presetCatalog, purpose]);
 
-  useEffect(() => {
-    if (mobile) return undefined;
-    const closeOnEscape = (event) => {
-      if (event.defaultPrevented || event.key !== 'Escape') return;
-      if (selectedId) goBack();
-      else onClose();
-    };
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [onClose, selectedId, mobile]);
+
 
   async function changeEnabled(group, enabled) {
     if (changingId) return;
@@ -107,13 +98,14 @@ export function AgentToolsDialog({
         </div> : (
           <div className="agent-tools-list">
             {loading ? <p className="agent-tools-state">{tUi("正在读取工具")}</p> : [
+              { id: 'basic', label: tUi("基础工具"), groups: catalog?.basicGroups || [] },
               { id: 'preset', label: tUi("预设工具"), groups: sections.preset },
               { id: 'extra', label: tUi("额外工具"), groups: sections.extra },
             ].map(section => section.groups.length ? <section className="agent-tools-membership" key={section.id}>
               <h3>{section.label}</h3>
-              {section.groups.map(group => <ToolRow key={group.id} group={group} extra={section.id === 'extra'} changing={changingId === group.id} onOpen={() => setSelectedId(group.id)} onChange={enabled => changeEnabled(group, enabled)} />)}
+              {section.groups.map(group => <ToolRow key={group.id} group={group} extra={section.id === 'extra' || section.id === 'basic'} changing={changingId === group.id} onOpen={() => setSelectedId(group.id)} onChange={enabled => changeEnabled(group, enabled)} />)}
             </section> : null)}
-            {!loading && !catalog?.groups.length && !catalog?.extraGroups?.length ? <p className="agent-tools-state">{tUi("当前预设还没有添加工具")}</p> : null}
+            {!loading && !catalog?.basicGroups?.length && !catalog?.groups.length && !catalog?.extraGroups?.length ? <p className="agent-tools-state">{tUi("当前预设还没有添加工具")}</p> : null}
           </div>
         )}
       </div>;
@@ -122,21 +114,11 @@ export function AgentToolsDialog({
     onBack={selectedId ? goBack : undefined} footer={manage}>
     <MobileOverlayScroll key={selectedId || 'list'} scrollKey={selectedId || 'list'} positions={scrollPositions} direction={selectedId ? 'forward' : 'back'}>{content}</MobileOverlayScroll>
   </MobileConversationOverlay>;
-  return createPortal(<SystemBarOverlay className="agent-tools-backdrop" role="presentation" onMouseDown={onClose}>
-    <section className={`agent-tools-dialog`} role="dialog" aria-modal="true" aria-label={tUi("预设工具")} onMouseDown={(event) => event.stopPropagation()}>
-      <header>
-        {selectedId ? <button type="button" onClick={goBack} aria-label={tUi("返回工具列表")}><ArrowLeft /></button> : <span />}
-        <h2>{selectedPlugin?.name || selected?.name || tUi("预设工具")}</h2>
-        <button type="button" onClick={onClose} aria-label={tUi("关闭")}><X /></button>
-      </header>
-      {content}
-      <footer>
-        <button type="button" className="agent-tools-manage" onClick={() => { onClose(); onManage?.(); }}>
-          {tUi("管理预设工具 ")}<ArrowRight aria-hidden="true" />
-        </button>
-      </footer>
-    </section>
-  </SystemBarOverlay>, document.body);
+  return <Modal open title={selectedPlugin?.name || selected?.name || tUi('预设工具')} closeLabel={tUi('关闭')} onClose={onClose}
+    className="product-dialog agent-tools-modal" contentClassName="product-dialog-content"
+    footer={<Button variant="outline" onClick={() => { onClose(); onManage?.(); }}>{tUi('管理预设工具 ')}<ArrowRight aria-hidden="true" /></Button>}>
+    {selectedId && <Button variant="ghost" onClick={goBack} icon={<ArrowLeft />}>{tUi('返回工具列表')}</Button>}{content}
+  </Modal>;
 }
 
 function ToolRow({ group, extra = false, changing, onOpen, onChange }) {

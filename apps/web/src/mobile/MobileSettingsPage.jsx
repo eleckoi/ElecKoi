@@ -84,7 +84,7 @@ function ProfileAvatars({ owner, children }) {
 
 const detailTitles = {
   'chat:layout': '对话布局', 'chat:avatar': '头像与名字', 'chat:text': '字号与字体',
-  'chat:spacing': '间距与留白', 'chat:colors': '文本颜色', 'chat:bubble': '布局独有风格', 'chat:style': '布局独有风格',
+  'chat:spacing': '间距与留白', 'chat:colors': '文本颜色', 'chat:bubble': 'Agent 气泡显示', 'chat:style': '酒馆风格',
   'chat:rich': '富消息',
 };
 /** 设置项已从设置列表消失时的失败（码给用户话，这里只写开发者诊断）。 */
@@ -218,13 +218,13 @@ export function MobileSettingsPage() {
     content = <>
       <SettingsGroup>
         <SettingsRow icon={ChatCenteredText} label={tUi("对话布局")} value={localizeUiCopy(chatLayouts, tUi).find(item => item.id === layout)?.label} onClick={() => open('chat:layout')} />
+        {layout === 'roleplay' && <SettingsRow icon={ChatCircleDots} label={tUi("酒馆风格")} value={model.roleplayStyle.bubbles_enabled ? tUi("有气泡") : tUi("无气泡")} onClick={() => open('chat:style')} />}
+        {layout === 'agent' && <SettingsRow icon={ChatCircleDots} label={tUi("Agent 气泡显示")} onClick={() => open('chat:bubble')} />}
         <SettingsRow icon={UserCircle} label={tUi("头像与名字")} value={`${localizeUiCopy(avatarShapes, tUi).find(item => item.id === profile.avatar_shape)?.label || ''} · ${profile.avatar_size}`} onClick={() => open('chat:avatar')} />
         <SettingsRow icon={TextT} label={tUi("字号与字体")} onClick={() => open('chat:text')} />
         <SettingsRow icon={ArrowsOutLineVertical} label={tUi("间距与留白")} value={`${profile.reply_spacing} / ${profile.turn_spacing}`} onClick={() => open('chat:spacing')} />
         <SettingsRow icon={Palette} label={tUi("文本颜色")} onClick={() => open('chat:colors')} />
         <SettingsRow icon={ChatCircleDots} label={tUi("富消息")} onClick={() => open('chat:rich')} />
-        {layout === 'roleplay' && <SettingsRow icon={ChatCircleDots} label={tUi("布局独有风格")} value={model.roleplayStyle.bubbles_enabled ? tUi("有气泡") : tUi("无气泡")} onClick={() => open('chat:style')} />}
-        {layout === 'agent' && <SettingsRow icon={ChatCircleDots} label={tUi("布局独有风格")} onClick={() => open('chat:bubble')} />}
         <SettingsSwitch icon={ChartBar} label={tUi("生成统计")} checked={preferences.generation_stats_enabled} onChange={value => updatePreferences({ generation_stats_enabled: value })} />
         {layout === 'roleplay' && <>
           <SettingsSwitch icon={Clock} label={tUi("聊天时间戳")} checked={preferences.roleplay_timestamps_enabled} onChange={value => updatePreferences({ roleplay_timestamps_enabled: value })} />

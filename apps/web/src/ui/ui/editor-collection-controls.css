@@ -58,42 +58,15 @@
 .editor-selection-bar.is-mobile-selection .editor-selection-cancel { margin-right: auto; }
 .editor-selection-checkbox, .editor-selection-bar input { width: 16px; height: 16px; margin: 0 8px 0 0; flex-shrink: 0; accent-color: var(--blue); }
 .editor-collection-actions .is-danger, .editor-selection-bar .is-danger, .editor-management-action.is-danger { color: var(--dsw-text-error, var(--danger)); }
-.editor-management-modal { width: min(560px, calc(100vw - 48px)); min-width: 0; max-height: calc(100dvh - 48px); display: flex; flex-direction: column; }
-.editor-management-content { display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding-bottom: 22px; }
-.editor-management-content > :first-child { flex-shrink: 0; }
-.editor-management-content > :last-child { min-height: 0; overflow: auto; }
-.editor-management-content .setting-library-manager-body { padding: 0; overflow: visible; }
-.editor-management-content .setting-library-sources-list, .editor-management-content .setting-library-picker-list { max-height: min(360px, calc(100dvh - 310px)); overflow: auto; }
-.editor-management-action { display: flex; width: 100%; justify-content: flex-start; text-align: left; min-height: 44px; padding: 8px 12px; }
-.editor-management-fields { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
-.editor-management-fields > label { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
-.editor-management-fields input, .editor-management-fields select { width: 100%; min-width: 0; min-height: 32px; padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: var(--dsw-radius-md, 8px); color: var(--text); background: var(--field-bg); font: inherit; }
-.editor-management-divider { height: 1px; background: var(--line-strong); margin: 12px 0; }
-.editor-management-notice { color: var(--muted); font-size: 13px; margin: 12px 0 0; }
-
-/* Android 壳已将键盘与系统栏从网页边界扣除；弹窗在剩余空间内布局。 */
-:root[data-eleckoi-mobile="true"] [role="presentation"]:has(> .editor-management-modal) { padding: 12px; }
-:root[data-eleckoi-mobile="true"] .editor-management-modal {
-  width: min(560px, 100%);
-  max-height: 100%;
-  padding: 0 0 16px;
-  gap: 16px;
-  border-radius: 16px;
-  font-family: 'ElecKoi Mobile Rounded', sans-serif;
-  font-size: 14px;
-  & .editor-management-content { flex: 1; min-height: 0; padding-bottom: 0; }
-  & .editor-management-content > :first-child { min-height: 56px; padding: 4px 8px 4px 16px; }
-  & .editor-management-content > :first-child > button { width: 48px; height: 48px; }
-  & .editor-management-content > :last-child:not(:first-child) { margin-top: 8px; padding: 0 16px; }
-  & > :last-child:not(.editor-management-content) { flex: none; padding: 0 16px; }
-  & button { min-height: 48px; }
-  & .editor-management-fields { gap: 12px; margin-bottom: 16px; }
-  & .editor-management-fields :is(input, select) { height: 48px; min-height: 48px; font-size: 16px; }
-}
-:root[data-eleckoi-mobile="true"] .editor-management-modal.version-name-dialog {
-  width: min(420px, 100%);
-  & .editor-management-fields { margin-bottom: 0; }
-}
+.editor-management-modal { width:min(560px,100%); min-width:0; max-height:100%; }
+.editor-management-content { min-height:0; overflow:auto; overscroll-behavior:contain; }
+.editor-management-content .setting-library-manager-body { padding:0; overflow:visible; }
+.editor-management-content .setting-library-sources-list, .editor-management-content .setting-library-picker-list { max-height:360px; overflow:auto; }
+.editor-management-action { display:flex; width:100%; justify-content:flex-start; text-align:left; }
+.editor-management-fields { display:flex; align-items:flex-start; gap:16px; margin-bottom:20px; }
+.editor-management-fields > label { display:flex; flex-direction:column; gap:6px; flex:1; min-width:0; }
+.editor-management-divider { height:1px; background:var(--dsw-alias-border-l1); margin:12px 0; }
+.editor-management-notice { color:var(--dsw-alias-label-secondary); font-size:13px; margin:12px 0 0; }
 @media (max-width: 680px) {
   .editor-collection-toolbar { padding: 12px 16px; gap: 10px; }
   .editor-collection-search { width: 100%; }

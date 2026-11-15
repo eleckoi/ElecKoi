@@ -1,12 +1,12 @@
 import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
-import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
+import '../../../ui/styles/product-dialogs.css';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CaretRight, CheckCircle, WarningCircle } from "../../../ui/icons/interfaceIcons.jsx";
-import { ImportIcon, XIcon } from "../../../ui/icons/index.jsx";
+import { ImportIcon } from "../../../ui/icons/index.jsx";
 import { bestEffort } from "../../../utils/swallowedFailure.js";
 import { resolveFailure } from "../../../utils/failureText.js";
 
@@ -30,14 +30,6 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
     if (preview?.token) await onDiscard(preview.token).catch(bestEffort);
     onClose();
   }, [onClose, onDiscard, preview?.token]);
-
-  useEffect(() => {
-    function onKeyDown(event) {
-      if (event.key === "Escape" && !preparing && !importing) close();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [close, preparing, importing]);
 
   useEffect(() => {
     const urls = files.map((file) => file.type === "image/png" || file.name.toLowerCase().endsWith(".png") ? URL.createObjectURL(file) : "");
@@ -90,13 +82,9 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
   const importableCount = preview?.items.filter((item) => item.importable).length || 0;
 
   return (
-    <SystemBarOverlay className="character-import-overlay" onMouseDown={() => !preparing && !importing && close()}>
-      <section className="character-import-dialog" role="dialog" aria-modal="true" aria-labelledby="character-import-title" onMouseDown={(event) => event.stopPropagation()}>
-        <header>
-          <h2 id="character-import-title">{preview ? tUi("导入角色卡") : tUi("选择导入来源")}</h2>
-          <button type="button" aria-label={tUi("关闭")} onClick={close} disabled={preparing || importing}><XIcon /></button>
-        </header>
-
+    <Modal open title={preview ? tUi('导入角色卡') : tUi('选择导入来源')} closeLabel={tUi('关闭')}
+      onClose={() => { if (!preparing && !importing) void close(); }} className="product-dialog character-import-modal" contentClassName="product-dialog-content"
+      footer={preview ? <div className="product-dialog-actions"><Button variant="outline" onClick={close} disabled={preparing || importing}>{tUi('取消')}</Button><Button variant="primary" onClick={confirmImport} disabled={!importableCount || preparing || importing}>{importing ? tUi('导入中…') : tUi('导入{value0}', {value0: importableCount ? ` ${importableCount}` : ''})}</Button></div> : undefined}>
         {preview ? (
           <div className="character-import-preview-list">
             {preview.items.map((item, index) => (
@@ -128,18 +116,9 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
         )}
 
         {error ? <p className="character-import-error" role="alert">{error}</p> : null}
-        {preview ? (
-          <footer>
-            <Button data-dsh-control variant="outline" type="button" onClick={close} disabled={importing}>{tUi("取消")}</Button>
-            <Button data-dsh-control variant="primary" className="primary" type="button" onClick={confirmImport} disabled={!importableCount || importing}>
-              {importing ? tUi("导入中…") : tUi("导入{value0}", {value0: importableCount ? ` ${importableCount}` : ""})}
-            </Button>
-          </footer>
-        ) : null}
         {preparing ? <div className="character-import-busy">{tUi("正在读取角色卡…")}</div> : null}
         <input ref={inputRef} type="file" accept="image/png,application/json,application/zip,.png,.json,.zip" multiple hidden onChange={onFilesPicked} />
-      </section>
-    </SystemBarOverlay>
+    </Modal>
   );
 }
 

@@ -1,4 +1,6 @@
 import '@deepseek-ai/dsh-client-ui-sidebar/client';
+export { OfficialFrameSidebar } from '../../../../../apps/web/src/app/windows/shell/components/OfficialFrameSidebar.jsx';
+export { OfficialFramePage } from '../../../../../apps/web/src/app/windows/shell/components/OfficialFramePage.jsx';
 import { SettingsPanel } from "../../../../../apps/web/src/modules/settings/index.js";
 import { useMainPageView } from "../../../../../apps/web/src/app/windows/MainPageContext.jsx";
 import logoIcon from "../../../../../apps/web/src/assets/eleckoi-app-icon.png";

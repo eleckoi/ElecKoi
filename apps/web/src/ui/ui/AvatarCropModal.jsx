@@ -1,10 +1,10 @@
 import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
-import { SystemBarOverlay } from './SystemBarOverlay.jsx';
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../styles/product-dialogs.css';
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { RotateLeftIcon, RotateRightIcon, XIcon } from "../icons/index.jsx";
+import { RotateLeftIcon, RotateRightIcon } from "../icons/index.jsx";
 import { resolveFailure } from "../../utils/failureText.js";
 
 const STAGE_WIDTH = 440;
@@ -35,10 +35,6 @@ export function AvatarCropModal({
 }) {
   const tUi = useProductTranslation();
   const title = titleSource === undefined ? tUi("编辑图片") : titleSource;
-  const windowRef = useRef(null);
-  const closeRef = useRef(null);
-  const cancelRef = useRef(onCancel);
-  const savingRef = useRef(false);
   const stageRef = useRef(null);
   const imageRef = useRef(null);
   const dragRef = useRef(null);
@@ -49,10 +45,6 @@ export function AvatarCropModal({
   const [rotation, setRotation] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    cancelRef.current = onCancel;
-  }, [onCancel]);
 
   const quarterTurn = Math.abs(rotation % 180) === 90;
   const orientedSize = useMemo(
@@ -87,39 +79,6 @@ export function AvatarCropModal({
     setSaving(false);
     setError("");
     return () => URL.revokeObjectURL(nextUrl);
-  }, [file]);
-
-  useEffect(() => {
-    if (!file || typeof document === "undefined") return undefined;
-    const previousFocus = document.activeElement;
-    const focusClose = window.requestAnimationFrame(() => closeRef.current?.focus());
-
-    function handleKeyDown(event) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        if (!savingRef.current) cancelRef.current?.();
-        return;
-      }
-      if (event.key !== "Tab" || !windowRef.current) return;
-      const focusable = [...windowRef.current.querySelectorAll("button:not(:disabled), input:not(:disabled)")];
-      if (!focusable.length) return;
-      const first = focusable[0];
-      const last = focusable.at(-1);
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.cancelAnimationFrame(focusClose);
-      document.removeEventListener("keydown", handleKeyDown);
-      previousFocus?.focus?.();
-    };
   }, [file]);
 
   function clampOffset(nextOffset, nextZoom = zoom) {
@@ -184,7 +143,6 @@ export function AvatarCropModal({
   async function saveCrop() {
     if (!file || !stageRef.current || !imageRef.current || !naturalSize.width || !naturalSize.height) return;
     setSaving(true);
-    savingRef.current = true;
     setError("");
 
     try {
@@ -232,7 +190,6 @@ export function AvatarCropModal({
     } catch (nextError) {
       setError(resolveFailure(nextError, { fallback: tUi("图片保存失败，请稍后重试。") }).text);
     } finally {
-      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -247,16 +204,9 @@ export function AvatarCropModal({
     borderRadius: cropRadius,
   };
 
-  const modal = (
-    <SystemBarOverlay className="avatar-crop-overlay" role="dialog" aria-modal="true" aria-label={title} onPointerDown={(event) => {
-      if (event.target === event.currentTarget && !saving) onCancel?.();
-    }}>
-      <div ref={windowRef} className="avatar-crop-window">
-        <button ref={closeRef} className="avatar-crop-close" type="button" title={tUi("关闭")} aria-label={tUi("关闭")} disabled={saving} onClick={onCancel}>
-          <XIcon />
-        </button>
-        <h2>{title}</h2>
-
+  return <Modal open title={title} closeLabel={tUi('关闭')} onClose={() => { if (!saving) onCancel(); }}
+    className="product-dialog avatar-crop-modal" contentClassName="product-dialog-content"
+    footer={<div className="product-dialog-actions"><Button variant="outline" disabled={saving} onClick={onCancel}>{tUi('取消')}</Button><Button variant="primary" onClick={saveCrop} disabled={saving || !naturalSize.width}>{saving ? tUi('保存中') : tUi('保存')}</Button></div>}>
         <div
           ref={stageRef}
           className="avatar-crop-stage"
@@ -294,30 +244,17 @@ export function AvatarCropModal({
         </div>
 
         <div className="avatar-crop-controls">
-          <button type="button" title={tUi("向左旋转 90°")} aria-label={tUi("向左旋转 90°")} onClick={() => rotateBy(-90)}>
+          <Button variant="outline" title={tUi("向左旋转 90°")} aria-label={tUi("向左旋转 90°")} onClick={() => rotateBy(-90)}>
             <RotateLeftIcon />
-          </button>
+          </Button>
           <input className="avatar-crop-zoom" aria-label={tUi("缩放图片")} type="range" min="1" max="3" step="0.01" value={zoom} onChange={handleZoomChange} />
-          <button type="button" title={tUi("向右旋转 90°")} aria-label={tUi("向右旋转 90°")} onClick={() => rotateBy(90)}>
+          <Button variant="outline" title={tUi("向右旋转 90°")} aria-label={tUi("向右旋转 90°")} onClick={() => rotateBy(90)}>
             <RotateRightIcon />
-          </button>
+          </Button>
         </div>
         <p className={error ? "avatar-crop-error" : "avatar-crop-hint"} role={error ? "alert" : undefined}>
           {error || tUi("拖动图片调整位置，滚轮可缩放")}
         </p>
 
-        <div className="avatar-crop-actions">
-          <button type="button" className="avatar-crop-cancel" disabled={saving} onClick={onCancel}>
-            {tUi("取消")}</button>
-          <button type="button" className="avatar-crop-save" onClick={saveCrop} disabled={saving || !naturalSize.width}>
-            {saving ? tUi("保存中") : tUi("保存")}
-          </button>
-        </div>
-      </div>
-    </SystemBarOverlay>
-  );
-
-  const portalTarget = typeof document === "undefined" ? null : document.body;
-
-  return portalTarget ? createPortal(modal, portalTarget) : modal;
+  </Modal>;
 }

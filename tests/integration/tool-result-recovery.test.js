@@ -52,7 +52,7 @@ async function fixture({ root, sessionId = 'result-owner', stream } = {}) {
   await ctx.plugin(LocalFileSystem, { cwd: root })
   await ctx.plugin(WorkingDirectory, { defaultDirectory: root })
   await ctx.plugin(ToolResultStore, { root, cleanupPeriodDays: 0 })
-  await ctx.plugin(spillPolicy, { maxInlineTokens: 12_500, exemptTools: ['eleckoi_read_uploaded_file'], pagedTools: Object.values(RESULT_READERS) })
+  await ctx.plugin(spillPolicy, { maxInlineTokens: 12_500, pagedTools: Object.values(RESULT_READERS) })
   ctx.provide('eleckoiProductData', { commitConversationRuntime: vi.fn() })
   ctx.provide('eleckoiCharacterConfigurationChanges', { publish: vi.fn() })
   ctx.provide('eleckoiVariableProcessing', new ElecKoiVariableProcessing(null))

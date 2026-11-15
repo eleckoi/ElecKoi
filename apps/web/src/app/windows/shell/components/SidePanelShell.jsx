@@ -7,11 +7,12 @@ function stopDrag(event) {
   event.stopPropagation();
 }
 
-export function SidePanelShell({ collapsed = false, onCollapse, footerActions, renderSidebarSlot, desktopMenu = false, children }) {
+export function SidePanelShell({ collapsed = false, contentWidth, onCollapse, footerActions, renderSidebarSlot, desktopMenu = false, children }) {
   const tUi = useProductTranslation();
   return (
     <section
       className={`side-panel-shell${collapsed ? " collapsed" : ""}${footerActions || renderSidebarSlot ? " has-footer-actions" : ""}`}
+      style={contentWidth === undefined ? undefined : { '--side-panel-content-width': `${contentWidth}px` }}
       aria-label={tUi("侧边栏")}
       aria-hidden={collapsed || undefined}
       inert={collapsed || undefined}

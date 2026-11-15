@@ -36,11 +36,11 @@
 .mobile-shell button:focus-visible { outline: 2px solid color-mix(in srgb, var(--text) 38%, transparent); outline-offset: 2px; }
 :root[data-eleckoi-mobile="true"] :is(button, a, summary, [tabindex]):focus-visible { outline-color: color-mix(in srgb, var(--text) 38%, transparent); }
 :root[data-eleckoi-mobile="true"] :is(input, select, textarea):focus-visible { outline: none; }
-:root[data-eleckoi-mobile="true"] :is(.regex-field, .regex-version-create, .regex-manager-transfer, .dynamic-settings-name-dialog, .model-detail-form, .preset-author-fields, .preset-description-field, .preset-profile-editor-layout, .profile-settings-name, .roleplay-plan-list) :is(input, select, textarea):focus { border-color: color-mix(in srgb, var(--text) 28%, transparent); box-shadow: none; }
+:root[data-eleckoi-mobile="true"] :is(.regex-field, .regex-version-create, .regex-manager-transfer, .model-detail-form, .preset-author-fields, .preset-description-field, .preset-profile-editor-layout, .profile-settings-name, .roleplay-plan-list) :is(input, select, textarea):focus { border-color: color-mix(in srgb, var(--text) 28%, transparent); box-shadow: none; }
 :root[data-eleckoi-mobile="true"] .character-basic-content :is(.semi-input-wrapper-focus, .semi-input-textarea-wrapper-focus) { border-color: color-mix(in srgb, var(--text) 28%, transparent); }
 :root[data-eleckoi-mobile="true"] :is(.dsh-search-field, .web-search-key-field, .chat-model-list-tools label):focus-within { border-color: color-mix(in srgb, var(--text) 28%, transparent); outline: none; box-shadow: none; }
 :root[data-eleckoi-mobile="true"] :is(.side-panel-collapse-button, .side-panel-expand-button):focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--text) 38%, transparent); }
-:root[data-eleckoi-mobile="true"] :is(.model-group-row, .model-config-provider, .model-icon-button, .model-fetch-button, .model-add-button, .model-picker-value, .model-picker-shell button, .model-manual-add button, .model-header-row button):focus-visible { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 38%, transparent); }
+:root[data-eleckoi-mobile="true"] :is(.model-group-row, .model-config-provider, .model-icon-button, .model-fetch-button, .model-add-button, .model-picker-value, .model-picker-shell button, .model-manual-add button, .model-header-row button):focus-visible:not([data-dsh-control]) { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text) 38%, transparent); }
 :root[data-eleckoi-mobile="true"] .model-reasoning-efforts button:focus-visible { border-color: color-mix(in srgb, var(--text) 28%, transparent); }
 :root[data-eleckoi-mobile="true"] .setting-library-placement-row:focus-visible .setting-library-placement-choice,
 :root[data-eleckoi-mobile="true"] .character-deck-card:focus-visible .character-deck-card-art,
@@ -66,9 +66,6 @@
 .mobile-workspace-controls > button { display: grid; place-items: center; width: 32px; height: 32px; min-height: 32px; flex: none; padding: 0; border: 0; background: transparent; color: var(--dsw-alias-label-primary); }
 .mobile-workspace-controls > button:active { background: var(--dsw-alias-interactive-bg-hover); border-radius: 8px; }
 .mobile-root-page, .mobile-conversation-page { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
-.mobile-conversation-page.has-chat-wallpaper { position: relative; isolation: isolate; }
-.mobile-conversation-page.has-chat-wallpaper > .chat-shell-backdrop { inset: 68px 0 0; }
-.mobile-conversation-page.has-chat-wallpaper .chat-panel { z-index: 1; background: transparent; }
 .mobile-header { position: relative; display: flex; align-items: center; flex: none; height: var(--mobile-header-height); padding: 0 9px 0 8px; background: var(--mobile-header-bg); }
 .mobile-header > button, .mobile-header-actions > button { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; flex: none; padding: 0; border: 0; background: transparent; }
 .mobile-header h1 { position: absolute; left: 112px; right: 113px; pointer-events: none; min-width: 0; margin: 0; font-size: 19px; line-height: 1.4; font-weight: 500; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -88,6 +85,7 @@
 .mobile-drawer-overlay { position: absolute; inset: 0; z-index: 0; }
 .mobile-drawer-scrim { position: absolute; inset: 0; pointer-events: none; background: #000; opacity: .2; }
 .mobile-drawer { height: 100%; width: var(--mobile-drawer-width); background: var(--rail); overflow: hidden; transform: translateX(calc(-1 * var(--mobile-drawer-width))) scale(.95); transform-origin: center; }
+.mobile-drawer.official-mobile-sidebar { width: 100%; transform: none; }
 .mobile-drawer > * { height: 100%; width: 100%; max-width: 100%; }
 .mobile-drawer .qq-rail.expanded { height: 100%; align-items: stretch; padding: 12px 16px 16px; border: 0; }
 .mobile-drawer .rail-expanded-header { display: flex; align-items: center; gap: 10px; flex: none; height: 48px; margin-bottom: 16px; }
@@ -163,7 +161,7 @@
 .mobile-preset-group.is-selected > button:first-child { padding-right: 44px; }
 .mobile-preset-groups .mobile-preset-group-manage { position: absolute; right: 0; top: 11px; width: 44px; height: 44px; min-height: 44px; padding: 0; align-items: center; background: transparent; }
 .mobile-preset-group-manage svg { width: 15px; height: 15px; }
-.mobile-preset-groups .mobile-preset-create-group { flex: none; flex-direction: row; align-items: center; justify-content: center; height: 54px; min-height: 54px; padding: 0 9px; gap: 6px; border: 1px dashed color-mix(in srgb, var(--muted) 34%, transparent); background: transparent; color: var(--soft-text); }
+.mobile-preset-groups .mobile-preset-create-group { flex: none; flex-direction: row; align-items: center; justify-content: center; height: 54px; min-height: 54px; padding: 0 9px; gap: 6px; }
 .mobile-preset-create-group > span { font-size: 12px; color: inherit; }
 .mobile-preset-cards { padding: 8px 0 18px; }
 .mobile-preset-card { position: relative; margin: 0 0 10px; border-radius: 9px; background: var(--surface-raised); overflow: hidden; }
@@ -196,20 +194,13 @@
 .mobile-character-list.is-empty { position: relative; }
 .mobile-character-list.is-empty > .mobile-state { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); margin: 0; }
 .mobile-state p { white-space: pre-wrap; }
-.mobile-dialog-overlay { position: absolute; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgb(0 0 0 / 30%); }
-.mobile-dialog { width: min(100%, 420px); max-height: calc(100% - 24px); overflow: auto; padding: 12px 18px 18px; border-radius: 22px; background: var(--surface-raised); box-shadow: 0 12px 36px rgb(0 0 0 / 15%); }
-.mobile-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-.mobile-dialog h2 { margin: 0; font-size: 18px; }
-.mobile-dialog button { display: flex; align-items: center; gap: 10px; min-width: 48px; min-height: 48px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; text-align: left; }
-.mobile-dialog > button { width: 100%; }
-.mobile-dialog header button { justify-content: center; padding: 0; }
 .mobile-picker-list { display: flex; flex-direction: column; max-height: 55dvh; overflow-y: auto; }
 .mobile-picker-list button { flex: none; width: 100%; padding: 8px 6px; }
 .mobile-picker-list .sidebar-character-artwork { width: 38px; height: 52px; flex: none; }
 .mobile-picker-list button span { flex: 1; min-width: 0; }
 .mobile-field { display: flex; flex-direction: column; gap: 8px; font-size: 14px; margin: 12px 0; }
 .mobile-field input, .mobile-field select { min-width: 0; width: 100%; min-height: 48px; padding: 8px 12px; color: var(--text); background: var(--field-bg); border: 1px solid var(--line); border-radius: 8px; font: inherit; }
-.mobile-dialog .mobile-primary, .mobile-shell .mobile-primary { display: flex; justify-content: center; align-items: center; min-height: 48px; padding: 8px 18px; border: 0; background: var(--blue); border-radius: 12px; color: var(--on-accent); }
+.mobile-shell .mobile-primary { display: flex; justify-content: center; align-items: center; min-height: 48px; padding: 8px 18px; border: 0; background: var(--blue); border-radius: 12px; color: var(--on-accent); }
 .mobile-group-edit-row { display: flex; gap: 6px; }
 .mobile-group-edit-row button:first-child { flex: 1; }
 .mobile-group-edit-row button:last-child { font-size: 12px; color: var(--muted); }
@@ -257,7 +248,6 @@
 .mobile-conversation-page .message-roleplay.avatar-shape-portrait { --mobile-roleplay-avatar-height: calc(var(--mobile-roleplay-avatar-width) / .75); --mobile-roleplay-avatar-radius: calc(var(--mobile-roleplay-avatar-width) * .14); }
 .mobile-conversation-page .message-roleplay.avatar-shape-rounded_square { --mobile-roleplay-avatar-radius: calc(var(--mobile-roleplay-avatar-width) * .28); }
 .mobile-conversation-page .message-roleplay:has(> .message-floor) { --chat-roleplay-leading-stack-height: calc(var(--mobile-roleplay-avatar-height) + var(--chat-font-size, 15px) * 1.035 + 2px); }
-.mobile-conversation-page .message-roleplay.has-opening-pager { min-height: calc(var(--chat-roleplay-leading-stack-height) + var(--mobile-roleplay-action-size) * 2); }
 .mobile-conversation-page .message.message-roleplay > .avatar { grid-column: 1; justify-self: start; width: var(--mobile-roleplay-avatar-width); height: var(--mobile-roleplay-avatar-height); min-height: var(--mobile-roleplay-avatar-height); margin-left: 0; border-radius: var(--mobile-roleplay-avatar-radius); font-size: calc(var(--mobile-roleplay-avatar-width) * .34); }
 .mobile-conversation-page .message-roleplay .message-floor { width: var(--mobile-roleplay-avatar-width); margin-top: calc(var(--mobile-roleplay-avatar-height) + 2px); margin-left: 0; }
 .mobile-conversation-page .message-roleplay .message-content { grid-column: 2; min-height: var(--mobile-roleplay-avatar-height); }
@@ -338,8 +328,8 @@
 .mobile-creator-page .creator-studio-home-inner { min-width: 0; padding: 18px; }
 .mobile-creator-page .creator-studio-home-heading h1 { font-size: 18px; }
 .mobile-creator-page .creator-studio-project-search { min-width: 0; width: 100%; }
-html[data-eleckoi-mobile="true"] :is(.character-import-dialog, .preset-import-dialog, .unsaved-changes-dialog, .community-dialog) { max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; }
-html[data-eleckoi-mobile="true"] :is(.character-import-dialog, .preset-import-dialog, .unsaved-changes-dialog) button { min-height: 48px; }
+html[data-eleckoi-mobile="true"] :is(.character-import-dialog, .preset-import-dialog) { max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; }
+html[data-eleckoi-mobile="true"] :is(.character-import-dialog, .preset-import-dialog) button { min-height: 48px; }
 
 @keyframes mobile-sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes mobile-sheet-out { from { transform: var(--mobile-sheet-exit-from, translateY(0)); } to { transform: translateY(100%); } }

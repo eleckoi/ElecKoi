@@ -48,14 +48,14 @@ it('mixes assets with dropdown categories, previews and copies stable references
   expect(document.querySelector('.asset-menu-layer [role=menu]')).toBeTruthy();
   await click('关闭菜单');
   expect(container.textContent).not.toContain('分组'); expect(container.textContent).not.toContain('版本');
-  await click('预览 image.png'); expect(container.querySelector('[aria-label="资产引用地址"]').value).toBe(`asset://${first}`);
+  await click('预览 image.png'); expect(document.querySelector('[aria-label="资产引用地址"]').value).toBe(`asset://${first}`);
   await click('复制引用'); expect(navigator.clipboard.writeText).toHaveBeenCalledWith(`asset://${first}`); await click('关闭弹窗');
   await click('image.png的更多操作'); await click('重命名');
-  const input = container.querySelector('[aria-label="资产名称"]');
+  const input = document.querySelector('[aria-label="资产名称"]');
   await act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'renamed.png'); input.dispatchEvent(new Event('input', { bubbles: true })); });
-  await act(() => container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  await act(() => document.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
   expect(service.assets.rename).toHaveBeenCalledWith('synthetic-role', first, 'renamed.png');
-  await click('预览 renamed.png'); expect(container.querySelector('[aria-label="资产引用地址"]').value).toBe(`asset://${first}`);
+  await click('预览 renamed.png'); expect(document.querySelector('[aria-label="资产引用地址"]').value).toBe(`asset://${first}`);
 });
 
 it('opens the managed file location by asset identity and hides the action when the Host cannot reveal files', async () => {
@@ -69,13 +69,13 @@ it('opens the managed file location by asset identity and hides the action when 
 it('filters formats, keeps deletion cancelled, and leaves a failed deletion reviewable for retry', async () => {
   await render(); await click('筛选'); await click('视频'); expect(container.querySelectorAll('.asset-card')).toHaveLength(0);
   await click('清除筛选'); await click('关闭菜单'); await click('image.png的更多操作'); await click('选择'); await click('全选'); await click('删除');
-  expect(container.querySelector('[role="dialog"]').textContent).toContain('引用这些资产');
-  await click('取消', container.querySelector('[role="dialog"]')); expect(service.assets.delete).not.toHaveBeenCalled();
+  expect(document.querySelector('[role="dialog"]').textContent).toContain('引用这些资产');
+  await click('取消', document.querySelector('[role="dialog"]')); expect(service.assets.delete).not.toHaveBeenCalled();
   await click('删除'); service.assets.delete.mockResolvedValueOnce({ ok: false, error: { code: 'eleckoi/io/failed', message: 'Synthetic storage failure' } });
-  await click('删除', container.querySelector('[role="dialog"]'));
-  expect(container.querySelector('[role="dialog"]')).toBeTruthy(); expect(container.querySelectorAll('.asset-card')).toHaveLength(2);
+  await click('删除', document.querySelector('[role="dialog"]'));
+  expect(document.querySelector('[role="dialog"]')).toBeTruthy(); expect(container.querySelectorAll('.asset-card')).toHaveLength(2);
   expect(container.textContent).toContain('Synthetic storage failure');
-  await click('删除', container.querySelector('[role="dialog"]')); expect(container.querySelectorAll('.asset-card')).toHaveLength(0);
+  await click('删除', document.querySelector('[role="dialog"]')); expect(container.querySelectorAll('.asset-card')).toHaveLength(0);
 });
 
 it('uploads a file in bounded transfer chunks, publishes only after completion and releases subscription on leaving', async () => {
@@ -93,25 +93,25 @@ it('keeps every selected reference when clipboard access is unavailable', async 
   await render(); await click('image.png的更多操作'); await click('选择'); await click('全选');
   navigator.clipboard.writeText.mockRejectedValueOnce(new Error('Synthetic clipboard denial'));
   await click('复制引用');
-  expect(container.querySelector('textarea[aria-label="资产引用地址"]').value).toBe(`asset://${first}\nasset://${second}`);
+  expect(document.querySelector('pre[aria-label="资产引用地址"]').textContent).toBe(`asset://${first}\nasset://${second}`);
 });
 
 it('creates and enters a mixed-media folder, moves a file without changing its reference and uploads into the current folder', async () => {
   catalog.items.push({ ...item('33333333-3333-4333-8333-333333333333', 'opening.wav'), type: 'audio', mimeType: 'audio/wav' });
   await render(); await click('新建文件夹');
-  const input = container.querySelector('[aria-label="资产名称"]');
+  const input = document.querySelector('[aria-label="资产名称"]');
   await act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '开场'); input.dispatchEvent(new Event('input', { bubbles: true })); });
-  await act(() => container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  await act(() => document.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
   expect(service.assets.createFolder).toHaveBeenCalledWith('synthetic-role', '开场', null);
   expect(container.querySelector('.folder-front img')).toBeNull(); expect(container.querySelectorAll('.folder-item')).toHaveLength(0);
   await click('image.png的更多操作'); await click('选择'); await click('选择 opening.wav'); await click('移动到');
-  await click('开场', container.querySelector('[role=dialog]')); await click('移到这里');
+  await click('开场', document.querySelector('[role=dialog]')); await click('移到这里');
   const folderId = catalog.folders[0].id;
   expect(service.assets.move).toHaveBeenCalledWith('synthetic-role', [first, '33333333-3333-4333-8333-333333333333'], [], folderId);
   expect(container.querySelector('.folder-front img')).toBeNull(); expect(container.querySelector('.folder-item img')).toBeTruthy();
   await click('打开文件夹：开场'); expect(container.querySelector('h1').textContent).toBe('开场');
   expect(container.querySelectorAll('.asset-card')).toHaveLength(2);
-  await click('预览 image.png'); expect(container.querySelector('[aria-label="资产引用地址"]').value).toBe(`asset://${first}`); await click('关闭弹窗');
+  await click('预览 image.png'); expect(document.querySelector('[aria-label="资产引用地址"]').value).toBe(`asset://${first}`); await click('关闭弹窗');
   const fileInput = container.querySelector('input[type=file]');
   Object.defineProperty(fileInput, 'files', { configurable: true, value: [{ name: 'empty.png', size: 0 }] });
   await act(() => fileInput.dispatchEvent(new Event('change', { bubbles: true })));
@@ -141,7 +141,7 @@ it('uses the background context menu for importing and creating in the current f
   expect(document.querySelector('[aria-label="资产库操作"]')).toBeNull(); expect(container.querySelector('h1').textContent).toBe('开场'); expect(document.activeElement).toBe(background);
   await act(() => background.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', shiftKey: true, bubbles: true, cancelable: true })));
   menu = document.querySelector('[role=menu][aria-label="资产库操作"]'); await click('新建文件夹', menu);
-  await act(() => container.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  await act(() => document.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
   expect(service.assets.createFolder).toHaveBeenCalledWith('synthetic-role', '未命名文件夹', folder.id);
   await open(); await act(() => background.dispatchEvent(new Event('pointerdown', { bubbles: true })));
   expect(document.querySelector('[aria-label="资产库操作"]')).toBeNull();

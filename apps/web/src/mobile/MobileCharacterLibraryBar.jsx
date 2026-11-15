@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CaretDown, CaretUp, Plus, SortDescending, X } from '@phosphor-icons/react';
-import { Menu } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Menu  } from '@deepseek-ai/dsh-client-ui-primitives';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { useProductTranslation } from '../app/i18n/ProductLocaleContext.jsx';
@@ -161,7 +161,7 @@ export function MobileCharacterLibraryBar({ groups, characters, selected, onSele
               onClick={() => { if (suppressClick.current) { suppressClick.current = false; return; } if (editing) setNaming(name); else choose(name); }}><span>{name}</span></button>
             {editing && <button className="mobile-character-library-remove-group" type="button" disabled={busy} aria-label={tUi('删除分组 {value0}', { value0: name })} onClick={() => { setError(''); setRemoving(name); }}><span><X size={12} weight="bold" /></span></button>}
           </div>)}
-          {!destination && <div className="mobile-character-library-group-cell"><button type="button" className="mobile-character-library-group-chip mobile-character-library-new-group" disabled={busy || disabled} onClick={() => setNaming('')}><Plus size={17} /><span>{tUi('新建')}</span></button></div>}
+          {!destination && <div className="mobile-character-library-group-cell"><Button data-dsh-control variant="primary" type="button" className="mobile-character-library-group-chip mobile-character-library-new-group" disabled={busy || disabled} onClick={() => setNaming('')}><Plus size={17} /><span>{tUi('新建')}</span></Button></div>}
         </div>
         {error && !removing && <p className="mobile-inline-error" role="alert">{error}</p>}
       </section>

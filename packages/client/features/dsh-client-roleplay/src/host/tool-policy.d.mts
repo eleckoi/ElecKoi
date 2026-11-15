@@ -22,4 +22,4 @@ interface ToolPolicyContext {
 export function applyDisabledPolicy(agentCtx: ToolPolicyContext, disabledGroupIds?: string[], registryTools?: Pick<ToolPolicyContext['tools'], 'schemas'>): void
 export function classify(declaration: ToolDeclaration): string | undefined
 export function filterDeclarations<T extends ToolDeclaration>(tools: T[], disabledGroupIds: string[] | Set<string>): T[]
-export function withPluginTools<T extends { toolGroups: ToolReference[] }>(preset: T, declarations: ToolDeclaration[], plugins?: Map<string, { id: string; name: string }>): T & { extraToolGroups: ToolReference[] }
+export function withPluginTools<T extends { toolGroups: ToolReference[] }>(preset: T, declarations: ToolDeclaration[], plugins?: Map<string, { id: string; name: string }>): T & { basicToolGroups: ToolReference[]; extraToolGroups: ToolReference[] }

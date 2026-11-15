@@ -221,8 +221,13 @@ final class PlatformBrowser extends BrowserSurface {
     @Override void stopLoading() { if(!needsRecreation()) session.stop(); }
     @Override boolean canGoBack() { return !needsRecreation() && back; }
     @Override void goBack() { if(!needsRecreation()) session.goBack(); }
-    @Override void onResume() { if(!needsRecreation()) session.setActive(true); }
-    @Override void onPause() { if(!needsRecreation()) session.setActive(false); }
+    @Override void onResume() {
+        if(needsRecreation()) return;
+        session.setPriorityHint(GeckoSession.PRIORITY_HIGH);
+        session.setActive(true); session.setFocused(true);
+    }
+    // Keep the single page active in the background; only foreground owns input focus.
+    @Override void onPause() { if(!needsRecreation()) session.setFocused(false); }
     @Override void destroy() {
         choicePrompts.dismiss();
         closed=true; if(pagePort!=null) pagePort.disconnect();

@@ -52,6 +52,9 @@ app.whenReady().then(async () => {
         await run("Array.from(document.querySelectorAll('.variable-tree-row')).find(e=>e.textContent.includes('合成变量 1')).click()"); await edit();
         await checkDocument('Variable document');
         check(await run("document.querySelectorAll('.vv-long-input .cm-editor').length===2"),'Variable writing boards');
+        await run("document.querySelector('.mobile-editor-document').scrollTop=100000");
+        const variableBottom = await run("(()=>{const root=document.querySelector('.mobile-editor-document'),board=root.querySelector('.vv-properties'),last=root.querySelector('.is-rule .vv-long-input');return {gap:root.getBoundingClientRect().bottom-last.getBoundingClientRect().bottom,padding:parseFloat(getComputedStyle(root).paddingBottom),overflow:last.getBoundingClientRect().bottom-board.getBoundingClientRect().bottom}})()");
+        check(variableBottom.gap>=variableBottom.padding-.5&&variableBottom.overflow<=.5,'Variable bottom spacing: '+JSON.stringify(variableBottom));
         await back();
         await category('开场白',true); await wait("!!document.querySelector('.opening-list-main')",'Openings');
         await click('.opening-list-main'); await edit(); await checkDocument('Opening document');

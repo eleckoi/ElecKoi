@@ -46,7 +46,7 @@
         "id": "eleckoi.shell.window",
         "kind": "ui-slot",
         "title": "窗口呈现",
-        "description": "按运行平台装配窗口页面，保留共享 Client 业务服务和导航合同。",
+        "description": "按运行平台呈现产品页面；owner.nativeFrame 保留官方布局根、控制器及原有插槽。",
         "mode": "replace",
         "scope": "root",
         "relation": "provides"
@@ -55,7 +55,7 @@
         "id": "layout",
         "kind": "service",
         "title": "桌面布局服务",
-        "description": "切换主面板并控制桌面导航和侧栏。",
+        "description": "通过同版本官方 LayoutController 切换主面板、导航及侧栏，不提供平行布局服务。",
         "mode": "call",
         "scope": "client",
         "relation": "provides",
@@ -131,6 +131,15 @@
         "title": "右侧面板",
         "description": "提供桌面右侧面板。",
         "mode": "replace",
+        "scope": "root",
+        "relation": "provides"
+      },
+      {
+        "id": "shell.bottom",
+        "kind": "ui-slot",
+        "title": "窗口底部区域",
+        "description": "由官方 AppFrame 承载窗口底部内容，保留原始插槽作用域和生命周期。",
+        "mode": "append",
         "scope": "root",
         "relation": "provides"
       },

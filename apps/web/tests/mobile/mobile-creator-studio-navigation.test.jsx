@@ -42,7 +42,7 @@ describe('Android AI creator studio navigation', () => {
     expect(f.node.querySelector('.creator-studio-sidebar')).toBeNull();
     const props = f.view.renderCreatorStudioConversation.mock.calls.at(-1)[0].props;
     await act(async () => props.onSelectCharacter());
-    expect(f.node.querySelector('.creator-studio-character-picker')).toBeTruthy();
+    expect(document.querySelector('.creator-studio-character-picker')).toBeTruthy();
   });
   it('keeps history after Back and creation in the input menu instead of the header', async () => {
     const f = await mount();
@@ -63,6 +63,6 @@ describe('Android AI creator studio navigation', () => {
     expect(f.model.create).toHaveBeenCalledWith('');
     const props = f.view.renderCreatorStudioConversation.mock.calls.at(-1)[0].props;
     await act(async () => props.onSelectCharacter());
-    expect([...f.node.querySelectorAll('.creator-studio-character-picker button')].find(button => button.textContent === '不选择角色').getAttribute('aria-pressed')).toBe('true');
+    expect([...document.querySelectorAll('.creator-studio-character-picker button')].find(button => button.textContent === '不选择角色').getAttribute('aria-pressed')).toBe('true');
   });
 });

@@ -10,6 +10,8 @@ app.disableHardwareAcceleration();
 app.whenReady().then(async () => {
   const win = new BrowserWindow({ width: 1400, height: 600, show: false,
     webPreferences: { backgroundThrottling: false, sandbox: true, offscreen: true } });
+  const errors = [];
+  win.webContents.on('console-message', event => { if (event.level === 'error') errors.push(event.message); });
   const evaluate = script => win.webContents.executeJavaScript(script);
   const frames = () => evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   const waitFor = async expression => {
@@ -17,30 +19,30 @@ app.whenReady().then(async () => {
       if (await evaluate(expression)) return;
       await new Promise(resolve => setTimeout(resolve, 20));
     }
-    throw new Error('Motion fixture did not reach: ' + expression);
+    throw new Error('Motion fixture did not reach: ' + expression + '; ' + errors.join('\n'));
   };
   const measure = () => evaluate(`(() => {
-    const shell = document.querySelector('.main-window-shell'), style = getComputedStyle(shell);
+    const shell = document.querySelector('.official-native-frame > div'), style = getComputedStyle(shell);
     const panel = document.querySelector('.side-panel-shell');
     const animations = shell.getAnimations().map(animation => ({
       property: animation.transitionProperty, duration: animation.effect.getComputedTiming().duration }));
     return { width: panel.getBoundingClientRect().width,
       contentWidth: document.querySelector('.side-panel-content').getBoundingClientRect().width,
-      animating: shell.hasAttribute('data-columns-animating'), animations,
+      animating: shell.hasAttribute('data-animating'), animations,
       property: style.transitionProperty, duration: style.transitionDuration, curve: style.transitionTimingFunction,
-      rightbarWidth: document.querySelector('.dsh-rightbar-column').getBoundingClientRect().width };
+      rightbarWidth: document.querySelector('[data-rightbar-col]').getBoundingClientRect().width };
   })()`);
   const seek = async time => {
-    await waitFor('document.querySelector(".main-window-shell").getAnimations().some(animation => animation.transitionProperty === "grid-template-columns")');
-    await evaluate(`for (const animation of document.querySelector('.main-window-shell').getAnimations()) {
+    await waitFor('document.querySelector(".official-native-frame > div").getAnimations().some(animation => animation.transitionProperty === "grid-template-columns")');
+    await evaluate(`for (const animation of document.querySelector('.official-native-frame > div').getAnimations()) {
       animation.pause(); animation.currentTime = ${time};
     }`);
     await frames();
     return measure();
   };
   const finish = async () => {
-    await evaluate('document.querySelector(".main-window-shell").getAnimations().forEach(animation => animation.finish())');
-    await waitFor('!document.querySelector(".main-window-shell").hasAttribute("data-columns-animating")');
+    await evaluate('document.querySelector(".official-native-frame > div").getAnimations().forEach(animation => animation.finish())');
+    await waitFor('!document.querySelector(".official-native-frame > div").hasAttribute("data-animating")');
     return measure();
   };
   try {
@@ -85,26 +87,28 @@ app.whenReady().then(async () => {
     await finish();
     await evaluate('document.querySelector(".side-panel-expand-button").click()');
     report.beforeDrag = await seek(220);
-    await evaluate('window.captionMotion.startSidePanelResize()');
+    const handle = await evaluate("(()=>{const r=document.querySelector('[data-side=sidebar]').getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)}})()");
+    win.webContents.sendInputEvent({type:'mouseMove',...handle});
+    win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,...handle});
     await frames();
     report.dragStart = await measure();
-    await evaluate('window.captionMotion.resizeSidePanel(20)');
+    win.webContents.sendInputEvent({type:'mouseMove',x:handle.x+20,y:handle.y});
     await frames();
     report.dragMoved = await measure();
-    await evaluate('window.captionMotion.endSidePanelResize()');
-    await waitFor('!document.querySelector(".main-window-shell").hasAttribute("data-columns-animating")');
+    win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,x:handle.x+20,y:handle.y});
+    await waitFor('!document.querySelector(".official-native-frame > div").hasAttribute("data-animating")');
     await evaluate('window.captionMotion.setRightbarTrack(true)');
     report.rightbarMid = await seek(150);
     report.rightbarOpen = await finish();
     await evaluate('window.captionMotion.setInstant(true); window.captionMotion.setRightbarTrack(false)');
     await frames();
     report.instant = await measure();
-    await waitFor('!document.querySelector(".main-window-shell").hasAttribute("data-columns-animating")');
+    await waitFor('!document.querySelector(".official-native-frame > div").hasAttribute("data-animating")');
     await win.webContents.debugger.sendCommand('Emulation.setEmulatedMedia', { features: [{name:'prefers-reduced-motion',value:'reduce'}] });
     await evaluate('window.captionMotion.setInstant(false); document.querySelector(".side-panel-collapse-button").click()');
     await frames();
     report.reduced = await measure();
-    await waitFor('!document.querySelector(".main-window-shell").hasAttribute("data-columns-animating")');
+    await waitFor('!document.querySelector(".official-native-frame > div").hasAttribute("data-animating")');
     writeFileSync(reportPath, JSON.stringify(report, null, 2));
     win.destroy(); app.exit(0);
   } catch (error) { console.error(error); win.destroy(); app.exit(1); }

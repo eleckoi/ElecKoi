@@ -1,8 +1,8 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { SystemBarOverlay } from '../../../ui/ui/SystemBarOverlay.jsx';
-import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { CaretLeft, Plus, CaretRight, MinusCircle, X } from '../../../ui/icons/interfaceIcons.jsx';
+import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../../../ui/styles/product-dialogs.css';
+import { useMemo, useState } from 'react';
+import { CaretLeft, Plus, CaretRight, MinusCircle } from '../../../ui/icons/interfaceIcons.jsx';
 import { normalizeRoleplayPlanDraft } from '@shared/contracts/presets/roleplayPlan';
 import { AgentToolGroupIcon } from '../../../ui/icons/index.jsx';
 import { RoleplayPlanEditor, SubagentSettingsLink, WebSearchSettings, pluginToolSections } from '../../agentTools/index.js';
@@ -32,15 +32,18 @@ export function PresetToolsEditor({
   const [pluginId, setPluginId] = useState('');
   const [managerOpen, setManagerOpen] = useState(false);
   const context = usePresetContextMenu();
-  const selectedGroups = useMemo(() => preset.toolGroups.filter((group) => group.included), [preset.toolGroups]);
+  const basicGroups = preset.basicToolGroups || [];
+  const visibleGroups = useMemo(() => preset.toolGroups.filter(group => preset.purpose !== 'creator'
+    || !['builtin:variables', 'builtin:roleplay-workflow', 'builtin:setting-library'].includes(group.id)), [preset.toolGroups, preset.purpose]);
+  const selectedGroups = useMemo(() => visibleGroups.filter((group) => group.included), [visibleGroups]);
   const extraGroups = useMemo(() => {
     const names = new Set(selectedGroups.flatMap(group => group.members.map(member => member.name)));
     return (preset.extraToolGroups || []).filter(group => !group.members.some(member => names.has(member.name)));
   }, [preset.extraToolGroups, selectedGroups]);
-  const sections = useMemo(() => pluginToolSections(preset.toolGroups, extraGroups), [preset.toolGroups, extraGroups]);
+  const sections = useMemo(() => pluginToolSections(visibleGroups, extraGroups), [visibleGroups, extraGroups]);
   const plugin = [...sections.preset, ...sections.extra].find(group => group.id === pluginId && group.isPlugin);
   const toolSources = [
-    { id: 'built_in', name: tUi("内置工具"), tools: preset.toolGroups.filter(group => group.source === 'built_in') },
+    { id: 'built_in', name: tUi("内置工具"), tools: [...basicGroups.map(group => ({ ...group, readOnly: true })), ...visibleGroups.filter(group => group.source === 'built_in')] },
     ...preset.toolGroups.filter(group => group.source === 'mcp').map(group => ({ id: group.id, name: group.name, tools: [group] })),
     ...[...sections.preset, ...sections.extra].filter(group => group.isPlugin),
   ].filter(source => source.tools.length);
@@ -80,8 +83,8 @@ export function PresetToolsEditor({
   }
 
   const menuGroup = context.menu?.target;
-  const configGroup = selectedGroups.find((group) => group.id === configGroupId) || extraGroups.find(group => group.id === configGroupId);
-  const configIsExtra = extraGroups.some(group => group.id === configGroupId);
+  const configGroup = basicGroups.find(group => group.id === configGroupId) || selectedGroups.find((group) => group.id === configGroupId) || extraGroups.find(group => group.id === configGroupId);
+  const configIsExtra = basicGroups.some(group => group.id === configGroupId) || extraGroups.some(group => group.id === configGroupId);
 
   function removeGroup(group) {
     applyMembership([{ tool: group, included: false }]);
@@ -117,7 +120,7 @@ export function PresetToolsEditor({
   const workspaceProps = workspace && !compact ? {
     label: tUi('工具'), query, onQueryChange: setQuery,
     directoryHeading: <h1 className="preset-prompt-directory-title">{tUi('工具')}</h1>,
-    directoryActions: <><Button data-dsh-control variant="outline" className="setting-create" icon={<Plus size={16} />} aria-label={tUi('管理预设工具')} disabled={savePromptOpen} onClick={() => { setPluginId(''); setManagerOpen(true); }}>{tUi('添加工具')}</Button>{saveAction}</>,
+    directoryActions: <><Button data-dsh-control variant="primary" className="setting-create" icon={<Plus size={16} />} aria-label={tUi('管理预设工具')} disabled={savePromptOpen} onClick={() => { setPluginId(''); setManagerOpen(true); }}>{tUi('添加工具')}</Button>{saveAction}</>,
     inspector: configuration || pluginConfiguration,
   } : {};
   return (
@@ -126,19 +129,20 @@ export function PresetToolsEditor({
         onManage={() => { setPluginId(''); setManagerOpen(true); }} manageLabel={tUi("管理预设工具")} disabled={savePromptOpen} save={saveAction} />}
 
       <div className="preset-tools-list" tabIndex={0} aria-label={tUi("当前预设工具列表")} onContextMenu={(event) => { setManagerOpen(false); context.open(event); }}>
-        {[{ id: 'preset', label: tUi("预设工具"), groups: sections.preset.filter(matches) }, { id: 'extra', label: tUi("额外工具"), groups: sections.extra.filter(matches) }].map(section => {
+        {[{ id: 'basic', label: tUi("基础工具"), groups: basicGroups.filter(matches) }, { id: 'preset', label: tUi("预设工具"), groups: sections.preset.filter(matches) }, { id: 'extra', label: tUi("额外工具"), groups: sections.extra.filter(matches) }].map(section => {
           const extra = section.id === 'extra';
+          const basic = section.id === 'basic';
           const groups = section.groups;
           return groups.length ? <div className="preset-tools-source" key={section.id}>
             <div className="preset-tools-section-heading"><strong>{section.label}</strong></div>
-            {groups.map((group) => <section className={`preset-tool-row${group.isPlugin ? ' is-plugin' : ''}${extra ? ' is-extra' : ''}${group.enabled ? '' : ' is-disabled'}${configGroupId === group.id || pluginId === group.id ? ' is-selected' : ''}`} key={group.id} onContextMenu={(event) => { setManagerOpen(false); if (!group.isPlugin) context.open(event, group); else event.preventDefault(); }}>
+            {groups.map((group) => <section className={`preset-tool-row${group.isPlugin ? ' is-plugin' : ''}${extra || basic ? ' is-extra' : ''}${group.enabled ? '' : ' is-disabled'}${configGroupId === group.id || pluginId === group.id ? ' is-selected' : ''}`} key={group.id} onContextMenu={(event) => { setManagerOpen(false); if (!group.isPlugin && !basic) context.open(event, group); else event.preventDefault(); }}>
               <button type="button" className="preset-tool-summary" aria-haspopup={workspace && !compact ? undefined : 'dialog'} aria-current={configGroupId === group.id || pluginId === group.id ? 'true' : undefined} onClick={() => { setManagerOpen(false); closeConfig(); if (group.isPlugin) setPluginId(group.id); else { setPluginId(''); setConfigGroupId(group.id); } }}>
                 <span className="preset-tool-icon"><AgentToolGroupIcon groupId={group.id} size={17} /></span>
                 <span><strong>{group.name}</strong><small>{group.available === false ? tUi("缺少插件或工具未加载") : group.description}</small></span>
                 <span className="preset-tool-count" title={group.isPlugin ? tUi("{value0} 项已加入预设，共 {value1} 个工具", {value0: group.includedCount, value1: group.tools.length}) : undefined}>{group.isPlugin && group.included ? `${group.includedCount}/${group.tools.length}` : group.members.length}</span>
                 <CaretRight size={15} aria-hidden="true" />
               </button>
-              {group.isPlugin ? null : <button
+              {basic ? <span className="preset-tool-basic-state">{tUi('默认启用')}</span> : group.isPlugin ? null : <button
                 type="button"
                 className="preset-tool-toggle"
                 role="switch"
@@ -149,10 +153,10 @@ export function PresetToolsEditor({
             </section>)}
           </div> : null;
         })}
-        {!sections.preset.some(matches) && !sections.extra.some(matches) ? <p className="setting-library-empty">{query ? tUi("没有匹配的工具") : tUi("还没有添加工具")}</p> : null}
+        {!basicGroups.some(matches) && !sections.preset.some(matches) && !sections.extra.some(matches) ? <p className="setting-library-empty">{query ? tUi("没有匹配的工具") : tUi("还没有添加工具")}</p> : null}
       </div>
 
-      {managerOpen ? <PresetToolManagerDialog sources={toolSources} includedIds={new Set(selectedGroups.map(group => group.id))} compact={compact} closeBlocked={savePromptOpen}
+      {managerOpen ? <PresetToolManagerDialog sources={toolSources} includedIds={new Set([...basicGroups, ...selectedGroups].map(group => group.id))} compact={compact} closeBlocked={savePromptOpen}
         onClose={() => setManagerOpen(false)} onMembershipChange={(tool, included) => applyMembership([{ tool, included }])} /> : null}
 
       {!(workspace && !compact) && pluginConfiguration}
@@ -181,14 +185,7 @@ function PresetToolConfigDialog({
   onRoleplayPlanChange,
 }) {
   const tUi = useProductTranslation();
-  useEffect(() => {
-    if (compact || inline) return undefined;
-    function closeOnEscape(event) {
-      if (!event.defaultPrevented && event.key === 'Escape' && !closeBlocked) onClose();
-    }
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [compact, inline, closeBlocked, onClose]);
+
 
   const body = <div className="preset-tool-config-body">
     {!extra && <section className="preset-tool-config-card preset-tool-config-switch-row">
@@ -234,14 +231,6 @@ function PresetToolConfigDialog({
   </div>;
   if (inline) return <section className="preset-tool-config-inline"><header className="preset-document-heading"><button type="button" aria-label={tUi('返回工具列表')} onClick={onClose}><CaretLeft size={18} /></button><AgentToolGroupIcon groupId={group.id} size={21} /><h1>{group.name}</h1></header>{body}</section>;
   if (compact) return <MobileConversationOverlay title={extra ? group.name : tUi("{value0}配置", {value0: group.name})} kind="page" className="mobile-preset-tool-config" busy={closeBlocked} onClose={onClose}>{body}</MobileConversationOverlay>;
-  return createPortal(<SystemBarOverlay className="preset-tool-config-backdrop" role="presentation" onMouseDown={onClose}>
-    <section className="preset-tool-config-dialog" role="dialog" aria-modal="true" aria-label={tUi("{value0}配置", {value0: group.name})} onMouseDown={(event) => event.stopPropagation()}>
-      <header>
-        <span className="preset-tool-config-title-icon"><AgentToolGroupIcon groupId={group.id} size={18} /></span>
-        <h2>{group.name}</h2>
-        <button type="button" aria-label={tUi("关闭")} onClick={onClose}><X size={19} /></button>
-      </header>
-      {body}
-    </section>
-  </SystemBarOverlay>, document.body);
+  return <Modal open title={group.name} closeLabel={tUi('关闭')} onClose={() => { if (!closeBlocked) onClose(); }}
+    className="product-dialog preset-tools-modal" contentClassName="product-dialog-content">{body}</Modal>;
 }

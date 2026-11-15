@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { renderNativeConversationContent } from '../helpers/NativeConversationPresentation.jsx';
 import React, { act, createContext, useContext } from 'react';
 import { createRoot } from 'react-dom/client';
 import { readFileSync } from 'node:fs';
@@ -16,7 +17,7 @@ it('renders the supplied Session header action next to the roleplay title and ke
   const dshConversation = { activeView: 'chat', tabs: [{ id: 'chat', label: '对话' }], renderView: () => null,
     renderHeaderActions: () => <><span data-official-preset="">合成正式预设</span><button aria-label="合成子智能体入口" onClick={openChild}>1 个子智能体</button></> };
   try {
-    await act(async () => root.render(<ChatPanel hasActiveChat hasCharacters currentTitle="合成角色" conversationId="synthetic-parent"
+    await act(async () => root.render(<ChatPanel renderConversationContent={renderNativeConversationContent} hasActiveChat hasCharacters currentTitle="合成角色" conversationId="synthetic-parent"
       persona={{}} messages={[]} input="" modelConfigs={[]} scrollRef={{ current: null }} dshConversation={dshConversation}
       presetCatalog={{ refresh }} />));
     const action = node.querySelector('.chat-header-title-cluster [aria-label="合成子智能体入口"]');

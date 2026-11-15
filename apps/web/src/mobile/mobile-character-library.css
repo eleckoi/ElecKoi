@@ -14,9 +14,12 @@
 .mobile-character-library-sort-anchor { display: inline-flex; width: 22px; height: 22px; }
 .mobile-character-library-group-scrim { position: absolute; inset: 0; z-index: 4; background: rgb(0 0 0 / .32); border: 0; }
 .mobile-shell .mobile-character-library-group-scrim:disabled { opacity: 1; }
-.mobile-character-library-panel-reveal { position: absolute; top: 0; left: 0; right: 0; z-index: 5; display: grid; grid-template-rows: 0fr; max-height: min(620px, 100%); overflow: hidden; opacity: 0; pointer-events: none; transition: grid-template-rows 180ms cubic-bezier(.2,0,0,1), opacity 160ms ease; }
+.mobile-character-library-panel-reveal { position: absolute; top: 0; left: 0; right: 0; z-index: 5; display: grid; container-type: inline-size; grid-template-rows: 0fr; max-height: min(620px, 100%); overflow: hidden; opacity: 0; pointer-events: none; transition: grid-template-rows 180ms cubic-bezier(.2,0,0,1), opacity 160ms ease; }
 .mobile-character-library-panel-reveal.is-open { grid-template-rows: 1fr; opacity: 1; pointer-events: auto; transition-duration: 240ms, 180ms; }
-.mobile-character-library-group-panel { min-height: 0; max-height: 100%; overflow-y: auto; background: var(--mobile-content-bg); border-radius: 0 0 14px 14px; box-shadow: 0 6px 14px rgb(0 0 0 / .08); }
+/* Size content from the reveal, not its changing scrollport: the native bar
+   paints over the right padding without squeezing columns during the animation. */
+.mobile-character-library-group-panel { min-height: 0; max-height: 100%; overflow-y: auto; overflow-x: hidden; background: var(--mobile-content-bg); border-radius: 0 0 14px 14px; box-shadow: 0 6px 14px rgb(0 0 0 / .08); }
+.mobile-character-library-group-panel > :is(.mobile-character-library-panel-header, .mobile-character-library-group-grid) { width: 100cqw; box-sizing: border-box; }
 .mobile-character-library-panel-header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 10px; min-height: 58px; padding-left: 16px; padding-right: 3px; background: var(--mobile-content-bg); }
 .mobile-character-library-panel-header h2 { margin: 0; white-space: nowrap; color: var(--text); font-size: 18px; line-height: 26px; font-weight: 500; }
 .mobile-character-library-panel-header > span { white-space: nowrap; color: var(--muted); font-size: 12px; line-height: 18px; }
@@ -24,10 +27,10 @@
 .mobile-character-library-edit-mode::before { position: absolute; content: ''; z-index: -1; inset: 10px 0; background: var(--surface-raised); border-radius: 20px; }
 .mobile-character-library-group-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 12px; padding: 0 16px 20px; }
 .mobile-character-library-group-cell { position: relative; min-width: 0; }
-.mobile-character-library-group-chip { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 48px; padding: 8px 7px; color: var(--muted); background: var(--surface-raised); border: 1px solid transparent; border-radius: 7px; line-height: 20px; font-size: 14px; font-weight: 400; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.mobile-character-library-group-chip { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 48px; padding: 8px 7px; line-height: 20px; font-size: 14px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.mobile-character-library-group-chip:not([data-dsh-control]) { color: var(--muted); background: var(--surface-raised); border: 1px solid transparent; border-radius: 7px; font-weight: 400; }
 .mobile-character-library-group-chip > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
-.mobile-character-library-group-chip[aria-pressed="true"] { color: var(--text); font-weight: 500; }
-.mobile-character-library-group-chip.mobile-character-library-new-group { border-color: var(--line-strong); background: transparent; color: var(--muted); }
+.mobile-character-library-group-chip[aria-pressed="true"]:not([data-dsh-control]) { color: var(--text); font-weight: 500; }
 .mobile-character-library-new-group svg { flex: none; }
 .is-editing .mobile-character-library-group-chip:not(.mobile-character-library-fixed, .mobile-character-library-new-group) { cursor: grab; touch-action: none; }
 .is-editing .mobile-character-library-fixed { color: var(--soft-text); }

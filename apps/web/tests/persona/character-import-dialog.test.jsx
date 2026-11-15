@@ -33,15 +33,15 @@ async function prepare(importable, files = [new File(['{}'], 'synthetic-card.jso
   }] }));
   await act(async () => root.render(<CharacterImportDialog onClose={vi.fn()}
     onImported={onImported} onPrepare={onPrepare} onDiscard={vi.fn(async () => {})} />));
-  await act(async () => [...container.querySelectorAll('button')]
+  await act(async () => [...document.querySelectorAll('button')]
     .find(button => button.textContent.includes('酒馆角色卡')).click());
-  const input = container.querySelector('input[type=file]');
+  const input = document.querySelector('input[type=file]');
   Object.defineProperty(input, 'files', { configurable: true,
     value: files });
   await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
   expect(onPrepare).toHaveBeenCalledWith('sillytavern', files.map(file => ({ displayName: file.name,
     mimeType: 'application/json', base64: 'e30=' })));
-  return { button: container.querySelector('footer .primary'), onImported };
+  return { button: document.querySelector('.product-dialog-actions button:last-child'), onImported };
 }
 
 describe('character import warnings', () => {
@@ -57,7 +57,7 @@ describe('character import warnings', () => {
 
   it('shows a conversion warning while allowing the valid card to import', async () => {
     const { button, onImported } = await prepare(true);
-    expect(container.querySelector('.character-import-warning').textContent)
+    expect(document.querySelector('.character-import-warning').textContent)
       .toBe('Variable rule could not be converted');
     expect(button.disabled).toBe(false);
     await act(async () => button.click());
@@ -67,7 +67,7 @@ describe('character import warnings', () => {
   it('still blocks a structurally invalid card', async () => {
     const { button, onImported } = await prepare(false);
     expect(button.disabled).toBe(true);
-    expect(container.textContent).toContain('Invalid card structure');
+    expect(document.body.textContent).toContain('Invalid card structure');
     expect(onImported).not.toHaveBeenCalled();
   });
 });

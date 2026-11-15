@@ -7,8 +7,22 @@
     maxBytes: 9007199254740991
     maxSourceBytes: 9007199254740991
 
-- id: uploaded-file-tools
-  name: __ELECKOI_UPLOADED_FILE_TOOLS_PLUGIN__
+- id: tool-fs
+  name: '@deepseek-ai/dsh-tool-fs'
+  config:
+    read: true
+    readImage: true
+    write: __ELECKOI_WORKSPACE_WRITES__
+    edit: __ELECKOI_WORKSPACE_WRITES__
+
+# ELECKOI:creator:BEGIN
+- id: roleplay-creator-tools
+  name: __ELECKOI_CREATOR_TOOLS_PLUGIN__
+  config:
+    presetId: __ELECKOI_PRODUCT_PRESET_ID__
+    creatorTools: true
+    roleplay: true
+# ELECKOI:creator:END
 
 # ELECKOI:variables:BEGIN
 - id: variable-tools
@@ -42,8 +56,6 @@
 - id: fs-observation-policy
   name: '@deepseek-ai/dsh-fs-observation-policy'
 
-- id: tool-fs
-  name: '@deepseek-ai/dsh-tool-fs'
 # ELECKOI:workspace:END
 
 # ELECKOI:collaboration:BEGIN
