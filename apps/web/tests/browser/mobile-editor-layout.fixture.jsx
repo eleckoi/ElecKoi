@@ -22,6 +22,7 @@ import '../../src/modules/variables/styles/variable-config.css';
 import '../../src/modules/presets/styles/preset-panel.css';
 import '../../src/modules/settingLibraries/styles/dynamic-settings.css';
 import '../../src/mobile/mobile.css';
+import '../../src/mobile/mobile-character-editor.css';
 import '../../src/mobile/mobile-preset-editor.css';
 
 const kinds = ['settings', 'variables', 'regex', 'scripts', 'merge', 'prompts', 'tools', 'branches'];

@@ -42,7 +42,8 @@ app.whenReady().then(async () => {
         alignment.group = await run(`(()=>{const row=[...document.querySelectorAll('.variable-tree-row')].find(r=>r.textContent.includes('新建变量组'));return {icon:row.querySelector('.variable-tree-icon').getBoundingClientRect().left,title:row.querySelector('.variable-tree-label').getBoundingClientRect().left}})()`);
         if (theme==='dark' && [390,1200].includes(width)) { await new Promise(resolve => setTimeout(resolve, 80)); writeFileSync(join(dirname(html),`variables-${width}.png`),(await win.webContents.capturePage()).toPNG()); }
       }
-      report.cases.push({ theme, width, kind, selection, shadow, alignment });
+      const rowLayout = compact ? await run(`(()=>{const row=document.querySelector(${JSON.stringify(kind==='variables'?'.variable-tree-row':'.setting-library-tree-row-content')}), icon=row.querySelector(${JSON.stringify(kind==='variables'?'.variable-tree-icon':'.setting-library-tree-entry-icon')}), label=row.querySelector(${JSON.stringify(kind==='variables'?'.variable-tree-label':'.setting-library-tree-label')});const r=row.getBoundingClientRect(),s=document.querySelector('.editor-collection-search').getBoundingClientRect();return {icon:icon.getBoundingClientRect().left-r.left,title:label.getBoundingClientRect().left-r.left,searchGap:r.top-s.bottom,height:r.height}})()`) : null;
+      report.cases.push({ theme, width, kind, selection, shadow, alignment, rowLayout });
     }
     report.passed = true;
   } catch(error) { report.failure = error.stack || String(error); report.passed = false; }

@@ -80,7 +80,7 @@ describe('variable sidebar integration', () => {
       await right('count'); expect(view.container.querySelector('.vv-properties')).toBe(inspector);
       const action = text => [...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent.trim() === text);
       await act(async () => action('删除').click());
-      await act(async () => document.querySelector('[role="alertdialog"] .is-destructive').click());
+      await act(async () => [...document.querySelectorAll('[role="dialog"] button')].find(button => button.textContent.trim() === '删除').click());
       expect(view.container.querySelector('.vv-properties')).toBe(inspector);
       expect(row('count')).toBeUndefined(); expect(row('状态组')).toBeTruthy();
     } finally { await view.dispose(); }

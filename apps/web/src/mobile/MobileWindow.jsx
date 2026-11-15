@@ -248,7 +248,7 @@ export function MobileWindow(props) {
   return <FailureReportContext.Provider value={reportProblem.available ? reportProblem.openReport : null}><MainPageContext.Provider value={view}>
     <main className="main-window-shell mobile-shell" data-mobile-route={effectiveRoute.kind} data-mobile-panel={selectedPanel} data-mobile-rightbar={rightbarState.shown} data-drawer-present={drawerState.shown}>
       <section ref={pageRef} className={`mobile-page-seat${selectedPanel === 'conversation' ? ' mobile-workspace-page' : ''}`} inert={searchOpen ? true : undefined} aria-hidden={searchOpen || undefined}>
-        <Suspense fallback={<p className="mobile-state" role="status">{tUi("正在加载…")}</p>}>{props.nativeFrame}</Suspense>
+        <Suspense fallback={isRootTab ? <MobileHeader title={localizeUiCopy(ROOT_TABS, tUi).find(([id]) => id === selectedPanel)?.[1]} /> : null}>{props.nativeFrame}</Suspense>
       </section>
       {isRootTab && <nav className="mobile-bottom-nav" aria-label={tUi("主导航")} inert={drawerState.shown || searchOpen ? true : undefined} aria-hidden={searchOpen || undefined} style={searchOpen ? { visibility: 'hidden' } : undefined}>
         {localizeUiCopy(ROOT_TABS, tUi).map(([id, label]) => <button key={id} type="button" aria-label={label} disabled={routeBusy} aria-current={selectedPanel === id ? 'page' : undefined} className={id === 'creatorStudio' ? 'mobile-create-tab' : ''} onClick={() => selectPanel(id)}>

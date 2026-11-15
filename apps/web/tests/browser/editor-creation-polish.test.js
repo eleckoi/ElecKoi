@@ -33,6 +33,10 @@ it('creates settings and variables without selecting their names, aligns root va
         expect(row.alignment.variable[field], detail).toBeCloseTo(row.alignment.fixed[field], 1);
         expect(row.alignment.group[field], detail).toBeCloseTo(row.alignment.fixed[field], 1);
       }
+      if (row.rowLayout && row.kind === 'variables') {
+        const reference = report.cases.find(item => item.kind === 'settings' && item.theme === row.theme && item.width === row.width).rowLayout;
+        for (const field of ['icon','title','searchGap','height']) expect(row.rowLayout[field], detail).toBeCloseTo(reference[field], 1);
+      }
     }
   } finally {
     const path = relative(tmpdir(), directory); if (!path || path.startsWith('..') || isAbsolute(path)) throw Error('Unexpected fixture cleanup path');

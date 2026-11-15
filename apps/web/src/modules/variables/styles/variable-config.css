@@ -106,7 +106,7 @@
   height: 34px;
   box-sizing: border-box;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   padding-right: 10px;
   color: var(--text);
   border: 1px solid transparent;
@@ -121,13 +121,17 @@
 .variable-tree-row.is-selected { background: var(--active); }
 .variable-tree-row.is-drop-target { background: color-mix(in srgb, var(--blue) 9%, var(--chat)); border-color: color-mix(in srgb, var(--blue) 58%, transparent); }
 .variable-tree-row.is-dragging { opacity: .46; }
-.variable-tree-icon { flex: 0 0 17px; color: color-mix(in srgb, var(--blue) 72%, var(--text)); }
+.variable-tree-icon { width: 16px; height: 20px; color: var(--muted); }
 .variable-tree-row.is-disabled .variable-tree-icon,
 .variable-tree-row.is-disabled .variable-tree-label { color: var(--soft-text); opacity: .46; }
 .variable-tree-row.is-nested { animation: variable-row-in 150ms ease-in-out; }
-.variable-tree-chevron { display: grid; width: 17px; flex: 0 0 17px; place-items: center; }
-.variable-tree-expander { display: grid; width: 17px; height: 28px; place-items: center; color: var(--soft-text); }
-.variable-tree-expander svg { transition: transform 150ms ease-in-out; }
+.variable-tree-leading { position: relative; display: grid; width: 16px; flex: 0 0 16px; place-items: center; }
+.variable-tree-expander { position: absolute; top: 50%; left: 0; transform: translateY(-50%); display: grid; width: 16px; height: 28px; padding: 0; border: 0; background: transparent; place-items: center; color: var(--soft-text); }
+.variable-tree-expander svg { visibility: hidden; transition: transform 150ms ease-in-out; }
+.variable-tree-row:hover .variable-tree-expander svg,
+.variable-tree-expander:focus-visible svg { visibility: visible; }
+.variable-tree-row:hover .variable-tree-leading:has(.variable-tree-expander) > .variable-tree-icon,
+.variable-tree-leading:has(.variable-tree-expander:focus-visible) > .variable-tree-icon { visibility: hidden; }
 .variable-tree-expander svg.is-expanded { transform: rotate(90deg); }
 .variable-tree-label { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .variable-tree-required { flex: 0 0 auto; padding: 2px 5px; color: var(--blue); background: color-mix(in srgb, var(--blue) 9%, transparent); border-radius: 5px; font-size: 10px; line-height: 1.25; }

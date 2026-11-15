@@ -6,6 +6,9 @@
   font-display: swap;
 }
 .mobile-shell {
+  /* Product headers occupy shell.leading's native 48px clearance. Android
+     system-bar insets are already consumed by the native browser container. */
+  --dsh-frame-top-clearance: 48px;
   --mobile-header-height: 60px;
   --mobile-nav-height: 64px;
   --mobile-content-bg: var(--rail);
@@ -66,6 +69,7 @@
 .mobile-workspace-controls > button { display: grid; place-items: center; width: 32px; height: 32px; min-height: 32px; flex: none; padding: 0; border: 0; background: transparent; color: var(--dsw-alias-label-primary); }
 .mobile-workspace-controls > button:active { background: var(--dsw-alias-interactive-bg-hover); border-radius: 8px; }
 .mobile-root-page, .mobile-conversation-page { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.mobile-root-page { background: var(--mobile-content-bg); }
 .mobile-header { position: relative; display: flex; align-items: center; flex: none; height: var(--mobile-header-height); padding: 0 9px 0 8px; background: var(--mobile-header-bg); }
 .mobile-header > button, .mobile-header-actions > button { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; flex: none; padding: 0; border: 0; background: transparent; }
 .mobile-header h1 { position: absolute; left: 112px; right: 113px; pointer-events: none; min-width: 0; margin: 0; font-size: 19px; line-height: 1.4; font-weight: 500; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

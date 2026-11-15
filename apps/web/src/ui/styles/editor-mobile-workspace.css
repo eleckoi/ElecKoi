@@ -108,6 +108,7 @@
 :is(.is-mobile-collection,.dynamic-settings-list-page.is-compact) .editor-collection-search input::placeholder { color:var(--muted); }
 .mobile-character-editor .editor-tree-toolbar.is-mobile-collection { padding-bottom:0; }
 .mobile-character-editor .editor-collection-browser :is(.setting-library-tree,.variable-tree) { padding:2px var(--editor-heading-inset-inline) 8px; }
+.mobile-character-editor .editor-collection-browser :is(.setting-library-tree,.variable-tree) [role="tree"] { padding:2px 0 6px; }
 .mobile-character-editor .editor-collection-browser .role-setting-library-container { width:100%; }
 .is-mobile-collection .editor-collection-feedback:empty { display: none; }
 :is(.mobile-character-editor,.mobile-preset-editor) .editor-page-list { container-type: inline-size; background: var(--chat); border-radius: 0; overflow: hidden; }
