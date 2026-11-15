@@ -13,11 +13,12 @@ it('enqueues the unchanged public frame module before required Client plugins st
   } })
   const table: any[] = []
   indexInjection!(table)
-  expect(table).toHaveLength(1)
-  expect(table[0]).toEqual({ kind: 'script', placement: 'head',
+  expect(table).toHaveLength(2)
+  expect(table[0]).toEqual({ kind: 'global', name: '__DSH_UI_WORKSPACE_CONFIG__', value: { autoSelectSession: false } })
+  expect(table[1]).toEqual({ kind: 'script', placement: 'head',
     text: readFileSync(require.resolve('@deepseek-ai/dsh-client-ui-layout/client'), 'utf8') })
   const pendingQueue: any[] = []
-  runInNewContext(table[0].text, { window: { __ModuleLoader__: { load: (entry: any) => pendingQueue.push(entry) } } })
+  runInNewContext(table[1].text, { window: { __ModuleLoader__: { load: (entry: any) => pendingQueue.push(entry) } } })
   expect(pendingQueue.map(entry => entry.id)).toEqual(['@deepseek-ai/dsh-client-ui-layout'])
   expect(pendingQueue[0].factory).toBeTypeOf('function')
 })

@@ -22,10 +22,10 @@ app.whenReady().then(async()=>{
     if(!await run('window.profileOpened'))throw Error('Profile click failed');
    }else{
     await wait(`!!document.querySelector('.history-item-delete')`);await run(`document.querySelector('.history-item-delete').click()`);
-    await wait(`!!document.querySelector('.history-confirm button.danger')`);await pause();
-    rows.push(await run(`(()=>{const e=document.querySelector('.history-confirm button.danger'),s=getComputedStyle(e);return {dark:${dark},drawer:false,color:s.color,background:s.backgroundColor}})()`));
+    await wait(`!!document.querySelector('[role="dialog"][aria-label="删除历史对话"] .product-dialog-actions button:last-child')`);await pause();
+    rows.push(await run(`(()=>{const e=document.querySelector('[role="dialog"][aria-label="删除历史对话"] .product-dialog-actions button:last-child'),s=getComputedStyle(e),r=e.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return {dark:${dark},drawer:false,color:s.color,background:s.backgroundColor,clickable:!!hit&&e.contains(hit),focused:!!document.activeElement.closest('[role="dialog"][aria-label="删除历史对话"]')}})()`));
     await win.webContents.capturePage();await pause();writeFileSync(dirname(report)+'/history-'+(dark?'dark':'light')+'.png',(await win.webContents.capturePage()).toPNG());
-    await run(`document.querySelector('.history-confirm button.danger').click()`);
+    await run(`document.querySelector('[role="dialog"][aria-label="删除历史对话"] .product-dialog-actions button:last-child').click()`);
     if(!await run('window.historyDeleted'))throw Error('History delete failed');
    }
    if(drawer){await win.webContents.capturePage();await pause();writeFileSync(dirname(report)+'/drawer-'+(dark?'dark':'light')+'.png',(await win.webContents.capturePage()).toPNG());}

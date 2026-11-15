@@ -20,7 +20,7 @@ it('keeps history confirmation text legible and the mobile account row free of a
   expect(result.errors).toEqual([]);expect(result.rows).toHaveLength(6);
   for(const row of result.rows){const detail=JSON.stringify(row);
    if(row.drawer){expect(row.image,detail).toBe('none');expect(row.shadow,detail).toBe('none');expect(row.background,detail).toBe('rgba(0, 0, 0, 0)');expect(row.border,detail).toBe('0px');expect(row.clickable,detail).toBe(true)}
-   else{const values=[luminance(row.color),luminance(row.background)].sort((a,b)=>b-a);expect((values[0]+.05)/(values[1]+.05),detail).toBeGreaterThanOrEqual(4.5)}
+   else{const values=[luminance(row.color),luminance(row.background)].sort((a,b)=>b-a);expect((values[0]+.05)/(values[1]+.05),detail).toBeGreaterThanOrEqual(4.5);expect(row.clickable,detail).toBe(true);expect(row.focused,detail).toBe(true)}
   }
  }finally{await rm(dir,{recursive:true,force:true,maxRetries:3})}
 },40000);

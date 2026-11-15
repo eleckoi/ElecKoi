@@ -12,6 +12,7 @@ export function apply(ctx) {
   // the required native Chat dependencies. Use the official index-injection
   // contract to enqueue the unchanged upstream factory ahead of that graph.
   ctx.on('webserver/index-inject', table => {
+    table.push({ kind: 'global', name: '__DSH_UI_WORKSPACE_CONFIG__', value: { autoSelectSession: false } });
     table.push({ kind: 'script', placement: 'head', text: frameModule });
   });
 }

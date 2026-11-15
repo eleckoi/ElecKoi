@@ -157,7 +157,7 @@ Windows 更新控制和 Electron HTTP 空闲超时采用同一锁定提交的官
 
 `session-snapshot.mjs` 在配置快照的读写边界剔除旧中转路径、设定基线和变量副本，避免模型配置刷新及子会话继承把旧大字段再次落盘。这是旧运行配置的单向字段清理，不读取旧运行正文、不修改产品数据库或 Session 日志；支持的升级来源全部不再携带这些字段后，按入口的 `RETIRE WHEN` 条件移除该清理。
 
-启动导航由 ElecKoi 的角色聊天和创作工作室负责。共用的 `dsh-client-ui-workspace` 锁定补丁只增加 `autoSelectSession` 可选配置；官方默认仍初始化／恢复，产品组合显式关闭自动选择，不删除原监听与归档清理。官方 `uiWorkspace` 服务、显式会话操作和引用释放保持。PC 与 Android 使用同一补丁，Android 归档直接携带该依赖，不再单独改写导航脚本；升级须分别回归默认与产品策略、归档清理、显式打开及卸载。
+启动导航由 ElecKoi 的角色聊天和创作工作室负责。共用的 `dsh-client-ui-workspace` 锁定补丁只增加 `autoSelectSession` 可选配置；官方默认仍初始化／恢复，产品组合通过官方 index-inject 的 `__DSH_UI_WORKSPACE_CONFIG__` 启动值显式关闭自动选择（Host 行配置不会传入浏览器插件），不删除原监听与归档清理。官方 `uiWorkspace` 服务、显式会话操作和引用释放保持。PC 与 Android 使用同一补丁，Android 归档直接携带该依赖，不再单独改写导航脚本；升级须分别回归默认与产品策略、归档清理、显式打开及卸载。
 
 PC 原左侧图标导航在所有页面及侧栏收起时始终保留。插件创造所在的官方 Workspace 会话只切换图标栏右侧的二级侧栏，新会话与工作区／会话浏览由官方组件提供，主导航列表、更多及设置不重复渲染到该侧栏。Host 继续停用默认 `ui-sidebar` 自动挂载；Web Client 加载其公开 `/client` 产物，由产品壳沿公开 `apply` 与 Slots 注册合同装配，在同一个 `sidebar` 所有者下持续渲染固定导航与当前二级侧栏，保留官方注入、语言与卸载生命周期，不重复声明同名子插槽。品牌和产品入口沿公开插槽与 Client 导航接入。Android 的产品主抽屉保留原布局，工作区顶栏列表开关单独打开官方工作区浏览；两种内容沿同一 sidebar 所有者装配，工作区复用 PC 的专用会话过滤。发送前置准备按角色聊天目录中的 `runtimeSessionId` 判断归属，不拦截其他 Workspace Session。官方创造模式的技能和模板保持原样，`@eleckoi/dsh-runtime` 通过独立的官方文件技能 provider 提供 `eleckoi-plugin-development` 及由正式插件文档生成的随包参考，具体见 [从创建插件开始](plugins/create-plugin.md)。
 

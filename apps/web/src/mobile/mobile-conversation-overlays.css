@@ -1,5 +1,6 @@
-.mobile-conversation-overlay { position: fixed; inset: 0; z-index: 1100; display: flex; justify-content: center; align-items: flex-end; background: transparent; color: var(--text); font: 15px/1.5 'ElecKoi Mobile Rounded', sans-serif; -webkit-tap-highlight-color: transparent; }
-.mobile-conversation-overlay.is-elevated { z-index: 1150; }
+/* Sheets stay below the official Modal's 1000 layer, including nested confirmations. */
+.mobile-conversation-overlay { position: fixed; inset: 0; z-index: 900; display: flex; justify-content: center; align-items: flex-end; background: transparent; color: var(--text); font: 15px/1.5 'ElecKoi Mobile Rounded', sans-serif; -webkit-tap-highlight-color: transparent; }
+.mobile-conversation-overlay.is-elevated { z-index: 950; }
 .mobile-conversation-overlay *, .mobile-conversation-overlay *::before, .mobile-conversation-overlay *::after { box-sizing: border-box; }
 .mobile-conversation-overlay::before { content: ''; position: absolute; inset: 0; background: var(--modal-backdrop, rgb(0 0 0 / 18%)); animation: mobile-sheet-scrim-in 160ms linear; }
 .mobile-conversation-overlay.is-page::before { background: var(--rail); }

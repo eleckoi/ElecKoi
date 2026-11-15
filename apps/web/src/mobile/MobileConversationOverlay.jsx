@@ -1,6 +1,7 @@
 import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { useContext, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { isBehindModal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { X } from '@phosphor-icons/react';
 import { MainPageContext } from '../app/windows/MainPageContext.jsx';
 import { SystemBarOverlay } from '../ui/ui/SystemBarOverlay.jsx';
@@ -45,13 +46,13 @@ export function MobileConversationOverlay({
   useEffect(() => view?.registerBackHandler?.(() => actions.current.back()), [view?.registerBackHandler]);
   useLayoutEffect(() => {
     const previous = document.activeElement;
-    sheetRef.current?.focus({ preventScroll: true });
+    if (!isBehindModal(sheetRef.current)) sheetRef.current?.focus({ preventScroll: true });
     return () => {
       if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, []);
   useLayoutEffect(() => {
-    sheetRef.current?.focus({ preventScroll: true });
+    if (!isBehindModal(sheetRef.current)) sheetRef.current?.focus({ preventScroll: true });
   }, [Boolean(onBack), title]);
   useEffect(() => {
     function keys(event) {
