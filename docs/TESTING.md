@@ -1,5 +1,9 @@
 # 测试与日常验证
 
+`desktop-update-prompts.test.ts` 补下载进度隐藏后的安装确认：ready 到达隐藏操作收尾前后均须在下载 Promise 结束后打开原“安装并重启”，进度保持／重开均只确认一次；取消后不重弹，主窗隐藏时等 show，释放后不再出现，available 的原去重保持。测试仅用合成下载与模拟安装入口，不调用真实下载或退出安装。
+
+图片预览时序另由 `chat-stream-scroll.test.jsx` 在正式 ChatView、消息组件和官方 HistoricalImageCache 中覆盖“正式输入先发布、提交稍后退休”：两种布局均须一直保留预览、退休前零附件读取、退休后仅一次正式读取并接续同一图片节点；旧转接在正式输入到达阶段会丢图。`chat-message-reconciliation.test.js` 检查同一请求的预览可交接、其他请求及会话不能复用；Client 投影检查验证 admitted 仍持有提交预览，pendingSubmissions 退休后恢复正式附件引用。以上为共用 Web／Client 检查，不是 PC 或安卓的现场发送验收。
+
 2026-11-16 手机输入框挂载失败：`mobile-composer-enter.test.jsx` 增加仅有空根且保留选区的首次挂载／重新挂载场景，明确验证清除选区的快照为空、输入框仍存在、正文可更新及发送事件可达；手机另检查无 DOM 选区写入及不抢输入焦点。旧挂载交接在该场景抛出 Lexical #38，与 ADB 读取的真机 `composer.bar` 崩溃一致。修正沿公开选区更新接口完成挂载前交接，原文字／caret、PC 自动聚焦与加号菜单检查保留；连同 `mobile-native-command-menu.test.jsx` 两文件 24 项通过。现场记录与安装结果见 build/mobile-composer-missing-check，组件结果不代替真实输入法完整验收。
 
 发送图片的预览交接由 `generated-image-interactions.test.jsx` 沿锁定官方 HistoricalImageCache 检查：本地预览转正式引用、两种布局、等待期间连续重绘、canonical URL 接续、同一图片 DOM、正式尺寸、单次读取及失败／会话隔离。`dsh-client-conversations.test.ts` 同时检查同步预览按实际 Session 交给官方接口且不另发读取，`chat-image-layout.test.jsx` 保留原尺寸及多图布局断言。用户于本轮要求停止模拟，未继续 PC／手机画面模拟，不将组件回归当作真机验收。

@@ -12,6 +12,7 @@ export class DesktopUpdatePrompts {
   private locale: DesktopLocale
   private readonly dialogs: DesktopUpdateDialog
   private operation: Promise<void> | undefined
+  private transfer: Promise<unknown> | undefined
   private readonly announced = new Set<string>()
   private deferredOwner: BrowserWindow | undefined
   private deferredOpen: (() => void) | undefined
@@ -53,6 +54,12 @@ export class DesktopUpdatePrompts {
     if (this.disposed || !['available', 'ready'].includes(state.phase) || !state.version) return Promise.resolve()
     const key = `${state.phase}:${state.version}`
     if (this.announced.has(key)) return Promise.resolve()
+    // Readiness publishes before the download promise settles. Installation
+    // must wait for the coordinator to release that transfer operation.
+    if (state.phase === 'ready') {
+      if (this.transfer) return this.transfer.then(() => this.notify(updates))
+      if (this.operation) return this.operation.then(() => this.notify(updates))
+    }
     this.announced.add(key)
     if (this.operation) return Promise.resolve()
     return this.openWhenVisible(updates)
@@ -125,6 +132,22 @@ export class DesktopUpdatePrompts {
     })
   }
 
+  private startDownload(updates: UpdateService): Promise<unknown> {
+    const transfer = updates.download()
+    this.transfer = transfer
+    const settled = (): void => { if (this.transfer === transfer) this.transfer = undefined }
+    void transfer.then(settled, settled)
+    return transfer
+  }
+
+  private async installReady(updates: UpdateService): Promise<void> {
+    await this.transfer
+    if (this.disposed) return
+    const state = updates.nativeStatus()
+    if (state.phase === 'ready' && state.version) this.announced.add(`ready:${state.version}`)
+    await updates.install()
+  }
+
   private async present(updates: UpdateService, manual: boolean): Promise<void> {
     const parent = this.parent()
     if (!parent) return
@@ -148,13 +171,13 @@ export class DesktopUpdatePrompts {
         return
       }
       if (state.phase === 'ready' || state.phase === 'error' && state.failedOperation === 'install') {
-        await updates.install()
+        await this.installReady(updates)
         await this.failure(updates.nativeStatus())
         return
       }
       if (['downloading', 'verifying', 'installing'].includes(state.phase)) {
         if (await this.progress(updates)) {
-          if (updates.nativeStatus().phase === 'ready') await updates.install()
+          if (updates.nativeStatus().phase === 'ready') await this.installReady(updates)
           await this.failure(updates.nativeStatus())
         }
         return
@@ -169,14 +192,14 @@ export class DesktopUpdatePrompts {
       }
       controller.abort()
       // The service owns the transfer; dismissing its view never cancels or duplicates it.
-      const download = updates.download()
+      const download = this.startDownload(updates)
       await Promise.resolve()
       if (!await this.progress(updates)) return
       await download
       if (updates.nativeStatus().phase === 'ready') {
         // Match the official user-driven download: confirm only on a visible owner.
         if (!parent.isDestroyed() && !parent.isVisible()) { void this.openWhenVisible(updates); return }
-        if (!parent.isDestroyed()) await updates.install()
+        if (!parent.isDestroyed()) await this.installReady(updates)
       }
       await this.failure(updates.nativeStatus())
     } finally { controller.abort(); await progress }

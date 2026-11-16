@@ -88,6 +88,90 @@ it('keeps a user-authorized download running after its progress document is dism
   download.resolve({ phase: 'ready' })
 })
 
+it.each([false, true])('opens the installation confirmation after hiding progress, including its closing boundary: %s', async beforeDismissalSettles => {
+  const f = setup(), download = Promise.withResolvers<any>()
+  f.updates.download.mockImplementation(() => { f.set({ phase: 'downloading', version: '0.2.21' }); return download.promise })
+  f.updates.install.mockImplementation(async () => {
+    await prompts!.confirmInstall('0.2.21', false)
+    return { accepted: false }
+  })
+  const offer = prompts!.notify(f.service)
+  fixture.active.finish(0)
+  await vi.waitFor(() => expect(fixture.active.options.message).toContain('46%'))
+  fixture.active.finish(0)
+  if (!beforeDismissalSettles) await offer
+  f.set({ phase: 'ready', version: '0.2.21' })
+  const notification = prompts!.notify(f.service)
+  expect(f.updates.install).not.toHaveBeenCalled()
+  download.resolve({ phase: 'ready' })
+  await vi.waitFor(() => expect(fixture.active.options.buttons).toEqual(['安装并重启']))
+  expect(fixture.active.options.message).toContain('0.2.21')
+  expect(f.updates.download).toHaveBeenCalledOnce()
+  expect(f.updates.install).toHaveBeenCalledOnce()
+  fixture.active.finish(1)
+  await Promise.all([offer, notification])
+  await prompts!.notify(f.service)
+  expect(f.updates.install).toHaveBeenCalledOnce()
+  expect(fixture.active).toBeUndefined()
+})
+
+it.each([false, true])('keeps one confirmation when readiness arrives with progress visible or reopened: %s', async reopen => {
+  const f = setup(), download = Promise.withResolvers<any>()
+  f.updates.download.mockImplementation(() => { f.set({ phase: 'downloading', version: '0.2.21' }); return download.promise })
+  f.updates.install.mockImplementation(async () => {
+    await prompts!.confirmInstall('0.2.21', false)
+    return { accepted: false }
+  })
+  let offer = prompts!.notify(f.service)
+  fixture.active.finish(0)
+  await vi.waitFor(() => expect(fixture.active.options.message).toContain('46%'))
+  if (reopen) {
+    fixture.active.finish(0); await offer
+    offer = prompts!.open(f.service, 'zh', false)
+    expect(fixture.active.options.message).toContain('46%')
+  }
+  f.set({ phase: 'ready', version: '0.2.21' })
+  const notification = prompts!.notify(f.service)
+  expect(f.updates.install).not.toHaveBeenCalled()
+  download.resolve({ phase: 'ready' })
+  await vi.waitFor(() => expect(fixture.active.options.buttons).toEqual(['安装并重启']))
+  fixture.active.finish(1)
+  await Promise.all([offer, notification])
+  expect(f.updates.install).toHaveBeenCalledOnce()
+  expect(fixture.shown).toHaveLength(reopen ? 4 : 3)
+})
+
+it('does not show a second availability offer after a manual check is dismissed', async () => {
+  const f = setup()
+  const offer = prompts!.open(f.service, 'zh', false)
+  await prompts!.notify(f.service)
+  fixture.active.finish(1); await offer
+  await prompts!.notify(f.service)
+  expect(fixture.shown).toHaveLength(1)
+})
+
+it.each([false, true])('waits for a hidden window or disposal after the dismissed download completes: %s', async dispose => {
+  const f = setup(), download = Promise.withResolvers<any>()
+  f.updates.download.mockImplementation(() => { f.set({ phase: 'downloading', version: '0.2.21' }); return download.promise })
+  const offer = prompts!.notify(f.service)
+  fixture.active.finish(0)
+  await vi.waitFor(() => expect(fixture.active.options.message).toContain('46%'))
+  fixture.active.finish(0); await offer
+  f.parent.visible = false
+  f.set({ phase: 'ready', version: '0.2.21' })
+  const notification = prompts!.notify(f.service)
+  if (dispose) prompts!.dispose()
+  download.resolve({ phase: 'ready' })
+  await vi.waitFor(() => {
+    if (!dispose) expect(f.parent.listenerCount('show')).toBe(1)
+    expect(f.updates.install).not.toHaveBeenCalled()
+  })
+  f.parent.visible = true; f.parent.emit('show')
+  await notification
+  expect(f.updates.install).toHaveBeenCalledTimes(dispose ? 0 : 1)
+  expect(f.parent.listenerCount('show')).toBe(0)
+})
+
 it('dismisses a pending manual check without keeping the navigation open action locked', async () => {
   const f = setup('idle'), check = Promise.withResolvers<any>()
   f.updates.check.mockReturnValue(check.promise)

@@ -58,6 +58,11 @@ export function selectRoleplayChatSeat(messages, runtimeSessionId, node) {
   }
   // A formal Node can arrive before product metadata. Metadata must not gate
   // an admitted input's visibility; the official Seat retains its identity.
+  const attachments = inputAttachments(input.content);
+  const pending = index < 0 ? undefined : messages[index];
+  if (requestId && pending?.pending && pending.requestId === requestId && pending.inputImageAttachments?.length) {
+    attachments.inputImageAttachments = pending.inputImageAttachments;
+  }
   return {
     index: index < 0 ? messages.length : index,
     item: {
@@ -68,7 +73,7 @@ export function selectRoleplayChatSeat(messages, runtimeSessionId, node) {
       dshNodeKey: node.key, sessionEventSeq: input.seq, sequence: input.seq,
       role: 'user', pending: false, status: 'complete',
       content: input.content.filter(block => block.type === 'text').map(block => block.text).join(''),
-      created_at: new Date(input.time).toISOString(), ...inputAttachments(input.content),
+      created_at: new Date(input.time).toISOString(), ...attachments,
     },
   };
 }

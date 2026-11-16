@@ -4,6 +4,19 @@ import { selectRoleplayChatSeat } from '../../src/modules/chat/model/chatViewSea
 import { mapChatDetails } from '../../src/modules/chat/api/chatApi.js'
 
 describe('chat message reconciliation', () => {
+  it('keeps the exact submission preview when an official input precedes its metadata', () => {
+    const preview = { attachmentId: 'pending-request-one-0', dataUrl: 'blob:synthetic-preview', width: 640, height: 480 };
+    const pending = { id: 'pending-one', runtimeSessionId: 'session-one', requestId: 'request-one', role: 'user', pending: true,
+      inputImageAttachments: [preview] };
+    const admitted = { attachmentId: 'sha256:synthetic-image', mediaType: 'image/png', width: 640, height: 480 };
+    const node = { key: 'input-one', kind: 'user', data: { seq: 7, time: 1, source: { kind: 'user', rpcId: 'request-one' },
+      content: [{ type: 'image', attachment: admitted }, { type: 'text', text: 'Synthetic input' }] } };
+    expect(selectRoleplayChatSeat([pending], 'session-one', node).item.inputImageAttachments).toBe(pending.inputImageAttachments);
+    const settled = { ...pending, pending: false, sessionEventSeq: 7, inputImageAttachments: [admitted] };
+    expect(selectRoleplayChatSeat([settled], 'session-one', node).item.inputImageAttachments).toEqual([admitted]);
+    expect(selectRoleplayChatSeat([{ ...pending, requestId: 'another-request' }], 'session-one', node).item.inputImageAttachments).toEqual([admitted]);
+    expect(selectRoleplayChatSeat([pending], 'another-session', node).item.inputImageAttachments).toEqual([admitted]);
+  });
   it('preserves mapped and official seat objects when only another official message changes', () => {
     const message = { id: 'user', role: 'user', conversationId: 'chat', runtimeSessionId: 'session', sessionEventSeq: 7, content: 'Synthetic input' };
     const mapped = mapChatDetails({ conversation: { id: 'chat' }, messages: [message] }).messages;

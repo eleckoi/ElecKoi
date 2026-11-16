@@ -7,6 +7,7 @@ import { MessageList } from '../helpers/officialMarkdown.jsx'
 import { selectRoleplayChatSeat, selectRoleplayPendingInput } from '../../src/modules/chat/model/chatViewSeats.js'
 import { officialChatFixture } from '../../../../tests/helpers/officialTrajectory.js'
 import { interruptedTurnClosers } from '@deepseek-ai/dsh-session'
+import { HistoricalImageCache } from '@deepseek-ai/dsh-client-ui-conversation/src/client/conversation/historical-images.ts'
 import * as libraries from '@eleckoi/dsh-client-html-resources/browser-libraries'
 import { RichMessageRenderProvider } from '../../src/modules/authorFrontend/hooks/RichMessageRenderContext.jsx'
 import { decorateRichDisplayReplacement } from '../../../../packages/shared/src/foundation/richMessage'
@@ -354,6 +355,57 @@ describe('official ChatView with roleplay presentation', () => {
       await chat.render([], { session: { ...chat.fixture.state.session, pendingSubmissions: [] } })
       expect(chat.scroller.textContent.match(/合成输入/g)).toHaveLength(1)
     } finally { await chat.close() }
+  })
+
+  it.each(['roleplay', 'agent'])('keeps a submitted image through admission before preview retirement (%s)', async layoutMode => {
+    vi.stubGlobal('URL', Object.assign(class extends URL {}, {
+      createObjectURL: vi.fn(() => 'blob:synthetic-canonical'), revokeObjectURL: vi.fn(),
+    }))
+    const chat = mountChat()
+    chat.rowProps.layoutMode = layoutMode
+    const disposers = []
+    const ctx = { effect: run => { const dispose = run(); disposers.push(dispose); return dispose } }
+    let finishRead
+    const readAttachment = vi.fn(() => new Promise(resolve => { finishRead = resolve }))
+    const binding = { ctx, session: { readAttachment } }
+    const cache = new HistoricalImageCache(ctx, { binding: () => binding })
+    const previewUrl = 'data:image/png;base64,cHJldmlldw=='
+    const ref = { attachmentId: 'sha256:synthetic-image', mediaType: 'image/png', width: 640, height: 480 }
+    const pending = { requestId: 'request-image', placement: 'transcript', time: 1, text: 'Synthetic input', attachments: [
+      { type: 'image', value: { previewUrl, width: 640, height: 480 } },
+    ] }
+    const message = { id: 'pending-image', conversationId: 'chat-test', runtimeSessionId: 'session-render', requestId: pending.requestId,
+      role: 'user', pending: true, content: pending.text, inputImageAttachments: [
+        { attachmentId: 'pending-request-image-0', dataUrl: previewUrl, width: 640, height: 480 },
+      ] }
+    chat.rowProps.loadImage = Object.assign(vi.fn((_id, image) => cache.resolve('session-render', image)), {
+      peek: (_id, image) => cache.peek('session-render', image),
+    })
+    try {
+      const control = turnNode('control-image', 1)
+      await chat.render([message], { order: [control.key], nodes: new Map([[control.key, control]]),
+        session: { ...chat.fixture.state.session, running: true, pendingSubmissions: [pending] } })
+      expect(chat.scroller.querySelector('img')?.getAttribute('src')).toBe(previewUrl)
+      const input = userNode('input-image', 7, pending.requestId)
+      input.data.content = [{ type: 'image', attachment: ref }, { type: 'text', text: pending.text }]
+      // The official input wins its echo before the official retirement frame.
+      await chat.render([message], { order: [input.key, control.key], nodes: new Map([[input.key, input], [control.key, control]]) })
+      expect(chat.scroller.querySelector('img')?.getAttribute('src')).toBe(previewUrl)
+      expect(chat.rowProps.loadImage).not.toHaveBeenCalled()
+      expect(readAttachment).not.toHaveBeenCalled()
+      expect(cache.seed('session-render', ref, previewUrl)).toBe(true)
+      const admitted = { ...message, pending: false, sessionEventSeq: 7, inputImageAttachments: [ref] }
+      await chat.render([admitted], { session: { ...chat.fixture.state.session, pendingSubmissions: [] } })
+      const thumbnail = chat.scroller.querySelector('img')
+      expect(thumbnail?.getAttribute('src')).toBe(previewUrl)
+      expect(chat.scroller.querySelector('[aria-label$="加载中"]')).toBeNull()
+      expect(thumbnail.getAttribute('width')).toBe('640')
+      expect(thumbnail.getAttribute('height')).toBe('480')
+      await act(async () => finishRead({ ok: true, value: { attachment: ref, data: new Uint8Array([1]) } }))
+      expect(chat.scroller.querySelector('img')).toBe(thumbnail)
+      expect(thumbnail.getAttribute('src')).toBe(cache.peek('session-render', ref))
+      expect(readAttachment).toHaveBeenCalledOnce()
+    } finally { await chat.close(); for (const dispose of disposers.reverse()) dispose() }
   })
 
   it('keeps the same AI seat through streaming settlement and deletion followed by regeneration', async () => {

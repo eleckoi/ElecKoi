@@ -2017,7 +2017,8 @@ describe('DSH ElecKoi conversation client model', () => {
     await settle()
     expect(catalog.getDetailsSnapshot().details.messages[1].inputEventSeq).toBe(2)
     pendingSubmissions = [{
-      requestId: 'request-new', placement: 'transcript', time: 30, text: '你好', attachments: []
+      requestId: 'request-new', placement: 'transcript', time: 30, text: '你好',
+      attachments: [{ type: 'image', value: { previewUrl: 'blob:synthetic-submission', name: 'synthetic.png', width: 640, height: 480 } }]
     }]
     sessionListener()
     const optimistic = catalog.getDetailsSnapshot().details.messages
@@ -2027,8 +2028,9 @@ describe('DSH ElecKoi conversation client model', () => {
     })
     expect(optimistic.at(-1).nativeVariableStateJson).toBeUndefined()
     expect(optimistic.at(-1).variableSnapshotAvailable).toBe(false)
+    const admittedImage = { attachmentId: 'sha256:submitted-image', mediaType: 'image/png', name: 'synthetic.png', width: 640, height: 480 }
     const admittedUser = { kind: 'user', anchorSeq: 7, data: {
-      kind: 'user', seq: 7, time: 31, content: [{ type: 'text', text: '你好' }],
+      kind: 'user', seq: 7, time: 31, content: [{ type: 'image', attachment: admittedImage }, { type: 'text', text: '你好' }],
       source: { kind: 'user', rpcId: 'request-new' }
     } }
     targetSnapshot = { ...targetSnapshot,
@@ -2040,8 +2042,11 @@ describe('DSH ElecKoi conversation client model', () => {
     expect(admitted.at(-1)).toMatchObject({
       id: 'dsh-pending-request-new', requestId: 'request-new', sessionEventSeq: 7, status: 'complete'
     })
+    expect(admitted.at(-1).inputImageAttachments).toEqual(optimistic.at(-1).inputImageAttachments)
+    expect(admitted.at(-1).inputImageAttachments[0].dataUrl).toBe('blob:synthetic-submission')
     pendingSubmissions = []
     sessionListener()
+    expect(catalog.getDetailsSnapshot().details.messages.at(-1).inputImageAttachments).toEqual([admittedImage])
     expect(catalog.getDetailsSnapshot().details.messages
       .filter((message: any) => message.content === '你好')).toHaveLength(1)
     targetSnapshot = {

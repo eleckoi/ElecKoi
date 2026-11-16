@@ -409,6 +409,7 @@ window.__ModuleLoader__.load({
 
     function officialMessages(snapshot, details, runtimeSessionId, processByTurn = new Map(), pendingSubmissions = [], sessionRunning, inputLinks = [], abortedTurns = [], regeneratingInputTurn, illustrations = [], loadedEntries) {
       if (!snapshot) return (details?.messages || []).filter(message => message.id === 'opening')
+      const submissionsByRequest = new Map(pendingSubmissions.map(submission => [submission.requestId, submission]))
       const entries = loadedEntries || orderedChatEntries(snapshot)
       const nodes = entries.map(entry => entry.node)
       const assistantEntriesByTurn = new Map()
@@ -462,11 +463,16 @@ window.__ModuleLoader__.load({
         if (node.kind === 'user' || node.kind === 'steering') {
           const input = node.data
           const dshTurn = userTurns.get(node)
+          const requestId = input.source?.kind === 'user' ? input.source.rpcId || '' : ''
+          // An admitted node may publish before the official submission owner
+          // retires its preview. Keep that owner's image arm until retirement;
+          // reading the durable reference sooner can preempt cache adoption.
+          const previewImages = pendingSubmissionImages(submissionsByRequest.get(requestId))
           return [{
             role: 'user', seq: input.seq, time: input.time, content: contentText(input.content),
-            images: inputImages(input.content), files: inputFiles(input.content), dshMessageId: input.messageId || '',
+            images: previewImages.length ? previewImages : inputImages(input.content), files: inputFiles(input.content), dshMessageId: input.messageId || '',
             sessionEventSeq: input.seq,
-            requestId: input.source?.kind === 'user' ? input.source.rpcId || '' : '',
+            requestId,
             // `null` means this official input has not entered a DSH turn.
             dshTurn: dshTurn ?? null
           }]
