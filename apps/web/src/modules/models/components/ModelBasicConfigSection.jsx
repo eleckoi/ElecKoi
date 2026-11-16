@@ -1,4 +1,4 @@
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Checkbox } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useId, useRef, useState } from "react";
 import { Eye, EyeSlash } from "@phosphor-icons/react";
@@ -13,6 +13,7 @@ const API_FORMATS = [
 
 export function ModelBasicConfigSection({ editor, compact = false, renderModelPicker, renderManualModel }) {
   const tUi = useProductTranslation();
+  const modelActionVariant = compact ? 'ghost' : 'outline';
   const [showApiKey, setShowApiKey] = useState(false);
   const [savedApiKey, setSavedApiKey] = useState("");
   const [readingApiKey, setReadingApiKey] = useState(false);
@@ -90,7 +91,7 @@ export function ModelBasicConfigSection({ editor, compact = false, renderModelPi
     {!form.builtin && <small>{tUi("以小写字母开头的标识，在请求中唯一标识该提供商，并用于派生凭据名。")}</small>}
   </label>;
   const directoryToggle = !isImageProvider && form.builtin && !isDedicatedDeepSeek
-    ? <label className="model-directory-toggle"><input type="checkbox" checked={form.useBuiltinModels !== false} onChange={event => updateField("useBuiltinModels", event.target.checked)} />{tUi("使用内置模型目录")}</label>
+    ? <Checkbox className="model-directory-toggle" checked={form.useBuiltinModels !== false} onChange={checked => updateField("useBuiltinModels", checked)} label={tUi("使用内置模型目录")} />
     : null;
   const connectionFields = <>{!isImageProvider ? <div className="model-form-single-row">
         <label>
@@ -180,7 +181,7 @@ export function ModelBasicConfigSection({ editor, compact = false, renderModelPi
         </div>
       </div>;
   const manualModelControl = <div className="model-manual-add-anchor" ref={compact ? manualModelRef : undefined}>
-              <Button data-dsh-control variant="primary"
+              <Button data-dsh-control variant={modelActionVariant}
                 className="model-add-button"
                 type="button"
                 aria-expanded={manualModelOpen}
@@ -212,13 +213,13 @@ export function ModelBasicConfigSection({ editor, compact = false, renderModelPi
               ) : null)}
             </div>;
   const modelActions = <>{manualModelControl}
-            <button className="model-fetch-button" type="button" onClick={fetchModels} disabled={loadingModels}>
+            <Button data-dsh-control variant={modelActionVariant} className="model-fetch-button" type="button" onClick={fetchModels} disabled={loadingModels}>
               <DownloadIcon /><span>{loadingModels ? tUi("读取中") : tUi("读取模型")}</span>
-            </button>
+            </Button>
           </>;
   if (compact) return <>
     <section className="mobile-model-section">
-      <div className="mobile-model-section-heading"><h3>{tUi("配置")}</h3><button className="model-icon-button danger" type="button" aria-label={tUi("删除配置")} onClick={onDelete}><TrashIcon /></button></div>
+      <div className="mobile-model-section-heading"><h3>{tUi("配置")}</h3><Button data-dsh-control variant="ghost" size="sm" className="mobile-model-delete-button" aria-label={tUi("删除配置")} onClick={onDelete}><TrashIcon /></Button></div>
       <div className="mobile-model-field-group mobile-model-configuration">{nameField}{providerIdField}</div>
     </section>
     <section className="mobile-model-section">

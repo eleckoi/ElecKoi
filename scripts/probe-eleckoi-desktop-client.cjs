@@ -187,7 +187,7 @@ async function main() {
     const headers = Object.fromEntries(Object.entries(details.requestHeaders).map(([key, value]) => [key.toLowerCase(), value]))
     callback({ requestHeaders: { ...headers, origin: new URL(ready.url).origin, cookie, 'sec-fetch-site': 'same-origin' } })
   })
-  window = new BrowserWindow({ show: false, width: 1440, height: 1000,
+  window = new BrowserWindow({ show: false, width: Number(process.env.ELECKOI_CLIENT_PROBE_WIDTH || 1440), height: 1000,
     webPreferences: { preload: resolve('apps/desktop/out/preload/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, offscreen: true, backgroundThrottling: false } })
   disposeNative = installProbeDesktopNative({ window, root, getReady: () => ({ ...ready, cookie }), host, overlays: updateOverlays })
   window.webContents.on('console-message', ({ level, message }) => {
@@ -805,10 +805,27 @@ async function main() {
     return
   }
   const checkRightbar = async label => {
+    const clickControl = async selector => {
+      const point = await window.webContents.executeJavaScript(`(() => {
+        const button = document.querySelector(${JSON.stringify(selector)}), box = button.getBoundingClientRect();
+        const x = box.x + box.width / 2, y = box.y + box.height / 2, hit = document.elementFromPoint(x, y);
+        return { x, y, top: box.top, hit: hit === button || button.contains(hit),
+          caption: document.querySelector('.official-native-frame') && document.documentElement.hasAttribute('data-windows-titlebar')
+            ? parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--window-caption-height')) || 40 : 0 };
+      })()`)
+      if (!point.hit || point.top < point.caption) throw new Error(`Right sidebar control is obscured: ${label}; ${JSON.stringify(point)}`)
+      const attached = window.webContents.debugger.isAttached()
+      if (!attached) window.webContents.debugger.attach('1.3')
+      try {
+        const { x, y } = point
+        await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 })
+        await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount: 1 })
+      } finally { if (!attached) window.webContents.debugger.detach() }
+    }
     await waitFor(`Boolean(document.querySelector('[data-sidebar-right-expand]'))`, 'Right sidebar expand control did not render: ' + label)
-    await window.webContents.executeJavaScript(`document.querySelector('[data-sidebar-right-expand]').click()`)
+    await clickControl('[data-sidebar-right-expand]')
     await waitFor(`Boolean(document.querySelector('[data-sidebar-right-panel][data-sidebar-right-open]'))`, 'Right sidebar did not open: ' + label)
-    await window.webContents.executeJavaScript(`document.querySelector('[data-sidebar-right-toggle]').click()`)
+    await clickControl('[data-sidebar-right-toggle]')
     await waitFor(`!document.querySelector('[data-sidebar-right-panel][data-sidebar-right-open]') && Boolean(document.querySelector('[data-sidebar-right-expand]'))`, 'Right sidebar did not close: ' + label)
     const failures = errors.filter(error => /Sidebar Session|Slot entry crashed in .rightbar/.test(error))
     if (failures.length) throw new Error('Right sidebar lifecycle failed: ' + failures.join('\n'))

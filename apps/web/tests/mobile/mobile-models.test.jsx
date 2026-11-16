@@ -144,6 +144,10 @@ describe('Android model library and configuration actions', () => {
     expect(container.querySelector('.model-directory-toggle input').checked).toBe(true);
     expect([...container.querySelectorAll('.model-input-capabilities input')].map(input => input.checked)).toEqual([true, true]);
     expect(container.querySelector('.model-input-capabilities').disabled).toBe(true);
+    await act(async () => container.querySelector('[role=switch][aria-label="使用目录默认"]').click());
+    expect(container.querySelector('.model-input-capabilities').disabled).toBe(false);
+    await act(async () => container.querySelector('[role=switch][aria-label="使用目录默认"]').click());
+    expect(container.querySelector('.model-input-capabilities').disabled).toBe(true);
     expect(button('保存').disabled).toBe(false);
     await act(async () => button('保存').click());
     expect(view.models.save).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: draft.id, builtin: true, useBuiltinModels: true,

@@ -41,6 +41,20 @@ function presetChanges() {
 }
 
 describe('DSH ElecKoi preset client model', () => {
+  it('sends group ordering with its purpose and adopts only a successful catalog response', async () => {
+    let registration: any, model: any
+    const next = { ...catalog('synthetic-preset'), groups:[{id:'group-b',purpose:'roleplay'},{id:'group-a',purpose:'roleplay'}] }
+    const reorderGroups = vi.fn(async () => ({ok:true,value:next}))
+    runInNewContext(source, {AbortController,window:{__ModuleLoader__:{load:(value:unknown)=>{registration=value}}}})
+    dshClientPlugin(registration).apply({remote:{eleckoiAgentPresets:{reorderGroups}},provide:(_name:string,value:unknown)=>{model=value},effect:()=>()=>{},on:()=>()=>{}})
+    await model.reorderGroups(['group-b','group-a'],'roleplay')
+    expect(reorderGroups).toHaveBeenCalledWith(['group-b','group-a'],'roleplay')
+    expect(model.getSnapshot().catalog.groups).toEqual(next.groups)
+    reorderGroups.mockRejectedValueOnce(new Error('Synthetic ordering failure'))
+    await expect(model.reorderGroups(['group-a','group-b'],'roleplay')).rejects.toThrow('Synthetic ordering failure')
+    expect(model.getSnapshot().catalog.groups).toEqual(next.groups)
+  })
+
   it('publishes the persisted create response before a delayed catalog refresh and reads only observed details on change', async () => {
     const pending: Array<(value: unknown) => void> = []
     let registration: any, model: any, cleanup = () => {}

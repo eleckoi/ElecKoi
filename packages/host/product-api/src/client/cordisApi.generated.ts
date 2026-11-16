@@ -929,6 +929,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '操作结果，字段见返回类型；异步失败会拒绝 Promise。',
       },
       {
+        signature: 'reorderGroups(groupIds: string[], purpose?: AgentPresetPurpose): Promise<AgentPresetCatalog>',
+        description: '保存同一用途内全部分组的显示顺序，保留预设归属。',
+        parameters: [{ name: 'groupIds', description: '该用途的全部分组编号，按显示顺序排列。' }, { name: 'purpose', description: '所属预设分类。' }],
+        returns: '更新后的预设目录；目录已变化时拒绝保存。',
+      },
+      {
         signature: 'assignGroup(presetId: string, groupId: string): Promise<AgentPresetCatalog>',
         description: '调整预设所属分组。',
         parameters: [{ name: 'presetId', description: '预设编号。' }, { name: 'groupId', description: '分组编号。' }],

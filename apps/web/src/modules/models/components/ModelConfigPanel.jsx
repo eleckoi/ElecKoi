@@ -306,15 +306,14 @@ export const ModelConfigPanel = forwardRef(function ModelConfigPanel({
   function addHeader() {
     const name = draftHeader.name.trim();
     if (!name) {
-      showNotice("error", tUi("请填写请求头名称"));
-      return;
+      return tUi("请填写请求头名称");
     }
     if (!/^[A-Za-z0-9!#$%&'*+._`|~^-]+$/.test(name)) {
-      showNotice("error", tUi("请求头名称包含无效字符"));
-      return;
+      return tUi("请求头名称包含无效字符");
     }
     updateField("custom_headers", { ...(formRef.current.custom_headers || {}), [name]: draftHeader.value });
     setDraftHeader({ name: "", value: "" });
+    return "";
   }
 
   function requestDraftReplacement(action) {

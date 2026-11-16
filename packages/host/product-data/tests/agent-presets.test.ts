@@ -1,9 +1,9 @@
 import { and, eq } from 'drizzle-orm'
-import { agentPresetContents, agentPresetVersionContents } from '../src/storage/sqlite/schema/common'
+import { agentPresetContents, agentPresetEntries, agentPresetVersionContents, agentPresets } from '../src/storage/sqlite/schema/common'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AgentPresetRepository } from '../src/domain/agentPresets'
 import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
 import { readPngText } from '@eleckoi/dsh-product-data/media'
@@ -41,6 +41,60 @@ function importDocument(value: unknown, displayName = 'preset.json') {
 }
 
 describe('agent preset repository', () => {
+  it('lists complete summaries without fetching prompt payloads or unrelated documents for every preset', () => {
+    const repository = harness()
+    const presets = Array.from({ length: 6 }, (_,index) => repository.create(`Summary ${index}`))
+    const database = databases[0]!
+    for (const [index,preset] of presets.entries()) {
+      const profile = { ...preset.profile, authorName: `Author ${index}`, usageInstructions: `Usage ${index}`,
+        timeline: [{ id: `timeline-${index}`, title: 'Update', note: 'Notes', dateLabel: '2026-11-16' }] }
+      repository.save({ ...preset, profile })
+      for (let n=0;n<=index;n++) database.db.insert(agentPresetEntries).values({presetId:preset.id,entryId:`entry-${n}`,sortIndex:n,
+        payloadJson:JSON.stringify({...emptyEntry(`entry-${n}`),content:'large prompt '.repeat(4096)})}).run()
+    }
+    const prepare = vi.spyOn(database.native,'prepare')
+    let catalog!: ReturnType<AgentPresetRepository['catalog']>
+    try {
+      catalog = repository.catalog()
+      const queries = prepare.mock.calls.map(([query]) => String(query))
+      expect(queries.length).toBeLessThanOrEqual(8)
+      expect(queries.filter(query => /select/i.test(query)).some(query => query.includes('payloadJson'))).toBe(false)
+      expect(queries.find(query => query.includes('agent_preset_contents'))).toMatch(/where/)
+    } finally { prepare.mockRestore() }
+    for (const [index,preset] of presets.entries()) expect(catalog!.presets.find(item => item.id===preset.id)).toMatchObject({
+      name:preset.name,activeVersionNumber:1,entryCount:preset.entries.length+index+1,profile:{authorName:`Author ${index}`,usageInstructions:`Usage ${index}`,
+        timeline:[{id:`timeline-${index}`,title:'Update',note:'Notes',dateLabel:'2026-11-16'}]}
+    })
+  })
+  it('updates only the built-in former default name and keeps user-renamed defaults', () => {
+    const repository = harness()
+    const id = repository.catalog().activePresetIds.roleplay
+    expect(repository.get(id).name).toBe('默认扮演预设')
+    databases[0]!.db.update(agentPresets).set({ name:'默认 Agent 预设' }).where(eq(agentPresets.id,id)).run()
+    expect(new AgentPresetRepository(databases[0]!).get(id).name).toBe('默认扮演预设')
+    databases[0]!.db.update(agentPresets).set({ name:'合成自定义名称' }).where(eq(agentPresets.id,id)).run()
+    expect(new AgentPresetRepository(databases[0]!).get(id).name).toBe('合成自定义名称')
+  })
+
+  it('persists group ordering within one purpose and rejects partial, duplicate or foreign IDs', () => {
+    const repository = harness()
+    repository.createGroup('合成分组甲', 'roleplay')
+    repository.createGroup('合成分组乙', 'roleplay')
+    const catalog = repository.createGroup('合成创作组', 'creator')
+    const roleIds = catalog.groups.filter(group => group.purpose === 'roleplay').map(group => group.id)
+    const creatorId = catalog.groups.find(group => group.purpose === 'creator')!.id
+    const preset = repository.create('合成预设', roleIds[0], 'roleplay')
+    repository.reorderGroups([...roleIds].reverse(), 'roleplay')
+    expect(repository.catalog().groups.filter(group => group.purpose === 'roleplay').map(group => group.id)).toEqual([...roleIds].reverse())
+    expect(repository.get(preset.id).libraryGroupId).toBe(roleIds[0])
+    expect(() => repository.reorderGroups([roleIds[0]!], 'roleplay')).toThrow('分组已在其他位置更新')
+    expect(() => repository.reorderGroups([roleIds[0]!, roleIds[0]!], 'roleplay')).toThrow('分组已在其他位置更新')
+    expect(() => repository.reorderGroups([roleIds[0]!, creatorId], 'roleplay')).toThrow('分组已在其他位置更新')
+    const reopened = new AgentPresetRepository(databases[0]!)
+    expect(reopened.catalog().groups.filter(group => group.purpose === 'roleplay').map(group => group.id)).toEqual([...roleIds].reverse())
+    expect(reopened.catalog().groups.find(group => group.id === creatorId)?.name).toBe('合成创作组')
+  })
+
   it('moves legacy illustration bindings out of tools in current data, versions and portable presets', () => {
     const repository = harness()
     const preset = repository.get(repository.catalog().activePresetIds.roleplay)
@@ -440,7 +494,7 @@ describe('agent preset repository', () => {
     ])
     expect(fromJson.preset.toolGroups.filter((group) => group.enabled).map((group) => group.id)).toEqual(['builtin:web'])
     expect(fromJson.preset.profile.authorAvatarPath).toMatch(/^eleckoi-media:\/\/asset\/v1\//)
-    expect(fromPng.preset.name).toBe('默认 Agent 预设 3')
+    expect(fromPng.preset.name).toBe('默认扮演预设 3')
     expect(fromPng.preset.profile.authorAvatarPath).toMatch(/^eleckoi-media:\/\/asset\/v1\//)
     const roundTrip = JSON.parse(Buffer.from(repository.export(fromPng.preset.id, 'json').base64, 'base64').toString('utf8'))
     expect(roundTrip.preset.active_version_number).toBe(2)

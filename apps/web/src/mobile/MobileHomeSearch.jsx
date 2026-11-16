@@ -1,5 +1,5 @@
 import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
-import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { X } from '@phosphor-icons/react';
 import { DshSearchField } from '../ui/ui/DshSearchField.jsx';
 import { Avatar } from '../ui/ui/Avatar.jsx';
@@ -13,12 +13,17 @@ import { useMobileBack } from './MobileChrome.jsx';
 import './mobile-search.css';
 import { bestEffort } from "../utils/swallowedFailure.js";
 
+const EMPTY_PRESETS = { status: 'ready', catalog: null, error: '' };
+const subscribeEmpty = () => () => {};
+const getEmptyPresets = () => EMPTY_PRESETS;
+
 export function MobileHomeSearch({ history, onCommit, onForget, onClear, onClose }) {
   const tUi = useProductTranslation();
   const view = useMainPageView();
   const { chat } = view;
   const models = useSyncExternalStore(view.models.subscribe, view.models.getSnapshot);
   const characters = useSyncExternalStore(view.characters.subscribe, view.characters.getSnapshot);
+  const presets = useSyncExternalStore(view.presets?.subscribe || subscribeEmpty, view.presets?.getSnapshot || getEmptyPresets);
   const [query, setQuery] = useState('');
   const [closing, setClosing] = useState(false);
   const pageRef = useRef(null);
@@ -33,6 +38,12 @@ export function MobileHomeSearch({ history, onCommit, onForget, onClear, onClose
     const provider = catalogItem(config.provider, tUi);
     return [config.name, config.model, config.base_url, provider.id, provider.label].join(' ').toLocaleLowerCase().includes(key);
   });
+  const presetResults = (presets.catalog?.presets || []).filter(preset =>
+    [preset.name, preset.profile?.authorName].join(' ').toLocaleLowerCase().includes(key));
+  useEffect(() => {
+    const current = view.presets?.getSnapshot();
+    if (current && (!current.catalog || current.status === 'error')) void view.presets.refresh().catch(bestEffort);
+  }, [view.presets]);
   useLayoutEffect(() => {
     const previous = document.activeElement;
     const page = pageRef.current;
@@ -69,7 +80,7 @@ export function MobileHomeSearch({ history, onCommit, onForget, onClear, onClose
     <div className="mobile-home-search-field" onKeyDown={event => {
       if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
       event.preventDefault(); if (queryKey) onCommit(queryKey); event.target.blur();
-    }}><DshSearchField value={query} onValueChange={setQuery} ariaLabel={tUi("会话、角色、模型")} placeholder={tUi("会话、角色、模型")} /></div>
+    }}><DshSearchField value={query} onValueChange={setQuery} ariaLabel={tUi("会话、角色、预设、模型")} placeholder={tUi("会话、角色、预设、模型")} /></div>
     <div className="mobile-home-search-scroll">
       {!key ? <><div className="mobile-search-section-heading"><h2>{tUi("最近搜索")}</h2>{history.length > 0 && <button type="button" aria-label={tUi("清空搜索记录")} onClick={onClear}><X size={18} /></button>}</div>
         {history.length ? <div className="mobile-search-history">{history.map(term => <div key={term}><button type="button" onClick={() => setQuery(term)}>{term}</button><button type="button" aria-label={tUi("删除搜索记录 {value0}", {value0: term})} onClick={() => onForget(term)}><X size={16} /></button></div>)}</div> : <p className="mobile-search-empty">{tUi("还没有搜索记录")}</p>}
@@ -88,9 +99,12 @@ export function MobileHomeSearch({ history, onCommit, onForget, onClear, onClose
         {models.error && <p role="alert">{models.error}</p>}
         {characters.status === 'loading' && <p role="status">{tUi("正在读取角色…")}</p>}
         {characters.error && <p role="alert">{characters.error}</p>}
+        {presets.error && <p role="alert">{presets.error}</p>}
+        {presetResults.length > 0 && <section aria-label={tUi("预设结果")}><h2>{tUi("预设")}<span>{presetResults.length}</span></h2>{presetResults.map(preset => <button type="button" className="mobile-search-result" key={preset.id} disabled={view.routeBusy} onClick={() => open(() => view.openSearchRoute({ panel: 'presets', kind: 'preset-editor', presetId: preset.id }))}>
+          <Avatar name={preset.profile?.authorName || preset.name} src={preset.profile?.authorAvatarPath} /><span><strong>{preset.name}</strong><small>{[preset.purpose === 'creator' ? tUi('创作') : tUi('扮演'), preset.profile?.authorName].filter(Boolean).join(' · ')}</small></span></button>)}</section>}
         {modelResults.length > 0 && <section aria-label={tUi("模型结果")}><h2>{tUi("模型 ")}<span>{modelResults.length}</span></h2>{modelResults.map(config => <button type="button" className="mobile-search-result" key={config.id} onClick={() => open(() => view.openSearchRoute({ panel: 'model', kind: 'model-editor', configId: config.id }))}>
           <MobileProviderLogo provider={catalogItem(config.provider, tUi)} /><span><strong>{config.name || config.model || tUi("未命名配置")}</strong><small>{[catalogItem(config.provider, tUi).label, config.model].filter(Boolean).join(' · ')}</small></span></button>)}</section>}
-        {!sessions.length && !characterResults.length && !modelResults.length && models.status === 'ready' && characters.status === 'ready' && <p className="mobile-search-empty">{tUi("没有匹配结果")}</p>}
+        {!sessions.length && !characterResults.length && !modelResults.length && !presetResults.length && models.status === 'ready' && characters.status === 'ready' && presets.status === 'ready' && <p className="mobile-search-empty">{tUi("没有匹配结果")}</p>}
       </>}
     </div>
   </section>;

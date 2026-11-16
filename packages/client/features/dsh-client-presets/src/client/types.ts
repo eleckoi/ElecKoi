@@ -86,6 +86,14 @@ export interface ElecKoiPresets {
    * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
    */
   renameGroup(groupId: string, name: string): Promise<AgentPresetCatalog>
+
+  /**
+   * 保存同一用途内全部分组的显示顺序，保留预设归属。
+   * @param groupIds - 该用途的全部分组编号，按显示顺序排列。
+   * @param purpose - 所属预设分类。
+   * @returns 更新后的预设目录；目录已变化时拒绝保存。
+   */
+  reorderGroups(groupIds: string[], purpose?: AgentPresetPurpose): Promise<AgentPresetCatalog>
   /**
    * 调整预设所属分组。
    * @param presetId - 预设编号。

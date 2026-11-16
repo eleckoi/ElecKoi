@@ -29,6 +29,21 @@ const textButton = label => [...document.querySelectorAll('button')].find(elemen
 async function mountList() {
   await act(async () => root.render(<PresetProvider catalogModel={model}><PresetListPanel /><PresetOverview /></PresetProvider>));
 }
+
+it('opens from the live shared catalog without a second read and still receives external changes', async () => {
+  model.adopt({...snapshot.catalog,activePresetIds:{roleplay:stored.id,creator:''}});
+  model.refresh=vi.fn(async()=>snapshot.catalog);
+  await mountList();
+  expect(host.querySelector('h1').textContent).toBe(stored.name);
+  expect(model.refresh).not.toHaveBeenCalled();
+  expect(model.read).not.toHaveBeenCalled();
+  await act(()=>model.adopt({...snapshot.catalog,presets:[{...stored,name:'外部更新名称'}]}));
+  expect(host.querySelector('h1').textContent).toBe('外部更新名称');
+  await act(()=>root.render(null));
+  await mountList();
+  expect(host.querySelector('h1').textContent).toBe('外部更新名称');
+  expect(model.refresh).not.toHaveBeenCalled();
+});
 async function requestDelete() {
   await act(async () => host.querySelector('.preset-list-row').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 100, clientY: 160 })));
   await click([...document.querySelectorAll('[role=menuitem]')].find(element => element.textContent === '删除预设'));
@@ -68,6 +83,18 @@ async function mountEditor(section = 'profile', renderEditorSection) {
   await act(async () => root.render(<PresetProvider catalogModel={model} fixedPresetId={stored.id}><PresetWorkspace editorMode requestedTab={section}
     renderEditorSection={renderEditorSection} renderDesktopEditor={({ tab, body, onSectionChange, onClose }) => <main data-section={tab}><nav>{['profile','prompts','tools'].map(id => <button key={id} data-section={id} onClick={() => onSectionChange(id)}>{id}</button>)}</nav><button data-close onClick={onClose}>close</button>{body}</main>} /></PresetProvider>));
 }
+
+it('keeps the requested editor layout when a detail notification arrives before read resolves', async () => {
+  let finishRead;
+  model.read = vi.fn(() => new Promise(resolve => { finishRead = resolve; }));
+  await mountEditor('profile');
+  await act(async () => { for (const listener of listeners) listener(); });
+  expect(host.querySelector('main').dataset.section).toBe('profile');
+  expect(host.querySelector('.preset-basic-document .preset-updates')).not.toBeNull();
+  await act(async () => finishRead(stored));
+  expect(host.querySelector('main').dataset.section).toBe('profile');
+  expect(host.querySelector('.preset-basic-document .preset-updates')).not.toBeNull();
+});
 
 it('keeps display read-only and opens the selected preset in a stable independent window', async () => {
   const open = vi.spyOn(window, 'open').mockImplementation(() => null);

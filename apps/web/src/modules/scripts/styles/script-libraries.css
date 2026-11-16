@@ -13,7 +13,7 @@
 .script-list-row:hover, .script-list-row.is-selected { background: var(--active); }
 .script-list-row.is-nested { padding-left: 32px; }
 .script-list-name { display: flex; align-items: center; flex: 1; min-width: 0; gap: 8px; background: transparent; border: 0; color: var(--text); text-align: left; font: inherit; font-size: 14px; padding: 4px 0; cursor: pointer; }
-.script-list-name > svg { flex-shrink: 0; color: var(--muted); }
+.script-list-name > svg { flex-shrink: 0; color: var(--dsw-alias-label-secondary); }
 .script-list-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .script-state { color: var(--muted); font-size: 11px; white-space: nowrap; max-width: 86px; overflow: hidden; text-overflow: ellipsis; }
 .script-tool { flex-shrink: 0; display: grid; place-items: center; width: 32px; height: 32px; background: transparent; border: 0; border-radius: 6px; color: var(--muted); padding: 0; cursor: pointer; }

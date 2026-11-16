@@ -6,7 +6,7 @@
   color:var(--ink); background:var(--page); font-size:14px; line-height:1.5;
   & * { box-sizing:border-box; }
   & button, & input { font:inherit; }
-  & button { color:inherit; cursor:pointer; }
+  & button:not([data-dsh-control]) { color:inherit; cursor:pointer; }
   & button:disabled { opacity:.4; cursor:default; }
   & svg { flex-shrink:0; }
   & button:focus-visible, & input:focus-visible { outline:2px solid var(--focus); outline-offset:3px; }
@@ -28,8 +28,6 @@
   .library-pill:hover:not([data-dsh-control]) { background:var(--hover); }
   .library-pill small { font-size:11px; }
   .library-pill small:not([data-dsh-control]) { color:var(--secondary); }
-  .upload-file-button { background:var(--ink); color:var(--page); border-color:var(--ink); }
-  .upload-file-button:hover { background:var(--ink); opacity:.86; }
   .menu-anchor { position:relative; }
   .popover { position:absolute; z-index:25; top:calc(100% + 7px); left:0; width:220px; padding:8px; border:1px solid var(--line); border-radius:18px; background:var(--menu); box-shadow:var(--shadow); }
   .menu-anchor:has(.popover) { z-index:25; }

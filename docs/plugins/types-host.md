@@ -761,7 +761,7 @@ export interface CreatorStudioMessage {
 }
 ```
 
-源码：[packages/host/product-api/src/types.ts:1081](../../packages/host/product-api/src/types.ts#L1081)
+源码：[packages/host/product-api/src/types.ts:1082](../../packages/host/product-api/src/types.ts#L1082)
 
 ## CreatorStudioSession
 
@@ -773,7 +773,7 @@ export interface CreatorStudioSession {
 }
 ```
 
-源码：[packages/host/product-api/src/types.ts:1080](../../packages/host/product-api/src/types.ts#L1080)
+源码：[packages/host/product-api/src/types.ts:1081](../../packages/host/product-api/src/types.ts#L1081)
 
 ## CreatorStudioSessionSummary
 
@@ -786,7 +786,7 @@ export interface CreatorStudioSessionSummary extends CreatorStudioSession {
 }
 ```
 
-源码：[packages/host/product-api/src/types.ts:1082](../../packages/host/product-api/src/types.ts#L1082)
+源码：[packages/host/product-api/src/types.ts:1083](../../packages/host/product-api/src/types.ts#L1083)
 
 ## DisplayPreferencesSnapshot
 
@@ -799,7 +799,7 @@ export interface DisplayPreferencesSnapshot {
 }
 ```
 
-源码：[packages/host/product-api/src/types.ts:1074](../../packages/host/product-api/src/types.ts#L1074)
+源码：[packages/host/product-api/src/types.ts:1075](../../packages/host/product-api/src/types.ts#L1075)
 
 ## DisplayPreferenceValue
 
@@ -807,7 +807,7 @@ export interface DisplayPreferencesSnapshot {
 export type DisplayPreferenceValue = null | boolean | number | string | DisplayPreferenceValue[] | { [key: string]: DisplayPreferenceValue; };
 ```
 
-源码：[packages/host/product-api/src/types.ts:1071](../../packages/host/product-api/src/types.ts#L1071)
+源码：[packages/host/product-api/src/types.ts:1072](../../packages/host/product-api/src/types.ts#L1072)
 
 ## EditorLibraryAddress
 

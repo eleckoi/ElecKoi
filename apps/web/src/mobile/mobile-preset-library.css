@@ -1,0 +1,23 @@
+.mobile-preset-page > .preset-purpose-switch.is-compact { display:flex; height:44px; padding:0 18px; margin:0; gap:28px; border-radius:0; background:var(--mobile-header-bg); }
+.mobile-preset-page > .preset-purpose-switch.is-compact > button { position:relative; flex:none; height:44px; min-height:44px; padding:0 3px; border-radius:0; background:transparent; color:var(--muted); font-size:16px; font-weight:400; }
+.mobile-preset-page > .preset-purpose-switch.is-compact > button[aria-selected=true] { color:var(--text); font-weight:600; }
+.mobile-preset-page > .preset-purpose-switch.is-compact > button[aria-selected=true]::after { content:''; position:absolute; bottom:0; left:calc(50% - 12px); width:24px; height:3px; border-radius:3px; background:var(--text); }
+.mobile-preset-library { position:relative; display:flex; flex-direction:column; flex:1; min-height:0; margin-top:8px; isolation:isolate; }
+.mobile-preset-library .mobile-character-library-group-bar { --group-actions-width:51px; padding-left:6px; }
+.mobile-preset-cards { display:flex; flex-direction:column; gap:12px; padding:8px 16px 20px; scrollbar-width:none; }
+.mobile-preset-cards::-webkit-scrollbar { display:none; }
+.mobile-preset-card { position:relative; flex:none; border:.5px solid var(--dsw-alias-border-l2-darkmode-thin); border-radius:var(--dsw-radius-lg); background:var(--dsw-alias-bg-layer-1); background-clip:padding-box; overflow:hidden; }
+.mobile-preset-card[data-selected=true] { border-color:var(--blue); box-shadow:inset 0 0 0 1px var(--blue); }
+.mobile-preset-open { display:flex; flex-direction:column; align-items:stretch; gap:12px; width:100%; padding:16px; border:0; background:transparent; text-align:left; }
+.mobile-preset-open > strong { padding-right:32px; font-size:16px; line-height:23px; font-weight:500; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.mobile-preset-author { display:flex; align-items:center; gap:8px; min-width:0; color:var(--muted); font-size:13px; line-height:20px; }
+.mobile-preset-author > span:last-child { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mobile-preset-author .avatar { width:24px; height:24px; }
+.mobile-preset-footer { display:flex; justify-content:space-between; align-items:center; gap:12px; color:var(--muted); font-size:12px; line-height:18px; }
+.mobile-preset-tags { display:flex; align-items:center; flex:1; min-width:0; gap:5px; }
+.mobile-preset-tags svg, .mobile-preset-provider-icon { width:16px; height:16px; flex:none; object-fit:contain; }
+.mobile-preset-tag-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mobile-preset-tag-count { flex:none; }
+.mobile-preset-active { display:flex; align-items:center; flex:none; gap:5px; color:var(--blue); white-space:nowrap; }
+.mobile-preset-actions { position:absolute; top:4px; right:3px; display:flex; align-items:center; justify-content:center; width:48px; height:44px; padding:0; border:0; background:transparent; color:var(--muted); }
+.mobile-preset-actions > svg { width:22px; height:22px; }

@@ -6,11 +6,7 @@ import { SidePanelShell, SidebarUpdateSeat } from './SidePanelShell.jsx';
 export function WorkspaceSidebarSurface({ collapsed, children, renderSidebarSlot }) {
   const [ready, setReady] = useState(false);
   useLayoutEffect(() => {
-    const root = document.documentElement;
-    const hadTitlebar = root.hasAttribute('data-windows-titlebar');
-    root.setAttribute('data-windows-titlebar', '');
     setReady(true);
-    return () => { if (!hadTitlebar) root.removeAttribute('data-windows-titlebar'); };
   }, []);
   return <div className="native-workspace-sidebar">
     <header className="native-workspace-caption" data-tauri-drag-region>

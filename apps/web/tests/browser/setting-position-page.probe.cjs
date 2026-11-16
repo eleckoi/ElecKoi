@@ -7,6 +7,7 @@ app.setPath('userData', resolve(dirname(process.argv[3]), 'position-profile'));
 app.whenReady().then(async () => {
   const win = new BrowserWindow({ show: false, width: 390, height: 844, webPreferences: { sandbox: true, offscreen: true, backgroundThrottling: false } });
   const report = { layouts: [], screenshots: false };
+  win.webContents.on('console-message', event => { if(event.level==='error') (report.errors ||= []).push(event.message); });
   const run = code => win.webContents.executeJavaScript(code);
   const settle = () => new Promise(resolve => setTimeout(resolve, 120));
   const check = (value, message) => { if (!value) throw Error(message); };
@@ -50,9 +51,13 @@ app.whenReady().then(async () => {
         check(data.manager.touchScrolled>0,'Touch swipe did not scroll position management');
       }
       const createSelector = mobile ? '.mobile-header-actions button' : '.setting-position-manager-header button';
+      data.create = await run(`(()=>{const e=[...document.querySelectorAll('${createSelector}')].find(e=>e.textContent.trim()==='新建'),s=getComputedStyle(e),r=e.getBoundingClientRect(),ref=document.createElement('span');ref.style.color='var(${mobile ? '--dsw-alias-label-primary' : '--dsw-alias-label-primary-foreground'})';document.body.append(ref);const expected=getComputedStyle(ref).color;ref.remove();return {color:s.color,expected,disabled:e.disabled,width:r.width,height:r.height}})()`);
+      check(!data.create.disabled&&data.create.color===data.create.expected,'New position action is not visible in the active theme: '+JSON.stringify(data.create));
+      if(mobile)check(data.create.width>=44&&data.create.height>=44,'New position touch target is too small');
       await click(createSelector, '新建');
-      await run(`(()=>{const e=document.querySelector('.setting-position-dialog input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'合成自定义位置');e.dispatchEvent(new Event('input',{bubbles:true}))})()`); await settle();
-      await click('.setting-position-dialog button[type=submit]');
+      await wait('!!document.querySelector("[role=dialog] input")');
+      await run(`(()=>{const e=document.querySelector('[role=dialog] input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'合成自定义位置');e.dispatchEvent(new Event('input',{bubbles:true}))})()`); await settle();
+      await click('[role=dialog] button', '保存');
       await click(mobile ? '.mobile-header [aria-label="返回"]' : '.setting-position-back');
       data.restoredScroll = await run("document.querySelector('.mobile-editor-document')?.scrollTop");
       data.previousScroll = previousScroll;

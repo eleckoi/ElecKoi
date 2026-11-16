@@ -41,11 +41,6 @@
 .mobile-editor-document :is(select,.setting-property-options button,.setting-keyword-details > summary,.rs-test-variables > summary,.vv-read-mode button,.vv-short-tabs button) { min-height: 44px; }
 .mobile-editor-document .setting-settings-board .setting-library-number-control { width: 136px; grid-template-columns: 44px 48px 44px; }
 .mobile-editor-document .setting-settings-board .setting-library-number-control :is(button,input) { width: 100%; height: 44px; min-height: 44px; }
-.mobile-editor-document .rs-switch[aria-checked] { flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; border-radius: 8px; background: transparent; }
-.mobile-editor-document .rs-switch::before { content: ''; position: absolute; width: 32px; height: 18px; top: 13px; left: 6px; border-radius: 999px; background: color-mix(in srgb,var(--text) 18%,transparent); }
-.mobile-editor-document .rs-switch[aria-checked=true]::before { background: var(--blue); }
-.mobile-editor-document .rs-switch > span { width: 14px; height: 14px; top: 15px; left: 8px; }
-.mobile-editor-document .rs-switch[aria-checked=true] > span { transform: translateX(14px); }
 .mobile-editor-document :is(.rs-check-grid label,.rs-check,.rs-button-row) { min-height: 44px; }
 .mobile-editor-document .rs-button-row > button:last-child { flex-basis: 44px; width: 44px; min-height: 44px; }
 :is(.mobile-character-editor,.mobile-preset-editor) .setting-library-layout.is-document-layout, :is(.mobile-character-editor,.mobile-preset-editor) .variable-layout.is-document-layout { min-width: 0; }
@@ -72,7 +67,7 @@
 .mobile-editor-document .setting-settings-board .setting-library-rule-input { grid-template-columns: minmax(0,1fr); gap: 8px; }
 .mobile-editor-document .setting-settings-board .setting-property-label,
 .mobile-editor-document .setting-keywords-inline > .setting-library-keyword-field > span:first-child { padding-top: 0; }
-.mobile-editor-document .setting-settings-board .setting-property-row:has(> button[role=switch]) { display: flex; justify-content: space-between; gap: 16px; }
+.mobile-editor-document .setting-settings-board .setting-property-row:has(> .editor-toggle-control) { display: flex; justify-content: space-between; gap: 16px; }
 .mobile-editor-document .setting-settings-board .setting-library-number-row { grid-template-columns: minmax(0,1fr) auto; gap: 12px; }
 .mobile-editor-document .setting-insert-settings .setting-library-order-card { grid-template-columns: minmax(0,1fr); gap: 16px; }
 .mobile-editor-document .setting-insert-settings .setting-library-number-row,

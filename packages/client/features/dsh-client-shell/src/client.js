@@ -269,7 +269,45 @@ window.__ModuleLoader__.load({
       })
       officialSidebar.apply(ctx.extend({ slots: scopedSlots }))
     }
-    function installNativeConversationContent(ctx) {
+    function createConversationPanelInfo(ctx) {
+      // DSH 0.2.2-rc.3 session chrome identifies the Conversation by a null
+      // main-panel key. Project mounted product Conversations through its
+      // public panel-info shares without replacing the Frame's navigation.
+      // RETIRE WHEN native session chrome accepts a mounted Conversation
+      // independently of its enclosing main-panel key.
+      const mounted = new Map()
+      const listeners = new Set()
+      const conversation = { activePanelId: null }
+      const notify = () => { for (const listener of listeners) listener() }
+      return {
+        retain(sessionId) {
+          if (!sessionId) return () => {}
+          mounted.set(sessionId, (mounted.get(sessionId) ?? 0) + 1)
+          notify()
+          return () => {
+            const count = mounted.get(sessionId) - 1
+            if (count) mounted.set(sessionId, count); else mounted.delete(sessionId)
+            notify()
+          }
+        },
+        bind(source) {
+          const current = () => ctx.get('uiSession')?.adapter.current
+          return {
+            getSnapshot: () => {
+              const info = source.getSnapshot()
+              return ['messages', 'creatorStudio'].includes(info.activePanelId) && mounted.has(current()?.getSnapshot().key)
+                ? conversation : info
+            },
+            subscribe: listener => {
+              const stops = [source.subscribe(listener), current()?.subscribe(listener)]
+              listeners.add(listener)
+              return () => { listeners.delete(listener); for (const stop of stops) stop?.() }
+            }
+          }
+        }
+      }
+    }
+    function installNativeConversationContent(ctx, conversationPanels) {
       const slots = ctx.slots
       const Presentation = React.createContext(null)
       const NativeWidth = React.createContext(null)
@@ -293,6 +331,7 @@ window.__ModuleLoader__.load({
           ...(next.locale ? { locale: next.locale } : {}) }, props => {
           const host = React.useRef(null)
           const { onScrollElement } = props.presentation
+          React.useLayoutEffect(() => conversationPanels.retain(props.sessionId), [props.sessionId])
           React.useLayoutEffect(() => {
             onScrollElement?.(host.current?.querySelector('[data-conversation-scroll]') ?? null)
             return () => onScrollElement?.(null)
@@ -639,7 +678,8 @@ window.__ModuleLoader__.load({
 
     function apply(ctx) {
       const subscribeSlots = listener => ctx.on('slots/changed', listener)
-      ctx.effect(() => installNativeConversationContent(ctx), 'eleckoi: native Conversation factories')
+      const conversationPanels = createConversationPanelInfo(ctx)
+      ctx.effect(() => installNativeConversationContent(ctx, conversationPanels), 'eleckoi: native Conversation factories')
       let currentScriptRuntime = null
       const scriptRuntimeListeners = new Set()
       const scriptRuntimeConnection = {
@@ -678,13 +718,23 @@ window.__ModuleLoader__.load({
         inject: officialLayout.inject,
         apply(scope) {
           let nativeLayout
+          let conversationPanelInfo
           const slots = scope.slots
           const scopedSlots = new Proxy(slots, {
             get(target, name) {
+              // Product pages host the real Conversation in a keyed main seat.
+              // Native session chrome must see that mounted foreground Session
+              // as a Conversation; the Frame itself keeps the real navigation key.
+              if (name === 'provideRoot') return face => {
+                if (!face.hooks?.panelInfo) return target.provideRoot(face)
+                conversationPanelInfo = conversationPanels.bind(face.hooks.panelInfo)
+                return target.provideRoot({ ...face, hooks: { ...face.hooks, panelInfo: conversationPanelInfo } })
+              }
               if (name === 'register') return (options, Frame) => {
                 if (options.name !== 'root') return target.register(options, Frame)
                 const store = options.store.create()
                 const native = nativeLayout
+                const useNativePanelInfo = select => select(React.useSyncExternalStore(native.panelInfo.subscribe, native.panelInfo.getSnapshot))
                 let panelGuard = null
                 let sidebarSnapshot = { shown: false }
                 const sidebarListeners = new Set()
@@ -786,7 +836,7 @@ window.__ModuleLoader__.load({
                       React.createElement(OfficialFramePage, { panelId: id, mainPanel: content }))
                   }, [props.renderSlot])
                   return React.createElement(ElecKoiRoot, { ...props,
-                    nativeFrame: React.createElement(Frame, { ...props, renderSlot }) })
+                    nativeFrame: React.createElement(Frame, { ...props, usePanelInfo: useNativePanelInfo, renderSlot }) })
                 })
                 scope.effect(() => {
                   let initialized = false
@@ -808,7 +858,14 @@ window.__ModuleLoader__.load({
           const reflect = new Proxy(scope.reflect, {
             get(target, name) {
               if (name === 'provide') return (key, value, ...args) => {
-                if (key === 'layout') nativeLayout = value
+                if (key === 'layout') {
+                  nativeLayout = value
+                  value = new Proxy(value, { get(target, member) {
+                    if (member === 'panelInfo') return conversationPanelInfo
+                    const field = Reflect.get(target, member)
+                    return typeof field === 'function' ? field.bind(target) : field
+                  } })
+                }
                 return target.provide(key, value, ...args)
               }
               const value = Reflect.get(target, name)

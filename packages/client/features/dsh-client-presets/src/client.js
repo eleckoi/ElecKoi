@@ -139,6 +139,10 @@ window.__ModuleLoader__.load({
         return this.adoptCatalog(await this.call('renameGroup', groupId, name))
       }
 
+      async reorderGroups(groupIds, purpose = 'roleplay') {
+        return this.adoptCatalog(await this.call('reorderGroups', groupIds, purpose))
+      }
+
       async assignGroup(presetId, groupId) {
         return this.adoptCatalog(await this.call('assignGroup', presetId, groupId))
       }

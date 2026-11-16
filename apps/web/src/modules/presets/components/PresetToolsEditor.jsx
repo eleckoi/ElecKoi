@@ -14,6 +14,7 @@ import { PresetToolManagerDialog } from './PresetToolManagerDialog.jsx';
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { EditorLibraryWorkspace } from '../../../ui/ui/EditorLibraryWorkspace.jsx';
 import { EditorCollectionToolbar } from '../../../ui/ui/EditorCollectionControls.jsx';
+import { EditorToggle } from '../../../ui/ui/EditorToggle.jsx';
 import '../../../mobile/mobile-preset-editor.css';
 
 export function PresetToolsEditor({
@@ -142,14 +143,12 @@ export function PresetToolsEditor({
                 <span className="preset-tool-count" title={group.isPlugin ? tUi("{value0} 项已加入预设，共 {value1} 个工具", {value0: group.includedCount, value1: group.tools.length}) : undefined}>{group.isPlugin && group.included ? `${group.includedCount}/${group.tools.length}` : group.members.length}</span>
                 <CaretRight size={15} aria-hidden="true" />
               </button>
-              {basic ? <span className="preset-tool-basic-state">{tUi('默认启用')}</span> : group.isPlugin ? null : <button
-                type="button"
+              {basic ? <span className="preset-tool-basic-state">{tUi('默认启用')}</span> : group.isPlugin ? null : <EditorToggle
                 className="preset-tool-toggle"
-                role="switch"
-                aria-checked={group.enabled}
-                aria-label={`${group.enabled ? tUi("关闭") : tUi("开启")}${group.name}`}
-                onClick={() => updateGroup(group.id, { enabled: !group.enabled })}
-              ><i /></button>}
+                checked={group.enabled}
+                label={`${group.enabled ? tUi("关闭") : tUi("开启")}${group.name}`}
+                onChange={enabled => updateGroup(group.id, { enabled })}
+              />}
             </section>)}
           </div> : null;
         })}
@@ -190,14 +189,12 @@ function PresetToolConfigDialog({
   const body = <div className="preset-tool-config-body">
     {!extra && <section className="preset-tool-config-card preset-tool-config-switch-row">
       <strong>{tUi("启用此工具组")}</strong>
-      <button
-        type="button"
+      <EditorToggle
         className="preset-tool-toggle"
-        role="switch"
-        aria-checked={group.enabled}
-        aria-label={`${group.enabled ? tUi("关闭") : tUi("开启")}${group.name}`}
-        onClick={() => onEnabledChange(!group.enabled)}
-      ><i /></button>
+        checked={group.enabled}
+        label={`${group.enabled ? tUi("关闭") : tUi("开启")}${group.name}`}
+        onChange={onEnabledChange}
+      />
     </section>}
     {group.available === false ? <p className="preset-tool-config-description">{tUi("缺少插件或工具未加载，仍可正常聊天。")}</p> : null}
     {!extra && group.source === 'extension' ? <label className="preset-tool-config-name">{tUi("显示名称")}<input aria-label={tUi("工具显示名称")} value={group.name} onChange={event => onNameChange(event.target.value)} /></label> : null}

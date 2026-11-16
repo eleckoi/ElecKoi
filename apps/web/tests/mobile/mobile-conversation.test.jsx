@@ -39,6 +39,33 @@ function conversationView() {
 }
 
 describe('Android conversation header', () => {
+  it('opens the character picker, selects the requested character and retains the empty creation route', async () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+    const view = { ...conversationView(), route: { kind: 'root' }, routeBusy: false,
+      openCharacterConversation: vi.fn(), selectPanel: vi.fn() };
+    view.chat.characters.items = [{ id: 'picker-a', name: '合成角色甲', persona: {} }, { id: 'picker-b', name: '合成角色乙', persona: {} }];
+    const container = document.createElement('div'); document.body.append(container);
+    const root = createRoot(container);
+    const render = () => root.render(<MainPageContext.Provider value={view}><MobileMessagesPage /></MainPageContext.Provider>);
+    const open = () => container.querySelector('[aria-label="新建对话"]').click();
+    try {
+      await act(render); await act(open);
+      const rows = [...document.querySelectorAll('.mobile-character-picker-option')];
+      expect(rows.map(row => row.querySelector('.mobile-character-picker-name').textContent)).toEqual(['合成角色甲', '合成角色乙']);
+      expect(rows.every(row => row.querySelector('.sidebar-character-artwork') && row.querySelector('.mobile-character-picker-name'))).toBe(true);
+      await act(async () => rows[1].click());
+      expect(view.openCharacterConversation).toHaveBeenCalledWith('picker-b');
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+      view.routeBusy = true; await act(render); await act(open);
+      expect([...document.querySelectorAll('.mobile-character-picker-option')].every(row => row.disabled)).toBe(true);
+      await act(() => document.querySelector('[aria-label="关闭"]').click());
+      view.routeBusy = false; view.chat.characters.items = []; await act(render); await act(open);
+      const create = [...document.querySelectorAll('[role="dialog"] button')].find(button => button.textContent === '创建角色');
+      await act(() => create.click());
+      expect(view.selectPanel).toHaveBeenCalledWith('character');
+    } finally { await act(() => root.unmount()); container.remove(); vi.unstubAllGlobals(); }
+  });
+
   it('uses one title, returns through the mobile route, and keeps official view actions', async () => {
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
     const view = conversationView();

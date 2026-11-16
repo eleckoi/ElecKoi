@@ -1,11 +1,17 @@
 import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToReadableStream, renderToStaticMarkup } from 'react-dom/server';
 import { beforeAll, afterAll, describe, expect, it, vi } from 'vitest';
-import { PresetContentComposer, PresetIntroductionEditor } from '../../src/modules/presets/components/PresetIntroductionEditor.jsx';
+import { PresetIntroductionEditor } from '../../src/modules/presets/components/PresetIntroductionEditor.jsx';
+import { PresetContentComposer } from '../../src/modules/presets/components/PresetContentComposer.jsx';
 import { calendarDateValue, createTimelineDraft, createUsageDraft, introductionDraftPatch, isIntroductionDraftDirty, localDateLabel, visibleTimelineRecords } from '../../src/modules/presets/model/presetIntroductionDraft.js';
 
 const profile = { usageInstructions: '选择角色后开始对话。', timeline: [{ id: 'first', title: '首次发布', dateLabel: '2026-9-11', note: '加入基础规则。' }] };
 const props = { preset: { id: 'preset', profile }, saving: false, error: '', onClearError: () => {}, onSaveProfile: async () => true };
+async function renderComplete(element) {
+  const stream = await renderToReadableStream(element);
+  await stream.allReady;
+  return new Response(stream).text();
+}
 beforeAll(() => vi.stubGlobal('React', React));
 afterAll(() => vi.unstubAllGlobals());
 
@@ -77,6 +83,15 @@ describe('preset introduction drafts', () => {
 });
 
 describe('preset introduction presentation', () => {
+  it('renders the empty form and its final writing-area slot before the text editor loads', () => {
+    const html = renderToStaticMarkup(<PresetIntroductionEditor {...props} preset={{ ...props.preset, profile: { ...profile, usageInstructions: '' } }} />);
+    const form = html.match(/<form[\s\S]*?<\/form>/)?.[0];
+    expect(form).toContain('rs-writing preset-composer-writing');
+    expect(form).toContain('>取消<');
+    expect(form).toContain('>保存<');
+    expect(html.indexOf('preset-content-composer-footer')).toBeLessThan(html.indexOf('preset-updates'));
+  });
+
   it('does not expand long saved instructions and update notes into the initial document DOM', () => {
     const text = '合成长文与代码 const n = 1;\n'.repeat(100000) + '完整末尾标记';
     const html = renderToStaticMarkup(<PresetIntroductionEditor {...props} readOnly preset={{ ...props.preset,
@@ -85,8 +100,8 @@ describe('preset introduction presentation', () => {
     expect(html.length).toBeLessThan(20000);
   });
 
-  it('uses the shared viewport composer and immersive entry on desktop', () => {
-    const html = renderToStaticMarkup(<PresetContentComposer draft={createUsageDraft(profile)} onChange={() => {}} onSave={() => {}} onCancel={() => {}} />);
+  it('uses the shared viewport composer and immersive entry on desktop', async () => {
+    const html = await renderComplete(<PresetContentComposer draft={createUsageDraft(profile)} onChange={() => {}} onSave={() => {}} onCancel={() => {}} />);
     expect(html).not.toContain('<textarea');
     expect(html).toContain('editor-text-input');
     expect(html).toContain('沉浸编辑');
@@ -113,8 +128,8 @@ describe('preset introduction presentation', () => {
     expect(html).not.toContain('<details');
   });
 
-  it('has both actions inside the empty editor before any typing', () => {
-    const html = renderToStaticMarkup(<PresetIntroductionEditor {...props} preset={{ ...props.preset, profile: { ...profile, usageInstructions: '' } }} />);
+  it('has both actions inside the empty editor before any typing', async () => {
+    const html = await renderComplete(<PresetIntroductionEditor {...props} preset={{ ...props.preset, profile: { ...profile, usageInstructions: '' } }} />);
     const form = html.match(/<form[\s\S]*?<\/form>/)?.[0];
     expect(form).toContain('aria-label="使用说明输入区"');
     expect(form).toContain('preset-content-composer-footer');
@@ -124,8 +139,8 @@ describe('preset introduction presentation', () => {
     expect(html).not.toContain('<textarea');
   });
 
-  it('keeps new update title, date, body, and actions in one composer', () => {
-    const html = renderToStaticMarkup(<PresetContentComposer draft={createTimelineDraft()} saving={false} error="" onChange={() => {}} onCancel={() => {}} onSave={() => {}} />);
+  it('keeps new update title, date, body, and actions in one composer', async () => {
+    const html = await renderComplete(<PresetContentComposer draft={createTimelineDraft()} saving={false} error="" onChange={() => {}} onCancel={() => {}} onSave={() => {}} />);
     expect(html.match(/<form/g)).toHaveLength(1);
     expect(html).toContain('aria-label="更新标题"');
     expect(html).toContain('aria-label="更新日期"');

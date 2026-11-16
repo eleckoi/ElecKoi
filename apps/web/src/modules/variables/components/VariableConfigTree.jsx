@@ -4,6 +4,7 @@ import { BracketsCurly, Empty, HashStraight, ListBullets, ListDashes, TextT, Tog
 import { DshTriangleRightIcon } from "../../../ui/icons/dshTreeIcons.jsx";
 import { HeadlessTree } from "../../../ui/tree/HeadlessTree.jsx";
 import { EditorSelectionCheckbox } from '../../../ui/ui/EditorCollectionControls.jsx';
+import { EditorToggle } from '../../../ui/ui/EditorToggle.jsx';
 import { VARIABLE_INITIALIZATION_OBJECT_ID } from "../../../../../../packages/shared/src/contracts/variables/schemas.ts";
 
 export const VariableTreeActionsContext = createContext(null);
@@ -59,7 +60,7 @@ function VariableTreeNode({ item, data, itemProps, style, level, isSelected, isE
       <span className="variable-tree-label">{data.dynamicKey ? `<${data.label}>` : data.label}</span>
       {data.readMode === "required" ? <span className="variable-tree-required" title={tUi("必读")}>{tUi("必读")}</span> : null}
       {!data.fixed && !actions?.selection?.active ? (
-        <button type="button" className="variable-tree-switch" role="switch" aria-checked={data.enabled} aria-label={`${data.ownEnabled ? tUi("停用") : tUi("启用")}${data.label}`} disabled={!data.ancestorEnabled} onDoubleClick={event => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); actions.toggleNode(data); }}><span aria-hidden="true" /></button>
+        <EditorToggle className="variable-tree-switch" checked={data.enabled} label={`${data.ownEnabled ? tUi("停用") : tUi("启用")}${data.label}`} disabled={!data.ancestorEnabled} onChange={() => actions.toggleNode(data)} />
       ) : null}
     </div>
   );

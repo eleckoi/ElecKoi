@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { EditorTextInput } from '../../../ui/ui/EditorTextInput.jsx';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+
+const EditorTextInput = lazy(() => import('../../../ui/ui/EditorTextInput.jsx').then(module => ({ default: module.EditorTextInput })));
 
 // These thresholds select a rendering strategy, never a content or saving limit.
 function needsViewport(value) {
@@ -26,6 +27,6 @@ export function PresetReadableText({ value, label, className = '', emptyText = '
     return () => observer.disconnect();
   }, [long, visible]);
   return long ? <div ref={host} className={`${className} preset-long-reading`}>
-    {visible && <EditorTextInput label={label} value={value} readOnly />}
+    {visible && <Suspense fallback={null}><EditorTextInput label={label} value={value} readOnly /></Suspense>}
   </div> : <p className={className}>{value || emptyText}</p>;
 }

@@ -28,21 +28,20 @@
   justify-content: center;
   gap: 8px;
   height: 44px;
-  border-radius: 12px;
   font-size: 14px;
   font-weight: 650;
   transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
 .character-profile-create {
+  border-radius: 12px;
   min-width: 136px;
   padding: 0 20px 0 18px;
   background: var(--blue);
   color: var(--on-accent);
 }
 
-.character-profile-create:hover,
-.character-profile-action.is-primary:hover {
+.character-profile-create:hover {
   background: var(--blue-hover);
 }
 
@@ -202,8 +201,7 @@
 }
 
 .character-deck-arrow:focus-visible,
-.character-profile-create:focus-visible,
-.character-profile-action:focus-visible {
+.character-profile-create:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--blue) 70%, transparent);
   outline-offset: 3px;
 }
@@ -257,25 +255,10 @@
   gap: 12px;
 }
 
-.character-profile-action {
+.character-profile-actions > .character-profile-action {
   min-width: 134px;
+  height: 44px;
   padding: 0 20px 0 18px;
-}
-
-.character-profile-action.is-primary {
-  background: var(--blue);
-  color: var(--on-accent);
-}
-
-.character-profile-action.is-secondary {
-  border: 1px solid var(--line-strong);
-  background: var(--surface-raised);
-  color: var(--text);
-}
-
-.character-profile-action.is-secondary:hover {
-  border-color: color-mix(in srgb, var(--blue) 38%, var(--line-strong));
-  background: color-mix(in srgb, var(--blue) 6%, var(--surface-raised));
 }
 
 @media (max-width: 900px), (max-height: 720px) {

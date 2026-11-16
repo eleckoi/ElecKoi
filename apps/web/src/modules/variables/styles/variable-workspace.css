@@ -8,11 +8,9 @@
 .vv-tree .variable-tree-row { width: calc(100% - 2px); min-height: 36px; font-size: 13px; font-weight: 400; gap: 6px; }
 .vv-tree .variable-tree-row[data-reorder-fixed="true"] { min-height:34px; height:34px; font-size:13.5px; line-height:34px; }
 .vv-tree .variable-tree-drop-cursor { --tree-drop-max-width: 100%; }
-.vv-tree .variable-tree-icon { color: var(--muted); }
-.vv-tree .variable-tree-row.is-selected .variable-tree-icon { color: var(--blue); }
+.vv-tree .variable-tree-icon { color: var(--dsw-alias-label-secondary); }
+.vv-tree .variable-tree-row.is-selected .variable-tree-icon { color: var(--dsw-alias-label-primary); }
 .vv-tree .variable-tree-required { padding: 0; background: transparent; color: var(--muted); font-size: 11px; }
-.vv-tree .variable-tree-switch { width: 28px; height: 16px; min-height: 16px; padding: 0; }
-.vv-tree .variable-tree-switch > span { top: 2px; left: 2px; }
 .vv-properties h2 { margin: 0 0 16px; font-size: 14px; line-height: 20px; font-weight: 600; }
 .vv-properties { flex: 1; display: flex; flex-direction: column; }
 .vv-properties h2 { flex-shrink: 0; }

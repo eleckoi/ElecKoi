@@ -15,7 +15,7 @@
 .creator-studio-conversation { flex: 1; min-height: 0; min-width: 0; display: flex; overflow: hidden; }
 .creator-studio-conversation > * { flex: 1; min-width: 0; min-height: 0; }
 .creator-studio-session-body { --dsh-chat-content-width: 920px; --dsh-composer-card-max-width: 952px; --dsh-composer-side-clearance: 16px; --dsh-composer-dock-inset: 8px; height: 100%; min-height: 0; display: flex; flex-direction: column; }
-.creator-studio-view-header { display: flex; flex: none; min-width: 0; height: 28px; background: var(--mobile-header-bg); }
+.creator-studio-view-header { display: flex; flex: none; min-width: 0; height: 28px; border-bottom: 0.5px solid var(--dsw-alias-border-l3); background: var(--mobile-header-bg); }
 .mobile-creator-studio-page .creator-studio-view-tabs { flex: 0 1 auto; min-width: 0; height: 28px; padding: 0 16px; overflow-x: auto; }
 .creator-studio-view-tabs [role=tab] { flex: none; }
 .creator-studio-view-header > div:has(> [data-plugin-entry-more]) { align-self: flex-start; }

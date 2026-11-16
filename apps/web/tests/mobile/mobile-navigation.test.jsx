@@ -67,6 +67,7 @@ const originalAnimate = Object.getOwnPropertyDescriptor(HTMLElement.prototype, '
 function emit() { listeners.forEach(listener => listener()); }
 function Page({ panel }) {
   const view = useMainPageView();
+  if (view.route.kind === 'preset-editor') return <><p data-preset-editor={view.route.presetId}>预设编辑</p><button onClick={view.goBack}>返回</button></>;
   if (view.route.kind === 'model-editor') return <><p data-model-config={view.route.configId}>模型编辑</p><button onClick={view.goBack}>返回</button></>;
   if (view.route.kind === 'conversation') return <><p data-chat={view.chat.sessionId}>独立对话</p><button onClick={() => view.openCharacterEditor(view.chat.chatCharacter.character_id)}>编辑当前角色</button><button onClick={view.goBack}>返回</button></>;
   if (view.route.kind === 'character-editor') return <><p data-character-editor={view.route.characterId}>角色编辑</p><button onClick={view.goBack}>返回</button></>;
@@ -174,16 +175,21 @@ describe('Android independent conversation navigation', () => {
     expect(document.querySelector('.app-update-modal')).toBeNull();
   });
 
-  it('searches all three catalogs without filtering the source page and returns through the source route', async () => {
+  it('searches all four catalogs without filtering the source page and returns through the source route', async () => {
     const items = [{ id: 'character-a', name: '合成对象甲', persona: {} }];
     const modelSnapshot = { status: 'ready', error: '', configs: [
       { id: 'config-a', name: '合成对象甲', provider: 'custom', model: 'synthetic-model' },
       { id: 'config-b', name: '合成对象乙', provider: 'custom', model: 'synthetic-model' },
     ] };
     const characterSnapshot = { status: 'ready', error: '', collection: { items } };
+    const presetSnapshot = { status: 'ready', error: '', catalog: { presets: [
+      { id: 'preset-roleplay', name: '合成对象扮演', purpose: 'roleplay', profile: { authorName: '合成作者' } },
+      { id: 'preset-creator', name: '合成对象创作', purpose: 'creator', profile: { authorName: '合成作者' } },
+    ] } };
     catalogs = {
       models: { subscribe: () => () => {}, getSnapshot: () => modelSnapshot },
       characters: { subscribe: () => () => {}, getSnapshot: () => characterSnapshot },
+      presets: { subscribe: () => () => {}, getSnapshot: () => presetSnapshot, refresh: vi.fn() },
     };
     fixture.chat = { ...fixture.chat, characters: { items }, selectCharacter: vi.fn(),
       visibleConversationSessions: [{ id: 'chat-a', character_name: '合成对象甲' }],
@@ -191,13 +197,14 @@ describe('Android independent conversation navigation', () => {
     await mount(); document.querySelector('[data-list]').scrollTop = 156;
     await click('搜索');
     expect(document.querySelector('.mobile-bottom-nav').getAttribute('aria-hidden')).toBe('true');
-    const input = document.querySelector('input[aria-label="会话、角色、模型"]');
+    const input = document.querySelector('input[aria-label="会话、角色、预设、模型"]');
     const fill = async value => act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value);
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await fill('合成对象');
-    expect(document.querySelectorAll('.mobile-search-result')).toHaveLength(4);
+    expect(document.querySelectorAll('.mobile-search-result')).toHaveLength(6);
+    expect(catalogs.presets.refresh).not.toHaveBeenCalled();
     expect(fixture.chat.setKeyword).not.toHaveBeenCalled();
     await act(async () => input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
     await click('取消');
@@ -208,6 +215,11 @@ describe('Android independent conversation navigation', () => {
     const config = [...document.querySelectorAll('[aria-label="模型结果"] button')].find(button => button.textContent.includes('合成对象乙'));
     await act(async () => config.click());
     expect(document.querySelector('[data-model-config]').dataset.modelConfig).toBe('config-b');
+    await click('返回'); expect(document.querySelector('[data-list]').dataset.list).toBe('messages');
+    await click('搜索'); await click('合成对象');
+    const creatorPreset = [...document.querySelectorAll('[aria-label="预设结果"] button')].find(button => button.querySelector('strong').textContent === '合成对象创作');
+    await act(async () => creatorPreset.click());
+    expect(document.querySelector('[data-preset-editor]').dataset.presetEditor).toBe('preset-creator');
     await click('返回'); expect(document.querySelector('[data-list]').dataset.list).toBe('messages');
     await click('搜索');
     const backEvent = new Event('eleckoi:platform-back', { cancelable: true });

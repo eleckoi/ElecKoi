@@ -1,8 +1,44 @@
 import { Context } from '@deepseek-ai/cordis'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { defineTool } from '@deepseek-ai/dsh-tools'
-import { expect, it } from 'vitest'
-import { toolPluginSources } from '../src/tool-provenance'
+import { expect, it, vi } from 'vitest'
+import { createPresetToolReferenceResolver, toolPluginSources } from '../src/tool-provenance'
+
+it('does not scan installed packages for built-in-only presets while keeping extension provenance', async () => {
+  const ctx = new Context()
+  try {
+    await ctx.plugin(SystemPrompt)
+    await ctx.plugin(ToolRuntime)
+    await ctx.inject(['tools'], async owner => {
+      const listBundles = vi.fn(async () => [])
+      await owner.plugin({provide:'pluginManager',apply(managerCtx){managerCtx.provide('pluginManager',{listBundles} as unknown as Context['pluginManager'])}})
+      const output={schema:{type:'string' as const},render:()=>[]}
+      await owner.plugin({inject:['tools'],apply(toolCtx){for(const name of ['read','read_image','shell_command'])toolCtx.tools.register(defineTool({name,description:'',parameters:{},output,execute:async()=>''}))}})
+      const preset={toolGroups:[]}
+      const resolveTools=createPresetToolReferenceResolver(owner)
+      const builtin=await resolveTools(preset)
+      expect(listBundles).not.toHaveBeenCalled()
+      expect(builtin.basicToolGroups[0]!.members.map(member=>member.name)).toEqual(['read','read_image'])
+      const extensionPlugin=await owner.plugin({name:'Synthetic extension',inject:['tools'],apply(toolCtx){toolCtx.tools.register(defineTool({name:'synthetic_extension',description:'Extension',parameters:{},output,execute:async()=>''}))}})
+      const extension=await resolveTools(preset)
+      expect(listBundles).toHaveBeenCalledTimes(1)
+      expect(extension.extraToolGroups).toEqual([expect.objectContaining({id:'plugin-tool:synthetic_extension',plugin:expect.objectContaining({name:'Synthetic extension'})})])
+      expect(await resolveTools(preset)).toEqual(extension)
+      expect(listBundles).toHaveBeenCalledTimes(1)
+      owner.emit('plugin-manager/changed',{reason:'bundle'})
+      await resolveTools(preset)
+      expect(listBundles).toHaveBeenCalledTimes(2)
+      owner.emit('plugin-manager/changed',{reason:'bundle'})
+      listBundles.mockRejectedValueOnce(new Error('Synthetic inventory failure'))
+      await expect(resolveTools(preset)).rejects.toThrow('Synthetic inventory failure')
+      await expect(resolveTools(preset)).resolves.toEqual(extension)
+      expect(listBundles).toHaveBeenCalledTimes(4)
+      await extensionPlugin.dispose()
+      expect((await resolveTools(preset)).extraToolGroups).toEqual([])
+      expect(listBundles).toHaveBeenCalledTimes(4)
+    })
+  } finally { await ctx.fiber.dispose() }
+})
 
 it('groups unrelated tool names by their actual registration owner and resolves an exact bundle row', async () => {
   const ctx = new Context()

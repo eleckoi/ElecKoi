@@ -29,6 +29,10 @@
   width: min(480px, 100%);
 }
 
+.dynamic-settings-detail:not(.is-compact) :is(.dynamic-settings-secondary-action, .dynamic-settings-danger-action, .setting-library-create-button, .setting-library-manage-button, .setting-library-save-button) {
+  height: 32px; min-height: 32px; border-radius: 999px; padding-inline: 12px; font-size: 13px;
+}
+
 .dynamic-settings-conversation-list {
   min-width: 0;
   min-height: 0;

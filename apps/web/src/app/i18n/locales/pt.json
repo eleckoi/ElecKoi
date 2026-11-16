@@ -3393,5 +3393,7 @@
   "关闭分组面板": "Fechar painel de grupos",
   "分组 {value0}，长按拖动，点击改名": "Grupo {value0}, mantenha pressionado para ordenar, toque para renomear",
   "删除“{value0}”分组，角色卡保留。": "Excluir o grupo “{value0}”. As fichas serão mantidas.",
-  "移动角色": "Mover personagens"
+  "移动角色": "Mover personagens",
+  "扮演": "Interpretação",
+  "创作": "Criar"
 }

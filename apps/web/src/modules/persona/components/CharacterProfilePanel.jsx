@@ -2,7 +2,8 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronRightIcon, PencilIcon } from "../../../ui/icons/index.jsx";
-import { ChatCircleDots } from "../../../ui/icons/interfaceIcons.jsx";
+import { ChatCircleDots, ImageSquare } from "../../../ui/icons/interfaceIcons.jsx";
+import { Avatar } from "../../../ui/ui/Avatar.jsx";
 import logoIcon from "../../../assets/eleckoi-app-icon.png";
 import { assetSrc } from "../../../app/services/assets.js";
 import { characterCover, characterName } from "./characterUtils.js";
@@ -62,7 +63,7 @@ function CharacterPortrait({ character }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [cover]);
   return <div className="character-profile-portrait">
-    {cover && !failed ? <img src={cover} alt={tUi("{value0}立绘", {value0: characterName(character, tUi)})} onError={() => setFailed(true)} /> : <span>{characterName(character, tUi).slice(0, 1)}</span>}
+    {cover && !failed ? <img src={cover} alt={tUi("{value0}立绘", {value0: characterName(character, tUi)})} onError={() => setFailed(true)} /> : <><ImageSquare size={32} aria-hidden="true" /><span>{tUi("封面立绘")}</span></>}
   </div>;
 }
 
@@ -170,12 +171,29 @@ export function CharacterProfilePanel({
     <h1>{name}</h1><p className={introduction ? '' : 'is-empty'}>{introduction || tUi("暂无简介")}</p>
   </div>;
   const actions = <div className="character-profile-actions">
-    <button type="button" className="character-profile-action is-primary" onMouseDown={preventPointerFocus} onClick={() => onStartConversation(selectedCharacter.id)}><ChatCircleDots aria-hidden="true" />{tUi("进入对话")}</button>
-    <button type="button" className="character-profile-action is-secondary" onMouseDown={preventPointerFocus} onClick={() => onEditCharacter(selectedCharacter.id)}><PencilIcon />{tUi("编辑角色")}</button>
+    <Button data-dsh-control variant="outline" icon={<ChatCircleDots aria-hidden="true" />} className="character-profile-action" onMouseDown={preventPointerFocus} onClick={() => onStartConversation(selectedCharacter.id)}>{tUi("进入对话")}</Button>
+    <Button data-dsh-control variant="outline" icon={<PencilIcon />} className="character-profile-action" onMouseDown={preventPointerFocus} onClick={() => onEditCharacter(selectedCharacter.id)}>{tUi("编辑角色")}</Button>
   </div>;
 
   if (single) return <section className="character-profile-panel is-single-portrait" aria-label={tUi("{value0}的角色简介", {value0: name})}>
-    <div className="character-profile-scroll"><CharacterPortrait character={selectedCharacter} />{copy}</div>
+    <div className="character-profile-scroll">
+      <article className="character-profile-sheet">
+        <div className="character-profile-identity">
+          <CharacterPortrait character={selectedCharacter} />
+          <div className="character-profile-person">
+            <h1>{name}</h1>
+            <div className="character-profile-author">
+              <Avatar as="span" src={selectedCharacter.authorAvatar || ""} name={selectedCharacter.authorName?.trim() || tUi("未填写作者")} />
+              <span>{selectedCharacter.authorName?.trim() || tUi("未填写作者")}</span>
+            </div>
+          </div>
+        </div>
+        <div className="character-profile-copy">
+          <h2>{tUi("简介")}</h2>
+          <p className={introduction ? '' : 'is-empty'}>{introduction || tUi("暂无简介")}</p>
+        </div>
+      </article>
+    </div>
     {actions}
   </section>;
 

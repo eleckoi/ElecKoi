@@ -1,138 +1,50 @@
 package com.eleckoi.app;
 
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.Rect;
 import android.graphics.RectF;
-import android.view.View;
-import android.view.animation.LinearInterpolator;
 
-/** Native loading decoration; readiness remains owned by the Client admission signal. */
-final class StartupMascotView extends View {
-    private static final int SOURCE_WIDTH = 1080, SOURCE_HEIGHT = 580;
-    private static final long LOOP_MS = 4400;
+/** Current Logo, intact, with a gentle float and staggered rising bubbles. */
+final class StartupMascotView extends StartupAnimatedView {
     private final Bitmap mascot;
-    private final Paint imagePaint = new Paint();
-    private final Paint lidPaint = new Paint();
-    private final Rect source = new Rect(230, 310, 1310, 890);
-    private final RectF target = new RectF(0, 0, SOURCE_WIDTH, SOURCE_HEIGHT);
-    private final Path leftLid = eyelid(356, 395, 120, 102, .525f, .85f);
-    private final Path rightLid = eyelid(627, 395, 119, 102, .16f, .496f);
-    private ValueAnimator idle;
-    private boolean loading, active;
-    private float offset, blink;
+    private final Paint imagePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+    private final Paint bubblePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final RectF imageBounds = new RectF();
+    private static final float[][] BUBBLES = {
+        {-103,20,17,0}, {-83,-68,9,1600}, {103,-13,24,900}, {81,64,10,2400}, {15,-84,7,3100}
+    };
 
     StartupMascotView(Context context) {
         super(context);
-        BitmapFactory.Options options = new BitmapFactory.Options();
-        options.inScaled = false;
-        mascot = BitmapFactory.decodeResource(getResources(), R.drawable.whale_girl_pixel_dango, options);
-        if (mascot == null || mascot.getWidth() != 1536 || mascot.getHeight() != 1024)
-            throw new IllegalStateException("Startup mascot resource has invalid dimensions");
-        imagePaint.setFilterBitmap(false);
-        lidPaint.setColor(Color.rgb(254, 242, 235));
-        setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+        BitmapFactory.Options options = new BitmapFactory.Options(); options.inScaled = false;
+        mascot = BitmapFactory.decodeResource(getResources(), R.drawable.eleckoi_app_icon, options);
+        if (mascot == null) throw new IllegalStateException("Startup Logo resource is missing");
+        bubblePaint.setColor(Color.rgb(130,155,209)); bubblePaint.setStrokeWidth(1.5f);
     }
-
-    void showLoading() {
-        loading = true;
-        updateAnimation();
-    }
-
-    void stopLoading() {
-        loading = false;
-        stopAnimation();
-    }
-
-    void setActive(boolean value) {
-        active = value;
-        updateAnimation();
-    }
-
-    boolean canAnimate() {
-        return active && isShown() && getWindowVisibility() == VISIBLE && ValueAnimator.areAnimatorsEnabled();
-    }
-
-    private void updateAnimation() {
-        if (!loading || !isAttachedToWindow() || !canAnimate()) {
-            stopAnimation();
-            return;
-        }
-        if (idle != null) return;
-        idle = ValueAnimator.ofFloat(0f, LOOP_MS);
-        idle.setDuration(LOOP_MS);
-        idle.setInterpolator(new LinearInterpolator());
-        idle.setRepeatCount(ValueAnimator.INFINITE);
-        idle.addUpdateListener(animation -> {
-            float time = (float) animation.getAnimatedValue();
-            offset = Math.round(-3f * getResources().getDisplayMetrics().density
-                    * (float) Math.sin(time * Math.PI * 4 / LOOP_MS));
-            blink = Math.max(blinkAt(time, 1450), blinkAt(time, 3450));
-            invalidate();
-        });
-        idle.start();
-    }
-
-    private void stopAnimation() {
-        if (idle != null) {
-            idle.removeAllUpdateListeners();
-            idle.cancel();
-            idle = null;
-        }
-        offset = blink = 0f;
-        invalidate();
-    }
-
-    private static float blinkAt(float time, float start) {
-        float elapsed = time - start;
-        if (elapsed < 0 || elapsed >= 230) return 0;
-        if (elapsed < 70) return elapsed / 70;
-        if (elapsed < 110) return 1;
-        return 1 - (elapsed - 110) / 120;
-    }
-
-    private static Path eyelid(float x, float y, float width, float height, float lowerLeft, float lowerRight) {
-        Path path = new Path();
-        path.moveTo(x, y); path.lineTo(x + width, y);
-        path.lineTo(x + width, y + height * .784f);
-        path.lineTo(x + width * lowerRight, y + height * .784f);
-        path.lineTo(x + width * lowerRight, y + height);
-        path.lineTo(x + width * lowerLeft, y + height);
-        path.lineTo(x + width * lowerLeft, y + height * .784f);
-        path.lineTo(x, y + height * .784f); path.close();
-        return path;
-    }
-
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        // Fit the approved opaque artwork, excluding its transparent canvas padding.
-        float scale = Math.min(getWidth() / (float) SOURCE_WIDTH, getHeight() / (float) SOURCE_HEIGHT);
+        float scale = Math.min(getWidth() / 256f, getHeight() / 194f);
         canvas.save();
-        canvas.translate((getWidth() - SOURCE_WIDTH * scale) / 2,
-                (getHeight() - SOURCE_HEIGHT * scale) / 2 + offset);
+        canvas.translate((getWidth() - 256 * scale) / 2, (getHeight() - 194 * scale) / 2);
         canvas.scale(scale, scale);
-        canvas.drawBitmap(mascot, source, target, imagePaint);
-        if (blink > 0) {
-            canvas.save();
-            canvas.scale(1, blink, 0, 395);
-            canvas.drawPath(leftLid, lidPaint); canvas.drawPath(rightLid, lidPaint);
-            canvas.restore();
+        float offset = -2 + 4 * (float) Math.cos(elapsed % 4000 / 4000f * Math.PI * 2);
+        imageBounds.set(52, 21 + offset, 204, 173 + offset);
+        canvas.drawBitmap(mascot, null, imageBounds, imagePaint);
+        for (float[] bubble : BUBBLES) {
+            float phase = (elapsed + bubble[3]) % 4800 / 4800f;
+            float opacity = phase < .18f ? phase / .18f * .72f
+                    : phase < .72f ? .72f - (phase - .18f) / .54f * .22f : (1 - phase) / .28f * .5f;
+            float radius = bubble[2] / 2 * (.55f + .55f * phase);
+            float x = 128 + bubble[0], y = 97 + bubble[1] + 25 - 53 * phase;
+            bubblePaint.setAlpha(Math.round(255 * opacity)); bubblePaint.setStyle(Paint.Style.STROKE);
+            canvas.drawCircle(x, y, radius, bubblePaint);
+            bubblePaint.setStyle(Paint.Style.FILL);
+            canvas.drawCircle(x + radius * .36f, y - radius * .38f, Math.max(.7f, radius * .14f), bubblePaint);
         }
-        canvas.restore();
-    }
-
-    @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); updateAnimation(); }
-    @Override protected void onDetachedFromWindow() { stopAnimation(); super.onDetachedFromWindow(); }
-    @Override protected void onWindowVisibilityChanged(int visibility) {
-        super.onWindowVisibilityChanged(visibility); updateAnimation();
-    }
-    @Override protected void onVisibilityChanged(View changedView, int visibility) {
-        super.onVisibilityChanged(changedView, visibility); updateAnimation();
+        bubblePaint.setAlpha(255); canvas.restore();
     }
 }

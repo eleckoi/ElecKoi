@@ -1,4 +1,6 @@
-.mobile-home-search { position: absolute; inset: 0; z-index: 35; display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: var(--surface-raised); }
+/* Search covers the native frame, including the drawer foreground (72),
+   dismiss mask (73) and rightbar (74); official portaled dialogs stay above it. */
+.mobile-home-search { position: absolute; inset: 0; z-index: 80; display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: var(--surface-raised); }
 .mobile-home-search > header { display: flex; align-items: center; justify-content: space-between; flex: none; height: 56px; padding: 0 4px 0 16px; }
 .mobile-home-search h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.5px; }
 .mobile-home-search > header button { padding: 0 12px; border: 0; background: transparent; color: var(--muted); font-size: 14.5px; }

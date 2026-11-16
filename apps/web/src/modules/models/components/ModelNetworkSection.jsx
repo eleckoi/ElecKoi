@@ -1,9 +1,19 @@
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { PlusIcon, TrashIcon } from "../../../ui/icons/index.jsx";
 
 export function ModelNetworkSection({ form, draftHeader, setDraftHeader, onUpdateField, onUpdateHeader, onAddHeader, compact = false }) {
   const tUi = useProductTranslation();
+  const [headerError, setHeaderError] = useState('');
+  const headerErrorId = useId();
+  const headerNameRef = useRef(null);
+  useEffect(() => setHeaderError(''), [form.id, form.draftKey]);
+  function addHeader() {
+    const message = onAddHeader();
+    setHeaderError(message || '');
+    if (message) headerNameRef.current?.focus();
+  }
   return (
     <section className={`model-form-section${compact ? " mobile-model-section mobile-model-network" : " model-network-section"}`}>
       <h3>{compact ? tUi("网络") : tUi("网络与请求头")}</h3>
@@ -24,10 +34,11 @@ export function ModelNetworkSection({ form, draftHeader, setDraftHeader, onUpdat
           </div>
         ))}
         <div className="model-header-row draft">
-          <input value={draftHeader.name} onChange={(event) => setDraftHeader((current) => ({ ...current, name: event.target.value }))} placeholder={tUi("Header 名称")} aria-label={tUi("新请求头名称")} />
+          <input ref={headerNameRef} value={draftHeader.name} aria-invalid={Boolean(headerError)} aria-describedby={headerError ? headerErrorId : undefined} onChange={(event) => { setDraftHeader((current) => ({ ...current, name: event.target.value })); setHeaderError(''); }} placeholder={tUi("Header 名称")} aria-label={tUi("新请求头名称")} />
           <input value={draftHeader.value} onChange={(event) => setDraftHeader((current) => ({ ...current, value: event.target.value }))} placeholder={tUi("值")} aria-label={tUi("新请求头值")} />
-          <Button data-dsh-control variant="primary" type="button" aria-label={tUi("添加请求头")} title={tUi("添加请求头")} onClick={onAddHeader}><PlusIcon /></Button>
+          <Button data-dsh-control variant="primary" type="button" aria-label={tUi("添加请求头")} title={tUi("添加请求头")} onClick={addHeader}><PlusIcon /></Button>
         </div>
+        {headerError && <p id={headerErrorId} className="model-header-error" role="alert">{headerError}</p>}
       </div>
       </div>
     </section>

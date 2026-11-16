@@ -34,6 +34,9 @@ it('separates the brand from caption controls and keeps the same menu when colla
       expect(report.nativeControls,detail).toBe(true);
       expect(report.windowCenters,detail).toHaveLength(0);
       expect(report.captionHeight,detail).toBe(40);
+      expect(report.brandRegion,detail).not.toBe('drag');
+      expect(report.sidebarRegion,detail).toBe('no-drag');
+      expect(report.captionRegion,detail).toBe('drag');
       for (const center of [report.toggleCenter,report.menuCenter,...report.windowCenters]) {
         expect(Math.abs(center-report.captionHeight/2),detail).toBeLessThan(0.1);
       }

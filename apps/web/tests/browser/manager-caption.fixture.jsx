@@ -2,6 +2,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { CharacterManagerWindow } from '../../src/app/windows/CharacterManagerWindow.jsx';
 import { PresetManagerWindow } from '../../src/app/windows/PresetManagerWindow.jsx';
+import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import '../../../../node_modules/@deepseek-ai/dsh-client-ui-layout/src/client/AppFrame.module.css';
 import '../../src/app/windows/styles/tokens.css';
 import '../../src/app/windows/styles/base.css';
 import '../../src/app/windows/shell/styles/titlebar.css';
@@ -22,6 +24,8 @@ const profile = { user_name: '合成用户', user_avatar: '' };
 const catalog = { presets: [], groups: [], activePresetIds: { roleplay: '', creator: '' } };
 const model = value => ({ refresh: async () => value, subscribe: () => () => {},
   getSnapshot: () => ({ status: 'ready', collection: value, profile: value, catalog: value }) });
-createRoot(document.querySelector('#root')).render(query.get('view') === 'character-manager'
+createRoot(document.querySelector('#root')).render(query.get('view') === 'main'
+  ? <Modal open title="合成官方弹窗" closeLabel="关闭" onClose={() => {}}>合成内容</Modal>
+  : query.get('view') === 'character-manager'
   ? <CharacterManagerWindow characterCatalog={model(collection)} personaModel={model(profile)} />
   : <PresetManagerWindow presetCatalog={model(catalog)} />);

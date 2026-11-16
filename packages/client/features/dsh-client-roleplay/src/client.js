@@ -165,7 +165,7 @@ window.__ModuleLoader__.load({
         if (!ready) return
         const previous = retained.current
         if (previous && previous.reference.binding === ready.binding) return
-        // Desktop Workspace navigation owns the single foreground mainView.
+        // Workspace navigation owns the single foreground mainView on every platform.
         // A second mainView leaves uiSession following the previous Workspace.
         openMainSession?.(ready.sessionId)
         retained.current = { conversationId: matched.props.conversationId,
@@ -193,8 +193,7 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots', 'sessions', 'eleckoiConversations',
-        ...(globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android' ? [] : ['uiWorkspace'])],
+      inject: ['slots', 'sessions', 'eleckoiConversations', 'uiWorkspace'],
       apply(ctx) {
         const retainedStatsKeys = new Set(['sessionStats', 'tokenUsage', 'contextPressure', 'contextBreakdown'])
         function useDisplayStats(ownerProps) {
@@ -368,8 +367,7 @@ window.__ModuleLoader__.load({
             'eleckoi.roleplay.session': { kind: 'single', scope: 'session' }
           },
           inject: () => ({ conversations: ctx.eleckoiConversations, sessions: ctx.sessions,
-            openMainSession: globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android' ? undefined
-              : id => ctx.get('uiWorkspace').openSession(id) }),
+            openMainSession: id => ctx.get('uiWorkspace').openSession(id) }),
           select: owner => owner?.component ? owner : null
         }, RoleplayView))
         ctx.slots.inject('eleckoi.roleplay.session', () => ctx.slots.register({

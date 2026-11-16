@@ -1,5 +1,5 @@
 import { useProductTranslation } from "../i18n/ProductLocaleContext.jsx";
-import { Component, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Component, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ChatBackgroundModal, HistoryModal } from "../../modules/chat/index.js";
 import { useChatClient } from "../hooks/useChatClient.js";
 import { useWindowAppearance } from "../hooks/useWindowAppearance.js";
@@ -60,13 +60,6 @@ export function MainWindow({ nativeFrame, conversations, characters, characterCo
   const [presetRequestedTab, setPresetRequestedTab] = useState("");
   const presetNavigationGuardRef = useRef(null);
   const modelNavigationGuardRef = useRef(null);
-
-  useLayoutEffect(() => {
-    const root = document.documentElement;
-    const hadTitlebar = root.hasAttribute('data-windows-titlebar');
-    root.setAttribute('data-windows-titlebar', '');
-    return () => { if (!hadTitlebar) root.removeAttribute('data-windows-titlebar'); };
-  }, []);
 
   useEffect(() => {
     const action = event => {

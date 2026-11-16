@@ -5,6 +5,7 @@ import { DshFolderClosedIcon, DshFolderOpenIcon, DshTriangleRightIcon } from "..
 import { HeadlessTree } from "../../../ui/tree/HeadlessTree.jsx";
 import { SettingEntryGlyph } from "./SettingEntryFields.jsx";
 import { EditorSelectionCheckbox } from '../../../ui/ui/EditorCollectionControls.jsx';
+import { EditorToggle } from '../../../ui/ui/EditorToggle.jsx';
 
 export const SettingTreeActionsContext = createContext(null);
 
@@ -59,20 +60,13 @@ export function SettingTreeNode({ item, data, itemProps, style, level, isSelecte
         </span>}
         <span className="setting-library-tree-label">{data.label}</span>
         {!actions?.selection?.active && (data.nodeKind === "group" ? <span className="setting-library-tree-count">{data.childCount}</span> : (
-          <button
-            type="button"
+          <EditorToggle
             className="setting-library-tree-switch"
-            role="switch"
-            aria-checked={data.enabled}
+            checked={data.enabled}
             disabled={actions?.saving}
-            aria-label={`${data.enabled ? tUi("停用") : tUi("启用")}${data.label}`}
-            onDoubleClick={event => event.stopPropagation()}
-            onMouseDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation();
-              actions.updateEntryById(data.recordId, { enabled: !data.enabled });
-            }}
-          ><span aria-hidden="true" /></button>
+            label={`${data.enabled ? tUi("停用") : tUi("启用")}${data.label}`}
+            onChange={enabled => actions.updateEntryById(data.recordId, { enabled })}
+          />
         ))}
       </div>
     </div>

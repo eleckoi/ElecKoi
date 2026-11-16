@@ -1120,22 +1120,12 @@ span.model-provider-initials {
   background: #f7f7f7;
 }
 
-:where(.model-config-detail) .model-capability-toggle input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  margin: 0 auto;
-  accent-color: var(--blue);
-}
-
-:where(.model-config-detail) .model-capability-toggle {
-  grid-template-columns: minmax(0, 1fr) 34px;
+:where(.model-config-detail) .model-detail-form .model-capability-toggle {
+  display: inline-flex;
+  flex: none;
   align-items: center;
-}
-
-:where(.model-config-detail) .model-capability-toggle > span {
-  display: grid !important;
-  justify-content: start !important;
-  gap: 3px !important;
+  gap: 6px;
+  white-space: nowrap;
 }
 
 :where(.model-config-detail) .model-reasoning-profile {
@@ -1223,6 +1213,13 @@ span.model-provider-initials {
   border: 1px solid #e5e5e5;
   border-radius: 10px;
   background: #fff;
+}
+
+.model-header-error {
+  margin: 0;
+  color: var(--dsw-alias-state-error-primary);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .model-header-row {
@@ -1313,7 +1310,8 @@ span.model-provider-initials {
 
 .model-detail-form .model-directory-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 
-.model-detail-form .model-directory-toggle input, :where(.model-config-detail) .model-input-capabilities input { width: 16px; height: 16px; margin: 0; accent-color: var(--blue); }
+.model-detail-form .model-directory-toggle input, :where(.model-config-detail) .model-input-capabilities input { width: 16px; height: 16px; margin: 0; accent-color: var(--dsw-alias-brand-primary); }
+:where(.model-config-detail) .model-detail-form .model-input-capabilities label { display: inline-flex; }
 
 :where(.model-config-detail) .model-input-capabilities { min-inline-size: 0; min-width: 0; margin: 0; padding: 12px 14px; border: 0; border-right: 1px solid var(--line); }
 
@@ -1386,8 +1384,6 @@ span.model-provider-initials {
 :where(.model-config-detail) .model-capabilities { display: grid; gap: 10px; }
 :where(.model-config-detail) .model-capabilities-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 :where(.model-config-detail) .model-capabilities-heading > span { font-size: 13px; font-weight: 500; }
-:where(.model-config-detail) .model-capabilities-heading :where(.model-config-detail) .model-capability-toggle { display: flex; align-items: center; gap: 6px; }
-:where(.model-config-detail) .model-capabilities-heading :where(.model-config-detail) .model-capability-toggle input { margin: 0; width: 14px; height: 14px; }
 .model-config-detail:not(.mobile-model-config-detail) :is(.model-input-capabilities, .model-reasoning-profile) { min-width: 0; margin: 0; padding: 0; border: 0; }
 .model-config-detail:not(.mobile-model-config-detail) .model-reasoning-profile legend { float: none; display: block; width: 100%; margin-bottom: 8px; color: var(--model-muted); font-size: 12px; line-height: 24px; }
 .model-config-detail:not(.mobile-model-config-detail) .model-reasoning-profile legend > span { color: inherit; font: inherit; }

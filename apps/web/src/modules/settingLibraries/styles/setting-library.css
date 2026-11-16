@@ -14,7 +14,7 @@
 .global-setting-library.is-current > .global-setting-library-header { background: var(--dsw-alias-interactive-bg-hover); }
 .global-setting-library-header button { color: var(--text); }
 .global-setting-library-actions { display: flex; flex: none; align-items: center; gap: 0; }
-.global-setting-library-actions > .setting-library-tree-switch { margin-inline: 0 4px; }
+.global-setting-library-actions > .editor-toggle-control { margin-inline: 0 4px; }
 .global-setting-library-rename > svg { margin-inline-start: 1px; }
 .global-setting-library-expand, .global-setting-library-name { background: transparent; }
 .global-setting-library-expand[aria-expanded="true"] svg { transform: rotate(90deg); }
@@ -35,8 +35,7 @@
 .mobile-character-editor .global-setting-library-header { gap: 4px; padding-inline: 6px; }
 .mobile-character-editor .global-setting-library-header > .setting-library-tree-count { width: 20px; flex-basis: 20px; }
 .mobile-character-editor .global-setting-library-actions { width: 94px; height: 44px; }
-.mobile-character-editor .global-setting-library-actions > .setting-library-tree-switch { margin-inline: 0 2px; }
-.mobile-character-editor .global-setting-library-actions > .setting-library-tree-switch::before { width: 32px; }
+.mobile-character-editor .global-setting-library-actions > .editor-toggle-control { margin-inline: 0 2px; }
 .mobile-character-editor .global-setting-library-rename > svg { margin-inline-start: 6px; }
 .mobile-character-editor .global-setting-library-action { flex-basis: 32px; width: 32px; height: 44px; }
 @container global-setting-libraries (max-width: 280px) {
@@ -363,7 +362,7 @@
 }
 
 .setting-library-tree-row.has-toggle .setting-library-tree-entry-icon {
-  color: var(--blue);
+  color: var(--dsw-alias-label-primary);
 }
 
 .setting-library-tree-row.is-disabled .setting-library-tree-entry-icon,
@@ -449,42 +448,6 @@
 
 .setting-library-tree-drop-cursor {
   --tree-drop-max-width: 380px;
-}
-
-.setting-library-tree-switch {
-  position: relative;
-  width: 28px;
-  height: 16px;
-  flex: 0 0 28px;
-  margin-left: auto;
-  padding: 0;
-  background: color-mix(in srgb, var(--text) 18%, transparent);
-  border-radius: var(--switch-track-radius, 999px); corner-shape: var(--switch-corner-shape, round);
-}
-
-.setting-library-tree-switch span {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 12px;
-  height: 12px;
-  background: #fff;
-  border-radius: var(--switch-thumb-radius, 50%); corner-shape: var(--switch-corner-shape, round);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, .22);
-  transition: transform 120ms ease;
-}
-
-.setting-library-tree-switch[aria-checked="true"] {
-  background: var(--blue);
-}
-
-.setting-library-tree-switch[aria-checked="true"] span {
-  transform: translateX(12px);
-}
-
-.setting-library-tree-switch:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--blue) 48%, transparent);
-  outline-offset: 2px;
 }
 
 .setting-library-empty,
@@ -1964,7 +1927,6 @@ html.immersive-editor-open .qq-character-editor-window-shell .window-controls {
   .setting-library-tree-folder,
   .setting-library-tree-arrow,
   .setting-library-tree-label,
-  .setting-library-tree-switch span,
   .setting-library-opening-toggle > svg {
     transition: none;
   }

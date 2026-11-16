@@ -3393,5 +3393,7 @@
   "关闭分组面板": "Close groups panel",
   "分组 {value0}，长按拖动，点击改名": "Group {value0}, long press to reorder, tap to rename",
   "删除“{value0}”分组，角色卡保留。": "Delete group “{value0}”. Character cards will be kept.",
-  "移动角色": "Move characters"
+  "移动角色": "Move characters",
+  "扮演": "Roleplay",
+  "创作": "Create"
 }

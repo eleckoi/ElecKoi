@@ -44,7 +44,7 @@
 .character-basic-cover-action { position:absolute; inset:auto 0 0; display:flex; align-items:center; justify-content:center; gap:8px; min-height:40px; color:#fff; background:rgba(25,29,36,.68); font-size:13px; font-weight:500; }
 .character-basic-upload-button:focus-visible { outline:2px solid var(--blue); outline-offset:3px; }
 .character-basic-actions { display:flex; flex:none; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:10px; width:min(100%,900px); padding-top:20px; }
-.character-basic-actions button { min-height:38px; }
+.character-basic-actions button { height:36px; min-height:36px; border-radius:999px; }
 .mobile-character-editor .character-basic-actions button { min-height:44px; }
 .character-basic-save-status { display:flex; align-items:center; gap:6px; margin-right:auto; color:var(--muted); font-size:13px; }
 .character-basic-save-status:empty { display:none; }

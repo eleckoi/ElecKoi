@@ -3,7 +3,7 @@
 .setting-position-manager-header { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 4px 12px; }
 .setting-position-manager-header h2 { flex: 1; margin: 0; font-size: 17px; font-weight: 600; }
 .setting-position-back { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; color: var(--text); }
-.setting-position-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; }
+.setting-position-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; min-height: 32px; padding-inline: 12px; border-radius: 999px; font-size: 13px; }
 .setting-position-manager .is-danger { color: #cf3737; }
 
 .setting-position-guide { min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 8px 8px 32px 4px; }

@@ -121,7 +121,7 @@
 .variable-tree-row.is-selected { background: var(--active); }
 .variable-tree-row.is-drop-target { background: color-mix(in srgb, var(--blue) 9%, var(--chat)); border-color: color-mix(in srgb, var(--blue) 58%, transparent); }
 .variable-tree-row.is-dragging { opacity: .46; }
-.variable-tree-icon { width: 16px; height: 20px; color: var(--muted); }
+.variable-tree-icon { width: 16px; height: 20px; color: var(--dsw-alias-label-secondary); }
 .variable-tree-row.is-disabled .variable-tree-icon,
 .variable-tree-row.is-disabled .variable-tree-label { color: var(--soft-text); opacity: .46; }
 .variable-tree-row.is-nested { animation: variable-row-in 150ms ease-in-out; }
@@ -135,10 +135,6 @@
 .variable-tree-expander svg.is-expanded { transform: rotate(90deg); }
 .variable-tree-label { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .variable-tree-required { flex: 0 0 auto; padding: 2px 5px; color: var(--blue); background: color-mix(in srgb, var(--blue) 9%, transparent); border-radius: 5px; font-size: 10px; line-height: 1.25; }
-.variable-tree-switch { position: relative; width: 28px; height: 16px; flex: 0 0 28px; background: color-mix(in srgb, var(--text) 18%, transparent); border-radius: var(--switch-track-radius, 999px); corner-shape: var(--switch-corner-shape, round); }
-.variable-tree-switch > span { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; content: ""; background: #fff; border-radius: var(--switch-thumb-radius, 50%); corner-shape: var(--switch-corner-shape, round); box-shadow: 0 1px 3px rgba(0,0,0,.22); transition: transform 120ms ease; }
-.variable-tree-switch[aria-checked="true"] { background: var(--blue); }
-.variable-tree-switch[aria-checked="true"] > span { transform: translateX(12px); }
 .variable-tree-drop-cursor { --tree-drop-max-width: 380px; }
 .variable-empty,
 .variable-loading { margin: 0; color: var(--soft-text); font-size: 13px; }
@@ -274,6 +270,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .variable-tree-row.is-nested { animation: none; }
-  .variable-tree-expander svg,
-  .variable-tree-switch > span { transition: none; }
+  .variable-tree-expander svg { transition: none; }
 }

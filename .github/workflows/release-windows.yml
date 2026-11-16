@@ -1,3 +1,6 @@
+# Read docs/WINDOWS_RELEASE.md before changing this workflow.
+# Publish first. Non-shipping UI/function probes belong in post-release jobs;
+# never make the release job depend on them.
 name: ElecKoi Windows Release
 
 on:
@@ -31,7 +34,7 @@ concurrency:
 
 jobs:
   release:
-    name: Build and publish Windows update
+    name: Build and publish Windows installer first
     runs-on: windows-latest
     timeout-minutes: 45
     defaults:
@@ -86,9 +89,6 @@ jobs:
 
       - name: Verify Electron DSH runtime
         run: pnpm check:electron-dsh
-
-      - name: Verify update dialog discovery and reopening
-        run: pnpm exec electron scripts/probe-eleckoi-desktop-client.cjs --updates-check
 
       - name: Assemble Windows application
         env:
@@ -160,3 +160,73 @@ jobs:
           else { $releaseOptions += '--generate-notes' }
           if ('${{ inputs.prerelease }}' -eq 'true') { $releaseOptions += '--prerelease' }
           gh release create $env:RELEASE_TAG @assets @releaseOptions
+
+  update_ui_check:
+    name: Check update UI after publishing (non-blocking)
+    needs: release
+    runs-on: windows-latest
+    timeout-minutes: 25
+    continue-on-error: true
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout the same release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || inputs.tag }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install locked check dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build update-check inputs
+        run: |
+          pnpm --filter eleckoi-desktop build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm build:dsh-renderer
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm rebuild:electron
+          exit $LASTEXITCODE
+
+      - name: Check update discovery and reopening in wide and narrow windows
+        id: updates
+        continue-on-error: true
+        run: |
+          $failedWidths = @()
+          foreach ($probeWidth in @(1440, 1024)) {
+            $env:ELECKOI_CLIENT_PROBE_WIDTH = [string]$probeWidth
+            pnpm exec electron scripts/probe-eleckoi-desktop-client.cjs --updates-check
+            if ($LASTEXITCODE -ne 0) { $failedWidths += $probeWidth }
+          }
+          if ($failedWidths.Count -gt 0) {
+            throw "Update UI check failed at widths: $($failedWidths -join ', '). See this check's logs; Windows packaging runs independently."
+          }
+
+      - name: Report the independent check result
+        if: always()
+        env:
+          UPDATE_CHECK_OUTCOME: ${{ steps.updates.outcome }}
+        run: |
+          if ($env:UPDATE_CHECK_OUTCOME -eq 'success') {
+            'Update UI checks passed. This job is independent of Windows packaging.' >> $env:GITHUB_STEP_SUMMARY
+          }
+          else {
+            Write-Output '::warning::The independent update UI check did not pass. Inspect this job to fix it; it does not block Windows packaging or publishing.'
+            "Update UI check outcome: $env:UPDATE_CHECK_OUTCOME. Inspect this job's logs; Windows packaging and publishing run independently." >> $env:GITHUB_STEP_SUMMARY
+          }

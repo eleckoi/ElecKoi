@@ -1281,6 +1281,11 @@ class ProductDataStore {
     return this.requirePresets().renameGroup(groupId, name)
   }
 
+  reorderAgentPresetGroups(groupIds: string[], purpose: AgentPresetPurpose): AgentPresetCatalog {
+    this.databaseRepositories()
+    return this.requirePresets().reorderGroups(groupIds, purpose)
+  }
+
   assignAgentPresetGroup(presetId: string, groupId: string): AgentPresetCatalog {
     this.databaseRepositories()
     return this.requirePresets().assignGroup(presetId, groupId)

@@ -1,7 +1,7 @@
 import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useState } from "react";
-import { ChatText, Info, SlidersHorizontal, Swatches } from "../../../ui/icons/interfaceIcons.jsx";
+import { ChatText, Info, Palette, SlidersHorizontal } from "../../../ui/icons/interfaceIcons.jsx";
 import { ProfileIcon } from "../../../ui/icons/index.jsx";
 import { avatarSetFromPersona, AvatarManagerEditor } from "../../../ui/ui/AvatarSlotsEditor.jsx";
 import { ProfileSettingsView } from './ProfileSettingsView.jsx';
@@ -15,7 +15,7 @@ import { useProfileAutosave } from '../model/useProfileAutosave.js';
 
 const pages = [
   { id: "profile", label: "用户资料", icon: ProfileIcon },
-  { id: "theme", label: "主题风格", icon: Swatches },
+  { id: "theme", label: "主题风格", icon: Palette },
   { id: "chat", label: "聊天显示", icon: ChatText },
   { id: "about", label: "关于 ElecKoi", icon: Info },
 ];

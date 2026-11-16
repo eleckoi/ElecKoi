@@ -140,7 +140,7 @@ describe('script library editing commands', () => {
       await switchScope(page.node, 'character');
       await act(() => page.row('character').querySelector('button').click());
       await page.rightClick('global'); await page.action('删除');
-      const dialog = document.querySelector('[role="alertdialog"]');
+      const dialog = document.querySelector('[role="dialog"][aria-label]');
       expect(dialog.textContent).toContain('Synthetic global script');
       await act(() => [...dialog.querySelectorAll('button')].find(button => button.textContent === '删除').click());
       expect(page.node.querySelector('[aria-label="全局脚本"]').querySelectorAll('.script-list-row')).toHaveLength(1);

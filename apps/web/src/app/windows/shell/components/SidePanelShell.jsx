@@ -31,7 +31,7 @@ export function SidePanelShell({ collapsed = false, contentWidth, onCollapse, fo
         </button>
         {desktopMenu && !collapsed ? <span className="desktop-menu-seat" data-desktop-menu-seat /> : null}
       </header>
-      <div className="side-panel-brand" data-tauri-drag-region>
+      <div className="side-panel-brand">
         {renderSidebarSlot?.("sidebar.brand.name", { content: <ElecKoiWordmark /> }) || <ElecKoiWordmark />}
       </div>
       <div className="side-panel-content">{children}</div>

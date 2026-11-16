@@ -10,7 +10,9 @@ function roleplayTintToken(kind) {
 
 /** Native color inputs need hex; the painted surfaces use the live theme token directly. */
 export function roleplayStyleDefaultTint(kind) {
-  const color = getComputedStyle(document.body).getPropertyValue(roleplayTintToken(kind)).trim();
+  const theme = getComputedStyle(document.body);
+  const token = kind === 'bubble' && theme.colorScheme !== 'dark' ? '--dsw-static-neutral-50' : roleplayTintToken(kind);
+  const color = theme.getPropertyValue(token).trim();
   if (color.startsWith('#')) return color.length === 4 ? `#${[...color.slice(1)].map(channel => channel.repeat(2)).join('')}` : color;
   const channels = color.match(/[\d.]+/g)?.slice(0, 3) || [0, 0, 0];
   return `#${channels.map(channel => Math.round(Number(channel)).toString(16).padStart(2, '0')).join('')}`;
@@ -18,7 +20,9 @@ export function roleplayStyleDefaultTint(kind) {
 
 export function roleplayStyleCssVariables(style) {
   const value = { ...DEFAULT_ROLEPLAY_STYLE, ...style };
-  const themeTint = kind => `var(${roleplayTintToken(kind)})`;
+  const themeTint = kind => kind === 'bubble'
+    ? 'light-dark(var(--dsw-static-neutral-50), var(--dsw-alias-bg-layer-1))'
+    : `var(${roleplayTintToken(kind)})`;
   return {
     '--rp-backdrop-blur': `${value.backdrop_blur}px`,
     '--rp-backdrop-tint': value.backdrop_tint || themeTint('backdrop'),

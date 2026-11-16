@@ -72,11 +72,28 @@ app.whenReady().then(async () => {
         if (bubbles && width === 768) { await run('document.querySelector(".message-area").scrollTop=0'); await settle(); await capture(`chat-tablet-${theme}`); }
       }
     }
+    const plainBubbleContrast = [];
+    await run(`window.originalStyleWallpaper=roleplayStyleFixture.wallpaper;roleplayStyleFixture.setWallpaper({image:''})`);
+    for (const theme of ['light', 'dark']) for (const [width, mobile] of [[1440, false], [390, true]]) for (const backdrop of [false, true]) {
+      win.setContentSize(width, 900);
+      await run(`document.documentElement.dataset.theme='${theme}';document.body.toggleAttribute('data-ds-dark-theme',${theme === 'dark'});roleplayStyleFixture.setMobileChat(${mobile})`);
+      await style({ bubbles_enabled: true, backdrop_enabled: backdrop });
+      await run('document.querySelector(".message-area").scrollTop=0'); await settle();
+      const points = await run(`(()=>{const row=document.querySelector('.message-roleplay'),r=row.getBoundingClientRect(),next=document.querySelectorAll('.message-roleplay')[1].getBoundingClientRect();return {bubble:{x:r.right-2,y:r.top+r.height/2},gap:{x:r.right-2,y:(r.bottom+next.top)/2}}})()`);
+      const pixels = {};
+      for (const [name, point] of Object.entries(points)) {
+        const bytes = (await win.webContents.capturePage({ x: Math.round(point.x), y: Math.round(point.y), width: 1, height: 1 })).toBitmap();
+        pixels[name] = [bytes[2], bytes[1], bytes[0]];
+      }
+      plainBubbleContrast.push({ theme, width, mobile, backdrop, ...pixels });
+      if (mobile && !backdrop) await capture(`chat-plain-mobile-${theme}`);
+    }
+    await run(`roleplayStyleFixture.setWallpaper(originalStyleWallpaper)`); await style({ backdrop_enabled: true });
     const tintInputs = [];
     await run(`roleplayStyleFixture.setView('settings')`); await settle();
     for (const theme of ['light','dark']) {
       await run(`document.documentElement.dataset.theme='${theme}';document.body.toggleAttribute('data-ds-dark-theme',${theme==='dark'})`); await settle();
-      tintInputs.push(await run(`(()=>{const css=getComputedStyle(document.body),context=document.createElement('canvas').getContext('2d'),hex=token=>{context.fillStyle=css.getPropertyValue(token);return context.fillStyle};return {theme:'${theme}',backdrop:document.querySelector('[aria-label="底板色调"]').value,user:document.querySelector('[aria-label="用户气泡色调"]').value,assistant:document.querySelector('[aria-label="AI 气泡色调"]').value,officialBackdrop:hex('--dsw-alias-bg-module-platform'),officialBubble:hex('--dsw-alias-bg-layer-1')}})()`));
+      tintInputs.push(await run(`(()=>{const css=getComputedStyle(document.body),context=document.createElement('canvas').getContext('2d'),hex=token=>{context.fillStyle=css.getPropertyValue(token);return context.fillStyle};return {theme:'${theme}',backdrop:document.querySelector('[aria-label="底板色调"]').value,user:document.querySelector('[aria-label="用户气泡色调"]').value,assistant:document.querySelector('[aria-label="AI 气泡色调"]').value,officialBackdrop:hex('--dsw-alias-bg-module-platform'),officialBubble:hex('${theme === 'light' ? '--dsw-static-neutral-50' : '--dsw-alias-bg-layer-1'}')}})()`));
     }
     await run(`roleplayStyleFixture.setView('chat')`); await settle();
     // Compare painted pixels against the approved CSS with identical source art.
@@ -133,7 +150,7 @@ app.whenReady().then(async () => {
       mobile.push(await run(`({theme:'${theme}',width:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth,rows:[...document.querySelectorAll('.ec-field,.ec-style-tint-row')].filter(n=>n.scrollWidth>n.clientWidth+1).map(n=>n.textContent)})`));
       if (width === 320) await capture(`mobile-${theme}`);
     }
-    writeFileSync(report, JSON.stringify({ initial, widthDrags, layouts, tintInputs, materials, authoredWallpaper, custom, customGap, gallery, agent, disabled, restored, settings, mobile, errors }, null, 2));
+    writeFileSync(report, JSON.stringify({ initial, widthDrags, layouts, plainBubbleContrast, tintInputs, materials, authoredWallpaper, custom, customGap, gallery, agent, disabled, restored, settings, mobile, errors }, null, 2));
     win.destroy(); app.quit();
   } catch (error) { console.error(error); win.destroy(); app.exit(1); }
 });

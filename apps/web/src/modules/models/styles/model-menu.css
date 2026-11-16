@@ -40,6 +40,5 @@
   }
 }
 .model-menu-parameters .chat-model-capability-choice { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
-.model-menu-parameters .chat-model-capability-choice input { width: 16px; height: 16px; accent-color: var(--dsw-alias-state-business-primary); }
-.model-menu-parameters .chat-model-capability-box { display: none; }
+.model-menu-parameters .chat-model-capability-choice input { width: 16px; height: 16px; accent-color: var(--dsw-alias-brand-primary); }
 .model-menu-error { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding-top: 8px; color: var(--dsw-alias-state-error-primary); font-size: 12px; }

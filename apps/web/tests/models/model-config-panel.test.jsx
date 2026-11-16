@@ -3,6 +3,7 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ModelConfigPanel } from '../../src/modules/models/components/ModelConfigPanel.jsx';
+import { MobileModelConfigDetail } from '../../src/mobile/MobileModelConfigDetail.jsx';
 import { initialConfigForProvider, modelParameterState } from '../../src/modules/models/model/modelConfigDraft.js';
 
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -46,6 +47,47 @@ async function mount(props) {
 }
 
 describe('model configuration form', () => {
+  it.each([false, true])('keeps request-header validation inline (mobile: %s)', async mobile => {
+    const onNotify = vi.fn();
+    const onDirtyChange = vi.fn();
+    const onSave = vi.fn(async value => value);
+    await mount({ onNotify, onDirtyChange, onSave,
+      ...(mobile ? { renderDetail: props => <MobileModelConfigDetail {...props} /> } : {}),
+    });
+    const name = container.querySelector('[aria-label="新请求头名称"]');
+    const value = container.querySelector('[aria-label="新请求头值"]');
+    const add = container.querySelector('[aria-label="添加请求头"]');
+    await act(async () => add.click());
+    const error = () => container.querySelector('.model-headers-editor [role="alert"]');
+    expect(error().textContent).toBe('请填写请求头名称');
+    expect(name.getAttribute('aria-describedby')).toBe(error().id);
+    expect(name.getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(name);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    await change(name, '   ');
+    await act(async () => add.click());
+    expect(error().textContent).toBe('请填写请求头名称');
+    await change(value, 'synthetic-value');
+    await change(name, 'invalid header');
+    expect(error()).toBeNull();
+    await act(async () => add.click());
+    expect(error().textContent).toBe('请求头名称包含无效字符');
+    expect(value.value).toBe('synthetic-value');
+    expect(onNotify).not.toHaveBeenCalled();
+    expect(onDirtyChange.mock.calls.some(([dirty]) => dirty)).toBe(false);
+    await change(name, ' X-Synthetic ');
+    await act(async () => add.click());
+    expect(error()).toBeNull();
+    expect(name.getAttribute('aria-invalid')).toBe('false');
+    expect(name.value).toBe('');
+    expect(value.value).toBe('');
+    expect(container.querySelector('[aria-label="X-Synthetic 请求头值"]').value).toBe('synthetic-value');
+    if (!mobile) {
+      await act(async () => button('保存配置').click());
+      expect(onSave.mock.calls[0][0].custom_headers).toEqual({ 'X-Synthetic': 'synthetic-value' });
+    }
+  });
+
   it('preserves the official non-thinking declaration while editing ordinary parameters', async () => {
     const config = { ...initialConfigForProvider('deepseek'), model: 'synthetic-model',
       model_options: [{ id: 'synthetic-model', reasoningEfforts: { off: null } }] };

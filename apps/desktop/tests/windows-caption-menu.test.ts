@@ -12,6 +12,7 @@ afterEach(() => {
   menu?.dispose(); menu = undefined
   document.body.replaceChildren()
   document.documentElement.removeAttribute('data-native-window-controls')
+  document.documentElement.removeAttribute('data-windows-titlebar')
   document.documentElement.style.removeProperty('--window-caption-height')
   document.documentElement.style.removeProperty('--dsh-windows-titlebar-height')
   vi.restoreAllMocks()
@@ -28,6 +29,7 @@ it('reports an unavailable canvas with a product code before mounting caption el
     message: 'Desktop caption requires a 2D canvas context', details: { what: '窗口标题栏的 2D 绘图环境' } })
   expect(document.body.children).toHaveLength(0)
   expect(document.documentElement.hasAttribute('data-native-window-controls')).toBe(false)
+  expect(document.documentElement.hasAttribute('data-windows-titlebar')).toBe(false)
   expect(document.documentElement.style.getPropertyValue('--window-caption-height')).toBe('')
   expect(send).not.toHaveBeenCalled()
 })
@@ -40,6 +42,7 @@ it('uses the native 40px caption and publishes theme colors only while mounted',
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D)
   const stop = installWindowsAppearance()
   expect(document.documentElement.hasAttribute('data-native-window-controls')).toBe(true)
+  expect(document.documentElement.hasAttribute('data-windows-titlebar')).toBe(true)
   expect(document.documentElement.style.getPropertyValue('--window-caption-height')).toBe('40px')
   expect(document.documentElement.style.getPropertyValue('--dsh-windows-titlebar-height')).toBe('40px')
   expect(send).toHaveBeenLastCalledWith('eleckoi:dsh-native-theme', null, 'rgba(17, 17, 17, 1)', 'rgba(17, 17, 17, 1)')

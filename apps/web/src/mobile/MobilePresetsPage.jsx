@@ -1,11 +1,11 @@
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { MobileSaveFeedback } from './MobileSaveFeedback.jsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MobileGeneralIcon, MobileOverflowIcon, MobileSettingsIcon } from './MobileIcons.jsx';
-import { Plus, CheckCircle } from '@phosphor-icons/react';
+import { MobileGeneralIcon, MobileOverflowIcon } from './MobileIcons.jsx';
+import { Check, CheckCircle, DotsThree } from '@phosphor-icons/react';
+import { NotePencil } from '../ui/icons/interfaceIcons.jsx';
 import defaultPresetAvatar from '../assets/eleckoi-app-icon.png';
 import { ProviderLogo } from '../modules/models/components/ProviderLogo.jsx';
 import { catalogItem } from '../modules/models/model/modelProviderCatalog.js';
@@ -14,31 +14,31 @@ import { PresetProvider, PresetWorkspace, usePresets } from '../modules/presets/
 import { PresetImportDialog, downloadPresetFile, fileBase64 } from '../modules/presets/components/PresetTransfer.jsx';
 import { Avatar } from '../ui/ui/Avatar.jsx';
 import { EditorPresentationContext, useEditorFeedbackHost } from '../ui/ui/EditorPresentationContext.jsx';
-import { MobileHeader, MobileSearch, MobileState, useMobileBack, useMobileScroll } from './MobileChrome.jsx';
+import { MobileHeader, MobileState, useMobileBack, useMobileScroll } from './MobileChrome.jsx';
 import { MobileActionMenu, MobileConfirm, MobileNameDialog, MobileSelectionHeader, useMobileOperation } from './MobileLibraryChrome.jsx';
 import { MobileLibraryIcon } from './MobileLibraryIcons.jsx';
-import { MobilePresetGroups } from './MobilePresetGroups.jsx';
+import { MobilePresetLibraryBar } from './MobilePresetLibraryBar.jsx';
 import { PresetPurposeSwitch, isDefaultPreset } from '../modules/presets/components/PresetPurposeSwitch.jsx';
 import './mobile-preset-editor.css';
+import './mobile-preset-library.css';
 
 export function MobilePresetsPage() {
   const view = useMainPageView();
-  return <PresetProvider catalogModel={view.presets} navigationGuardRef={view.guardRef}><MobilePresetLibrary /></PresetProvider>;
+  return <PresetProvider catalogModel={view.presets} navigationGuardRef={view.guardRef} fixedPresetId={view.route.kind === 'preset-editor' ? view.route.presetId : undefined}><MobilePresetLibrary /></PresetProvider>;
 }
 
 function MobilePresetLibrary() {
   const tUi = useProductTranslation();
   const view = useMainPageView();
   const { purposeCatalog: catalog, purpose, setPurpose, catalogModel, setSelectedPresetId, refresh, error: catalogError } = usePresets();
-  const [keyword, setKeyword] = useState('');
-  const [searching, setSearching] = useState(false);
   const [groupIds, setGroupIds] = useState({ roleplay: '', creator: '' });
   const groupId = groupIds[purpose];
   const setGroupId = id => setGroupIds(current => ({ ...current, [purpose]: id }));
   const [menu, setMenu] = useState(null);
   const [actionPreset, setActionPreset] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [groupDialog, setGroupDialog] = useState(null);
+  const [groupsOpen, setGroupsOpen] = useState(false);
+  const [groupEditing, setGroupEditing] = useState(false);
   const [assigning, setAssigning] = useState(null);
   const [assignGroupId, setAssignGroupId] = useState('');
   const [importOpen, setImportOpen] = useState(false);
@@ -84,26 +84,17 @@ function MobilePresetLibrary() {
     });
   }
   if (view.route.kind === 'preset-editor') return <MobilePresetEditor />;
-  if (view.route.kind === 'preset-groups' && catalog) return <MobilePresetGroups catalog={catalog} model={catalogModel} purpose={purpose} onClose={view.goBack} />;
-  const visible = (catalog?.presets || []).filter(preset => (searching || !groupId || preset.libraryGroupId === groupId) && (!keyword || `${preset.name} ${preset.profile.authorName}`.toLocaleLowerCase().includes(keyword.toLocaleLowerCase())));
-  return <div className="mobile-root-page">
-    <MobileHeader title={tUi("预设")} onSearch={() => setSearching(value => !value)}><button type="button" aria-label={tUi("预设操作")} aria-haspopup="menu" aria-expanded={Boolean(menu)} disabled={busy || !catalog || Boolean(selection)} onClick={event => setMenu(event.currentTarget)}><MobileOverflowIcon /></button></MobileHeader>
-    <PresetPurposeSwitch value={purpose} disabled={busy || Boolean(selection)} onChange={value => { setPurpose(value); setKeyword(''); setActionPreset(null); }} />
-    {searching && <MobileSearch value={keyword} onChange={setKeyword} label={tUi("搜索预设")} />}
+  const visible = (catalog?.presets || []).filter(preset => !groupId || preset.libraryGroupId === groupId);
+  return <div className="mobile-root-page mobile-preset-page">
+    <MobileHeader title={tUi("预设")} onSearch={groupEditing ? undefined : view.openSearch}><button type="button" aria-label={tUi("预设操作")} aria-haspopup="menu" aria-expanded={Boolean(menu)} disabled={busy || groupEditing || !catalog || Boolean(selection)} onClick={event => setMenu(event.currentTarget)}><MobileOverflowIcon /></button></MobileHeader>
+    <PresetPurposeSwitch compact value={purpose} disabled={busy || groupEditing || Boolean(selection)} onChange={value => { setPurpose(value); setActionPreset(null); setGroupsOpen(false); }} />
     {selection && <MobileSelectionHeader title={tUi("选择预设")} busy={busy} onCancel={cancelSelection} onAll={() => setSelectedIds([...new Set([...selectedIds, ...visible.filter(item => selection !== 'delete' || !isDefaultPreset(item.id)).map(item => item.id)])])} />}
-    <div className={`mobile-preset-library${searching ? ' is-searching' : ''}`}>
-      {!searching && <nav className="mobile-preset-groups" aria-label={tUi("预设分组")}>
-        <button type="button" aria-current={!groupId ? 'page' : undefined} onClick={() => setGroupId('')}>{tUi("全部预设")}<span>{catalog?.presets.length || 0}</span></button>
-        {(catalog?.groups || []).map(group => <div className={`mobile-preset-group${groupId === group.id ? ' is-selected' : ''}`} key={group.id}>
-          <button type="button" aria-current={groupId === group.id ? 'page' : undefined} onClick={() => setGroupId(group.id)}>{group.name}<span>{catalog.presets.filter(preset => preset.libraryGroupId === group.id).length}</span></button>
-          {groupId === group.id && <button type="button" className="mobile-preset-group-manage" aria-label={tUi("管理分组 {value0}", {value0: group.name})} disabled={busy || Boolean(selection)} onClick={() => view.pushRoute({ kind: 'preset-groups' })}><MobileSettingsIcon /></button>}
-        </div>)}
-        <Button data-dsh-control variant="primary" type="button" className="mobile-preset-create-group" disabled={busy || Boolean(selection)} onClick={() => setGroupDialog({ mode: 'create' })}><Plus size={15} weight="regular" /><span>{tUi("新建分组")}</span></Button>
-      </nav>}
-      <MobilePresetCards key={purpose} purpose={purpose} presets={visible} activeId={catalog?.activePresetIds[purpose]} selection={selection} selectedIds={selectedIds} busy={busy} onOpen={id => {
+    <div className="mobile-preset-library">
+      <MobilePresetLibraryBar key={`groups:${purpose}`} groups={catalog?.groups || []} model={catalogModel} purpose={purpose} selected={groupId} onSelect={setGroupId} open={groupsOpen} onOpenChange={setGroupsOpen} disabled={busy || Boolean(selection) || !catalog} onEditingChange={setGroupEditing} />
+      {catalog && <MobilePresetCards key={`cards:${purpose}`} purpose={purpose} presets={visible} activeId={catalog.activePresetIds[purpose]} selection={selection} selectedIds={selectedIds} busy={busy || groupEditing} onOpen={id => {
         if (!selection) open(id);
         else setSelectedIds(ids => ids.includes(id) ? ids.filter(item => item !== id) : [...ids, id]);
-      }} onActions={(preset, anchor) => setActionPreset({ preset, anchor })} />
+      }} onActions={(preset, anchor) => setActionPreset({ preset, anchor })} />}
     </div>
     <MobileState error={catalogError || error} loading={!catalog && !catalogError} onRetry={() => refresh()} />
     {selection && <div className="mobile-selection-bar"><span>{selectedIds.length}{tUi(" 项")}</span>{selection === 'export' && <select aria-label={tUi("导出格式")} value={format} onChange={event => setFormat(event.target.value)} disabled={busy}><option value="png">PNG</option><option value="json">JSON</option></select>}<button type="button" disabled={busy || !selectedIds.length} onClick={() => selection === 'delete' ? setDeleteOpen(true) : finishSelection()}>{selection === 'delete' ? tUi("删除") : tUi("导出")}</button></div>}
@@ -116,15 +107,14 @@ function MobilePresetLibrary() {
     {createOpen && <MobileNameDialog title={tUi("新建预设")} onClose={() => setCreateOpen(false)} onSave={create} />}
     {importOpen && <PresetImportDialog onClose={() => setImportOpen(false)} onSelect={source => { importSource.current = source; setImportOpen(false); inputRef.current.click(); }} />}
     {actionPreset && <MobileActionMenu title={actionPreset.preset.name} anchor={actionPreset.anchor} onClose={() => setActionPreset(null)} busy={busy} error={error} actions={[
-      { label: tUi("编辑预设"), icon: <MobileLibraryIcon name="pencil" />, action: () => { open(actionPreset.preset.id); setActionPreset(null); } },
+      { label: tUi("编辑预设"), icon: <NotePencil size={21} />, action: () => { open(actionPreset.preset.id); setActionPreset(null); } },
       ...(actionPreset.preset.id === catalog.activePresetIds[purpose] ? [] : [{ label: tUi("使用此预设"), icon: <MobileLibraryIcon name="plus" />, action: () => run(async () => { await catalogModel.setActive(actionPreset.preset.id); setActionPreset(null); }) }]),
-      { label: tUi("移动到分组"), icon: <MobileLibraryIcon name="gear" />, action: () => { setAssigning(actionPreset.preset); setAssignGroupId(actionPreset.preset.libraryGroupId); setActionPreset(null); } },
+      { label: tUi("移动到分组"), icon: <MobileLibraryIcon name="move" />, action: () => { setAssigning(actionPreset.preset); setAssignGroupId(actionPreset.preset.libraryGroupId); setActionPreset(null); } },
       ...['png', 'json'].map(value => ({ label: tUi("导出 {value0}", {value0: value.toUpperCase()}), icon: <MobileLibraryIcon name="export" />, divider: value === 'png', action: () => run(async () => { downloadPresetFile(await catalogModel.export(actionPreset.preset.id, value)); setActionPreset(null); }) })),
       ...(!isDefaultPreset(actionPreset.preset.id) ? [{ label: tUi("删除预设"), icon: <MobileLibraryIcon name="trash" />, destructive: true, divider: true, action: () => { setDeletePreset(actionPreset.preset); setActionPreset(null); } }] : []),
     ]} />}
     {assigning && <MobileConfirm title={tUi("移动到分组")} confirmText={tUi("保存")} destructive={false} onClose={() => setAssigning(null)} busy={busy} error={error} onConfirm={() => run(async () => { await catalogModel.assignGroup(assigning.id, assignGroupId); setAssigning(null); })}><select className="mobile-library-name" aria-label={tUi("预设分组")} value={assignGroupId} onChange={event => setAssignGroupId(event.target.value)} disabled={busy}><option value="">{tUi("未分组")}</option>{catalog.groups.map(group => <option key={group.id} value={group.id}>{group.name}</option>)}</select></MobileConfirm>}
     {(deletePreset || deleteOpen) && <MobileConfirm title={tUi("删除预设？")} onClose={() => { setDeletePreset(null); setDeleteOpen(false); }} busy={busy} error={error} onConfirm={deletePreset ? () => run(async () => { await catalogModel.delete(deletePreset.id); setDeletePreset(null); }) : finishSelection}>{deletePreset ? tUi("确认删除“{value0}”？", {value0: deletePreset.name}) : tUi("确认删除已选的 {value0} 项预设？", {value0: selectedIds.length})}</MobileConfirm>}
-    {groupDialog && <MobileNameDialog title={tUi("新建分组")} onClose={() => setGroupDialog(null)} onSave={name => catalogModel.createGroup(name, purpose)} />}
   </div>;
 }
 
@@ -159,8 +149,8 @@ function MobilePresetCards({ presets, activeId, onOpen, onActions, selection = '
   return <div className="mobile-scroll mobile-preset-cards" ref={ref}>{presets.map(preset => <article className={`mobile-preset-card${preset.id === activeId ? ' is-active' : ''}`} key={preset.id} data-selected={selection ? selectedIds.includes(preset.id) : undefined}>
     <button className="mobile-preset-open" type="button" aria-pressed={selection ? selectedIds.includes(preset.id) : undefined} disabled={busy || (selection === 'delete' && isDefaultPreset(preset.id))} onClick={() => onOpen(preset.id)}><strong>{preset.name}</strong>
       <span className="mobile-preset-author"><Avatar as="span" src={preset.profile.authorAvatarPath || defaultPresetAvatar} name={preset.profile.authorName || preset.name} /><span>{preset.profile.authorName || tUi("未署名")}</span></span>
-      <span className="mobile-preset-footer"><MobilePresetTags tags={preset.modelTags} />{preset.id === activeId && <span className="mobile-preset-active">{tUi("使用中")}</span>}</span>
-    </button>{selection ? <CheckCircle className="mobile-card-check" size={23} weight={selectedIds.includes(preset.id) ? 'fill' : 'regular'} /> : <button type="button" className="mobile-preset-actions" aria-label={tUi("{value0}的预设操作", {value0: preset.name})} aria-haspopup="menu" disabled={busy} onClick={event => onActions(preset, event.currentTarget)}><MobileSettingsIcon /></button>}
+      <span className="mobile-preset-footer"><MobilePresetTags tags={preset.modelTags} />{preset.id === activeId && <span className="mobile-preset-active"><Check size={13} weight="bold" />{tUi("使用中")}</span>}</span>
+    </button>{selection ? <CheckCircle className="mobile-card-check" size={23} weight={selectedIds.includes(preset.id) ? 'fill' : 'regular'} /> : <button type="button" className="mobile-preset-actions" aria-label={tUi("{value0}的预设操作", {value0: preset.name})} aria-haspopup="menu" disabled={busy} onClick={event => onActions(preset, event.currentTarget)}><DotsThree size={25} /></button>}
   </article>)}{!presets.length && <MobileState empty={tUi("暂无预设")} />}</div>;
 }
 

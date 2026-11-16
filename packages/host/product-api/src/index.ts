@@ -29,8 +29,7 @@ import type {} from '@deepseek-ai/dsh-session-projection'
 import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
 import type {} from '@eleckoi/dsh-client-roleplay/projections'
 import type {} from '@deepseek-ai/dsh-tools'
-import { withPluginTools } from '@eleckoi/dsh-client-roleplay/host/tool-policy.mjs'
-import { toolPluginSources } from './tool-provenance.js'
+import { createPresetToolReferenceResolver } from './tool-provenance.js'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { type Session, type SessionEvent, type SessionId } from '@deepseek-ai/dsh-session';
 
@@ -2320,11 +2319,13 @@ export class ElecKoiAgentPresetsApi extends TypertRemoteService {
 
   private readonly productData: ElecKoiProductDataStore
   private readonly configurationChanges: CharacterConfigurationChangeFeed
+  private readonly resolveToolReferences: ReturnType<typeof createPresetToolReferenceResolver>
 
   constructor(ctx: Context) {
     super(ctx, 'eleckoiAgentPresetsApi', { namespace: 'eleckoiAgentPresets' })
     this.productData = ctx.eleckoiProductData
     this.configurationChanges = ctx.eleckoiCharacterConfigurationChanges
+    this.resolveToolReferences = createPresetToolReferenceResolver(ctx)
     ctx.inject(['tools'], owner => {
       let previous = JSON.stringify(owner.tools.schemas())
       owner.on('tools/change', () => {
@@ -2334,12 +2335,6 @@ export class ElecKoiAgentPresetsApi extends TypertRemoteService {
         this.publishChange()
       })
     })
-  }
-
-  private async resolveToolReferences(preset: AgentPreset): Promise<AgentPreset> {
-    const declarations = this.ctx.get('tools')?.schemas() ?? []
-    const sources = await toolPluginSources(this.ctx, declarations.map(tool => tool.name))
-    return withPluginTools(preset, declarations, sources)
   }
 
   /**
@@ -2462,6 +2457,19 @@ export class ElecKoiAgentPresetsApi extends TypertRemoteService {
   @Remote
   renameGroup(groupId: string, name: string): AgentPresetCatalog {
     const catalog = this.productData.renameAgentPresetGroup(groupId, name)
+    this.publishChange()
+    return catalog
+  }
+
+  /**
+   * 保存指定用途的完整预设分组顺序，不改变预设归属。
+   * @param groupIds - 该用途的全部分组编号，按显示顺序排列。
+   * @param purpose - 所属预设分类。
+   * @returns 更新后的预设目录；目录已变化时拒绝保存。
+   */
+  @Remote
+  reorderGroups(groupIds: string[], purpose: AgentPresetPurpose): AgentPresetCatalog {
+    const catalog = this.productData.reorderAgentPresetGroups(groupIds, purpose)
     this.publishChange()
     return catalog
   }

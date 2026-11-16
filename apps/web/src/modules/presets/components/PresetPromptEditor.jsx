@@ -112,7 +112,6 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
     setAddOpen(false);
     setQuery('');
     setEditing(true);
-    requestAnimationFrame(() => nameInputRef.current?.select());
   }
 
   function duplicateEntry(source) {

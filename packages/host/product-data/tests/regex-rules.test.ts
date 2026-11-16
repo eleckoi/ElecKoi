@@ -271,7 +271,7 @@ describe('regex repository', () => {
   it('persists all three scopes, enablement versions and optimistic revision', () => {
     const { database, repository } = harness()
     const empty = repository.get('card-a')
-    expect(empty.agentPresetName).toBe('默认 Agent 预设')
+    expect(empty.agentPresetName).toBe('默认扮演预设')
     const saved = repository.save('card-a', {
       ...empty,
       globalRules: [rule({ id: 'global', pattern: '/foo/g', replacement: 'bar' })],

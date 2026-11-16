@@ -4,7 +4,7 @@ import { upgradeAutoIllustrationConfiguration } from './autoIllustrationUpgrade'
 import { defaultPresetContents, upgradeDefaultCreatorPreset } from './defaultCreatorPresetUpgrade'
 import { createHash, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { AGENT_TOOL_GROUPS, CREATOR_AGENT_TOOL_GROUP_IDS, agentToolGroups } from '@product-data/domain/agentTools';
 import type { ElecKoiDatabase, ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
@@ -129,7 +129,7 @@ export class AgentPresetRepository {
       for (const purpose of ['roleplay', 'creator'] as const) {
         const id = DEFAULT_AGENT_PRESET_IDS[purpose]
         const versionId = purpose === 'roleplay' ? DEFAULT_AGENT_PRESET_VERSION_ID : `${id}-v1`
-        const name = purpose === 'roleplay' ? '默认 Agent 预设' : '默认创作预设'
+        const name = purpose === 'roleplay' ? '默认扮演预设' : '默认创作预设'
         const missing = !db.select().from(agentPresets).where(eq(agentPresets.id, id)).get()
         db.insert(agentPresets).values({
           id, purpose, name,
@@ -142,6 +142,10 @@ export class AgentPresetRepository {
           sortIndex: 0,
           expandedGroupIdsJson: '[]'
         }).onConflictDoNothing().run()
+        if (purpose === 'roleplay') {
+          // Rename only the built-in's former seed label; preserve user names.
+          db.update(agentPresets).set({ name }).where(and(eq(agentPresets.id, id), eq(agentPresets.name, '默认 Agent 预设'))).run()
+        }
         db.insert(agentPresetVersions).values({
           presetId: id,
           versionId,
@@ -197,16 +201,20 @@ export class AgentPresetRepository {
     this.ensureInitialized()
     const states = this.store.db.select().from(agentPresetState).all()
     const groups = this.store.db.select().from(agentPresetLibraryGroups).orderBy(asc(agentPresetLibraryGroups.sortIndex)).all()
+    const profiles = new Map<string, Map<string, string>>()
+    for (const content of this.store.db.select().from(agentPresetContents)
+      .where(inArray(agentPresetContents.kind, [CONTENT_USAGE_INSTRUCTIONS, CONTENT_TIMELINE])).all()) {
+      let profile = profiles.get(content.presetId)
+      if (!profile) { profile = new Map(); profiles.set(content.presetId, profile) }
+      profile.set(content.kind, content.content)
+    }
+    const versions = new Map(this.store.db.select({ presetId: agentPresetVersions.presetId,
+      versionId: agentPresetVersions.versionId, number: agentPresetVersions.versionNumber })
+      .from(agentPresetVersions).all().map(version => [JSON.stringify([version.presetId, version.versionId]), version.number]))
+    const entryCounts = new Map(this.store.db.select({ presetId: agentPresetEntries.presetId, count: sql<number>`count(*)` })
+      .from(agentPresetEntries).groupBy(agentPresetEntries.presetId).all().map(row => [row.presetId, row.count]))
     const presets = this.store.db.select().from(agentPresets).orderBy(asc(agentPresets.sortIndex)).all().map((row) => {
-      const contents = this.contentMap(row.id)
-      const version = row.activeVersionId
-        ? this.store.db.select().from(agentPresetVersions).where(and(
-          eq(agentPresetVersions.presetId, row.id),
-          eq(agentPresetVersions.versionId, row.activeVersionId)
-        )).get()
-        : undefined
-      const entryCount = this.store.db.select().from(agentPresetEntries)
-        .where(eq(agentPresetEntries.presetId, row.id)).all().length
+      const contents = profiles.get(row.id)
       return {
         id: row.id,
         purpose: agentPresetPurposeSchema.parse(row.purpose),
@@ -215,13 +223,13 @@ export class AgentPresetRepository {
         modelTags: parseList(row.modelTagsJson, agentPresetModelTagSchema, '预设模型标签'),
         libraryGroupId: row.libraryGroupId,
         activeVersionId: row.activeVersionId,
-        activeVersionNumber: version?.versionNumber ?? 1,
-        entryCount,
+        activeVersionNumber: row.activeVersionId ? versions.get(JSON.stringify([row.id, row.activeVersionId])) ?? 1 : 1,
+        entryCount: entryCounts.get(row.id) ?? 0,
         profile: agentPresetProfileSchema.parse({
           authorName: row.authorName,
           authorAvatarPath: row.authorAvatarPath,
-          usageInstructions: contents.get(CONTENT_USAGE_INSTRUCTIONS) ?? '',
-          timeline: parseList(contents.get(CONTENT_TIMELINE) ?? '[]', agentPresetTimelineItemSchema, '预设更新时间线')
+          usageInstructions: contents?.get(CONTENT_USAGE_INSTRUCTIONS) ?? '',
+          timeline: parseList(contents?.get(CONTENT_TIMELINE) ?? '[]', agentPresetTimelineItemSchema, '预设更新时间线')
         })
       }
     })
@@ -589,6 +597,20 @@ export class AgentPresetRepository {
     if (!group) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, '找不到这个分组。', { what: '分组' })
     const normalized = uniqueName(name.trim() || group.name, new Set(catalog.groups.filter((item) => item.id !== groupId && item.purpose === group.purpose).map((item) => item.name)))
     this.store.db.update(agentPresetLibraryGroups).set({ name: normalized }).where(eq(agentPresetLibraryGroups.id, groupId)).run()
+    return this.catalog()
+  }
+
+  reorderGroups(groupIds: string[], purpose: AgentPresetPurpose): AgentPresetCatalog {
+    agentPresetPurposeSchema.parse(purpose)
+    const groups = this.catalog().groups.filter(group => group.purpose === purpose)
+    const ids = z.array(z.string()).parse(groupIds)
+    const known = new Set(groups.map(group => group.id))
+    if (ids.length !== groups.length || new Set(ids).size !== ids.length || ids.some(id => !known.has(id))) {
+      throw new DesktopError(ELECKOI_FAILURE_CODES.conflictStaleRevision, '分组已在其他位置更新，请按最新列表重试。', { what: '预设分组' })
+    }
+    this.store.withWriteTx(db => {
+      ids.forEach((id, sortIndex) => db.update(agentPresetLibraryGroups).set({ sortIndex }).where(eq(agentPresetLibraryGroups.id, id)).run())
+    })
     return this.catalog()
   }
 

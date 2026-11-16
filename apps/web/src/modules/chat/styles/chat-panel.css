@@ -652,9 +652,9 @@
 
 .assistant-bubble-enabled .message-agent.theirs .bubble {
   padding: 9px 12px;
-  border: 1px solid var(--line-strong);
+  border: 0;
   border-radius: var(--chat-bubble-radius, 12px);
-  background: var(--bubble-bg);
+  background: light-dark(var(--dsw-static-neutral-100), var(--bubble-bg));
 }
 
 .agent-user-actions {

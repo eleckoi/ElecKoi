@@ -40,8 +40,8 @@ export function MobileMessagesPage() {
       onPin={item => run(() => chat.togglePinChat(item.id))} onHide={setHideEntry} />
     {error && !menu && !hideEntry && <FailureAlert failure={error} className="mobile-inline-error" />}
     {picker && <MobileDialog title={tUi("选择角色")} onClose={() => setPicker(false)}>
-      <div className="mobile-picker-list">{chat.characters.items.map(item => <Button type="button" key={item.id} disabled={view.routeBusy} onClick={async () => { setPicker(false); await view.openCharacterConversation(item.id); }}>
-        <SidebarCharacterArtwork mode={view.appearance.sidebarCharacterArtwork} name={characterName(item, tUi)} cover={characterCover(item)} avatar={characterAvatar(item)} /><span>{characterName(item, tUi)}</span>
+      <div className="mobile-picker-list mobile-character-picker-list">{chat.characters.items.map(item => <Button variant="ghost" className="mobile-character-picker-option" key={item.id} disabled={view.routeBusy} onClick={async () => { setPicker(false); await view.openCharacterConversation(item.id); }}>
+        <SidebarCharacterArtwork mode={view.appearance.sidebarCharacterArtwork} name={characterName(item, tUi)} cover={characterCover(item)} avatar={characterAvatar(item)} /><span className="mobile-character-picker-name">{characterName(item, tUi)}</span>
       </Button>)}</div>
       {!chat.characters.items.length && <Button type="button" onClick={() => { setPicker(false); view.selectPanel('character'); }}>{tUi("创建角色")}</Button>}
     </MobileDialog>}

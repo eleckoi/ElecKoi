@@ -1,5 +1,23 @@
 # 测试与日常验证
 
+2026-11-16 Windows 标题栏通用合同：windows-caption-menu 检查 preload 发布平台标记和高度；windows-caption-ownership 检查侧栏挂载／卸载既不伪造也不移除宿主标记，合计六项。manager-caption 浏览器保留两类管理器八组／24 次主题切换的真实画布匹配，并按官方 primary 解析值核对按钮文字；追加两主题下普通、body 属性切换的透明主题及恢复六组，检查去重 IPC 色值、原生 Modal top=40 和平台标记。window-caption-alignment 六组同时检查品牌／内容区 no-drag 与 caption drag，保留原导航、菜单和几何断言。记录 build/modal-caption-check；该浏览器主题用公开 token 模拟插件输入，不代表完整壁纸插件或实际 OS 鼠标拖窗验收。
+
+2026-11-16 编辑预设首次布局：`preset-introduction-editor.test.jsx` 先检查文本编辑模块尚未完成时空说明表单、最终写作区座位及取消／保存按钮已存在，再等待 React 流完整检查正式编辑器；`preset-editor-workspace.test.jsx` 让详情通知先于 read 完成，确认全程保持请求的基础资料布局。两文件 32 项与原 `preset-editor.test.js` 浏览器回归通过。正式隔离 Host／客户端复现及逐帧对照见 build/preset-editor-startup-check/before.json、after.json、after-cold.json：旧零高度表单 fallback 使更新区下移 345px，修后普通与禁用缓存、延迟资源两轮位置及滚动保持，不等同真实用户数据或 Android 真机验收。
+
+2026-11-16 PC 预设首次加载追加：首页入口只组合目录 Context、列表和只读简介，完整 Workspace 与使用说明表单分开；通用折叠状态移动到 ui 后须验证 settings 旧公开入口仍使用相同 Context／缓存。预设三文件、列表折叠、角色目录及手机角色目录六文件共 63 项 UI 检查通过，原 `preset-editor.test.js` 浏览器检查继续覆盖编辑、保存、独立窗口及长正文。含延迟表单的 SSR 检查等待 React 流 `allReady` 再检查全部按钮，不能仅用同步 fallback 判断表单缺失。`build/preset-loading-performance-check/assets-before.json`／`assets-after.json` 是构建后入口静态依赖体积，`cold-final.json` 是正式隔离 Host／客户端新进程、两条默认预设的观察；约 31ms 首次内容出现与 8ms 目录 RPC 不能代指用户数据、整机启动或所有设备表现，也不能据此宣称已复现数秒空白。
+
+2026-11-16 手机角色详情 B 版：`mobile-library.test.jsx` 沿正式手机路由和原页面插槽核对原作者、完整长简介、空字段、封面／头像失败回退及进入／编辑目标；保留按钮不进入滚动区的断言。连同角色简介空态与键盘检查共 17 项。正式组件浏览器六组深浅／320、390、768px 检查竖图比例、左对齐、面板铺满、无溢出、长简介滚到底后底栏位置及与官方按钮的颜色一致；另核对实际竖图完整显示、点击回调及 PC 原卡组。截图、几何和事件见 build/mobile-character-profile-check；非真机或安装包验收。
+
+2026-11-16 预设进入／新建性能：`agent-presets.test.ts` 检查多个完整预设摘要、必需提示词计数和 profile 不丢失，同时检查目录不选择 payload、读取次数不随预设逐项增加；`tool-provenance.test.ts` 使用真实 Cordis 工具注册核对内置组不读包清单、扩展来源、官方插件变化失效、失败重试及工具卸载。页面检查覆盖 PC 直接展示共享 ready 目录、外部更新／重开，手机首次未到目录时不假报暂无、重开不重复请求，原创建保存与订阅断言保持。隔离 SQLite 性能数据见 build/preset-loading-performance-check/before.json、after.json：约 63MB 合成正文的目录和新建数据库耗时，不含网络、手机硬件或首次 JS 模块加载，不能作为真机端到端耗时。当前 SQLite ABI 149 使用已装 Electron Node 模式运行，不重建用户使用的原生模块。
+
+手机预设页的紧凑用途切换、各用途分组选择恢复、真实作者图片、稳定分组 ID、改名／新建／删除失败重试、编辑锁定与完成时排序保存由 `mobile-preset-library.test.jsx` 覆盖；已有 `mobile-library.test.jsx` 继续检查默认项删除保护与批量失败重试。客户端 `dsh-client-presets.test.ts` 检查排序的用途、Remote 参数及失败时不采纳目录；Host 的 `agent-presets.test.ts` 检查分组完整集合、重复／异用途拒绝、保存重读、成员归属及内置旧名称的精确更新。`regex-rules.test.ts` 保留默认名称投影检查。正式组件的 390px 浅色与 320px 深色隔离预览记录于 `build/mobile-preset-library-check`，不等同 Android 真机或安装包验收。
+
+2026-11-16 添加更新图标的可见性需检查实际截图像素，不能仅判断 SVG 节点或 computed color。沿 `mobile-model-layout.probe.cjs` 的 updates-only 分支，对正式预设组件装载官方 sprite，在深浅／320、390、640px 核对图标区域有高对比像素，并临时使用缺失符号验证空白为 0；保留尺寸、点击和同行检查。记录 build/update-button-icon-check，输出两主题的按钮实际裁剪图。
+
+2026-11-16 模型控件与更新按钮：`mobile-model-layout-browser.test.js` 在真实手机配置、分组与预设更新记录组件中核对深浅／320、390、640px 六组：32×18 开关及单行标签、目录默认切换后的可编辑状态、三处复选框与官方对照的中性配色、32px 更新按钮同排及图标前景、实际打开编辑器，保留原参数、模型按钮和分组几何断言。夹具安装与正式主题相同的图标 sprite，避免孤立截图漏加号。记录 build/model-controls-compact-check；非手机真机验收。
+
+2026-11-16 侧栏显示恢复：`mobile-drawer-presentation.test.js` 装配精确锁定的真实 AppFrame、原布局 Store 和产品 SidebarContent，覆盖深浅与 320／390／600／768px。核对进入／退出中间帧、反向切换、80%／326px 宽、95% 缩放、36px 圆角、中心与底部导航接缝、原遮罩及底部区域实际 CDP 点击收起、inert、草稿／滚动／节点身份、底部贡献、减少动态效果和平板不应用；其浏览器夹具只把 React 18 的 inert 空串合同转为测试 React 19 的等价布尔属性。手机导航三文件 23 项继续验证原侧栏和工作区、导航返回及源列表恢复，不用隔离截图冒充真机验收。记录 build/mobile-drawer-restore-check。
+
 2026-11-15 官方中性色检查：`roleplay-style.test.js` 继续检查 32 组 PC／移动角色气泡与底板，参考材质的颜色改为官方主题 token，像素合成检查保留；追加实际 `<input type=color>` 在同一已挂载页面深浅切换后与官方 token 相等，独立颜色、重置及透明度原断言保持。`editor-collection-theme.test.js` 使用正式手机／平板列表与已安装官方 Switch 作颜色对照，24 组覆盖 320／390／768px、角色／预设、脚本／正则与深浅；核对列表面、文字、选中态、开关开启／关闭的轨道和拇指、点击切换及横向溢出。颜色静态探针关闭过渡后采样，避免把过渡起点当成最终色；比较实际绘制色，避免把同色的 hex／rgb 序列化差异误判。真实主题 token 的压缩 hex 格式由浏览器检查覆盖，非真机验收。
 
 2026-11-15 窄屏底板：`roleplay-style.test.js` 扩为两种主题、气泡开关和八种 PC／移动容器组合，共 32 组；包含移动 599／600px 边界、768px 平板，以及窗口 780px 但聊天容器被侧栏压窄的 PC。以实际 panelWidth 判断底板侧边内缩，小于 600px 应为 0，600px 及以上保留至少 8px；原首条贴顶、5px／12px 消息净距、10px／14px 内距、头像／楼层、滚动、材质和设置检查保持。查看手机与平板截图，非 Android 真机验收。
@@ -46,7 +64,9 @@ DSH 批次升级时使用实际安装的 Client 工厂与 CSS 语法树提取测
 
 资产库的混合文件夹由 `character-asset-folders.test.ts` 覆盖层级、跨角色拒绝、循环、稳定引用、递归删除恢复及目标文件夹已删除的导入；`character-assets.test.ts` 在 JSON／ZIP／PNG、角色复制与独立前端 ZIP 中保留层级和空文件夹。`character-asset-resources.test.ts` 通过实际 Cordis Gateway 调用新建、移动和改名后继续核对原 Range／引用资源。网页组件回归覆盖混合筛选、新建、移动、进入、当前目录导入、复制引用与原失败重试；正式组件合成浏览器的列表列轴、深浅层次与手机布局记录在 `build/asset-folders-check/`，不替代 Android 真机或真实数据验收。
 
-Windows 打包与功能回归分别执行。全量功能、UI、编辑器及原生作者客户端交互回归不作为发布打包的前置，不因测试文件、旧断言或探针定位阻塞正常打包；相关测试按实际修改独立运行；每次发布准备好构建输入后先触发云端出包，功能回归可以在云端构建期间并行执行，结果单独记录，不等待旧测试修复后才打包。实际发布工作树仍完成锁定依赖安装与完整源码构建。`pnpm check:electron-dsh` 检查实际 Electron Host、原生存储、Session 重开与回退运行；编辑器及脚本按钮交互独立使用 `pnpm check:electron-native-author`。测试与探针源码不进入安装包；打包保留 SQLite ABI、更新流程、包内运行资源及安装启动检查。
+每次 PC 发布操作前必须先读 [Windows 发布必读](WINDOWS_RELEASE.md)。GitHub 的 `release` 任务先完成安装包生成及发布，独立 `update_ui_check` 随后检查；发布任务不依赖功能／UI 检查结果。测试失败按独立检查报告和修复，不得延迟出包或仅因测试脚本修改重新打包。
+
+Windows 打包与功能回归分别执行。全量功能、UI、编辑器及原生作者客户端交互回归不作为发布打包的前置，不因测试文件、旧断言或探针定位阻塞正常打包；相关测试按实际修改独立运行；每次发布准备好构建输入后先触发云端出包，功能回归在出包发布后由 GitHub 独立任务运行，结果单独记录，不等待旧测试修复后才打包。实际发布工作树仍完成锁定依赖安装与完整源码构建。`pnpm check:electron-dsh` 检查实际 Electron Host、原生存储、Session 重开与回退运行；编辑器及脚本按钮交互独立使用 `pnpm check:electron-native-author`。测试与探针源码不进入安装包；打包保留 SQLite ABI、包内运行资源及安装启动检查；更新 UI 交互在出包后的独立任务中检查。
 
 主窗口日志的退出边界由 `main-window-console.test.ts` 覆盖：窗口或网页对象销毁后的迟到回调不读取原生对象，任一关闭通知和显式释放均移除监听；正常动作、错误、主框架导航、取消关闭和作者卡子框架过滤保持。`main-window-console-native.test.ts` 使用隔离 profile 和隐藏 Electron 窗口，覆盖窗口关闭、强制销毁与网页关闭，在真实原生对象销毁前后检查日志释放及已捕获回调，不操作真实安装或数据，也不代替完整安装升级验收。
 

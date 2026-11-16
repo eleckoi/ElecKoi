@@ -3393,5 +3393,7 @@
   "关闭分组面板": "Fermer le panneau des groupes",
   "分组 {value0}，长按拖动，点击改名": "Groupe {value0}, appui long pour réordonner, toucher pour renommer",
   "删除“{value0}”分组，角色卡保留。": "Supprimer le groupe « {value0} ». Les fiches seront conservées.",
-  "移动角色": "Déplacer les personnages"
+  "移动角色": "Déplacer les personnages",
+  "扮演": "Jeu de rôle",
+  "创作": "Créer"
 }

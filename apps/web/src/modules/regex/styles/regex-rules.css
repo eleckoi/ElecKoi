@@ -177,7 +177,7 @@
 
 .regex-rule-main svg {
   flex: 0 0 auto;
-  color: color-mix(in srgb, var(--text) 78%, transparent);
+  color: var(--dsw-alias-label-secondary);
 }
 
 .regex-rule-main span {

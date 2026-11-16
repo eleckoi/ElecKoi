@@ -99,6 +99,14 @@ DSH 基准：`0.2.2-rc.3`，提交 `38a6a5c965aa99ab525161efb7cc5cf1fe62fced`。
 @Remote renameGroup(groupId: string, name: string): AgentPresetCatalog
 
 /**
+ * 保存指定用途的完整预设分组顺序，不改变预设归属。
+ * @param groupIds - 该用途的全部分组编号，按显示顺序排列。
+ * @param purpose - 所属预设分类。
+ * @returns 更新后的预设目录；目录已变化时拒绝保存。
+ */
+@Remote reorderGroups(groupIds: string[], purpose: AgentPresetPurpose): AgentPresetCatalog
+
+/**
  * 设置预设所属分组。
  * @param presetId - 预设编号。
  * @param groupId - 预设分组编号。

@@ -15,7 +15,7 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals(); });
 const click = async node => { expect(node).toBeTruthy(); await act(async () => node.click()); };
 const button = name => [...document.querySelectorAll('button')].find(node => node.textContent.trim() === name);
-const confirmationButton = name => [...document.querySelectorAll('[role=alertdialog] button')].find(node => node.textContent.trim() === name);
+const confirmationButton = name => [...document.querySelectorAll('[role=dialog][aria-label="保存修改？"] button')].find(node => node.textContent.trim() === name);
 async function edit(name, value) { const input = document.querySelector(`[data-parameter="${name}"] input`); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, value); input.dispatchEvent(new Event('input', { bubbles: true })); }); }
 async function fixture({ reasoning = true, modelId = 'synthetic-a', modelName = '合成模型甲', badge } = {}) {
   const config = { id: 'synthetic-config', name: '合成接口', provider: 'custom', model: modelId, model_options: [
@@ -78,7 +78,7 @@ it('keeps edits local through idle and blur, asks before closing, and saves toge
   expect(f.catalog.saveSessionModelParameters).not.toHaveBeenCalled();
   await act(async () => { document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
   expect(f.catalog.saveSessionModelParameters).not.toHaveBeenCalled();
-  expect(document.querySelector('[role=alertdialog]')).not.toBeNull();
+  expect(document.querySelector('[role=dialog][aria-label="保存修改？"]')).not.toBeNull();
   await click(confirmationButton('取消'));
   expect(document.querySelector('[data-parameter=temperature] input').value).toBe('0.7');
   await click(button('保存'));
@@ -103,7 +103,7 @@ it('retains a rejected explicit save across closing and reopening and retries fr
   await click(button('保存'));
   expect(document.querySelector('[role=alert]').textContent).toContain('合成保存失败');
   await click(host.querySelector('button'));
-  expect(document.querySelector('[role=alertdialog]')).not.toBeNull();
+  expect(document.querySelector('[role=dialog][aria-label="保存修改？"]')).not.toBeNull();
   await click(confirmationButton('取消'));
   expect(document.querySelector('[data-parameter=temperature] input').value).toBe('0.65');
   expect(f.catalog.saveSessionModelParameters).toHaveBeenCalledTimes(1);
@@ -117,7 +117,7 @@ it('rejects invalid drafts before saving and prevents duplicate writes while a s
   await click(button('保存')); expect(f.catalog.saveSessionModelParameters).not.toHaveBeenCalled();
   await click(host.querySelector('button'));
   expect(confirmationButton('保存').disabled).toBe(true);
-  expect(document.querySelector('[role=alertdialog] [role=alert]').textContent).toContain('模型参数超出有效范围');
+  expect(document.querySelector('[role=dialog][aria-label="保存修改？"] [role=alert]').textContent).toContain('模型参数超出有效范围');
   await click(confirmationButton('取消'));
   await edit('top-p', '0.5');
   let complete;
@@ -142,7 +142,7 @@ it('retains native number-input keyboard behavior and confirms Escape before dis
   await edit('temperature', '0.64');
   const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
   await act(async () => input.dispatchEvent(escape)); expect(escape.defaultPrevented).toBe(true);
-  expect(document.querySelector('[role=alertdialog]')).not.toBeNull();
+  expect(document.querySelector('[role=dialog][aria-label="保存修改？"]')).not.toBeNull();
   expect(f.catalog.saveSessionModelParameters).not.toHaveBeenCalled();
   await click(confirmationButton('不保存'));
   expect(document.querySelector('[data-model-parameters-fields]')).toBeNull();
@@ -154,7 +154,7 @@ it.each(['outside','trigger','parameters','model-pane'])('guards session paramet
   const f=await fixture();await click(button('参数'));await edit('temperature','0.61');
   if(target==='outside')await act(async()=>document.dispatchEvent(new MouseEvent('mousedown',{bubbles:true})));
   else await click(target==='trigger'?host.querySelector('button'):target==='parameters'?button('参数'):[...document.querySelectorAll('[role=menuitem]')].find(node=>node.textContent.startsWith('模型')));
-  expect(document.querySelector('[role=alertdialog]')).not.toBeNull();expect(f.catalog.saveSessionModelParameters).not.toHaveBeenCalled();
+  expect(document.querySelector('[role=dialog][aria-label="保存修改？"]')).not.toBeNull();expect(f.catalog.saveSessionModelParameters).not.toHaveBeenCalled();
   await click(confirmationButton('取消'));expect(document.querySelector('[data-parameter=temperature] input').value).toBe('0.61');
   await click(host.querySelector('button'));await click(confirmationButton('不保存'));
   await click(host.querySelector('button'));await click(button('参数'));expect(document.querySelector('[data-parameter=temperature] input').value).toBe('0.2');

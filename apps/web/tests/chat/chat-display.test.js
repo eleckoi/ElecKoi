@@ -52,7 +52,7 @@ describe("chat display preferences", () => {
     expect(DEFAULT_ROLEPLAY_STYLE).toMatchObject({ backdrop_enabled: false, bubbles_enabled: false });
     const css = roleplayStyleCssVariables(resolveRoleplayStyle({}));
     expect(css['--rp-user-tint']).toBe(css['--rp-assistant-tint']);
-    expect(css['--rp-user-tint']).toBe('var(--dsw-alias-bg-layer-1)');
+    expect(css['--rp-user-tint']).toBe('light-dark(var(--dsw-static-neutral-50), var(--dsw-alias-bg-layer-1))');
     expect(css['--rp-backdrop-tint']).toBe('var(--dsw-alias-bg-module-platform)');
     expect(css['--rp-user-opacity']).toBe(css['--rp-assistant-opacity']);
     for (const patch of [{ backdrop_blur: 41 }, { bubble_blur: -1 }, { user_bubble_opacity: 101 }, { assistant_bubble_tint: 'red' }]) {

@@ -36,6 +36,14 @@ it('keeps roleplay surfaces flush, independent, and readable in both desktop and
       if (drag.backdrop) expect(drag.after.backdrop, JSON.stringify(drag)).not.toBe(drag.before.backdrop);
     }
     expect(result.tintInputs).toHaveLength(2);
+    expect(result.plainBubbleContrast).toHaveLength(8);
+    for (const sample of result.plainBubbleContrast) {
+      const tint = result.tintInputs.find(input => input.theme === sample.theme);
+      const rgb = hex => hex.slice(1).match(/../g).map(channel => Number.parseInt(channel, 16));
+      expect(sample.bubble, JSON.stringify(sample)).toEqual(rgb(tint.officialBubble));
+      if (sample.backdrop) expect(sample.gap, JSON.stringify(sample)).toEqual(rgb(tint.officialBackdrop));
+      expect(sample.bubble, JSON.stringify(sample)).not.toEqual(sample.gap);
+    }
     for (const input of result.tintInputs) {
       expect(input.backdrop).toBe(input.officialBackdrop);
       expect(input.user).toBe(input.officialBubble);

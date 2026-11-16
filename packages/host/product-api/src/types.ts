@@ -1051,6 +1051,7 @@ export interface ElecKoiProductDataStore {
   setActiveAgentPreset(presetId: string): AgentPresetCatalog
   createAgentPresetGroup(name: string, purpose: AgentPresetPurpose): AgentPresetCatalog
   renameAgentPresetGroup(groupId: string, name: string): AgentPresetCatalog
+  reorderAgentPresetGroups(groupIds: string[], purpose: AgentPresetPurpose): AgentPresetCatalog
   assignAgentPresetGroup(presetId: string, groupId: string): AgentPresetCatalog
   deleteAgentPresetGroup(groupId: string): AgentPresetCatalog
   deleteAgentPreset(presetId: string): AgentPresetCatalog

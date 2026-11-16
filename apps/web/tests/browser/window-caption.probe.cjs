@@ -49,6 +49,9 @@ app.whenReady().then(async () => {
         const strip=getComputedStyle(document.querySelector('.dsh-rightbar-column'),'::before');
         window.captionMenuHost=document.querySelector('[data-windows-menu]');
         return {viewport:innerWidth,theme:${JSON.stringify(theme)},rightbar:${rightbar},
+          brandRegion:getComputedStyle(document.querySelector('.side-panel-brand')).webkitAppRegion,
+          sidebarRegion:getComputedStyle(document.querySelector('.side-panel-shell')).webkitAppRegion,
+          captionRegion:getComputedStyle(document.querySelector('.side-panel-header')).webkitAppRegion,
           markCenter:center(mark),toggleCenter:center(toggle),menuCenter:center(menu),windowCenters,
           nativeControls:document.documentElement.hasAttribute('data-native-window-controls'),
           navCenters,navStep:Number.parseFloat(getComputedStyle(document.querySelector('.qq-rail')).getPropertyValue('--rail-item-size'))

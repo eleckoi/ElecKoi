@@ -2,7 +2,7 @@
   --preset-canvas: var(--chat);
   --preset-reading-surface: color-mix(in srgb, var(--list) 35%, var(--surface-raised));
   --preset-secondary: color-mix(in srgb, var(--muted) 76%, var(--text));
-  --preset-latest-surface: color-mix(in srgb, var(--blue) 9%, var(--surface-raised));
+  --preset-latest-surface: var(--dsw-alias-interactive-bg-active);
   --preset-elevation: 0 8px 24px color-mix(in srgb, var(--shadow-color) 28%, transparent), 0 2px 5px color-mix(in srgb, var(--shadow-color) 10%, transparent);
   background: var(--preset-canvas);
 }
@@ -24,6 +24,8 @@
 }
 .preset-content-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; min-height: 36px; margin-bottom: 16px; }
 .preset-content-section-heading h2 { margin: 0; color: var(--text); font-size: 22px; line-height: 1.35; font-weight: 650; letter-spacing: -.02em; }
+.preset-content-button { height: 32px; min-height: 32px; padding: 0 12px; font-size: 13px; white-space: nowrap; }
+.preset-content-button [data-icon] { color: inherit; }
 .preset-usage-reading-surface {
   min-height: 80px; box-sizing: border-box;
 }
@@ -38,13 +40,13 @@
   position: absolute; z-index: 1; top: var(--timeline-node-top); left: 3px; box-sizing: border-box; width: var(--timeline-node-size); height: var(--timeline-node-size);
   border: 3px solid color-mix(in srgb, var(--muted) 65%, var(--preset-canvas)); border-radius: 50%; corner-shape: round; background: var(--preset-canvas);
 }
-.preset-update-step.is-latest > .preset-update-node { border-color: var(--blue); background: var(--blue); }
-.preset-update-step.is-editing > .preset-update-node { border-color: var(--blue); background: var(--surface-raised); }
+.preset-update-step.is-latest > .preset-update-node { border-color: var(--dsw-alias-brand-primary); background: var(--dsw-alias-brand-primary); }
+.preset-update-step.is-editing > .preset-update-node { border-color: var(--dsw-alias-brand-primary); background: var(--surface-raised); }
 .preset-update-record {
   min-height: 90px; box-sizing: border-box; padding: 16px 22px 18px; border: 1px solid color-mix(in srgb, var(--line-strong) 40%, transparent);
   border-radius: var(--dsw-radius-lg, 12px); background: var(--preset-reading-surface);
 }
-.preset-update-step.is-latest > .preset-update-record { background: var(--preset-latest-surface); border-color: color-mix(in srgb, var(--blue) 16%, var(--line)); }
+.preset-update-step.is-latest > .preset-update-record { background: var(--preset-latest-surface); border-color: var(--dsw-alias-border-l2); }
 .preset-update-record-heading { display: flex; align-items: flex-start; gap: 12px; }
 .preset-update-record-summary { display: grid; flex: 1; min-width: 0; gap: 2px; }
 .preset-update-record-heading h3 { min-width: 0; margin: 0; font-size: 16px; line-height: 1.6; font-weight: 600; overflow-wrap: anywhere; }

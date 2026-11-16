@@ -1,0 +1,77 @@
+/* Restore the approved pre-c07cb1c7 presentation on the actual DSH rc.3 drawer.
+   Its state, mounted sidebar, inert content and dismiss mask remain official.
+   The sibling after the sidebar slot is AppFrame's center column at this lock.
+   RETIRE WHEN AppFrame exposes an equivalent drawer presentation contract. */
+.mobile-shell:has([data-sidebar-drawer]) {
+  container-type: size;
+  --mobile-drawer-width: min(80cqw, 326px);
+  --mobile-drawer-duration: 316.666667ms;
+  /* Original damping 0.9 / stiffness 400, sampled at 60 Hz. */
+  --mobile-drawer-ease: linear(0, .045523, .149526, .277012, .406832, .527185, .632380, .720546, .792068, .848534, .892063, .924887, .949121, .966632, .979005, .987534, .993246, .996941, .999221, 1);
+  background: var(--rail);
+}
+.mobile-shell:has([data-sidebar-drawer]) > .mobile-page-seat,
+.mobile-shell [data-sidebar-drawer]:has(.official-mobile-sidebar) { overflow: visible; }
+.mobile-shell [data-sidebar-drawer]:has(.official-mobile-sidebar) { background: var(--rail); }
+.mobile-shell [data-sidebar-drawer] > :has(.official-mobile-sidebar),
+.mobile-shell [data-sidebar-drawer][data-sidebar-collapsed]:has(.official-mobile-sidebar) > :has(.official-mobile-sidebar) {
+  width: var(--mobile-drawer-width) !important;
+  height: 100cqh;
+  transform: translateX(calc(-1 * var(--mobile-drawer-width))) scale(.95);
+  transform-origin: center;
+  visibility: hidden;
+  transition: transform var(--mobile-drawer-duration) var(--mobile-drawer-ease), visibility 0s linear var(--mobile-drawer-duration);
+}
+.mobile-shell [data-sidebar-drawer]:not([data-sidebar-collapsed]) > :has(.official-mobile-sidebar) {
+  transform: none;
+  visibility: visible;
+  transition: transform var(--mobile-drawer-duration) var(--mobile-drawer-ease);
+}
+.mobile-shell [data-sidebar-drawer] > :has(.official-mobile-sidebar) + div,
+.mobile-shell:has([data-sidebar-drawer]) > .mobile-bottom-nav {
+  position: relative;
+  z-index: 72;
+  background: var(--mobile-content-bg);
+  transform-origin: center 50cqh;
+  transform: none;
+  border-radius: 0;
+  transition: transform var(--mobile-drawer-duration) var(--mobile-drawer-ease), border-radius 0s linear var(--mobile-drawer-duration);
+}
+.mobile-shell:has([data-sidebar-drawer]) > .mobile-bottom-nav {
+  background: var(--surface-raised);
+  transform-origin: center calc(100% - 50cqh);
+}
+.mobile-shell [data-sidebar-drawer]:not([data-sidebar-collapsed]) > :has(.official-mobile-sidebar) + div,
+.mobile-shell:has([data-sidebar-drawer]:not([data-sidebar-collapsed])) > .mobile-bottom-nav {
+  transform: translateX(var(--mobile-drawer-width)) scale(.95);
+  border-radius: 36px 0 0 36px;
+  transition: transform var(--mobile-drawer-duration) var(--mobile-drawer-ease);
+}
+/* The restored foreground card sits at 72. A native fullscreen right panel
+   must rise above it while the left drawer is closed. */
+.mobile-shell [data-sidebar-drawer][data-sidebar-collapsed]:has(.official-mobile-sidebar) > [data-rightbar-col] { z-index: 74; }
+.mobile-shell:has(> .mobile-bottom-nav) [data-sidebar-drawer]:not([data-sidebar-collapsed]) > :has(.official-mobile-sidebar) + div { border-bottom-left-radius: 0; }
+.mobile-shell:has([data-sidebar-drawer]:not([data-sidebar-collapsed])) > .mobile-bottom-nav { border-top-left-radius: 0; }
+.mobile-shell [data-sidebar-drawer]:has(.official-mobile-sidebar) > [data-sidebar-mask] {
+  z-index: 73;
+  bottom: auto;
+  height: 100cqh;
+  background: transparent;
+  backdrop-filter: none;
+  border-radius: 36px 0 0 36px;
+  box-shadow: 4px 2px 8px rgb(0 0 0 / .1), 4px 2px 40px rgb(0 0 0 / .1);
+  transform-origin: center;
+  transform: none;
+  transition: transform var(--mobile-drawer-duration) var(--mobile-drawer-ease), opacity var(--mobile-drawer-duration) var(--mobile-drawer-ease);
+}
+.mobile-shell [data-sidebar-drawer]:not([data-sidebar-collapsed]):has(.official-mobile-sidebar) > [data-sidebar-mask] { transform: translateX(var(--mobile-drawer-width)) scale(.95); }
+.mobile-shell [data-sidebar-drawer][data-sidebar-instant]:has(.official-mobile-sidebar) > :has(.official-mobile-sidebar),
+.mobile-shell [data-sidebar-drawer][data-sidebar-instant] > :has(.official-mobile-sidebar) + div,
+.mobile-shell [data-sidebar-drawer][data-sidebar-instant] > [data-sidebar-mask],
+.mobile-shell:has([data-sidebar-drawer][data-sidebar-instant]) > .mobile-bottom-nav { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .mobile-shell [data-sidebar-drawer] > :has(.official-mobile-sidebar),
+  .mobile-shell [data-sidebar-drawer] > :has(.official-mobile-sidebar) + div,
+  .mobile-shell [data-sidebar-drawer]:has(.official-mobile-sidebar) > [data-sidebar-mask],
+  .mobile-shell:has([data-sidebar-drawer]) > .mobile-bottom-nav { transition: none !important; }
+}

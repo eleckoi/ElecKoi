@@ -1,6 +1,7 @@
 import { localizeUiCopy } from "../app/i18n/productCopy.js";
 import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { useRef, useState, useSyncExternalStore } from 'react';
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
 import { ModelConfigPanel } from '../modules/models/components/ModelConfigPanel.jsx';
 import { initialConfigForProvider } from '../modules/models/model/modelConfigDraft.js';
@@ -63,14 +64,14 @@ export function MobileModelsPage() {
       <MobileState error={snapshot.error} loading={snapshot.status === 'loading'} empty={!snapshot.configs.length && snapshot.status === 'ready' ? tUi("暂无模型配置") : ''} onRetry={() => models.refresh().catch(error => chat.notify('error', resolveFailure(error, { fallback: tUi("刷新模型配置失败") }).text))} />
     </div>
     {picker && <MobileDialog title={tUi("新建模型配置")} onClose={() => setPicker(false)}><div className="mobile-picker-list mobile-model-create-list">
-      {createProviders.filter(provider => provider.id === 'custom').map(provider => <button type="button" key={provider.id} onClick={() => create(provider.id, tUi)}><MobileProviderLogo provider={provider} /><span>{provider.label}</span><MobileChevronRightIcon /></button>)}
+      {createProviders.filter(provider => provider.id === 'custom').map(provider => <Button variant="ghost" className="mobile-model-create-option" key={provider.id} onClick={() => create(provider.id, tUi)}><MobileProviderLogo provider={provider} /><span>{provider.label}</span><MobileChevronRightIcon /></Button>)}
       <div className="mobile-model-create-group"><label htmlFor="mobile-builtin-provider">{tUi("内置提供商")}</label>
         <select id="mobile-builtin-provider" aria-label={tUi("从 DSH 目录选择")} value="" disabled={!builtinProviders.length} onChange={event => { if (event.target.value) create(event.target.value, tUi); }}>
           <option value="" disabled>{tUi("从 DSH 目录选择")}</option>
           {builtinProviders.map(route => <option key={route.provider} value={route.provider}>{route.displayName || route.provider}</option>)}
         </select>
       </div>
-      <div className="mobile-model-create-group"><span>{tUi("绘画模型")}</span>{createProviders.filter(provider => provider.section === 'image').map(provider => <button type="button" key={provider.id} onClick={() => create(provider.id, tUi)}><MobileProviderLogo provider={provider} /><span>{provider.label}</span><MobileChevronRightIcon /></button>)}</div>
+      <div className="mobile-model-create-group"><span>{tUi("绘画模型")}</span>{createProviders.filter(provider => provider.section === 'image').map(provider => <Button variant="ghost" className="mobile-model-create-option" key={provider.id} onClick={() => create(provider.id, tUi)}><MobileProviderLogo provider={provider} /><span>{provider.label}</span><MobileChevronRightIcon /></Button>)}</div>
     </div></MobileDialog>}
   </div>;
 }

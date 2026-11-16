@@ -138,6 +138,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '操作结果，结构见返回类型；失败抛出错误。',
       },
       {
+        signature: '@Remote reorderGroups(groupIds: string[], purpose: AgentPresetPurpose): AgentPresetCatalog',
+        description: '保存指定用途的完整预设分组顺序，不改变预设归属。',
+        parameters: [{ name: 'groupIds', description: '该用途的全部分组编号，按显示顺序排列。' }, { name: 'purpose', description: '所属预设分类。' }],
+        returns: '更新后的预设目录；目录已变化时拒绝保存。',
+      },
+      {
         signature: '@Remote assignGroup(presetId: string, groupId: string): AgentPresetCatalog',
         description: '设置预设所属分组。',
         parameters: [{ name: 'presetId', description: '预设编号。' }, { name: 'groupId', description: '预设分组编号。' }],

@@ -1,6 +1,7 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Children, Fragment } from 'react';
-import { Button, IconCheckOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Checkbox } from '@deepseek-ai/dsh-client-ui-primitives';
+import { EditorToggle } from '../../../ui/ui/EditorToggle.jsx';
 import { reasoningEffortIds, reasoningEffortLabel, reasoningOptions } from "../model/modelReasoningOptions.js";
 
 function optionalNumber(value) {
@@ -26,12 +27,8 @@ function ParameterInput({ menu, tokens, ...props }) {
   return menu ? <span className="model-menu-input">{input}{tokens && <small>Token</small>}</span> : input;
 }
 
-function CapabilityCheckbox({ picker, label, className = '', ...props }) {
-  return <label className={`${className}${picker ? ' chat-model-capability-choice' : ''}`}>
-    <input type="checkbox" {...props} />
-    {picker ? <span className="chat-model-capability-box" aria-hidden="true"><IconCheckOutlineMedium size={12} /></span> : null}
-    <span>{label}</span>
-  </label>;
+function CapabilityCheckbox({ picker, className = '', ...props }) {
+  return <Checkbox className={`${className}${picker ? ' chat-model-capability-choice' : ''}`} {...props} />;
 }
 
 export function ModelParametersSection({ form, activeModelOption, automaticContextWindow, effectiveContextWindow, parameterError, modelCapabilities, showReasoningProfileEditor = false, showCapabilities = true, compact = false, picker = false, menu = false, onChange }) {
@@ -109,13 +106,14 @@ export function ModelParametersSection({ form, activeModelOption, automaticConte
       <div className="model-capabilities">
         {(!picker || (form.builtin && form.useBuiltinModels !== false)) && <div className="model-capabilities-heading">
           {!picker && <span>{tUi("模型能力")}</span>}
-          {form.builtin && form.useBuiltinModels !== false && <CapabilityCheckbox picker={picker} className="model-capability-toggle" label={tUi("使用目录默认")}
-            disabled={!form.model} checked={inheritsCapabilities} onChange={event => onChange({ capabilitiesOverride: !event.target.checked })} />}
+          {form.builtin && form.useBuiltinModels !== false && (picker
+            ? <CapabilityCheckbox picker label={tUi("使用目录默认")} disabled={!form.model} checked={inheritsCapabilities} onChange={checked => onChange({ capabilitiesOverride: !checked })} />
+            : <label className="model-capability-toggle"><EditorToggle label={tUi("使用目录默认")} disabled={!form.model} checked={inheritsCapabilities} onChange={checked => onChange({ capabilitiesOverride: !checked })} /><span>{tUi("使用目录默认")}</span></label>)}
         </div>}
         <fieldset className="model-input-capabilities" aria-label={tUi("输入能力")} disabled={!form.model || inheritsCapabilities}>
           <div>
-            <CapabilityCheckbox picker={picker} label={tUi("文本")} checked={inputModalities.includes('text')} onChange={event => toggleModality('text', event.target.checked)} />
-            <CapabilityCheckbox picker={picker} label={tUi("图片")} checked={inputModalities.includes('image')} onChange={event => toggleModality('image', event.target.checked)} />
+            <CapabilityCheckbox picker={picker} label={tUi("文本")} checked={inputModalities.includes('text')} onChange={checked => toggleModality('text', checked)} />
+            <CapabilityCheckbox picker={picker} label={tUi("图片")} checked={inputModalities.includes('image')} onChange={checked => toggleModality('image', checked)} />
           </div>
         </fieldset>
         {showReasoningProfileEditor && modelCapabilities.canDeclareReasoning ? (

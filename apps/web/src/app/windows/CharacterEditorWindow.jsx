@@ -498,11 +498,12 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
         <section
           className={`character-editor-workspace${['openings', 'lore', 'variables', 'regex', 'scripts', 'dynamic'].includes(activeSection) ? ' is-collection-editor' : ''}${activeSection === "card" ? " is-basic-info" : ""}${activeSection === "openings" ? " is-character-openings" : ""}${activeSection === "lore" ? " is-setting-library" : ""}${activeSection === "variables" ? " is-variable-config" : ""}${activeSection === "regex" ? " is-regex-rules" : ""}${activeSection === 'scripts' ? ' is-scripts' : ''}${activeSection === 'frontend' ? ' is-frontend' : ''}${activeSection === 'assets' ? ' is-character-assets' : ''}${activeSection === "dynamic" ? " is-dynamic-settings" : ""}`}
           aria-label={activeLabel}
+          aria-busy={!loaded || undefined}
           ref={workspaceRef}
         >
           {loaded && !character
             ? <p className="character-editor-missing" role={saveError ? 'alert' : undefined}>{saveError || tUi("角色不存在")}</p>
-            : editorContent || <h1 id="character-editor-section-title">{activeLabel}</h1>}
+            : editorContent}
         </section>
       </section>
       <UnsavedChangesDialog

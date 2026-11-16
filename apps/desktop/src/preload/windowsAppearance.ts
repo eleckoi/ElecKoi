@@ -11,16 +11,17 @@ export function installWindowsAppearance(): () => void {
   if (context === null) throw new DesktopError(ELECKOI_FAILURE_CODES.internal,
     'Desktop caption requires a 2D canvas context', { what: '窗口标题栏的 2D 绘图环境' })
   const root = document.documentElement
+  root.setAttribute('data-windows-titlebar', '')
   root.setAttribute('data-native-window-controls', '')
   root.style.setProperty('--window-caption-height', `${WINDOWS_TITLEBAR_HEIGHT}px`)
   root.style.setProperty('--dsh-windows-titlebar-height', `${WINDOWS_TITLEBAR_HEIGHT}px`)
   // Managers extend their content canvas behind the caption, unlike the sidebar-backed shell.
   const view = new URLSearchParams(window.location.search).get('view')
-  const background = view === 'character-manager' ? 'var(--character-manager-canvas,var(--chat))'
-    : view === 'preset-manager' ? 'var(--chat,var(--dsw-alias-bg-base))'
-      : 'var(--list,var(--dsw-specific-sidebar-fill))'
+  const background = view === 'character-manager' || view === 'preset-manager'
+    ? 'var(--character-manager-canvas,var(--chat,var(--dsw-alias-bg-base)))'
+    : 'var(--dsw-specific-sidebar-fill,var(--list))'
   const probe = document.createElement('span')
-  probe.style.cssText = `position:fixed;visibility:hidden;pointer-events:none;background-color:${background};color:var(--title-fg,var(--dsw-alias-label-primary))`
+  probe.style.cssText = `position:fixed;visibility:hidden;pointer-events:none;background-color:${background};color:var(--dsw-alias-label-primary,var(--title-fg))`
   document.body.append(probe)
   const nativeColor = (color: string): string => {
     context.clearRect(0, 0, 1, 1)
@@ -39,8 +40,9 @@ export function installWindowsAppearance(): () => void {
     ipcRenderer.send('eleckoi:dsh-native-theme', ...values)
   }
   const observer = new MutationObserver(send)
-  observer.observe(root, { attributes: true, attributeFilter: ['data-theme', 'data-ds-theme-source'] })
-  observer.observe(document.body, { attributes: true, attributeFilter: ['data-ds-dark-theme', 'style'] })
+  observer.observe(root, { attributes: true, attributeFilter: ['data-theme', 'data-ds-theme-source', 'style', 'class'] })
+  // Theme plugins also switch their palette through body data attributes.
+  observer.observe(document.body, { attributes: true })
   observer.observe(document.head, { childList: true, subtree: true, characterData: true })
   document.head.addEventListener('load', send, true)
   send()

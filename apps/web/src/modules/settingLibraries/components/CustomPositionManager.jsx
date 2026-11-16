@@ -177,7 +177,7 @@ export function CustomPositionManager({ entry, positions, entries, onChange, onB
     setDraft(createPositionDraft(positions, position, currentAnchor));
     setDeleting(null);
   }, [positions, entry?.promptPositionId, entry?.position]);
-  const headerActions = useMemo(() => <Button data-dsh-control variant="primary" ref={addRef} type="button" onClick={() => edit()}>{tUi("新建")}</Button>, [edit, tUi]);
+  const headerActions = useMemo(() => <Button data-dsh-control variant="ghost" ref={addRef} type="button" onClick={() => edit()}>{tUi("新建")}</Button>, [edit, tUi]);
   useEditorSubpage(true, tUi("自定义位置"), onBack, headerActions);
 
   function saveDraft() {

@@ -15,6 +15,7 @@ import { buildPresetListSections, PresetListRow, presetListContextActions, shoul
 import { createEntryDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
 import { treeNodes } from '../../src/modules/settingLibraries/model/settingLibraryTree.js';
 import { SettingLibraryDocument } from '../../src/modules/settingLibraries/components/SettingLibraryDocument.jsx';
+import { SettingTreeNode } from '../../src/modules/settingLibraries/components/SettingLibraryTree.jsx';
 import { TrashIcon } from '../../src/ui/icons/index.jsx';
 import { SETTING_LIBRARY_CREATE_ICONS } from '../../src/ui/icons/settingLibraryCreateIcons.jsx';
 import { PresetPurposeSwitch } from '../../src/modules/presets/components/PresetPurposeSwitch.jsx';
@@ -141,7 +142,7 @@ describe('preset list consistency', () => {
 
   it('uses the shared delete icon throughout preset surfaces', () => {
     const presetComponents = [
-      'PresetPanel.jsx',
+      'PresetListPanel.jsx',
       'PresetIntroductionEditor.jsx',
       'PresetPromptEditor.jsx',
     ];
@@ -172,7 +173,9 @@ describe('preset list consistency', () => {
     const promptSource = readFileSync(sourceFile('../../src/modules/presets/components/PresetPromptEditor.jsx'), 'utf8');
     const treeSource = readFileSync(sourceFile('../../src/modules/settingLibraries/components/SettingLibraryTree.jsx'), 'utf8');
     expect(promptSource).toContain('<SettingLibraryTree');
-    expect(treeSource).toContain('role="switch"');
+    const rendered = renderToStaticMarkup(<SettingTreeNode data={{ nodeKind: 'entry', recordId: 'switch-prompt', label: '合成提示词', enabled: true }} item={{}} itemProps={{}} style={{}} level={0} />);
+    expect(rendered).toContain('role="switch" aria-checked="true"');
+    expect(rendered).toContain('aria-label="停用合成提示词"');
     expect(treeSource).not.toContain('TrashIcon');
     expect(treeSource).not.toContain('>删除<');
     expect(treeSource).not.toContain('>复制<');

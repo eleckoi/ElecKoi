@@ -1,24 +1,11 @@
-import { sourceText } from "../../../app/i18n/productCopy.js";
-import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
-import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
-import { DesktopError } from '@shared/foundation/DesktopError';
-import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { CheckCircle } from '@phosphor-icons/react';
-import { CharacterManagerIcon, ChevronRightIcon, ImportIcon, PlusIcon, TrashIcon } from '../../../ui/icons/index.jsx';
-import { Avatar } from '../../../ui/ui/Avatar.jsx';
-import { SidebarSectionHeader } from '../../../ui/ui/SidebarSectionHeader.jsx';
-import { useSidebarListScroll } from '../../../ui/hooks/useSidebarListScroll.js';
-import { SidebarScrollArea } from '../../../ui/ui/SidebarScrollArea.jsx';
-import { useSidebarGroupCollapse } from '../../../ui/hooks/useSidebarGroupCollapse.js';
+import { localizeUiCopy } from '../../../app/i18n/productCopy.js';
+import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
+import { useEffect, useRef, useState } from 'react';
 import { UnsavedChangesDialog } from '../../../ui/ui/UnsavedChangesDialog.jsx';
-import { ConfirmationDialog } from '../../../ui/ui/ConfirmationDialog.jsx';
 import { useEditorPresentation, useEditorSubpage } from '../../../ui/ui/EditorPresentationContext.jsx';
-import defaultPresetAvatar from '../../../assets/eleckoi-app-icon.png';
 import { SaveControl } from '../../settingLibraries/index.js';
-import { LIST_COLLAPSE_AREAS, usePersistentCollapseState, useCharacterEditorSidebarState } from '../../settings/index.js';
+import { useCharacterEditorSidebarState } from '../../settings/index.js';
 import { PresetIntroductionEditor } from './PresetIntroductionEditor.jsx';
-import { PresetContextMenu, usePresetContextMenu } from './PresetContextMenu.jsx';
 import { PresetProfileHeader } from './PresetProfileHeader.jsx';
 import { PresetProfileEditor } from './PresetProfileEditor.jsx';
 import { PresetPromptEditor } from './PresetPromptEditor.jsx';
@@ -27,15 +14,15 @@ import { RegexRulesPanel } from '../../regex/index.js';
 import { PresetToolsEditor } from './PresetToolsEditor.jsx';
 import { PresetBasicDocument } from './PresetBasicDocument.jsx';
 import { PresetMobileSections } from './PresetMobileSections.jsx';
-import '../styles/preset-workspace.css';
-import { fileBase64, PresetImportDialog } from './PresetTransfer.jsx';
-import { openPresetManagerWindow } from '../window/openPresetManagerWindow.js';
-import { PresetPurposeSwitch, isDefaultPreset } from './PresetPurposeSwitch.jsx';
 import { LOG_ACTIONS, logAction } from '../../../utils/logAction.js';
 import { resolveFailure } from '../../../utils/failureText.js';
+import { usePresets } from './PresetContext.jsx';
+import '../styles/preset-workspace.css';
 
-const PresetContext = createContext(null);
-const ALL_PRESETS = '全部预设';
+// Keep existing editor imports compatible; the catalog page imports only the lightweight modules.
+export { PresetProvider, usePresets } from './PresetContext.jsx';
+export { PresetListPanel, PresetListRow, presetListContextActions, buildPresetListSections, shouldShowPresetCatalogLoading } from './PresetListPanel.jsx';
+
 const TABS = [
   { id: 'introduction', label: '使用说明' },
   { id: 'prompts', label: '预设提示词' },
@@ -43,31 +30,6 @@ const TABS = [
   { id: 'regex', label: '正则' },
   { id: 'scripts', label: '脚本' },
 ];
-const EMPTY_PRESET_CATALOG = { status: 'loading', catalog: null, error: '' };
-const subscribeEmptyCatalog = () => () => {};
-const getEmptyCatalog = () => EMPTY_PRESET_CATALOG;
-
-export function presetListContextActions(preset, activePresetId, onActivate, onDelete, tUi = sourceText) {
-  return [
-    ...(preset.id !== activePresetId ? [{ label: tUi("使用此预设"), icon: CheckCircle, run: onActivate }] : []),
-    ...(!isDefaultPreset(preset.id) ? [{ label: tUi("删除预设"), icon: TrashIcon, danger: true, run: onDelete }] : []),
-  ];
-}
-
-export function buildPresetListSections(groups, presets, tUi = sourceText) {
-  return [
-    { id: ALL_PRESETS, name: tUi(ALL_PRESETS), presets },
-    ...groups.map((group) => ({
-      ...group,
-      presets: presets.filter((preset) => preset.libraryGroupId === group.id),
-    })),
-  ];
-}
-
-export function shouldShowPresetCatalogLoading(catalog, error) {
-  return !catalog && !error;
-}
-
 export function reconcilePresetToolRefresh(draft, previous, incoming) {
   const ids = new Set(previous.toolGroups.map(group => group.id));
   const content = ({ extraToolGroups, basicToolGroups, ...preset }) => JSON.stringify({ ...preset, toolGroups: preset.toolGroups.map(({ available, plugin, ...group }) => group) });
@@ -80,281 +42,6 @@ export function reconcilePresetToolRefresh(draft, previous, incoming) {
     ...incoming.toolGroups.filter(group => !ids.has(group.id)),
   ], extraToolGroups: [...latest.values()].filter(group => group.source === 'extension' && group.available === true
     && !group.members.some(member => referencedNames.has(member.name))).map(group => ({ ...group, included: false, enabled: true })) };
-}
-
-export function PresetProvider({ children, catalogModel, navigationGuardRef: externalNavigationGuardRef, fixedPresetId }) {
-  const tUi = useProductTranslation();
-  const snapshot = useSyncExternalStore(
-    catalogModel?.subscribe || subscribeEmptyCatalog,
-    catalogModel?.getSnapshot || getEmptyCatalog,
-  );
-  const catalog = snapshot.catalog;
-  const [purpose, commitPurpose] = useState('roleplay');
-  const purposeCatalog = useMemo(() => catalog ? { ...catalog, groups: catalog.groups.filter(item => item.purpose === purpose), presets: catalog.presets.filter(item => item.purpose === purpose) } : null, [catalog, purpose]);
-  const [localSelectedPresetId, commitSelectedPresetId] = useState(() => catalog?.activePresetIds.roleplay || '');
-  const selectedPresetId = fixedPresetId ?? localSelectedPresetId;
-  const [localError, setError] = useState('');
-  const error = localError || snapshot.error;
-  const internalNavigationGuardRef = useRef(null);
-  const navigationGuard = externalNavigationGuardRef || internalNavigationGuardRef;
-
-  function setCatalog(next) {
-    catalogModel.adopt(next);
-  }
-
-  function setSelectedPresetId(id) {
-    if (id === selectedPresetId) return;
-    const select = () => commitSelectedPresetId(id);
-    if (navigationGuard.current) navigationGuard.current(select);
-    else select();
-  }
-
-  function setPurpose(next) {
-    if (next === purpose) return;
-    const select = () => { commitPurpose(next); commitSelectedPresetId(catalog?.activePresetIds[next] || ''); };
-    if (navigationGuard.current) navigationGuard.current(select);
-    else select();
-  }
-
-  async function refresh(preferredId = '') {
-    try {
-      const next = await catalogModel.refresh();
-      commitSelectedPresetId((current) => {
-        const requested = preferredId || current || next.activePresetIds[purpose];
-        return next.presets.some((item) => item.id === requested) ? requested : next.activePresetIds[purpose];
-      });
-      setError('');
-      return next;
-    } catch (cause) {
-      setError(resolveFailure(cause, { fallback: tUi("读取预设失败") }).text);
-      return null;
-    }
-  }
-
-  useEffect(() => { if (catalogModel) void refresh(); }, [catalogModel]);
-  useEffect(() => {
-    if (!catalog) return;
-    setError('');
-    commitSelectedPresetId((current) => {
-      const requested = current || catalog.activePresetIds[purpose];
-      return catalog.presets.some((item) => item.id === requested) ? requested : catalog.activePresetIds[purpose];
-    });
-  }, [catalog, catalogModel, purpose]);
-  const value = useMemo(() => ({ catalog, purposeCatalog, purpose, setPurpose, catalogModel, setCatalog, selectedPresetId, setSelectedPresetId, navigationGuard, refresh, error, setError }), [catalog, purposeCatalog, purpose, catalogModel, selectedPresetId, error]);
-  return <PresetContext.Provider value={value}>{children}</PresetContext.Provider>;
-}
-
-export function usePresets() {
-  const value = useContext(PresetContext);
-  if (!value) throw new DesktopError(ELECKOI_FAILURE_CODES.internal, 'PresetProvider is missing.', { what: '预设 Provider' });
-  return value;
-}
-
-export function PresetListPanel() {
-  const tUi = useProductTranslation();
-  const scrollRef = useSidebarListScroll();
-  const { purposeCatalog: catalog, purpose, setPurpose, catalogModel, setCatalog, selectedPresetId, setSelectedPresetId, navigationGuard, refresh, error, setError } = usePresets();
-  const [keyword, setKeyword] = useState('');
-  const [createOpen, setCreateOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const creatingRef = useRef(false);
-  const currentPurpose = useRef(purpose);
-  currentPurpose.current = purpose;
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-  const deletingRef = useRef(false);
-  const [deleteError, setDeleteError] = useState('');
-  const [selectedGroup, setSelectedGroup] = useState(ALL_PRESETS);
-  const [importing, setImporting] = useState(false);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [importError, setImportError] = useState('');
-  const importInputRef = useRef(null);
-  const importSourceRef = useRef('');
-  const context = usePresetContextMenu();
-
-  const groups = catalog?.groups || [];
-  const presets = catalog?.presets || [];
-  const filtered = useMemo(() => {
-    const key = keyword.trim().toLocaleLowerCase();
-    return presets.filter((preset) => !key || `${preset.name} ${preset.profile.authorName} ${preset.profile.usageInstructions}`.toLocaleLowerCase().includes(key));
-  }, [keyword, presets]);
-  const sections = useMemo(() => buildPresetListSections(groups, filtered, tUi), [filtered, groups, tUi]);
-  const [collapsed, setCollapsed, collapseStateReady] = usePersistentCollapseState(
-    LIST_COLLAPSE_AREAS.presets,
-    {},
-    catalog ? sections.map((section) => section.id) : undefined,
-  );
-  const keepCollapsedHeading = useSidebarGroupCollapse(collapsed);
-
-  useEffect(() => {
-    function closeCreateMenu(event) {
-      if (event.type === 'keydown' && event.key !== 'Escape') return;
-      setCreateOpen(false);
-    }
-
-    window.addEventListener('pointerdown', closeCreateMenu);
-    window.addEventListener('keydown', closeCreateMenu);
-    return () => {
-      window.removeEventListener('pointerdown', closeCreateMenu);
-      window.removeEventListener('keydown', closeCreateMenu);
-    };
-  }, []);
-
-  function addPreset() {
-    setCreateOpen(false);
-    const create = async () => {
-      if (creatingRef.current) return;
-      creatingRef.current = true;
-      setCreating(true);
-      try {
-        const selectedGroupRecord = groups.find((group) => group.id === selectedGroup);
-        const libraryGroupId = selectedGroupRecord?.id || '';
-        const created = await catalogModel.create('新预设', libraryGroupId, purpose);
-        if (currentPurpose.current === purpose) {
-          setKeyword('');
-          setCollapsed(current => ({ ...current, [ALL_PRESETS]: false, ...(libraryGroupId ? { [libraryGroupId]: false } : {}) }));
-          setSelectedPresetId(created.id);
-        }
-        setError('');
-      } catch (cause) { setError(resolveFailure(cause, { fallback: tUi("操作失败，请重试。") }).text); }
-      finally { creatingRef.current = false; setCreating(false); }
-    };
-    if (navigationGuard.current) navigationGuard.current(create);
-    else void create();
-  }
-
-  function runGuarded(action) {
-    if (navigationGuard.current) navigationGuard.current(action);
-    else void action();
-  }
-
-  function beginImport() {
-    setCreateOpen(false);
-    setImportError('');
-    setImportDialogOpen(true);
-  }
-
-  function chooseImportSource(source) {
-    importSourceRef.current = source;
-    setImportDialogOpen(false);
-    if (!importInputRef.current) return;
-    importInputRef.current.accept = source === 'sillytavern'
-      ? 'application/json,.json'
-      : 'image/png,application/json,.png,.json';
-    importInputRef.current.click();
-  }
-
-  function handleImport(event) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    runGuarded(async () => {
-      setImporting(true);
-      setImportError('');
-      try {
-        const result = await catalogModel.import(importSourceRef.current, {
-          displayName: file.name,
-          mimeType: file.type,
-          base64: await fileBase64(file),
-        }, purpose);
-        setSelectedGroup(ALL_PRESETS);
-        await refresh(result.preset.id);
-      } catch (cause) {
-        setImportError(resolveFailure(cause, { fallback: tUi("导入预设失败") }).text);
-      } finally {
-        setImporting(false);
-      }
-    });
-  }
-
-  function activateFromList(preset) {
-    runGuarded(async () => {
-      try {
-        setCatalog(await catalogModel.setActive(preset.id));
-        setError('');
-      } catch (cause) { setError(resolveFailure(cause, { fallback: tUi("启用预设失败") }).text); }
-    });
-  }
-
-  function removeFromList(preset) {
-    runGuarded(() => { setDeleteError(''); setDeleteTarget(preset); });
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget || deletingRef.current) return;
-    deletingRef.current = true; setDeleting(true);
-    try {
-      await catalogModel.delete(deleteTarget.id);
-      setDeleteTarget(null); setDeleteError(''); setError('');
-    } catch (cause) { setDeleteError(resolveFailure(cause, { fallback: tUi("删除预设失败") }).text); }
-    finally { deletingRef.current = false; setDeleting(false); }
-  }
-
-  function renderGroup(section) {
-    const isCollapsed = Boolean(collapsed[section.id]);
-    return <section className="character-group-block preset-list-group" key={section.id}>
-      <button type="button" className="character-group-row preset-group-heading" aria-expanded={!isCollapsed} onClick={(event) => {
-        if (!isCollapsed) keepCollapsedHeading(event.currentTarget);
-        setSelectedGroup(section.id);
-        setCollapsed((current) => ({ ...current, [section.id]: !current[section.id] }));
-      }}>
-        <span><span className={`character-group-toggle${isCollapsed ? ' collapsed' : ''}`}><ChevronRightIcon /></span>{section.name}</span>
-        <em>{section.presets.length}</em>
-      </button>
-      {!isCollapsed ? <div className="character-contact-list preset-list-rows">{section.presets.map((preset) => <PresetListRow
-        key={preset.id}
-        preset={preset}
-        selected={preset.id === selectedPresetId}
-        active={preset.id === catalog.activePresetIds[purpose]}
-        onClick={() => setSelectedPresetId(preset.id)}
-        onContextMenu={(event) => {
-          if (preset.id === catalog.activePresetIds[purpose] && isDefaultPreset(preset.id)) {
-            event.preventDefault();
-            event.stopPropagation();
-            return;
-          }
-          context.open(event, preset);
-        }}
-      />)}</div> : null}
-    </section>;
-  }
-
-  return <aside className="character-list-panel preset-list-panel" aria-label={tUi("预设列表")} aria-busy={creating || shouldShowPresetCatalogLoading(catalog, error) || undefined}>
-    <SidebarSectionHeader title={tUi("预设")} value={keyword} onValueChange={setKeyword} placeholder={tUi("搜索预设名称")}
-      createLabel={tUi("新建预设")} createExpanded={createOpen}
-      onCreatePointerDown={(event) => event.stopPropagation()}
-      onCreate={(event) => { event.stopPropagation(); setCreateOpen((value) => !value); }} onSearchFocus={() => setCreateOpen(false)} />
-    {createOpen ? <div className="character-create-menu preset-create-menu" onPointerDown={(event) => event.stopPropagation()}>
-      <button type="button" disabled={creating} onClick={addPreset}><PlusIcon /><span>{tUi("新建预设")}</span></button>
-      <button type="button" disabled={importing} onClick={beginImport}><ImportIcon /><span>{tUi("导入预设")}</span></button>
-    </div> : null}
-    <input ref={importInputRef} type="file" accept="image/png,application/json,.png,.json" hidden onChange={handleImport} />
-    <button type="button" className="character-manager-entry preset-manager-entry" onClick={openPresetManagerWindow}><CharacterManagerIcon /><span>{tUi("预设管理器")}</span></button>
-    <PresetPurposeSwitch value={purpose} onChange={value => { setPurpose(value); setSelectedGroup(ALL_PRESETS); setKeyword(''); }} />
-    <SidebarScrollArea ref={scrollRef} className="character-list-scroll preset-list-scroll">
-      {collapseStateReady ? sections.map(renderGroup) : null}
-      {error || importError ? <p className="preset-list-state is-error">{error || importError}</p> : null}
-    </SidebarScrollArea>
-    {context.menu ? <PresetContextMenu menu={context.menu} onClose={context.close} actions={presetListContextActions(
-      context.menu.target,
-      catalog.activePresetIds[purpose],
-      () => activateFromList(context.menu.target),
-      () => removeFromList(context.menu.target), tUi
-    )} /> : null}
-    {importDialogOpen ? <PresetImportDialog onSelect={chooseImportSource} onClose={() => setImportDialogOpen(false)} /> : null}
-    <ConfirmationDialog open={Boolean(deleteTarget)} title={tUi("删除预设？")} destructive busy={deleting} confirmLabel={tUi("删除")}
-      description={<>{tUi("确认删除“{value0}”？", { value0: deleteTarget?.name || '' })}{deleteError && <span role="alert"> {deleteError}</span>}</>}
-      onCancel={() => { if (!deletingRef.current) { setDeleteTarget(null); setDeleteError(''); } }} onConfirm={() => void confirmDelete()} />
-  </aside>;
-}
-
-export function PresetListRow({ preset, selected, active, onClick, onContextMenu }) {
-  const tUi = useProductTranslation();
-  return <button type="button" className={`character-contact-row preset-list-row${selected ? ' active' : ''}`} onClick={onClick} onContextMenu={onContextMenu}>
-    <Avatar src={preset.profile.authorAvatarPath || defaultPresetAvatar} name={preset.name} className="preset-list-avatar" />
-    <span className="character-contact-copy"><strong>{preset.name}</strong></span>
-    {active ? <span className="preset-list-status">{tUi("使用中")}</span> : null}
-  </button>;
 }
 
 export function PresetWorkspace({
@@ -375,7 +62,7 @@ export function PresetWorkspace({
   const { catalog, catalogModel, selectedPresetId, setCatalog, navigationGuard, refresh, error: catalogError } = usePresets();
   const [preset, setPreset] = useState(null);
   const [persisted, setPersisted] = useState(null);
-  const [tab, setTab] = useState('introduction');
+  const [tab, setTab] = useState(() => requestedTab || (editorMode ? 'profile' : 'introduction'));
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');

@@ -54,6 +54,7 @@
           "setActive",
           "createGroup",
           "renameGroup",
+          "reorderGroups",
           "assignGroup",
           "deleteGroup",
           "delete",

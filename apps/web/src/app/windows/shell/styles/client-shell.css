@@ -14,6 +14,22 @@
 .official-native-frame > [data-slot="root"] {
   height: 100%;
 }
+/* Product columns already contain the Windows caption. The native right
+   column must leave that same band clear for window controls and dragging. */
+:root[data-windows-titlebar] .official-native-frame [data-rightbar-col] {
+  margin-top: var(--window-caption-height, 40px);
+}
+:root[data-windows-titlebar] .official-native-frame [data-rightbar-col]::before {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--window-caption-height, 40px)) 0 auto;
+  height: var(--window-caption-height, 40px);
+  background: var(--list);
+  -webkit-app-region: drag;
+}
+:root[data-windows-titlebar] .official-native-frame [data-side="rightbar"] {
+  top: var(--window-caption-height, 40px);
+}
 .official-native-frame .side-panel-shell,
 .official-native-frame .main-panel-shell {
   grid-column: auto;
@@ -63,6 +79,7 @@
   grid-template-rows: var(--window-caption-height, 40px) 46px minmax(0, 1fr);
   background: var(--list);
   z-index: 3;
+  -webkit-app-region: no-drag;
 }
 
 .side-panel-shell.has-footer-actions {
@@ -106,7 +123,6 @@
   color: var(--title-fg);
   white-space: nowrap;
   overflow: hidden;
-  -webkit-app-region: drag;
 }
 
 .side-panel-brand strong {

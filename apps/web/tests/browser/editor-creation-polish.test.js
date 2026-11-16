@@ -23,7 +23,7 @@ it('creates settings and variables without selecting their names, aligns root va
     const evidence = resolve('build/editor-creation-polish-check'); await mkdir(evidence, { recursive: true });
     for (const file of await readdir(directory)) if (/\.png$/.test(file) || file === 'report.json') await copyFile(resolve(directory, file), resolve(evidence, file));
     expect(failure, JSON.stringify(report)).toBeUndefined();
-    expect(report.errors).toEqual([]); expect(report.cases).toHaveLength(12);
+    expect(report.errors).toEqual([]); expect(report.cases).toHaveLength(18);
     for (const row of report.cases) {
       const detail = JSON.stringify(row);
       expect(row.selection.start, detail).toBe(row.selection.end);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
 import { resolveFailure } from '../../../utils/failureText.js';
-import { usePresets } from './PresetPanel.jsx';
+import { usePresets } from './PresetContext.jsx';
 import { PresetProfileHeader } from './PresetProfileHeader.jsx';
 import { PresetIntroductionEditor } from './PresetIntroductionEditor.jsx';
 import { openPresetEditorWindow } from '../window/openPresetEditorWindow.js';

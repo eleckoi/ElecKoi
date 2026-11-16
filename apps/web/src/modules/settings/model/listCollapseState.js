@@ -1,15 +1,2 @@
-export const LIST_COLLAPSE_AREAS = Object.freeze({
-  characters: 'characters',
-  presets: 'presets',
-  models: 'models',
-  plugins: 'plugins',
-});
-
-export function normalizeCollapsedGroups(value, defaults = {}, validKeys) {
-  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  const allowed = validKeys ? new Set(validKeys) : null;
-  return Object.fromEntries(
-    Object.entries({ ...defaults, ...source })
-      .filter(([key, collapsed]) => typeof collapsed === 'boolean' && (!allowed || allowed.has(key))),
-  );
-}
+// Shared presentation state; keep the settings public API on the same instance.
+export { LIST_COLLAPSE_AREAS, normalizeCollapsedGroups } from '../../../ui/state/listCollapseState.js';

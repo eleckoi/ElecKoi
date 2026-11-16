@@ -37,7 +37,18 @@ exports.createUpdateProbe = ({ ipcMain, getWindow, overlays }) => {
       const execute = source => window.webContents.executeJavaScript(source)
       const click = selector => execute(`document.querySelector(${JSON.stringify(selector)}).click()`)
       const languageSelector = '[data-group="language"] [data-slot="settings.general.item"] button[aria-haspopup="menu"]'
+      const openSidebar = async () => {
+        await waitFor(`!!document.querySelector('.side-panel-shell')`, 'Settings sidebar missing')
+        // Native AppFrame auto-collapses narrow frames. DOM presence does not
+        // mean the settings or update button is visible or operable.
+        if (await execute(`document.querySelector('.side-panel-shell').getAttribute('aria-hidden')==='true'`)) {
+          await waitFor(`!!document.querySelector('.side-panel-expand-button')`, 'Sidebar reopen control missing')
+          await click('.side-panel-expand-button')
+        }
+        await waitFor(`(()=>{const side=document.querySelector('.side-panel-shell');return side&&!side.inert&&side.getAttribute('aria-hidden')!=='true'&&side.getBoundingClientRect().width>=264})()`, 'Settings sidebar did not open')
+      }
       const openLanguage = async title => {
+        await openSidebar()
         await waitFor(`[...document.querySelectorAll('.app-settings-sidebar button')].some(button=>button.textContent===${JSON.stringify(title)})`, 'Chat display settings entry missing')
         await execute(`[...document.querySelectorAll('.app-settings-sidebar button')].find(button=>button.textContent===${JSON.stringify(title)}).click()`)
         await waitFor(`!!document.querySelector('[data-group="language"] summary')`, 'Language group missing')
@@ -79,6 +90,7 @@ exports.createUpdateProbe = ({ ipcMain, getWindow, overlays }) => {
       const offer = await native(`document.body.innerText.includes('0.2.20') && !!document.querySelector('#actions button')`)
       assert.equal(downloads, 0, 'Automatic discovery must offer before downloading')
       await offer.executeJavaScript(`document.querySelector('#close').click()`)
+      await openSidebar()
       await waitFor(`!!document.querySelector('.sidebar-update-seat button')`, 'Official update indicator missing')
       await waitFor(`(()=>{const button=document.querySelector('.sidebar-update-seat button'),sidebar=button?.closest('.side-panel-shell,.native-workspace-sidebar');if(!sidebar)return false;const b=button.getBoundingClientRect(),s=sidebar.getBoundingClientRect();return b.width>60&&b.height>=28&&s.right-b.right>=0&&s.right-b.right<=20&&s.bottom-b.bottom>=0&&s.bottom-b.bottom<=20})()`, 'Update indicator footer layout did not settle')
       const placement = await execute(`(()=>{const button=document.querySelector('.sidebar-update-seat button'),sidebar=button.closest('.side-panel-shell,.native-workspace-sidebar'),svg=button.querySelector('svg'),b=button.getBoundingClientRect(),s=sidebar.getBoundingClientRect(),sample=document.createElement('span');sample.style.color='var(--dsw-alias-label-primary)';button.append(sample);const expected=getComputedStyle(sample).color;sample.remove();return {bottomGap:s.bottom-b.bottom,rightGap:s.right-b.right,width:b.width,height:b.height,inRail:!!button.closest('.navigation-rail-shell'),color:getComputedStyle(svg).color,expected}})()`)

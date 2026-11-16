@@ -6,6 +6,7 @@ import { BookOpen, CaretRight, DotsThree, PencilSimple, Trash } from '../../../u
 import { ImportIcon } from '../../../ui/icons/index.jsx';
 import { Button, Menu, MenuSurface } from '@deepseek-ai/dsh-client-ui-primitives';
 import { EditorManagementModal } from '../../../ui/ui/EditorCollectionControls.jsx';
+import { EditorToggle } from '../../../ui/ui/EditorToggle.jsx';
 import { VersionNameDialog } from '../../../ui/ui/VersionNameDialog.jsx';
 import { useCharacterConfigurationDraft } from '../../../ui/hooks/useCharacterConfigurationDraft.js';
 import { globalSettingLibrarySchema } from '@shared/contracts/settingLibrary/global';
@@ -170,8 +171,8 @@ export function GlobalSettingLibrariesDirectory({ state, query, disabled, editor
           <button type="button" className="global-setting-library-name" title={library.name} onClick={() => { choose(''); toggle(); }}><BookOpen size={17} /><span>{library.name}</span></button>
           {editor.compact ? <span className="setting-library-tree-count">{library.entries.length}</span> : null}
           <div className="global-setting-library-actions">
-          <button type="button" className="setting-library-tree-switch" role="switch" aria-checked={library.enabled} aria-label={tUi("{value0}全局库{value1}", {value0: library.enabled ? tUi("停用") : tUi("启用"), value1: library.name})} disabled={disabled}
-            onClick={() => state.setEnabled(library.id, !library.enabled)}><span aria-hidden="true" /></button>
+          <EditorToggle className="setting-library-tree-switch" checked={library.enabled} label={tUi("{value0}全局库{value1}", {value0: library.enabled ? tUi("停用") : tUi("启用"), value1: library.name})} disabled={disabled}
+            onChange={enabled => state.setEnabled(library.id, enabled)} />
           {!editor.compact ? <Menu open={menuId === library.id} portal dense onClose={() => setMenuId(null)}
             anchor={<button type="button" className="global-setting-library-action" aria-label={tUi('管理全局库{value0}', { value0: library.name })} aria-haspopup="menu" aria-expanded={menuId === library.id} disabled={disabled} onClick={() => setMenuId(menuId === library.id ? null : library.id)}><DotsThree size={16} /></button>}
             items={[{ id: 'rename', label: tUi('重命名'), icon: <PencilSimple size={15} /> }, { id: 'delete', label: tUi('删除'), icon: <Trash size={15} />, danger: true }]}

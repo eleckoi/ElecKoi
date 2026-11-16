@@ -59,12 +59,6 @@
 .mobile-preset-editor .preset-tool-icon svg { width: 21px; height: 21px; }
 .mobile-preset-editor .preset-tool-summary strong { font-size: 15px; font-weight: 550; line-height: 22px; overflow-wrap: anywhere; }
 .mobile-preset-editor .preset-tool-summary small { font-size: 12px; line-height: 18px; }
-:is(.mobile-preset-editor, .mobile-preset-tool-config) :is(.preset-tool-toggle, .preset-regex-enabled) { width: 48px; height: 48px; min-height: 48px; padding: 0; border: 0; border-radius: 12px; background: transparent; }
-:is(.mobile-preset-editor, .mobile-preset-tool-config) :is(.preset-tool-toggle, .preset-regex-enabled)::before { content: ''; position: absolute; top: 11px; left: 2px; width: 44px; height: 26px; border-radius: 999px; corner-shape: round; background: color-mix(in srgb, var(--muted) 30%, var(--surface-raised)); transition: background-color 160ms ease; }
-:is(.mobile-preset-editor, .mobile-preset-tool-config) :is(.preset-tool-toggle, .preset-regex-enabled) i { position: absolute; top: 14px; left: 5px; width: 20px; height: 20px; border-radius: 50%; corner-shape: round; background: var(--dsw-static-neutral-00, #fff); transform: none; transition: transform 160ms ease; }
-:is(.mobile-preset-editor, .mobile-preset-tool-config) :is(.preset-tool-toggle, .preset-regex-enabled)[aria-checked=true] { background: transparent; }
-:is(.mobile-preset-editor, .mobile-preset-tool-config) :is(.preset-tool-toggle, .preset-regex-enabled)[aria-checked=true]::before { background: var(--blue); }
-:is(.mobile-preset-editor, .mobile-preset-tool-config) :is(.preset-tool-toggle, .preset-regex-enabled)[aria-checked=true] i { transform: translateX(18px); }
 .mobile-preset-tool-config .preset-tool-config-body { flex: 1; min-height: 0; padding: 12px 16px 32px; overflow-y: auto; }
 .mobile-preset-tool-config .preset-tool-config-card { border: 0; background: var(--surface-raised); border-radius: 14px; }
 .mobile-preset-tool-config .preset-tool-config-switch-row { min-height: 64px; padding: 8px 12px; }
@@ -81,7 +75,8 @@
 .mobile-preset-editor .preset-content-section { padding: 16px; border: 0; border-radius: 14px; }
 .mobile-preset-editor .preset-content-section-heading { min-height: 48px; margin-bottom: 10px; gap: 8px; }
 .mobile-preset-editor .preset-content-section-heading h2 { font-size: 16px; font-weight: 550; }
-.mobile-preset-editor .preset-content-button { min-height: 48px; padding: 6px 12px; font-size: 13px; }
+.mobile-preset-editor .preset-content-button { position: relative; height: 32px; min-height: 32px; padding: 0 12px; font-size: 13px; }
+.mobile-preset-editor .preset-content-button::after { content: ''; position: absolute; inset: 50% 0 auto; height: 44px; transform: translateY(-50%); }
 .mobile-preset-editor .preset-content-composer textarea { min-height: 112px; font-size: 14px; }
 .mobile-preset-editor .preset-content-composer-date { flex-basis: auto; max-width: 100%; }
 .mobile-preset-editor .preset-updates { margin-top: 14px; }
@@ -119,4 +114,4 @@
 .mobile-preset-editor .preset-tool-summary small { display: none; }
 .mobile-preset-editor .preset-tool-row .preset-tool-count { margin: 0; }
 @keyframes mobile-preset-list-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: translateX(0); } }
-@media (prefers-reduced-motion: reduce) { .mobile-preset-editor :is(.editor-page-detail, .editor-page-list:not([hidden])) { animation: none; } :is(.mobile-preset-editor, .mobile-preset-tool-config) :is(.preset-tool-toggle, .preset-regex-enabled)::before, :is(.mobile-preset-editor, .mobile-preset-tool-config) :is(.preset-tool-toggle, .preset-regex-enabled) i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .mobile-preset-editor :is(.editor-page-detail, .editor-page-list:not([hidden])) { animation: none; } }

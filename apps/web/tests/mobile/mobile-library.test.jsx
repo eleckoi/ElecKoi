@@ -113,20 +113,41 @@ describe('Android character and preset library contracts', () => {
   });
 
   it('uses a single portrait through the official slot and keeps actions outside the long introduction scroll', async () => {
-    await mount('character', { kind: 'character-profile', characterId: 'character-a' });
+    const description = `正式简介甲\n\n${'合成长简介正文。'.repeat(1500)}\n\n简介末尾`;
+    const authorAvatar = 'data:image/png;base64,YXV0aG9y';
+    await mount('character', { kind: 'character-profile', characterId: 'character-a' }, [{ ...samples[0], description, authorName: '原始作者', authorAvatar }]);
     expect(document.querySelector('.character-deck')).toBeNull();
     expect(document.querySelector('.character-profile-portrait')).toBeTruthy();
     expect(document.querySelector('.character-profile-scroll .character-profile-actions')).toBeNull();
     expect(document.querySelector('.character-profile-scroll').nextElementSibling.className).toBe('character-profile-actions');
     expect(document.querySelector('.mobile-header [aria-label="编辑角色"]')).toBeNull();
     expect(document.querySelector('select')).toBeNull();
-    expect(document.querySelector('.character-profile-copy').textContent).toContain('正式简介甲');
+    expect(document.querySelector('.character-profile-copy p').textContent).toBe(description);
     expect(document.querySelector('.character-profile-copy').textContent).not.toContain('旧字段内容');
+    expect(document.querySelector('.character-profile-sheet .character-profile-identity h1').textContent).toBe(samples[0].name);
+    expect(document.querySelector('.character-profile-author').textContent).toBe('原始作者');
+    expect(document.querySelector('.character-profile-author img').getAttribute('src')).toBe(authorAvatar);
+    expect(document.querySelector('.character-profile-sheet .character-profile-copy h2').textContent).toBe('简介');
+    expect(document.querySelector('.character-profile-panel').textContent).not.toContain('合成用户');
     expect(renderSection.mock.calls[0][0]).toBe('profile');
     await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
     expect(select).not.toHaveBeenCalled();
     await click('进入对话'); expect(start).toHaveBeenCalledWith('character-a');
     await click('编辑角色'); expect(view.route).toEqual({ kind: 'character-editor', characterId: 'character-a' });
+  });
+  it('keeps missing author and introduction explicit and recovers failed portrait and author images', async () => {
+    await mount('character', { kind: 'character-profile', characterId: 'character-c' }, [{ ...samples[2], persona: { assistant_cover: 'broken-cover.png' }, authorAvatar: 'broken-author.png' }]);
+    expect(document.querySelector('.character-profile-author').textContent).toBe('未填写作者');
+    expect(document.querySelector('.character-profile-copy .is-empty').textContent).toBe('暂无简介');
+    expect(document.querySelector('.character-profile-panel').textContent).not.toContain('合成用户');
+    await act(async () => {
+      document.querySelector('.character-profile-portrait img').dispatchEvent(new Event('error'));
+      document.querySelector('.character-profile-author img').dispatchEvent(new Event('error'));
+    });
+    expect(document.querySelector('.character-profile-portrait img')).toBeNull();
+    expect(document.querySelector('.character-profile-portrait').textContent).toBe('封面立绘');
+    expect(document.querySelector('.character-profile-author img')).toBeNull();
+    await click('进入对话'); expect(start).toHaveBeenCalledWith('character-c');
   });
   it('replaces the old manager with quick group switching and batch moving while preserving the action menu', async () => {
     await mount(); await click('角色操作');

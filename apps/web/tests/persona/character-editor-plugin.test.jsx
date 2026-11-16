@@ -56,6 +56,25 @@ afterEach(() => {
 })
 
 describe('character editor client extension', () => {
+  it.each([true, false])('does not flash a section heading while the character is loading (compact=%s)', async compact => {
+    let complete;
+    const pending = new Promise(resolve => { complete = resolve; });
+    const catalog = { refresh: () => pending };
+    const host = document.createElement('div'); document.body.append(host);
+    const root = createRoot(host);
+    try {
+      await act(async () => root.render(<CharacterEditorWindow compact={compact} embeddedCharacterId="loading-card" characterCatalog={catalog} characterConfiguration={{}} />));
+      const workspace = host.querySelector('.character-editor-workspace');
+      expect(workspace.getAttribute('aria-busy')).toBe('true');
+      expect(workspace.querySelector('h1,h2')).toBeNull();
+      expect(workspace.textContent).toBe('');
+      await act(async () => complete({ items: [{ id: 'loading-card', name: '合成加载角色', persona: {} }] }));
+      expect(workspace.querySelector('[data-testid="built-in-card"]').textContent).toBe('合成加载角色');
+      expect(workspace.querySelector('h1,h2')).toBeNull();
+      expect(workspace.hasAttribute('aria-busy')).toBe(false);
+    } finally { await act(async () => root.unmount()); host.remove(); }
+  });
+
   it('treats author-only changes as a draft, supports discard and saves the original author independently of the player', async () => {
     const original = { id: 'author-card', name: '合成角色', authorName: '原作者', authorAvatar: '', persona: { assistant_name: '合成角色', user_name: '当前玩家' } };
     const update = vi.fn(async character => ({ items: [character] }));

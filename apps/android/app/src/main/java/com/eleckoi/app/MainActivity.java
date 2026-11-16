@@ -52,7 +52,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
     private LinearLayout startupProgressPanel;
     private FrameLayout startupProgressOverlay;
     private TextView startupProgressLabel, firstInstallationNotice;
-    private ProgressBar startupProgressBar;
+    private StartupLoadingBar startupProgressBar;
     private StartupMascotView startupMascot;
     private AnimatorSet startupExit;
     private volatile String loadedUrl = "";
@@ -144,18 +144,21 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         firstInstallationNotice.setGravity(Gravity.CENTER); firstInstallationNotice.setPadding(0, dp(16), 0, 0);
         firstInstallationNotice.setVisibility(View.GONE);
         firstInstallationNotice.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        startupProgressLabel = new TextView(this); startupProgressLabel.setTextSize(16); startupProgressLabel.setGravity(Gravity.CENTER);
+        startupProgressLabel = new TextView(this); startupProgressLabel.setTextSize(12); startupProgressLabel.setGravity(Gravity.CENTER);
+        startupProgressLabel.setLetterSpacing(.08f);
+        startupProgressLabel.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
         startupProgressLabel.setId(R.id.runtime_startup_label);
         startupProgressLabel.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         startupMascot = new StartupMascotView(this);
-        LinearLayout.LayoutParams mascotLayout = new LinearLayout.LayoutParams(dp(216), dp(132));
-        mascotLayout.gravity = Gravity.CENTER_HORIZONTAL; mascotLayout.bottomMargin = dp(24);
+        LinearLayout.LayoutParams mascotLayout = new LinearLayout.LayoutParams(dp(256), dp(194));
+        mascotLayout.gravity = Gravity.CENTER_HORIZONTAL; mascotLayout.bottomMargin = dp(1);
         startupProgressPanel.addView(startupMascot, mascotLayout);
+        startupProgressBar = new StartupLoadingBar(this);
+        startupProgressBar.setId(R.id.runtime_startup_progress);
+        LinearLayout.LayoutParams barLayout = new LinearLayout.LayoutParams(dp(264), dp(32));
+        barLayout.gravity = Gravity.CENTER_HORIZONTAL; barLayout.bottomMargin = dp(8);
+        startupProgressPanel.addView(startupProgressBar, barLayout);
         startupProgressPanel.addView(startupProgressLabel);
-        startupProgressBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        startupProgressBar.setId(R.id.runtime_startup_progress); startupProgressBar.setMax(100);
-        LinearLayout.LayoutParams barLayout = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(8));
-        barLayout.topMargin = dp(16); startupProgressPanel.addView(startupProgressBar, barLayout);
         startupProgressPanel.addView(firstInstallationNotice);
         showStartupProgress(null, getString(R.string.runtime_starting));
         applyAppearance(false, null);
@@ -194,11 +197,16 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
             int width = Math.min(dp(360), available);
             if (layout.width != width) { layout.width = width; startupProgressPanel.setLayoutParams(layout); }
             LinearLayout.LayoutParams mascotLayoutParams = (LinearLayout.LayoutParams) startupMascot.getLayoutParams();
-            int mascotWidth = Math.min(dp(216), Math.max(1, width - dp(16)));
+            int mascotWidth = Math.min(dp(256), Math.max(1, width - dp(16)));
             if (mascotLayoutParams.width != mascotWidth) {
                 mascotLayoutParams.width = mascotWidth;
-                mascotLayoutParams.height = Math.round(mascotWidth * 132f / 216);
+                mascotLayoutParams.height = Math.round(mascotWidth * 194f / 256);
                 startupMascot.setLayoutParams(mascotLayoutParams);
+            }
+            LinearLayout.LayoutParams barLayoutParams = (LinearLayout.LayoutParams) startupProgressBar.getLayoutParams();
+            int barWidth = Math.min(dp(264), Math.max(1, width - dp(16)));
+            if (barLayoutParams.width != barWidth) {
+                barLayoutParams.width = barWidth; startupProgressBar.setLayoutParams(barLayoutParams);
             }
         });
         page.addView(runtimePanel, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP));
@@ -336,6 +344,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
             recreate(); return;
         }
         runtimePanel.setVisibility(View.GONE);
+        startupProgressBar.resetProgress();
         showStartupProgress(null, getString(R.string.runtime_starting));
         if (runtime != null && runtime.snapshot().phase.equals("ready")) loadHostPage(runtime.snapshot().url);
         else startRuntime(HostRuntimeService.RESTART);
@@ -349,6 +358,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
                 loadedUrl = ""; clientReadyUrl = ""; pageLoadGeneration++;
                 if (pageTimeout != null) ui.removeCallbacks(pageTimeout);
                 runtimePanel.setVisibility(View.GONE);
+                startupProgressBar.resetProgress();
                 showStartupProgress(null, getString(R.string.runtime_starting));
                 startRuntime(HostRuntimeService.RECOVER_PLUGINS);
             }).create();
@@ -368,23 +378,23 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         } else if (!value.phase.equals("ready")) {
             runtimePanel.setVisibility(View.GONE);
             showStartupProgress(value.installationProgress, getString(R.string.runtime_starting));
+            if (value.phase.equals("starting")) startupProgressBar.runtimePrepared();
         }
     }
     private void showStartupProgress(RuntimeInstallProgress progress, String message) {
         cancelStartupExit();
         startupProgressOverlay.setAlpha(1f);
         startupProgressLabel.setAlpha(1f);
-        startupMascot.setTranslationY(0f); startupMascot.setScaleX(1f); startupMascot.setScaleY(1f);
+        startupProgressPanel.setTranslationY(0f); startupProgressPanel.setScaleX(1f); startupProgressPanel.setScaleY(1f);
         boolean indeterminate = progress == null || progress.indeterminate();
-        startupProgressBar.setIndeterminate(indeterminate);
-        startupProgressBar.setVisibility(progress == null ? View.GONE : View.VISIBLE);
-        if (!indeterminate) startupProgressBar.setProgress(progress.percent());
+        startupProgressBar.setProgress(progress);
         String label = progress == null ? message : progress.message();
         startupProgressLabel.setText(indeterminate ? label : label + "  " + progress.percent() + "%");
         startupProgressBar.setContentDescription(label);
         firstInstallationNotice.setVisibility(progress == null ? View.GONE : View.VISIBLE);
         startupProgressOverlay.setVisibility(View.VISIBLE);
         startupMascot.showLoading();
+        startupProgressBar.showLoading();
     }
     private void cancelStartupExit() {
         if (startupExit == null) return;
@@ -394,33 +404,29 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
     private void hideStartupProgress() {
         cancelStartupExit();
         startupMascot.stopLoading();
+        startupProgressBar.stopLoading();
         startupProgressOverlay.setVisibility(View.GONE);
     }
     private void completeStartupProgress() {
         startupMascot.stopLoading();
+        startupProgressBar.complete();
         if (!startupMascot.canAnimate()) {
             hideStartupProgress(); return;
         }
         cancelStartupExit();
-        AnimatorSet press = new AnimatorSet();
-        press.playTogether(ObjectAnimator.ofFloat(startupMascot, View.SCALE_X, 1f, 1.03f),
-                ObjectAnimator.ofFloat(startupMascot, View.SCALE_Y, 1f, .95f));
-        press.setDuration(100);
-        AnimatorSet hop = new AnimatorSet();
-        hop.playTogether(ObjectAnimator.ofFloat(startupMascot, View.TRANSLATION_Y, 0f, -dp(14), 0f),
-                ObjectAnimator.ofFloat(startupMascot, View.SCALE_X, 1.03f, 1f),
-                ObjectAnimator.ofFloat(startupMascot, View.SCALE_Y, .95f, 1f));
-        hop.setDuration(240);
-        AnimatorSet movement = new AnimatorSet(); movement.playSequentially(press, hop);
         ObjectAnimator fade = ObjectAnimator.ofFloat(startupProgressOverlay, View.ALPHA, 1f, 0f);
-        fade.setStartDelay(240); fade.setDuration(200);
-        ObjectAnimator labelFade = ObjectAnimator.ofFloat(startupProgressLabel, View.ALPHA, 1f, 0f);
-        labelFade.setDuration(120);
-        startupExit = new AnimatorSet(); startupExit.playTogether(movement, fade, labelFade);
+        startupExit = new AnimatorSet();
+        startupExit.playTogether(fade,
+                ObjectAnimator.ofFloat(startupProgressPanel, View.TRANSLATION_Y, 0f, -dp(12)),
+                ObjectAnimator.ofFloat(startupProgressPanel, View.SCALE_X, 1f, .98f),
+                ObjectAnimator.ofFloat(startupProgressPanel, View.SCALE_Y, 1f, .98f));
+        startupExit.setDuration(360);
+        startupExit.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
         startupExit.addListener(new AnimatorListenerAdapter() {
             @Override public void onAnimationEnd(Animator animation) {
                 if (startupExit != animation) return;
                 startupExit = null;
+                startupProgressBar.stopLoading();
                 startupProgressOverlay.setVisibility(View.GONE);
             }
         });
@@ -439,6 +445,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         clientStartupDiagnostics.begin(web.identity(), web.userAgent());
         runtimePanel.setVisibility(View.GONE);
         showStartupProgress(null, getString(R.string.runtime_page_loading));
+        startupProgressBar.hostReady();
         if (pageTimeout != null) ui.removeCallbacks(pageTimeout);
         pageTimeout = () -> { if (clientReadyUrl.isEmpty()) showFailure("页面启动超时，请重试或查看错误。"); };
         ui.postDelayed(pageTimeout, 120_000);
@@ -830,19 +837,19 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         startupProgressPanel.setBackgroundColor(background);
         startupProgressOverlay.setBackgroundColor(background);
         themeNativeChildren(startupProgressPanel);
-        android.content.res.ColorStateList accent = android.content.res.ColorStateList.valueOf(getColor(dark ? R.color.eleckoi_accent : R.color.eleckoi_primary));
-        startupProgressBar.setProgressTintList(accent); startupProgressBar.setIndeterminateTintList(accent);
-        startupProgressBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(appearanceBorder));
+        startupProgressBar.setDark(dark);
+        startupProgressLabel.setTextColor(dark ? Color.rgb(177,189,217) : Color.rgb(103,114,142));
         themeDiagnosticsDialog();
     }
     @Override protected void onResume() {
-        super.onResume(); diagnostics.visible(true); web.onResume(); startupMascot.setActive(true);
+        super.onResume(); diagnostics.visible(true); web.onResume(); startupMascot.setActive(true); startupProgressBar.setActive(true);
         ReplyNotificationGroup.refresh(this);
         refreshBackgroundSettings();
     }
     @Override protected void onPause() {
         diagnostics.visible(false); diagnostics.flushSoon();
         startupMascot.setActive(false);
+        startupProgressBar.setActive(false);
         if (startupExit != null) hideStartupProgress();
         web.onPause(); super.onPause();
     }

@@ -10,6 +10,7 @@ app.whenReady().then(async () => {
   const win = new BrowserWindow({ show: false, titleBarStyle: 'hidden', titleBarOverlay: { height: 40 },
     webPreferences: { backgroundThrottling: false, sandbox: true, offscreen: true } });
   const reports = [];
+  const paletteChecks = [];
   const errors = [];
   win.webContents.on('console-message', (_event, level, message) => { if (level >= 3) errors.push(message); });
   try {
@@ -32,7 +33,11 @@ app.whenReady().then(async () => {
             context.fillStyle = getComputedStyle(main).backgroundColor;
             context.fillRect(0, 0, 1, 1);
             const [r,g,b,a] = context.getImageData(0,0,1,1).data;
+            const ink = document.createElement('span'); ink.style.color='var(--dsw-alias-label-primary)'; document.body.append(ink);
+            context.clearRect(0,0,1,1);context.fillStyle=getComputedStyle(ink).color;context.fillRect(0,0,1,1);ink.remove();
+            const [ir,ig,ib,ia]=context.getImageData(0,0,1,1).data;
             return { theme: ${JSON.stringify(next)}, expected: 'rgba('+r+', '+g+', '+b+', '+a/255+')',
+              expectedSymbol:'rgba('+ir+', '+ig+', '+ib+', '+ia/255+')',
               native: window.nativeCaptionColors.at(-1),
               customControls: document.querySelectorAll('.window-control-button').length };
           })()`));
@@ -40,7 +45,19 @@ app.whenReady().then(async () => {
         reports.push({ view, initial, states });
       }
     }
-    writeFileSync(reportPath, JSON.stringify({ reports, errors }, null, 2));
+    for (const theme of ['light', 'dark']) {
+      await win.loadURL(`${pathToFileURL(htmlPath).href}?view=main&theme=${theme}`);
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (await win.webContents.executeJavaScript('!!document.querySelector("[role=dialog]") && !!window.nativeCaptionColors?.length')) break;
+        await new Promise(resolve => setTimeout(resolve, 30));
+      }
+      await win.webContents.executeJavaScript(`(()=>{const style=document.createElement('style');style.textContent='body[data-caption-plugin] { --dsw-specific-sidebar-fill:transparent !important;--dsw-alias-label-primary:rgb(230,231,232) !important; }';document.head.append(style)})()`);
+      for (const plugin of [false, true, false]) {
+        await win.webContents.executeJavaScript(`document.body.toggleAttribute('data-caption-plugin',${plugin});new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+        paletteChecks.push(await win.webContents.executeJavaScript(`(()=>{const mask=document.querySelector('[role=dialog]').parentElement.firstElementChild;return {theme:${JSON.stringify(theme)},plugin:${plugin},native:window.nativeCaptionColors.at(-1),maskTop:mask.getBoundingClientRect().top,marker:document.documentElement.hasAttribute('data-windows-titlebar')}})()`));
+      }
+    }
+    writeFileSync(reportPath, JSON.stringify({ reports, paletteChecks, errors }, null, 2));
     win.destroy(); app.exit(0);
   } catch (error) { console.error(error); win.destroy(); app.exit(1); }
 });

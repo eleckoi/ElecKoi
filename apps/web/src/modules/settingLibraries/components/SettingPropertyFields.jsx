@@ -1,4 +1,5 @@
-import { SegmentedTabs, Switch } from '@deepseek-ai/dsh-client-ui-primitives';
+import { SegmentedTabs } from '@deepseek-ai/dsh-client-ui-primitives';
+import { EditorToggle } from '../../../ui/ui/EditorToggle.jsx';
 
 export function PropertySegment({ label, value, options, onChange }) {
   return <section className="setting-property-row"><span className="setting-property-label">{label}</span>
@@ -8,5 +9,5 @@ export function PropertySegment({ label, value, options, onChange }) {
 
 export function PropertySwitch({ title, description, checked, onChange }) {
   return <div className="setting-property-row"><span className="setting-property-label">{title}</span>
-    <Switch label={title} title={description} checked={checked} onChange={onChange} /></div>;
+    <EditorToggle label={title} title={description} checked={checked} onChange={onChange} /></div>;
 }

@@ -1,6 +1,7 @@
 import '../../src/modules/scripts/styles/script-libraries.css';
 import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { installBrowserIconSprite } from '../helpers/browserIconSprite.js';
 import { ScriptLibrariesPanel } from '../../src/modules/scripts/components/ScriptLibrariesPanel.jsx';
 import { RegexRulesPanel } from '../../src/modules/regex/components/RegexRulesPanel.jsx';
 import { SettingLibraryPanel } from '../../src/modules/settingLibraries/components/SettingLibraryPanel.jsx';
@@ -9,6 +10,8 @@ import { VariableConfigPanel } from '../../src/modules/variables/components/Vari
 import { PresetPromptEditor } from '../../src/modules/presets/components/PresetPromptEditor.jsx';
 import { PresetToolsEditor } from '../../src/modules/presets/components/PresetToolsEditor.jsx';
 import { DynamicSettingsPanel } from '../../src/modules/settingLibraries/components/DynamicSettingsPanel.jsx';
+import { AssetLibraryToolbar } from '../../src/modules/characterAssets/AssetLibraryToolbar.jsx';
+import '../../src/modules/characterAssets/character-assets.css';
 import { createEntryDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
 import { EditorPresentationContext } from '../../src/ui/ui/EditorPresentationContext.jsx';
 import { Input, Button, Switch } from '@deepseek-ai/dsh-client-ui-primitives';
@@ -25,11 +28,16 @@ import '../../src/mobile/mobile.css';
 import '../../src/mobile/mobile-character-editor.css';
 import '../../src/mobile/mobile-preset-editor.css';
 
-const kinds = ['settings', 'variables', 'regex', 'scripts', 'merge', 'prompts', 'tools', 'branches'];
+const kinds = ['settings', 'variables', 'regex', 'scripts', 'merge', 'prompts', 'tools', 'branches', 'assets'];
+function AssetToolbarFixture() {
+  const [menu,setMenu]=useState(null), [formats,setFormats]=useState([]), [sort,setSort]=useState('newest'), [size,setSize]=useState('medium');
+  return <div className="character-asset-library"><AssetLibraryToolbar {...{menu,setMenu,formats,setFormats,sort,setSort,size,setSize}}
+    newFolder={() => { window.assetToolbarAction='newFolder'; }} upload={() => { window.assetToolbarAction='upload'; }} /></div>;
+}
 function PresetFixture({ kind }) {
   const [preset, setPreset] = useState(() => ({ id: 'synthetic-preset', name: '合成预设', groups: [], expandedGroupIds: [], promptPositions: [],
     entries: [{ ...createEntryDraft('', 1, []), id: 'synthetic-prompt', title: '合成提示词' }],
-    toolGroups: [{ id: 'synthetic-tool', name: '合成工具', description: '', source: 'built_in', included: true, enabled: true, members: [] }] }));
+    toolGroups: [{ id: 'builtin:variables', name: '合成工具', description: '', source: 'built_in', included: true, enabled: true, members: [] }] }));
   return kind === 'prompts' ? <PresetPromptEditor preset={preset} onChange={setPreset} /> : <PresetToolsEditor preset={preset} onChange={setPreset} />;
 }
 function treeService(kind) {
@@ -69,7 +77,7 @@ function Fixture() {
       <div className={compact ? scope === 'preset' ? 'mobile-preset-editor' : 'mobile-character-editor' : ''}
         style={{ height: 'calc(100vh - 60px)', minHeight: 0, marginLeft: compact && scope === 'character' ? 76 : 0 }}>
         <EditorPresentationContext.Provider key={`${kind}:${scope}:${compact}`} value={presentation}>
-          {['prompts', 'tools'].includes(kind) ? <PresetFixture kind={kind} />
+          {kind === 'assets' ? <AssetToolbarFixture /> : ['prompts', 'tools'].includes(kind) ? <PresetFixture kind={kind} />
             : kind === 'branches' ? <DynamicSettingsPanel characterId="synthetic-character" settingLibraries={service} />
             : kind === 'merge' ? <SettingLibraryManager characterId="synthetic-character" settingLibraries={service} library={service.value} onChange={() => {}} onClose={() => {}} onError={error => { throw new Error(error); }} />
             : kind === 'settings' ? <SettingLibraryPanel characterId="synthetic-character" settingLibraries={service} />
@@ -81,4 +89,5 @@ function Fixture() {
     </main>
   </>;
 }
+installBrowserIconSprite();
 createRoot(document.getElementById('root')).render(<Fixture />);

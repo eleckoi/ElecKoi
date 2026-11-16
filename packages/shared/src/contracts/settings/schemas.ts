@@ -47,15 +47,15 @@ export const chatTextColorsSchema = z.object({
 export const DEFAULT_ROLEPLAY_STYLE = {
   backdrop_enabled: false,
   backdrop_blur: 20,
-  backdrop_opacity: 65,
+  backdrop_opacity: 100,
   backdrop_tint: null,
   bubbles_enabled: false,
   bubble_spacing: 5,
   bubble_blur: 0,
   user_bubble_tint: null,
   assistant_bubble_tint: null,
-  user_bubble_opacity: 48,
-  assistant_bubble_opacity: 48,
+  user_bubble_opacity: 100,
+  assistant_bubble_opacity: 100,
 } as const
 
 export const roleplayStyleSchema = z.object({

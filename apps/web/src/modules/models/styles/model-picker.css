@@ -86,12 +86,7 @@
 .chat-model-panel.is-compact .chat-model-capabilities .model-capabilities-heading { gap: 8px; }
 .chat-model-panel.is-compact .chat-model-capabilities .model-input-capabilities { border: 0; padding: 8px 0 0; }
 .chat-model-panel.is-compact .chat-model-capability-choice { position: relative; display: inline-flex; align-items: center; gap: 7px; min-height: 24px; font-size: 13px; }
-.chat-model-panel.is-compact .chat-model-capability-choice input { position: absolute; left: 0; top: 50%; width: 16px; height: 16px; margin: 0; transform: translateY(-50%); opacity: 0; }
-.chat-model-panel.is-compact .chat-model-capability-choice .chat-model-capability-box { display: grid !important; place-items: center; justify-content: center !important; flex: none; width: 16px; height: 16px; border: 1px solid var(--model-line); border-radius: 4px; background: var(--model-paper); }
-.chat-model-panel.is-compact .chat-model-capability-box svg { display: block; opacity: 0; }
-.chat-model-panel.is-compact .chat-model-capability-choice input:checked + .chat-model-capability-box { border-color: var(--blue); background: var(--blue); color: #fff; }
-.chat-model-panel.is-compact .chat-model-capability-choice input:checked + .chat-model-capability-box svg { opacity: 1; }
-.chat-model-panel.is-compact .chat-model-capability-choice input:focus-visible + .chat-model-capability-box { outline: 2px solid var(--blue); outline-offset: 2px; }
+.chat-model-panel.is-compact .chat-model-capability-choice input { width: 16px; height: 16px; margin: 0; accent-color: var(--dsw-alias-brand-primary); }
 .chat-model-selection { display: grid; place-items: center; box-sizing: border-box; width: 22px; height: 22px; flex: 0 0 22px; border: 1.5px solid color-mix(in srgb, var(--muted) 52%, transparent); border-radius: 7px; background: transparent; color: var(--on-accent); }
 .chat-model-selection.selected { border-color: var(--blue); background: var(--blue); }
 .chat-model-selection svg { display: block; width: 14px; height: 14px; }

@@ -23,6 +23,13 @@
 .preset-document-heading { display: flex; align-items: center; gap: 8px; flex-shrink: 0; min-height: 32px; margin-bottom: 24px; }
 .preset-document-heading h1 { margin: 0; font-size: 18px; line-height: 28px; font-weight: 600; }
 .preset-basic-scroll { flex: 1; min-height: 0; overflow: auto; }
+.preset-editor-window .preset-basic-document { padding: 0; overflow: hidden; }
+.preset-editor-window .preset-basic-scroll {
+  margin-right: var(--window-resize-edge-inset, 2px);
+  padding: 16px calc(24px - var(--window-resize-edge-inset, 2px) - var(--dsh-scrollbar-width, 5px)) 20px 24px;
+  scrollbar-gutter: stable;
+}
+.preset-basic-introduction.preset-workspace-body { overflow: visible; scrollbar-gutter: auto; }
 .preset-basic-card { margin-bottom: 16px; padding: 20px; }
 .preset-basic-card-heading { margin-bottom: 20px; }
 .preset-basic-card > h2, .preset-basic-card-heading h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; }

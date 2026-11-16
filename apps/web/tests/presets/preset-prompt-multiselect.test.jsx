@@ -103,14 +103,14 @@ it.each([true, false])('selects, copies and deletes prompt subtrees without dupl
   await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '合成根提示词'); input.dispatchEvent(new Event('input', { bubbles: true })); });
   await click(document.querySelector('.editor-selection-bar input'));
   expect(document.querySelector('[role="status"]').textContent).toBe('已选 1 项');
-  await click(button('删除')); await click(document.querySelector('[role="alertdialog"] .is-destructive'));
+  await click(button('删除')); await click([...document.querySelectorAll('[role="dialog"] button')].find(node => node.textContent === '删除'));
   expect(draft.entries.some(entry => entry.id === 'root')).toBe(false);
   expect(draft.entries.some(entry => entry.id === 'built-in-hidden-tool-timeline')).toBe(true);
   await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ''); input.dispatchEvent(new Event('input', { bubbles: true })); });
   await click(checkbox('合成文件夹')); await click(checkbox('合成子提示词'));
-  await click(button('删除')); await click([...document.querySelectorAll('[role=alertdialog] button')].find(node => node.textContent === '取消'));
+  await click(button('删除')); await click([...document.querySelectorAll('[role=dialog] button')].find(node => node.textContent === '取消'));
   expect(draft.groups).toHaveLength(4);
-  await click(button('删除')); await click(document.querySelector('[role="alertdialog"] .is-destructive'));
+  await click(button('删除')); await click([...document.querySelectorAll('[role="dialog"] button')].find(node => node.textContent === '删除'));
   expect(draft.groups).toHaveLength(2); expect(draft.entries).toHaveLength(2);
   expect(draft.expandedGroupIds).toEqual([]);
   await click(compact ? document.querySelector('.editor-selection-cancel') : button('完成'));

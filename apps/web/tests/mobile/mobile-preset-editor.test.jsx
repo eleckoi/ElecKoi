@@ -4,7 +4,7 @@ import { changeEditorText } from '../helpers/editorText.js';
 import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
-import { MobilePresetEditor } from '../../src/mobile/MobilePresetsPage.jsx';
+import { MobilePresetEditor, MobilePresetsPage } from '../../src/mobile/MobilePresetsPage.jsx';
 import { PresetProvider, usePresets } from '../../src/modules/presets/components/PresetPanel.jsx';
 import { PresetPromptEditor } from '../../src/modules/presets/components/PresetPromptEditor.jsx';
 import { createEntryDraft, createGroupDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
@@ -55,8 +55,8 @@ afterEach(async () => {
   delete document.documentElement.dataset.eleckoiMobile;
   vi.unstubAllGlobals();
 });
-async function mount() {
-  const view = { route: { kind: 'preset-editor' }, routeBusy: false, chat: { notify: notification }, characterConfiguration: { regexRules: { test: vi.fn(), editor: () => ({
+async function mount(searchedId = '') {
+  const view = { route: { kind: 'preset-editor', presetId: searchedId || undefined }, presets: model, routeBusy: false, chat: { notify: notification }, characterConfiguration: { regexRules: { test: vi.fn(), editor: () => ({
       getSnapshot: () => ({ status: 'ready', value: { target: { scope: 'preset', ownerId: preset.id }, ownerRevision: '0'.repeat(64), globalRules: [], agentPresetRules: structuredClone(preset.regexRules), characterRules: [], versions: [], activeVersionId: '', revision: 0 } }), subscribe: () => () => {},
       read: async () => ({ target: { scope: 'preset', ownerId: preset.id }, ownerRevision: '0'.repeat(64), globalRules: [],
         agentPresetRules: structuredClone(preset.regexRules), characterRules: [], versions: [], activeVersionId: '', revision: 0 }),
@@ -67,7 +67,7 @@ async function mount() {
     React.useEffect(() => setSelectedPresetId(preset.id), []);
     return <MobilePresetEditor />;
   }
-  await act(async () => root.render(<MainPageContext.Provider value={view}><PresetProvider catalogModel={model} navigationGuardRef={guardRef}><EditorRoute /></PresetProvider></MainPageContext.Provider>));
+  await act(async () => root.render(<MainPageContext.Provider value={view}>{searchedId ? <MobilePresetsPage /> : <PresetProvider catalogModel={model} navigationGuardRef={guardRef}><EditorRoute /></PresetProvider>}</MainPageContext.Provider>));
 }
 async function section(name) {
   await click([...document.querySelectorAll('.character-editor-navigation button')].find(node => node.textContent === name));
@@ -75,6 +75,14 @@ async function section(name) {
 const row = title => [...document.querySelectorAll('[role=treeitem]')].find(node => node.querySelector('.setting-library-tree-label')?.textContent === title);
 
 describe('Android preset presentation', () => {
+  it('opens the searched creator preset instead of the active roleplay preset', async () => {
+    const target = { ...structuredClone(preset), id: 'searched-creator', name: '合成搜索创作预设', purpose: 'creator' };
+    model.adopt({ ...model.getSnapshot().catalog, presets: [preset, target] });
+    model.read = vi.fn(async id => structuredClone(id === target.id ? target : preset));
+    await mount(target.id);
+    expect(model.read).toHaveBeenCalledWith(target.id);
+    expect(document.querySelector('.preset-basic-card input').value).toBe(target.name);
+  });
   it('saves usage and metadata through the top-right save and preserves update records', async () => {
     preset.profile.usageInstructions = '';
     preset.profile.timeline = [{ id: 'original-update', title: '原更新记录', note: '完整更新内容', dateLabel: '2026-11-12' }];
@@ -182,8 +190,9 @@ describe('Android preset presentation', () => {
     const createPosition = [...document.querySelectorAll('.mobile-header button')].find(node => node.textContent === '新建');
     expect(createPosition).toBeDefined();
     await click(createPosition);
-    await change(document.querySelector('.setting-position-dialog input'), '合成位置');
-    await click(document.querySelector('.setting-position-dialog button[type=submit]'));
+    const positionDialog = document.querySelector('[role=dialog][aria-label="新建位置"]');
+    await change(positionDialog.querySelector('input'), '合成位置');
+    await click([...positionDialog.querySelectorAll('button')].find(node => node.textContent === '保存'));
     expect(model.save).not.toHaveBeenCalled();
     await back();
     await act(async () => new Promise(resolve => setTimeout(resolve, 10)));
@@ -245,7 +254,7 @@ describe('Android preset presentation', () => {
     expect(button('删除').disabled).toBe(true);
     expect(button('移动').disabled).toBe(true);
     await click(row('隐藏工具时间线').querySelector('[role=switch]'));
-    expect(document.querySelector('[role=alertdialog]')).not.toBeNull();
+    expect(document.querySelector('[role=dialog]')).not.toBeNull();
     await click(button('取消'));
     expect(row('隐藏工具时间线').querySelector('[role=switch]').getAttribute('aria-checked')).toBe('true');
   });

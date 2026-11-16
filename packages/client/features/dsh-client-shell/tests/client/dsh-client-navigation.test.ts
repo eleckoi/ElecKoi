@@ -22,6 +22,7 @@ const uiPrimitives = {
 describe('ElecKoi DSH client navigation', () => {
   it.each(['desktop', 'android'])('lets %s feature plugins register formal pages and navigation entries', async (platform) => {
     let root: any
+    let rootShares: any, conversationPanels: any
     const OfficialSidebar = () => null
     const officialSidebar = {
       inject: [],
@@ -37,7 +38,7 @@ describe('ElecKoi DSH client navigation', () => {
       eleckoiConversations: { getSnapshot: () => ({ items: [{ runtimeSessionId: 'roleplay-session' }] }) },
     }
     const slots = {
-      provideRoot: () => () => {},
+      provideRoot: (shares: any) => { rootShares = shares; return () => {} },
       register: (options: any, component: any) => {
         const entry = { options, component, dispose: () => { entries.splice(entries.indexOf(entry), 1) } }
         entries.push(entry)
@@ -57,7 +58,9 @@ describe('ElecKoi DSH client navigation', () => {
     for (const packageName of packages) {
       let registration: any
       const source = readFileSync(new URL(`../../../${packageName}/src/client.js`, import.meta.url), 'utf8')
-      runInNewContext(source, {
+      runInNewContext(source.replace('const conversationPanels = createConversationPanelInfo(ctx)',
+        'const conversationPanels = createConversationPanelInfo(ctx); captureConversationPanels(conversationPanels)'), {
+        captureConversationPanels: (value: any) => { conversationPanels = value },
         __ELECKOI_CLIENT_PLATFORM__: { kind: platform },
         __ELECKOI_DSH_APP__: () => null,
         __ELECKOI_DSH_SIDEBAR_READY__: true,
@@ -70,6 +73,7 @@ describe('ElecKoi DSH client navigation', () => {
           Suspense: 'Suspense',
           useEffect: () => {},
           useCallback: (callback: unknown) => callback,
+          useSyncExternalStore: (_subscribe: unknown, snapshot: () => unknown) => snapshot(),
           lazy: (load: any) => ({ load }),
           createElement: (component: any, props: any, ...children: any[]) => ({ component, props, children })
         }
@@ -162,6 +166,19 @@ describe('ElecKoi DSH client navigation', () => {
     expect(slots.entriesOfSlot('sidebar')[0]).toBe(sidebar)
     expect(root.children['shell.bottom']).toEqual({ kind: 'single', scope: 'root' })
     expect(services.layout).toBeInstanceOf(officialLayout.LayoutController)
+    for (const panel of ['messages', 'creatorStudio']) {
+      currentSessionId = `${panel}-foreground`
+      const release = conversationPanels.retain(currentSessionId)
+      layout.selectPanel(panel)
+      expect(layout.panelInfo.getSnapshot().activePanelId).toBe(panel)
+      expect(services.layout.panelInfo.getSnapshot().activePanelId).toBeNull()
+      expect(rootShares.hooks.panelInfo.getSnapshot().activePanelId).toBeNull()
+      const rootEntry = slots.entriesOfSlot('root')[0]!
+      const frame = rootEntry.component({ renderSlot: () => null }).props.nativeFrame
+      expect(frame.props.usePanelInfo((value: any) => value.activePanelId)).toBe(panel)
+      release()
+      expect(services.layout.panelInfo.getSnapshot().activePanelId).toBe(panel)
+    }
     layout.openRightbar(true, false)
     expect(layout.rightbarInfo.getSnapshot()).toMatchObject({
       shown: true, track: true, fullscreen: false, width: expect.any(Number)
