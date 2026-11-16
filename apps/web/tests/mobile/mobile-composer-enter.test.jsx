@@ -4,6 +4,7 @@ import React, { act } from 'react';
 import * as jsxRuntime from 'react/jsx-runtime';
 import * as ReactDOM from 'react-dom';
 import * as Cordis from '@deepseek-ai/cordis';
+import { focusWithoutRing } from '@deepseek-ai/dsh-client-ui-primitives';
 import { createRoot } from 'react-dom/client';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -16,7 +17,12 @@ globalThis.React = React;
 const client = readFileSync(resolve('node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js'), 'utf8');
 // Expose the installed editor and composer inside the existing browser module factory.
 if (client.split('return module.exports').length !== 2) throw new Error('Locked conversation module factory changed');
-const primitives = new Proxy({}, { get: (_target, key) => ['Tooltip', 'HoverCardGroup'].includes(key) ? ({ children }) => children : () => null });
+let nativeMobile = false;
+const Children = ({ children }) => children;
+const Empty = () => null;
+const primitives = new Proxy({ focusWithoutRing, isMobileDevice: () => nativeMobile, Tooltip: Children, HoverCardGroup: Children }, {
+  get: (target, key) => target[key] ?? Empty,
+});
 const dependencies = { zod, react: React, 'react/jsx-runtime': jsxRuntime, 'react-dom': ReactDOM,
   '@deepseek-ai/cordis': Cordis, '@deepseek-ai/dsh-client-ui-primitives': primitives,
   '@deepseek-ai/dsh-client-store': {}, '@deepseek-ai/dsh-client-ui-slots': {} };
@@ -29,9 +35,10 @@ const { DraftEditorRuntime, InputBar, enter, paragraph, registerPlainText, readT
   return dependencies[name];
 });
 const disposers = [];
-afterEach(async () => { for (const dispose of disposers.splice(0).reverse()) await dispose(); vi.unstubAllGlobals(); });
+afterEach(async () => { for (const dispose of disposers.splice(0).reverse()) await dispose(); nativeMobile = false; vi.unstubAllGlobals(); });
 
 async function composer(submitOnEnter, running = false, mobile = false) {
+  nativeMobile = mobile;
   if (mobile) {
     document.documentElement.dataset.eleckoiMobile = 'true';
     disposers.push(() => { delete document.documentElement.dataset.eleckoiMobile; });
@@ -52,21 +59,31 @@ async function composer(submitOnEnter, running = false, mobile = false) {
   const container = document.createElement('div'); document.body.append(container);
   const root = createRoot(container);
   disposers.push(async () => { await act(async () => root.unmount()); off(); editor.setRootElement(null); container.remove(); });
-  const bar = <InputBar useSession={hook({ running, openState: 'open', pendingSubmissions: [] })} useInput={hook(input)}
+  let sessionId = 'synthetic-session';
+  const bar = () => <InputBar useSession={hook({ running, openState: 'open', pendingSubmissions: [] })} useInput={hook(input)}
     useNotices={hook(null)} useBusyEnter={hook('queue')} useStopShortcut={hook([])}
     useMenuLauncher={hook(null)} useFileUploads={hook({})} useLexicon={hook([])}
     useProjection={() => undefined} useAccess={() => true} inputActions={{}} keyboard={keyboard} t={key => key}
     registerFileIntake={() => () => {}}
-    renderSlot={() => null} sessionId="synthetic-session" variant="composer" dockAccessory={[]}
+    renderSlot={() => null} sessionId={sessionId} variant="composer" dockAccessory={[]}
     submitOnEnter={submitOnEnter} />;
   const selectOpening = vi.fn();
-  await act(async () => root.render(mobile ? <MobileConversationPage>
+  const render = () => root.render(mobile ? <MobileConversationPage>
     <MessageBubble message={{ id: 'opening', role: 'assistant', content: '合成开场一', canChangeOpening: true,
       selectedOpeningId: 'entry-a', openingOptions: [{ id: 'entry-a', content: '合成开场一' }, { id: 'entry-b', content: '合成开场二' }] }}
-      onSelectOpening={selectOpening} />{bar}
-  </MobileConversationPage> : bar));
+      onSelectOpening={selectOpening} />{bar()}
+  </MobileConversationPage> : bar());
+  await act(async () => render());
   await act(async () => runtime.setDraft('第一行'));
-  return { keyboard, container, editor, text: () => editor.getEditorState().read(readText) };
+  return { keyboard, container, editor, text: () => editor.getEditorState().read(readText),
+    async update(next) {
+      if ('sessionId' in next) sessionId = next.sessionId;
+      if ('phase' in next) input.phase = next.phase;
+      if ('draft' in next) input.draft = next.draft;
+      await act(async () => { render(); });
+      if ('draft' in next) await act(async () => runtime.setDraft(next.draft));
+    },
+  };
 }
 
 describe('Android composer Enter behavior', () => {
@@ -91,7 +108,7 @@ describe('Android composer Enter behavior', () => {
         await act(async () => send.querySelector('svg').dispatchEvent(event));
         expect(input.getAttribute('inputmode')).toBe(mode);
         expect(document.activeElement).toBe(input);
-        expect(event.defaultPrevented).toBe(true);
+        expect(event.defaultPrevented).toBe(type === 'mousedown');
         expect(keyboard.submit).not.toHaveBeenCalled();
       }
       await act(async () => send.click());
@@ -103,6 +120,42 @@ describe('Android composer Enter behavior', () => {
       await act(async () => container.querySelector('.opening-pager-index').click());
       expect(document.querySelector('[role="dialog"]')).not.toBeNull();
     } finally { modes.disconnect(); }
+  });
+  it.each([true, false])('keeps official session and busy-phase focus with mobile=%s', async mobile => {
+    const { container, update, text } = await composer(false, false, mobile);
+    const input = container.querySelector('[data-composer-input]');
+    const card = container.querySelector('[data-composer-card]');
+    expect(document.activeElement).toBe(mobile ? document.body : input);
+    input.blur();
+    await update({ sessionId: 'synthetic-session-b' });
+    expect(document.activeElement).toBe(mobile ? document.body : input);
+    input.blur();
+    await update({ phase: 'sending' });
+    await update({ phase: 'plain' });
+    expect(document.activeElement).toBe(mobile ? card : input);
+    expect(input.getAttribute('inputmode')).not.toBe('none');
+    expect(text()).toBe('第一行');
+  });
+  it('does not steal mobile focus during draft restoration or foreground events', async () => {
+    const { container, update, text } = await composer(false, false, true);
+    const input = container.querySelector('[data-composer-input]');
+    const control = container.querySelector('.opening-pager-index');
+    await update({ draft: '' });
+    await act(async () => control.focus());
+    await update({ draft: '合成恢复草稿' });
+    expect(document.activeElement).toBe(control);
+    await act(async () => {
+      window.dispatchEvent(new Event('blur'));
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('focus'));
+      window.dispatchEvent(new Event('pagehide'));
+    });
+    expect(document.activeElement).toBe(control);
+    expect(input.getAttribute('inputmode')).not.toBe('none');
+    expect(text()).toBe('合成恢复草稿');
+    await update({ phase: 'sending' });
+    await update({ phase: 'plain' });
+    expect(document.activeElement).toBe(control);
   });
   it.each([{}, { ctrlKey: true }, { metaKey: true }, { shiftKey: true }, null])('inserts a newline without sending for Enter %j', async modifiers => {
     const { editor, keyboard, text, container } = await composer(false);

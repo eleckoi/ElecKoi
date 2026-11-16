@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import React, { act, useLayoutEffect, useRef } from 'react';
+import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -10,7 +10,7 @@ import { ChatWallpaper } from '../../../../packages/client/features/dsh-client-c
 import { MessagesPage } from '../../../../packages/client/features/dsh-client-conversations/src/page.jsx';
 import { MessageBubble } from '../helpers/officialMarkdown.jsx';
 import { APP_DEFAULT_CHAT_BACKGROUND, CUSTOM_CHAT_BACKGROUND, GLOBAL_CHAT_BACKGROUND } from '../../src/modules/appearance/preferences/chatWallpaper.js';
-import { focusOfficialDraft, keepOfficialDraftFocus } from '../../../../tests/helpers/officialTrajectory.js';
+import { keepOfficialDraftFocus } from '../../../../tests/helpers/officialTrajectory.js';
 import { renderNativeConversationContent } from '../helpers/NativeConversationPresentation.jsx';
 
 globalThis.React = React;
@@ -232,7 +232,7 @@ describe('Android conversation wallpaper', () => {
 });
 
 describe('Android composer toolbar focus', () => {
-  it.each(['blur', 'focus', 'pagehide'])('revokes a text press on window %s even without a visibility change', async eventName => {
+  it.each(['blur', 'focus', 'pagehide'])('leaves input mode and selection untouched on window %s', async eventName => {
     const container = document.createElement('div'); document.body.append(container);
     const root = createRoot(container);
     try {
@@ -245,7 +245,7 @@ describe('Android composer toolbar focus', () => {
       const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
       expect(input.getAttribute('inputmode')).toBeNull();
       await act(async () => window.dispatchEvent(new Event(eventName)));
-      expect(input.getAttribute('inputmode')).toBe('none');
+      expect(input.getAttribute('inputmode')).toBeNull();
       expect(document.activeElement).toBe(input);
       expect(selection.anchorOffset).toBe(2);
       expect(input.textContent).toBe('合成草稿');
@@ -275,11 +275,11 @@ describe('Android composer toolbar focus', () => {
         expect(input.getAttribute('inputmode')).toBeNull();
         input.setSelectionRange(2, 2);
         await act(async () => window.dispatchEvent(new Event('blur')));
-        expect(input.getAttribute('inputmode')).toBe('none');
+        expect(input.getAttribute('inputmode')).toBeNull();
         expect(document.activeElement).toBe(input);
         expect(input.selectionStart).toBe(2);
         await act(async () => window.dispatchEvent(new Event('focus')));
-        expect(input.getAttribute('inputmode')).toBe('none');
+        expect(input.getAttribute('inputmode')).toBeNull();
         await act(async () => input.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
         expect(input.getAttribute('inputmode')).toBeNull();
       }
@@ -295,7 +295,7 @@ describe('Android composer toolbar focus', () => {
     }
   });
 
-  it('requires a new text press after returning from the background and preserves the draft selection', async () => {
+  it('leaves the input mode and draft selection intact through background and foreground transitions', async () => {
     const container = document.createElement('div'); document.body.append(container);
     const root = createRoot(container);
     const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
@@ -315,7 +315,7 @@ describe('Android composer toolbar focus', () => {
         visibility.mockReturnValue('hidden');
         document.dispatchEvent(new Event('visibilitychange'));
       });
-      expect(input.getAttribute('inputmode')).toBe('none');
+      expect(input.getAttribute('inputmode')).toBeNull();
       expect(input.textContent).toBe('合成草稿');
       expect(document.activeElement).toBe(input);
       expect(selection.anchorNode).toBe(input.firstChild);
@@ -325,7 +325,7 @@ describe('Android composer toolbar focus', () => {
         document.dispatchEvent(new Event('visibilitychange'));
         input.blur(); input.focus();
       });
-      expect(input.getAttribute('inputmode')).toBe('none');
+      expect(input.getAttribute('inputmode')).toBeNull();
       await act(async () => input.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
       expect(input.getAttribute('inputmode')).toBeNull();
     } finally {
@@ -333,31 +333,7 @@ describe('Android composer toolbar focus', () => {
     }
   });
 
-  it('gates keyboard intent when the installed native focus helper focuses a borrowed editor', async () => {
-    function AutofocusedEditor() {
-      const ref = useRef(null);
-      useLayoutEffect(() => { focusOfficialDraft({ getRootElement: () => ref.current, focus: callback => callback() }, () => {}); }, []);
-      return <div data-composer-card><div data-input-scroll><div ref={ref} data-composer-input contentEditable suppressContentEditableWarning /></div></div>;
-    }
-    const container = document.createElement('div'); document.body.append(container);
-    const root = createRoot(container);
-    try {
-      await act(async () => root.render(<MobileConversationPage><AutofocusedEditor key="session-a" /></MobileConversationPage>));
-      const first = container.querySelector('[data-composer-input]');
-      expect(document.activeElement).toBe(first);
-      expect(first.getAttribute('inputmode')).toBe('none');
-      await act(async () => first.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
-      expect(first.getAttribute('inputmode')).toBeNull();
-      await act(async () => root.render(<MobileConversationPage><AutofocusedEditor key="session-b" /></MobileConversationPage>));
-      const second = container.querySelector('[data-composer-input]');
-      expect(document.activeElement).toBe(second);
-      expect(second.getAttribute('inputmode')).toBe('none');
-    } finally {
-      await act(async () => root.unmount()); container.remove();
-    }
-  });
-
-  it.each([null, 'text'])('preserves editor focus and restores input mode %s on a text press', async mode => {
+  it.each([null, 'text'])('leaves input mode %s to the official toolbar focus helper', async mode => {
     const container = document.createElement('div'); document.body.append(container);
     const root = createRoot(container);
     const toggleMenu = vi.fn();
@@ -366,7 +342,7 @@ describe('Android composer toolbar focus', () => {
         <div data-input-scroll><div data-composer-input contentEditable suppressContentEditableWarning inputMode={mode ?? undefined} /></div>
         <button type="button" onMouseDown={event => {
           const input = container.querySelector('[data-composer-input]');
-          expect(input.getAttribute('inputmode')).toBe('none');
+          expect(input.getAttribute('inputmode')).toBe(mode);
           keepOfficialDraftFocus(event, { getRootElement: () => input });
         }} onClick={toggleMenu}><span>添加</span></button>
       </div></MobileConversationPage>));

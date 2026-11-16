@@ -34,16 +34,15 @@ async function openEditor(onEdit) {
   return input;
 }
 
-describe('mobile message editing with the keyboard open', () => {
-  it.each(['取消', '保存'])('keeps the active editor stable until %s is clicked', async label => {
+describe('mobile message edit actions', () => {
+  it.each(['取消', '保存'])('leaves pointer defaults available and commits only when %s is clicked', async label => {
     const onEdit = vi.fn(async () => true), input = await openEditor(onEdit);
     const button = [...container.querySelectorAll('.message-inline-editor button')].find(node => node.textContent === label);
     for (const type of ['pointerdown', 'mousedown']) {
       const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0 });
       await act(async () => button.dispatchEvent(event));
       expect(input.getAttribute('inputmode')).toBeNull();
-      expect(document.activeElement).toBe(input);
-      expect(event.defaultPrevented).toBe(true);
+      expect(event.defaultPrevented).toBe(false);
       expect(input.value).toBe('Synthetic changed text');
       expect(onEdit).not.toHaveBeenCalled();
     }

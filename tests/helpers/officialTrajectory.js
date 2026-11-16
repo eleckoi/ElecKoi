@@ -40,7 +40,7 @@ function loadClient(name, exposed = '') {
   }))
 }
 
-const conversation = loadClient('dsh-client-ui-conversation', ', ConversationNodeAssembler, ConversationEventRegistry, inspectSystemPrompt, inspectRequestPrompt, ContextMeter, ConversationRoot, ConversationContent, ConversationWidthControls, installDraftWheel, focusDraftEditor, keepDraftFocus')
+const conversation = loadClient('dsh-client-ui-conversation', ', ConversationNodeAssembler, ConversationEventRegistry, inspectSystemPrompt, inspectRequestPrompt, ContextMeter, ConversationRoot, ConversationContent, ConversationWidthControls, installDraftWheel, keepDraftFocus')
 const trajectory = loadClient('dsh-client-ui-trajectory', ', deriveTrajectoryLayout, registerTrajectoryToolDefinition, TrajectoryView, zh')
 export const OfficialTrajectoryView = trajectory.TrajectoryView
 export const officialTrajectoryLayout = trajectory.deriveTrajectoryLayout
@@ -99,7 +99,6 @@ export const OfficialConversationContent = conversation.ConversationContent
 export const OfficialConversationRoot = conversation.ConversationRoot
 export const OfficialConversationWidthControls = conversation.ConversationWidthControls
 export const installOfficialDraftWheel = conversation.installDraftWheel
-export const focusOfficialDraft = conversation.focusDraftEditor
 export const keepOfficialDraftFocus = conversation.keepDraftFocus
 export const officialComposerSeat = loadClient('dsh-client-ui-chat', ', composerSeat').composerSeat
 
