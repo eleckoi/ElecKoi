@@ -1,5 +1,9 @@
 # 测试与日常验证
 
+2026-11-16 手机输入框挂载失败：`mobile-composer-enter.test.jsx` 增加仅有空根且保留选区的首次挂载／重新挂载场景，明确验证清除选区的快照为空、输入框仍存在、正文可更新及发送事件可达；手机另检查无 DOM 选区写入及不抢输入焦点。旧挂载交接在该场景抛出 Lexical #38，与 ADB 读取的真机 `composer.bar` 崩溃一致。修正沿公开选区更新接口完成挂载前交接，原文字／caret、PC 自动聚焦与加号菜单检查保留；连同 `mobile-native-command-menu.test.jsx` 两文件 24 项通过。现场记录与安装结果见 build/mobile-composer-missing-check，组件结果不代替真实输入法完整验收。
+
+发送图片的预览交接由 `generated-image-interactions.test.jsx` 沿锁定官方 HistoricalImageCache 检查：本地预览转正式引用、两种布局、等待期间连续重绘、canonical URL 接续、同一图片 DOM、正式尺寸、单次读取及失败／会话隔离。`dsh-client-conversations.test.ts` 同时检查同步预览按实际 Session 交给官方接口且不另发读取，`chat-image-layout.test.jsx` 保留原尺寸及多图布局断言。用户于本轮要求停止模拟，未继续 PC／手机画面模拟，不将组件回归当作真机验收。
+
 2026-11-16 Windows 标题栏通用合同：windows-caption-menu 检查 preload 发布平台标记和高度；windows-caption-ownership 检查侧栏挂载／卸载既不伪造也不移除宿主标记，合计六项。manager-caption 浏览器保留两类管理器八组／24 次主题切换的真实画布匹配，并按官方 primary 解析值核对按钮文字；追加两主题下普通、body 属性切换的透明主题及恢复六组，检查去重 IPC 色值、原生 Modal top=40 和平台标记。window-caption-alignment 六组同时检查品牌／内容区 no-drag 与 caption drag，保留原导航、菜单和几何断言。记录 build/modal-caption-check；该浏览器主题用公开 token 模拟插件输入，不代表完整壁纸插件或实际 OS 鼠标拖窗验收。
 
 2026-11-16 编辑预设首次布局：`preset-introduction-editor.test.jsx` 先检查文本编辑模块尚未完成时空说明表单、最终写作区座位及取消／保存按钮已存在，再等待 React 流完整检查正式编辑器；`preset-editor-workspace.test.jsx` 让详情通知先于 read 完成，确认全程保持请求的基础资料布局。两文件 32 项与原 `preset-editor.test.js` 浏览器回归通过。正式隔离 Host／客户端复现及逐帧对照见 build/preset-editor-startup-check/before.json、after.json、after-cold.json：旧零高度表单 fallback 使更新区下移 345px，修后普通与禁用缓存、延迟资源两轮位置及滚动保持，不等同真实用户数据或 Android 真机验收。

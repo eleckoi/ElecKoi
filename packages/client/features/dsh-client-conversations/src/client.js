@@ -787,6 +787,13 @@ window.__ModuleLoader__.load({
         for (const listener of this.statsListeners) listener()
       }
 
+      peekImage(conversationId, attachment) {
+        if (this.disposed || !attachment?.attachmentId) return undefined
+        const runtimeSessionId = this.runtimeSessionId(conversationId)
+          || (this.detailsSnapshot.id === conversationId ? this.detailsSnapshot.runtimeSessionId : '')
+        return runtimeSessionId ? this.uiConversation.peekImageUrl(runtimeSessionId, attachment) : undefined
+      }
+
       async readImage(conversationId, attachment) {
         if (this.disposed) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleDisposed, 'DSH 聊天服务已关闭，无法读取图片。', { what: 'DSH 聊天服务' })
         if (!attachment?.attachmentId) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '图片不可用。', { what: '图片附件' })

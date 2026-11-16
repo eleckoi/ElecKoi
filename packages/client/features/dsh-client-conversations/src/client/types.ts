@@ -176,6 +176,13 @@ export interface ElecKoiConversations {
    */
   readImage(conversationId: string, attachment: ImageAttachmentRef | ConversationGeneratedImage): Promise<string>
   /**
+   * 同步取得官方会话缓存中的预览，不发起读取或改变资源归属。
+   * @param conversationId - ElecKoi 聊天编号。
+   * @param attachment - 正式图片引用。
+   * @returns 已有预览 URL，未缓存时为 undefined。
+   */
+  peekImage(conversationId: string, attachment: ImageAttachmentRef | ConversationGeneratedImage): string | undefined
+  /**
    * 用原始 AI 回复中的提示词重新生成选中的一张图片。
    * @param conversationId - ElecKoi 聊天编号。
    * @param image - 明确的批次和图片编号。

@@ -1,19 +1,30 @@
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const repo = resolve(import.meta.dirname, '../..')
 const build = resolve(repo, 'build/android-runtime')
+const development = process.argv.includes('--development')
+if (process.argv.slice(2).some(arg => arg !== '--development')) throw new Error('Unknown Android preparation option')
+const mode = development ? ['--development'] : []
+const timings = []
 function run(command, args) {
+  const started = performance.now()
+  process.stdout.write(`Starting ${args[0]}\n`)
   const result = spawnSync(command, args, { cwd: repo, stdio: 'inherit', windowsHide: true })
+  const seconds = (performance.now() - started) / 1000
+  timings.push({ step: args[0], seconds: Number(seconds.toFixed(3)), status: result.status })
+  mkdirSync(build, { recursive: true })
+  writeFileSync(resolve(build, 'prepare-timings.json'), JSON.stringify({ development, steps: timings }, null, 2) + '\n')
+  process.stdout.write(`Finished ${args[0]} in ${seconds.toFixed(2)}s\n`)
   if (result.error) throw result.error
   if (result.status !== 0) throw new Error(`Android asset preparation failed: ${command} ${args[0]}`)
 }
-run(process.execPath, ['scripts/android-runtime/prepare-closure.mjs'])
+run(process.execPath, ['scripts/android-runtime/prepare-closure.mjs', ...mode])
 run(process.execPath, ['scripts/android-runtime/check-profile-bundles.mjs'])
 run(process.execPath, ['scripts/android-runtime/download-runtime.mjs'])
 run('python', ['scripts/android-runtime/prepare-glibc-probe.py', '--production'])
-run('python', ['scripts/android-runtime/package-runtime.py'])
+run('python', ['scripts/android-runtime/package-runtime.py', ...mode])
 run('python', ['scripts/android-runtime/verify-hardlink-free.py', '--source', `${build}/downloads/ubuntu-base-24.04.4-arm64.tar.gz`,
   '--archive', `${build}/archives/rootfs.tar.gz`, '--report', `${build}/rootfs-verification.json`,
   '--glibc-directory', `${build}/glibc-probe/portable`])

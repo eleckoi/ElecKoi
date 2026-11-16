@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -43,14 +43,25 @@ describe('Android production dependency staging', () => {
       writeFileSync(join(source, 'package.json'), JSON.stringify({ name: 'synthetic-plugin', version: '1.0.0' }))
       writeFileSync(join(source, 'index.js'), 'old patched bytes')
       writeFileSync(join(source, 'obsolete.js'), 'obsolete')
+      writeFileSync(join(source, 'stable.js'), 'unchanged dependency')
       prepareProductionClosure(repo, output)
       expect(readFileSync(join(output, 'node_modules/synthetic-plugin/index.js'), 'utf8')).toBe('old patched bytes')
+      const stable = join(output, 'node_modules/synthetic-plugin/stable.js')
+      const stableBefore = statSync(stable)
+      const previous = statSync(join(source, 'index.js'))
 
-      writeFileSync(join(source, 'index.js'), 'current patched bytes')
+      writeFileSync(join(source, 'index.js'), 'new patched bytes')
+      utimesSync(join(source, 'index.js'), previous.atime, previous.mtime)
       rmSync(join(source, 'obsolete.js'))
-      const inventory = prepareProductionClosure(repo, output)
-      expect(readFileSync(join(output, 'node_modules/synthetic-plugin/index.js'), 'utf8')).toBe('current patched bytes')
+      const inventory = prepareProductionClosure(repo, output, { reuse: true })
+      expect(readFileSync(join(output, 'node_modules/synthetic-plugin/index.js'), 'utf8')).toBe('new patched bytes')
       expect(() => readFileSync(join(output, 'node_modules/synthetic-plugin/obsolete.js'))).toThrow()
+      expect(statSync(stable).ino).toBe(stableBefore.ino)
+      writeFileSync(join(source, 'stable.js'), 'later source modification')
+      expect(readFileSync(stable, 'utf8')).toBe('unchanged dependency')
+      writeFileSync(stable, 'corrupted staging')
+      prepareProductionClosure(repo, output, { reuse: true })
+      expect(readFileSync(stable, 'utf8')).toBe('later source modification')
       const dependency = inventory.packages.find(pkg => pkg.name === 'synthetic-plugin')
       expect(realpathSync(join(output, 'node_modules/synthetic-plugin'))).toBe(realpathSync(join(output, dependency.directory)))
       expect(dependency.version).toBe('1.0.0')
@@ -90,7 +101,7 @@ describe('Android production dependency staging', () => {
       const inventory = prepareProductionClosure(repo, output)
       expect(inventory.packages[0].workspace).toBe(true)
       rmSync(join(source, 'dist/media.mjs'))
-      expect(() => prepareProductionClosure(repo, output)).toThrow(/synthetic-host.*dist\/media\.mjs/)
+      expect(() => prepareProductionClosure(repo, output, { reuse: true })).toThrow(/synthetic-host.*dist\/media\.mjs/)
       expect(readFileSync(join(output, 'dist/media.mjs'), 'utf8')).toBe('export const media = true')
       rmSync(join(source, 'dist'), { recursive: true })
       expect(() => prepareProductionClosure(repo, output)).toThrow(/Missing workspace runtime entry/)

@@ -1976,6 +1976,7 @@ describe('DSH ElecKoi conversation client model', () => {
     })
     let catalog: any
     const imageUrl = vi.fn(async () => 'blob:session-image')
+    const peekImageUrl = vi.fn(() => 'blob:submission-preview')
     dshClientPlugin(registration!).apply({
       remote: conversationRemote((name, input) => bridge.request(name!, input), changeFeed,
         async (conversationId, messages) => {
@@ -1990,7 +1991,7 @@ describe('DSH ElecKoi conversation client model', () => {
           }))
         }),
       sessions,
-      uiConversation: { binding: () => ({ target: () => target }), imageUrl },
+      uiConversation: { binding: () => ({ target: () => target }), imageUrl, peekImageUrl },
       fileUpload: { upload },
       provide: (_name: string, value: unknown) => { catalog = value },
       effect: (run: () => () => void) => { cleanup = run() },
@@ -2102,6 +2103,11 @@ describe('DSH ElecKoi conversation client model', () => {
     expect(upload).toHaveBeenCalledWith('runtime-1', file, 'notes.txt', undefined, progress)
     expect(progress).toHaveBeenCalledWith({ loaded: 12, total: 12 })
     const image = { attachmentId: 'sha256:image-1', name: 'sample.png', mediaType: 'image/png' }
+    expect(catalog.peekImage('chat-1', image)).toBe('blob:submission-preview')
+    expect(peekImageUrl).toHaveBeenCalledExactlyOnceWith('runtime-1', image)
+    expect(imageUrl).not.toHaveBeenCalled()
+    expect(catalog.peekImage('unknown-chat', image)).toBeUndefined()
+    expect(peekImageUrl).toHaveBeenCalledTimes(1)
     await expect(catalog.readImage('chat-1', image)).resolves.toBe('blob:session-image')
     expect(imageUrl).toHaveBeenCalledWith('runtime-1', image)
     expect(catalog.getStatsSnapshot()).toEqual({ id: 'chat-1', stats: {

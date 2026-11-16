@@ -29,15 +29,15 @@ const dependencies = { zod, react: React, 'react/jsx-runtime': jsxRuntime, 'reac
 let registration;
 new Function('captureModule', client.replace('window.__ModuleLoader__.load(', 'captureModule(')
   .replace('return module.exports', `return { DraftEditorRuntime, InputBar, enter: cn$1, paragraph: He$2,
-    registerPlainText: O$1, readText: () => nl().getTextContent() };`))(entry => { registration = entry; });
-const { DraftEditorRuntime, InputBar, enter, paragraph, registerPlainText, readText } = registration.factory(name => {
+    registerPlainText: O$1, readRoot: nl, readText: () => nl().getTextContent(), readSelection: () => Kr() };`))(entry => { registration = entry; });
+const { DraftEditorRuntime, InputBar, enter, paragraph, registerPlainText, readRoot, readText, readSelection } = registration.factory(name => {
   if (!(name in dependencies)) throw new Error(`Unexpected composer dependency: ${name}`);
   return dependencies[name];
 });
 const disposers = [];
 afterEach(async () => { for (const dispose of disposers.splice(0).reverse()) await dispose(); nativeMobile = false; vi.unstubAllGlobals(); });
 
-async function composer(submitOnEnter, running = false, mobile = false) {
+async function composer(submitOnEnter, running = false, mobile = false, beforeMount) {
   nativeMobile = mobile;
   if (mobile) {
     document.documentElement.dataset.eleckoiMobile = 'true';
@@ -52,9 +52,12 @@ async function composer(submitOnEnter, running = false, mobile = false) {
   const runtime = new DraftEditorRuntime({ resolveLexicon: () => undefined });
   const editor = runtime.editor;
   const off = registerPlainText(editor);
-  const input = { draft: '第一行', attachmentIds: [], queue: [], phase: 'plain' };
+  beforeMount?.(runtime);
+  const initialDraft = beforeMount ? '' : '第一行';
+  const input = { draft: initialDraft, attachmentIds: [], queue: [], phase: 'plain' };
   const keyboard = { editor, arbitrate: vi.fn(() => 'pass'), space: () => false, dismissPopup: vi.fn(),
-    bindFilePicker: () => () => {}, submit: vi.fn(), steerQueue: vi.fn() };
+    bindFilePicker: () => () => {}, submit: vi.fn(), steerQueue: vi.fn(), caretSpan: () => ({start: 0, end: 0}) };
+  const toggleCommandMenu = vi.fn();
   const hook = snapshot => select => select(snapshot);
   const container = document.createElement('div'); document.body.append(container);
   const root = createRoot(container);
@@ -66,7 +69,7 @@ async function composer(submitOnEnter, running = false, mobile = false) {
     useProjection={() => undefined} useAccess={() => true} inputActions={{}} keyboard={keyboard} t={key => key}
     registerFileIntake={() => () => {}}
     renderSlot={() => null} sessionId={sessionId} variant="composer" dockAccessory={[]}
-    submitOnEnter={submitOnEnter} />;
+    submitOnEnter={submitOnEnter} toggleCommandMenu={toggleCommandMenu} />;
   const selectOpening = vi.fn();
   const render = () => root.render(mobile ? <MobileConversationPage>
     <MessageBubble message={{ id: 'opening', role: 'assistant', content: '合成开场一', canChangeOpening: true,
@@ -74,8 +77,9 @@ async function composer(submitOnEnter, running = false, mobile = false) {
       onSelectOpening={selectOpening} />{bar()}
   </MobileConversationPage> : bar());
   await act(async () => render());
-  await act(async () => runtime.setDraft('第一行'));
-  return { keyboard, container, editor, text: () => editor.getEditorState().read(readText),
+  await act(async () => runtime.setDraft(initialDraft));
+  return { keyboard, container, editor, toggleCommandMenu, text: () => editor.getEditorState().read(readText),
+    async remount() { await act(async () => root.render(null)); await act(async () => render()); },
     async update(next) {
       if ('sessionId' in next) sessionId = next.sessionId;
       if ('phase' in next) input.phase = next.phase;
@@ -87,6 +91,80 @@ async function composer(submitOnEnter, running = false, mobile = false) {
 }
 
 describe('Android composer Enter behavior', () => {
+  it.each([true, false])('mounts an empty selected editor without losing the input, mobile=%s', async mobile => {
+    const selectionWrites = vi.spyOn(window.getSelection(), 'setBaseAndExtent');
+    try {
+      const { container, editor, remount, update, text, keyboard } = await composer(false, false, mobile, runtime => {
+        runtime.editor.update(() => readRoot().selectEnd(), { discrete: true });
+        const state = runtime.editor.getEditorState();
+        expect(state.read(readSelection)).not.toBeNull();
+        expect(state.clone(null).isEmpty()).toBe(true);
+      });
+      expect(container.querySelector('[data-composer-input]')).not.toBeNull();
+      await remount();
+      const input = container.querySelector('[data-composer-input]');
+      expect(input).not.toBeNull();
+      expect(text()).toBe('');
+      expect(editor.getRootElement()).toBe(input);
+      if (mobile) {
+        expect(selectionWrites).not.toHaveBeenCalled();
+        expect(document.activeElement).not.toBe(input);
+      }
+      await update({ draft: '合成输入' });
+      expect(text()).toBe('合成输入');
+      await act(async () => container.querySelector('[data-composer-card] button[aria-busy]').click());
+      expect(keyboard.submit).toHaveBeenCalledExactlyOnceWith('queue', 'click');
+    } finally { selectionWrites.mockRestore(); }
+  });
+  it.each([true, false])('restores a retained caret on remount without mobile DOM selection writes, mobile=%s', async mobile => {
+    const { container, editor, remount, text, keyboard } = await composer(false, false, mobile);
+    await act(async () => container.querySelector('[data-composer-input]').focus());
+    const previous = editor.getEditorState().read(readSelection);
+    expect(previous).not.toBeNull();
+    const selectionWrites = vi.spyOn(window.getSelection(), 'setBaseAndExtent');
+    try {
+      await remount();
+      const input = container.querySelector('[data-composer-input]');
+      if (mobile) {
+        expect(selectionWrites).not.toHaveBeenCalled();
+        expect(document.activeElement).not.toBe(input);
+      } else {
+        expect(selectionWrites).toHaveBeenCalled();
+        expect(document.activeElement).toBe(input);
+      }
+      if (mobile) expect(editor.getEditorState().read(readSelection).is(previous)).toBe(true);
+      expect(text()).toBe('第一行');
+      await act(async () => input.focus());
+      expect(document.activeElement).toBe(input);
+      await act(async () => container.querySelector('[data-composer-card] button[aria-busy]').click());
+      expect(keyboard.submit).toHaveBeenCalledExactlyOnceWith('queue', 'click');
+    } finally { selectionWrites.mockRestore(); }
+  });
+  it.each([true, false])('opens the command menu with native pointer events and mobile=%s focus behavior', async mobile => {
+    const { container, toggleCommandMenu } = await composer(false, false, mobile);
+    const input = container.querySelector('[data-composer-input]');
+    const add = container.querySelector('button[aria-label="input.commands"]');
+    await act(async () => input.blur());
+    const focus = vi.spyOn(input, 'focus');
+    for (const type of ['pointerdown', 'mousedown', 'click']) {
+      const event = new MouseEvent(type, {bubbles:true,cancelable:true,button:0});
+      await act(async () => add.dispatchEvent(event));
+      if (type === 'pointerdown') expect(event.defaultPrevented).toBe(false);
+    }
+    expect(toggleCommandMenu).toHaveBeenCalledExactlyOnceWith({start:0,end:0});
+    if (mobile) { expect(focus).not.toHaveBeenCalled(); expect(document.activeElement).not.toBe(input); }
+    else { expect(focus).toHaveBeenCalled(); expect(document.activeElement).toBe(input); }
+    focus.mockClear();
+    await act(async () => input.focus());
+    focus.mockClear();
+    await act(async () => {
+      add.dispatchEvent(new MouseEvent('mousedown', {bubbles:true,cancelable:true,button:0}));
+      add.click();
+    });
+    expect(document.activeElement).toBe(input);
+    if (mobile) expect(focus).not.toHaveBeenCalled();
+    focus.mockRestore();
+  });
   it('keeps the focused native composer stable through a send tap beside an opening pager', async () => {
     const { keyboard, container, text } = await composer(false, false, true);
     const input = container.querySelector('[data-composer-input]');

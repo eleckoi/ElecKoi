@@ -29,7 +29,7 @@ export function ChatImageGallery({ images = [], conversationId = "", compact = f
 
 function ChatImage({ image, conversationId, compact, agentVariant, onRemove, loadImage, onRegenerateImage }) {
   const tUi = useProductTranslation();
-  const [source, setSource] = useState(image.previewUrl || image.dataUrl || "");
+  const [source, setSource] = useState(() => image.previewUrl || image.dataUrl || loadImage?.peek?.(conversationId, image) || "");
   const [failed, setFailed] = useState(false), [naturalSize, setNaturalSize] = useState(null);
   const [overlay, setOverlay] = useState(""), [busy, setBusy] = useState(false), [error, setError] = useState(null);
   const press = useRef(null), longPressed = useRef(false);
@@ -41,11 +41,11 @@ function ChatImage({ image, conversationId, compact, agentVariant, onRemove, loa
 
   useEffect(() => {
     const immediate = image.previewUrl || image.dataUrl || "";
-    setFailed(false); setSource(immediate);
+    setFailed(false); setSource(immediate || loadImage?.peek?.(conversationId, image) || "");
     if (immediate || !conversationId || !image.attachmentId) return;
     let active = true;
     if (!loadImage) { setFailed(true); return; }
-    loadImage(conversationId, image).then(url => { if (active) setSource(url); }).catch(() => { if (active) setFailed(true); });
+    loadImage(conversationId, image).then(url => { if (active) setSource(url); }).catch(() => { if (active) { setSource(""); setFailed(true); } });
     return () => { active = false; };
   }, [conversationId, image.attachmentId, image.dataUrl, image.previewUrl, loadImage]);
   useEffect(() => () => clearTimeout(press.current?.timer), []);
@@ -75,7 +75,7 @@ function ChatImage({ image, conversationId, compact, agentVariant, onRemove, loa
         press.current = { x: event.clientX, y: event.clientY, timer: setTimeout(() => { longPressed.current = true; setOverlay("menu"); }, 500) }; }}
       onPointerMove={event => { if (press.current && Math.hypot(event.clientX - press.current.x, event.clientY - press.current.y) > 8) stopPress(); }}
       onPointerUp={stopPress} onPointerCancel={stopPress}>
-      {source && !generating ? <img src={source} alt={label} draggable="false" onError={() => { setSource(""); setFailed(true); }}
+      {source && !generating ? <img src={source} alt={label} width={image.width} height={image.height} draggable="false" onError={() => { setSource(""); setFailed(true); }}
         style={fit ? { objectPosition: fit.objectPosition } : undefined}
         onLoad={event => { if (agentVariant === "single") setNaturalSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight }); }} />
         : generating ? <span aria-label={tUi("{value0}生成中", {value0: label})} />

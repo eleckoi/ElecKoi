@@ -44,6 +44,7 @@
     "dev:desktop": "pnpm dev",
     "build:android-host": "pnpm build:workspace-runtime && pnpm --filter @eleckoi/android-host build",
     "prepare:android-runtime": "pnpm build:android-host && pnpm build:dsh-renderer && node scripts/android-runtime/prepare-assets.mjs",
+    "prepare:android-dev-runtime": "pnpm build:android-host && pnpm build:dsh-renderer && node scripts/android-runtime/prepare-assets.mjs --development",
     "check:android-runtime": "node scripts/android-runtime/check-runtime.mjs",
     "test:unit": "node scripts/run-tests.mjs unit",
     "test:ui": "node scripts/run-tests.mjs ui",

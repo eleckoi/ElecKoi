@@ -30,6 +30,64 @@ function python(body) {
 }
 
 describe('Android shared resource distribution', () => {
+  it('reuses identical archives but rebuilds changed inputs, damaged outputs and missing side outputs', () => python(String.raw`
+import os
+with tempfile.TemporaryDirectory() as temporary:
+    root = Path(temporary)
+    source, output, license = root / 'input', root / 'runtime.tar.gz', root / 'license'
+    source.write_bytes(b'first')
+    calls = []
+    def produce(destination):
+        calls.append(True)
+        with packager.archive(destination) as archive:
+            packager.add_bytes(archive, 'payload', source.read_bytes())
+        license.write_bytes(b'synthetic license')
+    def build():
+        return packager.build_archive(output, [source], produce, reuse=True, extras=[license])
+    assert build() is False
+    original = output.read_bytes()
+    assert build() is True and len(calls) == 1
+    timestamp = source.stat()
+    source.write_bytes(b'other')
+    os.utime(source, ns=(timestamp.st_atime_ns, timestamp.st_mtime_ns))
+    assert build() is False and len(calls) == 2
+    with tarfile.open(output) as archive:
+        assert archive.extractfile('payload').read() == b'other'
+    current = output.read_bytes()
+    output.write_bytes(b'!' + current[1:])
+    assert build() is False and output.read_bytes() == current
+    license.unlink()
+    assert build() is False and license.read_bytes() == b'synthetic license'
+    assert build() is True
+    def broken(destination):
+        destination.write_bytes(b'partial archive')
+        raise RuntimeError('synthetic build failure')
+    try:
+        packager.build_archive(output, [source], broken, reuse=False)
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError('Failed build accepted')
+    assert output.read_bytes() == current
+    assert not output.with_name(output.name + '.building').exists()
+    assert build() is True
+`))
+
+  it('keeps the same complete payload with development compression', () => python(String.raw`
+with tempfile.TemporaryDirectory() as temporary:
+    root = Path(temporary)
+    payload = bytes(range(256)) * 4096
+    results = []
+    for level in (1, 6):
+        path = root / f'runtime-{level}.tar.gz'
+        with packager.archive(path, compresslevel=level) as archive:
+            packager.add_bytes(archive, 'nested/payload', payload, 0o755)
+        with tarfile.open(path) as archive:
+            member = archive.getmember('nested/payload')
+            results.append((archive.extractfile(member).read(), member.mode, member.size))
+    assert results[0] == results[1] == (payload, 0o755, len(payload))
+`))
+
   it('keeps Office runtime exports while excluding foreign frame prebuilds and checking ARM64 binaries', () => python(String.raw`
 with tempfile.TemporaryDirectory() as temporary:
     source = Path(temporary)

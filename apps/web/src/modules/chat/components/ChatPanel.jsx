@@ -127,10 +127,10 @@ export function ChatPanel({
   const [variablesOpen, setVariablesOpen] = useState(false);
   const [requestPreviewOpen, setRequestPreviewOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
-  const loadImage = useCallback((id, image) => {
+  const loadImage = useMemo(() => Object.assign((id, image) => {
     if (!conversationModel) return Promise.reject(new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, 'DSH 图片服务尚未就绪。', { what: 'DSH 图片服务' }));
     return conversationModel.readImage(id, image);
-  }, [conversationModel]);
+  }, { peek: (id, image) => conversationModel?.peekImage(id, image) }), [conversationModel]);
   const regenerateImage = useCallback(image => {
     if (!conversationModel) return Promise.reject(new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, 'DSH 图片服务尚未就绪。', { what: 'DSH 图片服务' }));
     return conversationModel.regenerateImage(conversationId, image);

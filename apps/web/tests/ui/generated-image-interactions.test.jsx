@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { ChatImageGallery } from '../../src/ui/messages/ChatImageGallery.jsx';
 import { generatedImageSegments } from '../../src/ui/messages/generatedImagePresentation.js';
+import { HistoricalImageCache } from '@deepseek-ai/dsh-client-ui-conversation/src/client/conversation/historical-images.ts';
 
 let root, container;
 beforeEach(() => {
@@ -15,6 +16,65 @@ const image = { id: 'synthetic-batch:2', batchId: 'synthetic-batch', frameId: 2,
   attachmentId: 'synthetic-image', name: 'synthetic.png', dataUrl: 'data:image/png;base64,YQ==', width: 480, height: 960 };
 const render = props => act(() => root.render(<ChatImageGallery images={[image]} conversationId="synthetic-chat" {...props} />));
 const click = element => act(() => element.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+
+describe('submitted image preview handoff', () => {
+  function officialCache() {
+    vi.stubGlobal('URL', Object.assign(class extends URL {}, {
+      createObjectURL: vi.fn(() => 'blob:canonical-image'), revokeObjectURL: vi.fn(),
+    }));
+    let resolveRead, rejectRead;
+    const read = vi.fn(() => new Promise((resolve, reject) => { resolveRead = resolve; rejectRead = reject; }));
+    const disposers = [];
+    const ctx = { effect: dispose => { disposers.push(dispose()); return () => {}; } };
+    const binding = { ctx, session: { readAttachment: read } };
+    const cache = new HistoricalImageCache(ctx, { binding: id => id === 'session-one' ? binding : undefined });
+    const load = Object.assign(vi.fn((_id, ref) => cache.resolve('session-one', ref)), {
+      peek: vi.fn((_id, ref) => cache.peek('session-one', ref)),
+    });
+    return { cache, load, read, resolve: result => resolveRead(result), reject: error => rejectRead(error), dispose: () => disposers.reverse().forEach(dispose => dispose()) };
+  }
+
+  it.each([false, true])('keeps the preview visible until the official durable read finishes (agent=%s)', async agentMessage => {
+    const official = officialCache();
+    const preview = 'data:image/png;base64,cHJldmlldw==';
+    const admitted = { attachmentId: 'sha256:submitted-image', mediaType: 'image/png', width: 640, height: 480, name: 'synthetic.png' };
+    try {
+      await render({ images: [{ ...admitted, attachmentId: 'pending-request-1', dataUrl: preview }], loadImage: official.load, agentMessage });
+      expect(container.querySelector('img').getAttribute('src')).toBe(preview);
+      expect(official.cache.seed('session-one', admitted, preview)).toBe(true);
+      // The durable attachment remounts the thumbnail after the echo retires.
+      await render({ images: [admitted], loadImage: official.load, agentMessage });
+      const thumbnail = container.querySelector('img');
+      expect(thumbnail?.getAttribute('src')).toBe(preview);
+      expect(container.querySelector('[aria-label$="加载中"]')).toBeNull();
+      expect(thumbnail.getAttribute('width')).toBe('640');
+      expect(thumbnail.getAttribute('height')).toBe('480');
+      for (let tick = 0; tick < 3; tick++) {
+        await render({ images: [{ ...admitted }], loadImage: official.load, agentMessage });
+        expect(container.querySelector('img')).toBe(thumbnail);
+        expect(thumbnail.getAttribute('src')).toBe(preview);
+      }
+      await act(() => official.resolve({ ok: true, value: { attachment: admitted, data: new Uint8Array([99, 97, 110, 111, 110, 105, 99, 97, 108]) } }));
+      expect(container.querySelector('img')).toBe(thumbnail);
+      expect(thumbnail.getAttribute('src')).toBe('blob:canonical-image');
+      expect(official.read).toHaveBeenCalledOnce();
+    } finally { official.dispose(); }
+  });
+
+  it('shows failure if the official admitted read fails and never uses another session preview', async () => {
+    const official = officialCache();
+    const admitted = { attachmentId: 'sha256:submitted-image', mediaType: 'image/png', width: 640, height: 480 };
+    try {
+      expect(official.cache.seed('session-one', admitted, 'data:image/png;base64,cHJldmlldw==')).toBe(true);
+      expect(official.cache.peek('session-two', admitted)).toBeUndefined();
+      await render({ images: [admitted], loadImage: official.load });
+      expect(container.querySelector('img')).not.toBeNull();
+      await act(() => official.reject(new Error('synthetic read failure')));
+      expect(container.querySelector('img')).toBeNull();
+      expect(container.querySelector('[aria-label="图片加载失败"]')).not.toBeNull();
+    } finally { official.dispose(); }
+  });
+});
 
 describe('single generated image actions', () => {
   it('opens a full image preview on click and closes it with Back', async () => {

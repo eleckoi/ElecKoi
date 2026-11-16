@@ -1,16 +1,16 @@
 import { createHash } from 'node:crypto'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, linkSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 
 /** Stage the current dependency graph; equal versions do not imply equal patched bytes. */
-export function prepareProductionClosure(repo, output) {
+export function prepareProductionClosure(repo, output, { reuse = false } = {}) {
   const buildRoot = resolve(repo, 'build/android-runtime')
   if (resolve(output) !== join(buildRoot, 'closure')) throw new Error('Production closure target must be the Android build staging directory')
   mkdirSync(buildRoot, { recursive: true })
   const temporary = mkdtempSync(join(buildRoot, 'closure-staging-'))
   try {
-    const inventory = stageProductionClosure(repo, temporary, { links: false })
+    const inventory = stageProductionClosure(repo, temporary, { links: false, reuseFrom: reuse && existsSync(output) ? output : null })
     // Complete the new copy before replacing the expendable previous staging tree.
     if (existsSync(output)) rmSync(output, { recursive: true, force: true })
     renameSync(temporary, output)
@@ -23,7 +23,7 @@ export function prepareProductionClosure(repo, output) {
 }
 
 /** Copy exact installed production packages, retaining each importer's version graph. */
-export function stageProductionClosure(repo, output, { links = true } = {}) {
+export function stageProductionClosure(repo, output, { links = true, reuseFrom = null } = {}) {
   const initial = resolve(repo, 'apps/android-host')
   const packages = new Map()
   const missingOptional = []
@@ -62,10 +62,27 @@ export function stageProductionClosure(repo, output, { links = true } = {}) {
     return record
   }
   register(initial, true)
+  let reused = 0
   for (const record of packages.values()) {
     mkdirSync(record.target, { recursive: true })
     cpSync(record.source, record.target, { recursive: true, dereference: false,
-      filter: path => path !== join(record.source, 'node_modules') && !['.git', '.turbo'].includes(basename(path)) })
+      filter: path => {
+        if (path === join(record.source, 'node_modules') || ['.git', '.turbo'].includes(basename(path))) return false
+        if (reuseFrom && lstatSync(path).isFile()) {
+          const within = relative(record.source, path)
+          const previous = join(reuseFrom, relative(output, record.target), within)
+          const before = lstatSync(previous, { throwIfNoEntry: false })
+          const current = statSync(path)
+          if (before?.isFile() && before.size === current.size && before.mode === current.mode
+              && readFileSync(path).equals(readFileSync(previous))) {
+            const target = join(record.target, within)
+            mkdirSync(dirname(target), { recursive: true })
+            try { linkSync(previous, target); reused++; return false }
+            catch (error) { if (!['EXDEV', 'ENOTSUP', 'EPERM'].includes(error.code)) throw error }
+          }
+        }
+        return true
+      } })
     if (record.workspace) verifyWorkspaceEntrypoints(record.target)
   }
   // DSH installation anchors resolve shipped bundles before the runtime
@@ -77,6 +94,7 @@ export function stageProductionClosure(repo, output, { links = true } = {}) {
       directory: relative(output, dependency.package.target).split('\\').join('/') })) })), missingOptional }
   writeFileSync(join(output, 'production-closure.json'), `${JSON.stringify(inventory, null, 2)}\n`)
   if (links) exposeInstallationPackages(output, inventory)
+  if (reuseFrom) process.stdout.write(`Reused ${reused} byte-identical staged files.\n`)
   return inventory
 }
 

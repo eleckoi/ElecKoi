@@ -12,6 +12,7 @@ import re
 import struct
 import subprocess
 import tarfile
+import time
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
@@ -43,10 +44,63 @@ def safe_name(name):
 
 
 @contextmanager
-def archive(path):
-    with path.open("wb") as raw, gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0, compresslevel=6) as zipped:
+def archive(path, *, compresslevel=6):
+    with path.open("wb") as raw, gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0, compresslevel=compresslevel) as zipped:
         with tarfile.open(fileobj=zipped, mode="w", format=tarfile.PAX_FORMAT) as output:
             yield output
+
+
+def file_digest(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def path_digest(paths):
+    records = []
+    for path in paths:
+        if not path.exists():
+            return None
+        files = sorted(path.rglob("*")) if path.is_dir() else [path]
+        for file in files:
+            if file.is_symlink():
+                raise ValueError(f"Unexpected cache input symlink: {file}")
+            if file.is_file():
+                records.append([str(file), file_digest(file)])
+    return hashlib.sha256(json.dumps(records, separators=(",", ":")).encode()).hexdigest()
+
+
+def build_archive(path, inputs, producer, *, reuse=False, extras=()):
+    """Reuse only byte-identical inputs and verified outputs; publish successful builds atomically."""
+    started = time.perf_counter()
+    receipt = path.with_name(path.name + ".cache.json")
+    signature = path_digest(inputs) if reuse else None
+    if reuse and signature is None:
+        raise ValueError(f"Missing archive input: {path.name}")
+    if reuse and receipt.is_file() and path.is_file():
+        try:
+            previous = read_json(receipt)
+        except (ValueError, OSError):
+            previous = {}
+        if (previous.get("inputs") == signature
+                and previous.get("outputs") == path_digest([path, *extras])):
+            print(f"Reused {path.name} ({time.perf_counter() - started:.2f}s)", flush=True)
+            return True
+    temporary = path.with_name(path.name + ".building")
+    try:
+        producer(temporary)
+        temporary.replace(path)
+        if reuse:
+            receipt.write_text(json.dumps({"inputs": signature, "outputs": path_digest([path, *extras])}) + "\n", encoding="utf-8")
+        elif receipt.exists():
+            receipt.unlink()
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+    print(f"Built {path.name} ({time.perf_counter() - started:.2f}s)", flush=True)
+    return False
 
 
 def normalized(member, name):
@@ -469,7 +523,7 @@ def resolve_native_dependencies(records, overlays):
             record["dependencies"].append({"name": name, "directory": candidates[0]["directory"]})
 
 
-def package_app(closure, downloads, output, lock):
+def package_app(closure, downloads, output, lock, *, compresslevel=6):
     inventory = read_json(closure / "production-closure.json")
     records = inventory["packages"]
     publication = read_json(REPO / "native/android-runtime/session-publication-lock.json")
@@ -516,7 +570,7 @@ def package_app(closure, downloads, output, lock):
             or len(helpers) != 1 or helpers[0]["version"] != dependency["version"]):
         raise ValueError("Android attachment helper dependency differs from the lock")
     owners[0]["dependencies"].append({"name": dependency["name"], "directory": helpers[0]["directory"]})
-    with archive(output) as packed:
+    with archive(output, compresslevel=compresslevel) as packed:
         for record in inventory["packages"]:
             source = closure / record["directory"]
             if source.is_dir():
@@ -592,6 +646,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--build-dir", type=Path, default=REPO / "build/android-runtime")
     parser.add_argument("--verify-only", action="store_true")
+    parser.add_argument("--development", action="store_true")
     args = parser.parse_args()
     base = args.build_dir.resolve()
     downloads, closure, output = base / "downloads", base / "closure", base / "archives"
@@ -602,17 +657,22 @@ def main():
     lock = read_json(REPO / "scripts/android-runtime/runtime-base-lock.json")
     for kind in ("rootfs", "node", "sqlite"):
         verify(downloads / lock[kind]["file"], "sha256", lock[kind]["sha256"])
-    with tarfile.open(downloads / lock["rootfs"]["file"]) as source, archive(output / "rootfs.tar.gz") as packed:
-        transfer(source, packed, lambda name: name, guest_root=True)
-        provenance = read_json(REPO / "apps/android/app/src/main/assets/licenses/glibc/execution-provenance.json")
-        glibc = base / "glibc-probe/portable"
-        expected = {record["path"]: record for record in provenance["outputs"]}
-        for file in sorted((glibc / "usr/glibc/lib").glob("*")):
-            record = expected[file.relative_to(REPO).as_posix()]
-            verify(file, "sha256", record["sha256"])
-            add_bytes(packed, file.relative_to(glibc).as_posix(), file.read_bytes(), 0o755)
-        if len(list((glibc / "usr/glibc/lib").glob("*"))) != 9:
-            raise ValueError("Android glibc requires eight locked libraries and its execution helper")
+    recipe = [Path(__file__), REPO / "scripts/android-runtime/runtime-base-lock.json"]
+    provenance_path = REPO / "apps/android/app/src/main/assets/licenses/glibc/execution-provenance.json"
+    glibc = base / "glibc-probe/portable"
+    def rootfs(destination):
+        with tarfile.open(downloads / lock["rootfs"]["file"]) as source, archive(destination) as packed:
+            transfer(source, packed, lambda name: name, guest_root=True)
+            provenance = read_json(provenance_path)
+            expected = {record["path"]: record for record in provenance["outputs"]}
+            for file in sorted((glibc / "usr/glibc/lib").glob("*")):
+                record = expected[file.relative_to(REPO).as_posix()]
+                verify(file, "sha256", record["sha256"])
+                add_bytes(packed, file.relative_to(glibc).as_posix(), file.read_bytes(), 0o755)
+            if len(list((glibc / "usr/glibc/lib").glob("*"))) != 9:
+                raise ValueError("Android glibc requires eight locked libraries and its execution helper")
+    build_archive(output / "rootfs.tar.gz", [*recipe, downloads / lock["rootfs"]["file"], provenance_path, glibc],
+                  rootfs, reuse=args.development)
     prefix = f'node-v{lock["node"]["version"]}-linux-arm64'
     def node_name(name):
         if name == prefix:
@@ -620,10 +680,17 @@ def main():
         if not name.startswith(prefix + "/"):
             raise ValueError(f"Unexpected Node archive root: {name}")
         return "usr/" + name[len(prefix) + 1:]
-    with tarfile.open(downloads / lock["node"]["file"]) as source, archive(output / "node.tar.gz") as packed:
-        transfer(source, packed, node_name)
-    package_app(closure, downloads, output / "app.tar.gz", lock)
-    package_git(downloads, output / "git.tar.gz")
+    def node(destination):
+        with tarfile.open(downloads / lock["node"]["file"]) as source, archive(destination) as packed:
+            transfer(source, packed, node_name)
+    build_archive(output / "node.tar.gz", [*recipe, downloads / lock["node"]["file"]], node, reuse=args.development)
+    build_archive(output / "app.tar.gz", [], lambda destination:
+                  package_app(closure, downloads, destination, lock, compresslevel=1 if args.development else 6))
+    git_lock_path = REPO / "scripts/android-runtime/git-tools-lock.json"
+    git_inputs = [*recipe, git_lock_path, downloads / lock["rootfs"]["file"],
+                  *[downloads / spec["file"] for spec in read_json(git_lock_path)["packages"]]]
+    build_archive(output / "git.tar.gz", git_inputs, lambda destination: package_git(downloads, destination),
+                  reuse=args.development, extras=[REPO / "apps/android/app/src/main/assets/licenses/git-tools"])
     verify_archives(output)
 
 

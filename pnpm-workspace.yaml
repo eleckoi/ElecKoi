@@ -42,7 +42,7 @@ patchedDependencies:
   '@deepseek-ai/dsh-client-connection@0.2.2-rc.3': patches/@deepseek-ai__dsh-client-connection@0.2.2-rc.3.patch
   # RETIRE WHEN: upstream exposes the product flow, pending input, running seat and logical turn navigation capabilities.
   '@deepseek-ai/dsh-client-ui-chat@0.2.2-rc.3': patches/@deepseek-ai__dsh-client-ui-chat@0.2.2-rc.3.patch
-  # RETIRE WHEN: official composer exposes accessory/Enter controls, occurrence-selected composer presentation and width persistence, keeps CSS anchors stable through long history/streaming, and preserves measured clearance with native wheel/text-selection association outside the history scroll chain; remove matching patch sections, registration and hash together.
+  # RETIRE WHEN: official composer exposes accessory/Enter controls, occurrence-selected composer presentation and width persistence, keeps CSS anchors stable through long history/streaming, preserves measured clearance with native wheel/text-selection association outside the history scroll chain, and binds retained mobile selections and opens the mobile command menu without requesting IME; remove matching patch sections, registration and hash together.
   '@deepseek-ai/dsh-client-ui-conversation@0.2.2-rc.3': patches/@deepseek-ai__dsh-client-ui-conversation@0.2.2-rc.3.patch
   # RETIRE WHEN: official model selection exposes provider-heading labels and a root-menu parameter slot with keyboard-safe fields and a guarded leave action; switch to them and remove this patch, registration and lock entry.
   '@deepseek-ai/dsh-client-ui-model-selection@0.2.2-rc.3': patches/@deepseek-ai__dsh-client-ui-model-selection@0.2.2-rc.3.patch
