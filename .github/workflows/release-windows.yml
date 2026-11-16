@@ -230,3 +230,58 @@ jobs:
             Write-Output '::warning::The independent update UI check did not pass. Inspect this job to fix it; it does not block Windows packaging or publishing.'
             "Update UI check outcome: $env:UPDATE_CHECK_OUTCOME. Inspect this job's logs; Windows packaging and publishing run independently." >> $env:GITHUB_STEP_SUMMARY
           }
+
+  functional_check:
+    name: Run regression tests after publishing (non-blocking)
+    needs: release
+    runs-on: windows-latest
+    timeout-minutes: 45
+    continue-on-error: true
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout the same release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || inputs.tag }}
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+          run_install: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install locked test dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Python image dependency
+        run: python -m pip install pillow
+
+      - name: Run regression tests
+        id: tests
+        continue-on-error: true
+        run: pnpm test
+
+      - name: Report the independent regression result
+        if: always()
+        env:
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          if ($env:TEST_OUTCOME -eq 'success') {
+            'Regression tests passed after Windows publishing.' >> $env:GITHUB_STEP_SUMMARY
+          }
+          else {
+            Write-Output '::warning::The independent regression check did not pass. Inspect this job to fix it; the installer has already been published.'
+            "Regression outcome: $env:TEST_OUTCOME. Inspect this job's logs; publishing is independent." >> $env:GITHUB_STEP_SUMMARY
+          }

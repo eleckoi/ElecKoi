@@ -64,7 +64,7 @@ DSH 批次升级时使用实际安装的 Client 工厂与 CSS 语法树提取测
 
 资产库的混合文件夹由 `character-asset-folders.test.ts` 覆盖层级、跨角色拒绝、循环、稳定引用、递归删除恢复及目标文件夹已删除的导入；`character-assets.test.ts` 在 JSON／ZIP／PNG、角色复制与独立前端 ZIP 中保留层级和空文件夹。`character-asset-resources.test.ts` 通过实际 Cordis Gateway 调用新建、移动和改名后继续核对原 Range／引用资源。网页组件回归覆盖混合筛选、新建、移动、进入、当前目录导入、复制引用与原失败重试；正式组件合成浏览器的列表列轴、深浅层次与手机布局记录在 `build/asset-folders-check/`，不替代 Android 真机或真实数据验收。
 
-每次 PC 发布操作前必须先读 [Windows 发布必读](WINDOWS_RELEASE.md)。GitHub 的 `release` 任务先完成安装包生成及发布，独立 `update_ui_check` 随后检查；发布任务不依赖功能／UI 检查结果。测试失败按独立检查报告和修复，不得延迟出包或仅因测试脚本修改重新打包。
+每次 PC 发布操作前必须先读 [Windows 发布必读](WINDOWS_RELEASE.md)。GitHub 的 `release` 任务先完成安装包生成及发布，独立 `update_ui_check` 随后检查更新界面，`functional_check` 运行完整回归；发布任务不依赖功能／UI 检查结果。测试失败按独立检查报告和修复，不得延迟出包或仅因测试脚本修改重新打包。
 
 Windows 打包与功能回归分别执行。全量功能、UI、编辑器及原生作者客户端交互回归不作为发布打包的前置，不因测试文件、旧断言或探针定位阻塞正常打包；相关测试按实际修改独立运行；每次发布准备好构建输入后先触发云端出包，功能回归在出包发布后由 GitHub 独立任务运行，结果单独记录，不等待旧测试修复后才打包。实际发布工作树仍完成锁定依赖安装与完整源码构建。`pnpm check:electron-dsh` 检查实际 Electron Host、原生存储、Session 重开与回退运行；编辑器及脚本按钮交互独立使用 `pnpm check:electron-native-author`。测试与探针源码不进入安装包；打包保留 SQLite ABI、包内运行资源及安装启动检查；更新 UI 交互在出包后的独立任务中检查。
 
