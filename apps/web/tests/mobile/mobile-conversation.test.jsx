@@ -381,7 +381,7 @@ describe('Android composer toolbar focus', () => {
       await act(async () => input.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
       expect(input.getAttribute('inputmode')).toBe(mode);
       await act(async () => icon.click());
-      expect(input.getAttribute('inputmode')).toBe('none');
+      expect(input.getAttribute('inputmode')).toBe(mode);
       await act(async () => root.unmount());
       expect(input.getAttribute('inputmode')).toBe(mode);
     } finally {

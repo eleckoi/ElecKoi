@@ -8,8 +8,11 @@ import { createRoot } from 'react-dom/client';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MobileConversationPage } from '../../src/mobile/MobileConversationPage.jsx';
+import { MessageBubble } from '../helpers/officialMarkdown.jsx';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+globalThis.React = React;
 const client = readFileSync(resolve('node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js'), 'utf8');
 // Expose the installed editor and composer inside the existing browser module factory.
 if (client.split('return module.exports').length !== 2) throw new Error('Locked conversation module factory changed');
@@ -28,7 +31,11 @@ const { DraftEditorRuntime, InputBar, enter, paragraph, registerPlainText, readT
 const disposers = [];
 afterEach(async () => { for (const dispose of disposers.splice(0).reverse()) await dispose(); vi.unstubAllGlobals(); });
 
-async function composer(submitOnEnter, running = false) {
+async function composer(submitOnEnter, running = false, mobile = false) {
+  if (mobile) {
+    document.documentElement.dataset.eleckoiMobile = 'true';
+    disposers.push(() => { delete document.documentElement.dataset.eleckoiMobile; });
+  }
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
   Object.defineProperty(document, 'fonts', { configurable: true, value: Object.assign(new EventTarget(), { ready: Promise.resolve() }) });
   disposers.push(() => { delete document.fonts; });
@@ -45,18 +52,58 @@ async function composer(submitOnEnter, running = false) {
   const container = document.createElement('div'); document.body.append(container);
   const root = createRoot(container);
   disposers.push(async () => { await act(async () => root.unmount()); off(); editor.setRootElement(null); container.remove(); });
-  await act(async () => root.render(<InputBar useSession={hook({ running, openState: 'open', pendingSubmissions: [] })} useInput={hook(input)}
+  const bar = <InputBar useSession={hook({ running, openState: 'open', pendingSubmissions: [] })} useInput={hook(input)}
     useNotices={hook(null)} useBusyEnter={hook('queue')} useStopShortcut={hook([])}
     useMenuLauncher={hook(null)} useFileUploads={hook({})} useLexicon={hook([])}
     useProjection={() => undefined} useAccess={() => true} inputActions={{}} keyboard={keyboard} t={key => key}
     registerFileIntake={() => () => {}}
     renderSlot={() => null} sessionId="synthetic-session" variant="composer" dockAccessory={[]}
-    submitOnEnter={submitOnEnter} />));
+    submitOnEnter={submitOnEnter} />;
+  const selectOpening = vi.fn();
+  await act(async () => root.render(mobile ? <MobileConversationPage>
+    <MessageBubble message={{ id: 'opening', role: 'assistant', content: '合成开场一', canChangeOpening: true,
+      selectedOpeningId: 'entry-a', openingOptions: [{ id: 'entry-a', content: '合成开场一' }, { id: 'entry-b', content: '合成开场二' }] }}
+      onSelectOpening={selectOpening} />{bar}
+  </MobileConversationPage> : bar));
   await act(async () => runtime.setDraft('第一行'));
   return { keyboard, container, editor, text: () => editor.getEditorState().read(readText) };
 }
 
 describe('Android composer Enter behavior', () => {
+  it('keeps the focused native composer stable through a send tap beside an opening pager', async () => {
+    const { keyboard, container, text } = await composer(false, false, true);
+    const input = container.querySelector('[data-composer-input]');
+    const send = container.querySelector('[data-composer-card] button[aria-busy]');
+    expect(send).not.toBeNull();
+    await act(async () => {
+      input.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true }));
+      input.focus();
+    });
+    const mode = input.getAttribute('inputmode');
+    expect(mode).not.toBe('none');
+    // Android reacts to inputmode changes before the compatibility mouse/click sequence.
+    const changes = [];
+    const modes = new MutationObserver(records => changes.push(...records));
+    modes.observe(input, { attributes: true, attributeFilter: ['inputmode'] });
+    try {
+      for (const type of ['pointerdown', 'mousedown']) {
+        const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0 });
+        await act(async () => send.querySelector('svg').dispatchEvent(event));
+        expect(input.getAttribute('inputmode')).toBe(mode);
+        expect(document.activeElement).toBe(input);
+        expect(event.defaultPrevented).toBe(true);
+        expect(keyboard.submit).not.toHaveBeenCalled();
+      }
+      await act(async () => send.click());
+      expect(input.getAttribute('inputmode')).toBe(mode);
+      expect([...changes, ...modes.takeRecords()]).toEqual([]);
+      expect(keyboard.submit).toHaveBeenCalledExactlyOnceWith('queue', 'click');
+      expect(text()).toBe('第一行');
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+      await act(async () => container.querySelector('.opening-pager-index').click());
+      expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    } finally { modes.disconnect(); }
+  });
   it.each([{}, { ctrlKey: true }, { metaKey: true }, { shiftKey: true }, null])('inserts a newline without sending for Enter %j', async modifiers => {
     const { editor, keyboard, text, container } = await composer(false);
     const event = modifiers === null ? null : new KeyboardEvent('keydown', { key: 'Enter', cancelable: true, ...modifiers });

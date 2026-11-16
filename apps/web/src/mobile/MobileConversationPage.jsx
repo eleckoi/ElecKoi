@@ -49,11 +49,13 @@ export function MobileConversationPage({ children }) {
 
   function selectInputMode(event) {
     if (!(event.target instanceof Element)) return;
-    const editAction = event.target.closest('.message-inline-editor button');
+    const action = event.target.closest('button');
     const activeEditor = document.activeElement;
-    if (editAction && activeEditor instanceof Element && activeEditor.matches('.message-inline-editor textarea')
-      && editAction.closest('.message-inline-editor') === activeEditor.closest('.message-inline-editor')) {
-      // Keep the IME and viewport stable until this button's click commits or cancels the edit.
+    const editorScope = activeEditor instanceof Element && activeEditor.matches(textEditors)
+      ? activeEditor.closest('[data-composer-card], .message-inline-editor') : null;
+    if (action && editorScope && action.closest('[data-composer-card], .message-inline-editor') === editorScope) {
+      // Preserve the active editor's IME through native send/toolbar and inline edit clicks.
+      // Changing inputmode on press resizes Android's viewport before the click completes.
       if ((event.type === 'pointerdown' || event.type === 'mousedown') && event.button === 0) event.preventDefault();
       return;
     }
