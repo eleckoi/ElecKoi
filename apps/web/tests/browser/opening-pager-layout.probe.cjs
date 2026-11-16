@@ -9,7 +9,7 @@ app.whenReady().then(async () => {
   const errors = [], layouts = [], run = code => win.webContents.executeJavaScript(code);
   win.webContents.on('console-message', details => { if (details.level === 'error') errors.push(details.message); });
   const wait = async code => { for (let i=0;i<100;i++) { if (await run(code)) return; await new Promise(resolve => setTimeout(resolve,20)); } throw Error(code); };
-  const measure = () => run(`(()=>{const row=document.querySelector('.message-roleplay'),floor=row.querySelector('.message-floor').getBoundingClientRect(),content=row.querySelector('.message-content').getBoundingClientRect(),prev=row.querySelector('.opening-pager-prev').getBoundingClientRect(),next=row.querySelector('.opening-pager-next').getBoundingClientRect();return {arrowsTop:Math.min(prev.top,next.top),floorBottom:floor.bottom,contentBottom:content.bottom,arrowOffset:Math.abs(prev.top-next.top),overflow:row.scrollWidth>row.clientWidth+1}})()`);
+  const measure = () => run(`(()=>{const row=document.querySelector('.message-roleplay'),floor=row.querySelector('.message-floor').getBoundingClientRect(),content=row.querySelector('.message-content').getBoundingClientRect(),prev=row.querySelector('.opening-pager-prev').getBoundingClientRect(),next=row.querySelector('.opening-pager-next').getBoundingClientRect(),page=row.querySelector('.opening-pager-index').getBoundingClientRect();return {arrowsTop:Math.min(prev.top,next.top),arrowsBottom:Math.max(prev.bottom,next.bottom),pageTop:page.top,floorBottom:floor.bottom,contentBottom:content.bottom,arrowOffset:Math.abs(prev.top-next.top),overflow:row.scrollWidth>row.clientWidth+1}})()`);
   try {
     for (const theme of ['light','dark']) for (const width of [320,390,1200]) for (const shape of ['portrait','circle','rounded_square']) for (const bubbles of [false,true]) {
       win.setContentSize(width,844);
@@ -24,7 +24,8 @@ app.whenReady().then(async () => {
       await run("document.querySelector('.opening-pager-next').click()");
       await wait("document.querySelector('.opening-pager-index').textContent==='3/3'&&!document.querySelector('.opening-pager-prev').disabled");
       const long = await measure();
-      if (long.arrowsTop<long.floorBottom-.5||long.arrowsTop<long.contentBottom-.5||long.overflow) throw Error('Long overlap: '+JSON.stringify(long));
+      if (long.arrowsTop<long.floorBottom-.5||long.arrowsTop>=long.contentBottom||Math.abs(long.arrowsBottom-long.contentBottom)>.5||Math.abs(long.pageTop-long.contentBottom)>.5||long.overflow) throw Error('Long body alignment: '+JSON.stringify(long));
+      report.long = long;
       await run("document.querySelector('.opening-pager-prev').click()");
       await wait("document.querySelector('.opening-pager-index').textContent==='2/3'&&!document.querySelector('.opening-pager-prev').disabled");
       await run("document.querySelector('.opening-pager-prev').click()");

@@ -117,6 +117,7 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
     updateRequests(revision => revision + 1);
   };
   const [historyOpen, setHistoryOpen] = useState(false);
+  const historyDeletionRef = useRef(null);
   const [chatCharacter, setChatCharacter] = useState(() => createEmptyChatCharacter());
 
   const {
@@ -455,7 +456,8 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
   useEffect(() => {
     // Host-side deletion deactivates the catalog even when another window or
     // an authoring tool initiated it. Drop the local display selection too.
-    if (conversations && sessionId && !detailsSnapshot.id && detailsSnapshot.status === "idle") {
+    if (conversations && sessionId && !detailsSnapshot.id && detailsSnapshot.status === "idle"
+      && historyDeletionRef.current?.id !== sessionId) {
       clearActiveChat();
     }
   }, [conversations, detailsSnapshot.id, detailsSnapshot.status, sessionId]);
@@ -466,6 +468,22 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
 
   async function removeHistoryChat(chatId) {
     if (!chatId) return;
+    // A local delete hands off to another history entry (or a fresh chat).
+    // The model legitimately deactivates the deleted Session before that read finishes.
+    const handoff = chatId === sessionId ? { id: chatId } : null;
+    if (handoff) historyDeletionRef.current = handoff;
+    try {
+      await removeHistoryChatEntry(chatId);
+    } finally {
+      if (handoff && historyDeletionRef.current === handoff) {
+        historyDeletionRef.current = null;
+        const details = conversations?.getDetailsSnapshot();
+        if (!details?.id && details?.status === "idle") clearActiveChat();
+      }
+    }
+  }
+
+  async function removeHistoryChatEntry(chatId) {
     const target = displaySessions.find((item) => item.id === chatId) || sessions.find((item) => item.id === chatId);
     const targetCharacterId = target?.character_id || "";
     const sameCharacterSessions = targetCharacterId ? displaySessions.filter((item) => item.character_id === targetCharacterId) : [];

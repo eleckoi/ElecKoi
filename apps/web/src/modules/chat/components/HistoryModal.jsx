@@ -44,10 +44,19 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
   const [confirmAction, setConfirmAction] = useState(null);
   const [transferError, setTransferError] = useState(null);
   const [transferring, setTransferring] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [historyScope, setHistoryScope] = useState(null);
   const importInput = useRef(null);
   const currentSession = (sessions || []).find((item) => item.id === sessionId);
-  const currentCharacterId = currentSession?.character_id || chatCharacter?.character_id || "";
-  const characterName = currentSession?.character_name || chatCharacter?.assistant_name || chatCharacter?.character_name || "";
+  const selectedCharacterId = currentSession?.character_id || chatCharacter?.character_id || "";
+  const selectedCharacterName = currentSession?.character_name || chatCharacter?.assistant_name || chatCharacter?.character_name || "";
+  const currentCharacterId = historyScope?.id || selectedCharacterId;
+  const characterName = historyScope?.name || selectedCharacterName;
+
+  useEffect(() => {
+    if (!open) setHistoryScope(null);
+    else if (!historyScope && selectedCharacterId) setHistoryScope({ id: selectedCharacterId, name: selectedCharacterName });
+  }, [open, historyScope, selectedCharacterId, selectedCharacterName]);
 
   useEffect(() => {
     if (!open || preferenceSnapshot.status !== "ready") return;
@@ -156,7 +165,11 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
       return;
     }
     if (action.type === "delete" && action.item?.id) {
-      await onDeleteChat?.(action.item.id);
+      setDeleting(true);
+      setTransferError(null);
+      try { await onDeleteChat?.(action.item.id); }
+      catch (error) { setTransferError(error); }
+      finally { setDeleting(false); }
     }
   }
 
@@ -207,8 +220,8 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
 
         <FailureAlert failure={transferError} className="history-transfer-error" />
 
-        <div className="history-list">
-          {!filteredGroups.length ? (
+        <div className="history-list" aria-busy={deleting || undefined}>
+          {!deleting && !filteredGroups.length ? (
             <div className="history-empty">
               <strong>{tUi("暂无历史对话")}</strong>
               <span>{tUi("当前角色还没有本地保存的对话。")}</span>
@@ -243,7 +256,7 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
                     <button className="history-item-export" type="button" title={tUi("导出这条记录")} aria-label={tUi("导出这条记录")} disabled={transferring} onClick={() => exportHistory(item)}>
                       <HistoryExportIcon />
                     </button>
-                    <button className="history-item-delete" type="button" title={tUi("删除这条记录")} aria-label={tUi("删除这条记录")} onClick={() => requestDeleteChat(item)}>
+                    <button className="history-item-delete" type="button" title={tUi("删除这条记录")} aria-label={tUi("删除这条记录")} disabled={deleting} onClick={() => requestDeleteChat(item)}>
                       <TrashIcon />
                     </button>
                   </div>

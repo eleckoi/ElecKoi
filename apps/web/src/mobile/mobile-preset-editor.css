@@ -21,7 +21,7 @@
 .mobile-preset-editor .preset-workspace-tabs button { height: 48px; padding: 0; font-size: 13px; white-space: nowrap; }
 .mobile-preset-editor .preset-workspace-tabs button em { margin-left: 4px; font-size: 11px; }
 .mobile-preset-editor .preset-workspace-body { flex: 1; min-width: 0; min-height: 0; padding: 0; overflow: hidden; scrollbar-gutter: auto; }
-.mobile-preset-editor .preset-workspace-body.is-introduction { overflow-y: auto; background: var(--rail); }
+.mobile-preset-editor .preset-workspace-body.is-introduction { overflow-y: auto; background: var(--chat); }
 .mobile-preset-editor[data-editor-subpage] :is(.preset-profile-hero, .preset-workspace-tabs) { display: none; }
 .mobile-preset-editor .mobile-header h1 { left: 64px; right: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mobile-preset-editor :is(.mobile-preset-save, .mobile-preset-activate) { min-width: 56px; padding: 0 10px; font-size: 14px; color: var(--blue); }
@@ -45,8 +45,6 @@
 .mobile-preset-editor .regex-inline-switch { min-height: 48px; }
 .mobile-preset-editor .regex-inspector-footer { flex-wrap: wrap; }
 .mobile-preset-editor .mobile-editor-actions > [role=toolbar] { background: var(--surface-raised); border: 0; padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)); }
-.mobile-preset-editor .editor-page-detail { animation: mobile-preset-detail-in 180ms cubic-bezier(.2, 0, 0, 1); }
-.mobile-preset-editor .editor-page-list:not([hidden]) { animation: mobile-preset-list-in 140ms ease-out; }
 .mobile-preset-editor .preset-tools-editor { display: flex; flex-direction: column; background: var(--chat); border-radius: 0; overflow: hidden; }
 .mobile-preset-editor .preset-tools-list { flex: 1; height: auto; min-height: 0; padding: 4px 12px 24px; }
 .mobile-preset-editor .preset-tools-source + .preset-tools-source { margin-top: 18px; }
@@ -92,15 +90,15 @@
 .mobile-preset-editor :is(button, input, select, textarea):focus-visible { outline-color: color-mix(in srgb, var(--text) 38%, transparent); }
 .mobile-preset-editor button:not([role=switch]):active:not(:disabled) { background-color: var(--control-bg-hover); }
 @media (hover: none) { .mobile-preset-editor :is(.preset-tool-row, .preset-regex-row):hover { background: transparent; } .mobile-preset-editor .preset-regex-row.is-selected { background: var(--active); } }
-@keyframes mobile-preset-detail-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
 .mobile-preset-editor .preset-basic-document { padding: 0; border-radius: 0; }
 .mobile-preset-editor .preset-document-heading { display: none; }
 .mobile-preset-editor .preset-basic-card { padding: 16px; }
 .mobile-preset-editor .preset-basic-card .preset-profile-editor-layout { gap: 20px; }
 .mobile-preset-editor .preset-basic-card .preset-profile-editor-layout form > label { grid-template-columns: minmax(0,1fr); gap: 8px; }
 .mobile-preset-editor .preset-basic-introduction { height: auto; flex: none; overflow: visible; }
+.mobile-preset-editor .preset-basic-introduction .preset-usage-content { padding: 0; }
 .mobile-preset-editor .preset-basic-introduction .preset-content-section { padding: 16px; }
-.mobile-preset-editor .preset-basic-scroll { background: var(--rail); }
+.mobile-preset-editor .preset-basic-scroll { background: var(--chat); }
 .mobile-preset-editor .preset-basic-card { margin-bottom: 12px; background: var(--chat); }
 .mobile-preset-editor .preset-basic-introduction .preset-content-section { background: var(--chat); }
 .mobile-preset-editor .preset-basic-introduction .preset-usage-copy.is-empty { display: grid; min-height: 88px; place-items: center; text-align: center; }
@@ -113,5 +111,3 @@
 .mobile-preset-editor .preset-tool-row .preset-tool-icon, .mobile-preset-editor .preset-tool-row.is-disabled .preset-tool-icon { width: 20px; height: 20px; padding: 0; background: transparent; color: var(--muted); border-radius: 0; }
 .mobile-preset-editor .preset-tool-summary small { display: none; }
 .mobile-preset-editor .preset-tool-row .preset-tool-count { margin: 0; }
-@keyframes mobile-preset-list-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: translateX(0); } }
-@media (prefers-reduced-motion: reduce) { .mobile-preset-editor :is(.editor-page-detail, .editor-page-list:not([hidden])) { animation: none; } }

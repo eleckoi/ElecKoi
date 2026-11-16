@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingLibraryPanel } from '../../src/modules/settingLibraries/components/SettingLibraryPanel.jsx';
 import { normalizeSettingLibrary, emptyEntry } from '../../../../packages/host/product-data/src/domain/settingLibraries/settingLibraryNormalization';
 import { settingLibrarySchema } from '../../../../packages/shared/src/contracts/settingLibrary/schemas';
+import { SettingLibraryManager } from '../../src/modules/settingLibraries/components/SettingLibraryManager.jsx';
 
 let root, container, model, stored;
 const characterId = 'synthetic-character';
@@ -42,6 +43,38 @@ afterEach(async () => {
   await act(async () => root.unmount());
   document.body.replaceChildren();
   vi.unstubAllGlobals();
+});
+
+it('exports the complete current library through Android save completion, cancellation and retry', async () => {
+  const entries = Array.from({ length: 10001 }, (_, index) => ({ ...emptyEntry(`synthetic-export-${index}`),
+    title: `合成设定 ${index}`, content: [0, 5000, 10000].includes(index) ? `${'合成长正文'.repeat(4000)}末尾 ${index}` : `合成正文 ${index}` }));
+  const library = { ...stored, entries };
+  const picker = vi.fn(() => { throw new Error('Unexpected browser picker'); });
+  let finish;
+  const saveText = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+  vi.stubGlobal('showSaveFilePicker', picker);
+  vi.stubGlobal('ElecKoiPlatform', { saveText });
+  await act(async () => root.render(<SettingLibraryManager characterId={characterId} settingLibraries={model} library={library}
+    onChange={vi.fn()} onClose={vi.fn()} onError={vi.fn()} />));
+  await click('导出当前版本');
+  expect(saveText).toHaveBeenCalledTimes(1);
+  expect(picker).not.toHaveBeenCalled();
+  expect(document.querySelector('[role="status"]')).toBeNull();
+  const [name, json, mime] = saveText.mock.calls[0];
+  expect(name).toMatch(/\.json$/); expect(mime).toBe('application/json');
+  const exported = JSON.parse(json);
+  expect(exported.entries).toHaveLength(entries.length);
+  for (const index of [0, 5000, 10000]) expect(exported.entries[index].content).toBe(entries[index].content);
+  expect([...document.querySelectorAll('button')].find(button => button.textContent.includes('导出当前版本')).disabled).toBe(true);
+  await act(async () => finish({ result: 'cancelled', cancelled: true }));
+  expect(document.querySelector('[role="status"]')).toBeNull();
+  saveText.mockRejectedValueOnce(new Error('合成文件保存失败'));
+  await click('导出当前版本');
+  expect(document.querySelector('[role="dialog"]').textContent).toContain('合成文件保存失败');
+  saveText.mockResolvedValueOnce({ result: 'content://synthetic/export', cancelled: false });
+  await click('导出当前版本');
+  expect(document.querySelector('[role="status"]').textContent).toBe('设定库已导出');
+  expect(model.save).not.toHaveBeenCalled();
 });
 
 async function click(label, scope = document.body) {

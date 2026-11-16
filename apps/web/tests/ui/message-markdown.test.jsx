@@ -284,7 +284,7 @@ describe("message markdown presentation", () => {
       /\.opening-pager\s*\{[^}]*position:\s*static;/,
     );
     expect(chatStyles).toMatch(
-      /\.message-roleplay > \.opening-pager\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;[^}]*grid-row:\s*1;[^}]*grid-template-columns:\s*var\(--chat-roleplay-side-rail\)\s*minmax\(0,\s*1fr\)\s*var\(--chat-roleplay-side-rail\);/,
+      /\.message-roleplay > \.opening-pager\s*\{[^}]*grid-column:\s*1\s*\/\s*-1;[^}]*grid-row:\s*1\s*\/\s*3;[^}]*grid-template-columns:\s*var\(--chat-roleplay-side-rail\)\s*minmax\(0,\s*1fr\)\s*var\(--chat-roleplay-side-rail\);/,
     );
     expect(chatStyles).toMatch(
       /\.message-roleplay\s*\{[^}]*--chat-roleplay-leading-stack-height:\s*var\(--chat-avatar-height,\s*86\.67px\);/,
@@ -293,7 +293,7 @@ describe("message markdown presentation", () => {
       /\.message-roleplay:has\(> \.message-floor\)\s*\{[^}]*--chat-roleplay-leading-stack-height:\s*calc\([^;]+\);[^}]*min-height:\s*var\(--chat-roleplay-leading-stack-height\);/,
     );
     expect(chatStyles).toMatch(
-      /\.message-roleplay\.has-opening-pager\s*\{[^}]*min-height:\s*calc\(var\(--chat-roleplay-leading-stack-height\)\s*\+\s*62px\);/,
+      /\.message-roleplay\.has-opening-pager\s*\{[^}]*grid-template-rows:\s*minmax\(calc\(var\(--chat-roleplay-leading-stack-height\)\s*\+\s*var\(--opening-pager-arrow-height\)\),\s*auto\)\s*var\(--opening-pager-index-height\);/,
     );
     expect(chatStyles).toMatch(
       /\.message-roleplay > \.message-tools\s*\{[^}]*grid-column:\s*3;[^}]*grid-row:\s*1;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s*26px\s*minmax\(0,\s*1fr\);/,

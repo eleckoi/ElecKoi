@@ -8,7 +8,7 @@ import { expect, it } from 'vitest';
 import { browserThemeCss } from '../helpers/browserTheme.js';
 const require = createRequire(import.meta.url), { build } = createRequire(require.resolve('vite/package.json'))('esbuild');
 
-it('keeps opening arrows below the floor and message and switches to blank content without losing the pager', async () => {
+it('aligns long opening arrows with the body and clears the avatar/floor for short or blank openings', async () => {
   const directory = await mkdtemp(resolve(tmpdir(), 'eleckoi-opening-pager-'));
   try {
     await build({ entryPoints: ['apps/web/tests/browser/message-layout.fixture.jsx'], outfile: resolve(directory, 'fixture.js'), bundle: true, format: 'iife', jsx: 'automatic', alias: { '@shared': resolve('packages/shared/src') }, loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file', '.png': 'file', '.svg': 'dataurl' }, logLevel: 'silent' });
@@ -29,6 +29,9 @@ it('keeps opening arrows below the floor and message and switches to blank conte
       expect(data.blankPage, detail).toBe('2/3');
       expect(data.blankHasBody, detail).toBe(false);
       expect(data.returnPage, detail).toBe('1/3');
+      expect(data.long.arrowsTop, detail).toBeLessThan(data.long.contentBottom);
+      expect(data.long.arrowsBottom, detail).toBeCloseTo(data.long.contentBottom, 1);
+      expect(data.long.pageTop, detail).toBeCloseTo(data.long.contentBottom, 1);
     }
   } finally { await rm(directory, { recursive: true, force: true, maxRetries: 3 }); }
 }, 75000);

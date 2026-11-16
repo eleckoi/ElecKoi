@@ -4,9 +4,10 @@ import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { BookOpen, CaretRight, DotsThree, PencilSimple, Trash } from '../../../ui/icons/interfaceIcons.jsx';
 import { ImportIcon } from '../../../ui/icons/index.jsx';
-import { Button, Menu, MenuSurface } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
 import { EditorManagementModal } from '../../../ui/ui/EditorCollectionControls.jsx';
 import { EditorToggle } from '../../../ui/ui/EditorToggle.jsx';
+import { EditorSelect } from '../../../ui/ui/EditorSelect.jsx';
 import { VersionNameDialog } from '../../../ui/ui/VersionNameDialog.jsx';
 import { useCharacterConfigurationDraft } from '../../../ui/hooks/useCharacterConfigurationDraft.js';
 import { globalSettingLibrarySchema } from '@shared/contracts/settingLibrary/global';
@@ -120,12 +121,10 @@ export function GlobalSettingLibraryImport({ state, settingLibraries, disabled, 
         state.importLibrary({ ...version, name: `${character.name || tUi("未命名角色")} · ${version.name || tUi("设定库")}` }); close();
       }}>{tUi("导入")}</Button></>}>
       <div className="global-library-import-fields">
-        <label><span>{tUi("来源角色")}</span><select value={characterId} disabled={busy} onChange={event => void chooseCharacter(event.target.value)}>
-          <option value="">{tUi("选择角色")}</option>{characters.map(item => <option key={item.id} value={item.id}>{item.name || tUi("未命名角色")}</option>)}
-        </select></label>
-        {source ? <label><span>{tUi("来源版本")}</span><select value={versionId} onChange={event => setVersionId(event.target.value)}>
-          {source.versions.map(item => <option key={item.id} value={item.id}>{item.name || tUi("未命名版本")}</option>)}
-        </select></label> : null}
+        <label><span>{tUi("来源角色")}</span><EditorSelect label={tUi("来源角色")} value={characterId} disabled={busy} onChange={value => void chooseCharacter(value)}
+          options={[{ value: '', label: tUi("选择角色") }, ...characters.map(item => ({ value: item.id, label: item.name || tUi("未命名角色") }))]} /></label>
+        {source ? <label><span>{tUi("来源版本")}</span><EditorSelect label={tUi("来源版本")} value={versionId} onChange={setVersionId}
+          options={source.versions.map(item => ({ value: item.id, label: item.name || tUi("未命名版本") }))} /></label> : null}
         {version ? <p>{version.entries.filter(item => item.kind === 'normal').length}{tUi(" 条设定")}</p> : null}
         {!busy && (error ? <p role="alert">{error}</p> : characters.length === 0 ? <p>{tUi("暂无可导入的角色设定库")}</p> : null)}
       </div>
@@ -165,7 +164,7 @@ export function GlobalSettingLibrariesDirectory({ state, query, disabled, editor
           check: (key, checked) => editor.selection.check(unscoped(key), checked) } : null };
       const nodeQuery = library.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) ? '' : query;
       const toggle = () => state.setExpanded(current => { const next = new Set(current); next.has(library.id) ? next.delete(library.id) : next.add(library.id); return next; });
-      return <MenuSurface key={library.id} className={`global-setting-library${selected ? ' is-current' : ''}${library.enabled === false ? ' is-disabled' : ''}`}>
+      return <div key={library.id} className={`global-setting-library${selected ? ' is-current' : ''}${library.enabled === false ? ' is-disabled' : ''}`}>
         <div className="global-setting-library-header">
           <button type="button" className="global-setting-library-expand" aria-label={`${open ? tUi("折叠") : tUi("展开")}${library.name}`} aria-expanded={open} onClick={toggle}><CaretRight size={13} /></button>
           <button type="button" className="global-setting-library-name" title={library.name} onClick={() => { choose(''); toggle(); }}><BookOpen size={17} /><span>{library.name}</span></button>
@@ -195,7 +194,7 @@ export function GlobalSettingLibrariesDirectory({ state, query, disabled, editor
               editor.moveLibrary(library.id, { ...drop, dragId, parentId, expandParentId }); }}
             ariaLabel={tUi("{value0}设定树", {value0: library.name})} />
         </SettingTreeActionsContext.Provider>{!library.entries.length && !library.groups.length ? <p className="global-setting-library-empty">{tUi("暂无设定")}</p> : null}</div> : null}
-      </MenuSurface>;
+      </div>;
     })}
     {renaming ? <VersionNameDialog key={renaming.id} title={tUi("重命名全局设定库")} nameLabel={tUi("设定库名称")} confirmLabel={tUi("完成")}
       initialName={renaming.name} versions={[]} onCancel={() => setRenaming(null)} onCreate={name => {

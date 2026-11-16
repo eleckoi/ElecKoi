@@ -5,6 +5,65 @@ import { describe, expect, it, vi } from 'vitest'
 import { useChatSessions } from '../../src/modules/chat/hooks/useChatSessions.js'
 
 describe('conversation display ownership', () => {
+  it.each([false, true])('retains character ownership during local history deletion (next open fails=%s)', async fails => {
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+    const records = ['a', 'b'].map(key => ({ id: `history-${key}`, title: `Synthetic ${key}`,
+      runtimeSessionId: `runtime-${key}`, metadata: { characterId: 'synthetic-character', characterName: 'Synthetic role' } }))
+    const details = record => ({ conversation: record, metadata: record.metadata, runtimeSessionId: record.runtimeSessionId,
+      messages: [{ id: `reply-${record.id}`, role: 'assistant', content: 'Synthetic reply', sequence: 1 }], hasMore: false })
+    let catalog = { status: 'ready', items: records, error: '' }
+    let snapshot = { details: { id: records[0].id, status: 'ready', details: details(records[0]) }, stream: { id: records[0].id, status: 'idle' } }
+    const catalogListeners = new Set(), listeners = new Set()
+    const publish = () => { for (const listener of [...listeners, ...catalogListeners]) listener() }
+    let finishDelete, finishOpen
+    const deletion = new Promise(resolve => { finishDelete = resolve })
+    const opening = new Promise((resolve, reject) => { finishOpen = () => fails ? reject(new Error('Synthetic open failed')) : resolve(details(records[1])) })
+    const model = {
+      getSnapshot: () => catalog, subscribe: callback => { catalogListeners.add(callback); return () => catalogListeners.delete(callback) },
+      getChatSnapshot: () => snapshot, getDetailsSnapshot: () => snapshot.details,
+      subscribeChat: callback => { listeners.add(callback); return () => listeners.delete(callback) },
+      refresh: async () => catalog.items, readModelSelection: async () => ({}),
+      activate: vi.fn(() => {}),
+      delete: vi.fn(async () => {
+        snapshot = { details: { id: '', status: 'idle', details: null }, stream: { id: '', status: 'idle' } }
+        publish()
+        await deletion
+        catalog = { ...catalog, items: records.slice(1) }; publish()
+      }),
+      open: vi.fn(async () => {
+        const next = await opening
+        snapshot = { details: { id: records[1].id, status: 'ready', details: next }, stream: { id: records[1].id, status: 'idle' } }
+        publish(); return next
+      }),
+    }
+    const host = document.createElement('div'); document.body.append(host)
+    const root = createRoot(host)
+    let chat, pending
+    const seen = []
+    const props = { conversations: model, characters: [], modelConfigs: [], setStatus: () => {}, setActiveSectionState: () => {} }
+    function Probe() {
+      chat = useChatSessions(props)
+      seen.push({ id: chat.sessionId, character: chat.chatCharacter.character_id })
+      return null
+    }
+    try {
+      await act(async () => root.render(<Probe />))
+      await act(async () => chat.openHistory())
+      seen.length = 0
+      await act(async () => { pending = chat.removeHistoryChat(records[0].id).catch(error => error) })
+      expect(chat.sessionId).toBe(records[0].id)
+      expect(chat.chatCharacter.character_id).toBe('synthetic-character')
+      await act(async () => { finishDelete(); await Promise.resolve() })
+      expect(model.open).toHaveBeenCalledWith(records[1].id)
+      expect(chat.chatCharacter.character_id).toBe('synthetic-character')
+      expect(seen.every(frame => frame.id && frame.character === 'synthetic-character')).toBe(true)
+      await act(async () => { finishOpen(); await pending })
+      expect(chat.historyOpen).toBe(true)
+      expect(chat.sessionId).toBe(fails ? '' : records[1].id)
+      if (!fails) expect(model.activate).not.toHaveBeenCalledWith('')
+      else expect(model.activate).toHaveBeenCalledWith('')
+    } finally { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals() }
+  })
   it.each(['send', 'regenerate'].flatMap(kind => [
     ...['complete', 'cancelled', 'error'].map(outcome => [kind, outcome, false]),
     [kind, 'cancelled', true],

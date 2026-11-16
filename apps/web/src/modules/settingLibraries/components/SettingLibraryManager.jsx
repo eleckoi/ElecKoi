@@ -1,5 +1,6 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { saveSettingLibraryFile } from '../model/settingLibraryFileSave.js';
+import { EditorSelect } from '../../../ui/ui/EditorSelect.jsx';
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { EditorManagementModal } from '../../../ui/ui/EditorCollectionControls.jsx';
 import { EditorVersionManager } from '../../../ui/ui/EditorVersionManager.jsx';
@@ -125,6 +126,8 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
   const [page, setPage] = useState("home");
   const [dialog, setDialog] = useState("");
   const [notice, setNotice] = useState("");
+  const [exportError, setExportError] = useState('');
+  const [exporting, setExporting] = useState(false);
   const [sources, setSources] = useState([]);
   const [source, setSource] = useState(null);
   const [versionId, setVersionId] = useState("");
@@ -212,14 +215,22 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
   }
 
   async function exportLibrary() {
+    if (exporting) return;
+    setExporting(true);
+    setNotice('');
+    setExportError('');
     try {
       onError("");
       const safeName = (current.name.trim() || "setting-library").replace(/[\\/:*?"<>|]/g, "-");
-      await saveSettingLibraryFile(serializeSettingLibrary({ ...current, versions: [activeVersion] }), `${safeName}.json`);
-      setNotice(tUi("设定库已导出"));
+      const saved = await saveSettingLibraryFile(serializeSettingLibrary({ ...current, versions: [activeVersion] }), `${safeName}.json`);
+      if (saved) setNotice(tUi("设定库已导出"));
     } catch (cause) {
-      if (cause?.name !== "AbortError") onError(resolveFailure(cause, { fallback: tUi("导出设定库失败") }).text);
-    }
+      if (cause?.name !== "AbortError") {
+        const message = resolveFailure(cause, { fallback: tUi("导出设定库失败") }).text;
+        setExportError(message);
+        onError(message);
+      }
+    } finally { setExporting(false); }
   }
 
   const title = page === "home" ? tUi("设定库管理") : page === "sources" ? tUi("并入设定库") : source?.name || tUi("选择设定");
@@ -228,7 +239,7 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
     <>
         <input ref={fileInputRef} className="setting-library-file-input" type="file" accept=".json,application/json" onChange={handleFile} />
       {page === "home" ? <EditorVersionManager title={tUi("角色设定库版本管理")} versions={current.versions} activeVersionId={current.activeVersionId}
-        onClose={onClose} notice={notice} onSelect={id => onChange(switchLibraryVersion(current, id))}
+        onClose={onClose} notice={notice} error={exportError} busy={exporting} onSelect={id => onChange(switchLibraryVersion(current, id))}
         onCopy={name => onChange(createLibraryVersion(current, name, current.activeVersionId))}
         onCreate={name => onChange(createLibraryVersion(current, name, ''))}
         onRename={name => onChange(renameActiveVersion(current, name))} onDelete={() => onChange(deleteActiveLibraryVersion(current))}
@@ -254,9 +265,8 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
       ) : pickedVersion ? (
         <div className="setting-library-manager-body setting-library-picker-body">
           {source.versions.length > 1 ? (
-            <label className="setting-library-manager-field"><span>{tUi("来源版本")}</span><select value={pickedVersion.id} onChange={(event) => { setVersionId(event.target.value); setCheckedIds(new Set()); }}>
-              {source.versions.map((version) => <option key={version.id} value={version.id}>{versionLabel(version)}</option>)}
-            </select></label>
+            <label className="setting-library-manager-field"><span>{tUi("来源版本")}</span><EditorSelect label={tUi("来源版本")} value={pickedVersion.id}
+              onChange={id => { setVersionId(id); setCheckedIds(new Set()); }} options={source.versions.map(version => ({ value: version.id, label: versionLabel(version) }))} /></label>
           ) : null}
           <div className="setting-library-picker-toolbar">
             <strong>{tUi("选择要并入的设定")}</strong>
@@ -273,10 +283,8 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
               return <div className="setting-library-picker-row is-folder" style={{ paddingLeft: 14 + row.depth * 18 }} key={`group:${row.value.id}`}><TriCheckbox checked={Boolean(ids.length) && selectedCount === ids.length} mixed={selectedCount > 0 && selectedCount < ids.length} label={row.value.name} onChange={() => toggleEntries(ids, selectedCount !== ids.length)} /><FolderOpen size={16} /><strong>{row.value.name}</strong><small>{ids.length}</small></div>;
             })}
           </section>
-          <label className="setting-library-manager-field"><span>{tUi("并入位置")}</span><select value={destinationGroupId} onChange={(event) => setDestinationGroupId(event.target.value)}>
-            <option value="">{tUi("根目录")}</option>
-            {flattenGroups(current.groups).map((group) => <option key={group.id} value={group.id}>{`${"　".repeat(group.depth)}${group.name}`}</option>)}
-          </select></label>
+          <label className="setting-library-manager-field"><span>{tUi("并入位置")}</span><EditorSelect label={tUi("并入位置")} value={destinationGroupId} onChange={setDestinationGroupId}
+            options={[{ value: '', label: tUi("根目录") }, ...flattenGroups(current.groups).map(group => ({ value: group.id, label: `${"　".repeat(group.depth)}${group.name}` }))]} /></label>
           <Button data-dsh-control variant="outline" type="button" className="setting-library-merge-button" disabled={!checkedIds.size} onClick={prepareMerge}>{tUi("检查并入结果")}</Button>
         </div>
       ) : null}</EditorManagementModal>}

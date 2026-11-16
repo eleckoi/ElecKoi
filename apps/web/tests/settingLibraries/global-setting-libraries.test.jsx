@@ -138,7 +138,7 @@ it('keeps equal source entry IDs in separate global libraries independent throug
   await click('复制');
   await click('多选');
   const checkbox = container.querySelector('[aria-label="选择合成共享条目 副本"]');
-  expect(checkbox).toBeTruthy(); await act(async () => checkbox.click()); await click('删除'); await click('删除', document.querySelector('[role="alertdialog"]'));
+  expect(checkbox).toBeTruthy(); await act(async () => checkbox.click()); await click('删除'); await click('删除', document.querySelector('[role="dialog"]'));
   await click('完成'); await click('保存');
   expect(collection.libraries[0].entries.map(item => item.title)).toEqual(['合成共享条目']);
   expect(collection.libraries[1].entries.map(item => item.title)).toEqual(['合成第二编辑']);
@@ -163,7 +163,7 @@ it('creates and edits folders and EJS references within an imported library, ret
 });
 it('deletes an imported library only after confirmation and save and retains the failed draft', async () => {
   await switchScope('全局'); await click('删除全局库合成共享库'); await click('取消'); expect(collection.libraries).toHaveLength(1);
-  await click('删除全局库合成共享库'); await click('删除', document.querySelector('[role="alertdialog"]'));
+  await click('删除全局库合成共享库'); await click('删除', document.querySelector('[role="dialog"]'));
   globals.save.mockRejectedValueOnce(new Error('合成保存失败，草稿保留'));
   await click('保存'); expect(collection.libraries).toHaveLength(1);
   await click('保存'); expect(collection.libraries).toHaveLength(0); expect(roles.save).not.toHaveBeenCalled();
@@ -207,7 +207,7 @@ it('right-clicks an imported entry without opening or switching the editor and d
   await right('合成第二条目');
   expect(title.value).toBe('合成共享条目');
   expect(container.querySelector('.global-setting-library.is-current .global-setting-library-name').textContent).toBe('合成共享库');
-  await click('删除', document.querySelector('[role="menu"]')); await click('删除', document.querySelector('[role="alertdialog"]'));
+  await click('删除', document.querySelector('[role="menu"]')); await click('删除', document.querySelector('[role="dialog"]'));
   expect(container.querySelector('input[placeholder="条目标题/待命名"]').value).toBe('合成共享条目');
   await click('保存');
   expect(collection.libraries[0].entries).toHaveLength(1); expect(collection.libraries[1].entries).toHaveLength(0);

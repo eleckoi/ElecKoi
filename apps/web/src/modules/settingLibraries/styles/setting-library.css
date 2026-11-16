@@ -33,12 +33,14 @@
 .global-setting-libraries button:focus-visible, .setting-library-owner-path button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 
 .mobile-character-editor .global-setting-library-header { gap: 4px; padding-inline: 6px; }
+.mobile-character-editor .global-setting-libraries { padding-top: 12px; }
+.mobile-character-editor .global-setting-libraries .global-setting-library { border: .5px solid var(--dsw-alias-border-l2-darkmode-thin); border-radius: var(--dsw-radius-lg); background: var(--dsw-alias-bg-layer-1); background-clip: padding-box; box-shadow: none; }
 .mobile-character-editor .global-setting-library-header > .setting-library-tree-count { width: 20px; flex-basis: 20px; }
-.mobile-character-editor .global-setting-library-actions { width: 94px; height: 44px; }
+.mobile-character-editor .global-setting-library-actions { width: auto; min-width: 0; height: 48px; }
 .mobile-character-editor .global-setting-library-actions > .editor-toggle-control { margin-inline: 0 2px; }
-.mobile-character-editor .global-setting-library-rename > svg { margin-inline-start: 6px; }
-.mobile-character-editor .global-setting-library-action { flex-basis: 32px; width: 32px; height: 44px; }
-@container global-setting-libraries (max-width: 280px) {
+.mobile-character-editor .global-setting-library-rename > svg { margin-inline-start: 0; }
+.mobile-character-editor .global-setting-library-action { flex: 0 0 44px; min-width: 44px; width: 44px; height: 44px; padding: 0; }
+@container global-setting-libraries (max-width: 360px) {
   .mobile-character-editor .global-setting-library-header { display: grid; grid-template-columns: 24px minmax(0, 1fr) 20px; row-gap: 0; }
   .mobile-character-editor .global-setting-library-expand { grid-column: 1; grid-row: 1; }
   .mobile-character-editor .global-setting-library-name { grid-column: 2; grid-row: 1; }

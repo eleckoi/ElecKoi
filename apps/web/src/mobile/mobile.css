@@ -253,7 +253,8 @@
 .mobile-conversation-page .message-roleplay .message-tools button:is(:hover, :active) { background: transparent; }
 .mobile-conversation-page .message-roleplay .message-tools-expanded { position: static; width: auto; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .mobile-conversation-page .message-roleplay > .message-tools { transition: none; } }
-.mobile-conversation-page .message-roleplay > .opening-pager { grid-template-columns: calc(var(--mobile-roleplay-avatar-width) + var(--chat-avatar-gap, 10px)) minmax(0, 1fr) var(--mobile-roleplay-action-size); grid-template-rows: var(--mobile-roleplay-action-size) 24px; height: calc(var(--mobile-roleplay-action-size) + 24px); }
+.mobile-conversation-page .message-roleplay.has-opening-pager { --opening-pager-arrow-height: var(--mobile-roleplay-action-size); --opening-pager-index-height: 24px; }
+.mobile-conversation-page .message-roleplay > .opening-pager { grid-template-columns: calc(var(--mobile-roleplay-avatar-width) + var(--chat-avatar-gap, 10px)) minmax(0, 1fr) var(--mobile-roleplay-action-size); }
 .mobile-conversation-page .message-roleplay > .opening-pager button { width: var(--mobile-roleplay-action-size); height: var(--mobile-roleplay-action-size); min-height: var(--mobile-roleplay-action-size); }
 .mobile-conversation-page .message-roleplay > .opening-pager .opening-pager-prev { justify-self: start; margin-left: 0; }
 .mobile-conversation-page .message-roleplay > .opening-pager :is(.opening-pager-next, .opening-pager-index) { grid-column: 3; justify-self: end; }

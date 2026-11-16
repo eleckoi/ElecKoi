@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, expect, it, vi } from 'vitest';
 import { EditorSelect } from '../../src/ui/ui/EditorSelect.jsx';
 import { EditorPresentationContext } from '../../src/ui/ui/EditorPresentationContext.jsx';
+import { EditorVersionManager } from '../../src/ui/ui/EditorVersionManager.jsx';
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -40,4 +41,18 @@ it('preserves the desktop select and its value change', async()=>{
   const {control,change}=await mount(false);expect(control.tagName).toBe('SELECT');
   await act(()=>{control.value='b';control.dispatchEvent(new Event('change',{bubbles:true}));});
   expect(change).toHaveBeenCalledExactlyOnceWith('b');
+});
+it('uses the official menu for version and scope choices inside a mobile management modal', async () => {
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+  const scope = vi.fn(), version = vi.fn(), node = document.createElement('div'); document.body.append(node); root = createRoot(node);
+  await act(() => root.render(<EditorPresentationContext.Provider value={{compact:true}}><EditorVersionManager title="合成版本管理"
+    versions={[{id:'a',name:'合成甲'},{id:'b',name:'合成乙'}]} activeVersionId="a" scope="character"
+    scopes={[{id:'character',label:'角色'},{id:'global',label:'全局'}]} onScopeChange={scope} onSelect={version} onClose={()=>{}} /></EditorPresentationContext.Provider>));
+  expect(document.querySelector('select')).toBeNull();
+  await act(() => document.querySelector('[aria-label="当前版本"]').click());
+  await act(() => [...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent.includes('合成乙')).click());
+  expect(version).toHaveBeenCalledExactlyOnceWith('b');
+  await act(() => document.querySelector('[aria-label="归属"]').click());
+  await act(() => [...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent.includes('全局')).click());
+  expect(scope).toHaveBeenCalledExactlyOnceWith('global');
 });

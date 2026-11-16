@@ -189,6 +189,24 @@ describe('Android conversation surfaces', () => {
     expect(onLoadChat).toHaveBeenCalledWith('session-a');
     expect(onClose).toHaveBeenCalledOnce();
   });
+  it('keeps the history scope and suppresses a false empty state while deletion hands off', async () => {
+    let finish;
+    const onDeleteChat = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+    const session = { id: 'synthetic-history', character_id: 'synthetic-role', character_name: '合成角色', summary: '合成记录' };
+    const props = { open: true, sessionId: session.id, onDeleteChat, onClose: vi.fn(), onLoadChat: vi.fn() };
+    await render(<HistoryModal {...props} sessions={[session]} />);
+    await click(button('删除这条记录'));
+    await click(button('确认删除'));
+    await render(<HistoryModal {...props} sessionId="" chatCharacter={{}} sessions={[]} />);
+    expect(document.querySelector('.history-list').getAttribute('aria-busy')).toBe('true');
+    expect(document.querySelector('.history-empty')).toBeNull();
+    expect(document.querySelector('.mobile-conversation-overlay').textContent).toContain('合成角色');
+    const next = { ...session, id: 'synthetic-next' };
+    await render(<HistoryModal {...props} sessionId={next.id} sessions={[next]} />);
+    await act(async () => finish());
+    expect(document.querySelector('.history-empty')).toBeNull();
+    expect(document.querySelectorAll('.history-item')).toHaveLength(1);
+  });
   it('waits for the sheet and scrim exit, restores focus and does not wait for unrelated animations', async () => {
     const masks = [];
     const recordMask = (event) => masks.push(event.detail);
