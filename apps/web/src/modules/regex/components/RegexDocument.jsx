@@ -3,6 +3,7 @@ import { Button, Input, Menu, SegmentedTabs } from '@deepseek-ai/dsh-client-ui-p
 import { Copy, DotsThree, FileCode, Play, Trash } from '../../../ui/icons/interfaceIcons.jsx';
 import { REGEX_TARGETS } from '../model/regexRulesEditing.js';
 import { EditorField as Field, EditorSwitch as Switch } from '../../../ui/ui/EditorLibraryFields.jsx';
+import { EditorSelect } from '../../../ui/ui/EditorSelect.jsx';
 import { EditorWritingBoard as WritingBoard } from '../../settingLibraries/index.js';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
 
@@ -43,7 +44,7 @@ export function RegexDocument({ item, onChange, onDuplicate, onDelete, dirty, bu
       <WritingBoard disabled={busy} label={tUi("匹配表达式")} value={item.pattern} placeholder="/pattern/g" onChange={pattern => onChange({ pattern })} mode={tUi("正则")} />
       <WritingBoard disabled={busy} label={tUi("替换内容")} value={item.replacement} placeholder={tUi("文字、HTML 或 EJS")} onChange={replacement => onChange({ replacement })} mode={tUi("文字 · HTML · EJS")} status={dirty ? tUi("未保存") : tUi("已保存")} />
     </div> : <div className="rs-test">
-      <div className="rs-test-controls"><label>{tUi("测试对象")}<select disabled={busy} aria-label={tUi("测试对象")} value={target} onChange={event => setTarget(event.target.value)}>{REGEX_TARGETS.map(option => <option key={option.id} value={option.id}>{tUi(option.label)}</option>)}</select></label><label>{tUi("测试范围")}<select disabled={busy} aria-label={tUi("测试范围")} value={surface} onChange={event => setSurface(event.target.value)}><option value="Display">{tUi("界面显示")}</option><option value="Prompt">{tUi("发送给 AI 的提示词")}</option><option value="Stored">{tUi("保存内容")}</option></select></label><label className="rs-check"><input disabled={busy} type="checkbox" checked={item.runOnEdit} onChange={event => onChange({ runOnEdit: event.target.checked })} />{tUi("自动测试")}</label></div>
+      <div className="rs-test-controls"><label>{tUi("测试对象")}<EditorSelect disabled={busy} label={tUi("测试对象")} value={target} onChange={setTarget} options={REGEX_TARGETS.map(option => ({ value: option.id, label: tUi(option.label) }))} /></label><label>{tUi("测试范围")}<EditorSelect disabled={busy} label={tUi("测试范围")} value={surface} onChange={setSurface} options={[{ value: 'Display', label: tUi("界面显示") }, { value: 'Prompt', label: tUi("发送给 AI 的提示词") }, { value: 'Stored', label: tUi("保存内容") }]} /></label><label className="rs-check"><input disabled={busy} type="checkbox" checked={item.runOnEdit} onChange={event => onChange({ runOnEdit: event.target.checked })} />{tUi("自动测试")}</label></div>
       <details className="rs-test-variables"><summary>{tUi("测试变量 JSON")}</summary><textarea aria-label={tUi("测试变量 JSON")} value={variables} onChange={event => setVariables(event.target.value)} spellCheck={false} /></details>
       {error && <p className="rs-error" role="alert">{error}</p>}
       <WritingBoard disabled={busy} label={tUi("测试输入")} value={input} onChange={setInput} code={false} />

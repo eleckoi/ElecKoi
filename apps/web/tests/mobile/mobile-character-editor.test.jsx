@@ -257,6 +257,8 @@ describe('Android branch setting bottom actions', () => {
     expect(container.querySelector('.dynamic-settings-tree-toolbar').textContent).not.toContain('新建');
     await click('新建'); await click('设定');
     expect(container.querySelector('.editor-page-detail')).toBeTruthy();
+    expect(container.querySelector('.editor-page-detail [aria-label="删除设定"]')).toBeNull();
+    expect(container.querySelector('.editor-page-detail [aria-label="关闭详情"]')).toBeNull();
     await act(async () => controller.current.save());
     const draft = model.saveConversation.mock.lastCall[2];
     expect(draft.entries[0].groupId).toBe('folder-a');

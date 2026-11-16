@@ -686,7 +686,7 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
           key={nodeKey(selected.kind, selected.value.id)} selected={selected} library={library}
           dirty={dirty} saving={saving} readOnly={selected.kind === 'entry' && !editableEntry}
           SelectedIcon={() => <EntryIcon entry={selected.value} />}
-          entryActions={<>
+          entryActions={!compact && <>
             {canDeleteSelected && selected.kind === 'entry' ? <Button data-dsh-control variant="outline" className="setting-folder-more" icon={<Trash size={17} />} aria-label={tUi('删除设定')} disabled={saving} onClick={requestDeleteSelected} /> : null}
             <Button data-dsh-control variant="outline" className="setting-folder-more" icon={<X size={17} />} aria-label={tUi('关闭详情')} onClick={closeEditor} />
           </>}

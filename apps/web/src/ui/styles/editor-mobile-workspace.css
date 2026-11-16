@@ -11,11 +11,12 @@
 .mobile-editor-document .setting-icon-grid { grid-template-rows: repeat(2,44px); }
 .mobile-editor-document .setting-entry-icons button { min-width: 44px; min-height: 44px; }
 .mobile-editor-document .setting-writing-board { flex: 1 0 320px; min-height: 320px; }
-.mobile-editor-document :is(.setting-settings-board,.vv-properties,.rs-properties) { flex-shrink: 0; width: 100%; max-width: none; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.mobile-editor-document :is(.setting-settings-board,.vv-properties,.rs-properties) { flex-shrink: 0; width: 100%; min-width: 0; max-width: none; padding: 16px; }
+.mobile-editor-document .setting-settings-board > * { min-width: 0; max-width: 100%; }
 .mobile-editor-document :is(.rs-source,.rs-script-data) { flex: 1 0 320px; min-height: 320px; }
 .mobile-editor-document .rs-regex-edit { flex: 1 0 auto; overflow: visible; }
 .mobile-editor-document .rs-regex-edit > .rs-writing { flex: 1 0 260px; min-height: 260px; }
-.mobile-editor-document .rs-script-settings { flex: 1 0 auto; }
+.mobile-editor-document .rs-script-settings { flex: 1 0 auto; overflow: visible; }
 .mobile-editor-document .rs-writing-heading { flex-wrap: wrap; padding-inline: 14px; }
 .mobile-editor-document .rs-writing-footer { flex-wrap: wrap; gap: 8px; padding-inline: 14px; }
 .mobile-editor-document :is(.setting-immersive-host button,.rs-writing-footer button) { min-height: 44px; }
@@ -34,6 +35,9 @@
 .mobile-editor-document .vv-properties .vv-control { min-width: 0; }
 .mobile-editor-document .vv-properties { flex-basis: auto; }
 .mobile-editor-document .setting-settings-board { max-height: none; overflow: visible; }
+@container (max-width: 340px) {
+  .mobile-editor-document :is(.setting-settings-board,.vv-properties,.rs-properties) { padding: 12px; }
+}
 .mobile-editor-document .setting-keywords-field { min-width: 0; }
 .mobile-editor-document .setting-property-row:has(> button[role=switch]) { min-height: 44px; }
 .mobile-editor-document .setting-property-row > button[role=switch] { position: relative; }
@@ -128,4 +132,4 @@
 :root[data-eleckoi-mobile="true"] :is(.immersive-markdown-editor,.mobile-preset-tool-config,.mobile-preset-tool-manager) * { scrollbar-width: none; scrollbar-gutter: auto; }
 :root[data-eleckoi-mobile="true"] :is(.immersive-markdown-editor,.mobile-preset-tool-config,.mobile-preset-tool-manager)::-webkit-scrollbar,
 :root[data-eleckoi-mobile="true"] :is(.immersive-markdown-editor,.mobile-preset-tool-config,.mobile-preset-tool-manager) *::-webkit-scrollbar { display: none; width: 0; height: 0; }
-.mobile-preset-editor .preset-basic-scroll { padding-bottom: max(24px, env(safe-area-inset-bottom, 0px)); }
+.mobile-preset-editor .preset-basic-scroll { padding: 16px 16px max(24px, env(safe-area-inset-bottom, 0px)); }

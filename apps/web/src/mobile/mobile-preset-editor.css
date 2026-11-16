@@ -60,7 +60,7 @@
 .mobile-preset-editor .preset-tool-summary strong { font-size: 15px; font-weight: 550; line-height: 22px; overflow-wrap: anywhere; }
 .mobile-preset-editor .preset-tool-summary small { font-size: 12px; line-height: 18px; }
 .mobile-preset-tool-config .preset-tool-config-body { flex: 1; min-height: 0; padding: 12px 16px 32px; overflow-y: auto; }
-.mobile-preset-tool-config .preset-tool-config-card { border: 0; background: var(--surface-raised); border-radius: 14px; }
+.mobile-preset-tool-config .preset-tool-config-card { background: var(--surface-raised); }
 .mobile-preset-tool-config .preset-tool-config-switch-row { min-height: 64px; padding: 8px 12px; }
 .mobile-preset-tool-config .preset-tool-config-description { font-size: 13px; line-height: 21px; margin: 12px 4px 20px; overflow-wrap: anywhere; }
 .mobile-preset-tool-config .preset-tool-config-members > div { padding: 14px 16px; }
@@ -72,7 +72,7 @@
 .mobile-preset-tool-config .roleplay-plan-actions button { width: 48px; height: 48px; }
 .mobile-preset-tool-config :is(input, select, textarea) { max-width: 100%; }
 .mobile-preset-editor .preset-usage-content { width: 100%; margin: 0; padding: 12px 16px 32px; }
-.mobile-preset-editor .preset-content-section { padding: 16px; border: 0; border-radius: 14px; }
+.mobile-preset-editor .preset-content-section { padding: 16px; }
 .mobile-preset-editor .preset-content-section-heading { min-height: 48px; margin-bottom: 10px; gap: 8px; }
 .mobile-preset-editor .preset-content-section-heading h2 { font-size: 16px; font-weight: 550; }
 .mobile-preset-editor .preset-content-button { position: relative; height: 32px; min-height: 32px; padding: 0 12px; font-size: 13px; }
@@ -95,11 +95,11 @@
 @keyframes mobile-preset-detail-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
 .mobile-preset-editor .preset-basic-document { padding: 0; border-radius: 0; }
 .mobile-preset-editor .preset-document-heading { display: none; }
-.mobile-preset-editor .preset-basic-card { padding: 20px 16px; border: 0; border-radius: 0; }
+.mobile-preset-editor .preset-basic-card { padding: 16px; }
 .mobile-preset-editor .preset-basic-card .preset-profile-editor-layout { gap: 20px; }
 .mobile-preset-editor .preset-basic-card .preset-profile-editor-layout form > label { grid-template-columns: minmax(0,1fr); gap: 8px; }
 .mobile-preset-editor .preset-basic-introduction { height: auto; flex: none; overflow: visible; }
-.mobile-preset-editor .preset-basic-introduction .preset-content-section { padding: 20px 16px; border: 0; border-radius: 0; }
+.mobile-preset-editor .preset-basic-introduction .preset-content-section { padding: 16px; }
 .mobile-preset-editor .preset-basic-scroll { background: var(--rail); }
 .mobile-preset-editor .preset-basic-card { margin-bottom: 12px; background: var(--chat); }
 .mobile-preset-editor .preset-basic-introduction .preset-content-section { background: var(--chat); }

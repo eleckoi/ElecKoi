@@ -34,6 +34,7 @@ import { commitKeywordDraft, splitKeywordDraft } from "../model/settingLibraryKe
 import { FixedPositionIcon } from './CustomPositionManager.jsx';
 import { fixedPlacementRowSelectable, positionPickerRows } from '../model/customPositions.js';
 import { PropertySegment, PropertySwitch } from './SettingPropertyFields.jsx';
+import { EditorSelect } from '../../../ui/ui/EditorSelect.jsx';
 import { SettingContentFormatMenu } from './SettingContentFormatMenu.jsx';
 
 const TRIGGER_MODES = [
@@ -181,15 +182,10 @@ function KeywordRules({ entry, onChange }) {
               keywordCondition: conditionKeywords.length ? (entry.keywordCondition === "none" ? "any" : entry.keywordCondition) : "none",
             })}
           />
-          <label className="setting-library-rule-input"><span>{tUi("匹配要求")}</span><select value={effectiveCondition} onChange={(event) => onChange({ ...entry, keywordCondition: event.target.value })}>
-            {!entry.conditionKeywords.length ? <option value="none">{tUi("无需")}</option> : (
-              <>
-                <option value="any">{tUi("任意命中")}</option>
-                <option value="all">{tUi("全部命中")}</option>
-                <option value="not_any">{tUi("排除命中")}</option>
-              </>
-            )}
-          </select></label>
+          <label className="setting-library-rule-input"><span>{tUi("匹配要求")}</span><EditorSelect label={tUi('匹配要求')} value={effectiveCondition} onChange={keywordCondition => onChange({ ...entry, keywordCondition })}
+            options={!entry.conditionKeywords.length ? [{ value: 'none', label: tUi('无需') }] : [
+              { value: 'any', label: tUi('任意命中') }, { value: 'all', label: tUi('全部命中') }, { value: 'not_any', label: tUi('排除命中') },
+            ]} /></label>
           <h4>{tUi("匹配方式")}</h4>
           <PropertySwitch title={tUi("正则表达式")} description={entry.keywordUseRegex ? tUi("按酒馆关键词正则规则匹配") : tUi("按普通文本关键词匹配")} checked={entry.keywordUseRegex} onChange={(checked) => onChange({ ...entry, keywordUseRegex: checked })} />
           <PropertySwitch title={tUi("忽略大小写")} description={entry.keywordIgnoreCase ? tUi("英文关键词不区分大小写") : tUi("英文关键词区分大小写")} checked={entry.keywordIgnoreCase} onChange={(checked) => onChange({ ...entry, keywordIgnoreCase: checked })} />
