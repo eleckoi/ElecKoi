@@ -24,7 +24,7 @@ vi.mock('../../src/ui/ui/AppToast.jsx', () => ({ AppToast: () => null }));
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-let root, selected, listeners, navigation, guard, rightbar, catalogs;
+let root, selected, listeners, navigation, guard, rightbar, catalogs, frameWidth;
 let OfficialFrame;
 // The shipped official shell supplies React 18.3.1. These route units use the
 // workspace's React 19; preserve React 18's DOM semantics for native inert="".
@@ -49,13 +49,13 @@ function NativeFrame() {
   const view = useMainPageView();
   const sidebar = useSyncExternalStore(navigation.sidebar.subscribe, navigation.sidebar.getSnapshot);
   const right = useSyncExternalStore(rightbar?.subscribe ?? subscribeEmpty, rightbar?.getSnapshot ?? (() => emptyRightbar));
-  return <OfficialFrame useStore={select => select({ layoutInfo: { viewportWidth: 390, sidebar: 280,
-    narrowExpanded: sidebar.shown, rightbar: 300, rightbarShown: right.shown, rightbarTrack: false } })}
+  return <OfficialFrame useStore={select => select({ layoutInfo: { viewportWidth: frameWidth, sidebar: sidebar.shown ? 280 : 0,
+    sidebarDrawer: true, narrowExpanded: sidebar.shown, rightbar: 300, rightbarShown: right.shown, rightbarTrack: false } })}
     useSessions={select => select({ byId: {} })} usePanelInfo={select => select({ activePanelId: selected === 'conversation' ? null : selected })}
     useFoldedLandscape={select => select(false)} t={key => key}
     actions={{ toggleSidebar: navigation.toggleSidebar, setViewportWidth() {} }}
     renderSlot={(name, owner, options) => {
-      if (name === 'sidebar') return navigation.renderSidebar((render, workspace) => view.renderFrameSidebar(render, workspace), { ...owner, workspace: true });
+      if (name === 'sidebar') return navigation.renderSidebar((render, workspace) => view.renderFrameSidebar(render, workspace, owner), { ...owner, workspace: true });
       if (name === 'rightbar') return rightbar?.render(owner);
       if (name !== 'main') return null;
       const panel = options.entryKey, content = navigation.renderPanel(panel);
@@ -91,7 +91,7 @@ async function mount() {
 }
 async function click(label) { await act(async () => [...document.querySelectorAll('button')].find(button => button.textContent === label || button.getAttribute('aria-label') === label).click()); }
 beforeEach(() => {
-  catalogs = {}; selected = 'messages'; listeners = new Set(); guard = null; rightbar = undefined; fixture.dialog = false;
+  catalogs = {}; selected = 'messages'; listeners = new Set(); guard = null; rightbar = undefined; fixture.dialog = false; frameWidth = 390;
   fixture.updates = { status: null, download: vi.fn(), install: vi.fn() };
   fixture.onCancel = vi.fn(() => { fixture.dialog = false; root.render(<Harness />); });
   const sidebar = { shown: false };
@@ -118,6 +118,33 @@ afterEach(async () => {
   else delete HTMLElement.prototype.animate;
 });
 describe('Android independent conversation navigation', () => {
+  it('keeps the tablet sidebar hidden and uses the same modal drawer as the phone', async () => {
+    frameWidth = 800;
+    let snapshot = { shown: false, drawer: true };
+    const subscribers = new Set();
+    navigation.sidebar = { subscribe: listener => { subscribers.add(listener); return () => subscribers.delete(listener); }, getSnapshot: () => snapshot };
+    navigation.toggleSidebar = () => { snapshot = { shown: !snapshot.shown, drawer: true }; subscribers.forEach(listener => listener()); };
+    navigation.closeSidebar = () => { snapshot = { shown: false, drawer: true }; subscribers.forEach(listener => listener()); };
+    navigation.items = [{ id: 'extension-panel', label: '扩展页面' }];
+    navigation.renderSidebar = render => render((_name, owner) => owner.content);
+    await mount();
+    expect(document.querySelector('[data-sidebar-drawer][data-sidebar-collapsed]')).not.toBeNull();
+    expect(document.querySelector('.mobile-drawer').parentElement.hasAttribute('inert')).toBe(true);
+    expect(document.querySelector('.mobile-drawer .rail-nav-button').getAttribute('aria-label')).toBe('扩展页面');
+    await click('侧边栏');
+    expect(document.querySelector('.mobile-drawer .qq-rail.expanded')).not.toBeNull();
+    expect(document.querySelector('.mobile-bottom-nav').hasAttribute('inert')).toBe(true);
+    const control = document.querySelector('.mobile-drawer button');
+    control.focus();
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true });
+    await act(async () => control.dispatchEvent(tab));
+    expect(tab.defaultPrevented).toBe(true);
+    await click('收起侧边栏');
+    expect(document.querySelector('.mobile-bottom-nav').hasAttribute('inert')).toBe(false);
+    await click('角色');
+    expect(document.querySelector('[data-list=character]')).not.toBeNull();
+    expect(snapshot.shown).toBe(false);
+  });
   it('opens the current conversation character editor and returns to that conversation', async () => {
     await mount();
     await click('打开会话乙');
@@ -237,7 +264,7 @@ describe('Android independent conversation navigation', () => {
     navigation.renderPanel = id => id === 'settings' ? <SettingsProbe /> : <Page panel={id} />;
     let snapshot = { shown: false };
     const subscribers = new Set();
-    const show = shown => { snapshot = { shown }; subscribers.forEach(listener => listener()); };
+    const show = shown => { snapshot = { shown, drawer: true }; subscribers.forEach(listener => listener()); };
     navigation.sidebar = { subscribe: listener => { subscribers.add(listener); return () => subscribers.delete(listener); }, getSnapshot: () => snapshot };
     navigation.toggleSidebar = () => show(!snapshot.shown);
     navigation.closeSidebar = () => show(false);
@@ -260,7 +287,7 @@ describe('Android independent conversation navigation', () => {
   it('retains the shared sidebar across official drawer navigation and restores the source route', async () => {
     let snapshot = { shown: false };
     const subscribers = new Set();
-    const show = shown => { snapshot = { shown }; subscribers.forEach(listener => listener()); };
+    const show = shown => { snapshot = { shown, drawer: true }; subscribers.forEach(listener => listener()); };
     navigation.sidebar = { subscribe: listener => { subscribers.add(listener); return () => subscribers.delete(listener); }, getSnapshot: () => snapshot };
     navigation.toggleSidebar = () => show(!snapshot.shown);
     navigation.closeSidebar = () => show(false);

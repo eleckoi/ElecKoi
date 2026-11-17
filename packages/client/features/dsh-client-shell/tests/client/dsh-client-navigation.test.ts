@@ -153,9 +153,11 @@ describe('ElecKoi DSH client navigation', () => {
     layout.reportSidebar({ shown: true, width: 280, drawer: platform === 'android' })
     expect(layout.sidebarInfo.getSnapshot().shown).toBe(true)
     const store = root.store.create()
-    const before = store.getSnapshot().layoutInfo.sidebar
+    expect(store.getSnapshot().layoutInfo.sidebarDrawer).toBe(platform === 'android')
+    const expansion = platform === 'android' ? 'narrowExpanded' : 'sidebar'
+    const before = store.getSnapshot().layoutInfo[expansion]
     layout.toggleSidebar()
-    expect(store.getSnapshot().layoutInfo.sidebar).not.toBe(before)
+    expect(store.getSnapshot().layoutInfo[expansion]).not.toBe(before)
     layout.toggleSidebar()
     currentSessionId = 'roleplay-session'
     layout.selectPanel(null)

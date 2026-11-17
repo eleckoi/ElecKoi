@@ -20,7 +20,6 @@ export function MobileModelsPage() {
   const [picker, setPicker] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState({});
   const panelRef = useRef(null);
-  const ref = useMobileScroll('models', route.kind === 'root');
   function openConfig(config) { view.pushRoute({ kind: 'model-editor', configId: config.id }); }
   function create(providerId) {
     setPicker(false);
@@ -48,7 +47,7 @@ export function MobileModelsPage() {
   const createProviders = addableProviderItems(snapshot.providers, tUi);
   const builtinProviders = builtinProviderItems(snapshot.providers);
   return <div className="mobile-root-page"><MobileHeader title={tUi("模型")} onSearch={view.openSearch} onAdd={() => setPicker(true)} addLabel={tUi("新建模型配置")} />
-    <div className="mobile-scroll mobile-model-list" ref={ref}>
+    <MobileModelList>
       {localizeUiCopy(modelProviderSections, tUi).map(section => {
         const sectionConfigs = configurations.filter(item => item.section === section.id);
         if (!sectionConfigs.length) return null;
@@ -62,7 +61,7 @@ export function MobileModelsPage() {
       </div></section>;
       })}
       <MobileState error={snapshot.error} loading={snapshot.status === 'loading'} empty={!snapshot.configs.length && snapshot.status === 'ready' ? tUi("暂无模型配置") : ''} onRetry={() => models.refresh().catch(error => chat.notify('error', resolveFailure(error, { fallback: tUi("刷新模型配置失败") }).text))} />
-    </div>
+    </MobileModelList>
     {picker && <MobileDialog title={tUi("新建模型配置")} onClose={() => setPicker(false)}><div className="mobile-picker-list mobile-model-create-list">
       {createProviders.filter(provider => provider.id === 'custom').map(provider => <Button variant="ghost" className="mobile-model-create-option" key={provider.id} onClick={() => create(provider.id, tUi)}><MobileProviderLogo provider={provider} /><span>{provider.label}</span><MobileChevronRightIcon /></Button>)}
       <div className="mobile-model-create-group"><label htmlFor="mobile-builtin-provider">{tUi("内置提供商")}</label>
@@ -74,4 +73,10 @@ export function MobileModelsPage() {
       <div className="mobile-model-create-group"><span>{tUi("绘画模型")}</span>{createProviders.filter(provider => provider.section === 'image').map(provider => <Button variant="ghost" className="mobile-model-create-option" key={provider.id} onClick={() => create(provider.id, tUi)}><MobileProviderLogo provider={provider} /><span>{provider.label}</span><MobileChevronRightIcon /></Button>)}</div>
     </div></MobileDialog>}
   </div>;
+}
+
+function MobileModelList({ children }) {
+  // The list owns its scroll lifetime: capture before the editor replaces its DOM.
+  const ref = useMobileScroll('models');
+  return <div className="mobile-scroll mobile-model-list" ref={ref}>{children}</div>;
 }

@@ -733,6 +733,9 @@ window.__ModuleLoader__.load({
               if (name === 'register') return (options, Frame) => {
                 if (options.name !== 'root') return target.register(options, Frame)
                 const store = options.store.create()
+                // RETIRE WHEN: the locked layout exposes an application drawer option;
+                // use that option and remove setSidebarDrawer from the managed patch.
+                store.actions.setSidebarDrawer(globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android')
                 const native = nativeLayout
                 const useNativePanelInfo = select => select(React.useSyncExternalStore(native.panelInfo.subscribe, native.panelInfo.getSnapshot))
                 let panelGuard = null

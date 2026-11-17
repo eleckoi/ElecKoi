@@ -13,7 +13,7 @@ export function OfficialFrameSidebar({ collapsed, width, drawer, renderSidebarSl
   useLayoutEffect(() => {
     view.navigation.reportSidebar({ shown: !collapsed, width, drawer });
   }, [view.navigation, collapsed, width, drawer]);
-  if (view.renderFrameSidebar) return view.renderFrameSidebar(renderSidebarSlot, workspaceSidebar);
+  if (view.renderFrameSidebar) return view.renderFrameSidebar(renderSidebarSlot, workspaceSidebar, { collapsed, width, drawer });
   const workspace = ['conversation', 'creatorStudio', 'schedules'].includes(view.chat.activeSection)
     || !view.navigation.productPanelIds.includes(view.chat.activeSection) && view.chat.activeSection !== 'plugins';
   return <>

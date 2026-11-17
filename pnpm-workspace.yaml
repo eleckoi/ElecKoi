@@ -29,8 +29,9 @@ overrides:
   '@earendil-works/pi-ai': 1.3.0
 
 patchedDependencies:
-  # Published Client bundles bake in the upstream build title. Only brand text changes; native title selection and cleanup stay intact.
+  # Published Client bundles bake in the upstream build title. The layout also exposes the product's Android drawer opt-in without changing viewport measurements or the native panel lifecycle.
   # RETIRE WHEN: the published layout bundle accepts the application title at runtime or ElecKoi builds that bundle with the official DSH_CLIENT_TITLE option; remove patch, registration and hash together.
+  # RETIRE WHEN: upstream exposes an application-owned always-drawer sidebar mode; use it and remove setSidebarDrawer, its frame/store branches and the product Android opt-in together.
   '@deepseek-ai/dsh-client-ui-layout@0.2.2-rc.3': patches/@deepseek-ai__dsh-client-ui-layout@0.2.2-rc.3.patch
   # RETIRE WHEN: upstream exposes owned factory activation admission before writer acquisition and returns the owned handle to the admission owner; remove this patch, bridge call and lock hash together.
   '@deepseek-ai/dsh-agent@0.2.2-rc.3': patches/@deepseek-ai__dsh-agent@0.2.2-rc.3.patch

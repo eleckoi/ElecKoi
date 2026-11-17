@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>平板交互预览</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body { display: grid; grid-template-rows: auto minmax(0, 1fr); margin: 0; background: #f3f4f6; color: #242424; font: 13px system-ui; }
+  header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; padding: 10px; background: white; }
+  button, select { font: inherit; padding: 7px 10px; border: 1px solid #d5d5d5; border-radius: 7px; background: white; color: inherit; }
+  button[aria-pressed="true"] { background: #242424; color: white; }
+  output { flex: 0 0 180px; margin-left: auto; white-space: nowrap; text-align: right; color: #666; font-variant-numeric: tabular-nums; }
+  .viewport { min-width: 0; min-height: 0; overflow: auto; }
+  .viewport[data-size="responsive"] { overflow: hidden; }
+  iframe { display: block; border: 0; background: white; }
+  .viewport[data-size="responsive"] > iframe { width: 100%; height: 100%; }
+</style>
+<header aria-label="预览控制">
+  <button data-size="390,844" aria-pressed="false">手机竖屏</button>
+  <button data-size="responsive" aria-pressed="false">面板宽度</button>
+  <button data-size="800,1280" aria-pressed="true">平板竖屏</button>
+  <button data-size="1280,800" aria-pressed="false">平板横屏</button>
+  <button data-size="844,390" aria-pressed="false">手机横屏</button>
+  <select aria-label="预览主题"><option value="light">浅色</option><option value="dark">深色</option></select>
+  <output></output>
+</header>
+<div class="viewport" data-size="800,1280"><iframe title="正式组件交互预览" src="fixture.html" style="width:800px;height:1280px"></iframe></div>
+<script>
+  const frame = document.querySelector('iframe');
+  const viewport = document.querySelector('.viewport');
+  const output = document.querySelector('output');
+  function setSize(size) {
+    viewport.dataset.size = size;
+    if (size === 'responsive') {
+      frame.style.removeProperty('width');
+      frame.style.removeProperty('height');
+    } else {
+      const [width, height] = size.split(',').map(Number);
+      frame.style.width = width + 'px';
+      frame.style.height = height + 'px';
+    }
+    document.querySelectorAll('[data-size]').forEach(button => {
+      if (button.tagName === 'BUTTON') button.setAttribute('aria-pressed', String(button.dataset.size === size));
+    });
+  }
+  document.querySelectorAll('button[data-size]').forEach(button => {
+    button.addEventListener('click', () => setSize(button.dataset.size));
+  });
+  document.querySelector('select').addEventListener('change', event => {
+    frame.src = 'fixture.html?theme=' + event.target.value;
+  });
+  // Measurement only updates the fixed-width readout. The CSS grid owns sizing.
+  new ResizeObserver(entries => {
+    const { width, height } = entries[0].contentRect;
+    const text = Math.floor(width) + ' × ' + Math.floor(height) + ' CSS px';
+    if (output.textContent !== text) output.textContent = text;
+  }).observe(frame);
+</script>
+</html>

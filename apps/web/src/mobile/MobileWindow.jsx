@@ -46,6 +46,7 @@ export function MobileWindow(props) {
   // 社区页自己那份对话框保留不动：它只属于那一个页面。
   const reportProblem = useReportProblem({ onDismissNotice: chat.dismissNotice });
   const drawerState = useSyncExternalStore(navigation.sidebar.subscribe, navigation.sidebar.getSnapshot);
+  const drawerOpen = Boolean(drawerState.shown && drawerState.drawer);
   const rightbarState = useSyncExternalStore(props.rightbar?.subscribe || subscribeEmpty, props.rightbar?.getSnapshot || getEmptyRightbar);
   const guardRef = useRef(null);
   const skipPanelGuard = useRef(false);
@@ -142,14 +143,14 @@ export function MobileWindow(props) {
     return () => { window.removeEventListener('eleckoi:platform-back', onBack); window.removeEventListener('keydown', onKey); };
   }, [back]);
   useEffect(() => {
-    if (drawerState.shown) {
+    if (drawerOpen) {
       drawerFocusRef.current ??= document.activeElement;
       drawerRef.current?.querySelector('button')?.focus();
     } else if (drawerFocusRef.current?.isConnected) {
       drawerFocusRef.current.focus({ preventScroll: true });
       drawerFocusRef.current = null;
     }
-  }, [drawerState.shown]);
+  }, [drawerOpen]);
   useEffect(() => {
     if (!pendingConversation?.complete) return;
     const { target, source } = pendingConversation;
@@ -234,10 +235,10 @@ export function MobileWindow(props) {
     onOpenProfile={() => openSettings('profile')}
     onOpenSettings={() => openSettings('home')}
     onCollapse={navigation.closeSidebar} />;
-  function renderFrameSidebar(renderSidebarSlot, workspaceSidebar) {
+  function renderFrameSidebar(renderSidebarSlot, workspaceSidebar, { collapsed = false, drawer = true } = {}) {
     return <aside className={`mobile-drawer official-mobile-sidebar${drawerKind === 'workspace' ? ' mobile-workspace-drawer' : ''}`} ref={drawerRef}
       aria-label={drawerKind === 'workspace' ? tUi("工作区会话管理") : tUi("侧边导航")} onKeyDown={event => {
-        if (event.key !== 'Tab') return;
+        if (!drawer || collapsed || event.key !== 'Tab') return;
         const items = [...drawerRef.current.querySelectorAll('button:not(:disabled),a[href],[tabindex="0"]')];
         if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1)?.focus(); }
         else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0]?.focus(); }
@@ -246,11 +247,11 @@ export function MobileWindow(props) {
     </aside>;
   }
   return <FailureReportContext.Provider value={reportProblem.available ? reportProblem.openReport : null}><MainPageContext.Provider value={view}>
-    <main className="main-window-shell mobile-shell" data-mobile-route={effectiveRoute.kind} data-mobile-panel={selectedPanel} data-mobile-rightbar={rightbarState.shown} data-drawer-present={drawerState.shown}>
+    <main className="main-window-shell mobile-shell" data-mobile-route={effectiveRoute.kind} data-mobile-panel={selectedPanel} data-mobile-rightbar={rightbarState.shown} data-drawer-present={drawerOpen}>
       <section ref={pageRef} className={`mobile-page-seat${selectedPanel === 'conversation' ? ' mobile-workspace-page' : ''}`} inert={searchOpen ? true : undefined} aria-hidden={searchOpen || undefined}>
         <Suspense fallback={isRootTab ? <MobileHeader title={localizeUiCopy(ROOT_TABS, tUi).find(([id]) => id === selectedPanel)?.[1]} /> : null}>{props.nativeFrame}</Suspense>
       </section>
-      {isRootTab && <nav className="mobile-bottom-nav" aria-label={tUi("主导航")} inert={drawerState.shown || searchOpen ? true : undefined} aria-hidden={searchOpen || undefined} style={searchOpen ? { visibility: 'hidden' } : undefined}>
+      {isRootTab && <nav className="mobile-bottom-nav" aria-label={tUi("主导航")} inert={drawerOpen || searchOpen ? true : undefined} aria-hidden={searchOpen || undefined} style={searchOpen ? { visibility: 'hidden' } : undefined}>
         {localizeUiCopy(ROOT_TABS, tUi).map(([id, label]) => <button key={id} type="button" aria-label={label} disabled={routeBusy} aria-current={selectedPanel === id ? 'page' : undefined} className={id === 'creatorStudio' ? 'mobile-create-tab' : ''} onClick={() => selectPanel(id)}>
           {id === 'creatorStudio' ? <span className="mobile-create-mark"><StarFour size={15} weight="fill" /></span> : <span>{label}</span>}
         </button>)}

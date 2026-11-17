@@ -99,7 +99,7 @@
 .mobile-drawer .rail-expanded-header > strong { min-width: 0; font-size: 20px; font-weight: 600; }
 .mobile-drawer .rail-expanded-header > button { display: grid; place-items: center; width: 40px; min-height: 40px; margin-left: auto; padding: 0; border: 0; border-radius: 10px; background: transparent; flex: none; }
 .mobile-drawer .rail-nav-group { display: flex; flex-direction: column; gap: 4px; }
-.mobile-drawer .rail-nav-button { display: flex; align-items: center; width: 100%; height: 48px; min-height: 48px; padding: 0 12px 0 50px; border: 0; background: transparent; text-align: left; }
+.mobile-drawer .rail-nav-button { display: flex; align-items: center; justify-content: flex-start; width: 100%; height: 48px; min-height: 48px; padding: 0 12px 0 50px; border: 0; background: transparent; text-align: left; }
 .mobile-drawer .rail-nav-button[data-plugin-entry-more] { padding: 0 12px 0 50px; }
 .mobile-drawer .rail-icon-layer { left: 12px; right: auto; width: 24px; }
 .mobile-drawer .rail-navigation-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
@@ -140,6 +140,7 @@
 @media (hover: hover) { .mobile-message-row:hover .mobile-message-menu { opacity: 1; pointer-events: auto; } }
 .mobile-character-list { padding: 0 4px; scrollbar-gutter: stable; }
 .mobile-character-grid { --masonry-card-gap: 4px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; column-gap: 4px; padding: 0 0 22px; }
+@container (min-width: 600px) { .mobile-character-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); } }
 .mobile-character-card { position: relative; display: block; width: 100%; padding: 0; margin: 0; border: none; border-radius: 5px; overflow: hidden; text-align: left; background: var(--surface-raised); }
 .mobile-character-cover { display: block; width: 100%; height: auto; object-fit: cover; aspect-ratio: var(--mobile-cover-ratio, auto); }
 .mobile-character-card .mobile-character-cover { height: auto; aspect-ratio: var(--mobile-cover-ratio); }
@@ -156,7 +157,7 @@
 .mobile-selection-bar button, .mobile-selection-bar select { border: 0; background: transparent; padding: 0 12px; color: var(--text); }
 .mobile-inline-error { margin: 8px 18px; color: var(--text); font-size: 13px; }
 .mobile-model-list h2 { margin: 0; }
-.mobile-shell .mobile-model-group { display: flex; align-items: center; gap: 7px; width: 100%; min-height: 48px; padding: 0 18px 0 17px; border: 0; background: transparent; text-align: left; font-size: 16px; font-weight: 400; color: var(--muted); }
+.mobile-shell .mobile-model-group { display: flex; align-items: center; justify-content: flex-start; gap: 7px; width: 100%; min-height: 48px; padding: 0 18px 0 17px; border: 0; background: transparent; text-align: left; font-size: 16px; font-weight: 400; color: var(--muted); }
 .mobile-chevron { flex: none; color: var(--soft-text); }
 .mobile-model-group[aria-expanded="true"] .mobile-chevron { transform: rotate(90deg); }
 .mobile-provider-row { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 68px; padding: 0 15px 0 22px; border: 0; background: transparent; text-align: left; }
@@ -295,7 +296,6 @@
 .mobile-conversation-page .generation-stats-line { flex-wrap: nowrap; gap: 6px; padding: 2px 0 0; font-size: 11px; }
 .mobile-conversation-page .generation-stat-anchor { flex: 1; min-width: 0; }
 .mobile-conversation-page .generation-stat-pill { height: 24px; min-height: 24px; padding: 2px 4px; gap: 4px; }
-.mobile-conversation-page [data-conversation-scroll] [data-chat-to-bottom] { padding-right: 16px; bottom: calc(var(--dsh-composer-height, 116px) + 8px); }
 .mobile-conversation-page [data-chat-to-bottom] button { width: 34px; height: 34px; min-width: 34px; min-height: 34px; margin-top: -34px; border-radius: 50%; corner-shape: round; }
 .mobile-shell .app-settings-content { flex: 1; min-width: 0; min-height: 0; margin: 0; overflow: auto; padding: 18px; }
 .mobile-shell[data-mobile-panel="plugins"] { --mobile-content-bg: var(--chat); --mobile-header-bg: var(--chat); }
