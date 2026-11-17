@@ -1,5 +1,19 @@
 # 测试与日常验证
 
+AI 工具设计及验收约束见 [工具设计与错误恢复规范](AI_TOOL_DESIGN.md)。`creator-studio-runtime.test.js` 覆盖默认 Schema／显式摘要、只读空参、必填／错误类型／遗漏写参，以及真实 Agent 循环中的错误后恢复。混合参数被拒后，下一请求必须收到原错误、准确合同与可用调用，再完成合成角色创建、设定保存和冷恢复；原角色及已保存的长正文须完全保持，显式 ID 不要求先绑定。三个协议适配器通过本地 HTTP 检查恢复合同没有在序列化时丢失，不调用外部服务商；固定响应不代表真实模型成功率。`tool-result-recovery.test.js` 同时覆盖正式 Host 输出策略、保存预设恢复、万条结果及会话权限。相关检查证据见 build/creator-tool-contract-check。
+
+`avatar-crop-encoding.test.jsx` 除成功、取消、退出和能力缺失路径外，直接加载正式裁剪 Worker，在无 2D 上下文时核对失败码、诊断与详情经过结构化克隆后完整到达页面，错误可见、无保存及两侧资源释放。浏览器像素回归先打包正式编码器和 Worker 及其共享失败合同，再核对六组图像的尺寸、透明、像素与 PNG 全字节一致。`local-media-thumbnails.test.ts` 继续核对坏缓存删除后重建、原图保持、动画和方向、并发复用及清理；缓存读失败的明确尽力处理不代替后续重建。
+
+`creator-studio-user-edit.test.jsx` 直接装配正式 UserMessageNodeView 和产品动作，核对原复制后的修改、完整正文／序号、取消／失败重试、空白／重复写入、生成及跨 Session 状态，steering 和非用户输入没有入口。`dsh-client-creator-studio.test.ts` 验证原 SlotCore 桥仅注册工作室用户动作、Remote 参数和原地历史重载；Host 的 `creator-studio-message-edit.test.js` 使用真实 JSONL 编辑并冷恢复，逐项保留原事件、附件及会话设置，明确断言官方恢复追加的单个 session/end-seed，拒绝 AI、缺失、空及生成中修改。build/studio-user-message-edit-check 保存正式运行 bundle 的手机／平板／PC 深浅六组浏览器结果；它使用合成写回，不能冒充真实客户端或 Android 真机验收。受管 ui-chat 新增用户动作座位的源码／bundle／声明一致，清理条件维护在调用旁及 pnpm-workspace.yaml。
+
+`workspace-session-visibility.test.ts` 的创建插件导航必须经过真实 Cordis 父插件及子级布局提供者，保留父级直接 ctx.layout 因未 inject 而失败的对照，再使用锁定官方 LayoutController／Store 核对三处菜单把实际 main key 切到 creatorStudio；不能仅用普通对象 layout 和调用计数证明运行可跳转。用户离开后迟到准备完成不得重新导航。build/create-plugin-navigation-check 另保存正式菜单、官方 Frame 及两端正式工作室页面的两主题四组浏览器可见性核对，准备中与准备后均保持目标页；会话数据合成，不代表已安装包或真机验收。
+
+`mobile-library.test.jsx` 覆盖安卓角色详情的单个导出 PNG／ZIP、实际目标 ID、失败重试、取消不误报、请求中不重复执行、删除确认／取消／失败／成功、离开后迟到结果不导航，以及缺失角色与返回关闭菜单。合成删除夹具实际更新目录，核对成功只删除目标并返回列表。build/mobile-character-profile-actions-check 保存正式详情页及原菜单／确认弹窗在两主题、窄手机／手机／平板／横屏八组触摸浏览器证据；导出回执为合成数据，不代替真实文件、系统保存或安卓真机验收。
+
+`native-script-ui.test.jsx` 覆盖精简作者面板仍保留可访问标题、按原身份挂载及相对资源、忽略无关 frame 通知、加载错误／重试、更多菜单重载与逐次释放；宿主不再绘制重复标题或常驻底栏。`mobile-preset-library.test.jsx` 检查与角色共用的顶部批选栏、空圈／勾选与实际数量、全选、格式、取消和失败项重试；原默认预设保护由 `mobile-library.test.jsx` 保留。正式组件浏览器证据位于 build/script-panel-design 及 build/preset-export-selection-check，包含两主题／三类视口、101 个导出 ID 的完整集合与格式；合成下载记录不代替系统文件保存或真机验收。
+
+`mobile-dialog-scroll-preview.mjs --serve` 装配正式模型选择、问题报告、设定库并入、版本管理、确认、错误、作者确认、绘图选择和移动聊天浮层，注入合成目录及诊断数据。对该页运行 `mobile-dialog-scroll.probe.js`，浏览器通过 CDP 下发真实 touchStart／touchMove／touchEnd，从正文和按钮中间向两个方向滑动；手机、平板及短屏覆盖并入列表末尾与外层滚动，同时保留搜索末项、选择、删除与关闭检查。原模型列表样式作为负向对照，不能用设置 scrollTop 或鼠标滚轮代替触摸可用性。证据写入 build/mobile-dialog-scroll-check；不是安卓安装包或真机验收。
+
 2026-11-17 角色瀑布流按需挂载：`character-masonry.test.js` 使用正式 PC CharacterManager／手机 MobileCharactersPage 和 10001 张含长短标题、缺封面的合成卡片，覆盖手机 390／768px、PC 900／1440／1900px、两主题、首中末、末尾编辑／复制、进入详情返回、滚回顶部及实时改列。每阶段核对实际挂载数、重叠和横向溢出，检查返回锚点几何，截图须等实际绘制后检查；不把图片 lazy 当作卡片虚拟化。`masonryGeometry.js` 只为无布局引擎的 jsdom 提供有界视口与观察器，原作者、排序、分组、勾选、删除／导出错误和取消断言保留。手机 101 张逐项选择和全选检查改为沿滚动取到目标卡，核对已选数量及完整 101 个 ID 交给原导出服务，不要求屏幕外节点全部挂载。`avatar-loading.test.jsx` 增加按封面长边和 1／2／3 倍密度选择、超出预览规格回到原图；原本地媒体检查补大尺寸派生图重开及全部尺寸删除。证据 build/character-masonry-check；合成浏览器检查不是安装包或安卓真机验收。
 
 2026-11-17 安卓封面裁剪保存：用户打开实际开发版并点击裁剪弹窗保存，ADB 记录页面 PNG `toBlob` 回调等待约 13.07 秒、随后 Data URL 读取约 14.6ms，期间尚无资料保存 Remote 请求；不能据此前的口述位置判为数据库保存慢。同图页面及页面 Offscreen 编码约 4.08／4.13 秒，独立 Worker 含转移约 140ms，PNG 1805498 字节及 SHA-256 完全相同；这是修复前的手机临时编码路径对照，不是已安装修复包验收。`avatar-crop-encoding.test.jsx` 验证正式裁剪组件绕开慢页面编码、文件输出、异常可见、退出取消、迟到位图及 Worker 启动失败释放，并保留缺少对应浏览器能力时的原编码路径。连同原头像管理及角色资料三文件 13 项通过；`avatar-crop-encoding.test.js` 在实际 Chromium Worker 比较 420 方图／900×1200 竖图、三个旋转角及透明渐变，六组像素与 PNG 全字节一致。记录 build/cover-crop-speed-check；临时编码不修改持久角色、不发送消息，手机隔离 Host 合成库及图片随探针清理。

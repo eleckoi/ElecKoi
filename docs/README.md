@@ -2,6 +2,7 @@
 
 本目录区分当前开发规范、插件教程、架构决策和历史资料。实现以仓库锁定版本的 DSH 官方源码为基准，ADR 说明决策原因，不替代当前接口合同。
 
+- [AI 工具设计与错误恢复规范](AI_TOOL_DESIGN.md)：参数发现、适度校验、可恢复错误、完整结果与任务验收。
 - [创作工具与知识分层](CREATOR_AUTHORING_DESIGN.md)：按需技能、实时参数与文档分发。
 - [角色资产创作](plugins/character-assets.md)与[角色界面创作](plugins/character-frontends.md)：资产操作、常规楼层的正则 HTML 与脚本协作，以及专用独立项目。
 

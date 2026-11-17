@@ -5,6 +5,7 @@ import { CreatorStudioConversation } from '../../../../../apps/web/src/modules/c
 import { CreatorStudioCharacterDialog } from '../../../../../apps/web/src/modules/creatorStudio/components/CreatorStudioSimplePage.jsx';
 import { FailureAlert } from '../../../../../apps/web/src/ui/ui/FailureAlert.jsx';
 export { CreatorToolCall } from '../../../../../apps/web/src/modules/creatorStudio/components/CreatorToolCall.jsx';
+export { CreatorStudioUserMessageEditAction } from '../../../../../apps/web/src/modules/creatorStudio/components/CreatorStudioUserMessageEditAction.jsx';
 
 export function CreatorStudioPage() {
   const tUi = useProductTranslation();

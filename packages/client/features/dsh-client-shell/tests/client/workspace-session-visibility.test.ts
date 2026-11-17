@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
 import { describe, expect, it, vi } from 'vitest'
+import { Context } from '@deepseek-ai/cordis'
+import type { MainPanelId } from '@deepseek-ai/dsh-client-ui-layout/client'
 import { dshClientRequire } from '../../../../../../tests/helpers/dshClientPlugin'
-import { loadOfficialLayout } from '../../../../../../tests/helpers/officialLayout.js'
+import { loadOfficialLayout, officialLayoutFixture } from '../../../../../../tests/helpers/officialLayout.js'
 
 function source<T>(initial: T) {
   let snapshot = initial
@@ -11,7 +13,7 @@ function source<T>(initial: T) {
     publish: (value: T) => { snapshot = value; listeners.forEach(listener => listener()) } }
 }
 
-function fixture(platform = 'desktop') {
+function fixture(platform = 'desktop', runtimeContext?: any) {
   const row = (id: string, projectionValues: any = {}, parentId?: string) => ({ id, projectionValues, parentId, retainedBy: {} })
   const byId = Object.fromEntries([
     row('role', { agentPreset: 'historical-preset' }), row('studio', { eleckoiCreatorStudio: { presetId: 'creator', characterId: '' } }),
@@ -42,11 +44,15 @@ function fixture(platform = 'desktop') {
     slots.register({ name, id: 'entry-customization', locale: 'entryCustomization',
       registrant: '@deepseek-ai/dsh-client-ui-entry-customization', inject: () => ({ browsePlugins }) }, () => null)
   }
-  const services: any = { sessions: { list: sessions, search: sessions.search }, workspaces: { list: registry }, eleckoiConversations: conversations, uiWorkspace, eleckoiCreatorStudio: { sessions: studio } }
+  const services: any = { layout, sessions: { list: sessions, search: sessions.search }, workspaces: { list: registry }, eleckoiConversations: conversations, uiWorkspace, eleckoiCreatorStudio: { sessions: studio } }
   const context: any = { slots, layout, locale: { bind: () => (key: string) => key }, get: (name: string) => services[name], inject: () => {},
-    reflect: { provide: () => () => {} }, extend: (values: any) => ({ ...context, ...values }),
+    reflect: { provide: () => () => {} }, extend: (values: any) => Object.assign(Object.create(context), values),
     plugin: (plugin: any) => { plugin.apply(context); return { dispose: () => {} } },
     effect: (run: any, label: string) => { if (label === 'eleckoi: native workspace sidebar library') run() },
+  }
+  if (runtimeContext) {
+    Object.defineProperty(context, 'layout', { get: () => runtimeContext.layout })
+    context.get = (name: string) => name === 'layout' ? runtimeContext.get(name) : services[name]
   }
   const official = { inject: [], apply: (ctx: any) => ctx.slots.inject('sidebar', () => ctx.slots.register({ name: 'sidebar' }, () => null)) }
   const React = { lazy: () => () => null, useEffect: (run: any) => run(),
@@ -74,6 +80,35 @@ function fixture(platform = 'desktop') {
 }
 
 describe.each(['desktop', 'android'])('%s plugin Workspace Session ownership', platform => {
+  it('navigates the real frame from a menu owned by the parent Cordis fiber without a layout inject', async () => {
+    const app = new Context()
+    const frame = officialLayoutFixture()
+    const panelInfo = { getSnapshot: () => frame.store.getSnapshot().panelInfo, subscribe: frame.store.subscribe }
+    const native = new (loadOfficialLayout().LayoutController)(frame.store.actions, (id: string) => ['messages', 'character', 'creatorStudio'].includes(id), panelInfo)
+    native.selectPanel('character' as MainPanelId)
+    let owner: any
+    const plugin = app.plugin({ name: 'synthetic-product-shell', apply(ctx: any) {
+      owner = ctx
+      ctx.plugin({ name: 'synthetic-frame-owner', apply(scope: any) { scope.provide('layout', native) } })
+    } })
+    try {
+      await vi.waitFor(() => expect(owner?.get('layout')).toBeTruthy())
+      expect(() => owner.layout).toThrow('without inject')
+      const f = fixture(platform, owner)
+      for (const region of ['sidebar.panellist.actions', 'conversation.session.header.views.actions', 'sidebar.right.tab.guide.actions']) {
+        native.selectPanel('character' as MainPanelId)
+        let complete!: () => void
+        f.studio.startWorkspace.mockImplementationOnce(() => new Promise<void>(resolve => { complete = resolve }))
+        expect(() => f.menu(region).createPlugin()).not.toThrow()
+        expect(frame.store.getSnapshot().panelInfo.activePanelId).toBe('creatorStudio')
+        native.selectPanel('messages' as MainPanelId)
+        complete()
+        await Promise.resolve()
+        expect(frame.store.getSnapshot().panelInfo.activePanelId).toBe('messages')
+      }
+      expect(f.uiWorkspace.startSession).not.toHaveBeenCalled()
+    } finally { await plugin.dispose(); native.dispose(); frame.dispose() }
+  })
   it.each([
     ['sidebar.panellist.actions', 'sidebar'],
     ['conversation.session.header.views.actions', 'conversation'],

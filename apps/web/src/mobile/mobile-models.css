@@ -99,7 +99,7 @@
 :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-header-row button:not([data-dsh-control]) { background: var(--control-bg); color: var(--muted); }
 :is(.mobile-shell, .mobile-conversation-overlay) .mobile-model-editor.mobile-root-page .model-header-row input[readonly] { color: var(--muted); }
 .mobile-model-picker-tools { display: flex; align-items: center; flex: none; gap: 8px; margin-bottom: 8px; }
-.mobile-model-picker-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.mobile-model-picker-list { flex: 1; min-height: 0; }
 .mobile-model-picker-row { display: flex; align-items: center; min-width: 0; gap: 4px; margin-bottom: 4px; }
 .mobile-model-sheet .mobile-model-choice { flex:1; min-width:0; min-height:56px; width:100%; gap:10px; text-align:left; }
 .mobile-model-choice > span { flex: 1; min-width: 0; display: grid; gap: 3px; }

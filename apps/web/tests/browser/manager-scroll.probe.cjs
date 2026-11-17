@@ -21,7 +21,7 @@ app.whenReady().then(async () => {
     await waitFor('Boolean(document.querySelector("[role=dialog]"))');
   }
   async function scroll(selector, distance) {
-    await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollBy(0, ${distance})`);
+    await evaluate(`(() => {const node=document.querySelector(${JSON.stringify(selector)}),outer=node.closest('.editor-management-content');(document.documentElement.dataset.eleckoiMobile==='true'&&outer?outer:node).scrollBy(0,${distance});})()`);
     await pause();
   }
   try {
@@ -31,21 +31,21 @@ app.whenReady().then(async () => {
       await load(width, height, query);
       await evaluate('[...document.querySelectorAll("button")].find(e=>e.textContent.trim()==="并入设定库").click()');
       await waitFor('document.querySelectorAll(".setting-library-manager-rows button").length === 41');
-      const initial = await evaluate('(() => {const body=document.querySelector(".setting-library-manager-body"),list=body.querySelector(".setting-library-manager-card");return {client:list.clientHeight,scroll:list.scrollHeight,overflow:getComputedStyle(list).overflowY,header:document.querySelector(".editor-management-content h2").getBoundingClientRect().top,footer:body.lastElementChild.getBoundingClientRect().top};})()');
+      const initial = await evaluate('(() => {const body=document.querySelector(".setting-library-manager-body"),list=body.querySelector(".setting-library-manager-card"),mobile=document.documentElement.dataset.eleckoiMobile==="true",owner=mobile?list.closest(".editor-management-content"):list;return {mobile,client:owner.clientHeight,scroll:owner.scrollHeight,overflow:getComputedStyle(owner).overflowY,header:document.querySelector(".editor-management-content h2").getBoundingClientRect().top,footer:body.lastElementChild.getBoundingClientRect().top};})()');
       await scroll('.setting-library-manager-card', 600);
-      const moved = await evaluate('document.querySelector(".setting-library-manager-card").scrollTop');
+      const moved = await evaluate('(document.documentElement.dataset.eleckoiMobile==="true"?document.querySelector(".editor-management-content"):document.querySelector(".setting-library-manager-card")).scrollTop');
       await scroll('.setting-library-manager-card', 4000);
-      const final = await evaluate('(() => { const list=document.querySelector(".setting-library-manager-card"),last=list.querySelector("button:last-child").getBoundingClientRect(),r=list.getBoundingClientRect();return {bottomVisible:last.top>=r.top&&last.bottom<=r.bottom,header:document.querySelector(".editor-management-content h2").getBoundingClientRect().top,footer:list.parentElement.lastElementChild.getBoundingClientRect().top,bodyTop:list.parentElement.scrollTop}; })()');
+      const final = await evaluate('(() => { const list=document.querySelector(".setting-library-manager-card"),last=list.querySelector("button:last-child").getBoundingClientRect(),r=(document.documentElement.dataset.eleckoiMobile==="true"?list.closest(".editor-management-content"):list).getBoundingClientRect();return {bottomVisible:last.top>=r.top&&last.bottom<=r.bottom,header:document.querySelector(".editor-management-content h2").getBoundingClientRect().top,footer:list.parentElement.lastElementChild.getBoundingClientRect().top,bodyTop:list.parentElement.scrollTop}; })()');
       await evaluate('document.querySelector(".setting-library-manager-rows button:last-child").click()');
       await waitFor('Boolean(document.querySelector(".setting-library-picker-list"))');
       await scroll('.setting-library-picker-list', 4000);
-      const picker = await evaluate('(() => {const list=document.querySelector(".setting-library-picker-list"),r=list.getBoundingClientRect(),last=list.lastElementChild.getBoundingClientRect();return {top:list.scrollTop,lastVisible:last.top>=r.top&&last.bottom<=r.bottom};})()');
+      const picker = await evaluate('(() => {const list=document.querySelector(".setting-library-picker-list"),owner=document.documentElement.dataset.eleckoiMobile==="true"?list.closest(".editor-management-content"):list,r=owner.getBoundingClientRect(),last=list.lastElementChild.getBoundingClientRect();return {top:owner.scrollTop,lastVisible:last.top>=r.top&&last.bottom<=r.bottom};})()');
       reports.push({ kind: 'sources', width, height, initial, moved, final, picker });
     }
     for (const mode of ['setting', 'variable']) {
       await load(360, 380, mode === 'variable' ? '?mode=variable' : '');
       await scroll('.editor-management-content > :last-child', 1500);
-      reports.push(await evaluate(`(() => { const body=document.querySelector('.editor-management-content > :last-child'),cards=[...body.querySelectorAll('.editor-management-action')],last=cards.at(-1).getBoundingClientRect(),r=body.getBoundingClientRect();return {kind:'home',mode:'${mode}',top:body.scrollTop,noClippedCards:cards.every(e=>e.scrollHeight<=e.clientHeight),lastVisible:last.top>=r.top&&last.bottom<=r.bottom}; })()`));
+      reports.push(await evaluate(`(() => { const body=document.querySelector('.editor-management-content'),cards=[...body.querySelectorAll('.editor-management-action')],last=cards.at(-1).getBoundingClientRect(),r=body.getBoundingClientRect();return {kind:'home',mode:'${mode}',top:body.scrollTop,noClippedCards:cards.every(e=>e.scrollHeight<=e.clientHeight),lastVisible:last.top>=r.top&&last.bottom<=r.bottom}; })()`));
     }
     writeFileSync(reportPath, JSON.stringify(reports));
     win.destroy(); app.exit(0);

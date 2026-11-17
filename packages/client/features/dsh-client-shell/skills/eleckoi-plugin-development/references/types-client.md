@@ -444,7 +444,7 @@ export interface CreatorStudioConversationSnapshot {
 }
 ```
 
-源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:15](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L15)
+源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:16](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L16)
 
 ## CreatorStudioSessions
 
@@ -466,12 +466,13 @@ export interface CreatorStudioSessions {
     messages(): Promise<CreatorStudioMessage[]>;
     regenerate(): Promise<void>;
     deleteMessagesFrom(eventSeq: number, role: 'user' | 'assistant'): Promise<void>;
+    editUserMessage(eventSeq: number, content: string): Promise<void>;
     selectCharacter(characterId: string): Promise<CreatorStudioSession>;
     release(): void;
 }
 ```
 
-源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:24](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L24)
+源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:25](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L25)
 
 ## CreatorStudioSnapshot
 
@@ -483,7 +484,7 @@ export interface CreatorStudioSnapshot {
 }
 ```
 
-源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:53](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L53)
+源码：[packages/client/features/dsh-client-creator-studio/src/client/types.ts:56](../../packages/client/features/dsh-client-creator-studio/src/client/types.ts#L56)
 
 ## EditorLibraryVersionModel
 

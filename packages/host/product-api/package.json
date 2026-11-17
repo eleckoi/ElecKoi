@@ -521,6 +521,7 @@
           "delete",
           "messages",
           "deleteMessagesFrom",
+          "editUserMessage",
           "regenerate"
         ],
         "owner": "eleckoiCreatorStudioSessions"

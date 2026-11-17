@@ -2656,6 +2656,16 @@ export class ElecKoiCreatorStudioSessionsApi extends TypertRemoteService {
   deleteMessagesFrom(sessionId: string, eventSeq: number, role: 'user' | 'assistant'): Promise<void> { return this.runtime.deleteMessagesFrom(sessionId, eventSeq, role) }
 
   /**
+   * 原位修改工作室用户消息，保留附件和后续事件，不自动发送。
+   * @param sessionId - 工作室会话编号。
+   * @param eventSeq - 用户消息的正式事件序号。
+   * @param content - 修改后的完整正文。
+   * @returns 保存及会话恢复完成。
+   */
+  @Remote
+  editUserMessage(sessionId: string, eventSeq: number, content: string): Promise<void> { return this.runtime.editUserMessage(sessionId, eventSeq, content) }
+
+  /**
    * 保留最近的用户输入并重新生成回复。
    * @param sessionId - 工作室会话编号。
    * @returns 重新生成已启动。

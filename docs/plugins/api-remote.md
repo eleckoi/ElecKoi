@@ -14,7 +14,7 @@
 - `ctx.remote.eleckoiConversationModels`：`current`、`parameters`、`saveParameters`、`select`
 - `ctx.remote.eleckoiConversations`：`authorState`、`changes`、`create`、`delete`、`deleteMessagesFrom`、`details`、`editMessage`、`exportArchive`、`fork`、`importArchive`、`list`、`preparePrompt`、`projectDisplay`、`readGeneratedImage`、`regenerateImage`、`regenerateMessage`、`rename`、`replaceVariableState`、`requestPreview`、`requestPreviews`、`revealFile`、`selectOpening`、`selectVariableVersion`、`startRegeneration`、`updateOpening`、`variableConfiguration`、`variableTimeline`、`waitForGeneration`
 - `ctx.remote.eleckoiCreatorStudio`：`changes`、`create`、`delete`、`list`
-- `ctx.remote.eleckoiCreatorStudioSessions`：`create`、`delete`、`deleteMessagesFrom`、`list`、`messages`、`open`、`pin`、`regenerate`、`rename`、`selectCharacter`
+- `ctx.remote.eleckoiCreatorStudioSessions`：`create`、`delete`、`deleteMessagesFrom`、`editUserMessage`、`list`、`messages`、`open`、`pin`、`regenerate`、`rename`、`selectCharacter`
 - `ctx.remote.eleckoiDisplayPreferences`：`read`、`setChatDisplay`、`updateUi`
 - `ctx.remote.eleckoiModels`：`discoverModels`、`revealApiKey`
 - `ctx.remote.eleckoiPersona`：`changes`、`read`、`save`
@@ -188,6 +188,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     create: (characterId: string, workspaceId?: string) => Promise<RemoteResult<CreatorStudioSession>>
     delete: (sessionId: string) => Promise<RemoteResult<void>>
     deleteMessagesFrom: (sessionId: string, eventSeq: number, role: 'user' | 'assistant') => Promise<RemoteResult<void>>
+    editUserMessage: (sessionId: string, eventSeq: number, content: string) => Promise<RemoteResult<void>>
     list: () => Promise<RemoteResult<CreatorStudioSessionSummary[]>>
     messages: (sessionId: string) => Promise<RemoteResult<CreatorStudioMessage[]>>
     open: (sessionId: string) => Promise<RemoteResult<CreatorStudioSession>>
@@ -355,6 +356,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'eleckoiCreatorStudioSessions/create': (characterId: string, workspaceId?: string) => Promise<RemoteResult<CreatorStudioSession>>
     'eleckoiCreatorStudioSessions/delete': (sessionId: string) => Promise<RemoteResult<void>>
     'eleckoiCreatorStudioSessions/deleteMessagesFrom': (sessionId: string, eventSeq: number, role: 'user' | 'assistant') => Promise<RemoteResult<void>>
+    'eleckoiCreatorStudioSessions/editUserMessage': (sessionId: string, eventSeq: number, content: string) => Promise<RemoteResult<void>>
     'eleckoiCreatorStudioSessions/list': () => Promise<RemoteResult<CreatorStudioSessionSummary[]>>
     'eleckoiCreatorStudioSessions/messages': (sessionId: string) => Promise<RemoteResult<CreatorStudioMessage[]>>
     'eleckoiCreatorStudioSessions/open': (sessionId: string) => Promise<RemoteResult<CreatorStudioSession>>
@@ -532,6 +534,7 @@ export declare const TYPERT_REMOTE: TypertRemoteInfo<{
   readonly 'eleckoiCreatorStudioSessions/create': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'workspaceId'?: string }, CreatorStudioSession>
   readonly 'eleckoiCreatorStudioSessions/delete': TypertRemoteMethod<{ readonly 'sessionId': string }, void>
   readonly 'eleckoiCreatorStudioSessions/deleteMessagesFrom': TypertRemoteMethod<{ readonly 'sessionId': string; readonly 'eventSeq': number; readonly 'role': 'user' | 'assistant' }, void>
+  readonly 'eleckoiCreatorStudioSessions/editUserMessage': TypertRemoteMethod<{ readonly 'sessionId': string; readonly 'eventSeq': number; readonly 'content': string }, void>
   readonly 'eleckoiCreatorStudioSessions/list': TypertRemoteMethod<{  }, CreatorStudioSessionSummary[]>
   readonly 'eleckoiCreatorStudioSessions/messages': TypertRemoteMethod<{ readonly 'sessionId': string }, CreatorStudioMessage[]>
   readonly 'eleckoiCreatorStudioSessions/open': TypertRemoteMethod<{ readonly 'sessionId': string }, CreatorStudioSession>

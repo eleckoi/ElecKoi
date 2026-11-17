@@ -136,7 +136,7 @@ window.__ModuleLoader__.load({
         const list = sessions?.list.getSnapshot() ?? emptyList
         const registry = workspaces?.list.getSnapshot() ?? emptyRegistry
         const catalog = conversations?.getSnapshot()
-        const panel = ctx.layout.panelInfo?.getSnapshot()
+        const panel = ctx.get('layout').panelInfo?.getSnapshot()
         const studioOnly = panel?.activePanelId === 'creatorStudio'
         if (snapshot && list === previousList && registry === previousRegistry && catalog === previousCatalog && studioOnly === previousStudioOnly) return snapshot
         previousList = list; previousRegistry = registry; previousCatalog = catalog
@@ -177,7 +177,7 @@ window.__ModuleLoader__.load({
         return snapshot
       }
       const subscribe = listener => {
-        const stops = [sessions?.list.subscribe(listener), workspaces?.list.subscribe(listener), conversations?.subscribe(listener), ctx.layout.panelInfo?.subscribe(listener)]
+        const stops = [sessions?.list.subscribe(listener), workspaces?.list.subscribe(listener), conversations?.subscribe(listener), ctx.get('layout').panelInfo?.subscribe(listener)]
         return () => { for (const stop of stops) stop?.() }
       }
       const assertVisible = id => {
@@ -194,11 +194,11 @@ window.__ModuleLoader__.load({
           const row = sessions.list.getSnapshot().byId[id]
           const values = row.projectionValues ?? sessions.list.getSnapshot().projectionsBySession[id]?.values
           if (values?.eleckoiCreatorStudio || values?.agentPreset === 'eleckoi-creator-active') {
-            void ctx.get('eleckoiCreatorStudio').sessions.open(id).then(() => ctx.layout.selectPanel('creatorStudio')).catch(failureAlreadyPublished)
+            void ctx.get('eleckoiCreatorStudio').sessions.open(id).then(() => ctx.get('layout').selectPanel('creatorStudio')).catch(failureAlreadyPublished)
           } else ctx.get('uiWorkspace').openSession(id)
         },
         startSession: (workspaceId, options) => {
-          void ctx.get('eleckoiCreatorStudio').sessions.startWorkspace(workspaceId, options).then(() => ctx.layout.selectPanel('creatorStudio')).catch(failureAlreadyPublished)
+          void ctx.get('eleckoiCreatorStudio').sessions.startWorkspace(workspaceId, options).then(() => ctx.get('layout').selectPanel('creatorStudio')).catch(failureAlreadyPublished)
         },
         searchSessions: async (query, signal) => {
           const result = unwrapOrFail(await sessions.search(query, signal), '工作区搜索失败。')
@@ -225,14 +225,14 @@ window.__ModuleLoader__.load({
             }
           } : options, options.name === 'sidebar' ? props => {
               const scopedSessions = props.useEleckoiWorkspaceSessions?.(value => value)
-              const panel = ctx.layout.panelInfo?.getSnapshot()
+              const panel = ctx.get('layout').panelInfo?.getSnapshot()
               const openingStudio = ['creatorStudio', 'schedules'].includes(panel?.activePanelId)
               const protectedCurrent = props.useSessions?.(value => {
                 const current = Object.values(value.byId).filter(row => (row.retainedBy?.mainView ?? 0) > 0)
                 const protectedIds = visibility.getSnapshot().protectedIds
                 return panel?.activePanelId === null && !openingStudio && current.length > 0 && current.every(row => protectedIds.has(row.id))
               })
-              React.useEffect(() => { if (protectedCurrent) ctx.layout.selectPanel('messages') }, [protectedCurrent, scopedSessions])
+              React.useEffect(() => { if (protectedCurrent) ctx.get('layout').selectPanel('messages') }, [protectedCurrent, scopedSessions])
               const productSlot = (key, owner, renderOptions) => {
                 if (key === 'sidebar.panellist') return props.renderFactorySlot('sidebar.panel.icon', {
                   ...owner, id: renderOptions.only
@@ -896,7 +896,10 @@ window.__ModuleLoader__.load({
                 const area = region.startsWith('conversation') ? 'conversation' : region.startsWith('sidebar.right') ? 'rightbar' : 'sidebar'
                 const prompt = ctx.locale.bind('entryCustomization')(`createPrompt.${area}`)
                 const opening = ctx.get('eleckoiCreatorStudio').sessions.startWorkspace(undefined, { prompt, whenDraftExists: 'append' })
-                ctx.layout.selectPanel('creatorStudio')
+                // The shell's child plugin provides layout; the parent cannot
+                // read ctx.layout without inject. Resolve that owned service
+                // through Cordis instead of adding a circular shell dependency.
+                ctx.get('layout').selectPanel('creatorStudio')
                 void opening.catch(failureAlreadyPublished)
               } }) }, source.component)
           }

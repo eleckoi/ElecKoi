@@ -4,7 +4,7 @@
 
 本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.2-rc.3`，提交 `38a6a5c965aa99ab525161efb7cc5cf1fe62fced`。
 
-当前共 **17 个 bundle、111 个开发接口**：62 个界面插槽、21 个服务、0 个事件、6 个贡献点、22 个 Remote 合同。
+当前共 **17 个 bundle、112 个开发接口**：63 个界面插槽、21 个服务、0 个事件、6 个贡献点、22 个 Remote 合同。
 
 接口标题和说明用于插件中心展示；真实调用合同以对应类型导出和实现为准。完整参数、返回值和数据字段见 [Client 参考](api-client.md)、[Host 参考](api-host.md) 与 [Remote 调用声明](api-remote.md)。使用方法见 [界面插槽](ui-slots.md)、[服务接口](services.md) 与 [能力贡献](contributions.md)。
 
@@ -15,7 +15,7 @@
 | `@eleckoi/dsh-client-characters` | 11 | 1 | 0 | 0 | 0 | 12 |
 | `@eleckoi/dsh-client-character-configuration` | 0 | 6 | 0 | 0 | 0 | 6 |
 | `@eleckoi/dsh-client-conversations` | 1 | 1 | 0 | 0 | 0 | 2 |
-| `@eleckoi/dsh-client-creator-studio` | 1 | 1 | 0 | 0 | 0 | 2 |
+| `@eleckoi/dsh-client-creator-studio` | 2 | 1 | 0 | 0 | 0 | 3 |
 | `@eleckoi/dsh-client-display-preferences` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-models` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-persona` | 1 | 1 | 0 | 0 | 0 | 2 |
@@ -86,6 +86,7 @@
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `eleckoiCreatorStudio` | 创作项目服务 | 服务 | 提供 | `call` | `client` | 读取、创建、删除创作项目并订阅项目列表变化。 | `getSnapshot`、`subscribe`、`refresh`、`create`、`delete`、`selectDirectory` |
+| `eleckoi.creator-studio.chat.user-actions` | 创作工作室用户消息操作 | 界面插槽 | 提供 | `extend` | `session` | 在用户消息复制按钮后补充操作，owner 携带正式用户消息和事件位置。 | — |
 | `eleckoi.creator-studio.model.label` | 创作工作室模型标签 | 界面插槽 | 提供 | `replace` | `session` | 在工作室模型入口、当前模型及选项中复用官方模型名称与标签扩展。 | — |
 
 ## `@eleckoi/dsh-client-display-preferences`
@@ -270,7 +271,7 @@ ElecKoi 产品能力的 DSH Host Remote 接口。
 | `eleckoiRequestPreviewsRemote` | 运行期间请求目录 | Remote 合同 | 提供 | `listen` | `host` | 订阅本次 Host 运行期间实际发起的请求；目录不含请求正文，关闭后不恢复。 | `requestPreviews` |
 | `eleckoiWebSearchRemote` | 联网搜索配置 | Remote 合同 | 提供 | `call` | `host` | 通过 DSH Host 选择官方搜索与网页抓取提供商，测试 Tavily；DeepSeek 配置由官方插件页面管理。 | `selection`、`select`、`testTavily`、`fetchSelection`、`selectFetch` |
 | `eleckoiModelsRemote` | 模型目录与密钥 | Remote 合同 | 提供 | `call` | `host` | 读取官方模型目录和用户主动查看的密钥，不创建聊天或 Session。 | `discoverModels`、`revealApiKey` |
-| `eleckoiCreatorStudioSessionsRemote` | AI 创作工作室会话 | Remote 合同 | 提供 | `call` | `host` | 通过正式 DSH 会话创建、恢复工作室对话并选择角色编辑目标。 | `list`、`create`、`open`、`selectCharacter`、`rename`、`pin`、`delete`、`messages`、`deleteMessagesFrom`、`regenerate` |
+| `eleckoiCreatorStudioSessionsRemote` | AI 创作工作室会话 | Remote 合同 | 提供 | `call` | `host` | 通过正式 DSH 会话创建、恢复工作室对话并选择角色编辑目标。 | `list`、`create`、`open`、`selectCharacter`、`rename`、`pin`、`delete`、`messages`、`deleteMessagesFrom`、`editUserMessage`、`regenerate` |
 
 ## `@eleckoi/dsh-runtime`
 

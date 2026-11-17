@@ -18,9 +18,9 @@ export function EditorVersionManager({ title, versions, activeVersionId, scopes,
   return <>
     <EditorManagementModal title={title} onClose={onClose}>
       <div className="editor-management-fields">
-        {scopes?.length > 1 ? <label>{tUi("归属")}<EditorSelect label={tUi("归属")} value={scope} disabled={busy}
+        {scopes?.length > 1 ? <label>{tUi("归属")}<EditorSelect menu label={tUi("归属")} value={scope} disabled={busy}
           onChange={value => { setDialog(''); onScopeChange(value); }} options={scopes.map(item => ({ value: item.id, label: item.label }))} /></label> : null}
-        <label>{tUi("当前版本")}<EditorSelect label={tUi("当前版本")} value={activeVersionId} disabled={busy} onChange={onSelect}
+        <label>{tUi("当前版本")}<EditorSelect menu label={tUi("当前版本")} value={activeVersionId} disabled={busy} onChange={onSelect}
           options={[...(!activeVersionId ? [{ value: '', label: tUi("未选择版本") }] : []),
             ...versions.map(version => ({ value: version.id, label: version.name.trim() || tUi("待命名") }))]} /></label>
       </div>

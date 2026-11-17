@@ -127,6 +127,122 @@ async function* text(text) {
 }
 
 describe('AI creator studio official Agent integration', { timeout: 30_000 }, () => {
+  it('returns usable operation schemas on the first group lookup and keeps explicit summaries available', async () => {
+    const f = await fixture(async function* () { yield* text('Synthetic completion') })
+    const describe = async args => {
+      const result = await executeToolCall(f.handle.agent.ctx.tools, { callId: 'synthetic-discovery-contract', name: 'eleckoi_describe_toolset',
+        arguments: args, agent: f.handle.agent, signal: new AbortController().signal })
+      expect(result.isError, JSON.stringify(result)).toBe(false)
+      return JSON.parse(result.content[0].text)
+    }
+    const preset = await describe({ toolset_id: 'presetPrompts' })
+    expect(preset.operations.map(item => item.id)).toEqual(['presetPrompts.glob', 'presetPrompts.grep', 'presetPrompts.read'])
+    expect(preset.operations.every(item => item.inputSchema.type === 'object')).toBe(true)
+    expect(preset.operations.find(item => item.id === 'presetPrompts.read').inputSchema.required).toContain('paths')
+    expect(preset.operations.find(item => item.id === 'presetPrompts.glob').call_example).toEqual({ capability_id: 'presetPrompts.glob', arguments: {} })
+    expect(preset.call_contract.result_read.exclusive_fields).toEqual(['result'])
+    const creation = await describe({ toolset_id: 'character', operation_ids: ['character.create'] })
+    expect(creation.operations).toHaveLength(1)
+    expect(creation.operations[0].inputSchema.required).toContain('name')
+    expect(creation.operations[0]).not.toHaveProperty('call_example')
+    expect((await describe({ toolset_id: 'character', include_schema: false })).operations.every(item => !('inputSchema' in item))).toBe(true)
+    expect((await describe({ toolset_id: 'presetPrompts', include_schema: true })).operations.every(item => item.inputSchema)).toBe(true)
+  })
+
+  it('allows omitted empty read arguments while rejecting required read fields, nulls and omitted write arguments', async () => {
+    const f = await fixture(async function* () { yield* text('Synthetic completion') })
+    const execute = args => executeToolCall(f.handle.agent.ctx.tools, { callId: 'synthetic-empty-read-contract', name: 'eleckoi_call_capability',
+      arguments: args, agent: f.handle.agent, signal: new AbortController().signal })
+    f.handle.agent.session.append(CREATOR_STUDIO_EVENT, { presetId: 'agent-preset-creator', characterId: '' }, { ignorable: true })
+    const before = f.ctx.eleckoiProductData.readCharacters()
+    const listed = await execute({ capability_id: 'character.list' })
+    expect(listed.isError, JSON.stringify(listed)).toBe(false)
+    expect(JSON.parse(listed.content[0].text).value.items.map(item => item.id)).toContain(f.character.id)
+    expect(JSON.parse((await execute({ capability_id: 'character.read', character_id: f.character.id })).content[0].text).value.id).toBe(f.character.id)
+    expect(f.ctx.sessionProjections.stateOf(f.handle.agent.session, creatorStudioProjection.key).characterId).toBe('')
+    const preset = await execute({ capability_id: 'presetPrompts.glob' })
+    expect(preset.isError, JSON.stringify(preset)).toBe(false)
+    for (const args of [{ capability_id: 'presetPrompts.read' }, { capability_id: 'character.list', arguments: null },
+      { capability_id: 'character.list', arguments: [] }, { capability_id: 'character.create' }, { capability_id: 'character.create', arguments: {} }]) {
+      const result = await execute(args)
+      expect(result.isError, JSON.stringify(args)).toBe(true)
+      expect(result.content[0].text).toMatch(/^Error:/)
+      const help = JSON.parse(result.content.at(-1).text)
+      expect(help.operation.id).toBe(args.capability_id)
+      expect(help.operation.inputSchema.type).toBe('object')
+      if (args.capability_id === 'presetPrompts.read') expect(help.operation.inputSchema.required).toContain('paths')
+      if (args.capability_id === 'character.create' && args.arguments === undefined) expect(help.recovery.operation_executed).toBe(false)
+      else expect(help.recovery).not.toHaveProperty('operation_executed')
+    }
+    expect(f.ctx.eleckoiProductData.readCharacters()).toEqual(before)
+  })
+
+  it('recovers from mixed continuation arguments through the real Agent loop and completes a new character without altering the old one', async () => {
+    const createdName = '合成工具恢复角色', body = '合成工具恢复设定𠮷\n末尾保留'
+    let newId
+    const f = await fixture(async function* (request, step) {
+      const previous = step > 1 ? request.messages.findLast(message => message.role === 'tool') : undefined
+      const previousValue = step > 1 && step !== 2 ? JSON.parse(previous.content[0].text) : undefined
+      let name = 'eleckoi_call_capability', args
+      if (step === 1) args = { capability_id: 'presetPrompts.glob', character_id: 'current-preset', result: { file_path: 'synthetic-not-a-result' } }
+      else if (step === 2) {
+        expect(previous.content[0].text).toContain('续读工具结果时只传 result')
+        const help = JSON.parse(previous.content.at(-1).text)
+        expect(help.recovery).toMatchObject({ reason: 'mixed_call_forms', operation_executed: false })
+        expect(help.operation.inputSchema.type).toBe('object')
+        args = help.operation.call_example
+        expect(args).toEqual({ capability_id: 'presetPrompts.glob', arguments: {} })
+      } else if (step === 3) {
+        expect(Array.isArray(previousValue.value.files)).toBe(true)
+        expect(Array.isArray(previousValue.value.required_entries)).toBe(true)
+        name = 'eleckoi_describe_toolset'; args = { toolset_id: 'character' }
+      } else if (step === 4) {
+        const operation = previousValue.operations.find(item => item.id === 'character.create')
+        expect(operation.inputSchema.required).toContain('name')
+        args = { capability_id: operation.id, arguments: { name: createdName } }
+      } else if (step === 5) {
+        newId = previousValue.value.id
+        expect(previousValue.value.name).toBe(createdName)
+        args = { capability_id: 'settings.create', arguments: { title: '合成恢复设定', content: body } }
+      } else if (step === 6) args = { capability_id: 'character.read' }
+      else {
+        expect(previousValue.value.id).toBe(newId)
+        yield* text('Synthetic recovered creation completed'); return
+      }
+      yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+      yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: `synthetic-contract-recovery-${step}`, name, arguments: JSON.stringify(args) } }
+      yield { type: 'finish', reason: { kind: 'tool-calls' } }
+    })
+    const data = f.ctx.eleckoiProductData, initial = data.readSettingLibrary(f.character.id)
+    const original = data.saveSettingLibrary(f.character.id, { ...initial, entries: [...initial.entries,
+      { ...emptyEntry('synthetic-preserved-setting'), title: '合成原角色设定', content: '原角色长正文𠮷\n'.repeat(1001) + '原角色末尾保留' },
+    ] })
+    const before = data.readCharacters()
+    f.handle.agent.session.append(CREATOR_STUDIO_EVENT, { presetId: 'agent-preset-creator', characterId: '' }, { ignorable: true })
+    f.handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: `新建角色“${createdName}”并保存配套设定。` }], source: { kind: 'user' } }))
+    await f.handle.agent.whenIdle()
+    expect(f.requests).toHaveLength(7)
+    expect(JSON.stringify(f.requests[0].messages)).toContain('无需先绑定')
+    expect(JSON.stringify(f.requests[0].messages)).not.toContain('修改已有角色时请用户从菜单选择角色')
+    const events = f.handle.agent.session.snapshotEvents(), results = events.filter(event => event.type === 'tool/result')
+    expect(results).toHaveLength(6)
+    expect(results.filter(event => event.data.message.isError)).toHaveLength(1)
+    expect(events.filter(event => event.type === 'turn/end').at(-1).data.reason).toEqual({ kind: 'completed' })
+    expect(data.readCharacters().items).toHaveLength(before.items.length + 1)
+    expect(data.readCharacters().items.find(item => item.id === f.character.id)).toEqual(before.items.find(item => item.id === f.character.id))
+    expect(data.readSettingLibrary(f.character.id)).toEqual(original)
+    expect(data.readSettingLibrary(newId).entries.some(item => item.content === body)).toBe(true)
+    for (const api of ['deepseek_messages', 'openai-completions', 'openai-responses']) {
+      const wire = JSON.stringify(await captureSerializedRequest(api, f.requests[1]))
+      expect(wire).toContain('mixed_call_forms')
+      expect(wire).toContain('call_example')
+      expect(wire).toContain('presetPrompts.glob')
+    }
+    await f.reopen()
+    expect(f.ctx.sessionProjections.stateOf(f.handle.agent.session, creatorStudioProjection.key).characterId).toBe(newId)
+    expect(data.readSettingLibrary(newId).entries.some(item => item.content === body)).toBe(true)
+  })
+
   it('imports real workspace media in byte windows and imports an independent HTML draft without exposing source paths as references', async () => {
     const f = await fixture(async function* () { yield* text('Synthetic completion') }, true, { spill: true })
     const data = f.ctx.eleckoiProductData, path = join(f.root, 'Synthetic media.mp4'), bytes = Buffer.alloc(2 * 1024 * 1024 + 17, 123)
@@ -601,7 +717,7 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     ]) {
       const result = await execute(args)
       expect(result.isError).toBe(true)
-      expect(JSON.stringify(result)).toContain('选择角色')
+      expect(result.content[0].text).toContain('character.list')
     }
     f.handle.agent.session.append(CREATOR_STUDIO_EVENT, { presetId: 'agent-preset-creator', characterId: f.character.id }, { ignorable: true })
     data.createCharacter({ id: 'synthetic-unrelated-owner', name: 'Synthetic unrelated owner' })

@@ -2,21 +2,22 @@ import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.js
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Menu, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { buildAuthorDocumentSource } from '@eleckoi/author-sdk';
-import { ArrowClockwise } from '../../../ui/icons/interfaceIcons.jsx';
+import { ArrowClockwise, DotsThree, X } from '../../../ui/icons/interfaceIcons.jsx';
 import { resolveFailure } from '../../../utils/failureText.js';
 import '../styles/native-script-ui.css';
-import '../../../ui/styles/product-dialogs.css';
 
 /** The modal owns DOM lifetime; the injected Client service owns the exact script identity. */
 export function NativeScriptPanel({ runtime, panel }) {
   const tUi = useProductTranslation();
   const frame = useRef(null), release = useRef(null);
   const [error, setError] = useState(''), [ready, setReady] = useState(false), [reload, setReload] = useState(0);
+  const [moreOpen, setMoreOpen] = useState(false);
   const channel = useMemo(() => crypto.randomUUID(), [panel.key, reload]);
   const source = useMemo(() => buildAuthorDocumentSource(panel.html, channel, false, { baseUrl: panel.baseUrl }), [panel.html, panel.baseUrl, channel]);
   const close = () => runtime.dismissPanel(panel.key);
+  const reloadPanel = () => { setMoreOpen(false); setReload(value => value + 1); };
   useLayoutEffect(() => {
     setError(''); setReady(false);
     const receive = event => {
@@ -46,11 +47,21 @@ export function NativeScriptPanel({ runtime, panel }) {
       setError(resolveFailure(failure, { fallback: tUi("作者面板加载失败") }).text);
     }
   };
-  return <Modal open title={panel.title} closeLabel={tUi('关闭作者面板')} onClose={close}
-    className="product-dialog native-script-modal" contentClassName="product-dialog-content"
-    footer={<Button variant="outline" icon={<ArrowClockwise size={16} />} aria-label={tUi('重新加载作者面板')} onClick={() => setReload(value => value + 1)}>{tUi('重新加载')}</Button>}>
-      {error ? <p className="native-script-panel-error" role="alert">{error}</p> : <iframe key={channel} ref={frame}
+  return <Modal open headless title={panel.title} onClose={close} className="native-script-modal">
+    <div className="native-script-controls">
+      <div className="native-script-control-group">
+        <Menu portal dense open={moreOpen} onClose={() => setMoreOpen(false)} autoFocus
+          items={[{ id: 'reload', label: tUi('重新加载'), icon: <ArrowClockwise size={16} /> }]}
+          onSelect={reloadPanel} anchor={<Button variant="ghost" size="sm" aria-label={tUi('{name}的更多操作', { name: panel.title })}
+            aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen(value => !value)}><DotsThree size={20} /></Button>} />
+        <Button variant="ghost" size="sm" aria-label={tUi('关闭作者面板')} onClick={close}><X size={18} /></Button>
+      </div>
+    </div>
+    <div className="native-script-document">
+      {error ? <div className="native-script-failure"><p className="native-script-panel-error" role="alert">{error}</p>
+        <Button variant="outline" onClick={reloadPanel}>{tUi('重新加载')}</Button></div> : <iframe key={channel} ref={frame}
         className="native-script-frame" title={panel.title} name={channel} srcDoc={source} onLoad={loaded} aria-busy={!ready}
         allow="autoplay; clipboard-read; clipboard-write" />}
+    </div>
   </Modal>;
 }

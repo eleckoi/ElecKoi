@@ -4,6 +4,7 @@ import { readFile, readdir } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { resolveLocalMediaPath } from './LocalMediaStore'
 import { MEDIA_FILE_PATTERN, THUMBNAIL_DIRECTORY, removeEmptyThumbnailDirectory } from './thumbnailFiles'
+import { bestEffort } from '@shared/foundation/swallowedFailure'
 
 export const LOCAL_MEDIA_CACHE_CONTROL = 'private, max-age=31536000, immutable'
 const sizes = new Set([256, 512, 1024, 2048])
@@ -51,11 +52,11 @@ export class LocalMediaThumbnails {
       const directory = join(dirname(source), THUMBNAIL_DIRECTORY, basename(source))
       const target = join(directory, `${size}.webp`)
       if (existsSync(target)) {
-        try {
-          const metadata = await sharp(await readFile(target), { animated: true, limitInputPixels: false }).metadata()
-          if (metadata.format === 'webp' && metadata.width && metadata.width <= size
-              && (metadata.pageHeight || metadata.height || 0) <= size) return existsSync(source) ? target : undefined
-        } catch { /* A disposable corrupt derivative is regenerated from its original. */ }
+        // A failed disposable-cache read is followed by eviction and regeneration
+        // from the original below; it must not turn into a placeholder image.
+        const metadata = await readFile(target).then(bytes => sharp(bytes, { animated: true, limitInputPixels: false }).metadata()).catch(bestEffort)
+        if (metadata?.format === 'webp' && metadata.width && metadata.width <= size
+            && (metadata.pageHeight || metadata.height || 0) <= size) return existsSync(source) ? target : undefined
         rmSync(target, { force: true })
       }
       let original: Buffer

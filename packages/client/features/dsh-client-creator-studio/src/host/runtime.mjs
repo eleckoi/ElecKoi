@@ -258,6 +258,15 @@ export async function installCreatorStudioRuntime(ctx) {
         await reopenAfterMessageEdit(sessionId, inspection, state)
       })
     },
+    async editUserMessage(sessionId, eventSeq, content) {
+      const { inspection, state } = await readState(sessionId)
+      requireSessionMessage(inspection, eventSeq, 'user')
+      if (ctx.agents.get(sessionId)?.status === 'running') throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '请先停止生成再修改消息。', { what: '停止生成' })
+      await ctx.eleckoiSessionEditor.transaction(sessionId, async () => {
+        await ctx.eleckoiSessionEditor.editMessage(sessionId, eventSeq, 'user', content)
+        await reopenAfterMessageEdit(sessionId, inspection, state)
+      })
+    },
     async regenerate(sessionId) {
       const { inspection, state } = await readState(sessionId)
       const input = inspection.events.findLast(event => event.type === 'user/message' && event.surfaceOp === 'append' && event.data.source?.kind === 'user')

@@ -47,12 +47,17 @@ it('bridges the official view roster, header, plugin children and composer witho
   register({ name: 'conversation.input.right', id: 'synthetic-image-provider' }, Control)
   const removeView = register({ name: 'conversation.view', id: 'synthetic-gallery', label: '画廊', store, inject,
     children: { 'synthetic-gallery.actions': { kind: 'list', scope: 'session' },
+      'conversation.chat.node': { kind: 'keyed', scope: 'session' },
       'conversation.chat.markdown.fence': { kind: 'hoc', scope: 'session' } } })
+  register({ name: 'conversation.chat.node', key: 'user', children: { 'conversation.chat.user-actions': { kind: 'list', scope: 'session' } } })
   const removeAction = register({ name: 'synthetic-gallery.actions', id: 'synthetic-action' }, Control)
   const removeFence = register({ name: 'conversation.chat.markdown.fence', id: 'synthetic-fence', key: 'diff' }, Control)
   const removePatch = register({ name: 'conversation.chat.markdown.fence', id: 'synthetic-fence', key: 'patch' }, Control)
   await settle()
   const entry = (name: string) => slots.entriesOfSlot(name)[0]
+  expect(slots.entriesOfSlot('eleckoi.creator-studio.chat.user-actions').map((entry: any) => entry.options.id)).toEqual(['eleckoi-user-message-edit'])
+  expect(slots.entriesOfSlot('conversation.chat.user-actions')).toHaveLength(0)
+  expect(slots.spec('eleckoi.creator-studio.chat.user-actions')).toMatchObject({ kind: 'list', scope: 'session' })
   expect(entry('eleckoi.creator-studio.view')).toMatchObject({ store, inject })
   expect(entry('eleckoi.creator-studio.session.header.corner')).toMatchObject({ store, inject })
   expect(entry('eleckoi.creator-studio.input.right').options.id).toBe('synthetic-image-provider')
@@ -110,6 +115,7 @@ function studioSessions(items: Array<{ sessionId: string; title: string; pinned:
     delete: vi.fn(async (_id: string) => ({ ok: true, value: undefined })),
     regenerate: vi.fn(async (_id: string) => ({ ok: true, value: undefined })),
     deleteMessagesFrom: vi.fn(async (_id: string, _seq: number, _role: string) => ({ ok: true, value: undefined })),
+    editUserMessage: vi.fn(async (_id: string, _seq: number, _content: string) => ({ ok: true, value: undefined })),
   }
   const selectModel = vi.fn(async (selection: { sessionId: string; provider: string; model: string }) => ({ ok: true, value: { selected: selection } }))
   const draft = vi.fn(() => 'accepted')
@@ -133,6 +139,28 @@ function studioSessions(items: Array<{ sessionId: string; title: string; pinned:
 }
 
 describe('Studio Session binding and restoration', () => {
+  it('saves only the original user sequence through the current Session, reloads native history and keeps failures retryable', async () => {
+    const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
+    await f.model.open('synthetic-session')
+    const releases = [...f.releases]
+    let finish!: () => void
+    f.remote.editUserMessage.mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve({ ok: true, value: undefined }) }))
+    const saving = f.model.editUserMessage(7, '  修改正文\n末尾  ')
+    expect(f.model.getSnapshot().editingSessionId).toBe('synthetic-session')
+    await expect(f.model.editUserMessage(8, '重复点击')).rejects.toBeTruthy()
+    finish(); await saving
+    expect(f.remote.editUserMessage).toHaveBeenCalledExactlyOnceWith('synthetic-session', 7, '  修改正文\n末尾  ')
+    expect(f.reloadHistory).toHaveBeenCalledWith('synthetic-session')
+    expect(f.releases).toEqual(releases)
+    expect(f.model.getSnapshot().editingSessionId).toBe('')
+    f.remote.editUserMessage.mockResolvedValueOnce({ ok: false, error: { code: 'synthetic/write-failed', message: 'Synthetic save failure' } } as any)
+    await expect(f.model.editUserMessage(7, '保留编辑内容')).rejects.toBeTruthy()
+    expect(f.model.getSnapshot().editingSessionId).toBe('')
+    await f.model.editUserMessage(7, '重试正文')
+    expect(f.remote.editUserMessage).toHaveBeenLastCalledWith('synthetic-session', 7, '重试正文')
+    expect(f.remote.regenerate).not.toHaveBeenCalled()
+    expect(f.remote.deleteMessagesFrom).not.toHaveBeenCalled()
+  })
   it('keeps the complete Remote failure in the failed session snapshot', async () => {
     const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
     const failure = { isDSHRemoteError: true, code: 'gateway/service-unavailable',

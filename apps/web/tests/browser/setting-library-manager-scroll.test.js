@@ -24,8 +24,13 @@ it('keeps long merge lists and short-screen manager cards scrollable without cli
         expect(report.initial.scroll, JSON.stringify(report)).toBeGreaterThan(report.initial.client);
         expect(report.moved, JSON.stringify(report)).toBeGreaterThan(0);
         expect(report.final.bottomVisible, JSON.stringify(report)).toBe(true);
-        expect(report.final.header).toBe(report.initial.header);
-        expect(report.final.footer).toBe(report.initial.footer);
+        if (report.initial.mobile) {
+          expect(report.final.header).toBeLessThan(report.initial.header);
+          expect(report.final.footer).toBeLessThan(report.initial.footer);
+        } else {
+          expect(report.final.header).toBe(report.initial.header);
+          expect(report.final.footer).toBe(report.initial.footer);
+        }
         expect(report.final.bodyTop).toBe(0);
         expect(report.picker.top).toBeGreaterThan(0);
         expect(report.picker.lastVisible).toBe(true);

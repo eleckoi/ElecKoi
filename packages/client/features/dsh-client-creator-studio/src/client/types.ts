@@ -5,6 +5,7 @@ import type { ComponentType } from 'react'
 import type { ModelLabelOwner } from '@deepseek-ai/dsh-client-ui-model-selection/client'
 import type { EmptyWorkspaceOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { UserMessageNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 
@@ -38,11 +39,13 @@ export interface CreatorStudioSessions {
   messages(): Promise<CreatorStudioMessage[]>
   regenerate(): Promise<void>
   deleteMessagesFrom(eventSeq: number, role: 'user' | 'assistant'): Promise<void>
+  editUserMessage(eventSeq: number, content: string): Promise<void>
   selectCharacter(characterId: string): Promise<CreatorStudioSession>
   release(): void
 }
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
+    'eleckoi.creator-studio.chat.user-actions': { kind: 'list'; scope: 'session'; owner: { message: UserMessageNode } }
     'eleckoi.creator-studio.hero.workspace': { kind: 'single'; scope: 'root'; owner: EmptyWorkspaceOwnerProps }
     'eleckoi.creator-studio.model.label': { kind: 'single'; scope: 'session'; inline: true; owner: ModelLabelOwner }
     'eleckoi.creator-studio.conversation': { kind: 'single'; scope: 'root'; owner: { reference: SessionReference; component: ComponentType<any>; props: Record<string, unknown> } }

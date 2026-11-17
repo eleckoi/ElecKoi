@@ -1,4 +1,5 @@
 import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Check } from '@phosphor-icons/react';
 import '../ui/styles/product-dialogs.css';
 import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
@@ -106,6 +107,10 @@ export function MobileNameDialog({ title, initialName = '', onClose, onSave }) {
   return <MobileConfirm title={title} onClose={onClose} busy={busy} error={error} confirmText={tUi("保存")} destructive={false} onConfirm={() => run(async () => { if (!name.trim()) throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, tUi("请输入名称"), { field: tUi("名称") }); await onSave(name.trim()); onClose(); })}>
     <Input className="product-dialog-field" data-modal-autofocus aria-label={tUi("名称")} value={name} disabled={busy} onChange={event => setName(event.target.value)} />
   </MobileConfirm>;
+}
+
+export function MobileSelectionMark({ selected }) {
+  return <span className="mobile-character-selection" data-selected={selected} aria-hidden="true">{selected && <Check size={15} weight="bold" />}</span>;
 }
 
 export function MobileSelectionHeader({ title, busy, onAll, onCancel, summary, children }) {

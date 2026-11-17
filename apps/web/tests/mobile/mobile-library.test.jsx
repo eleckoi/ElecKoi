@@ -12,7 +12,7 @@ vi.mock('../../src/modules/presets/components/PresetPanel.jsx', () => ({ PresetP
 vi.mock('../../src/app/windows/CharacterEditorWindow.jsx', () => ({ CharacterEditorWindow: () => null }));
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-let root, view, saveGroups, start, select, renderSection, maskEvents, backHandlers;
+let root, view, saveGroups, start, select, renderSection, maskEvents, backHandlers, removeCharacter, goBack;
 const samples = [
   { id: 'character-a', name: '合成角色甲', description: '正式简介甲', profileLike: '旧字段内容', group: '分组甲', persona: {} },
   { id: 'character-b', name: '合成角色乙', description: '正式简介乙', group: '分组乙', persona: {} },
@@ -21,6 +21,7 @@ const samples = [
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   backHandlers = []; saveGroups = vi.fn(); start = vi.fn(); select = vi.fn(); renderSection = vi.fn((key, owner, fallback) => fallback);
+  removeCharacter = vi.fn(); goBack = vi.fn();
   maskEvents = [];
   document.addEventListener('eleckoi:system-bar-mask', recordMask);
 });
@@ -32,12 +33,12 @@ async function mount(page = 'character', initialRoute = { kind: 'root' }, charac
     const [route, setRoute] = useState(initialRoute);
     const [collection, setCollection] = useState({ items: structuredClone(characters), groups: ['分组甲', '分组乙'], active_character_id: 'character-a' });
     view = { route, routeBusy: false, scrollPositions: new Map(), guardRef: { current: null }, characters: { exportCharacters: vi.fn(), duplicate: vi.fn() },
-      openDrawer: vi.fn(), pushRoute: setRoute, replaceRoute: setRoute, goBack: () => setRoute({ kind: 'root' }), openCharacterConversation: start,
+      openDrawer: vi.fn(), pushRoute: setRoute, replaceRoute: setRoute, goBack: () => { goBack(); setRoute({ kind: 'root' }); }, openCharacterConversation: start,
       registerBackHandler: callback => { backHandlers.push(callback); return () => { backHandlers = backHandlers.filter(item => item !== callback); }; },
       renderCharacterPageSection: renderSection,
       chat: { characters: collection, selectCharacter: select, persona: { user_name: '合成用户' }, notify: vi.fn(),
         saveCharacterGroups: async (groups, assignments = []) => { await saveGroups(groups, assignments); setCollection(current => ({ ...current, groups, items: current.items.map(item => ({ ...item, group: assignments.find(value => value.characterId === item.id)?.group ?? item.group })) })); },
-        deleteCharacterIds: vi.fn() },
+        deleteCharacterIds: async ids => { await removeCharacter(ids); setCollection(current => ({ ...current, items: current.items.filter(item => !ids.includes(item.id)) })); } },
     };
     return <MainPageContext.Provider value={view}><main className="mobile-shell">{page === 'character' ? <MobileCharactersPage /> : <MobilePresetsPage />}</main></MainPageContext.Provider>;
   }
@@ -149,6 +150,87 @@ describe('Android character and preset library contracts', () => {
     await click('进入对话'); expect(start).toHaveBeenCalledWith('character-a');
     await click('编辑角色'); expect(view.route).toEqual({ kind: 'character-editor', characterId: 'character-a' });
   });
+  it.each(['png', 'zip'])('exports only the viewed character as %s through the shared bubble menu and permits retry', async format => {
+    await mount('character', { kind: 'character-profile', characterId: 'character-b' });
+    await click('角色操作');
+    const menu = document.querySelector('.mobile-bubble-menu');
+    expect([...menu.querySelectorAll('[role="menuitem"]')].map(item => item.textContent.trim())).toEqual(['导出 PNG', '导出 ZIP', '删除角色']);
+    expect([...menu.querySelectorAll('[role="menuitem"]')].at(-1).classList.contains('is-destructive')).toBe(true);
+    expect(menu.querySelectorAll('hr')).toHaveLength(1);
+    view.characters.exportCharacters.mockResolvedValueOnce({ canceled: false, written: [], failures: [{ characterId: 'character-b', message: 'Synthetic export failure' }] })
+      .mockResolvedValueOnce({ canceled: false, written: [{ characterId: 'character-b', fileName: `card.${format}` }], failures: [] });
+    await click(`导出 ${format.toUpperCase()}`);
+    expect(menu.querySelector('[role="alert"]').textContent).toContain('操作失败，请重试。');
+    expect(view.chat.notify).not.toHaveBeenCalled();
+    expect(removeCharacter).not.toHaveBeenCalled();
+    await click(`导出 ${format.toUpperCase()}`);
+    expect(view.characters.exportCharacters.mock.calls).toEqual([[['character-b'], format], [['character-b'], format]]);
+    expect(document.querySelector('.mobile-bubble-menu')).toBeNull();
+    expect(view.chat.notify).toHaveBeenCalledWith('info', '已导出 1 张角色卡');
+    expect(view.route).toEqual({ kind: 'character-profile', characterId: 'character-b' });
+    expect(document.activeElement.getAttribute('aria-label')).toBe('角色操作');
+  });
+  it('does not report a canceled single export as saved and blocks repeated export taps while pending', async () => {
+    await mount('character', { kind: 'character-profile', characterId: 'character-c' });
+    let finish;
+    view.characters.exportCharacters.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    await click('角色操作');
+    const button = document.querySelector('[role="menuitem"]');
+    await act(async () => button.click());
+    expect([...document.querySelectorAll('[role="menuitem"]')].every(item => item.disabled)).toBe(true);
+    await act(async () => button.click());
+    expect(view.characters.exportCharacters).toHaveBeenCalledTimes(1);
+    await act(async () => finish({ canceled: true, written: [], failures: [] }));
+    expect(view.chat.notify).not.toHaveBeenCalled();
+    expect(view.route.characterId).toBe('character-c');
+    expect(document.querySelector('.mobile-bubble-menu')).toBeNull();
+  });
+  it('confirms deletion of the viewed character, preserves it on cancel or failure and returns only after success', async () => {
+    await mount('character', { kind: 'character-profile', characterId: 'character-b' });
+    await click('角色操作'); await click('删除角色');
+    let dialog = document.querySelector('[role="dialog"]');
+    expect(dialog.textContent).toContain('确认删除“合成角色乙”？');
+    expect(removeCharacter).not.toHaveBeenCalled();
+    await click('取消', dialog);
+    expect(view.route.characterId).toBe('character-b');
+    expect(removeCharacter).not.toHaveBeenCalled();
+    await click('角色操作'); await click('删除角色');
+    removeCharacter.mockRejectedValueOnce(new Error('Synthetic delete failure'));
+    await click('删除', document.querySelector('[role="dialog"]'));
+    dialog = document.querySelector('[role="dialog"]');
+    expect(dialog.querySelector('[role="alert"]').textContent).toContain('Synthetic delete failure');
+    expect(view.route.characterId).toBe('character-b');
+    expect(view.chat.characters.items.map(item => item.id)).toEqual(['character-a', 'character-b', 'character-c']);
+    await click('删除', dialog);
+    expect(removeCharacter.mock.calls).toEqual([[['character-b']], [['character-b']]]);
+    expect(view.route).toEqual({ kind: 'root' });
+    expect(goBack).toHaveBeenCalledTimes(1);
+    expect(view.chat.characters.items.map(item => item.id)).toEqual(['character-a', 'character-c']);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.querySelector('.mobile-library-selection-header')).toBeNull();
+  });
+  it('does not navigate again if a pending deletion finishes after leaving the profile', async () => {
+    await mount('character', { kind: 'character-profile', characterId: 'character-b' });
+    let finish;
+    removeCharacter.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    await click('角色操作'); await click('删除角色'); await click('删除', document.querySelector('[role="dialog"]'));
+    await click('返回', document.querySelector('.mobile-header'));
+    expect(goBack).toHaveBeenCalledTimes(1);
+    await act(async () => finish());
+    expect(goBack).toHaveBeenCalledTimes(1);
+    expect(view.route).toEqual({ kind: 'root' });
+    expect(view.chat.characters.items.map(item => item.id)).toEqual(['character-a', 'character-c']);
+  });
+  it('omits actions for a missing character and closes the detail menu on Back without leaving the profile', async () => {
+    await mount('character', { kind: 'character-profile', characterId: 'character-c' });
+    await click('角色操作');
+    await act(async () => backHandlers.at(-1)());
+    expect(document.querySelector('.mobile-bubble-menu')).toBeNull();
+    expect(view.route.characterId).toBe('character-c');
+    await act(async () => view.replaceRoute({ kind: 'character-profile', characterId: 'missing' }));
+    expect(document.querySelector('.mobile-header [aria-label="角色操作"]')).toBeNull();
+    expect(document.querySelector('.mobile-state').textContent).toBe('角色不存在');
+  });
   it('keeps missing author and introduction explicit and recovers failed portrait and author images', async () => {
     await mount('character', { kind: 'character-profile', characterId: 'character-c' }, [{ ...samples[2], persona: { assistant_cover: 'broken-cover.png' }, authorAvatar: 'broken-author.png' }]);
     expect(document.querySelector('.character-profile-author').textContent).toBe('未填写作者');
@@ -234,11 +316,11 @@ describe('Android character and preset library contracts', () => {
     await mount('presets'); await click('预设操作');
     expect([...document.querySelectorAll('[role="menuitem"]')].map(item => item.textContent)).toEqual(['新建预设', '导入预设', '导出预设', '批量删除']);
     await click('批量删除'); await click('全选');
-    expect(document.querySelector('.mobile-selection-bar').textContent).toContain('2 项');
+    expect(document.querySelector('.mobile-library-selection-header .mobile-selection-summary').textContent).toBe('2 项');
     expect(document.querySelector('.mobile-preset-open').disabled).toBe(true);
     await click('删除'); await click('删除', document.querySelector('[role="dialog"]'));
     expect(remove.mock.calls.map(([id]) => id)).toEqual(['preset-a', 'preset-b']);
-    expect(document.querySelector('.mobile-selection-bar').textContent).toContain('1 项');
+    expect(document.querySelector('.mobile-library-selection-header .mobile-selection-summary').textContent).toBe('1 项');
     expect(document.querySelector('[role="dialog"] [role="alert"]').textContent).toContain('操作失败，请重试。');
     await click('删除', document.querySelector('[role="dialog"]'));
     expect(remove.mock.calls.map(([id]) => id)).toEqual(['preset-a', 'preset-b', 'preset-b']);

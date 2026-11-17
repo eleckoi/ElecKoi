@@ -1091,5 +1091,6 @@ export interface CreatorStudioRuntime {
   delete(sessionId: string): Promise<void>
   messages(sessionId: string): Promise<CreatorStudioMessage[]>
   deleteMessagesFrom(sessionId: string, eventSeq: number, role: 'user' | 'assistant'): Promise<void>
+  editUserMessage(sessionId: string, eventSeq: number, content: string): Promise<void>
   regenerate(sessionId: string): Promise<void>
 }

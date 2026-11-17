@@ -569,12 +569,7 @@ export function BugReportDialog({ open, onClose, onNotify, initialNotes = "" }) 
           ))}
           <Button variant="outline" type="button" onClick={close}>{tUi("关闭")}</Button>
         </div>}>
-        {/*
-          正文区单独滚动：对话框有 max-height，长失败诊断 + 展开的全文很容易超出一屏。
-          以前没有这个容器，`.bug-report-failures` 被 flex 压扁后它的 <ul> 会盖到下面的
-          复选框和备注框上（2026-11-05 Windows 验收实测）。提示与按钮留在滚动区外，
-          这样失败/成功反馈永远可见。
-        */}
+        {/* Sections retain their height; the official modal content owns scrolling. */}
         <div className="bug-report-body">
 
           {pendingDrafts.length ? (

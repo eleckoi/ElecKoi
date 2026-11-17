@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, expect, it, vi } from 'vitest';
 import { AvatarCropModal } from '../../src/ui/ui/AvatarCropModal.jsx';
 import { encodeCropPng } from '../../src/ui/ui/encodeCropPng.js';
+import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -25,7 +26,9 @@ async function fixture(mode = 'success') {
     constructor(url, options) { this.url = url; this.options = options; this.terminate = vi.fn(); workers.push(this); }
     postMessage = vi.fn(() => {
       if (mode === 'pending') return;
-      queueMicrotask(() => this.onmessage({ data: mode === 'failure' ? { error: 'Synthetic PNG encoder failed' } : { blob: new Blob(['synthetic-png'], { type: 'image/png' }) } }));
+      queueMicrotask(() => this.onmessage({ data: mode === 'failure'
+        ? { error: { isDSHRemoteError: true, code: ELECKOI_FAILURE_CODES.mediaInvalid, message: 'Synthetic PNG encoder failed', details: { what: '合成裁剪图片' } } }
+        : { blob: new Blob(['synthetic-png'], { type: 'image/png' }) } }));
     });
   });
   const drawing = { translate: vi.fn(), rotate: vi.fn(), drawImage: vi.fn(), save: vi.fn(), restore: vi.fn(), beginPath: vi.fn(), arc: vi.fn(), clip: vi.fn() };
@@ -58,9 +61,31 @@ it('saves the cover through a worker while the page PNG encoder is unavailable',
 it('shows the encoder failure and releases its worker without changing the cover', async () => {
   const f = await fixture('failure');
   expect(f.onSave).not.toHaveBeenCalled();
-  expect(document.body.textContent).toContain('Synthetic PNG encoder failed');
+  expect(document.body.textContent).toContain('图片或音频不符合要求：合成裁剪图片');
   expect(f.workers[0].terminate).toHaveBeenCalledOnce();
   expect(f.bitmap.close).toHaveBeenCalledOnce();
+});
+
+it('preserves a real worker capability failure across the message boundary and releases both sides', async () => {
+  const f = await fixture('pending');
+  const canvases = [], sent = [];
+  const workerBitmap = { width: 900, height: 1200, close: vi.fn() };
+  vi.stubGlobal('OffscreenCanvas', class {
+    constructor(width, height) { this.width = width; this.height = height; canvases.push(this); }
+    getContext() { return null; }
+  });
+  vi.stubGlobal('self', { postMessage: message => { sent.push(structuredClone(message)); f.workers[0].onmessage({ data: sent.at(-1) }); } });
+  await import('../../src/ui/ui/cropPng.worker.js');
+  await act(async () => self.onmessage({ data: workerBitmap }));
+  expect(sent).toEqual([{ error: { isDSHRemoteError: true, code: ELECKOI_FAILURE_CODES.inputUnsupported,
+    message: '当前设备无法处理图片。', details: { what: '设备上的图片处理能力' } } }]);
+  expect(document.body.textContent).toContain('不支持这个格式、版本或能力：设备上的图片处理能力');
+  expect(f.onSave).not.toHaveBeenCalled();
+  expect(f.pageEncoder).not.toHaveBeenCalled();
+  expect(f.workers[0].terminate).toHaveBeenCalledOnce();
+  expect(workerBitmap.close).toHaveBeenCalledOnce();
+  expect(f.bitmap.close).toHaveBeenCalledOnce();
+  expect([canvases[0].width, canvases[0].height]).toEqual([0, 0]);
 });
 
 it('terminates pending encoding on exit without saving a late result', async () => {

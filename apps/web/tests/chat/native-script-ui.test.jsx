@@ -8,6 +8,7 @@ import { NativeScriptPanel } from '../../src/modules/scripts/components/NativeSc
 let container, root;
 beforeEach(() => {
   vi.stubGlobal('React', React); vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
   HTMLDialogElement.prototype.showModal = vi.fn(function () { this.setAttribute('open', ''); this.querySelector('button')?.focus(); });
   HTMLDialogElement.prototype.close = vi.fn(function () { this.removeAttribute('open'); });
   container = document.createElement('div'); document.body.append(container); root = createRoot(container);
@@ -88,6 +89,10 @@ describe('native script chat controls', () => {
     const dialog = document.querySelector('.native-script-modal'), frame = dialog.querySelector('iframe');
     expect(HTMLDialogElement.prototype.showModal).not.toHaveBeenCalled();
     expect(dialog.getAttribute("role")).toBe("dialog");
+    expect(dialog.getAttribute('aria-label')).toBe(panel.title);
+    expect(dialog.querySelector('h2')).toBeNull();
+    expect(dialog.querySelector('.native-script-controls').contains(frame)).toBe(false);
+    expect(dialog.querySelector('[aria-label="重新加载作者面板"]')).toBeNull();
     await act(() => frame.dispatchEvent(new Event('load')));
     expect(runtime.mountScriptPanelDocument).toHaveBeenCalledWith(frame.contentWindow, panel.key);
     expect(frame.srcdoc).toContain('/eleckoi/scripts/global/_/synthetic-version/scripts/entry.js');
@@ -95,11 +100,20 @@ describe('native script chat controls', () => {
     expect(dialog.querySelector('[role=alert]')).toBeNull();
     await act(() => window.dispatchEvent(new MessageEvent('message', { source: frame.contentWindow, data: { channel: frame.name, type: 'eleckoi:frontend-error', message: 'Synthetic panel error' } })));
     expect(stop).toHaveBeenCalledOnce(); expect(dialog.querySelector('[role=alert]').textContent).toBe('Synthetic panel error');
-    await act(() => dialog.querySelector('[aria-label="重新加载作者面板"]').click());
+    await act(() => [...dialog.querySelectorAll('button')].find(button => button.textContent === '重新加载').click());
     const second = dialog.querySelector('iframe'); await act(() => second.dispatchEvent(new Event('load')));
     expect(second).not.toBe(frame); expect(runtime.mountScriptPanelDocument).toHaveBeenCalledTimes(2);
-    await act(() => second.contentWindow.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+    await act(() => dialog.querySelector('[aria-haspopup="menu"]').click());
+    const reload = [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent.includes('重新加载'));
+    expect(reload).toBeTruthy();
+    expect(dialog.contains(reload)).toBe(false);
+    await act(() => reload.click());
+    expect(stop).toHaveBeenCalledTimes(2);
+    const third = dialog.querySelector('iframe'); await act(() => third.dispatchEvent(new Event('load')));
+    expect(third).not.toBe(second); expect(runtime.mountScriptPanelDocument).toHaveBeenCalledTimes(3);
+    expect(document.querySelector('[role=menu]')).toBeNull();
+    await act(() => third.contentWindow.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
     expect(runtime.dismissPanel).toHaveBeenCalledWith(panel.key);
-    await act(() => root.render(null)); expect(stop).toHaveBeenCalledTimes(2);
+    await act(() => root.render(null)); expect(stop).toHaveBeenCalledTimes(3);
   });
 });

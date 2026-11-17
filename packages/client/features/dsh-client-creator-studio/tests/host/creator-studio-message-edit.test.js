@@ -6,14 +6,14 @@ import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
-import { deleteDshSessionMessagesFrom, readDshSessionLog, rewindDshSession } from '@eleckoi/dsh-runtime'
+import { createAssistantMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { deleteDshSessionMessagesFrom, editDshSessionMessage, readDshSessionLog, rewindDshSession } from '@eleckoi/dsh-runtime'
 import { installCreatorStudioRuntime } from '../../src/host/runtime.mjs'
 import { CREATOR_STUDIO_EVENT } from '../../src/host/projection.mjs'
 
 const cleanups = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
-async function fixture({ legacy = false, modelSelection } = {}) {
+async function fixture({ legacy = false, modelSelection, richInput = false } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-studio-edit-'))
   cleanups.push(() => { const child = relative(tmpdir(), root); if (!child || child.startsWith('..') || isAbsolute(child)) throw new Error('Unexpected cleanup path'); rmSync(root, { recursive: true, force: true }) })
   for (const [name, value] of Object.entries({ ELECKOI_PRESET_TEMPLATE_PATH: join(root, 'template'), ELECKOI_PRESET_ROOT: join(root, 'presets'), ELECKOI_WORKSPACE_ROOT: root })) {
@@ -37,8 +37,13 @@ async function fixture({ legacy = false, modelSelection } = {}) {
   session.append(CREATOR_STUDIO_EVENT, initial, { ignorable: true })
   session.append('turn/start', { turn: 1 })
   session.append('step/start', { turn: 1, step: 1 })
-  const input = createUserMessage({ content: [{ type: 'text', text: '合成用户输入' }], source: { kind: 'user' } })
+  const input = createUserMessage({ content: [{ type: 'text', text: '合成用户输入' }, ...(richInput ? [
+    { type: 'image', attachment: { id: 'synthetic-image', mediaType: 'image/png', width: 12, height: 16 } },
+    { type: 'file', attachment: { id: 'synthetic-file', name: '合成文件.txt', mediaType: 'text/plain' } },
+    { type: 'text', text: '第二段' },
+  ] : [])], source: { kind: 'user' } })
   const inputEvent = session.append('user/message', input, { surfaceOp: 'append' })
+  if (richInput) session.append('assistant/message', { turn: 1, step: 1, message: createAssistantMessage({ content: [{ type: 'text', text: '保留后续回复' }], source: { provider: 'synthetic', model: 'synthetic' } }), stream: [] }, { surfaceOp: 'append' })
   session.append('step/end', { turn: 1, step: 1 })
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
   session.append(CREATOR_STUDIO_EVENT, selected, { ignorable: true })
@@ -90,6 +95,15 @@ async function fixture({ legacy = false, modelSelection } = {}) {
       transaction: async (_id, action) => action(),
       rewind: async (_id, turn, seq, retain) => { agent = undefined; return rewindDshSession(join(root, 'logs'), id, turn, seq, retain) },
       deleteMessagesFrom: async (_id, seq, role) => { agent = undefined; deleteDshSessionMessagesFrom(join(root, 'logs'), id, seq, role) },
+      editMessage: async (_id, seq, role, content) => {
+        // The real closed-handle editor flushes its Agent before acquiring the writer.
+        if (agent) {
+          const handle = await persistence.sessionPersistence.open(SessionId(id), 'write')
+          try { const saved = await handle.read(); await handle.append(agent.session.snapshotEvents(saved.events.length)); await handle.flush() }
+          finally { await handle.close() }
+        }
+        agent = undefined; editDshSessionMessage(join(root, 'logs'), id, seq, role, content)
+      },
     },
     provide: (_name, value) => { service = value },
   })
@@ -98,6 +112,42 @@ async function fixture({ legacy = false, modelSelection } = {}) {
 }
 
 describe('Studio message edits retain independent conversation preferences', { timeout: 30_000 }, () => {
+  it('edits only the selected user text, retains attachments and every later event, and survives cold reopen without submitting', async () => {
+    const f = await fixture({ richInput: true })
+    await f.service.open(f.id)
+    const before = f.current().session.snapshotEvents()
+    const text = `  修改后的第一行\n${'合成长正文。'.repeat(1500)}\n正文末尾  `
+    await f.service.editUserMessage(f.id, f.inputEvent.seq, text)
+    const events = f.current().session.snapshotEvents()
+    expect(events.slice(0, before.length).filter(event => event.seq !== f.inputEvent.seq)).toEqual(before.filter(event => event.seq !== f.inputEvent.seq))
+    // Official Session restoration appends one resume marker, never a new user or AI message.
+    expect(events.slice(before.length)).toMatchObject([{ type: 'session/end-seed', data: {} }])
+    const edited = events.find(event => event.seq === f.inputEvent.seq)
+    expect(edited.data.content).toEqual([{ type: 'text', text }, ...f.input.content.filter(part => part.type !== 'text')])
+    expect(edited.data.id).toBe(f.input.id)
+    expect(edited.data.source).toEqual({ kind: 'user' })
+    expect(f.current().followup).not.toHaveBeenCalled()
+    await f.service.open(f.id)
+    expect(f.current().session.snapshotEvents()).toEqual(events)
+    expect(f.current().session.snapshotEvents().find(event => event.seq === f.inputEvent.seq).data.content[0].text).toBe(text)
+  })
+  it('rejects assistant, missing and empty targets without changing the Session and preserves running input', async () => {
+    const f = await fixture({ richInput: true })
+    await f.service.open(f.id)
+    const before = f.current().session.snapshotEvents()
+    const assistant = before.find(event => event.type === 'assistant/message')
+    await expect(f.service.editUserMessage(f.id, assistant.seq, '不能修改 AI')).rejects.toBeTruthy()
+    await expect(f.service.editUserMessage(f.id, 999999, '缺失消息')).rejects.toBeTruthy()
+    await expect(f.service.editUserMessage(f.id, f.inputEvent.seq, '  ')).rejects.toBeTruthy()
+    expect(f.controller.inspect.mock.calls.length).toBeGreaterThan(0)
+    expect((await f.controller.inspect(f.id)).events).toEqual(before)
+    await f.service.open(f.id)
+    const restored = f.current().session.snapshotEvents()
+    f.current().status = 'running'
+    await expect(f.service.editUserMessage(f.id, f.inputEvent.seq, '生成中不改')).rejects.toBeTruthy()
+    expect(f.current().session.snapshotEvents()).toEqual(restored)
+    expect(f.current().followup).not.toHaveBeenCalled()
+  })
   it.each(['delete', 'regenerate'])('keeps the saved model and history safe on %s with a removed provider', async operation => {
     const modelSelection = { provider: 'synthetic-removed', model: 'synthetic-model', reasoningEffort: 'high' }
     const f = await fixture({ modelSelection })

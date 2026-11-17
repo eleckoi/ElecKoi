@@ -230,6 +230,7 @@ window.__ModuleLoader__.load({
       }
       regenerate() { return this.mutateMessages('regenerate') }
       deleteMessagesFrom(eventSeq, role) { return this.mutateMessages('deleteMessagesFrom', eventSeq, role) }
+      editUserMessage(eventSeq, content) { return this.mutateMessages('editUserMessage', eventSeq, content) }
       async selectCharacter(characterId) {
         const active = this.snapshot.active
         if (!active) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '工作室会话尚未打开。', { what: '打开工作室对话' })
@@ -420,6 +421,7 @@ window.__ModuleLoader__.load({
       const loadPage = () => import(new URL('eleckoi-page-creator-studio.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
       const Page = React.lazy(() => loadPage().then(module => ({ default: module.CreatorStudioPage })))
       const CreatorToolCall = React.lazy(() => loadPage().then(module => ({ default: module.CreatorToolCall })))
+      const UserMessageEditAction = React.lazy(() => loadPage().then(module => ({ default: module.CreatorStudioUserMessageEditAction })))
       const creatorToolNames = new Set(['eleckoi_list_toolsets', 'eleckoi_describe_toolset', 'eleckoi_call_capability'])
       ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'creatorStudio', priority: 0,
         registrant: '@eleckoi/dsh-client-creator-studio' }, () => React.createElement(Page)))
@@ -510,6 +512,9 @@ window.__ModuleLoader__.load({
         }),
       })
       for (const name of Object.keys(composerSeats)) projectSeat(name, studioSeat(name))
+      ctx.slots.inject('eleckoi.creator-studio.chat.user-actions', () => ctx.slots.register({
+        name: 'eleckoi.creator-studio.chat.user-actions', id: 'eleckoi-user-message-edit',
+      }, props => React.createElement(React.Suspense, { fallback: null }, React.createElement(UserMessageEditAction, { ...props, model: conversations }))))
       ctx.effect(() => {
         projects.start()
         const stopReset = ctx.on('connection/reset', () => { void projects.refresh().catch(failureAlreadyPublished) })

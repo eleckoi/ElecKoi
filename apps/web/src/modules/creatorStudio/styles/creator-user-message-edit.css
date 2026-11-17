@@ -1,0 +1,7 @@
+.creator-user-input-edit { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; padding:4px; border:0; border-radius:var(--dsw-radius-sm); color:var(--dsw-alias-label-tertiary); background:transparent; }
+.creator-user-input-edit:hover:not(:disabled) { color:var(--dsw-alias-label-primary); background:var(--dsw-alias-interactive-bg-hover); }
+.creator-user-input-edit:disabled { opacity:.4; cursor:default; }
+.creator-user-input-modal { width:min(680px,100%); }
+.creator-user-input-text { display:block; box-sizing:border-box; width:100%; min-height:200px; max-height:50dvh; margin:0; padding:12px; border:.5px solid var(--dsw-alias-border-l2); border-radius:var(--dsw-radius-md); color:var(--dsw-alias-label-primary); background:var(--dsw-alias-bg-layer-1); font:inherit; line-height:1.6; resize:vertical; }
+:root[data-eleckoi-mobile="true"] .creator-user-input-edit { width:44px; height:44px; }
+:root[data-eleckoi-mobile="true"] [data-clock="start"]:has(> .creator-user-input-edit) { height:44px; }

@@ -1,4 +1,5 @@
 .editor-select-control { display: flex; justify-content: space-between; gap: 8px; width: 100%; min-width: 0; min-height: 44px; height: auto; padding: 8px 12px; text-align: start; touch-action: pan-y; }
 .editor-select-control > span { min-width: 0; overflow-wrap: anywhere; }
 .editor-select-control > svg { flex: none; color: var(--dsw-alias-label-secondary); }
+.editor-select-control.is-desktop { min-height: 36px; padding: 6px 12px; }
 .editor-select { width: 100%; min-width: 0; }

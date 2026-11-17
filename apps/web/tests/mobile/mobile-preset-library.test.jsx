@@ -90,3 +90,37 @@ it('rejects stale group-order writes instead of silently dropping a group added 
   await act(()=>model.adopt({...catalog,groups:[...catalog.groups,group('external','合成外部组')]}));await click('完成编辑');expect(model.reorderGroups).not.toHaveBeenCalled();expect(panel().textContent).toContain('预设分组已在别处被修改');
   await click('完成编辑');expect(document.querySelector('[data-reorder-group=external]')).not.toBeNull();
 });
+
+it('uses the shared character selection header for export, counts actual selections and cancels without a bottom bar',async()=>{
+  await mount();await click('预设操作');await click('导出预设');
+  const header=()=>document.querySelector('.mobile-library-selection-header');
+  expect(header().classList.contains('has-actions')).toBe(true);
+  expect(document.querySelector('.mobile-selection-bar')).toBeNull();
+  expect(header().querySelector('[role=status]').textContent).toBe('0 项');
+  expect(header().querySelector('select[aria-label="导出格式"]')).toBeTruthy();
+  expect([...header().querySelectorAll('button')].find(node=>node.textContent==='导出').disabled).toBe(true);
+  expect(document.querySelectorAll('.mobile-character-selection[data-selected="false"]')).toHaveLength(3);
+  expect(document.querySelector('.mobile-character-selection svg')).toBeNull();
+  await act(()=>[...document.querySelectorAll('.mobile-preset-open')].find(button=>button.querySelector('strong').textContent==='合成叙事').click());expect(header().querySelector('[role=status]').textContent).toBe('1 项');
+  expect(document.querySelectorAll('.mobile-character-selection[data-selected="true"] svg')).toHaveLength(1);
+  await click('全选',header());expect(header().querySelector('[role=status]').textContent).toBe('3 项');
+  await click('取消',header());expect(header()).toBeNull();expect(document.querySelector('.mobile-selection-bar')).toBeNull();expect(view.pushRoute).not.toHaveBeenCalled();
+});
+
+it('keeps complete export IDs, the chosen format and only failed items selected for retry in the shared header',async()=>{
+  vi.stubGlobal('URL',Object.assign(URL,{createObjectURL:vi.fn(()=> 'blob:synthetic-export'),revokeObjectURL:vi.fn()}));
+  vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>{});
+  const result={fileName:'synthetic.json',mimeType:'application/json',base64:btoa('{"synthetic":true}')};
+  model.export=vi.fn(async()=>result);
+  await mount();await click('预设操作');await click('导出预设');await click('全选');
+  const header=document.querySelector('.mobile-library-selection-header'),format=header.querySelector('select');
+  await act(()=>{format.value='json';format.dispatchEvent(new Event('change',{bubbles:true}));});
+  model.export.mockRejectedValueOnce(new Error('合成导出失败'));
+  await click('导出',header);
+  expect(model.export.mock.calls).toEqual([['agent-preset-standard','json'],['p1','json'],['p2','json']]);
+  expect(document.querySelector('.mobile-selection-summary').textContent).toBe('1 项');
+  expect(document.querySelectorAll('.mobile-preset-open[aria-pressed=true]')).toHaveLength(1);
+  expect(document.querySelector('[role=alert]').textContent).toContain('操作失败，请重试。');
+  await click('导出',header);expect(model.export).toHaveBeenLastCalledWith('agent-preset-standard','json');
+  expect(document.querySelector('.mobile-library-selection-header')).toBeNull();
+});

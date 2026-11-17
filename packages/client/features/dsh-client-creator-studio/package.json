@@ -56,6 +56,15 @@
         ]
       },
       {
+        "id": "eleckoi.creator-studio.chat.user-actions",
+        "kind": "ui-slot",
+        "title": "创作工作室用户消息操作",
+        "description": "在用户消息复制按钮后补充操作，owner 携带正式用户消息和事件位置。",
+        "mode": "extend",
+        "scope": "session",
+        "relation": "provides"
+      },
+      {
         "id": "eleckoi.creator-studio.model.label",
         "kind": "ui-slot",
         "title": "创作工作室模型标签",

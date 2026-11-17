@@ -41,7 +41,9 @@ PC 空会话显示居中的新会话首页，共用原来的官方输入框与�
 | `assets` | `list`、`read`、`read_content`、`import`、`import_file`、`rename`、`duplicate`、`delete`、`create_folder`、`rename_folder`、`move`；当前角色资产 |
 | `frontends` | `list`、`read_file`、`import`、`import_file`、`write_files`、`update`、`select`、`configure`、`delete`、`export`；当前角色独立项目 |
 
-操作完整编号由领域和操作组成，例如 `scripts.create`。编号精确匹配；更新只发送要改的字段。查询参数时同时指定 `operation_ids` 和 `include_schema=true`。
+操作完整编号由领域和操作组成，例如 `scripts.create`。编号精确匹配；更新只发送要改的字段。`eleckoi_describe_toolset` 默认返回该组全部操作的准确 `inputSchema` 与调用合同；`operation_ids` 可缩小范围，明确 `include_schema=false` 时才只看摘要。目录中的 `target` 是目标种类，不是 `character_id`；显式编辑角色使用 `character.list` 返回的准确角色编号。
+
+普通调用提供 `capability_id`、业务 `arguments` 与可选角色编号；只读省略 `arguments` 等同空对象，仍须满足具体操作的必填字段。写操作必须明确提供业务参数，不自动补内容。结果续读只传 `result`，路径使用本会话已有溢出回执，不与普通调用混用。调用失败保留原错误并附对应操作合同，帮助修正参数；写入是否提交不明时先读取核对，不自动重新写入。
 
 ### 读写范围
 

@@ -23,7 +23,7 @@ const entity = z.object({ id }).strict()
 const configurationTarget = z.discriminatedUnion('scope', [
   z.object({ scope: z.literal('character') }).strict(),
   z.object({ scope: z.literal('global') }).strict(),
-]).describe('character=当前编辑角色；global=共享全局。读写使用同一 target，省略时为当前角色；角色由工作室选择确定，不接受其他角色编号。创作工具不修改预设。')
+]).describe('character=本次调用定位的角色，默认当前快捷目标，也可由外层 character_id 显式指定；global=共享全局。读写使用同一 target，省略时为角色范围；target 内只填范围，不填角色编号。创作工具不修改预设。')
 const settingListTarget = z.discriminatedUnion('scope', [
   z.object({ scope: z.literal('character') }).strict(),
   z.object({ scope: z.literal('global'), libraryId: id.optional() }).strict(),
@@ -111,7 +111,7 @@ export interface CreatorCapability {
 export function creatorCapabilities(data: Context['eleckoiProductData']): CreatorCapability[] {
   const catalog: CreatorCapability[] = []
   const requireCharacterTarget = (characterId: string) => {
-    if (!characterId) throw new DesktopError(ELECKOI_FAILURE_CODES.statePrecondition, '请先在 AI 创作工作室菜单中选择角色，或通过 character.create 新建空角色。', { what: '在 AI 创作工作室选择角色' })
+    if (!characterId) throw new DesktopError(ELECKOI_FAILURE_CODES.statePrecondition, '请通过 character.list 发现准确编号并提供 character_id，或通过 character.create 新建空角色；也可从菜单选择快捷目标。', { what: '创作操作的目标角色' })
     if (!data.readCharacters().items.some(item => item.id === characterId)) throw new DesktopError(ELECKOI_FAILURE_CODES.characterNotFound, '所选角色已不存在，请重新选择角色。', { what: '所选角色' })
     return characterId
   }

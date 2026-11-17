@@ -150,11 +150,7 @@
 .mobile-character-author { display: flex; align-items: center; gap: 5px; padding: 7px 8px 8px; color: var(--muted); font-size: 11px; }
 .mobile-character-author .avatar { width: 18px; height: 18px; flex: none; }
 .mobile-character-author > span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.mobile-card-check { position: absolute; right: 6px; top: 6px; background: var(--surface-raised); color: var(--blue); border-radius: 50%; }
 .mobile-character-profile { padding: 0; }
-.mobile-selection-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 4px 12px; }
-.mobile-selection-bar span { flex: 1; }
-.mobile-selection-bar button, .mobile-selection-bar select { border: 0; background: transparent; padding: 0 12px; color: var(--text); }
 .mobile-inline-error { margin: 8px 18px; color: var(--text); font-size: 13px; }
 .mobile-model-list h2 { margin: 0; }
 .mobile-shell .mobile-model-group { display: flex; align-items: center; justify-content: flex-start; gap: 7px; width: 100%; min-height: 48px; padding: 0 18px 0 17px; border: 0; background: transparent; text-align: left; font-size: 16px; font-weight: 400; color: var(--muted); }

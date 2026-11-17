@@ -4,19 +4,24 @@ import { CaretDown } from '../icons/interfaceIcons.jsx';
 import { useEditorPresentation } from './EditorPresentationContext.jsx';
 import './editor-select.css';
 
-/** Mobile choices open after a tap, leaving a drag free to scroll the document. */
-export function EditorSelect({ value, options, onChange, label, disabled = false }) {
+/** Menu choices use official controls; touch dragging leaves the document scrollable. */
+export function EditorSelect({ value, options, onChange, label, disabled = false, menu = false }) {
   const { compact } = useEditorPresentation();
   const [open, setOpen] = useState(false);
   const gesture = useRef(null);
-  if (!compact) return <select aria-label={label} disabled={disabled} value={value} onChange={event => onChange(event.target.value)}>
+  if (!compact && !menu) return <select aria-label={label} disabled={disabled} value={value} onChange={event => onChange(event.target.value)}>
     {options.map(option => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
   </select>;
   const selected = options.find(option => option.value === value);
-  return <Menu className="editor-select" portal dense minWidthFromAnchor open={open} selectedId={value} onClose={() => setOpen(false)}
+  return <Menu className="editor-select" portal dense minWidthFromAnchor autoFocus={!compact} open={open} selectedId={value} onClose={() => setOpen(false)}
     items={options.map(option => ({ id: option.value, label: option.label, disabled: option.disabled }))}
     onSelect={next => { setOpen(false); onChange(next); }}
-    anchor={<Button variant="outline" className="editor-select-control" aria-label={label} aria-haspopup="menu" aria-expanded={open} disabled={disabled}
+    anchor={<Button variant="outline" className={`editor-select-control${compact ? '' : ' is-desktop'}`} aria-label={label} aria-haspopup="menu" aria-expanded={open} disabled={disabled}
+      onKeyDown={event => {
+        if (!compact && !open && ['ArrowDown', 'ArrowUp'].includes(event.key) && !event.ctrlKey && !event.altKey && !event.metaKey) {
+          event.preventDefault(); setOpen(true);
+        }
+      }}
       onPointerDown={event => { gesture.current = event.pointerType === 'touch' ? { x: event.clientX, y: event.clientY, moved: false } : null; }}
       onPointerMove={event => {
         const touch = gesture.current;

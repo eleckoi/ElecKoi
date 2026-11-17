@@ -2,6 +2,8 @@
 
 状态：当前实现与维护约定。更新日期：2026-11-13。
 
+工具接口及错误恢复的开发约束见 [AI 工具设计规范](AI_TOOL_DESIGN.md)。2026-11-17 起能力组查询默认返回准确参数，读取可省略空参数对象，错误附原操作合同；原三工具和数据保护边界保持。
+
 工作室具备编程能力，AI 可以在工作区编写 HTML、JavaScript、CSS 和资源文件，再通过产品能力写入角色卡。程序文件的制作、已登记产品数据的修改和创作知识的加载各有自己的入口。
 
 ## 楼层界面的技术职责
@@ -15,7 +17,7 @@
 1. **常驻入口**：简短说明当前角色、能力发现方式和技能路由；默认不放完整 SDK、教程或所有领域参数。
 2. **任务技能**：正式 DSH `skill` 工具按名称加载 `SKILL.md`。角色配置及脚本、资产、常规楼层界面、独立前端项目分别有技能。
 3. **专题参考**：技能正文按任务指向 `references/*.md`；文件读取工具读取实际随包文件。SDK 方法、EJS 阶段、资产打包各自按需展开。
-4. **实时操作合同**：`eleckoi_list_toolsets` 查能力组；`eleckoi_describe_toolset` 指定 operation_ids、include_schema 查询准确参数；`eleckoi_call_capability` 执行。
+4. **实时操作合同**：`eleckoi_list_toolsets` 查能力组；`eleckoi_describe_toolset` 默认返回该组准确参数，operation_ids 可缩小范围，include_schema=false 明确选择摘要；`eleckoi_call_capability` 执行普通操作，或单独传 result 续读已有回执。
 
 技能知识说明“如何选择和完成任务”，运行 schema 说明“当前这项调用接受什么参数”。二者分别维护，不把长教程塞进函数描述，也不把文档中的示例编号当真实对象。
 

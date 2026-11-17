@@ -42,10 +42,10 @@ it('preserves the desktop select and its value change', async()=>{
   await act(()=>{control.value='b';control.dispatchEvent(new Event('change',{bubbles:true}));});
   expect(change).toHaveBeenCalledExactlyOnceWith('b');
 });
-it('uses the official menu for version and scope choices inside a mobile management modal', async () => {
+it.each([false, true])('uses the official menu for version and scope choices inside a management modal (compact=%s)', async compact => {
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
   const scope = vi.fn(), version = vi.fn(), node = document.createElement('div'); document.body.append(node); root = createRoot(node);
-  await act(() => root.render(<EditorPresentationContext.Provider value={{compact:true}}><EditorVersionManager title="合成版本管理"
+  await act(() => root.render(<EditorPresentationContext.Provider value={{compact}}><EditorVersionManager title="合成版本管理"
     versions={[{id:'a',name:'合成甲'},{id:'b',name:'合成乙'}]} activeVersionId="a" scope="character"
     scopes={[{id:'character',label:'角色'},{id:'global',label:'全局'}]} onScopeChange={scope} onSelect={version} onClose={()=>{}} /></EditorPresentationContext.Provider>));
   expect(document.querySelector('select')).toBeNull();

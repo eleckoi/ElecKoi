@@ -9,7 +9,7 @@ description: 在 ElecKoi 创作工作室新建或修改角色资料、开场白�
 
 新建角色默认省略 group，直接创建在未分组；角色分组只用于整理角色列表，仅按用户要求指定或新建，不按题材自行分类，也不把询问分组作为建卡前置。修改已有角色资料时，未要求调整分组就保留原归属。
 
-1. 先 eleckoi_list_toolsets 找领域，eleckoi_describe_toolset 查所需 operation_ids、include_schema=true。
+1. 先 eleckoi_list_toolsets 找领域，eleckoi_describe_toolset 默认返回准确 inputSchema；operation_ids 可缩小范围。只读省略 arguments 等同空对象，业务必填字段仍须填写，写入明确提供业务参数。
 2. 用该领域的 list/read 读取准确编号、完整原稿和修订；目录不等于正文。
 3. 只提交用户要求的修改，按 schema 携带该范围修订。片段改写优先 settings.edit；命名版本和普通条目使用各自入口。
 4. 保存后按实际回执核对。溢出沿 eleckoi_call_capability 的 result 续读，不再执行原写入。

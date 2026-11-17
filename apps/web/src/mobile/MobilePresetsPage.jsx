@@ -4,7 +4,7 @@ import { DesktopError } from '@shared/foundation/DesktopError';
 import { MobileSaveFeedback } from './MobileSaveFeedback.jsx';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MobileGeneralIcon, MobileOverflowIcon } from './MobileIcons.jsx';
-import { Check, CheckCircle, DotsThree } from '@phosphor-icons/react';
+import { Check, DotsThree } from '@phosphor-icons/react';
 import { NotePencil } from '../ui/icons/interfaceIcons.jsx';
 import defaultPresetAvatar from '../assets/eleckoi-app-icon.png';
 import { ProviderLogo } from '../modules/models/components/ProviderLogo.jsx';
@@ -15,7 +15,7 @@ import { PresetImportDialog, downloadPresetFile, fileBase64 } from '../modules/p
 import { Avatar } from '../ui/ui/Avatar.jsx';
 import { EditorPresentationContext, useEditorFeedbackHost } from '../ui/ui/EditorPresentationContext.jsx';
 import { MobileHeader, MobileState, useMobileBack, useMobileScroll } from './MobileChrome.jsx';
-import { MobileActionMenu, MobileConfirm, MobileNameDialog, MobileSelectionHeader, useMobileOperation } from './MobileLibraryChrome.jsx';
+import { MobileActionMenu, MobileConfirm, MobileNameDialog, MobileSelectionHeader, MobileSelectionMark, useMobileOperation } from './MobileLibraryChrome.jsx';
 import { MobileLibraryIcon } from './MobileLibraryIcons.jsx';
 import { MobilePresetLibraryBar } from './MobilePresetLibraryBar.jsx';
 import { PresetPurposeSwitch, isDefaultPreset } from '../modules/presets/components/PresetPurposeSwitch.jsx';
@@ -88,7 +88,10 @@ function MobilePresetLibrary() {
   return <div className="mobile-root-page mobile-preset-page">
     <MobileHeader title={tUi("预设")} onSearch={groupEditing ? undefined : view.openSearch}><button type="button" aria-label={tUi("预设操作")} aria-haspopup="menu" aria-expanded={Boolean(menu)} disabled={busy || groupEditing || !catalog || Boolean(selection)} onClick={event => setMenu(event.currentTarget)}><MobileOverflowIcon /></button></MobileHeader>
     <PresetPurposeSwitch compact value={purpose} disabled={busy || groupEditing || Boolean(selection)} onChange={value => { setPurpose(value); setActionPreset(null); setGroupsOpen(false); }} />
-    {selection && <MobileSelectionHeader title={tUi("选择预设")} busy={busy} onCancel={cancelSelection} onAll={() => setSelectedIds([...new Set([...selectedIds, ...visible.filter(item => selection !== 'delete' || !isDefaultPreset(item.id)).map(item => item.id)])])} />}
+    {selection && <MobileSelectionHeader title={tUi("选择预设")} summary={<>{selectedIds.length}{tUi(" 项")}</>} busy={busy} onCancel={cancelSelection} onAll={() => setSelectedIds([...new Set([...selectedIds, ...visible.filter(item => selection !== 'delete' || !isDefaultPreset(item.id)).map(item => item.id)])])}>
+      {selection === 'export' && <select aria-label={tUi("导出格式")} value={format} onChange={event => setFormat(event.target.value)} disabled={busy}><option value="png">PNG</option><option value="json">JSON</option></select>}
+      <button type="button" className={selection === 'delete' ? 'is-destructive' : 'is-confirm'} disabled={busy || !selectedIds.length} onClick={() => selection === 'delete' ? setDeleteOpen(true) : finishSelection()}>{selection === 'delete' ? tUi("删除") : tUi("导出")}</button>
+    </MobileSelectionHeader>}
     <div className="mobile-preset-library">
       <MobilePresetLibraryBar key={`groups:${purpose}`} groups={catalog?.groups || []} model={catalogModel} purpose={purpose} selected={groupId} onSelect={setGroupId} open={groupsOpen} onOpenChange={setGroupsOpen} disabled={busy || Boolean(selection) || !catalog} onEditingChange={setGroupEditing} />
       {catalog && <MobilePresetCards key={`cards:${purpose}`} purpose={purpose} presets={visible} activeId={catalog.activePresetIds[purpose]} selection={selection} selectedIds={selectedIds} busy={busy || groupEditing} onOpen={id => {
@@ -97,7 +100,6 @@ function MobilePresetLibrary() {
       }} onActions={(preset, anchor) => setActionPreset({ preset, anchor })} />}
     </div>
     <MobileState error={catalogError || error} loading={!catalog && !catalogError} onRetry={() => refresh()} />
-    {selection && <div className="mobile-selection-bar"><span>{selectedIds.length}{tUi(" 项")}</span>{selection === 'export' && <select aria-label={tUi("导出格式")} value={format} onChange={event => setFormat(event.target.value)} disabled={busy}><option value="png">PNG</option><option value="json">JSON</option></select>}<button type="button" disabled={busy || !selectedIds.length} onClick={() => selection === 'delete' ? setDeleteOpen(true) : finishSelection()}>{selection === 'delete' ? tUi("删除") : tUi("导出")}</button></div>}
     <input ref={inputRef} type="file" accept="application/json,image/png,.json,.png" hidden onChange={importFile} />
     {menu && <MobileActionMenu title={tUi("预设操作")} anchor={menu} onClose={() => setMenu(null)} actions={[
       { label: tUi("新建预设"), icon: <MobileLibraryIcon name="plus" />, action: () => { setMenu(null); setCreateOpen(true); } },
@@ -150,7 +152,7 @@ function MobilePresetCards({ presets, activeId, onOpen, onActions, selection = '
     <button className="mobile-preset-open" type="button" aria-pressed={selection ? selectedIds.includes(preset.id) : undefined} disabled={busy || (selection === 'delete' && isDefaultPreset(preset.id))} onClick={() => onOpen(preset.id)}><strong>{preset.name}</strong>
       <span className="mobile-preset-author"><Avatar as="span" src={preset.profile.authorAvatarPath || defaultPresetAvatar} name={preset.profile.authorName || preset.name} /><span>{preset.profile.authorName || tUi("未署名")}</span></span>
       <span className="mobile-preset-footer"><MobilePresetTags tags={preset.modelTags} />{preset.id === activeId && <span className="mobile-preset-active"><Check size={13} weight="bold" />{tUi("使用中")}</span>}</span>
-    </button>{selection ? <CheckCircle className="mobile-card-check" size={23} weight={selectedIds.includes(preset.id) ? 'fill' : 'regular'} /> : <button type="button" className="mobile-preset-actions" aria-label={tUi("{value0}的预设操作", {value0: preset.name})} aria-haspopup="menu" disabled={busy} onClick={event => onActions(preset, event.currentTarget)}><DotsThree size={25} /></button>}
+    </button>{selection ? <MobileSelectionMark selected={selectedIds.includes(preset.id)} /> : <button type="button" className="mobile-preset-actions" aria-label={tUi("{value0}的预设操作", {value0: preset.name})} aria-haspopup="menu" disabled={busy} onClick={event => onActions(preset, event.currentTarget)}><DotsThree size={25} /></button>}
   </article>)}{!presets.length && <MobileState empty={tUi("暂无预设")} />}</div>;
 }
 

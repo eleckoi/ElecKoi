@@ -43,6 +43,5 @@
 .mobile-shell .mobile-character-profile .character-profile-action { flex: 1; min-width: 0; height: 48px; padding: 0 8px; background-color: var(--dsw-alias-bg-layer-1); font-size: 14px; font-weight: 400; }
 .mobile-character-profile .character-profile-action svg { width: 18px; height: 18px; }
 .mobile-preset-card[data-selected=true] { box-shadow: inset 0 0 0 2px var(--blue); }
-.mobile-preset-card .mobile-card-check { pointer-events: none; }
 @keyframes mobile-library-menu-enter { from { opacity: 0; transform: scale(.78); } to { opacity: 1; transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .mobile-bubble-menu { animation: none; } }

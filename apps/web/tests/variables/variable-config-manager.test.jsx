@@ -9,6 +9,7 @@ import { createEntryDraft } from '../../src/modules/settingLibraries/model/setti
 
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
 vi.stubGlobal('React', React);
+vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
 afterEach(() => vi.restoreAllMocks());
 
 function configuration(kind, name) {
@@ -62,8 +63,8 @@ describe.each(['variables', 'settings'])('%s version management', kind => {
     const view = await renderManager(kind, configuration(kind, name));
     try {
       expect([...view.container.querySelectorAll('button')].some(item => item.textContent === '新建版本')).toBe(false);
-      const select = view.container.querySelector('select');
-      await act(async () => { select.value = 'version-b'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+      await act(async () => view.container.querySelector('[aria-label="当前版本"]').click());
+      await act(async () => [...view.container.querySelectorAll('[role="menuitem"]')].find(item => item.textContent.includes('配置 B')).click());
       await act(async () => button(view.container, '复制当前版本').click());
       const dialog = view.container.querySelector('.version-name-dialog');
       const input = dialog.querySelector('input');
@@ -85,7 +86,7 @@ describe.each(['variables', 'settings'])('%s version management', kind => {
         expect(result.variables[0].defaultValue).toBe('8');
       } else expect(result.entries[0].content).toBe('合成正文 B');
       expect(view.container.querySelector('.version-name-dialog')).toBeNull();
-      expect(select.value).toBe(result.activeVersionId);
+      expect(view.container.querySelector('[aria-label="当前版本"]').textContent).toBe(result.versions.find(version => version.id === result.activeVersionId).name);
       await act(async () => button(view.container, '复制当前版本').click());
       expect(view.container.querySelector('.version-name-dialog input').value).toBe('');
       await act(async () => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));

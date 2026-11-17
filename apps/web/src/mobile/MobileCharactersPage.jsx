@@ -3,7 +3,7 @@ import { productLocaleTag } from '../app/i18n/productCopy.js';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Copy } from '@phosphor-icons/react';
+import { Copy } from '@phosphor-icons/react';
 import { Avatar } from '../ui/ui/Avatar.jsx';
 import { MobileOverflowIcon, MobilePictureFrameIcon } from './MobileIcons.jsx';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
@@ -17,11 +17,12 @@ import { CharacterProfilePanel } from '../modules/persona/components/CharacterPr
 import '../modules/persona/styles/character-profile.css';
 import { MobileHeader, MobileState, useMobileBack } from './MobileChrome.jsx';
 import { VirtualMasonry } from '../ui/ui/VirtualMasonry.jsx';
-import { MobileActionMenu, MobileConfirm, MobileSelectionHeader, useMobileOperation } from './MobileLibraryChrome.jsx';
+import { MobileActionMenu, MobileConfirm, MobileSelectionHeader, MobileSelectionMark, useMobileOperation } from './MobileLibraryChrome.jsx';
 import { MobileLibraryIcon } from './MobileLibraryIcons.jsx';
 import { MobileCharacterLibraryBar } from './MobileCharacterLibraryBar.jsx';
 import { sortMobileCharacters, useMobileCharacterSort } from './mobileCharacterSorting.js';
 import { MobileSaveFeedback } from './MobileSaveFeedback.jsx';
+import { MobileCharacterProfileActions } from './MobileCharacterProfileActions.jsx';
 import './mobile-character-editor.css';
 
 export function MobileCharactersPage() {
@@ -102,7 +103,9 @@ export function MobileCharactersPage() {
       onStartConversation: id => { if (!view.routeBusy) view.openCharacterConversation(id); },
       onEditCharacter: openEditor, onCreateFirstCharacter: create };
     const fallback = <CharacterProfilePanel {...owner} presentation="single" />;
-    return <div className="mobile-root-page"><MobileHeader title={tUi("角色")} back={view.goBack} />{character ? <div className="mobile-character-profile">
+    return <div className="mobile-root-page"><MobileHeader title={tUi("角色")} back={view.goBack}>
+      <MobileCharacterProfileActions key={route.characterId} character={character} />
+    </MobileHeader>{character ? <div className="mobile-character-profile">
       {view.renderCharacterPageSection?.('profile', owner, fallback) ?? fallback}
     </div> : <MobileState empty={tUi("角色不存在")} />}</div>;
   }
@@ -173,6 +176,6 @@ function CharacterGrid({ characters, selection, selectedIds, onClick, filters, s
     {(character, index, width) => <button type="button" key={character.id} aria-label={characterName(character, tUi)} className="mobile-character-card" style={{ '--mobile-cover-ratio': artworkRatio(index) }} onClick={() => onClick(character)} aria-pressed={selection ? selected.has(character.id) : undefined}>
     <CharacterCover character={character} width={width} ratio={artworkRatio(index)} /><strong>{characterName(character, tUi)}</strong>
     <span className="mobile-character-author"><Avatar as="span" name={character.authorName?.trim() || tUi("未填写作者")} src={character.authorAvatar || ''} /><span>{character.authorName?.trim() || tUi("未填写作者")}</span></span>
-    {selection && <span className="mobile-character-selection" data-selected={selected.has(character.id)} aria-hidden="true">{selected.has(character.id) && <Check size={15} weight="bold" />}</span>}
+    {selection && <MobileSelectionMark selected={selected.has(character.id)} />}
   </button>}</VirtualMasonry>;
 }

@@ -8,6 +8,7 @@ import { readToolResult, resultReadParameter } from '@eleckoi/dsh-client-rolepla
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 import { presetPromptCapabilities, presetPromptToolset } from './preset-prompt-capabilities.mjs'
 import { mediaFileCapabilities } from './media-file-capabilities.mjs'
+import { creatorCallContract, creatorCallErrorContent, describeCreatorOperation } from './tool-contract.mjs'
 
 export const name = 'eleckoi-creator-studio-agent'
 export const inject = ['agents', 'tools', 'llm', 'settings', 'sessionProjections', 'eleckoiProductData', 'eleckoiCharacterConfigurationChanges', 'eleckoiProductRecordChanges']
@@ -44,38 +45,40 @@ export function apply(ctx, config) {
   if (config.creatorTools) {
     disposers.push(ctx.tools.register(defineTool({ name: 'eleckoi_list_toolsets', description: '列出 AI 创作工作室可用的能力组。', parameters: {}, output,
       execute: () => ({ toolsets: toolsets.map(({ id, title, description, skill }) => ({ id, title, description, ...(skill ? { skill } : {}), operationCount: capabilities.filter(operation => operation.toolsetId === id).length })) }) })))
-    disposers.push(ctx.tools.register(defineTool({ name: 'eleckoi_describe_toolset', description: '查看能力组的操作；指定 operation_ids 并启用 include_schema 可读取这些操作的准确参数。',
-      parameters: { toolset_id: { type: 'string', required: true }, operation_ids: { type: 'array', items: { type: 'string' } }, include_schema: { type: 'boolean' } }, output,
+    disposers.push(ctx.tools.register(defineTool({ name: 'eleckoi_describe_toolset', description: '查看能力组的操作与准确 inputSchema，默认即可取得业务参数及调用形式。operation_ids 可只查询指定操作；include_schema=false 时仅返回摘要。',
+      parameters: { toolset_id: { type: 'string', required: true }, operation_ids: { type: 'array', items: { type: 'string' }, description: '可选的准确操作 id 列表；省略时返回本组全部操作。' }, include_schema: { type: 'boolean', description: '默认 true，返回 inputSchema；明确 false 时只看摘要。' } }, output,
       execute(args) {
         const toolset = requireToolset(args.toolset_id)
         const selected = new Set(args.operation_ids ?? [])
-        if (args.include_schema && !selected.size) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '展开参数时必须指定 operation_ids。', { field: 'operation_ids' })
         const operations = capabilities.filter(item => item.toolsetId === toolset.id && (!selected.size || selected.has(item.id)))
         if (selected.size && operations.length !== selected.size) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '所选操作不属于这个能力组。', { field: 'operation_ids' })
-        return { toolset, operations: operations.map(({ execute, inputSchema, ...item }) => ({ ...item, ...(args.include_schema ? { inputSchema } : {}) })) }
+        return { toolset, call_contract: creatorCallContract, operations: operations.map(operation => describeCreatorOperation(operation, args.include_schema !== false)) }
       } })))
-    disposers.push(ctx.tools.register(defineTool({ name: 'eleckoi_call_capability', description: '执行已发现的创作操作。先加载相关技能，再查询对应 inputSchema；提供 capability_id 与 arguments。大结果沿 result 续读或搜索，不重复写操作。',
-      parameters: { capability_id: { type: 'string' }, character_id: { type: 'string', description: '可选编辑目标。使用 character.list 返回的准确角色编号；省略时使用当前快捷定位角色，不要求预先绑定角色。' }, arguments: { type: 'object', additionalProperties: true }, result: resultReadParameter }, output,
+    disposers.push(ctx.tools.register(defineTool({ name: 'eleckoi_call_capability', description: '两种互斥形式：普通操作传 capability_id、arguments 和可选真实 character_id，业务参数来自 describe_toolset 默认返回的 inputSchema；只读省略 arguments 等同 {}，写操作必须明确提供。无参查询示例 {"capability_id":"character.list","arguments":{}}。续读仅传 result，路径来自已有溢出回执；没有回执先普通查询。两种形式不混用，续读不重复写入。',
+      parameters: { capability_id: { type: 'string', description: '普通操作的准确 id，来自 describe_toolset.operations，例如 character.create；续读时省略。' }, character_id: { type: 'string', description: '可选编辑目标。使用 character.list 返回的准确角色编号；省略时使用当前快捷定位角色，不要求预先绑定角色。current-preset／global 等目标种类不是角色编号；预设查询无需本字段。' }, arguments: { type: 'object', additionalProperties: true, description: '只包含所选操作 inputSchema 中的业务字段。只读省略时等同 {}，仍须满足必填字段；写操作必须明确提供。续读时省略。' }, result: resultReadParameter }, output,
+      finalizeContent: (exec, result) => creatorCallErrorContent(exec, result, capabilities),
       async execute(args, exec) {
         exec.signal.throwIfAborted()
         if (!exec.agent) throw productFailure(ELECKOI_FAILURE_CODES.internal, '创作操作缺少调用会话。', { what: '创作操作的调用会话' })
         const state = readState(exec.agent)
         if (Object.hasOwn(args, 'result')) return readToolResult(ctx, args, exec, 'creator')
-        if (typeof args.capability_id !== 'string' || !args.arguments || typeof args.arguments !== 'object' || Array.isArray(args.arguments)) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '普通创作调用必须提供 capability_id 和 arguments。', { field: 'capability_id' })
+        if (typeof args.capability_id !== 'string' || !args.capability_id) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '普通创作调用必须提供 capability_id；使用能力目录中的准确操作 id。', { field: 'capability_id' })
         const operation = capabilities.find(item => item.id === args.capability_id)
         if (!operation) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `未知创作操作：${args.capability_id}`, { what: '创作操作' })
+        const callArguments = args.arguments === undefined && operation.effect === 'read' ? {} : args.arguments
+        if (!callArguments || typeof callArguments !== 'object' || Array.isArray(callArguments)) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, 'arguments 必须是该操作的业务参数对象；写操作须明确提供，不能自动补齐业务内容。', { field: 'arguments' })
         const characterId = args.character_id ?? state.characterId
         if (args.character_id !== undefined && (typeof characterId !== 'string' || !characterId.trim())) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, 'character_id 必须是发现列表中的角色编号。', { field: 'character_id' })
         if (operation.target === 'selected-character' && !characterId) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '请通过 character.list 发现角色并提供 character_id，或通过 character.create 新建角色。', { what: '指定创作目标角色' })
         const dispatchedTarget = dispatchedTargets.get(exec.agent)
-        if (operation.effect === 'write' && operation.target !== 'new-character' && args.arguments.target?.scope !== 'global'
+        if (operation.effect === 'write' && operation.target !== 'new-character' && callArguments.target?.scope !== 'global'
           && args.character_id === undefined && dispatchedTarget !== undefined && dispatchedTarget !== state.characterId) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch,
           '本次模型请求期间编辑角色已切换，请重新读取当前角色后再修改。', { what: '本次请求的编辑角色' })
-        const value = await operation.execute(characterId, args.arguments, exec.signal,
+        const value = await operation.execute(characterId, callArguments, exec.signal,
           characterId === state.characterId ? dispatchedLibraries.get(exec.agent) : undefined,
           { ...exec, creatorCharacterId: args.character_id })
         exec.signal.throwIfAborted()
-        let changedCharacterId = args.arguments.target?.scope === 'global' ? '' : characterId
+        let changedCharacterId = callArguments.target?.scope === 'global' ? '' : characterId
         if (operation.target === 'new-character') {
           if (typeof value?.id !== 'string' || !ctx.eleckoiProductData.readCharacters().items.some(item => item.id === value.id)) {
             throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '新建角色没有返回有效的角色编号。', { what: '新建角色返回的角色编号' })
@@ -130,7 +133,7 @@ export function apply(ctx, config) {
   }, { prepend: true }))
   const instructionsFor = (state, context) => {
     const target = state.characterId ? ctx.eleckoiProductData.readCharacters().items.find(item => item.id === state.characterId) : undefined
-    const missingTarget = config.creatorTools ? '未选择角色。可调用 character.create 新建空角色并作为当前工作室编辑目标；修改已有角色时请用户从菜单选择角色。' : '未选择角色。'
+    const missingTarget = config.creatorTools ? '未选择角色。可调用 character.create 新建空角色并作为当前工作室编辑目标；修改已有角色可用 character.list 发现准确编号，再通过 character_id 指定目标，无需先绑定。也可由用户从菜单选择快捷目标。' : '未选择角色。'
     return [sessionInstructions({ conversationContext: context }), config.creatorTools ? creatorAuthoringInstructions : '', `当前编辑目标：${target ? JSON.stringify({ id: target.id, name: target.name }) : missingTarget}`].filter(Boolean).join('\n\n')
   }
   disposers.push(ctx.on('system-prompt/assemble', async (_assembly, context, next) => {

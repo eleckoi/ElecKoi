@@ -1281,6 +1281,15 @@ AI 创作工作室的 DSH 会话与永久编辑目标。
 @Remote deleteMessagesFrom(sessionId: string, eventSeq: number, role: 'user' | 'assistant'): Promise<void>
 
 /**
+ * 原位修改工作室用户消息，保留附件和后续事件，不自动发送。
+ * @param sessionId - 工作室会话编号。
+ * @param eventSeq - 用户消息的正式事件序号。
+ * @param content - 修改后的完整正文。
+ * @returns 保存及会话恢复完成。
+ */
+@Remote editUserMessage(sessionId: string, eventSeq: number, content: string): Promise<void>
+
+/**
  * 保留最近的用户输入并重新生成回复。
  * @param sessionId - 工作室会话编号。
  * @returns 重新生成已启动。

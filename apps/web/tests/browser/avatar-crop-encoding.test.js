@@ -6,11 +6,13 @@ import { resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { expect, it } from 'vitest';
 const require = createRequire(import.meta.url);
+const { build } = createRequire(require.resolve('vite/package.json'))('esbuild');
 
 it('preserves crop PNG pixels, transparency and dimensions through real worker encoding', async () => {
   const directory = await mkdtemp(resolve(tmpdir(), 'eleckoi-crop-png-'));
   try {
-    for (const name of ['encodeCropPng.js', 'cropPng.worker.js']) await copyFile(resolve('apps/web/src/ui/ui', name), resolve(directory, name));
+    for (const name of ['encodeCropPng.js', 'cropPng.worker.js']) await build({ entryPoints: [resolve('apps/web/src/ui/ui', name)],
+      outfile: resolve(directory, name), bundle: true, format: 'esm', alias: { '@shared': resolve('packages/shared/src') }, logLevel: 'silent' });
     await writeFile(resolve(directory, 'index.html'), '<!doctype html><html><body><script type="module">import {encodeCropPng} from "./encodeCropPng.js";window.encodeCropPng=encodeCropPng;</script></body></html>');
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
     await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/avatar-crop-encoding.probe.cjs'), directory], { env, windowsHide: true, timeout: 30000 });
