@@ -5,6 +5,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.os.SystemClock;
@@ -13,6 +14,9 @@ import android.os.SystemClock;
 final class StartupLoadingBar extends StartupAnimatedView {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rail = new RectF(0, 6, 264, 26);
+    private final Path innerClip = new Path();
+    private final Path fillClip = new Path();
+    private final RectF fillBounds = new RectF();
     private final LinearGradient fill = new LinearGradient(0,0,264,0,
             new int[]{0xff6d9fe5,0xff8a9cdd,0xffb29bdc},null,Shader.TileMode.CLAMP);
     private final LinearGradient sweep = new LinearGradient(-50,0,50,0,
@@ -22,7 +26,11 @@ final class StartupLoadingBar extends StartupAnimatedView {
     private float displayedFraction, transitionFrom, targetFraction;
     private long transitionStarted;
 
-    StartupLoadingBar(Context context) { super(context); }
+    StartupLoadingBar(Context context) {
+        super(context);
+        // Match the rail's 5px radius after its 2px content inset.
+        innerClip.addRoundRect(2, 8, 262, 24, 3, 3, Path.Direction.CW);
+    }
     void setProgress(RuntimeInstallProgress value) {
         progress.installation(value); updateTarget();
     }
@@ -58,7 +66,10 @@ final class StartupLoadingBar extends StartupAnimatedView {
         }
         float end = displayedFraction;
         if (end > 0) {
-            canvas.save(); canvas.clipRect(2, 8, 2 + 260 * end, 24);
+            canvas.save(); canvas.clipPath(innerClip);
+            fillBounds.set(2, 8, 2 + 260 * end, 24);
+            fillClip.reset(); fillClip.addRoundRect(fillBounds, 3, 3, Path.Direction.CW);
+            canvas.save(); canvas.clipPath(fillClip);
             paint.setShader(fill); canvas.drawRect(2,8,262,24,paint); paint.setShader(null);
             paint.setColor(0x25ffffff);
             for (int x=2;x<264;x+=4) canvas.drawRect(x,8,x+1,24,paint);
@@ -73,6 +84,7 @@ final class StartupLoadingBar extends StartupAnimatedView {
             canvas.restore();
             paint.setColor(0xfffdfbff); star(canvas,2+260*end,16,12);
             paint.setColor(0xffb9a4e8); canvas.drawRect(260*end,14,4+260*end,18,paint);
+            canvas.restore();
         }
         paint.setColor(0xffa49ad5); star(canvas,124,3,5); star(canvas,63,30,3);
         canvas.restore();

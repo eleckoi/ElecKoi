@@ -11,7 +11,7 @@ it('keeps hovered preset borders visible and character actions accessible in bot
   const directory = await mkdtemp(resolve(tmpdir(), 'eleckoi-manager-actions-'));
   try {
     await build({ entryPoints: ['apps/web/tests/browser/manager-card-actions.fixture.jsx'], outfile: resolve(directory,'fixture.js'), bundle:true,
-      format:'iife',jsx:'automatic',alias:{'@shared':resolve('packages/shared/src')},loader:{'.png':'dataurl','.woff2':'file','.woff':'file','.ttf':'file'},logLevel:'silent' });
+      format:'iife',jsx:'automatic',alias:{'@shared':resolve('packages/shared/src')},loader:{'.png':'dataurl','.svg':'dataurl','.woff2':'file','.woff':'file','.ttf':'file'},logLevel:'silent' });
     const htmlPath=resolve(directory,'fixture.html'), reportPath=resolve(directory,'report.json');
     await writeFile(htmlPath,'<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="fixture.css"></head><body><div id="root" style="height:100vh"></div><script src="fixture.js"></script></body></html>');
     const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;

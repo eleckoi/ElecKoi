@@ -88,7 +88,7 @@ function PreviewButton({ className, src, name, label, disabled = false, onClick 
   const tUi = useProductTranslation();
   return (
     <button type="button" className={`avatar-manager-preview-button ${className}`} aria-label={tUi("更换{value0}", {value0: label})} disabled={disabled} onClick={onClick}>
-      <Avatar src={src} name={name} className="avatar-manager-result-avatar" />
+      <Avatar src={src} name={name} thumbnail={false} className="avatar-manager-result-avatar" />
       <span>{label}</span>
     </button>
   );

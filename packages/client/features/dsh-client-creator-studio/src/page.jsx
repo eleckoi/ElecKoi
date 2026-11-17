@@ -19,7 +19,7 @@ export function CreatorStudioPage() {
   }
   useEffect(() => {
     const version = ++lifetime.current;
-    void perform(() => model.restoreRecent());
+    if (!['loading', 'error'].includes(model.getSnapshot().status)) void perform(() => model.restoreRecent());
     return () => queueMicrotask(() => { if (lifetime.current === version) model.release(); });
   }, [model]);
   const active = state.items.find(item => item.sessionId === state.active?.sessionId);

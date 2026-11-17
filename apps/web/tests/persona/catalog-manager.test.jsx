@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CharacterManager } from '../../src/modules/persona/components/CharacterManager.jsx';
 import { PresetManager } from '../../src/modules/presets/components/PresetManager.jsx';
 import { DisplayPreferencesProvider } from '../../src/modules/settings/model/DisplayPreferencesContext.jsx';
+import '../helpers/masonryGeometry.js';
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;

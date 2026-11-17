@@ -8,6 +8,7 @@ import { SidebarCharacterArtwork } from "../../../ui/ui/SidebarCharacterArtwork.
 import { formatDate } from "../../../utils/format.js";
 import { SidebarSectionHeader } from "../../../ui/ui/SidebarSectionHeader.jsx";
 import { SidebarScrollArea } from "../../../ui/ui/SidebarScrollArea.jsx";
+import { VirtualListRows, useVirtualListRows } from "../../../ui/ui/VirtualListRows.jsx";
 
 export function ConversationList({
   keyword,
@@ -26,12 +27,14 @@ export function ConversationList({
 }) {
   const tUi = useProductTranslation();
   const listRef = useRef(null);
+  const scrollRef = useRef(null);
   const searchRowRef = useRef(null);
   const [menu, setMenu] = useState(null);
   const [addCharacterOpen, setAddCharacterOpen] = useState(false);
   const [characterPickerStyle, setCharacterPickerStyle] = useState(null);
   const [collapsedPickerGroups, setCollapsedPickerGroups] = useState({});
   const resolvedArtworkMode = artworkMode === "avatar" ? "avatar" : "cover";
+  const virtualizer = useVirtualListRows({ items: sessions, scrollRef, estimateSize: () => resolvedArtworkMode === 'cover' ? 72 : 60 });
   const characterById = useMemo(
     () => new Map((characters?.items || []).map((character) => [character.id, character])),
     [characters?.items],
@@ -189,8 +192,8 @@ export function ConversationList({
         document.body,
       ) : null}
 
-      <SidebarScrollArea className="conversation-scroll">
-        {sessions.map((item, index) => {
+      <SidebarScrollArea className="conversation-scroll" ref={scrollRef}>
+        <VirtualListRows items={sessions} virtualizer={virtualizer}>{(item, index) => {
           const pinned = pinnedIds.includes(item.id);
           const nextPinned = pinnedIds.includes(sessions[index + 1]?.id);
           const active = item.id === sessionId;
@@ -218,7 +221,7 @@ export function ConversationList({
               </div>
             </button>
           );
-        })}
+        }}</VirtualListRows>
       </SidebarScrollArea>
 
       {menu && typeof document !== "undefined" ? createPortal(

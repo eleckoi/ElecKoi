@@ -37,7 +37,7 @@ const EMPTY_PERSONA_PROFILE = { status: "loading", profile: null, error: "" };
 const getEmptyProfile = () => EMPTY_PERSONA_PROFILE;
 
 export function usePersonaCharacters({ characterCatalog, personaModel, setStatus, setActiveSectionState, notify }) {
-  const [persona, setPersona] = useState(emptyPersona);
+  const [persona, setPersona] = useState(() => ({ ...emptyPersona, ...(personaModel?.getSnapshot().profile || {}) }));
   const [localCharacters, setLocalCharacters] = useState(EMPTY_CHARACTER_CATALOG.collection);
   const catalog = useSyncExternalStore(
     characterCatalog?.subscribe || subscribeEmptyCatalog,

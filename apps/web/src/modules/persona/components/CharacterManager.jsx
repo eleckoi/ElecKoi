@@ -13,12 +13,16 @@ import { CatalogManagerSearch } from '../../../ui/ui/CatalogManagerSearch.jsx';
 import { CharacterSortMenu } from '../../../ui/ui/CharacterSortMenu.jsx';
 import { sortCharacters, useCharacterSort } from '../../../ui/hooks/useCharacterSort.js';
 import '../../../ui/styles/catalog-manager.css';
+import { VirtualMasonry } from '../../../ui/ui/VirtualMasonry.jsx';
 
 const CHARACTER_ARTWORK_RATIOS = [0.76, 0.68, 0.84, 0.72];
 
 export function characterArtworkAspectRatio(index) {
   return CHARACTER_ARTWORK_RATIOS[index % CHARACTER_ARTWORK_RATIOS.length];
 }
+
+// Existing catalog caption maximum: 25px padding + two 21px lines + 9px gap + 20px author.
+const estimateCardHeight = (_character, index, width) => width / characterArtworkAspectRatio(index) + 96;
 
 export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCharacters, onImportCharacters, onPrepareImports, onDiscardImports, onExportCharacters, onDuplicateCharacter }) {
   const tUi = useProductTranslation();
@@ -400,25 +404,25 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
           )}
         </header>
 
-        <div className="character-manager-scroll">
+        <VirtualMasonry key={JSON.stringify([selectedGroup, keyword, sort])} items={visibleCharacters}
+          scrollClassName="character-manager-scroll" gridClassName="character-manager-grid"
+          estimateHeight={estimateCardHeight} leading={<>
           <FailureAlert failure={error} className="character-manager-error" />
           {sortError ? <FailureAlert failure={sortError} className="character-manager-error" /> : null}
-          {visibleCharacters.length ? (
-            <div className="character-manager-grid">
-              {visibleCharacters.map((character, index) => (
+          </>} empty={<p className="character-manager-empty">{tUi("这个分组里还没有角色卡。")}</p>}>
+              {(character, index, width) => (
                 <CharacterCard
                   key={character.id}
                   character={character}
                   artworkAspectRatio={characterArtworkAspectRatio(index)}
+                  artworkWidth={width}
                   selectable={selectionMode}
                   selected={selectedSet.has(character.id)}
                   onClick={selectionMode ? toggleSelected : openCharacterEditorWindow}
                   onContextMenu={selectionMode ? undefined : openCardGroupMenu}
                 />
-              ))}
-            </div>
-          ) : <p className="character-manager-empty">{tUi("这个分组里还没有角色卡。")}</p>}
-        </div>
+              )}
+        </VirtualMasonry>
       </section>
 
       {groupMenu ? (

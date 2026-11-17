@@ -6,6 +6,7 @@ import '../styles/product-dialogs.css';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { RotateLeftIcon, RotateRightIcon } from "../icons/index.jsx";
 import { resolveFailure } from "../../utils/failureText.js";
+import { encodeCropPng } from './encodeCropPng.js';
 
 const STAGE_WIDTH = 440;
 const STAGE_HEIGHT = 320;
@@ -38,6 +39,7 @@ export function AvatarCropModal({
   const stageRef = useRef(null);
   const imageRef = useRef(null);
   const dragRef = useRef(null);
+  const encodingRef = useRef(null);
   const [imageUrl, setImageUrl] = useState("");
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [zoom, setZoom] = useState(1);
@@ -78,7 +80,7 @@ export function AvatarCropModal({
     setRotation(0);
     setSaving(false);
     setError("");
-    return () => URL.revokeObjectURL(nextUrl);
+    return () => { encodingRef.current?.abort(); URL.revokeObjectURL(nextUrl); };
   }, [file]);
 
   function clampOffset(nextOffset, nextZoom = zoom) {
@@ -141,7 +143,10 @@ export function AvatarCropModal({
   }
 
   async function saveCrop() {
-    if (!file || !stageRef.current || !imageRef.current || !naturalSize.width || !naturalSize.height) return;
+    if (!file || !stageRef.current || !imageRef.current || !naturalSize.width || !naturalSize.height || encodingRef.current) return;
+    const encoding = new AbortController();
+    encodingRef.current = encoding;
+    let orientedCanvas, canvas;
     setSaving(true);
     setError("");
 
@@ -160,7 +165,7 @@ export function AvatarCropModal({
       const sourceHeight = cropHeight / scale;
 
       const normalizedRotation = ((rotation % 360) + 360) % 360;
-      const orientedCanvas = document.createElement("canvas");
+      orientedCanvas = document.createElement("canvas");
       orientedCanvas.width = orientedSize.width;
       orientedCanvas.height = orientedSize.height;
       const orientedContext = orientedCanvas.getContext("2d");
@@ -169,7 +174,7 @@ export function AvatarCropModal({
       orientedContext.rotate((normalizedRotation * Math.PI) / 180);
       orientedContext.drawImage(imageRef.current, -naturalSize.width / 2, -naturalSize.height / 2);
 
-      const canvas = document.createElement("canvas");
+      canvas = document.createElement("canvas");
       canvas.width = outputWidth;
       canvas.height = Math.round(outputWidth * cropHeight / cropWidth);
       const context = canvas.getContext("2d");
@@ -183,14 +188,18 @@ export function AvatarCropModal({
       context.drawImage(orientedCanvas, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
       if (outputShape === "circle") context.restore();
 
-      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 0.95));
+      const blob = await encodeCropPng(canvas, encoding.signal);
+      encoding.signal.throwIfAborted();
       if (!blob) throw new DesktopError(ELECKOI_FAILURE_CODES.mediaInvalid, "图片处理失败", { what: "裁剪后的图片" });
       const croppedFile = new File([blob], `${fileBaseName(file)}-cropped.png`, { type: "image/png" });
       await onSave?.(croppedFile, file);
     } catch (nextError) {
-      setError(resolveFailure(nextError, { fallback: tUi("图片保存失败，请稍后重试。") }).text);
+      if (!encoding.signal.aborted) setError(resolveFailure(nextError, { fallback: tUi("图片保存失败，请稍后重试。") }).text);
     } finally {
-      setSaving(false);
+      if (orientedCanvas) orientedCanvas.width = orientedCanvas.height = 0;
+      if (canvas) canvas.width = canvas.height = 0;
+      if (encodingRef.current === encoding) encodingRef.current = null;
+      if (!encoding.signal.aborted) setSaving(false);
     }
   }
 

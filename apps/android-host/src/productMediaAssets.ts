@@ -1,7 +1,7 @@
 import { createReadStream, existsSync, statSync } from 'node:fs'
 import { extname } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
-import { resolveLocalMediaPath } from '@eleckoi/dsh-product-data/media'
+import { LocalMediaThumbnails, LOCAL_MEDIA_CACHE_CONTROL } from '@eleckoi/dsh-product-data/media'
 import type {} from '@eleckoi/dsh-product-api'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
@@ -12,20 +12,26 @@ const mime: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg'
   '.ogg': 'audio/ogg', '.m4a': 'audio/mp4', '.mp4': 'video/mp4', '.webm': 'video/webm', '.pdf': 'application/pdf',
   '.ttf': 'font/ttf', '.otf': 'font/otf', '.ttc': 'font/collection', '.woff': 'font/woff', '.woff2': 'font/woff2' }
 
-/** Serve the original product's local media references through the official same-origin Host. */
+/** Serve content-addressed originals and disposable thumbnails through the same authenticated Host. */
 export function installProductMediaAssets(ctx: Context) {
   const root = process.env.ELECKOI_MEDIA_ROOT
   if (!root) {
     throw new DesktopError(ELECKOI_FAILURE_CODES.statePrecondition, 'Product media root is required', { what: '配置产品媒体目录' })
   }
-  ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/eleckoi/media', handler(request, response) {
+  const thumbnails = new LocalMediaThumbnails(root)
+  ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/eleckoi/media', async handler(request, response) {
+    try {
     if (!['GET', 'HEAD'].includes(request.method ?? '')) { response.writeHead(405, { Allow: 'GET, HEAD' }); response.end(); return }
     if ('rejection' in ctx.connection.admit(request)) { response.writeHead(401); response.end(); return }
     const url = new URL(request.url ?? '/', 'http://localhost'), reference = url.searchParams.get('reference') ?? ''
     let path: string | undefined
-    if (url.pathname === '/eleckoi/media/asset') path = resolveLocalMediaPath(root, reference)
+    if (url.pathname === '/eleckoi/media/asset') path = await thumbnails.resolve(reference)
     if (!path || !existsSync(path) || !statSync(path).isFile()) { response.writeHead(404); response.end('Media resource does not exist'); return }
-    const size = statSync(path).size, headers: Record<string, string | number> = { 'Content-Type': mime[extname(path).toLowerCase()] ?? 'application/octet-stream', 'Accept-Ranges': 'bytes' }
+    const stat = statSync(path), size = stat.size
+    const etag = `"${reference}"`
+    const headers: Record<string, string | number> = { 'Content-Type': mime[extname(path).toLowerCase()] ?? 'application/octet-stream', 'Accept-Ranges': 'bytes',
+      'Cache-Control': LOCAL_MEDIA_CACHE_CONTROL, ETag: etag, 'Last-Modified': stat.mtime.toUTCString() }
+    if (request.headers['if-none-match'] === etag) { response.writeHead(304, headers); response.end(); return }
     let start = 0, end = size - 1, status = 200
     if (request.headers.range) {
       const range = /^bytes=(\d*)-(\d*)$/.exec(request.headers.range)
@@ -39,5 +45,10 @@ export function installProductMediaAssets(ctx: Context) {
     response.writeHead(status, headers)
     if (request.method === 'HEAD' || size === 0) { response.end(); return }
     const stream = createReadStream(path, { start, end }); stream.on('error', error => response.destroy(error)); stream.pipe(response)
+    } catch (error) {
+      console.error('Local media image request failed', error)
+      if (!response.headersSent) response.writeHead(500)
+      response.end()
+    }
   } }), 'eleckoi: product media assets')
 }

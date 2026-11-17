@@ -32,10 +32,15 @@ function fixture(platform = 'desktop') {
   const entries: any[] = []
   const slots: any = {
     provideRoot: () => () => {}, spec: () => undefined, subscribe: () => () => {},
-    register: (options: any, component: any) => { const entry = { options, component }; entries.push(entry); return () => entries.splice(entries.indexOf(entry), 1) },
+    register: (options: any, component: any) => { const entry = { options, component, inject: options.inject, locale: options.locale, registrant: options.registrant }; entries.push(entry); return () => entries.splice(entries.indexOf(entry), 1) },
     inject: (_name: string, register: any) => { const disposers = register(); if (typeof disposers !== 'function') Array.from(disposers) },
     entries: (name: string) => entries.filter(entry => entry.options.name === name),
     entriesOfSlot: (name: string) => name === 'sidebar.workspaces' ? [{ inject: () => face }] : entries.filter(entry => entry.options.name === name),
+  }
+  const browsePlugins = vi.fn()
+  for (const name of ['sidebar.panellist.actions', 'conversation.session.header.views.actions', 'sidebar.right.tab.guide.actions']) {
+    slots.register({ name, id: 'entry-customization', locale: 'entryCustomization',
+      registrant: '@deepseek-ai/dsh-client-ui-entry-customization', inject: () => ({ browsePlugins }) }, () => null)
   }
   const services: any = { sessions: { list: sessions, search: sessions.search }, workspaces: { list: registry }, eleckoiConversations: conversations, uiWorkspace, eleckoiCreatorStudio: { sessions: studio } }
   const context: any = { slots, layout, locale: { bind: () => (key: string) => key }, get: (name: string) => services[name], inject: () => {},
@@ -64,10 +69,37 @@ function fixture(platform = 'desktop') {
     })
     return body.props.children.props.workspaceSidebar.props.renderSlot('sidebar.workspaces', { wide: true })
   }
-  return { sessions, conversations, registry, uiWorkspace, studio, layout, face, hooks, render }
+  return { sessions, conversations, registry, uiWorkspace, studio, layout, face, hooks, render, browsePlugins,
+    menu: (region: string) => entries.find(entry => entry.options.name === region && entry.registrant === '@eleckoi/dsh-client-shell').inject() }
 }
 
 describe.each(['desktop', 'android'])('%s plugin Workspace Session ownership', platform => {
+  it.each([
+    ['sidebar.panellist.actions', 'sidebar'],
+    ['conversation.session.header.views.actions', 'conversation'],
+    ['sidebar.right.tab.guide.actions', 'rightbar'],
+  ])('opens Studio immediately while preparing the %s plugin draft', async (region, area) => {
+    const f = fixture(platform)
+    let complete!: () => void
+    f.studio.startWorkspace.mockImplementationOnce(() => new Promise<void>(resolve => { complete = resolve }))
+    const menu = f.menu(region)
+    menu.createPlugin()
+    expect(f.layout.selectPanel).toHaveBeenCalledExactlyOnceWith('creatorStudio')
+    expect(f.studio.startWorkspace).toHaveBeenCalledExactlyOnceWith(undefined, { prompt: `createPrompt.${area}`, whenDraftExists: 'append' })
+    expect(menu.browsePlugins).toBe(f.browsePlugins)
+    expect(f.uiWorkspace.startSession).not.toHaveBeenCalled()
+    complete()
+    await Promise.resolve()
+    expect(f.layout.selectPanel).toHaveBeenCalledTimes(1)
+  })
+  it('keeps Studio reachable when plugin draft preparation fails', async () => {
+    const f = fixture(platform)
+    f.studio.startWorkspace.mockRejectedValueOnce(new Error('Synthetic draft initialization failed'))
+    f.menu('sidebar.panellist.actions').createPlugin()
+    await Promise.resolve()
+    expect(f.layout.selectPanel).toHaveBeenCalledExactlyOnceWith('creatorStudio')
+    expect(f.uiWorkspace.startSession).not.toHaveBeenCalled()
+  })
   it('shows only existing creative conversations in Studio, across workspaces and ungrouped, without modifying any Session', async () => {
     const f = fixture(platform), list = f.sessions.getSnapshot(), registry = f.registry.getSnapshot()
     f.layout.panelInfo.publish({ activePanelId: 'creatorStudio' })

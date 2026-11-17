@@ -59,6 +59,13 @@ export function stageProductionClosure(repo, output, { links = true, reuseFrom =
       }
       record.dependencies.push({ name, package: register(directory) })
     }
+    // sharp selects these documented optional packages at runtime. They are
+    // required for this Linux ARM64 glibc target even on a Windows build host.
+    if (manifest.name === 'sharp') {
+      for (const name of ['@img/sharp-linux-arm64', '@img/sharp-libvips-linux-arm64']) {
+        if (!record.dependencies.some(edge => edge.name === name)) throw new Error(`Android native image dependency missing: sharp -> ${name}; install the configured supportedArchitectures before staging`)
+      }
+    }
     return record
   }
   register(initial, true)

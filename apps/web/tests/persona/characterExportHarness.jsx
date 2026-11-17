@@ -3,6 +3,7 @@ import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { vi } from 'vitest'
 import { CharacterManager } from '../../src/modules/persona/components/CharacterManager.jsx'
+import '../helpers/masonryGeometry.js'
 
 globalThis.React = React
 // 组件本身用 JSX 但不 import React（走 tsconfig 的 react-jsx），

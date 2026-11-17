@@ -5,6 +5,31 @@ import { describe, expect, it } from 'vitest'
 import { prepareProductionClosure } from '../stage-production-closure.mjs'
 
 describe('Android production dependency staging', () => {
+  it('requires both Linux ARM64 sharp packages instead of silently shipping a decoder without its native runtime', () => {
+    const repo = mkdtempSync(join(tmpdir(), 'eleckoi-image-runtime-'))
+    try {
+      mkdirSync(join(repo, 'apps/android-host'), { recursive: true })
+      writeFileSync(join(repo, 'apps/android-host/package.json'), JSON.stringify({ name: 'synthetic-host', version: '1.0.0', dependencies: { sharp: '0.35.5' } }))
+      const sharp = join(repo, 'node_modules/sharp')
+      mkdirSync(sharp, { recursive: true })
+      const names = ['@img/sharp-linux-arm64', '@img/sharp-libvips-linux-arm64']
+      writeFileSync(join(sharp, 'package.json'), JSON.stringify({ name: 'sharp', version: '0.35.5', optionalDependencies: Object.fromEntries(names.map(name => [name, '*'])) }))
+      for (const name of names) {
+        const path = join(repo, 'node_modules', name); mkdirSync(path, { recursive: true })
+        writeFileSync(join(path, 'package.json'), JSON.stringify({ name, version: '1.0.0', os: ['win32'], cpu: ['x64'] }))
+      }
+      const output = join(repo, 'build/android-runtime/closure')
+      expect(() => prepareProductionClosure(repo, output)).toThrow(/native image dependency missing/)
+      for (const name of names) {
+        const path = join(repo, 'node_modules', name); mkdirSync(path, { recursive: true })
+        writeFileSync(join(path, 'package.json'), JSON.stringify({ name, version: '1.0.0', os: ['linux'], cpu: ['arm64'], libc: ['glibc'] }))
+      }
+      expect(prepareProductionClosure(repo, output).packages.map(pkg => pkg.name)).toEqual(['synthetic-host', 'sharp', ...names])
+    } finally {
+      expect(resolve(repo).startsWith(resolve(tmpdir()) + sep)).toBe(true)
+      rmSync(repo, { recursive: true, force: true })
+    }
+  })
   it('excludes installed musl-only optional packages from the glibc runtime', () => {
     const repo = mkdtempSync(join(tmpdir(), 'eleckoi-platform-'))
     try {

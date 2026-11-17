@@ -892,8 +892,9 @@ window.__ModuleLoader__.load({
               inject: (...args) => ({ ...source.inject?.(...args), createPlugin: () => {
                 const area = region.startsWith('conversation') ? 'conversation' : region.startsWith('sidebar.right') ? 'rightbar' : 'sidebar'
                 const prompt = ctx.locale.bind('entryCustomization')(`createPrompt.${area}`)
-                void ctx.get('eleckoiCreatorStudio').sessions.startWorkspace(undefined, { prompt, whenDraftExists: 'append' })
-                  .then(() => ctx.layout.selectPanel('creatorStudio')).catch(failureAlreadyPublished)
+                const opening = ctx.get('eleckoiCreatorStudio').sessions.startWorkspace(undefined, { prompt, whenDraftExists: 'append' })
+                ctx.layout.selectPanel('creatorStudio')
+                void opening.catch(failureAlreadyPublished)
               } }) }, source.component)
           }
           const stop = ctx.slots.subscribe(region, sync)

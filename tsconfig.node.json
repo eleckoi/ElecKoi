@@ -51,6 +51,7 @@
   "include": [
     "apps/android-host/src/androidPluginBundles.ts",
     "apps/android-host/src/androidPluginRecovery.ts",
+    "apps/android-host/src/productMediaAssets.ts",
     "apps/android-host/src/pluginHostConfiguration.ts",
     "apps/android-host/src/androidPluginBundleManifest.json",
     "apps/desktop/electron.vite.config.ts",

@@ -12,6 +12,7 @@ import { join, resolve, sep } from 'node:path'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import { LOCAL_MEDIA_SCHEME } from '@shared/foundation/mediaReference'
+import { removeEmptyThumbnailDirectory, removeImageThumbnails } from './thumbnailFiles'
 
 const REFERENCE_PREFIX = `${LOCAL_MEDIA_SCHEME}://asset/v1/`
 const HASH_PATTERN = /^[a-f0-9]{64}$/
@@ -124,6 +125,8 @@ export class LocalMediaStore {
         settled = true
         if (!created || !fileName) return
         rmSync(join(this.slotDirectory(ownerHash, slot), fileName), { force: true })
+        removeImageThumbnails(join(this.slotDirectory(ownerHash, slot), fileName))
+        this.pruneEmptySlot(ownerHash, slot)
       }
     }
   }
@@ -133,8 +136,17 @@ export class LocalMediaStore {
     if (!existsSync(directory)) return
     for (const entry of readdirSync(directory, { withFileTypes: true })) {
       if (!entry.isFile() || entry.name === keepFileName) continue
-      if (FILE_PATTERN.test(entry.name) || entry.name.startsWith('.')) rmSync(join(directory, entry.name), { force: true })
+      if (FILE_PATTERN.test(entry.name) || entry.name.startsWith('.')) {
+        rmSync(join(directory, entry.name), { force: true })
+        if (FILE_PATTERN.test(entry.name)) removeImageThumbnails(join(directory, entry.name))
+      }
     }
+    this.pruneEmptySlot(ownerHash, slot)
+  }
+
+  private pruneEmptySlot(ownerHash: string, slot: string): void {
+    removeEmptyThumbnailDirectory(this.slotDirectory(ownerHash, slot))
+    removeEmptyThumbnailDirectory(join(this.versionRoot(), ownerHash))
   }
 
   private referenceMatchesOwnerSlot(reference: string, ownerHash: string, slot: string): boolean {

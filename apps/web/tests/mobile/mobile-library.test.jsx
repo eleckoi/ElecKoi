@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { MobileCharactersPage } from '../../src/mobile/MobileCharactersPage.jsx';
 import { MobilePresetsPage } from '../../src/mobile/MobilePresetsPage.jsx';
+import '../helpers/masonryGeometry.js';
 
 const fixture = vi.hoisted(() => ({ presets: null }));
 vi.mock('../../src/modules/presets/components/PresetPanel.jsx', () => ({ PresetProvider: ({ children }) => children, PresetWorkspace: () => null, usePresets: () => fixture.presets }));
@@ -18,7 +19,7 @@ const samples = [
   { id: 'character-c', name: '合成角色丙', description: '', group: '', persona: {} },
 ];
 beforeEach(() => {
-  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+  vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   backHandlers = []; saveGroups = vi.fn(); start = vi.fn(); select = vi.fn(); renderSection = vi.fn((key, owner, fallback) => fallback);
   maskEvents = [];
   document.addEventListener('eleckoi:system-bar-mask', recordMask);
@@ -44,7 +45,17 @@ async function mount(page = 'character', initialRoute = { kind: 'root' }, charac
   await act(async () => root.render(<Harness />));
 }
 async function click(label, within = document) {
-  const button = [...within.querySelectorAll('button')].find(item => item.textContent.trim() === label || item.getAttribute('aria-label') === label);
+  const find = () => [...within.querySelectorAll('button')].find(item => item.textContent.trim() === label || item.getAttribute('aria-label') === label);
+  let button = find();
+  const target = view?.chat?.characters?.items.findIndex(item => item.name === label);
+  if (!button && target >= 0) {
+    const viewport = document.querySelector('.mobile-character-list');
+    for (let n = 0; viewport && !button && n < view.chat.characters.items.length * 2; n++) {
+      const first = Number(viewport.querySelector('[data-index]')?.dataset.index || 0);
+      await act(async () => { viewport.scrollTop = Math.max(0, viewport.scrollTop + (first > target ? -200 : 200)); viewport.dispatchEvent(new Event('scroll')); });
+      button = find();
+    }
+  }
   expect(button, label).toBeTruthy(); await act(async () => button.click());
 }
 async function input(value) {
@@ -106,9 +117,12 @@ describe('Android character and preset library contracts', () => {
     await click('角色操作');
     await click('导出角色卡');
     for (const character of characters.slice(0, 51)) await click(character.name);
-    expect(document.querySelectorAll('.mobile-character-card[aria-pressed=true]')).toHaveLength(51);
+    expect(document.querySelector('.mobile-library-selection-header').textContent).toContain('51 张');
     await click('全选');
-    expect(document.querySelectorAll('.mobile-character-card[aria-pressed=true]')).toHaveLength(101);
+    expect(document.querySelector('.mobile-library-selection-header').textContent).toContain('101 张');
+    view.characters.exportCharacters.mockResolvedValue({ canceled: true, written: [], failures: [] });
+    await click('导出');
+    expect(view.characters.exportCharacters).toHaveBeenCalledWith(characters.map(item => item.id), 'png');
     expect(document.querySelector('.mobile-inline-error')).toBeNull();
   });
 

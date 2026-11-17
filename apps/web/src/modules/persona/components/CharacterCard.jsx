@@ -1,50 +1,23 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { characterCover, characterName } from "./characterUtils.js";
-import { assetSrc } from "../../../app/services/assets.js";
+import { assetSrc, coverSources } from "../../../app/services/assets.js";
 import { Avatar } from "../../../ui/ui/Avatar.jsx";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useState } from "react";
 
-export function CharacterCard({ character, active, artworkAspectRatio = 0.76, selectable = false, selected = false, onClick, onDoubleClick, onContextMenu }) {
+export function CharacterCard({ character, active, artworkAspectRatio = 0.76, artworkWidth, selectable = false, selected = false, onClick, onDoubleClick, onContextMenu }) {
   const tUi = useProductTranslation();
   const authorName = character?.authorName?.trim() || tUi("未填写作者");
   const authorAvatar = character?.authorAvatar || "";
   const name = characterName(character, tUi);
   const cover = characterCover(character);
   const resolvedCover = assetSrc(cover);
-  const [coverFailed, setCoverFailed] = useState(false);
-  const cardRef = useRef(null);
-
-  useEffect(() => {
-    setCoverFailed(false);
-  }, [resolvedCover]);
-
-  useLayoutEffect(() => {
-    const card = cardRef.current;
-    const grid = card?.parentElement;
-    if (!card || !grid || typeof ResizeObserver === "undefined") return undefined;
-
-    const updateSpan = () => {
-      const gridStyle = getComputedStyle(grid);
-      const rowHeight = Number.parseFloat(gridStyle.gridAutoRows) || 4;
-      const measuredGap = Number.parseFloat(gridStyle.rowGap);
-      const rowGap = Number.isFinite(measuredGap) ? measuredGap : 18;
-      const cardGap = Number.parseFloat(gridStyle.getPropertyValue('--character-card-gap'));
-      const spacing = Number.isFinite(cardGap) ? cardGap : rowGap;
-      const span = Math.ceil((card.getBoundingClientRect().height + spacing) / (rowHeight + rowGap));
-      card.style.gridRowEnd = `span ${Math.max(1, span)}`;
-    };
-
-    const observer = new ResizeObserver(updateSpan);
-    observer.observe(card);
-    updateSpan();
-    return () => observer.disconnect();
-  }, []);
-
-  const hasCover = Boolean(resolvedCover && !coverFailed);
+  const [failure, setFailure] = useState(null);
+  const failed = failure?.source === resolvedCover ? failure.stage : 0;
+  const sources = artworkWidth ? coverSources(cover, artworkWidth, artworkAspectRatio) : { src: resolvedCover };
+  const hasCover = Boolean(resolvedCover && failed < 2);
 
   return (
     <button
-      ref={cardRef}
       className={`character-card ${active ? "active" : ""} ${selectable ? "selectable" : ""} ${selected ? "selected" : ""}`}
       style={{ "--character-artwork-ratio": artworkAspectRatio }}
       type="button"
@@ -56,7 +29,8 @@ export function CharacterCard({ character, active, artworkAspectRatio = 0.76, se
     >
       {selectable ? <span className="character-card-check" aria-hidden="true" /> : null}
       <div className={`character-card-cover ${hasCover ? "has-image" : "is-fallback"}`}>
-        {hasCover ? <img src={resolvedCover} alt={name} onError={() => setCoverFailed(true)} /> : <span>{name.slice(0, 1)}</span>}
+        {hasCover ? <img {...(failed ? { src: resolvedCover } : sources)} alt={name} loading="lazy" decoding="async"
+          onError={() => setFailure({ source: resolvedCover, stage: !failed && sources.src !== resolvedCover ? 1 : 2 })} /> : <span>{name.slice(0, 1)}</span>}
       </div>
       <span className="character-card-copy">
         <strong>{name}</strong>

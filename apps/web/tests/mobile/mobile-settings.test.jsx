@@ -170,6 +170,8 @@ describe('Android settings presentation with shared PC contracts', () => {
     expect(container.querySelector('[aria-label="自动运行楼层数数值"]').value).toBe('11');
   });
   it('renders the selected list artwork instead of forcing a cover image', async () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function () { return this.classList.contains('mobile-message-list') ? 640 : 82; });
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(390);
     container = document.createElement('div'); document.body.append(container); root = createRoot(container);
     const characters = new Map([['character-a', { id: 'character-a', name: '合成角色', persona: { assistant_avatar: 'avatar.png', assistant_cover: 'cover.png' } }]]);
     const render = artworkMode => <MainPageContext.Provider value={{ scrollPositions: new Map() }}><MobileMessageList sessions={[{ id: 'chat-a', character_id: 'character-a', character_avatar: 'avatar.png' }]} characters={characters} pinnedIds={[]} artworkMode={artworkMode} /></MainPageContext.Provider>;
@@ -272,7 +274,7 @@ describe('Android settings presentation with shared PC contracts', () => {
     save.mockResolvedValueOnce(stored);
     await click('保存');
     expect(view.chat.persona).toEqual(stored);
-    expect(container.querySelector('.mobile-profile-avatar img').getAttribute('src')).toBe(stored.user_avatar);
+    expect(container.querySelector('.mobile-profile-avatar img').getAttribute('src')).toBe(stored.user_avatar + '?thumbnail=256');
     await click('返回');
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(view.settingsPage).toBe('home');

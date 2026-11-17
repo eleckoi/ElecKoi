@@ -4,19 +4,21 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { MobileCreatorStudioPage } from '../../src/mobile/MobileCreatorStudioPage.jsx';
+import { CreatorStudioPage } from '../../../../packages/client/features/dsh-client-creator-studio/src/page.jsx';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 globalThis.React = React;
 const cleanups = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup(); });
-async function mount(selectedCharacter = false, characterExists = selectedCharacter) {
+async function mount(selectedCharacter = false, characterExists = selectedCharacter, options = {}) {
   const current = { sessionId: 'synthetic-current', characterId: selectedCharacter ? 'synthetic-character' : '', presetId: 'synthetic-creator' };
   let snapshot = { status: 'ready', active: current, reference: {}, error: '', items: [
     { ...current, title: '合成对话', updatedAt: Date.now(), pinned: false, pinIndex: -1 },
-  ] };
+  ], ...options.snapshot };
   const listeners = new Set();
   const model = {
     getSnapshot: () => snapshot, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
+    publish: patch => { snapshot = { ...snapshot, ...patch }; listeners.forEach(listener => listener()); },
     restoreRecent: vi.fn(async () => current), refresh: vi.fn(async () => snapshot.items), release: vi.fn(),
     create: vi.fn(async () => current), open: vi.fn(async () => current),
     pin: vi.fn(async id => { snapshot = { ...snapshot, items: snapshot.items.map(item => item.sessionId === id ? { ...item, pinned: true, pinIndex: 0 } : item) }; listeners.forEach(listener => listener()); }),
@@ -25,10 +27,12 @@ async function mount(selectedCharacter = false, characterExists = selectedCharac
   const characterSnapshot = { collection: { items: characterExists ? [{ id: 'synthetic-character', name: '合成角色', avatar: '' }] : [], groups: [] }, status: 'ready', error: '' };
   const drawerSnapshot = { shown: false };
   const view = { navigation: { sidebar: { subscribe: () => () => {}, getSnapshot: () => drawerSnapshot }, closeSidebar: vi.fn() }, openWorkspaceDrawer: vi.fn(), creatorStudio: { sessions: model }, characters: { subscribe: () => () => {}, getSnapshot: () => characterSnapshot },
-    renderCreatorStudioConversation: vi.fn(() => <div>合成会话内容</div>), goBack: vi.fn(), registerBackHandler: () => () => {} };
+    renderCreatorStudioConversation: vi.fn(() => <div>合成会话内容</div>), renderLayout: ({ mainPanel }) => mainPanel,
+    goBack: vi.fn(), registerBackHandler: () => () => {} };
   const node = document.createElement('div'); document.body.append(node);
   const root = createRoot(node);
-  await act(async () => root.render(<MainPageContext.Provider value={view}><MobileCreatorStudioPage /></MainPageContext.Provider>));
+  const Page = options.Page || MobileCreatorStudioPage;
+  await act(async () => root.render(<MainPageContext.Provider value={view}><Page /></MainPageContext.Provider>));
   cleanups.push(async () => { await act(async () => root.unmount()); node.remove(); });
   const click = async label => { const button = [...node.querySelectorAll('button')].find(item => item.getAttribute('aria-label') === label || item.textContent.trim() === label); expect(button, label).toBeTruthy(); await act(async () => button.click()); };
   return { node, model, view, click };
@@ -64,5 +68,28 @@ describe('Android AI creator studio navigation', () => {
     const props = f.view.renderCreatorStudioConversation.mock.calls.at(-1)[0].props;
     await act(async () => props.onSelectCharacter());
     expect([...document.querySelectorAll('.creator-studio-character-picker button')].find(button => button.textContent === '不选择角色').getAttribute('aria-pressed')).toBe('true');
+  });
+});
+
+describe.each([['desktop', CreatorStudioPage], ['android', MobileCreatorStudioPage]])('%s plugin creation destination', (_platform, Page) => {
+  it('keeps the pending plugin draft initialization instead of restoring another Session', async () => {
+    const f = await mount(false, false, { Page, snapshot: { status: 'loading', active: null, reference: null, items: [] } });
+    expect(f.model.restoreRecent).not.toHaveBeenCalled();
+    expect(f.view.renderCreatorStudioConversation).not.toHaveBeenCalled();
+    await act(async () => f.model.publish({ status: 'ready', active: { sessionId: 'synthetic-plugin-session' }, reference: {} }));
+    expect(f.node.textContent).toContain('合成会话内容');
+    expect(f.model.restoreRecent).not.toHaveBeenCalled();
+  });
+  it('shows a failed initialization without automatically retrying or replacing its error', async () => {
+    const f = await mount(false, false, { Page, snapshot: { status: 'error', active: null, reference: null,
+      error: new Error('Synthetic plugin draft preparation failed') } });
+    expect(f.node.textContent).toContain('Synthetic plugin draft preparation failed');
+    expect(f.model.restoreRecent).not.toHaveBeenCalled();
+    await f.click('重试');
+    expect(f.model.restoreRecent).toHaveBeenCalledOnce();
+  });
+  it('still restores the recent Session on ordinary idle entry', async () => {
+    const f = await mount(false, false, { Page, snapshot: { status: 'idle', active: null, reference: null } });
+    expect(f.model.restoreRecent).toHaveBeenCalledOnce();
   });
 });

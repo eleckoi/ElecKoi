@@ -1,5 +1,5 @@
 import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
-import { forwardRef, useId, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useId, useLayoutEffect, useRef, useState } from 'react';
 import '../styles/sidebar-scroll-area.css';
 import { applySidebarListWheel } from '../hooks/useSidebarListScroll.js';
 
@@ -9,7 +9,11 @@ export const SidebarScrollArea = forwardRef(function SidebarScrollArea({ classNa
   const id = useId();
   const [metrics, setMetrics] = useState({ height: 0, thumb: 0, offset: 0, max: 0, value: 0 });
   const [dragging, setDragging] = useState(false);
-  useImperativeHandle(forwardedRef, () => viewport.current, []);
+  const setViewport = useCallback(node => {
+    viewport.current = node;
+    if (typeof forwardedRef === 'function') forwardedRef(node);
+    else if (forwardedRef) forwardedRef.current = node;
+  }, [forwardedRef]);
 
   useLayoutEffect(() => {
     const element = viewport.current;
@@ -38,7 +42,7 @@ export const SidebarScrollArea = forwardRef(function SidebarScrollArea({ classNa
   }
 
   return <div ref={area} className={`sidebar-scroll-area${dragging ? ' is-dragging' : ''}`}>
-    <div ref={viewport} id={id} className={`sidebar-scroll-viewport ${className}`}>
+    <div ref={setViewport} id={id} className={`sidebar-scroll-viewport ${className}`}>
       <div ref={content} className="sidebar-scroll-content">{children}</div>
     </div>
     {metrics.max > 0 ? <div className="sidebar-scrollbar" role="scrollbar" tabIndex={0} aria-label={tUi("滚动列表")}

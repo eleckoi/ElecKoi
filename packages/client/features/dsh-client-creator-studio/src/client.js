@@ -148,13 +148,16 @@ window.__ModuleLoader__.load({
             // Retain the original input owner; semantic references and files stay in their existing store.
             if (draft.draft !== '' || draft.attachmentIds.length) this.draftReferences.set(current.sessionId, this.reference)
           }
-          await this.create('', workspaceId)
+          const opened = await this.create('', workspaceId)
+          if (this.disposed || !opened || this.snapshot.active?.sessionId !== opened.sessionId) return
         }
         if (options.prompt !== undefined) {
-          const binding = this.sessions.binding(this.snapshot.active.sessionId)
-          if (!binding || this.getConversation().input.requestDraftInitialization(binding, options) === 'blocked') {
-            throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '无法准备插件创作草稿。', { what: '准备插件创作草稿' })
-          }
+          try {
+            const binding = this.sessions.binding(this.snapshot.active.sessionId)
+            if (!binding || this.getConversation().input.requestDraftInitialization(binding, options) === 'blocked') {
+              throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '无法准备插件创作草稿。', { what: '准备插件创作草稿' })
+            }
+          } catch (error) { this.publish({ error }); throw error }
         }
       }
       open(sessionId) { return this.acquire(false, sessionId) }

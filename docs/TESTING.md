@@ -1,5 +1,13 @@
 # 测试与日常验证
 
+2026-11-17 角色瀑布流按需挂载：`character-masonry.test.js` 使用正式 PC CharacterManager／手机 MobileCharactersPage 和 10001 张含长短标题、缺封面的合成卡片，覆盖手机 390／768px、PC 900／1440／1900px、两主题、首中末、末尾编辑／复制、进入详情返回、滚回顶部及实时改列。每阶段核对实际挂载数、重叠和横向溢出，检查返回锚点几何，截图须等实际绘制后检查；不把图片 lazy 当作卡片虚拟化。`masonryGeometry.js` 只为无布局引擎的 jsdom 提供有界视口与观察器，原作者、排序、分组、勾选、删除／导出错误和取消断言保留。手机 101 张逐项选择和全选检查改为沿滚动取到目标卡，核对已选数量及完整 101 个 ID 交给原导出服务，不要求屏幕外节点全部挂载。`avatar-loading.test.jsx` 增加按封面长边和 1／2／3 倍密度选择、超出预览规格回到原图；原本地媒体检查补大尺寸派生图重开及全部尺寸删除。证据 build/character-masonry-check；合成浏览器检查不是安装包或安卓真机验收。
+
+2026-11-17 安卓封面裁剪保存：用户打开实际开发版并点击裁剪弹窗保存，ADB 记录页面 PNG `toBlob` 回调等待约 13.07 秒、随后 Data URL 读取约 14.6ms，期间尚无资料保存 Remote 请求；不能据此前的口述位置判为数据库保存慢。同图页面及页面 Offscreen 编码约 4.08／4.13 秒，独立 Worker 含转移约 140ms，PNG 1805498 字节及 SHA-256 完全相同；这是修复前的手机临时编码路径对照，不是已安装修复包验收。`avatar-crop-encoding.test.jsx` 验证正式裁剪组件绕开慢页面编码、文件输出、异常可见、退出取消、迟到位图及 Worker 启动失败释放，并保留缺少对应浏览器能力时的原编码路径。连同原头像管理及角色资料三文件 13 项通过；`avatar-crop-encoding.test.js` 在实际 Chromium Worker 比较 420 方图／900×1200 竖图、三个旋转角及透明渐变，六组像素与 PNG 全字节一致。记录 build/cover-crop-speed-check；临时编码不修改持久角色、不发送消息，手机隔离 Host 合成库及图片随探针清理。
+
+2026-11-17 头像加载与消息目录：`message-list-virtualization.test.js` 以正式 PC／手机列表的 10001 条合成会话核对首屏、中部、末尾的挂载数，保留末条打开、菜单、置顶和手机侧滑及返回位置；不把头像懒加载当作列表虚拟化。`avatar-loading.test.jsx` 检查双端显示密度、失败后原图回退及缓存资料首帧头像；原头像原图预览与资料保存检查保留。`local-media-thumbnails.test.ts` 覆盖比例、透明、动图、方向、原图字节不变、无放大／小图不另存、并发复用、替换／清空／删除／回滚、损坏缓存恢复、启动中断文件和孤儿清理、解码期间删除；`product-media-assets.test.ts` 沿实际认证 HTTP 入口检查私有缓存、304、HEAD、范围和删除后 404。Android closure 检查必须拒绝缺少本平台原生图片库；Windows 合成页面和静态 ARM64 依赖核对均不代表手机安装验收。证据位于 build/avatar-loading-analysis-20261117，富消息卡片导致系统回收图片的假设尚未证实。
+
+2026-11-17 更多菜单创建插件跳转：`workspace-session-visibility.test.ts` 覆盖 PC／安卓三处菜单的草稿等待及失败，要求点击时已经导航到创作工作室，准备完成不重复导航，保留官方提示文本、追加策略及浏览插件回调。`mobile-creator-studio-navigation.test.jsx` 同时装配当前正式 PC／手机工作室页面，检查挂载不覆盖已有 loading／error 状态、失败可见及手动重试，普通 idle 进入仍恢复会话。`dsh-client-creator-studio.test.ts` 补草稿阻塞／异常的原始错误发布、原会话保留和离开后迟到创建的引用释放，不调用模型或改写真实聊天。证据见 build/sidebar-create-plugin-check；组件与 Client 检查不等同已安装客户端验收。
+
 `desktop-update-prompts.test.ts` 补下载进度隐藏后的安装确认：ready 到达隐藏操作收尾前后均须在下载 Promise 结束后打开原“安装并重启”，进度保持／重开均只确认一次；取消后不重弹，主窗隐藏时等 show，释放后不再出现，available 的原去重保持。测试仅用合成下载与模拟安装入口，不调用真实下载或退出安装。
 
 图片预览时序另由 `chat-stream-scroll.test.jsx` 在正式 ChatView、消息组件和官方 HistoricalImageCache 中覆盖“正式输入先发布、提交稍后退休”：两种布局均须一直保留预览、退休前零附件读取、退休后仅一次正式读取并接续同一图片节点；旧转接在正式输入到达阶段会丢图。`chat-message-reconciliation.test.js` 检查同一请求的预览可交接、其他请求及会话不能复用；Client 投影检查验证 admitted 仍持有提交预览，pendingSubmissions 退休后恢复正式附件引用。以上为共用 Web／Client 检查，不是 PC 或安卓的现场发送验收。

@@ -11,12 +11,12 @@ import { CharacterEditorWindow } from '../app/windows/CharacterEditorWindow.jsx'
 import { CharacterImportDialog } from '../modules/persona/components/CharacterImportDialog.jsx';
 import { newCharacter } from '../modules/persona/hooks/usePersonaCharacters.js';
 import { characterCover, characterGroup, characterName } from '../utils/characterDisplay.js';
-import { assetSrc } from '../app/services/assets.js';
+import { assetSrc, coverSources } from '../app/services/assets.js';
 import { failureAlreadyPublished } from '../utils/swallowedFailure.js';
 import { CharacterProfilePanel } from '../modules/persona/components/CharacterProfilePanel.jsx';
 import '../modules/persona/styles/character-profile.css';
-import { MobileHeader, MobileState, useMobileBack, useMobileScroll } from './MobileChrome.jsx';
-import { MobileWaterfall } from './MobileWaterfall.jsx';
+import { MobileHeader, MobileState, useMobileBack } from './MobileChrome.jsx';
+import { VirtualMasonry } from '../ui/ui/VirtualMasonry.jsx';
 import { MobileActionMenu, MobileConfirm, MobileSelectionHeader, useMobileOperation } from './MobileLibraryChrome.jsx';
 import { MobileLibraryIcon } from './MobileLibraryIcons.jsx';
 import { MobileCharacterLibraryBar } from './MobileCharacterLibraryBar.jsx';
@@ -148,20 +148,31 @@ export function MobileCharactersPage() {
   </div>;
 }
 
-function CharacterCover({ character }) {
+const artworkRatio = index => [0.76, 0.68, 0.84, 0.72][index % 4];
+// Existing two-line title plus author and padding; visible cards are measured exactly.
+const estimateCardHeight = (_character, index, width) => width / artworkRatio(index) + 84;
+
+function CharacterCover({ character, width, ratio }) {
   const tUi = useProductTranslation();
   const source = assetSrc(characterCover(character));
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [source]);
-  return source && !failed ? <img className="mobile-character-cover" src={source} alt="" loading="lazy" onError={() => setFailed(true)} />
+  const [failure, setFailure] = useState(null);
+  const failed = failure?.source === source ? failure.stage : 0;
+  const sources = coverSources(characterCover(character), width, ratio);
+  return source && failed < 2 ? <img className="mobile-character-cover" {...(failed ? { src: source } : sources)} alt="" loading="lazy" decoding="async"
+    onError={() => setFailure({ source, stage: !failed && sources.src !== source ? 1 : 2 })} />
     : <span className="mobile-cover-empty"><MobilePictureFrameIcon />{tUi("暂无封面")}</span>;
 }
 function CharacterGrid({ characters, selection, selectedIds, onClick, filters, scrollKey = 'characters' }) {
   const tUi = useProductTranslation();
-  const ref = useMobileScroll(scrollKey);
-  return <div className={`mobile-scroll mobile-character-list${characters.length ? '' : ' is-empty'}`} ref={ref}>{filters}<MobileWaterfall>{characters.map((character, index) => <button type="button" key={character.id} aria-label={characterName(character, tUi)} className="mobile-character-card" style={{ '--mobile-cover-ratio': [0.76, 0.68, 0.84, 0.72][index % 4] }} onClick={() => onClick(character)} aria-pressed={selection ? selectedIds.includes(character.id) : undefined}>
-    <CharacterCover character={character} /><strong>{characterName(character, tUi)}</strong>
+  const { scrollPositions } = useMainPageView();
+  const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
+  return <VirtualMasonry key={scrollKey} items={characters} scrollClassName={`mobile-scroll mobile-character-list${characters.length ? '' : ' is-empty'}`}
+    gridClassName="mobile-character-grid" initialState={scrollPositions.get(`masonry:${scrollKey}`)}
+    onSaveState={state => scrollPositions.set(`masonry:${scrollKey}`, state)} estimateHeight={estimateCardHeight}
+    leading={filters} empty={<MobileState empty={tUi("暂无角色")} />}>
+    {(character, index, width) => <button type="button" key={character.id} aria-label={characterName(character, tUi)} className="mobile-character-card" style={{ '--mobile-cover-ratio': artworkRatio(index) }} onClick={() => onClick(character)} aria-pressed={selection ? selected.has(character.id) : undefined}>
+    <CharacterCover character={character} width={width} ratio={artworkRatio(index)} /><strong>{characterName(character, tUi)}</strong>
     <span className="mobile-character-author"><Avatar as="span" name={character.authorName?.trim() || tUi("未填写作者")} src={character.authorAvatar || ''} /><span>{character.authorName?.trim() || tUi("未填写作者")}</span></span>
-    {selection && <span className="mobile-character-selection" data-selected={selectedIds.includes(character.id)} aria-hidden="true">{selectedIds.includes(character.id) && <Check size={15} weight="bold" />}</span>}
-  </button>)}</MobileWaterfall>{!characters.length && <MobileState empty={tUi("暂无角色")} />}</div>;
+    {selection && <span className="mobile-character-selection" data-selected={selected.has(character.id)} aria-hidden="true">{selected.has(character.id) && <Check size={15} weight="bold" />}</span>}
+  </button>}</VirtualMasonry>;
 }

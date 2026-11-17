@@ -12,6 +12,7 @@ import { formatDate } from '../utils/format.js';
 import { MobileSwipeRow } from './MobileSwipeRow.jsx';
 import { MobileBackIcon } from './MobileIcons.jsx';
 import { MobileConversationPage } from './MobileConversationPage.jsx';
+import { VirtualListRows, useVirtualListRows } from '../ui/ui/VirtualListRows.jsx';
 
 export function MobileMessagesPage() {
   const tUi = useProductTranslation();
@@ -61,10 +62,12 @@ export function MobileMessagesPage() {
 
 export function MobileMessageList({ sessions, characters, pinnedIds, artworkMode = 'cover', loading, onOpen, onMenu, onPin, onHide }) {
   const tUi = useProductTranslation();
+  const { scrollPositions } = useMainPageView();
   const ref = useMobileScroll('messages');
+  const virtualizer = useVirtualListRows({ items: sessions, scrollRef: ref, estimateSize: () => 82, initialOffset: scrollPositions.get('messages') || 0 });
   const [openKey, setOpenKey] = useState(null);
   return <div ref={ref} className={`mobile-scroll mobile-message-list${sessions.length ? '' : ' is-empty'}`}>
-    {sessions.map(item => {
+    <VirtualListRows items={sessions} virtualizer={virtualizer}>{item => {
       const character = characters.get(item.character_id);
       const name = item.character_name || characterName(character, tUi);
       return <MobileSwipeRow key={item.id} rowKey={item.id} openKey={openKey} onOpenKeyChange={setOpenKey} disabled={loading} actions={[
@@ -77,7 +80,7 @@ export function MobileMessageList({ sessions, characters, pinnedIds, artworkMode
         </button>
         <button type="button" className="mobile-message-menu" aria-label={tUi("{value0}的会话操作", {value0: name})} onClick={() => onMenu(item)}><DotsThree size={22} /></button>
       </div>}</MobileSwipeRow>;
-    })}
+    }}</VirtualListRows>
     {!sessions.length && <MobileState empty={tUi("暂无会话")} />}
   </div>;
 }

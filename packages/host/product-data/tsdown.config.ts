@@ -14,6 +14,7 @@ export default defineConfig({
   external: [
     '@deepseek-ai/cordis',
     'better-sqlite3',
+    'sharp',
     /^drizzle-orm(?:\/.*)?$/,
     'zod'
   ]

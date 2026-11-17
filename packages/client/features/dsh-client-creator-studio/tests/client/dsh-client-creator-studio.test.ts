@@ -237,6 +237,34 @@ describe('Studio Session binding and restoration', () => {
     expect(f.remote.create).not.toHaveBeenCalled()
     expect(f.draft).toHaveBeenCalledWith({ sessionId: 'synthetic-current' }, { prompt: 'Synthetic plugin task', whenDraftExists: 'append' })
   })
+  it.each(['blocked', 'failure'])('publishes %s plugin draft preparation while preserving the current Session', async mode => {
+    const f = studioSessions([{ sessionId: 'synthetic-current', title: 'Synthetic creation', pinned: false }])
+    await f.model.open('synthetic-current')
+    const before = f.model.getSnapshot()
+    const failure = new Error('Synthetic plugin draft failure')
+    if (mode === 'blocked') f.draft.mockReturnValueOnce('blocked')
+    else f.draft.mockImplementationOnce(() => { throw failure })
+    await expect(f.model.startWorkspace(undefined, { prompt: 'Synthetic plugin task', whenDraftExists: 'append' })).rejects.toThrow()
+    expect(f.model.getSnapshot().error.message).toBe(mode === 'blocked' ? '无法准备插件创作草稿。' : failure.message)
+    expect(f.model.getSnapshot().active).toBe(before.active)
+    expect(f.model.getSnapshot().reference).toBe(before.reference)
+    expect(f.remote.create).not.toHaveBeenCalled()
+    expect(f.releases).toEqual([])
+  })
+  it('does not prepare a late plugin draft after leaving Studio during creation', async () => {
+    const f = studioSessions([])
+    let finish!: (result: any) => void
+    f.remote.create.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const opening = f.model.startWorkspace(undefined, { prompt: 'Synthetic plugin task', whenDraftExists: 'append' })
+    await settle()
+    expect(f.remote.create).toHaveBeenCalledOnce()
+    f.model.release()
+    finish({ ok: true, value: { sessionId: 'synthetic-late-session', presetId: 'synthetic-creator-preset', characterId: '' } })
+    await expect(opening).resolves.toBeUndefined()
+    expect(f.draft).not.toHaveBeenCalled()
+    expect(f.model.getSnapshot()).toMatchObject({ status: 'idle', active: null, error: '' })
+    expect(f.releases).toEqual(['synthetic-late-session'])
+  })
   it('reuses the current blank in its workspace when New Session is requested again', async () => {
     const f = studioSessions([{ sessionId: 'synthetic-current', title: 'Synthetic creation', pinned: false }], [
       { workspaceId: 'synthetic-workspace', sessionIds: ['synthetic-current'], createdAt: '2026-01-01' },

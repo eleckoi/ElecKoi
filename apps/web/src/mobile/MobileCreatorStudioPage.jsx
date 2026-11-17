@@ -35,9 +35,7 @@ export function MobileCreatorStudioPage() {
     const version = ++mountVersion.current;
     if (!initialized.current) {
       initialized.current = true;
-      void perform(async () => {
-        await model.restoreRecent();
-      });
+      if (!['loading', 'error'].includes(model.getSnapshot().status)) void perform(() => model.restoreRecent());
     }
     return () => queueMicrotask(() => { if (mountVersion.current === version) { model.release(); initialized.current = false; } });
   }, [model]);

@@ -9,6 +9,13 @@ packages:
   - packages/sdk/*
   - packages/compatibility/*
 
+# The Android Host runs in Linux ARM64 glibc; keep its optional native image
+# dependencies installed when preparing that runtime from the Windows checkout.
+supportedArchitectures:
+  os: [current, linux]
+  cpu: [current, arm64]
+  libc: [glibc]
+
 onlyBuiltDependencies:
   - '@deepseek-ai/dsh-subprocess-local'
   - electron
