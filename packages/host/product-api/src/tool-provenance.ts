@@ -26,7 +26,13 @@ export function createPresetToolReferenceResolver(ctx: Context) {
       pending = request
       void request.catch(() => { if (pending === request) invalidate() })
     }
-    return withPluginTools(preset, declarations, await pending)
+    let sources: Map<string, ToolPluginSource>
+    try { sources = await pending }
+    catch (error) {
+      ctx.logger.warn('预设工具的插件来源读取失败', error)
+      return resolved
+    }
+    return withPluginTools(preset, declarations, sources)
   }
 }
 

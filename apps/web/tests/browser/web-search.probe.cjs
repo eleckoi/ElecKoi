@@ -65,6 +65,14 @@ app.whenReady().then(async () => {
     const readOnly = await run(`[...document.querySelectorAll('.web-search-mode button')].every(n=>n.disabled)`);
     await run('window.webSearchFixture.publish({writable:true})');
     await waitFor(`!document.querySelector('.web-search-mode button').disabled`);
+    await run(`window.webSearchFixture.publish({apiKeyError:new Error('合成凭据状态读取失败'),apiKeyWritable:false})`);
+    await waitFor(`[...document.querySelectorAll('button')].some(n=>n.textContent==='重试')`);
+    const credentialError = await run(`({localized: [...document.querySelectorAll('fieldset [role="alert"]')].some(n=>n.textContent==='合成凭据状态读取失败'), keyHidden: !document.querySelector('[aria-label="Tavily API Key"]'), resultsEnabled: !document.querySelector('[aria-label="返回结果数量"]').disabled})`);
+    await choose('DeepSeek');
+    const providerAfterCredentialError = (await selection()).selected;
+    await choose('Tavily');
+    await run(`[...document.querySelectorAll('button')].find(n=>n.textContent==='重试').click()`);
+    await waitFor(`!!document.querySelector('[aria-label="Tavily API Key"]')`);
     await run(`(() => { const n=document.querySelector('[aria-label="返回结果数量"]');n.focus();n.select(); })()`);
     await win.webContents.insertText('2');
     await new Promise(resolve => setTimeout(resolve, 30));
@@ -78,7 +86,7 @@ app.whenReady().then(async () => {
     await new Promise(resolve => setTimeout(resolve, 30));
     await run(`[...document.querySelectorAll('button')].find(n=>n.textContent==='保存并测试').click()`);
     await new Promise(resolve => setTimeout(resolve, 50));
-    writeFileSync(report, JSON.stringify({ layouts, officialOnly, selected, reopened, blockedNavigation, configured, existingApi, failed, readOnly, countSnapshot, calls: await run('window.webSearchFixture.calls'), message: await run('document.body.textContent'), cleared: await run(`document.querySelector('[aria-label="Tavily API Key"]').value===''`) }));
+    writeFileSync(report, JSON.stringify({ layouts, officialOnly, selected, reopened, blockedNavigation, configured, existingApi, failed, readOnly, credentialError, providerAfterCredentialError, countSnapshot, calls: await run('window.webSearchFixture.calls'), message: await run('document.body.textContent'), cleared: await run(`document.querySelector('[aria-label="Tavily API Key"]').value===''`) }));
     win.destroy(); app.exit(0);
   } catch (error) { console.error(error); app.exit(1); }
 });

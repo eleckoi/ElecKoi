@@ -120,7 +120,22 @@ describe('conversation display ownership', () => {
       await act(async () => { first = kind === 'send' ? chat.sendMessage(null, 'Input A')
         : chat.regenerateReply({ targetMessageId: 'input-chat-a', replacementMessage: 'Revised input A' }) })
       expect(chat.isSending).toBe(true)
-      await act(async () => chat.openCharacterChat({ id: 'character-b', name: 'Synthetic B' }))
+      const character = { id: 'character-b', name: 'Synthetic B' }
+      if (kind === 'send' && outcome === 'complete') {
+        let finishRefresh
+        const waitingRefresh = new Promise(resolve => { finishRefresh = () => resolve(records) })
+        const refresh = vi.spyOn(model, 'refresh').mockResolvedValueOnce(records).mockReturnValueOnce(waitingRefresh)
+        const opened = vi.fn()
+        try {
+          await act(async () => { void chat.openCharacterChat(character, { keepSection: true }).then(opened) })
+          expect(refresh).toHaveBeenCalledTimes(2)
+          expect(opened).toHaveBeenCalledOnce()
+          expect(props.setActiveSectionState).not.toHaveBeenCalled()
+        } finally {
+          await act(async () => finishRefresh())
+          refresh.mockRestore()
+        }
+      } else await act(async () => chat.openCharacterChat(character))
       expect(chat.sessionId).toBe('chat-b')
       expect(chat.isSending).toBe(false)
       expect(model.cancelRequest).not.toHaveBeenCalled()

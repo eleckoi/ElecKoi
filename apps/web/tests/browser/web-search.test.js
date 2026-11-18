@@ -31,6 +31,8 @@ it('persists DeepSeek independently from configuration navigation and preserves 
     expect(result.existingApi).toEqual({ mode: 'deepseek_search_api', fetchMode: 'deepseek_fetch_api', selected: 'DeepSeek', extraUpdates: 0 });
     expect(result.failed).toEqual({ mode: 'tavily', fetchMode: 'deepseek_fetch_api', selected: 'Tavily', error: '合成保存失败' });
     expect(result.readOnly).toBe(true);
+    expect(result.credentialError).toEqual({ localized: true, keyHidden: true, resultsEnabled: true });
+    expect(result.providerAfterCredentialError).toBe('DeepSeek');
     expect(result.calls).toContainEqual({ open: 'web-search' });
     expect(result.calls, JSON.stringify({ count: result.countSnapshot, message: result.message })).toContainEqual({ maxResults: 20 });
     expect(result.calls).toContainEqual({ closed: true });

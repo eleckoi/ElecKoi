@@ -63,7 +63,7 @@ function Conversation({ component: Component, props }) {
   const [activeView, selectView] = useState('chat');
   const sessions = { byId: { 'tablet-runtime': { projectionValues: { agentPreset: 'synthetic-preset' } }, 'synthetic-child': { title: '合成子代理', projectionValues: {} } }, projectionsBySession: { 'tablet-runtime': { state: 'ready', error: null, values: { subagentCatalog: [{ id: 'synthetic-child', mode: 'continuable', name: '合成子代理' }] } } } };
   const inspection = { eventNodes: [], eventLocations: new Map(), requests: [], callSchemas: new Map(), partial: null, runningCalls: [] };
-  return <OfficialMarkdownProvider component={MarkdownText}><Component {...props} hasHeaderMenu renderConversationContent={nativeContent}
+  return <OfficialMarkdownProvider component={MarkdownText}><Component {...props} renderConversationContent={nativeContent}
     dshConversation={{ activeView, selectView, tabs: [{ id: 'chat', label: '对话' }, { id: 'trajectory', label: '轨迹' }], renderView: noop,
       renderEntryActions: onDismiss => <EntryMenuContent region="conversation" entries={empty} onOpen={selectView} onPinnedChange={noop} onDismiss={onDismiss}
         usePluginNavigation={hook(true)} browsePlugins={()=>previewActions.push({action:'plugins.browse'})} createPlugin={()=>previewActions.push({action:'plugins.create'})} t={dictionary(entryZh)} renderFactorySlot={()=>null} />,

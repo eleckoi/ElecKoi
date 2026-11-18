@@ -23,6 +23,7 @@ export function ApplicationFrontendController({ slots, subscribeSlots, navigatio
   const { workspace, error, loaded, request } = workspaceState;
   const { runtime } = useHtmlResources();
   const [targets, setTargets] = useState([]), [failure, setFailure] = useState(''), [open, setOpen] = useState(false);
+  const [rootFailure, setRootFailure] = useState('');
   const [previewId, setPreviewId] = useState(null), [previewing, setPreviewing] = useState(false);
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [seat, setSeat] = useState(null), surface = useRef(null);
@@ -45,7 +46,7 @@ export function ApplicationFrontendController({ slots, subscribeSlots, navigatio
     try { return { bindings: validateFrontendBindings(project, targets, view), error: '' }; }
     catch (reason) { return { bindings: [], error: resolveFailure(reason, { fallback: tUi("前端绑定校验失败") }).text }; }
   }, [project, targets, view, tUi]);
-  useEffect(() => { setFailure(''); }, [selectedId, workspace.revision]);
+  useEffect(() => { setFailure(''); setRootFailure(''); }, [selectedId, workspace.revision]);
   useEffect(() => {
     if (!project || !slots || selection.error) return;
     try {
@@ -81,11 +82,11 @@ export function ApplicationFrontendController({ slots, subscribeSlots, navigatio
   useEffect(() => open ? registerOverlayBack(() => { setOpen(false); return true; }, window, 1000) : undefined, [open]);
   const restore = async () => { try { await request('frontends.restoreDefault'); setPreviewing(false); setFailure(''); } catch (reason) { setFailure(resolveFailure(reason, { fallback: tUi("恢复默认前端失败") }).text); } };
   const root = selection.bindings.find(binding => binding.target === 'root');
-  const problem = error || selection.error || failure;
+  const problem = error || selection.error || rootFailure || failure;
   const pageIds = selection.bindings.filter(binding => binding.target === 'page' || binding.slot === 'main').map(binding => binding.pageId || binding.entryKey);
   return <><div ref={surface} style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }} data-application-frontend={project?.id || 'default'}>
     {problem && <div className="frontend-state" role="alert">{problem}</div>}
-    {root && loaded && !problem ? <AdvancedFrontendFrame project={project} runtime={runtime} request={request} entryFile={root.entryFile} revision={workspace.revision} context={{ binding: root, view, preview: previewing }} onError={setFailure} />
+    {root && loaded && !error && !selection.error && !rootFailure ? <AdvancedFrontendFrame project={project} runtime={runtime} request={request} entryFile={root.entryFile} revision={workspace.revision} context={{ binding: root, view, preview: previewing }} onError={setRootFailure} />
       : children({ ...navigation, frontendPageIds: pageIds })}
   </div>{seat && createPortal(<><style>{workbenchStyles}</style><div className="af-host">
     {(project || problem || previewing) && <div className="af-recovery-edge" aria-label={tUi("应用前端控制")}>

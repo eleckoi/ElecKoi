@@ -3,6 +3,19 @@ import { readFileSync } from 'node:fs'
 import { JSDOM } from 'jsdom'
 
 const facade = readFileSync(new URL('../app/src/main/assets/platform-facade.js', import.meta.url), 'utf8')
+const activity = readFileSync(new URL('../app/src/main/java/com/eleckoi/app/MainActivity.java', import.meta.url), 'utf8')
+
+it('keeps native file and link failures out of the startup recovery panel', () => {
+  for (const message of ['文件选择失败', '文件下载失败', '文件导出失败', '外部链接打开失败', '临时导出文件清理失败', '平台结果发送失败']) {
+    expect(activity.includes(`showOperationFailure("${message}：`), message).toBe(true)
+    expect(activity.includes(`showFailure("${message}：`), message).toBe(false)
+  }
+  expect(activity).toContain('showFailure("页面启动超时')
+  expect(activity).toContain('showFailure("渲染进程已退出')
+  const report = activity.slice(activity.indexOf('private void showOperationFailure('), activity.indexOf('private void showDiagnostics('))
+  expect(report).toContain('Toast.makeText')
+  expect(report).not.toMatch(/runtimePanel|clientStartupFailure|hideStartupProgress/)
+})
 function clientPage() {
   const page = new JSDOM('<!doctype html><html><body><div id="root" data-dsh-boot><div><div>HARNESS</div><div data-dsh-boot-spinner></div><div>Loading plugins…</div></div></div></body></html>', {
     url: 'http://127.0.0.1:12345/', runScripts: 'outside-only', pretendToBeVisual: true

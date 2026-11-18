@@ -69,7 +69,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
     private SystemSpeech systemSpeech;
     private AppUpdates updates;
     private final AppUpdates.Listener updateListener = snapshot -> ui.post(() -> {
-        try { if (web != null && sameHost(web.getUrl())) emitBrowserEvent("eleckoi:updates-changed", new JSONObject(snapshot)); } catch (Exception error) { showFailure(error.toString()); }
+        try { if (web != null && sameHost(web.getUrl())) emitBrowserEvent("eleckoi:updates-changed", new JSONObject(snapshot)); } catch (Exception error) { showOperationFailure("更新状态发送失败：" + error); }
     });
     private final ConcurrentMap<String, StagedSave> stagedSaves = new ConcurrentHashMap<>();
     private final ServiceConnection connection = new ServiceConnection() {
@@ -239,7 +239,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
     }
     private void emitBrowserEvent(String type, Object detail) {
         try { web.command("emit", new JSONObject().put("event", type).put("detail", detail), null); }
-        catch (Exception error) { showFailure("平台事件发送失败：" + error); }
+        catch (Exception error) { showOperationFailure("平台事件发送失败：" + error); }
     }
     private void browserCommand(String type, JSONObject payload, Consumer<String> completion) {
         web.command(type, payload, completion);
@@ -247,14 +247,15 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
     private void chooseBrowserFiles(String[] accepted, boolean multiple, boolean save, String name, Consumer<Uri[]> completion) {
         if (fileChoice != null) fileChoice.accept(null);
         fileChoice = completion;
-        String[] types = accepted == null ? new String[0] : accepted;
+        String[] types = save ? (accepted == null ? new String[0] : accepted)
+            : BrowserFileTypes.openDocumentTypes(accepted, MimeTypeMap.getSingleton()::getMimeTypeFromExtension);
         Intent choose = new Intent(save ? Intent.ACTION_CREATE_DOCUMENT : Intent.ACTION_OPEN_DOCUMENT)
             .addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
         if (types.length > 0 && !types[0].trim().isEmpty()) choose.putExtra(Intent.EXTRA_MIME_TYPES, types);
         choose.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, multiple);
         if (save) choose.setType(types.length > 0 && !types[0].trim().isEmpty() ? types[0] : "application/octet-stream").putExtra(Intent.EXTRA_TITLE, name);
         try { startActivityForResult(choose, PICK_FILES); }
-        catch (Exception error) { fileChoice.accept(null); fileChoice = null; showFailure("文件选择失败：" + error.getMessage()); }
+        catch (Exception error) { fileChoice = null; completion.accept(null); showOperationFailure("文件选择失败：" + error.getMessage()); }
     }
     private void browserDownload(String url, String disposition, String mime, InputStream body) {
         String name = URLUtil.guessFileName(url, disposition, mime);
@@ -273,14 +274,14 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
                     });
                 } catch (Exception error) {
                     if (staged != null && !staged.delete()) android.util.Log.e("ElecKoiDownload", "Download staging cleanup failed");
-                    showFailure("文件下载失败：" + error);
+                    showOperationFailure("文件下载失败：" + error);
                 }
             });
             return;
         }
         if (url.startsWith("blob:") || url.startsWith("data:")) {
             try { web.command("download", new JSONObject().put("name", name).put("url", url).put("mime", type), null); }
-            catch (Exception error) { showFailure("文件下载失败：" + error); }
+            catch (Exception error) { showOperationFailure("文件下载失败：" + error); }
             return;
         }
         beginSave(new PendingSave("download-" + System.nanoTime(), name, type, null, url, null));
@@ -470,6 +471,11 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         clientStartupFailure = error;
         status.setText(clientStartupDiagnostics.failure(error)); runtimePanel.setVisibility(View.VISIBLE);
     }); }
+    private void showOperationFailure(String error) { runOnUiThread(() -> {
+        diagnostics.record(RuntimeDiagnostics.event("platform-operation", "failed").with("message", error));
+        diagnostics.flushSoon();
+        if (!isFinishing() && !isDestroyed()) Toast.makeText(this, error, Toast.LENGTH_LONG).show();
+    }); }
     private void showDiagnostics() {
         if(diagnosticsDialog!=null) return;
         ScrollView scrolling = new ScrollView(this); TextView text = new TextView(this); text.setTextIsSelectable(true);
@@ -605,8 +611,8 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
     }
     private void openExternal(String url) {
         Uri uri = Uri.parse(url); String scheme = uri.getScheme();
-        if (!"http".equals(scheme) && !"https".equals(scheme) && !"mailto".equals(scheme)) { showFailure("无法打开链接协议：" + scheme); return; }
-        try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception error) { showFailure("外部链接打开失败：" + error.getMessage()); }
+        if (!"http".equals(scheme) && !"https".equals(scheme) && !"mailto".equals(scheme)) { showOperationFailure("无法打开链接协议：" + scheme); return; }
+        try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception error) { showOperationFailure("外部链接打开失败：" + error.getMessage()); }
     }
     private void beginSave(PendingSave request) {
         if (pendingSave != null) { discardSource(request); platformResult(request.requestId, false, "已有文件等待保存"); return; }
@@ -635,7 +641,13 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
                 ClipData clip = intent.getClipData(); selected = new Uri[clip.getItemCount()];
                 for (int i = 0; i < selected.length; i++) selected[i] = clip.getItemAt(i).getUri();
             }
-            fileChoice.accept(selected); fileChoice = null;
+            Consumer<Uri[]> completion = fileChoice;
+            fileChoice = null;
+            if (resultCode == RESULT_OK && (selected == null || selected.length == 0)) {
+                showOperationFailure("系统文件选择器未返回文件，请从文件所在目录重新选择。");
+                selected = null;
+            }
+            completion.accept(selected);
         }
         if (requestCode == SAVE_FILE && pendingSave != null) {
             PendingSave request = pendingSave; pendingSave = null;
@@ -671,7 +683,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
     }
     private void discardSource(PendingSave request) {
         if (request.source != null && request.source.exists() && !request.source.delete())
-            showFailure("临时导出文件清理失败：" + request.source.getName());
+            showOperationFailure("临时导出文件清理失败：" + request.source.getName());
     }
     private static String bridgeResult(boolean success, String result) {
         try { return new JSONObject().put("success", success).put("result", result).toString(); }
@@ -682,7 +694,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
             if (web == null) return;
             try { JSONObject event = new JSONObject().put("id", id).put("success", success).put("result", result);
                 emitBrowserEvent("eleckoi:platform-result", event);
-            } catch (Exception error) { showFailure("平台结果发送失败：" + error); }
+            } catch (Exception error) { showOperationFailure("平台结果发送失败：" + error); }
         });
     }
     private final class PlatformBridge implements BrowserSurface.Bridge {
@@ -721,7 +733,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
                     }
                     runOnUiThread(() -> {
                         try { startActivity(settings); }
-                        catch (RuntimeException error) { showFailure("无法打开系统后台设置，请在手机设置中手动查看本应用权限。"); }
+                        catch (RuntimeException error) { showOperationFailure("无法打开系统后台设置，请在手机设置中手动查看本应用权限。"); }
                     }); return null;
                 case "updateStatus": return updateStatus();
                 case "checkUpdates": checkUpdates(a.getString(0)); return null;
@@ -781,7 +793,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
             try { save.output.close(); discardSource(save.request); return bridgeResult(true, ""); }
             catch (Exception error) { discardSource(save.request); return bridgeResult(false, error.toString()); }
         }
-        public void reportError(String message) { runOnUiThread(() -> showFailure("文件导出失败：" + message)); }
+        public void reportError(String message) { showOperationFailure("文件导出失败：" + message); }
         public void openExternal(String url) { runOnUiThread(() -> MainActivity.this.openExternal(url)); }
         public void notificationSettings() { runOnUiThread(MainActivity.this::notificationSettings); }
         public String updateStatus() { return updates.status(); }
@@ -800,7 +812,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
         if (web == null || clientReadyUrl.isEmpty()) { super.onBackPressed(); return; }
         browserCommand("back", new JSONObject(), consumed -> {
             if ("true".equals(consumed)) return;
-            if (!"false".equals(consumed)) { showFailure("浏览器未返回有效的导航结果"); return; }
+            if (!"false".equals(consumed)) { showOperationFailure("浏览器未返回有效的导航结果"); return; }
             if (web.canGoBack()) web.goBack();
             else MainActivity.super.onBackPressed();
         });

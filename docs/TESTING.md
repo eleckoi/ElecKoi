@@ -1,5 +1,9 @@
 # 测试与日常验证
 
+`dsh-client-creator-studio.test.ts` 注入会话目录与统计读取失败，验证已打开的对话、已提交的修改和重新生成可继续。未知 Session 仍须通过正式目录确认。`dsh-client-presets.test.ts`、`tool-provenance.test.ts` 与 `dsh-client-models.test.ts` 分别验证已导入预设、工具权限和模型基础目录在补充信息失败时可用，后续读取可以恢复。`generated-image-cleanup.test.js` 模拟提交后的图片路径校验失败，确认已生成的回退记录和准备状态一致，下次会话改写按原归属规则重试清理。`android-startup-page.test.js` 核对原生文件和链接操作的错误提示入口与启动恢复入口各自接线。
+
+`novelai-image-generation.test.js` 沿正式 Agent 流验证分镜 JSON 无效、数量不符和图片模型缺失时，正文完整完成。格式错误保留配图失败事件，三个场景均无图片请求，随后在原会话验证有效分镜成功出图。`dsh-client-character-configuration.test.ts` 与 `dsh-client-conversations.test.ts` 注入单个抛错的订阅回调，核对原始诊断、同一事件的其他接收者和后续配置／会话变更。
+
 AI 工具设计及验收约束见 [工具设计与错误恢复规范](AI_TOOL_DESIGN.md)。`creator-studio-runtime.test.js` 覆盖默认 Schema／显式摘要、只读空参、必填／错误类型／遗漏写参，以及真实 Agent 循环中的错误后恢复。混合参数被拒后，下一请求必须收到原错误、准确合同与可用调用，再完成合成角色创建、设定保存和冷恢复；原角色及已保存的长正文须完全保持，显式 ID 不要求先绑定。三个协议适配器通过本地 HTTP 检查恢复合同没有在序列化时丢失，不调用外部服务商；固定响应不代表真实模型成功率。`tool-result-recovery.test.js` 同时覆盖正式 Host 输出策略、保存预设恢复、万条结果及会话权限。相关检查证据见 build/creator-tool-contract-check。
 
 `avatar-crop-encoding.test.jsx` 除成功、取消、退出和能力缺失路径外，直接加载正式裁剪 Worker，在无 2D 上下文时核对失败码、诊断与详情经过结构化克隆后完整到达页面，错误可见、无保存及两侧资源释放。浏览器像素回归先打包正式编码器和 Worker 及其共享失败合同，再核对六组图像的尺寸、透明、像素与 PNG 全字节一致。`local-media-thumbnails.test.ts` 继续核对坏缓存删除后重建、原图保持、动画和方向、并发复用及清理；缓存读失败的明确尽力处理不代替后续重建。
@@ -10,7 +14,7 @@ AI 工具设计及验收约束见 [工具设计与错误恢复规范](AI_TOOL_DE
 
 `mobile-library.test.jsx` 覆盖安卓角色详情的单个导出 PNG／ZIP、实际目标 ID、失败重试、取消不误报、请求中不重复执行、删除确认／取消／失败／成功、离开后迟到结果不导航，以及缺失角色与返回关闭菜单。合成删除夹具实际更新目录，核对成功只删除目标并返回列表。build/mobile-character-profile-actions-check 保存正式详情页及原菜单／确认弹窗在两主题、窄手机／手机／平板／横屏八组触摸浏览器证据；导出回执为合成数据，不代替真实文件、系统保存或安卓真机验收。
 
-`native-script-ui.test.jsx` 覆盖精简作者面板仍保留可访问标题、按原身份挂载及相对资源、忽略无关 frame 通知、加载错误／重试、更多菜单重载与逐次释放；宿主不再绘制重复标题或常驻底栏。`mobile-preset-library.test.jsx` 检查与角色共用的顶部批选栏、空圈／勾选与实际数量、全选、格式、取消和失败项重试；原默认预设保护由 `mobile-library.test.jsx` 保留。正式组件浏览器证据位于 build/script-panel-design 及 build/preset-export-selection-check，包含两主题／三类视口、101 个导出 ID 的完整集合与格式；合成下载记录不代替系统文件保存或真机验收。
+`native-script-ui.test.jsx` 覆盖精简作者面板的可访问标题、按原身份挂载及相对资源、忽略无关 frame 通知、加载错误／重试、更多菜单重载与逐次释放，以及底部操作区和作者页面之间的焦点回环。`mobile-preset-library.test.jsx` 检查与角色共用的顶部批选栏、空圈／勾选与实际数量、全选、格式、取消和失败项重试；原默认预设保护由 `mobile-library.test.jsx` 保留。正式组件浏览器证据位于 build/script-panel-design 及 build/preset-export-selection-check，包含两主题／三类视口、101 个导出 ID 的完整集合与格式；合成下载记录不代替系统文件保存或真机验收。
 
 `mobile-dialog-scroll-preview.mjs --serve` 装配正式模型选择、问题报告、设定库并入、版本管理、确认、错误、作者确认、绘图选择和移动聊天浮层，注入合成目录及诊断数据。对该页运行 `mobile-dialog-scroll.probe.js`，浏览器通过 CDP 下发真实 touchStart／touchMove／touchEnd，从正文和按钮中间向两个方向滑动；手机、平板及短屏覆盖并入列表末尾与外层滚动，同时保留搜索末项、选择、删除与关闭检查。原模型列表样式作为负向对照，不能用设置 scrollTop 或鼠标滚轮代替触摸可用性。证据写入 build/mobile-dialog-scroll-check；不是安卓安装包或真机验收。
 
@@ -91,6 +95,8 @@ Android 原生运行诊断由 `RuntimeDiagnosticsTest`、`HostRunDiagnosticsTest
 DSH 批次升级时使用实际安装的 Client 工厂与 CSS 语法树提取测试入口，避免依赖发布包的空格、分号或源码分区注释。会话批量追加回归覆盖单条失败时整批不提交、产品可忽略事件及持久化重开；子代理按当前 `waitForTreeWork`、具名地址和正式 Session Query 装配。创作能力说明通过真实工具调度检查 JSON 输出，保留 Zod 参数结构而不携带其非枚举运行时接口。原生文件系统清理类测试使用本机 Node；需要 SQLite 的 Host 集成可使用 Electron Node 运行时，明确区分运行时差异。
 
 富消息尺寸由 `rich-document-measurement.test.ts` 检查首帧同步发布、后续合帧和释放，`rich-message-viewport-browser.test.js` 使用正式消息组件与隔离 Electron 窗口检查普通 HTML／原生 SDK 两路的图片延迟加载、视口单位、宿主窗口缩放、动态行内及外链样式、内容增减和窄宽度。保留字符串及 URL 原值、页面身份和零重复布局警告；原 `rich-message-settling-browser.test.js` 继续覆盖首进与切换聊天后无需滚动的楼层就绪。只使用合成媒体与临时 profile，不操作真实角色或聊天，也不替代手机真机验收。
+
+作者页面的浏览器 ResizeObserver 延迟通知和图片／音视频资源失败保留为可展开的运行诊断，不卸载文档或撤回 SDK；真正的异常、脚本／样式及 SDK 安装失败仍沿原失败通道处理。`document-errors.test.js` 覆盖原生／兼容文档在就绪前后的分类及同文案作者异常，`native-project-frame.test.jsx` 检查两类正式项目组件的文档身份、释放、诊断去重、兼容操作失败与初始化失败的区别，以及插槽失败不撤回正常 root、root 失败仍回退默认界面；`native-script-ui.test.jsx` 检查脚本面板保留诊断。`native-project-layout.test.js` 在普通及影子根容器中触发真实浏览器通知和损坏图片，核对页面继续运行与原尺寸布局。这些合成浏览器检查不替代安卓真机验收。
 
 资产库的混合文件夹由 `character-asset-folders.test.ts` 覆盖层级、跨角色拒绝、循环、稳定引用、递归删除恢复及目标文件夹已删除的导入；`character-assets.test.ts` 在 JSON／ZIP／PNG、角色复制与独立前端 ZIP 中保留层级和空文件夹。`character-asset-resources.test.ts` 通过实际 Cordis Gateway 调用新建、移动和改名后继续核对原 Range／引用资源。网页组件回归覆盖混合筛选、新建、移动、进入、当前目录导入、复制引用与原失败重试；正式组件合成浏览器的列表列轴、深浅层次与手机布局记录在 `build/asset-folders-check/`，不替代 Android 真机或真实数据验收。
 

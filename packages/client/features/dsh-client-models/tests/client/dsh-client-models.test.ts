@@ -8,6 +8,38 @@ const source = readFileSync(new URL('../../src/client.js', import.meta.url), 'ut
 const settle = () => new Promise<void>(resolve => setImmediate(resolve))
 
 describe('DSH ElecKoi model catalog', () => {
+  it('keeps the official and custom models when one provider capability lookup fails, then fills in the recovered metadata', async () => {
+    let registration: any, catalog: any
+    const error = new Error('Synthetic builtin capability lookup failure')
+    const report = vi.fn()
+    const discover = vi.fn(async () => ({ ok: true, value: [{ id: 'builtin-model', contextWindow: 65536 }] }))
+    discover.mockRejectedValueOnce(error)
+    const groups = [
+      { id: 'builtin-provider', name: 'Builtin', models: [{ id: 'builtin-model', name: 'Official model', inputModalities: ['text', 'image'] }] },
+      { id: 'custom-provider', name: 'Custom', models: [{ id: 'custom-model', name: 'Configured model' }] },
+    ]
+    const remote = {
+      session: { modelCatalog: async () => ({ ok: true, value: { groups } }) },
+      settings: { describe: async () => ({ ok: true, value: { namespaces: [] } }) },
+      llm: { listConfigurableProviders: async () => ({ ok: true, value: groups.map(group => ({ provider: group.id,
+        settingsNs: 'llm-pi-ai', settingsPath: ['providers', group.id], declared: group.id === 'custom-provider' })) }) },
+      credentials: { describe: async () => ({ ok: true, value: {} }) },
+      eleckoiModels: { discoverModels: discover },
+    }
+    runInNewContext(source, { console: { ...console, error: report }, window: { __ModuleLoader__: { load: (item: any) => { registration = item } } } })
+    dshClientPlugin(registration).apply({ remote, provide: (_name: string, value: unknown) => { catalog = value }, effect: () => {}, on: () => () => {} })
+    await expect(catalog.refresh()).resolves.toMatchObject([
+      { id: 'builtin-provider', model_options: [{ id: 'builtin-model', supportsImageInput: true }] },
+      { id: 'custom-provider', model_options: [{ id: 'custom-model' }] },
+    ])
+    expect(catalog.getSnapshot().status).toBe('ready')
+    expect(report).toHaveBeenCalledWith(expect.stringContaining('builtin-provider'), error)
+    await expect(catalog.refresh()).resolves.toMatchObject([
+      { id: 'builtin-provider', model_options: [{ catalogDefaults: { contextWindowTokens: 65536 } }] },
+      { id: 'custom-provider' },
+    ])
+    expect(discover).toHaveBeenCalledTimes(2)
+  })
   it('saves profiles and product parameters through settings while keeping secrets in credentials', async () => {
     let registration: any
     let catalog: any

@@ -90,7 +90,7 @@ window.__ModuleLoader__.load({
       : name === 'conversation.view' ? 'eleckoi.roleplay.session.view' : `eleckoi.roleplay.view.${name}`
 
     function RoleplaySessionView({
-      matched, sessionId, useSession, useSessionStatus, useInput, useHeaderMenuEntries, renderSlot, renderSlotChain
+      matched, sessionId, useSession, useSessionStatus, useInput, renderSlot, renderSlotChain
     }) {
       const session = useSession(snapshot => snapshot)
       const input = useInput(snapshot => snapshot)
@@ -102,7 +102,6 @@ window.__ModuleLoader__.load({
       ), [renderSlotChain])
       const props = {
         ...matched.props,
-        hasHeaderMenu: useHeaderMenuEntries?.(count => count > 0) ?? false,
         renderRoleplaySlot: renderSlot,
         renderRoleplaySlotChain: renderSlotChain,
         renderRoleplayMessage,
@@ -372,10 +371,6 @@ window.__ModuleLoader__.load({
         }, RoleplayView))
         ctx.slots.inject('eleckoi.roleplay.session', () => ctx.slots.register({
           name: 'eleckoi.roleplay.session',
-          inject: () => ({ hooks: { headerMenuEntries: {
-            subscribe: listener => ctx.slots.subscribe('eleckoi.roleplay.header.menu', listener),
-            getSnapshot: () => ctx.slots.entriesOfSlot('eleckoi.roleplay.header.menu').length,
-          } } }),
           children: {
             'eleckoi.roleplay.background': { kind: 'single', scope: 'session' },
             'eleckoi.roleplay.header.menu': { kind: 'list', scope: 'session' },

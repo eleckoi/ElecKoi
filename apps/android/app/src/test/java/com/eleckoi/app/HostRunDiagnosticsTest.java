@@ -30,7 +30,7 @@ public class HostRunDiagnosticsTest {
     @Test(timeout = 30_000) public void drainsBothPipesBeforePublishingExitAndKeepsTheCrashAfterRetryAndReopen() throws Exception {
         File directory = temporary.newFolder();
         RuntimeDiagnostics store = new RuntimeDiagnostics(directory);
-        HostRunDiagnostics run = new HostRunDiagnostics(store);
+        HostRunDiagnostics run = new HostRunDiagnostics(store, () -> {});
         run.installed("synthetic-runtime-a"); run.ready(1234);
         String java = new File(System.getProperty("java.home"), "bin/java").getPath();
         String classes = new File(FailingChild.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getPath();
@@ -40,14 +40,15 @@ public class HostRunDiagnosticsTest {
             Future<?> stderr = readers.submit(() -> { run.read(child.getErrorStream(), "stderr", ignored -> {}); return null; });
             Future<?> stdout = readers.submit(() -> { run.read(child.getInputStream(), "stdout", ignored -> {}); return null; });
             assertEquals(1, run.awaitExit(child, stderr, stdout));
-            String firstReport = store.report(new JSONObject(), RuntimeDiagnostics.REPORT_BYTES);
+            String firstReport = new RuntimeDiagnostics(directory).report(new JSONObject(), RuntimeDiagnostics.REPORT_BYTES);
             assertTrue(firstReport.contains("syntheticTask179"));
             assertTrue(firstReport.contains("synthetic final line without newline"));
             assertTrue(firstReport.indexOf("synthetic final line without newline") < firstReport.indexOf("\"exitCode\":1"));
-            HostRunDiagnostics retry = new HostRunDiagnostics(store);
+            HostRunDiagnostics retry = new HostRunDiagnostics(store, () -> {});
             retry.installed("synthetic-runtime-b");
             retry.lifecycle("failed", "Host 启动超过 120 秒，未收到经过校验的 ready 协议");
             retry.failure(new java.io.InterruptedIOException("read interrupted by close() on another thread"));
+            store.flush();
             RuntimeDiagnostics reopened = new RuntimeDiagnostics(directory);
             String copied = reopened.report(new JSONObject(), RuntimeDiagnostics.REPORT_BYTES);
             File exported = reopened.export(new JSONObject());
@@ -65,7 +66,7 @@ public class HostRunDiagnosticsTest {
 
     @Test public void preservesLongUnicodeLinesAndRedactsSecretsBeforeSplitting() throws Exception {
         RuntimeDiagnostics store = new RuntimeDiagnostics(temporary.newFolder());
-        HostRunDiagnostics run = new HostRunDiagnostics(store);
+        HostRunDiagnostics run = new HostRunDiagnostics(store, () -> {});
         String line = "测".repeat(2040) + "api_key=synthetic-secret " + "🦈".repeat(6000) + " END";
         run.read(input(line), "stderr", ignored -> {});
         List<JSONObject> parts = new ArrayList<>();
@@ -86,7 +87,7 @@ public class HostRunDiagnosticsTest {
 
     @Test public void recordsProtocolFailuresWithoutPersistingTransportCredentials() throws Exception {
         RuntimeDiagnostics store = new RuntimeDiagnostics(temporary.newFolder());
-        HostRunDiagnostics run = new HostRunDiagnostics(store);
+        HostRunDiagnostics run = new HostRunDiagnostics(store, () -> {});
         JSONObject ready = new JSONObject().put("type", "ready").put("url", "http://127.0.0.1:31001/?token=synthetic-transport-secret");
         run.read(input(HostRunDiagnostics.PROTOCOL_PREFIX + ready), "stdout", line ->
             run.protocol(new JSONObject(line.substring(HostRunDiagnostics.PROTOCOL_PREFIX.length()))));
@@ -99,7 +100,7 @@ public class HostRunDiagnosticsTest {
     @Test(timeout = 30_000) public void concurrentHostOutputRotationKeepsDiskAndExportsBounded() throws Exception {
         File directory = temporary.newFolder();
         RuntimeDiagnostics store = new RuntimeDiagnostics(directory);
-        HostRunDiagnostics run = new HostRunDiagnostics(store);
+        HostRunDiagnostics run = new HostRunDiagnostics(store, () -> {});
         ExecutorService readers = Executors.newFixedThreadPool(2);
         try {
             List<Future<?>> writes = new ArrayList<>();
@@ -109,6 +110,7 @@ public class HostRunDiagnosticsTest {
             }));
             for (int i = 0; i < 30; i++) store.export(new JSONObject());
             for (Future<?> write : writes) write.get(30, TimeUnit.SECONDS);
+            File report = store.export(new JSONObject());
             long bytes = 0;
             for (File file : directory.listFiles()) if (file.getName().startsWith("events-")) {
                 assertTrue(file.length() <= RuntimeDiagnostics.SEGMENT_BYTES); bytes += file.length();
@@ -116,7 +118,6 @@ public class HostRunDiagnosticsTest {
             }
             assertTrue(bytes <= RuntimeDiagnostics.SEGMENTS * RuntimeDiagnostics.SEGMENT_BYTES);
             assertTrue(directory.listFiles().length <= RuntimeDiagnostics.SEGMENTS + 1);
-            File report = store.export(new JSONObject());
             assertTrue(report.length() <= RuntimeDiagnostics.REPORT_BYTES);
             assertEquals(report, store.export(new JSONObject()));
             assertTrue(Files.readString(report.toPath()).contains("-599"));
@@ -124,11 +125,69 @@ public class HostRunDiagnosticsTest {
         } finally { readers.shutdownNow(); }
     }
 
-    @Test public void reportsOutputStorageFailureInsteadOfReturningAnApparentlyCompleteReport() throws Exception {
-        RuntimeDiagnostics store = new RuntimeDiagnostics(temporary.newFile());
-        HostRunDiagnostics run = new HostRunDiagnostics(store);
+    @Test public void retriesFailedWritesWithoutLosingOrDuplicatingHostOutput() throws Exception {
+        File directory = temporary.newFile();
+        RuntimeDiagnostics store = new RuntimeDiagnostics(directory);
+        HostRunDiagnostics run = new HostRunDiagnostics(store, () -> {});
         run.read(input("Synthetic error before exit"), "stderr", ignored -> {});
         assertTrue(store.report(new JSONObject(), 48_000).contains("Diagnostic storage failure"));
+        run.read(input("Synthetic output while storage is unavailable"), "stdout", ignored -> {});
+        store.flush();
+        Files.delete(directory.toPath());
+        Files.createDirectory(directory.toPath());
+        store.flush();
+        File exported = new RuntimeDiagnostics(directory).export(new JSONObject());
+        String report = Files.readString(exported.toPath());
+        String first = "Synthetic error before exit", second = "Synthetic output while storage is unavailable";
+        assertFalse(report.contains("Diagnostic storage failure"));
+        assertTrue(report.indexOf(first) >= 0);
+        assertTrue(report.indexOf(first) < report.indexOf(second));
+        assertEquals(report.indexOf(first), report.lastIndexOf(first));
+        assertEquals(report.indexOf(second), report.lastIndexOf(second));
+    }
+
+    @Test public void handlesReadyWhileDiskIsBusyAndKeepsEveryQueuedHostLine() throws Exception {
+        File directory = temporary.newFolder();
+        RuntimeDiagnostics store = new RuntimeDiagnostics(directory);
+        ExecutorService reader = Executors.newSingleThreadExecutor();
+        ExecutorService writer = Executors.newSingleThreadExecutor();
+        try {
+            Future<?> ready;
+            Future<?> flushed;
+            synchronized (store) {
+                // Hold the same monitor used by the disk writer while the Host reader dispatches ready.
+                CountDownLatch flushRequested = new CountDownLatch(1);
+                ready = reader.submit(() -> {
+                    HostRunDiagnostics run = new HostRunDiagnostics(store, flushRequested::countDown);
+                    StringBuilder output = new StringBuilder();
+                    for (int i = 0; i < 500; i++) output.append("startup-output-").append(i).append('\n');
+                    output.append(HostRunDiagnostics.PROTOCOL_PREFIX).append("{\"type\":\"ready\"}");
+                    run.read(input(output.toString()), "stdout", line -> {
+                        if (line.startsWith(HostRunDiagnostics.PROTOCOL_PREFIX)) {
+                            run.protocol(new JSONObject(line.substring(HostRunDiagnostics.PROTOCOL_PREFIX.length())));
+                            run.lifecycle("ready", "Synthetic readiness dispatched");
+                        }
+                    });
+                    return null;
+                });
+                assertTrue(flushRequested.await(5, TimeUnit.SECONDS));
+                flushed = writer.submit(store::flush);
+                ready.get(5, TimeUnit.SECONDS);
+                assertFalse(flushed.isDone());
+            }
+            flushed.get(5, TimeUnit.SECONDS);
+            RuntimeDiagnostics reopened = new RuntimeDiagnostics(directory);
+            List<JSONObject> events = new ArrayList<>();
+            for (String row : reopened.recent(600)) events.add(new JSONObject(row));
+            List<JSONObject> output = events.stream().filter(event -> event.optString("kind").equals("host-output")).toList();
+            assertEquals(500, output.size());
+            for (int i = 0; i < output.size(); i++) assertEquals("startup-output-" + i, output.get(i).getString("message"));
+            File exported = reopened.export(new JSONObject());
+            assertTrue(Files.readString(exported.toPath()).contains("Synthetic readiness dispatched"));
+        } finally {
+            reader.shutdownNow();
+            writer.shutdownNow();
+        }
     }
 
     private static ByteArrayInputStream input(String text) {

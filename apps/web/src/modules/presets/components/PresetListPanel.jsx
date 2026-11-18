@@ -46,7 +46,7 @@ export function shouldShowPresetCatalogLoading(catalog, error) {
 export function PresetListPanel() {
   const tUi = useProductTranslation();
   const scrollRef = useSidebarListScroll();
-  const { purposeCatalog: catalog, purpose, setPurpose, catalogModel, setCatalog, selectedPresetId, setSelectedPresetId, navigationGuard, refresh, error, setError } = usePresets();
+  const { purposeCatalog: catalog, purpose, setPurpose, catalogModel, setCatalog, selectedPresetId, setSelectedPresetId, navigationGuard, error, setError } = usePresets();
   const [keyword, setKeyword] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -150,8 +150,10 @@ export function PresetListPanel() {
           mimeType: file.type,
           base64: await fileBase64(file),
         }, purpose);
-        setSelectedGroup(ALL_PRESETS);
-        await refresh(result.preset.id);
+        if (currentPurpose.current === purpose) {
+          setSelectedGroup(ALL_PRESETS);
+          setSelectedPresetId(result.preset.id);
+        }
       } catch (cause) {
         setImportError(resolveFailure(cause, { fallback: tUi("导入预设失败") }).text);
       } finally {

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useMainPageView } from '../../src/app/windows/MainPageContext.jsx';
 import { useMobileScroll } from '../../src/mobile/MobileChrome.jsx';
 import { MobileWindow } from '../../src/mobile/MobileWindow.jsx';
+import { MobileMessagesPage } from '../../src/mobile/MobileMessagesPage.jsx';
 import { MobileWorkspaceControls } from '../../src/mobile/MobileWorkspaceControls.jsx';
 import { MobilePluginBack } from '../../src/mobile/MobilePluginBack.jsx';
 import { UnsavedChangesDialog } from '../../src/ui/ui/UnsavedChangesDialog.jsx';
@@ -72,6 +73,7 @@ function Page({ panel }) {
   if (view.route.kind === 'conversation') return <><p data-chat={view.chat.sessionId}>独立对话</p><button onClick={() => view.openCharacterEditor(view.chat.chatCharacter.character_id)}>编辑当前角色</button><button onClick={view.goBack}>返回</button></>;
   if (view.route.kind === 'character-editor') return <><p data-character-editor={view.route.characterId}>角色编辑</p><button onClick={view.goBack}>返回</button></>;
   if (view.route.kind === 'character-profile') return <><p>角色资料</p><button onClick={() => view.openCharacterConversation('character-b')}>进入对话</button><button onClick={view.goBack}>返回</button></>;
+  if (panel === 'messages' && view.chat.filteredSessions) return <MobileMessagesPage />;
   return <ListPage panel={panel} />;
 }
 function ListPage({ panel }) {
@@ -106,9 +108,10 @@ beforeEach(() => {
     notice: null, status: '就绪', notify: vi.fn(), loadChat: vi.fn(async id => {
       fixture.chat = { ...fixture.chat, sessionId: id, chatCharacter: { character_id: 'character-b' } };
       root.render(<Harness />);
-    }), openCharacterChat: vi.fn(async () => {
+    }), openCharacterChat: vi.fn(async (_id, options) => {
       fixture.chat = { ...fixture.chat, sessionId: 'chat-b', chatCharacter: { character_id: 'character-b' } };
-      navigation.selectPanel('messages'); root.render(<Harness />);
+      if (!options?.keepSection) navigation.selectPanel('messages');
+      root.render(<Harness />);
     }) };
 });
 afterEach(async () => {
@@ -118,6 +121,64 @@ afterEach(async () => {
   else delete HTMLElement.prototype.animate;
 });
 describe('Android independent conversation navigation', () => {
+  it('swaps bottom tabs immediately and keeps the detail transitions and source scroll', async () => {
+    const animations = [];
+    vi.stubGlobal('matchMedia', () => ({ matches: false }));
+    Object.defineProperty(HTMLElement.prototype, 'animate', {
+      configurable: true,
+      value(frames, timing) {
+        const cancel = vi.fn();
+        animations.push({ target: this, frames, timing, cancel });
+        return { cancel };
+      },
+    });
+    await mount();
+    const rightbar = document.querySelector('[data-rightbar-col]');
+    const mainPanel = rightbar.previousElementSibling.firstElementChild;
+    const seat = document.querySelector('.mobile-page-seat');
+    const bottomNav = document.querySelector('.mobile-bottom-nav');
+    expect(animations).toHaveLength(0);
+    await click('角色');
+    expect(document.querySelector('[data-list]').dataset.list).toBe('character');
+    expect(animations[0].target).toBe(mainPanel);
+    expect(animations[0].frames).toEqual([{ opacity: .94 }, { opacity: 1 }]);
+    expect(animations[0].timing.duration).toBe(90);
+    expect(document.querySelector('.mobile-bottom-nav')).toBe(bottomNav);
+    await click('角色');
+    expect(animations).toHaveLength(1);
+    await click('消息');
+    expect(animations[1].target).toBe(mainPanel);
+    expect(animations[1].frames).toEqual(animations[0].frames);
+    expect(animations[0].cancel).toHaveBeenCalledOnce();
+    expect(document.querySelector('.mobile-bottom-nav')).toBe(bottomNav);
+    await click('角色');
+    document.querySelector('[data-list]').scrollTop = 140;
+    await click('角色资料');
+    expect(animations[3].target).toBe(mainPanel);
+    expect(animations[3].frames[0].transform).toBe('translateX(32px)');
+    expect(animations[2].cancel).toHaveBeenCalledOnce();
+    const back = new Event('eleckoi:platform-back', { cancelable: true });
+    await act(async () => window.dispatchEvent(back));
+    expect(back.defaultPrevented).toBe(true);
+    expect(animations[3].cancel).toHaveBeenCalledOnce();
+    expect(animations[4].target).toBe(mainPanel);
+    expect(animations[4].frames[0].transform).toBe('translateX(-32px)');
+    expect(document.querySelector('.mobile-page-seat')).toBe(seat);
+    expect(document.querySelector('[data-list]').scrollTop).toBe(140);
+  });
+
+  it('honors reduced motion for tabs and details', async () => {
+    const animate = vi.fn();
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    Object.defineProperty(HTMLElement.prototype, 'animate', { configurable: true, value: animate });
+    await mount();
+    await click('角色');
+    await click('角色资料');
+    await click('返回');
+    expect(animate).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-list]').dataset.list).toBe('character');
+  });
+
   it('keeps the tablet sidebar hidden and uses the same modal drawer as the phone', async () => {
     frameWidth = 800;
     let snapshot = { shown: false, drawer: true };
@@ -344,8 +405,51 @@ describe('Android independent conversation navigation', () => {
     expect(document.querySelector('[data-list]').scrollTop).toBe(240);
     expect(document.querySelector('.mobile-bottom-nav')).not.toBeNull();
   });
-  it('returns from a character conversation to its source profile and then its list', async () => {
-    await mount(); await click('角色'); await click('角色资料'); await click('进入对话');
+  it('shows pending feedback on only the tapped message row until the conversation opens', async () => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function () { return this.classList.contains('mobile-message-list') ? 640 : 82; });
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(390);
+    fixture.chat.characters = { items: [] };
+    fixture.chat.pinnedIds = [];
+    fixture.chat.filteredSessions = [
+      { id: 'chat-a', character_id: 'character-a', character_name: '角色甲' },
+      { id: 'chat-b', character_id: 'character-b', character_name: '角色乙' },
+    ];
+    let finishOpen;
+    fixture.chat.loadChat = vi.fn(async id => {
+      await new Promise(resolve => { finishOpen = resolve; });
+      fixture.chat = { ...fixture.chat, sessionId: id };
+      root.render(<Harness />);
+    });
+    await mount();
+    const shell = document.querySelector('.mobile-shell');
+    const [first, second] = shell.querySelectorAll('.mobile-message-open');
+    await act(() => second.click());
+    expect(shell.dataset.mobileRoute).toBe('root');
+    expect(shell.hasAttribute('data-opening-message')).toBe(true);
+    expect(first.disabled && second.disabled).toBe(true);
+    expect(first.hasAttribute('aria-busy')).toBe(false);
+    expect(second.getAttribute('aria-busy')).toBe('true');
+    await act(() => first.click());
+    expect(fixture.chat.loadChat).toHaveBeenCalledTimes(1);
+    await act(() => finishOpen());
+    expect(shell.hasAttribute('data-opening-message')).toBe(false);
+    expect(shell.querySelector('[data-chat]').dataset.chat).toBe('chat-b');
+  });
+  it('keeps the source profile visible until the character conversation is ready, then returns to it', async () => {
+    await mount(); await click('角色'); await click('角色资料');
+    let finishOpen;
+    fixture.chat.openCharacterChat.mockImplementation(async (_id, options) => {
+      await new Promise(resolve => { finishOpen = resolve; });
+      fixture.chat = { ...fixture.chat, sessionId: 'chat-b', chatCharacter: { character_id: 'character-b' } };
+      if (!options?.keepSection) navigation.selectPanel('messages');
+      root.render(<Harness />);
+    });
+    await click('进入对话');
+    const shell = document.querySelector('.mobile-shell');
+    expect([shell.dataset.mobilePanel, shell.dataset.mobileRoute]).toEqual(['character', 'character-profile']);
+    expect(document.querySelector('[data-chat]')).toBeNull();
+    await act(async () => finishOpen());
+    expect([shell.dataset.mobilePanel, shell.dataset.mobileRoute]).toEqual(['messages', 'conversation']);
     expect(document.querySelector('[data-chat]').dataset.chat).toBe('chat-b');
     await click('返回'); expect(document.body.textContent).toContain('角色资料');
     expect(document.querySelector('.mobile-shell').dataset.mobilePanel).toBe('character');
@@ -373,7 +477,7 @@ describe('Android independent conversation navigation', () => {
   it('enters another character profile conversation while the previous one is generating', async () => {
     fixture.chat.isSending = true;
     await mount(); await click('角色'); await click('角色资料'); await click('进入对话');
-    expect(fixture.chat.openCharacterChat).toHaveBeenCalledWith('character-b');
+    expect(fixture.chat.openCharacterChat).toHaveBeenCalledWith('character-b', { keepSection: true });
     expect(document.querySelector('[data-chat]').dataset.chat).toBe('chat-b');
     expect(document.querySelector('[role="alert"]')).toBeNull();
   });

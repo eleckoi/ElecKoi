@@ -231,35 +231,6 @@
   transform: scale(0.94);
 }
 
-.chat-header-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 42px;
-  z-index: 74;
-  min-width: 132px;
-  padding: 6px;
-  border: 1px solid var(--line-strong);
-  border-radius: 11px;
-  background: var(--surface-raised);
-  box-shadow: 0 14px 36px var(--shadow-color);
-  pointer-events: auto;
-  -webkit-app-region: no-drag;
-}
-
-.chat-header-menu button {
-  width: 100%;
-  min-height: 36px;
-  padding: 0 10px;
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 13px;
-  text-align: left;
-}
-
-.chat-header-menu button:hover {
-  background: var(--control-bg-hover);
-}
-
 .chat-header h1 {
   position: relative;
   z-index: 2;
@@ -294,6 +265,22 @@
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
+}
+
+.native-roleplay-content[data-character-frontend] [data-conversation-frame] > [data-conversation-scroll] {
+  margin-right: 0;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
+.native-roleplay-content[data-character-frontend] [data-conversation-frame] > [data-composer-seat],
+.native-roleplay-content[data-character-frontend] [data-conversation-scroll] > [data-composer-clearance] {
+  display: none;
+}
+
+.native-roleplay-content[data-character-frontend] .chat-transcript-region {
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .message {
@@ -2293,6 +2280,34 @@ button.chat-file-card:hover { border-color: var(--blue); }
 .composer-more-menu > [role="presentation"] { display: flex; flex-direction: column; overflow: visible; }
 .composer-more-menu.is-more { max-height: var(--dsh-anchored-max-height, calc(100dvh - 24px)); }
 .composer-more-menu.is-more > [role="presentation"] { min-height: 0; overflow: hidden; }
+
+/* Capture the menu rows only. The official backdrop stays live outside the transition. */
+.composer-more-menu > [data-composer-page-motion] {
+  --composer-page-offset: 8px;
+  --composer-page-duration: 250ms;
+  --composer-page-ease: cubic-bezier(.22, 1, .36, 1);
+}
+.composer-more-menu > [data-composer-page-motion="back"] { --composer-page-offset: -8px; }
+.composer-more-menu > [data-composer-page-motion]::view-transition { pointer-events: none; }
+.composer-more-menu > [data-composer-page-motion]::view-transition-group(root) {
+  animation-duration: var(--composer-page-duration);
+  animation-timing-function: var(--composer-page-ease);
+}
+.composer-more-menu > [data-composer-page-motion]::view-transition-old(root),
+.composer-more-menu > [data-composer-page-motion]::view-transition-new(root) {
+  animation-duration: var(--composer-page-duration);
+  animation-timing-function: var(--composer-page-ease);
+  animation-fill-mode: both;
+}
+.composer-more-menu > [data-composer-page-motion]::view-transition-old(root) { animation-name: composer-menu-page-out; }
+.composer-more-menu > [data-composer-page-motion]::view-transition-new(root) { animation-name: composer-menu-page-in; }
+@keyframes composer-menu-page-out {
+  to { opacity: 0; transform: translateX(calc(-1 * var(--composer-page-offset))); filter: blur(3px); }
+}
+@keyframes composer-menu-page-in {
+  from { opacity: 0; transform: translateX(var(--composer-page-offset)); filter: blur(3px); }
+}
+
 .composer-menu-script-list { min-height: 0; max-height: min(360px, 40dvh); overflow-y: auto; overscroll-behavior: contain; }
 .composer-more-menu .composer-menu-next { grid-template-columns: 22px minmax(0, 1fr) 14px; }
 .composer-more-menu .composer-menu-preset-avatar { justify-self: center; width: 20px; height: 20px; overflow: hidden; border-radius: 4px; }

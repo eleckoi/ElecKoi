@@ -15,7 +15,7 @@ Android 使用 `noBackupFilesDir/unified-runtime` 内的独立数据库、Sessio
 
 平台 facade 为真实 Android 页面补充 `interactive-widget=resizes-content`，保留已有 viewport 的其他选项；原生容器继续处理系统栏和键盘 insets。兼容版文件选择通过 ContentResolver 读取授权的 `content://` 流，保留文件显示名称并暂存到浏览器私有缓存，浏览器关闭后清理；标准版继续将授权 URI 交给 WebView。兼容版由内置扩展显式标记 `data-eleckoi-browser=compat`，移动样式让官方 TextShimmer 文字层固定，只移动遮罩，避免 Gecko 双重变换绘制造成重影；标准版保留官方动画。
 
-两版的 HTML 下拉选择共用 `NativeChoiceDialog` 原生列表、取消按钮及页面明确传入的明暗主题。兼容版通过 `PromptDelegate.onChoicePrompt` 传入 Gecko 正式选项 ID，并遵守其更新与撤销回调；未实现此回调时 GeckoView 会直接取消请求。标准版在受管页面中将选择操作交给原生列表，以每个实际 `option` 元素的稳定 ID 回传选择，保留禁用项、分组和多选；确认后只在实际选中项变化时产生网页 `input/change` 事件，取消与返回不改变选择。选项更新和控件移除按当前 DOM 处理。这是 Android 浏览器界面的接入，不承担 Host 业务调用，也不更换标准版的系统 WebView。
+应用的原生选项列表使用 `NativeChoiceDialog`，提供取消按钮并遵循页面传入的明暗主题。兼容版通过 `PromptDelegate.onChoicePrompt` 处理 Gecko 发起的选择请求，使用 Gecko 的选项 ID、更新和撤销回调。标准版只在应用主文档接管 HTML 选择框，以实际 `option` 元素的稳定 ID 回传选择，保留禁用项、分组和多选。确认后仅在实际选中项变化时派发 `input/change`，取消与返回保留原选择，选项更新和控件移除按当前 DOM 处理。作者脚本面板、独立前端和富消息等嵌入文档由系统 WebView 处理原生选择及网页事件。
 
 ## 准备与构建
 

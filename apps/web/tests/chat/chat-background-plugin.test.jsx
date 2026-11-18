@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { SlotCore } from '@deepseek-ai/dsh-client-ui-slots';
+import { IconSlidersTwoOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import { expect, it, vi } from 'vitest';
 import { ChatPanel } from '../../src/modules/chat/components/ChatPanel.jsx';
 import { ChatWallpaper } from '../../../../packages/client/features/dsh-client-chat-background/src/page.jsx';
@@ -21,6 +22,7 @@ it('unloads both background and menu without replacing the native composer or sa
   } }, () => null);
   const plugin = registration.factory(name => {
     if (name === 'react') return { ...React, lazy: () => ChatWallpaper };
+    if (name === '@deepseek-ai/dsh-client-ui-primitives') return { IconSlidersTwoOutlineRegular };
     throw Error(name);
   });
   const install = () => plugin.apply({ slots: { register: slots.register.bind(slots), inject: (_name, run) => stops.push(run()) }, locale: { bind: () => key => key } });
@@ -28,12 +30,12 @@ it('unloads both background and menu without replacing the native composer or sa
   const onOpen = vi.fn();
   const scrollRef = { current: null };
   const renderSlot = (name, owner) => name === 'eleckoi.roleplay.conversation.composer.bar'
-    ? <textarea data-composer-input="" defaultValue="未发送草稿" />
+    ? <>{owner.leadingAccessory}<textarea data-composer-input="" defaultValue="未发送草稿" /></>
     : slots.entriesOfSlot(name).map(entry => <entry.component key={entry.entryId} {...owner} {...entry.inject?.()} />);
   function Page() {
-    const entries = useSyncExternalStore(listener => slots.subscribe('eleckoi.roleplay.header.menu', listener),
+    useSyncExternalStore(listener => slots.subscribe('eleckoi.roleplay.header.menu', listener),
       () => slots.entriesOfSlot('eleckoi.roleplay.header.menu').length);
-    return <ChatPanel hasActiveChat hasCharacters hasHeaderMenu={entries > 0} wallpaper={wallpaper}
+    return <ChatPanel hasActiveChat hasCharacters wallpaper={wallpaper}
       currentTitle="合成角色" conversationId="synthetic" runtimeSessionId="synthetic-runtime" persona={{}}
       scrollRef={scrollRef}
       messages={[]} input="" setInput={() => {}} renderConversationContent={renderNativeConversationContent}
@@ -43,16 +45,25 @@ it('unloads both background and menu without replacing the native composer or sa
   vi.stubGlobal('React', React);
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   const node = document.createElement('div'); document.body.append(node); const root = createRoot(node);
+  const menuItem = text => [...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent === text);
+  const openMore = async () => {
+    await act(() => node.querySelector('[aria-label="扮演菜单"]').click());
+    expect(menuItem('自定义背景')).toBeUndefined();
+    await act(() => menuItem('更多').click());
+  };
   try {
     install(); await act(() => root.render(<Page />));
     const composer = node.querySelector('[data-composer-input]');
     expect(node.querySelector('.chat-shell-backdrop img').getAttribute('src')).toBe(wallpaper.image);
-    await act(() => node.querySelector('[aria-label="对话操作"]').click());
-    await act(() => node.querySelector('[role="menuitem"]').click());
+    expect(node.querySelector('[aria-label="对话操作"]')).toBeNull();
+    await openMore();
+    await act(() => menuItem('自定义背景').click());
     expect(onOpen).toHaveBeenCalledOnce();
+    expect(menuItem('自定义背景')).toBeUndefined();
     await act(() => { for (const stop of stops.splice(0)) stop(); });
     expect(node.querySelector('.chat-shell-backdrop')).toBeNull();
-    expect(node.querySelector('[aria-label="对话操作"]')).toBeNull();
+    await openMore();
+    expect(menuItem('自定义背景')).toBeUndefined();
     expect(node.querySelector('[data-composer-input]')).toBe(composer);
     expect(composer.value).toBe('未发送草稿');
     await act(() => install());

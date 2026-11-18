@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { dshClientRequire } from '../../../../../../tests/helpers/dshClientPlugin'
 
@@ -62,9 +62,11 @@ describe('DSH ElecKoi character configuration models', () => {
     let openFailure = false
     let opening = { characterId: 'character-1', enabled: true, defaultOpeningMessageId: 'synthetic-opening', openingMessages: [{ id: 'synthetic-opening', content: '合成独立开场' }] }
     const changes = configurationChanges()
+    const reportError = vi.fn()
     let globalCollection = { revision: 0, libraries: [] }
     runInNewContext(source, {
       AbortController,
+      console: { ...console, error: reportError },
       window: { __ModuleLoader__: { load: (item: typeof registration) => { registration = item } } }
     })
     expect(registration?.id).toBe('@eleckoi/dsh-client-character-configuration')
@@ -298,6 +300,30 @@ describe('DSH ElecKoi character configuration models', () => {
     expect(calls.filter(name => name === 'query.regex_rules.read')).toHaveLength(3)
     expect(calls.filter(name => name === 'query.setting_library.conversations')).toHaveLength(2)
     expect(calls.filter(name => name === 'query.openings.read')).toHaveLength(3)
+
+    const subscriberError = new Error('Synthetic script notification failure')
+    const disposeBrokenSubscriber = scripts.subscribeChanges(() => { throw subscriberError })
+    const healthySubscriber = vi.fn()
+    const disposeHealthySubscriber = scripts.subscribeChanges(healthySubscriber)
+    try {
+      changes.emit({ kind: 'configuration', domain: 'agentPresets' })
+      await settle()
+      expect(healthySubscriber).toHaveBeenCalledOnce()
+      expect(reportError.mock.calls.some(args => args.includes(subscriberError))).toBe(true)
+      changes.emit({ kind: 'configuration', domain: 'variables', characterId: 'character-1' })
+      await settle()
+      expect(calls.filter(name => name === 'query.variable_config.read')).toHaveLength(4)
+      expect(changes.isStopped()).toBe(false)
+      const publishError = new Error('Synthetic variables subscriber failure')
+      const stopBrokenVariables = variables.subscribe(() => { throw publishError })
+      const healthyVariables = vi.fn()
+      const stopHealthyVariables = variables.subscribe(healthyVariables)
+      try {
+        await expect(variables.read('character-1')).resolves.toMatchObject({ characterId: 'character-1' })
+        expect(healthyVariables).toHaveBeenCalledWith('configuration', 'character-1', expect.objectContaining({ status: 'ready' }))
+        expect(reportError.mock.calls.some(args => args.includes(publishError))).toBe(true)
+      } finally { stopBrokenVariables(); stopHealthyVariables() }
+    } finally { disposeBrokenSubscriber(); disposeHealthySubscriber() }
 
     branches = [{ sessionId: 'conversation-1', summary: '开场', library }]
     expect(await libraries.readConversations('character-1')).toMatchObject([

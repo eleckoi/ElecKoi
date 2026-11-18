@@ -1,7 +1,7 @@
 import { prepareCharacterAssetDocument } from './characterAssetDocument.js';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
-import { installRichDocumentMeasurement } from '@eleckoi/author-sdk';
+import { installRichDocumentMeasurement, isAuthorDocumentDiagnostic } from '@eleckoi/author-sdk';
 import { prepareFrontendCompatibilitySource } from '@eleckoi/tavern-frontend';
 
 const literal = value => JSON.stringify(value).replaceAll('<', '\\u003c').replaceAll('\u2028', '\\u2028').replaceAll('\u2029', '\\u2029');
@@ -29,11 +29,15 @@ export function buildSharedFrontendDocument(source, runtime, { channel, baseUrl,
 (() => {
   const channel=${literal(channel)};
   const send=(type,payload={})=>parent.postMessage({type,channel,...payload},'*');
-  const report=error=>send(${literal(rich ? 'eleckoi:frontend-diagnostic' : 'eleckoi:frontend-error')},{message:error?.message||String(error),stack:error?.stack||''});
+  const report=(error,diagnostic=${literal(rich)})=>send(diagnostic?'eleckoi:frontend-diagnostic':'eleckoi:frontend-error',{message:error?.message||String(error),stack:error?.stack||''});
   window.ElecKoiFrontendContext=${literal(context ?? null)};
   Object.defineProperty(window,'__ElecKoiDocumentChannel',{value:channel});
-  addEventListener('error',event=>report(event.error||new Error(event.message)));
-  addEventListener('error',event=>{if(event.target!==window&&event.target?.tagName)report(new Error('资源加载失败: '+(event.target.src||event.target.href||event.target.tagName)));},true);
+  const isDiagnostic=(${isAuthorDocumentDiagnostic.toString()});
+  addEventListener('error',event=>{
+    if(isDiagnostic(event))send('eleckoi:frontend-diagnostic',{message:event.message});
+    else report(event.error||new Error(event.message));
+  });
+  addEventListener('error',event=>{if(event.target!==window&&event.target?.tagName)report(new Error('资源加载失败: '+(event.target.src||event.target.href||event.target.tagName)),${literal(rich)}||isDiagnostic(event));},true);
   addEventListener('unhandledrejection',event=>report(event.reason));
   window.ElecKoiLibraries={ready:true,versions:${literal(sdk.BROWSER_LIBRARY_VERSIONS)}};
   window.__ElecKoiCompleteSharedDocument=error=>error?send('eleckoi:frontend-error',{message:error?.message||String(error)}):send('eleckoi:frontend-ready');

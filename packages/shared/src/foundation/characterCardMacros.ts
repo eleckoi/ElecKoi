@@ -3,6 +3,12 @@ export interface CharacterCardMacroValues {
   characterName: string
 }
 
+/** The standalone regex tester has no conversation or bound participant names. */
+export const REGEX_TEST_MACRO_VALUES: Readonly<CharacterCardMacroValues> = Object.freeze({
+  userName: '测试用户',
+  characterName: '测试角色'
+})
+
 export interface CharacterCardMacroIdentity {
   characterId: string
   characterName: string
@@ -24,7 +30,7 @@ export function characterCardMacroValues(
   }
 }
 
-export function resolveCharacterCardMacros(text: string, values: CharacterCardMacroValues): string {
+export function resolveCharacterCardMacros(text: string, values: CharacterCardMacroValues, escape?: (value: string) => string): string {
   if (text.length === 0) return text
   const matches = [...text.matchAll(CHARACTER_CARD_MACRO_PATTERN)]
   if (matches.length === 0) return text
@@ -34,9 +40,10 @@ export function resolveCharacterCardMacros(text: string, values: CharacterCardMa
   for (const match of matches) {
     const matchIndex = match.index
     resolved += text.slice(sourceIndex, matchIndex)
-    const replacement = match[1]?.toLowerCase() === 'user'
+    const name = match[1]?.toLowerCase() === 'user'
       ? values.userName
       : values.characterName
+    const replacement = escape ? escape(name) : name
 
     if (isCjkTextBoundary(replacement[0])) {
       resolved = trimCjkBoundarySpacing(resolved)

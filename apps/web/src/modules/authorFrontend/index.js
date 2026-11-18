@@ -1,6 +1,7 @@
 export { RichMessageFrame } from './components/RichMessageFrame.jsx';
 export { RichMessageRenderProvider } from './hooks/RichMessageRenderContext.jsx';
 export { AdvancedFrontendFrame } from './components/AdvancedFrontendFrame.jsx';
+export { FrontendDiagnostics } from './components/FrontendDiagnostics.jsx';
 export { ApplicationFrontendController } from './components/ApplicationFrontendController.jsx';
 export { NativeFrontendProvider } from './hooks/NativeFrontendContext.jsx';
 export { useFrontendWorkspace } from './hooks/useFrontendWorkspace.js';

@@ -2,6 +2,7 @@ import type { ElecKoiAuthorApi } from './contracts'
 import { AuthorApiError } from './errors'
 import { AUTHOR_API_VERSION } from './version'
 import { installRichDocumentMeasurement } from './rich-document'
+import { isAuthorDocumentDiagnostic } from './document-diagnostics'
 
 export const AUTHOR_DOCUMENT_META_NAME = 'eleckoi-author-api'
 
@@ -31,12 +32,12 @@ export function readAuthorDocumentDeclaration(source: string, parser = new DOMPa
 }
 
 // Serialized into the document: keep all dependencies inside this function.
-function bootstrap(channel: string, rich: boolean, context: Record<string, unknown> | undefined, measureDocument: typeof installRichDocumentMeasurement, runtimeDiagnostics: boolean): void {
+function bootstrap(channel: string, rich: boolean, context: Record<string, unknown> | undefined, measureDocument: typeof installRichDocumentMeasurement, runtimeDiagnostics: boolean, isDiagnostic: typeof isAuthorDocumentDiagnostic): void {
   const page = window as unknown as AuthorDocumentWindow
   if (context !== undefined) Object.defineProperty(page, 'ElecKoiFrontendContext', { value: context, writable: true, configurable: true })
   const send = (type: string, payload: Record<string, unknown> = {}) => page.parent.postMessage({ type, channel, ...payload }, '*')
   const report = (error: unknown) => send('eleckoi:frontend-error', { message: error instanceof Error ? error.message : String(error) })
-  const diagnose = (error: unknown) => send(runtimeDiagnostics ? 'eleckoi:frontend-diagnostic' : 'eleckoi:frontend-error', { message: error instanceof Error ? error.message : String(error) })
+  const diagnose = (error: unknown, diagnostic = runtimeDiagnostics) => send(diagnostic ? 'eleckoi:frontend-diagnostic' : 'eleckoi:frontend-error', { message: error instanceof Error ? error.message : String(error) })
   let complete = false
   let resolve!: (api: ElecKoiAuthorApi) => void, reject!: (error: Error) => void
   const ready = new Promise<ElecKoiAuthorApi>((accept, fail) => { resolve = accept; reject = fail })
@@ -54,10 +55,13 @@ function bootstrap(channel: string, rich: boolean, context: Record<string, unkno
     } }
   })
   page.addEventListener('error', event => {
-    if (event.target === page) diagnose(event.error || new Error(event.message))
+    if (event.target === page) {
+      if (isDiagnostic(event)) send('eleckoi:frontend-diagnostic', { message: event.message })
+      else diagnose(event.error || new Error(event.message))
+    }
     else {
       const element = event.target as HTMLScriptElement | HTMLLinkElement | null
-      if (element?.tagName) diagnose(new Error(`资源加载失败：${'src' in element ? element.src : element.href}`))
+      if (element?.tagName) diagnose(new Error(`资源加载失败：${'src' in element ? element.src : element.href}`), runtimeDiagnostics || isDiagnostic(event))
     }
   }, true)
   page.addEventListener('unhandledrejection', event => diagnose(event.reason))
@@ -76,7 +80,7 @@ export function buildAuthorDocumentSource(source: string, channel: string, rich 
   if (selected.kind !== 'native') throw new AuthorApiError('UNSUPPORTED_VERSION', selected.kind === 'unsupported' ? selected.error : '页面没有声明原生作者 SDK 版本')
   const script = document.createElement('script')
   const literal = (value: unknown) => JSON.stringify(value).replaceAll('<', '\\u003c')
-  script.textContent = `(${bootstrap.toString()})(${literal(channel)},${JSON.stringify(rich)},${literal(options.context ?? null)},${installRichDocumentMeasurement.toString()},${JSON.stringify(options.runtimeDiagnostics ?? rich)});`
+  script.textContent = `(${bootstrap.toString()})(${literal(channel)},${JSON.stringify(rich)},${literal(options.context ?? null)},${installRichDocumentMeasurement.toString()},${JSON.stringify(options.runtimeDiagnostics ?? rich)},${isAuthorDocumentDiagnostic.toString()});`
   document.head.prepend(script)
   if (options.baseUrl && !document.head.querySelector('base')) {
     const base = document.createElement('base')

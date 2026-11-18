@@ -37,7 +37,7 @@ export function MobileMessagesPage() {
   }
   return <div className="mobile-root-page">
     <MobileHeader title={tUi("消息")} onSearch={view.openSearch} onAdd={() => setPicker(true)} addLabel={tUi("新建对话")} />
-    <MobileMessageList sessions={chat.filteredSessions} characters={characters} pinnedIds={chat.pinnedIds} artworkMode={view.appearance.sidebarCharacterArtwork} loading={view.routeBusy || busy} onOpen={view.selectConversation} onMenu={setMenu}
+    <MobileMessageList sessions={chat.filteredSessions} characters={characters} pinnedIds={chat.pinnedIds} artworkMode={view.appearance.sidebarCharacterArtwork} loading={view.routeBusy || busy} openingSessionId={view.openingSessionId} onOpen={view.selectConversation} onMenu={setMenu}
       onPin={item => run(() => chat.togglePinChat(item.id))} onHide={setHideEntry} />
     {error && !menu && !hideEntry && <FailureAlert failure={error} className="mobile-inline-error" />}
     {picker && <MobileDialog title={tUi("选择角色")} onClose={() => setPicker(false)}>
@@ -60,7 +60,7 @@ export function MobileMessagesPage() {
   </div>;
 }
 
-export function MobileMessageList({ sessions, characters, pinnedIds, artworkMode = 'cover', loading, onOpen, onMenu, onPin, onHide }) {
+export function MobileMessageList({ sessions, characters, pinnedIds, artworkMode = 'cover', loading, openingSessionId, onOpen, onMenu, onPin, onHide }) {
   const tUi = useProductTranslation();
   const { scrollPositions } = useMainPageView();
   const ref = useMobileScroll('messages');
@@ -74,7 +74,8 @@ export function MobileMessageList({ sessions, characters, pinnedIds, artworkMode
         { label: pinnedIds.includes(item.id) ? tUi("取消置顶") : tUi("置顶"), icon: <PushPin size={19} />, onClick: () => onPin(item) },
         { label: tUi("删除"), icon: <Trash size={19} />, destructive: true, onClick: () => onHide(item) },
       ]}>{safeClick => <div className={`mobile-message-row${pinnedIds.includes(item.id) ? ' is-pinned' : ''}`}>
-        <button type="button" className="mobile-message-open" disabled={loading} onClick={() => safeClick(() => onOpen(item.id))} onContextMenu={event => { event.preventDefault(); onMenu(item); }}>
+        <button type="button" className="mobile-message-open" disabled={loading} aria-busy={openingSessionId === item.id || undefined}
+          onClick={() => safeClick(() => onOpen(item.id))} onContextMenu={event => { event.preventDefault(); onMenu(item); }}>
           <SidebarCharacterArtwork mode={artworkMode} name={name} cover={characterCover(character) || item.character_persona?.assistant_cover || item.character_avatar} avatar={characterAvatar(character) || item.character_avatar} />
           <span className="mobile-message-text"><span className="mobile-message-heading"><strong>{name}</strong><time>{formatDate(item.updated_at, tUi)}</time></span><span className="mobile-message-preview">{item.summary || tUi("暂无历史对话")}</span></span>
         </button>

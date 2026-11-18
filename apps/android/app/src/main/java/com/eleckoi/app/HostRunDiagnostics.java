@@ -12,20 +12,22 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Captures each Host run on its reader threads before failure or restart can replace it. */
+/** Queues each Host run's output in read order for the diagnostics writer. */
 final class HostRunDiagnostics {
     static final String PROTOCOL_PREFIX = "ELECKOI_HOST\t";
     private static final int MESSAGE_CHARS = 2048;
     final String id = UUID.randomUUID().toString();
     private final RuntimeDiagnostics store;
+    private final Runnable flushSoon;
     private final AtomicLong lines = new AtomicLong();
     private volatile String runtimeVersion = "";
     private volatile long hostPid;
 
     interface LineConsumer { void accept(String line) throws Exception; }
 
-    HostRunDiagnostics(RuntimeDiagnostics store) {
+    HostRunDiagnostics(RuntimeDiagnostics store, Runnable flushSoon) {
         this.store = store;
+        this.flushSoon = flushSoon;
         lifecycle("created", "");
     }
     void installed(String version) { runtimeVersion = version; lifecycle("starting", ""); }
@@ -33,16 +35,19 @@ final class HostRunDiagnostics {
     RuntimeDiagnostics.Record context(RuntimeDiagnostics.Record record) {
         return record.with("id", id).with("runtimeVersion", runtimeVersion).with("hostPid", hostPid);
     }
+    void record(RuntimeDiagnostics.Record event) {
+        store.recordHost(context(event));
+        flushSoon.run();
+    }
     void lifecycle(String phase, String message) {
-        store.recordDurable(context(RuntimeDiagnostics.event("host-run", phase).with("message", message)));
+        record(RuntimeDiagnostics.event("host-run", phase).with("message", message));
     }
     void protocol(JSONObject event) {
         // Ready URLs and other transport fields can carry authentication; retain only the error and event identity.
-        store.recordDurable(context(RuntimeDiagnostics.event("host-protocol", event.optString("type"))
-            .with("message", event.optString("message"))));
+        record(RuntimeDiagnostics.event("host-protocol", event.optString("type")).with("message", event.optString("message")));
     }
     void failure(Throwable failure) {
-        store.recordDurable(context(RuntimeDiagnostics.failure("host-error", failure)));
+        record(RuntimeDiagnostics.failure("host-error", failure));
     }
     void read(InputStream input, String source, LineConsumer consumer) throws Exception {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
@@ -66,8 +71,8 @@ final class HostRunDiagnostics {
             start = end;
         } while (start < line.length());
         for (int part = 0; part < parts.size(); part++) {
-            store.recordDurable(context(RuntimeDiagnostics.event("host-output", "line").with("source", source)
-                .with("line", sequence).with("part", part + 1).with("parts", parts.size()).with("message", parts.get(part))));
+            record(RuntimeDiagnostics.event("host-output", "line").with("source", source)
+                .with("line", sequence).with("part", part + 1).with("parts", parts.size()).with("message", parts.get(part)));
         }
     }
     int awaitExit(Process child, Future<?> stderr, Future<?> stdout) throws InterruptedException, ExecutionException {
@@ -76,7 +81,8 @@ final class HostRunDiagnostics {
             stderr.get();
             stdout.get();
         } finally {
-            store.recordDurable(context(RuntimeDiagnostics.event("host-run", "exited").with("exitCode", code)));
+            record(RuntimeDiagnostics.event("host-run", "exited").with("exitCode", code));
+            store.flush();
         }
         return code;
     }

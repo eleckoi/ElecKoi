@@ -7,6 +7,7 @@ import { AdvancedFrontendFrame } from '../../src/modules/authorFrontend/componen
 import { ApplicationFrontendController } from '../../src/modules/authorFrontend/components/ApplicationFrontendController.jsx';
 import { NativeFrontendProvider } from '../../src/modules/authorFrontend/hooks/NativeFrontendContext.jsx';
 import { useFrontendWorkspace } from '../../src/modules/authorFrontend/hooks/useFrontendWorkspace.js';
+import * as compatibility from '@eleckoi/tavern-frontend';
 
 const html = '<html><head><meta name="eleckoi-author-api" content="0.1.0"><script src="app.js"></script></head><body><img src="../assets/synthetic.png"><button>Confirm</button></body></html>';
 const project = { id: 'synthetic-project', name: 'Synthetic project', entryFile: 'pages/main.html', files: ['pages/main.html'],
@@ -28,6 +29,9 @@ beforeEach(() => {
     if (page && this.name?.startsWith('native-project:') && !page.__ElecKoiCompleteDocument) {
       page.__ElecKoiDocumentChannel = this.name; page.__ElecKoiCompleteDocument = vi.fn();
     }
+    if (page && this.name?.startsWith('frontend:') && !page.__ElecKoiCompleteSharedDocument) {
+      page.__ElecKoiDocumentChannel = this.name; page.__ElecKoiCompleteSharedDocument = vi.fn();
+    }
     return page;
   });
   stop = vi.fn(); listeners = new Set();
@@ -42,6 +46,49 @@ beforeEach(() => {
 afterEach(async () => { await act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('production native project frame', () => {
+  it('keeps a compatibility page alive after a reported operation error but still fails initialization', async () => {
+    request.mockResolvedValue({ content: '<body>Compatibility page</body>' });
+    const dispose = vi.fn(), onError = vi.fn();
+    let diagnose, rejectReady;
+    const ready = new Promise((_resolve, reject) => { rejectReady = reject; });
+    vi.spyOn(compatibility, 'mountFrontendCompatibility').mockImplementation((_page, _mount, report) => {
+      diagnose = report; return { dispose, ready };
+    });
+    await render({ onError, runtime: { assetsBaseUrl: '/synthetic/', sdk: { browserModuleImports: () => ({}), BROWSER_LIBRARY_STYLES: [], BROWSER_LIBRARY_SCRIPTS: [], BROWSER_LIBRARY_VERSIONS: {} } } });
+    const frame = container.querySelector('iframe'); await load(frame);
+    await act(() => diagnose(new Error('Synthetic rejected action')));
+    expect(container.querySelector('iframe')).toBe(frame);
+    expect(container.querySelector('details').textContent).toContain('Synthetic rejected action');
+    expect(onError).not.toHaveBeenCalled(); expect(dispose).not.toHaveBeenCalled();
+    await act(async () => { rejectReady(new Error('Synthetic initialization failure')); await Promise.resolve(); });
+    expect(container.querySelector('iframe')).toBeNull();
+    expect(container.querySelector('[role=alert]').textContent).toContain('Synthetic initialization failure');
+    expect(onError).toHaveBeenCalledOnce();
+  });
+  it.each(['native', 'compatibility'])('retains the %s document and runtime while exposing deduplicated diagnostics', async kind => {
+    const onError = vi.fn();
+    let dispose = stop;
+    let props = { onError };
+    if (kind === 'compatibility') {
+      request.mockResolvedValue({ content: '<html><body>Compatibility document</body></html>' });
+      dispose = vi.fn();
+      vi.spyOn(compatibility, 'mountFrontendCompatibility').mockReturnValue({ dispose, ready: Promise.resolve() });
+      props.runtime = { assetsBaseUrl: '/synthetic/', sdk: { browserModuleImports: () => ({}), BROWSER_LIBRARY_STYLES: [], BROWSER_LIBRARY_SCRIPTS: [], BROWSER_LIBRARY_VERSIONS: {} } };
+    }
+    await render(props); const frame = container.querySelector('iframe'); await load(frame);
+    const message = 'ResizeObserver loop completed with undelivered notifications.';
+    const send = (source, channel) => window.dispatchEvent(new MessageEvent('message', { source, data: { channel, type: 'eleckoi:frontend-diagnostic', message } }));
+    await act(() => { send(window, frame.name); send(frame.contentWindow, 'other-channel'); });
+    expect(container.querySelector('details')).toBeNull();
+    await act(() => { send(frame.contentWindow, frame.name); send(frame.contentWindow, frame.name); });
+    expect(container.querySelector('iframe')).toBe(frame);
+    expect(container.querySelectorAll('details pre')).toHaveLength(1);
+    expect(container.querySelector('details').textContent).toContain(message);
+    expect(container.querySelector('[role=alert]')).toBeNull();
+    expect(dispose).not.toHaveBeenCalled(); expect(onError).not.toHaveBeenCalled();
+    await render({ ...props, revision: 2 });
+    expect(dispose).toHaveBeenCalledOnce(); expect(container.querySelector('details')).toBeNull();
+  });
   it('uses the native SDK with actual project identity and own relative resources, preserving the document across context updates', async () => {
     await render(); const frame = container.querySelector('iframe'); await load(frame);
     expect(runtime.mountProjectDocument).toHaveBeenCalledExactlyOnceWith(frame.contentWindow, { scope: 'application', projectId: project.id, entryFile: 'pages/main.html', view: 'main' });
@@ -86,6 +133,24 @@ describe('production native project frame', () => {
 })
 
 describe('native project management in the existing UI', () => {
+  it('does not withdraw the root project when another binding fails, while root failures retain fallback recovery', async () => {
+    const slots = new SlotCore();
+    const stopRoot = slots.register({ name: 'root', children: { main: { kind: 'keyed', scope: 'root' }, 'synthetic.extension': { kind: 'single', scope: 'root' } } }, () => null);
+    const register = vi.spyOn(slots, 'register');
+    const bindings = [...project.manifest.bindings, { target: 'slot', slot: 'synthetic.extension', entryFile: 'extension.html' }];
+    service.watch.mockImplementation((_owner, listener) => { listener({ ...workspace(1), projects: [{ ...project, manifest: { ...project.manifest, bindings } }] }); return vi.fn(); });
+    await act(() => root.render(provider(<ApplicationFrontendController slots={slots} subscribeSlots={listener => slots.onMutate(listener)} navigation={{}}>{() => <div>Default application</div>}</ApplicationFrontendController>)));
+    const frame = container.querySelector('iframe'); await load(frame);
+    const contribution = register.mock.calls.find(([options]) => options.name === 'synthetic.extension')[1];
+    await act(() => contribution({}).props.onError('Synthetic extension failure'));
+    expect(container.textContent).toContain('Synthetic extension failure');
+    expect(container.querySelector('iframe')).toBe(frame); expect(stop).not.toHaveBeenCalled();
+    await act(() => window.dispatchEvent(new MessageEvent('message', { source: frame.contentWindow, data: { channel: frame.name, type: 'eleckoi:frontend-error', message: 'Synthetic root failure' } })));
+    expect(container.textContent).toContain('Default application');
+    expect(container.textContent).toContain('Synthetic root failure');
+    expect(stop).toHaveBeenCalledOnce();
+    await act(() => root.render(null)); stopRoot();
+  });
   it('loads the production application controller through native projects without a compatibility runtime', async () => {
     const slots = new SlotCore(), stopRoot = slots.register({ name: 'root', children: { main: { kind: 'keyed', scope: 'root' } } }, () => null);
     await act(() => root.render(provider(<ApplicationFrontendController slots={slots} subscribeSlots={listener => slots.onMutate(listener)} navigation={{}}>

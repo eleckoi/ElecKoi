@@ -1,6 +1,6 @@
 import { createNovelAiImageGeneration } from './host/novelai-image-generation.mjs'
 import { capturedImageResult } from '@eleckoi/dsh-client-roleplay/host/generated-image-result.mjs'
-import { illustrationInstructions, prepareIllustration } from './host/configuration.mjs'
+import { illustrationInstructions, prepareAutomaticIllustration, prepareIllustration } from './host/configuration.mjs'
 import { installIllustrationStream } from './host/illustration-stream.mjs'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 
@@ -12,7 +12,7 @@ export function apply(ctx) {
   const images = createNovelAiImageGeneration(ctx)
   ctx.provide('eleckoiAutoIllustration', {
     instructions(snapshot) {
-      const state = prepareIllustration(ctx.settings, snapshot)
+      const state = prepareAutomaticIllustration(ctx, snapshot)
       return state ? illustrationInstructions(state.settings) : ''
     },
     async regenerateImage(sessionId, batchId, frameId, snapshot, signal) {

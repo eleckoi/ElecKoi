@@ -1,6 +1,6 @@
 export interface MessageDisplayCompatibility {
   prepareAssistantText(text: string, complete: boolean, displayRulePatterns: Iterable<string>): string
-  resolveVariableMacros(text: string, variableStateJson: string): string
+  resolveVariableMacros(text: string, variableStateJson: string, escape?: (value: string) => string): string
 }
 
 export const MVU_STATUS_PLACEHOLDER = '<StatusPlaceHolderImpl/>'
@@ -102,17 +102,22 @@ function yamlValue(value: unknown, indent = 0): string {
   }).join('\n')
 }
 
-export function resolveMvuMessageVariableMacros(text: string, variableStateJson: string): string {
+export function resolveMvuMessageVariableMacros(
+  text: string, variableStateJson: string, escape?: (value: string) => string
+): string {
   if (!text.toLocaleLowerCase().includes('_message_variable::')) return text
   const state = parseState(variableStateJson)
-  let output = text.replace(getMessageVariableMacro, (_match, path: string) => compactValue(valueAtMessagePath(state, path)))
+  let output = text.replace(getMessageVariableMacro, (_match, path: string) => {
+    const value = compactValue(valueAtMessagePath(state, path))
+    return escape ? escape(value) : value
+  })
   while (true) {
     const match = formatMessageVariableMacro.exec(output)
     if (!match || match.index === undefined) break
     const lineStart = output.lastIndexOf('\n', match.index - 1) + 1
     const prefix = ' '.repeat(match.index - lineStart)
     const formatted = yamlValue(valueAtMessagePath(state, match[1] ?? '')).replace(/\n/g, `\n${prefix}`)
-    output = output.slice(0, match.index) + formatted + output.slice(match.index + match[0].length)
+    output = output.slice(0, match.index) + (escape ? escape(formatted) : formatted) + output.slice(match.index + match[0].length)
   }
   return output
 }
@@ -131,7 +136,7 @@ export const mvuMessageDisplayCompatibility: MessageDisplayCompatibility = {
     const referencesPlaceholder = [...displayRulePatterns].some((pattern) => pattern.replace(/\\\//g, '/').includes(MVU_STATUS_PLACEHOLDER))
     return referencesPlaceholder ? `${text}\n\n${MVU_STATUS_PLACEHOLDER}` : text
   },
-  resolveVariableMacros(text, variableStateJson) {
-    return hideMvuDisplayMarkers(resolveMvuMessageVariableMacros(text, variableStateJson))
+  resolveVariableMacros(text, variableStateJson, escape) {
+    return hideMvuDisplayMarkers(resolveMvuMessageVariableMacros(text, variableStateJson, escape))
   }
 }

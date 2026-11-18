@@ -12,6 +12,7 @@ export * from './scripts'
 export * from './rule-registry'
 export * from './script-session'
 export * from './document'
+export * from './document-diagnostics'
 export * from './rich-document'
 
 export const authorApiPermissions = {

@@ -41,7 +41,11 @@ async page => {
     await page.locator('.mobile-message-open').nth(4).click();
     await page.locator('[contenteditable=true]').waitFor(); await pause();
     check(await page.getByRole('button',{name:'打开右侧边栏',exact:true}).isVisible(),'Missing official rightbar entry');
-    check(await page.getByRole('button',{name:'对话操作',exact:true}).isVisible(),'Missing product conversation actions');
+    check(!await page.getByRole('button',{name:'对话操作',exact:true}).count(),'Conversation actions still appear in the header');
+    await page.getByRole('button',{name:'扮演菜单',exact:true}).click();
+    await page.getByRole('menuitem',{name:'更多',exact:true}).click();
+    check(await page.getByRole('menuitem',{name:'自定义背景',exact:true}).isVisible(),'Missing background action in the composer more menu');
+    await page.keyboard.press('Escape');
     check(await page.getByRole('button',{name:'更多插件',exact:true}).isVisible(),'Missing conversation plugin entry');
     await page.getByRole('tab',{name:'轨迹',exact:true}).click(); await page.locator('.trajectory-host').waitFor();
     await page.getByRole('tab',{name:'对话',exact:true}).click();

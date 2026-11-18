@@ -8,7 +8,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.regex.Pattern;
 
-/** Bounded shell diagnostics, independent of product data and browser availability. */
+/** Rotating shell diagnostics, independent of product data and browser availability. */
 final class RuntimeDiagnostics {
     static final int SEGMENT_BYTES = 1_000_000, SEGMENTS = 4, REPORT_BYTES = 500_000;
     private static final int MAX_PENDING = 128, MAX_PENDING_BYTES = 256_000;
@@ -28,9 +28,14 @@ final class RuntimeDiagnostics {
     static Record event(String kind, String stage) { return new Record().with("kind", kind).with("stage", stage); }
     private final File directory;
     private final int segmentBytes;
-    private final LinkedHashMap<String, JSONObject> pending = new LinkedHashMap<>();
+    // Producers use only this lock. Flush, rotation and report I/O use the store monitor.
+    private final Object pendingLock = new Object();
+    private LinkedHashSet<Record> pending = new LinkedHashSet<>();
+    private final LinkedHashMap<String, Record> repeatable = new LinkedHashMap<>();
     private int pendingBytes;
     private long dropped;
+    private final ArrayDeque<byte[]> unwritten = new ArrayDeque<>();
+    private long restoreLength = -1;
     private volatile String storageError = "";
     RuntimeDiagnostics(File directory) { this(directory, SEGMENT_BYTES); }
     RuntimeDiagnostics(File directory, int segmentBytes) { this.directory = directory; this.segmentBytes = segmentBytes; }
@@ -53,44 +58,105 @@ final class RuntimeDiagnostics {
         for (String key : FLAGS) if (source.opt(key) instanceof Boolean) result.with(key, source.opt(key));
         return result;
     }
-    synchronized void record(JSONObject source) {
+    void record(JSONObject source) {
         Record value = filter(source);
         if (value.optString("kind").isEmpty()) return;
         String key = value.toString();
-        long now = System.currentTimeMillis();
-        Record previous = (Record) pending.get(key);
-        if (previous != null) { previous.with("count", previous.optLong("count") + 1).with("lastAt", now); return; }
         int bytes = key.getBytes(StandardCharsets.UTF_8).length + 160;
-        while (!pending.isEmpty() && (pending.size() >= MAX_PENDING || pendingBytes + bytes > MAX_PENDING_BYTES)) {
-            String first = pending.keySet().iterator().next(); pending.remove(first); pendingBytes -= first.getBytes(StandardCharsets.UTF_8).length + 160; dropped++;
+        synchronized (pendingLock) {
+            long now = System.currentTimeMillis();
+            Record previous = repeatable.get(key);
+            if (previous != null) {
+                previous.with("count", previous.optLong("count") + 1).with("lastAt", now);
+                return;
+            }
+            while (!repeatable.isEmpty() && (repeatable.size() >= MAX_PENDING || pendingBytes + bytes > MAX_PENDING_BYTES)) {
+                Iterator<Map.Entry<String, Record>> oldest = repeatable.entrySet().iterator();
+                Map.Entry<String, Record> first = oldest.next();
+                pending.remove(first.getValue());
+                pendingBytes -= first.getKey().getBytes(StandardCharsets.UTF_8).length + 160;
+                oldest.remove();
+                dropped++;
+            }
+            pending.add(value.with("firstAt", now).with("lastAt", now).with("count", 1));
+            repeatable.put(key, value);
+            pendingBytes += bytes;
         }
-        value.with("firstAt", now).with("lastAt", now).with("count", 1);
-        pending.put(key, value); pendingBytes += bytes;
     }
-    synchronized int pendingCount() { return pending.size(); }
-    synchronized void recordDurable(JSONObject source) {
-        record(source);
-        flush();
+    void recordHost(JSONObject source) {
+        Record value = filter(source);
+        synchronized (pendingLock) {
+            long now = System.currentTimeMillis();
+            pending.add(value.with("firstAt", now).with("lastAt", now).with("count", 1));
+        }
+    }
+    int pendingCount() {
+        synchronized (pendingLock) { return pending.size(); }
+    }
+    private Set<Record> takePending() {
+        synchronized (pendingLock) {
+            Set<Record> batch = pending;
+            pending = new LinkedHashSet<>();
+            repeatable.clear();
+            pendingBytes = 0;
+            if (dropped > 0) {
+                batch.add(new Record().with("kind", "diagnostic-overflow").with("count", dropped).with("lastAt", System.currentTimeMillis()));
+                dropped = 0;
+            }
+            return batch;
+        }
     }
     synchronized void flush() {
-        List<JSONObject> batch;
-        batch = new ArrayList<>(pending.values()); pending.clear(); pendingBytes = 0;
-        if (dropped > 0) { batch.add(new Record().with("kind", "diagnostic-overflow").with("count", dropped).with("lastAt", System.currentTimeMillis())); dropped = 0; }
-        if (batch.isEmpty()) return;
         try {
-            Files.createDirectories(directory.toPath());
-            OutputStream output=null; long length=segment(0).length();
-            try {
-                for (JSONObject value : batch) {
-                    byte[] bytes = (value + "\n").getBytes(StandardCharsets.UTF_8);
-                    if (bytes.length > segmentBytes) throw new IOException("Diagnostic record exceeds segment size");
-                    if (length + bytes.length > segmentBytes) { if(output!=null) { output.close(); output=null; } rotate(); length=0; }
-                    if(output==null) output=new BufferedOutputStream(new FileOutputStream(segment(0),true));
-                    output.write(bytes); length+=bytes.length;
-                }
-            } finally { if(output!=null) output.close(); }
-            storageError = "";
+            persistUnwritten();
+            for (Record value : takePending()) unwritten.add((value + "\n").getBytes(StandardCharsets.UTF_8));
+            persistUnwritten();
         } catch (IOException failure) { storageError = clean(failure.toString(), 512); }
+    }
+    private void persistUnwritten() throws IOException {
+        if (unwritten.isEmpty()) return;
+        Files.createDirectories(directory.toPath());
+        File active = segment(0);
+        if (restoreLength >= 0) {
+            try (RandomAccessFile output = new RandomAccessFile(active, "rw")) {
+                output.setLength(restoreLength);
+            }
+            restoreLength = -1;
+        }
+        while (!unwritten.isEmpty()) {
+            int firstSize = unwritten.getFirst().length;
+            if (firstSize > segmentBytes) throw new IOException("Diagnostic record exceeds segment size");
+            long length = active.length();
+            if (length + firstSize > segmentBytes) {
+                rotate();
+                length = 0;
+            }
+            ByteArrayOutputStream batch = new ByteArrayOutputStream();
+            int count = 0;
+            for (byte[] row : unwritten) {
+                if (length + batch.size() + row.length > segmentBytes) break;
+                batch.write(row);
+                count++;
+            }
+            try (RandomAccessFile output = new RandomAccessFile(active, "rw")) {
+                output.seek(length);
+                try {
+                    output.write(batch.toByteArray());
+                } catch (IOException failure) {
+                    // Retry from the last complete record boundary if the write partially succeeded.
+                    restoreLength = length;
+                    try {
+                        output.setLength(length);
+                        restoreLength = -1;
+                    } catch (IOException rollback) {
+                        failure.addSuppressed(rollback);
+                    }
+                    throw failure;
+                }
+                for (int index = 0; index < count; index++) unwritten.removeFirst();
+            }
+        }
+        storageError = "";
     }
     private File segment(int index) { return new File(directory, "events-" + index + ".jsonl"); }
     private void rotate() throws IOException {

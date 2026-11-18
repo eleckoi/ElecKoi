@@ -68,9 +68,14 @@ window.__ModuleLoader__.load({
           const settingsDocument = this.unwrap(settingsResult, '读取联网搜索设置失败。')
           const namespace = settingsDocument?.namespaces?.find(item => item.ns === SETTINGS_NAMESPACE)
           const values = this.normalizeSettings(namespace?.value)
-          const credentialsResult = await this.remote.credentials.describe([values.apiKeyEnv])
-          const credentials = this.unwrap(credentialsResult, '读取 Tavily 凭据状态失败。')
-          const credential = credentials?.[values.apiKeyEnv]
+          let credential
+          let apiKeyError
+          try {
+            const credentialsResult = await this.remote.credentials.describe([values.apiKeyEnv])
+            credential = this.unwrap(credentialsResult, '读取 Tavily 凭据状态失败。')?.[values.apiKeyEnv]
+          } catch (error) {
+            apiKeyError = error
+          }
           const next = {
             status: 'ready',
             mode,
@@ -78,7 +83,8 @@ window.__ModuleLoader__.load({
             maxResults: values.maxResults,
             apiKeyConfigured: credential?.configured === true,
             apiKeyRef: values.apiKeyEnv,
-            apiKeyWritable: credential?.writable !== false,
+            apiKeyWritable: !apiKeyError && credential?.writable !== false,
+            apiKeyError,
             writable: settingsDocument.writable === true,
             tavilyAvailable: Boolean(namespace),
             officialDeepSeekAvailable: settingsDocument?.namespaces?.some(item => item.ns === 'web-deepseek-api'),

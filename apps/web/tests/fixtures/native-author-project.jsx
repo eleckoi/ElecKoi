@@ -80,7 +80,7 @@ window.mountNativeCharacterFixture = runtime => {
       <div style={{ height: 560 }}>{editor ? <CharacterEditorWindow embeddedCharacterId={characterId}
         characterCatalog={catalog} characterConfiguration={{}} compact={window.innerWidth <= 760}
         renderHeader={() => <header>Synthetic character</header>} />
-        : <CharacterFrontendView characterId={characterId} conversationId="synthetic-chat" fallback={<div>Default transcript</div>} />}</div>
+        : <CharacterFrontendView characterId={characterId} conversationId="synthetic-chat">{frontend => frontend ?? <div>Default transcript</div>}</CharacterFrontendView>}</div>
     </NativeFrontendProvider>;
   }
   document.querySelector('#author-root').style.height = 'auto';

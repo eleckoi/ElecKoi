@@ -41,6 +41,29 @@ function presetChanges() {
 }
 
 describe('DSH ElecKoi preset client model', () => {
+  it('returns the committed import and keeps its detail and catalog row when the list refresh fails', async () => {
+    let registration: any, model: any
+    const imported = { id: 'synthetic-imported', purpose: 'roleplay', name: 'Synthetic import', entries: [{ id: 'synthetic-entry' }], regexRules: [] }
+    const result = { preset: imported }
+    const failure = new Error('Synthetic post-import catalog failure')
+    const remote = { import: vi.fn(async () => ({ ok: true, value: result })),
+      catalog: vi.fn(async () => ({ ok: true, value: catalog('synthetic-existing') })) }
+    runInNewContext(source, { AbortController, window: { __ModuleLoader__: { load: (value: unknown) => { registration = value } } } })
+    dshClientPlugin(registration).apply({ remote: { eleckoiAgentPresets: remote }, provide: (_name: string, value: unknown) => { model = value }, effect: () => {}, on: () => () => {} })
+    await model.refresh()
+    const fault = new Error('Synthetic preset detail subscriber failure')
+    const other = vi.fn()
+    model.subscribeDetail(imported.id, () => { throw fault })
+    model.subscribeDetail(imported.id, other)
+    remote.catalog.mockRejectedValueOnce(failure)
+    await expect(model.import('eleckoi', { displayName: 'synthetic.json' })).resolves.toEqual(result)
+    await settle()
+    expect(other).toHaveBeenCalledOnce()
+    expect(remote.import).toHaveBeenCalledOnce()
+    expect(model.getDetailSnapshot(imported.id).preset).toEqual(imported)
+    expect(model.getSnapshot()).toMatchObject({ status: 'error', error: failure.message,
+      catalog: { presets: [{ id: 'synthetic-existing' }, { id: imported.id, entryCount: 1 }] } })
+  })
   it('sends group ordering with its purpose and adopts only a successful catalog response', async () => {
     let registration: any, model: any
     const next = { ...catalog('synthetic-preset'), groups:[{id:'group-b',purpose:'roleplay'},{id:'group-a',purpose:'roleplay'}] }

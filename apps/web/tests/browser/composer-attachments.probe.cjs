@@ -20,6 +20,19 @@ app.whenReady().then(async () => {
     for (let count = 0; count < 100; count++) { if (await evaluate(source)) return; await new Promise(resolve => setTimeout(resolve, 20)); }
     throw new Error(`Timed out: ${source}`);
   };
+  const menuMotion = () => evaluate(`(() => {
+    const menu = document.querySelector('.composer-more-menu');
+    const rows = menu.querySelector(':scope > [role="presentation"]');
+    const motion = name => {
+      const effect = document.getAnimations().find(animation => animation.animationName === name)?.effect;
+      return effect && { duration: effect.getTiming().duration, frames: effect.getKeyframes(), rowsOnly: effect.target === rows };
+    };
+    return { sameMenu: menu === window.composerFixture.menuBeforePageChange,
+      focused: document.activeElement?.className,
+      incoming: motion('composer-menu-page-in'), outgoing: motion('composer-menu-page-out') };
+  })()`);
+  const waitForMenuMotion = (direction) => wait(`document.querySelector('.composer-more-menu > [data-composer-page-motion]')?.dataset.composerPageMotion === '${direction}'
+    && document.getAnimations().some(animation => animation.animationName === 'composer-menu-page-in')`);
   try {
     const reports = [], queues = [], menus = [];
     for (const surface of ['roleplay', 'studio']) for (const width of [320, 390, 768, 1440]) {
@@ -45,11 +58,21 @@ app.whenReady().then(async () => {
           await new Promise(resolve=>setTimeout(resolve,150));
           writeFileSync(join(dirname(reportPath), surface+'-menu-'+theme+'.png'),(await win.webContents.capturePage()).toPNG());
         }
-        await evaluate(`document.querySelector('.composer-menu-next').click()`);
-        await wait(`!!document.querySelector('.composer-more-menu.is-more')`); await settle();
-        menus[menus.length-1].moreGap=await evaluate(`document.querySelector('.composer-more-trigger').getBoundingClientRect().top-document.querySelector('.composer-more-menu').getBoundingClientRect().bottom`);
+        await evaluate(`window.composerFixture.menuBeforePageChange=document.querySelector('.composer-more-menu');document.querySelector('.composer-menu-next').click()`);
+        await wait(`!!document.querySelector('.composer-more-menu.is-more')`);
+        if (width >= 768) await waitForMenuMotion('forward');
+        menus[menus.length-1].forward=await menuMotion();
+        await wait(`!document.querySelector('.composer-more-menu > [data-composer-page-motion]')`);
+        menus[menus.length-1].moreGap=await evaluate(`(() => {
+          const anchor = document.querySelector('.composer-more-trigger').getBoundingClientRect();
+          const panel = document.querySelector('.composer-more-menu').getBoundingClientRect();
+          return Math.max(anchor.top - panel.bottom, panel.top - anchor.bottom);
+        })()`);
         await evaluate(`document.querySelector('.composer-menu-back').click()`);
-        await wait(`!!document.querySelector('.composer-more-menu.is-main')`); await settle();
+        await wait(`!!document.querySelector('.composer-more-menu.is-main')`);
+        if (width >= 768) await waitForMenuMotion('back');
+        menus[menus.length-1].back=await menuMotion();
+        await wait(`!document.querySelector('.composer-more-menu > [data-composer-page-motion]')`);
         await evaluate(`[...document.querySelectorAll('.composer-more-menu button')].find(button=>button.textContent==='工具').click()`);
         await wait(`!document.querySelector('.composer-more-menu')`);
         menus[menus.length-1].actionRan=await evaluate(`window.composerFixture.toolsOpened===true`);

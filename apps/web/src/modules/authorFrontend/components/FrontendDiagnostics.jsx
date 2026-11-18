@@ -1,3 +1,4 @@
+import './frontend-diagnostics.css';
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 export function FrontendDiagnostics({ messages }) {
   const tUi = useProductTranslation();

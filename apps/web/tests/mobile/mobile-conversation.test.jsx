@@ -13,6 +13,8 @@ import { APP_DEFAULT_CHAT_BACKGROUND, CUSTOM_CHAT_BACKGROUND, GLOBAL_CHAT_BACKGR
 import { keepOfficialDraftFocus } from '../../../../tests/helpers/officialTrajectory.js';
 import { renderNativeConversationContent } from '../helpers/NativeConversationPresentation.jsx';
 
+class TestResizeObserver { observe() {} unobserve() {} disconnect() {} }
+
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -27,7 +29,7 @@ function conversationView() {
     appearance: {}, conversations: {},
     presets: { refresh: async () => ({ presets: [], activePresetIds: { roleplay: '', creator: 'synthetic-creator' } }) },
     renderLayout: ({ mainPanel }) => mainPanel,
-    renderRoleplay: ({ component: Component, props }) => <Component {...props} hasHeaderMenu renderConversationContent={renderNativeConversationContent} renderRoleplaySlot={renderComposer} dshConversation={{
+    renderRoleplay: ({ component: Component, props }) => <Component {...props} renderConversationContent={renderNativeConversationContent} renderRoleplaySlot={renderComposer} dshConversation={{
       activeView: 'chat', tabs: [{ id: 'chat', label: '对话' }, { id: 'trajectory', label: '轨迹' }, { id: 'plugin-view', label: '扩展视图' }], selectView,
     }} />,
     selectView,
@@ -40,7 +42,7 @@ function conversationView() {
 
 describe('Android conversation header', () => {
   it('opens the character picker, selects the requested character and retains the empty creation route', async () => {
-    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+    vi.stubGlobal('ResizeObserver', TestResizeObserver);
     const view = { ...conversationView(), route: { kind: 'root' }, routeBusy: false,
       openCharacterConversation: vi.fn(), selectPanel: vi.fn() };
     view.chat.characters.items = [{ id: 'picker-a', name: '合成角色甲', persona: {} }, { id: 'picker-b', name: '合成角色乙', persona: {} }];
@@ -67,7 +69,7 @@ describe('Android conversation header', () => {
   });
 
   it('uses one title, returns through the mobile route, and keeps official view actions', async () => {
-    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+    vi.stubGlobal('ResizeObserver', TestResizeObserver);
     const view = conversationView();
     const container = document.createElement('div'); document.body.append(container);
     const root = createRoot(container);
@@ -89,7 +91,7 @@ describe('Android conversation header', () => {
   });
 
   it('leaves the shared PC header without an Android back button', async () => {
-    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+    vi.stubGlobal('ResizeObserver', TestResizeObserver);
     const view = conversationView();
     const container = document.createElement('div'); document.body.append(container);
     const root = createRoot(container);
@@ -98,7 +100,7 @@ describe('Android conversation header', () => {
       expect(view.renderComposer).toHaveBeenCalledWith('eleckoi.roleplay.conversation.composer.bar', expect.objectContaining({ submitOnEnter: true }));
       expect(container.querySelector('.mobile-conversation-back')).toBeNull();
       expect(container.querySelector('[aria-label="返回"]')).toBeNull();
-      expect(container.querySelector('[aria-label="对话操作"]')).not.toBeNull();
+      expect(container.querySelector('[aria-label="对话操作"]')).toBeNull();
     } finally { await act(() => root.unmount()); container.remove(); vi.unstubAllGlobals(); }
   });
 });
@@ -107,7 +109,7 @@ describe('Android conversation wallpaper', () => {
   const imageA = 'data:image/png;base64,aGVsbG8=';
   const imageB = 'data:image/png;base64,d29ybGQ=';
   async function mountWallpaper(view, run) {
-    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+    vi.stubGlobal('ResizeObserver', TestResizeObserver);
     const container = document.createElement('div'); document.body.append(container);
     const root = createRoot(container);
     const render = () => act(async () => root.render(<MainPageContext.Provider value={view}><MobileMessagesPage /></MainPageContext.Provider>));

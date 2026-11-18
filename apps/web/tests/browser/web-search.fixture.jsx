@@ -16,6 +16,7 @@ let failNextUpdate = false;
 let instance = 0;
 const publish = patch => { snapshot = { ...snapshot, ...patch }; listeners.forEach(listener => listener()); };
 const model = { getSnapshot: () => snapshot, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
+  refresh: async () => publish({ apiKeyError: undefined, apiKeyWritable: true }),
   update: async patch => { calls.push(patch); if (failNextUpdate) { failNextUpdate = false; throw new Error('合成保存失败'); } publish(patch); },
   openPluginSettings: () => calls.push({ open: 'web-search' }),
   saveAndTest: async () => { calls.push({ credentialProvider: 'tavily' }); return { connection: { ok: true, plan: 'Test', used: 0, limit: 100 } }; } };

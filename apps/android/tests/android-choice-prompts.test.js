@@ -32,6 +32,25 @@ beforeEach(() => {
 afterEach(() => dom.window.close());
 
 describe('standard Android choices through the real shared facade', () => {
+  it('leaves select gestures and keyboard activation to embedded author documents', async () => {
+    const frame = window.document.createElement('iframe');
+    window.document.body.append(frame);
+    const page = frame.contentWindow;
+    page.document.body.innerHTML = '<select><option>合成作者选项</option></select>';
+    page.ElecKoiAndroidTransport = window.ElecKoiAndroidTransport;
+    page.eval(facade); page.eval(choices);
+    const authorSelect = page.document.querySelector('select');
+    for (const event of [
+      new page.MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }),
+      new page.MouseEvent('click', { bubbles: true, cancelable: true }),
+      new page.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    ]) {
+      authorSelect.dispatchEvent(event);
+      expect(event.defaultPrevented, event.type).toBe(false);
+    }
+    await settle();
+    expect(commands('show')).toHaveLength(0);
+  });
   it('replaces pointer and click defaults once and selects by option identity despite duplicate values', async () => {
     const payload = await open();
     expect(commands('show')).toHaveLength(1);

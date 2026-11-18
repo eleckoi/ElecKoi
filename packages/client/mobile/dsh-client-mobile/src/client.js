@@ -2,8 +2,11 @@ window.__ModuleLoader__.load({
   id: '@eleckoi/dsh-client-mobile',
   factory(require) {
     const React = require('react')
-    const page = component => React.lazy(() => import(new URL('eleckoi-page-mobile.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
-      .then(module => ({ default: module[component] })))
+    // One lazy type for the shared mobile bundle. Once the window resolves it,
+    // the tabs can render directly on their first visit.
+    const MobileBundle = React.lazy(() => import(new URL('eleckoi-page-mobile.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
+      .then(module => ({ default: ({ name, pageProps }) => React.createElement(module[name], pageProps) })))
+    const page = name => pageProps => React.createElement(MobileBundle, { name, pageProps })
     const MobileWindow = page('MobileWindow')
     const MobileWorkspaceControls = page('MobileWorkspaceControls')
     const MobilePluginBack = page('MobilePluginBack')

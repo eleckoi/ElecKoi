@@ -157,6 +157,7 @@ type ConversationChange =
   | { kind: 'snapshot' }
   | { kind: 'catalog'; conversationId: string; reason: 'created' | 'deleted' }
   | { kind: 'messages'; conversationId: string; reason: 'edited' | 'deleted' | 'regenerated'; messageIds: string[] }
+  | { kind: 'generation'; conversationId: string; error: { message: string } }
 
 function conversationChangeFeed() {
   type StreamState = {
@@ -247,6 +248,7 @@ function mountCatalog(
     conversation?: { input: { for: (ctx: unknown) => unknown } }
     requestAnimationFrame?: (callback: () => void) => number
     cancelAnimationFrame?: (id: number) => void
+    onConsoleError?: (...args: unknown[]) => void
     json?: Pick<JSON, 'parse' | 'stringify'>
     sessions?: { list: { getSnapshot: () => { byId: Record<string, { updatedAt: number; projectionValues?: { eleckoiConversationActivity: number } }> }; subscribe: (listener: () => void) => () => void } }
   } = {}
@@ -268,6 +270,7 @@ function mountCatalog(
   }
   runInNewContext(source, {
     AbortController,
+    ...(runtime.onConsoleError ? { console: { ...console, error: runtime.onConsoleError } } : {}),
     setTimeout, clearTimeout,
     JSON: runtime.json ?? JSON,
     requestAnimationFrame: runtime.requestAnimationFrame,
@@ -1681,6 +1684,36 @@ describe('DSH ElecKoi conversation client model', () => {
       expect(catalog.activeRequests.size).toBe(0)
       expect(catalog.sessionMutations.size).toBe(0)
     } finally { await authorRuntime.dispose(); authorPage.window.close(); cleanup() }
+  })
+
+  it('keeps delivering conversation changes after an individual generation observer throws', async () => {
+    let records = [{ id: 'synthetic-chat' }]
+    const reportError = vi.fn()
+    const mounted = mountCatalog(async name => ({ ok: true, data: name === 'query.conversations.list'
+      ? records : { conversation: { id: 'synthetic-chat' }, messages: [], hasMore: false, beforeSequence: null } }), { allowOtherQueries: true, onConsoleError: reportError })
+    const catalog = mounted.catalog as typeof mounted.catalog & {
+      activate(id: string): void
+      subscribeStream(listener: () => void): () => void
+      getStreamSnapshot(): { status: string; error: unknown }
+    }
+    try {
+      await settle()
+      catalog.activate('synthetic-chat')
+      const fault = new Error('Synthetic conversation observer failure')
+      const observed = vi.fn(() => catalog.getStreamSnapshot())
+      catalog.subscribeStream(() => { throw fault })
+      catalog.subscribeStream(observed)
+      const generationError = { message: 'Synthetic model generation failure' }
+      mounted.emit({ kind: 'generation', conversationId: 'synthetic-chat', error: generationError })
+      await settle()
+      expect(observed.mock.results[0]?.value).toMatchObject({ status: 'error', error: generationError })
+      expect(reportError).toHaveBeenCalledWith(expect.stringContaining('会话订阅回调失败'), fault)
+      records = [...records, { id: 'synthetic-next-chat' }]
+      mounted.emit({ kind: 'catalog', conversationId: 'synthetic-next-chat', reason: 'created' })
+      await settle()
+      expect(catalog.getSnapshot().items.map(item => item.id)).toEqual(['synthetic-chat', 'synthetic-next-chat'])
+      expect(mounted.isStopped()).toBe(false)
+    } finally { mounted.dispose() }
   })
 
   it('keeps the latest baseline when requests finish out of order and releases its listener', async () => {

@@ -10,6 +10,8 @@ import { characterFrontendEntry } from '../../src/modules/authorFrontend/model/c
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { MessagesPage } from '../../../../packages/client/features/dsh-client-conversations/src/page.jsx';
 import { ExportIcon } from '../../src/ui/icons/openSourceIcons.jsx';
+import { ChatPanel } from '../../src/modules/chat/components/ChatPanel.jsx';
+import { renderNativeConversationContent } from '../helpers/NativeConversationPresentation.jsx';
 
 const characterId = 'synthetic-character';
 const html = '<!doctype html><meta name="eleckoi-author-api" content="0.1.0"><button>Confirm</button>';
@@ -179,7 +181,33 @@ describe('character frontend package browser', () => {
 });
 
 describe('native role chat project', () => {
-  const view = (id = characterId, conversationId = 'synthetic-chat') => <CharacterFrontendView characterId={id} conversationId={conversationId} fallback={<div>Default transcript</div>} />;
+  const view = (id = characterId, conversationId = 'synthetic-chat') => <CharacterFrontendView characterId={id} conversationId={conversationId}>
+    {frontend => frontend ?? <div>Default transcript</div>}
+  </CharacterFrontendView>;
+  it('gives the selected frontend both the chat view and composer space, and restores the default chat on deselection', async () => {
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+    const renderRoleplaySlot = (name, _owner, options) => {
+      if (name === 'eleckoi.roleplay.chat') return <p>Default transcript</p>;
+      if (name === 'eleckoi.roleplay.conversation.composer.bar') return <textarea aria-label="Default composer" />;
+      if (name === 'eleckoi.roleplay.conversation.input.dock') return <button>Default dock</button>;
+      return options?.fallback;
+    };
+    await render(<ChatPanel hasActiveChat characterId={characterId} conversationId="synthetic-chat" currentTitle="Synthetic role"
+      persona={{}} messages={[]} scrollRef={{ current: null }} renderRoleplaySlot={renderRoleplaySlot} dshInputZone={{}}
+      renderConversationContent={renderNativeConversationContent} />);
+    const composer = () => container.querySelector('textarea[aria-label="Default composer"]');
+    expect(composer()).not.toBeNull();
+    await act(() => service.projects.select({ scope: 'character', characterId }, 'synthetic-role-project'));
+    expect(container.querySelector('.character-frontend-project iframe')).not.toBeNull();
+    expect(composer()).toBeNull();
+    expect(container.textContent).not.toMatch(/Default transcript|Default dock/);
+    expect(container.querySelector('.chat-composer-region')).toBeNull();
+    expect(container.querySelector('.chat-header').textContent).toContain('Synthetic role');
+    await act(() => service.projects.restoreDefault({ scope: 'character', characterId }));
+    expect(container.querySelector('.character-frontend-project')).toBeNull();
+    expect(composer()).not.toBeNull();
+    expect(container.textContent).toContain('Default transcript');
+  });
   it('uses only the explicit selection and releases the page when the owner deselects the project', async () => {
     await render(view()); expect(container.textContent).toBe('Default transcript'); expect(service.projects.readFile).not.toHaveBeenCalled();
     await act(() => { state.selectedProjectId = 'synthetic-role-project'; state.revision++; watchers.forEach(listener => listener(value())); });

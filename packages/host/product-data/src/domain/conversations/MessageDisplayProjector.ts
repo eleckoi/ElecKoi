@@ -79,9 +79,8 @@ export class MessageDisplayProjector {
       position,
       ...(depth === undefined ? {} : { depth }),
       expandMacros: (text, escape) => {
-        const source = macroValues ? resolveCharacterCardMacros(text, { userName: escape?.(macroValues.userName) ?? macroValues.userName,
-          characterName: escape?.(macroValues.characterName) ?? macroValues.characterName }) : text
-        return this.compatibility.resolveVariableMacros(source, message.variableStateJson)
+        const source = macroValues ? resolveCharacterCardMacros(text, macroValues, escape) : text
+        return this.compatibility.resolveVariableMacros(source, message.variableStateJson, escape)
       }
     }
     const transformed = streamingAssistant ? prepared : transformWithRegexRules(prepared, rules, target, options)
@@ -121,11 +120,8 @@ export class MessageDisplayProjector {
       const displayText = transformWithRegexRules(item.text, rules, 'Reasoning', {
         ...(depth === undefined ? {} : { depth }),
         expandMacros: (text, escape) => {
-          const expanded = macroValues ? resolveCharacterCardMacros(text, {
-            userName: escape?.(macroValues.userName) ?? macroValues.userName,
-            characterName: escape?.(macroValues.characterName) ?? macroValues.characterName,
-          }) : text
-          return this.compatibility.resolveVariableMacros(expanded, message.variableStateJson)
+          const expanded = macroValues ? resolveCharacterCardMacros(text, macroValues, escape) : text
+          return this.compatibility.resolveVariableMacros(expanded, message.variableStateJson, escape)
         },
       })
       this.reasoningCache.set(key, { messageId: message.id, text: item.text, variableStateJson: message.variableStateJson, macroScope, displayText })

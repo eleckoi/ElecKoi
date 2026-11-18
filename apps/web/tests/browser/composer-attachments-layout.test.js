@@ -43,8 +43,24 @@ it('keeps the official composer centered while all draft attachments scroll with
     await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/composer-attachments.probe.cjs'), htmlPath, reportPath], { env, timeout: 90000, windowsHide: true });
     const { attachments: reports, queues, menus } = JSON.parse(await readFile(reportPath, 'utf8')); expect(reports).toHaveLength(80);
     for (const menu of menus) {
-      expect(Math.abs(menu.anchor.y - menu.panel.bottom - 4), JSON.stringify(menu)).toBeLessThan(1);
+      // The official anchor can place the menu below the trigger when there is no room above it.
+      const gap = Math.max(menu.anchor.y - menu.panel.bottom, menu.panel.y - menu.anchor.bottom);
+      expect(Math.abs(gap - 4), JSON.stringify(menu)).toBeLessThan(1);
       expect(Math.abs(menu.moreGap - 4), JSON.stringify(menu)).toBeLessThan(1);
+      for (const [motion, distance, focus] of [[menu.forward, 8, 'composer-menu-back'], [menu.back, -8, 'composer-menu-next']]) {
+        expect(motion.sameMenu).toBe(true);
+        expect(motion.focused).toBe(focus);
+        if (menu.width >= 768) {
+          expect(motion.incoming?.duration).toBe(250);
+          expect(motion.incoming.rowsOnly).toBe(true);
+          expect(motion.outgoing?.rowsOnly).toBe(true);
+          expect(motion.incoming.frames[0].transform).toBe(`translateX(${distance}px)`);
+          expect(motion.outgoing?.frames.at(-1).transform).toBe(`translateX(${-distance}px)`);
+        } else {
+          expect(motion.incoming).toBeUndefined();
+          expect(motion.outgoing).toBeUndefined();
+        }
+      }
     }
     expect(queues).toHaveLength(24);
     const evidence = resolve('output/playwright/composer-attachments'); await mkdir(evidence, { recursive: true });

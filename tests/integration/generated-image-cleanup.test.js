@@ -206,6 +206,24 @@ describe('generated image deletion in existing Host operations', { timeout: 3000
     expect(readFileSync(log.path)).toEqual(original);
     expect((await f.ctx.attachments.readImage(ref)).data.byteLength).toBeGreaterThan(0);
   });
+  it('keeps regeneration prepared when post-commit image cleanup fails and retries cleanup on the next edit', async () => {
+    const f = await fixture(), retained = await f.save(), removed = await f.save(2), chat = await f.create(retained);
+    const input = f.turn(chat.session, removed, 2); await f.persist(chat.session);
+    const originalPath = f.ctx.attachments.imageHostPath(removed);
+    const prepareRollback = vi.fn(), stateRollback = vi.fn();
+    f.owner.eleckoiRoleplaySessions.prepareRegeneration = async () => ({ rollback: prepareRollback });
+    f.owner.eleckoiRoleplaySessions.prepareRestoreBeforeTurn = () => ({ apply() {}, rollback: stateRollback });
+    const pathLookup = vi.spyOn(f.ctx.attachments, 'imageHostPath').mockReturnValueOnce(join(f.root, 'not-an-attachment'));
+    await expect(ElecKoiConversationsApi.prototype.regenerateMessage.call(f.api, chat.id, input.seq, 'synthetic-request')).resolves.toBeDefined();
+    expect(f.api.pendingRegenerations.get(chat.id)?.requestId).toBe('synthetic-request');
+    expect(prepareRollback).not.toHaveBeenCalled(); expect(stateRollback).not.toHaveBeenCalled();
+    expect(existsSync(originalPath)).toBe(true);
+    expect(readDshSessionLog(f.sessions, chat.id).events.filter(event => event.type === 'assistant/message')).toHaveLength(1);
+    pathLookup.mockRestore();
+    await f.ctx.eleckoiSessionEditor.transaction(chat.id, () => f.ctx.eleckoiSessionEditor.editMessage(chat.id, input.seq, 'user', '合成后续编辑'));
+    expect(existsSync(originalPath)).toBe(false);
+    expect((await f.ctx.attachments.readImage(retained)).data.byteLength).toBeGreaterThan(0);
+  });
   it('deletes the image file when removing an assistant reply and later messages', async () => {
     const f = await fixture(), retained = await f.save(), removed = await f.save(2), chat = await f.create(retained);
     f.turn(chat.session, removed, 2); await f.persist(chat.session);

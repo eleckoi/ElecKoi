@@ -1,5 +1,6 @@
 (() => {
-  if (window.ElecKoiStandardChoices) return;
+  // Embedded author documents keep WebView's own select handling.
+  if (window !== window.top || window.ElecKoiStandardChoices) return;
   window.ElecKoiStandardChoices = true;
   const markBrowser = () => document.documentElement.setAttribute('data-eleckoi-browser', 'standard');
   if (document.documentElement) markBrowser();

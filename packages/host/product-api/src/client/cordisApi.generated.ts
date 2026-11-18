@@ -1427,7 +1427,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'WebSearchSnapshot',
-    declaration: 'export interface WebSearchSnapshot {\n    status: \'loading\' | \'ready\' | \'error\';\n    mode: WebSearchMode;\n    fetchMode: WebFetchMode;\n    officialDeepSeekAvailable: boolean;\n    maxResults: number;\n    apiKeyConfigured: boolean;\n    apiKeyRef: string;\n    apiKeyWritable: boolean;\n    writable: boolean;\n    tavilyAvailable: boolean;\n    revision?: number;\n    error: string;\n}',
+    declaration: 'export interface WebSearchSnapshot {\n    status: \'loading\' | \'ready\' | \'error\';\n    mode: WebSearchMode;\n    fetchMode: WebFetchMode;\n    officialDeepSeekAvailable: boolean;\n    maxResults: number;\n    apiKeyConfigured: boolean;\n    apiKeyRef: string;\n    apiKeyWritable: boolean;\n    apiKeyError?: unknown;\n    writable: boolean;\n    tavilyAvailable: boolean;\n    revision?: number;\n    error: string;\n}',
   },
 ]
 

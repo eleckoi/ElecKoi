@@ -6,6 +6,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { buildAuthorDocumentSource } from '@eleckoi/author-sdk';
 import { frontendAssetUrl } from '../model/applicationFrontendTargets.js';
 import { resolveFailure } from '../../../utils/failureText.js';
+import { FrontendDiagnostics } from './FrontendDiagnostics.jsx';
 
 /** Native project documents contain only their own assets and the native SDK bootstrap. */
 export function NativeProjectFrame({ content, project, entryFile, revision, context, runtime, onError }) {
@@ -14,6 +15,7 @@ export function NativeProjectFrame({ content, project, entryFile, revision, cont
   const currentContext = useRef(context), report = useRef(onError);
   currentContext.current = context; report.current = onError;
   const [error, setError] = useState(''), [height, setHeight] = useState(180);
+  const [diagnostics, setDiagnostics] = useState([]);
   const instance = useId();
   const characterId = project.scope === 'character' ? project.characterId : undefined;
   const conversationId = project.scope === 'character' ? context?.owner?.conversationId : undefined;
@@ -52,10 +54,11 @@ export function NativeProjectFrame({ content, project, entryFile, revision, cont
     } catch (reason) { page.__ElecKoiCompleteDocument(undefined, reason); fail(reason); }
   };
   useEffect(() => {
-    setError('');
+    setError(''); setDiagnostics([]);
     const receive = event => {
       if (event.source !== frame.current?.contentWindow || event.data?.channel !== channel) return;
       if (event.data.type === 'eleckoi:frontend-error') fail(event.data.message);
+      if (event.data.type === 'eleckoi:frontend-diagnostic') setDiagnostics(previous => previous.includes(event.data.message) ? previous : [...previous, event.data.message]);
       if (autoHeight && event.data.type === 'eleckoi:rich-height' && Number.isFinite(event.data.height)) setHeight(Math.max(1, event.data.height));
     };
     window.addEventListener('message', receive);
@@ -65,9 +68,12 @@ export function NativeProjectFrame({ content, project, entryFile, revision, cont
     return () => { window.removeEventListener('message', receive); resize?.disconnect(); close(); };
   }, [channel, source, runtime, autoHeight]);
   useEffect(sync, [JSON.stringify(context ?? null)]);
-  return <div className="advanced-frontend-region" style={{ position: 'relative', minWidth: 0, minHeight: 0, flex: 1, display: 'flex', ...(autoHeight ? { minHeight: height, width: '100%', flex: 'none' } : fullHeight ? { height: '100%' } : {}) }}>
+  return <div className="advanced-frontend-region" style={{ position: 'relative', minWidth: 0, minHeight: 0, flex: 1, display: 'flex', flexDirection: 'column', ...(autoHeight ? { minHeight: height, width: '100%', flex: 'none' } : fullHeight ? { height: '100%' } : {}) }}>
     {error || !runtime ? <div className="frontend-state" role="alert">{tUi("HTML 前端加载失败：")}{error || tUi("原生作者插件未启用")}</div>
-      : <iframe key={channel} ref={frame} name={channel} title={project.name} srcDoc={source} onLoad={load} style={{ width: '100%', height: '100%', border: 0, position: 'absolute', inset: 0, background: 'transparent', ...(autoHeight ? { height: height, flex: 'none' } : {}) }}
-        allow="fullscreen; autoplay; clipboard-read; clipboard-write" />}
+      : <div style={{ position: 'relative', flex: 1, minHeight: 0, ...(autoHeight ? { height, flex: 'none' } : {}) }}>
+        <iframe key={channel} ref={frame} name={channel} title={project.name} srcDoc={source} onLoad={load} style={{ width: '100%', height: autoHeight ? height : '100%', border: 0, position: 'absolute', inset: 0, background: 'transparent' }}
+          allow="fullscreen; autoplay; clipboard-read; clipboard-write" />
+      </div>}
+    <FrontendDiagnostics messages={diagnostics} />
   </div>;
 }

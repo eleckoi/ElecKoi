@@ -122,8 +122,10 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   })()`)
   await waitFor(`${workbench}?.querySelector('.cf-source')?.textContent.includes('eleckoi-author-api')`, 'Imported role entry file did not render')
   const workspace = await call('eleckoiAuthorFrontends/workspace', { owner })
-  assert.equal(workspace.projects.length, 1); assert.equal(workspace.selectedProjectId, null)
+  assert.equal(workspace.projects.length, 1)
   const projectId = workspace.projects[0].id
+  assert.equal(workspace.selectedProjectId, projectId)
+  await call('eleckoiAuthorFrontends/restoreDefault', { owner })
   assert.deepEqual(workspace.projects[0].files.slice().sort(), Object.keys(files).sort())
   assert.equal(await window.webContents.executeJavaScript(`Boolean(${workbench}.querySelector('textarea'))`), false)
   const captureEditor = async path => {
@@ -188,6 +190,14 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   })()`)
   const page = `Array.from(document.querySelectorAll('iframe')).find(frame=>frame.contentDocument?.querySelector('#result'))`
   await waitFor(`${page}?.contentDocument.querySelector('#result')?.textContent==='ready'`, 'Native role page did not boot in the chat')
+  const hostComposer = `document.querySelector('.chat-panel [data-composer-input]')`
+  const frontendFillsChat = () => window.webContents.executeJavaScript(`(() => {
+    const frame=${page},body=frame?.closest('.chat-conversation-body');
+    if(!body||${hostComposer})return false;
+    const child=frame.getBoundingClientRect(),parent=body.getBoundingClientRect();
+    return child.height>0&&['top','right','bottom','left'].every(edge=>Math.abs(child[edge]-parent[edge])<1);
+  })()`)
+  assert.equal(await frontendFillsChat(), true, 'The role frontend must fill the desktop chat body')
   await waitFor(`Array.from(document.querySelectorAll('iframe[title="ElecKoi author script"]')).length===3&&Array.from(document.querySelectorAll('iframe[title="ElecKoi author script"]')).every(frame=>frame.contentDocument.body.dataset.nativeScope)`, 'Three native scripts did not start')
   const actual = await window.webContents.executeJavaScript(`(() => {
     const frame=${page};window.__nativeOldApi=frame.contentWindow.ElecKoi;
@@ -222,12 +232,14 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   assert.deepEqual(scriptSettings.after.values, { multiplier: 3 })
   assert.deepEqual(scriptSettings.current, { multiplier: 3 })
   assert.equal(scriptSettings.after.revision, scriptSettings.before.revision + 1)
+  await call('eleckoiAuthorFrontends/restoreDefault', { owner })
+  await waitFor(`!(${page})&&${hostComposer}`, 'Default composer did not return for script menu checks')
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="扮演菜单"]').click()`)
   await waitFor(`document.querySelector('.composer-more-menu')`, 'Chat action menu did not open')
   await window.webContents.executeJavaScript(`document.querySelector('.composer-menu-next').click()`)
   await waitFor(`document.querySelectorAll('[aria-label="脚本按钮"] button').length===3`, 'Three scoped script buttons did not render')
   await window.webContents.executeJavaScript(`[...document.querySelectorAll('[aria-label="脚本按钮"] button')].find(button=>button.title==='Synthetic native script · Synthetic character settings').click()`)
-  const settingsPage = `document.querySelector('.native-script-dialog iframe')`
+  const settingsPage = `document.querySelector('.native-script-modal iframe')`
   await waitFor(`${settingsPage}?.contentDocument.querySelector('#settings-status')?.textContent==='ready'`, 'Script panel relative module or native SDK did not boot')
   const panelRequest = await window.webContents.executeJavaScript(`${settingsPage}.contentWindow.ElecKoi.scripts.request(${JSON.stringify({ scope: 'character', ownerId: characterId, scriptId: 'synthetic-script' })},'inspect',null)`)
   assert.equal(panelRequest.caller.surface, 'script-panel')
@@ -245,7 +257,7 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   })
   window.setContentSize(390, 780)
   window.webContents.invalidate()
-  await waitFor(`window.innerWidth<=400&&window.innerHeight<=800&&document.querySelector('.native-script-dialog').getBoundingClientRect().width<=window.innerWidth&&document.querySelector('.native-script-dialog').getBoundingClientRect().height<=window.innerHeight`, 'Script panel exceeded the compact viewport')
+  await waitFor(`window.innerWidth<=400&&window.innerHeight<=800&&document.querySelector('.native-script-modal').getBoundingClientRect().width<=window.innerWidth&&document.querySelector('.native-script-modal').getBoundingClientRect().height<=window.innerHeight`, 'Script panel exceeded the compact viewport')
   writeFileSync(mobileShot, (await compactPaint).toPNG())
   window.setContentSize(1440, 1000)
   await waitFor(`window.innerWidth>=1400`, 'Desktop viewport did not return')
@@ -256,11 +268,14 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   assert.deepEqual(JSON.parse(await window.webContents.executeJavaScript(`${settingsPage}.contentDocument.querySelector('#settings-status').textContent`)).values, { multiplier: 3 })
   assert.equal(await window.webContents.executeJavaScript(`window.__nativeScriptPages.every(page=>[...document.querySelectorAll('iframe[title="ElecKoi author script"]')].some(frame=>frame.contentWindow===page))`), true)
   await window.webContents.executeJavaScript(`(() => {window.__nativePanelApi=${settingsPage}.contentWindow.ElecKoi;document.querySelector('[aria-label="关闭作者面板"]').click()})()`)
-  await waitFor(`!document.querySelector('.native-script-dialog')`, 'Script panel did not close')
+  await waitFor(`!document.querySelector('.native-script-modal')`, 'Script panel did not close')
   assert.equal(await window.webContents.executeJavaScript(`window.__nativePanelApi.context.current().then(()=> 'unexpected',error=>error.code)`), 'FRAME_CLOSED')
   process.stdout.write(`Native script UI screenshots: ${desktopShot}, ${mobileShot}\n`)
   const storedScripts = await call('eleckoiCharacterConfiguration/readScriptLibrary', { scope: 'character', ownerId: characterId })
   assert.deepEqual(storedScripts.trees[0].data, { multiplier: 3 })
+  await call('eleckoiAuthorFrontends/select', { owner, projectId })
+  await waitFor(`${page}?.contentDocument.querySelector('#result')?.textContent==='ready'`, 'Role frontend did not return after the script panel check')
+  await window.webContents.executeJavaScript(`void(window.__nativeOldApi=${page}.contentWindow.ElecKoi)`)
   const switches = await window.webContents.executeJavaScript(`(async () => {
     const api=${page}.contentWindow.ElecKoi;
     const preset=await api.presets.current();
@@ -281,7 +296,7 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   assert.deepEqual(roleOriginal.entries, savedRoleLibrary.entries.map(entry => switches.settings.find(changed => changed.id === entry.id) || entry))
   assert.deepEqual(roleOriginal.versions.find(version => version.id === roleOriginal.activeVersionId).entries, roleOriginal.entries)
   await window.webContents.executeJavaScript(`${page}.contentDocument.querySelector('#draft').click()`)
-  await waitFor(`document.querySelector('[data-composer-input]')?.innerText==='Synthetic draft'`, 'Native SDK did not fill the real composer')
+  await waitFor(`${page}.contentWindow.ElecKoi.input.get().then(draft=>draft.text==='Synthetic draft')`, 'Native SDK did not fill the session draft')
   const original = await call('eleckoiAuthorVariables/getState', { conversationId })
   await window.webContents.executeJavaScript(`(() => {const doc=${page}.contentDocument;doc.querySelector('#value').value='-1';doc.querySelector('#send').click()})()`)
   await waitFor(`${page}?.contentDocument.querySelector('#result')?.dataset.status==='rejected'`, 'Invalid native variables did not report failure')
@@ -289,12 +304,13 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   await window.webContents.executeJavaScript(`(() => {const doc=${page}.contentDocument;doc.querySelector('#value').value='5';doc.querySelector('#send').click()})()`)
   await waitFor(`${page}?.contentDocument.querySelector('#result')?.dataset.status==='accepted'`, 'Native page variable retry and direct send did not complete')
   process.stdout.write('Native author Client: variable rejection, retry and direct generation passed.\n')
-  const result = await window.webContents.executeJavaScript(`(() => {const frame=${page};return {
+  const result = await window.webContents.executeJavaScript(`(async () => {const frame=${page};return {
     result:JSON.parse(frame.contentDocument.querySelector('#result').textContent),events:frame.contentWindow.nativeEvents,
-    draft:document.querySelector('[data-composer-input]').innerText};})()`)
+    draft:(await frame.contentWindow.ElecKoi.input.get()).text, composerVisible:Boolean(${hostComposer})};})()`)
   assert.deepEqual(result.result.state, { value: 6, globalVisits: 1, presetVisits: 1, characterVisits: 1, derived: 18 })
   assert.equal(result.result.context.characterId, characterId); assert.equal(result.result.context.conversationId, conversationId)
   assert.equal(result.result.context.projectId, projectId); assert.equal(result.draft, 'Synthetic draft'); assert.equal(requests(), 1)
+  assert.equal(result.composerVisible, false)
   assert.equal(modelBodies.length, 1)
   const actualRequest = JSON.stringify(modelBodies[0])
   for (const marker of ['Synthetic chat setting option B', 'Synthetic preset prompt option B']) assert(actualRequest.includes(marker), marker)
@@ -306,31 +322,30 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   const input = await window.webContents.executeJavaScript(`(async () => {
     const api=${page}.contentWindow.ElecKoi;
     const read=await api.input.get();const appended=await api.input.append(' appended');
-    const displayed=document.querySelector('[data-composer-input]').innerText;
     const cleared=await api.input.clear();const empty=await api.input.send();
     await api.input.set('Synthetic composer message');const submitted=await api.input.send();
-    return {read,appended,displayed,cleared,empty,submitted};
+    return {read,appended,cleared,empty,submitted};
   })()`)
   assert.deepEqual(input, { read: { text: 'Synthetic draft' }, appended: { text: 'Synthetic draft appended' },
-    displayed: 'Synthetic draft appended', cleared: { text: '' }, empty: { submitted: false }, submitted: { submitted: true } })
-  await waitFor(`${page}?.contentWindow.nativeEvents.filter(event=>event.name==='agent.run.finished').length===2&&document.querySelector('[data-composer-input]')?.innerText===''`, 'Native composer submission did not complete')
+    cleared: { text: '' }, empty: { submitted: false }, submitted: { submitted: true } })
+  await waitFor(`${page}?.contentWindow.nativeEvents.filter(event=>event.name==='agent.run.finished').length===2&&${page}.contentWindow.ElecKoi.input.get().then(draft=>draft.text==='')`, 'Native session draft submission did not complete')
   const sent = await window.webContents.executeJavaScript(`${page}.contentWindow.ElecKoi.messages.list()`)
   assert.equal(sent.filter(message => message.role === 'user' && message.content === 'Synthetic composer message').length, 1)
   assert.equal(requests(), 2)
   const global = await call('eleckoiCharacterConfiguration/readScriptLibrary', { scope: 'global', ownerId: '' })
   global.enabled = false; await call('eleckoiCharacterConfiguration/saveScriptLibrary', { library: global })
   await waitFor(`document.querySelectorAll('iframe[title="ElecKoi author script"]').length===2`, 'Disabled global script remained running')
+  const updated = await window.webContents.executeJavaScript(`${page}.contentWindow.ElecKoi.variables.merge({value:7})`)
+  assert.deepEqual(updated, { value: 8, globalVisits: 1, presetVisits: 2, characterVisits: 2, derived: 24 })
+  await call('eleckoiAuthorFrontends/restoreDefault', { owner })
+  await waitFor(`!(${page})&&${hostComposer}&&document.body.innerText.includes('Synthetic native reply')`, 'Default transcript and composer did not return')
+  assert.equal(await window.webContents.executeJavaScript(`window.__nativeOldApi.context.current().then(()=> 'unexpected',error=>error.code)`), 'FRAME_CLOSED')
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="扮演菜单"]').click()`)
   await waitFor(`Boolean(document.querySelector('.composer-more-menu'))`, 'Roleplay menu did not open')
   await window.webContents.executeJavaScript(`document.querySelector('.composer-menu-next').click()`)
   await waitFor(`document.querySelectorAll('[aria-label="脚本按钮"] button').length===2`, 'Disabled global script button remained in the dialog')
   await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="收起扮演菜单"]').click()`)
   process.stdout.write('Native author Client: scoped script shutdown and button dialog passed.\n')
-  const updated = await window.webContents.executeJavaScript(`${page}.contentWindow.ElecKoi.variables.merge({value:7})`)
-  assert.deepEqual(updated, { value: 8, globalVisits: 1, presetVisits: 2, characterVisits: 2, derived: 24 })
-  await call('eleckoiAuthorFrontends/restoreDefault', { owner })
-  await waitFor(`!(${page})&&document.body.innerText.includes('Synthetic native reply')`, 'Default transcript did not return')
-  assert.equal(await window.webContents.executeJavaScript(`window.__nativeOldApi.context.current().then(()=> 'unexpected',error=>error.code)`), 'FRAME_CLOSED')
   for (const [scope, ownerId] of owners.slice(1)) {
     const library = await call('eleckoiCharacterConfiguration/readScriptLibrary', { scope, ownerId })
     library.enabled = false; await call('eleckoiCharacterConfiguration/saveScriptLibrary', { library })
@@ -352,6 +367,7 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   window.setContentSize(420, 900)
   await waitFor(`innerWidth<=430`, 'Mobile chat viewport did not resize')
   await waitFor(`${page}?.contentDocument.querySelector('#result')?.textContent==='ready'`, 'Native role page did not render in the mobile chat')
+  assert.equal(await frontendFillsChat(), true, 'The role frontend must fill the mobile chat body')
   await window.webContents.executeJavaScript(`void(window.__nativeDeleteChatApi=${page}.contentWindow.ElecKoi)`)
   await call('eleckoiConversations/delete', { conversationId })
   await waitFor(`!(${page})`, 'Deleted conversation frontend remained mounted')
@@ -487,9 +503,6 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   const exampleOwner = { scope: 'character', characterId: exampleId }
   const exampleProject = await call('eleckoiAuthorFrontends/importProject', { owner: exampleOwner, input: { html: readFileSync(join(examples, 'frontend.html'), 'utf8'), select: false } })
   assert.equal(exampleProject.selectedProjectId, null)
-  await call('eleckoiAuthorFrontends/select', { owner: exampleOwner, projectId: exampleProject.projects[0].id })
-  await waitFor(`${examplePage}?.contentDocument.querySelector('#update')?.disabled===false&&${examplePage}.contentWindow.ElecKoi.context.current().then(context=>context.surface==='character-frontend')`, 'Published example project did not boot')
-  assert.equal((await window.webContents.executeJavaScript(`${examplePage}.contentWindow.ElecKoi.context.current()`)).surface, 'character-frontend')
   await openButtons()
   await exampleButton('切换简洁回复')
   await waitFor(`${examplePage}.contentWindow.ElecKoi.presets.getEntry(${JSON.stringify(examplePreset.id)},'example-detailed').then(entry=>entry.enabled)`, 'Imported preset button did not retain the author entry identities')
@@ -503,13 +516,18 @@ exports.runNativeAuthorScenario = async ({ window, ready, cookie, waitFor, reque
   } catch (error) {
     throw new Error(`${error.message}\n${JSON.stringify(await window.webContents.executeJavaScript(`(async () => ({input:await ${examplePage}.contentWindow.ElecKoi.input.get(),display:document.querySelector('[data-composer-input]').innerText,alerts:[...document.querySelectorAll('[role="alert"]')].map(node=>node.textContent)}))()`))}`)
   }
+  await call('eleckoiAuthorFrontends/select', { owner: exampleOwner, projectId: exampleProject.projects[0].id })
+  await waitFor(`${examplePage}?.contentDocument.querySelector('#update')?.disabled===false&&${examplePage}.contentWindow.ElecKoi.context.current().then(context=>context.surface==='character-frontend')`, 'Published example project did not boot')
+  assert.equal(await window.webContents.executeJavaScript(`Boolean(${hostComposer})`), false)
   await window.webContents.executeJavaScript(`(() => {const doc=${examplePage}.contentDocument;doc.querySelector('#message').value='Synthetic published example draft';doc.querySelector('#draft').click()})()`)
-  await waitFor(`document.querySelector('[data-composer-input]')?.innerText==='Synthetic published example draft'&&${examplePage}.contentDocument.querySelector('#draft').disabled===false`, 'Published example did not fill the real composer')
+  await waitFor(`${examplePage}.contentDocument.querySelector('#draft').disabled===false&&${examplePage}.contentWindow.ElecKoi.input.get().then(draft=>draft.text==='Synthetic published example draft')`, 'Published example did not save the session draft')
   await window.webContents.executeJavaScript(`(() => {const doc=${examplePage}.contentDocument;doc.querySelector('#score').value='12';doc.querySelector('form').requestSubmit()})()`)
   await waitFor(`${examplePage}?.contentDocument.querySelector('#send')?.disabled===false&&${examplePage}.contentDocument.querySelector('#messages').textContent.includes('Synthetic native reply')`, 'Published example direct generation did not finish')
   assert.equal(requests(), beforeExampleRequests + 1)
   assert.deepEqual(JSON.parse(await call('eleckoiAuthorVariables/getState', { conversationId: exampleChat.conversation.id })), { score: 12, total: 36, level: 2 })
-  assert.equal(await window.webContents.executeJavaScript(`document.querySelector('[data-composer-input]').innerText`), 'Synthetic published example draft')
+  assert.equal(await window.webContents.executeJavaScript(`${examplePage}.contentWindow.ElecKoi.input.get().then(draft=>draft.text)`), 'Synthetic published example draft')
+  await call('eleckoiAuthorFrontends/restoreDefault', { owner: exampleOwner })
+  await waitFor(`${hostComposer}?.innerText==='Synthetic published example draft'`, 'Default composer did not recover the preserved draft')
   const exampleRequest = JSON.stringify(modelBodies.at(-1))
   assert(exampleRequest.includes(examplePreset.entries.find(entry => entry.id === 'example-detailed').content))
   assert(!exampleRequest.includes(examplePreset.entries.find(entry => entry.id === 'example-brief').content))

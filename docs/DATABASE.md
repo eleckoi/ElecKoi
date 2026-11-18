@@ -176,8 +176,6 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 | [旧 DeepSeek 扩展选择整理](../packages/client/features/dsh-client-web-search/src/profile.js) | 受支持 profile 和恢复入口均不再引用 `eleckoi-deepseek-api` | 删除 `retireDeepSeekExtensionSelection`、桌面／Android 启动调用和旧选择回归；保留用户凭据及未使用的配置。当前官方 Search／Fetch 选择与 Messages 模式不随之删除 |
 | [六个旧产品错误码](../packages/shared/src/foundation/DesktopError.ts)、[防御映射](../packages/shared/src/foundation/failure.ts) | 所有生产 `DESKTOP_ERROR_CODES` 抛出点均已按真实语义改成契约码，并完成其边界和用户错误呈现回归 | 删除旧六码、`DesktopErrorCode`、联合类型旧分支、映射及专用回归；保留 `DesktopError` 当前契约码承载和统一失败折叠。当前创作项目 Repository 仍有实际旧码调用，条件尚未满足 |
 | [Android 文件发布适配](../native/android-runtime/README.md) | 锁定官方 JSONL／附件实现在 Android 应用沙箱通过独占发布、冲突、失败恢复及持久化，且不再需要硬链接替换与应用路径适配 | 删除对应锁与归档替换；两者都无引用后才删除共用发布模块和原生入口。当前版本摘要锁定及 APK 资源校验仍保留；此适配不迁移用户库或 Session 格式 |
-| [请求上下文记录修复](../packages/host/runtime/src/sessionRequestContextRepair.ts) | 对应旧版本直升已退役，且支持的 Session 恢复和导入入口已有转换缺失可忽略标记的能力 | 修复模块、启动扫描、导出与专用用例；旧事件保留，新预览不落盘，见 [ADR 0029](adr/0029-ephemeral-request-context-preview.md) |
-| [旧聊天独立输入补回](../packages/host/runtime/src/sessionHistoryRecovery.ts)、[启动调用](../packages/host/runtime/src/sessionStartupRecovery.ts) | 对应旧聊天直升已退役，且支持的恢复和导入入口已把缺失输入写为正式 Session 消息 | 补回模块、归档读取、启动调用、导出与专用用例；保留逐会话错误隔离、投影重放、数据库状态历史和正常重新生成 |
 | [已补回聊天的统计标记](../packages/client/features/dsh-client-roleplay/src/host/history-stats-projection.mjs) | 支持恢复的已迁移日志完成等价统计转换，重放结果保持正确 | 仅旧标记分支、专用状态与旧日志用例；保留当前已有输入续接的统计及投影登记 |
 | [旧请求投影信封过滤](../packages/client/features/dsh-client-roleplay/src/host/conversation-context.mjs)、[轨迹过滤](../packages/host/runtime/src/trajectory.ts) | 支持恢复和导入的旧日志均已不含该插件消息 | 按正式插件来源标识排除旧信封；新请求仅在内存装配，不生产新信封 |
 | [v3 → v4 系统开头补丁](adr/0026-legacy-session-system-head-migration.md) | 锁定上游的正式相邻迁移能通过同一组旧日志用例 | 版本补丁、`patchedDependencies` 登记和锁文件；保留官方格式目录与完整迁移链 |
@@ -198,7 +196,9 @@ DSH 精确版本补丁的完整清单及每项删除条件以 [pnpm-workspace.ya
 
 本次审计还退役聊天 Hook 的旧双订阅兜底：正式服务及主窗口、独立聊天入口都已提供 `getChatSnapshot`／`subscribeChat`，故移除 `getLegacyChatSnapshot`、`createLegacyChatSubscription` 及选择旧接口的分支；既有流式、取消、删除、重新生成与会话隔离回归改用当前接口继续保留。服务的独立详情／流快照仍有作者运行时等正式消费者，不随这项 Hook 兜底一起删除。
 
-删除恢复或迁移入口时只移除其专用用例；新建、重开、备份、完整性、当前模型请求、预设重组和重新生成等正常路径的验证继续保留。异常退出后的响应状态恢复是当前运行职责，仍由 [启动恢复](../packages/host/product-data/src/storage/sqlite/recoverInterruptedState.ts) 执行。
+Host 启动不再逐个修复旧请求上下文标记、补写旧角色聊天输入或重放这些聊天的全部投影。正式 Session 格式迁移随官方打开入口执行，已经转换的聊天继续按正式消息和统计投影读取。残留的不受支持日志保留原文件，打开对应会话时沿正式 Session 读取入口返回错误。消息改写后仍刷新目标会话的投影，异常退出后的响应状态仍由 [启动恢复](../packages/host/product-data/src/storage/sqlite/recoverInterruptedState.ts) 处理。
+
+删除恢复或迁移入口时只移除其专用用例；新建、重开、备份、完整性、当前模型请求、预设重组和重新生成等正常路径的验证继续保留。
 
 角色对话只生成、注册固定的 `eleckoi-active`，切换全局预设、模型和工具配置时更新同一个生成文件。Host 启动按正式会话头识别旧实体化预设，恢复前通过官方 Session Persistence 追加当前全局预设选择，并将仍引用旧 ID 的运行快照切到当前 ID；不注册旧声明或别名，不读取、删除历史生成文件，也不新增数据库迁移。打开准备和关闭写入句柄后的编辑边界复用同一入口，覆盖首轮删除、重新生成或失败回滚重新暴露旧头部选择的情况；转换不会删除或替换原消息、会话身份及产品数据。不支持或损坏的单个历史日志明确记录转换失败，不阻断其他会话启动；后续访问仍报告原错误。
 

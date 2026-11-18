@@ -26,6 +26,8 @@ it('fills the character region without global CSS and preserves measured slots i
       expect(row.frame.y, evidence).toBe(row.host.y);
       expect(row.frame.bottom, evidence).toBeLessThanOrEqual(row.footer.top);
       expect(row.region.height, evidence).toBe(row.frame.height);
+      expect(row.diagnostic, evidence).toEqual({ sameFrame: true, mounts: 1, releases: 0, alert: '',
+        messages: ['ResizeObserver loop completed with undelivered notifications.', expect.stringContaining('data:image/png;base64,AA==')] });
     }
   } finally {
     const path = relative(tmpdir(), directory);

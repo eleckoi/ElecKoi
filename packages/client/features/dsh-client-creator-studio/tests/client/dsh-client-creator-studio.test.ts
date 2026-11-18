@@ -113,11 +113,13 @@ function studioSessions(items: Array<{ sessionId: string; title: string; pinned:
     open: vi.fn(async (id: string) => ({ ok: true, value: active(id) })),
     create: vi.fn(async () => ({ ok: true, value: active('synthetic-new-session') })),
     delete: vi.fn(async (_id: string) => ({ ok: true, value: undefined })),
+    rename: vi.fn(async (_id: string, _title: string) => ({ ok: true, value: undefined })),
     regenerate: vi.fn(async (_id: string) => ({ ok: true, value: undefined })),
     deleteMessagesFrom: vi.fn(async (_id: string, _seq: number, _role: string) => ({ ok: true, value: undefined })),
     editUserMessage: vi.fn(async (_id: string, _seq: number, _content: string) => ({ ok: true, value: undefined })),
   }
   const selectModel = vi.fn(async (selection: { sessionId: string; provider: string; model: string }) => ({ ok: true, value: { selected: selection } }))
+  const refreshSessions = vi.fn(async () => {})
   const draft = vi.fn(() => 'accepted')
   const inputState = { draft: '', attachmentIds: [] as string[] }
   const sessionState = observable({ running: false })
@@ -128,17 +130,70 @@ function studioSessions(items: Array<{ sessionId: string; title: string; pinned:
   runInNewContext(source, { AbortController, AbortSignal, window: { __ModuleLoader__: { load(value: unknown) { registration = value } } } })
   dshClientPlugin(registration).apply({
     remote: { eleckoiCreatorStudioSessions: remote, session: { selectModel, projections: readProjections } },
-    sessions: { list: { getSnapshot: () => list }, binding: (sessionId: string) => ({ sessionId }), scope: () => ({}), refresh: async () => {}, reloadHistory, retain: (id: string) => ({ binding: { sessionId: id, session }, ready: Promise.resolve(), release: () => releases.push(id) }) },
+    sessions: { list: { getSnapshot: () => list }, binding: (sessionId: string) => ({ sessionId }), scope: () => ({}), refresh: refreshSessions, reloadHistory, retain: (id: string) => ({ binding: { sessionId: id, session }, ready: Promise.resolve(), release: () => releases.push(id) }) },
     workspaces: { list: { getSnapshot: () => ({ items: workspaceItems }) }, initializeDefault: async () => undefined },
     get: () => ({ input: { requestDraftInitialization: draft, for: () => ({ state: { getSnapshot: () => inputState } }) } }),
     provide: (name: string, value: unknown) => services.set(name, value),
     effect: () => {},
   })
-  return { model: services.get('eleckoiCreatorStudio').sessions, remote, releases, reloadHistory, selectModel, draft, inputState, faces, readProjections,
+  return { model: services.get('eleckoiCreatorStudio').sessions, remote, releases, refreshSessions, reloadHistory, selectModel, draft, inputState, faces, readProjections,
     setRunning: (running: boolean) => sessionState.set({ running }), updateStats: (values: Record<string, unknown>) => { for (const [key, value] of Object.entries(values)) faces.get(key)!.set(value) } }
 }
 
 describe('Studio Session binding and restoration', () => {
+  it.each(['official-list', 'studio-list'])('keeps a usable Studio session when %s refresh fails', async kind => {
+    const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
+    const failure = new Error('Synthetic catalog refresh failure')
+    if (kind === 'official-list') f.refreshSessions.mockRejectedValueOnce(failure)
+    else f.remote.list.mockRejectedValueOnce(failure)
+    await expect(f.model.open('synthetic-session')).resolves.toMatchObject({ sessionId: 'synthetic-session' })
+    const loaded = f.model.getSnapshot()
+    expect(loaded).toMatchObject({ status: 'ready', error: failure, reference: expect.anything() })
+    expect(f.releases).toEqual([])
+    await f.model.editUserMessage(7, 'Synthetic saved message')
+    expect(f.remote.editUserMessage).toHaveBeenCalledExactlyOnceWith('synthetic-session', 7, 'Synthetic saved message')
+    expect(f.model.getSnapshot()).toMatchObject({ status: 'ready', error: '', reference: loaded.reference })
+  })
+
+  it('preserves committed message edits, renames and deletes when catalog refresh fails', async () => {
+    const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
+    await f.model.open('synthetic-session')
+    const failure = new Error('Synthetic post-write catalog failure')
+    f.remote.list.mockRejectedValueOnce(failure)
+    await expect(f.model.editUserMessage(7, 'Synthetic edit')).resolves.toBeUndefined()
+    expect(f.reloadHistory).toHaveBeenCalledExactlyOnceWith('synthetic-session')
+    expect(f.model.getSnapshot()).toMatchObject({ status: 'ready', editingSessionId: '', error: failure })
+    f.remote.list.mockRejectedValueOnce(failure)
+    await expect(f.model.rename('synthetic-session', 'Synthetic renamed')).resolves.toBeUndefined()
+    expect(f.remote.rename).toHaveBeenCalledExactlyOnceWith('synthetic-session', 'Synthetic renamed')
+    f.refreshSessions.mockRejectedValueOnce(failure)
+    f.remote.list.mockResolvedValueOnce({ ok: true, value: [] })
+    await expect(f.model.delete('synthetic-session')).resolves.toBeUndefined()
+    expect(f.remote.delete).toHaveBeenCalledExactlyOnceWith('synthetic-session')
+    expect(f.releases).toEqual(['synthetic-session'])
+    expect(f.model.getSnapshot()).toMatchObject({ status: 'idle', items: [], active: null, error: failure })
+  })
+
+  it('surfaces an official list failure if the new Session is still unknown to the Client', async () => {
+    const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
+    await f.model.open('synthetic-session')
+    const reference = f.model.getSnapshot().reference
+    const failure = new Error('Synthetic new Session lookup failure')
+    f.refreshSessions.mockRejectedValueOnce(failure)
+    await expect(f.model.open('synthetic-uncatalogued')).rejects.toBe(failure)
+    expect(f.model.getSnapshot()).toMatchObject({ reference, active: { sessionId: 'synthetic-session' }, error: failure })
+    expect(f.releases).toEqual([])
+  })
+
+  it('regenerates when an optional statistics snapshot cannot be read', async () => {
+    const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
+    await f.model.open('synthetic-session')
+    const failure = new Error('Synthetic statistics read failure')
+    vi.spyOn(f.faces.get('tokenUsage')!, 'getSnapshot').mockImplementationOnce(() => { throw failure })
+    await expect(f.model.regenerate()).resolves.toBeUndefined()
+    expect(f.remote.regenerate).toHaveBeenCalledExactlyOnceWith('synthetic-session')
+    expect(f.model.getSnapshot()).toMatchObject({ status: 'ready', editingSessionId: '', retainedStats: null, error: failure })
+  })
   it('saves only the original user sequence through the current Session, reloads native history and keeps failures retryable', async () => {
     const f = studioSessions([{ sessionId: 'synthetic-session', title: '合成对话', pinned: false }])
     await f.model.open('synthetic-session')

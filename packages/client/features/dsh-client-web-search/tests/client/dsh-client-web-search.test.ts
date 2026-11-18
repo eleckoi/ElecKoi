@@ -83,6 +83,25 @@ describe('DSH web search Client model', () => {
       expect(remote.credentials.set).not.toHaveBeenCalled()
     } finally { cleanup() }
   })
+
+  it('keeps search settings usable when Tavily credential status cannot be read', async () => {
+    const { remote, model, cleanup } = harness()
+    const credentialError = new Error('合成 Tavily 凭据状态读取失败')
+    try {
+      await model.refresh()
+      remote.credentials.describe.mockRejectedValue(credentialError)
+      await expect(model.refresh()).resolves.toMatchObject({
+        status: 'ready', mode: 'tavily', maxResults: 8, apiKeyWritable: false, apiKeyError: credentialError
+      })
+      await expect(model.update({ mode: 'provider_native' })).resolves.toMatchObject({
+        status: 'ready', mode: 'provider_native', apiKeyError: credentialError
+      })
+      expect(remote.eleckoiWebSearch.select).toHaveBeenCalledExactlyOnceWith('provider_native')
+      remote.credentials.describe.mockImplementation(() => ok({ CUSTOM_SEARCH_KEY: { configured: true, writable: true } }))
+      await expect(model.refresh()).resolves.toMatchObject({ apiKeyConfigured: true, apiKeyWritable: true })
+      expect(model.getSnapshot().apiKeyError).toBeUndefined()
+    } finally { cleanup() }
+  })
   it('keeps Messages search selected after refreshing without enabling the new API or navigating', async () => {
     const { remote, model, layout, cleanup } = harness()
     try {

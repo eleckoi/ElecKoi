@@ -26,7 +26,7 @@
       <label>消息<input id="message" value="继续探索" required disabled></label>
       <div class="actions">
         <button type="button" id="update" disabled>更新积分</button>
-        <button type="button" id="draft" disabled>填写输入框</button>
+        <button type="button" id="draft" disabled>存为会话草稿</button>
         <button id="send" disabled>确认并发送</button>
         <button type="button" id="stop" disabled>停止生成</button>
       </div>
@@ -66,7 +66,10 @@
       }
       const acceptScore = () => api.variables.merge({ score: Number(score.value) });
       document.querySelector('#update').onclick = () => perform(acceptScore);
-      document.querySelector('#draft').onclick = () => perform(() => api.input.set(message.value));
+      document.querySelector('#draft').onclick = () => perform(async () => {
+        await api.input.set(message.value);
+        status.textContent = '已保存会话草稿';
+      });
       document.querySelector('#stop').onclick = async () => {
         try { await api.chat.stopGeneration(); } catch (error) { status.textContent = error.message; }
       };

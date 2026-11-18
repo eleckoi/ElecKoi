@@ -9,6 +9,7 @@ import { readAuthorDocumentDeclaration } from '@eleckoi/author-sdk';
 import { useNativeFrontendServices } from '../hooks/NativeFrontendContext.jsx';
 import { NativeProjectFrame } from './NativeProjectFrame.jsx';
 import { mountFrontendCompatibility } from '@eleckoi/tavern-frontend';
+import { FrontendDiagnostics } from './FrontendDiagnostics.jsx';
 
 /** Document metadata selects a runtime; undeclared source is never rewritten as native. */
 export function AdvancedFrontendFrame(props) {
@@ -41,6 +42,7 @@ function LegacyProjectFrame({ project, runtime, authorRuntime, request, content,
   const tUi = useProductTranslation();
   const releaseCompatibility = useRef(null), mountedCompatibility = useRef(null);
   const frame = useRef(null), [source, setSource] = useState(''), [error, setError] = useState('');
+  const [diagnostics, setDiagnostics] = useState([]);
   const [slotHeight, setSlotHeight] = useState(180), currentDocument = useRef(null);
   const autoHeight = context?.binding?.target === 'slot' && context?.binding?.slot !== 'main';
   const fullHeight = context?.binding?.target === 'root' || context?.binding?.target === 'page' || context?.binding?.slot === 'main';
@@ -77,7 +79,7 @@ function LegacyProjectFrame({ project, runtime, authorRuntime, request, content,
       const message = `${project.name} · ${entryFile}: ${resolveFailure(failure, { fallback: tUi("前端页面加载失败") }).text}`;
       if (mounted) { setError(message); errorRef.current?.(message); }
     };
-    setError(''); setSource('');
+    setError(''); setSource(''); setDiagnostics([]);
     Promise.resolve({ content }).then(result => {
       if (!mounted) return;
       const folder = entryFile.includes('/') ? entryFile.slice(0, entryFile.lastIndexOf('/') + 1).split('/').map(encodeURIComponent).join('/') : '';
@@ -86,6 +88,9 @@ function LegacyProjectFrame({ project, runtime, authorRuntime, request, content,
         globalStyles: (project.manifest?.globalStyles || []).map(path => frontendAssetUrl(project, path, revision)) }));
     }).catch(fail);
     const receive = event => {
+      if (event.source === frame.current?.contentWindow && event.data?.channel === channel && event.data.type === 'eleckoi:frontend-diagnostic') {
+        setDiagnostics(previous => previous.includes(event.data.message) ? previous : [...previous, event.data.message]);
+      }
       if (event.source === frame.current?.contentWindow && event.data?.channel === channel && event.data.type === 'eleckoi:frontend-error') {
         fail(event.data.message);
       }
@@ -105,12 +110,17 @@ function LegacyProjectFrame({ project, runtime, authorRuntime, request, content,
     const page = frame.current?.contentWindow;
     if (!page || page.__ElecKoiDocumentChannel !== channel || mountedCompatibility.current === page) return;
     const report = failure => { const text = `${project.name} · ${entryFile}: ${failure?.message || String(failure)}`; setError(text); errorRef.current?.(text); };
+    const diagnose = failure => {
+      if (frame.current?.contentWindow !== page) return;
+      const text = failure?.message || String(failure);
+      setDiagnostics(previous => previous.includes(text) ? previous : [...previous, text]);
+    };
     try {
       const mount = mountFrontendCompatibility(page, authorRuntime ? () => authorRuntime.mountProjectDocument(page, {
         projectId: project.id, entryFile, view: contextRef.current?.view || 'main', scope: project.scope,
         ...(project.scope === 'character' ? { characterId: project.characterId,
           ...(contextRef.current?.owner?.conversationId ? { conversationId: contextRef.current.owner.conversationId } : {}) } : {}),
-      }) : undefined, report);
+      }) : undefined, diagnose);
       mountedCompatibility.current = page; releaseCompatibility.current = mount.dispose;
       const current = () => releaseCompatibility.current === mount.dispose && mountedCompatibility.current === page;
       void mount.ready.then(() => { if (current()) page.__ElecKoiCompleteSharedDocument(); }, failure => {
@@ -118,9 +128,12 @@ function LegacyProjectFrame({ project, runtime, authorRuntime, request, content,
       });
     } catch (failure) { report(failure); page.__ElecKoiCompleteSharedDocument(failure); }
   };
-  return <div className="advanced-frontend-region" style={{ position: 'relative', minWidth: 0, minHeight: 0, flex: 1, display: 'flex', ...(autoHeight ? { minHeight: slotHeight, width: '100%', flex: 'none' } : fullHeight ? { height: '100%' } : {}) }}>
+  return <div className="advanced-frontend-region" style={{ position: 'relative', minWidth: 0, minHeight: 0, flex: 1, display: 'flex', flexDirection: 'column', ...(autoHeight ? { minHeight: slotHeight, width: '100%', flex: 'none' } : fullHeight ? { height: '100%' } : {}) }}>
     {error ? <div className="frontend-state" role="alert">{tUi("HTML 前端加载失败：")}{error}</div>
-      : source ? <iframe key={channel} ref={frame} name={channel} title={project.name} srcDoc={source} onLoad={() => { currentDocument.current = frame.current?.contentWindow; syncContext(); mountCompatibility(); }}
-        allow="fullscreen; autoplay; clipboard-read; clipboard-write" style={{ width: '100%', height: '100%', border: 0, position: 'absolute', inset: 0, background: 'transparent', ...(autoHeight ? { height: slotHeight, flex: 'none' } : {}) }} /> : <div className="frontend-state" role="status">{tUi("正在加载 HTML 前端…")}</div>}
+      : source ? <div style={{ position: 'relative', flex: 1, minHeight: 0, ...(autoHeight ? { height: slotHeight, flex: 'none' } : {}) }}>
+        <iframe key={channel} ref={frame} name={channel} title={project.name} srcDoc={source} onLoad={() => { currentDocument.current = frame.current?.contentWindow; syncContext(); mountCompatibility(); }}
+          allow="fullscreen; autoplay; clipboard-read; clipboard-write" style={{ width: '100%', height: autoHeight ? slotHeight : '100%', border: 0, position: 'absolute', inset: 0, background: 'transparent' }} />
+      </div> : <div className="frontend-state" role="status">{tUi("正在加载 HTML 前端…")}</div>}
+    <FrontendDiagnostics messages={diagnostics} />
   </div>;
 }

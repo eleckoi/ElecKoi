@@ -4,7 +4,7 @@ import { loadLayeredEnv, loadProfileDirectory, reportSkippedBundles } from '@dee
 import { runProfile } from '@deepseek-ai/dsh/profile-boot'
 import { retireDeepSeekExtensionSelection } from '@eleckoi/dsh-client-web-search/profile'
 import { ELECKOI_INSTALL_ANCHOR } from './desktopPluginBundles'
-import { installWebClientAssets, repairRequestContextLogs, recoverStartupSessions, formatHostDiagnostic } from '@eleckoi/dsh-runtime'
+import { installWebClientAssets, formatHostDiagnostic } from '@eleckoi/dsh-runtime'
 import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-jobs'
 import { Peer } from '@deepseek-ai/dsh-client-connection'
@@ -30,7 +30,6 @@ async function main(): Promise<void> {
   const profileDirectory = process.argv[2]
   if (profileDirectory === undefined) throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, 'Missing desktop plugin profile directory', { field: 'profileDirectory' })
   await retireDeepSeekExtensionSelection(profileDirectory)
-  if (process.env.DSH_SESSION_ROOT) await repairRequestContextLogs(process.env.DSH_SESSION_ROOT)
   const profile = loadProfileDirectory('dsh', profileDirectory, ELECKOI_INSTALL_ANCHOR)
   reportSkippedBundles('dsh', profile)
   const application = runProfile({
@@ -92,8 +91,6 @@ async function main(): Promise<void> {
   if (missingServices.length > 0) {
     throw new DesktopError(ELECKOI_FAILURE_CODES.pluginLoadFailed, `ElecKoi Host 服务未正确装载：${missingServices.join(', ')}`, { what: 'ElecKoi Host 服务' })
   }
-  const sessionRoot = process.env.DSH_SESSION_ROOT
-  if (sessionRoot) await recoverStartupSessions(ctx, sessionRoot)
   process.on('message', (value: unknown) => {
     if (typeof value !== 'object' || value === null || !('type' in value)) return
     const message = value as ParentHostMessage

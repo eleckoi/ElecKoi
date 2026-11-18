@@ -297,11 +297,17 @@ public final class HostRuntimeService extends Service {
     }
     private synchronized void log(String line) {
         rememberLog(line);
-        AndroidDiagnostics diagnostics = ((ElecKoiApplication)getApplication()).diagnostics();
         RuntimeDiagnostics.Record entry = RuntimeDiagnostics.event("host-shell", "log").with("message", line);
-        HostRunDiagnostics run = hostRun;
-        diagnostics.record(run == null ? entry : run.context(entry));
-        diagnostics.flushSoon();
+        recordHostEvent(hostRun, entry);
+    }
+    private void recordHostEvent(HostRunDiagnostics run, RuntimeDiagnostics.Record event) {
+        if (run != null) {
+            run.record(event);
+        } else {
+            AndroidDiagnostics diagnostics = ((ElecKoiApplication)getApplication()).diagnostics();
+            diagnostics.record(event);
+            diagnostics.flushSoon();
+        }
     }
     private synchronized void rememberLog(String line) {
         logs.addLast(line); while (logs.size() > 120) logs.removeFirst(); Log.i("ElecKoiUnifiedHost", line);
@@ -327,7 +333,7 @@ public final class HostRuntimeService extends Service {
             HostRunDiagnostics run = hostRun;
             RuntimeDiagnostics.Record event = RuntimeDiagnostics.event("host-lifecycle",phase).with("hostPid",hostPid)
                 .with("message", message).with("runtimeVersion", runtimeVersion);
-            ((ElecKoiApplication)getApplication()).diagnostics().record(run == null ? event : run.context(event));
+            recordHostEvent(run, event);
             if (run != null) run.lifecycle(phase, message);
         }
         Snapshot current = snapshot;

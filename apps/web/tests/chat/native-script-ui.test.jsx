@@ -91,13 +91,20 @@ describe('native script chat controls', () => {
     expect(dialog.getAttribute("role")).toBe("dialog");
     expect(dialog.getAttribute('aria-label')).toBe(panel.title);
     expect(dialog.querySelector('h2')).toBeNull();
-    expect(dialog.querySelector('.native-script-controls').contains(frame)).toBe(false);
+    expect(dialog.firstElementChild.contains(frame)).toBe(true);
+    expect(dialog.lastElementChild.classList.contains('native-script-controls')).toBe(true);
     expect(dialog.querySelector('[aria-label="重新加载作者面板"]')).toBeNull();
     await act(() => frame.dispatchEvent(new Event('load')));
     expect(runtime.mountScriptPanelDocument).toHaveBeenCalledWith(frame.contentWindow, panel.key);
     expect(frame.srcdoc).toContain('/eleckoi/scripts/global/_/synthetic-version/scripts/entry.js');
     await act(() => window.dispatchEvent(new MessageEvent('message', { source: window, data: { channel: frame.name, type: 'eleckoi:frontend-error', message: 'Wrong source' } })));
     expect(dialog.querySelector('[role=alert]')).toBeNull();
+    await act(() => {
+      for (let i = 0; i < 2; i++) window.dispatchEvent(new MessageEvent('message', { source: frame.contentWindow, data: { channel: frame.name, type: 'eleckoi:frontend-diagnostic', message: 'Synthetic layout notification' } }));
+    });
+    expect(dialog.querySelector('iframe')).toBe(frame); expect(stop).not.toHaveBeenCalled();
+    expect(dialog.querySelectorAll('details pre')).toHaveLength(1);
+    expect(dialog.querySelector('details').textContent).toContain('Synthetic layout notification');
     await act(() => window.dispatchEvent(new MessageEvent('message', { source: frame.contentWindow, data: { channel: frame.name, type: 'eleckoi:frontend-error', message: 'Synthetic panel error' } })));
     expect(stop).toHaveBeenCalledOnce(); expect(dialog.querySelector('[role=alert]').textContent).toBe('Synthetic panel error');
     await act(() => [...dialog.querySelectorAll('button')].find(button => button.textContent === '重新加载').click());
@@ -112,6 +119,16 @@ describe('native script chat controls', () => {
     const third = dialog.querySelector('iframe'); await act(() => third.dispatchEvent(new Event('load')));
     expect(third).not.toBe(second); expect(runtime.mountScriptPanelDocument).toHaveBeenCalledTimes(3);
     expect(document.querySelector('[role=menu]')).toBeNull();
+    const close = dialog.querySelector('[aria-label="关闭作者面板"]');
+    close.focus();
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    close.dispatchEvent(tab);
+    expect(document.activeElement).toBe(third);
+    const authorSelect = third.contentDocument.createElement('select');
+    third.contentDocument.body.append(authorSelect);
+    authorSelect.addEventListener('keydown', event => event.preventDefault(), { once: true });
+    await act(() => authorSelect.dispatchEvent(new third.contentWindow.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    expect(runtime.dismissPanel).not.toHaveBeenCalled();
     await act(() => third.contentWindow.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
     expect(runtime.dismissPanel).toHaveBeenCalledWith(panel.key);
     await act(() => root.render(null)); expect(stop).toHaveBeenCalledTimes(3);

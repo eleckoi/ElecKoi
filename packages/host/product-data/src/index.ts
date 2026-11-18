@@ -48,12 +48,13 @@ import { projectAgentPresetRuntimeContext, projectAgentPresetRuntimeSelection, d
 import { presetHistoryCompactionInstructions } from '@shared/contracts/presets/builtIns'
 import {
   characterCardMacroValues,
+  REGEX_TEST_MACRO_VALUES,
   resolveCharacterCardMacros,
   resolveCharacterCardMacrosInJson,
   type CharacterCardMacroValues
 } from '@shared/foundation/characterCardMacros'
 import { buildVariableViewerTimeline } from '@shared/foundation/variables/viewerTimeline'
-import { mvuMessageDisplayCompatibility } from '@eleckoi/compatibility-mvu'
+import { mvuMessageDisplayCompatibility, resolveMvuMessageVariableMacros } from '@eleckoi/compatibility-mvu'
 import {
   rulesForSurface,
   ruleAppliesToSurface,
@@ -803,7 +804,9 @@ class ProductDataStore {
           ...macroSettingLibrary,
           entries: macroSettingLibrary.entries.map((entry) => ({
             ...entry,
-            content: transformCollectionSurface(entry.content, regexRules, 'SettingContent', 'Prompt')
+            content: transformCollectionSurface(entry.content, regexRules, 'SettingContent', 'Prompt', {
+              expandMacros: (value, escape) => macroValues ? resolveCharacterCardMacros(value, macroValues, escape) : value
+            })
           }))
         }
       : macroSettingLibrary
@@ -1203,11 +1206,17 @@ class ProductDataStore {
   }
 
   async testRegexRule(text: string, rule: RegexRule, target: RegexRuleTarget, options: { surface?: 'Display' | 'Prompt' | 'Stored'; variablesJson?: string; depth?: number; isEdit?: boolean } = {}, signal?: AbortSignal): Promise<{ output: string; validationMessage: string | null }> {
-    const validationMessage = validateRegexRule(rule)
-    if (validationMessage) return { output: text, validationMessage }
     const surface = options.surface ?? 'Display'
+    const variableSnapshot = options.variablesJson
+    const expandMacros = (value: string, escape?: (value: string) => string) => {
+      const expanded = resolveCharacterCardMacros(value, REGEX_TEST_MACRO_VALUES, escape)
+      return surface === 'Display' && variableSnapshot !== undefined && variableSnapshot.trim() !== 'null'
+        ? resolveMvuMessageVariableMacros(expanded, variableSnapshot, escape) : expanded
+    }
+    const validationMessage = validateRegexRule(rule, expandMacros)
+    if (validationMessage) return { output: text, validationMessage }
     if (!ruleAppliesToSurface(rule, surface, target)) return { output: text, validationMessage: null }
-    const content = transformWithRegexRules(text, [rule], target, options)
+    const content = transformWithRegexRules(text, [rule], target, { ...options, expandMacros })
     try {
       const output = await renderRegexEjs({ content, rawContent: text, surface, variables: options.variablesJson === undefined ? null : JSON.parse(options.variablesJson),
         message: { id: 'regex-test', conversationId: '', role: target === 'UserInput' ? 'user' : 'assistant', status: 'complete', content: text } }, signal)
@@ -1387,9 +1396,7 @@ function runtimeText(
 ): string {
   const expanded = macros ? resolveCharacterCardMacros(source, macros) : source
   return rules ? transformCollectionSurface(expanded, rules, target, 'Prompt', {
-      depth, expandMacros: (value, escape) => macros ? resolveCharacterCardMacros(value, {
-        userName: escape?.(macros.userName) ?? macros.userName, characterName: escape?.(macros.characterName) ?? macros.characterName
-      }) : value
+      depth, expandMacros: (value, escape) => macros ? resolveCharacterCardMacros(value, macros, escape) : value
     }) : expanded
 }
 
@@ -1467,9 +1474,6 @@ export { extractMvuSchema, MVU_SCHEMA_REGISTRATION_MODULES } from './domain/char
 export function transformReasoningPrompt(text: string, rules: RegexRule[], macros?: CharacterCardMacroValues): string {
   return transformWithRegexRules(text, rules, 'Reasoning', {
     depth: 0,
-    expandMacros: (value, escape) => macros ? resolveCharacterCardMacros(value, {
-      userName: escape?.(macros.userName) ?? macros.userName,
-      characterName: escape?.(macros.characterName) ?? macros.characterName,
-    }) : value,
+    expandMacros: (value, escape) => macros ? resolveCharacterCardMacros(value, macros, escape) : value,
   })
 }

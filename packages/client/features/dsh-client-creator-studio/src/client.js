@@ -5,6 +5,12 @@ window.__ModuleLoader__.load({
     // 边界⑥ 的信封拆解只有一份实现（@eleckoi/dsh-product-api 的 client 面）。
     const { unwrapOrFail, failureAlreadyPublished, productFailure, ELECKOI_FAILURE_CODES } = require('@eleckoi/dsh-product-api')
     const retainedStatsKeys = ['sessionStats', 'tokenUsage', 'contextPressure', 'contextBreakdown']
+    function notifyListeners(listeners) {
+      for (const listener of listeners) {
+        try { listener() }
+        catch (error) { console.error('创作工作室订阅回调失败：', error) }
+      }
+    }
     /** Own one independent official Client Session reference for the Studio surface. */
     class CreatorStudioSessions {
       constructor(remote, sessions, workspaces, getConversation) {
@@ -23,7 +29,11 @@ window.__ModuleLoader__.load({
       }
       getSnapshot = () => this.snapshot
       subscribe = listener => { this.listeners.add(listener); return () => this.listeners.delete(listener) }
-      publish(patch) { if (!this.disposed) { this.snapshot = { ...this.snapshot, ...patch }; for (const listener of this.listeners) listener() } }
+      publish(patch) {
+        if (this.disposed) return
+        this.snapshot = { ...this.snapshot, ...patch }
+        notifyListeners(this.listeners)
+      }
       retainRegenerationStats(sessionId) {
         this.stopStatsRetention?.()
         const session = this.reference.binding.session
@@ -60,7 +70,10 @@ window.__ModuleLoader__.load({
           if ((faces[0][1].getSnapshot()?.steps ?? 0) > baselineSteps) release()
           else if (!session.getSnapshot().running && !settling) void settle()
         }
-        stops.push(session.subscribe(check), faces[0][1].subscribe(check))
+        try {
+          stops.push(session.subscribe(check))
+          stops.push(faces[0][1].subscribe(check))
+        } catch (error) { release(); throw error }
         this.stopStatsRetention = release
         this.publish({ retainedStats: retained })
         return { release, arm: () => {
@@ -84,6 +97,17 @@ window.__ModuleLoader__.load({
         for (const [id, reference] of this.draftReferences) if (!known.has(id)) { this.draftReferences.delete(id); reference.release() }
         return items
       }
+      async refreshCatalogs(includeOfficial = false) {
+        const generation = this.generation
+        const requests = [this.refresh()]
+        if (includeOfficial) requests.push(Promise.resolve().then(() => this.sessions.refresh()))
+        const results = await Promise.allSettled(requests)
+        const failures = results.flatMap(result => result.status === 'rejected' ? [result.reason] : [])
+        if (!failures.length) return
+        const error = failures.length === 1 ? failures[0] : new AggregateError(failures, '创作工作室目录刷新失败')
+        if (!this.disposed && generation === this.generation) this.publish({ error })
+        else console.error('创作工作室目录刷新失败：', error)
+      }
       async acquire(create, value, workspaceId) {
         if (this.disposed) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleDisposed, 'AI 创作工作室服务已关闭。', { what: 'AI 创作工作室服务' })
         const generation = ++this.generation
@@ -91,7 +115,13 @@ window.__ModuleLoader__.load({
         let reference
         try {
           const active = create ? await this.call('create', value, workspaceId) : await this.call('open', value)
-          await this.sessions.refresh()
+          let catalogFailure = ''
+          try { await this.sessions.refresh() }
+          catch (error) {
+            // The official Client only retains identities it already knows.
+            if (!this.sessions.list.getSnapshot().byId[active.sessionId] && this.snapshot.active?.sessionId !== active.sessionId) throw error
+            catalogFailure = error
+          }
           // The catalog retains data; StudioConversation owns the visible mainView.
           reference = this.sessions.retain(active.sessionId, { source: 'eleckoiCreatorStudio' })
           await reference.ready
@@ -100,12 +130,12 @@ window.__ModuleLoader__.load({
           const previous = this.reference
           const previousId = this.snapshot.active?.sessionId
           this.reference = reference
-          this.publish({ status: 'ready', active, reference, error: '' })
+          this.publish({ status: 'ready', active, reference, error: catalogFailure })
           const cached = this.draftReferences.get(active.sessionId)
           this.draftReferences.delete(active.sessionId)
           cached?.release()
           if (previous !== cached && this.draftReferences.get(previousId) !== previous) previous?.release()
-          await this.refresh()
+          await this.refreshCatalogs()
           return active
         } catch (error) {
           if (reference !== this.reference) reference?.release()
@@ -169,8 +199,8 @@ window.__ModuleLoader__.load({
         // The Host list is ordered by activity, independently of sidebar pins.
         return items.length ? this.open(items[0].sessionId) : this.create()
       }
-      async rename(sessionId, title) { await this.call('rename', sessionId, title); await this.refresh() }
-      async pin(sessionId, pinned) { await this.call('pin', sessionId, pinned); await this.refresh() }
+      async rename(sessionId, title) { await this.call('rename', sessionId, title); await this.refreshCatalogs() }
+      async pin(sessionId, pinned) { await this.call('pin', sessionId, pinned); await this.refreshCatalogs() }
       async delete(sessionId) {
         await this.call('delete', sessionId)
         const deleted = new Set([sessionId])
@@ -181,8 +211,8 @@ window.__ModuleLoader__.load({
         }
         for (const id of deleted) { this.draftReferences.get(id)?.release(); this.draftReferences.delete(id) }
         if (deleted.has(this.snapshot.active?.sessionId)) this.release()
-        await this.sessions.refresh()
-        await this.refresh()
+        this.publish({ items: this.snapshot.items.filter(item => !deleted.has(item.sessionId)) })
+        await this.refreshCatalogs(true)
       }
       async search(query, signal) {
         const result = await this.sessions.search(query, signal)
@@ -205,23 +235,30 @@ window.__ModuleLoader__.load({
         const active = this.snapshot.active
         if (!active) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '工作室对话尚未打开。', { what: '打开工作室对话' })
         if (this.messageMutation) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '请等待当前消息操作完成。', { what: '等待当前消息操作完成' })
-        const stats = method === 'regenerate' ? this.retainRegenerationStats(active.sessionId) : null
-        let retaining = false
+        let stats, retaining = false
         this.messageMutation = true
         this.publish({ editingSessionId: active.sessionId, error: '' })
         const generation = this.generation
         try {
+          if (method === 'regenerate') {
+            try { stats = this.retainRegenerationStats(active.sessionId) }
+            catch (error) { this.publish({ error }) }
+          }
           let failure
           try { await this.call(method, active.sessionId, ...args) } catch (error) { failure = error }
           if (this.disposed || generation !== this.generation) { if (failure) throw failure; return }
           // Other official views also retain this generation. Releasing our
           // reference cannot reset their journal cursor or removed flag, and
           // would unmount the resident input. Reload the shared history in place.
-          try { await this.sessions.reloadHistory(active.sessionId); await this.refresh() }
+          try { await this.sessions.reloadHistory(active.sessionId) }
           catch (error) { if (failure) throw new AggregateError([failure, error], `${failure.message}；恢复对话失败：${error.message}`); throw error }
+          if (this.disposed || generation !== this.generation) { if (failure) throw failure; return }
+          await this.refreshCatalogs()
           if (failure) throw failure
-          stats?.arm()
-          retaining = true
+          if (stats && !this.disposed && generation === this.generation) {
+            try { stats.arm(); retaining = true }
+            catch (error) { this.publish({ error }) }
+          }
         } finally {
           if (!retaining) stats?.release()
           this.messageMutation = false
@@ -270,7 +307,7 @@ window.__ModuleLoader__.load({
 
       publish(next) {
         this.snapshot = next
-        for (const listener of this.listeners) listener()
+        notifyListeners(this.listeners)
       }
 
       assertCollection(value) {
@@ -386,7 +423,7 @@ window.__ModuleLoader__.load({
       const { MenuItemButton, IconTrashOutlineRegular, Modal, Button } = require('@deepseek-ai/dsh-client-ui-primitives')
       let deleteRequest = null
       const deleteListeners = new Set()
-      const requestDelete = request => { deleteRequest = request; for (const listener of deleteListeners) listener() }
+      const requestDelete = request => { deleteRequest = request; notifyListeners(deleteListeners) }
       ctx.slots.inject('sidebar.workspaces.session.menu.item', () => ctx.slots.register({
         name: 'sidebar.workspaces.session.menu.item', id: 'eleckoi-creator-studio.delete', order: 425,
       }, ({ sessionId, displayTitle, useMenuOpenState }) => {

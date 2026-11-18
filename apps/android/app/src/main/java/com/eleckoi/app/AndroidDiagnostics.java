@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
@@ -34,7 +35,8 @@ final class AndroidDiagnostics {
     private volatile boolean visible;
     private volatile long pendingBeat;
     private boolean stallReported;
-    private final java.util.concurrent.atomic.AtomicBoolean flushQueued=new java.util.concurrent.atomic.AtomicBoolean();
+    private final AtomicBoolean flushQueued = new AtomicBoolean();
+    private static final long FLUSH_DELAY_MS = 100;
     /** Bug 报告一次带多少条最近事件。 */
     private static final int REPORT_EVENTS = 200;
     /** 内存什么时候值得落盘：堆逼近上限，或较上次落盘涨了这么多。 */
@@ -64,7 +66,7 @@ final class AndroidDiagnostics {
         record(environment().with("kind", "process-start"));
     }
     void record(JSONObject event) { store.record(event); }
-    HostRunDiagnostics hostRun() { return new HostRunDiagnostics(store); }
+    HostRunDiagnostics hostRun() { return new HostRunDiagnostics(store, this::flushSoon); }
     void event(String kind, String stage) { record(new RuntimeDiagnostics.Record().with("kind", kind).with("stage", stage)); }
     void visible(boolean value) { visible = value; event("activity", value ? "resume" : "pause"); }
     private void sample() {
@@ -206,5 +208,13 @@ final class AndroidDiagnostics {
                 .toString();
         } catch (Exception failure) { return "{\"available\":false}"; }
     }
-    void flushSoon() { if(flushQueued.compareAndSet(false,true)) worker.execute(()->{ try { store.flush(); } finally { flushQueued.set(false); } }); }
+    void flushSoon() {
+        if (flushQueued.compareAndSet(false, true)) {
+            worker.schedule(() -> {
+                // Producers arriving during I/O can schedule the next batch.
+                flushQueued.set(false);
+                store.flush();
+            }, FLUSH_DELAY_MS, TimeUnit.MILLISECONDS);
+        }
+    }
 }

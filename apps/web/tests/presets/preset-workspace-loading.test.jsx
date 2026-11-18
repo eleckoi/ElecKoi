@@ -87,9 +87,9 @@ describe('preset workspace loading', () => {
     const reads = model.read.mock.calls.length;
     await switchPurpose('creator');
     expect(model.read).toHaveBeenCalledTimes(reads);
-    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+    expect(document.querySelector('.product-dialog[role="dialog"]')).not.toBeNull();
     expect(model.save).toHaveBeenCalledTimes(2);
-    await act(async () => [...document.querySelectorAll('[role="alertdialog"] button')].find(button => button.textContent === '不保存').click());
+    await act(async () => [...document.querySelectorAll('.product-dialog[role="dialog"] button')].find(button => button.textContent === '不保存').click());
     await finishRead();
     expect(model.save).toHaveBeenCalledTimes(2);
   });
@@ -185,9 +185,9 @@ describe('preset workspace loading', () => {
     const readCount = model.read.mock.calls.length;
     await switchPurpose('creator');
     expect(model.read).toHaveBeenCalledTimes(readCount);
-    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
+    expect(document.querySelector('.product-dialog[role="dialog"]')).not.toBeNull();
     expect(editorText(host.querySelector('[role=textbox][aria-label=使用说明]'))).toBe('合成未保存说明');
-    await act(async () => [...document.querySelectorAll('[role="alertdialog"] button')].find(button => button.textContent === '不保存').click());
+    await act(async () => [...document.querySelectorAll('.product-dialog[role="dialog"] button')].find(button => button.textContent === '不保存').click());
     expect(requests.at(-1).id).toBe(presets[1].id);
     expect(host.querySelector('h1').textContent).toBe(presets[0].name);
     await finishRead();

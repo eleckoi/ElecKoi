@@ -116,7 +116,7 @@ export function useChatClient({ conversations, characters: characterCatalog, mod
     setActiveSectionState(section);
   }
 
-  async function openCharacterChat(characterId) {
+  async function openCharacterChat(characterId, options) {
     const character = characters.items.find((item) => item.id === characterId);
     if (!character) return;
     const latestPersona = character.persona || {};
@@ -134,7 +134,7 @@ export function useChatClient({ conversations, characters: characterCatalog, mod
       chat_background_opacity: character.chatBackgroundOpacity ?? 0.72,
       chat_background_blur: character.chatBackgroundBlur ?? 2,
       chat_background_scrim: character.chatBackgroundScrim ?? 0.5,
-    });
+    }, options);
   }
 
   async function updateChatBackground(patch) {

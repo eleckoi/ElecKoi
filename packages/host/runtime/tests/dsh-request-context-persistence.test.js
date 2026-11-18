@@ -1,17 +1,12 @@
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
-import { SessionFormatUnsupportedError, SessionAlreadyOwnedError } from '@deepseek-ai/dsh-session-persistence'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { SessionProjectionRegistry } from '@deepseek-ai/dsh-session-projection'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { afterEach, describe, expect, it } from 'vitest'
-
-
-import { readDshSessionLog } from '../src/trajectory'
-import { repairRequestContextLog, repairRequestContextLogs } from '../src/sessionRequestContextRepair'
 
 const cleanups = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
@@ -36,8 +31,7 @@ async function fixture() {
   await handle.append(session.snapshotEvents())
   await handle.flush()
   await handle.close()
-  const path = readDshSessionLog(root, session.id).path
-  return { root, ctx, registry, session, path, context, step, header: readDshSessionLog(root, session.id).header }
+  return { root, ctx, registry, session, context }
 }
 
 async function reopen(f) {
@@ -49,15 +43,6 @@ async function reopen(f) {
     try { return await handle.read() }
     finally { await handle.close() }
   } finally { await ctx.fiber.dispose() }
-}
-
-function removeMarker(f, mutate = row => row) {
-  const rows = readFileSync(f.path, 'utf8').trimEnd().split('\n').map(JSON.parse)
-  const record = rows.find(row => row.type === 'eleckoi/request-context')
-  delete record.ignorable
-  mutate(record, rows)
-  writeFileSync(f.path, rows.map(JSON.stringify).join('\n') + '\n')
-  return readFileSync(f.path, 'utf8')
 }
 
 describe('request context durable event contract', { timeout: 30_000 }, () => {
@@ -91,45 +76,5 @@ describe('request context durable event contract', { timeout: 30_000 }, () => {
     expect(restored.deriveMessages()).toEqual(f.session.deriveMessages())
     expect(f.registry.snapshot(restored).values.eleckoiRequestContexts).toBeUndefined()
     expect(stored.events.find(event => event.type === 'eleckoi/request-context').data.context).toEqual(f.context)
-  })
-
-  it('repairs only the marker, retains a backup, and is idempotent across Host startup', async () => {
-    const f = await fixture()
-    const original = removeMarker(f)
-    await expect(reopen(f)).rejects.toBeInstanceOf(SessionFormatUnsupportedError)
-    expect(await repairRequestContextLogs(f.root)).toBe(1)
-    const after = await reopen(f)
-    const expected = f.session.snapshotEvents()
-    expect(after.events).toEqual(expected)
-    expect(readDshSessionLog(f.root, f.session.id).header).toEqual(f.header)
-    const backup = readdirSync(dirname(f.path)).find(name => name.endsWith('.bak'))
-    expect(readFileSync(join(dirname(f.path), backup), 'utf8')).toBe(original)
-    const repaired = readFileSync(f.path, 'utf8')
-    expect(await repairRequestContextLogs(f.root)).toBe(0)
-    expect(readFileSync(f.path, 'utf8')).toBe(repaired)
-  })
-
-  it.each(['payload', 'request', 'unknown', 'torn'])('refuses %s corruption without changing the file', async kind => {
-    const f = await fixture()
-    removeMarker(f, (record, rows) => {
-      if (kind === 'payload') record.data.context[0].role = 'invalid'
-      if (kind === 'request') record.data.requestSeq = 0
-      if (kind === 'unknown') rows.at(-1).type = 'other/required'
-    })
-    if (kind === 'torn') writeFileSync(f.path, readFileSync(f.path, 'utf8') + '{broken')
-    const original = readFileSync(f.path, 'utf8')
-    await expect(repairRequestContextLog(f.root, f.session.id)).rejects.toThrow()
-    expect(readFileSync(f.path, 'utf8')).toBe(original)
-    expect(readdirSync(dirname(f.path)).some(name => name.endsWith('.bak'))).toBe(false)
-  })
-
-  it('uses the same kernel write lease as the official backend', async () => {
-    const f = await fixture()
-    const owner = await f.ctx.sessionPersistence.open(f.session.id, 'write')
-    try {
-      const original = removeMarker(f)
-      await expect(repairRequestContextLog(f.root, f.session.id)).rejects.toBeInstanceOf(SessionAlreadyOwnedError)
-      expect(readFileSync(f.path, 'utf8')).toBe(original)
-    } finally { await owner.close() }
   })
 })

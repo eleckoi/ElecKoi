@@ -6,7 +6,10 @@ import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import productDataPlugin from '@eleckoi/dsh-product-data'
 import { creatorCapabilities, creatorToolsets } from '../src/domain/creatorStudio/capabilities'
+import { emptyEntry } from '../src/domain/settingLibraries'
 import { VARIABLE_INITIALIZATION_OBJECT_ID } from '../../../shared/src/contracts/variables/schemas'
+
+type RegexRule = Parameters<Context['eleckoiProductData']['testRegexRule']>[1]
 
 const cleanups: Array<() => void | Promise<void>> = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup(); vi.unstubAllEnvs() })
@@ -581,5 +584,59 @@ describe('Creator authoring matches the native setting, schema, script and regex
     const reopened = new Context(); cleanups.push(() => reopened.fiber.dispose()); await reopened.plugin(productDataPlugin)
     const read = creatorCapabilities(reopened.eleckoiProductData).find(operation => operation.id === 'regex.read')!
     expect(read.execute(f.characterId, { id: created.rule.id })).toEqual({ ...created, scope: 'character', ownerId: f.characterId, enabled: before.characterEnabled ?? true })
+  })
+
+  it.each(['character', 'preset', 'global'] as const)('expands regex macros from %s rules in settings, message display and the tester', async (scope) => {
+    const { data } = await fixture()
+    const characterId = 'synthetic-regex-character', characterName = 'Regex (Character)', userName = 'Regex User'
+    data.createCharacter({ id: characterId, name: characterName })
+    data.savePersona({ ...data.readPersona(), user_name: userName })
+    const setting = data.readSettingLibrary(characterId)
+    const entry = { ...emptyEntry('synthetic-macro-setting'), title: 'Synthetic macro setting', content: 'TOKEN', openingMessages: [] }
+    data.saveSettingLibrary(characterId, { ...setting, entries: [...setting.entries, entry] })
+    const preset = data.createAgentPreset('Synthetic macro preset', '', 'roleplay')
+    data.setActiveAgentPreset(preset.id)
+    const ownerId = scope === 'character' ? characterId : scope === 'preset' ? preset.id : ''
+    const library = data.readRegexLibrary(scope, ownerId)
+    const rule: RegexRule = {
+      id: 'synthetic-macro-replacement', name: 'Synthetic replacement', pattern: 'TOKEN',
+      replacement: '{{char}}', targets: ['AiOutput', 'SettingContent'], enabled: true,
+      displayOnly: false, promptOnly: false, runOnEdit: false, order: 0
+    }
+    const escapedRule: RegexRule = {
+      ...rule, id: 'synthetic-macro-match', pattern: '/^{{char}}$/u', replacement: '{{user}}', substituteRegex: 2, order: 1
+    }
+    data.saveRegexLibrary({ ...library, rules: [rule, escapedRule] }, [rule.id, escapedRule.id])
+    const { conversation } = data.createConversation({ metadata: { characterId } })
+    const runtime = data.prepareConversationRuntime(conversation.id, 'Synthetic message')
+    expect(runtime.conversationContext.settingLibrary?.entries.find(item => item.id === entry.id)?.content).toBe(userName)
+    expect(data.readSettingLibrary(characterId).entries.find(item => item.id === entry.id)?.content).toBe('TOKEN')
+    const [message] = data.projectConversationMessages(conversation.id, [{
+      id: 'synthetic-regex-message', role: 'assistant', content: 'TOKEN', variableStateJson: '{}', status: 'complete', createdAt: ''
+    }])
+    expect(message).toMatchObject({ sourceContent: 'TOKEN', displayContent: userName })
+    expect(await data.testRegexRule('TOKEN', rule, 'AiOutput')).toEqual({ output: '测试角色', validationMessage: null })
+    expect(await data.testRegexRule('测试角色', escapedRule, 'AiOutput')).toEqual({ output: '测试用户', validationMessage: null })
+  })
+
+  it('uses the explicit test variable snapshot for display macros and keeps unresolved macros literal without it', async () => {
+    const { data } = await fixture()
+    const rule: RegexRule = {
+      id: 'synthetic-variable-macro', name: 'Synthetic variable macro', pattern: 'TOKEN',
+      replacement: '{{get_message_variable::name}}', targets: ['AiOutput'], enabled: true,
+      displayOnly: true, promptOnly: false, runOnEdit: false, order: 0
+    }
+    const variablesJson = '{"name":"A+B"}'
+    expect(await data.testRegexRule('TOKEN', rule, 'AiOutput', { variablesJson }))
+      .toEqual({ output: 'A+B', validationMessage: null })
+    expect(await data.testRegexRule('TOKEN', rule, 'AiOutput', { variablesJson: 'null' }))
+      .toEqual({ output: rule.replacement, validationMessage: null })
+    const patternRule: RegexRule = {
+      ...rule, pattern: '/^{{get_message_variable::name}}$/u', replacement: 'matched', substituteRegex: 2
+    }
+    expect(await data.testRegexRule('A+B', patternRule, 'AiOutput', { variablesJson }))
+      .toEqual({ output: 'matched', validationMessage: null })
+    expect(await data.testRegexRule('AB', patternRule, 'AiOutput', { variablesJson }))
+      .toEqual({ output: 'AB', validationMessage: null })
   })
 })

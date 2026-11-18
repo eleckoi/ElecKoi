@@ -7,6 +7,7 @@ import type {
 } from '@shared/contracts/regex/schemas'
 import { ELECKOI_FAILURE_CODES } from '../../contracts/errors/codes.js'
 import { completedRichDocumentAssemblyRanges, hasOpenRichDocumentAssembly } from '@shared/foundation/richMessage'
+import { REGEX_TEST_MACRO_VALUES, resolveCharacterCardMacros } from '@shared/foundation/characterCardMacros'
 import { REGEX_EJS_START, REGEX_EJS_END } from './RegexEjsMarkers'
 import { DesktopError } from '../DesktopError.js'
 
@@ -38,13 +39,22 @@ export function parseRegexPattern(pattern: string): ParsedPattern {
   return { body: trimmed, flags: '' }
 }
 
-export function validateRegexRule(rule: RegexRule): string | null {
+export function validateRegexRule(
+  rule: RegexRule,
+  expandMacros: NonNullable<RegexTransformOptions['expandMacros']> = (value, escape) => resolveCharacterCardMacros(value, REGEX_TEST_MACRO_VALUES, escape)
+): string | null {
   try {
-    compileRegexRule(rule)
+    compileRegexRule(expandRulePattern(rule, expandMacros))
     return null
   } catch (error) {
     return error instanceof Error ? error.message : '正则表达式无效。'
   }
+}
+
+function expandRulePattern(rule: RegexRule, expand: NonNullable<RegexTransformOptions['expandMacros']>): RegexRule {
+  if (!rule.substituteRegex) return rule
+  return { ...rule, pattern: expand(rule.pattern, rule.substituteRegex === 2
+    ? value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : undefined) }
 }
 
 function compileRegexRule(rule: RegexRule): RegExp {
@@ -88,8 +98,7 @@ function applyRule(text: string, rule: RegexRule, replacementDecorator?: (replac
     if (!options.expandMacros) throw new DesktopError(ELECKOI_FAILURE_CODES.statePrecondition, `Regex rule ${rule.id} requires the macro runtime`, { what: '提供宏运行时' })
     return options.expandMacros(value, escape)
   }
-  if (rule.substituteRegex) rule = { ...rule, pattern: expand(rule.pattern, rule.substituteRegex === 2
-    ? value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : undefined) }
+  rule = expandRulePattern(rule, expand)
   const parsed = parseRegexPattern(rule.pattern)
   let expression: RegExp
   try {

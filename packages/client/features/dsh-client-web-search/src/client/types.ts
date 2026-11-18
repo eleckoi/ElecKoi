@@ -1,7 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { WebSearchMode, WebFetchMode, TavilyConnection } from '@eleckoi/dsh-product-api/types'
 
-export interface WebSearchSnapshot { status: 'loading' | 'ready' | 'error'; mode: WebSearchMode; fetchMode: WebFetchMode; officialDeepSeekAvailable: boolean; maxResults: number; apiKeyConfigured: boolean; apiKeyRef: string; apiKeyWritable: boolean; writable: boolean; tavilyAvailable: boolean; revision?: number; error: string }
+export interface WebSearchSnapshot { status: 'loading' | 'ready' | 'error'; mode: WebSearchMode; fetchMode: WebFetchMode; officialDeepSeekAvailable: boolean; maxResults: number; apiKeyConfigured: boolean; apiKeyRef: string; apiKeyWritable: boolean; apiKeyError?: unknown; writable: boolean; tavilyAvailable: boolean; revision?: number; error: string }
 export interface WebSearchSettingsPatch { mode?: WebSearchMode; fetchMode?: WebFetchMode; maxResults?: number }
 
 /** 管理搜索、网页抓取和官方 Credentials 中的密钥。 */

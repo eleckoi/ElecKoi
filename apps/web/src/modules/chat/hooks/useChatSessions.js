@@ -319,18 +319,20 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
       setSessionId(data.chat.id);
       replaceChatMessages(data.chat, "auto");
       setChatCharacter(normalizeLatestChatCharacter(data.chat));
-      setActiveSectionState("messages");
+      if (!options.keepSection) setActiveSectionState("messages");
       if (switching) setConversationTransitionRevision((value) => value + 1);
       setIsSwitchingChat(false);
       if (shouldBumpToTop) {
-        await refreshSessionsOnly({ keepSection: true });
+        const refresh = refreshSessionsOnly({ keepSection: true });
+        if (options.keepSection) void refresh.catch(failureAlreadyPublished);
+        else await refresh;
       }
     } finally {
       if (loadGeneration === loadGenerationRef.current) setIsSwitchingChat(false);
     }
   }
 
-  async function openCharacterChat(role) {
+  async function openCharacterChat(role, options = {}) {
     const characterData = normalizeChatCharacter(role);
     const characterId = characterData.character_id;
     const characterName = characterData.assistant_name || characterData.character_name || tUi("未命名角色");
@@ -349,7 +351,7 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
       const existing = selectSessionForCharacter(items, characterId, preferredId);
       if (existing?.id) {
         restoreChatEntry(existing.id);
-        await loadChat(existing.id, { bumpToTop: true, transition: true });
+        await loadChat(existing.id, { bumpToTop: true, transition: true, keepSection: options.keepSection });
         return;
       }
       const created = await createChatSession(characterName, characterData, { model: conversations });
@@ -360,8 +362,11 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
       setChatCharacter(normalizeLatestChatCharacter(created.chat));
       setConversationTransitionRevision((value) => value + 1);
       setIsSwitchingChat(false);
-      await refreshSessionsOnly();
-      setActiveSectionState("messages");
+      // The create command already refreshes the conversation directory.
+      if (!options.keepSection) {
+        await refreshSessionsOnly();
+        setActiveSectionState("messages");
+      }
     } catch (error) {
       const message = getErrorMessage(error, tUi("添加对话失败"));
       setStatus(message);

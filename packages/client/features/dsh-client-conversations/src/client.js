@@ -17,6 +17,12 @@ window.__ModuleLoader__.load({
       })
     /** 失败已经由被调方发了快照，这里只留一行诊断（console 会被主窗口转发进主日志）。 */
     const reportClientFailure = (what, error) => console.error(`[eleckoi-client-failure] ${what}`, error)
+    function notifyListeners(listeners, ...args) {
+      for (const listener of listeners) {
+        try { listener(...args) }
+        catch (error) { reportClientFailure('会话订阅回调失败', error) }
+      }
+    }
     const EMPTY_ITEMS = Object.freeze([])
     const MessagesPage = React.lazy(() => import(new URL('eleckoi-page-messages.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
       .then(module => ({ default: module.MessagesPage })))
@@ -749,7 +755,7 @@ window.__ModuleLoader__.load({
       }
 
       publishGeneration(change) {
-        for (const listener of this.generationListeners) listener(change)
+        notifyListeners(this.generationListeners, change)
       }
 
       getGenerationReply(runtimeSessionId, turn, eventSeq) {
@@ -790,7 +796,7 @@ window.__ModuleLoader__.load({
           request.statsPending = false
         }
         this.statsSnapshot = { id, stats }
-        for (const listener of this.statsListeners) listener()
+        notifyListeners(this.statsListeners)
       }
 
       peekImage(conversationId, attachment) {
@@ -970,7 +976,7 @@ window.__ModuleLoader__.load({
       publishModelSelection(selection, conversationId) {
         if (conversationId !== this.detailsSnapshot.id) return
         this.modelSelectionSnapshot = { ...selection }
-        for (const listener of this.modelSelectionListeners) listener()
+        notifyListeners(this.modelSelectionListeners)
       }
 
       subscribeDetails = listener => {
@@ -987,7 +993,7 @@ window.__ModuleLoader__.load({
 
       publishChatSnapshot() {
         this.chatSnapshot = { details: this.detailsSnapshot, stream: this.streamSnapshot }
-        for (const listener of this.chatListeners) listener()
+        notifyListeners(this.chatListeners)
       }
 
       getTimelineSnapshot = () => this.timelineSnapshot
@@ -1006,7 +1012,7 @@ window.__ModuleLoader__.load({
 
       publish(next) {
         this.snapshot = next
-        for (const listener of this.listeners) listener()
+        notifyListeners(this.listeners)
       }
 
       openingChangeAllowed(id, runtimeSessionId) {
@@ -1060,7 +1066,7 @@ window.__ModuleLoader__.load({
 
       publishDetails(next, officialProjectionSignature = null) {
         next = this.prepareDetails(next, officialProjectionSignature)
-        for (const listener of this.detailsListeners) listener()
+        notifyListeners(this.detailsListeners)
         this.publishChatSnapshot()
         if (next.status === 'ready' && next.details) this.scheduleDisplayProjection(next.id, next.details)
       }
@@ -1075,9 +1081,9 @@ window.__ModuleLoader__.load({
         this.cancelStreamFrame()
         this.streamSnapshot = this.streamState
         this.chatSnapshot = { details: this.detailsSnapshot, stream: this.streamSnapshot }
-        for (const listener of this.detailsListeners) listener()
-        for (const listener of this.streamListeners) listener()
-        for (const listener of this.chatListeners) listener()
+        notifyListeners(this.detailsListeners)
+        notifyListeners(this.streamListeners)
+        notifyListeners(this.chatListeners)
         if (details.status === 'ready' && details.details) this.scheduleDisplayProjection(details.id, details.details)
       }
 
@@ -1168,7 +1174,7 @@ window.__ModuleLoader__.load({
 
       publishTimeline(next) {
         this.timelineSnapshot = next
-        for (const listener of this.timelineListeners) listener()
+        notifyListeners(this.timelineListeners)
       }
 
       publishStream(next, publication = 'immediate') {
@@ -1193,7 +1199,7 @@ window.__ModuleLoader__.load({
       flushStream() {
         if (this.streamSnapshot === this.streamState) return
         this.streamSnapshot = this.streamState
-        for (const listener of this.streamListeners) listener()
+        notifyListeners(this.streamListeners)
         this.publishChatSnapshot()
       }
 

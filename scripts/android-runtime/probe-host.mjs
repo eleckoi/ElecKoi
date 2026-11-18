@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join, resolve, sep } from 'node:path'
 import { createInterface } from 'node:readline'
@@ -9,7 +9,8 @@ import { once } from 'node:events'
 import { Context } from '@deepseek-ai/cordis'
 import { initProfile } from '@deepseek-ai/dsh-app-boot'
 import { PROFILE_TEMPLATES } from '@deepseek-ai/dsh-official-bundles'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import { Session, SessionId } from '@deepseek-ai/dsh-session'
+import { SessionFormatUnsupportedError } from '@deepseek-ai/dsh-session-persistence'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { ELECKOI_ANDROID_BUNDLES } from '../../apps/android-host/dist/index.mjs'
 
@@ -187,8 +188,15 @@ try {
   const stopped = await waitForTurn(2)
   assert(stopped.some(event => event.type === 'turn/end' && event.data.reason.kind === 'aborted' && event.data.reason.reason.kind === 'user'))
   await first.call('eleckoiConversations/waitForGeneration', { conversationId, operationId: secondOperation })
+  const legacyCharacterId = 'synthetic-legacy-character'
+  await first.call('eleckoiCharacters/create', { character: { id: legacyCharacterId, name: 'Synthetic legacy character' } })
+  const legacyChat = await first.call('eleckoiConversations/create', {
+    input: { title: 'Synthetic legacy chat', metadata: { characterId: legacyCharacterId } },
+  })
+  const legacySessionId = SessionId(legacyChat.runtimeSessionId)
   await first.close()
   const ctx = new Context()
+  let legacyPath, legacyBytes
   try {
     await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'data', 'sessions'), compression: 'none' })
     const handle = await ctx.sessionPersistence.open(SessionId(conversationId), 'read')
@@ -198,14 +206,52 @@ try {
       assert(replies.some(event => event.data.message.content.some(part => part.type === 'text' && part.text === 'Synthetic Android reply')))
       assert(events.some(event => event.type === 'turn/end' && event.data.reason.kind === 'aborted' && event.data.reason.reason.kind === 'user'))
     } finally { await handle.close() }
+    // A valid header with a retired required event must stay isolated from ordinary startup.
+    const legacyWriter = await ctx.sessionPersistence.open(legacySessionId, 'write')
+    try {
+      const { events } = await legacyWriter.read()
+      const legacy = Session.create(legacySessionId, events, legacyWriter.header, legacyWriter.inheritedEventCount)
+      legacy.append('turn/start', { turn: 1 })
+      const step = legacy.append('step/start', { turn: 1, step: 1 })
+      legacy.append('eleckoi/request-context', { requestSeq: step.seq, context: [
+        { order: 1, messageId: 'synthetic', role: 'user', kind: 'user', title: 'Input', source: 'user', anchor: '', content: 'Synthetic old request' }
+      ] }, { ignorable: true })
+      legacy.append('step/end', { turn: 1, step: 1 })
+      legacy.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+      await legacyWriter.append(legacy.snapshotEvents(events.length))
+      await legacyWriter.flush()
+    } finally { await legacyWriter.close() }
+    const legacyLocation = (await ctx.sessionPersistence.stat(legacySessionId)).location
+    assert.equal(legacyLocation.kind, 'jsonl')
+    legacyPath = legacyLocation.path
+    const rows = readFileSync(legacyPath, 'utf8').trimEnd().split('\n').map(row => JSON.parse(row))
+    delete rows.find(row => row.type === 'eleckoi/request-context').ignorable
+    legacyBytes = rows.map(row => JSON.stringify(row)).join('\n') + '\n'
+    writeFileSync(legacyPath, legacyBytes)
   } finally { await ctx.fiber.dispose() }
+  const coldPersistence = new Context()
+  try {
+    await coldPersistence.plugin(JsonlSessionPersistence, { root: join(root, 'data', 'sessions'), compression: 'none' })
+    await assert.rejects(coldPersistence.sessionPersistence.open(legacySessionId, 'read'), SessionFormatUnsupportedError)
+  } finally { await coldPersistence.fiber.dispose() }
   const second = await connect()
+  assert.equal(readFileSync(legacyPath, 'utf8'), legacyBytes)
+  await assert.rejects(second.call('session/projections', { request: { sessionId: legacySessionId } }),
+    /session\/projections/)
+  const projections = await second.call('session/projections', { request: { sessionId: conversationId } })
+  const restoredPage = await second.call('session/page', { request: { address: { kind: 'session', sessionId: conversationId },
+    throughSeq: projections.asOfSeq, maxMessages: 100 } })
+  assert(restoredPage.records.some(({ event }) => event.type === 'assistant/message' &&
+    event.data.message.content.some(part => part.type === 'text' && part.text === 'Synthetic Android reply')))
   assert.deepEqual(await second.call('eleckoiConversationModels/current', { conversationId }), selected)
   const conversations = await second.call('eleckoiConversations/list', {})
   assert(conversations.some(conversation => conversation.id === conversationId))
+  assert(conversations.some(conversation => conversation.id === legacyChat.conversation.id))
   const modelSettings = await namespace(second, 'agent-default-model')
   await second.call('settings/replace', { ns: modelSettings.ns, section: original, expectedRevision: modelSettings.revision })
-  assert.deepEqual(await second.call('eleckoiConversationModels/current', { conversationId }), original)
+  assert.deepEqual(await second.call('eleckoiConversationModels/current', { conversationId: '' }), original)
+  assert.deepEqual(await second.call('eleckoiConversationModels/current', { conversationId }), selected)
+  assert.deepEqual(await second.call('eleckoiConversationModels/select', { conversationId, selection: original }), original)
   const restoredPiAi = await namespace(second, 'llm-pi-ai')
   assert.deepEqual(restoredPiAi.value.providers[provider], ownedProfile)
   await second.call('settings/mutate', { ns: restoredPiAi.ns, expectedRevision: restoredPiAi.revision,
@@ -213,9 +259,10 @@ try {
   await second.call('credentials/unset', { ref: credentialRef })
   assert.equal((await second.call('credentials/describe', { refs: [credentialRef] }))[credentialRef].configured, false)
   await second.call('eleckoiConversations/delete', { conversationId })
-  assert.deepEqual(await second.call('eleckoiConversations/list', {}), [])
+  assert.deepEqual((await second.call('eleckoiConversations/list', {})).map(conversation => conversation.id), [legacyChat.conversation.id])
   await second.close()
-  process.stdout.write('Android Node Host authentication, current product Remote, model settings and credentials, send, cancellation, restart and probe cleanup passed.\n')
+  assert.equal(readFileSync(legacyPath, 'utf8'), legacyBytes)
+  process.stdout.write('Android Node Host authentication, settings, send, cancellation, cold history, legacy session isolation and probe cleanup passed.\n')
 } catch (error) {
   probeFailure = error
   throw error

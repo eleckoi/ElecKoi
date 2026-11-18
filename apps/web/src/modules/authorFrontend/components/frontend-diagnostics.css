@@ -1,3 +1,4 @@
 .rich-message-diagnostics { margin-top: 8px; color: var(--muted); font-size: 13px; }
 .rich-message-diagnostics summary { cursor: pointer; }
 .rich-message-diagnostics pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.advanced-frontend-region > .rich-message-diagnostics { flex-shrink: 0; max-height: 40%; overflow: auto; }

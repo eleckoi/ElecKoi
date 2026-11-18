@@ -2,6 +2,7 @@ window.__ModuleLoader__.load({
   id: '@eleckoi/dsh-client-chat-background',
   factory(require) {
     const React = require('react')
+    const { IconSlidersTwoOutlineRegular } = require('@deepseek-ai/dsh-client-ui-primitives')
     const ChatWallpaper = React.lazy(() => import(new URL('eleckoi-page-chat-background.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
       .then(module => ({ default: module.ChatWallpaper })))
     function Background({ wallpaper, activeView }) {
@@ -9,7 +10,8 @@ window.__ModuleLoader__.load({
       return React.createElement(React.Suspense, { fallback: null }, React.createElement(ChatWallpaper, { wallpaper }))
     }
     function MenuItem({ onOpen, label }) {
-      return React.createElement('button', { type: 'button', role: 'menuitem', onClick: onOpen }, label)
+      return React.createElement('button', { type: 'button', role: 'menuitem', onClick: onOpen },
+        React.createElement(IconSlidersTwoOutlineRegular, { size: 18 }), React.createElement('span', null, label))
     }
     return {
       inject: ['slots', 'locale'],

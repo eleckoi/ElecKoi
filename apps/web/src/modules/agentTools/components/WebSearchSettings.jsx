@@ -1,6 +1,7 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { CheckCircle, Eye, EyeSlash, SpinnerGap, Trash } from '../../../ui/icons/interfaceIcons.jsx';
+import { resolveFailure } from '../../../utils/failureText.js';
 import { useWebSearchModel } from '../model/WebSearchContext.jsx';
 
 export function WebSearchSettings({ onBeforeOpenPluginSettings, onOpenPluginSettings }) {
@@ -13,6 +14,9 @@ export function WebSearchSettings({ onBeforeOpenPluginSettings, onOpenPluginSett
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [resultCount, setResultCount] = useState(String(settings.maxResults ?? 5));
+  const apiKeyError = settings.apiKeyError
+    ? resolveFailure(settings.apiKeyError, { fallback: tUi("读取 Tavily 凭据状态失败。") }).text
+    : '';
   useEffect(() => setResultCount(String(settings.maxResults ?? 5)), [settings.maxResults]);
 
   function commitResultCount() {
@@ -90,6 +94,18 @@ export function WebSearchSettings({ onBeforeOpenPluginSettings, onOpenPluginSett
     }
   }
 
+  async function retryKeyStatus() {
+    setBusy('credential');
+    setError('');
+    try {
+      await model.refresh();
+    } catch (cause) {
+      setError(resolveFailure(cause, { fallback: tUi("读取联网搜索设置失败。") }).text);
+    } finally {
+      setBusy('');
+    }
+  }
+
   if (settings.status !== 'ready') {
     return <div className="web-search-config-state" aria-live="polite">{error || settings.error || tUi("正在读取配置")}</div>;
   }
@@ -104,7 +120,7 @@ export function WebSearchSettings({ onBeforeOpenPluginSettings, onOpenPluginSett
           <strong>DeepSeek</strong><span>{settings.mode === 'deepseek_search_api' ? tUi("Web 搜索 API") : tUi("Messages 搜索")}</span>
         </button>
         <button type="button" disabled={!settings.writable || !settings.tavilyAvailable || Boolean(busy)} aria-pressed={settings.mode === 'tavily'} onClick={() => update({ mode: 'tavily' })}>
-          <strong>Tavily</strong><span>{settings.apiKeyConfigured ? tUi("已配置") : tUi("需要 API Key")}</span>
+          <strong>Tavily</strong><span>{apiKeyError ? tUi("读取 Tavily 凭据状态失败。") : settings.apiKeyConfigured ? tUi("已配置") : tUi("需要 API Key")}</span>
         </button>
       </div>
       {settings.mode !== 'tavily' ? <div className="web-search-key-actions">
@@ -126,30 +142,37 @@ export function WebSearchSettings({ onBeforeOpenPluginSettings, onOpenPluginSett
 
     {settings.mode === 'tavily' ? <fieldset className="web-search-config-fieldset">
       <legend>API Key</legend>
-      <div className="web-search-key-field">
-        <input
-          type={showKey ? 'text' : 'password'}
-          name="tavily-api-key"
-          autoComplete="off"
-          value={apiKey}
-          placeholder={settings.apiKeyConfigured ? tUi("已保存，填写可替换") : tUi("填写 Tavily API Key")}
-          aria-label="Tavily API Key"
-          disabled={!settings.apiKeyWritable || Boolean(busy)}
-          onChange={(event) => { setApiKey(event.target.value); setNotice(''); setError(''); }}
-          onKeyDown={(event) => { if (event.key === 'Enter') saveAndTest(); }}
-        />
-        <button type="button" aria-label={showKey ? tUi("隐藏 API Key") : tUi("显示 API Key")} onClick={() => setShowKey((value) => !value)}>
-          {showKey ? <EyeSlash aria-hidden="true" /> : <Eye aria-hidden="true" />}
-        </button>
-      </div>
-      <div className="web-search-key-actions">
-        {apiKey.trim() ? <button type="button" className="is-primary" disabled={!settings.apiKeyWritable || Boolean(busy)} onClick={saveAndTest}>
-          {busy === 'save' ? <SpinnerGap className="is-spinning" aria-hidden="true" /> : <CheckCircle aria-hidden="true" />}{tUi("保存并测试")}</button> : null}
-        {settings.apiKeyConfigured ? <button type="button" disabled={Boolean(busy)} onClick={testConnection}>
-          {busy === 'test' ? <SpinnerGap className="is-spinning" aria-hidden="true" /> : null}{tUi("测试连接")}</button> : null}
-        {settings.apiKeyConfigured ? <button type="button" className="is-danger" disabled={!settings.apiKeyWritable || Boolean(busy)} onClick={removeKey}>
-          <Trash aria-hidden="true" />{tUi("移除")}</button> : null}
-      </div>
+      {apiKeyError ? <>
+        <div className="web-search-config-message is-error" role="alert">{apiKeyError}</div>
+        <div className="web-search-key-actions">
+          <button type="button" disabled={Boolean(busy)} onClick={retryKeyStatus}>{tUi("重试")}</button>
+        </div>
+      </> : <>
+        <div className="web-search-key-field">
+          <input
+            type={showKey ? 'text' : 'password'}
+            name="tavily-api-key"
+            autoComplete="off"
+            value={apiKey}
+            placeholder={settings.apiKeyConfigured ? tUi("已保存，填写可替换") : tUi("填写 Tavily API Key")}
+            aria-label="Tavily API Key"
+            disabled={!settings.apiKeyWritable || Boolean(busy)}
+            onChange={(event) => { setApiKey(event.target.value); setNotice(''); setError(''); }}
+            onKeyDown={(event) => { if (event.key === 'Enter') saveAndTest(); }}
+          />
+          <button type="button" aria-label={showKey ? tUi("隐藏 API Key") : tUi("显示 API Key")} onClick={() => setShowKey((value) => !value)}>
+            {showKey ? <EyeSlash aria-hidden="true" /> : <Eye aria-hidden="true" />}
+          </button>
+        </div>
+        <div className="web-search-key-actions">
+          {apiKey.trim() ? <button type="button" className="is-primary" disabled={!settings.apiKeyWritable || Boolean(busy)} onClick={saveAndTest}>
+            {busy === 'save' ? <SpinnerGap className="is-spinning" aria-hidden="true" /> : <CheckCircle aria-hidden="true" />}{tUi("保存并测试")}</button> : null}
+          {settings.apiKeyConfigured ? <button type="button" disabled={Boolean(busy)} onClick={testConnection}>
+            {busy === 'test' ? <SpinnerGap className="is-spinning" aria-hidden="true" /> : null}{tUi("测试连接")}</button> : null}
+          {settings.apiKeyConfigured ? <button type="button" className="is-danger" disabled={!settings.apiKeyWritable || Boolean(busy)} onClick={removeKey}>
+            <Trash aria-hidden="true" />{tUi("移除")}</button> : null}
+        </div>
+      </>}
     </fieldset> : null}
 
     {settings.mode === 'tavily' ? <fieldset className="web-search-config-fieldset">

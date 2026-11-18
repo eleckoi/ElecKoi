@@ -7,6 +7,13 @@ window.__ModuleLoader__.load({
 
     const idle = { status: 'idle', value: null, error: '' }
 
+    function notifyListeners(listeners, ...args) {
+      for (const listener of listeners) {
+        try { listener(...args) }
+        catch (error) { console.error('ElecKoi 角色配置订阅回调失败：', error) }
+      }
+    }
+
     class CharacterConfigurationBridge {
       constructor(remote) {
         this.remote = remote
@@ -48,7 +55,7 @@ window.__ModuleLoader__.load({
             if (this.disposed) return
             const change = item?.value ?? item
             item?.accept?.()
-            for (const listener of this.listeners) listener(change)
+            notifyListeners(this.listeners, change)
           }
         } catch (error) {
           if (!this.disposed && !this.abort?.signal.aborted) {
@@ -106,7 +113,7 @@ window.__ModuleLoader__.load({
 
       publish(kind, characterId, snapshot) {
         this.snapshots.set(characterId, snapshot)
-        for (const listener of this.listeners) listener(kind, characterId, snapshot)
+        notifyListeners(this.listeners, kind, characterId, snapshot)
       }
 
       nextGeneration(characterId) {
@@ -251,7 +258,7 @@ window.__ModuleLoader__.load({
 
       publishConversations(characterId, snapshot) {
         this.conversationSnapshots.set(characterId, snapshot)
-        for (const listener of this.listeners) listener('conversations', characterId, snapshot)
+        notifyListeners(this.listeners, 'conversations', characterId, snapshot)
       }
 
       async saveConversation(characterId, sessionId, library) {

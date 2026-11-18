@@ -1,7 +1,7 @@
 import { localizeUiCopy } from "../app/i18n/productCopy.js";
 import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { FailureReportContext } from '../ui/ui/FailureReportContext.js';
-import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { StarFour } from '@phosphor-icons/react';
 import { MainPageContext } from '../app/windows/MainPageContext.jsx';
 import { useChatClient } from '../app/hooks/useChatClient.js';
@@ -16,7 +16,7 @@ import { SidebarContent } from '../app/windows/shell/components/SidebarContent.j
 import { BugReportDialog } from '../app/windows/shell/components/BugReportDialog.jsx';
 import { useReportProblem } from '../app/windows/shell/hooks/useReportProblem.js';
 import { MobileHomeSearch } from './MobileHomeSearch.jsx';
-import { usePageFade } from '../ui/hooks/usePageFade.js';
+import { MobileRouteMotion } from './MobileRouteMotion.jsx';
 import './mobile.css';
 
 const ROOT_TABS = [ ['messages', '消息'], ['character', '角色'], ['creatorStudio', 'AI创作'], ['presets', '预设'], ['model', '模型'] ];
@@ -56,6 +56,7 @@ export function MobileWindow(props) {
   const drawerFocusRef = useRef(null);
   const routeRef = useRef(routes);
   routeRef.current = routes;
+  const pageRef = useRef(null);
   useEffect(() => {
     document.documentElement.dataset.eleckoiMobile = 'true';
     return () => { delete document.documentElement.dataset.eleckoiMobile; };
@@ -75,12 +76,13 @@ export function MobileWindow(props) {
   const selectPanel = useCallback(id => {
     if (conversationBusyRef.current) return;
     guarded(() => {
-    skipPanelGuard.current = true;
-    try {
-      navigation.selectPanel(id);
-      setRoutes(current => id === 'creatorStudio' ? current.at(-1).panel === id ? current : [...current, { panel: id, kind: 'creator-studio' }] : [{ panel: id, kind: 'root' }]);
-    }
-    finally { skipPanelGuard.current = false; }
+      const to = { panel: id, kind: id === 'creatorStudio' ? 'creator-studio' : 'root' };
+      skipPanelGuard.current = true;
+      try {
+        navigation.selectPanel(id);
+        setRoutes(current => to.kind === 'creator-studio' ? current.at(-1).panel === id ? current : [...current, to] : [to]);
+      }
+      finally { skipPanelGuard.current = false; }
     });
   }, [guarded, navigation]);
   const openSettings = page => guarded(() => {
@@ -107,7 +109,15 @@ export function MobileWindow(props) {
     if (skipPanelGuard.current) commit();
     else guarded(commit);
   }), [guarded, navigation.setPanelGuard]);
-  useEffect(() => {
+  const enterConversation = useCallback(source => {
+    skipPanelGuard.current = true;
+    try {
+      navigation.selectPanel('messages');
+      setRoutes([...source, { panel: 'messages', kind: 'conversation' }]);
+    }
+    finally { skipPanelGuard.current = false; }
+  }, [navigation]);
+  useLayoutEffect(() => {
     if (routeRef.current.at(-1).panel === selectedPanel) return;
     if (selectedPanel === 'creatorStudio') setRoutes(current => [...current, { panel: selectedPanel, kind: 'creator-studio' }]);
     else if (selectedPanel === 'conversation') setRoutes(current => [...current, { panel: 'conversation', kind: 'official-conversation' }]);
@@ -151,18 +161,18 @@ export function MobileWindow(props) {
       drawerFocusRef.current = null;
     }
   }, [drawerOpen]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!pendingConversation?.complete) return;
     const { target, source } = pendingConversation;
     const matches = Boolean(chat.sessionId) && (target.sessionId
       ? chat.sessionId === target.sessionId
       : chat.chatCharacter.character_id === target.characterId);
-    if (matches) setRoutes([...source, { panel: 'messages', kind: 'conversation' }]);
+    if (matches) enterConversation(source);
     else setFailure(chat.notice?.type === 'error' ? chat.notice.failure || chat.notice.message : chat.status && chat.status !== '就绪' ? chat.status : tUi("对话未能打开，请重试"));
     setPendingConversation(null);
     conversationBusyRef.current = false;
     setRouteBusy(false);
-  }, [pendingConversation, chat.sessionId, chat.chatCharacter.character_id, chat.notice, chat.status]);
+  }, [pendingConversation, chat.sessionId, chat.chatCharacter.character_id, chat.notice, chat.status, enterConversation]);
   async function openConversation(target, load) {
     if (conversationBusyRef.current) return;
     const source = [...routeRef.current];
@@ -170,9 +180,7 @@ export function MobileWindow(props) {
       ? chat.sessionId === target.sessionId
       : chat.chatCharacter.character_id === target.characterId);
     if (alreadyOpen) {
-      skipPanelGuard.current = true;
-      try { navigation.selectPanel('messages'); setRoutes([...source, { panel: 'messages', kind: 'conversation' }]); }
-      finally { skipPanelGuard.current = false; }
+      enterConversation(source);
       return;
     }
     conversationBusyRef.current = true;
@@ -187,9 +195,9 @@ export function MobileWindow(props) {
     }
   }
   const effectiveRoute = route.panel === selectedPanel ? route : { panel: selectedPanel, kind: 'root' };
-  const pageRef = usePageFade(`${selectedPanel}:${effectiveRoute.kind}`);
+  const openingSessionId = pendingConversation?.target.sessionId;
   const view = {
-    ...props, chat, appearance, route: effectiveRoute, routeBusy,
+    ...props, chat, appearance, route: effectiveRoute, routeBusy, openingSessionId,
     renderFrameSidebar,
     renderFramePage: ({ mainPanel, overlays, panelId }) => <>{panelId !== 'conversation' && panelId !== 'plugins' && <MobileHeader title={navigation.items.find(item => item.id === panelId)?.label || panelId} back={routes.length > 1 ? back : undefined} />}{mainPanel}{overlays}</>,
     scrollPositions, registerBackHandler, guardRef,
@@ -206,8 +214,8 @@ export function MobileWindow(props) {
     pushRoute: next => { if (!conversationBusyRef.current) guarded(() => setRoutes(current => [...current, { panel: selectedPanel, ...next }])); },
     openDrawer: () => { if (!conversationBusyRef.current) { setDrawerKind('main'); navigation.toggleSidebar(); } },
     openWorkspaceDrawer: () => { if (!conversationBusyRef.current) { setDrawerKind('workspace'); navigation.toggleSidebar(); } },
-    selectConversation: id => openConversation({ sessionId: id }, () => chat.loadChat(id)),
-    openCharacterConversation: id => openConversation({ characterId: id }, () => chat.openCharacterChat(id)),
+    selectConversation: id => openConversation({ sessionId: id }, () => chat.loadChat(id, { keepSection: true })),
+    openCharacterConversation: id => openConversation({ characterId: id }, () => chat.openCharacterChat(id, { keepSection: true })),
     openCharacterSection: () => selectPanel('character'),
     openCharacterEditor: characterId => {
       if (conversationBusyRef.current) return;
@@ -247,12 +255,17 @@ export function MobileWindow(props) {
     </aside>;
   }
   return <FailureReportContext.Provider value={reportProblem.available ? reportProblem.openReport : null}><MainPageContext.Provider value={view}>
-    <main className="main-window-shell mobile-shell" data-mobile-route={effectiveRoute.kind} data-mobile-panel={selectedPanel} data-mobile-rightbar={rightbarState.shown} data-drawer-present={drawerOpen}>
+    <main className="main-window-shell mobile-shell" data-mobile-route={effectiveRoute.kind} data-mobile-panel={selectedPanel} data-mobile-rightbar={rightbarState.shown} data-drawer-present={drawerOpen}
+      data-opening-message={isRootTab && selectedPanel === 'messages' && Boolean(openingSessionId) || undefined}>
       <section ref={pageRef} className={`mobile-page-seat${selectedPanel === 'conversation' ? ' mobile-workspace-page' : ''}`} inert={searchOpen ? true : undefined} aria-hidden={searchOpen || undefined}>
-        <Suspense fallback={isRootTab ? <MobileHeader title={localizeUiCopy(ROOT_TABS, tUi).find(([id]) => id === selectedPanel)?.[1]} /> : null}>{props.nativeFrame}</Suspense>
+        <Suspense fallback={isRootTab ? <MobileHeader title={localizeUiCopy(ROOT_TABS, tUi).find(([id]) => id === selectedPanel)?.[1]} /> : null}>
+          {props.nativeFrame}
+          <MobileRouteMotion seat={pageRef} routes={routes} panel={selectedPanel} settingsPage={selectedPanel === 'settings' ? settingsPage : null}
+            drawerOpen={drawerOpen} searchOpen={searchOpen} routeBusy={routeBusy} isRootTab={isRootTab} />
+        </Suspense>
       </section>
       {isRootTab && <nav className="mobile-bottom-nav" aria-label={tUi("主导航")} inert={drawerOpen || searchOpen ? true : undefined} aria-hidden={searchOpen || undefined} style={searchOpen ? { visibility: 'hidden' } : undefined}>
-        {localizeUiCopy(ROOT_TABS, tUi).map(([id, label]) => <button key={id} type="button" aria-label={label} disabled={routeBusy} aria-current={selectedPanel === id ? 'page' : undefined} className={id === 'creatorStudio' ? 'mobile-create-tab' : ''} onClick={() => selectPanel(id)}>
+        {localizeUiCopy(ROOT_TABS, tUi).map(([id, label]) => <button key={id} type="button" aria-label={label} disabled={routeBusy} aria-current={selectedPanel === id ? 'page' : undefined} className={id === 'creatorStudio' ? 'mobile-create-tab' : ''} onClick={() => { if (selectedPanel !== id) selectPanel(id); }}>
           {id === 'creatorStudio' ? <span className="mobile-create-mark"><StarFour size={15} weight="fill" /></span> : <span>{label}</span>}
         </button>)}
       </nav>}

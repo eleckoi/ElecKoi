@@ -68,13 +68,16 @@ describe('NAI preset illustration', () => {
     expect(() => normalizeNovelAiImageSettings({ sampler: 'unknown' })).toThrow();
   });
 
-  it.each(['image-first', 'text-first', 'agent-close', 'plugin-close'])('publishes %s completion independently of the real Agent text stream', async order => {
+  it.each(['image-first', 'text-first', 'agent-close', 'plugin-close', 'invalid-json', 'invalid-count', 'missing-model'])('handles %s independently of the real Agent text stream', async order => {
+    const invalidCommand = order === 'invalid-json' || order === 'invalid-count';
+    const recovers = invalidCommand || order === 'missing-model';
+    let modelAvailable = order !== 'missing-model';
     let finishImage, imageFinished = false, bodyStreamed = false, requestArrived, resultArrived;
     const bodyVisible = new Promise(resolve => { finishImage = resolve; });
     const imageRequested = new Promise(resolve => { requestArrived = resolve; });
     const imageReady = new Promise(resolve => { resultArrived = resolve; });
     const remote = await server(async (_req, res) => { requestArrived(); await bodyVisible; imageFinished = true; res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ images: [{ image: png, index: 0, seed: 42 }] })); });
-    if (order === 'image-first') finishImage();
+    if (order === 'image-first' || recovers) finishImage();
     const dir = temporary(), snapshotRoot = join(dir, 'snapshots'), sessionId = 'synthetic-image-session';
     process.env.ELECKOI_SESSION_SNAPSHOT_ROOT = snapshotRoot;
 
@@ -89,20 +92,23 @@ describe('NAI preset illustration', () => {
         requests.push(options);
         const instructions = options.messages.filter(message => message.role === 'system').flatMap(message => message.content).filter(block => block.type === 'text').map(block => block.text).join('\n');
         let text = '<FINAL>合成角色回复</FINAL>';
-        if (requests.length === 1) {
+        if ((requests.length === 1 && modelAvailable) || (recovers && requests.length === 2)) {
           expect(instructions).toContain('当前角色对话已启用每轮自动配图');
           expect(instructions).toContain('不要发起 Tool Call/function_call');
           expect(instructions).toContain('professional prompt compiler for NovelAI');
           expect((options.tools || []).some(tool => tool.name === 'generate_image')).toBe(false);
           entry.image_settings.promptPrefix = 'changed during turn';
-          text = `${IMAGE_PROMPT_OPEN}\n${JSON.stringify({ frames: [frame] })}\n${IMAGE_PROMPT_CLOSE}\n<FINAL>合成角色回复\n[[IMAGE:1]]\n</FINAL>`;
-        }
+          const command = requests.length === 1 && invalidCommand
+            ? order === 'invalid-json' ? '{invalid JSON' : JSON.stringify({ frames: [frame, { ...frame, id: 2 }] })
+            : JSON.stringify({ frames: [frame] });
+          text = `${IMAGE_PROMPT_OPEN}\n${command}\n${IMAGE_PROMPT_CLOSE}\n<FINAL>合成角色回复\n[[IMAGE:1]]\n</FINAL>`;
+        } else expect(instructions).not.toContain('当前角色对话已启用每轮自动配图');
         yield { type: 'block-start', index: 0, blockType: 'text' };
         const boundary = text.indexOf(IMAGE_PROMPT_CLOSE) + IMAGE_PROMPT_CLOSE.length;
         if (requests.length === 1) {
           yield { type: 'text-delta', index: 0, text: text.slice(0, 15) };
           yield { type: 'text-delta', index: 0, text: text.slice(15, boundary) };
-          await imageRequested;
+          if (!recovers) await imageRequested;
           if (order === 'image-first') await imageReady;
           yield { type: 'text-delta', index: 0, text: text.slice(boundary) };
         } else yield { type: 'text-delta', index: 0, text };
@@ -119,7 +125,7 @@ describe('NAI preset illustration', () => {
       await ctx.plugin(AgentLoop, { agents: [] }); await ctx.plugin(LocalAttachmentStore, { dshHome: dir });
       ctx.provide('credentials', { resolve: vi.fn(async () => ({ value: 'synthetic-token' })) });
       await ctx.plugin({ name: 'synthetic-settings', apply(settingsCtx) {
-        settingsCtx.provide('settings', { describe: () => [{ ns: 'eleckoi-client-models', value: { entries: { 'image-a': entry } } }] });
+        settingsCtx.provide('settings', { describe: () => [{ ns: 'eleckoi-client-models', value: { entries: modelAvailable ? { 'image-a': entry } : {} } }] });
       } });
       ctx.provide('eleckoiRuntimeContexts', contexts);
       ctx.provide('eleckoiRoleplaySessions', { configuration: id => id === sessionId ? readSessionSnapshot(snapshotRoot, id) : undefined });
@@ -129,7 +135,7 @@ describe('NAI preset illustration', () => {
       ctx.on('agent/assistant-stream', event => {
         if (!bodyStreamed && event.frame.type === 'chunk' && event.frame.chunk.type === 'text-delta' && event.frame.chunk.text.includes('<FINAL>')) {
           bodyStreamed = true;
-          expect(imageFinished).toBe(order === 'image-first');
+          if (!recovers) expect(imageFinished).toBe(order === 'image-first');
         }
       });
       ctx.on('session/event', (_session, event) => {
@@ -141,6 +147,23 @@ describe('NAI preset illustration', () => {
       } });
       handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: '合成场景' }], source: { kind: 'user' } }));
       await handle.agent.whenIdle();
+      if (recovers) {
+        const events = handle.agent.session.snapshotEvents();
+        expect(events.findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' });
+        expect(JSON.stringify(events.findLast(event => event.type === 'assistant/message').data.message.content)).toContain('合成角色回复');
+        expect(bodyStreamed).toBe(true);
+        const batches = events.filter(event => event.type === 'eleckoi/illustration');
+        expect(batches).toHaveLength(invalidCommand ? 1 : 0);
+        if (invalidCommand) expect(batches[0].data).toMatchObject({ status: 'failed', error: expect.any(String) });
+        expect(remote.requests).toHaveLength(0);
+        modelAvailable = true;
+        handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: '下一轮正确配图' }], source: { kind: 'user' } }));
+        await handle.agent.whenIdle();
+        const recovered = await imageReady;
+        expect(recovered.data.frames[0].status).toBe('ready');
+        expect(remote.requests).toHaveLength(1);
+        return;
+      }
       if (order === 'agent-close' || order === 'plugin-close') {
         if (order === 'agent-close') await handle.dispose();
         else await imageFork.dispose();

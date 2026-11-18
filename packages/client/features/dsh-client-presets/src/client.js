@@ -6,6 +6,12 @@ window.__ModuleLoader__.load({
     const { unwrapOrFail, failureAlreadyPublished, productFailure, ELECKOI_FAILURE_CODES } = require('@eleckoi/dsh-product-api')
     const PresetsPage = React.lazy(() => import(new URL('eleckoi-page-presets.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
       .then(module => ({ default: module.PresetsPage })))
+    function notifyListeners(listeners) {
+      for (const listener of listeners) {
+        try { listener() }
+        catch (error) { console.error('预设订阅回调失败：', error) }
+      }
+    }
     class PresetCatalog {
       constructor(remote, remoteRoot) {
         this.remote = remote
@@ -36,7 +42,7 @@ window.__ModuleLoader__.load({
 
       publish(next) {
         this.snapshot = next
-        for (const listener of this.listeners) listener()
+        notifyListeners(this.listeners)
       }
 
       getDetailSnapshot = id => this.details.get(id) || { status: 'idle', preset: null, error: '' }
@@ -56,7 +62,7 @@ window.__ModuleLoader__.load({
 
       publishDetail(id, next) {
         this.details.set(id, next)
-        for (const listener of this.detailListeners.get(id) || []) listener()
+        notifyListeners(this.detailListeners.get(id) || [])
       }
 
       assertPreset(value, id) {
@@ -100,24 +106,28 @@ window.__ModuleLoader__.load({
         return saved
       }
 
-      async create(name, libraryGroupId = '', purpose = 'roleplay') {
-        const created = this.assertPreset(await this.call('create', name, libraryGroupId, purpose), null)
-        this.adoptDetail(created)
+      adoptCreatedPreset(preset) {
+        if (this.disposed) return
+        this.adoptDetail(preset)
         const catalog = this.snapshot.catalog
         if (catalog) {
-          const { id, name, purpose, modelFamily, modelTags, libraryGroupId, activeVersionId, activeVersionNumber, profile } = created
-          const summary = { id, name, purpose, modelFamily, modelTags, libraryGroupId, activeVersionId, activeVersionNumber, profile, entryCount: created.entries.length }
+          const { id, name, purpose, modelFamily, modelTags, libraryGroupId, activeVersionId, activeVersionNumber, profile } = preset
+          const summary = { id, name, purpose, modelFamily, modelTags, libraryGroupId, activeVersionId, activeVersionNumber, profile, entryCount: preset.entries.length }
           const present = catalog.presets.some(preset => preset.id === id)
           this.adopt({ ...catalog, presets: present ? catalog.presets.map(preset => preset.id === id ? summary : preset) : [...catalog.presets, summary] })
-          void this.refresh().catch(failureAlreadyPublished)
-        } else await this.refresh()
+        }
+        void this.refresh().catch(failureAlreadyPublished)
+      }
+
+      async create(name, libraryGroupId = '', purpose = 'roleplay') {
+        const created = this.assertPreset(await this.call('create', name, libraryGroupId, purpose), null)
+        this.adoptCreatedPreset(created)
         return created
       }
 
       async import(source, document, purpose = 'roleplay') {
         const result = await this.call('import', source, document, purpose)
-        this.adoptDetail(this.assertPreset(result?.preset, result?.preset?.id))
-        await this.refresh()
+        this.adoptCreatedPreset(this.assertPreset(result?.preset, result?.preset?.id))
         return result
       }
 

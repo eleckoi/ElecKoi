@@ -177,11 +177,21 @@ window.__ModuleLoader__.load({
           const useBuiltinModels = builtin && !(profile.models || []).length
           let catalogDefaults = new Map()
           if (builtin && ns === 'llm-pi-ai') {
-            if (!this.builtinModels.has(config.id)) {
-              this.builtinModels.set(config.id, this.remote.eleckoiModels.discoverModels({ configId: config.id, builtinProvider: config.id, api: 'catalog', baseURL: '' })
-                .then(result => valueOf(result, '读取内置模型能力失败。')).catch(error => { this.builtinModels.delete(config.id); throw error }))
+            let request = this.builtinModels.get(config.id)
+            if (!request) {
+              request = Promise.resolve().then(() => this.remote.eleckoiModels.discoverModels({ configId: config.id, builtinProvider: config.id, api: 'catalog', baseURL: '' }))
+                .then(result => valueOf(result, '读取内置模型能力失败。'))
+              this.builtinModels.set(config.id, request)
             }
-            catalogDefaults = new Map((await this.builtinModels.get(config.id)).map(model => [model.id, { id: model.id, name: model.name || model.id, contextWindowTokens: model.contextWindow, maxOutputTokens: model.maxTokens, inputModalities: model.inputModalities, supportsImageInput: model.inputModalities?.includes('image') === true, reasoningEfforts: model.reasoningEfforts || false }]))
+            try {
+              const defaults = await request
+              catalogDefaults = new Map(defaults.map(model => [model.id, { id: model.id, name: model.name || model.id, contextWindowTokens: model.contextWindow, maxOutputTokens: model.maxTokens, inputModalities: model.inputModalities, supportsImageInput: model.inputModalities?.includes('image') === true, reasoningEfforts: model.reasoningEfforts || false }]))
+            } catch (error) {
+              if (this.builtinModels.get(config.id) === request) {
+                this.builtinModels.delete(config.id)
+                console.error(`读取内置模型能力失败（${config.id}）：`, error)
+              }
+            }
           }
           const models = new Map((useBuiltinModels ? Object.entries(profile.modelOverrides || {}).map(([id, value]) => ({ ...value, id })) : profile.models || []).map(model => [model.id, model]))
           const options = new Map((config.model_options || []).map(model => [model.id, model]))

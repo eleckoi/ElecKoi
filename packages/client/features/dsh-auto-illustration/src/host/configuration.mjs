@@ -11,6 +11,15 @@ export function prepareIllustration(settings, snapshot) {
   return { entry: structuredClone(entry), settings: normalizeNovelAiImageSettings(entry.image_settings || {}) }
 }
 
+/** Automatic illustration is optional for a text turn. Explicit image operations use the strict reader. */
+export function prepareAutomaticIllustration(ctx, snapshot) {
+  try { return prepareIllustration(ctx.settings, snapshot) }
+  catch (error) {
+    ctx.logger.error('自动配图模型配置读取失败', error)
+    return undefined
+  }
+}
+
 export function illustrationInstructions(settings) {
   const min = settings.automaticImageCount ? settings.automaticImageMin : settings.fixedImageCount
   const max = settings.automaticImageCount ? settings.automaticImageMax : settings.fixedImageCount

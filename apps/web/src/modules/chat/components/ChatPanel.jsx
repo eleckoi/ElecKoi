@@ -17,7 +17,6 @@ import { MessageBubble } from "../../../ui/messages/MessageBubble.jsx";
 import { ConfirmationDialog } from "../../../ui/ui/ConfirmationDialog.jsx";
 import logoIcon from "../../../assets/eleckoi-app-icon.png";
 import { DshNewChatIcon } from "../../../ui/icons/dshComposerIcons.jsx";
-import { SlidersHorizontal } from "../../../ui/icons/interfaceIcons.jsx";
 import { lazy, memo, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   chatDisplayCssVariables,
@@ -82,7 +81,6 @@ export function ChatPanel({
   onCreateChat,
   onOpenHistory,
   onOpenChatBackground,
-  hasHeaderMenu = false,
   wallpaper,
   onOpenPresetTools,
   onRegenerate,
@@ -108,7 +106,6 @@ export function ChatPanel({
 }) {
   const tUi = useProductTranslation();
   const widthPreference = useConversationWidthPreference();
-  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [processMessage, setProcessMessage] = useState(null);
   const [processTarget, setProcessTarget] = useState(null);
   const closeProcess = useCallback(() => setProcessMessage(null), []);
@@ -117,7 +114,6 @@ export function ChatPanel({
   const activeView = dshConversation ? dshConversation.activeView : fallbackView;
   const viewTabs = dshConversation?.tabs ?? [{ id: "chat", label: tUi("对话") }, { id: "trajectory", label: tUi("轨迹") }];
   const selectView = (id) => {
-    setHeaderMenuOpen(false);
     setDeleteMode(false);
     setDeleteFromMessageId("");
     if (dshConversation) dshConversation.selectView(id);
@@ -145,7 +141,6 @@ export function ChatPanel({
   const [pinnedAvatar, setPinnedAvatar] = useState(null);
   const [runningStatusTarget, setRunningStatusTarget] = useState(null);
   const chatPanelRef = useRef(null);
-  const headerMenuRef = useRef(null);
   const pageView = useContext(MainPageContext);
   const chatWallpaper = wallpaper ?? resolveChatWallpaper({
     character: pageView?.chat?.chatBackgroundCharacter,
@@ -243,27 +238,16 @@ export function ChatPanel({
     return () => window.removeEventListener("keydown", cancelDelete);
   }, [deleteConfirmationOpen, deleteMode, deletingMessages]);
 
-  useEffect(() => {
-    if (!headerMenuOpen) return undefined;
-    const close = (event) => {
-      if (!headerMenuRef.current?.contains(event.target)) {
-        setHeaderMenuOpen(false);
-      }
-    };
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, [headerMenuOpen]);
-
   const openingMessage = messages.find((item) => item.id === "opening" && item.openingOptions?.length > 1);
   useEffect(() => {
-    if (!openingMessage?.canChangeOpening || isSending || deleteMode || String(input || "").length || processMessage || headerMenuOpen) return undefined;
+    if (!openingMessage?.canChangeOpening || isSending || deleteMode || String(input || "").length || processMessage) return undefined;
     const options = openingMessage.openingOptions || [];
     const selectedIndex = options.findIndex((item) => item.id === openingMessage.selectedOpeningId);
     const switchOpening = (event) => {
       if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
       const target = event.target;
-      if (target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName))) return;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select, button, [role="menu"]'))) return;
       const nextIndex = event.key === "ArrowLeft" ? selectedIndex - 1 : selectedIndex + 1;
       if (nextIndex < 0 || nextIndex >= options.length) return;
       event.preventDefault();
@@ -278,7 +262,7 @@ export function ChatPanel({
     };
     window.addEventListener("keydown", switchOpening);
     return () => window.removeEventListener("keydown", switchOpening);
-  }, [deleteMode, headerMenuOpen, input, isSending, onSelectOpening, openingMessage, processMessage]);
+  }, [deleteMode, input, isSending, onSelectOpening, openingMessage, processMessage]);
 
   if (!hasActiveChat) {
     return (
@@ -314,18 +298,10 @@ export function ChatPanel({
   const assistantAvatar = resolveChatAvatar(persona, "assistant", avatarShape);
   const regenerateTargetMessageId = findLatestRegenerateTargetMessageId(messages);
 
-  function openChatBackground(event) {
-    event.preventDefault();
-    event.stopPropagation();
-    setHeaderMenuOpen(false);
-    onOpenChatBackground?.();
-  }
-
   function enterDeleteMode(event) {
     event?.preventDefault();
     event?.stopPropagation();
     if (isSending || !displayedMessages.some((message) => message.id !== "opening")) return;
-    setHeaderMenuOpen(false);
     setProcessMessage(null);
     setDeleteFromMessageId("");
     setDeleteMode(true);
@@ -368,6 +344,8 @@ export function ChatPanel({
     }); }}
     onOpenVariables={() => setVariablesOpen(true)}
     onOpenRequestPreview={() => setRequestPreviewOpen(true)}
+    renderMoreActions={onOpen => renderRoleplaySlot?.('eleckoi.roleplay.header.menu', { onOpen })}
+    onOpenChatBackground={onOpenChatBackground}
     onEnterDeleteMode={enterDeleteMode}
     canDeleteMessages={displayedMessages.some((message) => message.id !== "opening")}
     onRegenerate={regenerateFrom}
@@ -437,56 +415,18 @@ export function ChatPanel({
       return <MessageList {...rowProps} seat={{ ...seat, item: { ...seat.item, conversationId } }} />;
     },
   });
-  const frontend = isSwitchingChat ? null : <CharacterFrontendView key={`${characterId}:${conversationId}`}
-    characterId={characterId} conversationId={conversationId} fallback={officialChat ?? opening} />;
-  const chatContent = activeView === 'chat' && !isSwitchingChat
-    ? renderRoleplaySlotChain?.('eleckoi.roleplay.chat.frontend', { characterId, conversationId, fallback: frontend }, { fallback: frontend }) ?? frontend
-    : null;
 
-  return (
-    <section
-      ref={chatPanelRef}
-      className={`chat-panel layout-${layoutMode} view-${activeView}${profile?.assistant_bubble_enabled ? " assistant-bubble-enabled" : ""}${deleteMode ? " message-delete-mode" : ""}`}
-      data-roleplay-backdrop={layoutMode === 'roleplay' && activeView === 'chat' && roleplayStyle.backdrop_enabled || undefined}
-      data-roleplay-bubbles={layoutMode === 'roleplay' && activeView === 'chat' && roleplayStyle.bubbles_enabled || undefined}
-      style={displayStyle}
-    >
-      <header className="chat-header">
-        <div className="chat-header-title-row">
-          {headerLeading}
-          <div className="chat-header-title-cluster">
-            <h1>{currentTitle}</h1>
-            {dshConversation?.renderHeaderActions?.()}
-          </div>
-          <div className="chat-header-actions" ref={headerMenuRef}>
-            {hasHeaderMenu && <button className="chat-header-action" type="button" aria-label={tUi("对话操作")} title={tUi("对话操作")} aria-haspopup="menu" aria-expanded={headerMenuOpen} onClick={() => setHeaderMenuOpen((value) => !value)}>
-              <SlidersHorizontal size={20} weight="bold" />
-            </button>}
-            <Button data-dsh-control variant="ghost" className="chat-header-action chat-header-new" type="button" aria-label={tUi("新建对话")} title={tUi("新建对话")} onClick={onCreateChat}>
-              <DshNewChatIcon size={20} />
-            </Button>
-            {renderRoleplaySlot?.("eleckoi.roleplay.conversation.header.corner", {})}
-            {hasHeaderMenu && headerMenuOpen ? (
-              <div
-                className="chat-header-menu"
-                role="menu"
-                onClick={(event) => event.stopPropagation()}
-              >
-                {renderRoleplaySlot?.('eleckoi.roleplay.header.menu', { onOpen: openChatBackground })}
-              </div>
-            ) : null}
-          </div>
-        </div>
-        <div className="chat-header-tabs" role="tablist" aria-label={tUi("对话视图")} data-conversation-tabs="">
-          {viewTabs.map((view) => <button key={view.id} type="button" role="tab" aria-selected={activeView === view.id} onClick={() => selectView(view.id)}>{view.label}</button>)}
-          {dshConversation?.renderEntryActions ? <DshEntryActionsMenu region="conversation" renderActions={dshConversation.renderEntryActions} /> : null}
-        </div>
-      </header>
-
-      <div className="chat-conversation-body native-roleplay-content" data-roleplay-view={activeView} aria-busy={isSwitchingChat || undefined}>
-        {renderRoleplaySlot?.('eleckoi.roleplay.background', { wallpaper: chatWallpaper, activeView })}
-        {renderConversationContent?.({ header: null, hero: false, phase: 'active', widthPreference, onScrollElement: bindMessageScrollElement,
-          views: (
+  const renderChatContent = (characterFrontend, hasSelectedProject) => {
+    const customChat = activeView === 'chat' && hasSelectedProject;
+    const fallback = characterFrontend ?? officialChat ?? opening;
+    const chatContent = isSwitchingChat || activeView !== 'chat' ? null
+      : renderRoleplaySlotChain?.('eleckoi.roleplay.chat.frontend', { characterId, conversationId, fallback }, { fallback }) ?? fallback;
+    return <div className="chat-conversation-body native-roleplay-content" data-roleplay-view={activeView}
+      data-character-frontend={customChat || undefined} aria-busy={isSwitchingChat || undefined}>
+      {renderRoleplaySlot?.('eleckoi.roleplay.background', { wallpaper: chatWallpaper, activeView })}
+      {renderConversationContent?.({ header: null, hero: false, phase: 'active', widthPreference, widthControls: customChat ? false : undefined,
+        onScrollElement: bindMessageScrollElement,
+        views: (
           <div className="chat-transcript-region">
             {activeView === "chat" ? <RichMessageRenderProvider key={conversationId} messages={displayedMessages}
               enabled={chatDisplay?.rich_message_limit_enabled ?? DEFAULT_CHAT_DISPLAY_PREFERENCES.rich_message_limit_enabled}
@@ -503,34 +443,59 @@ export function ChatPanel({
               />
             </Suspense> : activeView === undefined ? null : dshConversation?.renderView(activeView)}
           </div>
-          ),
-          composer: (
+        ),
+        composer: customChat ? null : (
           <div className="chat-composer-region" inert={isSwitchingChat || undefined}>
-          {deleteMode ? (
-            <div className="chat-message-delete-bar" aria-label={tUi("删除消息")}>
-              <button
-                className="delete-confirm"
-                type="button"
-                disabled={!deleteFromMessageId || deletingMessages}
-                onClick={() => setDeleteConfirmationOpen(true)}
-              >
-                {deletingMessages ? tUi("删除中") : tUi("删除")}
-              </button>
-              <button type="button" disabled={deletingMessages} onClick={cancelDeleteMode}>{tUi("取消")}</button>
-            </div>
-          ) : (
-            <>
-              <div className="chat-running-seat" ref={setRunningStatusTarget} data-chat-running-seat="" />
-              {dshInputZone
-                ? renderRoleplaySlot?.("eleckoi.roleplay.conversation.input.dock", dshInputZone)
-                : null}
-              {composedInput}
-            </>
-          )}
+            {deleteMode ? (
+              <div className="chat-message-delete-bar" aria-label={tUi("删除消息")}>
+                <button className="delete-confirm" type="button" disabled={!deleteFromMessageId || deletingMessages}
+                  onClick={() => setDeleteConfirmationOpen(true)}>
+                  {deletingMessages ? tUi("删除中") : tUi("删除")}
+                </button>
+                <button type="button" disabled={deletingMessages} onClick={cancelDeleteMode}>{tUi("取消")}</button>
+              </div>
+            ) : (
+              <>
+                <div className="chat-running-seat" ref={setRunningStatusTarget} data-chat-running-seat="" />
+                {dshInputZone ? renderRoleplaySlot?.("eleckoi.roleplay.conversation.input.dock", dshInputZone) : null}
+                {composedInput}
+              </>
+            )}
+          </div>
+        ),
+      })}
+    </div>;
+  };
+
+  return (
+    <section
+      ref={chatPanelRef}
+      className={`chat-panel layout-${layoutMode} view-${activeView}${profile?.assistant_bubble_enabled ? " assistant-bubble-enabled" : ""}${deleteMode ? " message-delete-mode" : ""}`}
+      data-roleplay-backdrop={layoutMode === 'roleplay' && activeView === 'chat' && roleplayStyle.backdrop_enabled || undefined}
+      data-roleplay-bubbles={layoutMode === 'roleplay' && activeView === 'chat' && roleplayStyle.bubbles_enabled || undefined}
+      style={displayStyle}
+    >
+      <header className="chat-header">
+        <div className="chat-header-title-row">
+          {headerLeading}
+          <div className="chat-header-title-cluster">
+            <h1>{currentTitle}</h1>
+            {dshConversation?.renderHeaderActions?.()}
+          </div>
+          <div className="chat-header-actions">
+            <Button data-dsh-control variant="ghost" className="chat-header-action chat-header-new" type="button" aria-label={tUi("新建对话")} title={tUi("新建对话")} onClick={onCreateChat}>
+              <DshNewChatIcon size={20} />
+            </Button>
+            {renderRoleplaySlot?.("eleckoi.roleplay.conversation.header.corner", {})}
+          </div>
         </div>
-          ),
-        })}
-      </div>
+        <div className="chat-header-tabs" role="tablist" aria-label={tUi("对话视图")} data-conversation-tabs="">
+          {viewTabs.map((view) => <button key={view.id} type="button" role="tab" aria-selected={activeView === view.id} onClick={() => selectView(view.id)}>{view.label}</button>)}
+          {dshConversation?.renderEntryActions ? <DshEntryActionsMenu region="conversation" renderActions={dshConversation.renderEntryActions} /> : null}
+        </div>
+      </header>
+
+      <CharacterFrontendView characterId={characterId} conversationId={conversationId}>{renderChatContent}</CharacterFrontendView>
       {activeView === "chat" && pinnedAvatar ? <PinnedAvatar src={pinnedAvatar.src} name={pinnedAvatar.name} containerRef={chatPanelRef} onClose={() => setPinnedAvatar(null)} /> : null}
       {processMessage ? (
         <AgentProcessDialog

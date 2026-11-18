@@ -3,8 +3,6 @@ import { loadLayeredEnv, loadProfileDirectory, reportSkippedBundles } from '@dee
 import { runProfile } from '@deepseek-ai/dsh/profile-boot'
 import { retireDeepSeekExtensionSelection } from '@eleckoi/dsh-client-web-search/profile'
 import { ELECKOI_INSTALL_ANCHOR } from './androidPluginBundles'
-import { repairRequestContextLogs } from '@eleckoi/dsh-runtime'
-import { recoverStartupSessions } from '@eleckoi/dsh-runtime'
 import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-api-gateway'
 import type {} from '@deepseek-ai/dsh-jobs'
@@ -33,7 +31,6 @@ export interface PluginHostApplication {
 /** Shared application boot: transports own process IO, all product services stay here. */
 export async function startPluginHostApplication(options: PluginHostApplicationOptions): Promise<PluginHostApplication> {
   await retireDeepSeekExtensionSelection(options.profileDirectory)
-  if (process.env.DSH_SESSION_ROOT) await repairRequestContextLogs(process.env.DSH_SESSION_ROOT)
   const profile = loadProfileDirectory('dsh', options.profileDirectory, ELECKOI_INSTALL_ANCHOR)
   reportSkippedBundles('dsh', profile)
   if (profile.skippedBundles.length > 0) {
@@ -71,9 +68,6 @@ export async function startPluginHostApplication(options: PluginHostApplicationO
     if (missingServices.length > 0) {
       throw new DesktopError(ELECKOI_FAILURE_CODES.pluginLoadFailed, `ElecKoi Host 服务未正确装载：${missingServices.join(', ')}`, { what: 'ElecKoi Host 服务' })
     }
-    const sessionRoot = process.env.DSH_SESSION_ROOT
-    if (sessionRoot) await recoverStartupSessions(ctx, sessionRoot)
-
     const updateTasks = installUpdateTaskControl(ctx)
     const baseUrl = `http://127.0.0.1:${String(ctx.webServer.port)}`
     const url = ctx.connection.authenticatedUrl(baseUrl)

@@ -638,6 +638,7 @@ export interface WebSearchSnapshot {
     apiKeyConfigured: boolean;
     apiKeyRef: string;
     apiKeyWritable: boolean;
+    apiKeyError?: unknown;
     writable: boolean;
     tavilyAvailable: boolean;
     revision?: number;

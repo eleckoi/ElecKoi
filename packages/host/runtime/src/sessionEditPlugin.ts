@@ -27,12 +27,27 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
   }
   sessionPersistence: { open(sessionId: SessionId, access: 'write'): Promise<{ close(): Promise<void> }> }
   get(key: 'spillStore'): { removeSessionResults?(sessionIds: string[]): Promise<void> } | undefined
-  logger: { error(message: string): void }
+  logger: { error(message: string, error: unknown): void }
   provide(key: string, value: unknown): void
 }): void {
   const sessionRoot = process.env.DSH_SESSION_ROOT
   if (!sessionRoot) throw productFailure(ELECKOI_FAILURE_CODES.internal, 'DSH_SESSION_ROOT is required', { what: 'DSH 会话目录配置' })
   const transactions = new Set<string>()
+  const pendingImageCleanup = new Map<string, ReturnType<typeof generatedImageReferences>>()
+
+  async function cleanCommittedImages(sessionId: string, candidates: ReturnType<typeof generatedImageReferences>): Promise<void> {
+    const batch = new Map([...(pendingImageCleanup.get(sessionId) ?? []), ...candidates])
+    if (!batch.size) return
+    pendingImageCleanup.set(sessionId, batch)
+    try {
+      await deleteRemovedGeneratedImages(ctx, batch)
+      if (pendingImageCleanup.get(sessionId) === batch) pendingImageCleanup.delete(sessionId)
+    } catch (error) {
+      // The journal has already changed. Retry cleanup on a later edit and rescan all ownership then.
+      ctx.logger.error(`会话 ${sessionId} 已保存，旧图片清理待重试`, error)
+    }
+  }
+
   ctx.provide('eleckoiSessionEditor', {
     readTrajectory(sessionId: string, options?: DshTrajectoryReadOptions) {
       return readDshTrajectory(sessionRoot, sessionId, options)
@@ -73,7 +88,7 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
         try {
           deleteDshSessionMessagesFrom(sessionRoot, sessionId, eventSeq, role)
           await refreshSessionProjections(ctx, sessionId)
-          if (!transactions.has(sessionId)) await deleteRemovedGeneratedImages(ctx, generatedImageReferences(log.events))
+          if (!transactions.has(sessionId)) await cleanCommittedImages(sessionId, generatedImageReferences(log.events))
         } finally { await lease.release() }
       })
     },
@@ -88,7 +103,7 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
         try {
           const count = rewindDshSession(sessionRoot, sessionId, fromTurn, fromEventSeq, retainInput)
           await refreshSessionProjections(ctx, sessionId)
-          if (!transactions.has(sessionId)) await deleteRemovedGeneratedImages(ctx, generatedImageReferences(log.events))
+          if (!transactions.has(sessionId)) await cleanCommittedImages(sessionId, generatedImageReferences(log.events))
           return count
         } catch (error) {
           if (error instanceof DshSessionRewindUnavailableError) return undefined
@@ -125,7 +140,7 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
         })
         throw error
       } finally { transactions.delete(sessionId) }
-      await deleteRemovedGeneratedImages(ctx, original.images)
+      await cleanCommittedImages(sessionId, original.images)
       return result
     },
     async deleteSession(sessionId: string): Promise<void> {
@@ -139,7 +154,10 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
           }
           const store = ctx.get('spillStore')
           if (!store?.removeSessionResults) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, '当前 Host 未提供工具结果删除服务。', { what: '工具结果删除服务' })
-          const images = new Map(ids.flatMap(id => [...imageAttachmentReferences(readDshSessionLog(sessionRoot, id)?.events ?? [])]))
+          const images = new Map(ids.flatMap(id => [
+            ...(pendingImageCleanup.get(id) ?? []),
+            ...imageAttachmentReferences(readDshSessionLog(sessionRoot, id)?.events ?? []),
+          ]))
           // Keep the logs and their ownership available if a cleanup fails; retry is idempotent.
           await store.removeSessionResults(ids)
           for (const id of ids) {
@@ -150,6 +168,7 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
           }
           await deleteRemovedGeneratedImages(ctx, images, ids)
           removeDshSessionTree(sessionRoot, sessionId)
+          for (const id of ids) pendingImageCleanup.delete(id)
         }
         await closeChildren(0)
       })
@@ -178,7 +197,7 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
           const events = original.events.map(event => event === selected.event ? { ...event, data: { ...previousData, ...value } } as SessionEvent : event)
           rewriteDshSessionEvents(sessionRoot, original, events)
           await refreshSessionProjections(ctx, sessionId)
-          await deleteRemovedGeneratedImages(ctx, generatedImageReferences(original.events))
+          await cleanCommittedImages(sessionId, generatedImageReferences(original.events))
           return next
         } catch (error) {
           if (next?.attachment) await deleteRemovedGeneratedImages(ctx, new Map([[next.attachment.attachmentId, next.attachment]]))

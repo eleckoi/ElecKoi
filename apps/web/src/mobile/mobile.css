@@ -34,6 +34,8 @@
 .mobile-shell *, .mobile-shell *::before, .mobile-shell *::after { box-sizing: border-box; }
 .mobile-shell[data-mobile-panel="settings"] { --mobile-header-bg: var(--rail); }
 .mobile-shell:is([data-mobile-panel="messages"][data-mobile-route="conversation"], [data-mobile-panel="creatorStudio"]) { --mobile-header-bg: var(--chat); }
+.mobile-shell[data-mobile-route="conversation"] { --mobile-content-bg: var(--chat); }
+.mobile-shell[data-mobile-route="conversation"] > .mobile-page-seat { background: var(--chat); }
 .mobile-shell[data-mobile-rightbar="true"] { --mobile-system-bar-bg: var(--surface-raised); }
 .mobile-shell[data-drawer-present="true"] { --mobile-system-bar-bg: var(--rail); }
 :where(.mobile-shell button) { cursor: pointer; }
@@ -125,6 +127,8 @@
 .mobile-swipe-content { position: relative; height: 100%; background: var(--mobile-content-bg); touch-action: pan-y; transition: transform 280ms cubic-bezier(.22, 1, .28, 1); }
 .mobile-swipe-content.is-dragging { transition: none; }
 .mobile-message-open { display: flex; align-items: center; gap: 9px; width: 100%; height: 82px; padding: 5px 16px; border: 0; background: transparent; text-align: left; touch-action: pan-y; }
+.mobile-shell[data-opening-message] :is(.mobile-message-open, .mobile-bottom-nav > button):disabled { opacity: 1; }
+.mobile-message-open[aria-busy="true"] { background: var(--dsw-alias-interactive-bg-hover); }
 .mobile-message-open .sidebar-character-artwork { width: 54px; height: 72px; min-width: 54px; flex: none; border-radius: 9px; }
 .mobile-message-open .sidebar-character-artwork.is-avatar { height: 54px; border-radius: 50%; corner-shape: round; }
 .mobile-message-open .sidebar-character-artwork img { width: 100%; height: 100%; object-fit: cover; }

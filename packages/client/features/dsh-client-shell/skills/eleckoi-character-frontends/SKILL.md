@@ -7,7 +7,7 @@ description: 在 ElecKoi 制作、导入、修改或导出自定义整套角色�
 
 先读 `references/frontends.md` 的独立前端项目部分。只有任务或现有工程需要自定义整套内容区交互结构时才采用此项目入口；常规角色卡沿聊天楼层实现，后台脚本可以配套按钮和面板。代码量、游戏机制、外部页面文件和弹窗本身都不能作为选择独立项目的依据。
 
-项目接管角色聊天内容区，可使用自己的控件并通过 SDK 直接发送操作；当前仍保留宿主输入框和应用外壳，底层聊天与消息继续使用正式服务。常规楼层界面使用 eleckoi-message-frontends，脚本功能使用 eleckoi-character-authoring。
+项目启用后接管聊天正文、输入区和底部控件。作者可使用自己的控件并通过 SDK 直接发送操作，底层聊天与消息继续使用正式服务。常规楼层界面使用 eleckoi-message-frontends，脚本功能使用 eleckoi-character-authoring。
 
 1. frontends.list/read_file 获取当前角色项目、文件和修订。
 2. 在工作区编写 HTML／JS／CSS；通过 import_file 或 import 导入项目，默认作为未启用草稿。
