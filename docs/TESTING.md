@@ -66,7 +66,7 @@ AI 工具设计及验收约束见 [工具设计与错误恢复规范](AI_TOOL_DE
 
 `composer-scroll-popovers.test.js` 使用正式 ChatPanel、锁定 Chat Client 的 ChatView／ChatFlow、原 ActivityPill／UsagePill 和官方权限／占用组件，覆盖空对话、80 条合成官方节点和输入区增高，320／390／1200px、深浅主题下核对五个浮层的实际按钮间距及点击前后滚动位置，另查末条可见、官方返回底部、更多菜单、轨迹切回与草稿保持。流式部分以正式 assistant-step 不可变节点和 running 状态连续追加 24 次正文，在手机／桌面宽度保持五个浮层打开，逐次记录按钮间距、正文增长及滚动变化，浏览器 bundle 使用与产品一致的 production React。默认当前 Electron；`ELECKOI_POPOVER_BROWSER` 可选择隔离的旧 Electron 运行同一探针，用于复现系统 WebView 所属 Chromium 代际，不读真实手机或会话，不等同手机验收。
 
-`composer-attachments-layout.test.js` 的菜单检查使用正式角色／工作室输入菜单与真实手机版标记，分别在两种主题和 PC／手机宽度核对主菜单、更多菜单与实际触发按钮的 4px 间距；不能用 Portal 的父元素代替触发按钮。安卓开发版另通过 ADB 和当前 WebView 复现旧规则覆盖后的顶部错位，临时移除 `bottom: auto` 后回到正确锚点；这一现场验证不等同已安装包含修复的新 APK，现场截图只保留在 ignored build。
+`composer-attachments-layout.test.js` 核对「更多／返回」沿原官方菜单按页重新挂载、焦点落在当前页首项，并取消菜单内部的自定义过渡；保留背景与脚本操作。其菜单检查使用正式角色／工作室输入菜单与真实手机版标记，分别在两种主题和 PC／手机宽度核对主菜单、更多菜单与实际触发按钮的 4px 间距；不能用 Portal 的父元素代替触发按钮。安卓开发版另通过 ADB 和当前 WebView 复现旧规则覆盖后的顶部错位，临时移除 `bottom: auto` 后回到正确锚点；这一现场验证不等同已安装包含修复的新 APK，现场截图只保留在 ignored build。
 
 `bug-report-collection.test.ts` 沿官方 Logger、共享原始诊断格式器、真实桌面文件日志、跨启动读取及正式报告收集验证根原因、聚合成员、长 Unicode 末尾、轮转文件和最终正文。故障列表使用原始捕获范围，摘要独立保留原行数；用户不带日志时不导出原始诊断正文。`app-log.test.ts` 保持进程出口和原日志行为检查，不改变官方退出策略。
 

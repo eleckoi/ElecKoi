@@ -2281,33 +2281,6 @@ button.chat-file-card:hover { border-color: var(--blue); }
 .composer-more-menu.is-more { max-height: var(--dsh-anchored-max-height, calc(100dvh - 24px)); }
 .composer-more-menu.is-more > [role="presentation"] { min-height: 0; overflow: hidden; }
 
-/* Capture the menu rows only. The official backdrop stays live outside the transition. */
-.composer-more-menu > [data-composer-page-motion] {
-  --composer-page-offset: 8px;
-  --composer-page-duration: 250ms;
-  --composer-page-ease: cubic-bezier(.22, 1, .36, 1);
-}
-.composer-more-menu > [data-composer-page-motion="back"] { --composer-page-offset: -8px; }
-.composer-more-menu > [data-composer-page-motion]::view-transition { pointer-events: none; }
-.composer-more-menu > [data-composer-page-motion]::view-transition-group(root) {
-  animation-duration: var(--composer-page-duration);
-  animation-timing-function: var(--composer-page-ease);
-}
-.composer-more-menu > [data-composer-page-motion]::view-transition-old(root),
-.composer-more-menu > [data-composer-page-motion]::view-transition-new(root) {
-  animation-duration: var(--composer-page-duration);
-  animation-timing-function: var(--composer-page-ease);
-  animation-fill-mode: both;
-}
-.composer-more-menu > [data-composer-page-motion]::view-transition-old(root) { animation-name: composer-menu-page-out; }
-.composer-more-menu > [data-composer-page-motion]::view-transition-new(root) { animation-name: composer-menu-page-in; }
-@keyframes composer-menu-page-out {
-  to { opacity: 0; transform: translateX(calc(-1 * var(--composer-page-offset))); filter: blur(3px); }
-}
-@keyframes composer-menu-page-in {
-  from { opacity: 0; transform: translateX(var(--composer-page-offset)); filter: blur(3px); }
-}
-
 .composer-menu-script-list { min-height: 0; max-height: min(360px, 40dvh); overflow-y: auto; overscroll-behavior: contain; }
 .composer-more-menu .composer-menu-next { grid-template-columns: 22px minmax(0, 1fr) 14px; }
 .composer-more-menu .composer-menu-preset-avatar { justify-self: center; width: 20px; height: 20px; overflow: hidden; border-radius: 4px; }

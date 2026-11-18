@@ -1,6 +1,5 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { flushSync } from "react-dom";
+import { useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Menu } from '@deepseek-ai/dsh-client-ui-primitives';
 import { DshNewChatIcon, DshRefreshIcon } from "../../../ui/icons/dshComposerIcons.jsx";
 import { ChatHistoryIcon, MenuIcon, PlugIcon } from "../../../ui/icons/openSourceIcons.jsx";
@@ -50,53 +49,14 @@ export function RoleplayInputMenu({
   const [more, setMore] = useState(false);
   const [dialog, setDialog] = useState(null);
   const rootRef = useRef(null);
-  const pageButtonRef = useRef(null);
-  const pageTransition = useRef(null);
-  const focusPageButton = useRef(false);
-
-  const changePage = useCallback((nextMore) => {
-    const page = pageButtonRef.current?.parentElement;
-    pageTransition.current?.skipTransition();
-    pageTransition.current = null;
-    focusPageButton.current = true;
-    if (!page?.startViewTransition || document.documentElement.dataset.eleckoiMobile === 'true'
-      || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      if (page) delete page.dataset.composerPageMotion;
-      setMore(nextMore);
-      return;
-    }
-
-    page.dataset.composerPageMotion = nextMore ? 'forward' : 'back';
-    const transition = page.startViewTransition(() => {
-      if (pageTransition.current === transition && page.isConnected) flushSync(() => setMore(nextMore));
-    });
-    pageTransition.current = transition;
-    const finish = () => {
-      if (pageTransition.current !== transition) return;
-      pageTransition.current = null;
-      delete page.dataset.composerPageMotion;
-    };
-    void transition.finished.then(finish, finish);
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!focusPageButton.current) return;
-    focusPageButton.current = false;
-    if (open) pageButtonRef.current?.focus({ preventScroll: true });
-  }, [open, more]);
-
-  useLayoutEffect(() => () => {
-    pageTransition.current?.skipTransition();
-    pageTransition.current = null;
-  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
     return registerOverlayBack(() => {
-      if (more) changePage(false);
+      if (more) setMore(false);
       else { setOpen(false); rootRef.current?.querySelector('button')?.focus(); }
     });
-  }, [open, more, changePage]);
+  }, [open, more]);
 
   function run(action) {
     setOpen(false);
@@ -109,7 +69,7 @@ export function RoleplayInputMenu({
 
   return (
     <div className="composer-more-anchor" ref={rootRef}>
-      <Menu open={open} portal compact autoFocus side="top" align="start"
+      <Menu key={more ? 'more' : 'main'} open={open} portal compact autoFocus side="top" align="start"
         listClassName={`composer-more-menu ${more ? 'is-more' : 'is-main'}`} onClose={() => setOpen(false)} anchor={<button
         className={`roleplay-menu-trigger composer-more-trigger ${open ? "active" : ""}`}
         type="button"
@@ -122,7 +82,7 @@ export function RoleplayInputMenu({
         <MenuIcon size={17} weight="bold" />
       </button>}>
           {more ? <>
-            <button ref={pageButtonRef} type="button" className="composer-menu-back" role="menuitem" onClick={() => changePage(false)}><CaretLeft size={18} /><span>{tUi('更多')}</span></button>
+            <button type="button" className="composer-menu-back" role="menuitem" onClick={() => setMore(false)}><CaretLeft size={18} /><span>{tUi('更多')}</span></button>
             <i aria-hidden="true" />
             {onOpenRequestPreview && <button type="button" role="menuitem" onClick={() => run(onOpenRequestPreview)}><TextAlignLeft size={18} /><span>{tUi('请求上下文预览')}</span></button>}
             {onOpenVariables && <button type="button" role="menuitem" onClick={() => run(onOpenVariables)}><Database size={18} /><span>{tUi('变量查看与管理')}</span></button>}
@@ -166,7 +126,7 @@ export function RoleplayInputMenu({
             <DshRefreshIcon size={18} /><span>{tUi("重新生成")}</span>
           </button>
           <i aria-hidden="true" />
-          <button ref={pageButtonRef} type="button" role="menuitem" className="composer-menu-next" onClick={() => changePage(true)}><DotsThree size={18} /><span>{tUi('更多')}</span><CaretRight size={14} /></button>
+          <button type="button" role="menuitem" className="composer-menu-next" onClick={() => setMore(true)}><DotsThree size={18} /><span>{tUi('更多')}</span><CaretRight size={14} /></button>
           </>}
       </Menu>
       {dialog === 'preset' && <ConversationPresetDialog catalog={catalog} purpose={purpose} onClose={returnToMenu} />}

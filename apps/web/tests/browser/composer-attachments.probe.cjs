@@ -20,19 +20,18 @@ app.whenReady().then(async () => {
     for (let count = 0; count < 100; count++) { if (await evaluate(source)) return; await new Promise(resolve => setTimeout(resolve, 20)); }
     throw new Error(`Timed out: ${source}`);
   };
-  const menuMotion = () => evaluate(`(() => {
+  const menuPage = () => evaluate(`(() => {
     const menu = document.querySelector('.composer-more-menu');
-    const rows = menu.querySelector(':scope > [role="presentation"]');
-    const motion = name => {
-      const effect = document.getAnimations().find(animation => animation.animationName === name)?.effect;
-      return effect && { duration: effect.getTiming().duration, frames: effect.getKeyframes(), rowsOnly: effect.target === rows };
-    };
     return { sameMenu: menu === window.composerFixture.menuBeforePageChange,
-      focused: document.activeElement?.className,
-      incoming: motion('composer-menu-page-in'), outgoing: motion('composer-menu-page-out') };
+      focusedFirst: document.activeElement === menu.querySelector('button:not(:disabled)'),
+      customTransition: !!menu.querySelector('[data-composer-page-motion]') };
   })()`);
-  const waitForMenuMotion = (direction) => wait(`document.querySelector('.composer-more-menu > [data-composer-page-motion]')?.dataset.composerPageMotion === '${direction}'
-    && document.getAnimations().some(animation => animation.animationName === 'composer-menu-page-in')`);
+  const settleMenu = () => evaluate(`(async () => {
+    const menu = document.querySelector('.composer-more-menu');
+    menu.getBoundingClientRect();
+    await Promise.all(menu.getAnimations({subtree:true}).map(animation => animation.finished.catch(() => undefined)));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  })()`);
   try {
     const reports = [], queues = [], menus = [];
     for (const surface of ['roleplay', 'studio']) for (const width of [320, 390, 768, 1440]) {
@@ -60,19 +59,17 @@ app.whenReady().then(async () => {
         }
         await evaluate(`window.composerFixture.menuBeforePageChange=document.querySelector('.composer-more-menu');document.querySelector('.composer-menu-next').click()`);
         await wait(`!!document.querySelector('.composer-more-menu.is-more')`);
-        if (width >= 768) await waitForMenuMotion('forward');
-        menus[menus.length-1].forward=await menuMotion();
-        await wait(`!document.querySelector('.composer-more-menu > [data-composer-page-motion]')`);
+        await settleMenu();
+        menus[menus.length-1].forward=await menuPage();
         menus[menus.length-1].moreGap=await evaluate(`(() => {
           const anchor = document.querySelector('.composer-more-trigger').getBoundingClientRect();
           const panel = document.querySelector('.composer-more-menu').getBoundingClientRect();
           return Math.max(anchor.top - panel.bottom, panel.top - anchor.bottom);
         })()`);
-        await evaluate(`document.querySelector('.composer-menu-back').click()`);
+        await evaluate(`window.composerFixture.menuBeforePageChange=document.querySelector('.composer-more-menu');document.querySelector('.composer-menu-back').click()`);
         await wait(`!!document.querySelector('.composer-more-menu.is-main')`);
-        if (width >= 768) await waitForMenuMotion('back');
-        menus[menus.length-1].back=await menuMotion();
-        await wait(`!document.querySelector('.composer-more-menu > [data-composer-page-motion]')`);
+        await settleMenu();
+        menus[menus.length-1].back=await menuPage();
         await evaluate(`[...document.querySelectorAll('.composer-more-menu button')].find(button=>button.textContent==='工具').click()`);
         await wait(`!document.querySelector('.composer-more-menu')`);
         menus[menus.length-1].actionRan=await evaluate(`window.composerFixture.toolsOpened===true`);

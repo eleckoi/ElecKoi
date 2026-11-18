@@ -47,19 +47,10 @@ it('keeps the official composer centered while all draft attachments scroll with
       const gap = Math.max(menu.anchor.y - menu.panel.bottom, menu.panel.y - menu.anchor.bottom);
       expect(Math.abs(gap - 4), JSON.stringify(menu)).toBeLessThan(1);
       expect(Math.abs(menu.moreGap - 4), JSON.stringify(menu)).toBeLessThan(1);
-      for (const [motion, distance, focus] of [[menu.forward, 8, 'composer-menu-back'], [menu.back, -8, 'composer-menu-next']]) {
-        expect(motion.sameMenu).toBe(true);
-        expect(motion.focused).toBe(focus);
-        if (menu.width >= 768) {
-          expect(motion.incoming?.duration).toBe(250);
-          expect(motion.incoming.rowsOnly).toBe(true);
-          expect(motion.outgoing?.rowsOnly).toBe(true);
-          expect(motion.incoming.frames[0].transform).toBe(`translateX(${distance}px)`);
-          expect(motion.outgoing?.frames.at(-1).transform).toBe(`translateX(${-distance}px)`);
-        } else {
-          expect(motion.incoming).toBeUndefined();
-          expect(motion.outgoing).toBeUndefined();
-        }
+      for (const page of [menu.forward, menu.back]) {
+        expect(page.sameMenu).toBe(false);
+        expect(page.focusedFirst).toBe(true);
+        expect(page.customTransition).toBe(false);
       }
     }
     expect(queues).toHaveLength(24);

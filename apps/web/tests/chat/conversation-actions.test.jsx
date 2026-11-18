@@ -94,7 +94,7 @@ describe('conversation menu actions', () => {
     await tick(() => document.querySelector('[aria-label="关闭"]').click());
     expect(named('不保存')).toBeTruthy(); expect(state.global.save).not.toHaveBeenCalled();
     await tick(() => named('取消').click()); expect(document.querySelector('.conversation-global-row input').checked).toBe(false);
-    await tick(() => document.querySelector('[aria-label="返回菜单"]').click()); await tick(() => named('不保存').click());
+    await tick(() => document.querySelector('[aria-label="关闭"]').click()); await tick(() => named('不保存').click());
     await tick(() => named('全局设定库').click()); expect(document.querySelector('.conversation-global-row input').checked).toBe(true);
     await tick(() => document.querySelector('.conversation-global-row input').click()); await tick(() => document.querySelector('.conversation-global-row input').click());
     expect(named('保存').disabled).toBe(true); await tick(() => document.querySelector('[aria-label="关闭"]').click());
@@ -122,14 +122,14 @@ describe('conversation menu actions', () => {
     expect(document.querySelectorAll('.conversation-global-row')).toHaveLength(2);
   });
 
-  it('consumes overlay Back before the route and restores the previous menu page', async () => {
+  it('consumes menu Back before the route and restores the menu after the official dialog closes', async () => {
     const state = models(), route = vi.fn(); window.addEventListener('eleckoi:platform-back', route);
     try {
       await renderMenu(state); await tick(() => named('更多').click());
       await tick(() => window.dispatchEvent(new Event('eleckoi:platform-back', { cancelable: true })));
       expect(named('切换预设')).toBeTruthy(); expect(route).not.toHaveBeenCalled();
       await tick(() => named('全局设定库').click());
-      await tick(() => window.dispatchEvent(new Event('eleckoi:platform-back', { cancelable: true })));
+      await tick(() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
       expect(named('切换预设')).toBeTruthy(); expect(route).not.toHaveBeenCalled();
       await tick(() => window.dispatchEvent(new Event('eleckoi:platform-back', { cancelable: true })));
       expect(document.querySelector('[role=menu]')).toBeNull(); expect(document.activeElement).toBe(container.querySelector('.roleplay-menu-trigger'));
