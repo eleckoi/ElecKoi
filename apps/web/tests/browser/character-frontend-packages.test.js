@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
@@ -22,8 +22,15 @@ it('keeps native controls aligned, separates file panes, and virtualizes large p
     const html=resolve(directory,'fixture.html'),report=resolve(directory,'report.json');
     await writeFile(html,'<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="fixture.css"><style>html,body,#root{margin:0;height:100%;min-width:0}#root{box-sizing:border-box;display:flex;height:100dvh;padding:8px;background:var(--dsw-alias-bg-layer-1)}.character-frontend-editor{min-height:0!important}</style><div id="root"></div><script src="fixture.js"></script></html>');
     const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;
-    await promisify(execFile)(require('electron'),[resolve('apps/web/tests/browser/character-frontend-packages.probe.cjs'),html,report],{env,windowsHide:true,timeout:60000});
+    await promisify(execFile)(require('electron'),[resolve('apps/web/tests/browser/character-frontend-packages.probe.cjs'),html,report],{env,windowsHide:true,timeout:90000});
     const result=JSON.parse(await readFile(report,'utf8'));
+    if(process.env.ELECKOI_PACKAGE_REPORT){await mkdir(dirname(process.env.ELECKOI_PACKAGE_REPORT),{recursive:true});await writeFile(process.env.ELECKOI_PACKAGE_REPORT,JSON.stringify(result,null,2));}
+    expect(result.menus).toHaveLength(40);
+    for(const menu of result.menus){
+      const detail=JSON.stringify(menu);
+      expect(menu.gap,detail).toBeLessThan(1);expect(menu.align,detail).toBeLessThan(1);
+      expect(menu.visible,detail).toBe(true);expect(menu.sameRoot,detail).toBe(true);
+    }
     expect(result.layouts).toHaveLength(20);
     for(const row of result.layouts){
       const detail=JSON.stringify(row);
@@ -38,9 +45,9 @@ it('keeps native controls aligned, separates file panes, and virtualizes large p
       expect(row.toolbarIcons.every(icon=>icon.resolved&&icon.painted),detail).toBe(true);
     }
     expect(result.mobileReading).toBe(true);expect(result.lastFile).toBe(true);expect(result.menu).toBe(true);expect(result.emptyImports).toBe(1);
-    expect(result.themeUpdate).toBe(true);expect(result.sourceRemount).toBe(true);expect(result.spriteCleanup).toBe(true);
+    expect(result.themeUpdate).toBe(true);expect(result.sourceRemount).toBe(true);expect(result.unmountClosesMenu).toBe(true);
   }finally{
     const path=relative(tmpdir(),directory);if(!path||path.startsWith('..')||isAbsolute(path))throw Error('Unexpected fixture path');
     await rm(directory,{recursive:true,force:true,maxRetries:3});
   }
-},70000);
+},100000);

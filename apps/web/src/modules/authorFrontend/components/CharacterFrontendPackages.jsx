@@ -6,7 +6,6 @@ import { Button, CodeBlock, FileTypeIcon, Menu, PathLabel, SegmentedTabs, langua
   IconRefreshOutlineRegular, IconTrashOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import { AUTHOR_API_VERSION } from '@eleckoi/author-sdk';
 import { ExportIcon } from '../../../ui/icons/openSourceIcons.jsx';
-import { useShadowControlStyles } from '../../../ui/hooks/useShadowControlStyles.js';
 import { registerOverlayBack } from '../../../ui/hooks/overlayBack.js';
 import { resolveFailure } from '../../../utils/failureText.js';
 import { characterFrontendEntry } from '../model/characterFrontend.js';
@@ -26,7 +25,7 @@ const encode = bytes => {
 
 export function CharacterFrontendPackages({ characterId, workspace, status, request, error: serviceError }) {
   const tUi = useProductTranslation();
-  const surface = useRef(null), importInput = useRef(null), resolver = useRef(null), alive = useRef(true), working = useRef(false);
+  const importInput = useRef(null), resolver = useRef(null), alive = useRef(true), working = useRef(false);
   const [selection, setSelection] = useState(null), [view, setView] = useState('files');
   const [menu, setMenu] = useState(null), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [question, setQuestion] = useState(null), [reading, setReading] = useState(false);
@@ -34,7 +33,6 @@ export function CharacterFrontendPackages({ characterId, workspace, status, requ
     || workspace.projects.find(item => item.id === workspace.selectedProjectId) || workspace.projects[0];
   const path = project && selection?.projectId === project.id && (project.files.includes(selection.path) || selection.path === manifestPath) ? selection.path : project?.entryFile;
   const id = useId();
-  useShadowControlStyles(surface);
   useEffect(() => {
     alive.current = true;
     return () => { alive.current = false; resolver.current?.(null); };
@@ -94,7 +92,7 @@ export function CharacterFrontendPackages({ characterId, workspace, status, requ
   };
   const tabs = ['preview', 'files'].map((value, index) => ({ value, id: `${id}-${value}`, panelId: `${id}-body`,
     label: <span className="cf-tab-label">{index ? <FileTypeIcon kind="other" size={15} /> : <IconBrowseOutlineRegular size={15} />}<span>{index ? tUi("文件") : tUi("预览")}</span></span> }));
-  return <section ref={surface} className="cf-packages" aria-label={tUi("角色前端包")} data-dsh-control aria-busy={busy}>
+  return <section className="cf-packages" aria-label={tUi("角色前端包")} data-dsh-control aria-busy={busy}>
     <header className="cf-toolbar">
       {project && <Menu open={menu === 'packages'} onClose={() => setMenu(null)} selectedId={project.id} className="cf-package-menu" portal
         anchor={<Button data-dsh-control size="sm" variant="ghost" className="cf-selector" aria-label={tUi("切换前端包")} disabled={busy} onClick={() => setMenu(menu === 'packages' ? null : 'packages')}>
@@ -137,9 +135,7 @@ export function CharacterFrontendPackages({ characterId, workspace, status, requ
 
 function PackageDocument({ project, path, request, visible }) {
   const tUi = useProductTranslation();
-  const surface = useRef(null);
   const [loaded, setLoaded] = useState(null);
-  useShadowControlStyles(surface);
   const revision = project.updatedAt;
   useEffect(() => {
     if (!visible || !path || !textual(path)) return;
@@ -157,7 +153,7 @@ function PackageDocument({ project, path, request, visible }) {
   if (!textual(path)) return <div className="cf-empty"><FileTypeIcon path={path} size={40} /><span>{path.split('/').at(-1)}</span></div>;
   if (!loaded || loaded.path !== path || loaded.revision !== revision) return <div className="cf-empty" aria-busy="true" />;
   if (loaded.error) return <div className="cf-error" role="alert">{loaded.error}</div>;
-  return <div ref={surface} className="cf-source"><CodeBlock code={loaded.content || ''} lang={languageForPath(path)} lineNumbers showHeader={false} copyLabel={tUi("复制")} copiedLabel={tUi("已复制")} /></div>;
+  return <div className="cf-source"><CodeBlock code={loaded.content || ''} lang={languageForPath(path)} lineNumbers showHeader={false} copyLabel={tUi("复制")} copiedLabel={tUi("已复制")} /></div>;
 }
 
 function PackagePreview({ project, characterId, request, revision }) {

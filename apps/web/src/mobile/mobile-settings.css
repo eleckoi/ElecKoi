@@ -85,5 +85,5 @@
 @media (prefers-reduced-motion: reduce) { .mobile-settings-switch > i, .mobile-settings-switch > i::after { transition: none; } }
 html[data-eleckoi-mobile="true"] .avatar-crop-stage { width: 100%; height: 320px; corner-shape: round; }
 html[data-eleckoi-mobile="true"] .avatar-crop-controls { grid-template-columns: 48px minmax(0, 1fr) 48px; gap: 8px; }
-html[data-eleckoi-mobile="true"] .avatar-crop-controls button { width: 48px; height: 48px; border: 0; border-radius: 50%; corner-shape: round; }
+html[data-eleckoi-mobile="true"] .avatar-crop-controls button { width: 48px; height: 48px; padding: 0; }
 html[data-eleckoi-mobile="true"] .avatar-crop-zoom { height: 44px; }

@@ -1,5 +1,9 @@
 # 测试与日常验证
 
+`character-frontend-packages.test.js` 使用正式前端包页和官方 Portal，核对包选择与更多菜单在深浅主题、宽窄内容区的真实按钮间距、同树锚点、边界可见及卸载关闭；原目录、图标、包切换与导入合同继续覆盖。`editor-creation-polish.test.js` 另核对资产库筛选、排序和展示尺寸在窄屏横向空间不足时，仍贴着原按钮展开。不能仅断言菜单没有超出屏幕来代替锚点定位检查。
+
+`avatar-crop-encoding.test.jsx` 核对双指中点缩放、抬起一指后的连续拖动、取消与丢失捕获、原缩放边界及最终裁剪源坐标。`avatar-crop-interaction.test.js` 装配正式裁剪弹窗与移动样式，在深浅主题和手机／平板／PC 宽度核对图标居中、触区、缩放条及画布间距；通过浏览器触摸事件实际放大、缩小、旋转后调用正式 Worker 保存，核对输出图片尺寸。该合成浏览器测试不等同 Android 真机或安装包验收。
+
 `dsh-client-creator-studio.test.ts` 注入会话目录与统计读取失败，验证已打开的对话、已提交的修改和重新生成可继续。未知 Session 仍须通过正式目录确认。`dsh-client-presets.test.ts`、`tool-provenance.test.ts` 与 `dsh-client-models.test.ts` 分别验证已导入预设、工具权限和模型基础目录在补充信息失败时可用，后续读取可以恢复。`generated-image-cleanup.test.js` 模拟提交后的图片路径校验失败，确认已生成的回退记录和准备状态一致，下次会话改写按原归属规则重试清理。`android-startup-page.test.js` 核对原生文件和链接操作的错误提示入口与启动恢复入口各自接线。
 
 `novelai-image-generation.test.js` 沿正式 Agent 流验证分镜 JSON 无效、数量不符和图片模型缺失时，正文完整完成。格式错误保留配图失败事件，三个场景均无图片请求，随后在原会话验证有效分镜成功出图。`dsh-client-character-configuration.test.ts` 与 `dsh-client-conversations.test.ts` 注入单个抛错的订阅回调，核对原始诊断、同一事件的其他接收者和后续配置／会话变更。

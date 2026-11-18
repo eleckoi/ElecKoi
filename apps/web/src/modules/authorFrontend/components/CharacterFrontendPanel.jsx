@@ -1,22 +1,17 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { forwardRef, useEffect, useImperativeHandle } from 'react';
 import { useFrontendWorkspace } from '../hooks/useFrontendWorkspace.js';
 import { CharacterFrontendPackages } from './CharacterFrontendPackages.jsx';
-import panelStyles from '../styles/characterFrontendPanel.css?inline';
+import '../styles/characterFrontendPanel.css';
 import '../styles/characterFrontend.css';
 
 /** Package operations commit independently; the browser has no source-editing draft. */
 export const CharacterFrontendPanel = forwardRef(function CharacterFrontendPanel({ characterId, onDirtyChange }, ref) {
   const state = useFrontendWorkspace(characterId);
-  const host = useRef(null);
-  const [seat, setSeat] = useState(null);
   useImperativeHandle(ref, () => ({ save: () => true, discard: () => {} }), []);
   useEffect(() => { onDirtyChange?.(false); }, [characterId, onDirtyChange]);
-  useEffect(() => {
-    const shadow = host.current.shadowRoot || host.current.attachShadow({ mode: 'open' });
-    const style = document.createElement('style'); style.textContent = panelStyles; shadow.append(style); setSeat(shadow);
-    return () => style.remove();
-  }, []);
-  return <div ref={host} className="character-frontend-editor">{seat && createPortal(
-    <CharacterFrontendPackages key={characterId} characterId={characterId} {...state} />, seat)}</div>;
+  // Product controls and body portals share one tree for official anchors and focus.
+  // Authored frontend documents remain isolated by AdvancedFrontendFrame.
+  return <div className="character-frontend-editor">
+    <CharacterFrontendPackages key={characterId} characterId={characterId} {...state} />
+  </div>;
 });

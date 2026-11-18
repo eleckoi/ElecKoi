@@ -98,7 +98,7 @@
   "向左旋转 90°": "Rotation de 90° vers la gauche",
   "缩放图片": "Agrandir l'image",
   "向右旋转 90°": "Rotation de 90° vers la droite",
-  "拖动图片调整位置，滚轮可缩放": "faites glisser l'image pour ajuster la position et la molette de défilement peut zoomer",
+  "拖动调整位置，双指或滚轮缩放": "Glissez pour déplacer ; pincez ou utilisez la molette pour zoomer",
   "保存": "Enregistrer",
   "运行错误": "Erreur de fonctionnement",
   "关闭错误详情": "Fermez les détails de l'erreur",

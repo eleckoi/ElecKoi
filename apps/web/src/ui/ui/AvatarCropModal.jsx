@@ -38,7 +38,9 @@ export function AvatarCropModal({
   const title = titleSource === undefined ? tUi("编辑图片") : titleSource;
   const stageRef = useRef(null);
   const imageRef = useRef(null);
-  const dragRef = useRef(null);
+  const pointersRef = useRef(new Map());
+  const gestureRef = useRef(null);
+  const transformRef = useRef({ zoom: 1, offset: { x: 0, y: 0 } });
   const encodingRef = useRef(null);
   const [imageUrl, setImageUrl] = useState("");
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
@@ -47,6 +49,7 @@ export function AvatarCropModal({
   const [rotation, setRotation] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  transformRef.current = { zoom, offset };
 
   const quarterTurn = Math.abs(rotation % 180) === 90;
   const orientedSize = useMemo(
@@ -80,6 +83,9 @@ export function AvatarCropModal({
     setRotation(0);
     setSaving(false);
     setError("");
+    pointersRef.current.clear();
+    gestureRef.current = null;
+    transformRef.current = { zoom: 1, offset: { x: 0, y: 0 } };
     return () => { encodingRef.current?.abort(); URL.revokeObjectURL(nextUrl); };
   }, [file]);
 
@@ -103,49 +109,88 @@ export function AvatarCropModal({
 
   function handleZoomChange(event) {
     const nextZoom = Number(event.target.value);
-    setZoom(nextZoom);
-    setOffset((current) => clampOffset(current, nextZoom));
+    updateTransform(nextZoom, transformRef.current.offset);
   }
 
   function zoomByWheel(event) {
+    if (saving) return;
     event.preventDefault();
-    const nextZoom = clamp(zoom - event.deltaY * 0.0016, 1, 3);
+    const nextZoom = clamp(transformRef.current.zoom - event.deltaY * 0.0016, 1, 3);
+    updateTransform(nextZoom, transformRef.current.offset);
+  }
+
+  function updateTransform(nextZoom, nextOffset) {
+    const bounded = clampOffset(nextOffset, nextZoom);
+    transformRef.current = { zoom: nextZoom, offset: bounded };
     setZoom(nextZoom);
-    setOffset((current) => clampOffset(current, nextZoom));
+    setOffset(bounded);
+  }
+
+  function pointerPosition(event) {
+    const stage = event.currentTarget.getBoundingClientRect();
+    return { x: event.clientX - stage.left - stage.width / 2, y: event.clientY - stage.top - stage.height / 2 };
+  }
+
+  function startGesture() {
+    const [first, second] = pointersRef.current.values();
+    const current = transformRef.current;
+    gestureRef.current = second ? {
+      kind: 'pinch', zoom: current.zoom, offset: current.offset,
+      x: (first.x + second.x) / 2, y: (first.y + second.y) / 2,
+      distance: Math.hypot(second.x - first.x, second.y - first.y),
+    } : first ? { kind: 'drag', ...first, offset: current.offset } : null;
   }
 
   function beginDrag(event) {
+    if (saving || !naturalSize.width || (event.pointerType === 'mouse' && event.button !== 0)) return;
     event.preventDefault();
-    dragRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      offset,
-    };
+    pointersRef.current.set(event.pointerId, pointerPosition(event));
     event.currentTarget.setPointerCapture?.(event.pointerId);
+    startGesture();
   }
 
   function dragImage(event) {
-    if (!dragRef.current) return;
-    const nextOffset = {
-      x: dragRef.current.offset.x + event.clientX - dragRef.current.x,
-      y: dragRef.current.offset.y + event.clientY - dragRef.current.y,
-    };
-    setOffset(clampOffset(nextOffset));
+    if (saving) return;
+    if (!pointersRef.current.has(event.pointerId)) return;
+    pointersRef.current.set(event.pointerId, pointerPosition(event));
+    const [first, second] = pointersRef.current.values(), gesture = gestureRef.current;
+    if (!gesture) return;
+    if (gesture.kind === 'pinch') {
+      const distance = Math.hypot(second.x - first.x, second.y - first.y);
+      if (!gesture.distance) { startGesture(); return; }
+      const nextZoom = clamp(gesture.zoom * distance / gesture.distance, 1, 3);
+      const ratio = nextZoom / gesture.zoom;
+      updateTransform(nextZoom, {
+        x: (first.x + second.x) / 2 - (gesture.x - gesture.offset.x) * ratio,
+        y: (first.y + second.y) / 2 - (gesture.y - gesture.offset.y) * ratio,
+      });
+    } else {
+      updateTransform(transformRef.current.zoom, {
+        x: gesture.offset.x + first.x - gesture.x,
+        y: gesture.offset.y + first.y - gesture.y,
+      });
+    }
   }
 
-  function endDrag() {
-    dragRef.current = null;
+  function endDrag(event) {
+    if (!pointersRef.current.delete(event.pointerId)) return;
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    startGesture();
   }
 
   function rotateBy(degrees) {
     setRotation((current) => current + degrees);
-    setOffset({ x: 0, y: 0 });
+    updateTransform(transformRef.current.zoom, { x: 0, y: 0 });
+    pointersRef.current.clear();
+    gestureRef.current = null;
   }
 
   async function saveCrop() {
     if (!file || !stageRef.current || !imageRef.current || !naturalSize.width || !naturalSize.height || encodingRef.current) return;
     const encoding = new AbortController();
     encodingRef.current = encoding;
+    pointersRef.current.clear();
+    gestureRef.current = null;
     let orientedCanvas, canvas;
     setSaving(true);
     setError("");
@@ -223,6 +268,7 @@ export function AvatarCropModal({
           onPointerMove={dragImage}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
+          onLostPointerCapture={endDrag}
           onWheel={zoomByWheel}
         >
           {imageUrl ? (
@@ -253,16 +299,13 @@ export function AvatarCropModal({
         </div>
 
         <div className="avatar-crop-controls">
-          <Button variant="outline" title={tUi("向左旋转 90°")} aria-label={tUi("向左旋转 90°")} onClick={() => rotateBy(-90)}>
-            <RotateLeftIcon />
-          </Button>
-          <input className="avatar-crop-zoom" aria-label={tUi("缩放图片")} type="range" min="1" max="3" step="0.01" value={zoom} onChange={handleZoomChange} />
-          <Button variant="outline" title={tUi("向右旋转 90°")} aria-label={tUi("向右旋转 90°")} onClick={() => rotateBy(90)}>
-            <RotateRightIcon />
-          </Button>
+          <Button size="sm" variant="ghost" title={tUi("向左旋转 90°")} aria-label={tUi("向左旋转 90°")} disabled={saving} icon={<RotateLeftIcon />} onClick={() => rotateBy(-90)} />
+          <input className="avatar-crop-zoom" aria-label={tUi("缩放图片")} type="range" min="1" max="3" step="0.01" value={zoom} disabled={saving}
+            style={{ '--crop-zoom-progress': `${(zoom - 1) * 50}%` }} onChange={handleZoomChange} />
+          <Button size="sm" variant="ghost" title={tUi("向右旋转 90°")} aria-label={tUi("向右旋转 90°")} disabled={saving} icon={<RotateRightIcon />} onClick={() => rotateBy(90)} />
         </div>
         <p className={error ? "avatar-crop-error" : "avatar-crop-hint"} role={error ? "alert" : undefined}>
-          {error || tUi("拖动图片调整位置，滚轮可缩放")}
+          {error || tUi("拖动调整位置，双指或滚轮缩放")}
         </p>
 
   </Modal>;

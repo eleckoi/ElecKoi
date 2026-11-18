@@ -24,8 +24,8 @@ const value = () => structuredClone(state);
 const provider = children => <NativeFrontendProvider connection={{ getSnapshot: () => service, subscribe: () => () => {} }}
   authorConnection={{ getSnapshot: () => runtime, subscribe: () => () => {} }}>{children}</NativeFrontendProvider>;
 const render = async element => act(() => root.render(provider(element)));
-const shadow = () => container.querySelector('.character-frontend-editor').shadowRoot;
-const click = async (label, scope = shadow()) => {
+const panel = () => container.querySelector('.cf-packages');
+const click = async (label, scope = panel()) => {
   const button = [...scope.querySelectorAll('button')].find(item => item.textContent.trim() === label || item.getAttribute('aria-label') === label);
   expect(button).toBeTruthy(); await act(() => button.click());
 };
@@ -78,22 +78,22 @@ describe('character frontend package browser', () => {
   it('browses nested package files without editing, copy controls or redundant status labels', async () => {
     const controller = createRef(); state.selectedProjectId = state.projects[0].id;
     await render(<CharacterFrontendPanel ref={controller} characterId={characterId} onDirtyChange={dirty} />);
-    expect(shadow().textContent).toContain(html);
-    expect(shadow().querySelector('textarea,[contenteditable=true]')).toBeNull();
-    expect(shadow().textContent).not.toMatch(/只读|使用中|新建|添加资源|保存文件|复制/);
-    expect(shadow().querySelectorAll('input[type=file]')).toHaveLength(1);
+    expect(panel().textContent).toContain(html);
+    expect(panel().querySelector('textarea,[contenteditable=true]')).toBeNull();
+    expect(panel().textContent).not.toMatch(/只读|使用中|新建|添加资源|保存文件|复制/);
+    expect(panel().querySelectorAll('input[type=file]')).toHaveLength(1);
     expect(dirty).toHaveBeenLastCalledWith(false); expect(controller.current.save()).toBe(true);
     await click('assets'); await click('synthetic.bin');
-    expect(shadow().querySelector('.cf-file-title').textContent).toContain('assets/synthetic.bin');
+    expect(panel().querySelector('.cf-file-title').textContent).toContain('assets/synthetic.bin');
     expect(service.projects.writeFile).not.toHaveBeenCalled();
     await click('eleckoi.frontend.json');
-    expect(shadow().querySelector('.cf-source').textContent).toContain('manifestVersion');
+    expect(panel().querySelector('.cf-source').textContent).toContain('manifestVersion');
     expect(service.projects.readFile).not.toHaveBeenCalledWith(expect.anything(), expect.anything(), {path:'eleckoi.frontend.json'});
   });
   it('imports a complete role page and immediately enables the newly imported package', async () => {
     state.selectedProjectId = 'synthetic-role-project';
     await render(<CharacterFrontendPanel characterId={characterId} />);
-    const input = shadow().querySelector('input[accept=".html,.htm,.zip"]');
+    const input = panel().querySelector('input[accept=".html,.htm,.zip"]');
     const bytes = new TextEncoder().encode(html);
     Object.defineProperty(input, 'files', { value: [{ name: 'synthetic-page.html', arrayBuffer: async () => bytes.buffer }] });
     await act(() => input.dispatchEvent(new Event('change', { bubbles: true })));
@@ -103,17 +103,17 @@ describe('character frontend package browser', () => {
     }));
     expect(state.selectedProjectId).toBe('synthetic-new-project');
     expect(service.projects.select).not.toHaveBeenCalled();
-    expect(shadow().querySelector('[aria-label="切换前端包"]').textContent).toBe('synthetic-page');
-    expect([...shadow().querySelectorAll('button')].some(button => button.textContent === '使用此前端')).toBe(false);
+    expect(panel().querySelector('[aria-label="切换前端包"]').textContent).toBe('synthetic-page');
+    expect([...panel().querySelectorAll('button')].some(button => button.textContent === '使用此前端')).toBe(false);
     expect(service.projects.select).not.toHaveBeenCalled();
   });
   it('imports a ZIP as a package without imposing an HTML manifest or exposing file upload controls', async () => {
     await render(<CharacterFrontendPanel characterId={characterId} />);
-    const input=shadow().querySelector('input[type=file]');
+    const input=panel().querySelector('input[type=file]');
     Object.defineProperty(input,'files',{value:[{name:'synthetic-package.zip',arrayBuffer:async()=>Uint8Array.of(1,2,3).buffer}]});
     await act(()=>input.dispatchEvent(new Event('change',{bubbles:true})));
     expect(service.projects.importProject).toHaveBeenCalledWith({scope:'character',characterId},{select:true,filename:'synthetic-package.zip',name:'synthetic-package',data:'AQID'});
-    expect(shadow().querySelectorAll('input[type=file]')).toHaveLength(1);
+    expect(panel().querySelectorAll('input[type=file]')).toHaveLength(1);
   });
   it('exports the browsed package using the upward export icon and preserves the active selection', async () => {
     state.projects.push({...sample(),id:'synthetic-other-project',name:'Synthetic other project'});
@@ -152,13 +152,13 @@ describe('character frontend package browser', () => {
     state.projects.push({...sample(),id:'synthetic-other-project',name:'Synthetic other project'});
     await render(<CharacterFrontendPanel characterId={characterId}/>);
     await choosePackage('Synthetic other project'); await click('main.html'); await click('预览');
-    const frame=shadow().querySelector('iframe'); expect(frame).toBeTruthy();
+    const frame=panel().querySelector('iframe'); expect(frame).toBeTruthy();
     await act(()=>frame.dispatchEvent(new Event('load')));
     expect(runtime.mountProjectDocument).toHaveBeenCalledWith(frame.contentWindow, expect.objectContaining({projectId:'synthetic-other-project',characterId,view:'chat'}));
     await click('文件'); expect(stopPage).toHaveBeenCalledOnce();
-    expect(shadow().querySelector('.cf-file-title').textContent).toContain('pages/main.html');
-    expect(shadow().querySelector('[aria-label="切换前端包"]').textContent).toBe('Synthetic other project');
-    expect(shadow().querySelector('iframe')).toBeNull();
+    expect(panel().querySelector('.cf-file-title').textContent).toContain('pages/main.html');
+    expect(panel().querySelector('[aria-label="切换前端包"]').textContent).toBe('Synthetic other project');
+    expect(panel().querySelector('iframe')).toBeNull();
   });
   it('restores the default chat without removing imported packages', async () => {
     state.selectedProjectId=state.projects[0].id;
@@ -172,11 +172,11 @@ describe('character frontend package browser', () => {
     state.projects.push({...sample(),id:'synthetic-other-project',name:'Synthetic other project'});
     await render(<CharacterFrontendPanel characterId={characterId}/>); await choosePackage('Synthetic other project');
     await act(()=>finish({ok:true,value:{content:'obsolete package source'}}));
-    expect(shadow().textContent).not.toContain('obsolete package source'); expect(shadow().textContent).toContain(html);
+    expect(panel().textContent).not.toContain('obsolete package source'); expect(panel().textContent).toContain(html);
     await render(<CharacterFrontendPanel characterId="synthetic-next-character"/>);
-    expect(stopWatch).toHaveBeenCalled(); expect(shadow().textContent).not.toContain(html);
-    expect(shadow().querySelectorAll('[aria-label="导入前端包"]')).toHaveLength(1);
-    expect(shadow().querySelector('[aria-label="切换前端包"]')).toBeNull();
+    expect(stopWatch).toHaveBeenCalled(); expect(panel().textContent).not.toContain(html);
+    expect(panel().querySelectorAll('[aria-label="导入前端包"]')).toHaveLength(1);
+    expect(panel().querySelector('[aria-label="切换前端包"]')).toBeNull();
   });
 });
 

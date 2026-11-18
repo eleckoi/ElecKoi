@@ -35,5 +35,5 @@ window.renderPackages = (active=true, empty=false) => {
   const service={watch:(_owner,publish)=>{publish(state);return()=>{};},projects:{readFile:async(_owner,_id,{path})=>({ok:true,value:{content:path==='index.html'?source:'// '+path+'\n'+Array.from({length:180},(_,i)=>`const value${i} = ${i};`).join('\n')}})}};
   flushSync(()=>root.render(<NativeFrontendProvider connection={connection(service)} authorConnection={connection(runtime)}>
     <CharacterFrontendPanel key={`${active}:${empty}`} characterId={characterId}/></NativeFrontendProvider>));
-  window.packageSeat=document.querySelector('.character-frontend-editor').shadowRoot;
+  window.packageSeat=document.querySelector('.cf-packages');
 };

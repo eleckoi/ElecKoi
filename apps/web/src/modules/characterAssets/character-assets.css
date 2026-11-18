@@ -109,10 +109,12 @@
 @media(max-width:760px) { .character-asset-library.editor-heading-surface { --editor-heading-inset-top:20px; --editor-heading-inset-inline:16px; } }
 @media(max-width:380px) { .character-asset-library.editor-heading-surface { --editor-heading-inset-inline:10px; } }
 .character-asset-library.asset-menu-layer { position:fixed; inset:0; z-index:1500; height:auto; padding:0; overflow:visible; background:transparent; pointer-events:none; }
-.asset-menu-layer .popover { position:fixed; top:max(8px,calc(anchor(bottom) + 7px)); bottom:8px; left:max(8px,anchor(left)); right:8px; justify-self:start; align-self:start; margin:0; height:fit-content; max-width:calc(100vw - 16px); max-height:calc(100dvh - 16px); position-try-fallbacks:--eleckoi-asset-menu-above,--eleckoi-asset-menu-wide; overflow:auto; pointer-events:auto; }
+.asset-menu-layer .popover { position:fixed; top:max(8px,calc(anchor(bottom) + 7px)); bottom:8px; left:max(8px,anchor(left)); right:8px; justify-self:start; align-self:start; margin:0; height:fit-content; max-width:calc(100vw - 16px); max-height:calc(100dvh - 16px); position-try-fallbacks:--eleckoi-asset-menu-wide-below,--eleckoi-asset-menu-above,--eleckoi-asset-menu-wide-above,--eleckoi-asset-menu-window; overflow:auto; pointer-events:auto; }
 .asset-menu-layer .popover[data-anchor-align=end] { left:8px; right:max(8px,anchor(right)); justify-self:end; }
 @position-try --eleckoi-asset-menu-above { top:8px; bottom:max(8px,calc(anchor(top) + 7px)); align-self:end; }
-@position-try --eleckoi-asset-menu-wide { top:8px; bottom:8px; left:8px; right:8px; justify-self:safe end; }
+@position-try --eleckoi-asset-menu-wide-below { top:max(8px,calc(anchor(bottom) + 7px)); bottom:8px; left:8px; right:8px; align-self:start; justify-self:safe end; }
+@position-try --eleckoi-asset-menu-wide-above { top:8px; bottom:max(8px,calc(anchor(top) + 7px)); left:8px; right:8px; align-self:end; justify-self:safe end; }
+@position-try --eleckoi-asset-menu-window { top:8px; bottom:8px; left:8px; right:8px; align-self:safe start; justify-self:safe end; }
 .asset-menu-layer .menu-dismiss { pointer-events:auto; }
 @media (max-width:760px) {
   .character-asset-library {

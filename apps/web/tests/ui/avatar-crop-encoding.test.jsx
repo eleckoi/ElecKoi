@@ -15,7 +15,7 @@ afterEach(async () => {
   vi.restoreAllMocks(); vi.unstubAllGlobals();
 });
 
-async function fixture(mode = 'success') {
+async function fixture(mode = 'success', beforeSave) {
   const BrowserURL = globalThis.URL;
   vi.stubGlobal('URL', class extends BrowserURL { static createObjectURL() { return 'blob:synthetic-crop'; } static revokeObjectURL() {} });
   const bitmap = { width: 900, height: 1200, close: vi.fn() };
@@ -41,10 +41,57 @@ async function fixture(mode = 'success') {
   const image = document.querySelector('.avatar-crop-image-transform img');
   Object.defineProperties(image, { naturalWidth: { value: 1800 }, naturalHeight: { value: 2400 } });
   await act(async () => image.dispatchEvent(new Event('load')));
+  if (beforeSave) await beforeSave({ image, drawing });
   const save = [...document.querySelectorAll('button')].find(button => button.textContent === '保存');
   await act(async () => save.click());
   return { bitmap, workers, onSave, pageEncoder };
 }
+
+async function pointer(type, id, x, y) {
+  const stage = document.querySelector('.avatar-crop-stage');
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.assign(event, { pointerId: id, pointerType: 'touch', clientX: x, clientY: y, button: 0 });
+  await act(async () => stage.dispatchEvent(event));
+}
+
+it('pinches around the fingers, continues one-finger dragging and saves that crop', async () => {
+  let cropDrawing;
+  const f = await fixture('success', async ({ drawing }) => {
+    cropDrawing = drawing;
+    const stage = document.querySelector('.avatar-crop-stage');
+    stage.getBoundingClientRect = () => ({ left: 0, top: 0, width: 440, height: 320 });
+    await pointer('pointerdown', 1, 200, 160); await pointer('pointerdown', 2, 280, 160);
+    await pointer('pointermove', 1, 160, 160); await pointer('pointermove', 2, 320, 160);
+    expect(Number(document.querySelector('.avatar-crop-zoom').value)).toBe(2);
+    expect(document.querySelector('.avatar-crop-image-transform').style.transform).toBe('translate(-20px, 0px) rotate(0deg)');
+    await pointer('pointerup', 2, 320, 160);
+    await pointer('pointermove', 1, 170, 160);
+    expect(document.querySelector('.avatar-crop-image-transform').style.transform).toBe('translate(-10px, 0px) rotate(0deg)');
+    await pointer('pointercancel', 1, 170, 160); await pointer('pointermove', 1, 400, 300);
+    expect(document.querySelector('.avatar-crop-image-transform').style.transform).toBe('translate(-10px, 0px) rotate(0deg)');
+  });
+  const [, x, y, width, height] = cropDrawing.drawImage.mock.calls[1];
+  expect(x).toBeCloseTo(492.857142857); expect(y).toBeCloseTo(600);
+  expect(width).toBeCloseTo(900); expect(height).toBeCloseTo(1200);
+  expect(f.onSave).toHaveBeenCalledOnce();
+});
+
+it('keeps pinch limits and resets cancelled pointers before the next gesture', async () => {
+  await fixture('success', async () => {
+    const stage = document.querySelector('.avatar-crop-stage');
+    stage.getBoundingClientRect = () => ({ left: 0, top: 0, width: 440, height: 320 });
+    await pointer('pointerdown', 1, 210, 160); await pointer('pointerdown', 2, 230, 160);
+    await pointer('pointermove', 1, 60, 160); await pointer('pointermove', 2, 380, 160);
+    expect(Number(document.querySelector('.avatar-crop-zoom').value)).toBe(3);
+    await pointer('pointermove', 1, 219, 160); await pointer('pointermove', 2, 221, 160);
+    expect(Number(document.querySelector('.avatar-crop-zoom').value)).toBe(1);
+    await pointer('lostpointercapture', 1, 219, 160); await pointer('pointercancel', 2, 221, 160);
+    await pointer('pointerdown', 3, 180, 160); await pointer('pointerdown', 4, 260, 160);
+    await pointer('pointermove', 3, 140, 160); await pointer('pointermove', 4, 300, 160);
+    expect(Number(document.querySelector('.avatar-crop-zoom').value)).toBe(2);
+    expect(document.querySelector('.avatar-crop-image-transform').style.transform).toBe('translate(0px, 0px) rotate(0deg)');
+  });
+});
 
 it('saves the cover through a worker while the page PNG encoder is unavailable', async () => {
   const f = await fixture();

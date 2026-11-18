@@ -6,7 +6,7 @@ const [html, reportPath] = process.argv.slice(2);
 app.setPath('userData', join(dirname(html), 'profile')); app.disableHardwareAcceleration();
 app.whenReady().then(async () => {
   const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true, offscreen: true, backgroundThrottling: false } });
-  const run = code => win.webContents.executeJavaScript(code), report = { cases: [], errors: [] };
+  const run = code => win.webContents.executeJavaScript(code), report = { cases: [], assetMenus: [], errors: [] };
   win.webContents.on('console-message', event => { if (event.level === 'error') report.errors.push(event.message); });
   const wait = async code => { for (let i=0; i<120; i++) { if (await run(code)) return; await new Promise(resolve => setTimeout(resolve, 20)); } throw Error(code); };
   const textClick = async (selector, text) => {
@@ -45,6 +45,21 @@ app.whenReady().then(async () => {
       }
       const rowLayout = compact ? await run(`(()=>{const row=document.querySelector(${JSON.stringify(kind==='variables'?'.variable-tree-row':'.setting-library-tree-row-content')}), icon=row.querySelector(${JSON.stringify(kind==='variables'?'.variable-tree-icon':'.setting-library-tree-entry-icon')}), label=row.querySelector(${JSON.stringify(kind==='variables'?'.variable-tree-label':'.setting-library-tree-label')});const r=row.getBoundingClientRect(),s=document.querySelector('.editor-collection-search').getBoundingClientRect();return {icon:icon.getBoundingClientRect().left-r.left,title:label.getBoundingClientRect().left-r.left,searchGap:r.top-s.bottom,height:r.height}})()`) : null;
       report.cases.push({ theme, width, kind, selection, shadow, alignment, rowLayout });
+    }
+    for (const theme of ['light', 'dark']) for (const width of [320, 390, 1200]) {
+      const compact = width < 600, key = `assets:character:${compact}`;
+      win.setContentSize(width, 844);
+      await run(`document.documentElement.dataset.theme='${theme}';document.body.toggleAttribute('data-ds-dark-theme',${theme === 'dark'});document.documentElement.dataset.eleckoiMobile='${compact}';document.querySelector('[data-editor="${key}"]').click()`);
+      await wait(`document.querySelector('main').dataset.current==='${key}'`);
+      for (const label of ['筛选', '排序', '展示尺寸']) {
+        await run(`document.querySelector('[aria-label="${label}"]').click()`); await wait('!!document.querySelector(".asset-menu-layer .popover")');
+        report.assetMenus.push(await run(`(()=>{
+          const anchor=document.querySelector('[aria-label="${label}"]'),menu=document.querySelector('.asset-menu-layer .popover'),a=anchor.getBoundingClientRect(),p=menu.getBoundingClientRect();
+          return {theme:'${theme}',width:${width},label:'${label}',sameRoot:anchor.getRootNode()===menu.getRootNode(),
+            gap:Math.min(Math.abs(p.top-a.bottom-7),Math.abs(a.top-p.bottom-7)),visible:p.left>=0&&p.top>=0&&p.right<=innerWidth&&p.bottom<=innerHeight};
+        })()`));
+        await run('document.querySelector(".asset-menu-layer .menu-dismiss").click()'); await wait('!document.querySelector(".asset-menu-layer")');
+      }
     }
     report.passed = true;
   } catch(error) { report.failure = error.stack || String(error); report.passed = false; }

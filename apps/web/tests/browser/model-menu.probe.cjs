@@ -16,7 +16,7 @@ app.whenReady().then(async()=>{
    layouts.push({theme,viewport:width,...geometry});
    await run('(()=>{const input=document.querySelector("[data-parameter=temperature] input");Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set.call(input,"0.72");input.dispatchEvent(new Event("input",{bubbles:true}));})()');await wait();
    await run('document.querySelector("main button").click()');await wait();
-   if(!await run('!!document.querySelector("[role=alertdialog]")'))throw Error('Unsaved Session draft disappeared');
+   if(!await run('[...document.querySelectorAll("[role=dialog]")].some(dialog=>dialog.textContent.includes("离开前是否保存模型选择和参数修改？"))'))throw Error('Unsaved Session draft disappeared');
    await click('不保存');await run('document.querySelector("main button").click()');await wait();await click('参数');
    if(await run('document.querySelector("[data-parameter=temperature] input").value')!=='')throw Error('Discard wrote Session parameters');
    await run('document.querySelector("main button").click()');await wait();

@@ -18,7 +18,10 @@ it('extends the installed official menu with readable parameters and provider-he
     const html=resolve(directory,'fixture.html'),report=resolve(directory,'report.json');
     await writeFile(html,'<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="fixture.css"></head><body><div id="root"></div><script src="fixture.js"></script><script src="official.js"></script></body></html>');
     const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;
-    await promisify(execFile)(require('electron'),[resolve('apps/web/tests/browser/model-menu.probe.cjs'),html,report],{env,windowsHide:true,timeout:45000});
+    await promisify(execFile)(require('electron'),[resolve('apps/web/tests/browser/model-menu.probe.cjs'),html,report],{env,windowsHide:true,timeout:45000}).catch(async error=>{
+      const evidence=await readFile(report,'utf8').catch(()=>error.message);
+      throw new Error(evidence);
+    });
     const result=JSON.parse(await readFile(report,'utf8'));
     const evidence=resolve('build/parameter-tool-font-check');await mkdir(evidence,{recursive:true});
     await copyFile(report,resolve(evidence,'session-menu-report.json'));
