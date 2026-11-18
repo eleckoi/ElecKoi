@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 import { createRequire } from 'node:module'
 import { dshClientPages } from './dsh-client-pages.mjs'
 import { dshBundleAssets, verifyDshBundleAssets } from './dsh-bundle-assets.mjs'
+import { verifyWindowsPackageContent } from './windows-package-content.mjs'
 
 const require = createRequire(import.meta.url)
 const { verifyWindowsUpdaterConfig } = require('../apps/desktop/scripts/windows-updater-config.cjs')
@@ -19,6 +20,7 @@ const appAsar = join(unpacked, 'resources', 'app.asar')
 if (!existsSync(executable) || !existsSync(appAsar)) {
   throw new Error(`找不到已解包的 ElecKoi：${unpacked}`)
 }
+await verifyWindowsPackageContent(unpacked, 'x64', join(process.cwd(), 'build', 'windows-package-content.json'))
 
 const probe = `
   import('node:fs/promises').then(async ({ access, mkdtemp, readFile, rm }) => {

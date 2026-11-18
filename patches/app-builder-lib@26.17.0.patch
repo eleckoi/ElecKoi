@@ -1,3 +1,127 @@
+diff --git a/out/node-module-collector/moduleManager.d.ts b/out/node-module-collector/moduleManager.d.ts
+index 2b9f3fe665e3ea0962a88ee26da65f7bf756da39..853151436b7f7f58faef06bf063523a3ed9f1873 100644
+--- a/out/node-module-collector/moduleManager.d.ts
++++ b/out/node-module-collector/moduleManager.d.ts
+@@ -7,6 +7,7 @@ export declare enum LogMessageByKey {
+     PKG_NOT_FOUND = "cannot find path for dependency",
+     PKG_NOT_ON_DISK = "dependency not found on disk",
+     PKG_SELF_REF = "self-referential dependencies",
++    PKG_INCOMPATIBLE_PLATFORM = "dependencies excluded for incompatible target cpu/os",
+     PKG_OPTIONAL_NOT_INSTALLED = "missing optional dependencies",
+     PKG_OPTIONAL_PLATFORM_NOT_INSTALLED = "platform-specific optional dependencies not bundled \u2014 add them to your project's optionalDependencies if your app requires them (pnpm 10+ does not auto-install transitive platform binaries)",
+     PKG_COLLECTOR_OUTPUT = "collector stderr output",
+diff --git a/out/node-module-collector/moduleManager.js b/out/node-module-collector/moduleManager.js
+index 7a64eabf4ad5a129d835e23d706d9d4624502fa7..e845824015ec9cc9a44b19328fcc09c4a26822dd 100644
+--- a/out/node-module-collector/moduleManager.js
++++ b/out/node-module-collector/moduleManager.js
+@@ -12,6 +12,7 @@ var LogMessageByKey;
+     LogMessageByKey["PKG_NOT_FOUND"] = "cannot find path for dependency";
+     LogMessageByKey["PKG_NOT_ON_DISK"] = "dependency not found on disk";
+     LogMessageByKey["PKG_SELF_REF"] = "self-referential dependencies";
++    LogMessageByKey["PKG_INCOMPATIBLE_PLATFORM"] = "dependencies excluded for incompatible target cpu/os";
+     LogMessageByKey["PKG_OPTIONAL_NOT_INSTALLED"] = "missing optional dependencies";
+     LogMessageByKey["PKG_OPTIONAL_PLATFORM_NOT_INSTALLED"] = "platform-specific optional dependencies not bundled \u2014 add them to your project's optionalDependencies if your app requires them (pnpm 10+ does not auto-install transitive platform binaries)";
+     LogMessageByKey["PKG_COLLECTOR_OUTPUT"] = "collector stderr output";
+@@ -23,6 +24,7 @@ exports.logMessageLevelByKey = {
+     [LogMessageByKey.PKG_NOT_FOUND]: "warn",
+     [LogMessageByKey.PKG_NOT_ON_DISK]: "warn",
+     [LogMessageByKey.PKG_SELF_REF]: "debug",
++    [LogMessageByKey.PKG_INCOMPATIBLE_PLATFORM]: "info",
+     [LogMessageByKey.PKG_OPTIONAL_NOT_INSTALLED]: "info",
+     [LogMessageByKey.PKG_OPTIONAL_PLATFORM_NOT_INSTALLED]: "warn",
+     [LogMessageByKey.PKG_COLLECTOR_OUTPUT]: "warn",
+diff --git a/out/node-module-collector/nodeModulesCollector.d.ts b/out/node-module-collector/nodeModulesCollector.d.ts
+index 0b672c6ee29df064d19067cea38808fa962b5795..40d779879869a1d11d9eef24f46dbc33f9f6ac02 100644
+--- a/out/node-module-collector/nodeModulesCollector.d.ts
++++ b/out/node-module-collector/nodeModulesCollector.d.ts
+@@ -3,6 +3,10 @@ import { Lazy } from "lazy-val";
+ import { ModuleManager } from "./moduleManager";
+ import { PM } from "./packageManager";
+ import type { Dependency, DependencyGraph, NodeModuleInfo, PackageJson } from "./types";
++export interface ArchFilter {
++    cpu: string | null;
++    os: string;
++}
+ export declare abstract class NodeModulesCollector<ProdDepType extends Dependency<ProdDepType, OptionalDepType>, OptionalDepType> {
+     protected readonly rootDir: string;
+     private readonly tempDirManager;
+@@ -23,8 +27,9 @@ export declare abstract class NodeModulesCollector<ProdDepType extends Dependenc
+      * 5. Hoisting the dependencies to their final locations
+      * 6. Resolving and returning module information
+      */
+-    getNodeModules({ packageName }: {
++    getNodeModules({ packageName, archFilter }: {
+         packageName: string;
++        archFilter?: ArchFilter;
+     }): Promise<{
+         nodeModules: NodeModuleInfo[];
+         logSummary: ModuleManager["logSummary"];
+diff --git a/out/node-module-collector/nodeModulesCollector.js b/out/node-module-collector/nodeModulesCollector.js
+index 307cec3a075ca644ae31128b0761f92d1acfcb0d..95845f1ca3ec4c8104bb4a6ff0a7f20acd08d5dc 100644
+--- a/out/node-module-collector/nodeModulesCollector.js
++++ b/out/node-module-collector/nodeModulesCollector.js
+@@ -11,6 +11,7 @@ const path = require("path");
+ const hoist_1 = require("./hoist");
+ const moduleManager_1 = require("./moduleManager");
+ const packageManager_1 = require("./packageManager");
++const archCompatibility_1 = require("../util/archCompatibility");
+ class NodeModulesCollector {
+     constructor(rootDir, tempDirManager) {
+         this.rootDir = rootDir;
+@@ -46,7 +47,7 @@ class NodeModulesCollector {
+      * 5. Hoisting the dependencies to their final locations
+      * 6. Resolving and returning module information
+      */
+-    async getNodeModules({ packageName }) {
++    async getNodeModules({ packageName, archFilter }) {
+         const tree = await this.getDependenciesTree(this.installOptions.manager);
+         await this.collectAllDependencies(tree, packageName);
+         const realTree = this.getTreeFromWorkspaces(tree, packageName);
+@@ -54,7 +55,7 @@ class NodeModulesCollector {
+         const hoisterResult = (0, hoist_1.hoist)(this.transformToHoisterTree(this.productionGraph, packageName), {
+             check: builder_util_1.log.isDebugEnabled,
+         });
+-        await this._getNodeModules(hoisterResult.dependencies, this.nodeModules);
++        await this._getNodeModules(hoisterResult.dependencies, this.nodeModules, archFilter);
+         builder_util_1.log.debug({ packageName, depCount: this.nodeModules.length }, "node modules collection complete");
+         return { nodeModules: this.nodeModules, logSummary: this.cache.logSummary };
+     }
+@@ -253,7 +254,7 @@ class NodeModulesCollector {
+         }
+         return node;
+     }
+-    async _getNodeModules(dependencies, result, ancestors = new Set()) {
++    async _getNodeModules(dependencies, result, archFilter, ancestors = new Set()) {
+         var _a;
+         if (dependencies.size === 0) {
+             return;
+@@ -278,16 +279,24 @@ class NodeModulesCollector {
+                 this.logMissingDependency(key);
+                 continue;
+             }
++            const dir = await this.cache.realPath[p];
++            if (archFilter != null) {
++                const pkgJson = await this.cache.json[path.join(dir, "package.json")];
++                if (pkgJson != null && !(0, archCompatibility_1.isPackageCompatible)(pkgJson, archFilter.cpu, archFilter.os)) {
++                    this.cache.logSummary[moduleManager_1.LogMessageByKey.PKG_INCOMPATIBLE_PLATFORM].push(key);
++                    continue;
++                }
++            }
+             const node = {
+                 name: d.name,
+                 version: reference,
+-                dir: await this.cache.realPath[p],
++                dir,
+             };
+             result.push(node);
+             if (d.dependencies.size > 0) {
+                 node.dependencies = [];
+                 ancestors.add(d);
+-                await this._getNodeModules(d.dependencies, node.dependencies, ancestors);
++                await this._getNodeModules(d.dependencies, node.dependencies, archFilter, ancestors);
+                 ancestors.delete(d);
+             }
+         }
 diff --git a/out/node-module-collector/pnpmNodeModulesCollector.js b/out/node-module-collector/pnpmNodeModulesCollector.js
 index 56194e32d222602e78db13793b9d4af568154a1a..82b4fb5721bf15e615fa5b6bddf547b7db2d20b2 100644
 --- a/out/node-module-collector/pnpmNodeModulesCollector.js
@@ -133,6 +257,142 @@ index e93987d973399b17f3970c858abb49f5e4b193d6..445a73c81e1d7eb61dc318373d233148
      /**
       * The filesystem for the DMG volume (e.g. `"APFS"` or `"HFS+"`)
       * This will be changed to APFS in the next major release, so it is recommended to set it explicitly to HFS+ if you want to keep using HFS+ (e.g. for better compatibility with older macOS versions).
+diff --git a/out/platformPackager.js b/out/platformPackager.js
+index 26a1cb8717d9c1162c11d2aeada8f903617e5e8b..9b80c7f99ce42b11762e72700b9b69484aebab6a 100644
+--- a/out/platformPackager.js
++++ b/out/platformPackager.js
+@@ -368,7 +368,7 @@ class PlatformPackager {
+             return (0, appFileCopier_1.computeFileSets)(matchers, this.info.isPrepackedAppAsar ? null : transformer, this, isElectronCompile).then(async (result) => {
+                 if (!this.info.isPrepackedAppAsar && !this.info.areNodeModulesHandledExternally) {
+                     const moduleFileMatcher = (0, fileMatcher_1.getNodeModuleFileMatcher)(appDir, defaultDestination, macroExpander, platformSpecificBuildOptions, this.info);
+-                    result = result.concat(await (0, appFileCopier_1.computeNodeModuleFileSets)(this, moduleFileMatcher));
++                    result = result.concat(await (0, appFileCopier_1.computeNodeModuleFileSets)(this, moduleFileMatcher, packContext.arch));
+                 }
+                 return result.filter(it => it.files.length > 0);
+             });
+diff --git a/out/util/appFileCopier.d.ts b/out/util/appFileCopier.d.ts
+index 7e792dc065162eb57107215d68fe46577527cabd..a100b86e901edb684a531552e18ee936e2becb6e 100644
+--- a/out/util/appFileCopier.d.ts
++++ b/out/util/appFileCopier.d.ts
+@@ -1,4 +1,4 @@
+-import { FileTransformer } from "builder-util";
++import { Arch, FileTransformer } from "builder-util";
+ import { Stats } from "fs";
+ import { FileMatcher } from "../fileMatcher";
+ import { PM } from "../node-module-collector";
+@@ -77,5 +77,5 @@ export declare function resolveFirstMatchingCollection(options: {
+  */
+ export declare function enforceAllowMissingDependencies(allowMissingDependencies: boolean | Array<string> | null | undefined, logSummary: ModuleManager["logSummary"] | undefined): void;
+ /** Exported for tests (an internal-tagged export would be stripped from the declarations the test project consumes). */
+-export declare function collectNodeModulesWithLogging(platformPackager: PlatformPackager<any>): Promise<NodeModuleInfo[]>;
++export declare function collectNodeModulesWithLogging(platformPackager: PlatformPackager<any>, arch?: Arch | null): Promise<NodeModuleInfo[]>;
+ export {};
+diff --git a/out/util/appFileCopier.js b/out/util/appFileCopier.js
+index aa2e321e45762850e83971e13c3865b90521a0dd..8967a9286248cda732db3cdd031bd3f69b777cc5 100644
+--- a/out/util/appFileCopier.js
++++ b/out/util/appFileCopier.js
+@@ -23,6 +23,7 @@ const node_module_collector_1 = require("../node-module-collector");
+ const moduleManager_1 = require("../node-module-collector/moduleManager");
+ const AppFileWalker_1 = require("./AppFileWalker");
+ const NodeModuleCopyHelper_1 = require("./NodeModuleCopyHelper");
++const archCompatibility_1 = require("./archCompatibility");
+ const BOWER_COMPONENTS_PATTERN = `${path.sep}bower_components${path.sep}`;
+ /** @internal */
+ exports.ELECTRON_COMPILE_SHIM_FILENAME = "__shim.js";
+@@ -148,8 +149,8 @@ function validateFileSet(fileSet) {
+     return fileSet;
+ }
+ /** @internal */
+-async function computeNodeModuleFileSets(platformPackager, mainMatcher) {
+-    const deps = await collectNodeModulesWithLogging(platformPackager);
++async function computeNodeModuleFileSets(platformPackager, mainMatcher, arch) {
++    const deps = await collectNodeModulesWithLogging(platformPackager, arch);
+     const nodeModuleExcludedExts = getNodeModuleExcludedExts(platformPackager);
+     // serial execution because copyNodeModules is concurrent and so, no need to increase queue/pressure
+     const result = new Array();
+@@ -302,10 +303,11 @@ function enforceAllowMissingDependencies(allowMissingDependencies, logSummary) {
+         `\nInstall the missing dependencies, list names in \`allowMissingDependencies\` to allow specific ones to be missing, or set \`allowMissingDependencies\` to true to only warn.`);
+ }
+ /** Exported for tests (an internal-tagged export would be stripped from the declarations the test project consumes). */
+-async function collectNodeModulesWithLogging(platformPackager) {
++async function collectNodeModulesWithLogging(platformPackager, arch) {
+     var _a, _b;
+     const packager = platformPackager.info;
+     const { tempDirManager, appDir, projectDir } = packager;
++    const archFilter = arch == null ? undefined : { cpu: (0, archCompatibility_1.archToNodeCpu)(arch), os: platformPackager.platform.nodeName };
+     const searchDirectories = Array.from(new Set([appDir, projectDir, await packager.getWorkspaceRoot()])).filter((it) => (0, builder_util_1.isEmptyOrSpaces)(it) === false);
+     const pmApproaches = [await packager.getPackageManager(), node_module_collector_1.PM.TRAVERSAL];
+     // Validate against the as-declared (pre-extraMetadata) production dependencies so a configured
+@@ -314,7 +316,7 @@ async function collectNodeModulesWithLogging(platformPackager) {
+         pmApproaches,
+         searchDirectories,
+         dependencies: packager.originalMetadata.dependencies,
+-        run: (pm, dir) => (0, node_module_collector_1.getCollectorByPackageManager)(pm, dir, tempDirManager).getNodeModules({ packageName: packager.nodePackageName }),
++        run: (pm, dir) => (0, node_module_collector_1.getCollectorByPackageManager)(pm, dir, tempDirManager).getNodeModules({ packageName: packager.nodePackageName, archFilter }),
+     });
+     if (!((_a = deps === null || deps === void 0 ? void 0 : deps.nodeModules) === null || _a === void 0 ? void 0 : _a.length)) {
+         builder_util_1.log.warn({ searchDirectories: searchDirectories.map(it => builder_util_1.log.filePath(it)) }, "no node modules returned while searching directories");
+diff --git a/out/util/archCompatibility.d.ts b/out/util/archCompatibility.d.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..3903bdc5a5345f5e353d796be830fc484aa44d49
+--- /dev/null
++++ b/out/util/archCompatibility.d.ts
+@@ -0,0 +1,7 @@
++import { Arch } from "builder-util";
++export interface PackagePlatformFields {
++    os?: string | string[] | null;
++    cpu?: string | string[] | null;
++}
++export declare function archToNodeCpu(arch: Arch): string | null;
++export declare function isPackageCompatible(pkg: PackagePlatformFields, targetCpu: string | null, targetOs: string): boolean;
+diff --git a/out/util/archCompatibility.js b/out/util/archCompatibility.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..d2d7a21fbcbf18172051b926b50fb74783616e74
+--- /dev/null
++++ b/out/util/archCompatibility.js
+@@ -0,0 +1,42 @@
++"use strict";
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.archToNodeCpu = archToNodeCpu;
++exports.isPackageCompatible = isPackageCompatible;
++const { Arch } = require("builder-util");
++// Backport of electron-builder cecf43a601fe4a3c769398fdc7bc278c57292515,
++// packages/app-builder-lib/src/util/archCompatibility.ts (target cpu/os helpers).
++function archToNodeCpu(arch) {
++    switch (arch) {
++        case Arch.ia32: return "ia32";
++        case Arch.x64: return "x64";
++        case Arch.armv7l: return "arm";
++        case Arch.arm64: return "arm64";
++        default: return null;
++    }
++}
++function toList(value) {
++    if (value == null) return null;
++    const list = Array.isArray(value) ? value : [value];
++    return list.length > 0 ? list : null;
++}
++function checkList(value, list) {
++    if (list.length === 1 && list[0] === "any") return true;
++    let blacklistCount = 0;
++    let match = false;
++    for (const entry of list) {
++        if (entry.startsWith("!")) {
++            if (entry.slice(1) === value) return false;
++            blacklistCount++;
++        } else if (entry === value) {
++            match = true;
++        }
++    }
++    return match || blacklistCount === list.length;
++}
++function isPackageCompatible(pkg, targetCpu, targetOs) {
++    const os = toList(pkg.os);
++    if (os != null && !checkList(targetOs, os)) return false;
++    const cpu = toList(pkg.cpu);
++    if (targetCpu != null && cpu != null && !checkList(targetCpu, cpu)) return false;
++    return true;
++}
 diff --git a/scheme.json b/scheme.json
 index a637bab2668ef88e7382dd4aa5db62b74fdde898..ebcafac58971bdd7c69b78ceddcd401a75ffaa35 100644
 --- a/scheme.json

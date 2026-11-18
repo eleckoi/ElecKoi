@@ -5,6 +5,7 @@
 ## 固定顺序
 
 1. 准备实际发布源码及必要构建输入，按既有要求完成依赖、源码编译和运行资源检查。
+   跨端依赖可以同时安装，但入包必须按目标系统／CPU 筛选；内含多平台 prebuild 的包还须按其正式加载路径保留目标目录。`verify:packaged-dsh` 检查实际 ASAR 的所有依赖声明、原生二进制与编译残留，报告保存在 `build/windows-package-content.json`。不能通过删除必要的 Windows 功能、许可证或 WebAssembly 资源来缩包。
 2. 先启动 GitHub Windows 打包，跟进安装包生成及发布。
 3. 出包后，让 GitHub 的独立检查任务运行功能、UI 或所需回归，读取失败日志并修复。
 
@@ -27,3 +28,5 @@
 - 报告分别说明“安装包状态”和“独立测试状态”，不能把测试失败笼统说成打包失败。
 
 详细测试范围见 [测试说明](TESTING.md)。
+
+目标平台筛选沿 electron-builder 的[官方实现](https://github.com/electron-userland/electron-builder/blob/cecf43a601fe4a3c769398fdc7bc278c57292515/packages/app-builder-lib/src/node-module-collector/nodeModulesCollector.ts)及[架构约束语义](https://github.com/electron-userland/electron-builder/blob/cecf43a601fe4a3c769398fdc7bc278c57292515/packages/app-builder-lib/src/util/archCompatibility.ts)回补到当前锁定版本；退役条件登记在 `pnpm-workspace.yaml`，升级构建器时核对后移除对应补丁。

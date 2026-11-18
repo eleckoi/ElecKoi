@@ -1,5 +1,7 @@
 # 测试与日常验证
 
+`pnpm-production-closure.test.js` 覆盖已安装多平台可选依赖时按真实 Windows 目标 CPU 收集正式依赖，保留纯 JavaScript 和匹配平台的包。`windows-package-content.test.js` 用合成 ASAR 检出嵌套的错平台依赖、无平台声明的其他系统预编译文件和 SQLite 编译残留，并保留匹配架构的原生文件、许可证与 WebAssembly。正式 `verify:packaged-dsh` 另检查 GitHub 实际组装的安装包内容，不能用合成检查代替产物检查。
+
 `setting-library-runtime-tools.test.js` 沿实际设定读取工具执行正式 EJS，核对省略分号、行注释、转义标签、空白控制、异步输出、locals／this、聊天历史的数量／范围／角色选择与空历史，以及 Lodash 深拷贝、getvar 的 clone 选项、对象映射、链式调用与空值语义。引用覆盖文字原样返回、多层 EJS 共用聊天上下文、完整引用记录、并行／菱形／重复引用、长链、循环与内层错误传递。历史读取不应写入消息或会话数据。`setting-library-ejs-ui.test.jsx` 装配正式文档页，核对宽窄呈现下引用正文复用右上角同一格式菜单、双向切换和正文保留；`creator-authoring-capabilities.test.ts` 核对引用正文格式可保存和读取，必读／自动注入约束保持。`windows-caption-menu.test.ts` 核对全窗口作者 iframe 的透明原生控制区、明暗对比、退回内容区、隐藏／恢复、移除及卸载后的主题恢复；普通非全窗口界面继续使用应用标题栏主题。
 
 `creator-global-authoring.test.ts` 核对共享设定库中的 EJS 引用可通过正式创作能力创建、切换格式、批量修改和片段编辑；修订冲突与无效批次不写入。`global-setting-libraries.test.ts` 核对正文模式在保存、运行合并及磁盘重开后保留，必读／关键词／自动注入不能冒充引用。`creator-authoring-capabilities.test.ts` 另直接执行发现目录中的示例参数，确认保存与读取保留模板源码，创作读取不触发递归执行。

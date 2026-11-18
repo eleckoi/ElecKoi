@@ -99,6 +99,14 @@ jobs:
       - name: Verify packaged DSH runtime
         run: pnpm verify:packaged-dsh
 
+      - name: Retain Windows package content report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-package-content
+          path: build/windows-package-content.json
+          if-no-files-found: ignore
+
       - name: Package verified Windows installer and update metadata
         env:
           CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
@@ -124,8 +132,12 @@ jobs:
             (Resolve-Path release/latest.yml).Path
           )
           if ($env:REPLACE_WINDOWS_ASSETS -eq 'true') {
-            $release = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:RELEASE_TAG" | ConvertFrom-Json
-            if ($LASTEXITCODE -ne 0 -or -not $release.id) { throw 'Existing Release was not found.' }
+            # The tag endpoint omits a withdrawn draft; list owned releases to resolve its exact id.
+            $pages = gh api "repos/$env:GITHUB_REPOSITORY/releases?per_page=100" --paginate --slurp | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw 'Could not read existing Releases.' }
+            $matchingReleases = @($pages | ForEach-Object { $_ } | Where-Object { $_.tag_name -eq $env:RELEASE_TAG })
+            if ($matchingReleases.Count -ne 1) { throw 'Expected exactly one existing Release for this tag.' }
+            $release = $matchingReleases[0]
             $before = @($release.assets | Where-Object { $_.name -notin @($assets | ForEach-Object { Split-Path -Leaf $_ }) })
             gh release upload $env:RELEASE_TAG @($assets | Where-Object { (Split-Path -Leaf $_) -ne 'latest.yml' }) --clobber
             if ($LASTEXITCODE -ne 0) { throw 'Windows installer replacement failed.' }
@@ -143,6 +155,10 @@ jobs:
             "$notice`n`n$body" | Set-Content -LiteralPath $notes -Encoding utf8
             gh release edit $env:RELEASE_TAG --notes-file $notes
             if ($LASTEXITCODE -ne 0) { throw 'Could not record the Windows rebuild source.' }
+            if ($release.draft) {
+              gh release edit $env:RELEASE_TAG --draft=false --prerelease=${{ inputs.prerelease }}
+              if ($LASTEXITCODE -ne 0) { throw 'Could not publish the corrected Windows release.' }
+            }
             exit 0
           }
           $releaseOptions = @('--verify-tag', '--title', "ElecKoi $env:RELEASE_TAG")

@@ -37,6 +37,17 @@ publish:
 
 win:
   icon: resources/icons/eleckoi-app-icon.ico
+  # These packages bundle several prebuilds without package-level cpu/os fields.
+  # Their loaders select process.platform/process.arch; retain that exact target.
+  files:
+    - '!**/node_modules/node-pty/prebuilds/!(win32-${arch}){,/**/*}'
+    - '!**/node_modules/node-pty/third_party/conpty/*/!(win10-${arch}){,/**/*}'
+    - '!**/node_modules/@deepseek-ai/libreoffice-kit/frame-forwarding/prebuilds/!(win32-${arch}){,/**/*}'
+    # SQLite runtime bindings are retained; compiler outputs and source copies are not runtime files.
+    - '!**/node_modules/better-sqlite3/{src,deps}{,/**/*}'
+    - '!**/node_modules/better-sqlite3/build/Release/obj{,/**/*}'
+    - '!**/node_modules/better-sqlite3/build/**/*.{iobj,ipdb,lib,vcxproj,filters,sln,gypi,tlog,lastbuildstate}'
+    - '!**/node_modules/**/tsconfig*.tsbuildinfo'
   target:
     - target: nsis
       arch:
