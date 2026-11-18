@@ -40,8 +40,8 @@ const mutableObject = variableObjectConfigSchema.omit({ id: true, createdAt: tru
 const mutableGroup = settingLibraryGroupSchema.omit({ id: true, createdAt: true, updatedAt: true })
 const settingChanges = settingLibraryEntryChangesSchema.safeExtend({
   agentReadStrategy: settingLibraryAgentReadStrategySchema.describe('required=必读；normal=选读且关闭关键词匹配；keyword=选读且开启关键词匹配，与界面中的关键词命中开关对应，不是第三个读取档位。').optional(),
-  dynamicMode: z.enum(['standard', 'ejs_reference']).describe('standard=普通设定或 EJS 控制器；ejs_reference=仅供 getwi 读取的文字。').optional(),
-  contentMode: z.enum(['plain_text', 'ejs']).describe('plain_text=文字；ejs=执行模板，只允许 agent_tool 的选读普通设定。').optional(),
+  dynamicMode: z.enum(['standard', 'ejs_reference']).describe('standard=普通设定或 EJS 控制器；ejs_reference=仅供 getwi 引用，正文可为文字或 EJS。').optional(),
+  contentMode: z.enum(['plain_text', 'ejs']).describe('plain_text=原样文字；ejs=执行模板，允许 agent_tool 的选读普通设定及 EJS 引用设定；引用模板仅被 getwi 调用时递归执行。').optional(),
   content: z.string().describe('完整文字正文或 EJS 模板源码，由 contentMode 决定；只替换其中一段时使用 settings.edit，无需重传全文。').optional(),
 })
 const nativeRuntime = z.object({ kind: z.literal('eleckoi-module'), apiVersion: z.literal(1) }).strict()
@@ -74,11 +74,11 @@ const find = <T extends { id: string }>(items: T[], key: string): T => {
   return matches[0]!
 }
 const assertSettingFormat = (entry: { dynamicMode: string; contentMode: string; agentReadStrategy: string; triggerMode: string | null }) => {
-  if (entry.dynamicMode === 'ejs_reference' && (entry.contentMode !== 'plain_text' || entry.agentReadStrategy !== 'normal' || entry.triggerMode !== 'agent_tool')) {
-    throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, 'EJS 引用设定必须是选读、agent_tool 的纯文字条目；模板代码写在普通选读设定的 EJS 正文中。', { field: 'kind' })
+  if (entry.dynamicMode === 'ejs_reference' && (entry.agentReadStrategy !== 'normal' || entry.triggerMode !== 'agent_tool')) {
+    throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, 'EJS 引用设定必须是选读、agent_tool 的引用条目；正文可使用文字或 EJS。', { field: 'kind' })
   }
-  if (entry.contentMode === 'ejs' && (entry.dynamicMode !== 'standard' || entry.agentReadStrategy === 'required' || entry.triggerMode !== 'agent_tool')) {
-    throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, '只有 agent_tool 下的选读普通设定可以使用 EJS 正文；必读和自动注入使用文字正文。', { field: 'content' })
+  if (entry.contentMode === 'ejs' && (entry.agentReadStrategy === 'required' || entry.triggerMode !== 'agent_tool')) {
+    throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, '只有 agent_tool 下的选读普通设定和引用设定可以使用 EJS 正文；必读和自动注入使用文字正文。', { field: 'content' })
   }
 }
 const assertSettingPosition = (entry: Pick<SettingLibraryEntry, 'promptPositionId' | 'position'>, positions: SettingDocument['promptPositions']) => {

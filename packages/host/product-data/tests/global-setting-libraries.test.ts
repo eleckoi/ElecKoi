@@ -25,6 +25,27 @@ function library(id = 'synthetic-global'): GlobalSettingLibrary {
     groups: [], promptPositions: [], listAllExpanded: false, expandedGroupIds: [], createdAt: '', updatedAt: '' }
 }
 
+it('preserves explicit EJS reference modes through shared library save, runtime merge and disk reopen', () => {
+  const f = fixture(), source = library();
+  source.entries = [
+    { ...emptyEntry('literal-reference'), title: '合成文字引用', dynamicMode: 'ejs_reference', content: '原样 <%= getvar("score") %>' },
+    { ...emptyEntry('dynamic-reference'), title: '合成动态引用', dynamicMode: 'ejs_reference', contentMode: 'ejs', content: '<%= getvar("score") %>' },
+    { ...emptyEntry('recursive-reference'), title: '合成递归引用', dynamicMode: 'ejs_reference', contentMode: 'ejs', content: '<%- await getwi("合成动态引用") %>' },
+  ];
+  const saved = f.globals.save({ revision: 0, libraries: [source] });
+  expect(saved.libraries[0]!.entries.map(item => [item.dynamicMode, item.contentMode, item.content])).toEqual(source.entries.map(item => [item.dynamicMode, item.contentMode, item.content]));
+  const role = f.roles.get('synthetic-character');
+  const runtime = f.globals.merge({ characterId: role.characterId, name: role.name, entries: [], groups: [], promptPositions: [] })!;
+  expect(runtime.entries.find(item => item.id === globalSettingRuntimeId(source.id, 'entry', 'dynamic-reference'))).toMatchObject({ dynamicMode: 'ejs_reference', contentMode: 'ejs', content: '<%= getvar("score") %>' });
+  for (const changes of [{ agentReadStrategy: 'required' }, { agentReadStrategy: 'keyword' }, { triggerMode: 'always' }] as const) {
+    expect(() => f.globals.save({ ...saved, libraries: [{ ...saved.libraries[0]!, entries: [{ ...source.entries[1]!, ...changes }] }] })).toThrow();
+    expect(f.globals.get()).toEqual(saved);
+  }
+  f.db.close(); f.db.open();
+  expect(f.globals.get()).toEqual(saved);
+  expect(f.db.native.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION);
+}, 30_000);
+
 it.each([101, 1001, 10001])('preserves all %i global entries, long content, final keywords, independent libraries and disk reopen', count => {
   const f = fixture(); const probes = new Set([0, Math.floor(count / 2), count - 1]); const source = library()
   source.entries = Array.from({ length: count }, (_, i) => ({ ...emptyEntry(`entry-${i}`), title: `合成设定-${i}`,

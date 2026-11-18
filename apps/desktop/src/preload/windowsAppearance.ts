@@ -31,9 +31,43 @@ export function installWindowsAppearance(): () => void {
     return `rgba(${red}, ${green}, ${blue}, ${Number(alpha) / 255})`
   }
   let previous = ''
+  let frame: HTMLIFrameElement | null = null
+  const frameObserver = new MutationObserver(() => send())
+  const coveringFramePalette = (): { color: string; symbolColor: string } | null => {
+    const width = root.clientWidth, height = root.clientHeight
+    const candidate = document.elementFromPoint?.(width - 1, WINDOWS_TITLEBAR_HEIGHT / 2)
+    const next = candidate instanceof HTMLIFrameElement ? candidate : null
+    if (next !== frame && (next || !frame?.isConnected)) {
+      frameObserver.disconnect()
+      frame = next
+      for (let node: HTMLElement | null = frame; node && node !== document.body; node = node.parentElement) {
+        frameObserver.observe(node, { attributes: true, attributeFilter: ['style', 'class', 'hidden'], childList: true })
+      }
+    }
+    if (!frame || next !== frame || !width || !height) return null
+    const bounds = frame.getBoundingClientRect()
+    if (bounds.left > 0 || bounds.top > 0 || bounds.right < width || bounds.bottom < height) return null
+    // Full-window author portals can cover the application caption without
+    // entering native fullscreen. Keep native controls above that document.
+    const ancestors: HTMLElement[] = []
+    for (let node: HTMLElement | null = frame; node; node = node.parentElement) ancestors.unshift(node)
+    context.clearRect(0, 0, 1, 1)
+    context.fillStyle = getComputedStyle(probe).backgroundColor
+    context.fillRect(0, 0, 1, 1)
+    for (const node of ancestors) {
+      context.fillStyle = getComputedStyle(node).backgroundColor
+      context.fillRect(0, 0, 1, 1)
+    }
+    const [red, green, blue] = context.getImageData(0, 0, 1, 1).data
+    const linear = (value: number): number => value / 255 <= 0.04045 ? value / 255 / 12.92 : ((value / 255 + 0.055) / 1.055) ** 2.4
+    const luminance = 0.2126 * linear(red!) + 0.7152 * linear(green!) + 0.0722 * linear(blue!)
+    return { color: 'rgba(0, 0, 0, 0)', symbolColor: luminance > 0.179 ? '#111111' : '#ffffff' }
+  }
   const send = (): void => {
     const style = getComputedStyle(probe)
-    const values = [root.getAttribute('data-ds-theme-source'), nativeColor(style.backgroundColor), nativeColor(style.color)]
+    const covering = coveringFramePalette()
+    const values = [root.getAttribute('data-ds-theme-source'), covering?.color ?? nativeColor(style.backgroundColor),
+      covering?.symbolColor ?? nativeColor(style.color)]
     const current = JSON.stringify(values)
     if (current === previous) return
     previous = current
@@ -42,13 +76,16 @@ export function installWindowsAppearance(): () => void {
   const observer = new MutationObserver(send)
   observer.observe(root, { attributes: true, attributeFilter: ['data-theme', 'data-ds-theme-source', 'style', 'class'] })
   // Theme plugins also switch their palette through body data attributes.
-  observer.observe(document.body, { attributes: true })
+  observer.observe(document.body, { attributes: true, childList: true })
   observer.observe(document.head, { childList: true, subtree: true, characterData: true })
   document.head.addEventListener('load', send, true)
+  window.addEventListener('resize', send)
   send()
   return () => {
     observer.disconnect()
+    frameObserver.disconnect()
     probe.remove()
     document.head.removeEventListener('load', send, true)
+    window.removeEventListener('resize', send)
   }
 }

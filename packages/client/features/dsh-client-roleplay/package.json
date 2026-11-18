@@ -55,6 +55,8 @@
     "@deepseek-ai/dsh-tools": "0.2.2-rc.3",
     "@eleckoi/dsh-product-api": "workspace:*",
     "@eleckoi/dsh-product-data": "workspace:*",
+    "ejs": "3.1.10",
+    "lodash": "4.17.21",
     "yaml": "2.9.0",
     "zod": "4.6.6"
   },

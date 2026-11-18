@@ -6,10 +6,10 @@ export const globalSettingLibrarySchema = z.object({
   id: z.string().min(1), name: z.string().trim().min(1), enabled: z.boolean(),
   entries: z.array(settingLibraryEntrySchema.refine(entry => entry.kind === 'normal'
     && entry.openingMessages.length === 0 && entry.defaultOpeningMessageId === '', '全局设定库只包含普通设定，不包含角色开场白。')
-    .refine(entry => entry.contentMode !== 'ejs' || entry.dynamicMode === 'standard'
-      && entry.triggerMode === 'agent_tool' && entry.agentReadStrategy !== 'required', 'EJS 正文仅用于 Agent 工具的选读普通设定。')
-    .refine(entry => entry.dynamicMode !== 'ejs_reference' || entry.contentMode === 'plain_text'
-      && entry.triggerMode === 'agent_tool' && entry.agentReadStrategy === 'normal', 'EJS 引用设定使用文字正文和 Agent 工具选读。')),
+    .refine(entry => entry.contentMode !== 'ejs'
+      || entry.triggerMode === 'agent_tool' && entry.agentReadStrategy !== 'required', 'EJS 正文仅用于 Agent 工具的选读普通设定或引用设定。')
+    .refine(entry => entry.dynamicMode !== 'ejs_reference'
+      || entry.triggerMode === 'agent_tool' && entry.agentReadStrategy === 'normal', 'EJS 引用设定使用 Agent 工具选读，正文可为文字或 EJS。')),
   groups: z.array(settingLibraryGroupSchema), promptPositions: z.array(settingLibraryPromptPositionSchema),
   listAllExpanded: z.boolean(), expandedGroupIds: z.array(z.string()),
   createdAt: z.string(), updatedAt: z.string()

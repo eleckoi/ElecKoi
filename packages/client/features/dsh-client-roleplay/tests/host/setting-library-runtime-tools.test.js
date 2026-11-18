@@ -570,6 +570,79 @@ describe("DSH character setting-library tools", () => {
     expect(read.files[0].content).toBe('合成文件夹文字');
   });
 
+  it("renders nested EJS references with the same chat variables and returns transitive references", async () => {
+    const runtime = await tools({ variableState: { score: 7 }, history: [{ role: 'user', content: 'Synthetic latest input', variableState: { score: 3 } }], extraEntries: [
+      entry({ id: 'nested-controller', title: '合成递归控制器', contentMode: 'ejs', content: '<%- await getwi("世界/城市/合成动态引用") %>' }),
+      entry({ id: 'nested-template', title: '合成动态引用', groupId: 'city', dynamicMode: 'ejs_reference', contentMode: 'ejs',
+        content: '<% const score = await Promise.resolve(getvar("score")); %>score=<%= score %>;<%- await getwi("合成动态末层") %>' }),
+      entry({ id: 'nested-leaf', title: '合成动态末层', dynamicMode: 'ejs_reference', contentMode: 'ejs',
+        content: '<%= getMessageVar("score") %>:<%= getChatMessages(-1)[0] %>:<%= lastUserMessage %>' }),
+    ] });
+    const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成递归控制器'] });
+    expect(read.files[0].error).toBeUndefined();
+    expect(read.files[0].content).toBe('score=7;3:Synthetic latest input:Synthetic latest input');
+    expect(read.files[0].resolved_references).toEqual([{ title: '合成动态引用' }, { title: '合成动态末层' }]);
+    const found = await runtime.byName.get('eleckoi_glob_setting_files').execute({ pattern: '**' });
+    expect(found.files.map(file => file.path)).not.toContain('世界/城市/合成动态引用');
+    expect(found.files.map(file => file.path)).not.toContain('合成动态末层');
+    const reread = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成递归控制器'] });
+    expect(reread.files[0].content).toBe(read.files[0].content);
+  });
+
+  it("allows concurrent sibling and diamond references to reuse one template without reporting a cycle", async () => {
+    const runtime = await tools({ variableState: { score: 2 }, extraEntries: [
+      entry({ id: 'diamond-controller', title: '合成分支控制器', contentMode: 'ejs',
+        content: '<%- (await Promise.all([getwi("合成分支甲"), getwi("合成分支乙"), getwi("合成分支甲")])).join("|") %>' }),
+      ...['甲', '乙'].map(name => entry({ id: `diamond-${name}`, title: `合成分支${name}`, dynamicMode: 'ejs_reference', contentMode: 'ejs',
+        content: `${name}<%- await getwi("合成共用末层") %>` })),
+      entry({ id: 'diamond-leaf', title: '合成共用末层', dynamicMode: 'ejs_reference', contentMode: 'ejs',
+        content: '<%= await Promise.resolve(getvar("score")) %>' }),
+    ] });
+    const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成分支控制器'] });
+    expect(read.files[0].error).toBeUndefined();
+    expect(read.files[0].content).toBe('甲2|乙2|甲2');
+    expect(new Set(read.files[0].resolved_references.map(item => item.title))).toEqual(new Set(['合成分支甲', '合成分支乙', '合成共用末层']));
+    expect(read.files[0].resolved_references).toHaveLength(3);
+  });
+
+  it.each([
+    ['direct', '合成循环引用甲', '合成循环控制器 → 世界/城市/合成循环引用甲 → 世界/城市/合成循环引用甲'],
+    ['indirect', '合成循环引用乙', '合成循环控制器 → 世界/城市/合成循环引用甲 → 合成循环引用乙 → 世界/城市/合成循环引用甲'],
+  ])("reports the complete %s reference cycle without blocking other settings", async (_name, firstTarget, chain) => {
+    const runtime = await tools({ extraEntries: [
+      entry({ id: 'cycle-controller', title: '合成循环控制器', contentMode: 'ejs', content: '<%- await getwi("世界/城市/合成循环引用甲") %>' }),
+      entry({ id: 'cycle-a', title: '合成循环引用甲', groupId: 'city', dynamicMode: 'ejs_reference', contentMode: 'ejs', content: `<%- await getwi("${firstTarget}") %>` }),
+      entry({ id: 'cycle-b', title: '合成循环引用乙', dynamicMode: 'ejs_reference', contentMode: 'ejs', content: '<%- await getwi("世界/城市/合成循环引用甲") %>' }),
+      entry({ id: 'unrelated-controller', title: '合成正常控制器', contentMode: 'ejs', content: '<%= 7 %>' }),
+    ] });
+    const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成循环控制器', '合成正常控制器', '世界/总览'] });
+    expect(read.files[0].error.code).toBe('ejs_render_failed');
+    expect(read.files[0].error.message).toContain(chain);
+    expect(read.files[1].content).toBe('7');
+    expect(read.files[2]).toMatchObject({ content_delivery: 'cached_reference', cached_reference: '#S01' });
+  });
+
+  it("propagates a nested template error with its actual reference path", async () => {
+    const runtime = await tools({ extraEntries: [
+      entry({ id: 'broken-nested-controller', title: '合成错误外层', contentMode: 'ejs', content: '<%- await getwi("世界/城市/合成错误内层") %>' }),
+      entry({ id: 'broken-nested-reference', title: '合成错误内层', groupId: 'city', dynamicMode: 'ejs_reference', contentMode: 'ejs', content: '<%= missingSyntheticValue %>' }),
+    ] });
+    const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成错误外层'] });
+    expect(read.files[0].error.code).toBe('ejs_render_failed');
+    expect(read.files[0].error.message).toContain('世界/城市/合成错误内层');
+    expect(read.files[0].error.message).toContain('missingSyntheticValue');
+  });
+
+  it("renders a long acyclic reference chain without imposing a new recursion limit", async () => {
+    const references = Array.from({ length: 24 }, (_, index) => entry({ id: `chain-${index}`, title: `合成链${index}`,
+      dynamicMode: 'ejs_reference', contentMode: 'ejs', content: index === 23 ? '<%= 23 %>' : `<%- await getwi("合成链${index + 1}") %>` }));
+    const runtime = await tools({ extraEntries: [entry({ id: 'chain-controller', title: '合成链控制器', contentMode: 'ejs', content: '<%- await getwi("合成链0") %>' }), ...references] });
+    const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成链控制器'] });
+    expect(read.files[0].error).toBeUndefined();
+    expect(read.files[0].content).toBe('23');
+    expect(read.files[0].resolved_references).toHaveLength(24);
+  });
+
   it("exposes the latest user message to EJS setting controllers", async () => {
     const runtime = await tools({
       history: [
@@ -587,6 +660,82 @@ describe("DSH character setting-library tools", () => {
 
     const read = await runtime.byName.get("eleckoi_read_setting_files").execute({ paths: ["消息控制器"] });
     expect(read.files[0].content).toBe("当前轮用户消息");
+  });
+
+  it("provides full Lodash to EJS controllers and keeps deep-cloned message variables independent", async () => {
+    const variableState = { profile: { inventory: [{ amount: 2 }] } };
+    const runtime = await tools({ variableState, extraEntries: [entry({
+      id: 'lodash-controller', title: '合成变量副本', contentMode: 'ejs',
+      content: `<% const copy = _.cloneDeep(getMessageVar('profile'));
+        copy.inventory[0].amount = 7;
+        const labels = _.mapValues({ first: { label: 'Synthetic' } }, 'label');
+        const values = _({ first: 1, second: 2 }).pickBy(value => value > 1).values().value();
+      %><%= JSON.stringify({ copy: copy.inventory[0].amount, original: getMessageVar('profile').inventory[0].amount,
+        labels, values, nullable: _.get({ value: null }, 'value', 'fallback') }) %>`,
+    })] });
+    const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成变量副本'] });
+    expect(read.files[0].error).toBeUndefined();
+    expect(JSON.parse(read.files[0].content)).toEqual({ copy: 7, original: 2,
+      labels: { first: 'Synthetic' }, values: [2], nullable: null });
+    expect(variableState.profile.inventory[0].amount).toBe(2);
+  });
+
+  it.each([
+    ['semicolon-free scriptlet', '<% const value = 3 %><%= value %>', '3'],
+    ['line comment', '<% // synthetic comment %>after', 'after'],
+    ['escaped closing delimiter', 'before %%> after', 'before %> after'],
+    ['whitespace slurping', 'x \n  <%_ print("y"); _%>  \n z', 'x \ny z'],
+    ['locals binding', '<%= locals.getvar("label") %>', 'Synthetic'],
+    ['this binding', '<%= this.getvar("label") %>', 'Synthetic'],
+    ['async print', '<% print(await Promise.resolve("A")); %><%= "<tag>&" %>', 'A<tag>&'],
+    ['variadic print', '<% print("A", null, "B", undefined, 0); %>after', 'AB0after'],
+  ])("renders standard EJS %s through the setting read tool", async (_name, content, expected) => {
+    const runtime = await tools({ variableState: { label: 'Synthetic' }, extraEntries: [
+      entry({ id: 'syntax-controller', title: '合成模板语法', contentMode: 'ejs', content }),
+    ] });
+    const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成模板语法'] });
+    expect(read.files[0].error).toBeUndefined();
+    expect(read.files[0].content).toBe(expected);
+  });
+
+  it("reads complete and selected chat history as ordered text without changing messages", async () => {
+    const history = Array.from({ length: 6 }, (_, index) => ({ id: `synthetic-${index}`,
+      role: index % 2 ? 'assistant' : 'user', content: `Synthetic message ${index}` }));
+    const runtime = await tools({ history, extraEntries: [entry({
+      id: 'history-controller', title: '合成历史读取', contentMode: 'ejs',
+      content: `<%= JSON.stringify({ recent: getChatMessages(-5), all: getChatMessages(),
+        first: getChatMessages(2), none: getChatMessages(0), range: getChatMessages(0, 2),
+        users: getChatMessages(-2, 'user'), assistants: getChatMessages(0, 2, 'assistant'),
+        firstMessage: getChatMessage(0), lastMessage: getChatMessage(-1),
+        lastUser: getChatMessage(-1, 'user'), missing: getChatMessage(99) }) %>`,
+    })] });
+    const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成历史读取'] });
+    expect(read.files[0].error).toBeUndefined();
+    const messages = history.map(item => item.content);
+    expect(JSON.parse(read.files[0].content)).toEqual({ recent: messages.slice(-5), all: messages,
+      first: messages.slice(0, 2), none: [], range: messages.slice(0, 2),
+      users: [messages[2], messages[4]], assistants: [messages[1], messages[3]],
+      firstMessage: messages[0], lastMessage: messages[5], lastUser: messages[4], missing: '' });
+    expect(runtime.state().history).toEqual(history);
+    expect(runtime.commitConversationRuntime).not.toHaveBeenCalled();
+  });
+
+  it("returns an empty chat history when the conversation has no messages", async () => {
+    const runtime = await tools({ extraEntries: [entry({ id: 'empty-history', title: '合成空历史', contentMode: 'ejs',
+      content: '<%= JSON.stringify([getChatMessages(-5), getChatMessages(), getChatMessage(-1)]) %>' })] });
+    const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成空历史'] });
+    expect(read.files[0].error).toBeUndefined();
+    expect(JSON.parse(read.files[0].content)).toEqual([[], [], '']);
+  });
+
+  it("returns an independent variable copy when clone is requested", async () => {
+    const variableState = { profile: { amount: 2 } };
+    const runtime = await tools({ variableState, extraEntries: [entry({ id: 'clone-option', title: '合成变量克隆', contentMode: 'ejs',
+      content: '<% const copy = getvar("profile", { clone: true }); copy.amount = 9; %><%= getvar("profile.amount") %>' })] });
+    const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成变量克隆'] });
+    expect(read.files[0].error).toBeUndefined();
+    expect(read.files[0].content).toBe('2');
+    expect(variableState.profile.amount).toBe(2);
   });
 
   it("maps the local-variable EJS helper to the current conversation state", async () => {

@@ -239,8 +239,10 @@ export function referencedEjsTitles(code) {
 
 export function ContentSection({ entry, entries, onChange, onOpenEntry, creatorPreset, toolbarHost, immersiveHost }) {
   const tUi = useProductTranslation();
-  const ejs = entry.triggerMode === "agent_tool" && entry.agentReadStrategy !== "required" && entry.contentMode === "ejs";
-  const label = tUi("设定正文");
+  const reference = entry.dynamicMode === "ejs_reference";
+  const canUseEjs = reference || entry.triggerMode === "agent_tool" && entry.agentReadStrategy !== "required";
+  const ejs = canUseEjs && entry.contentMode === "ejs";
+  const label = reference ? tUi("EJS引用正文") : tUi("设定正文");
   const references = ejs
     ? entries
       .filter((candidate) => candidate.dynamicMode === "ejs_reference" && referencedEjsTitles(entry.content).has(candidate.title))
@@ -252,10 +254,10 @@ export function ContentSection({ entry, entries, onChange, onOpenEntry, creatorP
         toolbarHost={toolbarHost} immersiveHost={immersiveHost}
         label={label}
         value={entry.content}
-        placeholder={ejs ? tUi("填写 EJS 模板") : tUi("填写设定正文")}
+        placeholder={ejs ? tUi("填写 EJS 模板") : reference ? tUi("填写供 EJS 控制器读取的内容") : tUi("填写设定正文")}
         preview={!ejs}
         onChange={(content) => onChange({ ...entry, content })}
-        labelAction={!creatorPreset && entry.triggerMode === "agent_tool" && entry.agentReadStrategy !== "required" ? (
+        labelAction={!creatorPreset && canUseEjs ? (
           <SettingContentFormatMenu label={tUi('正文格式')} value={ejs ? 'ejs' : 'plain_text'} options={localizeUiCopy(CONTENT_MODES, tUi)} onChange={contentMode => onChange({ ...entry, contentMode })} />
         ) : null}
       />

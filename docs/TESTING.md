@@ -1,5 +1,9 @@
 # 测试与日常验证
 
+`setting-library-runtime-tools.test.js` 沿实际设定读取工具执行正式 EJS，核对省略分号、行注释、转义标签、空白控制、异步输出、locals／this、聊天历史的数量／范围／角色选择与空历史，以及 Lodash 深拷贝、getvar 的 clone 选项、对象映射、链式调用与空值语义。引用覆盖文字原样返回、多层 EJS 共用聊天上下文、完整引用记录、并行／菱形／重复引用、长链、循环与内层错误传递。历史读取不应写入消息或会话数据。`setting-library-ejs-ui.test.jsx` 装配正式文档页，核对宽窄呈现下引用正文复用右上角同一格式菜单、双向切换和正文保留；`creator-authoring-capabilities.test.ts` 核对引用正文格式可保存和读取，必读／自动注入约束保持。`windows-caption-menu.test.ts` 核对全窗口作者 iframe 的透明原生控制区、明暗对比、退回内容区、隐藏／恢复、移除及卸载后的主题恢复；普通非全窗口界面继续使用应用标题栏主题。
+
+`creator-global-authoring.test.ts` 核对共享设定库中的 EJS 引用可通过正式创作能力创建、切换格式、批量修改和片段编辑；修订冲突与无效批次不写入。`global-setting-libraries.test.ts` 核对正文模式在保存、运行合并及磁盘重开后保留，必读／关键词／自动注入不能冒充引用。`creator-authoring-capabilities.test.ts` 另直接执行发现目录中的示例参数，确认保存与读取保留模板源码，创作读取不触发递归执行。
+
 `character-frontend-packages.test.js` 使用正式前端包页和官方 Portal，核对包选择与更多菜单在深浅主题、宽窄内容区的真实按钮间距、同树锚点、边界可见及卸载关闭；原目录、图标、包切换与导入合同继续覆盖。`editor-creation-polish.test.js` 另核对资产库筛选、排序和展示尺寸在窄屏横向空间不足时，仍贴着原按钮展开。不能仅断言菜单没有超出屏幕来代替锚点定位检查。
 
 `avatar-crop-encoding.test.jsx` 核对双指中点缩放、抬起一指后的连续拖动、取消与丢失捕获、原缩放边界及最终裁剪源坐标。`avatar-crop-interaction.test.js` 装配正式裁剪弹窗与移动样式，在深浅主题和手机／平板／PC 宽度核对图标居中、触区、缩放条及画布间距；通过浏览器触摸事件实际放大、缩小、旋转后调用正式 Worker 保存，核对输出图片尺寸。该合成浏览器测试不等同 Android 真机或安装包验收。

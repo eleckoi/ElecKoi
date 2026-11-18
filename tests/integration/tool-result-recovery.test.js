@@ -117,6 +117,58 @@ async function profileFixture(platform, existingRoot) {
 }
 
 describe('Shipped Host tool-result composition', () => {
+  it('recovers a dialogue setting write when the model sends only a read hint', async () => {
+    const f = await profileFixture('desktop'), { ctx } = f, data = ctx.eleckoiProductData
+    const characterId = 'synthetic-setting-write'
+    data.createCharacter({ id: characterId, name: '合成角色' })
+    const chat = await ctx.eleckoiConversationsApi.create({ metadata: { characterId } })
+    const roleplayId = await ctx.eleckoiRoleplaySessions.preparePrompt(chat.conversation.id, '记录合成设定')
+    const { agent } = await ctx.sessionController.resolveAgent(roleplayId)
+    const name = 'eleckoi_apply_setting_patch'
+    const initialArgs = { operation: 'write_file', path: '合成设定', selection_hint: '抵达港口时读取' }
+    const content = `合成设定正文\n${'合成正文𠮷😀\n'.repeat(20_001)}最后一段。`
+    const requests = []
+
+    f.setStream(async function* (request) {
+      const step = requests.push(request)
+      let args
+      if (step === 1) {
+        const tool = request.tools.find(tool => tool.name === name)
+        expect(tool.description).toContain('write_file 必须传 path 和 content')
+        expect(tool.parameters.properties.content.description).toContain('必填')
+        args = initialArgs
+      } else if (step === 2) {
+        const rejected = JSON.parse(request.messages.findLast(message => message.role === 'tool').content[0].text)
+        expect(rejected).toMatchObject({ status: 'change_rejected', message: 'write_file 缺少 content。', state_unchanged: true,
+          code: 'eleckoi/input/invalid', recovery: { arguments_to_keep: { operation: 'write_file', path: initialArgs.path }, missing_fields: ['content'] } })
+        expect(data.readConversationSettingLibraries(characterId)).toEqual([])
+        args = { ...rejected.recovery.arguments_to_keep, [rejected.recovery.missing_fields[0]]: content, selection_hint: initialArgs.selection_hint }
+      } else {
+        const saved = JSON.parse(request.messages.findLast(message => message.role === 'tool').content[0].text)
+        expect(saved).toMatchObject({ status: 'ok', path: initialArgs.path, created: true })
+      }
+      yield { type: 'block-start', index: 0, blockType: args ? 'tool-call' : 'text' }
+      yield { type: 'block-end', index: 0, block: args ? { type: 'tool-call', id: `setting-write-${step}`, name, arguments: JSON.stringify(args) }
+        : { type: 'text', text: '已记录合成设定' } }
+      yield { type: 'finish', reason: { kind: args ? 'tool-calls' : 'stop' } }
+    })
+
+    await ctx.sessionController.prompt({ sessionId: agent.id, requestId: 'synthetic-setting-write-retry', mode: 'queue',
+      content: [{ type: 'text', text: '记录合成设定' }] }, new AbortController().signal)
+    await agent.whenIdle()
+    expect(requests).toHaveLength(3)
+    expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
+    const branches = data.readConversationSettingLibraries(characterId)
+    expect(branches).toHaveLength(1)
+    expect(branches[0].sessionId).toBe(chat.conversation.id)
+    expect(branches[0].library.entries.find(entry => entry.title === initialArgs.path)).toMatchObject({ content, agentSelectionHint: initialArgs.selection_hint })
+    expect(data.readSettingLibrary(characterId).entries.some(entry => entry.title === initialArgs.path)).toBe(false)
+
+    const wire = JSON.stringify(await captureSerializedRequest('deepseek_messages', requests[1]))
+    expect(wire).toContain('missing_fields')
+    expect(wire).toContain('write_file 缺少 content。')
+  }, 30_000)
+
   it('loads packaged authoring skills progressively and edits a large asset catalog and frontend through the real Studio', async () => {
     const f = await profileFixture('desktop'), { ctx, root } = f, data = ctx.eleckoiProductData
     const characterId = 'synthetic-asset-studio'

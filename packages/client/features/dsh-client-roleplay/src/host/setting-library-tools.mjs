@@ -1,5 +1,7 @@
 import { catalogOf, directoryExists, inScope, relative, normalizePath, safeSegment, globRegex } from './virtual-setting-directory.mjs'
 import { randomUUID } from 'node:crypto'
+import ejs from 'ejs/ejs.min.js'
+import lodash from 'lodash'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { requiredSettingCache } from './required-setting-cache.mjs'
 import { readToolResult, resultReadParameter } from '@eleckoi/dsh-client-roleplay/host/tool-result-access.mjs'
@@ -138,16 +140,18 @@ function readTool(ctx) {
   })
 }
 
+const writeFileArguments = 'write_file 必须传 path 和 content。content 是要保存的完整设定正文。selection_hint 可以省略，仅提示何时读取该设定。'
+
 function patchTool(ctx) {
   return defineTool({
     name: 'eleckoi_apply_setting_patch',
-    description: '对当前对话的角色虚拟设定执行一个结构化文件操作，修改只保存为当前对话差异，不会改动作者原设定。全局设定库是共享只读资源，须在全局设定库编辑器修改。支持 write_file、edit_file、make_directory、move_file、move_directory、delete_file、delete_directory；路径使用 / 分隔且不带 .md 后缀。先用 Glob 或 Read 确认真实路径；一次调用只执行一个操作，失败时不提交。',
+    description: `对当前对话的角色虚拟设定执行一个文件操作，修改只保存为当前对话差异。${writeFileArguments} edit_file 需传 old_string 和 new_string，move_file 和 move_directory 需传 destination。还支持 make_directory、delete_file 和 delete_directory。路径使用 / 分隔且不带 .md 后缀，先用 Glob 或 Read 核对路径或新文件的父目录。全局设定库是共享只读资源，须在全局设定库编辑器修改。`,
     parameters: {
       operation: { type: 'string', required: true, enum: ['write_file', 'edit_file', 'make_directory', 'move_file', 'move_directory', 'delete_file', 'delete_directory'], description: '要执行的单个文件操作。' },
       path: { type: 'string', required: true, description: '源文件或目录的完整逻辑路径。' },
       destination: { type: 'string', description: 'move_file 或 move_directory 的目标完整逻辑路径。' },
-      content: { type: 'string', description: 'write_file 要写入的完整正文。' },
-      selection_hint: { type: 'string', description: 'write_file 可选的 Agent 读取提示。' },
+      content: { type: 'string', description: '选择 write_file 时必填。这里填写要实际保存的完整设定正文。' },
+      selection_hint: { type: 'string', description: 'write_file 可选。这里仅填写何时读取该条设定的简短提示，完整正文填入 content。' },
       old_string: { type: 'string', description: 'edit_file 要精确匹配的原文片段。' },
       new_string: { type: 'string', description: 'edit_file 的替换文本，可以为空字符串。' },
       replace_all: { type: 'boolean', description: 'edit_file 是否替换全部匹配；默认 false。' },
@@ -187,7 +191,19 @@ function patchTool(ctx) {
       } catch (error) {
         // 边界④：被拒的修改也走统一出口落一行诊断（码 + 开发者文案 + 详情 + 操作名），再按工具结果返回。
         const failure = recordRuntimePluginFailure(ctx, name, String(args.operation || 'apply_setting_patch'), error)
-        return { ...fail('change_rejected', failure.message), state_unchanged: true }
+        const rejected = { ...fail('change_rejected', failure.message), state_unchanged: true }
+        if (args.operation === 'write_file' && failure.code === ELECKOI_FAILURE_CODES.inputInvalid && failure.details?.field === 'content') {
+          return {
+            ...rejected,
+            code: failure.code,
+            recovery: {
+              arguments_to_keep: { operation: 'write_file', path: args.path },
+              missing_fields: ['content'],
+              instruction: `${writeFileArguments} 请先补齐 content，再对同一路径重新调用；如需保留原读取提示，可继续传 selection_hint。`
+            }
+          }
+        }
+        return rejected
       }
     }
   })
@@ -493,67 +509,69 @@ async function renderEjsController(target, candidates, state, messages) {
   const getvar = createGetvar(state)
   const getLocalVar = (key, options = {}) => getvar(key, options)
   const getMessageVar = createMessageVarReader(messages, state)
+  const { getChatMessage, getChatMessages } = createChatReaders(messages)
   const lastMessageId = messages.length ? messages.at(-1).id : 0
   const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user')?.content || ''
   const context = {
     getvar,
     getLocalVar,
     getMessageVar,
+    getChatMessage,
+    getChatMessages,
     variables: state,
     stat_data: state,
     matchChatMessages: createMessageMatcher(messages),
-    _: createLodashCompat(),
+    _: lodash,
     lastMessageId,
     lastUserMessage
   }
 
-  const getwi = async (referenceOrLibrary, referenceName) => {
-    const requested = referenceName === undefined ? referenceOrLibrary : referenceName
-    if (typeof requested !== 'string' || !requested.trim()) throw runtimePluginFailure(ELECKOI_FAILURE_CODES.inputInvalid, 'getwi 必须指定 EJS 引用设定的标题或完整路径。', { field: 'getwi' })
-    const matches = [...(sourceByName.get(requested) || [])]
-    if (!matches.length) throw runtimePluginFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `getwi 找不到 EJS 引用设定：${requested}`, { what: 'EJS 引用设定' })
-    if (matches.length !== 1) throw runtimePluginFailure(ELECKOI_FAILURE_CODES.lookupDuplicate, `getwi 引用标题不唯一，请使用完整路径：${requested}`, { what: 'EJS 引用设定标题' })
-    const nested = matches[0]
-    if (nested.raw.contentMode !== 'plain_text') throw runtimePluginFailure(ELECKOI_FAILURE_CODES.inputUnsupported, `EJS 引用设定必须使用文字正文：${requested}`, { what: 'EJS 引用设定的正文模式', expected: 'plain_text' })
-    references.push({ id: nested.raw.id, title: nested.raw.title || '', path: nested.path })
-    return nested.content
+  const render = async (source, ancestors) => {
+    const chain = [...ancestors, source]
+    if (ancestors.some(ancestor => ancestor.raw.id === source.raw.id)) {
+      throw runtimePluginFailure(ELECKOI_FAILURE_CODES.statePrecondition,
+        `EJS 引用形成循环：${chain.map(item => item.path).join(' → ')}`, { what: '不循环的 EJS 引用链' })
+    }
+    const getwi = async (referenceOrLibrary, referenceName) => {
+      const requested = referenceName === undefined ? referenceOrLibrary : referenceName
+      if (typeof requested !== 'string' || !requested.trim()) throw runtimePluginFailure(ELECKOI_FAILURE_CODES.inputInvalid, 'getwi 必须指定 EJS 引用设定的标题或完整路径。', { field: 'getwi' })
+      const matches = [...(sourceByName.get(requested) || [])]
+      if (!matches.length) throw runtimePluginFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `getwi 找不到 EJS 引用设定：${requested}`, { what: 'EJS 引用设定' })
+      if (matches.length !== 1) throw runtimePluginFailure(ELECKOI_FAILURE_CODES.lookupDuplicate, `getwi 引用标题不唯一，请使用完整路径：${requested}`, { what: 'EJS 引用设定标题' })
+      const nested = matches[0]
+      references.push({ id: nested.raw.id, title: nested.raw.title || '', path: nested.path })
+      if (nested.raw.contentMode === 'plain_text') return nested.content
+      if (nested.raw.contentMode === 'ejs') return render(nested, chain)
+      throw runtimePluginFailure(ELECKOI_FAILURE_CODES.inputUnsupported, `EJS 引用设定的正文模式不受支持：${requested}`, { what: 'EJS 引用设定的正文模式', expected: 'plain_text 或 ejs' })
+    }
+    return compileEjs(source.content, source.path)({ ...context, getwi })
   }
 
   return {
-    content: await compileEjs(target.content)({ ...context, getwi }, toText),
+    content: await render(target, []),
     references: [...new Map(references.map((reference) => [reference.id, reference])).values()]
   }
 }
 
-function compileEjs(template) {
-  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
-  const pattern = /<%([_=%\-#]?)([\s\S]*?)([-_]?%>)/g
-  let cursor = 0
-  let trimNext = ''
-  let code = 'let __out = ""; const print = (...values) => { __out += values.map(__toText).join(" "); };'
-  let match
-  const appendText = (raw) => {
-    let text = raw
-    if (trimNext === 'all') text = text.replace(/^\s+/, '')
-    if (trimNext === 'line') text = text.replace(/^\r?\n/, '')
-    trimNext = ''
-    if (text) code += `__out += ${JSON.stringify(text)};`
+function compileEjs(template, filename = 'setting-controller.ejs') {
+  // Extend the output helper; template parsing and code generation remain owned by EJS.
+  const printBinding = '<% print = ((append) => (...values) => values.forEach(append))(print); %>'
+  const render = ejs.compile(printBinding + template, { client: true, async: true, outputFunctionName: 'print', filename })
+  return context => render.call(context, context, toText)
+}
+
+function createChatReaders(messages) {
+  const select = role => role ? messages.filter(message => message.role === role) : messages
+  return {
+    getChatMessage: (index, role) => select(role).at(index)?.content ?? '',
+    getChatMessages: (startOrCount = messages.length, endOrRole, role) => {
+      const selected = select(typeof endOrRole === 'string' ? endOrRole : role)
+      const result = typeof endOrRole === 'number'
+        ? selected.slice(startOrCount, endOrRole)
+        : startOrCount < 0 ? selected.slice(startOrCount) : selected.slice(0, startOrCount)
+      return result.map(message => message.content)
+    }
   }
-  while ((match = pattern.exec(template)) !== null) {
-    let text = template.slice(cursor, match.index)
-    if (match[1] === '_') text = text.replace(/\s+$/, '')
-    appendText(text)
-    const marker = match[1]
-    const body = match[2]
-    if (marker === '=' || marker === '-') code += `__out += __toText((${body}));`
-    else if (marker === '%') code += `__out += '<%' + ${JSON.stringify(body)} + '%>';`
-    else if (marker !== '#') code += body
-    trimNext = match[3].startsWith('_') ? 'all' : match[3].startsWith('-') ? 'line' : ''
-    cursor = pattern.lastIndex
-  }
-  appendText(template.slice(cursor))
-  code += 'return __out;'
-  return new AsyncFunction('ctx', '__toText', `with (ctx) { ${code} }`)
 }
 
 function createMessageMatcher(messages) {
@@ -584,34 +602,13 @@ function testPattern(expression, text) {
   return expression.test(text)
 }
 
-function createLodashCompat() {
-  const lodash = (value) => {
-    let current = value
-    return {
-      pickBy(predicate) { current = Object.fromEntries(Object.entries(current ?? {}).filter(([key, item]) => predicate(item, key))); return this },
-      values() { current = Object.values(current ?? {}); return this },
-      value() { return current }
-    }
-  }
-  lodash.get = (value, path, fallback) => readPath(value, path) ?? fallback
-  lodash.values = (value) => Object.values(value ?? {})
-  lodash.pickBy = (value, predicate) => Object.fromEntries(Object.entries(value ?? {}).filter(([key, item]) => predicate(item, key)))
-  lodash.clamp = (number, lower, upper) => Math.min(Math.max(number, lower), upper)
-  lodash.random = (lower = 0, upper = 1) => Math.floor(Math.random() * (upper - lower + 1)) + lower
-  lodash.sample = (collection) => {
-    const values = Array.isArray(collection) ? collection : Object.values(collection ?? {})
-    return values.length ? values[Math.floor(Math.random() * values.length)] : undefined
-  }
-  return lodash
-}
-
 function createGetvar(state) {
   return (key, options = {}) => {
-    if (key == null || !String(key).trim()) return state
     const segments = pathSegments(key)
     if (segments[0] === 'stat_data') segments.shift()
-    const value = readPath(state, segments)
-    return value === undefined && Object.hasOwn(options ?? {}, 'defaults') ? options.defaults : value
+    const value = key == null || !String(key).trim() ? state : readPath(state, segments)
+    const result = value === undefined && Object.hasOwn(options ?? {}, 'defaults') ? options.defaults : value
+    return options?.clone ? lodash.cloneDeep(result) : result
   }
 }
 

@@ -58,6 +58,61 @@ it('uses the native 40px caption and publishes theme colors only while mounted',
   document.documentElement.removeAttribute('data-ds-theme-source')
 })
 
+it('removes the caption backplate for full-window authored frames, follows contrast and restores the application palette', async () => {
+  const send = vi.fn()
+  Object.assign(ipc, { send })
+  let pixels = [10, 9, 17, 255]
+  const context = { clearRect: vi.fn(), fillRect: vi.fn(), fillStyle: '', getImageData: () => ({ data: pixels }) }
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D)
+  vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(1000)
+  vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(700)
+  const originalHitTest = Object.getOwnPropertyDescriptor(document, 'elementFromPoint')
+  let hit: Element | null = null
+  Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => hit })
+  const layer = document.createElement('div'), frame = document.createElement('iframe')
+  layer.append(frame)
+  const bounds = vi.spyOn(frame, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 1000, 700))
+  const stop = installWindowsAppearance()
+  try {
+    hit = frame
+    document.body.append(layer)
+    await Promise.resolve()
+    expect(send).toHaveBeenLastCalledWith('eleckoi:dsh-native-theme', null, 'rgba(0, 0, 0, 0)', '#ffffff')
+    pixels = [255, 255, 255, 255]
+    layer.style.backgroundColor = 'white'
+    await Promise.resolve()
+    expect(send).toHaveBeenLastCalledWith('eleckoi:dsh-native-theme', null, 'rgba(0, 0, 0, 0)', '#111111')
+    bounds.mockReturnValue(new DOMRect(0, 40, 1000, 660))
+    window.dispatchEvent(new Event('resize'))
+    expect(send).toHaveBeenLastCalledWith('eleckoi:dsh-native-theme', null, 'rgba(255, 255, 255, 1)', 'rgba(255, 255, 255, 1)')
+    bounds.mockReturnValue(new DOMRect(0, 0, 1000, 700))
+    window.dispatchEvent(new Event('resize'))
+    expect(send).toHaveBeenLastCalledWith('eleckoi:dsh-native-theme', null, 'rgba(0, 0, 0, 0)', '#111111')
+    hit = null
+    layer.style.display = 'none'
+    await Promise.resolve()
+    expect(send).toHaveBeenLastCalledWith('eleckoi:dsh-native-theme', null, 'rgba(255, 255, 255, 1)', 'rgba(255, 255, 255, 1)')
+    hit = frame
+    layer.style.display = 'block'
+    await Promise.resolve()
+    expect(send).toHaveBeenLastCalledWith('eleckoi:dsh-native-theme', null, 'rgba(0, 0, 0, 0)', '#111111')
+    hit = null
+    layer.remove()
+    await Promise.resolve()
+    expect(send).toHaveBeenLastCalledWith('eleckoi:dsh-native-theme', null, 'rgba(255, 255, 255, 1)', 'rgba(255, 255, 255, 1)')
+    stop()
+    const calls = send.mock.calls.length
+    window.dispatchEvent(new Event('resize'))
+    layer.style.backgroundColor = 'black'
+    await Promise.resolve()
+    expect(send).toHaveBeenCalledTimes(calls)
+  } finally {
+    stop()
+    if (originalHitTest) Object.defineProperty(document, 'elementFromPoint', originalHitTest)
+    else delete (document as unknown as Record<string, unknown>).elementFromPoint
+  }
+})
+
 it('keeps the editor selection when pointer or keyboard opens a native menu and releases the open state', async () => {
   document.documentElement.lang = 'zh-CN'
   const seat = document.createElement('span')

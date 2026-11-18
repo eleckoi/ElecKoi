@@ -24,6 +24,9 @@ describe('automatic chat branch settings', () => {
     const model = { readConversations: vi.fn(async () => [item]), subscribe: () => () => {}, saveConversation: vi.fn(async (_owner, _session, next) => { item.library = next; }) };
     const container = document.createElement('div'); document.body.append(container); const root = createRoot(container), ref = React.createRef();
     const click = async node => { expect(node).toBeTruthy(); await act(async () => node.click()); };
+    let subpage;
+    const presentation = { compact, registerSubpage: page => { subpage = page; return () => { if (subpage === page) subpage = null; }; } };
+    const closeDetail = async () => compact ? act(async () => subpage.back()) : click(container.querySelector('[aria-label="关闭详情"]'));
     const button = label => [...container.querySelectorAll('button')].find(node => node.textContent.trim() === label);
     const open = async title => {
       await click([...container.querySelectorAll('[role="treeitem"]')].find(node => node.textContent.includes(title)));
@@ -38,32 +41,34 @@ describe('automatic chat branch settings', () => {
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
     });
     try {
-      await act(async () => root.render(<EditorPresentationContext.Provider value={{ compact }}><DynamicSettingsPanel ref={ref} characterId="synthetic-character" settingLibraries={model} /></EditorPresentationContext.Provider>));
+      await act(async () => root.render(<EditorPresentationContext.Provider value={presentation}><DynamicSettingsPanel ref={ref} characterId="synthetic-character" settingLibraries={model} /></EditorPresentationContext.Provider>));
       await click(container.querySelector('.dynamic-settings-conversation-row'));
       await open('控制器');
       expect(container.querySelector('[aria-current="step"]')).toBeNull();
       expect(container.querySelector('.setting-view-switch')).not.toBeNull();
       await click(container.querySelector('.setting-library-reference-items button'));
       expect(container.querySelector('[aria-label="条目标题"]').value).toBe('引用');
+      await click(container.querySelector('.setting-format-button'));
+      await click([...document.querySelectorAll('[role="menuitem"]')].find(node => node.textContent.trim() === 'EJS'));
       await editContent('引用正文已修改');
-      await click(container.querySelector('[aria-label="关闭详情"]'));
+      await closeDetail();
       await open('控制器');
       await click(button('设置'));
       await click(button('提示词常驻'));
       await click(container.querySelector('[aria-label="选择设定插入点 2"]'));
       await changeInput(container.querySelector('[aria-label="位置内顺序"]'), '12');
-      await click(container.querySelector('[aria-label="关闭详情"]'));
+      await closeDetail();
       await open('继承设定');
       expect(container.querySelector('[aria-label="条目标题"]').readOnly).toBe(true);
       expect(container.querySelector('.cm-content').getAttribute('aria-readonly')).toBe('true');
       expect(container.querySelector('.setting-view-switch')).toBeNull();
       expect(container.querySelector('[aria-label="删除设定"]')).toBeNull();
-      await click(container.querySelector('[aria-label="关闭详情"]'));
+      await closeDetail();
       await open('原文件夹');
       await changeInput(container.querySelector('[aria-label="文件夹名称"]'), '修改文件夹');
       await act(async () => ref.current.save());
       const saved = model.saveConversation.mock.lastCall[2];
-      expect(saved.entries.find(entry => entry.id === 'reference').content).toBe('引用正文已修改');
+      expect(saved.entries.find(entry => entry.id === 'reference')).toMatchObject({ content: '引用正文已修改', contentMode: 'ejs', dynamicMode: 'ejs_reference' });
       expect(saved.entries.find(entry => entry.id === 'controller')).toMatchObject({ triggerMode: 'always', position: 'insert_point_2', order: 12 });
       expect(saved.entries.find(entry => entry.id === 'inherited').content).toBe('只读正文');
       expect(saved.groups[0].name).toBe('修改文件夹');
@@ -89,7 +94,7 @@ describe('automatic chat branch settings', () => {
       const inspector = container.querySelector('.dynamic-settings-editor-pane');
       await right('合成第二条目'); expect(container.querySelector('.dynamic-settings-editor-pane')).toBe(inspector);
       await act(async () => [...document.querySelectorAll('[role="menuitem"]')].find(node => node.textContent.trim() === '删除').click());
-      await act(async () => document.querySelector('[role="alertdialog"] .is-destructive').click());
+      await act(async () => [...document.querySelectorAll('.product-dialog-actions button')].find(node => node.textContent.trim() === '删除').click());
       expect(row('合成第二条目')).toBeUndefined(); expect(container.querySelector('.dynamic-settings-editor-pane')).toBe(inspector);
       await act(async () => container.querySelector('.setting-library-save-button').click());
       expect(model.saveConversation.mock.lastCall[2].entries.map(entry => entry.id)).toEqual(['synthetic-first']);

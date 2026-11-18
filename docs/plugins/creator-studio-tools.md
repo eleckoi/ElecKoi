@@ -130,7 +130,7 @@ PC 空会话显示居中的新会话首页，共用原来的官方输入框与�
 | --- | --- | --- | --- |
 | 文字设定 | `standard` | `plain_text` | 必读和选读均可 |
 | EJS 控制器 | `standard` | `ejs` | 只允许 `agent_tool` 的选读条目 |
-| EJS 引用设定 | `ejs_reference` | `plain_text` | 只供控制器读取，选读、`agent_tool`，不单独进入选读目录 |
+| EJS 引用设定 | `ejs_reference` | `plain_text` 或 `ejs` | 只供控制器引用，选读、`agent_tool`，不单独进入选读目录；EJS 正文被引用时递归执行 |
 
 `triggerMode="always"` 按插入位置注入文字；`"agent_tool"` 由设定读取流程使用。必读和自动注入的正文使用文字。
 
@@ -152,9 +152,13 @@ PC 空会话显示居中的新会话首页，共用原来的官方输入框与�
 <% } %>
 ```
 
-`getvar` 读取当前聊天变量；`variables/stat_data` 是同一份状态，`lastUserMessage` 是最近用户正文。不要在读取模板里修改状态来结算变量。
+`getvar` 读取当前聊天变量，`clone:true` 返回独立副本；`variables/stat_data` 是同一份状态，`lastUserMessage` 是最近用户正文。`getChatMessages(-5)` 返回最近五条角色聊天文字，按时间顺序包含用户与 AI 消息；完整读取、范围与角色筛选见[角色配置参考](authoring-configurations.md)。`_` 是完整 Lodash，可使用 `_.cloneDeep` 等正式方法。不要在读取模板里修改状态来结算变量。
 
-`getwi` 只读取已启用的 EJS 引用正文，正文里的模板标记仍是文字，不再次执行。它按准确标题或完整路径匹配。例如「城市/天气」和「乡村/天气」同名时，`getwi("天气")` 明确报错，改用 `getwi("城市/天气")` 即可。它不能引用普通设定或另一个 EJS 控制器，也不提供标准 EJS `include()`。
+`getwi` 只引用已启用的引用条目。正文格式为 `plain_text` 时原样返回，里面的模板标记也保持文字；为 `ejs` 时在同一份当前聊天变量和历史上下文中计算，内部可继续引用其他条目。循环引用返回完整路径链错误，不影响其他控制器；不要为了复用动态正文增加全局变量或让预设写角色变量。
+
+它按准确标题或完整路径匹配。例如「城市/天气」和「乡村/天气」同名时，`getwi("天气")` 明确报错，改用 `getwi("城市/天气")` 即可。它不能引用普通设定或另一个 EJS 控制器，也不提供标准 EJS `include()`。`settings.read` 读取递归引用条目时仍返回原稿，保存源码不会执行其中模板。
+
+例如复用动态人物状态时，先用 `settings.create` 创建“人物状态”，传 `dynamicMode="ejs_reference"`、`contentMode="ejs"`，正文写 `好感度：<%= getvar("好感度", {defaults:0}) %>`；再在剧情控制器中用 `<%- await getwi("人物状态") %>` 输出它。若人物状态还要引用固定规则，先创建该文字引用，再把 `<%- await getwi("固定规则") %>` 放进人物状态模板。具体可提交的参数见[递归引用示例](authoring-configurations.md#动态正文递归引用)。
 
 ## 变量与 Zod
 

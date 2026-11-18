@@ -67,7 +67,7 @@ export function SettingLibraryDocument({ selected, library, nameInputRef, Select
     {group ? <div className="setting-settings-board setting-group-settings"><section className="setting-entry-basics"><h2>{tUi('基本信息')}</h2>
       <div className="setting-property-row"><label className="setting-property-label" htmlFor={nameId}>{tUi('名称')}</label><div className="setting-identity-control"><Input data-dsh-control className="setting-entry-name" id={nameId} value={entry.name} onChange={event => updateName(event.target.value)} /></div></div>
     </section></div> : readOnly || view === 'content' || fixed || reference && hideReferenceTabs ? <div className="setting-writing-board">
-      {normal ? <ContentSection entry={entry} entries={library.entries} onChange={onUpdateEntry} onOpenEntry={onOpenEntry} creatorPreset={creatorPreset} toolbarHost={toolbarHost} immersiveHost={immersiveHost} /> :
+      {normal || reference && !readOnly ? <ContentSection entry={entry} entries={library.entries} onChange={onUpdateEntry} onOpenEntry={onOpenEntry} creatorPreset={creatorPreset} toolbarHost={toolbarHost} immersiveHost={immersiveHost} /> :
         <MarkdownTextareaField label={reference ? tUi('EJS引用正文') : entry.kind === 'history_compaction' ? tUi('摘要模板') : tUi('设定正文')}
           placeholder={reference ? tUi('填写供 EJS 控制器读取的内容') : tUi('填写设定正文')} readOnly={readOnly} value={entry.content} onChange={content => onUpdateEntry({ ...entry, content })} toolbarHost={toolbarHost} immersiveHost={immersiveHost} />}
       <footer className="setting-editor-status"><span>{saving ? tUi('保存中…') : dirty ? tUi('未保存') : tUi('已保存')}</span>

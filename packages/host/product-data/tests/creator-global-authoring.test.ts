@@ -26,6 +26,37 @@ const rule = { name: 'Synthetic rule', pattern: 'TOKEN', replacement: 'Synthetic
   displayOnly: true, promptOnly: false, runOnEdit: false, order: 0 }
 
 describe('Global authoring writes use native ownership, revisions and transactions', { timeout: 30_000 }, () => {
+  it('creates and switches recursive EJS references through shared setting capabilities with atomic revision checks', async () => {
+    const f = await fixture(), originalRole = f.data.readSettingLibrary(f.characterId);
+    const created = f.call('settings.create_library', { target: global, expectedRevision: 0, name: 'Synthetic reference library' });
+    const target = { ...global, libraryId: created.library.id };
+    const write = (operation: string, input: object) => f.call(`settings.${operation}`, { target, expectedRevision: f.data.readGlobalSettingLibraries().revision, ...input });
+    const literal = write('create', { title: 'Synthetic literal reference', dynamicMode: 'ejs_reference', content: 'Score: <%= getvar("score") %>' });
+    const dynamic = write('create', { title: 'Synthetic dynamic reference', dynamicMode: 'ejs_reference', contentMode: 'ejs', content: '<%= getvar("score") %>' });
+    const recursive = write('create', { title: 'Synthetic recursive reference', dynamicMode: 'ejs_reference', contentMode: 'ejs', content: '<%- await getwi("Synthetic dynamic reference") %>' });
+    write('update', { id: literal.id, changes: { contentMode: 'ejs' } });
+    expect(f.call('settings.read', { target, id: literal.id })).toMatchObject({ dynamicMode: 'ejs_reference', contentMode: 'ejs', content: 'Score: <%= getvar("score") %>' });
+    write('update_many', { updates: [
+      { id: literal.id, changes: { contentMode: 'plain_text' } },
+      { id: dynamic.id, changes: { content: '<%= getvar("level") %>' } },
+    ] });
+    write('edit', { id: recursive.id, old_string: 'Synthetic dynamic reference', new_string: 'Synthetic literal reference' });
+    expect(f.call('settings.read', { target, id: dynamic.id }).content).toBe('<%= getvar("level") %>');
+    expect(f.call('settings.read', { target, id: recursive.id }).content).toBe('<%- await getwi("Synthetic literal reference") %>');
+    expect(f.call('settings.list', { target }).libraries[0].entries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: literal.id, dynamicMode: 'ejs_reference', contentMode: 'plain_text' }),
+      expect.objectContaining({ id: dynamic.id, dynamicMode: 'ejs_reference', contentMode: 'ejs' }),
+    ]));
+    const before = f.data.readGlobalSettingLibraries();
+    expect(() => write('update_many', { updates: [
+      { id: literal.id, changes: { content: 'Unexpected' } },
+      { id: dynamic.id, changes: { agentReadStrategy: 'required' } },
+    ] })).toThrow();
+    expect(() => f.call('settings.update', { target, expectedRevision: created.revision, id: dynamic.id, changes: { content: 'Unexpected' } })).toThrow('重新读取');
+    expect(f.data.readGlobalSettingLibraries()).toEqual(before);
+    expect(f.data.readSettingLibrary(f.characterId)).toEqual(originalRole);
+  });
+
   it('creates, edits, groups, renames and removes only the explicitly addressed shared setting library', async () => {
     const f = await fixture(), character = f.data.readSettingLibrary(f.characterId)
     let result = f.call('settings.create_library', { target: global, expectedRevision: 0, name: 'Synthetic first' })

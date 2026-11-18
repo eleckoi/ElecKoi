@@ -34,15 +34,19 @@ save 提供 kind、配置对象数组 documents 和版本库数组 versions：�
 
 enabled 是条目开关。普通设定 dynamicMode="standard"；triggerMode="agent_tool" 交由设定工具读取，"always" 按插入位置注入。必读正文、always 正文都用 contentMode="plain_text"。
 
-只有 agent_tool 下的选读普通设定可以用 contentMode="ejs"。EJS 正文是执行的模板，代码写在 <% ... %>，输出表达式用 <%= ... %> 或 <%- ... %>；这里两种输出标记都输出文字。模板外的文字原样输出。不是把 EJS 代码当提示词交给 AI 执行。
+agent_tool 下的选读普通设定和 EJS 引用设定都可以用 contentMode="ejs"，正文输入框右上方统一用“文字／EJS”菜单切换；文字使用 plain_text。EJS 正文通过正式 EJS 3.1.10 编译，代码写在 <% ... %>，输出表达式用 <%= ... %> 或 <%- ... %>；这里两种输出标记都输出文字。支持标准模板标签、注释、空白控制和 await；print(...values) 按输出所在位置逐项拼接文字，不额外插入空格，locals 与 this 指向模板上下文。模板外的文字原样输出。不是把 EJS 代码当提示词交给 AI 执行。
 
 角色聊天运行时的 EJS 控制器按当前变量和聊天计算，输出为空表示本轮没有触发，非空输出列为本轮要读取的正文；聊天的设定工具返回执行后的文字。本组 settings.read 则返回可编辑的原稿源码。不要用 SDK 脚本、HTML 页面或 Zod Schema 冒充 EJS 设定。
 
+模板可用 getChatMessages(-5) 读取本会话最近 5 条角色聊天消息，返回按时间先后排列的文字数组，包含用户与 AI 消息。getChatMessages() 读取全部已有角色聊天历史，正数 n 读取最前 n 条；getChatMessages(start, end, role?) 读取从 0 起算、左闭右开的范围，负下标从末尾计算。getChatMessages(n, "user"或"assistant") 先按角色筛选再取数量；getChatMessage(index, role?) 读取一条，负下标从末尾计算，超出范围返回空字符串。空历史返回空数组。这些函数只读本次角色聊天上下文，不创建消息或调用模型。
+
+变量读取提供 getvar、getLocalVar、getMessageVar；_ 是完整 Lodash。getvar(path, {clone:true}) 返回独立副本，适合在模板里临时计算，默认值用 defaults 指定。这些原生接口不代表模板已具备其他运行环境的全部辅助函数、变量写入作用域或处理阶段；不能直接假定 setvar、getGlobalVar、getprp、injectPrompt 可用。
+
 getvar("组.变量", { defaults: 0 }) 读取当前聊天变量；variables/stat_data 是同一份状态，lastUserMessage 是最近用户正文。只有取回的状态用于判断，不修改它来结算变量。
 
-代码与设定文字可混写，也可分离：分离时先创建 dynamicMode="ejs_reference"、contentMode="plain_text" 的文字条目，再在 EJS 控制器里用 <%- await getwi("文件夹/引用标题") %> 输出它。getwi 只读取已启用的 EJS 引用正文，不执行引用里的模板标记；引用不单独进入 AI 选读目录。
+代码与设定文字可混写，也可分离：分离时先创建 dynamicMode="ejs_reference" 的引用条目，再在 EJS 控制器里用 <%- await getwi("文件夹/引用标题") %> 输出它。引用的 contentMode="plain_text" 时原样返回正文，里面的模板标记也保持原样；contentMode="ejs" 时按同一份当前聊天变量与历史上下文继续执行，返回计算后的文字，内部还可用 getwi 引用其他条目。引用只在被调用时执行，不单独进入 AI 选读目录。
 
-getwi 按准确引用标题或完整设定路径匹配；标题重复时用完整路径。不可引用另一个普通/EJS 控制器，也不要用 EJS 标准 include() 代替本产品的 getwi。
+getwi 按准确引用标题或完整设定路径匹配；标题重复时用完整路径。循环引用返回含完整路径链的错误，失败沿调用链传到当前控制器，其他设定仍可读取；没有额外的固定递归层数上限。不可引用另一个普通/EJS 控制器，也不要用 EJS 标准 include() 代替本产品的 getwi。
 
 条目和文件夹的 create/update/update_many/edit/remove/create_group/update_group/remove_group 与读取使用同一 target。修改全局库时必须传 target={scope:"global",libraryId:"准确库编号"}，并以最近 list/read 或成功写入返回的 revision 作为 expectedRevision；冲突后重新读取、合并，不覆盖他人的修改。省略 target 或 scope="character" 仍修改当前角色，角色设定不传 expectedRevision；不能提交其他角色编号。全局成功 update/update_many 返回 entries、revision 和 source，角色仍返回条目数组。
 
@@ -61,6 +65,7 @@ getwi 按准确引用标题或完整设定路径匹配；标题重复时用完�
 ```json
 {
   "title": "代码和文字混写",
+  "contentMode": "ejs",
   "content": "<% if (getvar(\"阶段\", { defaults: 0 }) >= 2) { %>场景进入第二阶段。<% } %>"
 }
 ```
@@ -84,6 +89,30 @@ getwi 按准确引用标题或完整设定路径匹配；标题重复时用完�
   }
 }
 ```
+
+### 动态正文递归引用
+
+以下是三次 settings.create 的 arguments，依次提交，先创建被引用条目。示例使用当前角色，其他修改按实际读取的准确编号操作。
+
+第一条为文字引用：
+
+```json
+{"title":"固定规则","dynamicMode":"ejs_reference","contentMode":"plain_text","enabled":true,"content":"人物只描述自己能观察到的信息。"}
+```
+
+第二条为动态引用，既读取本聊天变量，也引用第一条：
+
+```json
+{"title":"人物状态","dynamicMode":"ejs_reference","contentMode":"ejs","enabled":true,"content":"好感度：<%= getvar(\"好感度\", {defaults:0}) %>。<%- await getwi(\"固定规则\") %>"}
+```
+
+第三条为控制器，调用时递归取得前两条结果：
+
+```json
+{"title":"剧情状态控制器","contentMode":"ejs","enabled":true,"content":"<%- await getwi(\"人物状态\") %>"}
+```
+
+需要切换已有引用格式时，先 read，再用 settings.update({id,changes:{contentMode:"ejs"}})，其正文和其他配置保持；切回文字使用 plain_text。共享全局设定库使用相同字段，另外携带准确 target 和最新 expectedRevision；这不创建全局变量。不要把整套示例作为 settings.create 的嵌套 reference/controller 参数提交。
 
 ## 变量库
 
