@@ -11,33 +11,36 @@ function loadPreferences() {
 function savePreferences(preferences) {
   try {
     localStorage.setItem(preferenceKey, JSON.stringify(preferences))
+    return true
   } catch {
-    // The selected tutorial can still open when storage is unavailable.
+    return false
   }
 }
 
 const saved = loadPreferences()
-const deviceChoice = document.body.dataset.device ?? saved.device
-const playerChoice = document.body.dataset.player ?? saved.player
-const device = ['windows', 'android'].includes(deviceChoice) ? deviceChoice : ''
-const player = ['beginner', 'tavern'].includes(playerChoice) ? playerChoice : ''
+const device = ['windows', 'android'].includes(saved.device) ? saved.device : ''
+const player = ['beginner', 'tavern'].includes(saved.player) ? saved.player : ''
+const hasPreferences = Boolean(device && player)
+const picker = document.querySelector('.tutorial-preferences')
+const destination = picker?.dataset.destination
+const query = new URLSearchParams(window.location.search)
 
-for (const link of document.querySelectorAll('[data-preferred-destination]')) {
-  if (link.dataset.preferredDestination === 'install' && device) {
-    link.href = `install-${device}.html`
-  } else if (link.dataset.preferredDestination === 'usage' && device && player) {
-    link.href = `usage-${player}-${device}.html`
+function preferredPage(destination, device, player) {
+  return destination === 'install' ? `install-${device}.html` : `usage-${player}-${device}.html`
+}
+
+if (hasPreferences) {
+  for (const link of document.querySelectorAll('[data-preferred-destination]')) {
+    link.href = preferredPage(link.dataset.preferredDestination, device, player)
   }
 }
 
-for (const link of document.querySelectorAll('[data-install-choice]')) {
-  link.addEventListener('click', () => {
-    savePreferences({ device: link.dataset.installChoice, player })
-  })
-}
-
-const picker = document.querySelector('.tutorial-preferences')
-if (picker) {
+const isPlatformInstallPage = document.body.dataset.device && !document.body.dataset.player
+if (isPlatformInstallPage && !hasPreferences && !['beginner', 'tavern'].includes(query.get('player'))) {
+  window.location.replace('install.html')
+} else if (destination === 'install' && hasPreferences && query.get('change') !== '1') {
+  window.location.replace(preferredPage('install', device, player))
+} else if (picker && (destination !== 'home' || !hasPreferences)) {
   picker.elements.namedItem('device').value = device
   picker.elements.namedItem('player').value = player
   picker.addEventListener('submit', event => {
@@ -45,9 +48,11 @@ if (picker) {
     const selection = new FormData(picker)
     const selectedDevice = selection.get('device')
     const selectedPlayer = selection.get('player')
-    savePreferences({ device: selectedDevice, player: selectedPlayer })
-    window.location.assign(`usage-${selectedPlayer}-${selectedDevice}.html`)
+    const saved = savePreferences({ device: selectedDevice, player: selectedPlayer })
+    const page = preferredPage(destination, selectedDevice, selectedPlayer)
+    window.location.assign(!saved && destination === 'install' ? `${page}?player=${selectedPlayer}` : page)
   })
-  document.querySelector('.tutorial-preference-fallback').hidden = true
+  const fallback = document.querySelector('.tutorial-preference-fallback')
+  if (fallback) fallback.hidden = true
   picker.hidden = false
 }

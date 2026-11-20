@@ -10,8 +10,6 @@ ElecKoi 是围绕 Agent 重新设计的 AI 角色扮演应用，由 DSH 驱动�
 
 ## 下载与安装
 
-您要在哪个设备上安装？
-
 - [Windows 电脑端](#windows-电脑端)
 - [Android 手机端](#android-手机端)
 

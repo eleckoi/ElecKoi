@@ -68,8 +68,9 @@ article { min-width: 0; overflow-wrap: anywhere; }
 article :is(h1, h2, h3, h4, h5, h6) { line-height: 1.35; scroll-margin-top: 1.5rem; }
 article h1 { margin: 0 0 1.2rem; color: #1c2d48; font-size: clamp(1.9rem, 4vw, 2.5rem); }
 article h2 { margin: 3rem 0 1rem; color: #1c2d48; font-size: 1.65rem; }
-article h2:first-child { margin-top: 0; }
+article :is(h2:first-child, .tutorial-preferences[hidden] + h2) { margin-top: 0; }
 article h2:not(:first-child) { padding-top: 1.75rem; border-top: 1px solid var(--divider); }
+article .tutorial-preferences[hidden] + h2 { padding-top: 0; border-top: 0; }
 article h3 { margin: 2rem 0 .65rem; font-size: 1.2rem; }
 article h4 { margin: 1.5rem 0 .5rem; font-size: 1.05rem; }
 article h5 { margin: 1.25rem 0 .5rem; color: var(--muted); font-size: .95rem; }

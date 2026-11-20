@@ -222,11 +222,11 @@ function styleStepLinks(list) {
   }
 }
 
-function renderPreferencePicker(article) {
-  const fallback = article.querySelector(':scope > ul')
-  fallback.classList.add('tutorial-preference-fallback')
+function renderPreferencePicker(article, destination, fallback) {
+  fallback?.classList.add('tutorial-preference-fallback')
   const form = article.ownerDocument.createElement('form')
   form.className = 'tutorial-preferences'
+  form.dataset.destination = destination
   form.hidden = true
   form.innerHTML = `
     <fieldset>
@@ -249,8 +249,9 @@ function renderPreferencePicker(article) {
         </label>
       </div>
     </fieldset>
-    <button type="submit">查看教程</button>`
-  fallback.before(form)
+    <button type="submit">${destination === 'install' ? '查看下载与安装' : '查看教程'}</button>`
+  if (fallback) fallback.before(form)
+  else article.prepend(form)
 }
 
 const screenshotAnnotations = new Map([
@@ -519,17 +520,14 @@ function renderPage(entry) {
   const hasOptions = entry.children.length > 0
   if (hasOptions) article.querySelector(':scope > ul')?.classList.add('tutorial-options')
   if (entry === windowsGuide || entry === androidGuide) styleStepLinks(article.querySelector(':scope > ol'))
-  if (entry === usagePage) renderPreferencePicker(article)
-  if (entry === installPage) {
-    for (const [platform, device] of installDevices) {
-      article.querySelector(`a[href="${platform.file}"]`).dataset.installChoice = device
-    }
-  }
+  if (isHome) renderPreferencePicker(article, 'home')
+  if (entry === usagePage) renderPreferencePicker(article, 'usage', article.querySelector(':scope > ul'))
+  if (entry === installPage) renderPreferencePicker(article, 'install', article.querySelector(':scope > ul'))
   if (guidePreference || installDevice) {
     const action = document.createElement('p')
     action.className = 'tutorial-preference-action'
     const change = document.createElement('a')
-    change.href = usagePage.file
+    change.href = installDevice ? `${installPage.file}?change=1` : usagePage.file
     change.textContent = '更改教程偏好'
     action.append(change)
     article.querySelector('h1').after(action)
@@ -550,10 +548,10 @@ function renderPage(entry) {
       ? [guide.children[index - 1] ?? guide, 'prev', '上一步']
       : [entry.parent, 'prev', '返回']
     neighbors.push(previous, [guide.children[index + 1], 'next', '下一步'])
-  } else if (entry.parent) {
+  } else if (entry.parent && !installDevice) {
     pagination.setAttribute('aria-label', '返回上一步')
     neighbors.push([entry.parent, 'prev', '上一步'])
-  } else if (!hasOptions) {
+  } else if (!entry.parent && !hasOptions) {
     pagination.setAttribute('aria-label', '章节翻页')
     const chapterIndex = chapters.indexOf(entry)
     neighbors.push([chapters[chapterIndex - 1], 'prev', '上一章'], [chapters[chapterIndex + 1], 'next', '下一章'])
