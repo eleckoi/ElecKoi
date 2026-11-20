@@ -6,6 +6,10 @@
 - [创作工具与知识分层](CREATOR_AUTHORING_DESIGN.md)：按需技能、实时参数与文档分发。
 - [角色资产创作](plugins/character-assets.md)与[角色界面创作](plugins/character-frontends.md)：资产操作、常规楼层的正则 HTML 与脚本协作，以及专用独立项目。
 
+## 使用教程
+
+[ElecKoi 使用教程](tutorial/README.md)包含 Windows 和 Android 的下载安装与软件使用说明，也可在[教程网站](https://eleckoi.github.io/ElecKoi/tutorial/)阅读。
+
 ## 当前架构
 
 - [联网搜索与网页抓取](WEB_SEARCH.md)：配置 DeepSeek Search、Fetch、独立密钥及原有提供商。

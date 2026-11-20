@@ -1,4 +1,4 @@
-name: ElecKoi Author SDK Docs
+name: ElecKoi Documentation
 
 on:
   workflow_dispatch:
@@ -26,8 +26,11 @@ jobs:
           cache: pnpm
       - name: Install documentation dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
-      - name: Build SDK documentation site
-        run: pnpm build:author-docs-site
+      - name: Build documentation site
+        run: |
+          node scripts/build-author-docs-site.mjs
+          node scripts/generate-tutorial.mjs
+          cp -R build/tutorial build/author-docs/tutorial
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
@@ -44,6 +47,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy SDK documentation
+      - name: Deploy documentation
         id: deployment
         uses: actions/deploy-pages@v4
