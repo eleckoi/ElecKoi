@@ -90,6 +90,15 @@
 
 实际随包分发的第三方代码、二进制文件和素材及其许可证，以 `NOTICE` 和各级许可文件中的记录为准。
 
+## 形象署名
+
+电子爱使用的「大肥鱼／鲸鱼娘」形象源于社区创作：
+
+- 原始角色设计：[上善无形（上善）](https://space.bilibili.com/4456176)。
+- DeepSeek 女仆形象二次设计：[ZipZipPipe](https://space.bilibili.com/4168597)，原帖：[Pixiv《AI娘化》](https://www.pixiv.net/artworks/148186519)。
+
+相关形象素材及其衍生图按 [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans)（署名—非商业性使用—相同方式共享）使用，与软件代码的 AGPL 许可分开。项目对形象进行了再创作、裁切及尺寸适配，具体范围见 [NOTICE](NOTICE)。该形象并非 DeepSeek 官方形象，使用它不代表获得 DeepSeek 或原作者的背书。
+
 ## 希望与怎样的人合作
 
 我欢迎认同下列方向的开发者、AI 角色扮演设计师、视觉与交互设计师、文档作者和社区建设者与我合作：
@@ -123,7 +132,9 @@ pnpm install --frozen-lockfile
 pnpm build
 ```
 
-本地开发运行使用 `pnpm dev`；构建 Windows x64 安装包使用 `pnpm build:win`。本仓库包含 Electron、React、TypeScript 桌面端源码，以及 Windows 原生适配和本地 Runtime 所需文件。Android 版的构建说明请参阅 [ElecKoi-app](https://github.com/eleckoi/ElecKoi-app)。
+本地开发运行使用 `pnpm dev`，`pnpm build` 编译并检查源码。
+
+Windows 与 Android 共用本仓库的源码。Windows x64 安装包由 [GitHub Actions 发布工作流](.github/workflows/release-windows.yml)生成，流程见 [Windows 发布说明](docs/WINDOWS_RELEASE.md)；Android 标准版与兼容版的构建方法见 [Android 构建说明](apps/android/README.md)。
 
 ## 开源许可证
 

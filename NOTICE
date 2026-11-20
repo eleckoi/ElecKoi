@@ -19,6 +19,41 @@ Distribution-specific notices are retained in:
 - LICENSE.electron.txt and LICENSES.chromium.html in packaged Electron builds
 
 ------------------------------------------------------------------------------
+Whale Girl character artwork
+------------------------------------------------------------------------------
+
+The Whale Girl (大肥鱼 / 鲸鱼娘) character artwork is community-created and is
+licensed separately from ElecKoi's AGPL-covered software code.
+
+Character design credits:
+
+- Original whale-girl character: 上善无形 / 上善 (Shangshan)
+  https://space.bilibili.com/4456176
+  https://www.pixiv.net/users/62155430
+- DeepSeek-themed maid redesign: ZipZipPipe
+  https://space.bilibili.com/4168597
+  https://www.pixiv.net/users/18604994
+  Original artwork and creator's usage statement:
+  https://www.pixiv.net/artworks/148186519
+
+ZipZipPipe's original post identifies 上善 as the underlying character creator,
+requires attribution and non-commercial use, and states that the DeepSeek
+character redesign follows the original creator's CC BY-NC-SA 4.0 license.
+ElecKoi's related artwork and derivatives retain these terms:
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+This includes the Whale Girl application icon and its Windows, Web and Android
+copies, apps/web/src/assets/creator-studio/whale-maid-sleeping.png, and
+apps/web/src/assets/model-icons/whale-maid-thinking*.png. ElecKoi's adaptations
+include derivative character artwork, cropping, resizing, transparent-background
+processing and icon-format conversion. These changes do not transfer ownership
+of the underlying character designs or relicense them under the software license.
+This notice does not apply to unrelated artwork or user-imported character assets.
+
+The Whale Girl is not an official DeepSeek character. Its use does not imply
+endorsement by DeepSeek or the credited creators.
+
+------------------------------------------------------------------------------
 Electron and Chromium
 ------------------------------------------------------------------------------
 
