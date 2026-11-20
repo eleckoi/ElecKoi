@@ -8,6 +8,7 @@ import { PresetEditorWindow } from '../../src/app/windows/PresetEditorWindow.jsx
 import { WebSearchProvider } from '../../src/modules/agentTools/model/WebSearchContext.jsx';
 import { openPresetEditorWindow } from '../../src/modules/presets/window/openPresetEditorWindow.js';
 import { createEntryDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
+import { CatalogSlotsContext } from '../../src/ui/ui/CatalogSlotsContext.jsx';
 
 let root, host, model, stored, listeners, catalogListeners, snapshot;
 beforeEach(() => {
@@ -29,6 +30,25 @@ const textButton = label => [...document.querySelectorAll('button')].find(elemen
 async function mountList() {
   await act(async () => root.render(<PresetProvider catalogModel={model}><PresetListPanel /><PresetOverview /></PresetProvider>));
 }
+
+it('allows a plugin to replace the PC list and preview using the current preset and official activation', async () => {
+  const alternate = { ...stored, id: 'second-preset', name: '另一个预设' };
+  model.adopt({ ...snapshot.catalog, presets: [stored, alternate], activePresetIds: { roleplay: stored.id, creator: '' } });
+  const render = (name, owner, fallback) => {
+    if (name === 'eleckoi.preset.page.list') return <aside>{owner.presets.map(preset =>
+      <button key={preset.id} onClick={() => owner.onSelect(preset.id)}>{preset.name}</button>)}</aside>;
+    if (name === 'eleckoi.preset.page.preview') return <button onClick={owner.onActivate}>启用 {owner.preset.name}</button>;
+    return fallback;
+  };
+  await act(() => root.render(<CatalogSlotsContext.Provider value={{ render }}>
+    <PresetProvider catalogModel={model}><PresetListPanel /><PresetOverview /></PresetProvider>
+  </CatalogSlotsContext.Provider>));
+  expect(textButton('启用 合成预设')).toBeTruthy();
+  await click(textButton('另一个预设'));
+  await click(textButton('启用 另一个预设'));
+  expect(model.setActive).toHaveBeenCalledExactlyOnceWith('second-preset');
+  expect(model.read).not.toHaveBeenCalled();
+});
 
 it('opens from the live shared catalog without a second read and still receives external changes', async () => {
   model.adopt({...snapshot.catalog,activePresetIds:{roleplay:stored.id,creator:''}});
@@ -114,13 +134,15 @@ it('keeps display read-only and opens the selected preset in a stable independen
 });
 
 it('edits metadata, instructions and updates on one page and guards metadata before close', async () => {
-  await mountEditor();
+  await mountEditor('profile', (section, owner, fallback) => section === 'profile' ? <>
+    {fallback}<button type="button" data-plugin-close onClick={() => owner.onClose()}>退出编辑</button>
+  </> : fallback);
   expect(host.querySelector('.preset-basic-document .preset-profile-editor-avatar')).not.toBeNull();
   expect(host.querySelector('.preset-basic-document .preset-usage-section')).not.toBeNull();
   expect(host.querySelector('.preset-basic-document .preset-updates')).not.toBeNull();
   const input = host.querySelector('.preset-profile-editor-layout input');
   await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'修改后的合成名称');input.dispatchEvent(new Event('input',{bubbles:true})); });
-  await click(host.querySelector('[data-close]'));
+  await click(host.querySelector('[data-plugin-close]'));
   expect(document.querySelector('[role=dialog]')).not.toBeNull();
   expect(model.save).not.toHaveBeenCalled();
 });

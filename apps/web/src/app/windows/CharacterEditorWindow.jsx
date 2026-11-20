@@ -1,4 +1,5 @@
 import { CharacterAssetLibrary } from '../../modules/characterAssets/index.js';
+import { useCatalogSlots } from '../../ui/ui/CatalogSlotsContext.jsx';
 import { EditorNavigationRail } from '../../ui/ui/EditorNavigationRail.jsx';
 import { localizeUiCopy } from "../i18n/productCopy.js";
 import { useProductTranslation } from "../i18n/ProductLocaleContext.jsx";
@@ -65,7 +66,8 @@ function editableCharacterSnapshot(character) {
   });
 }
 
-export function CharacterEditorWindow({ characterCatalog, characterConfiguration, renderCharacterEditorSection, embeddedCharacterId, navigationGuardRef, renderHeader, onClose, compact = false, registerBackHandler }) {
+export function CharacterEditorWindow({ characterCatalog, characterConfiguration, renderCharacterEditorSection, embeddedCharacterId, navigationGuardRef, renderHeader, onClose, onToolbarBack, compact = false, registerBackHandler }) {
+  const { render: renderCatalogSlot } = useCatalogSlots();
   const tUi = useProductTranslation();
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
   const characterId = embeddedCharacterId ?? params.get("character") ?? "";
@@ -277,7 +279,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
   }
 
   function requestSection(sectionId) {
-    if (sectionId === activeSection) return;
+    if (sectionId === activeSection || !EDITOR_SECTIONS.some(section => section.id === sectionId)) return;
     if (dirty) {
       setPendingAction({ type: "section", sectionId });
       return;
@@ -440,7 +442,8 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
         setController: controller => { frontendRef.current = controller; },
       }, fallback) ?? fallback;
     } else if (activeSection === 'assets') {
-      editorContent = <CharacterAssetLibrary key={character.id} characterId={character.id} />;
+      const fallback = <CharacterAssetLibrary key={character.id} characterId={character.id} />;
+      editorContent = renderCharacterEditorSection?.('assets', { characterId: character.id }, fallback) ?? fallback;
     } else if (activeSection === "dynamic") {
       const fallback = <DynamicSettingsPanel
         ref={dynamicSettingsRef}
@@ -457,6 +460,13 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
     }
   }
 
+  const sections = localizeUiCopy(EDITOR_SECTIONS, tUi);
+  const editorNavigation = <EditorNavigationRail id="character-editor-navigation" label={tUi("角色编辑器功能")} items={sections}
+    value={activeSection} onChange={requestSection} compact={compact} collapsed={sidebarCollapsed} busy={sidebarPreference.busy} onToggle={sidebarPreference.toggle} />;
+  const editorToolbar = renderHeader
+    ? renderHeader({ character, dirty, saving, save: saveCurrentDraft, subpage, feedback: activeSection === 'card' ? { error: saveError, notice: basicSaveNotice } : feedback })
+    : <TitleBar splitSurface onClose={requestClose} />;
+
   return (
     <EditorPresentationContext.Provider value={presentation}>
     <main className={`qq-shell qq-character-editor-window-shell${compact && subpage ? ' is-editor-subpage' : ''}${compact && sidebarCollapsed ? ' is-sidebar-collapsed' : ''}`} style={{ "--character-editor-sidebar-width": `${sidebarWidth}px` }}>
@@ -467,8 +477,10 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
             {compact ? <strong>ElecKoi</strong> : <ElecKoiWordmark />}
           </div>
         </header>
-        <EditorNavigationRail id="character-editor-navigation" label={tUi("角色编辑器功能")} items={localizeUiCopy(EDITOR_SECTIONS, tUi)}
-          value={activeSection} onChange={requestSection} compact={compact} collapsed={sidebarCollapsed} busy={sidebarPreference.busy} onToggle={sidebarPreference.toggle} />
+        {renderCatalogSlot('eleckoi.character.editor.navigation', {
+          characterId: character?.id ?? null, section: activeSection, sections, compact,
+          collapsed: sidebarCollapsed, busy: sidebarPreference.busy, onSelect: requestSection, onToggle: sidebarPreference.toggle,
+        }, editorNavigation)}
         <div
           className={`character-editor-sidebar-resizer${sidebarResize ? " is-resizing" : ""}`}
           role="separator"
@@ -494,7 +506,10 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
       </aside>
 
       <section className="character-editor-main-panel">
-        {renderHeader ? renderHeader({ character, dirty, saving, save: saveCurrentDraft, subpage, feedback: activeSection === 'card' ? { error: saveError, notice: basicSaveNotice } : feedback }) : <TitleBar splitSurface onClose={requestClose} />}
+        {renderCatalogSlot('eleckoi.character.editor.toolbar', {
+          characterId: character?.id ?? null, section: activeSection, compact,
+          dirty, saving, onSave: saveCurrentDraft, onClose: subpage?.back ?? onToolbarBack ?? requestClose,
+        }, editorToolbar)}
         <section
           className={`character-editor-workspace${['openings', 'lore', 'variables', 'regex', 'scripts', 'dynamic'].includes(activeSection) ? ' is-collection-editor' : ''}${activeSection === "card" ? " is-basic-info" : ""}${activeSection === "openings" ? " is-character-openings" : ""}${activeSection === "lore" ? " is-setting-library" : ""}${activeSection === "variables" ? " is-variable-config" : ""}${activeSection === "regex" ? " is-regex-rules" : ""}${activeSection === 'scripts' ? ' is-scripts' : ''}${activeSection === 'frontend' ? ' is-frontend' : ''}${activeSection === 'assets' ? ' is-character-assets' : ''}${activeSection === "dynamic" ? " is-dynamic-settings" : ""}`}
           aria-label={activeLabel}

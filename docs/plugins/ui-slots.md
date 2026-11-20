@@ -104,22 +104,41 @@ type CardProps = PropsRuntime<'eleckoi.character.editor.card'>
 
 `eleckoi.roleplay` 是 ElecKoi 根页面接入点；普通聊天扩展优先使用下方更窄的消息或输入区 slot，减少与其他插件冲突。
 
-## 角色与角色卡入口（8）
+## 角色与角色卡入口（23）
 
 类型入口：`@eleckoi/dsh-client-characters/slots`
 
 | Slot ID | kind / scope | owner 类型 | 关键数据与操作 |
 | --- | --- | --- | --- |
-| `eleckoi.character.page.list` | chain / root | `CharacterListOwner` | 角色集合、当前角色、选择、开始聊天、分组、导入、创建、删除 |
-| `eleckoi.character.page.profile` | chain / root | `CharacterProfileOwner` | 选中角色、开始聊天、编辑、新建首个角色 |
+| `eleckoi.character.page.list` | chain / root | `CharacterListOwner` | PC 主角色页的完整列表及其操作 |
+| `eleckoi.character.page.profile` | chain / root | `CharacterProfileOwner` | PC 与安卓角色详情、开始聊天、编辑和新建首个角色 |
 | `eleckoi.character.editor.card` | chain / root | `CharacterEditorCardOwner` | 角色资料、dirty/saving/error、change/save/cancel |
+| `eleckoi.character.editor.openings` | chain / root | `CharacterEditorConfigurationOwner` | 主开场白、备用开场白、变量版本绑定 |
 | `eleckoi.character.editor.lore` | chain / root | `CharacterEditorConfigurationOwner` | 设定库编辑状态与保存控制器 |
 | `eleckoi.character.editor.variables` | chain / root | `CharacterEditorConfigurationOwner` | 变量编辑状态与保存控制器 |
 | `eleckoi.character.editor.regex` | chain / root | `CharacterEditorConfigurationOwner` | 正则编辑状态与保存控制器 |
+| `eleckoi.character.editor.scripts` | chain / root | `CharacterEditorConfigurationOwner` | 脚本库编辑状态与保存控制器 |
+| `eleckoi.character.editor.frontend` | chain / root | `Omit<CharacterEditorConfigurationOwner, 'configuration'>` | 前端项目编辑、预览和启用 |
 | `eleckoi.character.editor.dynamic` | chain / root | `CharacterEditorConfigurationOwner` | 分支设定编辑状态与保存控制器 |
-| `eleckoi.character.manager` | chain / root | `CharacterManagerOwner` | 刷新、分组、删除、导入、导出 |
+| `eleckoi.character.manager` | chain / root | `CharacterManagerOwner` | PC 独立管理器的整块内容与刷新、分组、导入、导出、删除操作 |
+| `eleckoi.character.editor.assets` | chain / root | `CharacterEditorAssetsOwner` | 包装或替换角色卡内的素材库 |
+| `eleckoi.character.editor.navigation` | chain / root | `CharacterEditorNavigationOwner` | 包装或替换角色编辑器的分区导航 |
+| `eleckoi.character.editor.toolbar` | chain / root | `CharacterEditorToolbarOwner` | 包装或替换角色编辑器顶部工具栏 |
+| `eleckoi.character.library.list` | chain / root | `CharacterLibraryListOwner` | 包装或替换安卓角色库的瀑布流 |
+| `eleckoi.character.library.item` | chain / root | `CharacterLibraryItemOwner` | 包装或替换列表中的角色行或卡片 |
+| `eleckoi.character.library.search` | chain / root | `CharacterLibrarySearchOwner` | 扩展角色列表或管理器的搜索控件 |
+| `eleckoi.character.library.sort` | chain / root | `CharacterLibrarySortOwner` | 扩展原有角色排序菜单及触发按钮 |
+| `eleckoi.character.library.groups` | chain / root | `CharacterLibraryGroupsOwner` | 扩展角色列表及管理器的分组控件 |
+| `eleckoi.character.library.selection` | chain / root | `CharacterLibrarySelectionOwner` | 扩展选中多张角色卡时的操作控件 |
+| `eleckoi.character.library.menu.actions` | list / root | `CharacterLibraryMenuOwner` | 向角色库的新建、导入、排序或批量操作菜单追加菜单项 |
+| `eleckoi.character.library.item.menu.actions` | list / root | `CharacterLibraryItemMenuOwner` | 向当前角色的操作菜单追加菜单项 |
+| `eleckoi.character.library.group.menu.actions` | list / root | `CharacterLibraryGroupMenuOwner` | 向角色分组右键菜单追加菜单项 |
 
-所有 owner 都包含 `fallback: ReactNode`。配置编辑 slot 通过 `setController()` 交给父页面统一处理保存和放弃；插件替换编辑器时必须正确报告 dirty 状态。
+PC 和安卓共用编辑器的分区、素材库、导航及工具栏。工具栏的 `onSave()` 调用当前分区的保存流程，导航的 `onSelect()` 沿用未保存提醒。安卓的返回操作与原工具栏走同一守卫。
+
+`character.page.list` 用于 PC 主角色页，`character.library.list` 用于安卓瀑布流。单卡、分组或菜单插件通过 `surface` 区分 `pc-sidebar`、`pc-manager` 和 `android`。安卓单卡操作菜单位于角色详情。排序槽位用于已有排序控件的 PC 管理器和安卓角色库。批量槽位按当前模式提供选中 ID 与原确认操作。
+
+配置编辑区通过 `setController()` 接入统一保存和放弃流程。插件替换编辑器时应报告 dirty 状态。
 
 ## 聊天列表入口（1）
 
@@ -137,7 +156,7 @@ type CardProps = PropsRuntime<'eleckoi.character.editor.card'>
 
 模型提供商、profile、API 地址和密钥使用 DSH 官方模型设置页，不提供第二个 ElecKoi 模型编辑 Slot。`eleckoiModels` 只把 DSH 官方模型目录投影给聊天和预设的模型选择器。
 
-## Agent 预设入口（6）
+## Agent 预设入口（16）
 
 类型入口：`@eleckoi/dsh-client-presets/slots`
 
@@ -148,17 +167,34 @@ type CardProps = PropsRuntime<'eleckoi.character.editor.card'>
 | `eleckoi.preset.editor.prompts` | chain / root | `PresetEditorOwner` | 提示词配置 |
 | `eleckoi.preset.editor.tools` | chain / root | `PresetEditorOwner` | 工具策略 |
 | `eleckoi.preset.editor.regex` | chain / root | `PresetEditorOwner` | 预设正则 |
-| `eleckoi.preset.manager` | chain / root | `PresetManagerOwner` | 分组、选择、刷新、导入和导出 |
+| `eleckoi.preset.editor.scripts` | chain / root | `PresetEditorOwner` | 预设脚本 |
+| `eleckoi.preset.manager` | chain / root | `PresetManagerOwner` | PC 独立管理器的整块内容、分组、选择、刷新、导入和导出 |
+| `eleckoi.preset.page.list` | chain / root | `PresetPageListOwner` | 包装或替换主预设页的列表或安卓预设库的卡片区 |
+| `eleckoi.preset.page.preview` | chain / root | `PresetPagePreviewOwner` | 包装或替换 PC 主预设页的预设预览 |
+| `eleckoi.preset.library.item` | chain / root | `PresetLibraryItemOwner` | 包装或替换列表中的预设行或卡片 |
+| `eleckoi.preset.library.search` | chain / root | `PresetLibrarySearchOwner` | 扩展主预设页或管理器的搜索控件 |
+| `eleckoi.preset.library.groups` | chain / root | `PresetLibraryGroupsOwner` | 扩展预设列表及管理器的分组控件 |
+| `eleckoi.preset.library.selection` | chain / root | `PresetLibrarySelectionOwner` | 扩展选中多项预设时的操作控件 |
+| `eleckoi.preset.library.menu.actions` | list / root | `PresetLibraryMenuOwner` | 向新建、导入、导出或批量操作菜单追加菜单项 |
+| `eleckoi.preset.library.item.menu.actions` | list / root | `PresetLibraryItemMenuOwner` | 向当前预设的操作菜单追加菜单项 |
+| `eleckoi.preset.library.group.menu.actions` | list / root | `PresetLibraryGroupMenuOwner` | 向预设管理器的分组菜单追加菜单项 |
 
-## 角色聊天入口（19）
+PC 独立预设编辑器和安卓预设编辑页共用编辑分区槽位。列表 owner 带当前用途与实际可见的预设。PC 常驻预览提供当前预设和原编辑、启用操作。PC 独立管理器和安卓预设库的批量工具栏在进入批量模式后渲染。
+
+角色和预设的 `chain` 槽位都提供 `fallback`，包装时可以把原控件放回。搜索控件在 PC 使用 `value` 和 `onChange()`，在安卓使用 `onOpen()` 打开共用搜索。分组 owner 用 `allGroup` 表示「全部」的实际值。菜单 `list` 槽位在原菜单打开后渲染，追加项使用 `role="menuitem"`，执行动作前可调用 `onDismiss()`。单项或分组菜单提供当前目标，禁止从选中项或列表顺序推断菜单目标。
+
+## 角色聊天入口
 
 类型入口：`@eleckoi/dsh-client-roleplay/slots`
 
 | Slot ID | kind / scope | owner 类型 | 用途 |
 | --- | --- | --- | --- |
 | `eleckoi.roleplay.message.content` | chain / session | `RoleplayMessageContentOwner` | 包装或替换消息正文 |
+| `eleckoi.roleplay.message.editor` | single / session | `RoleplayMessageEditorOwner` | 替换点击铅笔打开的消息编辑区 |
 | `eleckoi.roleplay.message.actions` | list / session | `RoleplayMessageOwner & { messageId: string }` | 消息旁操作 |
 | `eleckoi.roleplay.message.after` | list / session | `RoleplayMessageOwner` | 消息下方内容 |
+| `eleckoi.roleplay.conversation.input.menu.actions` | list / session | `{ onDismiss: () => void }` | 在底部三横线菜单第一层的「更多」之前追加操作 |
+| `eleckoi.roleplay.header.menu` | list / session | `{ onOpen: () => void }` | 在底部菜单第二层「更多」追加操作，`onOpen` 打开自定义背景 |
 | `eleckoi.roleplay.conversation.composer.bar` | single / session-maybe | `ComposerBarOwnerProps & ComposerBridgeOwner` | 替换整体输入框 |
 | `eleckoi.roleplay.conversation.composer` | chain / session | `ComposerChainProps & ComposerBridgeOwner` | 按会话状态临时接管输入区 |
 | `eleckoi.roleplay.conversation.input.left` | list / session | 空 owner | 左侧工具区追加控件 |
@@ -177,6 +213,10 @@ type CardProps = PropsRuntime<'eleckoi.character.editor.card'>
 | `eleckoi.roleplay.trajectory` | single / session | `ConvViewOwnerProps & { component? }` | 轨迹视图与正式 Session 投影 |
 
 `RoleplayMessageOwner` 提供 `conversationId`、产品消息 ID、DSH message ID 和角色；正文 owner 另外提供 `content` 与 `streaming`。输入区使用官方 Session 输入服务，不另传产品草稿或 `setInput`。`session-maybe` 表示组件支持没有选中会话的状态，插件必须处理会话相关服务暂不可用的情况。所有会话插槽都随当前 DSH Session 绑定，插件不得把一个 Session 的状态放进无 key 的全局单例。
+
+主菜单插件使用 `ctx.slots.inject` 和稳定 `id` 注册，建议用官方 `MenuItemButton` 提供图标、标签和键盘操作。执行动作前调用 `onDismiss()`，聚焦会回到原触发按钮。
+
+消息编辑器插件使用 `draft` 和 `onDraftChange(text)` 呈现和更新同一份草稿，保存时调用 `onSave()`，取消时调用 `onCancel()`。已有编辑权限、消息归属和保存流程由会话控制。没有匹配的编辑器时使用内置编辑器，停用插件也会切回内置编辑器并显示当前草稿。可编辑开场白也调用该槽位，`messageId` 可能为 `null`。
 
 当前只有一套官方 InputBar。原生“＋”、命令弹层和文件/图片上传由官方组件负责；产品通过 `leadingAccessory`、`dockAccessory` 装配扮演菜单和统计，模型选择使用原生 `input.model` 座位。`composer.bar` 皮肤接收这些参数及 `renderSlot`，可自行安排其位置。`modelAccessory` 是可选替换入口，产品会话不再传入独立模型浮层。审批详情与计划审核操作同样由相应接管组件调用。
 

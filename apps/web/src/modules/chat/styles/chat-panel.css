@@ -2212,7 +2212,6 @@ button.chat-file-card:hover { border-color: var(--blue); }
   flex-direction: column;
   width: 174px;
   min-width: 0;
-  max-height: none;
   padding: 6px;
   overflow: hidden;
   border: 0;
@@ -2258,6 +2257,7 @@ button.chat-file-card:hover { border-color: var(--blue); }
 }
 
 .composer-more-menu > [role="presentation"] > i {
+  flex-shrink: 0;
   height: 1px;
   margin: 4px 8px;
   background: var(--dsw-alias-border-l1);
@@ -2277,7 +2277,6 @@ button.chat-file-card:hover { border-color: var(--blue); }
   color: var(--dsw-alias-label-primary, var(--text));
 }
 
-.composer-more-menu > [role="presentation"] { display: flex; flex-direction: column; overflow: visible; }
 .composer-more-menu.is-more { max-height: var(--dsh-anchored-max-height, calc(100dvh - 24px)); }
 .composer-more-menu.is-more > [role="presentation"] { min-height: 0; overflow: hidden; }
 

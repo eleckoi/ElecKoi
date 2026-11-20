@@ -79,12 +79,12 @@ function MobileMenuSurface({ width: w, height, pointer: p }) {
   return <svg className="mobile-bubble-menu-surface" aria-hidden="true" focusable="false" viewBox={`0 0 ${w} ${b}`} preserveAspectRatio="none"><path d={path} /></svg>;
 }
 
-export function MobileActionMenu({ title, anchor, onClose, actions, busy = false, error }) {
+export function MobileActionMenu({ title, anchor, onClose, actions, busy = false, error, children }) {
   return <LibraryOverlay title={title} anchor={anchor} onClose={onClose} busy={busy} className="mobile-bubble-menu">
     <div className="mobile-bubble-menu-items" role="menu" aria-label={title}>{actions.map(({ label, icon, action, divider, destructive, disabled }) => <div key={label}>
       {divider && <hr />}
       <button role="menuitem" type="button" className={destructive ? 'is-destructive' : undefined} disabled={busy || disabled} onClick={action}>{icon}<span>{label}</span></button>
-    </div>)}{error && <p className="mobile-menu-error" role="alert">{error}</p>}</div>
+    </div>)}{children}{error && <p className="mobile-menu-error" role="alert">{error}</p>}</div>
   </LibraryOverlay>;
 }
 

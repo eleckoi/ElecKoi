@@ -1,6 +1,6 @@
 import { sourceText } from '../../../app/i18n/productCopy.js';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle } from '@phosphor-icons/react';
 import { CharacterManagerIcon, ChevronRightIcon, ImportIcon, PlusIcon, TrashIcon } from '../../../ui/icons/index.jsx';
 import { Avatar } from '../../../ui/ui/Avatar.jsx';
@@ -18,6 +18,7 @@ import { openPresetManagerWindow } from '../window/openPresetManagerWindow.js';
 import { PresetPurposeSwitch, isDefaultPreset } from './PresetPurposeSwitch.jsx';
 import { usePresets } from './PresetContext.jsx';
 import { resolveFailure } from '../../../utils/failureText.js';
+import { useCatalogSlots } from '../../../ui/ui/CatalogSlotsContext.jsx';
 import '../styles/preset-workspace.css';
 
 const ALL_PRESETS = '全部预设';
@@ -45,6 +46,7 @@ export function shouldShowPresetCatalogLoading(catalog, error) {
 
 export function PresetListPanel() {
   const tUi = useProductTranslation();
+  const { render, actions } = useCatalogSlots();
   const scrollRef = useSidebarListScroll();
   const { purposeCatalog: catalog, purpose, setPurpose, catalogModel, setCatalog, selectedPresetId, setSelectedPresetId, navigationGuard, error, setError } = usePresets();
   const [keyword, setKeyword] = useState('');
@@ -196,38 +198,45 @@ export function PresetListPanel() {
         <span><span className={`character-group-toggle${isCollapsed ? ' collapsed' : ''}`}><ChevronRightIcon /></span>{section.name}</span>
         <em>{section.presets.length}</em>
       </button>
-      {!isCollapsed ? <div className="character-contact-list preset-list-rows">{section.presets.map((preset) => <PresetListRow
-        key={preset.id}
-        preset={preset}
-        selected={preset.id === selectedPresetId}
-        active={preset.id === catalog.activePresetIds[purpose]}
-        onClick={() => setSelectedPresetId(preset.id)}
-        onContextMenu={(event) => {
-          if (preset.id === catalog.activePresetIds[purpose] && isDefaultPreset(preset.id)) {
+      {!isCollapsed ? <div className="character-contact-list preset-list-rows">{section.presets.map((preset) => {
+        const active = preset.id === catalog.activePresetIds[purpose];
+        const selected = preset.id === selectedPresetId;
+        const onSelect = () => setSelectedPresetId(preset.id);
+        const onOpenMenu = event => {
+          if (active && isDefaultPreset(preset.id)) {
             event.preventDefault();
             event.stopPropagation();
             return;
           }
           context.open(event, preset);
-        }}
-      />)}</div> : null}
+        };
+        return <Fragment key={preset.id}>{render('eleckoi.preset.library.item', {
+          surface: 'pc-sidebar', preset, active, selected, selecting: false, onSelect, onOpenMenu,
+        }, <PresetListRow preset={preset} selected={selected} active={active} onClick={onSelect} onContextMenu={onOpenMenu} />)}</Fragment>;
+      })}</div> : null}
     </section>;
   }
 
-  return <aside className="character-list-panel preset-list-panel" aria-label={tUi("预设列表")} aria-busy={creating || shouldShowPresetCatalogLoading(catalog, error) || undefined}>
+  return render('eleckoi.preset.page.list', {
+    surface: 'pc-sidebar', purpose, presets: filtered, selectedPresetId, onSelect: setSelectedPresetId,
+  }, <aside className="character-list-panel preset-list-panel" aria-label={tUi("预设列表")} aria-busy={creating || shouldShowPresetCatalogLoading(catalog, error) || undefined}>
     <SidebarSectionHeader title={tUi("预设")} value={keyword} onValueChange={setKeyword} placeholder={tUi("搜索预设名称")}
       createLabel={tUi("新建预设")} createExpanded={createOpen}
+      renderSearch={fallback => render('eleckoi.preset.library.search', { surface: 'pc-sidebar', value: keyword, onChange: setKeyword }, fallback)}
       onCreatePointerDown={(event) => event.stopPropagation()}
       onCreate={(event) => { event.stopPropagation(); setCreateOpen((value) => !value); }} onSearchFocus={() => setCreateOpen(false)} />
     {createOpen ? <div className="character-create-menu preset-create-menu" onPointerDown={(event) => event.stopPropagation()}>
       <button type="button" disabled={creating} onClick={addPreset}><PlusIcon /><span>{tUi("新建预设")}</span></button>
       <button type="button" disabled={importing} onClick={beginImport}><ImportIcon /><span>{tUi("导入预设")}</span></button>
+      {actions('eleckoi.preset.library.menu.actions', { surface: 'pc-sidebar', purpose, menu: 'create', busy: importing || creating, onDismiss: () => setCreateOpen(false) })}
     </div> : null}
     <input ref={importInputRef} type="file" accept="image/png,application/json,.png,.json" hidden onChange={handleImport} />
     <button type="button" className="character-manager-entry preset-manager-entry" onClick={openPresetManagerWindow}><CharacterManagerIcon /><span>{tUi("预设管理器")}</span></button>
     <PresetPurposeSwitch value={purpose} onChange={value => { setPurpose(value); setSelectedGroup(ALL_PRESETS); setKeyword(''); }} />
     <SidebarScrollArea ref={scrollRef} className="character-list-scroll preset-list-scroll">
-      {collapseStateReady ? sections.map(renderGroup) : null}
+      {collapseStateReady ? render('eleckoi.preset.library.groups', {
+        surface: 'pc-sidebar', purpose, groups, allGroup: ALL_PRESETS, selectedGroup, onSelectGroup: setSelectedGroup,
+      }, <>{sections.map(renderGroup)}</>) : null}
       {error || importError ? <p className="preset-list-state is-error">{error || importError}</p> : null}
     </SidebarScrollArea>
     {context.menu ? <PresetContextMenu menu={context.menu} onClose={context.close} actions={presetListContextActions(
@@ -235,12 +244,17 @@ export function PresetListPanel() {
       catalog.activePresetIds[purpose],
       () => activateFromList(context.menu.target),
       () => removeFromList(context.menu.target), tUi
-    )} /> : null}
+    )}>
+      {actions('eleckoi.preset.library.item.menu.actions', {
+        surface: 'pc-sidebar', preset: context.menu.target, busy: false,
+        onDismiss: () => { context.close(); context.menu.trigger?.focus(); },
+      })}
+    </PresetContextMenu> : null}
     {importDialogOpen ? <PresetImportDialog onSelect={chooseImportSource} onClose={() => setImportDialogOpen(false)} /> : null}
     <ConfirmationDialog open={Boolean(deleteTarget)} title={tUi("删除预设？")} destructive busy={deleting} confirmLabel={tUi("删除")}
       description={<>{tUi("确认删除“{value0}”？", { value0: deleteTarget?.name || '' })}{deleteError && <span role="alert"> {deleteError}</span>}</>}
       onCancel={() => { if (!deletingRef.current) { setDeleteTarget(null); setDeleteError(''); } }} onConfirm={() => void confirmDelete()} />
-  </aside>;
+  </aside>);
 }
 
 export function PresetListRow({ preset, selected, active, onClick, onContextMenu }) {

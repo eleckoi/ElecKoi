@@ -135,7 +135,7 @@ function SettledRichPresentation({ message, presentation, renderMarkdown, fallba
     })}</div>;
 }
 
-function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode = "roleplay", avatarShape = "portrait", spacingAfter, floorNumber, showRoleplayTimestamp = true, showRoleplayFloor = true, isLatestAssistant = true, onOpenProcess, onPinAvatar, onEditCharacter, onSelectOpening, onEdit, onRegenerate, onRegenerateImage, onOpenFile, pluginActions, pluginAfter, renderMessageContent, loadImage }) {
+function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode = "roleplay", avatarShape = "portrait", spacingAfter, floorNumber, showRoleplayTimestamp = true, showRoleplayFloor = true, isLatestAssistant = true, onOpenProcess, onPinAvatar, onEditCharacter, onSelectOpening, onEdit, onRegenerate, onRegenerateImage, onOpenFile, pluginActions, pluginAfter, renderMessageContent, renderMessageEditor, loadImage }) {
   const tUi = useProductTranslation();
   const { role, content, pending = false } = message;
   const renderedDisplay = useRegexEjsDisplay(message, message.displayContent ?? content ?? '');
@@ -224,6 +224,28 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
     const next = draft.trim();
     if (!next || next === content) { setEditing(false); return; }
     if (await onEdit?.(message, next)) setEditing(false);
+  }
+  function cancelEdit() {
+    setDraft(editableContent || '');
+    setEditing(false);
+  }
+  function renderEditor() {
+    const fallback = <div className="message-inline-editor"><textarea
+      value={draft}
+      onChange={event => setDraft(event.target.value)}
+      onKeyDown={event => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          cancelEdit();
+        } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault();
+          void saveEdit();
+        }
+      }}
+      autoFocus={typeof document === 'undefined' || document.documentElement.dataset.eleckoiMobile !== 'true'}
+      aria-label={tUi('编辑消息')}
+    /><div><button type="button" onClick={cancelEdit}>{tUi('取消')}</button><button type="button" className="primary" onClick={saveEdit}>{tUi('保存')}</button></div></div>;
+    return renderMessageEditor?.(message, { draft, onDraftChange: setDraft, onSave: saveEdit, onCancel: cancelEdit }, fallback) ?? fallback;
   }
   function openProcess() {
     if (mobileRoleplay) toolbar.collapseBeforeDialog();
@@ -322,22 +344,7 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
         {isUser ? <ChatImageGallery images={message.inputImageAttachments || []} conversationId={message.conversationId} agentMessage={layoutMode === "agent"} loadImage={loadImage} /> : null}
         {isUser ? <ChatFileCards files={message.inputFileAttachments || []}
           onOpen={(file) => onOpenFile?.(message.conversationId, file.attachmentId, file.name)} /> : null}
-        {editing ? <div className="message-inline-editor"><textarea
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              setDraft(editableContent || "");
-              setEditing(false);
-            } else if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-              event.preventDefault();
-              saveEdit();
-            }
-          }}
-          autoFocus={typeof document === "undefined" || document.documentElement.dataset.eleckoiMobile !== "true"}
-          aria-label={tUi("编辑消息")}
-        /><div><button type="button" onClick={() => { setDraft(editableContent || ''); setEditing(false); }}>{tUi("取消")}</button><button type="button" className="primary" onClick={saveEdit}>{tUi("保存")}</button></div></div> : liveProcess ? <AgentProcessStatus presentation={liveProcess} onClick={openProcess} /> : displayContent ? <div ref={markdownRef} className="bubble markdown-message">
+        {editing ? renderEditor() : liveProcess ? <AgentProcessStatus presentation={liveProcess} onClick={openProcess} /> : displayContent ? <div ref={markdownRef} className="bubble markdown-message">
           {!isUser && message.generatedImageAttachments?.length ? generatedImageSegments(markdownTonePresentation.markdown, message.generatedImageAttachments, pending).map((segment, index) => segment.type === 'images'
             ? <ChatImageGallery key={`images-${index}`} images={segment.images} conversationId={message.conversationId} agentMessage={layoutMode === 'agent'} loadImage={loadImage} onRegenerateImage={onRegenerateImage} />
             : <MessagePresentation key={`text-${index}`} message={message} content={segment.content} streaming={pending || renderedDisplay.pending} renderMessageContent={renderMessageContent} />) : <MessagePresentation

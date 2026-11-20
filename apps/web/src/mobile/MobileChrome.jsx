@@ -7,10 +7,11 @@ import { MobileAddCircleIcon, MobileBackIcon, MobileSidebarIcon } from './Mobile
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
 import { FailureAlert } from '../ui/ui/FailureAlert.jsx';
 
-export function MobileHeader({ title, back, leading, onSearch, onAdd, addLabel: addLabelSource, children }) {
+export function MobileHeader({ title, back, leading, onSearch, renderSearch, onAdd, addLabel: addLabelSource, children }) {
   const tUi = useProductTranslation();
   const addLabel = addLabelSource === undefined ? tUi("新增") : addLabelSource;
   const view = useMainPageView();
+  const search = onSearch && <button type="button" aria-label={tUi("搜索{value0}", {value0: title})} onClick={onSearch}><DshSearchIcon size={21} /></button>;
   return <header className="mobile-header">
     <button type="button" aria-label={back ? tUi("返回") : tUi("打开侧边栏")} disabled={view.routeBusy} onClick={back || view.openDrawer}>
       {back ? <MobileBackIcon /> : <MobileSidebarIcon />}
@@ -18,7 +19,7 @@ export function MobileHeader({ title, back, leading, onSearch, onAdd, addLabel: 
     {leading}
     <h1>{title}</h1>
     <div className="mobile-header-actions">
-      {onSearch && <button type="button" aria-label={tUi("搜索{value0}", {value0: title})} onClick={onSearch}><DshSearchIcon size={21} /></button>}
+      {search && (renderSearch ? renderSearch(search) : search)}
       {onAdd && <button type="button" aria-label={addLabel} onClick={onAdd}><MobileAddCircleIcon /></button>}
       {children}
     </div>

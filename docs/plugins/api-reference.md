@@ -4,7 +4,7 @@
 
 本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.2-rc.3`，提交 `38a6a5c965aa99ab525161efb7cc5cf1fe62fced`。
 
-当前共 **17 个 bundle、112 个开发接口**：63 个界面插槽、21 个服务、0 个事件、6 个贡献点、22 个 Remote 合同。
+当前共 **17 个 bundle、135 个开发接口**：86 个界面插槽、21 个服务、0 个事件、6 个贡献点、22 个 Remote 合同。
 
 接口标题和说明用于插件中心展示；真实调用合同以对应类型导出和实现为准。完整参数、返回值和数据字段见 [Client 参考](api-client.md)、[Host 参考](api-host.md) 与 [Remote 调用声明](api-remote.md)。使用方法见 [界面插槽](ui-slots.md)、[服务接口](services.md) 与 [能力贡献](contributions.md)。
 
@@ -12,17 +12,17 @@
 
 | Bundle | 界面插槽 | 服务 | 事件 | 贡献点 | Remote | 合计 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| `@eleckoi/dsh-client-characters` | 11 | 1 | 0 | 0 | 0 | 12 |
+| `@eleckoi/dsh-client-characters` | 23 | 1 | 0 | 0 | 0 | 24 |
 | `@eleckoi/dsh-client-character-configuration` | 0 | 6 | 0 | 0 | 0 | 6 |
 | `@eleckoi/dsh-client-conversations` | 1 | 1 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-creator-studio` | 2 | 1 | 0 | 0 | 0 | 3 |
 | `@eleckoi/dsh-client-display-preferences` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-models` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-persona` | 1 | 1 | 0 | 0 | 0 | 2 |
-| `@eleckoi/dsh-client-presets` | 7 | 1 | 0 | 0 | 0 | 8 |
+| `@eleckoi/dsh-client-presets` | 16 | 1 | 0 | 0 | 0 | 17 |
 | `@eleckoi/dsh-client-web-search` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-shell` | 10 | 1 | 0 | 4 | 0 | 15 |
-| `@eleckoi/dsh-client-roleplay` | 31 | 1 | 0 | 0 | 0 | 32 |
+| `@eleckoi/dsh-client-roleplay` | 33 | 1 | 0 | 0 | 0 | 34 |
 | `@eleckoi/dsh-auto-illustration` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-author` | 0 | 2 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-html-resources` | 0 | 1 | 0 | 1 | 0 | 2 |
@@ -38,6 +38,18 @@
 
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| `eleckoi.character.editor.assets` | 角色素材库 | 界面插槽 | 提供 | `replace` | `root` | 包装或替换角色卡内的素材库。 | — |
+| `eleckoi.character.editor.navigation` | 角色编辑器导航 | 界面插槽 | 提供 | `replace` | `root` | 包装或替换角色编辑器的分区导航。 | — |
+| `eleckoi.character.editor.toolbar` | 角色编辑器工具栏 | 界面插槽 | 提供 | `replace` | `root` | 包装或替换角色编辑器顶部工具栏。 | — |
+| `eleckoi.character.library.list` | 安卓角色库列表 | 界面插槽 | 提供 | `replace` | `root` | 包装或替换安卓角色库的瀑布流。 | — |
+| `eleckoi.character.library.item` | 单张角色卡 | 界面插槽 | 提供 | `replace` | `root` | 包装或替换列表中的角色行或卡片。 | — |
+| `eleckoi.character.library.search` | 角色搜索控件 | 界面插槽 | 提供 | `replace` | `root` | 扩展角色列表或管理器的搜索控件。 | — |
+| `eleckoi.character.library.sort` | 角色排序控件 | 界面插槽 | 提供 | `replace` | `root` | 扩展原有角色排序菜单及触发按钮。 | — |
+| `eleckoi.character.library.groups` | 角色分组 | 界面插槽 | 提供 | `replace` | `root` | 扩展角色列表及管理器的分组控件。 | — |
+| `eleckoi.character.library.selection` | 角色批量工具栏 | 界面插槽 | 提供 | `replace` | `root` | 扩展选中多张角色卡时的操作控件。 | — |
+| `eleckoi.character.library.menu.actions` | 角色库操作菜单 | 界面插槽 | 提供 | `append` | `root` | 向角色库的新建、导入、排序或批量操作菜单追加菜单项。 | — |
+| `eleckoi.character.library.item.menu.actions` | 单张角色卡菜单 | 界面插槽 | 提供 | `append` | `root` | 向当前角色的操作菜单追加菜单项。 | — |
+| `eleckoi.character.library.group.menu.actions` | 角色分组菜单 | 界面插槽 | 提供 | `append` | `root` | 向角色分组右键菜单追加菜单项。 | — |
 | `eleckoiCharacters` | 角色目录服务 | 服务 | 提供 | `call` | `client` | 读取并维护角色目录，支持角色复制、分组、导入与导出操作。 | `getSnapshot`、`subscribe`、`refresh`、`create`、`duplicate`、`update`、`select`、`saveGroups`、`delete`、`prepareImport`、`commitImport`、`discardImport`、`exportCharacters` |
 | `eleckoi.character.page.list` | 角色列表区域 | 界面插槽 | 提供 | `replace` | `root` | 包装或替换角色列表。 | — |
 | `eleckoi.character.page.profile` | 角色资料区域 | 界面插槽 | 提供 | `replace` | `root` | 包装或替换角色资料展示。 | — |
@@ -128,6 +140,15 @@
 
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| `eleckoi.preset.page.list` | 预设列表 | 界面插槽 | 提供 | `replace` | `root` | 包装或替换主预设页的列表或安卓预设库的卡片区。 | — |
+| `eleckoi.preset.page.preview` | 预设预览 | 界面插槽 | 提供 | `replace` | `root` | 包装或替换 PC 主预设页的预设预览。 | — |
+| `eleckoi.preset.library.item` | 单项预设卡 | 界面插槽 | 提供 | `replace` | `root` | 包装或替换列表中的预设行或卡片。 | — |
+| `eleckoi.preset.library.search` | 预设搜索控件 | 界面插槽 | 提供 | `replace` | `root` | 扩展主预设页或管理器的搜索控件。 | — |
+| `eleckoi.preset.library.groups` | 预设分组 | 界面插槽 | 提供 | `replace` | `root` | 扩展预设列表及管理器的分组控件。 | — |
+| `eleckoi.preset.library.selection` | 预设批量工具栏 | 界面插槽 | 提供 | `replace` | `root` | 扩展选中多项预设时的操作控件。 | — |
+| `eleckoi.preset.library.menu.actions` | 预设库操作菜单 | 界面插槽 | 提供 | `append` | `root` | 向新建、导入、导出或批量操作菜单追加菜单项。 | — |
+| `eleckoi.preset.library.item.menu.actions` | 单项预设菜单 | 界面插槽 | 提供 | `append` | `root` | 向当前预设的操作菜单追加菜单项。 | — |
+| `eleckoi.preset.library.group.menu.actions` | 预设分组菜单 | 界面插槽 | 提供 | `append` | `root` | 向预设管理器的分组菜单追加菜单项。 | — |
 | `eleckoiPresets` | Agent 预设服务 | 服务 | 提供 | `call` | `client` | 读取预设目录与详情，并通过正式数据入口保存预设。 | `getSnapshot`、`subscribe`、`getDetailSnapshot`、`subscribeDetail`、`read`、`save`、`create`、`import`、`export`、`setActive`、`createGroup`、`renameGroup`、`reorderGroups`、`assignGroup`、`deleteGroup`、`delete`、`refresh` |
 | `eleckoi.preset.editor.profile` | 预设基础资料 | 界面插槽 | 提供 | `replace` | `root` | 扩展预设名称、分组和基础资料编辑。 | — |
 | `eleckoi.preset.editor.introduction` | 预设说明 | 界面插槽 | 提供 | `replace` | `root` | 扩展预设说明和开场内容编辑。 | — |
@@ -180,13 +201,15 @@
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `eleckoi.roleplay.background` | 角色对话背景 | 界面插槽 | 提供 | `replace` | `session` | 在原生会话内部贡献背景显示，不替换布局、滚动或输入。 | — |
-| `eleckoi.roleplay.header.menu` | 角色对话操作菜单 | 界面插槽 | 提供 | `append` | `session` | 向角色对话的操作菜单贡献功能入口。 | — |
+| `eleckoi.roleplay.header.menu` | 角色对话操作菜单 | 界面插槽 | 提供 | `append` | `session` | 在底部三横线菜单第二层「更多」中追加操作。 | — |
+| `eleckoi.roleplay.conversation.input.menu.actions` | 角色对话底部主菜单 | 界面插槽 | 提供 | `append` | `session` | 在底部三横线菜单第一层的「更多」之前添加操作。 | — |
 | `eleckoi.roleplay.chat` | 角色对话视图 | 界面插槽 | 提供 | `replace` | `session` | 以官方 ChatView 承接角色消息座位、历史分页、导航与阅读位置。 | — |
 | `eleckoi.roleplay.chat.node` | 角色对话节点 | 界面插槽 | 提供 | `replace` | `session` | 按正式 ChatNodeKind 替换角色对话的节点呈现。 | — |
 | `eleckoi.roleplay.chat.images` | 角色对话图片 | 界面插槽 | 提供 | `replace` | `session` | 呈现角色对话中使用正式授权加载器读取的消息图片。 | — |
 | `eleckoi.roleplay.chat.before` | 角色对话开场区域 | 界面插槽 | 提供 | `replace` | `session` | 呈现 Session 消息之前的产品开场内容，不创建 Session 事件。 | — |
 | `eleckoi.roleplay.chat.pending-input` | 角色对话发送回显 | 界面插槽 | 提供 | `replace` | `session` | 呈现官方等待正式 Session 消息接替的输入回显。 | — |
 | `eleckoi.roleplay.message.content` | 消息正文 | 界面插槽 | 提供 | `replace` | `session` | 包装或替换角色聊天消息正文。 | — |
+| `eleckoi.roleplay.message.editor` | 消息编辑器 | 界面插槽 | 提供 | `replace` | `session` | 替换点击铅笔打开的角色消息编辑区，使用现有草稿、保存与取消操作。 | — |
 | `eleckoi.roleplay.message.actions` | 消息操作 | 界面插槽 | 提供 | `append` | `session` | 在消息旁增加操作。 | — |
 | `eleckoi.roleplay.message.after` | 消息下方 | 界面插槽 | 提供 | `append` | `session` | 在消息下方增加内容。 | — |
 | `eleckoi.roleplay.conversation.header.corner` | 对话标题栏角落 | 界面插槽 | 提供 | `replace` | `session` | 在新建对话按钮右侧承接官方会话标题栏角落控件。 | — |

@@ -1,5 +1,5 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Menu } from '@deepseek-ai/dsh-client-ui-primitives';
 import { DshNewChatIcon, DshRefreshIcon } from "../../../ui/icons/dshComposerIcons.jsx";
 import { ChatHistoryIcon, MenuIcon, PlugIcon } from "../../../ui/icons/openSourceIcons.jsx";
@@ -24,6 +24,7 @@ export function RoleplayInputMenu({
   onOpenTools,
   onOpenVariables,
   onOpenRequestPreview,
+  renderMainActions,
   renderMoreActions,
   onOpenChatBackground,
   onEnterDeleteMode,
@@ -49,18 +50,21 @@ export function RoleplayInputMenu({
   const [more, setMore] = useState(false);
   const [dialog, setDialog] = useState(null);
   const rootRef = useRef(null);
+  const dismiss = useCallback(() => {
+    setOpen(false);
+    rootRef.current?.querySelector('button')?.focus();
+  }, []);
 
   useEffect(() => {
     if (!open) return undefined;
     return registerOverlayBack(() => {
       if (more) setMore(false);
-      else { setOpen(false); rootRef.current?.querySelector('button')?.focus(); }
+      else dismiss();
     });
-  }, [open, more]);
+  }, [open, more, dismiss]);
 
   function run(action) {
-    setOpen(false);
-    rootRef.current?.querySelector("button")?.focus();
+    dismiss();
     action?.();
   }
 
@@ -125,6 +129,7 @@ export function RoleplayInputMenu({
             onClick={() => run(() => onRegenerate?.({ targetMessageId: regenerateTargetMessageId }))}>
             <DshRefreshIcon size={18} /><span>{tUi("重新生成")}</span>
           </button>
+          {renderMainActions?.(dismiss)}
           <i aria-hidden="true" />
           <button type="button" role="menuitem" className="composer-menu-next" onClick={() => setMore(true)}><DotsThree size={18} /><span>{tUi('更多')}</span><CaretRight size={14} /></button>
           </>}

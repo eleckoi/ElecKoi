@@ -14,9 +14,11 @@ import { LIST_COLLAPSE_AREAS, usePersistentCollapseState } from "../../settings/
 import { openCharacterManagerWindow } from "../window/openCharacterManagerWindow.js";
 import { openCharacterEditorWindow } from '../window/openCharacterEditorWindow.js';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
+import { useCatalogSlots } from '../../../ui/ui/CatalogSlotsContext.jsx';
 
 export function CharacterListPanel({ characters, activeCharacterId, artworkMode, onSelectCharacter, onOpenCharacterChat, onSaveCharacterGroups, onImportPreparedCharacters, onPrepareCharacterImports, onDiscardCharacterImports, onCreateCharacter, onDeleteCharacters, onExportCharacters }) {
   const tUi = useProductTranslation();
+  const { render, actions } = useCatalogSlots();
   const [keyword, setKeyword] = useState("");
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -212,6 +214,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
   return (
     <aside className="character-list-panel">
       <SidebarSectionHeader title={tUi("角色")} value={keyword} onValueChange={setKeyword}
+        renderSearch={fallback => render('eleckoi.character.library.search', { surface: 'pc-sidebar', value: keyword, onChange: setKeyword }, fallback)}
         placeholder={tUi("搜索角色名称")} createLabel={tUi("新建角色")}
         createExpanded={createMenuOpen} onCreatePointerDown={(event) => event.stopPropagation()}
         onCreate={(event) => { event.stopPropagation(); setCreateMenuOpen((current) => !current); }}
@@ -221,6 +224,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
         <div className="character-create-menu" onPointerDown={(event) => event.stopPropagation()}>
           <button type="button" onClick={createInSelectedGroup}><CharacterManagerIcon /><span>{tUi("新建角色")}</span></button>
           <button type="button" onClick={openImportDialog}><ImportIcon /><span>{tUi("导入角色卡")}</span></button>
+          {actions('eleckoi.character.library.menu.actions', { surface: 'pc-sidebar', menu: 'create', busy: false, onDismiss: () => setCreateMenuOpen(false) })}
         </div>
       ) : null}
 
@@ -238,7 +242,9 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
 
       <SidebarScrollArea ref={scrollRef} className="character-list-scroll">
         {listTab === "characters" && collapseStateReady ? (
-          <CharacterGroupList
+          render('eleckoi.character.library.groups', {
+            surface: 'pc-sidebar', groups, allGroup: ALL_CHARACTERS, selectedGroup, onSelectGroup: setSelectedGroup, collapsedGroups, onToggleGroup: toggleGroup,
+          }, <CharacterGroupList
             groups={groups}
             characters={characters}
             activeCharacterId={activeCharacterId}
@@ -261,7 +267,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
               setDragOverGroup("");
             }}
             onGroupContextMenu={openGroupMenu}
-          />
+          />)
         ) : listTab === "groups" ? (
           <div className="character-empty-groups">
             <strong>{tUi("暂无群聊")}</strong>
@@ -284,6 +290,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
             <TrashIcon />
             <span>{tUi("删除分组")}</span>
           </button>
+          {actions('eleckoi.character.library.group.menu.actions', { surface: 'pc-sidebar', group: groupMenu.group, onDismiss: () => setGroupMenu(null) })}
         </div>
       ) : null}
 
@@ -306,7 +313,12 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
             submenu: ['png', 'zip'].map(format => ({ id: `export-${format}`, label: format.toUpperCase() })) },
           { id: 'delete-divider', type: 'separator' },
           { id: 'delete', label: tUi('删除角色'), icon: <TrashIcon />, danger: true },
-        ]} /> : null}
+        ]}>
+        {actions('eleckoi.character.library.item.menu.actions', {
+          surface: 'pc-sidebar', character: characterMenu.character, busy: exporting,
+          onDismiss: () => { setCharacterMenu(null); characterMenu.returnFocus?.focus(); },
+        })}
+      </Menu> : null}
       <FailureAlert failure={exportError} className="character-export-error" />
 
       {pendingDelete ? (

@@ -9,6 +9,7 @@ import { characterGroup } from '../utils/characterDisplay.js';
 import { MobileConfirm, MobileNameDialog, useMobileOperation } from './MobileLibraryChrome.jsx';
 import { useMobileBack } from './MobileChrome.jsx';
 import { CHARACTER_SORT_OPTIONS } from './mobileCharacterSorting.js';
+import { useCatalogSlots } from '../ui/ui/CatalogSlotsContext.jsx';
 import './mobile-character-library.css';
 
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -16,6 +17,7 @@ const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce
 export function MobileCharacterLibraryBar({ groups, characters, selected, onSelect, onSave, sort, onSort,
   open, onOpenChange, disabled = false, destination = false }) {
   const tUi = useProductTranslation();
+  const { render, actions } = useCatalogSlots();
   const [editing, setEditing] = useState(false), [draft, setDraft] = useState(groups);
   const [naming, setNaming] = useState(null), [removing, setRemoving] = useState('');
   const [ghost, setGhost] = useState(null), [dragged, setDragged] = useState(''), [sortOpen, setSortOpen] = useState(false);
@@ -139,9 +141,14 @@ export function MobileCharacterLibraryBar({ groups, characters, selected, onSele
           {['', ...groups].map(name => <button type="button" key={name} aria-pressed={selected === name} disabled={disabled || busy} onClick={() => { if (stripDragged.current) { stripDragged.current = false; return; } choose(name); }}>{name || tUi('全部')}</button>)}
         </nav>
       </div>
-      <div className="mobile-character-library-group-actions"><Menu portal dense open={sortOpen} onClose={() => setSortOpen(false)} align="end" listClassName="mobile-character-library-sort-menu" anchorRef={sortAnchor} returnFocus={() => sortButton.current}
+      <div className="mobile-character-library-group-actions">{render('eleckoi.character.library.sort', { surface: 'android', value: sort, onChange: onSort, disabled: disabled || busy },
+        <Menu portal dense open={sortOpen} onClose={() => setSortOpen(false)} align="end" listClassName="mobile-character-library-sort-menu" anchorRef={sortAnchor} returnFocus={() => sortButton.current}
         anchor={<button className="mobile-character-library-icon" type="button" ref={sortButton} aria-label={tUi('角色卡排序')} aria-haspopup="menu" aria-expanded={sortOpen} disabled={disabled || busy} onClick={() => setSortOpen(!sortOpen)}><span className="mobile-character-library-sort-anchor" ref={sortAnchor}><SortDescending size={22} /></span></button>}
-        selectedId={sort} items={CHARACTER_SORT_OPTIONS.map(([id, label]) => ({ id, label: tUi(label) }))} onSelect={id => { setSortOpen(false); onSort(id); }} />
+        selectedId={sort} items={CHARACTER_SORT_OPTIONS.map(([id, label]) => ({ id, label: tUi(label) }))} onSelect={id => { setSortOpen(false); onSort(id); }}>
+        {sortOpen && actions('eleckoi.character.library.menu.actions', { surface: 'android', menu: 'sort', busy, onDismiss: () => {
+          setSortOpen(false); sortButton.current?.focus();
+        } })}
+      </Menu>)}
         <button className="mobile-character-library-icon" type="button" aria-label={tUi(open ? '收起分组' : '展开分组')} aria-expanded={open} disabled={locked || disabled} onClick={toggleOpen}><CaretDown size={20} /></button></div>
     </div>
     {open && <button className="mobile-character-library-group-scrim" aria-label={tUi('关闭分组面板')} disabled={locked} onClick={() => !locked && onOpenChange(false)} />}

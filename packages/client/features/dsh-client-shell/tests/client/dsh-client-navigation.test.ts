@@ -103,6 +103,12 @@ describe('ElecKoi DSH client navigation', () => {
 
     expect(root.children['sidebar.panellist']).toBeUndefined()
     expect(root.children.main).toEqual({ kind: 'keyed', scope: 'root' })
+    for (const feature of ['characters', 'presets']) {
+      const manifest = JSON.parse(readFileSync(new URL(`../../../dsh-client-${feature}/package.json`, import.meta.url), 'utf8'))
+      for (const entry of manifest.eleckoi.developerInterfaces.filter((entry: { kind: string }) => entry.kind === 'ui-slot')) {
+        expect(root.children[entry.id], entry.id).toEqual({ kind: entry.mode === 'append' ? 'list' : 'chain', scope: 'root' })
+      }
+    }
     const panels = slots.entriesOfSlot('main').map(entry => entry.options.key)
     const railItems = slots.entriesOfSlot('sidebar.panellist').map(entry => entry.options.id)
     expect(railItems).toEqual(['creatorStudio', 'community', 'messages', 'character', 'presets', 'model'])

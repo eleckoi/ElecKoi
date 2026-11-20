@@ -39,6 +39,8 @@ describe('ElecKoi roleplay client contribution', () => {
       'conversation.session': { kind: 'single', scope: 'session' },
     } }, () => null)
     registration.factory(clientRequire(React)).apply({ sessions: {}, slots })
+    expect(slots.spec('eleckoi.roleplay.conversation.input.menu.actions')).toEqual({ kind: 'list', scope: 'session' })
+    expect(slots.spec('eleckoi.roleplay.message.editor')).toEqual({ kind: 'single', scope: 'session' })
     const store = () => null
     const injectHeader = () => ({})
     const injectBody = () => ({})

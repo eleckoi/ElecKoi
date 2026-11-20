@@ -21,6 +21,10 @@ export function VirtualMasonry({ items, scrollClassName, gridClassName, initialS
   const latest = useRef(null);
   latest.current = { geometry, virtualizer, onSaveState };
 
+  const releaseCardAnchor = useCallback(() => {
+    virtualizer.shouldAdjustScrollPositionOnItemSizeChange = undefined;
+  }, [virtualizer]);
+
   useLayoutEffect(() => {
     const element = grid.current, viewport = scroll.current;
     const measure = () => {
@@ -33,6 +37,7 @@ export function VirtualMasonry({ items, scrollClassName, gridClassName, initialS
       const next = { width, columns, columnGap, gap, margin }, previous = latest.current.geometry;
       if (Object.keys(next).every(key => next[key] === previous[key])) return;
       if (previous.width && (previous.width !== width || previous.columns !== columns)) {
+        releaseCardAnchor();
         const first = latest.current.virtualizer.getVirtualItems().filter(item => item.end > viewport.scrollTop)
           .sort((a, b) => a.start - b.start)[0];
         if (first) anchor.current = { index: first.index, key: first.key, delta: viewport.scrollTop - first.start, resize: true };
@@ -47,7 +52,7 @@ export function VirtualMasonry({ items, scrollClassName, gridClassName, initialS
     });
     observer.observe(element); observer.observe(viewport);
     return () => { observer.disconnect(); cancelAnimationFrame(frame); };
-  }, []);
+  }, [releaseCardAnchor]);
 
   useLayoutEffect(() => {
     if (!geometry.width) return;
@@ -55,8 +60,22 @@ export function VirtualMasonry({ items, scrollClassName, gridClassName, initialS
     if (pending) {
       anchor.current = null;
       if (pending.resize) virtualizer.measure();
+      if (pending.clicked && !pending.resize) {
+        // Complete pending measurements before positioning the clicked card.
+        for (const node of grid.current.children) {
+          const size = measureCard(node);
+          if (size > 0) virtualizer.resizeItem(Number(node.dataset.index), size);
+        }
+      }
       const found = items.findIndex(item => item.id === pending.key);
-      const offset = virtualizer.getOffsetForIndex(found < 0 ? Math.min(pending.index, items.length - 1) : found, 'start')?.[0];
+      const index = found < 0 ? Math.min(pending.index, items.length - 1) : found;
+      const row = virtualizer.getVirtualItems().find(item => item.index === index);
+      const offset = row?.start ?? virtualizer.getOffsetForIndex(index, 'start')?.[0];
+      if (pending.clicked && row) {
+        // A measurement in another lane does not move the clicked card.
+        virtualizer.shouldAdjustScrollPositionOnItemSizeChange = item =>
+          item.lane === row.lane && item.index < row.index;
+      }
       if (offset !== undefined) virtualizer.scrollToOffset(Math.max(0, offset + pending.delta));
     }
   }, [geometry.width, geometry.columns, virtualizer, items.length]);
@@ -64,6 +83,7 @@ export function VirtualMasonry({ items, scrollClassName, gridClassName, initialS
   useLayoutEffect(() => () => {
     const current = latest.current;
     if (!current.onSaveState) return;
+    releaseCardAnchor();
     const offset = scroll.current?.scrollTop || 0;
     const rows = current.virtualizer.getVirtualItems();
     const first = rows.filter(item => item.end > offset).sort((a, b) => a.start - b.start)[0];
@@ -74,20 +94,34 @@ export function VirtualMasonry({ items, scrollClassName, gridClassName, initialS
       const row = rows.find(item => item.index === Number(node.dataset.index));
       if (!row) continue;
       const size = measureCard(node);
-      measurements.set(row.key, { ...row, size, end: row.start + size });
+      if (size > 0) measurements.set(row.key, { ...row, size, end: row.start + size });
     }
-    current.onSaveState?.({ offset, anchor: first ? { index: first.index, key: first.key, delta: offset - first.start } : null,
+    const clicked = anchor.current?.clicked ? anchor.current : null;
+    current.onSaveState?.({ offset: clicked?.offset ?? offset,
+      anchor: clicked ?? (first ? { index: first.index, key: first.key, delta: offset - first.start } : null),
       geometry: current.geometry, measurements: [...measurements.values()].sort((a, b) => a.index - b.index) });
-  }, []);
+  }, [releaseCardAnchor]);
 
-  return <div className={scrollClassName} ref={scroll}>
+  function rememberCard(row) {
+    const viewport = scroll.current;
+    if (!viewport || !grid.current) return;
+    const card = [...grid.current.children].find(node => node.dataset.masonryId === row.key);
+    if (!card) return;
+    const delta = viewport.getBoundingClientRect().top + viewport.clientTop - card.getBoundingClientRect().top;
+    anchor.current = { key: row.key, index: row.index, delta, offset: viewport.scrollTop, clicked: true };
+  }
+
+  return <div className={scrollClassName} ref={scroll}
+    onWheelCapture={onSaveState ? releaseCardAnchor : undefined}
+    onPointerDownCapture={onSaveState ? releaseCardAnchor : undefined}
+    onKeyDownCapture={onSaveState ? releaseCardAnchor : undefined}>
     {leading}
     <div className={gridClassName} ref={grid} data-virtual-masonry
       style={{ position: 'relative', height: virtualizer.getTotalSize(), overflowAnchor: 'none' }}>
       {virtualizer.getVirtualItems().map(row => <div key={row.key} data-index={row.index} data-masonry-id={row.key}
         ref={virtualizer.measureElement} style={{ position: 'absolute', top: row.start - geometry.margin,
           left: row.lane * (cardWidth + geometry.columnGap), width: cardWidth, display: 'flow-root' }}>
-        {children(items[row.index], row.index, cardWidth)}
+        {children(items[row.index], row.index, cardWidth, onSaveState ? () => rememberCard(row) : undefined)}
       </div>)}
     </div>
     {!items.length && empty}

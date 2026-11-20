@@ -6,7 +6,7 @@
   width: 212px;
   max-height: min(420px, calc(100vh - 16px));
   padding: 6px;
-  overflow: hidden;
+  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 9px;
   background: var(--surface-raised);

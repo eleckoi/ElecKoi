@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { IconSlidersTwoOutlineRegular, MenuItemButton } from '@deepseek-ai/dsh-client-ui-primitives';
 import { InputBar, QueueDock, DraftEditorRuntime, registerPlainText, ComposerAttachments } from 'official-composer-fixture';
 import { RoleplayInputMenu } from '../../src/modules/chat/components/RoleplayInputMenu.jsx';
 import { installBrowserIconSprite } from '../helpers/browserIconSprite.js';
@@ -18,6 +19,7 @@ const keyboard = { editor, arbitrate: () => 'pass', space: () => false, dismissP
   bindFilePicker: () => () => {}, submit() {}, steerQueue() {} };
 const query = new URLSearchParams(location.search), studio = query.get('surface') === 'studio';
 const mobile = query.get('mobile') === 'true';
+const mainActionCount = Number(query.get('mainActions'));
 document.documentElement.dataset.eleckoiMobile = String(mobile);
 const slot = studio ? 'conversation.input.attachments' : 'eleckoi.roleplay.conversation.input.attachments';
 function Fixture() {
@@ -44,6 +46,10 @@ function Fixture() {
       removeAttachment={id => setAttachments(items => items.filter(item => item.id !== id))}
       leadingAccessory={<RoleplayInputMenu purpose={studio ? 'creator' : 'roleplay'} isSending={false}
         onOpenRequestPreview={() => {}} onOpenTools={() => { window.composerFixture.toolsOpened = true; }}
+        renderMainActions={mainActionCount ? onDismiss => Array.from({ length: mainActionCount }, (_, index) =>
+          <MenuItemButton key={index} icon={<IconSlidersTwoOutlineRegular />} onSelect={() => {
+            onDismiss(); window.composerFixture.selectedAction = index + 1;
+          }}>插件操作 {index + 1}</MenuItemButton>) : undefined}
         canDeleteMessages regenerateTargetMessageId="synthetic-reply" />}
       modelAccessory={<button>合成模型</button>}
       renderSlot={(name, owner) => name === 'conversation.input.attachments'

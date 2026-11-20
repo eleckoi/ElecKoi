@@ -1,4 +1,6 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
+import { Fragment } from 'react';
+import { useCatalogSlots } from '../../../ui/ui/CatalogSlotsContext.jsx';
 import { useSidebarGroupCollapse } from '../../../ui/hooks/useSidebarGroupCollapse.js';
 import { ChevronRightIcon } from "../../../ui/icons/index.jsx";
 import { CharacterContactRow } from "./CharacterContactRow.jsx";
@@ -24,6 +26,7 @@ export function CharacterGroupList({
   onGroupContextMenu,
 }) {
   const tUi = useProductTranslation();
+  const { render } = useCatalogSlots();
   const keepCollapsedHeading = useSidebarGroupCollapse(collapsedGroups);
   return [ALL_CHARACTERS, ...groups].map((group) => {
     const isAllCharacters = group === ALL_CHARACTERS;
@@ -82,15 +85,18 @@ export function CharacterGroupList({
         {!collapsed && groupCharacters.length ? (
           <div className="character-contact-list">
             {groupCharacters.map((character) => (
-              <CharacterContactRow
-                key={character.id}
+              <Fragment key={character.id}>{render('eleckoi.character.library.item', {
+                surface: 'pc-sidebar', character, selected: character.id === activeCharacterId, selecting: false,
+                onSelect: () => onSelectCharacter(character.id), onOpenConversation: () => onOpenCharacterChat(character.id),
+                onOpenMenu: event => onCharacterContextMenu(event, character),
+              }, <CharacterContactRow
                 character={character}
                 active={character.id === activeCharacterId}
                 artworkMode={artworkMode}
                 onClick={onSelectCharacter}
                 onDoubleClick={onOpenCharacterChat}
                 onContextMenu={onCharacterContextMenu}
-              />
+              />)}</Fragment>
             ))}
           </div>
         ) : null}

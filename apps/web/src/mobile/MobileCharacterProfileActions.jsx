@@ -7,10 +7,12 @@ import { characterName } from '../utils/characterDisplay.js';
 import { MobileOverflowIcon } from './MobileIcons.jsx';
 import { MobileLibraryIcon } from './MobileLibraryIcons.jsx';
 import { MobileActionMenu, MobileConfirm, useMobileOperation } from './MobileLibraryChrome.jsx';
+import { useCatalogSlots } from '../ui/ui/CatalogSlotsContext.jsx';
 
 export function MobileCharacterProfileActions({ character }) {
   const tUi = useProductTranslation();
   const view = useMainPageView();
+  const { actions } = useCatalogSlots();
   const [menu, setMenu] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const { busy, error, setError, run } = useMobileOperation();
@@ -33,7 +35,9 @@ export function MobileCharacterProfileActions({ character }) {
       ...['png', 'zip'].map(format => ({ label: tUi('导出 {value0}', { value0: format.toUpperCase() }), icon: <MobileLibraryIcon name="export" />, action: () => exportCharacter(format) })),
       { label: tUi('删除角色'), icon: <MobileLibraryIcon name="trash" />, destructive: true, divider: true,
         action: () => { setMenu(null); setError(''); setDeleting(character); } },
-    ]} />}
+    ]}>
+      {actions('eleckoi.character.library.item.menu.actions', { surface: 'android', character, busy, onDismiss: () => setMenu(null) })}
+    </MobileActionMenu>}
     {deleting && <MobileConfirm title={tUi('删除角色？')} onClose={() => { setDeleting(null); setError(''); }} busy={busy} error={error}
       onConfirm={() => run(async () => {
         await view.chat.deleteCharacterIds([deleting.id]);

@@ -381,6 +381,10 @@ window.__ModuleLoader__.load({
         listener => locale.subscribe(listener),
         () => locale.getSnapshot().revision
       )
+      const catalogSlots = React.useMemo(() => ({
+        render: (name, owner, fallback) => renderSlotChain(name, { ...owner, fallback }, { fallback }),
+        actions: (name, owner) => renderSlot(name, owner),
+      }), [renderSlot, renderSlotChain])
       const settingsSections = React.useMemo(() => {
         const sections = slots.entriesOfSlot('settings.section').filter(entry =>
           !nativeSettingsSections.has(entry.options.id)
@@ -658,6 +662,7 @@ window.__ModuleLoader__.load({
           renderTypographySettings: () => renderSlot('settings.section', { itemId: 'font-size' }, { only: 'general' }),
           renderSettingsSection: (section, close) => renderSlot('settings.section', { close }, { only: section.id }),
           renderUserProfileEditor: (owner, fallback) => renderSlotChain('eleckoi.persona.editor', { ...owner, fallback }, { fallback }),
+          catalogSlots,
           renderCharacterPageSection: (section, owner, fallback) => renderSlotChain(`eleckoi.character.page.${section}`, { ...owner, fallback }, { fallback }),
           renderCharacterEditorSection: (section, owner, fallback) => renderSlotChain(`eleckoi.character.editor.${section}`, { ...owner, fallback }, { fallback }),
           renderCharacterManager: (owner, fallback) => renderSlotChain('eleckoi.character.manager', { ...owner, fallback }, { fallback }),
@@ -807,6 +812,18 @@ window.__ModuleLoader__.load({
             'eleckoi.character.editor.scripts': { kind: 'chain', scope: 'root' },
             'eleckoi.character.editor.frontend': { kind: 'chain', scope: 'root' },
             'eleckoi.character.editor.dynamic': { kind: 'chain', scope: 'root' },
+            'eleckoi.character.editor.assets': { kind: 'chain', scope: 'root' },
+            'eleckoi.character.editor.navigation': { kind: 'chain', scope: 'root' },
+            'eleckoi.character.editor.toolbar': { kind: 'chain', scope: 'root' },
+            'eleckoi.character.library.list': { kind: 'chain', scope: 'root' },
+            'eleckoi.character.library.item': { kind: 'chain', scope: 'root' },
+            'eleckoi.character.library.search': { kind: 'chain', scope: 'root' },
+            'eleckoi.character.library.sort': { kind: 'chain', scope: 'root' },
+            'eleckoi.character.library.groups': { kind: 'chain', scope: 'root' },
+            'eleckoi.character.library.selection': { kind: 'chain', scope: 'root' },
+            'eleckoi.character.library.menu.actions': { kind: 'list', scope: 'root' },
+            'eleckoi.character.library.item.menu.actions': { kind: 'list', scope: 'root' },
+            'eleckoi.character.library.group.menu.actions': { kind: 'list', scope: 'root' },
             'eleckoi.character.manager': { kind: 'chain', scope: 'root' },
             'eleckoi.conversation.list': { kind: 'chain', scope: 'root' },
             'eleckoi.preset.editor.profile': { kind: 'chain', scope: 'root' },
@@ -815,6 +832,15 @@ window.__ModuleLoader__.load({
             'eleckoi.preset.editor.tools': { kind: 'chain', scope: 'root' },
             'eleckoi.preset.editor.regex': { kind: 'chain', scope: 'root' },
             'eleckoi.preset.editor.scripts': { kind: 'chain', scope: 'root' },
+            'eleckoi.preset.page.list': { kind: 'chain', scope: 'root' },
+            'eleckoi.preset.page.preview': { kind: 'chain', scope: 'root' },
+            'eleckoi.preset.library.item': { kind: 'chain', scope: 'root' },
+            'eleckoi.preset.library.search': { kind: 'chain', scope: 'root' },
+            'eleckoi.preset.library.groups': { kind: 'chain', scope: 'root' },
+            'eleckoi.preset.library.selection': { kind: 'chain', scope: 'root' },
+            'eleckoi.preset.library.menu.actions': { kind: 'list', scope: 'root' },
+            'eleckoi.preset.library.item.menu.actions': { kind: 'list', scope: 'root' },
+            'eleckoi.preset.library.group.menu.actions': { kind: 'list', scope: 'root' },
             'eleckoi.preset.manager': { kind: 'chain', scope: 'root' },
             'eleckoi.roleplay': { kind: 'chain', scope: 'root' },
             'eleckoi.creator-studio.conversation': { kind: 'single', scope: 'root' }

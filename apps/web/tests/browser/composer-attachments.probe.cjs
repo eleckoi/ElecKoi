@@ -108,6 +108,27 @@ app.whenReady().then(async () => {
         }
       }
     }
+    win.setContentSize(390, 420);
+    const menuUrl = pathToFileURL(htmlPath); menuUrl.search = 'surface=roleplay&mobile=true&mainActions=12';
+    await win.loadURL(menuUrl.href); await wait('!!document.querySelector(".composer-more-trigger")');
+    await evaluate(`document.querySelector('.composer-more-trigger').click()`);
+    await wait(`!!document.querySelector('.composer-more-menu.is-main')`);
+    await settleMenu();
+    const longMenu = await evaluate(`(() => {
+      const panel = document.querySelector('.composer-more-menu.is-main');
+      const rows = [...panel.querySelectorAll('button[role="menuitem"]')];
+      const last = rows.find(button => button.textContent === '插件操作 12');
+      const viewport = panel.querySelector('[role="presentation"]');
+      last.focus();
+      const { top, bottom } = panel.getBoundingClientRect();
+      const box = last.getBoundingClientRect();
+      const visible = box.top >= top && box.bottom <= bottom;
+      last.click();
+      return { count: rows.length, fits: top >= 0 && bottom <= innerHeight, scrolls: viewport.scrollHeight > viewport.clientHeight,
+        visible, selected: window.composerFixture.selectedAction };
+    })()`);
+    await wait(`!document.querySelector('.composer-more-menu')`);
+    longMenu.triggerFocused = await evaluate(`document.activeElement === document.querySelector('.composer-more-trigger')`);
     win.setContentSize(390, 200);
     const officialUrl = pathToFileURL(htmlPath); officialUrl.search = 'official=true';
     await win.loadURL(officialUrl.href); await wait('!!window.composerFixture');
@@ -115,6 +136,6 @@ app.whenReady().then(async () => {
     await wait(`document.querySelector('[role="group"]')?.children.length===2`);
     await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
     writeFileSync(join(dirname(reportPath), 'official-upload.png'), (await win.webContents.capturePage({ x: 0, y: 0, width: 390, height: 90 })).toPNG());
-    writeFileSync(reportPath, JSON.stringify({ attachments: reports, queues, menus }, null, 2)); win.destroy(); app.exit(0);
+    writeFileSync(reportPath, JSON.stringify({ attachments: reports, queues, menus, longMenu }, null, 2)); win.destroy(); app.exit(0);
   } catch (cause) { console.error(cause); win.destroy(); app.exit(1); }
 });

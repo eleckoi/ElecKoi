@@ -41,7 +41,8 @@ it('keeps the official composer centered while all draft attachments scroll with
     await writeFile(htmlPath, '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="fixture.css"><style>html,body,#root,main{height:100%;margin:0;min-width:0}*{box-sizing:border-box}.chat-panel{height:100%}</style></head><body><div id="root"></div><script src="fixture.js"></script></body></html>');
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
     await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/composer-attachments.probe.cjs'), htmlPath, reportPath], { env, timeout: 90000, windowsHide: true });
-    const { attachments: reports, queues, menus } = JSON.parse(await readFile(reportPath, 'utf8')); expect(reports).toHaveLength(80);
+    const { attachments: reports, queues, menus, longMenu } = JSON.parse(await readFile(reportPath, 'utf8')); expect(reports).toHaveLength(80);
+    expect(longMenu).toEqual({ count: 20, fits: true, scrolls: true, visible: true, selected: 12, triggerFocused: true });
     for (const menu of menus) {
       // The official anchor can place the menu below the trigger when there is no room above it.
       const gap = Math.max(menu.anchor.y - menu.panel.bottom, menu.panel.y - menu.anchor.bottom);

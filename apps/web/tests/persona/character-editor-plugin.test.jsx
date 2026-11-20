@@ -33,6 +33,7 @@ vi.mock('../../src/ui/ui/UnsavedChangesDialog.jsx', () => ({ UnsavedChangesDialo
 import { CharacterEditorWindow } from '../../src/app/windows/CharacterEditorWindow.jsx'
 import { EditorSidebarLayout } from '../../src/ui/ui/EditorSidebarLayout.jsx'
 import { DisplayPreferencesProvider } from '../../src/modules/settings/index.js'
+import { CatalogSlotsContext } from '../../src/ui/ui/CatalogSlotsContext.jsx'
 
 const preferencesSource = readFileSync(resolve('packages/client/features/dsh-client-display-preferences/src/client.js'), 'utf8');
 function preferenceClient(remote) {
@@ -56,6 +57,41 @@ afterEach(() => {
 })
 
 describe('character editor client extension', () => {
+  it('exposes navigation, toolbar and assets through the real editor and guards pending drafts', async () => {
+    const character = { id: 'sample', name: '合成角色', persona: {} };
+    const close = vi.fn();
+    const update = vi.fn(async value => ({ items: [value] }));
+    const render = (name, owner, fallback) => {
+      if (name === 'eleckoi.character.editor.navigation') return <button onClick={() => owner.onSelect('assets')}>打开资产</button>;
+      if (name === 'eleckoi.character.editor.toolbar') return <header>
+        <button onClick={owner.onSave} disabled={!owner.dirty || owner.saving}>插件保存</button>
+      </header>;
+      return fallback;
+    };
+    const renderSection = (section, owner, fallback) => section === 'assets'
+      ? <div data-assets-for={owner.characterId} /> : section === 'card'
+        ? <button onClick={() => owner.onChange({ name: '编辑后' })}>改名</button> : fallback;
+    const host = document.createElement('div'); document.body.append(host);
+    const root = createRoot(host);
+    const click = label => act(async () => [...host.querySelectorAll('button')].find(button => button.textContent === label).click());
+    try {
+      await act(async () => root.render(<CatalogSlotsContext.Provider value={{ render }}>
+        <CharacterEditorWindow embeddedCharacterId={character.id} characterConfiguration={{}}
+          characterCatalog={{ refresh: async () => ({ items: [character] }), update }}
+          renderCharacterEditorSection={renderSection} onClose={close} />
+      </CatalogSlotsContext.Provider>));
+      await click('改名');
+      await click('打开资产');
+      expect(host.querySelector('[data-testid="unsaved-dialog"]')).not.toBeNull();
+      expect(host.querySelector('[data-assets-for]')).toBeNull();
+      await click('留在当前页');
+      await click('插件保存');
+      expect(update).toHaveBeenCalledWith(expect.objectContaining({ id: 'sample', name: '编辑后' }));
+      await click('打开资产');
+      expect(host.querySelector('[data-assets-for]').dataset.assetsFor).toBe('sample');
+      expect(close).not.toHaveBeenCalled();
+    } finally { await act(() => root.unmount()); host.remove(); }
+  });
   it.each([true, false])('does not flash a section heading while the character is loading (compact=%s)', async compact => {
     let complete;
     const pending = new Promise(resolve => { complete = resolve; });

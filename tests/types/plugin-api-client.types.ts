@@ -1,6 +1,8 @@
 import type { Context } from '@deepseek-ai/cordis'
+import type { SlotMap } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@eleckoi/dsh-product-api/remote'
 import type {} from '@eleckoi/dsh-client-characters/client'
+import type {} from '@eleckoi/dsh-client-characters/slots'
 import type {} from '@eleckoi/dsh-client-character-configuration/client'
 import type {} from '@eleckoi/dsh-client-conversations/client'
 import type {} from '@eleckoi/dsh-client-creator-studio/client'
@@ -8,6 +10,8 @@ import type {} from '@eleckoi/dsh-client-display-preferences/client'
 import type {} from '@eleckoi/dsh-client-models/client'
 import type {} from '@eleckoi/dsh-client-persona/client'
 import type {} from '@eleckoi/dsh-client-presets/client'
+import type {} from '@eleckoi/dsh-client-presets/slots'
+import type {} from '@eleckoi/dsh-client-roleplay/slots'
 import type {} from '@eleckoi/dsh-client-web-search/client'
 import type { ILayout } from '@eleckoi/dsh-client-shell/client'
 import type { SettingLibrary, SettingLibraryEntry, RegexRule, PersonaProfile } from '@eleckoi/dsh-product-api/types'
@@ -16,6 +20,15 @@ type Same<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ?
 type Assert<T extends true> = T
 type SuccessValue<T> = T extends { ok: true; value: infer V } ? V : never
 type RemoteValue<T extends (...args: any[]) => any> = SuccessValue<Awaited<ReturnType<T>>>
+
+export type CharacterEditorSlotIsReplaceable = Assert<Same<SlotMap['eleckoi.character.editor.card']['kind'], 'chain'>>
+export type PresetManagerSlotIsReplaceable = Assert<Same<SlotMap['eleckoi.preset.manager']['kind'], 'chain'>>
+export type CharacterEditorToolbarCanSave = Assert<Same<SlotMap['eleckoi.character.editor.toolbar']['owner']['onSave'], () => Promise<boolean>>>
+export type CharacterMenuIsAppendable = Assert<Same<SlotMap['eleckoi.character.library.item.menu.actions']['kind'], 'list'>>
+export type PresetPreviewCanActivate = Assert<Same<SlotMap['eleckoi.preset.page.preview']['owner']['onActivate'], () => Promise<void>>>
+export type PresetBulkMenuMode = Assert<Same<SlotMap['eleckoi.preset.library.menu.actions']['owner']['menu'], 'create' | 'bulk' | 'export'>>
+export type RoleplayEditorSave = Assert<Same<SlotMap['eleckoi.roleplay.message.editor']['owner']['onSave'], () => Promise<void>>>
+export type RoleplayMainMenuDismiss = Assert<Same<SlotMap['eleckoi.roleplay.conversation.input.menu.actions']['owner']['onDismiss'], () => void>>
 
 export type SettingReadMatchesRemote = Assert<Same<Awaited<ReturnType<Context['eleckoiSettingLibraries']['read']>>,
   RemoteValue<Context['remote']['eleckoiCharacterConfiguration']['readSettingLibrary']>>>

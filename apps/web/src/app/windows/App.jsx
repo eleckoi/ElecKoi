@@ -11,6 +11,7 @@ import { DisplayPreferencesProvider } from "../../modules/settings/index.js";
 import { OfficialMarkdownProvider } from "../../ui/messages/OfficialMarkdown.jsx";
 import { ApplicationFrontendController, NativeFrontendProvider } from "../../modules/authorFrontend/index.js";
 import { ProductLocaleProvider } from '../i18n/ProductLocaleContext.jsx';
+import { CatalogSlotsContext } from '../../ui/ui/CatalogSlotsContext.jsx';
 import { useEffect } from 'react';
 import { installMainPluginNavigation } from '../services/pluginNavigation.js';
 
@@ -21,7 +22,9 @@ export default function App(props = {}) {
       <WebSearchProvider model={props.webSearch}>
         <NativeFrontendProvider connection={props.frontendConnection} authorConnection={props.characterConfiguration?.scriptRuntimeConnection}>
         <ApplicationFrontendController slots={props.slots} subscribeSlots={props.subscribeSlots} navigation={props.navigation}>
-          {navigation => <AppContent {...props} navigation={navigation} />}
+          {navigation => <CatalogSlotsContext.Provider value={props.catalogSlots}>
+            <AppContent {...props} navigation={navigation} />
+          </CatalogSlotsContext.Provider>}
         </ApplicationFrontendController>
         </NativeFrontendProvider>
       </WebSearchProvider>

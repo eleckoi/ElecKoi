@@ -14,6 +14,7 @@ import { CharacterSortMenu } from '../../../ui/ui/CharacterSortMenu.jsx';
 import { sortCharacters, useCharacterSort } from '../../../ui/hooks/useCharacterSort.js';
 import '../../../ui/styles/catalog-manager.css';
 import { VirtualMasonry } from '../../../ui/ui/VirtualMasonry.jsx';
+import { useCatalogSlots } from '../../../ui/ui/CatalogSlotsContext.jsx';
 
 const CHARACTER_ARTWORK_RATIOS = [0.76, 0.68, 0.84, 0.72];
 
@@ -26,6 +27,7 @@ const estimateCardHeight = (_character, index, width) => width / characterArtwor
 
 export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCharacters, onImportCharacters, onPrepareImports, onDiscardImports, onExportCharacters, onDuplicateCharacter }) {
   const tUi = useProductTranslation();
+  const { render, actions } = useCatalogSlots();
   const { sort, chooseSort, error: sortError } = useCharacterSort('desktop_character_sort');
   const [selectedGroup, setSelectedGroup] = useState(ALL_CHARACTERS);
   const [keyword, setKeyword] = useState("");
@@ -297,9 +299,14 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
     }
   }
 
+  const search = render('eleckoi.character.library.search', { surface: 'pc-manager', value: keyword, onChange: setKeyword },
+    <CatalogManagerSearch className="character-manager-search" value={keyword} onChange={setKeyword}
+      placeholder={tUi("搜索角色…")} label={tUi("搜索角色")} />);
+
   return (
     <section className="character-manager-window catalog-manager" aria-label={tUi("角色卡管理器")}>
-      <aside className="character-manager-groups" onContextMenu={(event) => openGroupMenu(event)}>
+      {render('eleckoi.character.library.groups', { surface: 'pc-manager', groups, allGroup: ALL_CHARACTERS, selectedGroup, onSelectGroup: setSelectedGroup },
+        <aside className="character-manager-groups" onContextMenu={(event) => openGroupMenu(event)}>
         <button
           className={`character-manager-group ${selectedGroup === ALL_CHARACTERS ? "active" : ""}`}
           type="button"
@@ -325,12 +332,15 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
         <Button data-dsh-control variant="primary" className="character-add-group-button" type="button" onClick={() => openGroupDialog("add")}>
           <PlusIcon />
           {tUi("添加分组")}</Button>
-      </aside>
+      </aside>)}
 
       <section className="character-manager-main">
         <header className="character-manager-titlebar">
           {exportFormat ? (
-            <section className="character-manager-selection-bar" aria-label={tUi("导出选择")}>
+            render('eleckoi.character.library.selection', {
+              surface: 'pc-manager', mode: 'export', selectedIds, busy: exporting,
+              onCancel: cancelExport, onConfirm: confirmExport, onSelectAll: selectAllVisible,
+            }, <section className="character-manager-selection-bar" aria-label={tUi("导出选择")}>
               <div className="character-manager-selection-summary">
                 <span className="character-manager-selection-count">{tUi("已选 ")}{selectedIds.length}{tUi(" 张")}</span>
                 <div className="character-manager-format-switch" role="group" aria-label={tUi("导出格式")}>
@@ -345,13 +355,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
                   <button type="button" aria-pressed={exportFormat === 'zip'} disabled={exporting} onClick={() => changeExportFormat('zip')}>ZIP</button>
                 </div>
               </div>
-              <CatalogManagerSearch
-                className="character-manager-search"
-                value={keyword}
-                onChange={setKeyword}
-                placeholder={tUi("搜索角色…")}
-                label={tUi("搜索角色")}
-              />
+              {search}
               <div className="character-manager-selection-actions">
                 <Button data-dsh-control variant="outline" type="button" disabled={exporting || allVisibleSelected} onClick={selectAllVisible}>
                   {tUi("全选当前列表")}</Button>
@@ -370,27 +374,24 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
                 <span>{exportTargetsLine}</span>
                 <span className="character-manager-selection-notice" role="status">{exportNotice}</span>
               </p>
-            </section>
+            </section>)
           ) : (
             <>
               <h2>{tUi("角色卡管理器")}</h2>
               <div className="catalog-manager-header-actions">
-              <CatalogManagerSearch
-                className="character-manager-search"
-                value={keyword}
-                onChange={setKeyword}
-                placeholder={tUi("搜索角色…")}
-                label={tUi("搜索角色")}
-              />
+              {search}
               <CharacterSortMenu value={sort} onChange={chooseSort} />
               <span className="catalog-manager-action-divider" />
               {deleteMode ? (
-                <>
+                render('eleckoi.character.library.selection', {
+                  surface: 'pc-manager', mode: 'delete', selectedIds, busy: false,
+                  onCancel: cancelDeleteMode, onConfirm: confirmDelete,
+                }, <>
                   <Button data-dsh-control variant="primary" className="character-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={confirmDelete}>
                     {tUi("确认")}{selectedIds.length ? ` ${selectedIds.length}` : ""}
                   </Button>
                   <Button data-dsh-control variant="outline" type="button" onClick={cancelDeleteMode}>{tUi("取消")}</Button>
-                </>
+                </>)
               ) : (
                 <>
                   <Button data-dsh-control variant="primary" type="button" onClick={() => setImportOpen(true)}><ImportIcon />{tUi("导入角色")}</Button>
@@ -410,7 +411,11 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
           <FailureAlert failure={error} className="character-manager-error" />
           {sortError ? <FailureAlert failure={sortError} className="character-manager-error" /> : null}
           </>} empty={<p className="character-manager-empty">{tUi("这个分组里还没有角色卡。")}</p>}>
-              {(character, index, width) => (
+              {(character, index, width) => render('eleckoi.character.library.item', {
+                surface: 'pc-manager', character, selected: selectedSet.has(character.id), selecting: selectionMode,
+                onSelect: () => selectionMode ? toggleSelected(character.id) : openCharacterEditorWindow(character.id),
+                onOpenMenu: selectionMode ? undefined : event => openCardGroupMenu(event, character),
+              }, (
                 <CharacterCard
                   key={character.id}
                   character={character}
@@ -421,7 +426,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
                   onClick={selectionMode ? toggleSelected : openCharacterEditorWindow}
                   onContextMenu={selectionMode ? undefined : openCardGroupMenu}
                 />
-              )}
+              ))}
         </VirtualMasonry>
       </section>
 
@@ -434,6 +439,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
               <button type="button" onClick={() => deleteGroup(groupMenu.group)}><TrashIcon /><span>{tUi("删除分组")}</span></button>
             </>
           ) : null}
+          {actions('eleckoi.character.library.group.menu.actions', { surface: 'pc-manager', group: groupMenu.group || null, onDismiss: () => setGroupMenu(null) })}
         </div>
       ) : null}
 
@@ -449,7 +455,12 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
             { label: tUi("编辑角色卡"), icon: PencilIcon, run: () => { setCardGroupMenu(null); openCharacterEditorWindow(cardGroupMenu.character.id); } },
             { label: tUi("复制角色卡"), icon: CopyIcon, disabled: duplicatingIds.includes(cardGroupMenu.character.id), run: () => void duplicateCharacter(cardGroupMenu.character.id) },
           ]}
-        />
+        >
+          {actions('eleckoi.character.library.item.menu.actions', {
+            surface: 'pc-manager', character: cardGroupMenu.character, busy: duplicatingIds.includes(cardGroupMenu.character.id),
+            onDismiss: () => setCardGroupMenu(null),
+          })}
+        </GroupAssignmentMenu>
       ) : null}
 
       {groupDialog ? (

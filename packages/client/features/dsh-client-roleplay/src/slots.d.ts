@@ -52,6 +52,16 @@ export interface RoleplayMessageContentOwner extends RoleplayMessageOwner {
   streaming: boolean
 }
 
+export interface RoleplayMessageEditorOwner extends RoleplayMessageOwner {
+  /** Current draft owned by the message, including any unsaved edits. */
+  draft: string
+  onDraftChange: (draft: string) => void
+  /** Submit the current draft through the existing message edit flow. */
+  onSave: () => Promise<void>
+  /** Discard the draft and close the editor. */
+  onCancel: () => void
+}
+
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     'eleckoi.roleplay.background': {
@@ -63,6 +73,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
       kind: 'list'
       scope: 'session'
       owner: { onOpen: () => void }
+    }
+    'eleckoi.roleplay.conversation.input.menu.actions': {
+      kind: 'list'
+      scope: 'session'
+      owner: { onDismiss: () => void }
     }
     'eleckoi.roleplay.conversation.input.model.label': {
       kind: 'single'
@@ -147,6 +162,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
       kind: 'chain'
       scope: 'session'
       owner: RoleplayMessageContentOwner
+    }
+    'eleckoi.roleplay.message.editor': {
+      kind: 'single'
+      scope: 'session'
+      owner: RoleplayMessageEditorOwner
     }
     'eleckoi.roleplay.message.actions': {
       kind: 'list'

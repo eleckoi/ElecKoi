@@ -1,7 +1,7 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { GroupNameDialog } from '../../../ui/ui/GroupNameDialog.jsx';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar } from '../../../ui/ui/Avatar.jsx';
 import { GroupAssignmentMenu } from '../../../ui/ui/GroupAssignmentMenu.jsx';
 import { ExportIcon, ImportIcon, PencilIcon, PlusIcon, TrashIcon } from '../../../ui/icons/index.jsx';
@@ -9,12 +9,14 @@ import defaultPresetAvatar from '../../../assets/eleckoi-app-icon.png';
 import { isDefaultPreset, PresetPurposeSwitch } from './PresetPurposeSwitch.jsx';
 import { resolveFailure } from '../../../utils/failureText.js';
 import { CatalogManagerSearch } from '../../../ui/ui/CatalogManagerSearch.jsx';
+import { useCatalogSlots } from '../../../ui/ui/CatalogSlotsContext.jsx';
 import '../../../ui/styles/catalog-manager.css';
 
 const ALL_PRESETS = '全部预设';
 
 export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange, selectedGroup, selectedPresetId, onSelectGroup, onSelectPreset, onRefresh, onImport, onExport, importing, importError }) {
   const tUi = useProductTranslation();
+  const { render, actions } = useCatalogSlots();
   const [groupDraft, setGroupDraft] = useState('');
   const [editingGroupId, setEditingGroupId] = useState('');
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
@@ -181,18 +183,20 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
   }
 
   return <section className="preset-manager-window catalog-manager" aria-label={tUi("预设管理器")}>
-      <aside className="preset-manager-groups" onContextMenu={(event) => openGroupMenu(event)}>
+      {render('eleckoi.preset.library.groups', { surface: 'pc-manager', purpose, groups: catalog.groups, allGroup: ALL_PRESETS, selectedGroup, onSelectGroup },
+        <aside className="preset-manager-groups" onContextMenu={(event) => openGroupMenu(event)}>
         {onPurposeChange && <PresetPurposeSwitch value={purpose} disabled={importing} onChange={onPurposeChange} />}
         <button type="button" className={selectedGroup === ALL_PRESETS ? 'active' : ''} onClick={() => onSelectGroup(ALL_PRESETS)} onContextMenu={(event) => openGroupMenu(event, null)}><span>{tUi(ALL_PRESETS)}</span><em>{catalog.presets.length}</em></button>
         <small>{tUi("分组")}</small>
         <div className="catalog-manager-group-list">{catalog.groups.map((group) => <button type="button" className={selectedGroup === group.id ? 'active' : ''} key={group.id} onClick={() => onSelectGroup(group.id)} onContextMenu={(event) => openGroupMenu(event, group)}><span>{group.name}</span><em>{catalog.presets.filter((preset) => preset.libraryGroupId === group.id).length}</em></button>)}</div>
         <Button data-dsh-control variant="primary" className="preset-manager-add-group" type="button" onClick={() => openGroupDialog()}><PlusIcon /><span>{tUi("添加分组")}</span></Button>
-      </aside>
+      </aside>)}
       <div className="preset-manager-main">
         <header className="preset-manager-titlebar">
           <h2>{tUi("预设管理器")}</h2>
           <div className="catalog-manager-header-actions">
-          <CatalogManagerSearch className="preset-manager-search" value={keyword} onChange={setKeyword} placeholder={tUi("搜索预设…")} label={tUi("搜索预设")} />
+          {render('eleckoi.preset.library.search', { surface: 'pc-manager', value: keyword, onChange: setKeyword },
+            <CatalogManagerSearch className="preset-manager-search" value={keyword} onChange={setKeyword} placeholder={tUi("搜索预设…")} label={tUi("搜索预设")} />)}
           <span className="catalog-manager-action-divider" />
           {!deleteMode ? <>
             <Button data-dsh-control variant="primary" type="button" disabled={importing} onClick={onImport}><ImportIcon /><span>{tUi("导入预设")}</span></Button>
@@ -201,27 +205,42 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
               {exportOpen ? <div className="preset-manager-export-menu" ref={exportMenuRef} role="menu" aria-label={tUi("选择预设格式")}>
                 <button type="button" role="menuitem" disabled={exporting} onClick={() => void exportPreset('png')}>{tUi("PNG 预设卡")}</button>
                 <button type="button" role="menuitem" disabled={exporting} onClick={() => void exportPreset('json')}>{tUi("JSON 预设")}</button>
+                {actions('eleckoi.preset.library.menu.actions', {
+                  surface: 'pc-manager', purpose, menu: 'export', busy: exporting,
+                  onDismiss: () => { setExportOpen(false); setExportError(''); exportControlRef.current?.querySelector('button')?.focus(); },
+                })}
                 {exportError ? <span role="alert">{exportError}</span> : null}
               </div> : null}
             </div>
             <Button data-dsh-control variant="outline" className="catalog-manager-surface-button" type="button" onClick={() => setDeleteMode(true)}><TrashIcon /><span>{tUi("删除")}</span></Button>
-          </> : <>
+          </> : render('eleckoi.preset.library.selection', {
+            surface: 'pc-manager', purpose, mode: 'delete', selectedIds, busy: false,
+            onCancel: cancelDeleteMode, onConfirm: removeSelectedPresets,
+          }, <>
             <Button data-dsh-control variant="primary" className="preset-manager-confirm-delete" type="button" disabled={!selectedIds.length} onClick={() => void removeSelectedPresets()}>{tUi("确认")}{selectedIds.length ? ` ${selectedIds.length}` : ''}</Button>
             <Button data-dsh-control variant="outline" type="button" onClick={cancelDeleteMode}>{tUi("取消")}</Button>
-          </>}
+          </>)}
           </div>
         </header>
         {error || importError ? <p className="preset-manager-error">{error || importError}</p> : null}
         <div className="preset-manager-grid">{visible.map((preset) => {
           const removable = !isDefaultPreset(preset.id);
           const selected = selectedSet.has(preset.id);
-          return <article className={`preset-manager-card${preset.id === selectedPresetId ? ' is-current' : ''}${deleteMode && removable ? ' is-selectable' : ''}${selected ? ' is-delete-selected' : ''}`} key={preset.id}>
-            <button type="button" className="preset-manager-card-open" aria-pressed={deleteMode && removable ? selected : undefined} onClick={() => deleteMode ? (removable && togglePreset(preset.id)) : onSelectPreset(preset.id)} onContextMenu={deleteMode ? undefined : (event) => openPresetGroupMenu(event, preset)}>
+          const onSelect = () => {
+            if (!deleteMode) onSelectPreset(preset.id);
+            else if (removable) togglePreset(preset.id);
+          };
+          const onOpenMenu = deleteMode ? undefined : event => openPresetGroupMenu(event, preset);
+          return <Fragment key={preset.id}>{render('eleckoi.preset.library.item', {
+            surface: 'pc-manager', preset, active: preset.id === catalog.activePresetIds?.[preset.purpose],
+            selecting: deleteMode, selected: deleteMode ? selected : preset.id === selectedPresetId, onSelect, onOpenMenu,
+          }, <article className={`preset-manager-card${preset.id === selectedPresetId ? ' is-current' : ''}${deleteMode && removable ? ' is-selectable' : ''}${selected ? ' is-delete-selected' : ''}`}>
+            <button type="button" className="preset-manager-card-open" aria-pressed={deleteMode && removable ? selected : undefined} onClick={onSelect} onContextMenu={onOpenMenu}>
               {deleteMode && removable ? <span className="preset-manager-card-check" aria-hidden="true" /> : null}
               <Avatar src={preset.profile.authorAvatarPath || defaultPresetAvatar} name={preset.name} className="preset-manager-avatar" />
               <strong>{preset.name}</strong><small>{preset.profile.authorName || tUi("未填写作者")}</small>
             </button>
-          </article>;
+          </article>)}</Fragment>;
         })}</div>
       </div>
       {groupMenu ? <div className="preset-manager-group-menu" role="menu" aria-label={groupMenu.group ? tUi("{value0}的操作", {value0: groupMenu.group.name}) : tUi("分组操作")} style={{ left: `${groupMenu.x}px`, top: `${groupMenu.y}px` }} onPointerDown={(event) => event.stopPropagation()}>
@@ -230,6 +249,7 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
           <button type="button" role="menuitem" onClick={() => openGroupDialog(groupMenu.group)}><PencilIcon /><span>{tUi("重命名该组")}</span></button>
           <button type="button" role="menuitem" onClick={() => void removeGroup(groupMenu.group)}><TrashIcon /><span>{tUi("删除分组")}</span></button>
         </> : null}
+        {actions('eleckoi.preset.library.group.menu.actions', { surface: 'pc-manager', purpose, group: groupMenu.group, onDismiss: () => setGroupMenu(null) })}
       </div> : null}
       {presetGroupMenu ? <GroupAssignmentMenu
         x={presetGroupMenu.x}
@@ -238,7 +258,9 @@ export function PresetManager({ catalogModel, catalog, purpose, onPurposeChange,
         currentGroupId={presetGroupMenu.preset.libraryGroupId || ''}
         groups={catalog.groups}
         onMove={movePresetToGroup}
-      /> : null}
+      >
+        {actions('eleckoi.preset.library.item.menu.actions', { surface: 'pc-manager', preset: presetGroupMenu.preset, busy: false, onDismiss: () => setPresetGroupMenu(null) })}
+      </GroupAssignmentMenu> : null}
       {groupDialogOpen ? <GroupNameDialog
         title={editingGroupId ? tUi("重命名该组") : tUi("添加分组")}
         value={groupDraft}

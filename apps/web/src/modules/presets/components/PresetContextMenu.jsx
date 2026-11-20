@@ -14,7 +14,7 @@ export function usePresetContextMenu() {
   return { menu, open, close: () => setMenu(null) };
 }
 
-export function PresetContextMenu({ menu, actions, onClose }) {
+export function PresetContextMenu({ menu, actions, onClose, children }) {
   const tUi = useProductTranslation();
   const ref = useRef(null);
   const closeRef = useRef(onClose);
@@ -24,7 +24,7 @@ export function PresetContextMenu({ menu, actions, onClose }) {
     const bounds = element.getBoundingClientRect();
     element.style.left = `${Math.max(8, Math.min(menu.x, window.innerWidth - bounds.width - 8))}px`;
     element.style.top = `${Math.max(8, Math.min(menu.y, window.innerHeight - bounds.height - 8))}px`;
-    element.querySelector('button')?.focus({ preventScroll: true });
+    element.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
   }, [menu]);
   useEffect(() => {
     function outside(event) { if (!ref.current?.contains(event.target)) closeRef.current(); }
@@ -42,7 +42,7 @@ export function PresetContextMenu({ menu, actions, onClose }) {
     onContextMenu={(event) => event.preventDefault()}
     onMouseDown={(event) => event.stopPropagation()}
     onKeyDown={(event) => {
-      const buttons = [...ref.current.querySelectorAll('button')];
+      const buttons = [...ref.current.querySelectorAll('button:not(:disabled)')];
       const index = buttons.indexOf(document.activeElement);
       if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
         event.preventDefault();
@@ -54,5 +54,6 @@ export function PresetContextMenu({ menu, actions, onClose }) {
       }
     }}>
     {actions.map(({ label, icon: Icon, danger, run }) => <button key={label} type="button" role="menuitem" className={danger ? 'is-destructive' : undefined} onClick={() => { onClose(); run(); }}><Icon size={16} aria-hidden="true" /><span>{label}</span></button>)}
+    {children}
   </div>, document.body);
 }

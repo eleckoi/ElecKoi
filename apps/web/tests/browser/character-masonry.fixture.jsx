@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { CharacterManager } from '../../src/modules/persona/components/CharacterManager.jsx';
 import { MobileCharactersPage } from '../../src/mobile/MobileCharactersPage.jsx';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
+import { CatalogSlotsContext } from '../../src/ui/ui/CatalogSlotsContext.jsx';
 import '../../src/app/windows/styles/index.css';
 import '../../src/mobile/mobile.css';
 const noop = () => {};
@@ -10,6 +11,14 @@ const image = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www
 const original = Array.from({ length: 10001 }, (_, index) => ({ id: `card-${index}`, name: `Sample ${index}${index % 3 ? '' : ' long title over two lines for variable-height coverage'}`, authorName: 'Sample author',
   group: index % 2 ? 'Group B' : 'Group A', persona: { assistant_cover: index % 4 ? image : '', assistant_avatar: '' }, addedAtEpochMs: index + 1 }));
 const scrollPositions = new Map(), actions = [];
+const testSlots = new URLSearchParams(location.search).has('slots');
+const catalogSlots = {
+  // Mirror the locked DSH SlotOutlet anchor in this isolated browser fixture.
+  render: (name, _owner, fallback) => <div data-slot={name} style={{ display: 'contents' }}>{fallback}</div>,
+  actions: (name, owner) => name === 'eleckoi.character.library.item.menu.actions'
+    ? <div data-slot={name} style={{ display: 'contents' }}><button type="button" role="menuitem"
+      onClick={() => { owner.onDismiss(); actions.push(['plugin', owner.character.id]); }}>插件操作</button></div> : null,
+};
 window.open = (url) => { actions.push(['edit', new URL(url, location.href).searchParams.get('character')]); return null; };
 function Fixture() {
   const [mobile, setMobile] = useState(true), [visible, setVisible] = useState(true), [route, setRoute] = useState({ kind: 'root' });
@@ -20,10 +29,10 @@ function Fixture() {
     registerBackHandler: () => noop, openDrawer: noop, openSearch: noop, guardRef: { current: null },
     chat: { characters: collection, persona: {}, selectCharacter: id => actions.push(['select', id]), notify: noop, saveCharacterGroups: noop, deleteCharacterIds: noop } };
   window.masonryProbe = { setMobile, setVisible, setRoute, actions, scrollPositions, remove: id => setItems(current => current.filter(item => item.id !== id)), reset: () => setItems(original) };
-  return <MainPageContext.Provider value={view}><div className={mobile ? 'mobile-shell' : 'pc-fixture'} style={{ height: '100vh' }}>
+  return <CatalogSlotsContext.Provider value={testSlots ? catalogSlots : undefined}><MainPageContext.Provider value={view}><div className={mobile ? 'mobile-shell' : 'pc-fixture'} style={{ height: '100vh' }}>
     {visible && (mobile ? <MobileCharactersPage /> : <CharacterManager characters={collection} persona={{}} onSaveGroups={noop}
       onDeleteCharacters={async ids => { actions.push(['delete', ids]); setItems(current => current.filter(item => !ids.includes(item.id))); }}
       onDuplicateCharacter={characters.duplicate} onExportCharacters={characters.exportCharacters} />)}
-  </div></MainPageContext.Provider>;
+  </div></MainPageContext.Provider></CatalogSlotsContext.Provider>;
 }
 createRoot(document.getElementById('root')).render(<Fixture />);

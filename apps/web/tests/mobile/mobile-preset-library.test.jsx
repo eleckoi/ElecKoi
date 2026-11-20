@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { MobilePresetsPage } from '../../src/mobile/MobilePresetsPage.jsx';
+import { CatalogSlotsContext } from '../../src/ui/ui/CatalogSlotsContext.jsx';
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -25,11 +26,36 @@ beforeEach(()=>{
   view={presets:model,route:{kind:'root'},routeBusy:false,guardRef:{current:null},scrollPositions:new Map(),openDrawer:vi.fn(),pushRoute:vi.fn(),chat:{notify:vi.fn()},registerBackHandler:fn=>{handlers.push(fn);return()=>{handlers=handlers.filter(v=>v!==fn);};}};
 });
 afterEach(async()=>{if(root)await act(()=>root.unmount());root=null;document.body.replaceChildren();vi.restoreAllMocks();vi.unstubAllGlobals();});
-async function mount(){const node=document.createElement('div');document.body.append(node);root=createRoot(node);await act(async()=>root.render(<MainPageContext.Provider value={view}><main className="mobile-shell"><MobilePresetsPage/></main></MainPageContext.Provider>));}
+async function mount(catalogSlots){const node=document.createElement('div');document.body.append(node);root=createRoot(node);await act(async()=>root.render(<CatalogSlotsContext.Provider value={catalogSlots}><MainPageContext.Provider value={view}><main className="mobile-shell"><MobilePresetsPage/></main></MainPageContext.Provider></CatalogSlotsContext.Provider>));}
 async function click(text,scope=document){const button=[...scope.querySelectorAll('button')].find(node=>node.getAttribute('aria-label')===text||node.textContent.trim()===text);expect(button,`Missing ${text}`).toBeTruthy();await act(async()=>button.click());}
 async function input(value){const node=document.querySelector('[aria-label="名称"]');await act(()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(node,value);node.dispatchEvent(new Event('input',{bubbles:true}));});}
 const cards=()=>[...document.querySelectorAll('.mobile-preset-open > strong')].map(node=>node.textContent);
 const panel=()=>document.querySelector('.mobile-character-library-group-panel');
+
+it('passes the visible Android preset library and exact menu targets to plugins', async () => {
+  const openPreset = vi.fn(), bulk = vi.fn();
+  const render = vi.fn((name, _owner, fallback) => fallback);
+  const actions = (name, owner) => {
+    if (name === 'eleckoi.preset.library.item.menu.actions') return <button type="button" role="menuitem"
+      onClick={() => { owner.onDismiss(); openPreset(owner.preset.id); }}>插件预设操作</button>;
+    if (name === 'eleckoi.preset.library.menu.actions') return <button type="button" role="menuitem"
+      onClick={() => { owner.onDismiss(); bulk(owner.purpose, owner.menu); }}>插件批量操作</button>;
+    return null;
+  };
+  await mount({ render, actions });
+  await click('合成甲', document.querySelector('[aria-label="预设分组"]'));
+  const list = render.mock.calls.filter(([name]) => name === 'eleckoi.preset.page.list').at(-1)[1];
+  expect(list.surface).toBe('android');
+  expect(list.presets.map(preset => preset.id)).toEqual(['p1']);
+  await click('合成叙事的预设操作');
+  await click('插件预设操作');
+  expect(openPreset).toHaveBeenCalledExactlyOnceWith('p1');
+  expect(document.activeElement.getAttribute('aria-label')).toBe('合成叙事的预设操作');
+  await click('预设操作');
+  await click('插件批量操作');
+  expect(bulk).toHaveBeenCalledExactlyOnceWith('roleplay', 'bulk');
+  expect(view.pushRoute).not.toHaveBeenCalled();
+});
 
 it('does not show an empty library before the first catalog and reopens the cached list without rereading',async()=>{
   let resolveRead;

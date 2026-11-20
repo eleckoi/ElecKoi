@@ -350,10 +350,13 @@ export function PresetWorkspace({
     tabEditor = <RegexRulesPanel key={preset.id} ref={regexRef} presetId={preset.id} regexRules={characterConfiguration?.regexRules}
       manageSaveShortcut={false} onDirtyChange={setEditorDirty} />;
   }
-  const renderedTabEditor = renderEditorSection?.(tab, extensionOwner, tabEditor) ?? tabEditor;
+  const desktopEditor = editorMode && !compact;
+  const closeDesktopEditor = () => navigate(() => { allowCloseRef.current = true; window.close(); });
+  const tabOwner = desktopEditor && tab === 'profile' ? { ...extensionOwner, onClose: closeDesktopEditor } : extensionOwner;
+  const renderedTabEditor = renderEditorSection?.(tab, tabOwner, tabEditor) ?? tabEditor;
 
-  if (editorMode && !compact) return <>{renderDesktopEditor({ tab, preset, body: <>{readError}<div className="preset-editor-page" inert={editorUnavailable}>{renderedTabEditor}</div></>, unavailable: editorUnavailable,
-    onSectionChange: next => { if (next !== tab) navigate(() => setTab(next)); }, onClose: () => navigate(() => { allowCloseRef.current = true; window.close(); }) })}{leaveDialog}</>;
+  if (desktopEditor) return <>{renderDesktopEditor({ tab, preset, body: <>{readError}<div className="preset-editor-page" inert={editorUnavailable}>{renderedTabEditor}</div></>, unavailable: editorUnavailable,
+    onSectionChange: next => { if (next !== tab) navigate(() => setTab(next)); }, onClose: closeDesktopEditor })}{leaveDialog}</>;
 
   return <>
     {header}

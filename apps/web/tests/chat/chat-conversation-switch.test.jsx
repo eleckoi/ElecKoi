@@ -96,6 +96,74 @@ describe('conversation switching', async () => {
     }
   });
 
+  it('uses a plugin editor for the exact message and keeps its draft when returning to the built-in editor', async () => {
+    vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+    vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+    const fixture = chatFixture('session-a');
+    const message = {
+      id: 'product-message', conversationId: 'conversation-a', runtimeSessionId: 'session-a',
+      sessionEventSeq: 7, dshMessageId: 'dsh-message', requestId: 'request-1', role: 'user', content: '原来的正文',
+    };
+    const formal = userNode('node-7', 7, message.requestId, 1, message.content);
+    fixture.update({ order: [formal.key], nodes: new Map([[formal.key, formal]]) });
+    const editMessage = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const props = {
+      hasActiveChat: true, conversationId: message.conversationId, runtimeSessionId: message.runtimeSessionId,
+      persona: {}, messages: [message], input: '', scrollRef: { current: null }, onEditMessage: editMessage,
+    };
+    const renderEditor = vi.fn(owner => <div data-plugin-editor="">
+      <textarea value={owner.draft} onChange={event => owner.onDraftChange(event.target.value)} />
+      <button type="button" onClick={owner.onSave}>插件保存</button>
+      <button type="button" onClick={owner.onCancel}>插件取消</button>
+    </div>);
+    const renderSlot = enabled => (name, owner, options) => {
+      if (name === 'eleckoi.roleplay.message.editor' && enabled) return renderEditor(owner);
+      if (name !== 'eleckoi.roleplay.chat') return options?.fallback ?? null;
+      return <ChatView {...fixture.props} renderSlot={(child, childOwner, childOptions) => {
+        if (child === 'conversation.chat.node') return owner.renderChatNode(childOwner);
+        return childOptions?.fallback ?? null;
+      }} />;
+    };
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    const render = enabled => root.render(<WithOfficialMarkdown><ChatPanel {...props}
+      renderConversationContent={renderNativeConversationContent} renderRoleplaySlot={renderSlot(enabled)} />
+    </WithOfficialMarkdown>);
+    const click = selector => act(() => container.querySelector(selector).click());
+    try {
+      await act(() => render(true));
+      expect(renderEditor).not.toHaveBeenCalled();
+      await click('button[aria-label="编辑"]');
+      expect(renderEditor.mock.lastCall[0]).toMatchObject({
+        draft: message.content, conversationId: message.conversationId, productMessageId: message.id,
+        messageId: message.dshMessageId, role: message.role,
+      });
+      await act(() => renderEditor.mock.lastCall[0].onDraftChange('插件草稿'));
+      await click('[data-plugin-editor] button');
+      expect(editMessage).toHaveBeenCalledWith(expect.objectContaining(message), '插件草稿');
+      expect(container.querySelector('[data-plugin-editor] textarea').value).toBe('插件草稿');
+
+      await act(() => render(false));
+      expect(container.querySelector('[data-plugin-editor]')).toBeNull();
+      expect(container.querySelector('.message-inline-editor textarea').value).toBe('插件草稿');
+      await click('.message-inline-editor button.primary');
+      expect(editMessage).toHaveBeenCalledTimes(2);
+      expect(container.querySelector('.message-inline-editor')).toBeNull();
+
+      await act(() => render(true));
+      await click('button[aria-label="编辑"]');
+      await act(() => renderEditor.mock.lastCall[0].onDraftChange('丢弃这一份'));
+      await click('[data-plugin-editor] button:last-child');
+      expect(container.querySelector('[data-plugin-editor]')).toBeNull();
+      expect(editMessage).toHaveBeenCalledTimes(2);
+    } finally {
+      await act(() => root.unmount());
+      container.remove();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('removes the previous conversation content while the new conversation loads', async () => {
     const fixture = chatFixture('session-a');
     const node = turnNode('turn-a', 1, 'closed');

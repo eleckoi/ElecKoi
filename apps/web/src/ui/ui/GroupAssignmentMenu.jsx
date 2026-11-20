@@ -4,7 +4,7 @@ import { CheckIcon } from "../icons/index.jsx";
 import { DshFolderClosedIcon } from "../icons/dshTreeIcons.jsx";
 import { MinusIcon } from "../icons/openSourceIcons.jsx";
 
-export function GroupAssignmentMenu({ x, y, label, currentGroupId = "", groups, onMove, actions = [] }) {
+export function GroupAssignmentMenu({ x, y, label, currentGroupId = "", groups, onMove, actions = [], children }) {
   const tUi = useProductTranslation();
   const menuRef = useRef(null);
   useLayoutEffect(() => {
@@ -60,6 +60,7 @@ export function GroupAssignmentMenu({ x, y, label, currentGroupId = "", groups, 
           );
         })}
       </div> : null}
+      {children}
     </div>
   );
 }

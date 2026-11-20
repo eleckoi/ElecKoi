@@ -344,6 +344,7 @@ export function ChatPanel({
     }); }}
     onOpenVariables={() => setVariablesOpen(true)}
     onOpenRequestPreview={() => setRequestPreviewOpen(true)}
+    renderMainActions={onDismiss => renderRoleplaySlot?.('eleckoi.roleplay.conversation.input.menu.actions', { onDismiss })}
     renderMoreActions={onOpen => renderRoleplaySlot?.('eleckoi.roleplay.header.menu', { onOpen })}
     onOpenChatBackground={onOpenChatBackground}
     onEnterDeleteMode={enterDeleteMode}
@@ -689,6 +690,13 @@ const MessageRow = memo(function MessageRow({
       messageId: item.dshMessageId || null, role: item.role,
     }) : null;
   const renderMessageContent = pluginScopeActive ? renderRoleplayMessage : undefined;
+  const renderMessageEditor = useCallback((message, editor, fallback) => renderRoleplaySlot?.('eleckoi.roleplay.message.editor', {
+    ...editor,
+    conversationId: message.conversationId,
+    productMessageId: message.id,
+    messageId: message.dshMessageId ?? null,
+    role: message.role,
+  }, { fallback }), [renderRoleplaySlot]);
   // Rewind/edit/delete target the durable Session event. Historical rows can
   // legitimately have no projected turn until a closing tail is rebound.
   const canMutate = item.id === "opening" ? item.canChangeOpening === true : Number.isSafeInteger(item.sessionEventSeq);
@@ -712,6 +720,7 @@ const MessageRow = memo(function MessageRow({
     pluginActions={pluginActions}
     pluginAfter={pluginAfter}
     renderMessageContent={renderMessageContent}
+    renderMessageEditor={pluginMessage ? renderMessageEditor : undefined}
     loadImage={loadImage}
     onRegenerateImage={deleteMode ? undefined : onRegenerateImage}
     onOpenFile={onOpenFile}

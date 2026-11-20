@@ -2,7 +2,7 @@ import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { productLocaleTag } from '../app/i18n/productCopy.js';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
-import { useEffect, useMemo, useState } from 'react';
+import { Activity, useEffect, useMemo, useState } from 'react';
 import { Copy } from '@phosphor-icons/react';
 import { Avatar } from '../ui/ui/Avatar.jsx';
 import { MobileOverflowIcon, MobilePictureFrameIcon } from './MobileIcons.jsx';
@@ -17,6 +17,7 @@ import { CharacterProfilePanel } from '../modules/persona/components/CharacterPr
 import '../modules/persona/styles/character-profile.css';
 import { MobileHeader, MobileState, useMobileBack } from './MobileChrome.jsx';
 import { VirtualMasonry } from '../ui/ui/VirtualMasonry.jsx';
+import { useCatalogSlots } from '../ui/ui/CatalogSlotsContext.jsx';
 import { MobileActionMenu, MobileConfirm, MobileSelectionHeader, MobileSelectionMark, useMobileOperation } from './MobileLibraryChrome.jsx';
 import { MobileLibraryIcon } from './MobileLibraryIcons.jsx';
 import { MobileCharacterLibraryBar } from './MobileCharacterLibraryBar.jsx';
@@ -29,7 +30,9 @@ export function MobileCharactersPage() {
   const tUi = useProductTranslation();
   const locale = productLocaleTag(tUi);
   const view = useMainPageView();
+  const { render, actions } = useCatalogSlots();
   const { chat, characters, route } = view;
+  const [retainLibrary, setRetainLibrary] = useState(false);
   const [group, setGroup] = useState('');
   const [groupsOpen, setGroupsOpen] = useState(false), [moveDestination, setMoveDestination] = useState(false);
   const { sort, chooseSort, error: sortError } = useMobileCharacterSort();
@@ -90,10 +93,38 @@ export function MobileCharactersPage() {
       setDeleteOpen(false);
     });
   }
-  if (route.kind === 'character-editor') return <div className="mobile-character-editor">
+  function selectAll() {
+    setSelectedIds(current => [...new Set([...current, ...visible.map(item => item.id)])]);
+  }
+  function confirmSelection() {
+    if (busy || !selectedIds.length) return;
+    if (selection === 'delete') setDeleteOpen(true);
+    else if (selection === 'move') { setMoveDestination(true); setGroupsOpen(true); }
+    else return finishSelection();
+  }
+  async function selectGroup(name) {
+    if (!moveDestination) { setGroup(name); return; }
+    if (name && !groups.includes(name)) return;
+    return run(async () => {
+      await chat.saveCharacterGroups(groups, selectedIds.map(characterId => ({ characterId, group: name })));
+      setGroup(name); setSelection(''); setSelectedIds([]); setMoveDestination(false);
+    });
+  }
+  function selectCharacter(item) {
+    if (!selection) {
+      setRetainLibrary(true);
+      chat.selectCharacter(item.id);
+      view.pushRoute({ kind: 'character-profile', characterId: item.id });
+      return;
+    }
+    if (busy) return;
+    setSelectedIds(current => current.includes(item.id) ? current.filter(id => id !== item.id) : [...current, item.id]);
+  }
+  let destination = null;
+  if (route.kind === 'character-editor') destination = <div className="mobile-character-editor">
     <CharacterEditorWindow embeddedCharacterId={route.characterId} characterCatalog={characters} characterConfiguration={view.characterConfiguration}
       compact registerBackHandler={view.registerBackHandler}
-      navigationGuardRef={view.guardRef} renderCharacterEditorSection={view.renderCharacterEditorSection}
+      navigationGuardRef={view.guardRef} renderCharacterEditorSection={view.renderCharacterEditorSection} onToolbarBack={view.goBack}
       renderHeader={({ saving, dirty, save, subpage, feedback }) => <MobileHeader title={subpage?.title || tUi("编辑角色")} back={subpage?.back || view.goBack}>{subpage?.actions}<MobileSaveFeedback {...feedback} onNotify={chat.notify} successMessage={tUi("角色配置已保存")} /><button type="button" disabled={saving || !dirty} onClick={save}>{tUi("保存")}</button></MobileHeader>} />
   </div>;
   if (route.kind === 'character-profile') {
@@ -103,40 +134,34 @@ export function MobileCharactersPage() {
       onStartConversation: id => { if (!view.routeBusy) view.openCharacterConversation(id); },
       onEditCharacter: openEditor, onCreateFirstCharacter: create };
     const fallback = <CharacterProfilePanel {...owner} presentation="single" />;
-    return <div className="mobile-root-page"><MobileHeader title={tUi("角色")} back={view.goBack}>
+    destination = <div className="mobile-root-page"><MobileHeader title={tUi("角色")} back={view.goBack}>
       <MobileCharacterProfileActions key={route.characterId} character={character} />
     </MobileHeader>{character ? <div className="mobile-character-profile">
       {view.renderCharacterPageSection?.('profile', owner, fallback) ?? fallback}
     </div> : <MobileState empty={tUi("角色不存在")} />}</div>;
   }
-  return <div className="mobile-root-page">
-    <MobileHeader title={tUi("角色")} onSearch={view.openSearch}>
+  const library = !destination || retainLibrary ? <div className="mobile-root-page">
+    <MobileHeader title={tUi("角色")} onSearch={view.openSearch}
+      renderSearch={fallback => render('eleckoi.character.library.search', { surface: 'android', onOpen: view.openSearch }, fallback)}>
       <button type="button" aria-label={tUi("角色操作")} aria-haspopup="menu" aria-expanded={Boolean(menu)} disabled={busy || Boolean(selection)} onClick={event => setMenu(event.currentTarget)}><MobileOverflowIcon /></button>
     </MobileHeader>
-    {selection && <MobileSelectionHeader title={tUi("选择角色")} summary={tUi("{value0} 张", {value0: selectedIds.length})} busy={busy} onCancel={cancelSelection} onAll={() => {
-      const ids = [...new Set([...selectedIds, ...visible.map(item => item.id)])];
-      setSelectedIds(ids);
-    }}>
+    {selection && render('eleckoi.character.library.selection', {
+      surface: 'android', mode: selection, selectedIds, busy, onCancel: cancelSelection, onConfirm: confirmSelection, onSelectAll: selectAll,
+    }, <MobileSelectionHeader title={tUi("选择角色")} summary={tUi("{value0} 张", {value0: selectedIds.length})} busy={busy} onCancel={cancelSelection} onAll={selectAll}>
       {selection === 'export' && <select aria-label={tUi("导出格式")} value={format} disabled={busy} onChange={event => setFormat(event.target.value)}><option value="png">PNG</option><option value="zip">ZIP</option></select>}
-      <button type="button" className={selection === 'delete' ? 'is-destructive' : 'is-confirm'} disabled={busy || !selectedIds.length} onClick={() => selection === 'delete' ? setDeleteOpen(true) : selection === 'move' ? (setMoveDestination(true), setGroupsOpen(true)) : finishSelection()}>{selection === 'delete' ? tUi("删除") : selection === 'duplicate' ? tUi("复制") : selection === 'move' ? tUi('移动到分组') : tUi("导出")}</button>
-    </MobileSelectionHeader>}
+      <button type="button" className={selection === 'delete' ? 'is-destructive' : 'is-confirm'} disabled={busy || !selectedIds.length} onClick={confirmSelection}>{selection === 'delete' ? tUi("删除") : selection === 'duplicate' ? tUi("复制") : selection === 'move' ? tUi('移动到分组') : tUi("导出")}</button>
+    </MobileSelectionHeader>)}
     <div className="mobile-character-library-body">
-    <MobileCharacterLibraryBar groups={groups} characters={chat.characters.items} selected={group} sort={sort} onSort={chooseSort}
+    {render('eleckoi.character.library.groups', { surface: 'android', groups, allGroup: '', selectedGroup: group, onSelectGroup: selectGroup, destination: moveDestination },
+      <MobileCharacterLibraryBar groups={groups} characters={chat.characters.items} selected={group} sort={sort} onSort={chooseSort}
       open={groupsOpen} onOpenChange={value => { setGroupsOpen(value); if (!value) setMoveDestination(false); }}
-      disabled={busy} destination={moveDestination} onSave={chat.saveCharacterGroups} onSelect={async name => {
-        if (!moveDestination) { setGroup(name); return; }
-        const success = await run(async () => {
-          await chat.saveCharacterGroups(groups, selectedIds.map(characterId => ({ characterId, group: name })));
-          setGroup(name); setSelection(''); setSelectedIds([]); setMoveDestination(false);
-        });
-        return success;
-      }} />
-    <CharacterGrid characters={visible} selectedIds={selectedIds} selection={selection} scrollKey={JSON.stringify(['characters', group, sort])} onClick={item => {
-      if (!selection) { chat.selectCharacter(item.id); view.pushRoute({ kind: 'character-profile', characterId: item.id }); return; }
-      if (busy) return;
-      if (selectedIds.includes(item.id)) setSelectedIds(selectedIds.filter(id => id !== item.id));
-      else setSelectedIds([...selectedIds, item.id]);
-    }} />
+      disabled={busy} destination={moveDestination} onSave={chat.saveCharacterGroups} onSelect={selectGroup} />)}
+    {render('eleckoi.character.library.list', { surface: 'android', characters: visible, onSelect: id => {
+      const character = visible.find(item => item.id === id);
+      if (character) selectCharacter(character);
+    } },
+      <CharacterGrid characters={visible} selectedIds={selectedIds} selection={selection}
+        scrollKey={JSON.stringify(['characters', group, sort])} onClick={selectCharacter} />)}
     </div>
     {(error || sortError) && <p className="mobile-inline-error" role="alert">{error || sortError}</p>}
     {deleteOpen && <MobileConfirm title={tUi("删除角色？")} onClose={() => setDeleteOpen(false)} busy={busy} onConfirm={finishSelection} error={error}>{tUi("确认删除已选的 ")}{selectedIds.length}{tUi(" 张角色卡？")}</MobileConfirm>}
@@ -146,9 +171,16 @@ export function MobileCharactersPage() {
       { label: tUi("复制角色卡"), icon: <Copy size={21} />, action: () => { setMenu(null); setSelection('duplicate'); setSelectedIds([]); setError(''); } },
       { label: tUi("导入角色卡"), icon: <MobileLibraryIcon name="import" />, action: () => { setMenu(null); setImportOpen(true); } },
       ...['export', 'delete'].map(mode => ({ label: mode === 'export' ? tUi("导出角色卡") : tUi("删除角色卡"), icon: <MobileLibraryIcon name={mode === 'export' ? 'export' : 'trash'} />, destructive: mode === 'delete', divider: mode === 'delete', action: () => { setMenu(null); setSelection(mode); setSelectedIds([]); setError(''); } })),
-    ]} />}
+    ]}>
+      {actions('eleckoi.character.library.menu.actions', { surface: 'android', menu: 'bulk', busy, onDismiss: () => setMenu(null) })}
+    </MobileActionMenu>}
     {importOpen && <CharacterImportDialog onClose={() => setImportOpen(false)} onPrepare={chat.prepareCharacterImports} onDiscard={chat.discardCharacterImports} onImported={chat.importPreparedCharacters} />}
-  </div>;
+  </div> : null;
+  return <>
+    {/* Hiding the library preserves the original masonry lane assignments. */}
+    <Activity mode={destination ? 'hidden' : 'visible'}>{library}</Activity>
+    {destination}
+  </>;
 }
 
 const artworkRatio = index => [0.76, 0.68, 0.84, 0.72][index % 4];
@@ -167,15 +199,24 @@ function CharacterCover({ character, width, ratio }) {
 }
 function CharacterGrid({ characters, selection, selectedIds, onClick, filters, scrollKey = 'characters' }) {
   const tUi = useProductTranslation();
+  const { render } = useCatalogSlots();
   const { scrollPositions } = useMainPageView();
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   return <VirtualMasonry key={scrollKey} items={characters} scrollClassName={`mobile-scroll mobile-character-list${characters.length ? '' : ' is-empty'}`}
     gridClassName="mobile-character-grid" initialState={scrollPositions.get(`masonry:${scrollKey}`)}
     onSaveState={state => scrollPositions.set(`masonry:${scrollKey}`, state)} estimateHeight={estimateCardHeight}
     leading={filters} empty={<MobileState empty={tUi("暂无角色")} />}>
-    {(character, index, width) => <button type="button" key={character.id} aria-label={characterName(character, tUi)} className="mobile-character-card" style={{ '--mobile-cover-ratio': artworkRatio(index) }} onClick={() => onClick(character)} aria-pressed={selection ? selected.has(character.id) : undefined}>
-    <CharacterCover character={character} width={width} ratio={artworkRatio(index)} /><strong>{characterName(character, tUi)}</strong>
-    <span className="mobile-character-author"><Avatar as="span" name={character.authorName?.trim() || tUi("未填写作者")} src={character.authorAvatar || ''} /><span>{character.authorName?.trim() || tUi("未填写作者")}</span></span>
-    {selection && <MobileSelectionMark selected={selected.has(character.id)} />}
-  </button>}</VirtualMasonry>;
+    {(character, index, width, rememberPosition) => {
+      const onSelect = () => {
+        if (!selection) rememberPosition();
+        onClick(character);
+      };
+      return render('eleckoi.character.library.item', {
+        surface: 'android', character, selected: selected.has(character.id), selecting: Boolean(selection), onSelect,
+      }, <button type="button" key={character.id} aria-label={characterName(character, tUi)} className="mobile-character-card" style={{ '--mobile-cover-ratio': artworkRatio(index) }} onClick={onSelect} aria-pressed={selection ? selected.has(character.id) : undefined}>
+        <CharacterCover character={character} width={width} ratio={artworkRatio(index)} /><strong>{characterName(character, tUi)}</strong>
+        <span className="mobile-character-author"><Avatar as="span" name={character.authorName?.trim() || tUi("未填写作者")} src={character.authorAvatar || ''} /><span>{character.authorName?.trim() || tUi("未填写作者")}</span></span>
+        {selection && <MobileSelectionMark selected={selected.has(character.id)} />}
+      </button>);
+    }}</VirtualMasonry>;
 }

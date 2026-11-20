@@ -79,7 +79,16 @@
         "id": "eleckoi.roleplay.header.menu",
         "kind": "ui-slot",
         "title": "角色对话操作菜单",
-        "description": "向角色对话的操作菜单贡献功能入口。",
+        "description": "在底部三横线菜单第二层「更多」中追加操作。",
+        "mode": "append",
+        "scope": "session",
+        "relation": "provides"
+      },
+      {
+        "id": "eleckoi.roleplay.conversation.input.menu.actions",
+        "kind": "ui-slot",
+        "title": "角色对话底部主菜单",
+        "description": "在底部三横线菜单第一层的「更多」之前添加操作。",
         "mode": "append",
         "scope": "session",
         "relation": "provides"
@@ -134,6 +143,15 @@
         "kind": "ui-slot",
         "title": "消息正文",
         "description": "包装或替换角色聊天消息正文。",
+        "mode": "replace",
+        "scope": "session",
+        "relation": "provides"
+      },
+      {
+        "id": "eleckoi.roleplay.message.editor",
+        "kind": "ui-slot",
+        "title": "消息编辑器",
+        "description": "替换点击铅笔打开的角色消息编辑区，使用现有草稿、保存与取消操作。",
         "mode": "replace",
         "scope": "session",
         "relation": "provides"
