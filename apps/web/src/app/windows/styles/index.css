@@ -7,6 +7,7 @@
 @import "./base.css";
 @import "../shell/styles/titlebar.css";
 @import "../shell/styles/client-shell.css";
+@import "../shell/styles/desktop-page-transition.css";
 @import "../shell/styles/sidebar-rail.css";
 @import "../shell/styles/community-dialog.css";
 @import "../shell/styles/bug-report-dialog.css";

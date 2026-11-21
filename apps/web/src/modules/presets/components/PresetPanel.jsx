@@ -356,7 +356,11 @@ export function PresetWorkspace({
   const renderedTabEditor = renderEditorSection?.(tab, tabOwner, tabEditor) ?? tabEditor;
 
   if (desktopEditor) return <>{renderDesktopEditor({ tab, preset, body: <>{readError}<div className="preset-editor-page" inert={editorUnavailable}>{renderedTabEditor}</div></>, unavailable: editorUnavailable,
-    onSectionChange: next => { if (next !== tab) navigate(() => setTab(next)); }, onClose: closeDesktopEditor })}{leaveDialog}</>;
+    onSectionChange: (next, present) => {
+      if (next === tab) return;
+      const commit = () => setTab(next);
+      navigate(() => present ? present(next, commit) : commit());
+    }, onClose: closeDesktopEditor })}{leaveDialog}</>;
 
   return <>
     {header}

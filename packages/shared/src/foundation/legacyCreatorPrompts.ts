@@ -7,9 +7,9 @@ import { creatorPresetEntrySchema } from '../contracts/presets/creatorPrompts'
 export function upgradeLegacyCreatorPrompt(entry: SettingLibraryEntry): SettingLibraryEntry {
   return creatorPresetEntrySchema.parse({
     ...entry,
-    enabled: entry.enabled && entry.contentMode !== 'ejs' && entry.dynamicMode !== 'ejs_reference',
+    enabled: entry.enabled && entry.contentMode !== 'ejs',
     agentReadStrategy: entry.agentReadStrategy === 'required' ? 'required' : 'normal',
-    dynamicMode: 'standard', contentMode: 'plain_text',
+    contentMode: 'plain_text',
     keywords: [], keywordScanDepth: 1, conditionKeywords: [], keywordCondition: 'none',
     keywordUseRegex: false, keywordIgnoreCase: true, keywordWholeWord: false, keywordRecursionDepth: 0,
   })

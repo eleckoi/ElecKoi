@@ -199,7 +199,6 @@ function entryDefaults(id: string, title: string): SettingLibraryEntry {
     defaultOpeningMessageId: '',
     agentSelectionHint: '',
     agentReadStrategy: 'normal',
-    dynamicMode: 'standard',
     contentMode: 'plain_text',
     keywords: [],
     keywordScanDepth: 1,

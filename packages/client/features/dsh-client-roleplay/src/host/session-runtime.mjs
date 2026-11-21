@@ -13,6 +13,7 @@ import { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import { createSystemMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { readSessionInspection, productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 import { projectRequestInput, requestProjectionSnapshot, visibleDialogueHistory } from './conversation-context.mjs'
+import { resolvePlacedSettingTemplates } from './setting-library-tools.mjs'
 
 export { requestSnapshot } from './model-request-snapshot.mjs'
 
@@ -205,7 +206,12 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
         if (index < 0) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '预览的原始用户输入不在当前 Session 中。', { what: '预览的原始用户输入' })
         surface = surface.slice(0, index + 1)
       } else surface = [...surface, createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } })]
-      const conversationContext = runtime.conversationContext
+      const variables = runtime.variableContext ? JSON.parse(runtime.variableContext.stateJson) : null
+      const history = visibleDialogueHistory(surface)
+      const lastInput = history.findLast(message => message.role === 'user')
+      if (lastInput) lastInput.content = runtime.conversationContext.currentPromptText ?? text
+      const conversationContext = await resolvePlacedSettingTemplates(runtime.conversationContext,
+        [...runtime.conversationContext.history, ...history], variables)
       const assembly = await ctx.systemPrompt.assemble({
         agent: resolved.agent, scope: resolved.agent,
         eleckoiConversationSnapshot: { ...runtime, model, conversationContext }
@@ -216,7 +222,7 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       const messages = projectRequestInput(surface, requestProjectionSnapshot(conversationContext), {
         currentPromptText: conversationContext.currentPromptText ?? text
       })
-      return { model, messages: await renderRequestEjs(messages, { conversationId, variables: runtime.variableContext ? JSON.parse(runtime.variableContext.stateJson) : null }), dryRun: true }
+      return { model, messages: await renderRequestEjs(messages, { conversationId, variables }), dryRun: true }
     },
     currentOperation(conversationId) {
       const sessionId = ctx.eleckoiProductData.runtimeSessionId(conversationId)

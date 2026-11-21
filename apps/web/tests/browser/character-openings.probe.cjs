@@ -2,6 +2,7 @@ const { app, BrowserWindow } = require('electron');
 const { writeFileSync } = require('node:fs');
 const { dirname, join } = require('node:path');
 const { pathToFileURL } = require('node:url');
+const { checkDesktopSectionMotion } = require('../helpers/desktopSectionMotion.cjs');
 const [htmlPath, reportPath] = process.argv.slice(2);
 app.setPath('userData', join(dirname(htmlPath), 'browser-profile'));
 app.disableHardwareAcceleration();
@@ -26,6 +27,7 @@ app.whenReady().then(async () => {
       win.setContentSize(width, height);
       await win.loadURL(`${pathToFileURL(htmlPath).href}${compact ? '?compact' : ''}`);
       await wait('Boolean(document.querySelector("[data-testid]")) || Boolean(document.querySelector(".character-basic-content"))');
+      if (!compact && width === 1440 && theme === 'light') await checkDesktopSectionMotion(win.webContents, '开场白', '基础资料');
       await evaluate(`document.documentElement.dataset.theme='${theme}'; document.documentElement.dataset.eleckoiMobile='${compact}';
         document.body.toggleAttribute('data-ds-dark-theme','${theme}'==='dark'); document.querySelector('button[aria-label="开场白"]').click()`);
       if (!compact) {
@@ -37,13 +39,16 @@ app.whenReady().then(async () => {
         const textClick=async (selector,text)=>{await evaluate(`(()=>{const e=[...document.querySelectorAll(${JSON.stringify(selector)})].find(e=>e.textContent.trim()===${JSON.stringify(text)});if(!e)throw Error('Missing '+${JSON.stringify(text)});e.click()})()`);await new Promise(r=>setTimeout(r,100))};
         const input=async(selector,value)=>{await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.focus();e.select()})()`);await win.webContents.insertText(value);await new Promise(r=>setTimeout(r,100))};
         const snapshot=async name=>{await evaluate('document.getAnimations().forEach(a=>a.finish())');await win.webContents.capturePage();await new Promise(r=>setTimeout(r,150));writeFileSync(join(dirname(reportPath),name+'.png'),(await win.webContents.capturePage()).toPNG())};
-        const layout=await evaluate(`(()=>{const r=s=>document.querySelector(s).getBoundingClientRect().toJSON();return {navigation:[...document.querySelectorAll('.character-editor-navigation button')].map(e=>e.getAttribute('aria-label')),directory:r('.setting-directory'),editor:r('.setting-document'),board:r('.opening-writing'),immersive:r('.setting-immersive-host button'),create:r('.setting-create'),save:r('.setting-document-save'),overflow:document.documentElement.scrollWidth>innerWidth,editors:document.querySelectorAll('.cm-editor').length,font:getComputedStyle(document.querySelector('.cm-content')).fontSize,trees:document.querySelectorAll('.character-openings-panel [role=tree]').length,tabs:document.querySelectorAll('.character-openings-panel [role=tab]').length,switches:document.querySelectorAll('.character-openings-panel [role=switch]').length}})()`);
+        const layout=await evaluate(`(()=>{const r=s=>document.querySelector(s).getBoundingClientRect().toJSON();return {navigation:[...document.querySelectorAll('.character-editor-navigation button')].map(e=>e.getAttribute('aria-label')),directory:r('.setting-directory'),editor:r('.setting-document'),board:r('.opening-writing'),immersive:r('.setting-immersive-host button'),create:r('.setting-toolbar-create'),save:r('.setting-document-save'),overflow:document.documentElement.scrollWidth>innerWidth,editors:document.querySelectorAll('.cm-editor').length,font:getComputedStyle(document.querySelector('.cm-content')).fontSize,trees:document.querySelectorAll('.character-openings-panel [role=tree]').length,tabs:document.querySelectorAll('.character-openings-panel [role=tab]').length,switches:document.querySelectorAll('.character-openings-panel [role=switch]').length}})()`);
         check(!layout.overflow && layout.directory.top===40 && layout.editor.top===40 && (width===1440?layout.directory.width===480:layout.editor.width===380) && layout.editor.left-layout.directory.right===8 && layout.directory.bottom===layout.editor.bottom,'Opening desktop geometry: '+JSON.stringify(layout));
         check(layout.create.right<layout.save.left && layout.editors===1 && layout.font==='14px' && !layout.trees && !layout.tabs && !layout.switches,'Flat list / single body / directory save');
         check(layout.immersive.bottom<=layout.board.bottom && layout.immersive.right<=layout.board.right && layout.immersive.left>layout.board.left+layout.board.width/2,'Immersion should live inside lower right');
         await snapshot(`character-openings-${theme}-${width}`);
         await click('[aria-label="新建开场白"]');await input('[aria-label="标题"]','备用测试');
-        await evaluate(`(()=>{const e=document.querySelector('[aria-label="关联变量版本"]');e.value='synthetic-variables';e.dispatchEvent(new Event('change',{bubbles:true}))})()`);
+        await click('[aria-label="关联变量版本"]');
+        await input('[aria-label="搜索版本"]','合成变量');
+        check(await evaluate('document.querySelectorAll(".editor-picker-row").length===1'),'Search must narrow the available versions');
+        await textClick('.editor-picker-row','合成变量版本');
         await evaluate(`(()=>{const v=window.editorViewFor('开场白正文');v.dispatch({changes:{from:0,to:v.state.doc.length,insert:'备用正文 <div>代码原样保留</div>'}})})()`);
         check(await evaluate('window.syntheticSaveCount===0 && document.querySelectorAll(".cm-editor").length===1'),'Manual draft / one mounted body');actions.manualDraft=true;
         if(width===1440 && theme==='light') {
@@ -55,10 +60,10 @@ app.whenReady().then(async () => {
         check(await evaluate('window.openingSaved().openingMessages[1].variableVersionId==="synthetic-variables" && window.openingSaved().openingMessages[1].content.includes("<div>")'),'Binding and full content save');actions.bindingSave=true;
         if(width===1440 && theme==='light') {
           await input('[aria-label="搜索开场白"]','代码原样');check(await evaluate('document.querySelectorAll(".opening-list-item").length===1 && document.querySelector(".setting-document-save").disabled'),'Body search must not edit data');await input('[aria-label="搜索开场白"]','没有这个开场');check(await evaluate('!!document.querySelector(".opening-list-empty") && !!document.querySelector(".setting-document-save")'),'Empty search lost save');await snapshot('character-openings-empty-search');await input('[aria-label="搜索开场白"]','');actions.search=true;
-          await click('[aria-label="开场白操作"]');await textClick('[role=menuitem]','复制开场白');check(await evaluate('document.querySelectorAll(".opening-list-item").length===3 && document.querySelector("[aria-label=关联变量版本]").value==="synthetic-variables"'),'Copy lost binding');actions.copy=true;
+          await click('[aria-label="开场白操作"]');await textClick('[role=menuitem]','复制开场白');check(await evaluate('document.querySelectorAll(".opening-list-item").length===3 && document.querySelector("[aria-label=关联变量版本]").textContent.trim()==="合成变量版本"'),'Copy lost binding');actions.copy=true;
           await click('[aria-label="开场白操作"]');await textClick('[role=menuitem]','上移');check(await evaluate('document.querySelectorAll(".opening-list-name")[1].textContent==="备用测试 副本"'),'Move up failed');await click('[aria-label="开场白操作"]');await textClick('[role=menuitem]','下移');check(await evaluate('document.querySelectorAll(".opening-list-name")[2].textContent==="备用测试 副本"'),'Move down failed');actions.order=true;
-          await click('[aria-label="开场白操作"]');await textClick('[role=menuitem]','删除开场白');await textClick('[role=alertdialog] button','取消');check(await evaluate('document.querySelectorAll(".opening-list-item").length===3'),'Cancel removed opening');await click('[aria-label="开场白操作"]');await textClick('[role=menuitem]','删除开场白');await textClick('[role=alertdialog] button','删除');check(await evaluate('document.querySelectorAll(".opening-list-item").length===2'),'Delete failed');actions.delete=true;
-          await evaluate('document.querySelector(".opening-list-item").dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,clientX:260,clientY:170}))');await textClick('[role=menuitem]','删除开场白');await textClick('[role=alertdialog] button','删除');await click('.setting-document-save');check(await evaluate('window.openingSaved().openingMessages.length===1 && window.openingSaved().defaultOpeningMessageId===window.openingSaved().openingMessages[0].id && !!document.querySelector(".opening-primary-label")'),'Primary promotion failed');actions.primaryPromotion=true;
+          await click('[aria-label="开场白操作"]');await textClick('[role=menuitem]','删除开场白');await textClick('[role=dialog] button','取消');check(await evaluate('document.querySelectorAll(".opening-list-item").length===3'),'Cancel removed opening');await click('[aria-label="开场白操作"]');await textClick('[role=menuitem]','删除开场白');await textClick('[role=dialog] button','删除');check(await evaluate('document.querySelectorAll(".opening-list-item").length===2'),'Delete failed');actions.delete=true;
+          await evaluate('document.querySelector(".opening-list-item").dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,clientX:260,clientY:170}))');await textClick('[role=menuitem]','删除开场白');await textClick('[role=dialog] button','删除');await click('.setting-document-save');check(await evaluate('window.openingSaved().openingMessages.length===1 && window.openingSaved().defaultOpeningMessageId===window.openingSaved().openingMessages[0].id && !!document.querySelector(".opening-primary-label")'),'Primary promotion failed');actions.primaryPromotion=true;
           await evaluate('document.querySelector(".opening-directory-list").dispatchEvent(new MouseEvent("mousedown",{bubbles:true,button:0}))');await wait('!!document.querySelector(".setting-document-empty")');check(await evaluate('!!document.querySelector(".setting-document-save") && !document.querySelector(".cm-editor")'),'Empty selection lost save or mounted body');await snapshot('character-openings-empty-selection');await click('[aria-label="新建开场白"]');await click('.setting-document-save');actions.emptySelection=true;
           await evaluate('document.querySelector("[aria-label=调整目录宽度]").focus()');win.webContents.sendInputEvent({type:'keyDown',keyCode:'RIGHT'});win.webContents.sendInputEvent({type:'keyUp',keyCode:'RIGHT'});await new Promise(r=>setTimeout(r,100));check(await evaluate('document.querySelector(".setting-directory").getBoundingClientRect().width===496'),'Resize failed');actions.resize=true;
         }
@@ -71,7 +76,7 @@ app.whenReady().then(async () => {
   } catch (error) {
     console.error(error);
     console.error(await evaluate(`JSON.stringify({active:document.querySelector('[aria-current=page]')?.getAttribute('aria-label'),
-      dialogs:[...document.querySelectorAll('[role=alertdialog]')].map(node=>node.textContent),
+      dialogs:[...document.querySelectorAll('[role=dialog]')].map(node=>node.textContent),
       sections:[...document.querySelectorAll('section')].map(node=>node.className),error:document.querySelector('[role=alert]')?.textContent})`));
     app.exit(1);
   }

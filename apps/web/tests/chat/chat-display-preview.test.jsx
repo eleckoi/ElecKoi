@@ -87,9 +87,11 @@ describe("chat display preview", () => {
     expect(document.querySelector('[data-group="layout-style"] summary').textContent).toContain('酒馆风格');
     expect([...document.querySelectorAll('.ec-settings-list [data-group]')].at(-1).dataset.group).toBe('behavior');
     expect(document.querySelector('[aria-label="对话底板"]').checked).toBe(false);
-    expect(document.querySelector('[aria-label="消息气泡"]').checked).toBe(false);
-    click('对话底板');
+    expect(document.querySelector('[aria-label="消息气泡"]').checked).toBe(true);
     click('消息气泡');
+    expect(document.querySelector('.chat-display-preview').hasAttribute('data-roleplay-bubbles')).toBe(false);
+    click('消息气泡');
+    click('对话底板');
     input('用户气泡色调', '#987654');
     input('底板模糊程度滑杆', '31');
     expect(preferences.roleplay_style).toMatchObject({ bubbles_enabled: true, user_bubble_tint: '#987654', assistant_bubble_tint: null, backdrop_blur: 31 });

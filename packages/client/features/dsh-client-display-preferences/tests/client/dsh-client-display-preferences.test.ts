@@ -11,6 +11,7 @@ function clientHarness() {
   let registration: any
   let model: any
   let cleanup = () => {}
+  let reconnect = () => {}
   let snapshot: {
     revision: number
     writable: boolean
@@ -43,9 +44,9 @@ function clientHarness() {
     remote,
     provide: (_name: string, value: any) => { model = value },
     effect: (run: () => () => void) => { cleanup = run() },
-    on: () => () => {}
+    on: (_event: string, listener: () => void) => { reconnect = listener; return () => {} }
   })
-  return { remote, model, cleanup: () => cleanup() }
+  return { remote, model, reconnect: () => reconnect(), cleanup: () => cleanup() }
 }
 
 describe('DSH display preferences', () => {
@@ -85,18 +86,55 @@ describe('DSH display preferences', () => {
       })
 
       await Promise.all([
-        model.updateUi((current: Record<string, unknown>) => ({ ...current, first: true })),
+        model.updateUi((current: Record<string, unknown>) => ({ ...current, favorite_character_ids: ['role-a'] })),
         model.updateUi((current: Record<string, unknown>) => ({ ...current, second: true }))
       ])
       expect(model.getSnapshot().ui).toMatchObject({
-        pinned_chat_ids: ['chat-a'], first: true, second: true
+        pinned_chat_ids: ['chat-a'], favorite_character_ids: ['role-a'], second: true
       })
       expect(remote.eleckoiDisplayPreferences.updateUi).toHaveBeenNthCalledWith(
-        1, { pinned_chat_ids: ['chat-a'], first: true }, 2
+        1, { pinned_chat_ids: ['chat-a'], favorite_character_ids: ['role-a'] }, 2
       )
       expect(remote.eleckoiDisplayPreferences.updateUi).toHaveBeenNthCalledWith(
-        2, { pinned_chat_ids: ['chat-a'], first: true, second: true }, 3
+        2, { pinned_chat_ids: ['chat-a'], favorite_character_ids: ['role-a'], second: true }, 3
       )
+      await model.refresh()
+      expect(model.getSnapshot().ui.favorite_character_ids).toEqual(['role-a'])
+    } finally { cleanup() }
+  })
+
+  it('keeps a saved favorite when a previous read completes after the write', async () => {
+    const { remote, model, cleanup } = clientHarness()
+    try {
+      await model.refresh()
+      const old = await remote.eleckoiDisplayPreferences.read()
+      let finishRead!: (value: typeof old) => void
+      remote.eleckoiDisplayPreferences.read.mockImplementationOnce(() =>
+        new Promise(resolve => { finishRead = resolve }))
+      const reading = model.refresh()
+      await model.updateUi({ favorite_character_ids: ['role-a'] })
+      finishRead(old)
+      await reading
+      expect(model.getSnapshot()).toMatchObject({ revision: 3, ui: { favorite_character_ids: ['role-a'] } })
+      await model.updateUi({ second: true })
+      expect(remote.eleckoiDisplayPreferences.updateUi).toHaveBeenLastCalledWith({
+        pinned_chat_ids: ['chat-a'], favorite_character_ids: ['role-a'], second: true
+      }, 3)
+    } finally { cleanup() }
+  })
+
+  it('uses the current Host settings even when the revision restarts on reconnect', async () => {
+    const { remote, model, reconnect, cleanup } = clientHarness()
+    try {
+      await model.refresh()
+      remote.eleckoiDisplayPreferences.read.mockResolvedValueOnce({
+        ok: true,
+        value: { revision: 0, writable: true, ui: { favorite_character_ids: ['role-b'] }, chatDisplay: {} }
+      })
+      reconnect()
+      await vi.waitFor(() => expect(model.getSnapshot()).toMatchObject({
+        revision: 0, ui: { favorite_character_ids: ['role-b'] }
+      }))
     } finally { cleanup() }
   })
 

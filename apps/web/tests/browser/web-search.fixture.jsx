@@ -7,7 +7,7 @@ import '../../src/app/windows/styles/base.css';
 import '../../src/modules/agentTools/styles/web-search-settings.css';
 import '../../src/mobile/mobile-conversation-overlays.css';
 
-let snapshot = { status: 'ready', mode: 'provider_native', fetchMode: 'http', writable: true, tavilyAvailable: true,
+let snapshot = { status: 'ready', mode: 'automatic', fetchMode: 'http', writable: true, tavilyAvailable: true,
   apiKeyConfigured: false, apiKeyWritable: true, apiKeyRef: 'TAVILY_API_KEY', maxResults: 5, officialDeepSeekAvailable: true };
 const listeners = new Set();
 const calls = [];

@@ -7,6 +7,7 @@ import { PresetOverview } from '../../src/modules/presets/components/PresetOverv
 import { WebSearchProvider } from '../../src/modules/agentTools/index.js';
 import { AgentToolsDialog } from '../../src/modules/chat/components/AgentToolsDialog.jsx';
 import { MobileEditorHarness } from './mobile-editor.harness.jsx';
+import { PRESET_MOBILE_SECTIONS } from '../../src/modules/presets/components/PresetMobileSections.jsx';
 import { createEntryDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
 import { initialLibrary } from '../helpers/editorWorkspaceSamples.js';
 import { editorVersionsFixture, withLibraryVersions } from '../helpers/editorLibraryVersions.js';
@@ -16,6 +17,7 @@ import '../../src/app/windows/styles/tokens.css';
 import '../../src/app/windows/styles/dsh-theme-bridge.css';
 import '../../src/app/windows/shell/styles/titlebar.css';
 import '../../src/app/windows/shell/styles/client-shell.css';
+import '../../src/app/windows/shell/styles/desktop-page-transition.css';
 import '../../src/modules/persona/styles/character-editor.css';
 import '../../src/modules/persona/styles/character-list.css';
 import '../../src/modules/settingLibraries/styles/setting-library.css';
@@ -63,6 +65,18 @@ window.savedScripts=()=>libraries[q.has('character')?'character':'preset'];
 const scripts=withLibraryVersions({read:async scope=>structuredClone(libraries[scope]),subscribe:()=>()=>{},subscribeChanges:()=>()=>{},saveAll:async values=>values.map(value=>libraries[value.scope]=structuredClone({...value,revision:value.revision+1})),openDirectory:async()=>{}},'scripts');
 let webSnapshot={status:'ready',mode:'provider_native',writable:true,apiKeyWritable:true,tavilyAvailable:true,maxResults:5};const webListeners=new Set();
 const web={getSnapshot:()=>webSnapshot,subscribe:fn=>{webListeners.add(fn);return()=>webListeners.delete(fn);},update:async patch=>{webSnapshot={...webSnapshot,...patch};webListeners.forEach(fn=>fn());},openPluginSettings:()=>{window.pluginSettingsOpened=true;}};
-window.editorView=()=>EditorView.findFromDOM(document.querySelector('.cm-editor'));
-window.editorViewFor=label=>EditorView.findFromDOM(document.querySelector(`.cm-content[aria-label="${label}"]`));
+function editorView(selector) {
+  const editor = document.querySelector(selector);
+  return editor && EditorView.findFromDOM(editor);
+}
+window.editorView=()=>editorView('.cm-editor');
+window.editorViewFor=label=>editorView(`.cm-content[aria-label="${label}"]`);
 createRoot(document.getElementById('root')).render(<WebSearchProvider model={web}>{q.get('view')==='mobile-editor'?<MobileEditorHarness presetModel={model} preset={stored} character={q.has('character')} longText={q.has('long')?'合成长文本 const a = 1;\n'.repeat(100000)+'完整末尾':''} configuration={{regexRules:{editor:()=>regexEditor,test:async()=>({output:'合成结果'})},scripts}} />:q.get('view')==='tool-menu'?<AgentToolsDialog presetCatalog={model} onClose={()=>{window.toolMenuClosed=true;}} onManage={()=>{window.toolMenuManaged=true;}} onNotify={(type,message)=>{window.toolMenuNotice={type,message};}} />:q.get('view')==='preset-editor'?<div id="eleckoi-root"><PresetEditorWindow presetCatalog={model} characterConfiguration={{regexRules:{editor:()=>regexEditor,test:async()=>({output:'合成测试结果'})},scripts}} /></div>:<div id="eleckoi-root" className="qq-shell" style={{gridTemplateColumns:'328px minmax(0,1fr)'}}><PresetProvider catalogModel={model} fixedPresetId={id}><aside className="side-panel-shell"><PresetListPanel /></aside><section className="main-panel-content"><PresetOverview /></section></PresetProvider></div>}</WebSearchProvider>);
+if (q.get('view') === 'mobile-editor' && !q.has('character') && q.has('section')) {
+  const label = PRESET_MOBILE_SECTIONS.find(section => section.id === q.get('section'))?.label;
+  const navigation = new MutationObserver(() => {
+    const button = [...document.querySelectorAll('#preset-editor-navigation button')].find(item => item.getAttribute('aria-label') === label);
+    if (button) { navigation.disconnect(); button.click(); }
+  });
+  navigation.observe(document.getElementById('root'), { childList: true, subtree: true });
+}

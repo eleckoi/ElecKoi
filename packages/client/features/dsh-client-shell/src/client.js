@@ -270,7 +270,7 @@ window.__ModuleLoader__.load({
       officialSidebar.apply(ctx.extend({ slots: scopedSlots }))
     }
     function createConversationPanelInfo(ctx) {
-      // DSH 0.2.2-rc.3 session chrome identifies the Conversation by a null
+      // DSH 0.2.2-rc.5 session chrome identifies the Conversation by a null
       // main-panel key. Project mounted product Conversations through its
       // public panel-info shares without replacing the Frame's navigation.
       // RETIRE WHEN native session chrome accepts a mounted Conversation

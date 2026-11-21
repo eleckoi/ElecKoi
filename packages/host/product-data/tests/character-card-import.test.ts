@@ -347,10 +347,20 @@ describe('character card import', () => {
     agentPresets.ensureInitialized()
     const regexRules = new RegexRuleRepository(database, agentPresets)
     const transfers = new CharacterTransferService(database, characters, settingLibraries, variables, regexRules)
+    const card = tavernCard()
+    const mixed = '开头固定。\n<%- await getwi("灯塔片段") %><%= 1 + 2 %>\n结尾固定。'
+    const fragment = '灯塔熄灭了。<%= 5 %>'
+    card.data.character_book.entries.push(
+      { name: '混合关键词设定', content: mixed, keys: ['灯塔'], enabled: true },
+      { name: '灯塔片段', content: fragment, constant: false, enabled: false },
+      { name: '引用中的商店', content: '店内现货。', keys: ['商店'], enabled: true },
+      { name: '入口', content: '<%- await getwi("引用中的商店") %>', constant: true, enabled: true },
+      { name: '楼层模板', content: '<% if (getChatMessages().length === 20) { %>钟响了。<% } %>', constant: false, enabled: true },
+    )
     const preview = transfers.prepare([{
       displayName: 'synthetic-character.json',
       mimeType: 'application/json',
-      base64: Buffer.from(JSON.stringify(tavernCard())).toString('base64')
+      base64: Buffer.from(JSON.stringify(card)).toString('base64')
     }], 'sillytavern')
 
     expect(preview.items[0]).toMatchObject({ name: '测试角色甲', importable: true, imageAvailable: false })
@@ -367,6 +377,14 @@ describe('character card import', () => {
       chatBackgroundScrim: 0.5
     })
     expect(settingLibraries.get(characterId).entries.some((entry) => entry.title === '角色描述')).toBe(true)
+    const expectedEntries = [
+      expect.objectContaining({ title: '混合关键词设定', content: mixed, contentMode: 'ejs', agentReadStrategy: 'keyword', keywords: ['灯塔'], enabled: true }),
+      expect.objectContaining({ title: '灯塔片段', content: fragment, contentMode: 'ejs', agentReadStrategy: 'keyword', enabled: false }),
+      expect.objectContaining({ title: '引用中的商店', agentReadStrategy: 'keyword', keywords: ['商店'], enabled: true }),
+      expect.objectContaining({ title: '入口', contentMode: 'ejs', agentReadStrategy: 'required', enabled: true }),
+      expect.objectContaining({ title: '楼层模板', contentMode: 'ejs', agentReadStrategy: 'keyword', keywords: [], enabled: true }),
+    ]
+    expect(settingLibraries.get(characterId).entries).toEqual(expect.arrayContaining(expectedEntries))
     expect(variables.get(characterId).variables.some((variable) => variable.title === '好感度')).toBe(true)
     expect(regexRules.get(characterId).characterRules.map((rule) => rule.name)).toEqual([
       '清理测试标签',
@@ -376,6 +394,8 @@ describe('character card import', () => {
       const exported = transfers.export(characterId, format)
       const decoded = decodeCharacterCard(Buffer.from(exported.base64, 'base64'), 'eleckoi')
       expect(decoded.packageData.character.profileLike).toBe(tavernCard().data.creator_notes)
+      const library = decodeSettingLibrarySnapshot(decoded.packageData.settingLibraryJson, characterId)
+      expect(library.entries).toEqual(expect.arrayContaining(expectedEntries))
     }
     expect(database.native.pragma('foreign_key_check')).toEqual([])
   })

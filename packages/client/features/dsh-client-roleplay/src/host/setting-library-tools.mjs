@@ -1,4 +1,4 @@
-import { catalogOf, directoryExists, inScope, relative, normalizePath, safeSegment, globRegex } from './virtual-setting-directory.mjs'
+import { catalogOf, directoryExists, inScope, relative, normalizePath, safeSegment, globRegex, settingReferenceIndex } from './virtual-setting-directory.mjs'
 import { randomUUID } from 'node:crypto'
 import ejs from 'ejs/ejs.min.js'
 import lodash from 'lodash'
@@ -7,6 +7,7 @@ import { requiredSettingCache } from './required-setting-cache.mjs'
 import { readToolResult, resultReadParameter } from '@eleckoi/dsh-client-roleplay/host/tool-result-access.mjs'
 import {
   ELECKOI_FAILURE_CODES,
+  isCodedFailure,
   recordRuntimePluginFailure,
   runRuntimePluginApply,
   runtimePluginFailure,
@@ -16,7 +17,7 @@ import {
 export const name = 'eleckoi-setting-library-tools'
 export const inject = ['tools', 'eleckoiProductData', 'eleckoiCharacterConfigurationChanges', 'eleckoiRuntimeContexts']
 
-const requiredEntriesReadInstruction = '搜索结果的 required_entries 是本回合必读清单（固定必读及关键词、EJS 条件触发项），不受 pattern、path 或 files/matches 是否命中影响。若非空，回复用户前必须调用 eleckoi_read_setting_files，把本轮尚未读取或已失效的 path 一次传入 paths；已读取且正文未变化的条目无需重复读取，仅搜索不算读取。即使固定必读项标记为 cached_reference、正文已在前置缓存设定区，也必须读取，用工具回执的编号和标题核对前置正文。'
+const requiredEntriesReadInstruction = 'required_entries 是独立于本次搜索范围的完整必读清单，包含常驻必读、关键词命中和 EJS 条件触发项。有未读或正文已变化的条目时，须把其中每一条本轮尚未读取或正文已变化的完整 path 原样放进同一次 eleckoi_read_setting_files 的 paths 数组，cached_reference 也包含在内。搜索用于定位，读取以工具回执为准。本轮已读且正文未变化的条目无需重复读取。'
 
 export function apply(ctx) {
   return runRuntimePluginApply(ctx, name, () => {
@@ -105,8 +106,8 @@ function grepTool(ctx) {
 function readTool(ctx) {
   return defineTool({
     name: 'eleckoi_read_setting_files',
-    description: '按完整路径读取当前可用的虚拟设定文件；已知准确路径时无需重新搜索。路径没有 .md 后缀；不得猜测未知路径。固定必读正文已在本轮缓存设定区，读取仅返回编号与标题；本轮须读和选读条目返回正文。设定工具结果溢出时，只传 result 按提示续读全文或搜索结果文件。',
-    parameters: { paths: { type: 'array', items: { type: 'string' }, description: '一个或多个当前可用的完整虚拟设定文件路径。普通读取必填；与 result 二选一。' }, result: resultReadParameter },
+    description: '按完整路径读取当前可用的虚拟设定文件。已知准确路径时无需重新搜索。路径没有 .md 后缀，须使用目录给出的真实路径。缓存中的常驻必读返回编号与标题，其余条目返回正文。结果溢出时，只传 result 按提示续读。',
+    parameters: { paths: { type: 'array', items: { type: 'string' }, description: '普通读取必填，与 result 二选一。读取必读清单时，一次传入 required_entries 中本轮未读或正文已变化的全部 path，含 cached_reference。' }, result: resultReadParameter },
     output: output(),
     async execute(args, exec) {
       if (Object.hasOwn(args, 'result')) return readToolResult(ctx, args, exec, 'settings')
@@ -121,18 +122,15 @@ function readTool(ctx) {
       const files = paths.map((path) => {
         const entry = byPath.get(path)
         const cached = cachedReference(entry, catalog)
-        if (entry.renderError) return {
+        const file = {
           ...summary(entry, catalog),
           group_path: entry.groupPath,
-          selection_hint: entry.selectionHint,
-          read_strategy: entry.readStrategy,
-          content_delivery: 'error',
-          error: entry.renderError
+          content_mode: entry.raw.contentMode === 'ejs' ? 'ejs' : 'plain_text'
         }
-        return { ...summary(entry, catalog), group_path: entry.groupPath, selection_hint: entry.selectionHint,
-          read_strategy: entry.readStrategy, content_delivery: cached ? 'cached_reference' : 'tool_result',
+        if (entry.renderError) return file
+        return { ...file,
           resolved_references: (entry.resolvedReferences || []).map((reference) => ({ title: reference.title })),
-          ...(cached ? { cached_reference: cached.reference } : {}), content: cached ? cached.receipt : entry.content }
+          content: cached ? cached.receipt : entry.content }
       })
       const errors = files.filter((file) => file.content_delivery === 'error')
       return { status: errors.length ? 'partial' : 'ok', files, ...(errors.length ? { errors } : {}) }
@@ -254,7 +252,7 @@ function writeFile(library, path, args) {
   library.entries.push({
     id: randomUUID(), title: leaf, iconId: 'setting', kind: 'normal', groupId, content: args.content,
     openingMessages: [], defaultOpeningMessageId: '', agentSelectionHint: normalizeSelectionHint(args.selection_hint),
-    agentReadStrategy: 'normal', dynamicMode: 'standard', contentMode: 'plain_text', keywords: [], keywordScanDepth: 1,
+    agentReadStrategy: 'normal', contentMode: 'plain_text', keywords: [], keywordScanDepth: 1,
     conditionKeywords: [], keywordCondition: 'none', keywordUseRegex: false, keywordIgnoreCase: true, keywordWholeWord: false,
     keywordRecursionDepth: 0, triggerMode: 'agent_tool', enabled: true, position: null, promptPositionId: '', insertRole: 'user',
     order: Math.max(0, ...library.entries.map((entry) => Number(entry.order) || 0)) + 1,
@@ -349,15 +347,14 @@ async function runtimeCatalogOf(bridge) {
   const variableState = objectValue(bridge.variableState)
 
   let entries = catalog.entries
-    .filter((entry) => entry.raw.dynamicMode !== 'ejs_reference')
     .filter((entry) => entry.readStrategy !== 'keyword' || keywordMatches.has(entry.raw.id))
     .map((entry) => keywordMatches.has(entry.raw.id) ? { ...entry, promotedToRequiredThisTurn: true } : entry)
-  const ejsCandidates = catalog.entries.filter((entry) => entry.raw.dynamicMode === 'ejs_reference')
   const messages = runtimeMessages(bridge.history)
+  const references = entries.some(entry => entry.raw.contentMode === 'ejs') ? settingReferenceIndex(bridge.library, catalog) : null
   entries = (await Promise.all(entries.map(async (entry) => {
-    if (entry.raw.contentMode !== 'ejs' || entry.readStrategy === 'required') return entry
+    if (entry.raw.contentMode !== 'ejs') return entry
     try {
-      const rendered = await renderEjsController(entry, ejsCandidates, variableState, messages)
+      const rendered = await renderEjsController(entry, references, variableState, messages)
       return { ...entry, content: rendered.content, resolvedReferences: rendered.references,
         promotedToRequiredThisTurn: true }
     } catch (error) {
@@ -492,20 +489,8 @@ function lastUnescapedSlash(value) {
   return -1
 }
 
-async function renderEjsController(target, candidates, state, messages) {
+async function renderEjsController(target, sourceByName, state, messages) {
   const references = []
-  const sources = candidates.filter((candidate) => candidate.raw.dynamicMode === 'ejs_reference')
-  const sourceByName = new Map()
-  const register = (name, source) => {
-    if (!name) return
-    const matches = sourceByName.get(name) || new Set()
-    matches.add(source)
-    sourceByName.set(name, matches)
-  }
-  for (const source of sources) {
-    register(source.raw.title, source)
-    register(source.path, source)
-  }
   const getvar = createGetvar(state)
   const getLocalVar = (key, options = {}) => getvar(key, options)
   const getMessageVar = createMessageVarReader(messages, state)
@@ -534,10 +519,10 @@ async function renderEjsController(target, candidates, state, messages) {
     }
     const getwi = async (referenceOrLibrary, referenceName) => {
       const requested = referenceName === undefined ? referenceOrLibrary : referenceName
-      if (typeof requested !== 'string' || !requested.trim()) throw runtimePluginFailure(ELECKOI_FAILURE_CODES.inputInvalid, 'getwi 必须指定 EJS 引用设定的标题或完整路径。', { field: 'getwi' })
-      const matches = [...(sourceByName.get(requested) || [])]
-      if (!matches.length) throw runtimePluginFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `getwi 找不到 EJS 引用设定：${requested}`, { what: 'EJS 引用设定' })
-      if (matches.length !== 1) throw runtimePluginFailure(ELECKOI_FAILURE_CODES.lookupDuplicate, `getwi 引用标题不唯一，请使用完整路径：${requested}`, { what: 'EJS 引用设定标题' })
+      if (typeof requested !== 'string' || !requested.trim()) throw runtimePluginFailure(ELECKOI_FAILURE_CODES.inputInvalid, 'getwi 必须指定设定的标题或完整路径。', { field: 'getwi' })
+      const matches = sourceByName.get(requested)
+      if (!matches) throw runtimePluginFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `getwi 找不到设定：${requested}`, { what: '设定' })
+      if (matches.length !== 1) throw runtimePluginFailure(ELECKOI_FAILURE_CODES.lookupDuplicate, `getwi 引用标题不唯一，请使用完整路径：${requested}`, { what: '设定标题' })
       const nested = matches[0]
       references.push({ id: nested.raw.id, title: nested.raw.title || '', path: nested.path })
       if (nested.raw.contentMode === 'plain_text') return nested.content
@@ -558,6 +543,35 @@ function compileEjs(template, filename = 'setting-controller.ejs') {
   const printBinding = '<% print = ((append) => (...values) => values.forEach(append))(print); %>'
   const render = ejs.compile(printBinding + template, { client: true, async: true, outputFunctionName: 'print', filename })
   return context => render.call(context, context, toText)
+}
+
+/** Resolve placed and standalone templates against the same turn inputs as tool reads. */
+export function resolvePlacedSettingTemplates(context, history, variables) {
+  const library = context?.settingLibrary
+  const templates = library?.entries?.filter(entry => entry.kind === 'normal' && entry.contentMode === 'ejs'
+    && (!entry.enabled || entry.triggerMode === 'always' && entry.position))
+  if (!templates?.length) return context
+  const catalog = catalogOf(library)
+  const references = settingReferenceIndex(library, catalog)
+  const messages = runtimeMessages(history)
+  const state = objectValue(variables)
+  return Promise.all(templates.map(async raw => {
+    const path = [catalog.groupPath(raw.groupId), safeSegment(raw.title || '未命名设定')].filter(Boolean).join('/')
+    try {
+      const result = await renderEjsController({ raw, path, content: raw.content }, references, state, messages)
+      // An EJS-only trigger uses the default setting position. Saved rule fields stay intact.
+      const placement = raw.enabled ? {} : { enabled: true, triggerMode: 'always',
+        position: 'insert_point_1', promptPositionId: '', insertRole: 'user' }
+      return [raw.id, { ...raw, ...placement, content: result.content }]
+    } catch (error) {
+      if (isCodedFailure(error)) throw error
+      throw runtimePluginFailure(ELECKOI_FAILURE_CODES.inputInvalid,
+        `设定 ${path} 的 EJS 渲染失败：${message(error)}`, { field: 'content', path })
+    }
+  })).then(results => {
+    const rendered = new Map(results)
+    return { ...context, settingLibrary: { ...library, entries: library.entries.map(entry => rendered.get(entry.id) ?? entry) } }
+  })
 }
 
 function createChatReaders(messages) {

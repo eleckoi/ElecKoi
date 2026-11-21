@@ -52,6 +52,12 @@ export interface ElecKoiPresets {
    */
   create(name: string, libraryGroupId?: string, purpose?: AgentPresetPurpose): Promise<AgentPreset>
   /**
+   * 在源预设的分组复制整份预设，包括已保存的版本。
+   * @param presetId - 源预设编号。
+   * @returns 新预设的完整数据。
+   */
+  duplicate(presetId: string): Promise<AgentPreset>
+  /**
    * 导入预设文件。
    * @param source - 支持的导入格式。
    * @param document - 待导入的文件内容。
@@ -101,6 +107,14 @@ export interface ElecKoiPresets {
    * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
    */
   assignGroup(presetId: string, groupId: string): Promise<AgentPresetCatalog>
+  /**
+   * 一次更新同一分类下所选预设的分组。
+   * @param presetIds - 所选预设编号。
+   * @param groupId - 目标分组编号。空字符串表示未分组。
+   * @param purpose - 所选预设的分类。
+   * @returns 更新后的预设目录。
+   */
+  assignGroups(presetIds: string[], groupId: string, purpose: AgentPresetPurpose): Promise<AgentPresetCatalog>
   /**
    * 删除预设分组。
    * @param groupId - 分组编号。

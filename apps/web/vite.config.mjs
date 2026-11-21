@@ -13,7 +13,7 @@ const primitivesModule = '@deepseek-ai/dsh-client-ui-primitives'
 
 const platformExports = {
   react: [
-    'Activity', 'Children', 'Component', 'Fragment', 'PureComponent', 'Suspense', 'cloneElement',
+    'Children', 'Component', 'Fragment', 'PureComponent', 'Suspense', 'cloneElement',
     'createContext', 'createElement', 'createRef', 'forwardRef', 'isValidElement',
     'lazy', 'memo', 'startTransition', 'useCallback', 'useContext', 'useDebugValue',
     'useDeferredValue', 'useEffect', 'useId', 'useImperativeHandle', 'useInsertionEffect',

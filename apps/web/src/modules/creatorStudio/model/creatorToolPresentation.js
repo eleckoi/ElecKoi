@@ -22,7 +22,7 @@ const fieldLabels = {
   assistantName: '角色名称', profileAge: '年龄', profileSex: '性别', profileHeight: '身高', profileBirthday: '生日', profileLike: '喜好',
   schemaCode: '校验代码', initialStateJson: '初始变量', variables: '变量', pattern: '匹配表达式', replacement: '替换内容',
   targets: '作用对象', displayOnly: '仅显示', promptOnly: '仅请求', runOnEdit: '编辑时运行',
-  contentMode: '正文类型', dynamicMode: '动态模式', triggerMode: '触发方式', keywords: '关键词', keywordMatch: '关键词匹配',
+  contentMode: '正文类型', triggerMode: '触发方式', keywords: '关键词', keywordMatch: '关键词匹配',
   scope: '所属范围', ownerId: '所属编号', presetId: '预设编号', activeVersionId: '当前版本编号', revision: '修改版本', resourceRevision: '资源版本',
   defaultOpeningMessageId: '默认开场白编号', openingMessages: '开场白', variableVersionId: '变量版本编号',
   documents: '配置正文', versions: '配置版本', inputSchema: '参数', effect: '操作类型',
@@ -74,7 +74,9 @@ export function creatorToolPresentation(name, block, phase, t = sourceText) {
   const text = (value, kind = 'text', label = '') => {
     const content = typeof value === 'string' ? value : resultValueText(value);
     if (content === undefined) return;
-    (content === '' ? [''] : resultTextSegments(content)).forEach((text, index) => model.parts.push({ kind, text, label: index === 0 ? label : '' }));
+    // The entire error must stay mounted while a selection spans the scroll area.
+    const segments = content === '' || kind === 'error' ? [content] : resultTextSegments(content);
+    segments.forEach((text, index) => model.parts.push({ kind, text, label: index === 0 ? label : '' }));
   };
   const field = (key, value) => text(displayValue(key, value, t), 'path', t(fieldLabels[key] ?? key));
   const changeField = (key, value) => {

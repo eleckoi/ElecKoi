@@ -3,19 +3,17 @@ import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import '../../../ui/styles/product-dialogs.css';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
-import { ChevronRightIcon, ImportIcon } from '../../../ui/icons/index.jsx';
+import { ImportSourceList } from '../../../ui/ui/ImportSourceList.jsx';
+
+const SOURCES = [
+  { id: 'eleckoi', title: 'ElecKoi 预设', detail: 'PNG 或 JSON' },
+  { id: 'sillytavern', title: '酒馆预设', detail: 'JSON' },
+];
 
 export function PresetImportDialog({ onSelect, onClose }) {
   const tUi = useProductTranslation();
   return <Modal open title={tUi('导入预设')} closeLabel={tUi('关闭')} onClose={onClose} className="product-dialog" contentClassName="product-dialog-content">
-      <div className="preset-import-source-list">
-        <button type="button" data-modal-autofocus onClick={() => onSelect('eleckoi')}>
-          <ImportIcon /><span><strong>{tUi("ElecKoi 预设")}</strong><small>{tUi("PNG 或 JSON")}</small></span><ChevronRightIcon />
-        </button>
-        <button type="button" onClick={() => onSelect('sillytavern')}>
-          <ImportIcon /><span><strong>{tUi("酒馆预设")}</strong><small>JSON</small></span><ChevronRightIcon />
-        </button>
-      </div>
+    <ImportSourceList sources={SOURCES} onSelect={onSelect} />
   </Modal>;
 }
 

@@ -7,7 +7,7 @@ import { CornersIn, CornersOut, Eye, PencilSimple } from "../../../ui/icons/inte
 import { EditorTextInput } from '../../../ui/ui/EditorTextInput.jsx';
 import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
 
-export function MarkdownTextareaField({ label, value, placeholder, onChange, preview = true, labelAction = null, disabled = false, readOnly = false, code = false, textareaClassName = '', toolbarHost = null, immersiveHost = null }) {
+export function MarkdownTextareaField({ label, value, placeholder, onChange, preview = true, labelAction = null, disabled = false, readOnly = false, code = false, textareaClassName = '', toolbarHost = null, immersiveHost = null, fullWidth = false }) {
   const tUi = useProductTranslation();
   const { compact, registerBackHandler } = useEditorPresentation();
   const inputId = useId();
@@ -45,7 +45,7 @@ export function MarkdownTextareaField({ label, value, placeholder, onChange, pre
     : null;
 
   const overlay = immersive && overlayHost ? createPortal(
-    <section className="immersive-markdown-editor" role="dialog" aria-modal="true" aria-labelledby={`${inputId}-title`}>
+    <section className={`immersive-markdown-editor${fullWidth ? ' is-full-width' : ''}`} role="dialog" aria-modal="true" aria-labelledby={`${inputId}-title`}>
       <header className="immersive-markdown-header">
         <strong id={`${inputId}-title`}>{label}</strong>
         <div className="immersive-markdown-actions">

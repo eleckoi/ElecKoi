@@ -31,15 +31,13 @@ export function createGroupDraft(parentId, order, names) {
   };
 }
 
-export function createEntryDraft(groupId, order, entries, draftKind = "standard") {
+export function createEntryDraft(groupId, order, entries) {
   const timestamp = new Date().toISOString();
   const siblingNames = new Set(entries.filter((entry) => entry.groupId === groupId).map((entry) => entry.title));
-  const isReference = draftKind === "reference";
-  const isPrompt = draftKind === "prompt";
   return {
     id: createId("setting"),
     title: uniqueName("新建设定", siblingNames),
-    iconId: isReference ? "link" : "",
+    iconId: "",
     kind: "normal",
     groupId,
     content: "",
@@ -47,7 +45,6 @@ export function createEntryDraft(groupId, order, entries, draftKind = "standard"
     defaultOpeningMessageId: "",
     agentSelectionHint: "",
     agentReadStrategy: "normal",
-    dynamicMode: isReference ? "ejs_reference" : "standard",
     contentMode: "plain_text",
     keywords: [],
     keywordScanDepth: 1,
@@ -57,8 +54,8 @@ export function createEntryDraft(groupId, order, entries, draftKind = "standard"
     keywordIgnoreCase: true,
     keywordWholeWord: false,
     keywordRecursionDepth: 0,
-    triggerMode: isPrompt ? "always" : "agent_tool",
-    enabled: isReference,
+    triggerMode: "agent_tool",
+    enabled: false,
     position: null,
     promptPositionId: "",
     insertRole: "user",

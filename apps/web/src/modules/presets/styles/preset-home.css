@@ -1,0 +1,135 @@
+.preset-home-sidebar {
+  height: 100%;
+}
+
+.preset-home-sidebar .sidebar-section-label {
+  display: flex;
+  margin-inline-start: 0;
+}
+
+.preset-home-sidebar .preset-purpose-tabs {
+  grid-auto-columns: minmax(0, 1fr);
+  max-width: 100%;
+}
+
+.preset-purpose-tabs > [role="tab"] {
+  min-width: 0;
+  padding-inline: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preset-home-sidebar .preset-list-row .preset-list-avatar.avatar {
+  border-radius: var(--dsw-radius-sm, 6px);
+}
+
+.preset-home-feed {
+  --catalog-manager-content-inset: clamp(16px, 2.1cqi, 28px);
+  --character-manager-card-info: var(--surface-raised);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  container-type: inline-size;
+}
+
+.preset-home-toolbar {
+  flex-wrap: wrap;
+  padding: 16px var(--catalog-manager-content-inset) 12px;
+}
+
+.preset-home-toolbar .catalog-manager-surface-button {
+  background: var(--dsw-alias-button-elevated-fill);
+}
+
+@media (hover: hover) {
+  .preset-home-toolbar .catalog-manager-surface-button:hover:not(:disabled) {
+    background: var(--dsw-alias-button-floating-hover);
+  }
+}
+
+.preset-home-error {
+  margin: 0 var(--catalog-manager-content-inset) 12px;
+}
+
+.preset-home-feed .character-home-tabs {
+  margin-inline: var(--catalog-manager-content-inset);
+}
+
+.preset-home-scroll {
+  position: relative;
+  min-height: 0;
+  overflow: auto;
+  padding: 3px var(--catalog-manager-content-inset) 24px;
+  scrollbar-width: thin;
+}
+
+.preset-home-grid.character-manager-grid {
+  --masonry-card-gap: 16px;
+  --character-artwork-ratio: 1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--masonry-card-gap);
+}
+
+.preset-home-grid.character-manager-grid .preset-home-card {
+  border-radius: var(--dsw-radius-lg, 14px);
+}
+
+.preset-home-grid .preset-home-card:disabled { opacity: .55; }
+.preset-home-grid .preset-home-card.selected { outline: 2px solid var(--blue); }
+
+.preset-home-grid .preset-home-card-avatar.avatar {
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 0;
+  font-size: 42px;
+}
+
+.preset-home-grid .preset-home-card .character-card-copy {
+  box-sizing: border-box;
+  min-height: 57px;
+  padding: 11px 12px;
+}
+
+.preset-home-card-byline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.preset-home-card-byline > :first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preset-home-current {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.preset-home-empty {
+  margin: 0;
+  padding: 32px;
+  color: var(--muted);
+  text-align: center;
+}
+
+@container (max-width: 970px) {
+  .preset-home-grid.character-manager-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@container (max-width: 730px) {
+  .preset-home-grid.character-manager-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container (max-width: 420px) {
+  .preset-home-grid.character-manager-grid { grid-template-columns: minmax(0, 1fr); }
+}

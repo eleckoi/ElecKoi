@@ -4,7 +4,7 @@
 
 从 `@eleckoi/dsh-product-api/remote` 导入类型贡献，在 Client 中通过 `ctx.remote` 调用；装配及错误处理见 [DSH Remote](remote.md)。下列声明直接由 Host 的 `@Remote` 生成，包含真实参数、`RemoteResult` 和 `RemoteStreamHandle`。
 
-- `ctx.remote.eleckoiAgentPresets`：`assignGroup`、`catalog`、`create`、`createGroup`、`delete`、`deleteGroup`、`export`、`import`、`read`、`renameGroup`、`reorderGroups`、`save`、`setActive`、`updateEntries`
+- `ctx.remote.eleckoiAgentPresets`：`assignGroup`、`assignGroups`、`catalog`、`create`、`createGroup`、`delete`、`deleteGroup`、`duplicate`、`export`、`import`、`read`、`renameGroup`、`reorderGroups`、`save`、`setActive`、`updateEntries`
 - `ctx.remote.eleckoiAuthorFrontends`：`changes`、`delete`、`exportProject`、`importProject`、`readFile`、`replaceFiles`、`restoreDefault`、`select`、`setMessageRenderer`、`updateProject`、`workspace`、`writeFile`
 - `ctx.remote.eleckoiAuthorScripts`：`connect`、`getSettings`、`read`、`setSettings`
 - `ctx.remote.eleckoiAuthorVariables`：`applyPatch`、`getConfig`、`getState`、`merge`、`reset`、`setState`
@@ -35,11 +35,13 @@ import type { AgentPreset, AgentPresetCatalog, AgentPresetExportFormat, AgentPre
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$656c65636b6f694167656e7450726573657473 {
     assignGroup: (presetId: string, groupId: string) => Promise<RemoteResult<AgentPresetCatalog>>
+    assignGroups: (presetIds: string[], groupId: string, purpose: AgentPresetPurpose) => Promise<RemoteResult<AgentPresetCatalog>>
     catalog: () => Promise<RemoteResult<AgentPresetCatalog>>
     create: (name: string, libraryGroupId: string, purpose: AgentPresetPurpose) => Promise<RemoteResult<AgentPreset>>
     createGroup: (name: string, purpose: AgentPresetPurpose) => Promise<RemoteResult<AgentPresetCatalog>>
     delete: (presetId: string) => Promise<RemoteResult<AgentPresetCatalog>>
     deleteGroup: (groupId: string) => Promise<RemoteResult<AgentPresetCatalog>>
+    duplicate: (presetId: string) => Promise<RemoteResult<AgentPreset>>
     export: (presetId: string, format: AgentPresetExportFormat) => Promise<RemoteResult<AgentPresetExportResult>>
     import: (source: AgentPresetImportSource, document: AgentPresetImportDocument, purpose: AgentPresetPurpose) => Promise<RemoteResult<AgentPresetImportResult>>
     read: (presetId: string) => Promise<RemoteResult<AgentPreset>>
@@ -223,11 +225,13 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   }
   interface TypertRemoteMap {
     'eleckoiAgentPresets/assignGroup': (presetId: string, groupId: string) => Promise<RemoteResult<AgentPresetCatalog>>
+    'eleckoiAgentPresets/assignGroups': (presetIds: string[], groupId: string, purpose: AgentPresetPurpose) => Promise<RemoteResult<AgentPresetCatalog>>
     'eleckoiAgentPresets/catalog': () => Promise<RemoteResult<AgentPresetCatalog>>
     'eleckoiAgentPresets/create': (name: string, libraryGroupId: string, purpose: AgentPresetPurpose) => Promise<RemoteResult<AgentPreset>>
     'eleckoiAgentPresets/createGroup': (name: string, purpose: AgentPresetPurpose) => Promise<RemoteResult<AgentPresetCatalog>>
     'eleckoiAgentPresets/delete': (presetId: string) => Promise<RemoteResult<AgentPresetCatalog>>
     'eleckoiAgentPresets/deleteGroup': (groupId: string) => Promise<RemoteResult<AgentPresetCatalog>>
+    'eleckoiAgentPresets/duplicate': (presetId: string) => Promise<RemoteResult<AgentPreset>>
     'eleckoiAgentPresets/export': (presetId: string, format: AgentPresetExportFormat) => Promise<RemoteResult<AgentPresetExportResult>>
     'eleckoiAgentPresets/import': (source: AgentPresetImportSource, document: AgentPresetImportDocument, purpose: AgentPresetPurpose) => Promise<RemoteResult<AgentPresetImportResult>>
     'eleckoiAgentPresets/read': (presetId: string) => Promise<RemoteResult<AgentPreset>>
@@ -401,11 +405,13 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
 
 export declare const TYPERT_REMOTE: TypertRemoteInfo<{
   readonly 'eleckoiAgentPresets/assignGroup': TypertRemoteMethod<{ readonly 'presetId': string; readonly 'groupId': string }, AgentPresetCatalog>
+  readonly 'eleckoiAgentPresets/assignGroups': TypertRemoteMethod<{ readonly 'presetIds': string[]; readonly 'groupId': string; readonly 'purpose': AgentPresetPurpose }, AgentPresetCatalog>
   readonly 'eleckoiAgentPresets/catalog': TypertRemoteMethod<{  }, AgentPresetCatalog>
   readonly 'eleckoiAgentPresets/create': TypertRemoteMethod<{ readonly 'name': string; readonly 'libraryGroupId': string; readonly 'purpose': AgentPresetPurpose }, AgentPreset>
   readonly 'eleckoiAgentPresets/createGroup': TypertRemoteMethod<{ readonly 'name': string; readonly 'purpose': AgentPresetPurpose }, AgentPresetCatalog>
   readonly 'eleckoiAgentPresets/delete': TypertRemoteMethod<{ readonly 'presetId': string }, AgentPresetCatalog>
   readonly 'eleckoiAgentPresets/deleteGroup': TypertRemoteMethod<{ readonly 'groupId': string }, AgentPresetCatalog>
+  readonly 'eleckoiAgentPresets/duplicate': TypertRemoteMethod<{ readonly 'presetId': string }, AgentPreset>
   readonly 'eleckoiAgentPresets/export': TypertRemoteMethod<{ readonly 'presetId': string; readonly 'format': AgentPresetExportFormat }, AgentPresetExportResult>
   readonly 'eleckoiAgentPresets/import': TypertRemoteMethod<{ readonly 'source': AgentPresetImportSource; readonly 'document': AgentPresetImportDocument; readonly 'purpose': AgentPresetPurpose }, AgentPresetImportResult>
   readonly 'eleckoiAgentPresets/read': TypertRemoteMethod<{ readonly 'presetId': string }, AgentPreset>

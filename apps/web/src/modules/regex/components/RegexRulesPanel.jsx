@@ -268,13 +268,14 @@ export const RegexRulesPanel = forwardRef(function RegexRulesPanel({ characterId
     onDuplicate={() => changeCollection(current => duplicateRegexRules(current, [selected.rule.id]))} onDelete={askDeleteSelected} /> : null;
   const createItems = visibleScopes.map(scope => ({ label: scope.label, disabled: saving || !libraryVersions.ready, run: () => addRule(scope.id) }));
   return (
-    <>{!compact ? <EditorLibraryWorkspace label={tUi('正则')} scope={activeScope} ownerScope={ownerScope} onScopeChange={switchScope} config={libraryVersions.current(activeScope)}
+    <>{!compact ? <EditorLibraryWorkspace label={tUi('正则')} scope={activeScope} ownerScope={ownerScope} onScopeChange={switchScope} panelId={scopePanelId} config={libraryVersions.current(activeScope)}
       query={query} onQueryChange={setQuery} createItems={[{ label: tUi('正则规则'), Icon: Plus, run: () => addRule(visibleScopes[0].id) }]} selection={{ ...multi, toggle: () => { multi.toggle(); setSelectedId(''); } }} saving={saving} disabled={!collection || !libraryVersions.ready}
       save={<SaveControl workspace dirty={dirty} error={error || libraryVersions.error} notice={notice} saving={saving} onSave={save} title={tUi('统一保存正则全部修改')} />} onManage={() => setManagerOpen(true)}
       onVersionChange={id => { try { libraryVersions.select(activeScope, id); } catch (cause) { setError(resolveFailure(cause, { fallback: tUi('切换版本失败') }).text); } }} inspector={documentEditor}>
       <EditorSelectionBar selection={multi} visibleIds={visibleIds} disabled={saving} onCopy={() => { changeCollection(current => duplicateRegexRules(current, [...multi.selected])); multi.clear(); }}
         onDelete={() => setDeleteTarget({ ids: [...multi.selected], title: tUi('删除选中的 {value0} 条正则？', { value0: multi.selected.size }), message: tUi('规则会在保存后删除。') })} />
-      <div className="rs-directory-content" onContextMenu={event => openContext(event, {})} onMouseDown={event => { if (event.button === 0 && !multi.active && !event.target.closest('.regex-rule-row')) setSelectedId(''); }}>
+      <div className="rs-directory-content" id={scopePanelId} role="tabpanel" aria-label={visibleScopes[0].label}
+        onContextMenu={event => openContext(event, {})} onMouseDown={event => { if (event.button === 0 && !multi.active && !event.target.closest('.regex-rule-row')) setSelectedId(''); }}>
         {collection ? <RegexWorkspaceList collection={collection} scope={visibleScopes[0]} query={query} selectedId={selectedId} selection={multi} busy={saving}
           onSelect={id => multi.active ? multi.check(id, !multi.selected.has(id)) : selectRule(id)} onToggleRule={(scope, id, enabled) => changeCollection(current => updateRegexRule(current, scope, id, { enabled }))}
           onToggleScope={(scope, enabled) => changeCollection(current => setRegexScopeEnabled(current, scope, enabled))} onMove={(scope, id, index) => changeCollection(current => moveRegexRule(current, scope, id, index))}

@@ -270,7 +270,7 @@ describe('agent preset repository', () => {
       entries: [{
         id: 'prompt-1', title: '角色核心', iconId: '', kind: 'normal', groupId: '', content: '保持角色一致。',
         openingMessages: [], defaultOpeningMessageId: '', agentSelectionHint: '', agentReadStrategy: 'normal',
-        dynamicMode: 'standard', contentMode: 'plain_text', keywords: [], keywordScanDepth: 1,
+        contentMode: 'plain_text', keywords: [], keywordScanDepth: 1,
         conditionKeywords: [], keywordCondition: 'none', keywordUseRegex: false, keywordIgnoreCase: true,
         keywordWholeWord: false, keywordRecursionDepth: 0, triggerMode: 'always', enabled: true,
         position: 'insert_point_1', promptPositionId: '', insertRole: 'user', order: 1,
@@ -319,6 +319,24 @@ describe('agent preset repository', () => {
     const created = repository.create('临时预设')
     expect(created.libraryGroupId).toBe('')
     expect(repository.catalog().groups).toEqual([])
+  })
+
+  it('moves selected presets together and rolls back when one belongs to another purpose', () => {
+    const repository = harness()
+    const group = repository.createGroup('目标分组').groups.find(item => item.name === '目标分组')!
+    const first = repository.create('合成预设甲')
+    const second = repository.create('合成预设乙')
+    const creator = repository.active('creator')
+
+    expect(() => repository.assignGroups([first.id, creator.id], group.id, 'roleplay')).toThrow('只能移动同一分类的预设')
+    expect(repository.get(first.id).libraryGroupId).toBe('')
+
+    repository.assignGroups([first.id, second.id], group.id, 'roleplay')
+    expect(repository.get(first.id).libraryGroupId).toBe(group.id)
+    expect(repository.get(second.id).libraryGroupId).toBe(group.id)
+    repository.assignGroups([first.id, second.id], '', 'roleplay')
+    expect(repository.get(first.id).libraryGroupId).toBe('')
+    expect(repository.get(second.id).libraryGroupId).toBe('')
   })
 
   it('preserves the hidden timeline setting trigger and insertion fields when saving', () => {
@@ -499,6 +517,23 @@ describe('agent preset repository', () => {
     const roundTrip = JSON.parse(Buffer.from(repository.export(fromPng.preset.id, 'json').base64, 'base64').toString('utf8'))
     expect(roundTrip.preset.active_version_number).toBe(2)
     expect(roundTrip.preset.versions).toHaveLength(2)
+
+    const group = repository.createGroup('复制目标').groups.find(item => item.name === '复制目标')!
+    repository.assignGroup(fromPng.preset.id, group.id)
+    const copy = repository.duplicate(fromPng.preset.id)
+    expect(copy).toMatchObject({
+      name: `${fromPng.preset.name}（副本）`,
+      libraryGroupId: group.id,
+      activeVersionNumber: 2,
+      profile: { authorName: '作者', usageInstructions: '选择角色后开始对话。' }
+    })
+    expect(copy.id).not.toBe(fromPng.preset.id)
+    expect(copy.profile.authorAvatarPath).not.toBe(fromPng.preset.profile.authorAvatarPath)
+    expect(repository.catalog().activePresetIds.roleplay).toBe(active.id)
+    repository.delete(fromPng.preset.id)
+    const copied = JSON.parse(Buffer.from(repository.export(copy.id, 'json').base64, 'base64').toString('utf8'))
+    expect(copied.preset.profile.author_avatar).toEqual(root.preset.profile.author_avatar)
+    expect(copied.preset.versions).toHaveLength(2)
   })
 
   it('rejects retired setting kinds in current ElecKoi preset files', () => {

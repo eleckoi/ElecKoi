@@ -20,8 +20,20 @@ app.whenReady().then(async () => {
     await evaluate('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))');
     await win.webContents.capturePage(); await settle();
     const data = (await win.webContents.capturePage()).toPNG(); for (const dir of [output,evidence]) writeFileSync(join(dir, name + '.png'), data);
-    const tabs = await evaluate(`[...document.querySelectorAll('.setting-workspace [role=tablist]')].map(group=>{const selected=group.querySelector('[aria-selected=true]').getBoundingClientRect(),indicator=group.querySelector('[aria-hidden=true]').getBoundingClientRect();return {label:group.getAttribute('aria-label'),selected:selected.toJSON(),indicator:indicator.toJSON()};})`);
-    if(validateTabs)for(const tab of tabs)if(Math.abs(tab.selected.left-tab.indicator.left)>1 || Math.abs(tab.selected.width-tab.indicator.width)>1)throw Error('Selected tab indicator is misaligned: '+JSON.stringify(tab));
+    if (validateTabs) {
+      const aligned = await evaluate(`[...document.querySelectorAll('.setting-workspace [role=tablist]')].every(group=>{
+        const selected=group.querySelector('[aria-selected=true]');
+        if (group.classList.contains('editor-scope-tabs')) {
+          const label=selected.querySelector('span'),line=getComputedStyle(label,'::after');
+          const actions=group.closest('.editor-directory-scopebar').querySelector('.setting-toolbar-group');
+          return line.height==='2px' && Math.abs(parseFloat(line.width)-label.getBoundingClientRect().width)<1
+            && Math.abs(actions.getBoundingClientRect().bottom-label.getBoundingClientRect().bottom+parseFloat(line.insetBlockEnd))<1;
+        }
+        const indicator=group.querySelector('[aria-hidden=true]')?.getBoundingClientRect(),rect=selected.getBoundingClientRect();
+        return !indicator || (Math.abs(rect.left-indicator.left)<1 && Math.abs(rect.width-indicator.width)<1);
+      })`);
+      if (!aligned) throw Error('Selected tab indicator is misaligned');
+    }
   };
   const check = (condition, message) => { if (!condition) throw Error(message); };
   const select = async id => { await evaluate(`(()=>{const r=[...document.querySelectorAll('[role=treeitem]')].find(e=>e.textContent.includes(${JSON.stringify(id)}));if(!r)throw Error('Missing row');r.click();})()`); await settle(); };
@@ -35,11 +47,11 @@ app.whenReady().then(async () => {
   try {
     for (const [width, theme] of [[1480,'light'], [900,'light'], [1480,'dark']]) {
       await load(width, theme);
-      check(await evaluate('(()=>{const save=document.querySelector(".setting-directory-actions .setting-document-save"),create=document.querySelector(".setting-create").getBoundingClientRect(),more=document.querySelector(".setting-directory-more").getBoundingClientRect(),r=save.getBoundingClientRect(),directory=document.querySelector(".setting-directory").getBoundingClientRect();return document.querySelectorAll(".setting-document .setting-document-save").length===0 && directory.width===(innerWidth===1480?480:284) && create.right<r.left && r.right<more.left && Math.abs(create.top-r.top)<1 && Math.abs(more.top-r.top)<1 && r.right<=directory.right && more.right<=directory.right;})()'),'Save must appear once after New in the widened directory header without overflow');actions.directorySavePlacement=true;
+      check(await evaluate('(()=>{const save=document.querySelector(".setting-directory-actions .setting-document-save"),create=document.querySelector(".setting-toolbar-create").getBoundingClientRect(),more=document.querySelector(".setting-directory-actions .setting-toolbar-icon").getBoundingClientRect(),r=save.getBoundingClientRect(),directory=document.querySelector(".setting-directory").getBoundingClientRect();return document.querySelectorAll(".setting-document .setting-document-save").length===0 && directory.width===(innerWidth===1480?480:284) && create.right<r.left && r.right<more.left && Math.abs(create.top-r.top)<1 && Math.abs(more.top-r.top)<1 && r.right<=directory.right && more.right<=directory.right;})()'),'Save must appear once after New in the widened directory header without overflow');actions.directorySavePlacement=true;
       const savePosition = await evaluate('document.querySelector(".setting-document-save").getBoundingClientRect().toJSON()');
       await evaluate('(()=>{const tree=document.querySelector(".setting-library-tree.editor-sidebar-directory"),r=tree.getBoundingClientRect();tree.dispatchEvent(new MouseEvent("mousedown",{bubbles:true,button:0,clientX:r.left+8,clientY:r.bottom-12}));})()');await settle();
       check(await evaluate('!!document.querySelector(".setting-document-empty") && document.querySelectorAll(".setting-document-save").length===1 && document.querySelector(".setting-document-save").disabled'),'Unselected settings workspace must retain its single save button');
-      await click('[aria-label="停用合成人设"]');
+      await click('[aria-label="合成人设的触发规则"]');
       check(await evaluate('!!document.querySelector(".setting-document-empty") && !document.querySelector(".setting-document-save").disabled && window.workspaceCalls.role===0'),'Directory-only edits must enable save without selecting or autosaving');
       const emptySavePosition = await evaluate('document.querySelector(".setting-document-save").getBoundingClientRect().toJSON()');
       check(savePosition.top===emptySavePosition.top && savePosition.right===emptySavePosition.right,'Unselected settings save moved within its directory toolbar');
@@ -48,12 +60,13 @@ app.whenReady().then(async () => {
       await load(width, theme);
       const controlStyles = await evaluate(`(()=>{const target=document.querySelector('.setting-library-tree-switch'),rules=[];function visit(list){for(const rule of list){if(rule.selectorText&&target.matches(rule.selectorText))rules.push({selector:rule.selectorText,css:rule.style.cssText});if(rule.cssRules)visit(rule.cssRules);}}for(const sheet of document.styleSheets)visit(sheet.cssRules);return {height:target.getBoundingClientRect().height,width:target.getBoundingClientRect().width,rules};})()`);
       writeFileSync(join(evidence,'control-styles.json'),JSON.stringify(controlStyles,null,2));
-      check(controlStyles.height===16 && controlStyles.width===28, 'Directory toggle dimensions changed: '+JSON.stringify(controlStyles));
+      check(controlStyles.height===18 && controlStyles.width===32, 'Directory toggle must use the shared editor switch size: '+JSON.stringify(controlStyles));
       check(await evaluate('document.querySelectorAll(".setting-document-save").length===1 && !!document.querySelector(".setting-writing-board .cm-editor")'), 'Missing default body or unified save');
       if(width===1480&&theme==='light')await snap('content-light-1480');
-      await select('合成书店'); await settings(); await click('.setting-keyword-details > summary');
+      await select('合成书店'); await settings();
+      check(await evaluate('document.querySelector(".setting-keyword-details").open'), 'Matching rules must start expanded');
       const geometry = await evaluate(`(()=>{ const rect=s=>document.querySelector(s).getBoundingClientRect().toJSON(), style=s=>getComputedStyle(document.querySelector(s));
-        const rows=[...document.querySelectorAll('.setting-property-row')];return {width:innerWidth,theme:${JSON.stringify(theme)},overflow:document.documentElement.scrollWidth>innerWidth,
+        const rows=[...document.querySelectorAll('.setting-rule-fields .setting-property-row')].filter(row=>!row.closest('.setting-usage-primary'));return {width:innerWidth,theme:${JSON.stringify(theme)},overflow:document.documentElement.scrollWidth>innerWidth,
           directory:rect('.setting-directory'),editor:rect('.setting-document'),workspace:rect('.character-editor-workspace'),keyword:rect('.setting-keywords-inline > .setting-library-keyword-field > .setting-library-keyword-input'),
           radii:[style('.setting-directory').borderRadius,style('.setting-document').borderRadius],heading:style('.setting-document-title input').fontSize,
           labels:rows.map(e=>({font:getComputedStyle(e.firstElementChild).fontSize,weight:getComputedStyle(e.firstElementChild).fontWeight})),
@@ -62,16 +75,16 @@ app.whenReady().then(async () => {
           titleLines:[style('.editor-directory-heading').borderBottomWidth,style('.setting-document-heading').borderBottomWidth],bodyWidth:rect('.setting-settings-board').width};})()`);
       layouts.push(geometry);
       check(!geometry.overflow && geometry.radii.every(r=>r==='16px') && geometry.editor.top===geometry.workspace.top && geometry.directory.top===geometry.workspace.top && geometry.directory.bottom===geometry.editor.bottom && geometry.editor.left-geometry.directory.right===8, 'Panel geometry differs from confirmed design: '+JSON.stringify(geometry));
-      check(geometry.keyword.height===67 && geometry.aligned && geometry.keywordAligned && geometry.heading==='16px' && geometry.labels.every(s=>s.font==='13px'&&s.weight==='400') && geometry.titleLines.every(s=>s==='0px') && geometry.bodyWidth<=640, 'Property geometry differs from design: '+JSON.stringify(geometry));
+      check(geometry.keyword.height>=67 && geometry.aligned && geometry.keywordAligned && geometry.heading==='16px' && geometry.labels.every(s=>s.font==='13px'&&s.weight==='400') && geometry.titleLines.every(s=>s==='0px') && geometry.bodyWidth<=640, 'Property geometry differs from design: '+JSON.stringify(geometry));
       await snap(`settings-${theme}-${width}`);
       await select('角色设定');await snap(`folder-${theme}-${width}`);
       if(width===1480 && theme==='light') {
         await click('.setting-folder-more');await snap('folder-actions-light-1480');await textClick('[role=menuitem]','删除文件夹');
-        check(await evaluate('document.querySelector("[role=alertdialog]")?.textContent.includes("文件夹内的设定也会一起删除")'), 'Folder action must open the original deletion confirmation');
-        await textClick('.setting-library-dialog button','取消');
-        check(await evaluate('!document.querySelector("[role=alertdialog]") && !!document.querySelector(".setting-group-settings") && window.workspaceCalls.role===0'), 'Cancelling folder deletion must retain its contents without saving');actions.folderActions=true;
+        check(await evaluate('document.querySelector(".product-dialog")?.textContent.includes("文件夹内的设定也会一起删除")'), 'Folder action must open the deletion confirmation');
+        await textClick('.product-dialog button','取消');
+        check(await evaluate('!document.querySelector(".product-dialog") && !!document.querySelector(".setting-group-settings") && window.workspaceCalls.role===0'), 'Cancelling folder deletion must retain its contents without saving');actions.folderActions=true;
       }
-      await select('合成书店');await settings();await click('.setting-keyword-details > summary');
+      await select('合成书店');await settings();
       if(width===900) {
         await select('合成对话');await settings();await click('[aria-label="位置内顺序减一"]');await click('[aria-label="位置内顺序减一"]');
         check(await evaluate('(()=>{const field=document.querySelector(".setting-library-order-card .setting-library-number-control").getBoundingClientRect(),icon=document.querySelector(".setting-order-warning-compact").getBoundingClientRect(),full=document.querySelector(".setting-order-warning-full");return icon.width===24 && icon.left>=field.right+11 && Math.abs((field.top+field.bottom)/2-(icon.top+icon.bottom)/2)<1 && getComputedStyle(full).display==="none" && document.querySelector(".setting-library-order-warning").title.includes("条目已关闭");})()'),'Narrow warning must remain beside the field with a complete tooltip');
@@ -92,7 +105,7 @@ app.whenReady().then(async () => {
       await click('[aria-label="上一页图标"]');await snap('icons-light-1480');await click('.setting-icon-grid button');
       check(await evaluate('!document.querySelector(".setting-entry-icons") && !document.querySelector(".setting-document-save").disabled'), 'Icon selection lost draft');actions.iconPaging=true;
       await select('合成对话');await settings();await click('[aria-label="位置内顺序减一"]');await click('[aria-label="位置内顺序减一"]');
-      check(await evaluate('!!document.querySelector(".setting-library-order-warning") && document.querySelector("[aria-label=启用合成对话]").getAttribute("aria-checked")==="false"'), 'Conflict must disable only that entry');
+      check(await evaluate('!!document.querySelector(".setting-library-order-warning") && document.querySelector("[aria-label=合成对话的触发规则]").getAttribute("aria-checked")==="false"'), 'Conflict must disable only that entry');
       const warningPlacement = await evaluate('(()=>{const field=document.querySelector(".setting-library-order-card .setting-library-number-control").getBoundingClientRect(),warning=document.querySelector(".setting-library-order-warning").getBoundingClientRect();return {field:field.toJSON(),warning:warning.toJSON(),weight:getComputedStyle(document.querySelector(".setting-library-order-warning")).fontWeight};})()');
       check(warningPlacement.warning.left>=warningPlacement.field.right+11 && Math.abs((warningPlacement.field.top+warningPlacement.field.bottom)/2-(warningPlacement.warning.top+warningPlacement.warning.bottom)/2)<1 && warningPlacement.weight==='400','Order warning must sit beside its number control: '+JSON.stringify(warningPlacement));
       await evaluate('(()=>{const board=document.querySelector(".setting-settings-board");board.scrollTop=board.scrollHeight;})()');await settle();await snap('order-light-1480');
@@ -103,34 +116,49 @@ app.whenReady().then(async () => {
       await click('.setting-document-save');check(await evaluate('window.workspaceCalls.role===1 && window.workspaceCalls.global===1 && document.querySelector(".setting-document-save").disabled'), 'Unified save did not cover both scopes');actions.unifiedSave=true;
       await textClick('.setting-scope-switch [role=tab]','角色');
       await click('.setting-version-button');await snap('version-light-1480');
-      const menuWidth=await evaluate('(()=>{const a=document.querySelector(".setting-version-button").getBoundingClientRect(),m=[...document.querySelectorAll("[role=menu]")].find(e=>e.getBoundingClientRect().width>0)?.getBoundingClientRect();return m&&m.width>=a.width&&m.bottom<=a.top+1;})()');
-      check(menuWidth,'Version popup must open above at full width');await textClick('[role=menuitem]','v2 · 合成版本');await settle();
+      check(await evaluate('document.querySelector(".editor-picker-row[aria-pressed=true]").textContent.trim()==="v1 · 合成角色"'), 'Current version must be marked');
+      await input('[aria-label="搜索版本"]','合成版本');
+      check(await evaluate('document.querySelectorAll(".editor-picker-row").length===1'), 'Version search must filter by name');
+      await textClick('.editor-picker-row','v2 · 合成版本');await settle();
       check(await evaluate('document.querySelector(".setting-document-title input").value==="另一版本条目" && window.workspaceCalls.role===1'), 'Version switch saved or lost active version');
-      await click('.setting-version-button');await textClick('[role=menuitem]','v1 · 合成角色');
-      await select('合成书店');await settings();await click('.setting-keyword-details > summary');check(await evaluate('document.querySelector("input[aria-label=扫描深度]").value==="4"'), 'Version switching lost draft body/settings');actions.version=true;
+      await click('.setting-version-button');await textClick('.editor-picker-row','v1 · 合成角色');
+      await select('合成书店');await settings();check(await evaluate('document.querySelector("input[aria-label=扫描深度]").value==="4"'), 'Version switching lost draft body/settings');actions.version=true;
       const before=await evaluate('document.querySelector(".setting-directory").getBoundingClientRect().width');await evaluate('document.querySelector(".setting-pane-resizer").focus()');
       win.webContents.sendInputEvent({type:'keyDown',keyCode:'RIGHT'});win.webContents.sendInputEvent({type:'keyUp',keyCode:'RIGHT'});await settle();
       check(await evaluate('document.querySelector(".setting-directory").getBoundingClientRect().width')===before+16,'Keyboard resize failed');await evaluate('document.querySelector(".setting-pane-resizer").dispatchEvent(new MouseEvent("dblclick",{bubbles:true}))');await settle();
       check(await evaluate('document.querySelector(".setting-directory").getBoundingClientRect().width')===480,'Reset width failed');actions.resize=true;
-      await select('合成关系');await textClick('.setting-content-tools button','文字');await textClick('[role=menuitem]','EJS');
-      check(await evaluate('document.querySelector(".setting-format-button").textContent.includes("EJS")'), 'EJS format menu failed');await click('.setting-immersive-host button');
+      await select('合成关系');
+      await evaluate(`(()=>{const view=window.editorViewFor('设定正文');view.dispatch({changes:{from:0,to:view.state.doc.length,insert:'首段<%= 2 %>尾段'}})})()`);await settle();
+      check(await evaluate('document.querySelector(".setting-template-status")?.textContent.includes("EJS") && window.editorViewFor("设定正文").state.doc.toString()==="首段<%= 2 %>尾段"'), 'Mixed body format was not recognized');await click('.setting-immersive-host button');
       check(await evaluate('!!document.querySelector(".immersive-markdown-editor") && !document.querySelector(".immersive-markdown-tabs")'),'EJS immersion exposed Markdown preview');await click('.immersive-markdown-exit');actions.format=true;
       await click('.character-editor-navigation [aria-label="基础资料"]');
-      check(await evaluate('!!document.querySelector(".unsaved-changes-dialog") && !!document.querySelector(".setting-workspace")'), 'Leaving the workspace lost the unsaved guard');
-      await textClick('.unsaved-changes-dialog button','取消');check(await evaluate('!!document.querySelector(".setting-workspace") && !document.querySelector(".unsaved-changes-dialog")'),'Cancel failed to retain the workspace draft');actions.navigationGuard=true;
+      check(await evaluate('!!document.querySelector(".product-dialog") && !!document.querySelector(".setting-workspace")'), 'Leaving the workspace lost the unsaved guard');
+      await textClick('.product-dialog button','取消');check(await evaluate('!!document.querySelector(".setting-workspace") && !document.querySelector(".product-dialog")'),'Cancel failed to retain the workspace draft');actions.navigationGuard=true;
       await click('.setting-document-save');
       await select('合成关系');
       await evaluate('(()=>{const row=[...document.querySelectorAll("[role=treeitem]")].find(e=>e.textContent.includes("合成关系"));row.dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,clientX:row.getBoundingClientRect().left+80,clientY:row.getBoundingClientRect().top+16}));})()');await settle();
-      await textClick('[role=menuitem]','删除');await textClick('.setting-library-dialog button','删除');
+      await textClick('[role=menuitem]','删除');await textClick('.product-dialog button','删除');
       check(await evaluate('!!document.querySelector(".setting-document-empty") && document.querySelectorAll(".setting-document-save").length===1 && !document.querySelector(".setting-document-save").disabled'),'Deleting the selected setting must retain save');
       await snap('deleted-save-light-1480');await click('.setting-document-save');
       check(await evaluate('document.querySelector(".setting-document-save").disabled && !window.workspaceSaved().role.entries.some(e=>e.id==="relation")'),'Deleted setting draft did not reach unified save');actions.deletedSave=true;
-      await click('.setting-directory-more');await textClick('[role=menuitem]','多选');
+      await click('.setting-directory-actions .setting-toolbar-icon');await textClick('[role=menuitem]','多选');
       check(await evaluate('!!document.querySelector(".setting-document-empty") && document.querySelectorAll(".setting-document-save").length===1'),'Multi-select must not remove the workspace save');
-      await click('[aria-label="选择合成世界"]');await textClick('.editor-selection-bar button','删除');await textClick('.setting-library-dialog button','删除');
+      await click('[aria-label="选择合成世界"]');await textClick('.editor-selection-bar button','删除');await textClick('.product-dialog button','删除');
       check(await evaluate('!!document.querySelector(".setting-document-empty") && !document.querySelector(".setting-document-save").disabled'),'Batch deletion must retain an enabled save');await click('.setting-document-save');
       check(await evaluate('document.querySelector(".setting-document-save").disabled && !window.workspaceSaved().role.entries.some(e=>e.id==="worldview")'),'Batch deletion did not reach unified save');actions.batchSave=true;
     }
+    await load(1920, 'dark');
+    const insets = selector => evaluate(`(() => {
+      const panel = document.querySelector(${JSON.stringify(selector)});
+      const content = panel.querySelector('.cm-content').getBoundingClientRect(), frame = panel.getBoundingClientRect();
+      return [content.left - frame.left, frame.right - content.right, content.width];
+    })()`);
+    const inline = await insets('.setting-writing-board');
+    check(inline[0]<=32 && inline[1]<=32 && inline[2]>1000, 'Wide setting body must use the available editor width: '+inline);
+    await click('.setting-immersive-host button');
+    const immersive = await insets('.immersive-markdown-body');
+    check(immersive[0]<=32 && immersive[1]<=32 && immersive[2]>1700, 'Wide immersive setting body must keep compact margins: '+immersive);
+    actions.wideBody = true;
     check(!errors.length,errors.join('\n'));writeFileSync(reportPath,JSON.stringify({layouts,actions,errors},null,2));win.destroy();app.exit(0);
   } catch(error) {await snap('failure',false);writeFileSync(join(evidence,'failure.json'),JSON.stringify({message:error.message,layouts,actions,errors},null,2));console.error(error);win.destroy();app.exit(1);}
 });

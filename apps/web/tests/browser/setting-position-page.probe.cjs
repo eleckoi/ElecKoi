@@ -24,7 +24,8 @@ app.whenReady().then(async () => {
       if (mobile) await click('.mobile-editor-actions button', '编辑');
       await wait("!!document.querySelector('.setting-view-switch')");
       await click('.setting-view-switch button', '设置');
-      await click('.setting-reading-settings button', '提示词常驻');
+      await click('.setting-reading-settings button', '常驻触发');
+      await click('.setting-reading-settings button', '指定插入位置');
       const data = await run(`(()=>{const r=e=>e?.getBoundingClientRect().toJSON(),card=document.querySelector('.setting-library-order-card'),number=card.querySelector('.setting-library-number-row'),preview=card.querySelector('.setting-library-order-preview'),list=preview.querySelector('ol');return{width:innerWidth,height:innerHeight,numberLabel:r(number.firstElementChild),numberControl:r(number.lastElementChild),previewLabel:r(preview.firstElementChild),previewContent:r(preview.lastElementChild),emptyList:!!list&&!list.children.length,emptyText:preview.lastElementChild.textContent.trim(),documentScroll:document.querySelector('.mobile-editor-document')?.scrollTop}})()`);
       data.mobile = mobile;
       data.controlStyle = await run(`(()=>{const e=document.querySelector('.setting-library-number-control'),s=getComputedStyle(e);return{display:s.display,columns:s.gridTemplateColumns,children:[...e.children].map(c=>c.getBoundingClientRect().toJSON())}})()`);

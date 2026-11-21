@@ -11,15 +11,18 @@ import '../../src/modules/presets/styles/preset-panel.css';
 import '../../src/mobile/mobile.css';
 import '../../src/mobile/mobile-preset-editor.css';
 
-const compact = new URLSearchParams(location.search).has('mobile');
+const query = new URLSearchParams(location.search);
+const compact = query.has('mobile');
 document.documentElement.dataset.eleckoiMobile = String(compact);
 
 function Fixture() {
   const [preset, setPreset] = useState(() => ({
-    id: 'synthetic-layout-preset', name: '合成预设', groups: [], expandedGroupIds: [], promptPositions: [],
+    id: 'synthetic-layout-preset', purpose: query.get('purpose') || 'roleplay', name: '合成预设', groups: [], expandedGroupIds: [], promptPositions: [],
     entries: Array.from({ length: 30 }, (_, index) => ({
       ...createEntryDraft('', index + 1, []), id: `synthetic-prompt-${index}`,
-      title: `合成提示词 ${index + 1}`, content: `合成正文 ${index + 1}`,
+      title: index === 0 ? '[mvu_update] 合成变量更新规则（编辑角色时检查所有条件）'.repeat(6) : `合成提示词 ${index + 1}`,
+      content: `合成正文 ${index + 1}`,
+      ...(index < 3 && { enabled: true, agentReadStrategy: index === 0 ? 'required' : index === 1 && query.get('purpose') !== 'creator' ? 'keyword' : 'normal' }),
     })),
   }));
   return <EditorPresentationContext.Provider value={{ compact }}>

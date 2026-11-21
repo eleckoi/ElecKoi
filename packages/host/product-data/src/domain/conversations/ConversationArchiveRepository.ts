@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
 import { legacyConversationStates } from './legacyConversationStates'
+import { convertLegacySettingState } from '@product-data/domain/settingLibraries/legacySettingState'
 import { validateRuntimeState } from './ConversationStateRepository'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
@@ -123,10 +124,14 @@ export class ConversationArchiveRepository {
       if ((state.variableStateJson !== null && typeof state.variableStateJson !== 'string')
         || (state.settingLibraryStateJson !== null && typeof state.settingLibraryStateJson !== 'string')) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '历史状态格式不正确。', { what: '历史状态' })
       validateRuntimeState(state as { variableStateJson: string | null; settingLibraryStateJson: string | null })
+      if (typeof state.settingLibraryStateJson === 'string') state.settingLibraryStateJson = convertLegacySettingState(state.settingLibraryStateJson)
     }
-    const settingLibraryStateJson = archive.version === 1 ? null : archive.settingLibraryStateJson
+    let settingLibraryStateJson = archive.version === 1 ? null : archive.settingLibraryStateJson
     if (archive.version! >= 2 && typeof settingLibraryStateJson !== 'string') throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '聊天归档缺少当前分支设定状态。', { what: '聊天归档的分支设定状态' })
-    if (settingLibraryStateJson !== null) validateRuntimeState({ variableStateJson: null, settingLibraryStateJson: settingLibraryStateJson! })
+    if (typeof settingLibraryStateJson === 'string') {
+      validateRuntimeState({ variableStateJson: null, settingLibraryStateJson })
+      settingLibraryStateJson = convertLegacySettingState(settingLibraryStateJson)
+    }
     return { ...archive, version: 3, settingLibraryStateJson, tables } as ConversationArchiveSnapshot
   }
 

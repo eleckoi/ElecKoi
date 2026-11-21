@@ -14,7 +14,7 @@ function entry(id, title, groupId = "", order = 1) {
   return {
     id, title, iconId: "", kind: "normal", groupId, content: `${title}正文`, openingMessages: [],
     defaultOpeningMessageId: "", agentSelectionHint: "", agentReadStrategy: "normal",
-    dynamicMode: "standard", contentMode: "plain_text", keywords: [], keywordScanDepth: 1,
+    contentMode: "plain_text", keywords: [], keywordScanDepth: 1,
     conditionKeywords: [], keywordCondition: "none", keywordUseRegex: false, keywordIgnoreCase: true,
     keywordWholeWord: false, keywordRecursionDepth: 0, triggerMode: "always", enabled: true,
     position: "insert_point_1", promptPositionId: "", insertRole: "user", order,
@@ -149,6 +149,17 @@ describe("setting-library versions and transfer", () => {
     expect(switchLibraryVersion(imported, 'v1').entries).toEqual(source.entries);
   });
 
+  it('reads old reference entries with the current rule switch and omits the old field on export', () => {
+    const file = JSON.parse(serializeSettingLibrary(library()));
+    const body = '保留这段正文。<%= 1 %>';
+    Object.assign(file.entries[0], { content: body, content_mode: 'ejs', dynamic_mode: 'ejs_reference', enabled: true });
+    const parsed = parseSettingLibraryFile(JSON.stringify(file), 'eleckoi');
+    expect(parsed.entries[0]).toMatchObject({ content: body, contentMode: 'ejs', enabled: false });
+    expect(parsed.entries[0]).not.toHaveProperty('dynamicMode');
+    const imported = importLibraryAsVersion(library(), parsed);
+    expect(JSON.parse(serializeSettingLibrary(imported)).entries[0]).not.toHaveProperty('dynamic_mode');
+  });
+
   it('preserves every long setting and imports openings explicitly included in an existing v3 file', () => {
     const source = library();
     const opening = fixed("fixed-opening-assistant", "opening", "合成旧开场白");
@@ -203,22 +214,29 @@ describe("setting-library versions and transfer", () => {
     expect(exported.entries.map(item => item.contentMode)).toEqual(imported.entries.filter(item => item.kind !== "opening").map(item => item.contentMode));
   });
 
-  it("classifies EJS controllers and their getwi references like Android", () => {
+  it("preserves the rules of ordinary getwi targets and retains the rule switches of disabled Tavern templates", () => {
     const parsed = parseSettingLibraryFile(JSON.stringify({ name: "剧情", entries: {
       0: { comment: "章节控制器", content: '<%- await getwi(null, "第一章") %>', constant: true },
       1: { comment: "第一章", content: "章节正文", disable: true },
       2: { comment: "普通设定", content: "普通正文", constant: true },
+      3: { comment: "暂停模板", content: "<%= 1 %>", disable: true },
+      4: { comment: "有关键词的目标", content: '保留关键词', key: ['合成关键词'] },
+      5: { comment: "引用它", content: '<%- await getwi("有关键词的目标") %>', constant: true },
+      6: { comment: "楼层模板", content: '<% if (getChatMessages().length === 20) { %>钟响了。<% } %>', key: ['  '], disable: false },
+      7: { comment: "关键词模板", content: '钟声响了 <%= 2 %> 次。', key: ['钟声'], disable: false },
     } }), "sillytavern");
     expect(parsed.entries.find((item) => item.title === "章节控制器")).toMatchObject({
-      dynamicMode: "standard",
-      agentReadStrategy: "normal",
+      agentReadStrategy: "required",
       contentMode: "ejs",
-    });
-    expect(parsed.entries.find((item) => item.title === "第一章")).toMatchObject({
-      dynamicMode: "ejs_reference",
-      agentReadStrategy: "normal",
       enabled: true,
     });
-    expect(parsed.entries.find((item) => item.title === "普通设定")?.dynamicMode).toBe("standard");
+    expect(parsed.entries.find((item) => item.title === "第一章")).toMatchObject({
+      enabled: false,
+    });
+    expect(parsed.entries.find(item => item.title === '暂停模板')).toMatchObject({ enabled: false, contentMode: 'ejs', agentReadStrategy: 'keyword' });
+    expect(parsed.entries.find(item => item.title === '有关键词的目标')).toMatchObject({ enabled: true, keywords: ['合成关键词'] });
+    expect(parsed.entries.find(item => item.title === '楼层模板')).toMatchObject({ enabled: true, contentMode: 'ejs', agentReadStrategy: 'keyword' });
+    expect(parsed.entries.find(item => item.title === '关键词模板')).toMatchObject({ enabled: true, contentMode: 'ejs', agentReadStrategy: 'keyword', keywords: ['钟声'] });
+    expect(parsed.entries.find((item) => item.title === "普通设定")?.enabled).toBe(true);
   });
 });

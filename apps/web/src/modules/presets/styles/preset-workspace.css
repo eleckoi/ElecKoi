@@ -9,10 +9,62 @@
 .preset-summary-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-width: 0; color: var(--muted); font-size: 13px; line-height: 20px; overflow-wrap: anywhere; }
 .preset-summary-tag { padding: 0 7px; border: 1px solid var(--line-strong); border-radius: 6px; font-size: 12px; line-height: 22px; }
 .preset-summary-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
-.preset-summary-actions > :is(button,.preset-summary-active) { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; min-width: 118px; height: 34px; min-height: 34px; padding: 0 12px; gap: 6px; border-radius: 999px; font-size: 13px; line-height: 20px; white-space: nowrap; }
-.preset-summary-actions > :is(.preset-summary-edit,.preset-summary-active) { border: .5px solid transparent; box-shadow: inset 0 0 0 var(--dsh-hairline-width,.5px) var(--dsh-button-outline-color,var(--dsw-alias-border-l3)); }
-.preset-summary-active { color: var(--blue); }
+.preset-summary-actions > button { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; min-width: 118px; height: 34px; min-height: 34px; padding: 0 12px; gap: 6px; border-radius: 999px; font-size: 13px; line-height: 20px; white-space: nowrap; }
+.preset-summary-actions > :is(.preset-summary-edit, .preset-summary-active) { border: .5px solid transparent; box-shadow: inset 0 0 0 var(--dsh-hairline-width,.5px) var(--dsh-button-outline-color,var(--dsw-alias-border-l3)); }
+.preset-summary-use { border: .5px solid transparent; }
+.preset-summary-active:disabled { opacity: 1; cursor: default; }
+.preset-summary-use-label { display: inline-grid; place-items: center; }
+.preset-summary-use-label > span,
+.preset-summary-use-label::before,
+.preset-summary-use-label::after { grid-area: 1 / 1; }
+.preset-summary-use-label::before,
+.preset-summary-use-label::after { visibility: hidden; }
+.preset-summary-use-label::before { content: attr(data-use-label); }
+.preset-summary-use-label::after { content: attr(data-active-label); }
 .preset-overview .preset-workspace-body { min-height: 0; overflow: auto; }
+.preset-overview.preset-home-detail {
+  --preset-overview-inset: clamp(16px, 2.4cqi, 32px);
+  grid-area: 1 / 1;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  container-type: inline-size;
+}
+.preset-home-detail .preset-summary {
+  box-sizing: border-box;
+  grid-template-columns: 36px 56px minmax(0, 1fr);
+  gap: 14px;
+  width: 100%;
+  margin: 0;
+  padding: 14px var(--preset-overview-inset);
+  border: 0;
+  border-block-end: 1px solid var(--line);
+  border-radius: 0;
+}
+.preset-overview-back-slot { grid-area: 1 / 1; }
+.preset-home-detail .preset-summary-avatar.avatar { grid-area: 1 / 2; width: 56px; height: 56px; border-radius: 10px; }
+.preset-home-detail .preset-summary-identity { grid-area: 1 / 3; }
+.preset-home-detail .preset-overview-back { width: 36px; height: 36px; border-radius: 50%; }
+.preset-home-detail .preset-workspace-body { overscroll-behavior-y: contain; }
+.preset-home-detail .preset-overview-reading { padding: 16px var(--preset-overview-inset) 28px; }
+.preset-home-detail .preset-usage-content { width: 100%; margin: 0; padding: 0; }
+.preset-home-detail .preset-usage-section .preset-content-section-heading { display: none; }
+.preset-overview-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px var(--preset-overview-inset);
+  border-block-start: 1px solid var(--line);
+}
+.preset-overview-footer > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding-inline: 14px;
+  white-space: nowrap;
+}
 @container (max-width: 660px) { .preset-summary-actions { grid-column: 2 / -1; justify-content: flex-start; } }
 .qq-shell.preset-editor-window { grid-template-columns: var(--character-editor-sidebar-width,220px) minmax(0,1fr); grid-template-rows: minmax(0,1fr); height: 100%; background: var(--list); --blue: var(--dsw-static-deepseek-500,#3d75e8); --blue-hover: var(--dsw-static-deepseek-600,#3266d5); }
 .preset-editor-canvas { min-height: 0; min-width: 0; padding: 0 8px 8px 0; background: var(--list); overflow: hidden; }

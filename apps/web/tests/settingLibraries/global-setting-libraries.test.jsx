@@ -24,16 +24,20 @@ beforeEach(async () => {
 });
 afterEach(async () => { await act(async () => root.unmount()); document.body.replaceChildren(); vi.unstubAllGlobals(); });
 async function click(label, scope = document.body) {
-  if (['管理','多选','从角色设定库导入','从本地文件导入'].includes(label)) {
-    await act(async () => container.querySelector('[aria-label="设定库更多操作"]').click());
-    if (label === '管理') label = '管理设定库';
+  if (label === '管理' || (label === '多选' && container.querySelector('[aria-label="设定库管理"]'))) {
+    await act(async () => container.querySelector('[aria-label="设定库管理"]').click());
+    if (label === '管理') label = '版本管理';
+  }
+  if (['从角色设定库', '从本地文件'].includes(label)) {
+    await act(async () => container.querySelector('[aria-label="导入全局设定库"]').click());
   }
   if (label.startsWith('重命名全局库') || label.startsWith('删除全局库')) {
     const rename = label.startsWith('重命名'), name = label.slice(rename ? 6 : 5);
     await act(async () => container.querySelector('[aria-label="管理全局库' + name + '"]').click());
     label = rename ? '重命名' : '删除'; scope = document.querySelector('[role="menu"]');
   }
-  const button = [...scope.querySelectorAll('button')].find(item => item.getAttribute('aria-label') === label || item.textContent.trim() === label);
+  const button = [...scope.querySelectorAll('button')].find(item => item.getAttribute('aria-label') === label ||
+    item.querySelector('.editor-picker-row-label')?.textContent === label || item.textContent.trim() === label);
   expect(button, label).toBeTruthy(); await act(async () => button.click());
 }
 async function switchScope(label) {
@@ -61,13 +65,20 @@ async function editorStep(label) {
   const button = [...container.querySelectorAll('.setting-view-switch [role="tab"]')].find(item => item.textContent === target);
   expect(button, label).toBeTruthy(); await act(async () => button.click());
 }
-it('keeps the exported file name when a standalone SillyTavern worldbook contains only entries', async () => {
-  const exported = JSON.stringify({ entries: { 0: { uid: 0, key: ['合成关键词'], comment: '合成条目', content: '合成正文' } } });
+it('imports standalone Tavern worldbooks and saves paused templates with their original rules', async () => {
+  const exported = JSON.stringify({ entries: {
+    0: { uid: 0, key: ['合成关键词'], comment: '合成条目', content: '合成正文' },
+    1: { uid: 1, key: ['茶'], comment: '停用关键词模板', content: '<%= 1 %>', disable: true },
+    2: { uid: 2, constant: true, comment: '停用常驻模板', content: '<%= 2 %>', disable: true },
+  } });
   await switchScope('全局'); await importFile(exported, '合成独立世界书.json'); await click('保存');
   const imported = collection.libraries[1];
   expect(imported.name).toBe('合成独立世界书');
   expect(imported.groups[0].name).toBe('合成独立世界书');
-  expect(imported.entries[0]).toMatchObject({ title: '合成条目', content: '合成正文', keywords: ['合成关键词'] });
+  const entry = title => imported.entries.find(item => item.title === title);
+  expect(entry('合成条目')).toMatchObject({ content: '合成正文', keywords: ['合成关键词'] });
+  expect(entry('停用关键词模板')).toMatchObject({ enabled: false, contentMode: 'ejs', agentReadStrategy: 'keyword', keywords: ['茶'] });
+  expect(entry('停用常驻模板')).toMatchObject({ enabled: false, contentMode: 'ejs', agentReadStrategy: 'required' });
 });
 it('renames the selected global library through a dialog and preserves its draft through a failed save and reopen', async () => {
   const original = structuredClone(collection.libraries[0]);
@@ -103,27 +114,28 @@ it('uses the normal editor for imported contents and saves title, trigger, conte
   expect(container.querySelector('[role="tab"][aria-selected="true"]').textContent).toBe('角色');
   const originalRole = structuredClone(role);
   await switchScope('全局');
-  expect(container.querySelector('[aria-label="新建"]').disabled).toBe(true);
+  expect(container.querySelector('[aria-label="新建"]')).toBeNull();
+  expect(container.querySelector('[aria-label="导入全局设定库"]').disabled).toBe(false);
   expect(container.querySelector('[aria-label="管理"]')).toBeNull();
   await click('合成共享库'); await selectEntry('合成共享条目');
   expect(container.querySelector('.setting-document-title')).toBeTruthy();
   expect(container.querySelector('[aria-label="新建"]').disabled).toBe(false);
   await inputValue(container.querySelector('input[placeholder="条目标题/待命名"]'), '合成编辑标题');
-  await editorStep('触发'); await click('提示词常驻');
+  await editorStep('触发'); await click('常驻触发'); await click('指定插入位置');
   await editorStep('插入'); await click('选择设定插入点 1'); await click('AI');
-  await editorStep('触发'); await click('Agent 读取'); await click('关键词命中');
+  await editorStep('触发'); await click('关键词触发');
   await inputValue(container.querySelector('.setting-library-keyword-input input'), '合成末尾关键词,');
   await editorStep('正文');
   const text = '首段' + '合成长正文'.repeat(20001) + '末尾合成关键词';
   const textarea = container.querySelector('[role="textbox"][aria-label="设定正文"]');
   expect(textarea.getAttribute('contenteditable')).toBe('true'); await inputValue(textarea, text);
   await editorStep('插入'); expect(container.querySelector('.setting-insert-settings')).toBeNull();
-  await click('停用合成编辑标题'); await click('保存');
+  await click('合成编辑标题的触发规则'); await click('保存');
   const entry = collection.libraries[0].entries[0];
   expect(entry).toMatchObject({ title: '合成编辑标题', content: text, triggerMode: 'agent_tool', agentReadStrategy: 'keyword', keywords: ['合成末尾关键词'], position: 'insert_point_1', insertRole: 'assistant', enabled: false });
   expect(collection.libraries[0]).not.toHaveProperty('versions');
   expect(role).toEqual(originalRole); expect(roles.save).not.toHaveBeenCalled();
-  await switchScope('角色'); await click('管理'); expect(document.body.textContent).toContain('角色设定库版本管理');
+  await switchScope('角色'); await click('管理'); expect(document.querySelector('[role="dialog"]').getAttribute('aria-label')).toBe('版本管理');
   await click('关闭'); await switchScope('全局'); await selectEntry('合成编辑标题'); await editorStep('正文');
   expect(editorText(container.querySelector('[role="textbox"][aria-label="设定正文"]')) === text).toBe(true);
 });
@@ -145,20 +157,27 @@ it('keeps equal source entry IDs in separate global libraries independent throug
   expect(collection.libraries[1].entries[0].id).toBe(collection.libraries[0].entries[0].id);
   expect(roles.save).not.toHaveBeenCalled();
 });
-it('creates and edits folders and EJS references within an imported library, retaining drafts on save failure', async () => {
+it('creates ordinary settings with rules off in an imported library, retaining drafts on save failure', async () => {
   await switchScope('全局'); await click('合成共享库');
-  await click('新建'); await click('文件夹');
+  const menuLabels = () => Array.from(document.querySelectorAll('[role="menu"] [role="menuitem"]'), item => item.textContent.trim());
+  await click('新建');
+  expect(menuLabels()).toEqual(['新建文件夹', '新建设定']);
+  await click('新建文件夹');
   await inputValue(container.querySelector('input[aria-label=文件夹名称]'), '合成资料夹');
-  await click('新建'); await click('EJS引用设定');
-  await inputValue(container.querySelector('input[aria-label="条目标题"]'), '合成引用');
-  await inputValue(container.querySelector('[role="textbox"][aria-label="EJS引用正文"]'), '合成引用正文');
+  const folder = [...container.querySelectorAll('[role="treeitem"]')].find(item => item.querySelector('.setting-library-tree-label')?.textContent === '合成资料夹');
+  expect(folder).toBeTruthy();
+  await act(async () => folder.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 20, clientY: 20 })));
+  expect(menuLabels()).toEqual(['新建文件夹', '新建设定', '重命名', '删除']);
+  await click('新建设定');
+  await inputValue(container.querySelector('input[aria-label="条目标题"]'), '合成设定');
+  await inputValue(container.querySelector('[role="textbox"][aria-label="设定正文"]'), '合成设定正文');
   globals.save.mockRejectedValueOnce(new Error('合成保存失败'));
-  await click('保存'); expect(editorText(container.querySelector('[role="textbox"][aria-label="EJS引用正文"]'))).toBe('合成引用正文');
+  await click('保存'); expect(editorText(container.querySelector('[role="textbox"][aria-label="设定正文"]'))).toBe('合成设定正文');
   expect(collection.libraries[0].groups).toHaveLength(0);
   await click('保存');
-  const saved = collection.libraries[0], reference = saved.entries.find(item => item.title === '合成引用');
+  const saved = collection.libraries[0], entry = saved.entries.find(item => item.title === '合成设定');
   expect(saved.groups[0].name).toBe('合成资料夹');
-  expect(reference).toMatchObject({ dynamicMode: 'ejs_reference', content: '合成引用正文', groupId: saved.groups[0].id });
+  expect(entry).toMatchObject({ enabled: false, contentMode: 'plain_text', content: '合成设定正文', groupId: saved.groups[0].id });
   expect(saved).not.toHaveProperty('versions'); expect(roles.save).not.toHaveBeenCalled();
 });
 it('deletes an imported library only after confirmation and save and retains the failed draft', async () => {
@@ -170,7 +189,7 @@ it('deletes an imported library only after confirmation and save and retains the
 });
 it.each(['角色', '全局'])('dismisses the %s setting context menu outside the menu and with Escape while keeping commands usable', async scope => {
   await switchScope(scope);
-  if (scope === '角色') { await click('新建'); await click('设定'); }
+  if (scope === '角色') { await click('新建'); await click('新建设定'); }
   else { await click('合成共享库'); await selectEntry('合成共享条目'); }
   const row = () => container.querySelector('[role="treeitem"]');
   const openMenu = async () => {
@@ -232,11 +251,14 @@ it.each([101, 1001, 10001])('imports all %i worldbook entries without creating a
 });
 it('imports an explicitly selected saved role version and keeps the source independent', async () => {
   const source = normalizeSettingLibrary('synthetic-source', { ...role, characterId: 'synthetic-source', name: '合成来源版本', entries: [{ ...emptyEntry('synthetic-source-entry'), title: '合成来源设定', content: '合成来源正文' }] });
-  roles.listCharacters = async () => ({ items: [{ id: 'synthetic-source', name: '合成来源角色' }] });
+  roles.listCharacters = async () => ({ items: [{ id: 'synthetic-source', name: '合成来源角色', persona: { assistant_avatar: '/synthetic-avatar.png' } }] });
   roles.readUntracked = vi.fn(async () => structuredClone(source));
-  await switchScope('全局'); await click('从角色设定库导入');
-  const select = document.querySelector('.global-library-import-fields select');
-  await act(async () => { select.value = 'synthetic-source'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+  await switchScope('全局'); await click('从角色设定库');
+  await inputValue(document.querySelector('[aria-label="搜索角色"]'), '来源角色');
+  expect(document.querySelector('.editor-picker-avatar img').getAttribute('src')).toBe('/synthetic-avatar.png');
+  await click('合成来源角色', document.querySelector('.editor-management-modal'));
+  await inputValue(document.querySelector('[aria-label="搜索版本"]'), '来源版本');
+  expect(document.querySelector('.editor-picker-row').textContent).toContain('合成来源版本');
   await click('导入', document.querySelector('.editor-management-modal')); await click('保存');
   expect(roles.readUntracked).toHaveBeenCalledWith('synthetic-source');
   expect(collection.libraries[1].entries[0].content).toBe('合成来源正文');
@@ -249,11 +271,8 @@ it('reports a missing source version without importing another version and permi
   roles.listCharacters = async () => ({ items: [{ id: 'synthetic-source', name: '合成来源角色' }] });
   roles.readUntracked = vi.fn().mockResolvedValueOnce({ ...source, activeVersionId: 'synthetic-missing-version' })
     .mockResolvedValueOnce(structuredClone(source));
-  await switchScope('全局'); await click('从角色设定库导入');
-  const choose = async () => act(async () => {
-    const select = document.querySelector('.global-library-import-fields select');
-    select.value = 'synthetic-source'; select.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  await switchScope('全局'); await click('从角色设定库');
+  const choose = async () => click('合成来源角色', document.querySelector('.editor-management-modal'));
   await choose();
   const modal = document.querySelector('.editor-management-modal');
   expect(modal.querySelector('[role="alert"]').textContent).toBe('找不到来源角色的当前设定库版本。');

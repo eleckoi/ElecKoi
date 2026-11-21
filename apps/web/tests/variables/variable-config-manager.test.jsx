@@ -64,7 +64,9 @@ describe.each(['variables', 'settings'])('%s version management', kind => {
     try {
       expect([...view.container.querySelectorAll('button')].some(item => item.textContent === '新建版本')).toBe(false);
       await act(async () => view.container.querySelector('[aria-label="当前版本"]').click());
-      await act(async () => [...view.container.querySelectorAll('[role="menuitem"]')].find(item => item.textContent.includes('配置 B')).click());
+      await inputValue(view.container.querySelector('[aria-label="搜索版本"]'), '配置 B');
+      expect(view.container.querySelectorAll('.editor-picker-row')).toHaveLength(1);
+      await act(async () => button(view.container, '配置 B').click());
       await act(async () => button(view.container, '复制当前版本').click());
       const dialog = view.container.querySelector('.version-name-dialog');
       const input = dialog.querySelector('input');

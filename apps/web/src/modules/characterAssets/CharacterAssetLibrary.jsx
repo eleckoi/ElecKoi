@@ -35,7 +35,7 @@ export function CharacterAssetLibrary({ characterId }) {
   const tUi = useProductTranslation();
   const library = useCharacterAssets(characterId), { items } = library;
   const folders = library.folders || [];
-  const { registerBackHandler } = useEditorPresentation();
+  const { registerBackHandler, sectionTitleInHeader } = useEditorPresentation();
   const context = useEditorContextMenu();
   const [folderId, setFolderId] = useState(null), [view, setView] = useState('grid'), [query, setQuery] = useState('');
   const [sort, setSort] = useState('newest'), [formats, setFormats] = useState([]), [size, setSize] = useState('medium');
@@ -106,7 +106,7 @@ export function CharacterAssetLibrary({ characterId }) {
   async function commitDelete() { await action(async () => { await library.request('delete', ...parts(modal.ids || [modal.item])); if(alive.current) setModal(null); message(tUi('已删除')); }); }
   const previewBody = item => item.type === 'image' ? <img src={item.src} alt={item.name} /> : item.type === 'audio' ? <div className="audio-preview"><MusicNote size={60} weight="light" /><audio controls src={item.src} /></div> : item.type === 'video' ? <video controls src={item.src} /> : <div className="model-preview"><Cube size={96} weight="thin" /><span>{item.name.split('.').at(-1).toUpperCase()}</span></div>;
   return <section className="character-asset-library editor-heading-surface" tabIndex={0} aria-label={tUi('资产库')} aria-busy={busy || library.loading} onContextMenu={openContext} onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))) openContext(event); }} onClickCapture={event => { if (busy) { event.preventDefault(); event.stopPropagation(); } }}>
-      <header className="library-heading"><div className="library-title">{folderId && <IconButton Icon={CaretLeft} label={tUi('返回上一级')} onClick={() => enterFolder(currentFolder?.parentId ?? null)} />}<h1>{currentFolder?.name || tUi('资产库')}</h1></div>
+      <header className="library-heading">{(!sectionTitleInHeader || currentFolder) && <div className="library-title">{folderId && <IconButton Icon={CaretLeft} label={tUi('返回上一级')} onClick={() => enterFolder(currentFolder?.parentId ?? null)} />}<h1>{currentFolder?.name || tUi('资产库')}</h1></div>}
         <div className="library-heading-tools"><label className="asset-search"><MagnifyingGlass size={17} /><input aria-label={tUi('搜索资产')} placeholder={tUi('搜索资产')} value={query} onChange={e => { setQuery(e.target.value); setSelected([]); }} /></label>
         <div className="view-switch" role="group" aria-label={tUi('显示方式')}><IconButton Icon={SquaresFour} label={tUi('网格视图')} active={view === 'grid'} onClick={() => setView('grid')} /><IconButton Icon={ListBullets} label={tUi('列表视图')} active={view === 'list'} onClick={() => setView('list')} /></div></div>
       </header>

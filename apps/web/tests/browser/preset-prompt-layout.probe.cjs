@@ -27,7 +27,14 @@ app.whenReady().then(async () => {
     const inspector=document.querySelector('.setting-document'), directory=document.querySelector('.setting-directory');
     const toggle=row.querySelector('[role=switch]'), a=row.getBoundingClientRect(),b=inspector.getBoundingClientRect(),c=toggle.getBoundingClientRect();
     const hit=document.elementFromPoint(c.x+c.width/2,c.y+c.height/2);
+    const title=row.querySelector('.setting-library-tree-label');
+    const badges=[...tree.querySelectorAll('.setting-rule-badge')].slice(0,3).map(badge=>{
+      const text=badge.lastElementChild, control=badge.parentElement;
+      return {label:text.textContent, clipped:text.scrollWidth>text.clientWidth,
+        withinRow:control.getBoundingClientRect().right<=control.closest('.setting-library-tree-row-content').getBoundingClientRect().right};
+    });
     return {rowRight:a.right,inspectorLeft:b.left,inspectorTop:b.top,directoryTop:directory.getBoundingClientRect().top,
+      titleClipped:title.scrollWidth>title.clientWidth,titleAvailable:title.title===title.textContent,badges,
       toggleReachable:hit===toggle||toggle.contains(hit),treeWidth:tree.getBoundingClientRect().width,
       resizer:!!document.querySelector('[role=separator]'),empty:!!document.querySelector('.setting-document-empty')};
   })()`;
@@ -61,7 +68,24 @@ app.whenReady().then(async () => {
       const lastVisible = await evaluate(`(()=>{const tree=document.querySelector('.setting-library-tree'),row=[...tree.querySelectorAll('.setting-library-tree-row-content')].at(-1),a=row.getBoundingClientRect(),b=tree.getBoundingClientRect();return a.top>=b.top&&a.bottom<=b.bottom})()`);
       reports.push({ width, closed, open, resized, afterClose, lastVisible });
     }
-    writeFileSync(reportPath, JSON.stringify({ reports }, null, 2));
+    const writing = [];
+    for (const purpose of ['roleplay', 'creator']) {
+      win.setContentSize(1920, 900);
+      await win.loadURL(pathToFileURL(htmlPath).href + '?purpose=' + purpose);
+      await wait('Boolean(document.querySelector(".setting-writing-board .cm-content"))');
+      const insets = selector => evaluate(`(() => {
+        const panel = document.querySelector(${JSON.stringify(selector)});
+        const content = panel.querySelector('.cm-content').getBoundingClientRect();
+        const frame = panel.getBoundingClientRect();
+        return [content.left - frame.left, frame.right - content.right, content.width];
+      })()`);
+      const inline = await insets('.setting-writing-board');
+      await evaluate('document.querySelector(".setting-immersive-host button").click()');
+      await wait('Boolean(document.querySelector(".immersive-markdown-body .cm-content"))');
+      const immersive = await insets('.immersive-markdown-body');
+      writing.push({ purpose, inline, immersive });
+    }
+    writeFileSync(reportPath, JSON.stringify({ reports, writing }, null, 2));
     win.destroy(); app.exit(0);
   } catch (error) { console.error(error); win.destroy(); app.exit(1); }
 });

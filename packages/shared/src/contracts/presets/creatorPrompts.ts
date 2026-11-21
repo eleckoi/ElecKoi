@@ -4,7 +4,6 @@ import { settingLibraryEntrySchema } from '../settingLibrary/schemas'
 /** Creator prompts share the tree editor, but only support literal text and required/optional reads. */
 export const creatorPresetEntrySchema = settingLibraryEntrySchema.extend({
   agentReadStrategy: z.enum(['required', 'normal']),
-  dynamicMode: z.literal('standard'),
   contentMode: z.literal('plain_text'),
   keywords: z.array(z.string()).length(0),
   keywordScanDepth: z.literal(1),

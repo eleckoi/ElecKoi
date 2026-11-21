@@ -1,9 +1,9 @@
 import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useRef, useState } from 'react';
 import { Button, Input, Menu, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
-import { Copy, DotsThree, ListChecks, MagnifyingGlass, Plus, SlidersHorizontal, Trash } from '../icons/interfaceIcons.jsx';
+import { Copy, ListChecks, MagnifyingGlass, Plus, SlidersHorizontal, Trash } from '../icons/interfaceIcons.jsx';
 import { useEditorPresentation } from './EditorPresentationContext.jsx';
-import { EditorDirectoryHeading } from './EditorDirectoryHeading.jsx';
+import { EditorDirectoryActions, EditorDirectoryHeading } from './EditorDirectoryHeading.jsx';
 import './editor-collection-controls.css';
 import './editor-collection-material.css';
 
@@ -25,12 +25,13 @@ export function EditorCollectionToolbar({ query, onQueryChange, placeholder, cre
     ];
     return <div className={`editor-collection-toolbar is-mobile-collection editor-heading-surface ${className}`} onMouseDown={event => event.stopPropagation()}>
       <EditorDirectoryHeading title={heading} leading={leading} toplineClassName="editor-collection-topline">
-        <div className="editor-collection-actions">
-          {moreItems.length > 0 && <Menu open={moreOpen} portal dense anchor={<Button data-dsh-control className="editor-collection-more" variant="outline" aria-label={tUi('管理')} disabled={disabled}
-            aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => { setCreateOpen(false); setMoreOpen(!moreOpen); }}><DotsThree size={20} /></Button>}
+        {(moreItems.length > 0 || children) && <EditorDirectoryActions label={tUi('操作')} className="editor-collection-actions">
+          {moreItems.length > 0 && <Menu open={moreOpen} portal dense anchor={<Button data-dsh-control className="setting-toolbar-button setting-toolbar-icon"
+            variant="ghost" icon={onManage ? <SlidersHorizontal size={19} /> : <ListChecks size={19} />} aria-label={tUi('管理')} disabled={disabled}
+            aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)} />}
             items={moreItems} onClose={() => setMoreOpen(false)} onSelect={id => { setMoreOpen(false); moreItems.find(item => item.id === id)?.run?.(); }} />}
           {children}
-        </div>
+        </EditorDirectoryActions>}
       </EditorDirectoryHeading>
       <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
         value={query} onChange={event => onQueryChange(event.target.value)} placeholder={placeholder} aria-label={placeholder} />

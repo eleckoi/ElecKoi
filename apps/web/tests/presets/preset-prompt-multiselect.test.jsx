@@ -29,18 +29,21 @@ it.each(['creator', 'roleplay'])('keeps familiar prompt controls while limiting 
   }
   await act(async () => root.render(<Fixture />));
   await click(button('新建'));
-  expect(Boolean([...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent === 'EJS引用设定'))).toBe(purpose === 'roleplay');
+  expect([...document.querySelectorAll('[role="menuitem"]')].map(item => item.textContent)).toEqual(['文件夹', '提示词']);
   await click(document.querySelector('[role="treeitem"]'));
   const tab = label => [...document.querySelectorAll('[role=tab]')].find(item => item.textContent.endsWith(label));
   await click(tab('设置'));
-  expect(button('Agent 读取').getAttribute('aria-selected')).toBe('true');
-  expect(button('提示词常驻')).toBeTruthy();
-  expect(Boolean(document.querySelector('[aria-label="关键词命中"]'))).toBe(purpose === 'roleplay');
-  await click(button('必读')); expect(draft.entries[0].agentReadStrategy).toBe('required');
-  await click(button('选读')); expect(draft.entries[0].agentReadStrategy).toBe('normal');
-  await click(tab('正文'));
-  expect(Boolean(document.querySelector('.setting-format-button[title="正文格式"]'))).toBe(purpose === 'roleplay');
-  await click(tab('设置')); await click(button('提示词常驻'));
+  const switchInSettings = document.querySelector('[aria-label="启用触发规则"]');
+  expect(switchInSettings.getAttribute('aria-checked')).toBe('false');
+  expect(document.querySelector('.setting-rule-badge').textContent).toBe('无规则');
+  await click(switchInSettings);
+  expect(button('AI 选读').getAttribute('aria-selected')).toBe('true');
+  expect(Boolean(button('关键词触发'))).toBe(purpose === 'roleplay');
+  expect(button('仅供EJS引用')).toBeFalsy();
+  await click(button('常驻触发'));
+  expect(draft.entries[0].agentReadStrategy).toBe('required');
+  expect(button(purpose === 'creator' ? '默认位置' : '每轮必读').getAttribute('aria-selected')).toBe('true');
+  await click(button('指定插入位置'));
   expect(draft.entries[0].triggerMode).toBe('always');
   expect(document.querySelector('[aria-label="读取策略"]')).toBeNull();
 });
@@ -49,7 +52,7 @@ it.each(['creator', 'roleplay'])('limits mobile prompt creation to the preset pu
   const preset = { id: 'synthetic-mobile-preset', purpose, name: 'Synthetic mobile preset', entries: [], groups: [], promptPositions: [], expandedGroupIds: [] };
   await act(async () => root.render(<EditorPresentationContext.Provider value={{ compact: true }}><PresetPromptEditor preset={preset} onChange={() => {}} /></EditorPresentationContext.Provider>));
   await click(button('新建'));
-  expect([...document.querySelectorAll('[role="menuitem"]')].map(item => item.textContent)).toEqual(purpose === 'creator' ? ['文件夹', '提示词'] : ['文件夹', '提示词', 'EJS引用设定']);
+  expect([...document.querySelectorAll('[role="menuitem"]')].map(item => item.textContent)).toEqual(['文件夹', '提示词']);
 });
 
 it('right-clicks preset prompts without opening or replacing the editor and keeps commands addressed to their own prompt', async () => {
@@ -87,11 +90,14 @@ it.each([true, false])('selects, copies and deletes prompt subtrees without dupl
         { ...createEntryDraft('inner', 1, []), id: 'child', title: '合成子提示词', content: '保留的合成正文' },
       ] }));
     draft = preset;
-    return <EditorPresentationContext.Provider value={{ compact }}><PresetPromptEditor preset={preset} onChange={setPreset} /></EditorPresentationContext.Provider>;
+    return <EditorPresentationContext.Provider value={{ compact }}><PresetPromptEditor workspace preset={preset} onChange={setPreset} /></EditorPresentationContext.Provider>;
   }
   await act(async () => root.render(<Fixture />));
-  if(compact) { await click(document.querySelector('.editor-collection-more')); await click(button('多选')); }
-  else await click(button('多选'));
+  const openMenu = () => click(document.querySelector('.editor-directory-actions .setting-toolbar-icon'));
+  await openMenu();
+  expect([...document.querySelectorAll('[role=menuitem]')].map(item => item.textContent.trim()))
+    .toEqual(compact ? ['多选'] : ['多选', '收起全部文件夹']);
+  await click(button('多选'));
   expect(checkbox('合成固定提示词').disabled).toBe(true);
   expect(document.querySelector('.mobile-editor-actions')).toBeNull();
   await click(checkbox('合成文件夹')); await click(checkbox('合成子提示词'));
@@ -113,7 +119,8 @@ it.each([true, false])('selects, copies and deletes prompt subtrees without dupl
   await click(button('删除')); await click([...document.querySelectorAll('[role="dialog"] button')].find(node => node.textContent === '删除'));
   expect(draft.groups).toHaveLength(2); expect(draft.entries).toHaveLength(2);
   expect(draft.expandedGroupIds).toEqual([]);
-  await click(compact ? document.querySelector('.editor-selection-cancel') : button('完成'));
+  if (compact) await click(document.querySelector('.editor-selection-cancel'));
+  else { await openMenu(); await click(button('完成多选')); }
   expect(document.querySelector('.editor-selection-bar')).toBeNull();
   expect(document.querySelector('[aria-label="选择合成固定提示词"]')).toBeNull();
   expect(Boolean(document.querySelector('.mobile-editor-actions'))).toBe(compact);

@@ -1,10 +1,11 @@
 import { createCharacterOpenings, characterOpeningsSchema } from '@shared/contracts/characterOpenings/schemas'
-import { tavernEntryScanDepth } from '@shared/foundation/tavernWorldBook'
+import { tavernEntryScanDepth, tavernEntryTriggerRule } from '@shared/foundation/tavernWorldBook'
 import { gzipSync, gunzipSync } from 'node:zlib'
 import { randomUUID } from 'node:crypto'
 import type { RegexRule } from '@shared/contracts/regex/schemas'
 import { regexRuleTargetSchema } from '@shared/contracts/regex/schemas'
 import type { SettingLibrary, SettingLibraryEntry, SettingLibraryGroup } from '@shared/contracts/settingLibrary/schemas'
+import { settingBodyMode } from '@shared/contracts/settingLibrary/schemas'
 import { validateRegexRule } from '@shared/foundation/regex/RegexRuleProcessor'
 import { decodeRegexDocuments } from '@shared/foundation/regexRuleTransfer'
 import { emptyEntry, normalizeSettingLibrary } from '@product-data/domain/settingLibraries'
@@ -169,43 +170,17 @@ function convertWorldBookEntries(worldBook: JsonObject | undefined, timestamp: s
     const keys = stringList(item.keys ?? item.key).map((key) => key.trim()).filter(Boolean)
     const rawTitle = cleanString(item.name) || cleanString(item.comment) || keys[0] || `世界书条目 ${index + 1}`
     if (consumedEntries.has(item)) return []
-    return [{ item, index, keys, rawTitle, title: uniqueTitle(rawTitle, usedTitles), id: `tavern-world-entry-${randomUUID()}` }]
+    return [{ item, index, keys, title: uniqueTitle(rawTitle, usedTitles), id: `tavern-world-entry-${randomUUID()}` }]
   })
-  const byRawTitle = new Map<string, typeof raw>()
-  for (const entry of raw) byRawTitle.set(entry.rawTitle, [...(byRawTitle.get(entry.rawTitle) ?? []), entry])
-  const controllerResources = new Map<string, typeof raw>()
-  for (const controller of raw.filter((entry) => isEjsController(string(entry.item.content)))) {
-    const content = string(controller.item.content)
-    const literalNames = [...content.matchAll(/getwi\s*\(\s*(?:(?:null|["'][^"']*["'])\s*,\s*)?(["'])([^"']+)\1/gi)]
-      .map((match) => match[2]).filter((value): value is string => !!value)
-    const callCount = [...content.matchAll(/getwi\s*\(/gi)].length
-    const candidates = callCount > literalNames.length
-      ? raw.filter((entry) => !isEjsController(string(entry.item.content)))
-      : literalNames.flatMap((title) => byRawTitle.get(title)?.slice(0, 1) ?? [])
-    controllerResources.set(controller.id, candidates.filter((entry, index, values) => values.findIndex((item) => item.id === entry.id) === index))
-  }
-  const materialIds = new Set([...controllerResources.values()].flat().map((entry) => entry.id))
   return raw.map(({ item, index, keys, title, id }) => {
     const content = string(item.content)
-    if (isEjsController(content)) return {
-      ...emptyEntry(id, timestamp), title, groupId: 'tavern-world-book', content,
-      agentSelectionHint: '酒馆 EJS 动态控制器，渲染结果为 Agent 必读',
-      agentReadStrategy: 'normal', dynamicMode: 'standard', contentMode: 'ejs', triggerMode: 'agent_tool',
-      enabled: enabledFrom(item), order: index + 1, treeViewOrder: index + 1
-    }
-    if (materialIds.has(id)) return {
-      ...emptyEntry(id, timestamp), title, groupId: 'tavern-world-book', content,
-      agentSelectionHint: '供 EJS 控制器通过 getwi 读取的 EJS引用设定',
-      agentReadStrategy: 'normal', dynamicMode: 'ejs_reference', triggerMode: 'agent_tool',
-      enabled: true, order: index + 1, treeViewOrder: index + 1
-    }
+    const contentMode = settingBodyMode(content)
     const constant = boolean(item.constant)
     const secondary = stringList(item.secondary_keys ?? item.keysecondary).map((key) => key.trim()).filter(Boolean)
     const selectiveLogic = integer(record(item.extensions)?.selectiveLogic)
     return {
-      ...emptyEntry(id, timestamp), title, groupId: 'tavern-world-book', content,
-      agentSelectionHint: constant ? '酒馆世界书常驻条目，Agent 必读' : '酒馆世界书关键词命中时读取',
-      agentReadStrategy: constant ? 'required' : 'keyword',
+      ...emptyEntry(id, timestamp), title, groupId: 'tavern-world-book', content, contentMode,
+      ...tavernEntryTriggerRule(constant, enabledFrom(item)),
       keywords: constant ? [] : keys,
       conditionKeywords: constant ? [] : secondary,
       keywordCondition: constant || !secondary.length ? 'none' : selectiveLogic === 2 ? 'not_any' : selectiveLogic === 3 ? 'all' : 'any',
@@ -213,7 +188,7 @@ function convertWorldBookEntries(worldBook: JsonObject | undefined, timestamp: s
       keywordIgnoreCase: !boolean(item.case_sensitive, boolean(record(item.extensions)?.case_sensitive)),
       keywordWholeWord: boolean(item.match_whole_words, boolean(record(item.extensions)?.match_whole_words)),
       keywordScanDepth: tavernEntryScanDepth(item, worldBook),
-      triggerMode: 'agent_tool', enabled: enabledFrom(item), order: index + 1, treeViewOrder: index + 1
+      triggerMode: 'agent_tool', order: index + 1, treeViewOrder: index + 1
     }
   })
 }
@@ -427,7 +402,6 @@ function uniqueTitle(requested: string, used: Set<string>): string {
   return candidate
 }
 
-function isEjsController(content: string): boolean { return /<%[_=\-#]?/.test(content) }
 function enabledFrom(item: JsonObject): boolean { return Object.hasOwn(item, 'enabled') ? boolean(item.enabled, true) : !boolean(item.disable) }
 function cleanString(value: unknown): string { return value === null || value === undefined || value === 'null' ? '' : string(value) }
 function record(value: unknown): JsonObject | undefined { return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as JsonObject : undefined }

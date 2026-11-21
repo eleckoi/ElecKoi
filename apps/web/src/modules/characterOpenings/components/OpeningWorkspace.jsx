@@ -8,6 +8,7 @@ import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.
 import { MobileEditorActions } from '../../../ui/ui/MobileEditorActions.jsx';
 import { EditorCollectionToolbar } from '../../../ui/ui/EditorCollectionControls.jsx';
 import { EditorField } from '../../../ui/ui/EditorLibraryFields.jsx';
+import { OptionalEditorVersionField } from '../../../ui/ui/EditorVersionPicker.jsx';
 import { EditorContextMenu, useEditorContextMenu } from '../../../ui/ui/EditorContextMenu.jsx';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
 import { EditorWritingBoard } from '../../settingLibraries/index.js';
@@ -73,11 +74,12 @@ export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, qu
     <div className="opening-document-content">
       <div className="rs-fields opening-properties">
         <EditorField label={tUi('标题')}><Input disabled={busy} data-dsh-control className="rs-input" aria-label={tUi('标题')} value={selected.title} placeholder={tUi('未命名开场白')} onChange={event => onChange(updateOpening(entry, selected.id, { title: event.target.value }))} /></EditorField>
-        <EditorField label={tUi('关联变量版本')}><select disabled={busy} aria-label={tUi('关联变量版本')} value={selected.variableVersionId || ''} onChange={event => onChange(updateOpening(entry, selected.id, { variableVersionId: event.target.value }))}>
-          <option value="">{tUi('不关联变量')}</option>
-          {selected.variableVersionId && !variableVersions.some(version => version.id === selected.variableVersionId) && <option value={selected.variableVersionId} disabled>{tUi('版本不存在')}</option>}
-          {variableVersions.map(version => <option key={version.id} value={version.id}>{version.name || tUi('未命名版本')}</option>)}
-        </select><FailureAlert failure={variableVersionsError} /></EditorField>
+        <EditorField label={tUi('关联变量版本')}>
+          <OptionalEditorVersionField key={selected.id} label={tUi('关联变量版本')} emptyVersionLabel={tUi('不关联变量')}
+            versions={variableVersions} value={selected.variableVersionId ?? ''} disabled={busy}
+            onChange={variableVersionId => onChange(updateOpening(entry, selected.id, { variableVersionId }))} />
+          <FailureAlert failure={variableVersionsError} />
+        </EditorField>
       </div>
       <div className="opening-body-field">
         <h3 className="opening-body-label">{tUi('开场白正文')}</h3>
@@ -92,7 +94,8 @@ export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, qu
     <Layout {...(compact ? { documentLayout: true } : { label: tUi('开场白'), query, onQueryChange })} inspector={compact && !editing ? null : inspector}
       inspectorTitle={selected?.title || tUi('开场白')} onCloseInspector={() => setEditing(false)}
       {...(!compact && { directoryHeading: <h2 className="opening-directory-title">{tUi('开场白')}</h2>,
-        directoryActions: <><Button disabled={busy} data-dsh-control variant="primary" className="setting-create" icon={<Plus size={16} />} aria-label={tUi('新建开场白')} onClick={createBackup}>{tUi('新建')}</Button>{save}</> })}>
+        directoryActions: <><Button disabled={busy} data-dsh-control variant="ghost" className="setting-toolbar-button setting-toolbar-create"
+          icon={<Plus size={17} />} aria-label={tUi('新建开场白')} onClick={createBackup}><span>{tUi('新建')}</span></Button>{save}</> })}>
       {compact && <EditorCollectionToolbar heading={tUi('开场白')} createItems={[{ label: tUi('开场白'), Icon: ChatCircleDots, run: createBackup }]} disabled={busy} query={query} onQueryChange={onQueryChange} placeholder={tUi('搜索开场白')} save={save} />}
       <div className="opening-directory-list" onMouseDown={event => { if (!event.target.closest('.opening-list-item')) setSelectedId(''); }}>
         <div role="list" aria-label={tUi('开场白列表')}>{visible.map(message => <div key={message.id} role="listitem"

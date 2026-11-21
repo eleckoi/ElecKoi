@@ -85,7 +85,6 @@ function entry(overrides) {
     content: "",
     agentSelectionHint: "",
     agentReadStrategy: "normal",
-    dynamicMode: "standard",
     contentMode: "plain_text",
     triggerMode: "agent_tool",
     enabled: true,
@@ -173,7 +172,7 @@ describe("DSH character setting-library tools", () => {
   it("caches only readable fixed required bodies in directory order", () => {
     const cache = requiredSettingCache({ entries: [
       entry({ id: "regular", title: "正文", content: "正文内容", agentReadStrategy: "required", treeViewOrder: 2 }),
-      entry({ id: "reference", title: "引用", content: "引用内容", agentReadStrategy: "required", dynamicMode: "ejs_reference" }),
+      entry({ id: "reference", title: "引用", content: "引用内容", agentReadStrategy: "required", enabled: false }),
       entry({ id: "timeline", title: "时间线", kind: "hidden_tool_timeline", content: "时间线内容", agentReadStrategy: "required", treeViewOrder: 1 }),
       entry({ id: "timeline", title: "重复", kind: "hidden_tool_timeline", content: "重复内容", agentReadStrategy: "required" }),
       entry({ id: "opening", title: "开场", kind: "opening", content: "开场内容", agentReadStrategy: "required" }),
@@ -191,9 +190,9 @@ describe("DSH character setting-library tools", () => {
     ]);
     for (const name of ["eleckoi_glob_setting_files", "eleckoi_grep_setting_files"]) {
       const description = runtime.byName.get(name).description;
-      expect(description).toContain("仅搜索不算读取");
-      expect(description).toContain("即使固定必读项标记为 cached_reference");
-      expect(description).toContain("把本轮尚未读取或已失效的 path 一次传入 paths");
+      expect(description).toContain("每一条本轮尚未读取或正文已变化的完整 path 原样放进同一次");
+      expect(description).toContain("cached_reference 也包含在内");
+      expect(description).toContain("本轮已读且正文未变化的条目无需重复读取");
     }
 
     const found = await runtime.byName.get("eleckoi_glob_setting_files").execute({});
@@ -219,6 +218,7 @@ describe("DSH character setting-library tools", () => {
     expect(searched.matches).toEqual([expect.objectContaining({ path: "世界/城市/港口", text: "港口终年多雾。" })]);
 
     const read = await runtime.byName.get("eleckoi_read_setting_files").execute({ paths: ["世界/城市/港口"] });
+    expect(read.files.map(file => file.path)).toEqual(["世界/城市/港口"]);
     expect(read.files[0]).toMatchObject({
       path: "世界/城市/港口",
       selection_hint: "抵达港口时读取",
@@ -242,6 +242,7 @@ describe("DSH character setting-library tools", () => {
     expect(grep.required_entries).toEqual(glob.required_entries);
 
     const read = await runtime.byName.get("eleckoi_read_setting_files").execute({ paths: ["世界/总览", "世界/城市/城规", "本轮天气"] });
+    expect(read.files[2]).toMatchObject({ read_strategy: "keyword", content_mode: "plain_text" });
     expect(read.files.map((item) => item.content)).toEqual([
       expect.stringContaining("#S01「总览」"),
       expect.stringContaining("#S02「城规」"),
@@ -516,7 +517,7 @@ describe("DSH character setting-library tools", () => {
           title: "章节素材",
           content: "第二章隐藏线索。",
           agentReadStrategy: "normal",
-          dynamicMode: "ejs_reference",
+          enabled: false,
         }),
         entry({
           id: "chapter-controller",
@@ -538,6 +539,7 @@ describe("DSH character setting-library tools", () => {
     expect(found.required_entries[1].content_delivery).toBe("tool_result");
 
     const read = await runtime.byName.get("eleckoi_read_setting_files").execute({ paths: ["章节控制器"] });
+    expect(read.files[0]).toMatchObject({ read_strategy: "normal", content_mode: "ejs" });
     expect(read.files[0].content).toMatch(/^第二章隐藏线索。｜0\./);
     expect(read.files[0].resolved_references).toEqual([{ title: "章节素材" }]);
     expect(JSON.stringify(read.files[0])).not.toContain("chapter-reference");
@@ -550,17 +552,46 @@ describe("DSH character setting-library tools", () => {
   it("returns EJS reference bodies literally, even when they contain template delimiters", async () => {
     const literal = '模板示例：<% throw new Error("不应执行引用正文") %>';
     const runtime = await tools({ extraEntries: [
-      entry({ id: 'literal-reference', title: '文字素材', content: literal, dynamicMode: 'ejs_reference' }),
+      entry({ id: 'literal-reference', title: '文字素材', content: literal, enabled: false }),
       entry({ id: 'literal-controller', title: '文字控制器', content: '<%- await getwi("文字素材") %>', contentMode: 'ejs' }),
     ] });
     const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['文字控制器'] });
     expect(read.files[0].content).toBe(literal);
   });
 
+  it('renders the whole mixed body and lets getwi read entries independently of their rule', async () => {
+    const extraEntries = [
+      entry({ id: 'oil', title: '灯油设定', agentReadStrategy: 'keyword', keywords: ['灯塔'], keywordScanDepth: 1,
+        contentMode: 'ejs', content: '首段\n<%= getvar("oil") %><%- await getwi("停用场景") %>\n尾段' }),
+      entry({ id: 'disabled-scene', title: '停用场景', enabled: false, content: '熄灯。' }),
+      entry({ id: 'always-shop', title: '常驻商店', triggerMode: 'always', content: '常驻正文。' }),
+      entry({ id: 'mixed-required', title: '混合必读', agentReadStrategy: 'required', contentMode: 'ejs',
+        content: '首段<%= 2 + 2 %>尾段' }),
+      entry({ id: 'explicit-reference', title: '点名引用', contentMode: 'ejs',
+        content: '<%- await getwi("灯油设定") %><%- await getwi("常驻商店") %>' }),
+      entry({ id: 'empty-keywords', title: '没有配置关键词', agentReadStrategy: 'keyword', contentMode: 'ejs',
+        content: '这条没有满足关键词。<%= 1 %>' }),
+    ];
+    const runtime = await tools({ extraEntries, history: [{ role: 'user', content: '走进灯塔' }], variableState: { oil: 0 } });
+    const found = await runtime.byName.get('eleckoi_glob_setting_files').execute({});
+    expect(found.required_entries).toEqual(expect.arrayContaining(['灯油设定', '混合必读'].map(path => expect.objectContaining({ path, content_delivery: 'tool_result' }))));
+    expect(found.files.some(file => file.path === '没有配置关键词')).toBe(false);
+    const result = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['灯油设定', '混合必读'] });
+    expect(result.files.map(file => file.content)).toEqual(['首段\n0熄灯。\n尾段', '首段4尾段']);
+    const unmatched = await tools({ extraEntries, history: [{ role: 'user', content: '离开港口' }], variableState: { oil: 0 } });
+    const read = unmatched.byName.get('eleckoi_read_setting_files');
+    const absent = await read.execute({ paths: ['灯油设定'] });
+    expect(absent.status).toBe('not_found');
+    const explicit = await read.execute({ paths: ['点名引用'] });
+    expect(explicit.files[0]).toMatchObject({ content: '首段\n0熄灯。\n尾段常驻正文。', resolved_references: [
+      { title: '灯油设定' }, { title: '停用场景' }, { title: '常驻商店' }
+    ] });
+  });
+
   it("refuses ambiguous reference titles and resolves an exact folder path", async () => {
     const runtime = await tools({ extraEntries: [
-      entry({ id: 'root-reference', title: '天气', content: '合成根目录文字', dynamicMode: 'ejs_reference' }),
-      entry({ id: 'folder-reference', title: '天气', groupId: 'city', content: '合成文件夹文字', dynamicMode: 'ejs_reference' }),
+      entry({ id: 'root-reference', title: '天气', content: '合成根目录文字', enabled: false }),
+      entry({ id: 'folder-reference', title: '天气', groupId: 'city', content: '合成文件夹文字', enabled: false }),
       entry({ id: 'ambiguous-controller', title: '重名控制器', content: '<%- await getwi("天气") %>', contentMode: 'ejs' }),
       entry({ id: 'exact-controller', title: '路径控制器', content: '<%- await getwi("世界/城市/天气") %>', contentMode: 'ejs' }),
     ] });
@@ -573,9 +604,9 @@ describe("DSH character setting-library tools", () => {
   it("renders nested EJS references with the same chat variables and returns transitive references", async () => {
     const runtime = await tools({ variableState: { score: 7 }, history: [{ role: 'user', content: 'Synthetic latest input', variableState: { score: 3 } }], extraEntries: [
       entry({ id: 'nested-controller', title: '合成递归控制器', contentMode: 'ejs', content: '<%- await getwi("世界/城市/合成动态引用") %>' }),
-      entry({ id: 'nested-template', title: '合成动态引用', groupId: 'city', dynamicMode: 'ejs_reference', contentMode: 'ejs',
+      entry({ id: 'nested-template', title: '合成动态引用', groupId: 'city', enabled: false, contentMode: 'ejs',
         content: '<% const score = await Promise.resolve(getvar("score")); %>score=<%= score %>;<%- await getwi("合成动态末层") %>' }),
-      entry({ id: 'nested-leaf', title: '合成动态末层', dynamicMode: 'ejs_reference', contentMode: 'ejs',
+      entry({ id: 'nested-leaf', title: '合成动态末层', enabled: false, contentMode: 'ejs',
         content: '<%= getMessageVar("score") %>:<%= getChatMessages(-1)[0] %>:<%= lastUserMessage %>' }),
     ] });
     const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成递归控制器'] });
@@ -593,9 +624,9 @@ describe("DSH character setting-library tools", () => {
     const runtime = await tools({ variableState: { score: 2 }, extraEntries: [
       entry({ id: 'diamond-controller', title: '合成分支控制器', contentMode: 'ejs',
         content: '<%- (await Promise.all([getwi("合成分支甲"), getwi("合成分支乙"), getwi("合成分支甲")])).join("|") %>' }),
-      ...['甲', '乙'].map(name => entry({ id: `diamond-${name}`, title: `合成分支${name}`, dynamicMode: 'ejs_reference', contentMode: 'ejs',
+      ...['甲', '乙'].map(name => entry({ id: `diamond-${name}`, title: `合成分支${name}`, enabled: false, contentMode: 'ejs',
         content: `${name}<%- await getwi("合成共用末层") %>` })),
-      entry({ id: 'diamond-leaf', title: '合成共用末层', dynamicMode: 'ejs_reference', contentMode: 'ejs',
+      entry({ id: 'diamond-leaf', title: '合成共用末层', enabled: false, contentMode: 'ejs',
         content: '<%= await Promise.resolve(getvar("score")) %>' }),
     ] });
     const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成分支控制器'] });
@@ -611,8 +642,8 @@ describe("DSH character setting-library tools", () => {
   ])("reports the complete %s reference cycle without blocking other settings", async (_name, firstTarget, chain) => {
     const runtime = await tools({ extraEntries: [
       entry({ id: 'cycle-controller', title: '合成循环控制器', contentMode: 'ejs', content: '<%- await getwi("世界/城市/合成循环引用甲") %>' }),
-      entry({ id: 'cycle-a', title: '合成循环引用甲', groupId: 'city', dynamicMode: 'ejs_reference', contentMode: 'ejs', content: `<%- await getwi("${firstTarget}") %>` }),
-      entry({ id: 'cycle-b', title: '合成循环引用乙', dynamicMode: 'ejs_reference', contentMode: 'ejs', content: '<%- await getwi("世界/城市/合成循环引用甲") %>' }),
+      entry({ id: 'cycle-a', title: '合成循环引用甲', groupId: 'city', enabled: false, contentMode: 'ejs', content: `<%- await getwi("${firstTarget}") %>` }),
+      entry({ id: 'cycle-b', title: '合成循环引用乙', enabled: false, contentMode: 'ejs', content: '<%- await getwi("世界/城市/合成循环引用甲") %>' }),
       entry({ id: 'unrelated-controller', title: '合成正常控制器', contentMode: 'ejs', content: '<%= 7 %>' }),
     ] });
     const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成循环控制器', '合成正常控制器', '世界/总览'] });
@@ -625,7 +656,7 @@ describe("DSH character setting-library tools", () => {
   it("propagates a nested template error with its actual reference path", async () => {
     const runtime = await tools({ extraEntries: [
       entry({ id: 'broken-nested-controller', title: '合成错误外层', contentMode: 'ejs', content: '<%- await getwi("世界/城市/合成错误内层") %>' }),
-      entry({ id: 'broken-nested-reference', title: '合成错误内层', groupId: 'city', dynamicMode: 'ejs_reference', contentMode: 'ejs', content: '<%= missingSyntheticValue %>' }),
+      entry({ id: 'broken-nested-reference', title: '合成错误内层', groupId: 'city', enabled: false, contentMode: 'ejs', content: '<%= missingSyntheticValue %>' }),
     ] });
     const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成错误外层'] });
     expect(read.files[0].error.code).toBe('ejs_render_failed');
@@ -635,7 +666,7 @@ describe("DSH character setting-library tools", () => {
 
   it("renders a long acyclic reference chain without imposing a new recursion limit", async () => {
     const references = Array.from({ length: 24 }, (_, index) => entry({ id: `chain-${index}`, title: `合成链${index}`,
-      dynamicMode: 'ejs_reference', contentMode: 'ejs', content: index === 23 ? '<%= 23 %>' : `<%- await getwi("合成链${index + 1}") %>` }));
+      enabled: false, contentMode: 'ejs', content: index === 23 ? '<%= 23 %>' : `<%- await getwi("合成链${index + 1}") %>` }));
     const runtime = await tools({ extraEntries: [entry({ id: 'chain-controller', title: '合成链控制器', contentMode: 'ejs', content: '<%- await getwi("合成链0") %>' }), ...references] });
     const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['合成链控制器'] });
     expect(read.files[0].error).toBeUndefined();

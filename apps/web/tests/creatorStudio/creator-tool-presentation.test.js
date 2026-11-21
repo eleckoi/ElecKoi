@@ -87,8 +87,10 @@ describe('readable creator tool calls', () => {
 
   it('keeps failures, interrupted calls and native fallbacks distinct from successful writes', () => {
     const args = { capability_id: 'settings.edit', arguments: { id: 'setting-a', old_string: '原文', new_string: '新文' } };
-    const error = creatorToolPresentation('eleckoi_call_capability', block(args, {}, { isError: true, error: { code: 'stale', message: '请重新读取' } }), 'result');
-    expect(error.state).toBe('error'); expect(error.title).not.toContain('已'); expect(error.parts.every(part => part.kind === 'error')).toBe(true);
+    const message = '请重新读取\n' + '校验详情𠮷\n'.repeat(400) + '错误结束';
+    const error = creatorToolPresentation('eleckoi_call_capability', block(args, {}, { isError: true, error: { code: 'stale', message } }), 'result');
+    expect(error.state).toBe('error'); expect(error.title).not.toContain('已');
+    expect(error.parts).toEqual([{ kind: 'error', text: message, label: '' }]);
     expect(creatorToolPresentation('eleckoi_call_capability', block(args, {}, { error: { code: 'interrupted' } }), 'result').state).toBe('cancelled');
     expect(call('settings.edit', args.arguments, { changed: false })).toBeUndefined();
     expect(creatorToolPresentation('eleckoi_call_capability', block(args, { status: 'spilled' }), 'result')).toBeUndefined();

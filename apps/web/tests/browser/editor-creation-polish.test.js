@@ -8,7 +8,7 @@ import { expect, it } from 'vitest';
 import { browserThemeCss } from '../helpers/browserTheme.js';
 const require = createRequire(import.meta.url), { build } = createRequire(require.resolve('vite/package.json'))('esbuild');
 
-it('creates settings and variables without selecting their names, aligns root variable rows and uses the official menu shadow', async () => {
+it('keeps editor creation controls and asset menus usable across desktop and touch layouts', async () => {
   const directory = await mkdtemp(resolve(tmpdir(), 'eleckoi-editor-creation-'));
   try {
     await build({ entryPoints: ['apps/web/tests/browser/mobile-editor-layout.fixture.jsx'], outfile: resolve(directory, 'fixture.js'), bundle: true, format: 'iife', jsx: 'automatic', alias: { '@shared': resolve('packages/shared/src') }, define: { 'process.env.NODE_ENV': '"production"' }, loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file', '.svg': 'dataurl', '.png': 'dataurl' }, logLevel: 'silent', plugins: [{ name: 'inline-css', setup(builder) {
@@ -18,12 +18,20 @@ it('creates settings and variables without selecting their names, aligns root va
     await writeFile(resolve(directory, 'fixture.html'), `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${browserThemeCss()}</style><link rel="stylesheet" href="fixture.css"></head><body><div id="root"></div><script src="fixture.js"></script></body></html>`);
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
     let failure;
-    try { await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/editor-creation-polish.probe.cjs'), resolve(directory, 'fixture.html'), resolve(directory, 'report.json')], { env, timeout: 45000, windowsHide: true }); } catch(error) { failure = error; }
+    const browser = process.env.ELECKOI_POPOVER_BROWSER || require('electron');
+    try { await promisify(execFile)(browser, [resolve('apps/web/tests/browser/editor-creation-polish.probe.cjs'), resolve(directory, 'fixture.html'), resolve(directory, 'report.json')], { env, timeout: 45000, windowsHide: true }); } catch(error) { failure = error; }
     const report = JSON.parse(await readFile(resolve(directory, 'report.json'), 'utf8'));
     const evidence = resolve('build/editor-creation-polish-check'); await mkdir(evidence, { recursive: true });
     for (const file of await readdir(directory)) if (/\.png$/.test(file) || file === 'report.json') await copyFile(resolve(directory, file), resolve(evidence, file));
     expect(failure, JSON.stringify(report)).toBeUndefined();
     expect(report.errors).toEqual([]); expect(report.cases).toHaveLength(18);
+    expect(report.assetItemMenus).toHaveLength(4);
+    for (const menu of report.assetItemMenus) {
+      expect(menu.visible, JSON.stringify(menu)).toBe(true);
+      if (menu.fitsNearAnchor) expect(menu.gap, JSON.stringify(menu)).toBeLessThan(1);
+    }
+    expect(report.assetItemMenus.some(menu => menu.side === 'above')).toBe(true);
+    expect(report.assetItemMenus.some(menu => menu.side === 'below')).toBe(true);
     expect(report.assetMenus).toHaveLength(18);
     for (const menu of report.assetMenus) {
       const detail = JSON.stringify(menu);

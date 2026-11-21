@@ -1,5 +1,6 @@
 import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
+import { settingBodyMode } from '@shared/contracts/settingLibrary/schemas';
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useId, useMemo, useRef, useState } from "react";
 import {
@@ -11,13 +12,15 @@ import {
   Database,
   Heart,
   Key,
-  LinkSimple,
   MapTrifold,
   NoteBlank,
+  PushPin,
+  Robot,
   ShieldCheck,
   Skull,
   Sparkle,
   SlidersHorizontal,
+  Tag,
   UserCircle,
   UsersThree,
   WarningCircle,
@@ -35,20 +38,21 @@ import { FixedPositionIcon } from './CustomPositionManager.jsx';
 import { fixedPlacementRowSelectable, positionPickerRows } from '../model/customPositions.js';
 import { PropertySegment, PropertySwitch } from './SettingPropertyFields.jsx';
 import { EditorSelect } from '../../../ui/ui/EditorSelect.jsx';
-import { SettingContentFormatMenu } from './SettingContentFormatMenu.jsx';
+import { settingRuleType } from '../model/settingLibraryRules.js';
 
-const TRIGGER_MODES = [
-  { value: "agent_tool", label: "Agent 读取" },
-  { value: "always", label: "提示词常驻" },
+export const SETTING_RULE_TYPES = [
+  { value: "lookup", label: "AI 选读", Icon: Robot },
+  { value: "keyword", label: "关键词触发", badgeLabel: "关键词", Icon: Tag },
+  { value: "always", label: "常驻触发", badgeLabel: "常驻", Icon: PushPin },
 ];
-
-const READ_STRATEGIES = [
-  { value: "required", label: "必读" },
-  { value: "normal", label: "选读" },
+const ALWAYS_MODES = [
+  { value: "required", label: "每轮必读" },
+  { value: "prompt", label: "指定插入位置" },
 ];
-const CONTENT_MODES = [
-  { value: "plain_text", label: "文字" },
-  { value: "ejs", label: "EJS" },
+const CREATOR_RULE_TYPES = SETTING_RULE_TYPES.filter(option => option.value !== 'keyword');
+const CREATOR_ALWAYS_MODES = [
+  { value: 'required', label: '默认位置' },
+  { value: 'prompt', label: '指定插入位置' },
 ];
 
 export const ICON_OPTIONS = [
@@ -162,7 +166,7 @@ function KeywordRules({ entry, onChange }) {
         placeholder={tUi("输入后按回车")}
         onChange={(keywords) => onChange({ ...entry, keywords })}
       />
-      <details className="setting-keyword-details">
+      <details className="setting-keyword-details" open>
       <summary>{tUi('匹配规则')}<CaretRight size={14} /></summary>
       <section className="setting-library-advanced-rules">
         <div className="setting-library-rule-stack">
@@ -199,81 +203,55 @@ function KeywordRules({ entry, onChange }) {
 
 export function TriggerSection({ entry, onChange, creatorPreset }) {
   const tUi = useProductTranslation();
-  function setStrategy(agentReadStrategy) {
-    if (agentReadStrategy === "normal" && entry.agentReadStrategy === "keyword") return;
-    onChange({ ...entry, agentReadStrategy,
-      contentMode: agentReadStrategy === "required" ? "plain_text" : entry.contentMode });
+  function changeUsage(usage) {
+    const always = usage === "prompt";
+    onChange({ ...entry,
+      triggerMode: always ? "always" : "agent_tool",
+      agentReadStrategy: usage === "required" || usage === "keyword" ? usage : "normal",
+      ...(creatorPreset ? { contentMode: 'plain_text' } : {}),
+      position: always ? entry.position || SETTING_LIBRARY_POSITION_OPTIONS[0].value : entry.position,
+    });
   }
-  return (
-    <div className="setting-library-entry-section">
-      <PropertySegment label={tUi("触发方式")} value={entry.triggerMode || "always"} options={localizeUiCopy(TRIGGER_MODES, tUi)} onChange={(triggerMode) => onChange({ ...entry, triggerMode,
-        contentMode: triggerMode === "agent_tool" ? entry.contentMode : "plain_text" })} />
-      {entry.triggerMode === "agent_tool" ? (
-        <>
-          <PropertySegment label={tUi("读取策略")} value={entry.agentReadStrategy === "required" ? "required" : "normal"} options={localizeUiCopy(READ_STRATEGIES, tUi)} onChange={setStrategy} />
-          {entry.agentReadStrategy === "normal" && entry.contentMode === "plain_text" ? (
-            <label className="setting-library-field-card setting-library-text-field setting-property-row">
-              <span className="setting-property-label" title={tUi('注释（AI 读目录时靠它判断）')}>{tUi('选读说明')}</span>
-              <textarea value={entry.agentSelectionHint} placeholder={tUi("写给 AI 看的一句话")} onChange={(event) => onChange({ ...entry, agentSelectionHint: event.target.value })} />
-            </label>
-          ) : null}
-          {!creatorPreset && entry.agentReadStrategy !== "required" ? (
-            <section className="setting-library-field-card setting-library-keyword-card">
-              <PropertySwitch title={tUi("关键词命中")} description={entry.agentReadStrategy === "keyword" ? tUi("命中后列为本轮必读") : tUi("关闭时由 AI 选读")} checked={entry.agentReadStrategy === "keyword"} onChange={(enabled) => onChange({ ...entry, agentReadStrategy: enabled ? "keyword" : "normal" })} />
-            </section>
-          ) : null}
-          {!creatorPreset && entry.agentReadStrategy === "keyword" ? <div className="setting-keywords-inline"><KeywordRules entry={entry} onChange={onChange} /></div> : null}
-        </>
-      ) : null}
-    </div>
-  );
+  const placement = entry.triggerMode === "always";
+  const usage = settingRuleType(entry, creatorPreset);
+  return <div className="setting-library-entry-section setting-usage-fields">
+      <div className="setting-usage-primary">
+        <PropertySegment label={tUi("触发方式")} value={usage} options={(creatorPreset ? CREATOR_RULE_TYPES : SETTING_RULE_TYPES).map(({ value, label, Icon }) => ({
+          value, label: <span className="setting-usage-label" title={tUi(label)}><Icon size={16} aria-hidden="true" /><span>{tUi(label)}</span></span>,
+        }))}
+          onChange={next => { if (next !== usage) changeUsage(next === "always" ? "required" : next); }} />
+      </div>
+      {usage === "always" && <PropertySegment label={tUi("常驻方式")} value={placement ? "prompt" : "required"}
+        options={localizeUiCopy(creatorPreset ? CREATOR_ALWAYS_MODES : ALWAYS_MODES, tUi)} onChange={changeUsage} />}
+      {usage === "lookup" && entry.contentMode !== "ejs" && <ReadingHint entry={entry} onChange={onChange} creatorPreset={creatorPreset} />}
+      {usage === "keyword" && <div className="setting-keywords-inline"><KeywordRules entry={entry} onChange={onChange} /></div>}
+    </div>;
 }
 
-export function referencedEjsTitles(code) {
-  const titles = new Set();
-  const pattern = /getwi\s*\(\s*(?:(?:null|["'`][^"'`]*["'`])\s*,\s*)?(["'`])([^"'`]+)\1/gi;
-  let match;
-  while ((match = pattern.exec(code))) titles.add(match[2]);
-  return titles;
-}
-
-export function ContentSection({ entry, entries, onChange, onOpenEntry, creatorPreset, toolbarHost, immersiveHost }) {
+function ReadingHint({ entry, onChange, creatorPreset }) {
   const tUi = useProductTranslation();
-  const reference = entry.dynamicMode === "ejs_reference";
-  const canUseEjs = reference || entry.triggerMode === "agent_tool" && entry.agentReadStrategy !== "required";
-  const ejs = canUseEjs && entry.contentMode === "ejs";
-  const label = reference ? tUi("EJS引用正文") : tUi("设定正文");
-  const references = ejs
-    ? entries
-      .filter((candidate) => candidate.dynamicMode === "ejs_reference" && referencedEjsTitles(entry.content).has(candidate.title))
-      .sort((left, right) => left.treeViewOrder - right.treeViewOrder)
-    : [];
+  return <label className="setting-library-field-card setting-library-text-field setting-property-row">
+    <span className="setting-property-label" title={tUi('注释（AI 读目录时靠它判断）')}>{creatorPreset ? tUi('选读说明') : tUi('查阅提示')}</span>
+    <textarea value={entry.agentSelectionHint} placeholder={creatorPreset ? tUi("写给 AI 看的一句话") : tUi("告诉 AI 什么时候适合查阅")}
+      onChange={event => onChange({ ...entry, agentSelectionHint: event.target.value })} />
+  </label>;
+}
+
+export function ContentSection({ entry, onChange, creatorPreset, presetPrompt, toolbarHost, immersiveHost }) {
+  const tUi = useProductTranslation();
+  const ejs = !creatorPreset && entry.contentMode === "ejs";
   return (
-    <div className={`setting-library-entry-section is-content-section${references.length ? " has-references" : ""}`}>
+    <div className="setting-library-entry-section is-content-section">
       <MarkdownTextareaField
-        toolbarHost={toolbarHost} immersiveHost={immersiveHost}
-        label={label}
+        toolbarHost={toolbarHost} immersiveHost={immersiveHost} fullWidth
+        label={presetPrompt ? tUi("提示词正文") : tUi("设定正文")}
         value={entry.content}
-        placeholder={ejs ? tUi("填写 EJS 模板") : reference ? tUi("填写供 EJS 控制器读取的内容") : tUi("填写设定正文")}
+        placeholder={presetPrompt ? tUi("填写提示词正文") : tUi("填写设定正文")}
         preview={!ejs}
-        onChange={(content) => onChange({ ...entry, content })}
-        labelAction={!creatorPreset && canUseEjs ? (
-          <SettingContentFormatMenu label={tUi('正文格式')} value={ejs ? 'ejs' : 'plain_text'} options={localizeUiCopy(CONTENT_MODES, tUi)} onChange={contentMode => onChange({ ...entry, contentMode })} />
-        ) : null}
+        onChange={content => onChange({ ...entry, content,
+          contentMode: creatorPreset ? 'plain_text' : settingBodyMode(content) })}
+        labelAction={ejs ? <span className="setting-template-status">{tUi("已识别 EJS")}</span> : null}
       />
-      {references.length ? (
-        <section className="setting-library-reference-list">
-          <div className="setting-library-reference-heading"><LinkSimple size={16} aria-hidden="true" /><strong>{tUi("EJS引用设定（")}{references.length}）</strong></div>
-          <div className="setting-library-reference-items">
-            {references.map((reference) => <button type="button" key={reference.id} onClick={() => onOpenEntry(reference.id)}>
-              <LinkSimple size={17} aria-hidden="true" />
-              <span>{reference.title}</span>
-              <small>{reference.enabled ? tUi("已开启") : tUi("已关闭")}</small>
-              <CaretRight size={15} aria-hidden="true" />
-            </button>)}
-          </div>
-        </section>
-      ) : null}
     </div>
   );
 }

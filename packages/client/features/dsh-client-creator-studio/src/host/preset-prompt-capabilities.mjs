@@ -4,11 +4,11 @@ import { requiredSettingCache } from '@eleckoi/dsh-client-roleplay/host/required
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 
 export const presetPromptToolset = {
-  id: 'presetPrompts', title: '预设提示词', description: '按虚拟目录浏览、搜索和读取当前创作预设的 Agent 读取条目。',
+  id: 'presetPrompts', title: '预设提示词', description: '按虚拟目录浏览、搜索和读取当前创作预设的 AI 选读和默认位置常驻提示词。',
   guide: [
     '本组只读当前工作室绑定的创作预设，不读取编辑目标的角色设定，也不访问工作区磁盘。不传 characterId 或 presetId。路径沿用预设内的文件夹和标题，使用 / 分隔，不带 .md 后缀。',
     '先 glob 查看目录、作者注释和 required_entries，再按需 grep 搜索或 read 读取准确路径。搜索不执行模板，也不触发关键词。已知路径可直接 read。',
-    'required_entries 是全部已开启的必读条目，不受搜索条件限制；回复前用 read 核对尚未读取的必读项。必读正文已在本轮前置缓存设定区，正常读取只返回编号、标题和回执；选读返回正文。若前置正文已变化，读取直接返回当前正文。提示词常驻和摘要模板不在读取目录中。',
+    'required_entries 列出已启用「常驻触发」且使用「默认位置」的提示词，不受搜索条件限制。回复前用 read 核对尚未读取的项目；正文已在本轮前置缓存时返回回执，否则返回当前正文。「AI 选读」按需获取正文。指定插入位置的常驻提示词和摘要模板不在目录中。',
     '目录、搜索和读取结果溢出时，沿用 eleckoi_call_capability，只传提示中的 result，按 next_offset 续读直到 null，也可用 result.query 搜索全文；无需重新执行原操作。',
   ],
 }

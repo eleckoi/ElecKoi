@@ -119,19 +119,19 @@
   padding: 0 0 16px;
 }
 
-.character-list-scroll > .sidebar-scroll-content > .character-group-block > .character-group-row {
+:is(.character-list-scroll > .sidebar-scroll-content, .preset-list-scroll > .sidebar-scroll-content > [role="tabpanel"]) > .character-group-block > .character-group-row {
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--list);
+  background: var(--character-group-row-background, var(--list));
 }
 
 .character-list-scroll .character-group-row:hover {
   background: var(--dsw-alias-interactive-bg-hover-solid, var(--control-bg-hover));
 }
 
-.character-list-scroll .character-group-row.drag-over {
-  background: color-mix(in srgb, var(--blue) 14%, var(--list));
+.character-group-sort-error {
+  margin: 4px 12px;
 }
 
 .character-group-block {
@@ -162,9 +162,16 @@ button.character-group-row:hover {
   cursor: grabbing;
 }
 
-.character-group-row.drag-over {
-  background: color-mix(in srgb, var(--blue) 14%, #fff);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blue) 46%, #fff);
+.character-group-row[draggable="true"]:not(.dragging) {
+  cursor: grab;
+}
+
+.character-group-row[data-drop-position="before"] {
+  box-shadow: inset 0 2px var(--blue);
+}
+
+.character-group-row[data-drop-position="after"] {
+  box-shadow: inset 0 -2px var(--blue);
 }
 
 .character-group-row span {

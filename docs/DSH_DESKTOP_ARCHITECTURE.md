@@ -6,7 +6,7 @@
 
 ## 权威来源
 
-角色瀑布流在 PC 管理器与安卓角色页共用 `VirtualMasonry`，沿现有 TanStack Virtual 的 lanes／measureElement／takeSnapshot 接入，仅挂载视口附近卡片并共用测量观察器，列数、间距、封面比例和卡片外观取现有 CSS。原完整目录继续负责搜索、排序、分组与批量操作，虚拟化不截断数据或将“全选”缩成已挂载节点。安卓从列表进入角色详情时，React Activity 隐藏原瀑布流并保留分列，返回以点击时的卡片 ID 和相对视口位置恢复。返回后的异步补测只按该卡同列上方的高度变化补偿滚动，用户继续操作列表时恢复 TanStack 原滚动补偿。完整离开角色列表时仍通过页面 scrollPositions 保存测量与锚点。大封面沿原媒体入口和同一缩略图生命周期按实际显示长边选择 256／512／1024／2048，超过对应分辨率用原图，原图查看、编辑和导出保持。没有新增跨端通道、数据库字段或第二份角色目录。
+角色瀑布流在 PC 管理器与安卓角色页共用 `VirtualMasonry`，沿现有 TanStack Virtual 的 lanes／measureElement／takeSnapshot 接入，仅挂载视口附近卡片并共用测量观察器，列数、间距、封面比例和卡片外观取现有 CSS。原完整目录继续负责搜索、排序、分组与批量操作，虚拟化不截断数据或将“全选”缩成已挂载节点。安卓从列表进入角色详情时，CSS 隐藏列表并保留原视口与分列，返回以点击时的卡片 ID 和相对视口位置恢复。返回后的异步补测只按该卡同列上方的高度变化补偿滚动，用户继续操作列表时恢复 TanStack 原滚动补偿。完整离开角色列表时仍通过页面 scrollPositions 保存测量与锚点。大封面沿原媒体入口和同一缩略图生命周期按实际显示长边选择 256／512／1024／2048，超过对应分辨率用原图，原图查看、编辑和导出保持。没有新增跨端通道、数据库字段或第二份角色目录。
 
 PC 预设主页面只展示原预设目录、资料、使用说明与更新时间线；编辑复用既有受管 Electron `child` 窗口和稳定 frameName，独立窗口按明确预设 ID 与白名单分类启动，和角色卡编辑器共用呈现骨架。跨窗更新继续走原 `eleckoiPresets` 目录与详情订阅，保存、外部冲突及正则／脚本各自的作用域和版本模型保持，不引入浏览器内存广播、产品 IPC、数据库副本或迁移。工具配置在该编辑器右侧内联原组件，工具成员草稿及正式工具配置服务边界不变。基础资料合并后，`eleckoi.preset.editor.profile` 与 `eleckoi.preset.editor.introduction` 两个原扩展座位继续分别接入。
 
@@ -20,13 +20,13 @@ PC 预设说明与更新记录的编辑复用公开 `EditorWritingBoard`，同�
 
 变量配置由角色素材库独占保存；编辑器的当前版本只表示编辑对象，开场白只提供新建会话的初始关联，之后可在当前会话的「变量查看与管理」选择或取消关联；未关联的旧会话也可直接选用本角色版本。变量工具每次调用经 `readConversationVariableContext` 读取该版本的最新目录、类型、默认值、说明、规则和校验，本轮上下文仅保存候选值，不持有生产配置副本。`defaultStateJson` 属于实时配置，聊天开局及楼层快照只用于初始记录、回看和回退。新增定义可读取默认值，未存储的当前值明确为缺失；不自动复活工具已删除的字段。补丁提交前同时核对共享候选值和最新配置，修改期间发生变化则返回可重试冲突，不覆盖新状态。关联版本缺失不阻断聊天或导入，不自动改用编辑器选中的其他版本，已有值和历史保留；恢复相同版本编号后重新使用其最新配置。
 
-当前仓库锁定 `deepseek-ai/deepseek-harness` `0.2.2-rc.3`，提交 `38a6a5c965aa99ab525161efb7cc5cf1fe62fced`。核对架构和行为时使用这个**精确提交**的官方源码，而不是浮动的 `master`、旧版文档或 ElecKoi 的临时实现：
+当前仓库锁定 `deepseek-ai/deepseek-harness` `0.2.2-rc.5`，提交 `9c2670d3bce5275e0d1610272958121af87787bb`。核对架构和行为时使用这个**精确提交**的官方源码，而不是浮动的 `master`、旧版文档或 ElecKoi 的临时实现：
 
 变量存档同时保存值和来源身份：作者定义引用版本编号、条目编号及所属容器，运行时新增项保存自己的稳定身份与容器归属。工具目录由最新定义及当前状态中有明确运行时来源的项组成；不比较旧配置、不扫描未归属旧值补目录，也不保存删除黑名单。同一身份改名保留值，新身份同名不继承旧值；删除定义不清洗历史。值与身份一起提交、快照及回退，不将配置正文、规则或默认值复制进聊天。schema v17 升级及旧聊天归档 v1/v2 导入只在边界建立一次简单基线：沿会话保存的关联版本识别已声明字段（包括停用项），其他旧字段作为 runtime 保留，不追查历史来源。原始变量值及快照不重建，编辑器选中版本不参与；后续新写入才按明确来源和稳定身份处理。
 
-- [DSH 架构](https://github.com/deepseek-ai/deepseek-harness/blob/38a6a5c965aa99ab525161efb7cc5cf1fe62fced/docs/architecture.zh.md)：Cordis、profile、bundle 与插件树。
-- [Web Client 架构](https://github.com/deepseek-ai/deepseek-harness/blob/38a6a5c965aa99ab525161efb7cc5cf1fe62fced/docs/subsystems/web-client.zh.md)：Host、Remote、Client model、Slots 与 React。
-- [官方 Desktop](https://github.com/deepseek-ai/deepseek-harness/blob/38a6a5c965aa99ab525161efb7cc5cf1fe62fced/apps/desktop/README.zh.md)：Electron 壳、受管 profile、Web Host、客户端资源及插件管理。
+- [DSH 架构](https://github.com/deepseek-ai/deepseek-harness/blob/9c2670d3bce5275e0d1610272958121af87787bb/docs/architecture.zh.md)：Cordis、profile、bundle 与插件树。
+- [Web Client 架构](https://github.com/deepseek-ai/deepseek-harness/blob/9c2670d3bce5275e0d1610272958121af87787bb/docs/subsystems/web-client.zh.md)：Host、Remote、Client model、Slots 与 React。
+- [官方 Desktop](https://github.com/deepseek-ai/deepseek-harness/blob/9c2670d3bce5275e0d1610272958121af87787bb/apps/desktop/README.zh.md)：Electron 壳、受管 profile、Web Host、客户端资源及插件管理。
 
 升级时先锁定同一上游发布批次的提交、包和构建产物，再把上述引用与本仓库的依赖一起更新。不同版本的官方文件不能混作一次架构依据。
 
@@ -77,7 +77,7 @@ PC 选文件／拖入文件沿同版官方 InputBar：普通文件可取得本�
 
 ## 官方接入合同与保留差异
 
-当前布局、会话、输入与轨迹沿锁定 DSH `0.2.2-rc.3` 运行；公开扩展合同不足时，仅保留登记了精确版本、原因和退役条件的最小补丁。
+当前布局、会话、输入与轨迹沿锁定 DSH `0.2.2-rc.5` 运行；公开扩展合同不足时，仅保留登记了精确版本、原因和退役条件的最小补丁。
 
 以下说明当前实现与有条件保留的差异：
 
@@ -135,7 +135,7 @@ Android Host 在已有启动覆盖配置中为官方 `workspace-controller` 指�
 
 PC 原生错误对话框与 Android 原生错误页面提供用户插件恢复入口，独立于无法启动的客户端插件树。壳先停止受管 Host，再调用同版本官方 `sanitizeProfile` 备份当前 profile 的 `cordis.patch.yml`，按各应用的内置组合清单恢复启动，并保留当前启用的官方 `OPTIONAL_BUNDLES`；用户安装的包和产品数据保留。客户端加载失败、Host 失败都必须到达这个原生入口，不能只写日志或要求进入尚未启动的插件中心。
 
-桌面 Web 启动错误在进入官方 `dshDesktopBoot.failed(string)` 前保留原始说明、调用栈、错误码、自有详情、`cause` 与 `AggregateError.errors`。锁定 0.2.2-rc.3 的原入口只传 `Error.message`，对普通对象执行 `String(reason)`，会使详情变成 `[object Object]`；同版 `dsh-web-frontend` 的受管补丁只修正这一转换，不增加桥接方法或改变启动、恢复与插件启停语义。标准错误、跨窗口错误及 DOMException 保留已有的原始调用位置，缺少调用栈时不补造；重复／循环引用通过路径引用表示，诊断正文不截断。补丁在官方入口完整保留这些诊断后退役；升级须以实际发布的前端运行普通对象、标准错误与嵌套失败回归，不能仅验证格式化辅助函数。
+桌面 Web 启动错误在进入官方 `dshDesktopBoot.failed(string)` 前保留原始说明、调用栈、错误码、自有详情、`cause` 与 `AggregateError.errors`。锁定 0.2.2-rc.5 的原入口只传 `Error.message`，对普通对象执行 `String(reason)`，会使详情变成 `[object Object]`；同版 `dsh-web-frontend` 的受管补丁只修正这一转换，不增加桥接方法或改变启动、恢复与插件启停语义。标准错误、跨窗口错误及 DOMException 保留已有的原始调用位置，缺少调用栈时不补造；重复／循环引用通过路径引用表示，诊断正文不截断。补丁在官方入口完整保留这些诊断后退役；升级须以实际发布的前端运行普通对象、标准错误与嵌套失败回归，不能仅验证格式化辅助函数。
 
 Windows 安装器在应用启动前通过独立原生检查恢复随包可执行映像的正常完整性级别，覆盖主程序、锁定 Electron 运行库、卸载与更新辅助程序。检查器从安装器临时目录运行，只处理安装目录内明确列出的文件，拒绝链接文件与链接资源目录；不重设目录访问控制、不修改上级目录或用户数据，也不关闭浏览器沙箱。写入完整性标记所需的临时权限必须恢复，失败阻断安装完成。此修复不改变 DSH 的工作区授权语义，也不能阻止其他程序在安装后再次改写文件安全属性。
 
@@ -199,6 +199,8 @@ PC 工作区与角色聊天共用官方 Workspace 导航拥有的唯一前台 `m
 
 角色与创作工作室的自定义压缩模板只替换官方压缩请求末尾的摘要指令，保留官方选择的历史消息、工具声明、工具历史、输出上限和取消信号。工具声明仍用于官方请求前缀及历史工具解析；禁止以摘要不执行工具为由删除这些声明。压缩请求仍由同版本官方压缩引擎选区、调用模型、校验及提交摘要；请求失败不能视为压缩成功。
 
+上一轮的供应商已注销时，手动压缩只可改用本会话明确选择且已注册的新供应商，切换前的自动压缩则使用该步实际解析出的新路由。专门配置的摘要模型仍优先，历史供应商可用时继续沿用官方路由。图片随官方选区原样交给适配器，摘要事件记录实际执行的供应商和模型。此修补通过锁定的 `dsh-compaction-basic` 补丁接入，退役条件见 `pnpm-workspace.yaml`。
+
 角色设定库与剧情变量的六个搜索／读取工具沿原 `ToolCallTree` 与 `tool.call.toolview` 分派产品结果视图，保留原调用身份、useDisclosure、inspect 及其他工具的 fallback。完整返回结果在当前挂载组件中派生虚拟目录和单条阅读，不新增会话、数据库或投影缓存副本；缓存设定只展示正式读取回执，不用当前配置重建历史正文。右侧直接显示正文并按动态高度虚拟化，没有第二次展开；长单行分块保留全部字符，左右滚动区直接使用官方主题皮肤。手机在同一结果区域阅读和返回，隐藏窗格保持可测量以维持虚拟范围与滚动位置。
 
 同一分派入口另接 `eleckoi_apply_variable_patch` 与 `eleckoi_apply_setting_patch` 的可读修改视图，沿用官方 DisclosureRow、编辑图标及原始调用 inspect。变量逐项展示记录中的 JSON Pointer 路径、设置／增减／添加／删除动作和值，不推算未记录的历史旧值；设定从本次调用展示原文片段／替换文字、写入正文或移动／删除／创建路径。只依据正式返回的操作数、替换次数、未变化、校验失败和 interrupted 事实显示状态，不把业务拒绝当成功。修改详情按动态高度虚拟化并保留全部文字与操作，无总量上限；读取书本移除额外书签笔画。无法安全解析的普通结果、溢出提示、结果续读或非文字附件继续交给原生展示。此处只解释现有 Session 调用记录，不查询当前数据库来重建历史、不重做写操作，也不新增日志、投影、缓存、数据库升级或原生工具成员。
@@ -224,7 +226,7 @@ PC 工作区与角色聊天共用官方 Workspace 导航拥有的唯一前台 `m
 数据位置由它的权威所有者决定，不以“统一放数据库”为目标：
 
 - DSH 已有正式领域使用 DSH 自己的持久化合同：模型配置使用 settings/profile，密钥使用 `ctx.credentials`，聊天正文使用 Session 日志，bundle 选择使用 profile。
-- DSH 的 [`dsh-storage-sqlite`](https://github.com/deepseek-ai/deepseek-harness/blob/38a6a5c965aa99ab525161efb7cc5cf1fe62fced/packages/storage/storage-sqlite/README.zh.md) 是 Host 侧的文档型 KV 后端：每个键保存一行 JSON，配合 `ctx.storageDomain` 提供 schema 校验、持久写入和进程内变更事件。简单、独立且按键读写的新增 Host 状态应优先评估这套正式合同。
+- DSH 的 [`dsh-storage-sqlite`](https://github.com/deepseek-ai/deepseek-harness/blob/9c2670d3bce5275e0d1610272958121af87787bb/packages/storage/storage-sqlite/README.zh.md) 是 Host 侧的文档型 KV 后端：每个键保存一行 JSON，配合 `ctx.storageDomain` 提供 schema 校验、持久写入和进程内变更事件。简单、独立且按键读写的新增 Host 状态应优先评估这套正式合同。
 - ElecKoi 的角色关系、聊天索引等关系型产品数据，在领域迁入 DSH Host 后由 Host Repository 独占 SQLite 写入；Client 和 Electron Main 不直接写。
 - 创作项目、导出文件和其他以目录为产品形态的数据保存在用户选择的文件目录；Host 只维护对应文件索引，不复制进 SQLite。
 - 页面加载状态、当前选择和生成中的临时状态留在 Client 内存，除非存在明确的重启恢复需求。
@@ -243,7 +245,11 @@ PC 工作区与角色聊天共用官方 Workspace 导航拥有的唯一前台 `m
 
 当前 `pnpm check:architecture` 检查目录、进程边界，并阻止已删除的 Desktop Gateway 业务桥回流；它仍不能代替真实 Host、Session 与插件生命周期验收。旧的 [桌面架构说明](history/ARCHITECTURE.md) 和私有知识库中的《ElecKoi Desktop 架构最终总纲》仅作历史索引。
 
-## 0.2.2-rc.3 当前批次
+## 0.2.2-rc.5 当前批次
+
+PC 与 Android 共用锁定发布版的 Host、Client、SDK 和 Session 格式。网页搜索的默认提供器由官方 Web 服务按模型路由选择，已保存的提供器继续优先。工具补丁继续保留原有完整输出配置，并透传官方加入的模型路由。Android 的文件发布适配继续按锁定包字节校验，切换版本时保持原 Session 和附件的持久化合同。
+
+## 0.2.2-rc.3 升级记录
 
 本机连接恢复沿官方 Connection／Gateway 的原重试与游标恢复流程；`dsh-client-connection` 的同版受管补丁仅对既有 `isLoopback`（含页面自有 Host）跳过浏览器 Internet 在线状态监听。本地 HTTP／WebSocket 不依赖外网在线标记，不能因该标记中止后永久等待 `online`；真实载体丢失仍由官方循环恢复，远程 Host 的离线暂停保持。无需新增计时器、重放工具、Session 事件或数据迁移。上游提供相同行为后删除该 guard、补丁登记及锁文件哈希，入口旁有 `RETIRE WHEN`。
 
@@ -265,7 +271,7 @@ Windows 静默更新使用官方独立安装状态进程、私有 Job 生命周�
 
 PC 语言入口位于产品设置的「聊天显示」内；Android 入口位于设置首页的「个性化」卡片，与「聊天显示」同级。两端使用翻译图标，通过 `settings.general.item` 中官方 `language` 项渲染原 LanguageRow。Android 启动覆盖保留声明这一子座位的 `ui-settings-general`，语言和字体设置由同一官方通用分区装配；生成覆盖文件在每次启动时更新，不转换或重写用户偏好。产品设置隐藏官方 `general` 分类，保留内置插件及其他扩展设置。「字号与字体」卡片通过同一扩展点的 `font-size` 项渲染完整官方 FontSettingsGroup，复用正文、代码、终端的字号、字体、分割线、输入框和步进；外层卡片是唯一折叠入口，展开即显示全部六项，官方组件内部折叠由登记的 ui-theme 展示补丁移除；桌面与共享手机设置均使用这一入口。字体与字号只由官方主题保存，原有官方自定义值保持；产品「间距与留白」仅调整行距、字距、段距及消息间距，不再覆盖字体或字号。八种内置语言、语言包登记、回退链、Host `locale.preference` 保存和重新连接同步均由官方 LocaleRuntime 负责，没有产品自建语言存储。桌面通过官方 `__DSH_LOCALE__` 合同读取同一 Host 偏好，并把最后确认的语言留在官方壳缓存，用于 Host 不可用时的原生提示。标题栏菜单及更新文案使用同批次的八语词典；ElecKoi 自有页面、菜单、提示、静态配置说明与共享手机界面通过 `eleckoi.ui` 命名空间接入同一八语言运行时；切换时保留组件、编辑草稿与当前会话。角色、预设和模型配置的自定义名称、聊天正文、作者内容及错误诊断保持原值。界面选项按显式的源码配置表翻译，日期使用同一语言的区域标记，不通过扫描或替换 DOM 实现。维护约定和回归入口见 [产品界面语言](../apps/web/src/app/i18n/README.md)。
 
-更新入口位于左侧边栏底部右侧，通过 `sidebar.update` 槽位复用官方 `DesktopUpdateIndicator` 和同一 `DesktopUpdateSource`，角色／设置侧栏和工作区侧栏共用该归属，不放入最左侧功能导航栏。无更新时隐藏；可用更新、下载进度、校验、就绪和失败状态、图标与提示均由官方组件负责。入口保留完整的更新状态和下载百分比，使用中性主题色及至少 32px 高度；没有更新时不占底部空间；提示使用官方 body portal，避免被导航容器裁切。发现新版时自动显示一次下载确认，下载须经用户选择；下载／校验中可关闭进度文档并从导航重新打开，复用同一主进程下载，不重复检查或下载。进度文档显示百分比及已下载／总大小，刷新内容不更换按钮或抢走关闭焦点；下载完成后回到可见窗口显示安装确认，关闭确认不授权安装。完整可访问名称和原诊断保持。更新确认使用官方独立 `WebContentsView` 文档及受限响应桥，取代桌面产品 React 更新弹窗；Android 保留其独立的 APK 下载流程。
+更新入口位于左侧边栏底部右侧，通过 `sidebar.update` 槽位复用官方 `DesktopUpdateIndicator` 和同一 `DesktopUpdateSource`，会话页与设置页沿用侧栏底部的更新入口。PC 角色页的侧栏底部留给角色列表。无更新时隐藏；可用更新、下载进度、校验、就绪和失败状态、图标与提示均由官方组件负责。入口保留完整的更新状态和下载百分比，使用中性主题色及至少 32px 高度；没有更新时不占底部空间；提示使用官方 body portal，避免被导航容器裁切。发现新版时自动显示一次下载确认，下载须经用户选择；下载／校验中可关闭进度文档并从导航重新打开，复用同一主进程下载，不重复检查或下载。进度文档显示百分比及已下载／总大小，刷新内容不更换按钮或抢走关闭焦点；下载完成后回到可见窗口显示安装确认，关闭确认不授权安装。完整可访问名称和原诊断保持。更新确认使用官方独立 `WebContentsView` 文档及受限响应桥，取代桌面产品 React 更新弹窗；Android 保留其独立的 APK 下载流程。
 
 插件页标题栏继续使用官方测量、滚动收起和按钮。桌面工具组的分数宽度在写回绝对定位布局时向外取整，并相应左移以保持原右边界，避免 CSS 布局量化后宽度稍小于按钮固有宽度，造成刷新与添加插件换行及裁切；其他标题部件的测量保持原值。该改动归现有同版本插件页补丁，随原有公开插槽、分组及缩放测量支持的退役条件共同维护。
 

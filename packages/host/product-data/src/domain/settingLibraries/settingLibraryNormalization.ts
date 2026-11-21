@@ -14,7 +14,7 @@ export function emptyEntry(id: string = randomUUID(), timestamp = now()): Settin
   return {
     id, title: '', iconId: '', kind: 'normal', groupId: '', content: '', openingMessages: [],
     defaultOpeningMessageId: '', agentSelectionHint: '', agentReadStrategy: 'normal',
-    dynamicMode: 'standard', contentMode: 'plain_text', keywords: [], keywordScanDepth: 1, conditionKeywords: [],
+    contentMode: 'plain_text', keywords: [], keywordScanDepth: 1, conditionKeywords: [],
     keywordCondition: 'none', keywordUseRegex: false, keywordIgnoreCase: true, keywordWholeWord: false,
     keywordRecursionDepth: 0, triggerMode: 'agent_tool', enabled: true, position: null,
     promptPositionId: '', insertRole: 'user', order: 1, viewOrder: 0, groupViewOrder: 0,

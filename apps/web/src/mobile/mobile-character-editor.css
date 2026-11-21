@@ -96,7 +96,7 @@
 .mobile-character-editor .variable-init-tabs button { padding-inline: 8px; }
 .mobile-character-editor .variable-type-options { width: 100%; }
 .mobile-character-editor :is(.setting-library-popover, .variable-popover, .regex-popover) { right: 0; left: auto; max-width: calc(100vw - 96px); }
-.mobile-character-editor .dynamic-settings-list-page { grid-template-rows: auto auto minmax(0, 1fr); }
+.mobile-character-editor .dynamic-settings-list-page.editor-heading-surface:has(> .dynamic-settings-list-toolbar:first-child) { grid-template-rows: auto minmax(0, 1fr); }
 .mobile-character-editor .dynamic-settings-list-page.editor-heading-surface > .dynamic-settings-list-toolbar { min-height: 40px; height: auto; margin-bottom: 12px; padding: 0; border: 0; box-shadow: none; }
 .mobile-character-editor .dynamic-settings-conversation-list { padding: 0 0 16px; }
 .mobile-character-editor .dynamic-settings-conversation-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 12px; }

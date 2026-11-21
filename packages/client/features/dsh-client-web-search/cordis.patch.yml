@@ -1,6 +1,5 @@
 - id: web
   config:
-    searchProvider: deepseek-official
     fetchProvider: http
 
 - id: tool-web

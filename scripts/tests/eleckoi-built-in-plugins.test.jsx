@@ -416,7 +416,7 @@ describe('ElecKoi built-in bundle details', () => {
                 continue;
             expect(source, spec).toContain("['" + packageName + "',");
         }
-        expect(workspace.patchedDependencies['@deepseek-ai/dsh-typert-generator@0.2.2-rc.3'])
-            .toBe('patches/@deepseek-ai__dsh-typert-generator@0.2.2-rc.3.patch');
+        expect(workspace.patchedDependencies['@deepseek-ai/dsh-typert-generator@0.2.2-rc.5'])
+            .toBe('patches/@deepseek-ai__dsh-typert-generator@0.2.2-rc.5.patch');
     });
 });

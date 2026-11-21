@@ -1,4 +1,5 @@
 import { PINNED_ENTRY_IDS } from "./settingLibraryEditing.js";
+import { ejsRelatedEntryIds, settingRuleType } from './settingLibraryRules.js';
 
 export function nodeKey(kind, id) {
   return `${kind}:${id}`;
@@ -17,8 +18,9 @@ function searchableEntryText(entry) {
   ].join("\n").toLocaleLowerCase();
 }
 
-export function treeNodes(library) {
+export function treeNodes(library, { creatorPreset = false } = {}) {
   if (!library) return [];
+  const ejsRelated = creatorPreset ? new Set() : ejsRelatedEntryIds(library);
   const groupsByParent = new Map();
   const entriesByGroup = new Map();
   for (const group of library.groups) {
@@ -50,7 +52,10 @@ export function treeNodes(library) {
           recordId: item.value.id,
           enabled: item.value.enabled,
           iconId: item.value.iconId,
-          dynamicMode: item.value.dynamicMode,
+          ...(item.value.kind === 'normal' ? {
+            rule: { enabled: item.value.enabled, type: settingRuleType(item.value, creatorPreset) },
+            usesEjs: ejsRelated.has(item.value.id),
+          } : {}),
           entryKind: item.value.kind,
           fixed: false,
           isLeaf: true,
@@ -87,7 +92,6 @@ export function treeNodes(library) {
       recordId: entry.id,
       enabled: entry.enabled,
       entryKind: entry.kind,
-      dynamicMode: entry.dynamicMode,
       fixed: true,
       isLeaf: true,
     }));

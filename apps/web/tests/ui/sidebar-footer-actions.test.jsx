@@ -1,6 +1,8 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
+import { OfficialFrameSidebar } from '../../src/app/windows/shell/components/OfficialFrameSidebar.jsx';
 import { SidePanelShell } from '../../src/app/windows/shell/components/SidePanelShell.jsx';
 import { SidebarContent } from '../../src/app/windows/shell/components/SidebarContent.jsx';
 
@@ -24,6 +26,25 @@ describe('sidebar footer actions', () => {
     const html = renderToStaticMarkup(<SidePanelShell><div>聊天列表</div></SidePanelShell>);
     expect(html).not.toContain('has-footer-actions');
     expect(html).not.toContain('侧边栏插件操作');
+  });
+
+  it('leaves the PC character sidebar footer out even with active plugin and update slots', () => {
+    const view = {
+      chat: { activeSection: 'character' },
+      navigation: { productPanelIds: ['character'], hasSidebarFooterActions: true },
+    };
+    const renderSidebarSlot = vi.fn(name => {
+      if (name === 'sidebar.footer.action' || name === 'sidebar.update') return <button>{name}</button>;
+      return null;
+    });
+    const html = renderToStaticMarkup(<MainPageContext.Provider value={view}>
+      <OfficialFrameSidebar width={328} renderSidebarSlot={renderSidebarSlot} />
+    </MainPageContext.Provider>);
+    expect(html).toContain('side-panel-brand');
+    expect(html).toContain('official-product-sidebar-target');
+    expect(html).not.toContain('has-footer-actions');
+    expect(html).not.toContain('side-panel-footer-actions');
+    expect(renderSidebarSlot.mock.calls.map(([name]) => name)).toEqual(['sidebar.brand.name']);
   });
 
   it.each([false, true])('puts the single update slot at the right footer of the %s workspace sidebar', workspace => {

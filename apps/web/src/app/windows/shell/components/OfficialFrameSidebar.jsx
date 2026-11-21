@@ -14,17 +14,21 @@ export function OfficialFrameSidebar({ collapsed, width, drawer, renderSidebarSl
     view.navigation.reportSidebar({ shown: !collapsed, width, drawer });
   }, [view.navigation, collapsed, width, drawer]);
   if (view.renderFrameSidebar) return view.renderFrameSidebar(renderSidebarSlot, workspaceSidebar, { collapsed, width, drawer });
-  const workspace = ['conversation', 'creatorStudio', 'schedules'].includes(view.chat.activeSection)
-    || !view.navigation.productPanelIds.includes(view.chat.activeSection) && view.chat.activeSection !== 'plugins';
+  const { activeSection } = view.chat;
+  const workspace = ['conversation', 'creatorStudio', 'schedules'].includes(activeSection)
+    || !view.navigation.productPanelIds.includes(activeSection) && activeSection !== 'plugins';
+  const showFooter = activeSection !== 'character';
+  const footerActions = showFooter && view.navigation.hasSidebarFooterActions
+    ? renderSidebarSlot('sidebar.footer.action', { wide: true }) : null;
   return <>
     {view.railTarget && createPortal(<SidebarRail {...view.railProps} renderSidebarSlot={renderSidebarSlot}
       renderEntryActions={view.navigation.hasSidebarEntryActions
         ? onDismiss => view.navigation.renderSidebarEntryActions(renderSidebarSlot, onDismiss) : undefined}
-      footerActions={view.navigation.hasSidebarFooterActions ? renderSidebarSlot('sidebar.footer.action', { wide: true }) : null} />, view.railTarget)}
+      footerActions={footerActions} />, view.railTarget)}
     {workspace ? <WorkspaceSidebarSurface collapsed={collapsed} renderSidebarSlot={renderSidebarSlot}>{workspaceSidebar}</WorkspaceSidebarSurface>
-      : <SidePanelShell collapsed={collapsed} contentWidth={expandedWidth.current} onCollapse={view.navigation.closeSidebar} renderSidebarSlot={renderSidebarSlot}
-    footerActions={view.navigation.hasSidebarFooterActions ? renderSidebarSlot('sidebar.footer.action', { wide: true }) : null} desktopMenu>
-    <div ref={view.setSidebarTarget} className="official-product-sidebar-target" />
-    </SidePanelShell>}
+      : <SidePanelShell collapsed={collapsed} contentWidth={expandedWidth.current} onCollapse={view.navigation.closeSidebar}
+          renderSidebarSlot={renderSidebarSlot} footerActions={footerActions} showFooter={showFooter} desktopMenu>
+        <div ref={view.setSidebarTarget} className="official-product-sidebar-target" />
+      </SidePanelShell>}
   </>;
 }

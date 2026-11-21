@@ -1,5 +1,5 @@
 import { useProductTranslation } from "../i18n/ProductLocaleContext.jsx";
-import { Component, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Component, Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ChatBackgroundModal, HistoryModal } from "../../modules/chat/index.js";
 import { useChatClient } from "../hooks/useChatClient.js";
 import { useWindowAppearance } from "../hooks/useWindowAppearance.js";
@@ -13,6 +13,7 @@ import { CommunityDialog } from "./shell/components/CommunityDialog.jsx";
 import { BugReportDialog } from "./shell/components/BugReportDialog.jsx";
 import { bugReportBridge, isBugReportAvailable } from "./shell/components/bugReportBridge.js";
 import { useReportProblem } from "./shell/hooks/useReportProblem.js";
+import { useDesktopPageTransition } from "./shell/hooks/useDesktopPageTransition.js";
 import { FailureReportContext } from '../../ui/ui/FailureReportContext.js';
 import { WindowControls } from "./shell/components/TitleBar.jsx";
 import { AppUpdateController, useAppUpdates } from "../../modules/updates/index.js";
@@ -60,6 +61,8 @@ export function MainWindow({ nativeFrame, conversations, characters, characterCo
   const [presetRequestedTab, setPresetRequestedTab] = useState("");
   const presetNavigationGuardRef = useRef(null);
   const modelNavigationGuardRef = useRef(null);
+  const frameRef = useRef(null);
+  const transitionToSection = useDesktopPageTransition(frameRef, chat.activeSection, navigation.items);
 
   useEffect(() => {
     const action = event => {
@@ -102,17 +105,16 @@ export function MainWindow({ nativeFrame, conversations, characters, characterCo
       .catch(bestEffort);
   }, []);
 
-  const changeActiveSection = useCallback((section) => {
+  const changeActiveSection = (section) => {
+    const commit = () => transitionToSection(section, () => chat.setActiveSection(section));
     if (chat.activeSection === "model" && section !== "model" && modelNavigationGuardRef.current) {
-      modelNavigationGuardRef.current(() => chat.setActiveSection(section));
-      return;
+      return modelNavigationGuardRef.current(commit);
     }
     if (chat.activeSection === "presets" && section !== "presets" && presetNavigationGuardRef.current) {
-      presetNavigationGuardRef.current(() => chat.setActiveSection(section));
-      return;
+      return presetNavigationGuardRef.current(commit);
     }
-    chat.setActiveSection(section);
-  }, [chat]);
+    return commit();
+  };
 
   useEffect(() => window.dshDesktop?.menu?.subscribe((command) => {
     if (command === 'about') { setSettingsPage('about'); changeActiveSection('settings'); }
@@ -190,7 +192,7 @@ export function MainWindow({ nativeFrame, conversations, characters, characterCo
         <div ref={setRailTarget} className="official-navigation-rail-target" />
       </section>
       <MainPageContext.Provider value={pageView}>
-      <div className="official-native-frame">
+      <div className="official-native-frame" ref={frameRef}>
         <MainPageErrorBoundary
           resetKey={chat.activeSection}
           fallback={(error) => renderWindowLayout({

@@ -17,7 +17,7 @@ async function configure(remoteCall, characterId) {
   const entries = paths.map((title, index) => ({ id: `setting-${index}`, title, iconId: 'setting', kind: 'normal', groupId: '',
     content: `Synthetic setting body ${index}\n${index === 85 ? 'Long synthetic line. '.repeat(300) : ''}SETTING_TAIL_${String(index).padStart(3, '0')}`,
     openingMessages: [], defaultOpeningMessageId: '', agentSelectionHint: 'Synthetic selection hint',
-    agentReadStrategy: index < 18 ? 'required' : index < 33 ? 'keyword' : 'normal', dynamicMode: 'standard', contentMode: 'plain_text',
+    agentReadStrategy: index < 18 ? 'required' : index < 33 ? 'keyword' : 'normal', contentMode: 'plain_text',
     keywords: index >= 18 && index < 33 ? ['Synthetic roleplay'] : [], keywordScanDepth: 1, conditionKeywords: [], keywordCondition: 'none', keywordUseRegex: false,
     keywordIgnoreCase: true, keywordWholeWord: false, keywordRecursionDepth: 0, triggerMode: 'agent_tool', enabled: true,
     position: null, promptPositionId: '', insertRole: 'system', order: index, viewOrder: index, groupViewOrder: index,

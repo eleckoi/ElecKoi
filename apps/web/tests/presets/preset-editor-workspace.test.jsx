@@ -192,7 +192,7 @@ it('opens prompt content directly and keeps saving available after clearing sele
   expect(host.querySelector('.setting-document .setting-writing-board')).not.toBeNull();
   expect(host.querySelector('.setting-library-entry-tabs')).toBeNull();
   await click(textButton('设置'));
-  expect(host.querySelector('.setting-document').textContent).toContain('读取与触发');
+  expect(host.querySelector('.setting-document').textContent).toContain('触发规则');
   await act(async () => host.querySelector('.preset-prompt-tree').dispatchEvent(new MouseEvent('mousedown',{bubbles:true,button:0})));
   expect(host.querySelector('.setting-document-empty')).not.toBeNull();
   expect(host.querySelector('.setting-directory .setting-library-save-button')).not.toBeNull();
@@ -228,10 +228,11 @@ it('shows the ready catalog on every entry without waiting for refresh or readin
 });
 
 it.each(['creator', 'roleplay'])('preserves the purpose-specific prompt controls in the new workspace (%s)', async purpose => {
-  stored = { ...stored, purpose, entries: stored.entries.map(entry => ({ ...entry, triggerMode: 'agent_tool' })) };
+  stored = { ...stored, purpose, entries: stored.entries.map(entry => ({ ...entry, enabled: true, triggerMode: 'agent_tool' })) };
   await mountEditor('prompts'); await click(textButton('设置'));
-  expect(Boolean(host.querySelector('[aria-label="关键词命中"]'))).toBe(purpose === 'roleplay');
-  await click(textButton('必读'));
+  expect(host.querySelector('[aria-label="触发方式"]')).toBeTruthy();
+  expect(Boolean(textButton('关键词触发'))).toBe(purpose === 'roleplay');
+  await click(textButton('常驻触发'));
   await click(host.querySelector('.setting-directory .setting-library-save-button'));
   expect(stored.entries[0].agentReadStrategy).toBe('required');
 });

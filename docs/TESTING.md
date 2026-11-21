@@ -6,7 +6,7 @@
 
 `creator-global-authoring.test.ts` 核对共享设定库中的 EJS 引用可通过正式创作能力创建、切换格式、批量修改和片段编辑；修订冲突与无效批次不写入。`global-setting-libraries.test.ts` 核对正文模式在保存、运行合并及磁盘重开后保留，必读／关键词／自动注入不能冒充引用。`creator-authoring-capabilities.test.ts` 另直接执行发现目录中的示例参数，确认保存与读取保留模板源码，创作读取不触发递归执行。
 
-`character-frontend-packages.test.js` 使用正式前端包页和官方 Portal，核对包选择与更多菜单在深浅主题、宽窄内容区的真实按钮间距、同树锚点、边界可见及卸载关闭；原目录、图标、包切换与导入合同继续覆盖。`editor-creation-polish.test.js` 另核对资产库筛选、排序和展示尺寸在窄屏横向空间不足时，仍贴着原按钮展开。不能仅断言菜单没有超出屏幕来代替锚点定位检查。
+`character-frontend-packages.test.js` 使用正式前端包页和官方 Portal，核对包选择与更多菜单在深浅主题、宽窄内容区的真实按钮间距、同树锚点、边界可见及卸载关闭；原目录、图标、包切换与导入合同继续覆盖。`editor-creation-polish.test.js` 核对资产库筛选、排序、展示尺寸的按钮间距，并通过浏览器触摸事件打开网格和列表里的图片／文件夹更多菜单，继续点击预览或打开。可用 `ELECKOI_POPOVER_BROWSER` 指向没有 CSS Anchor 的旧 Electron（例如 Chromium 124），覆盖系统 WebView 的定位兜底。
 
 `avatar-crop-encoding.test.jsx` 核对双指中点缩放、抬起一指后的连续拖动、取消与丢失捕获、原缩放边界及最终裁剪源坐标。`avatar-crop-interaction.test.js` 装配正式裁剪弹窗与移动样式，在深浅主题和手机／平板／PC 宽度核对图标居中、触区、缩放条及画布间距；通过浏览器触摸事件实际放大、缩小、旋转后调用正式 Worker 保存，核对输出图片尺寸。该合成浏览器测试不等同 Android 真机或安装包验收。
 

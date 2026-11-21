@@ -1,5 +1,5 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useMemo, useState } from "react";
 import { CopyIcon, ExportIcon, ImportIcon, PencilIcon, PlusIcon, TrashIcon } from "../../../ui/icons/index.jsx";
 import { FailureAlert } from "../../../ui/ui/FailureAlert.jsx";
@@ -15,6 +15,7 @@ import { sortCharacters, useCharacterSort } from '../../../ui/hooks/useCharacter
 import '../../../ui/styles/catalog-manager.css';
 import { VirtualMasonry } from '../../../ui/ui/VirtualMasonry.jsx';
 import { useCatalogSlots } from '../../../ui/ui/CatalogSlotsContext.jsx';
+import { DshFolderClosedIcon } from '../../../ui/icons/dshTreeIcons.jsx';
 
 const CHARACTER_ARTWORK_RATIOS = [0.76, 0.68, 0.84, 0.72];
 
@@ -25,13 +26,18 @@ export function characterArtworkAspectRatio(index) {
 // Existing catalog caption maximum: 25px padding + two 21px lines + 9px gap + 20px author.
 const estimateCardHeight = (_character, index, width) => width / characterArtworkAspectRatio(index) + 96;
 
-export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCharacters, onImportCharacters, onPrepareImports, onDiscardImports, onExportCharacters, onDuplicateCharacter }) {
+export function CharacterManager({ characters, onSaveGroups, onDeleteCharacters, onImportCharacters, onPrepareImports, onDiscardImports, onExportCharacters, onDuplicateCharacter, home }) {
   const tUi = useProductTranslation();
   const { render, actions } = useCatalogSlots();
   const { sort, chooseSort, error: sortError } = useCharacterSort('desktop_character_sort');
-  const [selectedGroup, setSelectedGroup] = useState(ALL_CHARACTERS);
-  const [keyword, setKeyword] = useState("");
+  const [localGroup, setLocalGroup] = useState(ALL_CHARACTERS);
+  const [localKeyword, setLocalKeyword] = useState("");
+  const { selectedGroup = localGroup, setSelectedGroup = setLocalGroup, keyword = localKeyword, setKeyword = setLocalKeyword } = home || {};
   const [deleteMode, setDeleteMode] = useState(false);
+  const [moveMode, setMoveMode] = useState(false);
+  const [moveTarget, setMoveTarget] = useState(null);
+  const [moving, setMoving] = useState(false);
+  const [moveError, setMoveError] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [groupMenu, setGroupMenu] = useState(null);
   const [cardGroupMenu, setCardGroupMenu] = useState(null);
@@ -61,7 +67,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
     }), sort, tUi.locale);
   }, [characters, keyword, selectedGroup, tUi, sort]);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const selectionMode = deleteMode || Boolean(exportFormat);
+  const selectionMode = deleteMode || moveMode || Boolean(exportFormat);
   // 导出目标的名字取自完整角色列表（而不是当前可见列表），
   // 这样即使目标被搜索/分组隐藏，选择条也仍然点名它，不会静默导出看不见的卡。
   const exportTargetNames = useMemo(() => {
@@ -86,7 +92,7 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
 
   useEffect(() => {
     if (selectedGroup !== ALL_CHARACTERS && !groups.includes(selectedGroup)) setSelectedGroup(ALL_CHARACTERS);
-  }, [groups, selectedGroup]);
+  }, [groups, selectedGroup, setSelectedGroup]);
 
   useEffect(() => {
     function closeMenus(event) {
@@ -104,18 +110,22 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
 
   // Escape 退出导出勾选模式（与 App 其他选择页一致）。弹层打开时让弹层先消费 Escape。
   useEffect(() => {
-    if (!exportFormat) return undefined;
+    if (!exportFormat && !moveMode) return undefined;
     function leaveExportMode(event) {
-      if (event.key !== "Escape") return;
-      if (exporting || groupMenu || cardGroupMenu || groupDialog || importOpen) return;
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (exporting || moveTarget !== null || groupMenu || cardGroupMenu || groupDialog || importOpen) return;
       event.preventDefault();
+      if (moveMode) {
+        leaveMove();
+        return;
+      }
       setExportFormat("");
       setSelectedIds([]);
       setExportNotice("");
     }
     window.addEventListener("keydown", leaveExportMode);
     return () => window.removeEventListener("keydown", leaveExportMode);
-  }, [exportFormat, exporting, groupMenu, cardGroupMenu, groupDialog, importOpen]);
+  }, [exportFormat, exporting, moveMode, moveTarget, groupMenu, cardGroupMenu, groupDialog, importOpen]);
 
   function countByGroup(group) {
     return (characters.items || []).filter((character) => characterGroup(character) === group).length;
@@ -299,13 +309,34 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
     }
   }
 
+  function leaveMove() {
+    setMoveMode(false);
+    setSelectedIds([]);
+    setMoveTarget(null);
+    setMoveError(null);
+  }
+
+  async function confirmMove(event) {
+    event.preventDefault();
+    if (moving || !selectedIds.length || typeof moveTarget !== 'string' || (moveTarget && !groups.includes(moveTarget))) return;
+    setMoving(true);
+    setMoveError(null);
+    try {
+      await onSaveGroups(groups, selectedIds.map(characterId => ({ characterId, group: moveTarget })));
+      leaveMove();
+    } catch (cause) {
+      setMoveError(cause ?? tUi("移动角色卡失败，请重试。"));
+    } finally {
+      setMoving(false);
+    }
+  }
+
   const search = render('eleckoi.character.library.search', { surface: 'pc-manager', value: keyword, onChange: setKeyword },
     <CatalogManagerSearch className="character-manager-search" value={keyword} onChange={setKeyword}
       placeholder={tUi("搜索角色…")} label={tUi("搜索角色")} />);
 
-  return (
-    <section className="character-manager-window catalog-manager" aria-label={tUi("角色卡管理器")}>
-      {render('eleckoi.character.library.groups', { surface: 'pc-manager', groups, allGroup: ALL_CHARACTERS, selectedGroup, onSelectGroup: setSelectedGroup },
+  const groupsPanel = render('eleckoi.character.library.groups', { surface: 'pc-manager', groups, allGroup: ALL_CHARACTERS, selectedGroup, onSelectGroup: setSelectedGroup },
+      home ? home.renderGroups(groups, selectionMode) :
         <aside className="character-manager-groups" onContextMenu={(event) => openGroupMenu(event)}>
         <button
           className={`character-manager-group ${selectedGroup === ALL_CHARACTERS ? "active" : ""}`}
@@ -332,7 +363,11 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
         <Button data-dsh-control variant="primary" className="character-add-group-button" type="button" onClick={() => openGroupDialog("add")}>
           <PlusIcon />
           {tUi("添加分组")}</Button>
-      </aside>)}
+      </aside>);
+
+  return (
+    <section className={`character-manager-window catalog-manager${home ? ' character-home-catalog' : ''}`} aria-label={tUi(home ? "角色" : "角色卡管理器")}>
+      {!home && groupsPanel}
 
       <section className="character-manager-main">
         <header className="character-manager-titlebar">
@@ -377,12 +412,22 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
             </section>)
           ) : (
             <>
-              <h2>{tUi("角色卡管理器")}</h2>
+              {!home && <h2>{tUi("角色卡管理器")}</h2>}
               <div className="catalog-manager-header-actions">
               {search}
               <CharacterSortMenu value={sort} onChange={chooseSort} />
               <span className="catalog-manager-action-divider" />
-              {deleteMode ? (
+              {moveMode ? (
+                <>
+                  <span className="character-manager-selection-count">{tUi("已选 ")}{selectedIds.length}{tUi(" 张")}</span>
+                  <Button data-dsh-control variant="outline" type="button" disabled={!visibleCharacters.length || allVisibleSelected} onClick={selectAllVisible}>{tUi("全选当前列表")}</Button>
+                  <Button data-dsh-control variant="outline" type="button" onClick={leaveMove}>{tUi("取消")}</Button>
+                  <Button data-dsh-control variant="primary" type="button" disabled={!selectedIds.length} onClick={() => {
+                    setMoveError(null);
+                    setMoveTarget(undefined);
+                  }}>{tUi("移动到分组")}</Button>
+                </>
+              ) : deleteMode ? (
                 render('eleckoi.character.library.selection', {
                   surface: 'pc-manager', mode: 'delete', selectedIds, busy: false,
                   onCancel: cancelDeleteMode, onConfirm: confirmDelete,
@@ -394,6 +439,8 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
                 </>)
               ) : (
                 <>
+                  {home && <Button data-dsh-control variant="outline" className="catalog-manager-surface-button" disabled={!characters.items?.length}
+                    onClick={() => { setError(null); setMoveMode(true); }}><DshFolderClosedIcon />{tUi("移动角色")}</Button>}
                   <Button data-dsh-control variant="primary" type="button" onClick={() => setImportOpen(true)}><ImportIcon />{tUi("导入角色")}</Button>
                   <Button data-dsh-control variant="outline" className="catalog-manager-surface-button" type="button" disabled={!characters.items?.length} onClick={startExport}>
                     <ExportIcon />{tUi("导出角色")}</Button>
@@ -405,28 +452,26 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
           )}
         </header>
 
+        {home && groupsPanel}
         <VirtualMasonry key={JSON.stringify([selectedGroup, keyword, sort])} items={visibleCharacters}
           scrollClassName="character-manager-scroll" gridClassName="character-manager-grid"
           estimateHeight={estimateCardHeight} leading={<>
           <FailureAlert failure={error} className="character-manager-error" />
           {sortError ? <FailureAlert failure={sortError} className="character-manager-error" /> : null}
           </>} empty={<p className="character-manager-empty">{tUi("这个分组里还没有角色卡。")}</p>}>
-              {(character, index, width) => render('eleckoi.character.library.item', {
+              {(character, index, width) => {
+                const onOpen = selectionMode ? () => toggleSelected(character.id) : () => (home?.onOpenCharacter || openCharacterEditorWindow)(character.id);
+                const onMenu = selectionMode ? undefined : home
+                  ? event => home.onContextMenu(event, character)
+                  : event => openCardGroupMenu(event, character);
+                const card = <CharacterCard character={character} artworkAspectRatio={characterArtworkAspectRatio(index)}
+                  artworkWidth={width} selectable={selectionMode} selected={selectedSet.has(character.id)}
+                  onClick={onOpen} onContextMenu={onMenu} />;
+                return render('eleckoi.character.library.item', {
                 surface: 'pc-manager', character, selected: selectedSet.has(character.id), selecting: selectionMode,
-                onSelect: () => selectionMode ? toggleSelected(character.id) : openCharacterEditorWindow(character.id),
-                onOpenMenu: selectionMode ? undefined : event => openCardGroupMenu(event, character),
-              }, (
-                <CharacterCard
-                  key={character.id}
-                  character={character}
-                  artworkAspectRatio={characterArtworkAspectRatio(index)}
-                  artworkWidth={width}
-                  selectable={selectionMode}
-                  selected={selectedSet.has(character.id)}
-                  onClick={selectionMode ? toggleSelected : openCharacterEditorWindow}
-                  onContextMenu={selectionMode ? undefined : openCardGroupMenu}
-                />
-              ))}
+                onSelect: onOpen, onOpenMenu: onMenu,
+              }, home && !selectionMode ? home.withFavorite(character, card) : card);
+              }}
         </VirtualMasonry>
       </section>
 
@@ -473,6 +518,24 @@ export function CharacterManager({ characters, persona, onSaveGroups, onDeleteCh
         />
       ) : null}
       {importOpen ? <CharacterImportDialog onClose={() => setImportOpen(false)} onImported={onImportCharacters} onPrepare={onPrepareImports} onDiscard={onDiscardImports} /> : null}
+      {moveTarget !== null && <Modal open title={tUi("移动到分组")} closeLabel={tUi("关闭")} onClose={() => { if (!moving) setMoveTarget(null); }}
+        className="product-dialog" contentClassName="product-dialog-content">
+        <form className="product-dialog-fields" onSubmit={confirmMove}>
+          <label>{tUi("分组")}
+            <select className="character-home-move-select" data-modal-autofocus value={moveTarget === undefined ? '' : `group:${moveTarget}`}
+              disabled={moving} onChange={event => setMoveTarget(event.target.value.slice('group:'.length))}>
+              <option value="" disabled>{tUi("选择分组")}</option>
+              <option value="group:">{tUi("未分组")}</option>
+              {groups.map(group => <option key={group} value={`group:${group}`}>{group}</option>)}
+            </select>
+          </label>
+          <FailureAlert failure={moveError} />
+          <div className="product-dialog-actions">
+            <Button variant="outline" disabled={moving} onClick={() => setMoveTarget(null)}>{tUi("取消")}</Button>
+            <Button type="submit" variant="primary" disabled={moving || !selectedIds.length || moveTarget === undefined || Boolean(moveTarget && !groups.includes(moveTarget))}>{tUi("保存")}</Button>
+          </div>
+        </form>
+      </Modal>}
     </section>
   );
 }

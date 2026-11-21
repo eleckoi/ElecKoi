@@ -87,12 +87,12 @@ describe('Android settings presentation with shared PC contracts', () => {
   it('opens shared roleplay style controls and retains independent tints across returning to the page', async () => {
     await mount('chat');
     expect([...container.querySelectorAll('.mobile-settings-row')].slice(0, 3).map(row => row.textContent))
-      .toEqual(['对话布局角色扮演', '酒馆风格无气泡', '头像与名字圆角矩形 · 65']);
-    await click('酒馆风格无气泡');
+      .toEqual(['对话布局角色扮演', '酒馆风格有气泡', '头像与名字圆角矩形 · 65']);
+    await click('酒馆风格有气泡');
     expect(view.settingsPage).toBe('chat:style');
     expect(container.querySelector('.mobile-header h1').textContent).toBe('酒馆风格');
     expect(container.querySelector('[aria-label="对话底板"]').checked).toBe(false);
-    await act(async () => container.querySelector('[aria-label="消息气泡"]').click());
+    expect(container.querySelector('[aria-label="消息气泡"]').checked).toBe(true);
     await input(container.querySelector('[aria-label="用户气泡色调"]'), '#987654');
     expect(view.appearance.chatDisplay.roleplay_style).toMatchObject({ bubbles_enabled: true, user_bubble_tint: '#987654', assistant_bubble_tint: null });
     await click('返回'); await click('酒馆风格有气泡');

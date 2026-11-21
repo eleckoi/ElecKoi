@@ -23,6 +23,7 @@ import { migration0014 } from './migrations/0014CreatorWorkspace'
 import { migration0015 } from './migrations/0015OpeningVariableState'
 import { migration0016 } from './migrations/0016CreatorPrompts'
 import { migration0018 } from './migrations/0018CharacterCatalogActivity'
+import { migration0019 } from './migrations/0019SettingReferences'
 import { migration0017 } from './migrations/0017VariableIdentity'
 import { legacySettingSnapshotsSql } from './migrations/conversationStateStorage'
 import { addRegexLibraryEnablement } from './migrations/regexLibraryEnablement'
@@ -34,9 +35,9 @@ const PRE_RELEASE_V2_SCHEMA_VERSION = 2
 const PRE_RELEASE_V2_BASELINES = [BASELINE_ID, 'eleckoi-common-v1-2026-09-14-runtime-clean'] as const
 // RETIRE WHEN: 只有正式停止支持某个旧 schema 及更早版本直接升级后，才能删除从该版本
 // 出发的步骤，并同步删除 import、登记和 tests/database.test.ts 中对应旧库 fixture。
-// 当前仍支持 v1 连续升级至 v18；已升级的本机数据库不能证明其他旧安装已完成迁移。
+// 当前仍支持 v1 连续升级至 v19；已升级的本机数据库不能证明其他旧安装已完成迁移。
 // 剩余受支持版本必须仍有连续原子迁移链，当前 SQL、版本常量和完整性检查始终保留。
-const migrations = [migration0002, migration0003, migration0004, migration0005, migration0006, migration0007, migration0008, migration0009, migration0010, migration0011, migration0012, migration0013, migration0014, migration0015, migration0016, migration0017, migration0018] as const
+const migrations = [migration0002, migration0003, migration0004, migration0005, migration0006, migration0007, migration0008, migration0009, migration0010, migration0011, migration0012, migration0013, migration0014, migration0015, migration0016, migration0017, migration0018, migration0019] as const
 // RETIRE WHEN: 停止支持 v12 及更早结构和已登记的旧开发结构直接升级后，连同两个校验器的 beforeV13 分支删除。
 const schemaV13Tables = new Set(['character_openings', 'global_setting_libraries', 'global_setting_library_state'])
 const unreleasedGenerationTableSql = 'CREATE TABLE IF NOT EXISTS `conversation_generation_results` (`operationId` TEXT NOT NULL, `conversationId` TEXT NOT NULL, `resultJson` TEXT NOT NULL, PRIMARY KEY(`operationId`), FOREIGN KEY(`conversationId`) REFERENCES `chat_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )'

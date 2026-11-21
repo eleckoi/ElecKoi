@@ -13,7 +13,7 @@ export function OfficialFramePage({ sidePanel, mainPanel, overlays, panelId }) {
     <section className="main-panel-shell" aria-label={view.tUi('主功能界面')}>
       <TitleBar splitSurface desktopMenu={!view.sidebar.shown} showWindowControls={false}
         sidePanelCollapsed={!view.sidebar.shown} onToggleSidePanel={view.navigation.toggleSidebar} />
-      <div className="main-panel-content">{plugins ? <PluginCenterSurface>{mainPanel}</PluginCenterSurface> : mainPanel}</div>
+      <div className="main-panel-content" data-desktop-page-content="">{plugins ? <PluginCenterSurface>{mainPanel}</PluginCenterSurface> : mainPanel}</div>
     </section>
     {overlays}
   </>;

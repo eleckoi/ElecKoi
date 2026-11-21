@@ -2,7 +2,7 @@ import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { productLocaleTag } from '../app/i18n/productCopy.js';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
-import { Activity, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Copy } from '@phosphor-icons/react';
 import { Avatar } from '../ui/ui/Avatar.jsx';
 import { MobileOverflowIcon, MobilePictureFrameIcon } from './MobileIcons.jsx';
@@ -125,7 +125,7 @@ export function MobileCharactersPage() {
     <CharacterEditorWindow embeddedCharacterId={route.characterId} characterCatalog={characters} characterConfiguration={view.characterConfiguration}
       compact registerBackHandler={view.registerBackHandler}
       navigationGuardRef={view.guardRef} renderCharacterEditorSection={view.renderCharacterEditorSection} onToolbarBack={view.goBack}
-      renderHeader={({ saving, dirty, save, subpage, feedback }) => <MobileHeader title={subpage?.title || tUi("编辑角色")} back={subpage?.back || view.goBack}>{subpage?.actions}<MobileSaveFeedback {...feedback} onNotify={chat.notify} successMessage={tUi("角色配置已保存")} /><button type="button" disabled={saving || !dirty} onClick={save}>{tUi("保存")}</button></MobileHeader>} />
+      renderHeader={({ title, saving, dirty, save, subpage, feedback }) => <MobileHeader title={title} back={subpage?.back || view.goBack}>{subpage?.actions}<MobileSaveFeedback {...feedback} onNotify={chat.notify} successMessage={tUi("角色配置已保存")} /><button type="button" disabled={saving || !dirty} onClick={save}>{tUi("保存")}</button></MobileHeader>} />
   </div>;
   if (route.kind === 'character-profile') {
     const character = chat.characters.items.find(item => item.id === route.characterId);
@@ -140,7 +140,7 @@ export function MobileCharactersPage() {
       {view.renderCharacterPageSection?.('profile', owner, fallback) ?? fallback}
     </div> : <MobileState empty={tUi("角色不存在")} />}</div>;
   }
-  const library = !destination || retainLibrary ? <div className="mobile-root-page">
+  const library = !destination || retainLibrary ? <div className="mobile-root-page" data-background={destination ? true : undefined}>
     <MobileHeader title={tUi("角色")} onSearch={view.openSearch}
       renderSearch={fallback => render('eleckoi.character.library.search', { surface: 'android', onOpen: view.openSearch }, fallback)}>
       <button type="button" aria-label={tUi("角色操作")} aria-haspopup="menu" aria-expanded={Boolean(menu)} disabled={busy || Boolean(selection)} onClick={event => setMenu(event.currentTarget)}><MobileOverflowIcon /></button>
@@ -160,7 +160,7 @@ export function MobileCharactersPage() {
       const character = visible.find(item => item.id === id);
       if (character) selectCharacter(character);
     } },
-      <CharacterGrid characters={visible} selectedIds={selectedIds} selection={selection}
+      <CharacterGrid characters={visible} selectedIds={selectedIds} selection={selection} active={!destination}
         scrollKey={JSON.stringify(['characters', group, sort])} onClick={selectCharacter} />)}
     </div>
     {(error || sortError) && <p className="mobile-inline-error" role="alert">{error || sortError}</p>}
@@ -176,11 +176,10 @@ export function MobileCharactersPage() {
     </MobileActionMenu>}
     {importOpen && <CharacterImportDialog onClose={() => setImportOpen(false)} onPrepare={chat.prepareCharacterImports} onDiscard={chat.discardCharacterImports} onImported={chat.importPreparedCharacters} />}
   </div> : null;
-  return <>
-    {/* Hiding the library preserves the original masonry lane assignments. */}
-    <Activity mode={destination ? 'hidden' : 'visible'}>{library}</Activity>
+  return <div className="mobile-character-page">
+    {library}
     {destination}
-  </>;
+  </div>;
 }
 
 const artworkRatio = index => [0.76, 0.68, 0.84, 0.72][index % 4];
@@ -197,13 +196,13 @@ function CharacterCover({ character, width, ratio }) {
     onError={() => setFailure({ source, stage: !failed && sources.src !== source ? 1 : 2 })} />
     : <span className="mobile-cover-empty"><MobilePictureFrameIcon />{tUi("暂无封面")}</span>;
 }
-function CharacterGrid({ characters, selection, selectedIds, onClick, filters, scrollKey = 'characters' }) {
+function CharacterGrid({ characters, selection, selectedIds, onClick, filters, active, scrollKey = 'characters' }) {
   const tUi = useProductTranslation();
   const { render } = useCatalogSlots();
   const { scrollPositions } = useMainPageView();
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   return <VirtualMasonry key={scrollKey} items={characters} scrollClassName={`mobile-scroll mobile-character-list${characters.length ? '' : ' is-empty'}`}
-    gridClassName="mobile-character-grid" initialState={scrollPositions.get(`masonry:${scrollKey}`)}
+    gridClassName="mobile-character-grid" active={active} initialState={scrollPositions.get(`masonry:${scrollKey}`)}
     onSaveState={state => scrollPositions.set(`masonry:${scrollKey}`, state)} estimateHeight={estimateCardHeight}
     leading={filters} empty={<MobileState empty={tUi("暂无角色")} />}>
     {(character, index, width, rememberPosition) => {

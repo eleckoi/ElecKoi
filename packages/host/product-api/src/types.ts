@@ -363,7 +363,7 @@ export interface AuthorConversationState {
   settingLibrary: ConversationRuntimeSettingLibrary | null
 }
 
-export type WebSearchMode = 'provider_native' | 'tavily' | 'deepseek_search_api'
+export type WebSearchMode = 'automatic' | 'provider_native' | 'tavily' | 'deepseek_search_api'
 export type WebFetchMode = 'http' | 'deepseek_fetch_api'
 
 export interface TavilyConnection {
@@ -539,7 +539,6 @@ export interface SettingLibraryEntry {
   defaultOpeningMessageId: string
   agentSelectionHint: string
   agentReadStrategy: 'required' | 'keyword' | 'normal'
-  dynamicMode: 'standard' | 'ejs_reference'
   contentMode: 'plain_text' | 'ejs'
   keywords: string[]
   keywordScanDepth: number
@@ -1046,6 +1045,7 @@ export interface ElecKoiProductDataStore {
   updateAgentPresetEntries(presetId: string, updates: SettingLibraryEntryUpdate[]): SettingLibraryEntry[]
   saveAgentPreset(preset: AgentPreset, expectedRegexRules: RegexRule[], scriptLibrary?: ScriptLibrary): AgentPreset
   createAgentPreset(name: string, libraryGroupId: string, purpose: AgentPresetPurpose): AgentPreset
+  duplicateAgentPreset(presetId: string): AgentPreset
   importAgentPreset(source: AgentPresetImportSource, document: AgentPresetImportDocument, purpose: AgentPresetPurpose): AgentPresetImportResult
   exportAgentPreset(presetId: string, format: AgentPresetExportFormat): AgentPresetExportResult
   setActiveAgentPreset(presetId: string): AgentPresetCatalog
@@ -1053,6 +1053,7 @@ export interface ElecKoiProductDataStore {
   renameAgentPresetGroup(groupId: string, name: string): AgentPresetCatalog
   reorderAgentPresetGroups(groupIds: string[], purpose: AgentPresetPurpose): AgentPresetCatalog
   assignAgentPresetGroup(presetId: string, groupId: string): AgentPresetCatalog
+  assignAgentPresetGroups(presetIds: string[], groupId: string, purpose: AgentPresetPurpose): AgentPresetCatalog
   deleteAgentPresetGroup(groupId: string): AgentPresetCatalog
   deleteAgentPreset(presetId: string): AgentPresetCatalog
   readCreatorProjects(): CreatorProjectCollection

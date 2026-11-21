@@ -32,11 +32,18 @@ save 提供 kind、配置对象数组 documents 和版本库数组 versions：�
 
 创作读取用于检查已保存的原稿：list 是目录，不含正文；read 返回完整正文和配置，EJS 也返回源码，不执行模板、关键词匹配或聊天注入。全局正文不会自动放进工作室请求，必须实际调用读取后才能引用。当前创作预设的提示词通过 presetPrompts 读取，与全局设定库、角色设定库分别归属，必读回执按该组说明核对本轮已前置的正文。结果较长时按 eleckoi_call_capability 的 result 提示续读或搜索，不能把目录或片段当作已读完整正文。
 
-读取策略只有必读和选读。agentReadStrategy="required" 是必读；"normal" 是选读并关闭关键词匹配；"keyword" 是选读并开启关键词匹配，与编辑器的关键词命中开关相同，不是第三个读取档位。只填写 keywords 不会开启匹配；开启时把 agentReadStrategy 设为 keyword，关闭时设为 normal，保留原关键词和其他条件。
+新建设定默认关闭触发规则（enabled=false）。要启用规则时传 enabled=true，并按设置页选择对应方式：
 
-enabled 是条目开关。普通设定 dynamicMode="standard"；triggerMode="agent_tool" 交由设定工具读取，"always" 按插入位置注入。必读正文、always 正文都用 contentMode="plain_text"。
+| 触发方式 | 字段 |
+| --- | --- |
+| AI 选读 | triggerMode="agent_tool"，agentReadStrategy="normal" |
+| 关键词触发 | triggerMode="agent_tool"，agentReadStrategy="keyword"，填写 keywords |
+| 常驻触发 · 每轮必读 | triggerMode="agent_tool"，agentReadStrategy="required" |
+| 常驻触发 · 指定插入位置 | triggerMode="always"，填写 position |
 
-agent_tool 下的选读普通设定和 EJS 引用设定都可以用 contentMode="ejs"，正文输入框右上方统一用“文字／EJS”菜单切换；文字使用 plain_text。EJS 正文通过正式 EJS 3.1.10 编译，代码写在 <% ... %>，输出表达式用 <%= ... %> 或 <%- ... %>；这里两种输出标记都输出文字。支持标准模板标签、注释、空白控制和 await；print(...values) 按输出所在位置逐项拼接文字，不额外插入空格，locals 与 this 指向模板上下文。模板外的文字原样输出。不是把 EJS 代码当提示词交给 AI 执行。
+关闭规则只需写 enabled=false。切换触发方式会保留未修改的关键词和匹配设置。settings.list 的 readStrategy 显示当前规则类型，关闭时为「无规则」。
+
+编辑器保存整份正文，编辑时从 `<%` 自动识别 EJS。创作工具新建时默认 plain_text，编写模板时显式传 contentMode="ejs" 和整份正文。修改时省略 contentMode 则保留现有格式。代码写在 `<% ... %>`，两种输出标记 `<%= ... %>` 和 `<%- ... %>` 都输出文字。支持标准标签、注释、空白控制和 await。print(...values) 原位逐项拼接文字，locals 与 this 指向模板上下文，标签外的文字同样保留在结果中。
 
 角色聊天运行时的 EJS 控制器按当前变量和聊天计算，输出为空表示本轮没有触发，非空输出列为本轮要读取的正文；聊天的设定工具返回执行后的文字。本组 settings.read 则返回可编辑的原稿源码。不要用 SDK 脚本、HTML 页面或 Zod Schema 冒充 EJS 设定。
 
@@ -46,17 +53,19 @@ agent_tool 下的选读普通设定和 EJS 引用设定都可以用 contentMode=
 
 getvar("组.变量", { defaults: 0 }) 读取当前聊天变量；variables/stat_data 是同一份状态，lastUserMessage 是最近用户正文。只有取回的状态用于判断，不修改它来结算变量。
 
-代码与设定文字可混写，也可分离：分离时先创建 dynamicMode="ejs_reference" 的引用条目，再在 EJS 控制器里用 <%- await getwi("文件夹/引用标题") %> 输出它。引用的 contentMode="plain_text" 时原样返回正文，里面的模板标记也保持原样；contentMode="ejs" 时按同一份当前聊天变量与历史上下文继续执行，返回计算后的文字，内部还可用 getwi 引用其他条目。引用只在被调用时执行，不单独进入 AI 选读目录。
+用 `<%- await getwi("文件夹/设定标题") %>` 取用设定正文。contentMode="plain_text" 时原样返回文字，"ejs" 时用同一聊天上下文渲染完整正文，内部可以继续引用其他条目。
 
-getwi 按准确引用标题或完整设定路径匹配；标题重复时用完整路径。循环引用返回含完整路径链的错误，失败沿调用链传到当前控制器，其他设定仍可读取；没有额外的固定递归层数上限。不可引用另一个普通/EJS 控制器，也不要用 EJS 标准 include() 代替本产品的 getwi。
+getwi 按准确标题或完整路径匹配，直接读取目标的正文。目标的触发规则可以关闭，关键词也可以尚未命中。标题重复时使用完整路径。找不到目标或形成循环时，返回可定位的错误。
+
+EJS 设定关闭触发规则后，仍在每次生成时按当前聊天渲染。正文如 `<% if (getChatMessages().length === 20) { %>钟响了。<% } %>` 会在第 20 条角色聊天消息时输出，非空结果进入设定插入点 1。旧版引用条目导入时转换为规则关闭的普通条目。
 
 条目和文件夹的 create/update/update_many/edit/remove/create_group/update_group/remove_group 与读取使用同一 target。修改全局库时必须传 target={scope:"global",libraryId:"准确库编号"}，并以最近 list/read 或成功写入返回的 revision 作为 expectedRevision；冲突后重新读取、合并，不覆盖他人的修改。省略 target 或 scope="character" 仍修改当前角色，角色设定不传 expectedRevision；不能提交其他角色编号。全局成功 update/update_many 返回 entries、revision 和 source，角色仍返回条目数组。
 
-新建全局库用 create_library({target:{scope:"global"},expectedRevision,name})，默认停用且为空；返回 library.id。update_library({target:{scope:"global",libraryId},expectedRevision,changes:{name或enabled}}) 修改名称或库开关，保留条目开关；remove_library 删除整个指定库及内容，只在用户要求删除整个库时调用。修改一个条目或文件夹不删除库。全局写入影响所有使用该共享库的角色；更新已有条目保留未提交的 enabled，新建条目沿原设定默认 enabled=true，起草时可明确 enabled=false，库开关不随条目保存改变。独立开场白通过 character.read_openings、character.save_openings 管理。
+新建全局库用 create_library({target:{scope:"global"},expectedRevision,name})，默认停用且为空；返回 library.id。update_library({target:{scope:"global",libraryId},expectedRevision,changes:{name或enabled}}) 修改名称或库开关，保留条目开关；remove_library 删除整个指定库及内容，只在用户要求删除整个库时调用。修改一个条目或文件夹不删除库。全局写入影响所有使用该共享库的角色；更新已有条目保留未提交的 enabled，库开关不随条目保存改变。独立开场白通过 character.read_openings、character.save_openings 管理。
 
 只修改正文中的一段时，先 read 确认准确原文，再优先 settings.edit({id,old_string,new_string})，只提交旧片段与新片段，无需重传整条正文。其余文字、目录、启停和读取配置保留。匹配按字面量进行，不执行正则、EJS 或 $ 替换标记；new_string 为空可删除片段。原文为空、找不到、默认匹配多处或新旧相同时不保存；匹配多处先补充上下文，只有明确替换全部时传 replace_all=true。成功只返回编号、替换次数和修改回执，不能把未读取的长正文凭空重写。settings.update 的 content 仍表示完整正文，update_many 是按条目批量修改，不是正文片段替换。
 
-多条设定使用 settings.update_many({updates:[{id,changes},...]}) 在同一事务提交，例如批量开启时每项 changes={agentReadStrategy:"keyword"}。任一编号、格式或保存失败整批不提交。文件夹通过 create_group/update_group/remove_group 管理；update_group 可改 name、parentId、order、treeViewOrder，编号和条目归属不变；remove_group 会删除该文件夹、其子文件夹和条目，不能用于只改名字。
+多条设定使用 settings.update_many({updates:[{id,changes},...]}) 在同一事务提交。例如为已填关键词的条目批量开启关键词触发，传 changes={enabled:true,triggerMode:"agent_tool",agentReadStrategy:"keyword"}。任一编号、格式或保存失败整批不提交。文件夹通过 create_group/update_group/remove_group 管理；update_group 可改 name、parentId、order、treeViewOrder，编号和条目归属不变；remove_group 会删除该文件夹、其子文件夹和条目，不能用于只改名字。
 
 移动设定到文件夹用 update 的 changes.groupId，移到根目录填空字符串；移动文件夹用 update_group 的 changes.parentId，父级必须属于同一库，不跨角色或全局库。无需为普通移动重传正文。
 
@@ -74,22 +83,16 @@ getwi 按准确引用标题或完整设定路径匹配；标题重复时用完�
 
 ### 代码与文字分离
 
+先用 settings.create 保存文字素材：
+
 ```json
-{
-  "title": "代码与文字分离",
-  "reference": {
-    "title": "阶段素材",
-    "dynamicMode": "ejs_reference",
-    "contentMode": "plain_text",
-    "content": "场景进入第二阶段。"
-  },
-  "controller": {
-    "title": "阶段控制器",
-    "agentReadStrategy": "normal",
-    "contentMode": "ejs",
-    "content": "<% if (getvar(\"阶段\", { defaults: 0 }) >= 2) { %><%- await getwi(\"阶段素材\") %><% } %>"
-  }
-}
+{"title":"阶段素材","content":"场景进入第二阶段。"}
+```
+
+再用 settings.create 保存会引用它的动态正文：
+
+```json
+{"title":"阶段控制器","contentMode":"ejs","content":"<% if (getvar(\"阶段\", { defaults: 0 }) >= 2) { %><%- await getwi(\"阶段素材\") %><% } %>"}
 ```
 
 ### 动态正文递归引用
@@ -99,22 +102,22 @@ getwi 按准确引用标题或完整设定路径匹配；标题重复时用完�
 第一条为文字引用：
 
 ```json
-{"title":"固定规则","dynamicMode":"ejs_reference","contentMode":"plain_text","enabled":true,"content":"人物只描述自己能观察到的信息。"}
+{"title":"固定规则","contentMode":"plain_text","enabled":false,"content":"人物只描述自己能观察到的信息。"}
 ```
 
 第二条为动态引用，既读取本聊天变量，也引用第一条：
 
 ```json
-{"title":"人物状态","dynamicMode":"ejs_reference","contentMode":"ejs","enabled":true,"content":"好感度：<%= getvar(\"好感度\", {defaults:0}) %>。<%- await getwi(\"固定规则\") %>"}
+{"title":"人物状态","contentMode":"ejs","enabled":false,"content":"好感度：<%= getvar(\"好感度\", {defaults:0}) %>。<%- await getwi(\"固定规则\") %>"}
 ```
 
-第三条为控制器，调用时递归取得前两条结果：
+第三条在关键词命中后递归取得前两条结果：
 
 ```json
-{"title":"剧情状态控制器","contentMode":"ejs","enabled":true,"content":"<%- await getwi(\"人物状态\") %>"}
+{"title":"剧情状态控制器","contentMode":"ejs","enabled":true,"triggerMode":"agent_tool","agentReadStrategy":"keyword","keywords":["剧情状态"],"content":"<%- await getwi(\"人物状态\") %>"}
 ```
 
-需要切换已有引用格式时，先 read，再用 settings.update({id,changes:{contentMode:"ejs"}})，其正文和其他配置保持；切回文字使用 plain_text。共享全局设定库使用相同字段，另外携带准确 target 和最新 expectedRevision；这不创建全局变量。不要把整套示例作为 settings.create 的嵌套 reference/controller 参数提交。
+第二条规则关闭时也会独立求值。如果它和第三条在同一轮输出，两处可能出现相同文字。需要切换已有正文格式时，先 read，再用 settings.update({id,changes:{contentMode:"ejs"}})，其正文和其他配置保持；切回文字使用 plain_text。共享全局设定库使用相同字段，另外携带准确 target 和最新 expectedRevision。
 
 ## 变量库
 

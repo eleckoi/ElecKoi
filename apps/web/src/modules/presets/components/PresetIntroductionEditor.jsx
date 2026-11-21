@@ -19,7 +19,7 @@ function ContentDialog({ title, children, onClose, busy }) {
     className="product-dialog preset-content-modal" contentClassName="product-dialog-content">{children}</Modal>;
 }
 
-export function PresetIntroductionEditor({ preset, editorRef, saving, error, onClearError, onSaveProfile, readOnly = false, onDirtyChange, autoEditEmpty = true }) {
+export function PresetIntroductionEditor({ preset, editorRef, saving, error, onClearError, onSaveProfile, readOnly = false, documentScroll = false, onDirtyChange, autoEditEmpty = true }) {
   const tUi = useProductTranslation();
   const { compact } = useEditorPresentation();
   const profile = preset.profile;
@@ -96,7 +96,8 @@ export function PresetIntroductionEditor({ preset, editorRef, saving, error, onC
         {!readOnly && draft?.kind !== 'usage' ? <Button data-dsh-control variant="outline" ref={usageEditRef} type="button" className="preset-content-button is-section-action" disabled={saving} onClick={() => openDraft(createUsageDraft(profile))}>{tUi("编辑")}</Button> : null}
       </div>
       {draft?.kind === 'usage' ? composer : <div className="preset-usage-reading-surface">
-        <PresetReadableText className={`preset-usage-copy${profile.usageInstructions ? '' : ' is-empty'}`} label={tUi('使用说明')} value={profile.usageInstructions} emptyText={tUi('暂无使用说明')} />
+        <PresetReadableText className={`preset-usage-copy${profile.usageInstructions ? '' : ' is-empty'}`} label={tUi('使用说明')} value={profile.usageInstructions}
+          emptyText={tUi('暂无使用说明')} documentScroll={documentScroll} />
       </div>}
     </section>
     <section className="preset-content-section preset-updates" aria-label={tUi("更新记录")}>
@@ -123,7 +124,7 @@ export function PresetIntroductionEditor({ preset, editorRef, saving, error, onC
                 disabled={saving} onClick={() => requestLeave(() => { onClearError(); setDeleting(item); })}><TrashIcon size={16} aria-hidden="true" /></button>
             </div>}
           </div>
-          {item.note ? <PresetReadableText className="preset-update-note" label={tUi('更新内容')} value={item.note} /> : null}
+          {item.note ? <PresetReadableText className="preset-update-note" label={tUi('更新内容')} value={item.note} documentScroll={documentScroll} /> : null}
         </article>}
       </li>)}</ol>
       {hiddenCount > 0 || expanded && profile.timeline.length > (draft?.isNew ? 2 : 3) ? <button type="button" className={`preset-updates-expand${expanded ? ' is-expanded' : ''}`} aria-expanded={expanded} aria-controls={timelineId} disabled={saving} onClick={toggleEarlier}><span>{expanded ? tUi("收起更早记录") : tUi("展开更早 {value0} 条记录", {value0: hiddenCount})}</span>{expanded ? <CaretUp size={17} /> : <CaretRight size={17} />}</button> : null}

@@ -22,7 +22,7 @@ export function requiredSettingCache(library) {
   }
   return (library?.entries || [])
     .filter((entry) => entry?.enabled && entry.triggerMode === 'agent_tool'
-      && entry.agentReadStrategy === 'required' && entry.dynamicMode !== 'ejs_reference'
+      && entry.agentReadStrategy === 'required' && entry.contentMode !== 'ejs'
       && !['opening', 'history_compaction'].includes(entry.kind)
       && !fixedIds.has(entry.id) && String(entry.content || '').trim())
     .filter((entry, index, entries) => entries.findIndex((candidate) => candidate.id === entry.id) === index)

@@ -71,7 +71,7 @@ export function ToolResultBrowser({ result, callId }) {
       <span aria-live="polite">{deferredQuery.trim() ? `${entries.length} / ` : ''}{result.entries.length}{tUi(" 项")}</span></div>
     {result.operation !== 'read' ? <div className="roleplay-result-summary" aria-label={tUi("本次结果分类统计")}>
       <span data-reading-kind="matched">{tUi("匹配 ")}{result.counts.matched}</span>
-      {result.counts.fixed ? <span data-reading-kind="fixed">{tUi("固定必读 ")}{result.counts.fixed}</span> : null}
+      {result.counts.fixed ? <span data-reading-kind="fixed">{tUi("常驻必读 ")}{result.counts.fixed}</span> : null}
       {result.counts.turn ? <span data-reading-kind="turn">{tUi("本轮须读 ")}{result.counts.turn}</span> : null}
       {result.counts.required ? <span data-reading-kind="required">{tUi("必读 ")}{result.counts.required}</span> : null}
     </div> : null}
@@ -82,7 +82,7 @@ export function ToolResultBrowser({ result, callId }) {
             data-result-index={item.index} className="roleplay-result-row" aria-current={selected?.key === entry.key || undefined}
             style={{ height: item.size, transform: `translateY(${item.start}px)` }} onClick={() => choose(entry, item.index)}>
             <span><strong title={entry.title}>{entry.title}</strong><small title={entry.path}>{entry.path}</small></span>
-            {entry.source?.content_delivery === 'error' ? <em className="is-error">{tUi("失败")}</em> : <ResultReadingBadge entry={entry} domain={result.domain} />}
+            {entry.source?.content_delivery === 'error' ? <em className="is-error">{tUi("失败")}</em> : <ResultReadingBadge entry={entry} result={result} />}
           </button>; })}
         </div>
         {!entries.length ? <div className="roleplay-result-empty">{query ? tUi("没有匹配条目") : tUi("本次没有返回条目")}</div> : null}

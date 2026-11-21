@@ -8,7 +8,7 @@
 - 数据库文件：Electron `userData/eleckoi-common.sqlite3`，路径由桌面壳作为 Host 启动参数传入。
 - SQLite 打开、迁移、恢复和所有 Repository 写入均位于 `packages/host/product-data/src`。Electron Main、Client 和 Renderer 不打开数据库。
 - 公共 SQL：`apps/desktop/resources/database/eleckoi-common-schema-v1.sql`。
-- 当前 `PRAGMA user_version`：`18`。
+- 当前 `PRAGMA user_version`：`19`。
 - 当前结构：50 张业务表、2 个视图；数据库物理结构版本只使用 SQLite `PRAGMA user_version`。
 
 角色卡原作者信息复用 `character_text_contents`：`author_name` 保存作者名字，`author_avatar` 保存本地媒体引用；头像使用现有 `character/<id>` 所有者的 `author-avatar` 槽。未填写的旧卡读为空，不推断为本地玩家资料。更新遗漏作者字段时保留原值，明确空值可清除；媒体随同一事务提交或回退，删除角色沿原所有权清理。此功能不改变物理结构，不新增迁移或提升 schema；当前未发布的 v18 迁移仍只有角色列表活动记录这一步。
@@ -147,6 +147,8 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 
 | 入口 | 何时可以清理 | 必须一起处理的范围 |
 | --- | --- | --- |
+| [v18→v19 旧 EJS 引用设定转换](../packages/host/product-data/src/storage/sqlite/migrations/0019SettingReferences.ts) | 正式停止支持 v18 及更早数据库直接升级，剩余版本仍有连续迁移链 | 删除 0019、步骤登记和 v18 升级／回滚回归。旧角色卡、设定库、预设和聊天归档的导入仍受支持时，保留导入转换及共用解码器 |
+| [旧 EJS 引用设定文件导入](../packages/shared/src/foundation/legacySettingReferences.ts) | 正式停止支持含旧动态模式字段的角色卡、设定库、预设及聊天归档导入 | 删除对应边界转换和专项回归。共用转换函数在最后一个历史数据库或旧文件调用退役后删除 |
 | [v14→v15 开场白及变量初值升级](../packages/host/product-data/src/storage/sqlite/migrations/0015OpeningVariableState.ts) | 停止支持 v14 及更早数据库直接升级，剩余支持版本仍有连续迁移链 | 删除 0015、登记及 v14 升级／回滚回归；保留当前无独立初值的合同、共享初值生成器及聊天历史状态 |
 | [SQLite v1 → v17 迁移链](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 正式停止支持某步骤起点及更早 schema 直接升级；剩余受支持版本仍有连续原子链 | 对应 `0002` 至 `0017` 步骤、旧表定义、import、登记与旧库 fixture；保留当前 SQL、版本常量及完整性校验 |
 | [v15→v16 创作提示词转换](../packages/host/product-data/src/storage/sqlite/migrations/0016CreatorPrompts.ts) | 正式停止支持 v15 及更早数据库直接升级，剩余支持版本仍有连续原子链 | 删除 0016、installSchema 的 import／登记及 v15 升级／回滚回归；共用旧提示词转换器须等待下行的旧文件导入也退役 |
@@ -186,7 +188,7 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 
 DSH rc.3 不新增产品 SQL 迁移。产品子代理归属、名称和派发索引及其旧参数读取已删除，不再重建这套历史关联；重新生成所需的输入身份投影通过官方缓存版本机制重算，不改写 Session 日志。桌面沿同版本官方代码在认证后后台清理旧 `dsh-auth-*` Cookie，失败只记日志，不阻挡启动；该清理随官方实现维护和退役，不自建旧版本支持策略。聊天事件和账号凭据保持。
 
-原始错误记录补丁 `@deepseek-ai__dsh-api-gateway@0.2.2-rc.3.patch` 不修改 Session、数据库或 Remote 协议，只将折叠前的调用／流失败送入官方 Logger。上游提供原始异常与 endpoint 的等价记录、两种正式 profile 诊断回归通过后，删除该补丁、`pnpm-workspace.yaml` 登记及锁哈希；共用 Host exporter 和两端已有持久诊断仍保留。
+原始错误记录补丁 `@deepseek-ai__dsh-api-gateway@0.2.2-rc.5.patch` 不修改 Session、数据库或 Remote 协议，只将折叠前的调用／流失败送入官方 Logger。上游提供原始异常与 endpoint 的等价记录、两种正式 profile 诊断回归通过后，删除该补丁、`pnpm-workspace.yaml` 登记及锁哈希；共用 Host exporter 和两端已有持久诊断仍保留。
 
 DSH 精确版本补丁的完整清单及每项删除条件以 [pnpm-workspace.yaml](../pnpm-workspace.yaml) 为唯一登记源，当前 25 项。它们是源码或平台适配，和用户数据的一次性迁移分开核对：本轮新增的 `agent/prepare-step` 时机适配、官方语言／更新入口复用，字体组移除内部折叠的展示补丁，以及构建器 ULMO 格式和 pnpm 去重生产依赖收集补丁，均在该文件逐项注明上游提供何种等价能力后退役；删除时同时移除补丁文件、登记及锁文件引用，保留仍验证当前产品功能的回归。依赖收集修正回接 [electron-builder 官方修复 #10323](https://github.com/electron-userland/electron-builder/pull/10323)，只修复构建期依赖闭包，不增加产品数据转换。
 
@@ -217,8 +219,8 @@ Host 启动不再逐个修复旧请求上下文标记、补写旧角色聊天输
 ## 验证
 
 - `pnpm check:database-schema`：50 张公共表、2 个视图与生成文件一致。
-- `pnpm test`：覆盖 v1 至 v18 迁移、未发布开发库整理、失败回滚、外键、重启持久化、角色与媒体、设定、变量、正则、预设、脚本库、聊天索引和 Remote 写入。
-- `pnpm rebuild:electron && pnpm check:electron-sqlite`：使用 Electron 的真实原生 SQLite ABI 创建公共结构，核对 50 张业务表、2 个视图、`user_version = 18`、冗余列缺失、外键和完整性。
+- `pnpm test`：覆盖 v1 至 v19 迁移、未发布开发库整理、失败回滚、外键、重启持久化、角色与媒体、设定、变量、正则、预设、脚本库、聊天索引和 Remote 写入。
+- `pnpm rebuild:electron && pnpm check:electron-sqlite`：使用 Electron 的真实原生 SQLite ABI 创建公共结构，核对 50 张业务表、2 个视图、`user_version = 19`、冗余列缺失、外键和完整性。
 
 架构决策见 [ADR 0018](adr/0018-dsh-host-owns-product-data.md)。
 

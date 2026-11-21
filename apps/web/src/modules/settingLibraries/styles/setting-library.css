@@ -1,4 +1,21 @@
 .role-setting-library-container { width: min(380px, 100%); box-sizing: border-box; }
+.setting-usage-primary { container-type: inline-size; }
+.setting-usage-fields .setting-property-options { width: min(208px, 100%); }
+.setting-usage-fields .setting-usage-primary .setting-property-options { width: min(384px, 100%); }
+.setting-usage-fields .setting-property-options [role="tab"] { padding-inline: 6px; white-space: nowrap; }
+.setting-usage-label { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.setting-usage-label > svg { flex: none; }
+.setting-usage-label > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.setting-template-status { color: var(--dsw-alias-label-secondary); font-size: 13px; }
+@container (max-width: 445px) {
+  .setting-usage-primary .setting-property-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+}
+@container (max-width: 342px) {
+  .setting-usage-fields .setting-usage-primary .setting-property-options [role="tab"] { padding-inline: 2px; }
+}
+@container (max-width: 312px) {
+  .setting-usage-fields .setting-usage-primary .setting-property-options [role="tab"] { padding-inline: 0; font-size: 12px; }
+}
 .global-setting-libraries { width: min(396px, 100%); container-type: inline-size; container-name: global-setting-libraries; }
 .setting-library-layout .setting-library-tree { padding-top: 16px; }
 .global-setting-library-action { display: grid; place-items: center; flex: 0 0 26px; width: 26px; height: 30px; background: transparent; border-radius: 5px; color: var(--muted); }
@@ -381,15 +398,20 @@
 
 .setting-library-tree-label {
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.setting-library-tree-row.has-toggle .setting-library-tree-label {
-  flex: 1 1 auto;
-}
+.setting-library-tree-row.is-rule-inactive .setting-library-tree-row-content > :is(.setting-library-tree-label, .setting-library-tree-entry-icon, .setting-rule-control) { opacity: .54; }
+.setting-rule-control { display: inline-flex; flex: none; align-items: center; gap: 6px; padding: 2px 4px 2px 6px; border-radius: 6px; background: var(--list); }
+.setting-rule-badge, .setting-rule-ejs-tag { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; line-height: 17px; white-space: nowrap; }
+.setting-rule-ejs-tag { flex: none; padding: 2px 5px; border-radius: 6px; background: var(--list); }
+.setting-rule-badge > svg { flex: none; }
+.setting-rule-dot { width: 6px; height: 6px; flex: none; border-radius: 50%; }
+.setting-rule-badge[data-rule-type="keyword"] .setting-rule-dot { background: var(--setting-keyword-color); }
+.setting-rule-badge[data-rule-type="always"] .setting-rule-dot { background: var(--dsw-alias-link); }
 
 .setting-library-tree-expander {
   display: grid;
@@ -1259,6 +1281,7 @@
   padding: 20px clamp(24px, 7vw, 112px) 28px;
   overflow: hidden;
 }
+.immersive-markdown-editor.is-full-width .immersive-markdown-body { padding-inline: 0; }
 
 .immersive-markdown-body > textarea,
 .immersive-markdown-preview {
@@ -1769,10 +1792,21 @@ html.immersive-editor-open .qq-character-editor-window-shell .window-controls {
   white-space: nowrap;
 }
 
-.setting-library-picker-body {
-  grid-template-rows: auto auto minmax(120px, 1fr) auto auto;
-  align-content: stretch;
+.setting-library-import-picker {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
 }
+
+.setting-library-import-context { display: flex; flex: none; align-items: center; gap: 10px; }
+.setting-library-import-context > .editor-picker-trigger { flex: 1; min-width: 0; width: auto; }
+.setting-library-import-location { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.setting-library-import-location > span { flex: none; color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.setting-library-import-location > :last-child { min-width: 0; max-width: 140px; }
+.setting-library-import-selection { margin-inline-end: auto; color: var(--dsw-alias-label-secondary); font-size: 13px; }
 
 .setting-library-picker-toolbar {
   display: flex;

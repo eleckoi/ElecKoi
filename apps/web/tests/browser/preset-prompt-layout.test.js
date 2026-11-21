@@ -19,13 +19,16 @@ it('keeps prompt rows reachable beside the current workspace through selection, 
     await writeFile(htmlPath, '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="fixture.css"></head><body><div id="root"></div><script src="fixture.js"></script></body></html>');
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
     await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/preset-prompt-layout.probe.cjs'), htmlPath, reportPath], { env, timeout: 45000, windowsHide: true });
-    const { reports } = JSON.parse(await readFile(reportPath, 'utf8'));
+    const { reports, writing } = JSON.parse(await readFile(reportPath, 'utf8'));
     expect(reports).toHaveLength(3);
     for (const report of reports) {
       for (const phase of ['open', 'resized']) {
         const state = report[phase];
         expect(state.rowRight, JSON.stringify(report)).toBeLessThanOrEqual(state.inspectorLeft);
         expect(state.toggleReachable, JSON.stringify(report)).toBe(true);
+        expect(state.titleClipped).toBe(true);
+        expect(state.titleAvailable).toBe(true);
+        expect(state.badges).toEqual(['常驻', '关键词', 'AI 选读'].map(label => ({ label, clipped: false, withinRow: true })));
         expect(state.inspectorTop, JSON.stringify(report)).toBe(state.directoryTop);
         expect(state.resizer, JSON.stringify(report)).toBe(true);
       }
@@ -33,6 +36,15 @@ it('keeps prompt rows reachable beside the current workspace through selection, 
       expect(report.afterClose.treeWidth).toBe(report.resized.treeWidth);
       expect(report.afterClose.empty).toBe(true);
       expect(report.lastVisible).toBe(true);
+    }
+    expect(writing.map(item => item.purpose)).toEqual(['roleplay', 'creator']);
+    for (const { inline, immersive } of writing) {
+      expect(inline[0]).toBeLessThanOrEqual(32);
+      expect(inline[1]).toBeLessThanOrEqual(32);
+      expect(inline[2]).toBeGreaterThan(1000);
+      expect(immersive[0]).toBeLessThanOrEqual(32);
+      expect(immersive[1]).toBeLessThanOrEqual(32);
+      expect(immersive[2]).toBeGreaterThan(1700);
     }
   } finally { await rm(directory, { recursive: true, force: true, maxRetries: 3 }); }
 }, 60000);

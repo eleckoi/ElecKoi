@@ -1,4 +1,6 @@
-import { tavernEntryScanDepth } from "@shared/foundation/tavernWorldBook";
+import { tavernEntryScanDepth, tavernEntryTriggerRule } from "@shared/foundation/tavernWorldBook";
+import { convertLegacySettingReference } from '@shared/foundation/legacySettingReferences';
+import { settingBodyMode } from '@shared/contracts/settingLibrary/schemas';
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import { FIXED_ENTRY_IDS, PINNED_ENTRY_IDS, createId, uniqueName } from "./settingLibraryEditing.js";
@@ -161,7 +163,8 @@ function openingMessageFromJson(value) {
   };
 }
 
-function entryFromJson(value, index) {
+function entryFromJson(source, index) {
+  const value = convertLegacySettingReference(source, 'dynamic_mode');
   const rawPosition = text(value.position);
   const triggerMode = text(value.trigger_mode);
   return {
@@ -175,7 +178,6 @@ function entryFromJson(value, index) {
     defaultOpeningMessageId: text(value.default_opening_message_id),
     agentSelectionHint: text(value.agent_selection_hint),
     agentReadStrategy: ["required", "keyword", "normal"].includes(value.agent_read_strategy) ? value.agent_read_strategy : "normal",
-    dynamicMode: ["standard", "ejs_reference"].includes(value.dynamic_mode) ? value.dynamic_mode : "standard",
     contentMode: ["plain_text", "ejs"].includes(value.content_mode) ? value.content_mode : "plain_text",
     keywords: stringList(value.keywords),
     keywordScanDepth: Math.max(0, integer(value.keyword_scan_depth, 1)),
@@ -274,28 +276,6 @@ function worldBookEntries(source) {
   return [];
 }
 
-function ejsController(content) {
-  return /<%[_=\-#]?/.test(content);
-}
-
-function literalGetwiTargets(content) {
-  const targets = new Set();
-  const pattern = /getwi\s*\(\s*(?:(?:null|["'`][^"'`]*["'`])\s*,\s*)?(["'`])([^"'`]+)\1/gi;
-  let match;
-  while ((match = pattern.exec(content))) targets.add(match[2]);
-  return targets;
-}
-
-function hasDynamicGetwi(content) {
-  const callPattern = /getwi\s*\(([^)]*)\)/gi;
-  const literalArguments = /^\s*(?:(?:null|["'`][^"'`]*["'`])\s*,\s*)?["'`][^"'`]+["'`]\s*$/i;
-  let match;
-  while ((match = callPattern.exec(content))) {
-    if (!literalArguments.test(match[1])) return true;
-  }
-  return false;
-}
-
 function parseSillyTavernExport(source, fileName) {
   const book = source?.data?.character_book || source?.character_book || source;
   const rawEntries = worldBookEntries(book);
@@ -305,7 +285,7 @@ function parseSillyTavernExport(source, fileName) {
   const groupId = createId("tavern-world-book");
   const timestamp = new Date().toISOString();
   const used = new Set();
-  const imported = rawEntries.map((item, index) => {
+  const entries = rawEntries.map((item, index) => {
     const keys = stringList(item.keys || item.key);
     const secondary = stringList(item.secondary_keys || item.keysecondary);
     const constant = bool(item.constant);
@@ -313,7 +293,9 @@ function parseSillyTavernExport(source, fileName) {
     const title = uniqueImportedTitle(rawTitle, used);
     const logic = integer(item?.extensions?.selectiveLogic);
     const content = text(item.content);
-    return { rawTitle, content, entry: {
+    const contentMode = settingBodyMode(content);
+    const enabled = Object.hasOwn(item, "enabled") ? bool(item.enabled, true) : !bool(item.disable);
+    return {
       id: createId("tavern-world-entry"),
       title,
       iconId: "",
@@ -322,10 +304,8 @@ function parseSillyTavernExport(source, fileName) {
       content,
       openingMessages: [],
       defaultOpeningMessageId: "",
-      agentSelectionHint: constant ? "酒馆世界书常驻条目，Agent 必读" : "酒馆世界书关键词命中时读取",
-      agentReadStrategy: constant ? "required" : "keyword",
-      dynamicMode: "standard",
-      contentMode: "plain_text",
+      ...tavernEntryTriggerRule(constant, enabled),
+      contentMode,
       keywords: constant ? [] : keys,
       keywordScanDepth: tavernEntryScanDepth(item, book),
       conditionKeywords: constant ? [] : secondary,
@@ -335,7 +315,6 @@ function parseSillyTavernExport(source, fileName) {
       keywordWholeWord: bool(item.match_whole_words, bool(item?.extensions?.match_whole_words)),
       keywordRecursionDepth: 0,
       triggerMode: "agent_tool",
-      enabled: Object.hasOwn(item, "enabled") ? bool(item.enabled, true) : !bool(item.disable),
       position: "insert_point_1",
       promptPositionId: "",
       insertRole: "user",
@@ -345,33 +324,7 @@ function parseSillyTavernExport(source, fileName) {
       treeViewOrder: index + 1,
       createdAt: timestamp,
       updatedAt: timestamp,
-    } };
-  });
-  const controllers = imported.filter((item) => ejsController(item.content));
-  const referencedTitles = new Set(controllers.flatMap((item) => [...literalGetwiTargets(item.content)]));
-  const dynamicReferences = controllers.some((item) => hasDynamicGetwi(item.content));
-  const entries = imported.map(({ rawTitle, entry }) => {
-    if (ejsController(entry.content)) return {
-      ...entry,
-      agentSelectionHint: "酒馆 EJS 动态控制器，渲染结果为 Agent 必读",
-      agentReadStrategy: "normal",
-      dynamicMode: "standard",
-      contentMode: "ejs",
-      keywords: [],
-      conditionKeywords: [],
-      keywordCondition: "none",
     };
-    if (dynamicReferences || referencedTitles.has(rawTitle)) return {
-      ...entry,
-      agentSelectionHint: "供 EJS 控制器通过 getwi 读取的 EJS引用设定",
-      agentReadStrategy: "normal",
-      dynamicMode: "ejs_reference",
-      keywords: [],
-      conditionKeywords: [],
-      keywordCondition: "none",
-      enabled: true,
-    };
-    return entry;
   });
   return {
     id: createId("import"), name, entries,
@@ -404,7 +357,6 @@ function entryToJson(entry) {
     })),
     default_opening_message_id: entry.defaultOpeningMessageId,
     agent_selection_hint: entry.agentSelectionHint, agent_read_strategy: entry.agentReadStrategy,
-    dynamic_mode: entry.dynamicMode,
     content_mode: entry.contentMode,
     keywords: entry.keywords, keyword_scan_depth: entry.keywordScanDepth,
     condition_keywords: entry.conditionKeywords, keyword_condition: entry.keywordCondition,

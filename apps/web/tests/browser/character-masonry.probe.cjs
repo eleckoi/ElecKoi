@@ -66,7 +66,15 @@ app.whenReady().then(async () => {
           const before = (await inspect()).cards.find(card => card.id === target);
           await run(`document.querySelector('[data-masonry-id="${target}"] button').click()`);
           await wait(`!!document.querySelector('.mobile-character-profile')`);
-          if (await run(`document.querySelector('${selector}').getClientRects().length > 0`)) throw Error('Role library remains visible behind the profile');
+          const coveredList = await run(`(() => {
+            const list = document.querySelector('${selector}');
+            const card = list.querySelector('[data-masonry-id="${target}"] button');
+            card.focus();
+            return { visibility: getComputedStyle(list).visibility, focused: document.activeElement === card, offset: list.scrollTop };
+          })()`);
+          if (coveredList.visibility !== 'hidden' || coveredList.focused || coveredList.offset === 0) {
+            throw Error('Role library did not stay hidden at its scroll position behind the profile: ' + JSON.stringify(coveredList));
+          }
           await run(`document.querySelector('.mobile-header button[aria-label="返回"]').click()`);
           await wait(`!document.querySelector('.mobile-character-profile')`);
           await pause();

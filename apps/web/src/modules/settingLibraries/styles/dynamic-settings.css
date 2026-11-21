@@ -29,10 +29,6 @@
   width: min(480px, 100%);
 }
 
-.dynamic-settings-detail:not(.is-compact) :is(.dynamic-settings-secondary-action, .dynamic-settings-danger-action, .setting-library-create-button, .setting-library-manage-button, .setting-library-save-button) {
-  height: 32px; min-height: 32px; border-radius: 999px; padding-inline: 12px; font-size: 13px;
-}
-
 .dynamic-settings-conversation-list {
   min-width: 0;
   min-height: 0;
@@ -217,14 +213,6 @@
   font-weight: 600;
 }
 
-.dynamic-settings-secondary-action,
-.dynamic-settings-danger-action {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 6px;
-}
-
 .dynamic-settings-editor-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -256,7 +244,7 @@
 
 .dynamic-settings-tree-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 480px) auto auto;
+  grid-template-columns: minmax(0, 480px) auto;
   justify-content: start;
   align-items: center;
   gap: 10px;
@@ -267,11 +255,6 @@
 .dynamic-settings-tree-toolbar .editor-collection-search {
   width: 100%;
   min-width: 0;
-}
-
-.dynamic-settings-tree-toolbar > .setting-library-add-wrap {
-  width: auto;
-  min-width: max-content;
 }
 
 .dynamic-settings-tree-toolbar button {

@@ -80,7 +80,8 @@ import {
 import type {
   AgentPresetTransferAvatar,
   AgentPresetTransferContent,
-  AgentPresetTransferVersion
+  AgentPresetTransferVersion,
+  DecodedAgentPresetImport
 } from './AgentPresetImportCodec'
 import {
   disabledAgentPresetToolGroupIds,
@@ -440,12 +441,30 @@ export class AgentPresetRepository {
   }
 
   import(document: AgentPresetImportDocument, source: AgentPresetImportSource, purpose: AgentPresetPurpose = 'roleplay'): AgentPresetImportResult {
-    const decoded = decodeAgentPresetImport(document, source, purpose)
+    return this.installTransferredPreset(decodeAgentPresetImport(document, source, purpose), purpose, '')
+  }
+
+  duplicate(presetId: string): AgentPreset {
+    const preset = this.get(presetId)
+    const avatar = portableAvatar(preset.profile.authorAvatarPath, this.mediaAssets)
+    return this.installTransferredPreset({
+      preset: { ...preset, name: `${preset.name}（副本）` },
+      source: 'eleckoi',
+      skippedUnsupportedEntries: 0,
+      skippedDepthRegexCount: 0,
+      regexEnabled: readRegexScopeEnabled(this.store.db, 'preset', presetId),
+      scriptLibrary: this.scripts.portable('preset', presetId),
+      ...(avatar ? { authorAvatarBase64: avatar.transfer.base64, authorAvatarMediaType: avatar.transfer.mediaType } : {}),
+      versions: this.transferVersions(presetId)
+    }, preset.purpose, preset.libraryGroupId).preset
+  }
+
+  private installTransferredPreset(decoded: DecodedAgentPresetImport, purpose: AgentPresetPurpose, libraryGroupId: string): AgentPresetImportResult {
     this.ensureInitialized()
     let preparedAvatar: ReturnType<LocalMediaStore['prepareImage']> | undefined
     try {
       const result = this.scripts.transaction((db) => {
-        const created = this.create(decoded.preset.name, '', purpose)
+        const created = this.create(decoded.preset.name, libraryGroupId, purpose)
         preparedAvatar = decoded.authorAvatarBase64 && this.mediaAssets
       ? this.mediaAssets.prepareImage(
         presetMediaOwner(created.id),
@@ -486,7 +505,7 @@ export class AgentPresetRepository {
         ...decoded.preset,
         id: created.id,
         name: created.name,
-        libraryGroupId: '',
+        libraryGroupId: created.libraryGroupId,
         activeVersionId: activeVersion.id,
         activeVersionNumber: activeVersion.number,
         profile: {
@@ -615,11 +634,28 @@ export class AgentPresetRepository {
   }
 
   assignGroup(presetId: string, groupId: string): AgentPresetCatalog {
-    if (!this.exists(presetId)) throw new DesktopError(ELECKOI_FAILURE_CODES.agentPresetNotFound, `找不到这个预设：${presetId}`, { what: '预设' })
-    const catalog = this.catalog()
-    this.writableGroupId(catalog, groupId, this.get(presetId).purpose)
-    this.store.db.update(agentPresets).set({ libraryGroupId: groupId }).where(eq(agentPresets.id, presetId)).run()
-    return this.catalog()
+    return this.assignGroups([presetId], groupId, this.get(presetId).purpose)
+  }
+
+  assignGroups(presetIds: string[], groupId: string, purpose: AgentPresetPurpose): AgentPresetCatalog {
+    const ids = [...new Set(z.array(z.string().min(1)).min(1).parse(presetIds))]
+    agentPresetPurposeSchema.parse(purpose)
+    return this.store.withWriteTx(db => {
+      const catalog = this.catalog()
+      const presets = new Map(catalog.presets.map(preset => [preset.id, preset]))
+      const target = this.writableGroupId(catalog, groupId, purpose)
+      for (const id of ids) {
+        const preset = presets.get(id)
+        if (!preset) throw new DesktopError(ELECKOI_FAILURE_CODES.agentPresetNotFound, `找不到这个预设：${id}`, { what: '预设' })
+        if (preset.purpose !== purpose) throw new DesktopError(
+          ELECKOI_FAILURE_CODES.stateMismatch, '只能移动同一分类的预设。', { what: '预设分类' }
+        )
+        if (preset.libraryGroupId !== target) {
+          db.update(agentPresets).set({ libraryGroupId: target }).where(eq(agentPresets.id, id)).run()
+        }
+      }
+      return this.catalog()
+    })
   }
 
   deleteGroup(groupId: string): AgentPresetCatalog {

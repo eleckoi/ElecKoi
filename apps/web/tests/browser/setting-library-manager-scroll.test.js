@@ -24,17 +24,16 @@ it('keeps long merge lists and short-screen manager cards scrollable without cli
         expect(report.initial.scroll, JSON.stringify(report)).toBeGreaterThan(report.initial.client);
         expect(report.moved, JSON.stringify(report)).toBeGreaterThan(0);
         expect(report.final.bottomVisible, JSON.stringify(report)).toBe(true);
-        if (report.initial.mobile) {
-          expect(report.final.header).toBeLessThan(report.initial.header);
-          expect(report.final.footer).toBeLessThan(report.initial.footer);
-        } else {
-          expect(report.final.header).toBe(report.initial.header);
-          expect(report.final.footer).toBe(report.initial.footer);
-        }
-        expect(report.final.bodyTop).toBe(0);
+        expect(report.final.search).toBe(report.initial.search);
+        expect(report.final.footer).toBe(report.initial.footer);
         expect(report.picker.top).toBeGreaterThan(0);
-        expect(report.picker.lastVisible).toBe(true);
+        expect(report.picker.lastVisible, JSON.stringify(report)).toBe(true);
       } else {
+        if (report.mode === 'setting') {
+          expect(report.actions).toContain('导出当前版本');
+          expect(report.actions).not.toContain('导入为新版本');
+          expect(report.actions).not.toContain('并入设定库');
+        }
         expect(report.top, JSON.stringify(report)).toBeGreaterThan(0);
         expect(report.noClippedCards, JSON.stringify(report)).toBe(true);
         expect(report.lastVisible, JSON.stringify(report)).toBe(true);

@@ -113,9 +113,12 @@
     rotateY(calc(var(--deck-offset) * -11deg))
     scale(calc(1 - var(--deck-distance) * 0.11));
   transform-style: preserve-3d;
-  cursor: pointer;
   transition: transform 240ms cubic-bezier(0.2, 0.75, 0.25, 1), opacity 180ms ease, filter 180ms ease;
   will-change: transform;
+}
+
+button.character-deck-card {
+  cursor: pointer;
 }
 
 .character-deck-card:not(.is-selected) {

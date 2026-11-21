@@ -25,7 +25,7 @@ export function sortCharacters(items, mode, locale) {
 
 export function useCharacterSort(preferenceKey = 'mobile_character_sort') {
   const preferences = useDshDisplayPreferences();
-  const snapshot = useSyncExternalStore(preferences?.subscribe || subscribeEmpty, preferences?.getSnapshot || getEmpty);
+  const snapshot = useSyncExternalStore(preferences?.subscribe || subscribeEmpty, preferences?.getSnapshot || getEmpty, getEmpty);
   const saved = validSort(snapshot.ui?.[preferenceKey]);
   const [sort, setSort] = useState(saved), [error, setError] = useState('');
   useEffect(() => setSort(saved), [saved]);

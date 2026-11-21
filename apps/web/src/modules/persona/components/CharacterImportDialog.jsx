@@ -1,12 +1,12 @@
-import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { ELECKOI_FAILURE_CODES } from "@shared/contracts/errors/codes";
 import { DesktopError } from "@shared/foundation/DesktopError";
 import '../../../ui/styles/product-dialogs.css';
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CaretRight, CheckCircle, WarningCircle } from "../../../ui/icons/interfaceIcons.jsx";
+import { CheckCircle, WarningCircle } from "../../../ui/icons/interfaceIcons.jsx";
 import { ImportIcon } from "../../../ui/icons/index.jsx";
+import { ImportSourceList } from "../../../ui/ui/ImportSourceList.jsx";
 import { bestEffort } from "../../../utils/swallowedFailure.js";
 import { resolveFailure } from "../../../utils/failureText.js";
 
@@ -104,15 +104,7 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
             ))}
           </div>
         ) : (
-          <div className="character-import-source-list">
-            {localizeUiCopy(SOURCES, tUi).map((source) => (
-              <button type="button" key={source.id} onClick={() => chooseSource(source.id)} disabled={preparing}>
-                <ImportIcon size={22} />
-                <span><strong>{source.title}</strong><small>{source.detail}</small></span>
-                <CaretRight size={17} />
-              </button>
-            ))}
-          </div>
+          <ImportSourceList sources={SOURCES} onSelect={chooseSource} disabled={preparing} />
         )}
 
         {error ? <p className="character-import-error" role="alert">{error}</p> : null}

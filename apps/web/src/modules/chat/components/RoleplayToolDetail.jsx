@@ -80,13 +80,13 @@ function DetailHeader({ entry, result }) {
   const tUi = useProductTranslation();
   const data = entry.source;
   return <div className="roleplay-result-card">
-    <header><strong>{entry.title}</strong>{result.domain === 'variables' && data?.type ? <span>{data.type}</span> : null}<ResultReadingBadge entry={entry} domain={result.domain} /></header>
+    <header><strong>{entry.title}</strong>{result.domain === 'variables' && data?.type ? <span>{data.type}</span> : null}<ResultReadingBadge entry={entry} result={result} /></header>
     <p className="roleplay-result-path">{data?.group_path === '' ? tUi("根目录") : data?.group_path ?? entry.path}</p>
   </div>;
 }
 
-export function ResultReadingBadge({ entry, domain }) {
+export function ResultReadingBadge({ entry, result }) {
   const tUi = useProductTranslation();
-  const badge = resultReadingBadge(entry, domain, tUi);
+  const badge = resultReadingBadge(entry, result.domain, tUi, result.operation);
   return badge ? <span className="roleplay-reading-badge" data-reading-kind={badge.kind}>{badge.label}</span> : null;
 }

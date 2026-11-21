@@ -58,7 +58,7 @@ export type CharacterLibrarySearchOwner = { fallback: ReactNode } & (
 
 export interface CharacterLibrarySortOwner {
   fallback: ReactNode
-  surface: 'pc-manager' | 'android'
+  surface: CharacterLibrarySurface
   value: CharacterLibrarySort
   disabled?: boolean
   onChange(value: CharacterLibrarySort): void | Promise<unknown>

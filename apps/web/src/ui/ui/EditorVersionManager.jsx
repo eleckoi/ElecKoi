@@ -7,6 +7,8 @@ import { FailureAlert } from './FailureAlert.jsx';
 import { VersionNameDialog } from './VersionNameDialog.jsx';
 import { ConfirmationDialog } from './ConfirmationDialog.jsx';
 import { EditorSelect } from './EditorSelect.jsx';
+import { EditorPickerButton } from './EditorSearchPicker.jsx';
+import { EditorVersionPicker } from './EditorVersionPicker.jsx';
 
 /** Version commands change the owner's draft; the surrounding editor performs the save. */
 export function EditorVersionManager({ title, versions, activeVersionId, scopes, scope, onScopeChange,
@@ -15,14 +17,16 @@ export function EditorVersionManager({ title, versions, activeVersionId, scopes,
   const tUi = useProductTranslation();
   const [dialog, setDialog] = useState('');
   const current = versions.find(version => version.id === activeVersionId);
+  if (dialog === 'versions') {
+    return <EditorVersionPicker versions={versions} activeVersionId={activeVersionId} onSelect={onSelect} onClose={() => setDialog('')} />;
+  }
   return <>
     <EditorManagementModal title={title} onClose={onClose}>
       <div className="editor-management-fields">
         {scopes?.length > 1 ? <label>{tUi("归属")}<EditorSelect menu label={tUi("归属")} value={scope} disabled={busy}
           onChange={value => { setDialog(''); onScopeChange(value); }} options={scopes.map(item => ({ value: item.id, label: item.label }))} /></label> : null}
-        <label>{tUi("当前版本")}<EditorSelect menu label={tUi("当前版本")} value={activeVersionId} disabled={busy} onChange={onSelect}
-          options={[...(!activeVersionId ? [{ value: '', label: tUi("未选择版本") }] : []),
-            ...versions.map(version => ({ value: version.id, label: version.name.trim() || tUi("待命名") }))]} /></label>
+        <label>{tUi("当前版本")}<EditorPickerButton label={tUi('当前版本')} disabled={busy || !versions.length}
+          onClick={() => setDialog('versions')}>{current ? current.name.trim() || tUi('待命名') : tUi('未选择版本')}</EditorPickerButton></label>
       </div>
       <EditorManagementAction label={tUi("复制当前版本")} Icon={Copy} disabled={busy || !current} onClick={() => setDialog('copy')} />
       <EditorManagementAction label={tUi("创建空白版本")} Icon={Plus} disabled={busy} onClick={() => setDialog('create')} />

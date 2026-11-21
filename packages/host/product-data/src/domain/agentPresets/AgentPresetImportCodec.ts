@@ -8,6 +8,7 @@ import { decodeRegexDocuments } from '@shared/foundation/regexRuleTransfer'
 import { normalizeAgentPresetPrompts } from '@shared/contracts/presets/builtIns'
 import { agentPresetPurposeSchema } from '@shared/contracts/presets/schemas'
 import { creatorPresetEntrySchema } from '@shared/contracts/presets/creatorPrompts'
+import { convertLegacySettingReference } from '@shared/foundation/legacySettingReferences'
 import { upgradeLegacyCreatorPrompt } from '@shared/foundation/legacyCreatorPrompts'
 import { defaultRoleplayPlanSettings, roleplayPlanSettingsSchema } from '@shared/contracts/presets/roleplayPlan'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
@@ -38,7 +39,6 @@ const avatarMediaTypes = new Set(['image/png', 'image/jpeg', 'image/webp', 'imag
 const modelFamilies = new Set<AgentPreset['modelFamily']>(['general', 'claude', 'openai', 'gemini', 'deepseek', 'other'])
 const entryKinds = new Set<SettingLibraryEntry['kind']>(['normal', 'opening', 'history_compaction', 'hidden_tool_timeline'])
 const readStrategies = new Set<SettingLibraryEntry['agentReadStrategy']>(['required', 'keyword', 'normal'])
-const dynamicModes = new Set<SettingLibraryEntry['dynamicMode']>(['standard', 'ejs_reference'])
 const contentModes = new Set<SettingLibraryEntry['contentMode']>(['plain_text', 'ejs'])
 const keywordConditions = new Set<SettingLibraryEntry['keywordCondition']>(['none', 'any', 'all', 'not_any'])
 const positions = new Set<NonNullable<SettingLibraryEntry['position']>>([
@@ -422,11 +422,11 @@ function timelineFromPortable(value: unknown): AgentPreset['profile']['timeline'
   })
 }
 
-function entryFromPortable(value: JsonObject, index: number, timestamp: string): SettingLibraryEntry {
+function entryFromPortable(source: JsonObject, index: number, timestamp: string): SettingLibraryEntry {
+  const value = convertLegacySettingReference(source, 'dynamic_mode')
   const kind = stringValue(value.kind) as SettingLibraryEntry['kind']
   if (!entryKinds.has(kind)) throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, `ElecKoi 预设包含不支持的设定类型：${kind || '空值'}。`, { what: '预设条目的设定类型', expected: 'normal / opening / history_compaction / hidden_tool_timeline' })
   const strategy = stringValue(value.agent_read_strategy) as SettingLibraryEntry['agentReadStrategy']
-  const dynamic = stringValue(value.dynamic_mode) as SettingLibraryEntry['dynamicMode']
   const contentMode = stringValue(value.content_mode) as SettingLibraryEntry['contentMode']
   const condition = stringValue(value.keyword_condition) as SettingLibraryEntry['keywordCondition']
   const trigger = stringValue(value.trigger_mode)
@@ -442,7 +442,6 @@ function entryFromPortable(value: JsonObject, index: number, timestamp: string):
     defaultOpeningMessageId: stringValue(value.default_opening_message_id),
     agentSelectionHint: stringValue(value.agent_selection_hint),
     agentReadStrategy: readStrategies.has(strategy) ? strategy : 'normal',
-    dynamicMode: dynamicModes.has(dynamic) ? dynamic : 'standard',
     contentMode: contentModes.has(contentMode) ? contentMode : 'plain_text',
     keywords: stringList(value.keywords), keywordScanDepth: Math.max(0, integerValue(value.keyword_scan_depth, 1)),
     conditionKeywords: stringList(value.condition_keywords),
@@ -467,7 +466,6 @@ function entryToPortable(entry: SettingLibraryEntry): JsonObject {
     })),
     default_opening_message_id: entry.defaultOpeningMessageId,
     agent_selection_hint: entry.agentSelectionHint, agent_read_strategy: entry.agentReadStrategy,
-    dynamic_mode: entry.dynamicMode,
     content_mode: entry.contentMode,
     keywords: entry.keywords, keyword_scan_depth: entry.keywordScanDepth,
     condition_keywords: entry.conditionKeywords, keyword_condition: entry.keywordCondition,
@@ -504,7 +502,7 @@ function emptyEntry(id: string, timestamp: string): SettingLibraryEntry {
   return {
     id, title: '', iconId: '', kind: 'normal', groupId: '', content: '', openingMessages: [],
     defaultOpeningMessageId: '', agentSelectionHint: '', agentReadStrategy: 'normal',
-    dynamicMode: 'standard', contentMode: 'plain_text', keywords: [], keywordScanDepth: 1,
+    contentMode: 'plain_text', keywords: [], keywordScanDepth: 1,
     conditionKeywords: [], keywordCondition: 'none', keywordUseRegex: false, keywordIgnoreCase: true,
     keywordWholeWord: false, keywordRecursionDepth: 0, triggerMode: null, enabled: true,
     position: null, promptPositionId: '', insertRole: 'system', order: 1, viewOrder: 0,

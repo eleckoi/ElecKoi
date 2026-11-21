@@ -1530,6 +1530,7 @@ export class ElecKoiWebSearchApi extends TypertRemoteService {
   @Remote
   selection(): WebSearchMode {
     const provider = this.webConfiguration().searchProvider
+    if (provider === undefined) return 'automatic'
     if (provider === 'deepseek-search-api') return 'deepseek_search_api'
     if (provider === TAVILY_WEB_PROVIDER) return 'tavily'
     if (provider === DEEPSEEK_WEB_PROVIDER) return 'provider_native'
@@ -1543,7 +1544,15 @@ export class ElecKoiWebSearchApi extends TypertRemoteService {
    */
   @Remote
   async select(mode: WebSearchMode): Promise<WebSearchMode> {
-    if (mode !== 'provider_native' && mode !== 'tavily' && mode !== 'deepseek_search_api') throw productFailure(ELECKOI_FAILURE_CODES.inputUnsupported, '不支持的联网搜索方式。', { what: '联网搜索方式', expected: 'provider_native、tavily、deepseek_search_api' })
+    if (mode === 'automatic') {
+      await this.ownerContext.configEditor.edit(this.webRow(), current => {
+        const config = { ...current }
+        delete config.searchProvider
+        return config
+      })
+      return mode
+    }
+    if (mode !== 'provider_native' && mode !== 'tavily' && mode !== 'deepseek_search_api') throw productFailure(ELECKOI_FAILURE_CODES.inputUnsupported, '不支持的联网搜索方式。', { what: '联网搜索方式', expected: 'automatic、provider_native、tavily、deepseek_search_api' })
     if (mode === 'tavily' && !this.ownerContext.settings.describe().some(item => item.ns === 'web-search-tavily')) {
       throw productFailure(ELECKOI_FAILURE_CODES.modelConfigInvalid, 'Tavily 搜索插件当前未启用。', { field: 'Tavily 搜索插件', what: '联网搜索插件配置' })
     }
@@ -2399,6 +2408,18 @@ export class ElecKoiAgentPresetsApi extends TypertRemoteService {
   }
 
   /**
+   * 在原分组复制预设，包括作者资料、版本和脚本。
+   * @param presetId - 源预设编号。
+   * @returns 新预设的完整数据。
+   */
+  @Remote
+  duplicate(presetId: string): Promise<AgentPreset> {
+    const created = this.productData.duplicateAgentPreset(presetId)
+    this.publishChange()
+    return this.resolveToolReferences(created)
+  }
+
+  /**
    * 导入文件并保存完整数据。
    * @param source - 支持的导入格式。
    * @param document - 待导入文件内容。
@@ -2483,6 +2504,20 @@ export class ElecKoiAgentPresetsApi extends TypertRemoteService {
   @Remote
   assignGroup(presetId: string, groupId: string): AgentPresetCatalog {
     const catalog = this.productData.assignAgentPresetGroup(presetId, groupId)
+    this.publishChange()
+    return catalog
+  }
+
+  /**
+   * 一次移动同一分类下的多个预设。
+   * @param presetIds - 所选预设编号。
+   * @param groupId - 目标分组编号。空字符串表示未分组。
+   * @param purpose - 所选预设的分类。
+   * @returns 更新后的预设目录。任一目标无效时整批取消。
+   */
+  @Remote
+  assignGroups(presetIds: string[], groupId: string, purpose: AgentPresetPurpose): AgentPresetCatalog {
+    const catalog = this.productData.assignAgentPresetGroups(presetIds, groupId, purpose)
     this.publishChange()
     return catalog
   }

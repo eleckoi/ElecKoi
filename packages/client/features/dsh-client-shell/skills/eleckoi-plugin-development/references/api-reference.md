@@ -4,7 +4,7 @@
 
 # ElecKoi 插件开发接口总表
 
-本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.2-rc.3`，提交 `38a6a5c965aa99ab525161efb7cc5cf1fe62fced`。
+本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.2-rc.5`，提交 `9c2670d3bce5275e0d1610272958121af87787bb`。
 
 当前共 **17 个 bundle、135 个开发接口**：86 个界面插槽、21 个服务、0 个事件、6 个贡献点、22 个 Remote 合同。
 
@@ -151,7 +151,7 @@
 | `eleckoi.preset.library.menu.actions` | 预设库操作菜单 | 界面插槽 | 提供 | `append` | `root` | 向新建、导入、导出或批量操作菜单追加菜单项。 | — |
 | `eleckoi.preset.library.item.menu.actions` | 单项预设菜单 | 界面插槽 | 提供 | `append` | `root` | 向当前预设的操作菜单追加菜单项。 | — |
 | `eleckoi.preset.library.group.menu.actions` | 预设分组菜单 | 界面插槽 | 提供 | `append` | `root` | 向预设管理器的分组菜单追加菜单项。 | — |
-| `eleckoiPresets` | Agent 预设服务 | 服务 | 提供 | `call` | `client` | 读取预设目录与详情，并通过正式数据入口保存预设。 | `getSnapshot`、`subscribe`、`getDetailSnapshot`、`subscribeDetail`、`read`、`save`、`create`、`import`、`export`、`setActive`、`createGroup`、`renameGroup`、`reorderGroups`、`assignGroup`、`deleteGroup`、`delete`、`refresh` |
+| `eleckoiPresets` | Agent 预设服务 | 服务 | 提供 | `call` | `client` | 读取预设目录与详情，并通过正式数据入口保存预设。 | `getSnapshot`、`subscribe`、`getDetailSnapshot`、`subscribeDetail`、`read`、`save`、`create`、`duplicate`、`import`、`export`、`setActive`、`createGroup`、`renameGroup`、`reorderGroups`、`assignGroup`、`assignGroups`、`deleteGroup`、`delete`、`refresh` |
 | `eleckoi.preset.editor.profile` | 预设基础资料 | 界面插槽 | 提供 | `replace` | `root` | 扩展预设名称、分组和基础资料编辑。 | — |
 | `eleckoi.preset.editor.introduction` | 预设说明 | 界面插槽 | 提供 | `replace` | `root` | 扩展预设说明和开场内容编辑。 | — |
 | `eleckoi.preset.editor.prompts` | 提示词编辑 | 界面插槽 | 提供 | `replace` | `root` | 扩展预设提示词编辑。 | — |
@@ -286,7 +286,7 @@ ElecKoi 产品能力的 DSH Host Remote 接口。
 | `eleckoiPersonaChangesRemote` | 用户资料变更通知 | Remote 合同 | 提供 | `listen` | `host` | 通过 DSH Remote stream 通知用户资料发生变化。 | `changes` |
 | `eleckoiCharacterConfiguration` | 角色配置数据 | Remote 合同 | 提供 | `call` | `host` | 通过 DSH Host 读取和保存设定库、变量、正则与全局、角色、预设脚本库。 | `readCharacterOpenings`、`saveCharacterOpenings`、`readSettingLibrary`、`replaceSettingLibraryContent`、`updateSettingLibraryEntries`、`importSettingLibrary`、`saveSettingLibrary`、`saveSettingLibraryViewState`、`readConversationSettingLibraries`、`saveConversationSettingLibrary`、`resetConversationSettingLibrary`、`saveConversationSettingLibraryVersion`、`readVariableConfig`、`saveVariableConfig`、`saveVariableConfigViewState`、`readRegexRules`、`saveRegexRules`、`importRegexRules`、`exportRegexRules`、`testRegexRule`、`readScriptLibrary`、`readScriptWorkspace`、`saveScriptLibrary`、`saveScriptLibraries`、`readRegexEditor`、`saveRegexEditor`、`importRegexEditor`、`exportRegexEditor`、`readEditorLibraryVersions`、`saveEditorLibraries`、`readGlobalSettingLibraries`、`saveGlobalSettingLibraries` |
 | `eleckoiCharacterConfigurationChanges` | 角色配置变更通知 | Remote 合同 | 提供 | `listen` | `host` | 通过 DSH Remote stream 通知设定库、变量、正则、脚本库和 Agent 预设变化。 | `changes` |
-| `eleckoiAgentPresetsRemote` | Agent 预设数据 | Remote 合同 | 提供 | `call` | `host` | 通过 DSH Host 管理 Agent 预设、分组及导入导出。 | `catalog`、`read`、`save`、`updateEntries`、`create`、`import`、`export`、`setActive`、`createGroup`、`renameGroup`、`reorderGroups`、`assignGroup`、`deleteGroup`、`delete` |
+| `eleckoiAgentPresetsRemote` | Agent 预设数据 | Remote 合同 | 提供 | `call` | `host` | 通过 DSH Host 管理 Agent 预设、分组及导入导出。 | `catalog`、`read`、`save`、`updateEntries`、`create`、`duplicate`、`import`、`export`、`setActive`、`createGroup`、`renameGroup`、`reorderGroups`、`assignGroup`、`assignGroups`、`deleteGroup`、`delete` |
 | `eleckoiCreatorStudioRemote` | 创作项目数据 | Remote 合同 | 提供 | `call` | `host` | 通过 DSH Host 读取、创建和删除创作工作室项目。 | `list`、`create`、`delete` |
 | `eleckoiCreatorStudioChangesRemote` | 创作项目变更通知 | Remote 合同 | 提供 | `listen` | `host` | 通过 DSH Remote stream 通知创作项目目录发生变化。 | `changes` |
 | `eleckoiDisplayPreferencesRemote` | 显示偏好配置 | Remote 合同 | 提供 | `call` | `host` | 通过 DSH Host 读取和保存显示偏好，并将本地壁纸写入媒体库。 | `read`、`updateUi`、`setChatDisplay` |

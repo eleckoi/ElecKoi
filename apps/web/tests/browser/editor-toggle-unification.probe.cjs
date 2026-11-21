@@ -26,7 +26,7 @@ app.whenReady().then(async()=>{
       const kinds=[['settings','character'],['variables','character'],['prompts','preset'],['tools','preset'],...(!compact?[['regex','character'],['scripts','character'],['regex','preset'],['scripts','preset']]:[])];
       for(const [kind,owner]of kinds){
         await choose(`${kind}:${owner}:${compact}`);
-        const selector=compact?'.mobile-editor-actions [role=toolbar] button':kind==='prompts'?'.setting-library-add-wrap button':'.setting-create';
+        const selector=compact?'.mobile-editor-actions [role=toolbar] button':kind==='prompts'?'.setting-library-add-wrap button':'.setting-toolbar-create';
         if(['settings','variables'].includes(kind)){
           await click(selector,'新建');await click('[role=menu] [role=menuitem]',kind==='settings'?'设定':'变量');
           await wait(`!!document.querySelector('[aria-label="${kind==='settings'?'条目标题':'当前变量名称'}"]')`);

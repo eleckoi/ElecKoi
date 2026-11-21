@@ -97,8 +97,8 @@ describe('management dialog and editor sidebar', () => {
 
       for (const closeWithBackdrop of [false, true]) {
         if (scenario.name === 'setting library') {
-          await act(async () => container.querySelector('[aria-label="设定库更多操作"]').click());
-          await act(async () => [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '管理设定库').click());
+          await act(async () => container.querySelector('[aria-label="设定库管理"]').click());
+          await act(async () => [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '版本管理').click());
         } else if (scenario.name === 'variable configuration') {
           await act(async () => container.querySelector('[aria-label=变量目录操作]').click());
           await act(async () => [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '管理版本与导入导出').click());

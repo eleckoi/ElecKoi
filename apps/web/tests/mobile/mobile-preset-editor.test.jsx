@@ -133,19 +133,30 @@ describe('Android preset presentation', () => {
 
   it('reuses the collapsible character rail and keeps save on list and detail pages', async () => {
     await mount();
+    const headerTitle = () => document.querySelector('.mobile-header h1').textContent;
+    expect(headerTitle()).toBe('基础资料');
     expect(document.querySelectorAll('#preset-editor-navigation button')).toHaveLength(5);
     expect(document.querySelector('.preset-mobile-section-trigger')).toBeNull();
     await click(button('收起侧边栏'));
     expect(document.querySelector('.preset-workspace').classList.contains('is-sidebar-collapsed')).toBe(true);
     await click(button('展开侧边栏'));
     expect(document.querySelector('.preset-workspace').classList.contains('is-sidebar-collapsed')).toBe(false);
+    for (const label of ['工具', '正则']) {
+      await section(label);
+      expect(headerTitle()).toBe(label);
+      expect(document.querySelector('.editor-page-title h1')).toBeNull();
+    }
     await section('预设提示词');
+    expect(headerTitle()).toBe('预设提示词');
+    expect(document.querySelector('.editor-page-title h1')).toBeNull();
     expect(document.querySelector('.mobile-preset-save').textContent).toBe('保存');
     await click(row('合成提示词')); await click(button('编辑'));
+    expect(headerTitle()).toBe('合成提示词');
     expect(document.querySelector('.mobile-preset-save').textContent).toBe('保存');
     expect(document.querySelector('.mobile-editor-document')).toBeTruthy();
     expect(document.querySelector('.editor-page-list').hidden).toBe(true);
     await back();
+    expect(headerTitle()).toBe('预设提示词');
     expect(document.querySelector('.editor-page-list').hidden).toBe(false);
     expect(document.querySelector('.mobile-editor-actions')).toBeTruthy();
   });
@@ -171,7 +182,7 @@ describe('Android preset presentation', () => {
   });
 
   it('opens custom positions as a separate page and returns to insertion while keeping the outer preset draft', async () => {
-    preset.entries.find(entry => entry.id === 'synthetic-entry').triggerMode = 'always';
+    Object.assign(preset.entries.find(entry => entry.id === 'synthetic-entry'), { triggerMode: 'always', enabled: true });
     await mount();
     await section('预设提示词');
     await click(row('合成提示词'));
@@ -209,7 +220,7 @@ describe('Android preset presentation', () => {
     expect(document.querySelector('.setting-writing-board .cm-editor')).toBeTruthy();
     expect(document.querySelector('.setting-position-guide')).toBeNull();
     await back();
-    expect(document.querySelector('.mobile-header h1').textContent).toBe('预设');
+    expect(document.querySelector('.mobile-header h1').textContent).toBe('预设提示词');
     await click(button('保存'));
     expect(model.save).toHaveBeenCalledTimes(1);
     const saved = model.save.mock.calls[0][0];

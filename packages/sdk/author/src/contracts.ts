@@ -130,7 +130,6 @@ export interface AuthorSettingLibraryEntry {
   defaultOpeningMessageId: string
   agentSelectionHint: string
   agentReadStrategy: 'required' | 'keyword' | 'normal'
-  dynamicMode: 'standard' | 'ejs_reference'
   contentMode: 'plain_text' | 'ejs'
   keywords: string[]
   keywordScanDepth: number
@@ -175,7 +174,7 @@ export interface AuthorSettingEntryUpdate { id: string; changes: AuthorSettingEn
 
 export const AUTHOR_SETTING_ENTRY_MUTABLE_FIELDS = [
   'title', 'iconId', 'groupId', 'content', 'agentSelectionHint', 'agentReadStrategy',
-  'dynamicMode', 'contentMode', 'keywords', 'keywordScanDepth', 'conditionKeywords',
+  'contentMode', 'keywords', 'keywordScanDepth', 'conditionKeywords',
   'keywordCondition', 'keywordUseRegex', 'keywordIgnoreCase', 'keywordWholeWord',
   'keywordRecursionDepth', 'triggerMode', 'enabled', 'position', 'promptPositionId',
   'insertRole', 'order', 'viewOrder', 'groupViewOrder', 'treeViewOrder'

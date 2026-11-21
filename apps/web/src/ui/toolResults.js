@@ -46,16 +46,21 @@ export function normalizePathToolResult(definition, payload, tUi = sourceText) {
   return { entries: values, payload, domain, operation, counts };
 }
 
-export function resultReadingBadge(entry, domain, tUi = sourceText) {
+export function resultReadingBadge(entry, domain, tUi = sourceText, operation) {
   if (domain === 'presetPrompts') {
     if (entry.source?.read_strategy === 'required') return { kind: 'required', label: tUi('必读') };
     if (entry.source?.read_strategy === 'normal') return { kind: 'optional', label: tUi('选读') };
   } else if (domain === 'settings') {
     const strategy = entry.source?.read_strategy;
-    if (strategy === 'required') return { kind: 'fixed', label: tUi("固定必读") };
-    if (entry.required) return { kind: 'turn', label: tUi("本轮须读") };
+    const reading = operation === 'read';
+    const mode = entry.source?.content_mode;
+    const references = entry.source?.resolved_references;
+    const ejs = mode === 'ejs' || (mode === undefined && Array.isArray(references) && references.length > 0);
+    if (reading && ejs) return { kind: 'ejs', label: 'EJS' };
+    if (strategy === 'required') return { kind: 'fixed', label: tUi("常驻必读") };
+    if (!reading && entry.required) return { kind: 'turn', label: tUi("本轮须读") };
     if (strategy === 'keyword') return { kind: 'keyword', label: tUi("关键词") };
-    if (strategy === 'normal') return { kind: 'optional', label: tUi("选读") };
+    if (strategy === 'normal') return { kind: 'optional', label: tUi("AI 选读") };
   } else if (entry.required) return { kind: 'required', label: tUi("必读") };
   return undefined;
 }

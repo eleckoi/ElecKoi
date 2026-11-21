@@ -7,11 +7,12 @@ function stopDrag(event) {
   event.stopPropagation();
 }
 
-export function SidePanelShell({ collapsed = false, contentWidth, onCollapse, footerActions, renderSidebarSlot, desktopMenu = false, children }) {
+export function SidePanelShell({ collapsed = false, contentWidth, onCollapse, footerActions, showFooter = true, renderSidebarSlot, desktopMenu = false, children }) {
   const tUi = useProductTranslation();
+  const hasFooter = showFooter && (footerActions || renderSidebarSlot);
   return (
     <section
-      className={`side-panel-shell${collapsed ? " collapsed" : ""}${footerActions || renderSidebarSlot ? " has-footer-actions" : ""}`}
+      className={`side-panel-shell${collapsed ? " collapsed" : ""}${hasFooter ? " has-footer-actions" : ""}`}
       style={contentWidth === undefined ? undefined : { '--side-panel-content-width': `${contentWidth}px` }}
       aria-label={tUi("侧边栏")}
       aria-hidden={collapsed || undefined}
@@ -35,7 +36,7 @@ export function SidePanelShell({ collapsed = false, contentWidth, onCollapse, fo
         {renderSidebarSlot?.("sidebar.brand.name", { content: <ElecKoiWordmark /> }) || <ElecKoiWordmark />}
       </div>
       <div className="side-panel-content">{children}</div>
-      {footerActions || renderSidebarSlot ? <div className={`side-panel-footer-actions${footerActions ? "" : " is-update-only"}`} aria-label={tUi("侧边栏插件操作")}>
+      {hasFooter ? <div className={`side-panel-footer-actions${footerActions ? "" : " is-update-only"}`} aria-label={tUi("侧边栏插件操作")}>
         {footerActions}
         <SidebarUpdateSeat renderSidebarSlot={renderSidebarSlot} />
       </div> : null}

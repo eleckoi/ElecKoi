@@ -1261,6 +1261,11 @@ class ProductDataStore {
     return this.requirePresets().create(name, libraryGroupId, purpose)
   }
 
+  duplicateAgentPreset(presetId: string): AgentPreset {
+    this.databaseRepositories()
+    return this.requirePresets().duplicate(presetId)
+  }
+
   importAgentPreset(
     source: AgentPresetImportSource,
     document: AgentPresetImportDocument,
@@ -1298,6 +1303,11 @@ class ProductDataStore {
   assignAgentPresetGroup(presetId: string, groupId: string): AgentPresetCatalog {
     this.databaseRepositories()
     return this.requirePresets().assignGroup(presetId, groupId)
+  }
+
+  assignAgentPresetGroups(presetIds: string[], groupId: string, purpose: AgentPresetPurpose): AgentPresetCatalog {
+    this.databaseRepositories()
+    return this.requirePresets().assignGroups(presetIds, groupId, purpose)
   }
 
   deleteAgentPresetGroup(groupId: string): AgentPresetCatalog {

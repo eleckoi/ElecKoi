@@ -1,11 +1,11 @@
 # DSH 与 Cordis 合规基准
 
-本目录以仓库锁定的 DSH 提交 `38a6a5c965aa99ab525161efb7cc5cf1fe62fced` 为准。开发插件前必须阅读上游原文：
+本目录以仓库锁定的 DSH 提交 `9c2670d3bce5275e0d1610272958121af87787bb` 为准。开发插件前必须阅读上游原文：
 
-- [Cordis 入门](https://github.com/deepseek-ai/deepseek-harness/blob/38a6a5c965aa99ab525161efb7cc5cf1fe62fced/docs/cordis-primer.zh.md)
-- [Cordis 完整教程](https://github.com/deepseek-ai/deepseek-harness/blob/38a6a5c965aa99ab525161efb7cc5cf1fe62fced/docs/cordis-tutorial/index.zh.md)，包括其七章可运行示例
-- [DSH 开发指南](https://github.com/deepseek-ai/deepseek-harness/blob/38a6a5c965aa99ab525161efb7cc5cf1fe62fced/docs/development.zh.md)
-- [DSH 架构](https://github.com/deepseek-ai/deepseek-harness/blob/38a6a5c965aa99ab525161efb7cc5cf1fe62fced/docs/architecture.zh.md)
+- [Cordis 入门](https://github.com/deepseek-ai/deepseek-harness/blob/9c2670d3bce5275e0d1610272958121af87787bb/docs/cordis-primer.zh.md)
+- [Cordis 完整教程](https://github.com/deepseek-ai/deepseek-harness/blob/9c2670d3bce5275e0d1610272958121af87787bb/docs/cordis-tutorial/index.zh.md)，包括其七章可运行示例
+- [DSH 开发指南](https://github.com/deepseek-ai/deepseek-harness/blob/9c2670d3bce5275e0d1610272958121af87787bb/docs/development.zh.md)
+- [DSH 架构](https://github.com/deepseek-ai/deepseek-harness/blob/9c2670d3bce5275e0d1610272958121af87787bb/docs/architecture.zh.md)
 
 本文是 ElecKoi 对照表，不替代上游原文。
 

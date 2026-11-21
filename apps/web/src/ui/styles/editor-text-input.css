@@ -11,8 +11,10 @@
 .setting-library-content-field > .editor-text-input { flex: none; min-height: 250px; height: clamp(250px,45vh,460px); border: 1px solid color-mix(in srgb,var(--text) 16%,transparent); border-radius: 8px; background: var(--field-bg); --editor-text-padding: 11px 12px; }
 .setting-library-opening-fields .setting-library-content-field > .editor-text-input { min-height: 170px; height: 210px; }
 .setting-writing-board .setting-library-content-field > .editor-text-input, .vv-long-input .setting-library-content-field > .editor-text-input, .rs-writing .setting-library-content-field > .editor-text-input { flex: 1; min-height: 0; height: 100%; border: 0; border-radius: 0; background: transparent; }
-.immersive-markdown-body > .editor-text-input { height: 100%; --editor-text-padding: 32px max(32px, calc((100% - 860px)/2)); }
-.setting-writing-board .editor-text-input, .vv-code-input .editor-text-input { --editor-text-padding: 26px max(28px, calc((100% - 760px)/2)) 28px; color: color-mix(in srgb, var(--text) 86%, var(--chat)); }
+.immersive-markdown-body > .editor-text-input { height: 100%; --editor-text-padding: var(--immersive-writing-inset, 32px max(32px, calc((100% - 860px)/2))); }
+.immersive-markdown-editor.is-full-width { --immersive-writing-inset: 28px; }
+.setting-writing-board .editor-text-input, .vv-code-input .editor-text-input { color: color-mix(in srgb, var(--text) 86%, var(--chat)); }
+.setting-writing-board .editor-text-input { --editor-text-padding: 26px 28px 28px; }
 .vv-long-input .editor-text-input { --editor-text-padding: 12px 14px; }
 .vv-code-input .editor-text-input { --editor-text-padding: 26px max(28px, calc((100% - 760px)/2)) 28px; }
 .editor-text-input.vv-code-editor { padding: 0; --editor-text-padding: 26px max(28px, calc((100% - 760px)/2)) 28px; }

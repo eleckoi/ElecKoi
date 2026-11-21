@@ -35,6 +35,8 @@ app.whenReady().then(async () => {
       }
     }
     const officialOnly = await run(`({inputs:document.querySelectorAll('input').length,search:[...document.querySelectorAll('[aria-label="搜索方式"] strong')].map(n=>n.textContent),buttons:document.querySelectorAll('.web-search-config button').length,fetch:document.querySelectorAll('[aria-label="网页抓取方式"]').length})`);
+    await choose('DeepSeek');
+    const automatic = { ...await selection(), label: await run(`document.querySelector('.web-search-mode [aria-pressed="true"] span')?.textContent`), writes: await run('window.webSearchFixture.calls.length') };
     await choose('Tavily');
     await waitFor(`!!document.querySelector('[aria-label="Tavily API Key"]')`);
     await run('window.webSearchFixture.setAllowNavigation(false)');
@@ -86,7 +88,7 @@ app.whenReady().then(async () => {
     await new Promise(resolve => setTimeout(resolve, 30));
     await run(`[...document.querySelectorAll('button')].find(n=>n.textContent==='保存并测试').click()`);
     await new Promise(resolve => setTimeout(resolve, 50));
-    writeFileSync(report, JSON.stringify({ layouts, officialOnly, selected, reopened, blockedNavigation, configured, existingApi, failed, readOnly, credentialError, providerAfterCredentialError, countSnapshot, calls: await run('window.webSearchFixture.calls'), message: await run('document.body.textContent'), cleared: await run(`document.querySelector('[aria-label="Tavily API Key"]').value===''`) }));
+    writeFileSync(report, JSON.stringify({ layouts, officialOnly, automatic, selected, reopened, blockedNavigation, configured, existingApi, failed, readOnly, credentialError, providerAfterCredentialError, countSnapshot, calls: await run('window.webSearchFixture.calls'), message: await run('document.body.textContent'), cleared: await run(`document.querySelector('[aria-label="Tavily API Key"]').value===''`) }));
     win.destroy(); app.exit(0);
   } catch (error) { console.error(error); app.exit(1); }
 });

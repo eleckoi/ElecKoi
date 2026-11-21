@@ -35,7 +35,8 @@ body[data-ds-dark-theme] .roleplay-tool-call, :root[data-theme="dark"] .roleplay
 .roleplay-result-card > header > strong { flex: 1; min-width: 0; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; }
 .roleplay-result-card > header > span { font-size: 12px; color: var(--dsw-alias-label-tertiary); flex: none; }
 .roleplay-result-browser [data-reading-kind="fixed"], .roleplay-result-browser [data-reading-kind="required"], .roleplay-result-browser [data-reading-kind="matched"] { color: var(--dsw-alias-link); }
-.roleplay-result-browser [data-reading-kind="turn"], .roleplay-result-browser [data-reading-kind="keyword"] { color: var(--roleplay-result-conditional); }
+.roleplay-result-browser [data-reading-kind="turn"] { color: var(--roleplay-result-conditional); }
+.roleplay-result-browser [data-reading-kind="keyword"] { color: var(--setting-keyword-color); }
 .roleplay-result-path { margin: 3px 0 0; font-size: 12px; color: var(--dsw-alias-label-tertiary); overflow-wrap: anywhere; }
 .roleplay-result-text { margin: 0; padding: 0; color: var(--dsw-alias-label-primary); background: none; font: inherit; line-height: 1.85; white-space: pre-wrap; overflow-wrap: anywhere; }
 .roleplay-result-text.is-note { font-size: 12px; color: var(--dsw-alias-label-secondary); }

@@ -4,14 +4,12 @@
 .setting-workspace.is-resizing, .setting-workspace.is-resizing * { cursor: col-resize !important; user-select: none !important; }
 .setting-directory { --pane-inset: var(--editor-heading-inset-inline,16px); container-type: inline-size; position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: var(--editor-heading-inset-top,16px) var(--pane-inset) 0; background: var(--chat); border-radius: 16px; overflow: hidden; }
 .setting-directory-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 8px; min-height: 34px; margin-bottom: 12px; }
-.setting-scope-switch, .setting-view-switch { width: 132px; flex-shrink: 0; }
-.setting-directory-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 100%; margin-left: auto; }
-.setting-directory-more, .setting-document-save, .setting-format-button { height: 32px; min-height: 32px; border: 1px solid var(--dsw-alias-border-l2, var(--line-strong)); border-radius: 999px; font-size: 13px; box-shadow: none; }
-.setting-create { height: 32px; min-height: 32px; padding-inline: 12px; gap: 6px; border-radius: 999px; font-size: 13px; }
-.setting-directory-more { width: 32px; min-width: 32px; padding: 0; color: var(--muted); }
-.setting-document-save:disabled { opacity: 1; border-color: var(--dsw-alias-border-l2, var(--line-strong)); color: var(--muted); background: transparent; }
+.setting-view-switch { width: 132px; flex-shrink: 0; }
+.setting-document-save:disabled { color: var(--muted); background: transparent; }
+.setting-directory .editor-directory-topline { align-items: center; }
 .setting-directory-search { margin-bottom: 18px; }
 .setting-search-input { width: 100%; min-width: 0; height: 32px; font-size: 13px; }
+.setting-search-input input::placeholder { color: var(--dsw-alias-label-secondary, var(--muted)); opacity: 1; }
 .setting-pane-resizer { position: relative; cursor: col-resize; touch-action: none; outline: none; }
 .setting-pane-resizer::after { content: ''; position: absolute; top: 12px; bottom: 12px; width: 2px; left: 3px; border-radius: 2px; background: transparent; transition: background-color 120ms; }
 .setting-pane-resizer:is(:hover,:focus-visible,.is-dragging)::after { background: var(--blue); }
@@ -34,8 +32,6 @@
 .setting-document-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .setting-folder-more { width: 32px; min-width: 32px; height: 32px; min-height: 32px; padding: 0; }
 .setting-document-save { flex-shrink: 0; padding-inline: 12px; gap: 6px; }
-.setting-format-button { padding-inline: 12px; gap: 6px; }
-.setting-format-button > svg { flex-shrink: 0; color: var(--muted); }
 .setting-entry-heading { display: flex; flex-direction: column; align-items: stretch; gap: 12px; flex-shrink: 0; margin-bottom: 8px; }
 .setting-document-title { display: flex; min-width: 0; align-items: center; gap: 8px; }
 .setting-document-title input { field-sizing: content; border: 0; background: transparent; width: auto; min-width: 2em; max-width: 320px; padding: 0; color: var(--text); font-family: inherit; font-size: 16px; font-weight: 500; }
@@ -50,7 +46,7 @@
 .setting-writing-board .setting-library-content-field { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
 .setting-writing-board .setting-library-content-heading { display: none; }
 .setting-writing-board { overflow: hidden; background: var(--writing-surface); border: 1px solid var(--dsw-alias-border-l2, var(--line-strong)); border-radius: 12px; box-shadow: none; }
-.setting-writing-board .setting-library-content-field > textarea { flex: 1; width: 100%; min-height: 0; resize: none; border: 0; border-radius: 0; padding: 26px max(28px, calc((100% - 760px) / 2)) 28px; background: transparent; color: color-mix(in srgb, var(--text) 86%, var(--writing-surface)); font-size: 14px; line-height: 22px; }
+.setting-writing-board .setting-library-content-field > textarea { flex: 1; width: 100%; min-height: 0; resize: none; border: 0; border-radius: 0; padding: 26px 28px 28px; background: transparent; color: color-mix(in srgb, var(--text) 86%, var(--writing-surface)); font-size: 14px; line-height: 22px; }
 .setting-writing-board:focus-within { border-color: color-mix(in srgb, var(--blue) 40%, var(--dsw-alias-border-l2, var(--line-strong))); }
 .setting-editor-status { display: flex; justify-content: space-between; flex-shrink: 0; padding: 10px 24px 14px; font-size: 12px; color: var(--muted); }
 .setting-editor-status { align-items: center; }
@@ -67,6 +63,12 @@
 .setting-entry-basics { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
 .setting-entry-basics h2, .setting-reading-settings h2 { margin: 0; font-size: 14px; font-weight: 600; }
 .setting-reading-settings h2 { margin-bottom: 16px; }
+.setting-rule-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.setting-rule-title { display: flex; align-items: center; gap: 4px; }
+.setting-rule-heading h2 { margin: 0; }
+.setting-rule-help { width: 28px; min-width: 28px; height: 28px; min-height: 28px; padding: 0; color: var(--muted); }
+.setting-rule-fields { margin-top: 12px; padding: 14px 16px; border: 1px solid var(--dsw-alias-border-l2, var(--line)); border-radius: 10px; }
+.setting-rule-fields .setting-insert-settings { margin-top: 8px; }
 .setting-property-row { display: grid; grid-template-columns: 72px minmax(0,1fr); gap: 16px; align-items: center; min-height: 34px; }
 .setting-property-label { color: var(--muted); font-size: 13px; font-weight: 400; line-height: 20px; }
 .setting-identity-control { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 384px; min-width: 0; }
@@ -155,11 +157,6 @@
   .setting-document-title input { max-width: 170px; }
 }
 @media (prefers-reduced-motion: reduce) { .setting-pane-resizer::after { transition: none; } }
-@container (max-width: 240px) {
-  .setting-scope-switch { width: 116px; }
-  .setting-create { padding-inline: 8px; }
-}
-
 .setting-workspace .setting-library-browser { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .setting-workspace .setting-library-tree { flex: 1; min-height: 0; overflow: auto; padding: 0; margin: 0; }
 .setting-workspace .role-setting-library-container, .setting-workspace .global-setting-libraries { width: 100%; }

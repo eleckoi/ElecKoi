@@ -1,12 +1,12 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { forwardRef, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { EditorScopeTabs } from '../../../ui/ui/EditorScopeTabs.jsx';
-import { Code, Copy, FileText, LinkSimple, PencilSimple, Trash } from "../../../ui/icons/interfaceIcons.jsx";
+import { Code, Copy, FileText, PencilSimple, Trash } from "../../../ui/icons/interfaceIcons.jsx";
 import { DshFolderClosedIcon } from "../../../ui/icons/dshTreeIcons.jsx";
 import { SETTING_LIBRARY_CREATE_ICONS } from "../../../ui/icons/settingLibraryCreateIcons.jsx";
 import { SettingLibraryManager } from "./SettingLibraryManager.jsx";
 import { GlobalSettingLibrariesDirectory, GlobalSettingLibraryImport, useGlobalSettingLibraries } from './GlobalSettingLibraries.jsx';
-import { ConfirmationDialog, SaveControl } from "./SettingLibraryControls.jsx";
+import { ConfirmationDialog, SaveControl, SettingLibraryDirectoryOptions, SettingLibraryImportMenu } from "./SettingLibraryControls.jsx";
 import { SettingLibraryWorkspace } from './SettingLibraryWorkspace.jsx';
 import { SettingLibraryDocument } from './SettingLibraryDocument.jsx';
 import { SettingLibraryTree, SettingTreeActionsContext } from "./SettingLibraryTree.jsx";
@@ -40,11 +40,9 @@ import { useCharacterConfigurationDraft } from '../../../ui/hooks/useCharacterCo
 
 const CreateFolderIcon = SETTING_LIBRARY_CREATE_ICONS.group;
 const CreateEntryIcon = SETTING_LIBRARY_CREATE_ICONS.entry;
-const CreateReferenceIcon = SETTING_LIBRARY_CREATE_ICONS.reference;
 
 function nodeIcon(entry) {
   if (entry?.contentMode === "ejs") return Code;
-  if (entry?.dynamicMode === "ejs_reference") return LinkSimple;
   return FileText;
 }
 
@@ -58,7 +56,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
   const [clipboard, setClipboard] = useState(null);
   const [roleExpandedKeys, setRoleExpandedKeys] = useState([]);
   const [query, setQuery] = useState("");
-  const [managerOpen, setManagerOpen] = useState(false);
+  const [managerAction, setManagerAction] = useState('');
   const [contextMenu, setContextMenu] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const nameInputRef = useRef(null);
@@ -135,7 +133,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
   useEffect(() => {
     setSelectedKey('');
     roleSelectedKey.current = '';
-    setManagerOpen(false);
+    setManagerAction('');
   }, [characterId]);
   useEffect(() => {
     if (compact || scope !== 'character' || !roleLibrary || roleLibrary.characterId && roleLibrary.characterId !== characterId || initializedSelection.current === characterId) return;
@@ -231,7 +229,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
       nextLibrary = { ...sourceLibrary, groups: [...sourceLibrary.groups, group] };
       nextKey = nodeKey("group", group.id);
     } else {
-      const entry = createEntryDraft(parentId, order, sourceLibrary.entries, kind === "reference" ? "reference" : "standard");
+      const entry = createEntryDraft(parentId, order, sourceLibrary.entries);
       nextLibrary = { ...sourceLibrary, entries: [...sourceLibrary.entries, entry] };
       nextKey = nodeKey("entry", entry.id);
     }
@@ -255,15 +253,14 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
     const value = kind === "group" ? source.groups.find((group) => group.id === id) : source.entries.find((entry) => entry.id === id);
     if (!value || PINNED_ENTRY_IDS.has(id)) return;
     const name = kind === "group" ? value.name : value.title;
-    const isReference = kind === "entry" && value.dynamicMode === "ejs_reference";
     setDeleteTarget({
       kind,
       id,
       libraryId,
-      title: kind === "group" ? tUi("删除“{value0}”？", {value0: name}) : isReference ? tUi("删除这条 EJS引用设定？") : tUi("删除“{value0}”？", {value0: name || tUi("未命名设定")}),
+      title: tUi("删除“{value0}”？", {value0: name || tUi("未命名设定")}),
       message: kind === "group"
         ? tUi("文件夹内的设定也会一起删除。")
-        : isReference ? tUi("使用它的控制器将无法再通过 getwi 读取“{value0}”。", {value0: name || "未命名 EJS引用设定"}) : tUi("此操作会在保存后生效。"),
+        : tUi("此操作会在保存后生效。"),
     });
     setContextMenu(null);
   }
@@ -405,14 +402,13 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
     multi.clear();
   }
   function askDeleteBatch() { setDeleteTarget({ kind: 'batch', ids: selectedTreeRootIds(nodes, multi.selected), title: tUi("删除选中的 {value0} 项？", {value0: multi.selected.size}), message: tUi("所选文件夹及其内容会在保存后删除。") }); }
-  const createItems = [{ label: tUi("文件夹"), Icon: CreateFolderIcon, run: () => requestAddNode('group') },
-    { label: tUi("设定"), Icon: CreateEntryIcon, run: () => requestAddNode('entry') },
-    { label: tUi("EJS引用设定"), Icon: CreateReferenceIcon, run: () => requestAddNode('reference') }];
+  const createItems = [{ label: tUi("新建文件夹"), Icon: CreateFolderIcon, run: () => requestAddNode('group') },
+    { label: tUi("新建设定"), Icon: CreateEntryIcon, run: () => requestAddNode('entry') }];
   const saveControl = <SaveControl dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} workspace={!compact} />;
   const inspector = !multi.active && selected.value && (!compact || editing) ?
     <SettingLibraryDocument key={JSON.stringify([scope, activeLibraryId, selected.kind, selected.value.id])} selected={selected} library={library} nameInputRef={nameInputRef} SelectedIcon={SelectedIcon}
       onUpdateGroup={updateGroup} onDeleteGroup={() => askDelete('group', selected.value.id)} onUpdateEntry={entry => updateEntryById(entry.id, entry)}
-      onEntriesChange={entries => changeLibrary(current => ({ ...current, entries }))} onOpenEntry={id => openEditor(nodeKey('entry', id))}
+      onEntriesChange={entries => changeLibrary(current => ({ ...current, entries }))}
       dirty={dirty} saving={saving} /> : null;
 
   function changeScope(next) {
@@ -423,12 +419,20 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
   }
   const toggleSelection = () => { multi.toggle(); setEditing(false); setContextMenu(null); };
   const Layout = compact ? EditorSidebarLayout : SettingLibraryWorkspace;
+  const onManage = () => setManagerAction('manage');
   const layoutProps = { scope, onScopeChange: changeScope, globalAvailable: globals.available, panelId: scopePanelId, query, onQueryChange: setQuery,
-    createItems, selection: { ...multi, toggle: toggleSelection }, saving, library, roleLibrary, onLibraryChange: applyManagerChange, onManage: () => setManagerOpen(true), save: saveControl };
+    createItems, selectionActive: multi.active, saving, library, roleLibrary, onLibraryChange: applyManagerChange, onManage, save: saveControl };
 
-  const renderLayout = importActions => (
+  const importAction = scope === 'global' ? <GlobalSettingLibraryImport state={globals} settingLibraries={settingLibraries} disabled={saving || multi.active} /> :
+    <SettingLibraryImportMenu label={tUi('导入角色设定库')} disabled={saving || !roleLibrary || multi.active}
+      items={[{ id: 'import', label: tUi('导入为新版本') }, { id: 'merge', label: tUi('并入设定库') }]}
+      onSelect={setManagerAction} />;
+  const directoryOptions = <SettingLibraryDirectoryOptions key={scope} characterScope={scope === 'character'} busy={saving}
+    available={scope === 'character' ? Boolean(roleLibrary) : Boolean(library)} selection={{ active: multi.active, toggle: toggleSelection }} onManage={onManage} />;
+
+  return (
     <Layout
-      {...(!compact ? { ...layoutProps, importActions } : { documentLayout: true })}
+      {...(!compact ? { ...layoutProps, importAction, directoryOptions } : { documentLayout: true })}
       className={`setting-library-layout${multi.active ? ' is-multiselect' : ''}`}
       inspector={inspector}
       inspectorTitle={selected.kind === 'group' ? tUi("编辑文件夹") : selected.value?.title || tUi("编辑设定")}
@@ -438,11 +442,10 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
 
     >
       <div className="setting-library-browser editor-collection-browser editor-heading-surface">
-        {compact && <EditorCollectionToolbar className="editor-tree-toolbar" heading={tUi("设定库")} leading={globals.available ? <EditorScopeTabs value={scope} panelId={scopePanelId} onChange={changeScope} /> : null} query={query} onQueryChange={setQuery} placeholder={scope === 'global' ? tUi("搜索全局设定库") : tUi("搜索设定")} selection={{ ...multi, toggle: toggleSelection }} disabled={saving || !library}
-          createItems={createItems}
-          onManage={scope === 'character' ? () => setManagerOpen(true) : undefined}
-          beforeSave={scope === 'global' ? <GlobalSettingLibraryImport state={globals} settingLibraries={settingLibraries} disabled={saving} /> : null}
-          save={saveControl} />}
+        {compact && <EditorCollectionToolbar className="editor-tree-toolbar" heading={tUi("设定库")}
+          leading={globals.available ? <EditorScopeTabs value={scope} panelId={scopePanelId} onChange={changeScope} /> : null}
+          query={query} onQueryChange={setQuery} placeholder={scope === 'global' ? tUi("搜索全局设定库") : tUi("搜索设定")}
+          save={saveControl}>{importAction}{directoryOptions}</EditorCollectionToolbar>}
         <EditorSelectionBar selection={multi} visibleIds={visibleTreeSelectionIds(nodes, selectionQuery)} disabled={saving} onCopy={copySelected} onDelete={askDeleteBatch}>
           {!compact && <button type="button" className="setting-selection-done" onClick={toggleSelection}>{tUi('完成')}</button>}
         </EditorSelectionBar>
@@ -475,7 +478,8 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
           </div>
           </>}
         </div>
-        {compact && library && !multi.active && <MobileEditorActions label={tUi("设定操作")} selectionId={selectedKey} busy={saving} createItems={createItems}
+        {compact && library && !multi.active && <MobileEditorActions label={tUi("设定操作")} selectionId={selectedKey} busy={saving}
+          createItems={createItems}
           canEdit={Boolean(selected.value)} canModify={Boolean(selected.value) && !PINNED_ENTRY_IDS.has(selected.value.id)}
           clipboard={clipboard} canPaste={Boolean(clipboard && canTransferSettingNode(library, clipboard.target, parentForNewNode()))}
           onEdit={() => openEditor()} onMove={() => startTransfer('cut')} onPaste={pasteSelection} onCancel={() => setClipboard(null)}
@@ -486,13 +490,14 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
           ] : []} />}
       </div>
 
-      {managerOpen ? (
+      {managerAction ? (
         <SettingLibraryManager
+          initialAction={managerAction}
           characterId={characterId}
           settingLibraries={settingLibraries}
           library={roleLibrary}
           onChange={applyManagerChange}
-          onClose={() => setManagerOpen(false)}
+          onClose={() => setManagerAction('')}
           onError={setError}
         />
       ) : null}
@@ -501,7 +506,6 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
         ...(['background', 'group'].includes(contextMenu.kind) ? [
           { label: tUi("新建文件夹"), icon: CreateFolderIcon, run: () => requestAddNode('group', contextMenu.parentId, contextMenu.libraryId) },
           { label: tUi("新建设定"), icon: CreateEntryIcon, run: () => requestAddNode('entry', contextMenu.parentId, contextMenu.libraryId) },
-          { label: tUi("新建 EJS引用设定"), icon: CreateReferenceIcon, run: () => requestAddNode('reference', contextMenu.parentId, contextMenu.libraryId) },
         ] : []),
         ...(contextMenu.kind === 'entry' ? [{ label: tUi("复制"), icon: Copy, run: () => duplicateEntry(contextMenu.id, contextMenu.libraryId) }] : []),
         ...(contextMenu.kind !== 'background' ? [
@@ -512,5 +516,4 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
       <ConfirmationDialog target={deleteTarget} confirmLabel={tUi("删除")} tone="destructive" onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
     </Layout>
   );
-  return !compact ? <GlobalSettingLibraryImport state={globals} settingLibraries={settingLibraries} disabled={saving} renderActions={actions => renderLayout(scope === 'global' ? actions : undefined)} /> : renderLayout();
 });

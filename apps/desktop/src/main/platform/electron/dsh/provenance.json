@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/deepseek-ai/deepseek-harness",
-  "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced",
+  "commit": "9c2670d3bce5275e0d1610272958121af87787bb",
   "license": "MIT",
   "licenseFile": "apps/desktop/resources/licenses/dsh-desktop-MIT.txt",
   "files": [
@@ -15,7 +15,7 @@
         "An explicit DOM library reference supplies the preload document types.",
         "Native popup requests carry the current document language; observing a remount skips work while the menu is connected."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "packages/shared/src/contracts/desktopMenuLocale.ts",
@@ -26,7 +26,7 @@
         "Only caption-menu dictionary keys and the official eight-language resolver are retained; product name is ElecKoi.",
         "The developer-tools caption label is provided for the same eight supported languages."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/src/main/platform/electron/desktopCaptionMenu.ts",
@@ -43,12 +43,12 @@
         "path": "apps/desktop/src/keyboard.ts",
         "sha256": "7cf07391d8998813ea894d0e5d2f47053f5cc13dc9f48f257856cd19143b6728"
       },
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/resources/shell/scrollbar.css",
       "source": "packages/client/ui-theme/src/styles/scrollbar.css",
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced",
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb",
       "sha256": "d83797aa96625e8ec77412bfc5649469cd5834d3cb0f7f6a1f3db8a59e1f4530",
       "localSha256": "d83797aa96625e8ec77412bfc5649469cd5834d3cb0f7f6a1f3db8a59e1f4530",
       "changes": []

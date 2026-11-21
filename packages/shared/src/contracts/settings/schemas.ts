@@ -16,12 +16,17 @@ export const listCollapseStateSchema = z.object({
   plugins: collapsedGroupMapSchema.optional()
 })
 export const appearanceUiPreferencesSchema = z.object({
-    desktop_character_sort: z.enum(['default', 'newest', 'oldest', 'edited', 'name']).optional(),
+  desktop_character_sort: z.enum(['default', 'newest', 'oldest', 'edited', 'name']).optional(),
+  desktop_character_sidebar_sort: z.enum(['default', 'newest', 'oldest', 'edited', 'name']).optional(),
+  desktop_character_sidebar_order: z.array(z.string().min(1)).optional(),
+  desktop_preset_sort: z.enum(['default', 'name']).optional(),
+  desktop_preset_sidebar_sort: z.enum(['default', 'name']).optional(),
   mobile_character_sort: z.enum(['default', 'newest', 'oldest', 'edited', 'name']).optional(),
   sidebar_character_artwork: sidebarCharacterArtworkSchema.optional(),
   new_character_background: newCharacterBackgroundSchema.optional(),
   conversation_content_width: z.number().finite().positive().optional(),
   pinned_chat_ids: conversationEntryIdsSchema.optional(),
+  favorite_character_ids: z.array(z.string().min(1)).optional(),
   hidden_chat_ids: conversationEntryIdsSchema.optional(),
   list_collapse_state: listCollapseStateSchema.optional()
 }).catchall(z.unknown())
@@ -49,7 +54,7 @@ export const DEFAULT_ROLEPLAY_STYLE = {
   backdrop_blur: 20,
   backdrop_opacity: 100,
   backdrop_tint: null,
-  bubbles_enabled: false,
+  bubbles_enabled: true,
   bubble_spacing: 5,
   bubble_blur: 0,
   user_bubble_tint: null,

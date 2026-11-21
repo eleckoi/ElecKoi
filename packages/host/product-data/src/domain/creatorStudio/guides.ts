@@ -3,9 +3,13 @@ export const creatorToolsets = [
   { id: 'character', title: '角色资料', description: '新建空角色，维护当前角色资料和独立开场白。', skill: 'eleckoi-character-authoring',
     guide: ['character.list 可发现或按名称搜索角色，调用 eleckoi_call_capability 时可显式提供 character_id；省略时使用当前快捷定位角色，绑定不是前提。character.create 可从零创建，默认省略 group，创建在未分组。角色分组是可选的列表整理，仅按用户要求指定或新建，不按角色题材自行分类。开场白用 character.read_openings／character.save_openings，与设定版本独立。常规楼层界面加载 eleckoi-message-frontends；角色配置与配套脚本加载 eleckoi-character-authoring。'] },
   { id: 'settings', title: '设定库', description: '读写角色卡或共享全局的设定原稿、EJS、文件夹和配置。', skill: 'eleckoi-character-authoring',
-    guide: ['省略 target 是当前角色；target={scope:"global",libraryId} 是明确全局库，无需选择角色。list 是目录，read 是原稿。片段编辑 settings.edit 无需重传整条正文。全局写入带 expectedRevision；角色完整配置用 read_library/save_library。agentReadStrategy 的 keyword 是选读关键词匹配。引用条目用 dynamicMode=ejs_reference；contentMode=plain_text 原样返回，ejs 被 getwi 调用时递归计算。详细知识加载 skill eleckoi-character-authoring。'],
+    guide: [
+      '省略 target 读取当前角色。target={scope:"global",libraryId} 指定全局库，无需选择角色。list 是目录，read 是原稿。仅改一段用 settings.edit，无需重传整条正文。全局写入带 expectedRevision，角色完整配置用 read_library/save_library。',
+      '新建默认关闭触发规则。需启用时传 enabled=true。triggerMode=agent_tool 时，agentReadStrategy=normal 为 AI 选读、keyword 为关键词触发、required 为常驻触发（每轮必读）。triggerMode=always 为常驻触发（指定插入位置）。',
+      '混写正文将整份原稿作为 content，并设 contentMode=ejs；关闭触发规则时仍按本轮上下文求值。getwi 可递归读取当前聊天库中的普通设定，包括规则关闭或关键词尚未命中的条目。详细知识加载 skill eleckoi-character-authoring。',
+    ],
     examples: [{ title: '动态人物状态引用', operation: 'settings.create', arguments: {
-      title: '人物状态', dynamicMode: 'ejs_reference', contentMode: 'ejs', agentReadStrategy: 'normal', triggerMode: 'agent_tool', enabled: true,
+      title: '人物状态', contentMode: 'ejs', agentReadStrategy: 'normal', triggerMode: 'agent_tool', enabled: false,
       content: '好感度：<%= getvar("好感度", { defaults: 0 }) %>。<%- await getwi("固定规则") %>'
     } }] },
   { id: 'variables', title: '变量库', description: '维护当前角色的变量定义、默认值和 Zod 校验。', skill: 'eleckoi-character-authoring',

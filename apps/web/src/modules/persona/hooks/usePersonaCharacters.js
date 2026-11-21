@@ -166,6 +166,7 @@ export function usePersonaCharacters({ characterCatalog, personaModel, setStatus
     setSelectedCharacter(character.id);
     setActiveSectionState("character");
     setStatus("已新建角色");
+    return character.id;
   }
 
   async function updateCharacter(character, quiet = false, options = {}) {

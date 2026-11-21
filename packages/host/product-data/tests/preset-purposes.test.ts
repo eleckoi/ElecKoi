@@ -46,13 +46,18 @@ describe('preset purposes', () => {
     const current = next.repository.get(creator.id)
     expect(current.groups).toContainEqual(group)
     expect(current.entries.find(entry => entry.id === 'synthetic-keyword')).toMatchObject({ content: entries[0]!.content, enabled: true, agentReadStrategy: 'normal', keywords: [], conditionKeywords: [], keywordScanDepth: 1, groupId: group.id })
-    for (const id of ['synthetic-ejs', 'synthetic-reference']) expect(current.entries.find(entry => entry.id === id)).toMatchObject({ content: entries.find(entry => entry.id === id)!.content, enabled: false, contentMode: 'plain_text', dynamicMode: 'standard' })
+    for (const id of ['synthetic-ejs', 'synthetic-reference']) expect(current.entries.find(entry => entry.id === id)).toMatchObject({ content: entries.find(entry => entry.id === id)!.content, enabled: false, contentMode: 'plain_text' })
     expect(current.entries.find(entry => entry.id === 'synthetic-required')).toMatchObject({ enabled: true, agentReadStrategy: 'required' })
     expect(current.entries.find(entry => entry.id === 'synthetic-standing')).toMatchObject({ enabled: true, triggerMode: 'always', position: 'instructions' })
     const snapshots = next.store.native.prepare('SELECT versionId, payloadJson FROM agent_preset_version_entries WHERE presetId=? AND entryId=?').all(creator.id, 'synthetic-ejs') as { versionId: string; payloadJson: string }[]
     expect(snapshots.map(row => row.versionId).sort()).toEqual([creator.activeVersionId, 'synthetic-history'].sort())
     expect(snapshots.every(row => JSON.parse(row.payloadJson).enabled === false && JSON.parse(row.payloadJson).content === entries[1]!.content)).toBe(true)
-    expect(next.store.native.prepare('SELECT * FROM agent_preset_entries WHERE presetId=?').all(role.id)).toEqual(roleBefore)
+    const currentRole = next.store.native.prepare('SELECT * FROM agent_preset_entries WHERE presetId=?').all(role.id) as { entryId: string; payloadJson: string }[]
+    expect(currentRole.filter(row => row.entryId !== 'synthetic-reference')).toEqual(
+      (roleBefore as { entryId: string }[]).filter(row => row.entryId !== 'synthetic-reference'))
+    const roleReference = JSON.parse(currentRole.find(row => row.entryId === 'synthetic-reference')!.payloadJson)
+    expect(roleReference).toMatchObject({ enabled: false, content: 'Retained reference text' })
+    expect(roleReference).not.toHaveProperty('dynamicMode')
     expect(next.store.native.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
     expect(next.store.native.pragma('foreign_key_check')).toEqual([])
     expect(next.store.native.pragma('integrity_check', { simple: true })).toBe('ok')

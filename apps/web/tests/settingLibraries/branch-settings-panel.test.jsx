@@ -17,7 +17,7 @@ describe('automatic chat branch settings', () => {
   it.each([false, true])('edits and saves through the shared document, preserves references and inherited read-only entries (compact=%s)', async compact => {
     const library = { characterId: 'synthetic-character', name: '合成设定库', entries: [
       { ...createEntryDraft('', 1, []), id: 'controller', title: '控制器', content: '<%= getwi("引用") %>', contentMode: 'ejs' },
-      { ...createEntryDraft('', 2, []), id: 'reference', title: '引用', dynamicMode: 'ejs_reference', content: '引用正文' },
+      { ...createEntryDraft('', 2, []), id: 'reference', title: '引用', content: '引用正文' },
       { ...createEntryDraft('', 3, []), id: 'inherited', title: '继承设定', kind: 'character', content: '只读正文' },
     ], groups: [{ id: 'folder', name: '原文件夹', parentId: '', treeViewOrder: 0 }], promptPositions: [], versions: [], expandedGroupIds: [] };
     const item = { sessionId: 'synthetic-chat', title: '合成聊天', library };
@@ -46,15 +46,17 @@ describe('automatic chat branch settings', () => {
       await open('控制器');
       expect(container.querySelector('[aria-current="step"]')).toBeNull();
       expect(container.querySelector('.setting-view-switch')).not.toBeNull();
-      await click(container.querySelector('.setting-library-reference-items button'));
+      await closeDetail();
+      await open('引用');
       expect(container.querySelector('[aria-label="条目标题"]').value).toBe('引用');
-      await click(container.querySelector('.setting-format-button'));
-      await click([...document.querySelectorAll('[role="menuitem"]')].find(node => node.textContent.trim() === 'EJS'));
-      await editContent('引用正文已修改');
+      const mixedReference = '引用正文已修改。<%= 1 %>保留结尾。';
+      await editContent(mixedReference);
       await closeDetail();
       await open('控制器');
       await click(button('设置'));
-      await click(button('提示词常驻'));
+      await click(container.querySelector('[aria-label="启用触发规则"]'));
+      await click(button('常驻触发'));
+      await click(button('指定插入位置'));
       await click(container.querySelector('[aria-label="选择设定插入点 2"]'));
       await changeInput(container.querySelector('[aria-label="位置内顺序"]'), '12');
       await closeDetail();
@@ -68,7 +70,7 @@ describe('automatic chat branch settings', () => {
       await changeInput(container.querySelector('[aria-label="文件夹名称"]'), '修改文件夹');
       await act(async () => ref.current.save());
       const saved = model.saveConversation.mock.lastCall[2];
-      expect(saved.entries.find(entry => entry.id === 'reference')).toMatchObject({ content: '引用正文已修改', contentMode: 'ejs', dynamicMode: 'ejs_reference' });
+      expect(saved.entries.find(entry => entry.id === 'reference')).toMatchObject({ content: mixedReference, contentMode: 'ejs', enabled: false });
       expect(saved.entries.find(entry => entry.id === 'controller')).toMatchObject({ triggerMode: 'always', position: 'insert_point_2', order: 12 });
       expect(saved.entries.find(entry => entry.id === 'inherited').content).toBe('只读正文');
       expect(saved.groups[0].name).toBe('修改文件夹');
@@ -141,11 +143,13 @@ describe('automatic chat branch settings', () => {
       expect(container.querySelector('input[aria-label="条目标题"]').value).toBe('偏好')
       expect(container.querySelector('.cm-content').textContent).toBe('喜欢茶。')
       await act(async () => button('设置').click())
-      expect(container.querySelector('[aria-label="读取策略"]')).not.toBeNull()
-      expect(container.textContent).toContain('关键词命中')
+      const ruleSwitch = container.querySelector('[aria-label="启用触发规则"]')
+      if (ruleSwitch.getAttribute('aria-checked') === 'false') await act(async () => ruleSwitch.click())
+      expect(container.querySelector('[aria-label="触发方式"]')).not.toBeNull()
+      expect(container.textContent).toContain('关键词触发')
       await act(async () => button('正文').click())
       expect(container.querySelector('.cm-content').textContent).toBe('喜欢茶。')
-      expect(container.querySelector('.setting-format-button')).not.toBeNull()
+      expect(container.querySelector('.setting-template-status')).toBeNull()
       await act(async () => container.querySelector('[aria-label="关闭详情"]').click())
       expect(container.querySelector('.is-closing').hasAttribute('inert')).toBe(true)
       await act(async () => new Promise(resolve => setTimeout(resolve, 200)))

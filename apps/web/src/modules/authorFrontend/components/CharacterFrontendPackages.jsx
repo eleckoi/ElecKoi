@@ -2,7 +2,7 @@ import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.js
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button, CodeBlock, FileTypeIcon, Menu, PathLabel, SegmentedTabs, languageForPath,
   IconBrowseOutlineRegular, IconChevronDownOutlineRegular, IconChevronLeftOutlineRegular,
-  IconEditOutlineRegular, IconEllipsisOutlineRegular, IconFolderCloseRegular,
+  IconEditOutlineRegular, IconFolderCloseRegular,
   IconRefreshOutlineRegular, IconTrashOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import { AUTHOR_API_VERSION } from '@eleckoi/author-sdk';
 import { ExportIcon } from '../../../ui/icons/openSourceIcons.jsx';
@@ -13,6 +13,8 @@ import { frontendAssetUrl } from '../model/applicationFrontendTargets.js';
 import { AdvancedFrontendFrame } from './AdvancedFrontendFrame.jsx';
 import { FrontendWorkbenchPrompt } from './FrontendWorkbenchPrompt.jsx';
 import { FrontendPackageDirectory } from './FrontendPackageDirectory.jsx';
+import { SlidersHorizontal } from '../../../ui/icons/interfaceIcons.jsx';
+import { EditorDirectoryActions } from '../../../ui/ui/EditorDirectoryHeading.jsx';
 
 const manifestPath = 'eleckoi.frontend.json';
 const textual = path => /\.(html?|css|[cm]?js|jsx|tsx?|json|svg|txt|md|xml|yaml|yml|csv|map|log|sh|py|toml|ini)$/i.test(path);
@@ -103,16 +105,19 @@ export function CharacterFrontendPackages({ characterId, workspace, status, requ
         className="cf-use" onClick={() => run(() => request('frontends.select', { projectId: project.id }))}>{tUi("使用此前端")}</Button>}
       <div className="cf-spacer" />
       {project && <SegmentedTabs className="cf-tabs" items={tabs} value={view} label={tUi("前端查看方式")} onChange={next => { setView(next); setReading(false); }} />}
-      <Button data-dsh-control size="sm" variant={project ? 'outline' : 'primary'} aria-label={tUi("导入前端包")} disabled={busy || status === 'loading' || status === 'unavailable'}
+      <EditorDirectoryActions label={tUi("操作")}>
+      <Button data-dsh-control variant="ghost" className="setting-toolbar-button" aria-label={tUi("导入前端包")} disabled={busy || status === 'loading' || status === 'unavailable'}
         icon={<IconFolderCloseRegular size={16} />} onClick={() => importInput.current.click()}><span className="cf-import-label">{tUi("导入前端包")}</span><span className="cf-import-short">{tUi("导入")}</span></Button>
       {project && <Menu open={menu === 'more'} onClose={() => setMenu(null)} portal align="end"
-        anchor={<Button data-dsh-control size="sm" variant="ghost" disabled={busy} aria-label={tUi("前端包更多操作")} onClick={() => setMenu(menu === 'more' ? null : 'more')}><IconEllipsisOutlineRegular size={18} /></Button>}
+        anchor={<Button data-dsh-control variant="ghost" className="setting-toolbar-button setting-toolbar-icon" icon={<SlidersHorizontal size={19} />}
+          disabled={busy} aria-label={tUi("前端包更多操作")} aria-haspopup="menu" aria-expanded={menu === 'more'} onClick={() => setMenu(menu === 'more' ? null : 'more')} />}
         items={[...(project.id !== workspace.selectedProjectId ? [{ id: 'use', label: tUi("使用此前端"), icon: <IconBrowseOutlineRegular size={16} /> }] : []),
           { id: 'rename', label: tUi("重命名"), icon: <IconEditOutlineRegular size={16} /> },
           { id: 'export', label: tUi("导出前端包"), icon: <ExportIcon size={16} /> },
           { id: 'default', label: tUi("使用默认界面"), disabled: !workspace.selectedProjectId, icon: <IconRefreshOutlineRegular size={16} /> },
           { type: 'separator', id: 'remove-group' }, { id: 'delete', label: tUi("移除前端包"), danger: true, icon: <IconTrashOutlineRegular size={16} /> }]}
         onSelect={command} />}
+      </EditorDirectoryActions>
     </header>
     {(error || serviceError) && <div className="cf-error" role="alert">{error || serviceError}</div>}
     {status === 'unavailable' ? <div className="cf-empty" role="alert">{tUi("原生前端插件未启用")}</div>

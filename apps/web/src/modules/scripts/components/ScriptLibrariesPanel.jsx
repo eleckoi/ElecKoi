@@ -360,7 +360,7 @@ export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ c
     onChange={patch => change(selection.key, library => updateScriptItem(library, selection.id, patch))} onMove={folderId => change(selection.key, library => moveScriptItem(library, selection.id, folderId))}
     onDuplicate={() => duplicate()} onDelete={() => setDeleteTarget({ key: selection.key, id: selectedItem.id, name: selectedItem.name, folder: selectedItem.type === 'folder' })} /> : null;
   function switchScope(next) { setActiveScope(next); setSelection(null); setEditing(false); setDragged(null); setDropTarget(null); context.close(); if (multi.active) multi.toggle(); }
-  return <>{!compact ? <EditorLibraryWorkspace label={tUi('脚本')} scope={activeScope} ownerScope={ownerScope} onScopeChange={switchScope} config={versions.current(activeScope)}
+  return <>{!compact ? <EditorLibraryWorkspace label={tUi('脚本')} scope={activeScope} ownerScope={ownerScope} onScopeChange={switchScope} panelId={scopePanelId} config={versions.current(activeScope)}
     query={query} onQueryChange={setQuery} createItems={visibleGroups.flatMap(group => [{ label: tUi('脚本'), Icon: FileCode, run: () => create(libraryKey(group.scope, group.ownerId), 'script') }, { label: tUi('文件夹'), Icon: FolderSimple, run: () => create(libraryKey(group.scope, group.ownerId), 'folder') }])}
     selection={{ ...multi, toggle: () => { multi.toggle(); setSelection(null); } }} saving={saving} disabled={!versions.ready || Object.keys(drafts).length !== 2}
     save={<SaveControl workspace dirty={dirty} saving={saving} error={error || versions.error} notice={notice} onSave={save} title={tUi('统一保存脚本全部修改')} />}
@@ -369,7 +369,8 @@ export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ c
       onCopy={() => { batchTargets().forEach(target => duplicate({ key: target.key, id: target.item.id })); multi.clear(); }}
       onDelete={() => setDeleteTarget({ targets: batchTargets().map(target => ({ key: target.key, id: target.item.id })), name: tUi('选中的 {value0} 个项目', { value0: multi.selected.size }), folder: batchTargets().some(target => target.item.type === 'folder') })} />
     {runtimeState.error && <p className="script-panel-error" role="alert">{runtimeState.error}</p>}
-    <div className="rs-directory-content" onContextMenu={event => openContext(event, {})} onMouseDown={event => { if (event.button === 0 && !multi.active && !event.target.closest('.script-list-row')) setSelection(null); }}>
+    <div className="rs-directory-content" id={scopePanelId} role="tabpanel" aria-label={visibleGroups[0]?.label || tUi('脚本')}
+      onContextMenu={event => openContext(event, {})} onMouseDown={event => { if (event.button === 0 && !multi.active && !event.target.closest('.script-list-row')) setSelection(null); }}>
       {visibleGroups.map(group => { const key = libraryKey(group.scope, group.ownerId), library = drafts[key]; return library ? <ScriptWorkspaceList key={key} library={library} label={group.label}
         query={query} selection={selection} multi={multi} collapsed={collapsed} busy={saving} onCollapse={address => setCollapsed(current => { const next = new Set(current); next.has(address) ? next.delete(address) : next.add(address); return next; })}
         onSelect={target => multi.active ? multi.check(JSON.stringify([target.key, target.id]), !multi.selected.has(JSON.stringify([target.key, target.id]))) : selectItem(target)}

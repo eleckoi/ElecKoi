@@ -1,3 +1,7 @@
+body {
+  --setting-keyword-color: color-mix(in srgb, var(--dsw-alias-state-success-primary) 60%, var(--dsw-alias-label-primary));
+}
+
 #eleckoi-root,
 html[data-eleckoi-mobile="true"] .agent-process-backdrop,
 html[data-eleckoi-mobile="true"] .mobile-conversation-overlay {

@@ -24,6 +24,7 @@ it('persists DeepSeek independently from configuration navigation and preserves 
       for (const control of layout.controls) { expect(control.left).toBeGreaterThanOrEqual(0); expect(control.right).toBeLessThanOrEqual(layout.viewport); }
     }
     expect(result.officialOnly).toEqual({ inputs: 0, search: ['DeepSeek', 'Tavily'], buttons: 3, fetch: 0 });
+    expect(result.automatic).toEqual({ mode: 'automatic', fetchMode: 'http', selected: 'DeepSeek', label: '自动', writes: 0 });
     expect(result.selected).toEqual({ mode: 'provider_native', fetchMode: 'http', selected: 'DeepSeek', navigationCalls: 0 });
     expect(result.reopened).toEqual({ mode: 'provider_native', fetchMode: 'http', selected: 'DeepSeek' });
     expect(result.blockedNavigation).toBe(0);

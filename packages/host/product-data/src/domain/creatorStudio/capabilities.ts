@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { parse } from '@babel/parser'
 import type { Context } from '@deepseek-ai/cordis'
 import { emptyEntry } from '../settingLibraries/index'
-import { settingLibraryAgentReadStrategySchema, settingLibraryEntryChangesSchema, settingLibraryGroupSchema, settingLibrarySchema, type SettingLibraryEntry } from '@shared/contracts/settingLibrary/schemas'
+import { settingLibraryAgentReadStrategySchema, settingLibraryEntryChangesSchema, settingLibraryGroupSchema, settingLibrarySchema, settingLibraryTriggerModeSchema, type SettingLibraryEntry } from '@shared/contracts/settingLibrary/schemas'
 import { applySettingLibraryEntryUpdates } from '@shared/contracts/settingLibrary/entryUpdates'
 import { variableItemConfigSchema, variableObjectConfigSchema, VARIABLE_INITIALIZATION_OBJECT_ID } from '@shared/contracts/variables/schemas'
 import { regexRuleEditorCollectionSchema, regexRuleSchema, regexRuleSurfaceSchema, regexRuleTargetSchema } from '@shared/contracts/regex/schemas'
@@ -33,16 +33,24 @@ const settingReadTarget = z.discriminatedUnion('scope', [
   z.object({ scope: z.literal('global'), libraryId: id }).strict(),
 ]).describe('省略 target 时操作当前角色；全局设定条目和文件夹读写必须提供 scope=global 和 settings.list 返回的准确 libraryId。')
 const summarizeSettings = (entries: SettingLibraryEntry[]) => entries.map(
-  ({ id, title, groupId, kind, agentReadStrategy, dynamicMode, contentMode, enabled, triggerMode }) => ({ id, title, groupId, kind,
-    readStrategy: agentReadStrategy === 'required' ? '必读' : '选读', keywordMatch: agentReadStrategy === 'keyword', dynamicMode, contentMode, enabled, triggerMode }))
+  ({ id, title, groupId, kind, agentReadStrategy, contentMode, enabled, triggerMode }) => {
+    const keywordMatch = agentReadStrategy === 'keyword'
+    let readStrategy = '无规则'
+    if (enabled && triggerMode) {
+      if (triggerMode === 'always' || agentReadStrategy === 'required') readStrategy = '常驻触发'
+      else readStrategy = keywordMatch ? '关键词触发' : 'AI 选读'
+    }
+    return { id, title, groupId, kind, readStrategy, keywordMatch, contentMode, enabled, triggerMode }
+  })
 const mutableVariable = variableItemConfigSchema.omit({ id: true, createdAt: true, updatedAt: true })
 const mutableObject = variableObjectConfigSchema.omit({ id: true, createdAt: true, updatedAt: true })
 const mutableGroup = settingLibraryGroupSchema.omit({ id: true, createdAt: true, updatedAt: true })
 const settingChanges = settingLibraryEntryChangesSchema.safeExtend({
-  agentReadStrategy: settingLibraryAgentReadStrategySchema.describe('required=必读；normal=选读且关闭关键词匹配；keyword=选读且开启关键词匹配，与界面中的关键词命中开关对应，不是第三个读取档位。').optional(),
-  dynamicMode: z.enum(['standard', 'ejs_reference']).describe('standard=普通设定或 EJS 控制器；ejs_reference=仅供 getwi 引用，正文可为文字或 EJS。').optional(),
-  contentMode: z.enum(['plain_text', 'ejs']).describe('plain_text=原样文字；ejs=执行模板，允许 agent_tool 的选读普通设定及 EJS 引用设定；引用模板仅被 getwi 调用时递归执行。').optional(),
-  content: z.string().describe('完整文字正文或 EJS 模板源码，由 contentMode 决定；只替换其中一段时使用 settings.edit，无需重传全文。').optional(),
+  enabled: z.boolean().optional().describe('触发规则开关。新建默认关闭，修改时省略则保持当前状态。规则关闭的 EJS 仍会按本轮上下文求值。'),
+  triggerMode: settingLibraryTriggerModeSchema.nullable().optional().describe('agent_tool=按 agentReadStrategy 处理；always=常驻触发，按指定位置插入。'),
+  agentReadStrategy: settingLibraryAgentReadStrategySchema.optional().describe('triggerMode 为 agent_tool 时，required=常驻触发中的每轮必读；normal=AI 选读；keyword=关键词触发。'),
+  contentMode: z.enum(['plain_text', 'ejs']).optional().describe('新建默认 plain_text（原样文字）。使用 EJS 时显式选 ejs，渲染混写的整份正文，getwi 可递归引用任何触发状态的设定。修改时省略则保留原格式。'),
+  content: z.string().describe('完整正文；可把 EJS 夹在固定文字中。仅替换一段时使用 settings.edit，无需重传全文。').optional(),
 })
 const nativeRuntime = z.object({ kind: z.literal('eleckoi-module'), apiVersion: z.literal(1) }).strict()
 const scriptFields = z.object({ name: z.string(), content: z.string(), info: z.string(), enabled: z.boolean(), data: z.record(z.string(), z.json()),
@@ -72,14 +80,6 @@ const find = <T extends { id: string }>(items: T[], key: string): T => {
   const matches = items.filter(item => item.id === key)
   if (matches.length !== 1) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, `找不到唯一的条目：${key}`, { what: '唯一匹配的条目' })
   return matches[0]!
-}
-const assertSettingFormat = (entry: { dynamicMode: string; contentMode: string; agentReadStrategy: string; triggerMode: string | null }) => {
-  if (entry.dynamicMode === 'ejs_reference' && (entry.agentReadStrategy !== 'normal' || entry.triggerMode !== 'agent_tool')) {
-    throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, 'EJS 引用设定必须是选读、agent_tool 的引用条目；正文可使用文字或 EJS。', { field: 'kind' })
-  }
-  if (entry.contentMode === 'ejs' && (entry.agentReadStrategy === 'required' || entry.triggerMode !== 'agent_tool')) {
-    throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, '只有 agent_tool 下的选读普通设定和引用设定可以使用 EJS 正文；必读和自动注入使用文字正文。', { field: 'content' })
-  }
 }
 const assertSettingPosition = (entry: Pick<SettingLibraryEntry, 'promptPositionId' | 'position'>, positions: SettingDocument['promptPositions']) => {
   if (entry.promptPositionId && !positions.some(position => position.id === entry.promptPositionId && position.anchor === entry.position)) {
@@ -214,8 +214,6 @@ export function creatorCapabilities(data: Context['eleckoiProductData']): Creato
         throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, '自定义位置编号重复、引用不存在或插入锚点不一致。', { field: 'promptPositions' })
       }
     }
-    for (const version of input.library.versions) for (const entry of version.entries) if (entry.kind === 'normal') assertSettingFormat(entry)
-    for (const entry of input.library.entries) if (entry.kind === 'normal') assertSettingFormat(entry)
     const normalizeEntries = (entries: z.output<typeof settingLibrarySchema>['entries']) => entries.map(entry => ({ ...entry, openingMessages: entry.openingMessages.map(defined) }))
     data.saveSettingLibrary(characterId, { ...input.library, characterId, entries: normalizeEntries(input.library.entries),
       versions: input.library.versions.map(version => ({ ...version, entries: normalizeEntries(version.entries) })) })
@@ -228,11 +226,10 @@ export function creatorCapabilities(data: Context['eleckoiProductData']): Creato
     }
     return find(data.readSettingLibrary(requireCharacterTarget(characterId)).entries, input.id)
   }, 'explicit-scope')
-  operation('settings', 'create', '在当前角色或指定全局库新增设定条目', 'write', settingChanges.safeExtend(settingWriteFields), (characterId, { target, expectedRevision, ...input }) => {
+  operation('settings', 'create', '在当前角色或指定全局库新增设定条目，触发规则默认关闭', 'write', settingChanges.safeExtend(settingWriteFields), (characterId, { target, expectedRevision, ...input }) => {
     const store = settingsStore(characterId, { target, expectedRevision }), { library } = store
     const base = emptyEntry()
-    const entry = { ...base, openingMessages: base.openingMessages.map(defined), ...defined(input), order: input.order ?? library.entries.length + 1 }
-    assertSettingFormat(entry)
+    const entry = { ...base, enabled: false, openingMessages: base.openingMessages.map(defined), ...defined(input), order: input.order ?? library.entries.length + 1 }
     assertSettingPosition(entry, library.promptPositions)
     return store.receipt(find(store.save({ ...library, entries: [...library.entries, entry] }).entries, entry.id))
   }, 'explicit-scope')
@@ -241,7 +238,6 @@ export function creatorCapabilities(data: Context['eleckoiProductData']): Creato
     const store = settingsStore(characterId, options), { library } = store
     for (const input of updates) {
       const entry = { ...find(library.entries, input.id), ...defined(input.changes) }
-      assertSettingFormat(entry)
       assertSettingPosition(entry, library.promptPositions)
     }
     const entries = store.update(updates.map(input => ({ id: input.id, changes: defined(input.changes) })))

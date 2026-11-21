@@ -5,6 +5,7 @@ import { transformReasoningPrompt } from '@eleckoi/dsh-product-data'
 import { createHash } from 'node:crypto'
 import { readSessionSnapshot } from './session-snapshot.mjs'
 import { requiredSettingCache } from './required-setting-cache.mjs'
+import { resolvePlacedSettingTemplates } from './setting-library-tools.mjs'
 import { INPUT_CONTINUATIONS_PROJECTION } from './input-continuations-projection.mjs'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 
@@ -14,6 +15,7 @@ export const projectionPlugin = 'eleckoi-request-projection'
 /** Install product-owned prompt contributions for every root turn. */
 export function installConversationContext(agentCtx, snapshotRoot, sourceSessionId, previews, settings, runtimeContexts = agentCtx.eleckoiRuntimeContexts) {
   let executionStep
+  let placedSource, placedContext
   const disposeStep = agentCtx.on('session/event', (session, event) => {
     if (session.id === sourceSessionId && event.type === 'step/start') executionStep = event.data
   })
@@ -22,14 +24,24 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
     const conversationContext = runtimeContexts.get(sourceSessionId).conversationContext
     return { ...snapshot, conversationContext, variablesEnabled: runtimeContexts.readVariables(sourceSessionId).enabled }
   }
+  const placedSettings = context => {
+    if (context !== placedSource) {
+      const turn = runtimeContexts.get(sourceSessionId)
+      placedContext = resolvePlacedSettingTemplates(context, turn.settings?.history, turn.variables?.state)
+      placedSource = context
+    }
+    return placedContext
+  }
   // Contribute before the official loop records system/message, so trajectory
   // and dispatch share the same prompt and changes use native prompt versioning.
   const disposeInstructions = agentCtx.on('system-prompt/assemble', async (_assembly, context, next) => {
     const assembly = await next()
     if (context.agent?.id !== sourceSessionId) return assembly
-    const snapshot = context.eleckoiConversationSnapshot ?? read()
+    const preview = context.eleckoiConversationSnapshot
+    const snapshot = preview ?? read()
+    const conversationContext = preview ? snapshot.conversationContext : await placedSettings(snapshot.conversationContext)
     const illustration = agentCtx.get('eleckoiAutoIllustration')?.instructions(snapshot) ?? ''
-    const instructions = sessionInstructions(snapshot, illustration)
+    const instructions = sessionInstructions({ ...snapshot, conversationContext }, illustration)
     return !instructions ? assembly : {
       ...assembly,
       sections: [{ name: 'eleckoi:session-instructions', text: instructions, interpolate: false }, ...assembly.sections]
@@ -40,6 +52,13 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
     const session = agentCtx.sessions.get(options.sessionId)
     if (!session) return next()
     const snapshot = read()
+    const prepared = placedSettings(snapshot.conversationContext)
+    if (prepared !== snapshot.conversationContext) return (async function* () {
+      yield* streamProjected(options, session, { ...snapshot, conversationContext: await prepared })
+    })()
+    return streamProjected(options, session, snapshot)
+  })
+  function streamProjected(options, session, snapshot) {
     const projection = requestProjectionSnapshot(snapshot.conversationContext)
     const surface = session.deriveMessages()
     const currentUser = surface.findLast(isDirectUserMessage)
@@ -73,7 +92,7 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
       previews.capture(session, { ...options, messages: rendered }, projection.plan, step)
       yield* agentCtx.llm.stream({ ...options, messages: rendered })
     })()
-  })
+  }
   return () => { disposeRequestProjection(); disposeInstructions(); disposeStep() }
 }
 

@@ -2,6 +2,7 @@ const { app, BrowserWindow } = require('electron');
 const { writeFileSync } = require('node:fs');
 const { pathToFileURL } = require('node:url');
 const { resolve } = require('node:path');
+const { checkDesktopSectionMotion } = require('../helpers/desktopSectionMotion.cjs');
 app.disableHardwareAcceleration(); app.setPath('userData',resolve(require('node:path').dirname(process.argv[3]),'browser-profile'));app.commandLine.appendSwitch('force-device-scale-factor','1');
 app.whenReady().then(async()=>{
   const options={show:false,width:1480,height:970,webPreferences:{sandbox:true,offscreen:true,backgroundThrottling:false}};
@@ -33,6 +34,7 @@ app.whenReady().then(async()=>{
     await click(main,'.preset-summary-edit');for(let i=0;i<30&&!popup;i++)await pause(100);check(popup,'Separate editor missing');const editor=popup;
     await load(editor,'?view=preset-editor&preset=synthetic-preset&section=profile');
     await wait(editor,"!!document.querySelector('.preset-basic-document .preset-usage-section')",'Editor basics');
+    await checkDesktopSectionMotion(editor.webContents, '预设提示词', '基础资料');
     const avatarGeometry=async()=>run(editor,`(()=>{const r=e=>e.getBoundingClientRect().toJSON(),b=document.querySelector('.preset-profile-editor-avatar > button'),image=b.querySelector('img'),overlay=b.querySelector(':scope > span'),form=document.querySelector('.preset-profile-editor-layout form');return{viewport:innerWidth,ancestors:Array.from((function*(e){while(e){yield e;e=e.parentElement;}})(form)).map(e=>({tag:e.tagName,cls:e.className,width:r(e).width,display:getComputedStyle(e).display,columns:getComputedStyle(e).gridTemplateColumns})),button:r(b),image:r(image),overlay:r(overlay),form:r(form),padding:getComputedStyle(b).padding,radius:getComputedStyle(b).borderRadius,imageRadius:getComputedStyle(image).borderRadius}})()`);
     const checkAvatar=async()=>{const a=await avatarGeometry();check(a.padding==='0px'&&a.button.width===88&&a.button.height===88&&a.radius===a.imageRadius&&['left','top','width','height'].every(k=>Math.abs(a.button[k]-a.image[k])<0.6&&Math.abs(a.button[k]-a.overlay[k])<0.6),'Avatar/image/overlay mismatch: '+JSON.stringify(a));if(a.button.left>a.form.left)check(Math.abs(a.button.left-a.form.right-24)<0.6,'Avatar drifted to far edge');return a;};
     await wait(editor,"document.querySelector('.preset-profile-editor-avatar img').complete",'Avatar image');report.avatar=await checkAvatar();
@@ -51,7 +53,9 @@ app.whenReady().then(async()=>{
       await load(editor,`?view=preset-editor&preset=synthetic-preset&section=prompts&theme=${theme}`,width,height);await wait(editor,"!!document.querySelector('.cm-editor')",'Prompt body');
       const layout=await run(editor,`(()=>{const r=s=>document.querySelector(s).getBoundingClientRect().toJSON(),s=s=>getComputedStyle(document.querySelector(s));return{width:innerWidth,height:innerHeight,theme:${JSON.stringify(theme)},directory:r('.setting-directory'),document:r('.setting-document'),directoryRadius:s('.setting-directory').borderRadius,documentRadius:s('.setting-document').borderRadius,background:s('.preset-editor-canvas').backgroundColor,panel:s('.setting-document').backgroundColor,font:s('.cm-content').fontSize,overflow:document.documentElement.scrollWidth>innerWidth,saveCount:document.querySelectorAll('.setting-library-save-button').length}})()`);
       check(!layout.overflow&&layout.font==='14px'&&layout.directoryRadius==='16px'&&layout.documentRadius==='16px'&&layout.background!==layout.panel&&layout.directory.top===40&&layout.document.top===40&&layout.directory.height===height-48&&layout.document.height===height-48&&layout.document.left-layout.directory.right===8&&layout.saveCount===1,'Editor layout: '+JSON.stringify(layout));report.layouts.push(layout);
-      await textClick(editor,'.setting-view-switch button','设置');await textClick(editor,'.setting-reading-settings button','提示词常驻');
+      await textClick(editor,'.setting-view-switch button','设置');
+      if (await run(editor, 'document.querySelector(".setting-rule-heading [role=switch]")?.getAttribute("aria-checked")==="false"')) await click(editor,'.setting-rule-heading [role=switch]');
+      await textClick(editor,'.setting-usage-fields button','常驻触发');await textClick(editor,'.setting-usage-fields button','指定插入位置');
       const placement=await run(editor,`(()=>{const q=s=>document.querySelector(s),b=q('.setting-library-position-manage'),label=q('.setting-library-placement-heading strong'),rail=q('.setting-library-placement-rail'),r=e=>e.getBoundingClientRect().toJSON();return{button:r(b),label:r(label),rail:r(rail),scrollHeight:b.scrollHeight,clientHeight:b.clientHeight,icon:r(b.querySelector('svg')),overflow:q('.setting-settings-board').scrollWidth>q('.setting-settings-board').clientWidth}})()`);
       check(placement.label.height<=24&&placement.button.width>=90&&placement.scrollHeight<=placement.clientHeight&&placement.icon.width>=13&&!placement.overflow,'Position management button collapsed: '+JSON.stringify(placement));layout.placement=placement;
       await click(editor,'.setting-library-position-manage');check(await run(editor,"!!document.querySelector('.setting-position-manager')"),'Position manager did not open');await click(editor,'.setting-position-back');await click(editor,'.setting-library-save-button');

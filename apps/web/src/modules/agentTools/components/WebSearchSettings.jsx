@@ -114,10 +114,10 @@ export function WebSearchSettings({ onBeforeOpenPluginSettings, onOpenPluginSett
     <fieldset className="web-search-config-fieldset">
       <legend>{tUi("搜索方式")}</legend>
       <div className="web-search-mode" role="group" aria-label={tUi("搜索方式")}>
-        <button type="button" disabled={!settings.writable || Boolean(busy)} aria-pressed={settings.mode === 'provider_native' || settings.mode === 'deepseek_search_api'} onClick={() => {
+        <button type="button" disabled={!settings.writable || Boolean(busy)} aria-pressed={settings.mode !== 'tavily'} onClick={() => {
           if (settings.mode === 'tavily') void update({ mode: 'provider_native' });
         }}>
-          <strong>DeepSeek</strong><span>{settings.mode === 'deepseek_search_api' ? tUi("Web 搜索 API") : tUi("Messages 搜索")}</span>
+          <strong>DeepSeek</strong><span>{settings.mode === 'automatic' ? tUi("自动") : settings.mode === 'deepseek_search_api' ? tUi("Web 搜索 API") : tUi("Messages 搜索")}</span>
         </button>
         <button type="button" disabled={!settings.writable || !settings.tavilyAvailable || Boolean(busy)} aria-pressed={settings.mode === 'tavily'} onClick={() => update({ mode: 'tavily' })}>
           <strong>Tavily</strong><span>{apiKeyError ? tUi("读取 Tavily 凭据状态失败。") : settings.apiKeyConfigured ? tUi("已配置") : tUi("需要 API Key")}</span>

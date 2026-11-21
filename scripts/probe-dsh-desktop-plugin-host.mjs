@@ -141,8 +141,8 @@ try {
   const schema = productSchema()
   const tableCount = schema.objects.filter(row => row.type === 'table').length
   const viewCount = schema.objects.filter(row => row.type === 'view').length
-  if (schema.version !== 18 || tableCount !== 50 || viewCount !== 2) {
-    throw new Error(`Product schema contract mismatch: ${tableCount} tables, ${viewCount} views, user_version ${schema.version}; expected 50 tables, 2 views and user_version 18`)
+  if (schema.version !== 19 || tableCount !== 50 || viewCount !== 2) {
+    throw new Error(`Product schema contract mismatch: ${tableCount} tables, ${viewCount} views, user_version ${schema.version}; expected 50 tables, 2 views and user_version 19`)
   }
   await remoteCall(ready, cookie, 'eleckoiCompatibility/capabilities', {}, 404)
   await remoteCall(ready, cookie, 'eleckoiAuthorPlugins/capabilities', {}, 404)

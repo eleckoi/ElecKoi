@@ -1,7 +1,8 @@
 import { sourceText } from '../../../app/i18n/productCopy.js';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { CheckCircle } from '@phosphor-icons/react';
+import { Button, IconProjectAddOutlineRegular, SegmentedControl, Tag, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';
 import { CharacterManagerIcon, ChevronRightIcon, ImportIcon, PlusIcon, TrashIcon } from '../../../ui/icons/index.jsx';
 import { Avatar } from '../../../ui/ui/Avatar.jsx';
 import { SidebarSectionHeader } from '../../../ui/ui/SidebarSectionHeader.jsx';
@@ -44,13 +45,14 @@ export function shouldShowPresetCatalogLoading(catalog, error) {
   return !catalog && !error;
 }
 
-export function PresetListPanel() {
+export function PresetListPanel({ home } = {}) {
   const tUi = useProductTranslation();
   const { render, actions } = useCatalogSlots();
   const scrollRef = useSidebarListScroll();
   const { purposeCatalog: catalog, purpose, setPurpose, catalogModel, setCatalog, selectedPresetId, setSelectedPresetId, navigationGuard, error, setError } = usePresets();
   const [keyword, setKeyword] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const purposeId = useId();
   const [creating, setCreating] = useState(false);
   const creatingRef = useRef(false);
   const currentPurpose = useRef(purpose);
@@ -68,7 +70,7 @@ export function PresetListPanel() {
   const context = usePresetContextMenu();
 
   const groups = catalog?.groups || [];
-  const presets = catalog?.presets || [];
+  const presets = home?.items ?? catalog?.presets ?? [];
   const filtered = useMemo(() => {
     const key = keyword.trim().toLocaleLowerCase();
     return presets.filter((preset) => !key || `${preset.name} ${preset.profile.authorName} ${preset.profile.usageInstructions}`.toLocaleLowerCase().includes(key));
@@ -95,7 +97,8 @@ export function PresetListPanel() {
     };
   }, []);
 
-  function addPreset() {
+  function addPreset(event) {
+    const trigger = event.currentTarget;
     setCreateOpen(false);
     const create = async () => {
       if (creatingRef.current) return;
@@ -108,7 +111,8 @@ export function PresetListPanel() {
         if (currentPurpose.current === purpose) {
           setKeyword('');
           setCollapsed(current => ({ ...current, [ALL_PRESETS]: false, ...(libraryGroupId ? { [libraryGroupId]: false } : {}) }));
-          setSelectedPresetId(created.id);
+          if (home) home.onOpen(created.id, trigger, true);
+          else setSelectedPresetId(created.id);
         }
         setError('');
       } catch (cause) { setError(resolveFailure(cause, { fallback: tUi("操作失败，请重试。") }).text); }
@@ -190,19 +194,24 @@ export function PresetListPanel() {
   function renderGroup(section) {
     const isCollapsed = Boolean(collapsed[section.id]);
     return <section className="character-group-block preset-list-group" key={section.id}>
-      <button type="button" className="character-group-row preset-group-heading" aria-expanded={!isCollapsed} onClick={(event) => {
+      <button type="button" className="character-group-row preset-group-heading" aria-expanded={!isCollapsed}
+        onContextMenu={home && section.id !== ALL_PRESETS ? event => home.onGroupMenu(event, section) : undefined} onClick={(event) => {
         if (!isCollapsed) keepCollapsedHeading(event.currentTarget);
         setSelectedGroup(section.id);
         setCollapsed((current) => ({ ...current, [section.id]: !current[section.id] }));
       }}>
         <span><span className={`character-group-toggle${isCollapsed ? ' collapsed' : ''}`}><ChevronRightIcon /></span>{section.name}</span>
-        <em>{section.presets.length}</em>
+        {!home && <em>{section.presets.length}</em>}
       </button>
       {!isCollapsed ? <div className="character-contact-list preset-list-rows">{section.presets.map((preset) => {
         const active = preset.id === catalog.activePresetIds[purpose];
-        const selected = preset.id === selectedPresetId;
-        const onSelect = () => setSelectedPresetId(preset.id);
+        const selected = preset.id === (home ? home.openedId : selectedPresetId);
+        const onSelect = event => home ? home.onOpen(preset.id, event?.currentTarget) : setSelectedPresetId(preset.id);
         const onOpenMenu = event => {
+          if (home) {
+            home.onPresetMenu(event, preset);
+            return;
+          }
           if (active && isDefaultPreset(preset.id)) {
             event.preventDefault();
             event.stopPropagation();
@@ -217,10 +226,34 @@ export function PresetListPanel() {
     </section>;
   }
 
+  function choosePurpose(value) {
+    setPurpose(value);
+    setSelectedGroup(ALL_PRESETS);
+    setKeyword('');
+  }
+  const purposeOptions = [
+    { value: 'roleplay', label: tUi('扮演预设'), title: tUi('扮演预设') },
+    { value: 'creator', label: tUi('创作预设'), title: tUi('创作预设') },
+  ];
+  const purposeSwitch = home && <SegmentedControl id={purposeId} value={purpose} options={purposeOptions}
+    className="preset-purpose-tabs" label={tUi('预设分类')} disabled={home.busy || creating} onChange={choosePurpose} />;
+  const groupList = collapseStateReady ? render('eleckoi.preset.library.groups', {
+    surface: 'pc-sidebar', purpose, groups, allGroup: ALL_PRESETS, selectedGroup, onSelectGroup: setSelectedGroup,
+  }, <>{sections.map(renderGroup)}</>) : null;
   return render('eleckoi.preset.page.list', {
-    surface: 'pc-sidebar', purpose, presets: filtered, selectedPresetId, onSelect: setSelectedPresetId,
-  }, <aside className="character-list-panel preset-list-panel" aria-label={tUi("预设列表")} aria-busy={creating || shouldShowPresetCatalogLoading(catalog, error) || undefined}>
-    <SidebarSectionHeader title={tUi("预设")} value={keyword} onValueChange={setKeyword} placeholder={tUi("搜索预设名称")}
+    surface: 'pc-sidebar', purpose, presets: filtered, selectedPresetId, onSelect: home?.onOpen ?? setSelectedPresetId,
+  }, <aside className={`character-list-panel preset-list-panel${home ? ' preset-home-sidebar' : ''}`} aria-label={tUi("预设列表")} aria-busy={creating || shouldShowPresetCatalogLoading(catalog, error) || undefined}>
+    {home && <div className="character-home-create">
+      <Button data-dsh-control variant="toolbar" icon={<CharacterManagerIcon size={16} />}
+        disabled={!catalog || creating || home.busy} onClick={addPreset}>{tUi('新建预设')}</Button>
+    </div>}
+    <SidebarSectionHeader title={tUi('预设')} value={keyword} onValueChange={setKeyword} placeholder={tUi("搜索预设名称")}
+      searchLabel={home ? tUi('搜索预设') : undefined}
+      compact={Boolean(home)} compactTitle={purposeSwitch} compactActions={home && <>{home.sortMenu}
+        <Tooltip label={tUi('新建分组')} side="bottom" delayMs={500} portal>
+          <Button data-dsh-control variant="ghost" size="sm" className="sidebar-section-action" aria-label={tUi('新建分组')}
+            aria-haspopup="dialog" icon={<IconProjectAddOutlineRegular size={16} />} onClick={home.onAddGroup} />
+        </Tooltip></>}
       createLabel={tUi("新建预设")} createExpanded={createOpen}
       renderSearch={fallback => render('eleckoi.preset.library.search', { surface: 'pc-sidebar', value: keyword, onChange: setKeyword }, fallback)}
       onCreatePointerDown={(event) => event.stopPropagation()}
@@ -231,13 +264,14 @@ export function PresetListPanel() {
       {actions('eleckoi.preset.library.menu.actions', { surface: 'pc-sidebar', purpose, menu: 'create', busy: importing || creating, onDismiss: () => setCreateOpen(false) })}
     </div> : null}
     <input ref={importInputRef} type="file" accept="image/png,application/json,.png,.json" hidden onChange={handleImport} />
-    <button type="button" className="character-manager-entry preset-manager-entry" onClick={openPresetManagerWindow}><CharacterManagerIcon /><span>{tUi("预设管理器")}</span></button>
-    <PresetPurposeSwitch value={purpose} onChange={value => { setPurpose(value); setSelectedGroup(ALL_PRESETS); setKeyword(''); }} />
+    {!home && <button type="button" className="character-manager-entry preset-manager-entry" onClick={openPresetManagerWindow}><CharacterManagerIcon /><span>{tUi("预设管理器")}</span></button>}
+    {!home && <PresetPurposeSwitch value={purpose} onChange={choosePurpose} />}
     <SidebarScrollArea ref={scrollRef} className="character-list-scroll preset-list-scroll">
-      {collapseStateReady ? render('eleckoi.preset.library.groups', {
-        surface: 'pc-sidebar', purpose, groups, allGroup: ALL_PRESETS, selectedGroup, onSelectGroup: setSelectedGroup,
-      }, <>{sections.map(renderGroup)}</>) : null}
-      {error || importError ? <p className="preset-list-state is-error">{error || importError}</p> : null}
+      {home ? purposeOptions.map(({ value, label }) => <div key={value} role="tabpanel" id={`${purposeId}-${value}-panel`}
+        aria-labelledby={`${purposeId}-${value}`} aria-label={label} hidden={purpose !== value}>
+        {purpose === value && groupList}
+      </div>) : groupList}
+      {error || importError || home?.sortError ? <p className="preset-list-state is-error" role="alert">{error || importError || home.sortError}</p> : null}
     </SidebarScrollArea>
     {context.menu ? <PresetContextMenu menu={context.menu} onClose={context.close} actions={presetListContextActions(
       context.menu.target,
@@ -259,9 +293,12 @@ export function PresetListPanel() {
 
 export function PresetListRow({ preset, selected, active, onClick, onContextMenu }) {
   const tUi = useProductTranslation();
+  const image = preset.profile.authorAvatarPath || defaultPresetAvatar;
   return <button type="button" className={`character-contact-row preset-list-row${selected ? ' active' : ''}`} onClick={onClick} onContextMenu={onContextMenu}>
-    <Avatar src={preset.profile.authorAvatarPath || defaultPresetAvatar} name={preset.name} className="preset-list-avatar" />
+    <Avatar src={image} name={preset.name} className="preset-list-avatar" />
     <span className="character-contact-copy"><strong>{preset.name}</strong></span>
-    {active ? <span className="preset-list-status">{tUi("使用中")}</span> : null}
+    {active && <Tag tone="neutral" className="preset-list-status">
+      <CheckCircle size={12} aria-hidden="true" />{tUi('使用中')}
+    </Tag>}
   </button>;
 }

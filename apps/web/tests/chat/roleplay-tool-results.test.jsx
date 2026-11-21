@@ -84,20 +84,31 @@ it('keeps fixed and turn-required settings distinct in search counts, directory 
   expect(model('eleckoi_glob_setting_files', payload).counts).toEqual({ matched: 4, fixed: 1, turn: 3, required: 0 });
   await render('eleckoi_glob_setting_files', payload);
   const badge = index => host.querySelector(`[data-result-index="${index}"] .roleplay-reading-badge`);
-  expect(badge(0).textContent).toBe('固定必读'); expect(badge(0).dataset.readingKind).toBe('fixed');
+  expect(badge(0).textContent).toBe('常驻必读'); expect(badge(0).dataset.readingKind).toBe('fixed');
   expect(badge(1).textContent).toBe('本轮须读'); expect(badge(2).dataset.readingKind).toBe('turn');
-  expect(badge(3).textContent).toBe('选读'); expect(badge(4).textContent).toBe('本轮须读');
-  expect(host.querySelector('.roleplay-result-summary').textContent).toBe('匹配 4固定必读 1本轮须读 3');
+  expect(badge(3).textContent).toBe('AI 选读'); expect(badge(4).textContent).toBe('本轮须读');
+  expect(host.querySelector('.roleplay-result-summary').textContent).toBe('匹配 4常驻必读 1本轮须读 3');
   await act(async () => host.querySelector('[data-result-index="2"]').click());
   expect(host.querySelector('.roleplay-result-detail .roleplay-reading-badge').textContent).toBe('本轮须读');
   await query('范围外触发');
-  expect(host.querySelector('.roleplay-result-summary').textContent).toContain('固定必读 1本轮须读 3');
+  expect(host.querySelector('.roleplay-result-summary').textContent).toContain('常驻必读 1本轮须读 3');
   expect(host.querySelector('.roleplay-result-detail').textContent).toContain('本轮须读，位于本次搜索范围之外。');
+  await query('');
+  await render('eleckoi_read_setting_files', { status: 'ok', files: [
+    { ...listed[0], content: '缓存引用' },
+    { ...listed[1], content_mode: 'plain_text', content: '命中关键词的正文' },
+    { ...listed[2], content_mode: 'ejs', content: 'EJS 输出的正文' },
+    { ...listed[3], content_mode: 'plain_text', title: 'EJS 字样的普通条目', content: '普通选读的正文' },
+    { path: '旧引用结果', read_strategy: 'normal', resolved_references: [{ title: '设定素材' }], content: '旧 EJS 输出的正文' },
+  ] });
+  expect([0, 1, 2, 3, 4].map(index => badge(index).textContent)).toEqual(['常驻必读', '关键词', 'EJS', 'AI 选读', 'EJS']);
+  await act(async () => host.querySelector('[data-result-index="2"]').click());
+  expect(host.querySelector('.roleplay-result-detail .roleplay-reading-badge').textContent).toBe('EJS');
 });
 it('restores required metadata absent from grep matches and preserves keyword strategy when reading bodies', async () => {
   await render('eleckoi_grep_setting_files', { status: 'ok', matches: [{ path: '固定设定', line: 1, text: '完整命中' }],
     required_entries: [{ path: '固定设定', read_strategy: 'required', cached_reference: '#S01' }] });
-  expect(host.querySelector('.roleplay-result-row .roleplay-reading-badge').textContent).toBe('固定必读');
+  expect(host.querySelector('.roleplay-result-row .roleplay-reading-badge').textContent).toBe('常驻必读');
   expect(host.querySelector('.roleplay-result-detail .roleplay-reading-badge').dataset.readingKind).toBe('fixed');
   expect(host.querySelector('.roleplay-result-detail').textContent).toContain('完整命中');
   await render('eleckoi_read_setting_files', { status: 'ok', files: [{ path: '关键词设定', read_strategy: 'keyword', content: '本次读取的完整正文' }] });

@@ -35,10 +35,15 @@ export function installRequestConfig(agentCtx, snapshotRoot, sourceSessionId) {
   const disposeCompaction = agentCtx.on('llm/stream', (options, next) => {
     if (options.sessionId !== sourceSessionId || reroutedCompactions.has(options)) return next()
     const snapshot = readSessionSnapshot(snapshotRoot, sourceSessionId)
+    const model = snapshot.model
+    // Maintenance can summarize on a different route from the last prepared turn.
+    const effort = model && model.provider === options.provider && model.model === options.model
+      ? model.reasoningEffort
+      : undefined
     const projected = projectCompactionRequest(
       options,
       snapshot.historyCompactionInstructions,
-      snapshot.model?.reasoningEffort
+      effort
     )
     if (!projected) return next()
     // DSH deep-freezes requests before the waterfall. Route a fresh one-shot request through the

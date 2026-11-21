@@ -26,18 +26,27 @@ app.whenReady().then(async () => {
     const headers=[];
     for(const title of collections) {
       await clickText('.character-editor-navigation button',title);
-      const data=await run(`(()=>{const h=document.querySelector('.is-mobile-collection'),search=h.querySelector('input'),top=h.querySelector('.editor-collection-topline'),r=e=>e.getBoundingClientRect().toJSON(),buttons=[...top.querySelectorAll('button')];return {title:${JSON.stringify(title)},header:r(h),search:r(search),searchBox:r(h.querySelector('.editor-collection-search')),divider:getComputedStyle(h).borderBottomWidth,top:r(top),buttons:buttons.map(r),bottom:document.querySelector('.mobile-editor-actions')?.getBoundingClientRect().bottom,overflow:document.documentElement.scrollWidth>innerWidth,oldToolbar:!!document.querySelector('.editor-collection-action'),topNewCount:h.querySelectorAll('[aria-label=新建]').length}})()`);
-      check(data.divider==='0px'&&Math.abs(data.searchBox.height-40)<1&&Math.abs(data.searchBox.width-data.top.width)<1&&data.topNewCount===0&&!data.overflow&&!data.oldToolbar&&data.search.top>=data.top.bottom+8&&data.buttons.every(b=>b.height>=40&&b.left>=data.header.left&&b.right<=data.header.right), 'Collection header: '+JSON.stringify(data));
+      const data=await run(`(()=>{
+        const h=document.querySelector('.is-mobile-collection'), top=h.querySelector('.editor-directory-scopebar,.editor-collection-topline');
+        const group=top?.querySelector('.setting-toolbar-group'), r=e=>e?.getBoundingClientRect().toJSON();
+        return {title:${JSON.stringify(title)},header:r(h),searchBox:r(h.querySelector('.editor-collection-search')),
+          divider:getComputedStyle(h).borderBottomWidth,top:r(top),group:r(group),groupBorder:group && getComputedStyle(group).borderTopWidth,
+          buttons:[...(group?.querySelectorAll('button') || [])].map(r),bottom:document.querySelector('.mobile-editor-actions')?.getBoundingClientRect().bottom,
+          overflow:document.documentElement.scrollWidth>innerWidth,oldToolbar:!!document.querySelector('.editor-collection-action'),topNewCount:h.querySelectorAll('[aria-label=新建]').length};
+      })()`);
+      check(data.divider==='0px'&&Math.abs(data.searchBox.height-40)<1&&data.topNewCount===0&&!data.overflow&&!data.oldToolbar, 'Collection header: '+JSON.stringify(data));
+      if(data.top)check(Math.abs(data.searchBox.width-data.top.width)<1&&data.searchBox.top>=data.top.bottom+6&&data.groupBorder==='1px'
+        &&data.buttons.every(b=>b.height>=32&&b.left>=data.group.left&&b.right<=data.group.right),'Action group: '+JSON.stringify(data));
       if(data.bottom)check(Math.abs(height-data.bottom)<=2,'Touch toolbar does not reach the phone bottom: '+JSON.stringify(data));
       headers.push(data);
       if(!['工具','开场白'].includes(title)) {
-        await run("document.querySelector('.editor-collection-more').click()");await settle();
+        await run("document.querySelector('.is-mobile-collection .setting-toolbar-icon').click()");await settle();
         await clickText('[role=menu] [role=menuitem]','多选');
         const cancel=await run(`(()=>{const bar=document.querySelector('.editor-selection-bar'),button=bar.querySelector('.editor-selection-cancel'),r=e=>e.getBoundingClientRect().toJSON();return{bar:r(bar),button:r(button),all:r(bar.querySelector('label')),disabled:button.disabled,buttons:[...bar.querySelectorAll('button')].map(r)}})()`);
         check(!cancel.disabled&&cancel.button.top>=cancel.all.bottom&&cancel.buttons.every(b=>b.height>=44&&b.left>=cancel.bar.left&&b.right<=cancel.bar.right),'Missing or overflowing cancel under select-all: '+JSON.stringify(cancel));
         await clickText('.editor-selection-bar button','取消');
         check(await run("!document.querySelector('.editor-selection-bar')&&!!document.querySelector('.mobile-editor-actions')"),'Zero-selection cancel did not restore touch actions');
-        await run("document.querySelector('.editor-collection-more').click()");await settle();
+        await run("document.querySelector('.is-mobile-collection .setting-toolbar-icon').click()");await settle();
         await clickText('[role=menu] [role=menuitem]','多选');
         await run("document.querySelector('.editor-selection-bar input').click()");await settle();
         await clickText('.editor-selection-bar button','取消');
@@ -55,15 +64,14 @@ app.whenReady().then(async () => {
     await clickText('.mobile-editor-actions button','编辑');
     check(await run("document.querySelector('.character-editor-side-panel').getBoundingClientRect().width===0"),'Rail stayed visible on detail');
     await clickText('.setting-view-switch button','设置');
-    await clickText('.setting-reading-settings button','Agent 读取');
-    await clickText('.setting-reading-settings button','选读');
-    await run("document.querySelector('.setting-reading-settings [role=switch]').click()");await settle();
+    await run("document.querySelector('.setting-rule-heading [role=switch][aria-checked=false]')?.click()");await settle();
+    await clickText('.setting-usage-fields button','关键词触发');
     for(const keyword of ['书店','雨巷','打烊']) {
       await run(`(()=>{const input=document.querySelector('.setting-keywords-inline > .setting-library-keyword-field input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,${JSON.stringify(keyword)});input.dispatchEvent(new Event('input',{bubbles:true}))})()`);await settle();
       await run("document.querySelector('.setting-keywords-inline > .setting-library-keyword-field input').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))");await settle();
     }
     await run("document.querySelector('.setting-keyword-details').open=true");await settle();
-    await run("document.querySelector('.setting-keyword-details [role=switch]').click()");await settle();
+    await run("document.querySelector('.setting-keyword-details [aria-label=递归匹配][aria-checked=false]')?.click()");await settle();
     const geometry=await run(`(()=>{const card=document.querySelector('.setting-settings-board'),doc=document.querySelector('.mobile-editor-document'),r=e=>e.getBoundingClientRect(),c=r(card),fields=[...card.querySelectorAll('input,select,button[role=switch]')].filter(e=>r(e).height),last=Math.max(...fields.map(e=>r(e).bottom));return {cardHeight:c.height,maxHeight:getComputedStyle(card).maxHeight,contentBottom:last,cardBottom:c.bottom,overflow:last>c.bottom,keywordColumns:getComputedStyle(card.querySelector('.setting-library-keyword-field')).gridTemplateColumns,switches:[...card.querySelectorAll('.setting-property-row:has(> button[role=switch])')].map(row=>({row:r(row).toJSON(),control:r(row.querySelector('button')).toJSON()})),documentBottom:r(doc).bottom,width:innerWidth,scrollOverflow:doc.scrollWidth>doc.clientWidth}})()`);
     check(!geometry.overflow&&!geometry.scrollOverflow&&Math.abs(height-geometry.documentBottom)<=2&&geometry.switches.every(s=>s.control.top>=s.row.top&&s.control.bottom<=s.row.bottom),'Expanded form: '+JSON.stringify(geometry));
     await run("document.querySelector('.mobile-editor-document').scrollTop=1e6");await settle();

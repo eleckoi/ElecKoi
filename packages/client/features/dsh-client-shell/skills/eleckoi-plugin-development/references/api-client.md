@@ -4,7 +4,7 @@
 
 # Client 完整服务参考
 
-DSH 基准：`0.2.2-rc.3`，提交 `38a6a5c965aa99ab525161efb7cc5cf1fe62fced`。
+DSH 基准：`0.2.2-rc.5`，提交 `9c2670d3bce5275e0d1610272958121af87787bb`。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
@@ -1041,6 +1041,13 @@ save(preset: AgentPreset, expectedRegexRules: RegexRule[]): Promise<AgentPreset>
 create(name: string, libraryGroupId?: string, purpose?: AgentPresetPurpose): Promise<AgentPreset>
 
 /**
+ * 在源预设的分组复制整份预设，包括已保存的版本。
+ * @param presetId - 源预设编号。
+ * @returns 新预设的完整数据。
+ */
+duplicate(presetId: string): Promise<AgentPreset>
+
+/**
  * 导入预设文件。
  * @param source - 支持的导入格式。
  * @param document - 待导入的文件内容。
@@ -1095,6 +1102,15 @@ reorderGroups(groupIds: string[], purpose?: AgentPresetPurpose): Promise<AgentPr
  * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
  */
 assignGroup(presetId: string, groupId: string): Promise<AgentPresetCatalog>
+
+/**
+ * 一次更新同一分类下所选预设的分组。
+ * @param presetIds - 所选预设编号。
+ * @param groupId - 目标分组编号。空字符串表示未分组。
+ * @param purpose - 所选预设的分类。
+ * @returns 更新后的预设目录。
+ */
+assignGroups(presetIds: string[], groupId: string, purpose: AgentPresetPurpose): Promise<AgentPresetCatalog>
 
 /**
  * 删除预设分组。
@@ -1495,4 +1511,4 @@ Source: [`packages/client/features/dsh-client-web-search/src/client/types.ts`](.
 
 ## 官方布局服务
 
-`ctx.layout` 直接复用 [官方 ILayout 合同](https://github.com/deepseek-ai/deepseek-harness/blob/38a6a5c965aa99ab525161efb7cc5cf1fe62fced/packages/client/ui-layout/src/client/service.ts)，类型从 `@eleckoi/dsh-client-shell/client` 或 `@deepseek-ai/dsh-client-ui-layout/client` 导入。官方 Client 的 `Service` Inspect provider 已提供 `api({ key: "layout" })`，无需重复注册。桌面当前的 `toggleSidebar` 为空操作。
+`ctx.layout` 直接复用 [官方 ILayout 合同](https://github.com/deepseek-ai/deepseek-harness/blob/9c2670d3bce5275e0d1610272958121af87787bb/packages/client/ui-layout/src/client/service.ts)，类型从 `@eleckoi/dsh-client-shell/client` 或 `@deepseek-ai/dsh-client-ui-layout/client` 导入。官方 Client 的 `Service` Inspect provider 已提供 `api({ key: "layout" })`，无需重复注册。桌面当前的 `toggleSidebar` 为空操作。

@@ -11,6 +11,8 @@ import { PresetPromptEditor } from '../../src/modules/presets/components/PresetP
 import { PresetToolsEditor } from '../../src/modules/presets/components/PresetToolsEditor.jsx';
 import { DynamicSettingsPanel } from '../../src/modules/settingLibraries/components/DynamicSettingsPanel.jsx';
 import { AssetLibraryToolbar } from '../../src/modules/characterAssets/AssetLibraryToolbar.jsx';
+import { CharacterAssetLibrary } from '../../src/modules/characterAssets/CharacterAssetLibrary.jsx';
+import { NativeFrontendProvider } from '../../src/modules/authorFrontend/hooks/NativeFrontendContext.jsx';
 import '../../src/modules/characterAssets/character-assets.css';
 import { createEntryDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
 import { EditorPresentationContext } from '../../src/ui/ui/EditorPresentationContext.jsx';
@@ -28,7 +30,20 @@ import '../../src/mobile/mobile.css';
 import '../../src/mobile/mobile-character-editor.css';
 import '../../src/mobile/mobile-preset-editor.css';
 
-const kinds = ['settings', 'variables', 'regex', 'scripts', 'merge', 'prompts', 'tools', 'branches', 'assets'];
+const kinds = ['settings', 'variables', 'regex', 'scripts', 'merge', 'prompts', 'tools', 'branches', 'assets', 'asset-items'];
+const assetService = {
+  watchAssets: (characterId, publish) => {
+    const createdAt = '2026-11-20T00:00:00.000Z';
+    publish({
+      characterId, revision: 0,
+      folders: [{ id: 'fixture-folder', name: '示例文件夹', parentId: null, createdAt }],
+      items: [{ id: 'fixture-image', name: '示例图片.png', type: 'image', mimeType: 'image/png', size: 100, createdAt }],
+    });
+    return () => {};
+  },
+  assets: { canReveal: async () => ({ ok: true, value: false }) },
+};
+const assetConnection = { getSnapshot: () => assetService, subscribe: () => () => {} };
 function AssetToolbarFixture() {
   const [menu,setMenu]=useState(null), [formats,setFormats]=useState([]), [sort,setSort]=useState('newest'), [size,setSize]=useState('medium');
   return <div className="character-asset-library"><AssetLibraryToolbar {...{menu,setMenu,formats,setFormats,sort,setSort,size,setSize}}
@@ -77,7 +92,9 @@ function Fixture() {
       <div className={compact ? scope === 'preset' ? 'mobile-preset-editor' : 'mobile-character-editor' : ''}
         style={{ height: 'calc(100vh - 60px)', minHeight: 0, marginLeft: compact && scope === 'character' ? 76 : 0 }}>
         <EditorPresentationContext.Provider key={`${kind}:${scope}:${compact}`} value={presentation}>
-          {kind === 'assets' ? <AssetToolbarFixture /> : ['prompts', 'tools'].includes(kind) ? <PresetFixture kind={kind} />
+          {kind === 'assets' ? <AssetToolbarFixture /> : kind === 'asset-items' ? (
+            <NativeFrontendProvider connection={assetConnection}><CharacterAssetLibrary {...ownerProps} /></NativeFrontendProvider>
+          ) : ['prompts', 'tools'].includes(kind) ? <PresetFixture kind={kind} />
             : kind === 'branches' ? <DynamicSettingsPanel characterId="synthetic-character" settingLibraries={service} />
             : kind === 'merge' ? <SettingLibraryManager characterId="synthetic-character" settingLibraries={service} library={service.value} onChange={() => {}} onClose={() => {}} onError={error => { throw new Error(error); }} />
             : kind === 'settings' ? <SettingLibraryPanel characterId="synthetic-character" settingLibraries={service} />

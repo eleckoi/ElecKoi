@@ -40,4 +40,35 @@ describe('character manager actions', () => {
     expect(container.textContent).toContain('Synthetic copy failure');
     expect(cards(container)).toHaveLength(3);
   });
+  it('moves the checked homepage cards without changing the filter, and can retry a failed move', async () => {
+    const saveGroups = vi.fn().mockRejectedValueOnce(new Error('Synthetic move failure')).mockResolvedValueOnce(undefined);
+    const setSelectedGroup = vi.fn();
+    const { container } = renderManager({
+      characters: { ...fixture(), groups: ['甲组', '乙组'] },
+      onSaveGroups: saveGroups,
+      home: { renderGroups: () => null, withFavorite: (_character, card) => card, setSelectedGroup },
+    });
+    click(buttonByText(container, '移动角色'));
+    click(cards(container)[0]);
+    click(cards(container)[2]);
+    click(buttonByText(container, '移动到分组'));
+    const dialog = document.querySelector('[role=dialog]');
+    const save = buttonByText(dialog, '保存');
+    expect(save.disabled).toBe(true);
+    const target = dialog.querySelector('select');
+    const destination = [...target.options].find(option => option.textContent === '乙组');
+    act(() => {
+      target.value = destination.value;
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await clickAsync(save);
+    expect(dialog.textContent).toContain('Synthetic move failure');
+    expect(saveGroups).toHaveBeenCalledTimes(1);
+    await clickAsync(save);
+    const assignments = [{ characterId: 'card-1', group: '乙组' }, { characterId: 'card-3', group: '乙组' }];
+    expect(saveGroups).toHaveBeenNthCalledWith(1, ['甲组', '乙组'], assignments);
+    expect(saveGroups).toHaveBeenNthCalledWith(2, ['甲组', '乙组'], assignments);
+    expect(setSelectedGroup).not.toHaveBeenCalled();
+    expect(document.querySelector('[role=dialog]')).toBeNull();
+  });
 });

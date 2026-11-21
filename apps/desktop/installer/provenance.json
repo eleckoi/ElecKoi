@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/deepseek-ai/deepseek-harness",
-  "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced",
+  "commit": "9c2670d3bce5275e0d1610272958121af87787bb",
   "license": "MIT",
   "licenseFile": "apps/desktop/resources/licenses/dsh-desktop-MIT.txt",
   "files": [
@@ -12,7 +12,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/drawing.nsh",
@@ -22,7 +22,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/extract-progress.h",
@@ -32,7 +32,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/extract-report.h",
@@ -42,7 +42,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/extract.h",
@@ -52,7 +52,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/lifecycle.nsh",
@@ -62,7 +62,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/pages.nsh",
@@ -72,7 +72,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/path.nsh",
@@ -82,7 +82,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/progress.h",
@@ -92,7 +92,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/theme.nsh",
@@ -102,7 +102,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/uninstall-data.h",
@@ -112,7 +112,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/uninstall.nsh",
@@ -122,7 +122,7 @@
       "changes": [
         "Product display name is ElecKoi; uninstall preserves the existing combined product data directory and removes only the updater cache."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/window-frame.cpp",
@@ -132,7 +132,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/locales/de_DE.json",
@@ -142,7 +142,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/locales/en_US.json",
@@ -152,7 +152,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/locales/es_ES.json",
@@ -162,7 +162,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/locales/fr_FR.json",
@@ -172,7 +172,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/locales/ja_JP.json",
@@ -182,7 +182,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/locales/pt_BR.json",
@@ -192,7 +192,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/locales/ru_RU.json",
@@ -202,7 +202,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/locales/zh_CN.json",
@@ -212,7 +212,7 @@
       "changes": [
         "Product display name is ElecKoi where present."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/scripts/installer.nsh",
@@ -222,7 +222,7 @@
       "changes": [
         "Build output and generated ElecKoi artwork use existing ignored resource directories; the existing installation security repair runs after directory promotion."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/scripts/installer-directories.nsh",
@@ -232,7 +232,7 @@
       "changes": [
         "Build output and generated ElecKoi artwork use existing ignored resource directories; the existing installation security repair runs after directory promotion."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/scripts/installer-locales.mjs",
@@ -242,7 +242,7 @@
       "changes": [
         "Build output and generated ElecKoi artwork use existing ignored resource directories; the existing installation security repair runs after directory promotion."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/scripts/installer-locales.d.mts",
@@ -252,7 +252,7 @@
       "changes": [
         "Build output and generated ElecKoi artwork use existing ignored resource directories; the existing installation security repair runs after directory promotion."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/scripts/windows-directory-installer.mjs",
@@ -262,7 +262,7 @@
       "changes": [
         "Build output and generated ElecKoi artwork use existing ignored resource directories; the existing installation security repair runs after directory promotion."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/scripts/windows-directory-installer.d.mts",
@@ -272,7 +272,7 @@
       "changes": [
         "Build output and generated ElecKoi artwork use existing ignored resource directories; the existing installation security repair runs after directory promotion."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/scripts/prepare-windows-installer.ps1",
@@ -282,7 +282,7 @@
       "changes": [
         "Build output and generated ElecKoi artwork use existing ignored resource directories; the existing installation security repair runs after directory promotion."
       ],
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/restart-banner.h",
@@ -292,7 +292,7 @@
       ],
       "sha256": "01d885cc2f355d6b3abe6e1756d61d3a89e5a68ef588997877f45c172007b394",
       "localSha256": "2d772505750d3e1eda9c8e56f2d927edd65d28d7c91aa3f767c497a47c2a7864",
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/restart-status.h",
@@ -302,7 +302,7 @@
       ],
       "sha256": "53331d09fa30638f508a8463cfec537a8d688bdeeb706bb6debd4f42bb747e58",
       "localSha256": "9c51bd6c370fe691d499ca397fbab28a5991eb0796c8ce014079b34addaeeb94",
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/installer/restart-text.h",
@@ -312,7 +312,7 @@
       ],
       "sha256": "106f8f6e277628b6001b1092e44412c93e7f391913d69bd0dff01dcec95779dc",
       "localSha256": "106f8f6e277628b6001b1092e44412c93e7f391913d69bd0dff01dcec95779dc",
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
       "path": "apps/desktop/scripts/restart-banner.nsh",
@@ -322,7 +322,7 @@
       ],
       "sha256": "30c1ba40387df329694849ad7f01ec9f01c14bde5b91ad78b1ea07bec3565793",
       "localSha256": "30c1ba40387df329694849ad7f01ec9f01c14bde5b91ad78b1ea07bec3565793",
-      "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced"
+      "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     }
   ]
 }

@@ -2,7 +2,7 @@ import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
-import { Code, Copy, DotsThree, FileText, LinkSimple, ListChecks, MagnifyingGlass, PencilSimple, Plus, X } from '../../../ui/icons/interfaceIcons.jsx';
+import { Code, Copy, DotsThree, FileText, ListChecks, MagnifyingGlass, PencilSimple, Plus, SlidersHorizontal, X } from '../../../ui/icons/interfaceIcons.jsx';
 import { isHiddenToolTimelineEntry } from '@shared/contracts/presets/builtIns';
 import { TrashIcon } from '../../../ui/icons/index.jsx';
 import { DshFolderClosedIcon } from '../../../ui/icons/dshTreeIcons.jsx';
@@ -12,6 +12,7 @@ import { EditorSidebarLayout } from '../../../ui/ui/EditorSidebarLayout.jsx';
 import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
 import { MobileEditorActions } from '../../../ui/ui/MobileEditorActions.jsx';
 import { EditorCollectionToolbar, EditorSelectionBar, useEditorMultiSelect } from '../../../ui/ui/EditorCollectionControls.jsx';
+import { EditorDirectoryActions } from '../../../ui/ui/EditorDirectoryHeading.jsx';
 import { selectableTreeIds, selectedTreeRootIds, visibleTreeSelectionIds } from '../../../ui/ui/editorCollectionSelection.js';
 import {
   ConfirmationDialog,
@@ -38,7 +39,6 @@ const HIDDEN_TIMELINE_DISABLE_CONFIRMATION = {
 
 const CreateFolderIcon = SETTING_LIBRARY_CREATE_ICONS.group;
 const CreateEntryIcon = SETTING_LIBRARY_CREATE_ICONS.entry;
-const CreateReferenceIcon = SETTING_LIBRARY_CREATE_ICONS.reference;
 
 export function shouldConfirmHiddenTimelineDisable(entry, nextEnabled) {
   return nextEnabled === false && isHiddenToolTimelineEntry(entry);
@@ -70,7 +70,7 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
     listAllExpanded: false,
     expandedGroupIds: preset.expandedGroupIds,
   }), [preset]);
-  const nodes = useMemo(() => treeNodes(library), [library]);
+  const nodes = useMemo(() => treeNodes(library, { creatorPreset }), [library, creatorPreset]);
   const selectableIds = selectableTreeIds(nodes);
   const multi = useEditorMultiSelect(selectableIds, preset.id);
   const searchHasResults = useMemo(() => hasSearchResults(library, query), [library, query]);
@@ -90,7 +90,6 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
   }, [preset.id]);
 
   function createNode(kind, target = selected) {
-    if (creatorPreset && kind === 'reference') return;
     const parentId = target?.kind === 'group'
       ? target.id
       : target?.kind === 'entry'
@@ -105,7 +104,7 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
       onChange({ ...preset, groups: [...preset.groups, group], expandedGroupIds: [...new Set([...preset.expandedGroupIds, parentId].filter(Boolean))] });
       setSelected({ kind: 'group', id: group.id });
     } else {
-      const entry = { ...createEntryDraft(parentId, order, preset.entries, kind === 'reference' ? 'reference' : 'prompt'), title: kind === 'reference' ? tUi("新建 EJS引用设定") : tUi("新建提示词") };
+      const entry = { ...createEntryDraft(parentId, order, preset.entries), title: tUi("新建提示词") };
       onChange({ ...preset, entries: [...preset.entries, entry], expandedGroupIds: [...new Set([...preset.expandedGroupIds, parentId].filter(Boolean))] });
       setSelected({ kind: 'entry', id: entry.id });
     }
@@ -132,15 +131,6 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
     onChange({ ...preset, entries: preset.entries.map((item) => item.id === entry.id ? entry : item) });
   }
 
-  function requestEntryEnabledChange(entry) {
-    const nextEnabled = entry.enabled === false;
-    if (shouldConfirmHiddenTimelineDisable(entry, nextEnabled)) {
-      setPendingHiddenTimelineDisableId(entry.id);
-      return;
-    }
-    updateEntry({ ...entry, enabled: nextEnabled });
-  }
-
   function confirmHiddenTimelineDisable() {
     const entry = preset.entries.find((item) => item.id === pendingHiddenTimelineDisableId);
     if (entry && isHiddenToolTimelineEntry(entry)) updateEntry({ ...entry, enabled: false });
@@ -150,8 +140,8 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
   function updateTreeEntry(entryId, patch) {
     const entry = preset.entries.find((item) => item.id === entryId);
     if (!entry) return;
-    if (Object.hasOwn(patch, 'enabled') && patch.enabled !== entry.enabled) {
-      requestEntryEnabledChange(entry);
+    if (shouldConfirmHiddenTimelineDisable(entry, patch.enabled)) {
+      setPendingHiddenTimelineDisableId(entry.id);
       return;
     }
     updateEntry({ ...entry, ...patch });
@@ -283,9 +273,9 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
     selected={{ kind: selected.kind, value: selectedValue }}
     library={library}
     allowCustomPromptPositions
+    presetPrompt
     creatorPreset={creatorPreset}
     dirty={dirty} saving={saving} titleReadOnly={PINNED_ENTRY_IDS.has(selectedValue.id)}
-    hideReferenceTabs
     entryActions={<>{selected.kind === 'entry' && !PINNED_ENTRY_IDS.has(selectedValue.id) ? <Menu portal dense open={entryMoreOpen} onClose={() => setEntryMoreOpen(false)}
       anchor={<Button data-dsh-control variant="outline" className="setting-folder-more" icon={<DotsThree size={18} />} aria-label={tUi('提示词操作')} onClick={() => setEntryMoreOpen(!entryMoreOpen)} />}
       items={[{ id: 'copy', label: tUi('复制'), icon: <Copy size={15} /> }, { id: 'rename', label: tUi('重命名'), icon: <PencilSimple size={15} /> }, { id: 'delete', label: tUi('删除'), icon: <TrashIcon size={15} />, danger: true }]}
@@ -293,12 +283,11 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
       {!workspace && !compact && <Button data-dsh-control variant="outline" className="setting-folder-more" icon={<X size={17} />} aria-label={tUi('关闭编辑器')} onClick={closeEditor} />}
     </>}
     nameInputRef={nameInputRef}
-    SelectedIcon={selected.kind === 'group' ? DshFolderClosedIcon : selectedValue.contentMode === 'ejs' ? Code : selectedValue.dynamicMode === 'ejs_reference' ? LinkSimple : FileText}
+    SelectedIcon={selected.kind === 'group' ? DshFolderClosedIcon : selectedValue.contentMode === 'ejs' ? Code : FileText}
     onUpdateGroup={(patch) => onChange({ ...preset, groups: preset.groups.map((group) => group.id === selected.id ? { ...group, ...patch } : group) })}
     onDeleteGroup={() => deleteGroup(selected.id)}
     onUpdateEntry={updateEntry}
     onEntriesChange={(entries) => onChange({ ...preset, entries })}
-    onOpenEntry={(entryId) => { setSelected({ kind: 'entry', id: entryId }); setEditing(true); }}
     onPromptPositionsChange={(promptPositions, entries = preset.entries) => onChange({ ...preset, promptPositions, entries })}
   /> : null;
   const menuTarget = context.menu?.target;
@@ -307,7 +296,6 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
   const menuActions = pinnedMenuTarget ? [] : !menuTarget || menuTarget.kind === 'group' ? [
     { label: tUi("新建文件夹"), icon: CreateFolderIcon, run: () => createNode('group', createTarget) },
     { label: tUi("新建提示词"), icon: CreateEntryIcon, run: () => createNode('entry', createTarget) },
-    ...(!creatorPreset ? [{ label: tUi("新建 EJS引用设定"), icon: CreateReferenceIcon, run: () => createNode('reference', createTarget) }] : []),
   ] : [{ label: tUi("复制"), icon: Copy, run: () => duplicateEntry(menuTarget.value) }];
   if (menuTarget && !pinnedMenuTarget) menuActions.push(
     { label: '重命名', icon: PencilSimple, run: () => renameNode(menuTarget) },
@@ -319,35 +307,38 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
     <Layout className={workspace && !compact ? "preset-prompt-workspace" : `preset-prompt-editor setting-library-layout${multi.active ? ' is-multiselect' : ''}`} aria-label={tUi("预设提示词")} onMouseDown={() => setAddOpen(false)}
       label={tUi('提示词')} query={query} onQueryChange={setQuery}
       directoryHeading={<h1 className="preset-prompt-directory-title">{tUi('预设提示词')}</h1>}
-      directoryActions={<><Menu portal dense open={addOpen} onClose={() => setAddOpen(false)} anchor={<Button data-dsh-control variant="primary" className="setting-create" icon={<Plus size={16} />} disabled={multi.active || saving} aria-label={tUi('新建提示词')} onClick={() => setAddOpen(!addOpen)}>{tUi('新建')}</Button>}
-        items={[{ id: 'group', label: tUi('文件夹'), icon: <CreateFolderIcon size={16} /> }, { id: 'entry', label: tUi('提示词'), icon: <CreateEntryIcon size={16} /> }, ...(!creatorPreset ? [{ id: 'reference', label: tUi('EJS引用设定'), icon: <CreateReferenceIcon size={16} /> }] : [])]} onSelect={id => createNode(id)} />
-        {saveAction}<Menu portal dense open={moreOpen} onClose={() => setMoreOpen(false)} anchor={<Button data-dsh-control variant="outline" className="setting-directory-more" icon={<DotsThree size={18} />} aria-label={tUi('提示词操作')} onClick={() => setMoreOpen(!moreOpen)} />}
-          items={[{ id: 'multi', label: multi.active ? tUi('完成多选') : tUi('多选'), icon: <ListChecks size={16} /> }, { id: 'expand', label: tUi('展开全部文件夹') }, { id: 'collapse', label: tUi('收起全部文件夹') }]}
-          onSelect={id => { setMoreOpen(false); if (id === 'multi') toggleMultiSelect(); else onChange({ ...preset, expandedGroupIds: id === 'expand' ? preset.groups.map(group => group.id) : [] }); }} /></>}
+      directoryActions={<><Menu portal dense open={addOpen} onClose={() => setAddOpen(false)} anchor={<Button data-dsh-control variant="ghost"
+        className="setting-toolbar-button setting-toolbar-create" icon={<Plus size={17} />} disabled={multi.active || saving} aria-label={tUi('新建提示词')}
+        aria-haspopup="menu" aria-expanded={addOpen} onClick={() => setAddOpen(!addOpen)}><span>{tUi('新建')}</span></Button>}
+        items={[{ id: 'group', label: tUi('文件夹'), icon: <CreateFolderIcon size={16} /> }, { id: 'entry', label: tUi('提示词'), icon: <CreateEntryIcon size={16} /> }]} onSelect={id => createNode(id)} />
+        {saveAction}<Menu portal dense open={moreOpen} onClose={() => setMoreOpen(false)} anchor={<Button data-dsh-control variant="ghost"
+          className="setting-toolbar-button setting-toolbar-icon" icon={<SlidersHorizontal size={19} />} aria-label={tUi('提示词操作')}
+          title={tUi('提示词操作')} aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)} />}
+          items={[{ id: 'multi', label: multi.active ? tUi('完成多选') : tUi('多选'), icon: <ListChecks size={16} /> }, { id: 'collapse', label: tUi('收起全部文件夹') }]}
+          onSelect={id => { setMoreOpen(false); if (id === 'multi') toggleMultiSelect(); else onChange({ ...preset, expandedGroupIds: [] }); }} /></>}
       documentLayout inspector={inspector} inspectorTitle={selected?.kind === 'group' ? tUi("文件夹") : selectedValue?.title || tUi("提示词")} onCloseInspector={closeEditor}>
       <div className="setting-library-browser editor-collection-browser">
         {compact && <EditorCollectionToolbar heading={tUi('预设提示词')} query={query} onQueryChange={setQuery} placeholder={tUi('搜索提示词')}
           disabled={saving} selection={{ ...multi, toggle: toggleMultiSelect }} save={saveAction} createItems={[
             { label: tUi('文件夹'), Icon: CreateFolderIcon, run: () => createNode('group') },
             { label: tUi('提示词'), Icon: CreateEntryIcon, run: () => createNode('entry') },
-            ...(!creatorPreset ? [{ label: tUi('EJS引用设定'), Icon: CreateReferenceIcon, run: () => createNode('reference') }] : []),
           ]} />}
         {!workspace && !compact && <div className="setting-library-toolbar editor-collection-toolbar" onMouseDown={(event) => event.stopPropagation()}>
           <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
             value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tUi("搜索提示词")} aria-label={tUi("搜索提示词")} />
-          <div className="editor-collection-actions">
+          <EditorDirectoryActions label={tUi("提示词操作")}>
           {!compact && <div className="setting-library-add-wrap">
-            <Button data-dsh-control type="button" className="editor-collection-action" variant="primary" disabled={multi.active} aria-expanded={addOpen} onClick={() => setAddOpen((value) => !value)}><Plus size={16} />{tUi("新建")}</Button>
+            <Button data-dsh-control type="button" className="setting-toolbar-button setting-toolbar-create" variant="ghost"
+              icon={<Plus size={17} />} disabled={multi.active} aria-expanded={addOpen} onClick={() => setAddOpen((value) => !value)}><span>{tUi("新建")}</span></Button>
             {addOpen ? <div className="setting-library-popover" role="menu">
               <button type="button" role="menuitem" onClick={() => createNode('group')}><CreateFolderIcon size={16} />{tUi("文件夹")}</button>
               <button type="button" role="menuitem" onClick={() => createNode('entry')}><CreateEntryIcon size={16} />{tUi("提示词")}</button>
-              {!creatorPreset && <button type="button" role="menuitem" onClick={() => createNode('reference')}><CreateReferenceIcon size={16} />{tUi("EJS引用设定")}</button>}
             </div> : null}
           </div>}
-          <Button data-dsh-control className="editor-collection-action" variant="outline" icon={<ListChecks size={16} />}
+          <Button data-dsh-control className="setting-toolbar-button" variant="ghost" icon={<ListChecks size={17} />}
             aria-label={multi.active ? tUi("完成") : tUi("多选")} aria-pressed={multi.active} onClick={toggleMultiSelect}>{multi.active ? tUi("完成") : tUi("多选")}</Button>
           {saveAction}
-          </div>
+          </EditorDirectoryActions>
         </div>}
         <EditorSelectionBar selection={multi} visibleIds={visibleTreeSelectionIds(nodes, query)} onCopy={copySelected}
           onDelete={() => setDeleteBatch({ ids: selectedTreeRootIds(nodes, multi.selected), title: tUi("删除选中的 {value0} 项？", {value0: multi.selected.size}), message: tUi("所选文件夹及其内容会在保存后删除。") })} />
@@ -360,7 +351,7 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
           }}
           onContextMenu={openTreeContextMenu}
         >
-          <SettingTreeActionsContext.Provider value={{ openContextMenu: openTreeNodeContextMenu, updateEntryById: updateTreeEntry, selection: multi, openEditor: compact && !multi.active ? openEditor : undefined }}>
+          <SettingTreeActionsContext.Provider value={{ openContextMenu: openTreeNodeContextMenu, updateEntryById: updateTreeEntry, selection: multi, saving, openEditor: compact && !multi.active ? openEditor : undefined }}>
             <SettingLibraryTree
               key={preset.id}
               nodes={nodes}
@@ -392,7 +383,6 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
           createItems={[
             { label: tUi("文件夹"), Icon: CreateFolderIcon, run: () => createNode('group') },
             { label: tUi("提示词"), Icon: CreateEntryIcon, run: () => createNode('entry') },
-            ...(!creatorPreset ? [{ label: tUi("EJS引用设定"), Icon: CreateReferenceIcon, run: () => createNode('reference') }] : []),
           ]}
           moreItems={canModify ? [
             ...(selected.kind === 'entry' ? [{ label: tUi("复制"), Icon: Copy, run: () => duplicateEntry(selectedValue) }] : []),

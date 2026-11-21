@@ -12,7 +12,7 @@ window.__ModuleLoader__.load({
         this.remote = ctx.remote
         this.snapshot = {
           status: 'loading',
-          mode: 'provider_native',
+          mode: 'automatic',
           fetchMode: 'http',
           officialDeepSeekAvailable: false,
           maxResults: 5,

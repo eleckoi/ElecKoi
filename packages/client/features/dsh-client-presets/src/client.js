@@ -125,6 +125,12 @@ window.__ModuleLoader__.load({
         return created
       }
 
+      async duplicate(presetId) {
+        const created = this.assertPreset(await this.call('duplicate', presetId), null)
+        this.adoptCreatedPreset(created)
+        return created
+      }
+
       async import(source, document, purpose = 'roleplay') {
         const result = await this.call('import', source, document, purpose)
         this.adoptCreatedPreset(this.assertPreset(result?.preset, result?.preset?.id))
@@ -155,6 +161,10 @@ window.__ModuleLoader__.load({
 
       async assignGroup(presetId, groupId) {
         return this.adoptCatalog(await this.call('assignGroup', presetId, groupId))
+      }
+
+      async assignGroups(presetIds, groupId, purpose) {
+        return this.adoptCatalog(await this.call('assignGroups', presetIds, groupId, purpose))
       }
 
       async deleteGroup(groupId) {

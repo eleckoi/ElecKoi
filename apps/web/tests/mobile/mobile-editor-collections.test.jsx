@@ -108,6 +108,12 @@ it.each([false, true].flatMap(compact => ['character', 'preset'].map(scope => ({
   expect(actions).toContain('导入为新版本'); expect(actions).toContain('导出当前版本');
   for (const removed of ['导入规则文件', '导出规则文件', '启用组合']) expect(actions).not.toContain(removed);
   expect(node.querySelector('.regex-file-input')).toBeNull();
+  await click('当前版本', modal);
+  const picker = document.querySelector('.editor-search-modal');
+  expect(picker.querySelector('input[aria-label="搜索版本"]')).toBeTruthy();
+  expect(picker.querySelector('.editor-picker-row[aria-pressed=true]')).toBeTruthy();
+  await click('返回', picker);
+  expect(document.querySelector('.editor-management-modal [aria-label="当前版本"]')).toBeTruthy();
 });
 
 it.each(['scripts'].flatMap(kind => ['character', 'preset'].flatMap(scope => [false, true].map(compact => ({ kind, scope, compact })))))

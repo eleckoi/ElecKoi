@@ -3,20 +3,21 @@ import { useMemo, useRef, useState } from 'react';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
 import { BookOpen, CaretRight, DotsThree, PencilSimple, Trash } from '../../../ui/icons/interfaceIcons.jsx';
-import { ImportIcon } from '../../../ui/icons/index.jsx';
 import { Button, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
 import { EditorManagementModal } from '../../../ui/ui/EditorCollectionControls.jsx';
 import { EditorToggle } from '../../../ui/ui/EditorToggle.jsx';
-import { EditorSelect } from '../../../ui/ui/EditorSelect.jsx';
+import { Avatar } from '../../../ui/ui/Avatar.jsx';
+import { EditorPickerRows, EditorSearchPane, editorSearchMatches } from '../../../ui/ui/EditorSearchPicker.jsx';
 import { VersionNameDialog } from '../../../ui/ui/VersionNameDialog.jsx';
 import { useCharacterConfigurationDraft } from '../../../ui/hooks/useCharacterConfigurationDraft.js';
 import { globalSettingLibrarySchema } from '@shared/contracts/settingLibrary/global';
 import { SettingLibraryTree, SettingTreeActionsContext } from './SettingLibraryTree.jsx';
-import { ConfirmationDialog } from './SettingLibraryControls.jsx';
+import { ConfirmationDialog, SettingLibraryImportMenu } from './SettingLibraryControls.jsx';
 import { createId, uniqueName } from '../model/settingLibraryEditing.js';
 import { nodeKey, treeNodes, hasSearchResults } from '../model/settingLibraryTree.js';
 import { parseSettingLibraryFile } from '../model/settingLibraryTransfer.js';
 import { resolveFailure } from '../../../utils/failureText.js';
+import { characterAvatar, characterName } from '../../../utils/characterDisplay.js';
 
 const empty = { revision: 0, libraries: [] };
 const unavailable = { getSnapshot: () => ({ status: 'ready', value: empty }), read: async () => empty,
@@ -69,16 +70,18 @@ export function useGlobalSettingLibraries(model, onSelect) {
 }
 
 /** Creates global libraries from existing resources. Contents use the shared setting editor. */
-export function GlobalSettingLibraryImport({ state, settingLibraries, disabled, renderActions }) {
+export function GlobalSettingLibraryImport({ state, settingLibraries, disabled }) {
   const tUi = useProductTranslation();
   const input = useRef(null), request = useRef(0);
-  const [menu, setMenu] = useState(false), [dialog, setDialog] = useState(false);
+  const [dialog, setDialog] = useState(false);
   const [characters, setCharacters] = useState([]), [source, setSource] = useState(null), [characterId, setCharacterId] = useState('');
   const [versionId, setVersionId] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [characterQuery, setCharacterQuery] = useState(''), [versionQuery, setVersionQuery] = useState('');
   function close() { request.current++; setDialog(false); setBusy(false); }
   async function openCharacters() {
     const generation = ++request.current;
     setDialog(true); setCharacters([]); setSource(null); setCharacterId(''); setVersionId(''); setError(''); setBusy(true);
+    setCharacterQuery(''); setVersionQuery('');
     try {
       const catalog = await settingLibraries.listCharacters();
       if (generation === request.current) setCharacters(catalog.items);
@@ -93,7 +96,7 @@ export function GlobalSettingLibraryImport({ state, settingLibraries, disabled, 
     try {
       const library = await settingLibraries.readUntracked(id);
       if (!library.versions.some(version => version.id === library.activeVersionId)) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, '来源角色的当前设定库版本不存在。', { what: '来源角色的当前设定库版本' });
-      if (generation === request.current) { setSource(library); setVersionId(library.activeVersionId); }
+      if (generation === request.current) { setSource(library); setVersionId(library.activeVersionId); setVersionQuery(''); }
     } catch (cause) { if (generation === request.current) setError(resolveFailure(cause, { fallback: tUi("读取来源设定库失败") }).text); }
     finally { if (generation === request.current) setBusy(false); }
   }
@@ -106,28 +109,29 @@ export function GlobalSettingLibraryImport({ state, settingLibraries, disabled, 
     } catch (cause) { state.setError(resolveFailure(cause, { fallback: tUi("导入全局设定库失败") }).text); }
   }
   const version = source?.versions.find(item => item.id === versionId);
+  const roleOptions = characters.map(item => ({ item, label: characterName(item, tUi) }))
+    .filter(({ label }) => editorSearchMatches(characterQuery, label))
+    .map(({ item, label }) => ({ id: item.id, label, next: true, leading: <Avatar as="span" aria-hidden="true"
+      className="editor-picker-avatar" name={label} src={characterAvatar(item)} loading="lazy" /> }));
+  const versionOptions = source?.versions.map(item => ({ id: item.id, label: item.name || tUi('未命名版本'),
+    detail: item.id === source.activeVersionId ? tUi('当前版本') : '' }))
+    .filter(item => editorSearchMatches(versionQuery, item.label)) || [];
   return <>
-    {renderActions ? renderActions([
-      { id: 'import-character', label: tUi('从角色设定库导入'), icon: <ImportIcon size={16} />, disabled: disabled || !state.libraryRef.current, run: () => void openCharacters() },
-      { id: 'import-file', label: tUi('从本地文件导入'), icon: <ImportIcon size={16} />, disabled: disabled || !state.libraryRef.current, run: () => input.current?.click() },
-    ]) : <Menu open={menu} portal dense anchor={<Button className="editor-collection-action" variant="outline" icon={<ImportIcon size={16} />}
-      disabled={disabled || !state.libraryRef.current} aria-label={tUi("导入全局设定库")} onClick={() => setMenu(value => !value)}>{tUi("导入")}</Button>}
+    <SettingLibraryImportMenu label={tUi("导入全局设定库")} disabled={disabled || !state.libraryRef.current}
       items={[{ id: 'character', label: tUi("从角色设定库") }, { id: 'file', label: tUi("从本地文件") }]}
-      onClose={() => setMenu(false)} onSelect={id => { setMenu(false); if (id === 'character') void openCharacters(); else input.current?.click(); }} />}
+      onSelect={id => { if (id === 'character') void openCharacters(); else input.current?.click(); }} />
     <input ref={input} type="file" accept=".json,application/json" hidden aria-label={tUi("全局设定库文件")} onChange={importFile} />
-    {dialog ? <EditorManagementModal title={tUi("导入角色设定库")} onClose={close} className="global-library-import-dialog"
-      footer={<><Button variant="outline" onClick={close}>{tUi("取消")}</Button><Button disabled={busy || !version} onClick={() => {
+    {dialog ? <EditorManagementModal title={tUi(source ? '选择版本' : '选择角色')} onClose={close} className="global-library-import-dialog editor-search-modal"
+      footer={<><Button variant="outline" onClick={source ? () => { setSource(null); setVersionId(''); } : close}>{tUi(source ? '返回' : '取消')}</Button><Button disabled={busy || !version} onClick={() => {
         const character = characters.find(item => item.id === characterId);
-        state.importLibrary({ ...version, name: `${character.name || tUi("未命名角色")} · ${version.name || tUi("设定库")}` }); close();
+        state.importLibrary({ ...version, name: `${characterName(character, tUi)} · ${version.name || tUi("设定库")}` }); close();
       }}>{tUi("导入")}</Button></>}>
-      <div className="global-library-import-fields">
-        <label><span>{tUi("来源角色")}</span><EditorSelect label={tUi("来源角色")} value={characterId} disabled={busy} onChange={value => void chooseCharacter(value)}
-          options={[{ value: '', label: tUi("选择角色") }, ...characters.map(item => ({ value: item.id, label: item.name || tUi("未命名角色") }))]} /></label>
-        {source ? <label><span>{tUi("来源版本")}</span><EditorSelect label={tUi("来源版本")} value={versionId} onChange={setVersionId}
-          options={source.versions.map(item => ({ value: item.id, label: item.name || tUi("未命名版本") }))} /></label> : null}
-        {version ? <p>{version.entries.filter(item => item.kind === 'normal').length}{tUi(" 条设定")}</p> : null}
-        {!busy && (error ? <p role="alert">{error}</p> : characters.length === 0 ? <p>{tUi("暂无可导入的角色设定库")}</p> : null)}
-      </div>
+      {source ? <EditorSearchPane key="versions" query={versionQuery} onQueryChange={setVersionQuery} label={tUi('搜索版本')}>
+        <EditorPickerRows options={versionOptions} selectedId={versionId} onSelect={setVersionId} empty={tUi('没有匹配的版本')} />
+      </EditorSearchPane> : <EditorSearchPane key="roles" query={characterQuery} onQueryChange={setCharacterQuery} label={tUi('搜索角色')}>
+        <EditorPickerRows options={roleOptions} busy={busy} error={error} onSelect={id => void chooseCharacter(id)}
+          empty={tUi(characterQuery.trim() ? '没有匹配的角色' : '暂无可导入的角色设定库')} />
+      </EditorSearchPane>}
     </EditorManagementModal> : null}
   </>;
 }

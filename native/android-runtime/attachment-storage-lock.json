@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "upstreamCommit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced",
+  "upstreamCommit": "9c2670d3bce5275e0d1610272958121af87787bb",
   "package": "@deepseek-ai/dsh-attachment-local",
-  "version": "0.2.2-rc.3",
+  "version": "0.2.2-rc.5",
   "file": "lib/index.js",
   "sourceSha256": "ff717f87226b59d6224aff67796b43d5fd72b98d0e74fa91a952affaf3285f9d",
   "helpers": [

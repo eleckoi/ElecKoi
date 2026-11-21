@@ -1,7 +1,7 @@
 import { productLocaleTag } from '../../../app/i18n/productCopy.js';
 import { sourceText } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { EditorDirectoryHeading } from '../../../ui/ui/EditorDirectoryHeading.jsx';
+import { EditorDirectoryActions, EditorDirectoryHeading } from '../../../ui/ui/EditorDirectoryHeading.jsx';
 import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import {
@@ -11,7 +11,6 @@ import {
   Copy,
   FileText,
   GitBranch,
-  LinkSimple,
   MagnifyingGlass,
   PencilSimple,
   Plus,
@@ -111,7 +110,6 @@ function visibleTreeRows(library, expandedIds, query) {
 
 function EntryIcon({ entry }) {
   if (entry.contentMode === "ejs") return <Code size={17} aria-hidden="true" />;
-  if (entry.dynamicMode === "ejs_reference") return <LinkSimple size={17} aria-hidden="true" />;
   if (entry.kind !== "normal") return <FileText size={17} aria-hidden="true" />;
   return <SettingEntryGlyph iconId={entry.iconId} size={17} aria-hidden="true" />;
 }
@@ -382,9 +380,9 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
     );
   }
 
-  function createEntry(kind = "standard", parentOverride) {
+  function createEntry(parentOverride) {
     const parentId = parentOverride ?? targetGroupId();
-    const entry = createEntryDraft(parentId, nextOrder(parentId), library.entries, kind);
+    const entry = createEntryDraft(parentId, nextOrder(parentId), library.entries);
     changeLibrary((current) => ({ ...current, entries: [...current.entries, entry] }));
     if (parentId) setExpandedIds((current) => new Set([...current, parentId]));
     setSelectedKey(nodeKey("entry", entry.id));
@@ -557,17 +555,19 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
         <div className="dynamic-settings-toolbar-copy">
           <strong title={selectedItem.title}>{selectedItem.title || tUi("未命名聊天")}</strong>
         </div>
-        {!compact && <Button data-dsh-control variant="primary" type="button" className="dynamic-settings-secondary-action" title={tUi("保存为设定版本")} aria-label={tUi("保存为设定版本")} disabled={saving} onClick={() => setNameDialog({
+        {!compact && <EditorDirectoryActions label={tUi("操作")}>
+        <Button data-dsh-control variant="ghost" type="button" className="setting-toolbar-button" title={tUi("保存为设定版本")} aria-label={tUi("保存为设定版本")} disabled={saving} onClick={() => setNameDialog({
           type: "version",
           title: tUi("保存为设定版本"),
           label: tUi("版本名称"),
           value: versionName(selectedItem, tUi),
           confirmLabel: tUi("保存"),
-        })}><Copy size={15} />{tUi("另存版本")}</Button>}
-        {!compact && <Button data-dsh-control variant="outline" type="button" className="dynamic-settings-danger-action" title={tUi("清空分支设定")} aria-label={tUi("清空分支设定")} disabled={saving} onClick={() => setResetTarget({
+        })}><Copy size={15} />{tUi("另存版本")}</Button>
+        <Button data-dsh-control variant="ghost" type="button" className="setting-toolbar-button" title={tUi("清空分支设定")} aria-label={tUi("清空分支设定")} disabled={saving} onClick={() => setResetTarget({
           title: tUi("清空这段对话的分支设定？"),
           message: tUi("将删除这段对话里由 AI 和你产生的全部设定改动，并回归母设定。母设定不会被修改。"),
-        })}><Trash size={15} />{tUi("清空")}</Button>}
+        })}><Trash size={15} />{tUi("清空")}</Button>
+        </EditorDirectoryActions>}
       </header>
 
       <BranchSettingsSplitView preferredWidth={inspectorWidth} onWidthChange={setInspectorWidth}
@@ -577,27 +577,31 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
           <div className={`dynamic-settings-tree-toolbar${compact ? ' editor-collection-toolbar is-mobile-collection' : ''}`}>
             <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
               value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tUi("搜索设定")} aria-label={tUi("搜索分支设定")} />
+            <EditorDirectoryActions label={tUi("操作")}>
             {!compact && <div className="setting-library-add-wrap">
-              <Button data-dsh-control variant="primary" type="button" className="setting-library-create-button" aria-label={tUi("新建")} aria-expanded={addMenuOpen} onClick={() => setAddMenuOpen((open) => !open)}><Plus size={16} />{tUi("新建")}</Button>
+              <Button data-dsh-control variant="ghost" className="setting-toolbar-button setting-toolbar-create" icon={<Plus size={17} />}
+                aria-label={tUi("新建")} aria-haspopup="menu" aria-expanded={addMenuOpen} onClick={() => setAddMenuOpen((open) => !open)}>{tUi("新建")}</Button>
               {addMenuOpen ? (
                 <div className="setting-library-popover" role="menu">
                   <button type="button" role="menuitem" onClick={() => {
                     setAddMenuOpen(false);
                     setNameDialog({ type: "group", title: tUi("新建文件夹"), label: tUi("文件夹名称"), value: tUi("新建文件夹"), confirmLabel: tUi("创建"), parentId: targetGroupId() });
                   }}><SETTING_LIBRARY_CREATE_ICONS.group size={16} />{tUi("文件夹")}</button>
-                  <button type="button" role="menuitem" onClick={() => createEntry("standard")}><SETTING_LIBRARY_CREATE_ICONS.entry size={16} />{tUi("设定")}</button>
-                  <button type="button" role="menuitem" onClick={() => createEntry("reference")}><SETTING_LIBRARY_CREATE_ICONS.reference size={16} />{tUi("EJS引用设定")}</button>
+                  <button type="button" role="menuitem" onClick={() => createEntry()}><SETTING_LIBRARY_CREATE_ICONS.entry size={16} />{tUi("设定")}</button>
                 </div>
               ) : null}
             </div>}
             {compact && <div className="setting-library-add-wrap">
-              <Button data-dsh-control variant="outline" type="button" className="setting-library-manage-button" aria-expanded={managerOpen} onClick={() => setManagerOpen(open => !open)}><SlidersHorizontal size={16} />{tUi("管理")}</Button>
+              <Button data-dsh-control variant="ghost" className="setting-toolbar-button setting-toolbar-icon" icon={<SlidersHorizontal size={19} />}
+                aria-label={tUi("管理")} aria-haspopup="menu" aria-expanded={managerOpen} onClick={() => setManagerOpen(open => !open)} />
               {managerOpen && <div className="setting-library-popover" role="menu">
                 <button type="button" role="menuitem" disabled={saving} onClick={requestVersion}><Copy size={16} />{tUi("另存版本")}</button>
                 <button type="button" role="menuitem" disabled={saving} onClick={requestReset}><Trash size={16} />{tUi("清空分支设定")}</button>
               </div>}
             </div>}
-            <SaveControl dirty={dirty} error={error} notice={notice} saving={saving} onSave={save} />
+            {!compact && <SaveControl workspace dirty={dirty} error={error} notice={notice} saving={saving} onSave={save} />}
+            </EditorDirectoryActions>
+            {compact && <SaveControl dirty={dirty} error={error} notice={notice} saving={saving} onSave={save} />}
           </div>
           <div className="dynamic-settings-tree editor-sidebar-directory" {...touch.handlers} role="tree" aria-label={tUi("当前对话有效设定")}
             onContextMenu={(event) => openContextMenu(event)}
@@ -662,8 +666,7 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
             onCancel={() => setClipboard(null)} onDelete={requestDeleteSelected}
             createItems={[
               { label: tUi("文件夹"), Icon: SETTING_LIBRARY_CREATE_ICONS.group, run: () => setNameDialog({ type: 'group', title: tUi("新建文件夹"), label: tUi("文件夹名称"), value: tUi("新建文件夹"), confirmLabel: tUi("创建"), parentId: targetGroupId() }) },
-              { label: tUi("设定"), Icon: SETTING_LIBRARY_CREATE_ICONS.entry, run: () => createEntry('standard') },
-              { label: tUi("EJS引用设定"), Icon: SETTING_LIBRARY_CREATE_ICONS.reference, run: () => createEntry('reference') },
+              { label: tUi("设定"), Icon: SETTING_LIBRARY_CREATE_ICONS.entry, run: () => createEntry() },
             ]} moreItems={canDeleteSelected ? [
               { label: tUi("复制"), Icon: Copy, run: () => startTransfer('copy') },
               { label: tUi("重命名"), Icon: PencilSimple, run: () => setEditing(true) },
@@ -671,8 +674,7 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
           {contextMenu ? <EditorContextMenu menu={contextMenu} label={tUi("分支设定操作")} onClose={() => setContextMenu(null)} actions={[
             ...(['background', 'group'].includes(contextMenu.kind) ? [
               { label: tUi("新建文件夹"), icon: SETTING_LIBRARY_CREATE_ICONS.group, run: () => setNameDialog({ type: 'group', title: tUi("新建文件夹"), label: tUi("文件夹名称"), value: tUi("新建文件夹"), confirmLabel: tUi("创建"), parentId: contextMenu.parentId }) },
-              { label: tUi("新建设定"), icon: SETTING_LIBRARY_CREATE_ICONS.entry, run: () => createEntry('standard', contextMenu.parentId) },
-              { label: tUi("新建 EJS引用设定"), icon: SETTING_LIBRARY_CREATE_ICONS.reference, run: () => createEntry('reference', contextMenu.parentId) },
+              { label: tUi("新建设定"), icon: SETTING_LIBRARY_CREATE_ICONS.entry, run: () => createEntry(contextMenu.parentId) },
             ] : []),
             ...(contextMenu.kind === 'entry' ? [{ label: tUi("复制"), icon: Copy, run: () => duplicateEntry(contextMenu.id) }] : []),
             ...(contextMenu.kind !== 'background' ? [
@@ -698,7 +700,6 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
             entries: current.entries.map((entry) => entry.id === selected.value.id ? { ...entry, ...patch, updatedAt: new Date().toISOString() } : entry),
           })); }}
           onEntriesChange={(entries) => changeLibrary((current) => ({ ...current, entries }))}
-          onOpenEntry={(id) => { setSelectedKey(nodeKey('entry', id)); setEditing(true); }}
         /> : null}
       </BranchSettingsSplitView>
 

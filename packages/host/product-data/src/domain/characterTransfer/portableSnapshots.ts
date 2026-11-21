@@ -1,3 +1,4 @@
+import { convertLegacySettingReference } from '@shared/foundation/legacySettingReferences'
 import { randomUUID } from 'node:crypto'
 import type {
   SettingLibrary,
@@ -106,7 +107,8 @@ function settingVersion(value: JsonObject, index: number): SettingLibraryVersion
   }
 }
 
-function settingEntry(value: JsonObject, index: number): SettingLibraryEntry {
+function settingEntry(source: JsonObject, index: number): SettingLibraryEntry {
+  const value = convertLegacySettingReference(source, 'dynamic_mode')
   const kind = requiredEnumValue(value.kind, ['normal', 'opening', 'history_compaction', 'hidden_tool_timeline'], '角色卡设定类型')
   const triggerMode = enumValue(value.trigger_mode, ['always', 'agent_tool'], null)
   return {
@@ -125,7 +127,6 @@ function settingEntry(value: JsonObject, index: number): SettingLibraryEntry {
     defaultOpeningMessageId: string(value.default_opening_message_id),
     agentSelectionHint: string(value.agent_selection_hint),
     agentReadStrategy: enumValue(value.agent_read_strategy, ['required', 'keyword', 'normal'], 'normal'),
-    dynamicMode: enumValue(value.dynamic_mode, ['standard', 'ejs_reference'], 'standard'),
     contentMode: enumValue(value.content_mode, ['plain_text', 'ejs'], 'plain_text'),
     keywords: stringList(value.keywords),
     keywordScanDepth: Math.max(0, integer(value.keyword_scan_depth, 1)),
@@ -257,7 +258,6 @@ function settingEntryJson(entry: SettingLibraryEntry): JsonObject {
     default_opening_message_id: entry.defaultOpeningMessageId,
     agent_selection_hint: entry.agentSelectionHint,
     agent_read_strategy: entry.agentReadStrategy,
-    dynamic_mode: entry.dynamicMode,
     content_mode: entry.contentMode,
     keywords: entry.keywords,
     keyword_scan_depth: entry.keywordScanDepth,

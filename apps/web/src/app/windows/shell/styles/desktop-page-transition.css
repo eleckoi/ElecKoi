@@ -1,0 +1,42 @@
+:root[data-pc-motion] {
+  view-transition-name: none;
+  --pc-motion-direction: 1;
+  --pc-motion-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+:root[data-pc-motion="backward"] { --pc-motion-direction: -1; }
+
+:root[data-pc-motion] [data-pc-motion-scope] [data-desktop-page-content]:not(:empty) {
+  view-transition-name: pc-content;
+}
+
+:root[data-pc-motion]::view-transition { pointer-events: none; }
+::view-transition-group(pc-content) { animation: none; }
+::view-transition-image-pair(pc-content) { overflow: clip; isolation: isolate; }
+
+::view-transition-old(pc-content),
+::view-transition-new(pc-content) {
+  animation-duration: calc(var(--pc-motion-duration) * var(--pc-motion-speed, 1));
+  animation-timing-function: var(--pc-motion-ease);
+  animation-fill-mode: both;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(pc-content) {
+  --pc-motion-duration: 180ms;
+  animation-name: pc-slide-out;
+}
+
+::view-transition-new(pc-content) {
+  --pc-motion-duration: 260ms;
+  animation-name: pc-slide-in;
+  animation-delay: calc(70ms * var(--pc-motion-speed, 1));
+}
+
+@keyframes pc-slide-out {
+  to { transform: translateX(calc(-12px * var(--pc-motion-direction))); opacity: 0; }
+}
+
+@keyframes pc-slide-in {
+  from { transform: translateX(calc(18px * var(--pc-motion-direction))); opacity: 0; }
+}

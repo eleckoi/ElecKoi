@@ -460,7 +460,6 @@
   background: var(--control-bg-hover);
 }
 
-.character-import-source-list,
 .character-import-preview-list {
   display: grid;
   min-height: 0;
@@ -468,7 +467,6 @@
   overflow-y: auto;
 }
 
-.character-import-source-list button,
 .character-import-preview-item {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) 18px;
@@ -481,20 +479,12 @@
   text-align: left;
 }
 
-.character-import-source-list button:hover:not(:disabled),
-.character-import-source-list button:focus-visible {
-  background: var(--control-bg-hover);
-  outline: 0;
-}
-
-.character-import-source-list span,
 .character-import-preview-copy {
   display: grid;
   min-width: 0;
   gap: 3px;
 }
 
-.character-import-source-list strong,
 .character-import-preview-copy strong {
   overflow: hidden;
   font-size: 14px;
@@ -503,7 +493,6 @@
   white-space: nowrap;
 }
 
-.character-import-source-list small,
 .character-import-preview-copy span {
   overflow: hidden;
   color: var(--muted);

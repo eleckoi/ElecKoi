@@ -1,8 +1,12 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useState } from "react";
-import { Menu } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, IconProjectAddOutlineRegular, Menu, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';
+import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
+import { DesktopError } from '@shared/foundation/DesktopError';
 import { PencilIcon, PlusIcon, CharacterManagerIcon, ImportIcon, ExportIcon, TrashIcon } from "../../../ui/icons/index.jsx";
 import { GroupNameDialog } from "../../../ui/ui/GroupNameDialog.jsx";
+import { ConfirmationDialog } from "../../../ui/ui/ConfirmationDialog.jsx";
+import { useEditorContextMenu } from "../../../ui/ui/EditorContextMenu.jsx";
 import { CharacterGroupList } from "./CharacterGroupList.jsx";
 import { CharacterImportDialog } from "./CharacterImportDialog.jsx";
 import { DeleteCharacterDialog } from "./DeleteCharacterDialog.jsx";
@@ -16,10 +20,11 @@ import { openCharacterEditorWindow } from '../window/openCharacterEditorWindow.j
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
 import { useCatalogSlots } from '../../../ui/ui/CatalogSlotsContext.jsx';
 
-export function CharacterListPanel({ characters, activeCharacterId, artworkMode, onSelectCharacter, onOpenCharacterChat, onSaveCharacterGroups, onImportPreparedCharacters, onPrepareCharacterImports, onDiscardCharacterImports, onCreateCharacter, onDeleteCharacters, onExportCharacters }) {
+export function CharacterListPanel({ characters, activeCharacterId, artworkMode, onSelectCharacter, onOpenCharacterChat, onSaveCharacterGroups, onImportPreparedCharacters, onPrepareCharacterImports, onDiscardCharacterImports, onCreateCharacter, onDeleteCharacters, onExportCharacters, home }) {
   const tUi = useProductTranslation();
   const { render, actions } = useCatalogSlots();
-  const [keyword, setKeyword] = useState("");
+  const [localKeyword, setLocalKeyword] = useState("");
+  const { keyword = localKeyword, setKeyword = setLocalKeyword } = home || {};
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [listTab, setListTab] = useState("characters");
@@ -28,7 +33,10 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
   const [groupDialogMode, setGroupDialogMode] = useState("add");
   const [editingGroupName, setEditingGroupName] = useState("");
   const [newGroupName, setNewGroupName] = useState("");
-  const [groupMenu, setGroupMenu] = useState(null);
+  const [savingGroup, setSavingGroup] = useState(false);
+  const [groupError, setGroupError] = useState(null);
+  const groupContext = useEditorContextMenu();
+  const [groupToDelete, setGroupToDelete] = useState(null);
   const [characterMenu, setCharacterMenu] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deletingCharacter, setDeletingCharacter] = useState(false);
@@ -36,8 +44,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
   const scrollRef = useSidebarListScroll();
-  const [draggingGroup, setDraggingGroup] = useState("");
-  const [dragOverGroup, setDragOverGroup] = useState("");
+  const [groupSortError, setGroupSortError] = useState(null);
 
   const groups = useMemo(() => {
     const names = [...new Set((characters.groups || []).map((group) => group.trim()).filter(Boolean))];
@@ -62,7 +69,6 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
   useEffect(() => {
     function closeContextMenus(event) {
       if (event.type === "keydown" && event.key !== "Escape") return;
-      setGroupMenu(null);
       setCreateMenuOpen(false);
     }
     window.addEventListener("pointerdown", closeContextMenus);
@@ -74,9 +80,8 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
   }, []);
 
   function openGroupMenu(event, group) {
-    event.preventDefault();
-    event.stopPropagation();
-    setGroupMenu({ group, x: event.clientX, y: event.clientY });
+    groupContext.open(event, group);
+    setCreateMenuOpen(false);
     setCharacterMenu(null);
   }
 
@@ -94,7 +99,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
       y: requestedY,
     });
     setExportError(null);
-    setGroupMenu(null);
+    groupContext.close();
   }
 
   function requestDeleteCharacter() {
@@ -148,62 +153,106 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
   }
 
   function openAddGroupDialog() {
+    setCreateMenuOpen(false);
+    setGroupError(null);
     setGroupDialogMode("add");
     setEditingGroupName("");
     setNewGroupName("");
     setGroupDialogOpen(true);
-    setGroupMenu(null);
+    groupContext.close();
   }
 
   function openRenameGroupDialog(group) {
+    setGroupError(null);
     setGroupDialogMode("rename");
     setEditingGroupName(group);
     setNewGroupName(group);
     setGroupDialogOpen(true);
-    setGroupMenu(null);
+    groupContext.close();
   }
 
   async function reorderGroups(sourceGroup, targetGroup) {
-    if (!sourceGroup || !targetGroup || sourceGroup === targetGroup) return;
-    const ordered = groups.filter((group) => group !== sourceGroup);
-    const targetIndex = ordered.indexOf(targetGroup);
-    ordered.splice(targetIndex < 0 ? ordered.length : targetIndex, 0, sourceGroup);
-    await onSaveCharacterGroups(ordered);
+    const sourceIndex = groups.indexOf(sourceGroup);
+    const targetIndex = groups.indexOf(targetGroup);
+    if (savingGroup || sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+    const ordered = [...groups];
+    ordered.splice(sourceIndex, 1);
+    ordered.splice(targetIndex, 0, sourceGroup);
+    setGroupSortError(null);
+    setSavingGroup(true);
+    try {
+      await onSaveCharacterGroups(ordered);
+    } catch (error) {
+      setGroupSortError(error);
+    } finally {
+      setSavingGroup(false);
+    }
   }
 
   async function saveGroupDialog() {
     const name = newGroupName.trim();
-    if (!name) return;
-    if (name === ALL_CHARACTERS) return;
-    if (groupDialogMode === "rename") {
-      if (name === editingGroupName || groups.includes(name)) return;
-      const nextGroups = groups.map((group) => (group === editingGroupName ? name : group));
-      const assignments = (characters.items || []).filter((item) => characterGroup(item) === editingGroupName).map((item) => ({ characterId: item.id, group: name }));
-      await onSaveCharacterGroups(nextGroups, assignments);
-      if (selectedGroup === editingGroupName) setSelectedGroup(name);
-    } else {
-      if (groups.includes(name)) return;
-      await onSaveCharacterGroups([...groups, name]);
-      setSelectedGroup(name);
+    if (savingGroup || !name || name === editingGroupName) return;
+    if (name === ALL_CHARACTERS || groups.includes(name)) {
+      setGroupError(new DesktopError(ELECKOI_FAILURE_CODES.lookupDuplicate, tUi("分组名称已存在"), { what: tUi("分组") }));
+      return;
     }
-    setNewGroupName("");
-    setEditingGroupName("");
-    setGroupDialogOpen(false);
+    setGroupError(null);
+    setSavingGroup(true);
+    try {
+      if (groupDialogMode === "rename") {
+        const nextGroups = groups.map((group) => (group === editingGroupName ? name : group));
+        const assignments = (characters.items || []).filter((item) => characterGroup(item) === editingGroupName).map((item) => ({ characterId: item.id, group: name }));
+        await onSaveCharacterGroups(nextGroups, assignments);
+        home?.onGroupChange(editingGroupName, name);
+        if (!home && selectedGroup === editingGroupName) setSelectedGroup(name);
+      } else {
+        await onSaveCharacterGroups([...groups, name]);
+        if (!home) setSelectedGroup(name);
+      }
+      setNewGroupName("");
+      setEditingGroupName("");
+      setGroupDialogOpen(false);
+    } catch (error) {
+      setGroupError(error);
+    } finally {
+      setSavingGroup(false);
+    }
   }
 
-  async function deleteGroup(group) {
-    setGroupMenu(null);
-    const remaining = groups.filter((item) => item !== group);
-    const targetGroup = remaining[0] || "";
-    const nextGroups = remaining;
-    const assignments = (characters.items || []).filter((item) => characterGroup(item) === group).map((item) => ({ characterId: item.id, group: targetGroup }));
-    await onSaveCharacterGroups(nextGroups, assignments);
-    if (selectedGroup === group) setSelectedGroup(ALL_CHARACTERS);
+  function chooseGroupAction(action) {
+    const group = groupContext.menu.target;
+    if (action === "add") return openAddGroupDialog();
+    if (action === "rename") return openRenameGroupDialog(group);
+    if (action === "delete") {
+      groupContext.close();
+      setGroupError(null);
+      setGroupToDelete(group);
+    }
+  }
+
+  async function deleteGroup() {
+    if (!groupToDelete || savingGroup) return;
+    setGroupError(null);
+    setSavingGroup(true);
+    try {
+      const remaining = groups.filter(group => group !== groupToDelete);
+      const targetGroup = home ? "" : (remaining[0] || "");
+      const assignments = (characters.items || []).filter(item => characterGroup(item) === groupToDelete)
+        .map(item => ({ characterId: item.id, group: targetGroup }));
+      await onSaveCharacterGroups(remaining, assignments);
+      home?.onGroupChange(groupToDelete);
+      if (!home && selectedGroup === groupToDelete) setSelectedGroup(ALL_CHARACTERS);
+      setGroupToDelete(null);
+    } catch (error) {
+      setGroupError(error);
+    } finally {
+      setSavingGroup(false);
+    }
   }
 
   function createInSelectedGroup() {
     setCreateMenuOpen(false);
-    onCreateCharacter(selectedGroup === ALL_CHARACTERS ? "" : selectedGroup);
+    onCreateCharacter(home ? home.group : selectedGroup === ALL_CHARACTERS ? "" : selectedGroup);
   }
 
   function openImportDialog() {
@@ -211,24 +260,45 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
     setImportOpen(true);
   }
 
-  return (
+  function toggleCreateMenu(event) {
+    event.stopPropagation();
+    setCreateMenuOpen((current) => !current);
+  }
+
+  const createMenu = createMenuOpen && (
+    <div className="character-create-menu" onPointerDown={(event) => event.stopPropagation()}>
+      <button type="button" onClick={createInSelectedGroup}><CharacterManagerIcon /><span>{tUi("新建角色")}</span></button>
+      <button type="button" onClick={openImportDialog}><ImportIcon /><span>{tUi("导入角色卡")}</span></button>
+      {actions('eleckoi.character.library.menu.actions', { surface: 'pc-sidebar', menu: 'create', busy: false, onDismiss: () => setCreateMenuOpen(false) })}
+    </div>
+  );
+  const onReorderGroup = savingGroup ? undefined : reorderGroups;
+
+  return (<>
     <aside className="character-list-panel">
-      <SidebarSectionHeader title={tUi("角色")} value={keyword} onValueChange={setKeyword}
+      {home && <div className="character-home-create">
+        <Button data-dsh-control variant="toolbar" aria-expanded={createMenuOpen} icon={<CharacterManagerIcon size={16} />}
+          onPointerDown={(event) => event.stopPropagation()} onClick={toggleCreateMenu}>{tUi("新建角色")}</Button>
+        {createMenu}
+      </div>}
+      <SidebarSectionHeader title={tUi(home ? "角色卡" : "角色")} value={keyword} onValueChange={setKeyword}
+        compact={Boolean(home)}
+        compactActions={home && <>{home.sortMenu}<Tooltip label={tUi("新建分组")} side="bottom" delayMs={500} portal>
+          <Button data-dsh-control variant="ghost" size="sm" className="sidebar-section-action"
+            aria-label={tUi("新建分组")} aria-haspopup="dialog" onClick={openAddGroupDialog}>
+            <IconProjectAddOutlineRegular size={16} />
+          </Button>
+        </Tooltip></>}
+        searchLabel={home ? tUi("搜索角色名称") : undefined}
         renderSearch={fallback => render('eleckoi.character.library.search', { surface: 'pc-sidebar', value: keyword, onChange: setKeyword }, fallback)}
         placeholder={tUi("搜索角色名称")} createLabel={tUi("新建角色")}
         createExpanded={createMenuOpen} onCreatePointerDown={(event) => event.stopPropagation()}
-        onCreate={(event) => { event.stopPropagation(); setCreateMenuOpen((current) => !current); }}
+        onCreate={toggleCreateMenu}
         onSearchFocus={() => setCreateMenuOpen(false)} />
 
-      {createMenuOpen ? (
-        <div className="character-create-menu" onPointerDown={(event) => event.stopPropagation()}>
-          <button type="button" onClick={createInSelectedGroup}><CharacterManagerIcon /><span>{tUi("新建角色")}</span></button>
-          <button type="button" onClick={openImportDialog}><ImportIcon /><span>{tUi("导入角色卡")}</span></button>
-          {actions('eleckoi.character.library.menu.actions', { surface: 'pc-sidebar', menu: 'create', busy: false, onDismiss: () => setCreateMenuOpen(false) })}
-        </div>
-      ) : null}
+      {!home && createMenu}
 
-      <button className="character-manager-entry" type="button" onClick={openCharacterManagerWindow}>
+      {!home && <><button className="character-manager-entry" type="button" onClick={openCharacterManagerWindow}>
         <CharacterManagerIcon />
         <span>{tUi("角色卡管理器")}</span>
       </button>
@@ -241,6 +311,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
       </div>
 
       <SidebarScrollArea ref={scrollRef} className="character-list-scroll">
+        {groupSortError && <FailureAlert failure={groupSortError} className="character-group-sort-error" />}
         {listTab === "characters" && collapseStateReady ? (
           render('eleckoi.character.library.groups', {
             surface: 'pc-sidebar', groups, allGroup: ALL_CHARACTERS, selectedGroup, onSelectGroup: setSelectedGroup, collapsedGroups, onToggleGroup: toggleGroup,
@@ -257,15 +328,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
             onSelectCharacter={onSelectCharacter}
             onOpenCharacterChat={onOpenCharacterChat}
             onCharacterContextMenu={openCharacterMenu}
-            draggingGroup={draggingGroup}
-            dragOverGroup={dragOverGroup}
-            onDragStart={(group) => setDraggingGroup(group)}
-            onDragOver={setDragOverGroup}
-            onDrop={(group) => reorderGroups(draggingGroup, group)}
-            onDragEnd={() => {
-              setDraggingGroup("");
-              setDragOverGroup("");
-            }}
+            onReorderGroup={onReorderGroup}
             onGroupContextMenu={openGroupMenu}
           />)
         ) : listTab === "groups" ? (
@@ -274,25 +337,21 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
             <span>{tUi("群聊角色和多人对话以后放在这里。")}</span>
           </div>
         ) : null}
-      </SidebarScrollArea>
+      </SidebarScrollArea></>}
 
-      {groupMenu ? (
-        <div className="character-group-context-menu" style={{ left: `${groupMenu.x}px`, top: `${groupMenu.y}px` }} onPointerDown={(event) => event.stopPropagation()}>
-          <button type="button" onClick={openAddGroupDialog}>
-            <PlusIcon />
-            <span>{tUi("添加分组")}</span>
-          </button>
-          <button type="button" onClick={() => openRenameGroupDialog(groupMenu.group)}>
-            <PencilIcon />
-            <span>{tUi("重命名该组")}</span>
-          </button>
-          <button type="button" onClick={() => deleteGroup(groupMenu.group)}>
-            <TrashIcon />
-            <span>{tUi("删除分组")}</span>
-          </button>
-          {actions('eleckoi.character.library.group.menu.actions', { surface: 'pc-sidebar', group: groupMenu.group, onDismiss: () => setGroupMenu(null) })}
-        </div>
-      ) : null}
+      {groupContext.menu && <Menu open anchor={null} contextual portal autoFocus
+        anchorPoint={{ x: groupContext.menu.x, y: groupContext.menu.y }}
+        returnFocus={() => groupContext.menu.trigger} onClose={groupContext.close} onSelect={chooseGroupAction}
+        items={[
+          { id: 'add', label: tUi('新建分组'), icon: <IconProjectAddOutlineRegular size={16} /> },
+          { id: 'rename', label: tUi('重命名分组'), icon: <PencilIcon /> },
+          { id: 'delete-divider', type: 'separator' },
+          { id: 'delete', label: tUi('删除分组'), icon: <TrashIcon />, danger: true },
+        ]}>
+        {actions('eleckoi.character.library.group.menu.actions', {
+          surface: 'pc-sidebar', group: groupContext.menu.target, onDismiss: groupContext.close,
+        })}
+      </Menu>}
 
       {importOpen ? (
         <CharacterImportDialog
@@ -334,13 +393,21 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
 
       {groupDialogOpen ? (
         <GroupNameDialog
-          title={groupDialogMode === "rename" ? tUi("重命名该组") : tUi("添加分组")}
+          title={groupDialogMode === "rename" ? tUi("重命名该组") : tUi(home ? "新建分组" : "添加分组")}
           value={newGroupName}
-          onChange={setNewGroupName}
+          onChange={name => { setNewGroupName(name); setGroupError(null); }}
           onConfirm={saveGroupDialog}
           onCancel={() => setGroupDialogOpen(false)}
+          busy={savingGroup}
+          error={groupError}
         />
       ) : null}
+      {groupToDelete && <ConfirmationDialog open destructive busy={savingGroup}
+        title={tUi('删除分组？')} description={tUi('删除“{value0}”分组，角色卡保留。', { value0: groupToDelete })}
+        confirmLabel={tUi('删除')} onCancel={() => setGroupToDelete(null)} onConfirm={deleteGroup}>
+        {groupError && <FailureAlert failure={groupError} />}
+      </ConfirmationDialog>}
     </aside>
-  );
+    {home?.renderShelf({ onGroupContextMenu: openGroupMenu, onReorderGroup, groupSortError })}
+  </>);
 }

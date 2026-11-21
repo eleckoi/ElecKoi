@@ -1,20 +1,21 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { Button, Input, Menu, SegmentedTabs } from '@deepseek-ai/dsh-client-ui-primitives';
-import { CaretDown, DotsThree, ListChecks, MagnifyingGlass, Plus, SlidersHorizontal } from '../../../ui/icons/interfaceIcons.jsx';
+import { Button, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
+import { MagnifyingGlass, Plus } from '../../../ui/icons/interfaceIcons.jsx';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
 import { switchLibraryVersion } from '../model/settingLibraryTransfer.js';
 import '../styles/setting-workspace.css';
-import { EditorDirectoryHeading } from '../../../ui/ui/EditorDirectoryHeading.jsx';
+import { EditorDirectoryActions, EditorDirectoryHeading } from '../../../ui/ui/EditorDirectoryHeading.jsx';
+import { EditorScopeTabs } from '../../../ui/ui/EditorScopeTabs.jsx';
+import { EditorWorkspaceVersion } from '../../../ui/ui/EditorVersionPicker.jsx';
 
 const DEFAULT_WIDTH = 480;
 
 export function SettingLibraryWorkspace({ scope, onScopeChange, globalAvailable, panelId, query, onQueryChange, createItems,
-  selection, saving, library, roleLibrary, onLibraryChange, onManage, importActions, save, inspector, children }) {
+  selectionActive, saving, library, roleLibrary, onLibraryChange, onManage, importAction, directoryOptions, save, inspector, children }) {
   const tUi = useProductTranslation();
   const root = useRef(null), drag = useRef(null);
   const [width, setWidth] = useState(DEFAULT_WIDTH), [available, setAvailable] = useState(1260);
   const [resizing, setResizing] = useState(false), [createOpen, setCreateOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false), [versionOpen, setVersionOpen] = useState(false);
   const max = Math.max(260, Math.min(520, available - 388));
   const actualWidth = Math.max(260, Math.min(width, max));
   const resize = next => setWidth(Math.max(260, Math.min(max, next)));
@@ -26,42 +27,29 @@ export function SettingLibraryWorkspace({ scope, onScopeChange, globalAvailable,
     window.addEventListener('resize', measure);
     return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
   }, []);
-  const version = roleLibrary?.versions.find(item => item.id === roleLibrary.activeVersionId);
-  const versionLabel = (item, index) => `v${index + 1} · ${item?.name || tUi('未命名版本')}`;
-  const moreItems = [
-    { id: 'select', label: selection.active ? tUi('完成多选') : tUi('多选'), icon: <ListChecks size={16} />, run: selection.toggle, disabled: saving || !library },
-    ...(scope === 'character' ? [{ id: 'manage', label: tUi('管理设定库'), icon: <SlidersHorizontal size={16} />, run: onManage, disabled: saving || !library || selection.active }] : []),
-    ...(importActions || []),
-  ];
   return <section ref={root} className={`setting-workspace${resizing ? ' is-resizing' : ''}`} aria-label={tUi('设定库')}
     style={{ '--setting-directory-width': `${actualWidth}px` }}>
     <aside className="setting-directory editor-heading-surface" aria-label={tUi('设定目录')}>
-      <EditorDirectoryHeading title={tUi('设定库')} leading={globalAvailable && <SegmentedTabs size="sm" className="setting-scope-switch" label={tUi('配置范围')} value={scope} onChange={onScopeChange}
-          items={[{ value: 'character', label: tUi('角色'), panelId }, { value: 'global', label: tUi('全局'), panelId }]} />}>
-        <div className="setting-directory-actions">
-          <Menu open={createOpen} portal dense onClose={() => setCreateOpen(false)}
-            anchor={<Button data-dsh-control variant="primary" className="setting-create" icon={<Plus size={16} />} aria-label={tUi('新建')}
-              aria-haspopup="menu" aria-expanded={createOpen} disabled={saving || !library || selection.active} onClick={() => setCreateOpen(!createOpen)}>{tUi('新建')}</Button>}
+      <EditorDirectoryHeading title={tUi('设定库')}
+        leading={globalAvailable && <EditorScopeTabs value={scope} onChange={onScopeChange} panelId={panelId} />}>
+        <EditorDirectoryActions label={tUi('设定操作')} className="setting-directory-actions">
+          {(scope === 'character' || library) && <Menu open={createOpen} portal dense onClose={() => setCreateOpen(false)}
+            anchor={<Button data-dsh-control variant="ghost" className="setting-toolbar-button setting-toolbar-create" icon={<Plus size={17} />}
+              aria-label={tUi('新建')} title={tUi('新建')} aria-haspopup="menu" aria-expanded={createOpen}
+              disabled={saving || !library || selectionActive} onClick={() => setCreateOpen(!createOpen)}><span>{tUi('新建')}</span></Button>}
             items={createItems.map((item, index) => ({ id: String(index), label: item.label, icon: <item.Icon size={16} /> }))}
-            onSelect={id => { setCreateOpen(false); createItems[Number(id)]?.run(); }} />
+            onSelect={id => { setCreateOpen(false); createItems[Number(id)]?.run(); }} />}
+          {importAction}
           {save}
-          <Menu open={moreOpen} portal dense onClose={() => setMoreOpen(false)}
-            anchor={<Button data-dsh-control variant="outline" className="setting-directory-more" icon={<DotsThree size={18} />}
-              aria-label={tUi('设定库更多操作')} aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)} />}
-            items={moreItems} onSelect={id => { setMoreOpen(false); moreItems.find(item => item.id === id)?.run?.(); }} />
-        </div>
+          {directoryOptions}
+        </EditorDirectoryActions>
       </EditorDirectoryHeading>
       <div className="setting-directory-search"><Input data-dsh-control className="setting-search-input" type="search" icon={<MagnifyingGlass size={16} />}
         aria-label={scope === 'global' ? tUi('搜索全局设定库') : tUi('搜索设定')} placeholder={scope === 'global' ? tUi('搜索全局设定库') : tUi('搜索设定')}
         value={query} onChange={event => onQueryChange(event.target.value)} /></div>
       {children}
-      {scope === 'character' && roleLibrary && <footer className="setting-version"><Menu open={versionOpen} portal side="top" minWidthFromAnchor autoFocus selectedId={roleLibrary.activeVersionId}
-        onClose={() => setVersionOpen(false)} anchor={<Button data-dsh-control variant="outline" className="setting-version-button"
-          aria-label={tUi('选择设定库版本')} title={version?.name} aria-haspopup="menu" aria-expanded={versionOpen} disabled={saving}
-          onClick={() => setVersionOpen(!versionOpen)}><span className="setting-version-label">{tUi('版本')}</span><span className="setting-version-value">{versionLabel(version, roleLibrary.versions.findIndex(item => item.id === version?.id))}</span><CaretDown size={13} /></Button>}
-        items={roleLibrary.versions.map((item, index) => ({ id: item.id, label: versionLabel(item, index) }))}
-        footer={[{ id: 'manage', label: tUi('管理版本'), icon: <SlidersHorizontal size={14} /> }]}
-        onSelect={id => { setVersionOpen(false); if (id === 'manage') onManage(); else onLibraryChange(switchLibraryVersion(roleLibrary, id)); }} /></footer>}
+      {scope === 'character' && <EditorWorkspaceVersion label={tUi('选择设定库版本')} config={roleLibrary} disabled={saving}
+        onSelect={id => onLibraryChange(switchLibraryVersion(roleLibrary, id))} onManage={onManage} />}
     </aside>
     <div role="separator" aria-label={tUi('调整目录宽度')} aria-orientation="vertical" aria-valuemin={260} aria-valuemax={max} aria-valuenow={Math.round(actualWidth)} tabIndex={0}
       className={`setting-pane-resizer${resizing ? ' is-dragging' : ''}`} title={tUi('拖动调整目录宽度，双击恢复')}

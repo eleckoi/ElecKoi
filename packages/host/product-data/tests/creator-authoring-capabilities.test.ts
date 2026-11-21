@@ -395,11 +395,13 @@ describe('Creator authoring matches the native setting, schema, script and regex
   it('enables and disables keyword matching in an atomic batch, preserving content, keywords, versions and other characters', async () => {
     const f = await fixture(), other = f.data.saveSettingLibrary('synthetic-other-character', f.data.readSettingLibrary('synthetic-other-character'))
     const entries = ['first', 'second'].map(title => f.call('settings.create', { title, content: `Synthetic ${title}`, keywords: ['synthetic-trigger'], keywordIgnoreCase: false }))
+    expect(entries.every(entry => !entry.enabled)).toBe(true)
     const before = f.data.readSettingLibrary(f.characterId)
-    f.call('settings.update_many', { updates: entries.map(entry => ({ id: entry.id, changes: { agentReadStrategy: 'keyword' } })) })
+    f.call('settings.update_many', { updates: entries.map(entry => ({ id: entry.id, changes: { enabled: true, triggerMode: 'agent_tool', agentReadStrategy: 'keyword' } })) })
     let library = f.data.readSettingLibrary(f.characterId)
     for (const entry of entries) {
-      expect(f.call('settings.read', { id: entry.id })).toMatchObject({ content: entry.content, keywords: ['synthetic-trigger'], keywordIgnoreCase: false, agentReadStrategy: 'keyword' })
+      expect(f.call('settings.read', { id: entry.id })).toMatchObject({ content: entry.content, keywords: ['synthetic-trigger'], keywordIgnoreCase: false, agentReadStrategy: 'keyword', enabled: true })
+      expect(f.call('settings.list').entries).toContainEqual(expect.objectContaining({ id: entry.id, readStrategy: '关键词触发' }))
       expect(library.versions.find(version => version.id === library.activeVersionId)!.entries.find(item => item.id === entry.id)!.agentReadStrategy).toBe('keyword')
     }
     expect(f.call('settings.list').entries.filter((entry: { keywordMatch: boolean }) => entry.keywordMatch)).toHaveLength(2)
@@ -408,7 +410,7 @@ describe('Creator authoring matches the native setting, schema, script and regex
     const unchanged = library
     for (const updates of [
       [{ id: entries[0].id, changes: { enabled: false } }, { id: 'synthetic-missing', changes: { enabled: false } }],
-      [{ id: entries[0].id, changes: { enabled: false } }, { id: entries[1].id, changes: { agentReadStrategy: 'required', contentMode: 'ejs' } }],
+      [{ id: entries[0].id, changes: { enabled: false } }, { id: entries[1].id, changes: { dynamicMode: 'ejs_reference' } }],
       [{ id: entries[0].id, changes: { enabled: false } }, { id: entries[0].id, changes: { enabled: true } }],
     ]) {
       expect(() => f.call('settings.update_many', { updates })).toThrow()
@@ -496,41 +498,41 @@ describe('Creator authoring matches the native setting, schema, script and regex
     expect(f.data.readCharacters()).toEqual(after)
     expect(() => f.operations.find(item => item.id === 'character.update')!.execute('', { name: '不能改到其他角色' })).toThrow('重新选择角色')
   })
-  it('advertises reading policies and permits EJS reference bodies while keeping required entries textual', async () => {
+  it('preserves mixed EJS bodies when changing reading policies', async () => {
     const f = await fixture()
     const schema = f.operations.find(item => item.id === 'settings.create')!.inputSchema as any
     expect(schema.properties.agentReadStrategy.enum).toEqual(['required', 'keyword', 'normal'])
     const before = f.data.readSettingLibrary(f.characterId)
-    expect(() => f.call('settings.create', { title: '合成必读', agentReadStrategy: 'required', contentMode: 'ejs', content: '<%= 1 %>' })).toThrow('选读')
     expect(() => f.call('settings.create', { title: '合成错误档位', agentReadStrategy: 'unsupported' })).toThrow()
     expect(f.data.readSettingLibrary(f.characterId)).toEqual(before)
-    const reference = f.call('settings.create', { title: '合成素材', dynamicMode: 'ejs_reference', content: '合成文字' })
-    const dynamicReference = f.call('settings.create', { title: '合成动态素材', dynamicMode: 'ejs_reference', contentMode: 'ejs', content: '<%= getvar("score") %>' })
-    expect(f.call('settings.read', { id: dynamicReference.id })).toMatchObject({ contentMode: 'ejs', dynamicMode: 'ejs_reference', content: '<%= getvar("score") %>' })
+    const reference = f.call('settings.create', { title: '合成素材', enabled: false, content: '合成文字' })
+    const dynamicReference = f.call('settings.create', { title: '合成动态素材', enabled: false, contentMode: 'ejs', content: '<%= getvar("score") %>' })
+    expect(f.call('settings.read', { id: dynamicReference.id })).toMatchObject({ contentMode: 'ejs', enabled: false, content: '<%= getvar("score") %>' })
     f.call('settings.update', { id: reference.id, changes: { contentMode: 'ejs' } })
     expect(f.call('settings.read', { id: reference.id }).contentMode).toBe('ejs')
     f.call('settings.update', { id: reference.id, changes: { contentMode: 'plain_text' } })
     const controller = f.call('settings.create', { title: '合成控制器', contentMode: 'ejs', content: '<%- await getwi("合成素材") %>' })
     expect(f.call('settings.list').entries).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: reference.id, readStrategy: '选读', dynamicMode: 'ejs_reference', contentMode: 'plain_text' }),
-      expect.objectContaining({ id: controller.id, readStrategy: '选读', contentMode: 'ejs' }),
+      expect.objectContaining({ id: reference.id, readStrategy: '无规则', enabled: false, contentMode: 'plain_text' }),
+      expect.objectContaining({ id: controller.id, readStrategy: '无规则', enabled: false, contentMode: 'ejs' }),
     ]))
-    expect(() => f.call('settings.update', { id: controller.id, changes: { agentReadStrategy: 'required' } })).toThrow('选读')
-    expect(f.call('settings.read', { id: controller.id }).contentMode).toBe('ejs')
+    f.call('settings.update', { id: controller.id, changes: { agentReadStrategy: 'required', enabled: true } })
+    expect(f.call('settings.read', { id: controller.id })).toMatchObject({ agentReadStrategy: 'required', enabled: true, contentMode: 'ejs', content: controller.content })
+    expect(f.call('settings.list').entries).toContainEqual(expect.objectContaining({ id: controller.id, readStrategy: '常驻触发' }))
   })
   it('publishes an executable authoring example that stores dynamic references as source', async () => {
     const f = await fixture();
     const example = creatorToolsets.find(item => item.id === 'settings')!.examples![0];
     expect(example.title).toBe('动态人物状态引用');
     if (!('arguments' in example) || !('operation' in example)) throw new Error('Setting example must include the actual operation arguments');
-    f.call('settings.create', { title: '固定规则', dynamicMode: 'ejs_reference', contentMode: 'plain_text', content: '合成固定规则' });
+    f.call('settings.create', { title: '固定规则', enabled: false, contentMode: 'plain_text', content: '合成固定规则' });
     const reference = f.call(example.operation, example.arguments);
     const source = f.call('settings.read', { id: reference.id });
-    expect(source).toMatchObject({ title: '人物状态', dynamicMode: 'ejs_reference', contentMode: 'ejs', content: example.arguments.content });
+    expect(source).toMatchObject({ title: '人物状态', enabled: false, contentMode: 'ejs', content: example.arguments.content });
     const createSchema = f.operations.find(item => item.id === 'settings.create')!.inputSchema as any;
-    expect(createSchema.properties.dynamicMode.description).toContain('文字或 EJS');
+    expect(createSchema.properties.dynamicMode).toBeUndefined();
     expect(createSchema.properties.contentMode.description).toContain('递归');
-    expect(f.call('settings.list').entries).toContainEqual(expect.objectContaining({ id: reference.id, dynamicMode: 'ejs_reference', contentMode: 'ejs' }));
+    expect(f.call('settings.list').entries).toContainEqual(expect.objectContaining({ id: reference.id, enabled: false, contentMode: 'ejs' }));
   })
   it('evaluates the documented Zod example and retains the previous code on invalid output', async () => {
     const f = await fixture()

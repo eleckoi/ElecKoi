@@ -42,7 +42,7 @@ function Fixture() {
     {open && kind === 'model' && <MobileModelPicker editor={{ modelItems: items, removableModelIds: new Set(items.map(item => item.id)), form: { model: selected },
       selectModel: id => { setSelected(id); setOpen(false); }, deleteModel: id => setItems(current => current.filter(item => item.id !== id)), setModelMenuOpen: setOpen }} />}
     {open && kind === 'bug' && <BugReportDialog open onClose={close} onNotify={noop} />}
-    {open && kind === 'library' && <SettingLibraryManager characterId="synthetic-current" library={library} settingLibraries={settingLibraries} onChange={noop} onClose={close} onError={message => { throw Error(message); }} />}
+    {open && kind === 'library' && <SettingLibraryManager initialAction="merge" characterId="synthetic-current" library={library} settingLibraries={settingLibraries} onChange={noop} onClose={close} onError={message => { throw Error(message); }} />}
     {open && kind === 'versions' && <EditorVersionManager title="合成版本管理" versions={[version]} activeVersionId={version.id} onClose={close} onSelect={noop} onCopy={noop} onCreate={noop} onRename={noop} onDelete={noop}>{rows()}</EditorVersionManager>}
     {open && kind === 'mobile' && <MobileDialog title="合成移动弹窗" onClose={close}>{rows()}</MobileDialog>}
     {open && kind === 'confirm' && <MobileConfirm title="合成移动确认" onClose={close} onConfirm={noop}>{rows()}</MobileConfirm>}

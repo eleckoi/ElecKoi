@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react';
-import { Button, Input, Menu, SegmentedTabs } from '@deepseek-ai/dsh-client-ui-primitives';
-import { CaretDown, DotsThree, LinkSimple, Trash } from '../../../ui/icons/interfaceIcons.jsx';
+import { Button, Input, Menu, SegmentedTabs, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';
+import { CaretDown, DotsThree, Question, Trash } from '../../../ui/icons/interfaceIcons.jsx';
 import { DshFolderClosedIcon } from '../../../ui/icons/dshTreeIcons.jsx';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
 import { FIXED_ENTRY_IDS } from '../model/settingLibraryEditing.js';
@@ -8,12 +8,14 @@ import { ContentSection, InsertSection, SettingEntryGlyph, TriggerSection } from
 import { SettingEntryIconPicker } from './SettingEntryIconPicker.jsx';
 import { MarkdownTextareaField } from './MarkdownTextareaField.jsx';
 import { CustomPositionManager } from './CustomPositionManager.jsx';
+import { EditorToggle } from '../../../ui/ui/EditorToggle.jsx';
 
-export function SettingLibraryDocument({ selected, library, nameInputRef, SelectedIcon, onUpdateGroup, onDeleteGroup, onUpdateEntry, onEntriesChange, onOpenEntry, dirty, saving, creatorPreset = false, allowCustomPromptPositions = false, onPromptPositionsChange, titleReadOnly = false, readOnly = false, entryActions, hideReferenceTabs = false }) {
+export function SettingLibraryDocument({ selected, library, nameInputRef, SelectedIcon, onUpdateGroup, onDeleteGroup, onUpdateEntry, onEntriesChange, dirty, saving, creatorPreset = false, presetPrompt = false, allowCustomPromptPositions = false, onPromptPositionsChange, titleReadOnly = false, readOnly = false, entryActions }) {
   const tUi = useProductTranslation();
   const [view, setView] = useState('content'), [iconsOpen, setIconsOpen] = useState(false);
   const [folderMenuOpen, setFolderMenuOpen] = useState(false);
   const [positions, setPositions] = useState(false);
+  const [repairingOrder, setRepairingOrder] = useState(false);
   const documentRef = useRef(null), settingsScroll = useRef(0), returning = useRef(false);
   useLayoutEffect(() => {
     const scroller = documentRef.current?.closest('.mobile-editor-document');
@@ -32,14 +34,31 @@ export function SettingLibraryDocument({ selected, library, nameInputRef, Select
   const [toolbarHost, setToolbarHost] = useState(null), [immersiveHost, setImmersiveHost] = useState(null);
   const nameId = useId();
   const entry = selected.value, group = selected.kind === 'group';
-  const reference = !group && entry.dynamicMode === 'ejs_reference', fixed = !group && FIXED_ENTRY_IDS.has(entry.id);
-  const normal = !group && !reference && !fixed && !readOnly;
-  const Glyph = group ? DshFolderClosedIcon : reference ? LinkSimple : fixed || readOnly ? SelectedIcon : null;
+  const fixed = !group && FIXED_ENTRY_IDS.has(entry.id);
+  const normal = !group && !fixed && !readOnly;
+  const Glyph = group ? DshFolderClosedIcon : SelectedIcon;
+  const showRuleSwitch = normal && entry.kind === 'normal';
+  const ruleEnabled = normal && entry.enabled;
+  const showRuleFields = normal && (!showRuleSwitch || ruleEnabled || repairingOrder);
+  const ruleHelp = [
+    tUi('AI 选读由 AI 根据当前对话决定是否读取正文。'),
+    ...(!creatorPreset ? [tUi('关键词触发在关键词命中时把正文列入本轮必读。')] : []),
+    tUi('常驻触发每轮都会把正文提供给 AI。'),
+    ...(!creatorPreset ? [tUi('关闭触发规则后，其他设定仍可通过 EJS 引用正文。正文里的 EJS 也可以自行决定本轮输出。')] : []),
+  ].join('\n');
   const updateName = title => group ? onUpdateGroup({ name: title }) : onUpdateEntry({ ...entry, title });
   if (positions) return <div ref={documentRef} className="setting-position-page">
     <CustomPositionManager entry={entry} positions={library.promptPositions} entries={library.entries} onChange={onPromptPositionsChange}
       onBack={() => { returning.current = true; setPositions(false); }} />
   </div>;
+  const placementSettings = showRuleFields && entry.triggerMode === 'always' && <section className="setting-insert-settings"><h2>{tUi('插入与顺序')}</h2>
+    <InsertSection entry={entry} entries={library.entries} promptPositions={library.promptPositions} allowCustomPromptPositions={allowCustomPromptPositions}
+      onChange={next => {
+        // A conflicting order turns off the rule. Keep that field available for correction.
+        if (entry.enabled && !next.enabled) setRepairingOrder(true);
+        onUpdateEntry(next);
+      }} onEntriesChange={onEntriesChange} onManagePositions={openPositions} />
+  </section>;
   return <>
     <header ref={documentRef} className="setting-entry-heading">
       <div className="setting-document-heading">
@@ -59,17 +78,18 @@ export function SettingLibraryDocument({ selected, library, nameInputRef, Select
         </div>
       </div>
       {!group && <div className="setting-editor-tools" role="toolbar" aria-label={tUi('设定编辑操作')}>
-        {!readOnly && !fixed && (!reference || !hideReferenceTabs) ? <SegmentedTabs size="sm" className="setting-view-switch" label={tUi('设定编辑视图')} value={view} onChange={next => { setView(next); setIconsOpen(false); }}
+        {!readOnly && !fixed ? <SegmentedTabs size="sm" className="setting-view-switch" label={tUi('设定编辑视图')} value={view} onChange={next => { setView(next); setIconsOpen(false); setRepairingOrder(false); }}
           items={[{ value: 'content', label: tUi('正文') }, { value: 'settings', label: tUi('设置') }]} /> : null}
         <div className="setting-content-tools" ref={setToolbarHost} />
       </div>}
     </header>
     {group ? <div className="setting-settings-board setting-group-settings"><section className="setting-entry-basics"><h2>{tUi('基本信息')}</h2>
       <div className="setting-property-row"><label className="setting-property-label" htmlFor={nameId}>{tUi('名称')}</label><div className="setting-identity-control"><Input data-dsh-control className="setting-entry-name" id={nameId} value={entry.name} onChange={event => updateName(event.target.value)} /></div></div>
-    </section></div> : readOnly || view === 'content' || fixed || reference && hideReferenceTabs ? <div className="setting-writing-board">
-      {normal || reference && !readOnly ? <ContentSection entry={entry} entries={library.entries} onChange={onUpdateEntry} onOpenEntry={onOpenEntry} creatorPreset={creatorPreset} toolbarHost={toolbarHost} immersiveHost={immersiveHost} /> :
-        <MarkdownTextareaField label={reference ? tUi('EJS引用正文') : entry.kind === 'history_compaction' ? tUi('摘要模板') : tUi('设定正文')}
-          placeholder={reference ? tUi('填写供 EJS 控制器读取的内容') : tUi('填写设定正文')} readOnly={readOnly} value={entry.content} onChange={content => onUpdateEntry({ ...entry, content })} toolbarHost={toolbarHost} immersiveHost={immersiveHost} />}
+    </section></div> : readOnly || view === 'content' || fixed ? <div className="setting-writing-board">
+      {normal ? <ContentSection entry={entry} onChange={onUpdateEntry} creatorPreset={creatorPreset} presetPrompt={presetPrompt} toolbarHost={toolbarHost} immersiveHost={immersiveHost} /> :
+        <MarkdownTextareaField label={entry.kind === 'history_compaction' ? tUi('摘要模板') : tUi('设定正文')}
+          placeholder={entry.kind === 'history_compaction' ? tUi('填写摘要模板') : tUi('填写设定正文')} fullWidth
+          readOnly={readOnly} value={entry.content} onChange={content => onUpdateEntry({ ...entry, content })} toolbarHost={toolbarHost} immersiveHost={immersiveHost} />}
       <footer className="setting-editor-status"><span>{saving ? tUi('保存中…') : dirty ? tUi('未保存') : tUi('已保存')}</span>
         <div className="setting-footer-tools"><span>{tUi('{value0} 字符', { value0: entry.content.length })}</span><div className="setting-immersive-host" ref={setImmersiveHost} /></div></footer>
     </div> : <div className="setting-settings-board">
@@ -80,8 +100,22 @@ export function SettingLibraryDocument({ selected, library, nameInputRef, Select
             {iconsOpen === 'settings' && <SettingEntryIconPicker entry={entry} onChange={onUpdateEntry} onClose={() => setIconsOpen(false)} />}</div>}
             <Input data-dsh-control id={nameId} className="setting-entry-name" readOnly={titleReadOnly} aria-label={tUi('设定名称')} value={entry.title} onChange={event => updateName(event.target.value)} /></div></div>
       </section>
-      {normal && <><section className="setting-reading-settings"><h2>{tUi('读取与触发')}</h2><div className="setting-property-basic"><TriggerSection entry={entry} onChange={onUpdateEntry} creatorPreset={creatorPreset} /></div></section>
-        {entry.triggerMode === 'always' && <section className="setting-insert-settings"><h2>{tUi('插入与顺序')}</h2><InsertSection entry={entry} entries={library.entries} promptPositions={library.promptPositions} allowCustomPromptPositions={allowCustomPromptPositions} onChange={onUpdateEntry} onEntriesChange={onEntriesChange} onManagePositions={openPositions} /></section>}</>}
+      {normal && <section className="setting-reading-settings">
+        {!showRuleSwitch ? <h2>{tUi('读取与触发')}</h2> : <div className="setting-rule-heading">
+          <div className="setting-rule-title"><h2>{tUi('触发规则')}</h2>
+            <Tooltip label={ruleHelp} side="top" maxWidth={280} openOnClick portal>
+              <Button type="button" data-dsh-control variant="ghost" className="setting-rule-help" icon={<Question size={16} />} aria-label={tUi('触发规则说明')} />
+            </Tooltip>
+          </div>
+          <EditorToggle label={tUi('启用触发规则')} checked={ruleEnabled} disabled={saving}
+            onChange={enabled => { setRepairingOrder(false); onUpdateEntry({ ...entry, enabled }); }} />
+        </div>}
+        {showRuleFields && <div className={showRuleSwitch ? 'setting-property-basic setting-rule-fields' : 'setting-property-basic'}>
+          <TriggerSection entry={entry} onChange={onUpdateEntry} creatorPreset={creatorPreset} />
+          {showRuleSwitch && placementSettings}
+        </div>}
+      </section>}
+      {!showRuleSwitch && placementSettings}
     </div>}
   </>;
 }

@@ -10,6 +10,7 @@ import '../../src/app/windows/styles/tokens.css';
 import '../../src/app/windows/styles/base.css';
 import '../../src/app/windows/shell/styles/titlebar.css';
 import '../../src/app/windows/shell/styles/client-shell.css';
+import '../../src/app/windows/shell/styles/desktop-page-transition.css';
 import '../../src/modules/persona/styles/character-editor.css';
 import '../../src/modules/settingLibraries/styles/setting-library.css';
 import '../../src/ui/styles/editor-sidebar.css';

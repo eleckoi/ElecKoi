@@ -121,7 +121,8 @@ export function PresetToolsEditor({
   const workspaceProps = workspace && !compact ? {
     label: tUi('工具'), query, onQueryChange: setQuery,
     directoryHeading: <h1 className="preset-prompt-directory-title">{tUi('工具')}</h1>,
-    directoryActions: <><Button data-dsh-control variant="primary" className="setting-create" icon={<Plus size={16} />} aria-label={tUi('管理预设工具')} disabled={savePromptOpen} onClick={() => { setPluginId(''); setManagerOpen(true); }}>{tUi('添加工具')}</Button>{saveAction}</>,
+    directoryActions: <><Button data-dsh-control variant="ghost" className="setting-toolbar-button" icon={<Plus size={17} />}
+      aria-label={tUi('管理预设工具')} disabled={savePromptOpen} onClick={() => { setPluginId(''); setManagerOpen(true); }}>{tUi('添加工具')}</Button>{saveAction}</>,
     inspector: configuration || pluginConfiguration,
   } : {};
   return (

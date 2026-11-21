@@ -31,11 +31,12 @@ describe('Global authoring writes use native ownership, revisions and transactio
     const created = f.call('settings.create_library', { target: global, expectedRevision: 0, name: 'Synthetic reference library' });
     const target = { ...global, libraryId: created.library.id };
     const write = (operation: string, input: object) => f.call(`settings.${operation}`, { target, expectedRevision: f.data.readGlobalSettingLibraries().revision, ...input });
-    const literal = write('create', { title: 'Synthetic literal reference', dynamicMode: 'ejs_reference', content: 'Score: <%= getvar("score") %>' });
-    const dynamic = write('create', { title: 'Synthetic dynamic reference', dynamicMode: 'ejs_reference', contentMode: 'ejs', content: '<%= getvar("score") %>' });
-    const recursive = write('create', { title: 'Synthetic recursive reference', dynamicMode: 'ejs_reference', contentMode: 'ejs', content: '<%- await getwi("Synthetic dynamic reference") %>' });
+    const literal = write('create', { title: 'Synthetic literal reference', content: 'Score: <%= getvar("score") %>' });
+    expect(literal).toMatchObject({ enabled: false, contentMode: 'plain_text' });
+    const dynamic = write('create', { title: 'Synthetic dynamic reference', enabled: false, contentMode: 'ejs', content: '<%= getvar("score") %>' });
+    const recursive = write('create', { title: 'Synthetic recursive reference', enabled: false, contentMode: 'ejs', content: '<%- await getwi("Synthetic dynamic reference") %>' });
     write('update', { id: literal.id, changes: { contentMode: 'ejs' } });
-    expect(f.call('settings.read', { target, id: literal.id })).toMatchObject({ dynamicMode: 'ejs_reference', contentMode: 'ejs', content: 'Score: <%= getvar("score") %>' });
+    expect(f.call('settings.read', { target, id: literal.id })).toMatchObject({ enabled: false, contentMode: 'ejs', content: 'Score: <%= getvar("score") %>' });
     write('update_many', { updates: [
       { id: literal.id, changes: { contentMode: 'plain_text' } },
       { id: dynamic.id, changes: { content: '<%= getvar("level") %>' } },
@@ -44,13 +45,13 @@ describe('Global authoring writes use native ownership, revisions and transactio
     expect(f.call('settings.read', { target, id: dynamic.id }).content).toBe('<%= getvar("level") %>');
     expect(f.call('settings.read', { target, id: recursive.id }).content).toBe('<%- await getwi("Synthetic literal reference") %>');
     expect(f.call('settings.list', { target }).libraries[0].entries).toEqual(expect.arrayContaining([
-      expect.objectContaining({ id: literal.id, dynamicMode: 'ejs_reference', contentMode: 'plain_text' }),
-      expect.objectContaining({ id: dynamic.id, dynamicMode: 'ejs_reference', contentMode: 'ejs' }),
+      expect.objectContaining({ id: literal.id, enabled: false, contentMode: 'plain_text' }),
+      expect.objectContaining({ id: dynamic.id, enabled: false, contentMode: 'ejs' }),
     ]));
     const before = f.data.readGlobalSettingLibraries();
     expect(() => write('update_many', { updates: [
       { id: literal.id, changes: { content: 'Unexpected' } },
-      { id: dynamic.id, changes: { agentReadStrategy: 'required' } },
+      { id: dynamic.id, changes: { dynamicMode: 'ejs_reference' } },
     ] })).toThrow();
     expect(() => f.call('settings.update', { target, expectedRevision: created.revision, id: dynamic.id, changes: { content: 'Unexpected' } })).toThrow('重新读取');
     expect(f.data.readGlobalSettingLibraries()).toEqual(before);

@@ -1,0 +1,363 @@
+diff --git a/lib/index.js b/lib/index.js
+index b1970a744502d15e5e18782c485b9dfbe2ae9cc4..db76673e4da3db01955a8f21811c61cffaa97fc9 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -278,6 +278,14 @@ const COMPACTION_INSTRUCTION = [
+ ].join("\n");
+ /** Framing that makes the replacement user message established context. */
+ const CHECKPOINT_PREAMBLE = "This is an automatically generated checkpoint condensing an earlier span of the conversation to free up context. Treat the captured context as established background and build on it without restating it. Continue the task directly from the messages that follow, without acknowledging this checkpoint.";
++// ElecKoi compatibility patch: a removed historical provider can block /compact and a pending model switch.
++// RETIRE WHEN: official DSH uses the Session's selected route for both cases when the historical provider is unregistered.
++/** Whether an explicit provider switch can recover an unregistered route. */
++function canUseSelectedProvider(ctx, previous, selected) {
++	if (previous === selected) return false;
++	const providers = ctx.llm.listProviders();
++	return !providers.some((provider) => provider.id === previous) && providers.some((provider) => provider.id === selected);
++}
+ /**
+ * Run the default cache-reusing `ctx.llm.stream()` summarization call: replay
+ * the conversation prefix, then append the compaction instruction as the final
+@@ -287,9 +295,10 @@ const CHECKPOINT_PREAMBLE = "This is an automatically generated checkpoint conde
+ * @param input - replayed conversation prefix (system, tools, and leading messages) to condense.
+ * @param agent - supplies routed-model history, fallback model, and session id.
+ * @param signal - optional cancellation forwarded to the adapter.
++* @param selected - captured replacement route for an unregistered historical provider.
+ * @returns safe text-only summary blocks and the exact call envelope and output.
+ */
+-async function summarizeWithLlm(ctx, config, input, agent, signal) {
++async function summarizeWithLlm(ctx, config, input, agent, signal, selected) {
+ 	const latest = agent.session.requestHeader()?.config;
+ 	const configured = config.summarizationProvider.length === 0 ? void 0 : {
+ 		provider: config.summarizationProvider,
+@@ -299,7 +308,8 @@ async function summarizeWithLlm(ctx, config, input, agent, signal) {
+ 		provider: agent.options.provider,
+ 		model: agent.options.model
+ 	} : void 0;
+-	const target = configured ?? latest ?? agentTarget;
++	const replacement = configured === void 0 && latest !== void 0 && selected !== void 0 && canUseSelectedProvider(ctx, latest.provider, selected.provider) ? selected : void 0;
++	const target = configured ?? replacement ?? latest ?? agentTarget;
+ 	if (target === void 0) throw new Error("no provider/model available for summarization: set both BasicCompactionConfig summarization fields, route one request, or set both AgentOptions fields");
+ 	const assembler = new BlockAssembler();
+ 	const messages = [...input.messages, deepFreeze({
+@@ -312,6 +322,7 @@ async function summarizeWithLlm(ctx, config, input, agent, signal) {
+ 	const options = {
+ 		provider: target.provider,
+ 		model: target.model,
++		...replacement?.reasoningEffort === void 0 ? {} : { reasoningEffort: replacement.reasoningEffort },
+ 		messages,
+ 		toolHistory: agent.session.toolHistory(),
+ 		...input.tools === void 0 ? {} : { tools: [...input.tools] },
+@@ -836,8 +847,11 @@ var BasicCompactionEngine = class extends CompactionEngine {
+ 		const logResult = (result, trigger) => {
+ 			ctx.logger.info(`compaction (${trigger}): shadowed ${result.shadowedSeqs.length} surface nodes (seqs ${result.shadowedRange.start}-${result.shadowedRange.end}, ~${result.shadowedTokenCount} tokens)`);
+ 		};
+-		ctx.on("agent/pre-step", async ({ agent, signal }, next) => {
++		ctx.on("agent/pre-step", async ({ agent, modelSelection, signal }, next) => {
+ 			if (!signal.aborted) try {
++				const previous = routedTarget(agent.session);
++				// The request waterfall will price the resolved selection when the old route is gone.
++				if (previous !== void 0 && canUseSelectedProvider(ctx, previous.provider, modelSelection.provider)) return next();
+ 				const result = await this.compactIfNeeded(agent, "pressure", signal);
+ 				if (result !== null) logResult(result, "step pressure");
+ 			} catch (error) {
+@@ -914,10 +928,10 @@ var BasicCompactionEngine = class extends CompactionEngine {
+ 	* @param signal - optional cancellation forwarded to the adapter.
+ 	* @returns safe text summary blocks and the exact auxiliary call envelope and output.
+ 	*/
+-	async summarize(input, agent, signal) {
++	async summarize(input, agent, signal, selected) {
+ 		const target = conversationTarget(agent);
+ 		const config = target === void 0 ? this.config : resolveTargetPolicy(this.config, target);
+-		return summarizeWithLlm(this.ctx, config, input, agent, signal);
++		return summarizeWithLlm(this.ctx, config, input, agent, signal, selected);
+ 	}
+ 	/**
+ 	* Compact for replayed step-boundary pressure or one provider-confirmed context
+@@ -970,7 +984,7 @@ var BasicCompactionEngine = class extends CompactionEngine {
+ 				if (result === null && !requireBelowThreshold) return null;
+ 				throw new Error(`no safe compaction range can reduce context below threshold (${measurement.totalTokens} estimated tokens >= threshold ${spec.thresholdTokens})`);
+ 			}
+-			result = await this.compactRegion(range.start, range.end, agent, signal);
++			result = await this.compactRegion(range.start, range.end, agent, signal, requireBelowThreshold ? target : void 0);
+ 			measurement = meter.measure(agent.session, header);
+ 			if (measurement.totalTokens < spec.thresholdTokens) return result;
+ 		}
+@@ -985,8 +999,8 @@ var BasicCompactionEngine = class extends CompactionEngine {
+ 	* @param signal - optional summarization cancellation signal.
+ 	* @returns the successful durable compaction result.
+ 	*/
+-	async compactRegion(start, end, agent, signal) {
+-		return compactSurfaceRegion(this.regionDependencies(), agent.session, start, end, agent, {
++	async compactRegion(start, end, agent, signal, selected) {
++		return compactSurfaceRegion(this.regionDependencies(selected), agent.session, start, end, agent, {
+ 			owner: "current-turn",
+ 			stability: "whole-surface"
+ 		}, signal);
+@@ -1008,7 +1022,7 @@ var BasicCompactionEngine = class extends CompactionEngine {
+ 					operationSignal.throwIfAborted();
+ 					const range = selectCompactableRange(agent.session, this.ctx.tokenMeter.measure(agent.session), 0);
+ 					if (range === null) return null;
+-					return await compactSurfaceRegion(this.regionDependencies(), agent.session, range.start, range.end, agent, {
++					return await compactSurfaceRegion(this.regionDependencies(agent.model.current()), agent.session, range.start, range.end, agent, {
+ 						owner: null,
+ 						stability: "selected-span",
+ 						...sourceCommandId === void 0 ? {} : { sourceCommandId },
+@@ -1027,10 +1041,10 @@ var BasicCompactionEngine = class extends CompactionEngine {
+ 		}
+ 	}
+ 	/** Bind the effective token meter and dynamically dispatched summarizer hook. */
+-	regionDependencies() {
++	regionDependencies(selected) {
+ 		return {
+ 			meter: this.ctx.tokenMeter,
+-			summarize: (input, owner, abort) => this.summarize(input, owner, abort),
++			summarize: (input, owner, abort) => this.summarize(input, owner, abort, selected),
+ 			recover: (error, agent, sourceEventSeqs, signal) => this.ctx.waterfall("compaction/summary-error", {
+ 				session: agent.session,
+ 				sourceEventSeqs,
+diff --git a/lib/types/index.d.ts b/lib/types/index.d.ts
+index b1d59fe7ce069a10397566478999effc14ef98fb..775e3800a3dea59c54df34c7205a0d2d9395f6cd 100644
+--- a/lib/types/index.d.ts
++++ b/lib/types/index.d.ts
+@@ -8,7 +8,7 @@ import z from '@deepseek-ai/schemastery';
+ import { CompactionEngine } from '@deepseek-ai/dsh-compaction';
+ import type { CompactionResult, CompactionTrigger } from '@deepseek-ai/dsh-compaction';
+ import type { SessionSeq } from '@deepseek-ai/dsh-session';
+-import type { Agent } from '@deepseek-ai/dsh-agent';
++import type { Agent, ModelSelection } from '@deepseek-ai/dsh-agent';
+ import type { CommandId } from '@deepseek-ai/dsh-commands/brand';
+ import type { SummarizationInput, SummaryResult } from './summarizer.ts';
+ import type { BasicCompactionConfig, ResolvedConfig } from './types.ts';
+@@ -44,9 +44,10 @@ export declare class BasicCompactionEngine extends CompactionEngine {
+      * @param input - replayed conversation prefix (system, tools, and leading messages) to condense.
+      * @param agent - supplies routed-model history, fallback model, and session id.
+      * @param signal - optional cancellation forwarded to the adapter.
++     * @param selected - captured replacement route for an unregistered historical provider.
+      * @returns safe text summary blocks and the exact auxiliary call envelope and output.
+      */
+-    protected summarize(input: SummarizationInput, agent: Agent, signal?: AbortSignal): Promise<SummaryResult>;
++    protected summarize(input: SummarizationInput, agent: Agent, signal?: AbortSignal, selected?: Readonly<ModelSelection>): Promise<SummaryResult>;
+     /**
+      * Compact for replayed step-boundary pressure or one provider-confirmed context
+      * overflow. Both triggers price the latest durable routed request envelope;
+@@ -67,9 +68,10 @@ export declare class BasicCompactionEngine extends CompactionEngine {
+      * @param end - inclusive last surface-node seq.
+      * @param agent - owner of the target session, used by the summarizer.
+      * @param signal - optional summarization cancellation signal.
++     * @param selected - final route resolved for a model switch.
+      * @returns the successful durable compaction result.
+      */
+-    compactRegion(start: SessionSeq, end: SessionSeq, agent: Agent, signal?: AbortSignal): Promise<CompactionResult>;
++    compactRegion(start: SessionSeq, end: SessionSeq, agent: Agent, signal?: AbortSignal, selected?: Readonly<ModelSelection>): Promise<CompactionResult>;
+     /**
+      * Force one useful idle-session compaction below the pressure threshold, and
+      * resolve only after its standalone marker pair is durably checkpointed.
+diff --git a/lib/types/summarizer.d.ts b/lib/types/summarizer.d.ts
+index 1d1c8c8d4acb8b8190836a51aeef248fd389cbc1..d3081270520b59b052cb93f998380e12321a352e 100644
+--- a/lib/types/summarizer.d.ts
++++ b/lib/types/summarizer.d.ts
+@@ -5,7 +5,7 @@
+  */
+ import type { Context } from '@deepseek-ai/cordis';
+ import type { ContentBlock, Message, TokenUsage, ToolSchema } from '@deepseek-ai/dsh-llm';
+-import type { Agent } from '@deepseek-ai/dsh-agent';
++import type { Agent, ModelSelection } from '@deepseek-ai/dsh-agent';
+ interface SummaryConfig {
+     readonly summarizationProvider: string;
+     readonly summarizationModel: string;
+@@ -42,6 +42,8 @@ export type SummaryResult = {
+     /** An unmarked result does not identify a call through this context's LLM seam. */
+     llmStreamCall?: never;
+ });
++/** Whether an explicit provider switch can recover an unregistered route. */
++export declare function canUseSelectedProvider(ctx: Context, previous: string, selected: string): boolean;
+ /**
+  * Run the default cache-reusing `ctx.llm.stream()` summarization call: replay
+  * the conversation prefix, then append the compaction instruction as the final
+@@ -51,9 +53,10 @@ export type SummaryResult = {
+  * @param input - replayed conversation prefix (system, tools, and leading messages) to condense.
+  * @param agent - supplies routed-model history, fallback model, and session id.
+  * @param signal - optional cancellation forwarded to the adapter.
++ * @param selected - captured replacement route for an unregistered historical provider.
+  * @returns safe text-only summary blocks and the exact call envelope and output.
+  */
+-export declare function summarizeWithLlm(ctx: Context, config: SummaryConfig, input: SummarizationInput, agent: Agent, signal?: AbortSignal): Promise<SummaryResult>;
++export declare function summarizeWithLlm(ctx: Context, config: SummaryConfig, input: SummarizationInput, agent: Agent, signal?: AbortSignal, selected?: Readonly<ModelSelection>): Promise<SummaryResult>;
+ /**
+  * Wrap raw summary blocks in the durable checkpoint framing.
+  * @param summary - safe text-only model output.
+diff --git a/src/index.ts b/src/index.ts
+index 096fa72fe46a1a715a3a34a2a109b4dc379de42b..8778cdeb668f28d50c42603d409fc907aa3a4bae 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -12,7 +12,7 @@ import type { EpochHeader, Session, SessionSeq } from '@deepseek-ai/dsh-session'
+ import { CONTEXT_WINDOW_EXCEEDED_CODE, LlmError } from '@deepseek-ai/dsh-llm'
+ import type { LlmCallConfig } from '@deepseek-ai/dsh-llm'
+ import { assertNever } from '@deepseek-ai/dsh-util-values'
+-import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
++import type { Agent, ModelSelection, PreStepDecision } from '@deepseek-ai/dsh-agent'
+ import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
+ // Type-only: makes the optional sibling service available to `ctx.get()`.
+ import type {} from '@deepseek-ai/dsh-compaction-tool-result-pruner'
+@@ -27,7 +27,7 @@ import {
+   compactSurfaceRegion,
+   selectCompactableRange,
+ } from './region.ts'
+-import { summarizeWithLlm } from './summarizer.ts'
++import { canUseSelectedProvider, summarizeWithLlm } from './summarizer.ts'
+ import type { SummarizationInput, SummaryResult } from './summarizer.ts'
+ import type {
+   BasicCompactionConfig,
+@@ -155,10 +155,13 @@ export class BasicCompactionEngine extends CompactionEngine {
+     }
+ 
+     ctx.on('agent/pre-step', async (
+-      { agent, signal },
++      { agent, modelSelection, signal },
+       next,
+     ): Promise<PreStepDecision> => {
+       if (!signal.aborted) {
++        const previous = routedTarget(agent.session)
++        // The request waterfall will price the resolved selection when the old route is gone.
++        if (previous !== undefined && canUseSelectedProvider(ctx, previous.provider, modelSelection.provider)) return next()
+         try {
+           const result = await this.compactIfNeeded(agent, 'pressure', signal)
+           if (result !== null) logResult(result, 'step pressure')
+@@ -265,18 +268,20 @@ export class BasicCompactionEngine extends CompactionEngine {
+    * @param input - replayed conversation prefix (system, tools, and leading messages) to condense.
+    * @param agent - supplies routed-model history, fallback model, and session id.
+    * @param signal - optional cancellation forwarded to the adapter.
++   * @param selected - captured replacement route for an unregistered historical provider.
+    * @returns safe text summary blocks and the exact auxiliary call envelope and output.
+    */
+   protected async summarize(
+     input: SummarizationInput,
+     agent: Agent,
+     signal?: AbortSignal,
++    selected?: Readonly<ModelSelection>,
+   ): Promise<SummaryResult> {
+     const target = conversationTarget(agent)
+     const config = target === undefined
+       ? this.config
+       : resolveTargetPolicy(this.config, target)
+-    return summarizeWithLlm(this.ctx, config, input, agent, signal)
++    return summarizeWithLlm(this.ctx, config, input, agent, signal, selected)
+   }
+ 
+   /**
+@@ -359,7 +364,7 @@ export class BasicCompactionEngine extends CompactionEngine {
+           + `(${measurement.totalTokens} estimated tokens >= threshold ${spec.thresholdTokens})`,
+         )
+       }
+-      result = await this.compactRegion(range.start, range.end, agent, signal)
++      result = await this.compactRegion(range.start, range.end, agent, signal, requireBelowThreshold ? target : undefined)
+       measurement = meter.measure(agent.session, header)
+       if (measurement.totalTokens < spec.thresholdTokens) return result
+     }
+@@ -377,6 +382,7 @@ export class BasicCompactionEngine extends CompactionEngine {
+    * @param end - inclusive last surface-node seq.
+    * @param agent - owner of the target session, used by the summarizer.
+    * @param signal - optional summarization cancellation signal.
++   * @param selected - final route resolved for a model switch.
+    * @returns the successful durable compaction result.
+    */
+   override async compactRegion(
+@@ -384,9 +390,10 @@ export class BasicCompactionEngine extends CompactionEngine {
+     end: SessionSeq,
+     agent: Agent,
+     signal?: AbortSignal,
++    selected?: Readonly<ModelSelection>,
+   ): Promise<CompactionResult> {
+     return compactSurfaceRegion(
+-      this.regionDependencies(),
++      this.regionDependencies(selected),
+       agent.session,
+       start,
+       end,
+@@ -422,7 +429,7 @@ export class BasicCompactionEngine extends CompactionEngine {
+           )
+           if (range === null) return null
+           return await compactSurfaceRegion(
+-            this.regionDependencies(),
++            this.regionDependencies(agent.model.current()),
+             agent.session,
+             range.start,
+             range.end,
+@@ -459,10 +466,10 @@ export class BasicCompactionEngine extends CompactionEngine {
+   }
+ 
+   /** Bind the effective token meter and dynamically dispatched summarizer hook. */
+-  private regionDependencies(): Parameters<typeof compactSurfaceRegion>[0] {
++  private regionDependencies(selected?: Readonly<ModelSelection>): Parameters<typeof compactSurfaceRegion>[0] {
+     return {
+       meter: this.ctx.tokenMeter,
+-      summarize: (input, owner, abort) => this.summarize(input, owner, abort),
++      summarize: (input, owner, abort) => this.summarize(input, owner, abort, selected),
+       recover: (error, agent, sourceEventSeqs, signal) => this.ctx.waterfall('compaction/summary-error', {
+         session: agent.session,
+         sourceEventSeqs,
+diff --git a/src/summarizer.ts b/src/summarizer.ts
+index 6220a53b255abda122be6aca711991c3a1654401..41d3113d1240e07e29419874f3c9d69f303d2060 100644
+--- a/src/summarizer.ts
++++ b/src/summarizer.ts
+@@ -10,7 +10,7 @@ import { deepFreeze } from '@deepseek-ai/dsh-util-values'
+ import type {
+   ContentBlock, FinishReason, GenerateOptions, Message, RequestMessage, TokenUsage, ToolSchema,
+ } from '@deepseek-ai/dsh-llm'
+-import type { Agent } from '@deepseek-ai/dsh-agent'
++import type { Agent, ModelSelection } from '@deepseek-ai/dsh-agent'
+ 
+ interface SummaryConfig {
+   readonly summarizationProvider: string
+@@ -106,6 +106,16 @@ export type SummaryResult = {
+   }
+ )
+ 
++// ElecKoi compatibility patch: a removed historical provider can block /compact and a pending model switch.
++// RETIRE WHEN: official DSH uses the Session's selected route for both cases when the historical provider is unregistered.
++/** Whether an explicit provider switch can recover an unregistered route. */
++export function canUseSelectedProvider(ctx: Context, previous: string, selected: string): boolean {
++  if (previous === selected) return false
++  const providers = ctx.llm.listProviders()
++  return !providers.some(provider => provider.id === previous)
++    && providers.some(provider => provider.id === selected)
++}
++
+ /**
+  * Run the default cache-reusing `ctx.llm.stream()` summarization call: replay
+  * the conversation prefix, then append the compaction instruction as the final
+@@ -115,6 +125,7 @@ export type SummaryResult = {
+  * @param input - replayed conversation prefix (system, tools, and leading messages) to condense.
+  * @param agent - supplies routed-model history, fallback model, and session id.
+  * @param signal - optional cancellation forwarded to the adapter.
++ * @param selected - captured replacement route for an unregistered historical provider.
+  * @returns safe text-only summary blocks and the exact call envelope and output.
+  */
+ export async function summarizeWithLlm(
+@@ -123,6 +134,7 @@ export async function summarizeWithLlm(
+   input: SummarizationInput,
+   agent: Agent,
+   signal?: AbortSignal,
++  selected?: Readonly<ModelSelection>,
+ ): Promise<SummaryResult> {
+   const latest = agent.session.requestHeader()?.config
+   const configured = config.summarizationProvider.length === 0
+@@ -134,7 +146,9 @@ export async function summarizeWithLlm(
+     && agent.options.model.length > 0
+     ? { provider: agent.options.provider, model: agent.options.model }
+     : undefined
+-  const target = configured ?? latest ?? agentTarget
++  const replacement = configured === undefined && latest !== undefined && selected !== undefined
++    && canUseSelectedProvider(ctx, latest.provider, selected.provider) ? selected : undefined
++  const target = configured ?? replacement ?? latest ?? agentTarget
+   if (target === undefined) {
+     throw new Error(
+       'no provider/model available for summarization: set both BasicCompactionConfig summarization fields, route one request, or set both AgentOptions fields',
+@@ -152,6 +166,7 @@ export async function summarizeWithLlm(
+   const options: GenerateOptions = {
+     provider: target.provider,
+     model: target.model,
++    ...replacement?.reasoningEffort === undefined ? {} : { reasoningEffort: replacement.reasoningEffort },
+     messages,
+     toolHistory: agent.session.toolHistory(),
+     ...input.tools === undefined ? {} : { tools: [...input.tools] },

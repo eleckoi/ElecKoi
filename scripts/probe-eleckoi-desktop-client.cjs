@@ -329,6 +329,10 @@ async function main() {
     if (!response.ok || result.ok === false) throw new Error(`${method}: ${JSON.stringify(result)}`)
     return result.value ?? result
   }
+  if (process.argv.includes('--character-home-check')) {
+    await require('./probe-eleckoi-character-home.cjs')({ window, remoteCall, waitFor })
+    return
+  }
   if (process.argv.includes('--startup-only')) {
     await new Promise(resolve => setTimeout(resolve, 500))
     const initial = await remoteCall('session/list', { _request: {} })

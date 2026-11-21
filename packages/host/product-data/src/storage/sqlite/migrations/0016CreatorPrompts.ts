@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3'
 import { settingLibraryStoredEntrySchema } from '@shared/contracts/settingLibrary/schemas'
+import { convertLegacySettingReference } from '@shared/foundation/legacySettingReferences'
 import { upgradeLegacyCreatorPrompt } from '@shared/foundation/legacyCreatorPrompts'
 
 // RETIRE WHEN: 正式停止支持 schema v15 及更早数据库直接升级后，删除本步骤、
@@ -14,7 +15,7 @@ export const migration0016 = {
         WHERE presetId IN (SELECT id FROM agent_presets WHERE purpose='creator')`).all() as { rowid: number; payloadJson: string }[]
       const update = database.prepare(`UPDATE ${table} SET payloadJson=? WHERE rowid=?`)
       for (const row of rows) {
-        const entry = settingLibraryStoredEntrySchema.parse(JSON.parse(row.payloadJson))
+        const entry = settingLibraryStoredEntrySchema.parse(convertLegacySettingReference(JSON.parse(row.payloadJson), 'dynamicMode'))
         const next = JSON.stringify(upgradeLegacyCreatorPrompt(entry))
         if (next !== row.payloadJson) update.run(next, row.rowid)
       }

@@ -1,25 +1,25 @@
 diff --git a/lib/index.js b/lib/index.js
 --- a/lib/index.js
 +++ b/lib/index.js
-@@ -213,7 +213,7 @@
- async function runSearchQueries(ctx, queries, maxResults, signal) {
+@@ -215,7 +215,7 @@
+ 	const route = llmProvider === void 0 ? {} : { llmProvider };
  	if (queries.length === 1) return ctx.web.search({
  		query: queries[0],
--		maxResults
-+		...(maxResults > 0 ? { maxResults } : {})
+-		maxResults,
++		...(maxResults > 0 ? { maxResults } : {}),
+ 		...route
  	}, signal);
  	const controller = new AbortController();
- 	const batchSignal = AbortSignal.any([signal, controller.signal]);
-@@ -223,7 +223,7 @@
+@@ -226,7 +226,7 @@
  		try {
  			results[index] = await ctx.web.search({
  				query,
--				maxResults
-+				...(maxResults > 0 ? { maxResults } : {})
+-				maxResults,
++				...(maxResults > 0 ? { maxResults } : {}),
+ 				...route
  			}, batchSignal);
  		} catch (error) {
- 			if (firstFailure === void 0) firstFailure = { error };
-@@ -246,7 +246,7 @@
+@@ -250,7 +250,7 @@
  		const source = result.sources[rank];
  		if (source !== void 0 && !seen.has(source.url)) {
  			seen.add(source.url);
@@ -28,7 +28,7 @@ diff --git a/lib/index.js b/lib/index.js
  				droppedSource = true;
  				break merge;
  			}
-@@ -899,14 +899,14 @@
+@@ -905,14 +905,14 @@
  */
  function apply(ctx, config) {
  	const resolved = config;

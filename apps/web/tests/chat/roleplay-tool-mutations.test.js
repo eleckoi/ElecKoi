@@ -22,10 +22,14 @@ describe('Readable recorded setting and variable changes', () => {
     expect(source).toEqual(before);
   });
   it('admits the real Host rejection statuses, shows readable issues and never labels them as successful', () => {
+    const message = '变量状态不符合 Zod 规则\n' + '校验详情𠮷\n'.repeat(400) + '校验失败';
     const result = present(variable, { operations: [{ op: 'replace', path: '/好感度', value: 120 }] },
-      { status: 'validation_error', message: '变量状态不符合 Zod 规则', issues: [{ path: ['好感度'], message: '不能超过 100' }], state_unchanged: true });
+      { status: 'validation_error', message, issues: [{ path: ['好感度'], message: '不能超过 100' },
+        { path: ['关系', '状态'], message: '字段不匹配\n请核对定义' }], state_unchanged: true });
     expect(result.state).toBe('error'); expect(result.title).toBe('变量修改未生效');
-    expect(result.parts.filter(part => part.kind === 'error').map(part => part.text)).toEqual(['变量状态不符合 Zod 规则', '好感度：不能超过 100']);
+    expect(result.parts.filter(part => part.kind === 'error').map(part => part.text))
+      .toEqual([`${message}\n好感度：不能超过 100\n关系 / 状态：字段不匹配\n请核对定义`]);
+    expect(result.parts.find(part => part.kind === 'variable')?.value).toBe('120');
   });
   it.each([variable, setting])('shows unchanged and interrupted calls without claiming an applied change (%s)', tool => {
     const args = tool === variable ? { operations: [{ op: 'replace', path: '/值', value: 0 }] } : { operation: 'edit_file', path: '组/条目', old_string: '旧', new_string: '新' };

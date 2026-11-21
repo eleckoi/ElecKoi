@@ -46,11 +46,14 @@ export function roleplayToolMutation(definition, block, phase, tUi = sourceText)
   };
   const path = payload?.path ?? args?.path;
   if (state === 'error' || state === 'cancelled') {
-    text(payload?.message || payload?.error?.message || block?.error?.message || raw || tUi(state === 'cancelled' ? '本次操作已取消。' : '本次修改未生效，原有数据保持。'), 'error');
-    if (Array.isArray(payload?.issues)) for (const issue of payload.issues) {
-      text(record(issue) && typeof issue.message === 'string'
-        ? `${Array.isArray(issue.path) && issue.path.length ? issue.path.join(' / ') + '：' : ''}${issue.message}` : resultValueText(issue), 'error');
-    }
+    const message = payload?.message || payload?.error?.message || block?.error?.message || raw
+      || tUi(state === 'cancelled' ? '本次操作已取消。' : '本次修改未生效，原有数据保持。');
+    const issues = Array.isArray(payload?.issues) ? payload.issues.map(issue =>
+      record(issue) && typeof issue.message === 'string'
+        ? `${Array.isArray(issue.path) && issue.path.length ? issue.path.join(' / ') + '：' : ''}${issue.message}`
+        : resultValueText(issue)) : [];
+    // Preserve a continuous selection across the error and its field diagnostics.
+    parts.push({ kind: 'error', text: [message, ...issues].join('\n'), label: '' });
     if (state === 'cancelled') return { title, state, parts };
   }
   if (unchanged) text(tUi('本次未作修改。'), 'note');

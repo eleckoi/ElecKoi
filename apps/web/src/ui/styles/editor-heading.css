@@ -8,7 +8,71 @@
 .editor-directory-heading { display:flex; flex-direction:column; flex:none; width:100%; gap:var(--editor-heading-gap,12px); min-width:0; margin-bottom:12px; }
 .editor-directory-topline, .editor-directory-scopebar { display:flex; align-items:center; gap:12px 8px; min-width:0; }
 .editor-directory-topline { align-items:flex-start; }
-.editor-directory-scopebar { flex-wrap:wrap; }
+.editor-directory-scopebar { align-items:stretch; gap:6px; }
+.editor-directory-heading .editor-directory-actions { margin-inline-start:auto; }
+.setting-toolbar-group {
+  display:inline-flex;
+  flex:none;
+  align-items:stretch;
+  border:1px solid var(--dsw-alias-border-l2, var(--line-strong));
+  border-radius:var(--dsw-radius-md, 8px);
+}
+.setting-toolbar-group .setting-toolbar-button {
+  height:32px;
+  min-height:32px;
+  padding-inline:8px;
+  gap:5px;
+  border:0;
+  border-radius:0;
+  white-space:nowrap;
+  font-size:13px;
+}
+.setting-toolbar-group .setting-toolbar-icon { width:32px; min-width:32px; padding:0; }
+.setting-toolbar-group > .setting-toolbar-button:first-child,
+.setting-toolbar-group > :first-child > .setting-toolbar-button { border-start-start-radius:7px; border-end-start-radius:7px; }
+.setting-toolbar-group > .setting-toolbar-button:last-child,
+.setting-toolbar-group > :last-child > .setting-toolbar-button { border-start-end-radius:7px; border-end-end-radius:7px; }
+.setting-toolbar-group > :is(.setting-toolbar-button, :has(> .setting-toolbar-button))
+  ~ :is(.setting-toolbar-button, :has(> .setting-toolbar-button)) {
+  border-inline-start:1px solid var(--dsw-alias-border-l2, var(--line-strong));
+}
+.setting-toolbar-button > svg { flex:none; }
+
+.setting-directory .setting-toolbar-group .setting-library-save-control { margin:0; }
+.setting-directory .setting-toolbar-group .setting-library-save-feedback.is-error {
+  position:absolute;
+  inset-block-start:var(--editor-heading-inset-top, 16px);
+  inset-inline-end:var(--pane-inset);
+  min-height:32px;
+}
+.setting-toolbar-group .setting-toolbar-save:disabled { opacity:.76; }
+
+@container (max-width: 340px) {
+  .setting-directory .has-scope .setting-toolbar-group :is(.setting-toolbar-create, .setting-toolbar-save) {
+    width:32px;
+    min-width:32px;
+    padding:0;
+  }
+  .setting-directory .has-scope :is(.setting-toolbar-create, .setting-toolbar-save) > span { display:none; }
+}
+@container (max-width: 255px) {
+  .setting-directory .has-scope .setting-toolbar-group .setting-toolbar-button {
+    width:30px;
+    min-width:30px;
+    padding:0;
+  }
+  .setting-directory .has-scope .setting-toolbar-import > span { display:none; }
+}
+
+.is-mobile-collection .editor-directory-scopebar,
+.is-mobile-collection .editor-collection-topline { align-items:center; min-height:44px; }
+.is-mobile-collection .setting-toolbar-group .setting-toolbar-button { position:relative; }
+.is-mobile-collection .setting-toolbar-group .setting-toolbar-button::before {
+  position:absolute;
+  inset:-6px 0;
+  content:"";
+}
+.is-mobile-collection .setting-toolbar-group .setting-toolbar-icon { width:44px; min-width:44px; }
 .editor-page-title, .editor-page-title :is(h1,h2), .editor-heading-surface h1.editor-page-title {
   margin:0; min-width:0; color:var(--text); font-family:inherit; font-size:22px; font-weight:600; line-height:1.35;
 }

@@ -9,12 +9,14 @@ export function catalogOf(library) {
     while (current && !visited.has(current.id)) { visited.add(current.id); parts.unshift(safeSegment(current.name)); current = byGroup.get(current.parentId) }
     return parts.filter(Boolean).join('/')
   }
-  const readable = entries.filter((entry) => !isFixedEntry(entry) && entry.enabled && entry.triggerMode === 'agent_tool' && (String(entry.content || '').trim() || entry.dynamicMode === 'ejs_reference')).map((raw) => {
+  const describe = raw => {
     const path = [groupPath(raw.groupId), safeSegment(raw.title || '未命名设定')].filter(Boolean).join('/')
     return { raw, path, groupPath: groupPath(raw.groupId), content: String(raw.content || ''),
       selectionHint: raw.agentReadStrategy === 'normal' && raw.contentMode === 'plain_text' ? String(raw.agentSelectionHint || '') : '',
       readStrategy: raw.agentReadStrategy || 'normal' }
-  })
+  }
+  const toolEntries = entries.filter(entry => !isFixedEntry(entry) && entry.triggerMode === 'agent_tool')
+  const readable = toolEntries.filter(entry => entry.enabled && String(entry.content || '').trim()).map(describe)
   const byPath = new Map(), directories = new Map()
   for (const group of groups) {
     const path = groupPath(group.id)
@@ -30,6 +32,21 @@ export function catalogOf(library) {
   return { entries: readable, groups, byGroup, byPath, groupPath }
 }
 
+export function settingReferenceIndex(library, catalog) {
+  const index = new Map()
+  for (const raw of library.entries) {
+    if (isFixedEntry(raw)) continue
+    const path = [catalog.groupPath(raw.groupId), safeSegment(raw.title || '未命名设定')].filter(Boolean).join('/')
+    const source = { raw, path, content: String(raw.content || '') }
+    for (const alias of new Set([raw.title, path])) {
+      if (!alias) continue
+      const candidates = index.get(alias) ?? []
+      candidates.push(source)
+      index.set(alias, candidates)
+    }
+  }
+  return index
+}
 
 export function directoryExists(catalog, path) { return !path || catalog.groups.some((group) => catalog.groupPath(group.id) === path) }
 

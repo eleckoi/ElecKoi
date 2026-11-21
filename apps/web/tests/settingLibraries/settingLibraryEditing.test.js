@@ -93,14 +93,12 @@ describe('setting-library editor model', () => {
     })
   })
 
-  it('creates new settings as Agent-readable entries while keeping preset prompts explicit', () => {
+  it('starts new settings and preset prompts with rules off and unique sibling names', () => {
     vi.stubGlobal('crypto', { randomUUID: () => 'draft-id' })
-    const standard = createEntryDraft('', 1, [], 'standard')
-    const reference = createEntryDraft('', 2, [standard], 'reference')
-    const prompt = createEntryDraft('', 3, [standard, reference], 'prompt')
-    expect(standard).toMatchObject({ title: '新建设定', enabled: false, triggerMode: 'agent_tool', agentReadStrategy: 'normal', dynamicMode: 'standard', position: null })
-    expect(reference).toMatchObject({ title: '新建设定 2', enabled: true, triggerMode: 'agent_tool', agentReadStrategy: 'normal', dynamicMode: 'ejs_reference', contentMode: 'plain_text' })
-    expect(prompt).toMatchObject({ title: '新建设定 3', enabled: false, triggerMode: 'always', position: null, promptPositionId: '' })
+    const standard = createEntryDraft('', 1, [])
+    const next = createEntryDraft('', 2, [standard])
+    expect(standard).toMatchObject({ title: '新建设定', enabled: false, triggerMode: 'agent_tool', agentReadStrategy: 'normal', position: null })
+    expect(next).toMatchObject({ title: '新建设定 2', enabled: false, contentMode: 'plain_text' })
     vi.unstubAllGlobals()
   })
 

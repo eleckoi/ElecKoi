@@ -4,15 +4,18 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { createUserMessage, markAgentLoopRequest } from '@deepseek-ai/dsh-llm'
+import { resolvePlacedSettingTemplates } from '../../src/host/setting-library-tools.mjs'
 
 import {
   installConversationContext,
+  projectRequestInput,
   projectCurrentUserPrompt,
   projectRequestMessages,
   projectProductHistory,
 
   requestContextItems,
   requestProjectionPlan,
+  requestProjectionSnapshot,
   renderRuntimeContext,
   settingInjections,
   visibleDialogueHistory
@@ -403,10 +406,43 @@ describe('DSH conversation context', () => {
     const rendered = renderRuntimeContext(context([
       setting('point-1', '第一插入点', 'insert_point_1', 1),
       { ...setting('cache', '缓存内容', null, 2), triggerMode: 'agent_tool', agentReadStrategy: 'required' },
+      { ...setting('dynamic-required', '动态必读 <%= getvar("score") %>', null, 3),
+        triggerMode: 'agent_tool', agentReadStrategy: 'required', contentMode: 'ejs' },
       setting('point-2', '第二插入点', 'insert_point_2', 1),
       setting('point-3', '输入前', 'insert_point_3', 1)
     ]))
     expect(rendered).toBe('第一插入点\n\n[Setting #S01: cache]\n缓存内容\n\n第二插入点\n\n输入前')
+  })
+
+  it('projects the full mixed body into the chosen position while keeping the saved template', async () => {
+    const body = '首段\n<% if (getvar("oil") === 0) { %>灯塔熄灭。\n<% } %>尾段'
+    const source = context([{ ...setting('mixed', body, 'insert_point_3', 1), contentMode: 'ejs' }])
+    const lit = await resolvePlacedSettingTemplates(source, [], { oil: 1 })
+    const dark = await resolvePlacedSettingTemplates(source, [], { oil: 0 })
+    expect(requestProjectionPlan(lit)).toEqual([expect.objectContaining({ anchor: 'insert_point_3', content: '首段\n尾段' })])
+    expect(requestProjectionPlan(dark)[0].content).toBe('首段\n灯塔熄灭。\n尾段')
+    expect(source.settingLibrary.entries[0].content).toBe(body)
+  })
+
+  it('sends standalone EJS output only on dialogue message 20, independent of paused rules', async () => {
+    const body = '<% if (getChatMessages().length === 20) { %>第二十楼：<%- await getwi("关闭的素材") %><% } %>'
+    const source = context([
+      { ...setting('agent-preset:synthetic:floor-template', body, 'insert_point_3', 1),
+        enabled: false, triggerMode: 'agent_tool', agentReadStrategy: 'keyword', keywords: ['未命中的词'], contentMode: 'ejs' },
+      { ...setting('关闭的素材', '午夜钟声。', null, 2), enabled: false, contentMode: 'plain_text' }
+    ])
+    const requestAt = async floor => {
+      const messages = Array.from({ length: floor }, (_, index) => index === floor - 1 || index % 2 === 0
+        ? message('user', `合成输入 ${index + 1}`, { kind: 'user' })
+        : message('assistant', `合成回复 ${index + 1}`, { kind: 'model', provider: 'test', model: 'test' }))
+      const rendered = await resolvePlacedSettingTemplates(source, visibleDialogueHistory(messages), {})
+      return projectRequestInput(messages, requestProjectionSnapshot(rendered), {}).map(text).join('\n')
+    }
+    expect(await requestAt(19)).not.toContain('午夜钟声。')
+    expect(await requestAt(20)).toContain('第二十楼：午夜钟声。')
+    expect(await requestAt(21)).not.toContain('午夜钟声。')
+    expect(await requestAt(20)).not.toContain('<%')
+    expect(source.settingLibrary.entries[0]).toMatchObject({ enabled: false, agentReadStrategy: 'keyword', content: body })
   })
 
   it('uses custom position anchors and ignores disabled/on-demand entries', () => {

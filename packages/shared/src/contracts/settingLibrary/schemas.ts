@@ -16,8 +16,12 @@ export const settingLibraryPromptPositionSideSchema = z.enum([
   'after_setting_position'
 ])
 export const settingLibraryAgentReadStrategySchema = z.enum(['required', 'keyword', 'normal'])
-export const settingLibraryDynamicModeSchema = z.enum(['standard', 'ejs_reference'])
 export const settingLibraryContentModeSchema = z.enum(['plain_text', 'ejs'])
+
+/** Detect format for new authored text. Stored formats remain authoritative when reading existing data. */
+export function settingBodyMode(content: string): 'plain_text' | 'ejs' {
+  return content.includes('<%') ? 'ejs' : 'plain_text'
+}
 export const settingLibraryKeywordConditionSchema = z.enum(['none', 'any', 'all', 'not_any'])
 export const settingLibraryEntryKindSchema = z.enum([
   'normal',
@@ -44,7 +48,6 @@ export const settingLibraryEntrySchema = z.object({
   defaultOpeningMessageId: z.string(),
   agentSelectionHint: z.string(),
   agentReadStrategy: settingLibraryAgentReadStrategySchema,
-  dynamicMode: settingLibraryDynamicModeSchema,
   contentMode: settingLibraryContentModeSchema,
   keywords: z.array(z.string()),
   keywordScanDepth: z.number().int().min(0),
@@ -68,7 +71,6 @@ export const settingLibraryEntrySchema = z.object({
 })
 
 export const settingLibraryStoredEntrySchema = settingLibraryEntrySchema.extend({
-  dynamicMode: settingLibraryDynamicModeSchema.catch('standard'),
   triggerMode: settingLibraryTriggerModeSchema.nullable().catch(null)
 }).strip()
 

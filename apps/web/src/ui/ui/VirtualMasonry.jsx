@@ -5,7 +5,7 @@ const measureCard = (element, entry) => entry?.borderBoxSize?.[0]?.blockSize ?? 
 
 /** One scroll surface and one shared measurement observer for visible masonry cards. */
 export function VirtualMasonry({ items, scrollClassName, gridClassName, initialState, onSaveState,
-  estimateHeight, leading, empty, children }) {
+  estimateHeight, leading, empty, active = true, children }) {
   const scroll = useRef(null), grid = useRef(null), anchor = useRef(initialState?.anchor || null);
   const [geometry, setGeometry] = useState(initialState?.geometry || { width: 0, columns: 1, columnGap: 0, gap: 0, margin: 0 });
   const cardWidth = (geometry.width - geometry.columnGap * (geometry.columns - 1)) / geometry.columns;
@@ -55,7 +55,7 @@ export function VirtualMasonry({ items, scrollClassName, gridClassName, initialS
   }, [releaseCardAnchor]);
 
   useLayoutEffect(() => {
-    if (!geometry.width) return;
+    if (!active || !geometry.width) return;
     const pending = anchor.current;
     if (pending) {
       anchor.current = null;
@@ -78,7 +78,7 @@ export function VirtualMasonry({ items, scrollClassName, gridClassName, initialS
       }
       if (offset !== undefined) virtualizer.scrollToOffset(Math.max(0, offset + pending.delta));
     }
-  }, [geometry.width, geometry.columns, virtualizer, items.length]);
+  }, [active, geometry.width, geometry.columns, virtualizer, items.length]);
 
   useLayoutEffect(() => () => {
     const current = latest.current;

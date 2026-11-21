@@ -14,7 +14,7 @@
 .opening-entry-heading h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; color: var(--text); font-size: 18px; line-height: 28px; font-weight: 600; }
 .opening-document-content { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 20px; overflow: auto; }
 .opening-properties { flex-shrink: 0; width: min(100%,640px); }
-.opening-properties .rs-input, .opening-properties select { width: 100%; max-width: 384px; }
+.opening-properties .rs-input, .opening-properties .editor-picker-trigger { width: 100%; max-width: 384px; }
 .opening-body-field { display: flex; flex-direction: column; flex: 1 0 250px; min-height: 250px; gap: 8px; }
 .opening-body-label { margin: 0; color: var(--text); font-size: 14px; line-height: 22px; font-weight: 600; }
 .opening-body-field > .opening-writing { min-height: 220px; }

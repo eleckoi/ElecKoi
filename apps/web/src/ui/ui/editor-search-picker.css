@@ -1,0 +1,102 @@
+.editor-management-modal.editor-search-modal {
+  height: min(550px, calc(100dvh - 32px));
+}
+
+.editor-search-modal .editor-management-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-search-modal .editor-management-content > :last-child {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.editor-search-pane {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.editor-search-pane-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.editor-search-pane-toolbar > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.editor-search-pane-toolbar input::placeholder { color: var(--dsw-alias-label-secondary); opacity: 1; }
+
+.editor-search-pane-results {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.editor-picker-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.editor-picker-row {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  justify-content: flex-start;
+  text-align: start;
+  gap: 9px;
+  padding-inline: 10px;
+}
+
+.editor-picker-row[aria-pressed="true"] {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+.editor-picker-row .editor-picker-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--dsw-alias-interactive-bg-active);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+}
+
+.editor-picker-row-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-picker-row-detail,
+.editor-picker-message {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+}
+
+.editor-picker-row-detail { white-space: nowrap; }
+.editor-picker-message { margin: 8px 10px; }
+.editor-picker-message.is-error { color: var(--dsw-text-error, var(--danger)); }
+.editor-picker-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-picker-trigger > svg, .editor-picker-row > svg { flex: none; }
+
+:root[data-eleckoi-mobile="true"] .editor-picker-row,
+:root[data-eleckoi-mobile="true"] .editor-search-pane-toolbar > button {
+  min-height: 48px;
+}

@@ -29,7 +29,7 @@ describe('ElecKoi product page plugin contracts', () => {
       characters: { active_character_id: 'character-1', groups: [], items: [] },
       selectedCharacterId: 'character-1',
       selectCharacter: vi.fn(), openCharacterChat: vi.fn(), saveCharacterGroups: vi.fn(),
-      importPreparedCharacters: vi.fn(), createCharacter: vi.fn(), deleteCharacterIds: vi.fn(),
+      importPreparedCharacters: vi.fn(), createCharacter: vi.fn().mockResolvedValue('character-3'), deleteCharacterIds: vi.fn(),
     }
     const exportCharacters = vi.fn().mockResolvedValue({ canceled: true, written: [], failures: [] });
     const html = renderWithView(CharacterPage, {
@@ -41,7 +41,8 @@ describe('ElecKoi product page plugin contracts', () => {
     })
     expect(html).toContain('data-extension="list"')
     expect(html).toContain('data-extension="profile"')
-    expect(renderSection.mock.calls[0][1].onCreateCharacter).toBe(chat.createCharacter)
+    await expect(renderSection.mock.calls[0][1].onCreateCharacter('合成分组')).resolves.toBe('character-3')
+    expect(chat.createCharacter).toHaveBeenCalledWith('合成分组')
     expect(renderSection.mock.calls[1][1].onStartConversation).toBe(chat.openCharacterChat)
     await renderSection.mock.calls[0][1].onExportCharacters(['character-2'], 'zip')
     expect(exportCharacters).toHaveBeenCalledWith(['character-2'], 'zip')

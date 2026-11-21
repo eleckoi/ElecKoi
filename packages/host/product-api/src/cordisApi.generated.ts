@@ -108,6 +108,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '操作结果，结构见返回类型；失败抛出错误。',
       },
       {
+        signature: '@Remote duplicate(presetId: string): Promise<AgentPreset>',
+        description: '在原分组复制预设，包括作者资料、版本和脚本。',
+        parameters: [{ name: 'presetId', description: '源预设编号。' }],
+        returns: '新预设的完整数据。',
+      },
+      {
         signature: '@Remote async import(source: AgentPresetImportSource, document: AgentPresetImportDocument, purpose: AgentPresetPurpose): Promise<AgentPresetImportResult>',
         description: '导入文件并保存完整数据。',
         parameters: [{ name: 'source', description: '支持的导入格式。' }, { name: 'document', description: '待导入文件内容。' }, { name: 'purpose', description: '目标预设分类。' }],
@@ -148,6 +154,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: '设置预设所属分组。',
         parameters: [{ name: 'presetId', description: '预设编号。' }, { name: 'groupId', description: '预设分组编号。' }],
         returns: '操作结果，结构见返回类型；失败抛出错误。',
+      },
+      {
+        signature: '@Remote assignGroups(presetIds: string[], groupId: string, purpose: AgentPresetPurpose): AgentPresetCatalog',
+        description: '一次移动同一分类下的多个预设。',
+        parameters: [{ name: 'presetIds', description: '所选预设编号。' }, { name: 'groupId', description: '目标分组编号。空字符串表示未分组。' }, { name: 'purpose', description: '所选预设的分类。' }],
+        returns: '更新后的预设目录。任一目标无效时整批取消。',
       },
       {
         signature: '@Remote deleteGroup(groupId: string): AgentPresetCatalog',
@@ -1697,7 +1709,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SettingLibraryEntry',
-    declaration: 'export interface SettingLibraryEntry {\n    id: string;\n    title: string;\n    iconId: string;\n    kind: \'normal\' | \'opening\' | \'history_compaction\' | \'hidden_tool_timeline\';\n    groupId: string;\n    content: string;\n    openingMessages: SettingLibraryOpeningMessage[];\n    defaultOpeningMessageId: string;\n    agentSelectionHint: string;\n    agentReadStrategy: \'required\' | \'keyword\' | \'normal\';\n    dynamicMode: \'standard\' | \'ejs_reference\';\n    contentMode: \'plain_text\' | \'ejs\';\n    keywords: string[];\n    keywordScanDepth: number;\n    conditionKeywords: string[];\n    keywordCondition: \'none\' | \'any\' | \'all\' | \'not_any\';\n    keywordUseRegex: boolean;\n    keywordIgnoreCase: boolean;\n    keywordWholeWord: boolean;\n    keywordRecursionDepth: number;\n    triggerMode: \'always\' | \'agent_tool\' | null;\n    enabled: boolean;\n    position: SettingLibraryPosition | null;\n    promptPositionId: string;\n    insertRole: \'system\' | \'user\' | \'assistant\';\n    order: number;\n    viewOrder: number;\n    groupViewOrder: number;\n    treeViewOrder: number;\n    createdAt: string;\n    updatedAt: string;\n}',
+    declaration: 'export interface SettingLibraryEntry {\n    id: string;\n    title: string;\n    iconId: string;\n    kind: \'normal\' | \'opening\' | \'history_compaction\' | \'hidden_tool_timeline\';\n    groupId: string;\n    content: string;\n    openingMessages: SettingLibraryOpeningMessage[];\n    defaultOpeningMessageId: string;\n    agentSelectionHint: string;\n    agentReadStrategy: \'required\' | \'keyword\' | \'normal\';\n    contentMode: \'plain_text\' | \'ejs\';\n    keywords: string[];\n    keywordScanDepth: number;\n    conditionKeywords: string[];\n    keywordCondition: \'none\' | \'any\' | \'all\' | \'not_any\';\n    keywordUseRegex: boolean;\n    keywordIgnoreCase: boolean;\n    keywordWholeWord: boolean;\n    keywordRecursionDepth: number;\n    triggerMode: \'always\' | \'agent_tool\' | null;\n    enabled: boolean;\n    position: SettingLibraryPosition | null;\n    promptPositionId: string;\n    insertRole: \'system\' | \'user\' | \'assistant\';\n    order: number;\n    viewOrder: number;\n    groupViewOrder: number;\n    treeViewOrder: number;\n    createdAt: string;\n    updatedAt: string;\n}',
   },
   {
     name: 'SettingLibraryEntryChanges',
@@ -1769,7 +1781,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'WebSearchMode',
-    declaration: 'export type WebSearchMode = \'provider_native\' | \'tavily\' | \'deepseek_search_api\';',
+    declaration: 'export type WebSearchMode = \'automatic\' | \'provider_native\' | \'tavily\' | \'deepseek_search_api\';',
   },
 ]
 

@@ -11,6 +11,11 @@ import { ConversationStateRepository } from '../src/domain/conversations/Convers
 import { validateRuntimeState } from '../src/domain/conversations/ConversationStateRepository'
 import { ConversationArchiveRepository } from '../src/domain/conversations/ConversationArchiveRepository'
 import { SettingLibraryRepository } from '../src/domain/settingLibraries/SettingLibraryRepository'
+import { emptyEntry } from '../src/domain/settingLibraries'
+import { writeEntry } from '../src/domain/settingLibraries/settingLibraryCodec'
+import { AgentPresetRepository } from '../src/domain/agentPresets'
+import { CharacterRepository } from '../src/domain/personas/CharacterRepository'
+import { LocalMediaStore } from '../src/storage/media/LocalMediaStore'
 import { VariableConfigRepository } from '../src/domain/variables/VariableConfigRepository'
 import { VariableStateRepository } from '../src/domain/variables/VariableStateRepository'
 import { restoreLegacyConversationStorage, insertLegacyReply } from './helpers/conversationStorageV11'
@@ -43,6 +48,62 @@ function readState(f: ReturnType<typeof fixture>, ...args: Parameters<Conversati
 }
 
 describe('conversation state database', () => {
+  it('converts v18 reference entries once across libraries, saved presets, branches and archives', () => {
+    const f = fixture()
+    const db = f.db.native
+    const entry = { ...emptyEntry('synthetic-reference', '2026-10-01'), title: 'Synthetic template',
+      content: '合成开头<%= 2 + 2 %>结尾', contentMode: 'ejs' as const }
+    const old = { ...entry, dynamicMode: 'ejs_reference', enabled: true }
+    const expected = { ...entry, enabled: false }
+    const change = (payloadJson: string) => ({ targetType: 'entry', targetId: entry.id,
+      operation: 'upsert', payloadJson, updatedAt: '2026-10-01' })
+    const legacySnapshot = JSON.stringify([change(JSON.stringify(old))])
+    const migratedSnapshot = JSON.stringify([change(JSON.stringify(expected))])
+    const characters = new CharacterRepository(f.db, { deleteForCharacter() {}, refreshCharacterIdentity() {} }, new LocalMediaStore(join(f.root, 'media')))
+    characters.create({ id: 'synthetic-card', name: 'Synthetic card', group: '', persona: { assistant_name: 'Synthetic card' } })
+    db.prepare('UPDATE chat_sessions SET characterId=? WHERE id=?').run('synthetic-card', f.id)
+    f.settings.save('synthetic-card', { ...f.settings.get('synthetic-card'), entries: [entry] })
+    const presets = new AgentPresetRepository(f.db)
+    const preset = presets.active()
+    db.prepare('UPDATE setting_entry_contents SET payloadJson=? WHERE entryId=?')
+      .run(JSON.stringify({ ...JSON.parse(writeEntry(entry)), dynamic_mode: 'ejs_reference' }), entry.id)
+    db.prepare('INSERT INTO agent_preset_entries VALUES (?,?,?,?)').run(preset.id, entry.id, 100, JSON.stringify(old))
+    db.prepare('INSERT INTO agent_preset_version_entries VALUES (?,?,?,?,?)').run(preset.id, preset.activeVersionId, entry.id, 100, JSON.stringify(old))
+    db.prepare('INSERT INTO global_setting_libraries VALUES (?,?,?)')
+      .run('synthetic-global', 0, JSON.stringify({ id: 'synthetic-global', entries: [old, { ...entry, id: 'normal', dynamicMode: 'standard' }] }))
+    f.settings.restoreConversationRuntimeState(f.id, legacySnapshot)
+    f.history.recordTurn(f.id, f.id, 1, 'before', state(4, legacySnapshot))
+    const archive = new ConversationArchiveRepository(f.db, { read: id => f.settings.snapshotConversationRuntimeState(id), restore: () => {} })
+    const oldExport = archive.export(f.id)
+    db.pragma('user_version = 18')
+
+    const globalJson = db.prepare('SELECT configurationJson FROM global_setting_libraries').pluck().get()
+    const replaceGlobalJson = db.prepare('UPDATE global_setting_libraries SET configurationJson=?')
+    replaceGlobalJson.run('{"entries":[null]}')
+    expect(() => installSchema(db)).toThrow('旧设定无法迁移')
+    expect(db.pragma('user_version', { simple: true })).toBe(18)
+    const rolledBack = db.prepare('SELECT payloadJson FROM agent_preset_entries WHERE entryId=?').pluck().get(entry.id)
+    expect(rolledBack).toBe(JSON.stringify(old))
+    replaceGlobalJson.run(globalJson)
+
+    installSchema(db)
+    expect(db.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
+    expect(f.settings.get('synthetic-card').versions[0]?.entries[0]).toMatchObject({ enabled: false, content: entry.content })
+    for (const table of ['agent_preset_entries', 'agent_preset_version_entries']) {
+      const saved = db.prepare(`SELECT payloadJson FROM ${table} WHERE entryId=?`).get(entry.id) as { payloadJson: string }
+      expect(JSON.parse(saved.payloadJson)).toEqual(expected)
+    }
+    const library = db.prepare('SELECT configurationJson FROM global_setting_libraries').get() as { configurationJson: string }
+    expect(JSON.parse(library.configurationJson).entries).toEqual([expected, { ...entry, id: 'normal' }])
+    expect(f.settings.snapshotConversationRuntimeState(f.id)).toBe(migratedSnapshot)
+    expect(f.history.read(f.id, f.id, 1, 'before').settingLibraryStateJson).toBe(migratedSnapshot)
+    const decoded = archive.parse(oldExport)
+    expect(decoded.settingLibraryStateJson).toBe(migratedSnapshot)
+    expect(decoded.tables.conversation_state_snapshots[0]?.settingLibraryStateJson).toBe(migratedSnapshot)
+    installSchema(db)
+    expect(f.settings.snapshotConversationRuntimeState(f.id)).toBe(migratedSnapshot)
+  }, 30_000)
+
   it('keeps before, completed and current variables distinct and requires explicit rewind to replace completed state', () => {
     const f = fixture()
     f.history.recordTurn(f.id, f.id, 1, 'before', state(1))

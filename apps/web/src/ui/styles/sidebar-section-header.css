@@ -5,3 +5,26 @@
 .sidebar-section-search-field input { padding-right: 32px; }
 .sidebar-section-search-field input::-webkit-search-cancel-button { display: none; }
 .sidebar-section-search-clear { position: absolute; right: 2px; top: 2px; }
+
+.sidebar-section-header.is-compact .sidebar-section-controls {
+  min-height: 32px;
+  gap: 4px;
+}
+
+.sidebar-section-label {
+  flex: 1;
+  min-width: 0;
+  margin-inline-start: 8px;
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary, var(--muted));
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-section-header .sidebar-section-action,
+.sidebar-section-header.is-compact .sidebar-section-search-clear {
+  width: 28px;
+  padding: 0;
+  color: var(--dsw-alias-label-secondary, var(--muted));
+}

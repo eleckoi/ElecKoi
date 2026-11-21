@@ -272,17 +272,21 @@ describe('character editor client extension', () => {
     try {
       await act(async () => root.render(<CharacterEditorWindow compact embeddedCharacterId={character.id} characterCatalog={catalog} characterConfiguration={{}}
         registerBackHandler={registerBackHandler} renderCharacterEditorSection={() => <SlotEditor />}
-        renderHeader={({ subpage }) => <header>{subpage?.title || '编辑角色'}</header>} />));
+        renderHeader={({ title }) => <header>{title}</header>} />));
       expect(resetTheme).not.toHaveBeenCalled();
+      const headerTitle = () => node.querySelector('.character-editor-main-panel > header').textContent;
+      expect(headerTitle()).toBe('基础资料');
+      await act(async () => node.querySelector('.character-editor-navigation [aria-label="设定库"]').click());
+      expect(headerTitle()).toBe('设定库');
       await act(async () => node.querySelector('.editor-page-list button').click());
       expect(node.querySelector('.qq-character-editor-window-shell.is-editor-subpage')).toBeTruthy();
       expect(node.querySelector('header').textContent).toContain('ElecKoi');
-      expect(node.querySelector('.character-editor-main-panel > header').textContent).toBe('合成子编辑页');
+      expect(headerTitle()).toBe('合成子编辑页');
       expect(backHandlers).toHaveLength(1);
       await act(async () => backHandlers.at(-1)());
       expect(node.querySelector('.is-editor-subpage')).toBeNull();
       expect(node.querySelector('.editor-page-detail')).toBeNull();
-      expect(node.querySelector('.character-editor-main-panel > header').textContent).toBe('编辑角色');
+      expect(headerTitle()).toBe('设定库');
       expect(backHandlers).toHaveLength(0);
     } finally { await act(async () => root.unmount()); }
   });

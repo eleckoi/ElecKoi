@@ -19,10 +19,14 @@ async page => {
   };
   const inspect=()=>page.evaluate(()=>{
     const dialog=document.querySelector('[role=dialog]'),outer=dialog.querySelector('.product-dialog-content,.editor-management-content,.app-error-content,.mobile-overlay-scroll');
-    const r=outer.getBoundingClientRect(),x=r.left+r.width/2,y=Math.min(innerHeight-90,Math.max(r.top+60,Math.min(r.bottom-45,r.top+200)));
+    const surface=dialog.querySelector('.editor-search-pane-results')||outer;
+    const r=surface.getBoundingClientRect(),x=r.left+r.width/2,y=surface===outer?
+      Math.min(innerHeight-90,Math.max(r.top+60,Math.min(r.bottom-45,r.top+200))):r.top+r.height/2;
     const hit=document.elementFromPoint(x,y),chain=[];
     for(let n=hit;n&&n!==document.body;n=n.parentElement){const css=getComputedStyle(n);chain.push({tag:n.tagName,cls:n.className,overflowY:css.overflowY,overscrollY:css.overscrollBehaviorY,height:n.clientHeight,scrollHeight:n.scrollHeight,scrollTop:n.scrollTop});}
-    return {x,y,chain,outer:outer.scrollTop,scroll:chain.reduce((sum,n)=>sum+n.scrollTop,0),selected:window.dialogScrollFixture.selected};
+    const search=dialog.querySelector('input[type=search]'),file=[...dialog.querySelectorAll('button')].find(button=>button.textContent.trim()==='从本地文件');
+    return {x,y,chain,outer:outer.scrollTop,searchTop:search?.getBoundingClientRect().top,fileTop:file?.getBoundingClientRect().top,
+      scroll:chain.reduce((sum,n)=>sum+n.scrollTop,0),selected:window.dialogScrollFixture.selected};
   });
   const show=async(kind,theme,width,height)=>{
     await page.setViewportSize({width,height});
@@ -30,12 +34,10 @@ async page => {
     await wait('Boolean(window.dialogScrollFixture)');
     await page.evaluate(`document.body.toggleAttribute('data-ds-dark-theme',${theme==='dark'});window.dialogScrollFixture.show(${JSON.stringify(kind==='library-picker'?'library':kind)});`);
     if(kind==='library'||kind==='library-picker'){
-      await wait(`Array.from(document.querySelectorAll('button')).some(b=>b.textContent.trim()==='并入设定库')`);
-      await page.evaluate(`Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()==='并入设定库').click()`);
-      await wait(`document.querySelectorAll('.setting-library-manager-rows button').length===41`);
+      await wait(`document.querySelectorAll('.editor-picker-row').length===40`);
       if(kind==='library-picker'){
-        await page.evaluate(`document.querySelector('.setting-library-manager-rows button:not(:disabled)').click()`);
-        await wait(`Boolean(document.querySelector('.setting-library-picker-list'))`);
+        await page.evaluate(`document.querySelector('.editor-picker-row:not(:disabled)').click()`);
+        await wait(`Boolean(document.querySelector('.setting-library-import-rows'))`);
       }
     }
     if(kind==='bug')await wait(`document.querySelectorAll('.bug-report-failures li').length>0`);
@@ -61,10 +63,11 @@ async page => {
       await drag(row.before.x,row.before.y,Math.min(120,scenario.height-row.before.y-30));row.back=await inspect();
       if(row.after.scroll-row.back.scroll<20)throw Error('Reverse touch gesture did not scroll back');
       if(scenario.kind==='library'&&scenario.height===320){
-        await page.evaluate(`document.querySelector('.editor-management-content').scrollTop=0;document.querySelector('.setting-library-sources-list').scrollTop=1e9`);
+        await page.evaluate(`document.querySelector('.editor-search-pane-results').scrollTop=1e9`);
         await page.evaluate(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
         row.edgeBefore=await inspect();await drag(row.edgeBefore.x,row.edgeBefore.y,-150);row.edgeAfter=await inspect();
-        if(row.edgeAfter.outer-row.edgeBefore.outer<25)throw Error('Inner list edge blocked outer dialog');
+        if(row.edgeAfter.outer!==0||row.edgeAfter.searchTop!==row.before.searchTop||row.edgeAfter.fileTop!==row.before.fileTop)
+          throw Error('Search or file action moved while scrolling to the end of the list');
       }
       row.passed=true;
     }catch(error){row.failure=error.message;report.failures.push(`${scenario.kind}/${scenario.theme}/${scenario.width}x${scenario.height}: ${error.message}`);}

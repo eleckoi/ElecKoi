@@ -32,19 +32,23 @@ function CharacterDeckCard({ character, offset, selected, onSelect }) {
     setCoverFailed(false);
   }, [cover]);
 
+  const Card = onSelect ? 'button' : 'div';
+  const buttonProps = onSelect ? {
+    type: 'button',
+    'aria-label': tUi("查看{value0}", { value0: name }),
+    'aria-pressed': selected,
+    tabIndex: Math.abs(offset) <= 2 ? 0 : -1,
+    onMouseDown: preventPointerFocus,
+    onClick: () => onSelect(character.id),
+  } : { 'aria-hidden': true };
   return (
-    <button
-      type="button"
+    <Card
+      {...buttonProps}
       className={`character-deck-card${selected ? " is-selected" : ""}`}
       style={{
         "--deck-offset": offset,
         "--deck-distance": Math.abs(offset),
       }}
-      aria-label={tUi("查看{value0}", {value0: name})}
-      aria-pressed={selected}
-      tabIndex={Math.abs(offset) <= 2 ? 0 : -1}
-      onMouseDown={preventPointerFocus}
-      onClick={() => onSelect(character.id)}
     >
       <span className="character-deck-card-art">
         {cover && !coverFailed ? (
@@ -53,7 +57,7 @@ function CharacterDeckCard({ character, offset, selected, onSelect }) {
           <span aria-hidden="true">{name.slice(0, 1)}</span>
         )}
       </span>
-    </button>
+    </Card>
   );
 }
 
@@ -84,6 +88,7 @@ export function CharacterProfilePanel({
   const [remoteSwitching, setRemoteSwitching] = useState(false);
   const displayedIndex = items.findIndex((item) => item.id === displayedCharacterId);
   const single = presentation === 'single';
+  const canSwitch = !single && Boolean(onSelectCharacter) && items.length > 1;
   const selectedIndex = single ? requestedIndex : displayedIndex >= 0 ? displayedIndex : requestedIndex;
   const selectedCharacter = items[selectedIndex] || null;
 
@@ -127,13 +132,12 @@ export function CharacterProfilePanel({
   );
 
   function moveSelection(direction) {
-    if (items.length < 2) return;
     const nextIndex = (selectedIndex + direction + items.length) % items.length;
     onSelectCharacter(items[nextIndex].id);
   }
 
   useEffect(() => {
-    if (single || items.length < 2) return undefined;
+    if (!canSwitch) return undefined;
 
     function handleWindowKeyDown(event) {
       const direction = characterDeckKeyDirection(event, hasBlockingCharacterOverlay(document));
@@ -144,7 +148,7 @@ export function CharacterProfilePanel({
 
     window.addEventListener("keydown", handleWindowKeyDown);
     return () => window.removeEventListener("keydown", handleWindowKeyDown);
-  }, [single, items, selectedIndex, onSelectCharacter]);
+  }, [canSwitch, items, selectedIndex, onSelectCharacter]);
 
   if (!selectedCharacter) {
     return (
@@ -201,7 +205,7 @@ export function CharacterProfilePanel({
     <section className="character-profile-panel" aria-label={tUi("{value0}的角色简介", {value0: name})} aria-busy={remoteSwitching || undefined}>
       <div
         className={`character-deck${remoteSwitching ? " is-remote-switching" : ""}`}
-        aria-label={tUi("角色卡切换")}
+        aria-label={canSwitch ? tUi("角色卡切换") : undefined}
       >
         {visibleCards.map(({ character, offset }) => (
           <CharacterDeckCard
@@ -213,7 +217,7 @@ export function CharacterProfilePanel({
           />
         ))}
 
-        {items.length > 1 ? (
+        {canSwitch ? (
           <>
             <button type="button" className="character-deck-arrow is-previous" aria-label={tUi("上一个角色")} onMouseDown={preventPointerFocus} onClick={() => moveSelection(-1)}>
               <ChevronRightIcon />

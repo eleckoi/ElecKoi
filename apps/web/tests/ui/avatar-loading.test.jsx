@@ -3,6 +3,7 @@ import React, { act, useLayoutEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, expect, it, vi } from 'vitest';
 import { Avatar } from '../../src/ui/ui/Avatar.jsx';
+import { CharacterContactRow } from '../../src/modules/persona/components/CharacterContactRow.jsx';
 import { usePersonaCharacters } from '../../src/modules/persona/hooks/usePersonaCharacters.js';
 import { coverSources } from '../../src/app/services/assets.js';
 globalThis.React = React; globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -26,6 +27,24 @@ async function render(content) {
   if (!root) { const host = document.createElement('div'); document.body.append(host); root = createRoot(host); }
   await act(async () => root.render(content));
 }
+it('uses the stored square artwork for PC character rows and keeps older avatars and covers usable', async () => {
+  const square = 'https://example.test/square.png';
+  const circle = 'https://example.test/circle.png';
+  const cover = 'https://example.test/cover.png';
+  const showRows = (artworkMode, variants) => render(<>{variants.map((persona, index) =>
+    <CharacterContactRow key={index} character={{ id: String(index), persona }} artworkMode={artworkMode} />
+  )}</>);
+  const imageSources = () => [...document.querySelectorAll('.sidebar-character-artwork img')].map(image => image.src);
+  const variants = [
+    { assistant_square: square, assistant_avatar: circle, assistant_cover: cover },
+    { assistant_avatar: circle, assistant_cover: cover },
+    { assistant_cover: cover },
+  ];
+  await showRows('square', variants);
+  expect(imageSources()).toEqual([square, circle, cover]);
+  await showRows('avatar', variants);
+  expect(imageSources()).toEqual([circle, circle]);
+});
 it.each([false, true])('uses browser-selected thumbnail densities on mobile=%s and falls back to original only on failure', async mobile => {
   if (mobile) document.documentElement.dataset.eleckoiMobile = 'true';
   await render(<Avatar src={source} name="Sample" />);

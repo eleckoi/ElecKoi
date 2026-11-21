@@ -1,6 +1,5 @@
 import {
   settingLibraryEntrySchema,
-  settingLibraryDynamicModeSchema,
   settingLibraryGroupSchema,
   settingLibraryPositionSchema,
   settingLibraryPromptPositionSideSchema,
@@ -61,7 +60,6 @@ export function readEntry(payloadJson: string): SettingLibraryEntry {
     defaultOpeningMessageId: string(value.default_opening_message_id),
     agentSelectionHint: string(value.agent_selection_hint),
     agentReadStrategy: string(value.agent_read_strategy) || 'normal',
-    dynamicMode: settingLibraryDynamicModeSchema.safeParse(value.dynamic_mode).data ?? 'standard',
     contentMode: string(value.content_mode) || 'plain_text',
     keywords: strings(value.keywords),
     keywordScanDepth: number(value.keyword_scan_depth, 1),
@@ -102,7 +100,6 @@ export function writeEntry(entry: SettingLibraryEntry): string {
     default_opening_message_id: entry.defaultOpeningMessageId,
     agent_selection_hint: entry.agentSelectionHint,
     agent_read_strategy: entry.agentReadStrategy,
-    dynamic_mode: entry.dynamicMode,
     content_mode: entry.contentMode,
     keywords: entry.keywords,
     keyword_scan_depth: entry.keywordScanDepth,

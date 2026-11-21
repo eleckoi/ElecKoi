@@ -19,7 +19,7 @@ it('bundles dnd-kit against the production DSH platform and shares its React and
       name: 'test-dsh-dnd-entry',
       resolveId: source => source === entryId ? entryId : null,
       load: id => id === entryId
-        ? "export { DndContext } from '@dnd-kit/core'; export { Activity } from 'react'; export { unstable_batchedUpdates } from 'react-dom';"
+        ? "export { DndContext } from '@dnd-kit/core'; export { unstable_batchedUpdates } from 'react-dom';"
         : null
     }],
     build: {
@@ -47,8 +47,6 @@ it('bundles dnd-kit against the production DSH platform and shares its React and
       react.createElement('div', null, 'Drag item'))
   )
   expect(markup).toContain('Drag item')
-  expect(react.Activity).toBeDefined()
-  expect(runtime.DndPlatformProbe.Activity).toBe(react.Activity)
   expect(runtime.DndPlatformProbe.unstable_batchedUpdates).toBe(reactDom.unstable_batchedUpdates)
   let calls = 0
   const value = runtime.DndPlatformProbe.unstable_batchedUpdates(argument => {

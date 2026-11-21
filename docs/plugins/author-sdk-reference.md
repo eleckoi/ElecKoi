@@ -1768,7 +1768,6 @@ export interface AuthorSettingLibraryEntry {
     defaultOpeningMessageId: string;
     agentSelectionHint: string;
     agentReadStrategy: 'required' | 'keyword' | 'normal';
-    dynamicMode: 'standard' | 'ejs_reference';
     contentMode: 'plain_text' | 'ejs';
     keywords: string[];
     keywordScanDepth: number;

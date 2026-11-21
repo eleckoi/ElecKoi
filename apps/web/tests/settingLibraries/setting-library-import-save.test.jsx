@@ -94,12 +94,12 @@ async function chooseWorldbook() {
 describe('worldbook import save workflow', () => {
   it('imports a version and saves complete native entries without deleting the previous version', async () => {
     const originalVersionId = stored.activeVersionId;
-    await click('设定库更多操作'); await click('管理设定库');
+    await click('导入角色设定库');
     await click('导入为新版本');
     await click('酒馆世界书导入 SillyTavern 世界书 JSON');
     await chooseWorldbook();
     expect(model.save).not.toHaveBeenCalled();
-    await click('关闭');
+    expect(document.querySelector('[role=dialog]')).toBeNull();
     await click('保存');
     expect(model.save).toHaveBeenCalledTimes(1);
     expect(container.querySelector('[role=alert]')).toBeNull();
@@ -111,14 +111,14 @@ describe('worldbook import save workflow', () => {
 
   it('merges a local worldbook, retains the draft on save failure and exposes the complete error for retry', async () => {
     const originalVersionId = stored.activeVersionId;
-    await click('设定库更多操作'); await click('管理设定库');
+    await click('导入角色设定库');
     await click('并入设定库');
     await click('从本地文件');
     await chooseWorldbook();
     await click('全选');
     await click('检查并入结果');
     await click('并入设定');
-    await click('关闭');
+    expect(document.querySelector('[role=dialog]')).toBeNull();
     const error = '合成写入失败\n合成错误详情';
     model.save.mockRejectedValueOnce(new Error(error));
     await click('保存');

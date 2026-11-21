@@ -25,6 +25,8 @@ const config = { name: '合成版本', activeVersionId: version.id, versions: [{
 const callbacks = { onChange() {}, onClose() {}, onError(message) { throw new Error(message); } };
 createRoot(document.querySelector('#root')).render(
   <main className={mobile ? 'mobile-shell' : ''}><div className={mobile ? 'mobile-character-editor' : ''}>
-    {query.get('mode') === 'variable' ? <VariableConfigManager config={config} {...callbacks} /> : <SettingLibraryManager characterId="synthetic-current-character" library={library} settingLibraries={settingLibraries} {...callbacks} />}
+    {query.get('mode') === 'variable' ? <VariableConfigManager config={config} {...callbacks} /> : <SettingLibraryManager
+      initialAction={query.has('merge') ? 'merge' : 'manage'} characterId="synthetic-current-character"
+      library={library} settingLibraries={settingLibraries} {...callbacks} />}
   </div></main>,
 );

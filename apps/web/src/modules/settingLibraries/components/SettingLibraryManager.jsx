@@ -2,10 +2,12 @@ import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.js
 import { saveSettingLibraryFile } from '../model/settingLibraryFileSave.js';
 import { EditorSelect } from '../../../ui/ui/EditorSelect.jsx';
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Avatar } from '../../../ui/ui/Avatar.jsx';
 import { EditorManagementModal } from '../../../ui/ui/EditorCollectionControls.jsx';
 import { EditorVersionManager } from '../../../ui/ui/EditorVersionManager.jsx';
+import { EditorPickerButton, EditorPickerRows, EditorSearchPane, editorSearchMatches } from '../../../ui/ui/EditorSearchPicker.jsx';
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowsMerge, CaretRight, Check, FileText, FolderOpen, Minus, UserCircle } from "../../../ui/icons/interfaceIcons.jsx";
+import { BookOpen, CaretRight, Check, FileText, FolderOpen, Minus } from "../../../ui/icons/interfaceIcons.jsx";
 import { ImportIcon } from "../../../ui/icons/index.jsx";
 import {
   createLibraryVersion,
@@ -20,6 +22,7 @@ import {
 } from "../model/settingLibraryTransfer.js";
 import { PINNED_ENTRY_IDS } from "../model/settingLibraryEditing.js";
 import { resolveFailure } from '../../../utils/failureText.js';
+import { characterAvatar, characterName } from '../../../utils/characterDisplay.js';
 
 function versionLabel(version) {
   return version.name.trim() || "待命名";
@@ -95,16 +98,17 @@ function pickerRows(version) {
     entriesByGroup.set(entry.groupId, list);
   }
   const result = [];
-  function visit(parentId, depth) {
+  function visit(parentId, depth, parentPath) {
     const groups = (groupsByParent.get(parentId) || []).sort((a, b) => a.treeViewOrder - b.treeViewOrder);
     const entries = (entriesByGroup.get(parentId) || []).sort((a, b) => a.treeViewOrder - b.treeViewOrder);
     for (const group of groups) {
-      result.push({ kind: "group", value: group, depth });
-      visit(group.id, depth + 1);
+      const path = `${parentPath} ${group.name}`;
+      result.push({ kind: "group", value: group, depth, searchText: path });
+      visit(group.id, depth + 1, path);
     }
-    for (const entry of entries) result.push({ kind: "entry", value: entry, depth });
+    for (const entry of entries) result.push({ kind: "entry", value: entry, depth, searchText: `${parentPath} ${entry.title}` });
   }
-  visit("", 0);
+  visit("", 0, "");
   return result;
 }
 
@@ -121,14 +125,18 @@ function flattenGroups(groups) {
 }
 
 
-export function SettingLibraryManager({ characterId, settingLibraries, library, onChange, onClose, onError }) {
+export function SettingLibraryManager({ initialAction = 'manage', characterId, settingLibraries, library, onChange, onClose, onError }) {
   const tUi = useProductTranslation();
-  const [page, setPage] = useState("home");
-  const [dialog, setDialog] = useState("");
+  const [page, setPage] = useState(initialAction === 'merge' ? 'sources' : 'home');
   const [notice, setNotice] = useState("");
   const [exportError, setExportError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [sources, setSources] = useState([]);
+  const [sourceQuery, setSourceQuery] = useState("");
+  const [sourceVersionQuery, setSourceVersionQuery] = useState("");
+  const [entryQuery, setEntryQuery] = useState("");
+  const [sourceBusy, setSourceBusy] = useState(false);
+  const [sourceError, setSourceError] = useState("");
   const [source, setSource] = useState(null);
   const [versionId, setVersionId] = useState("");
   const [checkedIds, setCheckedIds] = useState(new Set());
@@ -136,43 +144,74 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
   const [mergePreview, setMergePreview] = useState(null);
   const fileInputRef = useRef(null);
   const fileActionRef = useRef(null);
+  const sourceRequest = useRef(0);
   const current = useMemo(() => syncActiveVersion(library), [library]);
   const activeVersion = current.versions.find((version) => version.id === current.activeVersionId);
-  const pickedVersion = source?.versions.find((version) => version.id === versionId) || source?.versions[0] || null;
-  const selectableEntries = pickedVersion?.entries.filter((entry) => !PINNED_ENTRY_IDS.has(entry.id)) || [];
+  const pickedVersion = source?.versions.find((version) => version.id === versionId);
   const rows = useMemo(() => pickedVersion ? pickerRows(pickedVersion) : [], [pickedVersion]);
+  const visibleRows = useMemo(() => rows.filter(row => editorSearchMatches(entryQuery, row.searchText)), [entryQuery, rows]);
+  const visibleEntryIds = visibleRows.filter(row => row.kind === "entry").map(row => row.value.id);
+  const allVisibleChecked = visibleEntryIds.length > 0 && visibleEntryIds.every(id => checkedIds.has(id));
 
   useEffect(() => {
     if (page !== "sources") return undefined;
-    let alive = true;
-    const ownVersions = current.versions.filter((version) => version.id !== current.activeVersionId);
-    setSources([{ id: "__self__", name: "当前角色 · 其他版本", versions: ownVersions }]);
-    settingLibraries.listCharacters().then(async (collection) => {
-      const others = await Promise.all((collection.items || []).filter((item) => item.id !== characterId).map(async (item) => {
-        try {
-          const otherLibrary = await settingLibraries.readUntracked(item.id);
-          return { id: item.id, name: item.name || item.persona?.assistant_name || "未命名角色", versions: otherLibrary.versions };
-        } catch {
-          return null;
-        }
-      }));
-      if (!alive) return;
-      const character = (collection.items || []).find((item) => item.id === characterId);
-      setSources([
-        { id: "__self__", name: `${character?.name || character?.persona?.assistant_name || "当前角色"} · 其他版本`, versions: ownVersions },
-        ...others.filter(Boolean),
-      ]);
-    }).catch((cause) => alive && onError(resolveFailure(cause, { fallback: tUi("读取导入来源失败") }).text));
-    return () => { alive = false; };
-  }, [page, characterId, settingLibraries]);
+    const request = ++sourceRequest.current;
+    setSourceBusy(true);
+    setSourceError("");
+    settingLibraries.listCharacters().then(collection => {
+      if (request === sourceRequest.current) setSources(collection.items || []);
+    }).catch(cause => {
+      if (request === sourceRequest.current) setSourceError(resolveFailure(cause, { fallback: tUi("读取导入来源失败") }).text);
+    }).finally(() => { if (request === sourceRequest.current) setSourceBusy(false); });
+    return () => { sourceRequest.current++; };
+  }, [page, characterId, settingLibraries, tUi]);
+
+  const eligibleVersions = versions => versions.filter(version => version.entries.some(entry => !PINNED_ENTRY_IDS.has(entry.id)));
+  const ownVersions = eligibleVersions(current.versions.filter(version => version.id !== current.activeVersionId));
+  const sourceOptions = [
+    ...(ownVersions.length ? [{ id: '__self__', label: tUi('当前角色的其他版本'), Icon: BookOpen, next: true }] : []),
+    ...sources.filter(item => item.id !== characterId).map(item => ({
+      id: item.id, label: characterName(item, tUi), avatar: characterAvatar(item), next: true,
+    })),
+  ].filter(item => editorSearchMatches(sourceQuery, item.label)).map(option => option.Icon ? option : {
+    ...option, leading: <Avatar as="span" aria-hidden="true" className="editor-picker-avatar"
+      name={option.label} src={option.avatar} loading="lazy" />,
+  });
+
+  function selectVersion(id) {
+    if (id !== versionId) {
+      setVersionId(id);
+      setCheckedIds(new Set());
+      setEntryQuery("");
+    }
+    setPage("picker");
+  }
 
   function openSource(picked) {
     if (!picked.versions.length) return;
     setSource(picked);
-    setVersionId(picked.versions[0].id);
-    setCheckedIds(new Set());
     setDestinationGroupId("");
-    setPage("picker");
+    setSourceVersionQuery("");
+    if (picked.versions.length === 1) selectVersion(picked.versions[0].id);
+    else { setVersionId(""); setPage("versions"); }
+  }
+
+  async function chooseSource(id) {
+    setSourceError("");
+    const option = sourceOptions.find(item => item.id === id);
+    if (!option) return;
+    if (id === '__self__') { openSource({ id, name: option.label, versions: ownVersions }); return; }
+    const request = ++sourceRequest.current;
+    setSourceBusy(true);
+    try {
+      const loaded = await settingLibraries.readUntracked(id);
+      if (request !== sourceRequest.current) return;
+      const versions = eligibleVersions(loaded.versions);
+      if (versions.length) openSource({ id, name: option.label, versions });
+      else setSourceError(tUi("这个角色没有可并入的设定。"));
+    } catch (cause) {
+      if (request === sourceRequest.current) setSourceError(resolveFailure(cause, { fallback: tUi("读取来源设定库失败") }).text);
+    } finally { if (request === sourceRequest.current) setSourceBusy(false); }
   }
 
   function requestFile(action) {
@@ -189,8 +228,7 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
       const parsed = parseSettingLibraryFile(await file.text(), action.expected || "auto", file.name);
       if (action.type === "import") {
         onChange(importLibraryAsVersion(current, parsed));
-        setDialog("");
-        setNotice(tUi("已导入“{value0}”，保存后生效", {value0: versionLabel(parsed)}));
+        onClose();
       } else {
         openSource({ id: "__file__", name: parsed.name || file.name, versions: [parsed] });
       }
@@ -233,47 +271,59 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
     } finally { setExporting(false); }
   }
 
-  const title = page === "home" ? tUi("设定库管理") : page === "sources" ? tUi("并入设定库") : source?.name || tUi("选择设定");
+  const title = tUi(page === 'sources' ? '并入设定库' : page === 'versions' ? '选择版本' : '选择设定');
+  function goBack() {
+    if (page === 'versions' && pickedVersion) { setPage('picker'); return; }
+    if (page === 'sources') { onClose(); return; }
+    setSource(null);
+    setVersionId('');
+    setPage('sources');
+  }
+  const footer = page === 'sources' ? <>
+    <Button variant="outline" onClick={goBack}>{tUi('返回')}</Button>
+    <Button variant="outline" icon={<FileText size={16} />} onClick={() => requestFile({ type: 'merge', expected: 'auto' })}>{tUi('从本地文件')}</Button>
+  </> : <>
+    {page === 'picker' && checkedIds.size > 0 && <span className="setting-library-import-selection" role="status">{tUi('已选 {value0} 条', { value0: checkedIds.size })}</span>}
+    <Button variant="outline" onClick={goBack}>{tUi('返回')}</Button>
+    {page === 'picker' && <Button variant="primary" disabled={!checkedIds.size} onClick={prepareMerge}>{tUi("检查并入结果")}</Button>}
+  </>;
 
   return (
     <>
         <input ref={fileInputRef} className="setting-library-file-input" type="file" accept=".json,application/json" onChange={handleFile} />
-      {page === "home" ? <EditorVersionManager title={tUi("角色设定库版本管理")} versions={current.versions} activeVersionId={current.activeVersionId}
+      {initialAction === 'import' ? <ImportTypeDialog onCancel={onClose} onPick={expected => requestFile({ type: "import", expected })} /> :
+        page === "home" ? <EditorVersionManager title={tUi("版本管理")} versions={current.versions} activeVersionId={current.activeVersionId}
         onClose={onClose} notice={notice} error={exportError} busy={exporting} onSelect={id => onChange(switchLibraryVersion(current, id))}
         onCopy={name => onChange(createLibraryVersion(current, name, current.activeVersionId))}
         onCreate={name => onChange(createLibraryVersion(current, name, ''))}
         onRename={name => onChange(renameActiveVersion(current, name))} onDelete={() => onChange(deleteActiveLibraryVersion(current))}
-        onImport={() => setDialog('import')} onExport={exportLibrary}
-        extraActions={[{ label: tUi("并入设定库"), Icon: ArrowsMerge, onClick: () => setPage('sources') }]} /> :
-        <EditorManagementModal title={title} onClose={() => { setPage(page === 'picker' ? 'sources' : 'home'); setSource(null); }}>
+        onExport={exportLibrary} /> :
+        <EditorManagementModal title={title} className="editor-search-modal" footer={footer} onClose={goBack}>
         {page === "sources" ? (
-        <div className="setting-library-manager-body setting-library-sources-body">
-          <p className="setting-library-manager-hint">{tUi("只读取来源，不会改动其他角色。")}</p>
-          <section className="setting-library-manager-card setting-library-sources-list">
-            <div className="setting-library-manager-rows">
-              {sources.map((item) => (
-                <button type="button" className="setting-library-manager-row" key={item.id} disabled={!item.versions.some((version) => version.entries.some((entry) => !PINNED_ENTRY_IDS.has(entry.id)))} onClick={() => openSource(item)}>
-                  <UserCircle size={19} /><strong>{item.name}</strong><small>{item.versions.length}{tUi(" 个版本")}</small><CaretRight size={15} />
-                </button>
-              ))}
-            </div>
-          </section>
-          <section className="setting-library-manager-card">
-            <button type="button" className="setting-library-manager-row" onClick={() => requestFile({ type: "merge", expected: "auto" })}><FileText size={18} /><strong>{tUi("从本地文件")}</strong><CaretRight size={15} /></button>
-          </section>
-        </div>
+        <EditorSearchPane key="sources" query={sourceQuery} onQueryChange={setSourceQuery} label={tUi('搜索角色')}>
+          <EditorPickerRows options={sourceOptions} busy={sourceBusy} error={sourceError}
+            onSelect={id => void chooseSource(id)} empty={tUi('没有匹配的角色')} />
+        </EditorSearchPane>
+      ) : page === 'versions' ? (
+        <EditorSearchPane key="versions" query={sourceVersionQuery} onQueryChange={setSourceVersionQuery} label={tUi('搜索版本')}>
+          <EditorPickerRows selectedId={versionId} onSelect={selectVersion} empty={tUi('没有匹配的版本')}
+            options={source.versions.map(version => ({ id: version.id, label: versionLabel(version), next: true }))
+              .filter(option => editorSearchMatches(sourceVersionQuery, option.label))} />
+        </EditorSearchPane>
       ) : pickedVersion ? (
-        <div className="setting-library-manager-body setting-library-picker-body">
-          {source.versions.length > 1 ? (
-            <label className="setting-library-manager-field"><span>{tUi("来源版本")}</span><EditorSelect label={tUi("来源版本")} value={pickedVersion.id}
-              onChange={id => { setVersionId(id); setCheckedIds(new Set()); }} options={source.versions.map(version => ({ value: version.id, label: versionLabel(version) }))} /></label>
-          ) : null}
-          <div className="setting-library-picker-toolbar">
-            <strong>{tUi("选择要并入的设定")}</strong>
-            <button type="button" onClick={() => toggleEntries(selectableEntries.map((entry) => entry.id), checkedIds.size !== selectableEntries.length)}>{checkedIds.size === selectableEntries.length ? tUi("清空") : tUi("全选")}</button>
+        <div className="setting-library-import-picker">
+          <div className="setting-library-import-context">
+            {source.versions.length > 1 && (
+              <EditorPickerButton label={tUi('来源版本')} onClick={() => { setSourceVersionQuery(''); setPage('versions'); }}>{versionLabel(pickedVersion)}</EditorPickerButton>
+            )}
+            <div className="setting-library-import-location"><span>{tUi("并入位置")}</span><EditorSelect label={tUi("并入位置")} value={destinationGroupId} onChange={setDestinationGroupId}
+              options={[{ value: '', label: tUi("根目录") }, ...flattenGroups(current.groups).map(group => ({ value: group.id, label: `${"　".repeat(group.depth)}${group.name}` }))]} /></div>
           </div>
-          <section className="setting-library-manager-card setting-library-picker-list">
-            {!rows.length ? <p>{tUi("这个版本没有可并入的设定。")}</p> : rows.map((row) => {
+          <EditorSearchPane key="entries" query={entryQuery} onQueryChange={setEntryQuery} label={tUi('搜索设定')}
+            toolbar={<Button variant="ghost" disabled={!visibleEntryIds.length}
+              onClick={() => toggleEntries(visibleEntryIds, !allVisibleChecked)}>{tUi(allVisibleChecked ? '清空' : '全选')}</Button>}>
+            <section className="setting-library-import-rows">
+            {!visibleRows.length ? <p className="editor-picker-message" role="status">{tUi(entryQuery.trim() ? '没有匹配的设定' : '这个版本没有可并入的设定。')}</p> : visibleRows.map((row) => {
               if (row.kind === "entry") {
                 const checked = checkedIds.has(row.value.id);
                 return <div className="setting-library-picker-row" style={{ paddingLeft: 14 + row.depth * 18 }} key={`entry:${row.value.id}`}><TriCheckbox checked={checked} label={row.value.title} onChange={() => toggleEntries([row.value.id], !checked)} /><FileText size={16} /><span>{row.value.title || tUi("未命名设定")}</span></div>;
@@ -282,14 +332,12 @@ export function SettingLibraryManager({ characterId, settingLibraries, library, 
               const selectedCount = ids.filter((id) => checkedIds.has(id)).length;
               return <div className="setting-library-picker-row is-folder" style={{ paddingLeft: 14 + row.depth * 18 }} key={`group:${row.value.id}`}><TriCheckbox checked={Boolean(ids.length) && selectedCount === ids.length} mixed={selectedCount > 0 && selectedCount < ids.length} label={row.value.name} onChange={() => toggleEntries(ids, selectedCount !== ids.length)} /><FolderOpen size={16} /><strong>{row.value.name}</strong><small>{ids.length}</small></div>;
             })}
-          </section>
-          <label className="setting-library-manager-field"><span>{tUi("并入位置")}</span><EditorSelect label={tUi("并入位置")} value={destinationGroupId} onChange={setDestinationGroupId}
-            options={[{ value: '', label: tUi("根目录") }, ...flattenGroups(current.groups).map(group => ({ value: group.id, label: `${"　".repeat(group.depth)}${group.name}` }))]} /></label>
-          <Button data-dsh-control variant="outline" type="button" className="setting-library-merge-button" disabled={!checkedIds.size} onClick={prepareMerge}>{tUi("检查并入结果")}</Button>
+            </section>
+          </EditorSearchPane>
         </div>
       ) : null}</EditorManagementModal>}
-        {dialog === "import" ? <ImportTypeDialog onCancel={() => setDialog("")} onPick={(expected) => requestFile({ type: "import", expected })} /> : null}
-        {mergePreview && pickedVersion ? <MergeConfirmDialog sourceName={source.name} version={pickedVersion} plan={mergePreview.plan} onCancel={() => setMergePreview(null)} onMerge={() => { onChange(mergePreview.library); setMergePreview(null); setCheckedIds(new Set()); setPage("home"); setNotice(tUi("已并入 {value0} 条设定，保存后生效", {value0: mergePreview.plan.entryCount})); }} /> : null}
+        {mergePreview && pickedVersion ? <MergeConfirmDialog sourceName={source.name} version={pickedVersion} plan={mergePreview.plan} onCancel={() => setMergePreview(null)}
+          onMerge={() => { onChange(mergePreview.library); onClose(); }} /> : null}
     </>
   );
 }

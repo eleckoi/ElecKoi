@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Android 专用页面与导航装配。",
   "engines": {
-    "dsh": "0.2.2-rc.3"
+    "dsh": "0.2.2-rc.5"
   },
   "exports": {
     ".": "./src/index.js",

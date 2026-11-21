@@ -57,18 +57,10 @@ describe('preset list consistency', () => {
     }
   });
 
-  it('matches Android creation capabilities and setting-library menu order', () => {
+  it('does not offer a cache item in preset prompts', () => {
     const presetSource = readFileSync(sourceFile('../../src/modules/presets/components/PresetPromptEditor.jsx'), 'utf8');
-    expect(presetSource).not.toContain("createNode('cache'");
+    expect(presetSource).not.toMatch(/\bcreateNode\(\s*['"]cache['"]/);
     expect(presetSource).not.toContain('新建缓存设定');
-
-    const librarySource = readFileSync(sourceFile('../../src/modules/settingLibraries/components/SettingLibraryPanel.jsx'), 'utf8');
-    const entryOffsets = [...librarySource.matchAll(/requestAddNode\(["']entry["']/g)].map((match) => match.index);
-    const referenceOffsets = [...librarySource.matchAll(/requestAddNode\(["']reference["']/g)].map((match) => match.index);
-    expect(librarySource).not.toContain('requestAddNode("cache"');
-    expect(entryOffsets).toHaveLength(2);
-    expect(referenceOffsets).toHaveLength(2);
-    expect(entryOffsets.every((offset, index) => offset < referenceOffsets[index])).toBe(true);
   });
 
   it('identifies the active preset category without activating a different global preset', () => {

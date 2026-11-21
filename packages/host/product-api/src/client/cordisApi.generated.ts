@@ -905,6 +905,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '操作结果，字段见返回类型；异步失败会拒绝 Promise。',
       },
       {
+        signature: 'duplicate(presetId: string): Promise<AgentPreset>',
+        description: '在源预设的分组复制整份预设，包括已保存的版本。',
+        parameters: [{ name: 'presetId', description: '源预设编号。' }],
+        returns: '新预设的完整数据。',
+      },
+      {
         signature: 'import(source: AgentPresetImportSource, document: AgentPresetImportDocument, purpose?: AgentPresetPurpose): Promise<AgentPresetImportResult>',
         description: '导入预设文件。',
         parameters: [{ name: 'source', description: '支持的导入格式。' }, { name: 'document', description: '待导入的文件内容。' }, { name: 'purpose', description: '目标预设分类。' }],
@@ -945,6 +951,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: '调整预设所属分组。',
         parameters: [{ name: 'presetId', description: '预设编号。' }, { name: 'groupId', description: '分组编号。' }],
         returns: '操作结果，字段见返回类型；异步失败会拒绝 Promise。',
+      },
+      {
+        signature: 'assignGroups(presetIds: string[], groupId: string, purpose: AgentPresetPurpose): Promise<AgentPresetCatalog>',
+        description: '一次更新同一分类下所选预设的分组。',
+        parameters: [{ name: 'presetIds', description: '所选预设编号。' }, { name: 'groupId', description: '目标分组编号。空字符串表示未分组。' }, { name: 'purpose', description: '所选预设的分类。' }],
+        returns: '更新后的预设目录。',
       },
       {
         signature: 'deleteGroup(groupId: string): Promise<AgentPresetCatalog>',

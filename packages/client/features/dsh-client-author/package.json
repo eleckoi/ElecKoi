@@ -29,7 +29,7 @@
     "typescript": "5.9.3"
   },
   "engines": {
-    "dsh": "0.2.2-rc.3"
+    "dsh": "0.2.2-rc.5"
   },
   "dsh": {
     "bundle": {

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "upstream": {
     "repository": "https://github.com/deepseek-ai/deepseek-harness.git",
-    "commit": "38a6a5c965aa99ab525161efb7cc5cf1fe62fced",
-    "version": "0.2.2-rc.3"
+    "commit": "9c2670d3bce5275e0d1610272958121af87787bb",
+    "version": "0.2.2-rc.5"
   },
   "transport": "authenticated-web-host",
   "entrypoint": "@deepseek-ai/dsh/package.json",

@@ -14,8 +14,8 @@ function needsViewport(value) {
 }
 
 /** Short prose keeps its document layout; long prose shares the editor's complete viewport document. */
-export function PresetReadableText({ value, label, className = '', emptyText = '' }) {
-  const long = useMemo(() => needsViewport(value), [value]);
+export function PresetReadableText({ value, label, className = '', emptyText = '', documentScroll = false }) {
+  const long = useMemo(() => !documentScroll && needsViewport(value), [value, documentScroll]);
   const host = useRef(null), [visible, setVisible] = useState(false);
   useEffect(() => {
     if (!long || visible) return;

@@ -92,7 +92,7 @@ PC 空会话显示居中的新会话首页，共用原来的官方输入框与�
 
 全局库新建用 `settings.create_library({target:{scope:"global"},expectedRevision,name})`，返回 `library.id`，初始为空且停用；`update_library` 修改准确库的名称或整体启停。`remove_library` 删除整个指定库和内容，只用于明确的整库删除需求。删除条目用 `remove`，删除文件夹及子树用 `remove_group`。
 
-全局修改影响共享该库的角色。更新已有原稿或源码时，未提交的库和条目开关保持。新建全局库和脚本默认停用；新建设定条目沿原设定默认 `enabled=true`，起草时可明确 `enabled=false`，库开关不随条目保存改变。`scripts.configure` 和 `regex.configure` 只设置库开关，不批量改变条目开关。正则保存会同步当前启用组合与当前命名配置版本，脚本保存同步当前命名版本，其他命名版本保留。普通修改不需要重传整库正文、文件 base64 或版本 JSON；正则和脚本命名版本管理使用 `editorVersions`。全局设定库没有命名版本。
+全局修改影响共享该库的角色。更新已有原稿或源码时，未提交的库和条目开关保持。新建全局库、脚本和设定的触发规则默认关闭，保存条目不改变库开关。`scripts.configure` 和 `regex.configure` 只设置库开关，不批量改变条目开关。正则保存会同步当前启用组合与当前命名配置版本，脚本保存同步当前命名版本，其他命名版本保留。普通修改不需要重传整库正文、文件 base64 或版本 JSON；正则和脚本命名版本管理使用 `editorVersions`。全局设定库没有命名版本。
 
 `regex.test` 与存储范围无关，无需选择角色；其 `target` 是 `AiOutput` 等消息作用对象，`surface` 是显示／提示词／保存范围，按该操作的 schema 传参，不传库范围对象。
 
@@ -114,27 +114,21 @@ PC 空会话显示居中的新会话首页，共用原来的官方输入框与�
 
 ## 设定读取与 EJS
 
-读取策略只有必读和选读：`agentReadStrategy="required"` 是必读，`"normal"` 是选读并关闭关键词匹配，`"keyword"` 是选读并开启关键词匹配，与界面中的关键词命中开关相同，不是第三个读取档位。只填写 `keywords` 不会开启匹配。`enabled` 控制条目启停。
+角色和全局设定新建时触发规则默认关闭。启用时传 `enabled=true`。在 `triggerMode="agent_tool"` 下，`agentReadStrategy` 选 `"normal"` 为 AI 选读，`"keyword"` 为关键词触发，`"required"` 为常驻触发（每轮必读）。指定插入位置的常驻触发使用 `triggerMode="always"` 并填写 `position`。
 
 多条修改使用 `settings.update_many`，一次提交准确编号与要改的字段。例如：
 
 ```json
-{"updates":[{"id":"entry-a","changes":{"agentReadStrategy":"keyword"}},{"id":"entry-b","changes":{"agentReadStrategy":"keyword"}}]}
+{"updates":[{"id":"entry-a","changes":{"enabled":true,"triggerMode":"agent_tool","agentReadStrategy":"keyword"}},{"id":"entry-b","changes":{"enabled":true,"triggerMode":"agent_tool","agentReadStrategy":"keyword"}}]}
 ```
 
-关闭关键词匹配时将该字段设回 `normal`，关键词内容和其他条件保留。批量修改同步当前设定版本，任一编号、格式或保存失败整批回滚。
+关闭规则时写 `enabled=false`，保留关键词和其他配置。批量修改同步当前设定版本，任一编号、格式或保存失败整批回滚。
 
 主开场白和备用开场白通过 `character.read_openings` 读取、`character.save_openings` 保存。`openingMessages` 接收完整列表，可以新增、修改、删除、调整顺序，并修改每项的标题、正文与 `variableVersionId` 变量版本绑定；未要求修改的项目和字段应保留。`defaultOpeningMessageId` 指定主开场，删除原主开场时必须同时给出有效的新编号。
 
 变量绑定可以改为当前角色已有的准确变量版本编号，也可以填空字符串取消绑定。`variables.list` 返回各版本的 `id/name`，用于查询可选绑定；其 `activeVersionId` 只表示变量编辑器当前选择。新对话只加载所选开场白明确绑定的变量版本及其初值；未绑定或没有有效开场白时不启用变量配置，不自动选择版本。切换至未绑定开场白同时清空本次开局的变量绑定和初值。创作工具不提供开场白独立初值字段。修改原稿不会重写已有对话中的开场与变量。清空开场正文使用空字符串。
 
-| 用途 | `dynamicMode` | `contentMode` | 限制 |
-| --- | --- | --- | --- |
-| 文字设定 | `standard` | `plain_text` | 必读和选读均可 |
-| EJS 控制器 | `standard` | `ejs` | 只允许 `agent_tool` 的选读条目 |
-| EJS 引用设定 | `ejs_reference` | `plain_text` 或 `ejs` | 只供控制器引用，选读、`agent_tool`，不单独进入选读目录；EJS 正文被引用时递归执行 |
-
-`triggerMode="always"` 按插入位置注入文字；`"agent_tool"` 由设定读取流程使用。必读和自动注入的正文使用文字。
+设定正文可以使用 `contentMode="plain_text"` 或 `contentMode="ejs"`。启用规则后，`triggerMode="always"` 按插入位置提供正文，`"agent_tool"` 由设定读取流程使用。关闭规则的 EJS 正文仍可按本轮条件输出。
 
 以下 EJS 执行说明适用于角色聊天运行时；创作的 `settings.read` 返回原稿源码，`settings.edit/update` 修改原稿，不执行模板。角色聊天中，`<% ... %>` 写判断等代码，`<%= ... %>` 和 `<%- ... %>` 在本产品均输出文字，模板标记之外的文字原样输出。渲染为空表示本轮未触发；非空结果进入本轮需要读取的正文，聊天 AI 看到的是执行后的文字。
 
@@ -146,7 +140,7 @@ PC 空会话显示居中的新会话首页，共用原来的官方输入框与�
 <% } %>
 ```
 
-也可以把文字独立放进名为「阶段素材」的 EJS 引用设定，再写控制器：
+也可以把文字放进名为「阶段素材」的普通设定，保留触发规则关闭，再在另一条设定的 EJS 正文中引用：
 
 ```ejs
 <% if (getvar("阶段", { defaults: 0 }) >= 2) { %>
@@ -156,11 +150,11 @@ PC 空会话显示居中的新会话首页，共用原来的官方输入框与�
 
 `getvar` 读取当前聊天变量，`clone:true` 返回独立副本；`variables/stat_data` 是同一份状态，`lastUserMessage` 是最近用户正文。`getChatMessages(-5)` 返回最近五条角色聊天文字，按时间顺序包含用户与 AI 消息；完整读取、范围与角色筛选见[角色配置参考](authoring-configurations.md)。`_` 是完整 Lodash，可使用 `_.cloneDeep` 等正式方法。不要在读取模板里修改状态来结算变量。
 
-`getwi` 只引用已启用的引用条目。正文格式为 `plain_text` 时原样返回，里面的模板标记也保持文字；为 `ejs` 时在同一份当前聊天变量和历史上下文中计算，内部可继续引用其他条目。循环引用返回完整路径链错误，不影响其他控制器；不要为了复用动态正文增加全局变量或让预设写角色变量。
+`getwi` 直接取用设定正文，包括规则关闭的设定。正文格式为 `plain_text` 时原样返回，为 `ejs` 时在同一份聊天上下文中计算。模板内部可以继续引用其他条目，循环引用会报告完整路径链。
 
-它按准确标题或完整路径匹配。例如「城市/天气」和「乡村/天气」同名时，`getwi("天气")` 明确报错，改用 `getwi("城市/天气")` 即可。它不能引用普通设定或另一个 EJS 控制器，也不提供标准 EJS `include()`。`settings.read` 读取递归引用条目时仍返回原稿，保存源码不会执行其中模板。
+它按准确标题或完整路径匹配。例如「城市/天气」和「乡村/天气」同名时，`getwi("天气")` 会报错，可以改用 `getwi("城市/天气")`。`settings.read` 返回原稿，保存源码不会执行其中模板。
 
-例如复用动态人物状态时，先用 `settings.create` 创建“人物状态”，传 `dynamicMode="ejs_reference"`、`contentMode="ejs"`，正文写 `好感度：<%= getvar("好感度", {defaults:0}) %>`；再在剧情控制器中用 `<%- await getwi("人物状态") %>` 输出它。若人物状态还要引用固定规则，先创建该文字引用，再把 `<%- await getwi("固定规则") %>` 放进人物状态模板。具体可提交的参数见[递归引用示例](authoring-configurations.md#动态正文递归引用)。
+例如复用动态人物状态时，用 `settings.create` 创建「人物状态」，传 `contentMode="ejs"`，正文写 `好感度：<%= getvar("好感度", {defaults:0}) %>`。在其他设定里写 `<%- await getwi("人物状态") %>` 即可取用。 [递归引用示例](authoring-configurations.md#动态正文递归引用)
 
 ## 变量与 Zod
 

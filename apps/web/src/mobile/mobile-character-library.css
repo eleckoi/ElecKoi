@@ -1,3 +1,7 @@
+.mobile-character-page { display: grid; flex: 1; min-width: 0; min-height: 0; grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
+.mobile-character-page > * { grid-area: 1 / 1; }
+/* Keep the measured list and its scroll viewport in place while the detail is open. */
+.mobile-character-page > [data-background] { visibility: hidden; pointer-events: none; }
 .mobile-character-library-body { display: flex; position: relative; flex-direction: column; flex: 1; min-height: 0; isolation: isolate; }
 .mobile-character-library-body .mobile-character-list { min-height: 0; flex: 1; overflow-y: auto; }
 .mobile-character-library-group-bar { --group-actions-width: 99px; position: relative; display: flex; align-items: center; height: 44px; flex: none; overflow: hidden; isolation: isolate; background: var(--mobile-content-bg); }

@@ -16,12 +16,102 @@ import { preparePluginHost } from '../../apps/android-host/src/pluginHostConfigu
 import { ELECKOI_INSTALL_ANCHOR as ANDROID_INSTALL_ANCHOR } from '../../apps/android-host/src/androidPluginBundles'
 import Database from 'better-sqlite3'
 import { DEFAULT_CREATOR_INSTRUCTIONS } from '../../packages/shared/src/contracts/presets/builtIns'
+import { emptyEntry } from '../../packages/host/product-data/src/domain/settingLibraries/settingLibraryNormalization'
 import { ownerPeer } from '../support/owner-peer.js'
 import { Session, SessionId, SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import { CREATOR_STUDIO_EVENT } from '../../packages/client/features/dsh-client-creator-studio/src/host/projection.mjs'
 
 const cleanups = []
 afterEach(async () => { vi.unstubAllGlobals(); for (const stop of cleanups.splice(0).reverse()) await stop() }, 30000)
+
+it.each(['desktop', 'android'])('%s sends preset custom positions while regenerating and after deleting messages', async platform => {
+  const root = mkdtempSync(join(tmpdir(), 'eleckoi-preset-position-profile-'))
+  cleanups.push(() => rm(root, { recursive: true, force: true, maxRetries: 3 }))
+  let f = await start(platform, root)
+  const requests = []
+  class Adapter extends LlmAdapter {
+    async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 65536 }, defaultMaxTokens: 8192 } }
+    async *stream(request) {
+      requests.push(request.messages)
+      const text = `<FINAL>合成回复 ${requests.length}</FINAL>`
+      yield { type: 'block-start', index: 0, blockType: 'text' }
+      yield { type: 'block-end', index: 0, block: { type: 'text', text } }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    }
+  }
+  const provider = 'synthetic-preset-position'
+  const registerModel = () => f.ctx.llm.registerAdapter([provider], new Adapter())
+  registerModel()
+  await f.ctx.agentDefaultModel.saveSelection({ provider, model: provider })
+  const data = f.ctx.eleckoiProductData
+  const preset = data.readAgentPreset(data.readAgentPresetCatalog().activePresetIds.roleplay)
+  const timestamp = new Date().toISOString()
+  const before = { id: 'synthetic-before', name: '合成自定义输入前', anchor: 'insert_point_3', side: 'before_setting_position', order: 1,
+    createdAt: timestamp, updatedAt: timestamp }
+  const after = { id: 'synthetic-after', name: '合成自定义输入后', anchor: 'insert_point_4', side: 'after_setting_position', order: 2,
+    createdAt: timestamp, updatedAt: timestamp }
+  data.saveAgentPreset({ ...preset, promptPositions: [...preset.promptPositions, before, after],
+    entries: [...preset.entries,
+      { ...emptyEntry(before.id), title: before.name, content: before.name, triggerMode: 'always', promptPositionId: before.id, insertRole: 'assistant' },
+      { ...emptyEntry(after.id), title: after.name, content: after.name, triggerMode: 'always', promptPositionId: after.id }]
+  }, preset.regexRules)
+  const character = data.createCharacter({ id: 'synthetic-preset-character', name: '合成角色' }).items[0]
+  const chat = await f.ctx.eleckoiConversationsApi.create({ metadata: { characterId: character.id } })
+  const conversationId = chat.conversation.id
+  const sessionId = chat.runtimeSessionId
+  const invoke = (method, args) => f.ctx.typertGateway.invoke({
+    peer: ownerPeer(f.ctx), namespace: 'eleckoiConversations', method, args: { conversationId, ...args }
+  })
+  const inspect = async () => (await readSessionInspection(f.ctx, sessionId)).events
+  const first = '合成保留的输入', second = '合成待删除的输入', next = '合成重开后的输入'
+  const send = async input => {
+    expect(await f.ctx.eleckoiRoleplaySessions.preparePrompt(conversationId, input)).toBe(sessionId)
+    const { agent } = await f.ctx.sessionController.resolveAgent(sessionId)
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: input }], source: { kind: 'user' } }))
+    await agent.whenIdle()
+    await f.ctx.eleckoiConversationLifecycle.drain(conversationId)
+    expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
+  }
+  const verifyRequest = input => {
+    const markers = new Set([before.name, input, after.name])
+    const entries = requests.at(-1).flatMap(message => message.content.filter(block => block.type === 'text')
+      .map(block => [message.role, block.text]))
+    expect(entries.filter(([, text]) => markers.has(text))).toEqual([
+      ['assistant', before.name], ['user', input], ['user', after.name]
+    ])
+  }
+  await send(first)
+  verifyRequest(first)
+  await send(second)
+  verifyRequest(second)
+  const userEvents = events => events.filter(event => event.type === 'user/message' && event.data.source.kind === 'user')
+  const [retainedInput, retryInput] = userEvents(await inspect())
+  const requestId = 'synthetic-preset-retry'
+  const prepared = await invoke('regenerateMessage', { eventSeq: retryInput.seq, requestId })
+  expect(prepared).toMatchObject({ runtimeSessionId: sessionId, prepared: true })
+  expect(await invoke('startRegeneration', { requestId, cancelled: false })).toMatchObject({ accepted: true })
+  const { agent: regeneratingAgent } = await f.ctx.sessionController.resolveAgent(sessionId)
+  await regeneratingAgent.whenIdle()
+  await invoke('waitForGeneration', { operationId: prepared.operationId })
+  expect(requests).toHaveLength(3)
+  verifyRequest(second)
+  const regenerated = await inspect()
+  expect(userEvents(regenerated).map(event => event.data.id)).toEqual([retainedInput.data.id, retryInput.data.id])
+  const assistantText = events => events.filter(event => event.type === 'assistant/message')
+    .flatMap(event => event.data.message.content.filter(block => block.type === 'text').map(block => block.text))
+  expect(assistantText(regenerated)).toEqual(['<FINAL>合成回复 1</FINAL>', '<FINAL>合成回复 3</FINAL>'])
+  await invoke('deleteMessagesFrom', { eventSeq: retryInput.seq, role: 'user' })
+  await f.close()
+  f = await start(platform, root)
+  registerModel()
+  const reopened = await inspect()
+  expect(userEvents(reopened).map(event => event.data.id)).toEqual([retainedInput.data.id])
+  expect(assistantText(reopened)).toEqual(['<FINAL>合成回复 1</FINAL>'])
+  await send(next)
+  expect(requests).toHaveLength(4)
+  verifyRequest(next)
+  expect(JSON.stringify(requests.at(-1))).not.toContain(second)
+}, 120_000)
 
 it.each(['desktop', 'android'])('%s keeps associated variable configuration live and continues chatting after it is removed', async platform => {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-live-variable-profile-'))
@@ -318,7 +408,7 @@ it.each(['desktop', 'android'])('%s keeps Studio APIs and model turns available 
   ctx.llm.registerAdapter(['synthetic-tool-switches'], new Adapter())
   await ctx.agentDefaultModel.saveSelection({ provider: 'synthetic-tool-switches', model: 'synthetic-tool-switches' })
   const blockedTools = new Map([
-    ['builtin:workspace', ['read', 'edit', 'write', 'bash', 'pwsh', 'working_directory']],
+    ['builtin:workspace', ['edit', 'write', 'apply_patch', 'bash', 'pwsh', 'working_directory']],
     ['builtin:workflow', ['todo_write', 'job_output', 'schedule_create', 'get_goal', 'create_goal', 'workflow']],
     ['builtin:collaboration', ['subagent', 'subagent_fork', 'send_message', 'list_agents']],
     ['builtin:web', ['web_search', 'web_fetch']],
@@ -337,6 +427,7 @@ it.each(['desktop', 'android'])('%s keeps Studio APIs and model turns available 
     expect(resolved.agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
     const tools = requests.at(-1).tools.map(tool => tool.name)
     for (const id of blocked) for (const name of blockedTools.get(id)) expect(tools, id).not.toContain(name)
+    expect(tools).toEqual(expect.arrayContaining(['read', 'read_image']))
     expect((await list()).some(item => item.sessionId === studio.sessionId)).toBe(true)
     expect(ctx.eleckoiProductData.readAgentPreset(preset.id)).toEqual(saved)
   }
@@ -573,6 +664,109 @@ it.each(['desktop', 'android'])('%s keeps roleplay accessible after its saved pr
   expect(requests.every(request => request.provider === replacement.provider)).toBe(true)
 }, 120_000)
 
+it('desktop compacts image and text history after switching away from an unavailable provider', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'eleckoi-compaction-model-switch-'))
+  cleanups.push(() => rm(root, { recursive: true, force: true, maxRetries: 3 }))
+  const started = await start('desktop', root)
+  let { ctx } = started
+  const previous = { provider: 'synthetic-old-compaction', model: 'old-model', reasoningEffort: 'high' }
+  const selected = { provider: 'synthetic-new-compaction', model: 'new-model' }
+  const requests = []
+  class Adapter extends LlmAdapter {
+    async resolveModel(provider, id) {
+      return { provider, id, name: id, inputModalities: ['text', 'image'], context: { contextWindow: 250000 }, defaultMaxTokens: 8192,
+        ...(provider === previous.provider ? { reasoning: { efforts: [{ id: 'high', name: 'High' }] } } : {}) }
+    }
+    async listModels(provider) {
+      return [await this.resolveModel(provider, provider === previous.provider ? previous.model : selected.model)]
+    }
+    async *stream(request) {
+      requests.push(request)
+      const text = request.purpose === 'compaction' ? 'Synthetic history summary.' : '<FINAL>Synthetic reply.</FINAL>'
+      yield { type: 'block-start', index: 0, blockType: 'text' }
+      yield { type: 'block-end', index: 0, block: { type: 'text', text } }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    }
+  }
+  ctx.llm.registerAdapter([previous.provider], new Adapter())
+  ctx.llm.registerAdapter([selected.provider], new Adapter())
+  await ctx.agentDefaultModel.saveSelection(previous)
+  const character = ctx.eleckoiProductData.createCharacter({ id: 'synthetic-compaction-character', name: 'Synthetic character' }).items[0]
+  const image = await ctx.attachments.saveImage({
+    data: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
+    mediaType: 'image/png',
+  })
+  const send = async (chat, text, attachment) => {
+    await ctx.eleckoiRoleplaySessions.preparePrompt(chat.conversation.id, text)
+    const { agent } = await ctx.sessionController.resolveAgent(chat.runtimeSessionId)
+    agent.followup(createUserMessage({ source: { kind: 'user' }, content: [
+      ...(attachment ? [{ type: 'image', attachment }] : []),
+      { type: 'text', text },
+    ] }))
+    await agent.whenIdle()
+    await ctx.eleckoiConversationLifecycle.drain(chat.conversation.id)
+    expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end')?.data.reason).toEqual({ kind: 'completed' })
+    return agent
+  }
+  const makeHistory = async (text, attachment) => {
+    const chat = await ctx.eleckoiConversationsApi.create({ metadata: { characterId: character.id } })
+    await ctx.eleckoiConversationModelsApi.select(chat.conversation.id, previous)
+    return { ...chat, agent: await send(chat, text, attachment) }
+  }
+  const compact = async agent => (await ctx.commands.execute(agent, '/compact', [], new AbortController().signal)).result
+  const imageBlocks = request => request.messages.flatMap(message => message.content.filter(block => block.type === 'image'))
+  const summaryEvents = agent => agent.session.snapshotEvents().filter(event => event.type === 'compaction/summary')
+
+  const control = await makeHistory('A history with a live previous provider. '.repeat(60), image)
+  await ctx.eleckoiConversationModelsApi.select(control.conversation.id, selected)
+  expect((await compact(control.agent)).kind).toBe('success')
+  expect(requests.at(-1)).toMatchObject({ purpose: 'compaction', provider: previous.provider, model: previous.model, reasoningEffort: 'high' })
+  expect(imageBlocks(requests.at(-1))).toEqual([{ type: 'image', attachment: image }])
+
+  const imageChat = await makeHistory('An earlier chat message with an image. '.repeat(60), image)
+  const textChat = await makeHistory('An earlier text-only chat message. '.repeat(60))
+  const automatic = await makeHistory('A village keeps a detailed history of its harvests and traditions. '.repeat(1800), image)
+  await started.close()
+  ctx = (await start('desktop', root)).ctx
+  ctx.llm.registerAdapter([selected.provider], new Adapter())
+  await expect(ctx.llm.resolveModelInfo(previous.provider, previous.model)).rejects.toThrow('no adapter registered')
+
+  const { agent: unselected } = await ctx.sessionController.resolveAgent(textChat.runtimeSessionId)
+  const unchangedHistory = unselected.session.deriveMessages()
+  expect((await compact(unselected)).kind).toBe('error')
+  expect(unselected.session.deriveMessages()).toEqual(unchangedHistory)
+  expect(summaryEvents(unselected)).toEqual([])
+
+  for (const chat of [imageChat, textChat]) {
+    const { agent } = await ctx.sessionController.resolveAgent(chat.runtimeSessionId)
+    await ctx.eleckoiConversationModelsApi.select(chat.conversation.id, selected)
+    expect(agent.session.requestHeader()?.config.provider).toBe(previous.provider)
+    expect((await compact(agent)).kind).toBe('success')
+    const request = requests.at(-1)
+    expect(request).toMatchObject({ purpose: 'compaction', ...selected })
+    expect(request.reasoningEffort).toBeUndefined()
+    expect(imageBlocks(request)).toEqual(chat === imageChat ? [{ type: 'image', attachment: image }] : [])
+    expect(summaryEvents(agent).map(event => event.data)).toEqual([expect.objectContaining(selected)])
+    expect(agent.session.requestHeader()?.config.provider).toBe(previous.provider)
+    const inspection = await readSessionInspection(ctx, chat.runtimeSessionId)
+    expect(inspection.events.find(event => event.type === 'compaction/summary')?.data).toMatchObject(selected)
+  }
+
+  await ctx.eleckoiConversationModelsApi.select(automatic.conversation.id, selected)
+  const parameters = await ctx.eleckoiConversationModelsApi.parameters(automatic.runtimeSessionId)
+  await ctx.eleckoiConversationModelsApi.saveParameters(automatic.runtimeSessionId, selected.provider, selected.model, { autoCompactTokenLimit: 12000 }, parameters.revision)
+  const before = requests.length
+  const agent = await send(automatic, 'Continue from the long image history.')
+  expect(requests.slice(before).map(request => [request.purpose, request.provider])).toEqual([
+    ['compaction', selected.provider],
+    [undefined, selected.provider],
+  ])
+  expect(imageBlocks(requests[before])).toEqual([{ type: 'image', attachment: image }])
+  expect(JSON.stringify(requests[before + 1].messages)).toContain('Synthetic history summary.')
+  expect(summaryEvents(agent).map(event => event.data)).toEqual([expect.objectContaining(selected)])
+  expect(agent.session.requestHeader()?.config).toMatchObject(selected)
+}, 120_000)
+
 async function start(platform, root, legacySelection = false) {
   const resources = resolve('apps/desktop/resources/dsh')
   const paths = { runtimeDataRoot: root, homeRoot: join(root, 'home'), workspaceRoot: join(root, 'workspace'),
@@ -701,7 +895,7 @@ it('desktop persists Messages selection from Tavily with the new API off after r
   })
   const f = await start('desktop', root)
   const api = f.ctx.eleckoiWebSearchApi
-  expect(api.selection()).toBe('provider_native')
+  expect(api.selection()).toBe('automatic')
   expect(api.fetchSelection()).toBe('http')
   const apiConfig = f.ctx.settings.describe().find(item => item.ns === 'web-deepseek-api').value
   await api.select('tavily')
@@ -714,6 +908,12 @@ it('desktop persists Messages selection from Tavily with the new API off after r
   expect(reopened.ctx.eleckoiWebSearchApi.selection()).toBe('provider_native')
   expect(reopened.ctx.eleckoiWebSearchApi.fetchSelection()).toBe('http')
   expect(reopened.ctx.settings.describe().find(item => item.ns === 'web-deepseek-api').value).toEqual(apiConfig)
+  await reopened.ctx.eleckoiWebSearchApi.select('automatic')
+  expect(reopened.ctx.eleckoiWebSearchApi.selection()).toBe('automatic')
+  await reopened.close()
+  const reset = await start('desktop', root)
+  expect(reset.ctx.eleckoiWebSearchApi.selection()).toBe('automatic')
+  expect(reset.ctx.eleckoiWebSearchApi.fetchSelection()).toBe('http')
 }, 60_000)
 
 it.each(['desktop', 'android'])('%s loads both APIs through the shipped bundles, saves settings and executes in roleplay and studio', async platform => {
@@ -721,7 +921,7 @@ it.each(['desktop', 'android'])('%s loads both APIs through the shipped bundles,
   cleanups.push(async () => { const child = relative(tmpdir(), root); if (!child || child.startsWith('..') || isAbsolute(child)) throw new Error('Unexpected cleanup target'); await rm(root, { recursive: true, force: true }) })
   const f = await start(platform, root), { ctx } = f
   const api = ctx.eleckoiWebSearchApi
-  expect(api.selection()).toBe('provider_native')
+  expect(api.selection()).toBe('automatic')
   expect(api.fetchSelection()).toBe('http')
   expect(ctx.settings.describe().some(item => item.ns === 'eleckoi-web-deepseek')).toBe(false)
   expect(ctx.configEditor.entries().some(item => item.options.name === '@eleckoi/dsh-web-deepseek')).toBe(false)
@@ -747,6 +947,12 @@ it.each(['desktop', 'android'])('%s loads both APIs through the shipped bundles,
   const creator = (await ctx.sessionController.resolveAgent(studio.sessionId)).agent
   const calls = []
   vi.stubGlobal('fetch', vi.fn(async (url, init) => {
+    if (String(url) === 'https://api.deepseek.com/anthropic/v1/messages') {
+      return new Response(JSON.stringify({ content: [{
+        type: 'web_search_tool_result',
+        content: [{ type: 'web_search_result', url: 'https://example.com/server-search' }]
+      }] }))
+    }
     if (!String(url).startsWith('https://api.deepseek.com/v1/tools/')) throw new Error(`Unexpected request: ${url}`)
     calls.push({ url, input: JSON.parse(init.body), authorization: new Headers(init.headers).get('authorization') })
     return new Response(JSON.stringify(String(url).endsWith('/search') ? { results: Array.from({ length: 50 }, (_, index) => ({ title: `合成来源-${index}`, url: `https://example.com/${index}`, snippet: '片段', summary: '摘要', content: `来源正文末尾-${index}`, site_name: null, site_icon: null, date: null, authority: 0, rerank_score: 1 })) } : { title: '抓取标题', content: '合成抓取完整正文末尾' }), { status: 200 })
@@ -754,8 +960,10 @@ it.each(['desktop', 'android'])('%s loads both APIs through the shipped bundles,
   const officialNamespace = ctx.settings.describe().find(item => item.ns === 'web-deepseek-api')
   expect(officialNamespace).toBeDefined()
   await ctx.settings.mutate(officialNamespace.ns, [{ op: 'set', path: ['count'], value: 50 }], officialNamespace.revision)
-  await api.select('deepseek_search_api'); await api.selectFetch('deepseek_fetch_api')
-  expect(api.selection()).toBe('deepseek_search_api'); expect(api.fetchSelection()).toBe('deepseek_fetch_api')
+  const serverSearch = await ctx.web.search({ query: '合成服务端搜索', llmProvider: 'deepseek-official' })
+  expect(serverSearch.sources).toEqual([{ url: 'https://example.com/server-search' }])
+  await api.selectFetch('deepseek_fetch_api')
+  expect(api.fetchSelection()).toBe('deepseek_fetch_api')
   let scheduledTaskId
   for (const agent of [roleplay, creator]) {
     // Direct fixture batches capture a route without starting a model step.
@@ -792,6 +1000,8 @@ it.each(['desktop', 'android'])('%s loads both APIs through the shipped bundles,
   expect(calls.every(call => call.authorization === 'Bearer synthetic-live-profile')).toBe(true)
   expect(calls.filter(call => call.url.endsWith('/search')).map(call => call.input.count)).toEqual([50, DEEPSEEK_DEFAULT_COUNT])
   expect(calls.filter(call => call.url.endsWith('/search')).every(call => call.input.need_content === false)).toBe(true)
+  await api.select('deepseek_search_api')
+  expect(api.selection()).toBe('deepseek_search_api')
   credentials.mockRestore()
   credentialPresence.mockRestore()
   vi.unstubAllGlobals()

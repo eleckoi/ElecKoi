@@ -22,6 +22,9 @@ export function AssetLibraryToolbar({ menu, setMenu, formats, setFormats, sort, 
       {popup('sort', '排序', choices([['newest', '最新导入'], ['oldest', '最早导入'], ['name', '名称排序'], ['size', '文件大小']], sort, setSort))}
       {popup('size', '展示尺寸', choices([['small', '小'], ['medium', '中'], ['large', '大']], size, setSize))}
     </div>
-    <div className="library-create-actions"><Button data-dsh-control variant="primary" type="button" className="library-pill" onClick={newFolder}><NewFolderIcon />{tUi('新建文件夹')}</Button><Button data-dsh-control variant="outline" type="button" className="library-pill" onClick={upload}><ArrowSquareIn size={17} />{tUi('导入文件')}</Button></div>
+    <div className="library-create-actions">
+      <Button data-dsh-control variant="primary" type="button" className="library-pill" onClick={newFolder}><NewFolderIcon />{tUi('新建文件夹')}</Button>
+      <Button data-dsh-control variant="outline" type="button" className="library-pill" onClick={upload}><ArrowSquareIn size={17} />{tUi('导入文件')}</Button>
+    </div>
   </div>;
 }

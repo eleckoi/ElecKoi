@@ -2,7 +2,7 @@
 
 # Host 完整服务参考
 
-DSH 基准：`0.2.2-rc.3`，提交 `38a6a5c965aa99ab525161efb7cc5cf1fe62fced`。
+DSH 基准：`0.2.2-rc.5`，提交 `9c2670d3bce5275e0d1610272958121af87787bb`。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
@@ -59,6 +59,13 @@ DSH 基准：`0.2.2-rc.3`，提交 `38a6a5c965aa99ab525161efb7cc5cf1fe62fced`。
 @Remote create(name: string, libraryGroupId: string, purpose: AgentPresetPurpose): Promise<AgentPreset>
 
 /**
+ * 在原分组复制预设，包括作者资料、版本和脚本。
+ * @param presetId - 源预设编号。
+ * @returns 新预设的完整数据。
+ */
+@Remote duplicate(presetId: string): Promise<AgentPreset>
+
+/**
  * 导入文件并保存完整数据。
  * @param source - 支持的导入格式。
  * @param document - 待导入文件内容。
@@ -113,6 +120,15 @@ DSH 基准：`0.2.2-rc.3`，提交 `38a6a5c965aa99ab525161efb7cc5cf1fe62fced`。
  * @returns 操作结果，结构见返回类型；失败抛出错误。
  */
 @Remote assignGroup(presetId: string, groupId: string): AgentPresetCatalog
+
+/**
+ * 一次移动同一分类下的多个预设。
+ * @param presetIds - 所选预设编号。
+ * @param groupId - 目标分组编号。空字符串表示未分组。
+ * @param purpose - 所选预设的分类。
+ * @returns 更新后的预设目录。任一目标无效时整批取消。
+ */
+@Remote assignGroups(presetIds: string[], groupId: string, purpose: AgentPresetPurpose): AgentPresetCatalog
 
 /**
  * 删除预设分组。

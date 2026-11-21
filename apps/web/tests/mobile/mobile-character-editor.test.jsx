@@ -178,7 +178,7 @@ describe('Android character editor selection and bottom actions', () => {
     const model = await mount({ ...scenario, setup: () => base });
     await act(async () => rowFor(scenario, '合成文件夹').click());
     expect(container.querySelector('.editor-page-detail')).toBeNull();
-    await click('新建'); await click(scenario.name);
+    await click('新建'); await click(scenario.name === '设定' ? '新建设定' : scenario.name);
     expect(container.querySelector('.editor-page-detail')).toBeTruthy();
     await act(async () => controller.current.save());
     let draft = model.save.mock.lastCall[1];
@@ -286,10 +286,9 @@ describe('Editor loading toolbar', () => {
     await mount({ ...scenario, setup: () => model }, scenario.compact);
     const input = container.querySelector(`input[aria-label="${scenario.search}"]`);
     expect(input).toBeTruthy();
-    if (!scenario.compact && scenario.search === '搜索设定') {
-      await click('设定库更多操作');
-      expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理设定库').disabled).toBe(true);
-      await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
+    if (scenario.search === '搜索设定') {
+      expect(container.querySelector('[aria-label="设定库管理"]').disabled).toBe(true);
+      expect(container.querySelector('[aria-label="导入角色设定库"]').disabled).toBe(true);
     } else if (!scenario.compact && scenario.search === '搜索变量') {
         await click('变量目录操作');
         expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理版本与导入导出').disabled).toBe(true);
@@ -308,10 +307,9 @@ describe('Editor loading toolbar', () => {
     if (scenario.outcome === 'error') {
       const failure = !scenario.compact && scenario.search === '搜索正则' ? container.querySelector('.rs-directory-empty') : container.querySelector('[class$="-loading"][role=alert]');
       expect(failure.textContent).toContain('合成读取失败');
-      if (!scenario.compact && scenario.search === '搜索设定') {
-      await click('设定库更多操作');
-      expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理设定库').disabled).toBe(true);
-      await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
+      if (scenario.search === '搜索设定') {
+      expect(container.querySelector('[aria-label="设定库管理"]').disabled).toBe(true);
+      expect(container.querySelector('[aria-label="导入角色设定库"]').disabled).toBe(true);
     } else if (!scenario.compact && scenario.search === '搜索变量') {
         await click('变量目录操作');
         expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理版本与导入导出').disabled).toBe(true);

@@ -11,6 +11,7 @@ import { ProviderLogo } from '../modules/models/components/ProviderLogo.jsx';
 import { catalogItem } from '../modules/models/model/modelProviderCatalog.js';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
 import { PresetProvider, PresetWorkspace, usePresets } from '../modules/presets/components/PresetPanel.jsx';
+import { PRESET_MOBILE_SECTIONS } from '../modules/presets/components/PresetMobileSections.jsx';
 import { PresetImportDialog, downloadPresetFile, fileBase64 } from '../modules/presets/components/PresetTransfer.jsx';
 import { Avatar } from '../ui/ui/Avatar.jsx';
 import { useCatalogSlots } from '../ui/ui/CatalogSlotsContext.jsx';
@@ -158,16 +159,15 @@ export function MobilePresetEditor() {
     return () => setSubpage(current => current === page ? null : current);
   }, []);
   useMobileBack(() => { subpage.back(); return true; }, Boolean(subpage));
-  return <EditorPresentationContext.Provider value={{ compact: true, registerSubpage, registerSaveFeedback, registerBackHandler: view.registerBackHandler }}>
+  return <EditorPresentationContext.Provider value={{ compact: true, sectionTitleInHeader: true, registerSubpage, registerSaveFeedback, registerBackHandler: view.registerBackHandler }}>
     <div className="mobile-root-page mobile-preset-editor" data-editor-subpage={Boolean(subpage) || undefined}>
       <PresetWorkspace characterConfiguration={view.characterConfiguration} renderEditorSection={view.renderPresetEditorSection} onNotify={view.chat.notify}
-        renderHeader={({ tab, profileEditing, dirty, saving, error, active, onActivate, onSave }) => <>
-          <MobileHeader title={subpage?.title || tUi("预设")} back={subpage?.back || view.goBack}>
+        renderHeader={({ tab, profileEditing, dirty, saving, error, onSave }) =>
+          <MobileHeader title={subpage?.title || tUi(PRESET_MOBILE_SECTIONS.find(section => section.id === tab)?.label ?? '预设')} back={subpage?.back || view.goBack}>
             {subpage?.actions}
             <MobileSaveFeedback error={error || feedback?.error} onNotify={view.chat.notify} />
             {!profileEditing && <button type="button" className="mobile-preset-save" disabled={!dirty || saving} onClick={onSave}>{saving ? tUi("保存中…") : tUi("保存")}</button>}
-          </MobileHeader>
-        </>}
+          </MobileHeader>}
         onTestRegex={(text, rule, target) => view.characterConfiguration.regexRules.test(text, rule, target)} />
     </div>
   </EditorPresentationContext.Provider>;

@@ -100,8 +100,16 @@ describe('opening configuration editor', () => {
     try {
       expect(view.container.querySelectorAll('.opening-list-item')).toHaveLength(1);
       await act(async () => view.container.querySelector('button[aria-label="新建开场白"]').click());
-      const select = view.container.querySelector('select');
-      await act(async () => { select.value = 'synthetic-variable-version'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+      const variableVersionButton = () => view.container.querySelector('button[aria-label="关联变量版本"]');
+      await act(async () => variableVersionButton().click());
+      const searchVersions = document.querySelector('[aria-label="搜索版本"]');
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(searchVersions, '合成变量');
+        searchVersions.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      const rows = document.querySelectorAll('.editor-picker-row');
+      expect([...rows].map(row => row.textContent)).toEqual(['合成变量版本']);
+      await act(async () => rows[0].click());
       expect(view.container.querySelector('[role="switch"]')).toBeNull();
       model.save.mockRejectedValueOnce(new Error('合成保存失败'));
       await act(async () => expect(controller.current.save()).resolves.toBe(false));
@@ -113,12 +121,17 @@ describe('opening configuration editor', () => {
       expect(savedOpening.openingMessages[1].variableVersionId).toBe('synthetic-variable-version');
       expect(settings.entries.find(entry => entry.id === setting.id)).toEqual({ ...setting, updatedAt: expect.any(String) });
       await act(async () => view.root.render(<SettingLibraryPanel characterId="synthetic-character" settingLibraries={settingsModel} />));
-      expect([...view.container.querySelectorAll('[role="treeitem"]')].map(node => node.textContent)).toEqual(['合成设定']);
+      expect([...view.container.querySelectorAll('[role="treeitem"] .setting-library-tree-label')].map(node => node.textContent)).toEqual(['合成设定']);
       expect(view.container.querySelector('.setting-library-opening-editor')).toBeNull();
       await act(async () => view.root.render(<CharacterOpeningsPanel ref={controller} characterId="synthetic-character" openings={model} variables={variables} />));
       expect(view.container.querySelectorAll('.opening-list-item')).toHaveLength(2);
       await act(async () => view.container.querySelectorAll('.opening-list-item')[1].click());
-      expect(view.container.querySelector('select').value).toBe('synthetic-variable-version');
+      expect(variableVersionButton().textContent).toBe('合成变量版本');
+      await act(async () => variableVersionButton().click());
+      expect(document.querySelector('.editor-picker-row[aria-pressed=true]').textContent).toBe('合成变量版本');
+      const unbind = [...document.querySelectorAll('.editor-picker-row')].find(row => row.textContent === '不关联变量');
+      await act(async () => unbind.click());
+      expect(variableVersionButton().textContent).toBe('不关联变量');
       await act(async () => view.container.querySelector('button[aria-label="新建开场白"]').click());
       await act(async () => controller.current.discard());
       expect(view.container.querySelectorAll('.opening-list-item')).toHaveLength(2);

@@ -32,6 +32,7 @@ import { UnsavedChangesDialog } from "../../ui/ui/UnsavedChangesDialog.jsx";
 import { characterName } from "../../utils/characterDisplay.js";
 import { appWindow, showCurrentWindow } from "../services/windowControls.js";
 import { TitleBar } from "./shell/components/TitleBar.jsx";
+import { useDesktopPageTransition } from './shell/hooks/useDesktopPageTransition.js';
 import { EditorPresentationContext, useEditorFeedbackHost } from '../../ui/ui/EditorPresentationContext.jsx';
 import { usePageFade } from '../../ui/hooks/usePageFade.js';
 import { bestEffort } from "../../utils/swallowedFailure.js";
@@ -76,6 +77,8 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
   const [loaded, setLoaded] = useState(false);
   const [activeSection, setActiveSection] = useState("card");
   const workspaceRef = usePageFade(activeSection, compact, '.editor-sidebar-directory, .dynamic-settings-conversation-list, .character-basic-content');
+  const mainPanelRef = useRef(null);
+  const transitionToSection = useDesktopPageTransition(mainPanelRef, activeSection, EDITOR_SECTIONS, !compact);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [basicSaveNotice, setBasicSaveNotice] = useState("");
@@ -97,7 +100,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
     setSubpage(page);
     return () => setSubpage(current => current === page ? null : current);
   }, []);
-  const presentation = useMemo(() => ({ compact, registerSubpage, registerBackHandler, registerSaveFeedback }), [compact, registerSubpage, registerBackHandler, registerSaveFeedback]);
+  const presentation = useMemo(() => ({ compact, sectionTitleInHeader: compact, registerSubpage, registerBackHandler, registerSaveFeedback }), [compact, registerSubpage, registerBackHandler, registerSaveFeedback]);
   useEffect(() => {
     if (!compact || !subpage || !registerBackHandler) return undefined;
     return registerBackHandler(() => { subpage.back(); return true; });
@@ -266,7 +269,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
     setPendingAction(null);
     if (action?.type === "navigate") { action.run(); return; }
     if (action?.type === "section") {
-      setActiveSection(action.sectionId);
+      selectSection(action.sectionId);
       return;
     }
     if (action?.type === "close") {
@@ -278,13 +281,17 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
     }
   }
 
+  function selectSection(sectionId) {
+    return transitionToSection(sectionId, () => setActiveSection(sectionId));
+  }
+
   function requestSection(sectionId) {
     if (sectionId === activeSection || !EDITOR_SECTIONS.some(section => section.id === sectionId)) return;
     if (dirty) {
       setPendingAction({ type: "section", sectionId });
       return;
     }
-    setActiveSection(sectionId);
+    selectSection(sectionId);
   }
 
   function requestClose() {
@@ -332,7 +339,6 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
     if (await saveCurrentDraft()) completePendingAction(action);
   }
 
-  const activeLabel = localizeUiCopy(EDITOR_SECTIONS, tUi).find((section) => section.id === activeSection)?.label || tUi("基础资料");
   useEffect(() => {
     if (!navigationGuardRef) return;
     navigationGuardRef.current = run => {
@@ -461,10 +467,11 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
   }
 
   const sections = localizeUiCopy(EDITOR_SECTIONS, tUi);
+  const activeLabel = sections.find(section => section.id === activeSection)?.label || tUi("基础资料");
   const editorNavigation = <EditorNavigationRail id="character-editor-navigation" label={tUi("角色编辑器功能")} items={sections}
     value={activeSection} onChange={requestSection} compact={compact} collapsed={sidebarCollapsed} busy={sidebarPreference.busy} onToggle={sidebarPreference.toggle} />;
   const editorToolbar = renderHeader
-    ? renderHeader({ character, dirty, saving, save: saveCurrentDraft, subpage, feedback: activeSection === 'card' ? { error: saveError, notice: basicSaveNotice } : feedback })
+    ? renderHeader({ title: subpage?.title || activeLabel, character, dirty, saving, save: saveCurrentDraft, subpage, feedback: activeSection === 'card' ? { error: saveError, notice: basicSaveNotice } : feedback })
     : <TitleBar splitSurface onClose={requestClose} />;
 
   return (
@@ -505,7 +512,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
         />
       </aside>
 
-      <section className="character-editor-main-panel">
+      <section className="character-editor-main-panel" ref={mainPanelRef}>
         {renderCatalogSlot('eleckoi.character.editor.toolbar', {
           characterId: character?.id ?? null, section: activeSection, compact,
           dirty, saving, onSave: saveCurrentDraft, onClose: subpage?.back ?? onToolbarBack ?? requestClose,
@@ -514,6 +521,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
           className={`character-editor-workspace${['openings', 'lore', 'variables', 'regex', 'scripts', 'dynamic'].includes(activeSection) ? ' is-collection-editor' : ''}${activeSection === "card" ? " is-basic-info" : ""}${activeSection === "openings" ? " is-character-openings" : ""}${activeSection === "lore" ? " is-setting-library" : ""}${activeSection === "variables" ? " is-variable-config" : ""}${activeSection === "regex" ? " is-regex-rules" : ""}${activeSection === 'scripts' ? ' is-scripts' : ''}${activeSection === 'frontend' ? ' is-frontend' : ''}${activeSection === 'assets' ? ' is-character-assets' : ''}${activeSection === "dynamic" ? " is-dynamic-settings" : ""}`}
           aria-label={activeLabel}
           aria-busy={!loaded || undefined}
+          data-desktop-page-content={compact ? undefined : ''}
           ref={workspaceRef}
         >
           {loaded && !character

@@ -543,12 +543,12 @@ describe('shared SQLite baseline', () => {
     raw.trigger_mode = 'cache'
     raw.agent_read_condition = "getvar('剧情.章节') > 1"
     expect(readEntry(JSON.stringify(raw))).toMatchObject({
-      content: '已保存正文', dynamicMode: 'standard', triggerMode: null
+      content: '已保存正文', triggerMode: null
     })
     expect(settingLibraryStoredEntrySchema.parse({
       ...emptyEntry('preset-setting', 'now'),
       dynamicMode: 'single_condition', triggerMode: 'cache', agentReadCondition: '旧表达式'
-    })).toMatchObject({ dynamicMode: 'standard', triggerMode: null })
+    })).toMatchObject({ triggerMode: null })
   })
 
   it('drops extra setting entry fields while rejecting invalid defined fields', () => {
@@ -689,7 +689,7 @@ describe('shared SQLite baseline', () => {
       const setting = database.prepare("SELECT payloadJson FROM setting_entry_contents WHERE entryId='scene'").get() as { payloadJson: string }
       expect(JSON.parse(setting.payloadJson)).toMatchObject({
         content: '<%= getvar("chapter") %>', agent_read_strategy: 'normal',
-        dynamic_mode: 'standard', content_mode: 'ejs'
+        content_mode: 'ejs'
       })
       const hidden = database.prepare("SELECT payloadJson FROM agent_preset_entries WHERE entryId='built-in-hidden-tool-timeline'").get() as { payloadJson: string }
       expect(JSON.parse(hidden.payloadJson)).toMatchObject({
@@ -1270,7 +1270,7 @@ describe('shared SQLite baseline', () => {
     const entry = {
       id: 'capital', title: '王都', iconId: '', kind: 'normal' as const, groupId: group.id, content: '群山之间的城市。',
       openingMessages: [], defaultOpeningMessageId: '', agentSelectionHint: '', agentReadStrategy: 'normal' as const,
-      dynamicMode: 'standard' as const, contentMode: 'plain_text' as const, keywords: [], keywordScanDepth: 1,
+      contentMode: 'plain_text' as const, keywords: [], keywordScanDepth: 1,
       conditionKeywords: [], keywordCondition: 'none' as const, keywordUseRegex: false, keywordIgnoreCase: true,
       keywordWholeWord: false, keywordRecursionDepth: 0, triggerMode: 'always' as const, enabled: true,
       position: 'insert_point_3' as const, promptPositionId: '', insertRole: 'user' as const, order: 1,
@@ -1290,9 +1290,8 @@ describe('shared SQLite baseline', () => {
       title: '王都资料',
       content: '供 EJS 控制器读取。',
       agentReadStrategy: 'normal' as const,
-      dynamicMode: 'ejs_reference' as const,
       triggerMode: 'agent_tool' as const,
-      enabled: true,
+      enabled: false,
       treeViewOrder: 2
     }
     const saved = repository.save('card-a', {
@@ -1319,7 +1318,7 @@ describe('shared SQLite baseline', () => {
     expect(saved.entries).toContainEqual(expect.objectContaining({
       id: 'reference-capital',
       agentReadStrategy: 'normal',
-      dynamicMode: 'ejs_reference',
+      enabled: false,
       triggerMode: 'agent_tool'
     }))
     expect(database.native.prepare('SELECT COUNT(*) AS count FROM setting_library_entries WHERE characterId = ?').get('card-a')).toEqual({ count: 2 })
@@ -1337,7 +1336,7 @@ describe('shared SQLite baseline', () => {
       id: 'identity', title: '身份', iconId: '', kind: 'normal' as const, groupId: '',
       content: '你是{{char}}，我是{{user}}', openingMessages: [], defaultOpeningMessageId: '',
       agentSelectionHint: '', agentReadStrategy: 'required' as const,
-      dynamicMode: 'standard' as const, contentMode: 'plain_text' as const, keywords: [], keywordScanDepth: 1,
+      contentMode: 'plain_text' as const, keywords: [], keywordScanDepth: 1,
       conditionKeywords: [], keywordCondition: 'none' as const, keywordUseRegex: false,
       keywordIgnoreCase: true, keywordWholeWord: false, keywordRecursionDepth: 0,
       triggerMode: 'agent_tool' as const, enabled: true, position: 'insert_point_1' as const,
@@ -1408,7 +1407,7 @@ describe('shared SQLite baseline', () => {
     const entry = {
       id: 'agent-memory', title: '对话记忆', iconId: '', kind: 'normal' as const, groupId: '',
       content: '母设定', openingMessages: [], defaultOpeningMessageId: '', agentSelectionHint: '需要时读取',
-      agentReadStrategy: 'normal' as const, dynamicMode: 'standard' as const, contentMode: 'plain_text' as const,
+      agentReadStrategy: 'normal' as const, contentMode: 'plain_text' as const,
       keywords: [], keywordScanDepth: 1, conditionKeywords: [], keywordCondition: 'none' as const,
       keywordUseRegex: false, keywordIgnoreCase: true, keywordWholeWord: false, keywordRecursionDepth: 0,
       triggerMode: 'agent_tool' as const, enabled: true, position: null, promptPositionId: '',

@@ -14,6 +14,7 @@ window.__ModuleLoader__.load({
         })
         this.listeners = new Set()
         this.generation = 0
+        this.connectionState = { revision: undefined }
         this.disposed = false
         this.writeQueue = Promise.resolve()
       }
@@ -40,7 +41,10 @@ window.__ModuleLoader__.load({
           : Object.freeze({})
       }
 
-      adopt(value) {
+      adopt(value, connectionState) {
+        if (this.disposed || connectionState !== this.connectionState || value?.revision < connectionState.revision) {
+          return this.snapshot
+        }
         const next = {
           status: 'ready',
           ui: this.normalizedObject(value?.ui),
@@ -49,6 +53,7 @@ window.__ModuleLoader__.load({
           revision: value?.revision,
           error: ''
         }
+        connectionState.revision = next.revision
         this.publish(next)
         return next
       }
@@ -56,13 +61,14 @@ window.__ModuleLoader__.load({
       async refresh() {
         if (this.disposed) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleDisposed, '显示偏好服务已关闭。', { what: '显示偏好服务' })
         const generation = ++this.generation
+        const connectionState = this.connectionState
         try {
           const snapshot = this.unwrap(
             await this.remote.eleckoiDisplayPreferences.read(),
             '读取显示偏好失败。'
           )
           if (this.disposed || generation !== this.generation) return this.snapshot
-          return this.adopt(snapshot)
+          return this.adopt(snapshot, connectionState)
         } catch (error) {
           if (!this.disposed && generation === this.generation) {
             this.publish({ ...this.snapshot, status: 'error', error: typeof error?.message === 'string' && error.message.trim() ? error.message : String(error) })
@@ -71,15 +77,22 @@ window.__ModuleLoader__.load({
         }
       }
 
+      reconnect() {
+        // A restarted Host can answer with a lower revision in its new connection.
+        this.connectionState = { revision: undefined }
+        return this.refresh()
+      }
+
       enqueue(method, resolveValue) {
         const operation = this.writeQueue.then(async () => {
           if (this.disposed) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleDisposed, '显示偏好服务已关闭。', { what: '显示偏好服务' })
+          const connectionState = this.connectionState
           const value = resolveValue()
           const snapshot = this.unwrap(
             await this.remote.eleckoiDisplayPreferences[method](value, this.snapshot.revision),
             '保存显示偏好失败。'
           )
-          return this.adopt(snapshot)
+          return this.adopt(snapshot, connectionState)
         })
         // `operation` 由调用方 await（`return operation`）；这里只为队列只留一条拒绝。
         this.writeQueue = operation.catch(rejectionIsAwaitedElsewhere)
@@ -116,7 +129,7 @@ window.__ModuleLoader__.load({
       ctx.effect(() => {
         model.start()
         const refresh = () => { void model.refresh().catch(failureAlreadyPublished) }
-        const stopReset = ctx.on('connection/reset', refresh)
+        const stopReset = ctx.on('connection/reset', () => { void model.reconnect().catch(failureAlreadyPublished) })
         const stopSettings = ctx.remote.$on('settings/document-updated', ns => {
           if (ns === SETTINGS_NAMESPACE) refresh()
         })
