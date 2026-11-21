@@ -17,24 +17,29 @@ export function EditorCollectionToolbar({ query, onQueryChange, placeholder, cre
   const manageLabel = manageLabelSource === undefined ? tUi("管理") : manageLabelSource;
   const [createOpen, setCreateOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const { compact } = useEditorPresentation();
+  const { compact, sectionTitleInHeader } = useEditorPresentation();
   if (compact) {
     const moreItems = [
       ...(selection ? [{ id: 'selection', label: tUi(selection.active ? '完成' : '多选'), icon: <ListChecks size={16} />, disabled, run: selection.toggle }] : []),
       ...(onManage ? [{ id: 'manage', label: manageLabel, icon: <SlidersHorizontal size={16} />, disabled: disabled || selection?.active, run: onManage }] : []),
     ];
+    const actions = (moreItems.length > 0 || children) && <EditorDirectoryActions label={tUi('操作')} className="editor-collection-actions">
+      {moreItems.length > 0 && <Menu open={moreOpen} portal dense anchor={<Button data-dsh-control className="setting-toolbar-button setting-toolbar-icon"
+        variant="ghost" icon={onManage ? <SlidersHorizontal size={19} /> : <ListChecks size={19} />} aria-label={tUi('管理')} disabled={disabled}
+        aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)} />}
+        items={moreItems} onClose={() => setMoreOpen(false)} onSelect={id => { setMoreOpen(false); moreItems.find(item => item.id === id)?.run?.(); }} />}
+      {children}
+    </EditorDirectoryActions>;
+    const search = <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
+      value={query} onChange={event => onQueryChange(event.target.value)} placeholder={placeholder} aria-label={placeholder} />;
+
     return <div className={`editor-collection-toolbar is-mobile-collection editor-heading-surface ${className}`} onMouseDown={event => event.stopPropagation()}>
-      <EditorDirectoryHeading title={heading} leading={leading} toplineClassName="editor-collection-topline">
-        {(moreItems.length > 0 || children) && <EditorDirectoryActions label={tUi('操作')} className="editor-collection-actions">
-          {moreItems.length > 0 && <Menu open={moreOpen} portal dense anchor={<Button data-dsh-control className="setting-toolbar-button setting-toolbar-icon"
-            variant="ghost" icon={onManage ? <SlidersHorizontal size={19} /> : <ListChecks size={19} />} aria-label={tUi('管理')} disabled={disabled}
-            aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)} />}
-            items={moreItems} onClose={() => setMoreOpen(false)} onSelect={id => { setMoreOpen(false); moreItems.find(item => item.id === id)?.run?.(); }} />}
-          {children}
-        </EditorDirectoryActions>}
-      </EditorDirectoryHeading>
-      <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
-        value={query} onChange={event => onQueryChange(event.target.value)} placeholder={placeholder} aria-label={placeholder} />
+      {sectionTitleInHeader && !leading && actions ? (
+        <div className="editor-collection-search-row">{search}{actions}</div>
+      ) : <>
+        <EditorDirectoryHeading title={heading} leading={leading} toplineClassName="editor-collection-topline">{actions || null}</EditorDirectoryHeading>
+        {search}
+      </>}
       {(beforeSave || save) && <div className="editor-collection-feedback">{beforeSave}{save}</div>}
     </div>;
   }

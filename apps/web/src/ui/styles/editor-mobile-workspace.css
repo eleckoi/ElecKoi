@@ -93,6 +93,11 @@
 .is-mobile-collection .editor-page-title :is(h1,h2) { margin:0; font-size:22px; font-weight:600; line-height:1.35; }
 .is-mobile-collection .editor-collection-actions { display: flex; flex: none; gap: 6px; margin: 0; }
 .is-mobile-collection .editor-collection-actions.setting-toolbar-group { gap: 0; margin-inline-start: auto; }
+.is-mobile-collection .editor-collection-search-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:8px; min-width:0; }
+.is-mobile-collection .editor-collection-search-row > .editor-collection-search { width:100%; min-width:0; box-sizing:border-box; }
+.is-mobile-collection .editor-collection-search-row .setting-toolbar-button { height:38px; min-height:38px; }
+.is-mobile-collection .editor-collection-search-row .setting-toolbar-button::before { inset:-5px 0; }
+.is-mobile-collection .editor-collection-search-row .setting-toolbar-icon { width:48px; }
 .is-mobile-collection .editor-directory-scopebar .editor-scope-tabs-bar { padding: 0; min-width:0; flex:1; }
 .is-mobile-collection .editor-scope-tabs [role=tab] { min-width: 0; }
 :is(.is-mobile-collection,.dynamic-settings-list-page.is-compact) .editor-collection-search {

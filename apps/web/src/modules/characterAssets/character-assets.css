@@ -152,6 +152,16 @@
 @media (max-width:380px) { .character-asset-library { .library-pill { padding-inline:8px; gap:5px; font-size:12px; } } }
 @media (hover:none) { .character-asset-library .card-more { opacity:1; } }
 
+.mobile-character-editor .character-asset-library.editor-heading-surface {
+  padding-top:8px;
+  .library-heading { display:flex; flex-direction:column; align-items:stretch; gap:8px; padding-bottom:12px; }
+  .library-heading-tools { display:flex; min-width:0; gap:8px; margin:0; }
+  .asset-search { flex:1; width:auto; min-width:0; height:40px; }
+  .view-switch { flex:none; }
+  .view-switch .icon-button { position:relative; width:46px; }
+  .view-switch .icon-button::before { content:""; position:absolute; inset:-8px -1px; }
+}
+
 .asset-dialog { --ink:var(--dsw-alias-label-primary); --secondary:var(--dsw-alias-label-secondary); --line:var(--dsw-alias-border-l1); --tile:var(--dsw-alias-bg-layer-1); }
 .asset-preview-dialog { width:min(1080px,100%); }
 .asset-dialog .preview-layout { display:grid; grid-template-columns:minmax(0,1fr) 256px; min-width:0; gap:20px; }

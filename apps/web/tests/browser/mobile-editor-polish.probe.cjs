@@ -27,16 +27,19 @@ app.whenReady().then(async () => {
     for(const title of collections) {
       await clickText('.character-editor-navigation button',title);
       const data=await run(`(()=>{
-        const h=document.querySelector('.is-mobile-collection'), top=h.querySelector('.editor-directory-scopebar,.editor-collection-topline');
-        const group=top?.querySelector('.setting-toolbar-group'), r=e=>e?.getBoundingClientRect().toJSON();
+        const h=document.querySelector('.is-mobile-collection'), top=h.querySelector('.editor-directory-scopebar');
+        const inline=h.querySelector('.editor-collection-search-row'), group=h.querySelector('.setting-toolbar-group'), r=e=>e?.getBoundingClientRect().toJSON();
         return {title:${JSON.stringify(title)},header:r(h),searchBox:r(h.querySelector('.editor-collection-search')),
-          divider:getComputedStyle(h).borderBottomWidth,top:r(top),group:r(group),groupBorder:group && getComputedStyle(group).borderTopWidth,
+          divider:getComputedStyle(h).borderBottomWidth,top:r(top),inline:r(inline),group:r(group),groupBorder:group && getComputedStyle(group).borderTopWidth,
           buttons:[...(group?.querySelectorAll('button') || [])].map(r),bottom:document.querySelector('.mobile-editor-actions')?.getBoundingClientRect().bottom,
           overflow:document.documentElement.scrollWidth>innerWidth,oldToolbar:!!document.querySelector('.editor-collection-action'),topNewCount:h.querySelectorAll('[aria-label=新建]').length};
       })()`);
       check(data.divider==='0px'&&Math.abs(data.searchBox.height-40)<1&&data.topNewCount===0&&!data.overflow&&!data.oldToolbar, 'Collection header: '+JSON.stringify(data));
       if(data.top)check(Math.abs(data.searchBox.width-data.top.width)<1&&data.searchBox.top>=data.top.bottom+6&&data.groupBorder==='1px'
         &&data.buttons.every(b=>b.height>=32&&b.left>=data.group.left&&b.right<=data.group.right),'Action group: '+JSON.stringify(data));
+      if(['变量','预设提示词','工具'].includes(title))check(data.inline&&data.group&&data.groupBorder==='1px'
+        &&data.group.left>=data.searchBox.right+7&&Math.abs(data.group.top-data.searchBox.top)<1
+        &&Math.abs(data.group.bottom-data.searchBox.bottom)<1,'Search and actions should share a row and height: '+JSON.stringify(data));
       if(data.bottom)check(Math.abs(height-data.bottom)<=2,'Touch toolbar does not reach the phone bottom: '+JSON.stringify(data));
       headers.push(data);
       if(!['工具','开场白'].includes(title)) {

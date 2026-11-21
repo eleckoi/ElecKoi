@@ -413,6 +413,38 @@
 .setting-rule-badge[data-rule-type="keyword"] .setting-rule-dot { background: var(--setting-keyword-color); }
 .setting-rule-badge[data-rule-type="always"] .setting-rule-dot { background: var(--dsw-alias-link); }
 
+:is(.mobile-character-editor, .mobile-preset-editor) .setting-rule-control {
+  position: relative;
+  isolation: isolate;
+  gap: 4px;
+  padding: 0 0 0 6px;
+  background: transparent;
+}
+
+/* The switch keeps its 48px touch area. The visible label only needs 26px. */
+:is(.mobile-character-editor, .mobile-preset-editor) .setting-rule-control::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset-inline: 0 4px;
+  inset-block-start: calc(50% - 13px);
+  height: 26px;
+  border-radius: 7px;
+  background: var(--list);
+  pointer-events: none;
+}
+
+:is(.mobile-character-editor, .mobile-preset-editor) .setting-rule-badge { gap: 4px; }
+:is(.mobile-character-editor, .mobile-preset-editor) .setting-rule-ejs-tag { align-self: center; }
+:is(.mobile-character-editor, .mobile-preset-editor) .setting-library-tree-row-content:has(.setting-rule-control) > .setting-library-tree-label {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 18px;
+}
+
 .setting-library-tree-expander {
   display: grid;
   width: 16px;
