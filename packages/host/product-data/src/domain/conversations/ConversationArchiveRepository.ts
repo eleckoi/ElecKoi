@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
 import { legacyConversationStates } from './legacyConversationStates'
-import { convertLegacySettingState } from '@product-data/domain/settingLibraries/legacySettingState'
+import { convertLegacySettingState } from '@product-data/domain/settingLibraries'
 import { validateRuntimeState } from './ConversationStateRepository'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'

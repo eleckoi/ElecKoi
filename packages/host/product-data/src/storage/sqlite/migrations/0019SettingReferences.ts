@@ -6,7 +6,7 @@ import { DesktopError } from '@shared/foundation/DesktopError'
 
 function convertGlobalLibrary(raw: string): string {
   const library = settingJsonObject(JSON.parse(raw))
-  if (!Array.isArray(library.entries)) throw new Error('全局设定库迁移缺少条目列表。')
+  if (!Array.isArray(library.entries)) throw new DesktopError(ELECKOI_FAILURE_CODES.storageCorrupt, '全局设定库迁移缺少条目列表。', { what: '全局设定库' })
   let changed = false
   const entries = library.entries.map(value => {
     const entry = settingJsonObject(value)
