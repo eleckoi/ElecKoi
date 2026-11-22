@@ -14,6 +14,37 @@
 .official-native-frame > [data-slot="root"] {
   height: 100%;
 }
+
+/* The outer shell paints the shared caption. Each column starts its own fill below it. */
+:root[data-windows-titlebar] .official-frame-window {
+  --caption-band: transparent var(--window-caption-height, 40px);
+}
+
+:root[data-windows-titlebar] .official-frame-window :is(
+  .official-native-frame > :has(> [data-shell-overlay]),
+  .official-native-frame > :has(> [data-shell-overlay]) > :has(> [data-slot="sidebar"]),
+  .side-panel-shell,
+  .main-panel-shell
+) {
+  background: linear-gradient(var(--caption-band), var(--list) 0);
+}
+
+:root[data-windows-titlebar] .official-frame-window .official-native-frame > :has(> [data-shell-overlay]) {
+  --dsh-windows-content-radius: 0px;
+}
+
+:root[data-windows-titlebar] .official-frame-window .official-native-frame :has(> [data-shell-overlay]) > :has(+ [data-rightbar-col]) {
+  background: linear-gradient(var(--caption-band), var(--dsw-alias-bg-base) 0);
+}
+
+:root[data-windows-titlebar] .official-frame-window .navigation-rail-shell {
+  background: linear-gradient(var(--caption-band), var(--rail) 0);
+}
+
+:root[data-windows-titlebar] .official-frame-window :is(.navigation-rail-title, .side-panel-header, .client-titlebar.split-surface) {
+  background: transparent;
+}
+
 /* Product columns already contain the Windows caption. The native right
    column must leave that same band clear for window controls and dragging. */
 :root[data-windows-titlebar] .official-native-frame [data-rightbar-col] {
@@ -24,7 +55,6 @@
   position: absolute;
   inset: calc(-1 * var(--window-caption-height, 40px)) 0 auto;
   height: var(--window-caption-height, 40px);
-  background: var(--list);
   -webkit-app-region: drag;
 }
 :root[data-windows-titlebar] .official-native-frame [data-side="rightbar"] {

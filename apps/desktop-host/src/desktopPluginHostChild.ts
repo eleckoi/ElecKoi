@@ -125,7 +125,12 @@ async function main(): Promise<void> {
   })
   process.once('disconnect', () => { void stop() })
   const url = ctx.connection.authenticatedUrl(`http://127.0.0.1:${String(ctx.webServer.port)}`)
-  await send({ type: 'ready', url, injections: ctx.webServer.collectIndexInjections(ctx.connection.browserPeer) })
+  const injections = [...ctx.webServer.collectIndexInjections(ctx.connection.browserPeer), {
+    kind: 'global',
+    name: '__ELECKOI_DESKTOP_PRODUCT_PROTOCOL__',
+    value: { architecture: remoteStatus.architecture, protocolVersion: remoteStatus.protocolVersion }
+  }]
+  await send({ type: 'ready', url, injections })
 }
 
 function installUpdateTaskControl(

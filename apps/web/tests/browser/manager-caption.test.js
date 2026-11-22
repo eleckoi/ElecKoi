@@ -32,12 +32,18 @@ it('matches each manager canvas with native caption buttons across light, dark a
     if (process.env.ELECKOI_MANAGER_CAPTION_REPORT) await writeFile(process.env.ELECKOI_MANAGER_CAPTION_REPORT, JSON.stringify(result, null, 2));
     expect(result.errors).toEqual([]);
     expect(result.reports).toHaveLength(8);
-    expect(result.paletteChecks).toHaveLength(6);
+    expect(result.paletteChecks).toHaveLength(8);
     for (const state of result.paletteChecks) {
       expect(state.marker).toBe(true);
       expect(state.maskTop).toBe(40);
-      expect(state.native[1]).toBe(state.plugin ? 'rgba(0, 0, 0, 0)' : state.theme === 'dark' ? 'rgba(27, 27, 28, 1)' : 'rgba(249, 250, 251, 1)');
-      if (state.plugin) expect(state.native[2]).toBe('rgba(230, 231, 232, 1)');
+      const dark = state.theme === 'dark';
+      const fills = {
+        '': dark ? 'rgba(27, 27, 28, 1)' : 'rgba(249, 250, 251, 1)',
+        translucent: dark ? '#1b1b1c' : '#f9fafb',
+        transparent: 'rgba(0, 0, 0, 0)',
+      };
+      expect(state.native[1]).toBe(fills[state.plugin]);
+      if (state.plugin === 'transparent') expect(state.native[2]).toBe('rgba(230, 231, 232, 1)');
     }
     for (const report of result.reports) for (const state of report.states) {
       const detail = JSON.stringify({ ...report, states: [state] });

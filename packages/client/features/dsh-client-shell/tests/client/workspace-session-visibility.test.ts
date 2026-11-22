@@ -59,7 +59,8 @@ function fixture(platform = 'desktop', runtimeContext?: any) {
     createElement: (component: any, props: any, ...children: any[]) => ({ component, props: { ...props, children: children[0] } }) }
   let registration: any
   runInNewContext(readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8'), {
-    __ELECKOI_CLIENT_PLATFORM__: { kind: platform }, __ELECKOI_DSH_SIDEBAR_READY__: true, AbortController,
+    __ELECKOI_CLIENT_PLATFORM__: { kind: platform }, AbortController,
+    __ELECKOI_DSH_APP__: Object.assign(() => null, { shell: { OfficialFrameSidebar: 'OfficialFrameSidebar' } }),
     window: { __ModuleLoader__: { load: (value: any) => { registration = value } }, addEventListener: () => {}, removeEventListener: () => {} },
   })
   registration.factory((name: string) => name === 'react' ? React : name === '@deepseek-ai/dsh-client-ui-primitives' ? {}

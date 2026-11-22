@@ -1,7 +1,7 @@
 import { ipcRenderer } from 'electron'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
-import { WINDOWS_TITLEBAR_HEIGHT } from '../windowsLayout'
+import { WINDOWS_TITLEBAR_HEIGHT, windowsCaptionFill } from '../windowsLayout'
 
 /** Keep the native Windows caption in the document's current palette. */
 export function installWindowsAppearance(): () => void {
@@ -23,12 +23,15 @@ export function installWindowsAppearance(): () => void {
   const probe = document.createElement('span')
   probe.style.cssText = `position:fixed;visibility:hidden;pointer-events:none;background-color:${background};color:var(--dsw-alias-label-primary,var(--title-fg))`
   document.body.append(probe)
-  const nativeColor = (color: string): string => {
+  const nativeColor = (color: string, translucentFallback?: string): string => {
     context.clearRect(0, 0, 1, 1)
     context.fillStyle = color
     context.fillRect(0, 0, 1, 1)
     const [red, green, blue, alpha] = context.getImageData(0, 0, 1, 1).data
-    return `rgba(${red}, ${green}, ${blue}, ${Number(alpha) / 255})`
+    // Electron paints the group and each button separately, so partial alpha shows seams.
+    const opacity = Number(alpha) / 255
+    if (translucentFallback && opacity > 0 && opacity < 1) return translucentFallback
+    return `rgba(${red}, ${green}, ${blue}, ${opacity})`
   }
   let previous = ''
   let frame: HTMLIFrameElement | null = null
@@ -66,7 +69,8 @@ export function installWindowsAppearance(): () => void {
   const send = (): void => {
     const style = getComputedStyle(probe)
     const covering = coveringFramePalette()
-    const values = [root.getAttribute('data-ds-theme-source'), covering?.color ?? nativeColor(style.backgroundColor),
+    const dark = document.body.hasAttribute('data-ds-dark-theme') || getComputedStyle(root).colorScheme === 'dark'
+    const values = [root.getAttribute('data-ds-theme-source'), covering?.color ?? nativeColor(style.backgroundColor, windowsCaptionFill(dark)),
       covering?.symbolColor ?? nativeColor(style.color)]
     const current = JSON.stringify(values)
     if (current === previous) return

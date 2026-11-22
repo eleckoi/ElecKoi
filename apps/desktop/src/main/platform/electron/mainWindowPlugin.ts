@@ -21,7 +21,7 @@ import { DesktopError } from '@shared/foundation/DesktopError'
 import { logAction, relayRendererActionLog } from '@main/platform/logging/logActions'
 import { handleDesktopIpcCall } from './desktopIpcHandler'
 import { createDesktopCaptionMenu, installDesktopDeveloperShortcuts } from './desktopCaptionMenu'
-import { WINDOWS_TITLEBAR_HEIGHT } from '../../../windowsLayout'
+import { WINDOWS_TITLEBAR_HEIGHT, windowsCaptionFill } from '../../../windowsLayout'
 import { installFileActions } from './dsh/file-actions'
 import { installDesktopFileDrag } from './dsh/file-drag'
 import { installDesktopShortcuts } from './dsh/keyboard'
@@ -41,6 +41,7 @@ export const mainWindowPlugin = {
     const appPaths = ctx.appPaths
     const appLog = ctx.appLog
     const pluginHost = ctx.pluginHost
+    let startup: Promise<void> | undefined
     nativeTheme.themeSource = 'system'
 
     const windows = new ElectronWindowHost(async () => {
@@ -104,6 +105,11 @@ export const mainWindowPlugin = {
         shortcuts.attach(window)
         browserGuests.bind(window, (guest, lease) => shortcuts.attachGuest(window, guest, lease))
         configureMainWindow(appPaths, appLog, windows, window)
+        window.webContents.on('preload-error', (_event, path, error) => {
+          if (window !== mainWindow || window.isDestroyed()) return
+          appLog.error({ err: error, path }, 'DSH main window preload failed')
+          ctx.emit('eleckoi/desktop-fatal', error)
+        })
         window.webContents.on('render-process-gone', (_event, details) => {
           if (details.reason !== 'clean-exit') {
             ctx.emit('eleckoi/desktop-fatal', new DesktopError(ELECKOI_FAILURE_CODES.internal, `页面渲染进程退出：${details.reason} (${details.exitCode})`, { what: '页面渲染进程' }))
@@ -166,13 +172,20 @@ export const mainWindowPlugin = {
         return new Response(null, { status: 502 })
       }
     })
-    handleDesktopIpcCall('eleckoi:dsh-client-boot', (event) => {
+    const assertBootOwner = (event: IpcMainInvokeEvent): void => {
       assertTrustedDshClientFrame(
         event.sender,
         event.senderFrame?.url ?? '',
         event.senderFrame === event.sender.mainFrame,
         windows.all().map(window => window.webContents)
       )
+    }
+    handleDesktopIpcCall('eleckoi:dsh-client-boot', async (event) => {
+      assertBootOwner(event)
+      if (startup !== undefined) {
+        await startup
+        assertBootOwner(event)
+      }
       const ready = pluginHostReady
       if (ready === undefined) {
         throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, 'DSH 插件宿主尚未启动。', { what: 'DSH 插件宿主' })
@@ -183,14 +196,14 @@ export const mainWindowPlugin = {
       }
     })
     handleDesktopIpcCall('eleckoi:dsh-client-boot-failed', (event, message: unknown) => {
-      assertTrustedDshClientFrame(
-        event.sender,
-        event.senderFrame?.url ?? '',
-        event.senderFrame === event.sender.mainFrame,
-        windows.all().map(window => window.webContents)
-      )
+      assertBootOwner(event)
       if (typeof message !== 'string') {
         throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, 'DSH 插件页面错误格式不正确。', { what: 'DSH 插件页面错误' })
+      }
+      if (event.sender !== mainWindow?.webContents) {
+        // The child's DSH boot page presents its own failure.
+        appLog.error({ message, webContentsId: event.sender.id }, 'DSH child window boot failed')
+        return
       }
       appLog.error({ message }, 'DSH plugin client boot failed')
       ctx.emit('eleckoi/desktop-fatal', new DesktopError(ELECKOI_FAILURE_CODES.pluginLoadFailed, message, { what: 'DSH 插件页面启动' }))
@@ -216,7 +229,7 @@ export const mainWindowPlugin = {
       if (headers.origin !== DSH_CLIENT_ORIGIN) { callback({ cancel: true }); return }
       callback({ requestHeaders: { ...headers, origin: target.origin, cookie: ready.cookie, 'sec-fetch-site': 'same-origin' } })
     })
-    const focusMainWindow = () => { void windows.open('main') }
+    const focusMainWindow = () => { if (startup === undefined) void windows.open('main') }
     const disposePluginNavigation = installMainPluginNavigation(assertNativeOwner, () => windows.open('main'))
     app.on('activate', focusMainWindow)
     app.on('second-instance', focusMainWindow)
@@ -293,11 +306,24 @@ export const mainWindowPlugin = {
       }
     }
 
-    const ready = await runPluginHostStart()
-    pluginHostReady = { ...ready, cookie: await authenticateDshClientHost(ready.url) }
-    void removeLegacyDshHostCookies(session.defaultSession.cookies, ready.url)
-      .catch((error: unknown) => { console.error('desktop: legacy Host cookie cleanup failed', error) })
-    await windows.open('main')
+    // Load the DSH document first. Its existing desktop boot call waits for the authenticated Host.
+    startup = Promise.resolve().then(async () => {
+      const window = await windows.open('main')
+      const ready = await runPluginHostStart()
+      const cookie = await authenticateDshClientHost(ready.url)
+      pluginHostReady = { ...ready, cookie }
+      void removeLegacyDshHostCookies(session.defaultSession.cookies, ready.url)
+        .catch((error: unknown) => { console.error('desktop: legacy Host cookie cleanup failed', error) })
+      try {
+        nativeTheme.themeSource = await connectDesktopWelcome(ready.url, cookie).readThemePreference()
+      } catch (error) {
+        appLog.warn({ error }, '读取桌面启动主题失败，继续使用系统主题')
+      }
+      if (window.isDestroyed()) return
+      if (process.platform === 'win32') window.setBackgroundColor(windowsCaptionFill(nativeTheme.shouldUseDarkColors))
+      window.show()
+    })
+    try { await startup } finally { startup = undefined }
     return async () => {
       await disposeFileDrag()
       shortcuts.dispose()
@@ -335,9 +361,10 @@ function windowOptions(appPaths: Context['appPaths'], child: boolean, payload?: 
     show: false,
     ...(process.platform === 'win32'
       ? { titleBarStyle: 'hidden' as const, titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT,
-        color: nativeTheme.shouldUseDarkColors ? '#1b1b1c' : '#f9fafb', symbolColor: nativeTheme.shouldUseDarkColors ? '#f2f2f5' : '#111111' } }
+        color: windowsCaptionFill(nativeTheme.shouldUseDarkColors), symbolColor: nativeTheme.shouldUseDarkColors ? '#f2f2f5' : '#111111' } }
       : { frame: false }),
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#13131a' : '#ffffff',
+    backgroundColor: process.platform === 'win32' ? windowsCaptionFill(nativeTheme.shouldUseDarkColors)
+      : nativeTheme.shouldUseDarkColors ? '#13131a' : '#ffffff',
     icon: appPaths.resolveResource('icons', process.platform === 'win32' ? 'eleckoi-app-icon.ico' : 'eleckoi-app-icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/preload.cjs'),
@@ -362,7 +389,6 @@ function configureMainWindow(appPaths: Context['appPaths'], appLog: Context['app
     if (!isMainFrame && code === -3) return
     appLog.error({ code, description, url, isMainFrame }, 'DSH client renderer failed to load')
   })
-  window.once('ready-to-show', () => window.show())
   configureWindowNavigation(appLog, windows, window, true, () => window)
 }
 

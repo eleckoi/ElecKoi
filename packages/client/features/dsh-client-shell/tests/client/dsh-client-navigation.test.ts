@@ -24,6 +24,7 @@ describe('ElecKoi DSH client navigation', () => {
     let root: any
     let rootShares: any, conversationPanels: any
     const OfficialSidebar = () => null
+    const SettingsPage = () => null
     const officialSidebar = {
       inject: [],
       apply: (scope: any) => scope.slots.inject('sidebar', () =>
@@ -35,6 +36,7 @@ describe('ElecKoi DSH client navigation', () => {
     const services: Record<string, any> = {
       uiWorkspace: { startSession },
       uiSession: { adapter: { current: { getSnapshot: () => ({ key: currentSessionId }) } } },
+      sessions: { list: { getSnapshot: () => ({ byId: {}, projectionsBySession: {} }) } },
       eleckoiConversations: { getSnapshot: () => ({ items: [{ runtimeSessionId: 'roleplay-session' }] }) },
     }
     const slots = {
@@ -62,8 +64,7 @@ describe('ElecKoi DSH client navigation', () => {
         'const conversationPanels = createConversationPanelInfo(ctx); captureConversationPanels(conversationPanels)'), {
         captureConversationPanels: (value: any) => { conversationPanels = value },
         __ELECKOI_CLIENT_PLATFORM__: { kind: platform },
-        __ELECKOI_DSH_APP__: () => null,
-        __ELECKOI_DSH_SIDEBAR_READY__: true,
+        __ELECKOI_DSH_APP__: Object.assign(() => null, { shell: { OfficialFrameSidebar: 'OfficialFrameSidebar', SettingsPage } }),
         window: { __ModuleLoader__: { load: (value: any) => { registration = value } },
           addEventListener: () => {}, removeEventListener: () => {} },
         AbortController,
@@ -124,6 +125,11 @@ describe('ElecKoi DSH client navigation', () => {
       const entry = entries.find(item => item.options.name === 'main' && item.options.key === id)
       const rendered = entry?.component({})
       expect(entry?.options.registrant).toMatch(/^@eleckoi\/dsh-client-/)
+      if (id === 'settings') {
+        expect(rendered?.component).toBe(SettingsPage)
+        expect(rendered?.props.getUrl).toBeTypeOf('function')
+        continue
+      }
       expect(rendered?.component.load).toBeTypeOf('function')
       expect(rendered?.props).toBeUndefined()
     }
@@ -241,7 +247,7 @@ describe('ElecKoi DSH client navigation', () => {
     const source = readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8')
     runInNewContext(source, {
       __ELECKOI_CLIENT_PLATFORM__: { kind: 'android' },
-      __ELECKOI_DSH_SIDEBAR_READY__: true,
+      __ELECKOI_DSH_APP__: ProductApp,
       window: { __ModuleLoader__: { load: (value: any) => { registration = value } } },
       AbortController,
     })

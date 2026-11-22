@@ -26,9 +26,22 @@ export type { RemoteResultEnvelope } from './unwrapFailure.js'
 
 export const inject = ['remote']
 
+function hasVerifiedDesktopHost(): boolean {
+  const desktop = globalThis as typeof globalThis & {
+    dshDesktopBoot?: { ready?: unknown }
+    __DSH_TRANSPORT__?: { ownsHost?: boolean }
+    __ELECKOI_DESKTOP_PRODUCT_PROTOCOL__?: { architecture?: unknown; protocolVersion?: unknown }
+  }
+  // This carrier can only open the boot gate after the desktop Host verifies the product protocol.
+  return desktop.location?.protocol === 'dsh-app:' && desktop.location.hostname === 'app'
+    && typeof desktop.dshDesktopBoot?.ready === 'function' && desktop.__DSH_TRANSPORT__?.ownsHost === true
+    && desktop.__ELECKOI_DESKTOP_PRODUCT_PROTOCOL__?.architecture === 'dsh-remote'
+    && desktop.__ELECKOI_DESKTOP_PRODUCT_PROTOCOL__?.protocolVersion === 1
+}
+
 export async function apply(ctx: Context): Promise<() => Promise<void>> {
   const disposeRemote = await ctx.remote.$mount(eleckoiRemote)
-  const verifier = ctx.inject(['remote.eleckoiSystem'], async (scope) => {
+  const verifier = hasVerifiedDesktopHost() ? undefined : ctx.inject(['remote.eleckoiSystem'], async (scope) => {
     const status = await scope.remote.eleckoiSystem.status()
     // 失败分支保住失败对象本身：把 `.error.message` 压成一句话会把码与详情一起丢掉
     // （这正是「禁止丢码」那条规则盯的形状）。
@@ -49,7 +62,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
   return async () => {
     try { await inspect.dispose() }
     finally {
-      try { await verifier.dispose() }
+      try { await verifier?.dispose() }
       finally { await disposeRemote() }
     }
   }

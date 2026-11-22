@@ -20,9 +20,12 @@ async function fixture() {
     await rm(directory, { recursive: true, force: true })
   })
   await mkdir(join(directory, 'assets'))
-  await writeFile(join(directory, 'dsh.html'), '<link href="./assets/product.css"><script src="./assets/product.js"></script>')
+  await writeFile(join(directory, 'dsh.html'), '<link href="./assets/product.css"><script src="./assets/product.js"></script>'
+    + '<link rel="modulepreload" crossorigin href="./assets/shared.js"><link rel="modulepreload" href="https://example.invalid/ignored.js">')
   await writeFile(join(directory, 'assets/product.css'), '.product { color: red }')
   await writeFile(join(directory, 'assets/product.js'), 'globalThis.productLoaded = true')
+  await writeFile(join(directory, 'assets/shared.js'), 'export {}')
+  await writeFile(join(directory, 'assets/eleckoi-page-settings.js'), 'export {}')
   await writeFile(join(directory, 'secret.txt'), 'outside the asset directory')
   const ctx = new Context()
   cleanups.push(() => ctx.fiber.dispose())
@@ -41,6 +44,8 @@ it('delivers product boot inputs and assets through HTTP without an Electron pre
   const html = await page.text()
   expect(html).toContain('__ELECKOI_CLIENT_ASSETS__')
   expect(html).toContain('/eleckoi/assets/product.js')
+  expect(html).not.toContain('rel="modulepreload"')
+  expect(html).not.toContain('example.invalid')
   expect(html).not.toContain('dsh-app:')
   const script = await fetch(new URL('/eleckoi/assets/product.js', origin))
   expect(script.status).toBe(200)
@@ -69,6 +74,17 @@ it('keeps asset requests inside the built directory and preserves HTTP method ha
   expect((await request('/eleckoi/assets/%2e%2e%2fsecret.txt')).status).toBe(403)
   expect((await request('/eleckoi/assets/%2e%2e%5csecret.txt')).status).not.toBe(200)
   expect((await request('/eleckoi/assets/%E0%A4%A')).status).toBe(400)
+}, 15_000)
+
+it('serves the application when the optional settings module is unavailable', async () => {
+  const { ctx, directory, origin } = await fixture()
+  await rm(join(directory, 'assets/eleckoi-page-settings.js'))
+  await installWebClientAssets(ctx, directory)
+  const index = ctx.webServer.renderIndex('<head></head>', ownerPeer(ctx))
+  expect(index).toContain('/eleckoi/assets/product.js')
+  expect(index).not.toContain('rel="modulepreload"')
+  expect((await fetch(origin + '/eleckoi/assets/product.js')).status).toBe(200)
+  expect((await fetch(origin + '/eleckoi/assets/eleckoi-page-settings.js')).status).toBe(404)
 }, 15_000)
 
 it('rejects an incomplete build before publishing boot inputs or asset routes', async () => {

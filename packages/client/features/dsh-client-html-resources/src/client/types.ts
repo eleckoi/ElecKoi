@@ -15,5 +15,4 @@ export interface ElecKoiHtmlResources {
   subscribe(listener: () => void): () => void
 }
 declare module '@deepseek-ai/cordis' { interface Context { eleckoiHtmlResources: ElecKoiHtmlResources } }
-export declare function apply(ctx: Context): Promise<void>
-export declare const inject: string[]
+export declare function apply(ctx: Context): void

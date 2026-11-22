@@ -1,12 +1,36 @@
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, relative } from 'node:path';
+import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 import * as libraries from '@eleckoi/dsh-client-html-resources/browser-libraries';
 import { HtmlResourcesClient } from '../../src/runtime.js';
 import { createHtmlAssetHandler } from '../../src/assets.js';
 
 describe('presentation-only resources', () => {
+  it('activates the built DSH entry without separate document or network work', () => {
+    const window = new EventTarget(); window.Event = Event;
+    window.__ELECKOI_HTML_RESOURCES__ = { baseUrl: '/eleckoi/html/' };
+    let registration;
+    window.__ModuleLoader__ = { load: entry => { registration = entry; } };
+    runInNewContext(readFileSync(new URL('../../dist/client.js', import.meta.url), 'utf8'), { window });
+    const plugin = registration.factory(name => {
+      expect(name).toBe('@eleckoi/dsh-product-api');
+      return {};
+    });
+    let cleanup;
+    plugin.apply({
+      provide: (name, runtime) => {
+        expect(name).toBe('eleckoiHtmlResources');
+        expect(runtime.sdk.BROWSER_LIBRARY_SCRIPTS).toEqual(libraries.BROWSER_LIBRARY_SCRIPTS);
+      },
+      effect: start => { cleanup = start(); },
+    });
+    expect(window.__ElecKoiHtmlResources?.getSnapshot()).toEqual({ status: 'ready', error: '' });
+    cleanup();
+    expect(window.__ElecKoiHtmlResources).toBeUndefined();
+  });
+
   it('starts and stops without installing external SDK globals or requesting author capabilities', () => {
     const window = new EventTarget(); window.Event = Event;
     const runtime = new HtmlResourcesClient({ window, sdk: libraries, assetsBaseUrl: '/eleckoi/html/' });

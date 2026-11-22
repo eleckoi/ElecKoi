@@ -1,4 +1,5 @@
 import { officialLocale } from '../../../../tests/helpers/officialLocale.js';
+import { loadOfficialLayout } from '../../../../tests/helpers/officialLayout.js';
 // @vitest-environment jsdom
 import * as React from 'react';
 import * as ReactDom from 'react-dom';
@@ -11,9 +12,10 @@ import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const require = createRequire(import.meta.url);
+const officialLayout = loadOfficialLayout({ window, document, getComputedStyle });
 let officialSidebar;
 // 边界⑥ 的信封拆解（与 tests/helpers/dshClientPlugin.ts 同一份实现）。
 import { failureOrInvalidResponse, unwrapOrFail } from '../../../../packages/host/product-api/src/client/unwrapFailure.ts';
@@ -22,12 +24,13 @@ function load(file, platform = 'android') {
   let registration;
   runInNewContext(readFileSync(file, 'utf8'), {
     window: { __ModuleLoader__: { load: value => { registration = value; } }, addEventListener() {}, removeEventListener() {} },
-    __ELECKOI_DSH_SIDEBAR_READY__: true,
+    __ELECKOI_DSH_APP__: () => null,
     __ELECKOI_CLIENT_PLATFORM__: { kind: platform }, AbortController, document, getComputedStyle,
   });
   const dependencies = { react: React, 'react-dom': ReactDom, 'react-dom/client': ReactDomClient,
     'react/jsx-runtime': Jsx, '@deepseek-ai/cordis': Cordis, '@deepseek-ai/dsh-client-ui-slots': Slots,
     '@deepseek-ai/dsh-client-store': Store, '@deepseek-ai/dsh-client-ui-primitives': {},
+    '@deepseek-ai/dsh-client-ui-layout': officialLayout,
     '@deepseek-ai/dsh-client-ui-sidebar': officialSidebar,
     '@eleckoi/dsh-product-api': { unwrapOrFail, failureOrInvalidResponse, invalidResponseFailure, internalFailure, INTERNAL_FAILURE_CODE } };
   return registration.factory(name => {
@@ -92,10 +95,11 @@ describe('Android composition with the shared PC sidebar and locked DSH slots', 
         owner.reflect.provide('locale', officialLocale());
         owner.reflect.provide('theme', { getTheme: () => ({ active: { colorScheme: 'light', tokens: {} }, fontSizes: { text: 15, code: 14, terminal: 13 }, fontFamilies: { text: '', code: '', terminal: '' } }) });
         owner.reflect.provide('uiWorkspace', {});
-        owner.reflect.provide('shortcuts', {});
+        owner.reflect.provide('shortcuts', { register: () => () => {} });
         for (const name of shell.inject.filter(name => !['slots', 'locale', 'theme'].includes(name))) owner.reflect.provide(name, {});
       } });
       await ctx.plugin(shell);
+      await vi.waitFor(() => expect(ctx.slots.spec('main')).toMatchObject({ kind: 'keyed' }));
       const original = await ctx.plugin({ name: 'synthetic-page', inject: ['slots'], apply(owner) {
         owner.slots.register({ name: 'main', key: 'messages' }, () => null);
       } });
@@ -115,7 +119,7 @@ describe('Android composition with the shared PC sidebar and locked DSH slots', 
       expect(ctx.slots.entriesOfSlot('sidebar.panellist').some(entry => entry.options.id === 'synthetic-extension')).toBe(true);
       expect(ctx.slots.entriesOfSlot('settings.section').some(entry => entry.options.id === 'synthetic-settings')).toBe(true);
       ctx.layout.selectPanel('synthetic-extension');
-      expect(ctx.layout.panelInfo.getSnapshot().windowPanelId).toBe('synthetic-extension');
+      expect(ctx.layout.panelInfo.getSnapshot().activePanelId).toBe('synthetic-extension');
       expect(ctx.slots.entriesOfSlot('sidebar.footer.action')).toHaveLength(1);
       await extension.dispose();
       expect(ctx.slots.entriesOfSlot('sidebar.panellist').some(entry => entry.options.id === 'synthetic-extension')).toBe(false);

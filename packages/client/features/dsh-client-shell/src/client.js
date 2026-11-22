@@ -11,20 +11,7 @@ window.__ModuleLoader__.load({
       Switch
     } = primitives
     const { productFailure, ELECKOI_FAILURE_CODES, unwrapOrFail, failureAlreadyPublished } = require('@eleckoi/dsh-product-api')
-    const SettingsPage = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
-      .then(module => ({ default: module.SettingsPage })))
-    const OfficialFrameSidebar = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
-      .then(module => ({ default: module.OfficialFrameSidebar })))
-    const OfficialFramePage = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
-      .then(module => ({ default: module.OfficialFramePage })))
-    const CreatorStudioNavigationIcon = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
-      .then(module => ({ default: module.CreatorStudioNavigationIcon })))
-    const CommunityNavigationIcon = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
-      .then(module => ({ default: module.CommunityNavigationIcon })))
-    const SidebarBrandMark = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
-      .then(module => ({ default: module.SidebarBrandMark })))
-    const SidebarBrandName = React.lazy(() => import(new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href)
-      .then(module => ({ default: module.SidebarBrandName })))
+    const settingsPageUrl = () => new URL('eleckoi-page-settings.js', new URL(globalThis.__ELECKOI_CLIENT_ASSETS__.script, location.href)).href
     const nativeSettingsSections = new Set(['account', 'models', 'agent-presets', 'general'])
     const shellActions = new Set(['community'])
     const builtInBundles = [
@@ -260,8 +247,8 @@ window.__ModuleLoader__.load({
                     }, renderOptions)
                   })() : props.renderSlot(key, owner, renderOptions)
               })
-              return React.createElement(React.Suspense, { fallback: null }, React.createElement(OfficialFrameSidebar,
-                { ...props, renderSidebarSlot: productSlot, workspaceSidebar }))
+               return React.createElement(React.Suspense, { fallback: null }, renderShellPart('OfficialFrameSidebar',
+                 { ...props, renderSidebarSlot: productSlot, workspaceSidebar }))
             } : Component)
           const value = Reflect.get(target, name)
           return typeof value === 'function' ? value.bind(target) : value
@@ -353,9 +340,71 @@ window.__ModuleLoader__.load({
       syncRoot()
       return () => { stopRoot(); releaseRoot?.() }
     }
+    function readyProductApp() {
+      const app = globalThis.__ELECKOI_DSH_APP__
+      return typeof app === 'function' ? app : null
+    }
+
+    function renderShellPart(name, props) {
+      const Component = readyProductApp()?.shell?.[name]
+      return Component ? React.createElement(Component, props) : null
+    }
+
+    let productAppLoading
+    function loadProductApp(tUi) {
+      const existing = readyProductApp()
+      if (existing) return Promise.resolve(existing)
+      if (productAppLoading) return productAppLoading
+      const assets = globalThis.__ELECKOI_CLIENT_ASSETS__
+      if (!assets || typeof assets.script !== 'string') {
+        return Promise.reject(new Error(tUi("ElecKoi 客户端资源未准备好。")))
+      }
+      globalThis.__ELECKOI_DSH_PLATFORM__ = {
+        react: React,
+        jsxRuntime: require('react/jsx-runtime'),
+        reactDom: require('react-dom'),
+        reactDomClient: require('react-dom/client'),
+        primitives
+      }
+      if (typeof assets.style === 'string' && !document.querySelector('link[data-eleckoi-styles]')) {
+        const style = document.createElement('link')
+        style.dataset.eleckoiStyles = ''
+        style.rel = 'stylesheet'
+        style.href = assets.style
+        document.head.append(style)
+      }
+      const app = new Promise((resolve, reject) => {
+        const existingApp = globalThis.__ELECKOI_DSH_APP__
+        if (typeof existingApp === 'function') { resolve(existingApp); return }
+        const cleanUp = () => {
+          window.removeEventListener('eleckoi:dsh-app-ready', ready)
+          window.removeEventListener('eleckoi:dsh-app-failed', failed)
+        }
+        const ready = () => { cleanUp(); resolve(globalThis.__ELECKOI_DSH_APP__) }
+        const failed = event => {
+          cleanUp()
+          script.remove()
+          reject(new Error(event?.detail || tUi("ElecKoi 客户端脚本加载失败。")))
+        }
+        const script = document.createElement('script')
+        script.dataset.eleckoiScript = ''
+        script.type = 'module'
+        script.src = assets.script
+        script.onerror = failed
+        window.addEventListener('eleckoi:dsh-app-ready', ready)
+        window.addEventListener('eleckoi:dsh-app-failed', failed)
+        document.head.append(script)
+      })
+      productAppLoading = app.catch(error => {
+        productAppLoading = undefined
+        throw error
+      })
+      return productAppLoading
+    }
+
     function ElecKoiRoot({ nativeFrame, layout, slots, subscribeSlots, frontendConnection, locale, theme, subscribeTheme, conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, webSearch, displayPreferences, sidebarRight, renderSlot, renderSlotChain }) {
       const tUi = locale.bind('eleckoi.ui')
-      const [ProductApp, setProductApp] = React.useState(null)
+      const [ProductApp, setProductApp] = React.useState(readyProductApp)
       const [loadError, setLoadError] = React.useState('')
       const settingsVersion = React.useSyncExternalStore(
         listener => slots.subscribe('settings.section', listener),
@@ -571,57 +620,14 @@ window.__ModuleLoader__.load({
       }, [layout, slots])
 
       React.useEffect(() => {
-        const assets = globalThis.__ELECKOI_CLIENT_ASSETS__
-        if (!assets || typeof assets.script !== 'string') {
-          setLoadError(tUi("ElecKoi 客户端资源未准备好。"))
-          return
-        }
-        globalThis.__ELECKOI_DSH_PLATFORM__ = {
-          react: React,
-          jsxRuntime: require('react/jsx-runtime'),
-          reactDom: require('react-dom'),
-          reactDomClient: require('react-dom/client'),
-          primitives
-        }
-        const ready = () => {
-          if (!globalThis.__ELECKOI_DSH_SIDEBAR_READY__) return
-          if (typeof globalThis.__ELECKOI_DSH_APP__ === 'function') {
-            setProductApp(() => globalThis.__ELECKOI_DSH_APP__)
-            setLoadError('')
-          }
-        }
-        const failed = event => setLoadError(event.detail || tUi("ElecKoi 客户端启动失败。"))
-        window.addEventListener('eleckoi:dsh-app-ready', ready)
-        window.addEventListener('eleckoi:dsh-app-failed', failed)
+        if (ProductApp) return
         let disposed = false
-        import(new URL('eleckoi-page-settings.js', new URL(assets.script, location.href)).href).then(() => {
-            if (disposed) return
-            globalThis.__ELECKOI_DSH_SIDEBAR_READY__ = true
-            window.dispatchEvent(new Event('eleckoi:dsh-sidebar-ready'))
-            ready()
-          }).catch(error => { if (!disposed) setLoadError(error instanceof Error ? error.message : String(error)) })
-        const style = typeof assets.style === 'string' && !document.querySelector('link[data-eleckoi-styles]')
-          ? document.createElement('link') : null
-        if (style) {
-          style.dataset.eleckoiStyles = ''
-          style.rel = 'stylesheet'
-          style.href = assets.style
-          document.head.append(style)
-        }
-        ready()
-        if (!globalThis.__ELECKOI_DSH_APP__ && !document.querySelector('script[data-eleckoi-script]')) {
-          const script = document.createElement('script')
-          script.dataset.eleckoiScript = ''
-          script.type = 'module'
-          script.src = assets.script
-          script.onerror = () => setLoadError(tUi("ElecKoi 客户端脚本加载失败。"))
-          document.head.append(script)
-        }
-        return () => {
-          disposed = true
-          window.removeEventListener('eleckoi:dsh-app-ready', ready)
-          window.removeEventListener('eleckoi:dsh-app-failed', failed)
-        }
+        loadProductApp(tUi).then(app => {
+          if (!disposed) setProductApp(() => app)
+        }).catch(error => {
+          if (!disposed) setLoadError(error instanceof Error ? error.message : String(error))
+        })
+        return () => { disposed = true }
       }, [])
 
       return React.createElement(React.Fragment, null,
@@ -677,7 +683,10 @@ window.__ModuleLoader__.load({
             }, React.createElement('div', { className: 'chat-empty-guide' },
               React.createElement('strong', null, tUi("角色聊天插件未启用"))))
           })
-        }) : loadError)
+        }) : React.createElement('div', {
+          role: loadError ? 'alert' : 'status',
+          style: { height: '100%', display: 'grid', placeItems: 'center', color: 'var(--dsw-alias-label-secondary)' },
+        }, loadError || locale.bind('common')('loading')))
       )
     }
 
@@ -862,7 +871,7 @@ window.__ModuleLoader__.load({
                     const entry = slots.entriesOfSlot('main').find(row => row.options.key === id)
                     if (entry?.registrant?.startsWith('@eleckoi/dsh-client-')) return content
                     return React.createElement(React.Suspense, { fallback: null },
-                      React.createElement(OfficialFramePage, { panelId: id, mainPanel: content }))
+                       renderShellPart('OfficialFramePage', { panelId: id, mainPanel: content }) ?? content)
                   }, [props.renderSlot])
                   return React.createElement(ElecKoiRoot, { ...props,
                     nativeFrame: React.createElement(Frame, { ...props, usePanelInfo: useNativePanelInfo, renderSlot }) })
@@ -945,26 +954,26 @@ window.__ModuleLoader__.load({
               apply: scope => mountWorkspaceSidebar(scope, officialSidebar)
             })
           }
-          if (globalThis.__ELECKOI_DSH_SIDEBAR_READY__) mount()
-          window.addEventListener('eleckoi:dsh-sidebar-ready', mount)
-          return () => window.removeEventListener('eleckoi:dsh-sidebar-ready', mount)
+          if (readyProductApp()) mount()
+          window.addEventListener('eleckoi:dsh-app-ready', mount)
+          return () => window.removeEventListener('eleckoi:dsh-app-ready', mount)
       }, 'eleckoi: native workspace sidebar library')
       ctx.slots.inject('sidebar.brand.mark', () => ctx.slots.register({ name: 'sidebar.brand.mark', priority: -100 },
-          ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(SidebarBrandMark, { size }))))
+           ({ size }) => renderShellPart('SidebarBrandMark', { size })))
         ctx.slots.inject('sidebar.brand.name', () => ctx.slots.register({ name: 'sidebar.brand.name', priority: -100 },
-          () => React.createElement(React.Suspense, { fallback: null }, React.createElement(SidebarBrandName))))
+           () => renderShellPart('SidebarBrandName')))
 
       ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'settings', registrant: '@eleckoi/dsh-client-shell' },
-        () => React.createElement(SettingsPage)))
+         () => renderShellPart('SettingsPage', { getUrl: settingsPageUrl })))
       ctx.slots.inject('sidebar.panellist', () => [
         ctx.slots.register({
           name: 'sidebar.panellist', id: 'creatorStudio', order: 10,
           label: () => ctx.locale.bind('eleckoi.ui')("AI创作工作室"), registrant: '@eleckoi/dsh-client-shell'
-        }, ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(CreatorStudioNavigationIcon, { size }))),
+         }, ({ size }) => renderShellPart('CreatorStudioNavigationIcon', { size })),
         ctx.slots.register({
           name: 'sidebar.panellist', id: 'community', order: 20,
           label: () => ctx.locale.bind('eleckoi.ui')("社区"), registrant: '@eleckoi/dsh-client-shell'
-        }, ({ size }) => React.createElement(React.Suspense, { fallback: null }, React.createElement(CommunityNavigationIcon, { size })))
+         }, ({ size }) => renderShellPart('CommunityNavigationIcon', { size }))
       ])
       ctx.slots.inject('plugins.bundle.config', () => builtInBundles.filter(name => name !== '@eleckoi/dsh-auto-illustration').map(packageName => ctx.slots.register({
         name: 'plugins.bundle.config', key: packageName, registrant: '@eleckoi/dsh-client-shell'

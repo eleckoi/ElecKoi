@@ -25,6 +25,8 @@ export interface DesktopWelcomeBackend {
   read(): Promise<WelcomeState>
   /** @returns The saved UI language without account or provider requests. */
   readLocalePreference(): Promise<string | null>
+  /** @returns The saved UI appearance without account or provider requests. */
+  readThemePreference(): Promise<WelcomeState['themePreference']>
   /**
    * @param apiKey - User-entered official provider key.
    * @returns A safe write outcome without provider diagnostics.
@@ -69,15 +71,19 @@ export function connectDesktopWelcome(
     return envelope.result.value
   }
   const account = desktopAccountBackend(origin, invoke, cookie)
-  const settingsAndReference = async () => {
+  const readSettings = async () => {
     const settings = await invoke({ namespace: 'settings', method: 'describe', args: {} })
     if (!record(settings) || !Array.isArray(settings.namespaces)) throw new Error('desktop welcome: missing settings namespaces')
+    return { namespaces: settings.namespaces }
+  }
+  const settingsAndReference = async () => {
+    const settings = await readSettings()
     const official: unknown = settings.namespaces.find((item: unknown) => record(item) && item.ns === 'llm-deepseek')
-    if (official === undefined) return { settings: { namespaces: settings.namespaces }, ref: undefined }
+    if (official === undefined) return { settings, ref: undefined }
     if (!record(official) || !record(official.value) || typeof official.value.apiKeyEnv !== 'string') {
       throw new Error('desktop welcome: missing official DeepSeek credential reference')
     }
-    return { settings: { namespaces: settings.namespaces }, ref: official.value.apiKeyEnv }
+    return { settings, ref: official.value.apiKeyEnv }
   }
   const localePreference = (namespaces: unknown[]): string | null => {
     const locale: unknown = namespaces.find((item: unknown) => record(item) && item.ns === 'locale')
@@ -139,9 +145,10 @@ export function connectDesktopWelcome(
     },
     async report(event) { await invoke({ namespace: 'productAnalytics', method: 'report', args: { event } }, AbortSignal.timeout(1000)) },
     async readLocalePreference() {
-      const settings = await invoke({ namespace: 'settings', method: 'describe', args: {} })
-      if (!record(settings) || !Array.isArray(settings.namespaces)) throw new Error('desktop welcome: missing settings namespaces')
-      return localePreference(settings.namespaces)
+      return localePreference((await readSettings()).namespaces)
+    },
+    async readThemePreference() {
+      return themePreference((await readSettings()).namespaces)
     },
     async save(apiKey) {
       if (!/^[\x21-\x7e]+$/.test(apiKey)) return { ok: false }

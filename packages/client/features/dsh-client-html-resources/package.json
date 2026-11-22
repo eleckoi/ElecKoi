@@ -13,7 +13,7 @@
     },
     "./client": {
       "types": "./src/client/types.ts",
-      "default": "./src/client.js"
+      "default": "./dist/client.js"
     },
     "./runtime": "./src/runtime.js",
     "./browser-libraries": "./src/browser-libraries.js",

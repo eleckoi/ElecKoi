@@ -21,7 +21,9 @@ export async function installWebClientAssets(ctx: Context, directory: string): P
     throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, 'ElecKoi WebClient build is incomplete', { what: 'ElecKoi WebClient 构建产物' })
   }
   const root = resolve(directory, 'assets')
-  await Promise.all([readFile(resolve(root, script)), readFile(resolve(root, style))])
+  await Promise.all([script, style].map(file => readFile(resolve(root, file))))
+  // Give the mounted shell the asset addresses. Fetching product modules here
+  // competes with the official DSH loader before it mounts the application.
   ctx.on('webserver/index-inject', table => {
     table.push({ kind: 'global', name: '__ELECKOI_CLIENT_ASSETS__', value: {
       baseUrl, script: baseUrl + script, style: baseUrl + style

@@ -51,10 +51,20 @@ app.whenReady().then(async () => {
         if (await win.webContents.executeJavaScript('!!document.querySelector("[role=dialog]") && !!window.nativeCaptionColors?.length')) break;
         await new Promise(resolve => setTimeout(resolve, 30));
       }
-      await win.webContents.executeJavaScript(`(()=>{const style=document.createElement('style');style.textContent='body[data-caption-plugin] { --dsw-specific-sidebar-fill:transparent !important;--dsw-alias-label-primary:rgb(230,231,232) !important; }';document.head.append(style)})()`);
-      for (const plugin of [false, true, false]) {
-        await win.webContents.executeJavaScript(`document.body.toggleAttribute('data-caption-plugin',${plugin});new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
-        paletteChecks.push(await win.webContents.executeJavaScript(`(()=>{const mask=document.querySelector('[role=dialog]').parentElement.firstElementChild;return {theme:${JSON.stringify(theme)},plugin:${plugin},native:window.nativeCaptionColors.at(-1),maskTop:mask.getBoundingClientRect().top,marker:document.documentElement.hasAttribute('data-windows-titlebar')}})()`));
+      await win.webContents.executeJavaScript(`(() => {
+        const style = document.createElement('style');
+        style.textContent = 'body[data-caption-plugin="transparent"] { --dsw-specific-sidebar-fill: transparent !important; }'
+          + 'body[data-caption-plugin="translucent"] { --dsw-specific-sidebar-fill: rgba(24,26,30,.4) !important; }'
+          + 'body[data-caption-plugin="transparent"] { --dsw-alias-label-primary: rgb(230,231,232) !important; }';
+        document.head.append(style);
+      })()`);
+      for (const plugin of ['', 'translucent', 'transparent', '']) {
+        await win.webContents.executeJavaScript(`document.body.dataset.captionPlugin = ${JSON.stringify(plugin)}; new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+        paletteChecks.push(await win.webContents.executeJavaScript(`(() => {
+          const mask = document.querySelector('[role=dialog]').parentElement.firstElementChild;
+          return { theme: ${JSON.stringify(theme)}, plugin: document.body.dataset.captionPlugin, native: window.nativeCaptionColors.at(-1),
+            maskTop: mask.getBoundingClientRect().top, marker: document.documentElement.hasAttribute('data-windows-titlebar') };
+        })()`));
       }
     }
     writeFileSync(reportPath, JSON.stringify({ reports, paletteChecks, errors }, null, 2));

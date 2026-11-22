@@ -31,7 +31,7 @@ async function listen(handler: RequestListener): Promise<string> {
 }
 
 describe('DSH client document transport', () => {
-  it('reuses the Host cookie for repeated native locale reads without a second authentication request', async () => {
+  it('reuses the Host cookie for native locale and theme reads', async () => {
     const requests: Array<{ url: string | undefined; cookie: string | undefined }> = []
     const host = await listen((request, response) => {
       requests.push({ url: request.url, cookie: request.headers.cookie })
@@ -41,12 +41,15 @@ describe('DSH client document transport', () => {
         const rpc = JSON.parse(body)
         response.setHeader('content-type', 'application/json')
         response.end(JSON.stringify({ type: 'server-response', rpcId: rpc.rpcId, result: { ok: true,
-          value: { namespaces: [{ ns: 'locale', value: { preference: 'zh' } }] }
+          value: { namespaces: [
+            { ns: 'locale', value: { preference: 'zh' } },
+            { ns: 'ui-theme', value: { preference: 'dark' } },
+          ] }
         } }))
       })
     })
     const backend = connectDesktopWelcome(new URL('login?token=synthetic', host).href, 'dsh-auth-synthetic=synthetic')
-    await expect(backend.readLocalePreference()).resolves.toBe('zh')
+    await expect(backend.readThemePreference()).resolves.toBe('dark')
     await expect(backend.readLocalePreference()).resolves.toBe('zh')
     expect(requests).toEqual(Array.from({ length: 2 }, () => ({ url: '/api/settings/describe', cookie: 'dsh-auth-synthetic=synthetic' })))
   })
