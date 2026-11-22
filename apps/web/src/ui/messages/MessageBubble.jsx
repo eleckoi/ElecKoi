@@ -245,7 +245,8 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
       autoFocus={typeof document === 'undefined' || document.documentElement.dataset.eleckoiMobile !== 'true'}
       aria-label={tUi('编辑消息')}
     /><div><button type="button" onClick={cancelEdit}>{tUi('取消')}</button><button type="button" className="primary" onClick={saveEdit}>{tUi('保存')}</button></div></div>;
-    return renderMessageEditor?.(message, { draft, onDraftChange: setDraft, onSave: saveEdit, onCancel: cancelEdit }, fallback) ?? fallback;
+    const editor = renderMessageEditor?.(message, { draft, onDraftChange: setDraft, onSave: saveEdit, onCancel: cancelEdit }, fallback) ?? fallback;
+    return layoutMode === "agent" ? <div className="message-editor-seat">{editor}</div> : editor;
   }
   function openProcess() {
     if (mobileRoleplay) toolbar.collapseBeforeDialog();

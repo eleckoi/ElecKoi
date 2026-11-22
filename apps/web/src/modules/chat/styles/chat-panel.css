@@ -1085,6 +1085,17 @@
   width: min(720px, 100%);
   min-width: 0;
 }
+.message-agent .message-editor-seat {
+  min-width: 0;
+}
+.message-agent.mine .message-editor-seat {
+  justify-self: end;
+  width: min(720px, 100%);
+}
+.message-agent .message-inline-editor {
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+}
 .message-inline-editor textarea {
   box-sizing: border-box;
   field-sizing: content;

@@ -128,6 +128,55 @@ app.whenReady().then(async () => {
     const gallery = await run(`document.querySelector('.chat-panel').hasAttribute('data-roleplay-backdrop')`);
     await run('roleplayStyleFixture.selectView("chat")'); await change({ layout: 'agent' });
     const agent = await run(`({backdrop:document.querySelector('.chat-panel').hasAttribute('data-roleplay-backdrop'),bubbles:document.querySelector('.chat-panel').hasAttribute('data-roleplay-bubbles'),tint:document.querySelector('.chat-panel').style.getPropertyValue('--rp-user-tint')})`);
+    const agentEditors = [];
+    const longDraft = '<FINAL>合成长消息\n' + '换行与窄屏正文。\n'.repeat(100) + '最后一行';
+    for (const [width, mobileChat] of [[1440, false], [390, true], [320, true]]) {
+      win.setContentSize(width, 900);
+      await run(`document.documentElement.dataset.eleckoiMobile='${mobileChat}';roleplayStyleFixture.setMobileChat(${mobileChat})`);
+      await settle();
+      for (const role of ['theirs', 'mine']) {
+        const selector = `.message-agent.${role}`;
+        const open = () => run(`document.querySelector('${selector} [aria-label="编辑"]').click()`);
+        const button = label => run(`[...document.querySelectorAll('${selector} .message-inline-editor button')].find(button => button.textContent === '${label}').click()`);
+        const measure = () => run(`(() => {
+          const row = document.querySelector('${selector}'), avatar = row.querySelector(':scope > .avatar');
+          const editor = row.querySelector('.message-inline-editor'), field = editor.querySelector('textarea');
+          const rect = element => element.getBoundingClientRect().toJSON();
+          return { width: innerWidth, role: '${role}', avatar: rect(avatar), editor: rect(editor), field: rect(field),
+            save: rect(editor.querySelector('button:last-child')), value: field.value, focused: document.activeElement === field,
+            overflow: row.scrollWidth > row.clientWidth + 1, scrollable: field.scrollHeight > field.clientHeight };
+        })()`);
+        await open();
+        await settle();
+        const initial = await measure();
+        await run(`(() => {
+          const field = document.querySelector('${selector} textarea');
+          Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(field, ${JSON.stringify(longDraft)});
+          field.dispatchEvent(new Event('input', { bubbles: true }));
+        })()`);
+        await settle();
+        const expanded = await measure();
+        await capture(`agent-edit-${width}-${role}`);
+        await button(mobileChat ? '取消' : '保存');
+        await settle();
+        const closed = await run(`!document.querySelector('${selector} .message-inline-editor')`);
+        let reopenedOriginal;
+        if (mobileChat) {
+          await open();
+          await settle();
+          reopenedOriginal = (await measure()).value === initial.value;
+          await button('取消');
+          await settle();
+        }
+        const { value, ...longEditor } = expanded;
+        agentEditors.push({ ...initial, value: undefined, longEditor: { ...longEditor, complete: value === longDraft },
+          closed, reopenedOriginal });
+      }
+    }
+    const agentEdits = await run(`roleplayStyleFixture.edits.map(({ role, content }) => ({ role, complete: content === ${JSON.stringify(longDraft)} }))`);
+    win.setContentSize(1760, 1090);
+    await run("delete document.documentElement.dataset.eleckoiMobile; roleplayStyleFixture.setMobileChat(false)");
+    await settle();
     await change({ layout: 'roleplay' }); await style({ backdrop_enabled: false, bubbles_enabled: false });
     const disabled = await run(`({content:getComputedStyle(document.querySelector('[data-conversation-content]'),'::before').content,prefs:roleplayStyleFixture.preferences.roleplay_style})`);
     await style({ backdrop_enabled: true, bubbles_enabled: true });
@@ -150,7 +199,7 @@ app.whenReady().then(async () => {
       mobile.push(await run(`({theme:'${theme}',width:innerWidth,overflow:document.documentElement.scrollWidth>innerWidth,rows:[...document.querySelectorAll('.ec-field,.ec-style-tint-row')].filter(n=>n.scrollWidth>n.clientWidth+1).map(n=>n.textContent)})`));
       if (width === 320) await capture(`mobile-${theme}`);
     }
-    writeFileSync(report, JSON.stringify({ initial, widthDrags, layouts, plainBubbleContrast, tintInputs, materials, authoredWallpaper, custom, customGap, gallery, agent, disabled, restored, settings, mobile, errors }, null, 2));
+    writeFileSync(report, JSON.stringify({ initial, widthDrags, layouts, plainBubbleContrast, tintInputs, materials, authoredWallpaper, custom, customGap, gallery, agent, agentEditors, agentEdits, disabled, restored, settings, mobile, errors }, null, 2));
     win.destroy(); app.quit();
   } catch (error) { console.error(error); win.destroy(); app.exit(1); }
 });

@@ -40,6 +40,7 @@ const modelBodies = []
 const nativeAuthorMode = process.argv.includes('--native-author')
 const pluginCreationMode = process.argv.includes('--plugin-creation-check')
 const chatOnlyMode = process.argv.includes('--chat-only')
+const agentMessageEditMode = process.argv.includes('--agent-message-edit-check')
 const processDialogMode = process.argv.includes('--process-dialog-check')
 const roleplayToolMode = process.argv.includes('--roleplay-tools-check')
 const toolScenario = roleplayToolMode ? require('./probe-roleplay-tool-results.cjs') : null
@@ -110,9 +111,10 @@ async function main() {
       response.end(events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join(''))
       return
     }
-    if (workspaceIsolationSetup || nativeAuthorMode || subagentNavigationMode || modelRequests > 1) {
+    if (workspaceIsolationSetup || nativeAuthorMode || subagentNavigationMode || agentMessageEditMode || modelRequests > 1) {
       response.writeHead(200, { 'content-type': 'text/event-stream' })
       let text = nativeAuthorMode ? 'Synthetic native reply' : modelRequests === 2 ? 'Synthetic recovered reply' : `Synthetic regenerated reply ${modelRequests}`
+      if (agentMessageEditMode) text = '<FINAL>' + '这是用来检查原样编辑和自动换行的合成长消息。'.repeat(24) + '</FINAL>'
       if (chatOnlyMode && process.argv.includes('--handoff-check')) {
         text += '\n\n```html\n<!doctype html><html><body style="margin:0"><section style="height:240px;background:#123456;color:white">Synthetic rich card</section></body></html>\n```'
       }
@@ -503,6 +505,10 @@ async function main() {
   await waitFor(`Array.from(document.querySelectorAll('.conversation-main b')).some(node => node.innerText === ${JSON.stringify(conversationLabel)})`, 'Synthetic conversation did not appear')
   await window.webContents.executeJavaScript(`Array.from(document.querySelectorAll('.conversation-main b')).find(node => node.innerText === ${JSON.stringify(conversationLabel)}).click()`)
   await waitFor(`document.querySelector('[data-composer-input][contenteditable="true"]') !== null`, 'Synthetic conversation did not open')
+  if (agentMessageEditMode) {
+    await require('./probe-agent-message-edit.cjs')({ window, waitFor, remoteCall, nativeTheme, conversationId: created.conversation.id })
+    return
+  }
   if (process.argv.includes('--conversation-order-check')) {
     const directory = resolve('build/conversation-order-check')
     mkdirSync(directory, { recursive: true })

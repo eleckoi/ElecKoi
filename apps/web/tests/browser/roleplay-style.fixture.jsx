@@ -45,8 +45,8 @@ function Fixture() {
   const [activeView, selectView] = useState('chat');
   const [mobileChat, setMobileChat] = useState(false);
   const [wallpaper, setWallpaper] = useState({ image: `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><path fill="#283c50" d="M0 0h1600v1000H0z"/></svg>')}`, opacity: .72, blur: 2, scrim: .5 });
-  const scrollRef = useRef(null), scrollPositions = useRef(new Map());
-  window.roleplayStyleFixture = { preferences, update, updateProfile: chatDisplaySettings(preferences, update).updateProfile, setView, setPage, selectView, setMobileChat, setWallpaper, wallpaper };
+  const scrollRef = useRef(null), scrollPositions = useRef(new Map()), edits = useRef([]);
+  window.roleplayStyleFixture = { preferences, update, updateProfile: chatDisplaySettings(preferences, update).updateProfile, setView, setPage, selectView, setMobileChat, setWallpaper, wallpaper, edits: edits.current };
   const renderSlot = (slot, owner) => {
     if (slot === 'eleckoi.roleplay.background' && owner.activeView === 'chat') return <ChatWallpaper wallpaper={owner.wallpaper} />;
     if (slot === 'eleckoi.roleplay.chat') return <div data-chat-view=""><div><div data-chat-scroll=""><div data-chat-column=""><div data-slot="eleckoi.roleplay.chat.flow">{messages.map((message, index) => <div data-chat-flow-key={message.id} key={message.id}>{owner.renderChatNode({
@@ -62,6 +62,7 @@ function Fixture() {
   const panel = <ChatPanel wallpaper={wallpaper} renderConversationContent={createRenderNativeContent} hasActiveChat hasCharacters currentTitle="鲸鱼娘" persona={persona}
     chatDisplay={preferences} messages={messages} conversationId="style-conversation" runtimeSessionId="style-runtime" input="" setInput={noop} modelConfigs={[]} scrollRef={scrollRef}
     dshConversation={{ activeView, selectView, tabs: [{ id: 'chat', label: '对话' }, { id: 'gallery', label: '画廊' }], renderView: () => <p>合成画廊</p> }}
+    onEditMessage={async (message, content) => { edits.current.push({ role: message.role, content }); return true; }}
     renderRoleplaySlot={renderSlot} />;
   return <OfficialMarkdownProvider component={MarkdownText}>
     {view === 'settings' ? <div className="app-settings-content"><ChatDisplaySettings persona={persona} chatDisplay={preferences} onChatDisplayChange={update} /></div>

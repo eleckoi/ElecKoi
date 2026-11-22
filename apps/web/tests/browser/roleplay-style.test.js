@@ -27,7 +27,7 @@ it('keeps roleplay surfaces flush, independent, and readable in both desktop and
     if (output) await copyFile(report, resolve(output, 'verified.json'));
     const result = JSON.parse(await readFile(report, 'utf8'));
     expect(result.errors).toEqual([]);
-    expect(result.initial).toEqual({backdrop:false,bubbles:false});
+    expect(result.initial).toEqual({backdrop:false,bubbles:true});
     expect(result.widthDrags).toHaveLength(8);
     for (const drag of result.widthDrags) {
       expect(drag.before.hit, JSON.stringify(drag)).toBe(true);
@@ -80,6 +80,30 @@ it('keeps roleplay surfaces flush, independent, and readable in both desktop and
     expect(result.custom.blur).toBe('blur(8px)');
     expect(result.gallery).toBe(false);
     expect(result.agent).toEqual({ backdrop: false, bubbles: false, tint: '' });
+    expect(result.agentEditors).toHaveLength(6);
+    for (const edit of result.agentEditors) {
+      const { longEditor } = edit;
+      const detail = JSON.stringify(edit);
+      for (const { avatar, editor, field, save, role, overflow } of [edit, longEditor]) {
+        expect(overflow, detail).toBe(false);
+        expect(field.left, detail).toBeCloseTo(editor.left, 1);
+        expect(field.right, detail).toBeCloseTo(editor.right, 1);
+        expect(save.right, detail).toBeCloseTo(field.right, 1);
+        if (role === 'mine') expect(field.right, detail).toBeCloseTo(avatar.right, 1);
+        else expect(field.left, detail).toBeCloseTo(avatar.left, 1);
+      }
+      if (edit.role === 'theirs') {
+        const user = result.agentEditors.find(other => other.role === 'mine' && other.width === edit.width);
+        expect(edit.field.right, detail).toBeCloseTo(user.avatar.right, 1);
+        expect(longEditor.field.right, detail).toBeCloseTo(user.avatar.right, 1);
+      }
+      expect(edit.focused, detail).toBe(edit.width === 1440);
+      expect(edit.closed, detail).toBe(true);
+      if (edit.width < 1440) expect(edit.reopenedOriginal, detail).toBe(true);
+      expect(longEditor.complete, detail).toBe(true);
+      expect(longEditor.scrollable, detail).toBe(true);
+    }
+    expect(result.agentEdits).toEqual([{ role: 'assistant', complete: true }, { role: 'user', complete: true }]);
     expect(result.disabled.content).toBe('none');
     expect(result.restored).toMatchObject({ ...result.custom.prefs, backdrop_enabled: true, bubbles_enabled: true });
     expect(result.customGap).toBe(24);
