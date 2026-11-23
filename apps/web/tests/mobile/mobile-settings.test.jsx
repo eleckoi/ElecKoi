@@ -192,6 +192,14 @@ describe('Android settings presentation with shared PC contracts', () => {
     await click('聊天显示');
     expect(container.textContent).not.toMatch(/思维链|适当收起|全量展开/);
     expect(container.textContent).toContain('生成统计');
+    const viewTabs = container.querySelector('[role="switch"][aria-label="隐藏顶部视图栏"]');
+    expect(viewTabs.getAttribute('aria-checked')).toBe('false');
+    await click('隐藏顶部视图栏');
+    expect(viewTabs.getAttribute('aria-checked')).toBe('true');
+    expect(update.mock.lastCall[0].conversation_view_tabs_enabled).toBe(false);
+    await click('隐藏顶部视图栏');
+    expect(viewTabs.getAttribute('aria-checked')).toBe('false');
+    expect(update.mock.lastCall[0].conversation_view_tabs_enabled).toBe(true);
     expect(container.querySelectorAll('.tuner-slider-row')).toHaveLength(0);
     await click('字号与字体');
     expect(container.querySelector('[data-official-typography]')).not.toBeNull();

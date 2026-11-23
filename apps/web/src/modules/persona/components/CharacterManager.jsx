@@ -8,6 +8,7 @@ import { openCharacterEditorWindow } from "../window/openCharacterEditorWindow.j
 import { GroupNameDialog } from "../../../ui/ui/GroupNameDialog.jsx";
 import { CharacterCard } from "./CharacterCard.jsx";
 import { CharacterImportDialog } from "./CharacterImportDialog.jsx";
+import { CharacterTransferDialog } from "./CharacterTransferDialog.jsx";
 import { ALL_CHARACTERS, characterGroup, characterName } from "./characterUtils.js";
 import { CatalogManagerSearch } from '../../../ui/ui/CatalogManagerSearch.jsx';
 import { CharacterSortMenu } from '../../../ui/ui/CharacterSortMenu.jsx';
@@ -46,7 +47,8 @@ export function CharacterManager({ characters, onSaveGroups, onDeleteCharacters,
   const [importOpen, setImportOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState("");
   const [exportNotice, setExportNotice] = useState("");
-  const [exporting, setExporting] = useState(false);
+  const [exportTransfer, setExportTransfer] = useState(null);
+  const exporting = Boolean(exportTransfer);
   const [error, setError] = useState(null);
   const [duplicatingIds, setDuplicatingIds] = useState([]);
 
@@ -270,7 +272,7 @@ export function CharacterManager({ characters, onSaveGroups, onDeleteCharacters,
     if (!selectedIds.length || exporting) return;
     setError(null);
     setExportNotice("");
-    setExporting(true);
+    setExportTransfer({ names: exportTargetNames, format: exportFormat });
     try {
       const result = await onExportCharacters([...selectedIds], exportFormat);
       const failures = result?.failures || [];
@@ -294,7 +296,7 @@ export function CharacterManager({ characters, onSaveGroups, onDeleteCharacters,
     } catch (cause) {
       setError(cause ?? tUi("导出失败，请重试。"));
     } finally {
-      setExporting(false);
+      setExportTransfer(null);
     }
   }
 
@@ -518,6 +520,7 @@ export function CharacterManager({ characters, onSaveGroups, onDeleteCharacters,
         />
       ) : null}
       {importOpen ? <CharacterImportDialog onClose={() => setImportOpen(false)} onImported={onImportCharacters} onPrepare={onPrepareImports} onDiscard={onDiscardImports} /> : null}
+      {exportTransfer && <CharacterTransferDialog phase="exporting" {...exportTransfer} />}
       {moveTarget !== null && <Modal open title={tUi("移动到分组")} closeLabel={tUi("关闭")} onClose={() => { if (!moving) setMoveTarget(null); }}
         className="product-dialog" contentClassName="product-dialog-content">
         <form className="product-dialog-fields" onSubmit={confirmMove}>

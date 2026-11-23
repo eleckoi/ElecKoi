@@ -39,7 +39,10 @@ export function TabletRightbarExpand() {
   return <ExpandButton sessionId={sessionId} useStore={useStore} actions={store.actions} useShortcuts={hook(empty)} t={t} />;
 }
 export function TabletRightbar({ owner, layout }) {
-  const view = useMainPageView(), active = ['conversation', 'creator-studio'].includes(view.route.kind);
+  const view = useMainPageView();
+  const active = view.route
+    ? ['conversation', 'creator-studio'].includes(view.route.kind)
+    : view.chat.activeSection === 'messages' && Boolean(view.chat.sessionId);
   return <RightbarSeat {...owner} active={active} sessionId={sessionId} useStore={useStore} actions={store.actions} t={t}
     syncPresentation={React.useCallback(({ shown, track, fullscreen }) => shown ? layout.actions.openRightbar(track, fullscreen) : layout.actions.closeRightbar(), [layout])}
     measureRoom={noop} reportAutoFullscreen={noop} openTab={(kind, options) => right.controller.openTab(kind, options)}

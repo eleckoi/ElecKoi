@@ -4,7 +4,32 @@ import { withRequiredAgentPresetEntries, withRequiredAgentPresetPromptPositions 
 import { DEFAULT_CHAT_DISPLAY_PREFERENCES } from '../../../../packages/shared/src/contracts/settings/schemas';
 
 const noop = () => {};
+const previewParams = new URLSearchParams(location.search);
+export const agentNamePreview = previewParams.get('preview') === 'agent-name';
+export const agentNameDesktopPreview = agentNamePreview && previewParams.get('platform') === 'pc';
+const agentDisplay = assistantBubble => ({
+  ...DEFAULT_CHAT_DISPLAY_PREFERENCES,
+  layout: 'agent',
+  profiles: {
+    ...DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles,
+    agent: { ...DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles.agent, assistant_bubble_enabled: assistantBubble },
+  },
+});
+let assistantBubble = previewParams.get('bubble') !== 'off';
+const bubbleListeners = new Set();
+const subscribeAssistantBubble = listener => {
+  bubbleListeners.add(listener);
+  return () => bubbleListeners.delete(listener);
+};
+const getAssistantBubble = () => assistantBubble;
+if (agentNamePreview) window.addEventListener('message', event => {
+  if (event.source !== window.parent || event.origin !== location.origin || event.data?.type !== 'agent-preview:assistant-bubble') return;
+  if (typeof event.data.enabled !== 'boolean' || event.data.enabled === assistantBubble) return;
+  assistantBubble = event.data.enabled;
+  bubbleListeners.forEach(listener => listener());
+});
 const artwork = index => 'data:image/svg+xml,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400"><rect width="300" height="400" fill="${['#c5c8dd', '#cdd9ce', '#e0ced3'][index % 3]}"/><circle cx="150" cy="145" r="62" fill="#f3eee8"/><path d="M55 400V305a95 95 0 0 1 190 0v95" fill="#838ca5"/></svg>`);
+const agentPersona = { user_name: '你', assistant_name: '示例角色', user_avatar: artwork(0), assistant_avatar: artwork(1) };
 export const collection = { groups: ['分组一', '分组二'], items: Array.from({ length: 1001 }, (_, index) => ({
   id: `tablet-card-${index}`, name: `示例角色 ${String(index + 1).padStart(4, '0')}`, authorName: '示例作者',
   group: index % 2 ? '分组一' : '分组二', persona: { assistant_cover: artwork(index) }, addedAtEpochMs: index,
@@ -54,19 +79,33 @@ export const models = { ...modelState,
   deleteConfig: async id => { record('model.delete', id); modelState.update(value => ({ ...value, configs: value.configs.filter(item => item.id !== id) })); },
   revealApiKey: async () => '', discover: async () => { record('model.discover'); return [{ id: 'synthetic-discovered', name: '合成发现模型' }]; },
 };
-const sessions = collection.items.map((item, index) => ({ id: `tablet-chat-${index}`, character_id: item.id, character_name: item.name,
+const sessions = collection.items.map((item, index) => ({ id: `tablet-chat-${index}`, character_id: item.id, character_name: agentNamePreview && index === 0 ? agentPersona.assistant_name : item.name,
   summary: index === 1 ? '合成消息摘要，用于验证长文字在平板横屏和竖屏时的截断与行高。'.repeat(6) : `这是第 ${index + 1} 条合成对话摘要。`, updated_at: '2026-11-17T00:00:00Z' }));
-const chatState = memory({ sessions, pinnedIds: ['tablet-chat-0'], sessionId: '', input: '', notice: null });
-export const messages = Array.from({ length: 24 }, (_, index) => ({ id: `tablet-message-${index}`, role: index % 2 ? 'user' : 'assistant', content: '这是合成对话正文，用于检查平板显示。\n\n横竖屏切换后，正文与操作按钮应保持在视口内。', status: 'complete', created_at: '2026-11-17T00:00:00Z',
-  runtimeSessionId: 'tablet-runtime', sessionEventSeq: index + 1, renderKey: `dsh-reply-tablet-runtime-${index + 1}` }));
+const tabletMessageText = '这是合成对话正文，用于检查平板显示。\n\n横竖屏切换后，正文与操作按钮应保持在视口内。';
+const previewMessages = ['你要一起走吗？', '好啊。雨刚小了一点，我们沿着河边走吧。\n\n桥那头有家还亮着灯的小店，走累了可以进去喝杯热茶。'];
+export const messages = (agentNamePreview ? previewMessages : Array(24).fill(tabletMessageText)).map((content, index) => ({ id: `tablet-message-${index}`, role: index % 2 === (agentNamePreview ? 0 : 1) ? 'user' : 'assistant', content, status: 'complete', created_at: '2026-11-17T00:00:00Z',
+  runtimeSessionId: 'tablet-runtime', sessionEventSeq: index + 1, renderKey: `dsh-reply-tablet-runtime-${index + 1}`,
+  ...(agentNamePreview && index === 1 ? {
+    process: [{ kind: 'tool', toolName: '查询天气', status: 'complete' }],
+    turnUsage: { totalTokens: 820, uncachedInputTokens: 724, outputTokens: 96 },
+  } : {}),
+}));
+const chatState = memory({ sessions, messages, pinnedIds: ['tablet-chat-0'], sessionId: agentNameDesktopPreview ? 'tablet-chat-0' : '', keyword: '', input: '', notice: null });
 export function useChatClient({ navigation }) {
   const state = useSyncExternalStore(chatState.subscribe, chatState.getSnapshot), scrollRef = useRef(null);
   return useMemo(() => { const session = state.sessions.find(item => item.id === state.sessionId); return {
-    ...state, activeSection: navigation.selectedPanelId, characters: collection, persona: { user_name: '示例用户' },
-    chatCharacter: { character_id: session?.character_id || '' }, chatPersona: { user_name: '示例用户', assistant_name: session?.character_name || '合成角色' },
-    currentTitle: session?.character_name || '合成对话', messages, filteredSessions: [...state.sessions].sort((a,b) => Number(state.pinnedIds.includes(b.id)) - Number(state.pinnedIds.includes(a.id))), status: '就绪', historyOpen: false,
+    ...state, activeSection: navigation.selectedPanelId, setActiveSection: navigation.selectPanel, characters: collection, persona: agentNamePreview ? agentPersona : { user_name: '示例用户' },
+    chatCharacter: { character_id: session?.character_id || '' }, chatPersona: agentNamePreview ? agentPersona : { user_name: '示例用户', assistant_name: session?.character_name || '合成角色' },
+    currentTitle: session?.character_name || '合成对话', filteredSessions: state.sessions.filter(item => item.character_name.includes(state.keyword)).sort((a,b) => Number(state.pinnedIds.includes(b.id)) - Number(state.pinnedIds.includes(a.id))), status: '就绪', historyOpen: false,
     notify: (type, message) => chatState.update(value => ({ ...value, notice: { type, message } })), dismissNotice: () => chatState.update(value => ({ ...value, notice: null })),
     selectCharacter: noop, saveCharacterGroups: async () => {}, closeHistory: noop,
+    setKeyword: keyword => chatState.update(value => ({ ...value, keyword })),
+    clearActiveChat: () => chatState.update(value => ({ ...value, sessionId: '' })),
+    editMessage: agentNamePreview ? async (message, content) => {
+      chatState.update(value => ({ ...value, messages: value.messages.map(item => item.id === message.id ? { ...item, content } : item) }));
+      return true;
+    } : undefined,
+    regenerateReply: agentNamePreview ? async message => { record('chat.regenerate', message.id); } : undefined,
     loadChat: async id => { record('chat.open', id); chatState.update(value => ({ ...value, sessionId: id })); },
     openCharacterChat: async id => { const item = sessions.find(value => value.character_id === id); chatState.update(value => ({ ...value, sessionId: item.id })); }, refreshSessionsOnly: noop,
     togglePinChat: async id => { record('chat.pin', id); chatState.update(value => ({ ...value, pinnedIds: value.pinnedIds.includes(id) ? value.pinnedIds.filter(item => item !== id) : [...value.pinnedIds, id] })); },
@@ -75,7 +114,11 @@ export function useChatClient({ navigation }) {
     setInput: input => chatState.update(value => ({ ...value, input })),
   }; }, [state, navigation.selectedPanelId]);
 }
-export const useWindowAppearance = () => ({ chatDisplay: DEFAULT_CHAT_DISPLAY_PREFERENCES, sidebarCharacterArtwork: 'cover' });
+export function useWindowAppearance() {
+  const bubble = useSyncExternalStore(subscribeAssistantBubble, getAssistantBubble);
+  const chatDisplay = useMemo(() => agentNamePreview ? agentDisplay(bubble) : DEFAULT_CHAT_DISPLAY_PREFERENCES, [bubble]);
+  return { chatDisplay, sidebarCharacterArtwork: 'cover' };
+}
 export const characterConfiguration = { regexRules: { test: async () => ({ text: '合成检查' }), editor: () => {
   const value = { target: { scope: 'preset', ownerId: 'synthetic' }, ownerRevision: '0'.repeat(64), globalRules: [], agentPresetRules: [], characterRules: [], versions: [], activeVersionId: '', revision: 0 };
   const snapshot = { status: 'ready', value }; return { subscribe: () => noop, getSnapshot: () => snapshot, read: async () => value, save: async next => next };

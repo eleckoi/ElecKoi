@@ -79,11 +79,17 @@ describe('conversation switching', async () => {
       expect(scrollport.querySelector('[data-composer-clearance]')).not.toBeNull();
       expect(scrollport.querySelector('.chat-transcript-region [data-chat-view]')).not.toBeNull();
       expect(scrollport.style.getPropertyValue('--dsh-conversation-viewport-height')).toBe('0px');
+      expect(container.querySelector('[data-conversation-tabs] [role="tab"]').textContent).toBe('对话');
       await act(async () => {
         fixture.update({ nodes: new Map([[formal.key, userNode(formal.key, 7, requestId, 1, '修改后的输入')], [next.key, next]]) });
-        root.render(<WithOfficialMarkdown><ChatPanel renderConversationContent={renderNativeConversationContent} {...props} messages={[{ ...existingUser,
+        root.render(<WithOfficialMarkdown><ChatPanel renderConversationContent={renderNativeConversationContent} {...props}
+          chatDisplay={{ conversation_view_tabs_enabled: false }} messages={[{ ...existingUser,
           content: '修改后的输入', displayContent: '修改后的输入' }]} /></WithOfficialMarkdown>);
       });
+      expect(container.querySelector('[data-conversation-tabs]')).toBeNull();
+      expect(container.querySelector('.chat-header h1').textContent).toBe('角色乙');
+      expect(container.querySelector('[data-conversation-scroll]')).toBe(scrollport);
+      expect(container.querySelector('[data-composer-seat]')).toBe(composerSeat);
       expect(container.textContent).not.toContain('同一条输入');
       expect(container.textContent.match(/修改后的输入/g)).toHaveLength(1);
       expect(container.querySelector('[data-chat-node-key="node-7"]')).toBe(originalRow);

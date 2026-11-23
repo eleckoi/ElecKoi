@@ -3,7 +3,7 @@ import { useProductTranslation } from "../app/i18n/ProductLocaleContext.jsx";
 import { MobileSaveFeedback } from './MobileSaveFeedback.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
-import { ArrowsOutLineVertical, BatteryFull, ChartBar, ChatCenteredText, ChatCircleDots, Check, Clock, Cpu, Image, Info, ListNumbers, Palette, SlidersHorizontal, TextT, UserCircle } from '../ui/icons/interfaceIcons.jsx';
+import { ArrowsOutLineVertical, BatteryFull, ChartBar, ChatCenteredText, ChatCircleDots, Check, Clock, Cpu, Image, Info, ListNumbers, Palette, SlidersHorizontal, Tabs, TextT, UserCircle } from '../ui/icons/interfaceIcons.jsx';
 import { Avatar } from '../ui/ui/Avatar.jsx';
 import { TunerSliderRow } from '../ui/ui/TunerSliderRow.jsx';
 import { UnsavedChangesDialog } from '../ui/ui/UnsavedChangesDialog.jsx';
@@ -226,6 +226,7 @@ export function MobileSettingsPage() {
         <SettingsRow icon={Palette} label={tUi("文本颜色")} onClick={() => open('chat:colors')} />
         <SettingsRow icon={ChatCircleDots} label={tUi("富消息")} onClick={() => open('chat:rich')} />
         <SettingsSwitch icon={ChartBar} label={tUi("生成统计")} checked={preferences.generation_stats_enabled} onChange={value => updatePreferences({ generation_stats_enabled: value })} />
+        <SettingsSwitch icon={Tabs} label={tUi("隐藏顶部视图栏")} checked={preferences.conversation_view_tabs_enabled === false} onChange={hidden => updatePreferences({ conversation_view_tabs_enabled: !hidden })} />
         {layout === 'roleplay' && <>
           <SettingsSwitch icon={Clock} label={tUi("聊天时间戳")} checked={preferences.roleplay_timestamps_enabled} onChange={value => updatePreferences({ roleplay_timestamps_enabled: value })} />
           <SettingsSwitch icon={ListNumbers} label={tUi("显示消息楼层")} checked={preferences.roleplay_message_floors_enabled} onChange={value => updatePreferences({ roleplay_message_floors_enabled: value })} />

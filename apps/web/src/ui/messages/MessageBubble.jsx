@@ -11,7 +11,7 @@ import { OfficialMarkdown } from "./OfficialMarkdown.jsx";
 import { Avatar } from "../ui/Avatar.jsx";
 import { AvatarPreviewDialog } from "./AvatarPreviewDialog.jsx";
 import { AvatarActionsMenu } from "./AvatarActionsMenu.jsx";
-import { ViewProcessIcon, AgentPencilIcon, CopyIcon, MessagePencilIcon, MoreDotsIcon, RefreshMessageIcon } from "../icons/elecKoiMessageIcons.jsx";
+import { ViewProcessIcon, AgentMessageActionIcon, CopyIcon, MessagePencilIcon, MoreDotsIcon, RefreshMessageIcon } from "../icons/elecKoiMessageIcons.jsx";
 import { AgentProcessStatus } from "../../modules/chat/components/AgentProcessStatus.jsx";
 import { ChatImageGallery } from "./ChatImageGallery.jsx";
 import { generatedImageSegments } from './generatedImagePresentation.js';
@@ -153,7 +153,7 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
   const [jumpOpen, setJumpOpen] = useState(false);
   const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false);
   const [avatarMenuAnchor, setAvatarMenuAnchor] = useState(null);
-  const avatarMenuEnabled = layoutMode === 'roleplay' && !isUser && Boolean(onEditCharacter);
+  const avatarMenuEnabled = (layoutMode === 'roleplay' || layoutMode === 'agent') && !isUser && Boolean(onEditCharacter);
   const [pageInput, setPageInput] = useState("");
   const [openingSwitching, setOpeningSwitching] = useState(false);
   const [pagerOpeningId, setPagerOpeningId] = useState(message.selectedOpeningId);
@@ -360,17 +360,17 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, layoutMode
         {renderedDisplay.error ? <pre className="script-execution-error" role="alert">{renderedDisplay.error}</pre> : null}
         {pluginAfter}
         {layoutMode === "agent" && isUser && !pending && !editing ? <div className="agent-user-actions" aria-label={tUi("用户消息操作")}>
-          <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || "")} aria-label={tUi("复制")} title={tUi("复制")} disabled={!displayContent}><CopyIcon /></button>
-          <button type="button" onClick={() => setEditing(true)} aria-label={tUi("编辑")} title={tUi("编辑")} disabled={!editingEnabled}><AgentPencilIcon /></button>
+          <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || "")} aria-label={tUi("复制")} title={tUi("复制")} disabled={!displayContent}><AgentMessageActionIcon action="copy" /></button>
+          <button type="button" onClick={() => setEditing(true)} aria-label={tUi("编辑")} title={tUi("编辑")} disabled={!editingEnabled}><AgentMessageActionIcon action="edit" /></button>
         </div> : null}
         {layoutMode === "agent" && !isUser && !pending && !editing ? <div className="agent-message-footer" aria-label={tUi("消息操作")}>
           <div className="agent-message-footer-leading">
             {openingPager}
-            <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || "")} aria-label={tUi("复制")} title={tUi("复制")} disabled={!displayContent}><CopyIcon /></button>
-            {message.id !== "opening" ? <button type="button" onClick={() => onRegenerate?.(message)} aria-label={tUi("重新生成")} title={tUi("重新生成")} disabled={!onRegenerate}><RefreshMessageIcon /></button> : null}
+            <button type="button" onClick={() => navigator.clipboard?.writeText(displayContent || "")} aria-label={tUi("复制")} title={tUi("复制")} disabled={!displayContent}><AgentMessageActionIcon action="copy" /></button>
+            {message.id !== "opening" ? <button type="button" onClick={() => onRegenerate?.(message)} aria-label={tUi("重新生成")} title={tUi("重新生成")} disabled={!onRegenerate}><AgentMessageActionIcon action="refresh" /></button> : null}
             {message.process?.length ? <button type="button" onClick={openProcess} aria-label={tUi("查看过程")} title={tUi("查看过程")}><ViewProcessIcon /></button> : null}
-            <TurnUsage usage={message.turnUsage} compact />
-            <button type="button" onClick={() => setEditing(true)} aria-label={tUi("编辑")} title={tUi("编辑")} disabled={!editingEnabled}><AgentPencilIcon /></button>
+            <TurnUsage usage={message.turnUsage} compact emphasized />
+            <button type="button" onClick={() => setEditing(true)} aria-label={tUi("编辑")} title={tUi("编辑")} disabled={!editingEnabled}><AgentMessageActionIcon action="edit" /></button>
           </div>
         </div> : null}
       </div>

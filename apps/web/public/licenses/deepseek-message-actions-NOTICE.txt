@@ -1,0 +1,5 @@
+DeepSeek Android message action artwork
+
+copy.svg, refresh.svg, and edit.svg are third-party DeepSeek artwork.
+Source: DeepSeek Android 2.9.0 (299), https://www.deepseek.com/en/download/
+Android resource names: ic_copy_outline, ic_refresh_outline_20, ic_edit_outline_20.

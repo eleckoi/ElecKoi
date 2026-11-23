@@ -1,11 +1,12 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
+import { IconDatabaseOutlineMedium } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DatabaseIcon, formatTokens } from "./GenerationStats.jsx";
 
 const exactTokens = (value) => new Intl.NumberFormat("en-US").format(value);
 
-export function TurnUsage({ usage, compact = false }) {
+export function TurnUsage({ usage, compact = false, emphasized = false }) {
   const tUi = useProductTranslation();
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState(null);
@@ -65,9 +66,10 @@ export function TurnUsage({ usage, compact = false }) {
   ].filter(Boolean);
 
   const label = tUi("用量 {value0} tok", {value0: formatTokens(usage.totalTokens)});
+  const UsageIcon = emphasized ? IconDatabaseOutlineMedium : DatabaseIcon;
   return <span className="turn-usage">
     <button ref={triggerRef} type="button" className={`turn-usage-trigger${compact ? " is-compact" : ""}`} aria-label={label} title={label} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-      <DatabaseIcon />{compact ? null : label}
+      <UsageIcon />{compact ? null : label}
     </button>
     {open && typeof document !== "undefined" ? createPortal(
       <div ref={panelRef} className="generation-stat-panel turn-usage-panel" role="dialog" aria-label={tUi("本轮用量")} style={position || { visibility: "hidden" }} onPointerDown={(event) => event.stopPropagation()}>

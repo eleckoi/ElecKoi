@@ -570,16 +570,6 @@
   cursor: default;
 }
 
-.character-import-busy {
-  position: absolute;
-  inset: 54px 0 0;
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
-  font-size: 13px;
-}
-
 @media (max-width: 720px) {
   .character-import-overlay {
     padding: 18px;

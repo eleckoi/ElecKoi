@@ -9,6 +9,7 @@ import { MobileOverflowIcon, MobilePictureFrameIcon } from './MobileIcons.jsx';
 import { useMainPageView } from '../app/windows/MainPageContext.jsx';
 import { CharacterEditorWindow } from '../app/windows/CharacterEditorWindow.jsx';
 import { CharacterImportDialog } from '../modules/persona/components/CharacterImportDialog.jsx';
+import { CharacterTransferDialog } from '../modules/persona/components/CharacterTransferDialog.jsx';
 import { newCharacter } from '../modules/persona/hooks/usePersonaCharacters.js';
 import { characterCover, characterGroup, characterName } from '../utils/characterDisplay.js';
 import { assetSrc, coverSources } from '../app/services/assets.js';
@@ -41,6 +42,7 @@ export function MobileCharactersPage() {
   const [selection, setSelection] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [format, setFormat] = useState('png');
+  const [exportTransfer, setExportTransfer] = useState(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const { busy, error, setError, run } = useMobileOperation();
   useEffect(() => { if (route.kind === 'root') void characters.refresh?.().catch(failureAlreadyPublished); }, [route.kind, characters]);
@@ -75,7 +77,14 @@ export function MobileCharactersPage() {
           throw failures[0].cause;
         }
       } else {
-        const result = await characters.exportCharacters(selectedIds, format);
+        const cardsById = new Map(chat.characters.items.map(item => [item.id, item]));
+        setExportTransfer({ names: selectedIds.map(id => characterName(cardsById.get(id), tUi)), format });
+        let result;
+        try {
+          result = await characters.exportCharacters(selectedIds, format);
+        } finally {
+          setExportTransfer(null);
+        }
         if (result.canceled) {
           const writtenIds = new Set(result.written.map(item => item.characterId));
           setSelectedIds(current => current.filter(id => !writtenIds.has(id)));
@@ -175,6 +184,7 @@ export function MobileCharactersPage() {
       {actions('eleckoi.character.library.menu.actions', { surface: 'android', menu: 'bulk', busy, onDismiss: () => setMenu(null) })}
     </MobileActionMenu>}
     {importOpen && <CharacterImportDialog onClose={() => setImportOpen(false)} onPrepare={chat.prepareCharacterImports} onDiscard={chat.discardCharacterImports} onImported={chat.importPreparedCharacters} />}
+    {exportTransfer && <CharacterTransferDialog phase="exporting" {...exportTransfer} />}
   </div> : null;
   return <div className="mobile-character-page">
     {library}

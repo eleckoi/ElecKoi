@@ -1,0 +1,118 @@
+.product-dialog.transfer-waiting-dialog {
+  width: min(424px, 100%);
+}
+
+.transfer-waiting-content {
+  padding: 22px 24px 0;
+}
+
+.transfer-waiting-content > h2 {
+  margin: 0 0 20px;
+  color: var(--dsw-alias-label-primary);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+.transfer-waiting {
+  --transfer-accent: var(--dsw-alias-brand-primary);
+  display: grid;
+  gap: 18px;
+  padding-top: 3px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.transfer-waiting-file {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-module-platform);
+}
+
+.transfer-waiting-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--dsw-radius-sm);
+  color: var(--transfer-accent);
+  background: color-mix(in srgb, var(--transfer-accent) 12%, transparent);
+}
+
+.transfer-waiting-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.transfer-waiting-name strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.transfer-waiting-name span,
+.transfer-waiting-format {
+  flex: none;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+}
+
+.transfer-waiting-copy {
+  display: grid;
+  gap: 3px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.transfer-waiting-copy strong {
+  font-weight: 600;
+}
+
+.transfer-waiting-copy p {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+}
+
+.transfer-waiting-track {
+  position: relative;
+  height: 5px;
+  margin-top: -6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--dsw-alias-bg-overlay);
+}
+
+.transfer-waiting-track span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 43%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--transfer-accent) 35%, transparent), var(--transfer-accent));
+  animation: transfer-waiting-sweep 1.7s ease-in-out infinite alternate;
+}
+
+@keyframes transfer-waiting-sweep {
+  from { transform: translateX(-10%); }
+  to { transform: translateX(142%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transfer-waiting-track span {
+    inset-inline: 13%;
+    width: auto;
+    background: repeating-linear-gradient(135deg, var(--transfer-accent) 0 4px, transparent 4px 8px);
+    animation: none;
+  }
+}

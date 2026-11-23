@@ -1,3 +1,4 @@
+@import '../../../ui/styles/rounded-font.css';
 
 .chat-panel {
   --chat-scroll-horizontal-padding: 24px;
@@ -15,6 +16,10 @@
   overflow: hidden;
   background: var(--chat);
   container: chat-panel / inline-size;
+}
+
+.chat-panel[data-conversation-tabs-hidden] {
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 :is(.main-panel-content, .chat-window-body) .chat-panel {
@@ -103,6 +108,15 @@
   padding: 10px 28px 0 20px;
   border-bottom: 0.5px solid var(--dsw-alias-border-l3, var(--line));
   background: transparent;
+}
+
+.chat-panel[data-conversation-tabs-hidden] > .chat-header {
+  grid-template-rows: auto;
+  min-height: 0;
+}
+
+.chat-panel[data-conversation-tabs-hidden] .chat-header-actions {
+  top: 0;
 }
 
 .chat-header-title-row {
@@ -341,12 +355,11 @@
 
 /* DSH's running indicator remains the authoritative status/timer, but the
    roleplay composer owns its visual seat. Keep it docked immediately above
-   the input instead of leaving it as a loose row in the transcript. */
+   the input and use the same width and side clearance as the InputBar card. */
 .chat-running-seat {
   box-sizing: border-box;
-  width: min(var(--chat-reading-width), 100%);
+  width: min(var(--dsh-composer-card-max-width), calc(100% - 2 * var(--dsh-composer-side-clearance)));
   margin: 0 auto;
-  padding: 0 16px;
 }
 
 .chat-running-seat:empty {
@@ -354,8 +367,10 @@
 }
 
 .chat-running-seat [data-chat-running] {
+  inset-block-start: 3px;
   margin: 0;
-  padding: 6px 0 8px;
+  /* Match the InputBar text inset and bring the indicator close to the card. */
+  padding: 6px 14px 0;
 }
 
 .chat-running-seat [data-chat-running] > [aria-hidden="true"] {
@@ -533,8 +548,13 @@
 }
 
 .message-agent {
+  --agent-action-size: calc(28px + var(--dsh-content-font-delta, 0px));
+  --agent-action-icon-size: calc(17px + var(--dsh-content-font-delta, 0px));
+  --agent-compact-icon-size: calc(15px + var(--dsh-content-font-delta, 0px));
+  --agent-action-glyph-size: calc(16px + var(--dsh-content-font-delta, 0px));
+  --agent-footer-inline-offset: max(-6px, calc(-1 * var(--chat-horizontal-padding, 16px)));
   display: grid;
-  grid-template-columns: var(--chat-avatar-width, 48px) minmax(0, 1fr);
+  grid-template-columns: var(--chat-avatar-width, 40px) minmax(0, 1fr);
   column-gap: var(--chat-avatar-gap, 8px);
   row-gap: 0;
   box-sizing: border-box;
@@ -554,7 +574,7 @@
   grid-column: 2;
   grid-row: 1;
   align-items: center;
-  min-height: var(--chat-avatar-height, 48px);
+  min-height: var(--chat-avatar-height, 40px);
   margin-bottom: var(--chat-reply-gap, 15px);
 }
 
@@ -565,13 +585,14 @@
 .message-agent .message-author {
   display: block;
   color: var(--bubble-fg);
-  font-size: var(--chat-name-size, 16px);
-  font-weight: 650;
-  line-height: var(--chat-name-line-height, 21.6px);
+  font-family: 'ElecKoi Mobile Rounded', sans-serif;
+  font-size: var(--chat-name-size, 14px);
+  font-weight: 400;
+  line-height: var(--chat-name-line-height, 20px);
 }
 
 .message-agent.mine {
-  grid-template-columns: minmax(0, 1fr) var(--chat-avatar-width, 48px);
+  grid-template-columns: minmax(0, 1fr) var(--chat-avatar-width, 40px);
 }
 
 .message-agent.mine .message-heading {
@@ -586,10 +607,10 @@
 .message.message-agent > .avatar {
   grid-column: 1;
   grid-row: 1;
-  width: var(--chat-avatar-width, 48px);
-  height: var(--chat-avatar-height, 48px);
+  width: var(--chat-avatar-width, 40px);
+  height: var(--chat-avatar-height, 40px);
   border-radius: var(--chat-avatar-radius, 999px);
-  font-size: calc(var(--chat-avatar-width, 48px) * 0.34);
+  font-size: calc(var(--chat-avatar-width, 40px) * 0.34);
 }
 
 .message.message-agent.mine > .avatar {
@@ -645,11 +666,12 @@
 }
 
 .agent-user-actions {
+  --agent-action-glyph-size: var(--agent-compact-icon-size);
   display: flex;
   justify-self: end;
   align-items: center;
-  gap: 4px;
-  min-height: 30px;
+  gap: 8px;
+  min-height: var(--agent-action-size);
   margin-top: 3px;
   color: var(--dsw-alias-label-tertiary, var(--soft-text));
   opacity: 0;
@@ -663,21 +685,34 @@
   pointer-events: auto;
 }
 
-.agent-user-actions button {
+:is(.agent-user-actions, .agent-message-footer-leading) > button,
+.agent-message-footer .turn-usage-trigger.is-compact {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 30px;
-  padding: 2px;
-  border-radius: 7px;
+  flex: none;
+  width: var(--agent-action-size);
+  height: var(--agent-action-size);
+  min-height: var(--agent-action-size);
+  padding: 0;
+  border-radius: var(--dsw-radius-sm, 6px);
   color: inherit;
 }
 
-.agent-user-actions button > svg { width: calc(15px + var(--dsh-content-font-delta, 0px)); height: calc(15px + var(--dsh-content-font-delta, 0px)); }
-.agent-user-actions button > svg.message-action-wide-glyph { width: calc(14px + var(--dsh-content-font-delta, 0px)); height: calc(14px + var(--dsh-content-font-delta, 0px)); }
-.agent-user-actions button:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, var(--active)); color: var(--dsw-alias-label-secondary, var(--muted)); }
-.agent-user-actions button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-.agent-user-actions button:disabled { opacity: .42; cursor: default; }
+.message-mask-icon {
+  display: block;
+  flex: none;
+  background: currentColor;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+
+.agent-message-action-icon { width: var(--agent-action-glyph-size); height: var(--agent-action-glyph-size); }
+.message-process-icon { width: var(--agent-action-icon-size, 17px); height: var(--agent-action-icon-size, 17px); }
+.agent-message-footer .turn-usage-trigger > svg { width: var(--agent-compact-icon-size); height: var(--agent-compact-icon-size); }
+:is(.agent-user-actions, .agent-message-footer) button:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, var(--active)); color: var(--dsw-alias-label-secondary, var(--muted)); }
+:is(.agent-user-actions, .agent-message-footer) button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+:is(.agent-user-actions, .agent-message-footer) button:disabled { opacity: .42; cursor: default; }
 
 @media (hover: none) {
   .agent-user-actions { opacity: 1; pointer-events: auto; }
@@ -688,35 +723,30 @@
   align-items: center;
   justify-content: flex-start;
   min-width: 0;
-  min-height: 30px;
-  margin-top: 10px;
+  min-height: var(--agent-action-size);
+  margin-top: 16px;
+  margin-inline-start: var(--agent-footer-inline-offset);
   color: var(--dsw-alias-label-tertiary, var(--soft-text));
+}
+
+/* The message.after slot sits between the bubble and footer, even when empty.
+   Unboxed Markdown already has 2px of bottom padding. */
+.message-agent .message-content > .bubble ~ .agent-message-footer {
+  margin-top: 14px;
+}
+
+.assistant-bubble-enabled .message-agent .message-content > .bubble ~ .agent-message-footer {
+  margin-top: 4px;
+  margin-inline-start: calc(12px + var(--agent-footer-inline-offset));
 }
 
 .agent-message-footer-leading {
   display: flex;
   align-items: center;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
   min-width: 0;
 }
-
-.agent-message-footer button {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 28px;
-  height: 30px;
-  padding: 2px;
-  border-radius: 7px;
-  color: inherit;
-}
-
-.agent-message-footer-leading > button > svg { width: calc(17px + var(--dsh-content-font-delta, 0px)); height: calc(17px + var(--dsh-content-font-delta, 0px)); }
-.agent-message-footer-leading > button > svg.message-action-wide-glyph { width: calc(16px + var(--dsh-content-font-delta, 0px)); height: calc(16px + var(--dsh-content-font-delta, 0px)); }
-.agent-message-footer-leading > button > svg.message-action-eye-glyph { width: calc(19px + var(--dsh-content-font-delta, 0px)); height: calc(19px + var(--dsh-content-font-delta, 0px)); }
-.agent-message-footer button:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, var(--active)); color: var(--dsw-alias-label-secondary, var(--muted)); }
-.agent-message-footer button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-.agent-message-footer button:disabled { opacity: .42; cursor: default; }
 
 .message-agent.theirs:not(.is-latest-assistant) .agent-message-footer {
   opacity: 0;
@@ -1071,7 +1101,7 @@
 
 .message-tools-expanded > button > svg { width: calc(17px + var(--dsh-content-font-delta, 0px)); height: calc(17px + var(--dsh-content-font-delta, 0px)); }
 .message-tools-expanded > button > svg.message-action-wide-glyph { width: calc(16px + var(--dsh-content-font-delta, 0px)); height: calc(16px + var(--dsh-content-font-delta, 0px)); }
-.message-tools-expanded > button > svg.message-action-eye-glyph { width: calc(19px + var(--dsh-content-font-delta, 0px)); height: calc(19px + var(--dsh-content-font-delta, 0px)); }
+.message-tools-expanded .message-process-icon { width: calc(17px + var(--dsh-content-font-delta, 0px)); height: calc(17px + var(--dsh-content-font-delta, 0px)); }
 .message-tools-expanded > button:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, var(--active)); color: var(--dsw-alias-label-secondary, var(--muted)); }
 .message-tools > button:hover:not(:disabled),
 .message-tools-leading > button:hover:not(:disabled),

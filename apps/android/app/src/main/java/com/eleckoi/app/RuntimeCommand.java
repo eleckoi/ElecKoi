@@ -4,6 +4,7 @@ import org.json.JSONObject;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.security.MessageDigest;
 import java.util.*;
 
 final class RuntimeCommand {
@@ -19,6 +20,10 @@ final class RuntimeCommand {
             .put("productDatabasePath", new File(paths.data, "eleckoi.db").getAbsolutePath())
             .put("productMediaRoot", paths.media.getAbsolutePath())
             .put("resourceRoot", new File(installation.app, "resources/dsh").getAbsolutePath());
+        if (BuildConfig.DEBUG && "standard".equals(BuildConfig.BROWSER_VARIANT)) {
+            File renderer = developmentRenderer(context);
+            if (renderer != null) config.put("clientDirectory", renderer.getAbsolutePath());
+        }
         Files.write(paths.config.toPath(), config.toString().getBytes(StandardCharsets.UTF_8));
         File launcher = paths.nativeExecutable("libeleckoi_node.so");
         File loader = paths.nativeExecutable("libeleckoi_glibc_portable.so");
@@ -65,5 +70,29 @@ final class RuntimeCommand {
         env.put("GIT_TERMINAL_PROMPT", "0");
         env.put("TMPDIR", paths.temp.getAbsolutePath());
         return builder;
+    }
+
+    /** ADB can supply a renderer for this exact debug APK without touching the installed runtime. */
+    private static File developmentRenderer(android.content.Context context) throws Exception {
+        String apk = context.getApplicationInfo().sourceDir;
+        String installation = RuntimeInstaller.hex(MessageDigest.getInstance("SHA-256")
+            .digest(apk.getBytes(StandardCharsets.UTF_8)));
+        File cache = new File(context.getCacheDir(), "eleckoi-dev-web");
+        File active = new File(cache, "active");
+        try {
+            if (!active.isFile()) return null;
+            String[] selection;
+            try (java.io.InputStream input = new java.io.FileInputStream(active)) {
+                selection = RuntimeInstaller.readText(input).trim().split(" ");
+            }
+            if (selection.length != 2 || !installation.equals(selection[0])
+                || !selection[1].matches("renderer-[a-f0-9]{16}")) return null;
+            File renderer = new File(cache, selection[1]);
+            if (new File(renderer, "dsh.html").isFile()) return renderer;
+            android.util.Log.w("ElecKoi", "Development renderer was evicted. Using the packaged renderer.");
+        } catch (java.io.IOException error) {
+            android.util.Log.w("ElecKoi", "Could not read the development renderer selection.", error);
+        }
+        return null;
     }
 }

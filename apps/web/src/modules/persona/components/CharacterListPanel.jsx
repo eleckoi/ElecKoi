@@ -9,6 +9,7 @@ import { ConfirmationDialog } from "../../../ui/ui/ConfirmationDialog.jsx";
 import { useEditorContextMenu } from "../../../ui/ui/EditorContextMenu.jsx";
 import { CharacterGroupList } from "./CharacterGroupList.jsx";
 import { CharacterImportDialog } from "./CharacterImportDialog.jsx";
+import { CharacterTransferDialog } from "./CharacterTransferDialog.jsx";
 import { DeleteCharacterDialog } from "./DeleteCharacterDialog.jsx";
 import { ALL_CHARACTERS, characterGroup, characterName } from "./characterUtils.js";
 import { SidebarSectionHeader } from "../../../ui/ui/SidebarSectionHeader.jsx";
@@ -41,7 +42,8 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
   const [pendingDelete, setPendingDelete] = useState(null);
   const [deletingCharacter, setDeletingCharacter] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
-  const [exporting, setExporting] = useState(false);
+  const [exportTransfer, setExportTransfer] = useState(null);
+  const exporting = Boolean(exportTransfer);
   const [exportError, setExportError] = useState(null);
   const scrollRef = useSidebarListScroll();
   const [groupSortError, setGroupSortError] = useState(null);
@@ -111,7 +113,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
 
   async function exportCharacter(character, format) {
     if (exporting) return;
-    setExporting(true);
+    setExportTransfer({ names: [characterName(character, tUi)], format });
     setExportError(null);
     try {
       const result = await onExportCharacters([character.id], format);
@@ -119,7 +121,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
     } catch (cause) {
       setExportError(cause ?? tUi('导出失败，请重试。'));
     } finally {
-      setExporting(false);
+      setExportTransfer(null);
     }
   }
 
@@ -381,6 +383,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
         })}
       </Menu> : null}
       <FailureAlert failure={exportError} className="character-export-error" />
+      {exportTransfer && <CharacterTransferDialog phase="exporting" {...exportTransfer} />}
 
       {pendingDelete ? (
         <DeleteCharacterDialog

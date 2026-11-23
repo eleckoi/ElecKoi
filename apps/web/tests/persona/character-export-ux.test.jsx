@@ -213,6 +213,12 @@ describe('导出选择条', () => {
     })
     expect(exportButton(container).textContent.trim()).toBe('导出中…')
     expect(exportButton(container).disabled).toBe(true)
+    const waiting = document.querySelector('.transfer-waiting-dialog')
+    expect(waiting.textContent).toContain('角色甲等 2 张PNG')
+    expect(waiting.textContent).toContain('正在准备导出文件')
+    expect(document.activeElement).toBe(waiting)
+    pressEscape()
+    expect(document.querySelector('.transfer-waiting-dialog')).toBe(waiting)
 
     await act(async () => {
       finish({
@@ -224,6 +230,7 @@ describe('导出选择条', () => {
     })
 
     expect(exportButton(container).textContent.trim()).toBe('导出 2 张')
+    expect(document.querySelector('.transfer-waiting-dialog')).toBeNull()
     expect(container.querySelector('.character-manager-selection-notice').textContent).toBe('已导出 2 张 · PNG → D:\\导出')
   })
 

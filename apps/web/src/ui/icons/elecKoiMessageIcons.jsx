@@ -1,6 +1,24 @@
-import { IconCopyOutlineRegular, IconCopyOutlineMedium, IconEditOutlineRegular, IconRefreshOutlineRegular, IconRefreshOutlineMedium, IconChevronRightOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
-import { Eye } from './interfaceIcons.jsx';
+import { ICON_SYMBOLS, IconCopyOutlineRegular, IconCopyOutlineMedium, IconRefreshOutlineRegular, IconRefreshOutlineMedium, IconChevronRightOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import thoughtBulb from './thought-bulb.svg';
+import agentCopy from './agent-actions/copy.svg';
+import agentEdit from './agent-actions/edit.svg';
+import agentRefresh from './agent-actions/refresh.svg';
+
+const agentActions = { copy: agentCopy, edit: agentEdit, refresh: agentRefresh };
+// The DSH medium record outline retains a regular-width filled frame. Bring the frame in line with the strokes inside it.
+const processRecord = ICON_SYMBOLS['dsw-icon-browse-outline-medium'].replace(
+  'fill="currentColor"></path>',
+  'fill="currentColor" stroke="currentColor" stroke-width="0.2" stroke-linejoin="round"></path>',
+);
+const processRecordUrl = `data:image/svg+xml,${encodeURIComponent(processRecord)}`;
+
+function MessageMaskIcon({ source, className }) {
+  return <span aria-hidden="true" className={`message-mask-icon ${className}`} style={{ maskImage: `url("${source}")` }} />;
+}
+
+export function AgentMessageActionIcon({ action }) {
+  return <MessageMaskIcon source={agentActions[action]} className="agent-message-action-icon" />;
+}
 
 export function ThoughtBulbIcon({ size = 14, className }) {
   return <span aria-hidden="true" className={className} data-thought-bulb=""
@@ -25,10 +43,8 @@ export const MoreDotsIcon = ({ size = 22, className }) => <svg width={size} heig
 export const MessagePencilIcon = ({ size = 18, className }) => <svg width={size} height={size} className={className} viewBox="0 0 512 512" aria-hidden="true">
   <path d="M410 231 422 220 410 231 422 220 388 186 326 124 292 90 280 101 258 124 59 323Q43 339 36 360L1 481Q-3 494 7 504Q17 514 31 511L151 475Q173 469 189 453L388 254L410 231ZM160 399 151 422 160 399 151 422Q145 427 138 429L59 452L82 374Q85 367 89 361L112 352V384Q113 398 128 400H160ZM363 19 348 33 363 19 348 33 326 56 314 67 348 101 410 163 444 197 455 186 478 163 493 149Q511 129 511 103Q511 78 493 58L453 19Q434 0 408 0Q383 0 363 19ZM315 187 171 331 315 187 171 331Q160 340 149 331Q139 319 149 308L293 164Q304 155 315 164Q325 175 315 187Z" fill="currentColor" />
 </svg>;
-export const AgentPencilIcon = ({ size = 18, className }) => <IconEditOutlineRegular size={size} className={className} />;
-export function ViewProcessIcon({ size = 19, className }) {
-  return <Eye size={size} weight="regular" aria-hidden="true"
-    className={`message-action-eye-glyph${className ? ` ${className}` : ''}`} />;
+export function ViewProcessIcon() {
+  return <MessageMaskIcon source={processRecordUrl} className="message-process-icon" />;
 }
 export function ReadSettingIcon({ size = 14, className }) {
   return <StrokeIcon size={size} className={className} strokeWidth={1.5} paths={[

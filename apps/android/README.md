@@ -42,6 +42,12 @@ node scripts/android-runtime/probe-reply-notifications.mjs apps/android/app/buil
 
 本机需要锁定工作区依赖、Python 3、Java 17 和 Android SDK 37.2；应用 targetSdk 仍为 35。Gradle Wrapper 已固定版本。兼容版依赖锁定在 `geckoview.lock.json`：Mozilla stable ARM64 AAR `158.0.20261007201254`，构建前核对完整 SHA-256，打包后逐项核对原生库摘要。标准包不包含该内核。
 
+标准开发版日常真机更新使用 `pnpm android:dev:install`。多台设备时在命令末尾填写序列号。首次通过该入口安装、设备上的 APK 换过、Host／依赖／原生代码变化时，会生成标准开发 APK、覆盖安装并核对 SHA-256。明确要生成一份新的离线 APK 时使用 `pnpm android:dev:install --full`。
+
+基础输入和已验证的手机 APK 匹配时，只构建和传输网页。APK 仍自带完整离线运行环境。新网页在开发版缓存内先校验再启用，随后停止应用，手动打开即可查看。网页缓存失效时使用随包网页，重新运行日常更新即可补上。只有标准 Debug 使用这个入口。
+
+完整构建两种 Debug 变体可用以下命令。
+
 ```powershell
 pnpm prepare:android-runtime
 & apps/android/gradlew.bat -p apps/android :app:clean :app:assembleStandardDebug :app:assembleCompatDebug --console=plain --no-daemon '-PunifiedRuntimeAssetsDir=../../build/android-runtime/assets'

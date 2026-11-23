@@ -1,18 +1,21 @@
-import React, { useCallback, useMemo, useSyncExternalStore } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AppFrame } from '@deepseek-ai/dsh-client-ui-layout/src/client/AppFrame.tsx';
 import { createLayoutStore } from '@deepseek-ai/dsh-client-ui-layout/src/client/stores.ts';
 import { MobileWindow } from '../../src/mobile/MobileWindow.jsx';
+import { MainWindow } from '../../src/app/windows/MainWindow.jsx';
 import { MobileCharactersPage } from '../../src/mobile/MobileCharactersPage.jsx';
 import { MobileMessagesPage } from '../../src/mobile/MobileMessagesPage.jsx';
 import { MobilePresetsPage } from '../../src/mobile/MobilePresetsPage.jsx';
 import { MobileModelsPage } from '../../src/mobile/MobileModelsPage.jsx';
 import { MobileCreatorStudioPage } from '../../src/mobile/MobileCreatorStudioPage.jsx';
 import { MobileHeader } from '../../src/mobile/MobileChrome.jsx';
+import { MessagesPage } from '../../../../packages/client/features/dsh-client-conversations/src/page.jsx';
+import { CreatorStudioNavIcon, MessageNavIcon, ModelNavIcon, PersonNavIcon, PresetNavIcon } from '../../src/ui/icons/navIcons.jsx';
 import { OfficialFrameSidebar } from '../../src/app/windows/shell/components/OfficialFrameSidebar.jsx';
 import { useMainPageView } from '../../src/app/windows/MainPageContext.jsx';
 import { installBrowserIconSprite } from '../helpers/browserIconSprite.js';
-import { characters, presets, models, characterConfiguration, previewActions, creatorStudio } from './tablet-layout-model.fixture.jsx';
+import { agentNameDesktopPreview, agentNamePreview, characters, presets, models, characterConfiguration, previewActions, creatorStudio } from './tablet-layout-model.fixture.jsx';
 import { renderRoleplay } from './tablet-conversation.fixture.jsx';
 import { renderStudio, StudioSidebar } from './tablet-studio.fixture.jsx';
 import { TabletRightbar, rightbar } from './tablet-rightbar.fixture.jsx';
@@ -23,14 +26,20 @@ installBrowserIconSprite();
 const dark = new URLSearchParams(location.search).get('theme') === 'dark';
 document.documentElement.dataset.theme = dark ? 'dark' : 'light';
 document.body.toggleAttribute('data-ds-dark-theme', dark);
+document.documentElement.toggleAttribute('data-windows-titlebar', agentNameDesktopPreview);
 const noop = () => {};
 const layout = createLayoutStore().create();
-layout.actions.setSidebarDrawer(true);
-layout.actions.selectPanel('character');
+layout.actions.setSidebarDrawer(!agentNameDesktopPreview);
+layout.actions.selectPanel(agentNamePreview ? 'messages' : 'character');
 let sidebar = { shown: false, width: 0, drawer: true }, guard;
 const sidebarListeners = new Set();
 const items = [ ['messages', '消息'], ['character', '角色'], ['creatorStudio', 'AI创作'], ['presets', '预设'], ['model', '模型'],
-  ['plugins', '插件'], ['automation', '自动化'] ].map(([id, label]) => ({ id, label }));
+  ['plugins', '插件'], ['automation', '自动化'] ].map(([id, label]) => ({ id, label, productIcon: agentNameDesktopPreview }));
+const desktopNavIcons = { messages: MessageNavIcon, character: PersonNavIcon, creatorStudio: CreatorStudioNavIcon, presets: PresetNavIcon, model: ModelNavIcon };
+const renderDesktopSidebar = (name, props, options) => {
+  const Icon = desktopNavIcons[options?.only];
+  return name === 'sidebar.panellist' && Icon ? <Icon size={props.size} /> : null;
+};
 const navigationBase = {
   items, productPanelIds: items.map(item => item.id),
   sidebar: { subscribe: callback => { sidebarListeners.add(callback); return () => sidebarListeners.delete(callback); }, getSnapshot: () => sidebar },
@@ -47,10 +56,18 @@ const useStore = select => select(useSyncExternalStore(layout.subscribe, layout.
 const usePanelInfo = select => select(useSyncExternalStore(layout.subscribe, layout.getSnapshot).panelInfo);
 function NativeFrame() {
   const view = useMainPageView();
+  const openedPreview = useRef(false);
+  useEffect(() => {
+    if (!agentNamePreview || agentNameDesktopPreview || openedPreview.current) return;
+    openedPreview.current = true;
+    void view.selectConversation('tablet-chat-0');
+  }, [view.selectConversation]);
   const renderSlot = useCallback((name, owner) => {
-    if (name === 'sidebar') return <OfficialFrameSidebar {...owner} workspaceSidebar={<StudioSidebar owner={owner} layout={layout} />} renderSidebarSlot={() => null} />;
+    if (name === 'sidebar') return <OfficialFrameSidebar {...owner} workspaceSidebar={<StudioSidebar owner={owner} layout={layout} />}
+      renderSidebarSlot={agentNameDesktopPreview ? renderDesktopSidebar : () => null} />;
     if (name === 'rightbar') return <TabletRightbar owner={owner} layout={layout} />;
     if (name !== 'main') return null;
+    if (agentNameDesktopPreview) return view.navigation.selectedPanelId === 'messages' ? <MessagesPage /> : null;
     if (view.navigation.selectedPanelId === 'character') return <MobileCharactersPage />;
     if (view.navigation.selectedPanelId === 'messages') return <MobileMessagesPage />;
     if (view.navigation.selectedPanelId === 'presets') return <MobilePresetsPage />;
@@ -66,6 +83,8 @@ function Fixture() {
   const selected = usePanelInfo(info => info.activePanelId);
   const navigation = useMemo(() => ({ ...navigationBase, selectedPanelId: selected }), [selected]);
   window.tabletFixture = { layout, navigation, noop, previewActions, models, presets };
+  if (agentNameDesktopPreview) return <MainWindow navigation={navigation} rightbar={rightbar} characters={characters} presets={presets} models={models}
+    characterConfiguration={characterConfiguration} renderRoleplay={renderRoleplay} nativeFrame={<NativeFrame />} />;
   return <MobileWindow navigation={navigation} rightbar={rightbar} characters={characters} presets={presets} models={models} creatorStudio={creatorStudio} characterConfiguration={characterConfiguration} renderRoleplay={renderRoleplay} renderCreatorStudioConversation={renderStudio} nativeFrame={<NativeFrame />} />;
 }
 createRoot(document.getElementById('root')).render(<Fixture />);

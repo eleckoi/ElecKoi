@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import { expect, it } from "vitest";
 import { browserThemeCss } from "../helpers/browserTheme.js";
 const require = createRequire(import.meta.url), { build } = createRequire(require.resolve("vite/package.json"))("esbuild");
-it("opens the phone process sheet from the real eye action without desktop blur or a delayed toolbar resize", async () => {
+it("opens the phone process sheet from the record icon without desktop blur or a delayed toolbar resize", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "eleckoi-process-open-"));
   try {
     await build({ entryPoints: ["apps/web/tests/browser/process-material.fixture.jsx"], outfile: resolve(directory, "fixture.js"), bundle: true, format: "iife", jsx: "automatic", alias: { "@shared": resolve("packages/shared/src") }, loader: { ".woff2": "file", ".woff": "file", ".ttf": "file", ".png": "file", ".svg": "dataurl" }, logLevel: "silent" });

@@ -109,7 +109,7 @@ export function chatDisplayCssVariables(layout, profile) {
     "--chat-letter-spacing": `${clamp(profile.letter_spacing, -1, 4)}px`,
     "--chat-paragraph-gap": `${clamp(profile.paragraph_spacing, 0, 24)}px`,
     "--chat-name-size": `${nameSize}px`,
-    "--chat-name-line-height": `${Math.max(16, nameSize * 1.35)}px`,
+    "--chat-name-line-height": `${layout === 'agent' ? nameSize + 6 : Math.max(16, nameSize * 1.35)}px`,
     "--chat-bubble-radius": `${clamp(profile.bubble_corner_radius, 0, 24)}px`,
   };
 }

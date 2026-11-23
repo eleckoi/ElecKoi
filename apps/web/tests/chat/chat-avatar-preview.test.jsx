@@ -31,9 +31,9 @@ const menuItems = () => [...document.querySelectorAll('.avatar-actions-menu [rol
 const message = { id: "reply-1", role: "assistant", content: "测试回复" };
 
 describe("chat avatar preview trigger", () => {
-  it('opens shortcuts before the existing full avatar preview and pin action', async () => {
+  it.each(['roleplay', 'agent'])('opens %s shortcuts before the existing full avatar preview and pin action', async layoutMode => {
     const pin = vi.fn(), edit = vi.fn();
-    const avatar = await mount({ onEditCharacter: edit, onPinAvatar: pin });
+    const avatar = await mount({ layoutMode, onEditCharacter: edit, onPinAvatar: pin });
     await click(avatar);
     expect(document.querySelector('[role=dialog]')).toBeNull();
     expect(menuItems().map(node => node.textContent)).toEqual(['查看头像', '角色卡编辑']);
@@ -48,9 +48,9 @@ describe("chat avatar preview trigger", () => {
     expect(document.activeElement).toBe(avatar);
     expect(edit).not.toHaveBeenCalled();
   });
-  it('returns focus on Escape and uses arrow keys to reach the character editor', async () => {
+  it.each(['roleplay', 'agent'])('returns %s avatar focus on Escape and uses arrow keys to reach the character editor', async layoutMode => {
     const edit = vi.fn();
-    const avatar = await mount({ onEditCharacter: edit });
+    const avatar = await mount({ layoutMode, onEditCharacter: edit });
     await click(avatar);
     expect(document.activeElement).toBe(menuItems()[0]);
     await act(async () => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
@@ -82,9 +82,8 @@ describe("chat avatar preview trigger", () => {
     expect(document.activeElement).toBe(menuItems()[1]);
     await click(menuItems()[1]); expect(edit).toHaveBeenCalledOnce();
   });
-  it.each(['user', 'agent'])('keeps the direct avatar preview for %s', async mode => {
-    const avatar = await mount({ message: { ...message, role: mode === 'user' ? 'user' : 'assistant' },
-      layoutMode: mode === 'agent' ? 'agent' : 'roleplay', onEditCharacter: vi.fn() });
+  it.each(['roleplay', 'agent'])('keeps the direct user avatar preview in %s', async layoutMode => {
+    const avatar = await mount({ message: { ...message, role: 'user' }, layoutMode, onEditCharacter: vi.fn() });
     await click(avatar); expect(menuItems()).toHaveLength(0);
     expect(document.querySelector('.avatar-preview-modal')).not.toBeNull();
   });

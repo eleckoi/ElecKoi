@@ -1,12 +1,5 @@
 @import './mobile-drawer-presentation.css';
-
-@font-face {
-  font-family: 'ElecKoi Mobile Rounded';
-  src: url('./assets/fonts/lxgw-975yuan-sc.woff2') format('woff2');
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-}
+@import '../ui/styles/rounded-font.css';
 .mobile-shell {
   /* Product headers occupy shell.leading's native 48px clearance. Android
      system-bar insets are already consumed by the native browser container. */
@@ -190,7 +183,7 @@
 .mobile-group-edit-row { display: flex; gap: 6px; }
 .mobile-group-edit-row button:first-child { flex: 1; }
 .mobile-group-edit-row button:last-child { font-size: 12px; color: var(--muted); }
-.mobile-conversation-page .chat-panel { --chat-scroll-horizontal-padding: 0px; --mobile-roleplay-action-size: 48px; flex: 1; min-width: 0; min-height: 0; grid-template-rows: 68px minmax(0, 1fr); }
+.mobile-conversation-page .chat-panel { --chat-scroll-horizontal-padding: 0px; --mobile-roleplay-action-size: 48px; --chat-header-height: 68px; flex: 1; min-width: 0; min-height: 0; }
 .mobile-conversation-page .chat-panel {
   --mobile-message-tool-width: 26px;
   --mobile-message-tool-gap: 2px;
@@ -212,6 +205,8 @@
 .mobile-conversation-page .chat-header-tabs button::after { bottom: 0; }
 .mobile-conversation-page .chat-conversation-body { --dsh-composer-side-clearance: 12px; }
 .mobile-conversation-page .message-area { margin-right: 0; scrollbar-gutter: auto; scrollbar-width: none; overscroll-behavior: none; }
+.mobile-conversation-page .message-agent { --agent-action-glyph-size: var(--agent-action-icon-size); }
+.mobile-conversation-page .agent-user-actions { opacity: 1; pointer-events: auto; }
 .mobile-conversation-page [data-input-scroll] { overscroll-behavior: none; }
 .mobile-conversation-page .message-area::-webkit-scrollbar { display: none; }
 .mobile-conversation-page .markdown-message .md-table-wide { overflow-x: auto; }

@@ -97,9 +97,13 @@ describe('Android character and preset library contracts', () => {
     const format = document.querySelector('select[aria-label="导出格式"]');
     expect([...format.options].map(option => option.value)).toEqual(['png', 'zip']);
     await act(() => { format.value = 'zip'; format.dispatchEvent(new Event('change', { bubbles: true })); });
-    view.characters.exportCharacters.mockResolvedValue({ canceled: true, written: [], failures: [] });
+    const saving = Promise.withResolvers();
+    view.characters.exportCharacters.mockReturnValue(saving.promise);
     await click('合成角色甲'); await click('导出');
     expect(view.characters.exportCharacters).toHaveBeenCalledWith(['character-a'], 'zip');
+    expect(document.querySelector('.transfer-waiting-dialog').textContent).toContain('合成角色甲ZIP');
+    await act(async () => saving.resolve({ canceled: true, written: [], failures: [] }));
+    expect(document.querySelector('.transfer-waiting-dialog')).toBeNull();
   });
   it.each([0, 1])('keeps canceled export selection and only reports files actually saved (%i written)', async count => {
     await mount()
@@ -178,12 +182,16 @@ describe('Android character and preset library contracts', () => {
     const button = document.querySelector('[role="menuitem"]');
     await act(async () => button.click());
     expect([...document.querySelectorAll('[role="menuitem"]')].every(item => item.disabled)).toBe(true);
+    const waiting = document.querySelector('.transfer-waiting-dialog');
+    expect(waiting.textContent).toContain('合成角色丙PNG');
+    expect(document.activeElement).toBe(waiting);
     await act(async () => button.click());
     expect(view.characters.exportCharacters).toHaveBeenCalledTimes(1);
     await act(async () => finish({ canceled: true, written: [], failures: [] }));
     expect(view.chat.notify).not.toHaveBeenCalled();
     expect(view.route.characterId).toBe('character-c');
     expect(document.querySelector('.mobile-bubble-menu')).toBeNull();
+    expect(document.querySelector('.transfer-waiting-dialog')).toBeNull();
   });
   it('confirms deletion of the viewed character, preserves it on cancel or failure and returns only after success', async () => {
     await mount('character', { kind: 'character-profile', characterId: 'character-b' });

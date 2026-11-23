@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React, { act, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { SettingsPanel } from "../../src/modules/settings/components/SettingsPanel.jsx";
 import { DEFAULT_CHAT_DISPLAY_PREFERENCES } from "../../../../packages/shared/src/contracts/settings/schemas.ts";
 import { WithOfficialMarkdown } from "../helpers/officialMarkdown.jsx";
@@ -139,8 +139,9 @@ describe("chat display preview", () => {
   });
 
   it("keeps message information in the behavior group and leaves parameter groups independently expandable", () => {
+    const save = vi.fn();
     renderToMarkup(<WithOfficialMarkdown><SettingsPanel activePage="chat" chatDisplay={DEFAULT_CHAT_DISPLAY_PREFERENCES}
-      onChatDisplayChange={() => {}} renderLayout={({ mainPanel }) => mainPanel} /></WithOfficialMarkdown>);
+      onChatDisplayChange={save} renderLayout={({ mainPanel }) => mainPanel} /></WithOfficialMarkdown>);
     const behavior = document.querySelector('[data-group="behavior"]');
     expect(behavior.textContent).toContain('生成统计');
     expect(behavior.textContent).not.toMatch(/思维链|适当收起|全量展开/);
@@ -150,6 +151,11 @@ describe("chat display preview", () => {
     expect(document.querySelector('[data-group="avatar"]').textContent).not.toContain('聊天时间戳');
     const groups = [...document.querySelectorAll('.ec-group')];
     expect(groups.filter(group => group.open).map(group => group.dataset.group)).toEqual([]);
+    const viewTabs = behavior.querySelector('[role="switch"][aria-label="隐藏顶部视图栏"]');
+    expect(viewTabs.checked).toBe(false);
+    act(() => { behavior.open = true; viewTabs.click(); });
+    expect(save).toHaveBeenCalledWith({ ...DEFAULT_CHAT_DISPLAY_PREFERENCES, conversation_view_tabs_enabled: false });
+    behavior.open = false;
     document.querySelector('[data-group="avatar"]').open = true;
     document.querySelector('[data-group="typography"]').open = true;
     document.querySelector('[data-group="spacing"]').open = true;

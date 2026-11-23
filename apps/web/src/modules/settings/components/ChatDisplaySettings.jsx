@@ -266,6 +266,7 @@ export function ChatDisplaySettings({ persona, chatDisplay, onChatDisplayChange,
               description={tUi("生成统计{value0}", {value0: visibleMessageInfo.length ? tUi(" · 显示{value0}", {value0: formatProductList(visibleMessageInfo, tUi)}) : ''})}
               preview={<span className="ec-behavior-sample">{tUi("统计")}{preferences.generation_stats_enabled ? tUi("已开启") : tUi("已关闭")}</span>}>
               <DisplaySwitch label={tUi("生成统计")} checked={preferences.generation_stats_enabled} onChange={value => updatePreferences({ generation_stats_enabled: value })} />
+              <DisplaySwitch label={tUi("隐藏顶部视图栏")} checked={preferences.conversation_view_tabs_enabled === false} onChange={hidden => updatePreferences({ conversation_view_tabs_enabled: !hidden })} />
               {layout === 'roleplay' && <>
                 <DisplaySwitch label={tUi("聊天时间戳")} checked={preferences.roleplay_timestamps_enabled} onChange={value => updatePreferences({ roleplay_timestamps_enabled: value })} />
                 <DisplaySwitch label={tUi("显示消息楼层")} checked={preferences.roleplay_message_floors_enabled} onChange={value => updatePreferences({ roleplay_message_floors_enabled: value })} />

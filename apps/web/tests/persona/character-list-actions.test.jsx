@@ -59,10 +59,16 @@ describe('PC character sidebar context actions',()=>{
     expect(onDeleteCharacters).toHaveBeenCalledWith(['second']);
   });
   it.each(['PNG','ZIP'])('exports only the right-clicked character as %s through the existing save flow',async format=>{
-    const {onExportCharacters}=await mount();await context();await click(action('导出角色'));
+    const {onExportCharacters}=await mount();
+    const saving = Promise.withResolvers();
+    onExportCharacters.mockReturnValue(saving.promise);
+    await context();await click(action('导出角色'));
     expect(action('JSON')).toBeUndefined();
     await click(action(format));expect(onExportCharacters).toHaveBeenCalledExactlyOnceWith(['second'],format.toLowerCase());
     expect(document.querySelector('[role=menu]')).toBeNull();
+    expect(document.querySelector('.transfer-waiting-dialog').textContent).toContain(`合成乙${format}`);
+    await act(async () => saving.resolve({ canceled: true, written: [], failures: [] }));
+    expect(document.querySelector('.transfer-waiting-dialog')).toBeNull();
   });
   it('shows export failures and permits reopening to retry without changing the active character',async()=>{
     const exportFile=vi.fn().mockResolvedValueOnce({canceled:false,failures:[{characterId:'second',message:'Synthetic export failure'}],written:[]}).mockResolvedValueOnce({canceled:true,failures:[],written:[]});

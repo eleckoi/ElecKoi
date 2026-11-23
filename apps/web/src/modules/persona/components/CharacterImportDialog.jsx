@@ -9,6 +9,7 @@ import { ImportIcon } from "../../../ui/icons/index.jsx";
 import { ImportSourceList } from "../../../ui/ui/ImportSourceList.jsx";
 import { bestEffort } from "../../../utils/swallowedFailure.js";
 import { resolveFailure } from "../../../utils/failureText.js";
+import { CharacterTransferDialog } from "./CharacterTransferDialog.jsx";
 
 const SOURCES = [
   { id: "eleckoi", title: "本项目角色卡", detail: "导入 ElecKoi 导出的角色卡" },
@@ -22,7 +23,7 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
   const [preview, setPreview] = useState(null);
   const [files, setFiles] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
-  const [preparing, setPreparing] = useState(false);
+  const [readingFiles, setReadingFiles] = useState(null);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
 
@@ -47,7 +48,8 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
     const selected = [...(event.target.files || [])];
     event.target.value = "";
     if (!selected.length) return;
-    setPreparing(true);
+    const source = sourceRef.current;
+    setReadingFiles(selected);
     setError("");
     try {
       const payloads = await Promise.all(selected.map(async (file) => ({
@@ -55,13 +57,13 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
         mimeType: file.type,
         base64: await fileBase64(file),
       })));
-      const next = await onPrepare(sourceRef.current, payloads);
+      const next = await onPrepare(source, payloads);
       setFiles(selected);
       setPreview(next);
     } catch (caught) {
       setError(resolveFailure(caught, { fallback: tUi("角色卡无法读取") }).text);
     } finally {
-      setPreparing(false);
+      setReadingFiles(null);
     }
   }
 
@@ -79,12 +81,16 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
     }
   }
 
+  if (readingFiles) return <CharacterTransferDialog phase="reading" names={readingFiles.map(file => file.name)} />;
+  if (importing) return <CharacterTransferDialog phase="importing" names={preview.items.flatMap((item, index) =>
+    item.importable ? [files[index]?.name || item.name] : [])} />;
+
   const importableCount = preview?.items.filter((item) => item.importable).length || 0;
 
   return (
     <Modal open title={preview ? tUi('导入角色卡') : tUi('选择导入来源')} closeLabel={tUi('关闭')}
-      onClose={() => { if (!preparing && !importing) void close(); }} className="product-dialog character-import-modal" contentClassName="product-dialog-content"
-      footer={preview ? <div className="product-dialog-actions"><Button variant="outline" onClick={close} disabled={preparing || importing}>{tUi('取消')}</Button><Button variant="primary" onClick={confirmImport} disabled={!importableCount || preparing || importing}>{importing ? tUi('导入中…') : tUi('导入{value0}', {value0: importableCount ? ` ${importableCount}` : ''})}</Button></div> : undefined}>
+      onClose={() => void close()} className="product-dialog character-import-modal" contentClassName="product-dialog-content"
+      footer={preview ? <div className="product-dialog-actions"><Button variant="outline" onClick={close}>{tUi('取消')}</Button><Button variant="primary" onClick={confirmImport} disabled={!importableCount}>{tUi('导入{value0}', {value0: importableCount ? ` ${importableCount}` : ''})}</Button></div> : undefined}>
         {preview ? (
           <div className="character-import-preview-list">
             {preview.items.map((item, index) => (
@@ -104,11 +110,10 @@ export function CharacterImportDialog({ onClose, onImported, onPrepare, onDiscar
             ))}
           </div>
         ) : (
-          <ImportSourceList sources={SOURCES} onSelect={chooseSource} disabled={preparing} />
+          <ImportSourceList sources={SOURCES} onSelect={chooseSource} />
         )}
 
         {error ? <p className="character-import-error" role="alert">{error}</p> : null}
-        {preparing ? <div className="character-import-busy">{tUi("正在读取角色卡…")}</div> : null}
         <input ref={inputRef} type="file" accept="image/png,application/json,application/zip,.png,.json,.zip" multiple hidden onChange={onFilesPicked} />
     </Modal>
   );

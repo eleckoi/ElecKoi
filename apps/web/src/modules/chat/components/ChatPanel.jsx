@@ -112,6 +112,8 @@ export function ChatPanel({
   useEffect(() => { closeProcess(); }, [conversationId, runtimeSessionId, closeProcess]);
   const [fallbackView, setFallbackView] = useState("chat");
   const activeView = dshConversation ? dshConversation.activeView : fallbackView;
+  // An explicitly opened view keeps the tab row so the user can return to chat.
+  const showViewTabs = chatDisplay?.conversation_view_tabs_enabled !== false || (activeView != null && activeView !== 'chat');
   const viewTabs = dshConversation?.tabs ?? [{ id: "chat", label: tUi("对话") }, { id: "trajectory", label: tUi("轨迹") }];
   const selectView = (id) => {
     setDeleteMode(false);
@@ -472,6 +474,7 @@ export function ChatPanel({
     <section
       ref={chatPanelRef}
       className={`chat-panel layout-${layoutMode} view-${activeView}${profile?.assistant_bubble_enabled ? " assistant-bubble-enabled" : ""}${deleteMode ? " message-delete-mode" : ""}`}
+      data-conversation-tabs-hidden={!showViewTabs || undefined}
       data-roleplay-backdrop={layoutMode === 'roleplay' && activeView === 'chat' && roleplayStyle.backdrop_enabled || undefined}
       data-roleplay-bubbles={layoutMode === 'roleplay' && activeView === 'chat' && roleplayStyle.bubbles_enabled || undefined}
       style={displayStyle}
@@ -490,10 +493,10 @@ export function ChatPanel({
             {renderRoleplaySlot?.("eleckoi.roleplay.conversation.header.corner", {})}
           </div>
         </div>
-        <div className="chat-header-tabs" role="tablist" aria-label={tUi("对话视图")} data-conversation-tabs="">
+        {showViewTabs && <div className="chat-header-tabs" role="tablist" aria-label={tUi("对话视图")} data-conversation-tabs="">
           {viewTabs.map((view) => <button key={view.id} type="button" role="tab" aria-selected={activeView === view.id} onClick={() => selectView(view.id)}>{view.label}</button>)}
           {dshConversation?.renderEntryActions ? <DshEntryActionsMenu region="conversation" renderActions={dshConversation.renderEntryActions} /> : null}
-        </div>
+        </div>}
       </header>
 
       <CharacterFrontendView characterId={characterId} conversationId={conversationId}>{renderChatContent}</CharacterFrontendView>

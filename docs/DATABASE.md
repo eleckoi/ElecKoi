@@ -177,6 +177,8 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 
 #### 旧格式导入、读取及清理
 
+Agent 聊天显示的旧默认尺寸由 [DSH 显示偏好读取](../packages/shared/src/contracts/settings/schemas.ts)识别。当未登记版本的 Agent 配置仍匹配旧 48px 头像、16px 名字及其余默认参数时，仅更新这两个尺寸，独立保存的气泡开关继续有效。读取只生成规范快照，下一次正常保存带上该版本标记。停止支持仍可能携带未标记旧配置的安装和备份后，同步删除旧默认对象、读取分支、版本标记和专项回归。SQLite 结构不变。
+
 | 入口 | 何时可以清理 | 必须一起处理的范围 |
 | --- | --- | --- |
 | [旧 EJS 引用设定文件导入](../packages/shared/src/foundation/legacySettingReferences.ts)、[聊天设定状态解码](../packages/host/product-data/src/domain/settingLibraries/legacySettingState.ts) | 停止支持含旧动态模式字段的角色卡、设定库、预设及聊天归档导入 | 导入时去掉旧标记、关闭原引用条目的触发规则并保留正文。删除各导入边界的转换和专项回归。聊天状态解码器等 v18→v19 升级和聊天归档导入均退役后，再连同公开导出一起删。共享标记转换器等最后一个旧格式调用退役后删除 |

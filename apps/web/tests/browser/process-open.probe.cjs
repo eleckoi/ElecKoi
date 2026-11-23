@@ -16,6 +16,12 @@ app.whenReady().then(async () => {
       for (let i = 0; i < 40 && !await run(`!!document.querySelector('[aria-label=\u66F4\u591A]')`); i++) await pause(60);
       await run(`document.querySelector('[aria-label=\u66F4\u591A]').click()`);
       await pause(180);
+      const hasProcessRecord = await run(`(() => {
+        const button = document.querySelector('[aria-label="查看过程"]');
+        const icon = button?.querySelector('.message-process-icon');
+        return Boolean(icon && getComputedStyle(icon).maskImage.includes('stroke-width%3D%220.2%22') && icon.getBoundingClientRect().width > 0);
+      })()`);
+      if (!hasProcessRecord) throw Error("Process record artwork is missing from the real toolbar button");
       await run(`document.querySelector('[aria-label=\u67E5\u770B\u8FC7\u7A0B]').click()`);
       await pause(350);
       const result = await run(`(()=>{const d=document.querySelector('.roleplay-process-dialog'),s=getComputedStyle(d);return{theme:'${theme}',opaque:s.backgroundColor,backings:document.querySelectorAll('[data-menu-backing]').length,material:!!d.querySelector(':scope > [aria-hidden=true]'),prepared:!d.hasAttribute('data-sheet-preparing'),animation:s.animationName,toolbarSwapping:!!document.querySelector('.message-tools.swapping'),rows:!!d.querySelector('[data-variant=think]'),fullText:d.textContent.includes('\u5408\u6210\u5B57\u6BB5'),blur:[d,...d.querySelectorAll('*')].some(n=>getComputedStyle(n).backdropFilter!=='none')}})()`);

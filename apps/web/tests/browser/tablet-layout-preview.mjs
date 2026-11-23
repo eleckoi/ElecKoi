@@ -22,8 +22,7 @@ async function dockkitSource() {
   return source;
 }
 
-export async function buildTabletPreview({ watch = false } = {}) {
-  const outdir = resolve('build/tablet-layout-check/preview');
+export async function buildTabletPreview({ watch = false, outdir = resolve('build/tablet-layout-check/preview') } = {}) {
   await mkdir(outdir, { recursive: true });
   const model = resolve('apps/web/tests/browser/tablet-layout-model.fixture.jsx');
   const dockkit = await dockkitSource();
@@ -36,7 +35,7 @@ export async function buildTabletPreview({ watch = false } = {}) {
       clsx: createRequire(require.resolve('@deepseek-ai/dsh-client-ui-primitives/package.json')).resolve('clsx') },
     define: { 'process.env.NODE_ENV': '"production"', 'process.env.DSH_CLIENT_TITLE': '"ElecKoi"',
       'process.env.DSH_CLIENT_VERSION': 'undefined', 'process.env.DSH_CLIENT_COMMIT_HASH': 'undefined', 'process.env.DSH_CLIENT_GIT_DIRTY': '"false"' },
-    loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file', '.png': 'file', '.svg': 'file' }, logLevel: 'warning',
+    loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file', '.png': 'file', '.jpg': 'file', '.svg': 'file' }, logLevel: 'warning',
     plugins: [{ name: 'synthetic-data', setup(builder) {
       builder.onResolve({ filter: /^official-tablet-conversation$/ }, () => ({ path: 'conversation', namespace: 'tablet-native' }));
       builder.onLoad({ filter: /.*/, namespace: 'tablet-native' }, () => ({ resolveDir: process.cwd(), contents: `

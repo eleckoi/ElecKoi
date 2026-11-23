@@ -104,8 +104,8 @@ describe("chat display preferences", () => {
       paragraph_spacing: 10,
     });
     expect(DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles.agent).toMatchObject({
-      avatar_size: 48,
-      name_font_size: 16,
+      avatar_size: 40,
+      name_font_size: 14,
       reply_spacing: 15,
       turn_spacing: 15,
     });
@@ -114,6 +114,25 @@ describe("chat display preferences", () => {
       avatar_size: 40,
       turn_spacing: 16,
     });
+  });
+
+  it('updates saved Agent default dimensions without reverting bubble or later size choices', () => {
+    const { agent_size_defaults_revision: _revision, ...old } = structuredClone(DEFAULT_CHAT_DISPLAY_PREFERENCES);
+    old.layout = 'agent';
+    const previous = { ...old.profiles.agent, avatar_size: 48, name_font_size: 16, assistant_bubble_enabled: true };
+    old.profiles.agent = previous;
+
+    const normalized = normalizeChatDisplaySettings(old);
+    expect(resolveChatDisplayProfile(normalized).profile).toMatchObject({ avatar_size: 40, name_font_size: 14, assistant_bubble_enabled: true });
+    expect(old.profiles.agent).toEqual(previous);
+
+    let saved = normalized;
+    chatDisplaySettings(normalized, update => { saved = update; }).updateProfile({ avatar_size: 48, name_font_size: 16 });
+    const reopened = normalizeChatDisplaySettings(JSON.parse(JSON.stringify(saved)));
+    expect(resolveChatDisplayProfile(reopened).profile).toMatchObject(previous);
+
+    old.profiles.agent = { ...previous, avatar_size: 56, name_font_size: 15 };
+    expect(normalizeChatDisplaySettings(old).profiles.agent).toEqual(old.profiles.agent);
   });
 
   it("maps the active profile to the same CSS geometry used by the renderer", () => {
@@ -172,12 +191,14 @@ describe("chat display preferences", () => {
     expect(resolveChatAvatar(persona, "assistant", "rounded_square")).toBe("assistant-square");
   });
 
-  it("fills the roleplay message options when reading saved preferences from before these switches", () => {
-    const { roleplay_timestamps_enabled: _timestamps, roleplay_message_floors_enabled: _floors, ...saved } = DEFAULT_CHAT_DISPLAY_PREFERENCES;
+  it("fills the conversation display options when reading saved preferences from before these switches", () => {
+    const { conversation_view_tabs_enabled: _tabs, roleplay_timestamps_enabled: _timestamps, roleplay_message_floors_enabled: _floors, ...saved } = DEFAULT_CHAT_DISPLAY_PREFERENCES;
     expect(chatDisplayPreferencesSchema.parse(saved)).toMatchObject({
+      conversation_view_tabs_enabled: true,
       roleplay_timestamps_enabled: true,
       roleplay_message_floors_enabled: true,
     });
+    expect(chatDisplayPreferencesSchema.parse({ ...saved, conversation_view_tabs_enabled: false }).conversation_view_tabs_enabled).toBe(false);
   });
 
   it("keeps the display contract free of independent font sizes and weights", () => {
