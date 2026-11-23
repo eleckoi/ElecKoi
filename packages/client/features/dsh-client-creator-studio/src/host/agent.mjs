@@ -30,7 +30,6 @@ export function apply(ctx, config) {
     if (!state || state.presetId !== config.presetId) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, 'AI 创作工作室会话缺少正式预设绑定。', { what: 'AI 创作工作室会话的预设绑定' })
     return resolveCreatorStudioSelection(state, ctx.eleckoiProductData.readCharacters().items)
   }
-  const dispatchedLibraries = new WeakMap()
   const dispatchedTargets = new WeakMap()
   const capabilities = [...(roleplay ? [] : presetPromptCapabilities(() => ctx.eleckoiProductData.creatorPresetRuntime(config.presetId).settingLibrary)), ...creatorCapabilities(ctx.eleckoiProductData), ...mediaFileCapabilities(ctx, readState)]
   const toolsets = [...(roleplay ? [] : [presetPromptToolset]), ...creatorToolsets]
@@ -74,9 +73,7 @@ export function apply(ctx, config) {
         if (operation.effect === 'write' && operation.target !== 'new-character' && callArguments.target?.scope !== 'global'
           && args.character_id === undefined && dispatchedTarget !== undefined && dispatchedTarget !== state.characterId) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch,
           '本次模型请求期间编辑角色已切换，请重新读取当前角色后再修改。', { what: '本次请求的编辑角色' })
-        const value = await operation.execute(characterId, callArguments, exec.signal,
-          characterId === state.characterId ? dispatchedLibraries.get(exec.agent) : undefined,
-          { ...exec, creatorCharacterId: args.character_id })
+        const value = await operation.execute(characterId, callArguments, exec.signal, { ...exec, creatorCharacterId: args.character_id })
         exec.signal.throwIfAborted()
         let changedCharacterId = callArguments.target?.scope === 'global' ? '' : characterId
         if (operation.target === 'new-character') {
@@ -163,8 +160,6 @@ export function apply(ctx, config) {
       return ctx.llm.stream(request)
     }
     const context = { settingLibrary }
-    // Only a model dispatch establishes cached body delivery; previews assemble without sending.
-    dispatchedLibraries.set(agent, settingLibrary)
     dispatchedTargets.set(agent, readState(agent).characterId)
     const messages = extendNativeRequestInput(options.messages, requestProjectionSnapshot(context).plan)
     const request = { ...options, messages }

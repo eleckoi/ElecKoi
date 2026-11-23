@@ -117,6 +117,52 @@ async function profileFixture(platform, existingRoot) {
 }
 
 describe('Shipped Host tool-result composition', () => {
+  it.each(['desktop', 'android'])('%s sends EJS where the caller placed it and continues after an entry fails', async platform => {
+    const f = await profileFixture(platform), { ctx } = f, data = ctx.eleckoiProductData
+    const characterId = 'synthetic-ejs-placement'
+    data.createCharacter({ id: characterId, name: '合成角色' })
+    const library = data.readSettingLibrary(characterId)
+    const entry = (title, content, position, enabled = true) => ({
+      ...emptyEntry(), title, content, contentMode: 'ejs', enabled, triggerMode: 'always', position, insertRole: 'user'
+    })
+    const fragment = '素材首段。' + '素材正文𠮷😀'.repeat(20_001) + '素材末段。'
+    const entries = [
+      entry('没被引用的关闭条目', '不应出现在请求里', 'insert_point_1', false),
+      entry('被引用的关闭条目', '<% if (lastUserMessage.includes("午夜")) { %>' + fragment + '<% } %>', 'insert_point_1', false),
+      entry('常驻前缀', '此前缀照常发送', 'insert_point_1'),
+      entry('引用方', '<%- await getwi("被引用的关闭条目") %>', 'insert_point_4'),
+      entry('报错条目', '<%- await getwi("不存在的条目") %>', 'insert_point_5')
+    ]
+    const saved = data.saveSettingLibrary(characterId, { ...library, entries })
+    expect(data.readSettingLibrary(characterId)).toEqual(saved)
+
+    const chat = await ctx.eleckoiConversationsApi.create({ metadata: { characterId } })
+    const input = '午夜到了'
+    const roleplayId = await ctx.eleckoiRoleplaySessions.preparePrompt(chat.conversation.id, input)
+    const { agent } = await ctx.sessionController.resolveAgent(roleplayId)
+    const requests = []
+    f.setStream(async function* (request) {
+      requests.push(request)
+      yield { type: 'block-start', index: 0, blockType: 'text' }
+      yield { type: 'block-end', index: 0, block: { type: 'text', text: '合成回复' } }
+      yield { type: 'finish', reason: { kind: 'stop' } }
+    })
+    await ctx.sessionController.prompt({ sessionId: agent.id, requestId: 'synthetic-ejs-placement', mode: 'queue',
+      content: [{ type: 'text', text: input }] }, new AbortController().signal)
+    await agent.whenIdle()
+    expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason)
+      .toEqual({ kind: 'completed' })
+    expect(requests).toHaveLength(1)
+    const requestTexts = requests[0].messages.flatMap(message =>
+      message.content.filter(block => block.type === 'text').map(block => block.text))
+    expect(requestTexts.indexOf('此前缀照常发送')).toBeGreaterThanOrEqual(0)
+    expect(requestTexts.indexOf(input)).toBeGreaterThan(requestTexts.indexOf('此前缀照常发送'))
+    expect(requestTexts.indexOf(fragment)).toBeGreaterThan(requestTexts.indexOf(input))
+    expect(requestTexts.filter(text => text === fragment)).toHaveLength(1)
+    expect(requestTexts.some(text => text.includes('不应出现在请求里') || text.includes('不存在的条目'))).toBe(false)
+    expect(data.readSettingLibrary(characterId)).toEqual(saved)
+  }, 30_000)
+
   it('recovers a dialogue setting write when the model sends only a read hint', async () => {
     const f = await profileFixture('desktop'), { ctx } = f, data = ctx.eleckoiProductData
     const characterId = 'synthetic-setting-write'

@@ -50,10 +50,6 @@ const ALWAYS_MODES = [
   { value: "prompt", label: "指定插入位置" },
 ];
 const CREATOR_RULE_TYPES = SETTING_RULE_TYPES.filter(option => option.value !== 'keyword');
-const CREATOR_ALWAYS_MODES = [
-  { value: 'required', label: '默认位置' },
-  { value: 'prompt', label: '指定插入位置' },
-];
 
 export const ICON_OPTIONS = [
   { id: "", label: "默认", Icon: ElecKoiSettingEntryIcon },
@@ -201,15 +197,23 @@ function KeywordRules({ entry, onChange }) {
   );
 }
 
-export function TriggerSection({ entry, onChange, creatorPreset }) {
+export function TriggerSection({ entry, entries, onChange, creatorPreset }) {
   const tUi = useProductTranslation();
   function changeUsage(usage) {
     const always = usage === "prompt";
+    const position = always ? entry.position || SETTING_LIBRARY_POSITION_OPTIONS[0].value : entry.position;
+    const order = creatorPreset && always
+      ? positionOrderScope(entries, position, entry.promptPositionId).reduce((last, candidate) => (
+        candidate.id !== entry.id && candidate.triggerMode === 'always' && !FIXED_ENTRY_IDS.has(candidate.id)
+          ? Math.max(last, candidate.order) : last
+      ), 0) + 1
+      : entry.order;
     onChange({ ...entry,
       triggerMode: always ? "always" : "agent_tool",
       agentReadStrategy: usage === "required" || usage === "keyword" ? usage : "normal",
       ...(creatorPreset ? { contentMode: 'plain_text' } : {}),
-      position: always ? entry.position || SETTING_LIBRARY_POSITION_OPTIONS[0].value : entry.position,
+      position, order,
+      ...(creatorPreset && always && position === 'instructions' ? { insertRole: 'system' } : {}),
     });
   }
   const placement = entry.triggerMode === "always";
@@ -219,11 +223,11 @@ export function TriggerSection({ entry, onChange, creatorPreset }) {
         <PropertySegment label={tUi("触发方式")} value={usage} options={(creatorPreset ? CREATOR_RULE_TYPES : SETTING_RULE_TYPES).map(({ value, label, Icon }) => ({
           value, label: <span className="setting-usage-label" title={tUi(label)}><Icon size={16} aria-hidden="true" /><span>{tUi(label)}</span></span>,
         }))}
-          onChange={next => { if (next !== usage) changeUsage(next === "always" ? "required" : next); }} />
+          onChange={next => { if (next !== usage) changeUsage(next === "always" ? (creatorPreset ? 'prompt' : 'required') : next); }} />
       </div>
-      {usage === "always" && <PropertySegment label={tUi("常驻方式")} value={placement ? "prompt" : "required"}
-        options={localizeUiCopy(creatorPreset ? CREATOR_ALWAYS_MODES : ALWAYS_MODES, tUi)} onChange={changeUsage} />}
-      {usage === "lookup" && entry.contentMode !== "ejs" && <ReadingHint entry={entry} onChange={onChange} creatorPreset={creatorPreset} />}
+      {!creatorPreset && usage === "always" && <PropertySegment label={tUi("常驻方式")} value={placement ? "prompt" : "required"}
+        options={localizeUiCopy(ALWAYS_MODES, tUi)} onChange={changeUsage} />}
+      {usage === "lookup" && <ReadingHint entry={entry} onChange={onChange} creatorPreset={creatorPreset} />}
       {usage === "keyword" && <div className="setting-keywords-inline"><KeywordRules entry={entry} onChange={onChange} /></div>}
     </div>;
 }
@@ -256,9 +260,12 @@ export function ContentSection({ entry, onChange, creatorPreset, presetPrompt, t
   );
 }
 
-export function VisualPositionPicker({ entry, entries, promptPositions, allowCustomPromptPositions = false, onChange, onEntriesChange, onManagePositions }) {
+export function VisualPositionPicker({ entry, entries, promptPositions, allowCustomPromptPositions = false, creatorPreset, onChange, onEntriesChange, onManagePositions }) {
   const tUi = useProductTranslation();
-  const scope = useMemo(() => entry.position ? positionOrderScope(entries, entry.position, entry.promptPositionId) : [], [entries, entry.position, entry.promptPositionId]);
+  const scope = useMemo(() => {
+    const peers = entry.position ? positionOrderScope(entries, entry.position, entry.promptPositionId) : [];
+    return creatorPreset ? peers.filter(candidate => candidate.triggerMode === 'always') : peers;
+  }, [creatorPreset, entries, entry.position, entry.promptPositionId]);
 
   function setOrder(order) {
     const normalized = Math.max(1, order);
@@ -273,7 +280,7 @@ export function VisualPositionPicker({ entry, entries, promptPositions, allowCus
       <section className="setting-library-placement-card">
         <div className="setting-library-placement-heading"><strong>{tUi("插入位置")}</strong>{allowCustomPromptPositions ? <Button data-dsh-control variant="outline" type="button" className="setting-library-position-manage" onClick={onManagePositions}><SlidersHorizontal size={14} />{tUi("管理位置")}</Button> : null}</div>
         <div className="setting-library-placement-rail">
-          {positionPickerRows(allowCustomPromptPositions ? promptPositions : []).map((row, index) => {
+          {positionPickerRows(allowCustomPromptPositions ? promptPositions : [], creatorPreset).map((row, index) => {
             if (row.type === 'custom') {
               const position = row.position;
               const selected = entry.promptPositionId === position.id;
@@ -339,7 +346,7 @@ export function VisualPositionPicker({ entry, entries, promptPositions, allowCus
   );
 }
 
-export function InsertSection({ entry, entries, promptPositions, allowCustomPromptPositions, onChange, onEntriesChange, onManagePositions }) {
+export function InsertSection({ entry, entries, promptPositions, allowCustomPromptPositions, creatorPreset, onChange, onEntriesChange, onManagePositions }) {
   const tUi = useProductTranslation();
   if (entry.triggerMode === "agent_tool") {
     return <p className="setting-library-agent-insert-note">{entry.agentReadStrategy === "required"
@@ -348,7 +355,8 @@ export function InsertSection({ entry, entries, promptPositions, allowCustomProm
   }
   return (
     <div className="setting-library-entry-section">
-      <VisualPositionPicker entry={entry} entries={entries} promptPositions={promptPositions} allowCustomPromptPositions={allowCustomPromptPositions} onChange={onChange} onEntriesChange={onEntriesChange} onManagePositions={onManagePositions} />
+      <VisualPositionPicker entry={entry} entries={entries} promptPositions={promptPositions} allowCustomPromptPositions={allowCustomPromptPositions}
+        creatorPreset={creatorPreset} onChange={onChange} onEntriesChange={onEntriesChange} onManagePositions={onManagePositions} />
     </div>
   );
 }

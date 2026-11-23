@@ -42,7 +42,18 @@
 .preset-overview-back-slot { grid-area: 1 / 1; }
 .preset-home-detail .preset-summary-avatar.avatar { grid-area: 1 / 2; width: 56px; height: 56px; border-radius: 10px; }
 .preset-home-detail .preset-summary-identity { grid-area: 1 / 3; }
-.preset-home-detail .preset-overview-back { width: 36px; height: 36px; border-radius: 50%; }
+.preset-home-detail .preset-overview-back {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--dsw-alias-button-elevated-fill);
+}
+@media (hover: hover) {
+  .preset-home-detail .preset-overview-back:hover {
+    background: var(--dsw-alias-button-floating-hover);
+  }
+}
 .preset-home-detail .preset-workspace-body { overscroll-behavior-y: contain; }
 .preset-home-detail .preset-overview-reading { padding: 16px var(--preset-overview-inset) 28px; }
 .preset-home-detail .preset-usage-content { width: 100%; margin: 0; padding: 0; }

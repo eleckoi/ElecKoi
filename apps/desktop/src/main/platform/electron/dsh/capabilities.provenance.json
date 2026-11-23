@@ -114,10 +114,10 @@
       "path": "apps/desktop/src/main/platform/electron/dsh/welcome-backend.ts",
       "source": "apps/desktop/src/welcome-backend.ts",
       "sha256": "b0f3e397041fdc1ef3d7d02c9d214259db4832949a57f001fc08778475374337",
-      "localSha256": "c1b39082a8f7bcd6779240836c7c803c48ec55757d38cd343868cafbf7af68b9",
+      "localSha256": "ef2d770b00c9519c1c09745c66365cf3e1ef8eca984d809de364ed91f5f87c94",
       "changes": [
         "Relative TypeScript import suffixes use .js for the local compiler.",
-        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+        "The native window can read the saved theme through the shared settings request without loading provider or credential metadata."
       ],
       "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },

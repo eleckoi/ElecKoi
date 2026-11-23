@@ -3,16 +3,16 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const frameModule = readFileSync(require.resolve('@deepseek-ai/dsh-client-ui-layout/client'), 'utf8');
+const sidebarModule = readFileSync(require.resolve('@deepseek-ai/dsh-client-ui-sidebar/client'), 'utf8');
 
-/** Register the actual public Client factory before the official boot graph starts. */
+/** Register public Client factories for the layout and sidebar owned by the product shell. */
 export const inject = ['clientModules'];
 export function apply(ctx) {
-  // The default layout entry is replaced by our registration adapter, so its
-  // module is not a boot-graph row. An async page import arrives too late for
-  // the required native Chat dependencies. Use the official index-injection
-  // contract to enqueue the unchanged upstream factory ahead of that graph.
+  // The shell mounts these components through their public APIs. Their default
+  // plugin entries are disabled, so queue their factories through DSH's web boot.
   ctx.on('webserver/index-inject', table => {
     table.push({ kind: 'global', name: '__DSH_UI_WORKSPACE_CONFIG__', value: { autoSelectSession: false } });
     table.push({ kind: 'script', placement: 'head', text: frameModule });
+    table.push({ kind: 'script', placement: 'head', text: sidebarModule });
   });
 }

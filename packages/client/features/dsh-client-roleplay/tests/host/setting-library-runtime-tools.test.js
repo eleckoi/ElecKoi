@@ -507,7 +507,7 @@ describe("DSH character setting-library tools", () => {
     expect(read.status).toBe("not_found");
   });
 
-  it("renders EJS controllers as dynamic required files and resolves references", async () => {
+  it("lists optional EJS by title and hint and renders it only when explicitly read", async () => {
     const runtime = await tools({
       history: [{ role: "user", content: "继续故事。" }],
       variableState: { 剧情: { 章节: 2 } },
@@ -523,6 +523,7 @@ describe("DSH character setting-library tools", () => {
           id: "chapter-controller",
           title: "章节控制器",
           content: "<% if (getvar('剧情.章节') === 2) { %><%- await getwi(null, '章节素材') %>｜<%= Math.random() %><% } %>",
+          agentSelectionHint: "进入第二章时查阅",
           agentReadStrategy: "normal",
           contentMode: "ejs",
         }),
@@ -535,13 +536,26 @@ describe("DSH character setting-library tools", () => {
       "世界/城市/港口",
       "章节控制器",
     ]);
-    expect(found.required_entries.map((file) => file.path)).toEqual(["世界/总览", "章节控制器"]);
-    expect(found.required_entries[1].content_delivery).toBe("tool_result");
+    expect(found.required_entries.map((file) => file.path)).toEqual(["世界/总览"]);
+    expect(found.files.at(-1)).toMatchObject({ read_strategy: "normal", selection_hint: "进入第二章时查阅", content_delivery: "tool_result" });
+    expect(runtime.state().runtimeResolution.renderedContents).not.toHaveProperty("chapter-controller");
+    const grep = runtime.byName.get("eleckoi_grep_setting_files");
+    const hint = await grep.execute({ pattern: "进入第二章时查阅" });
+    expect(hint.matches.map(file => file.path)).toEqual(["章节控制器"]);
+    const sourceOrBody = "Math\\.random|第二章隐藏线索";
+    expect((await grep.execute({ pattern: sourceOrBody })).matches).toEqual([]);
 
-    const read = await runtime.byName.get("eleckoi_read_setting_files").execute({ paths: ["章节控制器"] });
+    const readTool = runtime.byName.get("eleckoi_read_setting_files");
+    const [read, concurrentRead] = await Promise.all([
+      readTool.execute({ paths: ["章节控制器"] }),
+      readTool.execute({ paths: ["章节控制器"] }),
+    ]);
     expect(read.files[0]).toMatchObject({ read_strategy: "normal", content_mode: "ejs" });
     expect(read.files[0].content).toMatch(/^第二章隐藏线索。｜0\./);
     expect(read.files[0].resolved_references).toEqual([{ title: "章节素材" }]);
+    expect(concurrentRead.files[0].content).toBe(read.files[0].content);
+    expect((await grep.execute({ pattern: sourceOrBody })).matches).toEqual([]);
+    expect((await grep.execute({ pattern: "章节控制器" })).required_entries.map(file => file.path)).toEqual(["世界/总览"]);
     expect(JSON.stringify(read.files[0])).not.toContain("chapter-reference");
     const referenceRead = await runtime.byName.get("eleckoi_read_setting_files").execute({ paths: ["章节素材"] });
     expect(referenceRead.status).toBe("not_found");
@@ -595,10 +609,10 @@ describe("DSH character setting-library tools", () => {
       entry({ id: 'ambiguous-controller', title: '重名控制器', content: '<%- await getwi("天气") %>', contentMode: 'ejs' }),
       entry({ id: 'exact-controller', title: '路径控制器', content: '<%- await getwi("世界/城市/天气") %>', contentMode: 'ejs' }),
     ] });
-    const found = await runtime.byName.get('eleckoi_glob_setting_files').execute({ pattern: '**' });
-    expect(JSON.stringify(found)).toContain('引用标题不唯一');
-    const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['路径控制器'] });
-    expect(read.files[0].content).toBe('合成文件夹文字');
+    const read = await runtime.byName.get('eleckoi_read_setting_files').execute({ paths: ['重名控制器', '路径控制器'] });
+    expect(read.status).toBe('partial');
+    expect(read.files[0].error).toMatchObject({ code: 'ejs_render_failed', message: expect.stringContaining('引用标题不唯一') });
+    expect(read.files[1].content).toBe('合成文件夹文字');
   });
 
   it("renders nested EJS references with the same chat variables and returns transitive references", async () => {
@@ -825,10 +839,8 @@ describe("DSH character setting-library tools", () => {
 
     const found = await runtime.byName.get("eleckoi_glob_setting_files").execute({});
     expect(found.files.map((file) => file.path)).toContain("暴雨设定");
-    expect(found.files.find((file) => file.path === "坏掉的控制器")).toMatchObject({
-      content_delivery: "error",
-      error: { code: "ejs_render_failed" },
-    });
+    expect(found.files.find((file) => file.path === "坏掉的控制器")).toMatchObject({ content_delivery: "tool_result" });
+    expect(found.required_entries.map(file => file.path)).toEqual(["世界/总览", "暴雨设定"]);
 
     const read = await runtime.byName.get("eleckoi_read_setting_files").execute({
       paths: ["坏掉的控制器", "暴雨设定"],
@@ -841,27 +853,30 @@ describe("DSH character setting-library tools", () => {
     expect(read.files.find((file) => file.path === "暴雨设定").content).toBe("暴雨设定正文。");
   });
 
-  it("refreshes the required list when a variable changes during the same turn", async () => {
+  it("refreshes keyword requirements and the selected EJS body when variables change during the same turn", async () => {
     const runtime = await tools({
+      history: [{ role: 'user', content: '查看章节。' }],
       variableState: { 剧情: { 章节: 1 } },
       liveVariableState: true,
-      extraEntries: [entry({
-        id: "chapter-controller",
-        title: "章节控制器",
-        content: "<% if (getvar('剧情.章节') === 2) { %>第二章已开启。<% } %>",
-        agentReadStrategy: "normal",
-        contentMode: "ejs",
-      })],
+      extraEntries: [
+        entry({ id: "chapter-controller", title: "章节控制器", contentMode: "ejs",
+          content: "<% if (getvar('剧情.章节') === 2) { %>第二章已开启。<% } %>" }),
+        entry({ id: "chapter-keyword", title: "章节提示", contentMode: "ejs", agentReadStrategy: "keyword", keywords: ["章节"],
+          content: "<% if (getvar('剧情.章节') === 2) { %>关键词正文。<% } %>" }),
+      ],
     });
     const glob = runtime.byName.get("eleckoi_glob_setting_files");
+    const read = runtime.byName.get("eleckoi_read_setting_files");
     const before = await glob.execute({});
     expect(before.required_entries.map((item) => item.path)).toEqual(["世界/总览"]);
+    expect(before.files.map(file => file.path)).toContain("章节控制器");
+    expect((await read.execute({ paths: ["章节控制器"] })).files[0].content).toBe("");
 
     runtime.updateVariables({ 剧情: { 章节: 2 } });
     const after = await glob.execute({});
-    expect(after.required_entries.map((item) => item.path)).toEqual(["世界/总览", "章节控制器"]);
-    const read = await runtime.byName.get("eleckoi_read_setting_files").execute({ paths: ["章节控制器"] });
-    expect(read.files[0].content).toBe("第二章已开启。");
+    expect(after.required_entries.map((item) => item.path)).toEqual(["世界/总览", "章节提示"]);
+    const selected = await read.execute({ paths: ["章节控制器", "章节提示"] });
+    expect(selected.files.map(file => file.content)).toEqual(["第二章已开启。", "关键词正文。"]);
   });
 
   it("rejects invalid edits and unsafe paths without changing persisted state", async () => {

@@ -1,0 +1,10 @@
+flowchart TD
+  accTitle: EJS 怎样生成设定正文
+  accDescr: EJS 按需取出聊天、变量和其他设定等信息，再按作者写的条件输出对应文字、备用文字或留空。有文字时按条目的使用方式交付。
+  input["取需要的信息<br/>聊天、变量或其他设定"] --> check{"你写的条件成立吗？"}
+  check -->|"成立"| primary["输出预先写好的正文"]
+  check -->|"不成立"| fallback["输出备用文字<br/>没写备用文字就留空"]
+  primary --> result["输出按使用方式交付<br/>引用、读取或插入"]
+  fallback --> result
+  classDef entry fill:#edf3fc,stroke:#adc6ee,color:#203d70,font-weight:600
+  class input,result entry

@@ -773,9 +773,10 @@ export class AgentPresetRepository {
   }
 
   // RETIRE WHEN: all supported stored presets, saved versions and restored backups
-  // already contain the current required prompt entries and positions. Remove this
-  // startup scan, its call and startup-only regressions; keep normalization on reads,
-  // saves and imports, and the current required-entry definitions.
+  // already contain the current required entries and positions and no longer contain
+  // creator prompts in the former default placement. Remove this startup scan, its
+  // call and startup-only regressions; keep current normalization on reads, saves and
+  // imports. The old preset-file conversion has a separate retirement condition.
   private ensureRequiredEntries(): void {
     const presets = this.store.db.select({ id: agentPresets.id, versionId: agentPresets.activeVersionId, purpose: agentPresets.purpose }).from(agentPresets).all()
     this.store.withWriteTx((db) => {

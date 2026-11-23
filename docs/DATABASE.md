@@ -19,9 +19,9 @@
 
 应用 `0.2.21` 的数据库基线为 v17，增加变量来源身份的原子升级。v15→v16 只整理创作预设提示词的 JSON 语义，不新增表或视图；旧库沿现有连续链升级，不清库。
 
-创作预设继续使用自有虚拟目录和同一条目存储，仅支持文字正文、提示词常驻及 Agent 读取的必读／选读。v15→v16 在同一事务内转换当前内容和全部保存版本：关键词选读变为普通选读并清除匹配配置；EJS 正文与引用条目保留源码，转成停用的文字条目，用户改成所需文字后再启用。普通文字、必读、常驻正文、编号、标题、目录、排序、时间和版本关系保留。角色扮演预设、角色及全局设定库和聊天 Session 不参与本步骤；任意条目无效则回滚整步，仍保持 v15。
+当前创作预设只支持文字正文、指定位置的常驻提示词和从自有虚拟目录获取的 AI 选读。v15→v16 在同一事务内将旧关键词选读转为普通选读，旧 EJS 正文与引用转为停用的文字条目，保留源码和版本关系。该历史步骤保留当时的必读策略，独立的「默认位置」转换会在预设初始化或旧文件导入时将其改成常驻系统指令。角色扮演预设、角色及全局设定库和聊天 Session 不参与这些转换。
 
-预设导出格式为 `eleckoi.agent-preset` v3。旧 v1/v2 文件中的创作提示词只在导入边界执行同一转换，包含全部保存版本；当前保存、批量修改和 v3 导入直接校验当前格式，禁止重新引入 EJS 或关键词配置。数据库升级与旧文件导入分别登记退役条件，不在正常读取中反复转换。
+预设导出格式为 `eleckoi.agent-preset` v3。旧 v1/v2 预设文件的关键词与 EJS 转换只在导入边界处理，包含全部保存版本。旧的「默认位置」也曾由 v3 导出，按条目字段识别。当前创作预设写入仍禁止 EJS 和关键词配置。
 
 `pnpm db:generate` 从固定 SQL 生成内嵌迁移 SQL与 Drizzle 查询映射；`pnpm check:database-schema` 校验生成内容。SQL 是公共结构权威，Drizzle 映射不反向生成迁移。
 
@@ -87,10 +87,12 @@ ElecKoi 当前 49 张产品表需要关系、外键、排序、搜索、跨表�
 
 12. v12：一次增加共享全局、角色与预设的独立 EJS显示模板库、`editor_library_versions`、`regex_libraries` 和 `conversation_state_snapshots`。正则整体启停按归属独立保存；旧库及旧正则命名版本的整体状态默认启用，原条目启停不变，已有未发布 v12 原子补齐。编辑器配置和当前版本原子保存，脚本源码版本仅持有不可变归档摘要引用。聊天变量与设定历史按正式边界统一入库，删除回复里的变量、正则快照列及旧设定历史表。归属和恢复规则见 [ADR 0037](adr/0037-editor-collections-and-versions.md)、[ADR 0038](adr/0038-conversation-runtime-state.md)。本批未发布结构统一收在 v11→v12 单步升级。
 13. v13：提取独立开场白、增加全局设定库并删除独立显示模板，保留有效正文和关联。
-14. v14：完整替换固定 ID 的默认创作预设及其保存版本，合并官方创作模式与产品创作能力；独立自建预设不变。已超过该版本的安装通过同一个一次性入口补齐。
+14. v14：完整替换固定 ID 的默认创作预设及其保存版本，合并官方创作模式与产品创作能力。已超过该版本的安装通过同一个一次性入口补齐。
 15. v15：移除开场白独立初值，变量初值由正式配置统一生成；已有聊天状态不回写。
 16. v16：创作预设提示词改为文字常驻、必读和选读；转换当前与历史版本，旧 EJS 停用保留正文。
 17. v17：变量值与来源身份一同保存、快照和回退；升级按会话关联版本建立一次来源基线，其他旧字段作为运行时项保留。
+18. v18：为角色目录增加录入时间与最近编辑时间。
+19. v19：转换旧 EJS 引用设定和其状态快照，保留有效正文。
 
 ## 聊天状态与归档
 
@@ -143,54 +145,90 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 
 当前开场白合同、存储写入和导出不含独立初值字段。v14→v15 在升级事务中移除旧字段；文件导入只解析当前定义的字段，忽略其他字段，不设该字段的兼容运行分支。聊天历史中的已解析开局状态继续用于重开和历史恢复，与已退役的角色原稿字段不同。
 
-迁移、旧版本导入、过渡适配入口统一以 `RETIRE WHEN:` 明确退役条件；下面按实际数据分别核对。客户端发布了新版本、某台机器已升级或本机扫描没有命中，都不能证明其他受支持的旧安装、未打开的聊天及备份已完成转换。2026-11-12 已明确退役 v0.2.1 及更早默认模型路由的自动转换，当前直接解析保存的提供商 ID，失效选择通过模型选择器重新设置；该决定不改变其他升级来源的支持范围，下表入口继续保留。
+### 统一待退役清单
+
+新增或修改一次性数据迁移、旧格式兼容或临时适配时，在同一变更登记入口、触发、数据影响、删除条件和连带范围，源代码入口同时保留 `RETIRE WHEN:`。调整旧版支持范围或升级依赖的人负责复查相关条目。清理依据是项目确认的安装升级、备份和导入支持边界。本机已升级只说明本机状态。
+
+#### 正式 SQLite 升级链
+
+现有 [18 步升级](../packages/host/product-data/src/storage/sqlite/installSchema.ts) 将 v1 连续升级到 v19，对应 `0002` 至 `0019`。删除任何一步之前，必须明确停止支持该步起点及更早数据库的直接升级。确认剩余链连续后，同步删除登记、旧结构验证和专项回归。关键步骤的额外依赖见下表。
+
+#### 自动整理并写回的旧数据
+
+每行按一组可追踪的退役事项登记。共用入口的独立转换也单列条件。例如旧「默认位置」转换与启动扫描共用调用链，还覆盖旧预设文件。
 
 | 入口 | 何时可以清理 | 必须一起处理的范围 |
 | --- | --- | --- |
-| [v18→v19 旧 EJS 引用设定转换](../packages/host/product-data/src/storage/sqlite/migrations/0019SettingReferences.ts) | 正式停止支持 v18 及更早数据库直接升级，剩余版本仍有连续迁移链 | 删除 0019、步骤登记和 v18 升级／回滚回归。旧角色卡、设定库、预设和聊天归档的导入仍受支持时，保留导入转换及共用解码器 |
-| [旧 EJS 引用设定文件导入](../packages/shared/src/foundation/legacySettingReferences.ts) | 正式停止支持含旧动态模式字段的角色卡、设定库、预设及聊天归档导入 | 删除对应边界转换和专项回归。共用转换函数在最后一个历史数据库或旧文件调用退役后删除 |
-| [v14→v15 开场白及变量初值升级](../packages/host/product-data/src/storage/sqlite/migrations/0015OpeningVariableState.ts) | 停止支持 v14 及更早数据库直接升级，剩余支持版本仍有连续迁移链 | 删除 0015、登记及 v14 升级／回滚回归；保留当前无独立初值的合同、共享初值生成器及聊天历史状态 |
-| [SQLite v1 → v17 迁移链](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 正式停止支持某步骤起点及更早 schema 直接升级；剩余受支持版本仍有连续原子链 | 对应 `0002` 至 `0017` 步骤、旧表定义、import、登记与旧库 fixture；保留当前 SQL、版本常量及完整性校验 |
-| [v15→v16 创作提示词转换](../packages/host/product-data/src/storage/sqlite/migrations/0016CreatorPrompts.ts) | 正式停止支持 v15 及更早数据库直接升级，剩余支持版本仍有连续原子链 | 删除 0016、installSchema 的 import／登记及 v15 升级／回滚回归；共用旧提示词转换器须等待下行的旧文件导入也退役 |
-| [创作预设 v1/v2 文件提示词转换](../packages/host/product-data/src/domain/agentPresets/AgentPresetImportCodec.ts)、[共用转换器](../packages/shared/src/foundation/legacyCreatorPrompts.ts) | 停止支持 ElecKoi 预设 v1/v2 文件导入；共用转换器还须等待 v15 及更早数据库升级退役 | 删除旧文件版本登记、legacyCreator 参数／转换分支及专用回归；最后一个调用退役后删除共用转换器，保留当前 v3、创作格式校验、普通保存与角色扮演能力 |
+| [创作预设旧「默认位置」转换](../packages/shared/src/contracts/presets/builtIns.ts) | 停止支持携带 `agent_tool`＋`required` 创作提示词的数据库、备份与预设文件。旧文件可以是 v3，须按条目字段核对 | 预设初始化、读写和导入共用此规则，将旧条目移到「系统指令」，保留正文和开关。删除自动换位、位置顺序计算与旧条目专项回归。启动扫描另见「旧预设缺少必需提示词的启动补齐」 |
 | [开发 v2、v6 同版本整理](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 分别停止支持对应开发基线直接升级 | 对应整理函数、专用入口和 fixture；v2 共享整理函数仍被 `0002` 使用时继续保留 |
 | [模型设置 schema v0/v1 → v2](../packages/client/features/dsh-client-models/src/index.js) | 支持的升级和 profile 恢复入口均已保存至少 schema v2 的设置 | 旧 schema 转换、专用常量与用例；函数和启动调用须等两段整理均退役，保留当前设置合同和插件装配 |
 | [旧子 Agent 占位路由](../packages/client/features/dsh-client-models/src/index.js) | 停止支持 v0.2.3 之前版本直升，且支持的 profile 恢复入口不再携带该路由 | 占位路由过滤、专用常量与用例；与模型设置 schema 转换分别核对 |
 | [旧实体化预设 ID](../packages/client/features/dsh-client-roleplay/src/host/agent-preset-bridge.mjs) | 支持恢复的 Session、快照、导入及历史回退入口均不会再选中实体化预设 ID，且对应旧版本直升已退役 | `migrateStoredPreset`、`legacyPresetId`、启动扫描、准备及关闭写入句柄后的转换调用和专用用例；保留当前预设注册、重组和恢复服务 |
 | [创作工作室旧散列预设 ID](../packages/client/features/dsh-client-creator-studio/src/host/runtime.mjs) | 停止支持会产生旧散列 ID 的版本直升，且受支持的恢复、导入及历史回退入口均不会再选中 `eleckoi-creator-<64位散列>` | `migrateStoredPreset`、`legacyPresetId`、启动扫描、打开与编辑回退的转换调用、失败隔离与文件保留、旧生成文件清理及专用迁移用例；保留当前选择读取、固定 `eleckoi-creator-active` 注册、全局预设重组及正常新旧会话回归 |
-| [生成预设的旧插件标识](../packages/client/features/dsh-client-roleplay/src/host/preset-definition.mjs) | 全部受支持的生成预设已重新生成并使用当前包名，旧标识恢复回归确认不再需要 `eleckoi:agent-preset/*` 转换 | `resolveRuntimePlugin` 中的旧标识转换分支及专用旧标识用例；保留当前包名、嵌套组合遍历、语言资源及正常加载校验 |
-| [旧预设的工具结果中段裁剪插件](../packages/client/features/dsh-client-roleplay/src/host/preset-definition.mjs) | 全部受支持的持久运行预设已重新生成且不含旧裁剪插件，旧会话升级恢复回归证明无需过滤仍能正常加载 | `currentPlugins` 中针对旧裁剪插件的过滤、`retiredPruner`、`retiredPrunerUrl` 及专用用例；另一项旧插件过滤仍保留时继续保留共用函数和调用，正常摘要压缩保留 |
-| [旧预设挂载的图像生成处理器](../packages/client/features/dsh-client-roleplay/src/host/preset-definition.mjs) | 全部受支持的 Session 预设已重新生成且不含原预设级图像处理器 | `oldImage` 判断、对应过滤及专用用例；工具结果裁剪过滤仍需要时保留 `currentPlugins` 和调用，两项均退役后再一起移除共用过滤函数与调用 |
 | [profile 内置 bundle 登记](../apps/desktop-host/src/desktopPluginBundles.ts)、[Tavily 首次选择](../apps/desktop-host/src/desktopPluginHost.ts) | 支持的升级和 profile 恢复入口分别已完成 `bundles-v9`、`tavily-bundle-v1` 登记 | 各自的一次性函数、调用及旧 profile 用例；保留新 profile 初始化和用户启停选择 |
 | [Android 前端 bundle 登记](../apps/android-host/src/androidPluginBundles.ts) | 受支持升级及 profile 恢复来源均已完成 `frontend-bundles-v2`、`frontend-bundles-v3`；不能以某台手机已升级为依据 | 删除 `registerAndroidFrontendBundles`、`frontendUpgrades`、启动调用和仅验证旧 profile 的用例；保留新 profile 初始化、用户选择及正常的 `registerAndroidMobileBundle` 平台必需项约束 |
 | [旧 HTML 资源组合替换](../packages/client/features/dsh-client-html-resources/src/profile.ts) | 桌面及 Android 的受支持旧 profile、备份恢复均不再选择两个已移除的资源 bundle | 删除 `replaceHtmlResourceBundles`、`obsoleteBundles`、两端一次性登记中的调用和专用用例；保留当前资源 bundle、正常初始化及用户主动停用选择 |
 | [旧请求投影缓存清理](../packages/client/features/dsh-client-roleplay/src/host/request-cache-retirement.mjs) | 停止支持携带 `eleckoiRequestContexts`／`eleckoiRequestInput` 缓存行的旧版本直升，且受支持恢复样本不再含这些行 | 删除 `retireRequestContextCache`、roleplay 启动调用与专用回归；保留官方投影缓存及其他检查点。此入口只删除旧派生行，不改 Session 日志和产品业务表 |
-| [Session 配置废字段过滤](../packages/client/features/dsh-client-roleplay/src/host/session-snapshot.mjs) | 受支持升级、备份及恢复来源均已重新生成不含旧文件中转字段的配置快照 | 删除 `retiredRuntimeFields`、`configuration`、读写中的过滤调用和专用回归；保留当前快照读写、原子提交、子会话继承及每轮模型配置。字段清理不能作为恢复旧正文或旧文件的入口 |
 | [自动插画配置 v4/v5 → v6](../packages/host/product-data/src/domain/agentPresets/autoIllustrationUpgrade.ts)、[存储入口](../packages/host/product-data/src/domain/agentPresets/AgentPresetRepository.ts)、[导入入口](../packages/host/product-data/src/domain/agentPresets/AgentPresetImportCodec.ts) | 受支持的存量预设、保存版本和导入文件均不再携带旧工具组自有的插画配置；存储升级与导入兼容分别确认 | 删除 `upgradeIllustrationConfiguration` 及启动调用、`illustrationFromPortable` 的旧分支、共用升级函数和各自专用回归；保留当前插件插画配置及其他预设读写 |
-| [旧预设缺少必需提示词的启动补齐](../packages/host/product-data/src/domain/agentPresets/AgentPresetRepository.ts) | 所有受支持的存储预设、保存版本及备份恢复均已有当前必需提示词和位置，旧来源直升已退役 | 删除 `ensureRequiredEntries`、初始化调用和仅验证启动补齐的用例；保留正常读取、保存、导入使用的 `normalizeAgentPresetPrompts` 及当前必需提示词定义 |
+| [旧预设缺少必需提示词的启动补齐](../packages/host/product-data/src/domain/agentPresets/AgentPresetRepository.ts) | 所有受支持的数据库及备份都已有当前必需条目和位置，且旧「默认位置」无需再在启动时写回 | Host 初始化时检查当前预设及保存版本，只写有差异的数据。删除 `ensureRequiredEntries`、启动调用及专项测试，保留当前正常校验与独立的旧文件导入规则 |
 | [旧开发 v9/v10、v12/v13/v14 整理与正则列补齐](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 分别停止支持带生成结果废表的开发 v9/v10、缺正则整体开关的开发 v12、带旧状态表的开发 v12/v13/v14，以及缺 `optionsJson` 列的结构；各来源独立判断 | 删除对应分支、专用旧 SQL／校验参数和用例。正则列补齐随其启动调用及缺列校验宽容分支一起删除；保留当前 SQL、当前完整性校验和仍受支持的正式升级链 |
 | [默认创作预设一次性替换](../packages/host/product-data/src/domain/agentPresets/defaultCreatorPresetUpgrade.ts)、[v13→v14 入口](../packages/host/product-data/src/storage/sqlite/migrations/0014CreatorWorkspace.ts) | 后续版本正式停止支持未完成本次替换的安装与备份恢复；v13 入口另须等到停止支持 v13 及更早直接升级 | 删除替换函数、启动调用、完成标记及专用回归；按支持边界删除 0014 与登记，保留正常新建使用的默认内容工厂、自建预设和全局选择 |
-| [聊天归档 v1 状态转换](../packages/host/product-data/src/domain/conversations/ConversationArchiveRepository.ts)、[共用旧账本解码](../packages/host/product-data/src/domain/conversations/legacyConversationStates.ts) | 归档 v1 导入停止支持后可删归档分支；共用解码器还须等待 v11 及更早数据库及相关开发库升级来源退役 | 删除 v1 白名单、转换及旧设定状态分支和归档专用回归；共用解码器须与 [0012 状态转换](../packages/host/product-data/src/storage/sqlite/migrations/conversationStateStorage.ts) 的最后调用一起清理。当前归档 v2、消息身份和状态存储保留 |
+| [旧 DeepSeek 扩展选择整理](../packages/client/features/dsh-client-web-search/src/profile.js) | 受支持 profile 和恢复入口均不再引用 `eleckoi-deepseek-api` | 删除 `retireDeepSeekExtensionSelection`、桌面／Android 启动调用和旧选择回归；保留用户凭据及未使用的配置。当前官方 Search／Fetch 选择与 Messages 模式不随之删除 |
+
+#### 旧格式导入、读取及清理
+
+| 入口 | 何时可以清理 | 必须一起处理的范围 |
+| --- | --- | --- |
+| [旧 EJS 引用设定文件导入](../packages/shared/src/foundation/legacySettingReferences.ts)、[聊天设定状态解码](../packages/host/product-data/src/domain/settingLibraries/legacySettingState.ts) | 停止支持含旧动态模式字段的角色卡、设定库、预设及聊天归档导入 | 导入时去掉旧标记、关闭原引用条目的触发规则并保留正文。删除各导入边界的转换和专项回归。聊天状态解码器等 v18→v19 升级和聊天归档导入均退役后，再连同公开导出一起删。共享标记转换器等最后一个旧格式调用退役后删除 |
+| [创作预设 v1/v2 文件提示词转换](../packages/host/product-data/src/domain/agentPresets/AgentPresetImportCodec.ts)、[共用转换器](../packages/shared/src/foundation/legacyCreatorPrompts.ts) | 停止支持 ElecKoi 预设 v1/v2 文件导入；共用转换器还须等待 v15 及更早数据库升级退役 | 删除旧文件版本登记、legacyCreator 参数／转换分支及专用回归；最后一个调用退役后删除共用转换器，保留当前 v3、创作格式校验、普通保存与角色扮演能力 |
+| [生成预设的旧插件标识](../packages/client/features/dsh-client-roleplay/src/host/preset-definition.mjs) | 全部受支持的生成预设已重新生成并使用当前包名，旧标识恢复回归确认不再需要 `eleckoi:agent-preset/*` 转换 | `resolveRuntimePlugin` 中的旧标识转换分支及专用旧标识用例；保留当前包名、嵌套组合遍历、语言资源及正常加载校验 |
+| [旧预设的工具结果中段裁剪插件](../packages/client/features/dsh-client-roleplay/src/host/preset-definition.mjs) | 全部受支持的持久运行预设已重新生成且不含旧裁剪插件，旧会话升级恢复回归证明无需过滤仍能正常加载 | `currentPlugins` 中针对旧裁剪插件的过滤、`retiredPruner`、`retiredPrunerUrl` 及专用用例；另一项旧插件过滤仍保留时继续保留共用函数和调用，正常摘要压缩保留 |
+| [旧预设挂载的图像生成处理器](../packages/client/features/dsh-client-roleplay/src/host/preset-definition.mjs) | 全部受支持的 Session 预设已重新生成且不含原预设级图像处理器 | 删除 `oldImage`、对应过滤及专用用例。最后一个旧插件过滤退役后再删除 `currentPlugins` 和调用 |
+| [旧上传文件工具的组合适配](../packages/client/features/dsh-client-roleplay/src/host/preset-definition.mjs) | 升级、恢复与回退能接触到的生成预设都带原生 `dsh-tool-fs`，且已无 `uploaded-file-tools` | 加载生成预设时过滤旧插件并补入原生读取器。一起删除过滤条件、补入分支及专项回归，保留当前正式组合 |
+| [Session 配置废字段过滤](../packages/client/features/dsh-client-roleplay/src/host/session-snapshot.mjs) | 受支持升级、备份及恢复来源均已重新生成不含旧文件中转字段的配置快照 | 删除 `retiredRuntimeFields`、`configuration`、读写中的过滤调用和专用回归；保留当前快照读写、原子提交、子会话继承及每轮模型配置。字段清理不能作为恢复旧正文或旧文件的入口 |
+| [聊天归档 v1 状态转换](../packages/host/product-data/src/domain/conversations/ConversationArchiveRepository.ts)、[共用旧账本解码](../packages/host/product-data/src/domain/conversations/legacyConversationStates.ts) | 停止导入旧版内部存档快照 v1；共用解码器还须等待 v11 及更早数据库及相关开发库升级来源退役 | 删除 v1 白名单、转换及旧设定状态分支和专项回归。共用解码器与 [0012 状态转换](../packages/host/product-data/src/storage/sqlite/migrations/conversationStateStorage.ts) 的最后调用一起清理 |
+| [聊天归档中 v1/v2 快照的变量来源转换](../packages/host/product-data/src/domain/conversations/ConversationArchiveRepository.ts) | 停止导入 v1/v2 内部快照，归档只接收带来源身份的 v3 快照 | 删除旧快照白名单和变量／开场白来源补齐分支及专项回归。共用读取器等 v16→v17 数据库步骤退役后一起删除。外层聊天归档版本另行维护 |
 | [ElecKoi 预设 v1 导入](../packages/host/product-data/src/domain/agentPresets/AgentPresetImportCodec.ts) | 正式停止支持 ElecKoi 预设 v1 文件导入；该条件与模型配置 schema v1、插画配置 v4/v5 相互独立 | 删除白名单中的 v1、无需 `purpose` 的旧文件分支及专用回归；v2/v3 必须校验用途，其他受支持的外部预设格式保留；共用创作转换按上行等待最后调用退役 |
 | [角色卡 v1 开场白提取](../packages/host/product-data/src/domain/characterTransfer/legacyOpeningSnapshot.ts)、[导入调用](../packages/host/product-data/src/domain/characterTransfer/CharacterTransferService.ts)、[共用旧条目解码](../packages/shared/src/foundation/legacySettingOpenings.ts) | 停止导入不含独立开场白的 v1 角色卡；共用条目解码还须等待 schema v12 及更早升级来源退役 | 删除 v1 卡的开场白转换及专用回归；共用解码器和 [0013 开场白提取](../packages/host/product-data/src/storage/sqlite/migrations/characterOpenings.ts) 的最后调用一起清理，保留当前独立开场白配置 |
 | [早期 v2 角色卡开场白版本结构](../packages/shared/src/foundation/characterOpenings.ts)、[导入分支](../packages/host/product-data/src/domain/characterTransfer/CharacterTransferService.ts) | 正式停止支持含开场白 `versions` 的早期未发布 v2 角色卡 | 删除旧结构 schema、`decodeLegacyCharacterOpeningVersions`、导入识别及专用回归；保留当前消息合并与独立开场白列表 |
 | [v3 设定库内嵌开场白导入](../apps/web/src/modules/settingLibraries/model/settingLibraryTransfer.js)、[Client 分流](../packages/client/features/dsh-client-character-configuration/src/client.js)、[Remote](../packages/host/product-api/src/index.ts)、[Host](../packages/host/product-data/src/index.ts) | 正式停止支持含固定开场白条目的 v3 设定库文件导入 | 一起删除旧条目解码、`openingImport`、追加分支、`importSettingLibrary` Remote 和 Host 方法及专用用例；保留普通设定库文件导入及当前独立开场白读写 |
-| [旧 DeepSeek 扩展选择整理](../packages/client/features/dsh-client-web-search/src/profile.js) | 受支持 profile 和恢复入口均不再引用 `eleckoi-deepseek-api` | 删除 `retireDeepSeekExtensionSelection`、桌面／Android 启动调用和旧选择回归；保留用户凭据及未使用的配置。当前官方 Search／Fetch 选择与 Messages 模式不随之删除 |
-| [六个旧产品错误码](../packages/shared/src/foundation/DesktopError.ts)、[防御映射](../packages/shared/src/foundation/failure.ts) | 所有生产 `DESKTOP_ERROR_CODES` 抛出点均已按真实语义改成契约码，并完成其边界和用户错误呈现回归 | 删除旧六码、`DesktopErrorCode`、联合类型旧分支、映射及专用回归；保留 `DesktopError` 当前契约码承载和统一失败折叠。当前创作项目 Repository 仍有实际旧码调用，条件尚未满足 |
-| [Android 文件发布适配](../native/android-runtime/README.md) | 锁定官方 JSONL／附件实现在 Android 应用沙箱通过独占发布、冲突、失败恢复及持久化，且不再需要硬链接替换与应用路径适配 | 删除对应锁与归档替换；两者都无引用后才删除共用发布模块和原生入口。当前版本摘要锁定及 APK 资源校验仍保留；此适配不迁移用户库或 Session 格式 |
-| [已补回聊天的统计标记](../packages/client/features/dsh-client-roleplay/src/host/history-stats-projection.mjs) | 支持恢复的已迁移日志完成等价统计转换，重放结果保持正确 | 仅旧标记分支、专用状态与旧日志用例；保留当前已有输入续接的统计及投影登记 |
-| [旧请求投影信封过滤](../packages/client/features/dsh-client-roleplay/src/host/conversation-context.mjs)、[轨迹过滤](../packages/host/runtime/src/trajectory.ts) | 支持恢复和导入的旧日志均已不含该插件消息 | 按正式插件来源标识排除旧信封；新请求仅在内存装配，不生产新信封 |
-| [v3 → v4 系统开头补丁](adr/0026-legacy-session-system-head-migration.md) | 锁定上游的正式相邻迁移能通过同一组旧日志用例 | 版本补丁、`patchedDependencies` 登记和锁文件；保留官方格式目录与完整迁移链 |
+| [旧待提交输入的附件引用](../packages/host/product-data/src/domain/conversations/MessageRepository.ts)、[生图删除保护](../packages/host/runtime/src/generatedImageCleanup.ts) | 受支持的旧库及备份中有效附件引用均已能从正式 Session 取得，且迁移后仍通过删除保护回归 | 生图删除前仍会查询 `agent_pending_inputs`。随版本化清理移除旧表、`listInputImageReferences` 和公共 Host 合同，保留 Session 附件保护 |
+| [角色自定义背景的旧字段兼容](../packages/shared/src/contracts/characters/chatBackground.ts)、[角色保存](../packages/host/product-data/src/domain/personas/CharacterRepository.ts) | 受支持旧库和备份已有独立的自定义背景数据，现有写入统一保存自定义模式标识 | 读取时兼容 `chatBackground` 直接存图片的角色，保存时写出独立背景数据。删除旧字段解析及专项回归，保留当前模式、用户图片和显示参数 |
+| [已补回聊天的统计标记](../packages/client/features/dsh-client-roleplay/src/host/history-stats-projection.mjs)、[历史回退读取](../packages/host/runtime/src/sessionRewind.ts) | 支持恢复的已迁移日志完成等价统计及回退转换，旧标记重放结果保持正确 | 删除旧标记分支、专用状态、回退读取和旧日志用例，保留当前保留输入的续接和统计 |
+| [旧请求投影信封过滤](../packages/client/features/dsh-client-roleplay/src/host/conversation-context.mjs)、[轨迹过滤](../packages/host/runtime/src/trajectory.ts) | 支持恢复和导入的旧日志均已不含该插件消息 | 删除按正式来源过滤旧信封的分支及专项回归，保留当前内存请求装配和轨迹投影 |
+| [历史 Session 只读轨迹解码](../packages/host/runtime/src/trajectory.ts) | 停止支持须转换的历史日志、归档预览及子会话事实来源 | 删除 `collectHistoricalChildren`、历史格式读取分支及专项回归，保留当前格式、损坏检测和尾部恢复 |
+| [桌面旧 Host Cookie 清理](../apps/desktop/src/main/platform/electron/dshClientDocument.ts)、[认证后的入口](../apps/desktop/src/main/platform/electron/mainWindowPlugin.ts) | 锁定官方桌面实现移除旧 `dsh-auth-*` Cookie 清理，升级认证回归通过 | 删除认证后的后台旧 Cookie 清理、两处调用及专项回归，保留当前 Host 认证和失败记录 |
 
-正式 SQL 步骤逐一受上表的升级下限约束：[0002](../packages/host/product-data/src/storage/sqlite/migrations/0002RuntimeClean.ts)、[0003](../packages/host/product-data/src/storage/sqlite/migrations/0003SettingPlacements.ts)、[0004](../packages/host/product-data/src/storage/sqlite/migrations/0004DshTurnBinding.ts)、[0005](../packages/host/product-data/src/storage/sqlite/migrations/0005RemoveRichMessageHeights.ts)、[0006](../packages/host/product-data/src/storage/sqlite/migrations/0006RemoveDshOwnedConfiguration.ts)、[0007](../packages/host/product-data/src/storage/sqlite/migrations/0007RemovePresetSubagentModelSelection.ts)、[0008](../packages/host/product-data/src/storage/sqlite/migrations/0008RemoveHistoryUserMessageCount.ts)、[0009](../packages/host/product-data/src/storage/sqlite/migrations/0009OpeningVariableVersion.ts)、[0010](../packages/host/product-data/src/storage/sqlite/migrations/0010ScriptLibraries.ts)、[0011](../packages/host/product-data/src/storage/sqlite/migrations/0011PresetPurposes.ts)、[0012](../packages/host/product-data/src/storage/sqlite/migrations/0012EditorConfiguration.ts)、[0013](../packages/host/product-data/src/storage/sqlite/migrations/0013RemoveDisplayTemplates.ts)。[旧设定格式辅助](../packages/host/product-data/src/storage/sqlite/migrations/settingEntryFormat.ts) 随 0004 清理；[正则目标清理](../packages/host/product-data/src/storage/sqlite/migrations/removedRegexTargets.ts)、[正则整体开关转换](../packages/host/product-data/src/storage/sqlite/migrations/regexLibraryEnablement.ts) 须等 0012 及相关开发库调用全部退役。0014、0015 的额外数据条件见上表。
+#### 临时接口与平台适配
 
-历史 Session 的只读轨迹通过 [官方格式目录接入](../packages/host/runtime/src/trajectory.ts) 解码，不写回旧日志。停止支持须转换的历史日志、归档预览及子会话事实来源后，才能一并删除历史分支、`collectHistoricalChildren` 与专用旧日志回归；当前格式读取、损坏检测、尾部恢复和有界缓存保留。此支持边界与 SQLite 数据库版本独立。
+| 入口 | 何时可以清理 | 必须一起处理的范围 |
+| --- | --- | --- |
+| [六个旧产品错误码](../packages/shared/src/foundation/DesktopError.ts)、[错误转换](../packages/shared/src/foundation/failure.ts) | [创作项目 Repository](../packages/host/product-data/src/domain/creatorStudio/CreatorProjectRepository.ts) 等剩余生产抛出点已改用对应契约码，并通过边界和错误呈现回归 | 删除旧码、`DesktopErrorCode`、联合类型旧分支、转换及专项回归，保留当前产品错误合同 |
+| [Android 文件发布适配](../native/android-runtime/README.md) | 锁定官方 JSONL 和附件实现在 Android 沙箱内通过独占发布、冲突、失败恢复及持久化验收，能够使用官方发布路径 | 分别删除对应归档替换与锁。两条引用都退役时删除共用发布模块与原生入口 |
+| [编辑器请求主窗口打开插件设置](adr/0043-editor-main-window-plugin-navigation.md) | 官方桌面支持跨窗口定位插件设置，且编辑器草稿、焦点与导航权限回归通过 | 一起移除 [Main](../apps/desktop/src/main/platform/electron/mainPluginNavigation.ts)、[Preload](../apps/desktop/src/preload/pluginNavigation.ts)、[Renderer](../apps/web/src/app/services/pluginNavigation.js) 的兼容桥及专项回归，调用改用官方入口 |
+| [挂载会话的标题栏信息投影](../packages/client/features/dsh-client-shell/src/client.js) | 官方 Session 窗口组件能独立识别已挂载的 Conversation，并通过角色聊天和工作室切换回归 | 移除为产品 Conversation 增加的面板信息注册和订阅，保留当前导航及会话挂载 |
+| [Android 侧栏抽屉开关与样式](../packages/client/features/dsh-client-shell/src/client.js)、[抽屉样式](../apps/web/src/mobile/mobile-drawer-presentation.css) | 官方布局分别支持 Android 显式抽屉选项和等价展示合同，并通过手机／平板抽屉验收 | 按上游能力分别移除 `setSidebarDrawer` 的产品接入、对应依赖补丁及样式适配，保留当前导航结构 |
+| [Agent 工厂句柄与写入协调](../packages/client/features/dsh-client-roleplay/src/host/agent-preset-bridge.mjs) | 官方工厂在获得写入句柄前提供等价接管，并返回已归属的句柄，恢复、编辑和回退回归通过 | 删除 `installAgentHandleTracking` 适配、相关依赖补丁和专项回归，保留正式 Session 生命周期 |
+
+#### 随正式数据库迁移一起维护的依赖
+
+- [0004](../packages/host/product-data/src/storage/sqlite/migrations/0004DshTurnBinding.ts) 与 [旧设定格式辅助](../packages/host/product-data/src/storage/sqlite/migrations/settingEntryFormat.ts) 一起清理。
+- [0012](../packages/host/product-data/src/storage/sqlite/migrations/0012EditorConfiguration.ts) 和相关开发库入口共享 [旧会话状态](../packages/host/product-data/src/storage/sqlite/migrations/conversationStateStorage.ts)、[旧正则目标](../packages/host/product-data/src/storage/sqlite/migrations/removedRegexTargets.ts) 和 [正则整体开关](../packages/host/product-data/src/storage/sqlite/migrations/regexLibraryEnablement.ts) 辅助。最后一个调用退役后再删共用模块。
+- [0013](../packages/host/product-data/src/storage/sqlite/migrations/0013RemoveDisplayTemplates.ts) 与 [旧开场白抽取入口](../packages/host/product-data/src/storage/sqlite/migrations/characterOpenings.ts) 一起清理。旧角色卡解码器仍按文件导入的支持范围保留。
+- [0014](../packages/host/product-data/src/storage/sqlite/migrations/0014CreatorWorkspace.ts) 有独立的默认创作预设启动替换，分别按表中条件退役。[0015](../packages/host/product-data/src/storage/sqlite/migrations/0015OpeningVariableState.ts) 随步骤移除旧开场白和变量初值升级的专项回归。
+- [0016](../packages/host/product-data/src/storage/sqlite/migrations/0016CreatorPrompts.ts) 和 [0017](../packages/host/product-data/src/storage/sqlite/migrations/0017VariableIdentity.ts) 分别与旧创作预设、聊天快照共享解码。数据库和文件侧均退役后再移除共用辅助。
+- [0019](../packages/host/product-data/src/storage/sqlite/migrations/0019SettingReferences.ts) 在 v18→v19 升级时转换旧引用条目及聊天快照，正文保留，遇损坏数据整步回滚。停止支持 v18 及更早版本直接升级后，删此步骤、注册及 `conversation-state-storage.test.ts` 的升级和回滚断言。聊天归档导入仍受支持时保留共用解码和导入断言。
+- [0018](../packages/host/product-data/src/storage/sqlite/migrations/0018CharacterCatalogActivity.ts) 与 `installSchema` 对 v17 及更早结构的角色目录时间检查一起清理。
+
+#### 锁定依赖补丁
+
+[pnpm-workspace.yaml](../pnpm-workspace.yaml) 是补丁的精确登记源，当前 40 项，含产品补丁及按 DSH 锁定版本继承的补丁。其中 [旧 Session v3→v4 系统开头修复](adr/0026-legacy-session-system-head-migration.md) 专用于旧日志，在官方迁移通过同一批历史样本后退役。其他补丁按各自依赖版本和运行证据逐项核对。
 
 DSH rc.3 不新增产品 SQL 迁移。产品子代理归属、名称和派发索引及其旧参数读取已删除，不再重建这套历史关联；重新生成所需的输入身份投影通过官方缓存版本机制重算，不改写 Session 日志。桌面沿同版本官方代码在认证后后台清理旧 `dsh-auth-*` Cookie，失败只记日志，不阻挡启动；该清理随官方实现维护和退役，不自建旧版本支持策略。聊天事件和账号凭据保持。
 
 原始错误记录补丁 `@deepseek-ai__dsh-api-gateway@0.2.2-rc.5.patch` 不修改 Session、数据库或 Remote 协议，只将折叠前的调用／流失败送入官方 Logger。上游提供原始异常与 endpoint 的等价记录、两种正式 profile 诊断回归通过后，删除该补丁、`pnpm-workspace.yaml` 登记及锁哈希；共用 Host exporter 和两端已有持久诊断仍保留。
 
-DSH 精确版本补丁的完整清单及每项删除条件以 [pnpm-workspace.yaml](../pnpm-workspace.yaml) 为唯一登记源，当前 25 项。它们是源码或平台适配，和用户数据的一次性迁移分开核对：本轮新增的 `agent/prepare-step` 时机适配、官方语言／更新入口复用，字体组移除内部折叠的展示补丁，以及构建器 ULMO 格式和 pnpm 去重生产依赖收集补丁，均在该文件逐项注明上游提供何种等价能力后退役；删除时同时移除补丁文件、登记及锁文件引用，保留仍验证当前产品功能的回归。依赖收集修正回接 [electron-builder 官方修复 #10323](https://github.com/electron-userland/electron-builder/pull/10323)，只修复构建期依赖闭包，不增加产品数据转换。
+依赖补丁退役时同步移除对应补丁文件、登记及锁文件引用，保留仍验证当前产品功能的回归。构建器依赖收集修正来自 [electron-builder 官方修复 #10323](https://github.com/electron-userland/electron-builder/pull/10323)。
 
 0.2.2-rc.1 升级没有新增产品 SQL 迁移步骤，仍为 v15。模型选择与工具执行器的变化已直接按新版公开合同改装当前源码；产品不再使用旧 `tools.mode` 或 `DSH_TOOLS_MODE`，没有增加运行时猜测旧配置并自动改写的兼容层。用户自建组合里的旧执行配置应按同版官方指南改成显式执行器插件，不能据此删除仍支持的产品数据升级入口。
 

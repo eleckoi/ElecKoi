@@ -424,6 +424,7 @@
   "名称": "Name",
   "例如：世界状态": "Example: World state",
   " 条提示词会回到相邻的固定位置，正文不会删除。": " The prompt words will be returned to the adjacent fixed position, and the text will not be deleted.",
+  "{value0} 条提示词会移到「系统指令」，正文会保留。": "{value0} prompt(s) will move to System instructions and keep their content.",
   "自定义位置": "Custom location",
   "返回插入配置": "Return to insert configuration",
   "返回": "Return",

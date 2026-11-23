@@ -21,7 +21,8 @@ export function runtimePresetDefinition(definition) {
   const plugins = Array.isArray(definition.plugins)
     ? currentPlugins(definition.plugins).map(resolveRuntimePlugin) : definition.plugins
   // RETIRE WHEN: supported generated presets all include the native reader and
-  // no longer refer to uploaded-file-tools. Keep the ordinary native composition.
+  // no longer refer to uploaded-file-tools. Remove this fallback and the matching
+  // filter below together. Keep the ordinary native composition.
   if (Array.isArray(plugins) && !plugins.some(plugin => plugin.name === '@deepseek-ai/dsh-tool-fs')) {
     plugins.push({ id: 'tool-fs', name: '@deepseek-ai/dsh-tool-fs',
       config: { read: true, readImage: true, write: false, edit: false, applyPatch: false } })
@@ -59,7 +60,8 @@ function resolveRuntimePlugin(plugin) {
 // RETIRE WHEN: supported installations have regenerated all persisted runtime
 // presets without the retired pruner, and an upgrade regression proves old
 // sessions restore without filtering. Remove this filter, its two identity
-// constants and the currentPlugins calls together; keep summary compaction.
+// constants together. Remove currentPlugins and its calls after the last old
+// plugin filter retires. Keep summary compaction.
 function currentPlugins(plugins) {
   // RETIRE WHEN: supported Session presets have been regenerated without the
   // former preset-mounted image handler. Remove this filter with its regression.

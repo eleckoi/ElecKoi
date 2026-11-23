@@ -17,7 +17,8 @@ import {
 export const name = 'eleckoi-setting-library-tools'
 export const inject = ['tools', 'eleckoiProductData', 'eleckoiCharacterConfigurationChanges', 'eleckoiRuntimeContexts']
 
-const requiredEntriesReadInstruction = 'required_entries 是独立于本次搜索范围的完整必读清单，包含常驻必读、关键词命中和 EJS 条件触发项。有未读或正文已变化的条目时，须把其中每一条本轮尚未读取或正文已变化的完整 path 原样放进同一次 eleckoi_read_setting_files 的 paths 数组，cached_reference 也包含在内。搜索用于定位，读取以工具回执为准。本轮已读且正文未变化的条目无需重复读取。'
+const requiredEntriesReadInstruction = 'required_entries 是独立于本次搜索范围的完整必读清单，包含常驻必读和关键词命中条目。有未读或正文已变化的条目时，须把其中每一条本轮尚未读取或正文已变化的完整 path 原样放进同一次 eleckoi_read_setting_files 的 paths 数组，cached_reference 也包含在内。AI 选读条目按当前对话需要读取。搜索用于定位，读取以工具回执为准。本轮已读且正文未变化的条目无需重复读取。'
+const selectedTemplatesByTurn = new WeakMap()
 
 export function apply(ctx) {
   return runRuntimePluginApply(ctx, name, () => {
@@ -62,7 +63,7 @@ function globTool(ctx) {
 function grepTool(ctx) {
   return defineTool({
     name: 'eleckoi_grep_setting_files',
-    description: `用正则搜索当前对话虚拟设定文件的路径、读取提示和正文。${requiredEntriesReadInstruction}`,
+    description: `用正则搜索当前对话虚拟设定文件的路径、读取提示和正文。AI 选读的 EJS 条目可按路径和读取提示查找，点名读取时才处理模板正文。${requiredEntriesReadInstruction}`,
     parameters: {
       pattern: { type: 'string', required: true, description: 'JavaScript 正则表达式。' },
       path: { type: 'string', description: '可选目录路径。' },
@@ -87,7 +88,8 @@ function grepTool(ctx) {
       const matches = []
       for (const entry of catalog.entries) {
         if (!inScope(entry.path, scope) || (pathMatcher && !pathMatcher.test(relative(entry.path, scope)))) continue
-        const lines = (`${entry.path}\n${entry.selectionHint}\n${entry.content}`).split('\n')
+        const content = isOnDemandTemplate(entry) ? '' : entry.content
+        const lines = (`${entry.path}\n${entry.selectionHint}\n${content}`).split('\n')
         const hit = lines.flatMap((text, index) => expression.test(text) ? [{ line: index + 1, text }] : [])
         if (!hit.length) continue
         if (mode === 'content') matches.push(...hit.map((line) => ({ ...summary(entry, catalog), ...line })))
@@ -115,25 +117,26 @@ function readTool(ctx) {
       if (!paths.length) return fail('invalid_arguments', '至少需要读取一个文件。')
       const bridge = readSettings(ctx, exec)
       if (!bridge.enabled) return { status: 'ok', files: [] }
-      const catalog = await currentCatalog(ctx, exec)
-      const byPath = new Map(catalog.entries.map((entry) => [entry.path, entry]))
-      const missing = paths.filter((path) => !byPath.has(path))
-      if (missing.length) return { ...fail('not_found', '存在当前虚拟设定库没有的路径，请重新使用 Glob 或 Grep。'), paths: missing }
-      const files = paths.map((path) => {
-        const entry = byPath.get(path)
-        const cached = cachedReference(entry, catalog)
-        const file = {
-          ...summary(entry, catalog),
-          group_path: entry.groupPath,
-          content_mode: entry.raw.contentMode === 'ejs' ? 'ejs' : 'plain_text'
-        }
-        if (entry.renderError) return file
-        return { ...file,
-          resolved_references: (entry.resolvedReferences || []).map((reference) => ({ title: reference.title })),
-          content: cached ? cached.receipt : entry.content }
+      return currentCatalog(ctx, exec, async (catalog, state) => {
+        const missing = paths.filter(path => !catalog.byPath.has(path))
+        if (missing.length) return { ...fail('not_found', '存在当前虚拟设定库没有的路径，请重新使用 Glob 或 Grep。'), paths: missing }
+        const files = await Promise.all(paths.map(async path => {
+          const source = catalog.byPath.get(path)
+          const entry = isOnDemandTemplate(source) ? await readSelectedTemplate(source, state, catalog) : source
+          const cached = cachedReference(entry, catalog)
+          const file = {
+            ...summary(entry, catalog),
+            group_path: entry.groupPath,
+            content_mode: entry.raw.contentMode === 'ejs' ? 'ejs' : 'plain_text'
+          }
+          if (entry.renderError) return file
+          return { ...file,
+            resolved_references: (entry.resolvedReferences || []).map((reference) => ({ title: reference.title })),
+            content: cached ? cached.receipt : entry.content }
+        }))
+        const errors = files.filter(file => file.content_delivery === 'error')
+        return { status: errors.length ? 'partial' : 'ok', files, ...(errors.length ? { errors } : {}) }
       })
-      const errors = files.filter((file) => file.content_delivery === 'error')
-      return { status: errors.length ? 'partial' : 'ok', files, ...(errors.length ? { errors } : {}) }
     }
   })
 }
@@ -328,12 +331,47 @@ function deleteDirectory(library, path) {
 }
 
 
-async function currentCatalog(ctx, exec) {
+async function currentCatalog(ctx, exec, read) {
   while (true) {
     const state = readSettings(ctx, exec)
     const catalog = await runtimeCatalogOf(state)
-    if (readSettings(ctx, exec) === state) return catalog
+    if (readSettings(ctx, exec) !== state) continue
+    if (!read) return catalog
+    const result = await read(catalog, state)
+    if (readSettings(ctx, exec) === state) return result
   }
+}
+
+function isOnDemandTemplate(entry) {
+  return entry.readStrategy === 'normal' && entry.raw.contentMode === 'ejs'
+}
+
+async function renderToolTemplate(entry, references, variables, messages) {
+  try {
+    const rendered = await renderEjsController(entry, references, variables, messages)
+    return { ...entry, content: rendered.content, resolvedReferences: rendered.references }
+  } catch (error) {
+    return { ...entry, content: '', renderError: { code: 'ejs_render_failed', message: message(error) } }
+  }
+}
+
+function readSelectedTemplate(entry, bridge, catalog) {
+  let turn = selectedTemplatesByTurn.get(bridge)
+  if (!turn) {
+    turn = {
+      references: settingReferenceIndex(bridge.library, catalog),
+      variables: objectValue(bridge.variableState),
+      messages: runtimeMessages(bridge.history),
+      results: new Map()
+    }
+    selectedTemplatesByTurn.set(bridge, turn)
+  }
+  let result = turn.results.get(entry.raw.id)
+  if (!result) {
+    result = renderToolTemplate(entry, turn.references, turn.variables, turn.messages)
+    turn.results.set(entry.raw.id, result)
+  }
+  return result
 }
 
 async function runtimeCatalogOf(bridge) {
@@ -341,7 +379,7 @@ async function runtimeCatalogOf(bridge) {
   const original = catalogOf(bridge.frozenLibrary || bridge.library)
   catalog.requiredCache = requiredSettingCache(bridge.frozenLibrary || bridge.library)
     .map((item) => ({ ...item, path: original.entries.find((entry) => entry.raw.id === item.id)?.path }))
-  if (bridge.runtimeResolution?.version === 1) return applyRuntimeResolution(catalog, bridge.runtimeResolution)
+  if (bridge.runtimeResolution?.version === 2) return applyRuntimeResolution(catalog, bridge.runtimeResolution)
   const keywordEntries = catalog.entries.filter((entry) => entry.readStrategy === 'keyword')
   const keywordMatches = matchingKeywordEntryIds(keywordEntries, bridge.history)
   const variableState = objectValue(bridge.variableState)
@@ -350,25 +388,18 @@ async function runtimeCatalogOf(bridge) {
     .filter((entry) => entry.readStrategy !== 'keyword' || keywordMatches.has(entry.raw.id))
     .map((entry) => keywordMatches.has(entry.raw.id) ? { ...entry, promotedToRequiredThisTurn: true } : entry)
   const messages = runtimeMessages(bridge.history)
-  const references = entries.some(entry => entry.raw.contentMode === 'ejs') ? settingReferenceIndex(bridge.library, catalog) : null
-  entries = (await Promise.all(entries.map(async (entry) => {
-    if (entry.raw.contentMode !== 'ejs') return entry
-    try {
-      const rendered = await renderEjsController(entry, references, variableState, messages)
-      return { ...entry, content: rendered.content, resolvedReferences: rendered.references,
-        promotedToRequiredThisTurn: true }
-    } catch (error) {
-      return { ...entry, content: '', renderError: { code: 'ejs_render_failed', message: message(error) },
-        promotedToRequiredThisTurn: true }
-    }
-  }))).filter((entry) => entry.content.trim() || entry.renderError)
+  const shouldRender = entry => entry.raw.contentMode === 'ejs' && !isOnDemandTemplate(entry)
+  const references = entries.some(shouldRender) ? settingReferenceIndex(bridge.library, catalog) : null
+  entries = (await Promise.all(entries.map(entry => shouldRender(entry)
+    ? renderToolTemplate(entry, references, variableState, messages)
+    : entry))).filter(entry => entry.content.trim() || entry.renderError)
 
   const resolution = {
-    version: 1,
+    version: 2,
     visibleEntryIds: entries.map((entry) => entry.raw.id),
     promotedEntryIds: entries.filter((entry) => entry.promotedToRequiredThisTurn === true).map((entry) => entry.raw.id),
     renderedContents: Object.fromEntries(entries
-      .filter((entry) => entry.raw.contentMode === 'ejs')
+      .filter(shouldRender)
       .map((entry) => [entry.raw.id, entry.content])),
     renderErrors: Object.fromEntries(entries
       .filter((entry) => entry.renderError)
@@ -545,11 +576,11 @@ function compileEjs(template, filename = 'setting-controller.ejs') {
   return context => render.call(context, context, toText)
 }
 
-/** Resolve placed and standalone templates against the same turn inputs as tool reads. */
-export function resolvePlacedSettingTemplates(context, history, variables) {
+/** Render enabled templates that have an explicit insertion position. */
+export function resolvePlacedSettingTemplates(context, history, variables, host) {
   const library = context?.settingLibrary
   const templates = library?.entries?.filter(entry => entry.kind === 'normal' && entry.contentMode === 'ejs'
-    && (!entry.enabled || entry.triggerMode === 'always' && entry.position))
+    && entry.enabled && entry.triggerMode === 'always' && entry.position)
   if (!templates?.length) return context
   const catalog = catalogOf(library)
   const references = settingReferenceIndex(library, catalog)
@@ -559,18 +590,17 @@ export function resolvePlacedSettingTemplates(context, history, variables) {
     const path = [catalog.groupPath(raw.groupId), safeSegment(raw.title || '未命名设定')].filter(Boolean).join('/')
     try {
       const result = await renderEjsController({ raw, path, content: raw.content }, references, state, messages)
-      // An EJS-only trigger uses the default setting position. Saved rule fields stay intact.
-      const placement = raw.enabled ? {} : { enabled: true, triggerMode: 'always',
-        position: 'insert_point_1', promptPositionId: '', insertRole: 'user' }
-      return [raw.id, { ...raw, ...placement, content: result.content }]
+      return [raw.id, { ...raw, content: result.content }]
     } catch (error) {
-      if (isCodedFailure(error)) throw error
-      throw runtimePluginFailure(ELECKOI_FAILURE_CODES.inputInvalid,
+      const failure = isCodedFailure(error) ? error : runtimePluginFailure(ELECKOI_FAILURE_CODES.inputInvalid,
         `设定 ${path} 的 EJS 渲染失败：${message(error)}`, { field: 'content', path })
+      recordRuntimePluginFailure(host, name, 'render_placed_setting', failure)
+      return [raw.id, null]
     }
   })).then(results => {
     const rendered = new Map(results)
-    return { ...context, settingLibrary: { ...library, entries: library.entries.map(entry => rendered.get(entry.id) ?? entry) } }
+    const entries = library.entries.map(entry => rendered.has(entry.id) ? rendered.get(entry.id) : entry).filter(Boolean)
+    return { ...context, settingLibrary: { ...library, entries } }
   })
 }
 

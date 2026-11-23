@@ -24,7 +24,7 @@ it('keeps custom positions in a bounded page and stacks phone insertion fields',
     try { report=JSON.parse(await readFile(resolve(directory,'report.json'),'utf8')); }
     catch(error) { throw failure || error; }
     const evidence=resolve('build/setting-position-page-check');await mkdir(evidence,{recursive:true});await copyFile(resolve(directory,'report.json'),resolve(evidence,'browser.json'));
-    expect(report.passed,report.failure||failure?.message).toBe(true);expect(report.layouts).toHaveLength(4);
+    expect(report.passed,report.failure||failure?.message).toBe(true);expect(report.layouts).toHaveLength(5);
   }finally{
     if(dirname(directory)!==resolve(tmpdir())||!basename(directory).startsWith('eleckoi-mobile-editor-')) throw Error('Unexpected browser fixture cleanup path');
     await rm(directory,{recursive:true,force:true});

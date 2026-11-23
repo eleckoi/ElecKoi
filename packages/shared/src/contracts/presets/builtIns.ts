@@ -101,8 +101,23 @@ export function normalizeAgentPresetPrompts(
   const requiredEntries = purpose === 'roleplay' ? withRequiredAgentPresetEntries(entries) : withRequiredCreatorPresetEntries(entries)
   const promptPositions = purpose === 'roleplay' ? withRequiredAgentPresetPromptPositions(positions) : normalizePromptPositions(positions)
   const positionsById = new Map(promptPositions.map((position) => [position.id, position]))
+  // RETIRE WHEN: supported databases, restored backups and preset files cannot supply
+  // creator `agent_tool`/`required` prompts. Remove this order scan and conversion
+  // below together with their legacy cases. Keep the current prompt normalization.
+  let lastInstructionOrder = 0
+  if (purpose === 'creator') {
+    for (const entry of requiredEntries) {
+      if (entry.triggerMode === 'always' && entry.position === 'instructions' && !entry.promptPositionId && !isHistoryCompactionEntry(entry)) {
+        lastInstructionOrder = Math.max(lastInstructionOrder, entry.order)
+      }
+    }
+  }
   const normalizedEntries = requiredEntries.map((entry) => {
     const customPosition = positionsById.get(entry.promptPositionId)
+    if (purpose === 'creator' && entry.kind === 'normal' && entry.triggerMode === 'agent_tool' && entry.agentReadStrategy === 'required') {
+      return { ...entry, triggerMode: 'always' as const, agentReadStrategy: 'normal' as const, position: 'instructions' as const,
+        promptPositionId: '', insertRole: 'system' as const, order: ++lastInstructionOrder }
+    }
     if (isHiddenToolTimelineEntry(entry)) {
       return customPosition === undefined ? entry : { ...entry, position: customPosition.anchor }
     }

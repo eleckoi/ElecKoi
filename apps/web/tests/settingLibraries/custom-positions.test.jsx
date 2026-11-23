@@ -49,6 +49,13 @@ describe('custom position editing', () => {
     expect(result.entries).toEqual([{ ...entry, promptPositionId: '' }]);
     expect(entry.promptPositionId).toBe('world');
   });
+  it('keeps creator prompts active when their custom position is deleted', () => {
+    const instructions = { ...entry, id: 'instructions', triggerMode: 'always', position: 'instructions', promptPositionId: '', order: 4 };
+    const standing = { ...entry, triggerMode: 'always', enabled: true };
+    const result = removeCustomPosition([position], [instructions, standing], position, true);
+    expect(result.positions).toEqual([]);
+    expect(result.entries).toEqual([instructions, { ...standing, promptPositionId: '', position: 'instructions', insertRole: 'system', order: 5 }]);
+  });
   it('places custom nodes after their actual anchors in position order', () => {
     const earlier = { ...position, id: 'early', order: 1 };
     const later = { ...position, id: 'late', anchor: 'insert_point_3' };

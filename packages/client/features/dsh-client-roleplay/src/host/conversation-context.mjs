@@ -27,7 +27,7 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
   const placedSettings = context => {
     if (context !== placedSource) {
       const turn = runtimeContexts.get(sourceSessionId)
-      placedContext = resolvePlacedSettingTemplates(context, turn.settings?.history, turn.variables?.state)
+      placedContext = resolvePlacedSettingTemplates(context, turn.settings?.history, turn.variables?.state, agentCtx)
       placedSource = context
     }
     return placedContext

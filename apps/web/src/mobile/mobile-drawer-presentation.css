@@ -1,7 +1,7 @@
 /* Restore the approved pre-c07cb1c7 presentation on the actual DSH rc.3 drawer.
    Its state, mounted sidebar, inert content and dismiss mask remain official.
    The sibling after the sidebar slot is AppFrame's center column at this lock.
-   RETIRE WHEN AppFrame exposes an equivalent drawer presentation contract. */
+   RETIRE WHEN: AppFrame exposes an equivalent drawer presentation contract. */
 .mobile-shell:has([data-sidebar-drawer]) {
   container-type: size;
   --mobile-drawer-width: min(80cqw, 326px);

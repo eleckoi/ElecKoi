@@ -66,15 +66,24 @@ export function savePositionDraft(positions, entries, draft, selectedEntryId = '
   };
 }
 
-export function removeCustomPosition(positions, entries, position) {
+export function removeCustomPosition(positions, entries, position, creatorPreset = false) {
+  let order = creatorPreset ? entries.reduce((last, entry) => (
+    entry.triggerMode === 'always' && entry.position === 'instructions' && !entry.promptPositionId
+      ? Math.max(last, entry.order) : last
+  ), 0) : 0;
   return {
     positions: positions.filter((item) => item.id !== position.id),
-    entries: entries.map((entry) => entry.promptPositionId === position.id ? { ...entry, promptPositionId: '', position: position.anchor } : entry),
+    entries: entries.map((entry) => {
+      if (entry.promptPositionId !== position.id) return entry;
+      return creatorPreset
+        ? { ...entry, promptPositionId: '', position: 'instructions', insertRole: 'system', order: ++order }
+        : { ...entry, promptPositionId: '', position: position.anchor };
+    }),
   };
 }
 
-export function positionPickerRows(positions) {
-  return SETTING_LIBRARY_PLACEMENT_ROWS.flatMap((row) => [row, ...positions
+export function positionPickerRows(positions, creatorPreset = false) {
+  const rows = SETTING_LIBRARY_PLACEMENT_ROWS.flatMap((row) => [row, ...positions
     .filter((position) => row.type === 'position' && position.anchor === row.value && position.side === 'after_setting_position')
     .sort((a, b) => a.order - b.order)
     .map((position) => ({ type: 'custom', value: position.anchor, position }))])
@@ -84,13 +93,14 @@ export function positionPickerRows(positions) {
         .map((position) => ({ type: 'custom', value: position.anchor, position })),
       row,
     ]);
+  return creatorPreset ? rows.filter(row => row.id !== 'cache' && (row.type !== 'position' || row.value === 'instructions')) : rows;
 }
 
 export function fixedPlacementRowSelectable(row, allowCustomPromptPositions) {
   return row.type === 'position' && (row.value === 'instructions' || !allowCustomPromptPositions);
 }
 
-export function positionManagementRows(positions) {
+export function positionManagementRows(positions, creatorPreset = false) {
   const byPlacement = new Map();
   for (const position of normalizeCustomPositions(positions)) {
     const key = `${position.anchor}:${position.side}`;
@@ -100,22 +110,24 @@ export function positionManagementRows(positions) {
   }
   const rows = [];
   const appendCustom = (anchor, side) => rows.push(...(byPlacement.get(`${anchor}:${side}`) || []));
+  if (creatorPreset) appendCustom('instructions', 'before_setting_position');
   rows.push(MANAGEMENT_FIXED_ROWS[0]);
+  if (creatorPreset) appendCustom('instructions', 'after_setting_position');
   for (const row of MANAGEMENT_FIXED_ROWS.slice(1)) {
     if (row.type === 'slot') {
       appendCustom(row.anchor, 'before_setting_position');
-      rows.push(row);
+      if (!creatorPreset) rows.push(row);
       appendCustom(row.anchor, 'after_setting_position');
-    } else {
+    } else if (!creatorPreset || row.key !== 'fixed-group:cache') {
       rows.push(row);
     }
   }
   return rows;
 }
 
-export function moveCustomPosition(positions, entries, movingId, targetKey, movingDown) {
+export function moveCustomPosition(positions, entries, movingId, targetKey, movingDown, creatorPreset = false) {
   const moving = positions.find((position) => position.id === movingId);
-  const target = positionManagementRows(positions).find((row) => row.key === targetKey);
+  const target = positionManagementRows(positions, creatorPreset).find((row) => row.key === targetKey);
   if (!moving || !target || target.key === `custom:${movingId}`) return { positions, entries };
 
   let targetAnchor = 'insert_point_1';

@@ -12,7 +12,7 @@ export function catalogOf(library) {
   const describe = raw => {
     const path = [groupPath(raw.groupId), safeSegment(raw.title || '未命名设定')].filter(Boolean).join('/')
     return { raw, path, groupPath: groupPath(raw.groupId), content: String(raw.content || ''),
-      selectionHint: raw.agentReadStrategy === 'normal' && raw.contentMode === 'plain_text' ? String(raw.agentSelectionHint || '') : '',
+      selectionHint: (raw.agentReadStrategy || 'normal') === 'normal' ? String(raw.agentSelectionHint || '') : '',
       readStrategy: raw.agentReadStrategy || 'normal' }
   }
   const toolEntries = entries.filter(entry => !isFixedEntry(entry) && entry.triggerMode === 'agent_tool')

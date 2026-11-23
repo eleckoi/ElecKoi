@@ -424,25 +424,45 @@ describe('DSH conversation context', () => {
     expect(source.settingLibrary.entries[0].content).toBe(body)
   })
 
-  it('sends standalone EJS output only on dialogue message 20, independent of paused rules', async () => {
-    const body = '<% if (getChatMessages().length === 20) { %>第二十楼：<%- await getwi("关闭的素材") %><% } %>'
+  it('only sends disabled EJS output through the entry that references it', async () => {
+    const body = '<% if (lastUserMessage.includes("午夜")) { %>信号：<%- await getwi("关闭的素材") %><% } %>'
+    const fragment = '午夜钟声。'.repeat(5000) + '最后一响。'
     const source = context([
-      { ...setting('agent-preset:synthetic:floor-template', body, 'insert_point_3', 1),
+      { ...setting('关闭的模板', body, 'insert_point_1', 1),
         enabled: false, triggerMode: 'agent_tool', agentReadStrategy: 'keyword', keywords: ['未命中的词'], contentMode: 'ejs' },
-      { ...setting('关闭的素材', '午夜钟声。', null, 2), enabled: false, contentMode: 'plain_text' }
+      { ...setting('关闭的素材', fragment, null, 2), enabled: false, contentMode: 'plain_text' },
+      { ...setting('agent-preset:synthetic:paused', '<% throw new Error("未引用的模板不应执行") %>', 'insert_point_2', 3),
+        enabled: false, contentMode: 'ejs' }
     ])
-    const requestAt = async floor => {
-      const messages = Array.from({ length: floor }, (_, index) => index === floor - 1 || index % 2 === 0
-        ? message('user', `合成输入 ${index + 1}`, { kind: 'user' })
-        : message('assistant', `合成回复 ${index + 1}`, { kind: 'model', provider: 'test', model: 'test' }))
-      const rendered = await resolvePlacedSettingTemplates(source, visibleDialogueHistory(messages), {})
-      return projectRequestInput(messages, requestProjectionSnapshot(rendered), {}).map(text).join('\n')
+    const requestFor = async (libraryContext, input) => {
+      const messages = [message('user', '上一问', { kind: 'user' }),
+        message('assistant', '上一答', { kind: 'model' }), message('user', input, { kind: 'user' })]
+      const rendered = await resolvePlacedSettingTemplates(libraryContext, visibleDialogueHistory(messages), {})
+      return projectRequestInput(messages, requestProjectionSnapshot({ ...rendered, historyMode: 'prefix' }), {}).map(text)
     }
-    expect(await requestAt(19)).not.toContain('午夜钟声。')
-    expect(await requestAt(20)).toContain('第二十楼：午夜钟声。')
-    expect(await requestAt(21)).not.toContain('午夜钟声。')
-    expect(await requestAt(20)).not.toContain('<%')
+    expect(await requestFor(source, '午夜到了')).toEqual(['上一问', '上一答', '午夜到了'])
+
+    const caller = { ...setting('agent-preset:synthetic:caller', '<%- await getwi("关闭的模板") %>', 'insert_point_4', 1),
+      contentMode: 'ejs' }
+    const referenced = context([...source.settingLibrary.entries, caller])
+    expect(await requestFor(referenced, '午夜到了')).toEqual(['上一问', '上一答', '午夜到了', `信号：${fragment}`])
+    expect(await requestFor(referenced, '白天到了')).toEqual(['上一问', '上一答', '白天到了'])
     expect(source.settingLibrary.entries[0]).toMatchObject({ enabled: false, agentReadStrategy: 'keyword', content: body })
+  })
+
+  it('reports a failed template and still sends the other settings and current input', async () => {
+    const broken = { ...setting('引用失效的设定', '<%- await getwi("缺失素材") %>', 'insert_point_1', 1), contentMode: 'ejs' }
+    const source = context([
+      broken,
+      { ...setting('正常模板', '<%= "保留文字" %>', 'insert_point_3', 2), contentMode: 'ejs' }
+    ])
+    const warn = vi.fn()
+    const rendered = await resolvePlacedSettingTemplates(source, [], {}, { logger: { warn } })
+    const messages = [message('user', '当前输入', { kind: 'user' })]
+    expect(projectRequestInput(messages, requestProjectionSnapshot(rendered), {}).map(text)).toEqual(['保留文字', '当前输入'])
+    expect(warn).toHaveBeenCalledOnce()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('getwi 找不到设定：缺失素材'))
+    expect(source.settingLibrary.entries[0]).toEqual(broken)
   })
 
   it('uses custom position anchors and ignores disabled/on-demand entries', () => {

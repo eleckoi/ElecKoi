@@ -1,0 +1,13 @@
+flowchart TD
+  accTitle: 每轮必读的两种正文
+  accDescr: 普通文字提前放进缓存设定区，读取工具返回编号和标题。EJS 每轮处理，有文字输出时列为本轮必读，读取工具返回处理后的正文。
+  start["常驻触发 · 每轮必读"] --> plain["普通文字"]
+  start --> ejs["EJS 正文"]
+  plain --> cache["正文提前放入<br/>「缓存设定区」"]
+  cache --> receipt["读取工具返回<br/>编号和标题"]
+  ejs --> render["每轮处理 EJS"]
+  render -->|"有文字"| required["列入本轮必读<br/>读取工具返回正文"]
+  classDef entry fill:#edf3fc,stroke:#adc6ee,color:#203d70,font-weight:600
+  classDef result fill:#f1f6fd,stroke:#adc6ee,color:#203d70
+  class start,plain,ejs entry
+  class receipt,required result

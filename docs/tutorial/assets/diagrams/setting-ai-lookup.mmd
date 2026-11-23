@@ -1,0 +1,8 @@
+flowchart TD
+  accTitle: AI 选读的读取流程
+  accDescr: 浏览目录时，AI 看到路径、名称和查阅提示。用得上时按完整路径读取正文。本轮用不上就跳过。
+  hint["浏览虚拟目录<br/>路径、名称和查阅提示"] -->|"用得上"| read["按完整路径打开设定"]
+  hint -->|"用不上"| skip["本轮跳过"]
+  read --> result["读取工具返回正文"]
+  classDef entry fill:#edf3fc,stroke:#adc6ee,color:#203d70,font-weight:600
+  class hint,result entry

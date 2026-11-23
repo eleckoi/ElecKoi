@@ -424,6 +424,7 @@
   "名称": "Nom",
   "例如：世界状态": "Exemple : État mondial",
   " 条提示词会回到相邻的固定位置，正文不会删除。": " Les mots d'invite seront renvoyés à la position fixe adjacente et le texte ne sera pas supprimé.",
+  "{value0} 条提示词会移到「系统指令」，正文会保留。": "{value0} prompt(s) seront déplacés vers les instructions système et leur contenu sera conservé.",
   "自定义位置": "Localisation personnalisée",
   "返回插入配置": "Retour à la configuration de l'insertion",
   "返回": "Retour",

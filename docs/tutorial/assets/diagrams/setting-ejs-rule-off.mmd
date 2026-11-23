@@ -1,0 +1,10 @@
+flowchart TD
+  accTitle: 关闭触发规则后的正文
+  accDescr: 其他模板通过 getwi 引用规则关闭的条目。普通文字原样返回，EJS 在被引用时执行，两种正文的结果都交回引用方。
+  off["触发规则关闭"] --> reference["其他模板调用 getwi"]
+  reference --> plain["普通文字原样返回"]
+  reference --> ejs["执行被引用的 EJS"]
+  plain --> result["结果交回引用方"]
+  ejs --> result
+  classDef entry fill:#edf3fc,stroke:#adc6ee,color:#203d70,font-weight:600
+  class off,result entry

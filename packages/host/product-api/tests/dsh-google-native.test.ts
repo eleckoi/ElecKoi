@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { Context } from '@deepseek-ai/cordis'
-import { BlockAssembler, LlmRuntime } from '@deepseek-ai/dsh-llm'
+import { BlockAssembler, LlmRuntime, createAssistantMessage, createToolResultMessage } from '@deepseek-ai/dsh-llm'
 import * as piAi from '@deepseek-ai/dsh-llm-pi-ai'
 import { discoverDraftModels } from '@eleckoi/dsh-product-api'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -31,6 +31,65 @@ function model(name: string, methods = ['generateContent']) {
 }
 
 function frame(value: unknown) { return `data: ${JSON.stringify(value)}\n\n` }
+
+it('replays the exact Gemini tool-call signature through the OpenAI-compatible DSH adapter', async () => {
+  const signature = 'synthetic-gemini-tool-signature'
+  const callId = 'synthetic-call'
+  const modelId = 'synthetic-gemini'
+  const provider = 'config-openai-compatible'
+  const calls: any[] = []
+  function chunk(delta: object, finishReason: string | null = null) {
+    return frame({ id: 'synthetic-response', object: 'chat.completion.chunk', model: modelId,
+      choices: [{ index: 0, delta, finish_reason: finishReason }] })
+  }
+  const baseURL = await endpoint(async (request, response) => {
+    const chunks: Buffer[] = []
+    for await (const data of request) chunks.push(Buffer.from(data))
+    const body = JSON.parse(Buffer.concat(chunks).toString())
+    calls.push(body)
+    if (calls.length === 2) {
+      const previous = body.messages.find((message: any) => message.role === 'assistant')?.tool_calls[0]
+      if (previous?.extra_content?.google?.thought_signature !== signature) {
+        response.writeHead(400, { 'content-type': 'application/json' })
+        response.end(JSON.stringify({ error: { message: 'Synthetic gateway: Function call is missing a thought_signature' } }))
+        return
+      }
+    }
+    response.writeHead(200, { 'content-type': 'text/event-stream' })
+    response.end((calls.length === 1 ? chunk({ tool_calls: [{ index: 0, id: callId, type: 'function',
+      function: { name: 'skill', arguments: '{"name":' }, extra_content: { google: { thought_signature: signature } } }] })
+      + chunk({ tool_calls: [{ index: 0, function: { arguments: '"synthetic"}' } }] })
+      + chunk({}, 'tool_calls') : chunk({ content: 'Synthetic reply after tool.' }) + chunk({}, 'stop')) + 'data: [DONE]\n\n')
+  })
+  const ctx = new Context()
+  cleanups.push(() => ctx.fiber.dispose())
+  ctx.provide('credentials', { resolve: async () => ({ value: 'synthetic-stored-value', source: 'test' }) })
+  await ctx.plugin(LlmRuntime)
+  await ctx.plugin(piAi, { providers: { [provider]: { api: 'openai-completions', baseURL,
+    apiKeyEnv: 'SYNTHETIC_KEY', models: [{ id: modelId }], retryPolicy: { mode: 'normal', maxRetries: 0 },
+  } } })
+  const options = { provider, model: modelId, tools: [{ name: 'skill', description: 'Synthetic tool.',
+    parameters: { type: 'object', properties: { name: { type: 'string' } } } }], signal: AbortSignal.timeout(5000) }
+  const user = { role: 'user' as const, content: [{ type: 'text' as const, text: 'Synthetic input.' }] }
+  const first = new BlockAssembler()
+  for await (const data of ctx.llm.stream({ ...options, messages: [user] })) first.push(data)
+  expect(first.finish.kind).toBe('tool-calls')
+  const tool = first.blocks().find(block => block.type === 'tool-call')!
+  expect(tool).toMatchObject({ id: callId, name: 'skill', arguments: '{"name":"synthetic"}' })
+  const assistant = createAssistantMessage({ content: first.blocks(), source: {
+    provider, model: modelId, replayState: JSON.parse(JSON.stringify(first.replayState)),
+  } })
+  const result = createToolResultMessage({ callId: tool.id, isError: false, content: [{ type: 'text', text: 'Synthetic skill result.' }] })
+  const second = new BlockAssembler()
+  for await (const data of ctx.llm.stream({ ...options, messages: [user, assistant, result] })) second.push(data)
+  expect(second.finish).toEqual({ kind: 'stop' })
+  expect(second.blocks()).toEqual([{ type: 'text', text: 'Synthetic reply after tool.' }])
+  expect(calls).toHaveLength(2)
+  expect(calls[1].messages.find((message: any) => message.role === 'assistant').tool_calls).toEqual([
+    { id: callId, type: 'function', function: { name: 'skill', arguments: '{"name":"synthetic"}' },
+      extra_content: { google: { thought_signature: signature } } },
+  ])
+}, 15_000)
 
 describe('Google native provider through the locked DSH adapter', () => {
   it.each([true, false])('reads every model page with the draft endpoint, headers and key (typed: %s)', async typed => {

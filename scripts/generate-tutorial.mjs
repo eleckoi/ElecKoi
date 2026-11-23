@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { cp, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { JSDOM } from 'jsdom'
+import sharp from 'sharp'
 import showdown from 'showdown'
 
 const source = new URL('../docs/tutorial/', import.meta.url)
@@ -15,6 +16,20 @@ const preferencesVersion = createHash('sha256').update(preferencesScript).digest
 const converter = new showdown.Converter({ ghCompatibleHeaderId: true, tables: true })
 const sourcePage = new JSDOM(`<article>${converter.makeHtml(markdown)}</article>`)
 const sourceArticle = sourcePage.window.document.querySelector('article')
+const windowsScreenshots = 'assets/screenshots/windows/'
+const screenshotPaths = new Set([...sourceArticle.querySelectorAll('img[src^="assets/screenshots/"]')]
+  .map(image => image.getAttribute('src')))
+for (const path of [...screenshotPaths]) {
+  if (!path.startsWith(windowsScreenshots)) continue
+  const androidPath = path.replace(windowsScreenshots, 'assets/screenshots/android/')
+  if (existsSync(new URL(androidPath, source))) screenshotPaths.add(androidPath)
+}
+const screenshotAssets = new Map(await Promise.all([...screenshotPaths].map(async path => {
+  const bytes = await readFile(new URL(path, source))
+  const { width, height } = await sharp(bytes).metadata()
+  const revision = createHash('sha256').update(bytes).digest('hex').slice(0, 12)
+  return [path, { width, height, url: `${path}?v=${revision}` }]
+})))
 const title = sourceArticle.querySelector(':scope > h1')
 const image = sourceArticle.querySelector(':scope > h1 + p > img:only-child')
 if (!title || !image) throw new Error('教程需要一级标题和紧随其后的封面图片。')
@@ -38,15 +53,31 @@ const pageFiles = new Map([
   ['默认-deepseek-配置', 'usage-beginner-windows-model-deepseek.html'],
   ['dsh-内置提供商配置', 'usage-beginner-windows-model-catalog.html'],
   ['自定义提供商配置', 'usage-beginner-windows-model-custom.html'],
+  ['基础资料', 'usage-beginner-windows-create-profile.html'],
+  ['开场白', 'usage-beginner-windows-create-openings.html'],
+  ['设定库', 'usage-beginner-windows-create-settings.html'],
+  ['设定', 'usage-beginner-windows-create-settings-entry.html'],
+  ['变量', 'usage-beginner-windows-create-variables.html'],
+  ['正则', 'usage-beginner-windows-create-regex.html'],
+  ['脚本', 'usage-beginner-windows-create-scripts.html'],
+  ['前端', 'usage-beginner-windows-create-frontend.html'],
+  ['资产库', 'usage-beginner-windows-create-assets.html'],
+  ['分支设定', 'usage-beginner-windows-create-branches.html'],
   ['酒馆玩家-windows-电脑端', 'usage-tavern-windows.html'],
   ['酒馆玩家-android-手机端', 'usage-tavern-android.html'],
   ['概念词库', 'glossary.html'],
+  ['设计理念', 'design.html'],
 ])
 const entryLabels = new Map([
   ['usage-beginner-windows.html', '流程总览'],
   ['usage-beginner-android.html', '流程总览'],
   ['usage-tavern-windows.html', '使用总览'],
   ['usage-tavern-android.html', '使用总览'],
+])
+const walkthroughLabels = new Map([
+  ['模型配置', '配置总览'],
+  ['创作角色卡', '创作总览'],
+  ['设定库', '设定库总览'],
 ])
 const chapters = []
 const tutorialPages = []
@@ -80,6 +111,7 @@ const androidGuide = pageByAnchor.get('新手玩家-android-手机端')
 const tavernWindowsGuide = pageByAnchor.get('酒馆玩家-windows-电脑端')
 const tavernAndroidGuide = pageByAnchor.get('酒馆玩家-android-手机端')
 const modelGuide = pageByAnchor.get('模型配置')
+const settingsGuide = pageByAnchor.get('设定库')
 const usagePage = pageByAnchor.get('软件使用')
 const installPage = pageByAnchor.get('下载与安装')
 const installDevices = new Map([
@@ -89,7 +121,7 @@ const installDevices = new Map([
 if (!windowsGuide || !androidGuide || windowsGuide.children.map(entry => entry.anchor).join('\n') !== [...beginnerSteps.keys()].join('\n')) {
   throw new Error('新手教程步骤缺少或顺序有误。')
 }
-if (!tavernWindowsGuide || !tavernAndroidGuide || !modelGuide) throw new Error('教程缺少酒馆玩家入口或模型配置。')
+if (!tavernWindowsGuide || !tavernAndroidGuide || !modelGuide || !settingsGuide) throw new Error('教程缺少酒馆玩家入口、模型配置或设定库。')
 androidGuide.content = [androidGuide.content[0], ...windowsGuide.content.slice(1)]
 function addGuidePages(guide, sourcePages) {
   const copies = new Map()
@@ -105,11 +137,12 @@ function addGuidePages(guide, sourcePages) {
   for (const page of sourcePages) addPage(page, guide)
   return copies
 }
+const tavernPages = [modelGuide, settingsGuide]
 const guidePages = new Map([
   [windowsGuide, new Map()],
   [androidGuide, addGuidePages(androidGuide, windowsGuide.children)],
-  [tavernWindowsGuide, addGuidePages(tavernWindowsGuide, [modelGuide])],
-  [tavernAndroidGuide, addGuidePages(tavernAndroidGuide, [modelGuide])],
+  [tavernWindowsGuide, addGuidePages(tavernWindowsGuide, tavernPages)],
+  [tavernAndroidGuide, addGuidePages(tavernAndroidGuide, tavernPages)],
 ])
 const guidePreferences = new Map([
   [windowsGuide, { device: 'windows', player: 'beginner' }],
@@ -159,41 +192,53 @@ function addTermPopover(link, term, id) {
   link.after(trigger, popover)
 }
 
-function renderContents(document, entries, currentPage, activePath, guide) {
+function renderChapterLinks(document, activePath, entry, guide, installDevice) {
   const list = document.createElement('ul')
+  for (const chapter of chapters) {
+    const item = document.createElement('li')
+    const link = document.createElement('a')
+    link.textContent = chapter.title
+    link.href = chapter.file
+    if (activePath.has(chapter)) {
+      link.setAttribute('aria-current', chapter === entry ? 'page' : 'location')
+      if (chapter === usagePage && guide) link.href = guide.file
+      if (chapter === installPage && installDevice) link.href = entry.file
+    } else if (chapter === installPage || chapter === usagePage) {
+      link.dataset.preferredDestination = chapter === installPage ? 'install' : 'usage'
+    }
+    item.append(link)
+    list.append(item)
+  }
+  return list
+}
+
+function renderContents(document, entries, currentPage, activePath, depth = 0) {
+  const list = document.createElement('ul')
+  if (depth) list.style.setProperty('--nav-depth', depth)
   for (const entry of entries) {
     const item = document.createElement('li')
     const link = document.createElement('a')
-    const overview = entry === usagePage && guide ? guide : entry
-    const onInstallPage = entry === installPage && currentPage.parent === installPage
-    const isCurrent = overview === currentPage || onInstallPage
-    link.href = onInstallPage ? currentPage.file : overview.file
+    const isCurrent = entry === currentPage
+    link.href = entry.file
     const parentTitle = entry.parent ? `${entry.parent.title} ` : ''
     const label = entry.title.startsWith(parentTitle) ? entry.title.slice(parentTitle.length) : entry.title
-    const children = entry === installPage || (entry === usagePage && !guide) ? [] : overview.children
 
-    if (children.length) {
+    if (entry.children.length) {
       const disclosure = document.createElement('details')
       disclosure.open = activePath.has(entry)
       const toggle = document.createElement('summary')
       toggle.textContent = label
-      const childList = renderContents(document, children, currentPage, activePath, guide)
-      if (overview === guide && isCurrent) {
-        toggle.setAttribute('aria-current', 'page')
-      } else {
-        if (isCurrent) link.setAttribute('aria-current', 'page')
-        const entryItem = document.createElement('li')
-        link.textContent = entryLabels.get(overview.file) ?? (entry.anchor === '模型配置' ? '配置总览' : '本节入口')
-        entryItem.append(link)
-        childList.prepend(entryItem)
-      }
+      const childList = renderContents(document, entry.children, currentPage, activePath, depth + 1)
+      if (isCurrent) link.setAttribute('aria-current', 'page')
+      const entryItem = document.createElement('li')
+      link.textContent = walkthroughLabels.get(entry.anchor) ?? '本节入口'
+      entryItem.append(link)
+      childList.prepend(entryItem)
       disclosure.append(toggle, childList)
       item.append(disclosure)
     } else {
       link.textContent = label
       if (isCurrent) link.setAttribute('aria-current', 'page')
-      else if (entry === installPage) link.dataset.preferredDestination = 'install'
-      else if (entry === usagePage) link.dataset.preferredDestination = 'usage'
       item.append(link)
     }
     list.append(item)
@@ -222,8 +267,9 @@ function styleStepLinks(list) {
   }
 }
 
-function renderPreferencePicker(article, destination, fallback) {
-  fallback?.classList.add('tutorial-preference-fallback')
+function renderPreferencePicker(article, destination) {
+  const fallback = article.querySelector(':scope > ul')
+  fallback.classList.add('tutorial-preference-fallback')
   const form = article.ownerDocument.createElement('form')
   form.className = 'tutorial-preferences'
   form.dataset.destination = destination
@@ -250,14 +296,20 @@ function renderPreferencePicker(article, destination, fallback) {
       </div>
     </fieldset>
     <button type="submit">${destination === 'install' ? '查看下载与安装' : '查看教程'}</button>`
-  if (fallback) fallback.before(form)
-  else article.prepend(form)
+  fallback.before(form)
 }
 
 const screenshotAnnotations = new Map([
+  ['assets/screenshots/windows/setting-library-entry-optional.png', {
+    regions: [{ box: [265, 350, 143, 74] }, { box: [770, 385, 365, 88] }],
+  }],
+  ['assets/screenshots/windows/setting-library-placement-workspace.png', {
+    regions: [{ box: [577, 99, 67, 36] }, { box: [964, 389, 106, 34] }],
+  }],
+  ['导入角色卡:assets/screenshots/windows/character-create-library.png', {
+    regions: [{ box: [1063, 51, 120, 46] }],
+  }],
   ['assets/screenshots/windows/model-overview.png', {
-    width: 2240,
-    height: 1452,
     regions: [
       { label: '模型入口', box: [13, 600, 48, 48], position: 'beside', circle: true },
       { label: '新建配置', box: [428, 137, 55, 55], position: 'below-end', circle: true },
@@ -266,18 +318,12 @@ const screenshotAnnotations = new Map([
     ],
   }],
   ['assets/screenshots/common/deepseek-api-keys.png', {
-    width: 1482,
-    height: 348,
     regions: [{ box: [1237, 272, 179, 68] }],
   }],
   ['assets/screenshots/windows/model-deepseek-key.png', {
-    width: 1732,
-    height: 992,
     regions: [{ box: [45, 708, 1668, 106] }],
   }],
   ['assets/screenshots/windows/model-custom-example.png', {
-    width: 1728,
-    height: 1425,
     crop: { top: 508, height: 352 },
     regions: [
       { box: [57, 681, 820, 46], value: 'https://api.deepseek.com' },
@@ -285,50 +331,78 @@ const screenshotAnnotations = new Map([
     ],
   }],
   ['assets/screenshots/windows/model-catalog-key.png', {
-    width: 1746,
-    height: 1395,
     crop: { top: 472, height: 502 },
     regions: [{ box: [46, 744, 1653, 62] }],
   }],
-  ['assets/screenshots/windows/character-import-library.png', {
-    width: 2241,
-    height: 1457,
-    crop: { top: 0, height: 810 },
-    regions: [
-      { box: [14, 179, 47, 47], circle: true },
-      { box: [429, 136, 55, 55], circle: true },
-    ],
+  ['assets/screenshots/windows/setting-library-merge-file.png', {
+    crop: { left: 345, width: 215, top: 486, height: 59 },
+    regions: [],
   }],
-  ['assets/screenshots/windows/character-import-menu.png', {
-    width: 536,
-    height: 424,
-    regions: [{ box: [234, 244, 242, 51] }],
+  ['assets/screenshots/windows/setting-library-merge-entries.png', {
+    crop: { top: 0, height: 277 },
+    regions: [],
   }],
 ])
 
 const screenshotDetails = new Map([
-  ['assets/screenshots/windows/model-create-menu.png', { width: 527, height: 765, top: 127 }],
-  ['assets/screenshots/windows/model-dsh-directory.png', { width: 525, height: 1241, top: 310 }],
+  ['assets/screenshots/windows/model-create-menu.png', { top: 127 }],
+  ['assets/screenshots/windows/model-dsh-directory.png', { top: 310 }],
 ])
 
-function annotateScreenshot(figure, image, { width, height, regions, crop }) {
-  figure.classList.add('tutorial-screenshot-annotated')
+const screenshotPreviewSizes = new Map([
+  ['assets/screenshots/common/deepseek-key-copy.png', 'compact'],
+  ['assets/screenshots/common/deepseek-key-create.png', 'compact'],
+  ['assets/screenshots/common/setting-library-folders-collapsed.png', 'layout'],
+  ['assets/screenshots/common/setting-library-folders-expanded.png', 'layout'],
+  ['assets/screenshots/windows/character-cover-crop.png', 'overview'],
+  ['assets/screenshots/windows/character-create-library.png', 'overview'],
+  ['assets/screenshots/windows/character-create-menu.png', 'compact'],
+  ['assets/screenshots/windows/character-edit-context-menu.png', 'compact'],
+  ['assets/screenshots/windows/character-edit-profile.png', 'overview'],
+  ['assets/screenshots/windows/character-editor-overview.png', 'overview'],
+  ['assets/screenshots/windows/character-export-selection.png', 'overview'],
+  ['assets/screenshots/windows/character-import-preview.png', 'compact'],
+  ['assets/screenshots/windows/character-import-source.png', 'compact'],
+  ['assets/screenshots/windows/character-new-card.png', 'overview'],
+  ['assets/screenshots/windows/character-opening-create.png', 'compact'],
+  ['assets/screenshots/windows/character-opening-overview.png', 'overview'],
+  ['assets/screenshots/windows/model-create-menu.png', 'compact'],
+  ['assets/screenshots/windows/model-dsh-directory.png', 'compact'],
+  ['assets/screenshots/windows/model-overview.png', 'overview'],
+  ['assets/screenshots/windows/setting-library-always-options.png', 'layout'],
+  ['assets/screenshots/windows/setting-library-create-menu.png', 'compact'],
+  ['assets/screenshots/windows/setting-library-entry-optional.png', 'layout'],
+  ['assets/screenshots/windows/setting-library-import-options.png', 'compact'],
+  ['assets/screenshots/windows/setting-library-import-tavern.png', 'compact'],
+  ['assets/screenshots/windows/setting-library-placement-workspace.png', 'overview'],
+])
+
+function annotateScreenshot(media, image, { width, height, regions, crop }) {
+  const cropWidth = crop?.width ?? width
+  const cropHeight = crop?.height ?? height
+  const cropLeft = crop?.left ?? 0
+  const cropTop = crop?.top ?? 0
   if (crop) {
-    figure.style.aspectRatio = `${width} / ${crop.height}`
+    media.style.aspectRatio = `${cropWidth} / ${cropHeight}`
     image.classList.add('tutorial-screenshot-crop')
-    image.style.marginBlockStart = `${-crop.top / width * 100}%`
+    image.style.marginBlockStart = `${-cropTop / cropWidth * 100}%`
+    if (crop.width) {
+      image.style.width = `${width / cropWidth * 100}%`
+      image.style.maxWidth = 'none'
+      image.style.left = `${-cropLeft / cropWidth * 100}%`
+    }
   }
-  const document = figure.ownerDocument
+  const document = media.ownerDocument
   for (const [index, { label, box, position, circle, value }] of regions.entries()) {
     const [left, top, boxWidth, boxHeight] = box
     const outline = document.createElement('span')
     outline.className = 'screenshot-annotation'
     if (circle) outline.classList.add('screenshot-annotation-circle')
     outline.setAttribute('aria-hidden', 'true')
-    outline.style.left = `${left / width * 100}%`
-    outline.style.top = `${(top - (crop?.top ?? 0)) / (crop?.height ?? height) * 100}%`
-    outline.style.width = `${boxWidth / width * 100}%`
-    outline.style.height = `${boxHeight / (crop?.height ?? height) * 100}%`
+    outline.style.left = `${(left - cropLeft) / cropWidth * 100}%`
+    outline.style.top = `${(top - cropTop) / cropHeight * 100}%`
+    outline.style.width = `${boxWidth / cropWidth * 100}%`
+    outline.style.height = `${boxHeight / cropHeight * 100}%`
 
     if (value) {
       outline.classList.add('screenshot-example-value')
@@ -344,21 +418,20 @@ function annotateScreenshot(figure, image, { width, height, regions, crop }) {
       caption.append(marker, text)
       outline.append(caption)
     }
-    figure.append(outline)
+    media.append(outline)
   }
 }
 
-function formatScreenshots(article, isAndroid) {
-  const windowsPrefix = 'assets/screenshots/windows/'
-  const commonPrefix = 'assets/screenshots/common/'
-  for (const image of article.querySelectorAll(`p > img:only-child:is([src^="${windowsPrefix}"], [src^="${commonPrefix}"])`)) {
+function formatScreenshots(article, isAndroid, pageAnchor) {
+  const document = article.ownerDocument
+  for (const image of article.querySelectorAll('p > img:only-child[src^="assets/screenshots/"]')) {
     const paragraph = image.parentElement
     if (paragraph.textContent.trim()) continue
-    const useAndroidImage = isAndroid && image.getAttribute('src').startsWith(windowsPrefix)
+    const useAndroidImage = isAndroid && image.getAttribute('src').startsWith(windowsScreenshots)
     if (useAndroidImage) {
-      const androidImage = `assets/screenshots/android/${image.getAttribute('src').slice(windowsPrefix.length)}`
-      if (!existsSync(new URL(androidImage, source))) {
-        const placeholder = article.ownerDocument.createElement('p')
+      const androidImage = image.getAttribute('src').replace(windowsScreenshots, 'assets/screenshots/android/')
+      if (!screenshotAssets.has(androidImage)) {
+        const placeholder = document.createElement('p')
         placeholder.className = 'tutorial-screenshot-placeholder'
         const caption = image.getAttribute('title')
         placeholder.textContent = caption ? `Android 截图待补充 · ${caption}` : 'Android 截图待补充'
@@ -367,48 +440,65 @@ function formatScreenshots(article, isAndroid) {
       }
       image.setAttribute('src', androidImage)
     }
-    const figure = article.ownerDocument.createElement('figure')
+    const path = image.getAttribute('src')
+    const { width, height, url } = screenshotAssets.get(path)
+    const annotations = screenshotAnnotations.get(`${pageAnchor}:${path}`) ?? screenshotAnnotations.get(path)
+    const detail = screenshotDetails.get(path)
+    const displayWidth = annotations?.crop?.width ?? width
+    const displayHeight = detail ? width * 4 / 7 : annotations?.crop?.height ?? height
+    const figure = document.createElement('figure')
     figure.className = 'tutorial-screenshot'
+    const previewSize = screenshotPreviewSizes.get(path)
+    if (previewSize) figure.classList.add(`tutorial-screenshot-${previewSize}`)
     if (useAndroidImage) figure.classList.add('tutorial-screenshot-android')
+    figure.style.setProperty('--image-width', `${displayWidth}px`)
+    figure.style.setProperty('--image-ratio', displayWidth / displayHeight)
+
+    const media = document.createElement('a')
+    media.className = 'tutorial-screenshot-media'
+    media.href = url
+    media.target = '_blank'
+    media.rel = 'noopener'
+    media.setAttribute('aria-label', `查看原图：${image.alt}`)
+    media.title = '查看原图'
+    image.setAttribute('src', url)
+    image.setAttribute('width', width)
+    image.setAttribute('height', height)
     image.setAttribute('loading', 'lazy')
     paragraph.replaceWith(figure)
-    figure.append(image)
-    const annotations = screenshotAnnotations.get(image.getAttribute('src'))
+    figure.append(media)
+    media.append(image)
     if (annotations) {
-      image.setAttribute('width', annotations.width)
-      image.setAttribute('height', annotations.height)
-      annotateScreenshot(figure, image, annotations)
+      figure.classList.add('tutorial-screenshot-annotated')
+      annotateScreenshot(media, image, { ...annotations, width, height })
+    }
+    if (detail) {
+      const offset = detail.top / (height - displayHeight) * 100
+      image.classList.add('tutorial-screenshot-detail')
+      image.style.objectPosition = `center ${offset}%`
     }
 
     const captionText = image.getAttribute('title')
     if (captionText) {
-      const caption = article.ownerDocument.createElement('figcaption')
-      const label = article.ownerDocument.createElement('span')
+      const caption = document.createElement('figcaption')
+      const label = document.createElement('span')
       label.textContent = captionText
       caption.append(label)
       image.removeAttribute('title')
       figure.prepend(caption)
 
-      const detail = screenshotDetails.get(image.getAttribute('src'))
       if (detail) {
-        const cropHeight = detail.width * 4 / 7
-        const offset = detail.top / (detail.height - cropHeight) * 100
-        image.classList.add('tutorial-screenshot-detail')
-        image.style.objectPosition = `center ${offset}%`
-        const original = article.ownerDocument.createElement('a')
-        original.href = image.getAttribute('src')
-        original.target = '_blank'
-        original.rel = 'noopener'
-        original.setAttribute('aria-label', `查看原图：${captionText}`)
-        original.textContent = '查看原图'
-        caption.append(original)
+        const hint = document.createElement('span')
+        hint.className = 'tutorial-screenshot-hint'
+        hint.textContent = '点击图片查看原图'
+        caption.append(hint)
       }
 
       const previous = figure.previousElementSibling
       if (previous?.matches('.tutorial-screenshot-group')) {
         previous.append(figure)
       } else if (previous?.matches('.tutorial-screenshot:has(> figcaption)')) {
-        const group = article.ownerDocument.createElement('div')
+        const group = document.createElement('div')
         group.className = 'tutorial-screenshot-group'
         previous.before(group)
         group.append(previous, figure)
@@ -417,29 +507,108 @@ function formatScreenshots(article, isAndroid) {
   }
 }
 
-function formatModelWalkthrough(article) {
+function formatWalkthrough(article, title) {
   const document = article.ownerDocument
   const steps = document.createElement('ol')
-  steps.className = 'model-walkthrough'
+  steps.className = 'tutorial-walkthrough'
   steps.setAttribute('role', 'list')
-  steps.setAttribute('aria-label', '模型配置步骤')
+  steps.setAttribute('aria-label', `${title}步骤`)
+  const stepNumber = /^\d+\.\s+/
   let step
   for (const block of [...article.children]) {
     if (block.matches('h2')) {
+      if (!stepNumber.test(block.textContent)) break
+      if (!step) block.before(steps)
       step = document.createElement('li')
-      const marker = document.createElement('span')
-      marker.className = 'walkthrough-number'
-      marker.setAttribute('aria-hidden', 'true')
-      marker.textContent = String(steps.childElementCount + 1)
-      block.textContent = block.textContent.replace(/^\d+\.\s+/, '')
-      step.append(marker)
       steps.append(step)
     }
     if (step) step.append(block)
   }
-  steps.querySelector(':scope > li:first-child > ul')?.classList.add('screenshot-legend')
-  steps.querySelector(':scope > li:last-child > ul')?.classList.add('tutorial-options')
-  article.append(steps)
+  return steps
+}
+
+function renderSectionLinks(article) {
+  const headings = [...article.querySelectorAll('h2, h3')]
+  if (headings.length < 2) return
+
+  const document = article.ownerDocument
+  const list = document.createElement('ul')
+  let parentItem
+  for (const heading of headings) {
+    const label = heading.textContent.trim()
+    if (!heading.id) {
+      const slug = label.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '')
+      const base = `section-${slug}`
+      let id = base
+      for (let suffix = 2; document.getElementById(id); suffix++) id = `${base}-${suffix}`
+      heading.id = id
+    }
+
+    const item = document.createElement('li')
+    const link = document.createElement('a')
+    link.href = `#${encodeURIComponent(heading.id)}`
+    link.textContent = label
+    item.append(link)
+    if (heading.tagName === 'H3' && parentItem) {
+      let sublist = parentItem.querySelector('ul')
+      if (!sublist) {
+        sublist = document.createElement('ul')
+        parentItem.append(sublist)
+      }
+      sublist.append(item)
+    } else {
+      list.append(item)
+      if (heading.tagName === 'H2') parentItem = item
+    }
+  }
+  return list
+}
+
+function addPageOutline(article, list) {
+  const document = article.ownerDocument
+  const outline = document.createElement('nav')
+  outline.className = 'page-outline'
+  outline.setAttribute('aria-label', '本页目录')
+  const label = document.createElement('p')
+  label.className = 'page-outline-label'
+  label.textContent = '本页目录'
+  outline.append(label, list)
+  article.after(outline)
+
+  const disclosure = document.createElement('details')
+  disclosure.className = 'compact-page-outline'
+  const summary = document.createElement('summary')
+  summary.textContent = '本页目录'
+  const compactLinks = document.createElement('nav')
+  compactLinks.setAttribute('aria-label', '本页目录')
+  compactLinks.append(list.cloneNode(true))
+  disclosure.append(summary, compactLinks)
+  article.querySelector('h1, h2').after(disclosure)
+}
+
+function indexArticle(article, entry, guidePreference, installDevice) {
+  const content = article.cloneNode(true)
+  for (const node of content.querySelectorAll('nav, form, details, figure, .term-popover, .term-trigger, .tutorial-screenshot-placeholder')) {
+    node.remove()
+  }
+  const sections = []
+  let section = { title: entry.title, id: '', parts: [] }
+  sections.push(section)
+  for (const node of content.querySelectorAll('h2[id], h3[id], p, li')) {
+    if (node.matches('h2, h3')) {
+      section = { title: node.textContent.trim(), id: node.id, parts: [] }
+      sections.push(section)
+    } else if (!node.querySelector('h2, h3, p, li')) {
+      section.parts.push(node.textContent.trim())
+    }
+  }
+  return {
+    file: entry.file,
+    title: entry.title,
+    device: guidePreference?.device ?? installDevice,
+    player: guidePreference?.player,
+    sections: sections.map(({ title, id, parts }) => ({ title, id, text: parts.filter(Boolean).join(' ') })),
+  }
 }
 
 function renderPage(entry) {
@@ -452,20 +621,41 @@ function renderPage(entry) {
   <script defer src="preferences.js?v=${preferencesVersion}"></script>
 </head>
 <body>
+  <a class="skip-link" href="#tutorial-content">跳到正文</a>
+  <header class="tutorial-header">
+    <div class="tutorial-header-bar">
+      <a class="tutorial-brand" href="index.html"><img src="assets/eleckoi-app-icon.png" width="24" height="24" alt="">ElecKoi 教程</a>
+      <button type="button" class="tutorial-search-button" aria-label="搜索教程" aria-haspopup="dialog" aria-controls="tutorial-search" hidden>
+        <span class="search-icon" aria-hidden="true"></span>
+        <span class="search-button-label">搜索教程</span>
+        <kbd aria-hidden="true">Ctrl K</kbd>
+      </button>
+    </div>
+    <nav class="chapter-tabs" aria-label="教程章节"></nav>
+  </header>
+  <dialog id="tutorial-search" class="tutorial-search" aria-label="搜索教程">
+    <div class="tutorial-search-input">
+      <span class="search-icon" aria-hidden="true"></span>
+      <input type="search" aria-label="教程关键词" placeholder="输入关键词" enterkeyhint="search" autocomplete="off" autofocus>
+      <button type="button" class="tutorial-search-close" aria-label="关闭搜索">Esc</button>
+    </div>
+    <p class="tutorial-search-status" role="status"></p>
+    <ul class="tutorial-search-results" aria-label="搜索结果"></ul>
+  </dialog>
   <main class="tutorial">
     <header class="cover"></header>
     <div class="reading-layout">
       <details class="contents-panel compact-contents">
-        <summary>目录</summary>
-        <nav aria-label="教程目录"></nav>
+        <summary>章节目录</summary>
+        <nav aria-label="章节目录"></nav>
       </details>
       <aside class="wide-contents">
         <details class="contents-panel" open>
-          <summary>目录</summary>
-          <nav aria-label="教程目录"></nav>
+          <summary>章节目录</summary>
+          <nav aria-label="章节目录"></nav>
         </details>
       </aside>
-      <article></article>
+      <article id="tutorial-content" tabindex="-1"></article>
     </div>
   </main>
 </body>
@@ -479,9 +669,10 @@ function renderPage(entry) {
   document.title = isHome ? title.textContent : `${entry.title} · ${title.textContent}`
   if (isHome) {
     cover.append(title.cloneNode(true), image.cloneNode(true))
+    article.prepend(cover)
   } else {
     cover.remove()
-    for (const heading of article.querySelectorAll('h2, h3, h4, h5, h6')) {
+    for (const heading of article.querySelectorAll(':scope > :is(h2, h3, h4, h5, h6)')) {
       const level = Number(heading.tagName.slice(1)) - entry.level + 1
       const promoted = document.createElement(`h${level}`)
       for (const name of heading.getAttributeNames()) promoted.setAttribute(name, heading.getAttribute(name))
@@ -499,10 +690,10 @@ function renderPage(entry) {
   const installDevice = installDevices.get(entry)
   if (guidePreference) {
     Object.assign(document.body.dataset, guidePreference)
-    formatScreenshots(article, guidePreference.device === 'android')
   } else if (installDevice) {
     document.body.dataset.device = installDevice
   }
+  formatScreenshots(article, guidePreference?.device === 'android', entry.anchor)
   const fragmentLinks = [...article.querySelectorAll('a[href^="#"]')]
   for (const [index, link] of fragmentLinks.entries()) {
     const fragment = link.getAttribute('href')
@@ -515,33 +706,72 @@ function renderPage(entry) {
     const term = glossary.get(anchor)
     if (term) addTermPopover(link, term, `term-${index}`)
   }
-  if (entry.anchor === '模型配置') formatModelWalkthrough(article)
+  if (entry.anchor === '开场白' || entry.anchor === '设定库') formatWalkthrough(article, entry.title)
+  if (entry.anchor === '模型配置' || entry.anchor === '创作角色卡') {
+    const steps = formatWalkthrough(article, entry.title)
+    if (entry.anchor === '模型配置') steps.querySelector(':scope > li:first-child > ul')?.classList.add('screenshot-legend')
+    const options = steps.lastElementChild.querySelector(':scope > ul')
+    options.classList.add('tutorial-options')
+    if (entry.anchor === '创作角色卡') {
+      const navigation = document.createElement('div')
+      navigation.className = 'character-editor-navigation'
+      const screenshot = options.previousElementSibling
+      screenshot.before(navigation)
+      navigation.append(screenshot, options)
+    }
+  }
 
   const hasOptions = entry.children.length > 0
   if (hasOptions) article.querySelector(':scope > ul')?.classList.add('tutorial-options')
   if (entry === windowsGuide || entry === androidGuide) styleStepLinks(article.querySelector(':scope > ol'))
-  if (isHome) renderPreferencePicker(article, 'home')
-  if (entry === usagePage) renderPreferencePicker(article, 'usage', article.querySelector(':scope > ul'))
-  if (entry === installPage) renderPreferencePicker(article, 'install', article.querySelector(':scope > ul'))
+  if (entry === usagePage) renderPreferencePicker(article, 'usage')
+  if (entry === installPage) renderPreferencePicker(article, 'install')
   if (guidePreference || installDevice) {
-    const action = document.createElement('p')
-    action.className = 'tutorial-preference-action'
     const change = document.createElement('a')
+    change.className = 'tutorial-preference-action'
     change.href = installDevice ? `${installPage.file}?change=1` : usagePage.file
-    change.textContent = '更改教程偏好'
-    action.append(change)
-    article.querySelector('h1').after(action)
+    change.textContent = '教程偏好'
+    change.setAttribute('aria-label', '更改教程偏好')
+    document.querySelector('.tutorial-header-bar').append(change)
   }
+  const sectionLinks = renderSectionLinks(article)
+  if (sectionLinks && !installDevice) addPageOutline(article, sectionLinks)
 
-  const contents = renderContents(document, chapters, entry, activePath, guide)
-  document.querySelector('.wide-contents nav').append(contents)
-  document.querySelector('.compact-contents nav').append(contents.cloneNode(true))
+  document.querySelector('.chapter-tabs').append(renderChapterLinks(document, activePath, entry, guide, installDevice))
+  const sidebar = document.querySelector('.wide-contents')
+  const compactSidebar = document.querySelector('.compact-contents')
+  const contents = guide
+    ? renderContents(document, guide.children, entry, activePath)
+    : installDevice && sectionLinks
+  if (guide) {
+    const item = document.createElement('li')
+    const link = document.createElement('a')
+    link.href = guide.file
+    link.textContent = entryLabels.get(guide.file)
+    if (entry === guide) link.setAttribute('aria-current', 'page')
+    item.append(link)
+    contents.prepend(item)
+  }
+  if (contents) {
+    sidebar.querySelector('nav').append(contents)
+    compactSidebar.querySelector('nav').append(contents.cloneNode(true))
+  } else {
+    sidebar.remove()
+    compactSidebar.remove()
+  }
 
   const pagination = document.createElement('nav')
   pagination.className = 'chapter-pagination'
   const neighbors = []
   const currentStep = guide?.children.find(step => activePath.has(step))
-  if (currentStep) {
+  if (entry.parent?.anchor === '设定库') {
+    pagination.setAttribute('aria-label', '返回设定库总览')
+    neighbors.push([entry.parent, 'prev', '返回'])
+  } else if (currentStep?.anchor === '创作角色卡' && entry.parent === currentStep) {
+    pagination.setAttribute('aria-label', '角色编辑器功能翻页')
+    const index = currentStep.children.indexOf(entry)
+    neighbors.push([currentStep, 'prev', '返回'], [currentStep.children[index + 1], 'next', '下一项'])
+  } else if (currentStep) {
     const index = guide.children.indexOf(currentStep)
     pagination.setAttribute('aria-label', '步骤翻页')
     const previous = entry === currentStep
@@ -551,7 +781,7 @@ function renderPage(entry) {
   } else if (entry.parent && !installDevice) {
     pagination.setAttribute('aria-label', '返回上一步')
     neighbors.push([entry.parent, 'prev', '上一步'])
-  } else if (!entry.parent && !hasOptions) {
+  } else if (!isHome && !entry.parent && !hasOptions) {
     pagination.setAttribute('aria-label', '章节翻页')
     const chapterIndex = chapters.indexOf(entry)
     neighbors.push([chapters[chapterIndex - 1], 'prev', '上一章'], [chapters[chapterIndex + 1], 'next', '下一章'])
@@ -560,21 +790,21 @@ function renderPage(entry) {
     if (!neighbor) continue
     const link = document.createElement('a')
     link.href = neighbor.file
-    if (neighbor === installPage && isHome) link.dataset.preferredDestination = 'install'
     link.rel = rel
     link.textContent = `${label} · ${neighbor.title}`
     pagination.append(link)
   }
   if (pagination.childElementCount > 0) article.append(pagination)
-  return page.serialize()
+  return { file: entry.file, html: page.serialize(), search: indexArticle(article, entry, guidePreference, installDevice) }
 }
 
-const pages = tutorialPages.map(entry => ({ file: entry.file, html: renderPage(entry) }))
+const pages = tutorialPages.map(renderPage)
 await mkdir(output, { recursive: true })
 await Promise.all([
   ...pages.map(({ file, html }) => writeFile(new URL(file, output), html, 'utf8')),
   writeFile(new URL('site.css', output), stylesheet),
   writeFile(new URL('preferences.js', output), preferencesScript),
+  writeFile(new URL('search-index.json', output), JSON.stringify(pages.map(page => page.search)), 'utf8'),
   cp(fileURLToPath(new URL('assets/', source)), fileURLToPath(new URL('assets/', output)), { recursive: true }),
 ])
 console.log(`教程网页已生成到 ${fileURLToPath(output)}`)

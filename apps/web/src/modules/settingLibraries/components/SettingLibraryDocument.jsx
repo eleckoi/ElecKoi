@@ -44,15 +44,15 @@ export function SettingLibraryDocument({ selected, library, nameInputRef, Select
     tUi('AI 选读由 AI 根据当前对话决定是否读取正文。'),
     ...(!creatorPreset ? [tUi('关键词触发在关键词命中时把正文列入本轮必读。')] : []),
     tUi('常驻触发每轮都会把正文提供给 AI。'),
-    ...(!creatorPreset ? [tUi('关闭触发规则后，其他设定仍可通过 EJS 引用正文。正文里的 EJS 也可以自行决定本轮输出。')] : []),
+    ...(!creatorPreset && !ruleEnabled ? [tUi('其他模板按名称引用时，才取用这条设定。')] : []),
   ].join('\n');
   const updateName = title => group ? onUpdateGroup({ name: title }) : onUpdateEntry({ ...entry, title });
   if (positions) return <div ref={documentRef} className="setting-position-page">
-    <CustomPositionManager entry={entry} positions={library.promptPositions} entries={library.entries} onChange={onPromptPositionsChange}
+    <CustomPositionManager entry={entry} positions={library.promptPositions} entries={library.entries} creatorPreset={creatorPreset} onChange={onPromptPositionsChange}
       onBack={() => { returning.current = true; setPositions(false); }} />
   </div>;
   const placementSettings = showRuleFields && entry.triggerMode === 'always' && <section className="setting-insert-settings"><h2>{tUi('插入与顺序')}</h2>
-    <InsertSection entry={entry} entries={library.entries} promptPositions={library.promptPositions} allowCustomPromptPositions={allowCustomPromptPositions}
+    <InsertSection entry={entry} entries={library.entries} promptPositions={library.promptPositions} allowCustomPromptPositions={allowCustomPromptPositions} creatorPreset={creatorPreset}
       onChange={next => {
         // A conflicting order turns off the rule. Keep that field available for correction.
         if (entry.enabled && !next.enabled) setRepairingOrder(true);
@@ -111,7 +111,7 @@ export function SettingLibraryDocument({ selected, library, nameInputRef, Select
             onChange={enabled => { setRepairingOrder(false); onUpdateEntry({ ...entry, enabled }); }} />
         </div>}
         {showRuleFields && <div className={showRuleSwitch ? 'setting-property-basic setting-rule-fields' : 'setting-property-basic'}>
-          <TriggerSection entry={entry} onChange={onUpdateEntry} creatorPreset={creatorPreset} />
+          <TriggerSection entry={entry} entries={library.entries} onChange={onUpdateEntry} creatorPreset={creatorPreset} />
           {showRuleSwitch && placementSettings}
         </div>}
       </section>}

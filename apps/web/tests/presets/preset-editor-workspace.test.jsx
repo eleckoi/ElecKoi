@@ -233,8 +233,27 @@ it.each(['creator', 'roleplay'])('preserves the purpose-specific prompt controls
   expect(host.querySelector('[aria-label="触发方式"]')).toBeTruthy();
   expect(Boolean(textButton('关键词触发'))).toBe(purpose === 'roleplay');
   await click(textButton('常驻触发'));
+  if (purpose === 'creator') {
+    expect(textButton('默认位置')).toBeUndefined();
+    expect(textButton('指定插入位置')).toBeUndefined();
+    const rail = host.querySelector('.setting-library-placement-rail');
+    expect(rail.textContent).toContain('系统指令');
+    expect(rail.textContent).toContain('聊天记录');
+    expect(rail.textContent).not.toMatch(/缓存设定区|设定插入点/);
+    await click(textButton('管理位置'));
+    const guide = host.querySelector('.setting-position-guide');
+    expect(guide.textContent).toContain('工具调用流程');
+    expect(guide.textContent).not.toMatch(/缓存设定区|设定插入点/);
+    await click(host.querySelector('[aria-label="返回插入配置"]'));
+    expect(document.activeElement).toBe(textButton('管理位置'));
+  } else {
+    expect(textButton('每轮必读')).toBeTruthy();
+    expect(textButton('指定插入位置')).toBeTruthy();
+  }
   await click(host.querySelector('.setting-directory .setting-library-save-button'));
-  expect(stored.entries[0].agentReadStrategy).toBe('required');
+  expect(stored.entries[0]).toMatchObject(purpose === 'creator'
+    ? { triggerMode: 'always', position: 'instructions', insertRole: 'system' }
+    : { triggerMode: 'agent_tool', agentReadStrategy: 'required' });
 });
 
 it('retains the original profile and introduction extension seats in the merged basic page', async () => {

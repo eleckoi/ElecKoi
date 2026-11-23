@@ -32,9 +32,11 @@ function rewrite(database: Database.Database, table: string, column: string, con
   }
 }
 
-// RETIRE WHEN: direct upgrades from v18 and earlier are no longer supported.
-// Remove the step, registration and upgrade/rollback tests together. Keep
-// the shared conversion helpers while historical file imports use them.
+// RETIRE WHEN: the supported upgrade matrix drops direct upgrades from v18 and earlier.
+// On v18→v19 this step converts old reference markers in saved entries and chat
+// snapshots, preserving their bodies. Remove installSchema's registration and the
+// upgrade/rollback regression in conversation-state-storage.test.ts with this step.
+// Keep the shared state decoder while old conversation archives are supported.
 export const migration0019 = {
   fromVersion: 18, toVersion: 19, name: 'setting-references', acceptedBaselines: [] as const,
   apply(database: Database.Database): void {

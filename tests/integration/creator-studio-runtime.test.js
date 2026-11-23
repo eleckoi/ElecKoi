@@ -194,7 +194,7 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
         expect(args).toEqual({ capability_id: 'presetPrompts.glob', arguments: {} })
       } else if (step === 3) {
         expect(Array.isArray(previousValue.value.files)).toBe(true)
-        expect(Array.isArray(previousValue.value.required_entries)).toBe(true)
+        expect(previousValue.value).not.toHaveProperty('required_entries')
         name = 'eleckoi_describe_toolset'; args = { toolset_id: 'character' }
       } else if (step === 4) {
         const operation = previousValue.operations.find(item => item.id === 'character.create')
@@ -392,7 +392,7 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     const f = await fixture(async function* (_request, count) {
       if (count === 1) {
         yield { type: 'block-start', index: 0, blockType: 'tool-call' }
-        yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: 'synthetic-preset-read', name: 'eleckoi_call_capability', arguments: JSON.stringify({ capability_id: 'presetPrompts.read', arguments: { paths: ['Synthetic directory/Required', 'Synthetic directory/Optional'] } }) } }
+        yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: 'synthetic-preset-read', name: 'eleckoi_call_capability', arguments: JSON.stringify({ capability_id: 'presetPrompts.read', arguments: { paths: ['Synthetic directory/Optional'] } }) } }
         yield { type: 'finish', reason: { kind: 'tool-calls' } }
       } else yield* text('Synthetic completed reading')
     })
@@ -408,31 +408,32 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     const execute = (capability_id, args) => executeToolCall(f.handle.agent.ctx.tools, { callId: `synthetic-${capability_id}`, name: 'eleckoi_call_capability', arguments: { capability_id, arguments: args }, agent: f.handle.agent, signal: new AbortController().signal })
     const readValue = result => { expect(result.isError, JSON.stringify(result)).not.toBe(true); return JSON.parse(result.content.find(item => item.type === 'text').text).value }
     const catalog = readValue(await execute('presetPrompts.glob', { pattern: 'no-match' }))
-    expect(catalog.files).toEqual([]); expect(catalog.required_entries.map(item => item.path)).toEqual(['Synthetic directory/Required'])
+    expect(catalog.files).toEqual([]); expect(catalog).not.toHaveProperty('required_entries')
     const hint = readValue(await execute('presetPrompts.grep', { pattern: 'discovery hint', path: group.name }))
     expect(hint.matches.map(item => item.path)).toEqual(['Synthetic directory/Optional'])
-    expect(readValue(await execute('presetPrompts.glob', {})).files).toHaveLength(1003)
+    expect(readValue(await execute('presetPrompts.glob', {})).files).toHaveLength(1002)
     expect(readValue(await execute('presetPrompts.grep', { pattern: '^Synthetic tail 1000$' })).matches.map(item => item.path)).toEqual(['Synthetic directory/Volume 1000'])
     const before = data.readAgentPreset(preset.id)
-    for (const args of [{ paths: ['../outside'] }, { paths: ['Disabled'] }, { paths: ['Synthetic directory/Optional'], presetId: 'other' }]) expect((await execute('presetPrompts.read', args)).isError).toBe(true)
+    for (const args of [{ paths: ['../outside'] }, { paths: ['Disabled'] }, { paths: ['Synthetic directory/Required'] }, { paths: ['Synthetic directory/Optional'], presetId: 'other' }]) expect((await execute('presetPrompts.read', args)).isError).toBe(true)
     f.handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Read the current preset prompts' }], source: { kind: 'user' } }))
     await f.handle.agent.whenIdle()
     const serialized = JSON.stringify(f.requests[0].messages)
     expect(serialized).toContain('Synthetic required body'); expect(serialized).not.toContain('Synthetic optional text.')
+    expect(JSON.stringify(f.requests[0].messages.filter(message => message.role === 'system'))).toContain('Synthetic required body')
+    expect(serialized).not.toContain('[Setting #S')
     expect(f.requests[0].tools.map(item => item.name).sort()).toEqual(['eleckoi_call_capability', 'eleckoi_describe_toolset', 'eleckoi_list_toolsets'])
     const event = f.handle.agent.session.snapshotEvents().find(event => event.type === 'tool/result' && event.data.callId === 'synthetic-preset-read')
     const body = JSON.stringify(event?.data ?? f.requests[1].messages.filter(message => message.role === 'tool'))
-    expect(body).toContain('cached_reference'); expect(body).toContain('已读取'); expect(body).not.toContain('Synthetic required body')
+    expect(body).toContain('tool_result'); expect(body).not.toContain('Synthetic required body')
     expect(body).toContain('literal template markers'); expect(body).toContain('Long optional body')
     expect(JSON.stringify(f.requests[1].messages)).toContain('literal template markers')
     expect(data.readAgentPreset(preset.id)).toEqual(before)
     await f.reopen()
     f.handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Read again after reopen' }], source: { kind: 'user' } }))
     await f.handle.agent.whenIdle()
-    expect(readValue(await execute('presetPrompts.read', { paths: ['Synthetic directory/Required'] })).files[0].content_delivery).toBe('cached_reference')
-    data.saveAgentPreset({ ...before, entries: before.entries.map(item => item.id === 'synthetic-required' ? { ...item, content: 'Changed since assembly' } : item) })
-    await f.ctx.systemPrompt.assemble({ agent: f.handle.agent, scope: f.handle.agent })
-    const fresh = readValue(await execute('presetPrompts.read', { paths: ['Synthetic directory/Required'] })).files[0]
+    expect(JSON.stringify(f.requests.at(-1).messages.filter(message => message.role === 'system'))).toContain('Synthetic required body')
+    data.saveAgentPreset({ ...before, entries: before.entries.map(item => item.id === 'synthetic-optional' ? { ...item, content: 'Changed since assembly' } : item) })
+    const fresh = readValue(await execute('presetPrompts.read', { paths: ['Synthetic directory/Optional'] })).files[0]
     expect(fresh).toMatchObject({ content_delivery: 'tool_result', content: 'Changed since assembly' })
   })
   it('places standing preset instructions first in dispatch and native trajectory across edits and reopen', async () => {

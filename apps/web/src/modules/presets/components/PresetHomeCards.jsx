@@ -1,7 +1,7 @@
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
 import { CheckCircle } from '../../../ui/icons/interfaceIcons.jsx';
 import { Avatar } from '../../../ui/ui/Avatar.jsx';
-import defaultPresetAvatar from '../../../assets/eleckoi-app-icon.png';
+import defaultPresetCover from '../../../assets/default-preset-cover.png';
 
 export function PresetHomeCard({ preset, active, onOpen, selecting, checked, disabled, onContextMenu }) {
   const t = useProductTranslation();
@@ -9,7 +9,7 @@ export function PresetHomeCard({ preset, active, onOpen, selecting, checked, dis
   return <button type="button" className={`character-card preset-home-card${checked ? ' selected' : ''}`} onClick={onOpen}
     aria-pressed={selecting ? checked : undefined} disabled={disabled} onContextMenu={onContextMenu}>
     {selecting && !disabled && <span className="character-card-check" aria-hidden="true" />}
-    <Avatar as="span" className="character-card-cover preset-home-card-avatar" src={authorAvatarPath || defaultPresetAvatar} thumbnail={false}
+    <Avatar as="span" className="character-card-cover preset-home-card-avatar" src={authorAvatarPath || defaultPresetCover} thumbnail={false}
       name={authorName || preset.name} aria-hidden="true" />
     <span className="character-card-copy">
       <strong title={preset.name}>{preset.name}</strong>

@@ -27,7 +27,12 @@ export function normalizeCustomChatBackground(value: unknown): CustomChatBackgro
     opacity: number('opacity', .12, 1), blur: number('blur', 0, 24), scrim: number('scrim', 0, 1) }
 }
 
-/** Old cards kept the active custom image directly in chatBackground. */
+/**
+ * Older cards kept the active custom image directly in chatBackground.
+ * RETIRE WHEN: supported backups and database upgrades preserve the separate
+ * custom payload and current writers use the custom-mode identifier. Remove the
+ * inline-image read fallback and its old-data tests together.
+ */
 export function customChatBackgroundFromCharacter(character: Record<string, unknown> = {}): CustomChatBackground {
   return normalizeCustomChatBackground(isCustomChatBackground(character.chatBackground)
     ? { image: character.chatBackground, opacity: character.chatBackgroundOpacity,

@@ -1,0 +1,9 @@
+flowchart TD
+  accTitle: getwi 如何取用设定正文
+  accDescr: getwi 按准确标题或完整路径找到条目，普通文字原样取回，EJS 用同一轮聊天和变量处理后返回。结果由调用它的模板继续使用。
+  findEntry["getwi 按标题或完整路径找设定"] --> plain["普通文字<br/>原样取回"]
+  findEntry --> ejs["EJS 正文<br/>用本轮聊天和变量处理"]
+  plain --> result["把文字交给调用的模板"]
+  ejs --> result
+  classDef entry fill:#edf3fc,stroke:#adc6ee,color:#203d70,font-weight:600
+  class findEntry,result entry

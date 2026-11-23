@@ -2,6 +2,10 @@ import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import { convertLegacySettingReference } from '@shared/foundation/legacySettingReferences'
 
+// RETIRE WHEN: the v18→v19 upgrade and imports of archives containing
+// dynamicMode have both retired. Remove this decoder, its two callers and the
+// v18 reference-entry upgrade and archive regressions from conversation-state-storage.test.ts.
+// The decoder preserves template bodies and disables the former reference-only entries.
 export function settingJsonObject(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '设定迁移需要 JSON 对象。', { what: '旧设定数据' })
   return value as Record<string, unknown>
@@ -13,8 +17,6 @@ export function convertLegacySettingEntryJson(raw: string, key: 'dynamicMode' | 
   return converted === entry ? raw : JSON.stringify(converted)
 }
 
-// RETIRE WHEN: both v18 (or older) SQLite upgrades and conversation archives
-// with dynamicMode retire. Remove the v19 and archive decoder calls together.
 export function convertLegacySettingState(raw: string): string {
   const rows: unknown = JSON.parse(raw)
   if (!Array.isArray(rows)) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '设定状态迁移需要 JSON 数组。', { what: '旧设定状态' })

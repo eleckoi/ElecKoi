@@ -244,8 +244,9 @@ export function PresetListPanel({ home } = {}) {
     surface: 'pc-sidebar', purpose, presets: filtered, selectedPresetId, onSelect: home?.onOpen ?? setSelectedPresetId,
   }, <aside className={`character-list-panel preset-list-panel${home ? ' preset-home-sidebar' : ''}`} aria-label={tUi("预设列表")} aria-busy={creating || shouldShowPresetCatalogLoading(catalog, error) || undefined}>
     {home && <div className="character-home-create">
-      <Button data-dsh-control variant="toolbar" icon={<CharacterManagerIcon size={16} />}
-        disabled={!catalog || creating || home.busy} onClick={addPreset}>{tUi('新建预设')}</Button>
+      <button type="button" data-dsh-control disabled={!catalog || creating || home.busy} onClick={addPreset}>
+        <CharacterManagerIcon size={14} /><span>{tUi('新建预设')}</span>
+      </button>
     </div>}
     <SidebarSectionHeader title={tUi('预设')} value={keyword} onValueChange={setKeyword} placeholder={tUi("搜索预设名称")}
       searchLabel={home ? tUi('搜索预设') : undefined}

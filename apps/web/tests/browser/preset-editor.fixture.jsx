@@ -34,7 +34,7 @@ if(q.has('mobile')) document.documentElement.dataset.eleckoiMobile='true';
 document.documentElement.dataset.theme = theme; document.body.toggleAttribute('data-ds-dark-theme',theme==='dark'); document.documentElement.style.colorScheme=theme;
 if (q.has('reset')) localStorage.removeItem(key);
 const largeText = q.has('large') ? q.has('single') ? '字'.repeat(1000000) + '完整原始末尾' : 'a();\n'.repeat(100000) + '完整原始末尾' : '';
-const seeds = { id, name: '合成预设', purpose: 'roleplay', modelTags: [{id:'general',label:'通用'}], libraryGroupId:'', promptPositions:[], groups:[], expandedGroupIds:[], regexRules:[],
+const seeds = { id, name: '合成预设', purpose: q.has('creator') ? 'creator' : 'roleplay', modelTags: [{id:'general',label:'通用'}], libraryGroupId:'', promptPositions:[], groups:[], expandedGroupIds:[], regexRules:[],
   profile: { authorName:'合成作者', authorAvatarPath:'', usageInstructions:q.get('large')==='profile'?largeText:'合成使用说明。', timeline:[{id:'update-1',title:'合成更新',note:q.get('large')==='profile'?largeText:'保留原更新记录操作',dateLabel:'2026-11-12'}] },
   entries:Array.from({length:40},(_,i)=>({...createEntryDraft('',i+1,[]),id:`entry-${i}`,title:`合成提示词 ${i+1}`,content:i===0&&q.has('long')?Array.from({length:100000},(_,j)=>`第 ${j} 行合成文字与代码 const n = ${j};\n`).join(''):`完整合成内容 ${i+1}`})),
   toolGroups:[{id:'builtin:web',name:'联网搜索',description:'使用原联网搜索配置',source:'built_in',included:true,enabled:true,members:[{name:'web_search',description:'搜索网页'}]},

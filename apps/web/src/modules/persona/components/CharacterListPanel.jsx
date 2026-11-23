@@ -277,8 +277,10 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
   return (<>
     <aside className="character-list-panel">
       {home && <div className="character-home-create">
-        <Button data-dsh-control variant="toolbar" aria-expanded={createMenuOpen} icon={<CharacterManagerIcon size={16} />}
-          onPointerDown={(event) => event.stopPropagation()} onClick={toggleCreateMenu}>{tUi("新建角色")}</Button>
+        <button type="button" data-dsh-control aria-expanded={createMenuOpen}
+          onPointerDown={(event) => event.stopPropagation()} onClick={toggleCreateMenu}>
+          <CharacterManagerIcon size={14} /><span>{tUi("新建角色")}</span>
+        </button>
         {createMenu}
       </div>}
       <SidebarSectionHeader title={tUi(home ? "角色卡" : "角色")} value={keyword} onValueChange={setKeyword}

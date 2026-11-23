@@ -1,4 +1,3 @@
-import '@deepseek-ai/dsh-client-ui-sidebar/client';
 import App from './windows/App.jsx';
 import { OfficialFramePage } from './windows/shell/components/OfficialFramePage.jsx';
 import { OfficialFrameSidebar } from './windows/shell/components/OfficialFrameSidebar.jsx';

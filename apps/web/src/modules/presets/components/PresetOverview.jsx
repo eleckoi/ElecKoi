@@ -37,8 +37,9 @@ export function PresetOverview({ requestedTab, onRequestedTabHandled, onBack, fo
   const owner = { preset: current, active, activating, error, onEdit, onActivate };
   const backAction = onBack && <div className="preset-overview-back-slot">
     <Tooltip label={tUi('返回')} portal>
-      <Button ref={back} data-dsh-control variant="toolbar" className="preset-overview-back" aria-label={tUi('返回')}
-        icon={<IconChevronLeftOutlineMedium size={22} aria-hidden="true" />} onClick={onBack} />
+      <Button ref={back} data-dsh-control variant="outline" className="preset-overview-back" aria-label={tUi('返回')} onClick={onBack}>
+        <IconChevronLeftOutlineMedium size={22} aria-hidden="true" />
+      </Button>
     </Tooltip>
   </div>;
   return render('eleckoi.preset.page.preview', owner,

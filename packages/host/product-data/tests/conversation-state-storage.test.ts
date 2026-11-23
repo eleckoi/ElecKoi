@@ -79,11 +79,16 @@ describe('conversation state database', () => {
 
     const globalJson = db.prepare('SELECT configurationJson FROM global_setting_libraries').pluck().get()
     const replaceGlobalJson = db.prepare('UPDATE global_setting_libraries SET configurationJson=?')
-    replaceGlobalJson.run('{"entries":[null]}')
-    expect(() => installSchema(db)).toThrow('旧设定无法迁移')
-    expect(db.pragma('user_version', { simple: true })).toBe(18)
-    const rolledBack = db.prepare('SELECT payloadJson FROM agent_preset_entries WHERE entryId=?').pluck().get(entry.id)
-    expect(rolledBack).toBe(JSON.stringify(old))
+    for (const brokenGlobalJson of ['{"entries":[null]}', '{"entries":{}}']) {
+      replaceGlobalJson.run(brokenGlobalJson)
+      expect(() => installSchema(db)).toThrow(expect.objectContaining({
+        message: expect.stringContaining('旧设定无法迁移'),
+        code: ELECKOI_FAILURE_CODES.storageCorrupt
+      }))
+      expect(db.pragma('user_version', { simple: true })).toBe(18)
+      const rolledBack = db.prepare('SELECT payloadJson FROM agent_preset_entries WHERE entryId=?').pluck().get(entry.id)
+      expect(rolledBack).toBe(JSON.stringify(old))
+    }
     replaceGlobalJson.run(globalJson)
 
     installSchema(db)
@@ -100,6 +105,10 @@ describe('conversation state database', () => {
     const decoded = archive.parse(oldExport)
     expect(decoded.settingLibraryStateJson).toBe(migratedSnapshot)
     expect(decoded.tables.conversation_state_snapshots[0]?.settingLibraryStateJson).toBe(migratedSnapshot)
+    for (const badState of ['{}', JSON.stringify([change('[]')]), JSON.stringify([{ ...change('{}'), payloadJson: null }])]) {
+      expect(() => archive.parse({ ...oldExport, settingLibraryStateJson: badState }))
+        .toThrow(expect.objectContaining({ code: ELECKOI_FAILURE_CODES.dataShapeInvalid }))
+    }
     installSchema(db)
     expect(f.settings.snapshotConversationRuntimeState(f.id)).toBe(migratedSnapshot)
   }, 30_000)

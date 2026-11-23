@@ -406,16 +406,11 @@ describe('ElecKoi built-in bundle details', () => {
         expect(hostSource).toContain('{ developerInterfaces: interfaces }');
         expect(clientSource).toContain('{ developerInterfaces: bundle.developerInterfaces }');
     });
-    it('classifies patched upstream packages as adaptations', () => {
-        const source = readFileSync(resolve('packages/client/features/dsh-client-shell/src/client.js'), 'utf8');
+    it('keeps the patch inventory registered in the lockfile without requiring plugin cards', () => {
         const workspace = parseYaml(readFileSync(resolve('pnpm-workspace.yaml'), 'utf8'));
-        for (const spec of Object.keys(workspace.patchedDependencies)) {
-            const split = spec.lastIndexOf('@');
-            const packageName = split > 0 ? spec.slice(0, split) : spec;
-            if (packageName === '@deepseek-ai/dsh-typert-generator' || packageName === 'app-builder-lib')
-                continue;
-            expect(source, spec).toContain("['" + packageName + "',");
-        }
+        const lock = parseYaml(readFileSync(resolve('pnpm-lock.yaml'), 'utf8'));
+        const lockedPatches = Object.fromEntries(Object.entries(lock.patchedDependencies).map(([spec, patch]) => [spec, patch.path]));
+        expect(workspace.patchedDependencies).toEqual(lockedPatches);
         expect(workspace.patchedDependencies['@deepseek-ai/dsh-typert-generator@0.2.2-rc.5'])
             .toBe('patches/@deepseek-ai__dsh-typert-generator@0.2.2-rc.5.patch');
     });

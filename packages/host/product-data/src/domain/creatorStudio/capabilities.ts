@@ -46,7 +46,7 @@ const mutableVariable = variableItemConfigSchema.omit({ id: true, createdAt: tru
 const mutableObject = variableObjectConfigSchema.omit({ id: true, createdAt: true, updatedAt: true })
 const mutableGroup = settingLibraryGroupSchema.omit({ id: true, createdAt: true, updatedAt: true })
 const settingChanges = settingLibraryEntryChangesSchema.safeExtend({
-  enabled: z.boolean().optional().describe('触发规则开关。新建默认关闭，修改时省略则保持当前状态。规则关闭的 EJS 仍会按本轮上下文求值。'),
+  enabled: z.boolean().optional().describe('触发规则开关。新建默认关闭，修改时省略则保持当前状态。规则关闭后，正文可供其他模板通过 getwi 引用。'),
   triggerMode: settingLibraryTriggerModeSchema.nullable().optional().describe('agent_tool=按 agentReadStrategy 处理；always=常驻触发，按指定位置插入。'),
   agentReadStrategy: settingLibraryAgentReadStrategySchema.optional().describe('triggerMode 为 agent_tool 时，required=常驻触发中的每轮必读；normal=AI 选读；keyword=关键词触发。'),
   contentMode: z.enum(['plain_text', 'ejs']).optional().describe('新建默认 plain_text（原样文字）。使用 EJS 时显式选 ejs，渲染混写的整份正文，getwi 可递归引用任何触发状态的设定。修改时省略则保留原格式。'),

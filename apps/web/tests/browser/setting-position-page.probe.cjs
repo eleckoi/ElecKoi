@@ -11,12 +11,16 @@ app.whenReady().then(async () => {
   const run = code => win.webContents.executeJavaScript(code);
   const settle = () => new Promise(resolve => setTimeout(resolve, 120));
   const check = (value, message) => { if (!value) throw Error(message); };
-  const click = async (selector, text) => { await run(`Array.from(document.querySelectorAll(${JSON.stringify(selector)})).find(e=>${text ? `e.textContent.trim()===${JSON.stringify(text)}` : 'true'}).click()`); await settle(); };
+  const click = async (selector, text) => {
+    const clicked = await run(`(() => {const button=Array.from(document.querySelectorAll(${JSON.stringify(selector)})).find(e=>${text ? `e.textContent.trim()===${JSON.stringify(text)}` : 'true'}); if(!button)return false; button.click();return true;})()`);
+    check(clicked, `Missing ${selector}${text ? ' ' + text : ''}`);
+    await settle();
+  };
   const wait = async code => { for (let i = 0; i < 60; i++) { if (await run(code)) return; await settle(); } throw Error('Missing ' + code); };
   try {
-    for (const [width, height, mobile, theme] of [[390,844,true,'light'],[320,420,true,'dark'],[768,1024,true,'light'],[1480,700,false,'light']]) {
+    for (const [width, height, mobile, theme, creator] of [[390,844,true,'light'],[320,420,true,'dark'],[768,1024,true,'light'],[1480,700,false,'light'],[1480,700,false,'dark',true]]) {
       win.setContentSize(width, height);
-      await win.loadURL(pathToFileURL(process.argv[2]).href + (mobile ? '?view=mobile-editor&mobile=1' : '?view=preset-editor&preset=synthetic-preset&section=prompts') + `&reset=1&theme=${theme}`);
+      await win.loadURL(pathToFileURL(process.argv[2]).href + (mobile ? '?view=mobile-editor&mobile=1' : '?view=preset-editor&preset=synthetic-preset&section=prompts') + `&reset=1&theme=${theme}${creator ? '&creator=1' : ''}`);
       await wait("!!document.querySelector('.character-editor-navigation button')");
       await click('.character-editor-navigation button', '预设提示词');
       await wait("!!document.querySelector('.setting-library-tree-row')");
@@ -24,14 +28,27 @@ app.whenReady().then(async () => {
       if (mobile) await click('.mobile-editor-actions button', '编辑');
       await wait("!!document.querySelector('.setting-view-switch')");
       await click('.setting-view-switch button', '设置');
+      const disabledRule = '.setting-reading-settings [role="switch"][aria-checked="false"]';
+      if (await run(`Boolean(document.querySelector(${JSON.stringify(disabledRule)}))`)) await click(disabledRule);
       await click('.setting-reading-settings button', '常驻触发');
-      await click('.setting-reading-settings button', '指定插入位置');
+      if (creator) {
+        const rules = await run("document.querySelector('.setting-reading-settings').textContent");
+        check(!/默认位置|指定插入位置|缓存设定区|设定插入点/.test(rules), 'Creator still exposes roleplay placement options');
+      } else await click('.setting-reading-settings button', '指定插入位置');
       const data = await run(`(()=>{const r=e=>e?.getBoundingClientRect().toJSON(),card=document.querySelector('.setting-library-order-card'),number=card.querySelector('.setting-library-number-row'),preview=card.querySelector('.setting-library-order-preview'),list=preview.querySelector('ol');return{width:innerWidth,height:innerHeight,numberLabel:r(number.firstElementChild),numberControl:r(number.lastElementChild),previewLabel:r(preview.firstElementChild),previewContent:r(preview.lastElementChild),emptyList:!!list&&!list.children.length,emptyText:preview.lastElementChild.textContent.trim(),documentScroll:document.querySelector('.mobile-editor-document')?.scrollTop}})()`);
       data.mobile = mobile;
       data.controlStyle = await run(`(()=>{const e=document.querySelector('.setting-library-number-control'),s=getComputedStyle(e);return{display:s.display,columns:s.gridTemplateColumns,children:[...e.children].map(c=>c.getBoundingClientRect().toJSON())}})()`);
       await run("document.querySelector('.setting-library-position-manage').scrollIntoView({block:'center'})");
       const previousScroll = await run("document.querySelector('.mobile-editor-document')?.scrollTop");
       await click('.setting-library-position-manage');
+      if (creator) {
+        const guide = await run("document.querySelector('.setting-position-guide').textContent");
+        check(!/缓存设定区|设定插入点/.test(guide) && /系统指令.*聊天记录.*用户最新输入.*工具调用流程/.test(guide), 'Incorrect creator position guide');
+      }
+      if (!mobile) {
+        const back = await run("(() => {const button=document.querySelector('.setting-position-back'), style=getComputedStyle(button);return {size:style.width===style.height&&style.width==='36px', radius:style.borderRadius, icon:button.querySelector('use')?.getAttribute('href'), fill:style.backgroundColor};})()");
+        check(back.size && back.radius === '50%' && back.icon?.includes('chevron-left') && back.fill !== 'rgba(0, 0, 0, 0)', 'Desktop back button lost its styled chevron: '+JSON.stringify(back));
+      }
       data.manager = await run(`(()=>{const g=document.querySelector('.setting-position-guide'),m=document.querySelector('.setting-position-manager'),r=e=>e.getBoundingClientRect().toJSON();return{guide:r(g),manager:r(m),client:g.clientHeight,scroll:g.scrollHeight,overflow:getComputedStyle(g).overflowY,tabs:document.querySelectorAll('.setting-view-switch').length,title:document.querySelector('.mobile-header h1')?.textContent,outerScroll:document.querySelector('.mobile-editor-document')?.scrollTop}})()`);
       const point = data.manager.guide;
       win.webContents.sendInputEvent({ type: 'mouseWheel', x: Math.round(point.left+point.width/2), y: Math.round(Math.min(height-70,point.top+point.height/2)), deltaY: -500, deltaX: 0 });

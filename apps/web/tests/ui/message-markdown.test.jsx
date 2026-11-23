@@ -71,6 +71,25 @@ describe("message markdown presentation", () => {
     expect(html).toMatch(/<td[^>]*>新建设定<\/td>/);
   });
 
+  it("keeps Chinese punctuation outside an automatically linked URL", () => {
+    const html = renderToStaticMarkup(React.createElement(MessageBubble, {
+      message: {
+        id: "message-zh-url",
+        role: "assistant",
+        content: "见 https://example.com/文档。也可以打开 www.example.com/help，继续查看。",
+      },
+      name: "角色",
+    }));
+
+    const root = document.createElement("div");
+    root.innerHTML = html;
+    const links = [...root.querySelectorAll("a")];
+    expect(links.map(link => [decodeURI(link.href), link.textContent, link.nextSibling.textContent.trimStart()[0]])).toEqual([
+      ["https://example.com/文档", "https://example.com/文档", "。"],
+      ["http://www.example.com/help", "www.example.com/help", "，"],
+    ]);
+  });
+
   it("keeps a fenced status block separate from surrounding roleplay wrappers", () => {
     const html = renderToStaticMarkup(React.createElement(MessageBubble, {
       message: {

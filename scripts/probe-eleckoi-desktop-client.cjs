@@ -298,10 +298,18 @@ async function main() {
     await waitFor(`document.querySelector('.main-panel-content')?.textContent.includes('自动化任务')`, 'Official task manager did not render')
     if (!await run(`!!document.querySelector('.navigation-rail-shell [data-navigation-id="plugins"]') && !!document.querySelector('.navigation-rail-shell [data-plugin-entry-more="sidebar"]')`)) throw new Error('Plugins or More moved out of global navigation')
     if (await run(`!!document.querySelector('.native-workspace-sidebar button[aria-label="插件"], .native-workspace-sidebar button[aria-label="更多"]')`)) throw new Error('Plugins or More duplicated into the workspace sidebar')
-    for (const theme of ['light', 'dark']) for (const width of [1440, 900, 700]) {
+    const windows = [{ width: 1440 }, { width: 900, autoCollapse: true }, { width: 700, autoCollapse: true }]
+    for (const theme of ['light', 'dark']) for (const { width, autoCollapse } of windows) {
       nativeTheme.themeSource = theme
       window.setSize(width, 900)
       await run('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+      if (autoCollapse) {
+        const expand = `document.querySelector('.side-panel-expand-button[aria-expanded="false"]')`
+        await waitFor(`Boolean(${expand})`, `Workspace sidebar did not collapse on resize to ${width}px`)
+        await run(`${expand}.click()`)
+      }
+      await waitFor(`document.querySelector('.native-workspace-sidebar')?.getBoundingClientRect().width >= 250`,
+        `Workspace sidebar did not expand at ${width}px`)
       await run('Promise.allSettled(document.getAnimations().filter(animation=>animation.effect?.getComputedTiming().iterations!==Infinity).map(animation=>animation.finished))')
       const state = await run(`(()=>{const s=document.querySelector('.native-workspace-sidebar'),b=s.querySelector('button[aria-label="自动化任务"]'),label=b.lastElementChild;return {width:s.getBoundingClientRect().width,inside:s.contains(b),label:label.textContent,opacity:Number(getComputedStyle(label).opacity),global:!!document.querySelector('.navigation-rail-shell [data-navigation-id="schedules"]'),overflow:document.documentElement.scrollWidth>innerWidth}})()`)
       if (state.width < 250 || !state.inside || state.label !== '自动化任务' || state.opacity < .99 || state.global || state.overflow) throw new Error('Workspace task placement failed: ' + JSON.stringify({ theme, width, ...state }))

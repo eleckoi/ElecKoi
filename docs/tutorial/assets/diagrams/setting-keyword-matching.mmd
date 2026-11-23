@@ -1,0 +1,11 @@
+flowchart TD
+  accTitle: 关键词如何判定命中
+  accDescr: 扫描指定范围，先看触发关键词是否匹配任意一个，再检查附加条件。两关都通过才命中。打开递归时，使用命中条目的原始正文继续匹配其他条目。
+  scan["按扫描深度取最近消息"] --> main["触发关键词<br/>至少命中一个"]
+  main -->|"通过"| extra["附加条件<br/>按所选的匹配要求检查"]
+  main -->|"没通过"| skip["未命中"]
+  extra -->|"通过或未设置"| hit["条目命中"]
+  extra -->|"没通过"| skip
+  hit -->|"已开递归"| recursion["用原始正文<br/>再匹配其他条目"]
+  classDef entry fill:#edf3fc,stroke:#adc6ee,color:#203d70,font-weight:600
+  class scan,hit entry

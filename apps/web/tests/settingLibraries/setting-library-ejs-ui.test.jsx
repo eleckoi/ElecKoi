@@ -64,6 +64,7 @@ describe('setting-library EJS editor', () => {
     expect(ruleSwitch().getAttribute('aria-checked')).toBe('false');
     expect(tab('关键词触发')).toBeUndefined();
     await act(async () => ruleSwitch().click());
+    expect(container.querySelector('textarea[placeholder="告诉 AI 什么时候适合查阅"]')).not.toBeNull();
     await act(async () => tab('关键词触发').click());
     expect(draft.agentReadStrategy).toBe('keyword');
     expect(container.querySelector('details.setting-keyword-details').open).toBe(true);

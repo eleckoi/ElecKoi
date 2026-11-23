@@ -1,6 +1,6 @@
 import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, IconChevronLeftOutlineMedium, IconPinFillRegular, Input, Modal, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';
 import '../../../ui/styles/product-dialogs.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -8,9 +8,7 @@ import { closestCenter, DndContext, DragOverlay, KeyboardSensor, PointerSensor, 
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
-import { IconPinFillRegular } from '@deepseek-ai/dsh-client-ui-primitives';
 import {
-  ArrowLeft,
   ChatCircleDots,
   Database,
   DotsSixVertical,
@@ -133,14 +131,16 @@ function PositionNameDialog({ draft, existing, onChange, onCancel, onSave }) {
   </Modal>;
 }
 
-function DeletePositionDialog({ position, affected, onCancel, onConfirm }) {
+function DeletePositionDialog({ position, affected, creatorPreset, onCancel, onConfirm }) {
   const tUi = useProductTranslation();
   return <Modal open title={`${tUi('删除“')}${position.name}”？`} closeLabel={tUi('关闭')} onClose={onCancel} tone="warning"
-    description={affected ? `${affected}${tUi(' 条提示词会回到相邻的固定位置，正文不会删除。')}` : undefined}
+    description={affected ? (creatorPreset
+      ? tUi('{value0} 条提示词会移到「系统指令」，正文会保留。', { value0: affected })
+      : `${affected}${tUi(' 条提示词会回到相邻的固定位置，正文不会删除。')}`) : undefined}
     className="product-dialog" contentClassName="product-dialog-content" footer={<div className="product-dialog-actions"><Button variant="outline" data-modal-autofocus onClick={onCancel}>{tUi('取消')}</Button><Button variant="primary" onClick={onConfirm}>{tUi('删除')}</Button></div>} />;
 }
 
-export function CustomPositionManager({ entry, positions, entries, onChange, onBack }) {
+export function CustomPositionManager({ entry, positions, entries, creatorPreset = false, onChange, onBack }) {
   const tUi = useProductTranslation();
   const { compact } = useEditorPresentation();
   const pageRef = useRef(null);
@@ -152,7 +152,7 @@ export function CustomPositionManager({ entry, positions, entries, onChange, onB
   const addRef = useRef(null);
   const guideRef = useRef(null);
   const reducedMotion = useReducedSortMotion();
-  const rows = useMemo(() => positionManagementRows(positions), [positions]);
+  const rows = useMemo(() => positionManagementRows(positions, creatorPreset), [positions, creatorPreset]);
   const rowKeys = useMemo(() => rows.map((row) => row.key), [rows]);
   const activeRow = rows.find((row) => row.key === activeKey);
   const sensors = useSensors(
@@ -195,7 +195,7 @@ export function CustomPositionManager({ entry, positions, entries, onChange, onB
     const targetIndex = rowKeys.indexOf(over.id);
     const moving = rows[fromIndex];
     if (moving?.type !== 'custom' || targetIndex < 0) return;
-    const next = moveCustomPosition(positions, entries, moving.position.id, over.id, fromIndex < targetIndex);
+    const next = moveCustomPosition(positions, entries, moving.position.id, over.id, fromIndex < targetIndex, creatorPreset);
     if (next.positions !== positions) onChange(next.positions, next.entries);
   }
 
@@ -208,11 +208,10 @@ export function CustomPositionManager({ entry, positions, entries, onChange, onB
 
   function moveByKeyboard(positionId, offset) {
     if (activeKey) return;
-    const currentRows = positionManagementRows(positions);
-    const fromIndex = currentRows.findIndex((row) => row.key === 'custom:' + positionId);
-    const target = currentRows[fromIndex + offset];
+    const fromIndex = rows.findIndex((row) => row.key === 'custom:' + positionId);
+    const target = rows[fromIndex + offset];
     if (!target) return;
-    const next = moveCustomPosition(positions, entries, positionId, target.key, offset > 0);
+    const next = moveCustomPosition(positions, entries, positionId, target.key, offset > 0, creatorPreset);
     if (next.positions !== positions) onChange(next.positions, next.entries);
   }
 
@@ -225,7 +224,11 @@ export function CustomPositionManager({ entry, positions, entries, onChange, onB
     if (event.key === 'Escape' && !draft && !deleting && !activeKey) { event.preventDefault(); onBack(); }
   }}>
     {!compact && <header className="setting-position-manager-header">
-      <button type="button" className="setting-position-back" aria-label={tUi("返回插入配置")} title={tUi("返回")} onClick={onBack}><ArrowLeft size={18} /></button>
+      <Tooltip label={tUi('返回')}>
+        <Button data-dsh-control variant="outline" className="setting-position-back" aria-label={tUi('返回插入配置')} onClick={onBack}>
+          <IconChevronLeftOutlineMedium size={22} aria-hidden="true" />
+        </Button>
+      </Tooltip>
       <h2>{tUi("自定义位置")}</h2>
       <Button data-dsh-control variant="primary" ref={addRef} type="button" className="setting-position-button" onClick={() => edit()}><Plus size={16} />{tUi("新建")}</Button>
     </header>}
@@ -268,8 +271,8 @@ export function CustomPositionManager({ entry, positions, entries, onChange, onB
     ]} /> : null}
 
     {draft ? <PositionNameDialog draft={draft} existing={positions.some((position) => position.id === draft.id)} onChange={setDraft} onCancel={() => setDraft(null)} onSave={saveDraft} /> : null}
-    {deleting ? <DeletePositionDialog position={deleting} affected={affected} onCancel={() => setDeleting(null)} onConfirm={() => {
-      const next = removeCustomPosition(positions, entries, deleting);
+    {deleting ? <DeletePositionDialog position={deleting} affected={affected} creatorPreset={creatorPreset} onCancel={() => setDeleting(null)} onConfirm={() => {
+      const next = removeCustomPosition(positions, entries, deleting, creatorPreset);
       onChange(next.positions, next.entries);
       setDeleting(null);
     }} /> : null}

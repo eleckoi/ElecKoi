@@ -1,0 +1,10 @@
+flowchart TD
+  accTitle: 指定插入位置的处理流程
+  accDescr: 准备请求时取普通正文或执行 EJS，有文字就把内容送到选好的位置。同位置的条目按数字从小到大排列。
+  prepare["准备本轮请求"] --> plain["取普通正文"]
+  prepare --> ejs["执行 EJS"]
+  plain --> place["插入所选位置"]
+  ejs -->|"有文字"| place
+  place --> order["同位置按数字从小到大排列"]
+  classDef entry fill:#edf3fc,stroke:#adc6ee,color:#203d70,font-weight:600
+  class prepare,place entry

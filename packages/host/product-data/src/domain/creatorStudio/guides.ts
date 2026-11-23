@@ -6,7 +6,7 @@ export const creatorToolsets = [
     guide: [
       '省略 target 读取当前角色。target={scope:"global",libraryId} 指定全局库，无需选择角色。list 是目录，read 是原稿。仅改一段用 settings.edit，无需重传整条正文。全局写入带 expectedRevision，角色完整配置用 read_library/save_library。',
       '新建默认关闭触发规则。需启用时传 enabled=true。triggerMode=agent_tool 时，agentReadStrategy=normal 为 AI 选读、keyword 为关键词触发、required 为常驻触发（每轮必读）。triggerMode=always 为常驻触发（指定插入位置）。',
-      '混写正文将整份原稿作为 content，并设 contentMode=ejs；关闭触发规则时仍按本轮上下文求值。getwi 可递归读取当前聊天库中的普通设定，包括规则关闭或关键词尚未命中的条目。详细知识加载 skill eleckoi-character-authoring。',
+      '混写正文将整份原稿作为 content，并设 contentMode=ejs。关闭触发规则后，正文可供其他模板通过 getwi 引用。getwi 可递归读取当前聊天库中的普通设定，包括规则关闭或关键词尚未命中的条目。详细知识加载 skill eleckoi-character-authoring。',
     ],
     examples: [{ title: '动态人物状态引用', operation: 'settings.create', arguments: {
       title: '人物状态', contentMode: 'ejs', agentReadStrategy: 'normal', triggerMode: 'agent_tool', enabled: false,

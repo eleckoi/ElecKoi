@@ -60,7 +60,8 @@ export class MessageRepository {
 
   /**
    * 保护旧版待提交输入引用的附件，供生图文件删除前检查；正式输入由 Session 提供。
-   * 完成旧待提交输入的数据迁移并移除 agent_pending_inputs 后，可一并删除此补查入口。
+   * RETIRE WHEN: 旧库和备份中的附件引用均在 Session 可查，并通过删除保护回归。
+   * 随 agent_pending_inputs 的版本化清理移除本方法、Host 调用和合同。
    */
   listInputImageReferences(): Array<{ conversationId: string; attachmentId: string }> {
     const rows = this.store.native.prepare(`SELECT t.conversationId,i.draftJson FROM agent_pending_inputs i

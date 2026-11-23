@@ -18,8 +18,34 @@
   margin: 4px 12px 0;
 }
 
+/* Match the expanded DSH sidebar New Session button. */
 .character-home-create > button {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   width: 100%;
+  height: 38px;
+  padding: 8px 12px;
+  border: 0.5px solid var(--dsw-alias-border-l3);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-button-elevated-fill);
+  color: var(--dsw-alias-label-primary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.character-home-create > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+@media (hover: hover) {
+  .character-home-create > button:hover:not(:disabled) {
+    background: var(--dsw-alias-button-floating-hover);
+  }
 }
 
 .character-home-create .character-create-menu {

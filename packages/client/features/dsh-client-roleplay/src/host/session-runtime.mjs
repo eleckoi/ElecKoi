@@ -211,7 +211,7 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       const lastInput = history.findLast(message => message.role === 'user')
       if (lastInput) lastInput.content = runtime.conversationContext.currentPromptText ?? text
       const conversationContext = await resolvePlacedSettingTemplates(runtime.conversationContext,
-        [...runtime.conversationContext.history, ...history], variables)
+        [...runtime.conversationContext.history, ...history], variables, ctx)
       const assembly = await ctx.systemPrompt.assemble({
         agent: resolved.agent, scope: resolved.agent,
         eleckoiConversationSnapshot: { ...runtime, model, conversationContext }

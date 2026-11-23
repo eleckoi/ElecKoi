@@ -43,7 +43,7 @@ save 提供 kind、配置对象数组 documents 和版本库数组 versions：�
 
 编辑器保存整份正文，编辑时从 `<%` 自动识别 EJS。创作工具新建时默认 plain_text，编写模板时显式传 contentMode="ejs" 和整份正文。修改时省略 contentMode 则保留现有格式。代码写在 `<% ... %>`，两种输出标记 `<%= ... %>` 和 `<%- ... %>` 都输出文字。支持标准标签、注释、空白控制和 await。print(...values) 原位逐项拼接文字，locals 与 this 指向模板上下文，标签外的文字同样保留在结果中。
 
-角色聊天运行时的 EJS 控制器按当前变量和聊天计算，输出为空表示本轮没有触发，非空输出列为本轮要读取的正文；聊天的设定工具返回执行后的文字。本组 settings.read 则返回可编辑的原稿源码。不要用 SDK 脚本、HTML 页面或 Zod Schema 冒充 EJS 设定。
+角色聊天的 EJS 用当前变量和聊天处理正文。AI 选读用路径、标题和查阅提示供模型挑选，点名读取时才渲染，空输出返回空正文。关键词触发先匹配，命中后才渲染，非空结果进入本轮必读清单。常驻必读的非空结果也进入清单，指定位置的常驻则直接插入非空正文。创作工具 settings.read 返回可编辑的原稿源码。
 
 模板可用 getChatMessages(-5) 读取本会话最近 5 条角色聊天消息，返回按时间先后排列的文字数组，包含用户与 AI 消息。getChatMessages() 读取全部已有角色聊天历史，正数 n 读取最前 n 条；getChatMessages(start, end, role?) 读取从 0 起算、左闭右开的范围，负下标从末尾计算。getChatMessages(n, "user"或"assistant") 先按角色筛选再取数量；getChatMessage(index, role?) 读取一条，负下标从末尾计算，超出范围返回空字符串。空历史返回空数组。这些函数只读本次角色聊天上下文，不创建消息或调用模型。
 
@@ -55,7 +55,7 @@ getvar("组.变量", { defaults: 0 }) 读取当前聊天变量；variables/stat_
 
 getwi 按准确标题或完整路径匹配，直接读取目标的正文。目标的触发规则可以关闭，关键词也可以尚未命中。标题重复时使用完整路径。找不到目标或形成循环时，返回可定位的错误。
 
-EJS 设定关闭触发规则后，仍在每次生成时按当前聊天渲染。正文如 `<% if (getChatMessages().length === 20) { %>钟响了。<% } %>` 会在第 20 条角色聊天消息时输出，非空结果进入设定插入点 1。旧版引用条目导入时转换为规则关闭的普通条目。
+EJS 设定关闭触发规则后可作为模板素材。其他模板调用 `getwi` 时，用当前聊天上下文渲染这段正文，结果交回引用方。引用方可以在指定位置插入整段结果，也可以通过设定读取工具返回。旧版引用条目导入时转换为规则关闭的普通条目。
 
 条目和文件夹的 create/update/update_many/edit/remove/create_group/update_group/remove_group 与读取使用同一 target。修改全局库时必须传 target={scope:"global",libraryId:"准确库编号"}，并以最近 list/read 或成功写入返回的 revision 作为 expectedRevision；冲突后重新读取、合并，不覆盖他人的修改。省略 target 或 scope="character" 仍修改当前角色，角色设定不传 expectedRevision；不能提交其他角色编号。全局成功 update/update_many 返回 entries、revision 和 source，角色仍返回条目数组。
 
@@ -87,10 +87,10 @@ EJS 设定关闭触发规则后，仍在每次生成时按当前聊天渲染。�
 {"title":"阶段素材","content":"场景进入第二阶段。"}
 ```
 
-再用 settings.create 保存会引用它的动态正文：
+再用 settings.create 保存会引用它的动态正文，开启「每轮必读」。条件满足时，通过设定读取工具返回正文。
 
 ```json
-{"title":"阶段控制器","contentMode":"ejs","content":"<% if (getvar(\"阶段\", { defaults: 0 }) >= 2) { %><%- await getwi(\"阶段素材\") %><% } %>"}
+{"title":"阶段控制器","contentMode":"ejs","enabled":true,"triggerMode":"agent_tool","agentReadStrategy":"required","content":"<% if (getvar(\"阶段\", { defaults: 0 }) >= 2) { %><%- await getwi(\"阶段素材\") %><% } %>"}
 ```
 
 ### 动态正文递归引用
@@ -115,7 +115,7 @@ EJS 设定关闭触发规则后，仍在每次生成时按当前聊天渲染。�
 {"title":"剧情状态控制器","contentMode":"ejs","enabled":true,"triggerMode":"agent_tool","agentReadStrategy":"keyword","keywords":["剧情状态"],"content":"<%- await getwi(\"人物状态\") %>"}
 ```
 
-第二条规则关闭时也会独立求值。如果它和第三条在同一轮输出，两处可能出现相同文字。需要切换已有正文格式时，先 read，再用 settings.update({id,changes:{contentMode:"ejs"}})，其正文和其他配置保持；切回文字使用 plain_text。共享全局设定库使用相同字段，另外携带准确 target 和最新 expectedRevision。
+第三条命中关键词并执行时，才会取用第二条和第一条。三条的文字作为第三条的渲染结果一起返回。需要切换已有正文格式时，先 read，再用 settings.update({id,changes:{contentMode:"ejs"}})，其正文和其他配置保持；切回文字使用 plain_text。共享全局设定库使用相同字段，另外携带准确 target 和最新 expectedRevision。
 
 ## 变量库
 

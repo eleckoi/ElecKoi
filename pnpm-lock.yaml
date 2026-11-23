@@ -8,6 +8,9 @@ overrides:
   '@earendil-works/pi-ai': 1.3.0
 
 patchedDependencies:
+  '@botiverse/oar@0.67.0':
+    hash: 65de2ca1966421e30893d8d4fed6a3d88e4247e131e7575fe791246e594538d6
+    path: patches/@botiverse__oar@0.67.0.patch
   '@deepseek-ai/dsh-agent-loop@0.2.2-rc.5':
     hash: 9e420918256274dbf924ffb34ef403fd20e3b1a74cbe825de72362a333ea4796
     path: patches/@deepseek-ai__dsh-agent-loop@0.2.2-rc.5.patch
@@ -93,11 +96,38 @@ patchedDependencies:
     hash: 2296429cbf079df37f9818555d53be9e5c2ed5faedce0ddad9e0f5646572feb9
     path: patches/@deepseek-ai__dsh-web-frontend@0.2.2-rc.5.patch
   '@earendil-works/pi-ai@1.3.0':
-    hash: f668c84eb1638b47d6b4eb8dc0ce7c61c2923d7e9b62a1147b7e85db04433b49
+    hash: df7a6f1b9252fd520021e0874f89d7515b7982760b5fb9e4ff379c5846e31cc1
     path: patches/@earendil-works__pi-ai@1.3.0.patch
+  '@electron/osx-sign@1.3.3':
+    hash: 280e7b2816caf01423097d24e79107a66afeb563a348630ce9928ae8499a5861
+    path: patches/@electron__osx-sign@1.3.3.patch
+  '@fortune-sheet/core@1.0.4':
+    hash: 8791a230763dbf853fd65d627c68c31de37209992851377855e16cf08ea70532
+    path: patches/@fortune-sheet__core@1.0.4.patch
+  '@fortune-sheet/react@1.0.4':
+    hash: 2932e52e79afcd4ced08cfa123b5eded786c85043da32f622f3e80af6fc96c37
+    path: patches/@fortune-sheet__react@1.0.4.patch
+  '@yao-pkg/pkg@6.21.0':
+    hash: 6004ea831bf18a0272276f3308456b7799d5ac32a5e69c138008b6329c1bfb9f
+    path: patches/@yao-pkg__pkg@6.21.0.patch
   app-builder-lib@26.17.0:
     hash: 54e64525db71b904a6d298245bee9b32edee71b8760009e7df7fab5f065fac37
     path: patches/app-builder-lib@26.17.0.patch
+  exceljs@4.4.0:
+    hash: c1bf8ac8f319dab382f08e3a669b715e691d46c703ac5a4163eb383fbedd1d48
+    path: patches/exceljs@4.4.0.patch
+  lexical@0.49.0:
+    hash: 54c4413db208cf234cb68c6a837f2523d3b319aa17911f1da385af08362e1356
+    path: patches/lexical@0.49.0.patch
+  mdast-util-gfm-autolink-literal@2.0.1:
+    hash: 7fa6fc7927128a45c3f148d31faf388806895e2de39c14a144200edbc1e7aaa0
+    path: patches/mdast-util-gfm-autolink-literal@2.0.1.patch
+  micromark-extension-gfm-autolink-literal@2.1.0:
+    hash: 906ae7c0cd1f69e7ee308a41bc0542e0085276ac7517e56e96f0ccaf5a89327d
+    path: patches/micromark-extension-gfm-autolink-literal@2.1.0.patch
+  node-pty@1.2.0-beta.15:
+    hash: 9d30053266d0f39d3debe894c675867f6782da6bcadbc94a693b3cfb9eff8ed0
+    path: patches/node-pty@1.2.0-beta.15.patch
 
 importers:
 
@@ -1158,7 +1188,7 @@ importers:
         version: 2.103.0(@floating-ui/dom@1.8.0)(@tiptap/suggestion@3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@earendil-works/pi-ai':
         specifier: 1.3.0
-        version: 1.3.0(patch_hash=f668c84eb1638b47d6b4eb8dc0ce7c61c2923d7e9b62a1147b7e85db04433b49)(@aws-sdk/credential-provider-node@3.972.82)(@modelcontextprotocol/sdk@1.30.0(zod@4.6.6))(@smithy/signature-v4@5.7.3)(undici@8.11.2)(ws@8.21.3)(zod@4.6.6)
+        version: 1.3.0(patch_hash=df7a6f1b9252fd520021e0874f89d7515b7982760b5fb9e4ff379c5846e31cc1)(@aws-sdk/credential-provider-node@3.972.82)(@modelcontextprotocol/sdk@1.30.0(zod@4.6.6))(@smithy/signature-v4@5.7.3)(undici@8.11.2)(ws@8.21.3)(zod@4.6.6)
       '@eleckoi/author-sdk':
         specifier: workspace:*
         version: link:packages/sdk/author
@@ -1284,7 +1314,7 @@ importers:
         version: 3.0.0
       node-pty:
         specifier: 1.2.0-beta.15
-        version: 1.2.0-beta.15
+        version: 1.2.0-beta.15(patch_hash=9d30053266d0f39d3debe894c675867f6782da6bcadbc94a693b3cfb9eff8ed0)
       pino:
         specifier: 9.9.4
         version: 9.9.4
@@ -1594,7 +1624,7 @@ importers:
         version: 0.2.2-rc.5(patch_hash=2296429cbf079df37f9818555d53be9e5c2ed5faedce0ddad9e0f5646572feb9)(@deepseek-ai/cordis@4.1.0)
       '@earendil-works/pi-ai':
         specifier: 1.3.0
-        version: 1.3.0(patch_hash=f668c84eb1638b47d6b4eb8dc0ce7c61c2923d7e9b62a1147b7e85db04433b49)(@aws-sdk/credential-provider-node@3.972.82)(@modelcontextprotocol/sdk@1.30.0(zod@4.6.6))(@smithy/signature-v4@5.7.3)(undici@8.11.2)(ws@8.21.3)(zod@4.6.6)
+        version: 1.3.0(patch_hash=df7a6f1b9252fd520021e0874f89d7515b7982760b5fb9e4ff379c5846e31cc1)(@aws-sdk/credential-provider-node@3.972.82)(@modelcontextprotocol/sdk@1.30.0(zod@4.6.6))(@smithy/signature-v4@5.7.3)(undici@8.11.2)(ws@8.21.3)(zod@4.6.6)
       '@eleckoi/dsh-auto-illustration':
         specifier: workspace:*
         version: link:../../packages/client/features/dsh-auto-illustration
@@ -2720,7 +2750,7 @@ importers:
         version: 2.103.0(@floating-ui/dom@1.8.0)(@tiptap/suggestion@3.31.3(@floating-ui/dom@1.8.0)(@tiptap/core@3.31.3(@tiptap/pm@3.31.3))(@tiptap/pm@3.31.3))(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@earendil-works/pi-ai':
         specifier: 1.3.0
-        version: 1.3.0(patch_hash=f668c84eb1638b47d6b4eb8dc0ce7c61c2923d7e9b62a1147b7e85db04433b49)(@aws-sdk/credential-provider-node@3.972.82)(@modelcontextprotocol/sdk@1.30.0(zod@4.6.6))(@smithy/signature-v4@5.7.3)(undici@8.11.2)(ws@8.21.3)(zod@4.6.6)
+        version: 1.3.0(patch_hash=df7a6f1b9252fd520021e0874f89d7515b7982760b5fb9e4ff379c5846e31cc1)(@aws-sdk/credential-provider-node@3.972.82)(@modelcontextprotocol/sdk@1.30.0(zod@4.6.6))(@smithy/signature-v4@5.7.3)(undici@8.11.2)(ws@8.21.3)(zod@4.6.6)
       '@eleckoi/author-sdk':
         specifier: workspace:*
         version: link:../../packages/sdk/author
@@ -2846,7 +2876,7 @@ importers:
         version: 3.0.0
       node-pty:
         specifier: 1.2.0-beta.15
-        version: 1.2.0-beta.15
+        version: 1.2.0-beta.15(patch_hash=9d30053266d0f39d3debe894c675867f6782da6bcadbc94a693b3cfb9eff8ed0)
       pino:
         specifier: 9.9.4
         version: 9.9.4
@@ -3003,7 +3033,7 @@ importers:
         version: 0.2.2-rc.5(patch_hash=2296429cbf079df37f9818555d53be9e5c2ed5faedce0ddad9e0f5646572feb9)(@deepseek-ai/cordis@4.1.0)
       '@earendil-works/pi-ai':
         specifier: 1.3.0
-        version: 1.3.0(patch_hash=f668c84eb1638b47d6b4eb8dc0ce7c61c2923d7e9b62a1147b7e85db04433b49)(@aws-sdk/credential-provider-node@3.972.82)(@modelcontextprotocol/sdk@1.30.0(zod@4.6.6))(@smithy/signature-v4@5.7.3)(undici@8.11.2)(ws@8.21.3)(zod@4.6.6)
+        version: 1.3.0(patch_hash=df7a6f1b9252fd520021e0874f89d7515b7982760b5fb9e4ff379c5846e31cc1)(@aws-sdk/credential-provider-node@3.972.82)(@modelcontextprotocol/sdk@1.30.0(zod@4.6.6))(@smithy/signature-v4@5.7.3)(undici@8.11.2)(ws@8.21.3)(zod@4.6.6)
       '@eleckoi/dsh-auto-illustration':
         specifier: workspace:*
         version: link:../../packages/client/features/dsh-auto-illustration
@@ -4727,7 +4757,7 @@ importers:
         version: 3.19.0
       '@earendil-works/pi-ai':
         specifier: 1.3.0
-        version: 1.3.0(patch_hash=f668c84eb1638b47d6b4eb8dc0ce7c61c2923d7e9b62a1147b7e85db04433b49)(@aws-sdk/credential-provider-node@3.972.82)(@modelcontextprotocol/sdk@1.30.0(zod@4.6.6))(@smithy/signature-v4@5.7.3)(undici@8.11.2)(ws@8.21.3)(zod@4.6.6)
+        version: 1.3.0(patch_hash=df7a6f1b9252fd520021e0874f89d7515b7982760b5fb9e4ff379c5846e31cc1)(@aws-sdk/credential-provider-node@3.972.82)(@modelcontextprotocol/sdk@1.30.0(zod@4.6.6))(@smithy/signature-v4@5.7.3)(undici@8.11.2)(ws@8.21.3)(zod@4.6.6)
       '@eleckoi/dsh-auto-illustration':
         specifier: workspace:*
         version: link:../../client/features/dsh-auto-illustration
@@ -15531,7 +15561,7 @@ snapshots:
       '@deepseek-ai/dsh-timeout': 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-util-values': 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/schemastery': 3.19.0
-      '@earendil-works/pi-ai': 1.3.0(patch_hash=f668c84eb1638b47d6b4eb8dc0ce7c61c2923d7e9b62a1147b7e85db04433b49)(@aws-sdk/credential-provider-node@3.972.82)(@modelcontextprotocol/sdk@1.30.0(zod@4.6.6))(@smithy/signature-v4@5.7.3)(undici@8.11.2)(ws@8.21.3)(zod@4.6.6)
+      '@earendil-works/pi-ai': 1.3.0(patch_hash=df7a6f1b9252fd520021e0874f89d7515b7982760b5fb9e4ff379c5846e31cc1)(@aws-sdk/credential-provider-node@3.972.82)(@modelcontextprotocol/sdk@1.30.0(zod@4.6.6))(@smithy/signature-v4@5.7.3)(undici@8.11.2)(ws@8.21.3)(zod@4.6.6)
     optionalDependencies:
       '@deepseek-ai/cordis-plugin-loader': 1.1.0(@deepseek-ai/cordis@4.1.0)(node-addon-require-builtin@0.1.9)
     transitivePeerDependencies:
@@ -16593,7 +16623,7 @@ snapshots:
       '@deepseek-ai/dsh-timeout': 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-win32-process': 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)(@deepseek-ai/dsh-error@0.2.2-rc.5(@deepseek-ai/cordis@4.1.0))
       koffi: 3.1.1
-      node-pty: 1.2.0-beta.15
+      node-pty: 1.2.0-beta.15(patch_hash=9d30053266d0f39d3debe894c675867f6782da6bcadbc94a693b3cfb9eff8ed0)
     transitivePeerDependencies:
       - '@deepseek-ai/dsh-error'
 
@@ -17813,7 +17843,7 @@ snapshots:
       - '@types/react-dom'
       - supports-color
 
-  '@earendil-works/pi-ai@1.3.0(patch_hash=f668c84eb1638b47d6b4eb8dc0ce7c61c2923d7e9b62a1147b7e85db04433b49)(@aws-sdk/credential-provider-node@3.972.82)(@modelcontextprotocol/sdk@1.30.0(zod@4.6.6))(@smithy/signature-v4@5.7.3)(undici@8.11.2)(ws@8.21.3)(zod@4.6.6)':
+  '@earendil-works/pi-ai@1.3.0(patch_hash=df7a6f1b9252fd520021e0874f89d7515b7982760b5fb9e4ff379c5846e31cc1)(@aws-sdk/credential-provider-node@3.972.82)(@modelcontextprotocol/sdk@1.30.0(zod@4.6.6))(@smithy/signature-v4@5.7.3)(undici@8.11.2)(ws@8.21.3)(zod@4.6.6)':
     dependencies:
       '@anthropic-ai/sdk': 0.129.0(zod@4.6.6)
       '@aws-sdk/client-bedrock-runtime': 3.1127.0
@@ -17889,7 +17919,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@electron/osx-sign@1.3.3':
+  '@electron/osx-sign@1.3.3(patch_hash=280e7b2816caf01423097d24e79107a66afeb563a348630ce9928ae8499a5861)':
     dependencies:
       compare-version: 0.1.2
       debug: 4.4.3
@@ -19640,7 +19670,7 @@ snapshots:
       '@electron/fuses': 1.8.0
       '@electron/get': 3.1.0
       '@electron/notarize': 2.5.0
-      '@electron/osx-sign': 1.3.3
+      '@electron/osx-sign': 1.3.3(patch_hash=280e7b2816caf01423097d24e79107a66afeb563a348630ce9928ae8499a5861)
       '@electron/rebuild': 4.2.0
       '@electron/universal': 2.0.3
       '@malept/flatpak-bundler': 0.4.0
@@ -21283,7 +21313,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  mdast-util-gfm-autolink-literal@2.0.1:
+  mdast-util-gfm-autolink-literal@2.0.1(patch_hash=7fa6fc7927128a45c3f148d31faf388806895e2de39c14a144200edbc1e7aaa0):
     dependencies:
       '@types/mdast': 4.0.4
       ccount: 2.0.1
@@ -21331,7 +21361,7 @@ snapshots:
   mdast-util-gfm@3.1.0:
     dependencies:
       mdast-util-from-markdown: 2.0.3
-      mdast-util-gfm-autolink-literal: 2.0.1
+      mdast-util-gfm-autolink-literal: 2.0.1(patch_hash=7fa6fc7927128a45c3f148d31faf388806895e2de39c14a144200edbc1e7aaa0)
       mdast-util-gfm-footnote: 2.1.0
       mdast-util-gfm-strikethrough: 2.0.0
       mdast-util-gfm-table: 2.0.0
@@ -21463,7 +21493,7 @@ snapshots:
       micromark-util-symbol: 2.0.1
       micromark-util-types: 2.0.2
 
-  micromark-extension-gfm-autolink-literal@2.1.0:
+  micromark-extension-gfm-autolink-literal@2.1.0(patch_hash=906ae7c0cd1f69e7ee308a41bc0542e0085276ac7517e56e96f0ccaf5a89327d):
     dependencies:
       micromark-util-character: 2.1.1
       micromark-util-sanitize-uri: 2.0.1
@@ -21512,7 +21542,7 @@ snapshots:
 
   micromark-extension-gfm@3.0.0:
     dependencies:
-      micromark-extension-gfm-autolink-literal: 2.1.0
+      micromark-extension-gfm-autolink-literal: 2.1.0(patch_hash=906ae7c0cd1f69e7ee308a41bc0542e0085276ac7517e56e96f0ccaf5a89327d)
       micromark-extension-gfm-footnote: 2.1.0
       micromark-extension-gfm-strikethrough: 2.1.0
       micromark-extension-gfm-table: 2.1.1
@@ -21884,7 +21914,7 @@ snapshots:
 
   node-int64@0.4.0: {}
 
-  node-pty@1.2.0-beta.15:
+  node-pty@1.2.0-beta.15(patch_hash=9d30053266d0f39d3debe894c675867f6782da6bcadbc94a693b3cfb9eff8ed0):
     dependencies:
       node-addon-api: 7.1.1
 
