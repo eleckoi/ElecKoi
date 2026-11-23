@@ -27,8 +27,13 @@
 ## 应用截图展示
 
 <p align="center">
-  <img src="docs/screenshots/eleckoi-windows-game-character-card.png" alt="游戏角色卡" width="960">
-  <br><sub>游戏角色卡</sub>
+  <img src="docs/screenshots/eleckoi-windows-frontend-card.png" alt="绯莎的前端角色卡，展示开场白和接话选项" width="960">
+  <br><sub>前端角色卡 · 绯莎「猫爪夜班」</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/eleckoi-windows-frontend-card-phone.png" alt="绯莎角色卡内的小手机聊天界面" width="960">
+  <br><sub>前端角色卡 · 小手机聊天</sub>
 </p>
 
 <p align="center">

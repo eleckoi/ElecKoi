@@ -27,8 +27,13 @@ ElecKoi aims to build a continuously improving creative flywheel: turn the commu
 ## App Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/eleckoi-windows-game-character-card.png" alt="Game character card" width="960">
-  <br><sub>Game character card</sub>
+  <img src="docs/screenshots/eleckoi-windows-frontend-card.png" alt="Feisha's character card with a custom frontend showing the opening scene and reply options" width="960">
+  <br><sub>Custom character-card frontend · Feisha's Cat Paw Night Shift</sub>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/eleckoi-windows-frontend-card-phone.png" alt="In-card phone chat in Feisha's custom character-card frontend" width="960">
+  <br><sub>Custom character-card frontend · In-card phone chat</sub>
 </p>
 
 <p align="center">
