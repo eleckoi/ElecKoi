@@ -27,27 +27,22 @@
 ## 应用截图展示
 
 <p align="center">
-  <img src="docs/screenshots/eleckoi-windows-frontend-card.png" alt="绯莎的前端角色卡，展示开场白和接话选项" width="960">
+  <img src="docs/screenshots/eleckoi-windows-frontend-card.webp" alt="绯莎的前端角色卡，展示开场白和接话选项" width="960">
   <br><sub>前端角色卡 · 绯莎「猫爪夜班」</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/eleckoi-windows-frontend-card-phone.png" alt="绯莎角色卡内的小手机聊天界面" width="960">
+  <img src="docs/screenshots/eleckoi-windows-frontend-card-phone.webp" alt="绯莎角色卡内的小手机聊天界面" width="960">
   <br><sub>前端角色卡 · 小手机聊天</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/eleckoi-windows-conversation.png" alt="电子爱 Windows 版角色对话界面" width="960">
-  <br><sub>电子爱 Windows 版角色对话界面</sub>
+  <img src="docs/screenshots/eleckoi-windows-character-library.webp" alt="电子爱 Windows 版新版角色列表，四列展示角色卡封面" width="960">
+  <br><sub>新版角色列表</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/eleckoi-windows-characters.png" alt="电子爱 Windows 版角色卡列表" width="960">
-  <br><sub>电子爱 Windows 版角色卡列表</sub>
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/eleckoi-windows-character-editor.png" alt="电子爱 Windows 版角色卡编写" width="960">
+  <img src="docs/screenshots/eleckoi-windows-character-editor.webp" alt="电子爱 Windows 版角色卡编写" width="960">
   <br><sub>电子爱 Windows 版角色卡编写</sub>
 </p>
 

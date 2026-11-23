@@ -27,27 +27,22 @@ ElecKoi aims to build a continuously improving creative flywheel: turn the commu
 ## App Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/eleckoi-windows-frontend-card.png" alt="Feisha's character card with a custom frontend showing the opening scene and reply options" width="960">
+  <img src="docs/screenshots/eleckoi-windows-frontend-card.webp" alt="Feisha's character card with a custom frontend showing the opening scene and reply options" width="960">
   <br><sub>Custom character-card frontend · Feisha's Cat Paw Night Shift</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/eleckoi-windows-frontend-card-phone.png" alt="In-card phone chat in Feisha's custom character-card frontend" width="960">
+  <img src="docs/screenshots/eleckoi-windows-frontend-card-phone.webp" alt="In-card phone chat in Feisha's custom character-card frontend" width="960">
   <br><sub>Custom character-card frontend · In-card phone chat</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/eleckoi-windows-conversation.png" alt="ElecKoi for Windows character conversation screen" width="960">
-  <br><sub>ElecKoi for Windows character conversation screen</sub>
+  <img src="docs/screenshots/eleckoi-windows-character-library.webp" alt="The updated ElecKoi for Windows character library with four columns of card covers" width="960">
+  <br><sub>Updated character library</sub>
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/eleckoi-windows-characters.png" alt="ElecKoi for Windows character-card list" width="960">
-  <br><sub>ElecKoi for Windows character-card list</sub>
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/eleckoi-windows-character-editor.png" alt="ElecKoi for Windows character-card authoring" width="960">
+  <img src="docs/screenshots/eleckoi-windows-character-editor.webp" alt="ElecKoi for Windows character-card authoring" width="960">
   <br><sub>ElecKoi for Windows character-card authoring</sub>
 </p>
 
