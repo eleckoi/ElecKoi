@@ -118,6 +118,11 @@ const installDevices = new Map([
   [pageByAnchor.get('windows-电脑端'), 'windows'],
   [pageByAnchor.get('android-手机端'), 'android'],
 ])
+const tutorialDevices = [...installDevices].map(([page, value]) => ({ value, label: page.title, file: page.file }))
+const tutorialPlayers = [
+  { value: 'beginner', label: '新手玩家' },
+  { value: 'tavern', label: '酒馆使用者' },
+]
 if (!windowsGuide || !androidGuide || windowsGuide.children.map(entry => entry.anchor).join('\n') !== [...beginnerSteps.keys()].join('\n')) {
   throw new Error('新手教程步骤缺少或顺序有误。')
 }
@@ -297,6 +302,56 @@ function renderPreferencePicker(article, destination) {
     </fieldset>
     <button type="submit">${destination === 'install' ? '查看下载与安装' : '查看教程'}</button>`
   fallback.before(form)
+}
+
+function renderVersionOptions(name, title, options, selected) {
+  return `<fieldset>
+    <legend>${title}</legend>
+    ${options.map(({ value, label }) => `
+      <label><input type="radio" name="${name}" value="${value}" ${value === selected ? 'checked' : ''}>${label}</label>
+    `).join('')}
+  </fieldset>`
+}
+
+function renderVersionSwitcher(document, device, player) {
+  const deviceLabel = tutorialDevices.find(option => option.value === device).label
+  const playerLabel = tutorialPlayers.find(option => option.value === player)?.label
+  const switcher = document.createElement('details')
+  switcher.className = 'sidebar-version'
+  switcher.innerHTML = `
+    <summary aria-label="切换教程版本，当前 ${deviceLabel}${playerLabel ? `，${playerLabel}` : ''}">
+      <span class="sidebar-version-device">${deviceLabel}${playerLabel ? `<small>${playerLabel}</small>` : ''}</span>
+    </summary>`
+  if (player) {
+    switcher.insertAdjacentHTML('beforeend', `
+      <form class="sidebar-version-panel" action="${usagePage.file}" data-switch-usage>
+        ${renderVersionOptions('device', '设备', tutorialDevices, device)}
+        ${renderVersionOptions('player', '使用经验', tutorialPlayers, player)}
+        <button type="submit">切换教程</button>
+      </form>`)
+  } else {
+    const nav = document.createElement('nav')
+    nav.className = 'sidebar-version-panel'
+    nav.setAttribute('aria-label', '切换安装设备')
+    for (const { value, label, file } of tutorialDevices) {
+      const link = document.createElement('a')
+      link.href = file
+      link.dataset.switchInstall = value
+      const text = document.createElement('span')
+      text.textContent = label
+      link.append(text)
+      if (value === device) {
+        link.setAttribute('aria-current', 'page')
+        const check = document.createElement('span')
+        check.className = 'sidebar-version-check'
+        check.setAttribute('aria-hidden', 'true')
+        link.append(check)
+      }
+      nav.append(link)
+    }
+    switcher.append(nav)
+  }
+  return switcher
 }
 
 const screenshotAnnotations = new Map([
@@ -726,14 +781,6 @@ function renderPage(entry) {
   if (entry === windowsGuide || entry === androidGuide) styleStepLinks(article.querySelector(':scope > ol'))
   if (entry === usagePage) renderPreferencePicker(article, 'usage')
   if (entry === installPage) renderPreferencePicker(article, 'install')
-  if (guidePreference || installDevice) {
-    const change = document.createElement('a')
-    change.className = 'tutorial-preference-action'
-    change.href = installDevice ? `${installPage.file}?change=1` : usagePage.file
-    change.textContent = '教程偏好'
-    change.setAttribute('aria-label', '更改教程偏好')
-    document.querySelector('.tutorial-header-bar').append(change)
-  }
   const sectionLinks = renderSectionLinks(article)
   if (sectionLinks && !installDevice) addPageOutline(article, sectionLinks)
 
@@ -755,6 +802,14 @@ function renderPage(entry) {
   if (contents) {
     sidebar.querySelector('nav').append(contents)
     compactSidebar.querySelector('nav').append(contents.cloneNode(true))
+    if (guidePreference || installDevice) {
+      const versionSwitcher = renderVersionSwitcher(document, installDevice ?? guidePreference.device, guidePreference?.player)
+      const compactSwitcher = document.createElement('div')
+      compactSwitcher.className = 'sidebar-version-compact'
+      compactSwitcher.append(versionSwitcher.cloneNode(true))
+      sidebar.prepend(versionSwitcher)
+      compactSidebar.before(compactSwitcher)
+    }
   } else {
     sidebar.remove()
     compactSidebar.remove()

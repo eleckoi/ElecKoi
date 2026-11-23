@@ -24,9 +24,20 @@ const hasPreferences = Boolean(device && player)
 const picker = document.querySelector('.tutorial-preferences')
 const destination = picker?.dataset.destination
 const query = new URLSearchParams(window.location.search)
+const playerInUrl = query.get('player')
+const installPlayer = player || (['beginner', 'tavern'].includes(playerInUrl) ? playerInUrl : '')
 
 function preferredPage(destination, device, player) {
   return destination === 'install' ? `install-${device}.html` : `usage-${player}-${device}.html`
+}
+
+function openSelectedTutorial(form, destination) {
+  const selection = new FormData(form)
+  const selectedDevice = selection.get('device')
+  const selectedPlayer = selection.get('player')
+  const persisted = savePreferences({ device: selectedDevice, player: selectedPlayer })
+  const page = preferredPage(destination, selectedDevice, selectedPlayer)
+  window.location.assign(!persisted && destination === 'install' ? `${page}?player=${selectedPlayer}` : page)
 }
 
 if (hasPreferences) {
@@ -45,15 +56,28 @@ if (isPlatformInstallPage && !hasPreferences && !['beginner', 'tavern'].includes
   picker.elements.namedItem('player').value = player
   picker.addEventListener('submit', event => {
     event.preventDefault()
-    const selection = new FormData(picker)
-    const selectedDevice = selection.get('device')
-    const selectedPlayer = selection.get('player')
-    const saved = savePreferences({ device: selectedDevice, player: selectedPlayer })
-    const page = preferredPage(destination, selectedDevice, selectedPlayer)
-    window.location.assign(!saved && destination === 'install' ? `${page}?player=${selectedPlayer}` : page)
+    openSelectedTutorial(picker, destination)
   })
   document.querySelector('.tutorial-preference-fallback').hidden = true
   picker.hidden = false
+}
+
+if (installPlayer) {
+  for (const link of document.querySelectorAll('[data-switch-install]')) {
+    const device = link.dataset.switchInstall
+    link.href = `${link.getAttribute('href')}?player=${installPlayer}`
+    link.addEventListener('click', event => {
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+      savePreferences({ device, player: installPlayer })
+    })
+  }
+}
+
+for (const form of document.querySelectorAll('[data-switch-usage]')) {
+  form.addEventListener('submit', event => {
+    event.preventDefault()
+    openSelectedTutorial(form, 'usage')
+  })
 }
 
 const searchButton = document.querySelector('.tutorial-search-button')
